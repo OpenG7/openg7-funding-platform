@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@openg7/funding-core": ["packages/funding-core/src/index.ts"],
+      "@openg7/funding-i18n": ["packages/funding-i18n/src/index.ts"],
+      "@openg7/funding-models": ["packages/funding-models/src/index.ts"],
+      "@openg7/funding-ui": ["packages/funding-ui/src/index.ts"]
+    },
+    "declaration": true,
+    "outDir": "dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false
+  },
+  "include": ["apps/**/*.ts", "packages/**/*.ts", "tests/**/*.ts"]
+}

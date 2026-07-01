@@ -1,0 +1,49 @@
+:root {
+  --bg-navy: #041a2f;
+  --panel-navy: #0b2a44;
+  --accent-cyan: #40e0ff;
+  --accent-blue: #3b82f6;
+  --accent-gold: #d4af37;
+}
+
+main {
+  background: var(--bg-navy);
+  color: #f8fafc;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+section {
+  background: var(--panel-navy);
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (min-width: 768px) {
+  main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  main {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

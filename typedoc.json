@@ -1,0 +1,9 @@
+{
+  "entryPoints": [
+    "packages/funding-models/src/index.ts",
+    "packages/funding-core/src/index.ts",
+    "packages/funding-ui/src/index.ts",
+    "packages/funding-i18n/src/index.ts"
+  ],
+  "out": "docs/api"
+}

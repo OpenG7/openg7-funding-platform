@@ -1,0 +1,47 @@
+{
+  "funding": {
+    "campaign": {
+      "title": "Builders Fund",
+      "description": "Every contribution keeps one light on, one province connected, and one new possibility open."
+    },
+    "actions": {
+      "support": "Support OpenG7"
+    },
+    "transparency": {
+      "title": "Fund transparency",
+      "confirmed": "Confirmed contributions",
+      "fees": "Transaction fees",
+      "available": "Available funds"
+    },
+    "allocation": {
+      "title": "Fund allocation"
+    },
+    "builders": {
+      "title": "Latest builders"
+    },
+    "impact": {
+      "title": "What your support builds",
+      "description": "Voluntary contribution to OpenG7 development — no tax receipt."
+    },
+    "guardian": {
+      "alt": "Fund guardian illustration"
+    },
+    "contribution": {
+      "selector": "Suggested amounts",
+      "customAmount": "Custom amount"
+    },
+    "progress": {
+      "label": "Monthly progress"
+    },
+    "map": {
+      "title": "Symbolic Canada map",
+      "placeholder": "Interprovincial economic flow map (configurable placeholder)."
+    },
+    "state": {
+      "loading": "Loading funding data...",
+      "empty": "No funding data available.",
+      "success": "Funding data synchronized.",
+      "error": "Unable to load funding data."
+    }
+  }
+}
