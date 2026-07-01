@@ -32,9 +32,6 @@ Thumbs.db
 .idea/
 *.iml
 
-git config --global user.email "you@example.com"
-  git config --global user.name "Your Name"
-  
 # --- Angular app ------------------------------------------------------------
 # /openG7/openg7-org/ (src/app/...)
 openg7-org/.angular/
