@@ -7,6 +7,7 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { FundingProjectConfig } from '@openg7/funding-models';
 
 import { CanadaFundingMapComponent } from '../../components/canada-funding-map/canada-funding-map.component.js';
@@ -32,6 +33,7 @@ import { FundingService } from '../../services/funding.service.js';
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     FundingHeroComponent,
     FundGuardianComponent,
     ContributionSelectorComponent,
@@ -54,7 +56,7 @@ import { FundingService } from '../../services/funding.service.js';
         <nav aria-label="Navigation principale">
           <a href="#" aria-current="page">{{ t('funding.nav.home') }}</a>
           <a href="#">{{ t('funding.nav.projects') }}</a>
-          <a href="#">{{ t('funding.nav.transparency') }}</a>
+          <a [routerLink]="['/fonds-des-batisseurs/transparence']">{{ t('funding.nav.transparency') }}</a>
           <a href="#">{{ t('funding.nav.impact') }}</a>
           <a href="#">{{ t('funding.nav.about') }}</a>
           <a href="#">{{ t('funding.nav.contact') }}</a>
@@ -283,7 +285,13 @@ export class FundingPageComponent {
     this.localLoadingIndicator.set(true);
     this.loadingState.set('loading');
     try {
-      await this.fundingService.startCheckout(this.effectiveContribution());
+      const result = await this.fundingService.startCheckout(
+        this.effectiveContribution()
+      );
+      if (result.status === 'redirected' && typeof window !== 'undefined') {
+        window.location.assign(result.redirectUrl);
+        return;
+      }
       this.loadingState.set('success');
     } catch {
       this.loadingState.set('error');

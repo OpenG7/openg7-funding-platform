@@ -13,8 +13,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "yarn workspace @openg7/funding-web start",
-    "dev:funding-web": "yarn workspace @openg7/funding-web start",
+    "dev": "concurrently \"yarn workspace @openg7/funding-api start\" \"yarn workspace @openg7/funding-web start --proxy-config proxy.conf.json\"",
+    "dev:funding-web": "yarn workspace @openg7/funding-web start --proxy-config proxy.conf.json",
+    "dev:api": "yarn workspace @openg7/funding-api start",
     "lint": "eslint . --ext .ts,.mts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -60,3 +60,103 @@ yarn test
 yarn build
 yarn docs
 ```
+
+## Fund transparency module (V1)
+
+### Environment variables
+
+Set these variables for API and webhook processing:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `DATABASE_URL`
+
+Example values are available in [.env.example](.env.example).
+
+### Database migration
+
+Apply the SQL migration in your PostgreSQL instance:
+
+```sql
+\i apps/funding-api/migrations/001_create_fund_transparency_tables.sql
+```
+
+This creates:
+
+- `fund_transactions` (Stripe event level, aggregate-safe values only)
+- `fund_allocations` (publicly publishable allocations)
+
+No personal contributor data is stored for transparency reporting.
+
+### Stripe webhook endpoint
+
+Webhook URL (local):
+
+- `POST http://localhost:3333/api/stripe/webhook`
+
+Handled events:
+
+- `payment_intent.succeeded`
+- `charge.refunded`
+- `payout.paid`
+- `payout.failed`
+
+Behavior:
+
+- Webhook signature verification using `STRIPE_WEBHOOK_SECRET`
+- Idempotency through unique `stripe_event_id`
+- Optional `balance_transaction` retrieval to compute fee/net fields
+- Storage limited to aggregate-safe finance fields
+
+### Test with Stripe CLI
+
+1. Start services:
+
+```bash
+corepack yarn dev
+```
+
+2. Forward Stripe events to local webhook:
+
+```bash
+stripe listen --forward-to localhost:3333/api/stripe/webhook
+```
+
+3. Copy the emitted signing secret (`whsec_...`) into `STRIPE_WEBHOOK_SECRET`.
+
+4. Trigger sample events:
+
+```bash
+stripe trigger payment_intent.succeeded
+stripe trigger charge.refunded
+stripe trigger payout.paid
+stripe trigger payout.failed
+```
+
+### Public read-only endpoint
+
+Endpoint:
+
+- `GET /api/public/fund-transparency`
+
+Returns only aggregated values:
+
+- `total_received`
+- `total_fees`
+- `total_net`
+- `total_refunded`
+- `total_payouts`
+- `current_available_estimate`
+- `contributions_count`
+- `currency`
+- `monthly_summary`
+- `latest_public_allocations`
+- `last_updated_at`
+
+### Frontend transparency page
+
+Public route:
+
+- `/fonds-des-batisseurs/transparence`
+
+The page consumes `/api/public/fund-transparency` and displays civic, readable aggregate reporting with an explicit privacy statement.
