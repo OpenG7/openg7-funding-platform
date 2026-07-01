@@ -13,6 +13,7 @@ import { processStripeWebhook } from './stripe-webhook.service.js';
 const port = Number(process.env.FUNDING_API_PORT ?? 3333);
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const isProduction = process.env.FUNDING_PLATFORM_ENV === 'production';
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 type ApiRequest = IncomingMessage;
@@ -50,6 +51,19 @@ const readBody = async (request: ApiRequest): Promise<string> => {
 
 const routeMatches = (url: string | undefined, ...candidates: readonly string[]): boolean =>
   Boolean(url && candidates.includes(url));
+
+const getDatabaseConnectionStatus = async (): Promise<boolean> => {
+  if (!dbPool) {
+    return false;
+  }
+
+  try {
+    await dbPool.query('SELECT 1');
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
@@ -165,6 +179,32 @@ createServer(async (request, response) => {
 
   if (request.method === 'GET' && routeMatches(request.url, '/health')) {
     writeText(response, 200, 'ok');
+    return;
+  }
+
+  if (
+    !isProduction &&
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/dev/stripe-setup-status',
+      '/api/dev/stripe-setup-status'
+    )
+  ) {
+    writeJson(response, 200, {
+      environment: process.env.FUNDING_PLATFORM_ENV ?? 'development',
+      apiReachable: true,
+      stripeSecretKeyConfigured: Boolean(stripeSecretKey),
+      stripeWebhookSecretConfigured: Boolean(stripeWebhookSecret),
+      databaseUrlConfigured: hasDatabase,
+      databaseReachable: await getDatabaseConnectionStatus(),
+      localApiBaseUrl: `http://localhost:${port}`,
+      checkoutEndpoint: `http://localhost:${port}/api/checkout-sessions`,
+      webhookEndpoint: `http://localhost:${port}/api/stripe/webhook`,
+      publicTransparencyEndpoint: `http://localhost:${port}/api/public/fund-transparency`,
+      stripeDashboardUrl: 'https://dashboard.stripe.com/test/webhooks',
+      lastCheckedAt: new Date().toISOString()
+    });
     return;
   }
 

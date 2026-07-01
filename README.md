@@ -133,6 +133,20 @@ stripe trigger payout.paid
 stripe trigger payout.failed
 ```
 
+### Local setup stepper
+
+The developer-only setup assistant is available at:
+
+- `/dev/stripe-setup`
+
+It displays the PowerShell commands, Stripe Dashboard URLs, local webhook URL, copy buttons, open buttons, and a local progress checklist stored in `localStorage`.
+
+The browser never executes shell commands and never reads secret values. The API only exposes non-sensitive readiness flags through:
+
+- `GET /api/dev/stripe-setup-status`
+
+This diagnostic endpoint is disabled when `FUNDING_PLATFORM_ENV=production`.
+
 ### Public read-only endpoint
 
 Endpoint:
