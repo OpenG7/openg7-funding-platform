@@ -6,7 +6,7 @@ import {
   inject,
   signal
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { FundingProjectConfig } from '@openg7/funding-models';
 
 import { FUNDING_PROJECT_CONFIG } from '../../config/funding-project-config.token.js';
@@ -29,7 +29,7 @@ interface FoundationPillar {
 @Component({
   selector: 'openg7-funding-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, RouterLinkActive],
   providers: [provideFundingProjectConfig(OPENG7_FUNDING_CONFIG)],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -44,11 +44,17 @@ interface FoundationPillar {
         </a>
 
         <nav aria-label="Navigation principale">
-          <a routerLink="/" aria-current="page">Accueil</a>
-          <a href="#funding-purpose">À propos</a>
-          <a [routerLink]="['/fonds-des-batisseurs/transparence']">Transparence</a>
-          <a href="#ecosystem">Projets</a>
-          <a href="#support">Contact</a>
+          <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Accueil</a>
+          <a routerLink="/" fragment="funding-purpose">À propos</a>
+          <a
+            routerLink="/fonds-des-batisseurs/transparence"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+          >
+            Transparence
+          </a>
+          <a routerLink="/" fragment="ecosystem">Projets</a>
+          <a routerLink="/" fragment="support">Contact</a>
         </nav>
 
         <button type="button" class="nav-contribute" (click)="scrollToSupport()">
@@ -237,79 +243,79 @@ export class FundingPageComponent {
       id: 1,
       title: 'OpenG7 Social',
       description: 'Réseau social ouvert et souverain pour communautés et idées.',
-      asset: 'assets/openg7-social-communautes-connectees-canada.png'
+      asset: 'assets/openg7-social-communautes-connectees-canada-miniature.png'
     },
     {
       id: 2,
       title: 'Migration Flow Engine',
       description: "Moteur d'analyse des flux migratoires pour une planification intelligente.",
-      asset: 'assets/openg7-migration-flow-engine-canada.png'
+      asset: 'assets/openg7-migration-flow-engine-canada-miniature.png'
     },
     {
       id: 3,
       title: 'Firewall',
       description: 'Protection avancée des infrastructures et des données critiques.',
-      asset: 'assets/openg7-firewall-cybersecurite-canada.png'
+      asset: 'assets/openg7-firewall-cybersecurite-canada-miniature.png'
     },
     {
       id: 4,
       title: 'CA: Election Day Ops',
       description: "Coordination sécurisée des opérations le jour de l'élection.",
-      asset: 'assets/openg7-ca-election-day-ops-results-audit.png'
+      asset: 'assets/openg7-ca-election-day-ops-results-audit-miniature.png'
     },
     {
       id: 5,
       title: 'CA: Voter Register',
       description: 'Registre des électeurs et documents officiels numériques.',
-      asset: 'assets/openg7-ca-voter-register-official-docs.png'
+      asset: 'assets/openg7-ca-voter-register-official-docs-miniature.png'
     },
     {
       id: 6,
       title: 'Canadian Vehicle Registry',
       description: 'Registre national des véhicules pour plus de sécurité et efficacité.',
-      asset: 'assets/openg7-canadian-vehicle-registry.png'
+      asset: 'assets/openg7-canadian-vehicle-registry-miniature.png'
     },
     {
       id: 7,
       title: 'GovGraph',
       description: 'Graphe de données gouvernementales interconnectées.',
-      asset: 'assets/openg7-govgraph-gouvernance-canada.png'
+      asset: 'assets/openg7-govgraph-gouvernance-canada-miniature.png'
     },
     {
       id: 8,
       title: 'Nexus',
       description: 'Portail unifié pour services et démarches citoyennes.',
-      asset: 'assets/openg7-nexus-carte-canada-connecte.png'
+      asset: 'assets/openg7-nexus-carte-canada-connecte-miniature.png'
     },
     {
       id: 9,
       title: 'Patient Navigation',
       description: 'Guide les patients dans le parcours de soins personnalisé.',
-      asset: 'assets/openg7-patient-navigation-canada.png'
+      asset: 'assets/openg7-patient-navigation-canada-miniature.png'
     },
     {
       id: 10,
       title: 'Medical Referral Router',
       description: 'Aiguillage intelligent vers les bons soins au bon moment.',
-      asset: 'assets/openg7-medical-referral-router-canada.png'
+      asset: 'assets/openg7-medical-referral-router-canada-miniature.png'
     },
     {
       id: 11,
       title: 'Clinical Workforce Exchange',
       description: 'Plateforme de mise en relation des talents de la santé.',
-      asset: 'assets/openg7-clinical-workforce-exchange-canada.png'
+      asset: 'assets/openg7-clinical-workforce-exchange-canada-miniature.png'
     },
     {
       id: 12,
       title: 'Health Supply Corridors',
       description: "Chaînes d'approvisionnement résilientes pour le système de santé.",
-      asset: 'assets/openg7-health-supply-corridors-canada.png'
+      asset: 'assets/openg7-health-supply-corridors-canada-miniature.png'
     },
     {
       id: 13,
       title: 'Funding Platform',
       description: 'Plateforme transparente de financement des initiatives OpenG7.',
-      asset: 'assets/openg7-funding-platform-dragon-coffre.png'
+      asset: 'assets/openg7-funding-platform-dragon-coffre-miniature.png'
     }
   ];
 
