@@ -1,0 +1,37 @@
+{
+  "name": "openg7-funding-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "yarn@4.9.4",
+  "engines": {
+    "node": "22.x"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "eslint . --ext .ts,.mts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "yarn build && node --test tests/**/*.test.mjs",
+    "build": "tsc -p tsconfig.build.json",
+    "docs": "typedoc --options typedoc.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.10.0",
+    "@typescript-eslint/parser": "^8.10.0",
+    "concurrently": "9.2.1",
+    "cross-env": "^10.0.0",
+    "eslint": "^9.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.31.0",
+    "prettier": "^3.6.2",
+    "ts-node": "^10.9.2",
+    "typedoc": "^0.28.19",
+    "typescript": "^5.6.2"
+  }
+}

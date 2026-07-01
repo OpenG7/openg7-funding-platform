@@ -1,0 +1,47 @@
+{
+  "funding": {
+    "campaign": {
+      "title": "Le Fonds des Bâtisseurs",
+      "description": "Chaque contribution maintient une lumière allumée, une province connectée et une nouvelle possibilité ouverte."
+    },
+    "actions": {
+      "support": "Soutenir OpenG7"
+    },
+    "transparency": {
+      "title": "Utilisation du fonds",
+      "confirmed": "Contributions confirmées",
+      "fees": "Frais de transaction",
+      "available": "Fonds disponibles"
+    },
+    "allocation": {
+      "title": "Utilisation du fonds"
+    },
+    "builders": {
+      "title": "Derniers bâtisseurs"
+    },
+    "impact": {
+      "title": "Ce que votre soutien construit",
+      "description": "Contribution volontaire au développement d’OpenG7 — aucun reçu fiscal."
+    },
+    "guardian": {
+      "alt": "Illustration du gardien du fonds"
+    },
+    "contribution": {
+      "selector": "Montants suggérés",
+      "customAmount": "Montant personnalisé"
+    },
+    "progress": {
+      "label": "Progression mensuelle"
+    },
+    "map": {
+      "title": "Carte symbolique du Canada",
+      "placeholder": "Carte des flux économiques interprovinciaux (placeholder configurable)."
+    },
+    "state": {
+      "loading": "Chargement des données de financement...",
+      "empty": "Aucune donnée de financement disponible.",
+      "success": "Données de financement synchronisées.",
+      "error": "Impossible de charger les données de financement."
+    }
+  }
+}
