@@ -13,6 +13,8 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "yarn workspace @openg7/funding-web start",
+    "dev:funding-web": "yarn workspace @openg7/funding-web start",
     "lint": "eslint . --ext .ts,.mts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

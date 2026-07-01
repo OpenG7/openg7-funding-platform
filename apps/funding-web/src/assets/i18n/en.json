@@ -1,5 +1,16 @@
 {
   "funding": {
+    "nav": {
+      "home": "Home",
+      "projects": "Projects",
+      "transparency": "Transparency",
+      "impact": "Impact",
+      "about": "About",
+      "contact": "Contact",
+      "login": "Sign in",
+      "supportCta": "Support OpenG7",
+      "themeToggle": "Toggle theme"
+    },
     "campaign": {
       "title": "Builders Fund",
       "description": "Every contribution keeps one light on, one province connected, and one new possibility open."
@@ -9,19 +20,47 @@
     },
     "transparency": {
       "title": "Fund transparency",
+      "details": "Details",
       "confirmed": "Confirmed contributions",
       "fees": "Transaction fees",
       "available": "Available funds"
     },
     "allocation": {
-      "title": "Fund allocation"
+      "title": "Fund allocation",
+      "footnote": "Optimized for impact and long-term sustainability."
     },
     "builders": {
-      "title": "Latest builders"
+      "title": "Latest builders",
+      "recent": {
+        "0": "5 min ago",
+        "1": "15 min ago",
+        "2": "27 min ago",
+        "3": "1 h ago"
+      },
+      "recentFallback": "Recently",
+      "thanks": "Thank you to everyone building the future together."
     },
     "impact": {
       "title": "What your support builds",
-      "description": "Voluntary contribution to OpenG7 development — no tax receipt."
+      "description": "Voluntary contribution to OpenG7 development - no tax receipt.",
+      "items": {
+        "infrastructure": {
+          "title": "Open and secure infrastructure",
+          "description": "Strong foundations for a durable project."
+        },
+        "tools": {
+          "title": "Tools and services for everyone",
+          "description": "Useful, accessible and open solutions."
+        },
+        "community": {
+          "title": "Engaged community",
+          "description": "Together we go further."
+        },
+        "innovation": {
+          "title": "Public interest innovation",
+          "description": "Technology in service of the common good."
+        }
+      }
     },
     "guardian": {
       "alt": "Fund guardian illustration"
@@ -31,12 +70,40 @@
       "customAmount": "Custom amount"
     },
     "progress": {
-      "label": "Monthly progress"
+      "label": "Monthly progress",
+      "confirmed": "confirmed",
+      "remaining": "remaining"
+    },
+    "goal": {
+      "monthly": "Monthly goal"
     },
     "map": {
       "title": "Symbolic Canada map",
-      "placeholder": "Interprovincial economic flow map (configurable placeholder)."
+      "placeholder": "Interprovincial economic flow map (symbolic preview).",
+      "explore": "Explore map",
+      "legend": {
+        "oil": "Oil and energy",
+        "electricity": "Electricity",
+        "services": "Services and data",
+        "labor": "Skilled labor"
+      }
     },
+    "scene": {
+      "flow": {
+        "title": "Economic flows in Canada",
+        "description": "Simplified view of interprovincial exchanges connected to project funding.",
+        "action": "View full map"
+      }
+    },
+    "footer": {
+      "tagline": "Proudly serving a connected, open and innovative Canada.",
+      "project": "OpenG7 is an independent civic project.",
+      "privacy": "Privacy policy"
+    },
+    "availableFunds": "Available funds",
+    "confirmedContributions": "Confirmed contributions",
+    "transactionFees": "Transaction fees",
+    "liveUpdate": "Live update",
     "state": {
       "loading": "Loading funding data...",
       "empty": "No funding data available.",

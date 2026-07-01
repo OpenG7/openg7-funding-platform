@@ -1,4 +1,4 @@
-export const FUNDING_DEFAULT_LANGUAGE = 'fr';
+export const FUNDING_DEFAULT_LANGUAGE = 'fr-CA';
 
 export const FUNDING_TRANSLATION_KEYS = {
   campaignTitle: 'funding.campaign.title',

@@ -1,5 +1,16 @@
 {
   "funding": {
+    "nav": {
+      "home": "Accueil",
+      "projects": "Projets",
+      "transparency": "Transparence",
+      "impact": "Impact",
+      "about": "A propos",
+      "contact": "Nous joindre",
+      "login": "Se connecter",
+      "supportCta": "Soutenir OpenG7",
+      "themeToggle": "Changer le theme"
+    },
     "campaign": {
       "title": "Le Fonds des Bâtisseurs",
       "description": "Chaque contribution maintient une lumière allumée, une province connectée et une nouvelle possibilité ouverte."
@@ -8,20 +19,48 @@
       "support": "Soutenir OpenG7"
     },
     "transparency": {
-      "title": "Utilisation du fonds",
+      "title": "Transparence financiere",
+      "details": "Details",
       "confirmed": "Contributions confirmées",
       "fees": "Frais de transaction",
       "available": "Fonds disponibles"
     },
     "allocation": {
-      "title": "Utilisation du fonds"
+      "title": "Utilisation du fonds",
+      "footnote": "Optimise pour l'impact et la perennite."
     },
     "builders": {
-      "title": "Derniers bâtisseurs"
+      "title": "Derniers bâtisseurs",
+      "recent": {
+        "0": "Il y a 5 min",
+        "1": "Il y a 15 min",
+        "2": "Il y a 27 min",
+        "3": "Il y a 1 h"
+      },
+      "recentFallback": "Recemment",
+      "thanks": "Merci a toutes celles et ceux qui batissent l'avenir."
     },
     "impact": {
       "title": "Ce que votre soutien construit",
-      "description": "Contribution volontaire au développement d’OpenG7 — aucun reçu fiscal."
+      "description": "Contribution volontaire au developpement d'OpenG7 - aucun recu fiscal.",
+      "items": {
+        "infrastructure": {
+          "title": "Infrastructure ouverte et securisee",
+          "description": "Des fondations solides pour un projet durable."
+        },
+        "tools": {
+          "title": "Outils et services pour tous",
+          "description": "Des solutions utiles, accessibles et libres."
+        },
+        "community": {
+          "title": "Communaute engagee",
+          "description": "Ensemble, on va plus loin."
+        },
+        "innovation": {
+          "title": "Innovation d'interet public",
+          "description": "Technologie au service du bien commun."
+        }
+      }
     },
     "guardian": {
       "alt": "Illustration du gardien du fonds"
@@ -31,12 +70,40 @@
       "customAmount": "Montant personnalisé"
     },
     "progress": {
-      "label": "Progression mensuelle"
+      "label": "Progression mensuelle",
+      "confirmed": "confirmes",
+      "remaining": "restants"
+    },
+    "goal": {
+      "monthly": "Objectif mensuel"
     },
     "map": {
       "title": "Carte symbolique du Canada",
-      "placeholder": "Carte des flux économiques interprovinciaux (placeholder configurable)."
+      "placeholder": "Carte des flux economiques interprovinciaux (aperçu symbolique).",
+      "explore": "Explorer la carte",
+      "legend": {
+        "oil": "Petrole et energie",
+        "electricity": "Electricite",
+        "services": "Services et donnees",
+        "labor": "Main-d'oeuvre specialisee"
+      }
     },
+    "scene": {
+      "flow": {
+        "title": "Flux economiques au Canada",
+        "description": "Visualisation simplifiee des echanges interprovinciaux relies au financement du projet.",
+        "action": "Voir la carte complete"
+      }
+    },
+    "footer": {
+      "tagline": "Fierement au service d'un Canada connecte, ouvert et innovant.",
+      "project": "OpenG7 est un projet citoyen et independant.",
+      "privacy": "Politique de confidentialite"
+    },
+    "availableFunds": "Fonds disponibles",
+    "confirmedContributions": "Contributions confirmees",
+    "transactionFees": "Frais de transaction",
+    "liveUpdate": "Mise a jour en temps reel",
     "state": {
       "loading": "Chargement des données de financement...",
       "empty": "Aucune donnée de financement disponible.",
