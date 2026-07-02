@@ -7,12 +7,12 @@ import {
   inject,
   signal
 } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
 import type {
   FundTransparencyPublicResponse,
   PublicMonthlySummary
 } from '@openg7/funding-core';
 
+import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
 import { FundingService } from '../../services/funding.service.js';
 import { FundTransparencyService } from '../../services/fund-transparency.service.js';
 
@@ -57,38 +57,11 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 @Component({
   selector: 'openg7-funding-transparency-page',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, DatePipe, RouterLink, RouterLinkActive],
+  imports: [CommonModule, CurrencyPipe, DatePipe, FundingHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="transparency-dashboard">
-      <header class="transparency-nav">
-        <a class="brand-lockup" routerLink="/" aria-label="Fonds des bâtisseurs OpenG7">
-          <span class="brand-mark" aria-hidden="true">◆</span>
-          <span>
-            <strong>Fonds des bâtisseurs</strong>
-            <em>Bâtir l'avenir ensemble</em>
-          </span>
-        </a>
-
-        <nav aria-label="Navigation principale">
-          <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Accueil</a>
-          <a routerLink="/" fragment="ecosystem">Écosystème</a>
-          <a routerLink="/" fragment="support">Soutenir</a>
-          <a
-            routerLink="/fonds-des-batisseurs/transparence"
-            routerLinkActive="active"
-            [routerLinkActiveOptions]="{ exact: true }"
-          >
-            Transparence
-          </a>
-          <a routerLink="/" fragment="funding-purpose">À propos</a>
-        </nav>
-
-        <button type="button" class="nav-cta" (click)="scrollToSupport()">
-          Soutenir OpenG7
-          <span aria-hidden="true">●</span>
-        </button>
-      </header>
+      <openg7-funding-header></openg7-funding-header>
 
       <section class="hero-panel" aria-labelledby="transparency-title">
         <img
@@ -382,87 +355,20 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       border: 1px solid rgba(226, 170, 65, 0.28);
       box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48);
       margin: 0 auto;
-      max-width: 1280px;
+      max-width: 1530px;
       min-height: 100dvh;
       overflow: hidden;
-      padding: 0 1.55rem 1rem;
+      padding: 0 0 1rem;
     }
 
-    .transparency-nav {
-      align-items: center;
-      display: grid;
-      gap: 1rem;
-      grid-template-columns: minmax(15rem, 0.9fr) minmax(28rem, 1.4fr) auto;
-      min-height: 4.9rem;
-      position: relative;
-      z-index: 4;
-    }
-
-    .brand-lockup {
-      align-items: center;
-      color: #fff4dd;
-      display: flex;
-      gap: 0.75rem;
-      text-decoration: none;
-      text-transform: uppercase;
-    }
-
-    .brand-mark {
-      color: #f6bf48;
-      font-size: 2.1rem;
-      text-shadow: 0 0 22px rgba(246, 191, 72, 0.7);
-    }
-
-    .brand-lockup strong,
-    .brand-lockup em {
-      display: block;
-      line-height: 1;
-    }
-
-    .brand-lockup strong {
-      font-family: Georgia, 'Times New Roman', serif;
-      font-size: 1.4rem;
-      letter-spacing: 0.02em;
-    }
-
-    .brand-lockup em {
-      color: #f6bf48;
-      font-size: 0.73rem;
-      font-style: normal;
-      font-weight: 800;
-      margin-top: 0.18rem;
-    }
-
-    .transparency-nav nav {
-      align-items: center;
-      display: flex;
-      gap: 2rem;
-      justify-content: center;
-    }
-
-    .transparency-nav nav a {
-      color: #fff1da;
-      font-size: 0.92rem;
-      padding: 1.3rem 0 1rem;
-      position: relative;
-      text-decoration: none;
-    }
-
-    .transparency-nav nav a::after {
-      background: linear-gradient(90deg, transparent, #f6bf48, transparent);
-      bottom: 0.65rem;
-      content: '';
-      height: 2px;
-      left: 50%;
-      position: absolute;
-      transform: translateX(-50%) scaleX(0);
-      transition: transform 180ms ease;
-      width: 4rem;
-    }
-
-    .transparency-nav nav a:hover::after,
-    .transparency-nav nav a[aria-current='page']::after {
-      transform: translateX(-50%) scaleX(1);
+    .kpi-grid,
+    .campaign-card,
+    .dashboard-grid,
+    .support-strip,
+    .page-footer,
+    .loading-card {
+      margin-left: clamp(0.85rem, 4vw, 4.8rem);
+      margin-right: clamp(0.85rem, 4vw, 4.8rem);
     }
 
     button {
@@ -470,6 +376,13 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       border-radius: 0.42rem;
       cursor: pointer;
       min-height: 2.25rem;
+    }
+
+    .builders-nav .nav-contribute {
+      border: 1px solid rgba(255, 232, 160, 0.85);
+      border-radius: 0.45rem;
+      min-height: 2.45rem;
+      padding: 0 1.35rem;
     }
 
     .nav-cta,
@@ -491,6 +404,7 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       border-bottom: 1px solid rgba(226, 170, 65, 0.28);
       min-height: 25rem;
       overflow: hidden;
+      padding-bottom: 1rem;
       position: relative;
     }
 
@@ -525,7 +439,7 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 
     .hero-copy {
       max-width: 31rem;
-      padding-top: 2.2rem;
+      padding: 2.2rem clamp(0.85rem, 4vw, 4.8rem) 0;
       position: relative;
       z-index: 1;
     }
@@ -565,14 +479,11 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
     }
 
     .sync-strip {
-      bottom: 0.8rem;
       display: grid;
       gap: 0.7rem;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      left: 0;
-      margin: 0;
-      position: absolute;
-      right: 0;
+      margin: 1.45rem clamp(0.85rem, 4vw, 4.8rem) 0;
+      position: relative;
       z-index: 2;
     }
 
@@ -1145,15 +1056,9 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
     }
 
     @media (max-width: 1120px) {
-      .transparency-nav,
       .dashboard-grid,
       .support-strip {
         grid-template-columns: 1fr;
-      }
-
-      .transparency-nav nav {
-        justify-content: flex-start;
-        overflow-x: auto;
       }
 
       .kpi-grid {
@@ -1161,9 +1066,7 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       }
 
       .sync-strip {
-        position: relative;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        margin-top: 1.4rem;
       }
 
       .hero-panel {

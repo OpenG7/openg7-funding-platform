@@ -6,9 +6,10 @@ import {
   inject,
   signal
 } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { FundingProjectConfig } from '@openg7/funding-models';
 
+import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
 import { FUNDING_PROJECT_CONFIG } from '../../config/funding-project-config.token.js';
 import { provideFundingProjectConfig } from '../../config/funding-project-config.token.js';
 import { OPENG7_FUNDING_CONFIG } from '../../config/openg7-funding.config.js';
@@ -29,38 +30,12 @@ interface FoundationPillar {
 @Component({
   selector: 'openg7-funding-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive],
+  imports: [CommonModule, RouterLink, FundingHeaderComponent],
   providers: [provideFundingProjectConfig(OPENG7_FUNDING_CONFIG)],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="builders-shell">
-      <header class="builders-nav">
-        <a class="builders-brand" routerLink="/" aria-label="Accueil Fonds des bâtisseurs OpenG7">
-          <span class="brand-leaf" aria-hidden="true">◆</span>
-          <span>
-            <strong>Fonds des bâtisseurs</strong>
-            <em>OpenG7</em>
-          </span>
-        </a>
-
-        <nav aria-label="Navigation principale">
-          <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Accueil</a>
-          <a routerLink="/" fragment="funding-purpose">À propos</a>
-          <a
-            routerLink="/fonds-des-batisseurs/transparence"
-            routerLinkActive="active"
-            [routerLinkActiveOptions]="{ exact: true }"
-          >
-            Transparence
-          </a>
-          <a routerLink="/" fragment="ecosystem">Projets</a>
-          <a routerLink="/" fragment="support">Contact</a>
-        </nav>
-
-        <button type="button" class="nav-contribute" (click)="scrollToSupport()">
-          Contribuer
-        </button>
-      </header>
+      <openg7-funding-header></openg7-funding-header>
 
       <section class="poster-hero" aria-labelledby="builders-title">
         <img
@@ -121,80 +96,197 @@ interface FoundationPillar {
         </p>
       </section>
 
-      <section id="funding-purpose" class="funding-band" aria-labelledby="funding-purpose-title">
+      <section id="funding-purpose" class="funding-purpose-board" aria-labelledby="funding-purpose-title">
         <img
-          class="funding-band-backdrop"
+          class="purpose-city"
+          src="assets/fonds-des-batisseurs-feuille-erable-lumineuse.png"
+          alt="Ville canadienne lumineuse avec feuille d'érable connectée"
+        />
+        <img
+          class="purpose-dragon"
           src="assets/fonds-des-batisseurs-dragon-coffre-fort.png"
           alt="Dragon gardien protégeant un coffre de financement civique"
         />
-        <div class="funding-band-shade" aria-hidden="true"></div>
+        <div class="purpose-overlay" aria-hidden="true"></div>
 
-        <article class="funding-purpose-card">
+        <article class="purpose-intro">
+          <span class="section-kicker">Fonds des Bâtisseurs</span>
           <h2 id="funding-purpose-title">Où vont les fonds pour soutenir <strong>OpenG7</strong> ?</h2>
           <p>
-            Vos contributions soutiennent l'hébergement sécurisé, le développement continu,
-            les données ouvertes et l'ensemble de l'écosystème OpenG7.
+            Chaque contribution est reliée à une mission concrète : garder les plateformes en ligne,
+            améliorer les outils publics et publier un registre financier compréhensible.
           </p>
-          <ul>
-            <li *ngFor="let allocation of snapshot().allocation">
-              <span>{{ allocation.category }}</span>
-              <strong>{{ allocationShare(allocation.amount) }}%</strong>
-            </li>
-          </ul>
+          <div class="purpose-actions">
+            <button type="button" (click)="scrollToSupport()">Soutenir OpenG7</button>
+            <a [routerLink]="['/fonds-des-batisseurs/transparence']">Voir le registre</a>
+          </div>
         </article>
 
-        <aside id="support" class="support-panel" aria-label="Contribution et transparence financière">
-          <section class="contribution-panel">
-            <h2>Choisissez votre contribution</h2>
-            <div class="amount-grid">
-              <button
-                type="button"
-                *ngFor="let amount of config.contributionAmounts"
-                [class.active]="isSelectedAmount(amount)"
-                (click)="setContributionAmount(amount)"
-              >
-                {{ amount }} $
-              </button>
-            </div>
-            <label for="custom-contribution">Autre montant</label>
-            <input
-              id="custom-contribution"
-              type="number"
-              min="1"
-              step="1"
-              inputmode="numeric"
-              placeholder="$"
-              (input)="setCustomContributionFromEvent($event)"
-            />
-            <button type="button" class="gold-cta" (click)="supportProject()">
-              Soutenir OpenG7
-            </button>
-            <p class="payment-note">Paiement sécurisé par Stripe</p>
-            <p class="state" *ngIf="loadingState() === 'loading'">Préparation du paiement...</p>
-            <p class="state state-error" *ngIf="loadingState() === 'error'">
-              Impossible de démarrer le paiement.
-            </p>
-          </section>
+        <dl class="purpose-proof-strip" aria-label="État public du fonds">
+          <div>
+            <dt>Dernière synchronisation</dt>
+            <dd>Temps réel</dd>
+          </div>
+          <div>
+            <dt>Source des contributions</dt>
+            <dd>Stripe</dd>
+          </div>
+          <div>
+            <dt>Devise principale</dt>
+            <dd>{{ config.currency }}</dd>
+          </div>
+          <div>
+            <dt>Campagne active</dt>
+            <dd>{{ config.campaignTitle }}</dd>
+          </div>
+        </dl>
 
-          <section class="finance-panel">
-            <h2>Transparence financière</h2>
-            <dl>
-              <div>
-                <dt>Contributions confirmées</dt>
-                <dd>{{ snapshot().totals.confirmedContributions }} $</dd>
+        <section class="purpose-kpi-grid" aria-label="Indicateurs financiers du fonds">
+          <article class="purpose-kpi blue">
+            <span aria-hidden="true">+</span>
+            <div>
+              <h3>Contributions confirmées</h3>
+              <strong>{{ snapshot().totals.confirmedContributions }} $</strong>
+              <p>{{ snapshot().contributors.length }} bâtisseurs publics</p>
+            </div>
+          </article>
+          <article class="purpose-kpi red">
+            <span aria-hidden="true">-</span>
+            <div>
+              <h3>Frais de paiement</h3>
+              <strong>{{ snapshot().totals.transactionFees }} $</strong>
+              <p>Déduits avant disponibilité</p>
+            </div>
+          </article>
+          <article class="purpose-kpi green">
+            <span aria-hidden="true">=</span>
+            <div>
+              <h3>Fonds nets disponibles</h3>
+              <strong>{{ snapshot().totals.availableFunds }} $</strong>
+              <p>Disponible pour les projets</p>
+            </div>
+          </article>
+          <article class="purpose-kpi gold">
+            <span aria-hidden="true">%</span>
+            <div>
+              <h3>Objectif mensuel</h3>
+              <strong>{{ config.monthlyGoal }} $</strong>
+              <p>{{ campaignProgress() }} % atteint</p>
+            </div>
+          </article>
+        </section>
+
+        <article class="purpose-campaign-card" aria-label="Progression de la campagne">
+          <header>
+            <span>Progression de la campagne</span>
+            <strong>{{ campaignProgress() }} %</strong>
+          </header>
+          <div class="purpose-track" aria-hidden="true">
+            <span [style.width.%]="campaignProgress()"></span>
+          </div>
+          <p>{{ remainingForMonthlyGoal() }} $ sont encore nécessaires pour atteindre l'objectif mensuel.</p>
+        </article>
+
+        <div class="purpose-dashboard-grid">
+          <article class="purpose-panel purpose-flow">
+            <h3>Du paiement au fonds disponible</h3>
+            <ol>
+              <li>
+                <span>1</span>
+                <div>
+                  <strong>Contribution reçue</strong>
+                  <p>Le paiement sécurisé est déclenché depuis la page.</p>
+                </div>
+              </li>
+              <li>
+                <span>2</span>
+                <div>
+                  <strong>Paiement confirmé</strong>
+                  <p>La contribution est validée puis ajoutée au total public.</p>
+                </div>
+              </li>
+              <li>
+                <span>3</span>
+                <div>
+                  <strong>Frais déduits</strong>
+                  <p>Les frais de traitement restent visibles dans le calcul.</p>
+                </div>
+              </li>
+              <li>
+                <span>4</span>
+                <div>
+                  <strong>Fonds disponibles</strong>
+                  <p>Le montant net finance l'infrastructure et les projets OpenG7.</p>
+                </div>
+              </li>
+            </ol>
+          </article>
+
+          <article class="purpose-panel purpose-allocation">
+            <h3>Répartition prévue du fonds</h3>
+            <div class="purpose-donut" [style.background]="allocationDonut()" aria-hidden="true"></div>
+            <ul>
+              <li *ngFor="let allocation of snapshot().allocation; let index = index">
+                <span [style.background]="allocationColor(index)" aria-hidden="true"></span>
+                <strong>{{ allocationShare(allocation.amount) }}%</strong>
+                <p>{{ allocation.category }}</p>
+              </li>
+            </ul>
+          </article>
+
+          <aside id="support" class="purpose-support-panel" aria-label="Contribution et transparence financière">
+            <section class="contribution-panel">
+              <h3>Choisissez votre contribution</h3>
+              <div class="amount-grid">
+                <button
+                  type="button"
+                  *ngFor="let amount of config.contributionAmounts"
+                  [class.active]="isSelectedAmount(amount)"
+                  (click)="setContributionAmount(amount)"
+                >
+                  {{ amount }} $
+                </button>
               </div>
-              <div>
-                <dt>Frais Stripe</dt>
-                <dd>{{ snapshot().totals.transactionFees }} $</dd>
-              </div>
-              <div>
-                <dt>Fonds nets disponibles</dt>
-                <dd>{{ snapshot().totals.availableFunds }} $</dd>
-              </div>
-            </dl>
-            <a [routerLink]="['/fonds-des-batisseurs/transparence']">Voir les détails publics</a>
-          </section>
-        </aside>
+              <label for="custom-contribution">Autre montant</label>
+              <input
+                id="custom-contribution"
+                type="number"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                placeholder="$"
+                (input)="setCustomContributionFromEvent($event)"
+              />
+              <button type="button" class="gold-cta" (click)="supportProject()">
+                Soutenir OpenG7
+              </button>
+              <p class="payment-note">Paiement sécurisé par Stripe</p>
+              <p class="state" *ngIf="loadingState() === 'loading'">Préparation du paiement...</p>
+              <p class="state state-error" *ngIf="loadingState() === 'error'">
+                Impossible de démarrer le paiement.
+              </p>
+            </section>
+
+            <section class="finance-panel">
+              <h3>Transparence financière</h3>
+              <dl>
+                <div>
+                  <dt>Contributions confirmées</dt>
+                  <dd>{{ snapshot().totals.confirmedContributions }} $</dd>
+                </div>
+                <div>
+                  <dt>Frais Stripe</dt>
+                  <dd>{{ snapshot().totals.transactionFees }} $</dd>
+                </div>
+                <div>
+                  <dt>Fonds nets disponibles</dt>
+                  <dd>{{ snapshot().totals.availableFunds }} $</dd>
+                </div>
+              </dl>
+              <a [routerLink]="['/fonds-des-batisseurs/transparence']">Voir les détails publics</a>
+            </section>
+          </aside>
+        </div>
       </section>
 
       <footer class="builders-footer">
@@ -237,6 +329,28 @@ export class FundingPageComponent {
   readonly allocationTotal = computed<number>(() =>
     this.snapshot().allocation.reduce((sum, item) => sum + item.amount, 0)
   );
+
+  readonly remainingForMonthlyGoal = computed<number>(() =>
+    Math.max(0, this.config.monthlyGoal - this.snapshot().totals.confirmedContributions)
+  );
+
+  private readonly allocationPalette = ['#f4b53c', '#2f9fe5', '#58d79a', '#e5df80', '#e58a3e'];
+
+  readonly allocationDonut = computed<string>(() => {
+    const total = this.allocationTotal();
+    if (total <= 0) {
+      return 'conic-gradient(#f4b53c 0 100%)';
+    }
+
+    let cursor = 0;
+    const segments = this.snapshot().allocation.map((allocation, index) => {
+      const start = cursor;
+      cursor += (allocation.amount / total) * 100;
+      return `${this.allocationColor(index)} ${start}% ${cursor}%`;
+    });
+
+    return `conic-gradient(${segments.join(', ')})`;
+  });
 
   readonly ecosystemCards: readonly EcosystemCard[] = [
     {
@@ -358,6 +472,10 @@ export class FundingPageComponent {
   allocationShare(amount: number): number {
     const total = this.allocationTotal();
     return total > 0 ? Math.round((amount / total) * 100) : 0;
+  }
+
+  allocationColor(index: number): string {
+    return this.allocationPalette[index % this.allocationPalette.length];
   }
 
   scrollToSupport(): void {
