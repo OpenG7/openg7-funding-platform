@@ -262,6 +262,9 @@ interface FoundationPillar {
               </button>
               <p class="payment-note">Paiement sécurisé par Stripe</p>
               <p class="state" *ngIf="loadingState() === 'loading'">Préparation du paiement...</p>
+              <p class="state state-success" *ngIf="loadingState() === 'success'">
+                Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup pour ouvrir le paiement réel.
+              </p>
               <p class="state state-error" *ngIf="loadingState() === 'error'">
                 Impossible de démarrer le paiement.
               </p>

@@ -904,6 +904,10 @@ a:focus-visible {
   color: #ffb5a8;
 }
 
+.state-success {
+  color: #78f5a9;
+}
+
 .finance-panel dl {
   display: grid;
   gap: 0.45rem;

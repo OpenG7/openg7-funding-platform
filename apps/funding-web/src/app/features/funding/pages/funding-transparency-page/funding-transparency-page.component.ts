@@ -325,6 +325,9 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
             Soutenir OpenG7
           </button>
           <p *ngIf="checkoutState() === 'loading'">Préparation du paiement sécurisé...</p>
+          <p class="state-success" *ngIf="checkoutState() === 'success'">
+            Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup pour ouvrir le paiement réel.
+          </p>
           <p class="state-error" *ngIf="checkoutState() === 'error'">Impossible de démarrer le paiement.</p>
         </div>
       </section>
@@ -1111,7 +1114,7 @@ export class FundingTransparencyPageComponent implements OnInit {
   readonly error = signal<boolean>(false);
   readonly registryFilter = signal<'all' | 'contributions' | 'fees'>('all');
   readonly selectedContributionAmount = signal<number>(25);
-  readonly checkoutState = signal<'idle' | 'loading' | 'error'>('idle');
+  readonly checkoutState = signal<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   readonly report = computed<FundTransparencyPublicResponse>(() =>
     this.data() ?? emptyReport()
@@ -1344,7 +1347,10 @@ export class FundingTransparencyPageComponent implements OnInit {
 
       if (result.status === 'redirected') {
         window.location.assign(result.redirectUrl);
+        return;
       }
+
+      this.checkoutState.set('success');
     } catch {
       this.checkoutState.set('error');
     }
