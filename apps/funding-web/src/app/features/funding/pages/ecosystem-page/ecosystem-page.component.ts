@@ -1,8 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  inject
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingSeoService } from '../../services/funding-seo.service.js';
 
 interface EcosystemPlatform {
   readonly id: number;
@@ -51,12 +57,19 @@ interface DevelopmentRow {
         <div class="ecosystem-hero-copy">
           <h1 id="ecosystem-title">L’écosystème <strong>OpenG7</strong></h1>
           <p class="ecosystem-lead">
-            Treize plateformes. Des fondations partagées. Une infrastructure ouverte pour mieux relier le Canada.
+            Treize plateformes. Des fondations partagées. Une infrastructure
+            ouverte pour mieux relier le Canada.
           </p>
           <div class="ecosystem-actions">
-            <a class="primary" routerLink="/ecosystem" fragment="platforms">Explorer les plateformes <span aria-hidden="true">→</span></a>
-            <a routerLink="/ecosystem" fragment="connections">Voir les connexions</a>
-            <a class="gold" routerLink="/" fragment="support">Soutenir l’écosystème</a>
+            <a class="primary" routerLink="/ecosystem" fragment="platforms"
+              >Explorer les plateformes <span aria-hidden="true">→</span></a
+            >
+            <a routerLink="/ecosystem" fragment="connections"
+              >Voir les connexions</a
+            >
+            <a class="gold" routerLink="/" fragment="support"
+              >Soutenir l’écosystème</a
+            >
           </div>
         </div>
 
@@ -84,15 +97,24 @@ interface DevelopmentRow {
         <article class="map-intro">
           <h2 id="map-title">Carte interactive de l’écosystème</h2>
           <p>
-            OpenG7 organise treize plateformes interconnectées autour de six grandes familles pour générer des services meilleurs,
-            plus rapides et plus inclusifs pour tous les Canadiens.
+            OpenG7 organise treize plateformes interconnectées autour de six
+            grandes familles pour générer des services meilleurs, plus rapides
+            et plus inclusifs pour tous les Canadiens.
           </p>
-          <a routerLink="/ecosystem" fragment="connections">Explorer la carte complète <span aria-hidden="true">↗</span></a>
+          <a routerLink="/ecosystem" fragment="connections"
+            >Explorer la carte complète <span aria-hidden="true">↗</span></a
+          >
         </article>
 
-        <div class="network-board" aria-label="Connexions entre les plateformes OpenG7">
+        <div
+          class="network-board"
+          aria-label="Connexions entre les plateformes OpenG7"
+        >
           <div class="network-list left">
-            <article *ngFor="let platform of leftNetworkPlatforms" class="network-node">
+            <article
+              *ngFor="let platform of leftNetworkPlatforms"
+              class="network-node"
+            >
               <img [src]="platform.asset" [alt]="platform.name" />
               <div>
                 <span>{{ platformNumber(platform.id) }}</span>
@@ -137,7 +159,10 @@ interface DevelopmentRow {
           </div>
 
           <div class="network-list right">
-            <article *ngFor="let platform of rightNetworkPlatforms" class="network-node">
+            <article
+              *ngFor="let platform of rightNetworkPlatforms"
+              class="network-node"
+            >
               <img [src]="platform.asset" [alt]="platform.name" />
               <div>
                 <span>{{ platformNumber(platform.id) }}</span>
@@ -148,7 +173,11 @@ interface DevelopmentRow {
         </div>
       </section>
 
-      <section id="platforms" class="platform-section" aria-labelledby="platforms-title">
+      <section
+        id="platforms"
+        class="platform-section"
+        aria-labelledby="platforms-title"
+      >
         <h2 id="platforms-title">Les 13 plateformes</h2>
         <div class="platform-grid">
           <article class="platform-card" *ngFor="let platform of platforms">
@@ -158,17 +187,27 @@ interface DevelopmentRow {
               <h3>{{ platform.name }}</h3>
               <em>{{ platform.family }}</em>
               <p>{{ platform.description }}</p>
-              <a [href]="platform.repositoryUrl" target="_blank" rel="noreferrer">Explorer <span aria-hidden="true">→</span></a>
+              <a
+                [href]="platform.repositoryUrl"
+                target="_blank"
+                rel="noreferrer"
+                >Explorer <span aria-hidden="true">→</span></a
+              >
             </div>
           </article>
         </div>
       </section>
 
-      <section id="architecture" class="architecture-grid" aria-labelledby="architecture-title">
+      <section
+        id="architecture"
+        class="architecture-grid"
+        aria-labelledby="architecture-title"
+      >
         <article class="architecture-panel">
           <h2 id="architecture-title">Une architecture partagée</h2>
           <p>
-            OpenG7 repose sur un socle commun qui réduit les coûts, accélère la livraison et garantit l’interopérabilité.
+            OpenG7 repose sur un socle commun qui réduit les coûts, accélère la
+            livraison et garantit l’interopérabilité.
           </p>
           <div class="architecture-items">
             <article *ngFor="let item of architectureItems">
@@ -176,8 +215,13 @@ interface DevelopmentRow {
               <strong>{{ item.label }}</strong>
             </article>
           </div>
-          <div class="platform-dots" aria-label="Les 13 plateformes reliées au socle commun">
-            <span *ngFor="let platform of platforms">{{ platformNumber(platform.id) }}</span>
+          <div
+            class="platform-dots"
+            aria-label="Les 13 plateformes reliées au socle commun"
+          >
+            <span *ngFor="let platform of platforms">{{
+              platformNumber(platform.id)
+            }}</span>
           </div>
         </article>
 
@@ -196,7 +240,9 @@ interface DevelopmentRow {
       </section>
 
       <section class="journey-panel" aria-labelledby="journey-title">
-        <h2 id="journey-title">Scénario transversal : un parcours de bout en bout</h2>
+        <h2 id="journey-title">
+          Scénario transversal : un parcours de bout en bout
+        </h2>
         <div class="journey-track">
           <article *ngFor="let step of journeySteps; let last = last">
             <span aria-hidden="true">{{ step.icon }}</span>
@@ -247,12 +293,21 @@ interface DevelopmentRow {
       </section>
 
       <section class="ecosystem-cta" aria-labelledby="ecosystem-cta-title">
-        <h2 id="ecosystem-cta-title">Le Canada possède déjà les ressources, les talents et les institutions.</h2>
+        <h2 id="ecosystem-cta-title">
+          Le Canada possède déjà les ressources, les talents et les
+          institutions.
+        </h2>
         <p>OpenG7 cherche à mieux les relier.</p>
         <div class="ecosystem-actions">
-          <a class="primary" routerLink="/ecosystem" fragment="platforms">Explorer les plateformes <span aria-hidden="true">→</span></a>
-          <a routerLink="/ecosystem" fragment="connections">Voir les connexions</a>
-          <a class="gold" routerLink="/" fragment="support">Soutenir l’écosystème</a>
+          <a class="primary" routerLink="/ecosystem" fragment="platforms"
+            >Explorer les plateformes <span aria-hidden="true">→</span></a
+          >
+          <a routerLink="/ecosystem" fragment="connections"
+            >Voir les connexions</a
+          >
+          <a class="gold" routerLink="/" fragment="support"
+            >Soutenir l’écosystème</a
+          >
         </div>
       </section>
 
@@ -278,8 +333,16 @@ interface DevelopmentRow {
 
       .ecosystem-page {
         background:
-          radial-gradient(circle at 76% 2%, rgb(26 173 255 / 16%), transparent 19rem),
-          radial-gradient(circle at 18% 40%, rgb(244 201 87 / 8%), transparent 24rem),
+          radial-gradient(
+            circle at 76% 2%,
+            rgb(26 173 255 / 16%),
+            transparent 19rem
+          ),
+          radial-gradient(
+            circle at 18% 40%,
+            rgb(244 201 87 / 8%),
+            transparent 24rem
+          ),
           linear-gradient(180deg, #020a17 0%, #031329 46%, #020a17 100%);
         border: 1px solid rgb(63 161 229 / 22%);
         box-shadow: 0 30px 90px rgb(0 0 0 / 52%);
@@ -340,8 +403,19 @@ interface DevelopmentRow {
 
       .ecosystem-hero-overlay {
         background:
-          linear-gradient(90deg, rgb(2 10 23 / 96%) 0%, rgb(2 10 23 / 78%) 28%, rgb(2 10 23 / 28%) 58%, rgb(2 10 23 / 58%) 100%),
-          linear-gradient(180deg, rgb(2 10 23 / 10%) 0%, rgb(2 10 23 / 12%) 55%, rgb(2 10 23 / 92%) 100%);
+          linear-gradient(
+            90deg,
+            rgb(2 10 23 / 96%) 0%,
+            rgb(2 10 23 / 78%) 28%,
+            rgb(2 10 23 / 28%) 58%,
+            rgb(2 10 23 / 58%) 100%
+          ),
+          linear-gradient(
+            180deg,
+            rgb(2 10 23 / 10%) 0%,
+            rgb(2 10 23 / 12%) 55%,
+            rgb(2 10 23 / 92%) 100%
+          );
         inset: 0;
         position: absolute;
       }
@@ -439,7 +513,9 @@ interface DevelopmentRow {
       .summary-panel {
         background: rgb(3 18 36 / 76%);
         border: 1px solid rgb(71 162 229 / 28%);
-        box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 16px 38px rgb(0 0 0 / 25%);
+        box-shadow:
+          inset 0 1px 0 rgb(255 255 255 / 7%),
+          0 16px 38px rgb(0 0 0 / 25%);
       }
 
       .ecosystem-stats div {
@@ -511,7 +587,10 @@ interface DevelopmentRow {
         align-items: center;
         display: grid;
         gap: 0.75rem;
-        grid-template-columns: minmax(10rem, 1fr) 8.2rem 10rem 8.2rem minmax(10rem, 1fr);
+        grid-template-columns: minmax(10rem, 1fr) 8.2rem 10rem 8.2rem minmax(
+            10rem,
+            1fr
+          );
         min-height: 22.5rem;
         overflow: hidden;
         position: relative;
@@ -519,7 +598,11 @@ interface DevelopmentRow {
 
       .network-board::before,
       .network-board::after {
-        background: radial-gradient(circle, rgb(44 203 255 / 28%), transparent 64%);
+        background: radial-gradient(
+          circle,
+          rgb(44 203 255 / 28%),
+          transparent 64%
+        );
         content: '';
         height: 21rem;
         left: 50%;
@@ -531,8 +614,20 @@ interface DevelopmentRow {
 
       .network-board::after {
         background:
-          linear-gradient(90deg, transparent 0 11%, rgb(47 203 255 / 34%) 11% 12%, transparent 12% 88%, rgb(244 201 87 / 34%) 88% 89%, transparent 89%),
-          radial-gradient(circle, transparent 0 38%, rgb(81 207 255 / 25%) 39% 40%, transparent 41% 100%);
+          linear-gradient(
+            90deg,
+            transparent 0 11%,
+            rgb(47 203 255 / 34%) 11% 12%,
+            transparent 12% 88%,
+            rgb(244 201 87 / 34%) 88% 89%,
+            transparent 89%
+          ),
+          radial-gradient(
+            circle,
+            transparent 0 38%,
+            rgb(81 207 255 / 25%) 39% 40%,
+            transparent 41% 100%
+          );
         height: 18rem;
         width: 30rem;
       }
@@ -601,7 +696,11 @@ interface DevelopmentRow {
       }
 
       .family-orb {
-        background: radial-gradient(circle, rgb(7 50 82 / 96%), rgb(4 23 43 / 92%));
+        background: radial-gradient(
+          circle,
+          rgb(7 50 82 / 96%),
+          rgb(4 23 43 / 92%)
+        );
         border: 1px solid rgb(82 205 255 / 58%);
         box-shadow: 0 0 26px rgb(64 201 255 / 26%);
         height: 7rem;
@@ -634,9 +733,15 @@ interface DevelopmentRow {
       }
 
       .network-core {
-        background: radial-gradient(circle, rgb(19 61 78 / 98%), rgb(4 24 45 / 96%));
+        background: radial-gradient(
+          circle,
+          rgb(19 61 78 / 98%),
+          rgb(4 24 45 / 96%)
+        );
         border: 2px solid rgb(244 201 87 / 55%);
-        box-shadow: 0 0 34px rgb(244 201 87 / 26%), inset 0 0 34px rgb(42 197 255 / 22%);
+        box-shadow:
+          0 0 34px rgb(244 201 87 / 26%),
+          inset 0 0 34px rgb(42 197 255 / 22%);
         height: 10rem;
         justify-self: center;
         width: 10rem;
@@ -1120,12 +1225,28 @@ interface DevelopmentRow {
   ]
 })
 export class EcosystemPageComponent {
+  private readonly injector = inject(Injector);
+  private readonly seo = inject(FundingSeoService);
+
+  constructor() {
+    this.seo.bind(
+      {
+        titleKey: 'funding.seo.ecosystem.title',
+        descriptionKey: 'funding.seo.ecosystem.description',
+        path: '/ecosystem',
+        imagePath: '/assets/openg7-nexus-carte-canada-connecte.png'
+      },
+      this.injector
+    );
+  }
+
   readonly platforms: readonly EcosystemPlatform[] = [
     {
       id: 1,
       name: 'OpenG7 Nexus',
       family: 'Économie & mobilité',
-      description: 'Point d’accès unifié entre citoyens, entreprises et services publics.',
+      description:
+        'Point d’accès unifié entre citoyens, entreprises et services publics.',
       asset: 'assets/openg7-nexus-carte-canada-connecte.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-nexus'
     },
@@ -1133,7 +1254,8 @@ export class EcosystemPageComponent {
       id: 2,
       name: 'Canadian Vehicle Registry',
       family: 'Économie & mobilité',
-      description: 'Registre national des véhicules pour des transactions fiables et sécurisées.',
+      description:
+        'Registre national des véhicules pour des transactions fiables et sécurisées.',
       asset: 'assets/openg7-canadian-vehicle-registry.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-ca-vehicle-registry'
     },
@@ -1141,7 +1263,8 @@ export class EcosystemPageComponent {
       id: 3,
       name: 'Migration Flow Engine',
       family: 'Gouvernance & démocratie',
-      description: 'Analyse et orchestration des flux migratoires pour des parcours plus fluides.',
+      description:
+        'Analyse et orchestration des flux migratoires pour des parcours plus fluides.',
       asset: 'assets/openg7-migration-flow-engine-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-migration-flow-engine'
     },
@@ -1149,7 +1272,8 @@ export class EcosystemPageComponent {
       id: 4,
       name: 'Patient Navigation',
       family: 'Santé',
-      description: 'Guide les patients dans leurs parcours de soins de manière personnalisée.',
+      description:
+        'Guide les patients dans leurs parcours de soins de manière personnalisée.',
       asset: 'assets/openg7-patient-navigation-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-patient-navigation'
     },
@@ -1157,7 +1281,8 @@ export class EcosystemPageComponent {
       id: 5,
       name: 'Medical Referral Router',
       family: 'Santé',
-      description: 'Acheminer les demandes vers les bons spécialistes au bon moment.',
+      description:
+        'Acheminer les demandes vers les bons spécialistes au bon moment.',
       asset: 'assets/openg7-medical-referral-router-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-medical-referral-router'
     },
@@ -1165,15 +1290,18 @@ export class EcosystemPageComponent {
       id: 6,
       name: 'Clinical Workforce Exchange',
       family: 'Santé',
-      description: 'Connecte les professionnels de santé aux besoins des établissements.',
+      description:
+        'Connecte les professionnels de santé aux besoins des établissements.',
       asset: 'assets/openg7-clinical-workforce-exchange-canada.png',
-      repositoryUrl: 'https://github.com/OpenG7/openg7-clinical-workforce-exchange'
+      repositoryUrl:
+        'https://github.com/OpenG7/openg7-clinical-workforce-exchange'
     },
     {
       id: 7,
       name: 'Health Supply Corridors',
       family: 'Santé',
-      description: 'Optimise la disponibilité et la distribution des fournitures médicales critiques.',
+      description:
+        'Optimise la disponibilité et la distribution des fournitures médicales critiques.',
       asset: 'assets/openg7-health-supply-corridors-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-health-supply-corridors'
     },
@@ -1181,7 +1309,8 @@ export class EcosystemPageComponent {
       id: 8,
       name: 'GovGraph',
       family: 'Gouvernance & démocratie',
-      description: 'Graphe des services et règlements pour une meilleure interopérabilité publique.',
+      description:
+        'Graphe des services et règlements pour une meilleure interopérabilité publique.',
       asset: 'assets/openg7-govgraph-gouvernance-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-govgraph'
     },
@@ -1189,23 +1318,28 @@ export class EcosystemPageComponent {
       id: 9,
       name: 'Election Day Ops',
       family: 'Gouvernance & démocratie',
-      description: 'Opérations électorales modernes, sécurisées et transparentes.',
+      description:
+        'Opérations électorales modernes, sécurisées et transparentes.',
       asset: 'assets/openg7-ca-election-day-ops-results-audit.png',
-      repositoryUrl: 'https://github.com/OpenG7/openg7-ca-election-day-ops-and-audit'
+      repositoryUrl:
+        'https://github.com/OpenG7/openg7-ca-election-day-ops-and-audit'
     },
     {
       id: 10,
       name: 'Voter Register & Official Docs',
       family: 'Gouvernance & démocratie',
-      description: 'Registre électoral et documents officiels vérifiables et à jour.',
+      description:
+        'Registre électoral et documents officiels vérifiables et à jour.',
       asset: 'assets/openg7-ca-voter-register-official-docs.png',
-      repositoryUrl: 'https://github.com/OpenG7/openg7-ca-voter-register-and-docs'
+      repositoryUrl:
+        'https://github.com/OpenG7/openg7-ca-voter-register-and-docs'
     },
     {
       id: 11,
       name: 'OpenG7 Social',
       family: 'Société',
-      description: 'Plateforme d’engagement citoyen et de consultations publiques.',
+      description:
+        'Plateforme d’engagement citoyen et de consultations publiques.',
       asset: 'assets/openg7-social-communautes-connectees-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-social'
     },
@@ -1213,7 +1347,8 @@ export class EcosystemPageComponent {
       id: 12,
       name: 'OpenG7 Firewall',
       family: 'Sécurité',
-      description: 'Protection des services, des identités et des données à l’échelle du pays.',
+      description:
+        'Protection des services, des identités et des données à l’échelle du pays.',
       asset: 'assets/openg7-firewall-cybersecurite-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-firewall'
     },
@@ -1221,7 +1356,8 @@ export class EcosystemPageComponent {
       id: 13,
       name: 'OpenG7 Funding Platform',
       family: 'Financement',
-      description: 'Orchestre les financements publics et les subventions d’impact.',
+      description:
+        'Orchestre les financements publics et les subventions d’impact.',
       asset: 'assets/openg7-funding-platform-dragon-coffre.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-funding-platform'
     }
@@ -1231,11 +1367,39 @@ export class EcosystemPageComponent {
   readonly rightNetworkPlatforms = this.platforms.slice(7);
 
   readonly families: readonly EcosystemFamily[] = [
-    { name: 'Santé', detail: 'Parcours patient intégré, moins d’attente, meilleure coordination.', icon: '♡', tone: 'green' },
-    { name: 'Données', detail: 'Données fiables, partagées en sécurité, pour de meilleures décisions.', icon: '▧', tone: 'cyan' },
-    { name: 'Mobilité', detail: 'Déplacements et logistique fluides, services accessibles partout.', icon: '⌁', tone: 'violet' },
-    { name: 'Sécurité', detail: 'Identités protégées, services résilients, confiance accrue.', icon: '◈', tone: 'orange' },
-    { name: 'Financement', detail: 'Ressources mieux allouées, projets à fort impact pour tous.', icon: '$', tone: 'gold' }
+    {
+      name: 'Santé',
+      detail:
+        'Parcours patient intégré, moins d’attente, meilleure coordination.',
+      icon: '♡',
+      tone: 'green'
+    },
+    {
+      name: 'Données',
+      detail:
+        'Données fiables, partagées en sécurité, pour de meilleures décisions.',
+      icon: '▧',
+      tone: 'cyan'
+    },
+    {
+      name: 'Mobilité',
+      detail:
+        'Déplacements et logistique fluides, services accessibles partout.',
+      icon: '⌁',
+      tone: 'violet'
+    },
+    {
+      name: 'Sécurité',
+      detail: 'Identités protégées, services résilients, confiance accrue.',
+      icon: '◈',
+      tone: 'orange'
+    },
+    {
+      name: 'Financement',
+      detail: 'Ressources mieux allouées, projets à fort impact pour tous.',
+      icon: '$',
+      tone: 'gold'
+    }
   ];
 
   readonly architectureItems: readonly ArchitectureItem[] = [
@@ -1250,14 +1414,46 @@ export class EcosystemPageComponent {
   ];
 
   readonly journeySteps = [
-    { name: 'OpenGraph', detail: 'Comprendre les règles et services disponibles', icon: '⌬' },
-    { name: 'Clinical Workforce Exchange', detail: 'Identifier les professionnels disponibles', icon: '⌘' },
-    { name: 'Medical Referral Router', detail: 'Acheminer la demande au bon spécialiste', icon: '▤' },
-    { name: 'Patient Navigation', detail: 'Accompagner le patient à chaque étape', icon: '♙' },
-    { name: 'Health Supply Corridors', detail: 'Assurer les fournitures et traitements', icon: '▥' },
-    { name: 'OpenG7 Nexus', detail: 'Point d’accès unifié et services centralisés', icon: '◇' },
-    { name: 'OpenG7 Firewall', detail: 'Sécuriser les accès et les données', icon: '◈' },
-    { name: 'OpenG7 Funding Platform', detail: 'Financer et soutenir les interventions', icon: '◎' }
+    {
+      name: 'OpenGraph',
+      detail: 'Comprendre les règles et services disponibles',
+      icon: '⌬'
+    },
+    {
+      name: 'Clinical Workforce Exchange',
+      detail: 'Identifier les professionnels disponibles',
+      icon: '⌘'
+    },
+    {
+      name: 'Medical Referral Router',
+      detail: 'Acheminer la demande au bon spécialiste',
+      icon: '▤'
+    },
+    {
+      name: 'Patient Navigation',
+      detail: 'Accompagner le patient à chaque étape',
+      icon: '♙'
+    },
+    {
+      name: 'Health Supply Corridors',
+      detail: 'Assurer les fournitures et traitements',
+      icon: '▥'
+    },
+    {
+      name: 'OpenG7 Nexus',
+      detail: 'Point d’accès unifié et services centralisés',
+      icon: '◇'
+    },
+    {
+      name: 'OpenG7 Firewall',
+      detail: 'Sécuriser les accès et les données',
+      icon: '◈'
+    },
+    {
+      name: 'OpenG7 Funding Platform',
+      detail: 'Financer et soutenir les interventions',
+      icon: '◎'
+    }
   ];
 
   readonly developmentRows: readonly DevelopmentRow[] = [

@@ -41,6 +41,7 @@ openg7-funding-page,
 openg7-funding-about-page,
 openg7-ecosystem-page,
 openg7-music-page,
+openg7-boutique-page,
 openg7-support-page,
 openg7-webhooks-page,
 openg7-api-keys-page,
@@ -124,7 +125,7 @@ a:focus-visible {
 .builders-nav nav {
   align-items: center;
   display: flex;
-  gap: clamp(1rem, 4vw, 3.7rem);
+  gap: clamp(0.8rem, 2.8vw, 2.7rem);
   justify-content: center;
 }
 
@@ -178,6 +179,13 @@ a:focus-visible {
   padding: 0 1.35rem;
   text-decoration: none;
   text-transform: uppercase;
+}
+
+.nav-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
+  justify-self: end;
 }
 
 .checkout-success-stage {
@@ -1148,7 +1156,7 @@ a:focus-visible {
     overflow-x: auto;
   }
 
-  .nav-contribute {
+  .nav-actions {
     justify-self: start;
   }
 
@@ -1314,9 +1322,12 @@ a:focus-visible {
     width: 2.8rem;
   }
 
-  .nav-contribute {
+  .nav-actions {
     font-size: 0.64rem;
     justify-self: end;
+  }
+
+  .nav-contribute {
     min-height: 1.8rem;
     padding: 0 0.55rem;
     white-space: nowrap;

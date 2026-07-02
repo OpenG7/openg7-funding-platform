@@ -4,6 +4,7 @@ import {
   Component,
   computed,
   inject,
+  Injector,
   OnDestroy,
   OnInit,
   signal
@@ -20,6 +21,7 @@ import { FUNDING_PROJECT_CONFIG } from '../../config/funding-project-config.toke
 import { provideFundingProjectConfig } from '../../config/funding-project-config.token.js';
 import { OPENG7_FUNDING_CONFIG } from '../../config/openg7-funding.config.js';
 import { FundTransparencyService } from '../../services/fund-transparency.service.js';
+import { FundingSeoService } from '../../services/funding-seo.service.js';
 import { FundingService } from '../../services/funding.service.js';
 
 interface EcosystemCard {
@@ -65,14 +67,21 @@ interface FoundationPillar {
         </button>
         <article class="checkout-success-card">
           <span class="section-kicker">Paiement confirmé</span>
-          <h2 id="checkout-success-title">Le coffre des Bâtisseurs vient de recevoir votre contribution.</h2>
+          <h2 id="checkout-success-title">
+            Le coffre des Bâtisseurs vient de recevoir votre contribution.
+          </h2>
           <p>
-            Merci d'aider OpenG7 à financer une infrastructure ouverte, résiliente et transparente.
-            Le fonds public sera synchronisé dès que la confirmation Stripe sera disponible.
+            Merci d'aider OpenG7 à financer une infrastructure ouverte,
+            résiliente et transparente. Le fonds public sera synchronisé dès que
+            la confirmation Stripe sera disponible.
           </p>
           <div class="checkout-success-actions">
-            <a [routerLink]="['/fonds-des-batisseurs/transparence']">Voir la transparence</a>
-            <button type="button" (click)="scrollToSupport()">Contribuer encore</button>
+            <a [routerLink]="['/fonds-des-batisseurs/transparence']"
+              >Voir la transparence</a
+            >
+            <button type="button" (click)="scrollToSupport()">
+              Contribuer encore
+            </button>
           </div>
         </article>
       </section>
@@ -87,7 +96,10 @@ interface FoundationPillar {
           src="assets/openg7-coffre-fort-ferme-dragon.png"
           alt="Coffre-fort fermé gardé par un dragon"
         />
-        <div class="checkout-success-glow checkout-cancel-glow" aria-hidden="true"></div>
+        <div
+          class="checkout-success-glow checkout-cancel-glow"
+          aria-hidden="true"
+        ></div>
         <button
           type="button"
           class="checkout-success-close"
@@ -98,10 +110,12 @@ interface FoundationPillar {
         </button>
         <article class="checkout-success-card checkout-cancel-card">
           <span class="section-kicker">Paiement interrompu</span>
-          <h2 id="checkout-cancel-title">Le coffre reste fermé pour cette contribution.</h2>
+          <h2 id="checkout-cancel-title">
+            Le coffre reste fermé pour cette contribution.
+          </h2>
           <p>
-            Aucun paiement confirmé n'a été ajouté au registre. Vous pouvez reprendre votre contribution
-            quand vous voulez.
+            Aucun paiement confirmé n'a été ajouté au registre. Vous pouvez
+            reprendre votre contribution quand vous voulez.
           </p>
           <div class="checkout-success-actions">
             <button type="button" (click)="scrollToSupport()">Réessayer</button>
@@ -129,9 +143,17 @@ interface FoundationPillar {
             renforcer l'économie, la transparence et la résilience du Canada.
           </p>
 
-          <article class="hero-progress-card" aria-label="Progression de la collecte">
+          <article
+            class="hero-progress-card"
+            aria-label="Progression de la collecte"
+          >
             <div>
-              <span>{{ formatMoney(snapshot().totals.confirmedContributions) }} recueillis sur {{ formatMoney(config.monthlyGoal) }}</span>
+              <span
+                >{{
+                  formatMoney(snapshot().totals.confirmedContributions)
+                }}
+                recueillis sur {{ formatMoney(config.monthlyGoal) }}</span
+              >
               <strong>{{ campaignProgress() }}%</strong>
             </div>
             <div class="progress-track" aria-hidden="true">
@@ -146,7 +168,11 @@ interface FoundationPillar {
         </div>
       </section>
 
-      <section id="ecosystem" class="ecosystem-section" aria-labelledby="ecosystem-title">
+      <section
+        id="ecosystem"
+        class="ecosystem-section"
+        aria-labelledby="ecosystem-title"
+      >
         <header class="section-title ornament-title">
           <h2 id="ecosystem-title">L'écosystème <strong>OpenG7</strong></h2>
           <p>13 plateformes bâtissent le Canada de demain.</p>
@@ -170,7 +196,11 @@ interface FoundationPillar {
         </p>
       </section>
 
-      <section id="funding-purpose" class="funding-purpose-board" aria-labelledby="funding-purpose-title">
+      <section
+        id="funding-purpose"
+        class="funding-purpose-board"
+        aria-labelledby="funding-purpose-title"
+      >
         <img
           class="purpose-city"
           src="assets/fonds-des-batisseurs-feuille-erable-lumineuse.png"
@@ -185,14 +215,21 @@ interface FoundationPillar {
 
         <article class="purpose-intro">
           <span class="section-kicker">Fonds des Bâtisseurs</span>
-          <h2 id="funding-purpose-title">Où vont les fonds pour soutenir <strong>OpenG7</strong> ?</h2>
+          <h2 id="funding-purpose-title">
+            Où vont les fonds pour soutenir <strong>OpenG7</strong> ?
+          </h2>
           <p>
-            Chaque contribution est reliée à une mission concrète : garder les plateformes en ligne,
-            améliorer les outils publics et publier un registre financier compréhensible.
+            Chaque contribution est reliée à une mission concrète : garder les
+            plateformes en ligne, améliorer les outils publics et publier un
+            registre financier compréhensible.
           </p>
           <div class="purpose-actions">
-            <button type="button" (click)="scrollToSupport()">Soutenir OpenG7</button>
-            <a [routerLink]="['/fonds-des-batisseurs/transparence']">Voir le registre</a>
+            <button type="button" (click)="scrollToSupport()">
+              Soutenir OpenG7
+            </button>
+            <a [routerLink]="['/fonds-des-batisseurs/transparence']"
+              >Voir le registre</a
+            >
           </div>
         </article>
 
@@ -215,12 +252,17 @@ interface FoundationPillar {
           </div>
         </dl>
 
-        <section class="purpose-kpi-grid" aria-label="Indicateurs financiers du fonds">
+        <section
+          class="purpose-kpi-grid"
+          aria-label="Indicateurs financiers du fonds"
+        >
           <article class="purpose-kpi blue">
             <span aria-hidden="true">+</span>
             <div>
               <h3>Contributions confirmées</h3>
-              <strong>{{ formatMoney(snapshot().totals.confirmedContributions) }}</strong>
+              <strong>{{
+                formatMoney(snapshot().totals.confirmedContributions)
+              }}</strong>
               <p>{{ contributionCountLabel() }}</p>
             </div>
           </article>
@@ -228,7 +270,9 @@ interface FoundationPillar {
             <span aria-hidden="true">-</span>
             <div>
               <h3>Frais de paiement</h3>
-              <strong>{{ formatMoney(snapshot().totals.transactionFees) }}</strong>
+              <strong>{{
+                formatMoney(snapshot().totals.transactionFees)
+              }}</strong>
               <p>Déduits avant disponibilité</p>
             </div>
           </article>
@@ -236,7 +280,9 @@ interface FoundationPillar {
             <span aria-hidden="true">=</span>
             <div>
               <h3>Fonds nets disponibles</h3>
-              <strong>{{ formatMoney(snapshot().totals.availableFunds) }}</strong>
+              <strong>{{
+                formatMoney(snapshot().totals.availableFunds)
+              }}</strong>
               <p>Disponible pour les projets</p>
             </div>
           </article>
@@ -250,7 +296,10 @@ interface FoundationPillar {
           </article>
         </section>
 
-        <article class="purpose-campaign-card" aria-label="Progression de la campagne">
+        <article
+          class="purpose-campaign-card"
+          aria-label="Progression de la campagne"
+        >
           <header>
             <span>Progression de la campagne</span>
             <strong>{{ campaignProgress() }} %</strong>
@@ -258,7 +307,10 @@ interface FoundationPillar {
           <div class="purpose-track" aria-hidden="true">
             <span [style.width.%]="campaignProgress()"></span>
           </div>
-          <p>{{ formatMoney(remainingForMonthlyGoal()) }} sont encore nécessaires pour atteindre l'objectif mensuel.</p>
+          <p>
+            {{ formatMoney(remainingForMonthlyGoal()) }} sont encore nécessaires
+            pour atteindre l'objectif mensuel.
+          </p>
         </article>
 
         <div class="purpose-dashboard-grid">
@@ -276,21 +328,28 @@ interface FoundationPillar {
                 <span>2</span>
                 <div>
                   <strong>Paiement confirmé</strong>
-                  <p>La contribution est validée puis ajoutée au total public.</p>
+                  <p>
+                    La contribution est validée puis ajoutée au total public.
+                  </p>
                 </div>
               </li>
               <li>
                 <span>3</span>
                 <div>
                   <strong>Frais déduits</strong>
-                  <p>Les frais de traitement restent visibles dans le calcul.</p>
+                  <p>
+                    Les frais de traitement restent visibles dans le calcul.
+                  </p>
                 </div>
               </li>
               <li>
                 <span>4</span>
                 <div>
                   <strong>Fonds disponibles</strong>
-                  <p>Le montant net finance l'infrastructure et les projets OpenG7.</p>
+                  <p>
+                    Le montant net finance l'infrastructure et les projets
+                    OpenG7.
+                  </p>
                 </div>
               </li>
             </ol>
@@ -298,20 +357,39 @@ interface FoundationPillar {
 
           <article class="purpose-panel purpose-allocation">
             <h3>Répartition prévue du fonds</h3>
-            <div class="purpose-donut" [style.background]="allocationDonut()" aria-hidden="true"></div>
-            <p class="purpose-empty-state" *ngIf="snapshot().allocation.length === 0">
+            <div
+              class="purpose-donut"
+              [style.background]="allocationDonut()"
+              aria-hidden="true"
+            ></div>
+            <p
+              class="purpose-empty-state"
+              *ngIf="snapshot().allocation.length === 0"
+            >
               Aucune allocation publique publiée pour le moment.
             </p>
             <ul>
-              <li *ngFor="let allocation of snapshot().allocation; let index = index">
-                <span [style.background]="allocationColor(index)" aria-hidden="true"></span>
+              <li
+                *ngFor="
+                  let allocation of snapshot().allocation;
+                  let index = index
+                "
+              >
+                <span
+                  [style.background]="allocationColor(index)"
+                  aria-hidden="true"
+                ></span>
                 <strong>{{ allocationShare(allocation.amount) }}%</strong>
                 <p>{{ allocation.category }}</p>
               </li>
             </ul>
           </article>
 
-          <aside id="support" class="purpose-support-panel" aria-label="Contribution et transparence financière">
+          <aside
+            id="support"
+            class="purpose-support-panel"
+            aria-label="Contribution et transparence financière"
+          >
             <section class="contribution-panel">
               <h3>Choisissez votre contribution</h3>
               <div class="amount-grid">
@@ -338,9 +416,15 @@ interface FoundationPillar {
                 Soutenir OpenG7
               </button>
               <p class="payment-note">Paiement sécurisé par Stripe</p>
-              <p class="state" *ngIf="loadingState() === 'loading'">Préparation du paiement...</p>
-              <p class="state state-success" *ngIf="loadingState() === 'success'">
-                Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup pour ouvrir le paiement réel.
+              <p class="state" *ngIf="loadingState() === 'loading'">
+                Préparation du paiement...
+              </p>
+              <p
+                class="state state-success"
+                *ngIf="loadingState() === 'success'"
+              >
+                Checkout simulé en local. Configurez Stripe dans
+                /dev/stripe-setup pour ouvrir le paiement réel.
               </p>
               <p class="state state-error" *ngIf="loadingState() === 'error'">
                 Impossible de démarrer le paiement.
@@ -352,7 +436,9 @@ interface FoundationPillar {
               <dl>
                 <div>
                   <dt>Contributions confirmées</dt>
-                  <dd>{{ formatMoney(snapshot().totals.confirmedContributions) }}</dd>
+                  <dd>
+                    {{ formatMoney(snapshot().totals.confirmedContributions) }}
+                  </dd>
                 </div>
                 <div>
                   <dt>Frais Stripe</dt>
@@ -363,7 +449,9 @@ interface FoundationPillar {
                   <dd>{{ formatMoney(snapshot().totals.availableFunds) }}</dd>
                 </div>
               </dl>
-              <a [routerLink]="['/fonds-des-batisseurs/transparence']">Voir les détails publics</a>
+              <a [routerLink]="['/fonds-des-batisseurs/transparence']"
+                >Voir les détails publics</a
+              >
             </section>
           </aside>
         </div>
@@ -372,7 +460,9 @@ interface FoundationPillar {
       <footer class="builders-footer">
         <p>
           Les 13 cartes montrent ce que nous construisons.
-          <strong>Le Fonds des Bâtisseurs montre comment nous le finançons.</strong>
+          <strong
+            >Le Fonds des Bâtisseurs montre comment nous le finançons.</strong
+          >
         </p>
         <ul>
           <li *ngFor="let pillar of foundationPillars">
@@ -386,6 +476,8 @@ interface FoundationPillar {
 })
 export class FundingPageComponent implements OnInit, OnDestroy {
   private readonly fundingService = inject(FundingService);
+  private readonly injector = inject(Injector);
+  private readonly seo = inject(FundingSeoService);
   private readonly transparencyService = inject(FundTransparencyService);
   private transparencyRefreshId: number | null = null;
   private readonly emptySnapshot: FundingSnapshot = {
@@ -405,9 +497,13 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly selectedContributionAmount = signal<number>(
     this.config.contributionAmounts[2] ?? this.config.contributionAmounts[0]
   );
-  readonly loadingState = signal<'idle' | 'loading' | 'success' | 'error'>('idle');
+  readonly loadingState = signal<'idle' | 'loading' | 'success' | 'error'>(
+    'idle'
+  );
   readonly checkoutStatus = signal<'idle' | 'success' | 'cancel'>('idle');
-  readonly transparencyState = signal<'loading' | 'synced' | 'empty' | 'error'>('loading');
+  readonly transparencyState = signal<'loading' | 'synced' | 'empty' | 'error'>(
+    'loading'
+  );
   readonly contributionCount = signal<number>(0);
   readonly currency = signal<string>(this.config.currency);
   readonly lastTransparencySync = signal<string | null>(null);
@@ -427,7 +523,10 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   );
 
   readonly remainingForMonthlyGoal = computed<number>(() =>
-    Math.max(0, this.config.monthlyGoal - this.snapshot().totals.confirmedContributions)
+    Math.max(
+      0,
+      this.config.monthlyGoal - this.snapshot().totals.confirmedContributions
+    )
   );
 
   readonly transparencyStatusLabel = computed<string>(() => {
@@ -476,15 +575,25 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   });
 
   readonly transparencySourceLabel = computed<string>(() =>
-    this.transparencyState() === 'error' ? 'Stripe non synchronisé' : 'Stripe / registre public'
+    this.transparencyState() === 'error'
+      ? 'Stripe non synchronisé'
+      : 'Stripe / registre public'
   );
 
   readonly contributionCountLabel = computed<string>(() => {
     const count = this.contributionCount();
-    return count === 1 ? '1 contribution confirmée' : `${count} contributions confirmées`;
+    return count === 1
+      ? '1 contribution confirmée'
+      : `${count} contributions confirmées`;
   });
 
-  private readonly allocationPalette = ['#f4b53c', '#2f9fe5', '#58d79a', '#e5df80', '#e58a3e'];
+  private readonly allocationPalette = [
+    '#f4b53c',
+    '#2f9fe5',
+    '#58d79a',
+    '#e5df80',
+    '#e58a3e'
+  ];
 
   readonly allocationDonut = computed<string>(() => {
     const total = this.allocationTotal();
@@ -506,25 +615,29 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     {
       id: 1,
       title: 'OpenG7 Social',
-      description: 'Réseau social ouvert et souverain pour communautés et idées.',
+      description:
+        'Réseau social ouvert et souverain pour communautés et idées.',
       asset: 'assets/openg7-social-communautes-connectees-canada-miniature.png'
     },
     {
       id: 2,
       title: 'Migration Flow Engine',
-      description: "Moteur d'analyse des flux migratoires pour une planification intelligente.",
+      description:
+        "Moteur d'analyse des flux migratoires pour une planification intelligente.",
       asset: 'assets/openg7-migration-flow-engine-canada-miniature.png'
     },
     {
       id: 3,
       title: 'Firewall',
-      description: 'Protection avancée des infrastructures et des données critiques.',
+      description:
+        'Protection avancée des infrastructures et des données critiques.',
       asset: 'assets/openg7-firewall-cybersecurite-canada-miniature.png'
     },
     {
       id: 4,
       title: 'CA: Election Day Ops',
-      description: "Coordination sécurisée des opérations le jour de l'élection.",
+      description:
+        "Coordination sécurisée des opérations le jour de l'élection.",
       asset: 'assets/openg7-ca-election-day-ops-results-audit-miniature.png'
     },
     {
@@ -536,7 +649,8 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     {
       id: 6,
       title: 'Canadian Vehicle Registry',
-      description: 'Registre national des véhicules pour plus de sécurité et efficacité.',
+      description:
+        'Registre national des véhicules pour plus de sécurité et efficacité.',
       asset: 'assets/openg7-canadian-vehicle-registry-miniature.png'
     },
     {
@@ -572,13 +686,15 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     {
       id: 12,
       title: 'Health Supply Corridors',
-      description: "Chaînes d'approvisionnement résilientes pour le système de santé.",
+      description:
+        "Chaînes d'approvisionnement résilientes pour le système de santé.",
       asset: 'assets/openg7-health-supply-corridors-canada-miniature.png'
     },
     {
       id: 13,
       title: 'Funding Platform',
-      description: 'Plateforme transparente de financement des initiatives OpenG7.',
+      description:
+        'Plateforme transparente de financement des initiatives OpenG7.',
       asset: 'assets/openg7-funding-platform-dragon-coffre-miniature.png'
     }
   ];
@@ -602,12 +718,26 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     }
   ];
 
+  constructor() {
+    this.seo.bind(
+      {
+        titleKey: 'funding.seo.home.title',
+        descriptionKey: 'funding.seo.home.description',
+        path: '/',
+        imagePath: '/assets/fonds-des-batisseurs-canada-coffre-lumineux.png'
+      },
+      this.injector
+    );
+  }
+
   ngOnInit(): void {
     if (typeof window === 'undefined') {
       return;
     }
 
-    const checkout = new URLSearchParams(window.location.search).get('checkout');
+    const checkout = new URLSearchParams(window.location.search).get(
+      'checkout'
+    );
     if (checkout === 'success' || checkout === 'cancel') {
       this.checkoutStatus.set(checkout);
     }
@@ -622,7 +752,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  async loadPublicTransparency(options: { readonly silent?: boolean } = {}): Promise<void> {
+  async loadPublicTransparency(
+    options: { readonly silent?: boolean } = {}
+  ): Promise<void> {
     if (!options.silent) {
       this.transparencyState.set('loading');
     }
@@ -633,7 +765,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       this.contributionCount.set(report.contributions_count);
       this.currency.set(report.currency || this.config.currency);
       this.lastTransparencySync.set(report.last_updated_at);
-      this.transparencyState.set(this.hasPublicFinanceData(report) ? 'synced' : 'empty');
+      this.transparencyState.set(
+        this.hasPublicFinanceData(report) ? 'synced' : 'empty'
+      );
     } catch {
       this.snapshot.set(this.emptySnapshot);
       this.contributionCount.set(0);
@@ -725,7 +859,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     }, 30000);
   }
 
-  private toFundingSnapshot(report: FundTransparencyPublicResponse): FundingSnapshot {
+  private toFundingSnapshot(
+    report: FundTransparencyPublicResponse
+  ): FundingSnapshot {
     return {
       totals: {
         confirmedContributions: report.total_received,
@@ -740,7 +876,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     };
   }
 
-  private hasPublicFinanceData(report: FundTransparencyPublicResponse): boolean {
+  private hasPublicFinanceData(
+    report: FundTransparencyPublicResponse
+  ): boolean {
     return (
       report.total_received > 0 ||
       report.total_fees > 0 ||

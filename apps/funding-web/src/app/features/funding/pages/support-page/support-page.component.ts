@@ -1,8 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  inject
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingSeoService } from '../../services/funding-seo.service.js';
 
 interface SupportAction {
   readonly title: string;
@@ -47,14 +53,24 @@ interface SupportStep {
         <div class="support-hero-overlay" aria-hidden="true"></div>
 
         <div class="support-copy">
-          <h1 id="support-title">Construire OpenG7 avec <strong>GitHub</strong></h1>
+          <h1 id="support-title">
+            Construire OpenG7 avec <strong>GitHub</strong>
+          </h1>
           <p>
-            GitHub est l’atelier public de l’écosystème. Explorez les dépôts, signalez un problème,
-            proposez une idée et contribuez au code.
+            GitHub est l’atelier public de l’écosystème. Explorez les dépôts,
+            signalez un problème, proposez une idée et contribuez au code.
           </p>
           <div class="support-actions-row">
-            <a class="primary" href="https://github.com/orgs/OpenG7/repositories" target="_blank" rel="noreferrer">Voir les dépôts</a>
-            <a href="https://github.com/OpenG7" target="_blank" rel="noreferrer">Ouvrir GitHub <span aria-hidden="true">↗</span></a>
+            <a
+              class="primary"
+              href="https://github.com/orgs/OpenG7/repositories"
+              target="_blank"
+              rel="noreferrer"
+              >Voir les dépôts</a
+            >
+            <a href="https://github.com/OpenG7" target="_blank" rel="noreferrer"
+              >Ouvrir GitHub <span aria-hidden="true">↗</span></a
+            >
           </div>
         </div>
 
@@ -76,27 +92,52 @@ interface SupportStep {
             <span aria-hidden="true">▤</span>
             <div>
               <h2>Choisir un dépôt</h2>
-              <p>Voici les dépôts principaux de l’écosystème OpenG7. Cliquez pour explorer, lire la documentation ou contribuer.</p>
+              <p>
+                Voici les dépôts principaux de l’écosystème OpenG7. Cliquez pour
+                explorer, lire la documentation ou contribuer.
+              </p>
             </div>
           </header>
 
           <div class="repository-list">
             <article *ngFor="let repository of repositories">
-              <span class="repository-icon" [class]="repository.tone" aria-hidden="true">{{ repository.icon }}</span>
+              <span
+                class="repository-icon"
+                [class]="repository.tone"
+                aria-hidden="true"
+                >{{ repository.icon }}</span
+              >
               <div>
                 <h3>{{ repository.name }}</h3>
                 <p>{{ repository.description }}</p>
               </div>
               <em [class]="repository.tone">{{ repository.status }}</em>
               <nav aria-label="Liens du dépôt">
-                <a [href]="repository.url" target="_blank" rel="noreferrer">README</a>
-                <a [href]="repository.url + '/issues'" target="_blank" rel="noreferrer">Issues</a>
-                <a [href]="repository.url + '/pulls'" target="_blank" rel="noreferrer">Pull Requests</a>
+                <a [href]="repository.url" target="_blank" rel="noreferrer"
+                  >README</a
+                >
+                <a
+                  [href]="repository.url + '/issues'"
+                  target="_blank"
+                  rel="noreferrer"
+                  >Issues</a
+                >
+                <a
+                  [href]="repository.url + '/pulls'"
+                  target="_blank"
+                  rel="noreferrer"
+                  >Pull Requests</a
+                >
               </nav>
             </article>
           </div>
 
-          <a class="all-repositories" href="https://github.com/orgs/OpenG7/repositories" target="_blank" rel="noreferrer">
+          <a
+            class="all-repositories"
+            href="https://github.com/orgs/OpenG7/repositories"
+            target="_blank"
+            rel="noreferrer"
+          >
             Voir tous les dépôts sur GitHub <span aria-hidden="true">↗</span>
           </a>
         </article>
@@ -116,16 +157,27 @@ interface SupportStep {
           <article class="notice-panel warning">
             <span aria-hidden="true">◈</span>
             <div>
-              <strong>Ne publiez jamais de clés API, mots de passe ou données personnelles.</strong>
-              <p>Pour une faille de sécurité, utilisez le canal privé indiqué dans SECURITY.md.</p>
+              <strong
+                >Ne publiez jamais de clés API, mots de passe ou données
+                personnelles.</strong
+              >
+              <p>
+                Pour une faille de sécurité, utilisez le canal privé indiqué
+                dans SECURITY.md.
+              </p>
             </div>
           </article>
 
           <article class="notice-panel info">
             <span aria-hidden="true">◎</span>
             <div>
-              <strong>OpenG7 est actuellement un projet indépendant en développement.</strong>
-              <p>Les échanges et contributions passent principalement par GitHub.</p>
+              <strong
+                >OpenG7 est actuellement un projet indépendant en
+                développement.</strong
+              >
+              <p>
+                Les échanges et contributions passent principalement par GitHub.
+              </p>
             </div>
           </article>
         </aside>
@@ -134,7 +186,10 @@ interface SupportStep {
       <footer class="support-footer">
         <div>
           <span aria-hidden="true">◆</span>
-          <p><strong>Fait au Canada. Ouvert pour tous.</strong> Transparence · Collaboration · Souveraineté numérique</p>
+          <p>
+            <strong>Fait au Canada. Ouvert pour tous.</strong> Transparence ·
+            Collaboration · Souveraineté numérique
+          </p>
         </div>
         <nav aria-label="Liens support secondaires">
           <a routerLink="/fonds-des-batisseurs/a-propos">Code de conduite</a>
@@ -154,7 +209,11 @@ interface SupportStep {
 
       .support-page {
         background:
-          radial-gradient(circle at 72% 5%, rgb(20 181 255 / 16%), transparent 20rem),
+          radial-gradient(
+            circle at 72% 5%,
+            rgb(20 181 255 / 16%),
+            transparent 20rem
+          ),
           linear-gradient(180deg, #020a17 0%, #03172d 48%, #020a17 100%);
         border: 1px solid rgb(62 161 229 / 24%);
         box-shadow: 0 30px 90px rgb(0 0 0 / 52%);
@@ -203,8 +262,19 @@ interface SupportStep {
 
       .support-hero-overlay {
         background:
-          linear-gradient(90deg, rgb(2 10 23 / 96%) 0%, rgb(2 10 23 / 72%) 34%, rgb(2 10 23 / 22%) 66%, rgb(2 10 23 / 58%) 100%),
-          linear-gradient(180deg, rgb(2 10 23 / 2%) 0%, rgb(2 10 23 / 12%) 48%, rgb(2 10 23 / 92%) 100%);
+          linear-gradient(
+            90deg,
+            rgb(2 10 23 / 96%) 0%,
+            rgb(2 10 23 / 72%) 34%,
+            rgb(2 10 23 / 22%) 66%,
+            rgb(2 10 23 / 58%) 100%
+          ),
+          linear-gradient(
+            180deg,
+            rgb(2 10 23 / 2%) 0%,
+            rgb(2 10 23 / 12%) 48%,
+            rgb(2 10 23 / 92%) 100%
+          );
         inset: 0;
         position: absolute;
       }
@@ -293,7 +363,9 @@ interface SupportStep {
       .notice-panel {
         background: rgb(4 21 43 / 78%);
         border: 1px solid rgb(76 166 235 / 30%);
-        box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 16px 38px rgb(0 0 0 / 24%);
+        box-shadow:
+          inset 0 1px 0 rgb(255 255 255 / 8%),
+          0 16px 38px rgb(0 0 0 / 24%);
       }
 
       .support-action-grid article {
@@ -722,25 +794,44 @@ interface SupportStep {
   ]
 })
 export class SupportPageComponent {
+  private readonly injector = inject(Injector);
+  private readonly seo = inject(FundingSeoService);
+
+  constructor() {
+    this.seo.bind(
+      {
+        titleKey: 'funding.seo.support.title',
+        descriptionKey: 'funding.seo.support.description',
+        path: '/support',
+        imagePath: '/assets/fonds-des-batisseurs-canada-coffre-lumineux.png'
+      },
+      this.injector
+    );
+  }
+
   readonly actions: readonly SupportAction[] = [
     {
       title: 'Explorer les dépôts',
-      description: 'Parcourez les projets OpenG7, leurs objectifs et leur état d’avancement.',
+      description:
+        'Parcourez les projets OpenG7, leurs objectifs et leur état d’avancement.',
       icon: '▤'
     },
     {
       title: 'Signaler un problème',
-      description: 'Aidez à améliorer la qualité en signalant un bug ou un comportement inattendu.',
+      description:
+        'Aidez à améliorer la qualité en signalant un bug ou un comportement inattendu.',
       icon: '!'
     },
     {
       title: 'Proposer une idée',
-      description: 'Partagez vos idées d’amélioration, nouvelles fonctionnalités ou cas d’usage.',
+      description:
+        'Partagez vos idées d’amélioration, nouvelles fonctionnalités ou cas d’usage.',
       icon: '♢'
     },
     {
       title: 'Contribuer au code',
-      description: 'Fork, code, tests et pull requests : chaque contribution compte.',
+      description:
+        'Fork, code, tests et pull requests : chaque contribution compte.',
       icon: '</>'
     }
   ];
@@ -748,7 +839,8 @@ export class SupportPageComponent {
   readonly repositories: readonly SupportRepository[] = [
     {
       name: 'OpenG7 Nexus',
-      description: 'Noyau de l’écosystème OpenG7. Identité, routage, intégrations et services clés.',
+      description:
+        'Noyau de l’écosystème OpenG7. Identité, routage, intégrations et services clés.',
       icon: '◇',
       url: 'https://github.com/OpenG7/openg7-nexus',
       status: 'Actif',
@@ -756,7 +848,8 @@ export class SupportPageComponent {
     },
     {
       name: 'Health Supply Corridors',
-      description: 'Optimise la disponibilité et la distribution des fournitures médicales critiques.',
+      description:
+        'Optimise la disponibilité et la distribution des fournitures médicales critiques.',
       icon: '✚',
       url: 'https://github.com/OpenG7/openg7-health-supply-corridors',
       status: 'En développement',
@@ -764,7 +857,8 @@ export class SupportPageComponent {
     },
     {
       name: 'Patient Navigation',
-      description: 'Guide les patients dans leurs parcours de soins de manière personnalisée.',
+      description:
+        'Guide les patients dans leurs parcours de soins de manière personnalisée.',
       icon: '♡',
       url: 'https://github.com/OpenG7/openg7-patient-navigation',
       status: 'En développement',
@@ -772,7 +866,8 @@ export class SupportPageComponent {
     },
     {
       name: 'Clinical Workforce Exchange',
-      description: 'Connecte les professionnels de santé aux besoins des établissements.',
+      description:
+        'Connecte les professionnels de santé aux besoins des établissements.',
       icon: '✦',
       url: 'https://github.com/OpenG7/openg7-clinical-workforce-exchange',
       status: 'Pré-alpha',
@@ -780,7 +875,8 @@ export class SupportPageComponent {
     },
     {
       name: 'Electoral Systems Canada',
-      description: 'Infrastructure électorale canadienne pour processus vérifiables et transparents.',
+      description:
+        'Infrastructure électorale canadienne pour processus vérifiables et transparents.',
       icon: '◫',
       url: 'https://github.com/OpenG7/openg7-electoral-systems-canada',
       status: 'Pré-alpha',
@@ -788,7 +884,8 @@ export class SupportPageComponent {
     },
     {
       name: 'OpenG7 Social',
-      description: 'Composants sociaux et participation citoyenne pour services publics.',
+      description:
+        'Composants sociaux et participation citoyenne pour services publics.',
       icon: '◎',
       url: 'https://github.com/OpenG7/openg7-social',
       status: 'Pré-alpha',
@@ -796,7 +893,8 @@ export class SupportPageComponent {
     },
     {
       name: 'OpenG7 GovGraph',
-      description: 'Graphe des données gouvernementales et interopérabilité sémantique.',
+      description:
+        'Graphe des données gouvernementales et interopérabilité sémantique.',
       icon: '⌘',
       url: 'https://github.com/OpenG7/openg7-govgraph',
       status: 'Actif',
@@ -804,7 +902,8 @@ export class SupportPageComponent {
     },
     {
       name: 'Migration Flow Engine',
-      description: 'Analyse et orchestration des flux migratoires pour des parcours plus fluides.',
+      description:
+        'Analyse et orchestration des flux migratoires pour des parcours plus fluides.',
       icon: '⌁',
       url: 'https://github.com/OpenG7/openg7-migration-flow-engine',
       status: 'En développement',
@@ -812,7 +911,8 @@ export class SupportPageComponent {
     },
     {
       name: 'Medical Referral Router',
-      description: 'Acheminer les demandes vers les bons spécialistes au bon moment.',
+      description:
+        'Acheminer les demandes vers les bons spécialistes au bon moment.',
       icon: '↬',
       url: 'https://github.com/OpenG7/openg7-medical-referral-router',
       status: 'En développement',
@@ -820,7 +920,8 @@ export class SupportPageComponent {
     },
     {
       name: 'OpenG7 Firewall',
-      description: 'Pare-feu applicatif et protection des API pour services publics.',
+      description:
+        'Pare-feu applicatif et protection des API pour services publics.',
       icon: '◈',
       url: 'https://github.com/OpenG7/openg7-firewall',
       status: 'En développement',
@@ -828,7 +929,8 @@ export class SupportPageComponent {
     },
     {
       name: 'CA: Voter Register & Docs',
-      description: 'Registre électoral et documents officiels vérifiables et à jour.',
+      description:
+        'Registre électoral et documents officiels vérifiables et à jour.',
       icon: '▣',
       url: 'https://github.com/OpenG7/openg7-ca-voter-register-and-docs',
       status: 'Pré-alpha',
@@ -836,7 +938,8 @@ export class SupportPageComponent {
     },
     {
       name: 'CA: Vehicle Registry',
-      description: 'Registre national des véhicules pour des transactions fiables et sécurisées.',
+      description:
+        'Registre national des véhicules pour des transactions fiables et sécurisées.',
       icon: '▰',
       url: 'https://github.com/OpenG7/openg7-ca-vehicle-registry',
       status: 'Pré-alpha',
@@ -855,11 +958,13 @@ export class SupportPageComponent {
   readonly steps: readonly SupportStep[] = [
     {
       title: 'Explorer',
-      description: 'Parcourez les dépôts et lisez les README pour comprendre chaque projet.'
+      description:
+        'Parcourez les dépôts et lisez les README pour comprendre chaque projet.'
     },
     {
       title: 'Créer une issue',
-      description: 'Signalez un bug ou demandez une amélioration via l’onglet Issues.'
+      description:
+        'Signalez un bug ou demandez une amélioration via l’onglet Issues.'
     },
     {
       title: 'Proposer une amélioration',

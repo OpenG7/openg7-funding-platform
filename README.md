@@ -61,6 +61,10 @@ yarn build
 yarn docs
 ```
 
+## Production launch
+
+Use [docs/production-launch-checklist.md](docs/production-launch-checklist.md) for the first public launch runbook. The initial production path is Stripe-direct and does not require PostgreSQL.
+
 ## Fund transparency module (V1)
 
 ### Environment variables

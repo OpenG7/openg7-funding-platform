@@ -1,20 +1,26 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Meta, Title } from '@angular/platform-browser';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  inject
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingSeoService } from '../../services/funding-seo.service.js';
 
 interface NewsPreview {
-  readonly title: string;
-  readonly summary: string;
+  readonly titleKey: string;
+  readonly summaryKey: string;
   readonly tone: 'ember' | 'gold' | 'charcoal';
 }
 
 @Component({
   selector: 'openg7-music-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, FundingHeaderComponent],
+  imports: [CommonModule, RouterLink, TranslatePipe, FundingHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="music-page">
@@ -24,21 +30,24 @@ interface NewsPreview {
         <img
           class="music-background"
           src="assets/openg7-background-dragon-forteresse-or.png"
-          alt="Dragon doré et forteresse lumineuse dans l'univers OpenG7"
+          [alt]="'funding.musicPage.hero.backgroundAlt' | translate"
         />
         <div class="music-veils" aria-hidden="true"></div>
 
         <div class="music-shell">
           <section class="music-hero-panel" aria-describedby="music-intro">
-            <p class="music-kicker">L’univers musical OpenG7</p>
-            <h1 id="music-title">Les Chants du Dragon</h1>
+            <p class="music-kicker">
+              {{ 'funding.musicPage.hero.eyebrow' | translate }}
+            </p>
+            <h1 id="music-title">
+              {{ 'funding.musicPage.hero.title' | translate }}
+            </h1>
             <p id="music-intro" class="music-lead">
-              Des chants nés de la foi, de la résilience, de la création et de l’unité. Une nouvelle expérience musicale prendra
-              bientôt vie au cœur d’OpenG7.
+              {{ 'funding.musicPage.hero.copy' | translate }}
             </p>
             <span class="coming-badge">
               <span aria-hidden="true">♪</span>
-              À venir
+              {{ 'funding.musicPage.hero.comingSoon' | translate }}
             </span>
           </section>
 
@@ -48,45 +57,70 @@ interface NewsPreview {
                 <span>♬</span>
               </div>
               <div class="album-copy">
-                <p class="card-eyebrow">Album</p>
-                <h2 id="album-title">Premier album OpenG7</h2>
-                <strong>En préparation</strong>
-                <ul class="track-lines" aria-label="Aperçu des titres en préparation">
+                <p class="card-eyebrow">
+                  {{ 'funding.musicPage.album.eyebrow' | translate }}
+                </p>
+                <h2 id="album-title">
+                  {{ 'funding.musicPage.album.title' | translate }}
+                </h2>
+                <strong>{{
+                  'funding.musicPage.album.status' | translate
+                }}</strong>
+                <ul
+                  class="track-lines"
+                  [attr.aria-label]="
+                    'funding.musicPage.album.trackPreviewAria' | translate
+                  "
+                >
                   <li *ngFor="let track of previewTracks; let index = index">
                     <span>{{ index + 1 }}</span>
                     <i aria-hidden="true"></i>
                   </li>
                 </ul>
-                <button type="button" disabled aria-disabled="true">Écouter l’album — À venir</button>
+                <button type="button" disabled aria-disabled="true">
+                  {{ 'funding.musicPage.album.disabledButton' | translate }}
+                </button>
               </div>
             </section>
 
             <section class="kingdom-news" aria-labelledby="news-title">
               <header>
-                <p class="card-eyebrow">Actualités</p>
-                <h2 id="news-title">Les nouvelles du Royaume</h2>
-                <p>
-                  Les publications, annonces, créations et nouvelles de la communauté OpenG7 seront bientôt réunies ici.
+                <p class="card-eyebrow">
+                  {{ 'funding.musicPage.news.eyebrow' | translate }}
                 </p>
+                <h2 id="news-title">
+                  {{ 'funding.musicPage.news.title' | translate }}
+                </h2>
+                <p>{{ 'funding.musicPage.news.copy' | translate }}</p>
               </header>
 
               <div class="news-preview-list">
                 <article *ngFor="let item of newsPreviews">
-                  <div class="news-visual" [class]="item.tone" aria-hidden="true"></div>
-                  <span>Bientôt</span>
-                  <h3>{{ item.title }}</h3>
-                  <p>{{ item.summary }}</p>
+                  <div
+                    class="news-visual"
+                    [class]="item.tone"
+                    aria-hidden="true"
+                  ></div>
+                  <span>{{ 'funding.musicPage.news.badge' | translate }}</span>
+                  <h3>{{ item.titleKey | translate }}</h3>
+                  <p>{{ item.summaryKey | translate }}</p>
                 </article>
               </div>
             </section>
           </div>
 
           <section class="music-cta" aria-labelledby="music-cta-title">
-            <h2 id="music-cta-title">Le Dragon prépare ses chants.</h2>
-            <p>Revenez bientôt pour découvrir les premières œuvres musicales d’OpenG7.</p>
+            <h2 id="music-cta-title">
+              {{ 'funding.musicPage.cta.title' | translate }}
+            </h2>
+            <p>{{ 'funding.musicPage.cta.copy' | translate }}</p>
             <div>
-              <a routerLink="/">Retour à l’accueil</a>
-              <a routerLink="/ecosystem">Découvrir l’écosystème</a>
+              <a routerLink="/">{{
+                'funding.musicPage.cta.home' | translate
+              }}</a>
+              <a routerLink="/ecosystem">{{
+                'funding.musicPage.cta.ecosystem' | translate
+              }}</a>
             </div>
           </section>
         </div>
@@ -130,9 +164,25 @@ interface NewsPreview {
 
       .music-veils {
         background:
-          radial-gradient(circle at 50% 34%, rgb(0 0 0 / 88%) 0 18rem, rgb(0 0 0 / 48%) 33rem, transparent 58rem),
-          linear-gradient(90deg, rgb(0 0 0 / 22%) 0%, rgb(0 0 0 / 76%) 32%, rgb(0 0 0 / 82%) 54%, rgb(0 0 0 / 28%) 100%),
-          linear-gradient(180deg, rgb(0 0 0 / 44%) 0%, rgb(0 0 0 / 8%) 42%, rgb(0 0 0 / 86%) 100%);
+          radial-gradient(
+            circle at 50% 34%,
+            rgb(0 0 0 / 88%) 0 18rem,
+            rgb(0 0 0 / 48%) 33rem,
+            transparent 58rem
+          ),
+          linear-gradient(
+            90deg,
+            rgb(0 0 0 / 22%) 0%,
+            rgb(0 0 0 / 76%) 32%,
+            rgb(0 0 0 / 82%) 54%,
+            rgb(0 0 0 / 28%) 100%
+          ),
+          linear-gradient(
+            180deg,
+            rgb(0 0 0 / 44%) 0%,
+            rgb(0 0 0 / 8%) 42%,
+            rgb(0 0 0 / 86%) 100%
+          );
         z-index: -2;
       }
 
@@ -145,7 +195,11 @@ interface NewsPreview {
       }
 
       .music-stage::before {
-        background: radial-gradient(circle, rgb(244 201 87 / 20%), transparent 23rem);
+        background: radial-gradient(
+          circle,
+          rgb(244 201 87 / 20%),
+          transparent 23rem
+        );
         height: 34rem;
         left: 50%;
         top: 5rem;
@@ -177,7 +231,9 @@ interface NewsPreview {
           linear-gradient(180deg, rgb(12 11 9 / 78%), rgb(4 4 4 / 66%)),
           rgb(8 8 8 / 70%);
         border: 1px solid rgb(244 201 87 / 38%);
-        box-shadow: inset 0 1px 0 rgb(255 235 168 / 11%), 0 24px 70px rgb(0 0 0 / 36%);
+        box-shadow:
+          inset 0 1px 0 rgb(255 235 168 / 11%),
+          0 24px 70px rgb(0 0 0 / 36%);
       }
 
       .music-hero-panel {
@@ -210,7 +266,9 @@ interface NewsPreview {
         font-size: clamp(2.7rem, 7vw, 6.1rem);
         line-height: 0.9;
         margin-top: 0.6rem;
-        text-shadow: 0 0 34px rgb(244 201 87 / 16%), 0 8px 34px rgb(0 0 0 / 72%);
+        text-shadow:
+          0 0 34px rgb(244 201 87 / 16%),
+          0 8px 34px rgb(0 0 0 / 72%);
       }
 
       .music-lead {
@@ -260,10 +318,24 @@ interface NewsPreview {
       .album-cover {
         aspect-ratio: 1;
         background:
-          radial-gradient(circle at 52% 46%, rgb(255 225 140 / 18%), transparent 3.4rem),
-          conic-gradient(from 24deg, #090806, #1f1609, #d6a74d, #17100a, #050505, #090806);
+          radial-gradient(
+            circle at 52% 46%,
+            rgb(255 225 140 / 18%),
+            transparent 3.4rem
+          ),
+          conic-gradient(
+            from 24deg,
+            #090806,
+            #1f1609,
+            #d6a74d,
+            #17100a,
+            #050505,
+            #090806
+          );
         border: 1px solid rgb(244 201 87 / 52%);
-        box-shadow: inset 0 0 0 1px rgb(255 239 187 / 12%), 0 18px 44px rgb(0 0 0 / 32%);
+        box-shadow:
+          inset 0 0 0 1px rgb(255 239 187 / 12%),
+          0 18px 44px rgb(0 0 0 / 32%);
         display: grid;
         min-width: 0;
         place-items: center;
@@ -326,7 +398,11 @@ interface NewsPreview {
       }
 
       .track-lines i {
-        background: linear-gradient(90deg, rgb(244 201 87 / 48%), rgb(244 201 87 / 10%));
+        background: linear-gradient(
+          90deg,
+          rgb(244 201 87 / 48%),
+          rgb(244 201 87 / 10%)
+        );
         border-radius: 999px;
         display: block;
         height: 0.52rem;
@@ -392,15 +468,33 @@ interface NewsPreview {
       }
 
       .news-visual.ember {
-        background: radial-gradient(circle at 72% 28%, rgb(244 201 87 / 34%), transparent 3rem), linear-gradient(135deg, #080705, #311406);
+        background:
+          radial-gradient(
+            circle at 72% 28%,
+            rgb(244 201 87 / 34%),
+            transparent 3rem
+          ),
+          linear-gradient(135deg, #080705, #311406);
       }
 
       .news-visual.gold {
-        background: radial-gradient(circle at 24% 30%, rgb(255 232 166 / 24%), transparent 3.2rem), linear-gradient(135deg, #0b0905, #4a350e);
+        background:
+          radial-gradient(
+            circle at 24% 30%,
+            rgb(255 232 166 / 24%),
+            transparent 3.2rem
+          ),
+          linear-gradient(135deg, #0b0905, #4a350e);
       }
 
       .news-visual.charcoal {
-        background: radial-gradient(circle at 62% 38%, rgb(244 201 87 / 18%), transparent 3.4rem), linear-gradient(135deg, #050505, #171717);
+        background:
+          radial-gradient(
+            circle at 62% 38%,
+            rgb(244 201 87 / 18%),
+            transparent 3.4rem
+          ),
+          linear-gradient(135deg, #050505, #171717);
       }
 
       .news-preview-list article > span {
@@ -484,8 +578,17 @@ interface NewsPreview {
 
         .music-veils {
           background:
-            radial-gradient(circle at 50% 26%, rgb(0 0 0 / 92%) 0 14rem, rgb(0 0 0 / 72%) 30rem),
-            linear-gradient(180deg, rgb(0 0 0 / 58%) 0%, rgb(0 0 0 / 22%) 45%, rgb(0 0 0 / 90%) 100%);
+            radial-gradient(
+              circle at 50% 26%,
+              rgb(0 0 0 / 92%) 0 14rem,
+              rgb(0 0 0 / 72%) 30rem
+            ),
+            linear-gradient(
+              180deg,
+              rgb(0 0 0 / 58%) 0%,
+              rgb(0 0 0 / 22%) 45%,
+              rgb(0 0 0 / 90%) 100%
+            );
         }
 
         .music-stage::after {
@@ -528,34 +631,38 @@ interface NewsPreview {
   ]
 })
 export class MusicPageComponent {
-  private readonly title = inject(Title);
-  private readonly meta = inject(Meta);
+  private readonly injector = inject(Injector);
+  private readonly seo = inject(FundingSeoService);
 
   readonly previewTracks = [1, 2, 3, 4];
 
   readonly newsPreviews: readonly NewsPreview[] = [
     {
-      title: 'Annonce royale',
-      summary: 'Un espace dédié aux grandes annonces du projet se prépare.',
+      titleKey: 'funding.musicPage.news.items.announcement.title',
+      summaryKey: 'funding.musicPage.news.items.announcement.summary',
       tone: 'ember'
     },
     {
-      title: 'Carnet de création',
-      summary: 'Les coulisses des chants et des visuels seront bientôt partagées.',
+      titleKey: 'funding.musicPage.news.items.creation.title',
+      summaryKey: 'funding.musicPage.news.items.creation.summary',
       tone: 'gold'
     },
     {
-      title: 'Voix de la communauté',
-      summary: 'Les nouvelles de la communauté OpenG7 seront réunies ici.',
+      titleKey: 'funding.musicPage.news.items.community.title',
+      summaryKey: 'funding.musicPage.news.items.community.summary',
       tone: 'charcoal'
     }
   ];
 
   constructor() {
-    this.title.setTitle('Les Chants du Dragon | OpenG7');
-    this.meta.updateTag({
-      name: 'description',
-      content: 'Découvrez bientôt l’univers musical d’OpenG7, ses chants, ses créations et les nouvelles du Royaume.'
-    });
+    this.seo.bind(
+      {
+        titleKey: 'funding.musicPage.seo.title',
+        descriptionKey: 'funding.musicPage.seo.description',
+        path: '/music',
+        imagePath: '/assets/openg7-background-dragon-forteresse-or.png'
+      },
+      this.injector
+    );
   }
 }

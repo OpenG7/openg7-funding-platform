@@ -11,6 +11,8 @@ import {
 import { NavigationEnd, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
+
 @Component({
   selector: 'openg7-site-music',
   standalone: true,
@@ -18,7 +20,7 @@ import { Subscription } from 'rxjs';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <button
-      *ngIf="isAvailable() && !isSuppressedRoute()"
+      *ngIf="isAvailable()"
       type="button"
       class="site-music-toggle"
       [class.playing]="isPlaying()"
@@ -45,10 +47,16 @@ import { Subscription } from 'rxjs';
         align-items: center;
         background:
           linear-gradient(180deg, rgb(5 18 35 / 86%), rgb(2 9 20 / 92%)),
-          radial-gradient(circle at 50% 20%, rgb(244 201 87 / 34%), transparent 2.2rem);
+          radial-gradient(
+            circle at 50% 20%,
+            rgb(244 201 87 / 34%),
+            transparent 2.2rem
+          );
         border: 1px solid rgb(244 201 87 / 56%);
         border-radius: 999px;
-        box-shadow: inset 0 1px 0 rgb(255 235 168 / 18%), 0 12px 34px rgb(0 0 0 / 34%);
+        box-shadow:
+          inset 0 1px 0 rgb(255 235 168 / 18%),
+          0 12px 34px rgb(0 0 0 / 34%);
         color: #fff2d6;
         display: inline-flex;
         font-family: Georgia, 'Times New Roman', serif;
@@ -73,15 +81,19 @@ import { Subscription } from 'rxjs';
   ]
 })
 export class SiteMusicComponent implements OnInit, OnDestroy {
-  private readonly musicSource = 'assets/Le%20Gardien%20des%20Lumi%C3%A8res.mp3';
+  private readonly musicSource =
+    'assets/Le%20Gardien%20des%20Lumi%C3%A8res.mp3';
+  private readonly i18n = inject(FundingI18nService);
   private readonly router = inject(Router);
 
   readonly isAvailable = signal<boolean>(true);
   readonly isPlaying = signal<boolean>(false);
-  readonly isSuppressedRoute = signal<boolean>(false);
-  readonly musicLabel = computed<string>(() =>
-    this.isPlaying() ? 'Couper la musique' : 'Lancer la musique'
-  );
+  readonly musicLabel = computed<string>(() => {
+    this.i18n.trackTranslationState();
+    return this.isPlaying()
+      ? this.i18n.t('funding.music.toggle.stop')
+      : this.i18n.t('funding.music.toggle.play');
+  });
 
   private audioElement: HTMLAudioElement | null = null;
   private removeUnlockHandlers: (() => void) | null = null;
@@ -94,7 +106,7 @@ export class SiteMusicComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.routeSubscription = this.router.events.subscribe(event => {
+    this.routeSubscription = this.router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
         this.syncRouteState();
       }
@@ -120,7 +132,9 @@ export class SiteMusicComponent implements OnInit, OnDestroy {
     void this.startMusic({ automatic: false });
   }
 
-  private async startMusic(options: { readonly automatic: boolean }): Promise<void> {
+  private async startMusic(options: {
+    readonly automatic: boolean;
+  }): Promise<void> {
     const audio = this.ensureAudioElement();
     if (!audio) {
       this.isAvailable.set(false);
@@ -164,11 +178,7 @@ export class SiteMusicComponent implements OnInit, OnDestroy {
   }
 
   private syncRouteState(): void {
-    const isSuppressedRoute = this.isMusicRoute();
-    this.isSuppressedRoute.set(isSuppressedRoute);
-
-    if (isSuppressedRoute) {
-      this.stopMusic();
+    if (this.isAutomaticStartSuppressedRoute()) {
       this.removeUnlockHandlers?.();
       this.removeUnlockHandlers = null;
       return;
@@ -179,10 +189,13 @@ export class SiteMusicComponent implements OnInit, OnDestroy {
     }
   }
 
-  private isMusicRoute(): boolean {
+  private isAutomaticStartSuppressedRoute(): boolean {
     const routerPath = this.router.url.split(/[?#]/)[0];
     const browserPath = window.location.pathname;
-    return routerPath === '/music' || browserPath === '/music';
+    return (
+      ['/music', '/boutique'].includes(routerPath) ||
+      ['/music', '/boutique'].includes(browserPath)
+    );
   }
 
   private registerUnlockHandlers(): void {
@@ -196,7 +209,10 @@ export class SiteMusicComponent implements OnInit, OnDestroy {
       void this.startMusic({ automatic: false });
     };
 
-    window.addEventListener('pointerdown', unlock, { once: true, passive: true });
+    window.addEventListener('pointerdown', unlock, {
+      once: true,
+      passive: true
+    });
     window.addEventListener('keydown', unlock, { once: true });
     this.removeUnlockHandlers = () => {
       window.removeEventListener('pointerdown', unlock);

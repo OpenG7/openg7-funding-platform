@@ -1,27 +1,6 @@
-import { provideHttpClient } from '@angular/common/http';
 import { bootstrapApplication } from '@angular/platform-browser';
-import { provideRouter, withInMemoryScrolling } from '@angular/router';
-import { provideTranslateService } from '@ngx-translate/core';
-import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
 
 import { AppComponent } from './app/app.component.js';
-import { appRoutes } from './app/app.routes.js';
+import { appConfig } from './app/app.config.js';
 
-void bootstrapApplication(AppComponent, {
-	providers: [
-		provideHttpClient(),
-		provideRouter(
-			appRoutes,
-			withInMemoryScrolling({
-				anchorScrolling: 'enabled',
-				scrollPositionRestoration: 'enabled'
-			})
-		),
-		...provideTranslateService({
-			loader: provideTranslateHttpLoader({
-				prefix: 'assets/i18n/',
-				suffix: '.json'
-			})
-		})
-	]
-});
+void bootstrapApplication(AppComponent, appConfig);

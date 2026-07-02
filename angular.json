@@ -15,6 +15,7 @@
             "outputPath": "dist/apps/funding-web",
             "index": "apps/funding-web/src/index.html",
             "browser": "apps/funding-web/src/main.ts",
+            "server": "apps/funding-web/src/main.server.ts",
             "tsConfig": "apps/funding-web/tsconfig.app.json",
             "assets": [
               {
@@ -23,9 +24,8 @@
                 "output": "assets"
               }
             ],
-            "styles": [
-              "apps/funding-web/src/styles.css"
-            ]
+            "styles": ["apps/funding-web/src/styles.css"],
+            "outputMode": "static"
           },
           "configurations": {
             "production": {

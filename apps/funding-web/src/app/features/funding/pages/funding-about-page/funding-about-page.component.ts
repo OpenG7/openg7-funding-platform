@@ -1,8 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  inject
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingSeoService } from '../../services/funding-seo.service.js';
 
 interface AboutFoundation {
   readonly title: string;
@@ -27,18 +33,24 @@ interface AboutFoundation {
         <div class="about-hero-vignette" aria-hidden="true"></div>
 
         <div class="about-copy">
-          <a class="about-emblem" routerLink="/" aria-label="Accueil Fonds des bâtisseurs">
+          <a
+            class="about-emblem"
+            routerLink="/"
+            aria-label="Accueil Fonds des bâtisseurs"
+          >
             <span></span>
           </a>
           <h1 id="about-title">À propos d’<strong>OpenG7</strong></h1>
           <div class="about-rule" aria-hidden="true"><span></span></div>
           <p class="about-statement">
-            Une vision ouverte. Des fondations partagées. <strong>Un impact collectif.</strong>
+            Une vision ouverte. Des fondations partagées.
+            <strong>Un impact collectif.</strong>
           </p>
           <p class="about-description">
-            OpenG7 est un écosystème ouvert de plateformes numériques qui relie les provinces,
-            les organisations et les communautés d'un océan à l'autre. Le Fonds des Bâtisseurs
-            soutient les fondations partagées qui rendent ces projets possibles.
+            OpenG7 est un écosystème ouvert de plateformes numériques qui relie
+            les provinces, les organisations et les communautés d'un océan à
+            l'autre. Le Fonds des Bâtisseurs soutient les fondations partagées
+            qui rendent ces projets possibles.
           </p>
 
           <div class="about-actions" aria-label="Actions à propos d'OpenG7">
@@ -58,7 +70,10 @@ interface AboutFoundation {
         </div>
       </section>
 
-      <section class="about-foundations" aria-labelledby="about-foundations-title">
+      <section
+        class="about-foundations"
+        aria-labelledby="about-foundations-title"
+      >
         <header>
           <span>Fondations partagées</span>
           <h2 id="about-foundations-title">Ce que le fonds rend possible</h2>
@@ -81,7 +96,9 @@ interface AboutFoundation {
       .about-page {
         background: #020815;
         border: 1px solid rgb(237 190 86 / 30%);
-        box-shadow: 0 0 0 1px rgb(31 157 240 / 12%), 0 30px 90px rgb(0 0 0 / 55%);
+        box-shadow:
+          0 0 0 1px rgb(31 157 240 / 12%),
+          0 30px 90px rgb(0 0 0 / 55%);
         margin: 0 auto;
         max-width: 1530px;
         min-height: 100dvh;
@@ -109,8 +126,19 @@ interface AboutFoundation {
 
       .about-hero-vignette {
         background:
-          linear-gradient(90deg, rgb(2 8 18 / 98%) 0%, rgb(2 8 18 / 80%) 30%, rgb(2 8 18 / 12%) 58%, rgb(2 8 18 / 6%) 100%),
-          linear-gradient(180deg, rgb(2 8 18 / 10%) 0%, rgb(2 8 18 / 0%) 62%, rgb(2 8 18 / 38%) 100%);
+          linear-gradient(
+            90deg,
+            rgb(2 8 18 / 98%) 0%,
+            rgb(2 8 18 / 80%) 30%,
+            rgb(2 8 18 / 12%) 58%,
+            rgb(2 8 18 / 6%) 100%
+          ),
+          linear-gradient(
+            180deg,
+            rgb(2 8 18 / 10%) 0%,
+            rgb(2 8 18 / 0%) 62%,
+            rgb(2 8 18 / 38%) 100%
+          );
         inset: 0;
         position: absolute;
       }
@@ -135,7 +163,18 @@ interface AboutFoundation {
 
       .about-emblem::before {
         background: #ff3424;
-        clip-path: polygon(50% 0, 62% 32%, 95% 24%, 70% 50%, 88% 82%, 50% 66%, 12% 82%, 30% 50%, 5% 24%, 38% 32%);
+        clip-path: polygon(
+          50% 0,
+          62% 32%,
+          95% 24%,
+          70% 50%,
+          88% 82%,
+          50% 66%,
+          12% 82%,
+          30% 50%,
+          5% 24%,
+          38% 32%
+        );
         content: '';
         height: 0.72rem;
         left: 50%;
@@ -189,7 +228,12 @@ interface AboutFoundation {
       }
 
       .about-rule {
-        background: linear-gradient(90deg, rgb(244 201 87 / 72%), rgb(244 201 87 / 20%), transparent);
+        background: linear-gradient(
+          90deg,
+          rgb(244 201 87 / 72%),
+          rgb(244 201 87 / 20%),
+          transparent
+        );
         height: 1px;
         margin: 1.3rem 0 1.35rem;
         max-width: 37rem;
@@ -271,7 +315,11 @@ interface AboutFoundation {
       }
 
       .about-foundations {
-        background: linear-gradient(180deg, rgb(3 13 28 / 98%), rgb(2 8 18 / 100%));
+        background: linear-gradient(
+          180deg,
+          rgb(3 13 28 / 98%),
+          rgb(2 8 18 / 100%)
+        );
         border-top: 1px solid rgb(221 169 59 / 32%);
         display: grid;
         gap: 1rem;
@@ -302,7 +350,9 @@ interface AboutFoundation {
         background: rgb(3 19 38 / 78%);
         border: 1px solid rgb(102 177 232 / 26%);
         border-radius: 0.62rem;
-        box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 12px 30px rgb(0 0 0 / 22%);
+        box-shadow:
+          inset 0 1px 0 rgb(255 255 255 / 8%),
+          0 12px 30px rgb(0 0 0 / 22%);
         padding: 0.85rem;
       }
 
@@ -344,7 +394,12 @@ interface AboutFoundation {
 
         .about-hero-vignette {
           background:
-            linear-gradient(90deg, rgb(2 8 18 / 94%) 0%, rgb(2 8 18 / 66%) 58%, rgb(2 8 18 / 34%) 100%),
+            linear-gradient(
+              90deg,
+              rgb(2 8 18 / 94%) 0%,
+              rgb(2 8 18 / 66%) 58%,
+              rgb(2 8 18 / 34%) 100%
+            ),
             linear-gradient(180deg, rgb(2 8 18 / 16%) 0%, rgb(2 8 18 / 84%) 82%);
         }
 
@@ -442,18 +497,36 @@ interface AboutFoundation {
   ]
 })
 export class FundingAboutPageComponent {
+  private readonly injector = inject(Injector);
+  private readonly seo = inject(FundingSeoService);
+
+  constructor() {
+    this.seo.bind(
+      {
+        titleKey: 'funding.seo.about.title',
+        descriptionKey: 'funding.seo.about.description',
+        path: '/fonds-des-batisseurs/a-propos',
+        imagePath: '/assets/fonds-des-batisseurs-dragon-coffre-lumineux.png'
+      },
+      this.injector
+    );
+  }
+
   readonly foundations: readonly AboutFoundation[] = [
     {
       title: 'Infrastructure ouverte',
-      description: 'Des bases communes pour déployer des services numériques fiables et vérifiables.'
+      description:
+        'Des bases communes pour déployer des services numériques fiables et vérifiables.'
     },
     {
       title: 'Financement transparent',
-      description: 'Chaque contribution soutient le fonds général et peut être suivie publiquement.'
+      description:
+        'Chaque contribution soutient le fonds général et peut être suivie publiquement.'
     },
     {
       title: 'Impact collectif',
-      description: 'Les plateformes avancent ensemble pour servir les communautés, les données et le terrain.'
+      description:
+        'Les plateformes avancent ensemble pour servir les communautés, les données et le terrain.'
     }
   ];
 }

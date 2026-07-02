@@ -424,6 +424,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@angular/platform-server@npm:21.2.17":
+  version: 21.2.17
+  resolution: "@angular/platform-server@npm:21.2.17"
+  dependencies:
+    tslib: "npm:^2.3.0"
+    xhr2: "npm:^0.2.0"
+  peerDependencies:
+    "@angular/common": 21.2.17
+    "@angular/compiler": 21.2.17
+    "@angular/core": 21.2.17
+    "@angular/platform-browser": 21.2.17
+    rxjs: ^6.5.3 || ^7.4.0
+  checksum: 10c0/9356f539ef47a766f9934bd887935dc0677eb0ca9f52c95ad2255fe686fab859779aaddf63e88da2756258b4820c570c1c88c162fcc1d540613ec19c8fe53e54
+  languageName: node
+  linkType: hard
+
 "@angular/router@npm:^21.0.0":
   version: 21.2.17
   resolution: "@angular/router@npm:21.2.17"
@@ -435,6 +451,23 @@ __metadata:
     "@angular/platform-browser": 21.2.17
     rxjs: ^6.5.3 || ^7.4.0
   checksum: 10c0/239bfe9f4cf5da7dce3b7bf447ddd4dab7a72f0cfcc11cc4c3195f892829e5879c9ab496b65c64741de3e180f1e2f0a8d9e7eb33fa558a3dfdbea6f8a7b17d1f
+  languageName: node
+  linkType: hard
+
+"@angular/ssr@npm:21.2.17":
+  version: 21.2.17
+  resolution: "@angular/ssr@npm:21.2.17"
+  dependencies:
+    tslib: "npm:^2.3.0"
+  peerDependencies:
+    "@angular/common": ^21.0.0
+    "@angular/core": ^21.0.0
+    "@angular/platform-server": ^21.0.0
+    "@angular/router": ^21.0.0
+  peerDependenciesMeta:
+    "@angular/platform-server":
+      optional: true
+  checksum: 10c0/fc46582124797e0bf478303a4a5e47309ea6a9f455ec93847af190e78d2b0908bbddcc037fc86f39d57ec6bd7370a81a712bcb61651d4554fb56cee3a0bee8e6
   languageName: node
   linkType: hard
 
@@ -2060,7 +2093,9 @@ __metadata:
     "@angular/core": "npm:^21.0.0"
     "@angular/forms": "npm:^21.0.0"
     "@angular/platform-browser": "npm:^21.0.0"
+    "@angular/platform-server": "npm:21.2.17"
     "@angular/router": "npm:^21.0.0"
+    "@angular/ssr": "npm:21.2.17"
     "@ngrx/store": "npm:^21.0.0"
     "@ngx-translate/core": "npm:^17.0.0"
     "@ngx-translate/http-loader": "npm:^17.0.0"
@@ -8331,6 +8366,13 @@ __metadata:
   version: 1.0.2
   resolution: "wrappy@npm:1.0.2"
   checksum: 10c0/56fece1a4018c6a6c8e28fbc88c87e0fbf4ea8fd64fc6c63b18f4acc4bd13e0ad2515189786dd2c30d3eec9663d70f4ecf699330002f8ccb547e4a18231fc9f0
+  languageName: node
+  linkType: hard
+
+"xhr2@npm:^0.2.0":
+  version: 0.2.1
+  resolution: "xhr2@npm:0.2.1"
+  checksum: 10c0/eebe95bd0ae9087da9b4dda636abee1f30cf9b424fbe8ebd0c7dcfd9be5db3e4aa634cf1837fa3e82b486aace9396a2dbf6be2dc8084862c8239dccec4e16dca
   languageName: node
   linkType: hard
 

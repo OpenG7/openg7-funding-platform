@@ -1,15 +1,219 @@
 {
   "funding": {
+    "brand": {
+      "title": "Fonds des bâtisseurs",
+      "organization": "OpenG7"
+    },
+    "aria": {
+      "brandHome": "Accueil Fonds des bâtisseurs OpenG7",
+      "primaryNavigation": "Navigation principale"
+    },
+    "seo": {
+      "home": {
+        "title": "Fonds des bâtisseurs | OpenG7",
+        "description": "Soutenez OpenG7 et le Fonds des bâtisseurs, une infrastructure ouverte pour financer des plateformes numériques publiques, transparentes et résilientes."
+      },
+      "ecosystem": {
+        "title": "Écosystème OpenG7 | Plateformes publiques ouvertes",
+        "description": "Explorez les plateformes OpenG7, leurs familles, leurs connexions et l’architecture commune qui relie les services numériques publics."
+      },
+      "support": {
+        "title": "Support et dépôts GitHub | OpenG7",
+        "description": "Accédez aux dépôts GitHub OpenG7, consultez les projets, ouvrez des issues et contribuez à l’écosystème."
+      },
+      "about": {
+        "title": "À propos d’OpenG7 | Fonds des bâtisseurs",
+        "description": "Découvrez la vision d’OpenG7, ses fondations partagées et le rôle du Fonds des bâtisseurs dans le développement de l’écosystème."
+      },
+      "transparency": {
+        "title": "Transparence du Fonds des bâtisseurs | OpenG7",
+        "description": "Consultez les données publiques agrégées du Fonds des bâtisseurs : contributions, frais, disponibilité estimée et registre de transparence."
+      }
+    },
     "nav": {
       "home": "Accueil",
       "projects": "Projets",
+      "ecosystem": "Écosystème",
+      "music": "Les Chants",
+      "shop": "Boutique",
       "transparency": "Transparence",
       "impact": "Impact",
-      "about": "A propos",
+      "about": "À propos",
       "contact": "Nous joindre",
       "login": "Se connecter",
+      "support": "Support",
       "supportCta": "Soutenir OpenG7",
-      "themeToggle": "Changer le theme"
+      "themeToggle": "Changer le thème",
+      "languageToggle": "Changer la langue"
+    },
+    "music": {
+      "toggle": {
+        "play": "Lancer la musique",
+        "stop": "Couper la musique"
+      }
+    },
+    "musicPage": {
+      "seo": {
+        "title": "Les Chants du Dragon | OpenG7",
+        "description": "Découvrez bientôt l’univers musical d’OpenG7, ses chants, ses créations et les nouvelles du Royaume."
+      },
+      "hero": {
+        "backgroundAlt": "Dragon doré et forteresse lumineuse dans l'univers OpenG7",
+        "eyebrow": "L’univers musical OpenG7",
+        "title": "Les Chants du Dragon",
+        "copy": "Des chants nés de la foi, de la résilience, de la création et de l’unité. Une nouvelle expérience musicale prendra bientôt vie au cœur d’OpenG7.",
+        "comingSoon": "À venir"
+      },
+      "album": {
+        "eyebrow": "Album",
+        "title": "Premier album OpenG7",
+        "status": "En préparation",
+        "trackPreviewAria": "Aperçu des titres en préparation",
+        "disabledButton": "Écouter l’album — À venir"
+      },
+      "news": {
+        "eyebrow": "Actualités",
+        "title": "Les nouvelles du Royaume",
+        "copy": "Les publications, annonces, créations et nouvelles de la communauté OpenG7 seront bientôt réunies ici.",
+        "badge": "Bientôt",
+        "items": {
+          "announcement": {
+            "title": "Annonce royale",
+            "summary": "Un espace dédié aux grandes annonces du projet se prépare."
+          },
+          "creation": {
+            "title": "Carnet de création",
+            "summary": "Les coulisses des chants et des visuels seront bientôt partagées."
+          },
+          "community": {
+            "title": "Voix de la communauté",
+            "summary": "Les nouvelles de la communauté OpenG7 seront réunies ici."
+          }
+        }
+      },
+      "cta": {
+        "title": "Le Dragon prépare ses chants.",
+        "copy": "Revenez bientôt pour découvrir les premières œuvres musicales d’OpenG7.",
+        "home": "Retour à l’accueil",
+        "ecosystem": "Découvrir l’écosystème"
+      }
+    },
+    "boutique": {
+      "seo": {
+        "title": "Boutique NorthDragon | OpenG7",
+        "description": "Découvrez la boutique NorthDragon, ses vêtements, accessoires et créations inspirés par la force, la foi, la résilience et la transformation."
+      },
+      "hero": {
+        "backgroundAlt": "Dragon doré et château dans un ciel sombre pour l'univers NorthDragon",
+        "eyebrow": "L’univers NorthDragon",
+        "title": "Boutique NorthDragon",
+        "comingSoon": "À venir",
+        "subtitle": "Des créations inspirées par la force, la foi, la résilience et la noblesse intérieure.",
+        "copy": "Découvrez des vêtements, accessoires et créations exclusives conçus pour celles et ceux qui portent leur histoire avec courage."
+      },
+      "links": {
+        "discover": "Découvrir la boutique",
+        "discoverAria": "Découvrir la boutique NorthDragon dans un nouvel onglet",
+        "discoverUniverse": "Découvrir l’univers NorthDragon",
+        "collection": "Voir la collection",
+        "collectionAria": "Voir la collection {{ collection }} sur NorthDragon.org",
+        "preview": "Voir dans la boutique",
+        "previewAria": "Voir {{ selection }} dans la boutique NorthDragon",
+        "visit": "Visiter NorthDragon.org",
+        "visitAria": "Visiter NorthDragon.org dans un nouvel onglet",
+        "access": "Accéder à la boutique",
+        "accessAria": "Accéder à la boutique NorthDragon dans un nouvel onglet",
+        "home": "Retour à l’accueil"
+      },
+      "benefits": {
+        "ariaLabel": "Avantages de la boutique NorthDragon",
+        "exclusive": {
+          "title": "Créations exclusives",
+          "description": "Des designs originaux inspirés de l’univers du Dragon."
+        },
+        "onDemand": {
+          "title": "Fabrication à la demande",
+          "description": "Des articles produits avec soin après chaque commande."
+        },
+        "securePayment": {
+          "title": "Paiement sécurisé",
+          "description": "Des transactions protégées par les solutions de paiement de la boutique."
+        },
+        "international": {
+          "title": "Livraison internationale",
+          "description": "Une sélection d’articles disponible dans plusieurs régions du monde."
+        },
+        "support": {
+          "title": "Soutien au projet",
+          "description": "Chaque achat contribue au développement de l’univers NorthDragon et de l’écosystème OpenG7."
+        }
+      },
+      "collections": {
+        "eyebrow": "Collections",
+        "title": "Les collections NorthDragon",
+        "subtitle": "Une signature pour chaque histoire.",
+        "items": {
+          "clothing": {
+            "title": "Vêtements",
+            "description": "T-shirts, chandails, vêtements légers et créations à porter au quotidien."
+          },
+          "accessories": {
+            "title": "Accessoires",
+            "description": "Casquettes, foulards, sacs et accessoires inspirés par le Dragon."
+          },
+          "home": {
+            "title": "Maison et style",
+            "description": "Coussins, objets décoratifs et créations pour prolonger l’univers NorthDragon."
+          },
+          "special": {
+            "title": "Collections spéciales",
+            "description": "Des créations symboliques autour de la renaissance, de la foi et de la souveraineté intérieure."
+          }
+        }
+      },
+      "featured": {
+        "eyebrow": "Aperçus éditoriaux",
+        "title": "Une sélection du Royaume",
+        "subtitle": "Les collections complètes sont disponibles sur NorthDragon.org.",
+        "dynamicComingSoon": "Sélection dynamique à venir",
+        "items": {
+          "signature": {
+            "category": "Tenues signature",
+            "description": "Des pièces à porter comme une armure douce, entre sobriété et présence."
+          },
+          "accessories": {
+            "category": "Accessoires du Royaume",
+            "description": "Des compléments visuels pour prolonger l’identité NorthDragon au quotidien."
+          },
+          "symbolic": {
+            "category": "Créations symboliques",
+            "description": "Des aperçus éditoriaux autour de la renaissance, de la foi et de la transformation."
+          },
+          "universe": {
+            "category": "Objets d’univers",
+            "description": "Des idées de style et d’ambiance pour faire vivre le récit au-delà du vêtement."
+          }
+        }
+      },
+      "brand": {
+        "eyebrow": "Signature",
+        "title": "NorthDragon — Née pour renaître",
+        "copy": "NorthDragon est plus qu’une boutique : c’est une signature. Un univers inspiré par le dragon, la noblesse, la résilience, la foi et la transformation. Chaque création porte une force intérieure : le courage de renaître, la beauté de se relever et l’élégance d’avancer avec puissance.",
+        "quote": "« Porte ton histoire. Avance avec puissance. »"
+      },
+      "ecosystem": {
+        "eyebrow": "OpenG7",
+        "title": "Une création de l’écosystème OpenG7",
+        "copy": "NorthDragon représente la dimension créative, symbolique et commerciale de l’écosystème OpenG7. La boutique contribue à faire vivre ses créations, ses récits et ses projets."
+      },
+      "cta": {
+        "title": "Entrez dans l’univers NorthDragon",
+        "copy": "Découvrez des créations conçues pour représenter la force, la transformation et la lumière retrouvée."
+      },
+      "footer": {
+        "brand": "OpenG7 × NorthDragon",
+        "copy": "Création · Résilience · Souveraineté intérieure"
+      }
     },
     "campaign": {
       "title": "Le Fonds des Bâtisseurs",

@@ -1,15 +1,219 @@
 {
   "funding": {
+    "brand": {
+      "title": "Builders Fund",
+      "organization": "OpenG7"
+    },
+    "aria": {
+      "brandHome": "OpenG7 Builders Fund home",
+      "primaryNavigation": "Primary navigation"
+    },
+    "seo": {
+      "home": {
+        "title": "Builders Fund | OpenG7",
+        "description": "Support OpenG7 and the Builders Fund, an open infrastructure for funding transparent, resilient public digital platforms."
+      },
+      "ecosystem": {
+        "title": "OpenG7 Ecosystem | Open public platforms",
+        "description": "Explore OpenG7 platforms, their families, connections, and shared architecture for public digital services."
+      },
+      "support": {
+        "title": "Support and GitHub repositories | OpenG7",
+        "description": "Access OpenG7 GitHub repositories, review projects, open issues, and contribute to the ecosystem."
+      },
+      "about": {
+        "title": "About OpenG7 | Builders Fund",
+        "description": "Discover OpenG7’s vision, shared foundations, and the role of the Builders Fund in developing the ecosystem."
+      },
+      "transparency": {
+        "title": "Builders Fund transparency | OpenG7",
+        "description": "View aggregated public Builders Fund data: contributions, fees, estimated availability, and transparency records."
+      }
+    },
     "nav": {
       "home": "Home",
       "projects": "Projects",
+      "ecosystem": "Ecosystem",
+      "music": "The Chants",
+      "shop": "Shop",
       "transparency": "Transparency",
       "impact": "Impact",
       "about": "About",
       "contact": "Contact",
       "login": "Sign in",
+      "support": "Support",
       "supportCta": "Support OpenG7",
-      "themeToggle": "Toggle theme"
+      "themeToggle": "Toggle theme",
+      "languageToggle": "Change language"
+    },
+    "music": {
+      "toggle": {
+        "play": "Start music",
+        "stop": "Stop music"
+      }
+    },
+    "musicPage": {
+      "seo": {
+        "title": "The Dragon Chants | OpenG7",
+        "description": "Soon discover OpenG7’s musical universe, its chants, creations, and news from the Realm."
+      },
+      "hero": {
+        "backgroundAlt": "Golden dragon and luminous fortress in the OpenG7 universe",
+        "eyebrow": "The OpenG7 musical universe",
+        "title": "The Dragon Chants",
+        "copy": "Chants born from faith, resilience, creation, and unity. A new musical experience will soon come to life at the heart of OpenG7.",
+        "comingSoon": "Coming soon"
+      },
+      "album": {
+        "eyebrow": "Album",
+        "title": "First OpenG7 album",
+        "status": "In preparation",
+        "trackPreviewAria": "Preview of titles in preparation",
+        "disabledButton": "Listen to the album — Coming soon"
+      },
+      "news": {
+        "eyebrow": "News",
+        "title": "News from the Realm",
+        "copy": "Posts, announcements, creations, and community news from OpenG7 will soon be gathered here.",
+        "badge": "Soon",
+        "items": {
+          "announcement": {
+            "title": "Royal announcement",
+            "summary": "A space dedicated to major project announcements is being prepared."
+          },
+          "creation": {
+            "title": "Creation journal",
+            "summary": "Behind-the-scenes notes on chants and visuals will soon be shared."
+          },
+          "community": {
+            "title": "Community voices",
+            "summary": "OpenG7 community news will be gathered here."
+          }
+        }
+      },
+      "cta": {
+        "title": "The Dragon is preparing its chants.",
+        "copy": "Come back soon to discover the first musical works of OpenG7.",
+        "home": "Return home",
+        "ecosystem": "Discover the ecosystem"
+      }
+    },
+    "boutique": {
+      "seo": {
+        "title": "NorthDragon Shop | OpenG7",
+        "description": "Discover the NorthDragon shop, its clothing, accessories, and creations inspired by strength, faith, resilience, and transformation."
+      },
+      "hero": {
+        "backgroundAlt": "Golden dragon and castle under dark skies for the NorthDragon universe",
+        "eyebrow": "The NorthDragon universe",
+        "title": "NorthDragon Shop",
+        "comingSoon": "Coming soon",
+        "subtitle": "Creations inspired by strength, faith, resilience, and inner nobility.",
+        "copy": "Discover clothing, accessories, and exclusive creations designed for those who carry their story with courage."
+      },
+      "links": {
+        "discover": "Discover the shop",
+        "discoverAria": "Discover the NorthDragon shop in a new tab",
+        "discoverUniverse": "Discover the NorthDragon universe",
+        "collection": "View collection",
+        "collectionAria": "View the {{ collection }} collection on NorthDragon.org",
+        "preview": "View in the shop",
+        "previewAria": "View {{ selection }} in the NorthDragon shop",
+        "visit": "Visit NorthDragon.org",
+        "visitAria": "Visit NorthDragon.org in a new tab",
+        "access": "Go to the shop",
+        "accessAria": "Open the NorthDragon shop in a new tab",
+        "home": "Return home"
+      },
+      "benefits": {
+        "ariaLabel": "NorthDragon shop benefits",
+        "exclusive": {
+          "title": "Exclusive creations",
+          "description": "Original designs inspired by the Dragon universe."
+        },
+        "onDemand": {
+          "title": "Made to order",
+          "description": "Items produced with care after each order."
+        },
+        "securePayment": {
+          "title": "Secure payment",
+          "description": "Transactions protected by the shop’s payment solutions."
+        },
+        "international": {
+          "title": "International shipping",
+          "description": "A selection of items available in several regions of the world."
+        },
+        "support": {
+          "title": "Project support",
+          "description": "Every purchase contributes to the NorthDragon universe and the OpenG7 ecosystem."
+        }
+      },
+      "collections": {
+        "eyebrow": "Collections",
+        "title": "NorthDragon collections",
+        "subtitle": "A signature for every story.",
+        "items": {
+          "clothing": {
+            "title": "Clothing",
+            "description": "T-shirts, sweaters, lightweight garments, and everyday wearable creations."
+          },
+          "accessories": {
+            "title": "Accessories",
+            "description": "Caps, scarves, bags, and accessories inspired by the Dragon."
+          },
+          "home": {
+            "title": "Home and style",
+            "description": "Cushions, decorative objects, and creations that extend the NorthDragon universe."
+          },
+          "special": {
+            "title": "Special collections",
+            "description": "Symbolic creations around rebirth, faith, and inner sovereignty."
+          }
+        }
+      },
+      "featured": {
+        "eyebrow": "Editorial previews",
+        "title": "A selection from the Realm",
+        "subtitle": "The full collections are available on NorthDragon.org.",
+        "dynamicComingSoon": "Dynamic selection coming soon",
+        "items": {
+          "signature": {
+            "category": "Signature outfits",
+            "description": "Pieces to wear like soft armor, between restraint and presence."
+          },
+          "accessories": {
+            "category": "Realm accessories",
+            "description": "Visual complements that extend the NorthDragon identity every day."
+          },
+          "symbolic": {
+            "category": "Symbolic creations",
+            "description": "Editorial previews around rebirth, faith, and transformation."
+          },
+          "universe": {
+            "category": "Universe objects",
+            "description": "Style and atmosphere ideas that carry the story beyond clothing."
+          }
+        }
+      },
+      "brand": {
+        "eyebrow": "Signature",
+        "title": "NorthDragon — Born to rise again",
+        "copy": "NorthDragon is more than a shop: it is a signature. A universe inspired by the dragon, nobility, resilience, faith, and transformation. Every creation carries inner strength: the courage to rise again, the beauty of standing back up, and the elegance of moving forward with power.",
+        "quote": "“Wear your story. Move forward with power.”"
+      },
+      "ecosystem": {
+        "eyebrow": "OpenG7",
+        "title": "A creation of the OpenG7 ecosystem",
+        "copy": "NorthDragon represents the creative, symbolic, and commercial dimension of the OpenG7 ecosystem. The shop helps bring its creations, stories, and projects to life."
+      },
+      "cta": {
+        "title": "Enter the NorthDragon universe",
+        "copy": "Discover creations designed to represent strength, transformation, and restored light."
+      },
+      "footer": {
+        "brand": "OpenG7 × NorthDragon",
+        "copy": "Creation · Resilience · Inner sovereignty"
+      }
     },
     "campaign": {
       "title": "Builders Fund",
