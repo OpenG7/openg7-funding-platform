@@ -42,6 +42,7 @@ const fallbackStatus: StripeSetupDevStatus = {
   stripeWebhookSecretConfigured: false,
   databaseUrlConfigured: false,
   databaseReachable: false,
+  transparencySource: 'none',
   localApiBaseUrl: 'http://localhost:3333',
   checkoutEndpoint: 'http://localhost:3333/api/checkout-sessions',
   webhookEndpoint: 'http://localhost:3333/api/stripe/webhook',

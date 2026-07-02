@@ -37,7 +37,7 @@ export class FundingService {
   };
 
   /**
-   * Creates a checkout session via the local API and falls back to a mock result if the API is unavailable.
+    * Creates a checkout session via the API. Mock fallback is limited to local development.
    */
   async startCheckout(amount: number): Promise<CheckoutResult> {
     const request: CheckoutRequest = {
@@ -58,11 +58,28 @@ export class FundingService {
       });
 
       if (!response.ok) {
+        if (!this.canUseDevelopmentCheckoutFallback()) {
+          throw new Error('Checkout API is unavailable.');
+        }
+
         return createMockCheckoutResult(request);
       }
 
-      return (await response.json()) as CheckoutResult;
+      const result = (await response.json()) as CheckoutResult;
+
+      if (
+        result.status === 'mocked' &&
+        !this.canUseDevelopmentCheckoutFallback()
+      ) {
+        throw new Error('Mock checkout is disabled outside local development.');
+      }
+
+      return result;
     } catch {
+      if (!this.canUseDevelopmentCheckoutFallback()) {
+        throw new Error('Checkout could not be started.');
+      }
+
       return createMockCheckoutResult(request);
     }
   }
@@ -80,11 +97,21 @@ export class FundingService {
   private resolveApiBaseUrl(): string {
     const globalApiBaseUrl =
       typeof window !== 'undefined'
-        ? (window as Window & {
-            readonly __OPENG7_FUNDING_API_BASE_URL__?: string;
-          }).__OPENG7_FUNDING_API_BASE_URL__
+        ? (
+            window as Window & {
+              readonly __OPENG7_FUNDING_API_BASE_URL__?: string;
+            }
+          ).__OPENG7_FUNDING_API_BASE_URL__
         : undefined;
 
     return globalApiBaseUrl?.replace(/\/$/, '') ?? '/api';
+  }
+
+  private canUseDevelopmentCheckoutFallback(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return ['localhost', '127.0.0.1'].includes(window.location.hostname);
   }
 }

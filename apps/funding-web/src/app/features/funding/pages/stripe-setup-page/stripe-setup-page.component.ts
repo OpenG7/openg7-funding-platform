@@ -58,6 +58,7 @@ const fallbackStatus: StripeSetupDevStatus = {
   stripeWebhookSecretConfigured: false,
   databaseUrlConfigured: false,
   databaseReachable: false,
+  transparencySource: 'none',
   localApiBaseUrl: 'http://localhost:3333',
   checkoutEndpoint: 'http://localhost:3333/api/checkout-sessions',
   webhookEndpoint: 'http://localhost:3333/api/stripe/webhook',
@@ -201,12 +202,12 @@ const fallbackStatus: StripeSetupDevStatus = {
             <button type="button" class="subtle" (click)="openUrl('https://dashboard.stripe.com/test/apikeys')">Generer de nouvelles cles ↻</button>
           </article>
 
-          <article class="panel payout-panel" [class.ok]="status().databaseReachable">
+          <article class="panel payout-panel" [class.ok]="status().stripeSecretKeyConfigured">
             <span class="bank-icon" aria-hidden="true">♜</span>
             <h2>Statut des versements</h2>
-            <strong>{{ status().databaseReachable ? 'Versements actives' : 'Versements a verifier' }}</strong>
+            <strong>{{ status().stripeSecretKeyConfigured ? 'Versements consultables' : 'Cle Stripe a verifier' }}</strong>
             <p>Compte bancaire : **** 4242</p>
-            <p>Devise : EUR</p>
+            <p>Devise : CAD</p>
             <button type="button" (click)="openUrl('https://dashboard.stripe.com/test/balance/overview')">Gerer les versements ↗</button>
           </article>
         </section>
@@ -1171,9 +1172,9 @@ export class StripeSetupPageComponent implements OnInit {
       },
       {
         number: 2,
-        title: 'Verification',
-        detail: status.databaseReachable ? 'Termine' : 'A faire',
-        state: status.databaseReachable ? 'complete' : status.apiReachable ? 'active' : 'pending'
+        title: 'Transparence',
+        detail: this.transparencySourceLabel(),
+        state: status.transparencySource !== 'none' ? 'complete' : status.apiReachable ? 'active' : 'pending'
       },
       {
         number: 3,
@@ -1229,26 +1230,16 @@ export class StripeSetupPageComponent implements OnInit {
       },
       {
         id: 'database',
-        title: 'Preparer PostgreSQL',
-        description: 'Configure DATABASE_URL et applique la migration de transparence financiere.',
-        status: status.databaseReachable ? 'verified' : 'manual',
-        statusLabel: status.databaseReachable ? 'Verifie' : 'A faire',
+        title: 'Sans PostgreSQL au lancement',
+        description: 'Pour le lancement rapide, les statistiques publiques lisent Stripe directement. PostgreSQL reste une option future seulement.',
+        status: 'verified',
+        statusLabel: status.databaseReachable ? 'Journal actif' : 'Non requis',
         checklist: [
-          status.databaseUrlConfigured ? 'DATABASE_URL est configuree' : 'DATABASE_URL manque',
-          status.databaseReachable ? 'La base repond' : 'La base ne repond pas encore'
+          status.transparencySource === 'stripe' ? 'Mode lancement rapide: Stripe direct' : 'Stripe direct en attente de cle API',
+          'Laisser DATABASE_URL vide pour ce lancement',
+          status.databaseReachable ? 'Journal PostgreSQL actif par configuration locale' : 'Aucune base PostgreSQL requise'
         ],
-        commands: [
-          {
-            label: 'Variable',
-            value:
-              '$env:DATABASE_URL="postgres://postgres:postgres@localhost:5432/openg7_funding"'
-          },
-          {
-            label: 'Migration',
-            value:
-              'psql "$env:DATABASE_URL" -f "apps/funding-api/migrations/001_create_fund_transparency_tables.sql"'
-          }
-        ],
+        commands: [],
         links: []
       },
       {
@@ -1419,6 +1410,19 @@ export class StripeSetupPageComponent implements OnInit {
     }
   }
 
+
+  transparencySourceLabel(): string {
+    const source = this.status().transparencySource;
+    if (source === 'database') {
+      return 'PostgreSQL actif';
+    }
+
+    if (source === 'stripe') {
+      return 'Stripe direct';
+    }
+
+    return 'A configurer';
+  }
   setPaymentMode(mode: 'test' | 'live'): void {
     this.paymentMode.set(mode);
   }

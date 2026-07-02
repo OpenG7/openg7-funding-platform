@@ -28,6 +28,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
         <a routerLink="/ecosystem" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
           Écosystème
         </a>
+        <a routerLink="/music" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Les Chants</a>
         <a
           routerLink="/fonds-des-batisseurs/transparence"
           routerLinkActive="active"

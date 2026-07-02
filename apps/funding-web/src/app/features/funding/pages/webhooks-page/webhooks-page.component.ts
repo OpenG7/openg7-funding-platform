@@ -33,6 +33,7 @@ const fallbackStatus: StripeSetupDevStatus = {
   stripeWebhookSecretConfigured: false,
   databaseUrlConfigured: false,
   databaseReachable: false,
+  transparencySource: 'none',
   localApiBaseUrl: 'http://localhost:3333',
   checkoutEndpoint: 'http://localhost:3333/api/checkout-sessions',
   webhookEndpoint: 'http://localhost:3333/api/stripe/webhook',
@@ -137,11 +138,11 @@ const fallbackStatus: StripeSetupDevStatus = {
               <p>whsec_********************************</p>
             </div>
           </article>
-          <article [class.ok]="status().databaseReachable">
+          <article [class.ok]="status().transparencySource !== 'none'">
             <span aria-hidden="true">▦</span>
             <div>
-              <h2>Impact transparence</h2>
-              <strong>{{ status().databaseReachable ? 'Pret' : 'Base a verifier' }}</strong>
+              <h2>Source transparence</h2>
+              <strong>{{ transparencySourceLabel() }}</strong>
               <p>{{ status().publicTransparencyEndpoint }}</p>
             </div>
           </article>
@@ -862,6 +863,19 @@ export class WebhooksPageComponent implements OnInit {
       this.status.set(fallbackStatus);
       this.loadError.set(true);
     }
+  }
+
+  transparencySourceLabel(): string {
+    const source = this.status().transparencySource;
+    if (source === 'database') {
+      return 'PostgreSQL';
+    }
+
+    if (source === 'stripe') {
+      return 'Stripe direct';
+    }
+
+    return 'A configurer';
   }
 
   openUrl(url: string): void {

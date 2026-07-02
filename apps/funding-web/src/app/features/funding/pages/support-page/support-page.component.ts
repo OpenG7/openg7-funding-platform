@@ -14,6 +14,7 @@ interface SupportRepository {
   readonly name: string;
   readonly description: string;
   readonly icon: string;
+  readonly url: string;
   readonly status: 'Actif' | 'En développement' | 'Pré-alpha';
   readonly tone: 'cyan' | 'gold' | 'green' | 'blue';
 }
@@ -52,8 +53,8 @@ interface SupportStep {
             proposez une idée et contribuez au code.
           </p>
           <div class="support-actions-row">
-            <a class="primary" href="https://github.com/" target="_blank" rel="noreferrer">Voir les dépôts</a>
-            <a href="https://github.com/" target="_blank" rel="noreferrer">Ouvrir GitHub <span aria-hidden="true">↗</span></a>
+            <a class="primary" href="https://github.com/orgs/OpenG7/repositories" target="_blank" rel="noreferrer">Voir les dépôts</a>
+            <a href="https://github.com/OpenG7" target="_blank" rel="noreferrer">Ouvrir GitHub <span aria-hidden="true">↗</span></a>
           </div>
         </div>
 
@@ -88,14 +89,14 @@ interface SupportStep {
               </div>
               <em [class]="repository.tone">{{ repository.status }}</em>
               <nav aria-label="Liens du dépôt">
-                <a href="https://github.com/" target="_blank" rel="noreferrer">README</a>
-                <a href="https://github.com/" target="_blank" rel="noreferrer">Issues</a>
-                <a href="https://github.com/" target="_blank" rel="noreferrer">Pull Requests</a>
+                <a [href]="repository.url" target="_blank" rel="noreferrer">README</a>
+                <a [href]="repository.url + '/issues'" target="_blank" rel="noreferrer">Issues</a>
+                <a [href]="repository.url + '/pulls'" target="_blank" rel="noreferrer">Pull Requests</a>
               </nav>
             </article>
           </div>
 
-          <a class="all-repositories" href="https://github.com/" target="_blank" rel="noreferrer">
+          <a class="all-repositories" href="https://github.com/orgs/OpenG7/repositories" target="_blank" rel="noreferrer">
             Voir tous les dépôts sur GitHub <span aria-hidden="true">↗</span>
           </a>
         </article>
@@ -749,34 +750,103 @@ export class SupportPageComponent {
       name: 'OpenG7 Nexus',
       description: 'Noyau de l’écosystème OpenG7. Identité, routage, intégrations et services clés.',
       icon: '◇',
+      url: 'https://github.com/OpenG7/openg7-nexus',
       status: 'Actif',
       tone: 'green'
     },
     {
-      name: 'OpenG7 Funding Platform',
-      description: 'Plateforme ouverte de financement et de transparence pour projets publics.',
-      icon: '$',
+      name: 'Health Supply Corridors',
+      description: 'Optimise la disponibilité et la distribution des fournitures médicales critiques.',
+      icon: '✚',
+      url: 'https://github.com/OpenG7/openg7-health-supply-corridors',
       status: 'En développement',
-      tone: 'gold'
+      tone: 'green'
     },
     {
-      name: 'OpenG7 GovGraph',
-      description: 'Graphe des données gouvernementales et interopérabilité sémantique.',
-      icon: '⌘',
-      status: 'Actif',
+      name: 'Patient Navigation',
+      description: 'Guide les patients dans leurs parcours de soins de manière personnalisée.',
+      icon: '♡',
+      url: 'https://github.com/OpenG7/openg7-patient-navigation',
+      status: 'En développement',
       tone: 'cyan'
     },
     {
-      name: 'OpenG7 Firewall',
-      description: 'Pare-feu applicatif et protection des API pour services publics.',
-      icon: '◈',
-      status: 'En développement',
+      name: 'Clinical Workforce Exchange',
+      description: 'Connecte les professionnels de santé aux besoins des établissements.',
+      icon: '✦',
+      url: 'https://github.com/OpenG7/openg7-clinical-workforce-exchange',
+      status: 'Pré-alpha',
+      tone: 'gold'
+    },
+    {
+      name: 'Electoral Systems Canada',
+      description: 'Infrastructure électorale canadienne pour processus vérifiables et transparents.',
+      icon: '◫',
+      url: 'https://github.com/OpenG7/openg7-electoral-systems-canada',
+      status: 'Pré-alpha',
       tone: 'blue'
     },
     {
       name: 'OpenG7 Social',
       description: 'Composants sociaux et participation citoyenne pour services publics.',
       icon: '◎',
+      url: 'https://github.com/OpenG7/openg7-social',
+      status: 'Pré-alpha',
+      tone: 'gold'
+    },
+    {
+      name: 'OpenG7 GovGraph',
+      description: 'Graphe des données gouvernementales et interopérabilité sémantique.',
+      icon: '⌘',
+      url: 'https://github.com/OpenG7/openg7-govgraph',
+      status: 'Actif',
+      tone: 'cyan'
+    },
+    {
+      name: 'Migration Flow Engine',
+      description: 'Analyse et orchestration des flux migratoires pour des parcours plus fluides.',
+      icon: '⌁',
+      url: 'https://github.com/OpenG7/openg7-migration-flow-engine',
+      status: 'En développement',
+      tone: 'blue'
+    },
+    {
+      name: 'Medical Referral Router',
+      description: 'Acheminer les demandes vers les bons spécialistes au bon moment.',
+      icon: '↬',
+      url: 'https://github.com/OpenG7/openg7-medical-referral-router',
+      status: 'En développement',
+      tone: 'green'
+    },
+    {
+      name: 'OpenG7 Firewall',
+      description: 'Pare-feu applicatif et protection des API pour services publics.',
+      icon: '◈',
+      url: 'https://github.com/OpenG7/openg7-firewall',
+      status: 'En développement',
+      tone: 'blue'
+    },
+    {
+      name: 'CA: Voter Register & Docs',
+      description: 'Registre électoral et documents officiels vérifiables et à jour.',
+      icon: '▣',
+      url: 'https://github.com/OpenG7/openg7-ca-voter-register-and-docs',
+      status: 'Pré-alpha',
+      tone: 'cyan'
+    },
+    {
+      name: 'CA: Vehicle Registry',
+      description: 'Registre national des véhicules pour des transactions fiables et sécurisées.',
+      icon: '▰',
+      url: 'https://github.com/OpenG7/openg7-ca-vehicle-registry',
+      status: 'Pré-alpha',
+      tone: 'blue'
+    },
+    {
+      name: 'CA: Election Day Ops & Audit',
+      description: 'Opérations électorales modernes, sécurisées et auditables.',
+      icon: '◬',
+      url: 'https://github.com/OpenG7/openg7-ca-election-day-ops-and-audit',
       status: 'Pré-alpha',
       tone: 'gold'
     }

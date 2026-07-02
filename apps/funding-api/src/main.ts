@@ -1,4 +1,8 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse
+} from 'node:http';
 
 import Stripe from 'stripe';
 import type {
@@ -9,37 +13,80 @@ import type {
 
 import { dbPool, hasDatabase } from './database.js';
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
+import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
 
 const port = Number(process.env.FUNDING_API_PORT ?? 3333);
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const projectId = process.env.FUNDING_PROJECT_ID ?? 'openg7';
 const isProduction = process.env.FUNDING_PLATFORM_ENV === 'production';
+const allowedOrigins = (process.env.FUNDING_ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+
+if (isProduction && !stripeSecretKey) {
+  throw new Error(
+    'STRIPE_SECRET_KEY is required when FUNDING_PLATFORM_ENV=production.'
+  );
+}
 
 type ApiRequest = IncomingMessage;
 type ApiResponse = ServerResponse<IncomingMessage>;
 
 const writeJson = (
+  request: ApiRequest,
   response: ApiResponse,
   statusCode: number,
   payload: unknown
 ): void => {
   response.writeHead(statusCode, {
+    ...createCorsHeaders(request),
     'Content-Type': 'application/json; charset=utf-8'
   });
   response.end(JSON.stringify(payload));
 };
 
 const writeText = (
+  request: ApiRequest,
   response: ApiResponse,
   statusCode: number,
   payload: string
 ): void => {
   response.writeHead(statusCode, {
+    ...createCorsHeaders(request),
     'Content-Type': 'text/plain; charset=utf-8'
   });
   response.end(payload);
+};
+
+const resolveAllowedOrigin = (request: ApiRequest): string | null => {
+  const origin = request.headers.origin;
+
+  if (!isProduction) {
+    return '*';
+  }
+
+  if (typeof origin === 'string' && allowedOrigins.includes(origin)) {
+    return origin;
+  }
+
+  return null;
+};
+
+const createCorsHeaders = (request: ApiRequest): Record<string, string> => {
+  const allowedOrigin = resolveAllowedOrigin(request);
+  const headers: Record<string, string> = {
+    Vary: 'Origin'
+  };
+
+  if (allowedOrigin) {
+    headers['Access-Control-Allow-Origin'] = allowedOrigin;
+  }
+
+  return headers;
 };
 
 const readBody = async (request: ApiRequest): Promise<string> => {
@@ -50,8 +97,10 @@ const readBody = async (request: ApiRequest): Promise<string> => {
   return Buffer.concat(chunks).toString('utf8');
 };
 
-const routeMatches = (url: string | undefined, ...candidates: readonly string[]): boolean =>
-  Boolean(url && candidates.includes(url));
+const routeMatches = (
+  url: string | undefined,
+  ...candidates: readonly string[]
+): boolean => Boolean(url && candidates.includes(url));
 
 const getDatabaseConnectionStatus = async (): Promise<boolean> => {
   if (!dbPool) {
@@ -66,7 +115,9 @@ const getDatabaseConnectionStatus = async (): Promise<boolean> => {
   }
 };
 
-const createDevelopmentCheckoutResult = (request: CheckoutRequest): CheckoutResult => ({
+const createDevelopmentCheckoutResult = (
+  request: CheckoutRequest
+): CheckoutResult => ({
   checkoutId: `stripe-dev-fallback-${request.projectId}-${request.amount}`,
   redirectUrl: request.successUrl,
   status: 'mocked'
@@ -75,7 +126,7 @@ const createDevelopmentCheckoutResult = (request: CheckoutRequest): CheckoutResu
 createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+      ...createCorsHeaders(request),
       'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
     });
@@ -92,21 +143,33 @@ createServer(async (request, response) => {
       const body = await readBody(request);
       parsed = JSON.parse(body) as CheckoutRequest;
     } catch {
-      writeJson(response, 400, {
+      writeJson(request, response, 400, {
         error: 'Invalid checkout request body.'
       });
       return;
     }
 
     if (!Number.isFinite(parsed.amount) || parsed.amount <= 0) {
-      writeJson(response, 400, {
+      writeJson(request, response, 400, {
         error: 'Checkout amount must be greater than zero.'
       });
       return;
     }
 
     if (!stripe) {
-      writeJson(response, 200, createDevelopmentCheckoutResult(parsed));
+      if (!isProduction) {
+        writeJson(
+          request,
+          response,
+          200,
+          createDevelopmentCheckoutResult(parsed)
+        );
+        return;
+      }
+
+      writeJson(request, response, 503, {
+        error: 'Stripe checkout is not configured.'
+      });
       return;
     }
 
@@ -127,6 +190,11 @@ createServer(async (request, response) => {
             }
           }
         ],
+        payment_intent_data: {
+          metadata: {
+            projectId: parsed.projectId
+          }
+        },
         metadata: {
           projectId: parsed.projectId
         }
@@ -138,17 +206,22 @@ createServer(async (request, response) => {
         status: 'redirected'
       };
 
-      writeJson(response, 200, result);
+      writeJson(request, response, 200, result);
       return;
     } catch (error) {
       console.error('Failed to create Stripe checkout session.', error);
 
       if (!isProduction) {
-        writeJson(response, 200, createDevelopmentCheckoutResult(parsed));
+        writeJson(
+          request,
+          response,
+          200,
+          createDevelopmentCheckoutResult(parsed)
+        );
         return;
       }
 
-      writeJson(response, 502, {
+      writeJson(request, response, 502, {
         error: 'Stripe checkout session could not be created.'
       });
       return;
@@ -160,23 +233,16 @@ createServer(async (request, response) => {
     routeMatches(request.url, '/stripe/webhook', '/api/stripe/webhook')
   ) {
     if (!stripe || !stripeWebhookSecret) {
-      writeJson(response, 503, {
+      writeJson(request, response, 503, {
         error:
           'Stripe webhook is not configured. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET.'
       });
       return;
     }
 
-    if (!hasDatabase) {
-      writeJson(response, 503, {
-        error: 'Database is not configured. Set DATABASE_URL.'
-      });
-      return;
-    }
-
     const stripeSignature = request.headers['stripe-signature'];
     if (typeof stripeSignature !== 'string') {
-      writeJson(response, 400, {
+      writeJson(request, response, 400, {
         error: 'Missing Stripe-Signature header'
       });
       return;
@@ -190,7 +256,7 @@ createServer(async (request, response) => {
       pool: dbPool
     });
 
-    writeJson(response, result.statusCode, result.payload);
+    writeJson(request, response, result.statusCode, result.payload);
     return;
   }
 
@@ -202,13 +268,26 @@ createServer(async (request, response) => {
       '/api/public/fund-transparency'
     )
   ) {
-    const summary = await getPublicTransparencySummary(dbPool);
-    writeJson(response, 200, summary);
+    try {
+      const summary = hasDatabase
+        ? await getPublicTransparencySummary(dbPool)
+        : stripe
+          ? await getStripePublicTransparencySummary(stripe, { projectId })
+          : await getPublicTransparencySummary(null);
+
+      writeJson(request, response, 200, summary);
+    } catch (error) {
+      console.error('Failed to build public fund transparency summary.', error);
+      writeJson(request, response, 502, {
+        error:
+          'Public fund transparency summary could not be loaded from Stripe.'
+      });
+    }
     return;
   }
 
   if (request.method === 'GET' && routeMatches(request.url, '/health')) {
-    writeText(response, 200, 'ok');
+    writeText(request, response, 200, 'ok');
     return;
   }
 
@@ -221,13 +300,14 @@ createServer(async (request, response) => {
       '/api/dev/stripe-setup-status'
     )
   ) {
-    writeJson(response, 200, {
+    writeJson(request, response, 200, {
       environment: process.env.FUNDING_PLATFORM_ENV ?? 'development',
       apiReachable: true,
       stripeSecretKeyConfigured: Boolean(stripeSecretKey),
       stripeWebhookSecretConfigured: Boolean(stripeWebhookSecret),
       databaseUrlConfigured: hasDatabase,
       databaseReachable: await getDatabaseConnectionStatus(),
+      transparencySource: hasDatabase ? 'database' : stripe ? 'stripe' : 'none',
       localApiBaseUrl: `http://localhost:${port}`,
       checkoutEndpoint: `http://localhost:${port}/api/checkout-sessions`,
       webhookEndpoint: `http://localhost:${port}/api/stripe/webhook`,
@@ -238,10 +318,12 @@ createServer(async (request, response) => {
     return;
   }
 
-  writeJson(response, 404, { error: 'Not found' });
+  writeJson(request, response, 404, { error: 'Not found' });
 }).listen(port, () => {
   console.log(`Funding API listening on http://localhost:${port}`);
   if (!hasDatabase) {
-    console.warn('DATABASE_URL is not configured. Transparency persistence is disabled.');
+    console.info(
+      'DATABASE_URL is not configured. Using Stripe-direct public transparency.'
+    );
   }
 });

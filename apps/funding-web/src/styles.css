@@ -40,6 +40,7 @@ openg7-root,
 openg7-funding-page,
 openg7-funding-about-page,
 openg7-ecosystem-page,
+openg7-music-page,
 openg7-support-page,
 openg7-webhooks-page,
 openg7-api-keys-page,
@@ -189,6 +190,12 @@ a:focus-visible {
   position: relative;
 }
 
+.checkout-cancel-stage {
+  background:
+    linear-gradient(90deg, rgb(2 8 18 / 92%) 0%, rgb(2 8 18 / 82%) 48%, rgb(2 8 18 / 30%) 100%),
+    #05070d;
+}
+
 .checkout-success-art {
   height: 100%;
   inset: 0;
@@ -204,6 +211,12 @@ a:focus-visible {
     linear-gradient(180deg, transparent 58%, rgb(2 8 18 / 92%) 100%);
   inset: 0;
   position: absolute;
+}
+
+.checkout-cancel-glow {
+  background:
+    radial-gradient(circle at 66% 72%, rgb(122 223 255 / 16%), transparent 18rem),
+    linear-gradient(180deg, transparent 52%, rgb(2 8 18 / 94%) 100%);
 }
 
 .checkout-success-close {
@@ -251,6 +264,10 @@ a:focus-visible {
   line-height: 0.95;
   margin: 0;
   text-shadow: 0 3px 20px rgb(0 0 0 / 74%);
+}
+
+.checkout-cancel-card h2 {
+  color: #f6efe2;
 }
 
 .checkout-success-card p {
@@ -381,6 +398,12 @@ a:focus-visible {
 .hero-progress-card strong {
   color: var(--gold-400);
   font-size: 1.55rem;
+}
+
+.hero-progress-card small {
+  color: #b9cbd9;
+  font-family: 'Trebuchet MS', sans-serif;
+  font-size: 0.75rem;
 }
 
 .progress-track {
@@ -950,6 +973,14 @@ a:focus-visible {
   font-family: 'Trebuchet MS', sans-serif;
   font-size: 0.8rem;
   margin: 0;
+}
+
+.purpose-empty-state {
+  color: #cfdceb;
+  font-family: 'Trebuchet MS', sans-serif;
+  font-size: 0.82rem;
+  margin: 0.55rem 0 0;
+  text-align: center;
 }
 
 .purpose-support-panel {

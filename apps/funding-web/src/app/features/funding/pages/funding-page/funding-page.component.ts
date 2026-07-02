@@ -4,16 +4,22 @@ import {
   Component,
   computed,
   inject,
+  OnDestroy,
   OnInit,
   signal
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import type {
+  FundTransparencyPublicResponse,
+  FundingSnapshot
+} from '@openg7/funding-core';
 import { FundingProjectConfig } from '@openg7/funding-models';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
 import { FUNDING_PROJECT_CONFIG } from '../../config/funding-project-config.token.js';
 import { provideFundingProjectConfig } from '../../config/funding-project-config.token.js';
 import { OPENG7_FUNDING_CONFIG } from '../../config/openg7-funding.config.js';
+import { FundTransparencyService } from '../../services/fund-transparency.service.js';
 import { FundingService } from '../../services/funding.service.js';
 
 interface EcosystemCard {
@@ -53,7 +59,7 @@ interface FoundationPillar {
           type="button"
           class="checkout-success-close"
           aria-label="Fermer la confirmation de paiement"
-          (click)="dismissCheckoutSuccess()"
+          (click)="dismissCheckoutNotice()"
         >
           ×
         </button>
@@ -67,6 +73,39 @@ interface FoundationPillar {
           <div class="checkout-success-actions">
             <a [routerLink]="['/fonds-des-batisseurs/transparence']">Voir la transparence</a>
             <button type="button" (click)="scrollToSupport()">Contribuer encore</button>
+          </div>
+        </article>
+      </section>
+
+      <section
+        class="checkout-success-stage checkout-cancel-stage"
+        *ngIf="checkoutStatus() === 'cancel'"
+        aria-labelledby="checkout-cancel-title"
+      >
+        <img
+          class="checkout-success-art"
+          src="assets/openg7-coffre-fort-ferme-dragon.png"
+          alt="Coffre-fort fermé gardé par un dragon"
+        />
+        <div class="checkout-success-glow checkout-cancel-glow" aria-hidden="true"></div>
+        <button
+          type="button"
+          class="checkout-success-close"
+          aria-label="Fermer le message de paiement interrompu"
+          (click)="dismissCheckoutNotice()"
+        >
+          ×
+        </button>
+        <article class="checkout-success-card checkout-cancel-card">
+          <span class="section-kicker">Paiement interrompu</span>
+          <h2 id="checkout-cancel-title">Le coffre reste fermé pour cette contribution.</h2>
+          <p>
+            Aucun paiement confirmé n'a été ajouté au registre. Vous pouvez reprendre votre contribution
+            quand vous voulez.
+          </p>
+          <div class="checkout-success-actions">
+            <button type="button" (click)="scrollToSupport()">Réessayer</button>
+            <a [routerLink]="['/support']">Contacter le support</a>
           </div>
         </article>
       </section>
@@ -92,12 +131,13 @@ interface FoundationPillar {
 
           <article class="hero-progress-card" aria-label="Progression de la collecte">
             <div>
-              <span>{{ snapshot().totals.confirmedContributions }} $ recueillis sur {{ config.monthlyGoal }} $</span>
+              <span>{{ formatMoney(snapshot().totals.confirmedContributions) }} recueillis sur {{ formatMoney(config.monthlyGoal) }}</span>
               <strong>{{ campaignProgress() }}%</strong>
             </div>
             <div class="progress-track" aria-hidden="true">
               <span [style.width.%]="campaignProgress()"></span>
             </div>
+            <small>{{ transparencyStatusLabel() }}</small>
             <button type="button" (click)="scrollToSupport()">
               Soutenir OpenG7
               <span aria-hidden="true">→</span>
@@ -159,15 +199,15 @@ interface FoundationPillar {
         <dl class="purpose-proof-strip" aria-label="État public du fonds">
           <div>
             <dt>Dernière synchronisation</dt>
-            <dd>Temps réel</dd>
+            <dd>{{ lastTransparencySyncLabel() }}</dd>
           </div>
           <div>
             <dt>Source des contributions</dt>
-            <dd>Stripe</dd>
+            <dd>{{ transparencySourceLabel() }}</dd>
           </div>
           <div>
             <dt>Devise principale</dt>
-            <dd>{{ config.currency }}</dd>
+            <dd>{{ currency() }}</dd>
           </div>
           <div>
             <dt>Campagne active</dt>
@@ -180,15 +220,15 @@ interface FoundationPillar {
             <span aria-hidden="true">+</span>
             <div>
               <h3>Contributions confirmées</h3>
-              <strong>{{ snapshot().totals.confirmedContributions }} $</strong>
-              <p>{{ snapshot().contributors.length }} bâtisseurs publics</p>
+              <strong>{{ formatMoney(snapshot().totals.confirmedContributions) }}</strong>
+              <p>{{ contributionCountLabel() }}</p>
             </div>
           </article>
           <article class="purpose-kpi red">
             <span aria-hidden="true">-</span>
             <div>
               <h3>Frais de paiement</h3>
-              <strong>{{ snapshot().totals.transactionFees }} $</strong>
+              <strong>{{ formatMoney(snapshot().totals.transactionFees) }}</strong>
               <p>Déduits avant disponibilité</p>
             </div>
           </article>
@@ -196,7 +236,7 @@ interface FoundationPillar {
             <span aria-hidden="true">=</span>
             <div>
               <h3>Fonds nets disponibles</h3>
-              <strong>{{ snapshot().totals.availableFunds }} $</strong>
+              <strong>{{ formatMoney(snapshot().totals.availableFunds) }}</strong>
               <p>Disponible pour les projets</p>
             </div>
           </article>
@@ -204,7 +244,7 @@ interface FoundationPillar {
             <span aria-hidden="true">%</span>
             <div>
               <h3>Objectif mensuel</h3>
-              <strong>{{ config.monthlyGoal }} $</strong>
+              <strong>{{ formatMoney(config.monthlyGoal) }}</strong>
               <p>{{ campaignProgress() }} % atteint</p>
             </div>
           </article>
@@ -218,7 +258,7 @@ interface FoundationPillar {
           <div class="purpose-track" aria-hidden="true">
             <span [style.width.%]="campaignProgress()"></span>
           </div>
-          <p>{{ remainingForMonthlyGoal() }} $ sont encore nécessaires pour atteindre l'objectif mensuel.</p>
+          <p>{{ formatMoney(remainingForMonthlyGoal()) }} sont encore nécessaires pour atteindre l'objectif mensuel.</p>
         </article>
 
         <div class="purpose-dashboard-grid">
@@ -259,6 +299,9 @@ interface FoundationPillar {
           <article class="purpose-panel purpose-allocation">
             <h3>Répartition prévue du fonds</h3>
             <div class="purpose-donut" [style.background]="allocationDonut()" aria-hidden="true"></div>
+            <p class="purpose-empty-state" *ngIf="snapshot().allocation.length === 0">
+              Aucune allocation publique publiée pour le moment.
+            </p>
             <ul>
               <li *ngFor="let allocation of snapshot().allocation; let index = index">
                 <span [style.background]="allocationColor(index)" aria-hidden="true"></span>
@@ -309,15 +352,15 @@ interface FoundationPillar {
               <dl>
                 <div>
                   <dt>Contributions confirmées</dt>
-                  <dd>{{ snapshot().totals.confirmedContributions }} $</dd>
+                  <dd>{{ formatMoney(snapshot().totals.confirmedContributions) }}</dd>
                 </div>
                 <div>
                   <dt>Frais Stripe</dt>
-                  <dd>{{ snapshot().totals.transactionFees }} $</dd>
+                  <dd>{{ formatMoney(snapshot().totals.transactionFees) }}</dd>
                 </div>
                 <div>
                   <dt>Fonds nets disponibles</dt>
-                  <dd>{{ snapshot().totals.availableFunds }} $</dd>
+                  <dd>{{ formatMoney(snapshot().totals.availableFunds) }}</dd>
                 </div>
               </dl>
               <a [routerLink]="['/fonds-des-batisseurs/transparence']">Voir les détails publics</a>
@@ -341,18 +384,33 @@ interface FoundationPillar {
     </main>
   `
 })
-export class FundingPageComponent implements OnInit {
+export class FundingPageComponent implements OnInit, OnDestroy {
   private readonly fundingService = inject(FundingService);
+  private readonly transparencyService = inject(FundTransparencyService);
+  private transparencyRefreshId: number | null = null;
+  private readonly emptySnapshot: FundingSnapshot = {
+    totals: {
+      confirmedContributions: 0,
+      transactionFees: 0,
+      availableFunds: 0
+    },
+    allocation: [],
+    contributors: []
+  };
 
   readonly config: FundingProjectConfig =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
 
-  readonly snapshot = signal(this.fundingService.mockSnapshot);
+  readonly snapshot = signal<FundingSnapshot>(this.emptySnapshot);
   readonly selectedContributionAmount = signal<number>(
     this.config.contributionAmounts[2] ?? this.config.contributionAmounts[0]
   );
   readonly loadingState = signal<'idle' | 'loading' | 'success' | 'error'>('idle');
   readonly checkoutStatus = signal<'idle' | 'success' | 'cancel'>('idle');
+  readonly transparencyState = signal<'loading' | 'synced' | 'empty' | 'error'>('loading');
+  readonly contributionCount = signal<number>(0);
+  readonly currency = signal<string>(this.config.currency);
+  readonly lastTransparencySync = signal<string | null>(null);
 
   readonly campaignProgress = computed<number>(() => {
     const goal = this.config.monthlyGoal;
@@ -371,6 +429,60 @@ export class FundingPageComponent implements OnInit {
   readonly remainingForMonthlyGoal = computed<number>(() =>
     Math.max(0, this.config.monthlyGoal - this.snapshot().totals.confirmedContributions)
   );
+
+  readonly transparencyStatusLabel = computed<string>(() => {
+    const state = this.transparencyState();
+    if (state === 'loading') {
+      return 'Synchronisation Stripe en cours...';
+    }
+
+    if (state === 'error') {
+      return 'Registre Stripe indisponible pour le moment.';
+    }
+
+    if (state === 'empty') {
+      return 'Aucune contribution Stripe confirmée dans le registre.';
+    }
+
+    return `Données Stripe synchronisées le ${this.lastTransparencySyncLabel()}`;
+  });
+
+  readonly lastTransparencySyncLabel = computed<string>(() => {
+    const state = this.transparencyState();
+    if (state === 'loading') {
+      return 'Synchronisation...';
+    }
+
+    if (state === 'error') {
+      return 'Indisponible';
+    }
+
+    const lastSync = this.lastTransparencySync();
+    if (!lastSync) {
+      return state === 'empty' ? 'En attente' : 'Non disponible';
+    }
+
+    const date = new Date(lastSync);
+    if (Number.isNaN(date.getTime())) {
+      return 'Non disponible';
+    }
+
+    return date.toLocaleString(this.config.locale, {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  });
+
+  readonly transparencySourceLabel = computed<string>(() =>
+    this.transparencyState() === 'error' ? 'Stripe non synchronisé' : 'Stripe / registre public'
+  );
+
+  readonly contributionCountLabel = computed<string>(() => {
+    const count = this.contributionCount();
+    return count === 1 ? '1 contribution confirmée' : `${count} contributions confirmées`;
+  });
 
   private readonly allocationPalette = ['#f4b53c', '#2f9fe5', '#58d79a', '#e5df80', '#e58a3e'];
 
@@ -499,9 +611,39 @@ export class FundingPageComponent implements OnInit {
     if (checkout === 'success' || checkout === 'cancel') {
       this.checkoutStatus.set(checkout);
     }
+
+    void this.loadPublicTransparency();
+    this.startTransparencyRefresh();
   }
 
-  dismissCheckoutSuccess(): void {
+  ngOnDestroy(): void {
+    if (this.transparencyRefreshId) {
+      clearInterval(this.transparencyRefreshId);
+    }
+  }
+
+  async loadPublicTransparency(options: { readonly silent?: boolean } = {}): Promise<void> {
+    if (!options.silent) {
+      this.transparencyState.set('loading');
+    }
+
+    try {
+      const report = await this.transparencyService.getPublicTransparency();
+      this.snapshot.set(this.toFundingSnapshot(report));
+      this.contributionCount.set(report.contributions_count);
+      this.currency.set(report.currency || this.config.currency);
+      this.lastTransparencySync.set(report.last_updated_at);
+      this.transparencyState.set(this.hasPublicFinanceData(report) ? 'synced' : 'empty');
+    } catch {
+      this.snapshot.set(this.emptySnapshot);
+      this.contributionCount.set(0);
+      this.currency.set(this.config.currency);
+      this.lastTransparencySync.set(null);
+      this.transparencyState.set('error');
+    }
+  }
+
+  dismissCheckoutNotice(): void {
     this.checkoutStatus.set('idle');
 
     if (typeof window === 'undefined') {
@@ -528,6 +670,15 @@ export class FundingPageComponent implements OnInit {
 
   isSelectedAmount(amount: number): boolean {
     return this.selectedContributionAmount() === amount;
+  }
+
+  formatMoney(amount: number): string {
+    return new Intl.NumberFormat(this.config.locale, {
+      style: 'currency',
+      currency: this.currency(),
+      minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+      maximumFractionDigits: 2
+    }).format(amount);
   }
 
   allocationShare(amount: number): number {
@@ -558,8 +709,47 @@ export class FundingPageComponent implements OnInit {
       }
 
       this.loadingState.set('success');
+      void this.loadPublicTransparency({ silent: true });
     } catch {
       this.loadingState.set('error');
     }
+  }
+
+  private startTransparencyRefresh(): void {
+    if (typeof window === 'undefined' || this.transparencyRefreshId) {
+      return;
+    }
+
+    this.transparencyRefreshId = window.setInterval(() => {
+      void this.loadPublicTransparency({ silent: true });
+    }, 30000);
+  }
+
+  private toFundingSnapshot(report: FundTransparencyPublicResponse): FundingSnapshot {
+    return {
+      totals: {
+        confirmedContributions: report.total_received,
+        transactionFees: -Math.abs(report.total_fees),
+        availableFunds: report.current_available_estimate
+      },
+      allocation: report.latest_public_allocations.map((allocation) => ({
+        category: allocation.project_name,
+        amount: allocation.amount_allocated
+      })),
+      contributors: []
+    };
+  }
+
+  private hasPublicFinanceData(report: FundTransparencyPublicResponse): boolean {
+    return (
+      report.total_received > 0 ||
+      report.total_fees > 0 ||
+      report.total_net > 0 ||
+      report.total_refunded > 0 ||
+      report.total_payouts > 0 ||
+      report.current_available_estimate > 0 ||
+      report.contributions_count > 0 ||
+      report.latest_public_allocations.length > 0
+    );
   }
 }

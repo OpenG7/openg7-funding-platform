@@ -67,15 +67,29 @@ yarn docs
 
 Set these variables for API and webhook processing:
 
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `DATABASE_URL`
+- `STRIPE_SECRET_KEY` — required for real checkout and Stripe-direct public statistics.
+- `STRIPE_WEBHOOK_SECRET` — required only when validating Stripe webhook deliveries.
+- `FUNDING_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the API in production.
+
+For the initial production launch, do **not** set `DATABASE_URL`. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
+
+When `FUNDING_PLATFORM_ENV=production`, checkout mock fallbacks are disabled. Missing Stripe configuration returns an API error instead of simulating a successful checkout.
 
 Example values are available in [.env.example](.env.example).
 
-### Database migration
+### Fast launch without PostgreSQL
 
-Apply the SQL migration in your PostgreSQL instance:
+For the first launch, PostgreSQL is intentionally not used. When `DATABASE_URL` is absent and `STRIPE_SECRET_KEY` is configured, the public transparency endpoint aggregates recent Stripe Checkout sessions and payouts directly from Stripe:
+
+```bash
+GET http://localhost:3333/api/public/fund-transparency
+```
+
+This is the default quick-launch path. It avoids local persistence while still showing real Stripe totals.
+
+### Future optional database migration
+
+This is not part of the initial launch. Apply the SQL migration only later, if you decide to add a local transparency journal in PostgreSQL:
 
 ```sql
 \i apps/funding-api/migrations/001_create_fund_transparency_tables.sql
@@ -106,7 +120,8 @@ Behavior:
 - Webhook signature verification using `STRIPE_WEBHOOK_SECRET`
 - Idempotency through unique `stripe_event_id`
 - Optional `balance_transaction` retrieval to compute fee/net fields
-- Storage limited to aggregate-safe finance fields
+- For the fast launch, webhook deliveries are validated and acknowledged without local storage
+- Public statistics come from Stripe directly while `DATABASE_URL` remains unset
 
 ### Test with Stripe CLI
 

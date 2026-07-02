@@ -5,6 +5,7 @@ import { EcosystemPageComponent } from './features/funding/pages/ecosystem-page/
 import { FundingAboutPageComponent } from './features/funding/pages/funding-about-page/funding-about-page.component.js';
 import { FundingPageComponent } from './features/funding/pages/funding-page/funding-page.component.js';
 import { FundingTransparencyPageComponent } from './features/funding/pages/funding-transparency-page/funding-transparency-page.component.js';
+import { MusicPageComponent } from './features/funding/pages/music-page/music-page.component.js';
 import { StripeSetupPageComponent } from './features/funding/pages/stripe-setup-page/stripe-setup-page.component.js';
 import { SupportPageComponent } from './features/funding/pages/support-page/support-page.component.js';
 import { WebhooksPageComponent } from './features/funding/pages/webhooks-page/webhooks-page.component.js';
@@ -25,6 +26,10 @@ export const appRoutes: Routes = [
   {
     path: 'ecosystem',
     component: EcosystemPageComponent
+  },
+  {
+    path: 'music',
+    component: MusicPageComponent
   },
   {
     path: 'fonds-des-batisseurs/transparence',

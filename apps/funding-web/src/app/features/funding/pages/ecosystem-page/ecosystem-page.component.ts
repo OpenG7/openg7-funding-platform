@@ -10,6 +10,7 @@ interface EcosystemPlatform {
   readonly family: string;
   readonly description: string;
   readonly asset: string;
+  readonly repositoryUrl: string;
 }
 
 interface EcosystemFamily {
@@ -157,7 +158,7 @@ interface DevelopmentRow {
               <h3>{{ platform.name }}</h3>
               <em>{{ platform.family }}</em>
               <p>{{ platform.description }}</p>
-              <a routerLink="/ecosystem" fragment="connections">Explorer <span aria-hidden="true">→</span></a>
+              <a [href]="platform.repositoryUrl" target="_blank" rel="noreferrer">Explorer <span aria-hidden="true">→</span></a>
             </div>
           </article>
         </div>
@@ -1125,91 +1126,104 @@ export class EcosystemPageComponent {
       name: 'OpenG7 Nexus',
       family: 'Économie & mobilité',
       description: 'Point d’accès unifié entre citoyens, entreprises et services publics.',
-      asset: 'assets/openg7-nexus-carte-canada-connecte.png'
+      asset: 'assets/openg7-nexus-carte-canada-connecte.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-nexus'
     },
     {
       id: 2,
       name: 'Canadian Vehicle Registry',
       family: 'Économie & mobilité',
       description: 'Registre national des véhicules pour des transactions fiables et sécurisées.',
-      asset: 'assets/openg7-canadian-vehicle-registry.png'
+      asset: 'assets/openg7-canadian-vehicle-registry.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-ca-vehicle-registry'
     },
     {
       id: 3,
       name: 'Migration Flow Engine',
       family: 'Gouvernance & démocratie',
       description: 'Analyse et orchestration des flux migratoires pour des parcours plus fluides.',
-      asset: 'assets/openg7-migration-flow-engine-canada.png'
+      asset: 'assets/openg7-migration-flow-engine-canada.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-migration-flow-engine'
     },
     {
       id: 4,
       name: 'Patient Navigation',
       family: 'Santé',
       description: 'Guide les patients dans leurs parcours de soins de manière personnalisée.',
-      asset: 'assets/openg7-patient-navigation-canada.png'
+      asset: 'assets/openg7-patient-navigation-canada.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-patient-navigation'
     },
     {
       id: 5,
       name: 'Medical Referral Router',
       family: 'Santé',
       description: 'Acheminer les demandes vers les bons spécialistes au bon moment.',
-      asset: 'assets/openg7-medical-referral-router-canada.png'
+      asset: 'assets/openg7-medical-referral-router-canada.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-medical-referral-router'
     },
     {
       id: 6,
       name: 'Clinical Workforce Exchange',
       family: 'Santé',
       description: 'Connecte les professionnels de santé aux besoins des établissements.',
-      asset: 'assets/openg7-clinical-workforce-exchange-canada.png'
+      asset: 'assets/openg7-clinical-workforce-exchange-canada.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-clinical-workforce-exchange'
     },
     {
       id: 7,
       name: 'Health Supply Corridors',
       family: 'Santé',
       description: 'Optimise la disponibilité et la distribution des fournitures médicales critiques.',
-      asset: 'assets/openg7-health-supply-corridors-canada.png'
+      asset: 'assets/openg7-health-supply-corridors-canada.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-health-supply-corridors'
     },
     {
       id: 8,
       name: 'GovGraph',
       family: 'Gouvernance & démocratie',
       description: 'Graphe des services et règlements pour une meilleure interopérabilité publique.',
-      asset: 'assets/openg7-govgraph-gouvernance-canada.png'
+      asset: 'assets/openg7-govgraph-gouvernance-canada.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-govgraph'
     },
     {
       id: 9,
       name: 'Election Day Ops',
       family: 'Gouvernance & démocratie',
       description: 'Opérations électorales modernes, sécurisées et transparentes.',
-      asset: 'assets/openg7-ca-election-day-ops-results-audit.png'
+      asset: 'assets/openg7-ca-election-day-ops-results-audit.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-ca-election-day-ops-and-audit'
     },
     {
       id: 10,
       name: 'Voter Register & Official Docs',
       family: 'Gouvernance & démocratie',
       description: 'Registre électoral et documents officiels vérifiables et à jour.',
-      asset: 'assets/openg7-ca-voter-register-official-docs.png'
+      asset: 'assets/openg7-ca-voter-register-official-docs.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-ca-voter-register-and-docs'
     },
     {
       id: 11,
       name: 'OpenG7 Social',
       family: 'Société',
       description: 'Plateforme d’engagement citoyen et de consultations publiques.',
-      asset: 'assets/openg7-social-communautes-connectees-canada.png'
+      asset: 'assets/openg7-social-communautes-connectees-canada.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-social'
     },
     {
       id: 12,
       name: 'OpenG7 Firewall',
       family: 'Sécurité',
       description: 'Protection des services, des identités et des données à l’échelle du pays.',
-      asset: 'assets/openg7-firewall-cybersecurite-canada.png'
+      asset: 'assets/openg7-firewall-cybersecurite-canada.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-firewall'
     },
     {
       id: 13,
       name: 'OpenG7 Funding Platform',
       family: 'Financement',
       description: 'Orchestre les financements publics et les subventions d’impact.',
-      asset: 'assets/openg7-funding-platform-dragon-coffre.png'
+      asset: 'assets/openg7-funding-platform-dragon-coffre.png',
+      repositoryUrl: 'https://github.com/OpenG7/openg7-funding-platform'
     }
   ];
 

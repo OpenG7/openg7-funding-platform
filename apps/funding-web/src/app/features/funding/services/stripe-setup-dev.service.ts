@@ -7,6 +7,7 @@ export interface StripeSetupDevStatus {
   readonly stripeWebhookSecretConfigured: boolean;
   readonly databaseUrlConfigured: boolean;
   readonly databaseReachable: boolean;
+  readonly transparencySource: 'database' | 'stripe' | 'none';
   readonly localApiBaseUrl: string;
   readonly checkoutEndpoint: string;
   readonly webhookEndpoint: string;
