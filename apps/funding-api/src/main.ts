@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 
 import Stripe from 'stripe';
 import type {
+  CheckoutResult,
   CheckoutRequest,
   RedirectCheckoutResult
 } from '@openg7/funding-core';
@@ -65,6 +66,12 @@ const getDatabaseConnectionStatus = async (): Promise<boolean> => {
   }
 };
 
+const createDevelopmentCheckoutResult = (request: CheckoutRequest): CheckoutResult => ({
+  checkoutId: `stripe-dev-fallback-${request.projectId}-${request.amount}`,
+  redirectUrl: request.successUrl,
+  status: 'mocked'
+});
+
 createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
@@ -80,49 +87,72 @@ createServer(async (request, response) => {
     request.method === 'POST' &&
     routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')
   ) {
-    const body = await readBody(request);
-    const parsed = JSON.parse(body) as CheckoutRequest;
-
-    if (!stripe) {
-      const mockResult: RedirectCheckoutResult = {
-        checkoutId: `stripe-mock-${parsed.projectId}-${parsed.amount}`,
-        redirectUrl: 'https://example.org/mock-checkout',
-        status: 'redirected'
-      };
-      writeJson(response, 200, mockResult);
+    let parsed: CheckoutRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as CheckoutRequest;
+    } catch {
+      writeJson(response, 400, {
+        error: 'Invalid checkout request body.'
+      });
       return;
     }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      success_url: parsed.successUrl,
-      cancel_url: parsed.cancelUrl,
-      currency: parsed.currency.toLowerCase(),
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: parsed.currency.toLowerCase(),
-            unit_amount: Math.round(parsed.amount * 100),
-            product_data: {
-              name: `OpenG7 ${parsed.projectId}`
+    if (!Number.isFinite(parsed.amount) || parsed.amount <= 0) {
+      writeJson(response, 400, {
+        error: 'Checkout amount must be greater than zero.'
+      });
+      return;
+    }
+
+    if (!stripe) {
+      writeJson(response, 200, createDevelopmentCheckoutResult(parsed));
+      return;
+    }
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        success_url: parsed.successUrl,
+        cancel_url: parsed.cancelUrl,
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: parsed.currency.toLowerCase(),
+              unit_amount: Math.round(parsed.amount * 100),
+              product_data: {
+                name: `OpenG7 ${parsed.projectId}`
+              }
             }
           }
+        ],
+        metadata: {
+          projectId: parsed.projectId
         }
-      ],
-      metadata: {
-        projectId: parsed.projectId
+      });
+
+      const result: RedirectCheckoutResult = {
+        checkoutId: session.id,
+        redirectUrl: session.url ?? parsed.successUrl,
+        status: 'redirected'
+      };
+
+      writeJson(response, 200, result);
+      return;
+    } catch (error) {
+      console.error('Failed to create Stripe checkout session.', error);
+
+      if (!isProduction) {
+        writeJson(response, 200, createDevelopmentCheckoutResult(parsed));
+        return;
       }
-    });
 
-    const result: RedirectCheckoutResult = {
-      checkoutId: session.id,
-      redirectUrl: session.url ?? parsed.successUrl,
-      status: 'redirected'
-    };
-
-    writeJson(response, 200, result);
-    return;
+      writeJson(response, 502, {
+        error: 'Stripe checkout session could not be created.'
+      });
+      return;
+    }
   }
 
   if (
