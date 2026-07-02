@@ -4,6 +4,7 @@ import {
   Component,
   computed,
   inject,
+  OnInit,
   signal
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -36,6 +37,39 @@ interface FoundationPillar {
   template: `
     <main class="builders-shell">
       <openg7-funding-header></openg7-funding-header>
+
+      <section
+        class="checkout-success-stage"
+        *ngIf="checkoutStatus() === 'success'"
+        aria-labelledby="checkout-success-title"
+      >
+        <img
+          class="checkout-success-art"
+          src="assets/openg7-dragon-dime-coffre-fort.png"
+          alt="Dragon noir et or déposant des pièces dans un coffre-fort"
+        />
+        <div class="checkout-success-glow" aria-hidden="true"></div>
+        <button
+          type="button"
+          class="checkout-success-close"
+          aria-label="Fermer la confirmation de paiement"
+          (click)="dismissCheckoutSuccess()"
+        >
+          ×
+        </button>
+        <article class="checkout-success-card">
+          <span class="section-kicker">Paiement confirmé</span>
+          <h2 id="checkout-success-title">Le coffre des Bâtisseurs vient de recevoir votre contribution.</h2>
+          <p>
+            Merci d'aider OpenG7 à financer une infrastructure ouverte, résiliente et transparente.
+            Le fonds public sera synchronisé dès que la confirmation Stripe sera disponible.
+          </p>
+          <div class="checkout-success-actions">
+            <a [routerLink]="['/fonds-des-batisseurs/transparence']">Voir la transparence</a>
+            <button type="button" (click)="scrollToSupport()">Contribuer encore</button>
+          </div>
+        </article>
+      </section>
 
       <section class="poster-hero" aria-labelledby="builders-title">
         <img
@@ -307,7 +341,7 @@ interface FoundationPillar {
     </main>
   `
 })
-export class FundingPageComponent {
+export class FundingPageComponent implements OnInit {
   private readonly fundingService = inject(FundingService);
 
   readonly config: FundingProjectConfig =
@@ -318,6 +352,7 @@ export class FundingPageComponent {
     this.config.contributionAmounts[2] ?? this.config.contributionAmounts[0]
   );
   readonly loadingState = signal<'idle' | 'loading' | 'success' | 'error'>('idle');
+  readonly checkoutStatus = signal<'idle' | 'success' | 'cancel'>('idle');
 
   readonly campaignProgress = computed<number>(() => {
     const goal = this.config.monthlyGoal;
@@ -454,6 +489,29 @@ export class FundingPageComponent {
       description: 'Technologie ouverte au service de tous.'
     }
   ];
+
+  ngOnInit(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const checkout = new URLSearchParams(window.location.search).get('checkout');
+    if (checkout === 'success' || checkout === 'cancel') {
+      this.checkoutStatus.set(checkout);
+    }
+  }
+
+  dismissCheckoutSuccess(): void {
+    this.checkoutStatus.set('idle');
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('checkout');
+    window.history.replaceState({}, '', url);
+  }
 
   setContributionAmount(amount: number): void {
     this.selectedContributionAmount.set(amount);

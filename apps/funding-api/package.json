@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node --loader ts-node/esm src/main.ts"
+    "start": "node --env-file=../../.env --loader ts-node/esm src/main.ts"
   },
   "dependencies": {
     "@openg7/funding-core": "workspace:*",
