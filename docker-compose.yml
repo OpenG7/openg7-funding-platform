@@ -3,8 +3,7 @@ services:
     image: traefik:v3.2
     command:
       - --configFile=/etc/traefik/traefik.yml
-    env_file:
-      - .env
+      - --certificatesResolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL:-admin@example.com}
     ports:
       - '80:80'
       - '443:443'
@@ -17,8 +16,15 @@ services:
     networks:
       - edge
     restart: unless-stopped
+    cpus: '0.50'
+    mem_limit: 256m
+    pids_limit: 128
     security_opt:
       - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 8192
     logging:
       driver: json-file
       options:
@@ -50,8 +56,16 @@ services:
     networks:
       - edge
     restart: unless-stopped
+    init: true
+    cpus: '0.75'
+    mem_limit: 512m
+    pids_limit: 128
     security_opt:
       - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 2048
+        hard: 4096
     logging:
       driver: json-file
       options:
@@ -83,8 +97,15 @@ services:
     networks:
       - edge
     restart: unless-stopped
+    cpus: '0.50'
+    mem_limit: 256m
+    pids_limit: 128
     security_opt:
       - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 2048
+        hard: 4096
     logging:
       driver: json-file
       options:
@@ -109,8 +130,15 @@ services:
     networks:
       - edge
     restart: unless-stopped
+    cpus: '0.25'
+    mem_limit: 256m
+    pids_limit: 128
     security_opt:
       - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 2048
     logging:
       driver: json-file
       options:

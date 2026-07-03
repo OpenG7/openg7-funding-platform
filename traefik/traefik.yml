@@ -14,6 +14,7 @@ log:
 
 accessLog:
   format: json
+  bufferingSize: 100
 
 entryPoints:
   web:
@@ -26,6 +27,11 @@ entryPoints:
           permanent: true
   websecure:
     address: ":443"
+    transport:
+      respondingTimeouts:
+        readTimeout: 10s
+        writeTimeout: 30s
+        idleTimeout: 60s
     http:
       tls:
         certResolver: letsencrypt
@@ -40,7 +46,6 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "${LETSENCRYPT_EMAIL}"
       storage: /letsencrypt/acme.json
       httpChallenge:
         entryPoint: web

@@ -201,3 +201,4 @@ The production stack uses Docker Compose, Traefik, Let's Encrypt, Nginx, and the
 Full OVH VPS deployment documentation:
 
 - [Docker deployment guide](docs/docker-deployment.md)
+- [Command cheatsheet](docs/command-cheatsheet.md)
