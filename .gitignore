@@ -91,6 +91,10 @@ strapi/data/db.sqlite
 *.tsbuildinfo
 docs/reference/
 
+# --- Production certificates ------------------------------------------------
+traefik/acme/*
+!traefik/acme/.gitkeep
+
 # --- Env vars (everywhere) --------------------------------------------------
 .env
 .env.*
