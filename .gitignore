@@ -95,5 +95,4 @@ docs/reference/
 .env
 .env.*
 !.env.example
-!.env.docker.example
 strapi/types/generated/contentTypes.d.ts
