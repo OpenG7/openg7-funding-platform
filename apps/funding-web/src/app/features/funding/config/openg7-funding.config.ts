@@ -10,7 +10,7 @@ export const OPENG7_FUNDING_CONFIG: FundingProjectConfig = {
   locale: 'fr-CA',
   monthlyGoal: 270,
   contributionAmounts: [5, 10, 25, 50],
-  guardianAsset: 'assets/guardian-placeholder.svg',
+  guardianAsset: 'assets/gardien-fonds-batisseurs-openg7.png',
   theme: 'dark-civic-tech',
   transparencyEnabled: true,
   publicContributorsEnabled: true,

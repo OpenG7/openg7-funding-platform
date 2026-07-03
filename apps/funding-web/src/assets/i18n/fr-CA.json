@@ -1,5 +1,627 @@
 {
   "funding": {
+    "brand": {
+      "title": "Fonds des bâtisseurs",
+      "organization": "OpenG7"
+    },
+    "aria": {
+      "brandHome": "Accueil Fonds des bâtisseurs OpenG7",
+      "primaryNavigation": "Navigation principale"
+    },
+    "seo": {
+      "home": {
+        "title": "Fonds des bâtisseurs | OpenG7",
+        "description": "Soutenez OpenG7 et le Fonds des bâtisseurs, une infrastructure ouverte pour financer des plateformes numériques publiques, transparentes et résilientes."
+      },
+      "ecosystem": {
+        "title": "Écosystème OpenG7 | Plateformes publiques ouvertes",
+        "description": "Explorez les plateformes OpenG7, leurs familles, leurs connexions et l’architecture commune qui relie les services numériques publics."
+      },
+      "support": {
+        "title": "Support et dépôts GitHub | OpenG7",
+        "description": "Accédez aux dépôts GitHub OpenG7, consultez les projets, ouvrez des issues et contribuez à l’écosystème."
+      },
+      "about": {
+        "title": "À propos d’OpenG7 | Fonds des bâtisseurs",
+        "description": "Découvrez la vision d’OpenG7, ses fondations partagées et le rôle du Fonds des bâtisseurs dans le développement de l’écosystème."
+      },
+      "transparency": {
+        "title": "Transparence du Fonds des bâtisseurs | OpenG7",
+        "description": "Consultez les données publiques agrégées du Fonds des bâtisseurs : contributions, frais, disponibilité estimée et registre de transparence."
+      }
+    },
+    "ecosystemPage": {
+      "hero": {
+        "backgroundAlt": "Carte numérique du Canada au-dessus d'une ville connectée",
+        "title": "L’écosystème",
+        "lead": "Treize plateformes. Des fondations partagées. Une infrastructure ouverte pour mieux relier le Canada."
+      },
+      "actions": {
+        "explorePlatforms": "Explorer les plateformes",
+        "viewConnections": "Voir les connexions",
+        "supportEcosystem": "Soutenir l’écosystème",
+        "explore": "Explorer"
+      },
+      "stats": {
+        "ariaLabel": "Résumé de l'écosystème",
+        "platforms": "Plateformes",
+        "families": "Familles",
+        "sharedInfrastructure": "Infrastructure partagée",
+        "possibilities": "Possibilités"
+      },
+      "map": {
+        "title": "Carte interactive de l’écosystème",
+        "copy": "OpenG7 organise treize plateformes interconnectées autour de six grandes familles pour générer des services meilleurs, plus rapides et plus inclusifs pour tous les Canadiens.",
+        "explore": "Explorer la carte complète",
+        "networkAria": "Connexions entre les plateformes OpenG7"
+      },
+      "families": {
+        "economy": "Économie & mobilité",
+        "economyShort": "Économie et mobilité",
+        "health": "Santé",
+        "governance": "Gouvernance & démocratie",
+        "governanceShort": "Gouvernance et démocratie",
+        "society": "Société",
+        "security": "Sécurité",
+        "funding": "Financement",
+        "data": "Données",
+        "mobility": "Mobilité"
+      },
+      "platformDescriptions": {
+        "nexus": "Point d’accès unifié entre citoyens, entreprises et services publics.",
+        "vehicleRegistry": "Registre national des véhicules pour des transactions fiables et sécurisées.",
+        "migration": "Analyse et orchestration des flux migratoires pour des parcours plus fluides.",
+        "patientNavigation": "Guide les patients dans leurs parcours de soins de manière personnalisée.",
+        "referral": "Acheminer les demandes vers les bons spécialistes au bon moment.",
+        "workforce": "Connecte les professionnels de santé aux besoins des établissements.",
+        "supply": "Optimise la disponibilité et la distribution des fournitures médicales critiques.",
+        "govgraph": "Graphe des services et règlements pour une meilleure interopérabilité publique.",
+        "electionOps": "Opérations électorales modernes, sécurisées et transparentes.",
+        "voterRegister": "Registre électoral et documents officiels vérifiables et à jour.",
+        "social": "Plateforme d’engagement citoyen et de consultations publiques.",
+        "firewall": "Protection des services, des identités et des données à l’échelle du pays.",
+        "funding": "Orchestre les financements publics et les subventions d’impact."
+      },
+      "platforms": {
+        "title": "Les 13 plateformes"
+      },
+      "architecture": {
+        "title": "Une architecture partagée",
+        "copy": "OpenG7 repose sur un socle commun qui réduit les coûts, accélère la livraison et garantit l’interopérabilité.",
+        "platformDotsAria": "Les 13 plateformes reliées au socle commun",
+        "items": {
+          "core": "Cœur de l’infrastructure et services partagés",
+          "design": "Design System",
+          "models": "Modèles de données",
+          "security": "Sécurité & identité",
+          "gateway": "API Gateway",
+          "i18n": "i18n localisation",
+          "components": "Composants réutilisables",
+          "docs": "Documentation & normes"
+        }
+      },
+      "connections": {
+        "title": "Les connexions créent la valeur"
+      },
+      "familyDetails": {
+        "health": "Parcours patient intégré, moins d’attente, meilleure coordination.",
+        "data": "Données fiables, partagées en sécurité, pour de meilleures décisions.",
+        "mobility": "Déplacements et logistique fluides, services accessibles partout.",
+        "security": "Identités protégées, services résilients, confiance accrue.",
+        "funding": "Ressources mieux allouées, projets à fort impact pour tous."
+      },
+      "journey": {
+        "title": "Scénario transversal : un parcours de bout en bout",
+        "items": {
+          "opengraph": "Comprendre les règles et services disponibles",
+          "workforce": "Identifier les professionnels disponibles",
+          "referral": "Acheminer la demande au bon spécialiste",
+          "patient": "Accompagner le patient à chaque étape",
+          "supply": "Assurer les fournitures et traitements",
+          "nexus": "Point d’accès unifié et services centralisés",
+          "firewall": "Sécuriser les accès et les données",
+          "funding": "Financer et soutenir les interventions"
+        }
+      },
+      "development": {
+        "title": "État de développement",
+        "status": {
+          "done": "Terminé",
+          "inProgress": "En cours"
+        },
+        "rows": {
+          "concepts": "Concepts définis",
+          "prototypes": "Prototypes en cours",
+          "visuals": "Identités visuelles",
+          "integrations": "Intégrations réelles",
+          "sharedServices": "Services partagés"
+        }
+      },
+      "summary": {
+        "ariaLabel": "Indicateurs de synthèse",
+        "commonVision": "Vision commune",
+        "potentialPartners": "Partenaires potentiels",
+        "items": {
+          "interoperability": {
+            "label": "Interopérabilité",
+            "detail": "Conçue dès le départ"
+          },
+          "openness": {
+            "label": "Ouverture",
+            "detail": "Standards ouverts"
+          },
+          "trust": {
+            "label": "Confiance",
+            "detail": "Sécurité & transparence"
+          },
+          "impact": {
+            "label": "Impact",
+            "detail": "Citoyens d’abord"
+          }
+        }
+      },
+      "cta": {
+        "title": "Le Canada possède déjà les ressources, les talents et les institutions.",
+        "copy": "OpenG7 cherche à mieux les relier."
+      },
+      "footer": {
+        "secondaryLinksAria": "Liens secondaires",
+        "documentation": "Documentation",
+        "copyright": "© {{year}} OpenG7. Tous droits réservés."
+      }
+    },
+    "supportPage": {
+      "hero": {
+        "mapAlt": "Carte numérique du Canada connectée à l'écosystème OpenG7",
+        "dragonAlt": "Dragon gardien de l'écosystème OpenG7",
+        "title": "Construire OpenG7 avec",
+        "copy": "GitHub est l’atelier public de l’écosystème. Explorez les dépôts, signalez un problème, proposez une idée et contribuez au code."
+      },
+      "links": {
+        "viewRepos": "Voir les dépôts",
+        "openGithub": "Ouvrir GitHub"
+      },
+      "actions": {
+        "ariaLabel": "Actions de contribution",
+        "explore": {
+          "title": "Explorer les dépôts",
+          "description": "Parcourez les projets OpenG7, leurs objectifs et leur état d’avancement."
+        },
+        "issue": {
+          "title": "Signaler un problème",
+          "description": "Aidez à améliorer la qualité en signalant un bug ou un comportement inattendu."
+        },
+        "idea": {
+          "title": "Proposer une idée",
+          "description": "Partagez vos idées d’amélioration, nouvelles fonctionnalités ou cas d’usage."
+        },
+        "code": {
+          "title": "Contribuer au code",
+          "description": "Fork, code, tests et pull requests : chaque contribution compte."
+        }
+      },
+      "workspace": {
+        "ariaLabel": "Espace de support OpenG7"
+      },
+      "repositories": {
+        "title": "Choisir un dépôt",
+        "copy": "Voici les dépôts principaux de l’écosystème OpenG7. Cliquez pour explorer, lire la documentation ou contribuer.",
+        "linksAria": "Liens du dépôt",
+        "all": "Voir tous les dépôts sur GitHub"
+      },
+      "status": {
+        "inDevelopment": "En développement",
+        "toDevelop": "À développer"
+      },
+      "steps": {
+        "title": "Comment utiliser GitHub avec OpenG7 ?",
+        "items": {
+          "explore": {
+            "title": "Explorer",
+            "description": "Parcourez les dépôts et lisez les README pour comprendre chaque projet."
+          },
+          "issue": {
+            "title": "Créer une issue",
+            "description": "Signalez un bug ou demandez une amélioration via l’onglet Issues."
+          },
+          "improvement": {
+            "title": "Proposer une amélioration",
+            "description": "Décrivez votre idée, la valeur ajoutée et le contexte."
+          },
+          "pullRequest": {
+            "title": "Ouvrir une pull request",
+            "description": "Soumettez votre code ou vos changements pour revue."
+          }
+        }
+      },
+      "notices": {
+        "warning": {
+          "title": "Ne publiez jamais de clés API, mots de passe ou données personnelles.",
+          "copy": "Pour une faille de sécurité, utilisez le canal privé indiqué dans SECURITY.md."
+        },
+        "info": {
+          "title": "OpenG7 est actuellement un projet indépendant en développement.",
+          "copy": "Les échanges et contributions passent principalement par GitHub."
+        }
+      },
+      "footer": {
+        "title": "Fait au Canada. Ouvert pour tous.",
+        "copy": "Transparence · Collaboration · Souveraineté numérique",
+        "linksAria": "Liens support secondaires",
+        "codeOfConduct": "Code de conduite",
+        "security": "Sécurité",
+        "documentation": "Documentation",
+        "license": "Licence"
+      }
+    },
+    "aboutPage": {
+      "hero": {
+        "imageAlt": "Carte lumineuse du Canada surgissant d'un coffre au-dessus de Toronto",
+        "homeAria": "Accueil Fonds des bâtisseurs",
+        "title": "À propos d’",
+        "statement": "Une vision ouverte. Des fondations partagées.",
+        "statementStrong": "Un impact collectif.",
+        "description": "OpenG7 est un écosystème ouvert de plateformes numériques qui relie les provinces, les organisations et les communautés d'un océan à l'autre. Le Fonds des Bâtisseurs soutient les fondations partagées qui rendent ces projets possibles.",
+        "actionsAria": "Actions à propos d'OpenG7"
+      },
+      "actions": {
+        "discover": "Découvrir OpenG7",
+        "understandFund": "Comprendre le fonds",
+        "support": "Soutenir le projet"
+      },
+      "foundations": {
+        "eyebrow": "Fondations partagées",
+        "title": "Ce que le fonds rend possible",
+        "items": {
+          "infrastructure": {
+            "title": "Infrastructure ouverte",
+            "description": "Des bases communes pour déployer des services numériques fiables et vérifiables."
+          },
+          "transparency": {
+            "title": "Financement transparent",
+            "description": "Chaque contribution soutient le fonds général et peut être suivie publiquement."
+          },
+          "impact": {
+            "title": "Impact collectif",
+            "description": "Les plateformes avancent ensemble pour servir les communautés, les données et le terrain."
+          }
+        }
+      }
+    },
+    "home": {
+      "checkout": {
+        "successAlt": "Dragon noir et or déposant des pièces dans un coffre-fort",
+        "cancelAlt": "Coffre-fort fermé gardé par un dragon",
+        "closeSuccess": "Fermer la confirmation de paiement",
+        "closeCancel": "Fermer le message de paiement interrompu",
+        "successKicker": "Paiement confirmé",
+        "successTitle": "Le coffre des Bâtisseurs vient de recevoir votre contribution.",
+        "successCopy": "Merci d'aider OpenG7 à financer une infrastructure ouverte, résiliente et transparente. Le fonds public sera synchronisé dès que la confirmation Stripe sera disponible.",
+        "cancelKicker": "Paiement interrompu",
+        "cancelTitle": "Le coffre reste fermé pour cette contribution.",
+        "cancelCopy": "Aucun paiement confirmé n'a été ajouté au registre. Vous pouvez reprendre votre contribution quand vous voulez."
+      },
+      "actions": {
+        "viewTransparency": "Voir la transparence",
+        "contributeAgain": "Contribuer encore",
+        "retry": "Réessayer",
+        "contactSupport": "Contacter le support",
+        "viewRegistry": "Voir le registre"
+      },
+      "hero": {
+        "backgroundAlt": "Ville canadienne lumineuse avec feuille d'érable connectée",
+        "line1": "13 outils.",
+        "line2": "Une mission.",
+        "line3": "Un avenir.",
+        "copy": "Le Fonds des Bâtisseurs alimente un écosystème numérique ouvert pour renforcer l'économie, la transparence et la résilience du Canada.",
+        "progressAria": "Progression de la collecte",
+        "raisedOn": "recueillis sur"
+      },
+      "ecosystem": {
+        "title": "L'écosystème",
+        "copy": "13 plateformes bâtissent le Canada de demain.",
+        "foundationLead": "Ces plateformes ont besoin de",
+        "foundationStrong": "fondations solides."
+      },
+      "purpose": {
+        "dragonAlt": "Dragon gardien protégeant un coffre de financement civique",
+        "title": "Où vont les fonds pour soutenir",
+        "copy": "Chaque contribution est reliée à une mission concrète : garder les plateformes en ligne, améliorer les outils publics et publier un registre financier compréhensible.",
+        "proofAria": "État public du fonds",
+        "lastSync": "Dernière synchronisation",
+        "source": "Source des contributions",
+        "currency": "Devise principale",
+        "activeCampaign": "Campagne active",
+        "kpiAria": "Indicateurs financiers du fonds",
+        "paymentFees": "Frais de paiement",
+        "deductedBeforeAvailable": "Déduits avant disponibilité",
+        "netAvailable": "Fonds nets disponibles",
+        "availableForProjects": "Disponible pour les projets",
+        "reached": "atteint",
+        "campaignProgressAria": "Progression de la campagne",
+        "campaignProgress": "Progression de la campagne",
+        "remainingForGoal": "sont encore nécessaires pour atteindre l'objectif mensuel."
+      },
+      "flow": {
+        "title": "Du paiement au fonds disponible",
+        "steps": {
+          "received": {
+            "title": "Contribution reçue",
+            "copy": "Le paiement sécurisé est déclenché depuis la page."
+          },
+          "confirmed": {
+            "title": "Paiement confirmé",
+            "copy": "La contribution est validée puis ajoutée au total public."
+          },
+          "fees": {
+            "title": "Frais déduits",
+            "copy": "Les frais de traitement restent visibles dans le calcul."
+          },
+          "available": {
+            "title": "Fonds disponibles",
+            "copy": "Le montant net finance l'infrastructure et les projets OpenG7."
+          }
+        }
+      },
+      "allocation": {
+        "title": "Répartition prévue du fonds",
+        "empty": "Aucune allocation publique publiée pour le moment."
+      },
+      "contribution": {
+        "ariaLabel": "Contribution et transparence financière",
+        "title": "Choisissez votre contribution",
+        "otherAmount": "Autre montant",
+        "securePayment": "Paiement sécurisé par Stripe",
+        "loading": "Préparation du paiement...",
+        "success": "Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup pour ouvrir le paiement réel.",
+        "error": "Impossible de démarrer le paiement."
+      },
+      "finance": {
+        "title": "Transparence financière",
+        "stripeFees": "Frais Stripe",
+        "publicDetails": "Voir les détails publics"
+      },
+      "footer": {
+        "copy": "Les 13 cartes montrent ce que nous construisons.",
+        "strong": "Le Fonds des Bâtisseurs montre comment nous le finançons."
+      },
+      "cards": {
+        "social": "Réseau social ouvert et souverain pour communautés et idées.",
+        "migration": "Moteur d'analyse des flux migratoires pour une planification intelligente.",
+        "firewall": "Protection avancée des infrastructures et des données critiques.",
+        "electionOps": "Coordination sécurisée des opérations le jour de l'élection.",
+        "voterRegister": "Registre des électeurs et documents officiels numériques.",
+        "vehicleRegistry": "Registre national des véhicules pour plus de sécurité et efficacité.",
+        "govgraph": "Graphe de données gouvernementales interconnectées.",
+        "nexus": "Portail unifié pour services et démarches citoyennes.",
+        "patientNavigation": "Guide les patients dans le parcours de soins personnalisé.",
+        "referral": "Aiguillage intelligent vers les bons soins au bon moment.",
+        "workforce": "Plateforme de mise en relation des talents de la santé.",
+        "supply": "Chaînes d'approvisionnement résilientes pour le système de santé.",
+        "funding": "Plateforme transparente de financement des initiatives OpenG7."
+      },
+      "pillars": {
+        "transparency": {
+          "title": "Transparence",
+          "description": "Des comptes clairs, ouverts à tous."
+        },
+        "resilience": {
+          "title": "Résilience",
+          "description": "Des fondations solides pour un avenir sûr."
+        },
+        "collaboration": {
+          "title": "Collaboration",
+          "description": "Ensemble, nous allons plus loin."
+        },
+        "openFuture": {
+          "title": "Avenir ouvert",
+          "description": "Technologie ouverte au service de tous."
+        }
+      },
+      "status": {
+        "syncing": "Synchronisation Stripe en cours...",
+        "unavailable": "Registre Stripe indisponible pour le moment.",
+        "empty": "Aucune contribution Stripe confirmée dans le registre.",
+        "synced": "Données Stripe synchronisées le",
+        "stripeUnsynced": "Stripe non synchronisé",
+        "stripeRegistry": "Stripe / registre public"
+      },
+      "sync": {
+        "loading": "Synchronisation...",
+        "unavailable": "Indisponible",
+        "pending": "En attente",
+        "notAvailable": "Non disponible"
+      },
+      "contributionCount": {
+        "one": "1 contribution confirmée",
+        "many": "{{ count }} contributions confirmées"
+      }
+    },
+    "nav": {
+      "home": "Accueil",
+      "projects": "Projets",
+      "ecosystem": "Écosystème",
+      "music": "Les Chants",
+      "shop": "Boutique",
+      "transparency": "Transparence",
+      "impact": "Impact",
+      "about": "À propos",
+      "contact": "Nous joindre",
+      "login": "Se connecter",
+      "support": "Support",
+      "supportCta": "Soutenir OpenG7",
+      "themeToggle": "Changer le thème",
+      "languageToggle": "Changer la langue"
+    },
+    "music": {
+      "toggle": {
+        "play": "Lancer la musique",
+        "stop": "Couper la musique"
+      }
+    },
+    "musicPage": {
+      "seo": {
+        "title": "Les Chants du Dragon | OpenG7",
+        "description": "Découvrez bientôt l’univers musical d’OpenG7, ses chants, ses créations et les nouvelles du Royaume."
+      },
+      "hero": {
+        "backgroundAlt": "Dragon doré et forteresse lumineuse dans l'univers OpenG7",
+        "eyebrow": "L’univers musical OpenG7",
+        "title": "Les Chants du Dragon",
+        "copy": "Des chants nés de la foi, de la résilience, de la création et de l’unité. Une nouvelle expérience musicale prendra bientôt vie au cœur d’OpenG7.",
+        "comingSoon": "À venir"
+      },
+      "album": {
+        "eyebrow": "Album",
+        "title": "Premier album OpenG7",
+        "status": "En préparation",
+        "trackPreviewAria": "Aperçu des titres en préparation",
+        "disabledButton": "Écouter l’album — À venir"
+      },
+      "news": {
+        "eyebrow": "Actualités",
+        "title": "Les nouvelles du Royaume",
+        "copy": "Les publications, annonces, créations et nouvelles de la communauté OpenG7 seront bientôt réunies ici.",
+        "badge": "Bientôt",
+        "items": {
+          "announcement": {
+            "title": "Annonce royale",
+            "summary": "Un espace dédié aux grandes annonces du projet se prépare."
+          },
+          "creation": {
+            "title": "Carnet de création",
+            "summary": "Les coulisses des chants et des visuels seront bientôt partagées."
+          },
+          "community": {
+            "title": "Voix de la communauté",
+            "summary": "Les nouvelles de la communauté OpenG7 seront réunies ici."
+          }
+        }
+      },
+      "cta": {
+        "title": "Le Dragon prépare ses chants.",
+        "copy": "Revenez bientôt pour découvrir les premières œuvres musicales d’OpenG7.",
+        "home": "Retour à l’accueil",
+        "ecosystem": "Découvrir l’écosystème"
+      }
+    },
+    "boutique": {
+      "seo": {
+        "title": "Boutique NorthDragon | OpenG7",
+        "description": "Découvrez la boutique NorthDragon, ses vêtements, accessoires et créations inspirés par la force, la foi, la résilience et la transformation."
+      },
+      "hero": {
+        "backgroundAlt": "Dragon doré et château dans un ciel sombre pour l'univers NorthDragon",
+        "eyebrow": "L’univers NorthDragon",
+        "title": "Boutique NorthDragon",
+        "comingSoon": "À venir",
+        "subtitle": "Des créations inspirées par la force, la foi, la résilience et la noblesse intérieure.",
+        "copy": "Découvrez des vêtements, accessoires et créations exclusives conçus pour celles et ceux qui portent leur histoire avec courage."
+      },
+      "links": {
+        "discover": "Découvrir la boutique",
+        "discoverAria": "Découvrir la boutique NorthDragon dans un nouvel onglet",
+        "discoverUniverse": "Découvrir l’univers NorthDragon",
+        "collection": "Voir la collection",
+        "collectionAria": "Voir la collection {{ collection }} sur NorthDragon.org",
+        "preview": "Voir dans la boutique",
+        "previewAria": "Voir {{ selection }} dans la boutique NorthDragon",
+        "visit": "Visiter NorthDragon.org",
+        "visitAria": "Visiter NorthDragon.org dans un nouvel onglet",
+        "access": "Accéder à la boutique",
+        "accessAria": "Accéder à la boutique NorthDragon dans un nouvel onglet",
+        "home": "Retour à l’accueil"
+      },
+      "benefits": {
+        "ariaLabel": "Avantages de la boutique NorthDragon",
+        "exclusive": {
+          "title": "Créations exclusives",
+          "description": "Des designs originaux inspirés de l’univers du Dragon."
+        },
+        "onDemand": {
+          "title": "Fabrication à la demande",
+          "description": "Des articles produits avec soin après chaque commande."
+        },
+        "securePayment": {
+          "title": "Paiement sécurisé",
+          "description": "Des transactions protégées par les solutions de paiement de la boutique."
+        },
+        "international": {
+          "title": "Livraison internationale",
+          "description": "Une sélection d’articles disponible dans plusieurs régions du monde."
+        },
+        "support": {
+          "title": "Soutien au projet",
+          "description": "Chaque achat contribue au développement de l’univers NorthDragon et de l’écosystème OpenG7."
+        }
+      },
+      "collections": {
+        "eyebrow": "Collections",
+        "title": "Les collections NorthDragon",
+        "subtitle": "Une signature pour chaque histoire.",
+        "items": {
+          "clothing": {
+            "title": "Vêtements",
+            "description": "T-shirts, chandails, vêtements légers et créations à porter au quotidien."
+          },
+          "accessories": {
+            "title": "Accessoires",
+            "description": "Casquettes, foulards, sacs et accessoires inspirés par le Dragon."
+          },
+          "home": {
+            "title": "Maison et style",
+            "description": "Coussins, objets décoratifs et créations pour prolonger l’univers NorthDragon."
+          },
+          "special": {
+            "title": "Collections spéciales",
+            "description": "Des créations symboliques autour de la renaissance, de la foi et de la souveraineté intérieure."
+          }
+        }
+      },
+      "featured": {
+        "eyebrow": "Aperçus éditoriaux",
+        "title": "Une sélection du Royaume",
+        "subtitle": "Les collections complètes sont disponibles sur NorthDragon.org.",
+        "dynamicComingSoon": "Sélection dynamique à venir",
+        "items": {
+          "signature": {
+            "category": "Tenues signature",
+            "description": "Des pièces à porter comme une armure douce, entre sobriété et présence."
+          },
+          "accessories": {
+            "category": "Accessoires du Royaume",
+            "description": "Des compléments visuels pour prolonger l’identité NorthDragon au quotidien."
+          },
+          "symbolic": {
+            "category": "Créations symboliques",
+            "description": "Des aperçus éditoriaux autour de la renaissance, de la foi et de la transformation."
+          },
+          "universe": {
+            "category": "Objets d’univers",
+            "description": "Des idées de style et d’ambiance pour faire vivre le récit au-delà du vêtement."
+          }
+        }
+      },
+      "brand": {
+        "eyebrow": "Signature",
+        "title": "NorthDragon — Née pour renaître",
+        "copy": "NorthDragon est plus qu’une boutique : c’est une signature. Un univers inspiré par le dragon, la noblesse, la résilience, la foi et la transformation. Chaque création porte une force intérieure : le courage de renaître, la beauté de se relever et l’élégance d’avancer avec puissance.",
+        "quote": "« Porte ton histoire. Avance avec puissance. »"
+      },
+      "ecosystem": {
+        "eyebrow": "OpenG7",
+        "title": "Une création de l’écosystème OpenG7",
+        "copy": "NorthDragon représente la dimension créative, symbolique et commerciale de l’écosystème OpenG7. La boutique contribue à faire vivre ses créations, ses récits et ses projets."
+      },
+      "cta": {
+        "title": "Entrez dans l’univers NorthDragon",
+        "copy": "Découvrez des créations conçues pour représenter la force, la transformation et la lumière retrouvée."
+      },
+      "footer": {
+        "brand": "OpenG7 × NorthDragon",
+        "copy": "Création · Résilience · Souveraineté intérieure"
+      }
+    },
     "campaign": {
       "title": "Le Fonds des Bâtisseurs",
       "description": "Chaque contribution maintient une lumière allumée, une province connectée et une nouvelle possibilité ouverte."
@@ -8,20 +630,48 @@
       "support": "Soutenir OpenG7"
     },
     "transparency": {
-      "title": "Utilisation du fonds",
+      "title": "Transparence financiere",
+      "details": "Details",
       "confirmed": "Contributions confirmées",
       "fees": "Frais de transaction",
       "available": "Fonds disponibles"
     },
     "allocation": {
-      "title": "Utilisation du fonds"
+      "title": "Utilisation du fonds",
+      "footnote": "Optimise pour l'impact et la perennite."
     },
     "builders": {
-      "title": "Derniers bâtisseurs"
+      "title": "Derniers bâtisseurs",
+      "recent": {
+        "0": "Il y a 5 min",
+        "1": "Il y a 15 min",
+        "2": "Il y a 27 min",
+        "3": "Il y a 1 h"
+      },
+      "recentFallback": "Recemment",
+      "thanks": "Merci a toutes celles et ceux qui batissent l'avenir."
     },
     "impact": {
       "title": "Ce que votre soutien construit",
-      "description": "Contribution volontaire au développement d’OpenG7 — aucun reçu fiscal."
+      "description": "Contribution volontaire au developpement d'OpenG7 - aucun recu fiscal.",
+      "items": {
+        "infrastructure": {
+          "title": "Infrastructure ouverte et securisee",
+          "description": "Des fondations solides pour un projet durable."
+        },
+        "tools": {
+          "title": "Outils et services pour tous",
+          "description": "Des solutions utiles, accessibles et libres."
+        },
+        "community": {
+          "title": "Communaute engagee",
+          "description": "Ensemble, on va plus loin."
+        },
+        "innovation": {
+          "title": "Innovation d'interet public",
+          "description": "Technologie au service du bien commun."
+        }
+      }
     },
     "guardian": {
       "alt": "Illustration du gardien du fonds"
@@ -31,17 +681,207 @@
       "customAmount": "Montant personnalisé"
     },
     "progress": {
-      "label": "Progression mensuelle"
+      "label": "Progression mensuelle",
+      "confirmed": "confirmes",
+      "remaining": "restants"
+    },
+    "goal": {
+      "monthly": "Objectif mensuel"
     },
     "map": {
       "title": "Carte symbolique du Canada",
-      "placeholder": "Carte des flux économiques interprovinciaux (placeholder configurable)."
+      "placeholder": "Carte des flux economiques interprovinciaux (aperçu symbolique).",
+      "explore": "Explorer la carte",
+      "legend": {
+        "oil": "Petrole et energie",
+        "electricity": "Electricite",
+        "services": "Services et donnees",
+        "labor": "Main-d'oeuvre specialisee"
+      }
     },
+    "scene": {
+      "flow": {
+        "title": "Flux economiques au Canada",
+        "description": "Visualisation simplifiee des echanges interprovinciaux relies au financement du projet.",
+        "action": "Voir la carte complete"
+      }
+    },
+    "footer": {
+      "tagline": "Fierement au service d'un Canada connecte, ouvert et innovant.",
+      "project": "OpenG7 est un projet citoyen et independant.",
+      "privacy": "Politique de confidentialite"
+    },
+    "availableFunds": "Fonds disponibles",
+    "confirmedContributions": "Contributions confirmees",
+    "transactionFees": "Frais de transaction",
+    "liveUpdate": "Mise a jour en temps reel",
     "state": {
       "loading": "Chargement des données de financement...",
       "empty": "Aucune donnée de financement disponible.",
       "success": "Données de financement synchronisées.",
       "error": "Impossible de charger les données de financement."
+    },
+    "transparencyPage": {
+      "hero": {
+        "cityAlt": "Ville canadienne illuminée par une feuille d’érable numérique pour le Fonds des Bâtisseurs",
+        "dragonAlt": "Dragon gardien protégeant un coffre de fonds publics",
+        "title": "Transparence du Fonds des",
+        "titleStrong": "Bâtisseurs",
+        "copy": "La confiance se construit par la preuve. Chaque contribution, chaque frais et chaque mouvement du fonds sont publiés sous forme agrégée.",
+        "viewRegistry": "Voir le registre",
+        "downloadReport": "Télécharger le rapport"
+      },
+      "sync": {
+        "activeCampaignValue": "Fonds des Bâtisseurs",
+        "pending": "En attente"
+      },
+      "kpis": {
+        "ariaLabel": "Indicateurs financiers publics",
+        "contributionCount": "{{ count }} contributions confirmées",
+        "refunds": "Remboursements",
+        "totalFees": "Total des frais",
+        "totalRefunded": "Total remboursé",
+        "availableForProjects": "Disponible pour nos projets",
+        "monthlyProgress": "{{ progress }}% atteint"
+      },
+      "campaign": {
+        "progress": "Progression de la campagne",
+        "remaining": "sont encore nécessaires pour atteindre l’objectif mensuel."
+      },
+      "flow": {
+        "title": "Du paiement au fonds disponible",
+        "totals": {
+          "received": "Contribution reçue",
+          "fees": "Frais estimés du traitement",
+          "net": "Montant net ajouté au fonds"
+        },
+        "steps": {
+          "contribution": {
+            "title": "Contribution",
+            "description": "Paiement reçu avec succès"
+          },
+          "confirmed": {
+            "title": "Paiement confirmé",
+            "description": "Transaction validée par Stripe"
+          },
+          "fees": {
+            "title": "Frais du fournisseur",
+            "description": "Frais de traitement déduits"
+          },
+          "refunds": {
+            "title": "Remboursements / contestations",
+            "description": "Montants retournés ou contestés"
+          },
+          "net": {
+            "title": "Montant net disponible",
+            "description": "Ajouté au fonds pour les projets"
+          }
+        }
+      },
+      "registry": {
+        "title": "Registre public des mouvements",
+        "filters": {
+          "all": "Tous",
+          "contributions": "Contributions",
+          "fees": "Frais"
+        },
+        "headers": {
+          "period": "Période",
+          "type": "Type",
+          "reference": "Référence publique",
+          "description": "Description",
+          "amount": "Montant",
+          "status": "État"
+        },
+        "types": {
+          "contribution": "Contribution",
+          "fee": "Frais"
+        },
+        "monthlyStripe": "Somme mensuelle agrégée Stripe",
+        "stripeFees": "Frais Stripe agrégés",
+        "status": {
+          "confirmed": "Confirmée",
+          "accounted": "Comptabilisé"
+        },
+        "empty": "Aucun mouvement public synchronisé pour le moment.",
+        "exportCsv": "Exporter le registre CSV"
+      },
+      "allocation": {
+        "title": "Répartition prévue du fonds",
+        "finePrint": "Cette répartition présente le plan actuel. Elle ne remplace pas les dépenses déjà réalisées.",
+        "items": {
+          "infrastructure": "Hébergement & infrastructure",
+          "development": "Développement & innovation",
+          "security": "Sécurité & continuité",
+          "data": "Données & documentation",
+          "community": "Communauté & communication",
+          "reserve": "Réserve & résilience"
+        }
+      },
+      "expenses": {
+        "title": "Dépenses réellement publiées",
+        "empty": "Aucune dépense publiée. Les contributions et frais sont actuellement synchronisés depuis Stripe.",
+        "info": "Le registre automatisé des dépenses opérationnelles sera enrichi dans une prochaine phase."
+      },
+      "platforms": {
+        "title": "Plateformes soutenues par le fonds",
+        "copy": "Toutes ces plateformes sont soutenues par le fonds général."
+      },
+      "method": {
+        "title": "Méthode de calcul",
+        "result": "= Fonds nets disponibles",
+        "copy": "Cliquez sur chaque élément pour en savoir plus.",
+        "disputedAmounts": "Montants contestés"
+      },
+      "privacy": {
+        "title": "Intégrité et confidentialité",
+        "copy": "Les données affichées sont agrégées automatiquement à partir des transactions Stripe. Aucune information personnelle des contributeurs n’est publiée.",
+        "publicData": {
+          "aggregateAmounts": "Montants agrégés",
+          "fees": "Frais",
+          "refunds": "Remboursements",
+          "goals": "Objectifs",
+          "plannedUse": "Utilisation prévue",
+          "publishedExpenses": "Dépenses rendues publiques",
+          "syncDate": "Date de synchronisation"
+        },
+        "protectedData": {
+          "contributorIdentity": "Identité privée des contributeurs",
+          "paymentDetails": "Renseignements de paiement",
+          "bankData": "Données bancaires",
+          "addresses": "Adresses",
+          "personalData": "Données personnelles",
+          "technicalIdentifiers": "Identifiants techniques sensibles"
+        }
+      },
+      "reports": {
+        "title": "Export et rapports",
+        "exportCsv": "Exporter en CSV",
+        "downloadMonthly": "Télécharger le rapport mensuel",
+        "copyLink": "Copier le lien de transparence"
+      },
+      "about": {
+        "title": "À propos de cette page",
+        "copy": "Cette page est mise à jour régulièrement à partir de Stripe. Les données peuvent présenter un léger délai en raison de la synchronisation.",
+        "paymentSource": "Source des paiements: Stripe",
+        "primaryCurrency": "Devise principale",
+        "syncFrequency": "Fréquence de synchronisation: 1 minute"
+      },
+      "support": {
+        "imageAlt": "Carte Funding Platform",
+        "title": "Vous savez maintenant où se trouve le fonds et comment il est calculé.",
+        "copy": "Chaque contribution aide à bâtir une infrastructure ouverte pour l’ensemble de l’écosystème OpenG7.",
+        "loading": "Préparation du paiement sécurisé...",
+        "success": "Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup pour ouvrir le paiement réel.",
+        "error": "Impossible de démarrer le paiement."
+      },
+      "footer": {
+        "tagline": "Fonds des Bâtisseurs - bâtir l’avenir ensemble."
+      },
+      "state": {
+        "loading": "Synchronisation des données publiques...",
+        "error": "Impossible de charger la transparence publique."
+      }
     }
   }
 }

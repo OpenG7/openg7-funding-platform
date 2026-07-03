@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "apps",
+  "projects": {
+    "funding-web": {
+      "projectType": "application",
+      "root": "apps/funding-web",
+      "sourceRoot": "apps/funding-web/src",
+      "prefix": "openg7",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist/apps/funding-web",
+            "index": "apps/funding-web/src/index.html",
+            "browser": "apps/funding-web/src/main.ts",
+            "server": "apps/funding-web/src/main.server.ts",
+            "tsConfig": "apps/funding-web/tsconfig.app.json",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "apps/funding-web/src/assets",
+                "output": "assets"
+              }
+            ],
+            "styles": ["apps/funding-web/src/styles.css"],
+            "outputMode": "static"
+          },
+          "configurations": {
+            "production": {
+              "optimization": true,
+              "sourceMap": false
+            },
+            "development": {
+              "optimization": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "funding-web:build:production"
+            },
+            "development": {
+              "buildTarget": "funding-web:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    }
+  },
+  "cli": {
+    "analytics": false
+  }
+}

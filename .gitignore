@@ -1,12 +1,99 @@
+# --- Monorepo OpenG7 --------------------------------------------------------
+# Node workspaces
+**/node_modules/
+
+# Package managers / Yarn 3 (nodeLinker: node-modules)
+.pnp.*
+.yarn/install-state.gz
+.yarn/unplugged/
+.yarn/build-state.yml
+# Keep these Yarn subfolders if you use them
 .yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
-node_modules
-dist
-coverage
-docs/api
+!.yarn/plugins/
+!.yarn/releases/
+!.yarn/sdks/
+!.yarn/patches/
+!.yarn/versions/
+
+# Logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+.codex-logs/
+
+# OS / Editors
 .DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.iml
+
+# --- Angular app ------------------------------------------------------------
+# /openG7/openg7-org/ (src/app/...)
+openg7-org/.angular/
+openg7-org/.cert/
+openg7-org/dist/
+openg7-org/coverage/
+openg7-org/test-results/
+openg7-org/playwright-report/
+openg7-org/public/runtime-config.js
+
+# Current workspace Angular cache
+.angular/
+
+# --- Strapi CMS -------------------------------------------------------------
+# /openG7/openg7-cms/ (strapi/src/...)
+openg7-cms/.tmp/
+openg7-cms/.cache/
+openg7-cms/build/
+openg7-cms/coverage/
+# Local uploads (if using a local provider in dev)
+openg7-cms/public/uploads/
+# Exports / backups
+openg7-cms/exports/
+# Local DB
+openg7-cms/data/
+openg7-cms/*.db
+openg7-cms/*.sqlite
+# Strapi env files
+openg7-cms/.env
+openg7-cms/.env.*
+# Current Strapi workspace
+strapi/.tmp/
+strapi/.cache/
+strapi/build/
+strapi/coverage/
+strapi/public/uploads/
+strapi/exports/
+strapi/data/
+strapi/*.db
+strapi/*.sqlite
+strapi/.env
+strapi/.env.*
+strapi/types/generated/
+# Legacy/new Strapi workspaces rely on the root Yarn lockfile
+strapi-legacy/yarn.lock
+strapi/yarn.lock
+strapi/.strapi-updater.json
+# Local Strapi SQLite database (dev only)
+strapi/data/db.sqlite
+
+# --- Generic build and tests ------------------------------------------------
+**/dist/
+**/build/
+**/coverage/
+!strapi/scripts/test-*.js
+**/*.js.map
+*.tsbuildinfo
+docs/reference/
+
+# --- Env vars (everywhere) --------------------------------------------------
 .env
+.env.*
+!.env.example
+!.env.docker.example
+strapi/types/generated/contentTypes.d.ts

@@ -1,5 +1,627 @@
 {
   "funding": {
+    "brand": {
+      "title": "Builders Fund",
+      "organization": "OpenG7"
+    },
+    "aria": {
+      "brandHome": "OpenG7 Builders Fund home",
+      "primaryNavigation": "Primary navigation"
+    },
+    "seo": {
+      "home": {
+        "title": "Builders Fund | OpenG7",
+        "description": "Support OpenG7 and the Builders Fund, an open infrastructure for funding transparent, resilient public digital platforms."
+      },
+      "ecosystem": {
+        "title": "OpenG7 Ecosystem | Open public platforms",
+        "description": "Explore OpenG7 platforms, their families, connections, and shared architecture for public digital services."
+      },
+      "support": {
+        "title": "Support and GitHub repositories | OpenG7",
+        "description": "Access OpenG7 GitHub repositories, review projects, open issues, and contribute to the ecosystem."
+      },
+      "about": {
+        "title": "About OpenG7 | Builders Fund",
+        "description": "Discover OpenG7’s vision, shared foundations, and the role of the Builders Fund in developing the ecosystem."
+      },
+      "transparency": {
+        "title": "Builders Fund transparency | OpenG7",
+        "description": "View aggregated public Builders Fund data: contributions, fees, estimated availability, and transparency records."
+      }
+    },
+    "ecosystemPage": {
+      "hero": {
+        "backgroundAlt": "Digital map of Canada above a connected city",
+        "title": "The ecosystem",
+        "lead": "Thirteen platforms. Shared foundations. Open infrastructure to better connect Canada."
+      },
+      "actions": {
+        "explorePlatforms": "Explore platforms",
+        "viewConnections": "View connections",
+        "supportEcosystem": "Support the ecosystem",
+        "explore": "Explore"
+      },
+      "stats": {
+        "ariaLabel": "Ecosystem summary",
+        "platforms": "Platforms",
+        "families": "Families",
+        "sharedInfrastructure": "Shared infrastructure",
+        "possibilities": "Possibilities"
+      },
+      "map": {
+        "title": "Interactive ecosystem map",
+        "copy": "OpenG7 organizes thirteen interconnected platforms around six major families to generate better, faster, and more inclusive services for all Canadians.",
+        "explore": "Explore the full map",
+        "networkAria": "Connections between OpenG7 platforms"
+      },
+      "families": {
+        "economy": "Economy & mobility",
+        "economyShort": "Economy and mobility",
+        "health": "Health",
+        "governance": "Governance & democracy",
+        "governanceShort": "Governance and democracy",
+        "society": "Society",
+        "security": "Security",
+        "funding": "Funding",
+        "data": "Data",
+        "mobility": "Mobility"
+      },
+      "platformDescriptions": {
+        "nexus": "Unified access point between citizens, businesses, and public services.",
+        "vehicleRegistry": "National vehicle registry for reliable and secure transactions.",
+        "migration": "Analysis and orchestration of migration flows for smoother pathways.",
+        "patientNavigation": "Guides patients through personalized care pathways.",
+        "referral": "Routes requests to the right specialists at the right time.",
+        "workforce": "Connects health professionals with institutional needs.",
+        "supply": "Optimizes availability and distribution of critical medical supplies.",
+        "govgraph": "Graph of services and regulations for better public interoperability.",
+        "electionOps": "Modern, secure, and transparent election operations.",
+        "voterRegister": "Verifiable and up-to-date voter registry and official documents.",
+        "social": "Citizen engagement and public consultation platform.",
+        "firewall": "Protection for services, identities, and data at national scale.",
+        "funding": "Orchestrates public funding and impact grants."
+      },
+      "platforms": {
+        "title": "The 13 platforms"
+      },
+      "architecture": {
+        "title": "A shared architecture",
+        "copy": "OpenG7 is built on a shared foundation that reduces costs, accelerates delivery, and ensures interoperability.",
+        "platformDotsAria": "The 13 platforms connected to the shared foundation",
+        "items": {
+          "core": "Infrastructure core and shared services",
+          "design": "Design System",
+          "models": "Data models",
+          "security": "Security & identity",
+          "gateway": "API Gateway",
+          "i18n": "i18n localization",
+          "components": "Reusable components",
+          "docs": "Documentation & standards"
+        }
+      },
+      "connections": {
+        "title": "Connections create value"
+      },
+      "familyDetails": {
+        "health": "Integrated patient pathways, less waiting, better coordination.",
+        "data": "Reliable data, shared securely, for better decisions.",
+        "mobility": "Fluid transportation and logistics, services accessible everywhere.",
+        "security": "Protected identities, resilient services, increased trust.",
+        "funding": "Better allocated resources, high-impact projects for everyone."
+      },
+      "journey": {
+        "title": "Cross-platform scenario: an end-to-end journey",
+        "items": {
+          "opengraph": "Understand available rules and services",
+          "workforce": "Identify available professionals",
+          "referral": "Route the request to the right specialist",
+          "patient": "Support the patient at every step",
+          "supply": "Ensure supplies and treatments",
+          "nexus": "Unified access point and centralized services",
+          "firewall": "Secure access and data",
+          "funding": "Fund and support interventions"
+        }
+      },
+      "development": {
+        "title": "Development status",
+        "status": {
+          "done": "Done",
+          "inProgress": "In progress"
+        },
+        "rows": {
+          "concepts": "Defined concepts",
+          "prototypes": "Prototypes in progress",
+          "visuals": "Visual identities",
+          "integrations": "Real integrations",
+          "sharedServices": "Shared services"
+        }
+      },
+      "summary": {
+        "ariaLabel": "Summary indicators",
+        "commonVision": "Common vision",
+        "potentialPartners": "Potential partners",
+        "items": {
+          "interoperability": {
+            "label": "Interoperability",
+            "detail": "Designed from the start"
+          },
+          "openness": {
+            "label": "Openness",
+            "detail": "Open standards"
+          },
+          "trust": {
+            "label": "Trust",
+            "detail": "Security & transparency"
+          },
+          "impact": {
+            "label": "Impact",
+            "detail": "Citizens first"
+          }
+        }
+      },
+      "cta": {
+        "title": "Canada already has the resources, talent, and institutions.",
+        "copy": "OpenG7 aims to connect them better."
+      },
+      "footer": {
+        "secondaryLinksAria": "Secondary links",
+        "documentation": "Documentation",
+        "copyright": "© {{year}} OpenG7. All rights reserved."
+      }
+    },
+    "supportPage": {
+      "hero": {
+        "mapAlt": "Digital map of Canada connected to the OpenG7 ecosystem",
+        "dragonAlt": "Guardian dragon of the OpenG7 ecosystem",
+        "title": "Build OpenG7 with",
+        "copy": "GitHub is the public workshop of the ecosystem. Explore repositories, report an issue, suggest an idea, and contribute code."
+      },
+      "links": {
+        "viewRepos": "View repositories",
+        "openGithub": "Open GitHub"
+      },
+      "actions": {
+        "ariaLabel": "Contribution actions",
+        "explore": {
+          "title": "Explore repositories",
+          "description": "Browse OpenG7 projects, their goals, and their progress."
+        },
+        "issue": {
+          "title": "Report an issue",
+          "description": "Help improve quality by reporting a bug or unexpected behavior."
+        },
+        "idea": {
+          "title": "Suggest an idea",
+          "description": "Share improvement ideas, new features, or use cases."
+        },
+        "code": {
+          "title": "Contribute code",
+          "description": "Forks, code, tests, and pull requests: every contribution counts."
+        }
+      },
+      "workspace": {
+        "ariaLabel": "OpenG7 support workspace"
+      },
+      "repositories": {
+        "title": "Choose a repository",
+        "copy": "Here are the main repositories of the OpenG7 ecosystem. Click to explore, read documentation, or contribute.",
+        "linksAria": "Repository links",
+        "all": "View all repositories on GitHub"
+      },
+      "status": {
+        "inDevelopment": "In development",
+        "toDevelop": "To develop"
+      },
+      "steps": {
+        "title": "How to use GitHub with OpenG7?",
+        "items": {
+          "explore": {
+            "title": "Explore",
+            "description": "Browse repositories and read README files to understand each project."
+          },
+          "issue": {
+            "title": "Create an issue",
+            "description": "Report a bug or request an improvement through the Issues tab."
+          },
+          "improvement": {
+            "title": "Suggest an improvement",
+            "description": "Describe your idea, its value, and its context."
+          },
+          "pullRequest": {
+            "title": "Open a pull request",
+            "description": "Submit your code or changes for review."
+          }
+        }
+      },
+      "notices": {
+        "warning": {
+          "title": "Never publish API keys, passwords, or personal data.",
+          "copy": "For a security vulnerability, use the private channel listed in SECURITY.md."
+        },
+        "info": {
+          "title": "OpenG7 is currently an independent project in development.",
+          "copy": "Discussion and contributions mainly happen through GitHub."
+        }
+      },
+      "footer": {
+        "title": "Made in Canada. Open for everyone.",
+        "copy": "Transparency · Collaboration · Digital sovereignty",
+        "linksAria": "Secondary support links",
+        "codeOfConduct": "Code of conduct",
+        "security": "Security",
+        "documentation": "Documentation",
+        "license": "License"
+      }
+    },
+    "aboutPage": {
+      "hero": {
+        "imageAlt": "Luminous map of Canada rising from a chest above Toronto",
+        "homeAria": "Builders Fund home",
+        "title": "About ",
+        "statement": "An open vision. Shared foundations.",
+        "statementStrong": "Collective impact.",
+        "description": "OpenG7 is an open ecosystem of digital platforms connecting provinces, organizations, and communities from coast to coast. The Builders Fund supports the shared foundations that make these projects possible.",
+        "actionsAria": "OpenG7 about actions"
+      },
+      "actions": {
+        "discover": "Discover OpenG7",
+        "understandFund": "Understand the fund",
+        "support": "Support the project"
+      },
+      "foundations": {
+        "eyebrow": "Shared foundations",
+        "title": "What the fund makes possible",
+        "items": {
+          "infrastructure": {
+            "title": "Open infrastructure",
+            "description": "Common foundations for deploying reliable and verifiable digital services."
+          },
+          "transparency": {
+            "title": "Transparent funding",
+            "description": "Every contribution supports the general fund and can be followed publicly."
+          },
+          "impact": {
+            "title": "Collective impact",
+            "description": "The platforms move forward together to serve communities, data, and real-world needs."
+          }
+        }
+      }
+    },
+    "home": {
+      "checkout": {
+        "successAlt": "Black and gold dragon dropping coins into a safe",
+        "cancelAlt": "Closed safe guarded by a dragon",
+        "closeSuccess": "Close payment confirmation",
+        "closeCancel": "Close interrupted payment message",
+        "successKicker": "Payment confirmed",
+        "successTitle": "The Builders chest has received your contribution.",
+        "successCopy": "Thank you for helping OpenG7 fund open, resilient, and transparent infrastructure. The public fund will sync as soon as Stripe confirmation is available.",
+        "cancelKicker": "Payment interrupted",
+        "cancelTitle": "The chest remains closed for this contribution.",
+        "cancelCopy": "No confirmed payment was added to the registry. You can resume your contribution whenever you are ready."
+      },
+      "actions": {
+        "viewTransparency": "View transparency",
+        "contributeAgain": "Contribute again",
+        "retry": "Try again",
+        "contactSupport": "Contact support",
+        "viewRegistry": "View registry"
+      },
+      "hero": {
+        "backgroundAlt": "Luminous Canadian city with a connected maple leaf",
+        "line1": "13 tools.",
+        "line2": "One mission.",
+        "line3": "One future.",
+        "copy": "The Builders Fund powers an open digital ecosystem to strengthen Canada’s economy, transparency, and resilience.",
+        "progressAria": "Fundraising progress",
+        "raisedOn": "raised of"
+      },
+      "ecosystem": {
+        "title": "The ecosystem",
+        "copy": "13 platforms are building tomorrow’s Canada.",
+        "foundationLead": "These platforms need",
+        "foundationStrong": "solid foundations."
+      },
+      "purpose": {
+        "dragonAlt": "Guardian dragon protecting a civic funding chest",
+        "title": "Where do the funds go to support",
+        "copy": "Every contribution is tied to a concrete mission: keeping platforms online, improving public tools, and publishing a clear financial registry.",
+        "proofAria": "Public fund status",
+        "lastSync": "Last synchronization",
+        "source": "Contribution source",
+        "currency": "Primary currency",
+        "activeCampaign": "Active campaign",
+        "kpiAria": "Fund financial indicators",
+        "paymentFees": "Payment fees",
+        "deductedBeforeAvailable": "Deducted before availability",
+        "netAvailable": "Net funds available",
+        "availableForProjects": "Available for projects",
+        "reached": "reached",
+        "campaignProgressAria": "Campaign progress",
+        "campaignProgress": "Campaign progress",
+        "remainingForGoal": "still needed to reach the monthly goal."
+      },
+      "flow": {
+        "title": "From payment to available funds",
+        "steps": {
+          "received": {
+            "title": "Contribution received",
+            "copy": "Secure payment is started from the page."
+          },
+          "confirmed": {
+            "title": "Payment confirmed",
+            "copy": "The contribution is validated and added to the public total."
+          },
+          "fees": {
+            "title": "Fees deducted",
+            "copy": "Processing fees remain visible in the calculation."
+          },
+          "available": {
+            "title": "Funds available",
+            "copy": "The net amount funds OpenG7 infrastructure and projects."
+          }
+        }
+      },
+      "allocation": {
+        "title": "Planned fund allocation",
+        "empty": "No public allocation has been published yet."
+      },
+      "contribution": {
+        "ariaLabel": "Contribution and financial transparency",
+        "title": "Choose your contribution",
+        "otherAmount": "Other amount",
+        "securePayment": "Secure payment by Stripe",
+        "loading": "Preparing payment...",
+        "success": "Local simulated checkout. Configure Stripe in /dev/stripe-setup to open real payment.",
+        "error": "Unable to start payment."
+      },
+      "finance": {
+        "title": "Financial transparency",
+        "stripeFees": "Stripe fees",
+        "publicDetails": "View public details"
+      },
+      "footer": {
+        "copy": "The 13 cards show what we are building.",
+        "strong": "The Builders Fund shows how we fund it."
+      },
+      "cards": {
+        "social": "Open and sovereign social network for communities and ideas.",
+        "migration": "Migration flow analytics engine for intelligent planning.",
+        "firewall": "Advanced protection for infrastructure and critical data.",
+        "electionOps": "Secure coordination of election day operations.",
+        "voterRegister": "Voter registry and official digital documents.",
+        "vehicleRegistry": "National vehicle registry for greater safety and efficiency.",
+        "govgraph": "Interconnected government data graph.",
+        "nexus": "Unified portal for civic services and processes.",
+        "patientNavigation": "Guides patients through personalized care pathways.",
+        "referral": "Smart routing to the right care at the right time.",
+        "workforce": "Platform connecting health workforce talent.",
+        "supply": "Resilient supply chains for the health system.",
+        "funding": "Transparent platform for funding OpenG7 initiatives."
+      },
+      "pillars": {
+        "transparency": {
+          "title": "Transparency",
+          "description": "Clear accounts, open to everyone."
+        },
+        "resilience": {
+          "title": "Resilience",
+          "description": "Solid foundations for a safer future."
+        },
+        "collaboration": {
+          "title": "Collaboration",
+          "description": "Together, we go further."
+        },
+        "openFuture": {
+          "title": "Open future",
+          "description": "Open technology in service of everyone."
+        }
+      },
+      "status": {
+        "syncing": "Stripe synchronization in progress...",
+        "unavailable": "Stripe registry is unavailable for now.",
+        "empty": "No confirmed Stripe contribution in the registry yet.",
+        "synced": "Stripe data synchronized on",
+        "stripeUnsynced": "Stripe not synchronized",
+        "stripeRegistry": "Stripe / public registry"
+      },
+      "sync": {
+        "loading": "Synchronizing...",
+        "unavailable": "Unavailable",
+        "pending": "Pending",
+        "notAvailable": "Not available"
+      },
+      "contributionCount": {
+        "one": "1 confirmed contribution",
+        "many": "{{ count }} confirmed contributions"
+      }
+    },
+    "nav": {
+      "home": "Home",
+      "projects": "Projects",
+      "ecosystem": "Ecosystem",
+      "music": "The Chants",
+      "shop": "Shop",
+      "transparency": "Transparency",
+      "impact": "Impact",
+      "about": "About",
+      "contact": "Contact",
+      "login": "Sign in",
+      "support": "Support",
+      "supportCta": "Support OpenG7",
+      "themeToggle": "Toggle theme",
+      "languageToggle": "Change language"
+    },
+    "music": {
+      "toggle": {
+        "play": "Start music",
+        "stop": "Stop music"
+      }
+    },
+    "musicPage": {
+      "seo": {
+        "title": "The Dragon Chants | OpenG7",
+        "description": "Soon discover OpenG7’s musical universe, its chants, creations, and news from the Realm."
+      },
+      "hero": {
+        "backgroundAlt": "Golden dragon and luminous fortress in the OpenG7 universe",
+        "eyebrow": "The OpenG7 musical universe",
+        "title": "The Dragon Chants",
+        "copy": "Chants born from faith, resilience, creation, and unity. A new musical experience will soon come to life at the heart of OpenG7.",
+        "comingSoon": "Coming soon"
+      },
+      "album": {
+        "eyebrow": "Album",
+        "title": "First OpenG7 album",
+        "status": "In preparation",
+        "trackPreviewAria": "Preview of titles in preparation",
+        "disabledButton": "Listen to the album — Coming soon"
+      },
+      "news": {
+        "eyebrow": "News",
+        "title": "News from the Realm",
+        "copy": "Posts, announcements, creations, and community news from OpenG7 will soon be gathered here.",
+        "badge": "Soon",
+        "items": {
+          "announcement": {
+            "title": "Royal announcement",
+            "summary": "A space dedicated to major project announcements is being prepared."
+          },
+          "creation": {
+            "title": "Creation journal",
+            "summary": "Behind-the-scenes notes on chants and visuals will soon be shared."
+          },
+          "community": {
+            "title": "Community voices",
+            "summary": "OpenG7 community news will be gathered here."
+          }
+        }
+      },
+      "cta": {
+        "title": "The Dragon is preparing its chants.",
+        "copy": "Come back soon to discover the first musical works of OpenG7.",
+        "home": "Return home",
+        "ecosystem": "Discover the ecosystem"
+      }
+    },
+    "boutique": {
+      "seo": {
+        "title": "NorthDragon Shop | OpenG7",
+        "description": "Discover the NorthDragon shop, its clothing, accessories, and creations inspired by strength, faith, resilience, and transformation."
+      },
+      "hero": {
+        "backgroundAlt": "Golden dragon and castle under dark skies for the NorthDragon universe",
+        "eyebrow": "The NorthDragon universe",
+        "title": "NorthDragon Shop",
+        "comingSoon": "Coming soon",
+        "subtitle": "Creations inspired by strength, faith, resilience, and inner nobility.",
+        "copy": "Discover clothing, accessories, and exclusive creations designed for those who carry their story with courage."
+      },
+      "links": {
+        "discover": "Discover the shop",
+        "discoverAria": "Discover the NorthDragon shop in a new tab",
+        "discoverUniverse": "Discover the NorthDragon universe",
+        "collection": "View collection",
+        "collectionAria": "View the {{ collection }} collection on NorthDragon.org",
+        "preview": "View in the shop",
+        "previewAria": "View {{ selection }} in the NorthDragon shop",
+        "visit": "Visit NorthDragon.org",
+        "visitAria": "Visit NorthDragon.org in a new tab",
+        "access": "Go to the shop",
+        "accessAria": "Open the NorthDragon shop in a new tab",
+        "home": "Return home"
+      },
+      "benefits": {
+        "ariaLabel": "NorthDragon shop benefits",
+        "exclusive": {
+          "title": "Exclusive creations",
+          "description": "Original designs inspired by the Dragon universe."
+        },
+        "onDemand": {
+          "title": "Made to order",
+          "description": "Items produced with care after each order."
+        },
+        "securePayment": {
+          "title": "Secure payment",
+          "description": "Transactions protected by the shop’s payment solutions."
+        },
+        "international": {
+          "title": "International shipping",
+          "description": "A selection of items available in several regions of the world."
+        },
+        "support": {
+          "title": "Project support",
+          "description": "Every purchase contributes to the NorthDragon universe and the OpenG7 ecosystem."
+        }
+      },
+      "collections": {
+        "eyebrow": "Collections",
+        "title": "NorthDragon collections",
+        "subtitle": "A signature for every story.",
+        "items": {
+          "clothing": {
+            "title": "Clothing",
+            "description": "T-shirts, sweaters, lightweight garments, and everyday wearable creations."
+          },
+          "accessories": {
+            "title": "Accessories",
+            "description": "Caps, scarves, bags, and accessories inspired by the Dragon."
+          },
+          "home": {
+            "title": "Home and style",
+            "description": "Cushions, decorative objects, and creations that extend the NorthDragon universe."
+          },
+          "special": {
+            "title": "Special collections",
+            "description": "Symbolic creations around rebirth, faith, and inner sovereignty."
+          }
+        }
+      },
+      "featured": {
+        "eyebrow": "Editorial previews",
+        "title": "A selection from the Realm",
+        "subtitle": "The full collections are available on NorthDragon.org.",
+        "dynamicComingSoon": "Dynamic selection coming soon",
+        "items": {
+          "signature": {
+            "category": "Signature outfits",
+            "description": "Pieces to wear like soft armor, between restraint and presence."
+          },
+          "accessories": {
+            "category": "Realm accessories",
+            "description": "Visual complements that extend the NorthDragon identity every day."
+          },
+          "symbolic": {
+            "category": "Symbolic creations",
+            "description": "Editorial previews around rebirth, faith, and transformation."
+          },
+          "universe": {
+            "category": "Universe objects",
+            "description": "Style and atmosphere ideas that carry the story beyond clothing."
+          }
+        }
+      },
+      "brand": {
+        "eyebrow": "Signature",
+        "title": "NorthDragon — Born to rise again",
+        "copy": "NorthDragon is more than a shop: it is a signature. A universe inspired by the dragon, nobility, resilience, faith, and transformation. Every creation carries inner strength: the courage to rise again, the beauty of standing back up, and the elegance of moving forward with power.",
+        "quote": "“Wear your story. Move forward with power.”"
+      },
+      "ecosystem": {
+        "eyebrow": "OpenG7",
+        "title": "A creation of the OpenG7 ecosystem",
+        "copy": "NorthDragon represents the creative, symbolic, and commercial dimension of the OpenG7 ecosystem. The shop helps bring its creations, stories, and projects to life."
+      },
+      "cta": {
+        "title": "Enter the NorthDragon universe",
+        "copy": "Discover creations designed to represent strength, transformation, and restored light."
+      },
+      "footer": {
+        "brand": "OpenG7 × NorthDragon",
+        "copy": "Creation · Resilience · Inner sovereignty"
+      }
+    },
     "campaign": {
       "title": "Builders Fund",
       "description": "Every contribution keeps one light on, one province connected, and one new possibility open."
@@ -9,19 +631,47 @@
     },
     "transparency": {
       "title": "Fund transparency",
+      "details": "Details",
       "confirmed": "Confirmed contributions",
       "fees": "Transaction fees",
       "available": "Available funds"
     },
     "allocation": {
-      "title": "Fund allocation"
+      "title": "Fund allocation",
+      "footnote": "Optimized for impact and long-term sustainability."
     },
     "builders": {
-      "title": "Latest builders"
+      "title": "Latest builders",
+      "recent": {
+        "0": "5 min ago",
+        "1": "15 min ago",
+        "2": "27 min ago",
+        "3": "1 h ago"
+      },
+      "recentFallback": "Recently",
+      "thanks": "Thank you to everyone building the future together."
     },
     "impact": {
       "title": "What your support builds",
-      "description": "Voluntary contribution to OpenG7 development — no tax receipt."
+      "description": "Voluntary contribution to OpenG7 development - no tax receipt.",
+      "items": {
+        "infrastructure": {
+          "title": "Open and secure infrastructure",
+          "description": "Strong foundations for a durable project."
+        },
+        "tools": {
+          "title": "Tools and services for everyone",
+          "description": "Useful, accessible and open solutions."
+        },
+        "community": {
+          "title": "Engaged community",
+          "description": "Together we go further."
+        },
+        "innovation": {
+          "title": "Public interest innovation",
+          "description": "Technology in service of the common good."
+        }
+      }
     },
     "guardian": {
       "alt": "Fund guardian illustration"
@@ -31,17 +681,207 @@
       "customAmount": "Custom amount"
     },
     "progress": {
-      "label": "Monthly progress"
+      "label": "Monthly progress",
+      "confirmed": "confirmed",
+      "remaining": "remaining"
+    },
+    "goal": {
+      "monthly": "Monthly goal"
     },
     "map": {
       "title": "Symbolic Canada map",
-      "placeholder": "Interprovincial economic flow map (configurable placeholder)."
+      "placeholder": "Interprovincial economic flow map (symbolic preview).",
+      "explore": "Explore map",
+      "legend": {
+        "oil": "Oil and energy",
+        "electricity": "Electricity",
+        "services": "Services and data",
+        "labor": "Skilled labor"
+      }
     },
+    "scene": {
+      "flow": {
+        "title": "Economic flows in Canada",
+        "description": "Simplified view of interprovincial exchanges connected to project funding.",
+        "action": "View full map"
+      }
+    },
+    "footer": {
+      "tagline": "Proudly serving a connected, open and innovative Canada.",
+      "project": "OpenG7 is an independent civic project.",
+      "privacy": "Privacy policy"
+    },
+    "availableFunds": "Available funds",
+    "confirmedContributions": "Confirmed contributions",
+    "transactionFees": "Transaction fees",
+    "liveUpdate": "Live update",
     "state": {
       "loading": "Loading funding data...",
       "empty": "No funding data available.",
       "success": "Funding data synchronized.",
       "error": "Unable to load funding data."
+    },
+    "transparencyPage": {
+      "hero": {
+        "cityAlt": "Luminous Canadian city with a digital maple leaf for the Builders Fund",
+        "dragonAlt": "Guardian dragon protecting a public fund chest",
+        "title": "Builders Fund",
+        "titleStrong": "transparency",
+        "copy": "Trust is built through proof. Every contribution, fee, and fund movement is published in aggregated form.",
+        "viewRegistry": "View registry",
+        "downloadReport": "Download report"
+      },
+      "sync": {
+        "activeCampaignValue": "Builders Fund",
+        "pending": "Pending"
+      },
+      "kpis": {
+        "ariaLabel": "Public financial indicators",
+        "contributionCount": "{{ count }} confirmed contributions",
+        "refunds": "Refunds",
+        "totalFees": "Total fees",
+        "totalRefunded": "Total refunded",
+        "availableForProjects": "Available for our projects",
+        "monthlyProgress": "{{ progress }}% reached"
+      },
+      "campaign": {
+        "progress": "Campaign progress",
+        "remaining": "still needed to reach the monthly goal."
+      },
+      "flow": {
+        "title": "From payment to available funds",
+        "totals": {
+          "received": "Contribution received",
+          "fees": "Estimated processing fees",
+          "net": "Net amount added to the fund"
+        },
+        "steps": {
+          "contribution": {
+            "title": "Contribution",
+            "description": "Payment received successfully"
+          },
+          "confirmed": {
+            "title": "Payment confirmed",
+            "description": "Transaction validated by Stripe"
+          },
+          "fees": {
+            "title": "Provider fees",
+            "description": "Processing fees deducted"
+          },
+          "refunds": {
+            "title": "Refunds / disputes",
+            "description": "Amounts returned or disputed"
+          },
+          "net": {
+            "title": "Net amount available",
+            "description": "Added to the fund for projects"
+          }
+        }
+      },
+      "registry": {
+        "title": "Public movement registry",
+        "filters": {
+          "all": "All",
+          "contributions": "Contributions",
+          "fees": "Fees"
+        },
+        "headers": {
+          "period": "Period",
+          "type": "Type",
+          "reference": "Public reference",
+          "description": "Description",
+          "amount": "Amount",
+          "status": "Status"
+        },
+        "types": {
+          "contribution": "Contribution",
+          "fee": "Fee"
+        },
+        "monthlyStripe": "Monthly aggregated Stripe total",
+        "stripeFees": "Aggregated Stripe fees",
+        "status": {
+          "confirmed": "Confirmed",
+          "accounted": "Accounted"
+        },
+        "empty": "No public movement has been synchronized yet.",
+        "exportCsv": "Export CSV registry"
+      },
+      "allocation": {
+        "title": "Planned fund allocation",
+        "finePrint": "This allocation shows the current plan. It does not replace expenses already incurred.",
+        "items": {
+          "infrastructure": "Hosting & infrastructure",
+          "development": "Development & innovation",
+          "security": "Security & continuity",
+          "data": "Data & documentation",
+          "community": "Community & communication",
+          "reserve": "Reserve & resilience"
+        }
+      },
+      "expenses": {
+        "title": "Published actual expenses",
+        "empty": "No expense has been published yet. Contributions and fees are currently synchronized from Stripe.",
+        "info": "The automated registry of operational expenses will be enriched in a future phase."
+      },
+      "platforms": {
+        "title": "Platforms supported by the fund",
+        "copy": "All these platforms are supported by the general fund."
+      },
+      "method": {
+        "title": "Calculation method",
+        "result": "= Net funds available",
+        "copy": "Click each item to learn more.",
+        "disputedAmounts": "Disputed amounts"
+      },
+      "privacy": {
+        "title": "Integrity and privacy",
+        "copy": "Displayed data is automatically aggregated from Stripe transactions. No personal contributor information is published.",
+        "publicData": {
+          "aggregateAmounts": "Aggregated amounts",
+          "fees": "Fees",
+          "refunds": "Refunds",
+          "goals": "Goals",
+          "plannedUse": "Planned use",
+          "publishedExpenses": "Published expenses",
+          "syncDate": "Synchronization date"
+        },
+        "protectedData": {
+          "contributorIdentity": "Private contributor identity",
+          "paymentDetails": "Payment details",
+          "bankData": "Bank data",
+          "addresses": "Addresses",
+          "personalData": "Personal data",
+          "technicalIdentifiers": "Sensitive technical identifiers"
+        }
+      },
+      "reports": {
+        "title": "Exports and reports",
+        "exportCsv": "Export as CSV",
+        "downloadMonthly": "Download monthly report",
+        "copyLink": "Copy transparency link"
+      },
+      "about": {
+        "title": "About this page",
+        "copy": "This page is updated regularly from Stripe. Data may show a slight delay because of synchronization.",
+        "paymentSource": "Payment source: Stripe",
+        "primaryCurrency": "Primary currency",
+        "syncFrequency": "Synchronization frequency: 1 minute"
+      },
+      "support": {
+        "imageAlt": "Funding Platform card",
+        "title": "You now know where the fund stands and how it is calculated.",
+        "copy": "Every contribution helps build open infrastructure for the whole OpenG7 ecosystem.",
+        "loading": "Preparing secure payment...",
+        "success": "Local simulated checkout. Configure Stripe in /dev/stripe-setup to open real payment.",
+        "error": "Unable to start payment."
+      },
+      "footer": {
+        "tagline": "Builders Fund - building the future together."
+      },
+      "state": {
+        "loading": "Synchronizing public data...",
+        "error": "Unable to load public transparency."
+      }
     }
   }
 }
