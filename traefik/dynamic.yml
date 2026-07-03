@@ -1,0 +1,113 @@
+tls:
+  options:
+    modern:
+      minVersion: VersionTLS12
+      cipherSuites:
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+
+http:
+  routers:
+    openg7-api:
+      rule: "Host(`vps-ea750a98.vps.ovh.ca`) && PathPrefix(`/api`)"
+      entryPoints:
+        - websecure
+      service: openg7-api
+      priority: 100
+      middlewares:
+        - secure-headers
+        - api-rate-limit
+        - compress
+      tls:
+        certResolver: letsencrypt
+
+    openg7-api-local:
+      rule: "Host(`localhost`) && PathPrefix(`/api`)"
+      entryPoints:
+        - websecure
+      service: openg7-api
+      priority: 100
+      middlewares:
+        - secure-headers
+        - api-rate-limit
+        - compress
+      tls: {}
+
+    openg7-web:
+      rule: "Host(`vps-ea750a98.vps.ovh.ca`)"
+      entryPoints:
+        - websecure
+      service: openg7-web
+      priority: 10
+      middlewares:
+        - secure-headers
+        - web-rate-limit
+        - compress
+      tls:
+        certResolver: letsencrypt
+
+    openg7-web-local:
+      rule: "Host(`localhost`)"
+      entryPoints:
+        - websecure
+      service: openg7-web
+      priority: 10
+      middlewares:
+        - secure-headers
+        - web-rate-limit
+        - compress
+      tls: {}
+
+  services:
+    openg7-api:
+      loadBalancer:
+        servers:
+          - url: "http://api:3333"
+
+    openg7-web:
+      loadBalancer:
+        servers:
+          - url: "http://web:8080"
+
+  middlewares:
+    secure-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        customFrameOptionsValue: DENY
+        forceSTSHeader: true
+        referrerPolicy: strict-origin-when-cross-origin
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=()"
+        contentSecurityPolicy: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; media-src 'self'; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.stripe.com https://checkout.stripe.com; frame-src https://js.stripe.com https://checkout.stripe.com; form-action 'self' https://checkout.stripe.com; upgrade-insecure-requests"
+        customResponseHeaders:
+          X-Robots-Tag: "index, follow"
+          Server: ""
+
+    web-rate-limit:
+      rateLimit:
+        average: 120
+        burst: 80
+        period: 1m
+
+    api-rate-limit:
+      rateLimit:
+        average: 30
+        burst: 20
+        period: 1m
+
+    compress:
+      compress:
+        includedContentTypes:
+          - application/javascript
+          - application/json
+          - image/svg+xml
+          - text/css
+          - text/html
+          - text/plain
