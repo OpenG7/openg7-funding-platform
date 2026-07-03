@@ -193,3 +193,12 @@ Public route:
 - `/fonds-des-batisseurs/transparence`
 
 The page consumes `/api/public/fund-transparency` and displays civic, readable aggregate reporting with an explicit privacy statement.
+
+## Production deployment
+
+The production stack uses Docker Compose, Traefik, Let's Encrypt, Nginx, and the Node funding API.
+
+Full OVH VPS deployment documentation:
+
+- [Docker deployment guide](docs/docker-deployment.md)
+- [Command cheatsheet](docs/command-cheatsheet.md)

@@ -32,4 +32,6 @@ COPY --from=builder /app/dist/apps/funding-api ./dist/apps/funding-api
 
 EXPOSE 3333
 
+USER node
+
 CMD ["node", "dist/apps/funding-api/src/main.js"]

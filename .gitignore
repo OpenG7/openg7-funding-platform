@@ -90,10 +90,12 @@ strapi/data/db.sqlite
 **/*.js.map
 *.tsbuildinfo
 docs/reference/
+backups/
+traefik/acme/*
+!traefik/acme/.gitkeep
 
 # --- Env vars (everywhere) --------------------------------------------------
 .env
 .env.*
 !.env.example
-!.env.docker.example
 strapi/types/generated/contentTypes.d.ts
