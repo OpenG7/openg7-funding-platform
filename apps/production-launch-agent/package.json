@@ -1,0 +1,21 @@
+{
+  "name": "@openg7/production-launch-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node ../../dist/apps/production-launch-agent/src/index.js",
+    "dev": "ts-node --esm src/index.ts"
+  },
+  "dependencies": {
+    "node-ssh": "^13.2.1",
+    "openai": "^6.10.0",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
+  }
+}

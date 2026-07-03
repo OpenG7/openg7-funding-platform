@@ -1,0 +1,13 @@
+name: rollback
+description: Roll back to the last stable deployment recorded by the agent.
+steps:
+  - check_docker
+  - backup
+  - rollback
+  - check_containers
+  - check_https
+  - check_health
+  - tool: analyze_logs
+    params:
+      service: api
+  - generate_report

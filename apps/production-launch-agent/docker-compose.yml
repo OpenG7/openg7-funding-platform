@@ -1,0 +1,38 @@
+services:
+  production-launch-agent:
+    build:
+      context: ../..
+      dockerfile: apps/production-launch-agent/Dockerfile
+    environment:
+      NODE_ENV: production
+      PLA_ROLE: ${PLA_ROLE:-viewer}
+      PLA_DOMAIN: ${PLA_DOMAIN:-openg7.org}
+      PLA_HEALTH_PATH: ${PLA_HEALTH_PATH:-/health}
+      PLA_APP_DIR: ${PLA_APP_DIR:-/opt/openg7-funding-platform}
+      PLA_SSH_HOST: ${PLA_SSH_HOST:-vps-ea750a98.vps.ovh.ca}
+      PLA_SSH_USER: ${PLA_SSH_USER:-ubuntu}
+      PLA_SSH_PORT: ${PLA_SSH_PORT:-22}
+      PLA_PRIVATE_KEY_PATH: /run/secrets/production_launch_ssh_key
+      PLA_DATABASE_PATH: /data/production-launch-agent.sqlite
+      PLA_REPORT_DIR: /logs/reports
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - production-launch-agent-data:/data
+      - ./logs:/logs
+    secrets:
+      - production_launch_ssh_key
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+secrets:
+  production_launch_ssh_key:
+    file: ${PLA_PRIVATE_KEY_FILE:-./secrets/production_launch_ssh_key}
+
+volumes:
+  production-launch-agent-data:
