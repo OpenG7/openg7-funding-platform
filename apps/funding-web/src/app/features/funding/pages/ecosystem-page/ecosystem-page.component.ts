@@ -2,45 +2,48 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   Injector,
   inject
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 
 interface EcosystemPlatform {
   readonly id: number;
   readonly name: string;
-  readonly family: string;
-  readonly description: string;
+  readonly familyKey: string;
+  readonly descriptionKey: string;
   readonly asset: string;
   readonly repositoryUrl: string;
 }
 
 interface EcosystemFamily {
-  readonly name: string;
-  readonly detail: string;
+  readonly nameKey: string;
+  readonly detailKey: string;
   readonly icon: string;
   readonly tone: 'cyan' | 'green' | 'gold' | 'violet' | 'orange' | 'blue';
 }
 
 interface ArchitectureItem {
-  readonly label: string;
+  readonly labelKey: string;
   readonly icon: string;
 }
 
 interface DevelopmentRow {
-  readonly label: string;
+  readonly labelKey: string;
   readonly progress: number;
-  readonly status: 'Termine' | 'En cours';
+  readonly statusKey: string;
 }
 
 @Component({
   selector: 'openg7-ecosystem-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, FundingHeaderComponent],
+  imports: [CommonModule, RouterLink, TranslatePipe, FundingHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="ecosystem-page">
@@ -50,65 +53,87 @@ interface DevelopmentRow {
         <img
           class="ecosystem-hero-image"
           src="assets/fonds-des-batisseurs-canada-coffre-lumineux.png"
-          alt="Carte numérique du Canada au-dessus d'une ville connectée"
+          [alt]="'funding.ecosystemPage.hero.backgroundAlt' | translate"
         />
         <div class="ecosystem-hero-overlay" aria-hidden="true"></div>
 
         <div class="ecosystem-hero-copy">
-          <h1 id="ecosystem-title">L’écosystème <strong>OpenG7</strong></h1>
+          <h1 id="ecosystem-title">
+            {{ 'funding.ecosystemPage.hero.title' | translate }}
+            <strong>OpenG7</strong>
+          </h1>
           <p class="ecosystem-lead">
-            Treize plateformes. Des fondations partagées. Une infrastructure
-            ouverte pour mieux relier le Canada.
+            {{ 'funding.ecosystemPage.hero.lead' | translate }}
           </p>
           <div class="ecosystem-actions">
-            <a class="primary" routerLink="/ecosystem" fragment="platforms"
-              >Explorer les plateformes <span aria-hidden="true">→</span></a
+            <a
+              class="primary"
+              [routerLink]="ecosystemPath()"
+              fragment="platforms"
+              >{{
+                'funding.ecosystemPage.actions.explorePlatforms' | translate
+              }}
+              <span aria-hidden="true">→</span></a
             >
-            <a routerLink="/ecosystem" fragment="connections"
-              >Voir les connexions</a
-            >
-            <a class="gold" routerLink="/" fragment="support"
-              >Soutenir l’écosystème</a
-            >
+            <a [routerLink]="ecosystemPath()" fragment="connections">{{
+              'funding.ecosystemPage.actions.viewConnections' | translate
+            }}</a>
+            <a class="gold" [routerLink]="homePath()" fragment="support">{{
+              'funding.ecosystemPage.actions.supportEcosystem' | translate
+            }}</a>
           </div>
         </div>
 
-        <dl class="ecosystem-stats" aria-label="Résumé de l'écosystème">
+        <dl
+          class="ecosystem-stats"
+          [attr.aria-label]="
+            'funding.ecosystemPage.stats.ariaLabel' | translate
+          "
+        >
           <div>
             <dt>13</dt>
-            <dd>Plateformes</dd>
+            <dd>{{ 'funding.ecosystemPage.stats.platforms' | translate }}</dd>
           </div>
           <div>
             <dt>6</dt>
-            <dd>Familles</dd>
+            <dd>{{ 'funding.ecosystemPage.stats.families' | translate }}</dd>
           </div>
           <div>
             <dt>1</dt>
-            <dd>Infrastructure partagée</dd>
+            <dd>
+              {{
+                'funding.ecosystemPage.stats.sharedInfrastructure' | translate
+              }}
+            </dd>
           </div>
           <div>
             <dt>∞</dt>
-            <dd>Possibilités</dd>
+            <dd>
+              {{ 'funding.ecosystemPage.stats.possibilities' | translate }}
+            </dd>
           </div>
         </dl>
       </section>
 
       <section class="ecosystem-map-panel" aria-labelledby="map-title">
         <article class="map-intro">
-          <h2 id="map-title">Carte interactive de l’écosystème</h2>
+          <h2 id="map-title">
+            {{ 'funding.ecosystemPage.map.title' | translate }}
+          </h2>
           <p>
-            OpenG7 organise treize plateformes interconnectées autour de six
-            grandes familles pour générer des services meilleurs, plus rapides
-            et plus inclusifs pour tous les Canadiens.
+            {{ 'funding.ecosystemPage.map.copy' | translate }}
           </p>
-          <a routerLink="/ecosystem" fragment="connections"
-            >Explorer la carte complète <span aria-hidden="true">↗</span></a
+          <a [routerLink]="ecosystemPath()" fragment="connections"
+            >{{ 'funding.ecosystemPage.map.explore' | translate }}
+            <span aria-hidden="true">↗</span></a
           >
         </article>
 
         <div
           class="network-board"
-          aria-label="Connexions entre les plateformes OpenG7"
+          [attr.aria-label]="
+            'funding.ecosystemPage.map.networkAria' | translate
+          "
         >
           <div class="network-list left">
             <article
@@ -126,15 +151,21 @@ interface DevelopmentRow {
           <div class="family-column left">
             <article class="family-orb cyan">
               <span aria-hidden="true">↗</span>
-              <strong>Économie<br />et mobilité</strong>
+              <strong>{{
+                'funding.ecosystemPage.families.economyShort' | translate
+              }}</strong>
             </article>
             <article class="family-orb green">
               <span aria-hidden="true">♥</span>
-              <strong>Santé</strong>
+              <strong>{{
+                'funding.ecosystemPage.families.health' | translate
+              }}</strong>
             </article>
             <article class="family-orb blue">
               <span aria-hidden="true">▦</span>
-              <strong>Gouvernance<br />et démocratie</strong>
+              <strong>{{
+                'funding.ecosystemPage.families.governanceShort' | translate
+              }}</strong>
             </article>
           </div>
 
@@ -146,15 +177,21 @@ interface DevelopmentRow {
           <div class="family-column right">
             <article class="family-orb gold">
               <span aria-hidden="true">●</span>
-              <strong>Société</strong>
+              <strong>{{
+                'funding.ecosystemPage.families.society' | translate
+              }}</strong>
             </article>
             <article class="family-orb orange">
               <span aria-hidden="true">▣</span>
-              <strong>Sécurité</strong>
+              <strong>{{
+                'funding.ecosystemPage.families.security' | translate
+              }}</strong>
             </article>
             <article class="family-orb violet">
               <span aria-hidden="true">$</span>
-              <strong>Financement</strong>
+              <strong>{{
+                'funding.ecosystemPage.families.funding' | translate
+              }}</strong>
             </article>
           </div>
 
@@ -178,20 +215,23 @@ interface DevelopmentRow {
         class="platform-section"
         aria-labelledby="platforms-title"
       >
-        <h2 id="platforms-title">Les 13 plateformes</h2>
+        <h2 id="platforms-title">
+          {{ 'funding.ecosystemPage.platforms.title' | translate }}
+        </h2>
         <div class="platform-grid">
           <article class="platform-card" *ngFor="let platform of platforms">
             <img [src]="platform.asset" [alt]="platform.name" />
             <div>
               <span>{{ platformNumber(platform.id) }}</span>
               <h3>{{ platform.name }}</h3>
-              <em>{{ platform.family }}</em>
-              <p>{{ platform.description }}</p>
+              <em>{{ platform.familyKey | translate }}</em>
+              <p>{{ platform.descriptionKey | translate }}</p>
               <a
                 [href]="platform.repositoryUrl"
                 target="_blank"
                 rel="noreferrer"
-                >Explorer <span aria-hidden="true">→</span></a
+                >{{ 'funding.ecosystemPage.actions.explore' | translate }}
+                <span aria-hidden="true">→</span></a
               >
             </div>
           </article>
@@ -204,20 +244,23 @@ interface DevelopmentRow {
         aria-labelledby="architecture-title"
       >
         <article class="architecture-panel">
-          <h2 id="architecture-title">Une architecture partagée</h2>
+          <h2 id="architecture-title">
+            {{ 'funding.ecosystemPage.architecture.title' | translate }}
+          </h2>
           <p>
-            OpenG7 repose sur un socle commun qui réduit les coûts, accélère la
-            livraison et garantit l’interopérabilité.
+            {{ 'funding.ecosystemPage.architecture.copy' | translate }}
           </p>
           <div class="architecture-items">
             <article *ngFor="let item of architectureItems">
               <span aria-hidden="true">{{ item.icon }}</span>
-              <strong>{{ item.label }}</strong>
+              <strong>{{ item.labelKey | translate }}</strong>
             </article>
           </div>
           <div
             class="platform-dots"
-            aria-label="Les 13 plateformes reliées au socle commun"
+            [attr.aria-label]="
+              'funding.ecosystemPage.architecture.platformDotsAria' | translate
+            "
           >
             <span *ngFor="let platform of platforms">{{
               platformNumber(platform.id)
@@ -226,13 +269,13 @@ interface DevelopmentRow {
         </article>
 
         <article id="connections" class="connections-panel">
-          <h2>Les connexions créent la valeur</h2>
+          <h2>{{ 'funding.ecosystemPage.connections.title' | translate }}</h2>
           <ul>
             <li *ngFor="let family of families" [class]="family.tone">
               <span aria-hidden="true">{{ family.icon }}</span>
               <div>
-                <strong>{{ family.name }}</strong>
-                <p>{{ family.detail }}</p>
+                <strong>{{ family.nameKey | translate }}</strong>
+                <p>{{ family.detailKey | translate }}</p>
               </div>
             </li>
           </ul>
@@ -241,13 +284,13 @@ interface DevelopmentRow {
 
       <section class="journey-panel" aria-labelledby="journey-title">
         <h2 id="journey-title">
-          Scénario transversal : un parcours de bout en bout
+          {{ 'funding.ecosystemPage.journey.title' | translate }}
         </h2>
         <div class="journey-track">
           <article *ngFor="let step of journeySteps; let last = last">
             <span aria-hidden="true">{{ step.icon }}</span>
             <strong>{{ step.name }}</strong>
-            <p>{{ step.detail }}</p>
+            <p>{{ step.detailKey | translate }}</p>
             <i *ngIf="!last" aria-hidden="true">→</i>
           </article>
         </div>
@@ -255,73 +298,132 @@ interface DevelopmentRow {
 
       <section class="progress-summary">
         <article class="development-panel">
-          <h2>État de développement</h2>
+          <h2>{{ 'funding.ecosystemPage.development.title' | translate }}</h2>
           <div class="development-row" *ngFor="let row of developmentRows">
-            <span>{{ row.label }}</span>
+            <span>{{ row.labelKey | translate }}</span>
             <div aria-hidden="true"><i [style.width.%]="row.progress"></i></div>
             <strong>{{ row.progress }}%</strong>
-            <em>{{ row.status }}</em>
+            <em>{{ row.statusKey | translate }}</em>
           </div>
         </article>
 
-        <aside class="summary-panel" aria-label="Indicateurs de synthèse">
+        <aside
+          class="summary-panel"
+          [attr.aria-label]="
+            'funding.ecosystemPage.summary.ariaLabel' | translate
+          "
+        >
           <dl>
             <div>
               <dt>13</dt>
-              <dd>Plateformes</dd>
+              <dd>{{ 'funding.ecosystemPage.stats.platforms' | translate }}</dd>
             </div>
             <div>
               <dt>6</dt>
-              <dd>Familles</dd>
+              <dd>{{ 'funding.ecosystemPage.stats.families' | translate }}</dd>
             </div>
             <div>
               <dt>1</dt>
-              <dd>Vision commune</dd>
+              <dd>
+                {{ 'funding.ecosystemPage.summary.commonVision' | translate }}
+              </dd>
             </div>
             <div>
               <dt>100+</dt>
-              <dd>Partenaires potentiels</dd>
+              <dd>
+                {{
+                  'funding.ecosystemPage.summary.potentialPartners' | translate
+                }}
+              </dd>
             </div>
           </dl>
           <ul>
-            <li>Interopérabilité <span>Conçue dès le départ</span></li>
-            <li>Ouverture <span>Standards ouverts</span></li>
-            <li>Confiance <span>Sécurité & transparence</span></li>
-            <li>Impact <span>Citoyens d’abord</span></li>
+            <li>
+              {{
+                'funding.ecosystemPage.summary.items.interoperability.label'
+                  | translate
+              }}
+              <span>{{
+                'funding.ecosystemPage.summary.items.interoperability.detail'
+                  | translate
+              }}</span>
+            </li>
+            <li>
+              {{
+                'funding.ecosystemPage.summary.items.openness.label' | translate
+              }}
+              <span>{{
+                'funding.ecosystemPage.summary.items.openness.detail'
+                  | translate
+              }}</span>
+            </li>
+            <li>
+              {{
+                'funding.ecosystemPage.summary.items.trust.label' | translate
+              }}
+              <span>{{
+                'funding.ecosystemPage.summary.items.trust.detail' | translate
+              }}</span>
+            </li>
+            <li>
+              {{
+                'funding.ecosystemPage.summary.items.impact.label' | translate
+              }}
+              <span>{{
+                'funding.ecosystemPage.summary.items.impact.detail' | translate
+              }}</span>
+            </li>
           </ul>
         </aside>
       </section>
 
       <section class="ecosystem-cta" aria-labelledby="ecosystem-cta-title">
         <h2 id="ecosystem-cta-title">
-          Le Canada possède déjà les ressources, les talents et les
-          institutions.
+          {{ 'funding.ecosystemPage.cta.title' | translate }}
         </h2>
-        <p>OpenG7 cherche à mieux les relier.</p>
+        <p>{{ 'funding.ecosystemPage.cta.copy' | translate }}</p>
         <div class="ecosystem-actions">
-          <a class="primary" routerLink="/ecosystem" fragment="platforms"
-            >Explorer les plateformes <span aria-hidden="true">→</span></a
+          <a class="primary" [routerLink]="ecosystemPath()" fragment="platforms"
+            >{{ 'funding.ecosystemPage.actions.explorePlatforms' | translate }}
+            <span aria-hidden="true">→</span></a
           >
-          <a routerLink="/ecosystem" fragment="connections"
-            >Voir les connexions</a
-          >
-          <a class="gold" routerLink="/" fragment="support"
-            >Soutenir l’écosystème</a
-          >
+          <a [routerLink]="ecosystemPath()" fragment="connections">{{
+            'funding.ecosystemPage.actions.viewConnections' | translate
+          }}</a>
+          <a class="gold" [routerLink]="homePath()" fragment="support">{{
+            'funding.ecosystemPage.actions.supportEcosystem' | translate
+          }}</a>
         </div>
       </section>
 
       <footer class="ecosystem-footer">
-        <a class="ecosystem-brand" routerLink="/" aria-label="Accueil OpenG7">
+        <a
+          class="ecosystem-brand"
+          [routerLink]="homePath()"
+          [attr.aria-label]="'funding.aria.brandHome' | translate"
+        >
           <span aria-hidden="true">⌬</span>
           <strong>OpenG7</strong>
         </a>
-        <nav aria-label="Liens secondaires">
-          <a routerLink="/fonds-des-batisseurs/a-propos">À propos</a>
-          <a routerLink="/fonds-des-batisseurs/transparence">Documentation</a>
-          <a routerLink="/" fragment="support">Nous contacter</a>
+        <nav
+          [attr.aria-label]="
+            'funding.ecosystemPage.footer.secondaryLinksAria' | translate
+          "
+        >
+          <a [routerLink]="aboutPath()">{{
+            'funding.nav.about' | translate
+          }}</a>
+          <a [routerLink]="ecosystemPath()">{{
+            'funding.ecosystemPage.footer.documentation' | translate
+          }}</a>
+          <a [routerLink]="supportPath()">{{
+            'funding.nav.contact' | translate
+          }}</a>
         </nav>
-        <small>© 2024 OpenG7. Tous droits réservés.</small>
+        <small>{{
+          'funding.ecosystemPage.footer.copyright'
+            | translate: { year: currentYear }
+        }}</small>
       </footer>
     </main>
   `,
@@ -1225,8 +1327,22 @@ interface DevelopmentRow {
   ]
 })
 export class EcosystemPageComponent {
+  private readonly i18n = inject(FundingI18nService);
   private readonly injector = inject(Injector);
   private readonly seo = inject(FundingSeoService);
+
+  readonly homePath = computed(() => this.i18n.localizedPath('/'));
+  readonly aboutPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/a-propos')
+  );
+  readonly ecosystemPath = computed(() =>
+    this.i18n.localizedPath('/ecosystem')
+  );
+  readonly transparencyPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
+  );
+  readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly currentYear = new Date().getFullYear();
 
   constructor() {
     this.seo.bind(
@@ -1244,54 +1360,50 @@ export class EcosystemPageComponent {
     {
       id: 1,
       name: 'OpenG7 Nexus',
-      family: 'Économie & mobilité',
-      description:
-        'Point d’accès unifié entre citoyens, entreprises et services publics.',
+      familyKey: 'funding.ecosystemPage.families.economy',
+      descriptionKey: 'funding.ecosystemPage.platformDescriptions.nexus',
       asset: 'assets/openg7-nexus-carte-canada-connecte.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-nexus'
     },
     {
       id: 2,
       name: 'Canadian Vehicle Registry',
-      family: 'Économie & mobilité',
-      description:
-        'Registre national des véhicules pour des transactions fiables et sécurisées.',
+      familyKey: 'funding.ecosystemPage.families.economy',
+      descriptionKey:
+        'funding.ecosystemPage.platformDescriptions.vehicleRegistry',
       asset: 'assets/openg7-canadian-vehicle-registry.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-ca-vehicle-registry'
     },
     {
       id: 3,
       name: 'Migration Flow Engine',
-      family: 'Gouvernance & démocratie',
-      description:
-        'Analyse et orchestration des flux migratoires pour des parcours plus fluides.',
+      familyKey: 'funding.ecosystemPage.families.governance',
+      descriptionKey: 'funding.ecosystemPage.platformDescriptions.migration',
       asset: 'assets/openg7-migration-flow-engine-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-migration-flow-engine'
     },
     {
       id: 4,
       name: 'Patient Navigation',
-      family: 'Santé',
-      description:
-        'Guide les patients dans leurs parcours de soins de manière personnalisée.',
+      familyKey: 'funding.ecosystemPage.families.health',
+      descriptionKey:
+        'funding.ecosystemPage.platformDescriptions.patientNavigation',
       asset: 'assets/openg7-patient-navigation-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-patient-navigation'
     },
     {
       id: 5,
       name: 'Medical Referral Router',
-      family: 'Santé',
-      description:
-        'Acheminer les demandes vers les bons spécialistes au bon moment.',
+      familyKey: 'funding.ecosystemPage.families.health',
+      descriptionKey: 'funding.ecosystemPage.platformDescriptions.referral',
       asset: 'assets/openg7-medical-referral-router-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-medical-referral-router'
     },
     {
       id: 6,
       name: 'Clinical Workforce Exchange',
-      family: 'Santé',
-      description:
-        'Connecte les professionnels de santé aux besoins des établissements.',
+      familyKey: 'funding.ecosystemPage.families.health',
+      descriptionKey: 'funding.ecosystemPage.platformDescriptions.workforce',
       asset: 'assets/openg7-clinical-workforce-exchange-canada.png',
       repositoryUrl:
         'https://github.com/OpenG7/openg7-clinical-workforce-exchange'
@@ -1299,27 +1411,24 @@ export class EcosystemPageComponent {
     {
       id: 7,
       name: 'Health Supply Corridors',
-      family: 'Santé',
-      description:
-        'Optimise la disponibilité et la distribution des fournitures médicales critiques.',
+      familyKey: 'funding.ecosystemPage.families.health',
+      descriptionKey: 'funding.ecosystemPage.platformDescriptions.supply',
       asset: 'assets/openg7-health-supply-corridors-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-health-supply-corridors'
     },
     {
       id: 8,
       name: 'GovGraph',
-      family: 'Gouvernance & démocratie',
-      description:
-        'Graphe des services et règlements pour une meilleure interopérabilité publique.',
+      familyKey: 'funding.ecosystemPage.families.governance',
+      descriptionKey: 'funding.ecosystemPage.platformDescriptions.govgraph',
       asset: 'assets/openg7-govgraph-gouvernance-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-govgraph'
     },
     {
       id: 9,
       name: 'Election Day Ops',
-      family: 'Gouvernance & démocratie',
-      description:
-        'Opérations électorales modernes, sécurisées et transparentes.',
+      familyKey: 'funding.ecosystemPage.families.governance',
+      descriptionKey: 'funding.ecosystemPage.platformDescriptions.electionOps',
       asset: 'assets/openg7-ca-election-day-ops-results-audit.png',
       repositoryUrl:
         'https://github.com/OpenG7/openg7-ca-election-day-ops-and-audit'
@@ -1327,9 +1436,9 @@ export class EcosystemPageComponent {
     {
       id: 10,
       name: 'Voter Register & Official Docs',
-      family: 'Gouvernance & démocratie',
-      description:
-        'Registre électoral et documents officiels vérifiables et à jour.',
+      familyKey: 'funding.ecosystemPage.families.governance',
+      descriptionKey:
+        'funding.ecosystemPage.platformDescriptions.voterRegister',
       asset: 'assets/openg7-ca-voter-register-official-docs.png',
       repositoryUrl:
         'https://github.com/OpenG7/openg7-ca-voter-register-and-docs'
@@ -1337,27 +1446,24 @@ export class EcosystemPageComponent {
     {
       id: 11,
       name: 'OpenG7 Social',
-      family: 'Société',
-      description:
-        'Plateforme d’engagement citoyen et de consultations publiques.',
+      familyKey: 'funding.ecosystemPage.families.society',
+      descriptionKey: 'funding.ecosystemPage.platformDescriptions.social',
       asset: 'assets/openg7-social-communautes-connectees-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-social'
     },
     {
       id: 12,
       name: 'OpenG7 Firewall',
-      family: 'Sécurité',
-      description:
-        'Protection des services, des identités et des données à l’échelle du pays.',
+      familyKey: 'funding.ecosystemPage.families.security',
+      descriptionKey: 'funding.ecosystemPage.platformDescriptions.firewall',
       asset: 'assets/openg7-firewall-cybersecurite-canada.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-firewall'
     },
     {
       id: 13,
       name: 'OpenG7 Funding Platform',
-      family: 'Financement',
-      description:
-        'Orchestre les financements publics et les subventions d’impact.',
+      familyKey: 'funding.ecosystemPage.families.funding',
+      descriptionKey: 'funding.ecosystemPage.platformDescriptions.funding',
       asset: 'assets/openg7-funding-platform-dragon-coffre.png',
       repositoryUrl: 'https://github.com/OpenG7/openg7-funding-platform'
     }
@@ -1368,100 +1474,123 @@ export class EcosystemPageComponent {
 
   readonly families: readonly EcosystemFamily[] = [
     {
-      name: 'Santé',
-      detail:
-        'Parcours patient intégré, moins d’attente, meilleure coordination.',
+      nameKey: 'funding.ecosystemPage.families.health',
+      detailKey: 'funding.ecosystemPage.familyDetails.health',
       icon: '♡',
       tone: 'green'
     },
     {
-      name: 'Données',
-      detail:
-        'Données fiables, partagées en sécurité, pour de meilleures décisions.',
+      nameKey: 'funding.ecosystemPage.families.data',
+      detailKey: 'funding.ecosystemPage.familyDetails.data',
       icon: '▧',
       tone: 'cyan'
     },
     {
-      name: 'Mobilité',
-      detail:
-        'Déplacements et logistique fluides, services accessibles partout.',
+      nameKey: 'funding.ecosystemPage.families.mobility',
+      detailKey: 'funding.ecosystemPage.familyDetails.mobility',
       icon: '⌁',
       tone: 'violet'
     },
     {
-      name: 'Sécurité',
-      detail: 'Identités protégées, services résilients, confiance accrue.',
+      nameKey: 'funding.ecosystemPage.families.security',
+      detailKey: 'funding.ecosystemPage.familyDetails.security',
       icon: '◈',
       tone: 'orange'
     },
     {
-      name: 'Financement',
-      detail: 'Ressources mieux allouées, projets à fort impact pour tous.',
+      nameKey: 'funding.ecosystemPage.families.funding',
+      detailKey: 'funding.ecosystemPage.familyDetails.funding',
       icon: '$',
       tone: 'gold'
     }
   ];
 
   readonly architectureItems: readonly ArchitectureItem[] = [
-    { label: 'Cœur de l’infrastructure et services partagés', icon: '◌' },
-    { label: 'Design System', icon: '▣' },
-    { label: 'Modèles de données', icon: '▰' },
-    { label: 'Sécurité & identité', icon: '▨' },
-    { label: 'API Gateway', icon: '⌘' },
-    { label: 'i18n localisation', icon: '◎' },
-    { label: 'Composants réutilisables', icon: '⚙' },
-    { label: 'Documentation & normes', icon: '▤' }
+    { labelKey: 'funding.ecosystemPage.architecture.items.core', icon: '◌' },
+    { labelKey: 'funding.ecosystemPage.architecture.items.design', icon: '▣' },
+    { labelKey: 'funding.ecosystemPage.architecture.items.models', icon: '▰' },
+    {
+      labelKey: 'funding.ecosystemPage.architecture.items.security',
+      icon: '▨'
+    },
+    { labelKey: 'funding.ecosystemPage.architecture.items.gateway', icon: '⌘' },
+    { labelKey: 'funding.ecosystemPage.architecture.items.i18n', icon: '◎' },
+    {
+      labelKey: 'funding.ecosystemPage.architecture.items.components',
+      icon: '⚙'
+    },
+    { labelKey: 'funding.ecosystemPage.architecture.items.docs', icon: '▤' }
   ];
 
   readonly journeySteps = [
     {
       name: 'OpenGraph',
-      detail: 'Comprendre les règles et services disponibles',
+      detailKey: 'funding.ecosystemPage.journey.items.opengraph',
       icon: '⌬'
     },
     {
       name: 'Clinical Workforce Exchange',
-      detail: 'Identifier les professionnels disponibles',
+      detailKey: 'funding.ecosystemPage.journey.items.workforce',
       icon: '⌘'
     },
     {
       name: 'Medical Referral Router',
-      detail: 'Acheminer la demande au bon spécialiste',
+      detailKey: 'funding.ecosystemPage.journey.items.referral',
       icon: '▤'
     },
     {
       name: 'Patient Navigation',
-      detail: 'Accompagner le patient à chaque étape',
+      detailKey: 'funding.ecosystemPage.journey.items.patient',
       icon: '♙'
     },
     {
       name: 'Health Supply Corridors',
-      detail: 'Assurer les fournitures et traitements',
+      detailKey: 'funding.ecosystemPage.journey.items.supply',
       icon: '▥'
     },
     {
       name: 'OpenG7 Nexus',
-      detail: 'Point d’accès unifié et services centralisés',
+      detailKey: 'funding.ecosystemPage.journey.items.nexus',
       icon: '◇'
     },
     {
       name: 'OpenG7 Firewall',
-      detail: 'Sécuriser les accès et les données',
+      detailKey: 'funding.ecosystemPage.journey.items.firewall',
       icon: '◈'
     },
     {
       name: 'OpenG7 Funding Platform',
-      detail: 'Financer et soutenir les interventions',
+      detailKey: 'funding.ecosystemPage.journey.items.funding',
       icon: '◎'
     }
   ];
 
   readonly developmentRows: readonly DevelopmentRow[] = [
-    { label: 'Concepts définis', progress: 100, status: 'Termine' },
-    { label: 'Prototypes en cours', progress: 78, status: 'En cours' },
-    { label: 'Identités visuelles', progress: 85, status: 'En cours' },
-    { label: 'Intégrations réelles', progress: 56, status: 'En cours' },
-    { label: 'Services partagés', progress: 72, status: 'En cours' }
+    {
+      labelKey: 'funding.ecosystemPage.development.rows.concepts',
+      progress: 100,
+      statusKey: 'funding.ecosystemPage.development.status.done'
+    },
+    {
+      labelKey: 'funding.ecosystemPage.development.rows.prototypes',
+      progress: 78,
+      statusKey: 'funding.ecosystemPage.development.status.inProgress'
+    },
+    {
+      labelKey: 'funding.ecosystemPage.development.rows.visuals',
+      progress: 85,
+      statusKey: 'funding.ecosystemPage.development.status.inProgress'
+    },
+    {
+      labelKey: 'funding.ecosystemPage.development.rows.integrations',
+      progress: 56,
+      statusKey: 'funding.ecosystemPage.development.status.inProgress'
+    },
+    {
+      labelKey: 'funding.ecosystemPage.development.rows.sharedServices',
+      progress: 72,
+      statusKey: 'funding.ecosystemPage.development.status.inProgress'
+    }
   ];
 
   platformNumber(id: number): string {

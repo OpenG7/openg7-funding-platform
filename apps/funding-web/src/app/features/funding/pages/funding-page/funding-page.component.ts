@@ -10,6 +10,7 @@ import {
   signal
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 import type {
   FundTransparencyPublicResponse,
   FundingSnapshot
@@ -21,25 +22,26 @@ import { FUNDING_PROJECT_CONFIG } from '../../config/funding-project-config.toke
 import { provideFundingProjectConfig } from '../../config/funding-project-config.token.js';
 import { OPENG7_FUNDING_CONFIG } from '../../config/openg7-funding.config.js';
 import { FundTransparencyService } from '../../services/fund-transparency.service.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 import { FundingService } from '../../services/funding.service.js';
 
 interface EcosystemCard {
   readonly id: number;
   readonly title: string;
-  readonly description: string;
+  readonly descriptionKey: string;
   readonly asset: string;
 }
 
 interface FoundationPillar {
-  readonly title: string;
-  readonly description: string;
+  readonly titleKey: string;
+  readonly descriptionKey: string;
 }
 
 @Component({
   selector: 'openg7-funding-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, FundingHeaderComponent],
+  imports: [CommonModule, RouterLink, TranslatePipe, FundingHeaderComponent],
   providers: [provideFundingProjectConfig(OPENG7_FUNDING_CONFIG)],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -54,33 +56,27 @@ interface FoundationPillar {
         <img
           class="checkout-success-art"
           src="assets/openg7-dragon-dime-coffre-fort.png"
-          alt="Dragon noir et or déposant des pièces dans un coffre-fort"
+          [alt]="'funding.home.checkout.successAlt' | translate"
         />
         <div class="checkout-success-glow" aria-hidden="true"></div>
         <button
           type="button"
           class="checkout-success-close"
-          aria-label="Fermer la confirmation de paiement"
+          [attr.aria-label]="'funding.home.checkout.closeSuccess' | translate"
           (click)="dismissCheckoutNotice()"
         >
           ×
         </button>
         <article class="checkout-success-card">
-          <span class="section-kicker">Paiement confirmé</span>
+          <span class="section-kicker">{{ 'funding.home.checkout.successKicker' | translate }}</span>
           <h2 id="checkout-success-title">
-            Le coffre des Bâtisseurs vient de recevoir votre contribution.
+            {{ 'funding.home.checkout.successTitle' | translate }}
           </h2>
-          <p>
-            Merci d'aider OpenG7 à financer une infrastructure ouverte,
-            résiliente et transparente. Le fonds public sera synchronisé dès que
-            la confirmation Stripe sera disponible.
-          </p>
+          <p>{{ 'funding.home.checkout.successCopy' | translate }}</p>
           <div class="checkout-success-actions">
-            <a [routerLink]="['/fonds-des-batisseurs/transparence']"
-              >Voir la transparence</a
-            >
+            <a [routerLink]="transparencyPath()">{{ 'funding.home.actions.viewTransparency' | translate }}</a>
             <button type="button" (click)="scrollToSupport()">
-              Contribuer encore
+              {{ 'funding.home.actions.contributeAgain' | translate }}
             </button>
           </div>
         </article>
@@ -94,7 +90,7 @@ interface FoundationPillar {
         <img
           class="checkout-success-art"
           src="assets/openg7-coffre-fort-ferme-dragon.png"
-          alt="Coffre-fort fermé gardé par un dragon"
+          [alt]="'funding.home.checkout.cancelAlt' | translate"
         />
         <div
           class="checkout-success-glow checkout-cancel-glow"
@@ -103,23 +99,20 @@ interface FoundationPillar {
         <button
           type="button"
           class="checkout-success-close"
-          aria-label="Fermer le message de paiement interrompu"
+          [attr.aria-label]="'funding.home.checkout.closeCancel' | translate"
           (click)="dismissCheckoutNotice()"
         >
           ×
         </button>
         <article class="checkout-success-card checkout-cancel-card">
-          <span class="section-kicker">Paiement interrompu</span>
+          <span class="section-kicker">{{ 'funding.home.checkout.cancelKicker' | translate }}</span>
           <h2 id="checkout-cancel-title">
-            Le coffre reste fermé pour cette contribution.
+            {{ 'funding.home.checkout.cancelTitle' | translate }}
           </h2>
-          <p>
-            Aucun paiement confirmé n'a été ajouté au registre. Vous pouvez
-            reprendre votre contribution quand vous voulez.
-          </p>
+          <p>{{ 'funding.home.checkout.cancelCopy' | translate }}</p>
           <div class="checkout-success-actions">
-            <button type="button" (click)="scrollToSupport()">Réessayer</button>
-            <a [routerLink]="['/support']">Contacter le support</a>
+            <button type="button" (click)="scrollToSupport()">{{ 'funding.home.actions.retry' | translate }}</button>
+            <a [routerLink]="supportPath()">{{ 'funding.home.actions.contactSupport' | translate }}</a>
           </div>
         </article>
       </section>
@@ -128,31 +121,28 @@ interface FoundationPillar {
         <img
           class="hero-backdrop"
           src="assets/fonds-des-batisseurs-feuille-erable-lumineuse.png"
-          alt="Ville canadienne lumineuse avec feuille d'érable connectée"
+          [alt]="'funding.home.hero.backgroundAlt' | translate"
         />
         <div class="hero-shade" aria-hidden="true"></div>
 
         <div class="hero-copy">
           <h1 id="builders-title">
-            <span>13 outils.</span>
-            <span>Une mission.</span>
-            <strong>Un avenir.</strong>
+            <span>{{ 'funding.home.hero.line1' | translate }}</span>
+            <span>{{ 'funding.home.hero.line2' | translate }}</span>
+            <strong>{{ 'funding.home.hero.line3' | translate }}</strong>
           </h1>
-          <p>
-            Le Fonds des Bâtisseurs alimente un écosystème numérique ouvert pour
-            renforcer l'économie, la transparence et la résilience du Canada.
-          </p>
+          <p>{{ 'funding.home.hero.copy' | translate }}</p>
 
           <article
             class="hero-progress-card"
-            aria-label="Progression de la collecte"
+            [attr.aria-label]="'funding.home.hero.progressAria' | translate"
           >
             <div>
               <span
                 >{{
                   formatMoney(snapshot().totals.confirmedContributions)
                 }}
-                recueillis sur {{ formatMoney(config.monthlyGoal) }}</span
+                {{ 'funding.home.hero.raisedOn' | translate }} {{ formatMoney(config.monthlyGoal) }}</span
               >
               <strong>{{ campaignProgress() }}%</strong>
             </div>
@@ -161,7 +151,7 @@ interface FoundationPillar {
             </div>
             <small>{{ transparencyStatusLabel() }}</small>
             <button type="button" (click)="scrollToSupport()">
-              Soutenir OpenG7
+              {{ 'funding.nav.supportCta' | translate }}
               <span aria-hidden="true">→</span>
             </button>
           </article>
@@ -174,8 +164,8 @@ interface FoundationPillar {
         aria-labelledby="ecosystem-title"
       >
         <header class="section-title ornament-title">
-          <h2 id="ecosystem-title">L'écosystème <strong>OpenG7</strong></h2>
-          <p>13 plateformes bâtissent le Canada de demain.</p>
+          <h2 id="ecosystem-title">{{ 'funding.home.ecosystem.title' | translate }} <strong>OpenG7</strong></h2>
+          <p>{{ 'funding.home.ecosystem.copy' | translate }}</p>
         </header>
 
         <div class="tool-grid">
@@ -185,14 +175,14 @@ interface FoundationPillar {
               <span>{{ card.id }}</span>
               <div>
                 <h3>{{ card.title }}</h3>
-                <p>{{ card.description }}</p>
+                <p>{{ card.descriptionKey | translate }}</p>
               </div>
             </div>
           </article>
         </div>
 
         <p class="solid-foundations">
-          Ces plateformes ont besoin de <strong>fondations solides.</strong>
+          {{ 'funding.home.ecosystem.foundationLead' | translate }} <strong>{{ 'funding.home.ecosystem.foundationStrong' | translate }}</strong>
         </p>
       </section>
 
@@ -204,62 +194,56 @@ interface FoundationPillar {
         <img
           class="purpose-city"
           src="assets/fonds-des-batisseurs-feuille-erable-lumineuse.png"
-          alt="Ville canadienne lumineuse avec feuille d'érable connectée"
+          [alt]="'funding.home.hero.backgroundAlt' | translate"
         />
         <img
           class="purpose-dragon"
           src="assets/fonds-des-batisseurs-dragon-coffre-fort.png"
-          alt="Dragon gardien protégeant un coffre de financement civique"
+          [alt]="'funding.home.purpose.dragonAlt' | translate"
         />
         <div class="purpose-overlay" aria-hidden="true"></div>
 
         <article class="purpose-intro">
-          <span class="section-kicker">Fonds des Bâtisseurs</span>
+          <span class="section-kicker">{{ 'funding.brand.title' | translate }}</span>
           <h2 id="funding-purpose-title">
-            Où vont les fonds pour soutenir <strong>OpenG7</strong> ?
+            {{ 'funding.home.purpose.title' | translate }} <strong>OpenG7</strong> ?
           </h2>
-          <p>
-            Chaque contribution est reliée à une mission concrète : garder les
-            plateformes en ligne, améliorer les outils publics et publier un
-            registre financier compréhensible.
-          </p>
+          <p>{{ 'funding.home.purpose.copy' | translate }}</p>
           <div class="purpose-actions">
             <button type="button" (click)="scrollToSupport()">
-              Soutenir OpenG7
+              {{ 'funding.nav.supportCta' | translate }}
             </button>
-            <a [routerLink]="['/fonds-des-batisseurs/transparence']"
-              >Voir le registre</a
-            >
+            <a [routerLink]="transparencyPath()">{{ 'funding.home.actions.viewRegistry' | translate }}</a>
           </div>
         </article>
 
-        <dl class="purpose-proof-strip" aria-label="État public du fonds">
+        <dl class="purpose-proof-strip" [attr.aria-label]="'funding.home.purpose.proofAria' | translate">
           <div>
-            <dt>Dernière synchronisation</dt>
+            <dt>{{ 'funding.home.purpose.lastSync' | translate }}</dt>
             <dd>{{ lastTransparencySyncLabel() }}</dd>
           </div>
           <div>
-            <dt>Source des contributions</dt>
+            <dt>{{ 'funding.home.purpose.source' | translate }}</dt>
             <dd>{{ transparencySourceLabel() }}</dd>
           </div>
           <div>
-            <dt>Devise principale</dt>
+            <dt>{{ 'funding.home.purpose.currency' | translate }}</dt>
             <dd>{{ currency() }}</dd>
           </div>
           <div>
-            <dt>Campagne active</dt>
+            <dt>{{ 'funding.home.purpose.activeCampaign' | translate }}</dt>
             <dd>{{ config.campaignTitle }}</dd>
           </div>
         </dl>
 
         <section
           class="purpose-kpi-grid"
-          aria-label="Indicateurs financiers du fonds"
+          [attr.aria-label]="'funding.home.purpose.kpiAria' | translate"
         >
           <article class="purpose-kpi blue">
             <span aria-hidden="true">+</span>
             <div>
-              <h3>Contributions confirmées</h3>
+              <h3>{{ 'funding.confirmedContributions' | translate }}</h3>
               <strong>{{
                 formatMoney(snapshot().totals.confirmedContributions)
               }}</strong>
@@ -269,86 +253,84 @@ interface FoundationPillar {
           <article class="purpose-kpi red">
             <span aria-hidden="true">-</span>
             <div>
-              <h3>Frais de paiement</h3>
+              <h3>{{ 'funding.home.purpose.paymentFees' | translate }}</h3>
               <strong>{{
                 formatMoney(snapshot().totals.transactionFees)
               }}</strong>
-              <p>Déduits avant disponibilité</p>
+              <p>{{ 'funding.home.purpose.deductedBeforeAvailable' | translate }}</p>
             </div>
           </article>
           <article class="purpose-kpi green">
             <span aria-hidden="true">=</span>
             <div>
-              <h3>Fonds nets disponibles</h3>
+              <h3>{{ 'funding.home.purpose.netAvailable' | translate }}</h3>
               <strong>{{
                 formatMoney(snapshot().totals.availableFunds)
               }}</strong>
-              <p>Disponible pour les projets</p>
+              <p>{{ 'funding.home.purpose.availableForProjects' | translate }}</p>
             </div>
           </article>
           <article class="purpose-kpi gold">
             <span aria-hidden="true">%</span>
             <div>
-              <h3>Objectif mensuel</h3>
+              <h3>{{ 'funding.goal.monthly' | translate }}</h3>
               <strong>{{ formatMoney(config.monthlyGoal) }}</strong>
-              <p>{{ campaignProgress() }} % atteint</p>
+              <p>{{ campaignProgress() }} % {{ 'funding.home.purpose.reached' | translate }}</p>
             </div>
           </article>
         </section>
 
         <article
           class="purpose-campaign-card"
-          aria-label="Progression de la campagne"
+          [attr.aria-label]="'funding.home.purpose.campaignProgressAria' | translate"
         >
           <header>
-            <span>Progression de la campagne</span>
+            <span>{{ 'funding.home.purpose.campaignProgress' | translate }}</span>
             <strong>{{ campaignProgress() }} %</strong>
           </header>
           <div class="purpose-track" aria-hidden="true">
             <span [style.width.%]="campaignProgress()"></span>
           </div>
           <p>
-            {{ formatMoney(remainingForMonthlyGoal()) }} sont encore nécessaires
-            pour atteindre l'objectif mensuel.
+            {{ formatMoney(remainingForMonthlyGoal()) }} {{ 'funding.home.purpose.remainingForGoal' | translate }}
           </p>
         </article>
 
         <div class="purpose-dashboard-grid">
           <article class="purpose-panel purpose-flow">
-            <h3>Du paiement au fonds disponible</h3>
+            <h3>{{ 'funding.home.flow.title' | translate }}</h3>
             <ol>
               <li>
                 <span>1</span>
                 <div>
-                  <strong>Contribution reçue</strong>
-                  <p>Le paiement sécurisé est déclenché depuis la page.</p>
+                  <strong>{{ 'funding.home.flow.steps.received.title' | translate }}</strong>
+                  <p>{{ 'funding.home.flow.steps.received.copy' | translate }}</p>
                 </div>
               </li>
               <li>
                 <span>2</span>
                 <div>
-                  <strong>Paiement confirmé</strong>
+                  <strong>{{ 'funding.home.flow.steps.confirmed.title' | translate }}</strong>
                   <p>
-                    La contribution est validée puis ajoutée au total public.
+                    {{ 'funding.home.flow.steps.confirmed.copy' | translate }}
                   </p>
                 </div>
               </li>
               <li>
                 <span>3</span>
                 <div>
-                  <strong>Frais déduits</strong>
+                  <strong>{{ 'funding.home.flow.steps.fees.title' | translate }}</strong>
                   <p>
-                    Les frais de traitement restent visibles dans le calcul.
+                    {{ 'funding.home.flow.steps.fees.copy' | translate }}
                   </p>
                 </div>
               </li>
               <li>
                 <span>4</span>
                 <div>
-                  <strong>Fonds disponibles</strong>
+                  <strong>{{ 'funding.home.flow.steps.available.title' | translate }}</strong>
                   <p>
-                    Le montant net finance l'infrastructure et les projets
-                    OpenG7.
+                    {{ 'funding.home.flow.steps.available.copy' | translate }}
                   </p>
                 </div>
               </li>
@@ -356,7 +338,7 @@ interface FoundationPillar {
           </article>
 
           <article class="purpose-panel purpose-allocation">
-            <h3>Répartition prévue du fonds</h3>
+            <h3>{{ 'funding.home.allocation.title' | translate }}</h3>
             <div
               class="purpose-donut"
               [style.background]="allocationDonut()"
@@ -366,7 +348,7 @@ interface FoundationPillar {
               class="purpose-empty-state"
               *ngIf="snapshot().allocation.length === 0"
             >
-              Aucune allocation publique publiée pour le moment.
+              {{ 'funding.home.allocation.empty' | translate }}
             </p>
             <ul>
               <li
@@ -388,10 +370,10 @@ interface FoundationPillar {
           <aside
             id="support"
             class="purpose-support-panel"
-            aria-label="Contribution et transparence financière"
+            [attr.aria-label]="'funding.home.contribution.ariaLabel' | translate"
           >
             <section class="contribution-panel">
-              <h3>Choisissez votre contribution</h3>
+              <h3>{{ 'funding.home.contribution.title' | translate }}</h3>
               <div class="amount-grid">
                 <button
                   type="button"
@@ -402,7 +384,7 @@ interface FoundationPillar {
                   {{ amount }} $
                 </button>
               </div>
-              <label for="custom-contribution">Autre montant</label>
+              <label for="custom-contribution">{{ 'funding.home.contribution.otherAmount' | translate }}</label>
               <input
                 id="custom-contribution"
                 type="number"
@@ -413,45 +395,42 @@ interface FoundationPillar {
                 (input)="setCustomContributionFromEvent($event)"
               />
               <button type="button" class="gold-cta" (click)="supportProject()">
-                Soutenir OpenG7
+                {{ 'funding.nav.supportCta' | translate }}
               </button>
-              <p class="payment-note">Paiement sécurisé par Stripe</p>
+              <p class="payment-note">{{ 'funding.home.contribution.securePayment' | translate }}</p>
               <p class="state" *ngIf="loadingState() === 'loading'">
-                Préparation du paiement...
+                {{ 'funding.home.contribution.loading' | translate }}
               </p>
               <p
                 class="state state-success"
                 *ngIf="loadingState() === 'success'"
               >
-                Checkout simulé en local. Configurez Stripe dans
-                /dev/stripe-setup pour ouvrir le paiement réel.
+                {{ 'funding.home.contribution.success' | translate }}
               </p>
               <p class="state state-error" *ngIf="loadingState() === 'error'">
-                Impossible de démarrer le paiement.
+                {{ 'funding.home.contribution.error' | translate }}
               </p>
             </section>
 
             <section class="finance-panel">
-              <h3>Transparence financière</h3>
+              <h3>{{ 'funding.home.finance.title' | translate }}</h3>
               <dl>
                 <div>
-                  <dt>Contributions confirmées</dt>
+                  <dt>{{ 'funding.confirmedContributions' | translate }}</dt>
                   <dd>
                     {{ formatMoney(snapshot().totals.confirmedContributions) }}
                   </dd>
                 </div>
                 <div>
-                  <dt>Frais Stripe</dt>
+                  <dt>{{ 'funding.home.finance.stripeFees' | translate }}</dt>
                   <dd>{{ formatMoney(snapshot().totals.transactionFees) }}</dd>
                 </div>
                 <div>
-                  <dt>Fonds nets disponibles</dt>
+                  <dt>{{ 'funding.home.purpose.netAvailable' | translate }}</dt>
                   <dd>{{ formatMoney(snapshot().totals.availableFunds) }}</dd>
                 </div>
               </dl>
-              <a [routerLink]="['/fonds-des-batisseurs/transparence']"
-                >Voir les détails publics</a
-              >
+              <a [routerLink]="transparencyPath()">{{ 'funding.home.finance.publicDetails' | translate }}</a>
             </section>
           </aside>
         </div>
@@ -459,15 +438,15 @@ interface FoundationPillar {
 
       <footer class="builders-footer">
         <p>
-          Les 13 cartes montrent ce que nous construisons.
+          {{ 'funding.home.footer.copy' | translate }}
           <strong
-            >Le Fonds des Bâtisseurs montre comment nous le finançons.</strong
+            >{{ 'funding.home.footer.strong' | translate }}</strong
           >
         </p>
         <ul>
           <li *ngFor="let pillar of foundationPillars">
-            <strong>{{ pillar.title }}</strong>
-            <span>{{ pillar.description }}</span>
+            <strong>{{ pillar.titleKey | translate }}</strong>
+            <span>{{ pillar.descriptionKey | translate }}</span>
           </li>
         </ul>
       </footer>
@@ -476,6 +455,7 @@ interface FoundationPillar {
 })
 export class FundingPageComponent implements OnInit, OnDestroy {
   private readonly fundingService = inject(FundingService);
+  private readonly i18n = inject(FundingI18nService);
   private readonly injector = inject(Injector);
   private readonly seo = inject(FundingSeoService);
   private readonly transparencyService = inject(FundTransparencyService);
@@ -492,6 +472,11 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   readonly config: FundingProjectConfig =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
+
+  readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly transparencyPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
+  );
 
   readonly snapshot = signal<FundingSnapshot>(this.emptySnapshot);
   readonly selectedContributionAmount = signal<number>(
@@ -530,40 +515,44 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   );
 
   readonly transparencyStatusLabel = computed<string>(() => {
+    this.i18n.trackTranslationState();
     const state = this.transparencyState();
     if (state === 'loading') {
-      return 'Synchronisation Stripe en cours...';
+      return this.i18n.t('funding.home.status.syncing');
     }
 
     if (state === 'error') {
-      return 'Registre Stripe indisponible pour le moment.';
+      return this.i18n.t('funding.home.status.unavailable');
     }
 
     if (state === 'empty') {
-      return 'Aucune contribution Stripe confirmée dans le registre.';
+      return this.i18n.t('funding.home.status.empty');
     }
 
-    return `Données Stripe synchronisées le ${this.lastTransparencySyncLabel()}`;
+    return `${this.i18n.t('funding.home.status.synced')} ${this.lastTransparencySyncLabel()}`;
   });
 
   readonly lastTransparencySyncLabel = computed<string>(() => {
+    this.i18n.trackTranslationState();
     const state = this.transparencyState();
     if (state === 'loading') {
-      return 'Synchronisation...';
+      return this.i18n.t('funding.home.sync.loading');
     }
 
     if (state === 'error') {
-      return 'Indisponible';
+      return this.i18n.t('funding.home.sync.unavailable');
     }
 
     const lastSync = this.lastTransparencySync();
     if (!lastSync) {
-      return state === 'empty' ? 'En attente' : 'Non disponible';
+      return state === 'empty'
+        ? this.i18n.t('funding.home.sync.pending')
+        : this.i18n.t('funding.home.sync.notAvailable');
     }
 
     const date = new Date(lastSync);
     if (Number.isNaN(date.getTime())) {
-      return 'Non disponible';
+      return this.i18n.t('funding.home.sync.notAvailable');
     }
 
     return date.toLocaleString(this.config.locale, {
@@ -576,15 +565,16 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   readonly transparencySourceLabel = computed<string>(() =>
     this.transparencyState() === 'error'
-      ? 'Stripe non synchronisé'
-      : 'Stripe / registre public'
+      ? this.i18n.t('funding.home.status.stripeUnsynced')
+      : this.i18n.t('funding.home.status.stripeRegistry')
   );
 
   readonly contributionCountLabel = computed<string>(() => {
+    this.i18n.trackTranslationState();
     const count = this.contributionCount();
     return count === 1
-      ? '1 contribution confirmée'
-      : `${count} contributions confirmées`;
+      ? this.i18n.t('funding.home.contributionCount.one')
+      : this.i18n.t('funding.home.contributionCount.many').replace('{{ count }}', count.toString());
   });
 
   private readonly allocationPalette = [
@@ -615,106 +605,99 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     {
       id: 1,
       title: 'OpenG7 Social',
-      description:
-        'Réseau social ouvert et souverain pour communautés et idées.',
+      descriptionKey: 'funding.home.cards.social',
       asset: 'assets/openg7-social-communautes-connectees-canada-miniature.png'
     },
     {
       id: 2,
       title: 'Migration Flow Engine',
-      description:
-        "Moteur d'analyse des flux migratoires pour une planification intelligente.",
+      descriptionKey: 'funding.home.cards.migration',
       asset: 'assets/openg7-migration-flow-engine-canada-miniature.png'
     },
     {
       id: 3,
       title: 'Firewall',
-      description:
-        'Protection avancée des infrastructures et des données critiques.',
+      descriptionKey: 'funding.home.cards.firewall',
       asset: 'assets/openg7-firewall-cybersecurite-canada-miniature.png'
     },
     {
       id: 4,
       title: 'CA: Election Day Ops',
-      description:
-        "Coordination sécurisée des opérations le jour de l'élection.",
+      descriptionKey: 'funding.home.cards.electionOps',
       asset: 'assets/openg7-ca-election-day-ops-results-audit-miniature.png'
     },
     {
       id: 5,
       title: 'CA: Voter Register',
-      description: 'Registre des électeurs et documents officiels numériques.',
+      descriptionKey: 'funding.home.cards.voterRegister',
       asset: 'assets/openg7-ca-voter-register-official-docs-miniature.png'
     },
     {
       id: 6,
       title: 'Canadian Vehicle Registry',
-      description:
-        'Registre national des véhicules pour plus de sécurité et efficacité.',
+      descriptionKey: 'funding.home.cards.vehicleRegistry',
       asset: 'assets/openg7-canadian-vehicle-registry-miniature.png'
     },
     {
       id: 7,
       title: 'GovGraph',
-      description: 'Graphe de données gouvernementales interconnectées.',
+      descriptionKey: 'funding.home.cards.govgraph',
       asset: 'assets/openg7-govgraph-gouvernance-canada-miniature.png'
     },
     {
       id: 8,
       title: 'Nexus',
-      description: 'Portail unifié pour services et démarches citoyennes.',
+      descriptionKey: 'funding.home.cards.nexus',
       asset: 'assets/openg7-nexus-carte-canada-connecte-miniature.png'
     },
     {
       id: 9,
       title: 'Patient Navigation',
-      description: 'Guide les patients dans le parcours de soins personnalisé.',
+      descriptionKey: 'funding.home.cards.patientNavigation',
       asset: 'assets/openg7-patient-navigation-canada-miniature.png'
     },
     {
       id: 10,
       title: 'Medical Referral Router',
-      description: 'Aiguillage intelligent vers les bons soins au bon moment.',
+      descriptionKey: 'funding.home.cards.referral',
       asset: 'assets/openg7-medical-referral-router-canada-miniature.png'
     },
     {
       id: 11,
       title: 'Clinical Workforce Exchange',
-      description: 'Plateforme de mise en relation des talents de la santé.',
+      descriptionKey: 'funding.home.cards.workforce',
       asset: 'assets/openg7-clinical-workforce-exchange-canada-miniature.png'
     },
     {
       id: 12,
       title: 'Health Supply Corridors',
-      description:
-        "Chaînes d'approvisionnement résilientes pour le système de santé.",
+      descriptionKey: 'funding.home.cards.supply',
       asset: 'assets/openg7-health-supply-corridors-canada-miniature.png'
     },
     {
       id: 13,
       title: 'Funding Platform',
-      description:
-        'Plateforme transparente de financement des initiatives OpenG7.',
+      descriptionKey: 'funding.home.cards.funding',
       asset: 'assets/openg7-funding-platform-dragon-coffre-miniature.png'
     }
   ];
 
   readonly foundationPillars: readonly FoundationPillar[] = [
     {
-      title: 'Transparence',
-      description: 'Des comptes clairs, ouverts à tous.'
+      titleKey: 'funding.home.pillars.transparency.title',
+      descriptionKey: 'funding.home.pillars.transparency.description'
     },
     {
-      title: 'Résilience',
-      description: 'Des fondations solides pour un avenir sûr.'
+      titleKey: 'funding.home.pillars.resilience.title',
+      descriptionKey: 'funding.home.pillars.resilience.description'
     },
     {
-      title: 'Collaboration',
-      description: 'Ensemble, nous allons plus loin.'
+      titleKey: 'funding.home.pillars.collaboration.title',
+      descriptionKey: 'funding.home.pillars.collaboration.description'
     },
     {
-      title: 'Avenir ouvert',
-      description: 'Technologie ouverte au service de tous.'
+      titleKey: 'funding.home.pillars.openFuture.title',
+      descriptionKey: 'funding.home.pillars.openFuture.description'
     }
   ];
 

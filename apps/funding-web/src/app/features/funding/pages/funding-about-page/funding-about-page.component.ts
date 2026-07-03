@@ -2,23 +2,26 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   Injector,
   inject
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 
 interface AboutFoundation {
-  readonly title: string;
-  readonly description: string;
+  readonly titleKey: string;
+  readonly descriptionKey: string;
 }
 
 @Component({
   selector: 'openg7-funding-about-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, FundingHeaderComponent],
+  imports: [CommonModule, RouterLink, TranslatePipe, FundingHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="about-page">
@@ -28,43 +31,48 @@ interface AboutFoundation {
         <img
           class="about-hero-image"
           src="assets/fonds-des-batisseurs-dragon-coffre-lumineux.png"
-          alt="Carte lumineuse du Canada surgissant d'un coffre au-dessus de Toronto"
+          [alt]="'funding.aboutPage.hero.imageAlt' | translate"
         />
         <div class="about-hero-vignette" aria-hidden="true"></div>
 
         <div class="about-copy">
           <a
             class="about-emblem"
-            routerLink="/"
-            aria-label="Accueil Fonds des bâtisseurs"
+            [routerLink]="homePath()"
+            [attr.aria-label]="'funding.aboutPage.hero.homeAria' | translate"
           >
             <span></span>
           </a>
-          <h1 id="about-title">À propos d’<strong>OpenG7</strong></h1>
+          <h1 id="about-title">
+            {{ 'funding.aboutPage.hero.title' | translate
+            }}<strong>OpenG7</strong>
+          </h1>
           <div class="about-rule" aria-hidden="true"><span></span></div>
           <p class="about-statement">
-            Une vision ouverte. Des fondations partagées.
-            <strong>Un impact collectif.</strong>
+            {{ 'funding.aboutPage.hero.statement' | translate }}
+            <strong>{{
+              'funding.aboutPage.hero.statementStrong' | translate
+            }}</strong>
           </p>
           <p class="about-description">
-            OpenG7 est un écosystème ouvert de plateformes numériques qui relie
-            les provinces, les organisations et les communautés d'un océan à
-            l'autre. Le Fonds des Bâtisseurs soutient les fondations partagées
-            qui rendent ces projets possibles.
+            {{ 'funding.aboutPage.hero.description' | translate }}
           </p>
 
-          <div class="about-actions" aria-label="Actions à propos d'OpenG7">
-            <a class="primary" routerLink="/ecosystem">
+          <div
+            class="about-actions"
+            [attr.aria-label]="'funding.aboutPage.hero.actionsAria' | translate"
+          >
+            <a class="primary" [routerLink]="ecosystemPath()">
               <span aria-hidden="true">⌖</span>
-              Découvrir OpenG7
+              {{ 'funding.aboutPage.actions.discover' | translate }}
             </a>
-            <a routerLink="/" fragment="funding-purpose">
+            <a [routerLink]="homePath()" fragment="funding-purpose">
               <span aria-hidden="true">▤</span>
-              Comprendre le fonds
+              {{ 'funding.aboutPage.actions.understandFund' | translate }}
             </a>
-            <a routerLink="/" fragment="support">
+            <a [routerLink]="homePath()" fragment="support">
               <span aria-hidden="true">♡</span>
-              Soutenir le projet
+              {{ 'funding.aboutPage.actions.support' | translate }}
             </a>
           </div>
         </div>
@@ -75,13 +83,15 @@ interface AboutFoundation {
         aria-labelledby="about-foundations-title"
       >
         <header>
-          <span>Fondations partagées</span>
-          <h2 id="about-foundations-title">Ce que le fonds rend possible</h2>
+          <span>{{ 'funding.aboutPage.foundations.eyebrow' | translate }}</span>
+          <h2 id="about-foundations-title">
+            {{ 'funding.aboutPage.foundations.title' | translate }}
+          </h2>
         </header>
         <div>
           <article *ngFor="let foundation of foundations">
-            <h3>{{ foundation.title }}</h3>
-            <p>{{ foundation.description }}</p>
+            <h3>{{ foundation.titleKey | translate }}</h3>
+            <p>{{ foundation.descriptionKey | translate }}</p>
           </article>
         </div>
       </section>
@@ -497,8 +507,14 @@ interface AboutFoundation {
   ]
 })
 export class FundingAboutPageComponent {
+  private readonly i18n = inject(FundingI18nService);
   private readonly injector = inject(Injector);
   private readonly seo = inject(FundingSeoService);
+
+  readonly homePath = computed(() => this.i18n.localizedPath('/'));
+  readonly ecosystemPath = computed(() =>
+    this.i18n.localizedPath('/ecosystem')
+  );
 
   constructor() {
     this.seo.bind(
@@ -514,19 +530,18 @@ export class FundingAboutPageComponent {
 
   readonly foundations: readonly AboutFoundation[] = [
     {
-      title: 'Infrastructure ouverte',
-      description:
-        'Des bases communes pour déployer des services numériques fiables et vérifiables.'
+      titleKey: 'funding.aboutPage.foundations.items.infrastructure.title',
+      descriptionKey:
+        'funding.aboutPage.foundations.items.infrastructure.description'
     },
     {
-      title: 'Financement transparent',
-      description:
-        'Chaque contribution soutient le fonds général et peut être suivie publiquement.'
+      titleKey: 'funding.aboutPage.foundations.items.transparency.title',
+      descriptionKey:
+        'funding.aboutPage.foundations.items.transparency.description'
     },
     {
-      title: 'Impact collectif',
-      description:
-        'Les plateformes avancent ensemble pour servir les communautés, les données et le terrain.'
+      titleKey: 'funding.aboutPage.foundations.items.impact.title',
+      descriptionKey: 'funding.aboutPage.foundations.items.impact.description'
     }
   ];
 }

@@ -2,17 +2,20 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   Injector,
   inject
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 
 interface SupportAction {
-  readonly title: string;
-  readonly description: string;
+  readonly titleKey: string;
+  readonly descriptionKey: string;
   readonly icon: string;
 }
 
@@ -21,19 +24,19 @@ interface SupportRepository {
   readonly description: string;
   readonly icon: string;
   readonly url: string;
-  readonly status: 'Actif' | 'En développement' | 'Pré-alpha';
+  readonly statusKey: string;
   readonly tone: 'cyan' | 'gold' | 'green' | 'blue';
 }
 
 interface SupportStep {
-  readonly title: string;
-  readonly description: string;
+  readonly titleKey: string;
+  readonly descriptionKey: string;
 }
 
 @Component({
   selector: 'openg7-support-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, FundingHeaderComponent],
+  imports: [CommonModule, RouterLink, TranslatePipe, FundingHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="support-page">
@@ -43,22 +46,22 @@ interface SupportStep {
         <img
           class="support-hero-image"
           src="assets/fonds-des-batisseurs-canada-coffre-lumineux.png"
-          alt="Carte numérique du Canada connectée à l'écosystème OpenG7"
+          [alt]="'funding.supportPage.hero.mapAlt' | translate"
         />
         <img
           class="support-dragon"
           src="assets/fonds-des-batisseurs-dragon-coffre-fort.png"
-          alt="Dragon gardien de l'écosystème OpenG7"
+          [alt]="'funding.supportPage.hero.dragonAlt' | translate"
         />
         <div class="support-hero-overlay" aria-hidden="true"></div>
 
         <div class="support-copy">
           <h1 id="support-title">
-            Construire OpenG7 avec <strong>GitHub</strong>
+            {{ 'funding.supportPage.hero.title' | translate }}
+            <strong>GitHub</strong>
           </h1>
           <p>
-            GitHub est l’atelier public de l’écosystème. Explorez les dépôts,
-            signalez un problème, proposez une idée et contribuez au code.
+            {{ 'funding.supportPage.hero.copy' | translate }}
           </p>
           <div class="support-actions-row">
             <a
@@ -66,35 +69,47 @@ interface SupportStep {
               href="https://github.com/orgs/OpenG7/repositories"
               target="_blank"
               rel="noreferrer"
-              >Voir les dépôts</a
+              >{{ 'funding.supportPage.links.viewRepos' | translate }}</a
             >
             <a href="https://github.com/OpenG7" target="_blank" rel="noreferrer"
-              >Ouvrir GitHub <span aria-hidden="true">↗</span></a
+              >{{ 'funding.supportPage.links.openGithub' | translate }}
+              <span aria-hidden="true">↗</span></a
             >
           </div>
         </div>
 
-        <div class="support-action-grid" aria-label="Actions de contribution">
+        <div
+          class="support-action-grid"
+          [attr.aria-label]="
+            'funding.supportPage.actions.ariaLabel' | translate
+          "
+        >
           <article *ngFor="let action of actions">
             <span aria-hidden="true">{{ action.icon }}</span>
             <div>
-              <h2>{{ action.title }}</h2>
-              <p>{{ action.description }}</p>
+              <h2>{{ action.titleKey | translate }}</h2>
+              <p>{{ action.descriptionKey | translate }}</p>
             </div>
             <i aria-hidden="true">→</i>
           </article>
         </div>
       </section>
 
-      <section class="support-workspace" aria-label="Espace de support OpenG7">
+      <section
+        class="support-workspace"
+        [attr.aria-label]="
+          'funding.supportPage.workspace.ariaLabel' | translate
+        "
+      >
         <article class="repository-panel">
           <header>
             <span aria-hidden="true">▤</span>
             <div>
-              <h2>Choisir un dépôt</h2>
+              <h2>
+                {{ 'funding.supportPage.repositories.title' | translate }}
+              </h2>
               <p>
-                Voici les dépôts principaux de l’écosystème OpenG7. Cliquez pour
-                explorer, lire la documentation ou contribuer.
+                {{ 'funding.supportPage.repositories.copy' | translate }}
               </p>
             </div>
           </header>
@@ -111,8 +126,14 @@ interface SupportStep {
                 <h3>{{ repository.name }}</h3>
                 <p>{{ repository.description }}</p>
               </div>
-              <em [class]="repository.tone">{{ repository.status }}</em>
-              <nav aria-label="Liens du dépôt">
+              <em [class]="repository.tone">{{
+                repository.statusKey | translate
+              }}</em>
+              <nav
+                [attr.aria-label]="
+                  'funding.supportPage.repositories.linksAria' | translate
+                "
+              >
                 <a [href]="repository.url" target="_blank" rel="noreferrer"
                   >README</a
                 >
@@ -138,18 +159,19 @@ interface SupportStep {
             target="_blank"
             rel="noreferrer"
           >
-            Voir tous les dépôts sur GitHub <span aria-hidden="true">↗</span>
+            {{ 'funding.supportPage.repositories.all' | translate }}
+            <span aria-hidden="true">↗</span>
           </a>
         </article>
 
         <aside class="support-side">
           <article class="steps-panel">
-            <h2>Comment utiliser GitHub avec OpenG7 ?</h2>
+            <h2>{{ 'funding.supportPage.steps.title' | translate }}</h2>
             <ol>
               <li *ngFor="let step of steps; let index = index">
                 <span>{{ index + 1 }}</span>
-                <strong>{{ step.title }}</strong>
-                <p>{{ step.description }}</p>
+                <strong>{{ step.titleKey | translate }}</strong>
+                <p>{{ step.descriptionKey | translate }}</p>
               </li>
             </ol>
           </article>
@@ -157,13 +179,11 @@ interface SupportStep {
           <article class="notice-panel warning">
             <span aria-hidden="true">◈</span>
             <div>
-              <strong
-                >Ne publiez jamais de clés API, mots de passe ou données
-                personnelles.</strong
-              >
+              <strong>{{
+                'funding.supportPage.notices.warning.title' | translate
+              }}</strong>
               <p>
-                Pour une faille de sécurité, utilisez le canal privé indiqué
-                dans SECURITY.md.
+                {{ 'funding.supportPage.notices.warning.copy' | translate }}
               </p>
             </div>
           </article>
@@ -171,33 +191,43 @@ interface SupportStep {
           <article class="notice-panel info">
             <span aria-hidden="true">◎</span>
             <div>
-              <strong
-                >OpenG7 est actuellement un projet indépendant en
-                développement.</strong
-              >
-              <p>
-                Les échanges et contributions passent principalement par GitHub.
-              </p>
+              <strong>{{
+                'funding.supportPage.notices.info.title' | translate
+              }}</strong>
+              <p>{{ 'funding.supportPage.notices.info.copy' | translate }}</p>
             </div>
           </article>
         </aside>
       </section>
 
       <footer class="support-footer">
-        <div>
-          <span aria-hidden="true">◆</span>
-          <p>
-            <strong>Fait au Canada. Ouvert pour tous.</strong> Transparence ·
-            Collaboration · Souveraineté numérique
-          </p>
-        </div>
-        <nav aria-label="Liens support secondaires">
-          <a routerLink="/fonds-des-batisseurs/a-propos">Code de conduite</a>
-          <a routerLink="/fonds-des-batisseurs/transparence">Sécurité</a>
-          <a routerLink="/ecosystem">Documentation</a>
-          <a routerLink="/">Licence</a>
+        <a
+          class="support-footer-brand"
+          [routerLink]="homePath()"
+          [attr.aria-label]="'funding.aria.brandHome' | translate"
+        >
+          <span aria-hidden="true">⌬</span>
+          <strong>OpenG7</strong>
+        </a>
+        <nav
+          [attr.aria-label]="
+            'funding.ecosystemPage.footer.secondaryLinksAria' | translate
+          "
+        >
+          <a [routerLink]="aboutPath()">{{
+            'funding.nav.about' | translate
+          }}</a>
+          <a [routerLink]="ecosystemPath()">{{
+            'funding.ecosystemPage.footer.documentation' | translate
+          }}</a>
+          <a [routerLink]="supportPath()">{{
+            'funding.nav.contact' | translate
+          }}</a>
         </nav>
-        <small>© 2025 OpenG7</small>
+        <small>{{
+          'funding.ecosystemPage.footer.copyright'
+            | translate: { year: currentYear }
+        }}</small>
       </footer>
     </main>
   `,
@@ -620,46 +650,48 @@ interface SupportStep {
 
       .support-footer {
         align-items: center;
-        border-top: 1px solid rgb(244 201 87 / 38%);
+        background: rgb(2 10 23 / 94%);
+        border-top: 1px solid rgb(72 163 230 / 24%);
         display: grid;
         gap: 1rem;
-        grid-template-columns: minmax(18rem, 1fr) minmax(24rem, 1fr) auto;
+        grid-template-columns: minmax(12rem, 0.8fr) minmax(20rem, 1.3fr) auto;
         margin-top: 1.25rem;
-        padding: 1rem clamp(1rem, 7vw, 8rem);
+        padding: 0.8rem clamp(1rem, 3vw, 3.25rem);
       }
 
-      .support-footer > div {
+      .support-footer-brand,
+      .support-footer nav a {
+        color: #f6fbff;
+        text-decoration: none;
+      }
+
+      .support-footer-brand {
         align-items: center;
-        display: flex;
-        gap: 0.7rem;
+        display: inline-flex;
+        gap: 0.65rem;
       }
 
-      .support-footer > div > span {
-        color: var(--gold-400);
-        font-size: 2rem;
+      .support-footer-brand span {
+        color: #f6bf48;
+        font-size: 1.55rem;
       }
 
-      .support-footer p,
-      .support-footer small,
-      .support-footer a {
-        color: #b8cadd;
-        font-size: 0.78rem;
-      }
-
-      .support-footer strong {
-        color: #fff8e8;
-        display: block;
-        font-size: 0.92rem;
+      .support-footer-brand strong {
+        font-size: 1.45rem;
       }
 
       .support-footer nav {
         display: flex;
-        gap: 1.6rem;
+        gap: 2rem;
         justify-content: center;
       }
 
-      .support-footer a {
-        text-decoration: none;
+      .support-footer nav a {
+        font-weight: 800;
+      }
+
+      .support-footer small {
+        color: #9eb5c8;
       }
 
       @media (max-width: 1240px) {
@@ -763,8 +795,7 @@ interface SupportStep {
           display: none;
         }
 
-        .repository-list nav,
-        .support-footer nav {
+        .repository-list nav {
           display: grid;
         }
 
@@ -794,8 +825,22 @@ interface SupportStep {
   ]
 })
 export class SupportPageComponent {
+  private readonly i18n = inject(FundingI18nService);
   private readonly injector = inject(Injector);
   private readonly seo = inject(FundingSeoService);
+
+  readonly homePath = computed(() => this.i18n.localizedPath('/'));
+  readonly aboutPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/a-propos')
+  );
+  readonly ecosystemPath = computed(() =>
+    this.i18n.localizedPath('/ecosystem')
+  );
+  readonly transparencyPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
+  );
+  readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly currentYear = new Date().getFullYear();
 
   constructor() {
     this.seo.bind(
@@ -811,27 +856,23 @@ export class SupportPageComponent {
 
   readonly actions: readonly SupportAction[] = [
     {
-      title: 'Explorer les dépôts',
-      description:
-        'Parcourez les projets OpenG7, leurs objectifs et leur état d’avancement.',
+      titleKey: 'funding.supportPage.actions.explore.title',
+      descriptionKey: 'funding.supportPage.actions.explore.description',
       icon: '▤'
     },
     {
-      title: 'Signaler un problème',
-      description:
-        'Aidez à améliorer la qualité en signalant un bug ou un comportement inattendu.',
+      titleKey: 'funding.supportPage.actions.issue.title',
+      descriptionKey: 'funding.supportPage.actions.issue.description',
       icon: '!'
     },
     {
-      title: 'Proposer une idée',
-      description:
-        'Partagez vos idées d’amélioration, nouvelles fonctionnalités ou cas d’usage.',
+      titleKey: 'funding.supportPage.actions.idea.title',
+      descriptionKey: 'funding.supportPage.actions.idea.description',
       icon: '♢'
     },
     {
-      title: 'Contribuer au code',
-      description:
-        'Fork, code, tests et pull requests : chaque contribution compte.',
+      titleKey: 'funding.supportPage.actions.code.title',
+      descriptionKey: 'funding.supportPage.actions.code.description',
       icon: '</>'
     }
   ];
@@ -843,7 +884,7 @@ export class SupportPageComponent {
         'Noyau de l’écosystème OpenG7. Identité, routage, intégrations et services clés.',
       icon: '◇',
       url: 'https://github.com/OpenG7/openg7-nexus',
-      status: 'Actif',
+      statusKey: 'funding.supportPage.status.inDevelopment',
       tone: 'green'
     },
     {
@@ -852,7 +893,7 @@ export class SupportPageComponent {
         'Optimise la disponibilité et la distribution des fournitures médicales critiques.',
       icon: '✚',
       url: 'https://github.com/OpenG7/openg7-health-supply-corridors',
-      status: 'En développement',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'green'
     },
     {
@@ -861,7 +902,7 @@ export class SupportPageComponent {
         'Guide les patients dans leurs parcours de soins de manière personnalisée.',
       icon: '♡',
       url: 'https://github.com/OpenG7/openg7-patient-navigation',
-      status: 'En développement',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'cyan'
     },
     {
@@ -870,7 +911,7 @@ export class SupportPageComponent {
         'Connecte les professionnels de santé aux besoins des établissements.',
       icon: '✦',
       url: 'https://github.com/OpenG7/openg7-clinical-workforce-exchange',
-      status: 'Pré-alpha',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'gold'
     },
     {
@@ -879,7 +920,7 @@ export class SupportPageComponent {
         'Infrastructure électorale canadienne pour processus vérifiables et transparents.',
       icon: '◫',
       url: 'https://github.com/OpenG7/openg7-electoral-systems-canada',
-      status: 'Pré-alpha',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'blue'
     },
     {
@@ -888,7 +929,7 @@ export class SupportPageComponent {
         'Composants sociaux et participation citoyenne pour services publics.',
       icon: '◎',
       url: 'https://github.com/OpenG7/openg7-social',
-      status: 'Pré-alpha',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'gold'
     },
     {
@@ -897,7 +938,7 @@ export class SupportPageComponent {
         'Graphe des données gouvernementales et interopérabilité sémantique.',
       icon: '⌘',
       url: 'https://github.com/OpenG7/openg7-govgraph',
-      status: 'Actif',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'cyan'
     },
     {
@@ -906,7 +947,7 @@ export class SupportPageComponent {
         'Analyse et orchestration des flux migratoires pour des parcours plus fluides.',
       icon: '⌁',
       url: 'https://github.com/OpenG7/openg7-migration-flow-engine',
-      status: 'En développement',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'blue'
     },
     {
@@ -915,7 +956,7 @@ export class SupportPageComponent {
         'Acheminer les demandes vers les bons spécialistes au bon moment.',
       icon: '↬',
       url: 'https://github.com/OpenG7/openg7-medical-referral-router',
-      status: 'En développement',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'green'
     },
     {
@@ -924,7 +965,7 @@ export class SupportPageComponent {
         'Pare-feu applicatif et protection des API pour services publics.',
       icon: '◈',
       url: 'https://github.com/OpenG7/openg7-firewall',
-      status: 'En développement',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'blue'
     },
     {
@@ -933,7 +974,7 @@ export class SupportPageComponent {
         'Registre électoral et documents officiels vérifiables et à jour.',
       icon: '▣',
       url: 'https://github.com/OpenG7/openg7-ca-voter-register-and-docs',
-      status: 'Pré-alpha',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'cyan'
     },
     {
@@ -942,7 +983,7 @@ export class SupportPageComponent {
         'Registre national des véhicules pour des transactions fiables et sécurisées.',
       icon: '▰',
       url: 'https://github.com/OpenG7/openg7-ca-vehicle-registry',
-      status: 'Pré-alpha',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'blue'
     },
     {
@@ -950,29 +991,27 @@ export class SupportPageComponent {
       description: 'Opérations électorales modernes, sécurisées et auditables.',
       icon: '◬',
       url: 'https://github.com/OpenG7/openg7-ca-election-day-ops-and-audit',
-      status: 'Pré-alpha',
+      statusKey: 'funding.supportPage.status.toDevelop',
       tone: 'gold'
     }
   ];
 
   readonly steps: readonly SupportStep[] = [
     {
-      title: 'Explorer',
-      description:
-        'Parcourez les dépôts et lisez les README pour comprendre chaque projet.'
+      titleKey: 'funding.supportPage.steps.items.explore.title',
+      descriptionKey: 'funding.supportPage.steps.items.explore.description'
     },
     {
-      title: 'Créer une issue',
-      description:
-        'Signalez un bug ou demandez une amélioration via l’onglet Issues.'
+      titleKey: 'funding.supportPage.steps.items.issue.title',
+      descriptionKey: 'funding.supportPage.steps.items.issue.description'
     },
     {
-      title: 'Proposer une amélioration',
-      description: 'Décrivez votre idée, la valeur ajoutée et le contexte.'
+      titleKey: 'funding.supportPage.steps.items.improvement.title',
+      descriptionKey: 'funding.supportPage.steps.items.improvement.description'
     },
     {
-      title: 'Ouvrir une pull request',
-      description: 'Soumettez votre code ou vos changements pour revue.'
+      titleKey: 'funding.supportPage.steps.items.pullRequest.title',
+      descriptionKey: 'funding.supportPage.steps.items.pullRequest.description'
     }
   ];
 }

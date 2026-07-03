@@ -14,20 +14,24 @@ import {
   inject,
   signal
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 import type {
   FundTransparencyPublicResponse,
   PublicMonthlySummary
 } from '@openg7/funding-core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 import { FundingService } from '../../services/funding.service.js';
 import { FundTransparencyService } from '../../services/fund-transparency.service.js';
 
 interface KpiCard {
-  readonly label: string;
+  readonly labelKey: string;
   readonly value: number;
-  readonly detail: string;
+  readonly detailKey: string;
+  readonly detailParams?: Record<string, number | string>;
   readonly tone: 'blue' | 'red' | 'green' | 'gold';
   readonly kind: 'currency' | 'count';
 }
@@ -39,13 +43,25 @@ interface PlatformMiniCard {
 }
 
 interface CalculationRow {
-  readonly label: string;
+  readonly labelKey: string;
   readonly sign: '+' | '-' | '=';
 }
 
 interface SetupFact {
-  readonly label: string;
-  readonly value: string;
+  readonly labelKey: string;
+  readonly value?: string;
+  readonly valueKey?: string;
+}
+
+interface FlowStep {
+  readonly titleKey: string;
+  readonly descriptionKey: string;
+}
+
+interface AllocationPlanItem {
+  readonly labelKey: string;
+  readonly share: number;
+  readonly color: string;
 }
 
 const emptyReport = (): FundTransparencyPublicResponse => ({
@@ -65,7 +81,14 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 @Component({
   selector: 'openg7-funding-transparency-page',
   standalone: true,
-  imports: [CommonModule, CurrencyPipe, DatePipe, FundingHeaderComponent],
+  imports: [
+    CommonModule,
+    CurrencyPipe,
+    DatePipe,
+    RouterLink,
+    TranslatePipe,
+    FundingHeaderComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="transparency-dashboard">
@@ -75,47 +98,53 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
         <img
           class="hero-city"
           src="assets/fonds-des-batisseurs-feuille-erable-lumineuse.png"
-          alt="Ville canadienne illuminée par une feuille d'érable numérique"
+          [alt]="'funding.transparencyPage.hero.cityAlt' | translate"
         />
         <img
           class="hero-dragon"
           src="assets/fonds-des-batisseurs-dragon-coffre-fort.png"
-          alt="Dragon gardien protégeant un coffre de fonds publics"
+          [alt]="'funding.transparencyPage.hero.dragonAlt' | translate"
         />
         <div class="hero-overlay" aria-hidden="true"></div>
 
         <div class="hero-copy">
           <h1 id="transparency-title">
-            Transparence du Fonds des <strong>Bâtisseurs</strong>
+            {{ 'funding.transparencyPage.hero.title' | translate }}
+            <strong>{{
+              'funding.transparencyPage.hero.titleStrong' | translate
+            }}</strong>
           </h1>
-          <p>
-            La confiance se construit par la preuve. Chaque contribution, chaque
-            frais et chaque utilisation du fonds sont publiés sous forme
-            agrégée.
-          </p>
+          <p>{{ 'funding.transparencyPage.hero.copy' | translate }}</p>
 
           <div class="hero-actions">
             <button type="button" (click)="scrollToRegistry()">
-              Voir le registre
+              {{ 'funding.transparencyPage.hero.viewRegistry' | translate }}
             </button>
             <button type="button" class="secondary" (click)="downloadReport()">
-              Télécharger le rapport
+              {{ 'funding.transparencyPage.hero.downloadReport' | translate }}
             </button>
             <button type="button" class="secondary" (click)="scrollToSupport()">
-              Soutenir OpenG7
+              {{ 'funding.nav.supportCta' | translate }}
             </button>
           </div>
         </div>
 
         <dl class="sync-strip">
           <div *ngFor="let fact of setupFacts()">
-            <dt>{{ fact.label }}</dt>
-            <dd>{{ fact.value }}</dd>
+            <dt>{{ fact.labelKey | translate }}</dt>
+            <dd>
+              {{ fact.valueKey ? (fact.valueKey | translate) : fact.value }}
+            </dd>
           </div>
         </dl>
       </section>
 
-      <section class="kpi-grid" aria-label="Indicateurs financiers publics">
+      <section
+        class="kpi-grid"
+        [attr.aria-label]="
+          'funding.transparencyPage.kpis.ariaLabel' | translate
+        "
+      >
         <article
           class="kpi-card"
           *ngFor="let card of kpiCards()"
@@ -125,21 +154,23 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
             kpiIcon(card.tone)
           }}</span>
           <div>
-            <h2>{{ card.label }}</h2>
+            <h2>{{ card.labelKey | translate }}</h2>
             <strong *ngIf="card.kind === 'currency'">
               {{
                 card.value | currency: report().currency : 'symbol' : '1.2-2'
               }}
             </strong>
             <strong *ngIf="card.kind === 'count'">{{ card.value }}</strong>
-            <p>{{ card.detail }}</p>
+            <p>{{ card.detailKey | translate: card.detailParams }}</p>
           </div>
         </article>
       </section>
 
       <section class="campaign-card">
         <header>
-          <span>Progression de la campagne</span>
+          <span>{{
+            'funding.transparencyPage.campaign.progress' | translate
+          }}</span>
           <strong>{{ monthlyProgress() }}%</strong>
         </header>
         <div class="campaign-track" aria-hidden="true">
@@ -150,25 +181,29 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
             remainingForGoal()
               | currency: report().currency : 'symbol' : '1.2-2'
           }}
-          sont encore nécessaires pour atteindre l'objectif mensuel.
+          {{ 'funding.transparencyPage.campaign.remaining' | translate }}
         </p>
       </section>
 
       <section class="dashboard-grid">
         <article class="panel flow-panel">
-          <h2>Du paiement au fonds disponible</h2>
+          <h2>{{ 'funding.transparencyPage.flow.title' | translate }}</h2>
           <ol>
             <li *ngFor="let item of flowSteps; let index = index">
               <span>{{ index + 1 }}</span>
               <div>
-                <strong>{{ item.title }}</strong>
-                <p>{{ item.description }}</p>
+                <strong>{{ item.titleKey | translate }}</strong>
+                <p>{{ item.descriptionKey | translate }}</p>
               </div>
             </li>
           </ol>
           <dl>
             <div>
-              <dt>Contribution reçue</dt>
+              <dt>
+                {{
+                  'funding.transparencyPage.flow.totals.received' | translate
+                }}
+              </dt>
               <dd>
                 {{
                   report().total_received
@@ -177,7 +212,9 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
               </dd>
             </div>
             <div>
-              <dt>Frais estimés du traitement</dt>
+              <dt>
+                {{ 'funding.transparencyPage.flow.totals.fees' | translate }}
+              </dt>
               <dd>
                 {{
                   report().total_fees
@@ -186,7 +223,9 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
               </dd>
             </div>
             <div>
-              <dt>Montant net ajouté au fonds</dt>
+              <dt>
+                {{ 'funding.transparencyPage.flow.totals.net' | translate }}
+              </dt>
               <dd>
                 {{
                   report().current_available_estimate
@@ -199,28 +238,35 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 
         <article id="public-registry" class="panel registry-panel">
           <header>
-            <h2>Registre public des mouvements</h2>
+            <h2>{{ 'funding.transparencyPage.registry.title' | translate }}</h2>
             <div>
               <button
                 type="button"
                 [class.active]="registryFilter() === 'all'"
                 (click)="registryFilter.set('all')"
               >
-                Tous
+                {{
+                  'funding.transparencyPage.registry.filters.all' | translate
+                }}
               </button>
               <button
                 type="button"
                 [class.active]="registryFilter() === 'contributions'"
                 (click)="registryFilter.set('contributions')"
               >
-                Contributions
+                {{
+                  'funding.transparencyPage.registry.filters.contributions'
+                    | translate
+                }}
               </button>
               <button
                 type="button"
                 [class.active]="registryFilter() === 'fees'"
                 (click)="registryFilter.set('fees')"
               >
-                Frais
+                {{
+                  'funding.transparencyPage.registry.filters.fees' | translate
+                }}
               </button>
             </div>
           </header>
@@ -228,35 +274,86 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
             <table>
               <thead>
                 <tr>
-                  <th>Période</th>
-                  <th>Type</th>
-                  <th>Référence publique</th>
-                  <th>Description</th>
-                  <th>Montant</th>
-                  <th>État</th>
+                  <th>
+                    {{
+                      'funding.transparencyPage.registry.headers.period'
+                        | translate
+                    }}
+                  </th>
+                  <th>
+                    {{
+                      'funding.transparencyPage.registry.headers.type'
+                        | translate
+                    }}
+                  </th>
+                  <th>
+                    {{
+                      'funding.transparencyPage.registry.headers.reference'
+                        | translate
+                    }}
+                  </th>
+                  <th>
+                    {{
+                      'funding.transparencyPage.registry.headers.description'
+                        | translate
+                    }}
+                  </th>
+                  <th>
+                    {{
+                      'funding.transparencyPage.registry.headers.amount'
+                        | translate
+                    }}
+                  </th>
+                  <th>
+                    {{
+                      'funding.transparencyPage.registry.headers.status'
+                        | translate
+                    }}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let row of visibleRegistryRows()">
                   <td>{{ row.month }}</td>
                   <td [class.positive]="row.total_received > 0">
-                    Contribution
+                    {{
+                      'funding.transparencyPage.registry.types.contribution'
+                        | translate
+                    }}
                   </td>
                   <td>OG7-{{ row.month }}</td>
-                  <td>Somme mensuelle agrégée Stripe</td>
+                  <td>
+                    {{
+                      'funding.transparencyPage.registry.monthlyStripe'
+                        | translate
+                    }}
+                  </td>
                   <td class="positive">
                     {{
                       row.total_received
                         | currency: row.currency : 'symbol' : '1.2-2'
                     }}
                   </td>
-                  <td><span class="state-pill">Confirmée</span></td>
+                  <td>
+                    <span class="state-pill">{{
+                      'funding.transparencyPage.registry.status.confirmed'
+                        | translate
+                    }}</span>
+                  </td>
                 </tr>
                 <tr *ngFor="let row of visibleFeeRows()">
                   <td>{{ row.month }}</td>
-                  <td class="negative">Frais</td>
+                  <td class="negative">
+                    {{
+                      'funding.transparencyPage.registry.types.fee' | translate
+                    }}
+                  </td>
                   <td>OG7-F-{{ row.month }}</td>
-                  <td>Frais Stripe agrégés</td>
+                  <td>
+                    {{
+                      'funding.transparencyPage.registry.stripeFees' | translate
+                    }}
+                  </td>
                   <td class="negative">
                     {{
                       row.total_fees
@@ -264,7 +361,10 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
                     }}
                   </td>
                   <td>
-                    <span class="state-pill accounting">Comptabilisé</span>
+                    <span class="state-pill accounting">{{
+                      'funding.transparencyPage.registry.status.accounted'
+                        | translate
+                    }}</span>
                   </td>
                 </tr>
                 <tr
@@ -274,35 +374,34 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
                   "
                 >
                   <td colspan="6" class="empty-row">
-                    Aucun mouvement public synchronisé pour le moment.
+                    {{ 'funding.transparencyPage.registry.empty' | translate }}
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
           <button type="button" class="text-link" (click)="downloadCsv()">
-            Exporter le registre CSV
+            {{ 'funding.transparencyPage.registry.exportCsv' | translate }}
           </button>
         </article>
 
         <article class="panel allocation-panel">
-          <h2>Répartition prévue du fonds</h2>
+          <h2>{{ 'funding.transparencyPage.allocation.title' | translate }}</h2>
           <div class="donut" aria-hidden="true"></div>
           <ul>
             <li *ngFor="let allocation of allocationPlan">
               <span [style.background]="allocation.color"></span>
               <strong>{{ allocation.share }}%</strong>
-              <p>{{ allocation.label }}</p>
+              <p>{{ allocation.labelKey | translate }}</p>
             </li>
           </ul>
           <p class="fine-print">
-            Cette répartition présente le plan actuel. Elle ne remplace pas les
-            dépenses déjà réalisées.
+            {{ 'funding.transparencyPage.allocation.finePrint' | translate }}
           </p>
         </article>
 
         <article class="panel expenses-panel">
-          <h2>Dépenses réellement publiées</h2>
+          <h2>{{ 'funding.transparencyPage.expenses.title' | translate }}</h2>
           <div class="mini-table">
             <div *ngFor="let allocation of publicAllocations()">
               <span>{{ allocation.published_at | date: 'MMM y' }}</span>
@@ -313,18 +412,16 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
               }}</em>
             </div>
             <p *ngIf="publicAllocations().length === 0">
-              Aucune dépense publiée. Les contributions et frais sont
-              actuellement synchronisés depuis Stripe.
+              {{ 'funding.transparencyPage.expenses.empty' | translate }}
             </p>
           </div>
           <p class="info-box">
-            Le registre automatisé des dépenses opérationnelles sera enrichi
-            dans une prochaine phase.
+            {{ 'funding.transparencyPage.expenses.info' | translate }}
           </p>
         </article>
 
         <article class="panel platforms-panel">
-          <h2>Plateformes soutenues par le fonds</h2>
+          <h2>{{ 'funding.transparencyPage.platforms.title' | translate }}</h2>
           <div class="platform-grid">
             <div *ngFor="let platform of platforms">
               <img [src]="platform.asset" [alt]="platform.name" />
@@ -332,60 +429,70 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
               <p>{{ platform.name }}</p>
             </div>
           </div>
-          <p>Toutes ces plateformes sont soutenues par le fonds général.</p>
+          <p>{{ 'funding.transparencyPage.platforms.copy' | translate }}</p>
         </article>
 
         <article class="panel method-panel">
-          <h2>Méthode de calcul</h2>
+          <h2>{{ 'funding.transparencyPage.method.title' | translate }}</h2>
           <dl>
             <div *ngFor="let row of calculationRows">
-              <dt>{{ row.label }}</dt>
+              <dt>{{ row.labelKey | translate }}</dt>
               <dd>{{ row.sign }}</dd>
             </div>
           </dl>
-          <strong>= Fonds nets disponibles</strong>
-          <p>Cliquez sur chaque élément pour en savoir plus.</p>
+          <strong>{{
+            'funding.transparencyPage.method.result' | translate
+          }}</strong>
+          <p>{{ 'funding.transparencyPage.method.copy' | translate }}</p>
         </article>
 
         <article class="panel privacy-panel">
-          <h2>Intégrité et confidentialité</h2>
+          <h2>{{ 'funding.transparencyPage.privacy.title' | translate }}</h2>
           <div class="privacy-columns">
             <ul>
-              <li *ngFor="let item of publicDataChecklist">{{ item }}</li>
+              <li *ngFor="let item of publicDataChecklist">
+                {{ item | translate }}
+              </li>
             </ul>
             <ul>
-              <li *ngFor="let item of protectedDataChecklist">{{ item }}</li>
+              <li *ngFor="let item of protectedDataChecklist">
+                {{ item | translate }}
+              </li>
             </ul>
           </div>
           <p>
-            Les données affichées sont agrégées automatiquement à partir des
-            transactions Stripe. Aucune information personnelle des
-            contributeurs n'est publiée.
+            {{ 'funding.transparencyPage.privacy.copy' | translate }}
           </p>
         </article>
 
         <article class="panel reports-panel">
-          <h2>Export et rapports</h2>
-          <button type="button" (click)="downloadCsv()">Exporter en CSV</button>
+          <h2>{{ 'funding.transparencyPage.reports.title' | translate }}</h2>
+          <button type="button" (click)="downloadCsv()">
+            {{ 'funding.transparencyPage.reports.exportCsv' | translate }}
+          </button>
           <button type="button" (click)="downloadReport()">
-            Télécharger le rapport mensuel
+            {{ 'funding.transparencyPage.reports.downloadMonthly' | translate }}
           </button>
           <button type="button" (click)="copyTransparencyLink()">
-            Copier le lien de transparence
+            {{ 'funding.transparencyPage.reports.copyLink' | translate }}
           </button>
         </article>
 
         <article class="panel about-panel">
-          <h2>À propos de cette page</h2>
-          <p>
-            Cette page est mise à jour régulièrement à partir de Stripe. Les
-            données peuvent présenter un léger délai en raison de la
-            synchronisation.
-          </p>
+          <h2>{{ 'funding.transparencyPage.about.title' | translate }}</h2>
+          <p>{{ 'funding.transparencyPage.about.copy' | translate }}</p>
           <ul>
-            <li>Source des paiements: Stripe</li>
-            <li>Devise principale: {{ report().currency }}</li>
-            <li>Fréquence de synchronisation: 1 minute</li>
+            <li>
+              {{ 'funding.transparencyPage.about.paymentSource' | translate }}
+            </li>
+            <li>
+              {{
+                'funding.transparencyPage.about.primaryCurrency' | translate
+              }}: {{ report().currency }}
+            </li>
+            <li>
+              {{ 'funding.transparencyPage.about.syncFrequency' | translate }}
+            </li>
             <li>Contact: info&#64;openg7.org</li>
           </ul>
         </article>
@@ -394,17 +501,11 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       <section id="support" class="support-strip">
         <img
           src="assets/openg7-funding-platform-dragon-coffre.png"
-          alt="Carte Funding Platform"
+          [alt]="'funding.transparencyPage.support.imageAlt' | translate"
         />
         <div>
-          <h2>
-            Vous savez maintenant où se trouve le fonds et comment il est
-            calculé.
-          </h2>
-          <p>
-            Chaque contribution aide à bâtir une infrastructure ouverte pour
-            l'ensemble de l'écosystème OpenG7.
-          </p>
+          <h2>{{ 'funding.transparencyPage.support.title' | translate }}</h2>
+          <p>{{ 'funding.transparencyPage.support.copy' | translate }}</p>
         </div>
         <div class="support-actions">
           <div>
@@ -418,31 +519,55 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
             </button>
           </div>
           <button type="button" class="support-cta" (click)="supportProject()">
-            Soutenir OpenG7
+            {{ 'funding.nav.supportCta' | translate }}
           </button>
           <p *ngIf="checkoutState() === 'loading'">
-            Préparation du paiement sécurisé...
+            {{ 'funding.transparencyPage.support.loading' | translate }}
           </p>
           <p class="state-success" *ngIf="checkoutState() === 'success'">
-            Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup
-            pour ouvrir le paiement réel.
+            {{ 'funding.transparencyPage.support.success' | translate }}
           </p>
           <p class="state-error" *ngIf="checkoutState() === 'error'">
-            Impossible de démarrer le paiement.
+            {{ 'funding.transparencyPage.support.error' | translate }}
           </p>
         </div>
       </section>
 
       <footer class="page-footer">
-        <span>Fonds des Bâtisseurs — Bâtir l'avenir ensemble.</span>
-        <span>OpenG7.org</span>
+        <a
+          class="page-footer-brand"
+          [routerLink]="homePath()"
+          [attr.aria-label]="'funding.aria.brandHome' | translate"
+        >
+          <span aria-hidden="true">⌬</span>
+          <strong>OpenG7</strong>
+        </a>
+        <nav
+          [attr.aria-label]="
+            'funding.ecosystemPage.footer.secondaryLinksAria' | translate
+          "
+        >
+          <a [routerLink]="aboutPath()">{{
+            'funding.nav.about' | translate
+          }}</a>
+          <a [routerLink]="ecosystemPath()">{{
+            'funding.ecosystemPage.footer.documentation' | translate
+          }}</a>
+          <a [routerLink]="supportPath()">{{
+            'funding.nav.contact' | translate
+          }}</a>
+        </nav>
+        <small>{{
+          'funding.ecosystemPage.footer.copyright'
+            | translate: { year: currentYear }
+        }}</small>
       </footer>
 
       <section class="loading-card" *ngIf="loading()">
-        Synchronisation des données publiques...
+        {{ 'funding.transparencyPage.state.loading' | translate }}
       </section>
       <section class="loading-card error" *ngIf="error()">
-        Impossible de charger la transparence publique.
+        {{ 'funding.transparencyPage.state.error' | translate }}
       </section>
     </main>
   `,
@@ -1172,10 +1297,50 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 
     .page-footer {
       align-items: center;
-      color: #cfdceb;
+      background: rgba(2, 10, 23, 0.94);
+      border-top: 1px solid rgba(72, 163, 230, 0.24);
+      color: #f6fbff;
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: minmax(12rem, 0.8fr) minmax(20rem, 1.3fr) auto;
+      margin-left: 0;
+      margin-right: 0;
+      padding: 0.8rem clamp(1rem, 3vw, 3.25rem);
+    }
+
+    .page-footer-brand,
+    .page-footer nav a {
+      color: #f6fbff;
+      text-decoration: none;
+    }
+
+    .page-footer-brand {
+      align-items: center;
+      display: inline-flex;
+      gap: 0.65rem;
+    }
+
+    .page-footer-brand span {
+      color: #f6bf48;
+      font-size: 1.55rem;
+    }
+
+    .page-footer-brand strong {
+      font-size: 1.45rem;
+    }
+
+    .page-footer nav {
       display: flex;
-      justify-content: space-between;
-      padding: 0.75rem 0 0;
+      gap: 2rem;
+      justify-content: center;
+    }
+
+    .page-footer nav a {
+      font-weight: 800;
+    }
+
+    .page-footer small {
+      color: #9eb5c8;
     }
 
     .loading-card {
@@ -1192,8 +1357,14 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 
     @media (max-width: 1120px) {
       .dashboard-grid,
-      .support-strip {
+      .support-strip,
+      .page-footer {
         grid-template-columns: 1fr;
+      }
+
+      .page-footer nav {
+        justify-content: flex-start;
+        overflow-x: auto;
       }
 
       .kpi-grid {
@@ -1243,6 +1414,7 @@ export class FundingTransparencyPageComponent implements OnInit {
   private readonly injector = inject(Injector);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly seo = inject(FundingSeoService);
+  private readonly i18n = inject(FundingI18nService);
 
   constructor() {
     this.seo.bind(
@@ -1269,68 +1441,85 @@ export class FundingTransparencyPageComponent implements OnInit {
     () => this.data() ?? emptyReport()
   );
 
+  readonly homePath = computed(() => this.i18n.localizedPath('/'));
+  readonly aboutPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/a-propos')
+  );
+  readonly ecosystemPath = computed(() =>
+    this.i18n.localizedPath('/ecosystem')
+  );
+  readonly transparencyPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
+  );
+  readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly currentYear = new Date().getFullYear();
+
   readonly contributionAmounts = [5, 10, 25, 50, 100] as const;
   readonly monthlyGoal = 1500;
 
   readonly setupFacts = computed<readonly SetupFact[]>(() => [
     {
-      label: 'Dernière synchronisation',
+      labelKey: 'funding.home.purpose.lastSync',
       value: this.lastUpdatedLabel()
     },
     {
-      label: 'Source des contributions',
+      labelKey: 'funding.home.purpose.source',
       value: 'Stripe'
     },
     {
-      label: 'Devise principale',
+      labelKey: 'funding.home.purpose.currency',
       value: this.report().currency
     },
     {
-      label: 'Campagne active',
-      value: 'Fonds des Bâtisseurs'
+      labelKey: 'funding.home.purpose.activeCampaign',
+      valueKey: 'funding.transparencyPage.sync.activeCampaignValue'
     }
   ]);
 
   readonly kpiCards = computed<readonly KpiCard[]>(() => {
     const report = this.report();
 
-    return [
+    const cards: readonly KpiCard[] = [
       {
-        label: 'Contributions confirmées',
+        labelKey: 'funding.transparency.confirmed',
         value: report.total_received,
-        detail: `${report.contributions_count} contributions`,
+        detailKey: 'funding.transparencyPage.kpis.contributionCount',
+        detailParams: { count: report.contributions_count },
         tone: 'blue',
         kind: 'currency'
       },
       {
-        label: 'Frais de paiement',
+        labelKey: 'funding.home.purpose.paymentFees',
         value: report.total_fees,
-        detail: 'Total des frais',
+        detailKey: 'funding.transparencyPage.kpis.totalFees',
         tone: 'red',
         kind: 'currency'
       },
       {
-        label: 'Remboursements',
+        labelKey: 'funding.transparencyPage.kpis.refunds',
         value: report.total_refunded,
-        detail: 'Total remboursé',
+        detailKey: 'funding.transparencyPage.kpis.totalRefunded',
         tone: 'red',
         kind: 'currency'
       },
       {
-        label: 'Fonds nets disponibles',
+        labelKey: 'funding.home.purpose.netAvailable',
         value: report.current_available_estimate,
-        detail: 'Disponible pour nos projets',
+        detailKey: 'funding.transparencyPage.kpis.availableForProjects',
         tone: 'green',
         kind: 'currency'
       },
       {
-        label: 'Objectif mensuel',
+        labelKey: 'funding.goal.monthly',
         value: this.monthlyGoal,
-        detail: `${this.monthlyProgress()}% atteint`,
+        detailKey: 'funding.transparencyPage.kpis.monthlyProgress',
+        detailParams: { progress: this.monthlyProgress() },
         tone: 'gold',
         kind: 'currency'
       }
     ];
+
+    return cards;
   });
 
   readonly visibleRegistryRows = computed<readonly PublicMonthlySummary[]>(
@@ -1427,62 +1616,88 @@ export class FundingTransparencyPageComponent implements OnInit {
     }
   ];
 
-  readonly flowSteps = [
+  readonly flowSteps: readonly FlowStep[] = [
     {
-      title: 'Contribution',
-      description: 'Paiement reçu avec succès'
+      titleKey: 'funding.transparencyPage.flow.steps.contribution.title',
+      descriptionKey:
+        'funding.transparencyPage.flow.steps.contribution.description'
     },
     {
-      title: 'Paiement confirmé',
-      description: 'Transaction validée par Stripe'
+      titleKey: 'funding.transparencyPage.flow.steps.confirmed.title',
+      descriptionKey:
+        'funding.transparencyPage.flow.steps.confirmed.description'
     },
     {
-      title: 'Frais du fournisseur',
-      description: 'Frais de traitement déduits'
+      titleKey: 'funding.transparencyPage.flow.steps.fees.title',
+      descriptionKey: 'funding.transparencyPage.flow.steps.fees.description'
     },
     {
-      title: 'Remboursements / contestations',
-      description: 'Montants retournés ou contestés'
+      titleKey: 'funding.transparencyPage.flow.steps.refunds.title',
+      descriptionKey: 'funding.transparencyPage.flow.steps.refunds.description'
     },
     {
-      title: 'Montant net disponible',
-      description: 'Ajouté au fonds pour les projets'
+      titleKey: 'funding.transparencyPage.flow.steps.net.title',
+      descriptionKey: 'funding.transparencyPage.flow.steps.net.description'
     }
   ] as const;
 
-  readonly allocationPlan = [
-    { label: 'Hébergement & infrastructure', share: 30, color: '#f4b53c' },
-    { label: 'Développement & innovation', share: 30, color: '#2f9fe5' },
-    { label: 'Sécurité & continuité', share: 20, color: '#58d79a' },
-    { label: 'Données & documentation', share: 10, color: '#e5df80' },
-    { label: 'Communauté & communication', share: 5, color: '#e58a3e' },
-    { label: 'Réserve & résilience', share: 5, color: '#9b7ff0' }
+  readonly allocationPlan: readonly AllocationPlanItem[] = [
+    {
+      labelKey: 'funding.transparencyPage.allocation.items.infrastructure',
+      share: 30,
+      color: '#f4b53c'
+    },
+    {
+      labelKey: 'funding.transparencyPage.allocation.items.development',
+      share: 30,
+      color: '#2f9fe5'
+    },
+    {
+      labelKey: 'funding.transparencyPage.allocation.items.security',
+      share: 20,
+      color: '#58d79a'
+    },
+    {
+      labelKey: 'funding.transparencyPage.allocation.items.data',
+      share: 10,
+      color: '#e5df80'
+    },
+    {
+      labelKey: 'funding.transparencyPage.allocation.items.community',
+      share: 5,
+      color: '#e58a3e'
+    },
+    {
+      labelKey: 'funding.transparencyPage.allocation.items.reserve',
+      share: 5,
+      color: '#9b7ff0'
+    }
   ] as const;
 
   readonly calculationRows: readonly CalculationRow[] = [
-    { label: 'Contributions confirmées', sign: '+' },
-    { label: 'Frais de paiement', sign: '-' },
-    { label: 'Remboursements', sign: '-' },
-    { label: 'Montants contestés', sign: '-' }
+    { labelKey: 'funding.transparency.confirmed', sign: '+' },
+    { labelKey: 'funding.home.purpose.paymentFees', sign: '-' },
+    { labelKey: 'funding.transparencyPage.kpis.refunds', sign: '-' },
+    { labelKey: 'funding.transparencyPage.method.disputedAmounts', sign: '-' }
   ];
 
   readonly publicDataChecklist = [
-    'Montants agrégés',
-    'Frais',
-    'Remboursements',
-    'Objectifs',
-    'Utilisation prévue',
-    'Dépenses rendues publiques',
-    'Date de synchronisation'
+    'funding.transparencyPage.privacy.publicData.aggregateAmounts',
+    'funding.transparencyPage.privacy.publicData.fees',
+    'funding.transparencyPage.privacy.publicData.refunds',
+    'funding.transparencyPage.privacy.publicData.goals',
+    'funding.transparencyPage.privacy.publicData.plannedUse',
+    'funding.transparencyPage.privacy.publicData.publishedExpenses',
+    'funding.transparencyPage.privacy.publicData.syncDate'
   ] as const;
 
   readonly protectedDataChecklist = [
-    'Identité privée des contributeurs',
-    'Renseignements de paiement',
-    'Données bancaires',
-    'Adresses',
-    'Données personnelles',
-    'Identifiants techniques sensibles'
+    'funding.transparencyPage.privacy.protectedData.contributorIdentity',
+    'funding.transparencyPage.privacy.protectedData.paymentDetails',
+    'funding.transparencyPage.privacy.protectedData.bankData',
+    'funding.transparencyPage.privacy.protectedData.addresses',
+    'funding.transparencyPage.privacy.protectedData.personalData',
+    'funding.transparencyPage.privacy.protectedData.technicalIdentifiers'
   ] as const;
 
   async ngOnInit(): Promise<void> {
@@ -1524,12 +1739,13 @@ export class FundingTransparencyPageComponent implements OnInit {
   }
 
   lastUpdatedLabel(): string {
+    const language = this.i18n.currentLanguage();
     const date = new Date(this.report().last_updated_at);
     if (Number.isNaN(date.getTime())) {
-      return 'En attente';
+      return this.i18n.t('funding.transparencyPage.sync.pending');
     }
 
-    return date.toLocaleDateString('fr-CA', {
+    return date.toLocaleDateString(language, {
       day: 'numeric',
       month: 'long',
       year: 'numeric'

@@ -85,7 +85,7 @@ a:focus-visible {
   border-bottom: 1px solid rgb(238 181 68 / 38%);
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(180px, 0.9fr) minmax(420px, 1.5fr) auto;
+  grid-template-columns: minmax(180px, 0.85fr) minmax(0, 1.45fr) max-content;
   min-height: 4.15rem;
   padding: 0.45rem clamp(1rem, 4vw, 5.2rem);
 }
@@ -125,8 +125,10 @@ a:focus-visible {
 .builders-nav nav {
   align-items: center;
   display: flex;
-  gap: clamp(0.8rem, 2.8vw, 2.7rem);
+  flex-wrap: nowrap;
+  gap: clamp(0.65rem, 1.55vw, 1.65rem);
   justify-content: center;
+  min-width: 0;
 }
 
 .builders-nav nav a {
@@ -137,6 +139,7 @@ a:focus-visible {
   padding: 1.1rem 0 0.9rem;
   position: relative;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .builders-nav nav a::after {
@@ -186,6 +189,7 @@ a:focus-visible {
   display: flex;
   gap: 0.65rem;
   justify-self: end;
+  min-width: max-content;
 }
 
 .checkout-success-stage {
