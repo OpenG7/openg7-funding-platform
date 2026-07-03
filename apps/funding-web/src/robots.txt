@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dev/
+
+Sitemap: https://openg7.org/sitemap.xml

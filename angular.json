@@ -22,6 +22,16 @@
                 "glob": "**/*",
                 "input": "apps/funding-web/src/assets",
                 "output": "assets"
+              },
+              {
+                "glob": "sitemap.xml",
+                "input": "apps/funding-web/src",
+                "output": "."
+              },
+              {
+                "glob": "robots.txt",
+                "input": "apps/funding-web/src",
+                "output": "."
               }
             ],
             "styles": ["apps/funding-web/src/styles.css"],

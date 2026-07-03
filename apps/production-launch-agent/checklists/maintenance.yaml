@@ -1,0 +1,20 @@
+name: maintenance
+description: Non-destructive maintenance and observability checks.
+steps:
+  - check_disk
+  - check_memory
+  - check_cpu
+  - check_docker
+  - check_containers
+  - check_ssl
+  - check_https
+  - check_health
+  - tool: fetch_logs
+    id: recent-api-logs
+    params:
+      service: api
+  - tool: analyze_logs
+    id: analyze-api-logs
+    params:
+      service: api
+  - generate_report
