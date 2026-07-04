@@ -19,7 +19,7 @@ set -a
 source .env
 set +a
 
-APP_DOMAIN="${APP_DOMAIN:-vps-ea750a98.vps.ovh.ca}"
+APP_DOMAIN="${APP_DOMAIN:-openg7.org}"
 ROLLBACK_WEB_IMAGE="openg7-funding-web:rollback"
 ROLLBACK_API_IMAGE="openg7-funding-api:rollback"
 

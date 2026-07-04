@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOMAIN="${APP_DOMAIN:-vps-ea750a98.vps.ovh.ca}"
+DOMAIN="${APP_DOMAIN:-openg7.org}"
 BASE_URL="${FUNDING_PUBLIC_BASE_URL:-https://${DOMAIN}}"
 COMPOSE="${COMPOSE_COMMAND:-docker compose}"
 
