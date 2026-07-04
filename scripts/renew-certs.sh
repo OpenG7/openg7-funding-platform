@@ -11,7 +11,7 @@ if [[ -f .env ]]; then
   set +a
 fi
 
-APP_DOMAIN="${APP_DOMAIN:-vps-ea750a98.vps.ovh.ca}"
+APP_DOMAIN="${APP_DOMAIN:-openg7.org}"
 THRESHOLD_DAYS="${CERT_RENEWAL_THRESHOLD_DAYS:-30}"
 
 EXPIRY_EPOCH="$(echo | openssl s_client -servername "${APP_DOMAIN}" -connect "${APP_DOMAIN}:443" 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2 | xargs -I{} date -d "{}" +%s)"

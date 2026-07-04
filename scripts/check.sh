@@ -11,7 +11,7 @@ if [[ -f .env ]]; then
   set +a
 fi
 
-APP_DOMAIN="${APP_DOMAIN:-vps-ea750a98.vps.ovh.ca}"
+APP_DOMAIN="${APP_DOMAIN:-openg7.org}"
 HTTPS_URL="https://${APP_DOMAIN}"
 
 fail() {
