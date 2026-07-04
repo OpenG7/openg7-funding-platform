@@ -25,11 +25,27 @@ const allowedOrigins = (process.env.FUNDING_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+const publicBaseUrl =
+  process.env.FUNDING_PUBLIC_BASE_URL ??
+  allowedOrigins[0] ??
+  (process.env.APP_DOMAIN ? `https://${process.env.APP_DOMAIN}` : null);
+const allowedContributionAmounts = new Set(
+  (process.env.FUNDING_ALLOWED_AMOUNTS ?? '5,10,25,50,100')
+    .split(',')
+    .map((amount) => Number(amount.trim()))
+    .filter((amount) => Number.isFinite(amount) && amount > 0)
+);
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
 if (isProduction && !stripeSecretKey) {
   throw new Error(
     'STRIPE_SECRET_KEY is required when FUNDING_PLATFORM_ENV=production.'
+  );
+}
+
+if (isProduction && !publicBaseUrl) {
+  throw new Error(
+    'FUNDING_PUBLIC_BASE_URL or FUNDING_ALLOWED_ORIGINS is required in production.'
   );
 }
 
@@ -89,12 +105,50 @@ const createCorsHeaders = (request: ApiRequest): Record<string, string> => {
   return headers;
 };
 
-const readBody = async (request: ApiRequest): Promise<string> => {
+const readBody = async (
+  request: ApiRequest,
+  maxBytes = 256 * 1024
+): Promise<string> => {
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
   for await (const chunk of request) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+    if (totalBytes > maxBytes) {
+      throw new Error('Request body is too large.');
+    }
+    chunks.push(buffer);
   }
   return Buffer.concat(chunks).toString('utf8');
+};
+
+const normalizeAmount = (amount: number): number =>
+  Number(Number(amount).toFixed(2));
+
+const resolveCheckoutReturnUrl = (
+  candidateUrl: string,
+  fallbackPath: string
+): string => {
+  const fallback = new URL(fallbackPath, publicBaseUrl ?? 'https://example.org');
+
+  try {
+    const candidate = new URL(candidateUrl);
+    const allowedOriginSet = new Set([
+      ...allowedOrigins,
+      publicBaseUrl ? new URL(publicBaseUrl).origin : ''
+    ]);
+
+    if (
+      candidate.protocol === 'https:' &&
+      allowedOriginSet.has(candidate.origin)
+    ) {
+      return candidate.toString();
+    }
+  } catch {
+    return fallback.toString();
+  }
+
+  return fallback.toString();
 };
 
 const routeMatches = (
@@ -149,9 +203,10 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (!Number.isFinite(parsed.amount) || parsed.amount <= 0) {
+    const amount = normalizeAmount(parsed.amount);
+    if (!Number.isFinite(amount) || !allowedContributionAmounts.has(amount)) {
       writeJson(request, response, 400, {
-        error: 'Checkout amount must be greater than zero.'
+        error: 'Checkout amount is not allowed.'
       });
       return;
     }
@@ -174,35 +229,44 @@ createServer(async (request, response) => {
     }
 
     try {
+      const successUrl = resolveCheckoutReturnUrl(
+        parsed.successUrl,
+        '/?checkout=success'
+      );
+      const cancelUrl = resolveCheckoutReturnUrl(
+        parsed.cancelUrl,
+        '/?checkout=cancel'
+      );
+
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
-        success_url: parsed.successUrl,
-        cancel_url: parsed.cancelUrl,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
         line_items: [
           {
             quantity: 1,
             price_data: {
-              currency: parsed.currency.toLowerCase(),
-              unit_amount: Math.round(parsed.amount * 100),
+              currency: 'cad',
+              unit_amount: Math.round(amount * 100),
               product_data: {
-                name: `OpenG7 ${parsed.projectId}`
+                name: `OpenG7 ${projectId}`
               }
             }
           }
         ],
         payment_intent_data: {
           metadata: {
-            projectId: parsed.projectId
+            projectId
           }
         },
         metadata: {
-          projectId: parsed.projectId
+          projectId
         }
       });
 
       const result: RedirectCheckoutResult = {
         checkoutId: session.id,
-        redirectUrl: session.url ?? parsed.successUrl,
+        redirectUrl: session.url ?? successUrl,
         status: 'redirected'
       };
 
@@ -248,7 +312,15 @@ createServer(async (request, response) => {
       return;
     }
 
-    const rawBody = await readBody(request);
+    let rawBody: string;
+    try {
+      rawBody = await readBody(request);
+    } catch {
+      writeJson(request, response, 413, {
+        error: 'Webhook request body is too large.'
+      });
+      return;
+    }
 
     const result = await processStripeWebhook(rawBody, stripeSignature, {
       stripe,

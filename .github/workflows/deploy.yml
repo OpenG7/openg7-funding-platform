@@ -1,0 +1,152 @@
+name: Build and deploy production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  WEB_IMAGE_NAME: openg7/openg7-funding-platform-web
+  API_IMAGE_NAME: openg7/openg7-funding-platform-api
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Build TypeScript
+        run: yarn build
+
+      - name: Build Angular
+        run: yarn workspace @openg7/funding-web build
+
+      - name: Run tests
+        run: node --test tests/**/*.test.mjs
+
+  docker:
+    name: Build and push Docker images
+    runs-on: ubuntu-24.04
+    needs: validate
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      web_image: ${{ steps.images.outputs.web_image }}
+      api_image: ${{ steps.images.outputs.api_image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata web
+        id: meta_web
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Docker metadata api
+        id: meta_api
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build and push web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta_web.outputs.tags }}
+          labels: ${{ steps.meta_web.outputs.labels }}
+
+      - name: Build and push api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/funding-api/Dockerfile
+          push: true
+          tags: ${{ steps.meta_api.outputs.tags }}
+          labels: ${{ steps.meta_api.outputs.labels }}
+
+      - name: Export image names
+        id: images
+        run: |
+          echo "web_image=${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "api_image=${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to OVH VPS
+    runs-on: ubuntu-24.04
+    needs: docker
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          WEB_IMAGE: ${{ needs.docker.outputs.web_image }}
+          API_IMAGE: ${{ needs.docker.outputs.api_image }}
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GHCR_PAT }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: WEB_IMAGE,API_IMAGE,PRODUCTION_ENV,GHCR_USERNAME,GHCR_TOKEN
+          script_stop: true
+          script: |
+            set -Eeuo pipefail
+            APP_DIR="${{ secrets.VPS_APP_DIR }}"
+            mkdir -p "${APP_DIR}"
+            cd "${APP_DIR}"
+
+            if [ ! -d .git ]; then
+              git clone "https://github.com/${{ github.repository }}.git" .
+            fi
+
+            git fetch origin main
+            git reset --hard "${{ github.sha }}"
+
+            printf '%s\n' "${PRODUCTION_ENV}" > .env
+            grep -vE '^(WEB_IMAGE|API_IMAGE)=' .env > .env.tmp || true
+            mv .env.tmp .env
+            {
+              echo "WEB_IMAGE=${WEB_IMAGE}"
+              echo "API_IMAGE=${API_IMAGE}"
+            } >> .env
+            chmod 600 .env
+
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+            bash scripts/deploy.sh --no-build
