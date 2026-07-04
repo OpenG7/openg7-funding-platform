@@ -96,7 +96,7 @@ docker compose config
 Production :
 
 ```text
-https://vps-ea750a98.vps.ovh.ca
+https://openg7.org
 ```
 
 Local via Traefik :
@@ -108,13 +108,13 @@ https://localhost
 Webhook Stripe :
 
 ```text
-https://vps-ea750a98.vps.ovh.ca/api/stripe/webhook
+https://openg7.org/api/stripe/webhook
 ```
 
 Endpoint public transparence :
 
 ```text
-https://vps-ea750a98.vps.ovh.ca/api/public/fund-transparency
+https://openg7.org/api/public/fund-transparency
 ```
 
 ## Tests rapides
@@ -135,9 +135,9 @@ curl -k https://localhost/api/public/fund-transparency
 Tester la production :
 
 ```bash
-curl -I https://vps-ea750a98.vps.ovh.ca
-curl -I https://vps-ea750a98.vps.ovh.ca/health
-curl https://vps-ea750a98.vps.ovh.ca/api/public/fund-transparency
+curl -I https://openg7.org
+curl -I https://openg7.org/health
+curl https://openg7.org/api/public/fund-transparency
 ```
 
 Validation complète :
@@ -164,7 +164,7 @@ docker compose logs -f traefik
 Dashboard local Traefik :
 
 ```bash
-ssh -L 8081:127.0.0.1:8081 ubuntu@vps-ea750a98.vps.ovh.ca
+ssh -L 8081:127.0.0.1:8081 ubuntu@vps-8db0cb49.vps.ovh.ca
 ```
 
 Puis ouvrir :
@@ -178,7 +178,7 @@ http://127.0.0.1:8081/dashboard/
 Vérifier le certificat :
 
 ```bash
-echo | openssl s_client -servername vps-ea750a98.vps.ovh.ca -connect vps-ea750a98.vps.ovh.ca:443 2>/dev/null | openssl x509 -noout -issuer -subject -dates
+echo | openssl s_client -servername openg7.org -connect openg7.org:443 2>/dev/null | openssl x509 -noout -issuer -subject -dates
 ```
 
 Forcer une vérification renouvellement :

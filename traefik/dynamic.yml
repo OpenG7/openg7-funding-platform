@@ -13,7 +13,7 @@ tls:
 http:
   routers:
     openg7-stripe-webhook:
-      rule: "Host(`vps-ea750a98.vps.ovh.ca`) && Path(`/api/stripe/webhook`) && Method(`POST`)"
+      rule: "(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/stripe/webhook`) && Method(`POST`)"
       entryPoints:
         - websecure
       service: openg7-api
@@ -40,7 +40,7 @@ http:
       tls: {}
 
     openg7-checkout:
-      rule: "Host(`vps-ea750a98.vps.ovh.ca`) && Path(`/api/checkout-sessions`) && Method(`POST`)"
+      rule: "(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/checkout-sessions`) && Method(`POST`)"
       entryPoints:
         - websecure
       service: openg7-api
@@ -69,7 +69,7 @@ http:
       tls: {}
 
     openg7-api:
-      rule: "Host(`vps-ea750a98.vps.ovh.ca`) && PathPrefix(`/api`)"
+      rule: "(Host(`openg7.org`) || Host(`www.openg7.org`)) && PathPrefix(`/api`)"
       entryPoints:
         - websecure
       service: openg7-api
@@ -98,7 +98,7 @@ http:
       tls: {}
 
     openg7-web:
-      rule: "Host(`vps-ea750a98.vps.ovh.ca`)"
+      rule: "Host(`openg7.org`) || Host(`www.openg7.org`)"
       entryPoints:
         - websecure
       service: openg7-web
