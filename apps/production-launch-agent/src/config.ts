@@ -58,7 +58,7 @@ export const loadConfig = (): AgentConfig => {
       ),
     role: toRole(process.env.PLA_ROLE),
     ssh: {
-      host: process.env.PLA_SSH_HOST ?? 'vps-ea750a98.vps.ovh.ca',
+      host: process.env.PLA_SSH_HOST ?? 'vps-8db0cb49.vps.ovh.ca',
       username: process.env.PLA_SSH_USER ?? 'ubuntu',
       privateKey:
         process.env.PLA_PRIVATE_KEY ?? readOptionalFile(privateKeyPath),

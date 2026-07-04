@@ -98,6 +98,10 @@ traefik/acme/*
 traefik/acme/*
 !traefik/acme/.gitkeep
 
+# --- Production certificates ------------------------------------------------
+traefik/acme/*
+!traefik/acme/.gitkeep
+
 # --- Env vars (everywhere) --------------------------------------------------
 .env
 .env.*
