@@ -1,17 +1,17 @@
 # Production Docker, Traefik, Nginx and Let's Encrypt
 
-This production stack is designed for the OVH VPS `vps-ea750a98.vps.ovh.ca` on Ubuntu 24.04 LTS.
+This production stack is designed for the OVH VPS `vps-8db0cb49.vps.ovh.ca` on Ubuntu 24.04 LTS.
 
 The public application URL is:
 
 ```text
-https://vps-ea750a98.vps.ovh.ca
+https://openg7.org
 ```
 
 Stripe webhook URL:
 
 ```text
-https://vps-ea750a98.vps.ovh.ca/api/stripe/webhook
+https://openg7.org/api/stripe/webhook
 ```
 
 ## Project Structure
@@ -73,16 +73,16 @@ chmod 600 .env
 Production values:
 
 ```env
-APP_DOMAIN=vps-ea750a98.vps.ovh.ca
+APP_DOMAIN=openg7.org
 LETSENCRYPT_EMAIL=your-email@example.com
 TRAEFIK_DASHBOARD_BIND=127.0.0.1:8081
 CADVISOR_BIND=127.0.0.1:8082
 WEB_IMAGE=openg7-funding-web:local
 API_IMAGE=openg7-funding-api:local
 FUNDING_PLATFORM_ENV=production
-FUNDING_PLATFORM_API_BASE_URL=https://vps-ea750a98.vps.ovh.ca/api
-FUNDING_PUBLIC_BASE_URL=https://vps-ea750a98.vps.ovh.ca
-FUNDING_ALLOWED_ORIGINS=https://vps-ea750a98.vps.ovh.ca
+FUNDING_PLATFORM_API_BASE_URL=https://openg7.org/api
+FUNDING_PUBLIC_BASE_URL=https://openg7.org
+FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
 FUNDING_ALLOWED_AMOUNTS=5,10,25,50,100
 FUNDING_API_PORT=3333
 FUNDING_PROJECT_ID=openg7
@@ -117,7 +117,7 @@ bash scripts/deploy.sh
 The hostname must resolve publicly to the VPS IPv4/IPv6 before Traefik can obtain a certificate:
 
 ```bash
-getent hosts vps-ea750a98.vps.ovh.ca
+getent hosts openg7.org
 ```
 
 Ports required:
@@ -146,7 +146,7 @@ chmod 600 traefik/acme/acme.json
 Verify certificate:
 
 ```bash
-echo | openssl s_client -servername vps-ea750a98.vps.ovh.ca -connect vps-ea750a98.vps.ovh.ca:443 2>/dev/null | openssl x509 -noout -issuer -subject -dates
+echo | openssl s_client -servername openg7.org -connect openg7.org:443 2>/dev/null | openssl x509 -noout -issuer -subject -dates
 ```
 
 Traefik renews certificates automatically. The helper script checks expiry and reloads Traefik when renewal is near:
@@ -172,7 +172,7 @@ http://127.0.0.1:8081/dashboard/
 Use an SSH tunnel from your workstation:
 
 ```bash
-ssh -L 8081:127.0.0.1:8081 ubuntu@vps-ea750a98.vps.ovh.ca
+ssh -L 8081:127.0.0.1:8081 ubuntu@vps-8db0cb49.vps.ovh.ca
 ```
 
 Then open:
@@ -301,7 +301,7 @@ Workflow:
 Required GitHub secrets:
 
 ```text
-VPS_HOST=vps-ea750a98.vps.ovh.ca
+VPS_HOST=vps-8db0cb49.vps.ovh.ca
 VPS_USER=ubuntu
 VPS_SSH_KEY=<private SSH key>
 VPS_APP_DIR=/opt/openg7-funding-platform
@@ -345,7 +345,7 @@ docker compose logs -f api
 Docker metrics:
 
 ```bash
-ssh -L 8082:127.0.0.1:8082 ubuntu@vps-ea750a98.vps.ovh.ca
+ssh -L 8082:127.0.0.1:8082 ubuntu@vps-8db0cb49.vps.ovh.ca
 ```
 
 Open:
@@ -372,9 +372,9 @@ docker compose config | grep -E "APP_DOMAIN|FUNDING_PUBLIC_BASE_URL|FUNDING_ALLO
 Most startup loops come from missing production variables in `.env`, especially:
 
 ```env
-APP_DOMAIN=vps-ea750a98.vps.ovh.ca
-FUNDING_PUBLIC_BASE_URL=https://vps-ea750a98.vps.ovh.ca
-FUNDING_ALLOWED_ORIGINS=https://vps-ea750a98.vps.ovh.ca
+APP_DOMAIN=openg7.org
+FUNDING_PUBLIC_BASE_URL=https://openg7.org
+FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
 STRIPE_SECRET_KEY=sk_live_or_test_key
 ```
 
@@ -387,15 +387,15 @@ docker compose logs --tail=200 traefik
 Check certificate:
 
 ```bash
-echo | openssl s_client -servername vps-ea750a98.vps.ovh.ca -connect vps-ea750a98.vps.ovh.ca:443 2>/dev/null | openssl x509 -noout -issuer -subject -dates
+echo | openssl s_client -servername openg7.org -connect openg7.org:443 2>/dev/null | openssl x509 -noout -issuer -subject -dates
 ```
 
 Check routes:
 
 ```bash
-curl -I https://vps-ea750a98.vps.ovh.ca
-curl -I https://vps-ea750a98.vps.ovh.ca/health
-curl -I https://vps-ea750a98.vps.ovh.ca/api/public/fund-transparency
+curl -I https://openg7.org
+curl -I https://openg7.org/health
+curl -I https://openg7.org/api/public/fund-transparency
 ```
 
 If Let's Encrypt fails:
