@@ -29,6 +29,14 @@ const publicBaseUrl =
   process.env.FUNDING_PUBLIC_BASE_URL ??
   allowedOrigins[0] ??
   (process.env.APP_DOMAIN ? `https://${process.env.APP_DOMAIN}` : null);
+const publicBaseOrigin = publicBaseUrl
+  ? new URL(publicBaseUrl).origin
+  : 'https://example.org';
+const allowedReturnHostnames = new Set(
+  [publicBaseUrl, ...allowedOrigins]
+    .filter(Boolean)
+    .map((origin) => new URL(origin).hostname)
+);
 const allowedContributionAmounts = new Set(
   (process.env.FUNDING_ALLOWED_AMOUNTS ?? '5,10,25,50,100')
     .split(',')
@@ -129,19 +137,27 @@ const resolveCheckoutReturnUrl = (
   candidateUrl: string,
   fallbackPath: string
 ): string => {
-  const fallback = new URL(fallbackPath, publicBaseUrl ?? 'https://example.org');
+  const fallback = new URL(fallbackPath, publicBaseOrigin);
 
   try {
     const candidate = new URL(candidateUrl);
     const allowedOriginSet = new Set([
       ...allowedOrigins,
-      publicBaseUrl ? new URL(publicBaseUrl).origin : ''
+      publicBaseOrigin
     ]);
 
-    if (
-      candidate.protocol === 'https:' &&
-      allowedOriginSet.has(candidate.origin)
-    ) {
+    if (candidate.protocol !== 'https:') {
+      return fallback.toString();
+    }
+
+    if (candidate.port && allowedReturnHostnames.has(candidate.hostname)) {
+      return new URL(
+        `${candidate.pathname}${candidate.search}${candidate.hash}`,
+        publicBaseOrigin
+      ).toString();
+    }
+
+    if (allowedOriginSet.has(candidate.origin)) {
       return candidate.toString();
     }
   } catch {
