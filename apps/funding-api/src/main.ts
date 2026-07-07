@@ -386,6 +386,7 @@ createServer(async (request, response) => {
       const requiresReview =
         parsed.contributionType === 'sponsorship_interest';
       const publicDisplayName =
+        parsed.publicDisplayConsent === true &&
         typeof parsed.publicDisplayName === 'string'
           ? parsed.publicDisplayName.trim()
           : '';

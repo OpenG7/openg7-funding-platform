@@ -550,15 +550,18 @@ interface FoundationPillar {
                   />
                   <span>{{ 'funding.home.contribution.publicDisplayConsent' | translate }}</span>
                 </label>
-                <label for="public-display-name">{{ 'funding.home.contribution.publicDisplayNameLabel' | translate }}</label>
-                <input
-                  id="public-display-name"
-                  type="text"
-                  maxlength="100"
-                  [placeholder]="'funding.home.contribution.publicDisplayNamePlaceholder' | translate"
-                  [value]="publicDisplayName()"
-                  (input)="setPublicDisplayName($event)"
-                />
+                <ng-container *ngIf="publicDisplayConsent()">
+                  <label for="public-display-name">{{ 'funding.home.contribution.publicDisplayNameLabel' | translate }}</label>
+                  <input
+                    id="public-display-name"
+                    type="text"
+                    required
+                    maxlength="100"
+                    [placeholder]="'funding.home.contribution.publicDisplayNamePlaceholder' | translate"
+                    [value]="publicDisplayName()"
+                    (input)="setPublicDisplayName($event)"
+                  />
+                </ng-container>
                 <label class="consent-option">
                   <input
                     type="checkbox"
@@ -785,7 +788,10 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   });
 
   readonly canStartCheckout = computed<boolean>(
-    () => this.nonCharityAcknowledged() && this.loadingState() !== 'loading'
+    () =>
+      this.nonCharityAcknowledged() &&
+      this.loadingState() !== 'loading' &&
+      (!this.publicDisplayConsent() || this.publicDisplayName().trim().length > 0)
   );
 
   readonly showSponsorFollowUp = computed<boolean>(
@@ -1130,7 +1136,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
         {
           contributionType: this.contributionType(),
           publicDisplayConsent: this.publicDisplayConsent(),
-          publicDisplayName: this.publicDisplayName().trim() || undefined,
+          publicDisplayName: this.publicDisplayConsent()
+            ? this.publicDisplayName().trim() || undefined
+            : undefined,
           displayAmountConsent: this.displayAmountConsent(),
           nonCharityAcknowledged: this.nonCharityAcknowledged()
         }

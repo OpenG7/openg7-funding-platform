@@ -289,6 +289,19 @@ test('Checkout requires a public display name when public display consent is gra
   );
 });
 
+test('publicDisplayName is discarded server-side when public display consent is not granted', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  const match = source.match(
+    /const publicDisplayName =\s*([\s\S]{0,160}?);/
+  );
+  assert.ok(match, 'expected to find the publicDisplayName derivation before it is sent to Stripe/DB');
+  assert.ok(
+    /parsed\.publicDisplayConsent === true/.test(match[1]),
+    'expected publicDisplayName to only be kept when publicDisplayConsent is true, so a name typed without consent is never sent to Stripe metadata or persisted to public_name'
+  );
+});
+
 test('fund_contributions writes public_name on both the checkout-creation and webhook paths', () => {
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
