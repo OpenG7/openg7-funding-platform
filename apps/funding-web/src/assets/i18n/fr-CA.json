@@ -437,9 +437,10 @@
         "syncing": "Synchronisation Stripe en cours...",
         "unavailable": "Registre Stripe indisponible pour le moment.",
         "empty": "Aucune contribution Stripe confirmée dans le registre.",
-        "synced": "Données Stripe synchronisées le",
+        "synced": "Données du registre synchronisées le",
         "stripeUnsynced": "Stripe non synchronisé",
-        "stripeRegistry": "Stripe / registre public"
+        "stripeRegistry": "Stripe / registre public",
+        "databaseRegistry": "PostgreSQL / registre public"
       },
       "sync": {
         "loading": "Synchronisation...",

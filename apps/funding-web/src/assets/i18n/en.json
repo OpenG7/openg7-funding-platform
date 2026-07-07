@@ -437,9 +437,10 @@
         "syncing": "Stripe synchronization in progress...",
         "unavailable": "Stripe registry is unavailable for now.",
         "empty": "No confirmed Stripe contribution in the registry yet.",
-        "synced": "Stripe data synchronized on",
+        "synced": "Registry data synchronized on",
         "stripeUnsynced": "Stripe not synchronized",
-        "stripeRegistry": "Stripe / public registry"
+        "stripeRegistry": "Stripe / public registry",
+        "databaseRegistry": "PostgreSQL / public registry"
       },
       "sync": {
         "loading": "Synchronizing...",

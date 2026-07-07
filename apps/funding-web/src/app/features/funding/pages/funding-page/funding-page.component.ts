@@ -556,6 +556,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly contributionCount = signal<number>(0);
   readonly currency = signal<string>(this.config.currency);
   readonly lastTransparencySync = signal<string | null>(null);
+  readonly transparencySource = signal<
+    FundTransparencyPublicResponse['data_source']
+  >('empty');
 
   readonly campaignProgress = computed<number>(() => {
     const goal = this.config.monthlyGoal;
@@ -630,7 +633,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly transparencySourceLabel = computed<string>(() =>
     this.transparencyState() === 'error'
       ? this.i18n.t('funding.home.status.stripeUnsynced')
-      : this.i18n.t('funding.home.status.stripeRegistry')
+      : this.transparencySource() === 'database'
+        ? this.i18n.t('funding.home.status.databaseRegistry')
+        : this.i18n.t('funding.home.status.stripeRegistry')
   );
 
   readonly contributionCountLabel = computed<string>(() => {
@@ -816,6 +821,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       this.contributionCount.set(report.contributions_count);
       this.currency.set(report.currency || this.config.currency);
       this.lastTransparencySync.set(report.last_updated_at);
+      this.transparencySource.set(report.data_source);
       this.transparencyState.set(
         this.hasPublicFinanceData(report) ? 'synced' : 'empty'
       );
@@ -824,6 +830,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       this.contributionCount.set(0);
       this.currency.set(this.config.currency);
       this.lastTransparencySync.set(null);
+      this.transparencySource.set('empty');
       this.transparencyState.set('error');
     }
   }

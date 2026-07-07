@@ -65,6 +65,7 @@ interface AllocationPlanItem {
 }
 
 const emptyReport = (): FundTransparencyPublicResponse => ({
+  data_source: 'empty',
   total_received: 0,
   total_fees: 0,
   total_net: 0,
@@ -1509,7 +1510,7 @@ export class FundingTransparencyPageComponent implements OnInit {
     },
     {
       labelKey: 'funding.home.purpose.source',
-      value: 'Stripe'
+      value: this.transparencySourceLabel()
     },
     {
       labelKey: 'funding.home.purpose.currency',
@@ -1795,6 +1796,19 @@ export class FundingTransparencyPageComponent implements OnInit {
       month: 'long',
       year: 'numeric'
     });
+  }
+
+  transparencySourceLabel(): string {
+    const source = this.report().data_source;
+    if (source === 'database') {
+      return 'PostgreSQL';
+    }
+
+    if (source === 'stripe_direct') {
+      return 'Stripe direct';
+    }
+
+    return this.i18n.t('funding.home.sync.pending');
   }
 
   scrollToRegistry(): void {

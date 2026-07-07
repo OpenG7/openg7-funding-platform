@@ -66,6 +66,7 @@ export interface PublicFundAllocation {
 }
 
 export interface FundTransparencyPublicResponse {
+  readonly data_source: 'database' | 'stripe_direct' | 'empty';
   readonly total_received: number;
   readonly total_fees: number;
   readonly total_net: number;

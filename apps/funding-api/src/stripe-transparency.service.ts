@@ -233,6 +233,7 @@ export const getStripePublicTransparencySummary = async (
   );
 
   return {
+    data_source: 'stripe_direct',
     total_received: centsToAmount(totals.totalReceived),
     total_fees: centsToAmount(totals.totalFees),
     total_net: totalNet,

@@ -75,3 +75,25 @@ test('Stripe webhook service handles MVP idempotent event set', () => {
   assert.ok(source.includes('markStripeEventProcessed'));
   assert.ok(source.includes('markStripeEventFailed'));
 });
+
+test('Public transparency can read aggregate data from fund contributions', () => {
+  const source = fs.readFileSync(
+    'apps/funding-api/src/fund-transparency.repository.ts',
+    'utf8'
+  );
+
+  assert.ok(source.includes('has_fund_contributions'));
+  assert.ok(source.includes('FROM fund_contributions'));
+  assert.ok(source.includes("data_source: 'database'"));
+  assert.ok(source.includes("status IN ('paid', 'refunded', 'disputed')"));
+  assert.equal(/SELECT[\s\S]*(email_private|public_name)/.test(source), false);
+});
+
+test('Stripe-direct transparency marks its public data source', () => {
+  const source = fs.readFileSync(
+    'apps/funding-api/src/stripe-transparency.service.ts',
+    'utf8'
+  );
+
+  assert.ok(source.includes("data_source: 'stripe_direct'"));
+});
