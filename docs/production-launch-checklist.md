@@ -174,6 +174,7 @@ Expected transparency behavior:
 - Confirm the chosen launch mode.
 - For Stripe-direct launch, confirm `DATABASE_URL` is absent.
 - For PostgreSQL-backed launch, confirm PostgreSQL is private, reachable only by the API, and migrations are applied.
+- For PostgreSQL-backed launch, protect database backups as private secrets because `stripe_events.payload` stores signed Stripe webhook payloads for idempotence and auditability.
 - Confirm `FUNDING_PLATFORM_ENV=production`.
 - Confirm `FUNDING_ALLOWED_ORIGINS` contains only the intended production frontend origins.
 - Confirm `/dev/stripe-setup`, `/dev/webhooks`, and `/dev/api-keys` are not accessible from the production domain.

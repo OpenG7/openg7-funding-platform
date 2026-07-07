@@ -66,7 +66,9 @@ test('Stripe webhook service handles MVP idempotent event set', () => {
     'payment_intent.succeeded',
     'payment_intent.payment_failed',
     'charge.refunded',
-    'charge.dispute.created'
+    'charge.dispute.created',
+    'payout.paid',
+    'payout.failed'
   ]) {
     assert.ok(source.includes(eventType));
   }
@@ -74,6 +76,28 @@ test('Stripe webhook service handles MVP idempotent event set', () => {
   assert.ok(source.includes('insertStripeEventRecord'));
   assert.ok(source.includes('markStripeEventProcessed'));
   assert.ok(source.includes('markStripeEventFailed'));
+});
+
+test('Checkout sessions require fundraiser metadata and consent fields', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(source.includes('allowedContributionAmounts.has(amount)'));
+  assert.ok(source.includes("'personal_support'"));
+  assert.ok(source.includes("'sponsorship_interest'"));
+  assert.ok(source.includes('parsed.nonCharityAcknowledged !== true'));
+  assert.ok(source.includes('resolveCheckoutReturnUrl'));
+
+  for (const metadata of [
+    "project: 'openg7'",
+    "program: 'builders_fund'",
+    'contributionType: parsed.contributionType',
+    'publicDisplayConsent: String(parsed.publicDisplayConsent)',
+    'displayAmountConsent: String(parsed.displayAmountConsent)',
+    'nonCharityAcknowledged: String(parsed.nonCharityAcknowledged)',
+    'requiresReview: String(requiresReview)'
+  ]) {
+    assert.ok(source.includes(metadata));
+  }
 });
 
 test('Public transparency can read aggregate data from fund contributions', () => {
