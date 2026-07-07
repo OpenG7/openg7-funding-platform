@@ -1005,6 +1005,58 @@ a:focus-visible {
   font-family: 'Trebuchet MS', sans-serif;
 }
 
+.contribution-type-grid {
+  display: grid;
+  gap: 0.58rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0.75rem 0;
+}
+
+.contribution-type-card {
+  border: 1px solid rgb(122 223 255 / 24%);
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.18rem;
+  min-height: 7.25rem;
+  padding: 0.65rem;
+}
+
+.contribution-type-card.active {
+  background: linear-gradient(135deg, rgb(13 61 93 / 82%), rgb(3 22 44 / 86%));
+  border-color: rgb(122 223 255 / 42%);
+}
+
+.contribution-type-card.review {
+  background: linear-gradient(135deg, rgb(86 57 12 / 78%), rgb(3 22 44 / 86%));
+  border-color: rgb(244 181 60 / 45%);
+}
+
+.contribution-type-card span {
+  color: #9ddcff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.contribution-type-card.review span {
+  color: #ffd98a;
+}
+
+.contribution-type-card strong {
+  color: #fff5dc;
+  font-size: 0.9rem;
+  line-height: 1.15;
+}
+
+.contribution-type-card p,
+.non-charity-note {
+  color: #cbd9e6;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
 .amount-grid {
   display: grid;
   gap: 0.55rem;
@@ -1046,6 +1098,15 @@ a:focus-visible {
 .gold-cta {
   margin-top: 0.65rem;
   width: 100%;
+}
+
+.non-charity-note {
+  background: rgb(3 18 36 / 72%);
+  border: 1px solid rgb(244 181 60 / 36%);
+  border-radius: 0.5rem;
+  margin-top: 0.72rem;
+  padding: 0.62rem 0.68rem;
+  text-align: left;
 }
 
 .payment-note,
@@ -1282,6 +1343,10 @@ a:focus-visible {
 
   .amount-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .contribution-type-grid {
+    grid-template-columns: 1fr;
   }
 }
 

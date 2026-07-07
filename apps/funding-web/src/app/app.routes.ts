@@ -22,6 +22,11 @@ const publicRoutes: Routes = [
     data: { language: 'fr-CA' }
   },
   {
+    path: 'fonds-des-batisseurs',
+    component: FundingPageComponent,
+    data: { language: 'fr-CA' }
+  },
+  {
     path: 'fonds-des-batisseurs/a-propos',
     component: FundingAboutPageComponent,
     data: { language: 'fr-CA' }

@@ -374,6 +374,18 @@ interface FoundationPillar {
           >
             <section class="contribution-panel">
               <h3>{{ 'funding.home.contribution.title' | translate }}</h3>
+              <div class="contribution-type-grid">
+                <article class="contribution-type-card active">
+                  <span>{{ 'funding.home.contribution.personal.kicker' | translate }}</span>
+                  <strong>{{ 'funding.home.contribution.personal.title' | translate }}</strong>
+                  <p>{{ 'funding.home.contribution.personal.copy' | translate }}</p>
+                </article>
+                <article class="contribution-type-card review">
+                  <span>{{ 'funding.home.contribution.sponsorship.kicker' | translate }}</span>
+                  <strong>{{ 'funding.home.contribution.sponsorship.title' | translate }}</strong>
+                  <p>{{ 'funding.home.contribution.sponsorship.copy' | translate }}</p>
+                </article>
+              </div>
               <div class="amount-grid">
                 <button
                   type="button"
@@ -394,6 +406,9 @@ interface FoundationPillar {
                 placeholder="$"
                 (input)="setCustomContributionFromEvent($event)"
               />
+              <p class="non-charity-note">
+                {{ 'funding.home.contribution.nonCharityNotice' | translate }}
+              </p>
               <button type="button" class="gold-cta" (click)="supportProject()">
                 {{ 'funding.nav.supportCta' | translate }}
               </button>
@@ -706,7 +721,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       {
         titleKey: 'funding.seo.home.title',
         descriptionKey: 'funding.seo.home.description',
-        path: '/',
+        path: '/fonds-des-batisseurs',
         imagePath: '/assets/fonds-des-batisseurs-canada-coffre-lumineux.png'
       },
       this.injector

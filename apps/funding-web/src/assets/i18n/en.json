@@ -370,7 +370,18 @@
       "contribution": {
         "ariaLabel": "Contribution and financial transparency",
         "title": "Choose your contribution",
+        "personal": {
+          "kicker": "Personal",
+          "title": "Personal contribution",
+          "copy": "Voluntary support for OpenG7 development, with aggregated public transparency."
+        },
+        "sponsorship": {
+          "kicker": "Review",
+          "title": "Business sponsorship",
+          "copy": "Business visibility will require manual review before anything is published."
+        },
         "otherAmount": "Other amount",
+        "nonCharityNotice": "OpenG7 is an independent project in development. Contributions to the Builders Fund are not donations to a registered charity. No official charitable donation receipt is issued.",
         "securePayment": "Secure payment by Stripe",
         "loading": "Preparing payment...",
         "success": "Local simulated checkout. Configure Stripe in /dev/stripe-setup to open real payment.",

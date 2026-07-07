@@ -97,7 +97,9 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 export class FundingHeaderComponent {
   private readonly i18n = inject(FundingI18nService);
 
-  readonly homePath = computed(() => this.i18n.localizedPath('/'));
+  readonly homePath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs')
+  );
   readonly aboutPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/a-propos')
   );

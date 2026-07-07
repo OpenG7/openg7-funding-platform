@@ -370,7 +370,18 @@
       "contribution": {
         "ariaLabel": "Contribution et transparence financière",
         "title": "Choisissez votre contribution",
+        "personal": {
+          "kicker": "Personnel",
+          "title": "Contribution personnelle",
+          "copy": "Soutien volontaire au développement d'OpenG7, avec transparence publique agrégée."
+        },
+        "sponsorship": {
+          "kicker": "Validation",
+          "title": "Commandite d'entreprise",
+          "copy": "La visibilité d'entreprise sera soumise à une validation manuelle avant toute publication."
+        },
         "otherAmount": "Autre montant",
+        "nonCharityNotice": "OpenG7 est un projet indépendant en développement. Les contributions au Fonds des bâtisseurs ne constituent pas des dons à un organisme de bienfaisance enregistré. Aucun reçu officiel de don de bienfaisance n'est émis.",
         "securePayment": "Paiement sécurisé par Stripe",
         "loading": "Préparation du paiement...",
         "success": "Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup pour ouvrir le paiement réel.",
