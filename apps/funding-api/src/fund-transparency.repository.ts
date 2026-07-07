@@ -1,5 +1,6 @@
 import type {
   FundTransparencyPublicResponse,
+  PublicBuilderProfile,
   PublicFundAllocation,
   PublicMonthlySummary
 } from '@openg7/funding-core';
@@ -82,6 +83,14 @@ interface AllocationRow {
   readonly published_at: string | null;
 }
 
+interface PublicBuilderRow {
+  readonly display_name: string;
+  readonly contribution_type: 'personal_support' | 'sponsorship_interest';
+  readonly amount: string | null;
+  readonly currency: string;
+  readonly paid_at: string | null;
+}
+
 interface TablePresenceRow {
   readonly has_fund_contributions: boolean;
   readonly has_fund_transactions: boolean;
@@ -113,6 +122,7 @@ const emptyResponse = (): FundTransparencyPublicResponse => {
     currency: 'CAD',
     monthly_summary: [],
     latest_public_allocations: [],
+    public_builders: [],
     last_updated_at: now
   };
 };
@@ -223,6 +233,42 @@ const getLatestPublicAllocations = async (
   }));
 };
 
+const getPublicBuilders = async (
+  pool: Pool,
+  hasFundContributions: boolean
+): Promise<readonly PublicBuilderProfile[]> => {
+  if (!hasFundContributions) {
+    return [];
+  }
+
+  const query = await pool.query<PublicBuilderRow>(`
+    SELECT
+      public_name AS display_name,
+      contribution_type,
+      CASE
+        WHEN display_amount_consent IS TRUE THEN amount_cents::text
+        ELSE NULL
+      END AS amount,
+      currency,
+      paid_at::text AS paid_at
+    FROM fund_contributions
+    WHERE status IN ('paid', 'refunded', 'disputed')
+      AND public_display_consent IS TRUE
+      AND public_name IS NOT NULL
+      AND btrim(public_name) <> ''
+    ORDER BY COALESCE(paid_at, updated_at, created_at) DESC
+    LIMIT 24
+  `);
+
+  return query.rows.map((row) => ({
+    display_name: row.display_name,
+    contribution_type: row.contribution_type,
+    amount: row.amount ? centsToAmount(parseDbInt(row.amount)) : null,
+    currency: row.currency.toUpperCase(),
+    paid_at: row.paid_at
+  }));
+};
+
 const getTransactionTransparencySummary = async (
   pool: Pool,
   hasFundAllocations: boolean
@@ -295,6 +341,7 @@ const getTransactionTransparencySummary = async (
     currency: totals.currency.toUpperCase(),
     monthly_summary: monthlySummary,
     latest_public_allocations: latestAllocations,
+    public_builders: [],
     last_updated_at: totals.last_updated_at
   };
 };
@@ -460,6 +507,10 @@ const getContributionTransparencySummary = async (
     latest_public_allocations: await getLatestPublicAllocations(
       pool,
       tables.has_fund_allocations
+    ),
+    public_builders: await getPublicBuilders(
+      pool,
+      tables.has_fund_contributions
     ),
     last_updated_at: maxIso(
       totals.last_updated_at,

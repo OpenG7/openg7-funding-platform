@@ -28,6 +28,40 @@
       "transparency": {
         "title": "Transparence du Fonds des bâtisseurs | OpenG7",
         "description": "Consultez les données publiques agrégées du Fonds des bâtisseurs : contributions, frais, disponibilité estimée et registre de transparence."
+      },
+      "builders": {
+        "title": "Bâtisseurs OpenG7 | Fonds des bâtisseurs",
+        "description": "Découvrez le registre public des bâtisseurs, contributeurs et commanditaires consentis qui soutiennent le développement d'OpenG7."
+      }
+    },
+    "buildersPage": {
+      "hero": {
+        "imageAlt": "Dragon gardien et coffre lumineux du Fonds des bâtisseurs",
+        "kicker": "Registre public",
+        "title": "Bâtisseurs OpenG7",
+        "copy": "Cette page reconnaît les personnes et organisations qui acceptent d'apparaître publiquement. Les montants individuels restent masqués sauf consentement explicite."
+      },
+      "summary": {
+        "ariaLabel": "Résumé public des bâtisseurs",
+        "confirmed": "Contributions confirmées",
+        "count": "Contributions"
+      },
+      "directory": {
+        "kicker": "Reconnaissance",
+        "title": "Entrées publiques consenties",
+        "copy": "Seuls les noms explicitement consentis sont affichés. Les commandites demeurent soumises à validation manuelle avant visibilité.",
+        "personal": "Contribution personnelle",
+        "sponsorship": "Commandite en validation",
+        "amountHidden": "Montant masqué"
+      },
+      "empty": {
+        "title": "Aucune entrée publique pour le moment",
+        "copy": "Le registre nominatif s'ouvrira lorsque des contributeurs ou commanditaires auront donné un consentement public valide. Les totaux agrégés restent disponibles dans la transparence.",
+        "action": "Voir la transparence"
+      },
+      "state": {
+        "loading": "Chargement du registre public...",
+        "error": "Impossible de charger le registre public."
       }
     },
     "ecosystemPage": {
@@ -459,6 +493,7 @@
       "ecosystem": "Écosystème",
       "music": "Les Chants",
       "shop": "Boutique",
+      "builders": "Bâtisseurs",
       "transparency": "Transparence",
       "impact": "Impact",
       "about": "À propos",

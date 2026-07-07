@@ -98,6 +98,22 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://openg7.org/batisseurs</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/batisseurs" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/batisseurs" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/batisseurs" />
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://openg7.org/en/batisseurs</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/batisseurs" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/batisseurs" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/batisseurs" />
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://openg7.org/fonds-des-batisseurs/a-propos</loc>
     <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/fonds-des-batisseurs/a-propos" />
     <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/fonds-des-batisseurs/a-propos" />

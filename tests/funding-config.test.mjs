@@ -86,7 +86,20 @@ test('Public transparency can read aggregate data from fund contributions', () =
   assert.ok(source.includes('FROM fund_contributions'));
   assert.ok(source.includes("data_source: 'database'"));
   assert.ok(source.includes("status IN ('paid', 'refunded', 'disputed')"));
-  assert.equal(/SELECT[\s\S]*(email_private|public_name)/.test(source), false);
+  assert.equal(/SELECT[\s\S]*email_private/.test(source), false);
+});
+
+test('Public builders are exposed only through consented public fields', () => {
+  const source = fs.readFileSync(
+    'apps/funding-api/src/fund-transparency.repository.ts',
+    'utf8'
+  );
+
+  assert.ok(source.includes('public_builders'));
+  assert.ok(source.includes('public_display_consent IS TRUE'));
+  assert.ok(source.includes('public_name IS NOT NULL'));
+  assert.ok(source.includes('display_amount_consent IS TRUE'));
+  assert.equal(source.includes('email_private AS'), false);
 });
 
 test('Stripe-direct transparency marks its public data source', () => {
@@ -96,4 +109,19 @@ test('Stripe-direct transparency marks its public data source', () => {
   );
 
   assert.ok(source.includes("data_source: 'stripe_direct'"));
+});
+
+test('Builders page is routed and prerendered in both languages', () => {
+  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const serverRoutes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.server.ts',
+    'utf8'
+  );
+  const sitemap = fs.readFileSync('apps/funding-web/src/sitemap.xml', 'utf8');
+
+  assert.ok(routes.includes("path: 'batisseurs'"));
+  assert.ok(serverRoutes.includes("path: 'batisseurs'"));
+  assert.ok(serverRoutes.includes("path: 'en/batisseurs'"));
+  assert.ok(sitemap.includes('https://openg7.org/batisseurs'));
+  assert.ok(sitemap.includes('https://openg7.org/en/batisseurs'));
 });

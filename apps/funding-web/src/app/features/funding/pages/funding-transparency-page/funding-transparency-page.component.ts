@@ -76,6 +76,7 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
   currency: 'CAD',
   monthly_summary: [],
   latest_public_allocations: [],
+  public_builders: [],
   last_updated_at: new Date().toISOString()
 });
 

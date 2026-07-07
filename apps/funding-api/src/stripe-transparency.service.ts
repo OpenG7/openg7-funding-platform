@@ -247,6 +247,7 @@ export const getStripePublicTransparencySummary = async (
       .slice(0, 12)
       .map(([month, accumulator]) => toMonthlySummary(month, accumulator)),
     latest_public_allocations: [],
+    public_builders: [],
     last_updated_at: lastUpdatedAt
   };
 };

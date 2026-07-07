@@ -65,6 +65,14 @@ export interface PublicFundAllocation {
   readonly published_at: string | null;
 }
 
+export interface PublicBuilderProfile {
+  readonly display_name: string;
+  readonly contribution_type: ContributionType;
+  readonly amount: number | null;
+  readonly currency: string;
+  readonly paid_at: string | null;
+}
+
 export interface FundTransparencyPublicResponse {
   readonly data_source: 'database' | 'stripe_direct' | 'empty';
   readonly total_received: number;
@@ -77,6 +85,7 @@ export interface FundTransparencyPublicResponse {
   readonly currency: string;
   readonly monthly_summary: readonly PublicMonthlySummary[];
   readonly latest_public_allocations: readonly PublicFundAllocation[];
+  readonly public_builders: readonly PublicBuilderProfile[];
   readonly last_updated_at: string;
 }
 
