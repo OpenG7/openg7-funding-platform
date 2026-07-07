@@ -88,6 +88,11 @@ FUNDING_API_PORT=3333
 FUNDING_PROJECT_ID=openg7
 STRIPE_SECRET_KEY=sk_live_replace_me
 STRIPE_WEBHOOK_SECRET=whsec_replace_me
+# Optional private PostgreSQL. Leave unset for Stripe-direct transparency.
+# POSTGRES_DB=openg7_funding
+# POSTGRES_USER=openg7_funding
+# POSTGRES_PASSWORD=replace_with_a_long_random_secret
+# DATABASE_URL=postgres://openg7_funding:replace_with_a_long_random_secret@postgres:5432/openg7_funding
 BACKUP_DIR=./backups
 ```
 
@@ -111,6 +116,52 @@ Single command after `.env` is configured:
 ```bash
 bash scripts/deploy.sh
 ```
+
+## Optional Private PostgreSQL
+
+The platform can still launch without PostgreSQL. Leave `DATABASE_URL` unset to keep the Stripe-direct transparency fallback.
+
+To enable the private PostgreSQL MVP:
+
+1. Set these values in `.env`:
+
+```env
+POSTGRES_DB=openg7_funding
+POSTGRES_USER=openg7_funding
+POSTGRES_PASSWORD=replace_with_a_long_random_secret
+DATABASE_URL=postgres://openg7_funding:replace_with_a_long_random_secret@postgres:5432/openg7_funding
+```
+
+2. Start PostgreSQL on the private Compose network:
+
+```bash
+docker compose --profile database up -d postgres
+```
+
+3. Apply migrations from the host:
+
+```bash
+docker compose --profile database exec -T postgres \
+  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+  < apps/funding-api/migrations/001_create_fund_transparency_tables.sql
+
+docker compose --profile database exec -T postgres \
+  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+  < apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql
+```
+
+4. Restart the API:
+
+```bash
+docker compose up -d api
+```
+
+Security notes:
+
+- `postgres` is only attached to the internal `openg7-data` network.
+- No `5432` port is published on the host.
+- The browser never receives `DATABASE_URL`.
+- If `DATABASE_URL` is absent, the API keeps the Stripe-direct fallback.
 
 ## DNS
 
@@ -272,6 +323,16 @@ Backups include:
 - ACME certificates
 - scripts
 - docs
+
+If private PostgreSQL is enabled, also export a database dump before or after the filesystem backup:
+
+```bash
+mkdir -p backups
+docker compose --profile database exec -T postgres \
+  pg_dump -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+  > "backups/openg7-funding-db-$(date -u +%Y%m%dT%H%M%SZ).sql"
+chmod 600 backups/openg7-funding-db-*.sql
+```
 
 Suggested cron:
 

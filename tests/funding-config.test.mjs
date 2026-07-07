@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 
 import { OPENG7_FUNDING_CONFIG } from '../dist/apps/funding-web/src/app/features/funding/config/openg7-funding.config.js';
@@ -27,4 +28,27 @@ test('Funding core returns documented mock checkout result', () => {
 
   assert.equal(result.status, 'mocked');
   assert.ok(result.checkoutId.includes('25'));
+});
+
+test('Fundraiser MVP database migration creates required private tables', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql',
+    'utf8'
+  );
+
+  assert.ok(migration.includes('CREATE TABLE IF NOT EXISTS stripe_events'));
+  assert.ok(
+    migration.includes('CREATE TABLE IF NOT EXISTS stripe_checkout_sessions')
+  );
+  assert.ok(migration.includes('CREATE TABLE IF NOT EXISTS fund_contributions'));
+});
+
+test('PostgreSQL compose service is private and profile-gated', () => {
+  const compose = fs.readFileSync('docker-compose.yml', 'utf8');
+
+  assert.ok(compose.includes('postgres:'));
+  assert.ok(compose.includes('profiles:'));
+  assert.ok(compose.includes('openg7-data'));
+  assert.ok(compose.includes('internal: true'));
+  assert.equal(/['"]?5432:5432['"]?/.test(compose), false);
 });

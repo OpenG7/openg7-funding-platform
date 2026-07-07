@@ -13,6 +13,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { dbPool, hasDatabase } from './database.js';
+import { insertCheckoutSessionRecord } from './fund-contributions.repository.js';
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
@@ -207,6 +208,16 @@ const createDevelopmentCheckoutResult = (
   status: 'mocked'
 });
 
+const resolveStripePaymentIntentId = (
+  paymentIntent: string | Stripe.PaymentIntent | null
+): string | null => {
+  if (!paymentIntent) {
+    return null;
+  }
+
+  return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent.id;
+};
+
 createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
@@ -287,7 +298,7 @@ createServer(async (request, response) => {
       );
       const requiresReview =
         parsed.contributionType === 'sponsorship_interest';
-      const checkoutMetadata: Stripe.MetadataParam = {
+      const checkoutMetadata: Record<string, string> = {
         projectId,
         project: 'openg7',
         program: 'builders_fund',
@@ -319,6 +330,23 @@ createServer(async (request, response) => {
         },
         metadata: checkoutMetadata
       });
+      try {
+        await insertCheckoutSessionRecord(dbPool, {
+          stripeSessionId: session.id,
+          stripePaymentIntentId: resolveStripePaymentIntentId(
+            session.payment_intent
+          ),
+          contributionType: parsed.contributionType,
+          amountCents: Math.round(amount * 100),
+          currency: 'cad',
+          metadata: checkoutMetadata,
+          publicDisplayConsent: parsed.publicDisplayConsent,
+          displayAmountConsent: parsed.displayAmountConsent,
+          nonCharityAcknowledged: parsed.nonCharityAcknowledged
+        });
+      } catch (error) {
+        console.error('Failed to record Stripe checkout session.', error);
+      }
 
       const result: RedirectCheckoutResult = {
         checkoutId: session.id,
