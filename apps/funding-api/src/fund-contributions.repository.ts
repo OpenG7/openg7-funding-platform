@@ -14,6 +14,7 @@ export interface CheckoutSessionRecordInput {
   readonly currency: string;
   readonly metadata: Record<string, string>;
   readonly publicDisplayConsent: boolean;
+  readonly publicName: string | null;
   readonly displayAmountConsent: boolean;
   readonly nonCharityAcknowledged: boolean;
 }
@@ -176,13 +177,14 @@ export const insertCheckoutSessionRecord = async (
           amount_cents,
           currency,
           public_display_consent,
+          public_name,
           display_amount_consent,
           non_charity_acknowledged,
           stripe_session_id,
           stripe_payment_intent_id,
           status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
         ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
         DO NOTHING
       `,
@@ -191,6 +193,7 @@ export const insertCheckoutSessionRecord = async (
         input.amountCents,
         input.currency.toLowerCase(),
         input.publicDisplayConsent,
+        input.publicName,
         input.displayAmountConsent,
         input.nonCharityAcknowledged,
         input.stripeSessionId,
@@ -261,6 +264,7 @@ export const upsertCheckoutSessionFromWebhook = async (
           currency,
           email_private,
           public_display_consent,
+          public_name,
           display_amount_consent,
           non_charity_acknowledged,
           stripe_session_id,
@@ -268,7 +272,7 @@ export const upsertCheckoutSessionFromWebhook = async (
           status,
           paid_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::timestamptz)
         ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
         DO UPDATE
         SET
@@ -281,6 +285,7 @@ export const upsertCheckoutSessionFromWebhook = async (
             EXCLUDED.email_private
           ),
           public_display_consent = EXCLUDED.public_display_consent,
+          public_name = COALESCE(EXCLUDED.public_name, fund_contributions.public_name),
           display_amount_consent = EXCLUDED.display_amount_consent,
           non_charity_acknowledged = EXCLUDED.non_charity_acknowledged,
           status = CASE
@@ -298,6 +303,7 @@ export const upsertCheckoutSessionFromWebhook = async (
         input.currency.toLowerCase(),
         input.emailPrivate,
         input.publicDisplayConsent,
+        input.publicName,
         input.displayAmountConsent,
         input.nonCharityAcknowledged,
         input.stripeSessionId,

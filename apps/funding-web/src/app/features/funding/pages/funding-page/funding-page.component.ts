@@ -550,6 +550,15 @@ interface FoundationPillar {
                   />
                   <span>{{ 'funding.home.contribution.publicDisplayConsent' | translate }}</span>
                 </label>
+                <label for="public-display-name">{{ 'funding.home.contribution.publicDisplayNameLabel' | translate }}</label>
+                <input
+                  id="public-display-name"
+                  type="text"
+                  maxlength="100"
+                  [placeholder]="'funding.home.contribution.publicDisplayNamePlaceholder' | translate"
+                  [value]="publicDisplayName()"
+                  (input)="setPublicDisplayName($event)"
+                />
                 <label class="consent-option">
                   <input
                     type="checkbox"
@@ -662,6 +671,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   );
   readonly contributionType = signal<ContributionType>('personal_support');
   readonly publicDisplayConsent = signal<boolean>(false);
+  readonly publicDisplayName = signal<string>('');
   readonly displayAmountConsent = signal<boolean>(false);
   readonly nonCharityAcknowledged = signal<boolean>(false);
   readonly loadingState = signal<'idle' | 'loading' | 'success' | 'error'>(
@@ -1022,6 +1032,10 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     this.publicDisplayConsent.set(this.checkedFromEvent(event));
   }
 
+  setPublicDisplayName(event: Event): void {
+    this.publicDisplayName.set(this.valueFromEvent(event));
+  }
+
   setDisplayAmountConsent(event: Event): void {
     this.displayAmountConsent.set(this.checkedFromEvent(event));
   }
@@ -1116,6 +1130,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
         {
           contributionType: this.contributionType(),
           publicDisplayConsent: this.publicDisplayConsent(),
+          publicDisplayName: this.publicDisplayName().trim() || undefined,
           displayAmountConsent: this.displayAmountConsent(),
           nonCharityAcknowledged: this.nonCharityAcknowledged()
         }

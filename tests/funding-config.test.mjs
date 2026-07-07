@@ -136,6 +136,41 @@ test('Checkout sessions require fundraiser metadata and consent fields', () => {
   }
 });
 
+test('resolveCheckoutReturnUrl allows http localhost/127.0.0.1 only outside production', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  const match = source.match(
+    /const resolveCheckoutReturnUrl[\s\S]*?\n};/
+  );
+  assert.ok(match, 'expected to find resolveCheckoutReturnUrl function body');
+  const fnSource = match[0];
+
+  assert.ok(
+    fnSource.includes("candidate.hostname === 'localhost'") &&
+      fnSource.includes("candidate.hostname === '127.0.0.1'"),
+    'expected an exact-equality check against localhost and 127.0.0.1 hostnames'
+  );
+  assert.ok(
+    fnSource.includes("candidate.protocol === 'http:'"),
+    'expected the dev allowance to require the http: protocol'
+  );
+
+  const devAllowanceMatch = fnSource.match(
+    /if\s*\(([\s\S]{0,200}?candidate\.hostname === '127\.0\.0\.1'[\s\S]{0,50}?)\)\s*\{/
+  );
+  assert.ok(devAllowanceMatch, 'expected an if-condition guarding the localhost allowance');
+  assert.ok(
+    /!isProduction/.test(devAllowanceMatch[1]),
+    'the localhost/127.0.0.1 http allowance must be gated behind !isProduction so it never applies in production'
+  );
+
+  assert.equal(
+    /^\s*if\s*\(\s*candidate\.hostname === '(localhost|127\.0\.0\.1)'/m.test(fnSource),
+    false,
+    'the localhost/127.0.0.1 allowance must not be reachable unconditionally (without an isProduction guard)'
+  );
+});
+
 test('Public transparency can read aggregate data from fund contributions', () => {
   const source = fs.readFileSync(
     'apps/funding-api/src/fund-transparency.repository.ts',
@@ -236,6 +271,69 @@ test('Sponsorship details endpoint validates required fields and payment state',
   );
   assert.ok(source.includes("session.payment_status !== 'paid'"));
   assert.ok(source.includes('recordSponsorshipDetails(dbPool'));
+});
+
+test('Checkout requires a public display name when public display consent is granted', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(
+    source.includes('parsed.publicDisplayConsent === true') &&
+      source.includes(
+        "'Public display name is required when public display consent is granted.'"
+      ),
+    'expected main.ts to require publicDisplayName when publicDisplayConsent is true'
+  );
+  assert.ok(
+    /isNonEmptySponsorText\(\s*parsed\.publicDisplayName/.test(source),
+    'expected publicDisplayName to be validated as non-empty bounded text'
+  );
+});
+
+test('fund_contributions writes public_name on both the checkout-creation and webhook paths', () => {
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+
+  assert.ok(
+    /export const insertCheckoutSessionRecord[\s\S]*?public_name/.test(repository),
+    'expected insertCheckoutSessionRecord to write public_name'
+  );
+  assert.ok(
+    /export const upsertCheckoutSessionFromWebhook[\s\S]*?public_name/.test(repository),
+    'expected upsertCheckoutSessionFromWebhook to write public_name'
+  );
+  assert.ok(
+    repository.includes(
+      'public_name = COALESCE(EXCLUDED.public_name, fund_contributions.public_name)'
+    ),
+    'expected the webhook upsert to preserve an existing public_name when a later event omits it'
+  );
+});
+
+test('Stripe webhook service reads publicDisplayName from checkout session metadata', () => {
+  const source = fs.readFileSync(
+    'apps/funding-api/src/stripe-webhook.service.ts',
+    'utf8'
+  );
+
+  assert.ok(source.includes('metadata.publicDisplayName'));
+  assert.ok(source.includes('publicName:'));
+});
+
+test('Public display name input has matching i18n keys in both locales', () => {
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  for (const locale of [fr, en]) {
+    const contribution = locale.funding.home.contribution;
+    assert.ok(contribution.publicDisplayNameLabel);
+    assert.ok(contribution.publicDisplayNamePlaceholder);
+  }
 });
 
 test('Sponsor follow-up screen has matching i18n keys in both locales', () => {

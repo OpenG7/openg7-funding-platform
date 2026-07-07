@@ -55,6 +55,7 @@ export class FundingService {
       cancelUrl: this.buildReturnUrl('cancel'),
       contributionType: consent.contributionType,
       publicDisplayConsent: consent.publicDisplayConsent,
+      publicDisplayName: consent.publicDisplayName,
       displayAmountConsent: consent.displayAmountConsent,
       nonCharityAcknowledged: consent.nonCharityAcknowledged
     };

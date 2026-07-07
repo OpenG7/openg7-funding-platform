@@ -109,6 +109,7 @@ const buildCheckoutSessionWebhookInput = (
     publicDisplayConsent: parseMetadataBoolean(
       metadata.publicDisplayConsent
     ),
+    publicName: metadata.publicDisplayName ?? null,
     displayAmountConsent: parseMetadataBoolean(metadata.displayAmountConsent),
     nonCharityAcknowledged: parseMetadataBoolean(
       metadata.nonCharityAcknowledged

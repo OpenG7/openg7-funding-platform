@@ -435,6 +435,8 @@
         "otherAmount": "Other amount",
         "consentLegend": "Consents",
         "publicDisplayConsent": "Display my name publicly if a public name is provided later.",
+        "publicDisplayNameLabel": "Name to display publicly (only used if the box above is checked)",
+        "publicDisplayNamePlaceholder": "e.g. Alexandre B.",
         "displayAmountConsent": "Allow the individual amount to be displayed with my public name.",
         "nonCharityNotice": "OpenG7 is an independent project in development. Contributions to the Builders Fund are not donations to a registered charity. No official charitable donation receipt is issued.",
         "securePayment": "Secure payment by Stripe",

@@ -159,6 +159,7 @@ const SPONSOR_TEXT_MAX_LENGTH = 200;
 const SPONSOR_MESSAGE_MAX_LENGTH = 1000;
 const SPONSOR_URL_MAX_LENGTH = 2048;
 const STRIPE_METADATA_VALUE_MAX_LENGTH = 480;
+const PUBLIC_DISPLAY_NAME_MAX_LENGTH = 100;
 
 const isNonEmptySponsorText = (
   value: unknown,
@@ -192,6 +193,14 @@ const isValidOptionalHttpsUrl = (value: unknown): boolean => {
 const truncateStripeMetadataValue = (value: string): string =>
   value.slice(0, STRIPE_METADATA_VALUE_MAX_LENGTH);
 
+const isValidOptionalBoundedText = (
+  value: unknown,
+  maxLength: number
+): boolean =>
+  value === undefined ||
+  value === null ||
+  (typeof value === 'string' && value.trim().length <= maxLength);
+
 const resolveCheckoutReturnUrl = (
   candidateUrl: string,
   fallbackPath: string
@@ -204,6 +213,14 @@ const resolveCheckoutReturnUrl = (
       ...allowedOrigins,
       publicBaseOrigin
     ]);
+
+    if (
+      !isProduction &&
+      candidate.protocol === 'http:' &&
+      (candidate.hostname === 'localhost' || candidate.hostname === '127.0.0.1')
+    ) {
+      return candidate.toString();
+    }
 
     if (candidate.protocol !== 'https:') {
       return fallback.toString();
@@ -314,6 +331,32 @@ createServer(async (request, response) => {
       return;
     }
 
+    if (
+      parsed.publicDisplayConsent === true &&
+      !isNonEmptySponsorText(
+        parsed.publicDisplayName,
+        PUBLIC_DISPLAY_NAME_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error:
+          'Public display name is required when public display consent is granted.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.publicDisplayName,
+        PUBLIC_DISPLAY_NAME_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Public display name is too long.'
+      });
+      return;
+    }
+
     if (!stripe) {
       if (!isProduction) {
         writeJson(
@@ -342,6 +385,10 @@ createServer(async (request, response) => {
       );
       const requiresReview =
         parsed.contributionType === 'sponsorship_interest';
+      const publicDisplayName =
+        typeof parsed.publicDisplayName === 'string'
+          ? parsed.publicDisplayName.trim()
+          : '';
       const checkoutMetadata: Record<string, string> = {
         projectId,
         project: 'openg7',
@@ -350,7 +397,12 @@ createServer(async (request, response) => {
         publicDisplayConsent: String(parsed.publicDisplayConsent),
         displayAmountConsent: String(parsed.displayAmountConsent),
         nonCharityAcknowledged: String(parsed.nonCharityAcknowledged),
-        requiresReview: String(requiresReview)
+        requiresReview: String(requiresReview),
+        ...(publicDisplayName
+          ? {
+              publicDisplayName: truncateStripeMetadataValue(publicDisplayName)
+            }
+          : {})
       };
 
       const session = await stripe.checkout.sessions.create({
@@ -385,6 +437,7 @@ createServer(async (request, response) => {
           currency: 'cad',
           metadata: checkoutMetadata,
           publicDisplayConsent: parsed.publicDisplayConsent,
+          publicName: publicDisplayName || null,
           displayAmountConsent: parsed.displayAmountConsent,
           nonCharityAcknowledged: parsed.nonCharityAcknowledged
         });

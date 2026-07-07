@@ -9,6 +9,7 @@ export type ContributionType = 'personal_support' | 'sponsorship_interest';
 export interface CheckoutConsentPayload {
   readonly contributionType: ContributionType;
   readonly publicDisplayConsent: boolean;
+  readonly publicDisplayName?: string;
   readonly displayAmountConsent: boolean;
   readonly nonCharityAcknowledged: boolean;
 }
@@ -21,6 +22,7 @@ export interface CheckoutRequest {
   readonly cancelUrl: string;
   readonly contributionType: ContributionType;
   readonly publicDisplayConsent: boolean;
+  readonly publicDisplayName?: string;
   readonly displayAmountConsent: boolean;
   readonly nonCharityAcknowledged: boolean;
 }

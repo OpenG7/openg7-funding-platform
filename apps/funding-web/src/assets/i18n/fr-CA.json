@@ -435,6 +435,8 @@
         "otherAmount": "Autre montant",
         "consentLegend": "Consentements",
         "publicDisplayConsent": "Afficher mon nom publiquement si un nom public est fourni plus tard.",
+        "publicDisplayNameLabel": "Nom à afficher publiquement (utilisé seulement si la case ci-dessus est cochée)",
+        "publicDisplayNamePlaceholder": "ex. Alexandre B.",
         "displayAmountConsent": "Autoriser l'affichage du montant individuel avec mon nom public.",
         "nonCharityNotice": "OpenG7 est un projet indépendant en développement. Les contributions au Fonds des bâtisseurs ne constituent pas des dons à un organisme de bienfaisance enregistré. Aucun reçu officiel de don de bienfaisance n'est émis.",
         "securePayment": "Paiement sécurisé par Stripe",
