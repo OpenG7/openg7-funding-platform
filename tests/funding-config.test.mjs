@@ -16,7 +16,13 @@ test('Funding core returns documented mock checkout result', () => {
   const result = createMockCheckoutResult({
     amount: 25,
     currency: 'CAD',
-    projectId: 'openg7'
+    projectId: 'openg7',
+    successUrl: 'https://example.org/success',
+    cancelUrl: 'https://example.org/cancel',
+    contributionType: 'personal_support',
+    publicDisplayConsent: false,
+    displayAmountConsent: false,
+    nonCharityAcknowledged: true
   });
 
   assert.equal(result.status, 'mocked');

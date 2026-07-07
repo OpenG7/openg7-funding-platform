@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import type { ContributionType } from '@openg7/funding-core';
 import type {
   FundTransparencyPublicResponse,
   FundingSnapshot
@@ -374,17 +375,32 @@ interface FoundationPillar {
           >
             <section class="contribution-panel">
               <h3>{{ 'funding.home.contribution.title' | translate }}</h3>
-              <div class="contribution-type-grid">
-                <article class="contribution-type-card active">
+              <div
+                class="contribution-type-grid"
+                [attr.aria-label]="'funding.home.contribution.typeAria' | translate"
+              >
+                <button
+                  type="button"
+                  class="contribution-type-card"
+                  [class.active]="contributionType() === 'personal_support'"
+                  [attr.aria-pressed]="contributionType() === 'personal_support'"
+                  (click)="setContributionType('personal_support')"
+                >
                   <span>{{ 'funding.home.contribution.personal.kicker' | translate }}</span>
                   <strong>{{ 'funding.home.contribution.personal.title' | translate }}</strong>
                   <p>{{ 'funding.home.contribution.personal.copy' | translate }}</p>
-                </article>
-                <article class="contribution-type-card review">
+                </button>
+                <button
+                  type="button"
+                  class="contribution-type-card review"
+                  [class.active]="contributionType() === 'sponsorship_interest'"
+                  [attr.aria-pressed]="contributionType() === 'sponsorship_interest'"
+                  (click)="setContributionType('sponsorship_interest')"
+                >
                   <span>{{ 'funding.home.contribution.sponsorship.kicker' | translate }}</span>
                   <strong>{{ 'funding.home.contribution.sponsorship.title' | translate }}</strong>
                   <p>{{ 'funding.home.contribution.sponsorship.copy' | translate }}</p>
-                </article>
+                </button>
               </div>
               <div class="amount-grid">
                 <button
@@ -406,10 +422,39 @@ interface FoundationPillar {
                 placeholder="$"
                 (input)="setCustomContributionFromEvent($event)"
               />
-              <p class="non-charity-note">
-                {{ 'funding.home.contribution.nonCharityNotice' | translate }}
-              </p>
-              <button type="button" class="gold-cta" (click)="supportProject()">
+              <fieldset class="consent-options">
+                <legend>{{ 'funding.home.contribution.consentLegend' | translate }}</legend>
+                <label class="consent-option">
+                  <input
+                    type="checkbox"
+                    [checked]="publicDisplayConsent()"
+                    (change)="setPublicDisplayConsent($event)"
+                  />
+                  <span>{{ 'funding.home.contribution.publicDisplayConsent' | translate }}</span>
+                </label>
+                <label class="consent-option">
+                  <input
+                    type="checkbox"
+                    [checked]="displayAmountConsent()"
+                    (change)="setDisplayAmountConsent($event)"
+                  />
+                  <span>{{ 'funding.home.contribution.displayAmountConsent' | translate }}</span>
+                </label>
+                <label class="consent-option required">
+                  <input
+                    type="checkbox"
+                    [checked]="nonCharityAcknowledged()"
+                    (change)="setNonCharityAcknowledged($event)"
+                  />
+                  <span>{{ 'funding.home.contribution.nonCharityNotice' | translate }}</span>
+                </label>
+              </fieldset>
+              <button
+                type="button"
+                class="gold-cta"
+                [disabled]="!canStartCheckout()"
+                (click)="supportProject()"
+              >
                 {{ 'funding.nav.supportCta' | translate }}
               </button>
               <p class="payment-note">{{ 'funding.home.contribution.securePayment' | translate }}</p>
@@ -497,6 +542,10 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly selectedContributionAmount = signal<number>(
     this.config.contributionAmounts[2] ?? this.config.contributionAmounts[0]
   );
+  readonly contributionType = signal<ContributionType>('personal_support');
+  readonly publicDisplayConsent = signal<boolean>(false);
+  readonly displayAmountConsent = signal<boolean>(false);
+  readonly nonCharityAcknowledged = signal<boolean>(false);
   readonly loadingState = signal<'idle' | 'loading' | 'success' | 'error'>(
     'idle'
   );
@@ -591,6 +640,10 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       ? this.i18n.t('funding.home.contributionCount.one')
       : this.i18n.t('funding.home.contributionCount.many').replace('{{ count }}', count.toString());
   });
+
+  readonly canStartCheckout = computed<boolean>(
+    () => this.nonCharityAcknowledged() && this.loadingState() !== 'loading'
+  );
 
   private readonly allocationPalette = [
     '#f4b53c',
@@ -804,6 +857,22 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     return this.selectedContributionAmount() === amount;
   }
 
+  setContributionType(type: ContributionType): void {
+    this.contributionType.set(type);
+  }
+
+  setPublicDisplayConsent(event: Event): void {
+    this.publicDisplayConsent.set(this.checkedFromEvent(event));
+  }
+
+  setDisplayAmountConsent(event: Event): void {
+    this.displayAmountConsent.set(this.checkedFromEvent(event));
+  }
+
+  setNonCharityAcknowledged(event: Event): void {
+    this.nonCharityAcknowledged.set(this.checkedFromEvent(event));
+  }
+
   formatMoney(amount: number): string {
     return new Intl.NumberFormat(this.config.locale, {
       style: 'currency',
@@ -830,10 +899,21 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   }
 
   async supportProject(): Promise<void> {
+    if (!this.nonCharityAcknowledged()) {
+      this.loadingState.set('error');
+      return;
+    }
+
     this.loadingState.set('loading');
     try {
       const result = await this.fundingService.startCheckout(
-        this.selectedContributionAmount()
+        this.selectedContributionAmount(),
+        {
+          contributionType: this.contributionType(),
+          publicDisplayConsent: this.publicDisplayConsent(),
+          displayAmountConsent: this.displayAmountConsent(),
+          nonCharityAcknowledged: this.nonCharityAcknowledged()
+        }
       );
       if (result.status === 'redirected') {
         window.location.assign(result.redirectUrl);
@@ -855,6 +935,10 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     this.transparencyRefreshId = window.setInterval(() => {
       void this.loadPublicTransparency({ silent: true });
     }, 30000);
+  }
+
+  private checkedFromEvent(event: Event): boolean {
+    return Boolean((event.target as HTMLInputElement | null)?.checked);
   }
 
   private toFundingSnapshot(

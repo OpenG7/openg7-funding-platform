@@ -6,6 +6,7 @@ import {
 
 import Stripe from 'stripe';
 import type {
+  ContributionType,
   CheckoutResult,
   CheckoutRequest,
   RedirectCheckoutResult
@@ -38,12 +39,16 @@ const allowedReturnHostnames = new Set(
     .map((origin) => new URL(origin).hostname)
 );
 const allowedContributionAmounts = new Set(
-  (process.env.FUNDING_ALLOWED_AMOUNTS ?? '5,10,25,50,100')
+  (process.env.FUNDING_ALLOWED_AMOUNTS ?? '5,10,25,50')
     .split(',')
     .map((amount) => Number(amount.trim()))
     .filter((amount) => Number.isFinite(amount) && amount > 0)
 );
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+const allowedContributionTypes = new Set<ContributionType>([
+  'personal_support',
+  'sponsorship_interest'
+]);
 
 if (isProduction && !stripeSecretKey) {
   throw new Error(
@@ -132,6 +137,15 @@ const readBody = async (
 
 const normalizeAmount = (amount: number): number =>
   Number(Number(amount).toFixed(2));
+
+const isAllowedContributionType = (
+  contributionType: unknown
+): contributionType is ContributionType =>
+  typeof contributionType === 'string' &&
+  allowedContributionTypes.has(contributionType as ContributionType);
+
+const isBoolean = (value: unknown): value is boolean =>
+  typeof value === 'boolean';
 
 const resolveCheckoutReturnUrl = (
   candidateUrl: string,
@@ -227,6 +241,24 @@ createServer(async (request, response) => {
       return;
     }
 
+    if (!isAllowedContributionType(parsed.contributionType)) {
+      writeJson(request, response, 400, {
+        error: 'Checkout contribution type is not allowed.'
+      });
+      return;
+    }
+
+    if (
+      !isBoolean(parsed.publicDisplayConsent) ||
+      !isBoolean(parsed.displayAmountConsent) ||
+      parsed.nonCharityAcknowledged !== true
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Checkout consent fields are invalid or incomplete.'
+      });
+      return;
+    }
+
     if (!stripe) {
       if (!isProduction) {
         writeJson(
@@ -253,6 +285,18 @@ createServer(async (request, response) => {
         parsed.cancelUrl,
         '/?checkout=cancel'
       );
+      const requiresReview =
+        parsed.contributionType === 'sponsorship_interest';
+      const checkoutMetadata: Stripe.MetadataParam = {
+        projectId,
+        project: 'openg7',
+        program: 'builders_fund',
+        contributionType: parsed.contributionType,
+        publicDisplayConsent: String(parsed.publicDisplayConsent),
+        displayAmountConsent: String(parsed.displayAmountConsent),
+        nonCharityAcknowledged: String(parsed.nonCharityAcknowledged),
+        requiresReview: String(requiresReview)
+      };
 
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
@@ -271,13 +315,9 @@ createServer(async (request, response) => {
           }
         ],
         payment_intent_data: {
-          metadata: {
-            projectId
-          }
+          metadata: checkoutMetadata
         },
-        metadata: {
-          projectId
-        }
+        metadata: checkoutMetadata
       });
 
       const result: RedirectCheckoutResult = {

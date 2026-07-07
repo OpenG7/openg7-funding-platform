@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import {
+  CheckoutConsentPayload,
   CheckoutRequest,
   CheckoutResult,
   createMockCheckoutResult
@@ -39,13 +40,20 @@ export class FundingService {
   /**
     * Creates a checkout session via the API. Mock fallback is limited to local development.
    */
-  async startCheckout(amount: number): Promise<CheckoutResult> {
+  async startCheckout(
+    amount: number,
+    consent: CheckoutConsentPayload
+  ): Promise<CheckoutResult> {
     const request: CheckoutRequest = {
       amount,
       currency: 'CAD',
       projectId: this.config?.projectId ?? 'openg7',
       successUrl: this.buildReturnUrl('success'),
-      cancelUrl: this.buildReturnUrl('cancel')
+      cancelUrl: this.buildReturnUrl('cancel'),
+      contributionType: consent.contributionType,
+      publicDisplayConsent: consent.publicDisplayConsent,
+      displayAmountConsent: consent.displayAmountConsent,
+      nonCharityAcknowledged: consent.nonCharityAcknowledged
     };
 
     try {

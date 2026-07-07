@@ -370,6 +370,7 @@
       "contribution": {
         "ariaLabel": "Contribution and financial transparency",
         "title": "Choose your contribution",
+        "typeAria": "Contribution type",
         "personal": {
           "kicker": "Personal",
           "title": "Personal contribution",
@@ -381,6 +382,9 @@
           "copy": "Business visibility will require manual review before anything is published."
         },
         "otherAmount": "Other amount",
+        "consentLegend": "Consents",
+        "publicDisplayConsent": "Display my name publicly if a public name is provided later.",
+        "displayAmountConsent": "Allow the individual amount to be displayed with my public name.",
         "nonCharityNotice": "OpenG7 is an independent project in development. Contributions to the Builders Fund are not donations to a registered charity. No official charitable donation receipt is issued.",
         "securePayment": "Secure payment by Stripe",
         "loading": "Preparing payment...",

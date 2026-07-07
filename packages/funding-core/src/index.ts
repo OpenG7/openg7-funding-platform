@@ -4,12 +4,25 @@ import {
   FundingTotals
 } from '@openg7/funding-models';
 
+export type ContributionType = 'personal_support' | 'sponsorship_interest';
+
+export interface CheckoutConsentPayload {
+  readonly contributionType: ContributionType;
+  readonly publicDisplayConsent: boolean;
+  readonly displayAmountConsent: boolean;
+  readonly nonCharityAcknowledged: boolean;
+}
+
 export interface CheckoutRequest {
   readonly amount: number;
   readonly currency: 'CAD';
   readonly projectId: string;
   readonly successUrl: string;
   readonly cancelUrl: string;
+  readonly contributionType: ContributionType;
+  readonly publicDisplayConsent: boolean;
+  readonly displayAmountConsent: boolean;
+  readonly nonCharityAcknowledged: boolean;
 }
 
 export interface MockCheckoutResult {

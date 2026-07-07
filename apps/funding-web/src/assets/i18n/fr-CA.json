@@ -370,6 +370,7 @@
       "contribution": {
         "ariaLabel": "Contribution et transparence financière",
         "title": "Choisissez votre contribution",
+        "typeAria": "Type de contribution",
         "personal": {
           "kicker": "Personnel",
           "title": "Contribution personnelle",
@@ -381,6 +382,9 @@
           "copy": "La visibilité d'entreprise sera soumise à une validation manuelle avant toute publication."
         },
         "otherAmount": "Autre montant",
+        "consentLegend": "Consentements",
+        "publicDisplayConsent": "Afficher mon nom publiquement si un nom public est fourni plus tard.",
+        "displayAmountConsent": "Autoriser l'affichage du montant individuel avec mon nom public.",
         "nonCharityNotice": "OpenG7 est un projet indépendant en développement. Les contributions au Fonds des bâtisseurs ne constituent pas des dons à un organisme de bienfaisance enregistré. Aucun reçu officiel de don de bienfaisance n'est émis.",
         "securePayment": "Paiement sécurisé par Stripe",
         "loading": "Préparation du paiement...",
