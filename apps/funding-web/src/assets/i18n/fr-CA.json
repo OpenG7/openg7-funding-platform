@@ -333,7 +333,24 @@
         "successCopy": "Merci d'aider OpenG7 à financer une infrastructure ouverte, résiliente et transparente. Le fonds public sera synchronisé dès que la confirmation Stripe sera disponible.",
         "cancelKicker": "Paiement interrompu",
         "cancelTitle": "Le coffre reste fermé pour cette contribution.",
-        "cancelCopy": "Aucun paiement confirmé n'a été ajouté au registre. Vous pouvez reprendre votre contribution quand vous voulez."
+        "cancelCopy": "Aucun paiement confirmé n'a été ajouté au registre. Vous pouvez reprendre votre contribution quand vous voulez.",
+        "sponsorKicker": "Commandite en validation",
+        "sponsorTitle": "Commandite reçue — visibilité en validation",
+        "sponsorCopy": "Merci pour votre paiement. Aucune visibilité publique n'est encore accordée: notre équipe valide manuellement chaque commandite avant toute publication. Complétez ces informations pour accélérer la révision.",
+        "sponsorForm": {
+          "companyNameLabel": "Nom de l'entreprise",
+          "contactNameLabel": "Nom du contact",
+          "contactEmailLabel": "Courriel du contact",
+          "websiteLabel": "Site web (optionnel)",
+          "logoUrlLabel": "Lien vers un logo (optionnel)",
+          "messageLabel": "Message (optionnel)",
+          "submit": "Envoyer pour révision",
+          "submitting": "Envoi en cours...",
+          "error": "Impossible d'envoyer ces informations pour l'instant. Réessayez plus tard.",
+          "successTitle": "Merci, votre demande de commandite est en révision.",
+          "successCopy": "Notre équipe examine chaque commandite manuellement avant toute visibilité publique. Nous vous recontacterons par courriel pour les prochaines étapes.",
+          "nextStepsLink": "Voir les prochaines étapes"
+        }
       },
       "actions": {
         "viewTransparency": "Voir la transparence",

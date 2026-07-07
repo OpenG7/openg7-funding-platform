@@ -96,3 +96,18 @@ export const createMockCheckoutResult = (
   redirectUrl: 'https://example.org/mock-checkout',
   status: 'mocked'
 });
+
+export interface SponsorshipDetailsRequest {
+  readonly sessionId: string;
+  readonly companyName: string;
+  readonly contactName: string;
+  readonly contactEmail: string;
+  readonly websiteUrl?: string;
+  readonly logoUrl?: string;
+  readonly message?: string;
+}
+
+export interface SponsorshipDetailsResult {
+  readonly received: true;
+  readonly recorded: boolean;
+}

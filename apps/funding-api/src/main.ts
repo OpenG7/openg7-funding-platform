@@ -9,11 +9,18 @@ import type {
   ContributionType,
   CheckoutResult,
   CheckoutRequest,
-  RedirectCheckoutResult
+  RedirectCheckoutResult,
+  SponsorshipDetailsRequest,
+  SponsorshipDetailsResult
 } from '@openg7/funding-core';
 
 import { dbPool, hasDatabase } from './database.js';
-import { insertCheckoutSessionRecord } from './fund-contributions.repository.js';
+import {
+  insertCheckoutSessionRecord,
+  normalizeContributionType,
+  parseMetadataBoolean,
+  recordSponsorshipDetails
+} from './fund-contributions.repository.js';
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
@@ -147,6 +154,43 @@ const isAllowedContributionType = (
 
 const isBoolean = (value: unknown): value is boolean =>
   typeof value === 'boolean';
+
+const SPONSOR_TEXT_MAX_LENGTH = 200;
+const SPONSOR_MESSAGE_MAX_LENGTH = 1000;
+const SPONSOR_URL_MAX_LENGTH = 2048;
+const STRIPE_METADATA_VALUE_MAX_LENGTH = 480;
+
+const isNonEmptySponsorText = (
+  value: unknown,
+  maxLength: number
+): value is string =>
+  typeof value === 'string' &&
+  value.trim().length > 0 &&
+  value.trim().length <= maxLength;
+
+const isValidSponsorEmail = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  value.trim().length <= SPONSOR_TEXT_MAX_LENGTH &&
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
+const isValidOptionalHttpsUrl = (value: unknown): boolean => {
+  if (value === undefined || value === null || value === '') {
+    return true;
+  }
+
+  if (typeof value !== 'string' || value.length > SPONSOR_URL_MAX_LENGTH) {
+    return false;
+  }
+
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const truncateStripeMetadataValue = (value: string): string =>
+  value.slice(0, STRIPE_METADATA_VALUE_MAX_LENGTH);
 
 const resolveCheckoutReturnUrl = (
   candidateUrl: string,
@@ -374,6 +418,193 @@ createServer(async (request, response) => {
       });
       return;
     }
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/sponsorship-details',
+      '/api/sponsorship-details'
+    )
+  ) {
+    if (!stripe) {
+      writeJson(request, response, 503, {
+        error: 'Stripe is not configured.'
+      });
+      return;
+    }
+
+    let parsed: SponsorshipDetailsRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as SponsorshipDetailsRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship details request body.'
+      });
+      return;
+    }
+
+    if (
+      typeof parsed.sessionId !== 'string' ||
+      !parsed.sessionId.startsWith('cs_') ||
+      parsed.sessionId.length > 200
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Invalid Stripe checkout session id.'
+      });
+      return;
+    }
+
+    if (!isNonEmptySponsorText(parsed.companyName, SPONSOR_TEXT_MAX_LENGTH)) {
+      writeJson(request, response, 400, {
+        error: 'Company name is required.'
+      });
+      return;
+    }
+
+    if (!isNonEmptySponsorText(parsed.contactName, SPONSOR_TEXT_MAX_LENGTH)) {
+      writeJson(request, response, 400, {
+        error: 'Contact name is required.'
+      });
+      return;
+    }
+
+    if (!isValidSponsorEmail(parsed.contactEmail)) {
+      writeJson(request, response, 400, {
+        error: 'A valid contact email is required.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.websiteUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Website URL must be a valid https link.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.logoUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Logo URL must be a valid https link.'
+      });
+      return;
+    }
+
+    if (
+      parsed.message !== undefined &&
+      (typeof parsed.message !== 'string' ||
+        parsed.message.length > SPONSOR_MESSAGE_MAX_LENGTH)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Message is too long.'
+      });
+      return;
+    }
+
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.retrieve(parsed.sessionId, {
+        expand: ['payment_intent']
+      });
+    } catch {
+      writeJson(request, response, 404, {
+        error: 'Checkout session not found.'
+      });
+      return;
+    }
+
+    const sessionMetadata = session.metadata ?? {};
+    if (
+      normalizeContributionType(sessionMetadata.contributionType) !==
+      'sponsorship_interest'
+    ) {
+      writeJson(request, response, 400, {
+        error: 'This checkout session is not a sponsorship interest contribution.'
+      });
+      return;
+    }
+
+    if (session.payment_status !== 'paid') {
+      writeJson(request, response, 409, {
+        error: 'Payment for this checkout session is not confirmed yet.'
+      });
+      return;
+    }
+
+    const paymentIntentId = resolveStripePaymentIntentId(
+      session.payment_intent
+    );
+    const paymentIntentCreatedIso =
+      session.payment_intent && typeof session.payment_intent !== 'string'
+        ? new Date(session.payment_intent.created * 1000).toISOString()
+        : new Date(session.created * 1000).toISOString();
+
+    const companyName = parsed.companyName.trim();
+    const contactName = parsed.contactName.trim();
+    const contactEmail = parsed.contactEmail.trim();
+    const websiteUrl = parsed.websiteUrl?.trim() || null;
+    const logoUrl = parsed.logoUrl?.trim() || null;
+    const message = parsed.message?.trim() || null;
+
+    if (paymentIntentId) {
+      try {
+        await stripe.paymentIntents.update(paymentIntentId, {
+          metadata: {
+            sponsorCompanyName: truncateStripeMetadataValue(companyName),
+            sponsorContactName: truncateStripeMetadataValue(contactName),
+            sponsorContactEmail: truncateStripeMetadataValue(contactEmail),
+            ...(websiteUrl
+              ? { sponsorWebsiteUrl: truncateStripeMetadataValue(websiteUrl) }
+              : {}),
+            ...(logoUrl
+              ? { sponsorLogoUrl: truncateStripeMetadataValue(logoUrl) }
+              : {}),
+            ...(message
+              ? { sponsorMessage: truncateStripeMetadataValue(message) }
+              : {})
+          }
+        });
+      } catch (error) {
+        console.error(
+          'Failed to update Stripe metadata with sponsorship details.',
+          error
+        );
+      }
+    }
+
+    let recorded = false;
+    try {
+      recorded = await recordSponsorshipDetails(dbPool, {
+        stripeSessionId: session.id,
+        stripePaymentIntentId: paymentIntentId,
+        amountCents: session.amount_total ?? 0,
+        currency: session.currency ?? 'cad',
+        publicDisplayConsent: parseMetadataBoolean(
+          sessionMetadata.publicDisplayConsent
+        ),
+        displayAmountConsent: parseMetadataBoolean(
+          sessionMetadata.displayAmountConsent
+        ),
+        nonCharityAcknowledged: parseMetadataBoolean(
+          sessionMetadata.nonCharityAcknowledged
+        ),
+        paidAtIso: paymentIntentCreatedIso,
+        companyName,
+        contactName,
+        contactEmail,
+        websiteUrl,
+        logoUrl,
+        message
+      });
+    } catch (error) {
+      console.error('Failed to record sponsorship details.', error);
+    }
+
+    const result: SponsorshipDetailsResult = { received: true, recorded };
+    writeJson(request, response, 200, result);
+    return;
   }
 
   if (

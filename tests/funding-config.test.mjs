@@ -44,6 +44,42 @@ test('Fundraiser MVP database migration creates required private tables', () => 
   assert.ok(migration.includes('CREATE TABLE IF NOT EXISTS fund_contributions'));
 });
 
+test('fund_contributions ON CONFLICT targets match its partial unique index', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql',
+    'utf8'
+  );
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+
+  assert.ok(
+    migration.includes(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_contributions_stripe_session_id\n  ON fund_contributions (stripe_session_id)\n  WHERE stripe_session_id IS NOT NULL'
+    ),
+    'fund_contributions.stripe_session_id must stay a partial unique index'
+  );
+
+  const onConflictClauses = [
+    ...repository.matchAll(
+      /INSERT INTO fund_contributions[\s\S]*?ON CONFLICT \(stripe_session_id\)([\s\S]{0,80}?)(?:DO NOTHING|DO UPDATE)/g
+    )
+  ];
+
+  assert.ok(
+    onConflictClauses.length >= 2,
+    'expected fund_contributions inserts in insertCheckoutSessionRecord and upsertCheckoutSessionFromWebhook'
+  );
+
+  for (const [, between] of onConflictClauses) {
+    assert.ok(
+      between.includes('WHERE stripe_session_id IS NOT NULL'),
+      'ON CONFLICT (stripe_session_id) on fund_contributions must repeat the partial index predicate, or Postgres throws 42P10 at runtime'
+    );
+  }
+});
+
 test('PostgreSQL compose service is private and profile-gated', () => {
   const compose = fs.readFileSync('docker-compose.yml', 'utf8');
 
@@ -148,4 +184,77 @@ test('Builders page is routed and prerendered in both languages', () => {
   assert.ok(serverRoutes.includes("path: 'en/batisseurs'"));
   assert.ok(sitemap.includes('https://openg7.org/batisseurs'));
   assert.ok(sitemap.includes('https://openg7.org/en/batisseurs'));
+});
+
+test('Sponsorship details migration adds optional company follow-up columns', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/003_add_sponsorship_details.sql',
+    'utf8'
+  );
+
+  for (const column of [
+    'sponsor_company_name',
+    'sponsor_contact_name',
+    'sponsor_contact_email',
+    'sponsor_website_url',
+    'sponsor_logo_url',
+    'sponsor_message',
+    'sponsor_details_submitted_at'
+  ]) {
+    assert.ok(migration.includes(column));
+  }
+});
+
+test('recordSponsorshipDetails upserts against the partial unique index', () => {
+  const source = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+
+  const match = source.match(
+    /export const recordSponsorshipDetails[\s\S]*?ON CONFLICT \(stripe_session_id\)([\s\S]{0,80}?)DO UPDATE/
+  );
+
+  assert.ok(match, 'expected recordSponsorshipDetails to upsert on stripe_session_id');
+  assert.ok(match[1].includes('WHERE stripe_session_id IS NOT NULL'));
+});
+
+test('Sponsorship details endpoint validates required fields and payment state', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(source.includes("'/sponsorship-details'"));
+  assert.ok(source.includes("'/api/sponsorship-details'"));
+  assert.ok(source.includes('isNonEmptySponsorText(parsed.companyName'));
+  assert.ok(source.includes('isNonEmptySponsorText(parsed.contactName'));
+  assert.ok(source.includes('isValidSponsorEmail(parsed.contactEmail)'));
+  assert.ok(source.includes('isValidOptionalHttpsUrl(parsed.websiteUrl)'));
+  assert.ok(source.includes('isValidOptionalHttpsUrl(parsed.logoUrl)'));
+  assert.ok(
+    /normalizeContributionType\(sessionMetadata\.contributionType\)\s*!==\s*'sponsorship_interest'/.test(
+      source
+    )
+  );
+  assert.ok(source.includes("session.payment_status !== 'paid'"));
+  assert.ok(source.includes('recordSponsorshipDetails(dbPool'));
+});
+
+test('Sponsor follow-up screen has matching i18n keys in both locales', () => {
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  for (const locale of [fr, en]) {
+    const checkout = locale.funding.home.checkout;
+    assert.ok(checkout.sponsorTitle);
+    assert.ok(checkout.sponsorCopy);
+    assert.ok(checkout.sponsorForm.companyNameLabel);
+    assert.ok(checkout.sponsorForm.contactNameLabel);
+    assert.ok(checkout.sponsorForm.contactEmailLabel);
+    assert.ok(checkout.sponsorForm.submit);
+    assert.ok(checkout.sponsorForm.successTitle);
+    assert.ok(checkout.sponsorForm.nextStepsLink);
+  }
 });

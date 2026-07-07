@@ -115,6 +115,7 @@ Apply the versioned migrations:
 ```sql
 \i apps/funding-api/migrations/001_create_fund_transparency_tables.sql
 \i apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql
+\i apps/funding-api/migrations/003_add_sponsorship_details.sql
 ```
 
 These create:
@@ -123,7 +124,7 @@ These create:
 - `fund_allocations` (publicly publishable allocations)
 - `stripe_events` (future webhook idempotency)
 - `stripe_checkout_sessions` (created Checkout Sessions)
-- `fund_contributions` (pending contribution records)
+- `fund_contributions` (pending contribution records, plus optional sponsor follow-up details)
 
 When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
 

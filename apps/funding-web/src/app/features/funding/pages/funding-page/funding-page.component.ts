@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type { ContributionType } from '@openg7/funding-core';
+import type { ContributionType, SponsorshipDetailsRequest } from '@openg7/funding-core';
 import type {
   FundTransparencyPublicResponse,
   FundingSnapshot
@@ -51,7 +51,7 @@ interface FoundationPillar {
 
       <section
         class="checkout-success-stage"
-        *ngIf="checkoutStatus() === 'success'"
+        *ngIf="checkoutStatus() === 'success' && !showSponsorFollowUp()"
         aria-labelledby="checkout-success-title"
       >
         <img
@@ -80,6 +80,124 @@ interface FoundationPillar {
               {{ 'funding.home.actions.contributeAgain' | translate }}
             </button>
           </div>
+        </article>
+      </section>
+
+      <section
+        class="checkout-success-stage checkout-sponsor-stage"
+        *ngIf="showSponsorFollowUp()"
+        aria-labelledby="checkout-sponsor-title"
+      >
+        <img
+          class="checkout-success-art"
+          src="assets/openg7-dragon-dime-coffre-fort.png"
+          [alt]="'funding.home.checkout.successAlt' | translate"
+        />
+        <div class="checkout-success-glow" aria-hidden="true"></div>
+        <button
+          type="button"
+          class="checkout-success-close"
+          [attr.aria-label]="'funding.home.checkout.closeSuccess' | translate"
+          (click)="dismissCheckoutNotice()"
+        >
+          ×
+        </button>
+        <article class="checkout-success-card sponsor-followup-card">
+          <ng-container *ngIf="sponsorFormState() !== 'submitted'; else sponsorSubmitted">
+            <span class="section-kicker">{{ 'funding.home.checkout.sponsorKicker' | translate }}</span>
+            <h2 id="checkout-sponsor-title">
+              {{ 'funding.home.checkout.sponsorTitle' | translate }}
+            </h2>
+            <p>{{ 'funding.home.checkout.sponsorCopy' | translate }}</p>
+            <form
+              class="sponsor-followup-form"
+              (submit)="$event.preventDefault(); submitSponsorDetails()"
+            >
+              <label for="sponsor-company-name">{{ 'funding.home.checkout.sponsorForm.companyNameLabel' | translate }}</label>
+              <input
+                id="sponsor-company-name"
+                type="text"
+                required
+                maxlength="200"
+                [value]="sponsorCompanyName()"
+                (input)="setSponsorCompanyName($event)"
+              />
+
+              <label for="sponsor-contact-name">{{ 'funding.home.checkout.sponsorForm.contactNameLabel' | translate }}</label>
+              <input
+                id="sponsor-contact-name"
+                type="text"
+                required
+                maxlength="200"
+                [value]="sponsorContactName()"
+                (input)="setSponsorContactName($event)"
+              />
+
+              <label for="sponsor-contact-email">{{ 'funding.home.checkout.sponsorForm.contactEmailLabel' | translate }}</label>
+              <input
+                id="sponsor-contact-email"
+                type="email"
+                required
+                maxlength="200"
+                [value]="sponsorContactEmail()"
+                (input)="setSponsorContactEmail($event)"
+              />
+
+              <label for="sponsor-website-url">{{ 'funding.home.checkout.sponsorForm.websiteLabel' | translate }}</label>
+              <input
+                id="sponsor-website-url"
+                type="url"
+                maxlength="2048"
+                placeholder="https://"
+                [value]="sponsorWebsiteUrl()"
+                (input)="setSponsorWebsiteUrl($event)"
+              />
+
+              <label for="sponsor-logo-url">{{ 'funding.home.checkout.sponsorForm.logoUrlLabel' | translate }}</label>
+              <input
+                id="sponsor-logo-url"
+                type="url"
+                maxlength="2048"
+                placeholder="https://"
+                [value]="sponsorLogoUrl()"
+                (input)="setSponsorLogoUrl($event)"
+              />
+
+              <label for="sponsor-message">{{ 'funding.home.checkout.sponsorForm.messageLabel' | translate }}</label>
+              <textarea
+                id="sponsor-message"
+                maxlength="1000"
+                rows="3"
+                [value]="sponsorMessage()"
+                (input)="setSponsorMessage($event)"
+              ></textarea>
+
+              <button
+                type="submit"
+                class="gold-cta"
+                [disabled]="!canSubmitSponsorDetails()"
+              >
+                {{
+                  sponsorFormState() === 'submitting'
+                    ? ('funding.home.checkout.sponsorForm.submitting' | translate)
+                    : ('funding.home.checkout.sponsorForm.submit' | translate)
+                }}
+              </button>
+              <p class="state state-error" *ngIf="sponsorFormState() === 'error'">
+                {{ 'funding.home.checkout.sponsorForm.error' | translate }}
+              </p>
+            </form>
+          </ng-container>
+          <ng-template #sponsorSubmitted>
+            <span class="section-kicker">{{ 'funding.home.checkout.sponsorKicker' | translate }}</span>
+            <h2 id="checkout-sponsor-title">
+              {{ 'funding.home.checkout.sponsorForm.successTitle' | translate }}
+            </h2>
+            <p>{{ 'funding.home.checkout.sponsorForm.successCopy' | translate }}</p>
+            <div class="checkout-success-actions">
+              <a [routerLink]="supportPath()">{{ 'funding.home.checkout.sponsorForm.nextStepsLink' | translate }}</a>
+            </div>
+          </ng-template>
         </article>
       </section>
 
@@ -550,6 +668,16 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     'idle'
   );
   readonly checkoutStatus = signal<'idle' | 'success' | 'cancel'>('idle');
+  readonly pendingSponsorSessionId = signal<string | null>(null);
+  readonly sponsorCompanyName = signal<string>('');
+  readonly sponsorContactName = signal<string>('');
+  readonly sponsorContactEmail = signal<string>('');
+  readonly sponsorWebsiteUrl = signal<string>('');
+  readonly sponsorLogoUrl = signal<string>('');
+  readonly sponsorMessage = signal<string>('');
+  readonly sponsorFormState = signal<'idle' | 'submitting' | 'submitted' | 'error'>(
+    'idle'
+  );
   readonly transparencyState = signal<'loading' | 'synced' | 'empty' | 'error'>(
     'loading'
   );
@@ -648,6 +776,20 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   readonly canStartCheckout = computed<boolean>(
     () => this.nonCharityAcknowledged() && this.loadingState() !== 'loading'
+  );
+
+  readonly showSponsorFollowUp = computed<boolean>(
+    () =>
+      this.checkoutStatus() === 'success' &&
+      this.pendingSponsorSessionId() !== null
+  );
+
+  readonly canSubmitSponsorDetails = computed<boolean>(
+    () =>
+      this.sponsorFormState() !== 'submitting' &&
+      this.sponsorCompanyName().trim().length > 0 &&
+      this.sponsorContactName().trim().length > 0 &&
+      this.sponsorContactEmail().trim().length > 0
   );
 
   private readonly allocationPalette = [
@@ -791,11 +933,19 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const checkout = new URLSearchParams(window.location.search).get(
-      'checkout'
-    );
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get('checkout');
     if (checkout === 'success' || checkout === 'cancel') {
       this.checkoutStatus.set(checkout);
+    }
+
+    if (checkout === 'success') {
+      const sessionId = params.get('session_id');
+      const isSponsorship =
+        params.get('contributionType') === 'sponsorship_interest';
+      if (isSponsorship && sessionId && sessionId !== '{CHECKOUT_SESSION_ID}') {
+        this.pendingSponsorSessionId.set(sessionId);
+      }
     }
 
     void this.loadPublicTransparency();
@@ -880,6 +1030,54 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     this.nonCharityAcknowledged.set(this.checkedFromEvent(event));
   }
 
+  setSponsorCompanyName(event: Event): void {
+    this.sponsorCompanyName.set(this.valueFromEvent(event));
+  }
+
+  setSponsorContactName(event: Event): void {
+    this.sponsorContactName.set(this.valueFromEvent(event));
+  }
+
+  setSponsorContactEmail(event: Event): void {
+    this.sponsorContactEmail.set(this.valueFromEvent(event));
+  }
+
+  setSponsorWebsiteUrl(event: Event): void {
+    this.sponsorWebsiteUrl.set(this.valueFromEvent(event));
+  }
+
+  setSponsorLogoUrl(event: Event): void {
+    this.sponsorLogoUrl.set(this.valueFromEvent(event));
+  }
+
+  setSponsorMessage(event: Event): void {
+    this.sponsorMessage.set(this.valueFromEvent(event));
+  }
+
+  async submitSponsorDetails(): Promise<void> {
+    const sessionId = this.pendingSponsorSessionId();
+    if (!sessionId || !this.canSubmitSponsorDetails()) {
+      return;
+    }
+
+    this.sponsorFormState.set('submitting');
+    try {
+      const payload: SponsorshipDetailsRequest = {
+        sessionId,
+        companyName: this.sponsorCompanyName().trim(),
+        contactName: this.sponsorContactName().trim(),
+        contactEmail: this.sponsorContactEmail().trim(),
+        websiteUrl: this.sponsorWebsiteUrl().trim() || undefined,
+        logoUrl: this.sponsorLogoUrl().trim() || undefined,
+        message: this.sponsorMessage().trim() || undefined
+      };
+      await this.fundingService.submitSponsorshipDetails(payload);
+      this.sponsorFormState.set('submitted');
+    } catch {
+      this.sponsorFormState.set('error');
+    }
+  }
+
   formatMoney(amount: number): string {
     return new Intl.NumberFormat(this.config.locale, {
       style: 'currency',
@@ -946,6 +1144,13 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   private checkedFromEvent(event: Event): boolean {
     return Boolean((event.target as HTMLInputElement | null)?.checked);
+  }
+
+  private valueFromEvent(event: Event): string {
+    return (
+      (event.target as HTMLInputElement | HTMLTextAreaElement | null)?.value ??
+      ''
+    );
   }
 
   private toFundingSnapshot(

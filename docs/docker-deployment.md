@@ -148,6 +148,10 @@ docker compose --profile database exec -T postgres \
 docker compose --profile database exec -T postgres \
   psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
   < apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql
+
+docker compose --profile database exec -T postgres \
+  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+  < apps/funding-api/migrations/003_add_sponsorship_details.sql
 ```
 
 4. Restart the API:

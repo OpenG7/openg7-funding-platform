@@ -333,7 +333,24 @@
         "successCopy": "Thank you for helping OpenG7 fund open, resilient, and transparent infrastructure. The public fund will sync as soon as Stripe confirmation is available.",
         "cancelKicker": "Payment interrupted",
         "cancelTitle": "The chest remains closed for this contribution.",
-        "cancelCopy": "No confirmed payment was added to the registry. You can resume your contribution whenever you are ready."
+        "cancelCopy": "No confirmed payment was added to the registry. You can resume your contribution whenever you are ready.",
+        "sponsorKicker": "Sponsorship under review",
+        "sponsorTitle": "Sponsorship received — visibility under review",
+        "sponsorCopy": "Thank you for your payment. No public visibility is granted yet: our team manually reviews every sponsorship before anything is published. Fill in these details to speed up the review.",
+        "sponsorForm": {
+          "companyNameLabel": "Company name",
+          "contactNameLabel": "Contact name",
+          "contactEmailLabel": "Contact email",
+          "websiteLabel": "Website (optional)",
+          "logoUrlLabel": "Logo link (optional)",
+          "messageLabel": "Message (optional)",
+          "submit": "Submit for review",
+          "submitting": "Sending...",
+          "error": "These details could not be submitted right now. Please try again later.",
+          "successTitle": "Thank you, your sponsorship request is under review.",
+          "successCopy": "Our team reviews every sponsorship manually before any public visibility. We will follow up by email with next steps.",
+          "nextStepsLink": "See next steps"
+        }
       },
       "actions": {
         "viewTransparency": "View transparency",

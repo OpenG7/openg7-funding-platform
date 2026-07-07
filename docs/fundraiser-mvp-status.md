@@ -51,6 +51,22 @@ Le produit reste volontairement prudent:
 - Validation serveur des types de contribution.
 - Validation prudente des URLs de retour Checkout.
 
+### Suivi commandite apres paiement
+
+- Ecran de succes conditionnel pour `sponsorship_interest`: "Commandite recue,
+  visibilite en validation" (pas de visibilite automatique).
+- Formulaire post-paiement: nom d'entreprise, contact, courriel, site web
+  (optionnel), lien logo (optionnel, pas d'upload de fichier), message
+  (optionnel).
+- Endpoint `POST /api/sponsorship-details`: revalide la session aupres de
+  Stripe (type de contribution + `payment_status=paid`) avant d'accepter les
+  details, refuse sinon.
+- Details ajoutes aux metadata du PaymentIntent (`sponsor*`) pour revue via le
+  dashboard Stripe, meme sans base de donnees.
+- Si `DATABASE_URL` est configure, les details sont aussi persistes dans
+  `fund_contributions` (upsert idempotent sur resoumission).
+- Aucun upload de logo, aucun back-office: la revue reste manuelle.
+
 ### Stripe
 
 - Metadata Stripe enrichies:
@@ -73,11 +89,13 @@ Le produit reste volontairement prudent:
 - Port `5432` non publie publiquement.
 - Migrations versionnees:
   - `001_create_fund_transparency_tables.sql`;
-  - `002_create_fundraiser_mvp_tables.sql`.
+  - `002_create_fundraiser_mvp_tables.sql`;
+  - `003_add_sponsorship_details.sql`.
 - Tables MVP:
   - `stripe_events`;
   - `stripe_checkout_sessions`;
-  - `fund_contributions`.
+  - `fund_contributions` (colonnes `sponsor_*` optionnelles pour le suivi
+    commandite).
 
 ### Webhooks Stripe
 

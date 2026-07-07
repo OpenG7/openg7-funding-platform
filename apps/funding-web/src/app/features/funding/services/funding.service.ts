@@ -3,6 +3,9 @@ import {
   CheckoutConsentPayload,
   CheckoutRequest,
   CheckoutResult,
+  ContributionType,
+  SponsorshipDetailsRequest,
+  SponsorshipDetailsResult,
   createMockCheckoutResult
 } from '@openg7/funding-core';
 import { FundingSnapshot } from '@openg7/funding-core';
@@ -48,7 +51,7 @@ export class FundingService {
       amount,
       currency: 'CAD',
       projectId: this.config?.projectId ?? 'openg7',
-      successUrl: this.buildReturnUrl('success'),
+      successUrl: this.buildReturnUrl('success', consent.contributionType),
       cancelUrl: this.buildReturnUrl('cancel'),
       contributionType: consent.contributionType,
       publicDisplayConsent: consent.publicDisplayConsent,
@@ -92,14 +95,49 @@ export class FundingService {
     }
   }
 
-  private buildReturnUrl(flow: 'success' | 'cancel'): string {
+  private buildReturnUrl(
+    flow: 'success' | 'cancel',
+    contributionType?: ContributionType
+  ): string {
     if (typeof window === 'undefined') {
       return `https://example.org/funding/${flow}`;
     }
 
     const url = new URL(window.location.href);
     url.searchParams.set('checkout', flow);
-    return url.toString();
+
+    if (flow !== 'success') {
+      return url.toString();
+    }
+
+    if (contributionType) {
+      url.searchParams.set('contributionType', contributionType);
+    }
+
+    // Stripe substitutes this literal template token before redirecting; it
+    // must stay unencoded, so it is appended after URLSearchParams encoding.
+    return `${url.toString()}&session_id={CHECKOUT_SESSION_ID}`;
+  }
+
+  async submitSponsorshipDetails(
+    payload: SponsorshipDetailsRequest
+  ): Promise<SponsorshipDetailsResult> {
+    const response = await fetch(`${this.apiBaseUrl}/sponsorship-details`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        readonly error?: string;
+      } | null;
+      throw new Error(body?.error ?? 'Sponsorship details could not be submitted.');
+    }
+
+    return (await response.json()) as SponsorshipDetailsResult;
   }
 
   private resolveApiBaseUrl(): string {

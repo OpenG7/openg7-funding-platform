@@ -37,6 +37,23 @@ export interface PaymentIntentStatusInput {
   readonly paidAtIso?: string | null;
 }
 
+export interface SponsorshipDetailsRecordInput {
+  readonly stripeSessionId: string;
+  readonly stripePaymentIntentId: string | null;
+  readonly amountCents: number;
+  readonly currency: string;
+  readonly publicDisplayConsent: boolean;
+  readonly displayAmountConsent: boolean;
+  readonly nonCharityAcknowledged: boolean;
+  readonly paidAtIso: string | null;
+  readonly companyName: string;
+  readonly contactName: string;
+  readonly contactEmail: string;
+  readonly websiteUrl: string | null;
+  readonly logoUrl: string | null;
+  readonly message: string | null;
+}
+
 export const normalizeContributionType = (
   value: string | undefined
 ): ContributionType =>
@@ -166,7 +183,8 @@ export const insertCheckoutSessionRecord = async (
           status
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
-        ON CONFLICT (stripe_session_id) DO NOTHING
+        ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
+        DO NOTHING
       `,
       [
         input.contributionType,
@@ -251,7 +269,8 @@ export const upsertCheckoutSessionFromWebhook = async (
           paid_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz)
-        ON CONFLICT (stripe_session_id) DO UPDATE
+        ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
+        DO UPDATE
         SET
           stripe_payment_intent_id = COALESCE(
             EXCLUDED.stripe_payment_intent_id,
@@ -348,4 +367,69 @@ export const updateContributionStatusByPaymentIntent = async (
   } finally {
     client.release();
   }
+};
+
+export const recordSponsorshipDetails = async (
+  pool: Pool | null,
+  input: SponsorshipDetailsRecordInput
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+      INSERT INTO fund_contributions (
+        contribution_type,
+        amount_cents,
+        currency,
+        public_display_consent,
+        display_amount_consent,
+        non_charity_acknowledged,
+        stripe_session_id,
+        stripe_payment_intent_id,
+        status,
+        paid_at,
+        sponsor_company_name,
+        sponsor_contact_name,
+        sponsor_contact_email,
+        sponsor_website_url,
+        sponsor_logo_url,
+        sponsor_message,
+        sponsor_details_submitted_at
+      )
+      VALUES (
+        'sponsorship_interest', $1, $2, $3, $4, $5, $6, $7, 'paid',
+        $8::timestamptz, $9, $10, $11, $12, $13, $14, NOW()
+      )
+      ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
+      DO UPDATE SET
+        sponsor_company_name = EXCLUDED.sponsor_company_name,
+        sponsor_contact_name = EXCLUDED.sponsor_contact_name,
+        sponsor_contact_email = EXCLUDED.sponsor_contact_email,
+        sponsor_website_url = EXCLUDED.sponsor_website_url,
+        sponsor_logo_url = EXCLUDED.sponsor_logo_url,
+        sponsor_message = EXCLUDED.sponsor_message,
+        sponsor_details_submitted_at = NOW(),
+        updated_at = NOW()
+    `,
+    [
+      input.amountCents,
+      input.currency.toLowerCase(),
+      input.publicDisplayConsent,
+      input.displayAmountConsent,
+      input.nonCharityAcknowledged,
+      input.stripeSessionId,
+      input.stripePaymentIntentId,
+      input.paidAtIso,
+      input.companyName,
+      input.contactName,
+      input.contactEmail,
+      input.websiteUrl,
+      input.logoUrl,
+      input.message
+    ]
+  );
+
+  return (result.rowCount ?? 0) > 0;
 };
