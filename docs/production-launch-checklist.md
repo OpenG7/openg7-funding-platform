@@ -1,12 +1,13 @@
 # Production Launch Checklist
 
-This checklist is for the first public OpenG7 Funding Platform launch. The launch path is intentionally simple: Angular frontend, Funding API, Stripe checkout, Stripe-direct public transparency, and no PostgreSQL.
+This checklist is for the first public OpenG7 Funding Platform launch. The default launch path is intentionally simple: Angular frontend, Funding API, Stripe checkout, Stripe-direct public transparency, and no PostgreSQL.
 
 ## Launch Decision
 
-- PostgreSQL is not used for the initial launch.
-- Leave `DATABASE_URL` unset in production.
-- Public transparency reads directly from Stripe through `STRIPE_SECRET_KEY`.
+- PostgreSQL is optional for the fundraiser MVP.
+- Leave `DATABASE_URL` unset for the simplest Stripe-direct launch.
+- If `DATABASE_URL` is unset, public transparency reads directly from Stripe through `STRIPE_SECRET_KEY`.
+- If PostgreSQL is enabled, keep it private and apply the fundraiser MVP migrations before taking real payments.
 - Checkout mock fallbacks must stay disabled in production.
 - NorthDragon and GitHub links remain external redirects; no Shopify iframe or repository mirroring is hosted by this app.
 
@@ -22,11 +23,13 @@ STRIPE_SECRET_KEY=<stripe-live-or-final-test-secret-key>
 STRIPE_WEBHOOK_SECRET=<stripe-webhook-signing-secret>
 ```
 
-Do not set this variable for the first launch:
+Do not set this variable for the simplest Stripe-direct launch:
 
 ```bash
 DATABASE_URL=
 ```
+
+For the PostgreSQL-backed fundraiser MVP, configure the private database values from `docs/docker-deployment.md` and apply both database migrations before deployment.
 
 If the frontend and API are served from different origins, the frontend host must either proxy `/api` to the Funding API or inject:
 
@@ -48,20 +51,24 @@ corepack yarn workspace @openg7/funding-web build --configuration production
 The production web build uses Angular SSG and prerenders these public French routes:
 
 - `/`
+- `/fonds-des-batisseurs`
 - `/ecosystem`
 - `/support`
 - `/music`
 - `/boutique`
+- `/batisseurs`
 - `/fonds-des-batisseurs/a-propos`
 - `/fonds-des-batisseurs/transparence`
 
 It also prerenders the English equivalents:
 
 - `/en`
+- `/en/fonds-des-batisseurs`
 - `/en/ecosystem`
 - `/en/support`
 - `/en/music`
 - `/en/boutique`
+- `/en/batisseurs`
 - `/en/fonds-des-batisseurs/a-propos`
 - `/en/fonds-des-batisseurs/transparence`
 
@@ -95,7 +102,7 @@ The hosting layer must provide:
 
 - HTTPS for the public frontend.
 - HTTPS for the API or an HTTPS frontend proxy to `/api`.
-- Angular route fallback to `index.html` for public routes such as `/support`, `/music`, and `/boutique`.
+- Angular route fallback to `index.html` for public routes such as `/fonds-des-batisseurs`, `/batisseurs`, `/support`, `/music`, and `/boutique`.
 - `/api/checkout-sessions` routed to the Funding API.
 - `/api/public/fund-transparency` routed to the Funding API.
 - `/api/stripe/webhook` routed to the Funding API.
@@ -129,12 +136,18 @@ https://<production-domain>/api/stripe/webhook
 After deployment, verify these public routes:
 
 - `/`
+- `/fonds-des-batisseurs`
 - `/ecosystem`
 - `/support`
 - `/music`
 - `/boutique`
+- `/batisseurs`
 - `/fonds-des-batisseurs/a-propos`
 - `/fonds-des-batisseurs/transparence`
+- `/en`
+- `/en/fonds-des-batisseurs`
+- `/en/batisseurs`
+- `/en/fonds-des-batisseurs/transparence`
 
 Verify these API endpoints:
 
@@ -152,12 +165,15 @@ Expected checkout behavior:
 Expected transparency behavior:
 
 - `/fonds-des-batisseurs/transparence` loads aggregate public values.
+- `/batisseurs` loads public builder profiles when consented data exists, or a safe empty state.
 - If no Stripe contributions exist yet, the page may show an empty public state.
 - No personal contributor data is exposed.
 
 ## Final Preflight
 
-- Confirm `DATABASE_URL` is absent.
+- Confirm the chosen launch mode.
+- For Stripe-direct launch, confirm `DATABASE_URL` is absent.
+- For PostgreSQL-backed launch, confirm PostgreSQL is private, reachable only by the API, and migrations are applied.
 - Confirm `FUNDING_PLATFORM_ENV=production`.
 - Confirm `FUNDING_ALLOWED_ORIGINS` contains only the intended production frontend origins.
 - Confirm `/dev/stripe-setup`, `/dev/webhooks`, and `/dev/api-keys` are not accessible from the production domain.
@@ -172,4 +188,4 @@ Expected transparency behavior:
 - Add API rate limiting and security headers at the hosting/proxy layer.
 - Add image optimization for large hero assets, especially WebP or AVIF variants.
 - Consider Shopify Storefront API integration for the Boutique editorial previews.
-- Consider PostgreSQL only if a local transparency journal becomes necessary later.
+- Add production rehearsal steps for the PostgreSQL-backed fundraiser MVP once that mode is chosen for launch.
