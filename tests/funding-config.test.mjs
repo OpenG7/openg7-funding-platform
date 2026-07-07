@@ -37,6 +37,7 @@ test('Fundraiser MVP database migration creates required private tables', () => 
   );
 
   assert.ok(migration.includes('CREATE TABLE IF NOT EXISTS stripe_events'));
+  assert.ok(migration.includes('processing_status TEXT NOT NULL'));
   assert.ok(
     migration.includes('CREATE TABLE IF NOT EXISTS stripe_checkout_sessions')
   );
@@ -51,4 +52,26 @@ test('PostgreSQL compose service is private and profile-gated', () => {
   assert.ok(compose.includes('openg7-data'));
   assert.ok(compose.includes('internal: true'));
   assert.equal(/['"]?5432:5432['"]?/.test(compose), false);
+});
+
+test('Stripe webhook service handles MVP idempotent event set', () => {
+  const source = fs.readFileSync(
+    'apps/funding-api/src/stripe-webhook.service.ts',
+    'utf8'
+  );
+
+  for (const eventType of [
+    'checkout.session.completed',
+    'checkout.session.expired',
+    'payment_intent.succeeded',
+    'payment_intent.payment_failed',
+    'charge.refunded',
+    'charge.dispute.created'
+  ]) {
+    assert.ok(source.includes(eventType));
+  }
+
+  assert.ok(source.includes('insertStripeEventRecord'));
+  assert.ok(source.includes('markStripeEventProcessed'));
+  assert.ok(source.includes('markStripeEventFailed'));
 });

@@ -135,15 +135,19 @@ Webhook URL (local):
 
 Handled events:
 
+- `checkout.session.completed`
+- `checkout.session.expired`
 - `payment_intent.succeeded`
+- `payment_intent.payment_failed`
 - `charge.refunded`
+- `charge.dispute.created`
 - `payout.paid`
 - `payout.failed`
 
 Behavior:
 
 - Webhook signature verification using `STRIPE_WEBHOOK_SECRET`
-- Idempotency through unique `stripe_event_id`
+- Idempotency through unique `stripe_event_id` and `processing_status`
 - Optional `balance_transaction` retrieval to compute fee/net fields
 - For the fast launch, webhook deliveries are validated and acknowledged without local storage
 - Public statistics come from Stripe directly while `DATABASE_URL` remains unset
@@ -167,8 +171,12 @@ stripe listen --forward-to localhost:3333/api/stripe/webhook
 4. Trigger sample events:
 
 ```bash
+stripe trigger checkout.session.completed
+stripe trigger checkout.session.expired
 stripe trigger payment_intent.succeeded
+stripe trigger payment_intent.payment_failed
 stripe trigger charge.refunded
+stripe trigger charge.dispute.created
 stripe trigger payout.paid
 stripe trigger payout.failed
 ```

@@ -766,6 +766,12 @@ export class WebhooksPageComponent implements OnInit {
       tone: 'green'
     },
     {
+      name: 'checkout.session.expired',
+      category: 'Expiration',
+      impact: "Marque une session abandonnee sans l'ajouter aux totaux.",
+      tone: 'gold'
+    },
+    {
       name: 'payment_intent.succeeded',
       category: 'Contribution',
       impact: 'Ajoute le montant brut confirme aux totaux du fonds.',
@@ -776,6 +782,12 @@ export class WebhooksPageComponent implements OnInit {
       category: 'Remboursement',
       impact: 'Deduit les montants rembourses et garde une trace agregee.',
       tone: 'gold'
+    },
+    {
+      name: 'charge.dispute.created',
+      category: 'Litige',
+      impact: 'Marque la contribution comme contestee pour suivi manuel.',
+      tone: 'red'
     },
     {
       name: 'payout.paid',
@@ -811,8 +823,16 @@ export class WebhooksPageComponent implements OnInit {
       value: 'stripe trigger checkout.session.completed'
     },
     {
+      label: 'Session expiree',
+      value: 'stripe trigger checkout.session.expired'
+    },
+    {
       label: 'Remboursement',
       value: 'stripe trigger charge.refunded'
+    },
+    {
+      label: 'Litige',
+      value: 'stripe trigger charge.dispute.created'
     },
     {
       label: 'Versement',

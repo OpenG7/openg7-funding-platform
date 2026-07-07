@@ -5,7 +5,9 @@ CREATE TABLE IF NOT EXISTS stripe_events (
   stripe_event_id TEXT NOT NULL UNIQUE,
   event_type TEXT NOT NULL,
   payload JSONB NOT NULL,
-  processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  processing_status TEXT NOT NULL DEFAULT 'processing',
+  received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  processed_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_stripe_events_event_type
@@ -13,6 +15,9 @@ CREATE INDEX IF NOT EXISTS idx_stripe_events_event_type
 
 CREATE INDEX IF NOT EXISTS idx_stripe_events_processed_at
   ON stripe_events (processed_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_stripe_events_processing_status
+  ON stripe_events (processing_status);
 
 CREATE TABLE IF NOT EXISTS stripe_checkout_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

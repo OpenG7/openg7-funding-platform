@@ -113,8 +113,12 @@ https://<production-domain>/api/stripe/webhook
 ```
 
 - Subscribe the webhook to:
+  - `checkout.session.completed`
+  - `checkout.session.expired`
   - `payment_intent.succeeded`
+  - `payment_intent.payment_failed`
   - `charge.refunded`
+  - `charge.dispute.created`
   - `payout.paid`
   - `payout.failed`
 - Copy the webhook signing secret into `STRIPE_WEBHOOK_SECRET`.
