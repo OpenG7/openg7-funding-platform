@@ -9,6 +9,7 @@ import { FundingAboutPageComponent } from './features/funding/pages/funding-abou
 import { FundingPageComponent } from './features/funding/pages/funding-page/funding-page.component.js';
 import { FundingTransparencyPageComponent } from './features/funding/pages/funding-transparency-page/funding-transparency-page.component.js';
 import { MusicPageComponent } from './features/funding/pages/music-page/music-page.component.js';
+import { SponsorshipFollowupPageComponent } from './features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.js';
 import { StripeSetupPageComponent } from './features/funding/pages/stripe-setup-page/stripe-setup-page.component.js';
 import { SupportPageComponent } from './features/funding/pages/support-page/support-page.component.js';
 import { WebhooksPageComponent } from './features/funding/pages/webhooks-page/webhooks-page.component.js';
@@ -56,6 +57,11 @@ const publicRoutes: Routes = [
   {
     path: 'fonds-des-batisseurs/transparence',
     component: FundingTransparencyPageComponent,
+    data: { language: 'fr-CA' }
+  },
+  {
+    path: 'fonds-des-batisseurs/suivi-commandite',
+    component: SponsorshipFollowupPageComponent,
     data: { language: 'fr-CA' }
   },
   {

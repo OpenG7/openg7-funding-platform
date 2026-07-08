@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 
 import {
   insertStripeEventRecord,
+  markSponsorshipFollowupEmailResult,
   markStripeEventFailed,
   markStripeEventProcessed,
   normalizeContributionType,
@@ -10,12 +11,14 @@ import {
   updateContributionStatusByPaymentIntent,
   upsertCheckoutSessionFromWebhook
 } from './fund-contributions.repository.js';
+import { sendSponsorshipFollowupEmail } from './email-notification.service.js';
 import { insertFundTransaction } from './fund-transparency.repository.js';
 
 interface ProcessWebhookDependencies {
   readonly stripe: Stripe;
   readonly webhookSecret: string;
   readonly pool: Pool | null;
+  readonly publicBaseUrl: string;
 }
 
 const allowedEvents = new Set([
@@ -91,6 +94,15 @@ const resolvePaymentIntentId = (
   return typeof value === 'string' ? value : value.id;
 };
 
+const buildSponsorshipFollowupUrl = (
+  publicBaseUrl: string,
+  token: string
+): string => {
+  const url = new URL('/fonds-des-batisseurs/suivi-commandite', publicBaseUrl);
+  url.searchParams.set('token', token);
+  return url.toString();
+};
+
 const buildCheckoutSessionWebhookInput = (
   session: Stripe.Checkout.Session,
   status: 'pending' | 'paid' | 'expired'
@@ -114,6 +126,8 @@ const buildCheckoutSessionWebhookInput = (
     nonCharityAcknowledged: parseMetadataBoolean(
       metadata.nonCharityAcknowledged
     ),
+    sponsorshipFollowupTokenHash:
+      metadata.sponsorshipFollowupTokenHash ?? null,
     status,
     paidAtIso,
     emailPrivate: session.customer_details?.email ?? null
@@ -125,7 +139,7 @@ export const processStripeWebhook = async (
   signature: string,
   dependencies: ProcessWebhookDependencies
 ): Promise<{ readonly statusCode: number; readonly payload: Record<string, unknown> }> => {
-  const { stripe, webhookSecret, pool } = dependencies;
+  const { stripe, webhookSecret, pool, publicBaseUrl } = dependencies;
 
   let event: Stripe.Event;
   try {
@@ -193,14 +207,42 @@ export const processStripeWebhook = async (
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     const status = session.payment_status === 'paid' ? 'paid' : 'pending';
+    const sessionMetadata = session.metadata ?? {};
     const updated = await upsertCheckoutSessionFromWebhook(
       pool,
       buildCheckoutSessionWebhookInput(session, status)
     );
+    const isSponsorship =
+      normalizeContributionType(sessionMetadata.contributionType) ===
+      'sponsorship_interest';
+    const followupToken = sessionMetadata.sponsorshipFollowupToken;
+    const followupEmail = session.customer_details?.email;
+    let followupEmailSent = false;
+
+    if (
+      status === 'paid' &&
+      isSponsorship &&
+      pool &&
+      followupToken &&
+      followupEmail
+    ) {
+      const sendResult = await sendSponsorshipFollowupEmail({
+        to: followupEmail,
+        followupUrl: buildSponsorshipFollowupUrl(publicBaseUrl, followupToken)
+      });
+      followupEmailSent = sendResult.sent;
+
+      await markSponsorshipFollowupEmailResult(pool, {
+        stripeSessionId: session.id,
+        sentAtIso: sendResult.sent ? new Date().toISOString() : undefined,
+        error: sendResult.sent ? null : sendResult.error
+      });
+    }
 
     return acknowledge({
         received: true,
-        updated
+        updated,
+        followupEmailSent
     });
   }
 

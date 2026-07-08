@@ -3,7 +3,7 @@ import {
   type IncomingMessage,
   type ServerResponse
 } from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import Stripe from 'stripe';
 import type {
@@ -16,6 +16,8 @@ import type {
   RedirectCheckoutResult,
   SponsorshipDetailsRequest,
   SponsorshipDetailsResult,
+  SponsorshipFollowupDetailsRequest,
+  SponsorshipFollowupResponse,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
@@ -23,9 +25,11 @@ import { dbPool, hasDatabase } from './database.js';
 import {
   allowedSponsorshipReviewStatuses,
   insertCheckoutSessionRecord,
+  getSponsorshipFollowupByTokenHash,
   listAdminSponsorships,
   normalizeContributionType,
   parseMetadataBoolean,
+  recordSponsorshipDetailsForContribution,
   recordSponsorshipDetails,
   updateSponsorshipReview
 } from './fund-contributions.repository.js';
@@ -170,6 +174,8 @@ const SPONSOR_URL_MAX_LENGTH = 2048;
 const STRIPE_METADATA_VALUE_MAX_LENGTH = 480;
 const PUBLIC_DISPLAY_NAME_MAX_LENGTH = 100;
 const ADMIN_REVIEW_NOTE_MAX_LENGTH = 1000;
+const FOLLOWUP_TOKEN_BYTES = 32;
+const followupEditablePaymentStatuses = new Set(['paid', 'refunded', 'disputed']);
 
 const isNonEmptySponsorText = (
   value: unknown,
@@ -210,6 +216,18 @@ const isValidOptionalBoundedText = (
   value === undefined ||
   value === null ||
   (typeof value === 'string' && value.trim().length <= maxLength);
+
+const createSponsorshipFollowupToken = (): string =>
+  randomBytes(FOLLOWUP_TOKEN_BYTES).toString('base64url');
+
+const hashSponsorshipFollowupToken = (token: string): string =>
+  createHash('sha256').update(token).digest('hex');
+
+const isValidFollowupToken = (value: unknown): value is string =>
+  typeof value === 'string' && /^[A-Za-z0-9_-]{32,128}$/.test(value);
+
+const appendQueryParam = (url: string, key: string, value: string): string =>
+  `${url}${url.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
 
 const isAllowedSponsorshipReviewStatus = (
   value: unknown
@@ -325,7 +343,17 @@ const resolveCheckoutReturnUrl = (
 const routeMatches = (
   url: string | undefined,
   ...candidates: readonly string[]
-): boolean => Boolean(url && candidates.includes(url));
+): boolean => {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    return candidates.includes(new URL(url, publicBaseOrigin).pathname);
+  } catch {
+    return candidates.includes(url);
+  }
+};
 
 const getDatabaseConnectionStatus = async (): Promise<boolean> => {
   if (!dbPool) {
@@ -464,6 +492,19 @@ createServer(async (request, response) => {
       );
       const requiresReview =
         parsed.contributionType === 'sponsorship_interest';
+      const sponsorshipFollowupToken = requiresReview
+        ? createSponsorshipFollowupToken()
+        : null;
+      const sponsorshipFollowupTokenHash = sponsorshipFollowupToken
+        ? hashSponsorshipFollowupToken(sponsorshipFollowupToken)
+        : null;
+      const checkoutSuccessUrl = sponsorshipFollowupToken
+        ? appendQueryParam(
+            successUrl,
+            'followup_token',
+            sponsorshipFollowupToken
+          )
+        : successUrl;
       const publicDisplayName =
         parsed.publicDisplayConsent === true &&
         typeof parsed.publicDisplayName === 'string'
@@ -482,12 +523,18 @@ createServer(async (request, response) => {
           ? {
               publicDisplayName: truncateStripeMetadataValue(publicDisplayName)
             }
+          : {}),
+        ...(sponsorshipFollowupToken && sponsorshipFollowupTokenHash
+          ? {
+              sponsorshipFollowupToken,
+              sponsorshipFollowupTokenHash
+            }
           : {})
       };
 
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
-        success_url: successUrl,
+        success_url: checkoutSuccessUrl,
         cancel_url: cancelUrl,
         line_items: [
           {
@@ -519,7 +566,8 @@ createServer(async (request, response) => {
           publicDisplayConsent: parsed.publicDisplayConsent,
           publicName: publicDisplayName || null,
           displayAmountConsent: parsed.displayAmountConsent,
-          nonCharityAcknowledged: parsed.nonCharityAcknowledged
+          nonCharityAcknowledged: parsed.nonCharityAcknowledged,
+          sponsorshipFollowupTokenHash
         });
       } catch (error) {
         console.error('Failed to record Stripe checkout session.', error);
@@ -741,6 +789,227 @@ createServer(async (request, response) => {
   }
 
   if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/sponsorship-followup',
+      '/api/sponsorship-followup'
+    )
+  ) {
+    if (!hasDatabase) {
+      writeJson(request, response, 503, {
+        error: 'Sponsorship follow-up requires DATABASE_URL.'
+      });
+      return;
+    }
+
+    const token = new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+      'token'
+    );
+    if (!isValidFollowupToken(token)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship follow-up token.'
+      });
+      return;
+    }
+
+    try {
+      const followup = await getSponsorshipFollowupByTokenHash(
+        dbPool,
+        hashSponsorshipFollowupToken(token)
+      );
+
+      if (!followup) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship follow-up was not found.'
+        });
+        return;
+      }
+
+      const result: SponsorshipFollowupResponse = {
+        found: true,
+        paymentStatus: followup.paymentStatus,
+        reviewStatus: followup.reviewStatus,
+        amount: followup.amount,
+        currency: followup.currency,
+        paidAt: followup.paidAt,
+        detailsSubmitted: followup.detailsSubmitted,
+        companyName: followup.companyName,
+        contactName: followup.contactName,
+        contactEmail: followup.contactEmail,
+        websiteUrl: followup.websiteUrl,
+        logoUrl: followup.logoUrl,
+        message: followup.message,
+        reviewedAt: followup.reviewedAt
+      };
+
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load sponsorship follow-up.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship follow-up could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/sponsorship-followup/details',
+      '/api/sponsorship-followup/details'
+    )
+  ) {
+    if (!hasDatabase) {
+      writeJson(request, response, 503, {
+        error: 'Sponsorship follow-up requires DATABASE_URL.'
+      });
+      return;
+    }
+
+    let parsed: SponsorshipFollowupDetailsRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as SponsorshipFollowupDetailsRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship follow-up request body.'
+      });
+      return;
+    }
+
+    if (!isValidFollowupToken(parsed.token)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship follow-up token.'
+      });
+      return;
+    }
+
+    if (!isNonEmptySponsorText(parsed.companyName, SPONSOR_TEXT_MAX_LENGTH)) {
+      writeJson(request, response, 400, {
+        error: 'Company name is required.'
+      });
+      return;
+    }
+
+    if (!isNonEmptySponsorText(parsed.contactName, SPONSOR_TEXT_MAX_LENGTH)) {
+      writeJson(request, response, 400, {
+        error: 'Contact name is required.'
+      });
+      return;
+    }
+
+    if (!isValidSponsorEmail(parsed.contactEmail)) {
+      writeJson(request, response, 400, {
+        error: 'A valid contact email is required.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.websiteUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Website URL must be a valid https link.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.logoUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Logo URL must be a valid https link.'
+      });
+      return;
+    }
+
+    if (
+      parsed.message !== undefined &&
+      (typeof parsed.message !== 'string' ||
+        parsed.message.length > SPONSOR_MESSAGE_MAX_LENGTH)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Message is too long.'
+      });
+      return;
+    }
+
+    try {
+      const followup = await getSponsorshipFollowupByTokenHash(
+        dbPool,
+        hashSponsorshipFollowupToken(parsed.token)
+      );
+
+      if (!followup) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship follow-up was not found.'
+        });
+        return;
+      }
+
+      if (!followupEditablePaymentStatuses.has(followup.paymentStatus)) {
+        writeJson(request, response, 409, {
+          error: 'Payment for this sponsorship is not confirmed yet.'
+        });
+        return;
+      }
+
+      const companyName = parsed.companyName.trim();
+      const contactName = parsed.contactName.trim();
+      const contactEmail = parsed.contactEmail.trim();
+      const websiteUrl = parsed.websiteUrl?.trim() || null;
+      const logoUrl = parsed.logoUrl?.trim() || null;
+      const message = parsed.message?.trim() || null;
+
+      if (stripe && followup.stripePaymentIntentId) {
+        try {
+          await stripe.paymentIntents.update(followup.stripePaymentIntentId, {
+            metadata: {
+              sponsorCompanyName: truncateStripeMetadataValue(companyName),
+              sponsorContactName: truncateStripeMetadataValue(contactName),
+              sponsorContactEmail: truncateStripeMetadataValue(contactEmail),
+              ...(websiteUrl
+                ? {
+                    sponsorWebsiteUrl:
+                      truncateStripeMetadataValue(websiteUrl)
+                  }
+                : {}),
+              ...(logoUrl
+                ? { sponsorLogoUrl: truncateStripeMetadataValue(logoUrl) }
+                : {}),
+              ...(message
+                ? { sponsorMessage: truncateStripeMetadataValue(message) }
+                : {})
+            }
+          });
+        } catch (error) {
+          console.error(
+            'Failed to update Stripe metadata with follow-up details.',
+            error
+          );
+        }
+      }
+
+      const recorded = await recordSponsorshipDetailsForContribution(dbPool, {
+        contributionId: followup.contributionId,
+        companyName,
+        contactName,
+        contactEmail,
+        websiteUrl,
+        logoUrl,
+        message
+      });
+
+      const result: SponsorshipDetailsResult = { received: true, recorded };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to record sponsorship follow-up details.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship follow-up details could not be recorded.'
+      });
+    }
+    return;
+  }
+
+  if (
     request.method === 'POST' &&
     routeMatches(request.url, '/stripe/webhook', '/api/stripe/webhook')
   ) {
@@ -773,7 +1042,8 @@ createServer(async (request, response) => {
     const result = await processStripeWebhook(rawBody, stripeSignature, {
       stripe,
       webhookSecret: stripeWebhookSecret,
-      pool: dbPool
+      pool: dbPool,
+      publicBaseUrl: publicBaseUrl ?? publicBaseOrigin
     });
 
     writeJson(request, response, result.statusCode, result.payload);

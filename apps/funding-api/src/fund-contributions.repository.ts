@@ -1,5 +1,6 @@
 import type {
   AdminSponsorshipRecord,
+  SponsorshipFollowupResponse,
   SponsorshipReviewStatus,
   ContributionType
 } from '@openg7/funding-core';
@@ -27,6 +28,7 @@ export interface CheckoutSessionRecordInput {
   readonly publicName: string | null;
   readonly displayAmountConsent: boolean;
   readonly nonCharityAcknowledged: boolean;
+  readonly sponsorshipFollowupTokenHash: string | null;
 }
 
 export interface StripeEventRecordInput {
@@ -71,6 +73,22 @@ export interface SponsorshipReviewInput {
   readonly reviewNote: string | null;
 }
 
+export interface SponsorshipFollowupRecordInput {
+  readonly contributionId: string;
+  readonly companyName: string;
+  readonly contactName: string;
+  readonly contactEmail: string;
+  readonly websiteUrl: string | null;
+  readonly logoUrl: string | null;
+  readonly message: string | null;
+}
+
+export interface SponsorshipFollowupEmailRecordInput {
+  readonly stripeSessionId: string;
+  readonly sentAtIso?: string;
+  readonly error: string | null;
+}
+
 interface AdminSponsorshipRow {
   readonly id: string;
   readonly contribution_type: 'sponsorship_interest';
@@ -93,6 +111,27 @@ interface AdminSponsorshipRow {
   readonly sponsor_reviewed_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
+}
+
+interface SponsorshipFollowupRow {
+  readonly id: string;
+  readonly amount_cents: string;
+  readonly currency: string;
+  readonly payment_status: string;
+  readonly paid_at: string | null;
+  readonly sponsor_company_name: string | null;
+  readonly sponsor_contact_name: string | null;
+  readonly sponsor_contact_email: string | null;
+  readonly sponsor_website_url: string | null;
+  readonly sponsor_logo_url: string | null;
+  readonly sponsor_message: string | null;
+  readonly sponsor_details_submitted_at: string | null;
+  readonly sponsor_review_status: SponsorshipReviewStatus;
+  readonly sponsor_reviewed_at: string | null;
+  readonly stripe_session_id: string | null;
+  readonly stripe_payment_intent_id: string | null;
+  readonly email_private: string | null;
+  readonly sponsorship_followup_email_sent_at: string | null;
 }
 
 const centsToAmount = (value: number): number =>
@@ -227,9 +266,14 @@ export const insertCheckoutSessionRecord = async (
           non_charity_acknowledged,
           stripe_session_id,
           stripe_payment_intent_id,
-          status
+          status,
+          sponsorship_followup_token_hash,
+          sponsorship_followup_token_created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+        VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10,
+          CASE WHEN $10::text IS NULL THEN NULL ELSE NOW() END
+        )
         ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
         DO NOTHING
       `,
@@ -242,7 +286,8 @@ export const insertCheckoutSessionRecord = async (
         input.displayAmountConsent,
         input.nonCharityAcknowledged,
         input.stripeSessionId,
-        input.stripePaymentIntentId
+        input.stripePaymentIntentId,
+        input.sponsorshipFollowupTokenHash
       ]
     );
 
@@ -315,9 +360,15 @@ export const upsertCheckoutSessionFromWebhook = async (
           stripe_session_id,
           stripe_payment_intent_id,
           status,
-          paid_at
+          paid_at,
+          sponsorship_followup_token_hash,
+          sponsorship_followup_token_created_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::timestamptz)
+        VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+          $12::timestamptz, $13,
+          CASE WHEN $13::text IS NULL THEN NULL ELSE NOW() END
+        )
         ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
         DO UPDATE
         SET
@@ -340,6 +391,14 @@ export const upsertCheckoutSessionFromWebhook = async (
             ELSE EXCLUDED.status
           END,
           paid_at = COALESCE(fund_contributions.paid_at, EXCLUDED.paid_at),
+          sponsorship_followup_token_hash = COALESCE(
+            fund_contributions.sponsorship_followup_token_hash,
+            EXCLUDED.sponsorship_followup_token_hash
+          ),
+          sponsorship_followup_token_created_at = COALESCE(
+            fund_contributions.sponsorship_followup_token_created_at,
+            EXCLUDED.sponsorship_followup_token_created_at
+          ),
           updated_at = NOW()
       `,
       [
@@ -354,7 +413,8 @@ export const upsertCheckoutSessionFromWebhook = async (
         input.stripeSessionId,
         input.stripePaymentIntentId,
         input.status,
-        input.paidAtIso
+        input.paidAtIso,
+        input.sponsorshipFollowupTokenHash
       ]
     );
 
@@ -447,11 +507,13 @@ export const recordSponsorshipDetails = async (
         sponsor_website_url,
         sponsor_logo_url,
         sponsor_message,
-        sponsor_details_submitted_at
+        sponsor_details_submitted_at,
+        sponsor_review_status
       )
       VALUES (
         'sponsorship_interest', $1, $2, $3, $4, $5, $6, $7, 'paid',
-        $8::timestamptz, $9, $10, $11, $12, $13, $14, NOW()
+        $8::timestamptz, $9, $10, $11, $12, $13, $14, NOW(),
+        'pending_review'
       )
       ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
       DO UPDATE SET
@@ -462,6 +524,12 @@ export const recordSponsorshipDetails = async (
         sponsor_logo_url = EXCLUDED.sponsor_logo_url,
         sponsor_message = EXCLUDED.sponsor_message,
         sponsor_details_submitted_at = NOW(),
+        status = 'paid',
+        paid_at = COALESCE(fund_contributions.paid_at, EXCLUDED.paid_at),
+        sponsor_review_status = COALESCE(
+          fund_contributions.sponsor_review_status,
+          'pending_review'
+        ),
         updated_at = NOW()
     `,
     [
@@ -574,6 +642,148 @@ export const updateSponsorshipReview = async (
         AND status IN ('paid', 'refunded', 'disputed')
     `,
     [input.contributionId, input.reviewStatus, input.reviewNote]
+  );
+
+  return (result.rowCount ?? 0) > 0;
+};
+
+export interface SponsorshipFollowupLookup extends SponsorshipFollowupResponse {
+  readonly contributionId: string;
+  readonly stripeSessionId: string | null;
+  readonly stripePaymentIntentId: string | null;
+  readonly emailPrivate: string | null;
+  readonly emailSentAt: string | null;
+}
+
+export const getSponsorshipFollowupByTokenHash = async (
+  pool: Pool | null,
+  tokenHash: string
+): Promise<SponsorshipFollowupLookup | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const query = await pool.query<SponsorshipFollowupRow>(
+    `
+      SELECT
+        id::text AS id,
+        amount_cents::text AS amount_cents,
+        currency,
+        status AS payment_status,
+        paid_at::text AS paid_at,
+        sponsor_company_name,
+        sponsor_contact_name,
+        sponsor_contact_email,
+        sponsor_website_url,
+        sponsor_logo_url,
+        sponsor_message,
+        sponsor_details_submitted_at::text AS sponsor_details_submitted_at,
+        COALESCE(sponsor_review_status, 'pending_review') AS sponsor_review_status,
+        sponsor_reviewed_at::text AS sponsor_reviewed_at,
+        stripe_session_id,
+        stripe_payment_intent_id,
+        email_private,
+        sponsorship_followup_email_sent_at::text AS sponsorship_followup_email_sent_at
+      FROM fund_contributions
+      WHERE contribution_type = 'sponsorship_interest'
+        AND sponsorship_followup_token_hash = $1
+      LIMIT 1
+    `,
+    [tokenHash]
+  );
+
+  const row = query.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    found: true,
+    contributionId: row.id,
+    stripeSessionId: row.stripe_session_id,
+    stripePaymentIntentId: row.stripe_payment_intent_id,
+    emailPrivate: row.email_private,
+    emailSentAt: row.sponsorship_followup_email_sent_at,
+    paymentStatus: row.payment_status,
+    reviewStatus: row.sponsor_review_status,
+    amount: centsToAmount(parseDbInt(row.amount_cents)),
+    currency: row.currency.toUpperCase(),
+    paidAt: row.paid_at,
+    detailsSubmitted: Boolean(row.sponsor_details_submitted_at),
+    companyName: row.sponsor_company_name,
+    contactName: row.sponsor_contact_name,
+    contactEmail: row.sponsor_contact_email,
+    websiteUrl: row.sponsor_website_url,
+    logoUrl: row.sponsor_logo_url,
+    message: row.sponsor_message,
+    reviewedAt: row.sponsor_reviewed_at
+  };
+};
+
+export const recordSponsorshipDetailsForContribution = async (
+  pool: Pool | null,
+  input: SponsorshipFollowupRecordInput
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE fund_contributions
+      SET
+        sponsor_company_name = $2,
+        sponsor_contact_name = $3,
+        sponsor_contact_email = $4,
+        sponsor_website_url = $5,
+        sponsor_logo_url = $6,
+        sponsor_message = $7,
+        sponsor_details_submitted_at = NOW(),
+        sponsor_review_status = CASE
+          WHEN sponsor_review_status = 'approved' THEN sponsor_review_status
+          ELSE 'pending_review'
+        END,
+        updated_at = NOW()
+      WHERE id = $1::uuid
+        AND contribution_type = 'sponsorship_interest'
+        AND status IN ('paid', 'refunded', 'disputed')
+    `,
+    [
+      input.contributionId,
+      input.companyName,
+      input.contactName,
+      input.contactEmail,
+      input.websiteUrl,
+      input.logoUrl,
+      input.message
+    ]
+  );
+
+  return (result.rowCount ?? 0) > 0;
+};
+
+export const markSponsorshipFollowupEmailResult = async (
+  pool: Pool | null,
+  input: SponsorshipFollowupEmailRecordInput
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE fund_contributions
+      SET
+        sponsorship_followup_email_sent_at = CASE
+          WHEN $2::text IS NULL THEN sponsorship_followup_email_sent_at
+          ELSE $2::timestamptz
+        END,
+        sponsorship_followup_email_error = $3,
+        updated_at = NOW()
+      WHERE stripe_session_id = $1
+        AND contribution_type = 'sponsorship_interest'
+    `,
+    [input.stripeSessionId, input.sentAtIso ?? null, input.error]
   );
 
   return (result.rowCount ?? 0) > 0;

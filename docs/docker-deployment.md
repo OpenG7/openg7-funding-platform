@@ -152,6 +152,14 @@ docker compose --profile database exec -T postgres \
 docker compose --profile database exec -T postgres \
   psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
   < apps/funding-api/migrations/003_add_sponsorship_details.sql
+
+docker compose --profile database exec -T postgres \
+  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+  < apps/funding-api/migrations/004_add_sponsorship_review.sql
+
+docker compose --profile database exec -T postgres \
+  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+  < apps/funding-api/migrations/005_add_sponsorship_followup_token.sql
 ```
 
 4. Restart the API:

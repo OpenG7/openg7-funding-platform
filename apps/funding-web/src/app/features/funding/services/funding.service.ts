@@ -4,6 +4,8 @@ import {
   CheckoutRequest,
   CheckoutResult,
   ContributionType,
+  SponsorshipFollowupDetailsRequest,
+  SponsorshipFollowupResponse,
   SponsorshipDetailsRequest,
   SponsorshipDetailsResult,
   createMockCheckoutResult
@@ -136,6 +138,53 @@ export class FundingService {
         readonly error?: string;
       } | null;
       throw new Error(body?.error ?? 'Sponsorship details could not be submitted.');
+    }
+
+    return (await response.json()) as SponsorshipDetailsResult;
+  }
+
+  async getSponsorshipFollowup(
+    token: string
+  ): Promise<SponsorshipFollowupResponse> {
+    const params = new URLSearchParams({ token });
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup?${params.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Sponsorship follow-up could not be loaded.');
+    }
+
+    return (await response.json()) as SponsorshipFollowupResponse;
+  }
+
+  async submitSponsorshipFollowupDetails(
+    payload: SponsorshipFollowupDetailsRequest
+  ): Promise<SponsorshipDetailsResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup/details`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        readonly error?: string;
+      } | null;
+      throw new Error(
+        body?.error ?? 'Sponsorship follow-up details could not be submitted.'
+      );
     }
 
     return (await response.json()) as SponsorshipDetailsResult;

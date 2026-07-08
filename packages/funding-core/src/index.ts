@@ -114,6 +114,33 @@ export interface SponsorshipDetailsResult {
   readonly recorded: boolean;
 }
 
+export interface SponsorshipFollowupResponse {
+  readonly found: true;
+  readonly paymentStatus: string;
+  readonly reviewStatus: SponsorshipReviewStatus;
+  readonly amount: number;
+  readonly currency: string;
+  readonly paidAt: string | null;
+  readonly detailsSubmitted: boolean;
+  readonly companyName: string | null;
+  readonly contactName: string | null;
+  readonly contactEmail: string | null;
+  readonly websiteUrl: string | null;
+  readonly logoUrl: string | null;
+  readonly message: string | null;
+  readonly reviewedAt: string | null;
+}
+
+export interface SponsorshipFollowupDetailsRequest {
+  readonly token: string;
+  readonly companyName: string;
+  readonly contactName: string;
+  readonly contactEmail: string;
+  readonly websiteUrl?: string;
+  readonly logoUrl?: string;
+  readonly message?: string;
+}
+
 export type SponsorshipReviewStatus =
   | 'pending_review'
   | 'approved'

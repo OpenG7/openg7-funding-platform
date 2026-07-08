@@ -11,7 +11,7 @@ deploiement progressif.
 Le coeur MVP est en place:
 
 ```text
-paiement clair -> consentements minimaux -> metadata Stripe enrichies -> webhook fiable -> DB optionnelle -> transparence publique filtree -> page batisseurs simple
+paiement clair -> consentements minimaux -> metadata Stripe enrichies -> webhook fiable -> DB optionnelle -> transparence publique filtree -> page batisseurs simple -> suivi commandite
 ```
 
 Le produit reste volontairement prudent:
@@ -22,6 +22,7 @@ Le produit reste volontairement prudent:
 - le fallback Stripe-direct reste disponible sans `DATABASE_URL`;
 - aucune donnee privee n'est exposee dans les endpoints publics;
 - aucune visibilite commanditee n'est publiee automatiquement;
+- les liens de suivi commandite exigent PostgreSQL et un token non devinable;
 - aucune promesse de recu officiel de don de bienfaisance n'est faite.
 
 ## Livre dans le MVP
@@ -65,7 +66,25 @@ Le produit reste volontairement prudent:
   dashboard Stripe, meme sans base de donnees.
 - Si `DATABASE_URL` est configure, les details sont aussi persistes dans
   `fund_contributions` (upsert idempotent sur resoumission).
-- Aucun upload de logo, aucun back-office: la revue reste manuelle.
+- Page de reprise `/fonds-des-batisseurs/suivi-commandite?token=...` pour
+  completer le formulaire si le navigateur est ferme apres paiement.
+- Endpoints `GET /api/sponsorship-followup?token=...` et
+  `POST /api/sponsorship-followup/details` pour lire le statut et soumettre
+  les details par token.
+- Courriel de reprise optionnel via Resend lorsque `RESEND_API_KEY` et
+  `FUNDING_EMAIL_FROM` sont configures.
+- Aucun upload de logo, aucune publication automatique: la revue reste
+  manuelle.
+
+### Revue admin commandite
+
+- Route cachee `/admin/fundraiser/sponsors`.
+- Endpoint `GET /api/admin/sponsorships` pour lister les commandites payees.
+- Endpoint `POST /api/admin/sponsorships/review` pour remettre en attente,
+  accepter ou refuser une commandite.
+- `FUNDING_ADMIN_TOKEN` requis en production.
+- Les commandites ne peuvent apparaitre dans `/batisseurs` que si elles sont
+  approuvees.
 
 ### Stripe
 
@@ -91,11 +110,13 @@ Le produit reste volontairement prudent:
   - `001_create_fund_transparency_tables.sql`;
   - `002_create_fundraiser_mvp_tables.sql`;
   - `003_add_sponsorship_details.sql`.
+  - `004_add_sponsorship_review.sql`.
+  - `005_add_sponsorship_followup_token.sql`.
 - Tables MVP:
   - `stripe_events`;
   - `stripe_checkout_sessions`;
-  - `fund_contributions` (colonnes `sponsor_*` optionnelles pour le suivi
-    commandite).
+  - `fund_contributions` (colonnes `sponsor_*`, revue privee et hash de token
+    de suivi commandite).
 
 ### Webhooks Stripe
 
@@ -164,6 +185,9 @@ Resultat attendu:
 - `STRIPE_SECRET_KEY` configure cote API seulement.
 - `STRIPE_WEBHOOK_SECRET` configure avec le endpoint Stripe final.
 - `FUNDING_ALLOWED_AMOUNTS` aligne avec l'UI.
+- `FUNDING_ADMIN_TOKEN` configure en production si la revue admin est active.
+- `RESEND_API_KEY` et `FUNDING_EMAIL_FROM` configures si les liens de reprise
+  doivent etre envoyes automatiquement.
 - `DATABASE_URL` absent pour le mode Stripe-direct, ou configure seulement si PostgreSQL prive est deploye.
 - Migrations appliquees si PostgreSQL est active.
 - Webhook Stripe abonne aux evenements MVP.
@@ -171,6 +195,7 @@ Resultat attendu:
   - `/`;
   - `/fonds-des-batisseurs`;
   - `/fonds-des-batisseurs/transparence`;
+  - `/fonds-des-batisseurs/suivi-commandite?token=...`;
   - `/batisseurs`;
   - `/en`;
   - `/en/fonds-des-batisseurs`;
@@ -178,6 +203,9 @@ Resultat attendu:
   - `/en/batisseurs`.
 - Endpoint public teste:
   - `GET /api/public/fund-transparency`.
+  - `GET /api/sponsorship-followup?token=...`.
+- Endpoint admin teste avec jeton:
+  - `GET /api/admin/sponsorships`.
 - Checkout teste avec une contribution reelle de faible montant ou en mode test Stripe.
 - Rejeu du meme evenement webhook teste pour confirmer l'idempotence.
 
@@ -185,8 +213,8 @@ Resultat attendu:
 
 Les elements suivants restent volontairement hors perimetre:
 
-- back-office admin production;
-- authentification admin;
+- back-office admin avance;
+- authentification admin par fournisseur externe;
 - fiches detaillees `/batisseurs/[slug]`;
 - upload et moderation de logos;
 - publication automatique de commanditaires;
@@ -205,6 +233,8 @@ Les elements suivants restent volontairement hors perimetre:
 - Les depenses publiques et allocations restent limitees au modele existant.
 - La page `/batisseurs` depend des noms publics consentis; elle peut etre vide au lancement.
 - En mode Stripe-direct, la transparence publique reste agregee et ne peut pas afficher de profils publics consentis.
+- Sans Resend configure, aucun courriel de reprise n'est envoye; le suivi reste
+  accessible via l'URL de retour Stripe ou l'admin.
 
 ## Prochaine etape recommandee
 

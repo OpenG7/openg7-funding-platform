@@ -76,6 +76,7 @@ Set these variables for API and webhook processing:
 - `FUNDING_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the API in production.
 
 - `FUNDING_ADMIN_TOKEN` - required in production for the sponsorship review admin API.
+- `FUNDING_EMAIL_FROM`, `FUNDING_EMAIL_REPLY_TO`, `RESEND_API_KEY` - optional Resend email settings used to send sponsorship follow-up links after payment.
 
 For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
 
@@ -119,6 +120,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql
 \i apps/funding-api/migrations/003_add_sponsorship_details.sql
 \i apps/funding-api/migrations/004_add_sponsorship_review.sql
+\i apps/funding-api/migrations/005_add_sponsorship_followup_token.sql
 ```
 
 These create:
@@ -127,7 +129,7 @@ These create:
 - `fund_allocations` (publicly publishable allocations)
 - `stripe_events` (future webhook idempotency)
 - `stripe_checkout_sessions` (created Checkout Sessions)
-- `fund_contributions` (pending contribution records, sponsor follow-up details, and private review status)
+- `fund_contributions` (pending contribution records, sponsor follow-up details, private review status, and hashed follow-up tokens)
 
 When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
 
@@ -148,6 +150,27 @@ POST /api/admin/sponsorships/review
 
 In production, these endpoints require `Authorization: Bearer <FUNDING_ADMIN_TOKEN>`.
 In local development, they can be used without a token when `FUNDING_ADMIN_TOKEN` is unset.
+
+### Sponsorship follow-up links
+
+Paid sponsorships receive a non-guessable follow-up token when Checkout is
+created. The public recovery/status page is:
+
+```text
+/fonds-des-batisseurs/suivi-commandite?token=...
+```
+
+It can reload the sponsorship status and resubmit company details through:
+
+```text
+GET /api/sponsorship-followup?token=...
+POST /api/sponsorship-followup/details
+```
+
+When PostgreSQL, `RESEND_API_KEY`, and `FUNDING_EMAIL_FROM` are configured, the
+`checkout.session.completed` webhook sends this follow-up link to the Stripe
+customer email. Without email configuration, the immediate Stripe return still
+shows the form, and admins can review the sponsorship from the admin screen.
 
 ### Stripe webhook endpoint
 

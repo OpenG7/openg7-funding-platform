@@ -369,3 +369,90 @@ test('Sponsor follow-up screen has matching i18n keys in both locales', () => {
     assert.ok(checkout.sponsorForm.nextStepsLink);
   }
 });
+
+test('Sponsorship review and follow-up migrations add private workflow columns', () => {
+  const reviewMigration = fs.readFileSync(
+    'apps/funding-api/migrations/004_add_sponsorship_review.sql',
+    'utf8'
+  );
+  const followupMigration = fs.readFileSync(
+    'apps/funding-api/migrations/005_add_sponsorship_followup_token.sql',
+    'utf8'
+  );
+
+  for (const column of [
+    'sponsor_review_status',
+    'sponsor_review_note',
+    'sponsor_reviewed_at'
+  ]) {
+    assert.ok(reviewMigration.includes(column));
+  }
+
+  assert.ok(followupMigration.includes('sponsorship_followup_token_hash'));
+  assert.ok(
+    followupMigration.includes(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_contributions_followup_token_hash'
+    )
+  );
+  assert.ok(followupMigration.includes('WHERE sponsorship_followup_token_hash IS NOT NULL'));
+});
+
+test('Checkout creates sponsorship follow-up token metadata and DB hash', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(source.includes('createSponsorshipFollowupToken'));
+  assert.ok(source.includes('hashSponsorshipFollowupToken'));
+  assert.ok(source.includes("'followup_token'"));
+  assert.ok(source.includes('sponsorshipFollowupToken,'));
+  assert.ok(source.includes('sponsorshipFollowupTokenHash'));
+});
+
+test('Sponsorship follow-up endpoints are token based and do not require Stripe session ids', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(source.includes("'/sponsorship-followup'"));
+  assert.ok(source.includes("'/api/sponsorship-followup'"));
+  assert.ok(source.includes("'/sponsorship-followup/details'"));
+  assert.ok(source.includes("'/api/sponsorship-followup/details'"));
+  assert.ok(source.includes('isValidFollowupToken'));
+  assert.ok(source.includes('getSponsorshipFollowupByTokenHash'));
+  assert.ok(source.includes('recordSponsorshipDetailsForContribution'));
+});
+
+test('Sponsorship follow-up email is sent from checkout completion only when recoverable', () => {
+  const webhook = fs.readFileSync(
+    'apps/funding-api/src/stripe-webhook.service.ts',
+    'utf8'
+  );
+  const email = fs.readFileSync(
+    'apps/funding-api/src/email-notification.service.ts',
+    'utf8'
+  );
+
+  assert.ok(webhook.includes('sendSponsorshipFollowupEmail'));
+  assert.ok(webhook.includes('buildSponsorshipFollowupUrl'));
+  assert.ok(webhook.includes('followupToken'));
+  assert.ok(webhook.includes('followupEmail'));
+  assert.ok(webhook.includes('markSponsorshipFollowupEmailResult'));
+  assert.ok(email.includes('RESEND_API_KEY'));
+  assert.ok(email.includes('FUNDING_EMAIL_FROM'));
+});
+
+test('Sponsorship follow-up page is routed but not added to the sitemap', () => {
+  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const sitemap = fs.readFileSync('apps/funding-web/src/sitemap.xml', 'utf8');
+
+  assert.ok(routes.includes("path: 'fonds-des-batisseurs/suivi-commandite'"));
+  assert.equal(sitemap.includes('suivi-commandite'), false);
+});
+
+test('Public builders hide sponsorships until admin approval is recorded', () => {
+  const source = fs.readFileSync(
+    'apps/funding-api/src/fund-transparency.repository.ts',
+    'utf8'
+  );
+
+  assert.ok(source.includes('has_sponsor_review_status'));
+  assert.ok(source.includes("sponsor_review_status = 'approved'"));
+  assert.ok(source.includes("contribution_type <> 'sponsorship_interest'"));
+});
