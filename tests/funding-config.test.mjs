@@ -5,6 +5,14 @@ import test from 'node:test';
 import { OPENG7_FUNDING_CONFIG } from '../dist/apps/funding-web/src/app/features/funding/config/openg7-funding.config.js';
 import { createMockCheckoutResult } from '../dist/packages/funding-core/src/index.js';
 
+const extractBetween = (source, start, end, label) => {
+  const startIndex = source.indexOf(start);
+  assert.notEqual(startIndex, -1, `${label} start marker was not found`);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+  assert.notEqual(endIndex, -1, `${label} end marker was not found`);
+  return source.slice(startIndex, endIndex);
+};
+
 test('OpenG7 config uses required default values', () => {
   assert.equal(OPENG7_FUNDING_CONFIG.projectName, 'OpenG7');
   assert.equal(OPENG7_FUNDING_CONFIG.campaignTitle, 'Le Fonds des Bâtisseurs');
@@ -397,13 +405,19 @@ test('Sponsorship review and follow-up migrations add private workflow columns',
   assert.ok(followupMigration.includes('WHERE sponsorship_followup_token_hash IS NOT NULL'));
 });
 
-test('Checkout creates sponsorship follow-up token metadata and DB hash', () => {
+test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe metadata', () => {
   const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const checkoutMetadataBlock = extractBetween(
+    source,
+    'const checkoutMetadata',
+    'const session = await stripe.checkout.sessions.create',
+    'checkout metadata'
+  );
 
   assert.ok(source.includes('createSponsorshipFollowupToken'));
   assert.ok(source.includes('hashSponsorshipFollowupToken'));
   assert.ok(source.includes("'followup_token'"));
-  assert.ok(source.includes('sponsorshipFollowupToken,'));
+  assert.equal(checkoutMetadataBlock.includes('sponsorshipFollowupToken,'), false);
   assert.ok(source.includes('sponsorshipFollowupTokenHash'));
 });
 
@@ -431,11 +445,54 @@ test('Sponsorship follow-up email is sent from checkout completion only when rec
 
   assert.ok(webhook.includes('sendSponsorshipFollowupEmail'));
   assert.ok(webhook.includes('buildSponsorshipFollowupUrl'));
+  assert.ok(webhook.includes('extractSponsorshipFollowupTokenFromSession'));
   assert.ok(webhook.includes('followupToken'));
   assert.ok(webhook.includes('followupEmail'));
   assert.ok(webhook.includes('markSponsorshipFollowupEmailResult'));
   assert.ok(email.includes('RESEND_API_KEY'));
   assert.ok(email.includes('FUNDING_EMAIL_FROM'));
+});
+
+test('Sponsorship follow-up tokens expire and details edits return to review', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const followupPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
+    'utf8'
+  );
+  const recordDetailsBody = extractBetween(
+    repository,
+    'export const recordSponsorshipDetailsForContribution',
+    'export const markSponsorshipFollowupEmailResult',
+    'sponsorship follow-up recording'
+  );
+
+  assert.ok(api.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS'));
+  assert.ok(api.includes('getSponsorshipFollowupTokenCutoffIso'));
+  assert.ok(repository.includes('sponsorship_followup_token_created_at >= $2::timestamptz'));
+  assert.ok(recordDetailsBody.includes("sponsor_review_status = 'pending_review'"));
+  assert.ok(recordDetailsBody.includes('sponsor_reviewed_at = NULL'));
+  assert.ok(followupPage.includes('history.replaceState'));
+  assert.ok(followupPage.includes("url.searchParams.delete('token')"));
+});
+
+test('Sensitive sponsorship API routes have in-process rate limiting', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const envExample = fs.readFileSync('.env.example', 'utf8');
+
+  assert.ok(api.includes('createRateLimiter'));
+  assert.ok(api.includes('getRequestRateLimiter'));
+  assert.ok(api.includes('enforceRateLimit'));
+  assert.ok(api.includes('Retry-After'));
+  assert.ok(api.includes('FUNDING_RATE_LIMIT_WINDOW_MS'));
+  assert.ok(api.includes('FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX'));
+  assert.ok(api.includes('FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX'));
+  assert.ok(api.includes('FUNDING_ADMIN_RATE_LIMIT_MAX'));
+  assert.ok(envExample.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS=30'));
+  assert.ok(envExample.includes('FUNDING_ADMIN_RATE_LIMIT_MAX=120'));
 });
 
 test('Sponsorship follow-up page is routed but not added to the sitemap', () => {
@@ -538,5 +595,71 @@ test('Sponsors page is routed, prerendered, translated, and indexed', () => {
     assert.ok(locale.funding.seo.sponsors.title);
     assert.ok(locale.funding.sponsorsPage.hero.title);
     assert.ok(locale.funding.sponsorsPage.feedStatus.published);
+  }
+});
+
+test('Usage and refund policy page is routed, linked, documented, and indexed', () => {
+  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const serverRoutes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.server.ts',
+    'utf8'
+  );
+  const i18nService = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-i18n.service.ts',
+    'utf8'
+  );
+  const fundingPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
+    'utf8'
+  );
+  const policyPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/usage-refund-policy-page/usage-refund-policy-page.component.ts',
+    'utf8'
+  );
+  const sitemap = fs.readFileSync('apps/funding-web/src/sitemap.xml', 'utf8');
+  const docs = [
+    fs.readFileSync('README.md', 'utf8'),
+    fs.readFileSync('docs/docker-deployment.md', 'utf8'),
+    fs.readFileSync('docs/production-launch-checklist.md', 'utf8')
+  ].join('\n');
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  assert.ok(routes.includes('UsageRefundPolicyPageComponent'));
+  assert.ok(routes.includes("path: 'politique-utilisation-remboursement'"));
+  assert.ok(serverRoutes.includes("path: 'politique-utilisation-remboursement'"));
+  assert.ok(
+    serverRoutes.includes("path: 'en/politique-utilisation-remboursement'")
+  );
+  assert.ok(i18nService.includes("| '/politique-utilisation-remboursement'"));
+  assert.ok(i18nService.includes("'/politique-utilisation-remboursement'"));
+  assert.ok(
+    sitemap.includes('https://openg7.org/politique-utilisation-remboursement')
+  );
+  assert.ok(
+    sitemap.includes('https://openg7.org/en/politique-utilisation-remboursement')
+  );
+  assert.ok(fundingPage.includes('policyPath'));
+  assert.ok(fundingPage.includes('funding.home.contribution.policyLink'));
+  assert.ok(policyPage.includes('funding.seo.policy.title'));
+  assert.ok(policyPage.includes('funding.policyPage.sections.refunds'));
+  assert.ok(policyPage.includes('funding.policyPage.sections.sponsorship'));
+  assert.ok(docs.includes('/politique-utilisation-remboursement'));
+  assert.ok(docs.includes('/en/politique-utilisation-remboursement'));
+
+  for (const locale of [fr, en]) {
+    assert.ok(locale.funding.seo.policy.title);
+    assert.ok(locale.funding.home.contribution.policyLink);
+    assert.ok(locale.funding.policyPage.hero.title);
+    assert.ok(locale.funding.policyPage.sections.nature.items.noReceipt);
+    assert.ok(locale.funding.policyPage.sections.refunds.items.request);
+    assert.ok(locale.funding.policyPage.sections.disputes.items.stripe);
+    assert.ok(locale.funding.policyPage.sections.sponsorship.items.followup);
+    assert.ok(locale.funding.policyPage.sections.visibility.items.feed);
+    assert.ok(locale.funding.policyPage.sections.privacy.items.privateData);
   }
 });

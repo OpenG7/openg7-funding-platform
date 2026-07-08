@@ -32,6 +32,8 @@ const allowedEvents = new Set([
   'payout.failed'
 ]);
 
+const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
+
 const toIsoFromUnix = (seconds: number): string =>
   new Date(seconds * 1000).toISOString();
 
@@ -101,6 +103,37 @@ const buildSponsorshipFollowupUrl = (
   const url = new URL('/fonds-des-batisseurs/suivi-commandite', publicBaseUrl);
   url.searchParams.set('token', token);
   return url.toString();
+};
+
+const extractSponsorshipFollowupTokenFromUrl = (
+  value: string | null | undefined
+): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const token = new URL(value).searchParams.get('followup_token');
+    return token && sponsorshipFollowupTokenPattern.test(token) ? token : null;
+  } catch {
+    return null;
+  }
+};
+
+const extractSponsorshipFollowupTokenFromSession = (
+  session: Stripe.Checkout.Session
+): string | null => {
+  const tokenFromSuccessUrl = extractSponsorshipFollowupTokenFromUrl(
+    session.success_url
+  );
+  if (tokenFromSuccessUrl) {
+    return tokenFromSuccessUrl;
+  }
+
+  const legacyToken = session.metadata?.sponsorshipFollowupToken;
+  return legacyToken && sponsorshipFollowupTokenPattern.test(legacyToken)
+    ? legacyToken
+    : null;
 };
 
 const buildCheckoutSessionWebhookInput = (
@@ -215,7 +248,7 @@ export const processStripeWebhook = async (
     const isSponsorship =
       normalizeContributionType(sessionMetadata.contributionType) ===
       'sponsorship_interest';
-    const followupToken = sessionMetadata.sponsorshipFollowupToken;
+    const followupToken = extractSponsorshipFollowupTokenFromSession(session);
     const followupEmail = session.customer_details?.email;
     let followupEmailSent = false;
 

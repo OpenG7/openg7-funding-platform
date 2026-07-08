@@ -1212,6 +1212,12 @@ a:focus-visible {
   text-align: center;
 }
 
+.payment-note a {
+  color: #f4c957;
+  font-weight: 900;
+  margin-left: 0.25rem;
+}
+
 .state-error {
   color: #ffb5a8;
 }

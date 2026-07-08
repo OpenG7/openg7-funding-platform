@@ -263,8 +263,10 @@ Applied:
 - Traefik rate limits
 - Nginx `client_max_body_size 256k`
 - API body limit
+- API in-process rate limits for checkout, sponsorship follow-up, and admin sponsorship routes
 - API checkout amount allow-list
 - API checkout return URL validation
+- API sponsorship follow-up tokens are hashed at rest, expire by configuration, and are removed from the browser URL after page load
 - Stripe webhook signature verification
 - Docker `no-new-privileges`
 - Nginx unprivileged container
@@ -305,6 +307,13 @@ Run:
 
 ```bash
 bash scripts/check.sh
+```
+
+Also verify the public usage and refund policy routes:
+
+```text
+https://openg7.org/politique-utilisation-remboursement
+https://openg7.org/en/politique-utilisation-remboursement
 ```
 
 It verifies:

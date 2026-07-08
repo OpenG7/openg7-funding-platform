@@ -36,6 +36,10 @@
       "sponsors": {
         "title": "Commanditaires OpenG7 | Fonds des batisseurs",
         "description": "Decouvrez les commanditaires approuves du Fonds des batisseurs et les placements prepares pour les feeds OpenG7 et OpenG20."
+      },
+      "policy": {
+        "title": "Politique d'utilisation et de remboursement | OpenG7",
+        "description": "Consultez la politique publique du Fonds des batisseurs pour les contributions, les remboursements, les litiges Stripe et les commandites d'entreprise."
       }
     },
     "buildersPage": {
@@ -103,6 +107,100 @@
       "state": {
         "loading": "Chargement des commanditaires...",
         "error": "Impossible de charger les commanditaires."
+      }
+    },
+    "policyPage": {
+      "hero": {
+        "imageAlt": "Carte lumineuse du Canada et coffre du Fonds des batisseurs",
+        "kicker": "Conditions publiques",
+        "title": "Politique d'utilisation et de remboursement",
+        "copy": "Cette page explique comment les contributions au Fonds des batisseurs sont traitees, comment les remboursements sont demandes et comment les commandites d'entreprise sont validees avant toute visibilite.",
+        "updated": "Derniere mise a jour : 8 juillet 2026"
+      },
+      "actions": {
+        "contribute": "Soutenir le Fonds",
+        "support": "Contacter le support",
+        "transparency": "Voir la transparence"
+      },
+      "summary": {
+        "ariaLabel": "Resume de la politique d'utilisation et de remboursement",
+        "title": "A retenir",
+        "copy": "OpenG7 est un projet independant en developpement. Les contributions ne sont pas des dons de bienfaisance et aucune visibilite de commandite n'est automatique."
+      },
+      "intro": {
+        "kicker": "Cadre public",
+        "title": "Comment les contributions sont traitees",
+        "copy": "Cette politique decrit le fonctionnement public du MVP de financement. Elle ne remplace pas un avis juridique, fiscal ou comptable."
+      },
+      "sections": {
+        "nature": {
+          "title": "Nature des contributions",
+          "copy": "Les paiements soutiennent l'infrastructure et le developpement d'OpenG7.",
+          "items": {
+            "nonCharity": "OpenG7 n'est pas presente comme un organisme de bienfaisance enregistre.",
+            "noReceipt": "Aucun recu officiel de don de bienfaisance n'est emis.",
+            "voluntary": "Chaque paiement est un soutien volontaire au Fonds des batisseurs."
+          }
+        },
+        "payments": {
+          "title": "Paiements Stripe",
+          "copy": "Le paiement est declenche par Stripe Checkout et confirme par webhook lorsque Stripe renvoie l'evenement attendu.",
+          "items": {
+            "stripe": "Stripe traite les informations de carte et les confirmations de paiement.",
+            "currency": "Les montants publics sont presentes en dollars canadiens lorsque la devise est disponible.",
+            "confirmation": "Les totaux publics peuvent attendre la synchronisation Stripe ou la confirmation en base de donnees."
+          }
+        },
+        "refunds": {
+          "title": "Demandes de remboursement",
+          "copy": "Les remboursements sont analyses manuellement pour proteger le fonds, les contributeurs et les traces comptables.",
+          "items": {
+            "request": "Une demande doit passer par le support avec assez de details pour retrouver le paiement.",
+            "review": "OpenG7 peut accepter, refuser ou demander des informations supplementaires avant de traiter la demande.",
+            "timing": "Les delais, frais et retours de fonds dependent aussi de Stripe et de l'institution financiere."
+          }
+        },
+        "disputes": {
+          "title": "Litiges et contestations",
+          "copy": "Les contestations de carte sont gerees dans Stripe et peuvent affecter les etats publics associes au paiement.",
+          "items": {
+            "stripe": "Un litige Stripe peut entrainer une retenue, une preuve a fournir ou un debit temporaire.",
+            "visibility": "La visibilite publique liee au paiement peut etre suspendue pendant l'analyse.",
+            "records": "Les traces minimales necessaires sont conservees pour l'audit, l'idempotence et le rapprochement."
+          }
+        },
+        "sponsorship": {
+          "title": "Commandites d'entreprise",
+          "copy": "Une commandite payee n'est pas publiee automatiquement. Elle passe par un formulaire de suivi et une revision admin.",
+          "items": {
+            "review": "L'administrateur accepte, refuse ou remet la commandite en revision.",
+            "followup": "Le lien de suivi permet de rouvrir le formulaire et de connaitre l'etat lorsque le jeton est valide.",
+            "noAutomaticPublication": "Le logo, le message, le site web et le placement feed restent non publics avant approbation."
+          }
+        },
+        "visibility": {
+          "title": "Visibilite publique et feeds",
+          "copy": "OpenG7 garde un controle editorial sur les commandites visibles publiquement.",
+          "items": {
+            "approval": "Une commandite approuvee peut apparaitre sur la page publique des commanditaires.",
+            "removal": "OpenG7 peut refuser, retirer ou modifier une visibilite incompatible, trompeuse ou risquee.",
+            "feed": "Les placements Facebook et LinkedIn indiquent une preparation ou une publication suivie, pas une garantie automatique."
+          }
+        },
+        "privacy": {
+          "title": "Confidentialite et donnees publiques",
+          "copy": "La plateforme privilegie la transparence agregee et limite les donnees personnelles publiees.",
+          "items": {
+            "publicData": "Les noms publics, montants et commandites ne sont affiches que selon les consentements et validations applicables.",
+            "privateData": "Les courriels, identifiants Stripe et informations de paiement ne sont pas affiches publiquement.",
+            "aggregate": "Les totaux, frais et estimations peuvent rester publics sous forme agregee."
+          }
+        }
+      },
+      "contact": {
+        "kicker": "Questions",
+        "title": "Besoin d'aide pour une contribution?",
+        "copy": "Utilisez la page support pour une demande de remboursement, une question sur une commandite ou un probleme de paiement."
       }
     },
     "ecosystemPage": {
@@ -481,6 +579,7 @@
         "displayAmountConsent": "Autoriser l'affichage du montant individuel avec mon nom public.",
         "nonCharityNotice": "OpenG7 est un projet indépendant en développement. Les contributions au Fonds des bâtisseurs ne constituent pas des dons à un organisme de bienfaisance enregistré. Aucun reçu officiel de don de bienfaisance n'est émis.",
         "securePayment": "Paiement sécurisé par Stripe",
+        "policyLink": "Politique d'utilisation et de remboursement",
         "loading": "Préparation du paiement...",
         "success": "Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup pour ouvrir le paiement réel.",
         "error": "Impossible de démarrer le paiement."

@@ -183,10 +183,26 @@ Only paid sponsorships with `public_display_consent=true`,
 `sponsor_review_status=approved`, and a company name are returned. Private
 contact fields, Stripe ids, emails, and internal notes are never exposed.
 
+### Usage and refund policy
+
+The public policy pages are:
+
+```text
+/politique-utilisation-remboursement
+/en/politique-utilisation-remboursement
+```
+
+They explain contribution use, Stripe payment handling, refund requests,
+disputes, sponsorship review, feed visibility, and privacy limits. Keep this
+policy reviewed before accepting real payments.
+
 ### Sponsorship follow-up links
 
 Paid sponsorships receive a non-guessable follow-up token when Checkout is
-created. The public recovery/status page is:
+created. The token is stored server-side as a hash, is no longer written to new
+Stripe metadata as a raw secret, and expires after
+`FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS` days. The public recovery/status
+page is:
 
 ```text
 /fonds-des-batisseurs/suivi-commandite?token=...
@@ -203,6 +219,15 @@ When PostgreSQL, `RESEND_API_KEY`, and `FUNDING_EMAIL_FROM` are configured, the
 `checkout.session.completed` webhook sends this follow-up link to the Stripe
 customer email. Without email configuration, the immediate Stripe return still
 shows the form, and admins can review the sponsorship from the admin screen.
+If details are resubmitted after approval, the sponsorship returns to
+`pending_review` before any public display continues.
+
+The API also applies in-process rate limits to checkout, sponsorship follow-up,
+and admin sponsorship routes. Configure the window and limits with
+`FUNDING_RATE_LIMIT_WINDOW_MS`, `FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX`,
+`FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX`, and
+`FUNDING_ADMIN_RATE_LIMIT_MAX`; keep proxy-level limits enabled as a second
+layer in production.
 
 ### Stripe webhook endpoint
 

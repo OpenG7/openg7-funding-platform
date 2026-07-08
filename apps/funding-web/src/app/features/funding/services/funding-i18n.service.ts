@@ -15,7 +15,8 @@ export type FundingCanonicalPath =
   | '/batisseurs'
   | '/commanditaires'
   | '/fonds-des-batisseurs/a-propos'
-  | '/fonds-des-batisseurs/transparence';
+  | '/fonds-des-batisseurs/transparence'
+  | '/politique-utilisation-remboursement';
 
 const supportedLanguages: readonly FundingLanguage[] = ['fr-CA', 'en'];
 const languageStorageKey = 'openg7.language';
@@ -29,7 +30,8 @@ const supportedCanonicalPaths: readonly FundingCanonicalPath[] = [
   '/batisseurs',
   '/commanditaires',
   '/fonds-des-batisseurs/a-propos',
-  '/fonds-des-batisseurs/transparence'
+  '/fonds-des-batisseurs/transparence',
+  '/politique-utilisation-remboursement'
 ];
 
 @Injectable({ providedIn: 'root' })

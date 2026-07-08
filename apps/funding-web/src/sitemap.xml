@@ -161,4 +161,20 @@
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>https://openg7.org/politique-utilisation-remboursement</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/politique-utilisation-remboursement" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/politique-utilisation-remboursement" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/politique-utilisation-remboursement" />
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://openg7.org/en/politique-utilisation-remboursement</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/politique-utilisation-remboursement" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/politique-utilisation-remboursement" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/politique-utilisation-remboursement" />
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
 </urlset>

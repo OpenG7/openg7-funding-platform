@@ -939,7 +939,8 @@ export interface SponsorshipFollowupLookup extends SponsorshipFollowupResponse {
 
 export const getSponsorshipFollowupByTokenHash = async (
   pool: Pool | null,
-  tokenHash: string
+  tokenHash: string,
+  tokenCreatedAfterIso: string
 ): Promise<SponsorshipFollowupLookup | null> => {
   if (!pool) {
     return null;
@@ -969,9 +970,10 @@ export const getSponsorshipFollowupByTokenHash = async (
       FROM fund_contributions
       WHERE contribution_type = 'sponsorship_interest'
         AND sponsorship_followup_token_hash = $1
+        AND sponsorship_followup_token_created_at >= $2::timestamptz
       LIMIT 1
     `,
-    [tokenHash]
+    [tokenHash, tokenCreatedAfterIso]
   );
 
   const row = query.rows[0];
@@ -1021,10 +1023,8 @@ export const recordSponsorshipDetailsForContribution = async (
         sponsor_logo_url = $6,
         sponsor_message = $7,
         sponsor_details_submitted_at = NOW(),
-        sponsor_review_status = CASE
-          WHEN sponsor_review_status = 'approved' THEN sponsor_review_status
-          ELSE 'pending_review'
-        END,
+        sponsor_review_status = 'pending_review',
+        sponsor_reviewed_at = NULL,
         updated_at = NOW()
       WHERE id = $1::uuid
         AND contribution_type = 'sponsorship_interest'

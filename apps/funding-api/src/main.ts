@@ -47,12 +47,56 @@ import { getPublicTransparencySummary } from './fund-transparency.repository.js'
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
 
+const parsePositiveIntegerEnv = (
+  value: string | undefined,
+  fallback: number
+): number => {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const parseNonNegativeIntegerEnv = (
+  value: string | undefined,
+  fallback: number
+): number => {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
 const port = Number(process.env.FUNDING_API_PORT ?? 3333);
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const projectId = process.env.FUNDING_PROJECT_ID ?? 'openg7';
 const isProduction = process.env.FUNDING_PLATFORM_ENV === 'production';
 const adminToken = process.env.FUNDING_ADMIN_TOKEN?.trim() ?? '';
+const sponsorshipFollowupTokenTtlDays = parsePositiveIntegerEnv(
+  process.env.FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS,
+  30
+);
+const rateLimitWindowMs = parsePositiveIntegerEnv(
+  process.env.FUNDING_RATE_LIMIT_WINDOW_MS,
+  60_000
+);
+const publicWriteRateLimitMax = parseNonNegativeIntegerEnv(
+  process.env.FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX,
+  60
+);
+const sponsorshipFollowupRateLimitMax = parseNonNegativeIntegerEnv(
+  process.env.FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX,
+  60
+);
+const adminRateLimitMax = parseNonNegativeIntegerEnv(
+  process.env.FUNDING_ADMIN_RATE_LIMIT_MAX,
+  120
+);
 const allowedOrigins = (process.env.FUNDING_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
@@ -96,14 +140,34 @@ if (isProduction && !publicBaseUrl) {
 type ApiRequest = IncomingMessage;
 type ApiResponse = ServerResponse<IncomingMessage>;
 
+interface RateLimitBucket {
+  count: number;
+  resetAt: number;
+}
+
+interface RateLimiter {
+  readonly name: string;
+  readonly maxRequests: number;
+  readonly windowMs: number;
+  readonly buckets: Map<string, RateLimitBucket>;
+}
+
+const securityHeaders: Record<string, string> = {
+  'Referrer-Policy': 'no-referrer',
+  'X-Content-Type-Options': 'nosniff'
+};
+
 const writeJson = (
   request: ApiRequest,
   response: ApiResponse,
   statusCode: number,
-  payload: unknown
+  payload: unknown,
+  extraHeaders: Record<string, string> = {}
 ): void => {
   response.writeHead(statusCode, {
     ...createCorsHeaders(request),
+    ...securityHeaders,
+    ...extraHeaders,
     'Content-Type': 'application/json; charset=utf-8'
   });
   response.end(JSON.stringify(payload));
@@ -117,6 +181,7 @@ const writeText = (
 ): void => {
   response.writeHead(statusCode, {
     ...createCorsHeaders(request),
+    ...securityHeaders,
     'Content-Type': 'text/plain; charset=utf-8'
   });
   response.end(payload);
@@ -188,6 +253,8 @@ const SPONSOR_PUBLIC_SLUG_MAX_LENGTH = 120;
 const SPONSOR_PUBLIC_SUMMARY_MAX_LENGTH = 500;
 const SPONSOR_FEED_NOTES_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const RATE_LIMIT_BUCKET_PRUNE_THRESHOLD = 5000;
 const followupEditablePaymentStatuses = new Set(['paid', 'refunded', 'disputed']);
 
 const isNonEmptySponsorText = (
@@ -243,6 +310,11 @@ const createSponsorshipFollowupToken = (): string =>
 
 const hashSponsorshipFollowupToken = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
+
+const getSponsorshipFollowupTokenCutoffIso = (): string =>
+  new Date(
+    Date.now() - sponsorshipFollowupTokenTtlDays * MILLISECONDS_PER_DAY
+  ).toISOString();
 
 const isValidFollowupToken = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9_-]{32,128}$/.test(value);
@@ -412,6 +484,143 @@ const routeMatches = (
   }
 };
 
+const createRateLimiter = (
+  name: string,
+  maxRequests: number,
+  windowMs: number
+): RateLimiter => ({
+  name,
+  maxRequests,
+  windowMs,
+  buckets: new Map<string, RateLimitBucket>()
+});
+
+const publicWriteRateLimiter = createRateLimiter(
+  'public-write',
+  publicWriteRateLimitMax,
+  rateLimitWindowMs
+);
+const sponsorshipFollowupRateLimiter = createRateLimiter(
+  'sponsorship-followup',
+  sponsorshipFollowupRateLimitMax,
+  rateLimitWindowMs
+);
+const adminRateLimiter = createRateLimiter(
+  'admin',
+  adminRateLimitMax,
+  rateLimitWindowMs
+);
+
+const firstHeaderValue = (
+  value: string | string[] | undefined
+): string | null => (Array.isArray(value) ? value[0] ?? null : value ?? null);
+
+const getClientIp = (request: ApiRequest): string => {
+  const forwarded = firstHeaderValue(request.headers['x-forwarded-for']);
+  if (forwarded) {
+    return forwarded.split(',')[0]?.trim() || 'unknown';
+  }
+
+  return (
+    firstHeaderValue(request.headers['x-real-ip']) ??
+    request.socket.remoteAddress ??
+    'unknown'
+  );
+};
+
+const pruneExpiredRateLimitBuckets = (
+  limiter: RateLimiter,
+  now: number
+): void => {
+  for (const [key, bucket] of limiter.buckets) {
+    if (bucket.resetAt <= now) {
+      limiter.buckets.delete(key);
+    }
+  }
+};
+
+const enforceRateLimit = (
+  request: ApiRequest,
+  response: ApiResponse,
+  limiter: RateLimiter
+): boolean => {
+  if (limiter.maxRequests === 0) {
+    return true;
+  }
+
+  const now = Date.now();
+  const key = `${limiter.name}:${getClientIp(request)}`;
+  const bucket = limiter.buckets.get(key);
+
+  if (!bucket || bucket.resetAt <= now) {
+    limiter.buckets.set(key, {
+      count: 1,
+      resetAt: now + limiter.windowMs
+    });
+    return true;
+  }
+
+  if (bucket.count >= limiter.maxRequests) {
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((bucket.resetAt - now) / 1000)
+    );
+    writeJson(
+      request,
+      response,
+      429,
+      { error: 'Too many requests. Please retry later.' },
+      { 'Retry-After': String(retryAfterSeconds) }
+    );
+    return false;
+  }
+
+  bucket.count += 1;
+
+  if (limiter.buckets.size > RATE_LIMIT_BUCKET_PRUNE_THRESHOLD) {
+    pruneExpiredRateLimitBuckets(limiter, now);
+  }
+
+  return true;
+};
+
+const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
+  if (
+    request.method === 'POST' &&
+    routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')
+  ) {
+    return publicWriteRateLimiter;
+  }
+
+  if (
+    routeMatches(
+      request.url,
+      '/sponsorship-followup',
+      '/api/sponsorship-followup',
+      '/sponsorship-followup/details',
+      '/api/sponsorship-followup/details'
+    )
+  ) {
+    return sponsorshipFollowupRateLimiter;
+  }
+
+  if (
+    routeMatches(
+      request.url,
+      '/admin/sponsorships',
+      '/api/admin/sponsorships',
+      '/admin/sponsorships/review',
+      '/api/admin/sponsorships/review',
+      '/admin/sponsorships/publication',
+      '/api/admin/sponsorships/publication'
+    )
+  ) {
+    return adminRateLimiter;
+  }
+
+  return null;
+};
+
 const getDatabaseConnectionStatus = async (): Promise<boolean> => {
   if (!dbPool) {
     return false;
@@ -447,11 +656,17 @@ createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
       ...createCorsHeaders(request),
+      ...securityHeaders,
       'Access-Control-Allow-Headers':
         'Content-Type, Stripe-Signature, Authorization, X-Funding-Admin-Token',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
     });
     response.end();
+    return;
+  }
+
+  const rateLimiter = getRequestRateLimiter(request);
+  if (rateLimiter && !enforceRateLimit(request, response, rateLimiter)) {
     return;
   }
 
@@ -582,9 +797,8 @@ createServer(async (request, response) => {
               publicDisplayName: truncateStripeMetadataValue(publicDisplayName)
             }
           : {}),
-        ...(sponsorshipFollowupToken && sponsorshipFollowupTokenHash
+        ...(sponsorshipFollowupTokenHash
           ? {
-              sponsorshipFollowupToken,
               sponsorshipFollowupTokenHash
             }
           : {})
@@ -874,7 +1088,8 @@ createServer(async (request, response) => {
     try {
       const followup = await getSponsorshipFollowupByTokenHash(
         dbPool,
-        hashSponsorshipFollowupToken(token)
+        hashSponsorshipFollowupToken(token),
+        getSponsorshipFollowupTokenCutoffIso()
       );
 
       if (!followup) {
@@ -993,7 +1208,8 @@ createServer(async (request, response) => {
     try {
       const followup = await getSponsorshipFollowupByTokenHash(
         dbPool,
-        hashSponsorshipFollowupToken(parsed.token)
+        hashSponsorshipFollowupToken(parsed.token),
+        getSponsorshipFollowupTokenCutoffIso()
       );
 
       if (!followup) {

@@ -587,7 +587,12 @@ interface FoundationPillar {
               >
                 {{ 'funding.nav.supportCta' | translate }}
               </button>
-              <p class="payment-note">{{ 'funding.home.contribution.securePayment' | translate }}</p>
+              <p class="payment-note">
+                {{ 'funding.home.contribution.securePayment' | translate }}
+                <a [routerLink]="policyPath()">
+                  {{ 'funding.home.contribution.policyLink' | translate }}
+                </a>
+              </p>
               <p class="state" *ngIf="loadingState() === 'loading'">
                 {{ 'funding.home.contribution.loading' | translate }}
               </p>
@@ -664,6 +669,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
 
   readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly policyPath = computed(() =>
+    this.i18n.localizedPath('/politique-utilisation-remboursement')
+  );
   readonly transparencyPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
   );

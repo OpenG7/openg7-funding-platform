@@ -1,8 +1,9 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
+  PLATFORM_ID,
   computed,
   inject,
   signal
@@ -364,6 +365,7 @@ import { FundingService } from '../../services/funding.service.js';
 export class SponsorshipFollowupPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly fundingService = inject(FundingService);
+  private readonly platformId = inject(PLATFORM_ID);
 
   readonly token = signal<string>('');
   readonly followup = signal<SponsorshipFollowupResponse | null>(null);
@@ -390,7 +392,9 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    this.token.set(this.route.snapshot.queryParamMap.get('token') ?? '');
+    const token = this.route.snapshot.queryParamMap.get('token') ?? '';
+    this.token.set(token);
+    this.removeTokenFromBrowserUrl();
     void this.load();
   }
 
@@ -516,5 +520,23 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   private valueFromEvent(event: Event): string {
     return (event.target as HTMLInputElement | HTMLTextAreaElement | null)
       ?.value ?? '';
+  }
+
+  private removeTokenFromBrowserUrl(): void {
+    if (!this.token() || !isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('token')) {
+      return;
+    }
+
+    url.searchParams.delete('token');
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`
+    );
   }
 }

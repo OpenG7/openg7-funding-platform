@@ -12,6 +12,9 @@
     "apps/*",
     "packages/*"
   ],
+  "resolutions": {
+    "@babel/core": "7.29.7"
+  },
   "scripts": {
     "dev": "concurrently \"yarn workspace @openg7/funding-api start\" \"yarn workspace @openg7/funding-web start --proxy-config apps/funding-web/proxy.conf.json\"",
     "dev:funding-web": "yarn workspace @openg7/funding-web start --proxy-config apps/funding-web/proxy.conf.json",
@@ -28,6 +31,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "yarn build && node --test tests/**/*.test.mjs",
+    "test:e2e": "yarn build && node --test tests/funding-sponsorship-e2e-coverage.test.mjs",
     "build": "tsc -p tsconfig.build.json",
     "docs": "typedoc --options typedoc.json"
   },
@@ -35,7 +39,7 @@
     "@types/node": "^24.10.1",
     "@typescript-eslint/eslint-plugin": "^8.10.0",
     "@typescript-eslint/parser": "^8.10.0",
-    "concurrently": "9.2.1",
+    "concurrently": "9.2.3",
     "cross-env": "^10.0.0",
     "eslint": "^9.12.0",
     "eslint-config-prettier": "^10.1.8",

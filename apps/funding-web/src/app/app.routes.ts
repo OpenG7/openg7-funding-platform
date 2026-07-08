@@ -13,6 +13,7 @@ import { SponsorshipFollowupPageComponent } from './features/funding/pages/spons
 import { SponsorsPageComponent } from './features/funding/pages/sponsors-page/sponsors-page.component.js';
 import { StripeSetupPageComponent } from './features/funding/pages/stripe-setup-page/stripe-setup-page.component.js';
 import { SupportPageComponent } from './features/funding/pages/support-page/support-page.component.js';
+import { UsageRefundPolicyPageComponent } from './features/funding/pages/usage-refund-policy-page/usage-refund-policy-page.component.js';
 import { WebhooksPageComponent } from './features/funding/pages/webhooks-page/webhooks-page.component.js';
 
 const localDevelopmentOnly: CanMatchFn = () =>
@@ -73,6 +74,11 @@ const publicRoutes: Routes = [
   {
     path: 'support',
     component: SupportPageComponent,
+    data: { language: 'fr-CA' }
+  },
+  {
+    path: 'politique-utilisation-remboursement',
+    component: UsageRefundPolicyPageComponent,
     data: { language: 'fr-CA' }
   }
 ];
