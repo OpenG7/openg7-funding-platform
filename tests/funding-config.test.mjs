@@ -55,8 +55,8 @@ test('fund_contributions ON CONFLICT targets match its partial unique index', ()
   );
 
   assert.ok(
-    migration.includes(
-      'CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_contributions_stripe_session_id\n  ON fund_contributions (stripe_session_id)\n  WHERE stripe_session_id IS NOT NULL'
+    /CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_contributions_stripe_session_id\s+ON fund_contributions \(stripe_session_id\)\s+WHERE stripe_session_id IS NOT NULL/.test(
+      migration
     ),
     'fund_contributions.stripe_session_id must stay a partial unique index'
   );

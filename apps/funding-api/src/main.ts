@@ -3,23 +3,31 @@ import {
   type IncomingMessage,
   type ServerResponse
 } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 
 import Stripe from 'stripe';
 import type {
+  AdminSponsorshipReviewRequest,
+  AdminSponsorshipReviewResult,
+  AdminSponsorshipsResponse,
   ContributionType,
   CheckoutResult,
   CheckoutRequest,
   RedirectCheckoutResult,
   SponsorshipDetailsRequest,
-  SponsorshipDetailsResult
+  SponsorshipDetailsResult,
+  SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
 import { dbPool, hasDatabase } from './database.js';
 import {
+  allowedSponsorshipReviewStatuses,
   insertCheckoutSessionRecord,
+  listAdminSponsorships,
   normalizeContributionType,
   parseMetadataBoolean,
-  recordSponsorshipDetails
+  recordSponsorshipDetails,
+  updateSponsorshipReview
 } from './fund-contributions.repository.js';
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
@@ -30,6 +38,7 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const projectId = process.env.FUNDING_PROJECT_ID ?? 'openg7';
 const isProduction = process.env.FUNDING_PLATFORM_ENV === 'production';
+const adminToken = process.env.FUNDING_ADMIN_TOKEN?.trim() ?? '';
 const allowedOrigins = (process.env.FUNDING_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
@@ -160,6 +169,7 @@ const SPONSOR_MESSAGE_MAX_LENGTH = 1000;
 const SPONSOR_URL_MAX_LENGTH = 2048;
 const STRIPE_METADATA_VALUE_MAX_LENGTH = 480;
 const PUBLIC_DISPLAY_NAME_MAX_LENGTH = 100;
+const ADMIN_REVIEW_NOTE_MAX_LENGTH = 1000;
 
 const isNonEmptySponsorText = (
   value: unknown,
@@ -200,6 +210,75 @@ const isValidOptionalBoundedText = (
   value === undefined ||
   value === null ||
   (typeof value === 'string' && value.trim().length <= maxLength);
+
+const isAllowedSponsorshipReviewStatus = (
+  value: unknown
+): value is SponsorshipReviewStatus =>
+  typeof value === 'string' &&
+  allowedSponsorshipReviewStatuses.has(value as SponsorshipReviewStatus);
+
+const readAdminToken = (request: ApiRequest): string | null => {
+  const authorization = request.headers.authorization;
+  if (typeof authorization === 'string') {
+    const [scheme, token] = authorization.split(/\s+/, 2);
+    if (scheme.toLowerCase() === 'bearer' && token) {
+      return token;
+    }
+  }
+
+  const headerToken = request.headers['x-funding-admin-token'];
+  return typeof headerToken === 'string' ? headerToken : null;
+};
+
+const adminTokenMatches = (candidate: string): boolean => {
+  if (!adminToken) {
+    return false;
+  }
+
+  const candidateBuffer = Buffer.from(candidate);
+  const tokenBuffer = Buffer.from(adminToken);
+  return (
+    candidateBuffer.length === tokenBuffer.length &&
+    timingSafeEqual(candidateBuffer, tokenBuffer)
+  );
+};
+
+const isAdminAuthorized = (request: ApiRequest): boolean => {
+  if (!adminToken) {
+    return !isProduction;
+  }
+
+  const token = readAdminToken(request);
+  return Boolean(token && adminTokenMatches(token));
+};
+
+const ensureAdminAccess = (
+  request: ApiRequest,
+  response: ApiResponse
+): boolean => {
+  if (!adminToken && isProduction) {
+    writeJson(request, response, 503, {
+      error: 'Admin review is not configured.'
+    });
+    return false;
+  }
+
+  if (!isAdminAuthorized(request)) {
+    writeJson(request, response, 401, {
+      error: 'Admin authorization is required.'
+    });
+    return false;
+  }
+
+  if (!hasDatabase) {
+    writeJson(request, response, 503, {
+      error: 'Admin review requires DATABASE_URL and PostgreSQL migrations.'
+    });
+    return false;
+  }
+
+  return true;
+};
 
 const resolveCheckoutReturnUrl = (
   candidateUrl: string,
@@ -698,6 +777,133 @@ createServer(async (request, response) => {
     });
 
     writeJson(request, response, result.statusCode, result.payload);
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships',
+      '/api/admin/sponsorships'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const sponsorships = await listAdminSponsorships(dbPool);
+      const lastUpdatedAt =
+        sponsorships.reduce<string | null>((latest, sponsorship) => {
+          if (!latest) {
+            return sponsorship.updated_at;
+          }
+
+          return new Date(sponsorship.updated_at).getTime() >
+            new Date(latest).getTime()
+            ? sponsorship.updated_at
+            : latest;
+        }, null) ?? new Date().toISOString();
+      const result: AdminSponsorshipsResponse = {
+        data_source: 'database',
+        sponsorships,
+        last_updated_at: lastUpdatedAt
+      };
+
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load admin sponsorships.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin sponsorships could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/review',
+      '/api/admin/sponsorships/review'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminSponsorshipReviewRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminSponsorshipReviewRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship review request body.'
+      });
+      return;
+    }
+
+    if (
+      typeof parsed.contributionId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        parsed.contributionId
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Invalid contribution id.'
+      });
+      return;
+    }
+
+    if (!isAllowedSponsorshipReviewStatus(parsed.reviewStatus)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship review status.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.reviewNote,
+        ADMIN_REVIEW_NOTE_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Review note is too long.'
+      });
+      return;
+    }
+
+    try {
+      const updated = await updateSponsorshipReview(dbPool, {
+        contributionId: parsed.contributionId,
+        reviewStatus: parsed.reviewStatus,
+        reviewNote:
+          typeof parsed.reviewNote === 'string' &&
+          parsed.reviewNote.trim().length > 0
+            ? parsed.reviewNote.trim()
+            : null
+      });
+
+      if (!updated) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship contribution was not found.'
+        });
+        return;
+      }
+
+      const result: AdminSponsorshipReviewResult = {
+        updated,
+        reviewStatus: parsed.reviewStatus
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to update sponsorship review.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship review could not be updated.'
+      });
+    }
     return;
   }
 

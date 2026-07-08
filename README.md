@@ -75,6 +75,8 @@ Set these variables for API and webhook processing:
 - `STRIPE_WEBHOOK_SECRET` — required only when validating Stripe webhook deliveries.
 - `FUNDING_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the API in production.
 
+- `FUNDING_ADMIN_TOKEN` - required in production for the sponsorship review admin API.
+
 For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
 
 When `FUNDING_PLATFORM_ENV=production`, checkout mock fallbacks are disabled. Missing Stripe configuration returns an API error instead of simulating a successful checkout.
@@ -116,6 +118,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/001_create_fund_transparency_tables.sql
 \i apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql
 \i apps/funding-api/migrations/003_add_sponsorship_details.sql
+\i apps/funding-api/migrations/004_add_sponsorship_review.sql
 ```
 
 These create:
@@ -124,9 +127,27 @@ These create:
 - `fund_allocations` (publicly publishable allocations)
 - `stripe_events` (future webhook idempotency)
 - `stripe_checkout_sessions` (created Checkout Sessions)
-- `fund_contributions` (pending contribution records, plus optional sponsor follow-up details)
+- `fund_contributions` (pending contribution records, sponsor follow-up details, and private review status)
 
 When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
+
+### Sponsorship review admin
+
+The MVP admin review screen is available at:
+
+```text
+/admin/fundraiser/sponsors
+```
+
+It reads and updates private sponsorship records through:
+
+```text
+GET /api/admin/sponsorships
+POST /api/admin/sponsorships/review
+```
+
+In production, these endpoints require `Authorization: Bearer <FUNDING_ADMIN_TOKEN>`.
+In local development, they can be used without a token when `FUNDING_ADMIN_TOKEN` is unset.
 
 ### Stripe webhook endpoint
 

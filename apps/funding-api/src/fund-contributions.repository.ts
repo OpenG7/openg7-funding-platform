@@ -1,10 +1,20 @@
-import type { ContributionType } from '@openg7/funding-core';
+import type {
+  AdminSponsorshipRecord,
+  SponsorshipReviewStatus,
+  ContributionType
+} from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
 const allowedContributionTypes = new Set<ContributionType>([
   'personal_support',
   'sponsorship_interest'
 ]);
+export const allowedSponsorshipReviewStatuses =
+  new Set<SponsorshipReviewStatus>([
+    'pending_review',
+    'approved',
+    'rejected'
+  ]);
 
 export interface CheckoutSessionRecordInput {
   readonly stripeSessionId: string;
@@ -54,6 +64,41 @@ export interface SponsorshipDetailsRecordInput {
   readonly logoUrl: string | null;
   readonly message: string | null;
 }
+
+export interface SponsorshipReviewInput {
+  readonly contributionId: string;
+  readonly reviewStatus: SponsorshipReviewStatus;
+  readonly reviewNote: string | null;
+}
+
+interface AdminSponsorshipRow {
+  readonly id: string;
+  readonly contribution_type: 'sponsorship_interest';
+  readonly amount_cents: string;
+  readonly currency: string;
+  readonly payment_status: string;
+  readonly paid_at: string | null;
+  readonly public_name: string | null;
+  readonly public_display_consent: boolean;
+  readonly display_amount_consent: boolean;
+  readonly sponsor_company_name: string | null;
+  readonly sponsor_contact_name: string | null;
+  readonly sponsor_contact_email: string | null;
+  readonly sponsor_website_url: string | null;
+  readonly sponsor_logo_url: string | null;
+  readonly sponsor_message: string | null;
+  readonly sponsor_details_submitted_at: string | null;
+  readonly sponsor_review_status: SponsorshipReviewStatus;
+  readonly sponsor_review_note: string | null;
+  readonly sponsor_reviewed_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+const centsToAmount = (value: number): number =>
+  Number((value / 100).toFixed(2));
+
+const parseDbInt = (value: string): number => Number.parseInt(value, 10);
 
 export const normalizeContributionType = (
   value: string | undefined
@@ -435,6 +480,100 @@ export const recordSponsorshipDetails = async (
       input.logoUrl,
       input.message
     ]
+  );
+
+  return (result.rowCount ?? 0) > 0;
+};
+
+export const listAdminSponsorships = async (
+  pool: Pool | null
+): Promise<readonly AdminSponsorshipRecord[]> => {
+  if (!pool) {
+    return [];
+  }
+
+  const query = await pool.query<AdminSponsorshipRow>(`
+    SELECT
+      id::text AS id,
+      contribution_type,
+      amount_cents::text AS amount_cents,
+      currency,
+      status AS payment_status,
+      paid_at::text AS paid_at,
+      public_name,
+      public_display_consent,
+      display_amount_consent,
+      sponsor_company_name,
+      sponsor_contact_name,
+      sponsor_contact_email,
+      sponsor_website_url,
+      sponsor_logo_url,
+      sponsor_message,
+      sponsor_details_submitted_at::text AS sponsor_details_submitted_at,
+      COALESCE(sponsor_review_status, 'pending_review') AS sponsor_review_status,
+      sponsor_review_note,
+      sponsor_reviewed_at::text AS sponsor_reviewed_at,
+      created_at::text AS created_at,
+      updated_at::text AS updated_at
+    FROM fund_contributions
+    WHERE contribution_type = 'sponsorship_interest'
+      AND status IN ('paid', 'refunded', 'disputed')
+    ORDER BY
+      CASE COALESCE(sponsor_review_status, 'pending_review')
+        WHEN 'pending_review' THEN 0
+        WHEN 'approved' THEN 1
+        ELSE 2
+      END,
+      COALESCE(sponsor_details_submitted_at, paid_at, updated_at, created_at) DESC
+    LIMIT 100
+  `);
+
+  return query.rows.map((row) => ({
+    id: row.id,
+    contribution_type: row.contribution_type,
+    amount: centsToAmount(parseDbInt(row.amount_cents)),
+    currency: row.currency.toUpperCase(),
+    payment_status: row.payment_status,
+    paid_at: row.paid_at,
+    public_name: row.public_name,
+    public_display_consent: row.public_display_consent,
+    display_amount_consent: row.display_amount_consent,
+    sponsor_company_name: row.sponsor_company_name,
+    sponsor_contact_name: row.sponsor_contact_name,
+    sponsor_contact_email: row.sponsor_contact_email,
+    sponsor_website_url: row.sponsor_website_url,
+    sponsor_logo_url: row.sponsor_logo_url,
+    sponsor_message: row.sponsor_message,
+    sponsor_details_submitted_at: row.sponsor_details_submitted_at,
+    sponsor_review_status: row.sponsor_review_status,
+    sponsor_review_note: row.sponsor_review_note,
+    sponsor_reviewed_at: row.sponsor_reviewed_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  }));
+};
+
+export const updateSponsorshipReview = async (
+  pool: Pool | null,
+  input: SponsorshipReviewInput
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE fund_contributions
+      SET
+        sponsor_review_status = $2,
+        sponsor_review_note = $3,
+        sponsor_reviewed_at = NOW(),
+        updated_at = NOW()
+      WHERE id = $1::uuid
+        AND contribution_type = 'sponsorship_interest'
+        AND status IN ('paid', 'refunded', 'disputed')
+    `,
+    [input.contributionId, input.reviewStatus, input.reviewNote]
   );
 
   return (result.rowCount ?? 0) > 0;

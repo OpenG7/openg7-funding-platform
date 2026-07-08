@@ -1,5 +1,6 @@
 import { CanMatchFn, Routes } from '@angular/router';
 
+import { AdminSponsorsPageComponent } from './features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.js';
 import { ApiKeysPageComponent } from './features/funding/pages/api-keys-page/api-keys-page.component.js';
 import { BuildersPageComponent } from './features/funding/pages/builders-page/builders-page.component.js';
 import { BoutiquePageComponent } from './features/funding/pages/boutique-page/boutique-page.component.js';
@@ -73,6 +74,10 @@ const englishPublicRoutes: Routes = publicRoutes.map((route) => ({
 export const appRoutes: Routes = [
   ...publicRoutes,
   ...englishPublicRoutes,
+  {
+    path: 'admin/fundraiser/sponsors',
+    component: AdminSponsorsPageComponent
+  },
   {
     path: 'en/**',
     redirectTo: 'en'

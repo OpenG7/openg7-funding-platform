@@ -113,3 +113,49 @@ export interface SponsorshipDetailsResult {
   readonly received: true;
   readonly recorded: boolean;
 }
+
+export type SponsorshipReviewStatus =
+  | 'pending_review'
+  | 'approved'
+  | 'rejected';
+
+export interface AdminSponsorshipRecord {
+  readonly id: string;
+  readonly contribution_type: 'sponsorship_interest';
+  readonly amount: number;
+  readonly currency: string;
+  readonly payment_status: string;
+  readonly paid_at: string | null;
+  readonly public_name: string | null;
+  readonly public_display_consent: boolean;
+  readonly display_amount_consent: boolean;
+  readonly sponsor_company_name: string | null;
+  readonly sponsor_contact_name: string | null;
+  readonly sponsor_contact_email: string | null;
+  readonly sponsor_website_url: string | null;
+  readonly sponsor_logo_url: string | null;
+  readonly sponsor_message: string | null;
+  readonly sponsor_details_submitted_at: string | null;
+  readonly sponsor_review_status: SponsorshipReviewStatus;
+  readonly sponsor_review_note: string | null;
+  readonly sponsor_reviewed_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface AdminSponsorshipsResponse {
+  readonly data_source: 'database';
+  readonly sponsorships: readonly AdminSponsorshipRecord[];
+  readonly last_updated_at: string;
+}
+
+export interface AdminSponsorshipReviewRequest {
+  readonly contributionId: string;
+  readonly reviewStatus: SponsorshipReviewStatus;
+  readonly reviewNote?: string;
+}
+
+export interface AdminSponsorshipReviewResult {
+  readonly updated: boolean;
+  readonly reviewStatus: SponsorshipReviewStatus;
+}
