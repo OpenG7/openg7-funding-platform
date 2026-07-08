@@ -6,6 +6,10 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Prerender
   },
   {
+    path: 'fonds-des-batisseurs',
+    renderMode: RenderMode.Prerender
+  },
+  {
     path: 'ecosystem',
     renderMode: RenderMode.Prerender
   },
@@ -22,6 +26,10 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Prerender
   },
   {
+    path: 'batisseurs',
+    renderMode: RenderMode.Prerender
+  },
+  {
     path: 'fonds-des-batisseurs/a-propos',
     renderMode: RenderMode.Prerender
   },
@@ -31,6 +39,10 @@ export const serverRoutes: ServerRoute[] = [
   },
   {
     path: 'en',
+    renderMode: RenderMode.Prerender
+  },
+  {
+    path: 'en/fonds-des-batisseurs',
     renderMode: RenderMode.Prerender
   },
   {
@@ -47,6 +59,10 @@ export const serverRoutes: ServerRoute[] = [
   },
   {
     path: 'en/boutique',
+    renderMode: RenderMode.Prerender
+  },
+  {
+    path: 'en/batisseurs',
     renderMode: RenderMode.Prerender
   },
   {

@@ -233,6 +233,7 @@ export const getStripePublicTransparencySummary = async (
   );
 
   return {
+    data_source: 'stripe_direct',
     total_received: centsToAmount(totals.totalReceived),
     total_fees: centsToAmount(totals.totalFees),
     total_net: totalNet,
@@ -246,6 +247,7 @@ export const getStripePublicTransparencySummary = async (
       .slice(0, 12)
       .map(([month, accumulator]) => toMonthlySummary(month, accumulator)),
     latest_public_allocations: [],
+    public_builders: [],
     last_updated_at: lastUpdatedAt
   };
 };

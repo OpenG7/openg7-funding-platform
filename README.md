@@ -75,7 +75,7 @@ Set these variables for API and webhook processing:
 - `STRIPE_WEBHOOK_SECRET` — required only when validating Stripe webhook deliveries.
 - `FUNDING_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the API in production.
 
-For the initial production launch, do **not** set `DATABASE_URL`. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
+For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
 
 When `FUNDING_PLATFORM_ENV=production`, checkout mock fallbacks are disabled. Missing Stripe configuration returns an API error instead of simulating a successful checkout.
 
@@ -91,20 +91,42 @@ GET http://localhost:3333/api/public/fund-transparency
 
 This is the default quick-launch path. It avoids local persistence while still showing real Stripe totals.
 
-### Future optional database migration
+### Optional private PostgreSQL
 
-This is not part of the initial launch. Apply the SQL migration only later, if you decide to add a local transparency journal in PostgreSQL:
+PostgreSQL is optional and must stay private. The Compose service is behind the `database` profile and publishes no `5432` port.
+
+Enable it only when you are ready to persist checkout sessions and webhook state:
+
+```env
+POSTGRES_DB=openg7_funding
+POSTGRES_USER=openg7_funding
+POSTGRES_PASSWORD=replace_with_a_long_random_secret
+DATABASE_URL=postgres://openg7_funding:replace_with_a_long_random_secret@postgres:5432/openg7_funding
+```
+
+Start the private database:
+
+```bash
+docker compose --profile database up -d postgres
+```
+
+Apply the versioned migrations:
 
 ```sql
 \i apps/funding-api/migrations/001_create_fund_transparency_tables.sql
+\i apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql
+\i apps/funding-api/migrations/003_add_sponsorship_details.sql
 ```
 
-This creates:
+These create:
 
 - `fund_transactions` (Stripe event level, aggregate-safe values only)
 - `fund_allocations` (publicly publishable allocations)
+- `stripe_events` (future webhook idempotency)
+- `stripe_checkout_sessions` (created Checkout Sessions)
+- `fund_contributions` (pending contribution records, plus optional sponsor follow-up details)
 
-No personal contributor data is stored for transparency reporting.
+When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
 
 ### Stripe webhook endpoint
 
@@ -114,15 +136,19 @@ Webhook URL (local):
 
 Handled events:
 
+- `checkout.session.completed`
+- `checkout.session.expired`
 - `payment_intent.succeeded`
+- `payment_intent.payment_failed`
 - `charge.refunded`
+- `charge.dispute.created`
 - `payout.paid`
 - `payout.failed`
 
 Behavior:
 
 - Webhook signature verification using `STRIPE_WEBHOOK_SECRET`
-- Idempotency through unique `stripe_event_id`
+- Idempotency through unique `stripe_event_id` and `processing_status`
 - Optional `balance_transaction` retrieval to compute fee/net fields
 - For the fast launch, webhook deliveries are validated and acknowledged without local storage
 - Public statistics come from Stripe directly while `DATABASE_URL` remains unset
@@ -146,8 +172,12 @@ stripe listen --forward-to localhost:3333/api/stripe/webhook
 4. Trigger sample events:
 
 ```bash
+stripe trigger checkout.session.completed
+stripe trigger checkout.session.expired
 stripe trigger payment_intent.succeeded
+stripe trigger payment_intent.payment_failed
 stripe trigger charge.refunded
+stripe trigger charge.dispute.created
 stripe trigger payout.paid
 stripe trigger payout.failed
 ```

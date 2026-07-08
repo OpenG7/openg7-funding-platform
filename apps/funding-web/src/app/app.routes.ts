@@ -1,6 +1,7 @@
 import { CanMatchFn, Routes } from '@angular/router';
 
 import { ApiKeysPageComponent } from './features/funding/pages/api-keys-page/api-keys-page.component.js';
+import { BuildersPageComponent } from './features/funding/pages/builders-page/builders-page.component.js';
 import { BoutiquePageComponent } from './features/funding/pages/boutique-page/boutique-page.component.js';
 import { EcosystemPageComponent } from './features/funding/pages/ecosystem-page/ecosystem-page.component.js';
 import { FundingAboutPageComponent } from './features/funding/pages/funding-about-page/funding-about-page.component.js';
@@ -22,6 +23,11 @@ const publicRoutes: Routes = [
     data: { language: 'fr-CA' }
   },
   {
+    path: 'fonds-des-batisseurs',
+    component: FundingPageComponent,
+    data: { language: 'fr-CA' }
+  },
+  {
     path: 'fonds-des-batisseurs/a-propos',
     component: FundingAboutPageComponent,
     data: { language: 'fr-CA' }
@@ -39,6 +45,11 @@ const publicRoutes: Routes = [
   {
     path: 'boutique',
     component: BoutiquePageComponent,
+    data: { language: 'fr-CA' }
+  },
+  {
+    path: 'batisseurs',
+    component: BuildersPageComponent,
     data: { language: 'fr-CA' }
   },
   {

@@ -28,6 +28,40 @@
       "transparency": {
         "title": "Builders Fund transparency | OpenG7",
         "description": "View aggregated public Builders Fund data: contributions, fees, estimated availability, and transparency records."
+      },
+      "builders": {
+        "title": "OpenG7 Builders | Builders Fund",
+        "description": "Discover the public registry of consenting builders, contributors, and sponsors supporting OpenG7 development."
+      }
+    },
+    "buildersPage": {
+      "hero": {
+        "imageAlt": "Guardian dragon and luminous Builders Fund chest",
+        "kicker": "Public registry",
+        "title": "OpenG7 Builders",
+        "copy": "This page recognizes people and organizations who agree to appear publicly. Individual amounts remain hidden unless explicit consent is given."
+      },
+      "summary": {
+        "ariaLabel": "Public builders summary",
+        "confirmed": "Confirmed contributions",
+        "count": "Contributions"
+      },
+      "directory": {
+        "kicker": "Recognition",
+        "title": "Consented public entries",
+        "copy": "Only explicitly consented names are displayed. Sponsorships remain subject to manual review before visibility.",
+        "personal": "Personal contribution",
+        "sponsorship": "Sponsorship in review",
+        "amountHidden": "Amount hidden"
+      },
+      "empty": {
+        "title": "No public entry yet",
+        "copy": "The named registry will open when contributors or sponsors have given valid public consent. Aggregated totals remain available in transparency.",
+        "action": "View transparency"
+      },
+      "state": {
+        "loading": "Loading public registry...",
+        "error": "Unable to load the public registry."
       }
     },
     "ecosystemPage": {
@@ -299,7 +333,24 @@
         "successCopy": "Thank you for helping OpenG7 fund open, resilient, and transparent infrastructure. The public fund will sync as soon as Stripe confirmation is available.",
         "cancelKicker": "Payment interrupted",
         "cancelTitle": "The chest remains closed for this contribution.",
-        "cancelCopy": "No confirmed payment was added to the registry. You can resume your contribution whenever you are ready."
+        "cancelCopy": "No confirmed payment was added to the registry. You can resume your contribution whenever you are ready.",
+        "sponsorKicker": "Sponsorship under review",
+        "sponsorTitle": "Sponsorship received — visibility under review",
+        "sponsorCopy": "Thank you for your payment. No public visibility is granted yet: our team manually reviews every sponsorship before anything is published. Fill in these details to speed up the review.",
+        "sponsorForm": {
+          "companyNameLabel": "Company name",
+          "contactNameLabel": "Contact name",
+          "contactEmailLabel": "Contact email",
+          "websiteLabel": "Website (optional)",
+          "logoUrlLabel": "Logo link (optional)",
+          "messageLabel": "Message (optional)",
+          "submit": "Submit for review",
+          "submitting": "Sending...",
+          "error": "These details could not be submitted right now. Please try again later.",
+          "successTitle": "Thank you, your sponsorship request is under review.",
+          "successCopy": "Our team reviews every sponsorship manually before any public visibility. We will follow up by email with next steps.",
+          "nextStepsLink": "See next steps"
+        }
       },
       "actions": {
         "viewTransparency": "View transparency",
@@ -370,7 +421,24 @@
       "contribution": {
         "ariaLabel": "Contribution and financial transparency",
         "title": "Choose your contribution",
+        "typeAria": "Contribution type",
+        "personal": {
+          "kicker": "Personal",
+          "title": "Personal contribution",
+          "copy": "Voluntary support for OpenG7 development, with aggregated public transparency."
+        },
+        "sponsorship": {
+          "kicker": "Review",
+          "title": "Business sponsorship",
+          "copy": "Business visibility will require manual review before anything is published."
+        },
         "otherAmount": "Other amount",
+        "consentLegend": "Consents",
+        "publicDisplayConsent": "Display my name publicly if a public name is provided later.",
+        "publicDisplayNameLabel": "Name to display publicly (only used if the box above is checked)",
+        "publicDisplayNamePlaceholder": "e.g. Alexandre B.",
+        "displayAmountConsent": "Allow the individual amount to be displayed with my public name.",
+        "nonCharityNotice": "OpenG7 is an independent project in development. Contributions to the Builders Fund are not donations to a registered charity. No official charitable donation receipt is issued.",
         "securePayment": "Secure payment by Stripe",
         "loading": "Preparing payment...",
         "success": "Local simulated checkout. Configure Stripe in /dev/stripe-setup to open real payment.",
@@ -422,9 +490,10 @@
         "syncing": "Stripe synchronization in progress...",
         "unavailable": "Stripe registry is unavailable for now.",
         "empty": "No confirmed Stripe contribution in the registry yet.",
-        "synced": "Stripe data synchronized on",
+        "synced": "Registry data synchronized on",
         "stripeUnsynced": "Stripe not synchronized",
-        "stripeRegistry": "Stripe / public registry"
+        "stripeRegistry": "Stripe / public registry",
+        "databaseRegistry": "PostgreSQL / public registry"
       },
       "sync": {
         "loading": "Synchronizing...",
@@ -443,6 +512,7 @@
       "ecosystem": "Ecosystem",
       "music": "The Chants",
       "shop": "Shop",
+      "builders": "Builders",
       "transparency": "Transparency",
       "impact": "Impact",
       "about": "About",

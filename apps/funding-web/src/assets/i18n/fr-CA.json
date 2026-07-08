@@ -28,6 +28,40 @@
       "transparency": {
         "title": "Transparence du Fonds des bâtisseurs | OpenG7",
         "description": "Consultez les données publiques agrégées du Fonds des bâtisseurs : contributions, frais, disponibilité estimée et registre de transparence."
+      },
+      "builders": {
+        "title": "Bâtisseurs OpenG7 | Fonds des bâtisseurs",
+        "description": "Découvrez le registre public des bâtisseurs, contributeurs et commanditaires consentis qui soutiennent le développement d'OpenG7."
+      }
+    },
+    "buildersPage": {
+      "hero": {
+        "imageAlt": "Dragon gardien et coffre lumineux du Fonds des bâtisseurs",
+        "kicker": "Registre public",
+        "title": "Bâtisseurs OpenG7",
+        "copy": "Cette page reconnaît les personnes et organisations qui acceptent d'apparaître publiquement. Les montants individuels restent masqués sauf consentement explicite."
+      },
+      "summary": {
+        "ariaLabel": "Résumé public des bâtisseurs",
+        "confirmed": "Contributions confirmées",
+        "count": "Contributions"
+      },
+      "directory": {
+        "kicker": "Reconnaissance",
+        "title": "Entrées publiques consenties",
+        "copy": "Seuls les noms explicitement consentis sont affichés. Les commandites demeurent soumises à validation manuelle avant visibilité.",
+        "personal": "Contribution personnelle",
+        "sponsorship": "Commandite en validation",
+        "amountHidden": "Montant masqué"
+      },
+      "empty": {
+        "title": "Aucune entrée publique pour le moment",
+        "copy": "Le registre nominatif s'ouvrira lorsque des contributeurs ou commanditaires auront donné un consentement public valide. Les totaux agrégés restent disponibles dans la transparence.",
+        "action": "Voir la transparence"
+      },
+      "state": {
+        "loading": "Chargement du registre public...",
+        "error": "Impossible de charger le registre public."
       }
     },
     "ecosystemPage": {
@@ -299,7 +333,24 @@
         "successCopy": "Merci d'aider OpenG7 à financer une infrastructure ouverte, résiliente et transparente. Le fonds public sera synchronisé dès que la confirmation Stripe sera disponible.",
         "cancelKicker": "Paiement interrompu",
         "cancelTitle": "Le coffre reste fermé pour cette contribution.",
-        "cancelCopy": "Aucun paiement confirmé n'a été ajouté au registre. Vous pouvez reprendre votre contribution quand vous voulez."
+        "cancelCopy": "Aucun paiement confirmé n'a été ajouté au registre. Vous pouvez reprendre votre contribution quand vous voulez.",
+        "sponsorKicker": "Commandite en validation",
+        "sponsorTitle": "Commandite reçue — visibilité en validation",
+        "sponsorCopy": "Merci pour votre paiement. Aucune visibilité publique n'est encore accordée: notre équipe valide manuellement chaque commandite avant toute publication. Complétez ces informations pour accélérer la révision.",
+        "sponsorForm": {
+          "companyNameLabel": "Nom de l'entreprise",
+          "contactNameLabel": "Nom du contact",
+          "contactEmailLabel": "Courriel du contact",
+          "websiteLabel": "Site web (optionnel)",
+          "logoUrlLabel": "Lien vers un logo (optionnel)",
+          "messageLabel": "Message (optionnel)",
+          "submit": "Envoyer pour révision",
+          "submitting": "Envoi en cours...",
+          "error": "Impossible d'envoyer ces informations pour l'instant. Réessayez plus tard.",
+          "successTitle": "Merci, votre demande de commandite est en révision.",
+          "successCopy": "Notre équipe examine chaque commandite manuellement avant toute visibilité publique. Nous vous recontacterons par courriel pour les prochaines étapes.",
+          "nextStepsLink": "Voir les prochaines étapes"
+        }
       },
       "actions": {
         "viewTransparency": "Voir la transparence",
@@ -370,7 +421,24 @@
       "contribution": {
         "ariaLabel": "Contribution et transparence financière",
         "title": "Choisissez votre contribution",
+        "typeAria": "Type de contribution",
+        "personal": {
+          "kicker": "Personnel",
+          "title": "Contribution personnelle",
+          "copy": "Soutien volontaire au développement d'OpenG7, avec transparence publique agrégée."
+        },
+        "sponsorship": {
+          "kicker": "Validation",
+          "title": "Commandite d'entreprise",
+          "copy": "La visibilité d'entreprise sera soumise à une validation manuelle avant toute publication."
+        },
         "otherAmount": "Autre montant",
+        "consentLegend": "Consentements",
+        "publicDisplayConsent": "Afficher mon nom publiquement si un nom public est fourni plus tard.",
+        "publicDisplayNameLabel": "Nom à afficher publiquement (utilisé seulement si la case ci-dessus est cochée)",
+        "publicDisplayNamePlaceholder": "ex. Alexandre B.",
+        "displayAmountConsent": "Autoriser l'affichage du montant individuel avec mon nom public.",
+        "nonCharityNotice": "OpenG7 est un projet indépendant en développement. Les contributions au Fonds des bâtisseurs ne constituent pas des dons à un organisme de bienfaisance enregistré. Aucun reçu officiel de don de bienfaisance n'est émis.",
         "securePayment": "Paiement sécurisé par Stripe",
         "loading": "Préparation du paiement...",
         "success": "Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup pour ouvrir le paiement réel.",
@@ -422,9 +490,10 @@
         "syncing": "Synchronisation Stripe en cours...",
         "unavailable": "Registre Stripe indisponible pour le moment.",
         "empty": "Aucune contribution Stripe confirmée dans le registre.",
-        "synced": "Données Stripe synchronisées le",
+        "synced": "Données du registre synchronisées le",
         "stripeUnsynced": "Stripe non synchronisé",
-        "stripeRegistry": "Stripe / registre public"
+        "stripeRegistry": "Stripe / registre public",
+        "databaseRegistry": "PostgreSQL / registre public"
       },
       "sync": {
         "loading": "Synchronisation...",
@@ -443,6 +512,7 @@
       "ecosystem": "Écosystème",
       "music": "Les Chants",
       "shop": "Boutique",
+      "builders": "Bâtisseurs",
       "transparency": "Transparence",
       "impact": "Impact",
       "about": "À propos",

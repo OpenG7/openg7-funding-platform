@@ -7,10 +7,12 @@ import { FUNDING_DEFAULT_LANGUAGE } from '@openg7/funding-i18n';
 export type FundingLanguage = 'fr-CA' | 'en';
 export type FundingCanonicalPath =
   | '/'
+  | '/fonds-des-batisseurs'
   | '/ecosystem'
   | '/support'
   | '/music'
   | '/boutique'
+  | '/batisseurs'
   | '/fonds-des-batisseurs/a-propos'
   | '/fonds-des-batisseurs/transparence';
 
@@ -18,10 +20,12 @@ const supportedLanguages: readonly FundingLanguage[] = ['fr-CA', 'en'];
 const languageStorageKey = 'openg7.language';
 const supportedCanonicalPaths: readonly FundingCanonicalPath[] = [
   '/',
+  '/fonds-des-batisseurs',
   '/ecosystem',
   '/support',
   '/music',
   '/boutique',
+  '/batisseurs',
   '/fonds-des-batisseurs/a-propos',
   '/fonds-des-batisseurs/transparence'
 ];

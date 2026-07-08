@@ -1,7 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import {
+  CheckoutConsentPayload,
   CheckoutRequest,
   CheckoutResult,
+  ContributionType,
+  SponsorshipDetailsRequest,
+  SponsorshipDetailsResult,
   createMockCheckoutResult
 } from '@openg7/funding-core';
 import { FundingSnapshot } from '@openg7/funding-core';
@@ -39,13 +43,21 @@ export class FundingService {
   /**
     * Creates a checkout session via the API. Mock fallback is limited to local development.
    */
-  async startCheckout(amount: number): Promise<CheckoutResult> {
+  async startCheckout(
+    amount: number,
+    consent: CheckoutConsentPayload
+  ): Promise<CheckoutResult> {
     const request: CheckoutRequest = {
       amount,
       currency: 'CAD',
       projectId: this.config?.projectId ?? 'openg7',
-      successUrl: this.buildReturnUrl('success'),
-      cancelUrl: this.buildReturnUrl('cancel')
+      successUrl: this.buildReturnUrl('success', consent.contributionType),
+      cancelUrl: this.buildReturnUrl('cancel'),
+      contributionType: consent.contributionType,
+      publicDisplayConsent: consent.publicDisplayConsent,
+      publicDisplayName: consent.publicDisplayName,
+      displayAmountConsent: consent.displayAmountConsent,
+      nonCharityAcknowledged: consent.nonCharityAcknowledged
     };
 
     try {
@@ -84,14 +96,49 @@ export class FundingService {
     }
   }
 
-  private buildReturnUrl(flow: 'success' | 'cancel'): string {
+  private buildReturnUrl(
+    flow: 'success' | 'cancel',
+    contributionType?: ContributionType
+  ): string {
     if (typeof window === 'undefined') {
       return `https://example.org/funding/${flow}`;
     }
 
     const url = new URL(window.location.href);
     url.searchParams.set('checkout', flow);
-    return url.toString();
+
+    if (flow !== 'success') {
+      return url.toString();
+    }
+
+    if (contributionType) {
+      url.searchParams.set('contributionType', contributionType);
+    }
+
+    // Stripe substitutes this literal template token before redirecting; it
+    // must stay unencoded, so it is appended after URLSearchParams encoding.
+    return `${url.toString()}&session_id={CHECKOUT_SESSION_ID}`;
+  }
+
+  async submitSponsorshipDetails(
+    payload: SponsorshipDetailsRequest
+  ): Promise<SponsorshipDetailsResult> {
+    const response = await fetch(`${this.apiBaseUrl}/sponsorship-details`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        readonly error?: string;
+      } | null;
+      throw new Error(body?.error ?? 'Sponsorship details could not be submitted.');
+    }
+
+    return (await response.json()) as SponsorshipDetailsResult;
   }
 
   private resolveApiBaseUrl(): string {

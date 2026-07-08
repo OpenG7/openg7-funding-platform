@@ -65,6 +65,7 @@ interface AllocationPlanItem {
 }
 
 const emptyReport = (): FundTransparencyPublicResponse => ({
+  data_source: 'empty',
   total_received: 0,
   total_fees: 0,
   total_net: 0,
@@ -75,6 +76,7 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
   currency: 'CAD',
   monthly_summary: [],
   latest_public_allocations: [],
+  public_builders: [],
   last_updated_at: new Date().toISOString()
 });
 
@@ -518,7 +520,20 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
               {{ amount }} $
             </button>
           </div>
-          <button type="button" class="support-cta" (click)="supportProject()">
+          <label class="support-consent-option">
+            <input
+              type="checkbox"
+              [checked]="nonCharityAcknowledged()"
+              (change)="setNonCharityAcknowledged($event)"
+            />
+            <span>{{ 'funding.home.contribution.nonCharityNotice' | translate }}</span>
+          </label>
+          <button
+            type="button"
+            class="support-cta"
+            [disabled]="!canStartCheckout()"
+            (click)="supportProject()"
+          >
             {{ 'funding.nav.supportCta' | translate }}
           </button>
           <p *ngIf="checkoutState() === 'loading'">
@@ -1282,7 +1297,7 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
     .support-actions div {
       display: grid;
       gap: 0.45rem;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .support-actions div button {
@@ -1293,6 +1308,34 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 
     .support-actions div button.active {
       background: #f6bf48;
+    }
+
+    .support-consent-option {
+      align-items: flex-start;
+      background: rgba(2, 10, 23, 0.36);
+      border: 1px solid rgba(246, 191, 72, 0.3);
+      border-radius: 0.45rem;
+      display: flex;
+      gap: 0.42rem;
+      padding: 0.45rem 0.5rem;
+    }
+
+    .support-consent-option input {
+      accent-color: #f6bf48;
+      flex: 0 0 auto;
+      margin-top: 0.1rem;
+    }
+
+    .support-consent-option span {
+      color: #cfdceb;
+      font-size: 0.72rem;
+      line-height: 1.35;
+    }
+
+    .support-cta:disabled {
+      cursor: not-allowed;
+      filter: grayscale(0.35);
+      opacity: 0.55;
     }
 
     .page-footer {
@@ -1436,6 +1479,7 @@ export class FundingTransparencyPageComponent implements OnInit {
   readonly checkoutState = signal<'idle' | 'loading' | 'success' | 'error'>(
     'idle'
   );
+  readonly nonCharityAcknowledged = signal<boolean>(false);
 
   readonly report = computed<FundTransparencyPublicResponse>(
     () => this.data() ?? emptyReport()
@@ -1454,8 +1498,11 @@ export class FundingTransparencyPageComponent implements OnInit {
   readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
   readonly currentYear = new Date().getFullYear();
 
-  readonly contributionAmounts = [5, 10, 25, 50, 100] as const;
+  readonly contributionAmounts = [5, 10, 25, 50] as const;
   readonly monthlyGoal = 1500;
+  readonly canStartCheckout = computed<boolean>(
+    () => this.nonCharityAcknowledged() && this.checkoutState() !== 'loading'
+  );
 
   readonly setupFacts = computed<readonly SetupFact[]>(() => [
     {
@@ -1464,7 +1511,7 @@ export class FundingTransparencyPageComponent implements OnInit {
     },
     {
       labelKey: 'funding.home.purpose.source',
-      value: 'Stripe'
+      value: this.transparencySourceLabel()
     },
     {
       labelKey: 'funding.home.purpose.currency',
@@ -1752,6 +1799,19 @@ export class FundingTransparencyPageComponent implements OnInit {
     });
   }
 
+  transparencySourceLabel(): string {
+    const source = this.report().data_source;
+    if (source === 'database') {
+      return 'PostgreSQL';
+    }
+
+    if (source === 'stripe_direct') {
+      return 'Stripe direct';
+    }
+
+    return this.i18n.t('funding.home.sync.pending');
+  }
+
   scrollToRegistry(): void {
     document.getElementById('public-registry')?.scrollIntoView({
       behavior: 'smooth',
@@ -1767,10 +1827,21 @@ export class FundingTransparencyPageComponent implements OnInit {
   }
 
   async supportProject(): Promise<void> {
+    if (!this.nonCharityAcknowledged()) {
+      this.checkoutState.set('error');
+      return;
+    }
+
     this.checkoutState.set('loading');
     try {
       const result = await this.fundingService.startCheckout(
-        this.selectedContributionAmount()
+        this.selectedContributionAmount(),
+        {
+          contributionType: 'personal_support',
+          publicDisplayConsent: false,
+          displayAmountConsent: false,
+          nonCharityAcknowledged: this.nonCharityAcknowledged()
+        }
       );
 
       if (result.status === 'redirected') {
@@ -1782,6 +1853,12 @@ export class FundingTransparencyPageComponent implements OnInit {
     } catch {
       this.checkoutState.set('error');
     }
+  }
+
+  setNonCharityAcknowledged(event: Event): void {
+    this.nonCharityAcknowledged.set(
+      Boolean((event.target as HTMLInputElement | null)?.checked)
+    );
   }
 
   downloadReport(): void {

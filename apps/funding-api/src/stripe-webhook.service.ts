@@ -1,6 +1,15 @@
 import Stripe from 'stripe';
 import type { Pool } from 'pg';
 
+import {
+  insertStripeEventRecord,
+  markStripeEventFailed,
+  markStripeEventProcessed,
+  normalizeContributionType,
+  parseMetadataBoolean,
+  updateContributionStatusByPaymentIntent,
+  upsertCheckoutSessionFromWebhook
+} from './fund-contributions.repository.js';
 import { insertFundTransaction } from './fund-transparency.repository.js';
 
 interface ProcessWebhookDependencies {
@@ -10,8 +19,12 @@ interface ProcessWebhookDependencies {
 }
 
 const allowedEvents = new Set([
+  'checkout.session.completed',
+  'checkout.session.expired',
   'payment_intent.succeeded',
+  'payment_intent.payment_failed',
   'charge.refunded',
+  'charge.dispute.created',
   'payout.paid',
   'payout.failed'
 ]);
@@ -64,6 +77,49 @@ const resolveBalanceTransaction = async (
   return value;
 };
 
+const resolvePaymentIntentId = (
+  value:
+    | string
+    | Stripe.PaymentIntent
+    | null
+    | undefined
+): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  return typeof value === 'string' ? value : value.id;
+};
+
+const buildCheckoutSessionWebhookInput = (
+  session: Stripe.Checkout.Session,
+  status: 'pending' | 'paid' | 'expired'
+): Parameters<typeof upsertCheckoutSessionFromWebhook>[1] => {
+  const metadata = session.metadata ?? {};
+  const amountCents = session.amount_total ?? 0;
+  const paidAtIso = status === 'paid' ? toIsoFromUnix(session.created) : null;
+
+  return {
+    stripeSessionId: session.id,
+    stripePaymentIntentId: resolvePaymentIntentId(session.payment_intent),
+    contributionType: normalizeContributionType(metadata.contributionType),
+    amountCents,
+    currency: session.currency ?? 'cad',
+    metadata,
+    publicDisplayConsent: parseMetadataBoolean(
+      metadata.publicDisplayConsent
+    ),
+    publicName: metadata.publicDisplayName ?? null,
+    displayAmountConsent: parseMetadataBoolean(metadata.displayAmountConsent),
+    nonCharityAcknowledged: parseMetadataBoolean(
+      metadata.nonCharityAcknowledged
+    ),
+    status,
+    paidAtIso,
+    emailPrivate: session.customer_details?.email ?? null
+  };
+};
+
 export const processStripeWebhook = async (
   rawBody: string,
   signature: string,
@@ -83,19 +139,91 @@ export const processStripeWebhook = async (
     };
   }
 
-  if (!allowedEvents.has(event.type)) {
+  let eventInserted: boolean;
+  try {
+    eventInserted = await insertStripeEventRecord(pool, {
+      stripeEventId: event.id,
+      eventType: event.type,
+      payload: event
+    });
+  } catch (error) {
+    console.error('Failed to record Stripe webhook event.', error);
+    return {
+      statusCode: 500,
+      payload: {
+        received: false,
+        error: 'Webhook event could not be recorded.'
+      }
+    };
+  }
+
+  if (!eventInserted) {
     return {
       statusCode: 200,
       payload: {
         received: true,
-        ignored: true,
+        duplicate: true,
         type: event.type
       }
     };
   }
 
+  const acknowledge = async (
+    payload: Record<string, unknown>
+  ): Promise<{
+    readonly statusCode: number;
+    readonly payload: Record<string, unknown>;
+  }> => {
+    await markStripeEventProcessed(pool, event.id);
+    return {
+      statusCode: 200,
+      payload
+    };
+  };
+
+  if (!allowedEvents.has(event.type)) {
+    return acknowledge({
+        received: true,
+        ignored: true,
+        type: event.type
+    });
+  }
+
+  try {
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const status = session.payment_status === 'paid' ? 'paid' : 'pending';
+    const updated = await upsertCheckoutSessionFromWebhook(
+      pool,
+      buildCheckoutSessionWebhookInput(session, status)
+    );
+
+    return acknowledge({
+        received: true,
+        updated
+    });
+  }
+
+  if (event.type === 'checkout.session.expired') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const updated = await upsertCheckoutSessionFromWebhook(
+      pool,
+      buildCheckoutSessionWebhookInput(session, 'expired')
+    );
+
+    return acknowledge({
+        received: true,
+        updated
+    });
+  }
+
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const statusUpdated = await updateContributionStatusByPaymentIntent(pool, {
+      stripePaymentIntentId: paymentIntent.id,
+      status: 'paid',
+      paidAtIso: toIsoFromUnix(paymentIntent.created)
+    });
 
     const chargeId =
       typeof paymentIntent.latest_charge === 'string'
@@ -128,22 +256,43 @@ export const processStripeWebhook = async (
       publicCategory: 'contribution',
       metadataJson: {
         source: 'stripe',
-        project: paymentIntent.metadata.projectId ?? 'openg7',
+        project:
+          paymentIntent.metadata.project ??
+          paymentIntent.metadata.projectId ??
+          'openg7',
         eventType: event.type
       }
     });
 
-    return {
-      statusCode: 200,
-      payload: {
+    return acknowledge({
         received: true,
-        inserted
-      }
-    };
+        inserted,
+        statusUpdated
+    });
+  }
+
+  if (event.type === 'payment_intent.payment_failed') {
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const updated = await updateContributionStatusByPaymentIntent(pool, {
+      stripePaymentIntentId: paymentIntent.id,
+      status: 'failed'
+    });
+
+    return acknowledge({
+        received: true,
+        updated
+    });
   }
 
   if (event.type === 'charge.refunded') {
     const charge = event.data.object as Stripe.Charge;
+    const paymentIntentId = resolvePaymentIntentId(charge.payment_intent);
+    const statusUpdated = paymentIntentId
+      ? await updateContributionStatusByPaymentIntent(pool, {
+          stripePaymentIntentId: paymentIntentId,
+          status: 'refunded'
+        })
+      : false;
     const balanceData = buildBalanceData(
       await resolveBalanceTransaction(stripe, charge.balance_transaction),
       charge.amount_refunded,
@@ -168,13 +317,27 @@ export const processStripeWebhook = async (
       }
     });
 
-    return {
-      statusCode: 200,
-      payload: {
+    return acknowledge({
         received: true,
-        inserted
-      }
-    };
+        inserted,
+        statusUpdated
+    });
+  }
+
+  if (event.type === 'charge.dispute.created') {
+    const dispute = event.data.object as Stripe.Dispute;
+    const paymentIntentId = resolvePaymentIntentId(dispute.payment_intent);
+    const updated = paymentIntentId
+      ? await updateContributionStatusByPaymentIntent(pool, {
+          stripePaymentIntentId: paymentIntentId,
+          status: 'disputed'
+        })
+      : false;
+
+    return acknowledge({
+        received: true,
+        updated
+    });
   }
 
   if (event.type === 'payout.paid' || event.type === 'payout.failed') {
@@ -203,20 +366,25 @@ export const processStripeWebhook = async (
       }
     });
 
-    return {
-      statusCode: 200,
-      payload: {
+    return acknowledge({
         received: true,
         inserted
+    });
+  }
+
+  return acknowledge({
+      received: true,
+      ignored: true
+  });
+  } catch (error) {
+    console.error('Failed to process Stripe webhook event.', error);
+    await markStripeEventFailed(pool, event.id);
+    return {
+      statusCode: 500,
+      payload: {
+        received: false,
+        error: 'Webhook event could not be processed.'
       }
     };
   }
-
-  return {
-    statusCode: 200,
-    payload: {
-      received: true,
-      ignored: true
-    }
-  };
 };

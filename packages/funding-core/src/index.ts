@@ -4,12 +4,27 @@ import {
   FundingTotals
 } from '@openg7/funding-models';
 
+export type ContributionType = 'personal_support' | 'sponsorship_interest';
+
+export interface CheckoutConsentPayload {
+  readonly contributionType: ContributionType;
+  readonly publicDisplayConsent: boolean;
+  readonly publicDisplayName?: string;
+  readonly displayAmountConsent: boolean;
+  readonly nonCharityAcknowledged: boolean;
+}
+
 export interface CheckoutRequest {
   readonly amount: number;
   readonly currency: 'CAD';
   readonly projectId: string;
   readonly successUrl: string;
   readonly cancelUrl: string;
+  readonly contributionType: ContributionType;
+  readonly publicDisplayConsent: boolean;
+  readonly publicDisplayName?: string;
+  readonly displayAmountConsent: boolean;
+  readonly nonCharityAcknowledged: boolean;
 }
 
 export interface MockCheckoutResult {
@@ -52,7 +67,16 @@ export interface PublicFundAllocation {
   readonly published_at: string | null;
 }
 
+export interface PublicBuilderProfile {
+  readonly display_name: string;
+  readonly contribution_type: ContributionType;
+  readonly amount: number | null;
+  readonly currency: string;
+  readonly paid_at: string | null;
+}
+
 export interface FundTransparencyPublicResponse {
+  readonly data_source: 'database' | 'stripe_direct' | 'empty';
   readonly total_received: number;
   readonly total_fees: number;
   readonly total_net: number;
@@ -63,6 +87,7 @@ export interface FundTransparencyPublicResponse {
   readonly currency: string;
   readonly monthly_summary: readonly PublicMonthlySummary[];
   readonly latest_public_allocations: readonly PublicFundAllocation[];
+  readonly public_builders: readonly PublicBuilderProfile[];
   readonly last_updated_at: string;
 }
 
@@ -73,3 +98,18 @@ export const createMockCheckoutResult = (
   redirectUrl: 'https://example.org/mock-checkout',
   status: 'mocked'
 });
+
+export interface SponsorshipDetailsRequest {
+  readonly sessionId: string;
+  readonly companyName: string;
+  readonly contactName: string;
+  readonly contactEmail: string;
+  readonly websiteUrl?: string;
+  readonly logoUrl?: string;
+  readonly message?: string;
+}
+
+export interface SponsorshipDetailsResult {
+  readonly received: true;
+  readonly recorded: boolean;
+}

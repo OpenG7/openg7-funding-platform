@@ -18,6 +18,22 @@
     <priority>0.9</priority>
   </url>
   <url>
+    <loc>https://openg7.org/fonds-des-batisseurs</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/fonds-des-batisseurs" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/fonds-des-batisseurs" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/fonds-des-batisseurs" />
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://openg7.org/en/fonds-des-batisseurs</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/fonds-des-batisseurs" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/fonds-des-batisseurs" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/fonds-des-batisseurs" />
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>https://openg7.org/ecosystem</loc>
     <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/ecosystem" />
     <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/ecosystem" />
@@ -80,6 +96,22 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/boutique" />
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://openg7.org/batisseurs</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/batisseurs" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/batisseurs" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/batisseurs" />
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://openg7.org/en/batisseurs</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/batisseurs" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/batisseurs" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/batisseurs" />
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://openg7.org/fonds-des-batisseurs/a-propos</loc>

@@ -68,6 +68,12 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
           >{{ 'funding.nav.shop' | translate }}</a
         >
         <a
+          [routerLink]="buildersPath()"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          >{{ 'funding.nav.builders' | translate }}</a
+        >
+        <a
           [routerLink]="transparencyPath()"
           routerLinkActive="active"
           [routerLinkActiveOptions]="{ exact: true }"
@@ -97,7 +103,9 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 export class FundingHeaderComponent {
   private readonly i18n = inject(FundingI18nService);
 
-  readonly homePath = computed(() => this.i18n.localizedPath('/'));
+  readonly homePath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs')
+  );
   readonly aboutPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/a-propos')
   );
@@ -106,6 +114,7 @@ export class FundingHeaderComponent {
   );
   readonly musicPath = computed(() => this.i18n.localizedPath('/music'));
   readonly shopPath = computed(() => this.i18n.localizedPath('/boutique'));
+  readonly buildersPath = computed(() => this.i18n.localizedPath('/batisseurs'));
   readonly transparencyPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
   );

@@ -228,7 +228,7 @@ const fallbackStatus: StripeSetupDevStatus = {
             <div class="event-chips" aria-label="Evenements ecoutes">
               <span>payment_intent.succeeded</span>
               <span>checkout.session.completed</span>
-              <span>+7 autres</span>
+              <span>+6 autres</span>
             </div>
             <div class="panel-actions">
               <button type="button" (click)="openUrl(status().stripeDashboardUrl)">Voir dans Stripe ↗</button>
@@ -1344,18 +1344,34 @@ export class StripeSetupPageComponent implements OnInit {
       {
         id: 'test-events',
         title: 'Declencher les evenements test',
-        description: 'Envoie les evenements Stripe minimaux pour remplir la transparence publique.',
+        description: 'Envoie les evenements Stripe MVP pour verifier le paiement, l expiration, les echecs, les remboursements et les versements.',
         status: 'manual',
         statusLabel: 'Commande locale',
         checklist: ['Le terminal stripe listen doit rester ouvert pendant ce test'],
         commands: [
           {
+            label: 'Session completee',
+            value: 'stripe trigger checkout.session.completed'
+          },
+          {
+            label: 'Session expiree',
+            value: 'stripe trigger checkout.session.expired'
+          },
+          {
             label: 'Paiement',
             value: 'stripe trigger payment_intent.succeeded'
           },
           {
+            label: 'Paiement refuse',
+            value: 'stripe trigger payment_intent.payment_failed'
+          },
+          {
             label: 'Remboursement',
             value: 'stripe trigger charge.refunded'
+          },
+          {
+            label: 'Litige',
+            value: 'stripe trigger charge.dispute.created'
           },
           {
             label: 'Versement paye',
