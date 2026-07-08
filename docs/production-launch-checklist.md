@@ -57,6 +57,7 @@ The production web build uses Angular SSG and prerenders these public French rou
 - `/music`
 - `/boutique`
 - `/batisseurs`
+- `/commanditaires`
 - `/fonds-des-batisseurs/a-propos`
 - `/fonds-des-batisseurs/transparence`
 
@@ -69,6 +70,7 @@ It also prerenders the English equivalents:
 - `/en/music`
 - `/en/boutique`
 - `/en/batisseurs`
+- `/en/commanditaires`
 - `/en/fonds-des-batisseurs/a-propos`
 - `/en/fonds-des-batisseurs/transparence`
 
@@ -102,9 +104,10 @@ The hosting layer must provide:
 
 - HTTPS for the public frontend.
 - HTTPS for the API or an HTTPS frontend proxy to `/api`.
-- Angular route fallback to `index.html` for public routes such as `/fonds-des-batisseurs`, `/batisseurs`, `/support`, `/music`, and `/boutique`.
+- Angular route fallback to `index.html` for public routes such as `/fonds-des-batisseurs`, `/batisseurs`, `/commanditaires`, `/support`, `/music`, and `/boutique`.
 - `/api/checkout-sessions` routed to the Funding API.
 - `/api/public/fund-transparency` routed to the Funding API.
+- `/api/public/sponsorships` routed to the Funding API.
 - `/api/stripe/webhook` routed to the Funding API.
 
 ## Stripe Setup
@@ -142,11 +145,13 @@ After deployment, verify these public routes:
 - `/music`
 - `/boutique`
 - `/batisseurs`
+- `/commanditaires`
 - `/fonds-des-batisseurs/a-propos`
 - `/fonds-des-batisseurs/transparence`
 - `/en`
 - `/en/fonds-des-batisseurs`
 - `/en/batisseurs`
+- `/en/commanditaires`
 - `/en/fonds-des-batisseurs/transparence`
 
 Verify these API endpoints:
@@ -166,6 +171,7 @@ Expected transparency behavior:
 
 - `/fonds-des-batisseurs/transparence` loads aggregate public values.
 - `/batisseurs` loads public builder profiles when consented data exists, or a safe empty state.
+- `/commanditaires` loads approved public sponsor profiles when consented data exists, or a safe empty state.
 - If no Stripe contributions exist yet, the page may show an empty public state.
 - No personal contributor data is exposed.
 

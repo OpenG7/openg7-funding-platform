@@ -6,6 +6,16 @@ import {
 
 export type ContributionType = 'personal_support' | 'sponsorship_interest';
 
+export type SponsorFeedTarget = 'openg7' | 'openg20';
+
+export type SponsorFeedChannel = 'facebook' | 'linkedin';
+
+export type SponsorFeedStatus =
+  | 'not_planned'
+  | 'planned'
+  | 'drafted'
+  | 'published';
+
 export interface CheckoutConsentPayload {
   readonly contributionType: ContributionType;
   readonly publicDisplayConsent: boolean;
@@ -73,6 +83,29 @@ export interface PublicBuilderProfile {
   readonly amount: number | null;
   readonly currency: string;
   readonly paid_at: string | null;
+}
+
+export interface PublicSponsorshipProfile {
+  readonly public_slug: string | null;
+  readonly company_name: string;
+  readonly website_url: string | null;
+  readonly logo_url: string | null;
+  readonly message: string | null;
+  readonly public_summary: string | null;
+  readonly amount: number | null;
+  readonly currency: string;
+  readonly paid_at: string | null;
+  readonly feed_target: SponsorFeedTarget | null;
+  readonly feed_channels: readonly SponsorFeedChannel[];
+  readonly feed_status: SponsorFeedStatus;
+  readonly feed_public_url: string | null;
+  readonly visibility_updated_at: string | null;
+}
+
+export interface PublicSponsorshipsResponse {
+  readonly data_source: 'database' | 'empty';
+  readonly sponsorships: readonly PublicSponsorshipProfile[];
+  readonly last_updated_at: string;
 }
 
 export interface FundTransparencyPublicResponse {
@@ -166,6 +199,14 @@ export interface AdminSponsorshipRecord {
   readonly sponsor_review_status: SponsorshipReviewStatus;
   readonly sponsor_review_note: string | null;
   readonly sponsor_reviewed_at: string | null;
+  readonly sponsor_public_slug: string | null;
+  readonly sponsor_public_summary: string | null;
+  readonly sponsor_feed_target: SponsorFeedTarget | null;
+  readonly sponsor_feed_channels: readonly SponsorFeedChannel[];
+  readonly sponsor_feed_status: SponsorFeedStatus;
+  readonly sponsor_feed_public_url: string | null;
+  readonly sponsor_feed_notes: string | null;
+  readonly sponsor_visibility_updated_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -185,4 +226,20 @@ export interface AdminSponsorshipReviewRequest {
 export interface AdminSponsorshipReviewResult {
   readonly updated: boolean;
   readonly reviewStatus: SponsorshipReviewStatus;
+}
+
+export interface AdminSponsorshipPublicationRequest {
+  readonly contributionId: string;
+  readonly publicSlug?: string;
+  readonly publicSummary?: string;
+  readonly feedTarget?: SponsorFeedTarget | null;
+  readonly feedChannels: readonly SponsorFeedChannel[];
+  readonly feedStatus: SponsorFeedStatus;
+  readonly feedPublicUrl?: string;
+  readonly feedNotes?: string;
+}
+
+export interface AdminSponsorshipPublicationResult {
+  readonly updated: boolean;
+  readonly feedStatus: SponsorFeedStatus;
 }

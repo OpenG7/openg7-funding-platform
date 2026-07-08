@@ -11,12 +11,39 @@ import {
 import { RouterLink } from '@angular/router';
 import type {
   AdminSponsorshipRecord,
+  SponsorFeedStatus,
+  SponsorFeedTarget,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 const tokenStorageKey = 'openg7-admin-token';
+const feedStatuses: readonly SponsorFeedStatus[] = [
+  'not_planned',
+  'planned',
+  'drafted',
+  'published'
+];
+
+interface SponsorshipPublicationDraft {
+  readonly publicSlug: string;
+  readonly publicSummary: string;
+  readonly feedTarget: '' | SponsorFeedTarget;
+  readonly facebook: boolean;
+  readonly linkedin: boolean;
+  readonly feedStatus: SponsorFeedStatus;
+  readonly feedPublicUrl: string;
+  readonly feedNotes: string;
+}
+
+type SponsorshipPublicationTextField =
+  | 'publicSlug'
+  | 'publicSummary'
+  | 'feedTarget'
+  | 'feedStatus'
+  | 'feedPublicUrl'
+  | 'feedNotes';
 
 @Component({
   selector: 'openg7-admin-sponsors-page',
@@ -164,6 +191,109 @@ const tokenStorageKey = 'openg7-admin-token';
             ></textarea>
           </label>
 
+          <section class="publication-editor" aria-label="Visibilite publique et feeds">
+            <header>
+              <div>
+                <span>Publication</span>
+                <h3>Commanditaire et feeds</h3>
+              </div>
+              <button
+                type="button"
+                class="publication-save"
+                [disabled]="actionState() === sponsorship.id"
+                (click)="savePublication(sponsorship)"
+              >
+                Enregistrer
+              </button>
+            </header>
+
+            <div class="publication-grid">
+              <label>
+                Slug public
+                <input
+                  type="text"
+                  maxlength="120"
+                  [value]="publicationDraftFor(sponsorship.id).publicSlug"
+                  (input)="setPublicationField(sponsorship.id, 'publicSlug', $event)"
+                />
+              </label>
+
+              <label>
+                Destination feed
+                <select
+                  [value]="publicationDraftFor(sponsorship.id).feedTarget"
+                  (change)="setPublicationField(sponsorship.id, 'feedTarget', $event)"
+                >
+                  <option value="">Aucune</option>
+                  <option value="openg7">OpenG7</option>
+                  <option value="openg20">OpenG20</option>
+                </select>
+              </label>
+
+              <label>
+                Statut feed
+                <select
+                  [value]="publicationDraftFor(sponsorship.id).feedStatus"
+                  (change)="setPublicationField(sponsorship.id, 'feedStatus', $event)"
+                >
+                  <option *ngFor="let status of feedStatuses" [value]="status">
+                    {{ feedStatusLabel(status) }}
+                  </option>
+                </select>
+              </label>
+
+              <fieldset>
+                <legend>Canaux</legend>
+                <label>
+                  <input
+                    type="checkbox"
+                    [checked]="publicationDraftFor(sponsorship.id).facebook"
+                    (change)="setPublicationChannel(sponsorship.id, 'facebook', $event)"
+                  />
+                  Facebook
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    [checked]="publicationDraftFor(sponsorship.id).linkedin"
+                    (change)="setPublicationChannel(sponsorship.id, 'linkedin', $event)"
+                  />
+                  LinkedIn
+                </label>
+              </fieldset>
+
+              <label class="publication-span-2">
+                Resume public
+                <textarea
+                  rows="3"
+                  maxlength="500"
+                  [value]="publicationDraftFor(sponsorship.id).publicSummary"
+                  (input)="setPublicationField(sponsorship.id, 'publicSummary', $event)"
+                ></textarea>
+              </label>
+
+              <label>
+                Lien de publication
+                <input
+                  type="url"
+                  maxlength="2048"
+                  [value]="publicationDraftFor(sponsorship.id).feedPublicUrl"
+                  (input)="setPublicationField(sponsorship.id, 'feedPublicUrl', $event)"
+                />
+              </label>
+
+              <label class="publication-span-2">
+                Notes feed
+                <textarea
+                  rows="3"
+                  maxlength="1000"
+                  [value]="publicationDraftFor(sponsorship.id).feedNotes"
+                  (input)="setPublicationField(sponsorship.id, 'feedNotes', $event)"
+                ></textarea>
+              </label>
+            </div>
+          </section>
+
           <footer>
             <button
               type="button"
@@ -274,7 +404,9 @@ const tokenStorageKey = 'openg7-admin-token';
       }
 
       .admin-auth-panel label,
-      .review-note-label {
+      .review-note-label,
+      .publication-grid label,
+      .publication-editor fieldset {
         display: grid;
         gap: 0.35rem;
         font-size: 0.85rem;
@@ -282,7 +414,10 @@ const tokenStorageKey = 'openg7-admin-token';
       }
 
       .admin-auth-panel input,
-      .review-note-label textarea {
+      .review-note-label textarea,
+      .publication-grid input,
+      .publication-grid select,
+      .publication-grid textarea {
         border: 1px solid #cdd6e3;
         border-radius: 0.35rem;
         font: inherit;
@@ -290,7 +425,8 @@ const tokenStorageKey = 'openg7-admin-token';
       }
 
       .admin-auth-panel button,
-      .review-button {
+      .review-button,
+      .publication-save {
         border: 0;
         border-radius: 0.35rem;
         cursor: pointer;
@@ -416,6 +552,71 @@ const tokenStorageKey = 'openg7-admin-token';
         resize: vertical;
       }
 
+      .publication-editor {
+        border: 1px solid #d9e0ea;
+        border-radius: 0.45rem;
+        display: grid;
+        gap: 0.85rem;
+        padding: 1rem;
+      }
+
+      .publication-editor header {
+        margin: 0;
+      }
+
+      .publication-editor header span {
+        color: #667085;
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 900;
+        letter-spacing: 0;
+        margin-bottom: 0.2rem;
+        text-transform: uppercase;
+      }
+
+      .publication-editor h3 {
+        margin: 0;
+      }
+
+      .publication-save {
+        background: #254db8;
+        color: #fff;
+      }
+
+      .publication-grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .publication-grid textarea {
+        min-height: 5rem;
+        resize: vertical;
+      }
+
+      .publication-span-2 {
+        grid-column: span 2;
+      }
+
+      .publication-editor fieldset {
+        border: 1px solid #d9e0ea;
+        border-radius: 0.35rem;
+        margin: 0;
+        padding: 0.65rem 0.75rem;
+      }
+
+      .publication-editor fieldset label {
+        align-items: center;
+        display: flex;
+        gap: 0.45rem;
+        font-weight: 700;
+      }
+
+      .publication-editor fieldset input {
+        height: 1rem;
+        width: 1rem;
+      }
+
       .sponsorship-admin-item footer {
         justify-content: flex-end;
       }
@@ -447,8 +648,13 @@ const tokenStorageKey = 'openg7-admin-token';
       @media (max-width: 860px) {
         .admin-auth-panel,
         .admin-summary-grid,
-        .sponsorship-admin-fields {
+        .sponsorship-admin-fields,
+        .publication-grid {
           grid-template-columns: 1fr;
+        }
+
+        .publication-span-2 {
+          grid-column: auto;
         }
 
         .admin-topbar {
@@ -466,8 +672,11 @@ export class AdminSponsorsPageComponent implements OnInit {
   readonly adminToken = signal<string>('');
   readonly sponsorships = signal<readonly AdminSponsorshipRecord[]>([]);
   readonly reviewNotes = signal<Record<string, string>>({});
+  readonly publicationDrafts =
+    signal<Record<string, SponsorshipPublicationDraft>>({});
   readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   readonly actionState = signal<string | null>(null);
+  readonly feedStatuses = feedStatuses;
 
   readonly pendingCount = computed(
     () =>
@@ -510,6 +719,14 @@ export class AdminSponsorsPageComponent implements OnInit {
           ])
         )
       );
+      this.publicationDrafts.set(
+        Object.fromEntries(
+          response.sponsorships.map((item) => [
+            item.id,
+            this.toPublicationDraft(item)
+          ])
+        )
+      );
       this.state.set('ready');
       this.saveToken();
     } catch {
@@ -537,6 +754,32 @@ export class AdminSponsorsPageComponent implements OnInit {
     }
   }
 
+  async savePublication(sponsorship: AdminSponsorshipRecord): Promise<void> {
+    const draft = this.publicationDraftFor(sponsorship.id);
+    this.actionState.set(sponsorship.id);
+
+    try {
+      await this.admin.updateSponsorshipPublication(this.adminToken(), {
+        contributionId: sponsorship.id,
+        publicSlug: draft.publicSlug.trim() || undefined,
+        publicSummary: draft.publicSummary.trim() || undefined,
+        feedTarget: draft.feedTarget || null,
+        feedChannels: [
+          ...(draft.facebook ? ['facebook' as const] : []),
+          ...(draft.linkedin ? ['linkedin' as const] : [])
+        ],
+        feedStatus: draft.feedStatus,
+        feedPublicUrl: draft.feedPublicUrl.trim() || undefined,
+        feedNotes: draft.feedNotes.trim() || undefined
+      });
+      await this.loadSponsorships();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
   setAdminToken(event: Event): void {
     this.adminToken.set(this.valueFromEvent(event));
     this.saveToken();
@@ -550,8 +793,49 @@ export class AdminSponsorsPageComponent implements OnInit {
     }));
   }
 
+  setPublicationField(
+    id: string,
+    field: SponsorshipPublicationTextField,
+    event: Event
+  ): void {
+    const value = this.valueFromEvent(event);
+    this.publicationDrafts.update((drafts) => {
+      const draft = drafts[id] ?? this.emptyPublicationDraft();
+      return {
+        ...drafts,
+        [id]: {
+          ...draft,
+          [field]: value
+        }
+      };
+    });
+  }
+
+  setPublicationChannel(
+    id: string,
+    channel: 'facebook' | 'linkedin',
+    event: Event
+  ): void {
+    const checked =
+      (event.target as HTMLInputElement | null)?.checked ?? false;
+    this.publicationDrafts.update((drafts) => {
+      const draft = drafts[id] ?? this.emptyPublicationDraft();
+      return {
+        ...drafts,
+        [id]: {
+          ...draft,
+          [channel]: checked
+        }
+      };
+    });
+  }
+
   reviewNoteFor(id: string): string {
     return this.reviewNotes()[id] ?? '';
+  }
+
+  publicationDraftFor(id: string): SponsorshipPublicationDraft {
+    return this.publicationDrafts()[id] ?? this.emptyPublicationDraft();
   }
 
   trackById(_: number, sponsorship: AdminSponsorshipRecord): string {
@@ -568,6 +852,22 @@ export class AdminSponsorsPageComponent implements OnInit {
     }
 
     return 'En attente';
+  }
+
+  feedStatusLabel(status: SponsorFeedStatus): string {
+    if (status === 'published') {
+      return 'Publie';
+    }
+
+    if (status === 'drafted') {
+      return 'Brouillon';
+    }
+
+    if (status === 'planned') {
+      return 'Planifie';
+    }
+
+    return 'Non planifie';
   }
 
   statusClass(status: SponsorshipReviewStatus): string {
@@ -598,6 +898,34 @@ export class AdminSponsorsPageComponent implements OnInit {
     }
 
     return sponsorship.public_name || 'Consenti, nom manquant';
+  }
+
+  private toPublicationDraft(
+    sponsorship: AdminSponsorshipRecord
+  ): SponsorshipPublicationDraft {
+    return {
+      publicSlug: sponsorship.sponsor_public_slug ?? '',
+      publicSummary: sponsorship.sponsor_public_summary ?? '',
+      feedTarget: sponsorship.sponsor_feed_target ?? '',
+      facebook: sponsorship.sponsor_feed_channels.includes('facebook'),
+      linkedin: sponsorship.sponsor_feed_channels.includes('linkedin'),
+      feedStatus: sponsorship.sponsor_feed_status,
+      feedPublicUrl: sponsorship.sponsor_feed_public_url ?? '',
+      feedNotes: sponsorship.sponsor_feed_notes ?? ''
+    };
+  }
+
+  private emptyPublicationDraft(): SponsorshipPublicationDraft {
+    return {
+      publicSlug: '',
+      publicSummary: '',
+      feedTarget: '',
+      facebook: false,
+      linkedin: false,
+      feedStatus: 'not_planned',
+      feedPublicUrl: '',
+      feedNotes: ''
+    };
   }
 
   private saveToken(): void {

@@ -13,6 +13,7 @@ export type FundingCanonicalPath =
   | '/music'
   | '/boutique'
   | '/batisseurs'
+  | '/commanditaires'
   | '/fonds-des-batisseurs/a-propos'
   | '/fonds-des-batisseurs/transparence';
 
@@ -26,6 +27,7 @@ const supportedCanonicalPaths: readonly FundingCanonicalPath[] = [
   '/music',
   '/boutique',
   '/batisseurs',
+  '/commanditaires',
   '/fonds-des-batisseurs/a-propos',
   '/fonds-des-batisseurs/transparence'
 ];

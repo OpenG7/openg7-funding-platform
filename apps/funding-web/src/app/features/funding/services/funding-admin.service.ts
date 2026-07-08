@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import type {
+  AdminSponsorshipPublicationRequest,
+  AdminSponsorshipPublicationResult,
   AdminSponsorshipReviewRequest,
   AdminSponsorshipReviewResult,
   AdminSponsorshipsResponse
@@ -40,6 +42,29 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminSponsorshipReviewResult;
+  }
+
+  async updateSponsorshipPublication(
+    token: string,
+    payload: AdminSponsorshipPublicationRequest
+  ): Promise<AdminSponsorshipPublicationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/publication`,
+      {
+        method: 'POST',
+        headers: {
+          ...this.createHeaders(token),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Sponsorship publication could not be updated.');
+    }
+
+    return (await response.json()) as AdminSponsorshipPublicationResult;
   }
 
   private createHeaders(token: string): Record<string, string> {

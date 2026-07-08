@@ -1,5 +1,11 @@
 import type {
+  AdminSponsorshipPublicationRequest,
   AdminSponsorshipRecord,
+  PublicSponsorshipProfile,
+  PublicSponsorshipsResponse,
+  SponsorFeedChannel,
+  SponsorFeedStatus,
+  SponsorFeedTarget,
   SponsorshipFollowupResponse,
   SponsorshipReviewStatus,
   ContributionType
@@ -16,6 +22,20 @@ export const allowedSponsorshipReviewStatuses =
     'approved',
     'rejected'
   ]);
+export const allowedSponsorFeedTargets = new Set<SponsorFeedTarget>([
+  'openg7',
+  'openg20'
+]);
+export const allowedSponsorFeedChannels = new Set<SponsorFeedChannel>([
+  'facebook',
+  'linkedin'
+]);
+export const allowedSponsorFeedStatuses = new Set<SponsorFeedStatus>([
+  'not_planned',
+  'planned',
+  'drafted',
+  'published'
+]);
 
 export interface CheckoutSessionRecordInput {
   readonly stripeSessionId: string;
@@ -73,6 +93,8 @@ export interface SponsorshipReviewInput {
   readonly reviewNote: string | null;
 }
 
+export type SponsorshipPublicationInput = AdminSponsorshipPublicationRequest;
+
 export interface SponsorshipFollowupRecordInput {
   readonly contributionId: string;
   readonly companyName: string;
@@ -109,8 +131,40 @@ interface AdminSponsorshipRow {
   readonly sponsor_review_status: SponsorshipReviewStatus;
   readonly sponsor_review_note: string | null;
   readonly sponsor_reviewed_at: string | null;
+  readonly sponsor_public_slug: string | null;
+  readonly sponsor_public_summary: string | null;
+  readonly sponsor_feed_target: SponsorFeedTarget | null;
+  readonly sponsor_feed_channels: unknown;
+  readonly sponsor_feed_status: SponsorFeedStatus | null;
+  readonly sponsor_feed_public_url: string | null;
+  readonly sponsor_feed_notes: string | null;
+  readonly sponsor_visibility_updated_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
+}
+
+interface PublicSponsorshipRow {
+  readonly public_slug: string | null;
+  readonly company_name: string;
+  readonly website_url: string | null;
+  readonly logo_url: string | null;
+  readonly message: string | null;
+  readonly public_summary: string | null;
+  readonly amount: string | null;
+  readonly currency: string;
+  readonly paid_at: string | null;
+  readonly feed_target: SponsorFeedTarget | null;
+  readonly feed_channels: unknown;
+  readonly feed_status: SponsorFeedStatus | null;
+  readonly feed_public_url: string | null;
+  readonly visibility_updated_at: string | null;
+  readonly updated_at: string;
+}
+
+interface SponsorshipPublicationPresenceRow {
+  readonly has_fund_contributions: boolean;
+  readonly has_sponsor_review_status: boolean;
+  readonly has_sponsor_publication_columns: boolean;
 }
 
 interface SponsorshipFollowupRow {
@@ -138,6 +192,38 @@ const centsToAmount = (value: number): number =>
   Number((value / 100).toFixed(2));
 
 const parseDbInt = (value: string): number => Number.parseInt(value, 10);
+
+const parseSponsorFeedChannels = (
+  value: unknown
+): readonly SponsorFeedChannel[] => {
+  let raw = value;
+
+  if (typeof value === 'string') {
+    try {
+      raw = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw.filter((channel): channel is SponsorFeedChannel =>
+    allowedSponsorFeedChannels.has(channel as SponsorFeedChannel)
+  );
+};
+
+const normalizeSponsorFeedStatus = (
+  value: SponsorFeedStatus | null
+): SponsorFeedStatus =>
+  value && allowedSponsorFeedStatuses.has(value) ? value : 'not_planned';
+
+const normalizeSponsorFeedTarget = (
+  value: SponsorFeedTarget | null
+): SponsorFeedTarget | null =>
+  value && allowedSponsorFeedTargets.has(value) ? value : null;
 
 export const normalizeContributionType = (
   value: string | undefined
@@ -581,6 +667,14 @@ export const listAdminSponsorships = async (
       COALESCE(sponsor_review_status, 'pending_review') AS sponsor_review_status,
       sponsor_review_note,
       sponsor_reviewed_at::text AS sponsor_reviewed_at,
+      sponsor_public_slug,
+      sponsor_public_summary,
+      sponsor_feed_target,
+      sponsor_feed_channels,
+      COALESCE(sponsor_feed_status, 'not_planned') AS sponsor_feed_status,
+      sponsor_feed_public_url,
+      sponsor_feed_notes,
+      sponsor_visibility_updated_at::text AS sponsor_visibility_updated_at,
       created_at::text AS created_at,
       updated_at::text AS updated_at
     FROM fund_contributions
@@ -616,6 +710,16 @@ export const listAdminSponsorships = async (
     sponsor_review_status: row.sponsor_review_status,
     sponsor_review_note: row.sponsor_review_note,
     sponsor_reviewed_at: row.sponsor_reviewed_at,
+    sponsor_public_slug: row.sponsor_public_slug,
+    sponsor_public_summary: row.sponsor_public_summary,
+    sponsor_feed_target: normalizeSponsorFeedTarget(row.sponsor_feed_target),
+    sponsor_feed_channels: parseSponsorFeedChannels(
+      row.sponsor_feed_channels
+    ),
+    sponsor_feed_status: normalizeSponsorFeedStatus(row.sponsor_feed_status),
+    sponsor_feed_public_url: row.sponsor_feed_public_url,
+    sponsor_feed_notes: row.sponsor_feed_notes,
+    sponsor_visibility_updated_at: row.sponsor_visibility_updated_at,
     created_at: row.created_at,
     updated_at: row.updated_at
   }));
@@ -645,6 +749,184 @@ export const updateSponsorshipReview = async (
   );
 
   return (result.rowCount ?? 0) > 0;
+};
+
+export const updateSponsorshipPublication = async (
+  pool: Pool | null,
+  input: SponsorshipPublicationInput
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE fund_contributions
+      SET
+        sponsor_public_slug = $2,
+        sponsor_public_summary = $3,
+        sponsor_feed_target = $4,
+        sponsor_feed_channels = $5::jsonb,
+        sponsor_feed_status = $6,
+        sponsor_feed_public_url = $7,
+        sponsor_feed_notes = $8,
+        sponsor_visibility_updated_at = NOW(),
+        updated_at = NOW()
+      WHERE id = $1::uuid
+        AND contribution_type = 'sponsorship_interest'
+        AND status IN ('paid', 'refunded', 'disputed')
+    `,
+    [
+      input.contributionId,
+      input.publicSlug?.trim() || null,
+      input.publicSummary?.trim() || null,
+      input.feedTarget ?? null,
+      JSON.stringify(input.feedChannels),
+      input.feedStatus,
+      input.feedPublicUrl?.trim() || null,
+      input.feedNotes?.trim() || null
+    ]
+  );
+
+  return (result.rowCount ?? 0) > 0;
+};
+
+const getSponsorshipPublicationPresence = async (
+  pool: Pool
+): Promise<SponsorshipPublicationPresenceRow> => {
+  const query = await pool.query<SponsorshipPublicationPresenceRow>(`
+    SELECT
+      to_regclass('public.fund_contributions') IS NOT NULL AS has_fund_contributions,
+      EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'fund_contributions'
+          AND column_name = 'sponsor_review_status'
+      ) AS has_sponsor_review_status,
+      (
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'fund_contributions'
+          AND column_name IN (
+            'sponsor_public_slug',
+            'sponsor_public_summary',
+            'sponsor_feed_target',
+            'sponsor_feed_channels',
+            'sponsor_feed_status',
+            'sponsor_feed_public_url',
+            'sponsor_visibility_updated_at'
+          )
+      ) = 7 AS has_sponsor_publication_columns
+  `);
+
+  return query.rows[0] ?? {
+    has_fund_contributions: false,
+    has_sponsor_review_status: false,
+    has_sponsor_publication_columns: false
+  };
+};
+
+export const listPublicSponsorships = async (
+  pool: Pool | null
+): Promise<PublicSponsorshipsResponse> => {
+  const now = new Date().toISOString();
+
+  if (!pool) {
+    return {
+      data_source: 'empty',
+      sponsorships: [],
+      last_updated_at: now
+    };
+  }
+
+  const presence = await getSponsorshipPublicationPresence(pool);
+  if (
+    !presence.has_fund_contributions ||
+    !presence.has_sponsor_review_status ||
+    !presence.has_sponsor_publication_columns
+  ) {
+    return {
+      data_source: 'empty',
+      sponsorships: [],
+      last_updated_at: now
+    };
+  }
+
+  const query = await pool.query<PublicSponsorshipRow>(`
+    SELECT
+      sponsor_public_slug AS public_slug,
+      sponsor_company_name AS company_name,
+      sponsor_website_url AS website_url,
+      sponsor_logo_url AS logo_url,
+      sponsor_message AS message,
+      sponsor_public_summary AS public_summary,
+      CASE
+        WHEN display_amount_consent IS TRUE THEN amount_cents::text
+        ELSE NULL
+      END AS amount,
+      currency,
+      paid_at::text AS paid_at,
+      sponsor_feed_target AS feed_target,
+      sponsor_feed_channels AS feed_channels,
+      COALESCE(sponsor_feed_status, 'not_planned') AS feed_status,
+      sponsor_feed_public_url AS feed_public_url,
+      sponsor_visibility_updated_at::text AS visibility_updated_at,
+      updated_at::text AS updated_at
+    FROM fund_contributions
+    WHERE contribution_type = 'sponsorship_interest'
+      AND status IN ('paid', 'refunded', 'disputed')
+      AND public_display_consent IS TRUE
+      AND sponsor_review_status = 'approved'
+      AND sponsor_company_name IS NOT NULL
+      AND btrim(sponsor_company_name) <> ''
+    ORDER BY COALESCE(
+      sponsor_visibility_updated_at,
+      sponsor_reviewed_at,
+      paid_at,
+      updated_at,
+      created_at
+    ) DESC
+    LIMIT 50
+  `);
+
+  const sponsorships: readonly PublicSponsorshipProfile[] = query.rows.map(
+    (row) => ({
+      public_slug: row.public_slug,
+      company_name: row.company_name,
+      website_url: row.website_url,
+      logo_url: row.logo_url,
+      message: row.message,
+      public_summary: row.public_summary,
+      amount: row.amount ? centsToAmount(parseDbInt(row.amount)) : null,
+      currency: row.currency.toUpperCase(),
+      paid_at: row.paid_at,
+      feed_target: normalizeSponsorFeedTarget(row.feed_target),
+      feed_channels: parseSponsorFeedChannels(row.feed_channels),
+      feed_status: normalizeSponsorFeedStatus(row.feed_status),
+      feed_public_url: row.feed_public_url,
+      visibility_updated_at: row.visibility_updated_at
+    })
+  );
+
+  const lastUpdatedAt =
+    query.rows.reduce<string | null>((latest, row) => {
+      const candidate = row.visibility_updated_at ?? row.updated_at;
+      if (!latest) {
+        return candidate;
+      }
+
+      return new Date(candidate).getTime() > new Date(latest).getTime()
+        ? candidate
+        : latest;
+    }, null) ?? now;
+
+  return {
+    data_source: 'database',
+    sponsorships,
+    last_updated_at: lastUpdatedAt
+  };
 };
 
 export interface SponsorshipFollowupLookup extends SponsorshipFollowupResponse {

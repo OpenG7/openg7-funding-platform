@@ -32,6 +32,10 @@
       "builders": {
         "title": "OpenG7 Builders | Builders Fund",
         "description": "Discover the public registry of consenting builders, contributors, and sponsors supporting OpenG7 development."
+      },
+      "sponsors": {
+        "title": "OpenG7 Sponsors | Builders Fund",
+        "description": "Discover approved Builders Fund sponsors and feed placements prepared for OpenG7 and OpenG20."
       }
     },
     "buildersPage": {
@@ -62,6 +66,43 @@
       "state": {
         "loading": "Loading public registry...",
         "error": "Unable to load the public registry."
+      }
+    },
+    "sponsorsPage": {
+      "hero": {
+        "imageAlt": "Connected digital communities in Canada",
+        "kicker": "Approved sponsorships",
+        "title": "OpenG7 Sponsors",
+        "copy": "This page gathers manually approved business sponsorships. Feed placements show where visibility is prepared for OpenG7 or OpenG20."
+      },
+      "summary": {
+        "ariaLabel": "Public sponsors summary",
+        "approved": "Approved sponsors",
+        "feedReady": "Feed placements"
+      },
+      "directory": {
+        "kicker": "Visibility",
+        "title": "Public sponsors",
+        "copy": "Only consenting and approved companies are displayed. Facebook and LinkedIn feeds are prepared or tracked by the administration.",
+        "amountHidden": "Amount not published",
+        "feedTargetPending": "Feed to define",
+        "feedLink": "View post",
+        "website": "Website"
+      },
+      "feedStatus": {
+        "not_planned": "Not planned",
+        "planned": "Planned",
+        "drafted": "Draft",
+        "published": "Published"
+      },
+      "empty": {
+        "title": "No public sponsor yet",
+        "copy": "Sponsors will appear here after payment, company details, public consent, and admin approval.",
+        "action": "Become a sponsor"
+      },
+      "state": {
+        "loading": "Loading sponsors...",
+        "error": "Unable to load sponsors."
       }
     },
     "ecosystemPage": {
@@ -513,6 +554,7 @@
       "music": "The Chants",
       "shop": "Shop",
       "builders": "Builders",
+      "sponsors": "Sponsors",
       "transparency": "Transparency",
       "impact": "Impact",
       "about": "About",

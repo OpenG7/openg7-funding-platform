@@ -121,6 +121,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/003_add_sponsorship_details.sql
 \i apps/funding-api/migrations/004_add_sponsorship_review.sql
 \i apps/funding-api/migrations/005_add_sponsorship_followup_token.sql
+\i apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql
 ```
 
 These create:
@@ -129,7 +130,7 @@ These create:
 - `fund_allocations` (publicly publishable allocations)
 - `stripe_events` (future webhook idempotency)
 - `stripe_checkout_sessions` (created Checkout Sessions)
-- `fund_contributions` (pending contribution records, sponsor follow-up details, private review status, and hashed follow-up tokens)
+- `fund_contributions` (pending contribution records, sponsor follow-up details, private review status, hashed follow-up tokens, and sponsor feed placement fields)
 
 When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
 
@@ -146,10 +147,41 @@ It reads and updates private sponsorship records through:
 ```text
 GET /api/admin/sponsorships
 POST /api/admin/sponsorships/review
+POST /api/admin/sponsorships/publication
 ```
 
 In production, these endpoints require `Authorization: Bearer <FUNDING_ADMIN_TOKEN>`.
 In local development, they can be used without a token when `FUNDING_ADMIN_TOKEN` is unset.
+
+The publication endpoint prepares the public sponsor profile and records feed
+placement metadata:
+
+- public slug and short public summary
+- feed target: `openg7` or `openg20`
+- feed channels: `facebook` and/or `linkedin`
+- feed status: `not_planned`, `planned`, `drafted`, or `published`
+- optional public post URL once a publication exists
+
+It does not post automatically to Facebook or LinkedIn.
+
+### Public sponsorship page
+
+Approved, consented sponsorships are exposed through:
+
+```text
+GET /api/public/sponsorships
+```
+
+The public pages are:
+
+```text
+/commanditaires
+/en/commanditaires
+```
+
+Only paid sponsorships with `public_display_consent=true`,
+`sponsor_review_status=approved`, and a company name are returned. Private
+contact fields, Stripe ids, emails, and internal notes are never exposed.
 
 ### Sponsorship follow-up links
 

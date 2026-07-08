@@ -11,7 +11,7 @@ deploiement progressif.
 Le coeur MVP est en place:
 
 ```text
-paiement clair -> consentements minimaux -> metadata Stripe enrichies -> webhook fiable -> DB optionnelle -> transparence publique filtree -> page batisseurs simple -> suivi commandite
+paiement clair -> consentements minimaux -> metadata Stripe enrichies -> webhook fiable -> DB optionnelle -> transparence publique filtree -> page batisseurs simple -> suivi commandite -> page commanditaires et placements feed
 ```
 
 Le produit reste volontairement prudent:
@@ -82,6 +82,8 @@ Le produit reste volontairement prudent:
 - Endpoint `GET /api/admin/sponsorships` pour lister les commandites payees.
 - Endpoint `POST /api/admin/sponsorships/review` pour remettre en attente,
   accepter ou refuser une commandite.
+- Endpoint `POST /api/admin/sponsorships/publication` pour preparer le profil
+  commanditaire public et les placements de feed.
 - `FUNDING_ADMIN_TOKEN` requis en production.
 - Les commandites ne peuvent apparaitre dans `/batisseurs` que si elles sont
   approuvees.
@@ -112,11 +114,12 @@ Le produit reste volontairement prudent:
   - `003_add_sponsorship_details.sql`.
   - `004_add_sponsorship_review.sql`.
   - `005_add_sponsorship_followup_token.sql`.
+  - `006_add_sponsorship_publication_feed.sql`.
 - Tables MVP:
   - `stripe_events`;
   - `stripe_checkout_sessions`;
-  - `fund_contributions` (colonnes `sponsor_*`, revue privee et hash de token
-    de suivi commandite).
+  - `fund_contributions` (colonnes `sponsor_*`, revue privee, hash de token
+    de suivi commandite et placements feed).
 
 ### Webhooks Stripe
 
@@ -160,6 +163,18 @@ Le produit reste volontairement prudent:
 - Montant individuel affiche seulement avec `display_amount_consent=true`.
 - Etat vide clair si aucun profil public consentant n'est disponible.
 
+### Page commanditaires et feeds
+
+- Route publique `/commanditaires`.
+- Route anglaise `/en/commanditaires`.
+- Endpoint public `GET /api/public/sponsorships`.
+- Les commandites publiques exigent paiement confirme, consentement public,
+  nom d'entreprise et `sponsor_review_status=approved`.
+- L'admin peut preparer un slug, un resume public, une cible `openg7` ou
+  `openg20`, les canaux `facebook` et/ou `linkedin`, un statut feed et un lien
+  de publication.
+- Aucune publication automatique vers Facebook ou LinkedIn n'est effectuee.
+
 ## Validation locale
 
 Derniere validation connue:
@@ -175,7 +190,8 @@ Resultat attendu:
 - build TypeScript OK;
 - tests Node OK;
 - build Angular production OK;
-- prerender des routes publiques FR/EN incluant `/fonds-des-batisseurs` et `/batisseurs`.
+- prerender des routes publiques FR/EN incluant `/fonds-des-batisseurs`,
+  `/batisseurs` et `/commanditaires`.
 
 ## Points a valider en preproduction
 
@@ -197,15 +213,19 @@ Resultat attendu:
   - `/fonds-des-batisseurs/transparence`;
   - `/fonds-des-batisseurs/suivi-commandite?token=...`;
   - `/batisseurs`;
+  - `/commanditaires`;
   - `/en`;
   - `/en/fonds-des-batisseurs`;
   - `/en/fonds-des-batisseurs/transparence`;
-  - `/en/batisseurs`.
+  - `/en/batisseurs`;
+  - `/en/commanditaires`.
 - Endpoint public teste:
   - `GET /api/public/fund-transparency`.
   - `GET /api/sponsorship-followup?token=...`.
+  - `GET /api/public/sponsorships`.
 - Endpoint admin teste avec jeton:
   - `GET /api/admin/sponsorships`.
+  - `POST /api/admin/sponsorships/publication`.
 - Checkout teste avec une contribution reelle de faible montant ou en mode test Stripe.
 - Rejeu du meme evenement webhook teste pour confirmer l'idempotence.
 
@@ -218,8 +238,8 @@ Les elements suivants restent volontairement hors perimetre:
 - fiches detaillees `/batisseurs/[slug]`;
 - upload et moderation de logos;
 - publication automatique de commanditaires;
-- feeds OpenG7/OpenG20;
-- brouillons sociaux LinkedIn/Facebook;
+- publication automatique vers les feeds OpenG7/OpenG20;
+- integration API LinkedIn/Facebook;
 - factures, recus ou confirmations PDF;
 - taxes;
 - audit log metier complet;

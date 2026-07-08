@@ -7,6 +7,8 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import Stripe from 'stripe';
 import type {
+  AdminSponsorshipPublicationRequest,
+  AdminSponsorshipPublicationResult,
   AdminSponsorshipReviewRequest,
   AdminSponsorshipReviewResult,
   AdminSponsorshipsResponse,
@@ -14,6 +16,9 @@ import type {
   CheckoutResult,
   CheckoutRequest,
   RedirectCheckoutResult,
+  SponsorFeedChannel,
+  SponsorFeedStatus,
+  SponsorFeedTarget,
   SponsorshipDetailsRequest,
   SponsorshipDetailsResult,
   SponsorshipFollowupDetailsRequest,
@@ -23,14 +28,19 @@ import type {
 
 import { dbPool, hasDatabase } from './database.js';
 import {
+  allowedSponsorFeedChannels,
+  allowedSponsorFeedStatuses,
+  allowedSponsorFeedTargets,
   allowedSponsorshipReviewStatuses,
   insertCheckoutSessionRecord,
   getSponsorshipFollowupByTokenHash,
+  listPublicSponsorships,
   listAdminSponsorships,
   normalizeContributionType,
   parseMetadataBoolean,
   recordSponsorshipDetailsForContribution,
   recordSponsorshipDetails,
+  updateSponsorshipPublication,
   updateSponsorshipReview
 } from './fund-contributions.repository.js';
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
@@ -174,6 +184,9 @@ const SPONSOR_URL_MAX_LENGTH = 2048;
 const STRIPE_METADATA_VALUE_MAX_LENGTH = 480;
 const PUBLIC_DISPLAY_NAME_MAX_LENGTH = 100;
 const ADMIN_REVIEW_NOTE_MAX_LENGTH = 1000;
+const SPONSOR_PUBLIC_SLUG_MAX_LENGTH = 120;
+const SPONSOR_PUBLIC_SUMMARY_MAX_LENGTH = 500;
+const SPONSOR_FEED_NOTES_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
 const followupEditablePaymentStatuses = new Set(['paid', 'refunded', 'disputed']);
 
@@ -217,6 +230,14 @@ const isValidOptionalBoundedText = (
   value === null ||
   (typeof value === 'string' && value.trim().length <= maxLength);
 
+const isValidOptionalPublicSlug = (value: unknown): boolean =>
+  value === undefined ||
+  value === null ||
+  value === '' ||
+  (typeof value === 'string' &&
+    value.trim().length <= SPONSOR_PUBLIC_SLUG_MAX_LENGTH &&
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.trim()));
+
 const createSponsorshipFollowupToken = (): string =>
   randomBytes(FOLLOWUP_TOKEN_BYTES).toString('base64url');
 
@@ -234,6 +255,42 @@ const isAllowedSponsorshipReviewStatus = (
 ): value is SponsorshipReviewStatus =>
   typeof value === 'string' &&
   allowedSponsorshipReviewStatuses.has(value as SponsorshipReviewStatus);
+
+const isAllowedSponsorFeedTarget = (
+  value: unknown
+): value is SponsorFeedTarget | null =>
+  value === undefined ||
+  value === null ||
+  value === '' ||
+  (typeof value === 'string' &&
+    allowedSponsorFeedTargets.has(value as SponsorFeedTarget));
+
+const isAllowedSponsorFeedStatus = (
+  value: unknown
+): value is SponsorFeedStatus =>
+  typeof value === 'string' &&
+  allowedSponsorFeedStatuses.has(value as SponsorFeedStatus);
+
+const parseSponsorFeedChannelsFromRequest = (
+  value: unknown
+): readonly SponsorFeedChannel[] | null => {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const uniqueChannels = [...new Set(value)];
+  if (
+    uniqueChannels.some(
+      (channel) =>
+        typeof channel !== 'string' ||
+        !allowedSponsorFeedChannels.has(channel as SponsorFeedChannel)
+    )
+  ) {
+    return null;
+  }
+
+  return uniqueChannels as readonly SponsorFeedChannel[];
+};
 
 const readAdminToken = (request: ApiRequest): string | null => {
   const authorization = request.headers.authorization;
@@ -390,7 +447,8 @@ createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
       ...createCorsHeaders(request),
-      'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature',
+      'Access-Control-Allow-Headers':
+        'Content-Type, Stripe-Signature, Authorization, X-Funding-Admin-Token',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
     });
     response.end();
@@ -1172,6 +1230,177 @@ createServer(async (request, response) => {
       console.error('Failed to update sponsorship review.', error);
       writeJson(request, response, 502, {
         error: 'Sponsorship review could not be updated.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/publication',
+      '/api/admin/sponsorships/publication'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminSponsorshipPublicationRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminSponsorshipPublicationRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship publication request body.'
+      });
+      return;
+    }
+
+    if (
+      typeof parsed.contributionId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        parsed.contributionId
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Invalid contribution id.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalPublicSlug(parsed.publicSlug)) {
+      writeJson(request, response, 400, {
+        error: 'Public slug must use lowercase letters, numbers, and hyphens.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.publicSummary,
+        SPONSOR_PUBLIC_SUMMARY_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Public summary is too long.'
+      });
+      return;
+    }
+
+    if (!isAllowedSponsorFeedTarget(parsed.feedTarget)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship feed target.'
+      });
+      return;
+    }
+
+    const feedChannels = parseSponsorFeedChannelsFromRequest(
+      parsed.feedChannels
+    );
+    if (!feedChannels) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship feed channels.'
+      });
+      return;
+    }
+
+    if (!isAllowedSponsorFeedStatus(parsed.feedStatus)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship feed status.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.feedPublicUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Feed public URL must be a valid https link.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.feedNotes,
+        SPONSOR_FEED_NOTES_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Feed notes are too long.'
+      });
+      return;
+    }
+
+    try {
+      const updated = await updateSponsorshipPublication(dbPool, {
+        contributionId: parsed.contributionId,
+        publicSlug:
+          typeof parsed.publicSlug === 'string' &&
+          parsed.publicSlug.trim().length > 0
+            ? parsed.publicSlug.trim()
+            : undefined,
+        publicSummary:
+          typeof parsed.publicSummary === 'string' &&
+          parsed.publicSummary.trim().length > 0
+            ? parsed.publicSummary.trim()
+            : undefined,
+        feedTarget:
+          typeof parsed.feedTarget === 'string' &&
+          parsed.feedTarget.trim().length > 0
+            ? parsed.feedTarget
+            : null,
+        feedChannels,
+        feedStatus: parsed.feedStatus,
+        feedPublicUrl:
+          typeof parsed.feedPublicUrl === 'string' &&
+          parsed.feedPublicUrl.trim().length > 0
+            ? parsed.feedPublicUrl.trim()
+            : undefined,
+        feedNotes:
+          typeof parsed.feedNotes === 'string' &&
+          parsed.feedNotes.trim().length > 0
+            ? parsed.feedNotes.trim()
+            : undefined
+      });
+
+      if (!updated) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship contribution was not found.'
+        });
+        return;
+      }
+
+      const result: AdminSponsorshipPublicationResult = {
+        updated,
+        feedStatus: parsed.feedStatus
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to update sponsorship publication.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship publication could not be updated.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/public/sponsorships',
+      '/api/public/sponsorships'
+    )
+  ) {
+    try {
+      const sponsorships = await listPublicSponsorships(dbPool);
+
+      writeJson(request, response, 200, sponsorships);
+    } catch (error) {
+      console.error('Failed to load public sponsorships.', error);
+      writeJson(request, response, 502, {
+        error: 'Public sponsorships could not be loaded.'
       });
     }
     return;

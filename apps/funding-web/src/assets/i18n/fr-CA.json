@@ -32,6 +32,10 @@
       "builders": {
         "title": "Bâtisseurs OpenG7 | Fonds des bâtisseurs",
         "description": "Découvrez le registre public des bâtisseurs, contributeurs et commanditaires consentis qui soutiennent le développement d'OpenG7."
+      },
+      "sponsors": {
+        "title": "Commanditaires OpenG7 | Fonds des batisseurs",
+        "description": "Decouvrez les commanditaires approuves du Fonds des batisseurs et les placements prepares pour les feeds OpenG7 et OpenG20."
       }
     },
     "buildersPage": {
@@ -62,6 +66,43 @@
       "state": {
         "loading": "Chargement du registre public...",
         "error": "Impossible de charger le registre public."
+      }
+    },
+    "sponsorsPage": {
+      "hero": {
+        "imageAlt": "Communautes numeriques connectees au Canada",
+        "kicker": "Commandites approuvees",
+        "title": "Commanditaires OpenG7",
+        "copy": "Cette page rassemble les commandites d'entreprise approuvees manuellement. Les placements de feed indiquent ou la visibilite est preparee pour OpenG7 ou OpenG20."
+      },
+      "summary": {
+        "ariaLabel": "Resume public des commanditaires",
+        "approved": "Commanditaires approuves",
+        "feedReady": "Placements feed"
+      },
+      "directory": {
+        "kicker": "Visibilite",
+        "title": "Commanditaires publics",
+        "copy": "Seules les entreprises consenties et approuvees sont affichees. Les feeds Facebook et LinkedIn sont prepares ou traces par l'administration.",
+        "amountHidden": "Montant non publie",
+        "feedTargetPending": "Feed a definir",
+        "feedLink": "Voir la publication",
+        "website": "Site web"
+      },
+      "feedStatus": {
+        "not_planned": "Non planifie",
+        "planned": "Planifie",
+        "drafted": "Brouillon",
+        "published": "Publie"
+      },
+      "empty": {
+        "title": "Aucun commanditaire public pour le moment",
+        "copy": "Les commanditaires apparaitront ici apres paiement, informations d'entreprise, consentement public et approbation admin.",
+        "action": "Devenir commanditaire"
+      },
+      "state": {
+        "loading": "Chargement des commanditaires...",
+        "error": "Impossible de charger les commanditaires."
       }
     },
     "ecosystemPage": {
@@ -513,6 +554,7 @@
       "music": "Les Chants",
       "shop": "Boutique",
       "builders": "Bâtisseurs",
+      "sponsors": "Commanditaires",
       "transparency": "Transparence",
       "impact": "Impact",
       "about": "À propos",

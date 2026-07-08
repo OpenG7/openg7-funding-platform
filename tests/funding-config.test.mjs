@@ -456,3 +456,87 @@ test('Public builders hide sponsorships until admin approval is recorded', () =>
   assert.ok(source.includes("sponsor_review_status = 'approved'"));
   assert.ok(source.includes("contribution_type <> 'sponsorship_interest'"));
 });
+
+test('Sponsorship publication migration adds public profile and feed fields', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql',
+    'utf8'
+  );
+
+  for (const column of [
+    'sponsor_public_slug',
+    'sponsor_public_summary',
+    'sponsor_feed_target',
+    'sponsor_feed_channels',
+    'sponsor_feed_status',
+    'sponsor_feed_public_url',
+    'sponsor_feed_notes',
+    'sponsor_visibility_updated_at'
+  ]) {
+    assert.ok(migration.includes(column));
+  }
+
+  assert.ok(
+    migration.includes('idx_fund_contributions_sponsor_public_slug')
+  );
+});
+
+test('Public sponsorships are exposed only after consent and approval', () => {
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(api.includes("'/public/sponsorships'"));
+  assert.ok(api.includes("'/api/public/sponsorships'"));
+  assert.ok(repository.includes('listPublicSponsorships'));
+  assert.ok(repository.includes('public_display_consent IS TRUE'));
+  assert.ok(repository.includes("sponsor_review_status = 'approved'"));
+  assert.equal(repository.includes('sponsor_contact_email AS'), false);
+  assert.equal(repository.includes('email_private AS'), false);
+});
+
+test('Admin sponsorship publication endpoint validates feed placement fields', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+
+  assert.ok(api.includes("'/admin/sponsorships/publication'"));
+  assert.ok(api.includes("'/api/admin/sponsorships/publication'"));
+  assert.ok(api.includes('isValidOptionalPublicSlug'));
+  assert.ok(api.includes('isAllowedSponsorFeedTarget'));
+  assert.ok(api.includes('parseSponsorFeedChannelsFromRequest'));
+  assert.ok(api.includes('isAllowedSponsorFeedStatus'));
+  assert.ok(service.includes('/admin/sponsorships/publication'));
+});
+
+test('Sponsors page is routed, prerendered, translated, and indexed', () => {
+  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const serverRoutes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.server.ts',
+    'utf8'
+  );
+  const sitemap = fs.readFileSync('apps/funding-web/src/sitemap.xml', 'utf8');
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  assert.ok(routes.includes("path: 'commanditaires'"));
+  assert.ok(serverRoutes.includes("path: 'commanditaires'"));
+  assert.ok(serverRoutes.includes("path: 'en/commanditaires'"));
+  assert.ok(sitemap.includes('https://openg7.org/commanditaires'));
+  assert.ok(sitemap.includes('https://openg7.org/en/commanditaires'));
+
+  for (const locale of [fr, en]) {
+    assert.ok(locale.funding.nav.sponsors);
+    assert.ok(locale.funding.seo.sponsors.title);
+    assert.ok(locale.funding.sponsorsPage.hero.title);
+    assert.ok(locale.funding.sponsorsPage.feedStatus.published);
+  }
+});
