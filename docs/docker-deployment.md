@@ -349,15 +349,16 @@ Backups include:
 - scripts
 - docs
 
-If private PostgreSQL is enabled, also export a database dump before or after the filesystem backup:
+If private PostgreSQL is enabled through `DATABASE_URL`, `scripts/backup.sh`
+also writes a consistent database dump while PostgreSQL is running:
 
-```bash
-mkdir -p backups
-docker compose --profile database exec -T postgres \
-  pg_dump -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-  > "backups/openg7-funding-db-$(date -u +%Y%m%dT%H%M%SZ).sql"
-chmod 600 backups/openg7-funding-db-*.sql
+```text
+backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
 ```
+
+Store both the configuration archive and the database dump outside the VPS as
+private secrets. The database may contain Stripe event payloads, sponsorship
+follow-up data, and admin review data.
 
 Suggested cron:
 
@@ -375,6 +376,26 @@ chmod 600 .env traefik/acme/acme.json
 docker compose up -d
 bash scripts/check.sh
 ```
+
+If private PostgreSQL is enabled and you need to rebuild from a clean database
+volume, use the restore helper with the configuration archive and the database
+dump:
+
+```bash
+cd /opt/openg7-funding-platform
+bash scripts/restore-from-backup.sh \
+  --config-backup /path/to/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz \
+  --database-dump /path/to/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
+```
+
+The script stops the stack, removes the `openg7-postgres-data` Docker volume,
+recreates PostgreSQL, imports the dump, starts the full stack, and runs
+`scripts/check.sh`. It asks for a typed confirmation before deleting the volume;
+add `--force` only for a confirmed emergency automation run.
+
+The dump created by `scripts/backup.sh` includes schema and data, so the restore
+script does not run migrations before importing it into an empty restored
+database.
 
 ## GitHub Actions CI/CD
 

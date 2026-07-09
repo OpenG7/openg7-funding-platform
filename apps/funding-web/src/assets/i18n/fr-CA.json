@@ -569,9 +569,12 @@
         "sponsorship": {
           "kicker": "Validation",
           "title": "Commandite d'entreprise",
-          "copy": "La visibilité d'entreprise sera soumise à une validation manuelle avant toute publication."
+          "copy": "La visibilité d'entreprise sera soumise à une validation manuelle avant toute publication.",
+          "disabled": "Temporairement indisponible"
         },
         "otherAmount": "Autre montant",
+        "amountFormatHint": "Chiffres seulement, avec un maximum de 2 décimales.",
+        "amountFormatError": "Entrez un montant valide supérieur à 0.",
         "consentLegend": "Consentements",
         "publicDisplayConsent": "Afficher mon nom publiquement si un nom public est fourni plus tard.",
         "publicDisplayNameLabel": "Nom à afficher publiquement (utilisé seulement si la case ci-dessus est cochée)",

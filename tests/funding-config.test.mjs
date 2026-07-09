@@ -98,6 +98,18 @@ test('PostgreSQL compose service is private and profile-gated', () => {
   assert.equal(/['"]?5432:5432['"]?/.test(compose), false);
 });
 
+test('PostgreSQL restore helper rebuilds from backup with destructive safeguards', () => {
+  const script = fs.readFileSync('scripts/restore-from-backup.sh', 'utf8');
+  const docs = fs.readFileSync('docs/docker-deployment.md', 'utf8');
+
+  assert.ok(script.includes('POSTGRES_VOLUME_NAME="${POSTGRES_VOLUME_NAME:-openg7-postgres-data}"'));
+  assert.ok(script.includes('Type RESTORE OPENG7 to continue.'));
+  assert.ok(script.includes('docker volume rm "${POSTGRES_VOLUME_NAME}"'));
+  assert.ok(script.includes('psql -v ON_ERROR_STOP=1'));
+  assert.ok(script.includes('bash scripts/check.sh'));
+  assert.ok(docs.includes('bash scripts/restore-from-backup.sh'));
+});
+
 test('Stripe webhook service handles MVP idempotent event set', () => {
   const source = fs.readFileSync(
     'apps/funding-api/src/stripe-webhook.service.ts',
@@ -354,6 +366,63 @@ test('Public display name input has matching i18n keys in both locales', () => {
     const contribution = locale.funding.home.contribution;
     assert.ok(contribution.publicDisplayNameLabel);
     assert.ok(contribution.publicDisplayNamePlaceholder);
+  }
+});
+
+test('Custom contribution amount input accepts only decimal numeric values', () => {
+  const source = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
+    'utf8'
+  );
+  const styles = fs.readFileSync('apps/funding-web/src/styles.css', 'utf8');
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  assert.ok(source.includes('class="custom-amount-input"'));
+  assert.ok(source.includes('type="text"'));
+  assert.ok(source.includes('inputmode="decimal"'));
+  assert.ok(source.includes('pattern="[0-9]+([.,][0-9]{0,2})?"'));
+  assert.ok(source.includes('sanitizeCustomContributionValue'));
+  assert.ok(source.includes('normalizedValue.replace(/[^0-9.]/g, \'\')'));
+  assert.ok(source.includes("decimalParts.join('').slice(0, 2)"));
+  assert.ok(source.includes('parseCustomContributionAmount'));
+  assert.ok(source.includes('/^\\d+(?:\\.\\d{0,2})?$/.test(value)'));
+  assert.ok(source.includes('!this.hasInvalidCustomContribution()'));
+  assert.ok(source.includes('normalizeCustomContributionFromEvent'));
+  assert.ok(styles.includes('.custom-amount-input[aria-invalid=\'true\']'));
+
+  for (const locale of [fr, en]) {
+    assert.ok(locale.funding.home.contribution.amountFormatHint);
+    assert.ok(locale.funding.home.contribution.amountFormatError);
+  }
+});
+
+test('Business sponsorship contribution choice is temporarily disabled', () => {
+  const source = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
+    'utf8'
+  );
+  const styles = fs.readFileSync('apps/funding-web/src/styles.css', 'utf8');
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  assert.ok(source.includes('readonly sponsorshipSelectionEnabled = false'));
+  assert.ok(source.includes('[disabled]="!sponsorshipSelectionEnabled"'));
+  assert.ok(source.includes("type === 'sponsorship_interest'"));
+  assert.ok(source.includes('!this.sponsorshipSelectionEnabled'));
+  assert.ok(source.includes('funding.home.contribution.sponsorship.disabled'));
+  assert.ok(styles.includes('.contribution-type-card:disabled'));
+
+  for (const locale of [fr, en]) {
+    assert.ok(locale.funding.home.contribution.sponsorship.disabled);
   }
 });
 

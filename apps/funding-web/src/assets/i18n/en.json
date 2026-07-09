@@ -569,9 +569,12 @@
         "sponsorship": {
           "kicker": "Review",
           "title": "Business sponsorship",
-          "copy": "Business visibility will require manual review before anything is published."
+          "copy": "Business visibility will require manual review before anything is published.",
+          "disabled": "Temporarily unavailable"
         },
         "otherAmount": "Other amount",
+        "amountFormatHint": "Numbers only, with up to 2 decimals.",
+        "amountFormatError": "Enter a valid amount greater than 0.",
         "consentLegend": "Consents",
         "publicDisplayConsent": "Display my name publicly if a public name is provided later.",
         "publicDisplayNameLabel": "Name to display publicly (only used if the box above is checked)",
