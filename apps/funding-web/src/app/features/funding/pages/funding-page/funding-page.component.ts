@@ -513,11 +513,16 @@ interface FoundationPillar {
                   class="contribution-type-card review"
                   [class.active]="contributionType() === 'sponsorship_interest'"
                   [attr.aria-pressed]="contributionType() === 'sponsorship_interest'"
+                  [disabled]="!sponsorshipSelectionEnabled"
+                  [attr.aria-disabled]="!sponsorshipSelectionEnabled"
                   (click)="setContributionType('sponsorship_interest')"
                 >
                   <span>{{ 'funding.home.contribution.sponsorship.kicker' | translate }}</span>
                   <strong>{{ 'funding.home.contribution.sponsorship.title' | translate }}</strong>
                   <p>{{ 'funding.home.contribution.sponsorship.copy' | translate }}</p>
+                  <small *ngIf="!sponsorshipSelectionEnabled">
+                    {{ 'funding.home.contribution.sponsorship.disabled' | translate }}
+                  </small>
                 </button>
               </div>
               <div class="amount-grid">
@@ -533,13 +538,32 @@ interface FoundationPillar {
               <label for="custom-contribution">{{ 'funding.home.contribution.otherAmount' | translate }}</label>
               <input
                 id="custom-contribution"
-                type="number"
-                min="1"
-                step="1"
-                inputmode="numeric"
+                class="custom-amount-input"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                pattern="[0-9]+([.,][0-9]{0,2})?"
+                maxlength="10"
                 placeholder="$"
+                [value]="customContributionValue()"
+                [attr.aria-invalid]="hasInvalidCustomContribution()"
+                aria-describedby="custom-contribution-help"
                 (input)="setCustomContributionFromEvent($event)"
+                (blur)="normalizeCustomContributionFromEvent($event)"
               />
+              <p
+                id="custom-contribution-help"
+                class="input-help"
+                [class.input-error]="hasInvalidCustomContribution()"
+              >
+                {{
+                  (
+                    hasInvalidCustomContribution()
+                      ? 'funding.home.contribution.amountFormatError'
+                      : 'funding.home.contribution.amountFormatHint'
+                  ) | translate
+                }}
+              </p>
               <fieldset class="consent-options">
                 <legend>{{ 'funding.home.contribution.consentLegend' | translate }}</legend>
                 <label class="consent-option">
@@ -587,7 +611,12 @@ interface FoundationPillar {
               >
                 {{ 'funding.nav.supportCta' | translate }}
               </button>
-              <p class="payment-note">{{ 'funding.home.contribution.securePayment' | translate }}</p>
+              <p class="payment-note">
+                {{ 'funding.home.contribution.securePayment' | translate }}
+                <a [routerLink]="policyPath()">
+                  {{ 'funding.home.contribution.policyLink' | translate }}
+                </a>
+              </p>
               <p class="state" *ngIf="loadingState() === 'loading'">
                 {{ 'funding.home.contribution.loading' | translate }}
               </p>
@@ -662,8 +691,12 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   readonly config: FundingProjectConfig =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
+  readonly sponsorshipSelectionEnabled = false;
 
   readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly policyPath = computed(() =>
+    this.i18n.localizedPath('/politique-utilisation-remboursement')
+  );
   readonly transparencyPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
   );
@@ -672,6 +705,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly selectedContributionAmount = signal<number>(
     this.config.contributionAmounts[2] ?? this.config.contributionAmounts[0]
   );
+  readonly customContributionValue = signal<string>('');
   readonly contributionType = signal<ContributionType>('personal_support');
   readonly publicDisplayConsent = signal<boolean>(false);
   readonly publicDisplayName = signal<string>('');
@@ -791,8 +825,17 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     () =>
       this.nonCharityAcknowledged() &&
       this.loadingState() !== 'loading' &&
+      !this.hasInvalidCustomContribution() &&
       (!this.publicDisplayConsent() || this.publicDisplayName().trim().length > 0)
   );
+
+  readonly hasInvalidCustomContribution = computed<boolean>(() => {
+    const customValue = this.customContributionValue();
+    return (
+      customValue.length > 0 &&
+      this.parseCustomContributionAmount(customValue) === null
+    );
+  });
 
   readonly showSponsorFollowUp = computed<boolean>(
     () =>
@@ -1014,15 +1057,40 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   }
 
   setContributionAmount(amount: number): void {
+    this.customContributionValue.set('');
     this.selectedContributionAmount.set(amount);
   }
 
   setCustomContributionFromEvent(event: Event): void {
     const input = event.target as HTMLInputElement | null;
-    const amount = Number(input?.value ?? 0);
+    const sanitizedValue = this.sanitizeCustomContributionValue(
+      input?.value ?? ''
+    );
+    if (input && input.value !== sanitizedValue) {
+      input.value = sanitizedValue;
+    }
 
-    if (amount > 0) {
+    this.customContributionValue.set(sanitizedValue);
+    const amount = this.parseCustomContributionAmount(sanitizedValue);
+
+    if (amount !== null) {
       this.selectedContributionAmount.set(amount);
+    }
+  }
+
+  normalizeCustomContributionFromEvent(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const amount = this.parseCustomContributionAmount(
+      this.customContributionValue()
+    );
+    if (amount === null) {
+      return;
+    }
+
+    const formattedValue = this.formatPlainAmount(amount);
+    this.customContributionValue.set(formattedValue);
+    if (input) {
+      input.value = formattedValue;
     }
   }
 
@@ -1031,6 +1099,10 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   }
 
   setContributionType(type: ContributionType): void {
+    if (type === 'sponsorship_interest' && !this.sponsorshipSelectionEnabled) {
+      return;
+    }
+
     this.contributionType.set(type);
   }
 
@@ -1174,6 +1246,33 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       (event.target as HTMLInputElement | HTMLTextAreaElement | null)?.value ??
       ''
     );
+  }
+
+  private sanitizeCustomContributionValue(value: string): string {
+    const normalizedValue = value.replace(',', '.').replace(/\s/g, '');
+    const numericValue = normalizedValue.replace(/[^0-9.]/g, '');
+    const [integerPart = '', ...decimalParts] = numericValue.split('.');
+    const decimalPart = decimalParts.join('').slice(0, 2);
+    const normalizedInteger = integerPart.replace(/^0+(?=\d)/, '');
+
+    if (decimalParts.length === 0) {
+      return normalizedInteger;
+    }
+
+    return `${normalizedInteger || '0'}.${decimalPart}`;
+  }
+
+  private parseCustomContributionAmount(value: string): number | null {
+    if (!/^\d+(?:\.\d{0,2})?$/.test(value)) {
+      return null;
+    }
+
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount > 0 ? amount : null;
+  }
+
+  private formatPlainAmount(amount: number): string {
+    return amount.toFixed(2).replace(/\.?0+$/, '');
   }
 
   private toFundingSnapshot(

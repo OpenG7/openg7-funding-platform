@@ -95,6 +95,7 @@ interface TablePresenceRow {
   readonly has_fund_contributions: boolean;
   readonly has_fund_transactions: boolean;
   readonly has_fund_allocations: boolean;
+  readonly has_sponsor_review_status: boolean;
 }
 
 const centsToAmount = (value: number): number => Number((value / 100).toFixed(2));
@@ -191,13 +192,21 @@ const getTablePresence = async (pool: Pool): Promise<TablePresenceRow> => {
     SELECT
       to_regclass('public.fund_contributions') IS NOT NULL AS has_fund_contributions,
       to_regclass('public.fund_transactions') IS NOT NULL AS has_fund_transactions,
-      to_regclass('public.fund_allocations') IS NOT NULL AS has_fund_allocations
+      to_regclass('public.fund_allocations') IS NOT NULL AS has_fund_allocations,
+      EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'fund_contributions'
+          AND column_name = 'sponsor_review_status'
+      ) AS has_sponsor_review_status
   `);
 
   return query.rows[0] ?? {
     has_fund_contributions: false,
     has_fund_transactions: false,
-    has_fund_allocations: false
+    has_fund_allocations: false,
+    has_sponsor_review_status: false
   };
 };
 
@@ -235,11 +244,15 @@ const getLatestPublicAllocations = async (
 
 const getPublicBuilders = async (
   pool: Pool,
-  hasFundContributions: boolean
+  tables: TablePresenceRow
 ): Promise<readonly PublicBuilderProfile[]> => {
-  if (!hasFundContributions) {
+  if (!tables.has_fund_contributions) {
     return [];
   }
+
+  const sponsorshipVisibilityFilter = tables.has_sponsor_review_status
+    ? "AND (contribution_type <> 'sponsorship_interest' OR sponsor_review_status = 'approved')"
+    : "AND contribution_type <> 'sponsorship_interest'";
 
   const query = await pool.query<PublicBuilderRow>(`
     SELECT
@@ -256,6 +269,7 @@ const getPublicBuilders = async (
       AND public_display_consent IS TRUE
       AND public_name IS NOT NULL
       AND btrim(public_name) <> ''
+      ${sponsorshipVisibilityFilter}
     ORDER BY COALESCE(paid_at, updated_at, created_at) DESC
     LIMIT 24
   `);
@@ -510,7 +524,7 @@ const getContributionTransparencySummary = async (
     ),
     public_builders: await getPublicBuilders(
       pool,
-      tables.has_fund_contributions
+      tables
     ),
     last_updated_at: maxIso(
       totals.last_updated_at,

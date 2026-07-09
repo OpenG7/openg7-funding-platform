@@ -5,6 +5,14 @@ import test from 'node:test';
 import { OPENG7_FUNDING_CONFIG } from '../dist/apps/funding-web/src/app/features/funding/config/openg7-funding.config.js';
 import { createMockCheckoutResult } from '../dist/packages/funding-core/src/index.js';
 
+const extractBetween = (source, start, end, label) => {
+  const startIndex = source.indexOf(start);
+  assert.notEqual(startIndex, -1, `${label} start marker was not found`);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+  assert.notEqual(endIndex, -1, `${label} end marker was not found`);
+  return source.slice(startIndex, endIndex);
+};
+
 test('OpenG7 config uses required default values', () => {
   assert.equal(OPENG7_FUNDING_CONFIG.projectName, 'OpenG7');
   assert.equal(OPENG7_FUNDING_CONFIG.campaignTitle, 'Le Fonds des Bâtisseurs');
@@ -55,8 +63,8 @@ test('fund_contributions ON CONFLICT targets match its partial unique index', ()
   );
 
   assert.ok(
-    migration.includes(
-      'CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_contributions_stripe_session_id\n  ON fund_contributions (stripe_session_id)\n  WHERE stripe_session_id IS NOT NULL'
+    /CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_contributions_stripe_session_id\s+ON fund_contributions \(stripe_session_id\)\s+WHERE stripe_session_id IS NOT NULL/.test(
+      migration
     ),
     'fund_contributions.stripe_session_id must stay a partial unique index'
   );
@@ -88,6 +96,18 @@ test('PostgreSQL compose service is private and profile-gated', () => {
   assert.ok(compose.includes('openg7-data'));
   assert.ok(compose.includes('internal: true'));
   assert.equal(/['"]?5432:5432['"]?/.test(compose), false);
+});
+
+test('PostgreSQL restore helper rebuilds from backup with destructive safeguards', () => {
+  const script = fs.readFileSync('scripts/restore-from-backup.sh', 'utf8');
+  const docs = fs.readFileSync('docs/docker-deployment.md', 'utf8');
+
+  assert.ok(script.includes('POSTGRES_VOLUME_NAME="${POSTGRES_VOLUME_NAME:-openg7-postgres-data}"'));
+  assert.ok(script.includes('Type RESTORE OPENG7 to continue.'));
+  assert.ok(script.includes('docker volume rm "${POSTGRES_VOLUME_NAME}"'));
+  assert.ok(script.includes('psql -v ON_ERROR_STOP=1'));
+  assert.ok(script.includes('bash scripts/check.sh'));
+  assert.ok(docs.includes('bash scripts/restore-from-backup.sh'));
 });
 
 test('Stripe webhook service handles MVP idempotent event set', () => {
@@ -349,6 +369,63 @@ test('Public display name input has matching i18n keys in both locales', () => {
   }
 });
 
+test('Custom contribution amount input accepts only decimal numeric values', () => {
+  const source = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
+    'utf8'
+  );
+  const styles = fs.readFileSync('apps/funding-web/src/styles.css', 'utf8');
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  assert.ok(source.includes('class="custom-amount-input"'));
+  assert.ok(source.includes('type="text"'));
+  assert.ok(source.includes('inputmode="decimal"'));
+  assert.ok(source.includes('pattern="[0-9]+([.,][0-9]{0,2})?"'));
+  assert.ok(source.includes('sanitizeCustomContributionValue'));
+  assert.ok(source.includes('normalizedValue.replace(/[^0-9.]/g, \'\')'));
+  assert.ok(source.includes("decimalParts.join('').slice(0, 2)"));
+  assert.ok(source.includes('parseCustomContributionAmount'));
+  assert.ok(source.includes('/^\\d+(?:\\.\\d{0,2})?$/.test(value)'));
+  assert.ok(source.includes('!this.hasInvalidCustomContribution()'));
+  assert.ok(source.includes('normalizeCustomContributionFromEvent'));
+  assert.ok(styles.includes('.custom-amount-input[aria-invalid=\'true\']'));
+
+  for (const locale of [fr, en]) {
+    assert.ok(locale.funding.home.contribution.amountFormatHint);
+    assert.ok(locale.funding.home.contribution.amountFormatError);
+  }
+});
+
+test('Business sponsorship contribution choice is temporarily disabled', () => {
+  const source = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
+    'utf8'
+  );
+  const styles = fs.readFileSync('apps/funding-web/src/styles.css', 'utf8');
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  assert.ok(source.includes('readonly sponsorshipSelectionEnabled = false'));
+  assert.ok(source.includes('[disabled]="!sponsorshipSelectionEnabled"'));
+  assert.ok(source.includes("type === 'sponsorship_interest'"));
+  assert.ok(source.includes('!this.sponsorshipSelectionEnabled'));
+  assert.ok(source.includes('funding.home.contribution.sponsorship.disabled'));
+  assert.ok(styles.includes('.contribution-type-card:disabled'));
+
+  for (const locale of [fr, en]) {
+    assert.ok(locale.funding.home.contribution.sponsorship.disabled);
+  }
+});
+
 test('Sponsor follow-up screen has matching i18n keys in both locales', () => {
   const fr = JSON.parse(
     fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
@@ -367,5 +444,291 @@ test('Sponsor follow-up screen has matching i18n keys in both locales', () => {
     assert.ok(checkout.sponsorForm.submit);
     assert.ok(checkout.sponsorForm.successTitle);
     assert.ok(checkout.sponsorForm.nextStepsLink);
+  }
+});
+
+test('Sponsorship review and follow-up migrations add private workflow columns', () => {
+  const reviewMigration = fs.readFileSync(
+    'apps/funding-api/migrations/004_add_sponsorship_review.sql',
+    'utf8'
+  );
+  const followupMigration = fs.readFileSync(
+    'apps/funding-api/migrations/005_add_sponsorship_followup_token.sql',
+    'utf8'
+  );
+
+  for (const column of [
+    'sponsor_review_status',
+    'sponsor_review_note',
+    'sponsor_reviewed_at'
+  ]) {
+    assert.ok(reviewMigration.includes(column));
+  }
+
+  assert.ok(followupMigration.includes('sponsorship_followup_token_hash'));
+  assert.ok(
+    followupMigration.includes(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_contributions_followup_token_hash'
+    )
+  );
+  assert.ok(followupMigration.includes('WHERE sponsorship_followup_token_hash IS NOT NULL'));
+});
+
+test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe metadata', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const checkoutMetadataBlock = extractBetween(
+    source,
+    'const checkoutMetadata',
+    'const session = await stripe.checkout.sessions.create',
+    'checkout metadata'
+  );
+
+  assert.ok(source.includes('createSponsorshipFollowupToken'));
+  assert.ok(source.includes('hashSponsorshipFollowupToken'));
+  assert.ok(source.includes("'followup_token'"));
+  assert.equal(checkoutMetadataBlock.includes('sponsorshipFollowupToken,'), false);
+  assert.ok(source.includes('sponsorshipFollowupTokenHash'));
+});
+
+test('Sponsorship follow-up endpoints are token based and do not require Stripe session ids', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(source.includes("'/sponsorship-followup'"));
+  assert.ok(source.includes("'/api/sponsorship-followup'"));
+  assert.ok(source.includes("'/sponsorship-followup/details'"));
+  assert.ok(source.includes("'/api/sponsorship-followup/details'"));
+  assert.ok(source.includes('isValidFollowupToken'));
+  assert.ok(source.includes('getSponsorshipFollowupByTokenHash'));
+  assert.ok(source.includes('recordSponsorshipDetailsForContribution'));
+});
+
+test('Sponsorship follow-up email is sent from checkout completion only when recoverable', () => {
+  const webhook = fs.readFileSync(
+    'apps/funding-api/src/stripe-webhook.service.ts',
+    'utf8'
+  );
+  const email = fs.readFileSync(
+    'apps/funding-api/src/email-notification.service.ts',
+    'utf8'
+  );
+
+  assert.ok(webhook.includes('sendSponsorshipFollowupEmail'));
+  assert.ok(webhook.includes('buildSponsorshipFollowupUrl'));
+  assert.ok(webhook.includes('extractSponsorshipFollowupTokenFromSession'));
+  assert.ok(webhook.includes('followupToken'));
+  assert.ok(webhook.includes('followupEmail'));
+  assert.ok(webhook.includes('markSponsorshipFollowupEmailResult'));
+  assert.ok(email.includes('RESEND_API_KEY'));
+  assert.ok(email.includes('FUNDING_EMAIL_FROM'));
+});
+
+test('Sponsorship follow-up tokens expire and details edits return to review', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const followupPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
+    'utf8'
+  );
+  const recordDetailsBody = extractBetween(
+    repository,
+    'export const recordSponsorshipDetailsForContribution',
+    'export const markSponsorshipFollowupEmailResult',
+    'sponsorship follow-up recording'
+  );
+
+  assert.ok(api.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS'));
+  assert.ok(api.includes('getSponsorshipFollowupTokenCutoffIso'));
+  assert.ok(repository.includes('sponsorship_followup_token_created_at >= $2::timestamptz'));
+  assert.ok(recordDetailsBody.includes("sponsor_review_status = 'pending_review'"));
+  assert.ok(recordDetailsBody.includes('sponsor_reviewed_at = NULL'));
+  assert.ok(followupPage.includes('history.replaceState'));
+  assert.ok(followupPage.includes("url.searchParams.delete('token')"));
+});
+
+test('Sensitive sponsorship API routes have in-process rate limiting', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const envExample = fs.readFileSync('.env.example', 'utf8');
+
+  assert.ok(api.includes('createRateLimiter'));
+  assert.ok(api.includes('getRequestRateLimiter'));
+  assert.ok(api.includes('enforceRateLimit'));
+  assert.ok(api.includes('Retry-After'));
+  assert.ok(api.includes('FUNDING_RATE_LIMIT_WINDOW_MS'));
+  assert.ok(api.includes('FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX'));
+  assert.ok(api.includes('FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX'));
+  assert.ok(api.includes('FUNDING_ADMIN_RATE_LIMIT_MAX'));
+  assert.ok(envExample.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS=30'));
+  assert.ok(envExample.includes('FUNDING_ADMIN_RATE_LIMIT_MAX=120'));
+});
+
+test('Sponsorship follow-up page is routed but not added to the sitemap', () => {
+  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const sitemap = fs.readFileSync('apps/funding-web/src/sitemap.xml', 'utf8');
+
+  assert.ok(routes.includes("path: 'fonds-des-batisseurs/suivi-commandite'"));
+  assert.equal(sitemap.includes('suivi-commandite'), false);
+});
+
+test('Public builders hide sponsorships until admin approval is recorded', () => {
+  const source = fs.readFileSync(
+    'apps/funding-api/src/fund-transparency.repository.ts',
+    'utf8'
+  );
+
+  assert.ok(source.includes('has_sponsor_review_status'));
+  assert.ok(source.includes("sponsor_review_status = 'approved'"));
+  assert.ok(source.includes("contribution_type <> 'sponsorship_interest'"));
+});
+
+test('Sponsorship publication migration adds public profile and feed fields', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql',
+    'utf8'
+  );
+
+  for (const column of [
+    'sponsor_public_slug',
+    'sponsor_public_summary',
+    'sponsor_feed_target',
+    'sponsor_feed_channels',
+    'sponsor_feed_status',
+    'sponsor_feed_public_url',
+    'sponsor_feed_notes',
+    'sponsor_visibility_updated_at'
+  ]) {
+    assert.ok(migration.includes(column));
+  }
+
+  assert.ok(
+    migration.includes('idx_fund_contributions_sponsor_public_slug')
+  );
+});
+
+test('Public sponsorships are exposed only after consent and approval', () => {
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(api.includes("'/public/sponsorships'"));
+  assert.ok(api.includes("'/api/public/sponsorships'"));
+  assert.ok(repository.includes('listPublicSponsorships'));
+  assert.ok(repository.includes('public_display_consent IS TRUE'));
+  assert.ok(repository.includes("sponsor_review_status = 'approved'"));
+  assert.equal(repository.includes('sponsor_contact_email AS'), false);
+  assert.equal(repository.includes('email_private AS'), false);
+});
+
+test('Admin sponsorship publication endpoint validates feed placement fields', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+
+  assert.ok(api.includes("'/admin/sponsorships/publication'"));
+  assert.ok(api.includes("'/api/admin/sponsorships/publication'"));
+  assert.ok(api.includes('isValidOptionalPublicSlug'));
+  assert.ok(api.includes('isAllowedSponsorFeedTarget'));
+  assert.ok(api.includes('parseSponsorFeedChannelsFromRequest'));
+  assert.ok(api.includes('isAllowedSponsorFeedStatus'));
+  assert.ok(service.includes('/admin/sponsorships/publication'));
+});
+
+test('Sponsors page is routed, prerendered, translated, and indexed', () => {
+  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const serverRoutes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.server.ts',
+    'utf8'
+  );
+  const sitemap = fs.readFileSync('apps/funding-web/src/sitemap.xml', 'utf8');
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  assert.ok(routes.includes("path: 'commanditaires'"));
+  assert.ok(serverRoutes.includes("path: 'commanditaires'"));
+  assert.ok(serverRoutes.includes("path: 'en/commanditaires'"));
+  assert.ok(sitemap.includes('https://openg7.org/commanditaires'));
+  assert.ok(sitemap.includes('https://openg7.org/en/commanditaires'));
+
+  for (const locale of [fr, en]) {
+    assert.ok(locale.funding.nav.sponsors);
+    assert.ok(locale.funding.seo.sponsors.title);
+    assert.ok(locale.funding.sponsorsPage.hero.title);
+    assert.ok(locale.funding.sponsorsPage.feedStatus.published);
+  }
+});
+
+test('Usage and refund policy page is routed, linked, documented, and indexed', () => {
+  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const serverRoutes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.server.ts',
+    'utf8'
+  );
+  const i18nService = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-i18n.service.ts',
+    'utf8'
+  );
+  const fundingPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
+    'utf8'
+  );
+  const policyPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/usage-refund-policy-page/usage-refund-policy-page.component.ts',
+    'utf8'
+  );
+  const sitemap = fs.readFileSync('apps/funding-web/src/sitemap.xml', 'utf8');
+  const docs = [
+    fs.readFileSync('README.md', 'utf8'),
+    fs.readFileSync('docs/docker-deployment.md', 'utf8'),
+    fs.readFileSync('docs/production-launch-checklist.md', 'utf8')
+  ].join('\n');
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  assert.ok(routes.includes('UsageRefundPolicyPageComponent'));
+  assert.ok(routes.includes("path: 'politique-utilisation-remboursement'"));
+  assert.ok(serverRoutes.includes("path: 'politique-utilisation-remboursement'"));
+  assert.ok(
+    serverRoutes.includes("path: 'en/politique-utilisation-remboursement'")
+  );
+  assert.ok(i18nService.includes("| '/politique-utilisation-remboursement'"));
+  assert.ok(i18nService.includes("'/politique-utilisation-remboursement'"));
+  assert.ok(
+    sitemap.includes('https://openg7.org/politique-utilisation-remboursement')
+  );
+  assert.ok(
+    sitemap.includes('https://openg7.org/en/politique-utilisation-remboursement')
+  );
+  assert.ok(fundingPage.includes('policyPath'));
+  assert.ok(fundingPage.includes('funding.home.contribution.policyLink'));
+  assert.ok(policyPage.includes('funding.seo.policy.title'));
+  assert.ok(policyPage.includes('funding.policyPage.sections.refunds'));
+  assert.ok(policyPage.includes('funding.policyPage.sections.sponsorship'));
+  assert.ok(docs.includes('/politique-utilisation-remboursement'));
+  assert.ok(docs.includes('/en/politique-utilisation-remboursement'));
+
+  for (const locale of [fr, en]) {
+    assert.ok(locale.funding.seo.policy.title);
+    assert.ok(locale.funding.home.contribution.policyLink);
+    assert.ok(locale.funding.policyPage.hero.title);
+    assert.ok(locale.funding.policyPage.sections.nature.items.noReceipt);
+    assert.ok(locale.funding.policyPage.sections.refunds.items.request);
+    assert.ok(locale.funding.policyPage.sections.disputes.items.stripe);
+    assert.ok(locale.funding.policyPage.sections.sponsorship.items.followup);
+    assert.ok(locale.funding.policyPage.sections.visibility.items.feed);
+    assert.ok(locale.funding.policyPage.sections.privacy.items.privateData);
   }
 });

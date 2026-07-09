@@ -57,6 +57,8 @@ The production web build uses Angular SSG and prerenders these public French rou
 - `/music`
 - `/boutique`
 - `/batisseurs`
+- `/commanditaires`
+- `/politique-utilisation-remboursement`
 - `/fonds-des-batisseurs/a-propos`
 - `/fonds-des-batisseurs/transparence`
 
@@ -69,6 +71,8 @@ It also prerenders the English equivalents:
 - `/en/music`
 - `/en/boutique`
 - `/en/batisseurs`
+- `/en/commanditaires`
+- `/en/politique-utilisation-remboursement`
 - `/en/fonds-des-batisseurs/a-propos`
 - `/en/fonds-des-batisseurs/transparence`
 
@@ -102,9 +106,10 @@ The hosting layer must provide:
 
 - HTTPS for the public frontend.
 - HTTPS for the API or an HTTPS frontend proxy to `/api`.
-- Angular route fallback to `index.html` for public routes such as `/fonds-des-batisseurs`, `/batisseurs`, `/support`, `/music`, and `/boutique`.
+- Angular route fallback to `index.html` for public routes such as `/fonds-des-batisseurs`, `/batisseurs`, `/commanditaires`, `/politique-utilisation-remboursement`, `/support`, `/music`, and `/boutique`.
 - `/api/checkout-sessions` routed to the Funding API.
 - `/api/public/fund-transparency` routed to the Funding API.
+- `/api/public/sponsorships` routed to the Funding API.
 - `/api/stripe/webhook` routed to the Funding API.
 
 ## Stripe Setup
@@ -142,11 +147,15 @@ After deployment, verify these public routes:
 - `/music`
 - `/boutique`
 - `/batisseurs`
+- `/commanditaires`
+- `/politique-utilisation-remboursement`
 - `/fonds-des-batisseurs/a-propos`
 - `/fonds-des-batisseurs/transparence`
 - `/en`
 - `/en/fonds-des-batisseurs`
 - `/en/batisseurs`
+- `/en/commanditaires`
+- `/en/politique-utilisation-remboursement`
 - `/en/fonds-des-batisseurs/transparence`
 
 Verify these API endpoints:
@@ -166,6 +175,8 @@ Expected transparency behavior:
 
 - `/fonds-des-batisseurs/transparence` loads aggregate public values.
 - `/batisseurs` loads public builder profiles when consented data exists, or a safe empty state.
+- `/commanditaires` loads approved public sponsor profiles when consented data exists, or a safe empty state.
+- `/politique-utilisation-remboursement` explains contribution use, refunds, disputes, sponsorship approval, feed visibility, and privacy limits.
 - If no Stripe contributions exist yet, the page may show an empty public state.
 - No personal contributor data is exposed.
 
@@ -177,16 +188,18 @@ Expected transparency behavior:
 - For PostgreSQL-backed launch, protect database backups as private secrets because `stripe_events.payload` stores signed Stripe webhook payloads for idempotence and auditability.
 - Confirm `FUNDING_PLATFORM_ENV=production`.
 - Confirm `FUNDING_ALLOWED_ORIGINS` contains only the intended production frontend origins.
+- Confirm sponsorship follow-up and admin rate limit variables are set for the expected traffic volume.
 - Confirm `/dev/stripe-setup`, `/dev/webhooks`, and `/dev/api-keys` are not accessible from the production domain.
 - Confirm all NorthDragon links open `https://northdragon.org` in a new tab.
 - Confirm GitHub repository links open the intended OpenG7 repositories.
+- Confirm the public usage/refund policy reflects the current Stripe, sponsorship, privacy, and support process before accepting real payments.
 - Confirm no Shopify iframe, Facebook iframe, or third-party embed was introduced.
 - Confirm the production deployment includes all required assets from `apps/funding-web/src/assets`.
 
 ## Future Work After Launch
 
 - Add hosting-specific configuration once the production target is chosen.
-- Add API rate limiting and security headers at the hosting/proxy layer.
+- Keep hosting/proxy rate limits and security headers aligned with the API-level limits.
 - Add image optimization for large hero assets, especially WebP or AVIF variants.
 - Consider Shopify Storefront API integration for the Boutique editorial previews.
 - Add production rehearsal steps for the PostgreSQL-backed fundraiser MVP once that mode is chosen for launch.

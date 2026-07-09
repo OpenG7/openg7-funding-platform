@@ -1,5 +1,6 @@
 import { CanMatchFn, Routes } from '@angular/router';
 
+import { AdminSponsorsPageComponent } from './features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.js';
 import { ApiKeysPageComponent } from './features/funding/pages/api-keys-page/api-keys-page.component.js';
 import { BuildersPageComponent } from './features/funding/pages/builders-page/builders-page.component.js';
 import { BoutiquePageComponent } from './features/funding/pages/boutique-page/boutique-page.component.js';
@@ -8,8 +9,11 @@ import { FundingAboutPageComponent } from './features/funding/pages/funding-abou
 import { FundingPageComponent } from './features/funding/pages/funding-page/funding-page.component.js';
 import { FundingTransparencyPageComponent } from './features/funding/pages/funding-transparency-page/funding-transparency-page.component.js';
 import { MusicPageComponent } from './features/funding/pages/music-page/music-page.component.js';
+import { SponsorshipFollowupPageComponent } from './features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.js';
+import { SponsorsPageComponent } from './features/funding/pages/sponsors-page/sponsors-page.component.js';
 import { StripeSetupPageComponent } from './features/funding/pages/stripe-setup-page/stripe-setup-page.component.js';
 import { SupportPageComponent } from './features/funding/pages/support-page/support-page.component.js';
+import { UsageRefundPolicyPageComponent } from './features/funding/pages/usage-refund-policy-page/usage-refund-policy-page.component.js';
 import { WebhooksPageComponent } from './features/funding/pages/webhooks-page/webhooks-page.component.js';
 
 const localDevelopmentOnly: CanMatchFn = () =>
@@ -53,13 +57,28 @@ const publicRoutes: Routes = [
     data: { language: 'fr-CA' }
   },
   {
+    path: 'commanditaires',
+    component: SponsorsPageComponent,
+    data: { language: 'fr-CA' }
+  },
+  {
     path: 'fonds-des-batisseurs/transparence',
     component: FundingTransparencyPageComponent,
     data: { language: 'fr-CA' }
   },
   {
+    path: 'fonds-des-batisseurs/suivi-commandite',
+    component: SponsorshipFollowupPageComponent,
+    data: { language: 'fr-CA' }
+  },
+  {
     path: 'support',
     component: SupportPageComponent,
+    data: { language: 'fr-CA' }
+  },
+  {
+    path: 'politique-utilisation-remboursement',
+    component: UsageRefundPolicyPageComponent,
     data: { language: 'fr-CA' }
   }
 ];
@@ -73,6 +92,10 @@ const englishPublicRoutes: Routes = publicRoutes.map((route) => ({
 export const appRoutes: Routes = [
   ...publicRoutes,
   ...englishPublicRoutes,
+  {
+    path: 'admin/fundraiser/sponsors',
+    component: AdminSponsorsPageComponent
+  },
   {
     path: 'en/**',
     redirectTo: 'en'

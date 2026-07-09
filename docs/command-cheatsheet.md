@@ -225,6 +225,12 @@ Créer une sauvegarde :
 bash scripts/backup.sh
 ```
 
+Si `DATABASE_URL` est configure, ce script cree aussi :
+
+```text
+backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
+```
+
 Lister les sauvegardes :
 
 ```bash
@@ -234,10 +240,9 @@ ls -lah backups/
 Restaurer :
 
 ```bash
-tar -xzf backups/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz
-chmod 600 .env traefik/acme/acme.json
-docker compose up -d
-bash scripts/check.sh
+bash scripts/restore-from-backup.sh \
+  --config-backup backups/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz \
+  --database-dump backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
 ```
 
 ## Debug fréquent

@@ -3,33 +3,100 @@ import {
   type IncomingMessage,
   type ServerResponse
 } from 'node:http';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import Stripe from 'stripe';
 import type {
+  AdminSponsorshipPublicationRequest,
+  AdminSponsorshipPublicationResult,
+  AdminSponsorshipReviewRequest,
+  AdminSponsorshipReviewResult,
+  AdminSponsorshipsResponse,
   ContributionType,
   CheckoutResult,
   CheckoutRequest,
   RedirectCheckoutResult,
+  SponsorFeedChannel,
+  SponsorFeedStatus,
+  SponsorFeedTarget,
   SponsorshipDetailsRequest,
-  SponsorshipDetailsResult
+  SponsorshipDetailsResult,
+  SponsorshipFollowupDetailsRequest,
+  SponsorshipFollowupResponse,
+  SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
 import { dbPool, hasDatabase } from './database.js';
 import {
+  allowedSponsorFeedChannels,
+  allowedSponsorFeedStatuses,
+  allowedSponsorFeedTargets,
+  allowedSponsorshipReviewStatuses,
   insertCheckoutSessionRecord,
+  getSponsorshipFollowupByTokenHash,
+  listPublicSponsorships,
+  listAdminSponsorships,
   normalizeContributionType,
   parseMetadataBoolean,
-  recordSponsorshipDetails
+  recordSponsorshipDetailsForContribution,
+  recordSponsorshipDetails,
+  updateSponsorshipPublication,
+  updateSponsorshipReview
 } from './fund-contributions.repository.js';
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
+
+const parsePositiveIntegerEnv = (
+  value: string | undefined,
+  fallback: number
+): number => {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const parseNonNegativeIntegerEnv = (
+  value: string | undefined,
+  fallback: number
+): number => {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+};
 
 const port = Number(process.env.FUNDING_API_PORT ?? 3333);
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const projectId = process.env.FUNDING_PROJECT_ID ?? 'openg7';
 const isProduction = process.env.FUNDING_PLATFORM_ENV === 'production';
+const adminToken = process.env.FUNDING_ADMIN_TOKEN?.trim() ?? '';
+const sponsorshipFollowupTokenTtlDays = parsePositiveIntegerEnv(
+  process.env.FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS,
+  30
+);
+const rateLimitWindowMs = parsePositiveIntegerEnv(
+  process.env.FUNDING_RATE_LIMIT_WINDOW_MS,
+  60_000
+);
+const publicWriteRateLimitMax = parseNonNegativeIntegerEnv(
+  process.env.FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX,
+  60
+);
+const sponsorshipFollowupRateLimitMax = parseNonNegativeIntegerEnv(
+  process.env.FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX,
+  60
+);
+const adminRateLimitMax = parseNonNegativeIntegerEnv(
+  process.env.FUNDING_ADMIN_RATE_LIMIT_MAX,
+  120
+);
 const allowedOrigins = (process.env.FUNDING_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
@@ -73,14 +140,34 @@ if (isProduction && !publicBaseUrl) {
 type ApiRequest = IncomingMessage;
 type ApiResponse = ServerResponse<IncomingMessage>;
 
+interface RateLimitBucket {
+  count: number;
+  resetAt: number;
+}
+
+interface RateLimiter {
+  readonly name: string;
+  readonly maxRequests: number;
+  readonly windowMs: number;
+  readonly buckets: Map<string, RateLimitBucket>;
+}
+
+const securityHeaders: Record<string, string> = {
+  'Referrer-Policy': 'no-referrer',
+  'X-Content-Type-Options': 'nosniff'
+};
+
 const writeJson = (
   request: ApiRequest,
   response: ApiResponse,
   statusCode: number,
-  payload: unknown
+  payload: unknown,
+  extraHeaders: Record<string, string> = {}
 ): void => {
   response.writeHead(statusCode, {
     ...createCorsHeaders(request),
+    ...securityHeaders,
+    ...extraHeaders,
     'Content-Type': 'application/json; charset=utf-8'
   });
   response.end(JSON.stringify(payload));
@@ -94,6 +181,7 @@ const writeText = (
 ): void => {
   response.writeHead(statusCode, {
     ...createCorsHeaders(request),
+    ...securityHeaders,
     'Content-Type': 'text/plain; charset=utf-8'
   });
   response.end(payload);
@@ -160,6 +248,14 @@ const SPONSOR_MESSAGE_MAX_LENGTH = 1000;
 const SPONSOR_URL_MAX_LENGTH = 2048;
 const STRIPE_METADATA_VALUE_MAX_LENGTH = 480;
 const PUBLIC_DISPLAY_NAME_MAX_LENGTH = 100;
+const ADMIN_REVIEW_NOTE_MAX_LENGTH = 1000;
+const SPONSOR_PUBLIC_SLUG_MAX_LENGTH = 120;
+const SPONSOR_PUBLIC_SUMMARY_MAX_LENGTH = 500;
+const SPONSOR_FEED_NOTES_MAX_LENGTH = 1000;
+const FOLLOWUP_TOKEN_BYTES = 32;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const RATE_LIMIT_BUCKET_PRUNE_THRESHOLD = 5000;
+const followupEditablePaymentStatuses = new Set(['paid', 'refunded', 'disputed']);
 
 const isNonEmptySponsorText = (
   value: unknown,
@@ -200,6 +296,136 @@ const isValidOptionalBoundedText = (
   value === undefined ||
   value === null ||
   (typeof value === 'string' && value.trim().length <= maxLength);
+
+const isValidOptionalPublicSlug = (value: unknown): boolean =>
+  value === undefined ||
+  value === null ||
+  value === '' ||
+  (typeof value === 'string' &&
+    value.trim().length <= SPONSOR_PUBLIC_SLUG_MAX_LENGTH &&
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.trim()));
+
+const createSponsorshipFollowupToken = (): string =>
+  randomBytes(FOLLOWUP_TOKEN_BYTES).toString('base64url');
+
+const hashSponsorshipFollowupToken = (token: string): string =>
+  createHash('sha256').update(token).digest('hex');
+
+const getSponsorshipFollowupTokenCutoffIso = (): string =>
+  new Date(
+    Date.now() - sponsorshipFollowupTokenTtlDays * MILLISECONDS_PER_DAY
+  ).toISOString();
+
+const isValidFollowupToken = (value: unknown): value is string =>
+  typeof value === 'string' && /^[A-Za-z0-9_-]{32,128}$/.test(value);
+
+const appendQueryParam = (url: string, key: string, value: string): string =>
+  `${url}${url.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+
+const isAllowedSponsorshipReviewStatus = (
+  value: unknown
+): value is SponsorshipReviewStatus =>
+  typeof value === 'string' &&
+  allowedSponsorshipReviewStatuses.has(value as SponsorshipReviewStatus);
+
+const isAllowedSponsorFeedTarget = (
+  value: unknown
+): value is SponsorFeedTarget | null =>
+  value === undefined ||
+  value === null ||
+  value === '' ||
+  (typeof value === 'string' &&
+    allowedSponsorFeedTargets.has(value as SponsorFeedTarget));
+
+const isAllowedSponsorFeedStatus = (
+  value: unknown
+): value is SponsorFeedStatus =>
+  typeof value === 'string' &&
+  allowedSponsorFeedStatuses.has(value as SponsorFeedStatus);
+
+const parseSponsorFeedChannelsFromRequest = (
+  value: unknown
+): readonly SponsorFeedChannel[] | null => {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const uniqueChannels = [...new Set(value)];
+  if (
+    uniqueChannels.some(
+      (channel) =>
+        typeof channel !== 'string' ||
+        !allowedSponsorFeedChannels.has(channel as SponsorFeedChannel)
+    )
+  ) {
+    return null;
+  }
+
+  return uniqueChannels as readonly SponsorFeedChannel[];
+};
+
+const readAdminToken = (request: ApiRequest): string | null => {
+  const authorization = request.headers.authorization;
+  if (typeof authorization === 'string') {
+    const [scheme, token] = authorization.split(/\s+/, 2);
+    if (scheme.toLowerCase() === 'bearer' && token) {
+      return token;
+    }
+  }
+
+  const headerToken = request.headers['x-funding-admin-token'];
+  return typeof headerToken === 'string' ? headerToken : null;
+};
+
+const adminTokenMatches = (candidate: string): boolean => {
+  if (!adminToken) {
+    return false;
+  }
+
+  const candidateBuffer = Buffer.from(candidate);
+  const tokenBuffer = Buffer.from(adminToken);
+  return (
+    candidateBuffer.length === tokenBuffer.length &&
+    timingSafeEqual(candidateBuffer, tokenBuffer)
+  );
+};
+
+const isAdminAuthorized = (request: ApiRequest): boolean => {
+  if (!adminToken) {
+    return !isProduction;
+  }
+
+  const token = readAdminToken(request);
+  return Boolean(token && adminTokenMatches(token));
+};
+
+const ensureAdminAccess = (
+  request: ApiRequest,
+  response: ApiResponse
+): boolean => {
+  if (!adminToken && isProduction) {
+    writeJson(request, response, 503, {
+      error: 'Admin review is not configured.'
+    });
+    return false;
+  }
+
+  if (!isAdminAuthorized(request)) {
+    writeJson(request, response, 401, {
+      error: 'Admin authorization is required.'
+    });
+    return false;
+  }
+
+  if (!hasDatabase) {
+    writeJson(request, response, 503, {
+      error: 'Admin review requires DATABASE_URL and PostgreSQL migrations.'
+    });
+    return false;
+  }
+
+  return true;
+};
 
 const resolveCheckoutReturnUrl = (
   candidateUrl: string,
@@ -246,7 +472,154 @@ const resolveCheckoutReturnUrl = (
 const routeMatches = (
   url: string | undefined,
   ...candidates: readonly string[]
-): boolean => Boolean(url && candidates.includes(url));
+): boolean => {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    return candidates.includes(new URL(url, publicBaseOrigin).pathname);
+  } catch {
+    return candidates.includes(url);
+  }
+};
+
+const createRateLimiter = (
+  name: string,
+  maxRequests: number,
+  windowMs: number
+): RateLimiter => ({
+  name,
+  maxRequests,
+  windowMs,
+  buckets: new Map<string, RateLimitBucket>()
+});
+
+const publicWriteRateLimiter = createRateLimiter(
+  'public-write',
+  publicWriteRateLimitMax,
+  rateLimitWindowMs
+);
+const sponsorshipFollowupRateLimiter = createRateLimiter(
+  'sponsorship-followup',
+  sponsorshipFollowupRateLimitMax,
+  rateLimitWindowMs
+);
+const adminRateLimiter = createRateLimiter(
+  'admin',
+  adminRateLimitMax,
+  rateLimitWindowMs
+);
+
+const firstHeaderValue = (
+  value: string | string[] | undefined
+): string | null => (Array.isArray(value) ? value[0] ?? null : value ?? null);
+
+const getClientIp = (request: ApiRequest): string => {
+  const forwarded = firstHeaderValue(request.headers['x-forwarded-for']);
+  if (forwarded) {
+    return forwarded.split(',')[0]?.trim() || 'unknown';
+  }
+
+  return (
+    firstHeaderValue(request.headers['x-real-ip']) ??
+    request.socket.remoteAddress ??
+    'unknown'
+  );
+};
+
+const pruneExpiredRateLimitBuckets = (
+  limiter: RateLimiter,
+  now: number
+): void => {
+  for (const [key, bucket] of limiter.buckets) {
+    if (bucket.resetAt <= now) {
+      limiter.buckets.delete(key);
+    }
+  }
+};
+
+const enforceRateLimit = (
+  request: ApiRequest,
+  response: ApiResponse,
+  limiter: RateLimiter
+): boolean => {
+  if (limiter.maxRequests === 0) {
+    return true;
+  }
+
+  const now = Date.now();
+  const key = `${limiter.name}:${getClientIp(request)}`;
+  const bucket = limiter.buckets.get(key);
+
+  if (!bucket || bucket.resetAt <= now) {
+    limiter.buckets.set(key, {
+      count: 1,
+      resetAt: now + limiter.windowMs
+    });
+    return true;
+  }
+
+  if (bucket.count >= limiter.maxRequests) {
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((bucket.resetAt - now) / 1000)
+    );
+    writeJson(
+      request,
+      response,
+      429,
+      { error: 'Too many requests. Please retry later.' },
+      { 'Retry-After': String(retryAfterSeconds) }
+    );
+    return false;
+  }
+
+  bucket.count += 1;
+
+  if (limiter.buckets.size > RATE_LIMIT_BUCKET_PRUNE_THRESHOLD) {
+    pruneExpiredRateLimitBuckets(limiter, now);
+  }
+
+  return true;
+};
+
+const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
+  if (
+    request.method === 'POST' &&
+    routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')
+  ) {
+    return publicWriteRateLimiter;
+  }
+
+  if (
+    routeMatches(
+      request.url,
+      '/sponsorship-followup',
+      '/api/sponsorship-followup',
+      '/sponsorship-followup/details',
+      '/api/sponsorship-followup/details'
+    )
+  ) {
+    return sponsorshipFollowupRateLimiter;
+  }
+
+  if (
+    routeMatches(
+      request.url,
+      '/admin/sponsorships',
+      '/api/admin/sponsorships',
+      '/admin/sponsorships/review',
+      '/api/admin/sponsorships/review',
+      '/admin/sponsorships/publication',
+      '/api/admin/sponsorships/publication'
+    )
+  ) {
+    return adminRateLimiter;
+  }
+
+  return null;
+};
 
 const getDatabaseConnectionStatus = async (): Promise<boolean> => {
   if (!dbPool) {
@@ -283,10 +656,17 @@ createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
       ...createCorsHeaders(request),
-      'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature',
+      ...securityHeaders,
+      'Access-Control-Allow-Headers':
+        'Content-Type, Stripe-Signature, Authorization, X-Funding-Admin-Token',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
     });
     response.end();
+    return;
+  }
+
+  const rateLimiter = getRequestRateLimiter(request);
+  if (rateLimiter && !enforceRateLimit(request, response, rateLimiter)) {
     return;
   }
 
@@ -385,6 +765,19 @@ createServer(async (request, response) => {
       );
       const requiresReview =
         parsed.contributionType === 'sponsorship_interest';
+      const sponsorshipFollowupToken = requiresReview
+        ? createSponsorshipFollowupToken()
+        : null;
+      const sponsorshipFollowupTokenHash = sponsorshipFollowupToken
+        ? hashSponsorshipFollowupToken(sponsorshipFollowupToken)
+        : null;
+      const checkoutSuccessUrl = sponsorshipFollowupToken
+        ? appendQueryParam(
+            successUrl,
+            'followup_token',
+            sponsorshipFollowupToken
+          )
+        : successUrl;
       const publicDisplayName =
         parsed.publicDisplayConsent === true &&
         typeof parsed.publicDisplayName === 'string'
@@ -403,12 +796,17 @@ createServer(async (request, response) => {
           ? {
               publicDisplayName: truncateStripeMetadataValue(publicDisplayName)
             }
+          : {}),
+        ...(sponsorshipFollowupTokenHash
+          ? {
+              sponsorshipFollowupTokenHash
+            }
           : {})
       };
 
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
-        success_url: successUrl,
+        success_url: checkoutSuccessUrl,
         cancel_url: cancelUrl,
         line_items: [
           {
@@ -440,7 +838,8 @@ createServer(async (request, response) => {
           publicDisplayConsent: parsed.publicDisplayConsent,
           publicName: publicDisplayName || null,
           displayAmountConsent: parsed.displayAmountConsent,
-          nonCharityAcknowledged: parsed.nonCharityAcknowledged
+          nonCharityAcknowledged: parsed.nonCharityAcknowledged,
+          sponsorshipFollowupTokenHash
         });
       } catch (error) {
         console.error('Failed to record Stripe checkout session.', error);
@@ -662,6 +1061,229 @@ createServer(async (request, response) => {
   }
 
   if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/sponsorship-followup',
+      '/api/sponsorship-followup'
+    )
+  ) {
+    if (!hasDatabase) {
+      writeJson(request, response, 503, {
+        error: 'Sponsorship follow-up requires DATABASE_URL.'
+      });
+      return;
+    }
+
+    const token = new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+      'token'
+    );
+    if (!isValidFollowupToken(token)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship follow-up token.'
+      });
+      return;
+    }
+
+    try {
+      const followup = await getSponsorshipFollowupByTokenHash(
+        dbPool,
+        hashSponsorshipFollowupToken(token),
+        getSponsorshipFollowupTokenCutoffIso()
+      );
+
+      if (!followup) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship follow-up was not found.'
+        });
+        return;
+      }
+
+      const result: SponsorshipFollowupResponse = {
+        found: true,
+        paymentStatus: followup.paymentStatus,
+        reviewStatus: followup.reviewStatus,
+        amount: followup.amount,
+        currency: followup.currency,
+        paidAt: followup.paidAt,
+        detailsSubmitted: followup.detailsSubmitted,
+        companyName: followup.companyName,
+        contactName: followup.contactName,
+        contactEmail: followup.contactEmail,
+        websiteUrl: followup.websiteUrl,
+        logoUrl: followup.logoUrl,
+        message: followup.message,
+        reviewedAt: followup.reviewedAt
+      };
+
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load sponsorship follow-up.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship follow-up could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/sponsorship-followup/details',
+      '/api/sponsorship-followup/details'
+    )
+  ) {
+    if (!hasDatabase) {
+      writeJson(request, response, 503, {
+        error: 'Sponsorship follow-up requires DATABASE_URL.'
+      });
+      return;
+    }
+
+    let parsed: SponsorshipFollowupDetailsRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as SponsorshipFollowupDetailsRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship follow-up request body.'
+      });
+      return;
+    }
+
+    if (!isValidFollowupToken(parsed.token)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship follow-up token.'
+      });
+      return;
+    }
+
+    if (!isNonEmptySponsorText(parsed.companyName, SPONSOR_TEXT_MAX_LENGTH)) {
+      writeJson(request, response, 400, {
+        error: 'Company name is required.'
+      });
+      return;
+    }
+
+    if (!isNonEmptySponsorText(parsed.contactName, SPONSOR_TEXT_MAX_LENGTH)) {
+      writeJson(request, response, 400, {
+        error: 'Contact name is required.'
+      });
+      return;
+    }
+
+    if (!isValidSponsorEmail(parsed.contactEmail)) {
+      writeJson(request, response, 400, {
+        error: 'A valid contact email is required.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.websiteUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Website URL must be a valid https link.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.logoUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Logo URL must be a valid https link.'
+      });
+      return;
+    }
+
+    if (
+      parsed.message !== undefined &&
+      (typeof parsed.message !== 'string' ||
+        parsed.message.length > SPONSOR_MESSAGE_MAX_LENGTH)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Message is too long.'
+      });
+      return;
+    }
+
+    try {
+      const followup = await getSponsorshipFollowupByTokenHash(
+        dbPool,
+        hashSponsorshipFollowupToken(parsed.token),
+        getSponsorshipFollowupTokenCutoffIso()
+      );
+
+      if (!followup) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship follow-up was not found.'
+        });
+        return;
+      }
+
+      if (!followupEditablePaymentStatuses.has(followup.paymentStatus)) {
+        writeJson(request, response, 409, {
+          error: 'Payment for this sponsorship is not confirmed yet.'
+        });
+        return;
+      }
+
+      const companyName = parsed.companyName.trim();
+      const contactName = parsed.contactName.trim();
+      const contactEmail = parsed.contactEmail.trim();
+      const websiteUrl = parsed.websiteUrl?.trim() || null;
+      const logoUrl = parsed.logoUrl?.trim() || null;
+      const message = parsed.message?.trim() || null;
+
+      if (stripe && followup.stripePaymentIntentId) {
+        try {
+          await stripe.paymentIntents.update(followup.stripePaymentIntentId, {
+            metadata: {
+              sponsorCompanyName: truncateStripeMetadataValue(companyName),
+              sponsorContactName: truncateStripeMetadataValue(contactName),
+              sponsorContactEmail: truncateStripeMetadataValue(contactEmail),
+              ...(websiteUrl
+                ? {
+                    sponsorWebsiteUrl:
+                      truncateStripeMetadataValue(websiteUrl)
+                  }
+                : {}),
+              ...(logoUrl
+                ? { sponsorLogoUrl: truncateStripeMetadataValue(logoUrl) }
+                : {}),
+              ...(message
+                ? { sponsorMessage: truncateStripeMetadataValue(message) }
+                : {})
+            }
+          });
+        } catch (error) {
+          console.error(
+            'Failed to update Stripe metadata with follow-up details.',
+            error
+          );
+        }
+      }
+
+      const recorded = await recordSponsorshipDetailsForContribution(dbPool, {
+        contributionId: followup.contributionId,
+        companyName,
+        contactName,
+        contactEmail,
+        websiteUrl,
+        logoUrl,
+        message
+      });
+
+      const result: SponsorshipDetailsResult = { received: true, recorded };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to record sponsorship follow-up details.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship follow-up details could not be recorded.'
+      });
+    }
+    return;
+  }
+
+  if (
     request.method === 'POST' &&
     routeMatches(request.url, '/stripe/webhook', '/api/stripe/webhook')
   ) {
@@ -694,10 +1316,309 @@ createServer(async (request, response) => {
     const result = await processStripeWebhook(rawBody, stripeSignature, {
       stripe,
       webhookSecret: stripeWebhookSecret,
-      pool: dbPool
+      pool: dbPool,
+      publicBaseUrl: publicBaseUrl ?? publicBaseOrigin
     });
 
     writeJson(request, response, result.statusCode, result.payload);
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships',
+      '/api/admin/sponsorships'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const sponsorships = await listAdminSponsorships(dbPool);
+      const lastUpdatedAt =
+        sponsorships.reduce<string | null>((latest, sponsorship) => {
+          if (!latest) {
+            return sponsorship.updated_at;
+          }
+
+          return new Date(sponsorship.updated_at).getTime() >
+            new Date(latest).getTime()
+            ? sponsorship.updated_at
+            : latest;
+        }, null) ?? new Date().toISOString();
+      const result: AdminSponsorshipsResponse = {
+        data_source: 'database',
+        sponsorships,
+        last_updated_at: lastUpdatedAt
+      };
+
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load admin sponsorships.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin sponsorships could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/review',
+      '/api/admin/sponsorships/review'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminSponsorshipReviewRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminSponsorshipReviewRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship review request body.'
+      });
+      return;
+    }
+
+    if (
+      typeof parsed.contributionId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        parsed.contributionId
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Invalid contribution id.'
+      });
+      return;
+    }
+
+    if (!isAllowedSponsorshipReviewStatus(parsed.reviewStatus)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship review status.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.reviewNote,
+        ADMIN_REVIEW_NOTE_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Review note is too long.'
+      });
+      return;
+    }
+
+    try {
+      const updated = await updateSponsorshipReview(dbPool, {
+        contributionId: parsed.contributionId,
+        reviewStatus: parsed.reviewStatus,
+        reviewNote:
+          typeof parsed.reviewNote === 'string' &&
+          parsed.reviewNote.trim().length > 0
+            ? parsed.reviewNote.trim()
+            : null
+      });
+
+      if (!updated) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship contribution was not found.'
+        });
+        return;
+      }
+
+      const result: AdminSponsorshipReviewResult = {
+        updated,
+        reviewStatus: parsed.reviewStatus
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to update sponsorship review.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship review could not be updated.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/publication',
+      '/api/admin/sponsorships/publication'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminSponsorshipPublicationRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminSponsorshipPublicationRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship publication request body.'
+      });
+      return;
+    }
+
+    if (
+      typeof parsed.contributionId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        parsed.contributionId
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Invalid contribution id.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalPublicSlug(parsed.publicSlug)) {
+      writeJson(request, response, 400, {
+        error: 'Public slug must use lowercase letters, numbers, and hyphens.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.publicSummary,
+        SPONSOR_PUBLIC_SUMMARY_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Public summary is too long.'
+      });
+      return;
+    }
+
+    if (!isAllowedSponsorFeedTarget(parsed.feedTarget)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship feed target.'
+      });
+      return;
+    }
+
+    const feedChannels = parseSponsorFeedChannelsFromRequest(
+      parsed.feedChannels
+    );
+    if (!feedChannels) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship feed channels.'
+      });
+      return;
+    }
+
+    if (!isAllowedSponsorFeedStatus(parsed.feedStatus)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship feed status.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.feedPublicUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Feed public URL must be a valid https link.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.feedNotes,
+        SPONSOR_FEED_NOTES_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Feed notes are too long.'
+      });
+      return;
+    }
+
+    try {
+      const updated = await updateSponsorshipPublication(dbPool, {
+        contributionId: parsed.contributionId,
+        publicSlug:
+          typeof parsed.publicSlug === 'string' &&
+          parsed.publicSlug.trim().length > 0
+            ? parsed.publicSlug.trim()
+            : undefined,
+        publicSummary:
+          typeof parsed.publicSummary === 'string' &&
+          parsed.publicSummary.trim().length > 0
+            ? parsed.publicSummary.trim()
+            : undefined,
+        feedTarget:
+          typeof parsed.feedTarget === 'string' &&
+          parsed.feedTarget.trim().length > 0
+            ? parsed.feedTarget
+            : null,
+        feedChannels,
+        feedStatus: parsed.feedStatus,
+        feedPublicUrl:
+          typeof parsed.feedPublicUrl === 'string' &&
+          parsed.feedPublicUrl.trim().length > 0
+            ? parsed.feedPublicUrl.trim()
+            : undefined,
+        feedNotes:
+          typeof parsed.feedNotes === 'string' &&
+          parsed.feedNotes.trim().length > 0
+            ? parsed.feedNotes.trim()
+            : undefined
+      });
+
+      if (!updated) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship contribution was not found.'
+        });
+        return;
+      }
+
+      const result: AdminSponsorshipPublicationResult = {
+        updated,
+        feedStatus: parsed.feedStatus
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to update sponsorship publication.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship publication could not be updated.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/public/sponsorships',
+      '/api/public/sponsorships'
+    )
+  ) {
+    try {
+      const sponsorships = await listPublicSponsorships(dbPool);
+
+      writeJson(request, response, 200, sponsorships);
+    } catch (error) {
+      console.error('Failed to load public sponsorships.', error);
+      writeJson(request, response, 502, {
+        error: 'Public sponsorships could not be loaded.'
+      });
+    }
     return;
   }
 

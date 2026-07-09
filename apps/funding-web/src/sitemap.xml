@@ -114,6 +114,22 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://openg7.org/commanditaires</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/commanditaires" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/commanditaires" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/commanditaires" />
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://openg7.org/en/commanditaires</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/commanditaires" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/commanditaires" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/commanditaires" />
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://openg7.org/fonds-des-batisseurs/a-propos</loc>
     <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/fonds-des-batisseurs/a-propos" />
     <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/fonds-des-batisseurs/a-propos" />
@@ -144,5 +160,21 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/fonds-des-batisseurs/transparence" />
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://openg7.org/politique-utilisation-remboursement</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/politique-utilisation-remboursement" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/politique-utilisation-remboursement" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/politique-utilisation-remboursement" />
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://openg7.org/en/politique-utilisation-remboursement</loc>
+    <xhtml:link rel="alternate" hreflang="fr-CA" href="https://openg7.org/politique-utilisation-remboursement" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://openg7.org/en/politique-utilisation-remboursement" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://openg7.org/politique-utilisation-remboursement" />
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
   </url>
 </urlset>
