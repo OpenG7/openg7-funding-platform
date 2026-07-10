@@ -332,6 +332,19 @@ It verifies:
 
 ## Backup
 
+Database and backup shortcuts are available from `package.json`:
+
+```bash
+yarn db:migrate
+yarn db:backup
+yarn db:restore --config-backup /path/to/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz --database-dump /path/to/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
+```
+
+`yarn db:migrate` starts the private PostgreSQL service if needed, waits for it
+to become ready, then applies every SQL file in
+`apps/funding-api/migrations` in filename order. New database migrations must
+be committed as `.sql` files in that directory.
+
 Run:
 
 ```bash

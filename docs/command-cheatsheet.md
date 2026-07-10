@@ -36,6 +36,24 @@ Démarrer toute la stack :
 docker compose up -d --build
 ```
 
+Mettre a jour Docker avec les questions guidees :
+
+```bash
+yarn docker:update
+```
+
+Garder les anciennes images Docker dangling apres un rebuild :
+
+```bash
+yarn docker:update --no-prune-images
+```
+
+Nettoyer les anciennes images Docker dangling sans question :
+
+```bash
+yarn docker:update --prune-images
+```
+
 Arrêter :
 
 ```bash
@@ -219,10 +237,22 @@ bash scripts/deploy.sh --no-build
 
 ## Sauvegardes
 
+Appliquer toutes les migrations SQL dans l'ordre :
+
+```bash
+yarn db:migrate
+```
+
+Les migrations doivent etre des fichiers `.sql` dans :
+
+```text
+apps/funding-api/migrations/
+```
+
 Créer une sauvegarde :
 
 ```bash
-bash scripts/backup.sh
+yarn db:backup
 ```
 
 Si `DATABASE_URL` est configure, ce script cree aussi :
@@ -238,6 +268,12 @@ ls -lah backups/
 ```
 
 Restaurer :
+
+```bash
+yarn db:restore --config-backup backups/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz --database-dump backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
+```
+
+Équivalent direct :
 
 ```bash
 bash scripts/restore-from-backup.sh \
