@@ -301,6 +301,22 @@ openg7-funding-api:rollback
 
 If validation fails, it attempts to redeploy these rollback images.
 
+Manual rollback on the VPS:
+
+```bash
+bash scripts/rollback.sh
+```
+
+Manual rollback from a workstation:
+
+```bash
+yarn vps:rollback
+```
+
+This rolls back only the `web` and `api` application images. It does not restore
+PostgreSQL data. Restore a database backup separately if a database migration
+must also be reverted.
+
 ## Validation
 
 Run:

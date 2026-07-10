@@ -1408,18 +1408,33 @@ a:focus-visible {
   margin-top: 0.15rem;
 }
 
-@media (max-width: 1240px) {
+@media (max-width: 1400px) {
   .builders-nav {
-    grid-template-columns: 1fr;
+    gap: 0.45rem 1rem;
+    grid-template-areas:
+      "brand actions"
+      "nav nav";
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-block: 0.6rem;
+  }
+
+  .builders-brand {
+    grid-area: brand;
   }
 
   .builders-nav nav {
+    grid-area: nav;
     justify-content: flex-start;
     overflow-x: auto;
   }
 
+  .builders-nav nav a {
+    padding: 0.45rem 0 0.55rem;
+  }
+
   .nav-actions {
-    justify-self: start;
+    grid-area: actions;
+    justify-self: end;
   }
 
   .poster-hero {
