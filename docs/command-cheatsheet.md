@@ -42,6 +42,12 @@ Mettre a jour Docker avec les questions guidees :
 yarn docker:update
 ```
 
+En developpement, lancer aussi le listener Stripe apres la mise a jour :
+
+```bash
+yarn docker:update --development --stripe-webhook
+```
+
 Garder les anciennes images Docker dangling apres un rebuild :
 
 ```bash

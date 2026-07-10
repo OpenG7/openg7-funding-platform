@@ -34,7 +34,7 @@
     "prod:backup": "bash scripts/backup.sh",
     "stripe:cli:install": "npm install -g @stripe/cli",
     "stripe:cli:version": "stripe --version",
-    "stripe:webhook:listen": "stripe listen --forward-to localhost:3333/api/stripe/webhook",
+    "stripe:webhook:listen": "stripe listen --forward-to https://localhost/api/stripe/webhook --skip-verify ",
     "lint": "eslint . --ext .ts,.mts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -12,6 +12,7 @@ Usage:
   yarn docker:update --no-database
   yarn docker:update --build-app
   yarn docker:update --no-prune-images
+  yarn docker:update --development --stripe-webhook
   yarn docker:update --environment production
 
 Options:
@@ -21,6 +22,9 @@ Options:
   --no-build-app     Skip the app recompilation prompt.
   --prune-images     Delete unused dangling Docker images after the update.
   --no-prune-images  Keep unused dangling Docker images after the update.
+  --stripe-webhook   Start the Stripe webhook listener after a development update.
+  --no-stripe-webhook
+                     Skip the Stripe webhook listener prompt.
   --environment      Target environment: production or development.
   --help             Show this message.
 `;
@@ -29,6 +33,7 @@ const validEnvironments = new Set(['production', 'development']);
 let forceDatabase = null;
 let forceBuildApp = null;
 let forcePruneImages = null;
+let forceStripeWebhook = null;
 let selectedEnvironment = null;
 let showHelp = false;
 
@@ -78,6 +83,10 @@ for (let index = 0; index < rawArgs.length; index += 1) {
     forcePruneImages = true;
   } else if (arg === '--no-prune-images') {
     forcePruneImages = false;
+  } else if (arg === '--stripe-webhook') {
+    forceStripeWebhook = true;
+  } else if (arg === '--no-stripe-webhook') {
+    forceStripeWebhook = false;
   } else if (arg === '--environment' || arg === '--env') {
     const value = rawArgs[index + 1];
     if (!value) {
@@ -123,6 +132,16 @@ if (
   rawArgs.includes('--no-prune-images')
 ) {
   console.error('Choose either --prune-images or --no-prune-images, not both.');
+  exit(1);
+}
+
+if (
+  rawArgs.includes('--stripe-webhook') &&
+  rawArgs.includes('--no-stripe-webhook')
+) {
+  console.error(
+    'Choose either --stripe-webhook or --no-stripe-webhook, not both.'
+  );
   exit(1);
 }
 
@@ -187,6 +206,20 @@ const askForImagePrune = () => {
   );
 };
 
+const askForStripeWebhook = () => {
+  if (targetEnvironment !== 'development') {
+    return false;
+  }
+
+  if (forceStripeWebhook !== null) {
+    return forceStripeWebhook;
+  }
+
+  return askYesNo(
+    'Lancer Stripe webhook listener apres le Docker update ? [y/N] '
+  );
+};
+
 const askForEnvironment = async () => {
   if (selectedEnvironment) {
     return selectedEnvironment;
@@ -222,6 +255,11 @@ const askForEnvironment = async () => {
 };
 
 const targetEnvironment = await askForEnvironment();
+if (targetEnvironment !== 'development' && forceStripeWebhook === true) {
+  console.error('--stripe-webhook is only available for development builds.');
+  exit(1);
+}
+
 const angularConfiguration =
   targetEnvironment === 'production' ? 'production' : 'development';
 const commandEnv = {
@@ -280,6 +318,7 @@ const run = (command, commandArgs) => {
 const useDatabase = await askForDatabaseProfile();
 const buildAppFirst = await askForAppBuild();
 const pruneImages = await askForImagePrune();
+const startStripeWebhook = await askForStripeWebhook();
 const composeProfileArgs = useDatabase ? ['--profile', 'database'] : [];
 const composeGlobalArgs = [...composeProfileArgs, '--progress', 'plain'];
 
@@ -298,6 +337,11 @@ console.log(
   pruneImages
     ? 'Nettoyage des anciennes images Docker active.'
     : 'Nettoyage des anciennes images Docker ignore.'
+);
+console.log(
+  startStripeWebhook
+    ? 'Stripe webhook listener sera lance apres Docker update.'
+    : 'Stripe webhook listener ignore.'
 );
 
 if (buildAppFirst) {
@@ -337,4 +381,14 @@ run('docker', [
 ]);
 if (pruneImages) {
   run('docker', ['image', 'prune', '-f']);
+}
+
+if (startStripeWebhook) {
+  console.log(
+    "\nStripe webhook listener demarre. Garde ce terminal ouvert pendant les paiements tests."
+  );
+  console.log(
+    "Si Stripe affiche un nouveau whsec_..., copie-le dans .env puis recree l'API."
+  );
+  run('yarn', ['stripe:webhook:listen']);
 }
