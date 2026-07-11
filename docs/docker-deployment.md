@@ -1,6 +1,6 @@
 # Production Docker, Traefik, Nginx and Let's Encrypt
 
-This production stack is designed for the OVH VPS `vps-8db0cb49.vps.ovh.ca` on Ubuntu 24.04 LTS.
+This production stack is designed for the OVH VPS configured through `VPS_HOST` on Ubuntu 24.04 LTS.
 
 The public application URL is:
 
@@ -239,7 +239,7 @@ http://127.0.0.1:8081/dashboard/
 Use an SSH tunnel from your workstation:
 
 ```bash
-ssh -L 8081:127.0.0.1:8081 ubuntu@vps-8db0cb49.vps.ovh.ca
+ssh -L 8081:127.0.0.1:8081 "${VPS_USER:-ubuntu}@${VPS_HOST}"
 ```
 
 Then open:
@@ -437,7 +437,7 @@ Workflow:
 Required GitHub secrets:
 
 ```text
-VPS_HOST=vps-8db0cb49.vps.ovh.ca
+VPS_HOST=<production VPS host>
 VPS_USER=ubuntu
 VPS_SSH_KEY=<private SSH key>
 VPS_APP_DIR=/opt/openg7-funding-platform
@@ -481,7 +481,7 @@ docker compose logs -f api
 Docker metrics:
 
 ```bash
-ssh -L 8082:127.0.0.1:8082 ubuntu@vps-8db0cb49.vps.ovh.ca
+ssh -L 8082:127.0.0.1:8082 "${VPS_USER:-ubuntu}@${VPS_HOST}"
 ```
 
 Open:

@@ -35,6 +35,7 @@
     "prod:backup": "bash scripts/backup.sh",
     "prod:rollback": "bash scripts/rollback.sh",
     "vps:ssh": "node scripts/vps.mjs ssh",
+    "vps:env": "node scripts/vps.mjs env",
     "vps:update": "node scripts/vps.mjs update",
     "vps:deploy": "node scripts/vps.mjs deploy",
     "vps:rollback": "node scripts/vps.mjs rollback",
