@@ -47,6 +47,7 @@
                 },
                 "fonts": true
               },
+              "outputHashing": "all",
               "sourceMap": false
             },
             "development": {
