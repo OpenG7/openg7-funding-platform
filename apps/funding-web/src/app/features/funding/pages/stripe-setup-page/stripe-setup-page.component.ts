@@ -1337,7 +1337,7 @@ export class StripeSetupPageComponent implements OnInit {
         links: [
           {
             label: 'Site local',
-            url: 'http://localhost:4200'
+            url: 'http://localhost:8080'
           }
         ]
       },
@@ -1405,7 +1405,7 @@ export class StripeSetupPageComponent implements OnInit {
           },
           {
             label: 'Page publique',
-            url: 'http://localhost:4200/fonds-des-batisseurs/transparence'
+            url: 'http://localhost:8080/fonds-des-batisseurs/transparence'
           }
         ]
       }

@@ -63,24 +63,40 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
       </section>
 
       <section class="sponsors-content" aria-labelledby="sponsors-list-title">
-        <aside
-          class="sponsors-summary"
-          [attr.aria-label]="'funding.sponsorsPage.summary.ariaLabel' | translate"
-        >
-          <dl>
-            <div>
-              <dt>{{ 'funding.sponsorsPage.summary.approved' | translate }}</dt>
-              <dd>{{ sponsorships().length }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'funding.sponsorsPage.summary.feedReady' | translate }}</dt>
-              <dd>{{ feedReadyCount() }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'funding.home.purpose.source' | translate }}</dt>
-              <dd>{{ sourceLabel() }}</dd>
-            </div>
-          </dl>
+        <aside class="sponsors-sidebar">
+          <section
+            class="sponsors-summary"
+            [attr.aria-label]="'funding.sponsorsPage.summary.ariaLabel' | translate"
+          >
+            <dl>
+              <div>
+                <dt>{{ 'funding.sponsorsPage.summary.approved' | translate }}</dt>
+                <dd>{{ sponsorships().length }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'funding.sponsorsPage.summary.feedReady' | translate }}</dt>
+                <dd>{{ feedReadyCount() }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'funding.sponsorsPage.summary.published' | translate }}</dt>
+                <dd>{{ publishedCount() }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section
+            class="partner-visibility"
+            [attr.aria-label]="'funding.sponsorsPage.visibility.ariaLabel' | translate"
+          >
+            <span>{{ 'funding.sponsorsPage.visibility.kicker' | translate }}</span>
+            <h2>{{ 'funding.sponsorsPage.visibility.title' | translate }}</h2>
+            <p>{{ 'funding.sponsorsPage.visibility.copy' | translate }}</p>
+            <ul>
+              <li>{{ 'funding.sponsorsPage.visibility.items.profile' | translate }}</li>
+              <li>{{ 'funding.sponsorsPage.visibility.items.review' | translate }}</li>
+              <li>{{ 'funding.sponsorsPage.visibility.items.publication' | translate }}</li>
+            </ul>
+          </section>
         </aside>
 
         <section class="sponsors-panel">
@@ -170,9 +186,31 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
           >
             <h3>{{ 'funding.sponsorsPage.empty.title' | translate }}</h3>
             <p>{{ 'funding.sponsorsPage.empty.copy' | translate }}</p>
-            <a [routerLink]="fundPath()" fragment="support">
-              {{ 'funding.sponsorsPage.empty.action' | translate }}
-            </a>
+            <div class="sponsor-preview-grid">
+              <article>
+                <span>01</span>
+                <strong>{{ 'funding.sponsorsPage.empty.preview.profile.title' | translate }}</strong>
+                <small>{{ 'funding.sponsorsPage.empty.preview.profile.copy' | translate }}</small>
+              </article>
+              <article>
+                <span>02</span>
+                <strong>{{ 'funding.sponsorsPage.empty.preview.visibility.title' | translate }}</strong>
+                <small>{{ 'funding.sponsorsPage.empty.preview.visibility.copy' | translate }}</small>
+              </article>
+              <article>
+                <span>03</span>
+                <strong>{{ 'funding.sponsorsPage.empty.preview.trust.title' | translate }}</strong>
+                <small>{{ 'funding.sponsorsPage.empty.preview.trust.copy' | translate }}</small>
+              </article>
+            </div>
+            <div class="empty-actions">
+              <a [routerLink]="fundPath()" fragment="support">
+                {{ 'funding.sponsorsPage.empty.action' | translate }}
+              </a>
+              <a [routerLink]="buildersPath()">
+                {{ 'funding.nav.builders' | translate }}
+              </a>
+            </div>
           </article>
         </section>
       </section>
@@ -181,14 +219,18 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
   styles: [
     `
       .sponsors-shell {
-        background: #07101b;
+        background:
+          radial-gradient(circle at 84% 16%, rgb(119 217 232 / 12%), transparent 30rem),
+          linear-gradient(180deg, #06101b 0%, #081724 52%, #02070e 100%);
         color: #f7fbff;
         min-height: 100vh;
       }
 
       .sponsors-hero {
         display: grid;
-        min-height: 32rem;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+        height: clamp(24rem, 42vw, 28rem);
         overflow: hidden;
         position: relative;
       }
@@ -197,6 +239,8 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
       .hero-overlay,
       .sponsors-hero article {
         grid-area: 1 / 1;
+        min-height: 0;
+        min-width: 0;
       }
 
       .sponsors-hero img {
@@ -206,18 +250,21 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
       }
 
       .hero-overlay {
-        background: linear-gradient(90deg, rgb(3 10 20 / 96%), rgb(5 22 38 / 48%), rgb(3 10 20 / 88%));
+        background:
+          linear-gradient(90deg, rgb(3 10 20 / 96%), rgb(5 22 38 / 48%), rgb(3 10 20 / 88%)),
+          linear-gradient(0deg, rgb(3 10 20 / 80%), transparent 44%);
       }
 
       .sponsors-hero article {
         align-self: end;
         max-width: 48rem;
-        padding: clamp(6rem, 12vw, 10rem) clamp(1rem, 5vw, 4rem) 3rem;
+        padding: clamp(4rem, 9vw, 7rem) clamp(1rem, 5vw, 4rem) 2.4rem;
         position: relative;
         z-index: 1;
       }
 
       .sponsors-hero span,
+      .partner-visibility > span,
       .sponsors-panel header span {
         color: #77d9e8;
         font-family: 'Trebuchet MS', Arial, sans-serif;
@@ -229,12 +276,13 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
 
       .sponsors-hero h1 {
         font-family: Georgia, 'Times New Roman', serif;
-        font-size: clamp(2.35rem, 6vw, 5rem);
+        font-size: clamp(2.35rem, 5vw, 4.55rem);
         line-height: 0.98;
         margin: 0.65rem 0 1rem;
       }
 
       .sponsors-hero p,
+      .partner-visibility p,
       .sponsors-panel p,
       .empty-sponsors p {
         color: #d4e4ef;
@@ -273,15 +321,22 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
 
       .sponsors-content {
         display: grid;
+        gap: clamp(1rem, 2vw, 1.35rem);
+        grid-template-columns: minmax(17rem, 0.4fr) minmax(0, 1fr);
+        padding: clamp(1rem, 4vw, 2.6rem);
+      }
+
+      .sponsors-sidebar {
+        align-self: start;
+        display: grid;
         gap: 1rem;
-        grid-template-columns: minmax(16rem, 0.38fr) minmax(0, 1fr);
-        padding: clamp(1rem, 4vw, 3rem);
       }
 
       .sponsors-summary,
+      .partner-visibility,
       .sponsors-panel,
       .empty-sponsors {
-        background: rgb(5 22 38 / 84%);
+        background: linear-gradient(180deg, rgb(7 28 47 / 88%), rgb(4 16 30 / 90%));
         border: 1px solid rgb(119 217 232 / 26%);
         border-radius: 0.5rem;
         box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 12px 30px rgb(0 0 0 / 22%);
@@ -290,6 +345,35 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
       .sponsors-summary {
         align-self: start;
         padding: 1rem;
+      }
+
+      .partner-visibility {
+        padding: 1rem;
+      }
+
+      .partner-visibility h2 {
+        color: #fff2cf;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: 1.35rem;
+        line-height: 1;
+        margin: 0.45rem 0 0.75rem;
+      }
+
+      .partner-visibility ul {
+        display: grid;
+        gap: 0.55rem;
+        list-style: none;
+        margin: 0.9rem 0 0;
+        padding: 0;
+      }
+
+      .partner-visibility li {
+        border-left: 2px solid rgb(119 217 232 / 42%);
+        color: #e9fbff;
+        font-family: 'Trebuchet MS', Arial, sans-serif;
+        font-size: 0.88rem;
+        line-height: 1.35;
+        padding-left: 0.65rem;
       }
 
       .sponsors-summary dl {
@@ -339,7 +423,7 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
 
       .sponsors-list li {
         align-items: center;
-        background: rgb(4 16 28 / 86%);
+        background: linear-gradient(90deg, rgb(4 16 28 / 94%), rgb(8 30 49 / 78%));
         border: 1px solid rgb(244 201 87 / 18%);
         border-radius: 0.5rem;
         display: grid;
@@ -418,6 +502,7 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
       .feed-status {
         background: #dff7e8;
         color: #176236;
+        white-space: nowrap;
       }
 
       .feed-status-muted {
@@ -444,7 +529,11 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
       }
 
       .empty-sponsors {
-        padding: 1rem;
+        background:
+          linear-gradient(135deg, rgb(119 217 232 / 12%), transparent 44%),
+          rgb(4 16 28 / 56%);
+        border-style: dashed;
+        padding: clamp(1rem, 3vw, 1.35rem);
       }
 
       .empty-sponsors h3 {
@@ -453,8 +542,54 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
         margin: 0 0 0.45rem;
       }
 
-      .empty-sponsors a {
+      .sponsor-preview-grid {
+        display: grid;
+        gap: 0.65rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         margin-top: 0.8rem;
+      }
+
+      .sponsor-preview-grid article {
+        background: rgb(2 10 20 / 58%);
+        border: 1px solid rgb(119 217 232 / 18%);
+        border-radius: 0.45rem;
+        display: grid;
+        gap: 0.25rem;
+        min-height: 6rem;
+        padding: 0.72rem;
+      }
+
+      .sponsor-preview-grid span {
+        color: #77d9e8;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-weight: 800;
+      }
+
+      .sponsor-preview-grid strong,
+      .sponsor-preview-grid small {
+        font-family: 'Trebuchet MS', Arial, sans-serif;
+      }
+
+      .sponsor-preview-grid strong {
+        color: #f7fbff;
+      }
+
+      .sponsor-preview-grid small {
+        color: #9db7c9;
+        line-height: 1.35;
+      }
+
+      .empty-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-top: 0.85rem;
+      }
+
+      .empty-actions a:first-child {
+        background: #f4c957;
+        border-color: #f4c957;
+        color: #07101b;
       }
 
       .state {
@@ -469,6 +604,14 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
       @media (max-width: 880px) {
         .sponsors-content,
         .sponsors-list li {
+          grid-template-columns: 1fr;
+        }
+
+        .sponsors-hero {
+          height: 26rem;
+        }
+
+        .sponsor-preview-grid {
           grid-template-columns: 1fr;
         }
 
@@ -500,6 +643,12 @@ export class SponsorsPageComponent implements OnInit {
     () =>
       this.sponsorships().filter(
         (sponsor) => sponsor.feed_status !== 'not_planned'
+      ).length
+  );
+  readonly publishedCount = computed(
+    () =>
+      this.sponsorships().filter(
+        (sponsor) => sponsor.feed_status === 'published'
       ).length
   );
 
@@ -537,12 +686,6 @@ export class SponsorsPageComponent implements OnInit {
 
   trackBySponsor(_: number, sponsor: PublicSponsorshipProfile): string {
     return sponsor.public_slug || sponsor.company_name;
-  }
-
-  sourceLabel(): string {
-    return this.report().data_source === 'database'
-      ? 'PostgreSQL'
-      : this.i18n.t('funding.home.sync.pending');
   }
 
   amountLabel(sponsor: PublicSponsorshipProfile): string {

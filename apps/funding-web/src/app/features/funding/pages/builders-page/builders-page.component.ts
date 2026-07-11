@@ -70,21 +70,48 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       </section>
 
       <section class="builders-directory-content" aria-labelledby="public-builders-title">
-        <aside class="builders-summary" [attr.aria-label]="'funding.buildersPage.summary.ariaLabel' | translate">
-          <dl>
-            <div>
-              <dt>{{ 'funding.buildersPage.summary.confirmed' | translate }}</dt>
-              <dd>{{ formatMoney(report().total_received) }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'funding.buildersPage.summary.count' | translate }}</dt>
-              <dd>{{ report().contributions_count }}</dd>
-            </div>
-            <div>
-              <dt>{{ 'funding.home.purpose.source' | translate }}</dt>
-              <dd>{{ sourceLabel() }}</dd>
-            </div>
-          </dl>
+        <aside class="builders-sidebar">
+          <section
+            class="builders-summary"
+            [attr.aria-label]="'funding.buildersPage.summary.ariaLabel' | translate"
+          >
+            <dl>
+              <div>
+                <dt>{{ 'funding.buildersPage.summary.confirmed' | translate }}</dt>
+                <dd>{{ formatMoney(report().total_received) }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'funding.buildersPage.summary.count' | translate }}</dt>
+                <dd>{{ report().contributions_count }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'funding.buildersPage.summary.visible' | translate }}</dt>
+                <dd>{{ publicBuilders().length }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section
+            class="builders-pathway"
+            [attr.aria-label]="'funding.buildersPage.pathway.ariaLabel' | translate"
+          >
+            <span>{{ 'funding.buildersPage.pathway.kicker' | translate }}</span>
+            <h2>{{ 'funding.buildersPage.pathway.title' | translate }}</h2>
+            <ol>
+              <li>
+                <strong>{{ 'funding.buildersPage.pathway.items.support.title' | translate }}</strong>
+                <p>{{ 'funding.buildersPage.pathway.items.support.copy' | translate }}</p>
+              </li>
+              <li>
+                <strong>{{ 'funding.buildersPage.pathway.items.consent.title' | translate }}</strong>
+                <p>{{ 'funding.buildersPage.pathway.items.consent.copy' | translate }}</p>
+              </li>
+              <li>
+                <strong>{{ 'funding.buildersPage.pathway.items.recognition.title' | translate }}</strong>
+                <p>{{ 'funding.buildersPage.pathway.items.recognition.copy' | translate }}</p>
+              </li>
+            </ol>
+          </section>
         </aside>
 
         <section class="public-builders-panel">
@@ -122,9 +149,14 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
           >
             <h3>{{ 'funding.buildersPage.empty.title' | translate }}</h3>
             <p>{{ 'funding.buildersPage.empty.copy' | translate }}</p>
-            <a [routerLink]="transparencyPath()">
-              {{ 'funding.buildersPage.empty.action' | translate }}
-            </a>
+            <div class="empty-actions">
+              <a [routerLink]="fundPath()" fragment="support">
+                {{ 'funding.buildersPage.empty.primaryAction' | translate }}
+              </a>
+              <a [routerLink]="transparencyPath()">
+                {{ 'funding.buildersPage.empty.action' | translate }}
+              </a>
+            </div>
           </article>
         </section>
       </section>
@@ -133,14 +165,18 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
   styles: [
     `
       .builders-directory-shell {
-        background: #030811;
+        background:
+          radial-gradient(circle at 16% 28%, rgb(47 159 229 / 12%), transparent 28rem),
+          linear-gradient(180deg, #030811 0%, #06111f 54%, #02060d 100%);
         color: #f7fbff;
         min-height: 100vh;
       }
 
       .builders-directory-hero {
         display: grid;
-        min-height: 31rem;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+        height: clamp(24rem, 42vw, 28rem);
         overflow: hidden;
         position: relative;
       }
@@ -149,6 +185,8 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       .hero-overlay,
       .builders-directory-hero article {
         grid-area: 1 / 1;
+        min-height: 0;
+        min-width: 0;
       }
 
       .builders-directory-hero img {
@@ -158,18 +196,21 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       }
 
       .hero-overlay {
-        background: linear-gradient(90deg, rgb(2 8 18 / 94%), rgb(2 8 18 / 54%), rgb(2 8 18 / 88%));
+        background:
+          linear-gradient(90deg, rgb(2 8 18 / 94%), rgb(2 8 18 / 56%), rgb(2 8 18 / 86%)),
+          linear-gradient(0deg, rgb(2 8 18 / 82%), transparent 44%);
       }
 
       .builders-directory-hero article {
         align-self: end;
         max-width: 47rem;
-        padding: clamp(6rem, 12vw, 10rem) clamp(1rem, 5vw, 4rem) 3rem;
+        padding: clamp(4rem, 9vw, 7rem) clamp(1rem, 5vw, 4rem) 2.4rem;
         position: relative;
         z-index: 1;
       }
 
       .builders-directory-hero span,
+      .builders-pathway > span,
       .public-builders-panel header span {
         color: #f4c957;
         font-family: 'Trebuchet MS', sans-serif;
@@ -181,12 +222,13 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 
       .builders-directory-hero h1 {
         font-family: Georgia, 'Times New Roman', serif;
-        font-size: clamp(2.35rem, 6vw, 5.2rem);
+        font-size: clamp(2.35rem, 5vw, 4.65rem);
         line-height: 0.96;
         margin: 0.65rem 0 1rem;
       }
 
       .builders-directory-hero p,
+      .builders-pathway p,
       .public-builders-panel p,
       .empty-builders p {
         color: #cfe0ef;
@@ -223,15 +265,22 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 
       .builders-directory-content {
         display: grid;
+        gap: clamp(1rem, 2vw, 1.35rem);
+        grid-template-columns: minmax(17rem, 0.42fr) minmax(0, 1fr);
+        padding: clamp(1rem, 4vw, 2.6rem);
+      }
+
+      .builders-sidebar {
+        display: grid;
         gap: 1rem;
-        grid-template-columns: minmax(16rem, 0.45fr) minmax(0, 1fr);
-        padding: clamp(1rem, 4vw, 3rem);
+        align-self: start;
       }
 
       .builders-summary,
+      .builders-pathway,
       .public-builders-panel,
       .empty-builders {
-        background: rgb(3 19 38 / 82%);
+        background: linear-gradient(180deg, rgb(4 22 43 / 88%), rgb(3 13 28 / 88%));
         border: 1px solid rgb(102 177 232 / 28%);
         border-radius: 0.62rem;
         box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 12px 34px rgb(0 0 0 / 26%);
@@ -240,6 +289,54 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       .builders-summary {
         align-self: start;
         padding: 1rem;
+      }
+
+      .builders-pathway {
+        padding: 1rem;
+      }
+
+      .builders-pathway h2 {
+        color: #fff2cf;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: 1.35rem;
+        line-height: 1;
+        margin: 0.45rem 0 0.9rem;
+      }
+
+      .builders-pathway ol {
+        counter-reset: builder-step;
+        display: grid;
+        gap: 0.75rem;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .builders-pathway li {
+        border-top: 1px solid rgb(244 201 87 / 18%);
+        counter-increment: builder-step;
+        display: grid;
+        gap: 0.25rem;
+        padding-top: 0.75rem;
+        position: relative;
+      }
+
+      .builders-pathway li::before {
+        color: #f4c957;
+        content: counter(builder-step, decimal-leading-zero);
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+
+      .builders-pathway strong {
+        color: #f7fbff;
+        font-family: 'Trebuchet MS', sans-serif;
+        font-size: 0.92rem;
+      }
+
+      .builders-pathway p {
+        font-size: 0.85rem;
       }
 
       .builders-summary dl {
@@ -289,7 +386,7 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 
       .builders-list li {
         align-items: center;
-        background: rgb(5 21 42 / 82%);
+        background: linear-gradient(90deg, rgb(5 21 42 / 92%), rgb(6 30 55 / 78%));
         border: 1px solid rgb(122 223 255 / 20%);
         border-radius: 0.55rem;
         display: grid;
@@ -330,14 +427,23 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       }
 
       .builders-list em {
+        background: rgb(244 201 87 / 12%);
+        border: 1px solid rgb(244 201 87 / 26%);
+        border-radius: 999px;
         color: #f4c957;
         font-family: 'Trebuchet MS', sans-serif;
         font-style: normal;
         font-weight: 900;
+        padding: 0.32rem 0.58rem;
+        white-space: nowrap;
       }
 
       .empty-builders {
-        padding: 1rem;
+        background:
+          linear-gradient(135deg, rgb(244 201 87 / 10%), transparent 42%),
+          rgb(5 21 42 / 56%);
+        border-style: dashed;
+        padding: clamp(1rem, 3vw, 1.35rem);
       }
 
       .empty-builders h3 {
@@ -346,8 +452,16 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
         margin: 0 0 0.45rem;
       }
 
-      .empty-builders a {
+      .empty-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
         margin-top: 0.8rem;
+      }
+
+      .empty-actions a:first-child {
+        background: linear-gradient(135deg, #f4b53c, #ffe39a);
+        color: #07101b;
       }
 
       .state {
@@ -362,6 +476,20 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       @media (max-width: 860px) {
         .builders-directory-content {
           grid-template-columns: 1fr;
+        }
+
+        .builders-directory-hero {
+          height: 26rem;
+        }
+
+        .builders-list li {
+          align-items: start;
+          grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .builders-list em {
+          grid-column: 2;
+          justify-self: start;
         }
       }
     `
@@ -421,19 +549,6 @@ export class BuildersPageComponent implements OnInit {
       minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
       maximumFractionDigits: 2
     }).format(amount);
-  }
-
-  sourceLabel(): string {
-    const source = this.report().data_source;
-    if (source === 'database') {
-      return 'PostgreSQL';
-    }
-
-    if (source === 'stripe_direct') {
-      return 'Stripe direct';
-    }
-
-    return this.i18n.t('funding.home.sync.pending');
   }
 
   contributionTypeLabel(type: PublicBuilderProfile['contribution_type']): string {

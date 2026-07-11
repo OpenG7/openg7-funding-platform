@@ -1,5 +1,51 @@
 # Aide-mémoire des commandes
 
+## Commandes les plus courantes
+
+Usage quotidien local :
+
+| Besoin | Commande |
+| --- | --- |
+| Installer les dépendances | `corepack enable && corepack yarn install` |
+| Lancer le site et l'API | `yarn dev` |
+| Vérifier le build TypeScript | `yarn build` |
+| Builder le frontend Angular | `yarn workspace @openg7/funding-web build` |
+| Lancer le lint | `yarn lint` |
+| Mettre à jour Docker localement | `yarn docker:update` |
+
+Les raccourcis `docker:*` et `db:*` locaux attendent que Docker soit prêt.
+Si Docker Desktop est fermé, ils tentent de l'ouvrir et affichent un message
+`Patientez pendant l'ouverture de Docker...` avant de continuer.
+
+Usage courant VPS :
+
+| Besoin | Commande |
+| --- | --- |
+| Mettre à jour le VPS et déployer | `yarn vps:update` |
+| Déployer sans refaire `git pull` | `yarn vps:deploy` |
+| Déployer sans rebuild Docker local au VPS | `yarn vps:update --no-build` |
+| Revenir aux images applicatives précédentes | `yarn vps:rollback` |
+| Vérifier la production | `yarn vps:check` |
+| Voir les containers | `yarn vps:ps` |
+| Suivre les logs | `yarn vps:logs` |
+| Suivre les logs API | `yarn vps:logs api` |
+| Ouvrir un shell dans le projet sur le VPS | `yarn vps:ssh` |
+
+Usage courant PostgreSQL sur le VPS :
+
+| Besoin | Commande |
+| --- | --- |
+| Appliquer les migrations après un `git pull` | `yarn vps:db:update` |
+| Appliquer les migrations sans déployer l'app | `yarn vps:db:migrate` |
+| Ouvrir `psql` sur la base du VPS | `yarn vps:db:psql` |
+| Créer un backup DB sur le VPS | `yarn vps:db:backup` |
+| Créer et télécharger un backup DB | `yarn vps:db:backup:download` |
+| Créer et télécharger un backup config | `yarn vps:backup:download` |
+
+Les raccourcis `vps:*` lisent `VPS_HOST`, `VPS_USER`, `VPS_PORT`,
+`VPS_APP_DIR` et `VPS_BACKUP_DOWNLOAD_DIR` depuis l'environnement ou `.env`.
+Sans clé SSH configurée, `ssh` demande le mot de passe dans le terminal.
+
 ## Local
 
 Installer les dépendances :
@@ -33,14 +79,19 @@ corepack yarn lint
 Démarrer toute la stack :
 
 ```bash
-docker compose up -d --build
+yarn docker:up
 ```
+
+Ce raccourci ouvre Docker Desktop au besoin, attend que Docker soit prêt, puis
+lance `docker compose up --build`.
 
 Mettre a jour Docker avec les questions guidees :
 
 ```bash
 yarn docker:update
 ```
+
+Ce raccourci attend aussi Docker Desktop avant de lancer les questions guidees.
 
 En developpement, lancer aussi le listener Stripe apres la mise a jour :
 
@@ -63,7 +114,7 @@ yarn docker:update --prune-images
 Arrêter :
 
 ```bash
-docker compose down
+yarn docker:down
 ```
 
 Redémarrer un service :
@@ -219,6 +270,62 @@ ls -lah traefik/acme/
 
 ## Déploiement VPS
 
+Depuis le poste local, mettre à jour le code sur le VPS puis déployer :
+
+```bash
+yarn vps:update
+```
+
+Même opération, mais sans rebuild si les images sont déjà disponibles :
+
+```bash
+yarn vps:update --no-build
+```
+
+Relancer seulement le script de déploiement déjà présent sur le VPS :
+
+```bash
+yarn vps:deploy
+```
+
+Vérifier l'état de production après un déploiement :
+
+```bash
+yarn vps:check
+```
+
+Revenir aux images applicatives précédentes :
+
+```bash
+yarn vps:rollback
+```
+
+Ce rollback utilise les tags Docker créés avant le dernier déploiement :
+
+```text
+openg7-funding-web:rollback
+openg7-funding-api:rollback
+```
+
+Il ne restaure pas la base de données. Si une migration PostgreSQL incompatible a
+été appliquée, restaurer un backup DB séparément.
+
+Voir les containers et les logs depuis le poste local :
+
+```bash
+yarn vps:ps
+yarn vps:logs
+yarn vps:logs api
+yarn vps:logs web
+yarn vps:logs traefik
+```
+
+Ouvrir un shell directement dans le dossier du projet sur le VPS :
+
+```bash
+yarn vps:ssh
+```
+
 Première installation :
 
 ```bash
@@ -242,6 +349,36 @@ bash scripts/deploy.sh --no-build
 ```
 
 ## Sauvegardes
+
+Créer une sauvegarde de configuration sur le VPS :
+
+```bash
+yarn vps:backup
+```
+
+Créer et télécharger une sauvegarde de configuration depuis le VPS :
+
+```bash
+yarn vps:backup:download
+```
+
+Créer une sauvegarde PostgreSQL sur le VPS :
+
+```bash
+yarn vps:db:backup
+```
+
+Créer et télécharger une sauvegarde PostgreSQL depuis le VPS :
+
+```bash
+yarn vps:db:backup:download
+```
+
+Les sauvegardes téléchargées depuis le VPS arrivent par défaut dans :
+
+```text
+backups/vps/
+```
 
 Appliquer toutes les migrations SQL dans l'ordre :
 

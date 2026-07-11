@@ -21,6 +21,16 @@ interface FundTransactionInsert {
   readonly metadataJson: Record<string, unknown>;
 }
 
+interface ContributionFundTransactionBalanceUpdate {
+  readonly stripePaymentIntentId: string;
+  readonly stripeBalanceTransactionId: string;
+  readonly amount: number;
+  readonly fee: number;
+  readonly net: number;
+  readonly currency: string;
+  readonly status: string;
+}
+
 interface TotalsRow {
   readonly total_received: string;
   readonly total_fees: string;
@@ -185,6 +195,41 @@ export const insertFundTransaction = async (
   );
 
   return result.rowCount === 1;
+};
+
+export const updateContributionFundTransactionBalance = async (
+  pool: Pool | null,
+  input: ContributionFundTransactionBalanceUpdate
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE fund_transactions
+      SET
+        stripe_balance_transaction_id = $2,
+        amount = $3,
+        fee = $4,
+        net = $5,
+        currency = $6,
+        status = $7
+      WHERE stripe_object_id = $1
+        AND type = 'payment_intent.succeeded'
+    `,
+    [
+      input.stripePaymentIntentId,
+      input.stripeBalanceTransactionId,
+      input.amount,
+      input.fee,
+      input.net,
+      input.currency,
+      input.status
+    ]
+  );
+
+  return (result.rowCount ?? 0) > 0;
 };
 
 const getTablePresence = async (pool: Pool): Promise<TablePresenceRow> => {

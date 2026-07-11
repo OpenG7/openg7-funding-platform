@@ -52,7 +52,27 @@
       "summary": {
         "ariaLabel": "Public builders summary",
         "confirmed": "Confirmed contributions",
-        "count": "Contributions"
+        "count": "Contributions",
+        "visible": "Visible names"
+      },
+      "pathway": {
+        "ariaLabel": "How to become a public builder",
+        "kicker": "How to appear here",
+        "title": "Voluntary recognition with clear consent",
+        "items": {
+          "support": {
+            "title": "Support the Fund",
+            "copy": "Your contribution helps fund OpenG7's shared open foundations."
+          },
+          "consent": {
+            "title": "Choose visibility",
+            "copy": "Your name and amount stay private unless you explicitly consent."
+          },
+          "recognition": {
+            "title": "Join the registry",
+            "copy": "Consented entries appear here as living proof of the movement."
+          }
+        }
       },
       "directory": {
         "kicker": "Recognition",
@@ -65,6 +85,7 @@
       "empty": {
         "title": "No public entry yet",
         "copy": "The named registry will open when contributors or sponsors have given valid public consent. Aggregated totals remain available in transparency.",
+        "primaryAction": "Become a builder",
         "action": "View transparency"
       },
       "state": {
@@ -77,19 +98,31 @@
         "imageAlt": "Connected digital communities in Canada",
         "kicker": "Approved sponsorships",
         "title": "OpenG7 Sponsors",
-        "copy": "This page gathers manually approved business sponsorships. Feed placements show where visibility is prepared for OpenG7 or OpenG20."
+        "copy": "This partner showcase gathers manually approved business sponsorships. Every public appearance goes through consent, review, and editorial control."
       },
       "summary": {
         "ariaLabel": "Public sponsors summary",
         "approved": "Approved sponsors",
-        "feedReady": "Feed placements"
+        "feedReady": "Prepared visibility",
+        "published": "Published posts"
+      },
+      "visibility": {
+        "ariaLabel": "Sponsor visibility promise",
+        "kicker": "Partner showcase",
+        "title": "Useful public presence, never automatic",
+        "copy": "Approved sponsors can receive a public profile and visibility prepared for OpenG7 channels.",
+        "items": {
+          "profile": "Logo, website, short message, and contribution shown according to consent.",
+          "review": "Manual review before any public appearance.",
+          "publication": "Tracked partner publication when visibility is ready."
+        }
       },
       "directory": {
         "kicker": "Visibility",
         "title": "Public sponsors",
-        "copy": "Only consenting and approved companies are displayed. Facebook and LinkedIn feeds are prepared or tracked by the administration.",
+        "copy": "Only consenting and approved companies are displayed. Partner posts show where visibility is prepared or already live.",
         "amountHidden": "Amount not published",
-        "feedTargetPending": "Feed to define",
+        "feedTargetPending": "Visibility to define",
         "feedLink": "View post",
         "website": "Website"
       },
@@ -101,8 +134,22 @@
       },
       "empty": {
         "title": "No public sponsor yet",
-        "copy": "Sponsors will appear here after payment, company details, public consent, and admin approval.",
-        "action": "Become a sponsor"
+        "copy": "The first approved sponsors will appear here with their logo, public message, and prepared visibility.",
+        "action": "Become a sponsor",
+        "preview": {
+          "profile": {
+            "title": "Public profile",
+            "copy": "Logo, website, and short message."
+          },
+          "visibility": {
+            "title": "Prepared visibility",
+            "copy": "OpenG7, OpenG20, and social channels."
+          },
+          "trust": {
+            "title": "Manual review",
+            "copy": "Nothing is published automatically."
+          }
+        }
       },
       "state": {
         "loading": "Loading sponsors...",
@@ -564,12 +611,23 @@
         "personal": {
           "kicker": "Personal",
           "title": "Personal contribution",
-          "copy": "Voluntary support for OpenG7 development, with aggregated public transparency."
+          "copy": "Voluntary support for OpenG7 development.",
+          "transparencyIncluded": "Your contribution is included in OpenG7's public transparency.",
+          "consentOptions": "Your name and individual amount remain optional based on your consents.",
+          "defaultMention": "OpenG7.org mention included by default"
         },
         "sponsorship": {
-          "kicker": "Review",
+          "kicker": "Business",
           "title": "Business sponsorship",
-          "copy": "Business visibility will require manual review before anything is published.",
+          "copy": "Support OpenG7 and introduce your business to our community.",
+          "includedByDefault": "Included by default",
+          "amountBased": "Based on amount",
+          "benefits": {
+            "facebook": "Sponsored post on Facebook",
+            "linkedin": "Sponsored post on LinkedIn",
+            "openg7": "Mention on OpenG7.org"
+          },
+          "reviewNote": "Each sponsorship is manually verified and approved before publication.",
           "disabled": "Temporarily unavailable"
         },
         "otherAmount": "Other amount",
@@ -584,7 +642,7 @@
         "securePayment": "Secure payment by Stripe",
         "policyLink": "Usage and refund policy",
         "loading": "Preparing payment...",
-        "success": "Local simulated checkout. Configure Stripe in /dev/stripe-setup to open real payment.",
+        "success": "Local mode: Stripe did not open a real checkout session, so payment is simulated. Check /dev/stripe-setup to enable real payment.",
         "error": "Unable to start payment."
       },
       "finance": {
@@ -1086,7 +1144,7 @@
         "title": "You now know where the fund stands and how it is calculated.",
         "copy": "Every contribution helps build open infrastructure for the whole OpenG7 ecosystem.",
         "loading": "Preparing secure payment...",
-        "success": "Local simulated checkout. Configure Stripe in /dev/stripe-setup to open real payment.",
+        "success": "Local mode: Stripe did not open a real checkout session, so payment is simulated. Check /dev/stripe-setup to enable real payment.",
         "error": "Unable to start payment."
       },
       "footer": {

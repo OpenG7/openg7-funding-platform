@@ -86,12 +86,6 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
         >
           {{ 'funding.nav.transparency' | translate }}
         </a>
-        <a
-          [routerLink]="supportPath()"
-          routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: true }"
-          >{{ 'funding.nav.support' | translate }}</a
-        >
       </nav>
 
       <div class="nav-actions">
@@ -127,5 +121,4 @@ export class FundingHeaderComponent {
   readonly transparencyPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
   );
-  readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
 }

@@ -504,9 +504,21 @@ interface FoundationPillar {
                   [attr.aria-pressed]="contributionType() === 'personal_support'"
                   (click)="setContributionType('personal_support')"
                 >
-                  <span>{{ 'funding.home.contribution.personal.kicker' | translate }}</span>
-                  <strong>{{ 'funding.home.contribution.personal.title' | translate }}</strong>
+                  <span class="contribution-type-kicker">{{ 'funding.home.contribution.personal.kicker' | translate }}</span>
+                  <span class="contribution-card-heading">
+                    <span
+                      class="contribution-card-icon contribution-card-icon-personal"
+                      aria-hidden="true"
+                    ></span>
+                    <strong>{{ 'funding.home.contribution.personal.title' | translate }}</strong>
+                  </span>
                   <p>{{ 'funding.home.contribution.personal.copy' | translate }}</p>
+                  <p>{{ 'funding.home.contribution.personal.transparencyIncluded' | translate }}</p>
+                  <p>{{ 'funding.home.contribution.personal.consentOptions' | translate }}</p>
+                  <span class="default-mention-badge">
+                    <span class="shield-check-icon" aria-hidden="true"></span>
+                    {{ 'funding.home.contribution.personal.defaultMention' | translate }}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -517,10 +529,38 @@ interface FoundationPillar {
                   [attr.aria-disabled]="!sponsorshipSelectionEnabled"
                   (click)="setContributionType('sponsorship_interest')"
                 >
-                  <span>{{ 'funding.home.contribution.sponsorship.kicker' | translate }}</span>
-                  <strong>{{ 'funding.home.contribution.sponsorship.title' | translate }}</strong>
+                  <span class="contribution-type-kicker">{{ 'funding.home.contribution.sponsorship.kicker' | translate }}</span>
+                  <span class="contribution-card-heading">
+                    <span
+                      class="contribution-card-icon contribution-card-icon-business"
+                      aria-hidden="true"
+                    ></span>
+                    <strong>{{ 'funding.home.contribution.sponsorship.title' | translate }}</strong>
+                  </span>
                   <p>{{ 'funding.home.contribution.sponsorship.copy' | translate }}</p>
-                  <small *ngIf="!sponsorshipSelectionEnabled">
+                  <span class="sponsorship-benefit-label">
+                    {{ 'funding.home.contribution.sponsorship.includedByDefault' | translate }}
+                  </span>
+                  <span class="sponsorship-benefits sponsorship-benefits-default" role="list">
+                    <span role="listitem">
+                      {{ 'funding.home.contribution.sponsorship.benefits.openg7' | translate }}
+                    </span>
+                  </span>
+                  <span class="sponsorship-benefit-label">
+                    {{ 'funding.home.contribution.sponsorship.amountBased' | translate }}
+                  </span>
+                  <span class="sponsorship-benefits" role="list">
+                    <span role="listitem">
+                      {{ 'funding.home.contribution.sponsorship.benefits.facebook' | translate }}
+                    </span>
+                    <span role="listitem">
+                      {{ 'funding.home.contribution.sponsorship.benefits.linkedin' | translate }}
+                    </span>
+                  </span>
+                  <p class="sponsorship-review-note">
+                    {{ 'funding.home.contribution.sponsorship.reviewNote' | translate }}
+                  </p>
+                  <small class="unavailable-badge" *ngIf="!sponsorshipSelectionEnabled">
                     {{ 'funding.home.contribution.sponsorship.disabled' | translate }}
                   </small>
                 </button>
@@ -622,7 +662,7 @@ interface FoundationPillar {
               </p>
               <p
                 class="state state-success"
-                *ngIf="loadingState() === 'success'"
+                *ngIf="loadingState() === 'success' && checkoutResultMode() === 'mocked'"
               >
                 {{ 'funding.home.contribution.success' | translate }}
               </p>
@@ -714,6 +754,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly loadingState = signal<'idle' | 'loading' | 'success' | 'error'>(
     'idle'
   );
+  readonly checkoutResultMode = signal<'mocked' | null>(null);
   readonly checkoutStatus = signal<'idle' | 'success' | 'cancel'>('idle');
   readonly pendingSponsorSessionId = signal<string | null>(null);
   readonly sponsorCompanyName = signal<string>('');
@@ -1196,6 +1237,8 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   }
 
   async supportProject(): Promise<void> {
+    this.checkoutResultMode.set(null);
+
     if (!this.nonCharityAcknowledged()) {
       this.loadingState.set('error');
       return;
@@ -1220,6 +1263,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
         return;
       }
 
+      this.checkoutResultMode.set(result.status);
       this.loadingState.set('success');
       void this.loadPublicTransparency({ silent: true });
     } catch {

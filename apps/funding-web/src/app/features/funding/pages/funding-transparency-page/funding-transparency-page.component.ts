@@ -539,7 +539,10 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
           <p *ngIf="checkoutState() === 'loading'">
             {{ 'funding.transparencyPage.support.loading' | translate }}
           </p>
-          <p class="state-success" *ngIf="checkoutState() === 'success'">
+          <p
+            class="state-success"
+            *ngIf="checkoutState() === 'success' && checkoutResultMode() === 'mocked'"
+          >
             {{ 'funding.transparencyPage.support.success' | translate }}
           </p>
           <p class="state-error" *ngIf="checkoutState() === 'error'">
@@ -1479,6 +1482,7 @@ export class FundingTransparencyPageComponent implements OnInit {
   readonly checkoutState = signal<'idle' | 'loading' | 'success' | 'error'>(
     'idle'
   );
+  readonly checkoutResultMode = signal<'mocked' | null>(null);
   readonly nonCharityAcknowledged = signal<boolean>(false);
 
   readonly report = computed<FundTransparencyPublicResponse>(
@@ -1827,6 +1831,8 @@ export class FundingTransparencyPageComponent implements OnInit {
   }
 
   async supportProject(): Promise<void> {
+    this.checkoutResultMode.set(null);
+
     if (!this.nonCharityAcknowledged()) {
       this.checkoutState.set('error');
       return;
@@ -1849,6 +1855,7 @@ export class FundingTransparencyPageComponent implements OnInit {
         return;
       }
 
+      this.checkoutResultMode.set(result.status);
       this.checkoutState.set('success');
     } catch {
       this.checkoutState.set('error');
