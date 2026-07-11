@@ -91,6 +91,15 @@ const inAppDir = (commands) =>
 
 const deployCommand = (args) =>
   `bash scripts/deploy.sh${args.length > 0 ? ` ${args.map(shellQuote).join(' ')}` : ''}`;
+const usesLocalBuild = (args) => !args.includes('--no-build');
+const ensureNodeToolchainCommand = [
+  'set -e',
+  'if ! command -v node >/dev/null 2>&1; then command -v curl >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y ca-certificates curl gnupg); curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -; sudo apt-get install -y nodejs; fi',
+  'if ! command -v corepack >/dev/null 2>&1; then sudo npm install -g corepack; fi',
+  'sudo corepack enable',
+  'node --version',
+  'corepack --version'
+].join(' && ');
 
 const printConnectionInfo = () => {
   console.log(`Connexion SSH vers ${vpsUser}@${vpsHost}:${vpsPort}.`);
@@ -127,6 +136,7 @@ const prepareLatestDatabaseBackup = () =>
 const help = `Usage:
   yarn vps:ssh
   yarn vps:env
+  yarn vps:node:install
   yarn vps:update [--no-build]
   yarn vps:deploy [--no-build]
   yarn vps:rollback
@@ -171,10 +181,23 @@ try {
         'editor="${EDITOR:-nano}"; if command -v "$editor" >/dev/null 2>&1; then "$editor" .env; else vi .env; fi'
       ])
     );
+  } else if (command === 'node:install') {
+    await ssh(ensureNodeToolchainCommand);
   } else if (command === 'update') {
-    await ssh(inAppDir(['git pull --ff-only', deployCommand(args)]));
+    await ssh(
+      inAppDir([
+        'git pull --ff-only',
+        ...(usesLocalBuild(args) ? [ensureNodeToolchainCommand] : []),
+        deployCommand(args)
+      ])
+    );
   } else if (command === 'deploy') {
-    await ssh(inAppDir([deployCommand(args)]));
+    await ssh(
+      inAppDir([
+        ...(usesLocalBuild(args) ? [ensureNodeToolchainCommand] : []),
+        deployCommand(args)
+      ])
+    );
   } else if (command === 'rollback') {
     await ssh(inAppDir(['bash scripts/rollback.sh']));
   } else if (command === 'check') {
