@@ -611,12 +611,23 @@
         "personal": {
           "kicker": "Personnel",
           "title": "Contribution personnelle",
-          "copy": "Soutien volontaire au développement d'OpenG7, avec transparence publique agrégée."
+          "copy": "Soutien volontaire au développement d'OpenG7.",
+          "transparencyIncluded": "Votre contribution est incluse dans la transparence publique d'OpenG7.",
+          "consentOptions": "Votre nom et votre montant individuel demeurent optionnels selon vos consentements.",
+          "defaultMention": "Mention sur OpenG7.org incluse par défaut"
         },
         "sponsorship": {
-          "kicker": "Validation",
+          "kicker": "Entreprise",
           "title": "Commandite d'entreprise",
-          "copy": "La visibilité d'entreprise sera soumise à une validation manuelle avant toute publication.",
+          "copy": "Soutenez OpenG7 et faites connaître votre entreprise auprès de notre communauté.",
+          "includedByDefault": "Inclus par défaut",
+          "amountBased": "Selon le montant",
+          "benefits": {
+            "facebook": "Publication commanditée sur Facebook",
+            "linkedin": "Publication commanditée sur LinkedIn",
+            "openg7": "Mention sur OpenG7.org"
+          },
+          "reviewNote": "Chaque commandite est vérifiée et approuvée manuellement avant sa publication.",
           "disabled": "Temporairement indisponible"
         },
         "otherAmount": "Autre montant",
@@ -631,7 +642,7 @@
         "securePayment": "Paiement sécurisé par Stripe",
         "policyLink": "Politique d'utilisation et de remboursement",
         "loading": "Préparation du paiement...",
-        "success": "Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup pour ouvrir le paiement réel.",
+        "success": "Mode local : Stripe n’a pas ouvert de session réelle, donc le paiement est simulé. Vérifiez /dev/stripe-setup pour activer le paiement réel.",
         "error": "Impossible de démarrer le paiement."
       },
       "finance": {
@@ -1133,7 +1144,7 @@
         "title": "Vous savez maintenant où se trouve le fonds et comment il est calculé.",
         "copy": "Chaque contribution aide à bâtir une infrastructure ouverte pour l’ensemble de l’écosystème OpenG7.",
         "loading": "Préparation du paiement sécurisé...",
-        "success": "Checkout simulé en local. Configurez Stripe dans /dev/stripe-setup pour ouvrir le paiement réel.",
+        "success": "Mode local : Stripe n’a pas ouvert de session réelle, donc le paiement est simulé. Vérifiez /dev/stripe-setup pour activer le paiement réel.",
         "error": "Impossible de démarrer le paiement."
       },
       "footer": {

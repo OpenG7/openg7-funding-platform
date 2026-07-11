@@ -611,12 +611,23 @@
         "personal": {
           "kicker": "Personal",
           "title": "Personal contribution",
-          "copy": "Voluntary support for OpenG7 development, with aggregated public transparency."
+          "copy": "Voluntary support for OpenG7 development.",
+          "transparencyIncluded": "Your contribution is included in OpenG7's public transparency.",
+          "consentOptions": "Your name and individual amount remain optional based on your consents.",
+          "defaultMention": "OpenG7.org mention included by default"
         },
         "sponsorship": {
-          "kicker": "Review",
+          "kicker": "Business",
           "title": "Business sponsorship",
-          "copy": "Business visibility will require manual review before anything is published.",
+          "copy": "Support OpenG7 and introduce your business to our community.",
+          "includedByDefault": "Included by default",
+          "amountBased": "Based on amount",
+          "benefits": {
+            "facebook": "Sponsored post on Facebook",
+            "linkedin": "Sponsored post on LinkedIn",
+            "openg7": "Mention on OpenG7.org"
+          },
+          "reviewNote": "Each sponsorship is manually verified and approved before publication.",
           "disabled": "Temporarily unavailable"
         },
         "otherAmount": "Other amount",
@@ -631,7 +642,7 @@
         "securePayment": "Secure payment by Stripe",
         "policyLink": "Usage and refund policy",
         "loading": "Preparing payment...",
-        "success": "Local simulated checkout. Configure Stripe in /dev/stripe-setup to open real payment.",
+        "success": "Local mode: Stripe did not open a real checkout session, so payment is simulated. Check /dev/stripe-setup to enable real payment.",
         "error": "Unable to start payment."
       },
       "finance": {
@@ -1133,7 +1144,7 @@
         "title": "You now know where the fund stands and how it is calculated.",
         "copy": "Every contribution helps build open infrastructure for the whole OpenG7 ecosystem.",
         "loading": "Preparing secure payment...",
-        "success": "Local simulated checkout. Configure Stripe in /dev/stripe-setup to open real payment.",
+        "success": "Local mode: Stripe did not open a real checkout session, so payment is simulated. Check /dev/stripe-setup to enable real payment.",
         "error": "Unable to start payment."
       },
       "footer": {

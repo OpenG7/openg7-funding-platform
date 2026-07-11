@@ -174,7 +174,9 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
 
       .builders-directory-hero {
         display: grid;
-        min-height: clamp(24rem, 42vw, 28rem);
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+        height: clamp(24rem, 42vw, 28rem);
         overflow: hidden;
         position: relative;
       }
@@ -183,6 +185,8 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       .hero-overlay,
       .builders-directory-hero article {
         grid-area: 1 / 1;
+        min-height: 0;
+        min-width: 0;
       }
 
       .builders-directory-hero img {
@@ -475,7 +479,7 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
         }
 
         .builders-directory-hero {
-          min-height: 26rem;
+          height: 26rem;
         }
 
         .builders-list li {

@@ -228,7 +228,9 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
 
       .sponsors-hero {
         display: grid;
-        min-height: clamp(24rem, 42vw, 28rem);
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+        height: clamp(24rem, 42vw, 28rem);
         overflow: hidden;
         position: relative;
       }
@@ -237,6 +239,8 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
       .hero-overlay,
       .sponsors-hero article {
         grid-area: 1 / 1;
+        min-height: 0;
+        min-width: 0;
       }
 
       .sponsors-hero img {
@@ -604,7 +608,7 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
         }
 
         .sponsors-hero {
-          min-height: 26rem;
+          height: 26rem;
         }
 
         .sponsor-preview-grid {

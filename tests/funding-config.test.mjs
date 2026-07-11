@@ -121,6 +121,7 @@ test('Stripe webhook service handles MVP idempotent event set', () => {
     'checkout.session.expired',
     'payment_intent.succeeded',
     'payment_intent.payment_failed',
+    'charge.updated',
     'charge.refunded',
     'charge.dispute.created',
     'payout.paid',
@@ -132,6 +133,25 @@ test('Stripe webhook service handles MVP idempotent event set', () => {
   assert.ok(source.includes('insertStripeEventRecord'));
   assert.ok(source.includes('markStripeEventProcessed'));
   assert.ok(source.includes('markStripeEventFailed'));
+});
+
+test('Stripe charge.updated backfills contribution transaction fees', () => {
+  const webhookSource = fs.readFileSync(
+    'apps/funding-api/src/stripe-webhook.service.ts',
+    'utf8'
+  );
+  const repositorySource = fs.readFileSync(
+    'apps/funding-api/src/fund-transparency.repository.ts',
+    'utf8'
+  );
+
+  assert.ok(webhookSource.includes("event.type === 'charge.updated'"));
+  assert.ok(webhookSource.includes('updateContributionFundTransactionBalance'));
+  assert.ok(repositorySource.includes('UPDATE fund_transactions'));
+  assert.ok(repositorySource.includes("type = 'payment_intent.succeeded'"));
+  assert.ok(repositorySource.includes('stripe_balance_transaction_id = $2'));
+  assert.ok(repositorySource.includes('fee = $4'));
+  assert.ok(repositorySource.includes('net = $5'));
 });
 
 test('Checkout sessions require fundraiser metadata and consent fields', () => {
