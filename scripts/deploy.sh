@@ -21,10 +21,18 @@ APP_DOMAIN="${APP_DOMAIN:-openg7.org}"
 ROLLBACK_WEB_IMAGE="openg7-funding-web:rollback"
 ROLLBACK_API_IMAGE="openg7-funding-api:rollback"
 
+compose() {
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    docker compose --profile database "$@"
+  else
+    docker compose "$@"
+  fi
+}
+
 rollback() {
   echo "Deployment failed. Attempting rollback..."
   if docker image inspect "${ROLLBACK_WEB_IMAGE}" >/dev/null 2>&1 && docker image inspect "${ROLLBACK_API_IMAGE}" >/dev/null 2>&1; then
-    WEB_IMAGE="${ROLLBACK_WEB_IMAGE}" API_IMAGE="${ROLLBACK_API_IMAGE}" docker compose up -d --no-build
+    WEB_IMAGE="${ROLLBACK_WEB_IMAGE}" API_IMAGE="${ROLLBACK_API_IMAGE}" compose up -d --no-build
     bash scripts/check.sh || true
     echo "Rollback attempted."
   else
@@ -38,8 +46,8 @@ mkdir -p traefik/acme backups
 touch traefik/acme/acme.json
 chmod 600 traefik/acme/acme.json
 
-CURRENT_WEB="$(docker compose images -q web 2>/dev/null | head -n1 || true)"
-CURRENT_API="$(docker compose images -q api 2>/dev/null | head -n1 || true)"
+CURRENT_WEB="$(compose images -q web 2>/dev/null | head -n1 || true)"
+CURRENT_API="$(compose images -q api 2>/dev/null | head -n1 || true)"
 
 if [[ -n "${CURRENT_WEB}" ]]; then
   docker tag "${CURRENT_WEB}" "${ROLLBACK_WEB_IMAGE}" || true
@@ -54,13 +62,13 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 
 if [[ "${NO_BUILD}" -eq 1 ]]; then
-  docker compose pull
-  docker compose up -d --no-build
+  compose pull
+  compose up -d --no-build
 else
   corepack yarn build
   corepack yarn workspace @openg7/funding-web build
-  docker compose build --pull
-  docker compose up -d
+  compose build --pull
+  compose up -d
 fi
 
 bash scripts/check.sh
