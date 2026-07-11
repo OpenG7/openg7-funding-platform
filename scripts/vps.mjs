@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { env, exit } from 'node:process';
 
 const defaultConfig = {
+  VPS_HOST: 'vps-8db0cb49.vps.ovh.ca',
   VPS_USER: 'ubuntu',
   VPS_PORT: '22',
   VPS_APP_DIR: '/opt/openg7-funding-platform',
