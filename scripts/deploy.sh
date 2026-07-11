@@ -29,6 +29,12 @@ compose() {
   fi
 }
 
+migrate_database() {
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    bash scripts/db-migrate.sh
+  fi
+}
+
 rollback() {
   echo "Deployment failed. Attempting rollback..."
   if docker image inspect "${ROLLBACK_WEB_IMAGE}" >/dev/null 2>&1 && docker image inspect "${ROLLBACK_API_IMAGE}" >/dev/null 2>&1; then
@@ -63,11 +69,14 @@ fi
 
 if [[ "${NO_BUILD}" -eq 1 ]]; then
   compose pull
+  migrate_database
   compose up -d --no-build
 else
+  corepack yarn install --immutable
   corepack yarn build
   corepack yarn workspace @openg7/funding-web build
   compose build --pull
+  migrate_database
   compose up -d
 fi
 
