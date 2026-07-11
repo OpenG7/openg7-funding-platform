@@ -11,6 +11,8 @@ fi
 
 APP_DOMAIN="${APP_DOMAIN:-openg7.org}"
 HTTPS_URL="https://${APP_DOMAIN}"
+POSTGRES_DB="${POSTGRES_DB:-openg7_funding}"
+POSTGRES_USER="${POSTGRES_USER:-openg7_funding}"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -21,14 +23,38 @@ pass() {
   echo "OK: $*"
 }
 
+compose() {
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    docker compose --profile database "$@"
+  else
+    docker compose "$@"
+  fi
+}
+
 command -v docker >/dev/null 2>&1 || fail "docker is not installed"
 docker compose version >/dev/null 2>&1 || fail "docker compose plugin is not installed"
 pass "Docker and Compose are installed"
 
-docker compose ps --services --filter status=running | grep -qx "traefik" || fail "traefik is not running"
-docker compose ps --services --filter status=running | grep -qx "web" || fail "web is not running"
-docker compose ps --services --filter status=running | grep -qx "api" || fail "api is not running"
+compose ps --services --filter status=running | grep -qx "traefik" || fail "traefik is not running"
+compose ps --services --filter status=running | grep -qx "web" || fail "web is not running"
+compose ps --services --filter status=running | grep -qx "api" || fail "api is not running"
 pass "Required containers are running"
+
+if [[ -n "${DATABASE_URL:-}" ]]; then
+  compose ps --services --filter status=running | grep -qx "postgres" || fail "postgres is not running while DATABASE_URL is configured"
+
+  for _ in $(seq 1 30); do
+    if compose exec -T postgres pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1; then
+      pass "PostgreSQL is ready"
+      break
+    fi
+
+    sleep 2
+  done
+
+  compose exec -T postgres pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1 ||
+    fail "PostgreSQL did not become ready"
+fi
 
 getent hosts "${APP_DOMAIN}" >/dev/null || fail "DNS does not resolve ${APP_DOMAIN}"
 pass "DNS resolves ${APP_DOMAIN}"

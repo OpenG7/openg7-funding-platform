@@ -16,6 +16,14 @@ APP_DOMAIN="${APP_DOMAIN:-openg7.org}"
 ROLLBACK_WEB_IMAGE="openg7-funding-web:rollback"
 ROLLBACK_API_IMAGE="openg7-funding-api:rollback"
 
+compose() {
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    docker compose --profile database "$@"
+  else
+    docker compose "$@"
+  fi
+}
+
 fail() {
   echo "FAIL: $*" >&2
   exit 1
@@ -36,7 +44,7 @@ echo "API: ${ROLLBACK_API_IMAGE}"
 
 WEB_IMAGE="${ROLLBACK_WEB_IMAGE}" \
   API_IMAGE="${ROLLBACK_API_IMAGE}" \
-  docker compose up -d --no-build
+  compose up -d --no-build
 
 bash scripts/check.sh
 echo "Rollback succeeded for https://${APP_DOMAIN}"
