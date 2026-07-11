@@ -5,10 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
 if [[ -f .env ]]; then
-  set -a
   # shellcheck disable=SC1091
-  source .env
-  set +a
+  source scripts/load-env.sh .env
 fi
 
 APP_DOMAIN="${APP_DOMAIN:-openg7.org}"

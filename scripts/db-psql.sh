@@ -5,10 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
 if [[ -f .env ]]; then
-  set -a
   # shellcheck disable=SC1091
-  source .env
-  set +a
+  source scripts/load-env.sh .env
 fi
 
 POSTGRES_DB="${POSTGRES_DB:-openg7_funding}"

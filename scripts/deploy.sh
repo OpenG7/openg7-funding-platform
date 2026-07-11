@@ -14,10 +14,8 @@ fi
   exit 1
 }
 
-set -a
 # shellcheck disable=SC1091
-source .env
-set +a
+source scripts/load-env.sh .env
 
 APP_DOMAIN="${APP_DOMAIN:-openg7.org}"
 ROLLBACK_WEB_IMAGE="openg7-funding-web:rollback"
