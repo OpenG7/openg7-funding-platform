@@ -239,7 +239,7 @@ docker compose logs -f traefik
 Dashboard local Traefik :
 
 ```bash
-ssh -L 8081:127.0.0.1:8081 ubuntu@vps-8db0cb49.vps.ovh.ca
+ssh -L 8081:127.0.0.1:8081 "${VPS_USER:-ubuntu}@${VPS_HOST}"
 ```
 
 Puis ouvrir :

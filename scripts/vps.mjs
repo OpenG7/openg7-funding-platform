@@ -4,7 +4,6 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { env, exit } from 'node:process';
 
 const defaultConfig = {
-  VPS_HOST: 'vps-8db0cb49.vps.ovh.ca',
   VPS_USER: 'ubuntu',
   VPS_PORT: '22',
   VPS_APP_DIR: '/opt/openg7-funding-platform',
@@ -126,6 +125,7 @@ const prepareLatestDatabaseBackup = () =>
 
 const help = `Usage:
   yarn vps:ssh
+  yarn vps:env
   yarn vps:update [--no-build]
   yarn vps:deploy [--no-build]
   yarn vps:rollback
@@ -142,7 +142,7 @@ const help = `Usage:
 
 Config:
   VPS_HOST, VPS_USER, VPS_PORT, VPS_APP_DIR and VPS_BACKUP_DOWNLOAD_DIR
-  can be set in the shell or in .env.`;
+  can be set in the shell or in .env. VPS_HOST is required.`;
 
 const command = process.argv[2] ?? 'help';
 const args = process.argv.slice(3);
@@ -153,10 +153,23 @@ try {
     exit(0);
   }
 
+  if (!vpsHost) {
+    console.error('VPS_HOST is required. Add it to .env or export it in the shell.');
+    exit(1);
+  }
+
   printConnectionInfo();
 
   if (command === 'ssh') {
     await ssh(inAppDir(['exec bash']));
+  } else if (command === 'env') {
+    await ssh(
+      inAppDir([
+        'test -f .env || cp .env.example .env',
+        'chmod 600 .env',
+        'editor="${EDITOR:-nano}"; if command -v "$editor" >/dev/null 2>&1; then "$editor" .env; else vi .env; fi'
+      ])
+    );
   } else if (command === 'update') {
     await ssh(inAppDir(['git pull --ff-only', deployCommand(args)]));
   } else if (command === 'deploy') {

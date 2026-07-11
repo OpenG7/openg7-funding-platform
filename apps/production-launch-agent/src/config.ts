@@ -16,6 +16,14 @@ const toNumber = (value: string | undefined, fallback: number): number => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const requiredString = (value: string | undefined, message: string): string => {
+  if (!value || value.trim().length === 0) {
+    throw new Error(message);
+  }
+
+  return value;
+};
+
 const toRole = (value: string | undefined): AgentRole => {
   if (value === 'admin' || value === 'operator' || value === 'viewer') {
     return value;
@@ -58,7 +66,10 @@ export const loadConfig = (): AgentConfig => {
       ),
     role: toRole(process.env.PLA_ROLE),
     ssh: {
-      host: process.env.PLA_SSH_HOST ?? 'vps-8db0cb49.vps.ovh.ca',
+      host: requiredString(
+        process.env.PLA_SSH_HOST || process.env.VPS_HOST,
+        'PLA_SSH_HOST or VPS_HOST is required.'
+      ),
       username: process.env.PLA_SSH_USER ?? 'ubuntu',
       privateKey:
         process.env.PLA_PRIVATE_KEY ?? readOptionalFile(privateKeyPath),

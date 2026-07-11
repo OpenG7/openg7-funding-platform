@@ -9,7 +9,7 @@ services:
       PLA_DOMAIN: ${PLA_DOMAIN:-openg7.org}
       PLA_HEALTH_PATH: ${PLA_HEALTH_PATH:-/health}
       PLA_APP_DIR: ${PLA_APP_DIR:-/opt/openg7-funding-platform}
-      PLA_SSH_HOST: ${PLA_SSH_HOST:-vps-8db0cb49.vps.ovh.ca}
+      PLA_SSH_HOST: ${PLA_SSH_HOST:-${VPS_HOST:?Set VPS_HOST in .env}}
       PLA_SSH_USER: ${PLA_SSH_USER:-ubuntu}
       PLA_SSH_PORT: ${PLA_SSH_PORT:-22}
       PLA_PRIVATE_KEY_PATH: /run/secrets/production_launch_ssh_key
