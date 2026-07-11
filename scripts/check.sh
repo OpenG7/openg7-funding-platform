@@ -61,7 +61,8 @@ pass "DNS resolves ${APP_DOMAIN}"
 
 curl -fsS "http://${APP_DOMAIN}/health" >/dev/null || fail "HTTP health endpoint failed"
 curl -fsS "${HTTPS_URL}/health" >/dev/null || fail "HTTPS health endpoint failed"
-curl -fsS "${HTTPS_URL}/" | grep -qi "<html" || fail "Angular shell was not served"
+ANGULAR_SHELL="$(curl -fsS "${HTTPS_URL}/")" || fail "Angular shell was not served"
+grep -qi "<html" <<<"${ANGULAR_SHELL}" || fail "Angular shell was not served"
 curl -fsS "${HTTPS_URL}/api/public/fund-transparency" >/dev/null || fail "API public transparency endpoint failed"
 pass "HTTP, HTTPS, Angular, and API checks passed"
 
