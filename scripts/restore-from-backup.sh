@@ -101,10 +101,8 @@ if [[ -f traefik/acme/acme.json ]]; then
   chmod 600 traefik/acme/acme.json
 fi
 
-set -a
 # shellcheck disable=SC1091
-source .env
-set +a
+source scripts/load-env.sh .env
 
 [[ -n "${DATABASE_URL:-}" ]] ||
   fail "Restored .env has no DATABASE_URL. PostgreSQL restore would not be used by the API."
