@@ -630,13 +630,22 @@
           "includedByDefault": "Inclus par défaut",
           "amountBased": "Selon le montant",
           "benefits": {
-            "facebook": "Publication commanditée sur Facebook",
-            "linkedin": "Publication commanditée sur LinkedIn",
-            "openg7": "Mention sur OpenG7.org"
+            "facebook": "Inclusion dans une publication collective de reconnaissance sur Facebook",
+            "linkedin": "Inclusion dans une publication collective de reconnaissance sur LinkedIn",
+            "openg7": "Mention de votre entreprise sur OpenG7.org"
+          },
+          "upcoming": {
+            "openg7": "Mention sur OpenG7.org à partir de {{amount}}.",
+            "facebook": "Publication collective Facebook à partir de {{amount}}.",
+            "linkedin": "Publication collective LinkedIn à partir de {{amount}}."
+          },
+          "summary": {
+            "title": "Votre commandite comprend :"
           },
           "reviewNote": "Chaque commandite est vérifiée et approuvée manuellement avant sa publication.",
           "afterPaymentNote": "Après le paiement, vous pourrez transmettre les renseignements de votre entreprise, votre site Web et votre logo aux fins de validation.",
-          "manualReviewNote": "Toute commandite est vérifiée et approuvée manuellement avant sa publication.",
+          "manualReviewNote": "Toute commandite est vérifiée et approuvée manuellement avant sa publication. Les présences sur les réseaux sociaux sont planifiées dans les prochains lots disponibles.",
+          "amountFormatError": "Le montant minimal pour une commandite est de 5 $.",
           "disabled": "Temporairement indisponible"
         },
         "otherAmount": "Autre montant",

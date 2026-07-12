@@ -3,7 +3,12 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 import { OPENG7_FUNDING_CONFIG } from '../dist/apps/funding-web/src/app/features/funding/config/openg7-funding.config.js';
-import { createMockCheckoutResult } from '../dist/packages/funding-core/src/index.js';
+import {
+  createMockCheckoutResult,
+  DEFAULT_SPONSORSHIP_PRICING_CONFIG,
+  isValidSponsorshipAmount,
+  resolveSponsorshipBenefits
+} from '../dist/packages/funding-core/src/index.js';
 
 const extractBetween = (source, start, end, label) => {
   const startIndex = source.indexOf(start);
@@ -544,6 +549,283 @@ test('Business sponsorship contribution choice is enabled for flow testing', () 
     assert.ok(locale.funding.home.contribution.sponsorship.afterPaymentNote);
     assert.ok(locale.funding.home.contribution.sponsorship.manualReviewNote);
   }
+});
+
+test('Sponsorship pricing config resolves tiers and benefits from the real paid amount', () => {
+  assert.deepEqual(DEFAULT_SPONSORSHIP_PRICING_CONFIG.presetAmounts, [
+    5, 10, 25, 50
+  ]);
+  assert.equal(DEFAULT_SPONSORSHIP_PRICING_CONFIG.minimumAmount, 5);
+  assert.deepEqual(
+    OPENG7_FUNDING_CONFIG.sponsorship,
+    DEFAULT_SPONSORSHIP_PRICING_CONFIG
+  );
+
+  const cases = [
+    { amount: 5, tier: 'website_only', benefits: ['website_mention'] },
+    { amount: 10, tier: 'website_only', benefits: ['website_mention'] },
+    { amount: 24.99, tier: 'website_only', benefits: ['website_mention'] },
+    {
+      amount: 25,
+      tier: 'website_facebook',
+      benefits: ['website_mention', 'facebook_batch']
+    },
+    {
+      amount: 49.99,
+      tier: 'website_facebook',
+      benefits: ['website_mention', 'facebook_batch']
+    },
+    {
+      amount: 50,
+      tier: 'website_facebook_linkedin',
+      benefits: ['website_mention', 'facebook_batch', 'linkedin_batch']
+    },
+    {
+      amount: 75,
+      tier: 'website_facebook_linkedin',
+      benefits: ['website_mention', 'facebook_batch', 'linkedin_batch']
+    }
+  ];
+
+  for (const { amount, tier, benefits } of cases) {
+    const result = resolveSponsorshipBenefits(
+      amount,
+      DEFAULT_SPONSORSHIP_PRICING_CONFIG
+    );
+    assert.equal(result.tier, tier, `amount ${amount} tier mismatch`);
+    assert.deepEqual(
+      result.achievedBenefits,
+      benefits,
+      `amount ${amount} achieved benefits mismatch`
+    );
+  }
+
+  const belowMinimum = resolveSponsorshipBenefits(
+    4.99,
+    DEFAULT_SPONSORSHIP_PRICING_CONFIG
+  );
+  assert.equal(belowMinimum.tier, null);
+  assert.deepEqual(belowMinimum.achievedBenefits, []);
+
+  const atWebsiteOnly = resolveSponsorshipBenefits(
+    10,
+    DEFAULT_SPONSORSHIP_PRICING_CONFIG
+  );
+  assert.deepEqual(
+    atWebsiteOnly.upcomingBenefits.map((benefit) => benefit.id),
+    ['facebook_batch', 'linkedin_batch']
+  );
+
+  const atFacebookTier = resolveSponsorshipBenefits(
+    25,
+    DEFAULT_SPONSORSHIP_PRICING_CONFIG
+  );
+  assert.deepEqual(
+    atFacebookTier.upcomingBenefits.map((benefit) => benefit.id),
+    ['linkedin_batch']
+  );
+
+  const atTopTier = resolveSponsorshipBenefits(
+    50,
+    DEFAULT_SPONSORSHIP_PRICING_CONFIG
+  );
+  assert.deepEqual(atTopTier.upcomingBenefits, []);
+
+  assert.equal(
+    isValidSponsorshipAmount(4.99, DEFAULT_SPONSORSHIP_PRICING_CONFIG),
+    false
+  );
+  assert.equal(
+    isValidSponsorshipAmount(5, DEFAULT_SPONSORSHIP_PRICING_CONFIG),
+    true
+  );
+  assert.equal(
+    isValidSponsorshipAmount(75, DEFAULT_SPONSORSHIP_PRICING_CONFIG),
+    true
+  );
+});
+
+test('Sponsorship amount grid and benefits recap react to the selected amount without touching personal contribution behavior', () => {
+  const source = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
+    'utf8'
+  );
+  const config = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/config/openg7-funding.config.ts',
+    'utf8'
+  );
+
+  assert.ok(config.includes('sponsorship: {'));
+  assert.ok(config.includes('presetAmounts: [5, 10, 25, 50],'));
+  assert.ok(config.includes('minimumAmount: 5,'));
+  assert.ok(config.includes('websiteMention: { minimumAmount: 5 },'));
+  assert.ok(config.includes('facebookBatch: { minimumAmount: 25 },'));
+  assert.ok(config.includes('linkedinBatch: { minimumAmount: 50 }'));
+
+  assert.ok(source.includes('resolveSponsorshipBenefits'));
+  assert.ok(source.includes('isValidSponsorshipAmount'));
+  assert.ok(
+    source.includes(
+      'readonly activeAmountPresets = computed<readonly number[]>(() =>'
+    )
+  );
+  assert.ok(source.includes('? this.config.sponsorship.presetAmounts'));
+  assert.ok(source.includes(': this.config.contributionAmounts'));
+  assert.ok(source.includes('*ngFor="let amount of activeAmountPresets()"'));
+  assert.ok(
+    source.includes(
+      '!isValidSponsorshipAmount(amount, this.config.sponsorship)'
+    )
+  );
+  assert.ok(source.includes('readonly sponsorshipBenefits = computed(() =>'));
+  assert.ok(source.includes('sponsorshipBenefits().achievedBenefits'));
+  assert.ok(source.includes('sponsorshipBenefits().upcomingBenefits'));
+  assert.ok(
+    source.includes('funding.home.contribution.sponsorship.amountFormatError')
+  );
+
+  // Personal contribution keeps its original, unconditional custom-amount path.
+  assert.ok(source.includes('if (customValue.length === 0) {'));
+});
+
+test('Checkout API validates sponsorship custom amounts against the real minimum, not the fixed personal allowlist', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  // @openg7/funding-core has no local package build (only the monorepo-wide
+  // dist/), so a real (non-type) cross-package import only resolves inside
+  // the Angular bundle. The API keeps its own local mirror instead, same
+  // convention as allowedContributionAmounts/FUNDING_ALLOWED_AMOUNTS.
+  assert.ok(source.includes('const sponsorshipMinimumAmount = 5;'));
+  assert.ok(
+    source.includes('const isValidSponsorshipAmount = (amount: number): boolean =>')
+  );
+  assert.ok(
+    source.includes('Number.isFinite(amount) && amount >= sponsorshipMinimumAmount;')
+  );
+  assert.ok(source.includes('const isSponsorshipContribution ='));
+  assert.ok(
+    source.includes("parsed.contributionType === 'sponsorship_interest';")
+  );
+  assert.ok(
+    source.includes('const isAmountAllowed = isSponsorshipContribution')
+  );
+  assert.ok(source.includes('? isValidSponsorshipAmount(amount)'));
+  assert.ok(source.includes(': allowedContributionAmounts.has(amount);'));
+  assert.ok(source.includes('allowedContributionAmounts.has(amount)'));
+  assert.ok(
+    source.includes('if (!Number.isFinite(amount) || !isAmountAllowed) {')
+  );
+});
+
+test('Sponsorship follow-up benefits are derived server-side from the paid amount, never trusted from the client', () => {
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+
+  assert.ok(
+    repository.includes(
+      'const sponsorshipBenefits = resolveSponsorshipBenefits(amount);'
+    )
+  );
+  assert.ok(repository.includes('const resolveSponsorshipBenefits = ('));
+  assert.ok(repository.includes('amount: number'));
+  assert.ok(repository.includes('sponsorshipTier: sponsorshipBenefits.tier,'));
+  assert.ok(
+    repository.includes(
+      'sponsorshipBenefits: sponsorshipBenefits.achievedBenefits,'
+    )
+  );
+  assert.ok(api.includes('sponsorshipTier: followup.sponsorshipTier,'));
+  assert.ok(api.includes('sponsorshipBenefits: followup.sponsorshipBenefits,'));
+
+  // The client-submitted follow-up payload never carries benefits or a tier:
+  // only company/contact details, so nothing benefit-related can be spoofed.
+  const followupDetailsRequest = extractBetween(
+    core,
+    'export interface SponsorshipFollowupDetailsRequest {',
+    '}',
+    'SponsorshipFollowupDetailsRequest'
+  );
+  assert.equal(followupDetailsRequest.toLowerCase().includes('benefit'), false);
+  assert.equal(followupDetailsRequest.toLowerCase().includes('tier'), false);
+});
+
+test('Sponsorship never publishes automatically and stays gated behind manual review', () => {
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const followupPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
+    'utf8'
+  );
+
+  const recordDetailsBody = extractBetween(
+    repository,
+    'export const recordSponsorshipDetailsForContribution',
+    'export const markSponsorshipFollowupEmailResult',
+    'sponsorship follow-up recording'
+  );
+  assert.equal(recordDetailsBody.includes('sponsor_feed_status'), false);
+  assert.ok(recordDetailsBody.includes("sponsor_review_status = 'pending_review'"));
+
+  assert.ok(followupPage.includes('current.sponsorshipBenefits'));
+  assert.ok(followupPage.includes('benefitLabel(benefit)'));
+  assert.ok(
+    followupPage.includes(
+      'jamais publiees automatiquement au paiement'
+    )
+  );
+});
+
+test('Mock checkout fallback never claims a confirmed Stripe payment or webhook run', () => {
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding.service.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(service.includes('canUseDevelopmentCheckoutFallback'));
+  assert.ok(
+    service.includes(
+      "throw new Error('Mock checkout is disabled outside local development.');"
+    )
+  );
+  assert.ok(api.includes('if (!isProduction) {'));
+  assert.ok(api.includes('createDevelopmentCheckoutResult'));
+
+  const result = createMockCheckoutResult({
+    amount: 25,
+    currency: 'CAD',
+    projectId: 'openg7',
+    successUrl: 'https://example.org/success',
+    cancelUrl: 'https://example.org/cancel',
+    contributionType: 'sponsorship_interest',
+    publicDisplayConsent: false,
+    displayAmountConsent: false,
+    nonCharityAcknowledged: true
+  });
+  assert.equal(result.status, 'mocked');
+});
+
+test('Sponsorship MVP pricing tiers are documented', () => {
+  const mvpStatus = fs.readFileSync('docs/fundraiser-mvp-status.md', 'utf8');
+
+  assert.ok(mvpStatus.includes('Commandite 5 $ a 24,99 $'));
+  assert.ok(mvpStatus.includes('mention de l\'entreprise sur OpenG7.org'));
+  assert.ok(mvpStatus.includes('Commandite 25 $ a 49,99 $'));
+  assert.ok(mvpStatus.includes('Commandite 50 $ et plus'));
+  assert.ok(mvpStatus.includes('resolveSponsorshipBenefits'));
+  assert.ok(mvpStatus.includes('revue manuelle'));
+  assert.ok(mvpStatus.includes('prochain lot disponible'));
+  assert.ok(
+    mvpStatus.includes(
+      '5 $ a 50 $ constituent la gamme accessible du MVP'
+    )
+  );
 });
 
 test('Sponsor follow-up screen has matching i18n keys in both locales', () => {

@@ -1,10 +1,97 @@
 import {
   ContributorRecord,
   FundingAllocation,
-  FundingTotals
+  FundingTotals,
+  SponsorshipPricingConfig
 } from '@openg7/funding-models';
 
 export type ContributionType = 'personal_support' | 'sponsorship_interest';
+
+export type SponsorshipBenefitId =
+  | 'website_mention'
+  | 'facebook_batch'
+  | 'linkedin_batch';
+
+export type SponsorshipTierId =
+  | 'website_only'
+  | 'website_facebook'
+  | 'website_facebook_linkedin';
+
+export interface SponsorshipBenefitStatus {
+  readonly id: SponsorshipBenefitId;
+  readonly minimumAmount: number;
+}
+
+export interface SponsorshipBenefitsResult {
+  readonly tier: SponsorshipTierId | null;
+  readonly achievedBenefits: readonly SponsorshipBenefitId[];
+  readonly upcomingBenefits: readonly SponsorshipBenefitStatus[];
+}
+
+/**
+ * MVP pricing for the business sponsorship flow (5 $ to 50 $ range).
+ * Larger professional/partnership offers are out of scope for this config.
+ */
+export const DEFAULT_SPONSORSHIP_PRICING_CONFIG: SponsorshipPricingConfig = {
+  presetAmounts: [5, 10, 25, 50],
+  minimumAmount: 5,
+  benefits: {
+    websiteMention: { minimumAmount: 5 },
+    facebookBatch: { minimumAmount: 25 },
+    linkedinBatch: { minimumAmount: 50 }
+  }
+};
+
+const sponsorshipTierByAchievedCount: readonly (SponsorshipTierId | null)[] = [
+  null,
+  'website_only',
+  'website_facebook',
+  'website_facebook_linkedin'
+];
+
+export const isValidSponsorshipAmount = (
+  amount: number,
+  pricing: SponsorshipPricingConfig = DEFAULT_SPONSORSHIP_PRICING_CONFIG
+): boolean => Number.isFinite(amount) && amount >= pricing.minimumAmount;
+
+/**
+ * Pure amount -> tier/benefits resolution. Both the web app and the API
+ * import this so the sponsorship benefits a company sees are always derived
+ * from the paid amount, never trusted from client-submitted data.
+ */
+export const resolveSponsorshipBenefits = (
+  amount: number,
+  pricing: SponsorshipPricingConfig = DEFAULT_SPONSORSHIP_PRICING_CONFIG
+): SponsorshipBenefitsResult => {
+  const benefitThresholds: readonly SponsorshipBenefitStatus[] = [
+    {
+      id: 'website_mention',
+      minimumAmount: pricing.benefits.websiteMention.minimumAmount
+    },
+    {
+      id: 'facebook_batch',
+      minimumAmount: pricing.benefits.facebookBatch.minimumAmount
+    },
+    {
+      id: 'linkedin_batch',
+      minimumAmount: pricing.benefits.linkedinBatch.minimumAmount
+    }
+  ];
+
+  const achievedBenefits = benefitThresholds
+    .filter((benefit) => amount >= benefit.minimumAmount)
+    .map((benefit) => benefit.id);
+
+  const upcomingBenefits = benefitThresholds.filter(
+    (benefit) => amount < benefit.minimumAmount
+  );
+
+  return {
+    tier: sponsorshipTierByAchievedCount[achievedBenefits.length] ?? null,
+    achievedBenefits,
+    upcomingBenefits
+  };
+};
 
 export type SponsorFeedTarget = 'openg7' | 'openg20';
 
@@ -163,6 +250,8 @@ export interface SponsorshipFollowupResponse {
   readonly amount: number;
   readonly currency: string;
   readonly paidAt: string | null;
+  readonly sponsorshipTier: SponsorshipTierId | null;
+  readonly sponsorshipBenefits: readonly SponsorshipBenefitId[];
   readonly detailsSubmitted: boolean;
   readonly companyName: string | null;
   readonly contactName: string | null;

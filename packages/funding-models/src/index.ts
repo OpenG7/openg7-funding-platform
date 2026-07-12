@@ -1,3 +1,19 @@
+export interface SponsorshipBenefitThreshold {
+  readonly minimumAmount: number;
+}
+
+export interface SponsorshipBenefitsConfig {
+  readonly websiteMention: SponsorshipBenefitThreshold;
+  readonly facebookBatch: SponsorshipBenefitThreshold;
+  readonly linkedinBatch: SponsorshipBenefitThreshold;
+}
+
+export interface SponsorshipPricingConfig {
+  readonly presetAmounts: readonly number[];
+  readonly minimumAmount: number;
+  readonly benefits: SponsorshipBenefitsConfig;
+}
+
 export interface FundingProjectConfig {
   readonly projectId: string;
   readonly projectName: string;
@@ -12,6 +28,7 @@ export interface FundingProjectConfig {
   readonly transparencyEnabled: boolean;
   readonly publicContributorsEnabled: boolean;
   readonly economicFlowMapEnabled: boolean;
+  readonly sponsorship: SponsorshipPricingConfig;
 }
 
 export interface FundingTotals {
