@@ -105,7 +105,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'getAuditLog',
       '/admin/audit-log',
       'getSavedAdminToken',
-      'saveAdminToken'
+      'saveAdminToken',
+      'clearAdminSession',
+      'createAdminSession',
+      '/admin/session',
+      'openg7-admin-session-token',
+      'openg7-admin-session-expires-at'
     ],
     'admin service'
   );
@@ -188,6 +193,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       "'/admin/dashboard'",
       "'/admin/contributions'",
       "'/admin/contributions.csv'",
+      "'/admin/session'",
       "'/admin/expenses'",
       "'/admin/expenses/update'",
       "'/admin/transparency'",
@@ -195,6 +201,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       "'/admin/publication-drafts/update'",
       "'/admin/audit-log'",
       'ensureAdminAccess',
+      'createAdminSession',
+      'verifyAdminSession',
+      'FUNDING_ADMIN_SESSION_SECRET',
+      'FUNDING_ADMIN_SESSION_TTL_MINUTES',
       'insertAdminAuditLog',
       'buildAdminContributionsCsv',
       'writeCsv'
@@ -250,6 +260,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminExpenseRecord',
       'AdminExpensesResponse',
       'AdminTransparencyResponse',
+      'AdminSessionResponse',
       'PublicationDraftStatus',
       'AdminPublicationDraftRecord',
       'AdminAuditLogEntry'
@@ -261,6 +272,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     readme,
     [
       '/admin/fundraiser',
+      'POST /api/admin/session',
       'GET /api/admin/dashboard',
       'GET /api/admin/contributions',
       'GET /api/admin/contributions.csv',

@@ -75,7 +75,9 @@ Set these variables for API and webhook processing:
 - `STRIPE_WEBHOOK_SECRET` — required only when validating Stripe webhook deliveries.
 - `FUNDING_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the API in production.
 
-- `FUNDING_ADMIN_TOKEN` - required in production for the sponsorship review admin API.
+- `FUNDING_ADMIN_TOKEN` - required in production as the root secret used to create admin sessions.
+- `FUNDING_ADMIN_SESSION_SECRET` - optional but recommended separate HMAC secret for signed admin browser sessions.
+- `FUNDING_ADMIN_SESSION_TTL_MINUTES` - optional admin session duration, defaulting to 60 minutes.
 - `FUNDING_EMAIL_FROM`, `FUNDING_EMAIL_REPLY_TO`, `RESEND_API_KEY` - optional Resend email settings used to send sponsorship follow-up links after payment.
 
 For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
@@ -149,6 +151,7 @@ It exposes private operational views through:
 
 ```text
 GET /api/admin/dashboard
+POST /api/admin/session
 GET /api/admin/contributions
 GET /api/admin/contributions.csv
 GET /api/admin/expenses
@@ -187,8 +190,11 @@ POST /api/admin/sponsorships/review
 POST /api/admin/sponsorships/publication
 ```
 
-In production, these endpoints require `Authorization: Bearer <FUNDING_ADMIN_TOKEN>`.
-In local development, they can be used without a token when `FUNDING_ADMIN_TOKEN` is unset.
+In production, first exchange `FUNDING_ADMIN_TOKEN` through
+`POST /api/admin/session`. The browser admin then calls operational endpoints
+with `Authorization: Bearer <sessionToken>`. The static token remains accepted
+for scripts and backwards-compatible admin operations. In local development,
+admin endpoints can be used without a token when `FUNDING_ADMIN_TOKEN` is unset.
 
 The publication endpoint prepares the public sponsor profile and records feed
 placement metadata:

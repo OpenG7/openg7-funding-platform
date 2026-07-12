@@ -68,7 +68,10 @@ test('E2E 1/8: enterprise sponsorship checkout returns with recovery token', () 
     ],
     'checkout API follow-up token flow'
   );
-  assert.equal(checkoutMetadataBlock.includes('sponsorshipFollowupToken,'), false);
+  assert.equal(
+    checkoutMetadataBlock.includes('sponsorshipFollowupToken,'),
+    false
+  );
 });
 
 test('E2E 2/8: sponsor can reopen token follow-up and submit company details', () => {
@@ -137,7 +140,7 @@ test('E2E 3/8: invalid or missing follow-up token stays private and shows an err
   assertIncludesAll(
     followupPage,
     [
-      "if (!this.token())",
+      'if (!this.token())',
       "this.state.set('error')",
       'Lien introuvable',
       'Contacter le support'
@@ -184,13 +187,22 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
 
   assertIncludesAll(
     adminService,
-    ['/admin/sponsorships', 'Authorization: `Bearer ${token.trim()}`'],
+    [
+      '/admin/sponsorships',
+      '/admin/session',
+      'Authorization: `Bearer ${sessionToken}`'
+    ],
     'admin sponsorship service'
   );
 
   assertIncludesAll(
     api,
-    ['ensureAdminAccess', 'FUNDING_ADMIN_TOKEN', "'/admin/sponsorships'"],
+    [
+      'ensureAdminAccess',
+      'FUNDING_ADMIN_TOKEN',
+      'verifyAdminSession',
+      "'/admin/sponsorships'"
+    ],
     'admin sponsorship API'
   );
 
@@ -265,13 +277,9 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
   const migration = read(
     'apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql'
   );
-  const allSource = [
-    adminPage,
-    adminService,
-    api,
-    repository,
-    migration
-  ].join('\n');
+  const allSource = [adminPage, adminService, api, repository, migration].join(
+    '\n'
+  );
 
   assertIncludesAll(
     adminPage,
@@ -321,7 +329,10 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
     'publication migration'
   );
 
-  assert.equal(/graph\.facebook\.com|api\.linkedin\.com/i.test(allSource), false);
+  assert.equal(
+    /graph\.facebook\.com|api\.linkedin\.com/i.test(allSource),
+    false
+  );
 });
 
 test('E2E 7/8: public sponsors page exposes only approved consented sponsorships', () => {
@@ -377,7 +388,12 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
     'public sponsorship query filters'
   );
 
-  assert.equal(/sponsor_contact_email|email_private|stripe_session_id|stripe_payment_intent_id/.test(publicListBody), false);
+  assert.equal(
+    /sponsor_contact_email|email_private|stripe_session_id|stripe_payment_intent_id/.test(
+      publicListBody
+    ),
+    false
+  );
 });
 
 test('E2E 8/8: FR/EN navigation, prerender, sitemap, and deployment docs cover sponsor routes', () => {
@@ -397,7 +413,11 @@ test('E2E 8/8: FR/EN navigation, prerender, sitemap, and deployment docs cover s
 
   assertIncludesAll(
     header,
-    ['sponsorsPath', "this.i18n.localizedPath('/commanditaires')", 'funding.nav.sponsors'],
+    [
+      'sponsorsPath',
+      "this.i18n.localizedPath('/commanditaires')",
+      'funding.nav.sponsors'
+    ],
     'header sponsor navigation'
   );
 
@@ -415,7 +435,10 @@ test('E2E 8/8: FR/EN navigation, prerender, sitemap, and deployment docs cover s
 
   assertIncludesAll(
     sitemap,
-    ['https://openg7.org/commanditaires', 'https://openg7.org/en/commanditaires'],
+    [
+      'https://openg7.org/commanditaires',
+      'https://openg7.org/en/commanditaires'
+    ],
     'sponsor sitemap entries'
   );
 

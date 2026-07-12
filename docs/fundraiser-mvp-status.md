@@ -86,6 +86,8 @@ Le produit reste volontairement prudent:
 - Route admin `/admin/fundraiser/expenses`.
 - Route admin `/admin/fundraiser/transparency`.
 - Route admin `/admin/fundraiser/audit`.
+- Endpoint `POST /api/admin/session` pour echanger le secret racine admin contre
+  une session navigateur signee et expiree.
 - Endpoint `GET /api/admin/dashboard` pour les indicateurs prives du fonds.
 - Endpoint `GET /api/admin/contributions` pour lister les contributions privees.
 - Endpoint `GET /api/admin/contributions.csv` pour exporter les contributions
@@ -107,7 +109,10 @@ Le produit reste volontairement prudent:
   accepter ou refuser une commandite.
 - Endpoint `POST /api/admin/sponsorships/publication` pour preparer le profil
   commanditaire public et les placements de feed.
-- `FUNDING_ADMIN_TOKEN` requis en production.
+- `FUNDING_ADMIN_TOKEN` requis en production comme secret racine admin.
+- `FUNDING_ADMIN_SESSION_SECRET` recommande en production pour signer les
+  sessions navigateur separement du secret racine.
+- `FUNDING_ADMIN_SESSION_TTL_MINUTES` configure la duree de session admin.
 - Les commandites ne peuvent apparaitre dans `/batisseurs` que si elles sont
   approuvees.
 
@@ -228,6 +233,8 @@ Resultat attendu:
 - `STRIPE_WEBHOOK_SECRET` configure avec le endpoint Stripe final.
 - `FUNDING_ALLOWED_AMOUNTS` aligne avec l'UI.
 - `FUNDING_ADMIN_TOKEN` configure en production si la revue admin est active.
+- `FUNDING_ADMIN_SESSION_SECRET` configure avec un secret distinct et
+  `FUNDING_ADMIN_SESSION_TTL_MINUTES` ajuste selon la politique d'operation.
 - `RESEND_API_KEY` et `FUNDING_EMAIL_FROM` configures si les liens de reprise
   doivent etre envoyes automatiquement.
 - `DATABASE_URL` absent pour le mode Stripe-direct, ou configure seulement si PostgreSQL prive est deploye.
