@@ -394,13 +394,20 @@ also writes a consistent database dump while PostgreSQL is running:
 backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
 ```
 
+If the `openg7-sponsor-logos` Docker volume exists, the same script also writes:
+
+```text
+backups/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
+```
+
 Store both the configuration archive and the database dump outside the VPS as
 private secrets. The database may contain Stripe event payloads, sponsorship
 follow-up data, and admin review data.
 
 Uploaded sponsor logos are stored in the `openg7-sponsor-logos` Docker volume
-mounted at `/app/var/sponsor-logos` in the API container. Include that volume in
-VPS snapshot backups whenever sponsor logo uploads are enabled.
+mounted at `/app/var/sponsor-logos` in the API container. Store sponsor logo
+volume archives with the configuration and database backups whenever sponsor
+logo uploads are enabled.
 
 Suggested cron:
 
@@ -427,13 +434,16 @@ dump:
 cd /opt/openg7-funding-platform
 bash scripts/restore-from-backup.sh \
   --config-backup /path/to/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz \
-  --database-dump /path/to/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
+  --database-dump /path/to/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql \
+  --sponsor-logos-backup /path/to/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
 ```
 
 The script stops the stack, removes the `openg7-postgres-data` Docker volume,
-recreates PostgreSQL, imports the dump, starts the full stack, and runs
-`scripts/check.sh`. It asks for a typed confirmation before deleting the volume;
-add `--force` only for a confirmed emergency automation run.
+recreates PostgreSQL, imports the dump, optionally restores the
+`openg7-sponsor-logos` Docker volume when `--sponsor-logos-backup` is provided,
+starts the full stack, and runs `scripts/check.sh`. It asks for a typed
+confirmation before deleting volumes; add `--force` only for a confirmed
+emergency automation run.
 
 The dump created by `scripts/backup.sh` includes schema and data, so the restore
 script does not run migrations before importing it into an empty restored

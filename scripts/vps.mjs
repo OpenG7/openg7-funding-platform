@@ -45,7 +45,10 @@ const configValue = (key) => env[key] ?? dotEnv[key] ?? defaultConfig[key];
 const shellQuote = (value) => `'${String(value).replace(/'/g, "'\\''")}'`;
 const localPath = (...parts) => parts.join('/').replace(/\\/g, '/');
 const timestamp = () =>
-  new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  new Date()
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}Z$/, 'Z');
 
 const vpsHost = configValue('VPS_HOST');
 const vpsUser = configValue('VPS_USER');
@@ -75,15 +78,28 @@ const run = (command, args) =>
     });
   });
 
+const commandSucceeds = (command, args) =>
+  new Promise((resolve) => {
+    const child = spawn(command, args, {
+      stdio: 'ignore'
+    });
+
+    child.on('error', () => resolve(false));
+    child.on('exit', (code) => resolve(code === 0));
+  });
+
 const ssh = (remoteCommand) =>
   run('ssh', ['-t', '-p', vpsPort, `${vpsUser}@${vpsHost}`, remoteCommand]);
 
 const scpFromVps = (remotePath, localPath) =>
-  run('scp', [
-    '-P',
+  run('scp', ['-P', vpsPort, `${vpsUser}@${vpsHost}:${remotePath}`, localPath]);
+
+const remoteFileExists = (remotePath) =>
+  commandSucceeds('ssh', [
+    '-p',
     vpsPort,
-    `${vpsUser}@${vpsHost}:${remotePath}`,
-    localPath
+    `${vpsUser}@${vpsHost}`,
+    `test -f ${shellQuote(remotePath)}`
   ]);
 
 const inAppDir = (commands) =>
@@ -121,7 +137,9 @@ const prepareLatestConfigBackup = () =>
     'latest="$(ls -t backups/openg7-backup-*.tar.gz 2>/dev/null | head -n 1)"',
     'if [ -z "$latest" ]; then echo "No configuration backup was created." >&2; exit 1; fi',
     'cp "$latest" backups/latest-config-backup.tar.gz',
-    'chmod 600 backups/latest-config-backup.tar.gz'
+    'chmod 600 backups/latest-config-backup.tar.gz',
+    'logo_latest="$(ls -t backups/openg7-sponsor-logos-*.tar.gz 2>/dev/null | head -n 1 || true)"',
+    'if [ -n "$logo_latest" ]; then cp "$logo_latest" backups/latest-sponsor-logos-backup.tar.gz && chmod 600 backups/latest-sponsor-logos-backup.tar.gz; fi'
   ]);
 
 const prepareLatestDatabaseBackup = () =>
@@ -165,7 +183,9 @@ try {
   }
 
   if (!vpsHost) {
-    console.error('VPS_HOST is required. Add it to .env or export it in the shell.');
+    console.error(
+      'VPS_HOST is required. Add it to .env or export it in the shell.'
+    );
     exit(1);
   }
 
@@ -221,10 +241,23 @@ try {
       downloadPath
     );
     console.log(`Backup configuration telecharge: ${downloadPath}`);
+
+    const remoteLogoBackup = `${vpsAppDir}/backups/latest-sponsor-logos-backup.tar.gz`;
+    if (await remoteFileExists(remoteLogoBackup)) {
+      const logoDownloadPath = localPath(
+        backupDownloadDir,
+        `openg7-sponsor-logos-backup-vps-${timestamp()}.tar.gz`
+      );
+      await scpFromVps(remoteLogoBackup, logoDownloadPath);
+      console.log(
+        `Backup logos commanditaires telecharge: ${logoDownloadPath}`
+      );
+    }
   } else if (command === 'db:update' || command === 'db:migrate') {
     await ssh(inAppDir(['git pull --ff-only', 'bash scripts/db-migrate.sh']));
   } else if (command === 'db:psql') {
-    const psqlArgs = args.length > 0 ? ` ${args.map(shellQuote).join(' ')}` : '';
+    const psqlArgs =
+      args.length > 0 ? ` ${args.map(shellQuote).join(' ')}` : '';
     await ssh(inAppDir([`bash scripts/db-psql.sh${psqlArgs}`]));
   } else if (command === 'db:backup') {
     await ssh(prepareLatestDatabaseBackup());
