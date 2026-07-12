@@ -84,9 +84,8 @@ Precisions:
 - 5 $ a 50 $ constituent la gamme accessible du MVP. Les offres
   professionnelles ou partenariats de plus grande valeur ne font pas partie
   de cette configuration.
-- Reste a developper: un veritable systeme de lots (capacite, prochaine
-  disponibilite, statut `scheduled`) pour planifier et suivre les publications
-  collectives Facebook/LinkedIn dans le temps.
+- Le systeme de lots qui planifie et publie ces publications collectives est
+  decrit dans la section "Lots de publication collective" ci-dessous.
 
 ### Suivi commandite apres paiement
 
@@ -149,6 +148,50 @@ Precisions:
   refuser, planifier ou marquer publies les brouillons commandites.
 - Endpoint `GET /api/admin/audit-log` pour lire le journal prive des actions
   admin sensibles.
+
+### Lots de publication collective
+
+Un "lot" regroupe plusieurs brouillons de sponsors deja approuves dans une
+seule publication collective Facebook ou LinkedIn, jusqu'a une capacite
+fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
+"lot collectif" utilise dans les textes de commandite.
+
+- Table `sponsor_publication_batches` (migration
+  `008_add_sponsorship_publication_batches.sql`): canal, capacite, statut
+  (`open`, `scheduled`, `published`, `cancelled`), date de prochaine
+  disponibilite (`scheduled_at`), date de publication, notes.
+- Colonne `batch_id` ajoutee a `sponsor_publication_drafts`: chaque brouillon
+  approuve peut etre assigne a un lot ouvert du meme canal.
+- L'assignation verifie en une seule requete atomique que le brouillon est
+  `approved`, que son canal correspond au lot, que le lot est `open` et que
+  sa capacite n'est pas depassee: deux actions admin concurrentes ne peuvent
+  pas surbooker le meme lot.
+- Planifier un lot (`scheduled`, avec une date de prochaine disponibilite)
+  et le publier sont deux actions manuelles distinctes; publier n'est
+  possible que depuis un lot deja planifie. Publier un lot marque tous ses
+  brouillons assignes comme publies en une seule fois, comme la vraie
+  publication collective qui les regroupe.
+- Annuler un lot libere ses brouillons assignes (retour a `approved`) pour
+  qu'ils puissent rejoindre un autre lot. Retirer un brouillon deja publie
+  d'un lot est impossible: l'historique n'est jamais reecrit.
+- Aucune de ces actions ne rend une commandite publique automatiquement: la
+  visibilite publique (`/commanditaires`) reste gouvernee separement par
+  `sponsor_review_status = approved` et le consentement du sponsor.
+- Endpoints admin: `GET/POST /api/admin/publication-batches`,
+  `POST /api/admin/publication-batches/assign`,
+  `POST /api/admin/publication-batches/unassign`,
+  `POST /api/admin/publication-batches/schedule`,
+  `POST /api/admin/publication-batches/publish`,
+  `POST /api/admin/publication-batches/cancel`. Meme authentification,
+  limitation de debit et journal d'audit que les autres routes admin.
+- UI admin: section "Lots de publication collective" dans
+  `/admin/fundraiser/publications`, avec creation de lot, assignation par
+  brouillon, planification, publication et annulation.
+- Reste a developper: un veritable calendrier de disponibilite (plusieurs
+  lots futurs visibles a l'avance, notification quand un lot est complet)
+  et l'affichage public d'une prochaine date indicative. Pour l'instant,
+  la prochaine disponibilite est une date fixee manuellement par lot, pas
+  un calendrier automatise.
 - Route cachee `/admin/fundraiser/sponsors`.
 - Endpoint `GET /api/admin/sponsorships` pour lister les commandites payees.
 - Endpoints `GET /api/admin/sponsorships/logo`,

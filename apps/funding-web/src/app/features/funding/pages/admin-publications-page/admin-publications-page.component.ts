@@ -8,9 +8,12 @@ import {
   signal
 } from '@angular/core';
 import type {
+  AdminPublicationBatchRecord,
+  AdminPublicationBatchesResponse,
   AdminPublicationDraftRecord,
   AdminPublicationDraftsResponse,
   AdminSponsorshipRecord,
+  PublicationBatchStatus,
   PublicationDraftStatus,
   SponsorFeedChannel
 } from '@openg7/funding-core';
@@ -151,6 +154,125 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
           </article>
         </section>
 
+        <section class="admin-panel" aria-labelledby="batches-title">
+          <header>
+            <div>
+              <span>{{ batches().length }} lot(s)</span>
+              <h2 id="batches-title">Lots de publication collective</h2>
+            </div>
+          </header>
+          <p>
+            Chaque lot regroupe plusieurs commandites approuvees dans une
+            seule publication collective Facebook ou LinkedIn, jusqu'a sa
+            capacite. Planifier puis publier restent deux actions manuelles
+            distinctes: aucune publication n'est jamais automatique.
+          </p>
+
+          <form
+            class="batch-create-form"
+            (submit)="$event.preventDefault(); createBatch()"
+          >
+            <label>
+              Canal
+              <select
+                [value]="newBatchChannel()"
+                (change)="setNewBatchChannel($event)"
+              >
+                <option value="facebook">Facebook</option>
+                <option value="linkedin">LinkedIn</option>
+              </select>
+            </label>
+            <label>
+              Capacite
+              <input
+                type="number"
+                min="1"
+                max="50"
+                [value]="newBatchCapacity()"
+                (input)="setNewBatchCapacity($event)"
+              />
+            </label>
+            <button type="submit" [disabled]="batchActionState() === 'create'">
+              Creer un lot
+            </button>
+          </form>
+
+          <div class="batch-list" *ngIf="batches().length > 0">
+            <article
+              class="batch-card"
+              *ngFor="let batch of batches(); trackBy: trackByBatch"
+            >
+              <header>
+                <div>
+                  <span>{{ batchStatusLabel(batch.status) }}</span>
+                  <h3>
+                    {{ channelLabel(batch.channel) }} - {{ batch.capacityUsed }}/{{
+                      batch.capacity
+                    }}
+                  </h3>
+                </div>
+                <small *ngIf="batch.scheduledAt"
+                  >Prochaine disponibilite: {{ dateLabel(batch.scheduledAt) }}</small
+                >
+              </header>
+
+              <div
+                class="draft-grid"
+                *ngIf="batch.status === 'open' || batch.status === 'scheduled'"
+              >
+                <label>
+                  Prochaine disponibilite
+                  <input
+                    type="datetime-local"
+                    [value]="batchScheduleFor(batch.id)"
+                    (input)="setBatchSchedule(batch.id, $event)"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="neutral"
+                  [disabled]="
+                    !batchScheduleFor(batch.id) ||
+                    batchActionState() === batch.id
+                  "
+                  (click)="scheduleBatch(batch)"
+                >
+                  Planifier
+                </button>
+              </div>
+
+              <footer>
+                <button
+                  type="button"
+                  class="approve"
+                  *ngIf="batch.status === 'scheduled'"
+                  [disabled]="batchActionState() === batch.id"
+                  (click)="publishBatch(batch)"
+                >
+                  Publier maintenant
+                </button>
+                <button
+                  type="button"
+                  class="reject"
+                  *ngIf="batch.status === 'open' || batch.status === 'scheduled'"
+                  [disabled]="batchActionState() === batch.id"
+                  (click)="cancelBatch(batch)"
+                >
+                  Annuler le lot
+                </button>
+              </footer>
+            </article>
+          </div>
+
+          <article class="empty-state" *ngIf="batches().length === 0">
+            <h3>Aucun lot</h3>
+            <p>
+              Creez un lot pour regrouper plusieurs commandites approuvees
+              dans une seule publication collective.
+            </p>
+          </article>
+        </section>
+
         <section class="draft-list" aria-label="Brouillons de publication">
           <article
             class="draft-card"
@@ -223,6 +345,53 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                 (input)="setEditField(draft.id, 'reviewNote', $event)"
               ></textarea>
             </label>
+
+            <div
+              class="draft-batch-row"
+              *ngIf="draft.status === 'approved' || draft.batch_id"
+            >
+              <ng-container *ngIf="!draft.batch_id">
+                <label class="inline">
+                  Lot
+                  <select
+                    [value]="draftBatchSelection(draft.id)"
+                    (change)="setDraftBatchSelection(draft.id, $event)"
+                  >
+                    <option value="">Choisir un lot ouvert...</option>
+                    <option
+                      *ngFor="let batch of openBatchesForChannel(draft.channel)"
+                      [value]="batch.id"
+                    >
+                      {{ channelLabel(batch.channel) }} ({{ batch.capacityUsed }}/{{
+                        batch.capacity
+                      }})
+                    </option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="neutral"
+                  [disabled]="
+                    !draftBatchSelection(draft.id) ||
+                    actionState() === draft.id
+                  "
+                  (click)="assignToBatch(draft)"
+                >
+                  Assigner au lot
+                </button>
+              </ng-container>
+              <ng-container *ngIf="draft.batch_id as batchId">
+                <span>Dans un lot ({{ batchStatusLabel(batchStatusById(batchId)) }})</span>
+                <button
+                  type="button"
+                  class="reject"
+                  [disabled]="actionState() === draft.id"
+                  (click)="unassignFromBatch(draft)"
+                >
+                  Retirer du lot
+                </button>
+              </ng-container>
+            </div>
 
             <footer>
               <button type="button" (click)="copyDraft(draft)">Copier</button>
@@ -449,6 +618,60 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         gap: 0.55rem;
       }
 
+      .batch-create-form {
+        align-items: end;
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: minmax(8rem, 12rem) minmax(6rem, 8rem) auto;
+      }
+
+      .batch-list {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .batch-card {
+        background: #f7f9fc;
+        border: 1px solid #e4e9f2;
+        border-radius: 0.45rem;
+        display: grid;
+        gap: 0.75rem;
+        padding: 0.85rem;
+      }
+
+      .batch-card header {
+        align-items: center;
+        display: flex;
+        gap: 0.75rem;
+        justify-content: space-between;
+      }
+
+      .batch-card h3 {
+        margin: 0;
+      }
+
+      .draft-batch-row {
+        align-items: end;
+        background: #f7f9fc;
+        border: 1px solid #e4e9f2;
+        border-radius: 0.45rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        padding: 0.75rem;
+      }
+
+      .draft-batch-row span {
+        color: #526070;
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      label.inline {
+        margin: 0;
+        min-width: 14rem;
+      }
+
       .state-error {
         color: #9f1d2f;
         font-weight: 800;
@@ -487,7 +710,17 @@ export class AdminPublicationsPageComponent implements OnInit {
   readonly search = signal<string>('');
   readonly statusFilter = signal<'all' | PublicationDraftStatus>('all');
 
+  readonly batchesResponse = signal<AdminPublicationBatchesResponse | null>(
+    null
+  );
+  readonly batchActionState = signal<string | null>(null);
+  readonly newBatchChannel = signal<SponsorFeedChannel>('facebook');
+  readonly newBatchCapacity = signal<string>('5');
+  readonly batchScheduleEdits = signal<Record<string, string>>({});
+  readonly draftBatchSelections = signal<Record<string, string>>({});
+
   readonly drafts = computed(() => this.draftsResponse()?.drafts ?? []);
+  readonly batches = computed(() => this.batchesResponse()?.batches ?? []);
   readonly eligibleSponsorships = computed(() =>
     this.sponsorships().filter(
       (sponsorship) =>
@@ -541,9 +774,10 @@ export class AdminPublicationsPageComponent implements OnInit {
     this.state.set('loading');
 
     try {
-      const [sponsorships, drafts] = await Promise.all([
+      const [sponsorships, drafts, batches] = await Promise.all([
         this.admin.getSponsorships(this.adminToken()),
-        this.admin.getPublicationDrafts(this.adminToken())
+        this.admin.getPublicationDrafts(this.adminToken()),
+        this.admin.getPublicationBatches(this.adminToken())
       ]);
       this.sponsorships.set(sponsorships.sponsorships);
       this.draftsResponse.set(drafts);
@@ -552,6 +786,7 @@ export class AdminPublicationsPageComponent implements OnInit {
           drafts.drafts.map((draft) => [draft.id, this.toEdit(draft)])
         )
       );
+      this.batchesResponse.set(batches);
       this.state.set('ready');
       this.admin.saveAdminToken(this.adminToken());
     } catch {
@@ -620,6 +855,109 @@ export class AdminPublicationsPageComponent implements OnInit {
     }
   }
 
+  async createBatch(): Promise<void> {
+    const capacity = Number.parseInt(this.newBatchCapacity(), 10);
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 50) {
+      this.state.set('error');
+      return;
+    }
+
+    this.batchActionState.set('create');
+    try {
+      await this.admin.createPublicationBatch(this.adminToken(), {
+        channel: this.newBatchChannel(),
+        capacity
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.batchActionState.set(null);
+    }
+  }
+
+  async assignToBatch(draft: AdminPublicationDraftRecord): Promise<void> {
+    const batchId = this.draftBatchSelection(draft.id);
+    if (!batchId) {
+      return;
+    }
+
+    this.actionState.set(draft.id);
+    try {
+      await this.admin.assignDraftToBatch(this.adminToken(), {
+        draftId: draft.id,
+        batchId
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
+  async unassignFromBatch(draft: AdminPublicationDraftRecord): Promise<void> {
+    this.actionState.set(draft.id);
+    try {
+      await this.admin.unassignDraftFromBatch(this.adminToken(), {
+        draftId: draft.id
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
+  async scheduleBatch(batch: AdminPublicationBatchRecord): Promise<void> {
+    const scheduledAt = this.batchScheduleFor(batch.id);
+    if (!scheduledAt) {
+      return;
+    }
+
+    this.batchActionState.set(batch.id);
+    try {
+      await this.admin.schedulePublicationBatch(this.adminToken(), {
+        batchId: batch.id,
+        scheduledAt: new Date(scheduledAt).toISOString()
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.batchActionState.set(null);
+    }
+  }
+
+  async publishBatch(batch: AdminPublicationBatchRecord): Promise<void> {
+    this.batchActionState.set(batch.id);
+    try {
+      await this.admin.publishPublicationBatch(this.adminToken(), {
+        batchId: batch.id
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.batchActionState.set(null);
+    }
+  }
+
+  async cancelBatch(batch: AdminPublicationBatchRecord): Promise<void> {
+    this.batchActionState.set(batch.id);
+    try {
+      await this.admin.cancelPublicationBatch(this.adminToken(), {
+        batchId: batch.id
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.batchActionState.set(null);
+    }
+  }
+
   setAdminToken(event: Event): void {
     this.adminToken.set(this.valueFromEvent(event));
     this.admin.saveAdminToken(this.adminToken());
@@ -636,6 +974,51 @@ export class AdminPublicationsPageComponent implements OnInit {
         ? (value as PublicationDraftStatus)
         : 'all'
     );
+  }
+
+  setNewBatchChannel(event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.newBatchChannel.set(value === 'linkedin' ? 'linkedin' : 'facebook');
+  }
+
+  setNewBatchCapacity(event: Event): void {
+    this.newBatchCapacity.set(this.valueFromEvent(event));
+  }
+
+  batchScheduleFor(batchId: string): string {
+    return this.batchScheduleEdits()[batchId] ?? '';
+  }
+
+  setBatchSchedule(batchId: string, event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.batchScheduleEdits.update((edits) => ({
+      ...edits,
+      [batchId]: value
+    }));
+  }
+
+  draftBatchSelection(draftId: string): string {
+    return this.draftBatchSelections()[draftId] ?? '';
+  }
+
+  setDraftBatchSelection(draftId: string, event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.draftBatchSelections.update((selections) => ({
+      ...selections,
+      [draftId]: value
+    }));
+  }
+
+  openBatchesForChannel(
+    channel: SponsorFeedChannel
+  ): readonly AdminPublicationBatchRecord[] {
+    return this.batches().filter(
+      (batch) => batch.channel === channel && batch.status === 'open'
+    );
+  }
+
+  batchStatusById(batchId: string): PublicationBatchStatus | null {
+    return this.batches().find((batch) => batch.id === batchId)?.status ?? null;
   }
 
   setEditField(
@@ -665,8 +1048,43 @@ export class AdminPublicationsPageComponent implements OnInit {
     return draft.id;
   }
 
+  trackByBatch(_: number, batch: AdminPublicationBatchRecord): string {
+    return batch.id;
+  }
+
   channelLabel(channel: SponsorFeedChannel): string {
     return channel === 'linkedin' ? 'LinkedIn' : 'Facebook';
+  }
+
+  batchStatusLabel(status: PublicationBatchStatus | null): string {
+    if (!status) {
+      return 'Inconnu';
+    }
+
+    const labels: Record<PublicationBatchStatus, string> = {
+      open: 'Ouvert',
+      scheduled: 'Planifie',
+      published: 'Publie',
+      cancelled: 'Annule'
+    };
+
+    return labels[status];
+  }
+
+  dateLabel(value: string | null): string {
+    if (!value) {
+      return 'Non disponible';
+    }
+
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) {
+      return 'Non disponible';
+    }
+
+    return new Intl.DateTimeFormat('fr-CA', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(date);
   }
 
   feedTargetLabel(sponsorship: AdminSponsorshipRecord): string {

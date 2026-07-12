@@ -7,6 +7,13 @@ import type {
   AdminExpenseMutationResult,
   AdminExpenseUpdateRequest,
   AdminExpensesResponse,
+  AdminPublicationBatchAssignRequest,
+  AdminPublicationBatchCreateRequest,
+  AdminPublicationBatchLifecycleRequest,
+  AdminPublicationBatchMutationResult,
+  AdminPublicationBatchScheduleRequest,
+  AdminPublicationBatchUnassignRequest,
+  AdminPublicationBatchesResponse,
   AdminPublicationDraftCreateRequest,
   AdminPublicationDraftMutationResult,
   AdminPublicationDraftUpdateRequest,
@@ -254,6 +261,164 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminPublicationDraftMutationResult;
+  }
+
+  async getPublicationBatches(
+    token: string
+  ): Promise<AdminPublicationBatchesResponse> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-batches`,
+      {
+        method: 'GET',
+        headers: await this.createHeaders(token)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Admin publication batches could not be loaded.');
+    }
+
+    return (await response.json()) as AdminPublicationBatchesResponse;
+  }
+
+  async createPublicationBatch(
+    token: string,
+    payload: AdminPublicationBatchCreateRequest
+  ): Promise<AdminPublicationBatchMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-batches`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Admin publication batch could not be created.');
+    }
+
+    return (await response.json()) as AdminPublicationBatchMutationResult;
+  }
+
+  async assignDraftToBatch(
+    token: string,
+    payload: AdminPublicationBatchAssignRequest
+  ): Promise<AdminPublicationDraftMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-batches/assign`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Draft could not be assigned to the publication batch.');
+    }
+
+    return (await response.json()) as AdminPublicationDraftMutationResult;
+  }
+
+  async unassignDraftFromBatch(
+    token: string,
+    payload: AdminPublicationBatchUnassignRequest
+  ): Promise<AdminPublicationDraftMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-batches/unassign`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        'Draft could not be removed from the publication batch.'
+      );
+    }
+
+    return (await response.json()) as AdminPublicationDraftMutationResult;
+  }
+
+  async schedulePublicationBatch(
+    token: string,
+    payload: AdminPublicationBatchScheduleRequest
+  ): Promise<AdminPublicationBatchMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-batches/schedule`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Publication batch could not be scheduled.');
+    }
+
+    return (await response.json()) as AdminPublicationBatchMutationResult;
+  }
+
+  async publishPublicationBatch(
+    token: string,
+    payload: AdminPublicationBatchLifecycleRequest
+  ): Promise<AdminPublicationBatchMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-batches/publish`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Publication batch could not be published.');
+    }
+
+    return (await response.json()) as AdminPublicationBatchMutationResult;
+  }
+
+  async cancelPublicationBatch(
+    token: string,
+    payload: AdminPublicationBatchLifecycleRequest
+  ): Promise<AdminPublicationBatchMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-batches/cancel`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Publication batch could not be cancelled.');
+    }
+
+    return (await response.json()) as AdminPublicationBatchMutationResult;
   }
 
   async getAuditLog(token: string): Promise<AdminAuditLogResponse> {

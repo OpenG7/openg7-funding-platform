@@ -434,6 +434,7 @@ export interface AdminPublicationDraftRecord {
   readonly approved_at: string | null;
   readonly published_at: string | null;
   readonly review_note: string | null;
+  readonly batch_id: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -464,6 +465,65 @@ export interface AdminPublicationDraftUpdateRequest {
 export interface AdminPublicationDraftMutationResult {
   readonly updated: boolean;
   readonly draft: AdminPublicationDraftRecord | null;
+}
+
+/**
+ * A "lot": a capacity-bounded group of approved sponsorship drafts that go
+ * out together as a single collective Facebook/LinkedIn post. Scheduling or
+ * publishing a batch cascades to every draft assigned to it; publishing is
+ * always an explicit admin action, never automatic on payment or approval.
+ */
+export type PublicationBatchStatus =
+  'open' | 'scheduled' | 'published' | 'cancelled';
+
+export interface AdminPublicationBatchRecord {
+  readonly id: string;
+  readonly channel: SponsorFeedChannel;
+  readonly capacity: number;
+  readonly status: PublicationBatchStatus;
+  readonly scheduledAt: string | null;
+  readonly publishedAt: string | null;
+  readonly notes: string | null;
+  readonly assignedDraftIds: readonly string[];
+  readonly capacityUsed: number;
+  readonly capacityAvailable: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface AdminPublicationBatchesResponse {
+  readonly data_source: 'database';
+  readonly batches: readonly AdminPublicationBatchRecord[];
+  readonly last_updated_at: string;
+}
+
+export interface AdminPublicationBatchCreateRequest {
+  readonly channel: SponsorFeedChannel;
+  readonly capacity: number;
+  readonly notes?: string;
+}
+
+export interface AdminPublicationBatchAssignRequest {
+  readonly batchId: string;
+  readonly draftId: string;
+}
+
+export interface AdminPublicationBatchUnassignRequest {
+  readonly draftId: string;
+}
+
+export interface AdminPublicationBatchScheduleRequest {
+  readonly batchId: string;
+  readonly scheduledAt: string;
+}
+
+export interface AdminPublicationBatchLifecycleRequest {
+  readonly batchId: string;
+}
+
+export interface AdminPublicationBatchMutationResult {
+  readonly updated: boolean;
+  readonly batch: AdminPublicationBatchRecord | null;
 }
 
 export interface AdminAuditLogEntry {

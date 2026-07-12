@@ -18,6 +18,11 @@ import type {
   AdminExpenseCreateRequest,
   AdminExpenseUpdateRequest,
   AdminTransparencyResponse,
+  AdminPublicationBatchAssignRequest,
+  AdminPublicationBatchCreateRequest,
+  AdminPublicationBatchLifecycleRequest,
+  AdminPublicationBatchScheduleRequest,
+  AdminPublicationBatchUnassignRequest,
   AdminPublicationDraftCreateRequest,
   AdminPublicationDraftUpdateRequest,
   AdminSessionCreateRequest,
@@ -47,12 +52,19 @@ import type {
 import {
   allowedAdminExpenseStatuses,
   allowedPublicationDraftStatuses,
+  assignDraftToPublicationBatch,
+  cancelAdminPublicationBatch,
   createAdminExpense,
+  createAdminPublicationBatch,
   createAdminPublicationDraft,
   insertAdminAuditLog,
   listAdminExpenses,
   listAdminAuditLog,
+  listAdminPublicationBatches,
   listAdminPublicationDrafts,
+  publishAdminPublicationBatch,
+  scheduleAdminPublicationBatch,
+  unassignDraftFromPublicationBatch,
   updateAdminExpense,
   updateAdminPublicationDraft
 } from './fund-admin.repository.js';
@@ -365,6 +377,9 @@ const SPONSOR_FEED_NOTES_MAX_LENGTH = 1000;
 const PUBLICATION_DRAFT_TITLE_MAX_LENGTH = 160;
 const PUBLICATION_DRAFT_BODY_MAX_LENGTH = 2500;
 const PUBLICATION_DRAFT_DISCLOSURE_MAX_LENGTH = 300;
+const PUBLICATION_BATCH_NOTES_MAX_LENGTH = 500;
+const PUBLICATION_BATCH_MIN_CAPACITY = 1;
+const PUBLICATION_BATCH_MAX_CAPACITY = 50;
 const ADMIN_EXPENSE_NAME_MAX_LENGTH = 160;
 const ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
@@ -761,6 +776,15 @@ const isAllowedSponsorFeedChannel = (
 ): value is SponsorFeedChannel =>
   typeof value === 'string' &&
   allowedSponsorFeedChannels.has(value as SponsorFeedChannel);
+
+const isValidPublicationBatchCapacity = (value: unknown): value is number =>
+  typeof value === 'number' &&
+  Number.isInteger(value) &&
+  value >= PUBLICATION_BATCH_MIN_CAPACITY &&
+  value <= PUBLICATION_BATCH_MAX_CAPACITY;
+
+const channelLabel = (channel: SponsorFeedChannel): string =>
+  channel === 'linkedin' ? 'LinkedIn' : 'Facebook';
 
 const isAllowedPublicationDraftStatus = (
   value: unknown
@@ -1204,6 +1228,18 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/publication-drafts',
       '/admin/publication-drafts/update',
       '/api/admin/publication-drafts/update',
+      '/admin/publication-batches',
+      '/api/admin/publication-batches',
+      '/admin/publication-batches/assign',
+      '/api/admin/publication-batches/assign',
+      '/admin/publication-batches/unassign',
+      '/api/admin/publication-batches/unassign',
+      '/admin/publication-batches/schedule',
+      '/api/admin/publication-batches/schedule',
+      '/admin/publication-batches/publish',
+      '/api/admin/publication-batches/publish',
+      '/admin/publication-batches/cancel',
+      '/api/admin/publication-batches/cancel',
       '/admin/audit-log',
       '/api/admin/audit-log',
       '/admin/sponsorships',
@@ -2910,6 +2946,409 @@ createServer(async (request, response) => {
       console.error('Failed to update publication draft.', error);
       writeJson(request, response, 502, {
         error: 'Publication draft could not be updated.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-batches',
+      '/api/admin/publication-batches'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await listAdminPublicationBatches(dbPool);
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load publication batches.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication batches could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-batches',
+      '/api/admin/publication-batches'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationBatchCreateRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationBatchCreateRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch request body.'
+      });
+      return;
+    }
+
+    if (!isAllowedSponsorFeedChannel(parsed.channel)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch channel.'
+      });
+      return;
+    }
+
+    if (!isValidPublicationBatchCapacity(parsed.capacity)) {
+      writeJson(request, response, 400, {
+        error: `Publication batch capacity must be an integer between ${PUBLICATION_BATCH_MIN_CAPACITY} and ${PUBLICATION_BATCH_MAX_CAPACITY}.`
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(parsed.notes, PUBLICATION_BATCH_NOTES_MAX_LENGTH)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Publication batch notes are too long.'
+      });
+      return;
+    }
+
+    try {
+      const result = await createAdminPublicationBatch(dbPool, parsed);
+      if (!result.updated || !result.batch) {
+        writeJson(request, response, 404, {
+          error: 'Publication batches migration is missing.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_batch.create',
+        entityType: 'publication_batch',
+        entityId: result.batch.id,
+        summary: `Publication batch created for ${channelLabel(result.batch.channel)} (capacity ${result.batch.capacity}).`,
+        metadata: {
+          channel: result.batch.channel,
+          capacity: result.batch.capacity
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to create publication batch.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication batch could not be created.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-batches/assign',
+      '/api/admin/publication-batches/assign'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationBatchAssignRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationBatchAssignRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch assignment request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.batchId) || !isValidUuid(parsed.draftId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch or draft id.'
+      });
+      return;
+    }
+
+    try {
+      const result = await assignDraftToPublicationBatch(dbPool, parsed);
+      if (!result.updated || !result.draft) {
+        writeJson(request, response, 409, {
+          error:
+            'Draft could not be assigned: it must be approved, match the batch channel, and the batch must be open with available capacity.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_batch.assign',
+        entityType: 'publication_batch',
+        entityId: parsed.batchId,
+        summary: `Draft for ${result.draft.sponsor_company_name} assigned to batch.`,
+        metadata: { draftId: parsed.draftId, batchId: parsed.batchId }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to assign draft to publication batch.', error);
+      writeJson(request, response, 502, {
+        error: 'Draft could not be assigned to the publication batch.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-batches/unassign',
+      '/api/admin/publication-batches/unassign'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationBatchUnassignRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationBatchUnassignRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch unassignment request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.draftId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication draft id.'
+      });
+      return;
+    }
+
+    try {
+      const result = await unassignDraftFromPublicationBatch(dbPool, parsed);
+      if (!result.updated || !result.draft) {
+        writeJson(request, response, 404, {
+          error: 'Draft is not assigned to a batch, or is already published.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_batch.unassign',
+        entityType: 'publication_draft',
+        entityId: result.draft.id,
+        summary: `Draft for ${result.draft.sponsor_company_name} removed from batch.`,
+        metadata: { draftId: parsed.draftId }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to unassign draft from publication batch.', error);
+      writeJson(request, response, 502, {
+        error: 'Draft could not be removed from the publication batch.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-batches/schedule',
+      '/api/admin/publication-batches/schedule'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationBatchScheduleRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationBatchScheduleRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch schedule request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.batchId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch id.'
+      });
+      return;
+    }
+
+    if (
+      typeof parsed.scheduledAt !== 'string' ||
+      !Number.isFinite(Date.parse(parsed.scheduledAt))
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Publication batch scheduled date is invalid.'
+      });
+      return;
+    }
+
+    try {
+      const result = await scheduleAdminPublicationBatch(dbPool, parsed);
+      if (!result.updated || !result.batch) {
+        writeJson(request, response, 409, {
+          error: 'Publication batch was not found or cannot be scheduled.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_batch.schedule',
+        entityType: 'publication_batch',
+        entityId: result.batch.id,
+        summary: `Publication batch scheduled for ${result.batch.scheduledAt}.`,
+        metadata: {
+          channel: result.batch.channel,
+          scheduledAt: result.batch.scheduledAt
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to schedule publication batch.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication batch could not be scheduled.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-batches/publish',
+      '/api/admin/publication-batches/publish'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationBatchLifecycleRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationBatchLifecycleRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.batchId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch id.'
+      });
+      return;
+    }
+
+    try {
+      const result = await publishAdminPublicationBatch(dbPool, parsed);
+      if (!result.updated || !result.batch) {
+        writeJson(request, response, 409, {
+          error:
+            'Publication batch was not found or must be scheduled before it can be published.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_batch.publish',
+        entityType: 'publication_batch',
+        entityId: result.batch.id,
+        summary: `Publication batch published (${result.batch.assignedDraftIds.length} sponsor(s)).`,
+        metadata: {
+          channel: result.batch.channel,
+          assignedDraftIds: result.batch.assignedDraftIds
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to publish publication batch.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication batch could not be published.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-batches/cancel',
+      '/api/admin/publication-batches/cancel'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationBatchLifecycleRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationBatchLifecycleRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.batchId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch id.'
+      });
+      return;
+    }
+
+    try {
+      const result = await cancelAdminPublicationBatch(dbPool, parsed);
+      if (!result.updated || !result.batch) {
+        writeJson(request, response, 409, {
+          error: 'Publication batch was not found or is already final.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_batch.cancel',
+        entityType: 'publication_batch',
+        entityId: result.batch.id,
+        summary: `Publication batch cancelled (${channelLabel(result.batch.channel)}).`,
+        metadata: { channel: result.batch.channel }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to cancel publication batch.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication batch could not be cancelled.'
       });
     }
     return;
