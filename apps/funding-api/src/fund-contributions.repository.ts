@@ -709,10 +709,8 @@ export const recordSponsorshipDetails = async (
         sponsor_details_submitted_at = NOW(),
         status = 'paid',
         paid_at = COALESCE(fund_contributions.paid_at, EXCLUDED.paid_at),
-        sponsor_review_status = COALESCE(
-          fund_contributions.sponsor_review_status,
-          'pending_review'
-        ),
+        sponsor_review_status = 'pending_review',
+        sponsor_reviewed_at = NULL,
         updated_at = NOW()
     `,
     [

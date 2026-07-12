@@ -376,6 +376,8 @@ test('recordSponsorshipDetails upserts against the partial unique index', () => 
     'expected recordSponsorshipDetails to upsert on stripe_session_id'
   );
   assert.ok(match[1].includes('WHERE stripe_session_id IS NOT NULL'));
+  assert.ok(source.includes("sponsor_review_status = 'pending_review'"));
+  assert.ok(source.includes('sponsor_reviewed_at = NULL'));
 });
 
 test('Sponsorship details endpoint validates required fields and payment state', () => {
@@ -510,7 +512,7 @@ test('Custom contribution amount input accepts only decimal numeric values', () 
   }
 });
 
-test('Business sponsorship contribution choice is temporarily disabled', () => {
+test('Business sponsorship contribution choice is enabled for flow testing', () => {
   const source = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
     'utf8'
@@ -523,15 +525,24 @@ test('Business sponsorship contribution choice is temporarily disabled', () => {
     fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
   );
 
-  assert.ok(source.includes('readonly sponsorshipSelectionEnabled = false'));
+  assert.ok(source.includes('readonly sponsorshipSelectionEnabled = true'));
   assert.ok(source.includes('[disabled]="!sponsorshipSelectionEnabled"'));
   assert.ok(source.includes("type === 'sponsorship_interest'"));
   assert.ok(source.includes('!this.sponsorshipSelectionEnabled'));
   assert.ok(source.includes('funding.home.contribution.sponsorship.disabled'));
+  assert.ok(
+    source.includes('funding.home.contribution.sponsorship.afterPaymentNote')
+  );
+  assert.ok(
+    source.includes('funding.home.contribution.sponsorship.manualReviewNote')
+  );
+  assert.ok(styles.includes('.sponsorship-selection-note'));
   assert.ok(styles.includes('.contribution-type-card:disabled'));
 
   for (const locale of [fr, en]) {
     assert.ok(locale.funding.home.contribution.sponsorship.disabled);
+    assert.ok(locale.funding.home.contribution.sponsorship.afterPaymentNote);
+    assert.ok(locale.funding.home.contribution.sponsorship.manualReviewNote);
   }
 });
 
@@ -547,6 +558,11 @@ test('Sponsor follow-up screen has matching i18n keys in both locales', () => {
     const checkout = locale.funding.home.checkout;
     assert.ok(checkout.sponsorTitle);
     assert.ok(checkout.sponsorCopy);
+    assert.ok(checkout.sponsorStages.paymentReceived);
+    assert.ok(checkout.sponsorStages.detailsIncomplete);
+    assert.ok(checkout.sponsorStages.manualReview);
+    assert.ok(checkout.sponsorStages.publication);
+    assert.ok(checkout.sponsorFollowupCta);
     assert.ok(checkout.sponsorForm.companyNameLabel);
     assert.ok(checkout.sponsorForm.contactNameLabel);
     assert.ok(checkout.sponsorForm.contactEmailLabel);
@@ -589,6 +605,10 @@ test('Sponsorship review and follow-up migrations add private workflow columns',
 
 test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe metadata', () => {
   const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const fundingService = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding.service.ts',
+    'utf8'
+  );
   const checkoutMetadataBlock = extractBetween(
     source,
     'const checkoutMetadata',
@@ -604,10 +624,22 @@ test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe 
     false
   );
   assert.ok(source.includes('sponsorshipFollowupTokenHash'));
+  assert.equal(
+    fundingService.includes('session_id={CHECKOUT_SESSION_ID}'),
+    false
+  );
 });
 
 test('Sponsorship follow-up endpoints are token based and do not require Stripe session ids', () => {
   const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const fundingPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
+    'utf8'
+  );
+  const fundingService = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding.service.ts',
+    'utf8'
+  );
 
   assert.ok(source.includes("'/sponsorship-followup'"));
   assert.ok(source.includes("'/api/sponsorship-followup'"));
@@ -616,6 +648,13 @@ test('Sponsorship follow-up endpoints are token based and do not require Stripe 
   assert.ok(source.includes('isValidFollowupToken'));
   assert.ok(source.includes('getSponsorshipFollowupByTokenHash'));
   assert.ok(source.includes('recordSponsorshipDetailsForContribution'));
+  assert.ok(fundingPage.includes("params.get('followup_token')"));
+  assert.ok(fundingPage.includes('pendingSponsorFollowupToken'));
+  assert.ok(fundingPage.includes('sponsorshipFollowupTokenPattern'));
+  assert.ok(fundingPage.includes('sponsorshipFollowupPath'));
+  assert.equal(fundingPage.includes("params.get('session_id')"), false);
+  assert.equal(fundingPage.includes('submitSponsorDetails()'), false);
+  assert.equal(fundingService.includes('submitSponsorshipDetails'), false);
 });
 
 test('Sponsorship follow-up email is sent from checkout completion only when recoverable', () => {

@@ -56,18 +56,25 @@ Le produit reste volontairement prudent:
 
 - Ecran de succes conditionnel pour `sponsorship_interest`: "Commandite recue,
   visibilite en validation" (pas de visibilite automatique).
-- Formulaire post-paiement: nom d'entreprise, contact, courriel, site web
+- Le retour Stripe n'affiche pas le formulaire complet et ne depend plus d'un
+  `session_id` navigateur: il propose un lien de reprise tokenise vers
+  `/fonds-des-batisseurs/suivi-commandite?token=...`.
+- Formulaire de reprise: nom d'entreprise, contact, courriel, site web
   (optionnel), lien logo fourni par le sponsor (optionnel), message
   (optionnel). L'upload de fichier logo reste reserve au back-office admin.
-- Endpoint `POST /api/sponsorship-details`: revalide la session aupres de
-  Stripe (type de contribution + `payment_status=paid`) avant d'accepter les
-  details, refuse sinon.
+- Une commandite payee sans `sponsor_details_submitted_at` reste detectable en
+  admin comme paiement confirme mais renseignements incomplets.
+- Endpoint historique `POST /api/sponsorship-details`: conserve pour
+  compatibilite, revalide la session aupres de Stripe (type de contribution +
+  `payment_status=paid`) avant d'accepter les details, refuse sinon, et remet la
+  commandite en `pending_review` sur modification.
 - Details ajoutes aux metadata du PaymentIntent (`sponsor*`) pour revue via le
-  dashboard Stripe, meme sans base de donnees.
-- Si `DATABASE_URL` est configure, les details sont aussi persistes dans
+  dashboard Stripe lorsque le endpoint de compatibilite est utilise.
+- Si `DATABASE_URL` est configure, les details sont persistes dans
   `fund_contributions` (upsert idempotent sur resoumission).
 - Page de reprise `/fonds-des-batisseurs/suivi-commandite?token=...` pour
-  completer le formulaire si le navigateur est ferme apres paiement.
+  completer le formulaire si le navigateur est ferme, actualise ou repris plus
+  tard apres paiement.
 - Endpoints `GET /api/sponsorship-followup?token=...` et
   `POST /api/sponsorship-followup/details` pour lire le statut et soumettre
   les details par token.
@@ -75,6 +82,9 @@ Le produit reste volontairement prudent:
   `FUNDING_EMAIL_FROM` sont configures.
 - Aucun upload public de logo par le sponsor, aucune publication automatique:
   la revue reste manuelle.
+- En mode Stripe-direct sans PostgreSQL, le paiement et la transparence agregee
+  restent disponibles, mais le suivi recuperable, la revue admin complete et la
+  publication commanditaire publique exigent PostgreSQL.
 
 ### Revue admin commandite
 
@@ -309,7 +319,8 @@ Les elements suivants restent volontairement hors perimetre:
 - La page `/batisseurs` depend des noms publics consentis; elle peut etre vide au lancement.
 - En mode Stripe-direct, la transparence publique reste agregee et ne peut pas afficher de profils publics consentis.
 - Sans Resend configure, aucun courriel de reprise n'est envoye; le suivi reste
-  accessible via l'URL de retour Stripe ou l'admin.
+  accessible via l'URL de retour Stripe tant que le sponsor la conserve, et
+  l'admin peut detecter les commandites payees mais incompletes.
 
 ## Prochaine etape recommandee
 

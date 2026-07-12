@@ -4,10 +4,9 @@ import {
   CheckoutRequest,
   CheckoutResult,
   ContributionType,
+  SponsorshipDetailsResult,
   SponsorshipFollowupDetailsRequest,
   SponsorshipFollowupResponse,
-  SponsorshipDetailsRequest,
-  SponsorshipDetailsResult,
   createMockCheckoutResult
 } from '@openg7/funding-core';
 import { FundingSnapshot } from '@openg7/funding-core';
@@ -43,7 +42,7 @@ export class FundingService {
   };
 
   /**
-    * Creates a checkout session via the API. Mock fallback is limited to local development.
+   * Creates a checkout session via the API. Mock fallback is limited to local development.
    */
   async startCheckout(
     amount: number,
@@ -117,30 +116,7 @@ export class FundingService {
       url.searchParams.set('contributionType', contributionType);
     }
 
-    // Stripe substitutes this literal template token before redirecting; it
-    // must stay unencoded, so it is appended after URLSearchParams encoding.
-    return `${url.toString()}&session_id={CHECKOUT_SESSION_ID}`;
-  }
-
-  async submitSponsorshipDetails(
-    payload: SponsorshipDetailsRequest
-  ): Promise<SponsorshipDetailsResult> {
-    const response = await fetch(`${this.apiBaseUrl}/sponsorship-details`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        readonly error?: string;
-      } | null;
-      throw new Error(body?.error ?? 'Sponsorship details could not be submitted.');
-    }
-
-    return (await response.json()) as SponsorshipDetailsResult;
+    return url.toString();
   }
 
   async getSponsorshipFollowup(

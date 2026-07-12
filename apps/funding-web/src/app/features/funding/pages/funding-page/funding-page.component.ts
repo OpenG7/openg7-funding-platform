@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type { ContributionType, SponsorshipDetailsRequest } from '@openg7/funding-core';
+import type { ContributionType } from '@openg7/funding-core';
 import type {
   FundTransparencyPublicResponse,
   FundingSnapshot
@@ -38,6 +38,8 @@ interface FoundationPillar {
   readonly titleKey: string;
   readonly descriptionKey: string;
 }
+
+const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
 
 @Component({
   selector: 'openg7-funding-page',
@@ -69,13 +71,17 @@ interface FoundationPillar {
           ×
         </button>
         <article class="checkout-success-card">
-          <span class="section-kicker">{{ 'funding.home.checkout.successKicker' | translate }}</span>
+          <span class="section-kicker">{{
+            'funding.home.checkout.successKicker' | translate
+          }}</span>
           <h2 id="checkout-success-title">
             {{ 'funding.home.checkout.successTitle' | translate }}
           </h2>
           <p>{{ 'funding.home.checkout.successCopy' | translate }}</p>
           <div class="checkout-success-actions">
-            <a [routerLink]="transparencyPath()">{{ 'funding.home.actions.viewTransparency' | translate }}</a>
+            <a [routerLink]="transparencyPath()">{{
+              'funding.home.actions.viewTransparency' | translate
+            }}</a>
             <button type="button" (click)="scrollToSupport()">
               {{ 'funding.home.actions.contributeAgain' | translate }}
             </button>
@@ -103,101 +109,52 @@ interface FoundationPillar {
           ×
         </button>
         <article class="checkout-success-card sponsor-followup-card">
-          <ng-container *ngIf="sponsorFormState() !== 'submitted'; else sponsorSubmitted">
-            <span class="section-kicker">{{ 'funding.home.checkout.sponsorKicker' | translate }}</span>
-            <h2 id="checkout-sponsor-title">
-              {{ 'funding.home.checkout.sponsorTitle' | translate }}
-            </h2>
-            <p>{{ 'funding.home.checkout.sponsorCopy' | translate }}</p>
-            <form
-              class="sponsor-followup-form"
-              (submit)="$event.preventDefault(); submitSponsorDetails()"
+          <span class="section-kicker">{{
+            'funding.home.checkout.sponsorKicker' | translate
+          }}</span>
+          <h2 id="checkout-sponsor-title">
+            {{ 'funding.home.checkout.sponsorTitle' | translate }}
+          </h2>
+          <p>{{ 'funding.home.checkout.sponsorCopy' | translate }}</p>
+          <ol class="sponsor-followup-steps">
+            <li>
+              <span aria-hidden="true">1</span>
+              <strong>{{
+                'funding.home.checkout.sponsorStages.paymentReceived'
+                  | translate
+              }}</strong>
+            </li>
+            <li>
+              <span aria-hidden="true">2</span>
+              <strong>{{
+                'funding.home.checkout.sponsorStages.detailsIncomplete'
+                  | translate
+              }}</strong>
+            </li>
+            <li>
+              <span aria-hidden="true">3</span>
+              <strong>{{
+                'funding.home.checkout.sponsorStages.manualReview' | translate
+              }}</strong>
+            </li>
+            <li>
+              <span aria-hidden="true">4</span>
+              <strong>{{
+                'funding.home.checkout.sponsorStages.publication' | translate
+              }}</strong>
+            </li>
+          </ol>
+          <div class="checkout-success-actions">
+            <a
+              [routerLink]="sponsorshipFollowupPath()"
+              [queryParams]="{ token: pendingSponsorFollowupToken() }"
             >
-              <label for="sponsor-company-name">{{ 'funding.home.checkout.sponsorForm.companyNameLabel' | translate }}</label>
-              <input
-                id="sponsor-company-name"
-                type="text"
-                required
-                maxlength="200"
-                [value]="sponsorCompanyName()"
-                (input)="setSponsorCompanyName($event)"
-              />
-
-              <label for="sponsor-contact-name">{{ 'funding.home.checkout.sponsorForm.contactNameLabel' | translate }}</label>
-              <input
-                id="sponsor-contact-name"
-                type="text"
-                required
-                maxlength="200"
-                [value]="sponsorContactName()"
-                (input)="setSponsorContactName($event)"
-              />
-
-              <label for="sponsor-contact-email">{{ 'funding.home.checkout.sponsorForm.contactEmailLabel' | translate }}</label>
-              <input
-                id="sponsor-contact-email"
-                type="email"
-                required
-                maxlength="200"
-                [value]="sponsorContactEmail()"
-                (input)="setSponsorContactEmail($event)"
-              />
-
-              <label for="sponsor-website-url">{{ 'funding.home.checkout.sponsorForm.websiteLabel' | translate }}</label>
-              <input
-                id="sponsor-website-url"
-                type="url"
-                maxlength="2048"
-                placeholder="https://"
-                [value]="sponsorWebsiteUrl()"
-                (input)="setSponsorWebsiteUrl($event)"
-              />
-
-              <label for="sponsor-logo-url">{{ 'funding.home.checkout.sponsorForm.logoUrlLabel' | translate }}</label>
-              <input
-                id="sponsor-logo-url"
-                type="url"
-                maxlength="2048"
-                placeholder="https://"
-                [value]="sponsorLogoUrl()"
-                (input)="setSponsorLogoUrl($event)"
-              />
-
-              <label for="sponsor-message">{{ 'funding.home.checkout.sponsorForm.messageLabel' | translate }}</label>
-              <textarea
-                id="sponsor-message"
-                maxlength="1000"
-                rows="3"
-                [value]="sponsorMessage()"
-                (input)="setSponsorMessage($event)"
-              ></textarea>
-
-              <button
-                type="submit"
-                class="gold-cta"
-                [disabled]="!canSubmitSponsorDetails()"
-              >
-                {{
-                  sponsorFormState() === 'submitting'
-                    ? ('funding.home.checkout.sponsorForm.submitting' | translate)
-                    : ('funding.home.checkout.sponsorForm.submit' | translate)
-                }}
-              </button>
-              <p class="state state-error" *ngIf="sponsorFormState() === 'error'">
-                {{ 'funding.home.checkout.sponsorForm.error' | translate }}
-              </p>
-            </form>
-          </ng-container>
-          <ng-template #sponsorSubmitted>
-            <span class="section-kicker">{{ 'funding.home.checkout.sponsorKicker' | translate }}</span>
-            <h2 id="checkout-sponsor-title">
-              {{ 'funding.home.checkout.sponsorForm.successTitle' | translate }}
-            </h2>
-            <p>{{ 'funding.home.checkout.sponsorForm.successCopy' | translate }}</p>
-            <div class="checkout-success-actions">
-              <a [routerLink]="supportPath()">{{ 'funding.home.checkout.sponsorForm.nextStepsLink' | translate }}</a>
-            </div>
-          </ng-template>
+              {{ 'funding.home.checkout.sponsorFollowupCta' | translate }}
+            </a>
+            <a [routerLink]="supportPath()" class="secondary-link">{{
+              'funding.home.actions.contactSupport' | translate
+            }}</a>
+          </div>
         </article>
       </section>
 
@@ -224,14 +181,20 @@ interface FoundationPillar {
           ×
         </button>
         <article class="checkout-success-card checkout-cancel-card">
-          <span class="section-kicker">{{ 'funding.home.checkout.cancelKicker' | translate }}</span>
+          <span class="section-kicker">{{
+            'funding.home.checkout.cancelKicker' | translate
+          }}</span>
           <h2 id="checkout-cancel-title">
             {{ 'funding.home.checkout.cancelTitle' | translate }}
           </h2>
           <p>{{ 'funding.home.checkout.cancelCopy' | translate }}</p>
           <div class="checkout-success-actions">
-            <button type="button" (click)="scrollToSupport()">{{ 'funding.home.actions.retry' | translate }}</button>
-            <a [routerLink]="supportPath()">{{ 'funding.home.actions.contactSupport' | translate }}</a>
+            <button type="button" (click)="scrollToSupport()">
+              {{ 'funding.home.actions.retry' | translate }}
+            </button>
+            <a [routerLink]="supportPath()">{{
+              'funding.home.actions.contactSupport' | translate
+            }}</a>
           </div>
         </article>
       </section>
@@ -258,10 +221,9 @@ interface FoundationPillar {
           >
             <div>
               <span
-                >{{
-                  formatMoney(snapshot().totals.confirmedContributions)
-                }}
-                {{ 'funding.home.hero.raisedOn' | translate }} {{ formatMoney(config.monthlyGoal) }}</span
+                >{{ formatMoney(snapshot().totals.confirmedContributions) }}
+                {{ 'funding.home.hero.raisedOn' | translate }}
+                {{ formatMoney(config.monthlyGoal) }}</span
               >
               <strong>{{ campaignProgress() }}%</strong>
             </div>
@@ -283,7 +245,10 @@ interface FoundationPillar {
         aria-labelledby="ecosystem-title"
       >
         <header class="section-title ornament-title">
-          <h2 id="ecosystem-title">{{ 'funding.home.ecosystem.title' | translate }} <strong>OpenG7</strong></h2>
+          <h2 id="ecosystem-title">
+            {{ 'funding.home.ecosystem.title' | translate }}
+            <strong>OpenG7</strong>
+          </h2>
           <p>{{ 'funding.home.ecosystem.copy' | translate }}</p>
         </header>
 
@@ -301,7 +266,10 @@ interface FoundationPillar {
         </div>
 
         <p class="solid-foundations">
-          {{ 'funding.home.ecosystem.foundationLead' | translate }} <strong>{{ 'funding.home.ecosystem.foundationStrong' | translate }}</strong>
+          {{ 'funding.home.ecosystem.foundationLead' | translate }}
+          <strong>{{
+            'funding.home.ecosystem.foundationStrong' | translate
+          }}</strong>
         </p>
       </section>
 
@@ -323,20 +291,28 @@ interface FoundationPillar {
         <div class="purpose-overlay" aria-hidden="true"></div>
 
         <article class="purpose-intro">
-          <span class="section-kicker">{{ 'funding.brand.title' | translate }}</span>
+          <span class="section-kicker">{{
+            'funding.brand.title' | translate
+          }}</span>
           <h2 id="funding-purpose-title">
-            {{ 'funding.home.purpose.title' | translate }} <strong>OpenG7</strong> ?
+            {{ 'funding.home.purpose.title' | translate }}
+            <strong>OpenG7</strong> ?
           </h2>
           <p>{{ 'funding.home.purpose.copy' | translate }}</p>
           <div class="purpose-actions">
             <button type="button" (click)="scrollToSupport()">
               {{ 'funding.nav.supportCta' | translate }}
             </button>
-            <a [routerLink]="transparencyPath()">{{ 'funding.home.actions.viewRegistry' | translate }}</a>
+            <a [routerLink]="transparencyPath()">{{
+              'funding.home.actions.viewRegistry' | translate
+            }}</a>
           </div>
         </article>
 
-        <dl class="purpose-proof-strip" [attr.aria-label]="'funding.home.purpose.proofAria' | translate">
+        <dl
+          class="purpose-proof-strip"
+          [attr.aria-label]="'funding.home.purpose.proofAria' | translate"
+        >
           <div>
             <dt>{{ 'funding.home.purpose.lastSync' | translate }}</dt>
             <dd>{{ lastTransparencySyncLabel() }}</dd>
@@ -376,7 +352,9 @@ interface FoundationPillar {
               <strong>{{
                 formatMoney(snapshot().totals.transactionFees)
               }}</strong>
-              <p>{{ 'funding.home.purpose.deductedBeforeAvailable' | translate }}</p>
+              <p>
+                {{ 'funding.home.purpose.deductedBeforeAvailable' | translate }}
+              </p>
             </div>
           </article>
           <article class="purpose-kpi green">
@@ -386,7 +364,9 @@ interface FoundationPillar {
               <strong>{{
                 formatMoney(snapshot().totals.availableFunds)
               }}</strong>
-              <p>{{ 'funding.home.purpose.availableForProjects' | translate }}</p>
+              <p>
+                {{ 'funding.home.purpose.availableForProjects' | translate }}
+              </p>
             </div>
           </article>
           <article class="purpose-kpi gold">
@@ -394,24 +374,32 @@ interface FoundationPillar {
             <div>
               <h3>{{ 'funding.goal.monthly' | translate }}</h3>
               <strong>{{ formatMoney(config.monthlyGoal) }}</strong>
-              <p>{{ campaignProgress() }} % {{ 'funding.home.purpose.reached' | translate }}</p>
+              <p>
+                {{ campaignProgress() }} %
+                {{ 'funding.home.purpose.reached' | translate }}
+              </p>
             </div>
           </article>
         </section>
 
         <article
           class="purpose-campaign-card"
-          [attr.aria-label]="'funding.home.purpose.campaignProgressAria' | translate"
+          [attr.aria-label]="
+            'funding.home.purpose.campaignProgressAria' | translate
+          "
         >
           <header>
-            <span>{{ 'funding.home.purpose.campaignProgress' | translate }}</span>
+            <span>{{
+              'funding.home.purpose.campaignProgress' | translate
+            }}</span>
             <strong>{{ campaignProgress() }} %</strong>
           </header>
           <div class="purpose-track" aria-hidden="true">
             <span [style.width.%]="campaignProgress()"></span>
           </div>
           <p>
-            {{ formatMoney(remainingForMonthlyGoal()) }} {{ 'funding.home.purpose.remainingForGoal' | translate }}
+            {{ formatMoney(remainingForMonthlyGoal()) }}
+            {{ 'funding.home.purpose.remainingForGoal' | translate }}
           </p>
         </article>
 
@@ -422,14 +410,20 @@ interface FoundationPillar {
               <li>
                 <span>1</span>
                 <div>
-                  <strong>{{ 'funding.home.flow.steps.received.title' | translate }}</strong>
-                  <p>{{ 'funding.home.flow.steps.received.copy' | translate }}</p>
+                  <strong>{{
+                    'funding.home.flow.steps.received.title' | translate
+                  }}</strong>
+                  <p>
+                    {{ 'funding.home.flow.steps.received.copy' | translate }}
+                  </p>
                 </div>
               </li>
               <li>
                 <span>2</span>
                 <div>
-                  <strong>{{ 'funding.home.flow.steps.confirmed.title' | translate }}</strong>
+                  <strong>{{
+                    'funding.home.flow.steps.confirmed.title' | translate
+                  }}</strong>
                   <p>
                     {{ 'funding.home.flow.steps.confirmed.copy' | translate }}
                   </p>
@@ -438,7 +432,9 @@ interface FoundationPillar {
               <li>
                 <span>3</span>
                 <div>
-                  <strong>{{ 'funding.home.flow.steps.fees.title' | translate }}</strong>
+                  <strong>{{
+                    'funding.home.flow.steps.fees.title' | translate
+                  }}</strong>
                   <p>
                     {{ 'funding.home.flow.steps.fees.copy' | translate }}
                   </p>
@@ -447,7 +443,9 @@ interface FoundationPillar {
               <li>
                 <span>4</span>
                 <div>
-                  <strong>{{ 'funding.home.flow.steps.available.title' | translate }}</strong>
+                  <strong>{{
+                    'funding.home.flow.steps.available.title' | translate
+                  }}</strong>
                   <p>
                     {{ 'funding.home.flow.steps.available.copy' | translate }}
                   </p>
@@ -489,82 +487,153 @@ interface FoundationPillar {
           <aside
             id="support"
             class="purpose-support-panel"
-            [attr.aria-label]="'funding.home.contribution.ariaLabel' | translate"
+            [attr.aria-label]="
+              'funding.home.contribution.ariaLabel' | translate
+            "
           >
             <section class="contribution-panel">
               <h3>{{ 'funding.home.contribution.title' | translate }}</h3>
               <div
                 class="contribution-type-grid"
-                [attr.aria-label]="'funding.home.contribution.typeAria' | translate"
+                [attr.aria-label]="
+                  'funding.home.contribution.typeAria' | translate
+                "
               >
                 <button
                   type="button"
                   class="contribution-type-card"
                   [class.active]="contributionType() === 'personal_support'"
-                  [attr.aria-pressed]="contributionType() === 'personal_support'"
+                  [attr.aria-pressed]="
+                    contributionType() === 'personal_support'
+                  "
                   (click)="setContributionType('personal_support')"
                 >
-                  <span class="contribution-type-kicker">{{ 'funding.home.contribution.personal.kicker' | translate }}</span>
+                  <span class="contribution-type-kicker">{{
+                    'funding.home.contribution.personal.kicker' | translate
+                  }}</span>
                   <span class="contribution-card-heading">
                     <span
                       class="contribution-card-icon contribution-card-icon-personal"
                       aria-hidden="true"
                     ></span>
-                    <strong>{{ 'funding.home.contribution.personal.title' | translate }}</strong>
+                    <strong>{{
+                      'funding.home.contribution.personal.title' | translate
+                    }}</strong>
                   </span>
-                  <p>{{ 'funding.home.contribution.personal.copy' | translate }}</p>
-                  <p>{{ 'funding.home.contribution.personal.transparencyIncluded' | translate }}</p>
-                  <p>{{ 'funding.home.contribution.personal.consentOptions' | translate }}</p>
+                  <p>
+                    {{ 'funding.home.contribution.personal.copy' | translate }}
+                  </p>
+                  <p>
+                    {{
+                      'funding.home.contribution.personal.transparencyIncluded'
+                        | translate
+                    }}
+                  </p>
+                  <p>
+                    {{
+                      'funding.home.contribution.personal.consentOptions'
+                        | translate
+                    }}
+                  </p>
                   <span class="default-mention-badge">
                     <span class="shield-check-icon" aria-hidden="true"></span>
-                    {{ 'funding.home.contribution.personal.defaultMention' | translate }}
+                    {{
+                      'funding.home.contribution.personal.defaultMention'
+                        | translate
+                    }}
                   </span>
                 </button>
                 <button
                   type="button"
                   class="contribution-type-card review"
                   [class.active]="contributionType() === 'sponsorship_interest'"
-                  [attr.aria-pressed]="contributionType() === 'sponsorship_interest'"
+                  [attr.aria-pressed]="
+                    contributionType() === 'sponsorship_interest'
+                  "
                   [disabled]="!sponsorshipSelectionEnabled"
                   [attr.aria-disabled]="!sponsorshipSelectionEnabled"
                   (click)="setContributionType('sponsorship_interest')"
                 >
-                  <span class="contribution-type-kicker">{{ 'funding.home.contribution.sponsorship.kicker' | translate }}</span>
+                  <span class="contribution-type-kicker">{{
+                    'funding.home.contribution.sponsorship.kicker' | translate
+                  }}</span>
                   <span class="contribution-card-heading">
                     <span
                       class="contribution-card-icon contribution-card-icon-business"
                       aria-hidden="true"
                     ></span>
-                    <strong>{{ 'funding.home.contribution.sponsorship.title' | translate }}</strong>
+                    <strong>{{
+                      'funding.home.contribution.sponsorship.title' | translate
+                    }}</strong>
                   </span>
-                  <p>{{ 'funding.home.contribution.sponsorship.copy' | translate }}</p>
+                  <p>
+                    {{
+                      'funding.home.contribution.sponsorship.copy' | translate
+                    }}
+                  </p>
                   <span class="sponsorship-benefit-label">
-                    {{ 'funding.home.contribution.sponsorship.includedByDefault' | translate }}
+                    {{
+                      'funding.home.contribution.sponsorship.includedByDefault'
+                        | translate
+                    }}
                   </span>
-                  <span class="sponsorship-benefits sponsorship-benefits-default" role="list">
+                  <span
+                    class="sponsorship-benefits sponsorship-benefits-default"
+                    role="list"
+                  >
                     <span role="listitem">
-                      {{ 'funding.home.contribution.sponsorship.benefits.openg7' | translate }}
+                      {{
+                        'funding.home.contribution.sponsorship.benefits.openg7'
+                          | translate
+                      }}
                     </span>
                   </span>
                   <span class="sponsorship-benefit-label">
-                    {{ 'funding.home.contribution.sponsorship.amountBased' | translate }}
+                    {{
+                      'funding.home.contribution.sponsorship.amountBased'
+                        | translate
+                    }}
                   </span>
                   <span class="sponsorship-benefits" role="list">
                     <span role="listitem">
-                      {{ 'funding.home.contribution.sponsorship.benefits.facebook' | translate }}
+                      {{
+                        'funding.home.contribution.sponsorship.benefits.facebook'
+                          | translate
+                      }}
                     </span>
                     <span role="listitem">
-                      {{ 'funding.home.contribution.sponsorship.benefits.linkedin' | translate }}
+                      {{
+                        'funding.home.contribution.sponsorship.benefits.linkedin'
+                          | translate
+                      }}
                     </span>
                   </span>
                   <p class="sponsorship-review-note">
-                    {{ 'funding.home.contribution.sponsorship.reviewNote' | translate }}
+                    {{
+                      'funding.home.contribution.sponsorship.reviewNote'
+                        | translate
+                    }}
                   </p>
-                  <small class="unavailable-badge" *ngIf="!sponsorshipSelectionEnabled">
-                    {{ 'funding.home.contribution.sponsorship.disabled' | translate }}
+                  <small
+                    class="unavailable-badge"
+                    *ngIf="!sponsorshipSelectionEnabled"
+                  >
+                    {{
+                      'funding.home.contribution.sponsorship.disabled'
+                        | translate
+                    }}
                   </small>
                 </button>
               </div>
+              <p
+                class="sponsorship-selection-note"
+                *ngIf="contributionType() === 'sponsorship_interest'"
+              >
+                {{
+                  'funding.home.contribution.sponsorship.afterPaymentNote'
+                    | translate
+                }}
+              </p>
               <div class="amount-grid">
                 <button
                   type="button"
@@ -575,7 +644,9 @@ interface FoundationPillar {
                   {{ amount }} $
                 </button>
               </div>
-              <label for="custom-contribution">{{ 'funding.home.contribution.otherAmount' | translate }}</label>
+              <label for="custom-contribution">{{
+                'funding.home.contribution.otherAmount' | translate
+              }}</label>
               <input
                 id="custom-contribution"
                 class="custom-amount-input"
@@ -597,31 +668,40 @@ interface FoundationPillar {
                 [class.input-error]="hasInvalidCustomContribution()"
               >
                 {{
-                  (
-                    hasInvalidCustomContribution()
-                      ? 'funding.home.contribution.amountFormatError'
-                      : 'funding.home.contribution.amountFormatHint'
+                  (hasInvalidCustomContribution()
+                    ? 'funding.home.contribution.amountFormatError'
+                    : 'funding.home.contribution.amountFormatHint'
                   ) | translate
                 }}
               </p>
               <fieldset class="consent-options">
-                <legend>{{ 'funding.home.contribution.consentLegend' | translate }}</legend>
+                <legend>
+                  {{ 'funding.home.contribution.consentLegend' | translate }}
+                </legend>
                 <label class="consent-option">
                   <input
                     type="checkbox"
                     [checked]="publicDisplayConsent()"
                     (change)="setPublicDisplayConsent($event)"
                   />
-                  <span>{{ 'funding.home.contribution.publicDisplayConsent' | translate }}</span>
+                  <span>{{
+                    'funding.home.contribution.publicDisplayConsent' | translate
+                  }}</span>
                 </label>
                 <ng-container *ngIf="publicDisplayConsent()">
-                  <label for="public-display-name">{{ 'funding.home.contribution.publicDisplayNameLabel' | translate }}</label>
+                  <label for="public-display-name">{{
+                    'funding.home.contribution.publicDisplayNameLabel'
+                      | translate
+                  }}</label>
                   <input
                     id="public-display-name"
                     type="text"
                     required
                     maxlength="100"
-                    [placeholder]="'funding.home.contribution.publicDisplayNamePlaceholder' | translate"
+                    [placeholder]="
+                      'funding.home.contribution.publicDisplayNamePlaceholder'
+                        | translate
+                    "
                     [value]="publicDisplayName()"
                     (input)="setPublicDisplayName($event)"
                   />
@@ -632,7 +712,9 @@ interface FoundationPillar {
                     [checked]="displayAmountConsent()"
                     (change)="setDisplayAmountConsent($event)"
                   />
-                  <span>{{ 'funding.home.contribution.displayAmountConsent' | translate }}</span>
+                  <span>{{
+                    'funding.home.contribution.displayAmountConsent' | translate
+                  }}</span>
                 </label>
                 <label class="consent-option required">
                   <input
@@ -640,7 +722,9 @@ interface FoundationPillar {
                     [checked]="nonCharityAcknowledged()"
                     (change)="setNonCharityAcknowledged($event)"
                   />
-                  <span>{{ 'funding.home.contribution.nonCharityNotice' | translate }}</span>
+                  <span>{{
+                    'funding.home.contribution.nonCharityNotice' | translate
+                  }}</span>
                 </label>
               </fieldset>
               <button
@@ -657,12 +741,24 @@ interface FoundationPillar {
                   {{ 'funding.home.contribution.policyLink' | translate }}
                 </a>
               </p>
+              <p
+                class="payment-note sponsorship-payment-note"
+                *ngIf="contributionType() === 'sponsorship_interest'"
+              >
+                {{
+                  'funding.home.contribution.sponsorship.manualReviewNote'
+                    | translate
+                }}
+              </p>
               <p class="state" *ngIf="loadingState() === 'loading'">
                 {{ 'funding.home.contribution.loading' | translate }}
               </p>
               <p
                 class="state state-success"
-                *ngIf="loadingState() === 'success' && checkoutResultMode() === 'mocked'"
+                *ngIf="
+                  loadingState() === 'success' &&
+                  checkoutResultMode() === 'mocked'
+                "
               >
                 {{ 'funding.home.contribution.success' | translate }}
               </p>
@@ -689,7 +785,9 @@ interface FoundationPillar {
                   <dd>{{ formatMoney(snapshot().totals.availableFunds) }}</dd>
                 </div>
               </dl>
-              <a [routerLink]="transparencyPath()">{{ 'funding.home.finance.publicDetails' | translate }}</a>
+              <a [routerLink]="transparencyPath()">{{
+                'funding.home.finance.publicDetails' | translate
+              }}</a>
             </section>
           </aside>
         </div>
@@ -698,9 +796,7 @@ interface FoundationPillar {
       <footer class="builders-footer">
         <p>
           {{ 'funding.home.footer.copy' | translate }}
-          <strong
-            >{{ 'funding.home.footer.strong' | translate }}</strong
-          >
+          <strong>{{ 'funding.home.footer.strong' | translate }}</strong>
         </p>
         <ul>
           <li *ngFor="let pillar of foundationPillars">
@@ -731,7 +827,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   readonly config: FundingProjectConfig =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
-  readonly sponsorshipSelectionEnabled = false;
+  readonly sponsorshipSelectionEnabled = true;
 
   readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
   readonly policyPath = computed(() =>
@@ -739,6 +835,11 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   );
   readonly transparencyPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
+  );
+  readonly sponsorshipFollowupPath = computed(() =>
+    this.i18n.currentLanguage() === 'en'
+      ? '/en/fonds-des-batisseurs/suivi-commandite'
+      : '/fonds-des-batisseurs/suivi-commandite'
   );
 
   readonly snapshot = signal<FundingSnapshot>(this.emptySnapshot);
@@ -756,25 +857,15 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   );
   readonly checkoutResultMode = signal<'mocked' | null>(null);
   readonly checkoutStatus = signal<'idle' | 'success' | 'cancel'>('idle');
-  readonly pendingSponsorSessionId = signal<string | null>(null);
-  readonly sponsorCompanyName = signal<string>('');
-  readonly sponsorContactName = signal<string>('');
-  readonly sponsorContactEmail = signal<string>('');
-  readonly sponsorWebsiteUrl = signal<string>('');
-  readonly sponsorLogoUrl = signal<string>('');
-  readonly sponsorMessage = signal<string>('');
-  readonly sponsorFormState = signal<'idle' | 'submitting' | 'submitted' | 'error'>(
-    'idle'
-  );
+  readonly pendingSponsorFollowupToken = signal<string | null>(null);
   readonly transparencyState = signal<'loading' | 'synced' | 'empty' | 'error'>(
     'loading'
   );
   readonly contributionCount = signal<number>(0);
   readonly currency = signal<string>(this.config.currency);
   readonly lastTransparencySync = signal<string | null>(null);
-  readonly transparencySource = signal<
-    FundTransparencyPublicResponse['data_source']
-  >('empty');
+  readonly transparencySource =
+    signal<FundTransparencyPublicResponse['data_source']>('empty');
 
   readonly campaignProgress = computed<number>(() => {
     const goal = this.config.monthlyGoal;
@@ -859,7 +950,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     const count = this.contributionCount();
     return count === 1
       ? this.i18n.t('funding.home.contributionCount.one')
-      : this.i18n.t('funding.home.contributionCount.many').replace('{{ count }}', count.toString());
+      : this.i18n
+          .t('funding.home.contributionCount.many')
+          .replace('{{ count }}', count.toString());
   });
 
   readonly canStartCheckout = computed<boolean>(
@@ -867,7 +960,8 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       this.nonCharityAcknowledged() &&
       this.loadingState() !== 'loading' &&
       !this.hasInvalidCustomContribution() &&
-      (!this.publicDisplayConsent() || this.publicDisplayName().trim().length > 0)
+      (!this.publicDisplayConsent() ||
+        this.publicDisplayName().trim().length > 0)
   );
 
   readonly hasInvalidCustomContribution = computed<boolean>(() => {
@@ -881,15 +975,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly showSponsorFollowUp = computed<boolean>(
     () =>
       this.checkoutStatus() === 'success' &&
-      this.pendingSponsorSessionId() !== null
-  );
-
-  readonly canSubmitSponsorDetails = computed<boolean>(
-    () =>
-      this.sponsorFormState() !== 'submitting' &&
-      this.sponsorCompanyName().trim().length > 0 &&
-      this.sponsorContactName().trim().length > 0 &&
-      this.sponsorContactEmail().trim().length > 0
+      this.pendingSponsorFollowupToken() !== null
   );
 
   private readonly allocationPalette = [
@@ -1040,11 +1126,15 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     }
 
     if (checkout === 'success') {
-      const sessionId = params.get('session_id');
+      const followupToken = params.get('followup_token');
       const isSponsorship =
         params.get('contributionType') === 'sponsorship_interest';
-      if (isSponsorship && sessionId && sessionId !== '{CHECKOUT_SESSION_ID}') {
-        this.pendingSponsorSessionId.set(sessionId);
+      if (
+        isSponsorship &&
+        followupToken &&
+        sponsorshipFollowupTokenPattern.test(followupToken)
+      ) {
+        this.pendingSponsorFollowupToken.set(followupToken);
       }
     }
 
@@ -1094,6 +1184,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
     const url = new URL(window.location.href);
     url.searchParams.delete('checkout');
+    url.searchParams.delete('contributionType');
+    url.searchParams.delete('followup_token');
+    url.searchParams.delete('session_id');
     window.history.replaceState({}, '', url);
   }
 
@@ -1161,54 +1254,6 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   setNonCharityAcknowledged(event: Event): void {
     this.nonCharityAcknowledged.set(this.checkedFromEvent(event));
-  }
-
-  setSponsorCompanyName(event: Event): void {
-    this.sponsorCompanyName.set(this.valueFromEvent(event));
-  }
-
-  setSponsorContactName(event: Event): void {
-    this.sponsorContactName.set(this.valueFromEvent(event));
-  }
-
-  setSponsorContactEmail(event: Event): void {
-    this.sponsorContactEmail.set(this.valueFromEvent(event));
-  }
-
-  setSponsorWebsiteUrl(event: Event): void {
-    this.sponsorWebsiteUrl.set(this.valueFromEvent(event));
-  }
-
-  setSponsorLogoUrl(event: Event): void {
-    this.sponsorLogoUrl.set(this.valueFromEvent(event));
-  }
-
-  setSponsorMessage(event: Event): void {
-    this.sponsorMessage.set(this.valueFromEvent(event));
-  }
-
-  async submitSponsorDetails(): Promise<void> {
-    const sessionId = this.pendingSponsorSessionId();
-    if (!sessionId || !this.canSubmitSponsorDetails()) {
-      return;
-    }
-
-    this.sponsorFormState.set('submitting');
-    try {
-      const payload: SponsorshipDetailsRequest = {
-        sessionId,
-        companyName: this.sponsorCompanyName().trim(),
-        contactName: this.sponsorContactName().trim(),
-        contactEmail: this.sponsorContactEmail().trim(),
-        websiteUrl: this.sponsorWebsiteUrl().trim() || undefined,
-        logoUrl: this.sponsorLogoUrl().trim() || undefined,
-        message: this.sponsorMessage().trim() || undefined
-      };
-      await this.fundingService.submitSponsorshipDetails(payload);
-      this.sponsorFormState.set('submitted');
-    } catch {
-      this.sponsorFormState.set('error');
-    }
   }
 
   formatMoney(amount: number): string {

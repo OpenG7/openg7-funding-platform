@@ -522,7 +522,14 @@
         "cancelCopy": "No confirmed payment was added to the registry. You can resume your contribution whenever you are ready.",
         "sponsorKicker": "Sponsorship under review",
         "sponsorTitle": "Sponsorship received — visibility under review",
-        "sponsorCopy": "Thank you for your payment. No public visibility is granted yet: our team manually reviews every sponsorship before anything is published. Fill in these details to speed up the review.",
+        "sponsorCopy": "Payment received. Your sponsorship is not published: complete the follow-up, then the OpenG7 team will review the details, logo, and visibility.",
+        "sponsorStages": {
+          "paymentReceived": "Payment received by Stripe",
+          "detailsIncomplete": "Details to complete",
+          "manualReview": "Manual review before publication",
+          "publication": "Publication only after approval"
+        },
+        "sponsorFollowupCta": "Complete sponsorship follow-up",
         "sponsorForm": {
           "companyNameLabel": "Company name",
           "contactNameLabel": "Contact name",
@@ -628,6 +635,8 @@
             "openg7": "Mention on OpenG7.org"
           },
           "reviewNote": "Each sponsorship is manually verified and approved before publication.",
+          "afterPaymentNote": "After payment, you will be able to submit your company details, website, and logo for validation.",
+          "manualReviewNote": "Every sponsorship is manually verified and approved before publication.",
           "disabled": "Temporarily unavailable"
         },
         "otherAmount": "Other amount",

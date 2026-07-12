@@ -40,21 +40,28 @@ test('E2E 1/8: enterprise sponsorship checkout returns with recovery token', () 
     [
       "setContributionType('sponsorship_interest')",
       'showSponsorFollowUp',
-      'sponsor-followup-form',
-      'submitSponsorDetails()'
+      'pendingSponsorFollowupToken',
+      "params.get('followup_token')",
+      'sponsor-followup-steps',
+      'funding.home.checkout.sponsorFollowupCta'
     ],
     'funding page sponsorship checkout'
   );
+  assert.equal(fundingPage.includes("params.get('session_id')"), false);
+  assert.equal(fundingPage.includes('submitSponsorDetails()'), false);
 
   assertIncludesAll(
     fundingService,
     [
       "successUrl: this.buildReturnUrl('success', consent.contributionType)",
       "cancelUrl: this.buildReturnUrl('cancel')",
-      'session_id={CHECKOUT_SESSION_ID}',
       'contributionType'
     ],
     'funding service return URL builder'
+  );
+  assert.equal(
+    fundingService.includes('session_id={CHECKOUT_SESSION_ID}'),
+    false
   );
 
   assertIncludesAll(
