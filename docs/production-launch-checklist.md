@@ -186,6 +186,38 @@ Expected transparency behavior:
 - If no Stripe contributions exist yet, the page may show an empty public state.
 - No personal contributor data is exposed.
 
+## PostgreSQL-Backed Rehearsal
+
+Run this rehearsal on staging or a private production-like VPS before choosing
+the PostgreSQL-backed launch path for real payments:
+
+1. Start from a clean private PostgreSQL volume and a clean
+   `openg7-sponsor-logos` volume.
+2. Configure `DATABASE_URL`, `FUNDING_ADMIN_TOKEN`,
+   `FUNDING_ADMIN_SESSION_SECRET`, `FUNDING_SPONSOR_LOGO_STORAGE_DIR`, Stripe
+   test keys, and a signed Stripe webhook secret.
+3. Apply every versioned migration, then run `corepack yarn test` and
+   `corepack yarn workspace @openg7/funding-web build --configuration production`.
+4. Complete one Stripe test checkout for `sponsorship_interest` and confirm the
+   signed webhook stores the private contribution row.
+5. Open the sponsor follow-up link, submit company details, and confirm the
+   commandite returns to manual review.
+6. Open `/admin/fundraiser/sponsors`, create an admin browser session through
+   `POST /api/admin/session`, then review the paid sponsorship.
+7. Upload a small PNG/JPEG/WebP logo, confirm `GET /api/admin/sponsorships/logo`
+   returns a private preview, approve the sponsorship, and confirm
+   `/commanditaires` shows the logo only after consent and approval.
+8. Replace the logo and confirm the previous controlled file is no longer
+   served through `/api/public/sponsor-logos/<file>`.
+9. Delete the logo through `POST /api/admin/sponsorships/logo/delete` and confirm
+   the public sponsor entry falls back safely without exposing the deleted file.
+10. Run `bash scripts/backup.sh`, confirm both PostgreSQL and
+    `openg7-sponsor-logos-*.tar.gz` archives are present, then rehearse
+    `bash scripts/restore-from-backup.sh --sponsor-logos-backup <archive>` on a
+    disposable environment.
+11. Run the production launch agent in dry-run mode, then execute it with
+    `PLA_ROLE=operator` only after the manual checks above pass.
+
 ## Final Preflight
 
 - Confirm the chosen launch mode.
@@ -211,4 +243,4 @@ Expected transparency behavior:
 - Keep hosting/proxy rate limits and security headers aligned with the API-level limits.
 - Add image optimization for large hero assets, especially WebP or AVIF variants.
 - Consider Shopify Storefront API integration for the Boutique editorial previews.
-- Add production rehearsal steps for the PostgreSQL-backed fundraiser MVP once that mode is chosen for launch.
+- Automate the PostgreSQL-backed rehearsal once the final production target is chosen.

@@ -15,4 +15,12 @@ steps:
   - check_ssl
   - check_https
   - check_health
+  - tool: fetch_logs
+    id: post-deploy-api-logs
+    params:
+      service: api
+  - tool: analyze_logs
+    id: analyze-post-deploy-api-logs
+    params:
+      service: api
   - generate_report
