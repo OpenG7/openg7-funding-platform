@@ -29,7 +29,7 @@ Do not set this variable for the simplest Stripe-direct launch:
 DATABASE_URL=
 ```
 
-For the PostgreSQL-backed fundraiser MVP, configure the private database values from `docs/docker-deployment.md` and apply both database migrations before deployment.
+For the PostgreSQL-backed fundraiser MVP, configure the private database values from `docs/docker-deployment.md` and apply all versioned database migrations before deployment.
 
 If the frontend and API are served from different origins, the frontend host must either proxy `/api` to the Funding API or inject:
 

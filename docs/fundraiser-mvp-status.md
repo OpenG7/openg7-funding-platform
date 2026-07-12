@@ -78,6 +78,29 @@ Le produit reste volontairement prudent:
 
 ### Revue admin commandite
 
+- Route admin initiale `/admin/fundraiser`.
+- Dashboard admin: total recu, disponible estime, contributions recentes,
+  commandites en attente, etat des publications feed, erreurs Stripe.
+- Route admin `/admin/fundraiser/contributions`.
+- Route admin `/admin/fundraiser/publications`.
+- Route admin `/admin/fundraiser/expenses`.
+- Route admin `/admin/fundraiser/transparency`.
+- Route admin `/admin/fundraiser/audit`.
+- Endpoint `GET /api/admin/dashboard` pour les indicateurs prives du fonds.
+- Endpoint `GET /api/admin/contributions` pour lister les contributions privees.
+- Endpoint `GET /api/admin/contributions.csv` pour exporter les contributions
+  cote admin.
+- Endpoints `GET /api/admin/expenses`, `POST /api/admin/expenses` et
+  `POST /api/admin/expenses/update` pour gerer les depenses/allocations
+  publiees ou privees.
+- Endpoint `GET /api/admin/transparency` pour comparer la transparence publique
+  courante avec les allocations admin.
+- Endpoints `GET /api/admin/publication-drafts`,
+  `POST /api/admin/publication-drafts` et
+  `POST /api/admin/publication-drafts/update` pour generer, editer, approuver,
+  refuser, planifier ou marquer publies les brouillons commandites.
+- Endpoint `GET /api/admin/audit-log` pour lire le journal prive des actions
+  admin sensibles.
 - Route cachee `/admin/fundraiser/sponsors`.
 - Endpoint `GET /api/admin/sponsorships` pour lister les commandites payees.
 - Endpoint `POST /api/admin/sponsorships/review` pour remettre en attente,
@@ -115,11 +138,14 @@ Le produit reste volontairement prudent:
   - `004_add_sponsorship_review.sql`.
   - `005_add_sponsorship_followup_token.sql`.
   - `006_add_sponsorship_publication_feed.sql`.
+  - `007_add_admin_audit_and_publication_drafts.sql`.
 - Tables MVP:
   - `stripe_events`;
   - `stripe_checkout_sessions`;
   - `fund_contributions` (colonnes `sponsor_*`, revue privee, hash de token
     de suivi commandite et placements feed).
+  - `sponsor_publication_drafts` (brouillons prives de publications commanditees).
+  - `admin_audit_log` (journal prive des actions admin).
 
 ### Webhooks Stripe
 
@@ -224,8 +250,19 @@ Resultat attendu:
   - `GET /api/sponsorship-followup?token=...`.
   - `GET /api/public/sponsorships`.
 - Endpoint admin teste avec jeton:
+  - `GET /api/admin/dashboard`.
+  - `GET /api/admin/contributions`.
+  - `GET /api/admin/contributions.csv`.
+  - `GET /api/admin/expenses`.
+  - `POST /api/admin/expenses`.
+  - `POST /api/admin/expenses/update`.
+  - `GET /api/admin/transparency`.
   - `GET /api/admin/sponsorships`.
   - `POST /api/admin/sponsorships/publication`.
+  - `GET /api/admin/publication-drafts`.
+  - `POST /api/admin/publication-drafts`.
+  - `POST /api/admin/publication-drafts/update`.
+  - `GET /api/admin/audit-log`.
 - Checkout teste avec une contribution reelle de faible montant ou en mode test Stripe.
 - Rejeu du meme evenement webhook teste pour confirmer l'idempotence.
 

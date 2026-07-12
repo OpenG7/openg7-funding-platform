@@ -164,6 +164,10 @@ docker compose --profile database exec -T postgres \
 docker compose --profile database exec -T postgres \
   psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
   < apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql
+
+docker compose --profile database exec -T postgres \
+  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+  < apps/funding-api/migrations/007_add_admin_audit_and_publication_drafts.sql
 ```
 
 4. Restart the API:

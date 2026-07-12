@@ -118,8 +118,10 @@ test('E2E 2/8: sponsor can reopen token follow-up and submit company details', (
   assertIncludesAll(
     api,
     [
-      "routeMatches(\n      request.url,\n      '/sponsorship-followup'",
-      "routeMatches(\n      request.url,\n      '/sponsorship-followup/details'",
+      "'/sponsorship-followup'",
+      "'/api/sponsorship-followup'",
+      "'/sponsorship-followup/details'",
+      "'/api/sponsorship-followup/details'",
       'recordSponsorshipDetailsForContribution'
     ],
     'follow-up API routes'

@@ -1,6 +1,12 @@
 import { CanMatchFn, Routes } from '@angular/router';
 
+import { AdminAuditPageComponent } from './features/funding/pages/admin-audit-page/admin-audit-page.component.js';
+import { AdminContributionsPageComponent } from './features/funding/pages/admin-contributions-page/admin-contributions-page.component.js';
+import { AdminDashboardPageComponent } from './features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.js';
+import { AdminExpensesPageComponent } from './features/funding/pages/admin-expenses-page/admin-expenses-page.component.js';
+import { AdminPublicationsPageComponent } from './features/funding/pages/admin-publications-page/admin-publications-page.component.js';
 import { AdminSponsorsPageComponent } from './features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.js';
+import { AdminTransparencyPageComponent } from './features/funding/pages/admin-transparency-page/admin-transparency-page.component.js';
 import { ApiKeysPageComponent } from './features/funding/pages/api-keys-page/api-keys-page.component.js';
 import { BuildersPageComponent } from './features/funding/pages/builders-page/builders-page.component.js';
 import { BoutiquePageComponent } from './features/funding/pages/boutique-page/boutique-page.component.js';
@@ -93,8 +99,32 @@ export const appRoutes: Routes = [
   ...publicRoutes,
   ...englishPublicRoutes,
   {
+    path: 'admin/fundraiser',
+    component: AdminDashboardPageComponent
+  },
+  {
+    path: 'admin/fundraiser/contributions',
+    component: AdminContributionsPageComponent
+  },
+  {
     path: 'admin/fundraiser/sponsors',
     component: AdminSponsorsPageComponent
+  },
+  {
+    path: 'admin/fundraiser/publications',
+    component: AdminPublicationsPageComponent
+  },
+  {
+    path: 'admin/fundraiser/expenses',
+    component: AdminExpensesPageComponent
+  },
+  {
+    path: 'admin/fundraiser/transparency',
+    component: AdminTransparencyPageComponent
+  },
+  {
+    path: 'admin/fundraiser/audit',
+    component: AdminAuditPageComponent
   },
   {
     path: 'en/**',

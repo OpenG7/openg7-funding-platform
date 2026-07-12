@@ -7,6 +7,12 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import Stripe from 'stripe';
 import type {
+  AdminContributionRecord,
+  AdminExpenseCreateRequest,
+  AdminExpenseUpdateRequest,
+  AdminTransparencyResponse,
+  AdminPublicationDraftCreateRequest,
+  AdminPublicationDraftUpdateRequest,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
   AdminSponsorshipReviewRequest,
@@ -26,15 +32,29 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
+import {
+  allowedAdminExpenseStatuses,
+  allowedPublicationDraftStatuses,
+  createAdminExpense,
+  createAdminPublicationDraft,
+  insertAdminAuditLog,
+  listAdminExpenses,
+  listAdminAuditLog,
+  listAdminPublicationDrafts,
+  updateAdminExpense,
+  updateAdminPublicationDraft
+} from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
 import {
   allowedSponsorFeedChannels,
   allowedSponsorFeedStatuses,
   allowedSponsorFeedTargets,
+  getAdminDashboard,
   allowedSponsorshipReviewStatuses,
   insertCheckoutSessionRecord,
   getSponsorshipFollowupByTokenHash,
   listPublicSponsorships,
+  listAdminContributions,
   listAdminSponsorships,
   normalizeContributionType,
   parseMetadataBoolean,
@@ -187,6 +207,22 @@ const writeText = (
   response.end(payload);
 };
 
+const writeCsv = (
+  request: ApiRequest,
+  response: ApiResponse,
+  statusCode: number,
+  payload: string,
+  filename: string
+): void => {
+  response.writeHead(statusCode, {
+    ...createCorsHeaders(request),
+    ...securityHeaders,
+    'Content-Disposition': `attachment; filename="${filename}"`,
+    'Content-Type': 'text/csv; charset=utf-8'
+  });
+  response.end(payload);
+};
+
 const resolveAllowedOrigin = (request: ApiRequest): string | null => {
   const origin = request.headers.origin;
 
@@ -252,6 +288,11 @@ const ADMIN_REVIEW_NOTE_MAX_LENGTH = 1000;
 const SPONSOR_PUBLIC_SLUG_MAX_LENGTH = 120;
 const SPONSOR_PUBLIC_SUMMARY_MAX_LENGTH = 500;
 const SPONSOR_FEED_NOTES_MAX_LENGTH = 1000;
+const PUBLICATION_DRAFT_TITLE_MAX_LENGTH = 160;
+const PUBLICATION_DRAFT_BODY_MAX_LENGTH = 2500;
+const PUBLICATION_DRAFT_DISCLOSURE_MAX_LENGTH = 300;
+const ADMIN_EXPENSE_NAME_MAX_LENGTH = 160;
+const ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_BUCKET_PRUNE_THRESHOLD = 5000;
@@ -297,6 +338,15 @@ const isValidOptionalBoundedText = (
   value === null ||
   (typeof value === 'string' && value.trim().length <= maxLength);
 
+const isValidOptionalNonEmptyBoundedText = (
+  value: unknown,
+  maxLength: number
+): boolean =>
+  value === undefined ||
+  (typeof value === 'string' &&
+    value.trim().length > 0 &&
+    value.trim().length <= maxLength);
+
 const isValidOptionalPublicSlug = (value: unknown): boolean =>
   value === undefined ||
   value === null ||
@@ -304,6 +354,20 @@ const isValidOptionalPublicSlug = (value: unknown): boolean =>
   (typeof value === 'string' &&
     value.trim().length <= SPONSOR_PUBLIC_SLUG_MAX_LENGTH &&
     /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.trim()));
+
+const isValidUuid = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  );
+
+const isValidOptionalIsoDate = (value: unknown): boolean => {
+  if (value === undefined || value === null || value === '') {
+    return true;
+  }
+
+  return typeof value === 'string' && Number.isFinite(Date.parse(value));
+};
 
 const createSponsorshipFollowupToken = (): string =>
   randomBytes(FOLLOWUP_TOKEN_BYTES).toString('base64url');
@@ -342,6 +406,31 @@ const isAllowedSponsorFeedStatus = (
 ): value is SponsorFeedStatus =>
   typeof value === 'string' &&
   allowedSponsorFeedStatuses.has(value as SponsorFeedStatus);
+
+const isAllowedSponsorFeedChannel = (
+  value: unknown
+): value is SponsorFeedChannel =>
+  typeof value === 'string' &&
+  allowedSponsorFeedChannels.has(value as SponsorFeedChannel);
+
+const isAllowedPublicationDraftStatus = (
+  value: unknown
+): value is NonNullable<AdminPublicationDraftUpdateRequest['status']> =>
+  typeof value === 'string' &&
+  allowedPublicationDraftStatuses.has(
+    value as NonNullable<AdminPublicationDraftUpdateRequest['status']>
+  );
+
+const isAllowedAdminExpenseStatus = (
+  value: unknown
+): value is NonNullable<AdminExpenseUpdateRequest['status']> =>
+  typeof value === 'string' &&
+  allowedAdminExpenseStatuses.has(
+    value as NonNullable<AdminExpenseUpdateRequest['status']>
+  );
+
+const isValidAdminExpenseId = (value: unknown): value is string =>
+  typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value);
 
 const parseSponsorFeedChannelsFromRequest = (
   value: unknown
@@ -426,6 +515,9 @@ const ensureAdminAccess = (
 
   return true;
 };
+
+const getAdminAuditActor = (request: ApiRequest): string =>
+  readAdminToken(request) ? 'funding-admin-token' : 'local-dev-admin';
 
 const resolveCheckoutReturnUrl = (
   candidateUrl: string,
@@ -607,6 +699,24 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
   if (
     routeMatches(
       request.url,
+      '/admin/dashboard',
+      '/api/admin/dashboard',
+      '/admin/contributions',
+      '/api/admin/contributions',
+      '/admin/contributions.csv',
+      '/api/admin/contributions.csv',
+      '/admin/expenses',
+      '/api/admin/expenses',
+      '/admin/expenses/update',
+      '/api/admin/expenses/update',
+      '/admin/transparency',
+      '/api/admin/transparency',
+      '/admin/publication-drafts',
+      '/api/admin/publication-drafts',
+      '/admin/publication-drafts/update',
+      '/api/admin/publication-drafts/update',
+      '/admin/audit-log',
+      '/api/admin/audit-log',
       '/admin/sponsorships',
       '/api/admin/sponsorships',
       '/admin/sponsorships/review',
@@ -650,6 +760,65 @@ const resolveStripePaymentIntentId = (
   }
 
   return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent.id;
+};
+
+const csvCell = (value: string | number | boolean | null): string => {
+  const text = value === null ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+};
+
+const buildAdminContributionsCsv = (
+  contributions: readonly AdminContributionRecord[]
+): string => {
+  const header = [
+    'id',
+    'contribution_type',
+    'payment_status',
+    'amount',
+    'currency',
+    'paid_at',
+    'public_name',
+    'email_private',
+    'public_display_consent',
+    'display_amount_consent',
+    'sponsor_company_name',
+    'sponsor_contact_name',
+    'sponsor_contact_email',
+    'sponsor_review_status',
+    'sponsor_feed_status',
+    'stripe_session_id',
+    'stripe_payment_intent_id',
+    'created_at',
+    'updated_at'
+  ];
+
+  const rows = contributions.map((contribution) =>
+    [
+      contribution.id,
+      contribution.contribution_type,
+      contribution.payment_status,
+      contribution.amount,
+      contribution.currency,
+      contribution.paid_at,
+      contribution.public_name,
+      contribution.email_private,
+      contribution.public_display_consent,
+      contribution.display_amount_consent,
+      contribution.sponsor_company_name,
+      contribution.sponsor_contact_name,
+      contribution.sponsor_contact_email,
+      contribution.sponsor_review_status,
+      contribution.sponsor_feed_status,
+      contribution.stripe_session_id,
+      contribution.stripe_payment_intent_id,
+      contribution.created_at,
+      contribution.updated_at
+    ]
+      .map(csvCell)
+      .join(',')
+  );
+
+  return [header.join(','), ...rows].join('\n');
 };
 
 createServer(async (request, response) => {
@@ -1326,6 +1495,614 @@ createServer(async (request, response) => {
 
   if (
     request.method === 'GET' &&
+    routeMatches(request.url, '/admin/dashboard', '/api/admin/dashboard')
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await getAdminDashboard(dbPool);
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load admin dashboard.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin dashboard could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/admin/contributions', '/api/admin/contributions')
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await listAdminContributions(dbPool);
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load admin contributions.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin contributions could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/contributions.csv',
+      '/api/admin/contributions.csv'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await listAdminContributions(dbPool);
+      writeCsv(
+        request,
+        response,
+        200,
+        buildAdminContributionsCsv(result.contributions),
+        'openg7-admin-contributions.csv'
+      );
+    } catch (error) {
+      console.error('Failed to export admin contributions.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin contributions export could not be generated.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/admin/expenses', '/api/admin/expenses')
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await listAdminExpenses(dbPool);
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load admin expenses.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin expenses could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(request.url, '/admin/expenses', '/api/admin/expenses')
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminExpenseCreateRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminExpenseCreateRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid expense request body.'
+      });
+      return;
+    }
+
+    if (
+      !isNonEmptySponsorText(
+        parsed.projectName,
+        ADMIN_EXPENSE_NAME_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Expense project name is invalid.'
+      });
+      return;
+    }
+
+    if (
+      !isNonEmptySponsorText(
+        parsed.publicDescription,
+        ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Expense public description is invalid.'
+      });
+      return;
+    }
+
+    if (
+      !Number.isFinite(parsed.amountAllocated) ||
+      parsed.amountAllocated <= 0
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Expense amount must be positive.'
+      });
+      return;
+    }
+
+    if (parsed.currency !== 'CAD') {
+      writeJson(request, response, 400, {
+        error: 'Expense currency is not supported.'
+      });
+      return;
+    }
+
+    if (!isAllowedAdminExpenseStatus(parsed.status)) {
+      writeJson(request, response, 400, {
+        error: 'Expense status is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalIsoDate(parsed.publishedAt)) {
+      writeJson(request, response, 400, {
+        error: 'Expense published date is invalid.'
+      });
+      return;
+    }
+
+    try {
+      const result = await createAdminExpense(dbPool, parsed);
+      if (!result.updated || !result.expense) {
+        writeJson(request, response, 404, {
+          error: 'Expense could not be created or fund_allocations is missing.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'expense.create',
+        entityType: 'expense',
+        entityId: result.expense.id,
+        summary: `Expense created for ${result.expense.project_name}.`,
+        metadata: {
+          amountAllocated: result.expense.amount_allocated,
+          status: result.expense.status
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to create admin expense.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin expense could not be created.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/expenses/update',
+      '/api/admin/expenses/update'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminExpenseUpdateRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminExpenseUpdateRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid expense update request body.'
+      });
+      return;
+    }
+
+    if (!isValidAdminExpenseId(parsed.expenseId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid expense id.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalNonEmptyBoundedText(
+        parsed.projectName,
+        ADMIN_EXPENSE_NAME_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Expense project name is invalid.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalNonEmptyBoundedText(
+        parsed.publicDescription,
+        ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Expense public description is invalid.'
+      });
+      return;
+    }
+
+    if (
+      parsed.amountAllocated !== undefined &&
+      (!Number.isFinite(parsed.amountAllocated) || parsed.amountAllocated <= 0)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Expense amount must be positive.'
+      });
+      return;
+    }
+
+    if (parsed.currency !== undefined && parsed.currency !== 'CAD') {
+      writeJson(request, response, 400, {
+        error: 'Expense currency is not supported.'
+      });
+      return;
+    }
+
+    if (
+      parsed.status !== undefined &&
+      !isAllowedAdminExpenseStatus(parsed.status)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Expense status is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalIsoDate(parsed.publishedAt)) {
+      writeJson(request, response, 400, {
+        error: 'Expense published date is invalid.'
+      });
+      return;
+    }
+
+    try {
+      const result = await updateAdminExpense(dbPool, parsed);
+      if (!result.updated || !result.expense) {
+        writeJson(request, response, 404, {
+          error: 'Expense was not found.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: parsed.status
+          ? `expense.${parsed.status}`
+          : 'expense.update',
+        entityType: 'expense',
+        entityId: result.expense.id,
+        summary: `Expense updated for ${result.expense.project_name}.`,
+        metadata: {
+          amountAllocated: result.expense.amount_allocated,
+          status: result.expense.status
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to update admin expense.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin expense could not be updated.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/admin/transparency', '/api/admin/transparency')
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const [publicSummary, expenses] = await Promise.all([
+        getPublicTransparencySummary(dbPool),
+        listAdminExpenses(dbPool)
+      ]);
+      const lastUpdatedAt =
+        new Date(publicSummary.last_updated_at).getTime() >
+        new Date(expenses.last_updated_at).getTime()
+          ? publicSummary.last_updated_at
+          : expenses.last_updated_at;
+      const result: AdminTransparencyResponse = {
+        data_source: 'database',
+        public_summary: publicSummary,
+        expenses_summary: expenses.summary,
+        expenses: expenses.expenses,
+        last_updated_at: lastUpdatedAt
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load admin transparency.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin transparency could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-drafts',
+      '/api/admin/publication-drafts'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await listAdminPublicationDrafts(dbPool);
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load publication drafts.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication drafts could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-drafts',
+      '/api/admin/publication-drafts'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationDraftCreateRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationDraftCreateRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication draft request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.contributionId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid contribution id.'
+      });
+      return;
+    }
+
+    if (
+      parsed.feedTarget !== 'openg7' &&
+      parsed.feedTarget !== 'openg20'
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication draft feed target.'
+      });
+      return;
+    }
+
+    if (!isAllowedSponsorFeedChannel(parsed.channel)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication draft channel.'
+      });
+      return;
+    }
+
+    try {
+      const result = await createAdminPublicationDraft(dbPool, parsed);
+      if (!result.updated || !result.draft) {
+        writeJson(request, response, 404, {
+          error:
+            'Approved sponsorship was not found or publication drafts migration is missing.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_draft.create',
+        entityType: 'publication_draft',
+        entityId: result.draft.id,
+        summary: `Publication draft created for ${result.draft.sponsor_company_name}.`,
+        metadata: {
+          contributionId: result.draft.contribution_id,
+          feedTarget: result.draft.feed_target,
+          channel: result.draft.channel
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to create publication draft.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication draft could not be created.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-drafts/update',
+      '/api/admin/publication-drafts/update'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationDraftUpdateRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationDraftUpdateRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication draft update request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.draftId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication draft id.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalNonEmptyBoundedText(
+        parsed.title,
+        PUBLICATION_DRAFT_TITLE_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Publication draft title is invalid.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalNonEmptyBoundedText(
+        parsed.body,
+        PUBLICATION_DRAFT_BODY_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Publication draft body is invalid.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalNonEmptyBoundedText(
+        parsed.disclosureText,
+        PUBLICATION_DRAFT_DISCLOSURE_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Publication draft disclosure is invalid.'
+      });
+      return;
+    }
+
+    if (
+      parsed.status !== undefined &&
+      !isAllowedPublicationDraftStatus(parsed.status)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication draft status.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.publicUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Publication public URL must be a valid https link.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalIsoDate(parsed.scheduledAt)) {
+      writeJson(request, response, 400, {
+        error: 'Publication scheduled date is invalid.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.reviewNote,
+        ADMIN_REVIEW_NOTE_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Publication draft review note is too long.'
+      });
+      return;
+    }
+
+    try {
+      const result = await updateAdminPublicationDraft(dbPool, parsed);
+      if (!result.updated || !result.draft) {
+        writeJson(request, response, 404, {
+          error: 'Publication draft was not found.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: parsed.status
+          ? `publication_draft.${parsed.status}`
+          : 'publication_draft.update',
+        entityType: 'publication_draft',
+        entityId: result.draft.id,
+        summary: `Publication draft updated for ${result.draft.sponsor_company_name}.`,
+        metadata: {
+          status: result.draft.status,
+          contributionId: result.draft.contribution_id,
+          feedTarget: result.draft.feed_target,
+          channel: result.draft.channel
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to update publication draft.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication draft could not be updated.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/admin/audit-log', '/api/admin/audit-log')
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await listAdminAuditLog(dbPool);
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load admin audit log.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin audit log could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
     routeMatches(
       request.url,
       '/admin/sponsorships',
@@ -1441,6 +2218,17 @@ createServer(async (request, response) => {
         updated,
         reviewStatus: parsed.reviewStatus
       };
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: `sponsorship_review.${parsed.reviewStatus}`,
+        entityType: 'sponsorship',
+        entityId: parsed.contributionId,
+        summary: `Sponsorship review set to ${parsed.reviewStatus}.`,
+        metadata: {
+          reviewStatus: parsed.reviewStatus,
+          hasReviewNote: Boolean(parsed.reviewNote?.trim())
+        }
+      });
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to update sponsorship review.', error);
@@ -1591,6 +2379,19 @@ createServer(async (request, response) => {
         updated,
         feedStatus: parsed.feedStatus
       };
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'sponsorship_publication.update',
+        entityType: 'sponsorship',
+        entityId: parsed.contributionId,
+        summary: `Sponsorship publication metadata updated to ${parsed.feedStatus}.`,
+        metadata: {
+          feedTarget: parsed.feedTarget ?? null,
+          feedChannels,
+          feedStatus: parsed.feedStatus,
+          hasPublicUrl: Boolean(parsed.feedPublicUrl?.trim())
+        }
+      });
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to update sponsorship publication.', error);
