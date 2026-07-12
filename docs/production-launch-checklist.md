@@ -19,6 +19,9 @@ Set these variables on the API host:
 FUNDING_PLATFORM_ENV=production
 FUNDING_API_PORT=<platform-provided-port-or-3333>
 FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
+FUNDING_ADMIN_TOKEN=<long-random-root-admin-secret>
+FUNDING_ADMIN_SESSION_SECRET=<different-long-random-session-secret>
+FUNDING_ADMIN_SESSION_TTL_MINUTES=60
 STRIPE_SECRET_KEY=<stripe-live-or-final-test-secret-key>
 STRIPE_WEBHOOK_SECRET=<stripe-webhook-signing-secret>
 ```

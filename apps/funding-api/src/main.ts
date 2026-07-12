@@ -3,7 +3,12 @@ import {
   type IncomingMessage,
   type ServerResponse
 } from 'node:http';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual
+} from 'node:crypto';
 
 import Stripe from 'stripe';
 import type {
@@ -13,6 +18,8 @@ import type {
   AdminTransparencyResponse,
   AdminPublicationDraftCreateRequest,
   AdminPublicationDraftUpdateRequest,
+  AdminSessionCreateRequest,
+  AdminSessionResponse,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
   AdminSponsorshipReviewRequest,
@@ -97,6 +104,12 @@ const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const projectId = process.env.FUNDING_PROJECT_ID ?? 'openg7';
 const isProduction = process.env.FUNDING_PLATFORM_ENV === 'production';
 const adminToken = process.env.FUNDING_ADMIN_TOKEN?.trim() ?? '';
+const adminSessionSecret =
+  process.env.FUNDING_ADMIN_SESSION_SECRET?.trim() ?? '';
+const adminSessionTtlMinutes = parsePositiveIntegerEnv(
+  process.env.FUNDING_ADMIN_SESSION_TTL_MINUTES,
+  60
+);
 const sponsorshipFollowupTokenTtlDays = parsePositiveIntegerEnv(
   process.env.FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS,
   30
@@ -294,9 +307,15 @@ const PUBLICATION_DRAFT_DISCLOSURE_MAX_LENGTH = 300;
 const ADMIN_EXPENSE_NAME_MAX_LENGTH = 160;
 const ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
+const ADMIN_SESSION_TOKEN_PREFIX = 'openg7-admin-session.';
+const ADMIN_SESSION_NONCE_BYTES = 16;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_BUCKET_PRUNE_THRESHOLD = 5000;
-const followupEditablePaymentStatuses = new Set(['paid', 'refunded', 'disputed']);
+const followupEditablePaymentStatuses = new Set([
+  'paid',
+  'refunded',
+  'disputed'
+]);
 
 const isNonEmptySponsorText = (
   value: unknown,
@@ -357,9 +376,7 @@ const isValidOptionalPublicSlug = (value: unknown): boolean =>
 
 const isValidUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value
-  );
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
 const isValidOptionalIsoDate = (value: unknown): boolean => {
   if (value === undefined || value === null || value === '') {
@@ -479,13 +496,153 @@ const adminTokenMatches = (candidate: string): boolean => {
   );
 };
 
-const isAdminAuthorized = (request: ApiRequest): boolean => {
+interface AdminSessionPayload {
+  readonly actor: 'funding-admin-session';
+  readonly exp: number;
+  readonly iat: number;
+  readonly nonce: string;
+  readonly v: 1;
+}
+
+interface AdminAuthorization {
+  readonly actor:
+    'funding-admin-session' | 'funding-admin-token' | 'local-dev-admin';
+  readonly source: 'session' | 'static-token' | 'local-dev';
+}
+
+const getAdminSessionSigningSecret = (): string | null =>
+  adminSessionSecret || adminToken || (!isProduction ? projectId : null);
+
+const signAdminSessionPayload = (encodedPayload: string): string | null => {
+  const signingSecret = getAdminSessionSigningSecret();
+  if (!signingSecret) {
+    return null;
+  }
+
+  return createHmac('sha256', signingSecret)
+    .update(encodedPayload)
+    .digest('base64url');
+};
+
+const adminSessionSignatureMatches = (
+  encodedPayload: string,
+  signature: string
+): boolean => {
+  const expectedSignature = signAdminSessionPayload(encodedPayload);
+  if (!expectedSignature) {
+    return false;
+  }
+
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+  return (
+    signatureBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(signatureBuffer, expectedBuffer)
+  );
+};
+
+const createAdminSession = (now = Date.now()): AdminSessionResponse | null => {
+  const expiresAtMs = now + adminSessionTtlMinutes * 60 * 1000;
+  const payload: AdminSessionPayload = {
+    actor: 'funding-admin-session',
+    exp: expiresAtMs,
+    iat: now,
+    nonce: randomBytes(ADMIN_SESSION_NONCE_BYTES).toString('base64url'),
+    v: 1
+  };
+  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
+    'base64url'
+  );
+  const signature = signAdminSessionPayload(encodedPayload);
+
+  if (!signature) {
+    return null;
+  }
+
+  return {
+    actor: payload.actor,
+    expiresAt: new Date(payload.exp).toISOString(),
+    sessionToken: `${ADMIN_SESSION_TOKEN_PREFIX}${encodedPayload}.${signature}`,
+    ttlSeconds: Math.floor((payload.exp - payload.iat) / 1000)
+  };
+};
+
+const verifyAdminSession = (
+  candidate: string,
+  now = Date.now()
+): AdminSessionPayload | null => {
+  if (!candidate.startsWith(ADMIN_SESSION_TOKEN_PREFIX)) {
+    return null;
+  }
+
+  const token = candidate.slice(ADMIN_SESSION_TOKEN_PREFIX.length);
+  const [encodedPayload, signature] = token.split('.', 2);
+  if (!encodedPayload || !signature) {
+    return null;
+  }
+
+  if (!adminSessionSignatureMatches(encodedPayload, signature)) {
+    return null;
+  }
+
+  let payload: AdminSessionPayload;
+  try {
+    payload = JSON.parse(
+      Buffer.from(encodedPayload, 'base64url').toString('utf8')
+    ) as AdminSessionPayload;
+  } catch {
+    return null;
+  }
+
+  if (
+    payload.v !== 1 ||
+    payload.actor !== 'funding-admin-session' ||
+    !Number.isInteger(payload.iat) ||
+    !Number.isInteger(payload.exp) ||
+    payload.exp <= now
+  ) {
+    return null;
+  }
+
+  return payload;
+};
+
+const resolveAdminAuthorization = (
+  request: ApiRequest
+): AdminAuthorization | null => {
   if (!adminToken) {
-    return !isProduction;
+    return isProduction
+      ? null
+      : {
+          actor: 'local-dev-admin',
+          source: 'local-dev'
+        };
   }
 
   const token = readAdminToken(request);
-  return Boolean(token && adminTokenMatches(token));
+  if (!token) {
+    return null;
+  }
+
+  if (verifyAdminSession(token)) {
+    return {
+      actor: 'funding-admin-session',
+      source: 'session'
+    };
+  }
+
+  if (adminTokenMatches(token)) {
+    return {
+      actor: 'funding-admin-token',
+      source: 'static-token'
+    };
+  }
+
+  return null;
+};
+
+const isAdminAuthorized = (request: ApiRequest): boolean => {
+  return Boolean(resolveAdminAuthorization(request));
 };
 
 const ensureAdminAccess = (
@@ -517,7 +674,7 @@ const ensureAdminAccess = (
 };
 
 const getAdminAuditActor = (request: ApiRequest): string =>
-  readAdminToken(request) ? 'funding-admin-token' : 'local-dev-admin';
+  resolveAdminAuthorization(request)?.actor ?? 'local-dev-admin';
 
 const resolveCheckoutReturnUrl = (
   candidateUrl: string,
@@ -527,10 +684,7 @@ const resolveCheckoutReturnUrl = (
 
   try {
     const candidate = new URL(candidateUrl);
-    const allowedOriginSet = new Set([
-      ...allowedOrigins,
-      publicBaseOrigin
-    ]);
+    const allowedOriginSet = new Set([...allowedOrigins, publicBaseOrigin]);
 
     if (
       !isProduction &&
@@ -605,7 +759,8 @@ const adminRateLimiter = createRateLimiter(
 
 const firstHeaderValue = (
   value: string | string[] | undefined
-): string | null => (Array.isArray(value) ? value[0] ?? null : value ?? null);
+): string | null =>
+  Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 
 const getClientIp = (request: ApiRequest): string => {
   const forwarded = firstHeaderValue(request.headers['x-forwarded-for']);
@@ -699,6 +854,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
   if (
     routeMatches(
       request.url,
+      '/admin/session',
+      '/api/admin/session',
       '/admin/dashboard',
       '/api/admin/dashboard',
       '/admin/contributions',
@@ -932,8 +1089,7 @@ createServer(async (request, response) => {
         parsed.cancelUrl,
         '/?checkout=cancel'
       );
-      const requiresReview =
-        parsed.contributionType === 'sponsorship_interest';
+      const requiresReview = parsed.contributionType === 'sponsorship_interest';
       const sponsorshipFollowupToken = requiresReview
         ? createSponsorshipFollowupToken()
         : null;
@@ -1143,7 +1299,8 @@ createServer(async (request, response) => {
       'sponsorship_interest'
     ) {
       writeJson(request, response, 400, {
-        error: 'This checkout session is not a sponsorship interest contribution.'
+        error:
+          'This checkout session is not a sponsorship interest contribution.'
       });
       return;
     }
@@ -1244,9 +1401,10 @@ createServer(async (request, response) => {
       return;
     }
 
-    const token = new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
-      'token'
-    );
+    const token = new URL(
+      request.url ?? '/',
+      publicBaseOrigin
+    ).searchParams.get('token');
     if (!isValidFollowupToken(token)) {
       writeJson(request, response, 400, {
         error: 'Invalid sponsorship follow-up token.'
@@ -1411,8 +1569,7 @@ createServer(async (request, response) => {
               sponsorContactEmail: truncateStripeMetadataValue(contactEmail),
               ...(websiteUrl
                 ? {
-                    sponsorWebsiteUrl:
-                      truncateStripeMetadataValue(websiteUrl)
+                    sponsorWebsiteUrl: truncateStripeMetadataValue(websiteUrl)
                   }
                 : {}),
               ...(logoUrl
@@ -1494,6 +1651,49 @@ createServer(async (request, response) => {
   }
 
   if (
+    request.method === 'POST' &&
+    routeMatches(request.url, '/admin/session', '/api/admin/session')
+  ) {
+    if (!adminToken && isProduction) {
+      writeJson(request, response, 503, {
+        error: 'Admin session is not configured.'
+      });
+      return;
+    }
+
+    let parsed: AdminSessionCreateRequest;
+    try {
+      const body = await readBody(request, 16 * 1024);
+      parsed = JSON.parse(body) as AdminSessionCreateRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid admin session request body.'
+      });
+      return;
+    }
+
+    const suppliedToken =
+      typeof parsed.token === 'string' ? parsed.token.trim() : '';
+    if (adminToken && !adminTokenMatches(suppliedToken)) {
+      writeJson(request, response, 401, {
+        error: 'Admin authorization is required.'
+      });
+      return;
+    }
+
+    const session = createAdminSession();
+    if (!session) {
+      writeJson(request, response, 503, {
+        error: 'Admin session signing is not configured.'
+      });
+      return;
+    }
+
+    writeJson(request, response, 200, session);
+    return;
+  }
+
+  if (
     request.method === 'GET' &&
     routeMatches(request.url, '/admin/dashboard', '/api/admin/dashboard')
   ) {
@@ -1515,7 +1715,11 @@ createServer(async (request, response) => {
 
   if (
     request.method === 'GET' &&
-    routeMatches(request.url, '/admin/contributions', '/api/admin/contributions')
+    routeMatches(
+      request.url,
+      '/admin/contributions',
+      '/api/admin/contributions'
+    )
   ) {
     if (!ensureAdminAccess(request, response)) {
       return;
@@ -1603,10 +1807,7 @@ createServer(async (request, response) => {
     }
 
     if (
-      !isNonEmptySponsorText(
-        parsed.projectName,
-        ADMIN_EXPENSE_NAME_MAX_LENGTH
-      )
+      !isNonEmptySponsorText(parsed.projectName, ADMIN_EXPENSE_NAME_MAX_LENGTH)
     ) {
       writeJson(request, response, 400, {
         error: 'Expense project name is invalid.'
@@ -1786,9 +1987,7 @@ createServer(async (request, response) => {
 
       await insertAdminAuditLog(dbPool, {
         actor: getAdminAuditActor(request),
-        action: parsed.status
-          ? `expense.${parsed.status}`
-          : 'expense.update',
+        action: parsed.status ? `expense.${parsed.status}` : 'expense.update',
         entityType: 'expense',
         entityId: result.expense.id,
         summary: `Expense updated for ${result.expense.project_name}.`,
@@ -1896,10 +2095,7 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (
-      parsed.feedTarget !== 'openg7' &&
-      parsed.feedTarget !== 'openg20'
-    ) {
+    if (parsed.feedTarget !== 'openg7' && parsed.feedTarget !== 'openg20') {
       writeJson(request, response, 400, {
         error: 'Invalid publication draft feed target.'
       });
@@ -2103,11 +2299,7 @@ createServer(async (request, response) => {
 
   if (
     request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships',
-      '/api/admin/sponsorships'
-    )
+    routeMatches(request.url, '/admin/sponsorships', '/api/admin/sponsorships')
   ) {
     if (!ensureAdminAccess(request, response)) {
       return;

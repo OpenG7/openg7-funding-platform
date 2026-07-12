@@ -49,7 +49,9 @@ test('Fundraiser MVP database migration creates required private tables', () => 
   assert.ok(
     migration.includes('CREATE TABLE IF NOT EXISTS stripe_checkout_sessions')
   );
-  assert.ok(migration.includes('CREATE TABLE IF NOT EXISTS fund_contributions'));
+  assert.ok(
+    migration.includes('CREATE TABLE IF NOT EXISTS fund_contributions')
+  );
 });
 
 test('fund_contributions ON CONFLICT targets match its partial unique index', () => {
@@ -95,6 +97,7 @@ test('PostgreSQL compose service is private and profile-gated', () => {
   assert.ok(compose.includes('profiles:'));
   assert.ok(compose.includes('openg7-data'));
   assert.ok(compose.includes('internal: true'));
+  assert.ok(compose.includes('FUNDING_ADMIN_SESSION_SECRET'));
   assert.equal(/['"]?5432:5432['"]?/.test(compose), false);
 });
 
@@ -102,7 +105,11 @@ test('PostgreSQL restore helper rebuilds from backup with destructive safeguards
   const script = fs.readFileSync('scripts/restore-from-backup.sh', 'utf8');
   const docs = fs.readFileSync('docs/docker-deployment.md', 'utf8');
 
-  assert.ok(script.includes('POSTGRES_VOLUME_NAME="${POSTGRES_VOLUME_NAME:-openg7-postgres-data}"'));
+  assert.ok(
+    script.includes(
+      'POSTGRES_VOLUME_NAME="${POSTGRES_VOLUME_NAME:-openg7-postgres-data}"'
+    )
+  );
   assert.ok(script.includes('Type RESTORE OPENG7 to continue.'));
   assert.ok(script.includes('docker volume rm "${POSTGRES_VOLUME_NAME}"'));
   assert.ok(script.includes('psql -v ON_ERROR_STOP=1'));
@@ -179,9 +186,7 @@ test('Checkout sessions require fundraiser metadata and consent fields', () => {
 test('resolveCheckoutReturnUrl allows http localhost/127.0.0.1 only outside production', () => {
   const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
 
-  const match = source.match(
-    /const resolveCheckoutReturnUrl[\s\S]*?\n};/
-  );
+  const match = source.match(/const resolveCheckoutReturnUrl[\s\S]*?\n};/);
   assert.ok(match, 'expected to find resolveCheckoutReturnUrl function body');
   const fnSource = match[0];
 
@@ -198,14 +203,19 @@ test('resolveCheckoutReturnUrl allows http localhost/127.0.0.1 only outside prod
   const devAllowanceMatch = fnSource.match(
     /if\s*\(([\s\S]{0,200}?candidate\.hostname === '127\.0\.0\.1'[\s\S]{0,50}?)\)\s*\{/
   );
-  assert.ok(devAllowanceMatch, 'expected an if-condition guarding the localhost allowance');
+  assert.ok(
+    devAllowanceMatch,
+    'expected an if-condition guarding the localhost allowance'
+  );
   assert.ok(
     /!isProduction/.test(devAllowanceMatch[1]),
     'the localhost/127.0.0.1 http allowance must be gated behind !isProduction so it never applies in production'
   );
 
   assert.equal(
-    /^\s*if\s*\(\s*candidate\.hostname === '(localhost|127\.0\.0\.1)'/m.test(fnSource),
+    /^\s*if\s*\(\s*candidate\.hostname === '(localhost|127\.0\.0\.1)'/m.test(
+      fnSource
+    ),
     false,
     'the localhost/127.0.0.1 allowance must not be reachable unconditionally (without an isProduction guard)'
   );
@@ -247,7 +257,10 @@ test('Stripe-direct transparency marks its public data source', () => {
 });
 
 test('Builders page is routed and prerendered in both languages', () => {
-  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const routes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.ts',
+    'utf8'
+  );
   const serverRoutes = fs.readFileSync(
     'apps/funding-web/src/app/app.routes.server.ts',
     'utf8'
@@ -290,7 +303,10 @@ test('recordSponsorshipDetails upserts against the partial unique index', () => 
     /export const recordSponsorshipDetails[\s\S]*?ON CONFLICT \(stripe_session_id\)([\s\S]{0,80}?)DO UPDATE/
   );
 
-  assert.ok(match, 'expected recordSponsorshipDetails to upsert on stripe_session_id');
+  assert.ok(
+    match,
+    'expected recordSponsorshipDetails to upsert on stripe_session_id'
+  );
   assert.ok(match[1].includes('WHERE stripe_session_id IS NOT NULL'));
 });
 
@@ -332,10 +348,11 @@ test('Checkout requires a public display name when public display consent is gra
 test('publicDisplayName is discarded server-side when public display consent is not granted', () => {
   const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
 
-  const match = source.match(
-    /const publicDisplayName =\s*([\s\S]{0,160}?);/
+  const match = source.match(/const publicDisplayName =\s*([\s\S]{0,160}?);/);
+  assert.ok(
+    match,
+    'expected to find the publicDisplayName derivation before it is sent to Stripe/DB'
   );
-  assert.ok(match, 'expected to find the publicDisplayName derivation before it is sent to Stripe/DB');
   assert.ok(
     /parsed\.publicDisplayConsent === true/.test(match[1]),
     'expected publicDisplayName to only be kept when publicDisplayConsent is true, so a name typed without consent is never sent to Stripe metadata or persisted to public_name'
@@ -349,11 +366,15 @@ test('fund_contributions writes public_name on both the checkout-creation and we
   );
 
   assert.ok(
-    /export const insertCheckoutSessionRecord[\s\S]*?public_name/.test(repository),
+    /export const insertCheckoutSessionRecord[\s\S]*?public_name/.test(
+      repository
+    ),
     'expected insertCheckoutSessionRecord to write public_name'
   );
   assert.ok(
-    /export const upsertCheckoutSessionFromWebhook[\s\S]*?public_name/.test(repository),
+    /export const upsertCheckoutSessionFromWebhook[\s\S]*?public_name/.test(
+      repository
+    ),
     'expected upsertCheckoutSessionFromWebhook to write public_name'
   );
   assert.ok(
@@ -407,13 +428,13 @@ test('Custom contribution amount input accepts only decimal numeric values', () 
   assert.ok(source.includes('inputmode="decimal"'));
   assert.ok(source.includes('pattern="[0-9]+([.,][0-9]{0,2})?"'));
   assert.ok(source.includes('sanitizeCustomContributionValue'));
-  assert.ok(source.includes('normalizedValue.replace(/[^0-9.]/g, \'\')'));
+  assert.ok(source.includes("normalizedValue.replace(/[^0-9.]/g, '')"));
   assert.ok(source.includes("decimalParts.join('').slice(0, 2)"));
   assert.ok(source.includes('parseCustomContributionAmount'));
   assert.ok(source.includes('/^\\d+(?:\\.\\d{0,2})?$/.test(value)'));
   assert.ok(source.includes('!this.hasInvalidCustomContribution()'));
   assert.ok(source.includes('normalizeCustomContributionFromEvent'));
-  assert.ok(styles.includes('.custom-amount-input[aria-invalid=\'true\']'));
+  assert.ok(styles.includes(".custom-amount-input[aria-invalid='true']"));
 
   for (const locale of [fr, en]) {
     assert.ok(locale.funding.home.contribution.amountFormatHint);
@@ -491,7 +512,11 @@ test('Sponsorship review and follow-up migrations add private workflow columns',
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_contributions_followup_token_hash'
     )
   );
-  assert.ok(followupMigration.includes('WHERE sponsorship_followup_token_hash IS NOT NULL'));
+  assert.ok(
+    followupMigration.includes(
+      'WHERE sponsorship_followup_token_hash IS NOT NULL'
+    )
+  );
 });
 
 test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe metadata', () => {
@@ -506,7 +531,10 @@ test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe 
   assert.ok(source.includes('createSponsorshipFollowupToken'));
   assert.ok(source.includes('hashSponsorshipFollowupToken'));
   assert.ok(source.includes("'followup_token'"));
-  assert.equal(checkoutMetadataBlock.includes('sponsorshipFollowupToken,'), false);
+  assert.equal(
+    checkoutMetadataBlock.includes('sponsorshipFollowupToken,'),
+    false
+  );
   assert.ok(source.includes('sponsorshipFollowupTokenHash'));
 });
 
@@ -561,8 +589,14 @@ test('Sponsorship follow-up tokens expire and details edits return to review', (
 
   assert.ok(api.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS'));
   assert.ok(api.includes('getSponsorshipFollowupTokenCutoffIso'));
-  assert.ok(repository.includes('sponsorship_followup_token_created_at >= $2::timestamptz'));
-  assert.ok(recordDetailsBody.includes("sponsor_review_status = 'pending_review'"));
+  assert.ok(
+    repository.includes(
+      'sponsorship_followup_token_created_at >= $2::timestamptz'
+    )
+  );
+  assert.ok(
+    recordDetailsBody.includes("sponsor_review_status = 'pending_review'")
+  );
   assert.ok(recordDetailsBody.includes('sponsor_reviewed_at = NULL'));
   assert.ok(followupPage.includes('history.replaceState'));
   assert.ok(followupPage.includes("url.searchParams.delete('token')"));
@@ -580,12 +614,21 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(api.includes('FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX'));
   assert.ok(api.includes('FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX'));
   assert.ok(api.includes('FUNDING_ADMIN_RATE_LIMIT_MAX'));
-  assert.ok(envExample.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS=30'));
+  assert.ok(api.includes('FUNDING_ADMIN_SESSION_SECRET'));
+  assert.ok(api.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES'));
+  assert.ok(
+    envExample.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS=30')
+  );
   assert.ok(envExample.includes('FUNDING_ADMIN_RATE_LIMIT_MAX=120'));
+  assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_SECRET='));
+  assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES=60'));
 });
 
 test('Sponsorship follow-up page is routed but not added to the sitemap', () => {
-  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const routes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.ts',
+    'utf8'
+  );
   const sitemap = fs.readFileSync('apps/funding-web/src/sitemap.xml', 'utf8');
 
   assert.ok(routes.includes("path: 'fonds-des-batisseurs/suivi-commandite'"));
@@ -622,9 +665,7 @@ test('Sponsorship publication migration adds public profile and feed fields', ()
     assert.ok(migration.includes(column));
   }
 
-  assert.ok(
-    migration.includes('idx_fund_contributions_sponsor_public_slug')
-  );
+  assert.ok(migration.includes('idx_fund_contributions_sponsor_public_slug'));
 });
 
 test('Admin audit and publication draft migration adds private back-office tables', () => {
@@ -682,7 +723,10 @@ test('Admin sponsorship publication endpoint validates feed placement fields', (
 });
 
 test('Sponsors page is routed, prerendered, translated, and indexed', () => {
-  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const routes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.ts',
+    'utf8'
+  );
   const serverRoutes = fs.readFileSync(
     'apps/funding-web/src/app/app.routes.server.ts',
     'utf8'
@@ -710,7 +754,10 @@ test('Sponsors page is routed, prerendered, translated, and indexed', () => {
 });
 
 test('Usage and refund policy page is routed, linked, documented, and indexed', () => {
-  const routes = fs.readFileSync('apps/funding-web/src/app/app.routes.ts', 'utf8');
+  const routes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.ts',
+    'utf8'
+  );
   const serverRoutes = fs.readFileSync(
     'apps/funding-web/src/app/app.routes.server.ts',
     'utf8'
@@ -742,7 +789,9 @@ test('Usage and refund policy page is routed, linked, documented, and indexed', 
 
   assert.ok(routes.includes('UsageRefundPolicyPageComponent'));
   assert.ok(routes.includes("path: 'politique-utilisation-remboursement'"));
-  assert.ok(serverRoutes.includes("path: 'politique-utilisation-remboursement'"));
+  assert.ok(
+    serverRoutes.includes("path: 'politique-utilisation-remboursement'")
+  );
   assert.ok(
     serverRoutes.includes("path: 'en/politique-utilisation-remboursement'")
   );
@@ -752,7 +801,9 @@ test('Usage and refund policy page is routed, linked, documented, and indexed', 
     sitemap.includes('https://openg7.org/politique-utilisation-remboursement')
   );
   assert.ok(
-    sitemap.includes('https://openg7.org/en/politique-utilisation-remboursement')
+    sitemap.includes(
+      'https://openg7.org/en/politique-utilisation-remboursement'
+    )
   );
   assert.ok(fundingPage.includes('policyPath'));
   assert.ok(fundingPage.includes('funding.home.contribution.policyLink'));

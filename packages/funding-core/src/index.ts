@@ -11,10 +11,7 @@ export type SponsorFeedTarget = 'openg7' | 'openg20';
 export type SponsorFeedChannel = 'facebook' | 'linkedin';
 
 export type SponsorFeedStatus =
-  | 'not_planned'
-  | 'planned'
-  | 'drafted'
-  | 'published';
+  'not_planned' | 'planned' | 'drafted' | 'published';
 
 export type PublicationDraftStatus =
   | 'draft'
@@ -26,11 +23,7 @@ export type PublicationDraftStatus =
   | 'cancelled';
 
 export type AdminExpenseStatus =
-  | 'draft'
-  | 'published'
-  | 'active'
-  | 'private'
-  | 'archived';
+  'draft' | 'published' | 'active' | 'private' | 'archived';
 
 export interface CheckoutConsentPayload {
   readonly contributionType: ContributionType;
@@ -191,9 +184,7 @@ export interface SponsorshipFollowupDetailsRequest {
 }
 
 export type SponsorshipReviewStatus =
-  | 'pending_review'
-  | 'approved'
-  | 'rejected';
+  'pending_review' | 'approved' | 'rejected';
 
 export interface AdminSponsorshipRecord {
   readonly id: string;
@@ -305,6 +296,17 @@ export interface AdminDashboardResponse {
   };
   readonly recent_contributions: readonly AdminContributionRecord[];
   readonly last_updated_at: string;
+}
+
+export interface AdminSessionCreateRequest {
+  readonly token: string;
+}
+
+export interface AdminSessionResponse {
+  readonly actor: string;
+  readonly expiresAt: string;
+  readonly sessionToken: string;
+  readonly ttlSeconds: number;
 }
 
 export interface AdminPublicationDraftRecord {

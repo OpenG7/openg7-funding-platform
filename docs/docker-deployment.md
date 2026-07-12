@@ -86,6 +86,9 @@ FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
 FUNDING_ALLOWED_AMOUNTS=5,10,25,50
 FUNDING_API_PORT=3333
 FUNDING_PROJECT_ID=openg7
+FUNDING_ADMIN_TOKEN=replace_with_a_long_random_admin_token
+FUNDING_ADMIN_SESSION_SECRET=replace_with_a_different_long_random_session_secret
+FUNDING_ADMIN_SESSION_TTL_MINUTES=60
 STRIPE_SECRET_KEY=sk_live_replace_me
 STRIPE_WEBHOOK_SECRET=whsec_replace_me
 # Optional private PostgreSQL. Leave unset for Stripe-direct transparency.
@@ -515,6 +518,8 @@ Most startup loops come from missing production variables in `.env`, especially:
 APP_DOMAIN=openg7.org
 FUNDING_PUBLIC_BASE_URL=https://openg7.org
 FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
+FUNDING_ADMIN_TOKEN=replace_with_a_long_random_admin_token
+FUNDING_ADMIN_SESSION_SECRET=replace_with_a_different_long_random_session_secret
 STRIPE_SECRET_KEY=sk_live_or_test_key
 ```
 

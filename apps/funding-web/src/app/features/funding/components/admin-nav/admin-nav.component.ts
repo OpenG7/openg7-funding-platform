@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 @Component({
   selector: 'openg7-admin-nav',
@@ -22,19 +24,28 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
         >
           Dashboard
         </a>
-        <a routerLink="/admin/fundraiser/contributions" routerLinkActive="active">
+        <a
+          routerLink="/admin/fundraiser/contributions"
+          routerLinkActive="active"
+        >
           Contributions
         </a>
         <a routerLink="/admin/fundraiser/sponsors" routerLinkActive="active">
           Commandites
         </a>
-        <a routerLink="/admin/fundraiser/publications" routerLinkActive="active">
+        <a
+          routerLink="/admin/fundraiser/publications"
+          routerLinkActive="active"
+        >
           Publications
         </a>
         <a routerLink="/admin/fundraiser/expenses" routerLinkActive="active">
           Depenses
         </a>
-        <a routerLink="/admin/fundraiser/transparency" routerLinkActive="active">
+        <a
+          routerLink="/admin/fundraiser/transparency"
+          routerLinkActive="active"
+        >
           Transparence
         </a>
         <a routerLink="/admin/fundraiser/audit" routerLinkActive="active">
@@ -43,6 +54,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       </nav>
 
       <footer>
+        <button type="button" (click)="clearSession()">Deconnexion</button>
         <a routerLink="/fonds-des-batisseurs">Retour public</a>
       </footer>
     </aside>
@@ -89,8 +101,21 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
         text-decoration: none;
       }
 
+      .admin-nav button {
+        background: #101827;
+        border: 1px solid #52627a;
+        border-radius: 0.35rem;
+        color: #fff;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 800;
+        padding: 0.75rem 0.85rem;
+        text-align: left;
+      }
+
       .admin-nav a.active,
-      .admin-nav a:hover {
+      .admin-nav a:hover,
+      .admin-nav button:hover {
         background: #254db8;
         color: #fff;
       }
@@ -109,11 +134,22 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
           grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
         }
 
-        .admin-nav a {
+        .admin-nav a,
+        .admin-nav button {
           text-align: center;
         }
       }
     `
   ]
 })
-export class AdminNavComponent {}
+export class AdminNavComponent {
+  private readonly admin = inject(FundingAdminService);
+
+  clearSession(): void {
+    this.admin.clearAdminSession();
+
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  }
+}
