@@ -188,7 +188,9 @@ It reads and updates private sponsorship records through:
 
 ```text
 GET /api/admin/sponsorships
+GET /api/admin/sponsorships/logo
 POST /api/admin/sponsorships/logo
+POST /api/admin/sponsorships/logo/delete
 POST /api/admin/sponsorships/review
 POST /api/admin/sponsorships/publication
 ```
@@ -214,8 +216,11 @@ Sponsor logos can be uploaded by admins through
 `POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files
 only, validates MIME type and file signature, stores the file outside the web
 bundle, records the controlled `/api/public/sponsor-logos/...` URL on the
-sponsorship, and audits the upload. Uploaded logos are served publicly only when
-an approved, consented sponsorship references that exact URL.
+sponsorship, and audits the upload. Admins can preview controlled logos through
+`GET /api/admin/sponsorships/logo`, replace a logo with cleanup of the previous
+controlled file, or remove the logo with `POST /api/admin/sponsorships/logo/delete`.
+Uploaded logos are served publicly only when an approved, consented sponsorship
+references that exact URL.
 
 ### Public sponsorship page
 

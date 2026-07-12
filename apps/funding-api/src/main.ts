@@ -22,6 +22,8 @@ import type {
   AdminPublicationDraftUpdateRequest,
   AdminSessionCreateRequest,
   AdminSessionResponse,
+  AdminSponsorLogoDeleteRequest,
+  AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
@@ -59,7 +61,9 @@ import {
   allowedSponsorFeedChannels,
   allowedSponsorFeedStatuses,
   allowedSponsorFeedTargets,
+  clearSponsorshipLogoUrl,
   getAdminDashboard,
+  getAdminSponsorshipLogoUrl,
   allowedSponsorshipReviewStatuses,
   insertCheckoutSessionRecord,
   getSponsorshipFollowupByTokenHash,
@@ -672,6 +676,30 @@ const getSponsorLogoFilenameFromUrl = (
 const contentTypeForSponsorLogoFilename = (filename: string): string | null =>
   sponsorLogoContentTypes.get(filename.split('.').at(-1) ?? '') ?? null;
 
+const deleteControlledSponsorLogoFile = async (
+  logoUrl: string | null
+): Promise<boolean> => {
+  const filename = getSponsorLogoFilenameFromUrl(logoUrl ?? undefined);
+  if (!filename) {
+    return false;
+  }
+
+  const filePath = resolveSponsorLogoFilePath(filename);
+  if (!filePath) {
+    return false;
+  }
+
+  try {
+    await unlink(filePath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.warn('Failed to delete controlled sponsor logo file.', error);
+    }
+    return false;
+  }
+};
+
 const isValidOptionalIsoDate = (value: unknown): boolean => {
   if (value === undefined || value === null || value === '') {
     return true;
@@ -1172,6 +1200,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/sponsorships',
       '/admin/sponsorships/logo',
       '/api/admin/sponsorships/logo',
+      '/admin/sponsorships/logo/delete',
+      '/api/admin/sponsorships/logo/delete',
       '/admin/sponsorships/review',
       '/api/admin/sponsorships/review',
       '/admin/sponsorships/publication',
@@ -1289,6 +1319,142 @@ createServer(async (request, response) => {
 
   const rateLimiter = getRequestRateLimiter(request);
   if (rateLimiter && !enforceRateLimit(request, response, rateLimiter)) {
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/logo',
+      '/api/admin/sponsorships/logo'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    const contributionId = new URL(
+      request.url ?? '/',
+      publicBaseOrigin
+    ).searchParams.get('contributionId');
+
+    if (!isValidUuid(contributionId)) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor contribution id is invalid.'
+      });
+      return;
+    }
+
+    try {
+      const logoUrl = await getAdminSponsorshipLogoUrl(dbPool, contributionId);
+      const filename = getSponsorLogoFilenameFromUrl(logoUrl ?? undefined);
+
+      if (!filename) {
+        writeJson(request, response, 404, {
+          error: 'Sponsor logo was not found.'
+        });
+        return;
+      }
+
+      const filePath = resolveSponsorLogoFilePath(filename);
+      const contentType = contentTypeForSponsorLogoFilename(filename);
+
+      if (!filePath || !contentType) {
+        writeJson(request, response, 404, {
+          error: 'Sponsor logo was not found.'
+        });
+        return;
+      }
+
+      const logo = await readFile(filePath);
+      writeBinary(request, response, 200, logo, contentType, {
+        'Cache-Control': 'private, no-store'
+      });
+    } catch (error) {
+      console.error('Failed to load admin sponsor logo preview.', error);
+      writeJson(request, response, 404, {
+        error: 'Sponsor logo was not found.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/logo/delete',
+      '/api/admin/sponsorships/logo/delete'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: Partial<AdminSponsorLogoDeleteRequest> | null;
+    try {
+      const body = await readBody(request, 16 * 1024);
+      parsed = JSON.parse(
+        body
+      ) as Partial<AdminSponsorLogoDeleteRequest> | null;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsor logo delete request body.'
+      });
+      return;
+    }
+
+    const contributionId = parsed?.contributionId;
+
+    if (!isValidUuid(contributionId)) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor contribution id is invalid.'
+      });
+      return;
+    }
+
+    try {
+      const deleteResult = await clearSponsorshipLogoUrl(
+        dbPool,
+        contributionId
+      );
+
+      if (!deleteResult.updated) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship was not found.'
+        });
+        return;
+      }
+
+      const deletedLocalFile = await deleteControlledSponsorLogoFile(
+        deleteResult.previousLogoUrl
+      );
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'sponsorship.logo.delete',
+        entityType: 'sponsorship',
+        entityId: contributionId,
+        summary: 'Sponsor logo removed from controlled public display.',
+        metadata: {
+          deletedLogoUrl: deleteResult.previousLogoUrl,
+          deletedLocalFile
+        }
+      });
+
+      const result: AdminSponsorLogoDeleteResult = {
+        updated: deleteResult.updated,
+        contributionId,
+        deletedLogoUrl: deleteResult.previousLogoUrl
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to delete sponsor logo.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsor logo could not be deleted.'
+      });
+    }
     return;
   }
 
@@ -1818,18 +1984,22 @@ createServer(async (request, response) => {
       await mkdir(sponsorLogoStorageDir, { recursive: true });
       await writeFile(filePath, logo.data, { flag: 'wx' });
 
-      const updated = await updateSponsorshipLogoUrl(dbPool, {
+      const updateResult = await updateSponsorshipLogoUrl(dbPool, {
         contributionId,
         logoUrl
       });
 
-      if (!updated) {
+      if (!updateResult.updated) {
         await unlink(filePath).catch(() => undefined);
         writeJson(request, response, 404, {
           error: 'Sponsorship was not found.'
         });
         return;
       }
+
+      const replacedLocalFile = await deleteControlledSponsorLogoFile(
+        updateResult.previousLogoUrl
+      );
 
       await insertAdminAuditLog(dbPool, {
         actor: getAdminAuditActor(request),
@@ -1839,13 +2009,15 @@ createServer(async (request, response) => {
         summary: 'Sponsor logo uploaded for controlled public display.',
         metadata: {
           logoUrl,
+          previousLogoUrl: updateResult.previousLogoUrl,
+          replacedLocalFile,
           mimeType: logo.mimeType,
           sizeBytes: logo.sizeBytes
         }
       });
 
       const result: AdminSponsorLogoUploadResult = {
-        updated,
+        updated: updateResult.updated,
         contributionId,
         logoUrl,
         mimeType: logo.mimeType,

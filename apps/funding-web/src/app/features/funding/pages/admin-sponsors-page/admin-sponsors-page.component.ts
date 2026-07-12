@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  OnDestroy,
   OnInit,
   computed,
   inject,
@@ -47,6 +48,10 @@ type SponsorshipReviewFilter = 'all' | SponsorshipReviewStatus;
 type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
 const sponsorLogoMaxBytes = 512 * 1024;
 const sponsorLogoMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const controlledSponsorLogoUrlPrefixes = [
+  '/api/public/sponsor-logos/',
+  '/public/sponsor-logos/'
+];
 
 @Component({
   selector: 'openg7-admin-sponsors-page',
@@ -196,22 +201,53 @@ const sponsorLogoMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
               <div>
                 <dt>Logo</dt>
                 <dd>
-                  <a
+                  <ng-container
                     *ngIf="sponsorship.sponsor_logo_url; else emptyLogo"
-                    [href]="sponsorship.sponsor_logo_url"
-                    target="_blank"
-                    rel="noreferrer"
                   >
-                    {{ sponsorship.sponsor_logo_url }}
-                  </a>
+                    <figure
+                      class="logo-preview"
+                      *ngIf="logoPreviewSourceFor(sponsorship)"
+                    >
+                      <img
+                        [src]="logoPreviewSourceFor(sponsorship)"
+                        [alt]="
+                          'Logo ' +
+                          (sponsorship.sponsor_company_name || 'commanditaire')
+                        "
+                      />
+                    </figure>
+                    <a
+                      [href]="sponsorship.sponsor_logo_url"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {{ sponsorship.sponsor_logo_url }}
+                    </a>
+                    <button
+                      type="button"
+                      class="logo-delete-button"
+                      [disabled]="
+                        actionState() === deleteLogoActionId(sponsorship.id) ||
+                        actionState() === logoActionId(sponsorship.id)
+                      "
+                      (click)="deleteLogo(sponsorship)"
+                    >
+                      Supprimer
+                    </button>
+                  </ng-container>
                   <ng-template #emptyLogo>Non fourni</ng-template>
                   <label class="logo-upload-control">
-                    Televerser
+                    {{
+                      sponsorship.sponsor_logo_url
+                        ? 'Remplacer le logo'
+                        : 'Televerser un logo'
+                    }}
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
                       [disabled]="
-                        actionState() === logoActionId(sponsorship.id)
+                        actionState() === logoActionId(sponsorship.id) ||
+                        actionState() === deleteLogoActionId(sponsorship.id)
                       "
                       (change)="uploadLogo(sponsorship, $event)"
                     />
@@ -688,11 +724,50 @@ const sponsorLogoMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
         color: #254db8;
       }
 
+      .logo-preview {
+        align-items: center;
+        background: #f4f7fb;
+        border: 1px solid #d9e0ea;
+        border-radius: 0.35rem;
+        display: flex;
+        height: 4.5rem;
+        justify-content: center;
+        margin: 0.35rem 0 0.5rem;
+        overflow: hidden;
+        width: 8rem;
+      }
+
+      .logo-preview img {
+        display: block;
+        max-height: 100%;
+        max-width: 100%;
+        object-fit: contain;
+      }
+
       .logo-upload-control {
         color: #172033;
         display: grid;
         gap: 0.35rem;
         margin-top: 0.5rem;
+      }
+
+      .logo-delete-button {
+        background: #fff0f2;
+        border: 1px solid #f1a8b4;
+        border-radius: 0.35rem;
+        color: #9f1d2f;
+        cursor: pointer;
+        display: inline-flex;
+        font: inherit;
+        font-size: 0.8rem;
+        font-weight: 900;
+        margin-top: 0.5rem;
+        padding: 0.45rem 0.65rem;
+      }
+
+      .logo-delete-button:disabled {
+        cursor: wait;
+        opacity: 0.62;
       }
 
       .logo-upload-control input {
@@ -827,7 +902,7 @@ const sponsorLogoMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
     `
   ]
 })
-export class AdminSponsorsPageComponent implements OnInit {
+export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   private readonly admin = inject(FundingAdminService);
 
   readonly adminToken = signal<string>('');
@@ -839,6 +914,7 @@ export class AdminSponsorsPageComponent implements OnInit {
   readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   readonly actionState = signal<string | null>(null);
   readonly logoUploadMessages = signal<Record<string, string>>({});
+  readonly logoPreviewUrls = signal<Record<string, string>>({});
   readonly search = signal<string>('');
   readonly reviewFilter = signal<SponsorshipReviewFilter>('all');
   readonly feedFilter = signal<SponsorFeedStatusFilter>('all');
@@ -895,6 +971,10 @@ export class AdminSponsorsPageComponent implements OnInit {
     void this.loadSponsorships();
   }
 
+  ngOnDestroy(): void {
+    this.revokeLogoPreviews();
+  }
+
   async loadSponsorships(): Promise<void> {
     this.state.set('loading');
 
@@ -919,6 +999,7 @@ export class AdminSponsorsPageComponent implements OnInit {
       );
       this.state.set('ready');
       this.saveToken();
+      void this.loadLogoPreviews(response.sponsorships);
     } catch {
       this.state.set('error');
     }
@@ -1020,6 +1101,32 @@ export class AdminSponsorsPageComponent implements OnInit {
     }
   }
 
+  async deleteLogo(sponsorship: AdminSponsorshipRecord): Promise<void> {
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm('Supprimer ce logo commanditaire?')
+    ) {
+      return;
+    }
+
+    this.actionState.set(this.deleteLogoActionId(sponsorship.id));
+    this.setLogoUploadMessage(sponsorship.id, 'Suppression en cours...');
+
+    try {
+      await this.admin.deleteSponsorLogo(this.adminToken(), sponsorship.id);
+      this.setLogoUploadMessage(sponsorship.id, 'Logo supprime.');
+      await this.loadSponsorships();
+    } catch {
+      this.setLogoUploadMessage(
+        sponsorship.id,
+        'Suppression du logo impossible.'
+      );
+      this.state.set('error');
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
   setAdminToken(event: Event): void {
     this.adminToken.set(this.valueFromEvent(event));
     this.saveToken();
@@ -1100,6 +1207,22 @@ export class AdminSponsorsPageComponent implements OnInit {
 
   logoActionId(id: string): string {
     return `logo:${id}`;
+  }
+
+  deleteLogoActionId(id: string): string {
+    return `logo-delete:${id}`;
+  }
+
+  logoPreviewSourceFor(sponsorship: AdminSponsorshipRecord): string {
+    if (!sponsorship.sponsor_logo_url) {
+      return '';
+    }
+
+    if (this.isControlledLogoUrl(sponsorship.sponsor_logo_url)) {
+      return this.logoPreviewUrls()[sponsorship.id] ?? '';
+    }
+
+    return sponsorship.sponsor_logo_url;
   }
 
   logoUploadMessageFor(id: string): string {
@@ -1209,6 +1332,67 @@ export class AdminSponsorsPageComponent implements OnInit {
       ...messages,
       [id]: message
     }));
+  }
+
+  private async loadLogoPreviews(
+    sponsorships: readonly AdminSponsorshipRecord[]
+  ): Promise<void> {
+    this.revokeLogoPreviews();
+
+    if (
+      typeof URL === 'undefined' ||
+      typeof URL.createObjectURL !== 'function'
+    ) {
+      return;
+    }
+
+    const previewEntries = await Promise.all(
+      sponsorships
+        .filter((sponsorship) =>
+          this.isControlledLogoUrl(sponsorship.sponsor_logo_url)
+        )
+        .map(async (sponsorship) => {
+          try {
+            const logo = await this.admin.getSponsorLogoPreview(
+              this.adminToken(),
+              sponsorship.id
+            );
+            return [sponsorship.id, URL.createObjectURL(logo)] as const;
+          } catch {
+            return null;
+          }
+        })
+    );
+
+    this.logoPreviewUrls.set(
+      Object.fromEntries(
+        previewEntries.filter(
+          (entry): entry is readonly [string, string] => entry !== null
+        )
+      )
+    );
+  }
+
+  private revokeLogoPreviews(): void {
+    if (
+      typeof URL !== 'undefined' &&
+      typeof URL.revokeObjectURL === 'function'
+    ) {
+      for (const objectUrl of Object.values(this.logoPreviewUrls())) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+
+    this.logoPreviewUrls.set({});
+  }
+
+  private isControlledLogoUrl(logoUrl: string | null): boolean {
+    return Boolean(
+      logoUrl &&
+      controlledSponsorLogoUrlPrefixes.some((prefix) =>
+        logoUrl.startsWith(prefix)
+      )
+    );
   }
 
   private valueFromEvent(event: Event): string {

@@ -197,6 +197,7 @@ Expected transparency behavior:
 - Confirm sponsorship follow-up and admin rate limit variables are set for the expected traffic volume.
 - Confirm sponsor logo upload limits, storage directory, and `openg7-sponsor-logos` volume backups are configured.
 - Confirm `scripts/backup.sh` creates and offloads `openg7-sponsor-logos-*.tar.gz` once sponsor logo uploads are enabled.
+- Confirm admin sponsor logo preview, replacement cleanup, and delete flows work before public sponsorship display is enabled.
 - Confirm `/dev/stripe-setup`, `/dev/webhooks`, and `/dev/api-keys` are not accessible from the production domain.
 - Confirm all NorthDragon links open `https://northdragon.org` in a new tab.
 - Confirm GitHub repository links open the intended OpenG7 repositories.

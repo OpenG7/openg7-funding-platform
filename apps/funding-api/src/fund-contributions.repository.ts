@@ -99,6 +99,11 @@ export interface SponsorshipLogoInput {
   readonly logoUrl: string;
 }
 
+export interface SponsorshipLogoMutationResult {
+  readonly updated: boolean;
+  readonly previousLogoUrl: string | null;
+}
+
 export interface SponsorshipFollowupRecordInput {
   readonly contributionId: string;
   readonly companyName: string;
@@ -1150,25 +1155,113 @@ export const updateSponsorshipPublication = async (
 export const updateSponsorshipLogoUrl = async (
   pool: Pool | null,
   input: SponsorshipLogoInput
-): Promise<boolean> => {
+): Promise<SponsorshipLogoMutationResult> => {
   if (!pool) {
-    return false;
+    return { updated: false, previousLogoUrl: null };
   }
 
-  const result = await pool.query(
+  const result = await pool.query<{
+    readonly updated: boolean;
+    readonly previous_logo_url: string | null;
+  }>(
     `
-      UPDATE fund_contributions
-      SET
-        sponsor_logo_url = $2,
-        updated_at = NOW()
-      WHERE id = $1::uuid
-        AND contribution_type = 'sponsorship_interest'
-        AND status IN ('paid', 'refunded', 'disputed')
+      WITH target AS (
+        SELECT sponsor_logo_url AS previous_logo_url
+        FROM fund_contributions
+        WHERE id = $1::uuid
+          AND contribution_type = 'sponsorship_interest'
+          AND status IN ('paid', 'refunded', 'disputed')
+        FOR UPDATE
+      ),
+      updated AS (
+        UPDATE fund_contributions
+        SET
+          sponsor_logo_url = $2,
+          updated_at = NOW()
+        WHERE id = $1::uuid
+          AND contribution_type = 'sponsorship_interest'
+          AND status IN ('paid', 'refunded', 'disputed')
+        RETURNING id
+      )
+      SELECT
+        EXISTS (SELECT 1 FROM updated) AS updated,
+        (SELECT previous_logo_url FROM target) AS previous_logo_url
     `,
     [input.contributionId, input.logoUrl]
   );
 
-  return (result.rowCount ?? 0) > 0;
+  const row = result.rows[0];
+  return {
+    updated: row?.updated ?? false,
+    previousLogoUrl: row?.previous_logo_url ?? null
+  };
+};
+
+export const clearSponsorshipLogoUrl = async (
+  pool: Pool | null,
+  contributionId: string
+): Promise<SponsorshipLogoMutationResult> => {
+  if (!pool) {
+    return { updated: false, previousLogoUrl: null };
+  }
+
+  const result = await pool.query<{
+    readonly updated: boolean;
+    readonly previous_logo_url: string | null;
+  }>(
+    `
+      WITH target AS (
+        SELECT sponsor_logo_url AS previous_logo_url
+        FROM fund_contributions
+        WHERE id = $1::uuid
+          AND contribution_type = 'sponsorship_interest'
+          AND status IN ('paid', 'refunded', 'disputed')
+        FOR UPDATE
+      ),
+      updated AS (
+        UPDATE fund_contributions
+        SET
+          sponsor_logo_url = NULL,
+          updated_at = NOW()
+        WHERE id = $1::uuid
+          AND contribution_type = 'sponsorship_interest'
+          AND status IN ('paid', 'refunded', 'disputed')
+        RETURNING id
+      )
+      SELECT
+        EXISTS (SELECT 1 FROM updated) AS updated,
+        (SELECT previous_logo_url FROM target) AS previous_logo_url
+    `,
+    [contributionId]
+  );
+
+  const row = result.rows[0];
+  return {
+    updated: row?.updated ?? false,
+    previousLogoUrl: row?.previous_logo_url ?? null
+  };
+};
+
+export const getAdminSponsorshipLogoUrl = async (
+  pool: Pool | null,
+  contributionId: string
+): Promise<string | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const result = await pool.query<{ readonly sponsor_logo_url: string | null }>(
+    `
+      SELECT sponsor_logo_url
+      FROM fund_contributions
+      WHERE id = $1::uuid
+        AND contribution_type = 'sponsorship_interest'
+        AND status IN ('paid', 'refunded', 'disputed')
+    `,
+    [contributionId]
+  );
+
+  return result.rows[0]?.sponsor_logo_url ?? null;
 };
 
 export const isPublicApprovedSponsorshipLogoUrl = async (
