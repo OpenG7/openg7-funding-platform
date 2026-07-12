@@ -1083,6 +1083,185 @@ test('Admin audit and publication draft migration adds private back-office table
   }
 });
 
+test('Publication batch migration adds the batches table and links drafts to it', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/008_add_sponsorship_publication_batches.sql',
+    'utf8'
+  );
+
+  for (const marker of [
+    'CREATE TABLE IF NOT EXISTS sponsor_publication_batches',
+    'capacity INTEGER NOT NULL CHECK (capacity > 0)',
+    "status TEXT NOT NULL DEFAULT 'open'",
+    'scheduled_at TIMESTAMPTZ',
+    'published_at TIMESTAMPTZ',
+    'idx_sponsor_publication_batches_channel_status',
+    'idx_sponsor_publication_batches_scheduled_at',
+    'ALTER TABLE sponsor_publication_drafts',
+    'ADD COLUMN IF NOT EXISTS batch_id UUID',
+    'REFERENCES sponsor_publication_batches(id) ON DELETE SET NULL',
+    'idx_sponsor_publication_drafts_batch_id'
+  ]) {
+    assert.ok(migration.includes(marker), `migration must include ${marker}`);
+  }
+});
+
+test('Publication batch repository enforces capacity, channel match, and approval before assignment', () => {
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-admin.repository.ts',
+    'utf8'
+  );
+
+  assert.ok(repository.includes('export const listAdminPublicationBatches'));
+  assert.ok(repository.includes('export const createAdminPublicationBatch'));
+  assert.ok(repository.includes('export const assignDraftToPublicationBatch'));
+  assert.ok(
+    repository.includes('export const unassignDraftFromPublicationBatch')
+  );
+  assert.ok(repository.includes('export const scheduleAdminPublicationBatch'));
+  assert.ok(repository.includes('export const publishAdminPublicationBatch'));
+  assert.ok(repository.includes('export const cancelAdminPublicationBatch'));
+
+  // Capacity is enforced atomically in a single statement, not read-then-write.
+  assert.ok(repository.includes('WITH target_batch AS ('));
+  assert.ok(repository.includes("draft.status = 'approved'"));
+  assert.ok(repository.includes('draft.channel = target_batch.channel'));
+  assert.ok(repository.includes("target_batch.status = 'open'"));
+  assert.ok(repository.includes('target_batch.used < target_batch.capacity'));
+
+  // Capacity math is derived from actual assigned drafts, not client input.
+  assert.ok(
+    repository.includes('capacityAvailable: Math.max(0, capacity - capacityUsed),')
+  );
+});
+
+test('Publication batch lifecycle requires schedule before publish and preserves published drafts on unassign', () => {
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-admin.repository.ts',
+    'utf8'
+  );
+
+  // Scheduling cascades scheduled_at/status to member drafts, only from open/scheduled.
+  assert.ok(repository.includes("AND status IN ('open', 'scheduled')"));
+  assert.ok(
+    repository.includes(
+      "SET status = 'scheduled', scheduled_at = $2::timestamptz, updated_at = NOW()"
+    )
+  );
+
+  // Publishing is only possible from an already-scheduled batch (never open -> published directly).
+  assert.ok(repository.includes("AND status = 'scheduled'"));
+  assert.ok(repository.includes("status = 'published',"));
+  assert.ok(
+    repository.includes("published_at = COALESCE(published_at, NOW()),")
+  );
+  assert.ok(repository.includes("status IN ('approved', 'scheduled')"));
+
+  // Cancelling releases drafts back to 'approved' so they can be re-batched.
+  assert.ok(repository.includes("SET status = 'cancelled', updated_at = NOW()"));
+  assert.ok(
+    repository.includes(
+      "status = CASE WHEN status = 'scheduled' THEN 'approved' ELSE status END,"
+    )
+  );
+
+  // A published draft can never be unassigned or silently rewritten.
+  assert.ok(repository.includes('AND batch_id IS NOT NULL'));
+  assert.ok(repository.includes("AND status <> 'published'"));
+});
+
+test('Publication batch admin endpoints are authenticated, validated, rate-limited, and audited', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  for (const route of [
+    "'/admin/publication-batches'",
+    "'/api/admin/publication-batches'",
+    "'/admin/publication-batches/assign'",
+    "'/api/admin/publication-batches/assign'",
+    "'/admin/publication-batches/unassign'",
+    "'/api/admin/publication-batches/unassign'",
+    "'/admin/publication-batches/schedule'",
+    "'/api/admin/publication-batches/schedule'",
+    "'/admin/publication-batches/publish'",
+    "'/api/admin/publication-batches/publish'",
+    "'/admin/publication-batches/cancel'",
+    "'/api/admin/publication-batches/cancel'"
+  ]) {
+    assert.ok(api.includes(route), `main.ts must route ${route}`);
+  }
+
+  assert.ok(api.includes('const PUBLICATION_BATCH_MIN_CAPACITY = 1;'));
+  assert.ok(api.includes('const PUBLICATION_BATCH_MAX_CAPACITY = 50;'));
+  assert.ok(api.includes('isValidPublicationBatchCapacity'));
+
+  for (const action of [
+    "'publication_batch.create'",
+    "'publication_batch.assign'",
+    "'publication_batch.unassign'",
+    "'publication_batch.schedule'",
+    "'publication_batch.publish'",
+    "'publication_batch.cancel'"
+  ]) {
+    assert.ok(
+      api.includes(`action: ${action}`),
+      `main.ts must audit-log ${action}`
+    );
+  }
+
+  // Every batch route starts the same way as every other admin route.
+  const handlerCount = api.split('ensureAdminAccess(request, response)').length - 1;
+  assert.ok(handlerCount >= 12, 'admin routes must all call ensureAdminAccess');
+});
+
+test('Publication batch types and admin UI expose capacity, next availability, and scheduled status', () => {
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
+    'utf8'
+  );
+
+  assert.ok(core.includes('export type PublicationBatchStatus ='));
+  assert.ok(
+    core.includes("'open' | 'scheduled' | 'published' | 'cancelled';")
+  );
+  assert.ok(core.includes('readonly capacity: number;'));
+  assert.ok(core.includes('readonly capacityUsed: number;'));
+  assert.ok(core.includes('readonly capacityAvailable: number;'));
+  assert.ok(core.includes('readonly scheduledAt: string | null;'));
+  assert.ok(core.includes('readonly assignedDraftIds: readonly string[];'));
+
+  for (const method of [
+    'getPublicationBatches',
+    'createPublicationBatch',
+    'assignDraftToBatch',
+    'unassignDraftFromBatch',
+    'schedulePublicationBatch',
+    'publishPublicationBatch',
+    'cancelPublicationBatch'
+  ]) {
+    assert.ok(service.includes(`async ${method}(`), `service must expose ${method}`);
+  }
+
+  assert.ok(page.includes('Lots de publication collective'));
+  assert.ok(page.includes('createBatch()'));
+  assert.ok(page.includes('scheduleBatch(batch)'));
+  assert.ok(page.includes('publishBatch(batch)'));
+  assert.ok(page.includes('cancelBatch(batch)'));
+  assert.ok(page.includes('assignToBatch(draft)'));
+  assert.ok(page.includes('unassignFromBatch(draft)'));
+  assert.ok(page.includes('batch.capacityUsed'));
+  assert.ok(page.includes('Prochaine disponibilite'));
+  assert.ok(
+    page.includes(
+      "aucune publication n'est jamais automatique"
+    )
+  );
+});
+
 test('Public sponsorships are exposed only after consent and approval', () => {
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
