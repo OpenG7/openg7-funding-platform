@@ -122,6 +122,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/004_add_sponsorship_review.sql
 \i apps/funding-api/migrations/005_add_sponsorship_followup_token.sql
 \i apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql
+\i apps/funding-api/migrations/007_add_admin_audit_and_publication_drafts.sql
 ```
 
 These create:
@@ -131,8 +132,44 @@ These create:
 - `stripe_events` (future webhook idempotency)
 - `stripe_checkout_sessions` (created Checkout Sessions)
 - `fund_contributions` (pending contribution records, sponsor follow-up details, private review status, hashed follow-up tokens, and sponsor feed placement fields)
+- `sponsor_publication_drafts` (private sponsored publication drafts for manual review)
+- `admin_audit_log` (private admin action log)
 
 When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
+
+### Fundraiser admin
+
+The MVP admin dashboard is available at:
+
+```text
+/admin/fundraiser
+```
+
+It exposes private operational views through:
+
+```text
+GET /api/admin/dashboard
+GET /api/admin/contributions
+GET /api/admin/contributions.csv
+GET /api/admin/expenses
+POST /api/admin/expenses
+POST /api/admin/expenses/update
+GET /api/admin/transparency
+GET /api/admin/publication-drafts
+POST /api/admin/publication-drafts
+POST /api/admin/publication-drafts/update
+GET /api/admin/audit-log
+```
+
+The dashboard summarizes received funds, estimated availability, pending
+sponsorship reviews, feed publication state, Stripe event errors, and recent
+contributions. The contributions view supports local filtering by type, payment
+status, public-display consent, and search, with a CSV export for private admin
+review. The expenses view manages publishable fund allocations backed by
+`fund_allocations`, and the transparency view compares the public summary with
+published allocations. The publications view generates and moderates sponsored
+publication drafts for approved sponsorships, while the audit view lists recent
+sensitive admin actions.
 
 ### Sponsorship review admin
 

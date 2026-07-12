@@ -1,4 +1,8 @@
 import type {
+  AdminContributionRecord,
+  AdminContributionsResponse,
+  AdminContributionsSummary,
+  AdminDashboardResponse,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipRecord,
   PublicSponsorshipProfile,
@@ -143,6 +147,62 @@ interface AdminSponsorshipRow {
   readonly updated_at: string;
 }
 
+interface AdminContributionRow {
+  readonly id: string;
+  readonly contribution_type: ContributionType;
+  readonly amount_cents: string;
+  readonly currency: string;
+  readonly payment_status: string;
+  readonly paid_at: string | null;
+  readonly public_name: string | null;
+  readonly email_private: string | null;
+  readonly public_display_consent: boolean;
+  readonly display_amount_consent: boolean;
+  readonly non_charity_acknowledged: boolean;
+  readonly sponsor_company_name: string | null;
+  readonly sponsor_contact_name: string | null;
+  readonly sponsor_contact_email: string | null;
+  readonly sponsor_review_status: SponsorshipReviewStatus | null;
+  readonly sponsor_feed_status: SponsorFeedStatus | null;
+  readonly stripe_session_id: string | null;
+  readonly stripe_payment_intent_id: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+interface AdminContributionsSummaryRow {
+  readonly total_count: string;
+  readonly paid_count: string;
+  readonly pending_count: string;
+  readonly sponsorship_count: string;
+  readonly public_display_count: string;
+  readonly total_received: string;
+  readonly total_refunded: string;
+  readonly total_disputed: string;
+  readonly currency: string;
+  readonly last_updated_at: string;
+}
+
+interface AdminSponsorshipReviewSummaryRow {
+  readonly total: string;
+  readonly pending: string;
+  readonly approved: string;
+  readonly rejected: string;
+}
+
+interface AdminFeedPublicationSummaryRow {
+  readonly planned: string;
+  readonly drafted: string;
+  readonly published: string;
+  readonly active: string;
+}
+
+interface AdminStripeEventSummaryRow {
+  readonly failed: string;
+  readonly processing: string;
+  readonly last_failed_at: string | null;
+}
+
 interface PublicSponsorshipRow {
   readonly public_slug: string | null;
   readonly company_name: string;
@@ -224,6 +284,42 @@ const normalizeSponsorFeedTarget = (
   value: SponsorFeedTarget | null
 ): SponsorFeedTarget | null =>
   value && allowedSponsorFeedTargets.has(value) ? value : null;
+
+const normalizeSponsorshipReviewStatus = (
+  value: SponsorshipReviewStatus | null
+): SponsorshipReviewStatus | null =>
+  value && allowedSponsorshipReviewStatuses.has(value) ? value : null;
+
+const mapAdminContributionRow = (
+  row: AdminContributionRow
+): AdminContributionRecord => ({
+  id: row.id,
+  contribution_type: row.contribution_type,
+  amount: centsToAmount(parseDbInt(row.amount_cents)),
+  currency: row.currency.toUpperCase(),
+  payment_status: row.payment_status,
+  paid_at: row.paid_at,
+  public_name: row.public_name,
+  email_private: row.email_private,
+  public_display_consent: row.public_display_consent,
+  display_amount_consent: row.display_amount_consent,
+  non_charity_acknowledged: row.non_charity_acknowledged,
+  sponsor_company_name: row.sponsor_company_name,
+  sponsor_contact_name: row.sponsor_contact_name,
+  sponsor_contact_email: row.sponsor_contact_email,
+  sponsor_review_status:
+    row.contribution_type === 'sponsorship_interest'
+      ? normalizeSponsorshipReviewStatus(row.sponsor_review_status)
+      : null,
+  sponsor_feed_status:
+    row.contribution_type === 'sponsorship_interest'
+      ? normalizeSponsorFeedStatus(row.sponsor_feed_status)
+      : null,
+  stripe_session_id: row.stripe_session_id,
+  stripe_payment_intent_id: row.stripe_payment_intent_id,
+  created_at: row.created_at,
+  updated_at: row.updated_at
+});
 
 export const normalizeContributionType = (
   value: string | undefined
@@ -637,6 +733,272 @@ export const recordSponsorshipDetails = async (
   );
 
   return (result.rowCount ?? 0) > 0;
+};
+
+const emptyAdminContributionsSummary = (): AdminContributionsSummary => ({
+  total_count: 0,
+  paid_count: 0,
+  pending_count: 0,
+  sponsorship_count: 0,
+  public_display_count: 0,
+  total_received: 0,
+  total_refunded: 0,
+  total_disputed: 0,
+  currency: 'CAD'
+});
+
+const getAdminContributionsSummary = async (
+  pool: Pool | null
+): Promise<{
+  readonly summary: AdminContributionsSummary;
+  readonly lastUpdatedAt: string;
+}> => {
+  const now = new Date().toISOString();
+
+  if (!pool) {
+    return {
+      summary: emptyAdminContributionsSummary(),
+      lastUpdatedAt: now
+    };
+  }
+
+  const query = await pool.query<AdminContributionsSummaryRow>(`
+    SELECT
+      COUNT(*)::text AS total_count,
+      COALESCE(SUM(CASE WHEN status IN ('paid', 'refunded', 'disputed') THEN 1 ELSE 0 END), 0)::text AS paid_count,
+      COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0)::text AS pending_count,
+      COALESCE(SUM(CASE WHEN contribution_type = 'sponsorship_interest' THEN 1 ELSE 0 END), 0)::text AS sponsorship_count,
+      COALESCE(SUM(CASE WHEN public_display_consent IS TRUE THEN 1 ELSE 0 END), 0)::text AS public_display_count,
+      COALESCE(SUM(CASE WHEN status IN ('paid', 'refunded', 'disputed') THEN amount_cents ELSE 0 END), 0)::text AS total_received,
+      COALESCE(SUM(CASE WHEN status = 'refunded' THEN amount_cents ELSE 0 END), 0)::text AS total_refunded,
+      COALESCE(SUM(CASE WHEN status = 'disputed' THEN amount_cents ELSE 0 END), 0)::text AS total_disputed,
+      COALESCE(MAX(currency), 'cad') AS currency,
+      COALESCE(MAX(updated_at), NOW())::text AS last_updated_at
+    FROM fund_contributions
+  `);
+
+  const row = query.rows[0];
+  if (!row) {
+    return {
+      summary: emptyAdminContributionsSummary(),
+      lastUpdatedAt: now
+    };
+  }
+
+  return {
+    summary: {
+      total_count: parseDbInt(row.total_count),
+      paid_count: parseDbInt(row.paid_count),
+      pending_count: parseDbInt(row.pending_count),
+      sponsorship_count: parseDbInt(row.sponsorship_count),
+      public_display_count: parseDbInt(row.public_display_count),
+      total_received: centsToAmount(parseDbInt(row.total_received)),
+      total_refunded: centsToAmount(parseDbInt(row.total_refunded)),
+      total_disputed: centsToAmount(parseDbInt(row.total_disputed)),
+      currency: row.currency.toUpperCase()
+    },
+    lastUpdatedAt: row.last_updated_at
+  };
+};
+
+const listRecentAdminContributions = async (
+  pool: Pool | null,
+  limit: number
+): Promise<readonly AdminContributionRecord[]> => {
+  if (!pool) {
+    return [];
+  }
+
+  const query = await pool.query<AdminContributionRow>(
+    `
+      SELECT
+        id::text AS id,
+        contribution_type,
+        amount_cents::text AS amount_cents,
+        currency,
+        status AS payment_status,
+        paid_at::text AS paid_at,
+        public_name,
+        email_private,
+        public_display_consent,
+        display_amount_consent,
+        non_charity_acknowledged,
+        sponsor_company_name,
+        sponsor_contact_name,
+        sponsor_contact_email,
+        CASE
+          WHEN contribution_type = 'sponsorship_interest'
+          THEN COALESCE(sponsor_review_status, 'pending_review')
+          ELSE NULL
+        END AS sponsor_review_status,
+        CASE
+          WHEN contribution_type = 'sponsorship_interest'
+          THEN COALESCE(sponsor_feed_status, 'not_planned')
+          ELSE NULL
+        END AS sponsor_feed_status,
+        stripe_session_id,
+        stripe_payment_intent_id,
+        created_at::text AS created_at,
+        updated_at::text AS updated_at
+      FROM fund_contributions
+      ORDER BY COALESCE(paid_at, updated_at, created_at) DESC
+      LIMIT $1
+    `,
+    [Math.max(1, Math.min(limit, 500))]
+  );
+
+  return query.rows.map(mapAdminContributionRow);
+};
+
+export const listAdminContributions = async (
+  pool: Pool | null
+): Promise<AdminContributionsResponse> => {
+  const [{ summary, lastUpdatedAt }, contributions] = await Promise.all([
+    getAdminContributionsSummary(pool),
+    listRecentAdminContributions(pool, 250)
+  ]);
+
+  return {
+    data_source: 'database',
+    summary,
+    contributions,
+    last_updated_at: lastUpdatedAt
+  };
+};
+
+const getAdminSponsorshipReviewSummary = async (
+  pool: Pool | null
+): Promise<AdminDashboardResponse['sponsorship_review']> => {
+  if (!pool) {
+    return {
+      total: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0
+    };
+  }
+
+  const query = await pool.query<AdminSponsorshipReviewSummaryRow>(`
+    SELECT
+      COUNT(*)::text AS total,
+      COALESCE(SUM(CASE WHEN COALESCE(sponsor_review_status, 'pending_review') = 'pending_review' THEN 1 ELSE 0 END), 0)::text AS pending,
+      COALESCE(SUM(CASE WHEN sponsor_review_status = 'approved' THEN 1 ELSE 0 END), 0)::text AS approved,
+      COALESCE(SUM(CASE WHEN sponsor_review_status = 'rejected' THEN 1 ELSE 0 END), 0)::text AS rejected
+    FROM fund_contributions
+    WHERE contribution_type = 'sponsorship_interest'
+      AND status IN ('paid', 'refunded', 'disputed')
+  `);
+
+  const row = query.rows[0];
+  return {
+    total: parseDbInt(row?.total ?? '0'),
+    pending: parseDbInt(row?.pending ?? '0'),
+    approved: parseDbInt(row?.approved ?? '0'),
+    rejected: parseDbInt(row?.rejected ?? '0')
+  };
+};
+
+const getAdminFeedPublicationSummary = async (
+  pool: Pool | null
+): Promise<AdminDashboardResponse['feed_publication']> => {
+  if (!pool) {
+    return {
+      planned: 0,
+      drafted: 0,
+      published: 0,
+      active: 0
+    };
+  }
+
+  const query = await pool.query<AdminFeedPublicationSummaryRow>(`
+    SELECT
+      COALESCE(SUM(CASE WHEN sponsor_feed_status = 'planned' THEN 1 ELSE 0 END), 0)::text AS planned,
+      COALESCE(SUM(CASE WHEN sponsor_feed_status = 'drafted' THEN 1 ELSE 0 END), 0)::text AS drafted,
+      COALESCE(SUM(CASE WHEN sponsor_feed_status = 'published' THEN 1 ELSE 0 END), 0)::text AS published,
+      COALESCE(SUM(CASE WHEN sponsor_feed_status IN ('planned', 'drafted', 'published') THEN 1 ELSE 0 END), 0)::text AS active
+    FROM fund_contributions
+    WHERE contribution_type = 'sponsorship_interest'
+      AND status IN ('paid', 'refunded', 'disputed')
+  `);
+
+  const row = query.rows[0];
+  return {
+    planned: parseDbInt(row?.planned ?? '0'),
+    drafted: parseDbInt(row?.drafted ?? '0'),
+    published: parseDbInt(row?.published ?? '0'),
+    active: parseDbInt(row?.active ?? '0')
+  };
+};
+
+const getAdminStripeEventSummary = async (
+  pool: Pool | null
+): Promise<AdminDashboardResponse['stripe_events']> => {
+  if (!pool) {
+    return {
+      failed: 0,
+      processing: 0,
+      last_failed_at: null
+    };
+  }
+
+  const query = await pool.query<AdminStripeEventSummaryRow>(`
+    SELECT
+      COALESCE(SUM(CASE WHEN processing_status = 'failed' THEN 1 ELSE 0 END), 0)::text AS failed,
+      COALESCE(SUM(CASE WHEN processing_status = 'processing' THEN 1 ELSE 0 END), 0)::text AS processing,
+      MAX(CASE WHEN processing_status = 'failed' THEN received_at ELSE NULL END)::text AS last_failed_at
+    FROM stripe_events
+  `);
+
+  const row = query.rows[0];
+  return {
+    failed: parseDbInt(row?.failed ?? '0'),
+    processing: parseDbInt(row?.processing ?? '0'),
+    last_failed_at: row?.last_failed_at ?? null
+  };
+};
+
+export const getAdminDashboard = async (
+  pool: Pool | null
+): Promise<AdminDashboardResponse> => {
+  const [
+    { summary, lastUpdatedAt },
+    sponsorshipReview,
+    feedPublication,
+    stripeEvents,
+    recentContributions
+  ] = await Promise.all([
+    getAdminContributionsSummary(pool),
+    getAdminSponsorshipReviewSummary(pool),
+    getAdminFeedPublicationSummary(pool),
+    getAdminStripeEventSummary(pool),
+    listRecentAdminContributions(pool, 8)
+  ]);
+
+  const currentAvailableEstimate = Number(
+    (
+      summary.total_received -
+      summary.total_refunded -
+      summary.total_disputed
+    ).toFixed(2)
+  );
+
+  return {
+    data_source: 'database',
+    totals: {
+      total_received: summary.total_received,
+      total_refunded: summary.total_refunded,
+      total_disputed: summary.total_disputed,
+      current_available_estimate: currentAvailableEstimate,
+      currency: summary.currency,
+      contributions_count: summary.total_count,
+      paid_contributions_count: summary.paid_count
+    },
+    sponsorship_review: sponsorshipReview,
+    feed_publication: feedPublication,
+    stripe_events: stripeEvents,
+    recent_contributions: recentContributions,
+    last_updated_at: lastUpdatedAt
+  };
 };
 
 export const listAdminSponsorships = async (

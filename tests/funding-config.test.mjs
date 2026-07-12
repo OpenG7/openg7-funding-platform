@@ -627,6 +627,28 @@ test('Sponsorship publication migration adds public profile and feed fields', ()
   );
 });
 
+test('Admin audit and publication draft migration adds private back-office tables', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/007_add_admin_audit_and_publication_drafts.sql',
+    'utf8'
+  );
+
+  for (const tableOrColumn of [
+    'CREATE TABLE IF NOT EXISTS admin_audit_log',
+    'CREATE TABLE IF NOT EXISTS sponsor_publication_drafts',
+    'actor TEXT NOT NULL',
+    'metadata JSONB NOT NULL',
+    'contribution_id UUID NOT NULL REFERENCES fund_contributions(id)',
+    'disclosure_text TEXT NOT NULL',
+    'status TEXT NOT NULL DEFAULT',
+    'public_url TEXT',
+    'idx_admin_audit_log_created_at',
+    'idx_sponsor_publication_drafts_unique_channel'
+  ]) {
+    assert.ok(migration.includes(tableOrColumn));
+  }
+});
+
 test('Public sponsorships are exposed only after consent and approval', () => {
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',

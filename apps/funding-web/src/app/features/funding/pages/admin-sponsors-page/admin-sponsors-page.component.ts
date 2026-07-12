@@ -1,9 +1,8 @@
-import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
-  PLATFORM_ID,
   computed,
   inject,
   signal
@@ -16,9 +15,9 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
+import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
-const tokenStorageKey = 'openg7-admin-token';
 const feedStatuses: readonly SponsorFeedStatus[] = [
   'not_planned',
   'planned',
@@ -44,43 +43,48 @@ type SponsorshipPublicationTextField =
   | 'feedStatus'
   | 'feedPublicUrl'
   | 'feedNotes';
+type SponsorshipReviewFilter = 'all' | SponsorshipReviewStatus;
+type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
 
 @Component({
   selector: 'openg7-admin-sponsors-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, AdminNavComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="admin-shell">
-      <header class="admin-topbar">
-        <div>
-          <span>Administration</span>
-          <h1>Commandites d'entreprise</h1>
-        </div>
-        <a routerLink="/fonds-des-batisseurs">Retour au fonds</a>
-      </header>
+      <openg7-admin-nav />
 
-      <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
-        <div>
-          <h2 id="admin-auth-title">Acces de revue</h2>
-          <p>
-            En production, utilisez le jeton configure dans
-            <code>FUNDING_ADMIN_TOKEN</code>.
-          </p>
-        </div>
-        <label>
-          Jeton admin
-          <input
-            type="password"
-            autocomplete="off"
-            [value]="adminToken()"
-            (input)="setAdminToken($event)"
-          />
-        </label>
-        <button type="button" (click)="loadSponsorships()">Actualiser</button>
-      </section>
+      <section class="admin-content">
+        <header class="admin-topbar">
+          <div>
+            <span>Administration</span>
+            <h1>Commandites d'entreprise</h1>
+          </div>
+          <a routerLink="/fonds-des-batisseurs">Retour au fonds</a>
+        </header>
 
-      <section class="admin-summary-grid" aria-label="Resume des commandites">
+        <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
+          <div>
+            <h2 id="admin-auth-title">Acces de revue</h2>
+            <p>
+              En production, utilisez le jeton configure dans
+              <code>FUNDING_ADMIN_TOKEN</code>.
+            </p>
+          </div>
+          <label>
+            Jeton admin
+            <input
+              type="password"
+              autocomplete="off"
+              [value]="adminToken()"
+              (input)="setAdminToken($event)"
+            />
+          </label>
+          <button type="button" (click)="loadSponsorships()">Actualiser</button>
+        </section>
+
+        <section class="admin-summary-grid" aria-label="Resume des commandites">
         <article>
           <span>En attente</span>
           <strong>{{ pendingCount() }}</strong>
@@ -97,18 +101,50 @@ type SponsorshipPublicationTextField =
           <span>Total</span>
           <strong>{{ sponsorships().length }}</strong>
         </article>
-      </section>
+        </section>
 
-      <p class="state" *ngIf="state() === 'loading'">Chargement des commandites...</p>
+        <section class="admin-filters" aria-label="Filtres commandites">
+          <label>
+            Recherche
+            <input
+              type="search"
+              placeholder="Entreprise, contact, courriel..."
+              [value]="search()"
+              (input)="setSearch($event)"
+            />
+          </label>
+
+          <label>
+            Statut revue
+            <select [value]="reviewFilter()" (change)="setReviewFilter($event)">
+              <option value="all">Tous</option>
+              <option value="pending_review">En attente</option>
+              <option value="approved">Approuvees</option>
+              <option value="rejected">Refusees</option>
+            </select>
+          </label>
+
+          <label>
+            Statut feed
+            <select [value]="feedFilter()" (change)="setFeedFilter($event)">
+              <option value="all">Tous</option>
+              <option *ngFor="let status of feedStatuses" [value]="status">
+                {{ feedStatusLabel(status) }}
+              </option>
+            </select>
+          </label>
+        </section>
+
+        <p class="state" *ngIf="state() === 'loading'">Chargement des commandites...</p>
       <p class="state state-error" *ngIf="state() === 'error'">
         Impossible de charger ou modifier les commandites. Verifiez le jeton,
         la base de donnees et les migrations.
       </p>
 
-      <section class="sponsorship-admin-list" aria-label="Liste des commandites">
+        <section class="sponsorship-admin-list" aria-label="Liste des commandites">
         <article
           class="sponsorship-admin-item"
-          *ngFor="let sponsorship of sponsorships(); trackBy: trackById"
+          *ngFor="let sponsorship of filteredSponsorships(); trackBy: trackById"
         >
           <header>
             <div>
@@ -332,6 +368,19 @@ type SponsorshipPublicationTextField =
             et synchronisation PostgreSQL.
           </p>
         </article>
+
+        <article
+          class="empty-admin-state"
+          *ngIf="
+            state() === 'ready' &&
+            sponsorships().length > 0 &&
+            filteredSponsorships().length === 0
+          "
+        >
+          <h2>Aucune commandite ne correspond aux filtres</h2>
+          <p>Modifiez la recherche, le statut de revue ou le statut feed.</p>
+        </article>
+        </section>
       </section>
     </main>
   `,
@@ -340,14 +389,22 @@ type SponsorshipPublicationTextField =
       .admin-shell {
         background: #f5f7fb;
         color: #172033;
+        display: grid;
         font-family: 'Trebuchet MS', Arial, sans-serif;
+        gap: 1rem;
+        grid-template-columns: 15rem minmax(0, 1fr);
         min-height: 100vh;
         padding: 1.25rem;
+      }
+
+      .admin-content {
+        min-width: 0;
       }
 
       .admin-topbar,
       .admin-auth-panel,
       .admin-summary-grid,
+      .admin-filters,
       .sponsorship-admin-list {
         margin: 0 auto;
         max-width: 72rem;
@@ -406,7 +463,8 @@ type SponsorshipPublicationTextField =
       .admin-auth-panel label,
       .review-note-label,
       .publication-grid label,
-      .publication-editor fieldset {
+      .publication-editor fieldset,
+      .admin-filters label {
         display: grid;
         gap: 0.35rem;
         font-size: 0.85rem;
@@ -414,6 +472,8 @@ type SponsorshipPublicationTextField =
       }
 
       .admin-auth-panel input,
+      .admin-filters input,
+      .admin-filters select,
       .review-note-label textarea,
       .publication-grid input,
       .publication-grid select,
@@ -449,6 +509,7 @@ type SponsorshipPublicationTextField =
       }
 
       .admin-summary-grid article,
+      .admin-filters,
       .sponsorship-admin-item,
       .empty-admin-state {
         background: #fff;
@@ -464,6 +525,14 @@ type SponsorshipPublicationTextField =
         display: block;
         font-size: 2rem;
         margin-top: 0.2rem;
+      }
+
+      .admin-filters {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: minmax(14rem, 2fr) repeat(2, minmax(10rem, 1fr));
+        margin-top: 1rem;
+        padding: 1rem;
       }
 
       .state {
@@ -646,8 +715,10 @@ type SponsorshipPublicationTextField =
       }
 
       @media (max-width: 860px) {
+        .admin-shell,
         .admin-auth-panel,
         .admin-summary-grid,
+        .admin-filters,
         .sponsorship-admin-fields,
         .publication-grid {
           grid-template-columns: 1fr;
@@ -667,7 +738,6 @@ type SponsorshipPublicationTextField =
 })
 export class AdminSponsorsPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
-  private readonly platformId = inject(PLATFORM_ID);
 
   readonly adminToken = signal<string>('');
   readonly sponsorships = signal<readonly AdminSponsorshipRecord[]>([]);
@@ -676,7 +746,37 @@ export class AdminSponsorsPageComponent implements OnInit {
     signal<Record<string, SponsorshipPublicationDraft>>({});
   readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   readonly actionState = signal<string | null>(null);
+  readonly search = signal<string>('');
+  readonly reviewFilter = signal<SponsorshipReviewFilter>('all');
+  readonly feedFilter = signal<SponsorFeedStatusFilter>('all');
   readonly feedStatuses = feedStatuses;
+
+  readonly filteredSponsorships = computed(() => {
+    const search = this.search().trim().toLowerCase();
+    const reviewFilter = this.reviewFilter();
+    const feedFilter = this.feedFilter();
+
+    return this.sponsorships().filter((sponsorship) => {
+      const searchable = [
+        sponsorship.sponsor_company_name,
+        sponsorship.sponsor_contact_name,
+        sponsorship.sponsor_contact_email,
+        sponsorship.sponsor_website_url,
+        sponsorship.public_name,
+        sponsorship.sponsor_public_slug
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return (
+        (!search || searchable.includes(search)) &&
+        (reviewFilter === 'all' ||
+          sponsorship.sponsor_review_status === reviewFilter) &&
+        (feedFilter === 'all' || sponsorship.sponsor_feed_status === feedFilter)
+      );
+    });
+  });
 
   readonly pendingCount = computed(
     () =>
@@ -698,10 +798,7 @@ export class AdminSponsorsPageComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    if (isPlatformBrowser(this.platformId)) {
-      this.adminToken.set(sessionStorage.getItem(tokenStorageKey) ?? '');
-    }
-
+    this.adminToken.set(this.admin.getSavedAdminToken());
     void this.loadSponsorships();
   }
 
@@ -783,6 +880,31 @@ export class AdminSponsorsPageComponent implements OnInit {
   setAdminToken(event: Event): void {
     this.adminToken.set(this.valueFromEvent(event));
     this.saveToken();
+  }
+
+  setSearch(event: Event): void {
+    this.search.set(this.valueFromEvent(event));
+  }
+
+  setReviewFilter(event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.reviewFilter.set(
+      value === 'pending_review' || value === 'approved' || value === 'rejected'
+        ? value
+        : 'all'
+    );
+  }
+
+  setFeedFilter(event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.feedFilter.set(
+      value === 'not_planned' ||
+        value === 'planned' ||
+        value === 'drafted' ||
+        value === 'published'
+        ? value
+        : 'all'
+    );
   }
 
   setReviewNote(id: string, event: Event): void {
@@ -929,21 +1051,18 @@ export class AdminSponsorsPageComponent implements OnInit {
   }
 
   private saveToken(): void {
-    if (!isPlatformBrowser(this.platformId)) {
-      return;
-    }
-
-    const token = this.adminToken().trim();
-    if (token) {
-      sessionStorage.setItem(tokenStorageKey, token);
-      return;
-    }
-
-    sessionStorage.removeItem(tokenStorageKey);
+    this.admin.saveAdminToken(this.adminToken());
   }
 
   private valueFromEvent(event: Event): string {
-    return (event.target as HTMLInputElement | HTMLTextAreaElement | null)
-      ?.value ?? '';
+    return (
+      (
+        event.target as
+          | HTMLInputElement
+          | HTMLSelectElement
+          | HTMLTextAreaElement
+          | null
+      )?.value ?? ''
+    );
   }
 }
