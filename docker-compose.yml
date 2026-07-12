@@ -54,7 +54,11 @@ services:
       FUNDING_ADMIN_TOKEN: ${FUNDING_ADMIN_TOKEN:-}
       FUNDING_ADMIN_SESSION_SECRET: ${FUNDING_ADMIN_SESSION_SECRET:-}
       FUNDING_ADMIN_SESSION_TTL_MINUTES: ${FUNDING_ADMIN_SESSION_TTL_MINUTES:-60}
+      FUNDING_SPONSOR_LOGO_STORAGE_DIR: ${FUNDING_SPONSOR_LOGO_STORAGE_DIR:-/app/var/sponsor-logos}
+      FUNDING_SPONSOR_LOGO_MAX_BYTES: ${FUNDING_SPONSOR_LOGO_MAX_BYTES:-524288}
       DATABASE_URL: ${DATABASE_URL:-}
+    volumes:
+      - sponsor-logos:/app/var/sponsor-logos
     expose:
       - '3333'
     networks:
@@ -198,3 +202,5 @@ networks:
 volumes:
   postgres-data:
     name: openg7-postgres-data
+  sponsor-logos:
+    name: openg7-sponsor-logos

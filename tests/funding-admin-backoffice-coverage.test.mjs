@@ -104,6 +104,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       '/admin/publication-drafts/update',
       'getAuditLog',
       '/admin/audit-log',
+      'uploadSponsorLogo',
+      '/admin/sponsorships/logo',
+      'FormData',
       'getSavedAdminToken',
       'saveAdminToken',
       'clearAdminSession',
@@ -141,7 +144,15 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
 
   assertIncludesAll(
     sponsorsPage,
-    ['filteredSponsorships', 'reviewFilter', 'feedFilter', 'admin-filters'],
+    [
+      'filteredSponsorships',
+      'reviewFilter',
+      'feedFilter',
+      'admin-filters',
+      'uploadLogo',
+      'image/png,image/jpeg,image/webp',
+      'sponsorLogoMaxBytes'
+    ],
     'admin sponsorship filters'
   );
 
@@ -194,6 +205,14 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       "'/admin/contributions'",
       "'/admin/contributions.csv'",
       "'/admin/session'",
+      "'/admin/sponsorships/logo'",
+      'SPONSOR_LOGO_PUBLIC_PATH_PREFIX',
+      'FUNDING_SPONSOR_LOGO_STORAGE_DIR',
+      'FUNDING_SPONSOR_LOGO_MAX_BYTES',
+      'parseMultipartFormData',
+      'detectSponsorLogoFileType',
+      'isPublicApprovedSponsorshipLogoUrl',
+      'sponsorship.logo.upload',
       "'/admin/expenses'",
       "'/admin/expenses/update'",
       "'/admin/transparency'",
@@ -219,7 +238,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'listAdminContributions',
       'getAdminContributionsSummary',
       'getAdminStripeEventSummary',
-      'listRecentAdminContributions'
+      'listRecentAdminContributions',
+      'updateSponsorshipLogoUrl',
+      'isPublicApprovedSponsorshipLogoUrl'
     ],
     'admin repository'
   );
@@ -261,6 +282,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminExpensesResponse',
       'AdminTransparencyResponse',
       'AdminSessionResponse',
+      'AdminSponsorLogoUploadResult',
       'PublicationDraftStatus',
       'AdminPublicationDraftRecord',
       'AdminAuditLogEntry'
@@ -274,6 +296,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       '/admin/fundraiser',
       'POST /api/admin/session',
       'GET /api/admin/dashboard',
+      'POST /api/admin/sponsorships/logo',
+      'GET /api/public/sponsor-logos/<file>',
       'GET /api/admin/contributions',
       'GET /api/admin/contributions.csv',
       'GET /api/admin/expenses',

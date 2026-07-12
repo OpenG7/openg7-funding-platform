@@ -45,6 +45,8 @@ type SponsorshipPublicationTextField =
   | 'feedNotes';
 type SponsorshipReviewFilter = 'all' | SponsorshipReviewStatus;
 type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
+const sponsorLogoMaxBytes = 512 * 1024;
+const sponsorLogoMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 @Component({
   selector: 'openg7-admin-sponsors-page',
@@ -85,22 +87,22 @@ type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
         </section>
 
         <section class="admin-summary-grid" aria-label="Resume des commandites">
-        <article>
-          <span>En attente</span>
-          <strong>{{ pendingCount() }}</strong>
-        </article>
-        <article>
-          <span>Approuvees</span>
-          <strong>{{ approvedCount() }}</strong>
-        </article>
-        <article>
-          <span>Refusees</span>
-          <strong>{{ rejectedCount() }}</strong>
-        </article>
-        <article>
-          <span>Total</span>
-          <strong>{{ sponsorships().length }}</strong>
-        </article>
+          <article>
+            <span>En attente</span>
+            <strong>{{ pendingCount() }}</strong>
+          </article>
+          <article>
+            <span>Approuvees</span>
+            <strong>{{ approvedCount() }}</strong>
+          </article>
+          <article>
+            <span>Refusees</span>
+            <strong>{{ rejectedCount() }}</strong>
+          </article>
+          <article>
+            <span>Total</span>
+            <strong>{{ sponsorships().length }}</strong>
+          </article>
         </section>
 
         <section class="admin-filters" aria-label="Filtres commandites">
@@ -135,251 +137,321 @@ type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
           </label>
         </section>
 
-        <p class="state" *ngIf="state() === 'loading'">Chargement des commandites...</p>
-      <p class="state state-error" *ngIf="state() === 'error'">
-        Impossible de charger ou modifier les commandites. Verifiez le jeton,
-        la base de donnees et les migrations.
-      </p>
+        <p class="state" *ngIf="state() === 'loading'">
+          Chargement des commandites...
+        </p>
+        <p class="state state-error" *ngIf="state() === 'error'">
+          Impossible de charger ou modifier les commandites. Verifiez le jeton,
+          la base de donnees et les migrations.
+        </p>
 
-        <section class="sponsorship-admin-list" aria-label="Liste des commandites">
-        <article
-          class="sponsorship-admin-item"
-          *ngFor="let sponsorship of filteredSponsorships(); trackBy: trackById"
+        <section
+          class="sponsorship-admin-list"
+          aria-label="Liste des commandites"
         >
-          <header>
-            <div>
-              <span [class]="statusClass(sponsorship.sponsor_review_status)">
-                {{ reviewStatusLabel(sponsorship.sponsor_review_status) }}
-              </span>
-              <h2>
-                {{ sponsorship.sponsor_company_name || 'Entreprise sans nom' }}
-              </h2>
-            </div>
-            <strong>{{ formatMoney(sponsorship) }}</strong>
-          </header>
-
-          <dl class="sponsorship-admin-fields">
-            <div>
-              <dt>Contact</dt>
-              <dd>{{ sponsorship.sponsor_contact_name || 'Non fourni' }}</dd>
-            </div>
-            <div>
-              <dt>Courriel</dt>
-              <dd>{{ sponsorship.sponsor_contact_email || 'Non fourni' }}</dd>
-            </div>
-            <div>
-              <dt>Site web</dt>
-              <dd>
-                <a
-                  *ngIf="sponsorship.sponsor_website_url; else emptyWebsite"
-                  [href]="sponsorship.sponsor_website_url"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {{ sponsorship.sponsor_website_url }}
-                </a>
-                <ng-template #emptyWebsite>Non fourni</ng-template>
-              </dd>
-            </div>
-            <div>
-              <dt>Logo</dt>
-              <dd>
-                <a
-                  *ngIf="sponsorship.sponsor_logo_url; else emptyLogo"
-                  [href]="sponsorship.sponsor_logo_url"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {{ sponsorship.sponsor_logo_url }}
-                </a>
-                <ng-template #emptyLogo>Non fourni</ng-template>
-              </dd>
-            </div>
-            <div>
-              <dt>Nom public</dt>
-              <dd>{{ publicNameLabel(sponsorship) }}</dd>
-            </div>
-            <div>
-              <dt>Paiement</dt>
-              <dd>{{ sponsorship.payment_status }} · {{ dateLabel(sponsorship.paid_at) }}</dd>
-            </div>
-            <div>
-              <dt>Details recus</dt>
-              <dd>{{ dateLabel(sponsorship.sponsor_details_submitted_at) }}</dd>
-            </div>
-            <div>
-              <dt>Derniere revue</dt>
-              <dd>{{ dateLabel(sponsorship.sponsor_reviewed_at) }}</dd>
-            </div>
-          </dl>
-
-          <p class="sponsor-message" *ngIf="sponsorship.sponsor_message">
-            {{ sponsorship.sponsor_message }}
-          </p>
-
-          <label class="review-note-label">
-            Note interne
-            <textarea
-              rows="3"
-              maxlength="1000"
-              [value]="reviewNoteFor(sponsorship.id)"
-              (input)="setReviewNote(sponsorship.id, $event)"
-            ></textarea>
-          </label>
-
-          <section class="publication-editor" aria-label="Visibilite publique et feeds">
+          <article
+            class="sponsorship-admin-item"
+            *ngFor="
+              let sponsorship of filteredSponsorships();
+              trackBy: trackById
+            "
+          >
             <header>
               <div>
-                <span>Publication</span>
-                <h3>Commanditaire et feeds</h3>
+                <span [class]="statusClass(sponsorship.sponsor_review_status)">
+                  {{ reviewStatusLabel(sponsorship.sponsor_review_status) }}
+                </span>
+                <h2>
+                  {{
+                    sponsorship.sponsor_company_name || 'Entreprise sans nom'
+                  }}
+                </h2>
               </div>
-              <button
-                type="button"
-                class="publication-save"
-                [disabled]="actionState() === sponsorship.id"
-                (click)="savePublication(sponsorship)"
-              >
-                Enregistrer
-              </button>
+              <strong>{{ formatMoney(sponsorship) }}</strong>
             </header>
 
-            <div class="publication-grid">
-              <label>
-                Slug public
-                <input
-                  type="text"
-                  maxlength="120"
-                  [value]="publicationDraftFor(sponsorship.id).publicSlug"
-                  (input)="setPublicationField(sponsorship.id, 'publicSlug', $event)"
-                />
-              </label>
+            <dl class="sponsorship-admin-fields">
+              <div>
+                <dt>Contact</dt>
+                <dd>{{ sponsorship.sponsor_contact_name || 'Non fourni' }}</dd>
+              </div>
+              <div>
+                <dt>Courriel</dt>
+                <dd>{{ sponsorship.sponsor_contact_email || 'Non fourni' }}</dd>
+              </div>
+              <div>
+                <dt>Site web</dt>
+                <dd>
+                  <a
+                    *ngIf="sponsorship.sponsor_website_url; else emptyWebsite"
+                    [href]="sponsorship.sponsor_website_url"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {{ sponsorship.sponsor_website_url }}
+                  </a>
+                  <ng-template #emptyWebsite>Non fourni</ng-template>
+                </dd>
+              </div>
+              <div>
+                <dt>Logo</dt>
+                <dd>
+                  <a
+                    *ngIf="sponsorship.sponsor_logo_url; else emptyLogo"
+                    [href]="sponsorship.sponsor_logo_url"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {{ sponsorship.sponsor_logo_url }}
+                  </a>
+                  <ng-template #emptyLogo>Non fourni</ng-template>
+                  <label class="logo-upload-control">
+                    Televerser
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      [disabled]="
+                        actionState() === logoActionId(sponsorship.id)
+                      "
+                      (change)="uploadLogo(sponsorship, $event)"
+                    />
+                  </label>
+                  <small
+                    class="logo-upload-state"
+                    *ngIf="logoUploadMessageFor(sponsorship.id)"
+                  >
+                    {{ logoUploadMessageFor(sponsorship.id) }}
+                  </small>
+                </dd>
+              </div>
+              <div>
+                <dt>Nom public</dt>
+                <dd>{{ publicNameLabel(sponsorship) }}</dd>
+              </div>
+              <div>
+                <dt>Paiement</dt>
+                <dd>
+                  {{ sponsorship.payment_status }} ·
+                  {{ dateLabel(sponsorship.paid_at) }}
+                </dd>
+              </div>
+              <div>
+                <dt>Details recus</dt>
+                <dd>
+                  {{ dateLabel(sponsorship.sponsor_details_submitted_at) }}
+                </dd>
+              </div>
+              <div>
+                <dt>Derniere revue</dt>
+                <dd>{{ dateLabel(sponsorship.sponsor_reviewed_at) }}</dd>
+              </div>
+            </dl>
 
-              <label>
-                Destination feed
-                <select
-                  [value]="publicationDraftFor(sponsorship.id).feedTarget"
-                  (change)="setPublicationField(sponsorship.id, 'feedTarget', $event)"
+            <p class="sponsor-message" *ngIf="sponsorship.sponsor_message">
+              {{ sponsorship.sponsor_message }}
+            </p>
+
+            <label class="review-note-label">
+              Note interne
+              <textarea
+                rows="3"
+                maxlength="1000"
+                [value]="reviewNoteFor(sponsorship.id)"
+                (input)="setReviewNote(sponsorship.id, $event)"
+              ></textarea>
+            </label>
+
+            <section
+              class="publication-editor"
+              aria-label="Visibilite publique et feeds"
+            >
+              <header>
+                <div>
+                  <span>Publication</span>
+                  <h3>Commanditaire et feeds</h3>
+                </div>
+                <button
+                  type="button"
+                  class="publication-save"
+                  [disabled]="actionState() === sponsorship.id"
+                  (click)="savePublication(sponsorship)"
                 >
-                  <option value="">Aucune</option>
-                  <option value="openg7">OpenG7</option>
-                  <option value="openg20">OpenG20</option>
-                </select>
-              </label>
+                  Enregistrer
+                </button>
+              </header>
 
-              <label>
-                Statut feed
-                <select
-                  [value]="publicationDraftFor(sponsorship.id).feedStatus"
-                  (change)="setPublicationField(sponsorship.id, 'feedStatus', $event)"
-                >
-                  <option *ngFor="let status of feedStatuses" [value]="status">
-                    {{ feedStatusLabel(status) }}
-                  </option>
-                </select>
-              </label>
-
-              <fieldset>
-                <legend>Canaux</legend>
+              <div class="publication-grid">
                 <label>
+                  Slug public
                   <input
-                    type="checkbox"
-                    [checked]="publicationDraftFor(sponsorship.id).facebook"
-                    (change)="setPublicationChannel(sponsorship.id, 'facebook', $event)"
+                    type="text"
+                    maxlength="120"
+                    [value]="publicationDraftFor(sponsorship.id).publicSlug"
+                    (input)="
+                      setPublicationField(sponsorship.id, 'publicSlug', $event)
+                    "
                   />
-                  Facebook
                 </label>
+
                 <label>
-                  <input
-                    type="checkbox"
-                    [checked]="publicationDraftFor(sponsorship.id).linkedin"
-                    (change)="setPublicationChannel(sponsorship.id, 'linkedin', $event)"
-                  />
-                  LinkedIn
+                  Destination feed
+                  <select
+                    [value]="publicationDraftFor(sponsorship.id).feedTarget"
+                    (change)="
+                      setPublicationField(sponsorship.id, 'feedTarget', $event)
+                    "
+                  >
+                    <option value="">Aucune</option>
+                    <option value="openg7">OpenG7</option>
+                    <option value="openg20">OpenG20</option>
+                  </select>
                 </label>
-              </fieldset>
 
-              <label class="publication-span-2">
-                Resume public
-                <textarea
-                  rows="3"
-                  maxlength="500"
-                  [value]="publicationDraftFor(sponsorship.id).publicSummary"
-                  (input)="setPublicationField(sponsorship.id, 'publicSummary', $event)"
-                ></textarea>
-              </label>
+                <label>
+                  Statut feed
+                  <select
+                    [value]="publicationDraftFor(sponsorship.id).feedStatus"
+                    (change)="
+                      setPublicationField(sponsorship.id, 'feedStatus', $event)
+                    "
+                  >
+                    <option
+                      *ngFor="let status of feedStatuses"
+                      [value]="status"
+                    >
+                      {{ feedStatusLabel(status) }}
+                    </option>
+                  </select>
+                </label>
 
-              <label>
-                Lien de publication
-                <input
-                  type="url"
-                  maxlength="2048"
-                  [value]="publicationDraftFor(sponsorship.id).feedPublicUrl"
-                  (input)="setPublicationField(sponsorship.id, 'feedPublicUrl', $event)"
-                />
-              </label>
+                <fieldset>
+                  <legend>Canaux</legend>
+                  <label>
+                    <input
+                      type="checkbox"
+                      [checked]="publicationDraftFor(sponsorship.id).facebook"
+                      (change)="
+                        setPublicationChannel(
+                          sponsorship.id,
+                          'facebook',
+                          $event
+                        )
+                      "
+                    />
+                    Facebook
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      [checked]="publicationDraftFor(sponsorship.id).linkedin"
+                      (change)="
+                        setPublicationChannel(
+                          sponsorship.id,
+                          'linkedin',
+                          $event
+                        )
+                      "
+                    />
+                    LinkedIn
+                  </label>
+                </fieldset>
 
-              <label class="publication-span-2">
-                Notes feed
-                <textarea
-                  rows="3"
-                  maxlength="1000"
-                  [value]="publicationDraftFor(sponsorship.id).feedNotes"
-                  (input)="setPublicationField(sponsorship.id, 'feedNotes', $event)"
-                ></textarea>
-              </label>
-            </div>
-          </section>
+                <label class="publication-span-2">
+                  Resume public
+                  <textarea
+                    rows="3"
+                    maxlength="500"
+                    [value]="publicationDraftFor(sponsorship.id).publicSummary"
+                    (input)="
+                      setPublicationField(
+                        sponsorship.id,
+                        'publicSummary',
+                        $event
+                      )
+                    "
+                  ></textarea>
+                </label>
 
-          <footer>
-            <button
-              type="button"
-              class="review-button neutral"
-              [disabled]="actionState() === sponsorship.id"
-              (click)="review(sponsorship, 'pending_review')"
-            >
-              Remettre en attente
-            </button>
-            <button
-              type="button"
-              class="review-button reject"
-              [disabled]="actionState() === sponsorship.id"
-              (click)="review(sponsorship, 'rejected')"
-            >
-              Refuser
-            </button>
-            <button
-              type="button"
-              class="review-button approve"
-              [disabled]="actionState() === sponsorship.id"
-              (click)="review(sponsorship, 'approved')"
-            >
-              Accepter
-            </button>
-          </footer>
-        </article>
+                <label>
+                  Lien de publication
+                  <input
+                    type="url"
+                    maxlength="2048"
+                    [value]="publicationDraftFor(sponsorship.id).feedPublicUrl"
+                    (input)="
+                      setPublicationField(
+                        sponsorship.id,
+                        'feedPublicUrl',
+                        $event
+                      )
+                    "
+                  />
+                </label>
 
-        <article
-          class="empty-admin-state"
-          *ngIf="state() === 'ready' && sponsorships().length === 0"
-        >
-          <h2>Aucune commandite a reviser</h2>
-          <p>
-            Les commandites payees apparaitront ici apres confirmation Stripe
-            et synchronisation PostgreSQL.
-          </p>
-        </article>
+                <label class="publication-span-2">
+                  Notes feed
+                  <textarea
+                    rows="3"
+                    maxlength="1000"
+                    [value]="publicationDraftFor(sponsorship.id).feedNotes"
+                    (input)="
+                      setPublicationField(sponsorship.id, 'feedNotes', $event)
+                    "
+                  ></textarea>
+                </label>
+              </div>
+            </section>
 
-        <article
-          class="empty-admin-state"
-          *ngIf="
-            state() === 'ready' &&
-            sponsorships().length > 0 &&
-            filteredSponsorships().length === 0
-          "
-        >
-          <h2>Aucune commandite ne correspond aux filtres</h2>
-          <p>Modifiez la recherche, le statut de revue ou le statut feed.</p>
-        </article>
+            <footer>
+              <button
+                type="button"
+                class="review-button neutral"
+                [disabled]="actionState() === sponsorship.id"
+                (click)="review(sponsorship, 'pending_review')"
+              >
+                Remettre en attente
+              </button>
+              <button
+                type="button"
+                class="review-button reject"
+                [disabled]="actionState() === sponsorship.id"
+                (click)="review(sponsorship, 'rejected')"
+              >
+                Refuser
+              </button>
+              <button
+                type="button"
+                class="review-button approve"
+                [disabled]="actionState() === sponsorship.id"
+                (click)="review(sponsorship, 'approved')"
+              >
+                Accepter
+              </button>
+            </footer>
+          </article>
+
+          <article
+            class="empty-admin-state"
+            *ngIf="state() === 'ready' && sponsorships().length === 0"
+          >
+            <h2>Aucune commandite a reviser</h2>
+            <p>
+              Les commandites payees apparaitront ici apres confirmation Stripe
+              et synchronisation PostgreSQL.
+            </p>
+          </article>
+
+          <article
+            class="empty-admin-state"
+            *ngIf="
+              state() === 'ready' &&
+              sponsorships().length > 0 &&
+              filteredSponsorships().length === 0
+            "
+          >
+            <h2>Aucune commandite ne correspond aux filtres</h2>
+            <p>Modifiez la recherche, le statut de revue ou le statut feed.</p>
+          </article>
         </section>
       </section>
     </main>
@@ -616,6 +688,25 @@ type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
         color: #254db8;
       }
 
+      .logo-upload-control {
+        color: #172033;
+        display: grid;
+        gap: 0.35rem;
+        margin-top: 0.5rem;
+      }
+
+      .logo-upload-control input {
+        font: inherit;
+        max-width: 100%;
+      }
+
+      .logo-upload-state {
+        color: #667085;
+        display: block;
+        font-weight: 800;
+        margin-top: 0.35rem;
+      }
+
       .review-note-label textarea {
         min-height: 5rem;
         resize: vertical;
@@ -742,10 +833,12 @@ export class AdminSponsorsPageComponent implements OnInit {
   readonly adminToken = signal<string>('');
   readonly sponsorships = signal<readonly AdminSponsorshipRecord[]>([]);
   readonly reviewNotes = signal<Record<string, string>>({});
-  readonly publicationDrafts =
-    signal<Record<string, SponsorshipPublicationDraft>>({});
+  readonly publicationDrafts = signal<
+    Record<string, SponsorshipPublicationDraft>
+  >({});
   readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   readonly actionState = signal<string | null>(null);
+  readonly logoUploadMessages = signal<Record<string, string>>({});
   readonly search = signal<string>('');
   readonly reviewFilter = signal<SponsorshipReviewFilter>('all');
   readonly feedFilter = signal<SponsorFeedStatusFilter>('all');
@@ -877,6 +970,56 @@ export class AdminSponsorsPageComponent implements OnInit {
     }
   }
 
+  async uploadLogo(
+    sponsorship: AdminSponsorshipRecord,
+    event: Event
+  ): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+
+    if (!file) {
+      return;
+    }
+
+    if (
+      file.size > sponsorLogoMaxBytes ||
+      !sponsorLogoMimeTypes.has(file.type)
+    ) {
+      this.setLogoUploadMessage(
+        sponsorship.id,
+        'Logo refuse: PNG, JPEG ou WebP, max 512 KiB.'
+      );
+      if (input) {
+        input.value = '';
+      }
+      return;
+    }
+
+    this.actionState.set(this.logoActionId(sponsorship.id));
+    this.setLogoUploadMessage(sponsorship.id, 'Upload en cours...');
+
+    try {
+      const result = await this.admin.uploadSponsorLogo(
+        this.adminToken(),
+        sponsorship.id,
+        file
+      );
+      this.setLogoUploadMessage(
+        sponsorship.id,
+        `Logo enregistre (${Math.ceil(result.sizeBytes / 1024)} KiB).`
+      );
+      await this.loadSponsorships();
+    } catch {
+      this.setLogoUploadMessage(sponsorship.id, 'Upload du logo impossible.');
+      this.state.set('error');
+    } finally {
+      this.actionState.set(null);
+      if (input) {
+        input.value = '';
+      }
+    }
+  }
+
   setAdminToken(event: Event): void {
     this.adminToken.set(this.valueFromEvent(event));
     this.saveToken();
@@ -938,8 +1081,7 @@ export class AdminSponsorsPageComponent implements OnInit {
     channel: 'facebook' | 'linkedin',
     event: Event
   ): void {
-    const checked =
-      (event.target as HTMLInputElement | null)?.checked ?? false;
+    const checked = (event.target as HTMLInputElement | null)?.checked ?? false;
     this.publicationDrafts.update((drafts) => {
       const draft = drafts[id] ?? this.emptyPublicationDraft();
       return {
@@ -954,6 +1096,14 @@ export class AdminSponsorsPageComponent implements OnInit {
 
   reviewNoteFor(id: string): string {
     return this.reviewNotes()[id] ?? '';
+  }
+
+  logoActionId(id: string): string {
+    return `logo:${id}`;
+  }
+
+  logoUploadMessageFor(id: string): string {
+    return this.logoUploadMessages()[id] ?? '';
   }
 
   publicationDraftFor(id: string): SponsorshipPublicationDraft {
@@ -1054,14 +1204,18 @@ export class AdminSponsorsPageComponent implements OnInit {
     this.admin.saveAdminToken(this.adminToken());
   }
 
+  private setLogoUploadMessage(id: string, message: string): void {
+    this.logoUploadMessages.update((messages) => ({
+      ...messages,
+      [id]: message
+    }));
+  }
+
   private valueFromEvent(event: Event): string {
     return (
       (
         event.target as
-          | HTMLInputElement
-          | HTMLSelectElement
-          | HTMLTextAreaElement
-          | null
+          HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null
       )?.value ?? ''
     );
   }

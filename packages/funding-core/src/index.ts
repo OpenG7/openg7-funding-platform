@@ -224,6 +224,14 @@ export interface AdminSponsorshipsResponse {
   readonly last_updated_at: string;
 }
 
+export interface AdminSponsorLogoUploadResult {
+  readonly updated: boolean;
+  readonly contributionId: string;
+  readonly logoUrl: string;
+  readonly mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  readonly sizeBytes: number;
+}
+
 export interface AdminContributionRecord {
   readonly id: string;
   readonly contribution_type: ContributionType;

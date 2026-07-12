@@ -22,6 +22,8 @@ FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
 FUNDING_ADMIN_TOKEN=<long-random-root-admin-secret>
 FUNDING_ADMIN_SESSION_SECRET=<different-long-random-session-secret>
 FUNDING_ADMIN_SESSION_TTL_MINUTES=60
+FUNDING_SPONSOR_LOGO_STORAGE_DIR=/app/var/sponsor-logos
+FUNDING_SPONSOR_LOGO_MAX_BYTES=524288
 STRIPE_SECRET_KEY=<stripe-live-or-final-test-secret-key>
 STRIPE_WEBHOOK_SECRET=<stripe-webhook-signing-secret>
 ```
@@ -113,6 +115,7 @@ The hosting layer must provide:
 - `/api/checkout-sessions` routed to the Funding API.
 - `/api/public/fund-transparency` routed to the Funding API.
 - `/api/public/sponsorships` routed to the Funding API.
+- `/api/public/sponsor-logos/*` routed to the Funding API.
 - `/api/stripe/webhook` routed to the Funding API.
 
 ## Stripe Setup
@@ -192,6 +195,7 @@ Expected transparency behavior:
 - Confirm `FUNDING_PLATFORM_ENV=production`.
 - Confirm `FUNDING_ALLOWED_ORIGINS` contains only the intended production frontend origins.
 - Confirm sponsorship follow-up and admin rate limit variables are set for the expected traffic volume.
+- Confirm sponsor logo upload limits, storage directory, and `openg7-sponsor-logos` volume backups are configured.
 - Confirm `/dev/stripe-setup`, `/dev/webhooks`, and `/dev/api-keys` are not accessible from the production domain.
 - Confirm all NorthDragon links open `https://northdragon.org` in a new tab.
 - Confirm GitHub repository links open the intended OpenG7 repositories.

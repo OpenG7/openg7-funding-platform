@@ -98,6 +98,8 @@ test('PostgreSQL compose service is private and profile-gated', () => {
   assert.ok(compose.includes('openg7-data'));
   assert.ok(compose.includes('internal: true'));
   assert.ok(compose.includes('FUNDING_ADMIN_SESSION_SECRET'));
+  assert.ok(compose.includes('FUNDING_SPONSOR_LOGO_STORAGE_DIR'));
+  assert.ok(compose.includes('openg7-sponsor-logos'));
   assert.equal(/['"]?5432:5432['"]?/.test(compose), false);
 });
 
@@ -616,12 +618,16 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(api.includes('FUNDING_ADMIN_RATE_LIMIT_MAX'));
   assert.ok(api.includes('FUNDING_ADMIN_SESSION_SECRET'));
   assert.ok(api.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES'));
+  assert.ok(api.includes('FUNDING_SPONSOR_LOGO_STORAGE_DIR'));
+  assert.ok(api.includes('FUNDING_SPONSOR_LOGO_MAX_BYTES'));
   assert.ok(
     envExample.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS=30')
   );
   assert.ok(envExample.includes('FUNDING_ADMIN_RATE_LIMIT_MAX=120'));
   assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_SECRET='));
   assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES=60'));
+  assert.ok(envExample.includes('FUNDING_SPONSOR_LOGO_STORAGE_DIR='));
+  assert.ok(envExample.includes('FUNDING_SPONSOR_LOGO_MAX_BYTES=524288'));
 });
 
 test('Sponsorship follow-up page is routed but not added to the sitemap', () => {

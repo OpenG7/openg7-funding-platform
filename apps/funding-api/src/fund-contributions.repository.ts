@@ -21,11 +21,7 @@ const allowedContributionTypes = new Set<ContributionType>([
   'sponsorship_interest'
 ]);
 export const allowedSponsorshipReviewStatuses =
-  new Set<SponsorshipReviewStatus>([
-    'pending_review',
-    'approved',
-    'rejected'
-  ]);
+  new Set<SponsorshipReviewStatus>(['pending_review', 'approved', 'rejected']);
 export const allowedSponsorFeedTargets = new Set<SponsorFeedTarget>([
   'openg7',
   'openg20'
@@ -61,8 +57,7 @@ export interface StripeEventRecordInput {
   readonly payload: unknown;
 }
 
-export interface CheckoutSessionWebhookInput
-  extends CheckoutSessionRecordInput {
+export interface CheckoutSessionWebhookInput extends CheckoutSessionRecordInput {
   readonly status: 'pending' | 'paid' | 'expired';
   readonly paidAtIso: string | null;
   readonly emailPrivate: string | null;
@@ -98,6 +93,11 @@ export interface SponsorshipReviewInput {
 }
 
 export type SponsorshipPublicationInput = AdminSponsorshipPublicationRequest;
+
+export interface SponsorshipLogoInput {
+  readonly contributionId: string;
+  readonly logoUrl: string;
+}
 
 export interface SponsorshipFollowupRecordInput {
   readonly contributionId: string;
@@ -645,11 +645,7 @@ export const updateContributionStatusByPaymentIntent = async (
           updated_at = NOW()
         WHERE stripe_payment_intent_id = $1
       `,
-      [
-        input.stripePaymentIntentId,
-        input.status,
-        input.paidAtIso ?? null
-      ]
+      [input.stripePaymentIntentId, input.status, input.paidAtIso ?? null]
     );
 
     await client.query('COMMIT');
@@ -1075,9 +1071,7 @@ export const listAdminSponsorships = async (
     sponsor_public_slug: row.sponsor_public_slug,
     sponsor_public_summary: row.sponsor_public_summary,
     sponsor_feed_target: normalizeSponsorFeedTarget(row.sponsor_feed_target),
-    sponsor_feed_channels: parseSponsorFeedChannels(
-      row.sponsor_feed_channels
-    ),
+    sponsor_feed_channels: parseSponsorFeedChannels(row.sponsor_feed_channels),
     sponsor_feed_status: normalizeSponsorFeedStatus(row.sponsor_feed_status),
     sponsor_feed_public_url: row.sponsor_feed_public_url,
     sponsor_feed_notes: row.sponsor_feed_notes,
@@ -1153,6 +1147,56 @@ export const updateSponsorshipPublication = async (
   return (result.rowCount ?? 0) > 0;
 };
 
+export const updateSponsorshipLogoUrl = async (
+  pool: Pool | null,
+  input: SponsorshipLogoInput
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE fund_contributions
+      SET
+        sponsor_logo_url = $2,
+        updated_at = NOW()
+      WHERE id = $1::uuid
+        AND contribution_type = 'sponsorship_interest'
+        AND status IN ('paid', 'refunded', 'disputed')
+    `,
+    [input.contributionId, input.logoUrl]
+  );
+
+  return (result.rowCount ?? 0) > 0;
+};
+
+export const isPublicApprovedSponsorshipLogoUrl = async (
+  pool: Pool | null,
+  logoUrl: string
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  const query = await pool.query<{ readonly exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM fund_contributions
+        WHERE contribution_type = 'sponsorship_interest'
+          AND status IN ('paid', 'refunded', 'disputed')
+          AND public_display_consent = TRUE
+          AND sponsor_review_status = 'approved'
+          AND sponsor_logo_url = $1
+      ) AS exists
+    `,
+    [logoUrl]
+  );
+
+  return query.rows[0]?.exists ?? false;
+};
+
 const getSponsorshipPublicationPresence = async (
   pool: Pool
 ): Promise<SponsorshipPublicationPresenceRow> => {
@@ -1183,11 +1227,13 @@ const getSponsorshipPublicationPresence = async (
       ) = 7 AS has_sponsor_publication_columns
   `);
 
-  return query.rows[0] ?? {
-    has_fund_contributions: false,
-    has_sponsor_review_status: false,
-    has_sponsor_publication_columns: false
-  };
+  return (
+    query.rows[0] ?? {
+      has_fund_contributions: false,
+      has_sponsor_review_status: false,
+      has_sponsor_publication_columns: false
+    }
+  );
 };
 
 export const listPublicSponsorships = async (
