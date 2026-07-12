@@ -22,6 +22,7 @@
     "docker:up": "node scripts/docker-ready.mjs -- docker compose up --build",
     "docker:local": "node scripts/docker-ready.mjs -- docker compose --profile database up -d --build",
     "docker:update": "node scripts/docker-ready.mjs -- node scripts/docker-update.mjs",
+    "docker:update:dev": "node scripts/docker-ready.mjs -- node scripts/docker-update.mjs --development --database --build-app --prune-images --stripe-webhook",
     "docker:down": "node scripts/docker-ready.mjs -- docker compose down",
     "db:up": "node scripts/docker-ready.mjs -- docker compose --profile database up -d postgres",
     "db:stop": "node scripts/docker-ready.mjs -- docker compose --profile database stop postgres",

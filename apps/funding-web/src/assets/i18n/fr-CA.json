@@ -522,7 +522,14 @@
         "cancelCopy": "Aucun paiement confirmé n'a été ajouté au registre. Vous pouvez reprendre votre contribution quand vous voulez.",
         "sponsorKicker": "Commandite en validation",
         "sponsorTitle": "Commandite reçue — visibilité en validation",
-        "sponsorCopy": "Merci pour votre paiement. Aucune visibilité publique n'est encore accordée: notre équipe valide manuellement chaque commandite avant toute publication. Complétez ces informations pour accélérer la révision.",
+        "sponsorCopy": "Paiement reçu. Votre commandite n'est pas publiée: complétez le suivi, puis l'équipe OpenG7 validera les renseignements, le logo et la visibilité.",
+        "sponsorStages": {
+          "paymentReceived": "Paiement reçu par Stripe",
+          "detailsIncomplete": "Renseignements à compléter",
+          "manualReview": "Révision manuelle avant publication",
+          "publication": "Publication seulement après approbation"
+        },
+        "sponsorFollowupCta": "Compléter le suivi commanditaire",
         "sponsorForm": {
           "companyNameLabel": "Nom de l'entreprise",
           "contactNameLabel": "Nom du contact",
@@ -628,6 +635,8 @@
             "openg7": "Mention sur OpenG7.org"
           },
           "reviewNote": "Chaque commandite est vérifiée et approuvée manuellement avant sa publication.",
+          "afterPaymentNote": "Après le paiement, vous pourrez transmettre les renseignements de votre entreprise, votre site Web et votre logo aux fins de validation.",
+          "manualReviewNote": "Toute commandite est vérifiée et approuvée manuellement avant sa publication.",
           "disabled": "Temporairement indisponible"
         },
         "otherAmount": "Autre montant",

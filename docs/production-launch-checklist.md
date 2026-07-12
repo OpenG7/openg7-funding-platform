@@ -199,9 +199,12 @@ the PostgreSQL-backed launch path for real payments:
 3. Apply every versioned migration, then run `corepack yarn test` and
    `corepack yarn workspace @openg7/funding-web build --configuration production`.
 4. Complete one Stripe test checkout for `sponsorship_interest` and confirm the
-   signed webhook stores the private contribution row.
-5. Open the sponsor follow-up link, submit company details, and confirm the
-   commandite returns to manual review.
+   signed webhook stores the private contribution row with a hashed follow-up
+   token. Confirm the browser return uses `followup_token` and does not rely on
+   `session_id`.
+5. Open the sponsor follow-up link, refresh it, close the tab, reopen the same
+   link, submit company details, submit them a second time, and confirm the
+   commandite remains a single paid row that returns to manual review.
 6. Open `/admin/fundraiser/sponsors`, create an admin browser session through
    `POST /api/admin/session`, then review the paid sponsorship.
 7. Upload a small PNG/JPEG/WebP logo, confirm `GET /api/admin/sponsorships/logo`
@@ -215,7 +218,14 @@ the PostgreSQL-backed launch path for real payments:
     `openg7-sponsor-logos-*.tar.gz` archives are present, then rehearse
     `bash scripts/restore-from-backup.sh --sponsor-logos-backup <archive>` on a
     disposable environment.
-11. Run the production launch agent in dry-run mode, then execute it with
+11. Replay the same signed Stripe test webhook event and confirm idempotence:
+    no duplicate contribution, no duplicate public sponsor, and no unexpected
+    status regression.
+12. Fetch and inspect API logs after the rehearsal:
+    `docker compose logs --tail=300 api`. Look specifically for webhook errors,
+    PostgreSQL errors, orphaned sponsorships, follow-up form errors, logo
+    processing errors, duplicate handling, and idempotence warnings.
+13. Run the production launch agent in dry-run mode, then execute it with
     `PLA_ROLE=operator` only after the manual checks above pass.
 
 ## Final Preflight

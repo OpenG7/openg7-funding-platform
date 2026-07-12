@@ -30,8 +30,7 @@ html {
 
 body {
   background:
-    linear-gradient(180deg, rgb(4 12 26 / 82%), rgb(2 8 18 / 96%)),
-    #030b18;
+    linear-gradient(180deg, rgb(4 12 26 / 82%), rgb(2 8 18 / 96%)), #030b18;
   color: var(--text-main);
   font-family: Georgia, 'Times New Roman', serif;
 }
@@ -72,7 +71,9 @@ a:focus-visible {
     linear-gradient(180deg, rgb(3 11 24 / 88%), rgb(2 7 17 / 95%)),
     var(--ink-950);
   border: 1px solid rgb(237 190 86 / 36%);
-  box-shadow: 0 0 0 1px rgb(31 157 240 / 15%), 0 30px 90px rgb(0 0 0 / 55%);
+  box-shadow:
+    0 0 0 1px rgb(31 157 240 / 15%),
+    0 30px 90px rgb(0 0 0 / 55%);
   margin: 0 auto;
   max-width: 1530px;
   min-height: 100dvh;
@@ -172,7 +173,9 @@ a:focus-visible {
   background: linear-gradient(180deg, #ffe08a 0%, #d99b2e 100%);
   border: 1px solid #ffe69a;
   border-radius: 0.45rem;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 40%), 0 0 26px rgb(221 169 59 / 20%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 40%),
+    0 0 26px rgb(221 169 59 / 20%);
   color: #09111c;
   display: inline-flex;
   font-family: 'Trebuchet MS', sans-serif;
@@ -194,7 +197,12 @@ a:focus-visible {
 
 .checkout-success-stage {
   background:
-    linear-gradient(90deg, rgb(2 8 18 / 92%) 0%, rgb(2 8 18 / 74%) 43%, rgb(2 8 18 / 16%) 100%),
+    linear-gradient(
+      90deg,
+      rgb(2 8 18 / 92%) 0%,
+      rgb(2 8 18 / 74%) 43%,
+      rgb(2 8 18 / 16%) 100%
+    ),
     #030811;
   border-bottom: 1px solid rgb(244 201 87 / 34%);
   min-height: clamp(24rem, 48vw, 36rem);
@@ -204,7 +212,12 @@ a:focus-visible {
 
 .checkout-cancel-stage {
   background:
-    linear-gradient(90deg, rgb(2 8 18 / 92%) 0%, rgb(2 8 18 / 82%) 48%, rgb(2 8 18 / 30%) 100%),
+    linear-gradient(
+      90deg,
+      rgb(2 8 18 / 92%) 0%,
+      rgb(2 8 18 / 82%) 48%,
+      rgb(2 8 18 / 30%) 100%
+    ),
     #05070d;
 }
 
@@ -219,7 +232,11 @@ a:focus-visible {
 
 .checkout-success-glow {
   background:
-    radial-gradient(circle at 66% 64%, rgb(244 201 87 / 34%), transparent 17rem),
+    radial-gradient(
+      circle at 66% 64%,
+      rgb(244 201 87 / 34%),
+      transparent 17rem
+    ),
     linear-gradient(180deg, transparent 58%, rgb(2 8 18 / 92%) 100%);
   inset: 0;
   position: absolute;
@@ -227,7 +244,11 @@ a:focus-visible {
 
 .checkout-cancel-glow {
   background:
-    radial-gradient(circle at 66% 72%, rgb(122 223 255 / 16%), transparent 18rem),
+    radial-gradient(
+      circle at 66% 72%,
+      rgb(122 223 255 / 16%),
+      transparent 18rem
+    ),
     linear-gradient(180deg, transparent 52%, rgb(2 8 18 / 94%) 100%);
 }
 
@@ -260,10 +281,13 @@ a:focus-visible {
   background: linear-gradient(180deg, rgb(4 16 31 / 82%), rgb(2 10 22 / 74%));
   border: 1px solid rgb(244 201 87 / 52%);
   border-radius: 0.8rem;
-  box-shadow: inset 0 1px 0 rgb(255 235 168 / 18%), 0 24px 70px rgb(0 0 0 / 42%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 235 168 / 18%),
+    0 24px 70px rgb(0 0 0 / 42%);
   display: grid;
   gap: 0.85rem;
-  margin: clamp(1.3rem, 5vw, 4.2rem) 0 clamp(1.5rem, 5vw, 4rem) clamp(1rem, 5vw, 5.4rem);
+  margin: clamp(1.3rem, 5vw, 4.2rem) 0 clamp(1.5rem, 5vw, 4rem)
+    clamp(1rem, 5vw, 5.4rem);
   max-width: 31rem;
   padding: clamp(1rem, 3vw, 1.45rem);
   position: relative;
@@ -325,37 +349,39 @@ a:focus-visible {
   max-width: 30rem;
 }
 
-.sponsor-followup-form {
+.sponsor-followup-steps {
   display: grid;
-  gap: 0.15rem;
-  margin-top: 0.3rem;
+  gap: 0.48rem;
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
 }
 
-.sponsor-followup-form label {
+.sponsor-followup-steps li {
+  align-items: center;
   color: #d8e3ec;
-  font-size: 0.82rem;
-  margin: 0.55rem 0 0.2rem;
-}
-
-.sponsor-followup-form input,
-.sponsor-followup-form textarea {
-  background: rgb(2 11 24 / 82%);
-  border: 1px solid rgb(122 223 255 / 22%);
-  border-radius: 0.38rem;
-  color: #fff;
+  display: grid;
   font-family: 'Trebuchet MS', sans-serif;
-  min-height: 2.25rem;
-  padding: 0.4rem 0.65rem;
-  width: 100%;
+  font-size: 0.82rem;
+  gap: 0.55rem;
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
-.sponsor-followup-form textarea {
-  min-height: 4.5rem;
-  resize: vertical;
+.sponsor-followup-steps span {
+  border: 1px solid rgb(244 201 87 / 58%);
+  border-radius: 999px;
+  color: var(--gold-400);
+  display: grid;
+  font-size: 0.72rem;
+  height: 1.45rem;
+  place-items: center;
+  width: 1.45rem;
 }
 
-.sponsor-followup-form .gold-cta {
-  margin-top: 0.85rem;
+.checkout-success-actions .secondary-link {
+  background: rgb(4 18 35 / 72%);
+  border: 1px solid rgb(122 223 255 / 36%);
+  color: #fff2d6;
 }
 
 .poster-hero {
@@ -380,8 +406,19 @@ a:focus-visible {
 
 .hero-shade {
   background:
-    linear-gradient(90deg, rgb(2 8 18 / 90%) 0%, rgb(2 8 18 / 58%) 33%, rgb(2 8 18 / 15%) 67%, rgb(2 8 18 / 56%) 100%),
-    linear-gradient(180deg, rgb(2 8 18 / 18%) 0%, rgb(2 8 18 / 12%) 62%, rgb(2 8 18 / 92%) 100%);
+    linear-gradient(
+      90deg,
+      rgb(2 8 18 / 90%) 0%,
+      rgb(2 8 18 / 58%) 33%,
+      rgb(2 8 18 / 15%) 67%,
+      rgb(2 8 18 / 56%) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgb(2 8 18 / 18%) 0%,
+      rgb(2 8 18 / 12%) 62%,
+      rgb(2 8 18 / 92%) 100%
+    );
   inset: 0;
   position: absolute;
 }
@@ -428,7 +465,9 @@ a:focus-visible {
   background: rgb(3 17 33 / 72%);
   border: 1px solid rgb(232 173 63 / 52%);
   border-radius: 0.8rem;
-  box-shadow: inset 0 1px 0 rgb(255 235 168 / 16%), 0 12px 38px rgb(0 0 0 / 28%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 235 168 / 16%),
+    0 12px 38px rgb(0 0 0 / 28%);
   display: grid;
   gap: 0.55rem;
   margin-top: 0.25rem;
@@ -538,7 +577,9 @@ a:focus-visible {
   background: var(--ink-800);
   border: 1px solid var(--panel-border);
   border-radius: 0.55rem;
-  box-shadow: inset 0 1px 0 rgb(122 223 255 / 15%), 0 8px 24px rgb(0 0 0 / 22%);
+  box-shadow:
+    inset 0 1px 0 rgb(122 223 255 / 15%),
+    0 8px 24px rgb(0 0 0 / 22%);
   overflow: hidden;
   position: relative;
 }
@@ -558,7 +599,12 @@ a:focus-visible {
 
 .tool-card::after {
   background:
-    linear-gradient(180deg, rgb(2 9 20 / 8%), rgb(2 9 20 / 48%) 44%, rgb(2 9 20 / 92%) 100%),
+    linear-gradient(
+      180deg,
+      rgb(2 9 20 / 8%),
+      rgb(2 9 20 / 48%) 44%,
+      rgb(2 9 20 / 92%) 100%
+    ),
     linear-gradient(90deg, rgb(0 0 0 / 15%), transparent 50%);
   content: '';
   inset: 0;
@@ -618,7 +664,11 @@ a:focus-visible {
 .funding-purpose-board {
   background:
     radial-gradient(circle at 78% 8%, rgb(246 185 63 / 16%), transparent 22rem),
-    radial-gradient(circle at 18% 16%, rgb(31 157 240 / 20%), transparent 24rem),
+    radial-gradient(
+      circle at 18% 16%,
+      rgb(31 157 240 / 20%),
+      transparent 24rem
+    ),
     linear-gradient(180deg, rgb(3 13 28 / 96%), rgb(2 8 18 / 98%));
   border-top: 1px solid rgb(221 169 59 / 30%);
   display: grid;
@@ -644,7 +694,13 @@ a:focus-visible {
 
 .purpose-overlay {
   background:
-    linear-gradient(90deg, rgb(2 8 18 / 92%) 0%, rgb(2 8 18 / 68%) 44%, rgb(2 8 18 / 46%) 68%, rgb(2 8 18 / 82%) 100%),
+    linear-gradient(
+      90deg,
+      rgb(2 8 18 / 92%) 0%,
+      rgb(2 8 18 / 68%) 44%,
+      rgb(2 8 18 / 46%) 68%,
+      rgb(2 8 18 / 82%) 100%
+    ),
     linear-gradient(180deg, rgb(2 8 18 / 10%), rgb(2 8 18 / 82%));
   inset: 0;
   position: absolute;
@@ -745,7 +801,9 @@ a:focus-visible {
 .finance-panel {
   background: rgb(3 19 38 / 82%);
   border: 1px solid rgb(102 177 232 / 28%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 12px 34px rgb(0 0 0 / 26%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    0 12px 34px rgb(0 0 0 / 26%);
 }
 
 .purpose-proof-strip div {
@@ -858,7 +916,9 @@ a:focus-visible {
   background-image:
     linear-gradient(90deg, rgb(3 19 38 / 92%), rgb(3 19 38 / 70%)),
     url('/assets/fonds-des-batisseurs-dragon-coffre-fort.png');
-  background-position: center, right 48%;
+  background-position:
+    center,
+    right 48%;
   background-size: cover;
   border-radius: 0.62rem;
   padding: 0.88rem 1rem;
@@ -928,7 +988,9 @@ a:focus-visible {
 .purpose-panel {
   background: rgb(3 19 38 / 64%);
   border-color: rgb(102 177 232 / 18%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%), 0 8px 22px rgb(0 0 0 / 18%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 5%),
+    0 8px 22px rgb(0 0 0 / 18%);
 }
 
 .purpose-panel h3,
@@ -1142,8 +1204,7 @@ a:focus-visible {
 
 .contribution-type-card.active::after {
   background:
-    radial-gradient(circle, #f6fbff 0 42%, transparent 45%),
-    rgb(10 46 76 / 96%);
+    radial-gradient(circle, #f6fbff 0 42%, transparent 45%), rgb(10 46 76 / 96%);
   border-color: #d7f7ff;
   box-shadow:
     0 0 0 3px rgb(122 223 255 / 24%),
@@ -1255,11 +1316,16 @@ a:focus-visible {
 
 .contribution-card-icon-business::before {
   background:
-    linear-gradient(currentColor, currentColor) 50% 100% / 0.34rem 0.56rem no-repeat,
-    linear-gradient(currentColor, currentColor) 32% 35% / 0.22rem 0.22rem no-repeat,
-    linear-gradient(currentColor, currentColor) 68% 35% / 0.22rem 0.22rem no-repeat,
-    linear-gradient(currentColor, currentColor) 32% 58% / 0.22rem 0.22rem no-repeat,
-    linear-gradient(currentColor, currentColor) 68% 58% / 0.22rem 0.22rem no-repeat;
+    linear-gradient(currentColor, currentColor) 50% 100% / 0.34rem 0.56rem
+      no-repeat,
+    linear-gradient(currentColor, currentColor) 32% 35% / 0.22rem 0.22rem
+      no-repeat,
+    linear-gradient(currentColor, currentColor) 68% 35% / 0.22rem 0.22rem
+      no-repeat,
+    linear-gradient(currentColor, currentColor) 32% 58% / 0.22rem 0.22rem
+      no-repeat,
+    linear-gradient(currentColor, currentColor) 68% 58% / 0.22rem 0.22rem
+      no-repeat;
   border: 1.4px solid currentColor;
   border-radius: 0.12rem;
   content: '';
@@ -1415,7 +1481,8 @@ a:focus-visible {
 .contribution-type-card .unavailable-badge::before {
   background:
     linear-gradient(#dce7f1, #dce7f1) 50% 27% / 2px 0.44rem no-repeat,
-    linear-gradient(45deg, transparent 43%, #dce7f1 44% 56%, transparent 57%) 58% 58% / 0.56rem 0.56rem no-repeat;
+    linear-gradient(45deg, transparent 43%, #dce7f1 44% 56%, transparent 57%)
+      58% 58% / 0.56rem 0.56rem no-repeat;
   border: 2px solid #dce7f1;
   border-radius: 999px;
   content: '';
@@ -1429,6 +1496,17 @@ a:focus-visible {
   gap: 0.68rem;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: 0.2rem;
+}
+
+.sponsorship-selection-note {
+  background: rgb(4 18 35 / 72%);
+  border: 1px solid rgb(244 181 60 / 30%);
+  border-radius: 0.5rem;
+  color: #f0dca6;
+  font-size: 0.78rem;
+  line-height: 1.42;
+  margin: -0.2rem 0 1rem;
+  padding: 0.62rem 0.68rem;
 }
 
 .amount-grid button {
@@ -1558,6 +1636,11 @@ a:focus-visible {
   margin-left: 0.25rem;
 }
 
+.sponsorship-payment-note {
+  color: #f0dca6;
+  font-weight: 800;
+}
+
 .state-error {
   color: #ffb5a8;
 }
@@ -1656,8 +1739,8 @@ a:focus-visible {
   .builders-nav {
     gap: 0.45rem 1rem;
     grid-template-areas:
-      "brand actions"
-      "nav nav";
+      'brand actions'
+      'nav nav';
     grid-template-columns: minmax(0, 1fr) auto;
     padding-block: 0.6rem;
   }
@@ -1734,7 +1817,12 @@ a:focus-visible {
 
   .checkout-success-stage {
     background:
-      linear-gradient(180deg, rgb(2 8 18 / 38%) 0%, rgb(2 8 18 / 92%) 57%, rgb(2 8 18 / 98%) 100%),
+      linear-gradient(
+        180deg,
+        rgb(2 8 18 / 38%) 0%,
+        rgb(2 8 18 / 92%) 57%,
+        rgb(2 8 18 / 98%) 100%
+      ),
       #030811;
   }
 

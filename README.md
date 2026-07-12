@@ -276,10 +276,13 @@ POST /api/sponsorship-followup/details
 
 When PostgreSQL, `RESEND_API_KEY`, and `FUNDING_EMAIL_FROM` are configured, the
 `checkout.session.completed` webhook sends this follow-up link to the Stripe
-customer email. Without email configuration, the immediate Stripe return still
-shows the form, and admins can review the sponsorship from the admin screen.
-If details are resubmitted after approval, the sponsorship returns to
-`pending_review` before any public display continues.
+customer email. Without email configuration, the immediate Stripe return shows
+a tokenized follow-up action; if the tab is closed, admins can still see the
+paid but incomplete sponsorship from the admin screen. If details are
+resubmitted after approval, the sponsorship returns to `pending_review` before
+any public display continues. Without PostgreSQL, Stripe-direct transparency
+still works, but the recoverable sponsorship follow-up and public sponsor
+profile lifecycle are not available.
 
 The API also applies in-process rate limits to checkout, sponsorship follow-up,
 and admin sponsorship routes. Configure the window and limits with
