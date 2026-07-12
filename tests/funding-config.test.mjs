@@ -103,20 +103,47 @@ test('PostgreSQL compose service is private and profile-gated', () => {
   assert.equal(/['"]?5432:5432['"]?/.test(compose), false);
 });
 
-test('PostgreSQL restore helper rebuilds from backup with destructive safeguards', () => {
+test('Backup and restore helpers cover PostgreSQL and sponsor logo volumes', () => {
+  const backupScript = fs.readFileSync('scripts/backup.sh', 'utf8');
   const script = fs.readFileSync('scripts/restore-from-backup.sh', 'utf8');
+  const vps = fs.readFileSync('scripts/vps.mjs', 'utf8');
   const docs = fs.readFileSync('docs/docker-deployment.md', 'utf8');
 
+  assert.ok(
+    backupScript.includes(
+      'SPONSOR_LOGOS_VOLUME_NAME="${SPONSOR_LOGOS_VOLUME_NAME:-openg7-sponsor-logos}"'
+    )
+  );
+  assert.ok(backupScript.includes('openg7-sponsor-logos-${STAMP}.tar.gz'));
+  assert.ok(
+    backupScript.includes(
+      'docker volume inspect "${SPONSOR_LOGOS_VOLUME_NAME}"'
+    )
+  );
+  assert.ok(backupScript.includes('docker run --rm'));
   assert.ok(
     script.includes(
       'POSTGRES_VOLUME_NAME="${POSTGRES_VOLUME_NAME:-openg7-postgres-data}"'
     )
   );
+  assert.ok(
+    script.includes(
+      'SPONSOR_LOGOS_VOLUME_NAME="${SPONSOR_LOGOS_VOLUME_NAME:-openg7-sponsor-logos}"'
+    )
+  );
+  assert.ok(script.includes('--sponsor-logos-backup'));
   assert.ok(script.includes('Type RESTORE OPENG7 to continue.'));
   assert.ok(script.includes('docker volume rm "${POSTGRES_VOLUME_NAME}"'));
+  assert.ok(script.includes('docker volume rm "${SPONSOR_LOGOS_VOLUME_NAME}"'));
+  assert.ok(
+    script.includes('docker volume create "${SPONSOR_LOGOS_VOLUME_NAME}"')
+  );
   assert.ok(script.includes('psql -v ON_ERROR_STOP=1'));
   assert.ok(script.includes('bash scripts/check.sh'));
+  assert.ok(vps.includes('latest-sponsor-logos-backup.tar.gz'));
+  assert.ok(vps.includes('remoteFileExists'));
   assert.ok(docs.includes('bash scripts/restore-from-backup.sh'));
+  assert.ok(docs.includes('--sponsor-logos-backup'));
 });
 
 test('Stripe webhook service handles MVP idempotent event set', () => {

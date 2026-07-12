@@ -4,14 +4,14 @@
 
 Usage quotidien local :
 
-| Besoin | Commande |
-| --- | --- |
-| Installer les dépendances | `corepack enable && corepack yarn install` |
-| Lancer le site et l'API | `yarn dev` |
-| Vérifier le build TypeScript | `yarn build` |
-| Builder le frontend Angular | `yarn workspace @openg7/funding-web build` |
-| Lancer le lint | `yarn lint` |
-| Mettre à jour Docker localement | `yarn docker:update` |
+| Besoin                          | Commande                                   |
+| ------------------------------- | ------------------------------------------ |
+| Installer les dépendances       | `corepack enable && corepack yarn install` |
+| Lancer le site et l'API         | `yarn dev`                                 |
+| Vérifier le build TypeScript    | `yarn build`                               |
+| Builder le frontend Angular     | `yarn workspace @openg7/funding-web build` |
+| Lancer le lint                  | `yarn lint`                                |
+| Mettre à jour Docker localement | `yarn docker:update`                       |
 
 Les raccourcis `docker:*` et `db:*` locaux attendent que Docker soit prêt.
 Si Docker Desktop est fermé, ils tentent de l'ouvrir et affichent un message
@@ -19,28 +19,28 @@ Si Docker Desktop est fermé, ils tentent de l'ouvrir et affichent un message
 
 Usage courant VPS :
 
-| Besoin | Commande |
-| --- | --- |
-| Mettre à jour le VPS et déployer | `yarn vps:update` |
-| Déployer sans refaire `git pull` | `yarn vps:deploy` |
-| Déployer sans rebuild Docker local au VPS | `yarn vps:update --no-build` |
-| Revenir aux images applicatives précédentes | `yarn vps:rollback` |
-| Vérifier la production | `yarn vps:check` |
-| Voir les containers | `yarn vps:ps` |
-| Suivre les logs | `yarn vps:logs` |
-| Suivre les logs API | `yarn vps:logs api` |
-| Ouvrir un shell dans le projet sur le VPS | `yarn vps:ssh` |
+| Besoin                                      | Commande                     |
+| ------------------------------------------- | ---------------------------- |
+| Mettre à jour le VPS et déployer            | `yarn vps:update`            |
+| Déployer sans refaire `git pull`            | `yarn vps:deploy`            |
+| Déployer sans rebuild Docker local au VPS   | `yarn vps:update --no-build` |
+| Revenir aux images applicatives précédentes | `yarn vps:rollback`          |
+| Vérifier la production                      | `yarn vps:check`             |
+| Voir les containers                         | `yarn vps:ps`                |
+| Suivre les logs                             | `yarn vps:logs`              |
+| Suivre les logs API                         | `yarn vps:logs api`          |
+| Ouvrir un shell dans le projet sur le VPS   | `yarn vps:ssh`               |
 
 Usage courant PostgreSQL sur le VPS :
 
-| Besoin | Commande |
-| --- | --- |
-| Appliquer les migrations après un `git pull` | `yarn vps:db:update` |
-| Appliquer les migrations sans déployer l'app | `yarn vps:db:migrate` |
-| Ouvrir `psql` sur la base du VPS | `yarn vps:db:psql` |
-| Créer un backup DB sur le VPS | `yarn vps:db:backup` |
-| Créer et télécharger un backup DB | `yarn vps:db:backup:download` |
-| Créer et télécharger un backup config | `yarn vps:backup:download` |
+| Besoin                                       | Commande                      |
+| -------------------------------------------- | ----------------------------- |
+| Appliquer les migrations après un `git pull` | `yarn vps:db:update`          |
+| Appliquer les migrations sans déployer l'app | `yarn vps:db:migrate`         |
+| Ouvrir `psql` sur la base du VPS             | `yarn vps:db:psql`            |
+| Créer un backup DB sur le VPS                | `yarn vps:db:backup`          |
+| Créer et télécharger un backup DB            | `yarn vps:db:backup:download` |
+| Créer et télécharger un backup config        | `yarn vps:backup:download`    |
 
 Les raccourcis `vps:*` lisent `VPS_HOST`, `VPS_USER`, `VPS_PORT`,
 `VPS_APP_DIR` et `VPS_BACKUP_DOWNLOAD_DIR` depuis l'environnement ou `.env`.
@@ -404,6 +404,12 @@ Si `DATABASE_URL` est configure, ce script cree aussi :
 backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
 ```
 
+Si le volume Docker `openg7-sponsor-logos` existe, le script cree aussi :
+
+```text
+backups/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
+```
+
 Lister les sauvegardes :
 
 ```bash
@@ -413,7 +419,7 @@ ls -lah backups/
 Restaurer :
 
 ```bash
-yarn db:restore --config-backup backups/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz --database-dump backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
+yarn db:restore --config-backup backups/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz --database-dump backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql --sponsor-logos-backup backups/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
 ```
 
 Équivalent direct :
@@ -421,7 +427,8 @@ yarn db:restore --config-backup backups/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz --
 ```bash
 bash scripts/restore-from-backup.sh \
   --config-backup backups/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz \
-  --database-dump backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
+  --database-dump backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql \
+  --sponsor-logos-backup backups/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
 ```
 
 ## Debug fréquent
