@@ -146,6 +146,45 @@ test('Backup and restore helpers cover PostgreSQL and sponsor logo volumes', () 
   assert.ok(docs.includes('--sponsor-logos-backup'));
 });
 
+test('Production rehearsal docs cover PostgreSQL sponsor lifecycle', () => {
+  const launchChecklist = fs.readFileSync(
+    'docs/production-launch-checklist.md',
+    'utf8'
+  );
+  const mvpStatus = fs.readFileSync('docs/fundraiser-mvp-status.md', 'utf8');
+  const agentChecklist = fs.readFileSync(
+    'apps/production-launch-agent/checklists/production-launch-checklist.yaml',
+    'utf8'
+  );
+
+  assert.equal(mvpStatus.includes('- upload et moderation de logos;'), false);
+  assert.equal(mvpStatus.includes('- Aucun upload de logo'), false);
+  assert.ok(
+    mvpStatus.includes(
+      "L'upload de fichier logo reste reserve au back-office admin"
+    )
+  );
+
+  assert.ok(launchChecklist.includes('## PostgreSQL-Backed Rehearsal'));
+  assert.ok(launchChecklist.includes('POST /api/admin/session'));
+  assert.ok(launchChecklist.includes('GET /api/admin/sponsorships/logo'));
+  assert.ok(
+    launchChecklist.includes('POST /api/admin/sponsorships/logo/delete')
+  );
+  assert.match(
+    launchChecklist,
+    /previous controlled file is no longer\s+served/
+  );
+  assert.ok(
+    launchChecklist.includes(
+      'scripts/restore-from-backup.sh --sponsor-logos-backup'
+    )
+  );
+  assert.ok(launchChecklist.includes('PLA_ROLE=operator'));
+  assert.ok(agentChecklist.includes('post-deploy-api-logs'));
+  assert.ok(agentChecklist.includes('analyze-post-deploy-api-logs'));
+});
+
 test('Stripe webhook service handles MVP idempotent event set', () => {
   const source = fs.readFileSync(
     'apps/funding-api/src/stripe-webhook.service.ts',

@@ -115,6 +115,10 @@ Available checklists:
 - `checklists/rollback-checklist.yaml`
 - `checklists/maintenance.yaml`
 
+The production launch checklist runs deployment checks, deploys the stack,
+rechecks health, then fetches and analyzes recent API logs before generating
+the final report.
+
 Checklist steps may be simple:
 
 ```yaml

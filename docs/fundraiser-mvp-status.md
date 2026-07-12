@@ -57,8 +57,8 @@ Le produit reste volontairement prudent:
 - Ecran de succes conditionnel pour `sponsorship_interest`: "Commandite recue,
   visibilite en validation" (pas de visibilite automatique).
 - Formulaire post-paiement: nom d'entreprise, contact, courriel, site web
-  (optionnel), lien logo (optionnel, pas d'upload de fichier), message
-  (optionnel).
+  (optionnel), lien logo fourni par le sponsor (optionnel), message
+  (optionnel). L'upload de fichier logo reste reserve au back-office admin.
 - Endpoint `POST /api/sponsorship-details`: revalide la session aupres de
   Stripe (type de contribution + `payment_status=paid`) avant d'accepter les
   details, refuse sinon.
@@ -73,8 +73,8 @@ Le produit reste volontairement prudent:
   les details par token.
 - Courriel de reprise optionnel via Resend lorsque `RESEND_API_KEY` et
   `FUNDING_EMAIL_FROM` sont configures.
-- Aucun upload de logo, aucune publication automatique: la revue reste
-  manuelle.
+- Aucun upload public de logo par le sponsor, aucune publication automatique:
+  la revue reste manuelle.
 
 ### Revue admin commandite
 
@@ -291,7 +291,7 @@ Les elements suivants restent volontairement hors perimetre:
 - back-office admin avance;
 - authentification admin par fournisseur externe;
 - fiches detaillees `/batisseurs/[slug]`;
-- upload et moderation de logos;
+- bibliotheque avancee d'actifs de marque, variantes de logos et recadrage;
 - publication automatique de commanditaires;
 - publication automatique vers les feeds OpenG7/OpenG20;
 - integration API LinkedIn/Facebook;
