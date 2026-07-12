@@ -23,6 +23,8 @@ import type {
   AdminPublicationDraftsResponse,
   PublicationBatchStatus,
   PublicationDraftStatus,
+  PublicSponsorshipBatchAvailability,
+  PublicSponsorshipBatchAvailabilityResponse,
   SponsorFeedChannel,
   SponsorFeedTarget
 } from '@openg7/funding-core';
@@ -576,10 +578,14 @@ const publicationBatchSelect = `
   LEFT JOIN sponsor_publication_drafts draft ON draft.batch_id = batch.id
 `;
 
-const getPublicationBatchById = async (
-  pool: Pool,
+export const getPublicationBatchById = async (
+  pool: Pool | null,
   batchId: string
 ): Promise<AdminPublicationBatchRecord | null> => {
+  if (!pool) {
+    return null;
+  }
+
   const query = await pool.query<PublicationBatchRow>(
     `
       ${publicationBatchSelect}
@@ -592,6 +598,51 @@ const getPublicationBatchById = async (
 
   const row = query.rows[0];
   return row ? mapPublicationBatchRow(row) : null;
+};
+
+const publicSponsorshipBatchChannels: readonly SponsorFeedChannel[] = [
+  'facebook',
+  'linkedin'
+];
+
+/**
+ * Public-safe: only the earliest scheduled date per channel, no sponsor
+ * names, no draft content, no capacity numbers. Open (undated) batches are
+ * intentionally excluded since their date is not committed yet.
+ */
+export const getPublicSponsorshipBatchAvailability = async (
+  pool: Pool | null
+): Promise<PublicSponsorshipBatchAvailabilityResponse> => {
+  if (!pool) {
+    return { data_source: 'empty', availability: [] };
+  }
+
+  const presence = await getAdminBackofficePresence(pool);
+  if (!presence.has_publication_batches) {
+    return { data_source: 'empty', availability: [] };
+  }
+
+  const query = await pool.query<{
+    readonly channel: SponsorFeedChannel;
+    readonly next_available_at: string | null;
+  }>(`
+    SELECT channel, MIN(scheduled_at)::text AS next_available_at
+    FROM sponsor_publication_batches
+    WHERE status = 'scheduled'
+    GROUP BY channel
+  `);
+
+  const nextAvailableByChannel = new Map(
+    query.rows.map((row) => [row.channel, row.next_available_at])
+  );
+
+  const availability: readonly PublicSponsorshipBatchAvailability[] =
+    publicSponsorshipBatchChannels.map((channel) => ({
+      channel,
+      nextAvailableAt: nextAvailableByChannel.get(channel) ?? null
+    }));
+
+  return { data_source: 'database', availability };
 };
 
 export const listAdminPublicationBatches = async (
@@ -607,17 +658,22 @@ export const listAdminPublicationBatches = async (
     return { data_source: 'database', batches: [], last_updated_at: now };
   }
 
+  // Grouped by channel, then chronologically within each channel, so an
+  // admin sees several upcoming batches for a channel at a glance instead
+  // of a flat status-only list: scheduled batches soonest-first, then
+  // open (undated) batches, then published/cancelled history.
   const query = await pool.query<PublicationBatchRow>(`
     ${publicationBatchSelect}
     GROUP BY batch.id
     ORDER BY
+      batch.channel,
       CASE batch.status
-        WHEN 'open' THEN 0
-        WHEN 'scheduled' THEN 1
+        WHEN 'scheduled' THEN 0
+        WHEN 'open' THEN 1
         WHEN 'published' THEN 2
         ELSE 3
       END,
-      batch.updated_at DESC
+      COALESCE(batch.scheduled_at, batch.created_at) ASC
     LIMIT 100
   `);
 

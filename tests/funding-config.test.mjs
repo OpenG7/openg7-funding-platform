@@ -1262,6 +1262,139 @@ test('Publication batch types and admin UI expose capacity, next availability, a
   );
 });
 
+test('Admin sponsors page derives the sponsorship tier from the paid amount instead of showing nothing', () => {
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
+    'utf8'
+  );
+
+  assert.ok(page.includes('DEFAULT_SPONSORSHIP_PRICING_CONFIG'));
+  assert.ok(page.includes('resolveSponsorshipBenefits'));
+  assert.ok(page.includes('sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {'));
+  assert.ok(page.includes('sponsorshipBenefitsLabel(sponsorship: AdminSponsorshipRecord): string {'));
+  assert.ok(page.includes('{{ sponsorshipTierLabel(sponsorship) }}'));
+  assert.ok(page.includes('{{ sponsorshipBenefitsLabel(sponsorship) }}'));
+  // Derived from the record's own amount, never a value the client could send.
+  assert.ok(page.includes('resolveSponsorshipBenefits('));
+  assert.ok(page.includes('sponsorship.amount,'));
+});
+
+test('Publication batches are listed chronologically per channel, not just by status', () => {
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-admin.repository.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
+    'utf8'
+  );
+
+  assert.ok(repository.includes('ORDER BY'));
+  assert.ok(repository.includes('COALESCE(batch.scheduled_at, batch.created_at) ASC'));
+
+  assert.ok(page.includes('class="batch-timeline"'));
+  assert.ok(page.includes('*ngFor="let channel of batchChannels"'));
+  assert.ok(page.includes('readonly batchChannels: readonly SponsorFeedChannel[] = ['));
+  assert.ok(page.includes('batchesForChannel('));
+});
+
+test('An admin is notified by email when a publication batch fills up, but nothing publishes automatically', () => {
+  const email = fs.readFileSync(
+    'apps/funding-api/src/email-notification.service.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const envExample = fs.readFileSync('.env.example', 'utf8');
+
+  assert.ok(email.includes('export const sendPublicationBatchFullNotification = async ('));
+  assert.ok(email.includes('FUNDING_ADMIN_NOTIFICATION_EMAIL'));
+  assert.ok(
+    email.includes(
+      "if (!resendApiKey || !emailFrom || !adminNotificationEmail) {"
+    )
+  );
+
+  assert.ok(api.includes("import { sendPublicationBatchFullNotification } from './email-notification.service.js';"));
+  assert.ok(api.includes('const batch = await getPublicationBatchById(dbPool, parsed.batchId);'));
+  assert.ok(
+    api.includes("if (batch && batch.status === 'open' && batch.capacityAvailable === 0) {")
+  );
+  // The notification is fired from the assign handler, not from schedule/publish/cancel.
+  const assignHandlerBody = extractBetween(
+    api,
+    "'publication_batch.assign'",
+    "'publication_batch.unassign'",
+    'assign batch handler'
+  );
+  assert.ok(assignHandlerBody.includes('sendPublicationBatchFullNotification'));
+
+  assert.ok(envExample.includes('FUNDING_ADMIN_NOTIFICATION_EMAIL='));
+});
+
+test('Public sponsorship batch availability exposes only a date per channel, never sponsor data', () => {
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-admin.repository.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding.service.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
+    'utf8'
+  );
+  const fr = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
+  );
+  const en = JSON.parse(
+    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
+  );
+
+  assert.ok(
+    repository.includes(
+      'export const getPublicSponsorshipBatchAvailability = async ('
+    )
+  );
+  const availabilityFn = extractBetween(
+    repository,
+    'export const getPublicSponsorshipBatchAvailability',
+    'export const listAdminPublicationBatches',
+    'getPublicSponsorshipBatchAvailability'
+  );
+  assert.ok(availabilityFn.includes("WHERE status = 'scheduled'"));
+  assert.equal(availabilityFn.includes('sponsor_company_name'), false);
+  assert.equal(availabilityFn.includes('capacity'), false);
+
+  assert.ok(api.includes("'/public/sponsorship-batches/availability'"));
+  assert.ok(api.includes("'/api/public/sponsorship-batches/availability'"));
+
+  assert.ok(core.includes('export interface PublicSponsorshipBatchAvailability {'));
+  assert.ok(core.includes('readonly nextAvailableAt: string | null;'));
+
+  assert.ok(
+    service.includes(
+      'async getSponsorshipBatchAvailability(): Promise<PublicSponsorshipBatchAvailabilityResponse> {'
+    )
+  );
+  assert.ok(
+    service.includes('/public/sponsorship-batches/availability')
+  );
+
+  assert.ok(page.includes('loadSponsorshipBatchAvailability'));
+  assert.ok(page.includes('sponsorshipAvailabilityEntries'));
+  assert.ok(page.includes('class="sponsorship-tier-availability"'));
+
+  for (const locale of [fr, en]) {
+    assert.ok(locale.funding.home.contribution.sponsorship.availability.facebook);
+    assert.ok(locale.funding.home.contribution.sponsorship.availability.linkedin);
+  }
+  assert.ok(fr.funding.home.contribution.sponsorship.availability.facebook.includes('{{date}}'));
+  assert.ok(en.funding.home.contribution.sponsorship.availability.facebook.includes('{{date}}'));
+});
+
 test('Public sponsorships are exposed only after consent and approval', () => {
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',

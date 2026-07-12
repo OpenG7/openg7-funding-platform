@@ -639,6 +639,10 @@
             "facebook": "Collective Facebook post starting at {{amount}}.",
             "linkedin": "Collective LinkedIn post starting at {{amount}}."
           },
+          "availability": {
+            "facebook": "Indicative next collective Facebook post: {{date}}.",
+            "linkedin": "Indicative next collective LinkedIn post: {{date}}."
+          },
           "summary": {
             "title": "Your sponsorship includes:"
           },

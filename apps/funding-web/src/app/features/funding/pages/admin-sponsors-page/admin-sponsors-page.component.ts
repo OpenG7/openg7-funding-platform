@@ -9,6 +9,10 @@ import {
   signal
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import {
+  DEFAULT_SPONSORSHIP_PRICING_CONFIG,
+  resolveSponsorshipBenefits
+} from '@openg7/funding-core';
 import type {
   AdminSponsorshipRecord,
   SponsorFeedStatus,
@@ -172,10 +176,17 @@ const controlledSponsorLogoUrlPrefixes = [
                   }}
                 </h2>
               </div>
-              <strong>{{ formatMoney(sponsorship) }}</strong>
+              <div class="amount-and-tier">
+                <strong>{{ formatMoney(sponsorship) }}</strong>
+                <small class="tier-badge">{{ sponsorshipTierLabel(sponsorship) }}</small>
+              </div>
             </header>
 
             <dl class="sponsorship-admin-fields">
+              <div>
+                <dt>Avantages</dt>
+                <dd>{{ sponsorshipBenefitsLabel(sponsorship) }}</dd>
+              </div>
               <div>
                 <dt>Contact</dt>
                 <dd>{{ sponsorship.sponsor_contact_name || 'Non fourni' }}</dd>
@@ -677,6 +688,24 @@ const controlledSponsorLogoUrlPrefixes = [
       .sponsorship-admin-item header strong {
         color: #172033;
         font-size: 1.35rem;
+      }
+
+      .amount-and-tier {
+        display: grid;
+        gap: 0.25rem;
+        justify-items: end;
+        text-align: right;
+      }
+
+      .tier-badge {
+        background: #eef1f8;
+        border-radius: 999px;
+        color: #38425a;
+        font-size: 0.7rem;
+        font-weight: 800;
+        padding: 0.2rem 0.55rem;
+        text-transform: uppercase;
+        white-space: nowrap;
       }
 
       .status-badge {
@@ -1274,6 +1303,43 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       style: 'currency',
       currency: sponsorship.currency || 'CAD'
     }).format(sponsorship.amount);
+  }
+
+  sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {
+    const { tier } = resolveSponsorshipBenefits(
+      sponsorship.amount,
+      DEFAULT_SPONSORSHIP_PRICING_CONFIG
+    );
+
+    switch (tier) {
+      case 'website_facebook_linkedin':
+        return 'Palier OpenG7.org + Facebook + LinkedIn';
+      case 'website_facebook':
+        return 'Palier OpenG7.org + Facebook';
+      case 'website_only':
+        return 'Palier OpenG7.org';
+      default:
+        return 'Palier indetermine';
+    }
+  }
+
+  sponsorshipBenefitsLabel(sponsorship: AdminSponsorshipRecord): string {
+    const { achievedBenefits } = resolveSponsorshipBenefits(
+      sponsorship.amount,
+      DEFAULT_SPONSORSHIP_PRICING_CONFIG
+    );
+
+    if (achievedBenefits.length === 0) {
+      return 'Aucun avantage (montant sous le minimum de commandite)';
+    }
+
+    const labels: Record<(typeof achievedBenefits)[number], string> = {
+      website_mention: 'Mention OpenG7.org',
+      facebook_batch: 'Lot collectif Facebook',
+      linkedin_batch: 'Lot collectif LinkedIn'
+    };
+
+    return achievedBenefits.map((benefit) => labels[benefit]).join(', ');
   }
 
   dateLabel(value: string | null): string {

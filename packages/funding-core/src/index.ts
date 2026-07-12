@@ -204,6 +204,21 @@ export interface PublicSponsorshipsResponse {
   readonly last_updated_at: string;
 }
 
+/**
+ * Indicative next collective-post date per channel, derived from the
+ * earliest scheduled (not open, not published) publication batch. No
+ * sponsor-identifying data: just a date, or null if none is scheduled yet.
+ */
+export interface PublicSponsorshipBatchAvailability {
+  readonly channel: SponsorFeedChannel;
+  readonly nextAvailableAt: string | null;
+}
+
+export interface PublicSponsorshipBatchAvailabilityResponse {
+  readonly data_source: 'database' | 'empty';
+  readonly availability: readonly PublicSponsorshipBatchAvailability[];
+}
+
 export interface FundTransparencyPublicResponse {
   readonly data_source: 'database' | 'stripe_direct' | 'empty';
   readonly total_received: number;

@@ -57,6 +57,8 @@ import {
   createAdminExpense,
   createAdminPublicationBatch,
   createAdminPublicationDraft,
+  getPublicationBatchById,
+  getPublicSponsorshipBatchAvailability,
   insertAdminAuditLog,
   listAdminExpenses,
   listAdminAuditLog,
@@ -69,6 +71,7 @@ import {
   updateAdminPublicationDraft
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
+import { sendPublicationBatchFullNotification } from './email-notification.service.js';
 import {
   allowedSponsorFeedChannels,
   allowedSponsorFeedStatuses,
@@ -3099,6 +3102,21 @@ createServer(async (request, response) => {
         summary: `Draft for ${result.draft.sponsor_company_name} assigned to batch.`,
         metadata: { draftId: parsed.draftId, batchId: parsed.batchId }
       });
+
+      const batch = await getPublicationBatchById(dbPool, parsed.batchId);
+      if (batch && batch.status === 'open' && batch.capacityAvailable === 0) {
+        const notificationResult = await sendPublicationBatchFullNotification({
+          channel: batch.channel,
+          capacity: batch.capacity
+        });
+        if (!notificationResult.sent) {
+          console.warn(
+            'Publication batch is full but the admin notification could not be sent.',
+            notificationResult.error
+          );
+        }
+      }
+
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to assign draft to publication batch.', error);
@@ -3687,6 +3705,27 @@ createServer(async (request, response) => {
       console.error('Failed to load public sponsorships.', error);
       writeJson(request, response, 502, {
         error: 'Public sponsorships could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/public/sponsorship-batches/availability',
+      '/api/public/sponsorship-batches/availability'
+    )
+  ) {
+    try {
+      const availability = await getPublicSponsorshipBatchAvailability(dbPool);
+
+      writeJson(request, response, 200, availability);
+    } catch (error) {
+      console.error('Failed to load public sponsorship batch availability.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship batch availability could not be loaded.'
       });
     }
     return;
