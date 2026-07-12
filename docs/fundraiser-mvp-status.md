@@ -105,8 +105,11 @@ Le produit reste volontairement prudent:
   admin sensibles.
 - Route cachee `/admin/fundraiser/sponsors`.
 - Endpoint `GET /api/admin/sponsorships` pour lister les commandites payees.
-- Endpoint `POST /api/admin/sponsorships/logo` pour televerser un logo
-  commanditaire valide PNG/JPEG/WebP avec stockage controle par l'API.
+- Endpoints `GET /api/admin/sponsorships/logo`,
+  `POST /api/admin/sponsorships/logo` et
+  `POST /api/admin/sponsorships/logo/delete` pour previsualiser, remplacer ou
+  supprimer un logo commanditaire valide PNG/JPEG/WebP avec stockage controle
+  par l'API et nettoyage des anciens fichiers controles.
 - Endpoint `POST /api/admin/sponsorships/review` pour remettre en attente,
   accepter ou refuser une commandite.
 - Endpoint `POST /api/admin/sponsorships/publication` pour preparer le profil

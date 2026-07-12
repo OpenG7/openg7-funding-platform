@@ -187,6 +187,8 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
       'approvedCount',
       'rejectedCount',
       'uploadLogo',
+      'deleteLogo',
+      'logoPreviewSourceFor',
       'image/png,image/jpeg,image/webp'
     ],
     'admin sponsorship list UI'
@@ -197,7 +199,10 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
     [
       '/admin/sponsorships',
       '/admin/sponsorships/logo',
+      '/admin/sponsorships/logo/delete',
       'uploadSponsorLogo',
+      'getSponsorLogoPreview',
+      'deleteSponsorLogo',
       '/admin/session',
       'Authorization: `Bearer ${sessionToken}`'
     ],
@@ -213,6 +218,8 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
       'parseMultipartFormData',
       'detectSponsorLogoFileType',
       'sponsorship.logo.upload',
+      'sponsorship.logo.delete',
+      'deleteControlledSponsorLogoFile',
       "'/admin/sponsorships'"
     ],
     'admin sponsorship API'
@@ -223,6 +230,8 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
     [
       'listAdminSponsorships',
       'updateSponsorshipLogoUrl',
+      'clearSponsorshipLogoUrl',
+      'getAdminSponsorshipLogoUrl',
       'isPublicApprovedSponsorshipLogoUrl',
       "contribution_type = 'sponsorship_interest'",
       "status IN ('paid', 'refunded', 'disputed')"

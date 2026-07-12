@@ -12,6 +12,7 @@ import type {
   AdminPublicationDraftUpdateRequest,
   AdminPublicationDraftsResponse,
   AdminSessionResponse,
+  AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
@@ -301,6 +302,52 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminSponsorLogoUploadResult;
+  }
+
+  async getSponsorLogoPreview(
+    token: string,
+    contributionId: string
+  ): Promise<Blob> {
+    const params = new URLSearchParams({ contributionId });
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/logo?${params.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          ...(await this.createHeaders(token)),
+          Accept: 'image/*'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Sponsor logo preview could not be loaded.');
+    }
+
+    return response.blob();
+  }
+
+  async deleteSponsorLogo(
+    token: string,
+    contributionId: string
+  ): Promise<AdminSponsorLogoDeleteResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/logo/delete`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ contributionId })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Sponsor logo could not be deleted.');
+    }
+
+    return (await response.json()) as AdminSponsorLogoDeleteResult;
   }
 
   async reviewSponsorship(

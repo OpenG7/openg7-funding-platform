@@ -232,6 +232,16 @@ export interface AdminSponsorLogoUploadResult {
   readonly sizeBytes: number;
 }
 
+export interface AdminSponsorLogoDeleteRequest {
+  readonly contributionId: string;
+}
+
+export interface AdminSponsorLogoDeleteResult {
+  readonly updated: boolean;
+  readonly contributionId: string;
+  readonly deletedLogoUrl: string | null;
+}
+
 export interface AdminContributionRecord {
   readonly id: string;
   readonly contribution_type: ContributionType;
