@@ -91,6 +91,7 @@ strapi/data/db.sqlite
 *.tsbuildinfo
 docs/reference/
 backups/
+var/
 traefik/acme/*
 !traefik/acme/.gitkeep
 

@@ -78,6 +78,8 @@ Set these variables for API and webhook processing:
 - `FUNDING_ADMIN_TOKEN` - required in production as the root secret used to create admin sessions.
 - `FUNDING_ADMIN_SESSION_SECRET` - optional but recommended separate HMAC secret for signed admin browser sessions.
 - `FUNDING_ADMIN_SESSION_TTL_MINUTES` - optional admin session duration, defaulting to 60 minutes.
+- `FUNDING_SPONSOR_LOGO_STORAGE_DIR` - private API filesystem directory for uploaded sponsor logos.
+- `FUNDING_SPONSOR_LOGO_MAX_BYTES` - optional sponsor logo upload size limit, defaulting to 524288 bytes.
 - `FUNDING_EMAIL_FROM`, `FUNDING_EMAIL_REPLY_TO`, `RESEND_API_KEY` - optional Resend email settings used to send sponsorship follow-up links after payment.
 
 For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
@@ -186,6 +188,7 @@ It reads and updates private sponsorship records through:
 
 ```text
 GET /api/admin/sponsorships
+POST /api/admin/sponsorships/logo
 POST /api/admin/sponsorships/review
 POST /api/admin/sponsorships/publication
 ```
@@ -207,12 +210,20 @@ placement metadata:
 
 It does not post automatically to Facebook or LinkedIn.
 
+Sponsor logos can be uploaded by admins through
+`POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files
+only, validates MIME type and file signature, stores the file outside the web
+bundle, records the controlled `/api/public/sponsor-logos/...` URL on the
+sponsorship, and audits the upload. Uploaded logos are served publicly only when
+an approved, consented sponsorship references that exact URL.
+
 ### Public sponsorship page
 
 Approved, consented sponsorships are exposed through:
 
 ```text
 GET /api/public/sponsorships
+GET /api/public/sponsor-logos/<file>
 ```
 
 The public pages are:

@@ -3,6 +3,8 @@ import {
   type IncomingMessage,
   type ServerResponse
 } from 'node:http';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import {
   createHash,
   createHmac,
@@ -20,6 +22,7 @@ import type {
   AdminPublicationDraftUpdateRequest,
   AdminSessionCreateRequest,
   AdminSessionResponse,
+  AdminSponsorLogoUploadResult,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
   AdminSponsorshipReviewRequest,
@@ -60,6 +63,7 @@ import {
   allowedSponsorshipReviewStatuses,
   insertCheckoutSessionRecord,
   getSponsorshipFollowupByTokenHash,
+  isPublicApprovedSponsorshipLogoUrl,
   listPublicSponsorships,
   listAdminContributions,
   listAdminSponsorships,
@@ -67,6 +71,7 @@ import {
   parseMetadataBoolean,
   recordSponsorshipDetailsForContribution,
   recordSponsorshipDetails,
+  updateSponsorshipLogoUrl,
   updateSponsorshipPublication,
   updateSponsorshipReview
 } from './fund-contributions.repository.js';
@@ -129,6 +134,13 @@ const sponsorshipFollowupRateLimitMax = parseNonNegativeIntegerEnv(
 const adminRateLimitMax = parseNonNegativeIntegerEnv(
   process.env.FUNDING_ADMIN_RATE_LIMIT_MAX,
   120
+);
+const sponsorLogoMaxBytes = parsePositiveIntegerEnv(
+  process.env.FUNDING_SPONSOR_LOGO_MAX_BYTES,
+  512 * 1024
+);
+const sponsorLogoStorageDir = path.resolve(
+  process.env.FUNDING_SPONSOR_LOGO_STORAGE_DIR ?? 'var/sponsor-logos'
 );
 const allowedOrigins = (process.env.FUNDING_ALLOWED_ORIGINS ?? '')
   .split(',')
@@ -236,6 +248,24 @@ const writeCsv = (
   response.end(payload);
 };
 
+const writeBinary = (
+  request: ApiRequest,
+  response: ApiResponse,
+  statusCode: number,
+  payload: Buffer,
+  contentType: string,
+  extraHeaders: Record<string, string> = {}
+): void => {
+  response.writeHead(statusCode, {
+    ...createCorsHeaders(request),
+    ...securityHeaders,
+    ...extraHeaders,
+    'Content-Length': String(payload.byteLength),
+    'Content-Type': contentType
+  });
+  response.end(payload);
+};
+
 const resolveAllowedOrigin = (request: ApiRequest): string | null => {
   const origin = request.headers.origin;
 
@@ -280,6 +310,23 @@ const readBody = async (
   return Buffer.concat(chunks).toString('utf8');
 };
 
+const readBodyBuffer = async (
+  request: ApiRequest,
+  maxBytes: number
+): Promise<Buffer> => {
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+    if (totalBytes > maxBytes) {
+      throw new Error('Request body is too large.');
+    }
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks);
+};
+
 const normalizeAmount = (amount: number): number =>
   Number(Number(amount).toFixed(2));
 
@@ -309,6 +356,14 @@ const ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
 const ADMIN_SESSION_TOKEN_PREFIX = 'openg7-admin-session.';
 const ADMIN_SESSION_NONCE_BYTES = 16;
+const SPONSOR_LOGO_PUBLIC_PATH_PREFIX = '/api/public/sponsor-logos/';
+const SPONSOR_LOGO_FILENAME_PATTERN =
+  /^sponsor-logo-[0-9a-f-]{36}-[0-9]{13}-[a-f0-9]{16}\.(?:jpg|png|webp)$/;
+const sponsorLogoContentTypes = new Map<string, string>([
+  ['jpg', 'image/jpeg'],
+  ['png', 'image/png'],
+  ['webp', 'image/webp']
+]);
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_BUCKET_PRUNE_THRESHOLD = 5000;
 const followupEditablePaymentStatuses = new Set([
@@ -377,6 +432,245 @@ const isValidOptionalPublicSlug = (value: unknown): boolean =>
 const isValidUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+interface MultipartPart {
+  readonly name: string;
+  readonly filename: string | null;
+  readonly contentType: string | null;
+  readonly data: Buffer;
+}
+
+interface SponsorLogoFile {
+  readonly data: Buffer;
+  readonly extension: 'jpg' | 'png' | 'webp';
+  readonly filename: string;
+  readonly mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  readonly sizeBytes: number;
+}
+
+const parseMultipartBoundary = (
+  contentType: string | string[] | undefined
+): string | null => {
+  const header = firstHeaderValue(contentType);
+  if (!header?.toLowerCase().startsWith('multipart/form-data')) {
+    return null;
+  }
+
+  const match = /(?:^|;\s*)boundary=(?:"([^"]+)"|([^;]+))/i.exec(header);
+  const boundary = match?.[1] ?? match?.[2] ?? '';
+  return boundary.length > 0 && boundary.length <= 200 ? boundary : null;
+};
+
+const splitBuffer = (buffer: Buffer, delimiter: Buffer): Buffer[] => {
+  const parts: Buffer[] = [];
+  let start = 0;
+  let index = buffer.indexOf(delimiter, start);
+
+  while (index !== -1) {
+    parts.push(buffer.subarray(start, index));
+    start = index + delimiter.byteLength;
+    index = buffer.indexOf(delimiter, start);
+  }
+
+  parts.push(buffer.subarray(start));
+  return parts;
+};
+
+const trimMultipartPart = (part: Buffer): Buffer => {
+  let start = 0;
+  let end = part.byteLength;
+
+  if (part.subarray(0, 2).equals(Buffer.from('\r\n'))) {
+    start = 2;
+  }
+
+  if (part.subarray(end - 2, end).equals(Buffer.from('\r\n'))) {
+    end -= 2;
+  }
+
+  return part.subarray(start, end);
+};
+
+const parseMultipartPartHeaders = (
+  headerText: string
+): Record<string, string> =>
+  Object.fromEntries(
+    headerText
+      .split('\r\n')
+      .map((line) => {
+        const separatorIndex = line.indexOf(':');
+        if (separatorIndex === -1) {
+          return null;
+        }
+
+        return [
+          line.slice(0, separatorIndex).trim().toLowerCase(),
+          line.slice(separatorIndex + 1).trim()
+        ] as const;
+      })
+      .filter((entry): entry is readonly [string, string] => Boolean(entry))
+  );
+
+const parseContentDispositionValue = (
+  value: string,
+  key: 'name' | 'filename'
+): string | null => {
+  const match = new RegExp(`${key}="([^"]*)"`).exec(value);
+  return match?.[1] ?? null;
+};
+
+const parseMultipartFormData = (
+  body: Buffer,
+  boundary: string
+): readonly MultipartPart[] => {
+  const boundaryBuffer = Buffer.from(`--${boundary}`);
+  const rawParts = splitBuffer(body, boundaryBuffer).slice(1);
+  const parts: MultipartPart[] = [];
+
+  for (const rawPart of rawParts) {
+    if (
+      rawPart.subarray(0, 2).equals(Buffer.from('--')) ||
+      rawPart.subarray(0, 4).equals(Buffer.from('--\r\n'))
+    ) {
+      continue;
+    }
+
+    const part = trimMultipartPart(rawPart);
+    const headerEndIndex = part.indexOf(Buffer.from('\r\n\r\n'));
+    if (headerEndIndex === -1) {
+      continue;
+    }
+
+    const headers = parseMultipartPartHeaders(
+      part.subarray(0, headerEndIndex).toString('utf8')
+    );
+    const disposition = headers['content-disposition'] ?? '';
+    const name = parseContentDispositionValue(disposition, 'name');
+    if (!name) {
+      continue;
+    }
+
+    parts.push({
+      name,
+      filename: parseContentDispositionValue(disposition, 'filename'),
+      contentType: headers['content-type']?.toLowerCase() ?? null,
+      data: part.subarray(headerEndIndex + 4)
+    });
+  }
+
+  return parts;
+};
+
+const detectSponsorLogoFileType = (
+  data: Buffer
+): Pick<SponsorLogoFile, 'extension' | 'mimeType'> | null => {
+  if (
+    data.length >= 8 &&
+    data
+      .subarray(0, 8)
+      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return { extension: 'png', mimeType: 'image/png' };
+  }
+
+  if (
+    data.length >= 3 &&
+    data[0] === 0xff &&
+    data[1] === 0xd8 &&
+    data[2] === 0xff
+  ) {
+    return { extension: 'jpg', mimeType: 'image/jpeg' };
+  }
+
+  if (
+    data.length >= 12 &&
+    data.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    data.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return { extension: 'webp', mimeType: 'image/webp' };
+  }
+
+  return null;
+};
+
+const createSponsorLogoFilename = (
+  contributionId: string,
+  extension: SponsorLogoFile['extension']
+): string =>
+  `sponsor-logo-${contributionId.toLowerCase()}-${Date.now()}-${randomBytes(8).toString('hex')}.${extension}`;
+
+const parseSponsorLogoUpload = (
+  parts: readonly MultipartPart[],
+  contributionId: string
+): SponsorLogoFile | null => {
+  const filePart = parts.find((part) => part.name === 'logo');
+  if (!filePart?.filename || filePart.data.byteLength === 0) {
+    return null;
+  }
+
+  if (filePart.data.byteLength > sponsorLogoMaxBytes) {
+    return null;
+  }
+
+  const detected = detectSponsorLogoFileType(filePart.data);
+  if (!detected || filePart.contentType !== detected.mimeType) {
+    return null;
+  }
+
+  return {
+    data: filePart.data,
+    extension: detected.extension,
+    filename: createSponsorLogoFilename(contributionId, detected.extension),
+    mimeType: detected.mimeType,
+    sizeBytes: filePart.data.byteLength
+  };
+};
+
+const sponsorLogoPublicUrlForFilename = (filename: string): string =>
+  `${SPONSOR_LOGO_PUBLIC_PATH_PREFIX}${filename}`;
+
+const resolveSponsorLogoFilePath = (filename: string): string | null => {
+  if (!SPONSOR_LOGO_FILENAME_PATTERN.test(filename)) {
+    return null;
+  }
+
+  const resolvedFilePath = path.resolve(sponsorLogoStorageDir, filename);
+  if (!resolvedFilePath.startsWith(`${sponsorLogoStorageDir}${path.sep}`)) {
+    return null;
+  }
+
+  return resolvedFilePath;
+};
+
+const getSponsorLogoFilenameFromUrl = (
+  url: string | undefined
+): string | null => {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const pathname = new URL(url, publicBaseOrigin).pathname;
+    const allowedPrefixes = [
+      SPONSOR_LOGO_PUBLIC_PATH_PREFIX,
+      SPONSOR_LOGO_PUBLIC_PATH_PREFIX.replace('/api', '')
+    ];
+    const prefix = allowedPrefixes.find((candidate) =>
+      pathname.startsWith(candidate)
+    );
+
+    if (!prefix) {
+      return null;
+    }
+
+    return decodeURIComponent(pathname.slice(prefix.length));
+  } catch {
+    return null;
+  }
+};
+
+const contentTypeForSponsorLogoFilename = (filename: string): string | null =>
+  sponsorLogoContentTypes.get(filename.split('.').at(-1) ?? '') ?? null;
 
 const isValidOptionalIsoDate = (value: unknown): boolean => {
   if (value === undefined || value === null || value === '') {
@@ -876,6 +1170,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/audit-log',
       '/admin/sponsorships',
       '/api/admin/sponsorships',
+      '/admin/sponsorships/logo',
+      '/api/admin/sponsorships/logo',
       '/admin/sponsorships/review',
       '/api/admin/sponsorships/review',
       '/admin/sponsorships/publication',
@@ -1457,6 +1753,118 @@ createServer(async (request, response) => {
     request.method === 'POST' &&
     routeMatches(
       request.url,
+      '/admin/sponsorships/logo',
+      '/api/admin/sponsorships/logo'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    const boundary = parseMultipartBoundary(request.headers['content-type']);
+    if (!boundary) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor logo upload must use multipart/form-data.'
+      });
+      return;
+    }
+
+    let parts: readonly MultipartPart[];
+    try {
+      const body = await readBodyBuffer(
+        request,
+        sponsorLogoMaxBytes + 64 * 1024
+      );
+      parts = parseMultipartFormData(body, boundary);
+    } catch {
+      writeJson(request, response, 413, {
+        error: 'Sponsor logo upload is too large.'
+      });
+      return;
+    }
+
+    const contributionId =
+      parts
+        .find((part) => part.name === 'contributionId')
+        ?.data.toString('utf8')
+        .trim() ?? '';
+
+    if (!isValidUuid(contributionId)) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor contribution id is invalid.'
+      });
+      return;
+    }
+
+    const logo = parseSponsorLogoUpload(parts, contributionId);
+    if (!logo) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor logo must be a valid PNG, JPEG, or WebP image.'
+      });
+      return;
+    }
+
+    const filePath = resolveSponsorLogoFilePath(logo.filename);
+    if (!filePath) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor logo filename is invalid.'
+      });
+      return;
+    }
+
+    const logoUrl = sponsorLogoPublicUrlForFilename(logo.filename);
+
+    try {
+      await mkdir(sponsorLogoStorageDir, { recursive: true });
+      await writeFile(filePath, logo.data, { flag: 'wx' });
+
+      const updated = await updateSponsorshipLogoUrl(dbPool, {
+        contributionId,
+        logoUrl
+      });
+
+      if (!updated) {
+        await unlink(filePath).catch(() => undefined);
+        writeJson(request, response, 404, {
+          error: 'Sponsorship was not found.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'sponsorship.logo.upload',
+        entityType: 'sponsorship',
+        entityId: contributionId,
+        summary: 'Sponsor logo uploaded for controlled public display.',
+        metadata: {
+          logoUrl,
+          mimeType: logo.mimeType,
+          sizeBytes: logo.sizeBytes
+        }
+      });
+
+      const result: AdminSponsorLogoUploadResult = {
+        updated,
+        contributionId,
+        logoUrl,
+        mimeType: logo.mimeType,
+        sizeBytes: logo.sizeBytes
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to upload sponsor logo.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsor logo could not be uploaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
       '/sponsorship-followup/details',
       '/api/sponsorship-followup/details'
     )
@@ -1691,6 +2099,46 @@ createServer(async (request, response) => {
 
     writeJson(request, response, 200, session);
     return;
+  }
+
+  if (request.method === 'GET') {
+    const filename = getSponsorLogoFilenameFromUrl(request.url);
+    if (filename) {
+      if (!hasDatabase) {
+        writeJson(request, response, 404, { error: 'Not found' });
+        return;
+      }
+
+      const filePath = resolveSponsorLogoFilePath(filename);
+      const contentType = contentTypeForSponsorLogoFilename(filename);
+      const publicLogoUrl = sponsorLogoPublicUrlForFilename(filename);
+
+      if (!filePath || !contentType) {
+        writeJson(request, response, 404, { error: 'Not found' });
+        return;
+      }
+
+      try {
+        const isAllowed = await isPublicApprovedSponsorshipLogoUrl(
+          dbPool,
+          publicLogoUrl
+        );
+
+        if (!isAllowed) {
+          writeJson(request, response, 404, { error: 'Not found' });
+          return;
+        }
+
+        const logo = await readFile(filePath);
+        writeBinary(request, response, 200, logo, contentType, {
+          'Cache-Control': 'public, max-age=86400'
+        });
+      } catch (error) {
+        console.error('Failed to serve sponsor logo.', error);
+        writeJson(request, response, 404, { error: 'Not found' });
+      }
+      return;
+    }
   }
 
   if (

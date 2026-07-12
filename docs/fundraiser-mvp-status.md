@@ -105,6 +105,8 @@ Le produit reste volontairement prudent:
   admin sensibles.
 - Route cachee `/admin/fundraiser/sponsors`.
 - Endpoint `GET /api/admin/sponsorships` pour lister les commandites payees.
+- Endpoint `POST /api/admin/sponsorships/logo` pour televerser un logo
+  commanditaire valide PNG/JPEG/WebP avec stockage controle par l'API.
 - Endpoint `POST /api/admin/sponsorships/review` pour remettre en attente,
   accepter ou refuser une commandite.
 - Endpoint `POST /api/admin/sponsorships/publication` pour preparer le profil
@@ -113,6 +115,8 @@ Le produit reste volontairement prudent:
 - `FUNDING_ADMIN_SESSION_SECRET` recommande en production pour signer les
   sessions navigateur separement du secret racine.
 - `FUNDING_ADMIN_SESSION_TTL_MINUTES` configure la duree de session admin.
+- `FUNDING_SPONSOR_LOGO_STORAGE_DIR` et `FUNDING_SPONSOR_LOGO_MAX_BYTES`
+  configurent le stockage prive et la limite d'upload des logos.
 - Les commandites ne peuvent apparaitre dans `/batisseurs` que si elles sont
   approuvees.
 
@@ -199,6 +203,8 @@ Le produit reste volontairement prudent:
 - Route publique `/commanditaires`.
 - Route anglaise `/en/commanditaires`.
 - Endpoint public `GET /api/public/sponsorships`.
+- Endpoint public `GET /api/public/sponsor-logos/<file>` pour servir seulement
+  les logos references par une commandite approuvee et consentie.
 - Les commandites publiques exigent paiement confirme, consentement public,
   nom d'entreprise et `sponsor_review_status=approved`.
 - L'admin peut preparer un slug, un resume public, une cible `openg7` ou
@@ -235,6 +241,8 @@ Resultat attendu:
 - `FUNDING_ADMIN_TOKEN` configure en production si la revue admin est active.
 - `FUNDING_ADMIN_SESSION_SECRET` configure avec un secret distinct et
   `FUNDING_ADMIN_SESSION_TTL_MINUTES` ajuste selon la politique d'operation.
+- `FUNDING_SPONSOR_LOGO_STORAGE_DIR` persistant et
+  `FUNDING_SPONSOR_LOGO_MAX_BYTES` alignes avec la limite d'upload attendue.
 - `RESEND_API_KEY` et `FUNDING_EMAIL_FROM` configures si les liens de reprise
   doivent etre envoyes automatiquement.
 - `DATABASE_URL` absent pour le mode Stripe-direct, ou configure seulement si PostgreSQL prive est deploye.

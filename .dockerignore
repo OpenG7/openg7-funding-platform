@@ -4,6 +4,7 @@ node_modules
 dist
 coverage
 docs/reference
+var
 .git
 .gitignore
 .env

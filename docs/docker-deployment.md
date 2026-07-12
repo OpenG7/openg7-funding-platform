@@ -89,6 +89,8 @@ FUNDING_PROJECT_ID=openg7
 FUNDING_ADMIN_TOKEN=replace_with_a_long_random_admin_token
 FUNDING_ADMIN_SESSION_SECRET=replace_with_a_different_long_random_session_secret
 FUNDING_ADMIN_SESSION_TTL_MINUTES=60
+FUNDING_SPONSOR_LOGO_STORAGE_DIR=/app/var/sponsor-logos
+FUNDING_SPONSOR_LOGO_MAX_BYTES=524288
 STRIPE_SECRET_KEY=sk_live_replace_me
 STRIPE_WEBHOOK_SECRET=whsec_replace_me
 # Optional private PostgreSQL. Leave unset for Stripe-direct transparency.
@@ -396,6 +398,10 @@ Store both the configuration archive and the database dump outside the VPS as
 private secrets. The database may contain Stripe event payloads, sponsorship
 follow-up data, and admin review data.
 
+Uploaded sponsor logos are stored in the `openg7-sponsor-logos` Docker volume
+mounted at `/app/var/sponsor-logos` in the API container. Include that volume in
+VPS snapshot backups whenever sponsor logo uploads are enabled.
+
 Suggested cron:
 
 ```bash
@@ -509,7 +515,7 @@ If the API restarts in a loop:
 
 ```bash
 docker compose logs --tail=100 api
-docker compose config | grep -E "APP_DOMAIN|FUNDING_PUBLIC_BASE_URL|FUNDING_ALLOWED_ORIGINS|STRIPE_SECRET_KEY"
+docker compose config | grep -E "APP_DOMAIN|FUNDING_PUBLIC_BASE_URL|FUNDING_ALLOWED_ORIGINS|FUNDING_SPONSOR_LOGO|STRIPE_SECRET_KEY"
 ```
 
 Most startup loops come from missing production variables in `.env`, especially:
@@ -520,6 +526,8 @@ FUNDING_PUBLIC_BASE_URL=https://openg7.org
 FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
 FUNDING_ADMIN_TOKEN=replace_with_a_long_random_admin_token
 FUNDING_ADMIN_SESSION_SECRET=replace_with_a_different_long_random_session_secret
+FUNDING_SPONSOR_LOGO_STORAGE_DIR=/app/var/sponsor-logos
+FUNDING_SPONSOR_LOGO_MAX_BYTES=524288
 STRIPE_SECRET_KEY=sk_live_or_test_key
 ```
 

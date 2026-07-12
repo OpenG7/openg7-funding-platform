@@ -12,6 +12,7 @@ import type {
   AdminPublicationDraftUpdateRequest,
   AdminPublicationDraftsResponse,
   AdminSessionResponse,
+  AdminSponsorLogoUploadResult,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
   AdminSponsorshipReviewRequest,
@@ -278,6 +279,28 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminSponsorshipsResponse;
+  }
+
+  async uploadSponsorLogo(
+    token: string,
+    contributionId: string,
+    logo: File
+  ): Promise<AdminSponsorLogoUploadResult> {
+    const body = new FormData();
+    body.set('contributionId', contributionId);
+    body.set('logo', logo);
+
+    const response = await fetch(`${this.apiBaseUrl}/admin/sponsorships/logo`, {
+      method: 'POST',
+      headers: await this.createHeaders(token),
+      body
+    });
+
+    if (!response.ok) {
+      throw new Error('Sponsor logo could not be uploaded.');
+    }
+
+    return (await response.json()) as AdminSponsorLogoUploadResult;
   }
 
   async reviewSponsorship(
