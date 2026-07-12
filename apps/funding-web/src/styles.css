@@ -1566,6 +1566,14 @@ a:focus-visible {
   margin: 0.3rem 0 0;
 }
 
+.sponsorship-tier-availability {
+  color: #7adfff;
+  font-size: 0.74rem;
+  font-style: italic;
+  line-height: 1.4;
+  margin: 0.3rem 0 0;
+}
+
 .contribution-panel label {
   color: #d8e3ec;
   display: block;

@@ -4,6 +4,7 @@ import {
   CheckoutRequest,
   CheckoutResult,
   ContributionType,
+  PublicSponsorshipBatchAvailabilityResponse,
   SponsorshipDetailsResult,
   SponsorshipFollowupDetailsRequest,
   SponsorshipFollowupResponse,
@@ -117,6 +118,24 @@ export class FundingService {
     }
 
     return url.toString();
+  }
+
+  async getSponsorshipBatchAvailability(): Promise<PublicSponsorshipBatchAvailabilityResponse> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/public/sponsorship-batches/availability`,
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Sponsorship batch availability could not be loaded.');
+    }
+
+    return (await response.json()) as PublicSponsorshipBatchAvailabilityResponse;
   }
 
   async getSponsorshipFollowup(

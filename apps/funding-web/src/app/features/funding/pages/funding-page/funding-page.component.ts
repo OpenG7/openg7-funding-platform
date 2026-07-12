@@ -18,7 +18,9 @@ import {
 import type { ContributionType, SponsorshipBenefitId } from '@openg7/funding-core';
 import type {
   FundTransparencyPublicResponse,
-  FundingSnapshot
+  FundingSnapshot,
+  PublicSponsorshipBatchAvailabilityResponse,
+  SponsorFeedChannel
 } from '@openg7/funding-core';
 import { FundingProjectConfig } from '@openg7/funding-models';
 
@@ -709,6 +711,15 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
                         : { amount: formatMoney(upcoming.minimumAmount) }
                   }}
                 </p>
+                <p
+                  class="sponsorship-tier-availability"
+                  *ngFor="let entry of sponsorshipAvailabilityEntries()"
+                >
+                  {{
+                    sponsorshipAvailabilityLabelKeys[entry.channel]
+                      | translate: { date: entry.date }
+                  }}
+                </p>
               </div>
               <fieldset class="consent-options">
                 <legend>
@@ -1067,6 +1078,30 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     linkedin_batch: 'funding.home.contribution.sponsorship.upcoming.linkedin'
   };
 
+  readonly sponsorshipBatchAvailability =
+    signal<PublicSponsorshipBatchAvailabilityResponse | null>(null);
+
+  readonly sponsorshipAvailabilityLabelKeys: Readonly<
+    Record<SponsorFeedChannel, string>
+  > = {
+    facebook: 'funding.home.contribution.sponsorship.availability.facebook',
+    linkedin: 'funding.home.contribution.sponsorship.availability.linkedin'
+  };
+
+  readonly sponsorshipAvailabilityEntries = computed<
+    readonly { readonly channel: SponsorFeedChannel; readonly date: string }[]
+  >(() =>
+    (this.sponsorshipBatchAvailability()?.availability ?? [])
+      .filter(
+        (entry): entry is { channel: SponsorFeedChannel; nextAvailableAt: string } =>
+          entry.nextAvailableAt !== null
+      )
+      .map((entry) => ({
+        channel: entry.channel,
+        date: this.formatDateOnly(entry.nextAvailableAt)
+      }))
+  );
+
   readonly showSponsorFollowUp = computed<boolean>(
     () =>
       this.checkoutStatus() === 'success' &&
@@ -1234,7 +1269,18 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     }
 
     void this.loadPublicTransparency();
+    void this.loadSponsorshipBatchAvailability();
     this.startTransparencyRefresh();
+  }
+
+  async loadSponsorshipBatchAvailability(): Promise<void> {
+    try {
+      const availability =
+        await this.fundingService.getSponsorshipBatchAvailability();
+      this.sponsorshipBatchAvailability.set(availability);
+    } catch {
+      this.sponsorshipBatchAvailability.set(null);
+    }
   }
 
   ngOnDestroy(): void {
@@ -1358,6 +1404,12 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
       maximumFractionDigits: 2
     }).format(amount);
+  }
+
+  private formatDateOnly(value: string): string {
+    return new Intl.DateTimeFormat(this.config.locale, {
+      dateStyle: 'long'
+    }).format(new Date(value));
   }
 
   allocationShare(amount: number): number {

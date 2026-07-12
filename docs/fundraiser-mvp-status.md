@@ -186,13 +186,28 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   limitation de debit et journal d'audit que les autres routes admin.
 - UI admin: section "Lots de publication collective" dans
   `/admin/fundraiser/publications`, avec creation de lot, assignation par
-  brouillon, planification, publication et annulation.
-- Reste a developper: un veritable calendrier de disponibilite (plusieurs
-  lots futurs visibles a l'avance, notification quand un lot est complet)
-  et l'affichage public d'une prochaine date indicative. Pour l'instant,
-  la prochaine disponibilite est une date fixee manuellement par lot, pas
-  un calendrier automatise.
+  brouillon, planification, publication et annulation. Les lots sont
+  regroupes par canal puis tries chronologiquement (lots planifies du plus
+  proche au plus lointain, puis lots ouverts, puis historique) pour voir
+  plusieurs lots a venir d'un coup d'oeil.
+- Notification admin par courriel (Resend, `FUNDING_ADMIN_NOTIFICATION_EMAIL`)
+  lorsqu'un lot ouvert atteint sa capacite, pour eviter qu'il reste plein et
+  oublie. Purement informatif: n'planifie ni ne publie rien automatiquement.
+- Endpoint public `GET /api/public/sponsorship-batches/availability`: expose
+  uniquement, par canal, la date du prochain lot deja planifie (aucune donnee
+  de sponsor, aucun chiffre de capacite). Affiche sur la page de financement
+  comme indication ("prochaine diffusion collective Facebook indicative:
+  ..."), sous le recapitulatif d'avantages de commandite, quand une date est
+  connue.
+- Reste a developper: un vrai calendrier avec plusieurs creneaux futurs
+  planifies a l'avance par l'admin (aujourd'hui un seul `scheduled_at` par
+  lot) et une vue publique dediee au-dela de la phrase indicative sur la
+  page de financement.
 - Route cachee `/admin/fundraiser/sponsors`.
+- Chaque commandite listee affiche son palier (mention OpenG7.org seule,
+  + Facebook, + Facebook et LinkedIn) et le detail des avantages obtenus,
+  calcules a partir du montant deja affiche (`resolveSponsorshipBenefits`),
+  pour reperer le palier sans recalculer mentalement a partir du montant.
 - Endpoint `GET /api/admin/sponsorships` pour lister les commandites payees.
 - Endpoints `GET /api/admin/sponsorships/logo`,
   `POST /api/admin/sponsorships/logo` et
@@ -337,6 +352,9 @@ Resultat attendu:
   `FUNDING_SPONSOR_LOGO_MAX_BYTES` alignes avec la limite d'upload attendue.
 - `RESEND_API_KEY` et `FUNDING_EMAIL_FROM` configures si les liens de reprise
   doivent etre envoyes automatiquement.
+- `FUNDING_ADMIN_NOTIFICATION_EMAIL` configure si la notification de lot
+  complet doit etre envoyee (sinon la verification de capacite reste
+  disponible dans l'UI admin, sans courriel).
 - `DATABASE_URL` absent pour le mode Stripe-direct, ou configure seulement si PostgreSQL prive est deploye.
 - Migrations appliquees si PostgreSQL est active.
 - Webhook Stripe abonne aux evenements MVP.

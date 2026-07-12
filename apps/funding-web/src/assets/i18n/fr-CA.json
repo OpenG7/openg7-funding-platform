@@ -639,6 +639,10 @@
             "facebook": "Publication collective Facebook à partir de {{amount}}.",
             "linkedin": "Publication collective LinkedIn à partir de {{amount}}."
           },
+          "availability": {
+            "facebook": "Prochaine diffusion collective Facebook indicative : {{date}}.",
+            "linkedin": "Prochaine diffusion collective LinkedIn indicative : {{date}}."
+          },
           "summary": {
             "title": "Votre commandite comprend :"
           },

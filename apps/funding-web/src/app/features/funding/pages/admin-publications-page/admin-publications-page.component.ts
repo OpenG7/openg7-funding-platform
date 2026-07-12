@@ -197,11 +197,22 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             </button>
           </form>
 
-          <div class="batch-list" *ngIf="batches().length > 0">
-            <article
-              class="batch-card"
-              *ngFor="let batch of batches(); trackBy: trackByBatch"
+          <div class="batch-timeline" *ngIf="batches().length > 0">
+            <section
+              class="batch-timeline-channel"
+              *ngFor="let channel of batchChannels"
             >
+              <h3 class="batch-timeline-heading" *ngIf="batchesForChannel(channel).length > 0">
+                {{ channelLabel(channel) }}
+              </h3>
+              <div class="batch-list">
+                <article
+                  class="batch-card"
+                  *ngFor="
+                    let batch of batchesForChannel(channel);
+                    trackBy: trackByBatch
+                  "
+                >
               <header>
                 <div>
                   <span>{{ batchStatusLabel(batch.status) }}</span>
@@ -261,7 +272,9 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   Annuler le lot
                 </button>
               </footer>
-            </article>
+                </article>
+              </div>
+            </section>
           </div>
 
           <article class="empty-state" *ngIf="batches().length === 0">
@@ -623,6 +636,20 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         display: grid;
         gap: 0.75rem;
         grid-template-columns: minmax(8rem, 12rem) minmax(6rem, 8rem) auto;
+      }
+
+      .batch-timeline {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .batch-timeline-heading {
+        color: #667085;
+        font-size: 0.78rem;
+        font-weight: 900;
+        letter-spacing: 0;
+        margin: 0 0 0.5rem;
+        text-transform: uppercase;
       }
 
       .batch-list {
@@ -1007,6 +1034,17 @@ export class AdminPublicationsPageComponent implements OnInit {
       ...selections,
       [draftId]: value
     }));
+  }
+
+  readonly batchChannels: readonly SponsorFeedChannel[] = [
+    'facebook',
+    'linkedin'
+  ];
+
+  batchesForChannel(
+    channel: SponsorFeedChannel
+  ): readonly AdminPublicationBatchRecord[] {
+    return this.batches().filter((batch) => batch.channel === channel);
   }
 
   openBatchesForChannel(
