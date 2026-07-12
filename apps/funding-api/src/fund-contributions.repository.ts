@@ -10,8 +10,10 @@ import type {
   SponsorFeedChannel,
   SponsorFeedStatus,
   SponsorFeedTarget,
+  SponsorshipBenefitId,
   SponsorshipFollowupResponse,
   SponsorshipReviewStatus,
+  SponsorshipTierId,
   ContributionType
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
@@ -20,6 +22,43 @@ const allowedContributionTypes = new Set<ContributionType>([
   'personal_support',
   'sponsorship_interest'
 ]);
+
+// Mirrors the sponsorship pricing tiers in
+// apps/funding-web/src/app/features/funding/config/openg7-funding.config.ts
+// and packages/funding-core (resolveSponsorshipBenefits). Kept in sync by
+// hand: `@openg7/funding-core` has no local package build, so a real
+// (non-type) cross-package import only resolves inside the Angular bundle.
+const sponsorshipBenefitThresholds: readonly {
+  readonly id: SponsorshipBenefitId;
+  readonly minimumAmount: number;
+}[] = [
+  { id: 'website_mention', minimumAmount: 5 },
+  { id: 'facebook_batch', minimumAmount: 25 },
+  { id: 'linkedin_batch', minimumAmount: 50 }
+];
+
+const sponsorshipTierByAchievedCount: readonly (SponsorshipTierId | null)[] = [
+  null,
+  'website_only',
+  'website_facebook',
+  'website_facebook_linkedin'
+];
+
+const resolveSponsorshipBenefits = (
+  amount: number
+): {
+  readonly tier: SponsorshipTierId | null;
+  readonly achievedBenefits: readonly SponsorshipBenefitId[];
+} => {
+  const achievedBenefits = sponsorshipBenefitThresholds
+    .filter((benefit) => amount >= benefit.minimumAmount)
+    .map((benefit) => benefit.id);
+
+  return {
+    tier: sponsorshipTierByAchievedCount[achievedBenefits.length] ?? null,
+    achievedBenefits
+  };
+};
 export const allowedSponsorshipReviewStatuses =
   new Set<SponsorshipReviewStatus>(['pending_review', 'approved', 'rejected']);
 export const allowedSponsorFeedTargets = new Set<SponsorFeedTarget>([
@@ -1480,6 +1519,9 @@ export const getSponsorshipFollowupByTokenHash = async (
     return null;
   }
 
+  const amount = centsToAmount(parseDbInt(row.amount_cents));
+  const sponsorshipBenefits = resolveSponsorshipBenefits(amount);
+
   return {
     found: true,
     contributionId: row.id,
@@ -1489,9 +1531,11 @@ export const getSponsorshipFollowupByTokenHash = async (
     emailSentAt: row.sponsorship_followup_email_sent_at,
     paymentStatus: row.payment_status,
     reviewStatus: row.sponsor_review_status,
-    amount: centsToAmount(parseDbInt(row.amount_cents)),
+    amount,
     currency: row.currency.toUpperCase(),
     paidAt: row.paid_at,
+    sponsorshipTier: sponsorshipBenefits.tier,
+    sponsorshipBenefits: sponsorshipBenefits.achievedBenefits,
     detailsSubmitted: Boolean(row.sponsor_details_submitted_at),
     companyName: row.sponsor_company_name,
     contactName: row.sponsor_contact_name,

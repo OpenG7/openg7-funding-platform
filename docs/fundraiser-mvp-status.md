@@ -48,9 +48,45 @@ Le produit reste volontairement prudent:
   - `displayAmountConsent`;
   - `nonCharityAcknowledged`.
 - Refus serveur si la mention non-charite n'est pas acceptee.
-- Validation serveur des montants via `FUNDING_ALLOWED_AMOUNTS`.
+- Validation serveur des montants via `FUNDING_ALLOWED_AMOUNTS` pour
+  `personal_support`. Pour `sponsorship_interest`, tout montant a au plus 2
+  decimales et superieur ou egal au minimum de commandite (5 $) est accepte,
+  y compris un montant personnalise (ex. 75 $).
 - Validation serveur des types de contribution.
 - Validation prudente des URLs de retour Checkout.
+
+### Paliers de commandite d'entreprise
+
+Le montant de commandite determine les avantages obtenus. Le palier est
+toujours recalcule cote serveur a partir du montant reellement paye
+(fonction `resolveSponsorshipBenefits`), jamais a partir d'une valeur envoyee
+par le navigateur. La logique de calcul et les seuils vivent a la fois dans
+`@openg7/funding-core` (utilise par le web) et localement dans
+`apps/funding-api` (meme convention que `FUNDING_ALLOWED_AMOUNTS`, car ce
+package n'a pas de build local et ne se resout pas cote API):
+
+- Commandite 5 $ a 24,99 $ -> mention de l'entreprise sur OpenG7.org.
+- Commandite 25 $ a 49,99 $ -> mention OpenG7.org + inclusion dans un lot
+  collectif de reconnaissance Facebook.
+- Commandite 50 $ et plus -> mention OpenG7.org + lots collectifs de
+  reconnaissance Facebook et LinkedIn.
+
+Precisions:
+
+- Les publications Facebook/LinkedIn sont des publications collectives
+  regroupant plusieurs commanditaires, jamais une publication individuelle
+  dediee a une seule entreprise.
+- La diffusion sociale est planifiee dans un prochain lot disponible apres
+  validation manuelle; le paiement ne confirme jamais une publication
+  immediate ni une date precise.
+- Toute commandite reste soumise a une revue manuelle avant toute visibilite
+  publique, quel que soit le montant ou le palier atteint.
+- 5 $ a 50 $ constituent la gamme accessible du MVP. Les offres
+  professionnelles ou partenariats de plus grande valeur ne font pas partie
+  de cette configuration.
+- Reste a developper: un veritable systeme de lots (capacite, prochaine
+  disponibilite, statut `scheduled`) pour planifier et suivre les publications
+  collectives Facebook/LinkedIn dans le temps.
 
 ### Suivi commandite apres paiement
 

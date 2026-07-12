@@ -168,6 +168,16 @@ const allowedContributionAmounts = new Set(
     .map((amount) => Number(amount.trim()))
     .filter((amount) => Number.isFinite(amount) && amount > 0)
 );
+// Mirrors the sponsorship pricing floor in
+// apps/funding-web/src/app/features/funding/config/openg7-funding.config.ts.
+// Kept in sync by hand, same as allowedContributionAmounts/FUNDING_ALLOWED_AMOUNTS above:
+// `@openg7/funding-core` has no local package build, so a real (non-type)
+// cross-package import only resolves inside the Angular bundle, not here.
+const sponsorshipMinimumAmount = 5;
+
+const isValidSponsorshipAmount = (amount: number): boolean =>
+  Number.isFinite(amount) && amount >= sponsorshipMinimumAmount;
+
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 const allowedContributionTypes = new Set<ContributionType>([
   'personal_support',
@@ -1474,7 +1484,13 @@ createServer(async (request, response) => {
     }
 
     const amount = normalizeAmount(parsed.amount);
-    if (!Number.isFinite(amount) || !allowedContributionAmounts.has(amount)) {
+    const isSponsorshipContribution =
+      parsed.contributionType === 'sponsorship_interest';
+    const isAmountAllowed = isSponsorshipContribution
+      ? isValidSponsorshipAmount(amount)
+      : allowedContributionAmounts.has(amount);
+
+    if (!Number.isFinite(amount) || !isAmountAllowed) {
       writeJson(request, response, 400, {
         error: 'Checkout amount is not allowed.'
       });
@@ -1895,6 +1911,8 @@ createServer(async (request, response) => {
         amount: followup.amount,
         currency: followup.currency,
         paidAt: followup.paidAt,
+        sponsorshipTier: followup.sponsorshipTier,
+        sponsorshipBenefits: followup.sponsorshipBenefits,
         detailsSubmitted: followup.detailsSubmitted,
         companyName: followup.companyName,
         contactName: followup.contactName,

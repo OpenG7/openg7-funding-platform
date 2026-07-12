@@ -630,13 +630,22 @@
           "includedByDefault": "Included by default",
           "amountBased": "Based on amount",
           "benefits": {
-            "facebook": "Sponsored post on Facebook",
-            "linkedin": "Sponsored post on LinkedIn",
-            "openg7": "Mention on OpenG7.org"
+            "facebook": "Included in a collective recognition post on Facebook",
+            "linkedin": "Included in a collective recognition post on LinkedIn",
+            "openg7": "Your company mentioned on OpenG7.org"
+          },
+          "upcoming": {
+            "openg7": "OpenG7.org mention starting at {{amount}}.",
+            "facebook": "Collective Facebook post starting at {{amount}}.",
+            "linkedin": "Collective LinkedIn post starting at {{amount}}."
+          },
+          "summary": {
+            "title": "Your sponsorship includes:"
           },
           "reviewNote": "Each sponsorship is manually verified and approved before publication.",
           "afterPaymentNote": "After payment, you will be able to submit your company details, website, and logo for validation.",
-          "manualReviewNote": "Every sponsorship is manually verified and approved before publication.",
+          "manualReviewNote": "Every sponsorship is manually verified and approved before publication. Social media placements are scheduled in the next available batch.",
+          "amountFormatError": "The minimum sponsorship amount is $5.",
           "disabled": "Temporarily unavailable"
         },
         "otherAmount": "Other amount",

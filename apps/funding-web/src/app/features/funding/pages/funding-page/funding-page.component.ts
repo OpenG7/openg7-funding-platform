@@ -11,7 +11,11 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type { ContributionType } from '@openg7/funding-core';
+import {
+  isValidSponsorshipAmount,
+  resolveSponsorshipBenefits
+} from '@openg7/funding-core';
+import type { ContributionType, SponsorshipBenefitId } from '@openg7/funding-core';
 import type {
   FundTransparencyPublicResponse,
   FundingSnapshot
@@ -637,7 +641,7 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
               <div class="amount-grid">
                 <button
                   type="button"
-                  *ngFor="let amount of config.contributionAmounts"
+                  *ngFor="let amount of activeAmountPresets()"
                   [class.active]="isSelectedAmount(amount)"
                   (click)="setContributionAmount(amount)"
                 >
@@ -667,13 +671,45 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
                 class="input-help"
                 [class.input-error]="hasInvalidCustomContribution()"
               >
-                {{
-                  (hasInvalidCustomContribution()
-                    ? 'funding.home.contribution.amountFormatError'
-                    : 'funding.home.contribution.amountFormatHint'
-                  ) | translate
-                }}
+                {{ customContributionHelpKey() | translate }}
               </p>
+              <div
+                class="sponsorship-tier-summary"
+                *ngIf="
+                  contributionType() === 'sponsorship_interest' &&
+                  !hasInvalidCustomContribution()
+                "
+              >
+                <p class="sponsorship-tier-summary-title">
+                  {{
+                    'funding.home.contribution.sponsorship.summary.title'
+                      | translate
+                  }}
+                </p>
+                <ul class="sponsorship-tier-achieved" role="list">
+                  <li
+                    *ngFor="
+                      let benefitId of sponsorshipBenefits().achievedBenefits
+                    "
+                  >
+                    {{
+                      sponsorshipBenefitLabelKeys[benefitId] | translate
+                    }}
+                  </li>
+                </ul>
+                <p
+                  class="sponsorship-tier-upcoming"
+                  *ngFor="
+                    let upcoming of sponsorshipBenefits().upcomingBenefits
+                  "
+                >
+                  {{
+                    sponsorshipUpcomingLabelKeys[upcoming.id]
+                      | translate
+                        : { amount: formatMoney(upcoming.minimumAmount) }
+                  }}
+                </p>
+              </div>
               <fieldset class="consent-options">
                 <legend>
                   {{ 'funding.home.contribution.consentLegend' | translate }}
@@ -842,6 +878,12 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       : '/fonds-des-batisseurs/suivi-commandite'
   );
 
+  readonly activeAmountPresets = computed<readonly number[]>(() =>
+    this.contributionType() === 'sponsorship_interest'
+      ? this.config.sponsorship.presetAmounts
+      : this.config.contributionAmounts
+  );
+
   readonly snapshot = signal<FundingSnapshot>(this.emptySnapshot);
   readonly selectedContributionAmount = signal<number>(
     this.config.contributionAmounts[2] ?? this.config.contributionAmounts[0]
@@ -966,11 +1008,64 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   readonly hasInvalidCustomContribution = computed<boolean>(() => {
     const customValue = this.customContributionValue();
+    if (customValue.length === 0) {
+      return false;
+    }
+
+    const amount = this.parseCustomContributionAmount(customValue);
+    if (amount === null) {
+      return true;
+    }
+
     return (
-      customValue.length > 0 &&
-      this.parseCustomContributionAmount(customValue) === null
+      this.contributionType() === 'sponsorship_interest' &&
+      !isValidSponsorshipAmount(amount, this.config.sponsorship)
     );
   });
+
+  readonly customContributionHelpKey = computed<string>(() => {
+    const customValue = this.customContributionValue();
+    if (customValue.length === 0) {
+      return 'funding.home.contribution.amountFormatHint';
+    }
+
+    const amount = this.parseCustomContributionAmount(customValue);
+    if (amount === null) {
+      return 'funding.home.contribution.amountFormatError';
+    }
+
+    if (
+      this.contributionType() === 'sponsorship_interest' &&
+      !isValidSponsorshipAmount(amount, this.config.sponsorship)
+    ) {
+      return 'funding.home.contribution.sponsorship.amountFormatError';
+    }
+
+    return 'funding.home.contribution.amountFormatHint';
+  });
+
+  readonly sponsorshipBenefits = computed(() =>
+    resolveSponsorshipBenefits(
+      this.selectedContributionAmount(),
+      this.config.sponsorship
+    )
+  );
+
+  readonly sponsorshipBenefitLabelKeys: Readonly<
+    Record<SponsorshipBenefitId, string>
+  > = {
+    website_mention: 'funding.home.contribution.sponsorship.benefits.openg7',
+    facebook_batch: 'funding.home.contribution.sponsorship.benefits.facebook',
+    linkedin_batch: 'funding.home.contribution.sponsorship.benefits.linkedin'
+  };
+
+  readonly sponsorshipUpcomingLabelKeys: Readonly<
+    Record<SponsorshipBenefitId, string>
+  > = {
+    website_mention: 'funding.home.contribution.sponsorship.upcoming.openg7',
+    facebook_batch: 'funding.home.contribution.sponsorship.upcoming.facebook',
+    linkedin_batch: 'funding.home.contribution.sponsorship.upcoming.linkedin'
+  };
 
   readonly showSponsorFollowUp = computed<boolean>(
     () =>

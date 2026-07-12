@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
+  SponsorshipBenefitId,
   SponsorshipFollowupDetailsRequest,
   SponsorshipFollowupResponse,
   SponsorshipReviewStatus
@@ -72,6 +73,25 @@ import { FundingService } from '../../services/funding.service.js';
               <strong>{{ dateLabel(current.reviewedAt) }}</strong>
             </div>
           </aside>
+
+          <article class="state-card sponsorship-benefits-recap">
+            <h2>Avantages de votre commandite de {{ formatMoney(current) }}</h2>
+            <ul>
+              <li *ngFor="let benefit of current.sponsorshipBenefits">
+                {{ benefitLabel(benefit) }}
+              </li>
+            </ul>
+            <p>
+              Ces avantages restent en attente de publication : la commandite
+              demeure en revision manuelle et les presences sur les reseaux
+              sociaux sont planifiees dans un prochain lot collectif
+              disponible, jamais publiees automatiquement au paiement.
+            </p>
+            <p *ngIf="!current.detailsSubmitted">
+              Transmettez le nom de votre entreprise, votre site web et votre
+              logo ci-dessous pour permettre la revision.
+            </p>
+          </article>
 
           <article class="state-card" *ngIf="current.reviewStatus === 'approved'">
             <h2>Commandite acceptee</h2>
@@ -283,6 +303,25 @@ import { FundingService } from '../../services/funding.service.js';
 
       .state-card.error {
         border-color: #ffc6ce;
+      }
+
+      .sponsorship-benefits-recap ul {
+        display: grid;
+        gap: 0.35rem;
+        list-style: none;
+        margin: 0.5rem 0;
+        padding: 0;
+      }
+
+      .sponsorship-benefits-recap li {
+        color: #172033;
+        font-family: 'Trebuchet MS', Arial, sans-serif;
+        font-weight: 700;
+      }
+
+      .sponsorship-benefits-recap li::before {
+        content: '\\2713 ';
+        font-weight: 900;
       }
 
       .followup-form-panel header {
@@ -497,6 +536,19 @@ export class SponsorshipFollowupPageComponent implements OnInit {
 
   paymentLabel(status: string): string {
     return status === 'paid' ? 'Confirme' : status;
+  }
+
+  benefitLabel(benefit: SponsorshipBenefitId): string {
+    switch (benefit) {
+      case 'website_mention':
+        return 'Mention de votre entreprise sur OpenG7.org';
+      case 'facebook_batch':
+        return 'Inclusion dans une publication collective de reconnaissance sur Facebook';
+      case 'linkedin_batch':
+        return 'Inclusion dans une publication collective de reconnaissance sur LinkedIn';
+      default:
+        return benefit;
+    }
   }
 
   formatMoney(followup: SponsorshipFollowupResponse): string {
