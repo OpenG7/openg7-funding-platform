@@ -149,6 +149,12 @@ The MVP admin dashboard is available at:
 /admin/fundraiser
 ```
 
+The browser entry point is protected by a lightweight frontend session gate.
+Open `/admin/login`, enter `FUNDING_ADMIN_TOKEN`, and the frontend exchanges it
+through `POST /api/admin/session` before loading `/admin/fundraiser` or any
+`/admin/fundraiser/...` child route. The API remains the source of truth for
+authorization on every admin endpoint.
+
 It exposes private operational views through:
 
 ```text
@@ -195,11 +201,12 @@ POST /api/admin/sponsorships/review
 POST /api/admin/sponsorships/publication
 ```
 
-In production, first exchange `FUNDING_ADMIN_TOKEN` through
+In production, first exchange `FUNDING_ADMIN_TOKEN` from `/admin/login` through
 `POST /api/admin/session`. The browser admin then calls operational endpoints
 with `Authorization: Bearer <sessionToken>`. The static token remains accepted
 for scripts and backwards-compatible admin operations. In local development,
-admin endpoints can be used without a token when `FUNDING_ADMIN_TOKEN` is unset.
+admin endpoints can be used without a token when `FUNDING_ADMIN_TOKEN` is unset,
+but the frontend admin routes still expect a browser session.
 
 The publication endpoint prepares the public sponsor profile and records feed
 placement metadata:

@@ -1,9 +1,11 @@
-import { CanMatchFn, Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { CanMatchFn, Router, Routes } from '@angular/router';
 
 import { AdminAuditPageComponent } from './features/funding/pages/admin-audit-page/admin-audit-page.component.js';
 import { AdminContributionsPageComponent } from './features/funding/pages/admin-contributions-page/admin-contributions-page.component.js';
 import { AdminDashboardPageComponent } from './features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.js';
 import { AdminExpensesPageComponent } from './features/funding/pages/admin-expenses-page/admin-expenses-page.component.js';
+import { AdminLoginPageComponent } from './features/funding/pages/admin-login-page/admin-login-page.component.js';
 import { AdminPublicationsPageComponent } from './features/funding/pages/admin-publications-page/admin-publications-page.component.js';
 import { AdminSponsorsPageComponent } from './features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.js';
 import { AdminTransparencyPageComponent } from './features/funding/pages/admin-transparency-page/admin-transparency-page.component.js';
@@ -21,10 +23,25 @@ import { StripeSetupPageComponent } from './features/funding/pages/stripe-setup-
 import { SupportPageComponent } from './features/funding/pages/support-page/support-page.component.js';
 import { UsageRefundPolicyPageComponent } from './features/funding/pages/usage-refund-policy-page/usage-refund-policy-page.component.js';
 import { WebhooksPageComponent } from './features/funding/pages/webhooks-page/webhooks-page.component.js';
+import { FundingAdminService } from './features/funding/services/funding-admin.service.js';
 
 const localDevelopmentOnly: CanMatchFn = () =>
   typeof window !== 'undefined' &&
   ['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+const adminSessionRequired: CanMatchFn = (_route, segments) => {
+  const admin = inject(FundingAdminService);
+  if (admin.hasValidAdminSession()) {
+    return true;
+  }
+
+  const returnUrl = `/${segments.map((segment) => segment.path).join('/')}`;
+  return inject(Router).createUrlTree(['/admin/login'], {
+    queryParams: {
+      returnUrl: returnUrl || '/admin/fundraiser'
+    }
+  });
+};
 
 const publicRoutes: Routes = [
   {
@@ -99,31 +116,42 @@ export const appRoutes: Routes = [
   ...publicRoutes,
   ...englishPublicRoutes,
   {
+    path: 'admin/login',
+    component: AdminLoginPageComponent
+  },
+  {
     path: 'admin/fundraiser',
+    canMatch: [adminSessionRequired],
     component: AdminDashboardPageComponent
   },
   {
     path: 'admin/fundraiser/contributions',
+    canMatch: [adminSessionRequired],
     component: AdminContributionsPageComponent
   },
   {
     path: 'admin/fundraiser/sponsors',
+    canMatch: [adminSessionRequired],
     component: AdminSponsorsPageComponent
   },
   {
     path: 'admin/fundraiser/publications',
+    canMatch: [adminSessionRequired],
     component: AdminPublicationsPageComponent
   },
   {
     path: 'admin/fundraiser/expenses',
+    canMatch: [adminSessionRequired],
     component: AdminExpensesPageComponent
   },
   {
     path: 'admin/fundraiser/transparency',
+    canMatch: [adminSessionRequired],
     component: AdminTransparencyPageComponent
   },
   {
     path: 'admin/fundraiser/audit',
+    canMatch: [adminSessionRequired],
     component: AdminAuditPageComponent
   },
   {
