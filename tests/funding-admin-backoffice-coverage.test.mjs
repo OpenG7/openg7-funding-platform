@@ -140,7 +140,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'statusFilter',
       'publicFilter',
       'exportCsv',
-      'saveCsv'
+      'saveCsv',
+      'contribution.public_reference',
+      'reference-cell'
     ],
     'admin contributions page'
   );
@@ -156,6 +158,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'deleteLogo',
       'logoPreviewSourceFor',
       'logo-delete-button',
+      'sponsorship.public_reference',
+      'reference-code',
       'image/png,image/jpeg,image/webp',
       'sponsorLogoMaxBytes'
     ],
@@ -235,6 +239,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'verifyAdminSession',
       'FUNDING_ADMIN_SESSION_SECRET',
       'FUNDING_ADMIN_SESSION_TTL_MINUTES',
+      'public_reference',
       'insertAdminAuditLog',
       'buildAdminContributionsCsv',
       'writeCsv'
@@ -298,6 +303,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminSessionResponse',
       'AdminSponsorLogoUploadResult',
       'AdminSponsorLogoDeleteResult',
+      'public_reference',
       'PublicationDraftStatus',
       'AdminPublicationDraftRecord',
       'AdminAuditLogEntry'

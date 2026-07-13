@@ -35,7 +35,9 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
             <h1>Contributions</h1>
           </div>
           <nav>
-            <button type="button" (click)="loadContributions()">Actualiser</button>
+            <button type="button" (click)="loadContributions()">
+              Actualiser
+            </button>
             <button
               type="button"
               class="secondary"
@@ -63,10 +65,12 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
           </label>
         </section>
 
-        <p class="state" *ngIf="state() === 'loading'">Chargement des contributions...</p>
+        <p class="state" *ngIf="state() === 'loading'">
+          Chargement des contributions...
+        </p>
         <p class="state state-error" *ngIf="state() === 'error'">
-          Impossible de charger ou exporter les contributions. Verifiez le jeton,
-          la base de donnees et les migrations.
+          Impossible de charger ou exporter les contributions. Verifiez le
+          jeton, la base de donnees et les migrations.
         </p>
 
         <ng-container *ngIf="data() as response">
@@ -86,7 +90,12 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
             <article>
               <span>Total recu</span>
               <strong>
-                {{ formatMoney(response.summary.total_received, response.summary.currency) }}
+                {{
+                  formatMoney(
+                    response.summary.total_received,
+                    response.summary.currency
+                  )
+                }}
               </strong>
             </article>
           </section>
@@ -96,7 +105,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
               Recherche
               <input
                 type="search"
-                placeholder="Nom, courriel, Stripe..."
+                placeholder="Nom, courriel, référence, Stripe..."
                 [value]="search()"
                 (input)="setSearch($event)"
               />
@@ -106,14 +115,19 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
               Type
               <select [value]="typeFilter()" (change)="setTypeFilter($event)">
                 <option value="all">Tous</option>
-                <option value="personal_support">Contribution personnelle</option>
+                <option value="personal_support">
+                  Contribution personnelle
+                </option>
                 <option value="sponsorship_interest">Commandite</option>
               </select>
             </label>
 
             <label>
               Statut paiement
-              <select [value]="statusFilter()" (change)="setStatusFilter($event)">
+              <select
+                [value]="statusFilter()"
+                (change)="setStatusFilter($event)"
+              >
                 <option value="all">Tous</option>
                 <option value="pending">Pending</option>
                 <option value="paid">Paid</option>
@@ -126,7 +140,10 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 
             <label>
               Affichage public
-              <select [value]="publicFilter()" (change)="setPublicFilter($event)">
+              <select
+                [value]="publicFilter()"
+                (change)="setPublicFilter($event)"
+              >
                 <option value="all">Tous</option>
                 <option value="public">Consentis</option>
                 <option value="private">Non publics</option>
@@ -134,20 +151,29 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
             </label>
           </section>
 
-          <section class="admin-table-panel" aria-labelledby="contributions-title">
+          <section
+            class="admin-table-panel"
+            aria-labelledby="contributions-title"
+          >
             <header>
               <div>
                 <span>{{ filteredContributions().length }} resultat(s)</span>
                 <h2 id="contributions-title">Liste admin</h2>
               </div>
-              <small>Mis a jour {{ dateLabel(response.last_updated_at) }}</small>
+              <small
+                >Mis a jour {{ dateLabel(response.last_updated_at) }}</small
+              >
             </header>
 
-            <div class="table-scroll" *ngIf="filteredContributions().length > 0">
+            <div
+              class="table-scroll"
+              *ngIf="filteredContributions().length > 0"
+            >
               <table>
                 <thead>
                   <tr>
                     <th>Type</th>
+                    <th>Référence</th>
                     <th>Nom</th>
                     <th>Courriel</th>
                     <th>Statut</th>
@@ -159,22 +185,41 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
                 </thead>
                 <tbody>
                   <tr
-                    *ngFor="let contribution of filteredContributions(); trackBy: trackByContribution"
+                    *ngFor="
+                      let contribution of filteredContributions();
+                      trackBy: trackByContribution
+                    "
                   >
                     <td>{{ contributionTypeLabel(contribution) }}</td>
+                    <td class="reference-cell">
+                      {{ contribution.public_reference || 'Non attribuée' }}
+                    </td>
                     <td>{{ displayName(contribution) }}</td>
                     <td>{{ privateEmailLabel(contribution) }}</td>
                     <td>{{ contribution.payment_status }}</td>
                     <td>{{ publicDisplayLabel(contribution) }}</td>
                     <td>{{ sponsorStatusLabel(contribution) }}</td>
-                    <td>{{ formatMoney(contribution.amount, contribution.currency) }}</td>
-                    <td>{{ dateLabel(contribution.paid_at || contribution.updated_at) }}</td>
+                    <td>
+                      {{
+                        formatMoney(contribution.amount, contribution.currency)
+                      }}
+                    </td>
+                    <td>
+                      {{
+                        dateLabel(
+                          contribution.paid_at || contribution.updated_at
+                        )
+                      }}
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
-            <article class="empty-state" *ngIf="filteredContributions().length === 0">
+            <article
+              class="empty-state"
+              *ngIf="filteredContributions().length === 0"
+            >
               <h3>Aucune contribution trouvee</h3>
               <p>Modifiez les filtres ou rechargez la liste admin.</p>
             </article>
@@ -341,7 +386,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 
       table {
         border-collapse: collapse;
-        min-width: 68rem;
+        min-width: 74rem;
         width: 100%;
       }
 
@@ -361,6 +406,13 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 
       td {
         overflow-wrap: anywhere;
+      }
+
+      .reference-cell {
+        font-family:
+          ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+        font-weight: 800;
+        letter-spacing: 0;
       }
 
       .empty-state {
@@ -421,6 +473,7 @@ export class AdminContributionsPageComponent implements OnInit {
     return this.contributions().filter((contribution) => {
       const searchable = [
         contribution.id,
+        contribution.public_reference,
         contribution.public_name,
         contribution.email_private,
         contribution.sponsor_company_name,
@@ -435,7 +488,8 @@ export class AdminContributionsPageComponent implements OnInit {
 
       return (
         (!search || searchable.includes(search)) &&
-        (typeFilter === 'all' || contribution.contribution_type === typeFilter) &&
+        (typeFilter === 'all' ||
+          contribution.contribution_type === typeFilter) &&
         (statusFilter === 'all' ||
           contribution.payment_status === statusFilter) &&
         (publicFilter === 'all' ||
@@ -505,7 +559,10 @@ export class AdminContributionsPageComponent implements OnInit {
     );
   }
 
-  trackByContribution(_: number, contribution: AdminContributionRecord): string {
+  trackByContribution(
+    _: number,
+    contribution: AdminContributionRecord
+  ): string {
     return contribution.id;
   }
 
