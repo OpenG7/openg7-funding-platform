@@ -750,8 +750,21 @@ const getSponsorshipFollowupTokenCutoffIso = (): string =>
 const isValidFollowupToken = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9_-]{32,128}$/.test(value);
 
-const appendQueryParam = (url: string, key: string, value: string): string =>
-  `${url}${url.includes('?') ? '&' : '?'}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+const buildSponsorshipCheckoutSuccessUrl = (
+  returnUrl: string,
+  token: string
+): string => {
+  const url = new URL(returnUrl, publicBaseOrigin);
+  const isEnglishPath =
+    url.pathname === '/en' || url.pathname.startsWith('/en/');
+  url.pathname = `${
+    isEnglishPath ? '/en' : ''
+  }/fonds-des-batisseurs/suivi-commandite`;
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('token', token);
+  return url.toString();
+};
 
 const isAllowedSponsorshipReviewStatus = (
   value: unknown
@@ -1614,9 +1627,8 @@ createServer(async (request, response) => {
         ? hashSponsorshipFollowupToken(sponsorshipFollowupToken)
         : null;
       const checkoutSuccessUrl = sponsorshipFollowupToken
-        ? appendQueryParam(
+        ? buildSponsorshipCheckoutSuccessUrl(
             successUrl,
-            'followup_token',
             sponsorshipFollowupToken
           )
         : successUrl;
