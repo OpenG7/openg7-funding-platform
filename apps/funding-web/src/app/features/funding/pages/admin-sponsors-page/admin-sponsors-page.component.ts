@@ -119,7 +119,7 @@ const controlledSponsorLogoUrlPrefixes = [
             Recherche
             <input
               type="search"
-              placeholder="Entreprise, contact, courriel..."
+              placeholder="Entreprise, contact, courriel, référence..."
               [value]="search()"
               (input)="setSearch($event)"
             />
@@ -178,11 +178,19 @@ const controlledSponsorLogoUrlPrefixes = [
               </div>
               <div class="amount-and-tier">
                 <strong>{{ formatMoney(sponsorship) }}</strong>
-                <small class="tier-badge">{{ sponsorshipTierLabel(sponsorship) }}</small>
+                <small class="tier-badge">{{
+                  sponsorshipTierLabel(sponsorship)
+                }}</small>
               </div>
             </header>
 
             <dl class="sponsorship-admin-fields">
+              <div>
+                <dt>Référence</dt>
+                <dd class="reference-code">
+                  {{ sponsorship.public_reference || 'Non attribuée' }}
+                </dd>
+              </div>
               <div>
                 <dt>Avantages</dt>
                 <dd>{{ sponsorshipBenefitsLabel(sponsorship) }}</dd>
@@ -753,6 +761,13 @@ const controlledSponsorLogoUrlPrefixes = [
         color: #254db8;
       }
 
+      .reference-code {
+        font-family:
+          ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+        font-weight: 900;
+        letter-spacing: 0;
+      }
+
       .logo-preview {
         align-items: center;
         background: #f4f7fb;
@@ -956,6 +971,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
     return this.sponsorships().filter((sponsorship) => {
       const searchable = [
+        sponsorship.public_reference,
         sponsorship.sponsor_company_name,
         sponsorship.sponsor_contact_name,
         sponsorship.sponsor_contact_email,

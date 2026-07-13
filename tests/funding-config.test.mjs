@@ -246,6 +246,7 @@ test('Checkout sessions require fundraiser metadata and consent fields', () => {
   for (const metadata of [
     "project: 'openg7'",
     "program: 'builders_fund'",
+    'publicReference,',
     'contributionType: parsed.contributionType',
     'publicDisplayConsent: String(parsed.publicDisplayConsent)',
     'displayAmountConsent: String(parsed.displayAmountConsent)',
@@ -254,6 +255,58 @@ test('Checkout sessions require fundraiser metadata and consent fields', () => {
   ]) {
     assert.ok(source.includes(metadata));
   }
+});
+
+test('Checkout creates a public contribution reference for Stripe receipts and recovery', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const webhook = fs.readFileSync(
+    'apps/funding-api/src/stripe-webhook.service.ts',
+    'utf8'
+  );
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/009_add_contribution_public_reference.sql',
+    'utf8'
+  );
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const followupPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
+    'utf8'
+  );
+  const adminContributionsPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-contributions-page/admin-contributions-page.component.ts',
+    'utf8'
+  );
+  const adminSponsorsPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
+    'utf8'
+  );
+
+  assert.ok(migration.includes('ADD COLUMN IF NOT EXISTS public_reference'));
+  assert.ok(migration.includes('idx_fund_contributions_public_reference'));
+  assert.ok(migration.includes('CREATE EXTENSION IF NOT EXISTS pgcrypto'));
+  assert.ok(api.includes('createContributionPublicReference'));
+  assert.ok(api.includes('client_reference_id: publicReference'));
+  assert.ok(
+    /description:\s*buildContributionReceiptDescription\(\s*publicReference\s*\)/.test(
+      api
+    )
+  );
+  assert.ok(api.includes('name: `OpenG7 ${projectId} - ${publicReference}`'));
+  assert.ok(api.includes('publicReference: followup.publicReference'));
+  assert.ok(
+    webhook.includes('metadata.publicReference ?? session.client_reference_id')
+  );
+  assert.ok(repository.includes('public_reference = COALESCE('));
+  assert.ok(repository.includes('publicReference: row.public_reference'));
+  assert.ok(core.includes('readonly publicReference: string | null;'));
+  assert.ok(core.includes('readonly public_reference: string | null;'));
+  assert.ok(followupPage.includes('current.publicReference'));
+  assert.ok(adminContributionsPage.includes('contribution.public_reference'));
+  assert.ok(adminSponsorsPage.includes('sponsorship.public_reference'));
 });
 
 test('resolveCheckoutReturnUrl allows http localhost/127.0.0.1 only outside production', () => {
@@ -552,9 +605,10 @@ test('Business sponsorship contribution choice is enabled for flow testing', () 
 });
 
 test('Sponsorship pricing config resolves tiers and benefits from the real paid amount', () => {
-  assert.deepEqual(DEFAULT_SPONSORSHIP_PRICING_CONFIG.presetAmounts, [
-    5, 10, 25, 50
-  ]);
+  assert.deepEqual(
+    DEFAULT_SPONSORSHIP_PRICING_CONFIG.presetAmounts,
+    [5, 10, 25, 50]
+  );
   assert.equal(DEFAULT_SPONSORSHIP_PRICING_CONFIG.minimumAmount, 5);
   assert.deepEqual(
     OPENG7_FUNDING_CONFIG.sponsorship,
@@ -697,10 +751,14 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
   // convention as allowedContributionAmounts/FUNDING_ALLOWED_AMOUNTS.
   assert.ok(source.includes('const sponsorshipMinimumAmount = 5;'));
   assert.ok(
-    source.includes('const isValidSponsorshipAmount = (amount: number): boolean =>')
+    source.includes(
+      'const isValidSponsorshipAmount = (amount: number): boolean =>'
+    )
   );
   assert.ok(
-    source.includes('Number.isFinite(amount) && amount >= sponsorshipMinimumAmount;')
+    source.includes(
+      'Number.isFinite(amount) && amount >= sponsorshipMinimumAmount;'
+    )
   );
   assert.ok(source.includes('const isSponsorshipContribution ='));
   assert.ok(
@@ -770,14 +828,15 @@ test('Sponsorship never publishes automatically and stays gated behind manual re
     'sponsorship follow-up recording'
   );
   assert.equal(recordDetailsBody.includes('sponsor_feed_status'), false);
-  assert.ok(recordDetailsBody.includes("sponsor_review_status = 'pending_review'"));
+  assert.ok(
+    recordDetailsBody.includes("sponsor_review_status = 'pending_review'")
+  );
 
   assert.ok(followupPage.includes('current.sponsorshipBenefits'));
   assert.ok(followupPage.includes('benefitLabel(benefit)'));
-  assert.ok(
-    followupPage.includes(
-      'jamais publiees automatiquement au paiement'
-    )
+  assert.match(
+    followupPage,
+    /jamais publi(?:e|é)es automatiquement au\s+paiement/
   );
 });
 
@@ -815,16 +874,14 @@ test('Sponsorship MVP pricing tiers are documented', () => {
   const mvpStatus = fs.readFileSync('docs/fundraiser-mvp-status.md', 'utf8');
 
   assert.ok(mvpStatus.includes('Commandite 5 $ a 24,99 $'));
-  assert.ok(mvpStatus.includes('mention de l\'entreprise sur OpenG7.org'));
+  assert.ok(mvpStatus.includes("mention de l'entreprise sur OpenG7.org"));
   assert.ok(mvpStatus.includes('Commandite 25 $ a 49,99 $'));
   assert.ok(mvpStatus.includes('Commandite 50 $ et plus'));
   assert.ok(mvpStatus.includes('resolveSponsorshipBenefits'));
   assert.ok(mvpStatus.includes('revue manuelle'));
   assert.ok(mvpStatus.includes('prochain lot disponible'));
   assert.ok(
-    mvpStatus.includes(
-      '5 $ a 50 $ constituent la gamme accessible du MVP'
-    )
+    mvpStatus.includes('5 $ a 50 $ constituent la gamme accessible du MVP')
   );
 });
 
@@ -1134,7 +1191,9 @@ test('Publication batch repository enforces capacity, channel match, and approva
 
   // Capacity math is derived from actual assigned drafts, not client input.
   assert.ok(
-    repository.includes('capacityAvailable: Math.max(0, capacity - capacityUsed),')
+    repository.includes(
+      'capacityAvailable: Math.max(0, capacity - capacityUsed),'
+    )
   );
 });
 
@@ -1156,12 +1215,14 @@ test('Publication batch lifecycle requires schedule before publish and preserves
   assert.ok(repository.includes("AND status = 'scheduled'"));
   assert.ok(repository.includes("status = 'published',"));
   assert.ok(
-    repository.includes("published_at = COALESCE(published_at, NOW()),")
+    repository.includes('published_at = COALESCE(published_at, NOW()),')
   );
   assert.ok(repository.includes("status IN ('approved', 'scheduled')"));
 
   // Cancelling releases drafts back to 'approved' so they can be re-batched.
-  assert.ok(repository.includes("SET status = 'cancelled', updated_at = NOW()"));
+  assert.ok(
+    repository.includes("SET status = 'cancelled', updated_at = NOW()")
+  );
   assert.ok(
     repository.includes(
       "status = CASE WHEN status = 'scheduled' THEN 'approved' ELSE status END,"
@@ -1212,7 +1273,8 @@ test('Publication batch admin endpoints are authenticated, validated, rate-limit
   }
 
   // Every batch route starts the same way as every other admin route.
-  const handlerCount = api.split('ensureAdminAccess(request, response)').length - 1;
+  const handlerCount =
+    api.split('ensureAdminAccess(request, response)').length - 1;
   assert.ok(handlerCount >= 12, 'admin routes must all call ensureAdminAccess');
 });
 
@@ -1228,9 +1290,7 @@ test('Publication batch types and admin UI expose capacity, next availability, a
   );
 
   assert.ok(core.includes('export type PublicationBatchStatus ='));
-  assert.ok(
-    core.includes("'open' | 'scheduled' | 'published' | 'cancelled';")
-  );
+  assert.ok(core.includes("'open' | 'scheduled' | 'published' | 'cancelled';"));
   assert.ok(core.includes('readonly capacity: number;'));
   assert.ok(core.includes('readonly capacityUsed: number;'));
   assert.ok(core.includes('readonly capacityAvailable: number;'));
@@ -1246,7 +1306,10 @@ test('Publication batch types and admin UI expose capacity, next availability, a
     'publishPublicationBatch',
     'cancelPublicationBatch'
   ]) {
-    assert.ok(service.includes(`async ${method}(`), `service must expose ${method}`);
+    assert.ok(
+      service.includes(`async ${method}(`),
+      `service must expose ${method}`
+    );
   }
 
   assert.ok(page.includes('Lots de publication collective'));
@@ -1258,11 +1321,7 @@ test('Publication batch types and admin UI expose capacity, next availability, a
   assert.ok(page.includes('unassignFromBatch(draft)'));
   assert.ok(page.includes('batch.capacityUsed'));
   assert.ok(page.includes('Prochaine disponibilite'));
-  assert.ok(
-    page.includes(
-      "aucune publication n'est jamais automatique"
-    )
-  );
+  assert.ok(page.includes("aucune publication n'est jamais automatique"));
 });
 
 test('Admin sponsors page derives the sponsorship tier from the paid amount instead of showing nothing', () => {
@@ -1273,10 +1332,18 @@ test('Admin sponsors page derives the sponsorship tier from the paid amount inst
 
   assert.ok(page.includes('DEFAULT_SPONSORSHIP_PRICING_CONFIG'));
   assert.ok(page.includes('resolveSponsorshipBenefits'));
-  assert.ok(page.includes('sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {'));
-  assert.ok(page.includes('sponsorshipBenefitsLabel(sponsorship: AdminSponsorshipRecord): string {'));
-  assert.ok(page.includes('{{ sponsorshipTierLabel(sponsorship) }}'));
-  assert.ok(page.includes('{{ sponsorshipBenefitsLabel(sponsorship) }}'));
+  assert.ok(
+    page.includes(
+      'sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {'
+    )
+  );
+  assert.ok(
+    page.includes(
+      'sponsorshipBenefitsLabel(sponsorship: AdminSponsorshipRecord): string {'
+    )
+  );
+  assert.match(page, /\{\{\s*sponsorshipTierLabel\(sponsorship\)\s*\}\}/);
+  assert.match(page, /\{\{\s*sponsorshipBenefitsLabel\(sponsorship\)\s*\}\}/);
   // Derived from the record's own amount, never a value the client could send.
   assert.ok(page.includes('resolveSponsorshipBenefits('));
   assert.ok(page.includes('sponsorship.amount,'));
@@ -1293,11 +1360,15 @@ test('Publication batches are listed chronologically per channel, not just by st
   );
 
   assert.ok(repository.includes('ORDER BY'));
-  assert.ok(repository.includes('COALESCE(batch.scheduled_at, batch.created_at) ASC'));
+  assert.ok(
+    repository.includes('COALESCE(batch.scheduled_at, batch.created_at) ASC')
+  );
 
   assert.ok(page.includes('class="batch-timeline"'));
   assert.ok(page.includes('*ngFor="let channel of batchChannels"'));
-  assert.ok(page.includes('readonly batchChannels: readonly SponsorFeedChannel[] = ['));
+  assert.ok(
+    page.includes('readonly batchChannels: readonly SponsorFeedChannel[] = [')
+  );
   assert.ok(page.includes('batchesForChannel('));
 });
 
@@ -1309,18 +1380,32 @@ test('An admin is notified by email when a publication batch fills up, but nothi
   const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
   const envExample = fs.readFileSync('.env.example', 'utf8');
 
-  assert.ok(email.includes('export const sendPublicationBatchFullNotification = async ('));
+  assert.ok(
+    email.includes(
+      'export const sendPublicationBatchFullNotification = async ('
+    )
+  );
   assert.ok(email.includes('FUNDING_ADMIN_NOTIFICATION_EMAIL'));
   assert.ok(
     email.includes(
-      "if (!resendApiKey || !emailFrom || !adminNotificationEmail) {"
+      'if (!resendApiKey || !emailFrom || !adminNotificationEmail) {'
     )
   );
 
-  assert.ok(api.includes("import { sendPublicationBatchFullNotification } from './email-notification.service.js';"));
-  assert.ok(api.includes('const batch = await getPublicationBatchById(dbPool, parsed.batchId);'));
   assert.ok(
-    api.includes("if (batch && batch.status === 'open' && batch.capacityAvailable === 0) {")
+    api.includes(
+      "import { sendPublicationBatchFullNotification } from './email-notification.service.js';"
+    )
+  );
+  assert.ok(
+    api.includes(
+      'const batch = await getPublicationBatchById(dbPool, parsed.batchId);'
+    )
+  );
+  assert.ok(
+    api.includes(
+      "if (batch && batch.status === 'open' && batch.capacityAvailable === 0) {"
+    )
   );
   // The notification is fired from the assign handler, not from schedule/publish/cancel.
   const assignHandlerBody = extractBetween(
@@ -1374,7 +1459,9 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
   assert.ok(api.includes("'/public/sponsorship-batches/availability'"));
   assert.ok(api.includes("'/api/public/sponsorship-batches/availability'"));
 
-  assert.ok(core.includes('export interface PublicSponsorshipBatchAvailability {'));
+  assert.ok(
+    core.includes('export interface PublicSponsorshipBatchAvailability {')
+  );
   assert.ok(core.includes('readonly nextAvailableAt: string | null;'));
 
   assert.ok(
@@ -1382,20 +1469,30 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
       'async getSponsorshipBatchAvailability(): Promise<PublicSponsorshipBatchAvailabilityResponse> {'
     )
   );
-  assert.ok(
-    service.includes('/public/sponsorship-batches/availability')
-  );
+  assert.ok(service.includes('/public/sponsorship-batches/availability'));
 
   assert.ok(page.includes('loadSponsorshipBatchAvailability'));
   assert.ok(page.includes('sponsorshipAvailabilityEntries'));
   assert.ok(page.includes('class="sponsorship-tier-availability"'));
 
   for (const locale of [fr, en]) {
-    assert.ok(locale.funding.home.contribution.sponsorship.availability.facebook);
-    assert.ok(locale.funding.home.contribution.sponsorship.availability.linkedin);
+    assert.ok(
+      locale.funding.home.contribution.sponsorship.availability.facebook
+    );
+    assert.ok(
+      locale.funding.home.contribution.sponsorship.availability.linkedin
+    );
   }
-  assert.ok(fr.funding.home.contribution.sponsorship.availability.facebook.includes('{{date}}'));
-  assert.ok(en.funding.home.contribution.sponsorship.availability.facebook.includes('{{date}}'));
+  assert.ok(
+    fr.funding.home.contribution.sponsorship.availability.facebook.includes(
+      '{{date}}'
+    )
+  );
+  assert.ok(
+    en.funding.home.contribution.sponsorship.availability.facebook.includes(
+      '{{date}}'
+    )
+  );
 });
 
 test('Public sponsorships are exposed only after consent and approval', () => {

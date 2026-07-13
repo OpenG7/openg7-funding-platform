@@ -72,7 +72,10 @@ test('E2E 1/8: enterprise sponsorship checkout returns with recovery token', () 
       'buildSponsorshipCheckoutSuccessUrl',
       'fonds-des-batisseurs/suivi-commandite',
       "url.searchParams.set('token', token)",
-      'sponsorshipFollowupTokenHash'
+      'sponsorshipFollowupTokenHash',
+      'createContributionPublicReference',
+      'client_reference_id: publicReference',
+      'buildContributionReceiptDescription'
     ],
     'checkout API follow-up token flow'
   );
@@ -110,6 +113,7 @@ test('E2E 2/8: sponsor can reopen token follow-up and submit company details', (
       'history.replaceState',
       'getSponsorshipFollowup',
       'submitSponsorshipFollowupDetails',
+      'current.publicReference',
       "'paid'",
       "'refunded'",
       "'disputed'"
@@ -134,6 +138,7 @@ test('E2E 2/8: sponsor can reopen token follow-up and submit company details', (
       "'/api/sponsorship-followup'",
       "'/sponsorship-followup/details'",
       "'/api/sponsorship-followup/details'",
+      'publicReference: followup.publicReference',
       'recordSponsorshipDetailsForContribution'
     ],
     'follow-up API routes'
@@ -198,6 +203,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
       'uploadLogo',
       'deleteLogo',
       'logoPreviewSourceFor',
+      'sponsorship.public_reference',
       'image/png,image/jpeg,image/webp'
     ],
     'admin sponsorship list UI'
@@ -242,6 +248,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
       'clearSponsorshipLogoUrl',
       'getAdminSponsorshipLogoUrl',
       'isPublicApprovedSponsorshipLogoUrl',
+      'public_reference',
       "contribution_type = 'sponsorship_interest'",
       "status IN ('paid', 'refunded', 'disputed')"
     ],

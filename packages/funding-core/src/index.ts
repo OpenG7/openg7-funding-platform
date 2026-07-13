@@ -8,14 +8,10 @@ import {
 export type ContributionType = 'personal_support' | 'sponsorship_interest';
 
 export type SponsorshipBenefitId =
-  | 'website_mention'
-  | 'facebook_batch'
-  | 'linkedin_batch';
+  'website_mention' | 'facebook_batch' | 'linkedin_batch';
 
 export type SponsorshipTierId =
-  | 'website_only'
-  | 'website_facebook'
-  | 'website_facebook_linkedin';
+  'website_only' | 'website_facebook' | 'website_facebook_linkedin';
 
 export interface SponsorshipBenefitStatus {
   readonly id: SponsorshipBenefitId;
@@ -260,6 +256,7 @@ export interface SponsorshipDetailsResult {
 
 export interface SponsorshipFollowupResponse {
   readonly found: true;
+  readonly publicReference: string | null;
   readonly paymentStatus: string;
   readonly reviewStatus: SponsorshipReviewStatus;
   readonly amount: number;
@@ -292,6 +289,7 @@ export type SponsorshipReviewStatus =
 
 export interface AdminSponsorshipRecord {
   readonly id: string;
+  readonly public_reference: string | null;
   readonly contribution_type: 'sponsorship_interest';
   readonly amount: number;
   readonly currency: string;
@@ -348,6 +346,7 @@ export interface AdminSponsorLogoDeleteResult {
 
 export interface AdminContributionRecord {
   readonly id: string;
+  readonly public_reference: string | null;
   readonly contribution_type: ContributionType;
   readonly amount: number;
   readonly currency: string;

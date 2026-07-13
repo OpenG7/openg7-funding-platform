@@ -37,6 +37,7 @@ const allowedEvents = new Set([
 ]);
 
 const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
+const contributionPublicReferencePattern = /^OG7-\d{4}-[A-Z0-9]{4,8}$/;
 
 const toIsoFromUnix = (seconds: number): string =>
   new Date(seconds * 1000).toISOString();
@@ -138,6 +139,17 @@ const extractSponsorshipFollowupTokenFromSession = (
     : null;
 };
 
+const normalizeContributionPublicReference = (
+  value: string | null | undefined
+): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  const reference = value.trim().toUpperCase();
+  return contributionPublicReferencePattern.test(reference) ? reference : null;
+};
+
 const buildCheckoutSessionWebhookInput = (
   session: Stripe.Checkout.Session,
   status: 'pending' | 'paid' | 'expired'
@@ -149,6 +161,9 @@ const buildCheckoutSessionWebhookInput = (
   return {
     stripeSessionId: session.id,
     stripePaymentIntentId: resolvePaymentIntentId(session.payment_intent),
+    publicReference: normalizeContributionPublicReference(
+      metadata.publicReference ?? session.client_reference_id
+    ),
     contributionType: normalizeContributionType(metadata.contributionType),
     amountCents,
     currency: session.currency ?? 'cad',

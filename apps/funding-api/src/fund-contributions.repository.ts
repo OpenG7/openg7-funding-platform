@@ -79,6 +79,7 @@ export const allowedSponsorFeedStatuses = new Set<SponsorFeedStatus>([
 export interface CheckoutSessionRecordInput {
   readonly stripeSessionId: string;
   readonly stripePaymentIntentId: string | null;
+  readonly publicReference: string | null;
   readonly contributionType: ContributionType;
   readonly amountCents: number;
   readonly currency: string;
@@ -111,6 +112,7 @@ export interface PaymentIntentStatusInput {
 export interface SponsorshipDetailsRecordInput {
   readonly stripeSessionId: string;
   readonly stripePaymentIntentId: string | null;
+  readonly publicReference: string | null;
   readonly amountCents: number;
   readonly currency: string;
   readonly publicDisplayConsent: boolean;
@@ -161,6 +163,7 @@ export interface SponsorshipFollowupEmailRecordInput {
 
 interface AdminSponsorshipRow {
   readonly id: string;
+  readonly public_reference: string | null;
   readonly contribution_type: 'sponsorship_interest';
   readonly amount_cents: string;
   readonly currency: string;
@@ -193,6 +196,7 @@ interface AdminSponsorshipRow {
 
 interface AdminContributionRow {
   readonly id: string;
+  readonly public_reference: string | null;
   readonly contribution_type: ContributionType;
   readonly amount_cents: string;
   readonly currency: string;
@@ -273,6 +277,7 @@ interface SponsorshipPublicationPresenceRow {
 
 interface SponsorshipFollowupRow {
   readonly id: string;
+  readonly public_reference: string | null;
   readonly amount_cents: string;
   readonly currency: string;
   readonly payment_status: string;
@@ -338,6 +343,7 @@ const mapAdminContributionRow = (
   row: AdminContributionRow
 ): AdminContributionRecord => ({
   id: row.id,
+  public_reference: row.public_reference,
   contribution_type: row.contribution_type,
   amount: centsToAmount(parseDbInt(row.amount_cents)),
   currency: row.currency.toUpperCase(),
@@ -483,6 +489,7 @@ export const insertCheckoutSessionRecord = async (
     await client.query(
       `
         INSERT INTO fund_contributions (
+          public_reference,
           contribution_type,
           amount_cents,
           currency,
@@ -497,13 +504,14 @@ export const insertCheckoutSessionRecord = async (
           sponsorship_followup_token_created_at
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10,
-          CASE WHEN $10::text IS NULL THEN NULL ELSE NOW() END
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11,
+          CASE WHEN $11::text IS NULL THEN NULL ELSE NOW() END
         )
         ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
         DO NOTHING
       `,
       [
+        input.publicReference,
         input.contributionType,
         input.amountCents,
         input.currency.toLowerCase(),
@@ -575,6 +583,7 @@ export const upsertCheckoutSessionFromWebhook = async (
     const result = await client.query(
       `
         INSERT INTO fund_contributions (
+          public_reference,
           contribution_type,
           amount_cents,
           currency,
@@ -591,9 +600,9 @@ export const upsertCheckoutSessionFromWebhook = async (
           sponsorship_followup_token_created_at
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-          $12::timestamptz, $13,
-          CASE WHEN $13::text IS NULL THEN NULL ELSE NOW() END
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+          $13::timestamptz, $14,
+          CASE WHEN $14::text IS NULL THEN NULL ELSE NOW() END
         )
         ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
         DO UPDATE
@@ -601,6 +610,10 @@ export const upsertCheckoutSessionFromWebhook = async (
           stripe_payment_intent_id = COALESCE(
             EXCLUDED.stripe_payment_intent_id,
             fund_contributions.stripe_payment_intent_id
+          ),
+          public_reference = COALESCE(
+            fund_contributions.public_reference,
+            EXCLUDED.public_reference
           ),
           email_private = COALESCE(
             fund_contributions.email_private,
@@ -628,6 +641,7 @@ export const upsertCheckoutSessionFromWebhook = async (
           updated_at = NOW()
       `,
       [
+        input.publicReference,
         input.contributionType,
         input.amountCents,
         input.currency.toLowerCase(),
@@ -713,6 +727,7 @@ export const recordSponsorshipDetails = async (
   const result = await pool.query(
     `
       INSERT INTO fund_contributions (
+        public_reference,
         contribution_type,
         amount_cents,
         currency,
@@ -733,12 +748,16 @@ export const recordSponsorshipDetails = async (
         sponsor_review_status
       )
       VALUES (
-        'sponsorship_interest', $1, $2, $3, $4, $5, $6, $7, 'paid',
-        $8::timestamptz, $9, $10, $11, $12, $13, $14, NOW(),
+        $1, 'sponsorship_interest', $2, $3, $4, $5, $6, $7, $8, 'paid',
+        $9::timestamptz, $10, $11, $12, $13, $14, $15, NOW(),
         'pending_review'
       )
       ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
       DO UPDATE SET
+        public_reference = COALESCE(
+          fund_contributions.public_reference,
+          EXCLUDED.public_reference
+        ),
         sponsor_company_name = EXCLUDED.sponsor_company_name,
         sponsor_contact_name = EXCLUDED.sponsor_contact_name,
         sponsor_contact_email = EXCLUDED.sponsor_contact_email,
@@ -753,6 +772,7 @@ export const recordSponsorshipDetails = async (
         updated_at = NOW()
     `,
     [
+      input.publicReference,
       input.amountCents,
       input.currency.toLowerCase(),
       input.publicDisplayConsent,
@@ -851,6 +871,7 @@ const listRecentAdminContributions = async (
     `
       SELECT
         id::text AS id,
+        public_reference,
         contribution_type,
         amount_cents::text AS amount_cents,
         currency,
@@ -1049,6 +1070,7 @@ export const listAdminSponsorships = async (
   const query = await pool.query<AdminSponsorshipRow>(`
     SELECT
       id::text AS id,
+      public_reference,
       contribution_type,
       amount_cents::text AS amount_cents,
       currency,
@@ -1092,6 +1114,7 @@ export const listAdminSponsorships = async (
 
   return query.rows.map((row) => ({
     id: row.id,
+    public_reference: row.public_reference,
     contribution_type: row.contribution_type,
     amount: centsToAmount(parseDbInt(row.amount_cents)),
     currency: row.currency.toUpperCase(),
@@ -1488,6 +1511,7 @@ export const getSponsorshipFollowupByTokenHash = async (
     `
       SELECT
         id::text AS id,
+        public_reference,
         amount_cents::text AS amount_cents,
         currency,
         status AS payment_status,
@@ -1524,6 +1548,7 @@ export const getSponsorshipFollowupByTokenHash = async (
 
   return {
     found: true,
+    publicReference: row.public_reference,
     contributionId: row.id,
     stripeSessionId: row.stripe_session_id,
     stripePaymentIntentId: row.stripe_payment_intent_id,

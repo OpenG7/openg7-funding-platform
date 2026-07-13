@@ -386,6 +386,9 @@ const PUBLICATION_BATCH_MAX_CAPACITY = 50;
 const ADMIN_EXPENSE_NAME_MAX_LENGTH = 160;
 const ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
+const CONTRIBUTION_REFERENCE_BYTES = 6;
+const CONTRIBUTION_REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const contributionPublicReferencePattern = /^OG7-\d{4}-[A-Z0-9]{4,8}$/;
 const ADMIN_SESSION_TOKEN_PREFIX = 'openg7-admin-session.';
 const ADMIN_SESSION_NONCE_BYTES = 16;
 const SPONSOR_LOGO_PUBLIC_PATH_PREFIX = '/api/public/sponsor-logos/';
@@ -749,6 +752,31 @@ const getSponsorshipFollowupTokenCutoffIso = (): string =>
 
 const isValidFollowupToken = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9_-]{32,128}$/.test(value);
+
+const createContributionPublicReference = (): string => {
+  const bytes = randomBytes(CONTRIBUTION_REFERENCE_BYTES);
+  const suffix = Array.from(bytes, (byte) =>
+    CONTRIBUTION_REFERENCE_ALPHABET.charAt(
+      byte % CONTRIBUTION_REFERENCE_ALPHABET.length
+    )
+  ).join('');
+
+  return `OG7-${new Date().getUTCFullYear()}-${suffix}`;
+};
+
+const normalizeContributionPublicReference = (
+  value: string | null | undefined
+): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  const reference = value.trim().toUpperCase();
+  return contributionPublicReferencePattern.test(reference) ? reference : null;
+};
+
+const buildContributionReceiptDescription = (publicReference: string): string =>
+  `Reference OpenG7: ${publicReference}`;
 
 const buildSponsorshipCheckoutSuccessUrl = (
   returnUrl: string,
@@ -1317,6 +1345,7 @@ const buildAdminContributionsCsv = (
 ): string => {
   const header = [
     'id',
+    'public_reference',
     'contribution_type',
     'payment_status',
     'amount',
@@ -1340,6 +1369,7 @@ const buildAdminContributionsCsv = (
   const rows = contributions.map((contribution) =>
     [
       contribution.id,
+      contribution.public_reference,
       contribution.contribution_type,
       contribution.payment_status,
       contribution.amount,
@@ -1632,6 +1662,7 @@ createServer(async (request, response) => {
             sponsorshipFollowupToken
           )
         : successUrl;
+      const publicReference = createContributionPublicReference();
       const publicDisplayName =
         parsed.publicDisplayConsent === true &&
         typeof parsed.publicDisplayName === 'string'
@@ -1641,6 +1672,7 @@ createServer(async (request, response) => {
         projectId,
         project: 'openg7',
         program: 'builders_fund',
+        publicReference,
         contributionType: parsed.contributionType,
         publicDisplayConsent: String(parsed.publicDisplayConsent),
         displayAmountConsent: String(parsed.displayAmountConsent),
@@ -1660,6 +1692,7 @@ createServer(async (request, response) => {
 
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
+        client_reference_id: publicReference,
         success_url: checkoutSuccessUrl,
         cancel_url: cancelUrl,
         line_items: [
@@ -1669,12 +1702,15 @@ createServer(async (request, response) => {
               currency: 'cad',
               unit_amount: Math.round(amount * 100),
               product_data: {
-                name: `OpenG7 ${projectId}`
+                name: `OpenG7 ${projectId} - ${publicReference}`,
+                description:
+                  buildContributionReceiptDescription(publicReference)
               }
             }
           }
         ],
         payment_intent_data: {
+          description: buildContributionReceiptDescription(publicReference),
           metadata: checkoutMetadata
         },
         metadata: checkoutMetadata
@@ -1685,6 +1721,7 @@ createServer(async (request, response) => {
           stripePaymentIntentId: resolveStripePaymentIntentId(
             session.payment_intent
           ),
+          publicReference,
           contributionType: parsed.contributionType,
           amountCents: Math.round(amount * 100),
           currency: 'cad',
@@ -1887,6 +1924,9 @@ createServer(async (request, response) => {
       recorded = await recordSponsorshipDetails(dbPool, {
         stripeSessionId: session.id,
         stripePaymentIntentId: paymentIntentId,
+        publicReference: normalizeContributionPublicReference(
+          sessionMetadata.publicReference
+        ),
         amountCents: session.amount_total ?? 0,
         currency: session.currency ?? 'cad',
         publicDisplayConsent: parseMetadataBoolean(
@@ -1958,6 +1998,7 @@ createServer(async (request, response) => {
       const result: SponsorshipFollowupResponse = {
         found: true,
         paymentStatus: followup.paymentStatus,
+        publicReference: followup.publicReference,
         reviewStatus: followup.reviewStatus,
         amount: followup.amount,
         currency: followup.currency,
@@ -3028,7 +3069,10 @@ createServer(async (request, response) => {
     }
 
     if (
-      !isValidOptionalBoundedText(parsed.notes, PUBLICATION_BATCH_NOTES_MAX_LENGTH)
+      !isValidOptionalBoundedText(
+        parsed.notes,
+        PUBLICATION_BATCH_NOTES_MAX_LENGTH
+      )
     ) {
       writeJson(request, response, 400, {
         error: 'Publication batch notes are too long.'
@@ -3735,7 +3779,10 @@ createServer(async (request, response) => {
 
       writeJson(request, response, 200, availability);
     } catch (error) {
-      console.error('Failed to load public sponsorship batch availability.', error);
+      console.error(
+        'Failed to load public sponsorship batch availability.',
+        error
+      );
       writeJson(request, response, 502, {
         error: 'Sponsorship batch availability could not be loaded.'
       });
