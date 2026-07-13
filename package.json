@@ -54,6 +54,8 @@
     "stripe:cli:install": "npm install -g @stripe/cli",
     "stripe:cli:version": "stripe --version",
     "stripe:webhook:listen": "stripe listen --forward-to https://localhost/api/stripe/webhook --skip-verify ",
+    "stripe:events:resend": "node scripts/stripe-resend-events.mjs",
+    "stripe:events:resend:live": "node scripts/stripe-resend-events.mjs --live",
     "lint": "eslint . --ext .ts,.mts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

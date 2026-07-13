@@ -220,7 +220,15 @@ the PostgreSQL-backed launch path for real payments:
     disposable environment.
 11. Replay the same signed Stripe test webhook event and confirm idempotence:
     no duplicate contribution, no duplicate public sponsor, and no unexpected
-    status regression.
+    status regression. Use `corepack yarn stripe:events:resend evt_...` for
+    test mode. To target the production Stripe webhook endpoint explicitly, use:
+
+    ```bash
+    corepack yarn stripe:events:resend:live evt_... --endpoint we_...
+    ```
+
+    Run the same command with `--dry-run` first when recovering real
+    post-payment events.
 12. Fetch and inspect API logs after the rehearsal:
     `docker compose logs --tail=300 api`. Look specifically for webhook errors,
     PostgreSQL errors, orphaned sponsorships, follow-up form errors, logo
