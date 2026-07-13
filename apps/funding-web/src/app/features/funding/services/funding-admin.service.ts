@@ -91,6 +91,16 @@ export class FundingAdminService {
     window.localStorage.removeItem(legacyTokenStorageKey);
   }
 
+  hasValidAdminSession(): boolean {
+    return Boolean(this.getSavedAdminToken());
+  }
+
+  async signIn(token: string): Promise<AdminSessionResponse> {
+    const session = await this.createAdminSession(token);
+    this.saveAdminSession(session);
+    return session;
+  }
+
   async getDashboard(token: string): Promise<AdminDashboardResponse> {
     const response = await fetch(`${this.apiBaseUrl}/admin/dashboard`, {
       method: 'GET',

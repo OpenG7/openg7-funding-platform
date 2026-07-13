@@ -18,6 +18,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const dashboardPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.ts'
   );
+  const loginPage = read(
+    'apps/funding-web/src/app/features/funding/pages/admin-login-page/admin-login-page.component.ts'
+  );
   const contributionsPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-contributions-page/admin-contributions-page.component.ts'
   );
@@ -53,7 +56,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   assertIncludesAll(
     routes,
     [
+      "path: 'admin/login'",
+      'AdminLoginPageComponent',
+      'adminSessionRequired',
+      "createUrlTree(['/admin/login']",
       "path: 'admin/fundraiser'",
+      'canMatch: [adminSessionRequired]',
       'AdminDashboardPageComponent',
       "path: 'admin/fundraiser/contributions'",
       'AdminContributionsPageComponent',
@@ -113,12 +121,26 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'getSavedAdminToken',
       'saveAdminToken',
       'clearAdminSession',
+      'hasValidAdminSession',
+      'signIn',
       'createAdminSession',
       '/admin/session',
       'openg7-admin-session-token',
       'openg7-admin-session-expires-at'
     ],
     'admin service'
+  );
+
+  assertIncludesAll(
+    loginPage,
+    [
+      'Acces admin',
+      'signIn()',
+      'hasValidAdminSession',
+      'navigateByUrl',
+      'returnUrl'
+    ],
+    'admin login page'
   );
 
   assertIncludesAll(

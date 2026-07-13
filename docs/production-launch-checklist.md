@@ -205,8 +205,9 @@ the PostgreSQL-backed launch path for real payments:
 5. Open the sponsor follow-up link, refresh it, close the tab, reopen the same
    link, submit company details, submit them a second time, and confirm the
    commandite remains a single paid row that returns to manual review.
-6. Open `/admin/fundraiser/sponsors`, create an admin browser session through
-   `POST /api/admin/session`, then review the paid sponsorship.
+6. Open `/admin/login`, create an admin browser session with
+   `FUNDING_ADMIN_TOKEN` through `POST /api/admin/session`, then continue to
+   `/admin/fundraiser/sponsors` and review the paid sponsorship.
 7. Upload a small PNG/JPEG/WebP logo, confirm `GET /api/admin/sponsorships/logo`
    returns a private preview, approve the sponsorship, and confirm
    `/commanditaires` shows the logo only after consent and approval.
