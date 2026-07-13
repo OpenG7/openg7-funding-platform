@@ -69,12 +69,14 @@ test('E2E 1/8: enterprise sponsorship checkout returns with recovery token', () 
     [
       'createSponsorshipFollowupToken',
       'hashSponsorshipFollowupToken',
-      'appendQueryParam',
-      "'followup_token'",
+      'buildSponsorshipCheckoutSuccessUrl',
+      'fonds-des-batisseurs/suivi-commandite',
+      "url.searchParams.set('token', token)",
       'sponsorshipFollowupTokenHash'
     ],
     'checkout API follow-up token flow'
   );
+  assert.equal(api.includes('appendQueryParam'), false);
   assert.equal(
     checkoutMetadataBlock.includes('sponsorshipFollowupToken,'),
     false

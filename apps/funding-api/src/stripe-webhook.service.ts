@@ -113,7 +113,9 @@ const extractSponsorshipFollowupTokenFromUrl = (
   }
 
   try {
-    const token = new URL(value).searchParams.get('followup_token');
+    const searchParams = new URL(value).searchParams;
+    const token =
+      searchParams.get('followup_token') ?? searchParams.get('token');
     return token && sponsorshipFollowupTokenPattern.test(token) ? token : null;
   } catch {
     return null;

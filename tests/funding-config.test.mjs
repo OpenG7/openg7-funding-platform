@@ -900,7 +900,10 @@ test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe 
 
   assert.ok(source.includes('createSponsorshipFollowupToken'));
   assert.ok(source.includes('hashSponsorshipFollowupToken'));
-  assert.ok(source.includes("'followup_token'"));
+  assert.ok(source.includes('buildSponsorshipCheckoutSuccessUrl'));
+  assert.ok(source.includes('fonds-des-batisseurs/suivi-commandite'));
+  assert.ok(source.includes("url.searchParams.set('token', token)"));
+  assert.equal(source.includes("'followup_token'"), false);
   assert.equal(
     checkoutMetadataBlock.includes('sponsorshipFollowupToken,'),
     false
