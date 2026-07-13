@@ -186,6 +186,30 @@ Webhook Stripe :
 https://openg7.org/api/stripe/webhook
 ```
 
+Ecouter les webhooks Stripe locaux :
+
+```bash
+corepack yarn stripe:webhook:listen
+```
+
+Rejouer un ou plusieurs evenements Stripe echoues en mode test :
+
+```bash
+corepack yarn stripe:events:resend evt_1TsrBoCWK41rMb2iwrzTtqRg evt_1TsmxRCWK41rMb2iWywWcofZ
+```
+
+Previsualiser sans envoyer :
+
+```bash
+corepack yarn stripe:events:resend evt_1... evt_2... --dry-run
+```
+
+Rejouer en production en ciblant le webhook Stripe exact :
+
+```bash
+corepack yarn stripe:events:resend:live evt_1... evt_2... --endpoint we_...
+```
+
 Endpoint public transparence :
 
 ```text

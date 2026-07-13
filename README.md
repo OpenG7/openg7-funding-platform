@@ -345,6 +345,40 @@ stripe trigger payout.paid
 stripe trigger payout.failed
 ```
 
+### Replay failed Stripe webhook events
+
+When a signed webhook failed after payment, fix the underlying cause first
+(for example, run database migrations), then replay the original Stripe event.
+For local HTTPS through Traefik, keep the listener open in one terminal:
+
+```bash
+corepack yarn stripe:webhook:listen
+```
+
+Then resend one or more event ids from another terminal:
+
+```bash
+corepack yarn stripe:events:resend evt_1... evt_2...
+```
+
+You can also pass a comma-separated list:
+
+```bash
+corepack yarn stripe:events:resend evt_1...,evt_2...
+```
+
+For production or another saved Stripe webhook endpoint, use live mode and
+target the endpoint explicitly:
+
+```bash
+corepack yarn stripe:events:resend:live evt_1... evt_2... --endpoint we_...
+```
+
+Use `--dry-run` to print the Stripe CLI calls without sending anything. The
+endpoint can also be provided through `STRIPE_WEBHOOK_ENDPOINT_ID`. Replaying a
+`checkout.session.completed` sponsorship event can resend the follow-up email
+when email configuration is active.
+
 ### Local setup stepper
 
 The developer-only setup assistant is available at:
