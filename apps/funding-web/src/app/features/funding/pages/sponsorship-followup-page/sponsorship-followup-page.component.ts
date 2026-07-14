@@ -1,13 +1,26 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  ElementRef,
   OnInit,
   PLATFORM_ID,
+  ViewChild,
   computed,
   inject,
   signal
 } from '@angular/core';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+  Validators
+} from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
   SponsorshipBenefitId,
@@ -19,10 +32,47 @@ import type {
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
 import { FundingService } from '../../services/funding.service.js';
 
+type SponsorshipFollowupFormField =
+  | 'companyName'
+  | 'contactName'
+  | 'contactEmail'
+  | 'websiteUrl'
+  | 'logoUrl'
+  | 'message';
+
+interface SponsorshipFollowupFormErrors {
+  readonly companyName: string;
+  readonly contactName: string;
+  readonly contactEmail: string;
+  readonly websiteUrl: string;
+  readonly logoUrl: string;
+  readonly paymentStatus: string;
+}
+
+const optionalHttpsUrlValidator: ValidatorFn = (
+  control: AbstractControl
+): ValidationErrors | null => {
+  const value = String(control.value ?? '').trim();
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value).protocol === 'https:' ? null : { httpsUrl: true };
+  } catch {
+    return { httpsUrl: true };
+  }
+};
+
 @Component({
   selector: 'openg7-sponsorship-followup-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, FundingHeaderComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    ReactiveFormsModule,
+    FundingHeaderComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="followup-shell">
@@ -211,63 +261,105 @@ import { FundingService } from '../../services/funding.service.js';
               </p>
             </header>
 
-            <form (submit)="$event.preventDefault(); submit()">
+            <form [formGroup]="sponsorshipForm" (ngSubmit)="submit()" novalidate>
               <label>
                 <span>Nom de l'entreprise <small>requis</small></span>
                 <input
+                  #companyNameInput
                   type="text"
                   maxlength="200"
                   required
                   autocomplete="organization"
-                  [value]="companyName()"
-                  (input)="setCompanyName($event)"
+                  formControlName="companyName"
+                  [attr.aria-invalid]="errorFor('companyName') ? 'true' : null"
+                  aria-describedby="company-name-error"
                 />
+                <small
+                  id="company-name-error"
+                  class="field-error"
+                  *ngIf="errorFor('companyName')"
+                  >{{ errorFor('companyName') }}</small
+                >
               </label>
 
               <label>
                 <span>Nom du contact <small>requis</small></span>
                 <input
+                  #contactNameInput
                   type="text"
                   maxlength="200"
                   required
                   autocomplete="name"
-                  [value]="contactName()"
-                  (input)="setContactName($event)"
+                  formControlName="contactName"
+                  [attr.aria-invalid]="errorFor('contactName') ? 'true' : null"
+                  aria-describedby="contact-name-error"
                 />
+                <small
+                  id="contact-name-error"
+                  class="field-error"
+                  *ngIf="errorFor('contactName')"
+                  >{{ errorFor('contactName') }}</small
+                >
               </label>
 
               <label>
                 <span>Courriel du contact <small>requis</small></span>
                 <input
+                  #contactEmailInput
                   type="email"
                   maxlength="200"
                   required
                   autocomplete="email"
-                  [value]="contactEmail()"
-                  (input)="setContactEmail($event)"
+                  formControlName="contactEmail"
+                  [attr.aria-invalid]="
+                    errorFor('contactEmail') ? 'true' : null
+                  "
+                  aria-describedby="contact-email-error"
                 />
+                <small
+                  id="contact-email-error"
+                  class="field-error"
+                  *ngIf="errorFor('contactEmail')"
+                  >{{ errorFor('contactEmail') }}</small
+                >
               </label>
 
               <label>
                 Site web
                 <input
+                  #websiteUrlInput
                   type="url"
                   maxlength="2048"
                   placeholder="https://"
-                  [value]="websiteUrl()"
-                  (input)="setWebsiteUrl($event)"
+                  formControlName="websiteUrl"
+                  [attr.aria-invalid]="errorFor('websiteUrl') ? 'true' : null"
+                  aria-describedby="website-url-error"
                 />
+                <small
+                  id="website-url-error"
+                  class="field-error"
+                  *ngIf="errorFor('websiteUrl')"
+                  >{{ errorFor('websiteUrl') }}</small
+                >
               </label>
 
               <label>
                 Lien du logo
                 <input
+                  #logoUrlInput
                   type="url"
                   maxlength="2048"
                   placeholder="https://"
-                  [value]="logoUrl()"
-                  (input)="setLogoUrl($event)"
+                  formControlName="logoUrl"
+                  [attr.aria-invalid]="errorFor('logoUrl') ? 'true' : null"
+                  aria-describedby="logo-url-error"
                 />
+                <small
+                  id="logo-url-error"
+                  class="field-error"
+                  *ngIf="errorFor('logoUrl')"
+                  >{{ errorFor('logoUrl') }}</small
+                >
               </label>
 
               <label class="full">
@@ -275,10 +367,24 @@ import { FundingService } from '../../services/funding.service.js';
                 <textarea
                   rows="4"
                   maxlength="1000"
-                  [value]="message()"
-                  (input)="setMessage($event)"
+                  formControlName="message"
                 ></textarea>
               </label>
+
+              <div
+                class="form-error-summary full"
+                *ngIf="formErrorMessages().length > 0 || submitError()"
+                role="alert"
+                aria-live="polite"
+              >
+                <strong>Impossible d'enregistrer pour le moment</strong>
+                <p *ngIf="submitError()">{{ submitError() }}</p>
+                <ul *ngIf="formErrorMessages().length > 0">
+                  <li *ngFor="let error of formErrorMessages()">
+                    {{ error }}
+                  </li>
+                </ul>
+              </div>
 
               <button type="submit" [disabled]="!canSubmit()">
                 {{
@@ -671,6 +777,13 @@ import { FundingService } from '../../services/funding.service.js';
         text-transform: uppercase;
       }
 
+      .followup-form-panel .field-error {
+        color: #a32135;
+        font-size: 0.82rem;
+        line-height: 1.35;
+        text-transform: none;
+      }
+
       .followup-form-panel label.full {
         grid-column: 1 / -1;
       }
@@ -696,9 +809,40 @@ import { FundingService } from '../../services/funding.service.js';
         outline: none;
       }
 
+      .followup-form-panel input[aria-invalid='true'] {
+        border-color: #d94156;
+        box-shadow: 0 0 0 0.16rem rgb(217 65 86 / 12%);
+      }
+
       .followup-form-panel textarea {
         min-height: 8rem;
         resize: vertical;
+      }
+
+      .form-error-summary {
+        background: #fff7f8;
+        border: 1px solid #f0bac3;
+        border-radius: 0.5rem;
+        color: #7d1728;
+        display: grid;
+        gap: 0.45rem;
+        padding: 0.85rem 1rem;
+      }
+
+      .form-error-summary strong {
+        font-family: 'Trebuchet MS', Arial, sans-serif;
+        font-weight: 900;
+      }
+
+      .form-error-summary p,
+      .form-error-summary ul {
+        margin: 0;
+      }
+
+      .form-error-summary ul {
+        display: grid;
+        gap: 0.25rem;
+        padding-left: 1.1rem;
       }
 
       .followup-form-panel button {
@@ -782,10 +926,27 @@ import { FundingService } from '../../services/funding.service.js';
     `
   ]
 })
-export class SponsorshipFollowupPageComponent implements OnInit {
+export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
   private readonly route = inject(ActivatedRoute);
   private readonly fundingService = inject(FundingService);
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly formBuilder = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
+
+  @ViewChild('companyNameInput')
+  private companyNameInput?: ElementRef<HTMLInputElement>;
+
+  @ViewChild('contactNameInput')
+  private contactNameInput?: ElementRef<HTMLInputElement>;
+
+  @ViewChild('contactEmailInput')
+  private contactEmailInput?: ElementRef<HTMLInputElement>;
+
+  @ViewChild('websiteUrlInput')
+  private websiteUrlInput?: ElementRef<HTMLInputElement>;
+
+  @ViewChild('logoUrlInput')
+  private logoUrlInput?: ElementRef<HTMLInputElement>;
 
   readonly token = signal<string>('');
   readonly followup = signal<SponsorshipFollowupResponse | null>(null);
@@ -793,29 +954,72 @@ export class SponsorshipFollowupPageComponent implements OnInit {
     'idle' | 'loading' | 'ready' | 'submitting' | 'submitted' | 'error'
   >('idle');
 
-  readonly companyName = signal<string>('');
-  readonly contactName = signal<string>('');
-  readonly contactEmail = signal<string>('');
-  readonly websiteUrl = signal<string>('');
-  readonly logoUrl = signal<string>('');
-  readonly message = signal<string>('');
+  readonly submitError = signal<string>('');
+  readonly formRevision = signal<number>(0);
+  readonly sponsorshipForm = this.formBuilder.nonNullable.group({
+    companyName: ['', [Validators.required, Validators.maxLength(200)]],
+    contactName: ['', [Validators.required, Validators.maxLength(200)]],
+    contactEmail: [
+      '',
+      [Validators.required, Validators.email, Validators.maxLength(200)]
+    ],
+    websiteUrl: [
+      '',
+      [Validators.maxLength(2048), optionalHttpsUrlValidator]
+    ],
+    logoUrl: ['', [Validators.maxLength(2048), optionalHttpsUrlValidator]],
+    message: ['', [Validators.maxLength(1000)]]
+  });
+
+  readonly formErrors = computed<SponsorshipFollowupFormErrors>(() => {
+    this.formRevision();
+
+    return {
+      companyName: this.controlError('companyName'),
+      contactName: this.controlError('contactName'),
+      contactEmail: this.controlError('contactEmail'),
+      websiteUrl: this.controlError('websiteUrl'),
+      logoUrl: this.controlError('logoUrl'),
+      paymentStatus: this.isEligiblePaymentStatus(
+        this.followup()?.paymentStatus ?? ''
+      )
+        ? ''
+        : "Le paiement n'est pas encore confirme pour ce lien de suivi."
+    };
+  });
+
+  readonly formErrorMessages = computed(() =>
+    Object.values(this.formErrors()).filter((message) => message.length > 0)
+  );
 
   readonly canSubmit = computed(
     () =>
       this.state() !== 'submitting' &&
-      this.companyName().trim().length > 0 &&
-      this.contactName().trim().length > 0 &&
-      this.contactEmail().trim().length > 0 &&
-      ['paid', 'refunded', 'disputed'].includes(
-        this.followup()?.paymentStatus ?? ''
-      )
+      this.formRevision() >= 0 &&
+      this.sponsorshipForm.valid &&
+      this.isEligiblePaymentStatus(this.followup()?.paymentStatus ?? '')
   );
 
   ngOnInit(): void {
+    this.sponsorshipForm.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.submitError.set('');
+        this.bumpFormRevision();
+      });
+
+    this.sponsorshipForm.statusChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.bumpFormRevision());
+
     const token = this.route.snapshot.queryParamMap.get('token') ?? '';
     this.token.set(token);
     this.removeTokenFromBrowserUrl();
     void this.load();
+  }
+
+  ngAfterViewInit(): void {
+    this.scheduleAutofillSync();
   }
 
   async load(): Promise<void> {
@@ -830,32 +1034,42 @@ export class SponsorshipFollowupPageComponent implements OnInit {
         this.token()
       );
       this.followup.set(followup);
-      this.companyName.set(followup.companyName ?? '');
-      this.contactName.set(followup.contactName ?? '');
-      this.contactEmail.set(followup.contactEmail ?? '');
-      this.websiteUrl.set(followup.websiteUrl ?? '');
-      this.logoUrl.set(followup.logoUrl ?? '');
-      this.message.set(followup.message ?? '');
+      this.sponsorshipForm.reset({
+        companyName: followup.companyName ?? '',
+        contactName: followup.contactName ?? '',
+        contactEmail: followup.contactEmail ?? '',
+        websiteUrl: followup.websiteUrl ?? '',
+        logoUrl: followup.logoUrl ?? '',
+        message: followup.message ?? ''
+      });
+      this.submitError.set('');
       this.state.set('ready');
+      this.bumpFormRevision();
+      this.scheduleAutofillSync();
     } catch {
       this.state.set('error');
     }
   }
 
   async submit(): Promise<void> {
+    this.syncFormControlsFromInputs();
+    this.sponsorshipForm.markAllAsTouched();
+    this.bumpFormRevision();
     if (!this.canSubmit()) {
       return;
     }
 
     this.state.set('submitting');
+    this.submitError.set('');
+    const formValue = this.sponsorshipForm.getRawValue();
     const payload: SponsorshipFollowupDetailsRequest = {
       token: this.token(),
-      companyName: this.companyName().trim(),
-      contactName: this.contactName().trim(),
-      contactEmail: this.contactEmail().trim(),
-      websiteUrl: this.websiteUrl().trim() || undefined,
-      logoUrl: this.logoUrl().trim() || undefined,
-      message: this.message().trim() || undefined
+      companyName: formValue.companyName.trim(),
+      contactName: formValue.contactName.trim(),
+      contactEmail: formValue.contactEmail.trim(),
+      websiteUrl: formValue.websiteUrl.trim() || undefined,
+      logoUrl: formValue.logoUrl.trim() || undefined,
+      message: formValue.message.trim() || undefined
     };
 
     try {
@@ -863,32 +1077,15 @@ export class SponsorshipFollowupPageComponent implements OnInit {
       await this.load();
       this.state.set('submitted');
     } catch {
-      this.state.set('error');
+      this.submitError.set(
+        "Les informations n'ont pas pu etre enregistrees. Verifiez les champs et reessayez."
+      );
+      this.state.set('ready');
     }
   }
 
-  setCompanyName(event: Event): void {
-    this.companyName.set(this.valueFromEvent(event));
-  }
-
-  setContactName(event: Event): void {
-    this.contactName.set(this.valueFromEvent(event));
-  }
-
-  setContactEmail(event: Event): void {
-    this.contactEmail.set(this.valueFromEvent(event));
-  }
-
-  setWebsiteUrl(event: Event): void {
-    this.websiteUrl.set(this.valueFromEvent(event));
-  }
-
-  setLogoUrl(event: Event): void {
-    this.logoUrl.set(this.valueFromEvent(event));
-  }
-
-  setMessage(event: Event): void {
-    this.message.set(this.valueFromEvent(event));
+  errorFor(field: keyof SponsorshipFollowupFormErrors): string {
+    return this.formErrors()[field];
   }
 
   reviewStatusLabel(status: SponsorshipReviewStatus): string {
@@ -950,11 +1147,83 @@ export class SponsorshipFollowupPageComponent implements OnInit {
     }).format(new Date(value));
   }
 
-  private valueFromEvent(event: Event): string {
-    return (
-      (event.target as HTMLInputElement | HTMLTextAreaElement | null)?.value ??
-      ''
-    );
+  private isEligiblePaymentStatus(status: string): boolean {
+    return ['paid', 'refunded', 'disputed'].includes(status);
+  }
+
+  private scheduleAutofillSync(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    for (const delay of [0, 250, 1000]) {
+      setTimeout(() => this.syncFormControlsFromInputs(), delay);
+    }
+  }
+
+  private syncFormControlsFromInputs(): void {
+    const values: Partial<Record<SponsorshipFollowupFormField, string>> = {};
+    this.collectNativeInputValue(values, 'companyName', this.companyNameInput);
+    this.collectNativeInputValue(values, 'contactName', this.contactNameInput);
+    this.collectNativeInputValue(values, 'contactEmail', this.contactEmailInput);
+    this.collectNativeInputValue(values, 'websiteUrl', this.websiteUrlInput);
+    this.collectNativeInputValue(values, 'logoUrl', this.logoUrlInput);
+
+    if (Object.keys(values).length === 0) {
+      return;
+    }
+
+    this.sponsorshipForm.patchValue(values);
+    this.bumpFormRevision();
+  }
+
+  private collectNativeInputValue(
+    values: Partial<Record<SponsorshipFollowupFormField, string>>,
+    field: Exclude<SponsorshipFollowupFormField, 'message'>,
+    input?: ElementRef<HTMLInputElement>
+  ): void {
+    const nativeValue = input?.nativeElement.value;
+    if (
+      nativeValue !== undefined &&
+      nativeValue !== this.sponsorshipForm.controls[field].value
+    ) {
+      values[field] = nativeValue;
+    }
+  }
+
+  private controlError(field: SponsorshipFollowupFormField): string {
+    const control = this.sponsorshipForm.controls[field];
+    if (!control.errors) {
+      return '';
+    }
+
+    if (control.errors['required']) {
+      return field === 'companyName'
+        ? "Le nom de l'entreprise est requis."
+        : field === 'contactName'
+          ? 'Le nom du contact est requis.'
+          : 'Le courriel du contact est requis.';
+    }
+
+    if (control.errors['email']) {
+      return 'Le courriel du contact doit etre valide.';
+    }
+
+    if (control.errors['httpsUrl']) {
+      return field === 'websiteUrl'
+        ? 'Le site web doit commencer par https://.'
+        : 'Le lien du logo doit commencer par https://.';
+    }
+
+    if (control.errors['maxlength']) {
+      return 'Ce champ depasse la longueur permise.';
+    }
+
+    return '';
+  }
+
+  private bumpFormRevision(): void {
+    this.formRevision.update((revision) => revision + 1);
   }
 
   private removeTokenFromBrowserUrl(): void {

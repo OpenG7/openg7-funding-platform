@@ -1051,6 +1051,31 @@ test('Sponsorship follow-up tokens expire and details edits return to review', (
   assert.ok(followupPage.includes("url.searchParams.delete('token')"));
 });
 
+test('Sponsorship follow-up form explains disabled submit and browser autofill state', () => {
+  const followupPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
+    'utf8'
+  );
+
+  assert.ok(followupPage.includes('SponsorshipFollowupFormErrors'));
+  assert.ok(followupPage.includes('ReactiveFormsModule'));
+  assert.ok(followupPage.includes('[formGroup]="sponsorshipForm"'));
+  assert.ok(followupPage.includes('formControlName="contactEmail"'));
+  assert.ok(followupPage.includes('readonly sponsorshipForm = this.formBuilder.nonNullable.group'));
+  assert.ok(followupPage.includes('Validators.required'));
+  assert.ok(followupPage.includes('optionalHttpsUrlValidator'));
+  assert.ok(followupPage.includes('readonly formErrors = computed'));
+  assert.ok(followupPage.includes('readonly formErrorMessages = computed'));
+  assert.ok(followupPage.includes("errorFor('companyName')"));
+  assert.ok(followupPage.includes("errorFor('contactEmail')"));
+  assert.ok(followupPage.includes('class="field-error"'));
+  assert.ok(followupPage.includes('class="form-error-summary full"'));
+  assert.ok(followupPage.includes('scheduleAutofillSync'));
+  assert.ok(followupPage.includes('syncFormControlsFromInputs'));
+  assert.ok(followupPage.includes('this.sponsorshipForm.patchValue(values)'));
+  assert.ok(followupPage.includes('this.sponsorshipForm.getRawValue()'));
+});
+
 test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
   const envExample = fs.readFileSync('.env.example', 'utf8');
