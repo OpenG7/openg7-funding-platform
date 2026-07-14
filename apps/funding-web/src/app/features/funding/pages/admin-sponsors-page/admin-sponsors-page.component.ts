@@ -2,8 +2,10 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   OnDestroy,
   OnInit,
+  ViewChild,
   computed,
   inject,
   signal
@@ -15,8 +17,10 @@ import {
 } from '@openg7/funding-core';
 import type {
   AdminSponsorshipRecord,
+  SponsorFeedChannel,
   SponsorFeedStatus,
   SponsorFeedTarget,
+  SponsorshipBenefitId,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
@@ -50,6 +54,25 @@ type SponsorshipPublicationTextField =
   | 'feedNotes';
 type SponsorshipReviewFilter = 'all' | SponsorshipReviewStatus;
 type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
+type SponsorDetailsTab = 'overview' | 'identity' | 'publication' | 'audit';
+type SponsorshipPublicationChannel = Extract<
+  SponsorFeedChannel,
+  'facebook' | 'linkedin'
+>;
+
+interface SponsorAuditEntry {
+  readonly date: string;
+  readonly label: string;
+  readonly detail?: string;
+}
+
+const pageSizeOptions = [6, 10, 25] as const;
+const benefitFeedChannelMap: Partial<
+  Record<SponsorshipBenefitId, SponsorshipPublicationChannel>
+> = {
+  facebook_batch: 'facebook',
+  linkedin_batch: 'linkedin'
+};
 const sponsorLogoMaxBytes = 512 * 1024;
 const sponsorLogoMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const controlledSponsorLogoUrlPrefixes = [
@@ -66,310 +89,114 @@ const controlledSponsorLogoUrlPrefixes = [
     <main class="admin-shell">
       <openg7-admin-nav />
 
-      <section class="admin-content">
-        <header class="admin-topbar">
-          <div>
-            <span>Administration</span>
-            <h1>Commandites d'entreprise</h1>
-          </div>
-          <a routerLink="/fonds-des-batisseurs">Retour au fonds</a>
-        </header>
+      <section class="admin-workspace">
+        <header class="admin-page-header">
+          <nav class="admin-breadcrumb" aria-label="Fil d'Ariane admin">
+            <a routerLink="/admin/fundraiser">Accueil</a>
+            <span aria-hidden="true">/</span>
+            <a routerLink="/admin/fundraiser">Fundraiser</a>
+            <span aria-hidden="true">/</span>
+            <strong>Commanditaires</strong>
+          </nav>
 
-        <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
-          <div>
-            <h2 id="admin-auth-title">Acces de revue</h2>
-            <p>
-              En production, utilisez le jeton configure dans
-              <code>FUNDING_ADMIN_TOKEN</code>.
-            </p>
+          <div class="admin-title-row">
+            <div>
+              <span class="admin-kicker">Administration</span>
+              <h1>Commanditaires / partenaires</h1>
+              <p>
+                Gestion des organisations commanditaires, statut de revue et
+                visibilite publique.
+              </p>
+            </div>
+
+            <div class="admin-actions">
+              <button
+                type="button"
+                class="secondary-action"
+                (click)="loadSponsorships()"
+                [disabled]="state() === 'loading'"
+              >
+                Actualiser
+              </button>
+              <a class="primary-action" routerLink="/fonds-des-batisseurs"
+                >Retour public</a
+              >
+            </div>
           </div>
-          <label>
-            Jeton admin
-            <input
-              type="password"
-              autocomplete="off"
-              [value]="adminToken()"
-              (input)="setAdminToken($event)"
-            />
-          </label>
-          <button type="button" (click)="loadSponsorships()">Actualiser</button>
-        </section>
+        </header>
 
         <section class="admin-summary-grid" aria-label="Resume des commandites">
           <article>
-            <span>En attente</span>
-            <strong>{{ pendingCount() }}</strong>
+            <span class="metric-mark">TO</span>
+            <div>
+              <span>Total commanditaires</span
+              ><strong>{{ sponsorships().length }}</strong
+              ><small>Toutes organisations</small>
+            </div>
           </article>
           <article>
-            <span>Approuvees</span>
-            <strong>{{ approvedCount() }}</strong>
+            <span class="metric-mark gold">VI</span>
+            <div>
+              <span>Visibles publiquement</span
+              ><strong>{{ visibleCount() }}</strong
+              ><small>Affichees ou publiees</small>
+            </div>
           </article>
           <article>
-            <span>Refusees</span>
-            <strong>{{ rejectedCount() }}</strong>
+            <span class="metric-mark green">AC</span>
+            <div>
+              <span>Commanditaires actifs</span
+              ><strong>{{ activeCount() }}</strong
+              ><small>Avec paiement confirme</small>
+            </div>
           </article>
           <article>
-            <span>Total</span>
-            <strong>{{ sponsorships().length }}</strong>
+            <span class="metric-mark money">CA</span>
+            <div>
+              <span>Contribution totale</span
+              ><strong>{{ formatSummaryMoney(totalContribution()) }}</strong
+              ><small>Paiements confirmes</small>
+            </div>
           </article>
         </section>
 
-        <section class="admin-filters" aria-label="Filtres commandites">
-          <label>
-            Recherche
-            <input
-              type="search"
-              placeholder="Entreprise, contact, courriel, référence..."
-              [value]="search()"
-              (input)="setSearch($event)"
-            />
-          </label>
-
-          <label>
-            Statut revue
-            <select [value]="reviewFilter()" (change)="setReviewFilter($event)">
-              <option value="all">Tous</option>
-              <option value="pending_review">En attente</option>
-              <option value="approved">Approuvees</option>
-              <option value="rejected">Refusees</option>
-            </select>
-          </label>
-
-          <label>
-            Statut feed
-            <select [value]="feedFilter()" (change)="setFeedFilter($event)">
-              <option value="all">Tous</option>
-              <option *ngFor="let status of feedStatuses" [value]="status">
-                {{ feedStatusLabel(status) }}
-              </option>
-            </select>
-          </label>
-        </section>
-
-        <p class="state" *ngIf="state() === 'loading'">
-          Chargement des commandites...
-        </p>
-        <p class="state state-error" *ngIf="state() === 'error'">
-          Impossible de charger ou modifier les commandites. Verifiez le jeton,
-          la base de donnees et les migrations.
-        </p>
-
-        <section
-          class="sponsorship-admin-list"
-          aria-label="Liste des commandites"
-        >
-          <article
-            class="sponsorship-admin-item"
-            *ngFor="
-              let sponsorship of filteredSponsorships();
-              trackBy: trackById
-            "
+        <section class="sponsors-board" aria-label="Commandites admin">
+          <section
+            class="sponsors-list-panel"
+            aria-label="Liste des commandites"
           >
-            <header>
-              <div>
-                <span [class]="statusClass(sponsorship.sponsor_review_status)">
-                  {{ reviewStatusLabel(sponsorship.sponsor_review_status) }}
-                </span>
-                <h2>
-                  {{
-                    sponsorship.sponsor_company_name || 'Entreprise sans nom'
-                  }}
-                </h2>
-              </div>
-              <div class="amount-and-tier">
-                <strong>{{ formatMoney(sponsorship) }}</strong>
-                <small class="tier-badge">{{
-                  sponsorshipTierLabel(sponsorship)
-                }}</small>
-              </div>
-            </header>
+            <header class="admin-table-toolbar">
+              <label class="search-control">
+                Recherche
+                <input
+                  type="search"
+                  placeholder="Rechercher une entreprise ou un courriel..."
+                  [value]="search()"
+                  (input)="setSearch($event)"
+                />
+              </label>
 
-            <dl class="sponsorship-admin-fields">
-              <div>
-                <dt>Référence</dt>
-                <dd class="reference-code">
-                  {{ sponsorship.public_reference || 'Non attribuée' }}
-                </dd>
-              </div>
-              <div>
-                <dt>Avantages</dt>
-                <dd>{{ sponsorshipBenefitsLabel(sponsorship) }}</dd>
-              </div>
-              <div>
-                <dt>Contact</dt>
-                <dd>{{ sponsorship.sponsor_contact_name || 'Non fourni' }}</dd>
-              </div>
-              <div>
-                <dt>Courriel</dt>
-                <dd>{{ sponsorship.sponsor_contact_email || 'Non fourni' }}</dd>
-              </div>
-              <div>
-                <dt>Site web</dt>
-                <dd>
-                  <a
-                    *ngIf="sponsorship.sponsor_website_url; else emptyWebsite"
-                    [href]="sponsorship.sponsor_website_url"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {{ sponsorship.sponsor_website_url }}
-                  </a>
-                  <ng-template #emptyWebsite>Non fourni</ng-template>
-                </dd>
-              </div>
-              <div>
-                <dt>Logo</dt>
-                <dd>
-                  <ng-container
-                    *ngIf="sponsorship.sponsor_logo_url; else emptyLogo"
-                  >
-                    <figure
-                      class="logo-preview"
-                      *ngIf="logoPreviewSourceFor(sponsorship)"
-                    >
-                      <img
-                        [src]="logoPreviewSourceFor(sponsorship)"
-                        [alt]="
-                          'Logo ' +
-                          (sponsorship.sponsor_company_name || 'commanditaire')
-                        "
-                      />
-                    </figure>
-                    <a
-                      [href]="sponsorship.sponsor_logo_url"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {{ sponsorship.sponsor_logo_url }}
-                    </a>
-                    <button
-                      type="button"
-                      class="logo-delete-button"
-                      [disabled]="
-                        actionState() === deleteLogoActionId(sponsorship.id) ||
-                        actionState() === logoActionId(sponsorship.id)
-                      "
-                      (click)="deleteLogo(sponsorship)"
-                    >
-                      Supprimer
-                    </button>
-                  </ng-container>
-                  <ng-template #emptyLogo>Non fourni</ng-template>
-                  <label class="logo-upload-control">
-                    {{
-                      sponsorship.sponsor_logo_url
-                        ? 'Remplacer le logo'
-                        : 'Televerser un logo'
-                    }}
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      [disabled]="
-                        actionState() === logoActionId(sponsorship.id) ||
-                        actionState() === deleteLogoActionId(sponsorship.id)
-                      "
-                      (change)="uploadLogo(sponsorship, $event)"
-                    />
-                  </label>
-                  <small
-                    class="logo-upload-state"
-                    *ngIf="logoUploadMessageFor(sponsorship.id)"
-                  >
-                    {{ logoUploadMessageFor(sponsorship.id) }}
-                  </small>
-                </dd>
-              </div>
-              <div>
-                <dt>Nom public</dt>
-                <dd>{{ publicNameLabel(sponsorship) }}</dd>
-              </div>
-              <div>
-                <dt>Paiement</dt>
-                <dd>
-                  {{ sponsorship.payment_status }} ·
-                  {{ dateLabel(sponsorship.paid_at) }}
-                </dd>
-              </div>
-              <div>
-                <dt>Details recus</dt>
-                <dd>
-                  {{ dateLabel(sponsorship.sponsor_details_submitted_at) }}
-                </dd>
-              </div>
-              <div>
-                <dt>Derniere revue</dt>
-                <dd>{{ dateLabel(sponsorship.sponsor_reviewed_at) }}</dd>
-              </div>
-            </dl>
-
-            <p class="sponsor-message" *ngIf="sponsorship.sponsor_message">
-              {{ sponsorship.sponsor_message }}
-            </p>
-
-            <label class="review-note-label">
-              Note interne
-              <textarea
-                rows="3"
-                maxlength="1000"
-                [value]="reviewNoteFor(sponsorship.id)"
-                (input)="setReviewNote(sponsorship.id, $event)"
-              ></textarea>
-            </label>
-
-            <section
-              class="publication-editor"
-              aria-label="Visibilite publique et feeds"
-            >
-              <header>
-                <div>
-                  <span>Publication</span>
-                  <h3>Commanditaire et feeds</h3>
-                </div>
-                <button
-                  type="button"
-                  class="publication-save"
-                  [disabled]="actionState() === sponsorship.id"
-                  (click)="savePublication(sponsorship)"
-                >
-                  Enregistrer
-                </button>
-              </header>
-
-              <div class="publication-grid">
+              <div class="filter-row">
                 <label>
-                  Slug public
-                  <input
-                    type="text"
-                    maxlength="120"
-                    [value]="publicationDraftFor(sponsorship.id).publicSlug"
-                    (input)="
-                      setPublicationField(sponsorship.id, 'publicSlug', $event)
-                    "
-                  />
-                </label>
-
-                <label>
-                  Destination feed
+                  Statut de revue
                   <select
-                    [value]="publicationDraftFor(sponsorship.id).feedTarget"
-                    (change)="
-                      setPublicationField(sponsorship.id, 'feedTarget', $event)
-                    "
+                    [value]="reviewFilter()"
+                    (change)="setReviewFilter($event)"
                   >
-                    <option value="">Aucune</option>
-                    <option value="openg7">OpenG7</option>
-                    <option value="openg20">OpenG20</option>
+                    <option value="all">Tous</option>
+                    <option value="pending_review">En attente</option>
+                    <option value="approved">Approuvees</option>
+                    <option value="rejected">Refusees</option>
                   </select>
                 </label>
 
                 <label>
-                  Statut feed
+                  Visibilite / statut feed
                   <select
-                    [value]="publicationDraftFor(sponsorship.id).feedStatus"
-                    (change)="
-                      setPublicationField(sponsorship.id, 'feedStatus', $event)
-                    "
+                    [value]="feedFilter()"
+                    (change)="setFeedFilter($event)"
                   >
+                    <option value="all">Tous</option>
                     <option
                       *ngFor="let status of feedStatuses"
                       [value]="status"
@@ -379,134 +206,840 @@ const controlledSponsorLogoUrlPrefixes = [
                   </select>
                 </label>
 
-                <fieldset>
-                  <legend>Canaux</legend>
-                  <label>
-                    <input
-                      type="checkbox"
-                      [checked]="publicationDraftFor(sponsorship.id).facebook"
-                      (change)="
-                        setPublicationChannel(
-                          sponsorship.id,
-                          'facebook',
-                          $event
-                        )
-                      "
-                    />
-                    Facebook
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      [checked]="publicationDraftFor(sponsorship.id).linkedin"
-                      (change)="
-                        setPublicationChannel(
-                          sponsorship.id,
-                          'linkedin',
-                          $event
-                        )
-                      "
-                    />
-                    LinkedIn
-                  </label>
-                </fieldset>
-
-                <label class="publication-span-2">
-                  Resume public
-                  <textarea
-                    rows="3"
-                    maxlength="500"
-                    [value]="publicationDraftFor(sponsorship.id).publicSummary"
-                    (input)="
-                      setPublicationField(
-                        sponsorship.id,
-                        'publicSummary',
-                        $event
-                      )
-                    "
-                  ></textarea>
-                </label>
-
-                <label>
-                  Lien de publication
-                  <input
-                    type="url"
-                    maxlength="2048"
-                    [value]="publicationDraftFor(sponsorship.id).feedPublicUrl"
-                    (input)="
-                      setPublicationField(
-                        sponsorship.id,
-                        'feedPublicUrl',
-                        $event
-                      )
-                    "
-                  />
-                </label>
-
-                <label class="publication-span-2">
-                  Notes feed
-                  <textarea
-                    rows="3"
-                    maxlength="1000"
-                    [value]="publicationDraftFor(sponsorship.id).feedNotes"
-                    (input)="
-                      setPublicationField(sponsorship.id, 'feedNotes', $event)
-                    "
-                  ></textarea>
-                </label>
+                <button
+                  type="button"
+                  class="tertiary-action"
+                  (click)="resetFilters()"
+                  [disabled]="!hasActiveFilters()"
+                >
+                  Reinitialiser
+                </button>
               </div>
-            </section>
+            </header>
 
-            <footer>
+            <div
+              class="state state-loading"
+              *ngIf="state() === 'loading'"
+              aria-live="polite"
+            >
+              <span>Chargement des commandites...</span>
+              <div class="skeleton-list" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+
+            <div class="state state-error" *ngIf="state() === 'error'">
+              <strong>Impossible de charger les commandites.</strong>
+              <span>Les donnees n'ont pas pu etre recuperees.</span>
               <button
                 type="button"
-                class="review-button neutral"
-                [disabled]="actionState() === sponsorship.id"
-                (click)="review(sponsorship, 'pending_review')"
+                class="secondary-action"
+                (click)="loadSponsorships()"
               >
-                Remettre en attente
+                Reessayer
               </button>
-              <button
-                type="button"
-                class="review-button reject"
-                [disabled]="actionState() === sponsorship.id"
-                (click)="review(sponsorship, 'rejected')"
-              >
-                Refuser
-              </button>
-              <button
-                type="button"
-                class="review-button approve"
-                [disabled]="actionState() === sponsorship.id"
-                (click)="review(sponsorship, 'approved')"
-              >
-                Accepter
-              </button>
-            </footer>
-          </article>
+            </div>
 
-          <article
-            class="empty-admin-state"
-            *ngIf="state() === 'ready' && sponsorships().length === 0"
-          >
-            <h2>Aucune commandite a reviser</h2>
-            <p>
-              Les commandites payees apparaitront ici apres confirmation Stripe
-              et synchronisation PostgreSQL.
-            </p>
-          </article>
+            <ng-container *ngIf="state() !== 'loading' && state() !== 'error'">
+              <div
+                class="sponsor-table"
+                *ngIf="filteredSponsorships().length > 0"
+              >
+                <div class="sponsor-table-head" aria-hidden="true">
+                  <span>Commanditaire</span><span>Commandite</span
+                  ><span>Revue</span><span>Publication</span
+                  ><span>Paiement</span><span>Soumission</span><span></span>
+                </div>
 
-          <article
-            class="empty-admin-state"
-            *ngIf="
-              state() === 'ready' &&
-              sponsorships().length > 0 &&
-              filteredSponsorships().length === 0
+                <button
+                  type="button"
+                  class="sponsor-table-row"
+                  [class.selection-pulse]="
+                    selectionPulseId() === sponsorship.id
+                  "
+                  *ngFor="
+                    let sponsorship of paginatedSponsorships();
+                    trackBy: trackById
+                  "
+                  [class.selected]="
+                    selectedSponsorship()?.id === sponsorship.id
+                  "
+                  [attr.aria-current]="
+                    selectedSponsorship()?.id === sponsorship.id ? 'true' : null
+                  "
+                  (click)="selectSponsorship(sponsorship)"
+                >
+                  <span class="row-cell sponsor-main">
+                    <span class="sponsor-avatar" aria-hidden="true">{{
+                      initialsFor(sponsorship)
+                    }}</span>
+                    <span
+                      ><strong>{{
+                        sponsorship.sponsor_company_name ||
+                          'Entreprise sans nom'
+                      }}</strong
+                      ><small>{{
+                        sponsorship.sponsor_contact_email ||
+                          'Courriel non fourni'
+                      }}</small></span
+                    >
+                  </span>
+                  <span class="row-cell amount-cell"
+                    ><strong>{{ formatMoney(sponsorship) }}</strong
+                    ><small [class]="tierClass(sponsorship)">{{
+                      sponsorshipTierLabel(sponsorship)
+                    }}</small></span
+                  >
+                  <span class="row-cell stacked-cell"
+                    ><span
+                      [class]="statusClass(sponsorship.sponsor_review_status)"
+                      >{{
+                        reviewStatusLabel(sponsorship.sponsor_review_status)
+                      }}</span
+                    ><span [class]="visibilityClass(sponsorship)">{{
+                      visibilityLabel(sponsorship)
+                    }}</span></span
+                  >
+                  <span class="row-cell stacked-cell"
+                    ><span
+                      [class]="feedStatusClass(sponsorship.sponsor_feed_status)"
+                      >{{
+                        feedStatusLabel(sponsorship.sponsor_feed_status)
+                      }}</span
+                    ><small>{{ feedTargetLabel(sponsorship) }}</small
+                    ><small>{{ feedChannelsLabel(sponsorship) }}</small></span
+                  >
+                  <span class="row-cell stacked-cell"
+                    ><span
+                      [class]="paymentStatusClass(sponsorship.payment_status)"
+                      >{{
+                        paymentStatusLabel(sponsorship.payment_status)
+                      }}</span
+                    ><small>{{
+                      dateOnlyLabel(sponsorship.paid_at)
+                    }}</small></span
+                  >
+                  <span class="row-cell stacked-cell"
+                    ><small>Soumis le</small
+                    ><span>{{
+                      dateOnlyLabel(submittedAt(sponsorship))
+                    }}</span></span
+                  >
+                  <span class="row-cell row-open" aria-hidden="true">›</span>
+                </button>
+              </div>
+
+              <article
+                class="empty-admin-state"
+                *ngIf="state() === 'ready' && sponsorships().length === 0"
+              >
+                <h2>Toutes les commandites ont ete revisees.</h2>
+                <p>
+                  Il n'y a actuellement aucune nouvelle commandite a traiter.
+                </p>
+              </article>
+
+              <article
+                class="empty-admin-state"
+                *ngIf="
+                  state() === 'ready' &&
+                  sponsorships().length > 0 &&
+                  filteredSponsorships().length === 0
+                "
+              >
+                <h2>Aucune commandite ne correspond aux filtres.</h2>
+                <p>Reinitialisez les filtres ou elargissez la recherche.</p>
+                <button
+                  type="button"
+                  class="secondary-action"
+                  (click)="resetFilters()"
+                >
+                  Reinitialiser les filtres
+                </button>
+              </article>
+
+              <footer
+                class="pagination-bar"
+                *ngIf="filteredSponsorships().length > 0"
+              >
+                <span
+                  >Affichage de {{ paginationStart() }} a
+                  {{ paginationEnd() }} sur
+                  {{ filteredSponsorships().length }} resultats</span
+                >
+                <div class="pagination-controls">
+                  <button
+                    type="button"
+                    class="icon-action"
+                    (click)="previousPage()"
+                    [disabled]="normalizedPage() <= 1"
+                    aria-label="Page precedente"
+                  >
+                    ‹
+                  </button>
+                  <strong>{{ normalizedPage() }}</strong>
+                  <button
+                    type="button"
+                    class="icon-action"
+                    (click)="nextPage()"
+                    [disabled]="normalizedPage() >= totalPages()"
+                    aria-label="Page suivante"
+                  >
+                    ›
+                  </button>
+                </div>
+                <label
+                  ><span>Par page</span
+                  ><select [value]="pageSize()" (change)="setPageSize($event)">
+                    <option *ngFor="let size of pageSizeOptions" [value]="size">
+                      {{ size }}
+                    </option>
+                  </select></label
+                >
+              </footer>
+            </ng-container>
+          </section>
+
+          <aside
+            #sponsorDetailPanel
+            class="sponsor-detail-panel"
+            [class.is-empty]="!selectedSponsorship()"
+            [class.selection-pulse]="
+              selectedSponsorship() &&
+              selectionPulseId() === selectedSponsorship()?.id
             "
+            aria-label="Dossier commanditaire selectionne"
           >
-            <h2>Aucune commandite ne correspond aux filtres</h2>
-            <p>Modifiez la recherche, le statut de revue ou le statut feed.</p>
-          </article>
+            <ng-container
+              *ngIf="selectedSponsorship() as selected; else noSelection"
+            >
+              <header class="detail-header">
+                <div class="detail-title">
+                  <span class="sponsor-avatar large" aria-hidden="true">{{
+                    initialsFor(selected)
+                  }}</span>
+                  <div>
+                    <h2>
+                      {{
+                        selected.sponsor_company_name || 'Entreprise sans nom'
+                      }}
+                    </h2>
+                    <p>
+                      {{ formatMoney(selected) }} ·
+                      {{ sponsorshipTierLabel(selected) }}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="icon-action close-detail"
+                  (click)="closeDetails()"
+                  aria-label="Fermer le dossier"
+                >
+                  ×
+                </button>
+                <div class="detail-badges">
+                  <span [class]="statusClass(selected.sponsor_review_status)">{{
+                    reviewStatusLabel(selected.sponsor_review_status)
+                  }}</span
+                  ><span [class]="visibilityClass(selected)">{{
+                    visibilityLabel(selected)
+                  }}</span
+                  ><span
+                    [class]="paymentStatusClass(selected.payment_status)"
+                    >{{ paymentStatusLabel(selected.payment_status) }}</span
+                  >
+                </div>
+                <dl class="detail-meta">
+                  <div>
+                    <dt>Reference publique</dt>
+                    <dd>{{ selected.public_reference || 'Non attribuee' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Soumis le</dt>
+                    <dd>{{ dateOnlyLabel(submittedAt(selected)) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Derniere revue</dt>
+                    <dd>{{ dateOnlyLabel(selected.sponsor_reviewed_at) }}</dd>
+                  </div>
+                </dl>
+              </header>
+
+              <nav class="detail-tabs" aria-label="Onglets du dossier">
+                <button
+                  type="button"
+                  [class.active]="activeTab() === 'overview'"
+                  (click)="setActiveTab('overview')"
+                >
+                  Vue d'ensemble
+                </button>
+                <button
+                  type="button"
+                  [class.active]="activeTab() === 'identity'"
+                  (click)="setActiveTab('identity')"
+                >
+                  Identite & logo
+                </button>
+                <button
+                  type="button"
+                  [class.active]="activeTab() === 'publication'"
+                  (click)="setActiveTab('publication')"
+                >
+                  Publication
+                </button>
+                <button
+                  type="button"
+                  [class.active]="activeTab() === 'audit'"
+                  (click)="setActiveTab('audit')"
+                >
+                  Historique & audit
+                </button>
+              </nav>
+
+              <section
+                class="detail-body"
+                *ngIf="activeTab() === 'overview'"
+                aria-label="Vue d'ensemble"
+              >
+                <div class="detail-card-grid">
+                  <article class="detail-card">
+                    <h3>Entreprise & contact</h3>
+                    <dl>
+                      <div>
+                        <dt>Nom de l'entreprise</dt>
+                        <dd>
+                          {{
+                            selected.sponsor_company_name ||
+                              'Entreprise sans nom'
+                          }}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Nom public</dt>
+                        <dd>{{ publicNameLabel(selected) }}</dd>
+                      </div>
+                      <div>
+                        <dt>Contact</dt>
+                        <dd>
+                          {{ selected.sponsor_contact_name || 'Non fourni' }}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Courriel</dt>
+                        <dd>
+                          <a
+                            *ngIf="
+                              selected.sponsor_contact_email;
+                              else emptyEmail
+                            "
+                            [href]="'mailto:' + selected.sponsor_contact_email"
+                            >{{ selected.sponsor_contact_email }}</a
+                          ><ng-template #emptyEmail>Non fourni</ng-template>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Site web</dt>
+                        <dd>
+                          <a
+                            *ngIf="
+                              selected.sponsor_website_url;
+                              else emptyWebsiteOverview
+                            "
+                            [href]="selected.sponsor_website_url"
+                            target="_blank"
+                            rel="noreferrer"
+                            >{{ selected.sponsor_website_url }}</a
+                          ><ng-template #emptyWebsiteOverview
+                            >Non fourni</ng-template
+                          >
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Reference publique</dt>
+                        <dd class="copy-line">
+                          <code>{{
+                            selected.public_reference || 'Non attribuee'
+                          }}</code
+                          ><button
+                            type="button"
+                            class="mini-action"
+                            (click)="copyReference(selected)"
+                            [disabled]="!selected.public_reference"
+                          >
+                            Copier
+                          </button>
+                        </dd>
+                      </div>
+                    </dl>
+                    <small
+                      class="inline-status"
+                      *ngIf="copyMessageFor(selected.id)"
+                      >{{ copyMessageFor(selected.id) }}</small
+                    >
+                  </article>
+
+                  <article class="detail-card">
+                    <h3>Commandite</h3>
+                    <dl>
+                      <div>
+                        <dt>Montant</dt>
+                        <dd>{{ formatMoney(selected) }}</dd>
+                      </div>
+                      <div>
+                        <dt>Niveau / tier</dt>
+                        <dd>
+                          <span [class]="tierClass(selected)">{{
+                            sponsorshipTierLabel(selected)
+                          }}</span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Avantages</dt>
+                        <dd>{{ sponsorshipBenefitsLabel(selected) }}</dd>
+                      </div>
+                      <div>
+                        <dt>Paiement</dt>
+                        <dd>
+                          <span
+                            [class]="
+                              paymentStatusClass(selected.payment_status)
+                            "
+                            >{{
+                              paymentStatusLabel(selected.payment_status)
+                            }}</span
+                          >
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Date de paiement</dt>
+                        <dd>{{ dateOnlyLabel(selected.paid_at) }}</dd>
+                      </div>
+                    </dl>
+                  </article>
+                </div>
+
+                <article class="detail-card" *ngIf="selected.sponsor_message">
+                  <h3>Message du commanditaire</h3>
+                  <p>{{ selected.sponsor_message }}</p>
+                </article>
+
+                <article class="detail-card">
+                  <h3>Note interne</h3>
+                  <label class="review-note-label"
+                    >Note visible uniquement pour l'administration.<textarea
+                      rows="5"
+                      maxlength="1000"
+                      [value]="reviewNoteFor(selected.id)"
+                      (input)="setReviewNote(selected.id, $event)"
+                    ></textarea>
+                  </label>
+                  <div class="form-footer">
+                    <span
+                      class="inline-status"
+                      [class.is-dirty]="isReviewNoteDirty(selected)"
+                      aria-live="polite"
+                      >{{ reviewNoteStateLabel(selected) }}</span
+                    ><button
+                      type="button"
+                      class="secondary-action"
+                      (click)="saveReviewNote(selected)"
+                      [disabled]="
+                        !isReviewNoteDirty(selected) ||
+                        isActionPending(noteActionId(selected.id))
+                      "
+                    >
+                      {{
+                        isActionPending(noteActionId(selected.id))
+                          ? 'Enregistrement...'
+                          : 'Enregistrer la note'
+                      }}
+                    </button>
+                  </div>
+                </article>
+              </section>
+
+              <section
+                class="detail-body"
+                *ngIf="activeTab() === 'identity'"
+                aria-label="Identite et logo"
+              >
+                <article class="detail-card">
+                  <h3>Logo actuel</h3>
+                  <figure
+                    class="logo-preview large-preview"
+                    *ngIf="logoPreviewSourceFor(selected); else noLogoPreview"
+                  >
+                    <img
+                      [src]="logoPreviewSourceFor(selected)"
+                      [alt]="
+                        'Logo ' +
+                        (selected.sponsor_company_name || 'commanditaire')
+                      "
+                    />
+                  </figure>
+                  <ng-template #noLogoPreview
+                    ><p class="muted-copy">
+                      Aucun logo disponible.
+                    </p></ng-template
+                  >
+                  <dl class="compact-definition-list">
+                    <div>
+                      <dt>URL du logo</dt>
+                      <dd>
+                        <a
+                          *ngIf="selected.sponsor_logo_url; else emptyLogoUrl"
+                          [href]="selected.sponsor_logo_url"
+                          target="_blank"
+                          rel="noreferrer"
+                          >{{ selected.sponsor_logo_url }}</a
+                        ><ng-template #emptyLogoUrl>Non fourni</ng-template>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Nom public</dt>
+                      <dd>{{ publicNameLabel(selected) }}</dd>
+                    </div>
+                    <div>
+                      <dt>Site web public</dt>
+                      <dd>
+                        {{ selected.sponsor_website_url || 'Non fourni' }}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div class="logo-actions">
+                    <label class="logo-upload-control"
+                      >{{
+                        selected.sponsor_logo_url
+                          ? 'Remplacer le logo'
+                          : 'Televerser un logo'
+                      }}<input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        [disabled]="
+                          isActionPending(logoActionId(selected.id)) ||
+                          isActionPending(deleteLogoActionId(selected.id))
+                        "
+                        (change)="uploadLogo(selected, $event)" /></label
+                    ><button
+                      type="button"
+                      class="secondary-danger-action"
+                      [disabled]="
+                        !selected.sponsor_logo_url ||
+                        isActionPending(deleteLogoActionId(selected.id)) ||
+                        isActionPending(logoActionId(selected.id))
+                      "
+                      (click)="deleteLogo(selected)"
+                    >
+                      Supprimer le logo
+                    </button>
+                  </div>
+                  <small class="inline-status" aria-live="polite">{{
+                    logoUploadMessageFor(selected.id) ||
+                      'Formats acceptes: PNG, JPEG ou WebP, max 512 KiB.'
+                  }}</small>
+                </article>
+              </section>
+
+              <section
+                class="detail-body"
+                *ngIf="activeTab() === 'publication'"
+                aria-label="Publication"
+              >
+                <article class="detail-card publication-editor">
+                  <header>
+                    <div>
+                      <span>Publication</span>
+                      <h3>Commanditaire et feeds</h3>
+                    </div>
+                    <button
+                      type="button"
+                      class="publication-save"
+                      [disabled]="
+                        !publicationDirtyFor(selected) ||
+                        hasSlugError(selected) ||
+                        isActionPending(publicationActionId(selected.id))
+                      "
+                      (click)="savePublication(selected)"
+                    >
+                      {{
+                        isActionPending(publicationActionId(selected.id))
+                          ? 'Enregistrement...'
+                          : 'Enregistrer'
+                      }}
+                    </button>
+                  </header>
+                  <p
+                    class="inline-status"
+                    [class.is-dirty]="publicationDirtyFor(selected)"
+                    aria-live="polite"
+                  >
+                    {{ publicationStateLabel(selected) }}
+                  </p>
+                  <div class="publication-grid">
+                    <label
+                      >Slug public<input
+                        type="text"
+                        maxlength="120"
+                        [value]="publicationDraftFor(selected.id).publicSlug"
+                        (input)="
+                          setPublicationField(selected.id, 'publicSlug', $event)
+                        "
+                        [attr.aria-invalid]="
+                          slugErrorFor(selected) ? 'true' : null
+                        "
+                      /><small
+                        class="field-error"
+                        *ngIf="slugErrorFor(selected)"
+                        >{{ slugErrorFor(selected) }}</small
+                      ></label
+                    >
+                    <label
+                      >Destination feed<select
+                        [value]="publicationDraftFor(selected.id).feedTarget"
+                        (change)="
+                          setPublicationField(selected.id, 'feedTarget', $event)
+                        "
+                      >
+                        <option value="">Aucune</option>
+                        <option value="openg7">OpenG7</option>
+                        <option value="openg20">OpenG20</option>
+                      </select></label
+                    >
+                    <label
+                      >Statut feed<select
+                        [value]="publicationDraftFor(selected.id).feedStatus"
+                        (change)="
+                          setPublicationField(selected.id, 'feedStatus', $event)
+                        "
+                      >
+                        <option
+                          *ngFor="let status of feedStatuses"
+                          [value]="status"
+                        >
+                          {{ feedStatusLabel(status) }}
+                        </option>
+                      </select></label
+                    >
+                    <fieldset>
+                      <legend>Canaux</legend>
+                      <label
+                        ><input
+                          type="checkbox"
+                          [checked]="publicationDraftFor(selected.id).facebook"
+                          [disabled]="
+                            isPromisedFeedChannel(selected, 'facebook')
+                          "
+                          [attr.title]="
+                            isPromisedFeedChannel(selected, 'facebook')
+                              ? 'Canal inclus par le palier de contribution'
+                              : null
+                          "
+                          (change)="
+                            setPublicationChannel(
+                              selected.id,
+                              'facebook',
+                              $event
+                            )
+                          "
+                        />
+                        Facebook</label
+                      ><label
+                        ><input
+                          type="checkbox"
+                          [checked]="publicationDraftFor(selected.id).linkedin"
+                          [disabled]="
+                            isPromisedFeedChannel(selected, 'linkedin')
+                          "
+                          [attr.title]="
+                            isPromisedFeedChannel(selected, 'linkedin')
+                              ? 'Canal inclus par le palier de contribution'
+                              : null
+                          "
+                          (change)="
+                            setPublicationChannel(
+                              selected.id,
+                              'linkedin',
+                              $event
+                            )
+                          "
+                        />
+                        LinkedIn</label
+                      >
+                    </fieldset>
+                    <label class="publication-span-2"
+                      >Resume public<textarea
+                        rows="4"
+                        maxlength="500"
+                        [value]="publicationDraftFor(selected.id).publicSummary"
+                        (input)="
+                          setPublicationField(
+                            selected.id,
+                            'publicSummary',
+                            $event
+                          )
+                        "
+                      ></textarea>
+                    </label>
+                    <label
+                      >Lien de publication<input
+                        type="url"
+                        maxlength="2048"
+                        [value]="publicationDraftFor(selected.id).feedPublicUrl"
+                        (input)="
+                          setPublicationField(
+                            selected.id,
+                            'feedPublicUrl',
+                            $event
+                          )
+                        "
+                    /></label>
+                    <label class="publication-span-2"
+                      >Notes feed<textarea
+                        rows="4"
+                        maxlength="1000"
+                        [value]="publicationDraftFor(selected.id).feedNotes"
+                        (input)="
+                          setPublicationField(selected.id, 'feedNotes', $event)
+                        "
+                      ></textarea>
+                    </label>
+                  </div>
+                </article>
+
+                <article class="detail-card public-preview">
+                  <span>Previsualisation non publiee</span>
+                  <div>
+                    <figure
+                      class="logo-preview"
+                      *ngIf="logoPreviewSourceFor(selected)"
+                    >
+                      <img
+                        [src]="logoPreviewSourceFor(selected)"
+                        [alt]="
+                          'Logo ' +
+                          (selected.sponsor_company_name || 'commanditaire')
+                        "
+                      />
+                    </figure>
+                    <div>
+                      <h3>{{ publicNameLabel(selected) }}</h3>
+                      <p>
+                        {{
+                          publicationDraftFor(selected.id).publicSummary ||
+                            'Aucun resume public pour le moment.'
+                        }}
+                      </p>
+                    </div>
+                  </div>
+                  <dl class="compact-definition-list">
+                    <div>
+                      <dt>Destination</dt>
+                      <dd>
+                        {{
+                          publicationDraftFor(selected.id).feedTarget ||
+                            'Aucune'
+                        }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Canaux</dt>
+                      <dd>{{ draftChannelsLabel(selected.id) }}</dd>
+                    </div>
+                    <div>
+                      <dt>Lien</dt>
+                      <dd>
+                        {{
+                          publicationDraftFor(selected.id).feedPublicUrl ||
+                            'Non defini'
+                        }}
+                      </dd>
+                    </div>
+                  </dl>
+                </article>
+              </section>
+
+              <section
+                class="detail-body"
+                *ngIf="activeTab() === 'audit'"
+                aria-label="Historique et audit"
+              >
+                <article class="detail-card">
+                  <h3>Historique disponible</h3>
+                  <ol
+                    class="audit-list"
+                    *ngIf="auditEntriesFor(selected).length > 0; else noAudit"
+                  >
+                    <li
+                      *ngFor="
+                        let entry of auditEntriesFor(selected);
+                        trackBy: trackByAuditEntry
+                      "
+                    >
+                      <time>{{ dateTimeLabel(entry.date) }}</time>
+                      <p>{{ entry.label }}</p>
+                      <small *ngIf="entry.detail">{{ entry.detail }}</small>
+                    </li>
+                  </ol>
+                  <ng-template #noAudit
+                    ><p class="muted-copy">
+                      Aucun historique administratif detaille n'est encore
+                      disponible pour ce dossier.
+                    </p></ng-template
+                  >
+                  <p class="muted-copy">
+                    Les donnees d'audit fines et l'administrateur responsable ne
+                    sont pas exposes par l'API actuelle.
+                  </p>
+                </article>
+              </section>
+
+              <footer class="detail-actions">
+                <p
+                  class="review-toast"
+                  *ngIf="reviewMessageFor(selected.id)"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {{ reviewMessageFor(selected.id) }}
+                </p>
+                <button
+                  type="button"
+                  class="review-button neutral"
+                  [disabled]="isAnyActionPending(selected.id)"
+                  (click)="review(selected, 'pending_review')"
+                >
+                  Remettre en attente
+                </button>
+                <button
+                  type="button"
+                  class="review-button reject"
+                  [disabled]="isAnyActionPending(selected.id)"
+                  (click)="review(selected, 'rejected')"
+                >
+                  Refuser
+                </button>
+                <button
+                  type="button"
+                  class="review-button approve"
+                  [disabled]="isAnyActionPending(selected.id)"
+                  (click)="review(selected, 'approved')"
+                >
+                  Accepter
+                </button>
+              </footer>
+            </ng-container>
+
+            <ng-template #noSelection
+              ><article class="empty-detail-state">
+                <h2>Aucun commanditaire selectionne</h2>
+                <p>
+                  Selectionnez une ligne dans la liste pour ouvrir le dossier,
+                  reviser la commandite et preparer sa publication.
+                </p>
+              </article></ng-template
+            >
+          </aside>
         </section>
       </section>
     </main>
@@ -514,258 +1047,535 @@ const controlledSponsorLogoUrlPrefixes = [
   styles: [
     `
       .admin-shell {
-        background: #f5f7fb;
-        color: #172033;
+        background: #f6f8fc;
+        color: #111827;
         display: grid;
         font-family: 'Trebuchet MS', Arial, sans-serif;
-        gap: 1rem;
+        gap: 1.25rem;
         grid-template-columns: 15rem minmax(0, 1fr);
         min-height: 100vh;
         padding: 1.25rem;
       }
 
-      .admin-content {
+      .admin-workspace {
+        display: grid;
+        gap: 1rem;
         min-width: 0;
       }
 
-      .admin-topbar,
-      .admin-auth-panel,
+      .admin-page-header,
       .admin-summary-grid,
-      .admin-filters,
-      .sponsorship-admin-list {
-        margin: 0 auto;
-        max-width: 72rem;
+      .sponsors-board {
+        width: 100%;
       }
 
-      .admin-topbar {
+      .admin-page-header {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .admin-breadcrumb,
+      .admin-title-row,
+      .admin-actions,
+      .filter-row,
+      .pagination-controls,
+      .detail-badges,
+      .logo-actions,
+      .form-footer {
         align-items: center;
         display: flex;
-        gap: 1rem;
-        justify-content: space-between;
-        margin-bottom: 1rem;
+        gap: 0.75rem;
       }
 
-      .admin-topbar span,
-      .admin-summary-grid span,
-      .sponsorship-admin-item dt {
+      .admin-breadcrumb {
         color: #667085;
-        font-size: 0.78rem;
-        font-weight: 800;
-        letter-spacing: 0;
-        text-transform: uppercase;
+        font-size: 0.84rem;
       }
 
-      .admin-topbar h1,
-      .admin-auth-panel h2,
-      .sponsorship-admin-item h2,
-      .empty-admin-state h2 {
-        margin: 0;
-      }
-
-      .admin-topbar a {
-        color: #254db8;
+      .admin-breadcrumb a,
+      .admin-breadcrumb strong {
+        color: inherit;
         font-weight: 800;
         text-decoration: none;
       }
 
-      .admin-auth-panel {
+      .admin-title-row {
         align-items: end;
-        background: #fff;
-        border: 1px solid #d9e0ea;
-        border-radius: 0.45rem;
-        display: grid;
-        gap: 1rem;
-        grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem) auto;
-        padding: 1rem;
+        justify-content: space-between;
       }
 
-      .admin-auth-panel p,
+      .admin-title-row h1,
+      .detail-header h2,
+      .detail-card h3,
+      .empty-admin-state h2,
+      .empty-detail-state h2 {
+        margin: 0;
+      }
+
+      .admin-title-row h1 {
+        font-size: clamp(1.9rem, 3vw, 2.45rem);
+        line-height: 1.05;
+      }
+
+      .admin-title-row p,
+      .muted-copy,
       .empty-admin-state p,
-      .sponsor-message {
-        color: #526070;
+      .empty-detail-state p {
+        color: #566274;
         line-height: 1.55;
         margin: 0.35rem 0 0;
       }
 
-      .admin-auth-panel label,
-      .review-note-label,
-      .publication-grid label,
-      .publication-editor fieldset,
-      .admin-filters label {
-        display: grid;
-        gap: 0.35rem;
-        font-size: 0.85rem;
-        font-weight: 800;
+      .admin-kicker,
+      .admin-summary-grid article span:not(.metric-mark),
+      dt,
+      .publication-editor header span,
+      .public-preview > span {
+        color: #667085;
+        font-size: 0.76rem;
+        font-weight: 900;
+        letter-spacing: 0;
+        text-transform: uppercase;
       }
 
-      .admin-auth-panel input,
-      .admin-filters input,
-      .admin-filters select,
-      .review-note-label textarea,
-      .publication-grid input,
-      .publication-grid select,
-      .publication-grid textarea {
-        border: 1px solid #cdd6e3;
-        border-radius: 0.35rem;
+      button,
+      input,
+      select,
+      textarea {
         font: inherit;
-        padding: 0.65rem 0.75rem;
       }
 
-      .admin-auth-panel button,
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      textarea:focus-visible {
+        outline: 3px solid rgba(37, 99, 235, 0.28);
+        outline-offset: 2px;
+      }
+
+      .primary-action,
+      .secondary-action,
+      .tertiary-action,
+      .secondary-danger-action,
       .review-button,
-      .publication-save {
-        border: 0;
-        border-radius: 0.35rem;
+      .publication-save,
+      .mini-action,
+      .icon-action {
+        align-items: center;
+        border-radius: 0.4rem;
         cursor: pointer;
-        font: inherit;
-        font-weight: 800;
-        min-height: 2.7rem;
-        padding: 0 0.9rem;
+        display: inline-flex;
+        font-weight: 900;
+        justify-content: center;
+        min-height: 2.5rem;
+        padding: 0 0.85rem;
+        text-decoration: none;
       }
 
-      .admin-auth-panel button {
-        background: #18233a;
+      .primary-action,
+      .publication-save {
+        background: #a86f16;
+        border: 1px solid #9a6414;
         color: #fff;
+      }
+
+      .secondary-action,
+      .tertiary-action,
+      .mini-action,
+      .icon-action {
+        background: #fff;
+        border: 1px solid #cfd8e6;
+        color: #172033;
+      }
+
+      .tertiary-action:disabled,
+      .secondary-action:disabled,
+      .secondary-danger-action:disabled,
+      .review-button:disabled,
+      .publication-save:disabled,
+      .mini-action:disabled,
+      .icon-action:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      .secondary-danger-action {
+        background: #fff8f8;
+        border: 1px solid #f1a8b4;
+        color: #9f1d2f;
+      }
+
+      .icon-action {
+        min-height: 2.2rem;
+        padding: 0;
+        width: 2.2rem;
       }
 
       .admin-summary-grid {
         display: grid;
-        gap: 0.75rem;
+        gap: 0.9rem;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        margin-top: 1rem;
       }
 
       .admin-summary-grid article,
-      .admin-filters,
-      .sponsorship-admin-item,
-      .empty-admin-state {
+      .sponsors-list-panel,
+      .sponsor-detail-panel,
+      .detail-card,
+      .empty-admin-state,
+      .empty-detail-state {
         background: #fff;
         border: 1px solid #d9e0ea;
-        border-radius: 0.45rem;
+        border-radius: 0.5rem;
       }
 
       .admin-summary-grid article {
-        padding: 1rem;
+        align-items: center;
+        display: grid;
+        gap: 0.9rem;
+        grid-template-columns: auto minmax(0, 1fr);
+        min-height: 7rem;
+        padding: 1.1rem;
+      }
+
+      .metric-mark,
+      .sponsor-avatar {
+        align-items: center;
+        border-radius: 999px;
+        display: inline-flex;
+        font-weight: 900;
+        justify-content: center;
+      }
+
+      .metric-mark {
+        background: #eef2f7;
+        color: #172033;
+        height: 3rem;
+        width: 3rem;
+      }
+
+      .metric-mark.gold {
+        background: #fff4d9;
+        color: #a86f16;
+      }
+      .metric-mark.green {
+        background: #e8f7ee;
+        color: #177245;
+      }
+      .metric-mark.money {
+        background: #f4eadb;
+        color: #9a6414;
       }
 
       .admin-summary-grid strong {
         display: block;
-        font-size: 2rem;
-        margin-top: 0.2rem;
+        font-size: 1.7rem;
+        line-height: 1.1;
+        margin-top: 0.18rem;
       }
 
-      .admin-filters {
+      .admin-summary-grid small,
+      .sponsor-table-row small,
+      .inline-status {
+        color: #667085;
+      }
+
+      .sponsors-board {
+        align-items: start;
         display: grid;
-        gap: 0.75rem;
-        grid-template-columns: minmax(14rem, 2fr) repeat(2, minmax(10rem, 1fr));
-        margin-top: 1rem;
+        gap: 1rem;
+        grid-template-columns: minmax(52rem, 1fr) minmax(22rem, 32rem);
+      }
+
+      .sponsors-list-panel,
+      .sponsor-detail-panel {
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .admin-table-toolbar {
+        align-items: end;
+        border-bottom: 1px solid #e4e9f2;
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: minmax(16rem, 1fr) auto;
         padding: 1rem;
       }
 
-      .state {
-        margin: 1rem auto 0;
-        max-width: 72rem;
+      .search-control,
+      .admin-table-toolbar label,
+      .review-note-label,
+      .publication-grid label,
+      .logo-upload-control {
+        display: grid;
+        gap: 0.35rem;
+        font-size: 0.84rem;
+        font-weight: 800;
+      }
+
+      .filter-row {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      input,
+      select,
+      textarea {
+        border: 1px solid #cdd6e3;
+        border-radius: 0.35rem;
+        padding: 0.65rem 0.75rem;
+      }
+
+      textarea {
+        resize: vertical;
+      }
+
+      .state,
+      .empty-admin-state,
+      .empty-detail-state {
+        display: grid;
+        gap: 0.7rem;
+        padding: 1rem;
       }
 
       .state-error {
+        background: #fff7f8;
         color: #9f1d2f;
-        font-weight: 800;
       }
-
-      .sponsorship-admin-list {
-        display: grid;
-        gap: 1rem;
-        margin-top: 1rem;
-      }
-
-      .sponsorship-admin-item {
-        display: grid;
-        gap: 1rem;
-        padding: 1rem;
-      }
-
-      .sponsorship-admin-item header,
-      .sponsorship-admin-item footer {
-        align-items: center;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        justify-content: space-between;
-      }
-
-      .sponsorship-admin-item header strong {
-        color: #172033;
-        font-size: 1.35rem;
-      }
-
-      .amount-and-tier {
-        display: grid;
-        gap: 0.25rem;
-        justify-items: end;
-        text-align: right;
-      }
-
-      .tier-badge {
-        background: #eef1f8;
-        border-radius: 999px;
+      .state-loading {
         color: #38425a;
-        font-size: 0.7rem;
-        font-weight: 800;
-        padding: 0.2rem 0.55rem;
-        text-transform: uppercase;
-        white-space: nowrap;
       }
 
-      .status-badge {
-        border-radius: 999px;
-        display: inline-flex;
-        font-size: 0.72rem;
-        font-weight: 900;
-        margin-bottom: 0.35rem;
-        padding: 0.25rem 0.55rem;
-        text-transform: uppercase;
-      }
-
-      .status-pending {
-        background: #fff2cf;
-        color: #8a5a00;
-      }
-
-      .status-approved {
-        background: #dff7e8;
-        color: #176236;
-      }
-
-      .status-rejected {
-        background: #ffe0e5;
-        color: #9f1d2f;
-      }
-
-      .sponsorship-admin-fields {
+      .skeleton-list {
         display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        margin: 0;
+        gap: 0.65rem;
       }
 
-      .sponsorship-admin-fields div {
+      .skeleton-list span {
+        background: linear-gradient(90deg, #edf2f7, #f8fafc, #edf2f7);
+        border-radius: 0.35rem;
+        display: block;
+        height: 3.5rem;
+      }
+
+      .sponsor-table {
+        display: grid;
+      }
+
+      .sponsor-table-head,
+      .sponsor-table-row {
+        display: grid;
+        gap: 0.65rem;
+        grid-template-columns:
+          minmax(12rem, 1.6fr) minmax(6rem, 0.7fr) minmax(6.75rem, 0.75fr)
+          minmax(7rem, 0.8fr) minmax(7rem, 0.75fr) minmax(7rem, 0.75fr)
+          1.25rem;
+        padding: 0.75rem 1rem;
+      }
+
+      .sponsor-table-head {
+        border-bottom: 1px solid #e8edf5;
+        color: #506079;
+        font-size: 0.76rem;
+        font-weight: 900;
+      }
+
+      .sponsor-table-row {
+        appearance: none;
+        background: #fff;
+        border: 0;
+        border-bottom: 1px solid #edf1f6;
+        color: inherit;
+        text-align: left;
+        width: 100%;
+      }
+
+      .sponsor-table-row:hover,
+      .sponsor-table-row.selected {
+        background: #f8fbff;
+      }
+
+      .sponsor-table-row.selected {
+        box-shadow: inset 0.18rem 0 0 #2563eb;
+      }
+
+      .row-cell,
+      .stacked-cell,
+      .amount-cell {
+        align-content: center;
+        display: grid;
+        gap: 0.3rem;
         min-width: 0;
       }
 
-      .sponsorship-admin-fields dd {
-        margin: 0.15rem 0 0;
+      .sponsor-main {
+        align-items: center;
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+
+      .sponsor-main strong,
+      .sponsor-main small,
+      .stacked-cell small,
+      dd,
+      .public-preview p {
         overflow-wrap: anywhere;
       }
 
-      .sponsorship-admin-fields a {
-        color: #254db8;
+      .sponsor-avatar {
+        background: #172033;
+        color: #fff;
+        height: 2.35rem;
+        width: 2.35rem;
       }
 
-      .reference-code {
-        font-family:
-          ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+      .sponsor-avatar.large {
+        font-size: 1.05rem;
+        height: 3.5rem;
+        width: 3.5rem;
+      }
+
+      .row-open {
+        color: #506079;
+        font-size: 1.6rem;
+        justify-content: center;
+      }
+
+      .pagination-bar {
+        align-items: center;
+        display: flex;
+        gap: 1rem;
+        justify-content: space-between;
+        padding: 0.8rem 1rem;
+      }
+
+      .pagination-bar label {
+        align-items: center;
+        display: flex;
+        gap: 0.45rem;
+      }
+
+      .sponsor-detail-panel {
+        display: grid;
+        max-height: calc(100vh - 2.5rem);
+        position: sticky;
+        top: 1.25rem;
+      }
+
+      .review-toast {
+        animation: review-toast-in 0.22s ease both;
+        background: #10233d;
+        border: 1px solid rgb(255 255 255 / 12%);
+        border-radius: 0.45rem;
+        box-shadow: 0 16px 34px rgb(15 23 42 / 24%);
+        color: #fff;
+        font-size: 0.86rem;
         font-weight: 900;
-        letter-spacing: 0;
+        margin: 0;
+        max-width: min(24rem, calc(100% - 2rem));
+        padding: 0.75rem 0.9rem;
+        position: absolute;
+        bottom: calc(100% + 0.75rem);
+        right: 1rem;
+        z-index: 4;
+      }
+
+      .sponsor-table-row.selection-pulse,
+      .sponsor-detail-panel.selection-pulse {
+        animation: selected-box-fade-in 0.52s ease both;
+      }
+
+      .detail-header {
+        display: grid;
+        gap: 0.9rem;
+        grid-template-columns: minmax(0, 1fr) auto;
+        padding: 1rem;
+      }
+
+      .detail-title {
+        align-items: center;
+        display: grid;
+        gap: 0.8rem;
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+
+      .detail-title p {
+        color: #38425a;
+        margin: 0.2rem 0 0;
+      }
+      .detail-badges,
+      .detail-meta {
+        grid-column: 1 / -1;
+      }
+      .detail-badges {
+        flex-wrap: wrap;
+      }
+
+      .detail-meta,
+      .detail-card dl,
+      .compact-definition-list {
+        display: grid;
+        gap: 0.75rem;
+        margin: 0;
+      }
+
+      .detail-meta {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      dd {
+        margin: 0.15rem 0 0;
+      }
+
+      .detail-tabs {
+        border-bottom: 1px solid #e4e9f2;
+        border-top: 1px solid #e4e9f2;
+        display: flex;
+        gap: 0.25rem;
+        overflow-x: auto;
+        padding: 0 1rem;
+      }
+
+      .detail-tabs button {
+        background: transparent;
+        border: 0;
+        border-bottom: 0.18rem solid transparent;
+        color: #38425a;
+        cursor: pointer;
+        font-weight: 900;
+        padding: 0.9rem 0.65rem 0.72rem;
+        white-space: nowrap;
+      }
+
+      .detail-tabs button.active {
+        border-color: #2563eb;
+        color: #0f3e99;
+      }
+
+      .detail-body {
+        display: grid;
+        gap: 0.9rem;
+        overflow: auto;
+        padding: 1rem;
+      }
+
+      .detail-card {
+        display: grid;
+        gap: 0.85rem;
+        padding: 1rem;
+      }
+
+      .detail-card-grid {
+        display: grid;
+        gap: 0.9rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .copy-line,
+      .logo-actions,
+      .form-footer {
+        flex-wrap: wrap;
       }
 
       .logo-preview {
@@ -776,171 +1586,271 @@ const controlledSponsorLogoUrlPrefixes = [
         display: flex;
         height: 4.5rem;
         justify-content: center;
-        margin: 0.35rem 0 0.5rem;
         overflow: hidden;
         width: 8rem;
       }
 
+      .large-preview {
+        height: 8rem;
+        width: 12rem;
+      }
       .logo-preview img {
-        display: block;
         max-height: 100%;
         max-width: 100%;
         object-fit: contain;
       }
 
-      .logo-upload-control {
-        color: #172033;
-        display: grid;
-        gap: 0.35rem;
-        margin-top: 0.5rem;
-      }
-
-      .logo-delete-button {
-        background: #fff0f2;
-        border: 1px solid #f1a8b4;
-        border-radius: 0.35rem;
-        color: #9f1d2f;
-        cursor: pointer;
-        display: inline-flex;
-        font: inherit;
-        font-size: 0.8rem;
-        font-weight: 900;
-        margin-top: 0.5rem;
-        padding: 0.45rem 0.65rem;
-      }
-
-      .logo-delete-button:disabled {
-        cursor: wait;
-        opacity: 0.62;
-      }
-
-      .logo-upload-control input {
-        font: inherit;
-        max-width: 100%;
-      }
-
-      .logo-upload-state {
-        color: #667085;
-        display: block;
-        font-weight: 800;
-        margin-top: 0.35rem;
-      }
-
-      .review-note-label textarea {
-        min-height: 5rem;
-        resize: vertical;
-      }
-
-      .publication-editor {
-        border: 1px solid #d9e0ea;
-        border-radius: 0.45rem;
-        display: grid;
-        gap: 0.85rem;
-        padding: 1rem;
-      }
-
-      .publication-editor header {
-        margin: 0;
-      }
-
-      .publication-editor header span {
-        color: #667085;
-        display: block;
-        font-size: 0.72rem;
-        font-weight: 900;
-        letter-spacing: 0;
-        margin-bottom: 0.2rem;
-        text-transform: uppercase;
-      }
-
-      .publication-editor h3 {
-        margin: 0;
-      }
-
-      .publication-save {
-        background: #254db8;
-        color: #fff;
+      .publication-editor header,
+      .public-preview > div {
+        align-items: center;
+        display: flex;
+        gap: 0.8rem;
+        justify-content: space-between;
       }
 
       .publication-grid {
         display: grid;
         gap: 0.75rem;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .publication-grid textarea {
-        min-height: 5rem;
-        resize: vertical;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .publication-span-2 {
-        grid-column: span 2;
+        grid-column: 1 / -1;
       }
 
-      .publication-editor fieldset {
+      fieldset {
         border: 1px solid #d9e0ea;
         border-radius: 0.35rem;
+        display: grid;
+        gap: 0.4rem;
         margin: 0;
         padding: 0.65rem 0.75rem;
       }
 
-      .publication-editor fieldset label {
+      fieldset label {
         align-items: center;
         display: flex;
-        gap: 0.45rem;
-        font-weight: 700;
+        gap: 0.4rem;
       }
 
-      .publication-editor fieldset input {
-        height: 1rem;
-        width: 1rem;
+      .public-preview > span {
+        color: #a86f16;
       }
 
-      .sponsorship-admin-item footer {
+      .detail-actions {
+        align-items: center;
+        background: #fff;
+        border-top: 1px solid #e4e9f2;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.7rem;
         justify-content: flex-end;
+        padding: 1rem;
+        position: sticky;
+        bottom: 0;
       }
 
-      .review-button:disabled {
-        cursor: wait;
-        opacity: 0.62;
+      .detail-actions .inline-status {
+        flex: 1 1 100%;
+      }
+
+      .status-badge,
+      .visibility-badge,
+      .feed-badge,
+      .payment-badge,
+      .tier-badge {
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 0.72rem;
+        font-weight: 900;
+        padding: 0.25rem 0.55rem;
+        width: max-content;
+      }
+
+      .status-pending,
+      .feed-planned,
+      .payment-pending,
+      .visibility-review,
+      .tier-gold {
+        background: #fff2cf;
+        color: #8a5a00;
+      }
+      .status-approved,
+      .feed-published,
+      .payment-paid,
+      .visibility-visible {
+        background: #dff7e8;
+        color: #176236;
+      }
+      .status-rejected,
+      .payment-failed {
+        background: #ffe0e5;
+        color: #9f1d2f;
+      }
+      .visibility-hidden,
+      .feed-not_planned {
+        background: #eef1f5;
+        color: #667085;
+      }
+      .feed-drafted {
+        background: #ede9fe;
+        color: #5b21b6;
+      }
+      .tier-silver {
+        background: #eef2f7;
+        color: #38425a;
+      }
+      .tier-bronze {
+        background: #fff0e5;
+        color: #9a4d13;
+      }
+
+      .field-error {
+        color: #9f1d2f;
+        font-weight: 800;
+      }
+      .inline-status.is-dirty {
+        color: #a86f16;
+        font-weight: 900;
       }
 
       .review-button.neutral {
         background: #eef2f7;
+        border: 1px solid #d8e0ea;
         color: #1f2937;
       }
-
       .review-button.reject {
-        background: #9f1d2f;
-        color: #fff;
+        background: #fff8f8;
+        border: 1px solid #d9394f;
+        color: #c0182c;
       }
-
       .review-button.approve {
-        background: #176236;
+        background: #178244;
+        border: 1px solid #146b39;
         color: #fff;
       }
 
-      .empty-admin-state {
-        padding: 1rem;
+      @keyframes review-toast-in {
+        from {
+          opacity: 0;
+          transform: translateY(-0.35rem);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes selected-box-fade-in {
+        0% {
+          box-shadow:
+            inset 0.18rem 0 0 #2563eb,
+            0 0 0 0 rgb(37 99 235 / 0%);
+          opacity: 0.62;
+          transform: translateY(0.25rem);
+        }
+        45% {
+          box-shadow:
+            inset 0.18rem 0 0 #2563eb,
+            0 0 0 0.28rem rgb(37 99 235 / 14%);
+          opacity: 1;
+        }
+        100% {
+          box-shadow:
+            inset 0.18rem 0 0 #2563eb,
+            0 0 0 0 rgb(37 99 235 / 0%);
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .audit-list {
+        display: grid;
+        gap: 0.75rem;
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+
+      .audit-list time {
+        color: #667085;
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+      .audit-list p {
+        margin: 0.15rem 0;
+      }
+
+      @media (max-width: 1500px) {
+        .sponsors-board {
+          grid-template-columns: 1fr;
+        }
+        .sponsor-detail-panel {
+          max-height: none;
+          position: static;
+        }
+      }
+
+      @media (max-width: 1120px) {
+        .sponsor-table-head {
+          display: none;
+        }
+
+        .sponsor-table-row {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.8rem 1rem;
+          padding: 1rem;
+        }
+
+        .sponsor-main {
+          grid-column: 1 / -1;
+        }
+
+        .row-open {
+          display: none;
+        }
       }
 
       @media (max-width: 860px) {
         .admin-shell,
-        .admin-auth-panel,
         .admin-summary-grid,
-        .admin-filters,
-        .sponsorship-admin-fields,
-        .publication-grid {
+        .admin-table-toolbar,
+        .publication-grid,
+        .detail-card-grid,
+        .detail-meta {
           grid-template-columns: 1fr;
         }
 
-        .publication-span-2 {
-          grid-column: auto;
+        .admin-title-row,
+        .admin-actions,
+        .pagination-bar {
+          align-items: stretch;
+          flex-direction: column;
         }
 
-        .admin-topbar {
-          align-items: start;
-          flex-direction: column;
+        .sponsor-table-head {
+          display: none;
+        }
+        .sponsor-table-row {
+          grid-template-columns: 1fr;
+          gap: 0.7rem;
+        }
+
+        .row-open {
+          display: none;
+        }
+        .detail-actions {
+          justify-content: stretch;
+        }
+        .detail-actions button {
+          flex: 1 1 100%;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .review-toast,
+        .sponsor-table-row.selection-pulse,
+        .sponsor-detail-panel.selection-pulse {
+          animation: none;
         }
       }
     `
@@ -948,6 +1858,8 @@ const controlledSponsorLogoUrlPrefixes = [
 })
 export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   private readonly admin = inject(FundingAdminService);
+  @ViewChild('sponsorDetailPanel')
+  private readonly sponsorDetailPanel?: ElementRef<HTMLElement>;
 
   readonly adminToken = signal<string>('');
   readonly sponsorships = signal<readonly AdminSponsorshipRecord[]>([]);
@@ -962,7 +1874,17 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly search = signal<string>('');
   readonly reviewFilter = signal<SponsorshipReviewFilter>('all');
   readonly feedFilter = signal<SponsorFeedStatusFilter>('all');
+  readonly selectedSponsorshipId = signal<string | null>(null);
+  readonly activeTab = signal<SponsorDetailsTab>('overview');
+  readonly page = signal<number>(1);
+  readonly pageSize = signal<number>(6);
+  readonly selectionPulseId = signal<string | null>(null);
+  readonly reviewMessages = signal<Record<string, string>>({});
+  readonly publicationMessages = signal<Record<string, string>>({});
+  readonly noteMessages = signal<Record<string, string>>({});
+  readonly copyMessages = signal<Record<string, string>>({});
   readonly feedStatuses = feedStatuses;
+  readonly pageSizeOptions = pageSizeOptions;
 
   readonly filteredSponsorships = computed(() => {
     const search = this.search().trim().toLowerCase();
@@ -991,25 +1913,69 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       );
     });
   });
+  readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.filteredSponsorships().length / this.pageSize()))
+  );
+  readonly normalizedPage = computed(() =>
+    Math.min(this.page(), this.totalPages())
+  );
+  readonly paginatedSponsorships = computed(() => {
+    const start = (this.normalizedPage() - 1) * this.pageSize();
+    return this.filteredSponsorships().slice(start, start + this.pageSize());
+  });
+  readonly paginationStart = computed(() =>
+    this.filteredSponsorships().length === 0
+      ? 0
+      : (this.normalizedPage() - 1) * this.pageSize() + 1
+  );
+  readonly paginationEnd = computed(() =>
+    Math.min(
+      this.filteredSponsorships().length,
+      this.normalizedPage() * this.pageSize()
+    )
+  );
+  readonly selectedSponsorship = computed(() => {
+    const selectedId = this.selectedSponsorshipId();
+    if (!selectedId) {
+      return null;
+    }
 
-  readonly pendingCount = computed(
+    return this.sponsorships().find((item) => item.id === selectedId) ?? null;
+  });
+  readonly hasActiveFilters = computed(
+    () =>
+      this.search().trim().length > 0 ||
+      this.reviewFilter() !== 'all' ||
+      this.feedFilter() !== 'all'
+  );
+
+  readonly visibleCount = computed(
     () =>
       this.sponsorships().filter(
-        (item) => item.sponsor_review_status === 'pending_review'
+        (item) =>
+          item.sponsor_review_status === 'approved' &&
+          (item.public_display_consent ||
+            item.sponsor_feed_status === 'published')
       ).length
   );
-  readonly approvedCount = computed(
+  readonly activeCount = computed(
     () =>
       this.sponsorships().filter(
-        (item) => item.sponsor_review_status === 'approved'
+        (item) =>
+          item.payment_status === 'paid' &&
+          item.sponsor_review_status !== 'rejected'
       ).length
   );
-  readonly rejectedCount = computed(
-    () =>
-      this.sponsorships().filter(
-        (item) => item.sponsor_review_status === 'rejected'
-      ).length
+  readonly totalContribution = computed(() =>
+    this.sponsorships()
+      .filter((item) => item.payment_status === 'paid')
+      .reduce((total, item) => total + item.amount, 0)
   );
+  private readonly reviewMessageTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+  private selectionPulseTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
@@ -1018,6 +1984,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.revokeLogoPreviews();
+    this.clearReviewMessageTimers();
+    this.clearSelectionPulseTimer();
   }
 
   async loadSponsorships(): Promise<void> {
@@ -1042,6 +2010,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
           ])
         )
       );
+      if (
+        response.sponsorships.length > 0 &&
+        !response.sponsorships.some(
+          (item) => item.id === this.selectedSponsorshipId()
+        )
+      ) {
+        this.selectedSponsorshipId.set(response.sponsorships[0]?.id ?? null);
+      }
+      this.page.set(Math.min(this.page(), this.totalPages()));
       this.state.set('ready');
       this.saveToken();
       void this.loadLogoPreviews(response.sponsorships);
@@ -1054,17 +2031,77 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     sponsorship: AdminSponsorshipRecord,
     reviewStatus: SponsorshipReviewStatus
   ): Promise<void> {
-    this.actionState.set(sponsorship.id);
+    let reviewNote = this.reviewNoteFor(sponsorship.id).trim();
+    if (reviewStatus === 'rejected' && !reviewNote) {
+      if (typeof window === 'undefined') {
+        return;
+      }
+
+      const refusalReason = window.prompt('Motif du refus');
+      if (refusalReason === null) {
+        return;
+      }
+
+      reviewNote = refusalReason.trim();
+      this.setReviewNoteValue(sponsorship.id, reviewNote);
+    }
+
+    if (
+      reviewStatus === 'pending_review' &&
+      sponsorship.sponsor_review_status !== 'pending_review' &&
+      typeof window !== 'undefined' &&
+      !window.confirm('Remettre ce dossier en attente?')
+    ) {
+      return;
+    }
+
+    this.actionState.set(this.reviewActionId(sponsorship.id));
+    this.setReviewMessage(
+      sponsorship.id,
+      `Action en cours: ${this.reviewActionName(reviewStatus)}...`
+    );
 
     try {
       await this.admin.reviewSponsorship(this.adminToken(), {
         contributionId: sponsorship.id,
         reviewStatus,
+        reviewNote: reviewNote || undefined
+      });
+      await this.loadSponsorships();
+      this.setReviewMessage(
+        sponsorship.id,
+        this.reviewSuccessMessage(reviewStatus),
+        true
+      );
+      this.pulseSelection(sponsorship.id);
+    } catch {
+      this.setReviewMessage(
+        sponsorship.id,
+        "Action impossible: la revue n'a pas pu etre enregistree.",
+        true
+      );
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
+  async saveReviewNote(sponsorship: AdminSponsorshipRecord): Promise<void> {
+    this.actionState.set(this.noteActionId(sponsorship.id));
+    this.setNoteMessage(sponsorship.id, 'Enregistrement en cours...');
+
+    try {
+      await this.admin.reviewSponsorship(this.adminToken(), {
+        contributionId: sponsorship.id,
+        reviewStatus: sponsorship.sponsor_review_status,
         reviewNote: this.reviewNoteFor(sponsorship.id).trim() || undefined
       });
       await this.loadSponsorships();
+      this.setNoteMessage(sponsorship.id, 'Note enregistree.');
     } catch {
-      this.state.set('error');
+      this.setNoteMessage(
+        sponsorship.id,
+        "La note n'a pas pu etre enregistree."
+      );
     } finally {
       this.actionState.set(null);
     }
@@ -1072,7 +2109,17 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   async savePublication(sponsorship: AdminSponsorshipRecord): Promise<void> {
     const draft = this.publicationDraftFor(sponsorship.id);
-    this.actionState.set(sponsorship.id);
+    const slugError = this.slugErrorFor(sponsorship);
+    if (!this.publicationDirtyFor(sponsorship) || slugError) {
+      this.setPublicationMessage(
+        sponsorship.id,
+        slugError || 'Aucune modification a enregistrer.'
+      );
+      return;
+    }
+
+    this.actionState.set(this.publicationActionId(sponsorship.id));
+    this.setPublicationMessage(sponsorship.id, 'Enregistrement en cours...');
 
     try {
       await this.admin.updateSponsorshipPublication(this.adminToken(), {
@@ -1089,8 +2136,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         feedNotes: draft.feedNotes.trim() || undefined
       });
       await this.loadSponsorships();
+      this.setPublicationMessage(sponsorship.id, 'Publication enregistree.');
     } catch {
-      this.state.set('error');
+      this.setPublicationMessage(
+        sponsorship.id,
+        "Les donnees de publication n'ont pas pu etre enregistrees."
+      );
     } finally {
       this.actionState.set(null);
     }
@@ -1137,7 +2188,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       await this.loadSponsorships();
     } catch {
       this.setLogoUploadMessage(sponsorship.id, 'Upload du logo impossible.');
-      this.state.set('error');
     } finally {
       this.actionState.set(null);
       if (input) {
@@ -1166,7 +2216,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         sponsorship.id,
         'Suppression du logo impossible.'
       );
-      this.state.set('error');
     } finally {
       this.actionState.set(null);
     }
@@ -1179,6 +2228,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   setSearch(event: Event): void {
     this.search.set(this.valueFromEvent(event));
+    this.page.set(1);
   }
 
   setReviewFilter(event: Event): void {
@@ -1188,6 +2238,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         ? value
         : 'all'
     );
+    this.page.set(1);
   }
 
   setFeedFilter(event: Event): void {
@@ -1200,10 +2251,51 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         ? value
         : 'all'
     );
+    this.page.set(1);
+  }
+
+  resetFilters(): void {
+    this.search.set('');
+    this.reviewFilter.set('all');
+    this.feedFilter.set('all');
+    this.page.set(1);
+  }
+
+  setPageSize(event: Event): void {
+    const value = Number.parseInt(this.valueFromEvent(event), 10);
+    this.pageSize.set(
+      pageSizeOptions.some((size) => size === value) ? value : 6
+    );
+    this.page.set(1);
+  }
+
+  previousPage(): void {
+    this.page.set(Math.max(1, this.normalizedPage() - 1));
+  }
+
+  nextPage(): void {
+    this.page.set(Math.min(this.totalPages(), this.normalizedPage() + 1));
+  }
+
+  selectSponsorship(sponsorship: AdminSponsorshipRecord): void {
+    this.selectedSponsorshipId.set(sponsorship.id);
+    this.pulseSelection(sponsorship.id);
+    this.scrollSelectedSponsorshipIntoView();
+  }
+
+  closeDetails(): void {
+    this.selectedSponsorshipId.set(null);
+  }
+
+  setActiveTab(tab: SponsorDetailsTab): void {
+    this.activeTab.set(tab);
   }
 
   setReviewNote(id: string, event: Event): void {
-    const value = this.valueFromEvent(event);
+    this.setReviewNoteValue(id, this.valueFromEvent(event));
+  }
+
+  setReviewNoteValue(id: string, value: string): void {
     this.reviewNotes.update((notes) => ({
       ...notes,
       [id]: value
@@ -1215,7 +2307,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     field: SponsorshipPublicationTextField,
     event: Event
   ): void {
-    const value = this.valueFromEvent(event);
+    const value =
+      field === 'publicSlug'
+        ? this.normalizeSlug(this.valueFromEvent(event))
+        : this.valueFromEvent(event);
     this.publicationDrafts.update((drafts) => {
       const draft = drafts[id] ?? this.emptyPublicationDraft();
       return {
@@ -1230,10 +2325,13 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   setPublicationChannel(
     id: string,
-    channel: 'facebook' | 'linkedin',
+    channel: SponsorshipPublicationChannel,
     event: Event
   ): void {
-    const checked = (event.target as HTMLInputElement | null)?.checked ?? false;
+    const sponsorship = this.sponsorships().find((item) => item.id === id);
+    const checked =
+      (sponsorship && this.isPromisedFeedChannel(sponsorship, channel)) ||
+      ((event.target as HTMLInputElement | null)?.checked ?? false);
     this.publicationDrafts.update((drafts) => {
       const draft = drafts[id] ?? this.emptyPublicationDraft();
       return {
@@ -1248,6 +2346,18 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   reviewNoteFor(id: string): string {
     return this.reviewNotes()[id] ?? '';
+  }
+
+  reviewActionId(id: string): string {
+    return `review:${id}`;
+  }
+
+  publicationActionId(id: string): string {
+    return `publication:${id}`;
+  }
+
+  noteActionId(id: string): string {
+    return `note:${id}`;
   }
 
   logoActionId(id: string): string {
@@ -1274,12 +2384,121 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return this.logoUploadMessages()[id] ?? '';
   }
 
+  reviewMessageFor(id: string): string {
+    return this.reviewMessages()[id] ?? '';
+  }
+
+  copyMessageFor(id: string): string {
+    return this.copyMessages()[id] ?? '';
+  }
+
   publicationDraftFor(id: string): SponsorshipPublicationDraft {
     return this.publicationDrafts()[id] ?? this.emptyPublicationDraft();
   }
 
+  promisedFeedChannelsFor(
+    sponsorship: AdminSponsorshipRecord
+  ): readonly SponsorshipPublicationChannel[] {
+    const { achievedBenefits } = resolveSponsorshipBenefits(
+      sponsorship.amount,
+      DEFAULT_SPONSORSHIP_PRICING_CONFIG
+    );
+
+    return achievedBenefits
+      .map((benefit) => benefitFeedChannelMap[benefit])
+      .filter(
+        (channel): channel is SponsorshipPublicationChannel =>
+          channel === 'facebook' || channel === 'linkedin'
+      );
+  }
+
+  isPromisedFeedChannel(
+    sponsorship: AdminSponsorshipRecord,
+    channel: SponsorshipPublicationChannel
+  ): boolean {
+    return this.promisedFeedChannelsFor(sponsorship).includes(channel);
+  }
+
+  isActionPending(actionId: string): boolean {
+    return this.actionState() === actionId;
+  }
+
+  isAnyActionPending(id: string): boolean {
+    const action = this.actionState();
+    return Boolean(action && action.endsWith(id));
+  }
+
   trackById(_: number, sponsorship: AdminSponsorshipRecord): string {
     return sponsorship.id;
+  }
+
+  initialsFor(sponsorship: AdminSponsorshipRecord): string {
+    const source =
+      sponsorship.sponsor_company_name ||
+      sponsorship.sponsor_contact_name ||
+      sponsorship.public_reference ||
+      'OG';
+    const initials = source
+      .split(/\s+/)
+      .map((part) => part.charAt(0))
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+
+    return initials || 'OG';
+  }
+
+  visibilityLabel(sponsorship: AdminSponsorshipRecord): string {
+    if (
+      sponsorship.sponsor_review_status === 'approved' &&
+      (sponsorship.public_display_consent ||
+        sponsorship.sponsor_feed_status === 'published')
+    ) {
+      return 'Visible';
+    }
+
+    if (sponsorship.sponsor_review_status === 'pending_review') {
+      return 'En revision';
+    }
+
+    return 'Masque';
+  }
+
+  visibilityClass(sponsorship: AdminSponsorshipRecord): string {
+    const state =
+      sponsorship.sponsor_review_status === 'approved' &&
+      (sponsorship.public_display_consent ||
+        sponsorship.sponsor_feed_status === 'published')
+        ? 'visible'
+        : sponsorship.sponsor_review_status === 'pending_review'
+          ? 'review'
+          : 'hidden';
+
+    return `visibility-badge visibility-${state}`;
+  }
+
+  reviewActionName(status: SponsorshipReviewStatus): string {
+    if (status === 'approved') {
+      return 'acceptation';
+    }
+
+    if (status === 'rejected') {
+      return 'refus';
+    }
+
+    return 'remise en attente';
+  }
+
+  reviewSuccessMessage(status: SponsorshipReviewStatus): string {
+    if (status === 'approved') {
+      return 'Action confirmee: commandite acceptee.';
+    }
+
+    if (status === 'rejected') {
+      return 'Action confirmee: commandite refusee.';
+    }
+
+    return 'Action confirmee: commandite remise en attente.';
   }
 
   reviewStatusLabel(status: SponsorshipReviewStatus): string {
@@ -1310,15 +2529,89 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return 'Non planifie';
   }
 
+  feedStatusClass(status: SponsorFeedStatus): string {
+    return `feed-badge feed-${status}`;
+  }
+
+  feedTargetLabel(sponsorship: AdminSponsorshipRecord): string {
+    if (sponsorship.sponsor_feed_target === 'openg7') {
+      return 'OpenG7';
+    }
+
+    if (sponsorship.sponsor_feed_target === 'openg20') {
+      return 'OpenG20';
+    }
+
+    return 'Aucune';
+  }
+
+  feedChannelsLabel(sponsorship: AdminSponsorshipRecord): string {
+    if (sponsorship.sponsor_feed_channels.length === 0) {
+      return 'Aucun canal';
+    }
+
+    return sponsorship.sponsor_feed_channels
+      .map((channel) => (channel === 'linkedin' ? 'LinkedIn' : 'Facebook'))
+      .join(' / ');
+  }
+
+  draftChannelsLabel(id: string): string {
+    const draft = this.publicationDraftFor(id);
+    const channels = [
+      ...(draft.facebook ? ['Facebook'] : []),
+      ...(draft.linkedin ? ['LinkedIn'] : [])
+    ];
+
+    return channels.length > 0 ? channels.join(' / ') : 'Aucun canal';
+  }
+
   statusClass(status: SponsorshipReviewStatus): string {
     return `status-badge status-${status.replace('_review', '')}`;
   }
 
+  paymentStatusLabel(status: string): string {
+    if (status === 'paid') {
+      return 'Paye';
+    }
+
+    if (status === 'refunded') {
+      return 'Rembourse';
+    }
+
+    if (status === 'disputed') {
+      return 'Litige';
+    }
+
+    if (status === 'failed') {
+      return 'Echec de paiement';
+    }
+
+    return 'En attente';
+  }
+
+  paymentStatusClass(status: string): string {
+    const state =
+      status === 'paid'
+        ? 'paid'
+        : status === 'failed' || status === 'disputed'
+          ? 'failed'
+          : 'pending';
+
+    return `payment-badge payment-${state}`;
+  }
+
   formatMoney(sponsorship: AdminSponsorshipRecord): string {
-    return new Intl.NumberFormat('fr-CA', {
-      style: 'currency',
-      currency: sponsorship.currency || 'CAD'
-    }).format(sponsorship.amount);
+    return `${new Intl.NumberFormat('fr-CA', {
+      maximumFractionDigits: 0
+    }).format(
+      sponsorship.amount
+    )} $ ${(sponsorship.currency || 'CAD').toUpperCase()}`;
+  }
+
+  formatSummaryMoney(amount: number): string {
+    return `${new Intl.NumberFormat('fr-CA', {
+      maximumFractionDigits: 0
+    }).format(amount)} $ CAD`;
   }
 
   sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {
@@ -1329,14 +2622,22 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
     switch (tier) {
       case 'website_facebook_linkedin':
-        return 'Palier OpenG7.org + Facebook + LinkedIn';
+        return 'Or';
       case 'website_facebook':
-        return 'Palier OpenG7.org + Facebook';
+        return 'Argent';
       case 'website_only':
-        return 'Palier OpenG7.org';
+        return 'Bronze';
       default:
-        return 'Palier indetermine';
+        return 'Indetermine';
     }
+  }
+
+  tierClass(sponsorship: AdminSponsorshipRecord): string {
+    const tier = this.sponsorshipTierLabel(sponsorship).toLowerCase();
+    const state =
+      tier === 'or' ? 'gold' : tier === 'argent' ? 'silver' : 'bronze';
+
+    return `tier-badge tier-${state}`;
   }
 
   sponsorshipBenefitsLabel(sponsorship: AdminSponsorshipRecord): string {
@@ -1358,15 +2659,43 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return achievedBenefits.map((benefit) => labels[benefit]).join(', ');
   }
 
-  dateLabel(value: string | null): string {
+  dateOnlyLabel(value: string | null): string {
     if (!value) {
+      return 'Non disponible';
+    }
+
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) {
+      return 'Non disponible';
+    }
+
+    return new Intl.DateTimeFormat('fr-CA', {
+      dateStyle: 'medium'
+    }).format(date);
+  }
+
+  dateTimeLabel(value: string | null): string {
+    if (!value) {
+      return 'Non disponible';
+    }
+
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) {
       return 'Non disponible';
     }
 
     return new Intl.DateTimeFormat('fr-CA', {
       dateStyle: 'medium',
       timeStyle: 'short'
-    }).format(new Date(value));
+    }).format(date);
+  }
+
+  submittedAt(sponsorship: AdminSponsorshipRecord): string | null {
+    return (
+      sponsorship.sponsor_details_submitted_at ||
+      sponsorship.paid_at ||
+      sponsorship.created_at
+    );
   }
 
   publicNameLabel(sponsorship: AdminSponsorshipRecord): string {
@@ -1377,15 +2706,169 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return sponsorship.public_name || 'Consenti, nom manquant';
   }
 
+  isReviewNoteDirty(sponsorship: AdminSponsorshipRecord): boolean {
+    return (
+      this.reviewNoteFor(sponsorship.id).trim() !==
+      (sponsorship.sponsor_review_note ?? '').trim()
+    );
+  }
+
+  reviewNoteStateLabel(sponsorship: AdminSponsorshipRecord): string {
+    const message = this.noteMessages()[sponsorship.id];
+    if (message) {
+      return message;
+    }
+
+    return this.isReviewNoteDirty(sponsorship)
+      ? 'Modifications non enregistrees'
+      : 'Note enregistree';
+  }
+
+  publicationDirtyFor(sponsorship: AdminSponsorshipRecord): boolean {
+    const draft = this.publicationDraftFor(sponsorship.id);
+    const original = this.toPublicationDraft(sponsorship, false, false);
+
+    return (
+      draft.publicSlug !== original.publicSlug ||
+      draft.publicSummary !== original.publicSummary ||
+      draft.feedTarget !== original.feedTarget ||
+      draft.facebook !== original.facebook ||
+      draft.linkedin !== original.linkedin ||
+      draft.feedStatus !== original.feedStatus ||
+      draft.feedPublicUrl !== original.feedPublicUrl ||
+      draft.feedNotes !== original.feedNotes
+    );
+  }
+
+  publicationStateLabel(sponsorship: AdminSponsorshipRecord): string {
+    const message = this.publicationMessages()[sponsorship.id];
+    if (message) {
+      return message;
+    }
+
+    const slugError = this.slugErrorFor(sponsorship);
+    if (slugError) {
+      return slugError;
+    }
+
+    return this.publicationDirtyFor(sponsorship)
+      ? 'Modifications non enregistrees'
+      : 'Publication enregistree';
+  }
+
+  slugErrorFor(sponsorship: AdminSponsorshipRecord): string {
+    const slug = this.publicationDraftFor(sponsorship.id).publicSlug.trim();
+    if (!slug) {
+      return '';
+    }
+
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      return 'Utilisez seulement des lettres, chiffres et tirets.';
+    }
+
+    const duplicate = this.sponsorships().some(
+      (item) =>
+        item.id !== sponsorship.id &&
+        this.normalizeSlug(item.sponsor_public_slug ?? '') === slug
+    );
+
+    return duplicate ? 'Ce slug est deja utilise.' : '';
+  }
+
+  hasSlugError(sponsorship: AdminSponsorshipRecord): boolean {
+    return Boolean(this.slugErrorFor(sponsorship));
+  }
+
+  auditEntriesFor(sponsorship: AdminSponsorshipRecord): SponsorAuditEntry[] {
+    const entries: SponsorAuditEntry[] = [];
+    entries.push({
+      date: sponsorship.created_at,
+      label: 'Reception de la commandite.'
+    });
+
+    if (sponsorship.paid_at) {
+      entries.push({
+        date: sponsorship.paid_at,
+        label: 'Paiement confirme.',
+        detail: this.paymentStatusLabel(sponsorship.payment_status)
+      });
+    }
+
+    if (sponsorship.sponsor_details_submitted_at) {
+      entries.push({
+        date: sponsorship.sponsor_details_submitted_at,
+        label: 'Details commanditaire recus.'
+      });
+    }
+
+    if (sponsorship.sponsor_reviewed_at) {
+      entries.push({
+        date: sponsorship.sponsor_reviewed_at,
+        label: `Statut de revue: ${this.reviewStatusLabel(
+          sponsorship.sponsor_review_status
+        )}.`
+      });
+    }
+
+    if (sponsorship.sponsor_visibility_updated_at) {
+      entries.push({
+        date: sponsorship.sponsor_visibility_updated_at,
+        label: 'Donnees de publication mises a jour.',
+        detail: this.feedStatusLabel(sponsorship.sponsor_feed_status)
+      });
+    }
+
+    return entries.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  }
+
+  trackByAuditEntry(_: number, entry: SponsorAuditEntry): string {
+    return `${entry.date}:${entry.label}`;
+  }
+
+  async copyReference(sponsorship: AdminSponsorshipRecord): Promise<void> {
+    if (!sponsorship.public_reference) {
+      return;
+    }
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(sponsorship.public_reference);
+      }
+      this.setCopyMessage(sponsorship.id, 'Reference copiee.');
+    } catch {
+      this.setCopyMessage(sponsorship.id, 'Copie impossible.');
+    }
+  }
+
   private toPublicationDraft(
-    sponsorship: AdminSponsorshipRecord
+    sponsorship: AdminSponsorshipRecord,
+    useGeneratedSlug = true,
+    includePromisedChannels = true
   ): SponsorshipPublicationDraft {
+    const defaultSlug = this.normalizeSlug(
+      useGeneratedSlug
+        ? sponsorship.sponsor_public_slug ||
+            sponsorship.public_name ||
+            sponsorship.sponsor_company_name ||
+            sponsorship.public_reference ||
+            ''
+        : sponsorship.sponsor_public_slug || ''
+    );
+    const feedChannels = new Set<SponsorFeedChannel>([
+      ...sponsorship.sponsor_feed_channels,
+      ...(includePromisedChannels
+        ? this.promisedFeedChannelsFor(sponsorship)
+        : [])
+    ]);
+
     return {
-      publicSlug: sponsorship.sponsor_public_slug ?? '',
+      publicSlug: defaultSlug,
       publicSummary: sponsorship.sponsor_public_summary ?? '',
       feedTarget: sponsorship.sponsor_feed_target ?? '',
-      facebook: sponsorship.sponsor_feed_channels.includes('facebook'),
-      linkedin: sponsorship.sponsor_feed_channels.includes('linkedin'),
+      facebook: feedChannels.has('facebook'),
+      linkedin: feedChannels.has('linkedin'),
       feedStatus: sponsorship.sponsor_feed_status,
       feedPublicUrl: sponsorship.sponsor_feed_public_url ?? '',
       feedNotes: sponsorship.sponsor_feed_notes ?? ''
@@ -1414,6 +2897,132 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       ...messages,
       [id]: message
     }));
+  }
+
+  private setReviewMessage(
+    id: string,
+    message: string,
+    autoHide = false
+  ): void {
+    this.clearReviewMessageTimer(id);
+    this.reviewMessages.update((messages) => ({
+      ...messages,
+      [id]: message
+    }));
+
+    if (autoHide) {
+      this.reviewMessageTimers.set(
+        id,
+        setTimeout(() => {
+          this.clearReviewMessage(id, message);
+        }, 3000)
+      );
+    }
+  }
+
+  private clearReviewMessage(id: string, expectedMessage?: string): void {
+    this.clearReviewMessageTimer(id);
+    this.reviewMessages.update((messages) => {
+      if (expectedMessage !== undefined && messages[id] !== expectedMessage) {
+        return messages;
+      }
+
+      const remaining = { ...messages };
+      delete remaining[id];
+      return remaining;
+    });
+  }
+
+  private clearReviewMessageTimer(id: string): void {
+    const timer = this.reviewMessageTimers.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      this.reviewMessageTimers.delete(id);
+    }
+  }
+
+  private clearReviewMessageTimers(): void {
+    for (const timer of this.reviewMessageTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.reviewMessageTimers.clear();
+  }
+
+  private pulseSelection(id: string): void {
+    this.clearSelectionPulseTimer();
+    this.selectionPulseId.set(null);
+    this.selectionPulseTimer = setTimeout(() => {
+      this.selectionPulseId.set(id);
+      this.selectionPulseTimer = setTimeout(() => {
+        if (this.selectionPulseId() === id) {
+          this.selectionPulseId.set(null);
+        }
+        this.selectionPulseTimer = null;
+      }, 520);
+    }, 0);
+  }
+
+  private scrollSelectedSponsorshipIntoView(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    setTimeout(() => {
+      const detailPanel = this.sponsorDetailPanel?.nativeElement;
+      if (!detailPanel) {
+        return;
+      }
+
+      const { top, bottom } = detailPanel.getBoundingClientRect();
+      const viewportHeight =
+        window.innerHeight || document.documentElement.clientHeight;
+      if (top >= 0 && bottom <= viewportHeight) {
+        return;
+      }
+
+      detailPanel.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 0);
+  }
+
+  private clearSelectionPulseTimer(): void {
+    if (this.selectionPulseTimer) {
+      clearTimeout(this.selectionPulseTimer);
+      this.selectionPulseTimer = null;
+    }
+  }
+
+  private setPublicationMessage(id: string, message: string): void {
+    this.publicationMessages.update((messages) => ({
+      ...messages,
+      [id]: message
+    }));
+  }
+
+  private setNoteMessage(id: string, message: string): void {
+    this.noteMessages.update((messages) => ({
+      ...messages,
+      [id]: message
+    }));
+  }
+
+  private setCopyMessage(id: string, message: string): void {
+    this.copyMessages.update((messages) => ({
+      ...messages,
+      [id]: message
+    }));
+  }
+
+  private normalizeSlug(value: string): string {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
   }
 
   private async loadLogoPreviews(
