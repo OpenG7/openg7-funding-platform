@@ -178,6 +178,16 @@ export class SiteMusicComponent implements OnInit, OnDestroy {
   }
 
   private syncRouteState(): void {
+    if (this.isAdminRoute()) {
+      this.isAvailable.set(false);
+      this.removeUnlockHandlers?.();
+      this.removeUnlockHandlers = null;
+      this.stopMusic();
+      return;
+    }
+
+    this.isAvailable.set(true);
+
     if (this.isAutomaticStartSuppressedRoute()) {
       this.removeUnlockHandlers?.();
       this.removeUnlockHandlers = null;
@@ -190,12 +200,28 @@ export class SiteMusicComponent implements OnInit, OnDestroy {
   }
 
   private isAutomaticStartSuppressedRoute(): boolean {
-    const routerPath = this.router.url.split(/[?#]/)[0];
-    const browserPath = window.location.pathname;
+    const routerPath = this.normalizedPath(this.router.url);
+    const browserPath = this.normalizedPath(window.location.pathname);
     return (
       ['/music', '/boutique'].includes(routerPath) ||
       ['/music', '/boutique'].includes(browserPath)
     );
+  }
+
+  private isAdminRoute(): boolean {
+    const routerPath = this.normalizedPath(this.router.url);
+    const browserPath = this.normalizedPath(window.location.pathname);
+    return (
+      routerPath === '/admin' ||
+      routerPath.startsWith('/admin/') ||
+      browserPath === '/admin' ||
+      browserPath.startsWith('/admin/')
+    );
+  }
+
+  private normalizedPath(path: string): string {
+    const normalized = path.split(/[?#]/)[0].replace(/\/+$/, '');
+    return normalized || '/';
   }
 
   private registerUnlockHandlers(): void {

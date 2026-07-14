@@ -197,9 +197,10 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
     adminPage,
     [
       'loadSponsorships()',
-      'pendingCount',
-      'approvedCount',
-      'rejectedCount',
+      'visibleCount',
+      'activeCount',
+      'totalContribution',
+      'visibilityLabel',
       'uploadLogo',
       'deleteLogo',
       'logoPreviewSourceFor',
@@ -271,9 +272,9 @@ test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () =
   assertIncludesAll(
     adminPage,
     [
-      "review(sponsorship, 'pending_review')",
-      "review(sponsorship, 'rejected')",
-      "review(sponsorship, 'approved')",
+      "review(selected, 'pending_review')",
+      "review(selected, 'rejected')",
+      "review(selected, 'approved')",
       'reviewNoteFor'
     ],
     'admin review buttons'
@@ -324,7 +325,9 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
     adminPage,
     [
       'publication-editor',
-      'savePublication(sponsorship)',
+      'savePublication(selected)',
+      'publicationDirtyFor',
+      'slugErrorFor',
       '<option value="openg7">OpenG7</option>',
       '<option value="openg20">OpenG20</option>',
       'Facebook',

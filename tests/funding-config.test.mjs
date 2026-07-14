@@ -1343,10 +1343,31 @@ test('Admin sponsors page derives the sponsorship tier from the paid amount inst
     )
   );
   assert.match(page, /\{\{\s*sponsorshipTierLabel\(sponsorship\)\s*\}\}/);
-  assert.match(page, /\{\{\s*sponsorshipBenefitsLabel\(sponsorship\)\s*\}\}/);
+  assert.match(
+    page,
+    /\{\{\s*sponsorshipBenefitsLabel\((sponsorship|selected)\)\s*\}\}/
+  );
   // Derived from the record's own amount, never a value the client could send.
   assert.ok(page.includes('resolveSponsorshipBenefits('));
   assert.ok(page.includes('sponsorship.amount,'));
+});
+
+test('Admin sponsors publication channels are preselected from amount-based benefits', () => {
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
+    'utf8'
+  );
+
+  assert.ok(page.includes('benefitFeedChannelMap'));
+  assert.ok(page.includes("facebook_batch: 'facebook'"));
+  assert.ok(page.includes("linkedin_batch: 'linkedin'"));
+  assert.ok(page.includes('promisedFeedChannelsFor('));
+  assert.ok(page.includes('isPromisedFeedChannel('));
+  assert.ok(page.includes("isPromisedFeedChannel(selected, 'facebook')"));
+  assert.ok(page.includes("isPromisedFeedChannel(selected, 'linkedin')"));
+  assert.ok(
+    page.includes('this.toPublicationDraft(sponsorship, false, false)')
+  );
 });
 
 test('Publication batches are listed chronologically per channel, not just by status', () => {
@@ -1513,6 +1534,10 @@ test('Public sponsorships are exposed only after consent and approval', () => {
 
 test('Admin sponsorship publication endpoint validates feed placement fields', () => {
   const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
   const service = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
     'utf8'
@@ -1524,6 +1549,11 @@ test('Admin sponsorship publication endpoint validates feed placement fields', (
   assert.ok(api.includes('isAllowedSponsorFeedTarget'));
   assert.ok(api.includes('parseSponsorFeedChannelsFromRequest'));
   assert.ok(api.includes('isAllowedSponsorFeedStatus'));
+  assert.ok(api.includes('publicationUpdate.feedChannels'));
+  assert.ok(repository.includes('mergePromisedSponsorFeedChannels'));
+  assert.ok(repository.includes('sponsorshipBenefitFeedChannels'));
+  assert.ok(repository.includes("facebook_batch: 'facebook'"));
+  assert.ok(repository.includes("linkedin_batch: 'linkedin'"));
   assert.ok(service.includes('/admin/sponsorships/publication'));
 });
 

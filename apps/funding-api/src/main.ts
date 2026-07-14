@@ -3680,7 +3680,7 @@ createServer(async (request, response) => {
     }
 
     try {
-      const updated = await updateSponsorshipPublication(dbPool, {
+      const publicationUpdate = await updateSponsorshipPublication(dbPool, {
         contributionId: parsed.contributionId,
         publicSlug:
           typeof parsed.publicSlug === 'string' &&
@@ -3711,7 +3711,7 @@ createServer(async (request, response) => {
             : undefined
       });
 
-      if (!updated) {
+      if (!publicationUpdate.updated) {
         writeJson(request, response, 404, {
           error: 'Sponsorship contribution was not found.'
         });
@@ -3719,7 +3719,7 @@ createServer(async (request, response) => {
       }
 
       const result: AdminSponsorshipPublicationResult = {
-        updated,
+        updated: publicationUpdate.updated,
         feedStatus: parsed.feedStatus
       };
       await insertAdminAuditLog(dbPool, {
@@ -3730,7 +3730,7 @@ createServer(async (request, response) => {
         summary: `Sponsorship publication metadata updated to ${parsed.feedStatus}.`,
         metadata: {
           feedTarget: parsed.feedTarget ?? null,
-          feedChannels,
+          feedChannels: publicationUpdate.feedChannels,
           feedStatus: parsed.feedStatus,
           hasPublicUrl: Boolean(parsed.feedPublicUrl?.trim())
         }

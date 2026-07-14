@@ -44,6 +44,13 @@ const sponsorshipTierByAchievedCount: readonly (SponsorshipTierId | null)[] = [
   'website_facebook_linkedin'
 ];
 
+const sponsorshipBenefitFeedChannels: Partial<
+  Record<SponsorshipBenefitId, SponsorFeedChannel>
+> = {
+  facebook_batch: 'facebook',
+  linkedin_batch: 'linkedin'
+};
+
 const resolveSponsorshipBenefits = (
   amount: number
 ): {
@@ -134,6 +141,11 @@ export interface SponsorshipReviewInput {
 }
 
 export type SponsorshipPublicationInput = AdminSponsorshipPublicationRequest;
+
+export interface SponsorshipPublicationMutationResult {
+  readonly updated: boolean;
+  readonly feedChannels: readonly SponsorFeedChannel[];
+}
 
 export interface SponsorshipLogoInput {
   readonly contributionId: string;
@@ -322,6 +334,20 @@ const parseSponsorFeedChannels = (
   return raw.filter((channel): channel is SponsorFeedChannel =>
     allowedSponsorFeedChannels.has(channel as SponsorFeedChannel)
   );
+};
+
+const mergePromisedSponsorFeedChannels = (
+  channels: readonly SponsorFeedChannel[],
+  amount: number
+): readonly SponsorFeedChannel[] => {
+  const { achievedBenefits } = resolveSponsorshipBenefits(amount);
+  const promisedChannels = achievedBenefits
+    .map((benefit) => sponsorshipBenefitFeedChannels[benefit])
+    .filter((channel): channel is SponsorFeedChannel =>
+      allowedSponsorFeedChannels.has(channel as SponsorFeedChannel)
+    );
+
+  return [...new Set([...channels, ...promisedChannels])];
 };
 
 const normalizeSponsorFeedStatus = (
@@ -1175,10 +1201,30 @@ export const updateSponsorshipReview = async (
 export const updateSponsorshipPublication = async (
   pool: Pool | null,
   input: SponsorshipPublicationInput
-): Promise<boolean> => {
+): Promise<SponsorshipPublicationMutationResult> => {
   if (!pool) {
-    return false;
+    return { updated: false, feedChannels: input.feedChannels };
   }
+
+  const target = await pool.query<{ readonly amount_cents: string }>(
+    `
+      SELECT amount_cents::text AS amount_cents
+      FROM fund_contributions
+      WHERE id = $1::uuid
+        AND contribution_type = 'sponsorship_interest'
+        AND status IN ('paid', 'refunded', 'disputed')
+    `,
+    [input.contributionId]
+  );
+
+  if (!target.rows[0]) {
+    return { updated: false, feedChannels: input.feedChannels };
+  }
+
+  const feedChannels = mergePromisedSponsorFeedChannels(
+    input.feedChannels,
+    centsToAmount(parseDbInt(target.rows[0].amount_cents))
+  );
 
   const result = await pool.query(
     `
@@ -1202,14 +1248,17 @@ export const updateSponsorshipPublication = async (
       input.publicSlug?.trim() || null,
       input.publicSummary?.trim() || null,
       input.feedTarget ?? null,
-      JSON.stringify(input.feedChannels),
+      JSON.stringify(feedChannels),
       input.feedStatus,
       input.feedPublicUrl?.trim() || null,
       input.feedNotes?.trim() || null
     ]
   );
 
-  return (result.rowCount ?? 0) > 0;
+  return {
+    updated: (result.rowCount ?? 0) > 0,
+    feedChannels
+  };
 };
 
 export const updateSponsorshipLogoUrl = async (

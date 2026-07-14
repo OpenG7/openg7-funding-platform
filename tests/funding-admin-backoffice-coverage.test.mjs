@@ -42,6 +42,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const adminNav = read(
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts'
   );
+  const siteMusic = read(
+    'apps/funding-web/src/app/features/funding/components/site-music/site-music.component.ts'
+  );
   const api = read('apps/funding-api/src/main.ts');
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'
@@ -89,6 +92,18 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'routerLink="/admin/fundraiser/audit"'
     ],
     'admin navigation'
+  );
+
+  assertIncludesAll(
+    siteMusic,
+    [
+      'isAdminRoute()',
+      "routerPath.startsWith('/admin/')",
+      "browserPath.startsWith('/admin/')",
+      'this.isAvailable.set(false)',
+      'this.stopMusic()'
+    ],
+    'admin music suppression'
   );
 
   assertIncludesAll(
@@ -175,15 +190,28 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'filteredSponsorships',
       'reviewFilter',
       'feedFilter',
-      'admin-filters',
+      'sponsors-board',
+      'sponsor-detail-panel',
+      'detail-tabs',
+      'visibleCount',
+      'activeCount',
+      'totalContribution',
       'uploadLogo',
       'deleteLogo',
       'logoPreviewSourceFor',
-      'logo-delete-button',
+      'secondary-danger-action',
       'sponsorship.public_reference',
-      'reference-code',
+      'copyReference',
       'image/png,image/jpeg,image/webp',
-      'sponsorLogoMaxBytes'
+      'sponsorLogoMaxBytes',
+      'review-toast',
+      'selection-pulse',
+      'scrollSelectedSponsorshipIntoView',
+      'scrollIntoView',
+      'reviewMessageTimers',
+      'setTimeout(() => {',
+      '}, 3000)',
+      'reviewSuccessMessage'
     ],
     'admin sponsorship filters'
   );
