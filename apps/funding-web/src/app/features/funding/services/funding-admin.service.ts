@@ -34,6 +34,17 @@ const sessionExpiresAtStorageKey = 'openg7-admin-session-expires-at';
 const legacyTokenStorageKey = 'openg7-admin-token';
 const adminSessionTokenPrefix = 'openg7-admin-session.';
 
+export interface AdminSponsorshipListQuery {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly search?: string;
+  readonly reviewStatus?: string;
+  readonly feedStatus?: string;
+  readonly paymentStatus?: string;
+  readonly sort?: string;
+  readonly direction?: 'asc' | 'desc';
+}
+
 @Injectable({ providedIn: 'root' })
 export class FundingAdminService {
   private readonly apiBaseUrl = this.resolveApiBaseUrl();
@@ -444,14 +455,49 @@ export class FundingAdminService {
     return (await response.json()) as AdminAuditLogResponse;
   }
 
-  async getSponsorships(token: string): Promise<AdminSponsorshipsResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/admin/sponsorships`, {
+  async getSponsorships(
+    token: string,
+    query?: AdminSponsorshipListQuery
+  ): Promise<AdminSponsorshipsResponse> {
+    const params = new URLSearchParams();
+    if (query) {
+      params.set('page', String(query.page));
+      params.set('pageSize', String(query.pageSize));
+      if (query.search?.trim()) {
+        params.set('search', query.search.trim());
+      }
+      if (query.reviewStatus && query.reviewStatus !== 'all') {
+        params.set('reviewStatus', query.reviewStatus);
+      }
+      if (query.feedStatus && query.feedStatus !== 'all') {
+        params.set('feedStatus', query.feedStatus);
+      }
+      if (query.paymentStatus && query.paymentStatus !== 'all') {
+        params.set('paymentStatus', query.paymentStatus);
+      }
+      if (query.sort) {
+        params.set('sort', query.sort);
+      }
+      if (query.direction) {
+        params.set('direction', query.direction);
+      }
+    }
+
+    const url = `${this.apiBaseUrl}/admin/sponsorships${
+      params.toString() ? `?${params.toString()}` : ''
+    }`;
+    const response = await fetch(url, {
       method: 'GET',
       headers: await this.createHeaders(token)
     });
 
     if (!response.ok) {
-      throw new Error('Admin sponsorships could not be loaded.');
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Admin sponsorships could not be loaded.'
+        )
+      );
     }
 
     return (await response.json()) as AdminSponsorshipsResponse;
@@ -460,10 +506,12 @@ export class FundingAdminService {
   async uploadSponsorLogo(
     token: string,
     contributionId: string,
+    expectedVersion: string,
     logo: File
   ): Promise<AdminSponsorLogoUploadResult> {
     const body = new FormData();
     body.set('contributionId', contributionId);
+    body.set('expectedVersion', expectedVersion);
     body.set('logo', logo);
 
     const response = await fetch(`${this.apiBaseUrl}/admin/sponsorships/logo`, {
@@ -473,7 +521,12 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error('Sponsor logo could not be uploaded.');
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsor logo could not be uploaded.'
+        )
+      );
     }
 
     return (await response.json()) as AdminSponsorLogoUploadResult;
@@ -504,7 +557,8 @@ export class FundingAdminService {
 
   async deleteSponsorLogo(
     token: string,
-    contributionId: string
+    contributionId: string,
+    expectedVersion: string
   ): Promise<AdminSponsorLogoDeleteResult> {
     const response = await fetch(
       `${this.apiBaseUrl}/admin/sponsorships/logo/delete`,
@@ -514,12 +568,17 @@ export class FundingAdminService {
           ...(await this.createHeaders(token)),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ contributionId })
+        body: JSON.stringify({ contributionId, expectedVersion })
       }
     );
 
     if (!response.ok) {
-      throw new Error('Sponsor logo could not be deleted.');
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsor logo could not be deleted.'
+        )
+      );
     }
 
     return (await response.json()) as AdminSponsorLogoDeleteResult;
@@ -542,7 +601,12 @@ export class FundingAdminService {
     );
 
     if (!response.ok) {
-      throw new Error('Sponsorship review could not be updated.');
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsorship review could not be updated.'
+        )
+      );
     }
 
     return (await response.json()) as AdminSponsorshipReviewResult;
@@ -565,7 +629,12 @@ export class FundingAdminService {
     );
 
     if (!response.ok) {
-      throw new Error('Sponsorship publication could not be updated.');
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsorship publication could not be updated.'
+        )
+      );
     }
 
     return (await response.json()) as AdminSponsorshipPublicationResult;
@@ -582,6 +651,25 @@ export class FundingAdminService {
           }
         : {})
     };
+  }
+
+  private async errorMessageFromResponse(
+    response: Response,
+    fallback: string
+  ): Promise<string> {
+    try {
+      const payload = (await response.json()) as {
+        readonly message?: unknown;
+        readonly error?: unknown;
+      };
+      return typeof payload.message === 'string'
+        ? payload.message
+        : typeof payload.error === 'string'
+          ? payload.error
+          : fallback;
+    } catch {
+      return fallback;
+    }
   }
 
   private async resolveAdminSessionToken(token: string): Promise<string> {
