@@ -197,12 +197,17 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
     adminPage,
     [
       'loadSponsorships()',
+      'pageSizeOptions',
+      'paymentFilter',
+      'pagination().totalItems',
+      'response.items ?? response.sponsorships',
       'visibleCount',
       'activeCount',
       'totalContribution',
       'visibilityLabel',
       'uploadLogo',
       'deleteLogo',
+      'expectedVersion: sponsorship.version',
       'logoPreviewSourceFor',
       'sponsorship.public_reference',
       'image/png,image/jpeg,image/webp'
@@ -216,6 +221,9 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
       '/admin/sponsorships',
       '/admin/sponsorships/logo',
       '/admin/sponsorships/logo/delete',
+      'AdminSponsorshipListQuery',
+      'URLSearchParams',
+      'expectedVersion',
       'uploadSponsorLogo',
       'getSponsorLogoPreview',
       'deleteSponsorLogo',
@@ -236,6 +244,9 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
       'sponsorship.logo.upload',
       'sponsorship.logo.delete',
       'deleteControlledSponsorLogoFile',
+      'parseAdminSponsorshipsQuery',
+      'SPONSORSHIP_CONCURRENT_UPDATE',
+      'SPONSORSHIP_PAYMENT_NOT_ELIGIBLE',
       "'/admin/sponsorships'"
     ],
     'admin sponsorship API'
@@ -245,6 +256,11 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
     repository,
     [
       'listAdminSponsorships',
+      'AdminSponsorshipListInput',
+      'COUNT(*)::text AS total_items',
+      'LIMIT ${limitPlaceholder}',
+      'OFFSET ${offsetPlaceholder}',
+      'updated_at::text AS version',
       'updateSponsorshipLogoUrl',
       'clearSponsorshipLogoUrl',
       'getAdminSponsorshipLogoUrl',
@@ -275,6 +291,8 @@ test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () =
       "review(selected, 'pending_review')",
       "review(selected, 'rejected')",
       "review(selected, 'approved')",
+      'canApproveSponsorship',
+      'paymentEligibilityMessage',
       'reviewNoteFor'
     ],
     'admin review buttons'
@@ -291,14 +309,20 @@ test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () =
     [
       "'/admin/sponsorships/review'",
       'isAllowedSponsorshipReviewStatus',
-      'ADMIN_REVIEW_NOTE_MAX_LENGTH'
+      'ADMIN_REVIEW_NOTE_MAX_LENGTH',
+      'isValidAdminExpectedVersion'
     ],
     'admin review API validation'
   );
 
   assertIncludesAll(
     repository,
-    ['updateSponsorshipReview', 'sponsor_review_status = $2'],
+    [
+      'updateSponsorshipReview',
+      'sponsor_review_status = $2',
+      'payment_not_eligible',
+      'targetRow.review_status !=='
+    ],
     'admin review repository'
   );
 });
@@ -327,6 +351,7 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
       'publication-editor',
       'savePublication(selected)',
       'publicationDirtyFor',
+      'canSavePublication',
       'slugErrorFor',
       '<option value="openg7">OpenG7</option>',
       '<option value="openg20">OpenG20</option>',
@@ -344,7 +369,8 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
       'isAllowedSponsorFeedTarget',
       'parseSponsorFeedChannelsFromRequest',
       'isAllowedSponsorFeedStatus',
-      'isValidOptionalHttpsUrl(parsed.feedPublicUrl)'
+      'isValidOptionalHttpsUrl(parsed.feedPublicUrl)',
+      'isValidAdminExpectedVersion'
     ],
     'admin publication API validation'
   );
@@ -353,6 +379,7 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
     repository,
     [
       'updateSponsorshipPublication',
+      'visibilityMetadataChanged',
       'sponsor_feed_target = $4',
       'sponsor_feed_channels = $5::jsonb',
       'sponsor_feed_status = $6'

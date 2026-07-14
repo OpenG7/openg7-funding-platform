@@ -1370,6 +1370,67 @@ test('Admin sponsors publication channels are preselected from amount-based bene
   );
 });
 
+test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+
+  assert.ok(core.includes('export interface AdminPagination'));
+  assert.ok(core.includes('readonly version: string;'));
+  assert.ok(core.includes('readonly items: readonly AdminSponsorshipRecord[];'));
+  assert.ok(core.includes('readonly pagination: AdminPagination;'));
+  assert.ok(core.includes('readonly expectedVersion: string;'));
+
+  assert.ok(service.includes('export interface AdminSponsorshipListQuery'));
+  assert.ok(service.includes('const params = new URLSearchParams();'));
+  assert.ok(service.includes("params.set('page', String(query.page));"));
+  assert.ok(service.includes("params.set('paymentStatus', query.paymentStatus);"));
+  assert.ok(service.includes("body.set('expectedVersion', expectedVersion);"));
+  assert.ok(service.includes('errorMessageFromResponse'));
+
+  assert.ok(page.includes('readonly pagination = signal<AdminPagination>'));
+  assert.ok(page.includes('readonly paymentFilter = signal'));
+  assert.ok(page.includes('response.items ?? response.sponsorships'));
+  assert.ok(page.includes('paymentStatus: this.paymentFilter()'));
+  assert.ok(page.includes('expectedVersion: sponsorship.version'));
+  assert.ok(page.includes('paymentEligibilityMessage'));
+  assert.ok(page.includes('canApproveSponsorship'));
+  assert.ok(page.includes('canSavePublication'));
+  assert.ok(page.includes('messageFromError'));
+
+  assert.ok(api.includes('parseAdminSponsorshipsQuery'));
+  assert.ok(api.includes('const adminSponsorshipPageSizes = new Set([6, 10, 25]);'));
+  assert.ok(api.includes('SPONSORSHIP_CONCURRENT_UPDATE'));
+  assert.ok(api.includes('SPONSORSHIP_PAYMENT_NOT_ELIGIBLE'));
+  assert.ok(api.includes('isValidAdminExpectedVersion'));
+  assert.ok(api.includes('items: sponsorships.items'));
+  assert.ok(api.includes('pagination: sponsorships.pagination'));
+
+  assert.ok(repository.includes('export interface AdminSponsorshipListInput'));
+  assert.ok(repository.includes('export interface AdminSponsorshipListResult'));
+  assert.ok(repository.includes('COUNT(*)::text AS total_items'));
+  assert.ok(repository.includes('MAX(updated_at)::text AS last_updated_at'));
+  assert.ok(repository.includes('ILIKE ${placeholder}'));
+  assert.ok(repository.includes('LIMIT ${limitPlaceholder}'));
+  assert.ok(repository.includes('OFFSET ${offsetPlaceholder}'));
+  assert.ok(repository.includes('updated_at::text AS version'));
+  assert.ok(repository.includes('payment_not_eligible'));
+  assert.ok(repository.includes('visibilityMetadataChanged'));
+  assert.ok(repository.includes('AND updated_at::text = $4'));
+  assert.ok(repository.includes('AND updated_at::text = $9'));
+});
+
 test('Publication batches are listed chronologically per channel, not just by status', () => {
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-admin.repository.ts',

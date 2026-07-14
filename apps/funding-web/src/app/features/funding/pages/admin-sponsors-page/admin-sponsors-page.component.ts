@@ -16,6 +16,7 @@ import {
   resolveSponsorshipBenefits
 } from '@openg7/funding-core';
 import type {
+  AdminPagination,
   AdminSponsorshipRecord,
   SponsorFeedChannel,
   SponsorFeedStatus,
@@ -54,6 +55,7 @@ type SponsorshipPublicationTextField =
   | 'feedNotes';
 type SponsorshipReviewFilter = 'all' | SponsorshipReviewStatus;
 type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
+type SponsorPaymentStatusFilter = 'all' | 'paid' | 'refunded' | 'disputed';
 type SponsorDetailsTab = 'overview' | 'identity' | 'publication' | 'audit';
 type SponsorshipPublicationChannel = Extract<
   SponsorFeedChannel,
@@ -67,6 +69,14 @@ interface SponsorAuditEntry {
 }
 
 const pageSizeOptions = [6, 10, 25] as const;
+const defaultPagination: AdminPagination = {
+  page: 1,
+  pageSize: 6,
+  totalItems: 0,
+  totalPages: 1,
+  hasPreviousPage: false,
+  hasNextPage: false
+};
 const benefitFeedChannelMap: Partial<
   Record<SponsorshipBenefitId, SponsorshipPublicationChannel>
 > = {
@@ -130,7 +140,7 @@ const controlledSponsorLogoUrlPrefixes = [
             <span class="metric-mark">TO</span>
             <div>
               <span>Total commanditaires</span
-              ><strong>{{ sponsorships().length }}</strong
+              ><strong>{{ pagination().totalItems }}</strong
               ><small>Toutes organisations</small>
             </div>
           </article>
@@ -203,6 +213,19 @@ const controlledSponsorLogoUrlPrefixes = [
                     >
                       {{ feedStatusLabel(status) }}
                     </option>
+                  </select>
+                </label>
+
+                <label>
+                  Paiement
+                  <select
+                    [value]="paymentFilter()"
+                    (change)="setPaymentFilter($event)"
+                  >
+                    <option value="all">Tous</option>
+                    <option value="paid">Paye</option>
+                    <option value="refunded">Rembourse</option>
+                    <option value="disputed">Litige</option>
                   </select>
                 </label>
 
@@ -331,7 +354,11 @@ const controlledSponsorLogoUrlPrefixes = [
 
               <article
                 class="empty-admin-state"
-                *ngIf="state() === 'ready' && sponsorships().length === 0"
+                *ngIf="
+                  state() === 'ready' &&
+                  sponsorships().length === 0 &&
+                  !hasActiveFilters()
+                "
               >
                 <h2>Toutes les commandites ont ete revisees.</h2>
                 <p>
@@ -343,8 +370,8 @@ const controlledSponsorLogoUrlPrefixes = [
                 class="empty-admin-state"
                 *ngIf="
                   state() === 'ready' &&
-                  sponsorships().length > 0 &&
-                  filteredSponsorships().length === 0
+                  sponsorships().length === 0 &&
+                  hasActiveFilters()
                 "
               >
                 <h2>Aucune commandite ne correspond aux filtres.</h2>
@@ -365,7 +392,7 @@ const controlledSponsorLogoUrlPrefixes = [
                 <span
                   >Affichage de {{ paginationStart() }} a
                   {{ paginationEnd() }} sur
-                  {{ filteredSponsorships().length }} resultats</span
+                  {{ pagination().totalItems }} resultats</span
                 >
                 <div class="pagination-controls">
                   <button
@@ -465,6 +492,14 @@ const controlledSponsorLogoUrlPrefixes = [
                   </div>
                 </dl>
               </header>
+
+              <p
+                class="payment-alert"
+                *ngIf="paymentEligibilityMessage(selected)"
+                role="alert"
+              >
+                {{ paymentEligibilityMessage(selected) }}
+              </p>
 
               <nav class="detail-tabs" aria-label="Onglets du dossier">
                 <button
@@ -758,6 +793,7 @@ const controlledSponsorLogoUrlPrefixes = [
                       [disabled]="
                         !publicationDirtyFor(selected) ||
                         hasSlugError(selected) ||
+                        !canSavePublication(selected) ||
                         isActionPending(publicationActionId(selected.id))
                       "
                       (click)="savePublication(selected)"
@@ -1022,7 +1058,10 @@ const controlledSponsorLogoUrlPrefixes = [
                 <button
                   type="button"
                   class="review-button approve"
-                  [disabled]="isAnyActionPending(selected.id)"
+                  [disabled]="
+                    isAnyActionPending(selected.id) ||
+                    !canApproveSponsorship(selected)
+                  "
                   (click)="review(selected, 'approved')"
                 >
                   Accepter
@@ -1504,6 +1543,18 @@ const controlledSponsorLogoUrlPrefixes = [
         color: #38425a;
         margin: 0.2rem 0 0;
       }
+
+      .payment-alert {
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 0.45rem;
+        color: #9a3412;
+        font-weight: 900;
+        grid-column: 1 / -1;
+        margin: 0 1rem 1rem;
+        padding: 0.75rem 0.9rem;
+      }
+
       .detail-badges,
       .detail-meta {
         grid-column: 1 / -1;
@@ -1874,10 +1925,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly search = signal<string>('');
   readonly reviewFilter = signal<SponsorshipReviewFilter>('all');
   readonly feedFilter = signal<SponsorFeedStatusFilter>('all');
+  readonly paymentFilter = signal<SponsorPaymentStatusFilter>('all');
   readonly selectedSponsorshipId = signal<string | null>(null);
   readonly activeTab = signal<SponsorDetailsTab>('overview');
   readonly page = signal<number>(1);
   readonly pageSize = signal<number>(6);
+  readonly pagination = signal<AdminPagination>(defaultPagination);
   readonly selectionPulseId = signal<string | null>(null);
   readonly reviewMessages = signal<Record<string, string>>({});
   readonly publicationMessages = signal<Record<string, string>>({});
@@ -1886,53 +1939,19 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly feedStatuses = feedStatuses;
   readonly pageSizeOptions = pageSizeOptions;
 
-  readonly filteredSponsorships = computed(() => {
-    const search = this.search().trim().toLowerCase();
-    const reviewFilter = this.reviewFilter();
-    const feedFilter = this.feedFilter();
-
-    return this.sponsorships().filter((sponsorship) => {
-      const searchable = [
-        sponsorship.public_reference,
-        sponsorship.sponsor_company_name,
-        sponsorship.sponsor_contact_name,
-        sponsorship.sponsor_contact_email,
-        sponsorship.sponsor_website_url,
-        sponsorship.public_name,
-        sponsorship.sponsor_public_slug
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return (
-        (!search || searchable.includes(search)) &&
-        (reviewFilter === 'all' ||
-          sponsorship.sponsor_review_status === reviewFilter) &&
-        (feedFilter === 'all' || sponsorship.sponsor_feed_status === feedFilter)
-      );
-    });
-  });
-  readonly totalPages = computed(() =>
-    Math.max(1, Math.ceil(this.filteredSponsorships().length / this.pageSize()))
-  );
-  readonly normalizedPage = computed(() =>
-    Math.min(this.page(), this.totalPages())
-  );
-  readonly paginatedSponsorships = computed(() => {
-    const start = (this.normalizedPage() - 1) * this.pageSize();
-    return this.filteredSponsorships().slice(start, start + this.pageSize());
-  });
+  readonly filteredSponsorships = computed(() => this.sponsorships());
+  readonly totalPages = computed(() => this.pagination().totalPages);
+  readonly normalizedPage = computed(() => this.pagination().page);
+  readonly paginatedSponsorships = computed(() => this.sponsorships());
   readonly paginationStart = computed(() =>
-    this.filteredSponsorships().length === 0
+    this.pagination().totalItems === 0
       ? 0
-      : (this.normalizedPage() - 1) * this.pageSize() + 1
+      : (this.pagination().page - 1) * this.pagination().pageSize + 1
   );
   readonly paginationEnd = computed(() =>
-    Math.min(
-      this.filteredSponsorships().length,
-      this.normalizedPage() * this.pageSize()
-    )
+    this.pagination().totalItems === 0
+      ? 0
+      : this.paginationStart() + this.sponsorships().length - 1
   );
   readonly selectedSponsorship = computed(() => {
     const selectedId = this.selectedSponsorshipId();
@@ -1946,7 +1965,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     () =>
       this.search().trim().length > 0 ||
       this.reviewFilter() !== 'all' ||
-      this.feedFilter() !== 'all'
+      this.feedFilter() !== 'all' ||
+      this.paymentFilter() !== 'all'
   );
 
   readonly visibleCount = computed(
@@ -1992,11 +2012,23 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.state.set('loading');
 
     try {
-      const response = await this.admin.getSponsorships(this.adminToken());
-      this.sponsorships.set(response.sponsorships);
+      const response = await this.admin.getSponsorships(this.adminToken(), {
+        page: this.page(),
+        pageSize: this.pageSize(),
+        search: this.search(),
+        reviewStatus: this.reviewFilter(),
+        feedStatus: this.feedFilter(),
+        paymentStatus: this.paymentFilter(),
+        sort: 'priority',
+        direction: 'desc'
+      });
+      const sponsorships = response.items ?? response.sponsorships;
+      this.sponsorships.set(sponsorships);
+      this.pagination.set(response.pagination ?? defaultPagination);
+      this.page.set(response.pagination?.page ?? this.page());
       this.reviewNotes.set(
         Object.fromEntries(
-          response.sponsorships.map((item) => [
+          sponsorships.map((item) => [
             item.id,
             item.sponsor_review_note ?? ''
           ])
@@ -2004,24 +2036,23 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       );
       this.publicationDrafts.set(
         Object.fromEntries(
-          response.sponsorships.map((item) => [
+          sponsorships.map((item) => [
             item.id,
             this.toPublicationDraft(item)
           ])
         )
       );
       if (
-        response.sponsorships.length > 0 &&
-        !response.sponsorships.some(
+        sponsorships.length > 0 &&
+        !sponsorships.some(
           (item) => item.id === this.selectedSponsorshipId()
         )
       ) {
-        this.selectedSponsorshipId.set(response.sponsorships[0]?.id ?? null);
+        this.selectedSponsorshipId.set(sponsorships[0]?.id ?? null);
       }
-      this.page.set(Math.min(this.page(), this.totalPages()));
       this.state.set('ready');
       this.saveToken();
-      void this.loadLogoPreviews(response.sponsorships);
+      void this.loadLogoPreviews(sponsorships);
     } catch {
       this.state.set('error');
     }
@@ -2031,6 +2062,16 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     sponsorship: AdminSponsorshipRecord,
     reviewStatus: SponsorshipReviewStatus
   ): Promise<void> {
+    if (reviewStatus === 'approved' && !this.canApproveSponsorship(sponsorship)) {
+      this.setReviewMessage(
+        sponsorship.id,
+        this.paymentEligibilityMessage(sponsorship) ||
+          "Action impossible: le paiement n'est pas admissible.",
+        true
+      );
+      return;
+    }
+
     let reviewNote = this.reviewNoteFor(sponsorship.id).trim();
     if (reviewStatus === 'rejected' && !reviewNote) {
       if (typeof window === 'undefined') {
@@ -2065,7 +2106,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       await this.admin.reviewSponsorship(this.adminToken(), {
         contributionId: sponsorship.id,
         reviewStatus,
-        reviewNote: reviewNote || undefined
+        reviewNote: reviewNote || undefined,
+        expectedVersion: sponsorship.version
       });
       await this.loadSponsorships();
       this.setReviewMessage(
@@ -2074,10 +2116,13 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         true
       );
       this.pulseSelection(sponsorship.id);
-    } catch {
+    } catch (error) {
       this.setReviewMessage(
         sponsorship.id,
-        "Action impossible: la revue n'a pas pu etre enregistree.",
+        this.messageFromError(
+          error,
+          "Action impossible: la revue n'a pas pu etre enregistree."
+        ),
         true
       );
     } finally {
@@ -2093,14 +2138,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       await this.admin.reviewSponsorship(this.adminToken(), {
         contributionId: sponsorship.id,
         reviewStatus: sponsorship.sponsor_review_status,
-        reviewNote: this.reviewNoteFor(sponsorship.id).trim() || undefined
+        reviewNote: this.reviewNoteFor(sponsorship.id).trim() || undefined,
+        expectedVersion: sponsorship.version
       });
       await this.loadSponsorships();
       this.setNoteMessage(sponsorship.id, 'Note enregistree.');
-    } catch {
+    } catch (error) {
       this.setNoteMessage(
         sponsorship.id,
-        "La note n'a pas pu etre enregistree."
+        this.messageFromError(error, "La note n'a pas pu etre enregistree.")
       );
     } finally {
       this.actionState.set(null);
@@ -2118,12 +2164,22 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!this.canSavePublication(sponsorship)) {
+      this.setPublicationMessage(
+        sponsorship.id,
+        this.paymentEligibilityMessage(sponsorship) ||
+          "Publication bloquee: le paiement n'est pas admissible."
+      );
+      return;
+    }
+
     this.actionState.set(this.publicationActionId(sponsorship.id));
     this.setPublicationMessage(sponsorship.id, 'Enregistrement en cours...');
 
     try {
       await this.admin.updateSponsorshipPublication(this.adminToken(), {
         contributionId: sponsorship.id,
+        expectedVersion: sponsorship.version,
         publicSlug: draft.publicSlug.trim() || undefined,
         publicSummary: draft.publicSummary.trim() || undefined,
         feedTarget: draft.feedTarget || null,
@@ -2137,10 +2193,13 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       });
       await this.loadSponsorships();
       this.setPublicationMessage(sponsorship.id, 'Publication enregistree.');
-    } catch {
+    } catch (error) {
       this.setPublicationMessage(
         sponsorship.id,
-        "Les donnees de publication n'ont pas pu etre enregistrees."
+        this.messageFromError(
+          error,
+          "Les donnees de publication n'ont pas pu etre enregistrees."
+        )
       );
     } finally {
       this.actionState.set(null);
@@ -2179,6 +2238,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       const result = await this.admin.uploadSponsorLogo(
         this.adminToken(),
         sponsorship.id,
+        sponsorship.version,
         file
       );
       this.setLogoUploadMessage(
@@ -2186,8 +2246,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         `Logo enregistre (${Math.ceil(result.sizeBytes / 1024)} KiB).`
       );
       await this.loadSponsorships();
-    } catch {
-      this.setLogoUploadMessage(sponsorship.id, 'Upload du logo impossible.');
+    } catch (error) {
+      this.setLogoUploadMessage(
+        sponsorship.id,
+        this.messageFromError(error, 'Upload du logo impossible.')
+      );
     } finally {
       this.actionState.set(null);
       if (input) {
@@ -2208,13 +2271,17 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.setLogoUploadMessage(sponsorship.id, 'Suppression en cours...');
 
     try {
-      await this.admin.deleteSponsorLogo(this.adminToken(), sponsorship.id);
+      await this.admin.deleteSponsorLogo(
+        this.adminToken(),
+        sponsorship.id,
+        sponsorship.version
+      );
       this.setLogoUploadMessage(sponsorship.id, 'Logo supprime.');
       await this.loadSponsorships();
-    } catch {
+    } catch (error) {
       this.setLogoUploadMessage(
         sponsorship.id,
-        'Suppression du logo impossible.'
+        this.messageFromError(error, 'Suppression du logo impossible.')
       );
     } finally {
       this.actionState.set(null);
@@ -2229,6 +2296,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   setSearch(event: Event): void {
     this.search.set(this.valueFromEvent(event));
     this.page.set(1);
+    void this.loadSponsorships();
   }
 
   setReviewFilter(event: Event): void {
@@ -2239,6 +2307,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         : 'all'
     );
     this.page.set(1);
+    void this.loadSponsorships();
   }
 
   setFeedFilter(event: Event): void {
@@ -2252,13 +2321,27 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         : 'all'
     );
     this.page.set(1);
+    void this.loadSponsorships();
+  }
+
+  setPaymentFilter(event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.paymentFilter.set(
+      value === 'paid' || value === 'refunded' || value === 'disputed'
+        ? value
+        : 'all'
+    );
+    this.page.set(1);
+    void this.loadSponsorships();
   }
 
   resetFilters(): void {
     this.search.set('');
     this.reviewFilter.set('all');
     this.feedFilter.set('all');
+    this.paymentFilter.set('all');
     this.page.set(1);
+    void this.loadSponsorships();
   }
 
   setPageSize(event: Event): void {
@@ -2267,14 +2350,17 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       pageSizeOptions.some((size) => size === value) ? value : 6
     );
     this.page.set(1);
+    void this.loadSponsorships();
   }
 
   previousPage(): void {
     this.page.set(Math.max(1, this.normalizedPage() - 1));
+    void this.loadSponsorships();
   }
 
   nextPage(): void {
     this.page.set(Math.min(this.totalPages(), this.normalizedPage() + 1));
+    void this.loadSponsorships();
   }
 
   selectSponsorship(sponsorship: AdminSponsorshipRecord): void {
@@ -2600,6 +2686,29 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return `payment-badge payment-${state}`;
   }
 
+  paymentEligibilityMessage(sponsorship: AdminSponsorshipRecord): string {
+    if (sponsorship.payment_status === 'refunded') {
+      return 'Paiement rembourse: les nouvelles approbations et publications publiques sont bloquees.';
+    }
+
+    if (sponsorship.payment_status === 'disputed') {
+      return "Paiement conteste: la visibilite et les nouvelles publications sont bloquees jusqu'a resolution.";
+    }
+
+    return '';
+  }
+
+  canApproveSponsorship(sponsorship: AdminSponsorshipRecord): boolean {
+    return (
+      sponsorship.payment_status === 'paid' ||
+      sponsorship.sponsor_review_status === 'approved'
+    );
+  }
+
+  canSavePublication(sponsorship: AdminSponsorshipRecord): boolean {
+    return sponsorship.payment_status === 'paid';
+  }
+
   formatMoney(sponsorship: AdminSponsorshipRecord): string {
     return `${new Intl.NumberFormat('fr-CA', {
       maximumFractionDigits: 0
@@ -2744,6 +2853,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     const message = this.publicationMessages()[sponsorship.id];
     if (message) {
       return message;
+    }
+
+    const paymentMessage = this.paymentEligibilityMessage(sponsorship);
+    if (paymentMessage) {
+      return paymentMessage;
     }
 
     const slugError = this.slugErrorFor(sponsorship);
@@ -3013,6 +3127,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       ...messages,
       [id]: message
     }));
+  }
+
+  private messageFromError(error: unknown, fallback: string): string {
+    return error instanceof Error && error.message.trim()
+      ? error.message
+      : fallback;
   }
 
   private normalizeSlug(value: string): string {

@@ -289,6 +289,7 @@ export type SponsorshipReviewStatus =
 
 export interface AdminSponsorshipRecord {
   readonly id: string;
+  readonly version: string;
   readonly public_reference: string | null;
   readonly contribution_type: 'sponsorship_interest';
   readonly amount: number;
@@ -320,9 +321,20 @@ export interface AdminSponsorshipRecord {
   readonly updated_at: string;
 }
 
+export interface AdminPagination {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+  readonly hasPreviousPage: boolean;
+  readonly hasNextPage: boolean;
+}
+
 export interface AdminSponsorshipsResponse {
   readonly data_source: 'database';
+  readonly items: readonly AdminSponsorshipRecord[];
   readonly sponsorships: readonly AdminSponsorshipRecord[];
+  readonly pagination: AdminPagination;
   readonly last_updated_at: string;
 }
 
@@ -336,6 +348,7 @@ export interface AdminSponsorLogoUploadResult {
 
 export interface AdminSponsorLogoDeleteRequest {
   readonly contributionId: string;
+  readonly expectedVersion: string;
 }
 
 export interface AdminSponsorLogoDeleteResult {
@@ -623,6 +636,7 @@ export interface AdminSponsorshipReviewRequest {
   readonly contributionId: string;
   readonly reviewStatus: SponsorshipReviewStatus;
   readonly reviewNote?: string;
+  readonly expectedVersion: string;
 }
 
 export interface AdminSponsorshipReviewResult {
@@ -632,6 +646,7 @@ export interface AdminSponsorshipReviewResult {
 
 export interface AdminSponsorshipPublicationRequest {
   readonly contributionId: string;
+  readonly expectedVersion: string;
   readonly publicSlug?: string;
   readonly publicSummary?: string;
   readonly feedTarget?: SponsorFeedTarget | null;

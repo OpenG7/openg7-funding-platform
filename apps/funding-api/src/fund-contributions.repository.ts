@@ -3,6 +3,7 @@ import type {
   AdminContributionsResponse,
   AdminContributionsSummary,
   AdminDashboardResponse,
+  AdminPagination,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipRecord,
   PublicSponsorshipProfile,
@@ -138,23 +139,71 @@ export interface SponsorshipReviewInput {
   readonly contributionId: string;
   readonly reviewStatus: SponsorshipReviewStatus;
   readonly reviewNote: string | null;
+  readonly expectedVersion: string;
 }
 
 export type SponsorshipPublicationInput = AdminSponsorshipPublicationRequest;
 
+export type SponsorshipMutationStatus =
+  | 'updated'
+  | 'not_found'
+  | 'conflict'
+  | 'payment_not_eligible';
+
+export interface SponsorshipReviewMutationResult {
+  readonly status: SponsorshipMutationStatus;
+  readonly updated: boolean;
+  readonly currentVersion: string | null;
+  readonly paymentStatus: string | null;
+}
+
 export interface SponsorshipPublicationMutationResult {
+  readonly status: SponsorshipMutationStatus;
   readonly updated: boolean;
   readonly feedChannels: readonly SponsorFeedChannel[];
+  readonly currentVersion: string | null;
+  readonly paymentStatus: string | null;
 }
 
 export interface SponsorshipLogoInput {
   readonly contributionId: string;
   readonly logoUrl: string;
+  readonly expectedVersion: string;
 }
 
 export interface SponsorshipLogoMutationResult {
+  readonly status: Exclude<SponsorshipMutationStatus, 'payment_not_eligible'>;
   readonly updated: boolean;
   readonly previousLogoUrl: string | null;
+  readonly currentVersion: string | null;
+}
+
+export interface SponsorshipLogoDeleteInput {
+  readonly contributionId: string;
+  readonly expectedVersion: string;
+}
+
+export interface AdminSponsorshipListInput {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly search?: string;
+  readonly reviewStatus?: SponsorshipReviewStatus;
+  readonly feedStatus?: SponsorFeedStatus;
+  readonly paymentStatus?: 'paid' | 'refunded' | 'disputed';
+  readonly sort?:
+    | 'priority'
+    | 'paid_at'
+    | 'submitted_at'
+    | 'amount'
+    | 'company'
+    | 'updated_at';
+  readonly direction?: 'asc' | 'desc';
+}
+
+export interface AdminSponsorshipListResult {
+  readonly items: readonly AdminSponsorshipRecord[];
+  readonly pagination: AdminPagination;
+  readonly lastUpdatedAt: string;
 }
 
 export interface SponsorshipFollowupRecordInput {
@@ -175,6 +224,7 @@ export interface SponsorshipFollowupEmailRecordInput {
 
 interface AdminSponsorshipRow {
   readonly id: string;
+  readonly version: string;
   readonly public_reference: string | null;
   readonly contribution_type: 'sponsorship_interest';
   readonly amount_cents: string;
@@ -359,6 +409,24 @@ const normalizeSponsorFeedTarget = (
   value: SponsorFeedTarget | null
 ): SponsorFeedTarget | null =>
   value && allowedSponsorFeedTargets.has(value) ? value : null;
+
+const normalizedNullableText = (value: string | null | undefined): string | null => {
+  const trimmed = value?.trim() ?? '';
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const sponsorFeedChannelsEqual = (
+  first: readonly SponsorFeedChannel[],
+  second: readonly SponsorFeedChannel[]
+): boolean => {
+  const firstSet = new Set(first);
+  const secondSet = new Set(second);
+
+  return (
+    firstSet.size === secondSet.size &&
+    [...firstSet].every((channel) => secondSet.has(channel))
+  );
+};
 
 const normalizeSponsorshipReviewStatus = (
   value: SponsorshipReviewStatus | null
@@ -1086,16 +1154,167 @@ export const getAdminDashboard = async (
   };
 };
 
-export const listAdminSponsorships = async (
-  pool: Pool | null
-): Promise<readonly AdminSponsorshipRecord[]> => {
-  if (!pool) {
-    return [];
+const mapAdminSponsorshipRow = (
+  row: AdminSponsorshipRow
+): AdminSponsorshipRecord => ({
+  id: row.id,
+  version: row.version,
+  public_reference: row.public_reference,
+  contribution_type: row.contribution_type,
+  amount: centsToAmount(parseDbInt(row.amount_cents)),
+  currency: row.currency.toUpperCase(),
+  payment_status: row.payment_status,
+  paid_at: row.paid_at,
+  public_name: row.public_name,
+  public_display_consent: row.public_display_consent,
+  display_amount_consent: row.display_amount_consent,
+  sponsor_company_name: row.sponsor_company_name,
+  sponsor_contact_name: row.sponsor_contact_name,
+  sponsor_contact_email: row.sponsor_contact_email,
+  sponsor_website_url: row.sponsor_website_url,
+  sponsor_logo_url: row.sponsor_logo_url,
+  sponsor_message: row.sponsor_message,
+  sponsor_details_submitted_at: row.sponsor_details_submitted_at,
+  sponsor_review_status: row.sponsor_review_status,
+  sponsor_review_note: row.sponsor_review_note,
+  sponsor_reviewed_at: row.sponsor_reviewed_at,
+  sponsor_public_slug: row.sponsor_public_slug,
+  sponsor_public_summary: row.sponsor_public_summary,
+  sponsor_feed_target: normalizeSponsorFeedTarget(row.sponsor_feed_target),
+  sponsor_feed_channels: parseSponsorFeedChannels(row.sponsor_feed_channels),
+  sponsor_feed_status: normalizeSponsorFeedStatus(row.sponsor_feed_status),
+  sponsor_feed_public_url: row.sponsor_feed_public_url,
+  sponsor_feed_notes: row.sponsor_feed_notes,
+  sponsor_visibility_updated_at: row.sponsor_visibility_updated_at,
+  created_at: row.created_at,
+  updated_at: row.updated_at
+});
+
+const adminSponsorshipListOrderBy = (
+  sort: NonNullable<AdminSponsorshipListInput['sort']>,
+  direction: NonNullable<AdminSponsorshipListInput['direction']>
+): string => {
+  const sqlDirection = direction === 'asc' ? 'ASC' : 'DESC';
+
+  if (sort === 'paid_at') {
+    return `paid_at ${sqlDirection} NULLS LAST, updated_at DESC`;
   }
 
-  const query = await pool.query<AdminSponsorshipRow>(`
+  if (sort === 'submitted_at') {
+    return `sponsor_details_submitted_at ${sqlDirection} NULLS LAST, updated_at DESC`;
+  }
+
+  if (sort === 'amount') {
+    return `amount_cents ${sqlDirection}, updated_at DESC`;
+  }
+
+  if (sort === 'company') {
+    return `LOWER(COALESCE(sponsor_company_name, public_name, '')) ${sqlDirection}, updated_at DESC`;
+  }
+
+  if (sort === 'updated_at') {
+    return `updated_at ${sqlDirection}`;
+  }
+
+  return `
+    CASE COALESCE(sponsor_review_status, 'pending_review')
+      WHEN 'pending_review' THEN 0
+      WHEN 'approved' THEN 1
+      ELSE 2
+    END ASC,
+    COALESCE(sponsor_details_submitted_at, paid_at, updated_at, created_at) DESC
+  `;
+};
+
+export const listAdminSponsorships = async (
+  pool: Pool | null,
+  input: AdminSponsorshipListInput
+): Promise<AdminSponsorshipListResult> => {
+  const page = Math.max(1, input.page);
+  const pageSize = input.pageSize;
+  const emptyPagination: AdminPagination = {
+    page,
+    pageSize,
+    totalItems: 0,
+    totalPages: 1,
+    hasPreviousPage: false,
+    hasNextPage: false
+  };
+
+  if (!pool) {
+    return {
+      items: [],
+      pagination: emptyPagination,
+      lastUpdatedAt: new Date().toISOString()
+    };
+  }
+
+  const params: unknown[] = [];
+  const whereClauses = [
+    "contribution_type = 'sponsorship_interest'",
+    "status IN ('paid', 'refunded', 'disputed')"
+  ];
+
+  if (input.search?.trim()) {
+    params.push(`%${input.search.trim()}%`);
+    const placeholder = `$${params.length}`;
+    whereClauses.push(`(
+      sponsor_company_name ILIKE ${placeholder}
+      OR sponsor_contact_name ILIKE ${placeholder}
+      OR sponsor_contact_email ILIKE ${placeholder}
+      OR sponsor_website_url ILIKE ${placeholder}
+      OR public_reference ILIKE ${placeholder}
+      OR public_name ILIKE ${placeholder}
+      OR sponsor_public_slug ILIKE ${placeholder}
+    )`);
+  }
+
+  if (input.reviewStatus) {
+    params.push(input.reviewStatus);
+    whereClauses.push(
+      `COALESCE(sponsor_review_status, 'pending_review') = $${params.length}`
+    );
+  }
+
+  if (input.feedStatus) {
+    params.push(input.feedStatus);
+    whereClauses.push(
+      `COALESCE(sponsor_feed_status, 'not_planned') = $${params.length}`
+    );
+  }
+
+  if (input.paymentStatus) {
+    params.push(input.paymentStatus);
+    whereClauses.push(`status = $${params.length}`);
+  }
+
+  const whereSql = whereClauses.join('\n      AND ');
+  const countQuery = await pool.query<{
+    readonly total_items: string;
+    readonly last_updated_at: string | null;
+  }>(
+    `
+      SELECT
+        COUNT(*)::text AS total_items,
+        MAX(updated_at)::text AS last_updated_at
+      FROM fund_contributions
+      WHERE ${whereSql}
+    `,
+    params
+  );
+  const totalItems = parseDbInt(countQuery.rows[0]?.total_items ?? '0');
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const normalizedPage = Math.min(page, totalPages);
+  const offset = (normalizedPage - 1) * pageSize;
+
+  params.push(pageSize, offset);
+  const limitPlaceholder = `$${params.length - 1}`;
+  const offsetPlaceholder = `$${params.length}`;
+  const query = await pool.query<AdminSponsorshipRow>(
+    `
     SELECT
       id::text AS id,
+      updated_at::text AS version,
       public_reference,
       contribution_type,
       amount_cents::text AS amount_cents,
@@ -1126,61 +1345,96 @@ export const listAdminSponsorships = async (
       created_at::text AS created_at,
       updated_at::text AS updated_at
     FROM fund_contributions
-    WHERE contribution_type = 'sponsorship_interest'
-      AND status IN ('paid', 'refunded', 'disputed')
-    ORDER BY
-      CASE COALESCE(sponsor_review_status, 'pending_review')
-        WHEN 'pending_review' THEN 0
-        WHEN 'approved' THEN 1
-        ELSE 2
-      END,
-      COALESCE(sponsor_details_submitted_at, paid_at, updated_at, created_at) DESC
-    LIMIT 100
-  `);
+    WHERE ${whereSql}
+    ORDER BY ${adminSponsorshipListOrderBy(
+      input.sort ?? 'priority',
+      input.direction ?? 'desc'
+    )}
+    LIMIT ${limitPlaceholder}
+    OFFSET ${offsetPlaceholder}
+  `,
+    params
+  );
 
-  return query.rows.map((row) => ({
-    id: row.id,
-    public_reference: row.public_reference,
-    contribution_type: row.contribution_type,
-    amount: centsToAmount(parseDbInt(row.amount_cents)),
-    currency: row.currency.toUpperCase(),
-    payment_status: row.payment_status,
-    paid_at: row.paid_at,
-    public_name: row.public_name,
-    public_display_consent: row.public_display_consent,
-    display_amount_consent: row.display_amount_consent,
-    sponsor_company_name: row.sponsor_company_name,
-    sponsor_contact_name: row.sponsor_contact_name,
-    sponsor_contact_email: row.sponsor_contact_email,
-    sponsor_website_url: row.sponsor_website_url,
-    sponsor_logo_url: row.sponsor_logo_url,
-    sponsor_message: row.sponsor_message,
-    sponsor_details_submitted_at: row.sponsor_details_submitted_at,
-    sponsor_review_status: row.sponsor_review_status,
-    sponsor_review_note: row.sponsor_review_note,
-    sponsor_reviewed_at: row.sponsor_reviewed_at,
-    sponsor_public_slug: row.sponsor_public_slug,
-    sponsor_public_summary: row.sponsor_public_summary,
-    sponsor_feed_target: normalizeSponsorFeedTarget(row.sponsor_feed_target),
-    sponsor_feed_channels: parseSponsorFeedChannels(row.sponsor_feed_channels),
-    sponsor_feed_status: normalizeSponsorFeedStatus(row.sponsor_feed_status),
-    sponsor_feed_public_url: row.sponsor_feed_public_url,
-    sponsor_feed_notes: row.sponsor_feed_notes,
-    sponsor_visibility_updated_at: row.sponsor_visibility_updated_at,
-    created_at: row.created_at,
-    updated_at: row.updated_at
-  }));
+  return {
+    items: query.rows.map(mapAdminSponsorshipRow),
+    pagination: {
+      page: normalizedPage,
+      pageSize,
+      totalItems,
+      totalPages,
+      hasPreviousPage: normalizedPage > 1,
+      hasNextPage: normalizedPage < totalPages
+    },
+    lastUpdatedAt:
+      countQuery.rows[0]?.last_updated_at ?? new Date().toISOString()
+  };
 };
 
 export const updateSponsorshipReview = async (
   pool: Pool | null,
   input: SponsorshipReviewInput
-): Promise<boolean> => {
+): Promise<SponsorshipReviewMutationResult> => {
   if (!pool) {
-    return false;
+    return {
+      status: 'not_found',
+      updated: false,
+      currentVersion: null,
+      paymentStatus: null
+    };
   }
 
-  const result = await pool.query(
+  const target = await pool.query<{
+    readonly status: string;
+    readonly review_status: SponsorshipReviewStatus;
+    readonly version: string;
+  }>(
+    `
+      SELECT
+        status,
+        COALESCE(sponsor_review_status, 'pending_review') AS review_status,
+        updated_at::text AS version
+      FROM fund_contributions
+      WHERE id = $1::uuid
+        AND contribution_type = 'sponsorship_interest'
+        AND status IN ('paid', 'refunded', 'disputed')
+    `,
+    [input.contributionId]
+  );
+
+  const targetRow = target.rows[0];
+  if (!targetRow) {
+    return {
+      status: 'not_found',
+      updated: false,
+      currentVersion: null,
+      paymentStatus: null
+    };
+  }
+
+  if (targetRow.version !== input.expectedVersion) {
+    return {
+      status: 'conflict',
+      updated: false,
+      currentVersion: targetRow.version,
+      paymentStatus: targetRow.status
+    };
+  }
+
+  if (
+    input.reviewStatus === 'approved' &&
+    targetRow.status !== 'paid' &&
+    targetRow.review_status !== 'approved'
+  ) {
+    return {
+      status: 'payment_not_eligible',
+      updated: false,
+      currentVersion: targetRow.version,
+      paymentStatus: targetRow.status
+    };
+  }
+
+  const result = await pool.query<{ readonly version: string }>(
     `
       UPDATE fund_contributions
       SET
@@ -1191,11 +1445,31 @@ export const updateSponsorshipReview = async (
       WHERE id = $1::uuid
         AND contribution_type = 'sponsorship_interest'
         AND status IN ('paid', 'refunded', 'disputed')
+        AND updated_at::text = $4
+      RETURNING updated_at::text AS version
     `,
-    [input.contributionId, input.reviewStatus, input.reviewNote]
+    [
+      input.contributionId,
+      input.reviewStatus,
+      input.reviewNote,
+      input.expectedVersion
+    ]
   );
 
-  return (result.rowCount ?? 0) > 0;
+  const updatedVersion = result.rows[0]?.version;
+  return updatedVersion
+    ? {
+        status: 'updated',
+        updated: true,
+        currentVersion: updatedVersion,
+        paymentStatus: targetRow.status
+      }
+    : {
+        status: 'conflict',
+        updated: false,
+        currentVersion: targetRow.version,
+        paymentStatus: targetRow.status
+      };
 };
 
 export const updateSponsorshipPublication = async (
@@ -1203,12 +1477,37 @@ export const updateSponsorshipPublication = async (
   input: SponsorshipPublicationInput
 ): Promise<SponsorshipPublicationMutationResult> => {
   if (!pool) {
-    return { updated: false, feedChannels: input.feedChannels };
+    return {
+      status: 'not_found',
+      updated: false,
+      feedChannels: input.feedChannels,
+      currentVersion: null,
+      paymentStatus: null
+    };
   }
 
-  const target = await pool.query<{ readonly amount_cents: string }>(
+  const target = await pool.query<{
+    readonly amount_cents: string;
+    readonly status: string;
+    readonly version: string;
+    readonly sponsor_public_slug: string | null;
+    readonly sponsor_public_summary: string | null;
+    readonly sponsor_feed_target: SponsorFeedTarget | null;
+    readonly sponsor_feed_channels: unknown;
+    readonly sponsor_feed_status: SponsorFeedStatus | null;
+    readonly sponsor_feed_public_url: string | null;
+  }>(
     `
-      SELECT amount_cents::text AS amount_cents
+      SELECT
+        amount_cents::text AS amount_cents,
+        status,
+        updated_at::text AS version,
+        sponsor_public_slug,
+        sponsor_public_summary,
+        sponsor_feed_target,
+        sponsor_feed_channels,
+        sponsor_feed_status,
+        sponsor_feed_public_url
       FROM fund_contributions
       WHERE id = $1::uuid
         AND contribution_type = 'sponsorship_interest'
@@ -1217,16 +1516,61 @@ export const updateSponsorshipPublication = async (
     [input.contributionId]
   );
 
-  if (!target.rows[0]) {
-    return { updated: false, feedChannels: input.feedChannels };
+  const targetRow = target.rows[0];
+  if (!targetRow) {
+    return {
+      status: 'not_found',
+      updated: false,
+      feedChannels: input.feedChannels,
+      currentVersion: null,
+      paymentStatus: null
+    };
   }
 
-  const feedChannels = mergePromisedSponsorFeedChannels(
-    input.feedChannels,
-    centsToAmount(parseDbInt(target.rows[0].amount_cents))
-  );
+  if (targetRow.version !== input.expectedVersion) {
+    return {
+      status: 'conflict',
+      updated: false,
+      feedChannels: input.feedChannels,
+      currentVersion: targetRow.version,
+      paymentStatus: targetRow.status
+    };
+  }
 
-  const result = await pool.query(
+  const requestedFeedChannels = [...new Set(input.feedChannels)];
+  const currentFeedChannels = parseSponsorFeedChannels(
+    targetRow.sponsor_feed_channels
+  );
+  const feedChannels =
+    targetRow.status === 'paid'
+      ? mergePromisedSponsorFeedChannels(
+          requestedFeedChannels,
+          centsToAmount(parseDbInt(targetRow.amount_cents))
+        )
+      : requestedFeedChannels;
+  const visibilityMetadataChanged =
+    normalizedNullableText(input.publicSlug) !==
+      normalizedNullableText(targetRow.sponsor_public_slug) ||
+    normalizedNullableText(input.publicSummary) !==
+      normalizedNullableText(targetRow.sponsor_public_summary) ||
+    (input.feedTarget ?? null) !==
+      normalizeSponsorFeedTarget(targetRow.sponsor_feed_target) ||
+    !sponsorFeedChannelsEqual(feedChannels, currentFeedChannels) ||
+    input.feedStatus !== normalizeSponsorFeedStatus(targetRow.sponsor_feed_status) ||
+    normalizedNullableText(input.feedPublicUrl) !==
+      normalizedNullableText(targetRow.sponsor_feed_public_url);
+
+  if (targetRow.status !== 'paid' && visibilityMetadataChanged) {
+    return {
+      status: 'payment_not_eligible',
+      updated: false,
+      feedChannels,
+      currentVersion: targetRow.version,
+      paymentStatus: targetRow.status
+    };
+  }
+
+  const result = await pool.query<{ readonly version: string }>(
     `
       UPDATE fund_contributions
       SET
@@ -1242,6 +1586,8 @@ export const updateSponsorshipPublication = async (
       WHERE id = $1::uuid
         AND contribution_type = 'sponsorship_interest'
         AND status IN ('paid', 'refunded', 'disputed')
+        AND updated_at::text = $9
+      RETURNING updated_at::text AS version
     `,
     [
       input.contributionId,
@@ -1251,13 +1597,18 @@ export const updateSponsorshipPublication = async (
       JSON.stringify(feedChannels),
       input.feedStatus,
       input.feedPublicUrl?.trim() || null,
-      input.feedNotes?.trim() || null
+      input.feedNotes?.trim() || null,
+      input.expectedVersion
     ]
   );
 
+  const updatedVersion = result.rows[0]?.version;
   return {
-    updated: (result.rowCount ?? 0) > 0,
-    feedChannels
+    status: updatedVersion ? 'updated' : 'conflict',
+    updated: Boolean(updatedVersion),
+    feedChannels,
+    currentVersion: updatedVersion ?? targetRow.version,
+    paymentStatus: targetRow.status
   };
 };
 
@@ -1266,16 +1617,24 @@ export const updateSponsorshipLogoUrl = async (
   input: SponsorshipLogoInput
 ): Promise<SponsorshipLogoMutationResult> => {
   if (!pool) {
-    return { updated: false, previousLogoUrl: null };
+    return {
+      status: 'not_found',
+      updated: false,
+      previousLogoUrl: null,
+      currentVersion: null
+    };
   }
 
   const result = await pool.query<{
     readonly updated: boolean;
     readonly previous_logo_url: string | null;
+    readonly current_version: string | null;
   }>(
     `
       WITH target AS (
-        SELECT sponsor_logo_url AS previous_logo_url
+        SELECT
+          sponsor_logo_url AS previous_logo_url,
+          updated_at::text AS previous_version
         FROM fund_contributions
         WHERE id = $1::uuid
           AND contribution_type = 'sponsorship_interest'
@@ -1290,37 +1649,54 @@ export const updateSponsorshipLogoUrl = async (
         WHERE id = $1::uuid
           AND contribution_type = 'sponsorship_interest'
           AND status IN ('paid', 'refunded', 'disputed')
-        RETURNING id
+          AND updated_at::text = $3
+        RETURNING id, updated_at::text AS current_version
       )
       SELECT
         EXISTS (SELECT 1 FROM updated) AS updated,
-        (SELECT previous_logo_url FROM target) AS previous_logo_url
+        (SELECT previous_logo_url FROM target) AS previous_logo_url,
+        COALESCE(
+          (SELECT current_version FROM updated),
+          (SELECT previous_version FROM target)
+        ) AS current_version
     `,
-    [input.contributionId, input.logoUrl]
+    [input.contributionId, input.logoUrl, input.expectedVersion]
   );
 
   const row = result.rows[0];
+  const currentVersion = row?.current_version ?? null;
+  const found = currentVersion !== null;
   return {
+    status: row?.updated ? 'updated' : found ? 'conflict' : 'not_found',
     updated: row?.updated ?? false,
-    previousLogoUrl: row?.previous_logo_url ?? null
+    previousLogoUrl: row?.previous_logo_url ?? null,
+    currentVersion
   };
 };
 
 export const clearSponsorshipLogoUrl = async (
   pool: Pool | null,
-  contributionId: string
+  input: SponsorshipLogoDeleteInput
 ): Promise<SponsorshipLogoMutationResult> => {
   if (!pool) {
-    return { updated: false, previousLogoUrl: null };
+    return {
+      status: 'not_found',
+      updated: false,
+      previousLogoUrl: null,
+      currentVersion: null
+    };
   }
 
   const result = await pool.query<{
     readonly updated: boolean;
     readonly previous_logo_url: string | null;
+    readonly current_version: string | null;
   }>(
     `
       WITH target AS (
-        SELECT sponsor_logo_url AS previous_logo_url
+        SELECT
+          sponsor_logo_url AS previous_logo_url,
+          updated_at::text AS previous_version
         FROM fund_contributions
         WHERE id = $1::uuid
           AND contribution_type = 'sponsorship_interest'
@@ -1335,19 +1711,28 @@ export const clearSponsorshipLogoUrl = async (
         WHERE id = $1::uuid
           AND contribution_type = 'sponsorship_interest'
           AND status IN ('paid', 'refunded', 'disputed')
-        RETURNING id
+          AND updated_at::text = $2
+        RETURNING id, updated_at::text AS current_version
       )
       SELECT
         EXISTS (SELECT 1 FROM updated) AS updated,
-        (SELECT previous_logo_url FROM target) AS previous_logo_url
+        (SELECT previous_logo_url FROM target) AS previous_logo_url,
+        COALESCE(
+          (SELECT current_version FROM updated),
+          (SELECT previous_version FROM target)
+        ) AS current_version
     `,
-    [contributionId]
+    [input.contributionId, input.expectedVersion]
   );
 
   const row = result.rows[0];
+  const currentVersion = row?.current_version ?? null;
+  const found = currentVersion !== null;
   return {
+    status: row?.updated ? 'updated' : found ? 'conflict' : 'not_found',
     updated: row?.updated ?? false,
-    previousLogoUrl: row?.previous_logo_url ?? null
+    previousLogoUrl: row?.previous_logo_url ?? null,
+    currentVersion
   };
 };
 

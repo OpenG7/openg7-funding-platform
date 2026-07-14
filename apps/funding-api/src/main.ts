@@ -821,6 +821,109 @@ const isAllowedSponsorFeedChannel = (
   typeof value === 'string' &&
   allowedSponsorFeedChannels.has(value as SponsorFeedChannel);
 
+const adminSponsorshipPageSizes = new Set([6, 10, 25]);
+const adminSponsorshipPaymentStatuses = new Set([
+  'paid',
+  'refunded',
+  'disputed'
+]);
+const adminSponsorshipSorts = new Set([
+  'priority',
+  'paid_at',
+  'submitted_at',
+  'amount',
+  'company',
+  'updated_at'
+]);
+
+const isValidAdminExpectedVersion = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  value.trim().length > 0 &&
+  value.trim().length <= 128;
+
+const parseAdminSponsorshipsQuery = (
+  url: string | undefined
+): Parameters<typeof listAdminSponsorships>[1] => {
+  const searchParams = new URL(url ?? '/', publicBaseOrigin).searchParams;
+  const requestedPage = Number.parseInt(searchParams.get('page') ?? '1', 10);
+  const requestedPageSize = Number.parseInt(
+    searchParams.get('pageSize') ?? '6',
+    10
+  );
+  const reviewStatus =
+    searchParams.get('reviewStatus') === 'pending'
+      ? 'pending_review'
+      : searchParams.get('reviewStatus');
+  const feedStatus = searchParams.get('feedStatus');
+  const paymentStatus = searchParams.get('paymentStatus');
+  const sort = searchParams.get('sort');
+  const direction = searchParams.get('direction');
+  const search = searchParams.get('search')?.trim();
+
+  return {
+    page:
+      Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
+    pageSize: adminSponsorshipPageSizes.has(requestedPageSize)
+      ? requestedPageSize
+      : 6,
+    search: search || undefined,
+    reviewStatus:
+      reviewStatus && allowedSponsorshipReviewStatuses.has(
+        reviewStatus as SponsorshipReviewStatus
+      )
+        ? (reviewStatus as SponsorshipReviewStatus)
+        : undefined,
+    feedStatus:
+      feedStatus && allowedSponsorFeedStatuses.has(feedStatus as SponsorFeedStatus)
+        ? (feedStatus as SponsorFeedStatus)
+        : undefined,
+    paymentStatus:
+      paymentStatus && adminSponsorshipPaymentStatuses.has(paymentStatus)
+        ? (paymentStatus as 'paid' | 'refunded' | 'disputed')
+        : undefined,
+    sort:
+      sort && adminSponsorshipSorts.has(sort)
+        ? (sort as NonNullable<
+            Parameters<typeof listAdminSponsorships>[1]['sort']
+          >)
+        : 'priority',
+    direction: direction === 'asc' ? 'asc' : 'desc'
+  };
+};
+
+const writeSponsorshipMutationFailure = (
+  request: IncomingMessage,
+  response: ServerResponse,
+  status: 'updated' | 'not_found' | 'conflict' | 'payment_not_eligible',
+  details: {
+    readonly currentVersion?: string | null;
+    readonly paymentStatus?: string | null;
+  } = {}
+): void => {
+  if (status === 'conflict') {
+    writeJson(request, response, 409, {
+      code: 'SPONSORSHIP_CONCURRENT_UPDATE',
+      message: 'Cette commandite a ete modifiee par un autre administrateur.',
+      currentVersion: details.currentVersion ?? null
+    });
+    return;
+  }
+
+  if (status === 'payment_not_eligible') {
+    writeJson(request, response, 409, {
+      code: 'SPONSORSHIP_PAYMENT_NOT_ELIGIBLE',
+      message:
+        'Cette commandite ne peut pas etre publiee ou approuvee lorsque le paiement est rembourse ou conteste.',
+      paymentStatus: details.paymentStatus ?? null
+    });
+    return;
+  }
+
+  writeJson(request, response, 404, {
+    error: 'Sponsorship contribution was not found.'
+  });
+};
+
 const isValidPublicationBatchCapacity = (value: unknown): value is number =>
   typeof value === 'number' &&
   Number.isInteger(value) &&
@@ -1498,6 +1601,7 @@ createServer(async (request, response) => {
     }
 
     const contributionId = parsed?.contributionId;
+    const expectedVersion = parsed?.expectedVersion;
 
     if (!isValidUuid(contributionId)) {
       writeJson(request, response, 400, {
@@ -1506,15 +1610,22 @@ createServer(async (request, response) => {
       return;
     }
 
+    if (!isValidAdminExpectedVersion(expectedVersion)) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor version is required.'
+      });
+      return;
+    }
+
     try {
-      const deleteResult = await clearSponsorshipLogoUrl(
-        dbPool,
-        contributionId
-      );
+      const deleteResult = await clearSponsorshipLogoUrl(dbPool, {
+        contributionId,
+        expectedVersion
+      });
 
       if (!deleteResult.updated) {
-        writeJson(request, response, 404, {
-          error: 'Sponsorship was not found.'
+        writeSponsorshipMutationFailure(request, response, deleteResult.status, {
+          currentVersion: deleteResult.currentVersion
         });
         return;
       }
@@ -2064,10 +2175,22 @@ createServer(async (request, response) => {
         .find((part) => part.name === 'contributionId')
         ?.data.toString('utf8')
         .trim() ?? '';
+    const expectedVersion =
+      parts
+        .find((part) => part.name === 'expectedVersion')
+        ?.data.toString('utf8')
+        .trim() ?? '';
 
     if (!isValidUuid(contributionId)) {
       writeJson(request, response, 400, {
         error: 'Sponsor contribution id is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidAdminExpectedVersion(expectedVersion)) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor version is required.'
       });
       return;
     }
@@ -2096,13 +2219,14 @@ createServer(async (request, response) => {
 
       const updateResult = await updateSponsorshipLogoUrl(dbPool, {
         contributionId,
-        logoUrl
+        logoUrl,
+        expectedVersion
       });
 
       if (!updateResult.updated) {
         await unlink(filePath).catch(() => undefined);
-        writeJson(request, response, 404, {
-          error: 'Sponsorship was not found.'
+        writeSponsorshipMutationFailure(request, response, updateResult.status, {
+          currentVersion: updateResult.currentVersion
         });
         return;
       }
@@ -3457,22 +3581,16 @@ createServer(async (request, response) => {
     }
 
     try {
-      const sponsorships = await listAdminSponsorships(dbPool);
-      const lastUpdatedAt =
-        sponsorships.reduce<string | null>((latest, sponsorship) => {
-          if (!latest) {
-            return sponsorship.updated_at;
-          }
-
-          return new Date(sponsorship.updated_at).getTime() >
-            new Date(latest).getTime()
-            ? sponsorship.updated_at
-            : latest;
-        }, null) ?? new Date().toISOString();
+      const sponsorships = await listAdminSponsorships(
+        dbPool,
+        parseAdminSponsorshipsQuery(request.url)
+      );
       const result: AdminSponsorshipsResponse = {
         data_source: 'database',
-        sponsorships,
-        last_updated_at: lastUpdatedAt
+        items: sponsorships.items,
+        sponsorships: sponsorships.items,
+        pagination: sponsorships.pagination,
+        last_updated_at: sponsorships.lastUpdatedAt
       };
 
       writeJson(request, response, 200, result);
@@ -3539,6 +3657,13 @@ createServer(async (request, response) => {
       return;
     }
 
+    if (!isValidAdminExpectedVersion(parsed.expectedVersion)) {
+      writeJson(request, response, 400, {
+        error: 'Sponsorship version is required.'
+      });
+      return;
+    }
+
     try {
       const updated = await updateSponsorshipReview(dbPool, {
         contributionId: parsed.contributionId,
@@ -3547,18 +3672,20 @@ createServer(async (request, response) => {
           typeof parsed.reviewNote === 'string' &&
           parsed.reviewNote.trim().length > 0
             ? parsed.reviewNote.trim()
-            : null
+            : null,
+        expectedVersion: parsed.expectedVersion
       });
 
-      if (!updated) {
-        writeJson(request, response, 404, {
-          error: 'Sponsorship contribution was not found.'
+      if (!updated.updated) {
+        writeSponsorshipMutationFailure(request, response, updated.status, {
+          currentVersion: updated.currentVersion,
+          paymentStatus: updated.paymentStatus
         });
         return;
       }
 
       const result: AdminSponsorshipReviewResult = {
-        updated,
+        updated: updated.updated,
         reviewStatus: parsed.reviewStatus
       };
       await insertAdminAuditLog(dbPool, {
@@ -3679,9 +3806,17 @@ createServer(async (request, response) => {
       return;
     }
 
+    if (!isValidAdminExpectedVersion(parsed.expectedVersion)) {
+      writeJson(request, response, 400, {
+        error: 'Sponsorship version is required.'
+      });
+      return;
+    }
+
     try {
       const publicationUpdate = await updateSponsorshipPublication(dbPool, {
         contributionId: parsed.contributionId,
+        expectedVersion: parsed.expectedVersion,
         publicSlug:
           typeof parsed.publicSlug === 'string' &&
           parsed.publicSlug.trim().length > 0
@@ -3712,9 +3847,15 @@ createServer(async (request, response) => {
       });
 
       if (!publicationUpdate.updated) {
-        writeJson(request, response, 404, {
-          error: 'Sponsorship contribution was not found.'
-        });
+        writeSponsorshipMutationFailure(
+          request,
+          response,
+          publicationUpdate.status,
+          {
+            currentVersion: publicationUpdate.currentVersion,
+            paymentStatus: publicationUpdate.paymentStatus
+          }
+        );
         return;
       }
 
