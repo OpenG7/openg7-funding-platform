@@ -15,7 +15,10 @@ import {
   isValidSponsorshipAmount,
   resolveSponsorshipBenefits
 } from '@openg7/funding-core';
-import type { ContributionType, SponsorshipBenefitId } from '@openg7/funding-core';
+import type {
+  ContributionType,
+  SponsorshipBenefitId
+} from '@openg7/funding-core';
 import type {
   FundTransparencyPublicResponse,
   FundingSnapshot,
@@ -556,8 +559,8 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
                   [attr.aria-pressed]="
                     contributionType() === 'sponsorship_interest'
                   "
-                  [disabled]="!sponsorshipSelectionEnabled"
-                  [attr.aria-disabled]="!sponsorshipSelectionEnabled"
+                  [disabled]="!sponsorshipSelectionEnabled()"
+                  [attr.aria-disabled]="!sponsorshipSelectionEnabled()"
                   (click)="setContributionType('sponsorship_interest')"
                 >
                   <span class="contribution-type-kicker">{{
@@ -622,7 +625,7 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
                   </p>
                   <small
                     class="unavailable-badge"
-                    *ngIf="!sponsorshipSelectionEnabled"
+                    *ngIf="!sponsorshipSelectionEnabled()"
                   >
                     {{
                       'funding.home.contribution.sponsorship.disabled'
@@ -694,9 +697,7 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
                       let benefitId of sponsorshipBenefits().achievedBenefits
                     "
                   >
-                    {{
-                      sponsorshipBenefitLabelKeys[benefitId] | translate
-                    }}
+                    {{ sponsorshipBenefitLabelKeys[benefitId] | translate }}
                   </li>
                 </ul>
                 <p
@@ -874,7 +875,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   readonly config: FundingProjectConfig =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
-  readonly sponsorshipSelectionEnabled = true;
+  readonly sponsorshipSelectionEnabled = signal<boolean>(false);
 
   readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
   readonly policyPath = computed(() =>
@@ -1013,6 +1014,8 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       this.nonCharityAcknowledged() &&
       this.loadingState() !== 'loading' &&
       !this.hasInvalidCustomContribution() &&
+      (this.contributionType() !== 'sponsorship_interest' ||
+        this.sponsorshipSelectionEnabled()) &&
       (!this.publicDisplayConsent() ||
         this.publicDisplayName().trim().length > 0)
   );
@@ -1093,7 +1096,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   >(() =>
     (this.sponsorshipBatchAvailability()?.availability ?? [])
       .filter(
-        (entry): entry is { channel: SponsorFeedChannel; nextAvailableAt: string } =>
+        (
+          entry
+        ): entry is { channel: SponsorFeedChannel; nextAvailableAt: string } =>
           entry.nextAvailableAt !== null
       )
       .map((entry) => ({
@@ -1269,8 +1274,29 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     }
 
     void this.loadPublicTransparency();
-    void this.loadSponsorshipBatchAvailability();
+    void this.loadPublicFundingConfig();
     this.startTransparencyRefresh();
+  }
+
+  async loadPublicFundingConfig(): Promise<void> {
+    try {
+      const runtimeConfig = await this.fundingService.getPublicFundingConfig();
+      this.sponsorshipSelectionEnabled.set(
+        runtimeConfig.business_sponsorship_enabled
+      );
+
+      if (runtimeConfig.business_sponsorship_enabled) {
+        await this.loadSponsorshipBatchAvailability();
+        return;
+      }
+    } catch {
+      this.sponsorshipSelectionEnabled.set(false);
+    }
+
+    this.sponsorshipBatchAvailability.set(null);
+    if (this.contributionType() === 'sponsorship_interest') {
+      this.contributionType.set('personal_support');
+    }
   }
 
   async loadSponsorshipBatchAvailability(): Promise<void> {
@@ -1374,7 +1400,10 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   }
 
   setContributionType(type: ContributionType): void {
-    if (type === 'sponsorship_interest' && !this.sponsorshipSelectionEnabled) {
+    if (
+      type === 'sponsorship_interest' &&
+      !this.sponsorshipSelectionEnabled()
+    ) {
       return;
     }
 
@@ -1432,6 +1461,14 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     this.checkoutResultMode.set(null);
 
     if (!this.nonCharityAcknowledged()) {
+      this.loadingState.set('error');
+      return;
+    }
+
+    if (
+      this.contributionType() === 'sponsorship_interest' &&
+      !this.sponsorshipSelectionEnabled()
+    ) {
       this.loadingState.set('error');
       return;
     }

@@ -205,9 +205,9 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   page de financement.
 - Route cachee `/admin/fundraiser/sponsors`.
 - Chaque commandite listee affiche son palier (mention OpenG7.org seule,
-  + Facebook, + Facebook et LinkedIn) et le detail des avantages obtenus,
-  calcules a partir du montant deja affiche (`resolveSponsorshipBenefits`),
-  pour reperer le palier sans recalculer mentalement a partir du montant.
+  - Facebook, + Facebook et LinkedIn) et le detail des avantages obtenus,
+    calcules a partir du montant deja affiche (`resolveSponsorshipBenefits`),
+    pour reperer le palier sans recalculer mentalement a partir du montant.
 - Endpoint `GET /api/admin/sponsorships` pour lister les commandites payees.
 - Endpoints `GET /api/admin/sponsorships/logo`,
   `POST /api/admin/sponsorships/logo` et
@@ -345,6 +345,8 @@ Resultat attendu:
 - `STRIPE_SECRET_KEY` configure cote API seulement.
 - `STRIPE_WEBHOOK_SECRET` configure avec le endpoint Stripe final.
 - `FUNDING_ALLOWED_AMOUNTS` aligne avec l'UI.
+- `FUNDING_BUSINESS_SPONSORSHIP_ENABLED=false` garde les nouvelles
+  commandites d'entreprise fermees tant que le flux n'est pas complet.
 - `FUNDING_ADMIN_TOKEN` configure en production si la revue admin est active.
 - `FUNDING_ADMIN_SESSION_SECRET` configure avec un secret distinct et
   `FUNDING_ADMIN_SESSION_TTL_MINUTES` ajuste selon la politique d'operation.

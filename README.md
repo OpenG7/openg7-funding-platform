@@ -75,6 +75,7 @@ Set these variables for API and webhook processing:
 - `STRIPE_WEBHOOK_SECRET` — required only when validating Stripe webhook deliveries.
 - `FUNDING_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the API in production.
 
+- `FUNDING_BUSINESS_SPONSORSHIP_ENABLED` - set to `true` only when the business sponsorship flow is ready to accept new sponsorship checkouts. Defaults to `false`.
 - `FUNDING_ADMIN_TOKEN` - required in production as the root secret used to create admin sessions.
 - `FUNDING_ADMIN_SESSION_SECRET` - optional but recommended separate HMAC secret for signed admin browser sessions.
 - `FUNDING_ADMIN_SESSION_TTL_MINUTES` - optional admin session duration, defaulting to 60 minutes.
@@ -127,6 +128,8 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/005_add_sponsorship_followup_token.sql
 \i apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql
 \i apps/funding-api/migrations/007_add_admin_audit_and_publication_drafts.sql
+\i apps/funding-api/migrations/008_add_sponsorship_publication_batches.sql
+\i apps/funding-api/migrations/009_add_contribution_public_reference.sql
 ```
 
 These create:
@@ -385,6 +388,60 @@ Use `--dry-run` to print the Stripe CLI calls without sending anything. The
 endpoint can also be provided through `STRIPE_WEBHOOK_ENDPOINT_ID`. Replaying a
 `checkout.session.completed` sponsorship event can resend the follow-up email
 when email configuration is active.
+
+### Stripe historical backfill to PostgreSQL
+
+When switching from Stripe-direct transparency to PostgreSQL, run an initial
+Stripe backfill after migrations and a database backup. The command reads
+historical Checkout Sessions from Stripe, filters them by `FUNDING_PROJECT_ID`
+metadata, and writes idempotent rows to `stripe_checkout_sessions`,
+`fund_contributions`, and `fund_transactions`.
+
+Preview first:
+
+```bash
+corepack yarn stripe:backfill --dry-run
+```
+
+Run against the configured `STRIPE_SECRET_KEY` and `DATABASE_URL`. If
+`DATABASE_URL` uses the private Docker host `postgres`, this command
+automatically runs the backfill inside Docker Compose:
+
+```bash
+corepack yarn stripe:backfill
+```
+
+If `DATABASE_URL` uses the private Docker host `postgres`, run the backfill
+inside Docker Compose instead:
+
+```bash
+corepack yarn stripe:backfill:docker --dry-run
+corepack yarn stripe:backfill:docker
+```
+
+For live mode, the command refuses non-live keys when `--live` is present:
+
+```bash
+corepack yarn stripe:backfill:live --from 2026-01-01 --dry-run
+corepack yarn stripe:backfill:live --from 2026-01-01
+corepack yarn stripe:backfill:docker:live --from 2026-01-01 --dry-run
+```
+
+Useful options:
+
+- `--project openg7` overrides the project metadata filter.
+- `--include-unmatched` imports legacy Checkout Sessions without matching
+  project metadata.
+- `--from` and `--to` restrict the Stripe created timestamp range.
+- `--limit` caps the number of objects scanned per Stripe resource.
+- `--skip-payouts`, `--skip-refunds`, and `--skip-disputes` narrow the import.
+- `--no-assume-non-charity-acknowledged` keeps legacy sessions without that
+  metadata out of contribution totals.
+
+Backfill is safe to rerun. Checkout rows are keyed by `stripe_session_id`, and
+fund transactions are skipped when the same logical Stripe object and event type
+already exist. Synthetic `stripe_event_id` values use the
+`stripe-backfill:<event-type>:<stripe-object-id>` form.
 
 ### Local setup stepper
 

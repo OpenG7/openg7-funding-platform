@@ -19,6 +19,7 @@ Set these variables on the API host:
 FUNDING_PLATFORM_ENV=production
 FUNDING_API_PORT=<platform-provided-port-or-3333>
 FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
+FUNDING_BUSINESS_SPONSORSHIP_ENABLED=false
 FUNDING_ADMIN_TOKEN=<long-random-root-admin-secret>
 FUNDING_ADMIN_SESSION_SECRET=<different-long-random-session-secret>
 FUNDING_ADMIN_SESSION_TTL_MINUTES=60
@@ -230,6 +231,7 @@ the PostgreSQL-backed launch path for real payments:
 
     Run the same command with `--dry-run` first when recovering real
     post-payment events.
+
 12. Fetch and inspect API logs after the rehearsal:
     `docker compose logs --tail=300 api`. Look specifically for webhook errors,
     PostgreSQL errors, orphaned sponsorships, follow-up form errors, logo

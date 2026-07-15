@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node --env-file=../../.env --loader ts-node/esm src/main.ts"
+    "start": "node --env-file=../../.env --loader ts-node/esm src/main.ts",
+    "stripe:backfill": "node --env-file=../../.env --loader ts-node/esm src/stripe-backfill.cli.ts"
   },
   "dependencies": {
     "@openg7/funding-core": "workspace:*",

@@ -200,6 +200,11 @@ export interface PublicSponsorshipsResponse {
   readonly last_updated_at: string;
 }
 
+export interface PublicFundingRuntimeConfig {
+  readonly business_sponsorship_enabled: boolean;
+  readonly last_updated_at: string;
+}
+
 /**
  * Indicative next collective-post date per channel, derived from the
  * earliest scheduled (not open, not published) publication batch. No

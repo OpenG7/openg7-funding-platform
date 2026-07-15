@@ -210,6 +210,32 @@ Rejouer en production en ciblant le webhook Stripe exact :
 corepack yarn stripe:events:resend:live evt_1... evt_2... --endpoint we_...
 ```
 
+Importer l'historique Stripe initial vers PostgreSQL :
+
+```bash
+corepack yarn db:migrate
+corepack yarn stripe:backfill --dry-run
+corepack yarn stripe:backfill
+```
+
+Si `DATABASE_URL` pointe vers `postgres`, `stripe:backfill` bascule
+automatiquement vers Docker Compose. Commandes explicites equivalentes :
+
+```bash
+corepack yarn stripe:backfill:docker --dry-run
+corepack yarn stripe:backfill:docker
+```
+
+Importer en production avec verification de cle live :
+
+```bash
+corepack yarn stripe:backfill:live --from 2026-01-01 --dry-run
+corepack yarn stripe:backfill:live --from 2026-01-01
+```
+
+Options utiles : `--project openg7`, `--include-unmatched`, `--limit 100`,
+`--skip-payouts`, `--skip-refunds`, `--skip-disputes`.
+
 Endpoint public transparence :
 
 ```text

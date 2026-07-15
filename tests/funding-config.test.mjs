@@ -570,11 +570,18 @@ test('Custom contribution amount input accepts only decimal numeric values', () 
   }
 });
 
-test('Business sponsorship contribution choice is enabled for flow testing', () => {
+test('Business sponsorship contribution choice is controlled by runtime flag', () => {
   const source = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
     'utf8'
   );
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding.service.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const envExample = fs.readFileSync('.env.example', 'utf8');
+  const compose = fs.readFileSync('docker-compose.yml', 'utf8');
   const styles = fs.readFileSync('apps/funding-web/src/styles.css', 'utf8');
   const fr = JSON.parse(
     fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
@@ -583,10 +590,27 @@ test('Business sponsorship contribution choice is enabled for flow testing', () 
     fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
   );
 
-  assert.ok(source.includes('readonly sponsorshipSelectionEnabled = true'));
-  assert.ok(source.includes('[disabled]="!sponsorshipSelectionEnabled"'));
+  assert.ok(envExample.includes('FUNDING_BUSINESS_SPONSORSHIP_ENABLED=false'));
+  assert.ok(
+    compose.includes(
+      'FUNDING_BUSINESS_SPONSORSHIP_ENABLED: ${FUNDING_BUSINESS_SPONSORSHIP_ENABLED:-false}'
+    )
+  );
+  assert.ok(
+    api.includes('const businessSponsorshipEnabled = parseBooleanEnv(')
+  );
+  assert.ok(api.includes('/public/funding-config'));
+  assert.ok(api.includes('business_sponsorship_enabled'));
+  assert.ok(api.includes('Business sponsorship checkout is disabled.'));
+  assert.ok(service.includes('getPublicFundingConfig'));
+  assert.ok(
+    source.includes(
+      'readonly sponsorshipSelectionEnabled = signal<boolean>(false)'
+    )
+  );
+  assert.ok(source.includes('[disabled]="!sponsorshipSelectionEnabled()"'));
   assert.ok(source.includes("type === 'sponsorship_interest'"));
-  assert.ok(source.includes('!this.sponsorshipSelectionEnabled'));
+  assert.ok(source.includes('!this.sponsorshipSelectionEnabled()'));
   assert.ok(source.includes('funding.home.contribution.sponsorship.disabled'));
   assert.ok(
     source.includes('funding.home.contribution.sponsorship.afterPaymentNote')
@@ -764,6 +788,8 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
   assert.ok(
     source.includes("parsed.contributionType === 'sponsorship_interest';")
   );
+  assert.ok(source.includes('businessSponsorshipEnabled'));
+  assert.ok(source.includes('Business sponsorship checkout is disabled.'));
   assert.ok(
     source.includes('const isAmountAllowed = isSponsorshipContribution')
   );
@@ -1388,14 +1414,18 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
 
   assert.ok(core.includes('export interface AdminPagination'));
   assert.ok(core.includes('readonly version: string;'));
-  assert.ok(core.includes('readonly items: readonly AdminSponsorshipRecord[];'));
+  assert.ok(
+    core.includes('readonly items: readonly AdminSponsorshipRecord[];')
+  );
   assert.ok(core.includes('readonly pagination: AdminPagination;'));
   assert.ok(core.includes('readonly expectedVersion: string;'));
 
   assert.ok(service.includes('export interface AdminSponsorshipListQuery'));
   assert.ok(service.includes('const params = new URLSearchParams();'));
   assert.ok(service.includes("params.set('page', String(query.page));"));
-  assert.ok(service.includes("params.set('paymentStatus', query.paymentStatus);"));
+  assert.ok(
+    service.includes("params.set('paymentStatus', query.paymentStatus);")
+  );
   assert.ok(service.includes("body.set('expectedVersion', expectedVersion);"));
   assert.ok(service.includes('errorMessageFromResponse'));
 
@@ -1410,7 +1440,9 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
   assert.ok(page.includes('messageFromError'));
 
   assert.ok(api.includes('parseAdminSponsorshipsQuery'));
-  assert.ok(api.includes('const adminSponsorshipPageSizes = new Set([6, 10, 25]);'));
+  assert.ok(
+    api.includes('const adminSponsorshipPageSizes = new Set([6, 10, 25]);')
+  );
   assert.ok(api.includes('SPONSORSHIP_CONCURRENT_UPDATE'));
   assert.ok(api.includes('SPONSORSHIP_PAYMENT_NOT_ELIGIBLE'));
   assert.ok(api.includes('isValidAdminExpectedVersion'));
