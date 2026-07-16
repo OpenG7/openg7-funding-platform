@@ -108,7 +108,8 @@ interface TablePresenceRow {
   readonly has_sponsor_review_status: boolean;
 }
 
-const centsToAmount = (value: number): number => Number((value / 100).toFixed(2));
+const centsToAmount = (value: number): number =>
+  Number((value / 100).toFixed(2));
 const parseDbInt = (value: string): number => Number.parseInt(value, 10);
 const maxIso = (left: string, right: string | null): string => {
   if (!right) {
@@ -116,6 +117,13 @@ const maxIso = (left: string, right: string | null): string => {
   }
 
   return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
+};
+const calculateCurrentAvailableEstimate = (
+  totalNet: number,
+  totalRefunded: number
+): number => {
+  // Stripe payouts move money from Stripe to the bank account; they are not fund expenses.
+  return Number((totalNet - totalRefunded).toFixed(2));
 };
 
 const emptyResponse = (): FundTransparencyPublicResponse => {
@@ -247,12 +255,14 @@ const getTablePresence = async (pool: Pool): Promise<TablePresenceRow> => {
       ) AS has_sponsor_review_status
   `);
 
-  return query.rows[0] ?? {
-    has_fund_contributions: false,
-    has_fund_transactions: false,
-    has_fund_allocations: false,
-    has_sponsor_review_status: false
-  };
+  return (
+    query.rows[0] ?? {
+      has_fund_contributions: false,
+      has_fund_transactions: false,
+      has_fund_allocations: false,
+      has_sponsor_review_status: false
+    }
+  );
 };
 
 const getLatestPublicAllocations = async (
@@ -368,8 +378,9 @@ const getTransactionTransparencySummary = async (
   const totalNet = centsToAmount(parseDbInt(totals.total_net));
   const totalRefunded = centsToAmount(parseDbInt(totals.total_refunded));
   const totalPayouts = centsToAmount(parseDbInt(totals.total_payouts));
-  const currentAvailableEstimate = Number(
-    (totalNet - totalRefunded - totalPayouts).toFixed(2)
+  const currentAvailableEstimate = calculateCurrentAvailableEstimate(
+    totalNet,
+    totalRefunded
   );
 
   const monthlySummary: readonly PublicMonthlySummary[] = monthlyQuery.rows.map(
@@ -427,12 +438,14 @@ const getAdjustmentTotals = async (
     FROM fund_transactions
   `);
 
-  return query.rows[0] ?? {
-    total_fees: '0',
-    total_refunded: '0',
-    total_payouts: '0',
-    last_updated_at: null
-  };
+  return (
+    query.rows[0] ?? {
+      total_fees: '0',
+      total_refunded: '0',
+      total_payouts: '0',
+      last_updated_at: null
+    }
+  );
 };
 
 const getAdjustmentMonthly = async (
@@ -514,8 +527,9 @@ const getContributionTransparencySummary = async (
   const totalRefunded = centsToAmount(totalRefundedCents);
   const totalPayouts = centsToAmount(totalPayoutsCents);
   const totalNet = Number((totalReceived - totalFees).toFixed(2));
-  const currentAvailableEstimate = Number(
-    (totalNet - totalRefunded - totalPayouts).toFixed(2)
+  const currentAvailableEstimate = calculateCurrentAvailableEstimate(
+    totalNet,
+    totalRefunded
   );
 
   const monthlySummary = monthlyQuery.rows.map((row) => {
@@ -567,10 +581,7 @@ const getContributionTransparencySummary = async (
       pool,
       tables.has_fund_allocations
     ),
-    public_builders: await getPublicBuilders(
-      pool,
-      tables
-    ),
+    public_builders: await getPublicBuilders(pool, tables),
     last_updated_at: maxIso(
       totals.last_updated_at,
       adjustmentTotals.last_updated_at
@@ -591,10 +602,7 @@ export const getPublicTransparencySummary = async (
   }
 
   if (tables.has_fund_transactions) {
-    return getTransactionTransparencySummary(
-      pool,
-      tables.has_fund_allocations
-    );
+    return getTransactionTransparencySummary(pool, tables.has_fund_allocations);
   }
 
   return emptyResponse();
