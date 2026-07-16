@@ -63,3 +63,13 @@ test('Reduced motion media query exists in global styles', () => {
   const styles = fs.readFileSync('apps/funding-web/src/styles.css', 'utf8');
   assert.ok(styles.includes('@media (prefers-reduced-motion: reduce)'));
 });
+
+test('Funding header uses stable grid areas instead of overlapping actions', () => {
+  const styles = fs.readFileSync('apps/funding-web/src/styles.css', 'utf8');
+
+  assert.ok(styles.includes("'brand actions'"));
+  assert.ok(styles.includes("'nav nav'"));
+  assert.ok(styles.includes('grid-area: nav;'));
+  assert.ok(styles.includes('overflow-x: auto;'));
+  assert.ok(styles.includes('flex: 0 0 auto;'));
+});
