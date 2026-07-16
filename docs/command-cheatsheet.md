@@ -30,6 +30,7 @@ Usage courant VPS :
 | Suivre les logs                             | `yarn vps:logs`              |
 | Suivre les logs API                         | `yarn vps:logs api`          |
 | Ouvrir un shell dans le projet sur le VPS   | `yarn vps:ssh`               |
+| Lister les backups sur le VPS               | `yarn vps:backup:list`       |
 
 Usage courant PostgreSQL sur le VPS :
 
@@ -39,6 +40,7 @@ Usage courant PostgreSQL sur le VPS :
 | Appliquer les migrations sans déployer l'app | `yarn vps:db:migrate`         |
 | Ouvrir `psql` sur la base du VPS             | `yarn vps:db:psql`            |
 | Créer un backup DB sur le VPS                | `yarn vps:db:backup`          |
+| Lister les backups DB sur le VPS             | `yarn vps:db:backup:list`     |
 | Créer et télécharger un backup DB            | `yarn vps:db:backup:download` |
 | Créer et télécharger un backup config        | `yarn vps:backup:download`    |
 
@@ -406,6 +408,12 @@ Créer une sauvegarde de configuration sur le VPS :
 yarn vps:backup
 ```
 
+Lister les sauvegardes présentes sur le VPS :
+
+```bash
+yarn vps:backup:list
+```
+
 Créer et télécharger une sauvegarde de configuration depuis le VPS :
 
 ```bash
@@ -416,6 +424,12 @@ Créer une sauvegarde PostgreSQL sur le VPS :
 
 ```bash
 yarn vps:db:backup
+```
+
+Lister les sauvegardes PostgreSQL présentes sur le VPS :
+
+```bash
+yarn vps:db:backup:list
 ```
 
 Créer et télécharger une sauvegarde PostgreSQL depuis le VPS :

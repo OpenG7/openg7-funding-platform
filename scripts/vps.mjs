@@ -151,6 +151,24 @@ const prepareLatestDatabaseBackup = () =>
     'chmod 600 backups/latest-db-backup.sql'
   ]);
 
+const listBackupFiles = (filters, emptyMessage) =>
+  inAppDir([
+    `backups="$(find backups -maxdepth 1 -type f ${filters} -printf '%T@ %TY-%Tm-%Td %TH:%TM %10s %p\\n' 2>/dev/null | sort -rn | cut -d' ' -f2-)"`,
+    `if [ -z "$backups" ]; then echo ${shellQuote(emptyMessage)}; else printf '%s\\n' "$backups"; fi`
+  ]);
+
+const listBackups = () =>
+  listBackupFiles(
+    "\\( -name 'openg7-backup-*.tar.gz' -o -name 'openg7-funding-db-*.sql' -o -name 'openg7-sponsor-logos-*.tar.gz' \\)",
+    'No backups found in backups/.'
+  );
+
+const listDatabaseBackups = () =>
+  listBackupFiles(
+    "-name 'openg7-funding-db-*.sql'",
+    'No database backups found in backups/.'
+  );
+
 const help = `Usage:
   yarn vps:ssh
   yarn vps:env
@@ -162,11 +180,13 @@ const help = `Usage:
   yarn vps:logs [service]
   yarn vps:ps
   yarn vps:backup
+  yarn vps:backup:list
   yarn vps:backup:download
   yarn vps:db:update
   yarn vps:db:migrate
   yarn vps:db:psql
   yarn vps:db:backup
+  yarn vps:db:backup:list
   yarn vps:db:backup:download
 
 Config:
@@ -229,6 +249,8 @@ try {
     await ssh(inAppDir(['docker compose ps']));
   } else if (command === 'backup') {
     await ssh(inAppDir(['bash scripts/backup.sh']));
+  } else if (command === 'backup:list') {
+    await ssh(listBackups());
   } else if (command === 'backup:download') {
     ensureBackupDownloadDir();
     await ssh(prepareLatestConfigBackup());
@@ -261,6 +283,8 @@ try {
     await ssh(inAppDir([`bash scripts/db-psql.sh${psqlArgs}`]));
   } else if (command === 'db:backup') {
     await ssh(prepareLatestDatabaseBackup());
+  } else if (command === 'db:backup:list') {
+    await ssh(listDatabaseBackups());
   } else if (command === 'db:backup:download') {
     ensureBackupDownloadDir();
     await ssh(prepareLatestDatabaseBackup());

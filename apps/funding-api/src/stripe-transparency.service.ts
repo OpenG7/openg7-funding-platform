@@ -33,7 +33,15 @@ interface StripePayoutRecord {
   readonly created: number;
 }
 
-const centsToAmount = (value: number): number => Number((value / 100).toFixed(2));
+const centsToAmount = (value: number): number =>
+  Number((value / 100).toFixed(2));
+const calculateCurrentAvailableEstimate = (
+  totalNet: number,
+  totalRefunded: number
+): number => {
+  // Stripe payouts move money from Stripe to the bank account; they are not fund expenses.
+  return Number((totalNet - totalRefunded).toFixed(2));
+};
 
 const createAccumulator = (currency = 'cad'): FinanceAccumulator => ({
   totalReceived: 0,
@@ -112,7 +120,10 @@ const toContribution = async (
   session: Stripe.Checkout.Session,
   paymentIntent: Stripe.PaymentIntent
 ): Promise<StripeContribution | null> => {
-  if (session.payment_status !== 'paid' && paymentIntent.status !== 'succeeded') {
+  if (
+    session.payment_status !== 'paid' &&
+    paymentIntent.status !== 'succeeded'
+  ) {
     return null;
   }
 
@@ -122,10 +133,17 @@ const toContribution = async (
     charge?.balance_transaction
   );
   const amount =
-    paymentIntent.amount_received || session.amount_total || paymentIntent.amount || 0;
+    paymentIntent.amount_received ||
+    session.amount_total ||
+    paymentIntent.amount ||
+    0;
   const fee = balanceTransaction?.fee ?? 0;
   const net = balanceTransaction?.net ?? amount - fee;
-  const currency = balanceTransaction?.currency ?? paymentIntent.currency ?? session.currency ?? 'cad';
+  const currency =
+    balanceTransaction?.currency ??
+    paymentIntent.currency ??
+    session.currency ??
+    'cad';
 
   return {
     amount,
@@ -185,8 +203,14 @@ export const getStripePublicTransparencySummary = async (
   });
 
   for (const session of sessions.data) {
-    const paymentIntent = await resolvePaymentIntent(stripe, session.payment_intent);
-    if (!paymentIntent || !isProjectSession(session, paymentIntent, options.projectId)) {
+    const paymentIntent = await resolvePaymentIntent(
+      stripe,
+      session.payment_intent
+    );
+    if (
+      !paymentIntent ||
+      !isProjectSession(session, paymentIntent, options.projectId)
+    ) {
       continue;
     }
 
@@ -198,10 +222,13 @@ export const getStripePublicTransparencySummary = async (
     applyContribution(totals, contribution);
 
     const month = monthKeyFromUnix(contribution.created);
-    const monthAccumulator = monthly.get(month) ?? createAccumulator(contribution.currency);
+    const monthAccumulator =
+      monthly.get(month) ?? createAccumulator(contribution.currency);
     applyContribution(monthAccumulator, contribution);
     monthly.set(month, monthAccumulator);
-    lastUpdatedAt = new Date(Math.max(new Date(lastUpdatedAt).getTime(), contribution.created * 1000)).toISOString();
+    lastUpdatedAt = new Date(
+      Math.max(new Date(lastUpdatedAt).getTime(), contribution.created * 1000)
+    ).toISOString();
   }
 
   const payouts = await stripe.payouts.list({ limit: 100 });
@@ -219,17 +246,21 @@ export const getStripePublicTransparencySummary = async (
     applyPayout(totals, payoutRecord);
 
     const month = monthKeyFromUnix(payoutRecord.created);
-    const monthAccumulator = monthly.get(month) ?? createAccumulator(payoutRecord.currency);
+    const monthAccumulator =
+      monthly.get(month) ?? createAccumulator(payoutRecord.currency);
     applyPayout(monthAccumulator, payoutRecord);
     monthly.set(month, monthAccumulator);
-    lastUpdatedAt = new Date(Math.max(new Date(lastUpdatedAt).getTime(), payoutRecord.created * 1000)).toISOString();
+    lastUpdatedAt = new Date(
+      Math.max(new Date(lastUpdatedAt).getTime(), payoutRecord.created * 1000)
+    ).toISOString();
   }
 
   const totalNet = centsToAmount(totals.totalNet);
   const totalRefunded = centsToAmount(totals.totalRefunded);
   const totalPayouts = centsToAmount(totals.totalPayouts);
-  const currentAvailableEstimate = Number(
-    (totalNet - totalRefunded - totalPayouts).toFixed(2)
+  const currentAvailableEstimate = calculateCurrentAvailableEstimate(
+    totalNet,
+    totalRefunded
   );
 
   return {
