@@ -38,6 +38,7 @@ import type {
   ContributionType,
   CheckoutResult,
   CheckoutRequest,
+  PublicFundingRuntimeConfig,
   RedirectCheckoutResult,
   SponsorFeedChannel,
   SponsorFeedStatus,
@@ -122,11 +123,35 @@ const parseNonNegativeIntegerEnv = (
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
+const parseBooleanEnv = (
+  value: string | undefined,
+  fallback: boolean
+): boolean => {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+};
+
 const port = Number(process.env.FUNDING_API_PORT ?? 3333);
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 const projectId = process.env.FUNDING_PROJECT_ID ?? 'openg7';
 const isProduction = process.env.FUNDING_PLATFORM_ENV === 'production';
+const businessSponsorshipEnabled = parseBooleanEnv(
+  process.env.FUNDING_BUSINESS_SPONSORSHIP_ENABLED,
+  false
+);
 const adminToken = process.env.FUNDING_ADMIN_TOKEN?.trim() ?? '';
 const adminSessionSecret =
   process.env.FUNDING_ADMIN_SESSION_SECRET?.trim() ?? '';
@@ -868,13 +893,15 @@ const parseAdminSponsorshipsQuery = (
       : 6,
     search: search || undefined,
     reviewStatus:
-      reviewStatus && allowedSponsorshipReviewStatuses.has(
+      reviewStatus &&
+      allowedSponsorshipReviewStatuses.has(
         reviewStatus as SponsorshipReviewStatus
       )
         ? (reviewStatus as SponsorshipReviewStatus)
         : undefined,
     feedStatus:
-      feedStatus && allowedSponsorFeedStatuses.has(feedStatus as SponsorFeedStatus)
+      feedStatus &&
+      allowedSponsorFeedStatuses.has(feedStatus as SponsorFeedStatus)
         ? (feedStatus as SponsorFeedStatus)
         : undefined,
     paymentStatus:
@@ -1624,9 +1651,14 @@ createServer(async (request, response) => {
       });
 
       if (!deleteResult.updated) {
-        writeSponsorshipMutationFailure(request, response, deleteResult.status, {
-          currentVersion: deleteResult.currentVersion
-        });
+        writeSponsorshipMutationFailure(
+          request,
+          response,
+          deleteResult.status,
+          {
+            currentVersion: deleteResult.currentVersion
+          }
+        );
         return;
       }
 
@@ -1693,6 +1725,13 @@ createServer(async (request, response) => {
     if (!isAllowedContributionType(parsed.contributionType)) {
       writeJson(request, response, 400, {
         error: 'Checkout contribution type is not allowed.'
+      });
+      return;
+    }
+
+    if (isSponsorshipContribution && !businessSponsorshipEnabled) {
+      writeJson(request, response, 403, {
+        error: 'Business sponsorship checkout is disabled.'
       });
       return;
     }
@@ -2225,9 +2264,14 @@ createServer(async (request, response) => {
 
       if (!updateResult.updated) {
         await unlink(filePath).catch(() => undefined);
-        writeSponsorshipMutationFailure(request, response, updateResult.status, {
-          currentVersion: updateResult.currentVersion
-        });
+        writeSponsorshipMutationFailure(
+          request,
+          response,
+          updateResult.status,
+          {
+            currentVersion: updateResult.currentVersion
+          }
+        );
         return;
       }
 
@@ -3935,6 +3979,22 @@ createServer(async (request, response) => {
     request.method === 'GET' &&
     routeMatches(
       request.url,
+      '/public/funding-config',
+      '/api/public/funding-config'
+    )
+  ) {
+    const runtimeConfig: PublicFundingRuntimeConfig = {
+      business_sponsorship_enabled: businessSponsorshipEnabled,
+      last_updated_at: new Date().toISOString()
+    };
+    writeJson(request, response, 200, runtimeConfig);
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
       '/public/fund-transparency',
       '/api/public/fund-transparency'
     )
@@ -3976,6 +4036,7 @@ createServer(async (request, response) => {
       apiReachable: true,
       stripeSecretKeyConfigured: Boolean(stripeSecretKey),
       stripeWebhookSecretConfigured: Boolean(stripeWebhookSecret),
+      businessSponsorshipEnabled,
       databaseUrlConfigured: hasDatabase,
       databaseReachable: await getDatabaseConnectionStatus(),
       transparencySource: hasDatabase ? 'database' : stripe ? 'stripe' : 'none',

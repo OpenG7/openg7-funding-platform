@@ -4,6 +4,7 @@ import {
   CheckoutRequest,
   CheckoutResult,
   ContributionType,
+  PublicFundingRuntimeConfig,
   PublicSponsorshipBatchAvailabilityResponse,
   SponsorshipDetailsResult,
   SponsorshipFollowupDetailsRequest,
@@ -96,6 +97,21 @@ export class FundingService {
 
       return createMockCheckoutResult(request);
     }
+  }
+
+  async getPublicFundingConfig(): Promise<PublicFundingRuntimeConfig> {
+    const response = await fetch(`${this.apiBaseUrl}/public/funding-config`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Funding runtime config could not be loaded.');
+    }
+
+    return (await response.json()) as PublicFundingRuntimeConfig;
   }
 
   private buildReturnUrl(
