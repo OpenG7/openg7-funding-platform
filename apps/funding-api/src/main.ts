@@ -15,8 +15,11 @@ import {
 import Stripe from 'stripe';
 import type {
   AdminContributionRecord,
+  AdminEmailTestRequest,
+  AdminEmailTestResult,
   AdminExpenseCreateRequest,
   AdminExpenseUpdateRequest,
+  AdminSetupStatusResponse,
   AdminTransparencyResponse,
   AdminPublicationBatchAssignRequest,
   AdminPublicationBatchCreateRequest,
@@ -72,7 +75,12 @@ import {
   updateAdminPublicationDraft
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
-import { sendPublicationBatchFullNotification } from './email-notification.service.js';
+import {
+  getEmailQueueStatus,
+  processQueuedEmailMessages,
+  queueEmailConfigurationTest,
+  queuePublicationBatchFullNotification
+} from './email-notification.service.js';
 import {
   allowedSponsorFeedChannels,
   allowedSponsorFeedStatuses,
@@ -178,6 +186,14 @@ const sponsorshipFollowupRateLimitMax = parseNonNegativeIntegerEnv(
 const adminRateLimitMax = parseNonNegativeIntegerEnv(
   process.env.FUNDING_ADMIN_RATE_LIMIT_MAX,
   120
+);
+const emailQueuePollIntervalMs = parsePositiveIntegerEnv(
+  process.env.FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS,
+  30_000
+);
+const emailQueueBatchSize = parsePositiveIntegerEnv(
+  process.env.FUNDING_EMAIL_QUEUE_BATCH_SIZE,
+  10
 );
 const sponsorLogoMaxBytes = parsePositiveIntegerEnv(
   process.env.FUNDING_SPONSOR_LOGO_MAX_BYTES,
@@ -1175,7 +1191,7 @@ const isAdminAuthorized = (request: ApiRequest): boolean => {
   return Boolean(resolveAdminAuthorization(request));
 };
 
-const ensureAdminAccess = (
+const ensureAdminAuthorization = (
   request: ApiRequest,
   response: ApiResponse
 ): boolean => {
@@ -1190,6 +1206,17 @@ const ensureAdminAccess = (
     writeJson(request, response, 401, {
       error: 'Admin authorization is required.'
     });
+    return false;
+  }
+
+  return true;
+};
+
+const ensureAdminAccess = (
+  request: ApiRequest,
+  response: ApiResponse
+): boolean => {
+  if (!ensureAdminAuthorization(request, response)) {
     return false;
   }
 
@@ -1386,6 +1413,10 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       request.url,
       '/admin/session',
       '/api/admin/session',
+      '/admin/setup-status',
+      '/api/admin/setup-status',
+      '/admin/email/test',
+      '/api/admin/email/test',
       '/admin/dashboard',
       '/api/admin/dashboard',
       '/admin/contributions',
@@ -1445,6 +1476,64 @@ const getDatabaseConnectionStatus = async (): Promise<boolean> => {
   } catch {
     return false;
   }
+};
+
+const buildAdminSetupStatus = async (): Promise<AdminSetupStatusResponse> => {
+  const databaseReachable = await getDatabaseConnectionStatus();
+  let emailQueueStatus = {
+    queuedCount: 0,
+    sendingCount: 0,
+    sentCount: 0,
+    failedCount: 0,
+    lastFailedAt: null as string | null,
+    lastError: null as string | null
+  };
+  let emailQueueStatusError: string | null = null;
+
+  try {
+    emailQueueStatus = await getEmailQueueStatus(dbPool);
+  } catch (error) {
+    console.error('Failed to inspect email queue status.', error);
+    emailQueueStatusError =
+      'Email queue status could not be loaded. Apply migration 010.';
+  }
+
+  return {
+    data_source: hasDatabase ? 'database' : stripe ? 'stripe_direct' : 'empty',
+    environment: process.env.FUNDING_PLATFORM_ENV ?? 'development',
+    public_base_url: publicBaseUrl ?? null,
+    allowed_origins: allowedOrigins,
+    stripe: {
+      secret_key_configured: Boolean(stripeSecretKey),
+      webhook_secret_configured: Boolean(stripeWebhookSecret),
+      business_sponsorship_enabled: businessSponsorshipEnabled,
+      dashboard_url: stripeSecretKey?.startsWith('sk_live_')
+        ? 'https://dashboard.stripe.com/webhooks'
+        : 'https://dashboard.stripe.com/test/webhooks',
+      webhook_endpoint: `${publicBaseUrl ?? publicBaseOrigin}/api/stripe/webhook`
+    },
+    email: {
+      resend_api_key_configured: Boolean(process.env.RESEND_API_KEY?.trim()),
+      from: process.env.FUNDING_EMAIL_FROM?.trim() || null,
+      reply_to: process.env.FUNDING_EMAIL_REPLY_TO?.trim() || null,
+      admin_notification_email:
+        process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() || null,
+      queue_available: Boolean(dbPool && databaseReachable),
+      queue_poll_interval_ms: emailQueuePollIntervalMs,
+      queue_batch_size: emailQueueBatchSize,
+      queued_count: emailQueueStatus.queuedCount,
+      sending_count: emailQueueStatus.sendingCount,
+      sent_count: emailQueueStatus.sentCount,
+      failed_count: emailQueueStatus.failedCount,
+      last_failed_at: emailQueueStatus.lastFailedAt,
+      last_error: emailQueueStatus.lastError ?? emailQueueStatusError
+    },
+    database: {
+      configured: hasDatabase,
+      reachable: databaseReachable
+    },
+    last_updated_at: new Date().toISOString()
+  };
 };
 
 const createDevelopmentCheckoutResult = (
@@ -1524,6 +1613,31 @@ const buildAdminContributionsCsv = (
   );
 
   return [header.join(','), ...rows].join('\n');
+};
+
+let emailQueueProcessing = false;
+
+const runEmailQueueWorker = async (): Promise<void> => {
+  if (!dbPool || emailQueueProcessing) {
+    return;
+  }
+
+  emailQueueProcessing = true;
+  try {
+    const result = await processQueuedEmailMessages(dbPool, {
+      limit: emailQueueBatchSize
+    });
+
+    if (result.sent > 0 || result.failed > 0) {
+      console.info(
+        `Email queue processed ${result.attempted} message(s): ${result.sent} sent, ${result.failed} failed.`
+      );
+    }
+  } catch (error) {
+    console.error('Failed to process email queue.', error);
+  } finally {
+    emailQueueProcessing = false;
+  }
 };
 
 createServer(async (request, response) => {
@@ -2551,6 +2665,96 @@ createServer(async (request, response) => {
     return;
   }
 
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/admin/setup-status', '/api/admin/setup-status')
+  ) {
+    if (!ensureAdminAuthorization(request, response)) {
+      return;
+    }
+
+    try {
+      const setupStatus = await buildAdminSetupStatus();
+      writeJson(request, response, 200, setupStatus);
+    } catch (error) {
+      console.error('Failed to load admin setup status.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin setup status could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(request.url, '/admin/email/test', '/api/admin/email/test')
+  ) {
+    if (!ensureAdminAuthorization(request, response)) {
+      return;
+    }
+
+    if (!dbPool) {
+      writeJson(request, response, 503, {
+        error: 'Email test requires DATABASE_URL and migration 010.'
+      });
+      return;
+    }
+
+    if (
+      !process.env.RESEND_API_KEY?.trim() ||
+      !process.env.FUNDING_EMAIL_FROM?.trim()
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Email provider is not configured.'
+      });
+      return;
+    }
+
+    let parsed: AdminEmailTestRequest = {};
+    try {
+      const body = await readBody(request, 16 * 1024);
+      parsed = body.trim() ? (JSON.parse(body) as AdminEmailTestRequest) : {};
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid email test request body.'
+      });
+      return;
+    }
+
+    const recipient =
+      typeof parsed.to === 'string' && parsed.to.trim()
+        ? parsed.to.trim()
+        : (process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ?? '');
+
+    if (!isValidSponsorEmail(recipient)) {
+      writeJson(request, response, 400, {
+        error: 'A valid test email is required.'
+      });
+      return;
+    }
+
+    try {
+      const result = await queueEmailConfigurationTest(dbPool, {
+        to: recipient,
+        idempotencyKey: `admin-email-test:${Date.now()}:${randomBytes(6).toString('hex')}`
+      });
+      const payload: AdminEmailTestResult = {
+        queued: result.queued,
+        attempted: result.attempted,
+        sent: result.sent,
+        messageId: result.messageId,
+        error: result.error
+      };
+      writeJson(request, response, 200, payload);
+    } catch (error) {
+      console.error('Failed to send admin email test.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin email test could not be queued.'
+      });
+    }
+    return;
+  }
+
   if (request.method === 'GET') {
     const filename = getSponsorLogoFilenameFromUrl(request.url);
     if (filename) {
@@ -3329,11 +3533,16 @@ createServer(async (request, response) => {
 
       const batch = await getPublicationBatchById(dbPool, parsed.batchId);
       if (batch && batch.status === 'open' && batch.capacityAvailable === 0) {
-        const notificationResult = await sendPublicationBatchFullNotification({
-          channel: batch.channel,
-          capacity: batch.capacity
-        });
-        if (!notificationResult.sent) {
+        const notificationResult = await queuePublicationBatchFullNotification(
+          dbPool,
+          {
+            batchId: batch.id,
+            idempotencyKey: `publication-batch:${batch.id}:full`,
+            channel: batch.channel,
+            capacity: batch.capacity
+          }
+        );
+        if (!notificationResult.queued && !notificationResult.sent) {
           console.warn(
             'Publication batch is full but the admin notification could not be sent.',
             notificationResult.error
@@ -4057,5 +4266,13 @@ createServer(async (request, response) => {
     console.info(
       'DATABASE_URL is not configured. Using Stripe-direct public transparency.'
     );
+    return;
   }
+
+  void runEmailQueueWorker();
+  const emailQueueTimer = setInterval(
+    () => void runEmailQueueWorker(),
+    emailQueuePollIntervalMs
+  );
+  emailQueueTimer.unref();
 });

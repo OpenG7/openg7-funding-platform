@@ -11,7 +11,10 @@ import {
   updateContributionStatusByPaymentIntent,
   upsertCheckoutSessionFromWebhook
 } from './fund-contributions.repository.js';
-import { sendSponsorshipFollowupEmail } from './email-notification.service.js';
+import {
+  queueSponsorshipConfirmationEmail,
+  queueSponsorshipFollowupEmail
+} from './email-notification.service.js';
 import {
   insertFundTransaction,
   updateContributionFundTransactionBalance
@@ -41,6 +44,9 @@ const contributionPublicReferencePattern = /^OG7-\d{4}-[A-Z0-9]{4,8}$/;
 
 const toIsoFromUnix = (seconds: number): string =>
   new Date(seconds * 1000).toISOString();
+
+const centsToAmount = (value: number): number =>
+  Number((value / 100).toFixed(2));
 
 const buildBalanceData = (
   balanceTransaction: Stripe.BalanceTransaction | null,
@@ -268,6 +274,7 @@ export const processStripeWebhook = async (
       const followupToken = extractSponsorshipFollowupTokenFromSession(session);
       const followupEmail = session.customer_details?.email;
       let followupEmailSent = false;
+      let sponsorshipConfirmationEmailSent = false;
 
       if (
         status === 'paid' &&
@@ -276,9 +283,14 @@ export const processStripeWebhook = async (
         followupToken &&
         followupEmail
       ) {
-        const sendResult = await sendSponsorshipFollowupEmail({
+        const followupUrl = buildSponsorshipFollowupUrl(
+          publicBaseUrl,
+          followupToken
+        );
+        const sendResult = await queueSponsorshipFollowupEmail(pool, {
+          idempotencyKey: `stripe-session:${session.id}:sponsorship-followup`,
           to: followupEmail,
-          followupUrl: buildSponsorshipFollowupUrl(publicBaseUrl, followupToken)
+          followupUrl
         });
         followupEmailSent = sendResult.sent;
 
@@ -287,12 +299,33 @@ export const processStripeWebhook = async (
           sentAtIso: sendResult.sent ? new Date().toISOString() : undefined,
           error: sendResult.sent ? null : sendResult.error
         });
+
+        const confirmationResult = await queueSponsorshipConfirmationEmail(
+          pool,
+          {
+            idempotencyKey: `stripe-session:${session.id}:sponsorship-confirmation`,
+            to: followupEmail,
+            publicReference: normalizeContributionPublicReference(
+              sessionMetadata.publicReference ?? session.client_reference_id
+            ),
+            amount: centsToAmount(session.amount_total ?? 0),
+            currency: session.currency ?? 'cad',
+            paidAtIso: toIsoFromUnix(session.created),
+            followupUrl,
+            stripeSessionId: session.id,
+            stripePaymentIntentId: resolvePaymentIntentId(
+              session.payment_intent
+            )
+          }
+        );
+        sponsorshipConfirmationEmailSent = confirmationResult.sent;
       }
 
       return acknowledge({
         received: true,
         updated,
-        followupEmailSent
+        followupEmailSent,
+        sponsorshipConfirmationEmailSent
       });
     }
 

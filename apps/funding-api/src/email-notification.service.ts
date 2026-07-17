@@ -1,11 +1,42 @@
+import type { Pool } from 'pg';
+
+type EmailTemplateKey =
+  | 'sponsorship_followup'
+  | 'sponsorship_confirmation'
+  | 'publication_batch_full'
+  | 'email_configuration_test';
+
+type EmailSponsorshipBenefitId =
+  'website_mention' | 'facebook_batch' | 'linkedin_batch';
+
 interface SponsorshipFollowupEmailInput {
   readonly to: string;
   readonly followupUrl: string;
+  readonly idempotencyKey?: string;
+}
+
+interface SponsorshipConfirmationEmailInput {
+  readonly to: string;
+  readonly publicReference: string | null;
+  readonly amount: number;
+  readonly currency: string;
+  readonly paidAtIso: string | null;
+  readonly followupUrl: string;
+  readonly stripeSessionId: string;
+  readonly stripePaymentIntentId: string | null;
+  readonly idempotencyKey?: string;
 }
 
 interface PublicationBatchFullEmailInput {
   readonly channel: string;
   readonly capacity: number;
+  readonly batchId?: string;
+  readonly idempotencyKey?: string;
+}
+
+interface EmailConfigurationTestInput {
+  readonly to: string;
+  readonly idempotencyKey?: string;
 }
 
 interface EmailSendResult {
@@ -14,11 +45,98 @@ interface EmailSendResult {
   readonly error: string | null;
 }
 
+interface EmailQueueResult extends EmailSendResult {
+  readonly queued: boolean;
+  readonly duplicate: boolean;
+  readonly messageId: string | null;
+}
+
+interface RenderedEmail {
+  readonly templateKey: EmailTemplateKey;
+  readonly subject: string;
+  readonly text: string;
+  readonly html: string;
+  readonly metadata: Record<string, unknown>;
+}
+
+interface QueueEmailInput extends RenderedEmail {
+  readonly to: string;
+  readonly idempotencyKey?: string;
+  readonly maxAttempts?: number;
+}
+
+interface QueueInsertResult {
+  readonly queued: boolean;
+  readonly duplicate: boolean;
+  readonly messageId: string | null;
+  readonly status: string | null;
+  readonly error: string | null;
+}
+
+interface ClaimedEmailRow {
+  readonly id: string;
+  readonly recipient_email: string;
+  readonly from_email: string;
+  readonly reply_to_email: string | null;
+  readonly subject: string;
+  readonly text_body: string;
+  readonly html_body: string;
+  readonly attempts: number;
+  readonly max_attempts: number;
+}
+
+interface EmailQueueProcessOptions {
+  readonly limit?: number;
+  readonly messageIds?: readonly string[];
+}
+
+export interface EmailQueueProcessResult {
+  readonly attempted: number;
+  readonly sent: number;
+  readonly failed: number;
+  readonly messageIds: readonly string[];
+  readonly sentMessageIds: readonly string[];
+  readonly failedMessageIds: readonly string[];
+}
+
+export interface EmailQueueStatus {
+  readonly queuedCount: number;
+  readonly sendingCount: number;
+  readonly sentCount: number;
+  readonly failedCount: number;
+  readonly lastFailedAt: string | null;
+  readonly lastError: string | null;
+}
+
 const resendApiKey = process.env.RESEND_API_KEY?.trim() ?? '';
 const emailFrom = process.env.FUNDING_EMAIL_FROM?.trim() ?? '';
 const emailReplyTo = process.env.FUNDING_EMAIL_REPLY_TO?.trim() ?? '';
 const adminNotificationEmail =
   process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ?? '';
+const defaultMaxAttempts = 5;
+
+const sponsorshipBenefitLabels: Record<EmailSponsorshipBenefitId, string> = {
+  website_mention: 'Mention publique sur OpenG7.org apres validation',
+  facebook_batch: 'Presence dans une publication collective Facebook',
+  linkedin_batch: 'Presence dans une publication collective LinkedIn'
+};
+const sponsorshipBenefitThresholds: readonly {
+  readonly id: EmailSponsorshipBenefitId;
+  readonly minimumAmount: number;
+}[] = [
+  {
+    id: 'website_mention',
+    minimumAmount: 5
+  },
+  {
+    id: 'facebook_batch',
+    minimumAmount: 25
+  },
+  {
+    id: 'linkedin_batch',
+    minimumAmount: 50
+  }
+];
 
 const escapeHtml = (value: string): string =>
   value
@@ -28,38 +146,56 @@ const escapeHtml = (value: string): string =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 
-export const sendSponsorshipFollowupEmail = async (
-  input: SponsorshipFollowupEmailInput
-): Promise<EmailSendResult> => {
-  if (!resendApiKey || !emailFrom) {
+const formatMoney = (amount: number, currency: string): string =>
+  new Intl.NumberFormat('fr-CA', {
+    currency: currency.toUpperCase(),
+    style: 'currency'
+  }).format(amount);
+
+const formatDate = (iso: string | null): string => {
+  if (!iso) {
+    return 'Date non disponible';
+  }
+
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return iso;
+  }
+
+  return new Intl.DateTimeFormat('fr-CA', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: 'America/Toronto'
+  }).format(date);
+};
+
+const formatBenefitList = (amount: number): readonly string[] => {
+  const benefits = sponsorshipBenefitThresholds
+    .filter((benefit) => amount >= benefit.minimumAmount)
+    .map((benefit) => benefit.id);
+
+  if (benefits.length === 0) {
+    return ['Aucun avantage de visibilite n est encore associe a ce montant.'];
+  }
+
+  return benefits.map((benefit) => sponsorshipBenefitLabels[benefit]);
+};
+
+const sendEmailPayload = async (input: {
+  readonly to: string;
+  readonly from: string;
+  readonly replyTo: string | null;
+  readonly subject: string;
+  readonly text: string;
+  readonly html: string;
+}): Promise<EmailSendResult> => {
+  if (!resendApiKey || !input.from) {
     return {
       attempted: false,
       sent: false,
       error: 'Email provider is not configured.'
     };
   }
-
-  const safeUrl = escapeHtml(input.followupUrl);
-  const subject = 'Votre commandite OpenG7 est en validation';
-  const text = [
-    'Merci pour votre commandite OpenG7.',
-    '',
-    'Vous pouvez reprendre votre formulaire et suivre le statut ici:',
-    input.followupUrl,
-    '',
-    'Aucune visibilite publique n est accordee avant validation manuelle.'
-  ].join('\n');
-  const html = `
-    <p>Merci pour votre commandite OpenG7.</p>
-    <p>
-      Vous pouvez reprendre votre formulaire et suivre le statut ici:
-      <br />
-      <a href="${safeUrl}">${safeUrl}</a>
-    </p>
-    <p>
-      Aucune visibilite publique n'est accordee avant validation manuelle.
-    </p>
-  `;
 
   try {
     const response = await fetch('https://api.resend.com/emails', {
@@ -69,12 +205,12 @@ export const sendSponsorshipFollowupEmail = async (
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: emailFrom,
+        from: input.from,
         to: [input.to],
-        subject,
-        text,
-        html,
-        ...(emailReplyTo ? { reply_to: emailReplyTo } : {})
+        subject: input.subject,
+        text: input.text,
+        html: input.html,
+        ...(input.replyTo ? { reply_to: input.replyTo } : {})
       })
     });
 
@@ -100,23 +236,114 @@ export const sendSponsorshipFollowupEmail = async (
   }
 };
 
-/**
- * Notifies the configured admin address when a publication batch reaches
- * capacity, so it gets scheduled or published instead of sitting full and
- * unnoticed. Purely informational: it never schedules or publishes anything
- * itself.
- */
-export const sendPublicationBatchFullNotification = async (
-  input: PublicationBatchFullEmailInput
-): Promise<EmailSendResult> => {
-  if (!resendApiKey || !emailFrom || !adminNotificationEmail) {
-    return {
-      attempted: false,
-      sent: false,
-      error: 'Email provider or admin notification address is not configured.'
-    };
-  }
+const renderSponsorshipFollowupEmail = (
+  input: SponsorshipFollowupEmailInput
+): RenderedEmail => {
+  const safeUrl = escapeHtml(input.followupUrl);
+  const subject = 'Votre commandite OpenG7 est en validation';
+  const text = [
+    'Merci pour votre commandite OpenG7.',
+    '',
+    'Vous pouvez reprendre votre formulaire et suivre le statut ici:',
+    input.followupUrl,
+    '',
+    'Aucune visibilite publique n est accordee avant validation manuelle.'
+  ].join('\n');
+  const html = `
+    <p>Merci pour votre commandite OpenG7.</p>
+    <p>
+      Vous pouvez reprendre votre formulaire et suivre le statut ici:
+      <br />
+      <a href="${safeUrl}">${safeUrl}</a>
+    </p>
+    <p>
+      Aucune visibilite publique n'est accordee avant validation manuelle.
+    </p>
+  `;
 
+  return {
+    templateKey: 'sponsorship_followup',
+    subject,
+    text,
+    html,
+    metadata: {
+      followupUrl: input.followupUrl
+    }
+  };
+};
+
+const renderSponsorshipConfirmationEmail = (
+  input: SponsorshipConfirmationEmailInput
+): RenderedEmail => {
+  const reference = input.publicReference ?? 'Reference a confirmer';
+  const amount = formatMoney(input.amount, input.currency);
+  const paidAt = formatDate(input.paidAtIso);
+  const safeFollowupUrl = escapeHtml(input.followupUrl);
+  const benefits = formatBenefitList(input.amount);
+  const escapedBenefits = benefits.map((benefit) => escapeHtml(benefit));
+  const subject = `Confirmation de commandite OpenG7 - ${reference}`;
+  const text = [
+    'Merci pour votre commandite OpenG7.',
+    '',
+    `Reference: ${reference}`,
+    `Montant confirme: ${amount}`,
+    `Date du paiement: ${paidAt}`,
+    '',
+    'Avantages associes au montant, sous reserve de validation manuelle:',
+    ...benefits.map((benefit) => `- ${benefit}`),
+    '',
+    'Prochaine etape:',
+    input.followupUrl,
+    '',
+    'Ce message est une confirmation descriptive de commandite. Il ne constitue pas un recu officiel de don de bienfaisance.',
+    'Aucune visibilite publique n est accordee avant validation manuelle.'
+  ].join('\n');
+  const html = `
+    <p>Merci pour votre commandite OpenG7.</p>
+    <p>
+      <strong>Reference:</strong> ${escapeHtml(reference)}<br />
+      <strong>Montant confirme:</strong> ${escapeHtml(amount)}<br />
+      <strong>Date du paiement:</strong> ${escapeHtml(paidAt)}
+    </p>
+    <p>
+      Avantages associes au montant, sous reserve de validation manuelle:
+    </p>
+    <ul>
+      ${escapedBenefits.map((benefit) => `<li>${benefit}</li>`).join('')}
+    </ul>
+    <p>
+      Prochaine etape:
+      <br />
+      <a href="${safeFollowupUrl}">${safeFollowupUrl}</a>
+    </p>
+    <p>
+      Ce message est une confirmation descriptive de commandite. Il ne
+      constitue pas un recu officiel de don de bienfaisance.
+    </p>
+    <p>
+      Aucune visibilite publique n'est accordee avant validation manuelle.
+    </p>
+  `;
+
+  return {
+    templateKey: 'sponsorship_confirmation',
+    subject,
+    text,
+    html,
+    metadata: {
+      amount: input.amount,
+      currency: input.currency,
+      paidAtIso: input.paidAtIso,
+      publicReference: input.publicReference,
+      stripePaymentIntentId: input.stripePaymentIntentId,
+      stripeSessionId: input.stripeSessionId
+    }
+  };
+};
+
+const renderPublicationBatchFullNotification = (
+  input: PublicationBatchFullEmailInput
+): RenderedEmail => {
   const channelLabel = escapeHtml(input.channel);
   const subject = `Lot ${input.channel} complet (${input.capacity}/${input.capacity})`;
   const text = [
@@ -136,41 +363,486 @@ export const sendPublicationBatchFullNotification = async (
     </p>
   `;
 
-  try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: emailFrom,
-        to: [adminNotificationEmail],
+  return {
+    templateKey: 'publication_batch_full',
+    subject,
+    text,
+    html,
+    metadata: {
+      batchId: input.batchId ?? null,
+      capacity: input.capacity,
+      channel: input.channel
+    }
+  };
+};
+
+const renderEmailConfigurationTest = (
+  input: EmailConfigurationTestInput
+): RenderedEmail => {
+  const subject = 'Test courriel OpenG7';
+  const text = [
+    'Ceci est un test de configuration courriel OpenG7.',
+    '',
+    `Destinataire: ${input.to}`,
+    '',
+    'Si vous recevez ce message, Resend, l expediteur et la file courriel fonctionnent.'
+  ].join('\n');
+  const html = `
+    <p>Ceci est un test de configuration courriel OpenG7.</p>
+    <p><strong>Destinataire:</strong> ${escapeHtml(input.to)}</p>
+    <p>
+      Si vous recevez ce message, Resend, l'expediteur et la file courriel
+      fonctionnent.
+    </p>
+  `;
+
+  return {
+    templateKey: 'email_configuration_test',
+    subject,
+    text,
+    html,
+    metadata: {
+      purpose: 'admin_setup_test'
+    }
+  };
+};
+
+const enqueueEmailMessage = async (
+  pool: Pool | null,
+  input: QueueEmailInput
+): Promise<QueueInsertResult> => {
+  if (!pool) {
+    return {
+      queued: false,
+      duplicate: false,
+      messageId: null,
+      status: null,
+      error: 'Email queue requires DATABASE_URL.'
+    };
+  }
+
+  if (!emailFrom) {
+    return {
+      queued: false,
+      duplicate: false,
+      messageId: null,
+      status: null,
+      error: 'Email sender is not configured.'
+    };
+  }
+
+  const insert = await pool.query<{ id: string }>(
+    `
+      INSERT INTO email_messages (
+        idempotency_key,
+        template_key,
+        recipient_email,
+        from_email,
+        reply_to_email,
         subject,
-        text,
-        html,
-        ...(emailReplyTo ? { reply_to: emailReplyTo } : {})
-      })
+        text_body,
+        html_body,
+        metadata,
+        max_attempts
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+      ON CONFLICT (idempotency_key) DO NOTHING
+      RETURNING id
+    `,
+    [
+      input.idempotencyKey ?? null,
+      input.templateKey,
+      input.to,
+      emailFrom,
+      emailReplyTo || null,
+      input.subject,
+      input.text,
+      input.html,
+      JSON.stringify(input.metadata),
+      input.maxAttempts ?? defaultMaxAttempts
+    ]
+  );
+
+  const inserted = insert.rows[0];
+  if (inserted) {
+    return {
+      queued: true,
+      duplicate: false,
+      messageId: inserted.id,
+      status: 'queued',
+      error: null
+    };
+  }
+
+  if (!input.idempotencyKey) {
+    return {
+      queued: false,
+      duplicate: false,
+      messageId: null,
+      status: null,
+      error: 'Email message was not queued.'
+    };
+  }
+
+  const existing = await pool.query<{ id: string; status: string }>(
+    `
+      SELECT id, status
+      FROM email_messages
+      WHERE idempotency_key = $1
+      LIMIT 1
+    `,
+    [input.idempotencyKey]
+  );
+  const row = existing.rows[0] ?? null;
+
+  return {
+    queued: row?.status !== 'sent',
+    duplicate: true,
+    messageId: row?.id ?? null,
+    status: row?.status ?? null,
+    error: null
+  };
+};
+
+export const getEmailQueueStatus = async (
+  pool: Pool | null
+): Promise<EmailQueueStatus> => {
+  if (!pool) {
+    return {
+      queuedCount: 0,
+      sendingCount: 0,
+      sentCount: 0,
+      failedCount: 0,
+      lastFailedAt: null,
+      lastError: null
+    };
+  }
+
+  const result = await pool.query<{
+    queued_count: number;
+    sending_count: number;
+    sent_count: number;
+    failed_count: number;
+    last_failed_at: string | null;
+    last_error: string | null;
+  }>(`
+    WITH counts AS (
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'queued')::int AS queued_count,
+        COUNT(*) FILTER (WHERE status = 'sending')::int AS sending_count,
+        COUNT(*) FILTER (WHERE status = 'sent')::int AS sent_count,
+        COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count
+      FROM email_messages
+    ),
+    latest_failed AS (
+      SELECT updated_at::text AS last_failed_at, last_error
+      FROM email_messages
+      WHERE status = 'failed'
+      ORDER BY updated_at DESC
+      LIMIT 1
+    )
+    SELECT
+      counts.queued_count,
+      counts.sending_count,
+      counts.sent_count,
+      counts.failed_count,
+      latest_failed.last_failed_at,
+      latest_failed.last_error
+    FROM counts
+    LEFT JOIN latest_failed ON TRUE
+  `);
+  const row = result.rows[0];
+
+  return {
+    queuedCount: row?.queued_count ?? 0,
+    sendingCount: row?.sending_count ?? 0,
+    sentCount: row?.sent_count ?? 0,
+    failedCount: row?.failed_count ?? 0,
+    lastFailedAt: row?.last_failed_at ?? null,
+    lastError: row?.last_error ?? null
+  };
+};
+
+const claimQueuedEmailMessages = async (
+  pool: Pool,
+  options: Required<Pick<EmailQueueProcessOptions, 'limit'>> &
+    Pick<EmailQueueProcessOptions, 'messageIds'>
+): Promise<readonly ClaimedEmailRow[]> => {
+  const params: unknown[] = [options.limit];
+  const idFilter =
+    options.messageIds && options.messageIds.length > 0
+      ? 'AND id = ANY($2::uuid[])'
+      : '';
+
+  if (idFilter) {
+    params.push(options.messageIds);
+  }
+
+  const query = await pool.query<ClaimedEmailRow>(
+    `
+      WITH selected AS (
+        SELECT id
+        FROM email_messages
+        WHERE (
+            (
+              status IN ('queued', 'failed')
+              AND next_attempt_at <= NOW()
+            )
+            OR (
+              status = 'sending'
+              AND updated_at <= NOW() - INTERVAL '15 minutes'
+            )
+          )
+          AND attempts < max_attempts
+          ${idFilter}
+        ORDER BY created_at ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT $1
+      )
+      UPDATE email_messages
+      SET
+        status = 'sending',
+        attempts = attempts + 1,
+        updated_at = NOW()
+      FROM selected
+      WHERE email_messages.id = selected.id
+      RETURNING
+        email_messages.id,
+        email_messages.recipient_email,
+        email_messages.from_email,
+        email_messages.reply_to_email,
+        email_messages.subject,
+        email_messages.text_body,
+        email_messages.html_body,
+        email_messages.attempts,
+        email_messages.max_attempts
+    `,
+    params
+  );
+
+  return query.rows;
+};
+
+const nextRetryDate = (attempts: number, maxAttempts: number): Date | null => {
+  if (attempts >= maxAttempts) {
+    return null;
+  }
+
+  const delayMs = Math.min(
+    60 * 60 * 1000,
+    2 ** Math.max(0, attempts - 1) * 60 * 1000
+  );
+  return new Date(Date.now() + delayMs);
+};
+
+const markEmailSent = async (pool: Pool, messageId: string): Promise<void> => {
+  await pool.query(
+    `
+      UPDATE email_messages
+      SET
+        status = 'sent',
+        sent_at = NOW(),
+        next_attempt_at = NOW(),
+        last_error = NULL,
+        updated_at = NOW()
+      WHERE id = $1
+    `,
+    [messageId]
+  );
+};
+
+const markEmailFailed = async (
+  pool: Pool,
+  row: ClaimedEmailRow,
+  error: string | null
+): Promise<void> => {
+  const nextAttemptAt = nextRetryDate(row.attempts, row.max_attempts);
+  await pool.query(
+    `
+      UPDATE email_messages
+      SET
+        status = 'failed',
+        next_attempt_at = COALESCE($2::timestamptz, next_attempt_at),
+        last_error = $3,
+        updated_at = NOW()
+      WHERE id = $1
+    `,
+    [row.id, nextAttemptAt?.toISOString() ?? null, error]
+  );
+};
+
+export const processQueuedEmailMessages = async (
+  pool: Pool | null,
+  options: EmailQueueProcessOptions = {}
+): Promise<EmailQueueProcessResult> => {
+  if (!pool) {
+    return {
+      attempted: 0,
+      sent: 0,
+      failed: 0,
+      messageIds: [],
+      sentMessageIds: [],
+      failedMessageIds: []
+    };
+  }
+
+  const rows = await claimQueuedEmailMessages(pool, {
+    limit: options.limit ?? 10,
+    messageIds: options.messageIds
+  });
+  const sentMessageIds: string[] = [];
+  const failedMessageIds: string[] = [];
+
+  for (const row of rows) {
+    const result = await sendEmailPayload({
+      to: row.recipient_email,
+      from: row.from_email,
+      replyTo: row.reply_to_email,
+      subject: row.subject,
+      text: row.text_body,
+      html: row.html_body
     });
 
-    if (!response.ok) {
-      return {
-        attempted: true,
-        sent: false,
-        error: `Resend returned ${response.status}.`
-      };
+    if (result.sent) {
+      await markEmailSent(pool, row.id);
+      sentMessageIds.push(row.id);
+    } else {
+      await markEmailFailed(pool, row, result.error);
+      failedMessageIds.push(row.id);
     }
+  }
 
+  return {
+    attempted: rows.length,
+    sent: sentMessageIds.length,
+    failed: failedMessageIds.length,
+    messageIds: rows.map((row) => row.id),
+    sentMessageIds,
+    failedMessageIds
+  };
+};
+
+const queueAndProcessEmail = async (
+  pool: Pool | null,
+  input: QueueEmailInput
+): Promise<EmailQueueResult> => {
+  const queued = await enqueueEmailMessage(pool, input);
+  if (!queued.messageId || queued.error) {
     return {
-      attempted: true,
+      queued: queued.queued,
+      duplicate: queued.duplicate,
+      messageId: queued.messageId,
+      attempted: false,
+      sent: false,
+      error: queued.error
+    };
+  }
+
+  if (queued.status === 'sent') {
+    return {
+      queued: false,
+      duplicate: queued.duplicate,
+      messageId: queued.messageId,
+      attempted: false,
       sent: true,
       error: null
     };
-  } catch (error) {
+  }
+
+  const processed = await processQueuedEmailMessages(pool, {
+    limit: 1,
+    messageIds: [queued.messageId]
+  });
+  const sent = processed.sentMessageIds.includes(queued.messageId);
+
+  return {
+    queued: true,
+    duplicate: queued.duplicate,
+    messageId: queued.messageId,
+    attempted: processed.messageIds.includes(queued.messageId),
+    sent,
+    error:
+      !sent && processed.failedMessageIds.includes(queued.messageId)
+        ? 'Email delivery failed and will be retried.'
+        : null
+  };
+};
+
+export const sendSponsorshipFollowupEmail = async (
+  input: SponsorshipFollowupEmailInput
+): Promise<EmailSendResult> => {
+  const rendered = renderSponsorshipFollowupEmail(input);
+  return sendEmailPayload({
+    to: input.to,
+    from: emailFrom,
+    replyTo: emailReplyTo || null,
+    subject: rendered.subject,
+    text: rendered.text,
+    html: rendered.html
+  });
+};
+
+export const queueSponsorshipFollowupEmail = async (
+  pool: Pool | null,
+  input: SponsorshipFollowupEmailInput
+): Promise<EmailQueueResult> => {
+  const rendered = renderSponsorshipFollowupEmail(input);
+  return queueAndProcessEmail(pool, {
+    ...rendered,
+    to: input.to,
+    idempotencyKey: input.idempotencyKey
+  });
+};
+
+export const queueSponsorshipConfirmationEmail = async (
+  pool: Pool | null,
+  input: SponsorshipConfirmationEmailInput
+): Promise<EmailQueueResult> => {
+  const rendered = renderSponsorshipConfirmationEmail(input);
+  return queueAndProcessEmail(pool, {
+    ...rendered,
+    to: input.to,
+    idempotencyKey: input.idempotencyKey
+  });
+};
+
+/**
+ * Notifies the configured admin address when a publication batch reaches
+ * capacity, so it gets scheduled or published instead of sitting full and
+ * unnoticed. Purely informational: it never schedules or publishes anything
+ * itself.
+ */
+export const queuePublicationBatchFullNotification = async (
+  pool: Pool | null,
+  input: PublicationBatchFullEmailInput
+): Promise<EmailQueueResult> => {
+  if (!adminNotificationEmail) {
     return {
-      attempted: true,
+      queued: false,
+      duplicate: false,
+      messageId: null,
+      attempted: false,
       sent: false,
-      error: error instanceof Error ? error.message : 'Email request failed.'
+      error: 'Admin notification address is not configured.'
     };
   }
+
+  const rendered = renderPublicationBatchFullNotification(input);
+  return queueAndProcessEmail(pool, {
+    ...rendered,
+    to: adminNotificationEmail,
+    idempotencyKey: input.idempotencyKey
+  });
+};
+
+export const queueEmailConfigurationTest = async (
+  pool: Pool | null,
+  input: EmailConfigurationTestInput
+): Promise<EmailQueueResult> => {
+  const rendered = renderEmailConfigurationTest(input);
+  return queueAndProcessEmail(pool, {
+    ...rendered,
+    to: input.to,
+    idempotencyKey: input.idempotencyKey
+  });
 };

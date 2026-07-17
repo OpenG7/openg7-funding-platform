@@ -3,6 +3,8 @@ import type {
   AdminAuditLogResponse,
   AdminContributionsResponse,
   AdminDashboardResponse,
+  AdminEmailTestRequest,
+  AdminEmailTestResult,
   AdminExpenseCreateRequest,
   AdminExpenseMutationResult,
   AdminExpenseUpdateRequest,
@@ -19,6 +21,7 @@ import type {
   AdminPublicationDraftUpdateRequest,
   AdminPublicationDraftsResponse,
   AdminSessionResponse,
+  AdminSetupStatusResponse,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
   AdminSponsorshipPublicationRequest,
@@ -123,6 +126,44 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminDashboardResponse;
+  }
+
+  async getSetupStatus(token: string): Promise<AdminSetupStatusResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/setup-status`, {
+      method: 'GET',
+      headers: await this.createHeaders(token)
+    });
+
+    if (!response.ok) {
+      throw new Error('Admin setup status could not be loaded.');
+    }
+
+    return (await response.json()) as AdminSetupStatusResponse;
+  }
+
+  async sendEmailTest(
+    token: string,
+    payload: AdminEmailTestRequest
+  ): Promise<AdminEmailTestResult> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/email/test`, {
+      method: 'POST',
+      headers: {
+        ...(await this.createHeaders(token)),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Admin email test could not be sent.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminEmailTestResult;
   }
 
   async getContributions(token: string): Promise<AdminContributionsResponse> {
@@ -365,9 +406,7 @@ export class FundingAdminService {
     );
 
     if (!response.ok) {
-      throw new Error(
-        'Draft could not be removed from the publication batch.'
-      );
+      throw new Error('Draft could not be removed from the publication batch.');
     }
 
     return (await response.json()) as AdminPublicationDraftMutationResult;

@@ -36,6 +36,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const auditPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-audit-page/admin-audit-page.component.ts'
   );
+  const setupPage = read(
+    'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts'
+  );
   const sponsorsPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
   );
@@ -75,7 +78,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       "path: 'admin/fundraiser/transparency'",
       'AdminTransparencyPageComponent',
       "path: 'admin/fundraiser/audit'",
-      'AdminAuditPageComponent'
+      'AdminAuditPageComponent',
+      "path: 'admin/fundraiser/setup'",
+      'AdminSetupPageComponent'
     ],
     'admin Angular routes'
   );
@@ -89,7 +94,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'routerLink="/admin/fundraiser/publications"',
       'routerLink="/admin/fundraiser/expenses"',
       'routerLink="/admin/fundraiser/transparency"',
-      'routerLink="/admin/fundraiser/audit"'
+      'routerLink="/admin/fundraiser/audit"',
+      'routerLink="/admin/fundraiser/setup"'
     ],
     'admin navigation'
   );
@@ -111,6 +117,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     [
       'getDashboard',
       '/admin/dashboard',
+      'getSetupStatus',
+      '/admin/setup-status',
+      'sendEmailTest',
+      '/admin/email/test',
       'getContributions',
       '/admin/contributions',
       'getContributionsCsv',
@@ -271,9 +281,34 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
+    setupPage,
+    [
+      'getSetupStatus',
+      'sendEmailTest',
+      'tourSteps',
+      'data-tour-anchor="stripe"',
+      'data-tour-anchor="email"',
+      'data-tour-anchor="queue"',
+      'data-tour-anchor="database"',
+      'RESEND_API_KEY',
+      'FUNDING_EMAIL_FROM',
+      'FUNDING_ADMIN_NOTIFICATION_EMAIL',
+      'STRIPE_SECRET_KEY',
+      'STRIPE_WEBHOOK_SECRET',
+      'DATABASE_URL'
+    ],
+    'admin setup page'
+  );
+
+  assertIncludesAll(
     api,
     [
       "'/admin/dashboard'",
+      "'/admin/setup-status'",
+      "'/admin/email/test'",
+      'buildAdminSetupStatus',
+      'queueEmailConfigurationTest',
+      'getEmailQueueStatus',
       "'/admin/contributions'",
       "'/admin/contributions.csv'",
       "'/admin/session'",
@@ -374,6 +409,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminExpensesResponse',
       'AdminTransparencyResponse',
       'AdminSessionResponse',
+      'AdminSetupStatusResponse',
+      'AdminEmailTestRequest',
+      'AdminEmailTestResult',
       'AdminPagination',
       'readonly version: string;',
       'readonly items: readonly AdminSponsorshipRecord[];',
@@ -392,8 +430,11 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     readme,
     [
       '/admin/fundraiser',
+      '/admin/fundraiser/setup',
       'POST /api/admin/session',
       'GET /api/admin/dashboard',
+      'GET /api/admin/setup-status',
+      'POST /api/admin/email/test',
       'POST /api/admin/sponsorships/logo',
       'GET /api/admin/sponsorships/logo',
       'POST /api/admin/sponsorships/logo/delete',
@@ -404,7 +445,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'GET /api/admin/transparency',
       'GET /api/admin/publication-drafts',
       'GET /api/admin/audit-log',
-      '007_add_admin_audit_and_publication_drafts.sql'
+      '007_add_admin_audit_and_publication_drafts.sql',
+      '010_create_email_messages.sql'
     ],
     'admin docs'
   );
