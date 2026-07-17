@@ -81,7 +81,8 @@ Set these variables for API and webhook processing:
 - `FUNDING_ADMIN_SESSION_TTL_MINUTES` - optional admin session duration, defaulting to 60 minutes.
 - `FUNDING_SPONSOR_LOGO_STORAGE_DIR` - private API filesystem directory for uploaded sponsor logos.
 - `FUNDING_SPONSOR_LOGO_MAX_BYTES` - optional sponsor logo upload size limit, defaulting to 524288 bytes.
-- `FUNDING_EMAIL_FROM`, `FUNDING_EMAIL_REPLY_TO`, `RESEND_API_KEY` - optional Resend email settings used to send sponsorship follow-up links after payment.
+- `FUNDING_EMAIL_FROM`, `FUNDING_EMAIL_REPLY_TO`, `FUNDING_ADMIN_NOTIFICATION_EMAIL`, `RESEND_API_KEY` - optional Resend email settings used to send sponsorship confirmations, follow-up links, admin publication-batch alerts, and setup tests.
+- `FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS`, `FUNDING_EMAIL_QUEUE_BATCH_SIZE` - optional email queue worker settings.
 
 For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
 
@@ -130,6 +131,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/007_add_admin_audit_and_publication_drafts.sql
 \i apps/funding-api/migrations/008_add_sponsorship_publication_batches.sql
 \i apps/funding-api/migrations/009_add_contribution_public_reference.sql
+\i apps/funding-api/migrations/010_create_email_messages.sql
 ```
 
 These create:
@@ -141,6 +143,7 @@ These create:
 - `fund_contributions` (pending contribution records, sponsor follow-up details, private review status, hashed follow-up tokens, and sponsor feed placement fields)
 - `sponsor_publication_drafts` (private sponsored publication drafts for manual review)
 - `admin_audit_log` (private admin action log)
+- `email_messages` (queued email templates with retry status)
 
 When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
 
@@ -173,6 +176,8 @@ GET /api/admin/publication-drafts
 POST /api/admin/publication-drafts
 POST /api/admin/publication-drafts/update
 GET /api/admin/audit-log
+GET /api/admin/setup-status
+POST /api/admin/email/test
 ```
 
 The dashboard summarizes received funds, estimated availability, pending
@@ -184,6 +189,11 @@ review. The expenses view manages publishable fund allocations backed by
 published allocations. The publications view generates and moderates sponsored
 publication drafts for approved sponsorships, while the audit view lists recent
 sensitive admin actions.
+
+The operational setup page is available at `/admin/fundraiser/setup`. It
+checks Stripe, email, queue, database and environment readiness, includes a
+small in-app guide, and can send an admin email test through the queued email
+system without exposing secret values.
 
 ### Sponsorship review admin
 
@@ -285,10 +295,11 @@ POST /api/sponsorship-followup/details
 ```
 
 When PostgreSQL, `RESEND_API_KEY`, and `FUNDING_EMAIL_FROM` are configured, the
-`checkout.session.completed` webhook sends this follow-up link to the Stripe
-customer email. Without email configuration, the immediate Stripe return shows
-a tokenized follow-up action; if the tab is closed, admins can still see the
-paid but incomplete sponsorship from the admin screen. If details are
+`checkout.session.completed` webhook queues the follow-up link and a descriptive
+sponsorship confirmation for the Stripe customer email. Without email
+configuration, the immediate Stripe return shows a tokenized follow-up action;
+if the tab is closed, admins can still see the paid but incomplete sponsorship
+from the admin screen. If details are
 resubmitted after approval, the sponsorship returns to `pending_review` before
 any public display continues. Without PostgreSQL, Stripe-direct transparency
 still works, but the recoverable sponsorship follow-up and public sponsor

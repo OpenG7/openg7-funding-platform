@@ -1035,12 +1035,13 @@ test('Sponsorship follow-up email is sent from checkout completion only when rec
     'utf8'
   );
 
-  assert.ok(webhook.includes('sendSponsorshipFollowupEmail'));
+  assert.ok(webhook.includes('queueSponsorshipFollowupEmail'));
   assert.ok(webhook.includes('buildSponsorshipFollowupUrl'));
   assert.ok(webhook.includes('extractSponsorshipFollowupTokenFromSession'));
   assert.ok(webhook.includes('followupToken'));
   assert.ok(webhook.includes('followupEmail'));
   assert.ok(webhook.includes('markSponsorshipFollowupEmailResult'));
+  assert.ok(email.includes("templateKey: 'sponsorship_followup'"));
   assert.ok(email.includes('RESEND_API_KEY'));
   assert.ok(email.includes('FUNDING_EMAIL_FROM'));
 });
@@ -1087,7 +1088,11 @@ test('Sponsorship follow-up form explains disabled submit and browser autofill s
   assert.ok(followupPage.includes('ReactiveFormsModule'));
   assert.ok(followupPage.includes('[formGroup]="sponsorshipForm"'));
   assert.ok(followupPage.includes('formControlName="contactEmail"'));
-  assert.ok(followupPage.includes('readonly sponsorshipForm = this.formBuilder.nonNullable.group'));
+  assert.ok(
+    followupPage.includes(
+      'readonly sponsorshipForm = this.formBuilder.nonNullable.group'
+    )
+  );
   assert.ok(followupPage.includes('Validators.required'));
   assert.ok(followupPage.includes('optionalHttpsUrlValidator'));
   assert.ok(followupPage.includes('readonly formErrors = computed'));
@@ -1521,21 +1526,13 @@ test('An admin is notified by email when a publication batch fills up, but nothi
 
   assert.ok(
     email.includes(
-      'export const sendPublicationBatchFullNotification = async ('
+      'export const queuePublicationBatchFullNotification = async ('
     )
   );
   assert.ok(email.includes('FUNDING_ADMIN_NOTIFICATION_EMAIL'));
-  assert.ok(
-    email.includes(
-      'if (!resendApiKey || !emailFrom || !adminNotificationEmail) {'
-    )
-  );
+  assert.ok(email.includes("templateKey: 'publication_batch_full'"));
 
-  assert.ok(
-    api.includes(
-      "import { sendPublicationBatchFullNotification } from './email-notification.service.js';"
-    )
-  );
+  assert.ok(api.includes('queuePublicationBatchFullNotification'));
   assert.ok(
     api.includes(
       'const batch = await getPublicationBatchById(dbPool, parsed.batchId);'
@@ -1553,9 +1550,131 @@ test('An admin is notified by email when a publication batch fills up, but nothi
     "'publication_batch.unassign'",
     'assign batch handler'
   );
-  assert.ok(assignHandlerBody.includes('sendPublicationBatchFullNotification'));
+  assert.ok(
+    assignHandlerBody.includes('queuePublicationBatchFullNotification')
+  );
+  assert.ok(assignHandlerBody.includes('publication-batch:${batch.id}:full'));
 
   assert.ok(envExample.includes('FUNDING_ADMIN_NOTIFICATION_EMAIL='));
+});
+
+test('Email queue stores templates, retries delivery, and sends sponsorship confirmations', () => {
+  const email = fs.readFileSync(
+    'apps/funding-api/src/email-notification.service.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const webhook = fs.readFileSync(
+    'apps/funding-api/src/stripe-webhook.service.ts',
+    'utf8'
+  );
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/010_create_email_messages.sql',
+    'utf8'
+  );
+  const envExample = fs.readFileSync('.env.example', 'utf8');
+
+  for (const marker of [
+    'CREATE TABLE IF NOT EXISTS email_messages',
+    'idempotency_key TEXT UNIQUE',
+    "status TEXT NOT NULL DEFAULT 'queued'",
+    'attempts INTEGER NOT NULL DEFAULT 0',
+    'max_attempts INTEGER NOT NULL DEFAULT 5',
+    'next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+    'idx_email_messages_delivery'
+  ]) {
+    assert.ok(
+      migration.includes(marker),
+      `email migration must include ${marker}`
+    );
+  }
+
+  for (const marker of [
+    'type EmailTemplateKey =',
+    "'sponsorship_confirmation'",
+    "'email_configuration_test'",
+    'queueSponsorshipConfirmationEmail',
+    'queueSponsorshipFollowupEmail',
+    'queueEmailConfigurationTest',
+    'getEmailQueueStatus',
+    'processQueuedEmailMessages',
+    'FOR UPDATE SKIP LOCKED',
+    "INTERVAL '15 minutes'",
+    'nextRetryDate',
+    'Resend returned ${response.status}',
+    'confirmation descriptive de commandite'
+  ]) {
+    assert.ok(email.includes(marker), `email service must include ${marker}`);
+  }
+
+  assert.ok(webhook.includes('queueSponsorshipConfirmationEmail'));
+  assert.ok(
+    webhook.includes('stripe-session:${session.id}:sponsorship-confirmation')
+  );
+  assert.ok(webhook.includes('sponsorshipConfirmationEmailSent'));
+  assert.ok(api.includes('processQueuedEmailMessages'));
+  assert.ok(api.includes('buildAdminSetupStatus'));
+  assert.ok(api.includes('FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS'));
+  assert.ok(api.includes('FUNDING_EMAIL_QUEUE_BATCH_SIZE'));
+  assert.ok(envExample.includes('FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS=30000'));
+  assert.ok(envExample.includes('FUNDING_EMAIL_QUEUE_BATCH_SIZE=10'));
+});
+
+test('Admin setup page wraps Stripe and email configuration in a custom tour', () => {
+  const routes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts',
+    'utf8'
+  );
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+  const nav = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+
+  assert.ok(routes.includes("path: 'admin/fundraiser/setup'"));
+  assert.ok(routes.includes('AdminSetupPageComponent'));
+  assert.ok(nav.includes('routerLink="/admin/fundraiser/setup"'));
+  assert.ok(service.includes('getSetupStatus'));
+  assert.ok(service.includes('/admin/setup-status'));
+  assert.ok(service.includes('sendEmailTest'));
+  assert.ok(service.includes('/admin/email/test'));
+  assert.ok(api.includes("'/admin/setup-status'"));
+  assert.ok(api.includes("'/api/admin/setup-status'"));
+  assert.ok(api.includes("'/admin/email/test'"));
+  assert.ok(api.includes("'/api/admin/email/test'"));
+  assert.ok(api.includes('ensureAdminAuthorization'));
+  assert.ok(api.includes('buildAdminSetupStatus'));
+  assert.ok(core.includes('AdminSetupStatusResponse'));
+  assert.ok(core.includes('AdminEmailTestRequest'));
+  assert.ok(core.includes('AdminEmailTestResult'));
+
+  for (const marker of [
+    'tourSteps',
+    'activeTourStep',
+    'startTour()',
+    'nextTourStep()',
+    'data-tour-anchor="stripe"',
+    'data-tour-anchor="email"',
+    'data-tour-anchor="queue"',
+    'data-tour-anchor="database"',
+    'STRIPE_SECRET_KEY',
+    'STRIPE_WEBHOOK_SECRET',
+    'RESEND_API_KEY',
+    'FUNDING_EMAIL_FROM',
+    'FUNDING_ADMIN_NOTIFICATION_EMAIL',
+    'DATABASE_URL'
+  ]) {
+    assert.ok(page.includes(marker), `setup page must include ${marker}`);
+  }
 });
 
 test('Public sponsorship batch availability exposes only a date per channel, never sponsor data', () => {

@@ -7,6 +7,7 @@ import { AdminDashboardPageComponent } from './features/funding/pages/admin-dash
 import { AdminExpensesPageComponent } from './features/funding/pages/admin-expenses-page/admin-expenses-page.component.js';
 import { AdminLoginPageComponent } from './features/funding/pages/admin-login-page/admin-login-page.component.js';
 import { AdminPublicationsPageComponent } from './features/funding/pages/admin-publications-page/admin-publications-page.component.js';
+import { AdminSetupPageComponent } from './features/funding/pages/admin-setup-page/admin-setup-page.component.js';
 import { AdminSponsorsPageComponent } from './features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.js';
 import { AdminTransparencyPageComponent } from './features/funding/pages/admin-transparency-page/admin-transparency-page.component.js';
 import { ApiKeysPageComponent } from './features/funding/pages/api-keys-page/api-keys-page.component.js';
@@ -153,6 +154,11 @@ export const appRoutes: Routes = [
     path: 'admin/fundraiser/audit',
     canMatch: [adminSessionRequired],
     component: AdminAuditPageComponent
+  },
+  {
+    path: 'admin/fundraiser/setup',
+    canMatch: [adminSessionRequired],
+    component: AdminSetupPageComponent
   },
   {
     path: 'en/**',

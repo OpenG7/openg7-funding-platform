@@ -437,6 +437,52 @@ export interface AdminDashboardResponse {
   readonly last_updated_at: string;
 }
 
+export interface AdminSetupStatusResponse {
+  readonly data_source: 'database' | 'stripe_direct' | 'empty';
+  readonly environment: string;
+  readonly public_base_url: string | null;
+  readonly allowed_origins: readonly string[];
+  readonly stripe: {
+    readonly secret_key_configured: boolean;
+    readonly webhook_secret_configured: boolean;
+    readonly business_sponsorship_enabled: boolean;
+    readonly dashboard_url: string;
+    readonly webhook_endpoint: string;
+  };
+  readonly email: {
+    readonly resend_api_key_configured: boolean;
+    readonly from: string | null;
+    readonly reply_to: string | null;
+    readonly admin_notification_email: string | null;
+    readonly queue_available: boolean;
+    readonly queue_poll_interval_ms: number;
+    readonly queue_batch_size: number;
+    readonly queued_count: number;
+    readonly sending_count: number;
+    readonly sent_count: number;
+    readonly failed_count: number;
+    readonly last_failed_at: string | null;
+    readonly last_error: string | null;
+  };
+  readonly database: {
+    readonly configured: boolean;
+    readonly reachable: boolean;
+  };
+  readonly last_updated_at: string;
+}
+
+export interface AdminEmailTestRequest {
+  readonly to?: string;
+}
+
+export interface AdminEmailTestResult {
+  readonly queued: boolean;
+  readonly attempted: boolean;
+  readonly sent: boolean;
+  readonly messageId: string | null;
+  readonly error: string | null;
+}
+
 export interface AdminSessionCreateRequest {
   readonly token: string;
 }
