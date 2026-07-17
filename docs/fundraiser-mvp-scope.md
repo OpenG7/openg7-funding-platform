@@ -141,7 +141,7 @@ Exclu du MVP:
 - generation de brouillons OpenG7/OpenG20;
 - feeds OpenG7/OpenG20;
 - integration LinkedIn/Facebook;
-- PDF, facture ou confirmation descriptive automatisee;
+- PDF de facture et recus officiels de don;
 - taxes;
 - audit log metier complet;
 - roles et permissions avances;

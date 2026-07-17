@@ -21,6 +21,12 @@ type SetupEnvKey =
   | 'FUNDING_EMAIL_FROM'
   | 'FUNDING_EMAIL_REPLY_TO'
   | 'FUNDING_ADMIN_NOTIFICATION_EMAIL'
+  | 'FUNDING_SPONSORSHIP_INVOICE_PREFIX'
+  | 'FUNDING_INVOICE_ISSUER_NAME'
+  | 'FUNDING_INVOICE_ISSUER_EMAIL'
+  | 'FUNDING_INVOICE_ISSUER_ADDRESS'
+  | 'FUNDING_INVOICE_TAX_ID'
+  | 'FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL'
   | 'DATABASE_URL';
 
 interface SetupEnvRow {
@@ -197,6 +203,21 @@ interface SetupTourStep {
                 <div>
                   <dt>Notification admin</dt>
                   <dd>{{ valueLabel(data.email.admin_notification_email) }}</dd>
+                </div>
+                <div>
+                  <dt>Factures commandite</dt>
+                  <dd>
+                    {{ readyLabel(data.invoice.ready) }} -
+                    {{ data.invoice.prefix }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Emetteur facture</dt>
+                  <dd>{{ valueLabel(data.invoice.issuer_name) }}</dd>
+                </div>
+                <div>
+                  <dt>Taxes facture</dt>
+                  <dd>{{ data.invoice.tax_label }}</dd>
                 </div>
               </dl>
 
@@ -952,6 +973,36 @@ export class AdminSetupPageComponent implements OnInit {
       note: 'Alerte interne quand un lot est complet.'
     },
     {
+      key: 'FUNDING_SPONSORSHIP_INVOICE_PREFIX',
+      label: 'Prefixe facture',
+      note: 'Numerotation des factures commandite.'
+    },
+    {
+      key: 'FUNDING_INVOICE_ISSUER_NAME',
+      label: 'Emetteur facture',
+      note: 'Nom legal ou public sur la facture.'
+    },
+    {
+      key: 'FUNDING_INVOICE_ISSUER_EMAIL',
+      label: 'Courriel facture',
+      note: 'Courriel affiche dans le bloc emetteur.'
+    },
+    {
+      key: 'FUNDING_INVOICE_ISSUER_ADDRESS',
+      label: 'Adresse facture',
+      note: 'Adresse affichee si configuree.'
+    },
+    {
+      key: 'FUNDING_INVOICE_TAX_ID',
+      label: 'Identifiant fiscal',
+      note: 'Numero fiscal affiche si applicable.'
+    },
+    {
+      key: 'FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL',
+      label: 'Libelle taxes',
+      note: 'Texte de taxe affiche sur la facture.'
+    },
+    {
       key: 'DATABASE_URL',
       label: 'PostgreSQL',
       note: 'Persistance, admin et file courriel.'
@@ -1086,6 +1137,18 @@ export class AdminSetupPageComponent implements OnInit {
         return Boolean(setup.email.reply_to);
       case 'FUNDING_ADMIN_NOTIFICATION_EMAIL':
         return Boolean(setup.email.admin_notification_email);
+      case 'FUNDING_SPONSORSHIP_INVOICE_PREFIX':
+        return Boolean(setup.invoice.prefix);
+      case 'FUNDING_INVOICE_ISSUER_NAME':
+        return Boolean(setup.invoice.issuer_name);
+      case 'FUNDING_INVOICE_ISSUER_EMAIL':
+        return Boolean(setup.invoice.issuer_email);
+      case 'FUNDING_INVOICE_ISSUER_ADDRESS':
+        return setup.invoice.issuer_address_configured;
+      case 'FUNDING_INVOICE_TAX_ID':
+        return setup.invoice.issuer_tax_id_configured;
+      case 'FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL':
+        return Boolean(setup.invoice.tax_label);
       case 'DATABASE_URL':
         return setup.database.configured && setup.database.reachable;
     }

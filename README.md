@@ -83,6 +83,7 @@ Set these variables for API and webhook processing:
 - `FUNDING_SPONSOR_LOGO_MAX_BYTES` - optional sponsor logo upload size limit, defaulting to 524288 bytes.
 - `FUNDING_EMAIL_FROM`, `FUNDING_EMAIL_REPLY_TO`, `FUNDING_ADMIN_NOTIFICATION_EMAIL`, `RESEND_API_KEY` - optional Resend email settings used to send sponsorship confirmations, follow-up links, admin publication-batch alerts, and setup tests.
 - `FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS`, `FUNDING_EMAIL_QUEUE_BATCH_SIZE` - optional email queue worker settings.
+- `FUNDING_SPONSORSHIP_INVOICE_PREFIX`, `FUNDING_INVOICE_ISSUER_NAME`, `FUNDING_INVOICE_ISSUER_EMAIL`, `FUNDING_INVOICE_ISSUER_ADDRESS`, `FUNDING_INVOICE_TAX_ID`, `FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL`, `FUNDING_SPONSORSHIP_INVOICE_LEGAL_NOTE` - optional sponsorship invoice identity and legal text displayed in app-generated invoice emails.
 
 For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
 
@@ -132,6 +133,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/008_add_sponsorship_publication_batches.sql
 \i apps/funding-api/migrations/009_add_contribution_public_reference.sql
 \i apps/funding-api/migrations/010_create_email_messages.sql
+\i apps/funding-api/migrations/011_create_sponsorship_invoices.sql
 ```
 
 These create:
@@ -144,6 +146,7 @@ These create:
 - `sponsor_publication_drafts` (private sponsored publication drafts for manual review)
 - `admin_audit_log` (private admin action log)
 - `email_messages` (queued email templates with retry status)
+- `sponsorship_invoices` (private app-generated sponsorship invoice snapshots)
 
 When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
 
@@ -191,9 +194,9 @@ publication drafts for approved sponsorships, while the audit view lists recent
 sensitive admin actions.
 
 The operational setup page is available at `/admin/fundraiser/setup`. It
-checks Stripe, email, queue, database and environment readiness, includes a
-small in-app guide, and can send an admin email test through the queued email
-system without exposing secret values.
+checks Stripe, email, invoice, queue, database and environment readiness,
+includes a small in-app guide, and can send an admin email test through the
+queued email system without exposing secret values.
 
 ### Sponsorship review admin
 
@@ -294,12 +297,15 @@ GET /api/sponsorship-followup?token=...
 POST /api/sponsorship-followup/details
 ```
 
-When PostgreSQL, `RESEND_API_KEY`, and `FUNDING_EMAIL_FROM` are configured, the
-`checkout.session.completed` webhook queues the follow-up link and a descriptive
-sponsorship confirmation for the Stripe customer email. Without email
-configuration, the immediate Stripe return shows a tokenized follow-up action;
-if the tab is closed, admins can still see the paid but incomplete sponsorship
-from the admin screen. If details are
+When PostgreSQL, `RESEND_API_KEY`, `FUNDING_EMAIL_FROM`, and migration 011 are
+configured, the `checkout.session.completed` webhook queues the follow-up link
+and creates an app-generated sponsorship invoice snapshot for the Stripe
+customer email. The invoice includes a stable invoice number, issuer details,
+sponsor recipient snapshot, Stripe references, line item, totals, tax label,
+and a non-charity receipt disclaimer. Without email configuration, the immediate
+Stripe return shows a tokenized follow-up action; if the tab is closed, admins
+can still see the paid but incomplete sponsorship from the admin screen. If
+details are
 resubmitted after approval, the sponsorship returns to `pending_review` before
 any public display continues. Without PostgreSQL, Stripe-direct transparency
 still works, but the recoverable sponsorship follow-up and public sponsor

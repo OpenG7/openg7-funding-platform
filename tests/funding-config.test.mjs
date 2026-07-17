@@ -1558,7 +1558,7 @@ test('An admin is notified by email when a publication batch fills up, but nothi
   assert.ok(envExample.includes('FUNDING_ADMIN_NOTIFICATION_EMAIL='));
 });
 
-test('Email queue stores templates, retries delivery, and sends sponsorship confirmations', () => {
+test('Email queue stores templates, retries delivery, and sends sponsorship invoices', () => {
   const email = fs.readFileSync(
     'apps/funding-api/src/email-notification.service.ts',
     'utf8'
@@ -1570,6 +1570,14 @@ test('Email queue stores templates, retries delivery, and sends sponsorship conf
   );
   const migration = fs.readFileSync(
     'apps/funding-api/migrations/010_create_email_messages.sql',
+    'utf8'
+  );
+  const invoiceMigration = fs.readFileSync(
+    'apps/funding-api/migrations/011_create_sponsorship_invoices.sql',
+    'utf8'
+  );
+  const invoices = fs.readFileSync(
+    'apps/funding-api/src/sponsorship-invoices.repository.ts',
     'utf8'
   );
   const envExample = fs.readFileSync('.env.example', 'utf8');
@@ -1592,7 +1600,9 @@ test('Email queue stores templates, retries delivery, and sends sponsorship conf
   for (const marker of [
     'type EmailTemplateKey =',
     "'sponsorship_confirmation'",
+    "'sponsorship_invoice'",
     "'email_configuration_test'",
+    'queueSponsorshipInvoiceEmail',
     'queueSponsorshipConfirmationEmail',
     'queueSponsorshipFollowupEmail',
     'queueEmailConfigurationTest',
@@ -1602,22 +1612,59 @@ test('Email queue stores templates, retries delivery, and sends sponsorship conf
     "INTERVAL '15 minutes'",
     'nextRetryDate',
     'Resend returned ${response.status}',
-    'confirmation descriptive de commandite'
+    'Facture de commandite OpenG7',
+    'Numero de facture',
+    'Total paye',
+    'recu officiel de don de bienfaisance'
   ]) {
     assert.ok(email.includes(marker), `email service must include ${marker}`);
   }
 
-  assert.ok(webhook.includes('queueSponsorshipConfirmationEmail'));
+  for (const marker of [
+    'CREATE TABLE IF NOT EXISTS sponsorship_invoices',
+    'invoice_number TEXT NOT NULL UNIQUE',
+    'contribution_id UUID NOT NULL REFERENCES fund_contributions(id)',
+    'line_items JSONB NOT NULL',
+    'idx_sponsorship_invoices_contribution_id',
+    'idx_sponsorship_invoices_stripe_session_id'
+  ]) {
+    assert.ok(
+      invoiceMigration.includes(marker),
+      `invoice migration must include ${marker}`
+    );
+  }
+
+  for (const marker of [
+    'createSponsorshipInvoiceForStripeSession',
+    'FUNDING_SPONSORSHIP_INVOICE_PREFIX',
+    'FUNDING_INVOICE_ISSUER_NAME',
+    'FUNDING_INVOICE_ISSUER_EMAIL',
+    'FUNDING_INVOICE_TAX_ID',
+    'Commanditaire a confirmer',
+    'ON CONFLICT (contribution_id) DO UPDATE',
+    'Facture de commandite descriptive'
+  ]) {
+    assert.ok(
+      invoices.includes(marker),
+      `invoice repository must include ${marker}`
+    );
+  }
+
+  assert.ok(webhook.includes('queueSponsorshipInvoiceEmail'));
+  assert.ok(webhook.includes('createSponsorshipInvoiceForStripeSession'));
   assert.ok(
-    webhook.includes('stripe-session:${session.id}:sponsorship-confirmation')
+    webhook.includes('stripe-session:${session.id}:sponsorship-invoice')
   );
-  assert.ok(webhook.includes('sponsorshipConfirmationEmailSent'));
+  assert.ok(webhook.includes('sponsorshipInvoiceEmailSent'));
   assert.ok(api.includes('processQueuedEmailMessages'));
   assert.ok(api.includes('buildAdminSetupStatus'));
   assert.ok(api.includes('FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS'));
   assert.ok(api.includes('FUNDING_EMAIL_QUEUE_BATCH_SIZE'));
   assert.ok(envExample.includes('FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS=30000'));
   assert.ok(envExample.includes('FUNDING_EMAIL_QUEUE_BATCH_SIZE=10'));
+  assert.ok(envExample.includes('FUNDING_SPONSORSHIP_INVOICE_PREFIX='));
+  assert.ok(envExample.includes('FUNDING_INVOICE_ISSUER_NAME='));
+  assert.ok(envExample.includes('FUNDING_INVOICE_ISSUER_EMAIL='));
 });
 
 test('Admin setup page wraps Stripe and email configuration in a custom tour', () => {
@@ -1671,6 +1718,9 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
     'RESEND_API_KEY',
     'FUNDING_EMAIL_FROM',
     'FUNDING_ADMIN_NOTIFICATION_EMAIL',
+    'FUNDING_SPONSORSHIP_INVOICE_PREFIX',
+    'FUNDING_INVOICE_ISSUER_NAME',
+    'FUNDING_INVOICE_ISSUER_EMAIL',
     'DATABASE_URL'
   ]) {
     assert.ok(page.includes(marker), `setup page must include ${marker}`);
