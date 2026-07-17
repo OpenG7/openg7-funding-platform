@@ -446,7 +446,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'GET /api/admin/publication-drafts',
       'GET /api/admin/audit-log',
       '007_add_admin_audit_and_publication_drafts.sql',
-      '010_create_email_messages.sql'
+      '010_create_email_messages.sql',
+      '011_create_sponsorship_invoices.sql'
     ],
     'admin docs'
   );

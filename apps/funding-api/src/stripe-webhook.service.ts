@@ -12,13 +12,14 @@ import {
   upsertCheckoutSessionFromWebhook
 } from './fund-contributions.repository.js';
 import {
-  queueSponsorshipConfirmationEmail,
+  queueSponsorshipInvoiceEmail,
   queueSponsorshipFollowupEmail
 } from './email-notification.service.js';
 import {
   insertFundTransaction,
   updateContributionFundTransactionBalance
 } from './fund-transparency.repository.js';
+import { createSponsorshipInvoiceForStripeSession } from './sponsorship-invoices.repository.js';
 
 interface ProcessWebhookDependencies {
   readonly stripe: Stripe;
@@ -44,9 +45,6 @@ const contributionPublicReferencePattern = /^OG7-\d{4}-[A-Z0-9]{4,8}$/;
 
 const toIsoFromUnix = (seconds: number): string =>
   new Date(seconds * 1000).toISOString();
-
-const centsToAmount = (value: number): number =>
-  Number((value / 100).toFixed(2));
 
 const buildBalanceData = (
   balanceTransaction: Stripe.BalanceTransaction | null,
@@ -274,7 +272,7 @@ export const processStripeWebhook = async (
       const followupToken = extractSponsorshipFollowupTokenFromSession(session);
       const followupEmail = session.customer_details?.email;
       let followupEmailSent = false;
-      let sponsorshipConfirmationEmailSent = false;
+      let sponsorshipInvoiceEmailSent = false;
 
       if (
         status === 'paid' &&
@@ -300,32 +298,35 @@ export const processStripeWebhook = async (
           error: sendResult.sent ? null : sendResult.error
         });
 
-        const confirmationResult = await queueSponsorshipConfirmationEmail(
-          pool,
-          {
-            idempotencyKey: `stripe-session:${session.id}:sponsorship-confirmation`,
-            to: followupEmail,
-            publicReference: normalizeContributionPublicReference(
-              sessionMetadata.publicReference ?? session.client_reference_id
-            ),
-            amount: centsToAmount(session.amount_total ?? 0),
-            currency: session.currency ?? 'cad',
-            paidAtIso: toIsoFromUnix(session.created),
-            followupUrl,
-            stripeSessionId: session.id,
-            stripePaymentIntentId: resolvePaymentIntentId(
-              session.payment_intent
-            )
-          }
+        const publicReference = normalizeContributionPublicReference(
+          sessionMetadata.publicReference ?? session.client_reference_id
         );
-        sponsorshipConfirmationEmailSent = confirmationResult.sent;
+        const invoice = await createSponsorshipInvoiceForStripeSession(pool, {
+          stripeSessionId: session.id,
+          stripePaymentIntentId: resolvePaymentIntentId(session.payment_intent),
+          publicReference,
+          amountCents: session.amount_total ?? 0,
+          currency: session.currency ?? 'cad',
+          paidAtIso: toIsoFromUnix(session.created),
+          customerEmail: followupEmail
+        });
+
+        if (invoice) {
+          const invoiceResult = await queueSponsorshipInvoiceEmail(pool, {
+            idempotencyKey: `stripe-session:${session.id}:sponsorship-invoice`,
+            to: followupEmail,
+            invoice,
+            followupUrl
+          });
+          sponsorshipInvoiceEmailSent = invoiceResult.sent;
+        }
       }
 
       return acknowledge({
         received: true,
         updated,
         followupEmailSent,
-        sponsorshipConfirmationEmailSent
+        sponsorshipInvoiceEmailSent
       });
     }
 

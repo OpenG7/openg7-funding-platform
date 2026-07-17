@@ -404,7 +404,7 @@ Les elements suivants restent volontairement hors perimetre:
 - publication automatique de commanditaires;
 - publication automatique vers les feeds OpenG7/OpenG20;
 - integration API LinkedIn/Facebook;
-- factures, recus ou confirmations PDF;
+- factures PDF et recus officiels de don;
 - taxes;
 - audit log metier complet;
 - gestion avancee des partenaires;

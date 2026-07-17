@@ -464,6 +464,15 @@ export interface AdminSetupStatusResponse {
     readonly last_failed_at: string | null;
     readonly last_error: string | null;
   };
+  readonly invoice: {
+    readonly prefix: string;
+    readonly issuer_name: string | null;
+    readonly issuer_email: string | null;
+    readonly issuer_address_configured: boolean;
+    readonly issuer_tax_id_configured: boolean;
+    readonly tax_label: string;
+    readonly ready: boolean;
+  };
   readonly database: {
     readonly configured: boolean;
     readonly reachable: boolean;

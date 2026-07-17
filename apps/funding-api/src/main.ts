@@ -1489,6 +1489,13 @@ const buildAdminSetupStatus = async (): Promise<AdminSetupStatusResponse> => {
     lastError: null as string | null
   };
   let emailQueueStatusError: string | null = null;
+  const invoiceIssuerName =
+    process.env.FUNDING_INVOICE_ISSUER_NAME?.trim() || 'OpenG7';
+  const invoiceIssuerEmail =
+    process.env.FUNDING_INVOICE_ISSUER_EMAIL?.trim() ||
+    process.env.FUNDING_EMAIL_REPLY_TO?.trim() ||
+    process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ||
+    null;
 
   try {
     emailQueueStatus = await getEmailQueueStatus(dbPool);
@@ -1527,6 +1534,22 @@ const buildAdminSetupStatus = async (): Promise<AdminSetupStatusResponse> => {
       failed_count: emailQueueStatus.failedCount,
       last_failed_at: emailQueueStatus.lastFailedAt,
       last_error: emailQueueStatus.lastError ?? emailQueueStatusError
+    },
+    invoice: {
+      prefix:
+        process.env.FUNDING_SPONSORSHIP_INVOICE_PREFIX?.trim() || 'OG7-CMD',
+      issuer_name: invoiceIssuerName || null,
+      issuer_email: invoiceIssuerEmail,
+      issuer_address_configured: Boolean(
+        process.env.FUNDING_INVOICE_ISSUER_ADDRESS?.trim()
+      ),
+      issuer_tax_id_configured: Boolean(
+        process.env.FUNDING_INVOICE_TAX_ID?.trim()
+      ),
+      tax_label:
+        process.env.FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL?.trim() ||
+        'Taxes non calculees par la plateforme',
+      ready: Boolean(invoiceIssuerName && invoiceIssuerEmail)
     },
     database: {
       configured: hasDatabase,
