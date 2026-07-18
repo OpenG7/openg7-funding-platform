@@ -282,7 +282,9 @@ refund; the credit note is visible and resendable from `/admin/fundraiser/invoic
 with its own downloadable PDF.
 The sponsor detail panel also includes an "Historique & audit" tab that merges
 the sponsorship timeline with recent `admin_audit_log` entries for that
-specific sponsorship, including the recorded admin actor.
+specific sponsorship, including the recorded admin actor. A dedicated
+"Remboursements" tab summarizes the current refund workflow, dated milestones,
+Stripe refund id, notes/errors, and refund-related admin audit entries.
 
 Sponsor logos can be uploaded by admins through
 `POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files

@@ -214,7 +214,9 @@ the PostgreSQL-backed launch path for real payments:
    rehearsal. Also open `/admin/fundraiser/invoices` and confirm the page has
    the credit-note area and PDF download controls ready for refunded invoices.
    Confirm the sponsorship detail panel shows the refund workflow badge and
-   that a guided refund cannot be launched again once the workflow is completed.
+   that the refund history tab exposes milestones, notes/errors, and refund
+   audit entries. Confirm a guided refund cannot be launched again once the
+   workflow is completed.
    If historical paid sponsorships predate app-generated invoices, run the
    missing-invoice backfill from that page once and confirm the result is
    audited before resending any invoice email.

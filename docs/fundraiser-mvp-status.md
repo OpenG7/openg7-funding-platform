@@ -217,6 +217,8 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
 - Le panneau detail commanditaire expose l'onglet `Historique & audit`, qui
   combine la chronologie du dossier avec les dernieres entrees
   `admin_audit_log` de cette commandite et l'acteur admin enregistre.
+- Le meme panneau expose l'onglet `Remboursements`, avec statut courant, refund
+  Stripe, jalons dates, notes/erreurs et actions admin liees au remboursement.
 - Endpoints `GET /api/admin/sponsorships/logo`,
   `POST /api/admin/sponsorships/logo` et
   `POST /api/admin/sponsorships/logo/delete` pour previsualiser, remplacer ou
