@@ -19,6 +19,7 @@ import type {
   AdminSponsorshipRejectionRefundHandling,
   AdminPagination,
   AdminSponsorshipRecord,
+  AdminSponsorshipRefundResult,
   AdminSponsorshipReviewResult,
   SponsorFeedChannel,
   SponsorFeedStatus,
@@ -82,6 +83,11 @@ interface SponsorRejectionDraft {
   readonly recipientEmail: string;
   readonly sponsorMessage: string;
   readonly refundHandling: AdminSponsorshipRejectionRefundHandling;
+  readonly refundNote: string;
+}
+
+interface SponsorRefundDraft {
+  readonly confirmationText: string;
   readonly refundNote: string;
 }
 
@@ -1178,6 +1184,90 @@ const controlledSponsorLogoUrlPrefixes = [
                 </footer>
               </section>
 
+              <section
+                class="refund-workflow"
+                *ngIf="isRefundPanelOpen(selected)"
+                aria-label="Remboursement Stripe"
+              >
+                <header>
+                  <div>
+                    <span>Stripe</span>
+                    <h3>Remboursement complet</h3>
+                  </div>
+                  <button
+                    type="button"
+                    class="icon-action"
+                    (click)="closeRefundPanel()"
+                    aria-label="Fermer le remboursement"
+                  >
+                    ×
+                  </button>
+                </header>
+
+                <p class="refund-warning rejection-span-2">
+                  Cette action declenche un remboursement Stripe complet de
+                  {{ formatMoney(selected) }}. Elle est envoyee a Stripe
+                  immediatement.
+                </p>
+
+                <label class="rejection-span-2"
+                  >Texte de confirmation
+                  <small
+                    >Recopiez
+                    <code>{{ refundConfirmationText(selected) }}</code></small
+                  ><input
+                    type="text"
+                    autocomplete="off"
+                    [value]="refundDraftFor(selected).confirmationText"
+                    (input)="
+                      setRefundDraftField(
+                        selected.id,
+                        'confirmationText',
+                        $event
+                      )
+                    "
+                /></label>
+
+                <label class="rejection-span-2"
+                  >Note remboursement<textarea
+                    rows="3"
+                    maxlength="1000"
+                    [value]="refundDraftFor(selected).refundNote"
+                    (input)="
+                      setRefundDraftField(selected.id, 'refundNote', $event)
+                    "
+                  ></textarea>
+                </label>
+
+                <footer>
+                  <span class="inline-status" aria-live="polite">{{
+                    refundValidationMessage(selected)
+                  }}</span>
+                  <button
+                    type="button"
+                    class="secondary-action"
+                    (click)="closeRefundPanel()"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    class="review-button refund"
+                    [disabled]="
+                      !canConfirmRefund(selected) ||
+                      isAnyActionPending(selected.id)
+                    "
+                    (click)="confirmRefund(selected)"
+                  >
+                    {{
+                      isActionPending(refundActionId(selected.id))
+                        ? 'Remboursement...'
+                        : 'Rembourser Stripe'
+                    }}
+                  </button>
+                </footer>
+              </section>
+
               <footer class="detail-actions">
                 <p
                   class="review-toast"
@@ -1202,6 +1292,17 @@ const controlledSponsorLogoUrlPrefixes = [
                   (click)="openRejectionPanel(selected)"
                 >
                   Refuser
+                </button>
+                <button
+                  type="button"
+                  class="review-button refund"
+                  [disabled]="
+                    isAnyActionPending(selected.id) ||
+                    !canRefundSponsorship(selected)
+                  "
+                  (click)="openRefundPanel(selected)"
+                >
+                  Rembourser Stripe
                 </button>
                 <button
                   type="button"
@@ -1493,6 +1594,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .admin-table-toolbar label,
       .review-note-label,
       .rejection-workflow label,
+      .refund-workflow label,
       .publication-grid label,
       .logo-upload-control {
         display: grid;
@@ -1762,8 +1864,26 @@ const controlledSponsorLogoUrlPrefixes = [
         padding: 1rem;
       }
 
+      .refund-workflow {
+        background: #f3f7ff;
+        border-top: 1px solid #b8cff7;
+        display: grid;
+        gap: 0.85rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 1rem;
+      }
+
       .rejection-workflow header,
+      .refund-workflow header,
       .rejection-workflow footer {
+        align-items: center;
+        display: flex;
+        gap: 0.75rem;
+        grid-column: 1 / -1;
+        justify-content: space-between;
+      }
+
+      .refund-workflow footer {
         align-items: center;
         display: flex;
         gap: 0.75rem;
@@ -1778,8 +1898,29 @@ const controlledSponsorLogoUrlPrefixes = [
         text-transform: uppercase;
       }
 
+      .refund-workflow header span {
+        color: #0f3e99;
+        font-size: 0.72rem;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
       .rejection-workflow h3 {
         margin: 0.15rem 0 0;
+      }
+
+      .refund-workflow h3 {
+        margin: 0.15rem 0 0;
+      }
+
+      .refund-warning {
+        background: #e8f1ff;
+        border: 1px solid #b8cff7;
+        border-radius: 0.4rem;
+        color: #173b76;
+        font-weight: 900;
+        margin: 0;
+        padding: 0.75rem 0.9rem;
       }
 
       .rejection-span-2 {
@@ -2021,6 +2162,11 @@ const controlledSponsorLogoUrlPrefixes = [
         border: 1px solid #146b39;
         color: #fff;
       }
+      .review-button.refund {
+        background: #174ea6;
+        border: 1px solid #123d82;
+        color: #fff;
+      }
 
       @keyframes review-toast-in {
         from {
@@ -2107,6 +2253,7 @@ const controlledSponsorLogoUrlPrefixes = [
         .admin-summary-grid,
         .admin-table-toolbar,
         .rejection-workflow,
+        .refund-workflow,
         .publication-grid,
         .detail-card-grid,
         .detail-meta {
@@ -2170,6 +2317,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly paymentFilter = signal<SponsorPaymentStatusFilter>('all');
   readonly selectedSponsorshipId = signal<string | null>(null);
   readonly activeRejectionId = signal<string | null>(null);
+  readonly activeRefundId = signal<string | null>(null);
   readonly activeTab = signal<SponsorDetailsTab>('overview');
   readonly page = signal<number>(1);
   readonly pageSize = signal<number>(6);
@@ -2180,6 +2328,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly noteMessages = signal<Record<string, string>>({});
   readonly copyMessages = signal<Record<string, string>>({});
   readonly rejectionDrafts = signal<Record<string, SponsorRejectionDraft>>({});
+  readonly refundDrafts = signal<Record<string, SponsorRefundDraft>>({});
   readonly feedStatuses = feedStatuses;
   readonly pageSizeOptions = pageSizeOptions;
 
@@ -2364,6 +2513,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   openRejectionPanel(sponsorship: AdminSponsorshipRecord): void {
     this.ensureRejectionDraft(sponsorship);
     this.activeTab.set('overview');
+    this.activeRefundId.set(null);
     this.activeRejectionId.set(sponsorship.id);
     this.setReviewMessage(
       sponsorship.id,
@@ -2528,6 +2678,123 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         this.messageFromError(
           error,
           "Action impossible: le refus n'a pas pu etre enregistre."
+        ),
+        true
+      );
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
+  openRefundPanel(sponsorship: AdminSponsorshipRecord): void {
+    this.ensureRefundDraft(sponsorship);
+    this.activeRejectionId.set(null);
+    this.activeRefundId.set(sponsorship.id);
+    this.setReviewMessage(
+      sponsorship.id,
+      `Recopiez ${this.refundConfirmationText(
+        sponsorship
+      )} pour confirmer le remboursement Stripe.`
+    );
+  }
+
+  closeRefundPanel(): void {
+    this.activeRefundId.set(null);
+  }
+
+  isRefundPanelOpen(sponsorship: AdminSponsorshipRecord): boolean {
+    return this.activeRefundId() === sponsorship.id;
+  }
+
+  refundDraftFor(sponsorship: AdminSponsorshipRecord): SponsorRefundDraft {
+    return this.refundDrafts()[sponsorship.id] ?? this.defaultRefundDraft();
+  }
+
+  setRefundDraftField(
+    id: string,
+    field: 'confirmationText' | 'refundNote',
+    event: Event
+  ): void {
+    const input = event.target as HTMLInputElement | HTMLTextAreaElement;
+    this.refundDrafts.update((drafts) => {
+      const current = drafts[id] ?? this.defaultRefundDraft();
+      return {
+        ...drafts,
+        [id]: {
+          ...current,
+          [field]: input.value
+        }
+      };
+    });
+  }
+
+  canRefundSponsorship(sponsorship: AdminSponsorshipRecord): boolean {
+    return sponsorship.payment_status === 'paid';
+  }
+
+  refundConfirmationText(sponsorship: AdminSponsorshipRecord): string {
+    return sponsorship.public_reference || sponsorship.id;
+  }
+
+  canConfirmRefund(sponsorship: AdminSponsorshipRecord): boolean {
+    return (
+      this.canRefundSponsorship(sponsorship) &&
+      this.refundDraftFor(sponsorship).confirmationText.trim() ===
+        this.refundConfirmationText(sponsorship)
+    );
+  }
+
+  refundValidationMessage(sponsorship: AdminSponsorshipRecord): string {
+    if (!this.canRefundSponsorship(sponsorship)) {
+      return 'Remboursement Stripe disponible seulement pour un paiement paye.';
+    }
+
+    if (!this.refundDraftFor(sponsorship).confirmationText.trim()) {
+      return 'Texte de confirmation obligatoire.';
+    }
+
+    if (!this.canConfirmRefund(sponsorship)) {
+      return 'Le texte ne correspond pas a la reference demandee.';
+    }
+
+    return 'Pret a declencher le remboursement Stripe complet.';
+  }
+
+  async confirmRefund(sponsorship: AdminSponsorshipRecord): Promise<void> {
+    if (!this.canConfirmRefund(sponsorship)) {
+      this.setReviewMessage(
+        sponsorship.id,
+        this.refundValidationMessage(sponsorship),
+        true
+      );
+      return;
+    }
+
+    const draft = this.refundDraftFor(sponsorship);
+    this.actionState.set(this.refundActionId(sponsorship.id));
+    this.setReviewMessage(sponsorship.id, 'Remboursement Stripe en cours...');
+
+    try {
+      const result = await this.admin.refundSponsorship(this.adminToken(), {
+        contributionId: sponsorship.id,
+        expectedVersion: sponsorship.version,
+        confirmationText: draft.confirmationText.trim(),
+        refundNote: draft.refundNote.trim() || undefined
+      });
+      await this.loadSponsorships();
+      this.activeRefundId.set(null);
+      this.setReviewMessage(
+        sponsorship.id,
+        this.refundResultLabel(result),
+        true
+      );
+      this.pulseSelection(sponsorship.id);
+    } catch (error) {
+      this.setReviewMessage(
+        sponsorship.id,
+        this.messageFromError(
+          error,
+          "Action impossible: le remboursement Stripe n'a pas pu etre cree."
         ),
         true
       );
@@ -2778,6 +3045,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   closeDetails(): void {
     this.selectedSponsorshipId.set(null);
     this.activeRejectionId.set(null);
+    this.activeRefundId.set(null);
   }
 
   setActiveTab(tab: SponsorDetailsTab): void {
@@ -2843,6 +3111,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   reviewActionId(id: string): string {
     return `review:${id}`;
+  }
+
+  refundActionId(id: string): string {
+    return `refund:${id}`;
   }
 
   publicationActionId(id: string): string {
@@ -3183,6 +3455,13 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }).format(amount)} $ CAD`;
   }
 
+  formatAmount(amount: number, currency: string): string {
+    return new Intl.NumberFormat('fr-CA', {
+      currency: currency || 'CAD',
+      style: 'currency'
+    }).format(amount);
+  }
+
   sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {
     const { tier } = resolveSponsorshipBenefits(
       sponsorship.amount,
@@ -3307,6 +3586,20 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     return '';
+  }
+
+  refundResultLabel(result: AdminSponsorshipRefundResult): string {
+    const status = result.refundStatus
+      ? ` Statut Stripe: ${result.refundStatus}.`
+      : '';
+    const localStatus = result.paymentStatusUpdated
+      ? ' Commandite marquee comme remboursee.'
+      : '';
+
+    return `Remboursement Stripe cree: ${this.formatAmount(
+      result.amount,
+      result.currency
+    )}.${status}${localStatus}`;
   }
 
   isReviewNoteDirty(sponsorship: AdminSponsorshipRecord): boolean {
@@ -3536,6 +3829,24 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       recipientEmail: '',
       sponsorMessage: '',
       refundHandling: 'none',
+      refundNote: ''
+    };
+  }
+
+  private ensureRefundDraft(sponsorship: AdminSponsorshipRecord): void {
+    this.refundDrafts.update((drafts) =>
+      drafts[sponsorship.id]
+        ? drafts
+        : {
+            ...drafts,
+            [sponsorship.id]: this.defaultRefundDraft()
+          }
+    );
+  }
+
+  private defaultRefundDraft(): SponsorRefundDraft {
+    return {
+      confirmationText: '',
       refundNote: ''
     };
   }

@@ -221,6 +221,7 @@ GET /api/admin/sponsorships/logo
 POST /api/admin/sponsorships/logo
 POST /api/admin/sponsorships/logo/delete
 POST /api/admin/sponsorships/review
+POST /api/admin/sponsorships/refund
 POST /api/admin/sponsorships/publication
 ```
 
@@ -246,9 +247,12 @@ When an admin refuses a sponsorship from `/admin/fundraiser/sponsors`, the
 review flow requires an internal refusal reason, can send a sponsor-facing
 email through the queued email system, and records the chosen refund handling
 (`none`, manual refund required, or manual refund already completed) in the
-admin audit metadata. It does not trigger a Stripe refund automatically yet;
-Stripe refunds remain a deliberate manual operation until a dedicated refund
-confirmation workflow is added.
+admin audit metadata. Stripe refunds stay a separate deliberate action: the
+same admin page includes a guided full-refund workflow that requires the
+current sponsorship version, asks the admin to retype the public reference, calls
+`POST /api/admin/sponsorships/refund`, creates a full Stripe refund with an
+idempotency key, marks the contribution as `refunded` when Stripe accepts the
+refund, and records the refund id/status in the admin audit log.
 
 Sponsor logos can be uploaded by admins through
 `POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files

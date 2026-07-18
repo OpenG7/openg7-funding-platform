@@ -216,6 +216,9 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   par l'API et nettoyage des anciens fichiers controles.
 - Endpoint `POST /api/admin/sponsorships/review` pour remettre en attente,
   accepter ou refuser une commandite.
+- Endpoint `POST /api/admin/sponsorships/refund` pour declencher un
+  remboursement Stripe complet guide, avec confirmation par reference publique,
+  verrou de version et audit admin.
 - Endpoint `POST /api/admin/sponsorships/publication` pour preparer le profil
   commanditaire public et les placements de feed.
 - `FUNDING_ADMIN_TOKEN` requis en production comme secret racine admin.

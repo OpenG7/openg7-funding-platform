@@ -29,6 +29,8 @@ import type {
   AdminSponsorshipInvoicesResponse,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
+  AdminSponsorshipRefundRequest,
+  AdminSponsorshipRefundResult,
   AdminSponsorshipReviewRequest,
   AdminSponsorshipReviewResult,
   AdminSponsorshipsResponse,
@@ -703,6 +705,34 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminSponsorshipReviewResult;
+  }
+
+  async refundSponsorship(
+    token: string,
+    payload: AdminSponsorshipRefundRequest
+  ): Promise<AdminSponsorshipRefundResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/refund`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsorship refund could not be created.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminSponsorshipRefundResult;
   }
 
   async updateSponsorshipPublication(

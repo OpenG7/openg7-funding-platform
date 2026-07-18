@@ -38,6 +38,8 @@ import type {
   AdminSponsorshipInvoiceResendResult,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
+  AdminSponsorshipRefundRequest,
+  AdminSponsorshipRefundResult,
   AdminSponsorshipReviewRequest,
   AdminSponsorshipReviewResult,
   AdminSponsorshipsResponse,
@@ -107,7 +109,9 @@ import {
   recordSponsorshipDetails,
   updateSponsorshipLogoUrl,
   updateSponsorshipPublication,
-  updateSponsorshipReview
+  updateSponsorshipReview,
+  getSponsorshipRefundTarget,
+  updateContributionStatusByPaymentIntent
 } from './fund-contributions.repository.js';
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
@@ -992,6 +996,28 @@ const writeSponsorshipMutationFailure = (
   });
 };
 
+const sponsorshipRefundConfirmationText = (input: {
+  readonly publicReference: string | null;
+  readonly id: string;
+}): string => input.publicReference ?? input.id;
+
+const writeSponsorshipRefundIneligible = (
+  request: IncomingMessage,
+  response: ServerResponse,
+  paymentStatus: string | null
+): void => {
+  writeJson(request, response, 409, {
+    code: 'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
+    message:
+      paymentStatus === 'refunded'
+        ? 'Cette commandite est deja marquee comme remboursee.'
+        : paymentStatus === 'disputed'
+          ? 'Cette commandite est contestee; traitez le dossier dans Stripe.'
+          : 'Cette commandite ne peut pas etre remboursee automatiquement.',
+    paymentStatus
+  });
+};
+
 const isValidPublicationBatchCapacity = (value: unknown): value is number =>
   typeof value === 'number' &&
   Number.isInteger(value) &&
@@ -1484,6 +1510,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/sponsorships/logo/delete',
       '/admin/sponsorships/review',
       '/api/admin/sponsorships/review',
+      '/admin/sponsorships/refund',
+      '/api/admin/sponsorships/refund',
       '/admin/sponsorships/publication',
       '/api/admin/sponsorships/publication'
     )
@@ -4259,6 +4287,192 @@ createServer(async (request, response) => {
       console.error('Failed to update sponsorship review.', error);
       writeJson(request, response, 502, {
         error: 'Sponsorship review could not be updated.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/refund',
+      '/api/admin/sponsorships/refund'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    if (!stripe) {
+      writeJson(request, response, 503, {
+        error: 'Stripe is not configured.'
+      });
+      return;
+    }
+
+    let parsed: Partial<AdminSponsorshipRefundRequest>;
+    try {
+      const body = await readBody(request);
+      const candidate = JSON.parse(body) as unknown;
+      if (!candidate || typeof candidate !== 'object') {
+        throw new Error('Invalid sponsorship refund request body.');
+      }
+      parsed = candidate as Partial<AdminSponsorshipRefundRequest>;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship refund request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.contributionId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid contribution id.'
+      });
+      return;
+    }
+
+    if (!isValidAdminExpectedVersion(parsed.expectedVersion)) {
+      writeJson(request, response, 400, {
+        error: 'Sponsorship version is required.'
+      });
+      return;
+    }
+
+    if (
+      typeof parsed.confirmationText !== 'string' ||
+      parsed.confirmationText.trim().length === 0
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Confirmation text is required.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.refundNote,
+        ADMIN_REVIEW_NOTE_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Refund note is too long.'
+      });
+      return;
+    }
+
+    try {
+      const target = await getSponsorshipRefundTarget(
+        dbPool,
+        parsed.contributionId
+      );
+      if (!target) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship contribution was not found.'
+        });
+        return;
+      }
+
+      if (target.version !== parsed.expectedVersion) {
+        writeJson(request, response, 409, {
+          code: 'SPONSORSHIP_CONCURRENT_UPDATE',
+          message:
+            'Cette commandite a ete modifiee par un autre administrateur.',
+          currentVersion: target.version
+        });
+        return;
+      }
+
+      if (target.paymentStatus !== 'paid') {
+        writeSponsorshipRefundIneligible(
+          request,
+          response,
+          target.paymentStatus
+        );
+        return;
+      }
+
+      if (!target.stripePaymentIntentId) {
+        writeJson(request, response, 409, {
+          code: 'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
+          message: 'Aucun Payment Intent Stripe n est lie a cette commandite.',
+          paymentStatus: target.paymentStatus
+        });
+        return;
+      }
+
+      const expectedConfirmation = sponsorshipRefundConfirmationText(target);
+      if (parsed.confirmationText?.trim() !== expectedConfirmation) {
+        writeJson(request, response, 400, {
+          error: `Confirmation text must match ${expectedConfirmation}.`
+        });
+        return;
+      }
+
+      const refund = await stripe.refunds.create(
+        {
+          amount: target.amountCents,
+          payment_intent: target.stripePaymentIntentId,
+          reason: 'requested_by_customer',
+          metadata: {
+            contributionId: target.id,
+            publicReference: target.publicReference ?? '',
+            source: 'openg7_admin_sponsorship_refund'
+          }
+        },
+        {
+          idempotencyKey: `sponsorship-refund:${target.id}:${target.version}`
+        }
+      );
+      const paymentStatusUpdated =
+        refund.status !== 'failed'
+          ? await updateContributionStatusByPaymentIntent(dbPool, {
+              stripePaymentIntentId: target.stripePaymentIntentId,
+              status: 'refunded'
+            })
+          : false;
+      const refreshedSponsorship = await getAdminSponsorshipById(
+        dbPool,
+        target.id
+      );
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'sponsorship_refund.stripe_full',
+        entityType: 'sponsorship',
+        entityId: target.id,
+        summary: `Stripe refund ${refund.id} created for ${target.sponsorName}.`,
+        metadata: {
+          amount: refund.amount,
+          currency: refund.currency,
+          paymentIntentId: target.stripePaymentIntentId,
+          publicReference: target.publicReference,
+          refundId: refund.id,
+          refundNote: parsed.refundNote?.trim() || null,
+          refundStatus: refund.status,
+          paymentStatusUpdated
+        }
+      });
+
+      const result: AdminSponsorshipRefundResult = {
+        refunded: refund.status !== 'failed',
+        refundId: refund.id,
+        refundStatus: refund.status,
+        amount: Number((refund.amount / 100).toFixed(2)),
+        currency: refund.currency.toUpperCase(),
+        contributionId: target.id,
+        paymentStatusUpdated,
+        sponsorship: refreshedSponsorship
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to refund sponsorship payment.', error);
+      writeJson(request, response, 502, {
+        error:
+          error instanceof Error && error.message
+            ? error.message
+            : 'Sponsorship refund could not be created.'
       });
     }
     return;
