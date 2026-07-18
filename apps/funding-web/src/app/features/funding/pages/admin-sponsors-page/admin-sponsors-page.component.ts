@@ -57,6 +57,13 @@ type SponsorshipReviewFilter = 'all' | SponsorshipReviewStatus;
 type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
 type SponsorPaymentStatusFilter = 'all' | 'paid' | 'refunded' | 'disputed';
 type SponsorDetailsTab = 'overview' | 'identity' | 'publication' | 'audit';
+type SponsorProcessingState =
+  | 'action-required'
+  | 'approved-ready'
+  | 'publication-progress'
+  | 'published'
+  | 'blocked'
+  | 'waiting-payment';
 type SponsorshipPublicationChannel = Extract<
   SponsorFeedChannel,
   'facebook' | 'linkedin'
@@ -277,6 +284,8 @@ const controlledSponsorLogoUrlPrefixes = [
                 <button
                   type="button"
                   class="sponsor-table-row"
+                  [ngClass]="sponsorshipRowStateClass(sponsorship)"
+                  [attr.title]="sponsorshipProcessingLabel(sponsorship)"
                   [class.selection-pulse]="
                     selectionPulseId() === sponsorship.id
                   "
@@ -1421,21 +1430,70 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .sponsor-table-row {
         appearance: none;
-        background: #fff;
+        background: var(--sponsor-row-bg, #fff);
         border: 0;
         border-bottom: 1px solid #edf1f6;
+        border-left: 0.28rem solid var(--sponsor-row-accent, transparent);
+        box-sizing: border-box;
         color: inherit;
+        padding-left: 0.72rem;
         text-align: left;
+        transition:
+          background-color 0.16s ease,
+          box-shadow 0.16s ease,
+          border-color 0.16s ease;
         width: 100%;
       }
 
-      .sponsor-table-row:hover,
-      .sponsor-table-row.selected {
-        background: #f8fbff;
+      .sponsor-table-row:hover {
+        background: var(--sponsor-row-hover-bg, #f8fbff);
       }
 
       .sponsor-table-row.selected {
-        box-shadow: inset 0.18rem 0 0 #2563eb;
+        background: var(--sponsor-row-selected-bg, #f8fbff);
+        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.24);
+      }
+
+      .sponsor-row-state-action-required {
+        --sponsor-row-accent: #d8941f;
+        --sponsor-row-bg: #fff8ea;
+        --sponsor-row-hover-bg: #fff1d4;
+        --sponsor-row-selected-bg: #fff4dc;
+      }
+
+      .sponsor-row-state-approved-ready {
+        --sponsor-row-accent: #2f855a;
+        --sponsor-row-bg: #f0fbf4;
+        --sponsor-row-hover-bg: #e4f7eb;
+        --sponsor-row-selected-bg: #e8f7ee;
+      }
+
+      .sponsor-row-state-publication-progress {
+        --sponsor-row-accent: #3b73d9;
+        --sponsor-row-bg: #eef5ff;
+        --sponsor-row-hover-bg: #e4efff;
+        --sponsor-row-selected-bg: #e8f1ff;
+      }
+
+      .sponsor-row-state-published {
+        --sponsor-row-accent: #2aa198;
+        --sponsor-row-bg: #ebfaf7;
+        --sponsor-row-hover-bg: #ddf6f1;
+        --sponsor-row-selected-bg: #e4f6f3;
+      }
+
+      .sponsor-row-state-blocked {
+        --sponsor-row-accent: #c0392b;
+        --sponsor-row-bg: #fff0ee;
+        --sponsor-row-hover-bg: #ffe4e1;
+        --sponsor-row-selected-bg: #fdecea;
+      }
+
+      .sponsor-row-state-waiting-payment {
+        --sponsor-row-accent: #6f7a8e;
+        --sponsor-row-bg: #f3f6fa;
+        --sponsor-row-hover-bg: #edf1f7;
+        --sponsor-row-selected-bg: #eef2f7;
       }
 
       .row-cell,
@@ -2028,25 +2086,17 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.page.set(response.pagination?.page ?? this.page());
       this.reviewNotes.set(
         Object.fromEntries(
-          sponsorships.map((item) => [
-            item.id,
-            item.sponsor_review_note ?? ''
-          ])
+          sponsorships.map((item) => [item.id, item.sponsor_review_note ?? ''])
         )
       );
       this.publicationDrafts.set(
         Object.fromEntries(
-          sponsorships.map((item) => [
-            item.id,
-            this.toPublicationDraft(item)
-          ])
+          sponsorships.map((item) => [item.id, this.toPublicationDraft(item)])
         )
       );
       if (
         sponsorships.length > 0 &&
-        !sponsorships.some(
-          (item) => item.id === this.selectedSponsorshipId()
-        )
+        !sponsorships.some((item) => item.id === this.selectedSponsorshipId())
       ) {
         this.selectedSponsorshipId.set(sponsorships[0]?.id ?? null);
       }
@@ -2062,7 +2112,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     sponsorship: AdminSponsorshipRecord,
     reviewStatus: SponsorshipReviewStatus
   ): Promise<void> {
-    if (reviewStatus === 'approved' && !this.canApproveSponsorship(sponsorship)) {
+    if (
+      reviewStatus === 'approved' &&
+      !this.canApproveSponsorship(sponsorship)
+    ) {
       this.setReviewMessage(
         sponsorship.id,
         this.paymentEligibilityMessage(sponsorship) ||
@@ -2617,6 +2670,59 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   feedStatusClass(status: SponsorFeedStatus): string {
     return `feed-badge feed-${status}`;
+  }
+
+  sponsorshipProcessingState(
+    sponsorship: AdminSponsorshipRecord
+  ): SponsorProcessingState {
+    const isBlocked =
+      sponsorship.sponsor_review_status === 'rejected' ||
+      ['refunded', 'disputed', 'failed'].includes(sponsorship.payment_status);
+    if (isBlocked) {
+      return 'blocked';
+    }
+
+    if (sponsorship.payment_status !== 'paid') {
+      return 'waiting-payment';
+    }
+
+    if (sponsorship.sponsor_review_status === 'pending_review') {
+      return 'action-required';
+    }
+
+    if (sponsorship.sponsor_feed_status === 'published') {
+      return 'published';
+    }
+
+    if (
+      sponsorship.sponsor_feed_status === 'planned' ||
+      sponsorship.sponsor_feed_status === 'drafted'
+    ) {
+      return 'publication-progress';
+    }
+
+    return 'approved-ready';
+  }
+
+  sponsorshipRowStateClass(sponsorship: AdminSponsorshipRecord): string {
+    return `sponsor-row-state-${this.sponsorshipProcessingState(sponsorship)}`;
+  }
+
+  sponsorshipProcessingLabel(sponsorship: AdminSponsorshipRecord): string {
+    switch (this.sponsorshipProcessingState(sponsorship)) {
+      case 'action-required':
+        return 'Traitement requis';
+      case 'approved-ready':
+        return 'Approuvee, publication a planifier';
+      case 'publication-progress':
+        return 'Publication en preparation';
+      case 'published':
+        return 'Publication terminee';
+      case 'blocked':
+        return 'Commandite bloquee';
+      case 'waiting-payment':
+        return 'Paiement en attente';
+    }
   }
 
   feedTargetLabel(sponsorship: AdminSponsorshipRecord): string {
