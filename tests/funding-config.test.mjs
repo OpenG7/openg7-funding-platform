@@ -1426,6 +1426,40 @@ test('Admin sponsors publication channels are preselected from amount-based bene
   );
 });
 
+test('Admin sponsor rows are color-coded by processing state', () => {
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
+    'utf8'
+  );
+
+  for (const marker of [
+    'type SponsorProcessingState =',
+    'sponsorshipProcessingState(',
+    'sponsorshipRowStateClass(',
+    'sponsorshipProcessingLabel(',
+    '[ngClass]="sponsorshipRowStateClass(sponsorship)"',
+    '[attr.title]="sponsorshipProcessingLabel(sponsorship)"',
+    'sponsor-row-state-action-required',
+    'sponsor-row-state-approved-ready',
+    'sponsor-row-state-publication-progress',
+    'sponsor-row-state-published',
+    'sponsor-row-state-blocked',
+    'sponsor-row-state-waiting-payment',
+    '--sponsor-row-accent'
+  ]) {
+    assert.ok(page.includes(marker), `sponsors page must include ${marker}`);
+  }
+
+  assert.ok(page.includes("sponsorship.sponsor_review_status === 'rejected'"));
+  assert.ok(page.includes("sponsorship.payment_status !== 'paid'"));
+  assert.ok(
+    page.includes("sponsorship.sponsor_review_status === 'pending_review'")
+  );
+  assert.ok(page.includes("sponsorship.sponsor_feed_status === 'published'"));
+  assert.ok(page.includes("sponsorship.sponsor_feed_status === 'planned'"));
+  assert.ok(page.includes("sponsorship.sponsor_feed_status === 'drafted'"));
+});
+
 test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = fs.readFileSync(
