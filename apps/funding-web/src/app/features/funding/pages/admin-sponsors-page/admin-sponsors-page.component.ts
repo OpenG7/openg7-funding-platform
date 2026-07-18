@@ -61,7 +61,8 @@ type SponsorshipPublicationTextField =
 type SponsorshipReviewFilter = 'all' | SponsorshipReviewStatus;
 type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
 type SponsorPaymentStatusFilter = 'all' | 'paid' | 'refunded' | 'disputed';
-type SponsorDetailsTab = 'overview' | 'identity' | 'publication' | 'audit';
+type SponsorDetailsTab =
+  'overview' | 'identity' | 'publication' | 'refund' | 'audit';
 type SponsorProcessingState =
   | 'action-required'
   | 'approved-ready'
@@ -79,6 +80,14 @@ interface SponsorAuditEntry {
   readonly date: string;
   readonly label: string;
   readonly detail?: string;
+}
+
+interface SponsorRefundHistoryEntry {
+  readonly id: string;
+  readonly date: string;
+  readonly label: string;
+  readonly detail?: string;
+  readonly tone: AdminSponsorshipRefundWorkflowStatus;
 }
 
 interface SponsorRejectionDraft {
@@ -580,6 +589,13 @@ const controlledSponsorLogoUrlPrefixes = [
                 </button>
                 <button
                   type="button"
+                  [class.active]="activeTab() === 'refund'"
+                  (click)="setActiveTab('refund')"
+                >
+                  Remboursements
+                </button>
+                <button
+                  type="button"
                   [class.active]="activeTab() === 'audit'"
                   (click)="setActiveTab('audit')"
                 >
@@ -1072,6 +1088,135 @@ const controlledSponsorLogoUrlPrefixes = [
                       </dd>
                     </div>
                   </dl>
+                </article>
+              </section>
+
+              <section
+                class="detail-body refund-history-body"
+                *ngIf="activeTab() === 'refund'"
+                aria-label="Historique remboursement"
+              >
+                <article class="detail-card">
+                  <h3>Suivi remboursement</h3>
+                  <div class="refund-summary-grid">
+                    <div>
+                      <span>Statut</span>
+                      <strong
+                        ><span
+                          [class]="
+                            refundWorkflowStatusClass(
+                              selected.sponsorship_refund_status
+                            )
+                          "
+                          >{{
+                            refundWorkflowStatusLabel(
+                              selected.sponsorship_refund_status
+                            )
+                          }}</span
+                        ></strong
+                      >
+                    </div>
+                    <div>
+                      <span>Montant commandite</span>
+                      <strong>{{ formatMoney(selected) }}</strong>
+                    </div>
+                    <div>
+                      <span>Reference publique</span>
+                      <code>{{
+                        selected.public_reference || 'Non attribuee'
+                      }}</code>
+                    </div>
+                    <div>
+                      <span>Refund Stripe</span>
+                      <code>{{
+                        selected.sponsorship_refund_id || 'Non associe'
+                      }}</code>
+                    </div>
+                  </div>
+                  <p class="muted-copy" *ngIf="!hasRefundWorkflow(selected)">
+                    Aucun remboursement n'est demande pour cette commandite.
+                  </p>
+                </article>
+
+                <article class="detail-card">
+                  <h3>Jalons remboursement</h3>
+                  <ol
+                    class="refund-history-list"
+                    *ngIf="
+                      refundHistoryEntriesFor(selected).length > 0;
+                      else noRefundHistory
+                    "
+                  >
+                    <li
+                      *ngFor="
+                        let entry of refundHistoryEntriesFor(selected);
+                        trackBy: trackByRefundHistoryEntry
+                      "
+                      [class]="refundHistoryEntryClass(entry)"
+                    >
+                      <time>{{ dateTimeLabel(entry.date) }}</time>
+                      <p>{{ entry.label }}</p>
+                      <small *ngIf="entry.detail">{{ entry.detail }}</small>
+                    </li>
+                  </ol>
+                  <ng-template #noRefundHistory
+                    ><p class="muted-copy">
+                      Aucun jalon de remboursement n'est encore date pour ce
+                      dossier.
+                    </p></ng-template
+                  >
+                </article>
+
+                <article
+                  class="detail-card"
+                  *ngIf="
+                    selected.sponsorship_refund_note ||
+                    selected.sponsorship_refund_error
+                  "
+                >
+                  <h3>Notes et erreurs</h3>
+                  <dl class="compact-definition-list">
+                    <div *ngIf="selected.sponsorship_refund_note">
+                      <dt>Note remboursement</dt>
+                      <dd class="preserve-lines">
+                        {{ selected.sponsorship_refund_note }}
+                      </dd>
+                    </div>
+                    <div *ngIf="selected.sponsorship_refund_error">
+                      <dt>Derniere erreur</dt>
+                      <dd class="preserve-lines">
+                        {{ selected.sponsorship_refund_error }}
+                      </dd>
+                    </div>
+                  </dl>
+                </article>
+
+                <article class="detail-card">
+                  <h3>Actions admin liees</h3>
+                  <ol
+                    class="audit-list"
+                    *ngIf="
+                      refundAuditEntriesFor(selected).length > 0;
+                      else noRefundAudit
+                    "
+                  >
+                    <li
+                      *ngFor="
+                        let entry of refundAuditEntriesFor(selected);
+                        trackBy: trackByAuditEntry
+                      "
+                    >
+                      <time>{{ dateTimeLabel(entry.date) }}</time>
+                      <p>{{ entry.label }}</p>
+                      <small *ngIf="entry.detail">{{ entry.detail }}</small>
+                    </li>
+                  </ol>
+                  <ng-template #noRefundAudit
+                    ><p class="muted-copy">
+                      Aucune action admin de remboursement n'est encore associee
+                      a cette commandite.
+                    </p></ng-template
+                  >
                 </article>
               </section>
 
@@ -2311,13 +2456,105 @@ const controlledSponsorLogoUrlPrefixes = [
         padding-left: 1.2rem;
       }
 
+      .refund-summary-grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .refund-summary-grid div {
+        background: #f8fafc;
+        border: 1px solid #e4e7ec;
+        border-radius: 8px;
+        min-width: 0;
+        padding: 0.8rem;
+      }
+
+      .refund-summary-grid code,
+      .refund-summary-grid strong {
+        display: block;
+        min-width: 0;
+      }
+
+      .refund-summary-grid > div > span {
+        color: #667085;
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .refund-summary-grid strong,
+      .refund-summary-grid code {
+        color: #101828;
+        font-size: 0.9rem;
+        margin-top: 0.3rem;
+        overflow-wrap: anywhere;
+      }
+
+      .refund-history-list {
+        display: grid;
+        gap: 0.75rem;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .refund-history-list li {
+        background: #f8fafc;
+        border: 1px solid #e4e7ec;
+        border-left: 0.28rem solid #d0d5dd;
+        border-radius: 8px;
+        padding: 0.8rem 0.9rem;
+      }
+
+      .refund-history-requested {
+        background: #fff8e6;
+        border-left-color: #f59e0b;
+      }
+
+      .refund-history-processing {
+        background: #f0f6ff;
+        border-left-color: #2563eb;
+      }
+
+      .refund-history-completed {
+        background: #ecfdf3;
+        border-left-color: #16a34a;
+      }
+
+      .refund-history-failed {
+        background: #fff1f3;
+        border-left-color: #dc2626;
+      }
+
+      .refund-history-not-requested {
+        background: #f8fafc;
+        border-left-color: #98a2b3;
+      }
+
       .audit-list time {
         color: #667085;
         font-size: 0.82rem;
         font-weight: 800;
       }
+
+      .refund-history-list time {
+        color: #667085;
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+
       .audit-list p {
         margin: 0.15rem 0;
+      }
+
+      .refund-history-list p {
+        font-weight: 800;
+        margin: 0.15rem 0;
+      }
+
+      .preserve-lines {
+        white-space: pre-wrap;
       }
 
       @media (max-width: 1500px) {
@@ -2358,6 +2595,7 @@ const controlledSponsorLogoUrlPrefixes = [
         .refund-workflow,
         .publication-grid,
         .detail-card-grid,
+        .refund-summary-grid,
         .detail-meta {
           grid-template-columns: 1fr;
         }
@@ -3651,6 +3889,158 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return 'Aucun remboursement demande.';
   }
 
+  refundHistoryEntriesFor(
+    sponsorship: AdminSponsorshipRecord
+  ): SponsorRefundHistoryEntry[] {
+    if (!this.hasRefundWorkflow(sponsorship)) {
+      return [];
+    }
+
+    const entries: SponsorRefundHistoryEntry[] = [];
+    const refundNote = sponsorship.sponsorship_refund_note?.trim();
+
+    if (sponsorship.sponsorship_refund_requested_at) {
+      entries.push({
+        id: `${sponsorship.id}:refund-requested`,
+        date: sponsorship.sponsorship_refund_requested_at,
+        label: 'Demande de remboursement enregistree.',
+        detail: refundNote ? `Note: ${refundNote}` : undefined,
+        tone: 'requested'
+      });
+    }
+
+    if (
+      sponsorship.sponsorship_refund_processed_at &&
+      ['processing', 'completed', 'failed'].includes(
+        sponsorship.sponsorship_refund_status
+      )
+    ) {
+      entries.push({
+        id: `${sponsorship.id}:refund-processing`,
+        date: sponsorship.sponsorship_refund_processed_at,
+        label: 'Traitement du remboursement lance.',
+        detail: this.refundProcessingDetail(sponsorship),
+        tone: 'processing'
+      });
+    }
+
+    if (sponsorship.sponsorship_refund_completed_at) {
+      entries.push({
+        id: `${sponsorship.id}:refund-completed`,
+        date: sponsorship.sponsorship_refund_completed_at,
+        label: 'Remboursement complete.',
+        detail: this.refundCompletionDetail(sponsorship),
+        tone: 'completed'
+      });
+    }
+
+    if (sponsorship.sponsorship_refund_status === 'failed') {
+      entries.push({
+        id: `${sponsorship.id}:refund-failed`,
+        date: this.refundHistoryFallbackDate(sponsorship),
+        label: 'Remboursement en echec.',
+        detail:
+          sponsorship.sponsorship_refund_error ||
+          'Consultez Stripe et le journal admin avant de relancer.',
+        tone: 'failed'
+      });
+    }
+
+    if (entries.length === 0) {
+      entries.push({
+        id: `${sponsorship.id}:refund-current`,
+        date: sponsorship.updated_at,
+        label: this.refundWorkflowStatusLabel(
+          sponsorship.sponsorship_refund_status
+        ),
+        detail: 'Aucun horodatage detaille expose pour ce statut.',
+        tone: sponsorship.sponsorship_refund_status
+      });
+    }
+
+    return entries.sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+  }
+
+  trackByRefundHistoryEntry(
+    _: number,
+    entry: SponsorRefundHistoryEntry
+  ): string {
+    return entry.id;
+  }
+
+  refundHistoryEntryClass(entry: SponsorRefundHistoryEntry): string {
+    return `refund-history-${entry.tone.replace('_', '-')}`;
+  }
+
+  refundAuditEntriesFor(
+    sponsorship: AdminSponsorshipRecord
+  ): SponsorAuditEntry[] {
+    return (sponsorship.admin_audit_entries ?? [])
+      .filter((entry) => this.isRefundAuditEntry(entry))
+      .map((entry) => ({
+        id: entry.id,
+        date: entry.created_at,
+        label: this.adminAuditLabel(entry),
+        detail: this.adminAuditDetail(entry)
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  private refundProcessingDetail(sponsorship: AdminSponsorshipRecord): string {
+    const details = ['Statut: traitement en cours'];
+
+    if (sponsorship.sponsorship_refund_id) {
+      details.push(`Refund Stripe: ${sponsorship.sponsorship_refund_id}`);
+    }
+
+    if (sponsorship.sponsorship_refund_note) {
+      details.push(`Note: ${sponsorship.sponsorship_refund_note}`);
+    }
+
+    return details.join(' - ');
+  }
+
+  private refundCompletionDetail(sponsorship: AdminSponsorshipRecord): string {
+    const details = [
+      `Paiement: ${this.paymentStatusLabel(sponsorship.payment_status)}`
+    ];
+
+    if (sponsorship.sponsorship_refund_id) {
+      details.push(`Refund Stripe: ${sponsorship.sponsorship_refund_id}`);
+    }
+
+    return details.join(' - ');
+  }
+
+  private refundHistoryFallbackDate(
+    sponsorship: AdminSponsorshipRecord
+  ): string {
+    return (
+      sponsorship.sponsorship_refund_processed_at ??
+      sponsorship.sponsorship_refund_requested_at ??
+      sponsorship.updated_at
+    );
+  }
+
+  private isRefundAuditEntry(entry: AdminAuditLogEntry): boolean {
+    if (entry.action === 'sponsorship_refund.stripe_full') {
+      return true;
+    }
+
+    if (!entry.action.startsWith('sponsorship_review.')) {
+      return false;
+    }
+
+    const refundHandling = this.metadataString(entry, 'refundHandling');
+    return (
+      this.metadataString(entry, 'refundWorkflowStatus') !== null ||
+      (refundHandling !== null && refundHandling !== 'none') ||
+      this.metadataBoolean(entry, 'hasRefundNote') === true
+    );
+  }
+
   paymentEligibilityMessage(sponsorship: AdminSponsorshipRecord): string {
     if (sponsorship.sponsorship_refund_status === 'requested') {
       return 'Remboursement demande: traitez le dossier ou lancez le remboursement Stripe guide.';
@@ -4037,6 +4427,44 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return entry.id;
   }
 
+  private metadataString(
+    entry: AdminAuditLogEntry,
+    key: string
+  ): string | null {
+    const value = entry.metadata[key];
+    return typeof value === 'string' && value.trim() ? value : null;
+  }
+
+  private metadataNumber(
+    entry: AdminAuditLogEntry,
+    key: string
+  ): number | null {
+    const value = entry.metadata[key];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  private metadataBoolean(
+    entry: AdminAuditLogEntry,
+    key: string
+  ): boolean | null {
+    const value = entry.metadata[key];
+    return typeof value === 'boolean' ? value : null;
+  }
+
+  private refundHandlingAuditLabel(
+    handling: AdminSponsorshipRejectionRefundHandling
+  ): string {
+    if (handling === 'manual_required') {
+      return 'remboursement manuel demande';
+    }
+
+    if (handling === 'manual_completed') {
+      return 'remboursement manuel deja traite';
+    }
+
+    return 'aucun remboursement demande';
+  }
+
   private adminAuditLabel(entry: AdminAuditLogEntry): string {
     if (entry.action.startsWith('sponsorship_review.')) {
       const reviewStatus =
@@ -4066,21 +4494,28 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     const details = [`Acteur: ${entry.actor}`];
 
     if (entry.action === 'sponsorship_refund.stripe_full') {
-      const refundId =
-        typeof entry.metadata.refundId === 'string'
-          ? entry.metadata.refundId
-          : null;
-      const refundStatus =
-        typeof entry.metadata.refundStatus === 'string'
-          ? entry.metadata.refundStatus
-          : null;
-      const refundWorkflowStatus =
-        typeof entry.metadata.refundWorkflowStatus === 'string'
-          ? (entry.metadata
-              .refundWorkflowStatus as AdminSponsorshipRefundWorkflowStatus)
-          : null;
+      const amount = this.metadataNumber(entry, 'amount');
+      const currency = this.metadataString(entry, 'currency');
+      const refundId = this.metadataString(entry, 'refundId');
+      const paymentIntentId = this.metadataString(entry, 'paymentIntentId');
+      const refundStatus = this.metadataString(entry, 'refundStatus');
+      const refundWorkflowStatus = this.metadataString(
+        entry,
+        'refundWorkflowStatus'
+      ) as AdminSponsorshipRefundWorkflowStatus | null;
+      const creditNoteNumber = this.metadataString(entry, 'creditNoteNumber');
+      const creditNoteError = this.metadataString(entry, 'creditNoteError');
+      const notificationSent = this.metadataBoolean(entry, 'notificationSent');
+      const notificationError = this.metadataString(entry, 'notificationError');
+
+      if (amount !== null && currency) {
+        details.push(`Montant: ${this.formatAmount(amount / 100, currency)}`);
+      }
       if (refundId) {
         details.push(`Refund: ${refundId}`);
+      }
+      if (paymentIntentId) {
+        details.push(`PaymentIntent: ${paymentIntentId}`);
       }
       if (refundStatus) {
         details.push(`Statut: ${refundStatus}`);
@@ -4089,6 +4524,20 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         details.push(
           `Suivi: ${this.refundWorkflowStatusLabel(refundWorkflowStatus)}`
         );
+      }
+      if (creditNoteNumber) {
+        details.push(`Avoir: ${creditNoteNumber}`);
+      }
+      if (creditNoteError) {
+        details.push(`Erreur avoir: ${creditNoteError}`);
+      }
+      if (notificationSent !== null) {
+        details.push(
+          notificationSent ? 'Courriel envoye' : 'Courriel non envoye'
+        );
+      }
+      if (notificationError) {
+        details.push(`Erreur courriel: ${notificationError}`);
       }
     }
 
@@ -4103,18 +4552,24 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     if (entry.action.startsWith('sponsorship_review.')) {
-      const notificationSent =
-        typeof entry.metadata.notificationSent === 'boolean'
-          ? entry.metadata.notificationSent
-          : null;
-      const refundWorkflowStatus =
-        typeof entry.metadata.refundWorkflowStatus === 'string'
-          ? (entry.metadata
-              .refundWorkflowStatus as AdminSponsorshipRefundWorkflowStatus)
-          : null;
+      const notificationSent = this.metadataBoolean(entry, 'notificationSent');
+      const refundHandling = this.metadataString(
+        entry,
+        'refundHandling'
+      ) as AdminSponsorshipRejectionRefundHandling | null;
+      const refundWorkflowStatus = this.metadataString(
+        entry,
+        'refundWorkflowStatus'
+      ) as AdminSponsorshipRefundWorkflowStatus | null;
+      const hasRefundNote = this.metadataBoolean(entry, 'hasRefundNote');
       if (notificationSent !== null) {
         details.push(
           notificationSent ? 'Courriel envoye' : 'Courriel non envoye'
+        );
+      }
+      if (refundHandling && refundHandling !== 'none') {
+        details.push(
+          `Traitement: ${this.refundHandlingAuditLabel(refundHandling)}`
         );
       }
       if (refundWorkflowStatus) {
@@ -4122,9 +4577,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
           `Suivi: ${this.refundWorkflowStatusLabel(refundWorkflowStatus)}`
         );
       }
+      if (hasRefundNote) {
+        details.push('Note remboursement presente');
+      }
     }
 
-    return details.join(' · ');
+    return details.join(' - ');
   }
 
   async copyReference(sponsorship: AdminSponsorshipRecord): Promise<void> {
