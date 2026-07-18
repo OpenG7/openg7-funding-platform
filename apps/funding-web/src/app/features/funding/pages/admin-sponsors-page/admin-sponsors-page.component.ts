@@ -21,6 +21,7 @@ import type {
   AdminPagination,
   AdminSponsorshipRecord,
   AdminSponsorshipRefundResult,
+  AdminSponsorshipRefundWorkflowStatus,
   AdminSponsorshipReviewResult,
   SponsorFeedChannel,
   SponsorFeedStatus,
@@ -368,6 +369,18 @@ const controlledSponsorLogoUrlPrefixes = [
                       >{{
                         paymentStatusLabel(sponsorship.payment_status)
                       }}</span
+                    ><span
+                      *ngIf="hasRefundWorkflow(sponsorship)"
+                      [class]="
+                        refundWorkflowStatusClass(
+                          sponsorship.sponsorship_refund_status
+                        )
+                      "
+                      >{{
+                        refundWorkflowStatusLabel(
+                          sponsorship.sponsorship_refund_status
+                        )
+                      }}</span
                     ><small>{{
                       dateOnlyLabel(sponsorship.paid_at)
                     }}</small></span
@@ -505,6 +518,18 @@ const controlledSponsorLogoUrlPrefixes = [
                   ><span
                     [class]="paymentStatusClass(selected.payment_status)"
                     >{{ paymentStatusLabel(selected.payment_status) }}</span
+                  ><span
+                    *ngIf="hasRefundWorkflow(selected)"
+                    [class]="
+                      refundWorkflowStatusClass(
+                        selected.sponsorship_refund_status
+                      )
+                    "
+                    >{{
+                      refundWorkflowStatusLabel(
+                        selected.sponsorship_refund_status
+                      )
+                    }}</span
                   >
                 </div>
                 <dl class="detail-meta">
@@ -675,6 +700,31 @@ const controlledSponsorLogoUrlPrefixes = [
                             }}</span
                           >
                         </dd>
+                      </div>
+                      <div>
+                        <dt>Remboursement</dt>
+                        <dd>
+                          <span
+                            [class]="
+                              refundWorkflowStatusClass(
+                                selected.sponsorship_refund_status
+                              )
+                            "
+                            >{{
+                              refundWorkflowStatusLabel(
+                                selected.sponsorship_refund_status
+                              )
+                            }}</span
+                          >
+                        </dd>
+                      </div>
+                      <div *ngIf="hasRefundWorkflow(selected)">
+                        <dt>Suivi remboursement</dt>
+                        <dd>{{ refundWorkflowTimelineLabel(selected) }}</dd>
+                      </div>
+                      <div *ngIf="selected.sponsorship_refund_id">
+                        <dt>Refund Stripe</dt>
+                        <dd>{{ selected.sponsorship_refund_id }}</dd>
                       </div>
                       <div>
                         <dt>Date de paiement</dt>
@@ -2134,6 +2184,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .visibility-badge,
       .feed-badge,
       .payment-badge,
+      .refund-badge,
       .tier-badge {
         border-radius: 999px;
         display: inline-flex;
@@ -2146,6 +2197,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .status-pending,
       .feed-planned,
       .payment-pending,
+      .refund-requested,
       .visibility-review,
       .tier-gold {
         background: #fff2cf;
@@ -2154,19 +2206,26 @@ const controlledSponsorLogoUrlPrefixes = [
       .status-approved,
       .feed-published,
       .payment-paid,
+      .refund-completed,
       .visibility-visible {
         background: #dff7e8;
         color: #176236;
       }
       .status-rejected,
-      .payment-failed {
+      .payment-failed,
+      .refund-failed {
         background: #ffe0e5;
         color: #9f1d2f;
       }
       .visibility-hidden,
-      .feed-not_planned {
+      .feed-not_planned,
+      .refund-not-requested {
         background: #eef1f5;
         color: #667085;
+      }
+      .refund-processing {
+        background: #e8f1ff;
+        color: #174ea6;
       }
       .feed-drafted {
         background: #ede9fe;
@@ -2708,7 +2767,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         [
           this.reviewSuccessMessage('rejected'),
           this.rejectionNotificationResultLabel(result),
-          this.rejectionRefundResultLabel(result.refundHandling)
+          this.rejectionRefundResultLabel(
+            result.refundHandling,
+            result.refundWorkflowStatus
+          )
         ]
           .filter(Boolean)
           .join(' '),
@@ -2794,7 +2856,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   canRefundSponsorship(sponsorship: AdminSponsorshipRecord): boolean {
-    return sponsorship.payment_status === 'paid';
+    return (
+      sponsorship.payment_status === 'paid' &&
+      !['processing', 'completed'].includes(
+        sponsorship.sponsorship_refund_status
+      )
+    );
   }
 
   refundConfirmationText(sponsorship: AdminSponsorshipRecord): string {
@@ -2816,6 +2883,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   refundValidationMessage(sponsorship: AdminSponsorshipRecord): string {
     const draft = this.refundDraftFor(sponsorship);
     if (!this.canRefundSponsorship(sponsorship)) {
+      if (sponsorship.sponsorship_refund_status === 'completed') {
+        return 'Remboursement deja marque comme complete.';
+      }
+
+      if (sponsorship.sponsorship_refund_status === 'processing') {
+        return 'Un remboursement est deja en cours.';
+      }
+
       return 'Remboursement Stripe disponible seulement pour un paiement paye.';
     }
 
@@ -3397,6 +3472,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   ): SponsorProcessingState {
     const isBlocked =
       sponsorship.sponsor_review_status === 'rejected' ||
+      ['processing', 'completed'].includes(
+        sponsorship.sponsorship_refund_status
+      ) ||
       ['refunded', 'disputed', 'failed'].includes(sponsorship.payment_status);
     if (isBlocked) {
       return 'blocked';
@@ -3512,7 +3590,84 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return `payment-badge payment-${state}`;
   }
 
+  hasRefundWorkflow(sponsorship: AdminSponsorshipRecord): boolean {
+    return sponsorship.sponsorship_refund_status !== 'not_requested';
+  }
+
+  refundWorkflowStatusLabel(
+    status: AdminSponsorshipRefundWorkflowStatus
+  ): string {
+    if (status === 'requested') {
+      return 'Remboursement demande';
+    }
+
+    if (status === 'processing') {
+      return 'Remboursement en cours';
+    }
+
+    if (status === 'completed') {
+      return 'Remboursement complete';
+    }
+
+    if (status === 'failed') {
+      return 'Remboursement en echec';
+    }
+
+    return 'Aucun remboursement demande';
+  }
+
+  refundWorkflowStatusClass(
+    status: AdminSponsorshipRefundWorkflowStatus
+  ): string {
+    return `refund-badge refund-${status.replace('_', '-')}`;
+  }
+
+  refundWorkflowTimelineLabel(sponsorship: AdminSponsorshipRecord): string {
+    if (sponsorship.sponsorship_refund_status === 'completed') {
+      return `Complete le ${this.dateOnlyLabel(
+        sponsorship.sponsorship_refund_completed_at
+      )}`;
+    }
+
+    if (sponsorship.sponsorship_refund_status === 'processing') {
+      return `En cours depuis ${this.dateOnlyLabel(
+        sponsorship.sponsorship_refund_processed_at ??
+          sponsorship.sponsorship_refund_requested_at
+      )}`;
+    }
+
+    if (sponsorship.sponsorship_refund_status === 'requested') {
+      return `Demande le ${this.dateOnlyLabel(
+        sponsorship.sponsorship_refund_requested_at
+      )}`;
+    }
+
+    if (sponsorship.sponsorship_refund_status === 'failed') {
+      return sponsorship.sponsorship_refund_error
+        ? `Echec: ${sponsorship.sponsorship_refund_error}`
+        : 'Derniere tentative en echec.';
+    }
+
+    return 'Aucun remboursement demande.';
+  }
+
   paymentEligibilityMessage(sponsorship: AdminSponsorshipRecord): string {
+    if (sponsorship.sponsorship_refund_status === 'requested') {
+      return 'Remboursement demande: traitez le dossier ou lancez le remboursement Stripe guide.';
+    }
+
+    if (sponsorship.sponsorship_refund_status === 'processing') {
+      return 'Remboursement en cours: attendez la confirmation Stripe avant de relancer.';
+    }
+
+    if (sponsorship.sponsorship_refund_status === 'completed') {
+      return 'Remboursement complete: les nouvelles approbations et publications publiques sont bloquees.';
+    }
+
+    if (sponsorship.sponsorship_refund_status === 'failed') {
+      return 'Derniere tentative de remboursement en echec: le remboursement Stripe peut etre relance apres verification.';
+    }
+
     if (sponsorship.payment_status === 'refunded') {
       return 'Paiement rembourse: les nouvelles approbations et publications publiques sont bloquees.';
     }
@@ -3669,14 +3824,19 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   rejectionRefundResultLabel(
-    handling: AdminSponsorshipRejectionRefundHandling | undefined
+    handling: AdminSponsorshipRejectionRefundHandling | undefined,
+    workflowStatus?: AdminSponsorshipRefundWorkflowStatus
   ): string {
+    const workflow = workflowStatus
+      ? ` Suivi: ${this.refundWorkflowStatusLabel(workflowStatus)}.`
+      : '';
+
     if (handling === 'manual_required') {
-      return 'Remboursement a traiter manuellement.';
+      return `Remboursement a traiter manuellement.${workflow}`;
     }
 
     if (handling === 'manual_completed') {
-      return 'Remboursement marque comme deja traite.';
+      return `Remboursement marque comme deja traite.${workflow}`;
     }
 
     return '';
@@ -3686,6 +3846,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     const status = result.refundStatus
       ? ` Statut Stripe: ${result.refundStatus}.`
       : '';
+    const workflow = ` Suivi: ${this.refundWorkflowStatusLabel(
+      result.refundWorkflowStatus
+    )}.`;
     const localStatus = result.paymentStatusUpdated
       ? ' Commandite marquee comme remboursee.'
       : '';
@@ -3696,7 +3859,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return `Remboursement Stripe cree: ${this.formatAmount(
       result.amount,
       result.currency
-    )}.${status}${localStatus}${creditNote}`;
+    )}.${status}${workflow}${localStatus}${creditNote}`;
   }
 
   refundNotificationResultLabel(result: AdminSponsorshipRefundResult): string {
@@ -3839,6 +4002,23 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       });
     }
 
+    if (
+      sponsorship.sponsorship_refund_status !== 'not_requested' &&
+      sponsorship.sponsorship_refund_requested_at
+    ) {
+      entries.push({
+        id: `${sponsorship.id}:refund-workflow`,
+        date:
+          sponsorship.sponsorship_refund_completed_at ??
+          sponsorship.sponsorship_refund_processed_at ??
+          sponsorship.sponsorship_refund_requested_at,
+        label: this.refundWorkflowStatusLabel(
+          sponsorship.sponsorship_refund_status
+        ),
+        detail: this.refundWorkflowTimelineLabel(sponsorship)
+      });
+    }
+
     for (const entry of sponsorship.admin_audit_entries ?? []) {
       entries.push({
         id: entry.id,
@@ -3894,11 +4074,21 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         typeof entry.metadata.refundStatus === 'string'
           ? entry.metadata.refundStatus
           : null;
+      const refundWorkflowStatus =
+        typeof entry.metadata.refundWorkflowStatus === 'string'
+          ? (entry.metadata
+              .refundWorkflowStatus as AdminSponsorshipRefundWorkflowStatus)
+          : null;
       if (refundId) {
         details.push(`Refund: ${refundId}`);
       }
       if (refundStatus) {
         details.push(`Statut: ${refundStatus}`);
+      }
+      if (refundWorkflowStatus) {
+        details.push(
+          `Suivi: ${this.refundWorkflowStatusLabel(refundWorkflowStatus)}`
+        );
       }
     }
 
@@ -3917,9 +4107,19 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         typeof entry.metadata.notificationSent === 'boolean'
           ? entry.metadata.notificationSent
           : null;
+      const refundWorkflowStatus =
+        typeof entry.metadata.refundWorkflowStatus === 'string'
+          ? (entry.metadata
+              .refundWorkflowStatus as AdminSponsorshipRefundWorkflowStatus)
+          : null;
       if (notificationSent !== null) {
         details.push(
           notificationSent ? 'Courriel envoye' : 'Courriel non envoye'
+        );
+      }
+      if (refundWorkflowStatus) {
+        details.push(
+          `Suivi: ${this.refundWorkflowStatusLabel(refundWorkflowStatus)}`
         );
       }
     }

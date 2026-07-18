@@ -55,6 +55,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     'apps/funding-web/src/app/features/funding/components/site-music/site-music.component.ts'
   );
   const api = read('apps/funding-api/src/main.ts');
+  const webhookService = read('apps/funding-api/src/stripe-webhook.service.ts');
   const emailService = read(
     'apps/funding-api/src/email-notification.service.ts'
   );
@@ -71,6 +72,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
   const migration = read(
     'apps/funding-api/migrations/007_add_admin_audit_and_publication_drafts.sql'
+  );
+  const refundStatusMigration = read(
+    'apps/funding-api/migrations/013_add_sponsorship_refund_status.sql'
   );
   const core = read('packages/funding-core/src/index.ts');
   const readme = read('README.md');
@@ -290,6 +294,13 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'refundConfirmationText',
       'refundActionId',
       'canRefundSponsorship',
+      'refundWorkflowStatusLabel',
+      'refundWorkflowTimelineLabel',
+      'refundWorkflowStatusClass',
+      'sponsorship_refund_status',
+      'refund-badge',
+      'refund-processing',
+      'refund-completed',
       'refundNotificationResultLabel',
       'Envoyer le courriel de remboursement',
       'refundSponsorship',
@@ -467,9 +478,11 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'isValidAdminExpectedVersion',
       'stripe.refunds.create',
       'sponsorship_refund.stripe_full',
+      'refundWorkflowStatus',
       'createSponsorshipCreditNoteForRefund',
       'sponsorship-refund-email:',
       'getSponsorshipRefundTarget',
+      'updateSponsorshipRefundWorkflowStatus',
       'updateContributionStatusByPaymentIntent',
       'SPONSOR_LOGO_PUBLIC_PATH_PREFIX',
       'FUNDING_SPONSOR_LOGO_STORAGE_DIR',
@@ -499,6 +512,16 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'writeCsv'
     ],
     'admin API routes'
+  );
+
+  assertIncludesAll(
+    webhookService,
+    [
+      'charge.refunded',
+      'updateSponsorshipRefundWorkflowStatusByPaymentIntent',
+      'refundWorkflowUpdated'
+    ],
+    'Stripe refund webhook'
   );
 
   assertIncludesAll(
@@ -555,6 +578,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'payment_not_eligible',
       'updated_at::text AS version',
       'getSponsorshipRefundTarget',
+      'updateSponsorshipRefundWorkflowStatus',
+      'updateSponsorshipRefundWorkflowStatusByPaymentIntent',
+      'allowedSponsorshipRefundWorkflowStatuses',
+      'sponsorship_refund_status',
       'stripe_payment_intent_id',
       'updateSponsorshipLogoUrl',
       'clearSponsorshipLogoUrl',
@@ -612,6 +639,23 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
+    refundStatusMigration,
+    [
+      'sponsorship_refund_status',
+      "'not_requested'",
+      "'completed'",
+      'sponsorship_refund_requested_at',
+      'sponsorship_refund_processed_at',
+      'sponsorship_refund_completed_at',
+      'sponsorship_refund_id',
+      'sponsorship_refund_error',
+      'fund_contributions_sponsorship_refund_status_check',
+      'idx_fund_contributions_sponsorship_refund_status'
+    ],
+    'admin sponsorship refund status migration'
+  );
+
+  assertIncludesAll(
     core,
     [
       'AdminDashboardResponse',
@@ -641,6 +685,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminSponsorshipRejectionRefundHandling',
       'AdminSponsorshipRefundRequest',
       'AdminSponsorshipRefundResult',
+      'AdminSponsorshipRefundWorkflowStatus',
+      'readonly sponsorship_refund_status: AdminSponsorshipRefundWorkflowStatus;',
+      'readonly refundWorkflowStatus: AdminSponsorshipRefundWorkflowStatus;',
       'AdminPagination',
       'readonly admin_audit_entries: readonly AdminAuditLogEntry[];',
       'readonly version: string;',
@@ -689,7 +736,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       '007_add_admin_audit_and_publication_drafts.sql',
       '010_create_email_messages.sql',
       '011_create_sponsorship_invoices.sql',
-      '012_create_sponsorship_credit_notes.sql'
+      '012_create_sponsorship_credit_notes.sql',
+      '013_add_sponsorship_refund_status.sql'
     ],
     'admin docs'
   );

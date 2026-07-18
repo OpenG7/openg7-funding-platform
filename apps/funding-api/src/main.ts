@@ -120,6 +120,7 @@ import {
   recordSponsorshipDetails,
   updateSponsorshipLogoUrl,
   updateSponsorshipPublication,
+  updateSponsorshipRefundWorkflowStatus,
   updateSponsorshipReview,
   getSponsorshipRefundTarget,
   updateContributionStatusByPaymentIntent
@@ -4696,6 +4697,20 @@ createServer(async (request, response) => {
         return;
       }
 
+      const refundWorkflowStatus =
+        isRejection && refundHandling === 'manual_required'
+          ? 'requested'
+          : isRejection && refundHandling === 'manual_completed'
+            ? 'completed'
+            : undefined;
+      if (refundWorkflowStatus) {
+        await updateSponsorshipRefundWorkflowStatus(dbPool, {
+          contributionId: parsed.contributionId,
+          refundStatus: refundWorkflowStatus,
+          refundNote: refundNote || null
+        });
+      }
+
       const updatedSponsorship = isRejection
         ? await getAdminSponsorshipById(dbPool, parsed.contributionId)
         : null;
@@ -4723,6 +4738,7 @@ createServer(async (request, response) => {
         updated: updated.updated,
         reviewStatus: parsed.reviewStatus,
         ...(isRejection ? { refundHandling } : {}),
+        ...(refundWorkflowStatus ? { refundWorkflowStatus } : {}),
         ...(notificationResult
           ? {
               notification: {
@@ -4752,6 +4768,7 @@ createServer(async (request, response) => {
                 notificationSent: notificationResult?.sent ?? false,
                 notificationError: notificationResult?.error ?? null,
                 refundHandling,
+                refundWorkflowStatus: refundWorkflowStatus ?? null,
                 hasRefundNote: Boolean(refundNote)
               }
             : {})
@@ -4875,6 +4892,11 @@ createServer(async (request, response) => {
       return;
     }
 
+    let refundWorkflowStarted = false;
+    let stripeRefundCreated = false;
+    let refundWorkflowContributionId: string | null = null;
+    let refundWorkflowNote: string | null = refundNote || null;
+
     try {
       const target = await getSponsorshipRefundTarget(
         dbPool,
@@ -4906,6 +4928,22 @@ createServer(async (request, response) => {
         return;
       }
 
+      if (
+        target.refundWorkflowStatus === 'processing' ||
+        target.refundWorkflowStatus === 'completed'
+      ) {
+        writeJson(request, response, 409, {
+          code: 'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
+          message:
+            target.refundWorkflowStatus === 'completed'
+              ? 'Cette commandite a deja un remboursement marque comme complete.'
+              : 'Un remboursement est deja en cours pour cette commandite.',
+          paymentStatus: target.paymentStatus,
+          refundWorkflowStatus: target.refundWorkflowStatus
+        });
+        return;
+      }
+
       if (!target.stripePaymentIntentId) {
         writeJson(request, response, 409, {
           code: 'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
@@ -4923,6 +4961,14 @@ createServer(async (request, response) => {
         return;
       }
 
+      await updateSponsorshipRefundWorkflowStatus(dbPool, {
+        contributionId: target.id,
+        refundStatus: 'processing',
+        refundNote: refundWorkflowNote
+      });
+      refundWorkflowStarted = true;
+      refundWorkflowContributionId = target.id;
+
       const refund = await stripe.refunds.create(
         {
           amount: target.amountCents,
@@ -4938,17 +4984,31 @@ createServer(async (request, response) => {
           idempotencyKey: `sponsorship-refund:${target.id}:${target.version}`
         }
       );
-      const paymentStatusUpdated =
-        refund.status !== 'failed'
-          ? await updateContributionStatusByPaymentIntent(dbPool, {
-              stripePaymentIntentId: target.stripePaymentIntentId,
-              status: 'refunded'
-            })
-          : false;
-      const refreshedSponsorship = await getAdminSponsorshipById(
-        dbPool,
-        target.id
-      );
+      stripeRefundCreated = true;
+      const refundWorkflowStatus =
+        refund.status === 'succeeded'
+          ? 'completed'
+          : refund.status === 'failed' || refund.status === 'canceled'
+            ? 'failed'
+            : 'processing';
+      const refundAttemptAccepted = refundWorkflowStatus !== 'failed';
+      const refundCompleted = refundWorkflowStatus === 'completed';
+      const paymentStatusUpdated = refundCompleted
+        ? await updateContributionStatusByPaymentIntent(dbPool, {
+            stripePaymentIntentId: target.stripePaymentIntentId,
+            status: 'refunded'
+          })
+        : false;
+      await updateSponsorshipRefundWorkflowStatus(dbPool, {
+        contributionId: target.id,
+        refundStatus: refundWorkflowStatus,
+        refundId: refund.id,
+        refundNote: refundWorkflowNote,
+        refundError:
+          refundWorkflowStatus === 'failed'
+            ? `Stripe refund returned ${refund.status ?? 'failed'}.`
+            : null
+      });
       const refundAmount = Number((refund.amount / 100).toFixed(2));
       const refundCurrency = refund.currency.toUpperCase();
       let creditNote: Awaited<
@@ -4959,7 +5019,7 @@ createServer(async (request, response) => {
       > = null;
       let creditNoteError: string | null = null;
 
-      if (refund.status !== 'failed') {
+      if (refundAttemptAccepted) {
         try {
           creditNote = await createSponsorshipCreditNoteForRefund(dbPool, {
             contributionId: target.id,
@@ -4979,7 +5039,7 @@ createServer(async (request, response) => {
       }
 
       const notificationResult =
-        refund.status !== 'failed' && notifySponsor
+        refundAttemptAccepted && notifySponsor
           ? creditNote
             ? await queueSponsorshipCreditNoteEmail(dbPool, {
                 to: notificationEmail,
@@ -5016,6 +5076,7 @@ createServer(async (request, response) => {
           refundId: refund.id,
           refundNote: refundNote || null,
           refundStatus: refund.status,
+          refundWorkflowStatus,
           paymentStatusUpdated,
           creditNoteId: creditNote?.id ?? null,
           creditNoteNumber: creditNote?.creditNoteNumber ?? null,
@@ -5029,14 +5090,15 @@ createServer(async (request, response) => {
       });
 
       const result: AdminSponsorshipRefundResult = {
-        refunded: refund.status !== 'failed',
+        refunded: refundCompleted,
         refundId: refund.id,
         refundStatus: refund.status,
+        refundWorkflowStatus,
         amount: refundAmount,
         currency: refundCurrency,
         contributionId: target.id,
         paymentStatusUpdated,
-        sponsorship: refreshedSponsorship,
+        sponsorship: await getAdminSponsorshipById(dbPool, target.id),
         creditNote: adminCreditNote,
         ...(notificationResult
           ? {
@@ -5052,12 +5114,33 @@ createServer(async (request, response) => {
       };
       writeJson(request, response, 200, result);
     } catch (error) {
+      const errorMessage =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Sponsorship refund could not be created.';
+      if (
+        refundWorkflowStarted &&
+        !stripeRefundCreated &&
+        refundWorkflowContributionId
+      ) {
+        try {
+          await updateSponsorshipRefundWorkflowStatus(dbPool, {
+            contributionId: refundWorkflowContributionId,
+            refundStatus: 'failed',
+            refundNote: refundWorkflowNote,
+            refundError: errorMessage
+          });
+        } catch (workflowError) {
+          console.error(
+            'Failed to mark sponsorship refund workflow as failed.',
+            workflowError
+          );
+        }
+      }
+
       console.error('Failed to refund sponsorship payment.', error);
       writeJson(request, response, 502, {
-        error:
-          error instanceof Error && error.message
-            ? error.message
-            : 'Sponsorship refund could not be created.'
+        error: errorMessage
       });
     }
     return;

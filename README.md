@@ -135,6 +135,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/010_create_email_messages.sql
 \i apps/funding-api/migrations/011_create_sponsorship_invoices.sql
 \i apps/funding-api/migrations/012_create_sponsorship_credit_notes.sql
+\i apps/funding-api/migrations/013_add_sponsorship_refund_status.sql
 ```
 
 These create:
@@ -264,16 +265,21 @@ When an admin refuses a sponsorship from `/admin/fundraiser/sponsors`, the
 review flow requires an internal refusal reason, can send a sponsor-facing
 email through the queued email system, and records the chosen refund handling
 (`none`, manual refund required, or manual refund already completed) in the
-admin audit metadata. Stripe refunds stay a separate deliberate action: the
-same admin page includes a guided full-refund workflow that requires the
-current sponsorship version, asks the admin to retype the public reference, calls
-`POST /api/admin/sponsorships/refund`, creates a full Stripe refund with an
-idempotency key, marks the contribution as `refunded` when Stripe accepts the
-refund, can queue a sponsor-facing refund confirmation email, and records the
-refund id/status plus notification result in the admin audit log. When a
-matching sponsorship invoice exists, the refund also creates an app-generated
-credit note tied to the Stripe refund; the credit note is visible and resendable
-from `/admin/fundraiser/invoices`, with its own downloadable PDF.
+admin audit metadata. The sponsorship record also tracks a refund workflow
+status: `requested`, `processing`, `completed`, or `failed`. Stripe refunds
+stay a separate deliberate action: the same admin page includes a guided
+full-refund workflow that requires the current sponsorship version, asks the
+admin to retype the public reference, calls `POST /api/admin/sponsorships/refund`,
+marks the workflow as `processing`, creates a full Stripe refund with an
+idempotency key, marks the contribution as `refunded` when Stripe returns a
+completed refund, completes or fails the workflow from Stripe's response, can
+queue a sponsor-facing refund confirmation email, and records the refund
+id/status plus notification result in the admin audit log. If Stripe completes
+the refund asynchronously, the `charge.refunded` webhook also marks the workflow
+as `completed`. When a matching sponsorship invoice
+exists, the refund also creates an app-generated credit note tied to the Stripe
+refund; the credit note is visible and resendable from `/admin/fundraiser/invoices`,
+with its own downloadable PDF.
 The sponsor detail panel also includes an "Historique & audit" tab that merges
 the sponsorship timeline with recent `admin_audit_log` entries for that
 specific sponsorship, including the recorded admin actor.
