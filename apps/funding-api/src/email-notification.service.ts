@@ -7,6 +7,7 @@ type EmailTemplateKey =
   | 'sponsorship_followup'
   | 'sponsorship_confirmation'
   | 'sponsorship_rejection'
+  | 'sponsorship_refund'
   | 'sponsorship_invoice'
   | 'publication_batch_full'
   | 'email_configuration_test';
@@ -49,6 +50,20 @@ interface SponsorshipRejectionEmailInput {
   readonly reviewReason: string;
   readonly sponsorMessage: string;
   readonly refundHandling: AdminSponsorshipRejectionRefundHandling;
+  readonly refundNote?: string;
+  readonly idempotencyKey?: string;
+}
+
+interface SponsorshipRefundEmailInput {
+  readonly to: string;
+  readonly contributionId: string;
+  readonly publicReference: string | null;
+  readonly sponsorName: string;
+  readonly amount: number;
+  readonly currency: string;
+  readonly refundId: string;
+  readonly refundStatus: string | null;
+  readonly sponsorMessage: string;
   readonly refundNote?: string;
   readonly idempotencyKey?: string;
 }
@@ -452,6 +467,71 @@ const renderSponsorshipRejectionEmail = (
       currency: input.currency,
       publicReference: input.publicReference,
       refundHandling: input.refundHandling
+    }
+  };
+};
+
+const renderSponsorshipRefundEmail = (
+  input: SponsorshipRefundEmailInput
+): RenderedEmail => {
+  const reference = input.publicReference ?? 'Reference a confirmer';
+  const amount = formatMoney(input.amount, input.currency);
+  const refundStatus = input.refundStatus ?? 'cree';
+  const refundNote = input.refundNote?.trim() ?? '';
+  const subject = `Remboursement de votre commandite OpenG7 - ${reference}`;
+  const text = [
+    `Bonjour ${input.sponsorName},`,
+    '',
+    'Nous confirmons qu un remboursement Stripe complet a ete cree pour votre commandite OpenG7.',
+    '',
+    `Reference: ${reference}`,
+    `Montant rembourse: ${amount}`,
+    `Remboursement Stripe: ${input.refundId}`,
+    `Statut Stripe: ${refundStatus}`,
+    '',
+    'Message de notre equipe:',
+    input.sponsorMessage,
+    ...(refundNote ? ['', 'Note remboursement:', refundNote] : []),
+    '',
+    'Selon votre institution financiere, le credit peut prendre quelques jours ouvrables avant d apparaitre.'
+  ].join('\n');
+  const html = `
+    <p>Bonjour ${escapeHtml(input.sponsorName)},</p>
+    <p>
+      Nous confirmons qu'un remboursement Stripe complet a ete cree pour votre
+      commandite OpenG7.
+    </p>
+    <p>
+      <strong>Reference:</strong> ${escapeHtml(reference)}<br />
+      <strong>Montant rembourse:</strong> ${escapeHtml(amount)}<br />
+      <strong>Remboursement Stripe:</strong> ${escapeHtml(input.refundId)}<br />
+      <strong>Statut Stripe:</strong> ${escapeHtml(refundStatus)}
+    </p>
+    <p><strong>Message de notre equipe</strong></p>
+    <p>${escapeHtml(input.sponsorMessage).replaceAll('\n', '<br />')}</p>
+    ${
+      refundNote
+        ? `<p><strong>Note remboursement:</strong> ${escapeHtml(refundNote)}</p>`
+        : ''
+    }
+    <p>
+      Selon votre institution financiere, le credit peut prendre quelques jours
+      ouvrables avant d'apparaitre.
+    </p>
+  `;
+
+  return {
+    templateKey: 'sponsorship_refund',
+    subject,
+    text,
+    html,
+    metadata: {
+      amount: input.amount,
+      contributionId: input.contributionId,
+      currency: input.currency,
+      publicReference: input.publicReference,
+      refundId: input.refundId,
+      refundStatus: input.refundStatus
     }
   };
 };
@@ -1138,6 +1218,18 @@ export const queueSponsorshipRejectionEmail = async (
   input: SponsorshipRejectionEmailInput
 ): Promise<EmailQueueResult> => {
   const rendered = renderSponsorshipRejectionEmail(input);
+  return queueAndProcessEmail(pool, {
+    ...rendered,
+    to: input.to,
+    idempotencyKey: input.idempotencyKey
+  });
+};
+
+export const queueSponsorshipRefundEmail = async (
+  pool: Pool | null,
+  input: SponsorshipRefundEmailInput
+): Promise<EmailQueueResult> => {
+  const rendered = renderSponsorshipRefundEmail(input);
   return queueAndProcessEmail(pool, {
     ...rendered,
     to: input.to,

@@ -268,6 +268,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'refundConfirmationText',
       'refundActionId',
       'canRefundSponsorship',
+      'refundNotificationResultLabel',
+      'Envoyer le courriel de remboursement',
       'refundSponsorship',
       'paymentEligibilityMessage',
       'canApproveSponsorship',
@@ -370,6 +372,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'getAdminSponsorshipInvoiceById',
       'queueSponsorshipInvoiceEmail',
       'queueSponsorshipRejectionEmail',
+      'queueSponsorshipRefundEmail',
       'sponsorship_invoice.resend',
       'buildAdminSetupStatus',
       'queueEmailConfigurationTest',
@@ -389,6 +392,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'isValidAdminExpectedVersion',
       'stripe.refunds.create',
       'sponsorship_refund.stripe_full',
+      'sponsorship-refund-email:',
       'getSponsorshipRefundTarget',
       'updateContributionStatusByPaymentIntent',
       'SPONSOR_LOGO_PUBLIC_PATH_PREFIX',
@@ -425,8 +429,11 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     emailService,
     [
       "'sponsorship_rejection'",
+      "'sponsorship_refund'",
       'queueSponsorshipRejectionEmail',
+      'queueSponsorshipRefundEmail',
       'renderSponsorshipRejectionEmail',
+      'renderSponsorshipRefundEmail',
       'refundHandling'
     ],
     'admin rejection email service'

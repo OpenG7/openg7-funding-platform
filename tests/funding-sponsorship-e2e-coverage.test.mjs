@@ -302,6 +302,8 @@ test('E2E 5/8: admin can approve, reset, reject, or refund sponsorship visibilit
       'confirmRefund(selected)',
       'refundConfirmationText',
       'refundActionId',
+      'refundNotificationResultLabel',
+      'Envoyer le courriel de remboursement',
       "review(selected, 'approved')",
       'canApproveSponsorship',
       'canRefundSponsorship',
@@ -333,6 +335,7 @@ test('E2E 5/8: admin can approve, reset, reject, or refund sponsorship visibilit
       'isValidAdminExpectedVersion',
       "'/admin/sponsorships/refund'",
       'stripe.refunds.create',
+      'queueSponsorshipRefundEmail',
       'SPONSORSHIP_REFUND_NOT_ELIGIBLE'
     ],
     'admin review API validation'
