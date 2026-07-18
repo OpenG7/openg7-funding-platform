@@ -19,6 +19,8 @@ import type {
   AdminEmailTestResult,
   AdminExpenseCreateRequest,
   AdminExpenseUpdateRequest,
+  AdminSponsorshipCreditNoteResendRequest,
+  AdminSponsorshipCreditNoteResendResult,
   AdminSetupStatusResponse,
   AdminTransparencyResponse,
   AdminPublicationBatchAssignRequest,
@@ -85,6 +87,7 @@ import {
   processQueuedEmailMessages,
   queueEmailConfigurationTest,
   queuePublicationBatchFullNotification,
+  queueSponsorshipCreditNoteEmail,
   queueSponsorshipInvoiceEmail,
   queueSponsorshipRefundEmail,
   queueSponsorshipRejectionEmail
@@ -118,7 +121,10 @@ import { getPublicTransparencySummary } from './fund-transparency.repository.js'
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
 import {
+  createSponsorshipCreditNoteForRefund,
   getAdminSponsorshipInvoiceById,
+  getAdminSponsorshipCreditNoteById,
+  getSponsorshipCreditNoteById,
   getSponsorshipInvoiceById,
   listAdminSponsorshipInvoices
 } from './sponsorship-invoices.repository.js';
@@ -1473,6 +1479,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/sponsorship-invoices',
       '/admin/sponsorship-invoices/resend',
       '/api/admin/sponsorship-invoices/resend',
+      '/admin/sponsorship-credit-notes/resend',
+      '/api/admin/sponsorship-credit-notes/resend',
       '/admin/dashboard',
       '/api/admin/dashboard',
       '/admin/contributions',
@@ -2855,7 +2863,7 @@ createServer(async (request, response) => {
       console.error('Failed to load admin sponsorship invoices.', error);
       writeJson(request, response, 502, {
         error:
-          'Admin sponsorship invoices could not be loaded. Apply migrations 010 and 011.'
+          'Admin sponsorship invoices could not be loaded. Apply migrations 010, 011 and 012.'
       });
     }
     return;
@@ -2875,7 +2883,8 @@ createServer(async (request, response) => {
 
     if (!dbPool) {
       writeJson(request, response, 503, {
-        error: 'Invoice resend requires DATABASE_URL and migration 011.'
+        error:
+          'Invoice resend requires DATABASE_URL and migrations 011 and 012.'
       });
       return;
     }
@@ -2965,7 +2974,120 @@ createServer(async (request, response) => {
       console.error('Failed to resend sponsorship invoice.', error);
       writeJson(request, response, 502, {
         error:
-          'Sponsorship invoice could not be resent. Check migration 011 and email queue configuration.'
+          'Sponsorship invoice could not be resent. Check migrations 011 and 012 and email queue configuration.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorship-credit-notes/resend',
+      '/api/admin/sponsorship-credit-notes/resend'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    if (!dbPool) {
+      writeJson(request, response, 503, {
+        error: 'Credit note resend requires DATABASE_URL and migration 012.'
+      });
+      return;
+    }
+
+    if (
+      !process.env.RESEND_API_KEY?.trim() ||
+      !process.env.FUNDING_EMAIL_FROM?.trim()
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Email provider is not configured.'
+      });
+      return;
+    }
+
+    let parsed: AdminSponsorshipCreditNoteResendRequest;
+    try {
+      const body = await readBody(request, 16 * 1024);
+      parsed = JSON.parse(body) as AdminSponsorshipCreditNoteResendRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid credit note resend request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.creditNoteId)) {
+      writeJson(request, response, 400, {
+        error: 'Credit note id is invalid.'
+      });
+      return;
+    }
+
+    try {
+      const creditNote = await getSponsorshipCreditNoteById(
+        dbPool,
+        parsed.creditNoteId
+      );
+      if (!creditNote) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship credit note was not found.'
+        });
+        return;
+      }
+
+      const recipient =
+        typeof parsed.to === 'string' && parsed.to.trim()
+          ? parsed.to.trim()
+          : (creditNote.sponsorContactEmail ?? '');
+
+      if (!isValidSponsorEmail(recipient)) {
+        writeJson(request, response, 400, {
+          error: 'A valid credit note recipient email is required.'
+        });
+        return;
+      }
+
+      const result = await queueSponsorshipCreditNoteEmail(dbPool, {
+        to: recipient,
+        creditNote,
+        idempotencyKey: `admin-credit-note-resend:${creditNote.id}:${Date.now()}:${randomBytes(6).toString('hex')}`
+      });
+      const refreshedCreditNote = await getAdminSponsorshipCreditNoteById(
+        dbPool,
+        creditNote.id
+      );
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'sponsorship_credit_note.resend',
+        entityType: 'sponsorship_credit_note',
+        entityId: creditNote.id,
+        summary: `Sponsorship credit note ${creditNote.creditNoteNumber} resent.`,
+        metadata: {
+          messageId: result.messageId,
+          recipient,
+          sent: result.sent
+        }
+      });
+
+      const payload: AdminSponsorshipCreditNoteResendResult = {
+        queued: result.queued,
+        attempted: result.attempted,
+        sent: result.sent,
+        messageId: result.messageId,
+        error: result.error,
+        creditNote: refreshedCreditNote
+      };
+      writeJson(request, response, 200, payload);
+    } catch (error) {
+      console.error('Failed to resend sponsorship credit note.', error);
+      writeJson(request, response, 502, {
+        error:
+          'Sponsorship credit note could not be resent. Check migration 012 and email queue configuration.'
       });
     }
     return;
@@ -4477,21 +4599,55 @@ createServer(async (request, response) => {
       );
       const refundAmount = Number((refund.amount / 100).toFixed(2));
       const refundCurrency = refund.currency.toUpperCase();
+      let creditNote: Awaited<
+        ReturnType<typeof createSponsorshipCreditNoteForRefund>
+      > = null;
+      let adminCreditNote: Awaited<
+        ReturnType<typeof getAdminSponsorshipCreditNoteById>
+      > = null;
+      let creditNoteError: string | null = null;
+
+      if (refund.status !== 'failed') {
+        try {
+          creditNote = await createSponsorshipCreditNoteForRefund(dbPool, {
+            contributionId: target.id,
+            stripeRefundId: refund.id,
+            refundAmountCents: refund.amount
+          });
+          adminCreditNote = creditNote
+            ? await getAdminSponsorshipCreditNoteById(dbPool, creditNote.id)
+            : null;
+        } catch (error) {
+          creditNoteError =
+            error instanceof Error
+              ? error.message
+              : 'Credit note could not be created.';
+          console.error('Failed to create sponsorship credit note.', error);
+        }
+      }
+
       const notificationResult =
         refund.status !== 'failed' && notifySponsor
-          ? await queueSponsorshipRefundEmail(dbPool, {
-              to: notificationEmail,
-              contributionId: target.id,
-              publicReference: target.publicReference,
-              sponsorName: target.sponsorName,
-              amount: refundAmount,
-              currency: refundCurrency,
-              refundId: refund.id,
-              refundStatus: refund.status,
-              sponsorMessage,
-              refundNote: refundNote || undefined,
-              idempotencyKey: `sponsorship-refund-email:${target.id}:${refund.id}`
-            })
+          ? creditNote
+            ? await queueSponsorshipCreditNoteEmail(dbPool, {
+                to: notificationEmail,
+                creditNote,
+                sponsorMessage,
+                idempotencyKey: `sponsorship-credit-note:${creditNote.id}:${refund.id}`
+              })
+            : await queueSponsorshipRefundEmail(dbPool, {
+                to: notificationEmail,
+                contributionId: target.id,
+                publicReference: target.publicReference,
+                sponsorName: target.sponsorName,
+                amount: refundAmount,
+                currency: refundCurrency,
+                refundId: refund.id,
+                refundStatus: refund.status,
+                sponsorMessage,
+                refundNote: refundNote || undefined,
+                idempotencyKey: `sponsorship-refund-email:${target.id}:${refund.id}`
+              })
           : null;
 
       await insertAdminAuditLog(dbPool, {
@@ -4509,6 +4665,9 @@ createServer(async (request, response) => {
           refundNote: refundNote || null,
           refundStatus: refund.status,
           paymentStatusUpdated,
+          creditNoteId: creditNote?.id ?? null,
+          creditNoteNumber: creditNote?.creditNoteNumber ?? null,
+          creditNoteError,
           notifySponsor,
           notificationEmail: notifySponsor ? notificationEmail : null,
           notificationMessageId: notificationResult?.messageId ?? null,
@@ -4526,6 +4685,7 @@ createServer(async (request, response) => {
         contributionId: target.id,
         paymentStatusUpdated,
         sponsorship: refreshedSponsorship,
+        creditNote: adminCreditNote,
         ...(notificationResult
           ? {
               notification: {

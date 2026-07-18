@@ -8,6 +8,7 @@ import {
   signal
 } from '@angular/core';
 import type {
+  AdminSponsorshipCreditNoteRecord,
   AdminSponsorshipInvoiceRecord,
   AdminSponsorshipInvoicesResponse
 } from '@openg7/funding-core';
@@ -76,6 +77,18 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
               <small>{{ response.summary.currency }}</small>
             </article>
             <article>
+              <span>Total credite</span>
+              <strong>
+                {{
+                  formatMoney(
+                    response.summary.total_credited,
+                    response.summary.currency
+                  )
+                }}
+              </strong>
+              <small>{{ response.summary.credit_note_count }} avoir(s)</small>
+            </article>
+            <article>
               <span>Courriels echoues</span>
               <strong>{{ response.summary.failed_email_count }}</strong>
               <small>Dernier statut facture</small>
@@ -125,6 +138,12 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
                     "
                   >
                     {{ emailStatusLabel(invoice.last_email_status) }}
+                  </span>
+                  <span
+                    class="credit-status"
+                    *ngIf="invoice.credit_notes.length > 0"
+                  >
+                    Avoir
                   </span>
                   <strong>
                     {{ formatMoney(invoice.total, invoice.currency) }}
@@ -222,6 +241,115 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
                     <dd>{{ formatMoney(invoice.total, invoice.currency) }}</dd>
                   </div>
                 </dl>
+              </section>
+
+              <section
+                class="credit-notes-panel"
+                *ngIf="invoice.credit_notes.length > 0"
+                aria-label="Avoirs de commandite"
+              >
+                <header>
+                  <div>
+                    <span>Avoirs</span>
+                    <h3>Remboursements documentes</h3>
+                  </div>
+                  <strong>{{
+                    formatMoney(creditedTotal(invoice), invoice.currency)
+                  }}</strong>
+                </header>
+
+                <article
+                  class="credit-note-card"
+                  *ngFor="
+                    let creditNote of invoice.credit_notes;
+                    trackBy: trackByCreditNote
+                  "
+                >
+                  <div class="credit-note-title">
+                    <div>
+                      <strong>{{ creditNote.credit_note_number }}</strong>
+                      <span>{{ dateLabel(creditNote.issued_at) }}</span>
+                    </div>
+                    <strong>{{
+                      formatMoney(creditNote.total, creditNote.currency)
+                    }}</strong>
+                  </div>
+
+                  <dl class="credit-note-meta">
+                    <div>
+                      <dt>Refund Stripe</dt>
+                      <dd>{{ creditNote.stripe_refund_id }}</dd>
+                    </div>
+                    <div>
+                      <dt>Dernier destinataire</dt>
+                      <dd>{{ creditNote.last_email_recipient || 'Absent' }}</dd>
+                    </div>
+                    <div>
+                      <dt>Dernier envoi</dt>
+                      <dd>{{ dateLabel(creditNote.last_email_sent_at) }}</dd>
+                    </div>
+                    <div *ngIf="creditNote.last_email_error">
+                      <dt>Erreur</dt>
+                      <dd>{{ creditNote.last_email_error }}</dd>
+                    </div>
+                  </dl>
+
+                  <span
+                    class="email-status"
+                    [class.status-sent]="
+                      creditNote.last_email_status === 'sent'
+                    "
+                    [class.status-failed]="
+                      creditNote.last_email_status === 'failed'
+                    "
+                    [class.status-queued]="
+                      creditNote.last_email_status === 'queued' ||
+                      creditNote.last_email_status === 'sending'
+                    "
+                  >
+                    {{ emailStatusLabel(creditNote.last_email_status) }}
+                  </span>
+
+                  <label>
+                    Destinataire avoir
+                    <input
+                      type="email"
+                      autocomplete="email"
+                      [value]="creditNoteResendEmail(creditNote)"
+                      (input)="setCreditNoteResendEmail(creditNote.id, $event)"
+                    />
+                  </label>
+
+                  <div class="resend-actions">
+                    <button
+                      type="button"
+                      class="primary-action"
+                      [disabled]="
+                        creditNoteResendStateFor(creditNote.id) === 'sending' ||
+                        !creditNoteResendEmail(creditNote).trim()
+                      "
+                      (click)="resendCreditNote(creditNote)"
+                    >
+                      {{
+                        creditNoteResendStateFor(creditNote.id) === 'sending'
+                          ? 'Envoi...'
+                          : 'Renvoyer avoir'
+                      }}
+                    </button>
+                    <span
+                      class="resend-message"
+                      [class.error]="
+                        creditNoteResendStateFor(creditNote.id) === 'error'
+                      "
+                      [class.success]="
+                        creditNoteResendStateFor(creditNote.id) === 'sent'
+                      "
+                      *ngIf="creditNoteResendMessageFor(creditNote.id)"
+                    >
+                      {{ creditNoteResendMessageFor(creditNote.id) }}
+                    </span>
+                  </div>
+                </article>
               </section>
 
               <section class="stripe-grid" aria-label="References Stripe">
@@ -363,6 +491,7 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
       .invoice-list-panel header span,
       .detail-header span,
       .line-items header span,
+      .credit-notes-panel header span,
       .email-panel header span {
         color: #736456;
         font-size: 0.73rem;
@@ -431,7 +560,7 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
       .admin-summary-grid {
         display: grid;
         gap: 0.75rem;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
       }
 
       .admin-summary-grid article,
@@ -549,6 +678,20 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
         white-space: nowrap;
       }
 
+      .credit-status {
+        align-items: center;
+        background: #e8f1ff;
+        border-radius: 999px;
+        color: #174ea6;
+        display: inline-flex;
+        font-size: 0.72rem;
+        font-weight: 950;
+        justify-content: center;
+        min-height: 1.65rem;
+        padding: 0 0.6rem;
+        white-space: nowrap;
+      }
+
       .status-sent {
         background: #e4f4e7;
         color: #236b34;
@@ -593,6 +736,7 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
 
       dl,
       .line-items,
+      .credit-notes-panel,
       .email-panel {
         display: grid;
         gap: 0.65rem;
@@ -624,11 +768,49 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
       }
 
       .line-items,
+      .credit-notes-panel,
       .email-panel {
         background: #ffffff;
         border: 1px solid rgba(23, 32, 51, 0.1);
         border-radius: 0.45rem;
         padding: 0.85rem;
+      }
+
+      .credit-notes-panel {
+        border-color: rgba(23, 78, 166, 0.22);
+      }
+
+      .credit-note-card {
+        background: #f7faff;
+        border: 1px solid rgba(23, 78, 166, 0.16);
+        border-radius: 0.4rem;
+        display: grid;
+        gap: 0.7rem;
+        padding: 0.75rem;
+      }
+
+      .credit-note-title {
+        align-items: start;
+        display: flex;
+        gap: 0.75rem;
+        justify-content: space-between;
+      }
+
+      .credit-note-title div {
+        display: grid;
+        gap: 0.2rem;
+      }
+
+      .credit-note-title span {
+        color: #6f7a8e;
+        font-size: 0.86rem;
+        font-weight: 800;
+      }
+
+      .credit-note-meta {
+        background: #ffffff;
+        border-radius: 0.35rem;
+        padding: 0.7rem;
       }
 
       .line-item {
@@ -755,6 +937,8 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
         .admin-topbar,
         .detail-header,
         .line-items header,
+        .credit-notes-panel header,
+        .credit-note-title,
         .email-panel header {
           align-items: stretch;
           flex-direction: column;
@@ -772,7 +956,8 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
 
         .detail-header > strong,
         .line-item small,
-        .email-status {
+        .email-status,
+        .credit-status {
           white-space: normal;
         }
       }
@@ -787,6 +972,9 @@ export class AdminInvoicesPageComponent implements OnInit {
   readonly resendState = signal<ResendState>('idle');
   readonly resendMessage = signal('');
   readonly resendEmail = signal('');
+  readonly creditNoteResendEmails = signal<Record<string, string>>({});
+  readonly creditNoteResendStates = signal<Record<string, ResendState>>({});
+  readonly creditNoteResendMessages = signal<Record<string, string>>({});
   readonly selectedInvoiceId = signal('');
   readonly data = signal<AdminSponsorshipInvoicesResponse | null>(null);
   readonly invoices = computed(() => this.data()?.invoices ?? []);
@@ -821,6 +1009,9 @@ export class AdminInvoicesPageComponent implements OnInit {
         : (response.invoices[0] ?? null);
       this.selectedInvoiceId.set(nextInvoice?.id ?? '');
       this.resendEmail.set(nextInvoice?.sponsor_contact_email ?? '');
+      if (nextInvoice) {
+        this.ensureCreditNoteResendDrafts(nextInvoice);
+      }
       this.state.set('ready');
     } catch (error) {
       this.state.set('error');
@@ -831,6 +1022,7 @@ export class AdminInvoicesPageComponent implements OnInit {
   selectInvoice(invoice: AdminSponsorshipInvoiceRecord): void {
     this.selectedInvoiceId.set(invoice.id);
     this.resendEmail.set(invoice.sponsor_contact_email ?? '');
+    this.ensureCreditNoteResendDrafts(invoice);
     this.resendState.set('idle');
     this.resendMessage.set('');
   }
@@ -838,6 +1030,30 @@ export class AdminInvoicesPageComponent implements OnInit {
   setResendEmail(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.resendEmail.set(input.value);
+  }
+
+  creditNoteResendEmail(creditNote: AdminSponsorshipCreditNoteRecord): string {
+    return (
+      this.creditNoteResendEmails()[creditNote.id] ??
+      creditNote.sponsor_contact_email ??
+      ''
+    );
+  }
+
+  setCreditNoteResendEmail(id: string, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.creditNoteResendEmails.update((emails) => ({
+      ...emails,
+      [id]: input.value
+    }));
+  }
+
+  creditNoteResendStateFor(id: string): ResendState {
+    return this.creditNoteResendStates()[id] ?? 'idle';
+  }
+
+  creditNoteResendMessageFor(id: string): string {
+    return this.creditNoteResendMessages()[id] ?? '';
   }
 
   async resendInvoice(): Promise<void> {
@@ -877,11 +1093,67 @@ export class AdminInvoicesPageComponent implements OnInit {
     }
   }
 
+  async resendCreditNote(
+    creditNote: AdminSponsorshipCreditNoteRecord
+  ): Promise<void> {
+    const to = this.creditNoteResendEmail(creditNote).trim();
+    if (!to) {
+      return;
+    }
+
+    this.setCreditNoteResendState(creditNote.id, 'sending');
+    this.setCreditNoteResendMessage(creditNote.id, '');
+
+    try {
+      const result = await this.admin.resendSponsorshipCreditNote(
+        this.adminToken(),
+        {
+          creditNoteId: creditNote.id,
+          to
+        }
+      );
+
+      if (result.creditNote) {
+        this.replaceCreditNote(result.creditNote);
+      }
+
+      this.setCreditNoteResendState(creditNote.id, 'sent');
+      this.setCreditNoteResendMessage(
+        creditNote.id,
+        result.sent
+          ? 'Avoir envoye.'
+          : result.queued
+            ? 'Avoir remis en file.'
+            : 'Demande traitee.'
+      );
+    } catch (error) {
+      this.setCreditNoteResendState(creditNote.id, 'error');
+      this.setCreditNoteResendMessage(
+        creditNote.id,
+        this.messageFromError(error)
+      );
+    }
+  }
+
   trackByInvoice(
     _index: number,
     invoice: AdminSponsorshipInvoiceRecord
   ): string {
     return invoice.id;
+  }
+
+  trackByCreditNote(
+    _index: number,
+    creditNote: AdminSponsorshipCreditNoteRecord
+  ): string {
+    return creditNote.id;
+  }
+
+  creditedTotal(invoice: AdminSponsorshipInvoiceRecord): number {
+    return invoice.credit_notes.reduce(
+      (total, creditNote) => total + creditNote.total,
+      0
+    );
   }
 
   formatMoney(value: number, currency: string): string {
@@ -954,6 +1226,64 @@ export class AdminInvoicesPageComponent implements OnInit {
       ),
       last_updated_at: new Date().toISOString()
     });
+  }
+
+  private replaceCreditNote(
+    creditNote: AdminSponsorshipCreditNoteRecord
+  ): void {
+    const current = this.data();
+    if (!current) {
+      return;
+    }
+
+    this.data.set({
+      ...current,
+      invoices: current.invoices.map((invoice) =>
+        invoice.id === creditNote.invoice_id
+          ? {
+              ...invoice,
+              credit_notes: invoice.credit_notes.map((candidate) =>
+                candidate.id === creditNote.id ? creditNote : candidate
+              )
+            }
+          : invoice
+      ),
+      last_updated_at: new Date().toISOString()
+    });
+    this.creditNoteResendEmails.update((emails) => ({
+      ...emails,
+      [creditNote.id]: creditNote.sponsor_contact_email ?? ''
+    }));
+  }
+
+  private ensureCreditNoteResendDrafts(
+    invoice: AdminSponsorshipInvoiceRecord
+  ): void {
+    this.creditNoteResendEmails.update((emails) => ({
+      ...Object.fromEntries(
+        invoice.credit_notes
+          .filter((creditNote) => emails[creditNote.id] === undefined)
+          .map((creditNote) => [
+            creditNote.id,
+            creditNote.sponsor_contact_email ?? ''
+          ])
+      ),
+      ...emails
+    }));
+  }
+
+  private setCreditNoteResendState(id: string, state: ResendState): void {
+    this.creditNoteResendStates.update((states) => ({
+      ...states,
+      [id]: state
+    }));
+  }
+
+  private setCreditNoteResendMessage(id: string, message: string): void {
+    this.creditNoteResendMessages.update((messages) => ({
+      ...messages,
+      [id]: message
+    }));
   }
 
   private messageFromError(error: unknown): string {
