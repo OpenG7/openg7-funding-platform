@@ -1537,10 +1537,17 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
   );
+  const email = fs.readFileSync(
+    'apps/funding-api/src/email-notification.service.ts',
+    'utf8'
+  );
   const readme = fs.readFileSync('README.md', 'utf8');
 
   assert.ok(core.includes('AdminSponsorshipRefundRequest'));
   assert.ok(core.includes('AdminSponsorshipRefundResult'));
+  assert.ok(core.includes('readonly notifySponsor?: boolean;'));
+  assert.ok(core.includes('readonly notificationEmail?: string;'));
+  assert.ok(core.includes('readonly sponsorMessage?: string;'));
 
   assert.ok(service.includes('refundSponsorship'));
   assert.ok(service.includes('/admin/sponsorships/refund'));
@@ -1553,6 +1560,11 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'refundValidationMessage',
     'refundActionId',
     'canRefundSponsorship',
+    'refundNotificationResultLabel',
+    'setRefundDraftBoolean',
+    'Envoyer le courriel de remboursement',
+    'recipientEmail',
+    'sponsorMessage',
     'Rembourser Stripe'
   ]) {
     assert.ok(page.includes(marker), `sponsors page must include ${marker}`);
@@ -1564,12 +1576,21 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'stripe.refunds.create',
     'amount: target.amountCents',
     'idempotencyKey: `sponsorship-refund:',
+    'queueSponsorshipRefundEmail',
+    'A sponsor-facing refund message is required.',
+    'sponsorship-refund-email:',
+    'notificationMessageId',
     'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
     'sponsorship_refund.stripe_full',
     'updateContributionStatusByPaymentIntent'
   ]) {
     assert.ok(api.includes(marker), `API must include ${marker}`);
   }
+
+  assert.ok(email.includes("'sponsorship_refund'"));
+  assert.ok(email.includes('renderSponsorshipRefundEmail'));
+  assert.ok(email.includes('queueSponsorshipRefundEmail'));
+  assert.ok(email.includes('Remboursement de votre commandite OpenG7'));
 
   assert.ok(repository.includes('getSponsorshipRefundTarget'));
   assert.ok(repository.includes('stripe_payment_intent_id'));
@@ -1751,10 +1772,12 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'type EmailTemplateKey =',
     "'sponsorship_confirmation'",
     "'sponsorship_rejection'",
+    "'sponsorship_refund'",
     "'sponsorship_invoice'",
     "'email_configuration_test'",
     'queueSponsorshipInvoiceEmail',
     'queueSponsorshipRejectionEmail',
+    'queueSponsorshipRefundEmail',
     'queueSponsorshipConfirmationEmail',
     'queueSponsorshipFollowupEmail',
     'queueEmailConfigurationTest',
@@ -1765,6 +1788,7 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'nextRetryDate',
     'Resend returned ${response.status}',
     'Facture de commandite OpenG7',
+    'Remboursement de votre commandite OpenG7',
     'Numero de facture',
     'Total paye',
     'recu officiel de don de bienfaisance'

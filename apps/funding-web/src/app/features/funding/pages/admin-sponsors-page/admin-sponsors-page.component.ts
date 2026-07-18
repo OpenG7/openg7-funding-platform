@@ -88,6 +88,9 @@ interface SponsorRejectionDraft {
 
 interface SponsorRefundDraft {
   readonly confirmationText: string;
+  readonly notifySponsor: boolean;
+  readonly recipientEmail: string;
+  readonly sponsorMessage: string;
   readonly refundNote: string;
 }
 
@@ -1227,6 +1230,44 @@ const controlledSponsorLogoUrlPrefixes = [
                       )
                     "
                 /></label>
+
+                <label class="checkbox-line rejection-span-2">
+                  <input
+                    type="checkbox"
+                    [checked]="refundDraftFor(selected).notifySponsor"
+                    (change)="
+                      setRefundDraftBoolean(
+                        selected.id,
+                        'notifySponsor',
+                        $event
+                      )
+                    "
+                  />
+                  Envoyer le courriel de remboursement
+                </label>
+
+                <label
+                  >Destinataire<input
+                    type="email"
+                    autocomplete="email"
+                    [disabled]="!refundDraftFor(selected).notifySponsor"
+                    [value]="refundDraftFor(selected).recipientEmail"
+                    (input)="
+                      setRefundDraftField(selected.id, 'recipientEmail', $event)
+                    "
+                /></label>
+
+                <label
+                  >Message au commanditaire<textarea
+                    rows="4"
+                    maxlength="1000"
+                    [disabled]="!refundDraftFor(selected).notifySponsor"
+                    [value]="refundDraftFor(selected).sponsorMessage"
+                    (input)="
+                      setRefundDraftField(selected.id, 'sponsorMessage', $event)
+                    "
+                  ></textarea>
+                </label>
 
                 <label class="rejection-span-2"
                   >Note remboursement<textarea
@@ -2707,22 +2748,44 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   refundDraftFor(sponsorship: AdminSponsorshipRecord): SponsorRefundDraft {
-    return this.refundDrafts()[sponsorship.id] ?? this.defaultRefundDraft();
+    return (
+      this.refundDrafts()[sponsorship.id] ??
+      this.defaultRefundDraft(sponsorship)
+    );
   }
 
   setRefundDraftField(
     id: string,
-    field: 'confirmationText' | 'refundNote',
+    field:
+      'confirmationText' | 'recipientEmail' | 'sponsorMessage' | 'refundNote',
     event: Event
   ): void {
     const input = event.target as HTMLInputElement | HTMLTextAreaElement;
     this.refundDrafts.update((drafts) => {
-      const current = drafts[id] ?? this.defaultRefundDraft();
+      const current = drafts[id] ?? this.emptyRefundDraft();
       return {
         ...drafts,
         [id]: {
           ...current,
           [field]: input.value
+        }
+      };
+    });
+  }
+
+  setRefundDraftBoolean(
+    id: string,
+    field: 'notifySponsor',
+    event: Event
+  ): void {
+    const input = event.target as HTMLInputElement;
+    this.refundDrafts.update((drafts) => {
+      const current = drafts[id] ?? this.emptyRefundDraft();
+      return {
+        ...drafts,
+        [id]: {
+          ...current,
+          [field]: input.checked
         }
       };
     });
@@ -2737,27 +2800,44 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   canConfirmRefund(sponsorship: AdminSponsorshipRecord): boolean {
+    const draft = this.refundDraftFor(sponsorship);
     return (
       this.canRefundSponsorship(sponsorship) &&
-      this.refundDraftFor(sponsorship).confirmationText.trim() ===
-        this.refundConfirmationText(sponsorship)
+      draft.confirmationText.trim() ===
+        this.refundConfirmationText(sponsorship) &&
+      (!draft.notifySponsor ||
+        (this.isValidEmailDraft(draft.recipientEmail) &&
+          draft.sponsorMessage.trim().length > 0))
     );
   }
 
   refundValidationMessage(sponsorship: AdminSponsorshipRecord): string {
+    const draft = this.refundDraftFor(sponsorship);
     if (!this.canRefundSponsorship(sponsorship)) {
       return 'Remboursement Stripe disponible seulement pour un paiement paye.';
     }
 
-    if (!this.refundDraftFor(sponsorship).confirmationText.trim()) {
+    if (!draft.confirmationText.trim()) {
       return 'Texte de confirmation obligatoire.';
     }
 
-    if (!this.canConfirmRefund(sponsorship)) {
+    if (
+      draft.confirmationText.trim() !== this.refundConfirmationText(sponsorship)
+    ) {
       return 'Le texte ne correspond pas a la reference demandee.';
     }
 
-    return 'Pret a declencher le remboursement Stripe complet.';
+    if (draft.notifySponsor && !this.isValidEmailDraft(draft.recipientEmail)) {
+      return 'Destinataire courriel requis.';
+    }
+
+    if (draft.notifySponsor && !draft.sponsorMessage.trim()) {
+      return 'Message au commanditaire obligatoire.';
+    }
+
+    return draft.notifySponsor
+      ? 'Pret a rembourser et envoyer le courriel.'
+      : 'Pret a declencher le remboursement Stripe complet.';
   }
 
   async confirmRefund(sponsorship: AdminSponsorshipRecord): Promise<void> {
@@ -2779,13 +2859,25 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         contributionId: sponsorship.id,
         expectedVersion: sponsorship.version,
         confirmationText: draft.confirmationText.trim(),
-        refundNote: draft.refundNote.trim() || undefined
+        refundNote: draft.refundNote.trim() || undefined,
+        notifySponsor: draft.notifySponsor,
+        notificationEmail: draft.notifySponsor
+          ? draft.recipientEmail.trim()
+          : undefined,
+        sponsorMessage: draft.notifySponsor
+          ? draft.sponsorMessage.trim()
+          : undefined
       });
       await this.loadSponsorships();
       this.activeRefundId.set(null);
       this.setReviewMessage(
         sponsorship.id,
-        this.refundResultLabel(result),
+        [
+          this.refundResultLabel(result),
+          this.refundNotificationResultLabel(result)
+        ]
+          .filter(Boolean)
+          .join(' '),
         true
       );
       this.pulseSelection(sponsorship.id);
@@ -3602,6 +3694,24 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     )}.${status}${localStatus}`;
   }
 
+  refundNotificationResultLabel(result: AdminSponsorshipRefundResult): string {
+    if (!result.notification) {
+      return '';
+    }
+
+    if (result.notification.sent) {
+      return 'Courriel de remboursement envoye.';
+    }
+
+    if (result.notification.queued) {
+      return 'Courriel de remboursement mis en file.';
+    }
+
+    return result.notification.error
+      ? `Courriel de remboursement non envoye: ${result.notification.error}`
+      : 'Courriel de remboursement non envoye.';
+  }
+
   isReviewNoteDirty(sponsorship: AdminSponsorshipRecord): boolean {
     return (
       this.reviewNoteFor(sponsorship.id).trim() !==
@@ -3839,14 +3949,40 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         ? drafts
         : {
             ...drafts,
-            [sponsorship.id]: this.defaultRefundDraft()
+            [sponsorship.id]: this.defaultRefundDraft(sponsorship)
           }
     );
   }
 
-  private defaultRefundDraft(): SponsorRefundDraft {
+  private defaultRefundDraft(
+    sponsorship: AdminSponsorshipRecord
+  ): SponsorRefundDraft {
+    const sponsorName =
+      sponsorship.sponsor_company_name ||
+      sponsorship.public_name ||
+      'votre organisation';
+
     return {
       confirmationText: '',
+      notifySponsor: Boolean(sponsorship.sponsor_contact_email),
+      recipientEmail: sponsorship.sponsor_contact_email ?? '',
+      sponsorMessage: [
+        `Bonjour ${sponsorName},`,
+        '',
+        'Nous confirmons que le remboursement Stripe complet de votre commandite OpenG7 vient d etre lance.',
+        '',
+        'Selon votre institution financiere, le credit peut prendre quelques jours ouvrables avant d apparaitre.'
+      ].join('\n'),
+      refundNote: ''
+    };
+  }
+
+  private emptyRefundDraft(): SponsorRefundDraft {
+    return {
+      confirmationText: '',
+      notifySponsor: false,
+      recipientEmail: '',
+      sponsorMessage: '',
       refundNote: ''
     };
   }

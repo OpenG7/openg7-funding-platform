@@ -252,7 +252,8 @@ same admin page includes a guided full-refund workflow that requires the
 current sponsorship version, asks the admin to retype the public reference, calls
 `POST /api/admin/sponsorships/refund`, creates a full Stripe refund with an
 idempotency key, marks the contribution as `refunded` when Stripe accepts the
-refund, and records the refund id/status in the admin audit log.
+refund, can queue a sponsor-facing refund confirmation email, and records the
+refund id/status plus notification result in the admin audit log.
 
 Sponsor logos can be uploaded by admins through
 `POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files

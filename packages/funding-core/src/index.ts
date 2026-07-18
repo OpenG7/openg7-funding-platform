@@ -790,6 +790,9 @@ export interface AdminSponsorshipRefundRequest {
   readonly expectedVersion: string;
   readonly confirmationText: string;
   readonly refundNote?: string;
+  readonly notifySponsor?: boolean;
+  readonly notificationEmail?: string;
+  readonly sponsorMessage?: string;
 }
 
 export interface AdminSponsorshipRefundResult {
@@ -801,6 +804,13 @@ export interface AdminSponsorshipRefundResult {
   readonly contributionId: string;
   readonly paymentStatusUpdated: boolean;
   readonly sponsorship: AdminSponsorshipRecord | null;
+  readonly notification?: {
+    readonly queued: boolean;
+    readonly attempted: boolean;
+    readonly sent: boolean;
+    readonly messageId: string | null;
+    readonly error: string | null;
+  };
 }
 
 export interface AdminSponsorshipPublicationRequest {

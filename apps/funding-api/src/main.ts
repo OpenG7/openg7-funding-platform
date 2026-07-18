@@ -86,6 +86,7 @@ import {
   queueEmailConfigurationTest,
   queuePublicationBatchFullNotification,
   queueSponsorshipInvoiceEmail,
+  queueSponsorshipRefundEmail,
   queueSponsorshipRejectionEmail
 } from './email-notification.service.js';
 import {
@@ -4350,6 +4351,18 @@ createServer(async (request, response) => {
       return;
     }
 
+    const notifySponsor = parsed.notifySponsor === true;
+    const notificationEmail =
+      typeof parsed.notificationEmail === 'string'
+        ? parsed.notificationEmail.trim()
+        : '';
+    const sponsorMessage =
+      typeof parsed.sponsorMessage === 'string'
+        ? parsed.sponsorMessage.trim()
+        : '';
+    const refundNote =
+      typeof parsed.refundNote === 'string' ? parsed.refundNote.trim() : '';
+
     if (
       !isValidOptionalBoundedText(
         parsed.refundNote,
@@ -4358,6 +4371,32 @@ createServer(async (request, response) => {
     ) {
       writeJson(request, response, 400, {
         error: 'Refund note is too long.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.sponsorMessage,
+        SPONSOR_MESSAGE_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor notification message is too long.'
+      });
+      return;
+    }
+
+    if (notifySponsor && !isValidSponsorEmail(notificationEmail)) {
+      writeJson(request, response, 400, {
+        error: 'A valid sponsor notification email is required.'
+      });
+      return;
+    }
+
+    if (notifySponsor && !sponsorMessage) {
+      writeJson(request, response, 400, {
+        error: 'A sponsor-facing refund message is required.'
       });
       return;
     }
@@ -4436,6 +4475,24 @@ createServer(async (request, response) => {
         dbPool,
         target.id
       );
+      const refundAmount = Number((refund.amount / 100).toFixed(2));
+      const refundCurrency = refund.currency.toUpperCase();
+      const notificationResult =
+        refund.status !== 'failed' && notifySponsor
+          ? await queueSponsorshipRefundEmail(dbPool, {
+              to: notificationEmail,
+              contributionId: target.id,
+              publicReference: target.publicReference,
+              sponsorName: target.sponsorName,
+              amount: refundAmount,
+              currency: refundCurrency,
+              refundId: refund.id,
+              refundStatus: refund.status,
+              sponsorMessage,
+              refundNote: refundNote || undefined,
+              idempotencyKey: `sponsorship-refund-email:${target.id}:${refund.id}`
+            })
+          : null;
 
       await insertAdminAuditLog(dbPool, {
         actor: getAdminAuditActor(request),
@@ -4449,9 +4506,14 @@ createServer(async (request, response) => {
           paymentIntentId: target.stripePaymentIntentId,
           publicReference: target.publicReference,
           refundId: refund.id,
-          refundNote: parsed.refundNote?.trim() || null,
+          refundNote: refundNote || null,
           refundStatus: refund.status,
-          paymentStatusUpdated
+          paymentStatusUpdated,
+          notifySponsor,
+          notificationEmail: notifySponsor ? notificationEmail : null,
+          notificationMessageId: notificationResult?.messageId ?? null,
+          notificationSent: notificationResult?.sent ?? false,
+          notificationError: notificationResult?.error ?? null
         }
       });
 
@@ -4459,11 +4521,22 @@ createServer(async (request, response) => {
         refunded: refund.status !== 'failed',
         refundId: refund.id,
         refundStatus: refund.status,
-        amount: Number((refund.amount / 100).toFixed(2)),
-        currency: refund.currency.toUpperCase(),
+        amount: refundAmount,
+        currency: refundCurrency,
         contributionId: target.id,
         paymentStatusUpdated,
-        sponsorship: refreshedSponsorship
+        sponsorship: refreshedSponsorship,
+        ...(notificationResult
+          ? {
+              notification: {
+                queued: notificationResult.queued,
+                attempted: notificationResult.attempted,
+                sent: notificationResult.sent,
+                messageId: notificationResult.messageId,
+                error: notificationResult.error
+              }
+            }
+          : {})
       };
       writeJson(request, response, 200, result);
     } catch (error) {

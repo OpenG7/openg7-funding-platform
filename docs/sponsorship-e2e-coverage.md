@@ -12,7 +12,7 @@ Couverture cible: 8 scenarios sur 8, soit 100%.
 | Entreprise rouvre le suivi par token et soumet ses details               | Oui     | Suivi commandite, API token, retrait du token de l'URL, resoumission idempotente   |
 | Token absent, invalide, expire ou introuvable affiche un etat d'erreur   | Oui     | Suivi commandite, validations API                                                  |
 | Admin liste les commandites payees avec jeton admin                      | Oui     | Admin, API privee                                                                  |
-| Admin approuve, remet en attente, refuse ou rembourse la commandite      | Oui     | Admin, revue DB, remboursement Stripe guide                                        |
+| Admin approuve, remet en attente, refuse ou rembourse la commandite      | Oui     | Admin, revue DB, remboursement Stripe guide et courriel optionnel                  |
 | Admin prepare la publication OpenG7/OpenG20 Facebook/LinkedIn            | Oui     | Admin, migration feed                                                              |
 | Page publique affiche seulement les commandites approuvees et consenties | Oui     | `/commanditaires`, API publique                                                    |
 | Navigation FR/EN, prerender, sitemap et docs de prod restent alignes     | Oui     | Routes, i18n, deployment                                                           |
