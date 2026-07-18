@@ -5,6 +5,7 @@ import type {
   AdminContributionsSummary,
   AdminDashboardResponse,
   AdminPagination,
+  AdminSponsorshipRefundWorkflowStatus,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipRecord,
   PublicSponsorshipProfile,
@@ -70,6 +71,14 @@ const resolveSponsorshipBenefits = (
 };
 export const allowedSponsorshipReviewStatuses =
   new Set<SponsorshipReviewStatus>(['pending_review', 'approved', 'rejected']);
+export const allowedSponsorshipRefundWorkflowStatuses =
+  new Set<AdminSponsorshipRefundWorkflowStatus>([
+    'not_requested',
+    'requested',
+    'processing',
+    'completed',
+    'failed'
+  ]);
 export const allowedSponsorFeedTargets = new Set<SponsorFeedTarget>([
   'openg7',
   'openg20'
@@ -148,11 +157,28 @@ export interface SponsorshipRefundTarget {
   readonly version: string;
   readonly publicReference: string | null;
   readonly paymentStatus: string;
+  readonly refundWorkflowStatus: AdminSponsorshipRefundWorkflowStatus;
   readonly amountCents: number;
   readonly amount: number;
   readonly currency: string;
   readonly stripePaymentIntentId: string | null;
   readonly sponsorName: string;
+}
+
+export interface SponsorshipRefundWorkflowUpdateInput {
+  readonly contributionId: string;
+  readonly refundStatus: AdminSponsorshipRefundWorkflowStatus;
+  readonly refundId?: string | null;
+  readonly refundNote?: string | null;
+  readonly refundError?: string | null;
+}
+
+export interface SponsorshipRefundWorkflowUpdateByPaymentIntentInput {
+  readonly stripePaymentIntentId: string;
+  readonly refundStatus: AdminSponsorshipRefundWorkflowStatus;
+  readonly refundId?: string | null;
+  readonly refundNote?: string | null;
+  readonly refundError?: string | null;
 }
 
 export type SponsorshipPublicationInput = AdminSponsorshipPublicationRequest;
@@ -262,6 +288,13 @@ interface AdminSponsorshipRow {
   readonly sponsor_feed_public_url: string | null;
   readonly sponsor_feed_notes: string | null;
   readonly sponsor_visibility_updated_at: string | null;
+  readonly sponsorship_refund_status: AdminSponsorshipRefundWorkflowStatus | null;
+  readonly sponsorship_refund_requested_at: string | null;
+  readonly sponsorship_refund_processed_at: string | null;
+  readonly sponsorship_refund_completed_at: string | null;
+  readonly sponsorship_refund_id: string | null;
+  readonly sponsorship_refund_note: string | null;
+  readonly sponsorship_refund_error: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -455,6 +488,17 @@ const normalizeSponsorshipReviewStatus = (
   value: SponsorshipReviewStatus | null
 ): SponsorshipReviewStatus | null =>
   value && allowedSponsorshipReviewStatuses.has(value) ? value : null;
+
+const normalizeSponsorshipRefundWorkflowStatus = (
+  value: AdminSponsorshipRefundWorkflowStatus | null,
+  paymentStatus?: string
+): AdminSponsorshipRefundWorkflowStatus => {
+  if (value && allowedSponsorshipRefundWorkflowStatuses.has(value)) {
+    return value;
+  }
+
+  return paymentStatus === 'refunded' ? 'completed' : 'not_requested';
+};
 
 const mapAdminContributionRow = (
   row: AdminContributionRow
@@ -1210,6 +1254,16 @@ const mapAdminSponsorshipRow = (
   sponsor_feed_public_url: row.sponsor_feed_public_url,
   sponsor_feed_notes: row.sponsor_feed_notes,
   sponsor_visibility_updated_at: row.sponsor_visibility_updated_at,
+  sponsorship_refund_status: normalizeSponsorshipRefundWorkflowStatus(
+    row.sponsorship_refund_status,
+    row.payment_status
+  ),
+  sponsorship_refund_requested_at: row.sponsorship_refund_requested_at,
+  sponsorship_refund_processed_at: row.sponsorship_refund_processed_at,
+  sponsorship_refund_completed_at: row.sponsorship_refund_completed_at,
+  sponsorship_refund_id: row.sponsorship_refund_id,
+  sponsorship_refund_note: row.sponsorship_refund_note,
+  sponsorship_refund_error: row.sponsorship_refund_error,
   admin_audit_entries: adminAuditEntries,
   created_at: row.created_at,
   updated_at: row.updated_at
@@ -1449,6 +1503,13 @@ export const listAdminSponsorships = async (
       sponsor_feed_public_url,
       sponsor_feed_notes,
       sponsor_visibility_updated_at::text AS sponsor_visibility_updated_at,
+      COALESCE(sponsorship_refund_status, 'not_requested') AS sponsorship_refund_status,
+      sponsorship_refund_requested_at::text AS sponsorship_refund_requested_at,
+      sponsorship_refund_processed_at::text AS sponsorship_refund_processed_at,
+      sponsorship_refund_completed_at::text AS sponsorship_refund_completed_at,
+      sponsorship_refund_id,
+      sponsorship_refund_note,
+      sponsorship_refund_error,
       created_at::text AS created_at,
       updated_at::text AS updated_at
     FROM fund_contributions
@@ -1524,6 +1585,13 @@ export const getAdminSponsorshipById = async (
         sponsor_feed_public_url,
         sponsor_feed_notes,
         sponsor_visibility_updated_at::text AS sponsor_visibility_updated_at,
+        COALESCE(sponsorship_refund_status, 'not_requested') AS sponsorship_refund_status,
+        sponsorship_refund_requested_at::text AS sponsorship_refund_requested_at,
+        sponsorship_refund_processed_at::text AS sponsorship_refund_processed_at,
+        sponsorship_refund_completed_at::text AS sponsorship_refund_completed_at,
+        sponsorship_refund_id,
+        sponsorship_refund_note,
+        sponsorship_refund_error,
         created_at::text AS created_at,
         updated_at::text AS updated_at
       FROM fund_contributions
@@ -1564,6 +1632,7 @@ export const getSponsorshipRefundTarget = async (
     readonly version: string;
     readonly public_reference: string | null;
     readonly payment_status: string;
+    readonly sponsorship_refund_status: AdminSponsorshipRefundWorkflowStatus | null;
     readonly amount_cents: string;
     readonly currency: string;
     readonly stripe_payment_intent_id: string | null;
@@ -1575,6 +1644,7 @@ export const getSponsorshipRefundTarget = async (
         updated_at::text AS version,
         public_reference,
         status AS payment_status,
+        COALESCE(sponsorship_refund_status, 'not_requested') AS sponsorship_refund_status,
         amount_cents::text AS amount_cents,
         currency,
         stripe_payment_intent_id,
@@ -1604,12 +1674,114 @@ export const getSponsorshipRefundTarget = async (
     version: row.version,
     publicReference: row.public_reference,
     paymentStatus: row.payment_status,
+    refundWorkflowStatus: normalizeSponsorshipRefundWorkflowStatus(
+      row.sponsorship_refund_status,
+      row.payment_status
+    ),
     amountCents,
     amount: centsToAmount(amountCents),
     currency: row.currency.toUpperCase(),
     stripePaymentIntentId: row.stripe_payment_intent_id,
     sponsorName: row.sponsor_name ?? 'Commanditaire'
   };
+};
+
+export const updateSponsorshipRefundWorkflowStatus = async (
+  pool: Pool | null,
+  input: SponsorshipRefundWorkflowUpdateInput
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE fund_contributions
+      SET
+        sponsorship_refund_status = $2,
+        sponsorship_refund_requested_at = CASE
+          WHEN $2 IN ('requested', 'processing', 'completed', 'failed')
+          THEN COALESCE(sponsorship_refund_requested_at, NOW())
+          ELSE sponsorship_refund_requested_at
+        END,
+        sponsorship_refund_processed_at = CASE
+          WHEN $2 IN ('processing', 'completed', 'failed')
+          THEN COALESCE(sponsorship_refund_processed_at, NOW())
+          ELSE sponsorship_refund_processed_at
+        END,
+        sponsorship_refund_completed_at = CASE
+          WHEN $2 = 'completed' THEN COALESCE(sponsorship_refund_completed_at, NOW())
+          ELSE sponsorship_refund_completed_at
+        END,
+        sponsorship_refund_id = COALESCE($3, sponsorship_refund_id),
+        sponsorship_refund_note = COALESCE(NULLIF($4, ''), sponsorship_refund_note),
+        sponsorship_refund_error = CASE
+          WHEN $2 = 'failed' THEN $5
+          ELSE NULL
+        END,
+        updated_at = NOW()
+      WHERE id = $1::uuid
+        AND contribution_type = 'sponsorship_interest'
+    `,
+    [
+      input.contributionId,
+      input.refundStatus,
+      input.refundId ?? null,
+      input.refundNote ?? null,
+      input.refundError ?? null
+    ]
+  );
+
+  return (result.rowCount ?? 0) > 0;
+};
+
+export const updateSponsorshipRefundWorkflowStatusByPaymentIntent = async (
+  pool: Pool | null,
+  input: SponsorshipRefundWorkflowUpdateByPaymentIntentInput
+): Promise<boolean> => {
+  if (!pool) {
+    return false;
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE fund_contributions
+      SET
+        sponsorship_refund_status = $2,
+        sponsorship_refund_requested_at = CASE
+          WHEN $2 IN ('requested', 'processing', 'completed', 'failed')
+          THEN COALESCE(sponsorship_refund_requested_at, NOW())
+          ELSE sponsorship_refund_requested_at
+        END,
+        sponsorship_refund_processed_at = CASE
+          WHEN $2 IN ('processing', 'completed', 'failed')
+          THEN COALESCE(sponsorship_refund_processed_at, NOW())
+          ELSE sponsorship_refund_processed_at
+        END,
+        sponsorship_refund_completed_at = CASE
+          WHEN $2 = 'completed' THEN COALESCE(sponsorship_refund_completed_at, NOW())
+          ELSE sponsorship_refund_completed_at
+        END,
+        sponsorship_refund_id = COALESCE($3, sponsorship_refund_id),
+        sponsorship_refund_note = COALESCE(NULLIF($4, ''), sponsorship_refund_note),
+        sponsorship_refund_error = CASE
+          WHEN $2 = 'failed' THEN $5
+          ELSE NULL
+        END,
+        updated_at = NOW()
+      WHERE stripe_payment_intent_id = $1
+        AND contribution_type = 'sponsorship_interest'
+    `,
+    [
+      input.stripePaymentIntentId,
+      input.refundStatus,
+      input.refundId ?? null,
+      input.refundNote ?? null,
+      input.refundError ?? null
+    ]
+  );
+
+  return (result.rowCount ?? 0) > 0;
 };
 
 export const updateSponsorshipReview = async (

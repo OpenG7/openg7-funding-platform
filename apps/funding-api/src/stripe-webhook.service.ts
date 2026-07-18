@@ -9,6 +9,7 @@ import {
   normalizeContributionType,
   parseMetadataBoolean,
   updateContributionStatusByPaymentIntent,
+  updateSponsorshipRefundWorkflowStatusByPaymentIntent,
   upsertCheckoutSessionFromWebhook
 } from './fund-contributions.repository.js';
 import {
@@ -459,6 +460,15 @@ export const processStripeWebhook = async (
             status: 'refunded'
           })
         : false;
+      const refundId = charge.refunds?.data?.[0]?.id ?? null;
+      const refundWorkflowUpdated = paymentIntentId
+        ? await updateSponsorshipRefundWorkflowStatusByPaymentIntent(pool, {
+            stripePaymentIntentId: paymentIntentId,
+            refundStatus: 'completed',
+            refundId,
+            refundNote: 'Confirmed by Stripe charge.refunded webhook.'
+          })
+        : false;
       const balanceData = buildBalanceData(
         await resolveBalanceTransaction(stripe, charge.balance_transaction),
         charge.amount_refunded,
@@ -486,7 +496,8 @@ export const processStripeWebhook = async (
       return acknowledge({
         received: true,
         inserted,
-        statusUpdated
+        statusUpdated,
+        refundWorkflowUpdated
       });
     }
 

@@ -213,6 +213,10 @@ test('Stripe webhook service handles MVP idempotent event set', () => {
   assert.ok(source.includes('insertStripeEventRecord'));
   assert.ok(source.includes('markStripeEventProcessed'));
   assert.ok(source.includes('markStripeEventFailed'));
+  assert.ok(
+    source.includes('updateSponsorshipRefundWorkflowStatusByPaymentIntent')
+  );
+  assert.ok(source.includes('refundWorkflowUpdated'));
 });
 
 test('Stripe charge.updated backfills contribution transaction fees', () => {
@@ -1542,6 +1546,10 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
   );
+  const refundStatusMigration = fs.readFileSync(
+    'apps/funding-api/migrations/013_add_sponsorship_refund_status.sql',
+    'utf8'
+  );
   const email = fs.readFileSync(
     'apps/funding-api/src/email-notification.service.ts',
     'utf8'
@@ -1550,6 +1558,17 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
 
   assert.ok(core.includes('AdminSponsorshipRefundRequest'));
   assert.ok(core.includes('AdminSponsorshipRefundResult'));
+  assert.ok(core.includes('AdminSponsorshipRefundWorkflowStatus'));
+  assert.ok(
+    core.includes(
+      'readonly sponsorship_refund_status: AdminSponsorshipRefundWorkflowStatus;'
+    )
+  );
+  assert.ok(
+    core.includes(
+      'readonly refundWorkflowStatus: AdminSponsorshipRefundWorkflowStatus;'
+    )
+  );
   assert.ok(core.includes('readonly notifySponsor?: boolean;'));
   assert.ok(core.includes('readonly notificationEmail?: string;'));
   assert.ok(core.includes('readonly sponsorMessage?: string;'));
@@ -1565,6 +1584,13 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'refundValidationMessage',
     'refundActionId',
     'canRefundSponsorship',
+    'refundWorkflowStatusLabel',
+    'refundWorkflowTimelineLabel',
+    'refundWorkflowStatusClass',
+    'sponsorship_refund_status',
+    'refund-badge',
+    'refund-processing',
+    'refund-completed',
     'refundNotificationResultLabel',
     'Avoir cree:',
     'setRefundDraftBoolean',
@@ -1595,6 +1621,8 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'creditNoteError',
     'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
     'sponsorship_refund.stripe_full',
+    'refundWorkflowStatus',
+    'updateSponsorshipRefundWorkflowStatus',
     'updateContributionStatusByPaymentIntent'
   ]) {
     assert.ok(api.includes(marker), `API must include ${marker}`);
@@ -1606,9 +1634,30 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
   assert.ok(email.includes('Remboursement de votre commandite OpenG7'));
 
   assert.ok(repository.includes('getSponsorshipRefundTarget'));
+  assert.ok(repository.includes('updateSponsorshipRefundWorkflowStatus'));
+  assert.ok(
+    repository.includes('updateSponsorshipRefundWorkflowStatusByPaymentIntent')
+  );
+  assert.ok(repository.includes('allowedSponsorshipRefundWorkflowStatuses'));
+  assert.ok(repository.includes('sponsorship_refund_status'));
   assert.ok(repository.includes('stripe_payment_intent_id'));
+  assert.ok(refundStatusMigration.includes('sponsorship_refund_status'));
+  assert.ok(refundStatusMigration.includes("'not_requested'"));
+  assert.ok(refundStatusMigration.includes("'completed'"));
+  assert.ok(refundStatusMigration.includes('sponsorship_refund_requested_at'));
+  assert.ok(
+    refundStatusMigration.includes(
+      'fund_contributions_sponsorship_refund_status_check'
+    )
+  );
+  assert.ok(
+    refundStatusMigration.includes(
+      'idx_fund_contributions_sponsorship_refund_status'
+    )
+  );
   assert.ok(readme.includes('POST /api/admin/sponsorships/refund'));
   assert.ok(readme.includes('sponsorship_credit_notes'));
+  assert.ok(readme.includes('013_add_sponsorship_refund_status.sql'));
 });
 
 test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
@@ -2126,6 +2175,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   );
   assert.ok(readme.includes('POST /api/admin/sponsorship-credit-notes/resend'));
   assert.ok(readme.includes('012_create_sponsorship_credit_notes.sql'));
+  assert.ok(readme.includes('013_add_sponsorship_refund_status.sql'));
 });
 
 test('Admin setup page wraps Stripe and email configuration in a custom tour', () => {

@@ -292,6 +292,9 @@ export interface SponsorshipFollowupDetailsRequest {
 export type SponsorshipReviewStatus =
   'pending_review' | 'approved' | 'rejected';
 
+export type AdminSponsorshipRefundWorkflowStatus =
+  'not_requested' | 'requested' | 'processing' | 'completed' | 'failed';
+
 export interface AdminSponsorshipRecord {
   readonly id: string;
   readonly version: string;
@@ -322,6 +325,13 @@ export interface AdminSponsorshipRecord {
   readonly sponsor_feed_public_url: string | null;
   readonly sponsor_feed_notes: string | null;
   readonly sponsor_visibility_updated_at: string | null;
+  readonly sponsorship_refund_status: AdminSponsorshipRefundWorkflowStatus;
+  readonly sponsorship_refund_requested_at: string | null;
+  readonly sponsorship_refund_processed_at: string | null;
+  readonly sponsorship_refund_completed_at: string | null;
+  readonly sponsorship_refund_id: string | null;
+  readonly sponsorship_refund_note: string | null;
+  readonly sponsorship_refund_error: string | null;
   readonly admin_audit_entries: readonly AdminAuditLogEntry[];
   readonly created_at: string;
   readonly updated_at: string;
@@ -902,6 +912,7 @@ export interface AdminSponsorshipReviewResult {
   readonly updated: boolean;
   readonly reviewStatus: SponsorshipReviewStatus;
   readonly refundHandling?: AdminSponsorshipRejectionRefundHandling;
+  readonly refundWorkflowStatus?: AdminSponsorshipRefundWorkflowStatus;
   readonly notification?: {
     readonly queued: boolean;
     readonly attempted: boolean;
@@ -925,6 +936,7 @@ export interface AdminSponsorshipRefundResult {
   readonly refunded: boolean;
   readonly refundId: string;
   readonly refundStatus: string | null;
+  readonly refundWorkflowStatus: AdminSponsorshipRefundWorkflowStatus;
   readonly amount: number;
   readonly currency: string;
   readonly contributionId: string;
