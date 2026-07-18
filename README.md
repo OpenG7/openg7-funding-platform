@@ -264,6 +264,9 @@ refund id/status plus notification result in the admin audit log. When a
 matching sponsorship invoice exists, the refund also creates an app-generated
 credit note tied to the Stripe refund; the credit note is visible and resendable
 from `/admin/fundraiser/invoices`, with its own downloadable PDF.
+The sponsor detail panel also includes an "Historique & audit" tab that merges
+the sponsorship timeline with recent `admin_audit_log` entries for that
+specific sponsorship, including the recorded admin actor.
 
 Sponsor logos can be uploaded by admins through
 `POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files

@@ -213,6 +213,8 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
       'uploadLogo',
       'deleteLogo',
       'expectedVersion: sponsorship.version',
+      'admin_audit_entries',
+      'adminAuditLabel',
       'logoPreviewSourceFor',
       'sponsorship.public_reference',
       'image/png,image/jpeg,image/webp'
@@ -270,6 +272,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
       'clearSponsorshipLogoUrl',
       'getAdminSponsorshipLogoUrl',
       'isPublicApprovedSponsorshipLogoUrl',
+      'listAdminSponsorshipAuditEntries',
       'public_reference',
       "contribution_type = 'sponsorship_interest'",
       "status IN ('paid', 'refunded', 'disputed')"

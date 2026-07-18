@@ -1,4 +1,5 @@
 import type {
+  AdminAuditLogEntry,
   AdminContributionRecord,
   AdminContributionsResponse,
   AdminContributionsSummary,
@@ -263,6 +264,17 @@ interface AdminSponsorshipRow {
   readonly sponsor_visibility_updated_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
+}
+
+interface SponsorshipAuditLogRow {
+  readonly id: string;
+  readonly actor: string;
+  readonly action: string;
+  readonly entity_type: string;
+  readonly entity_id: string | null;
+  readonly summary: string | null;
+  readonly metadata: unknown;
+  readonly created_at: string;
 }
 
 interface AdminContributionRow {
@@ -1166,7 +1178,8 @@ export const getAdminDashboard = async (
 };
 
 const mapAdminSponsorshipRow = (
-  row: AdminSponsorshipRow
+  row: AdminSponsorshipRow,
+  adminAuditEntries: readonly AdminAuditLogEntry[] = []
 ): AdminSponsorshipRecord => ({
   id: row.id,
   version: row.version,
@@ -1197,9 +1210,92 @@ const mapAdminSponsorshipRow = (
   sponsor_feed_public_url: row.sponsor_feed_public_url,
   sponsor_feed_notes: row.sponsor_feed_notes,
   sponsor_visibility_updated_at: row.sponsor_visibility_updated_at,
+  admin_audit_entries: adminAuditEntries,
   created_at: row.created_at,
   updated_at: row.updated_at
 });
+
+const mapSponsorshipAuditLogRow = (
+  row: SponsorshipAuditLogRow
+): AdminAuditLogEntry => ({
+  id: row.id,
+  actor: row.actor,
+  action: row.action,
+  entity_type: row.entity_type,
+  entity_id: row.entity_id,
+  summary: row.summary,
+  metadata:
+    typeof row.metadata === 'object' && row.metadata !== null
+      ? (row.metadata as Record<string, unknown>)
+      : {},
+  created_at: row.created_at
+});
+
+const hasAdminAuditLog = async (pool: Pool): Promise<boolean> => {
+  const query = await pool.query<{ readonly has_admin_audit_log: boolean }>(`
+    SELECT to_regclass('public.admin_audit_log') IS NOT NULL AS has_admin_audit_log
+  `);
+
+  return query.rows[0]?.has_admin_audit_log ?? false;
+};
+
+const listAdminSponsorshipAuditEntries = async (
+  pool: Pool,
+  contributionIds: readonly string[]
+): Promise<Map<string, readonly AdminAuditLogEntry[]>> => {
+  if (contributionIds.length === 0 || !(await hasAdminAuditLog(pool))) {
+    return new Map();
+  }
+
+  const query = await pool.query<SponsorshipAuditLogRow>(
+    `
+      WITH ranked_audit AS (
+        SELECT
+          id::text AS id,
+          actor,
+          action,
+          entity_type,
+          entity_id,
+          summary,
+          metadata,
+          created_at::text AS created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY entity_id
+            ORDER BY created_at DESC
+          ) AS audit_rank
+        FROM admin_audit_log
+        WHERE entity_type = 'sponsorship'
+          AND entity_id = ANY($1::text[])
+      )
+      SELECT
+        id,
+        actor,
+        action,
+        entity_type,
+        entity_id,
+        summary,
+        metadata,
+        created_at
+      FROM ranked_audit
+      WHERE audit_rank <= 20
+      ORDER BY created_at DESC
+    `,
+    [contributionIds]
+  );
+
+  const grouped = new Map<string, AdminAuditLogEntry[]>();
+  for (const row of query.rows) {
+    if (!row.entity_id) {
+      continue;
+    }
+
+    const entries = grouped.get(row.entity_id) ?? [];
+    entries.push(mapSponsorshipAuditLogRow(row));
+    grouped.set(row.entity_id, entries);
+  }
+
+  return grouped;
+};
 
 const adminSponsorshipListOrderBy = (
   sort: NonNullable<AdminSponsorshipListInput['sort']>,
@@ -1366,9 +1462,15 @@ export const listAdminSponsorships = async (
   `,
     params
   );
+  const auditEntriesByContribution = await listAdminSponsorshipAuditEntries(
+    pool,
+    query.rows.map((row) => row.id)
+  );
 
   return {
-    items: query.rows.map(mapAdminSponsorshipRow),
+    items: query.rows.map((row) =>
+      mapAdminSponsorshipRow(row, auditEntriesByContribution.get(row.id) ?? [])
+    ),
     pagination: {
       page: normalizedPage,
       pageSize,
@@ -1433,7 +1535,20 @@ export const getAdminSponsorshipById = async (
     [contributionId]
   );
 
-  return query.rows[0] ? mapAdminSponsorshipRow(query.rows[0]) : null;
+  const row = query.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  const auditEntriesByContribution = await listAdminSponsorshipAuditEntries(
+    pool,
+    [row.id]
+  );
+
+  return mapAdminSponsorshipRow(
+    row,
+    auditEntriesByContribution.get(row.id) ?? []
+  );
 };
 
 export const getSponsorshipRefundTarget = async (

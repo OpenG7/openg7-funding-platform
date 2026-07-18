@@ -209,6 +209,9 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
     calcules a partir du montant deja affiche (`resolveSponsorshipBenefits`),
     pour reperer le palier sans recalculer mentalement a partir du montant.
 - Endpoint `GET /api/admin/sponsorships` pour lister les commandites payees.
+- Le panneau detail commanditaire expose l'onglet `Historique & audit`, qui
+  combine la chronologie du dossier avec les dernieres entrees
+  `admin_audit_log` de cette commandite et l'acteur admin enregistre.
 - Endpoints `GET /api/admin/sponsorships/logo`,
   `POST /api/admin/sponsorships/logo` et
   `POST /api/admin/sponsorships/logo/delete` pour previsualiser, remplacer ou

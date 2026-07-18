@@ -322,6 +322,7 @@ export interface AdminSponsorshipRecord {
   readonly sponsor_feed_public_url: string | null;
   readonly sponsor_feed_notes: string | null;
   readonly sponsor_visibility_updated_at: string | null;
+  readonly admin_audit_entries: readonly AdminAuditLogEntry[];
   readonly created_at: string;
   readonly updated_at: string;
 }
