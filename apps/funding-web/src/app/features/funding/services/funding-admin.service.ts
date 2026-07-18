@@ -9,6 +9,8 @@ import type {
   AdminExpenseMutationResult,
   AdminExpenseUpdateRequest,
   AdminExpensesResponse,
+  AdminSponsorshipCreditNoteResendRequest,
+  AdminSponsorshipCreditNoteResendResult,
   AdminPublicationBatchAssignRequest,
   AdminPublicationBatchCreateRequest,
   AdminPublicationBatchLifecycleRequest,
@@ -220,6 +222,34 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminSponsorshipInvoiceResendResult;
+  }
+
+  async resendSponsorshipCreditNote(
+    token: string,
+    payload: AdminSponsorshipCreditNoteResendRequest
+  ): Promise<AdminSponsorshipCreditNoteResendResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorship-credit-notes/resend`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsorship credit note could not be resent.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminSponsorshipCreditNoteResendResult;
   }
 
   async getContributions(token: string): Promise<AdminContributionsResponse> {

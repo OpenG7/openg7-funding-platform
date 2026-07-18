@@ -218,7 +218,10 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   accepter ou refuser une commandite.
 - Endpoint `POST /api/admin/sponsorships/refund` pour declencher un
   remboursement Stripe complet guide, avec confirmation par reference publique,
-  courriel optionnel au commanditaire, verrou de version et audit admin.
+  courriel optionnel au commanditaire, creation d'un avoir de commandite si la
+  facture existe, verrou de version et audit admin.
+- Endpoint `POST /api/admin/sponsorship-credit-notes/resend` pour renvoyer un
+  avoir depuis la page admin Factures.
 - Endpoint `POST /api/admin/sponsorships/publication` pour preparer le profil
   commanditaire public et les placements de feed.
 - `FUNDING_ADMIN_TOKEN` requis en production comme secret racine admin.
@@ -258,6 +261,11 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   - `005_add_sponsorship_followup_token.sql`.
   - `006_add_sponsorship_publication_feed.sql`.
   - `007_add_admin_audit_and_publication_drafts.sql`.
+  - `008_add_sponsorship_publication_batches.sql`.
+  - `009_add_contribution_public_reference.sql`.
+  - `010_create_email_messages.sql`.
+  - `011_create_sponsorship_invoices.sql`.
+  - `012_create_sponsorship_credit_notes.sql`.
 - Tables MVP:
   - `stripe_events`;
   - `stripe_checkout_sessions`;
@@ -265,6 +273,9 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
     de suivi commandite et placements feed).
   - `sponsor_publication_drafts` (brouillons prives de publications commanditees).
   - `admin_audit_log` (journal prive des actions admin).
+  - `email_messages` (file courriel privee avec retry).
+  - `sponsorship_invoices` (factures commandite descriptives).
+  - `sponsorship_credit_notes` (avoirs commandite lies aux remboursements Stripe).
 
 ### Webhooks Stripe
 
@@ -405,7 +416,8 @@ Les elements suivants restent volontairement hors perimetre:
 - fiches detaillees `/batisseurs/[slug]`;
 - bibliotheque avancee d'actifs de marque, variantes de logos et recadrage;
 - publication automatique de commanditaires;
-- publication automatique vers les feeds OpenG7/OpenG20;
+- publication automatique vers les feeds OpenG7/OpenG20;.0.
+
 - integration API LinkedIn/Facebook;
 - factures PDF et recus officiels de don;
 - taxes;

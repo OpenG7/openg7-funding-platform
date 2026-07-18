@@ -3687,11 +3687,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     const localStatus = result.paymentStatusUpdated
       ? ' Commandite marquee comme remboursee.'
       : '';
+    const creditNote = result.creditNote
+      ? ` Avoir cree: ${result.creditNote.credit_note_number}.`
+      : '';
 
     return `Remboursement Stripe cree: ${this.formatAmount(
       result.amount,
       result.currency
-    )}.${status}${localStatus}`;
+    )}.${status}${localStatus}${creditNote}`;
   }
 
   refundNotificationResultLabel(result: AdminSponsorshipRefundResult): string {
@@ -3700,16 +3703,16 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     if (result.notification.sent) {
-      return 'Courriel de remboursement envoye.';
+      return 'Courriel de remboursement/avoir envoye.';
     }
 
     if (result.notification.queued) {
-      return 'Courriel de remboursement mis en file.';
+      return 'Courriel de remboursement/avoir mis en file.';
     }
 
     return result.notification.error
-      ? `Courriel de remboursement non envoye: ${result.notification.error}`
-      : 'Courriel de remboursement non envoye.';
+      ? `Courriel de remboursement/avoir non envoye: ${result.notification.error}`
+      : 'Courriel de remboursement/avoir non envoye.';
   }
 
   isReviewNoteDirty(sponsorship: AdminSponsorshipRecord): boolean {

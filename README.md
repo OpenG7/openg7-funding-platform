@@ -83,7 +83,7 @@ Set these variables for API and webhook processing:
 - `FUNDING_SPONSOR_LOGO_MAX_BYTES` - optional sponsor logo upload size limit, defaulting to 524288 bytes.
 - `FUNDING_EMAIL_FROM`, `FUNDING_EMAIL_REPLY_TO`, `FUNDING_ADMIN_NOTIFICATION_EMAIL`, `RESEND_API_KEY` - optional Resend email settings used to send sponsorship confirmations, follow-up links, admin publication-batch alerts, and setup tests.
 - `FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS`, `FUNDING_EMAIL_QUEUE_BATCH_SIZE` - optional email queue worker settings.
-- `FUNDING_SPONSORSHIP_INVOICE_PREFIX`, `FUNDING_INVOICE_ISSUER_NAME`, `FUNDING_INVOICE_ISSUER_EMAIL`, `FUNDING_INVOICE_ISSUER_ADDRESS`, `FUNDING_INVOICE_TAX_ID`, `FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL`, `FUNDING_SPONSORSHIP_INVOICE_LEGAL_NOTE` - optional sponsorship invoice identity and legal text displayed in app-generated invoice emails.
+- `FUNDING_SPONSORSHIP_INVOICE_PREFIX`, `FUNDING_SPONSORSHIP_CREDIT_NOTE_PREFIX`, `FUNDING_INVOICE_ISSUER_NAME`, `FUNDING_INVOICE_ISSUER_EMAIL`, `FUNDING_INVOICE_ISSUER_ADDRESS`, `FUNDING_INVOICE_TAX_ID`, `FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL`, `FUNDING_SPONSORSHIP_INVOICE_LEGAL_NOTE`, `FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE` - optional sponsorship invoice/credit-note identity and legal text displayed in app-generated invoice and credit-note emails.
 
 For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
 
@@ -134,6 +134,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/009_add_contribution_public_reference.sql
 \i apps/funding-api/migrations/010_create_email_messages.sql
 \i apps/funding-api/migrations/011_create_sponsorship_invoices.sql
+\i apps/funding-api/migrations/012_create_sponsorship_credit_notes.sql
 ```
 
 These create:
@@ -147,6 +148,7 @@ These create:
 - `admin_audit_log` (private admin action log)
 - `email_messages` (queued email templates with retry status)
 - `sponsorship_invoices` (private app-generated sponsorship invoice snapshots)
+- `sponsorship_credit_notes` (private app-generated sponsorship credit-note snapshots tied to Stripe refunds)
 
 When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
 
@@ -183,6 +185,7 @@ GET /api/admin/setup-status
 POST /api/admin/email/test
 GET /api/admin/sponsorship-invoices
 POST /api/admin/sponsorship-invoices/resend
+POST /api/admin/sponsorship-credit-notes/resend
 ```
 
 The dashboard summarizes received funds, estimated availability, pending
@@ -202,8 +205,9 @@ queued email system without exposing secret values.
 
 The sponsorship invoice page is available at `/admin/fundraiser/invoices`. It
 lists app-generated sponsorship invoices, shows Stripe references and latest
-email delivery status, and can resend the invoice email to the recorded sponsor
-contact or a corrected admin-entered address.
+email delivery status, shows credit notes generated after guided Stripe
+refunds, and can resend either the invoice email or the credit-note email to
+the recorded sponsor contact or a corrected admin-entered address.
 
 ### Sponsorship review admin
 
@@ -253,7 +257,10 @@ current sponsorship version, asks the admin to retype the public reference, call
 `POST /api/admin/sponsorships/refund`, creates a full Stripe refund with an
 idempotency key, marks the contribution as `refunded` when Stripe accepts the
 refund, can queue a sponsor-facing refund confirmation email, and records the
-refund id/status plus notification result in the admin audit log.
+refund id/status plus notification result in the admin audit log. When a
+matching sponsorship invoice exists, the refund also creates an app-generated
+credit note tied to the Stripe refund; the credit note is visible and resendable
+from `/admin/fundraiser/invoices`.
 
 Sponsor logos can be uploaded by admins through
 `POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files
@@ -317,7 +324,7 @@ GET /api/sponsorship-followup?token=...
 POST /api/sponsorship-followup/details
 ```
 
-When PostgreSQL, `RESEND_API_KEY`, `FUNDING_EMAIL_FROM`, and migration 011 are
+When PostgreSQL, `RESEND_API_KEY`, `FUNDING_EMAIL_FROM`, and migrations 011/012 are
 configured, the `checkout.session.completed` webhook queues the follow-up link
 and creates an app-generated sponsorship invoice snapshot for the Stripe
 customer email. The invoice includes a stable invoice number, issuer details,

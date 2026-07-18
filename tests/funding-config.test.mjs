@@ -1484,6 +1484,11 @@ test('Admin sponsor rejection requires a reason and can notify the sponsor', () 
   assert.ok(core.includes('readonly notifySponsor?: boolean;'));
   assert.ok(core.includes('readonly notificationEmail?: string;'));
   assert.ok(core.includes('readonly sponsorMessage?: string;'));
+  assert.ok(
+    core.includes(
+      'readonly creditNote: AdminSponsorshipCreditNoteRecord | null;'
+    )
+  );
   assert.ok(core.includes('readonly refundHandling?:'));
   assert.ok(core.includes('readonly notification?: {'));
 
@@ -1561,6 +1566,7 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'refundActionId',
     'canRefundSponsorship',
     'refundNotificationResultLabel',
+    'Avoir cree:',
     'setRefundDraftBoolean',
     'Envoyer le courriel de remboursement',
     'recipientEmail',
@@ -1577,9 +1583,16 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'amount: target.amountCents',
     'idempotencyKey: `sponsorship-refund:',
     'queueSponsorshipRefundEmail',
+    'queueSponsorshipCreditNoteEmail',
+    'createSponsorshipCreditNoteForRefund',
+    'getAdminSponsorshipCreditNoteById',
     'A sponsor-facing refund message is required.',
+    'sponsorship-credit-note:',
     'sponsorship-refund-email:',
     'notificationMessageId',
+    'creditNoteId',
+    'creditNoteNumber',
+    'creditNoteError',
     'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
     'sponsorship_refund.stripe_full',
     'updateContributionStatusByPaymentIntent'
@@ -1595,6 +1608,7 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
   assert.ok(repository.includes('getSponsorshipRefundTarget'));
   assert.ok(repository.includes('stripe_payment_intent_id'));
   assert.ok(readme.includes('POST /api/admin/sponsorships/refund'));
+  assert.ok(readme.includes('sponsorship_credit_notes'));
 });
 
 test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
@@ -1747,6 +1761,10 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'apps/funding-api/migrations/011_create_sponsorship_invoices.sql',
     'utf8'
   );
+  const creditNoteMigration = fs.readFileSync(
+    'apps/funding-api/migrations/012_create_sponsorship_credit_notes.sql',
+    'utf8'
+  );
   const invoices = fs.readFileSync(
     'apps/funding-api/src/sponsorship-invoices.repository.ts',
     'utf8'
@@ -1774,8 +1792,10 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     "'sponsorship_rejection'",
     "'sponsorship_refund'",
     "'sponsorship_invoice'",
+    "'sponsorship_credit_note'",
     "'email_configuration_test'",
     'queueSponsorshipInvoiceEmail',
+    'queueSponsorshipCreditNoteEmail',
     'queueSponsorshipRejectionEmail',
     'queueSponsorshipRefundEmail',
     'queueSponsorshipConfirmationEmail',
@@ -1788,6 +1808,8 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'nextRetryDate',
     'Resend returned ${response.status}',
     'Facture de commandite OpenG7',
+    'Avoir ${creditNote.creditNoteNumber}',
+    'Stripe Refund',
     'Remboursement de votre commandite OpenG7',
     'Numero de facture',
     'Total paye',
@@ -1811,13 +1833,28 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
   }
 
   for (const marker of [
+    'CREATE TABLE IF NOT EXISTS sponsorship_credit_notes',
+    'credit_note_number TEXT NOT NULL UNIQUE',
+    'stripe_refund_id TEXT NOT NULL',
+    'idx_sponsorship_credit_notes_stripe_refund_id'
+  ]) {
+    assert.ok(
+      creditNoteMigration.includes(marker),
+      `credit note migration must include ${marker}`
+    );
+  }
+
+  for (const marker of [
     'createSponsorshipInvoiceForStripeSession',
+    'createSponsorshipCreditNoteForRefund',
     'FUNDING_SPONSORSHIP_INVOICE_PREFIX',
+    'FUNDING_SPONSORSHIP_CREDIT_NOTE_PREFIX',
     'FUNDING_INVOICE_ISSUER_NAME',
     'FUNDING_INVOICE_ISSUER_EMAIL',
     'FUNDING_INVOICE_TAX_ID',
     'Commanditaire a confirmer',
     'ON CONFLICT (contribution_id) DO UPDATE',
+    'ON CONFLICT (stripe_refund_id) DO UPDATE',
     'Facture de commandite descriptive'
   ]) {
     assert.ok(
@@ -1839,6 +1876,8 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
   assert.ok(envExample.includes('FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS=30000'));
   assert.ok(envExample.includes('FUNDING_EMAIL_QUEUE_BATCH_SIZE=10'));
   assert.ok(envExample.includes('FUNDING_SPONSORSHIP_INVOICE_PREFIX='));
+  assert.ok(envExample.includes('FUNDING_SPONSORSHIP_CREDIT_NOTE_PREFIX='));
+  assert.ok(envExample.includes('FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE='));
   assert.ok(envExample.includes('FUNDING_INVOICE_ISSUER_NAME='));
   assert.ok(envExample.includes('FUNDING_INVOICE_ISSUER_EMAIL='));
 });
@@ -1880,14 +1919,23 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(service.includes('/admin/sponsorship-invoices'));
   assert.ok(service.includes('resendSponsorshipInvoice'));
   assert.ok(service.includes('/admin/sponsorship-invoices/resend'));
+  assert.ok(service.includes('resendSponsorshipCreditNote'));
+  assert.ok(service.includes('/admin/sponsorship-credit-notes/resend'));
 
   for (const marker of [
     'selectedInvoice',
+    'credit_notes',
+    'credit-notes-panel',
     'last_email_status',
     'last_email_recipient',
+    'credit_note_number',
     'invoice_number',
     'line_items',
+    'stripe_refund_id',
     'stripe_session_id',
+    'creditNoteResendEmail',
+    'resendCreditNote(',
+    'Renvoyer avoir',
     'resendInvoice()',
     'Renvoyer'
   ]) {
@@ -1898,16 +1946,25 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(api.includes("'/api/admin/sponsorship-invoices'"));
   assert.ok(api.includes("'/admin/sponsorship-invoices/resend'"));
   assert.ok(api.includes("'/api/admin/sponsorship-invoices/resend'"));
+  assert.ok(api.includes("'/admin/sponsorship-credit-notes/resend'"));
+  assert.ok(api.includes("'/api/admin/sponsorship-credit-notes/resend'"));
   assert.ok(api.includes('listAdminSponsorshipInvoices'));
   assert.ok(api.includes('getSponsorshipInvoiceById'));
+  assert.ok(api.includes('getSponsorshipCreditNoteById'));
   assert.ok(api.includes('queueSponsorshipInvoiceEmail'));
+  assert.ok(api.includes('queueSponsorshipCreditNoteEmail'));
   assert.ok(api.includes('sponsorship_invoice.resend'));
+  assert.ok(api.includes('sponsorship_credit_note.resend'));
   assert.ok(api.includes('AdminSponsorshipInvoiceResendResult'));
+  assert.ok(api.includes('AdminSponsorshipCreditNoteResendResult'));
 
   assert.ok(repository.includes('listAdminSponsorshipInvoices'));
   assert.ok(repository.includes('getAdminSponsorshipInvoiceById'));
+  assert.ok(repository.includes('getAdminSponsorshipCreditNoteById'));
   assert.ok(repository.includes('last_email_status'));
   assert.ok(repository.includes("metadata->>'invoiceId'"));
+  assert.ok(repository.includes("metadata->>'creditNoteId'"));
+  assert.ok(repository.includes('credit_notes'));
 
   assert.ok(email.includes('readonly followupUrl?: string;'));
   assert.ok(
@@ -1917,13 +1974,18 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   );
 
   assert.ok(core.includes('AdminSponsorshipInvoiceRecord'));
+  assert.ok(core.includes('AdminSponsorshipCreditNoteRecord'));
   assert.ok(core.includes('AdminSponsorshipInvoicesResponse'));
   assert.ok(core.includes('AdminSponsorshipInvoiceResendRequest'));
   assert.ok(core.includes('AdminSponsorshipInvoiceResendResult'));
+  assert.ok(core.includes('AdminSponsorshipCreditNoteResendRequest'));
+  assert.ok(core.includes('AdminSponsorshipCreditNoteResendResult'));
 
   assert.ok(readme.includes('/admin/fundraiser/invoices'));
   assert.ok(readme.includes('GET /api/admin/sponsorship-invoices'));
   assert.ok(readme.includes('POST /api/admin/sponsorship-invoices/resend'));
+  assert.ok(readme.includes('POST /api/admin/sponsorship-credit-notes/resend'));
+  assert.ok(readme.includes('012_create_sponsorship_credit_notes.sql'));
 });
 
 test('Admin setup page wraps Stripe and email configuration in a custom tour', () => {

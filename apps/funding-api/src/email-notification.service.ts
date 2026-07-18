@@ -1,7 +1,10 @@
 import type { Pool } from 'pg';
 import type { AdminSponsorshipRejectionRefundHandling } from '@openg7/funding-core';
 
-import type { SponsorshipInvoiceRecord } from './sponsorship-invoices.repository.js';
+import type {
+  SponsorshipCreditNoteRecord,
+  SponsorshipInvoiceRecord
+} from './sponsorship-invoices.repository.js';
 
 type EmailTemplateKey =
   | 'sponsorship_followup'
@@ -9,6 +12,7 @@ type EmailTemplateKey =
   | 'sponsorship_rejection'
   | 'sponsorship_refund'
   | 'sponsorship_invoice'
+  | 'sponsorship_credit_note'
   | 'publication_batch_full'
   | 'email_configuration_test';
 
@@ -37,6 +41,13 @@ interface SponsorshipInvoiceEmailInput {
   readonly to: string;
   readonly invoice: SponsorshipInvoiceRecord;
   readonly followupUrl?: string;
+  readonly idempotencyKey?: string;
+}
+
+interface SponsorshipCreditNoteEmailInput {
+  readonly to: string;
+  readonly creditNote: SponsorshipCreditNoteRecord;
+  readonly sponsorMessage?: string;
   readonly idempotencyKey?: string;
 }
 
@@ -748,6 +759,179 @@ const renderSponsorshipInvoiceEmail = (
   };
 };
 
+const renderSponsorshipCreditNoteEmail = (
+  input: SponsorshipCreditNoteEmailInput
+): RenderedEmail => {
+  const { creditNote } = input;
+  const publicReference = creditNote.publicReference ?? 'Reference a confirmer';
+  const subtotal = formatMoney(
+    centsToAmount(creditNote.subtotalCents),
+    creditNote.currency
+  );
+  const tax = formatMoney(
+    centsToAmount(creditNote.taxCents),
+    creditNote.currency
+  );
+  const total = formatMoney(
+    centsToAmount(creditNote.totalCents),
+    creditNote.currency
+  );
+  const issuedAt = formatDate(creditNote.issuedAtIso);
+  const sponsorMessage = input.sponsorMessage?.trim() ?? '';
+  const lineItems = creditNote.lineItems.length
+    ? creditNote.lineItems
+    : [
+        {
+          description: 'Avoir - remboursement complet de la commandite OpenG7',
+          quantity: 1,
+          unitAmountCents: creditNote.subtotalCents,
+          totalCents: creditNote.subtotalCents
+        }
+      ];
+  const subject = `Avoir ${creditNote.creditNoteNumber} - Commandite OpenG7`;
+  const issuerLines = [
+    creditNote.issuerName,
+    ...optionalText('Courriel', creditNote.issuerEmail),
+    ...optionalText('Adresse', creditNote.issuerAddress),
+    ...optionalText('Identifiant fiscal', creditNote.issuerTaxId)
+  ];
+  const sponsorLines = [
+    creditNote.sponsorName,
+    ...optionalText('Contact', creditNote.sponsorContactName),
+    ...optionalText('Courriel', creditNote.sponsorContactEmail),
+    ...optionalText('Site web', creditNote.sponsorWebsiteUrl)
+  ];
+  const text = [
+    `Avoir: ${creditNote.creditNoteNumber}`,
+    `Facture associee: ${creditNote.invoiceNumber}`,
+    `Reference OpenG7: ${publicReference}`,
+    `Date d emission: ${issuedAt}`,
+    '',
+    'Emetteur:',
+    ...issuerLines,
+    '',
+    'Commanditaire:',
+    ...sponsorLines,
+    '',
+    `Stripe Refund: ${creditNote.stripeRefundId}`,
+    ...(creditNote.stripePaymentIntentId
+      ? [`Stripe Payment Intent: ${creditNote.stripePaymentIntentId}`]
+      : []),
+    '',
+    'Lignes:',
+    ...lineItems.map(
+      (item) =>
+        `- ${item.description} | ${item.quantity} x ${formatMoney(
+          centsToAmount(item.unitAmountCents),
+          creditNote.currency
+        )} = ${formatMoney(centsToAmount(item.totalCents), creditNote.currency)}`
+    ),
+    '',
+    `Sous-total credite: ${subtotal}`,
+    `${creditNote.taxLabel}: ${tax}`,
+    `Total credite: ${total}`,
+    '',
+    ...(sponsorMessage ? ['Message de notre equipe:', sponsorMessage, ''] : []),
+    creditNote.notes ??
+      'Avoir de commandite descriptif emis apres remboursement Stripe. Ce document ne constitue pas un recu officiel de don de bienfaisance.'
+  ].join('\n');
+  const html = `
+    <h1>Avoir de commandite OpenG7</h1>
+    <p>
+      <strong>Avoir:</strong> ${escapeHtml(creditNote.creditNoteNumber)}<br />
+      <strong>Facture associee:</strong> ${escapeHtml(
+        creditNote.invoiceNumber
+      )}<br />
+      <strong>Reference OpenG7:</strong> ${escapeHtml(publicReference)}<br />
+      <strong>Date d'emission:</strong> ${escapeHtml(issuedAt)}
+    </p>
+    <h2>Emetteur</h2>
+    <p>${issuerLines.map(escapeHtml).join('<br />')}</p>
+    <h2>Commanditaire</h2>
+    <p>${sponsorLines.map(escapeHtml).join('<br />')}</p>
+    <p>
+      <strong>Stripe Refund:</strong> ${escapeHtml(
+        creditNote.stripeRefundId
+      )}<br />
+      ${
+        creditNote.stripePaymentIntentId
+          ? `<strong>Stripe Payment Intent:</strong> ${escapeHtml(
+              creditNote.stripePaymentIntentId
+            )}`
+          : ''
+      }
+    </p>
+    <table cellpadding="6" cellspacing="0" border="1">
+      <thead>
+        <tr>
+          <th align="left">Description</th>
+          <th align="right">Quantite</th>
+          <th align="right">Unitaire</th>
+          <th align="right">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${lineItems
+          .map(
+            (item) => `
+              <tr>
+                <td>${escapeHtml(item.description)}</td>
+                <td align="right">${item.quantity}</td>
+                <td align="right">${escapeHtml(
+                  formatMoney(
+                    centsToAmount(item.unitAmountCents),
+                    creditNote.currency
+                  )
+                )}</td>
+                <td align="right">${escapeHtml(
+                  formatMoney(
+                    centsToAmount(item.totalCents),
+                    creditNote.currency
+                  )
+                )}</td>
+              </tr>
+            `
+          )
+          .join('')}
+      </tbody>
+    </table>
+    <p>
+      <strong>Sous-total credite:</strong> ${escapeHtml(subtotal)}<br />
+      <strong>${escapeHtml(creditNote.taxLabel)}:</strong> ${escapeHtml(tax)}<br />
+      <strong>Total credite:</strong> ${escapeHtml(total)}
+    </p>
+    ${
+      sponsorMessage
+        ? `<p><strong>Message de notre equipe:</strong><br />${escapeHtml(
+            sponsorMessage
+          ).replaceAll('\n', '<br />')}</p>`
+        : ''
+    }
+    <p>
+      ${escapeHtml(
+        creditNote.notes ??
+          'Avoir de commandite descriptif emis apres remboursement Stripe. Ce document ne constitue pas un recu officiel de don de bienfaisance.'
+      )}
+    </p>
+  `;
+
+  return {
+    templateKey: 'sponsorship_credit_note',
+    subject,
+    text,
+    html,
+    metadata: {
+      creditNoteId: creditNote.id,
+      creditNoteNumber: creditNote.creditNoteNumber,
+      invoiceId: creditNote.invoiceId,
+      invoiceNumber: creditNote.invoiceNumber,
+      publicReference: creditNote.publicReference,
+      stripeRefundId: creditNote.stripeRefundId,
+      stripePaymentIntentId: creditNote.stripePaymentIntentId
+    }
+  };
+};
+
 const renderPublicationBatchFullNotification = (
   input: PublicationBatchFullEmailInput
 ): RenderedEmail => {
@@ -1242,6 +1426,18 @@ export const queueSponsorshipInvoiceEmail = async (
   input: SponsorshipInvoiceEmailInput
 ): Promise<EmailQueueResult> => {
   const rendered = renderSponsorshipInvoiceEmail(input);
+  return queueAndProcessEmail(pool, {
+    ...rendered,
+    to: input.to,
+    idempotencyKey: input.idempotencyKey
+  });
+};
+
+export const queueSponsorshipCreditNoteEmail = async (
+  pool: Pool | null,
+  input: SponsorshipCreditNoteEmailInput
+): Promise<EmailQueueResult> => {
+  const rendered = renderSponsorshipCreditNoteEmail(input);
   return queueAndProcessEmail(pool, {
     ...rendered,
     to: input.to,
