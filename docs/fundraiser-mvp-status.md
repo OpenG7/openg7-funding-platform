@@ -131,6 +131,7 @@ Precisions:
 - Route admin `/admin/fundraiser/expenses`.
 - Route admin `/admin/fundraiser/transparency`.
 - Route admin `/admin/fundraiser/audit`.
+- Route admin `/admin/fundraiser/email-queue`.
 - Endpoint `POST /api/admin/session` pour echanger le secret racine admin contre
   une session navigateur signee et expiree.
 - Endpoint `GET /api/admin/dashboard` pour les indicateurs prives du fonds.
@@ -148,6 +149,10 @@ Precisions:
   refuser, planifier ou marquer publies les brouillons commandites.
 - Endpoint `GET /api/admin/audit-log` pour lire le journal prive des actions
   admin sensibles.
+- Endpoints `GET /api/admin/email-queue` et
+  `POST /api/admin/email-queue/retry` pour voir les derniers courriels
+  en file/envoyes/echoues et relancer manuellement un message non envoye avec
+  audit admin.
 
 ### Lots de publication collective
 

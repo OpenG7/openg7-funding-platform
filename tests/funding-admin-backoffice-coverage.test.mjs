@@ -45,6 +45,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const invoicesPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts'
   );
+  const emailQueuePage = read(
+    'apps/funding-web/src/app/features/funding/pages/admin-email-queue-page/admin-email-queue-page.component.ts'
+  );
   const adminNav = read(
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts'
   );
@@ -94,6 +97,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminTransparencyPageComponent',
       "path: 'admin/fundraiser/audit'",
       'AdminAuditPageComponent',
+      "path: 'admin/fundraiser/email-queue'",
+      'AdminEmailQueuePageComponent',
       "path: 'admin/fundraiser/setup'",
       'AdminSetupPageComponent'
     ],
@@ -111,6 +116,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'routerLink="/admin/fundraiser/expenses"',
       'routerLink="/admin/fundraiser/transparency"',
       'routerLink="/admin/fundraiser/audit"',
+      'routerLink="/admin/fundraiser/email-queue"',
       'routerLink="/admin/fundraiser/setup"'
     ],
     'admin navigation'
@@ -137,6 +143,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       '/admin/setup-status',
       'sendEmailTest',
       '/admin/email/test',
+      'getEmailQueue',
+      '/admin/email-queue',
+      'retryEmailQueueMessage',
+      '/admin/email-queue/retry',
       'getSponsorshipInvoices',
       '/admin/sponsorship-invoices',
       'resendSponsorshipInvoice',
@@ -320,6 +330,24 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
+    emailQueuePage,
+    [
+      'AdminEmailQueueResponse',
+      'getEmailQueue',
+      'retryEmailQueueMessage',
+      'filteredMessages',
+      'statusFilter',
+      'retryMessage',
+      'Relancer',
+      'queued_count',
+      'failed_count',
+      'retryable_count',
+      'last_error'
+    ],
+    'admin email queue page'
+  );
+
+  assertIncludesAll(
     expensesPage,
     [
       'createExpense',
@@ -387,6 +415,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       "'/admin/dashboard'",
       "'/admin/setup-status'",
       "'/admin/email/test'",
+      "'/admin/email-queue'",
+      "'/admin/email-queue/retry'",
       "'/admin/sponsorship-invoices'",
       "'/admin/sponsorship-invoices/pdf'",
       "'/admin/sponsorship-invoices/resend'",
@@ -407,6 +437,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'buildAdminSetupStatus',
       'queueEmailConfigurationTest',
       'getEmailQueueStatus',
+      'listAdminEmailQueue',
+      'retryAdminEmailQueueMessage',
+      'email_queue.retry',
+      'AdminEmailQueueRetryResult',
       "'/admin/contributions'",
       "'/admin/contributions.csv'",
       "'/admin/session'",
@@ -468,7 +502,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'renderSponsorshipRejectionEmail',
       'renderSponsorshipRefundEmail',
       'renderSponsorshipCreditNoteEmail',
-      'refundHandling'
+      'refundHandling',
+      'listAdminEmailQueue',
+      'getAdminEmailQueueMessageById',
+      'retryAdminEmailQueueMessage',
+      "to_regclass('public.email_messages')",
+      'AdminEmailQueueResponse'
     ],
     'admin rejection email service'
   );
@@ -572,6 +611,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminSetupStatusResponse',
       'AdminEmailTestRequest',
       'AdminEmailTestResult',
+      'AdminEmailQueueResponse',
+      'AdminEmailQueueMessageRecord',
+      'AdminEmailQueueRetryRequest',
+      'AdminEmailQueueRetryResult',
       'AdminSponsorshipInvoiceRecord',
       'AdminSponsorshipCreditNoteRecord',
       'AdminSponsorshipInvoicesResponse',
@@ -602,11 +645,14 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     [
       '/admin/fundraiser',
       '/admin/fundraiser/setup',
+      '/admin/fundraiser/email-queue',
       '/admin/fundraiser/invoices',
       'POST /api/admin/session',
       'GET /api/admin/dashboard',
       'GET /api/admin/setup-status',
       'POST /api/admin/email/test',
+      'GET /api/admin/email-queue',
+      'POST /api/admin/email-queue/retry',
       'GET /api/admin/sponsorship-invoices',
       'GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>',
       'POST /api/admin/sponsorship-invoices/resend',

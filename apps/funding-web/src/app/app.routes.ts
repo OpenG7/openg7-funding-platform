@@ -4,6 +4,7 @@ import { CanMatchFn, Router, Routes } from '@angular/router';
 import { AdminAuditPageComponent } from './features/funding/pages/admin-audit-page/admin-audit-page.component.js';
 import { AdminContributionsPageComponent } from './features/funding/pages/admin-contributions-page/admin-contributions-page.component.js';
 import { AdminDashboardPageComponent } from './features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.js';
+import { AdminEmailQueuePageComponent } from './features/funding/pages/admin-email-queue-page/admin-email-queue-page.component.js';
 import { AdminExpensesPageComponent } from './features/funding/pages/admin-expenses-page/admin-expenses-page.component.js';
 import { AdminInvoicesPageComponent } from './features/funding/pages/admin-invoices-page/admin-invoices-page.component.js';
 import { AdminLoginPageComponent } from './features/funding/pages/admin-login-page/admin-login-page.component.js';
@@ -160,6 +161,11 @@ export const appRoutes: Routes = [
     path: 'admin/fundraiser/audit',
     canMatch: [adminSessionRequired],
     component: AdminAuditPageComponent
+  },
+  {
+    path: 'admin/fundraiser/email-queue',
+    canMatch: [adminSessionRequired],
+    component: AdminEmailQueuePageComponent
   },
   {
     path: 'admin/fundraiser/setup',

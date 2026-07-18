@@ -213,6 +213,8 @@ the PostgreSQL-backed launch path for real payments:
    present for a paid sponsorship, but do not submit it during the normal launch
    rehearsal. Also open `/admin/fundraiser/invoices` and confirm the page has
    the credit-note area and PDF download controls ready for refunded invoices.
+   Open `/admin/fundraiser/email-queue` and confirm the queue summary,
+   failed-message filter, and manual retry controls load for the admin session.
 7. Upload a small PNG/JPEG/WebP logo, confirm `GET /api/admin/sponsorships/logo`
    returns a private preview, approve the sponsorship, and confirm
    `/commanditaires` shows the logo only after consent and approval.

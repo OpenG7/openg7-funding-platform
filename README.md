@@ -183,6 +183,8 @@ POST /api/admin/publication-drafts/update
 GET /api/admin/audit-log
 GET /api/admin/setup-status
 POST /api/admin/email/test
+GET /api/admin/email-queue
+POST /api/admin/email-queue/retry
 GET /api/admin/sponsorship-invoices
 GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>
 POST /api/admin/sponsorship-invoices/resend
@@ -204,6 +206,11 @@ The operational setup page is available at `/admin/fundraiser/setup`. It
 checks Stripe, email, invoice, queue, database and environment readiness,
 includes a small in-app guide, and can send an admin email test through the
 queued email system without exposing secret values.
+
+The email queue page is available at `/admin/fundraiser/email-queue`. It lists
+recent queued, sending, sent and failed emails, summarizes retryable failures,
+and can manually retry an unsent message through `POST /api/admin/email-queue/retry`.
+Manual retries are recorded in the admin audit log.
 
 The sponsorship invoice page is available at `/admin/fundraiser/invoices`. It
 lists app-generated sponsorship invoices, shows Stripe references and latest
