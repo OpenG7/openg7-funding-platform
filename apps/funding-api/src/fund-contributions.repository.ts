@@ -145,10 +145,7 @@ export interface SponsorshipReviewInput {
 export type SponsorshipPublicationInput = AdminSponsorshipPublicationRequest;
 
 export type SponsorshipMutationStatus =
-  | 'updated'
-  | 'not_found'
-  | 'conflict'
-  | 'payment_not_eligible';
+  'updated' | 'not_found' | 'conflict' | 'payment_not_eligible';
 
 export interface SponsorshipReviewMutationResult {
   readonly status: SponsorshipMutationStatus;
@@ -410,7 +407,9 @@ const normalizeSponsorFeedTarget = (
 ): SponsorFeedTarget | null =>
   value && allowedSponsorFeedTargets.has(value) ? value : null;
 
-const normalizedNullableText = (value: string | null | undefined): string | null => {
+const normalizedNullableText = (
+  value: string | null | undefined
+): string | null => {
   const trimmed = value?.trim() ?? '';
   return trimmed.length > 0 ? trimmed : null;
 };
@@ -1371,6 +1370,60 @@ export const listAdminSponsorships = async (
   };
 };
 
+export const getAdminSponsorshipById = async (
+  pool: Pool | null,
+  contributionId: string
+): Promise<AdminSponsorshipRecord | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const query = await pool.query<AdminSponsorshipRow>(
+    `
+      SELECT
+        id::text AS id,
+        updated_at::text AS version,
+        public_reference,
+        contribution_type,
+        amount_cents::text AS amount_cents,
+        currency,
+        status AS payment_status,
+        paid_at::text AS paid_at,
+        public_name,
+        public_display_consent,
+        display_amount_consent,
+        sponsor_company_name,
+        sponsor_contact_name,
+        sponsor_contact_email,
+        sponsor_website_url,
+        sponsor_logo_url,
+        sponsor_message,
+        sponsor_details_submitted_at::text AS sponsor_details_submitted_at,
+        COALESCE(sponsor_review_status, 'pending_review') AS sponsor_review_status,
+        sponsor_review_note,
+        sponsor_reviewed_at::text AS sponsor_reviewed_at,
+        sponsor_public_slug,
+        sponsor_public_summary,
+        sponsor_feed_target,
+        sponsor_feed_channels,
+        COALESCE(sponsor_feed_status, 'not_planned') AS sponsor_feed_status,
+        sponsor_feed_public_url,
+        sponsor_feed_notes,
+        sponsor_visibility_updated_at::text AS sponsor_visibility_updated_at,
+        created_at::text AS created_at,
+        updated_at::text AS updated_at
+      FROM fund_contributions
+      WHERE id = $1::uuid
+        AND contribution_type = 'sponsorship_interest'
+        AND status IN ('paid', 'refunded', 'disputed')
+      LIMIT 1
+    `,
+    [contributionId]
+  );
+
+  return query.rows[0] ? mapAdminSponsorshipRow(query.rows[0]) : null;
+};
+
 export const updateSponsorshipReview = async (
   pool: Pool | null,
   input: SponsorshipReviewInput
@@ -1556,7 +1609,8 @@ export const updateSponsorshipPublication = async (
     (input.feedTarget ?? null) !==
       normalizeSponsorFeedTarget(targetRow.sponsor_feed_target) ||
     !sponsorFeedChannelsEqual(feedChannels, currentFeedChannels) ||
-    input.feedStatus !== normalizeSponsorFeedStatus(targetRow.sponsor_feed_status) ||
+    input.feedStatus !==
+      normalizeSponsorFeedStatus(targetRow.sponsor_feed_status) ||
     normalizedNullableText(input.feedPublicUrl) !==
       normalizedNullableText(targetRow.sponsor_feed_public_url);
 

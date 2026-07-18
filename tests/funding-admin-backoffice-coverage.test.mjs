@@ -52,6 +52,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     'apps/funding-web/src/app/features/funding/components/site-music/site-music.component.ts'
   );
   const api = read('apps/funding-api/src/main.ts');
+  const emailService = read(
+    'apps/funding-api/src/email-notification.service.ts'
+  );
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'
   );
@@ -250,6 +253,11 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'setTimeout(() => {',
       '}, 3000)',
       'reviewSuccessMessage',
+      'openRejectionPanel',
+      'confirmRejection',
+      'rejection-workflow',
+      'notifySponsor',
+      'refundHandling',
       'paymentEligibilityMessage',
       'canApproveSponsorship',
       'canSavePublication',
@@ -350,6 +358,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'getSponsorshipInvoiceById',
       'getAdminSponsorshipInvoiceById',
       'queueSponsorshipInvoiceEmail',
+      'queueSponsorshipRejectionEmail',
       'sponsorship_invoice.resend',
       'buildAdminSetupStatus',
       'queueEmailConfigurationTest',
@@ -392,6 +401,17 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'writeCsv'
     ],
     'admin API routes'
+  );
+
+  assertIncludesAll(
+    emailService,
+    [
+      "'sponsorship_rejection'",
+      'queueSponsorshipRejectionEmail',
+      'renderSponsorshipRejectionEmail',
+      'refundHandling'
+    ],
+    'admin rejection email service'
   );
 
   assertIncludesAll(
@@ -474,6 +494,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminSponsorshipInvoicesResponse',
       'AdminSponsorshipInvoiceResendRequest',
       'AdminSponsorshipInvoiceResendResult',
+      'AdminSponsorshipRejectionRefundHandling',
       'AdminPagination',
       'readonly version: string;',
       'readonly items: readonly AdminSponsorshipRecord[];',

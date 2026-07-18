@@ -33,6 +33,7 @@ import type {
   AdminSponsorLogoDeleteRequest,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
+  AdminSponsorshipRejectionRefundHandling,
   AdminSponsorshipInvoiceResendRequest,
   AdminSponsorshipInvoiceResendResult,
   AdminSponsorshipPublicationRequest,
@@ -82,7 +83,8 @@ import {
   processQueuedEmailMessages,
   queueEmailConfigurationTest,
   queuePublicationBatchFullNotification,
-  queueSponsorshipInvoiceEmail
+  queueSponsorshipInvoiceEmail,
+  queueSponsorshipRejectionEmail
 } from './email-notification.service.js';
 import {
   allowedSponsorFeedChannels,
@@ -90,6 +92,7 @@ import {
   allowedSponsorFeedTargets,
   clearSponsorshipLogoUrl,
   getAdminDashboard,
+  getAdminSponsorshipById,
   getAdminSponsorshipLogoUrl,
   allowedSponsorshipReviewStatuses,
   insertCheckoutSessionRecord,
@@ -455,6 +458,12 @@ const followupEditablePaymentStatuses = new Set([
   'refunded',
   'disputed'
 ]);
+const allowedSponsorshipRejectionRefundHandling =
+  new Set<AdminSponsorshipRejectionRefundHandling>([
+    'none',
+    'manual_required',
+    'manual_completed'
+  ]);
 
 const isNonEmptySponsorText = (
   value: unknown,
@@ -504,6 +513,14 @@ const isValidOptionalNonEmptyBoundedText = (
   (typeof value === 'string' &&
     value.trim().length > 0 &&
     value.trim().length <= maxLength);
+
+const isAllowedSponsorshipRejectionRefundHandling = (
+  value: unknown
+): value is AdminSponsorshipRejectionRefundHandling =>
+  typeof value === 'string' &&
+  allowedSponsorshipRejectionRefundHandling.has(
+    value as AdminSponsorshipRejectionRefundHandling
+  );
 
 const isValidOptionalPublicSlug = (value: unknown): boolean =>
   value === undefined ||
@@ -4068,6 +4085,24 @@ createServer(async (request, response) => {
       return;
     }
 
+    const reviewNote =
+      typeof parsed.reviewNote === 'string' ? parsed.reviewNote.trim() : '';
+    const isRejection = parsed.reviewStatus === 'rejected';
+    const notifySponsor = isRejection && parsed.notifySponsor !== false;
+    const notificationEmail =
+      typeof parsed.notificationEmail === 'string'
+        ? parsed.notificationEmail.trim()
+        : '';
+    const sponsorMessage =
+      typeof parsed.sponsorMessage === 'string'
+        ? parsed.sponsorMessage.trim()
+        : '';
+    const refundHandling: AdminSponsorshipRejectionRefundHandling = isRejection
+      ? (parsed.refundHandling ?? 'none')
+      : 'none';
+    const refundNote =
+      typeof parsed.refundNote === 'string' ? parsed.refundNote.trim() : '';
+
     if (
       !isValidOptionalBoundedText(
         parsed.reviewNote,
@@ -4076,6 +4111,61 @@ createServer(async (request, response) => {
     ) {
       writeJson(request, response, 400, {
         error: 'Review note is too long.'
+      });
+      return;
+    }
+
+    if (isRejection && !reviewNote) {
+      writeJson(request, response, 400, {
+        error: 'A rejection reason is required.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.sponsorMessage,
+        SPONSOR_MESSAGE_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor notification message is too long.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.refundNote,
+        ADMIN_REVIEW_NOTE_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Refund note is too long.'
+      });
+      return;
+    }
+
+    if (
+      isRejection &&
+      !isAllowedSponsorshipRejectionRefundHandling(refundHandling)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Invalid rejection refund handling.'
+      });
+      return;
+    }
+
+    if (notifySponsor && !isValidSponsorEmail(notificationEmail)) {
+      writeJson(request, response, 400, {
+        error: 'A valid sponsor notification email is required.'
+      });
+      return;
+    }
+
+    if (notifySponsor && !sponsorMessage) {
+      writeJson(request, response, 400, {
+        error: 'A sponsor-facing rejection message is required.'
       });
       return;
     }
@@ -4091,11 +4181,7 @@ createServer(async (request, response) => {
       const updated = await updateSponsorshipReview(dbPool, {
         contributionId: parsed.contributionId,
         reviewStatus: parsed.reviewStatus,
-        reviewNote:
-          typeof parsed.reviewNote === 'string' &&
-          parsed.reviewNote.trim().length > 0
-            ? parsed.reviewNote.trim()
-            : null,
+        reviewNote: reviewNote || null,
         expectedVersion: parsed.expectedVersion
       });
 
@@ -4107,9 +4193,44 @@ createServer(async (request, response) => {
         return;
       }
 
+      const updatedSponsorship = isRejection
+        ? await getAdminSponsorshipById(dbPool, parsed.contributionId)
+        : null;
+      const notificationResult =
+        notifySponsor && updatedSponsorship
+          ? await queueSponsorshipRejectionEmail(dbPool, {
+              to: notificationEmail,
+              contributionId: parsed.contributionId,
+              publicReference: updatedSponsorship.public_reference,
+              sponsorName:
+                updatedSponsorship.sponsor_company_name ??
+                updatedSponsorship.public_name ??
+                'commanditaire',
+              amount: updatedSponsorship.amount,
+              currency: updatedSponsorship.currency,
+              reviewReason: reviewNote,
+              sponsorMessage,
+              refundHandling,
+              refundNote: refundNote || undefined,
+              idempotencyKey: `sponsorship-rejection:${parsed.contributionId}:${updated.currentVersion}`
+            })
+          : null;
+
       const result: AdminSponsorshipReviewResult = {
         updated: updated.updated,
-        reviewStatus: parsed.reviewStatus
+        reviewStatus: parsed.reviewStatus,
+        ...(isRejection ? { refundHandling } : {}),
+        ...(notificationResult
+          ? {
+              notification: {
+                queued: notificationResult.queued,
+                attempted: notificationResult.attempted,
+                sent: notificationResult.sent,
+                messageId: notificationResult.messageId,
+                error: notificationResult.error
+              }
+            }
+          : {})
       };
       await insertAdminAuditLog(dbPool, {
         actor: getAdminAuditActor(request),
@@ -4119,7 +4240,18 @@ createServer(async (request, response) => {
         summary: `Sponsorship review set to ${parsed.reviewStatus}.`,
         metadata: {
           reviewStatus: parsed.reviewStatus,
-          hasReviewNote: Boolean(parsed.reviewNote?.trim())
+          hasReviewNote: Boolean(reviewNote),
+          ...(isRejection
+            ? {
+                notifySponsor,
+                notificationEmail: notifySponsor ? notificationEmail : null,
+                notificationMessageId: notificationResult?.messageId ?? null,
+                notificationSent: notificationResult?.sent ?? false,
+                notificationError: notificationResult?.error ?? null,
+                refundHandling,
+                hasRefundNote: Boolean(refundNote)
+              }
+            : {})
         }
       });
       writeJson(request, response, 200, result);

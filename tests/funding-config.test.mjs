@@ -1460,6 +1460,68 @@ test('Admin sponsor rows are color-coded by processing state', () => {
   assert.ok(page.includes("sponsorship.sponsor_feed_status === 'drafted'"));
 });
 
+test('Admin sponsor rejection requires a reason and can notify the sponsor', () => {
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const email = fs.readFileSync(
+    'apps/funding-api/src/email-notification.service.ts',
+    'utf8'
+  );
+
+  assert.ok(core.includes('AdminSponsorshipRejectionRefundHandling'));
+  assert.ok(core.includes('readonly notifySponsor?: boolean;'));
+  assert.ok(core.includes('readonly notificationEmail?: string;'));
+  assert.ok(core.includes('readonly sponsorMessage?: string;'));
+  assert.ok(core.includes('readonly refundHandling?:'));
+  assert.ok(core.includes('readonly notification?: {'));
+
+  assert.ok(service.includes('reviewSponsorship'));
+  assert.ok(service.includes('/admin/sponsorships/review'));
+
+  for (const marker of [
+    'openRejectionPanel',
+    'confirmRejection',
+    'rejection-workflow',
+    'rejectionValidationMessage',
+    'notifySponsor',
+    'recipientEmail',
+    'sponsorMessage',
+    'refundHandling',
+    'manual_required',
+    'manual_completed'
+  ]) {
+    assert.ok(page.includes(marker), `sponsors page must include ${marker}`);
+  }
+
+  assert.ok(api.includes('A rejection reason is required.'));
+  assert.ok(api.includes('A valid sponsor notification email is required.'));
+  assert.ok(api.includes('A sponsor-facing rejection message is required.'));
+  assert.ok(api.includes('isAllowedSponsorshipRejectionRefundHandling'));
+  assert.ok(api.includes('queueSponsorshipRejectionEmail'));
+  assert.ok(api.includes('refundHandling'));
+  assert.ok(api.includes('notificationMessageId'));
+
+  assert.ok(repository.includes('getAdminSponsorshipById'));
+  assert.ok(repository.includes('mapAdminSponsorshipRow'));
+
+  assert.ok(email.includes("'sponsorship_rejection'"));
+  assert.ok(email.includes('renderSponsorshipRejectionEmail'));
+  assert.ok(email.includes('queueSponsorshipRejectionEmail'));
+  assert.ok(email.includes('rejectionRefundHandlingLabel'));
+});
+
 test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = fs.readFileSync(
@@ -1634,9 +1696,11 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
   for (const marker of [
     'type EmailTemplateKey =',
     "'sponsorship_confirmation'",
+    "'sponsorship_rejection'",
     "'sponsorship_invoice'",
     "'email_configuration_test'",
     'queueSponsorshipInvoiceEmail',
+    'queueSponsorshipRejectionEmail',
     'queueSponsorshipConfirmationEmail',
     'queueSponsorshipFollowupEmail',
     'queueEmailConfigurationTest',
