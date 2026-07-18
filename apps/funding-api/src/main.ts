@@ -121,6 +121,12 @@ import { getPublicTransparencySummary } from './fund-transparency.repository.js'
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
 import {
+  renderSponsorshipCreditNotePdf,
+  renderSponsorshipInvoicePdf,
+  sponsorshipCreditNotePdfFilename,
+  sponsorshipInvoicePdfFilename
+} from './sponsorship-document-pdf.service.js';
+import {
   createSponsorshipCreditNoteForRefund,
   getAdminSponsorshipInvoiceById,
   getAdminSponsorshipCreditNoteById,
@@ -356,6 +362,19 @@ const writeBinary = (
     'Content-Type': contentType
   });
   response.end(payload);
+};
+
+const writePdf = (
+  request: ApiRequest,
+  response: ApiResponse,
+  statusCode: number,
+  payload: Buffer,
+  filename: string
+): void => {
+  writeBinary(request, response, statusCode, payload, 'application/pdf', {
+    'Cache-Control': 'no-store',
+    'Content-Disposition': `attachment; filename="${filename}"`
+  });
 };
 
 const resolveAllowedOrigin = (request: ApiRequest): string | null => {
@@ -1477,8 +1496,12 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/email/test',
       '/admin/sponsorship-invoices',
       '/api/admin/sponsorship-invoices',
+      '/admin/sponsorship-invoices/pdf',
+      '/api/admin/sponsorship-invoices/pdf',
       '/admin/sponsorship-invoices/resend',
       '/api/admin/sponsorship-invoices/resend',
+      '/admin/sponsorship-credit-notes/pdf',
+      '/api/admin/sponsorship-credit-notes/pdf',
       '/admin/sponsorship-credit-notes/resend',
       '/api/admin/sponsorship-credit-notes/resend',
       '/admin/dashboard',
@@ -2870,6 +2893,61 @@ createServer(async (request, response) => {
   }
 
   if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorship-invoices/pdf',
+      '/api/admin/sponsorship-invoices/pdf'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    if (!dbPool) {
+      writeJson(request, response, 503, {
+        error: 'Invoice PDF requires DATABASE_URL and migration 011.'
+      });
+      return;
+    }
+
+    const invoiceId =
+      new URL(request.url ?? '/', publicBaseOrigin).searchParams
+        .get('invoiceId')
+        ?.trim() ?? '';
+    if (!isValidUuid(invoiceId)) {
+      writeJson(request, response, 400, {
+        error: 'Invoice id is invalid.'
+      });
+      return;
+    }
+
+    try {
+      const invoice = await getSponsorshipInvoiceById(dbPool, invoiceId);
+      if (!invoice) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship invoice was not found.'
+        });
+        return;
+      }
+
+      writePdf(
+        request,
+        response,
+        200,
+        await renderSponsorshipInvoicePdf(invoice),
+        sponsorshipInvoicePdfFilename(invoice)
+      );
+    } catch (error) {
+      console.error('Failed to generate sponsorship invoice PDF.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship invoice PDF could not be generated.'
+      });
+    }
+    return;
+  }
+
+  if (
     request.method === 'POST' &&
     routeMatches(
       request.url,
@@ -2975,6 +3053,64 @@ createServer(async (request, response) => {
       writeJson(request, response, 502, {
         error:
           'Sponsorship invoice could not be resent. Check migrations 011 and 012 and email queue configuration.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorship-credit-notes/pdf',
+      '/api/admin/sponsorship-credit-notes/pdf'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    if (!dbPool) {
+      writeJson(request, response, 503, {
+        error: 'Credit note PDF requires DATABASE_URL and migration 012.'
+      });
+      return;
+    }
+
+    const creditNoteId =
+      new URL(request.url ?? '/', publicBaseOrigin).searchParams
+        .get('creditNoteId')
+        ?.trim() ?? '';
+    if (!isValidUuid(creditNoteId)) {
+      writeJson(request, response, 400, {
+        error: 'Credit note id is invalid.'
+      });
+      return;
+    }
+
+    try {
+      const creditNote = await getSponsorshipCreditNoteById(
+        dbPool,
+        creditNoteId
+      );
+      if (!creditNote) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship credit note was not found.'
+        });
+        return;
+      }
+
+      writePdf(
+        request,
+        response,
+        200,
+        await renderSponsorshipCreditNotePdf(creditNote),
+        sponsorshipCreditNotePdfFilename(creditNote)
+      );
+    } catch (error) {
+      console.error('Failed to generate sponsorship credit note PDF.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship credit note PDF could not be generated.'
       });
     }
     return;

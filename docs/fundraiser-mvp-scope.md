@@ -141,7 +141,7 @@ Exclu du MVP:
 - generation de brouillons OpenG7/OpenG20;
 - feeds OpenG7/OpenG20;
 - integration LinkedIn/Facebook;
-- PDF de facture et recus officiels de don;
+- recus officiels de don;
 - taxes;
 - audit log metier complet;
 - roles et permissions avances;
@@ -234,15 +234,15 @@ Decision MVP:
 
 Routes a traiter dans le premier lot code:
 
-| Route | Decision MVP |
-| --- | --- |
-| `/` | Accueil existant conserve. |
-| `/fonds-des-batisseurs` | Route canonique a ajouter vers la page Fonds. |
-| `/en` | Accueil anglais existant conserve. |
-| `/en/fonds-des-batisseurs` | Route canonique anglaise a ajouter. |
-| `/fonds-des-batisseurs/a-propos` | Conserver. |
-| `/fonds-des-batisseurs/transparence` | Conserver, puis enrichir plus tard. |
-| `/batisseurs` | Reporter ou garder une page tres simple apres le coeur paiement/DB. |
+| Route                                | Decision MVP                                                        |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| `/`                                  | Accueil existant conserve.                                          |
+| `/fonds-des-batisseurs`              | Route canonique a ajouter vers la page Fonds.                       |
+| `/en`                                | Accueil anglais existant conserve.                                  |
+| `/en/fonds-des-batisseurs`           | Route canonique anglaise a ajouter.                                 |
+| `/fonds-des-batisseurs/a-propos`     | Conserver.                                                          |
+| `/fonds-des-batisseurs/transparence` | Conserver, puis enrichir plus tard.                                 |
+| `/batisseurs`                        | Reporter ou garder une page tres simple apres le coeur paiement/DB. |
 
 SEO a verifier:
 
@@ -390,15 +390,15 @@ Validation:
 
 ## 9. Risques et mitigations
 
-| Risque | Mitigation MVP |
-| --- | --- |
-| Confusion avec un don de bienfaisance | Mention non-charite visible avant paiement. |
-| Double comptabilisation Stripe | Webhooks signes et `stripe_event_id` unique. |
-| Publication de donnees privees | Endpoints publics agreges et champs filtres. |
+| Risque                                  | Mitigation MVP                                                        |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| Confusion avec un don de bienfaisance   | Mention non-charite visible avant paiement.                           |
+| Double comptabilisation Stripe          | Webhooks signes et `stripe_event_id` unique.                          |
+| Publication de donnees privees          | Endpoints publics agreges et champs filtres.                          |
 | Visibilite commanditee promise trop tot | Commandite limitee a `sponsorship_interest` avec validation manuelle. |
-| DB exposee publiquement | Docker reseau prive, pas de port `5432` public. |
-| MVP trop large | Exclure admin, feeds, PDF, logos et automatisations sociales. |
-| Regressions prerender/SEO | Modifier routes, SSR et sitemap dans le meme lot. |
+| DB exposee publiquement                 | Docker reseau prive, pas de port `5432` public.                       |
+| MVP trop large                          | Exclure admin, feeds, PDF, logos et automatisations sociales.         |
+| Regressions prerender/SEO               | Modifier routes, SSR et sitemap dans le meme lot.                     |
 
 ---
 

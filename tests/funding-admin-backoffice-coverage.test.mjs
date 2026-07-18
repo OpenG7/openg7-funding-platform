@@ -55,6 +55,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const emailService = read(
     'apps/funding-api/src/email-notification.service.ts'
   );
+  const pdfService = read(
+    'apps/funding-api/src/sponsorship-document-pdf.service.ts'
+  );
+  const apiPackage = read('apps/funding-api/package.json');
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'
   );
@@ -137,8 +141,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       '/admin/sponsorship-invoices',
       'resendSponsorshipInvoice',
       '/admin/sponsorship-invoices/resend',
+      'getSponsorshipInvoicePdf',
+      '/admin/sponsorship-invoices/pdf',
       'resendSponsorshipCreditNote',
       '/admin/sponsorship-credit-notes/resend',
+      'getSponsorshipCreditNotePdf',
+      '/admin/sponsorship-credit-notes/pdf',
       'getContributions',
       '/admin/contributions',
       'getContributionsCsv',
@@ -291,6 +299,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'selectedInvoiceId',
       'credit_notes',
       'credit-notes-panel',
+      'downloadInvoicePdf',
+      'downloadCreditNotePdf',
+      'Telecharger PDF',
+      'saveBlob',
       'last_email_status',
       'last_email_recipient',
       'credit_note_number',
@@ -373,11 +385,16 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       "'/admin/setup-status'",
       "'/admin/email/test'",
       "'/admin/sponsorship-invoices'",
+      "'/admin/sponsorship-invoices/pdf'",
       "'/admin/sponsorship-invoices/resend'",
+      "'/admin/sponsorship-credit-notes/pdf'",
       "'/admin/sponsorship-credit-notes/resend'",
       'listAdminSponsorshipInvoices',
       'getSponsorshipInvoiceById',
       'getAdminSponsorshipInvoiceById',
+      'renderSponsorshipInvoicePdf',
+      'renderSponsorshipCreditNotePdf',
+      "'application/pdf'",
       'queueSponsorshipInvoiceEmail',
       'queueSponsorshipCreditNoteEmail',
       'queueSponsorshipRejectionEmail',
@@ -452,6 +469,20 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     ],
     'admin rejection email service'
   );
+
+  assertIncludesAll(
+    pdfService,
+    [
+      "import PDFDocument from 'pdfkit';",
+      'renderSponsorshipInvoicePdf',
+      'renderSponsorshipCreditNotePdf',
+      'sponsorshipInvoicePdfFilename',
+      'sponsorshipCreditNotePdfFilename'
+    ],
+    'admin sponsorship PDF service'
+  );
+
+  assertIncludesAll(apiPackage, ['"pdfkit"', '"@types/pdfkit"'], 'API package');
 
   assertIncludesAll(
     repository,
@@ -570,7 +601,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'GET /api/admin/setup-status',
       'POST /api/admin/email/test',
       'GET /api/admin/sponsorship-invoices',
+      'GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>',
       'POST /api/admin/sponsorship-invoices/resend',
+      'GET /api/admin/sponsorship-credit-notes/pdf?creditNoteId=<uuid>',
       'POST /api/admin/sponsorship-credit-notes/resend',
       'POST /api/admin/sponsorships/logo',
       'GET /api/admin/sponsorships/logo',

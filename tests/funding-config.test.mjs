@@ -1908,6 +1908,10 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'apps/funding-api/src/email-notification.service.ts',
     'utf8'
   );
+  const pdfService = fs.readFileSync(
+    'apps/funding-api/src/sponsorship-document-pdf.service.ts',
+    'utf8'
+  );
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const readme = fs.readFileSync('README.md', 'utf8');
 
@@ -1919,13 +1923,21 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(service.includes('/admin/sponsorship-invoices'));
   assert.ok(service.includes('resendSponsorshipInvoice'));
   assert.ok(service.includes('/admin/sponsorship-invoices/resend'));
+  assert.ok(service.includes('getSponsorshipInvoicePdf'));
+  assert.ok(service.includes('/admin/sponsorship-invoices/pdf'));
   assert.ok(service.includes('resendSponsorshipCreditNote'));
   assert.ok(service.includes('/admin/sponsorship-credit-notes/resend'));
+  assert.ok(service.includes('getSponsorshipCreditNotePdf'));
+  assert.ok(service.includes('/admin/sponsorship-credit-notes/pdf'));
 
   for (const marker of [
     'selectedInvoice',
     'credit_notes',
     'credit-notes-panel',
+    'downloadInvoicePdf',
+    'downloadCreditNotePdf',
+    'Telecharger PDF',
+    'saveBlob',
     'last_email_status',
     'last_email_recipient',
     'credit_note_number',
@@ -1944,13 +1956,20 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
 
   assert.ok(api.includes("'/admin/sponsorship-invoices'"));
   assert.ok(api.includes("'/api/admin/sponsorship-invoices'"));
+  assert.ok(api.includes("'/admin/sponsorship-invoices/pdf'"));
+  assert.ok(api.includes("'/api/admin/sponsorship-invoices/pdf'"));
   assert.ok(api.includes("'/admin/sponsorship-invoices/resend'"));
   assert.ok(api.includes("'/api/admin/sponsorship-invoices/resend'"));
+  assert.ok(api.includes("'/admin/sponsorship-credit-notes/pdf'"));
+  assert.ok(api.includes("'/api/admin/sponsorship-credit-notes/pdf'"));
   assert.ok(api.includes("'/admin/sponsorship-credit-notes/resend'"));
   assert.ok(api.includes("'/api/admin/sponsorship-credit-notes/resend'"));
   assert.ok(api.includes('listAdminSponsorshipInvoices'));
   assert.ok(api.includes('getSponsorshipInvoiceById'));
   assert.ok(api.includes('getSponsorshipCreditNoteById'));
+  assert.ok(api.includes('renderSponsorshipInvoicePdf'));
+  assert.ok(api.includes('renderSponsorshipCreditNotePdf'));
+  assert.ok(api.includes("'application/pdf'"));
   assert.ok(api.includes('queueSponsorshipInvoiceEmail'));
   assert.ok(api.includes('queueSponsorshipCreditNoteEmail'));
   assert.ok(api.includes('sponsorship_invoice.resend'));
@@ -1973,6 +1992,12 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     )
   );
 
+  assert.ok(pdfService.includes("import PDFDocument from 'pdfkit';"));
+  assert.ok(pdfService.includes('renderSponsorshipInvoicePdf'));
+  assert.ok(pdfService.includes('renderSponsorshipCreditNotePdf'));
+  assert.ok(pdfService.includes('sponsorshipInvoicePdfFilename'));
+  assert.ok(pdfService.includes('sponsorshipCreditNotePdfFilename'));
+
   assert.ok(core.includes('AdminSponsorshipInvoiceRecord'));
   assert.ok(core.includes('AdminSponsorshipCreditNoteRecord'));
   assert.ok(core.includes('AdminSponsorshipInvoicesResponse'));
@@ -1983,7 +2008,15 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
 
   assert.ok(readme.includes('/admin/fundraiser/invoices'));
   assert.ok(readme.includes('GET /api/admin/sponsorship-invoices'));
+  assert.ok(
+    readme.includes('GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>')
+  );
   assert.ok(readme.includes('POST /api/admin/sponsorship-invoices/resend'));
+  assert.ok(
+    readme.includes(
+      'GET /api/admin/sponsorship-credit-notes/pdf?creditNoteId=<uuid>'
+    )
+  );
   assert.ok(readme.includes('POST /api/admin/sponsorship-credit-notes/resend'));
   assert.ok(readme.includes('012_create_sponsorship_credit_notes.sql'));
 });

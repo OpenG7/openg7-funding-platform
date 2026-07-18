@@ -224,6 +224,34 @@ export class FundingAdminService {
     return (await response.json()) as AdminSponsorshipInvoiceResendResult;
   }
 
+  async getSponsorshipInvoicePdf(
+    token: string,
+    invoiceId: string
+  ): Promise<Blob> {
+    const params = new URLSearchParams({ invoiceId });
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorship-invoices/pdf?${params.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          ...(await this.createHeaders(token)),
+          Accept: 'application/pdf'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsorship invoice PDF could not be downloaded.'
+        )
+      );
+    }
+
+    return response.blob();
+  }
+
   async resendSponsorshipCreditNote(
     token: string,
     payload: AdminSponsorshipCreditNoteResendRequest
@@ -250,6 +278,34 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminSponsorshipCreditNoteResendResult;
+  }
+
+  async getSponsorshipCreditNotePdf(
+    token: string,
+    creditNoteId: string
+  ): Promise<Blob> {
+    const params = new URLSearchParams({ creditNoteId });
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorship-credit-notes/pdf?${params.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          ...(await this.createHeaders(token)),
+          Accept: 'application/pdf'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsorship credit note PDF could not be downloaded.'
+        )
+      );
+    }
+
+    return response.blob();
   }
 
   async getContributions(token: string): Promise<AdminContributionsResponse> {
