@@ -212,7 +212,7 @@ the PostgreSQL-backed launch path for real payments:
    Confirm the guided Stripe refund panel and optional sponsor email fields are
    present for a paid sponsorship, but do not submit it during the normal launch
    rehearsal. Also open `/admin/fundraiser/invoices` and confirm the page has
-   the credit-note area ready for refunded invoices.
+   the credit-note area and PDF download controls ready for refunded invoices.
 7. Upload a small PNG/JPEG/WebP logo, confirm `GET /api/admin/sponsorships/logo`
    returns a private preview, approve the sponsorship, and confirm
    `/commanditaires` shows the logo only after consent and approval.

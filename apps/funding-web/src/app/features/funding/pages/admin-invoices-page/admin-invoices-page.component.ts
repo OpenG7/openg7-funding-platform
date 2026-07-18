@@ -18,6 +18,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 type ResendState = 'idle' | 'sending' | 'sent' | 'error';
+type DownloadState = 'idle' | 'loading' | 'error';
 
 @Component({
   selector: 'openg7-admin-invoices-page',
@@ -54,7 +55,7 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
           aria-live="polite"
         >
           Impossible de charger les factures. Verifiez DATABASE_URL et la
-          migration 011.
+          migration 011/012.
         </p>
 
         <ng-container *ngIf="data() as response">
@@ -173,9 +174,29 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
                   <h2>{{ invoice.invoice_number }}</h2>
                   <p>{{ invoice.sponsor_name }}</p>
                 </div>
-                <strong>{{
-                  formatMoney(invoice.total, invoice.currency)
-                }}</strong>
+                <div class="detail-actions">
+                  <strong>{{
+                    formatMoney(invoice.total, invoice.currency)
+                  }}</strong>
+                  <button
+                    type="button"
+                    class="secondary-action"
+                    [disabled]="invoicePdfState() === 'loading'"
+                    (click)="downloadInvoicePdf(invoice)"
+                  >
+                    {{
+                      invoicePdfState() === 'loading'
+                        ? 'Preparation...'
+                        : 'Telecharger PDF'
+                    }}
+                  </button>
+                  <span
+                    class="download-message error"
+                    *ngIf="invoicePdfMessage()"
+                  >
+                    {{ invoicePdfMessage() }}
+                  </span>
+                </div>
               </header>
 
               <section class="detail-grid" aria-label="Identite facture">
@@ -309,6 +330,29 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
                   >
                     {{ emailStatusLabel(creditNote.last_email_status) }}
                   </span>
+
+                  <div class="document-actions">
+                    <button
+                      type="button"
+                      class="secondary-action"
+                      [disabled]="
+                        creditNotePdfStateFor(creditNote.id) === 'loading'
+                      "
+                      (click)="downloadCreditNotePdf(creditNote)"
+                    >
+                      {{
+                        creditNotePdfStateFor(creditNote.id) === 'loading'
+                          ? 'Preparation...'
+                          : 'Telecharger PDF'
+                      }}
+                    </button>
+                    <span
+                      class="download-message error"
+                      *ngIf="creditNotePdfMessageFor(creditNote.id)"
+                    >
+                      {{ creditNotePdfMessageFor(creditNote.id) }}
+                    </span>
+                  </div>
 
                   <label>
                     Destinataire avoir
@@ -536,8 +580,19 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
         padding: 0 0.95rem;
       }
 
+      .secondary-action {
+        background: #ffffff;
+        border: 1px solid rgba(23, 32, 51, 0.18);
+        border-radius: 0.4rem;
+        color: #172033;
+        font-weight: 900;
+        min-height: 2.35rem;
+        padding: 0 0.85rem;
+      }
+
       .admin-topbar button:disabled,
-      .primary-action:disabled {
+      .primary-action:disabled,
+      .secondary-action:disabled {
         cursor: not-allowed;
         opacity: 0.55;
       }
@@ -610,6 +665,7 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
       .invoice-list-panel header,
       .detail-header,
       .line-items header,
+      .credit-notes-panel header,
       .email-panel header {
         align-items: start;
         display: flex;
@@ -723,7 +779,14 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
         margin-top: 0.2rem;
       }
 
-      .detail-header > strong {
+      .detail-actions {
+        align-items: end;
+        display: grid;
+        gap: 0.45rem;
+        justify-items: end;
+      }
+
+      .detail-actions > strong {
         font-size: 1.4rem;
         white-space: nowrap;
       }
@@ -877,6 +940,13 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
         gap: 0.75rem;
       }
 
+      .document-actions {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+      }
+
       .resend-message {
         color: #4d5d78;
         font-weight: 850;
@@ -887,6 +957,15 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
       }
 
       .resend-message.error {
+        color: #9c2f28;
+      }
+
+      .download-message {
+        color: #4d5d78;
+        font-weight: 850;
+      }
+
+      .download-message.error {
         color: #9c2f28;
       }
 
@@ -936,6 +1015,7 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
 
         .admin-topbar,
         .detail-header,
+        .detail-actions,
         .line-items header,
         .credit-notes-panel header,
         .credit-note-title,
@@ -954,7 +1034,12 @@ type ResendState = 'idle' | 'sending' | 'sent' | 'error';
           grid-template-columns: 1fr;
         }
 
-        .detail-header > strong,
+        .detail-actions {
+          align-items: stretch;
+          justify-items: stretch;
+        }
+
+        .detail-actions > strong,
         .line-item small,
         .email-status,
         .credit-status {
@@ -972,9 +1057,13 @@ export class AdminInvoicesPageComponent implements OnInit {
   readonly resendState = signal<ResendState>('idle');
   readonly resendMessage = signal('');
   readonly resendEmail = signal('');
+  readonly invoicePdfState = signal<DownloadState>('idle');
+  readonly invoicePdfMessage = signal('');
   readonly creditNoteResendEmails = signal<Record<string, string>>({});
   readonly creditNoteResendStates = signal<Record<string, ResendState>>({});
   readonly creditNoteResendMessages = signal<Record<string, string>>({});
+  readonly creditNotePdfStates = signal<Record<string, DownloadState>>({});
+  readonly creditNotePdfMessages = signal<Record<string, string>>({});
   readonly selectedInvoiceId = signal('');
   readonly data = signal<AdminSponsorshipInvoicesResponse | null>(null);
   readonly invoices = computed(() => this.data()?.invoices ?? []);
@@ -1025,6 +1114,8 @@ export class AdminInvoicesPageComponent implements OnInit {
     this.ensureCreditNoteResendDrafts(invoice);
     this.resendState.set('idle');
     this.resendMessage.set('');
+    this.invoicePdfState.set('idle');
+    this.invoicePdfMessage.set('');
   }
 
   setResendEmail(event: Event): void {
@@ -1054,6 +1145,52 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   creditNoteResendMessageFor(id: string): string {
     return this.creditNoteResendMessages()[id] ?? '';
+  }
+
+  creditNotePdfStateFor(id: string): DownloadState {
+    return this.creditNotePdfStates()[id] ?? 'idle';
+  }
+
+  creditNotePdfMessageFor(id: string): string {
+    return this.creditNotePdfMessages()[id] ?? '';
+  }
+
+  async downloadInvoicePdf(
+    invoice: AdminSponsorshipInvoiceRecord
+  ): Promise<void> {
+    this.invoicePdfState.set('loading');
+    this.invoicePdfMessage.set('');
+
+    try {
+      const blob = await this.admin.getSponsorshipInvoicePdf(
+        this.adminToken(),
+        invoice.id
+      );
+      this.saveBlob(blob, this.pdfFilename(invoice.invoice_number));
+      this.invoicePdfState.set('idle');
+    } catch (error) {
+      this.invoicePdfState.set('error');
+      this.invoicePdfMessage.set(this.messageFromError(error));
+    }
+  }
+
+  async downloadCreditNotePdf(
+    creditNote: AdminSponsorshipCreditNoteRecord
+  ): Promise<void> {
+    this.setCreditNotePdfState(creditNote.id, 'loading');
+    this.setCreditNotePdfMessage(creditNote.id, '');
+
+    try {
+      const blob = await this.admin.getSponsorshipCreditNotePdf(
+        this.adminToken(),
+        creditNote.id
+      );
+      this.saveBlob(blob, this.pdfFilename(creditNote.credit_note_number));
+      this.setCreditNotePdfState(creditNote.id, 'idle');
+    } catch (error) {
+      this.setCreditNotePdfState(creditNote.id, 'error');
+      this.setCreditNotePdfMessage(creditNote.id, this.messageFromError(error));
+    }
   }
 
   async resendInvoice(): Promise<void> {
@@ -1284,6 +1421,40 @@ export class AdminInvoicesPageComponent implements OnInit {
       ...messages,
       [id]: message
     }));
+  }
+
+  private setCreditNotePdfState(id: string, state: DownloadState): void {
+    this.creditNotePdfStates.update((states) => ({
+      ...states,
+      [id]: state
+    }));
+  }
+
+  private setCreditNotePdfMessage(id: string, message: string): void {
+    this.creditNotePdfMessages.update((messages) => ({
+      ...messages,
+      [id]: message
+    }));
+  }
+
+  private saveBlob(blob: Blob, filename: string): void {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  private pdfFilename(documentNumber: string): string {
+    const safeDocumentNumber = documentNumber
+      .replace(/[^A-Za-z0-9._-]+/gu, '-')
+      .replace(/^-+|-+$/gu, '');
+    return `openg7-${safeDocumentNumber || 'document'}.pdf`;
   }
 
   private messageFromError(error: unknown): string {

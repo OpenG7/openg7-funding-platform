@@ -220,6 +220,9 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   remboursement Stripe complet guide, avec confirmation par reference publique,
   courriel optionnel au commanditaire, creation d'un avoir de commandite si la
   facture existe, verrou de version et audit admin.
+- Endpoints `GET /api/admin/sponsorship-invoices/pdf` et
+  `GET /api/admin/sponsorship-credit-notes/pdf` pour telecharger les PDF
+  descriptifs proteges par la session admin.
 - Endpoint `POST /api/admin/sponsorship-credit-notes/resend` pour renvoyer un
   avoir depuis la page admin Factures.
 - Endpoint `POST /api/admin/sponsorships/publication` pour preparer le profil
@@ -419,7 +422,7 @@ Les elements suivants restent volontairement hors perimetre:
 - publication automatique vers les feeds OpenG7/OpenG20;.0.
 
 - integration API LinkedIn/Facebook;
-- factures PDF et recus officiels de don;
+- recus officiels de don;
 - taxes;
 - audit log metier complet;
 - gestion avancee des partenaires;

@@ -184,7 +184,9 @@ GET /api/admin/audit-log
 GET /api/admin/setup-status
 POST /api/admin/email/test
 GET /api/admin/sponsorship-invoices
+GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>
 POST /api/admin/sponsorship-invoices/resend
+GET /api/admin/sponsorship-credit-notes/pdf?creditNoteId=<uuid>
 POST /api/admin/sponsorship-credit-notes/resend
 ```
 
@@ -206,8 +208,9 @@ queued email system without exposing secret values.
 The sponsorship invoice page is available at `/admin/fundraiser/invoices`. It
 lists app-generated sponsorship invoices, shows Stripe references and latest
 email delivery status, shows credit notes generated after guided Stripe
-refunds, and can resend either the invoice email or the credit-note email to
-the recorded sponsor contact or a corrected admin-entered address.
+refunds, downloads invoice or credit-note PDFs, and can resend either the
+invoice email or the credit-note email to the recorded sponsor contact or a
+corrected admin-entered address.
 
 ### Sponsorship review admin
 
@@ -260,7 +263,7 @@ refund, can queue a sponsor-facing refund confirmation email, and records the
 refund id/status plus notification result in the admin audit log. When a
 matching sponsorship invoice exists, the refund also creates an app-generated
 credit note tied to the Stripe refund; the credit note is visible and resendable
-from `/admin/fundraiser/invoices`.
+from `/admin/fundraiser/invoices`, with its own downloadable PDF.
 
 Sponsor logos can be uploaded by admins through
 `POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files
