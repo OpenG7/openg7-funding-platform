@@ -39,6 +39,10 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           <span aria-hidden="true">CO</span>
           Commandites
         </a>
+        <a routerLink="/admin/fundraiser/invoices" routerLinkActive="active">
+          <span aria-hidden="true">FA</span>
+          Factures
+        </a>
         <a
           routerLink="/admin/fundraiser/publications"
           routerLinkActive="active"

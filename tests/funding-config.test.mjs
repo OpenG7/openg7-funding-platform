@@ -1667,6 +1667,89 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
   assert.ok(envExample.includes('FUNDING_INVOICE_ISSUER_EMAIL='));
 });
 
+test('Admin sponsorship invoices can be listed and resent from the back-office', () => {
+  const routes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.ts',
+    'utf8'
+  );
+  const nav = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts',
+    'utf8'
+  );
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/sponsorship-invoices.repository.ts',
+    'utf8'
+  );
+  const email = fs.readFileSync(
+    'apps/funding-api/src/email-notification.service.ts',
+    'utf8'
+  );
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const readme = fs.readFileSync('README.md', 'utf8');
+
+  assert.ok(routes.includes("path: 'admin/fundraiser/invoices'"));
+  assert.ok(routes.includes('AdminInvoicesPageComponent'));
+  assert.ok(nav.includes('routerLink="/admin/fundraiser/invoices"'));
+
+  assert.ok(service.includes('getSponsorshipInvoices'));
+  assert.ok(service.includes('/admin/sponsorship-invoices'));
+  assert.ok(service.includes('resendSponsorshipInvoice'));
+  assert.ok(service.includes('/admin/sponsorship-invoices/resend'));
+
+  for (const marker of [
+    'selectedInvoice',
+    'last_email_status',
+    'last_email_recipient',
+    'invoice_number',
+    'line_items',
+    'stripe_session_id',
+    'resendInvoice()',
+    'Renvoyer'
+  ]) {
+    assert.ok(page.includes(marker), `invoice page must include ${marker}`);
+  }
+
+  assert.ok(api.includes("'/admin/sponsorship-invoices'"));
+  assert.ok(api.includes("'/api/admin/sponsorship-invoices'"));
+  assert.ok(api.includes("'/admin/sponsorship-invoices/resend'"));
+  assert.ok(api.includes("'/api/admin/sponsorship-invoices/resend'"));
+  assert.ok(api.includes('listAdminSponsorshipInvoices'));
+  assert.ok(api.includes('getSponsorshipInvoiceById'));
+  assert.ok(api.includes('queueSponsorshipInvoiceEmail'));
+  assert.ok(api.includes('sponsorship_invoice.resend'));
+  assert.ok(api.includes('AdminSponsorshipInvoiceResendResult'));
+
+  assert.ok(repository.includes('listAdminSponsorshipInvoices'));
+  assert.ok(repository.includes('getAdminSponsorshipInvoiceById'));
+  assert.ok(repository.includes('last_email_status'));
+  assert.ok(repository.includes("metadata->>'invoiceId'"));
+
+  assert.ok(email.includes('readonly followupUrl?: string;'));
+  assert.ok(
+    email.includes(
+      'Pour mettre a jour les informations de commandite, repondez a ce courriel.'
+    )
+  );
+
+  assert.ok(core.includes('AdminSponsorshipInvoiceRecord'));
+  assert.ok(core.includes('AdminSponsorshipInvoicesResponse'));
+  assert.ok(core.includes('AdminSponsorshipInvoiceResendRequest'));
+  assert.ok(core.includes('AdminSponsorshipInvoiceResendResult'));
+
+  assert.ok(readme.includes('/admin/fundraiser/invoices'));
+  assert.ok(readme.includes('GET /api/admin/sponsorship-invoices'));
+  assert.ok(readme.includes('POST /api/admin/sponsorship-invoices/resend'));
+});
+
 test('Admin setup page wraps Stripe and email configuration in a custom tour', () => {
   const routes = fs.readFileSync(
     'apps/funding-web/src/app/app.routes.ts',

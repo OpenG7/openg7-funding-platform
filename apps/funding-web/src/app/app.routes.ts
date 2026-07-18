@@ -5,6 +5,7 @@ import { AdminAuditPageComponent } from './features/funding/pages/admin-audit-pa
 import { AdminContributionsPageComponent } from './features/funding/pages/admin-contributions-page/admin-contributions-page.component.js';
 import { AdminDashboardPageComponent } from './features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.js';
 import { AdminExpensesPageComponent } from './features/funding/pages/admin-expenses-page/admin-expenses-page.component.js';
+import { AdminInvoicesPageComponent } from './features/funding/pages/admin-invoices-page/admin-invoices-page.component.js';
 import { AdminLoginPageComponent } from './features/funding/pages/admin-login-page/admin-login-page.component.js';
 import { AdminPublicationsPageComponent } from './features/funding/pages/admin-publications-page/admin-publications-page.component.js';
 import { AdminSetupPageComponent } from './features/funding/pages/admin-setup-page/admin-setup-page.component.js';
@@ -134,6 +135,11 @@ export const appRoutes: Routes = [
     path: 'admin/fundraiser/sponsors',
     canMatch: [adminSessionRequired],
     component: AdminSponsorsPageComponent
+  },
+  {
+    path: 'admin/fundraiser/invoices',
+    canMatch: [adminSessionRequired],
+    component: AdminInvoicesPageComponent
   },
   {
     path: 'admin/fundraiser/publications',

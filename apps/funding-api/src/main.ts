@@ -33,6 +33,8 @@ import type {
   AdminSponsorLogoDeleteRequest,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
+  AdminSponsorshipInvoiceResendRequest,
+  AdminSponsorshipInvoiceResendResult,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
   AdminSponsorshipReviewRequest,
@@ -79,7 +81,8 @@ import {
   getEmailQueueStatus,
   processQueuedEmailMessages,
   queueEmailConfigurationTest,
-  queuePublicationBatchFullNotification
+  queuePublicationBatchFullNotification,
+  queueSponsorshipInvoiceEmail
 } from './email-notification.service.js';
 import {
   allowedSponsorFeedChannels,
@@ -106,6 +109,11 @@ import {
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
+import {
+  getAdminSponsorshipInvoiceById,
+  getSponsorshipInvoiceById,
+  listAdminSponsorshipInvoices
+} from './sponsorship-invoices.repository.js';
 
 const parsePositiveIntegerEnv = (
   value: string | undefined,
@@ -1417,6 +1425,10 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/setup-status',
       '/admin/email/test',
       '/api/admin/email/test',
+      '/admin/sponsorship-invoices',
+      '/api/admin/sponsorship-invoices',
+      '/admin/sponsorship-invoices/resend',
+      '/api/admin/sponsorship-invoices/resend',
       '/admin/dashboard',
       '/api/admin/dashboard',
       '/admin/contributions',
@@ -2773,6 +2785,141 @@ createServer(async (request, response) => {
       console.error('Failed to send admin email test.', error);
       writeJson(request, response, 502, {
         error: 'Admin email test could not be queued.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorship-invoices',
+      '/api/admin/sponsorship-invoices'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await listAdminSponsorshipInvoices(dbPool);
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load admin sponsorship invoices.', error);
+      writeJson(request, response, 502, {
+        error:
+          'Admin sponsorship invoices could not be loaded. Apply migrations 010 and 011.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorship-invoices/resend',
+      '/api/admin/sponsorship-invoices/resend'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    if (!dbPool) {
+      writeJson(request, response, 503, {
+        error: 'Invoice resend requires DATABASE_URL and migration 011.'
+      });
+      return;
+    }
+
+    if (
+      !process.env.RESEND_API_KEY?.trim() ||
+      !process.env.FUNDING_EMAIL_FROM?.trim()
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Email provider is not configured.'
+      });
+      return;
+    }
+
+    let parsed: AdminSponsorshipInvoiceResendRequest;
+    try {
+      const body = await readBody(request, 16 * 1024);
+      parsed = JSON.parse(body) as AdminSponsorshipInvoiceResendRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid invoice resend request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.invoiceId)) {
+      writeJson(request, response, 400, {
+        error: 'Invoice id is invalid.'
+      });
+      return;
+    }
+
+    try {
+      const invoice = await getSponsorshipInvoiceById(dbPool, parsed.invoiceId);
+      if (!invoice) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship invoice was not found.'
+        });
+        return;
+      }
+
+      const recipient =
+        typeof parsed.to === 'string' && parsed.to.trim()
+          ? parsed.to.trim()
+          : (invoice.sponsorContactEmail ?? '');
+
+      if (!isValidSponsorEmail(recipient)) {
+        writeJson(request, response, 400, {
+          error: 'A valid invoice recipient email is required.'
+        });
+        return;
+      }
+
+      const result = await queueSponsorshipInvoiceEmail(dbPool, {
+        to: recipient,
+        invoice,
+        idempotencyKey: `admin-invoice-resend:${invoice.id}:${Date.now()}:${randomBytes(6).toString('hex')}`
+      });
+      const refreshedInvoice = await getAdminSponsorshipInvoiceById(
+        dbPool,
+        invoice.id
+      );
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'sponsorship_invoice.resend',
+        entityType: 'sponsorship_invoice',
+        entityId: invoice.id,
+        summary: `Sponsorship invoice ${invoice.invoiceNumber} resent.`,
+        metadata: {
+          messageId: result.messageId,
+          recipient,
+          sent: result.sent
+        }
+      });
+
+      const payload: AdminSponsorshipInvoiceResendResult = {
+        queued: result.queued,
+        attempted: result.attempted,
+        sent: result.sent,
+        messageId: result.messageId,
+        error: result.error,
+        invoice: refreshedInvoice
+      };
+      writeJson(request, response, 200, payload);
+    } catch (error) {
+      console.error('Failed to resend sponsorship invoice.', error);
+      writeJson(request, response, 502, {
+        error:
+          'Sponsorship invoice could not be resent. Check migration 011 and email queue configuration.'
       });
     }
     return;

@@ -42,6 +42,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const sponsorsPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
   );
+  const invoicesPage = read(
+    'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts'
+  );
   const adminNav = read(
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts'
   );
@@ -53,6 +56,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     'apps/funding-api/src/fund-contributions.repository.ts'
   );
   const adminRepository = read('apps/funding-api/src/fund-admin.repository.ts');
+  const invoiceRepository = read(
+    'apps/funding-api/src/sponsorship-invoices.repository.ts'
+  );
   const migration = read(
     'apps/funding-api/migrations/007_add_admin_audit_and_publication_drafts.sql'
   );
@@ -71,6 +77,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminDashboardPageComponent',
       "path: 'admin/fundraiser/contributions'",
       'AdminContributionsPageComponent',
+      "path: 'admin/fundraiser/invoices'",
+      'AdminInvoicesPageComponent',
       "path: 'admin/fundraiser/publications'",
       'AdminPublicationsPageComponent',
       "path: 'admin/fundraiser/expenses'",
@@ -91,6 +99,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'routerLink="/admin/fundraiser"',
       'routerLink="/admin/fundraiser/contributions"',
       'routerLink="/admin/fundraiser/sponsors"',
+      'routerLink="/admin/fundraiser/invoices"',
       'routerLink="/admin/fundraiser/publications"',
       'routerLink="/admin/fundraiser/expenses"',
       'routerLink="/admin/fundraiser/transparency"',
@@ -121,6 +130,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       '/admin/setup-status',
       'sendEmailTest',
       '/admin/email/test',
+      'getSponsorshipInvoices',
+      '/admin/sponsorship-invoices',
+      'resendSponsorshipInvoice',
+      '/admin/sponsorship-invoices/resend',
       'getContributions',
       '/admin/contributions',
       'getContributionsCsv',
@@ -239,6 +252,23 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
+    invoicesPage,
+    [
+      'getSponsorshipInvoices',
+      'resendSponsorshipInvoice',
+      'selectedInvoice',
+      'selectedInvoiceId',
+      'last_email_status',
+      'last_email_recipient',
+      'invoice_number',
+      'line_items',
+      'stripe_session_id',
+      'Renvoyer'
+    ],
+    'admin invoice page'
+  );
+
+  assertIncludesAll(
     expensesPage,
     [
       'createExpense',
@@ -306,6 +336,13 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       "'/admin/dashboard'",
       "'/admin/setup-status'",
       "'/admin/email/test'",
+      "'/admin/sponsorship-invoices'",
+      "'/admin/sponsorship-invoices/resend'",
+      'listAdminSponsorshipInvoices',
+      'getSponsorshipInvoiceById',
+      'getAdminSponsorshipInvoiceById',
+      'queueSponsorshipInvoiceEmail',
+      'sponsorship_invoice.resend',
       'buildAdminSetupStatus',
       'queueEmailConfigurationTest',
       'getEmailQueueStatus',
@@ -389,6 +426,19 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
+    invoiceRepository,
+    [
+      'listAdminSponsorshipInvoices',
+      'getSponsorshipInvoiceById',
+      'getAdminSponsorshipInvoiceById',
+      'last_email_status',
+      'latestInvoiceEmailJoin',
+      'AdminSponsorshipInvoicesResponse'
+    ],
+    'admin invoice repository'
+  );
+
+  assertIncludesAll(
     migration,
     [
       'admin_audit_log',
@@ -412,6 +462,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminSetupStatusResponse',
       'AdminEmailTestRequest',
       'AdminEmailTestResult',
+      'AdminSponsorshipInvoiceRecord',
+      'AdminSponsorshipInvoicesResponse',
+      'AdminSponsorshipInvoiceResendRequest',
+      'AdminSponsorshipInvoiceResendResult',
       'AdminPagination',
       'readonly version: string;',
       'readonly items: readonly AdminSponsorshipRecord[];',
@@ -431,10 +485,13 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     [
       '/admin/fundraiser',
       '/admin/fundraiser/setup',
+      '/admin/fundraiser/invoices',
       'POST /api/admin/session',
       'GET /api/admin/dashboard',
       'GET /api/admin/setup-status',
       'POST /api/admin/email/test',
+      'GET /api/admin/sponsorship-invoices',
+      'POST /api/admin/sponsorship-invoices/resend',
       'POST /api/admin/sponsorships/logo',
       'GET /api/admin/sponsorships/logo',
       'POST /api/admin/sponsorships/logo/delete',

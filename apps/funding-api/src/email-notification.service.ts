@@ -33,7 +33,7 @@ interface SponsorshipConfirmationEmailInput {
 interface SponsorshipInvoiceEmailInput {
   readonly to: string;
   readonly invoice: SponsorshipInvoiceRecord;
-  readonly followupUrl: string;
+  readonly followupUrl?: string;
   readonly idempotencyKey?: string;
 }
 
@@ -375,7 +375,27 @@ const renderSponsorshipInvoiceEmail = (
   );
   const issuedAt = formatDate(invoice.issuedAtIso);
   const paidAt = formatDate(invoice.paidAtIso);
-  const safeFollowupUrl = escapeHtml(input.followupUrl);
+  const followupUrl = input.followupUrl?.trim() ?? '';
+  const safeFollowupUrl = escapeHtml(followupUrl);
+  const followupText = followupUrl
+    ? ['Suivi de la commandite:', followupUrl]
+    : [
+        'Pour mettre a jour les informations de commandite, repondez a ce courriel.'
+      ];
+  const followupHtml = followupUrl
+    ? `
+      <p>
+        Suivi de la commandite:
+        <br />
+        <a href="${safeFollowupUrl}">${safeFollowupUrl}</a>
+      </p>
+    `
+    : `
+      <p>
+        Pour mettre a jour les informations de commandite, repondez a ce
+        courriel.
+      </p>
+    `;
   const lineItems = invoice.lineItems.length
     ? invoice.lineItems
     : [
@@ -434,8 +454,7 @@ const renderSponsorshipInvoiceEmail = (
       'Ce document ne constitue pas un recu officiel de don de bienfaisance.',
     'La visibilite publique associee a cette commandite reste soumise a validation manuelle.',
     '',
-    'Suivi de la commandite:',
-    input.followupUrl
+    ...followupText
   ].join('\n');
   const htmlLineItems = lineItems
     .map(
@@ -529,11 +548,7 @@ const renderSponsorshipInvoiceEmail = (
       La visibilite publique associee a cette commandite reste soumise a
       validation manuelle.
     </p>
-    <p>
-      Suivi de la commandite:
-      <br />
-      <a href="${safeFollowupUrl}">${safeFollowupUrl}</a>
-    </p>
+    ${followupHtml}
   `;
 
   return {
