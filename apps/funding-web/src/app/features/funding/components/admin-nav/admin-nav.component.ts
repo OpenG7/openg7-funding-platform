@@ -65,6 +65,10 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           <span aria-hidden="true">AU</span>
           Audit
         </a>
+        <a routerLink="/admin/fundraiser/email-queue" routerLinkActive="active">
+          <span aria-hidden="true">EQ</span>
+          Courriels
+        </a>
         <a routerLink="/admin/fundraiser/setup" routerLinkActive="active">
           <span aria-hidden="true">CF</span>
           Configuration

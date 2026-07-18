@@ -493,6 +493,58 @@ export interface AdminEmailTestResult {
   readonly error: string | null;
 }
 
+export type AdminEmailQueueMessageStatus =
+  'queued' | 'sending' | 'sent' | 'failed';
+
+export interface AdminEmailQueueMessageRecord {
+  readonly id: string;
+  readonly template_key: string;
+  readonly recipient_email: string;
+  readonly from_email: string;
+  readonly reply_to_email: string | null;
+  readonly subject: string;
+  readonly status: AdminEmailQueueMessageStatus;
+  readonly attempts: number;
+  readonly max_attempts: number;
+  readonly next_attempt_at: string;
+  readonly sent_at: string | null;
+  readonly last_error: string | null;
+  readonly metadata: Record<string, unknown>;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface AdminEmailQueueSummary {
+  readonly queued_count: number;
+  readonly sending_count: number;
+  readonly sent_count: number;
+  readonly failed_count: number;
+  readonly retryable_count: number;
+  readonly last_failed_at: string | null;
+  readonly last_error: string | null;
+}
+
+export interface AdminEmailQueueResponse {
+  readonly data_source: 'database';
+  readonly messages: readonly AdminEmailQueueMessageRecord[];
+  readonly summary: AdminEmailQueueSummary;
+  readonly last_updated_at: string;
+}
+
+export interface AdminEmailQueueRetryRequest {
+  readonly messageId: string;
+}
+
+export interface AdminEmailQueueRetryResult {
+  readonly attempted: number;
+  readonly sent: number;
+  readonly failed: number;
+  readonly messageIds: readonly string[];
+  readonly sentMessageIds: readonly string[];
+  readonly failedMessageIds: readonly string[];
+  readonly message: AdminEmailQueueMessageRecord | null;
+}
+
 export interface AdminSponsorshipInvoiceLineItem {
   readonly description: string;
   readonly quantity: number;

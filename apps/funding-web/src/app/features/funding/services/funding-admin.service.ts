@@ -3,6 +3,9 @@ import type {
   AdminAuditLogResponse,
   AdminContributionsResponse,
   AdminDashboardResponse,
+  AdminEmailQueueResponse,
+  AdminEmailQueueRetryRequest,
+  AdminEmailQueueRetryResult,
   AdminEmailTestRequest,
   AdminEmailTestResult,
   AdminExpenseCreateRequest,
@@ -171,6 +174,49 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminEmailTestResult;
+  }
+
+  async getEmailQueue(token: string): Promise<AdminEmailQueueResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/email-queue`, {
+      method: 'GET',
+      headers: await this.createHeaders(token)
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Admin email queue could not be loaded.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminEmailQueueResponse;
+  }
+
+  async retryEmailQueueMessage(
+    token: string,
+    payload: AdminEmailQueueRetryRequest
+  ): Promise<AdminEmailQueueRetryResult> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/email-queue/retry`, {
+      method: 'POST',
+      headers: {
+        ...(await this.createHeaders(token)),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Email queue message could not be retried.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminEmailQueueRetryResult;
   }
 
   async getSponsorshipInvoices(

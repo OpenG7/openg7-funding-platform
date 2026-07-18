@@ -15,6 +15,8 @@ import {
 import Stripe from 'stripe';
 import type {
   AdminContributionRecord,
+  AdminEmailQueueRetryRequest,
+  AdminEmailQueueRetryResult,
   AdminEmailTestRequest,
   AdminEmailTestResult,
   AdminExpenseCreateRequest,
@@ -84,13 +86,16 @@ import {
 import { dbPool, hasDatabase } from './database.js';
 import {
   getEmailQueueStatus,
+  getAdminEmailQueueMessageById,
+  listAdminEmailQueue,
   processQueuedEmailMessages,
   queueEmailConfigurationTest,
   queuePublicationBatchFullNotification,
   queueSponsorshipCreditNoteEmail,
   queueSponsorshipInvoiceEmail,
   queueSponsorshipRefundEmail,
-  queueSponsorshipRejectionEmail
+  queueSponsorshipRejectionEmail,
+  retryAdminEmailQueueMessage
 } from './email-notification.service.js';
 import {
   allowedSponsorFeedChannels,
@@ -1494,6 +1499,10 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/setup-status',
       '/admin/email/test',
       '/api/admin/email/test',
+      '/admin/email-queue',
+      '/api/admin/email-queue',
+      '/admin/email-queue/retry',
+      '/api/admin/email-queue/retry',
       '/admin/sponsorship-invoices',
       '/api/admin/sponsorship-invoices',
       '/admin/sponsorship-invoices/pdf',
@@ -2862,6 +2871,126 @@ createServer(async (request, response) => {
       console.error('Failed to send admin email test.', error);
       writeJson(request, response, 502, {
         error: 'Admin email test could not be queued.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/admin/email-queue', '/api/admin/email-queue')
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await listAdminEmailQueue(dbPool);
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load admin email queue.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin email queue could not be loaded. Apply migration 010.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/email-queue/retry',
+      '/api/admin/email-queue/retry'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    if (!dbPool) {
+      writeJson(request, response, 503, {
+        error: 'Email queue retry requires DATABASE_URL and migration 010.'
+      });
+      return;
+    }
+
+    let parsed: AdminEmailQueueRetryRequest;
+    try {
+      const body = await readBody(request, 16 * 1024);
+      const raw = JSON.parse(
+        body
+      ) as Partial<AdminEmailQueueRetryRequest> | null;
+      parsed = {
+        messageId: typeof raw?.messageId === 'string' ? raw.messageId : ''
+      };
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid email queue retry request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.messageId)) {
+      writeJson(request, response, 400, {
+        error: 'Email message id is invalid.'
+      });
+      return;
+    }
+
+    try {
+      const existing = await getAdminEmailQueueMessageById(
+        dbPool,
+        parsed.messageId
+      );
+      if (!existing) {
+        writeJson(request, response, 404, {
+          error: 'Email queue message was not found.'
+        });
+        return;
+      }
+
+      if (existing.status === 'sent') {
+        writeJson(request, response, 409, {
+          error: 'Sent email messages cannot be retried.'
+        });
+        return;
+      }
+
+      const retry = await retryAdminEmailQueueMessage(dbPool, parsed.messageId);
+      const message = await getAdminEmailQueueMessageById(
+        dbPool,
+        parsed.messageId
+      );
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'email_queue.retry',
+        entityType: 'email_message',
+        entityId: parsed.messageId,
+        summary: `Email queue message ${parsed.messageId} retried manually.`,
+        metadata: {
+          templateKey: existing.template_key,
+          recipientEmail: existing.recipient_email,
+          attempted: retry.attempted,
+          sent: retry.sent,
+          failed: retry.failed
+        }
+      });
+
+      const payload: AdminEmailQueueRetryResult = {
+        attempted: retry.attempted,
+        sent: retry.sent,
+        failed: retry.failed,
+        messageIds: retry.messageIds,
+        sentMessageIds: retry.sentMessageIds,
+        failedMessageIds: retry.failedMessageIds,
+        message
+      };
+      writeJson(request, response, 200, payload);
+    } catch (error) {
+      console.error('Failed to retry email queue message.', error);
+      writeJson(request, response, 502, {
+        error: 'Email queue message could not be retried.'
       });
     }
     return;

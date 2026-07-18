@@ -1893,6 +1893,83 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
   assert.ok(envExample.includes('FUNDING_INVOICE_ISSUER_EMAIL='));
 });
 
+test('Admin email queue page lists failed messages and retries them manually', () => {
+  const routes = fs.readFileSync(
+    'apps/funding-web/src/app/app.routes.ts',
+    'utf8'
+  );
+  const nav = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts',
+    'utf8'
+  );
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-email-queue-page/admin-email-queue-page.component.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const email = fs.readFileSync(
+    'apps/funding-api/src/email-notification.service.ts',
+    'utf8'
+  );
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const readme = fs.readFileSync('README.md', 'utf8');
+
+  assert.ok(routes.includes("path: 'admin/fundraiser/email-queue'"));
+  assert.ok(routes.includes('AdminEmailQueuePageComponent'));
+  assert.ok(nav.includes('routerLink="/admin/fundraiser/email-queue"'));
+
+  assert.ok(service.includes('getEmailQueue'));
+  assert.ok(service.includes('/admin/email-queue'));
+  assert.ok(service.includes('retryEmailQueueMessage'));
+  assert.ok(service.includes('/admin/email-queue/retry'));
+
+  for (const marker of [
+    'AdminEmailQueueResponse',
+    'filteredMessages',
+    'statusFilter',
+    'retryMessage',
+    'Relancer',
+    'queued_count',
+    'sending_count',
+    'sent_count',
+    'failed_count',
+    'retryable_count',
+    'last_failed_at',
+    'last_error'
+  ]) {
+    assert.ok(page.includes(marker), `email queue page must include ${marker}`);
+  }
+
+  assert.ok(api.includes("'/admin/email-queue'"));
+  assert.ok(api.includes("'/api/admin/email-queue'"));
+  assert.ok(api.includes("'/admin/email-queue/retry'"));
+  assert.ok(api.includes("'/api/admin/email-queue/retry'"));
+  assert.ok(api.includes('listAdminEmailQueue'));
+  assert.ok(api.includes('getAdminEmailQueueMessageById'));
+  assert.ok(api.includes('retryAdminEmailQueueMessage'));
+  assert.ok(api.includes('email_queue.retry'));
+  assert.ok(api.includes('AdminEmailQueueRetryResult'));
+
+  assert.ok(email.includes('listAdminEmailQueue'));
+  assert.ok(email.includes('getAdminEmailQueueMessageById'));
+  assert.ok(email.includes('retryAdminEmailQueueMessage'));
+  assert.ok(email.includes("to_regclass('public.email_messages')"));
+  assert.ok(email.includes('AdminEmailQueueResponse'));
+
+  assert.ok(core.includes('AdminEmailQueueMessageRecord'));
+  assert.ok(core.includes('AdminEmailQueueResponse'));
+  assert.ok(core.includes('AdminEmailQueueRetryRequest'));
+  assert.ok(core.includes('AdminEmailQueueRetryResult'));
+
+  assert.ok(readme.includes('/admin/fundraiser/email-queue'));
+  assert.ok(readme.includes('GET /api/admin/email-queue'));
+  assert.ok(readme.includes('POST /api/admin/email-queue/retry'));
+});
+
 test('Admin sponsorship invoices can be listed and resent from the back-office', () => {
   const routes = fs.readFileSync(
     'apps/funding-web/src/app/app.routes.ts',
