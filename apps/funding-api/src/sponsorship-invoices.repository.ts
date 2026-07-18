@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 
 import type { Pool } from 'pg';
+import type {
+  AdminSponsorshipInvoiceLineItem,
+  AdminSponsorshipInvoiceRecord,
+  AdminSponsorshipInvoicesResponse,
+  AdminSponsorshipInvoicesSummary
+} from '@openg7/funding-core';
 
 export interface SponsorshipInvoiceLineItem {
   readonly description: string;
@@ -71,6 +77,21 @@ interface SponsorshipInvoiceRow {
   readonly notes: string | null;
 }
 
+interface AdminSponsorshipInvoiceRow extends SponsorshipInvoiceRow {
+  readonly last_email_status: string | null;
+  readonly last_email_recipient: string | null;
+  readonly last_email_sent_at: string | null;
+  readonly last_email_error: string | null;
+}
+
+interface AdminSponsorshipInvoiceSummaryRow {
+  readonly total_count: string;
+  readonly total_amount: string;
+  readonly failed_email_count: string;
+  readonly currency: string;
+  readonly last_updated_at: string;
+}
+
 const invoicePrefix =
   process.env.FUNDING_SPONSORSHIP_INVOICE_PREFIX?.trim() || 'OG7-CMD';
 const invoiceIssuerName =
@@ -91,6 +112,9 @@ const invoiceLegalNote =
   'Facture de commandite descriptive. Ce document ne constitue pas un recu officiel de don de bienfaisance.';
 
 const parseDbInt = (value: string): number => Number.parseInt(value, 10);
+
+const centsToAmount = (value: number): number =>
+  Number((value / 100).toFixed(2));
 
 const normalizeText = (value: string | null | undefined): string | null => {
   const trimmed = value?.trim() ?? '';
@@ -128,7 +152,15 @@ const createInvoiceNumber = (
 const parseLineItems = (
   value: unknown
 ): readonly SponsorshipInvoiceLineItem[] => {
-  const raw = typeof value === 'string' ? JSON.parse(value) : value;
+  let raw = value;
+  if (typeof value === 'string') {
+    try {
+      raw = JSON.parse(value) as unknown;
+    } catch {
+      return [];
+    }
+  }
+
   if (!Array.isArray(raw)) {
     return [];
   }
@@ -190,6 +222,92 @@ const mapSponsorshipInvoiceRow = (
   lineItems: parseLineItems(row.line_items),
   notes: row.notes
 });
+
+const adminInvoiceLineItems = (
+  value: unknown
+): readonly AdminSponsorshipInvoiceLineItem[] =>
+  parseLineItems(value).map((item) => ({
+    description: item.description,
+    quantity: item.quantity,
+    unit_amount: centsToAmount(item.unitAmountCents),
+    total: centsToAmount(item.totalCents)
+  }));
+
+const mapAdminSponsorshipInvoiceRow = (
+  row: AdminSponsorshipInvoiceRow
+): AdminSponsorshipInvoiceRecord => ({
+  id: row.id,
+  contribution_id: row.contribution_id,
+  invoice_number: row.invoice_number,
+  public_reference: row.public_reference,
+  stripe_session_id: row.stripe_session_id,
+  stripe_payment_intent_id: row.stripe_payment_intent_id,
+  issued_at: row.issued_at,
+  paid_at: row.paid_at,
+  currency: row.currency.toUpperCase(),
+  subtotal: centsToAmount(parseDbInt(row.subtotal_cents)),
+  tax: centsToAmount(parseDbInt(row.tax_cents)),
+  total: centsToAmount(parseDbInt(row.total_cents)),
+  tax_label: row.tax_label,
+  issuer_name: row.issuer_name,
+  issuer_email: row.issuer_email,
+  issuer_address: row.issuer_address,
+  issuer_tax_id: row.issuer_tax_id,
+  sponsor_name: row.sponsor_name,
+  sponsor_contact_name: row.sponsor_contact_name,
+  sponsor_contact_email: row.sponsor_contact_email,
+  sponsor_website_url: row.sponsor_website_url,
+  line_items: adminInvoiceLineItems(row.line_items),
+  notes: row.notes,
+  last_email_status: row.last_email_status,
+  last_email_recipient: row.last_email_recipient,
+  last_email_sent_at: row.last_email_sent_at,
+  last_email_error: row.last_email_error
+});
+
+const sponsorshipInvoiceSelect = `
+  invoice.id::text AS id,
+  invoice.contribution_id::text AS contribution_id,
+  invoice.invoice_number,
+  invoice.public_reference,
+  invoice.stripe_session_id,
+  invoice.stripe_payment_intent_id,
+  invoice.issued_at::text AS issued_at,
+  invoice.paid_at::text AS paid_at,
+  invoice.currency,
+  invoice.subtotal_cents::text AS subtotal_cents,
+  invoice.tax_cents::text AS tax_cents,
+  invoice.total_cents::text AS total_cents,
+  invoice.tax_label,
+  invoice.issuer_name,
+  invoice.issuer_email,
+  invoice.issuer_address,
+  invoice.issuer_tax_id,
+  invoice.sponsor_name,
+  invoice.sponsor_contact_name,
+  invoice.sponsor_contact_email,
+  invoice.sponsor_website_url,
+  invoice.line_items,
+  invoice.notes
+`;
+
+const latestEmailSelect = `
+  latest_email.status AS last_email_status,
+  latest_email.recipient_email AS last_email_recipient,
+  latest_email.sent_at::text AS last_email_sent_at,
+  latest_email.last_error AS last_email_error
+`;
+
+const latestInvoiceEmailJoin = `
+  LEFT JOIN LATERAL (
+    SELECT status, recipient_email, sent_at, last_error
+    FROM email_messages
+    WHERE template_key = 'sponsorship_invoice'
+      AND metadata->>'invoiceId' = invoice.id::text
+    ORDER BY created_at DESC
+    LIMIT 1
+  ) latest_email ON TRUE
+`;
 
 export const createSponsorshipInvoiceForStripeSession = async (
   pool: Pool | null,
@@ -360,4 +478,116 @@ export const createSponsorshipInvoiceForStripeSession = async (
   );
 
   return result.rows[0] ? mapSponsorshipInvoiceRow(result.rows[0]) : null;
+};
+
+export const getSponsorshipInvoiceById = async (
+  pool: Pool | null,
+  invoiceId: string
+): Promise<SponsorshipInvoiceRecord | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const result = await pool.query<SponsorshipInvoiceRow>(
+    `
+      SELECT ${sponsorshipInvoiceSelect}
+      FROM sponsorship_invoices invoice
+      WHERE invoice.id = $1::uuid
+      LIMIT 1
+    `,
+    [invoiceId]
+  );
+
+  return result.rows[0] ? mapSponsorshipInvoiceRow(result.rows[0]) : null;
+};
+
+export const getAdminSponsorshipInvoiceById = async (
+  pool: Pool | null,
+  invoiceId: string
+): Promise<AdminSponsorshipInvoiceRecord | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const result = await pool.query<AdminSponsorshipInvoiceRow>(
+    `
+      SELECT ${sponsorshipInvoiceSelect}, ${latestEmailSelect}
+      FROM sponsorship_invoices invoice
+      ${latestInvoiceEmailJoin}
+      WHERE invoice.id = $1::uuid
+      LIMIT 1
+    `,
+    [invoiceId]
+  );
+
+  return result.rows[0] ? mapAdminSponsorshipInvoiceRow(result.rows[0]) : null;
+};
+
+export const listAdminSponsorshipInvoices = async (
+  pool: Pool | null
+): Promise<AdminSponsorshipInvoicesResponse> => {
+  const now = new Date().toISOString();
+  if (!pool) {
+    return {
+      data_source: 'database',
+      invoices: [],
+      summary: {
+        total_count: 0,
+        total_amount: 0,
+        failed_email_count: 0,
+        currency: 'CAD'
+      },
+      last_updated_at: now
+    };
+  }
+
+  const [invoiceResult, summaryResult] = await Promise.all([
+    pool.query<AdminSponsorshipInvoiceRow>(
+      `
+        SELECT ${sponsorshipInvoiceSelect}, ${latestEmailSelect}
+        FROM sponsorship_invoices invoice
+        ${latestInvoiceEmailJoin}
+        ORDER BY invoice.issued_at DESC, invoice.created_at DESC
+        LIMIT 250
+      `
+    ),
+    pool.query<AdminSponsorshipInvoiceSummaryRow>(
+      `
+        WITH latest_email AS (
+          SELECT DISTINCT ON (metadata->>'invoiceId')
+            metadata->>'invoiceId' AS invoice_id,
+            status
+          FROM email_messages
+          WHERE template_key = 'sponsorship_invoice'
+            AND metadata->>'invoiceId' IS NOT NULL
+          ORDER BY metadata->>'invoiceId', created_at DESC
+        )
+        SELECT
+          COUNT(invoice.id)::text AS total_count,
+          COALESCE(SUM(invoice.total_cents), 0)::text AS total_amount,
+          COALESCE(
+            SUM(CASE WHEN latest_email.status = 'failed' THEN 1 ELSE 0 END),
+            0
+          )::text AS failed_email_count,
+          COALESCE(MAX(invoice.currency), 'cad') AS currency,
+          COALESCE(MAX(invoice.updated_at), NOW())::text AS last_updated_at
+        FROM sponsorship_invoices invoice
+        LEFT JOIN latest_email ON latest_email.invoice_id = invoice.id::text
+      `
+    )
+  ]);
+  const summaryRow = summaryResult.rows[0];
+  const summary: AdminSponsorshipInvoicesSummary = {
+    total_count: parseDbInt(summaryRow?.total_count ?? '0'),
+    total_amount: centsToAmount(parseDbInt(summaryRow?.total_amount ?? '0')),
+    failed_email_count: parseDbInt(summaryRow?.failed_email_count ?? '0'),
+    currency: (summaryRow?.currency ?? 'cad').toUpperCase()
+  };
+
+  return {
+    data_source: 'database',
+    invoices: invoiceResult.rows.map(mapAdminSponsorshipInvoiceRow),
+    summary,
+    last_updated_at: summaryRow?.last_updated_at ?? now
+  };
 };

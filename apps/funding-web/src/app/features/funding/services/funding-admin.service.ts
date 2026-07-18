@@ -24,6 +24,9 @@ import type {
   AdminSetupStatusResponse,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
+  AdminSponsorshipInvoiceResendRequest,
+  AdminSponsorshipInvoiceResendResult,
+  AdminSponsorshipInvoicesResponse,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
   AdminSponsorshipReviewRequest,
@@ -164,6 +167,57 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminEmailTestResult;
+  }
+
+  async getSponsorshipInvoices(
+    token: string
+  ): Promise<AdminSponsorshipInvoicesResponse> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorship-invoices`,
+      {
+        method: 'GET',
+        headers: await this.createHeaders(token)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Admin sponsorship invoices could not be loaded.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminSponsorshipInvoicesResponse;
+  }
+
+  async resendSponsorshipInvoice(
+    token: string,
+    payload: AdminSponsorshipInvoiceResendRequest
+  ): Promise<AdminSponsorshipInvoiceResendResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorship-invoices/resend`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsorship invoice could not be resent.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminSponsorshipInvoiceResendResult;
   }
 
   async getContributions(token: string): Promise<AdminContributionsResponse> {

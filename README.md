@@ -181,6 +181,8 @@ POST /api/admin/publication-drafts/update
 GET /api/admin/audit-log
 GET /api/admin/setup-status
 POST /api/admin/email/test
+GET /api/admin/sponsorship-invoices
+POST /api/admin/sponsorship-invoices/resend
 ```
 
 The dashboard summarizes received funds, estimated availability, pending
@@ -197,6 +199,11 @@ The operational setup page is available at `/admin/fundraiser/setup`. It
 checks Stripe, email, invoice, queue, database and environment readiness,
 includes a small in-app guide, and can send an admin email test through the
 queued email system without exposing secret values.
+
+The sponsorship invoice page is available at `/admin/fundraiser/invoices`. It
+lists app-generated sponsorship invoices, shows Stripe references and latest
+email delivery status, and can resend the invoice email to the recorded sponsor
+contact or a corrected admin-entered address.
 
 ### Sponsorship review admin
 
