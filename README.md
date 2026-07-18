@@ -186,6 +186,7 @@ POST /api/admin/email/test
 GET /api/admin/email-queue
 POST /api/admin/email-queue/retry
 GET /api/admin/sponsorship-invoices
+POST /api/admin/sponsorship-invoices/backfill
 GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>
 POST /api/admin/sponsorship-invoices/resend
 GET /api/admin/sponsorship-credit-notes/pdf?creditNoteId=<uuid>
@@ -217,7 +218,9 @@ lists app-generated sponsorship invoices, shows Stripe references and latest
 email delivery status, shows credit notes generated after guided Stripe
 refunds, downloads invoice or credit-note PDFs, and can resend either the
 invoice email or the credit-note email to the recorded sponsor contact or a
-corrected admin-entered address.
+corrected admin-entered address. The same page can run
+`POST /api/admin/sponsorship-invoices/backfill` to generate missing invoices
+for historical paid sponsorships without emailing sponsors automatically.
 
 ### Sponsorship review admin
 

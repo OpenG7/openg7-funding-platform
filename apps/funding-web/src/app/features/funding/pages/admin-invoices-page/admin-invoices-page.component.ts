@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import type {
   AdminSponsorshipCreditNoteRecord,
+  AdminSponsorshipInvoiceBackfillResult,
   AdminSponsorshipInvoiceRecord,
   AdminSponsorshipInvoicesResponse
 } from '@openg7/funding-core';
@@ -19,6 +20,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 type ResendState = 'idle' | 'sending' | 'sent' | 'error';
 type DownloadState = 'idle' | 'loading' | 'error';
+type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
 @Component({
   selector: 'openg7-admin-invoices-page',
@@ -36,6 +38,19 @@ type DownloadState = 'idle' | 'loading' | 'error';
             <h1>Factures commandite</h1>
           </div>
           <nav>
+            <button
+              type="button"
+              (click)="backfillInvoices()"
+              [disabled]="
+                state() === 'loading' || backfillState() === 'sending'
+              "
+            >
+              {{
+                backfillState() === 'sending'
+                  ? 'Generation...'
+                  : 'Generer factures manquantes'
+              }}
+            </button>
             <button
               type="button"
               (click)="loadInvoices()"
@@ -56,6 +71,14 @@ type DownloadState = 'idle' | 'loading' | 'error';
         >
           Impossible de charger les factures. Verifiez DATABASE_URL et la
           migration 011/012.
+        </p>
+        <p
+          class="state"
+          [class.state-error]="backfillState() === 'error'"
+          *ngIf="backfillMessage()"
+          aria-live="polite"
+        >
+          {{ backfillMessage() }}
         </p>
 
         <ng-container *ngIf="data() as response">
@@ -528,6 +551,13 @@ type DownloadState = 'idle' | 'loading' | 'error';
       .admin-topbar div {
         display: grid;
         gap: 0.2rem;
+      }
+
+      .admin-topbar nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        justify-content: flex-end;
       }
 
       .admin-topbar span,
@@ -1054,6 +1084,8 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   readonly adminToken = signal('');
   readonly state = signal<LoadState>('idle');
+  readonly backfillState = signal<BackfillState>('idle');
+  readonly backfillMessage = signal('');
   readonly resendState = signal<ResendState>('idle');
   readonly resendMessage = signal('');
   readonly resendEmail = signal('');
@@ -1121,6 +1153,28 @@ export class AdminInvoicesPageComponent implements OnInit {
   setResendEmail(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.resendEmail.set(input.value);
+  }
+
+  async backfillInvoices(): Promise<void> {
+    const token = this.adminToken() || this.admin.getSavedAdminToken();
+    this.adminToken.set(token);
+    this.backfillState.set('sending');
+    this.backfillMessage.set('');
+
+    try {
+      const result = await this.admin.backfillSponsorshipInvoices(token, {
+        limit: 250
+      });
+      const message = this.backfillResultMessage(result);
+      this.backfillState.set(result.failed_count > 0 ? 'error' : 'done');
+      this.backfillMessage.set(message);
+      await this.loadInvoices();
+      this.backfillState.set(result.failed_count > 0 ? 'error' : 'done');
+      this.backfillMessage.set(message);
+    } catch (error) {
+      this.backfillState.set('error');
+      this.backfillMessage.set(this.messageFromError(error));
+    }
   }
 
   creditNoteResendEmail(creditNote: AdminSponsorshipCreditNoteRecord): string {
@@ -1455,6 +1509,25 @@ export class AdminInvoicesPageComponent implements OnInit {
       .replace(/[^A-Za-z0-9._-]+/gu, '-')
       .replace(/^-+|-+$/gu, '');
     return `openg7-${safeDocumentNumber || 'document'}.pdf`;
+  }
+
+  private backfillResultMessage(
+    result: AdminSponsorshipInvoiceBackfillResult
+  ): string {
+    if (result.eligible_count === 0) {
+      return 'Aucune commandite payee admissible a facturer.';
+    }
+
+    if (result.missing_count === 0) {
+      return `Backfill termine: aucune facture manquante, ${result.skipped_count} deja presente(s).`;
+    }
+
+    const remaining =
+      result.remaining_count > 0
+        ? ` ${result.remaining_count} restante(s): relancez le backfill.`
+        : '';
+
+    return `Backfill termine: ${result.created_count} facture(s) creee(s), ${result.skipped_count} deja presente(s), ${result.failed_count} erreur(s).${remaining}`;
   }
 
   private messageFromError(error: unknown): string {

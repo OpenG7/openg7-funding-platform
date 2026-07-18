@@ -2009,6 +2009,8 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
 
   assert.ok(service.includes('getSponsorshipInvoices'));
   assert.ok(service.includes('/admin/sponsorship-invoices'));
+  assert.ok(service.includes('backfillSponsorshipInvoices'));
+  assert.ok(service.includes('/admin/sponsorship-invoices/backfill'));
   assert.ok(service.includes('resendSponsorshipInvoice'));
   assert.ok(service.includes('/admin/sponsorship-invoices/resend'));
   assert.ok(service.includes('getSponsorshipInvoicePdf'));
@@ -2024,6 +2026,12 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'credit-notes-panel',
     'downloadInvoicePdf',
     'downloadCreditNotePdf',
+    'backfillInvoices',
+    'backfillResultMessage',
+    'backfillSponsorshipInvoices',
+    'Generer factures manquantes',
+    'created_count',
+    'remaining_count',
     'Telecharger PDF',
     'saveBlob',
     'last_email_status',
@@ -2044,6 +2052,8 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
 
   assert.ok(api.includes("'/admin/sponsorship-invoices'"));
   assert.ok(api.includes("'/api/admin/sponsorship-invoices'"));
+  assert.ok(api.includes("'/admin/sponsorship-invoices/backfill'"));
+  assert.ok(api.includes("'/api/admin/sponsorship-invoices/backfill'"));
   assert.ok(api.includes("'/admin/sponsorship-invoices/pdf'"));
   assert.ok(api.includes("'/api/admin/sponsorship-invoices/pdf'"));
   assert.ok(api.includes("'/admin/sponsorship-invoices/resend'"));
@@ -2053,6 +2063,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(api.includes("'/admin/sponsorship-credit-notes/resend'"));
   assert.ok(api.includes("'/api/admin/sponsorship-credit-notes/resend'"));
   assert.ok(api.includes('listAdminSponsorshipInvoices'));
+  assert.ok(api.includes('backfillMissingSponsorshipInvoices'));
   assert.ok(api.includes('getSponsorshipInvoiceById'));
   assert.ok(api.includes('getSponsorshipCreditNoteById'));
   assert.ok(api.includes('renderSponsorshipInvoicePdf'));
@@ -2061,11 +2072,16 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(api.includes('queueSponsorshipInvoiceEmail'));
   assert.ok(api.includes('queueSponsorshipCreditNoteEmail'));
   assert.ok(api.includes('sponsorship_invoice.resend'));
+  assert.ok(api.includes('sponsorship_invoice.backfill'));
   assert.ok(api.includes('sponsorship_credit_note.resend'));
+  assert.ok(api.includes('AdminSponsorshipInvoiceBackfillResult'));
   assert.ok(api.includes('AdminSponsorshipInvoiceResendResult'));
   assert.ok(api.includes('AdminSponsorshipCreditNoteResendResult'));
 
   assert.ok(repository.includes('listAdminSponsorshipInvoices'));
+  assert.ok(repository.includes('backfillMissingSponsorshipInvoices'));
+  assert.ok(repository.includes('SponsorshipInvoiceBackfillCandidateRow'));
+  assert.ok(repository.includes('invoice.id IS NULL'));
   assert.ok(repository.includes('getAdminSponsorshipInvoiceById'));
   assert.ok(repository.includes('getAdminSponsorshipCreditNoteById'));
   assert.ok(repository.includes('last_email_status'));
@@ -2089,6 +2105,8 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(core.includes('AdminSponsorshipInvoiceRecord'));
   assert.ok(core.includes('AdminSponsorshipCreditNoteRecord'));
   assert.ok(core.includes('AdminSponsorshipInvoicesResponse'));
+  assert.ok(core.includes('AdminSponsorshipInvoiceBackfillRequest'));
+  assert.ok(core.includes('AdminSponsorshipInvoiceBackfillResult'));
   assert.ok(core.includes('AdminSponsorshipInvoiceResendRequest'));
   assert.ok(core.includes('AdminSponsorshipInvoiceResendResult'));
   assert.ok(core.includes('AdminSponsorshipCreditNoteResendRequest'));
@@ -2096,6 +2114,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
 
   assert.ok(readme.includes('/admin/fundraiser/invoices'));
   assert.ok(readme.includes('GET /api/admin/sponsorship-invoices'));
+  assert.ok(readme.includes('POST /api/admin/sponsorship-invoices/backfill'));
   assert.ok(
     readme.includes('GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>')
   );

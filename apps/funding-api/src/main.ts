@@ -25,6 +25,8 @@ import type {
   AdminSponsorshipCreditNoteResendResult,
   AdminSetupStatusResponse,
   AdminTransparencyResponse,
+  AdminSponsorshipInvoiceBackfillRequest,
+  AdminSponsorshipInvoiceBackfillResult,
   AdminPublicationBatchAssignRequest,
   AdminPublicationBatchCreateRequest,
   AdminPublicationBatchLifecycleRequest,
@@ -132,6 +134,7 @@ import {
   sponsorshipInvoicePdfFilename
 } from './sponsorship-document-pdf.service.js';
 import {
+  backfillMissingSponsorshipInvoices,
   createSponsorshipCreditNoteForRefund,
   getAdminSponsorshipInvoiceById,
   getAdminSponsorshipCreditNoteById,
@@ -1505,6 +1508,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/email-queue/retry',
       '/admin/sponsorship-invoices',
       '/api/admin/sponsorship-invoices',
+      '/admin/sponsorship-invoices/backfill',
+      '/api/admin/sponsorship-invoices/backfill',
       '/admin/sponsorship-invoices/pdf',
       '/api/admin/sponsorship-invoices/pdf',
       '/admin/sponsorship-invoices/resend',
@@ -3016,6 +3021,88 @@ createServer(async (request, response) => {
       writeJson(request, response, 502, {
         error:
           'Admin sponsorship invoices could not be loaded. Apply migrations 010, 011 and 012.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorship-invoices/backfill',
+      '/api/admin/sponsorship-invoices/backfill'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    if (!dbPool) {
+      writeJson(request, response, 503, {
+        error: 'Invoice backfill requires DATABASE_URL and migrations 011/012.'
+      });
+      return;
+    }
+
+    let parsed: AdminSponsorshipInvoiceBackfillRequest;
+    try {
+      const body = await readBody(request, 16 * 1024);
+      const raw = body.trim()
+        ? (JSON.parse(
+            body
+          ) as Partial<AdminSponsorshipInvoiceBackfillRequest> | null)
+        : {};
+      parsed = {
+        limit: typeof raw?.limit === 'number' ? raw.limit : undefined
+      };
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid invoice backfill request body.'
+      });
+      return;
+    }
+
+    if (
+      parsed.limit !== undefined &&
+      (!Number.isInteger(parsed.limit) ||
+        parsed.limit < 1 ||
+        parsed.limit > 1000)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Invoice backfill limit must be an integer between 1 and 1000.'
+      });
+      return;
+    }
+
+    try {
+      const result = await backfillMissingSponsorshipInvoices(dbPool, parsed);
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'sponsorship_invoice.backfill',
+        entityType: 'sponsorship_invoice',
+        entityId: null,
+        summary: `Sponsorship invoice backfill created ${result.created_count} invoice(s).`,
+        metadata: {
+          eligibleCount: result.eligible_count,
+          missingCount: result.missing_count,
+          processedCount: result.processed_count,
+          createdCount: result.created_count,
+          skippedCount: result.skipped_count,
+          remainingCount: result.remaining_count,
+          failedCount: result.failed_count,
+          invoiceIds: result.invoiceIds
+        }
+      });
+
+      const payload: AdminSponsorshipInvoiceBackfillResult = result;
+      writeJson(request, response, 200, payload);
+    } catch (error) {
+      console.error('Failed to backfill sponsorship invoices.', error);
+      writeJson(request, response, 502, {
+        error:
+          'Sponsorship invoices could not be backfilled. Check migrations 011/012 and contribution data.'
       });
     }
     return;

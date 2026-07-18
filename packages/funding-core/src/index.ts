@@ -630,6 +630,31 @@ export interface AdminSponsorshipInvoicesResponse {
   readonly last_updated_at: string;
 }
 
+export interface AdminSponsorshipInvoiceBackfillRequest {
+  readonly limit?: number;
+}
+
+export interface AdminSponsorshipInvoiceBackfillError {
+  readonly contribution_id: string;
+  readonly stripe_session_id: string | null;
+  readonly error: string;
+}
+
+export interface AdminSponsorshipInvoiceBackfillResult {
+  readonly data_source: 'database';
+  readonly eligible_count: number;
+  readonly missing_count: number;
+  readonly processed_count: number;
+  readonly created_count: number;
+  readonly skipped_count: number;
+  readonly remaining_count: number;
+  readonly failed_count: number;
+  readonly invoiceIds: readonly string[];
+  readonly invoices: readonly AdminSponsorshipInvoiceRecord[];
+  readonly errors: readonly AdminSponsorshipInvoiceBackfillError[];
+  readonly last_updated_at: string;
+}
+
 export interface AdminSponsorshipInvoiceResendRequest {
   readonly invoiceId: string;
   readonly to?: string;
