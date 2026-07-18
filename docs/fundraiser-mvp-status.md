@@ -227,12 +227,14 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
 - Endpoint `POST /api/admin/sponsorships/review` pour remettre en attente,
   accepter ou refuser une commandite.
 - Endpoint `POST /api/admin/sponsorships/refund` pour declencher un
-  remboursement Stripe complet guide, avec confirmation par reference publique,
-  courriel optionnel au commanditaire, creation d'un avoir de commandite si la
-  facture existe, verrou de version, audit admin et suivi de statut
+  remboursement Stripe guide complet ou partiel, avec confirmation par reference
+  publique, raison Stripe configurable, courriel optionnel au commanditaire,
+  creation d'un avoir de commandite si la facture existe, verrou de version,
+  audit admin et suivi de statut
   `requested` / `processing` / `completed` / `failed` sur la commandite. Le
   webhook `charge.refunded` finalise aussi le suivi `completed` lorsque Stripe
-  confirme un remboursement asynchrone.
+  confirme un remboursement asynchrone. Un remboursement partiel garde le
+  paiement local en `paid` et enregistre le montant/raison du dernier refund.
 - Endpoints `GET /api/admin/sponsorship-invoices/pdf` et
   `GET /api/admin/sponsorship-credit-notes/pdf` pour telecharger les PDF
   descriptifs proteges par la session admin.
@@ -286,6 +288,7 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   - `011_create_sponsorship_invoices.sql`.
   - `012_create_sponsorship_credit_notes.sql`.
   - `013_add_sponsorship_refund_status.sql`.
+  - `014_add_sponsorship_refund_amount_reason.sql`.
 - Tables MVP:
   - `stripe_events`;
   - `stripe_checkout_sessions`;

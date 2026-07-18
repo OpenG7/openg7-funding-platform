@@ -527,7 +527,7 @@ const renderSponsorshipRefundEmail = (
   const text = [
     `Bonjour ${input.sponsorName},`,
     '',
-    'Nous confirmons qu un remboursement Stripe complet a ete cree pour votre commandite OpenG7.',
+    'Nous confirmons qu un remboursement Stripe a ete cree pour votre commandite OpenG7.',
     '',
     `Reference: ${reference}`,
     `Montant rembourse: ${amount}`,
@@ -543,7 +543,7 @@ const renderSponsorshipRefundEmail = (
   const html = `
     <p>Bonjour ${escapeHtml(input.sponsorName)},</p>
     <p>
-      Nous confirmons qu'un remboursement Stripe complet a ete cree pour votre
+      Nous confirmons qu'un remboursement Stripe a ete cree pour votre
       commandite OpenG7.
     </p>
     <p>

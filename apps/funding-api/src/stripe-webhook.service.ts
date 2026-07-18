@@ -454,24 +454,32 @@ export const processStripeWebhook = async (
     if (event.type === 'charge.refunded') {
       const charge = event.data.object as Stripe.Charge;
       const paymentIntentId = resolvePaymentIntentId(charge.payment_intent);
-      const statusUpdated = paymentIntentId
-        ? await updateContributionStatusByPaymentIntent(pool, {
-            stripePaymentIntentId: paymentIntentId,
-            status: 'refunded'
-          })
-        : false;
-      const refundId = charge.refunds?.data?.[0]?.id ?? null;
+      const latestRefund = charge.refunds?.data?.[0] ?? null;
+      const refundId = latestRefund?.id ?? null;
+      const refundAmount = latestRefund?.amount ?? charge.amount_refunded;
+      const isFullyRefunded = charge.amount_refunded >= charge.amount;
+      const statusUpdated =
+        paymentIntentId && isFullyRefunded
+          ? await updateContributionStatusByPaymentIntent(pool, {
+              stripePaymentIntentId: paymentIntentId,
+              status: 'refunded'
+            })
+          : false;
       const refundWorkflowUpdated = paymentIntentId
         ? await updateSponsorshipRefundWorkflowStatusByPaymentIntent(pool, {
             stripePaymentIntentId: paymentIntentId,
             refundStatus: 'completed',
             refundId,
+            refundAmountCents: refundAmount,
             refundNote: 'Confirmed by Stripe charge.refunded webhook.'
           })
         : false;
       const balanceData = buildBalanceData(
-        await resolveBalanceTransaction(stripe, charge.balance_transaction),
-        charge.amount_refunded,
+        await resolveBalanceTransaction(
+          stripe,
+          latestRefund?.balance_transaction ?? charge.balance_transaction
+        ),
+        refundAmount,
         charge.currency
       );
 
@@ -480,7 +488,7 @@ export const processStripeWebhook = async (
         stripeObjectId: charge.id,
         stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
         type: event.type,
-        amount: charge.amount_refunded,
+        amount: refundAmount,
         fee: balanceData.fee,
         net: balanceData.net,
         currency: balanceData.currency,
@@ -489,7 +497,9 @@ export const processStripeWebhook = async (
         publicCategory: 'refund',
         metadataJson: {
           source: 'stripe',
-          eventType: event.type
+          eventType: event.type,
+          refundId,
+          partialRefund: !isFullyRefunded
         }
       });
 

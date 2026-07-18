@@ -136,6 +136,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/011_create_sponsorship_invoices.sql
 \i apps/funding-api/migrations/012_create_sponsorship_credit_notes.sql
 \i apps/funding-api/migrations/013_add_sponsorship_refund_status.sql
+\i apps/funding-api/migrations/014_add_sponsorship_refund_amount_reason.sql
 ```
 
 These create:
@@ -268,15 +269,18 @@ email through the queued email system, and records the chosen refund handling
 admin audit metadata. The sponsorship record also tracks a refund workflow
 status: `requested`, `processing`, `completed`, or `failed`. Stripe refunds
 stay a separate deliberate action: the same admin page includes a guided
-full-refund workflow that requires the current sponsorship version, asks the
+refund workflow that requires the current sponsorship version, asks the
 admin to retype the public reference, calls `POST /api/admin/sponsorships/refund`,
-marks the workflow as `processing`, creates a full Stripe refund with an
+marks the workflow as `processing`, creates a full or partial Stripe refund with an
 idempotency key, marks the contribution as `refunded` when Stripe returns a
-completed refund, completes or fails the workflow from Stripe's response, can
+completed full refund, completes or fails the workflow from Stripe's response, can
 queue a sponsor-facing refund confirmation email, and records the refund
 id/status plus notification result in the admin audit log. If Stripe completes
 the refund asynchronously, the `charge.refunded` webhook also marks the workflow
-as `completed`. When a matching sponsorship invoice
+as `completed`. Admins can choose a partial amount and a Stripe refund reason
+(`requested_by_customer`, `duplicate`, or `fraudulent`); partial refunds keep
+the sponsorship payment status as `paid` while recording the refund amount and
+reason on the sponsorship record. When a matching sponsorship invoice
 exists, the refund also creates an app-generated credit note tied to the Stripe
 refund; the credit note is visible and resendable from `/admin/fundraiser/invoices`,
 with its own downloadable PDF.

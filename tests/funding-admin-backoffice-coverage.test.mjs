@@ -76,6 +76,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const refundStatusMigration = read(
     'apps/funding-api/migrations/013_add_sponsorship_refund_status.sql'
   );
+  const refundAmountReasonMigration = read(
+    'apps/funding-api/migrations/014_add_sponsorship_refund_amount_reason.sql'
+  );
   const core = read('packages/funding-core/src/index.ts');
   const readme = read('README.md');
 
@@ -297,6 +300,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'refundWorkflowStatusLabel',
       'refundWorkflowTimelineLabel',
       'refundWorkflowStatusClass',
+      'stripeRefundReasonLabel',
+      'refundAmountFor',
+      'refundDraftAmountLabel',
+      'setRefundDraftReason',
+      'refundAmount',
+      'refundReason',
       'refundHistoryEntriesFor',
       'refundAuditEntriesFor',
       'refundHistoryEntryClass',
@@ -488,7 +497,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'isValidAdminExpectedVersion',
       'stripe.refunds.create',
       'sponsorship_refund.stripe_full',
+      'sponsorship_refund.stripe_partial',
+      'requestedRefundAmountCents',
+      'reason: refundReason',
       'refundWorkflowStatus',
+      'fullRefund',
+      'refundReason',
       'createSponsorshipCreditNoteForRefund',
       'sponsorship-refund-email:',
       'getSponsorshipRefundTarget',
@@ -529,7 +543,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     [
       'charge.refunded',
       'updateSponsorshipRefundWorkflowStatusByPaymentIntent',
-      'refundWorkflowUpdated'
+      'refundWorkflowUpdated',
+      'isFullyRefunded',
+      'partialRefund',
+      'latestRefund'
     ],
     'Stripe refund webhook'
   );
@@ -591,7 +608,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'updateSponsorshipRefundWorkflowStatus',
       'updateSponsorshipRefundWorkflowStatusByPaymentIntent',
       'allowedSponsorshipRefundWorkflowStatuses',
+      'allowedSponsorshipStripeRefundReasons',
       'sponsorship_refund_status',
+      'sponsorship_refund_amount_cents',
+      'sponsorship_refund_reason',
       'stripe_payment_intent_id',
       'updateSponsorshipLogoUrl',
       'clearSponsorshipLogoUrl',
@@ -666,6 +686,20 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
+    refundAmountReasonMigration,
+    [
+      'sponsorship_refund_amount_cents',
+      'sponsorship_refund_reason',
+      'fund_contributions_sponsorship_refund_amount_check',
+      'fund_contributions_sponsorship_refund_reason_check',
+      "'requested_by_customer'",
+      "'duplicate'",
+      "'fraudulent'"
+    ],
+    'admin sponsorship refund amount and reason migration'
+  );
+
+  assertIncludesAll(
     core,
     [
       'AdminDashboardResponse',
@@ -696,8 +730,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'AdminSponsorshipRefundRequest',
       'AdminSponsorshipRefundResult',
       'AdminSponsorshipRefundWorkflowStatus',
+      'AdminSponsorshipStripeRefundReason',
       'readonly sponsorship_refund_status: AdminSponsorshipRefundWorkflowStatus;',
+      'readonly sponsorship_refund_amount: number | null;',
+      'readonly sponsorship_refund_reason: AdminSponsorshipStripeRefundReason | null;',
       'readonly refundWorkflowStatus: AdminSponsorshipRefundWorkflowStatus;',
+      'readonly fullRefund: boolean;',
       'AdminPagination',
       'readonly admin_audit_entries: readonly AdminAuditLogEntry[];',
       'readonly version: string;',
@@ -747,7 +785,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       '010_create_email_messages.sql',
       '011_create_sponsorship_invoices.sql',
       '012_create_sponsorship_credit_notes.sql',
-      '013_add_sponsorship_refund_status.sql'
+      '013_add_sponsorship_refund_status.sql',
+      '014_add_sponsorship_refund_amount_reason.sql'
     ],
     'admin docs'
   );

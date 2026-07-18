@@ -217,6 +217,9 @@ test('Stripe webhook service handles MVP idempotent event set', () => {
     source.includes('updateSponsorshipRefundWorkflowStatusByPaymentIntent')
   );
   assert.ok(source.includes('refundWorkflowUpdated'));
+  assert.ok(source.includes('isFullyRefunded'));
+  assert.ok(source.includes('partialRefund'));
+  assert.ok(source.includes('latestRefund'));
 });
 
 test('Stripe charge.updated backfills contribution transaction fees', () => {
@@ -1550,6 +1553,10 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'apps/funding-api/migrations/013_add_sponsorship_refund_status.sql',
     'utf8'
   );
+  const refundAmountReasonMigration = fs.readFileSync(
+    'apps/funding-api/migrations/014_add_sponsorship_refund_amount_reason.sql',
+    'utf8'
+  );
   const email = fs.readFileSync(
     'apps/funding-api/src/email-notification.service.ts',
     'utf8'
@@ -1559,11 +1566,19 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
   assert.ok(core.includes('AdminSponsorshipRefundRequest'));
   assert.ok(core.includes('AdminSponsorshipRefundResult'));
   assert.ok(core.includes('AdminSponsorshipRefundWorkflowStatus'));
+  assert.ok(core.includes('AdminSponsorshipStripeRefundReason'));
+  assert.ok(core.includes('readonly amount?: number;'));
+  assert.ok(core.includes('readonly refundReason?:'));
+  assert.ok(core.includes('readonly fullRefund: boolean;'));
   assert.ok(
     core.includes(
       'readonly sponsorship_refund_status: AdminSponsorshipRefundWorkflowStatus;'
     )
   );
+  assert.ok(
+    core.includes('readonly sponsorship_refund_amount: number | null;')
+  );
+  assert.ok(core.includes('readonly sponsorship_refund_reason:'));
   assert.ok(
     core.includes(
       'readonly refundWorkflowStatus: AdminSponsorshipRefundWorkflowStatus;'
@@ -1587,6 +1602,12 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'refundWorkflowStatusLabel',
     'refundWorkflowTimelineLabel',
     'refundWorkflowStatusClass',
+    'stripeRefundReasonLabel',
+    'refundAmountFor',
+    'refundDraftAmountLabel',
+    'setRefundDraftReason',
+    'refundAmount',
+    'refundReason',
     'refundHistoryEntriesFor',
     'refundAuditEntriesFor',
     'refundHistoryEntryClass',
@@ -1616,7 +1637,8 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     "'/admin/sponsorships/refund'",
     "'/api/admin/sponsorships/refund'",
     'stripe.refunds.create',
-    'amount: target.amountCents',
+    'requestedRefundAmountCents',
+    'reason: refundReason',
     'idempotencyKey: `sponsorship-refund:',
     'queueSponsorshipRefundEmail',
     'queueSponsorshipCreditNoteEmail',
@@ -1631,7 +1653,10 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'creditNoteError',
     'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
     'sponsorship_refund.stripe_full',
+    'sponsorship_refund.stripe_partial',
     'refundWorkflowStatus',
+    'fullRefund',
+    'refundReason',
     'updateSponsorshipRefundWorkflowStatus',
     'updateContributionStatusByPaymentIntent'
   ]) {
@@ -1649,7 +1674,10 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     repository.includes('updateSponsorshipRefundWorkflowStatusByPaymentIntent')
   );
   assert.ok(repository.includes('allowedSponsorshipRefundWorkflowStatuses'));
+  assert.ok(repository.includes('allowedSponsorshipStripeRefundReasons'));
   assert.ok(repository.includes('sponsorship_refund_status'));
+  assert.ok(repository.includes('sponsorship_refund_amount_cents'));
+  assert.ok(repository.includes('sponsorship_refund_reason'));
   assert.ok(repository.includes('stripe_payment_intent_id'));
   assert.ok(refundStatusMigration.includes('sponsorship_refund_status'));
   assert.ok(refundStatusMigration.includes("'not_requested'"));
@@ -1665,9 +1693,24 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
       'idx_fund_contributions_sponsorship_refund_status'
     )
   );
+  assert.ok(
+    refundAmountReasonMigration.includes('sponsorship_refund_amount_cents')
+  );
+  assert.ok(refundAmountReasonMigration.includes('sponsorship_refund_reason'));
+  assert.ok(
+    refundAmountReasonMigration.includes(
+      'fund_contributions_sponsorship_refund_amount_check'
+    )
+  );
+  assert.ok(
+    refundAmountReasonMigration.includes(
+      'fund_contributions_sponsorship_refund_reason_check'
+    )
+  );
   assert.ok(readme.includes('POST /api/admin/sponsorships/refund'));
   assert.ok(readme.includes('sponsorship_credit_notes'));
   assert.ok(readme.includes('013_add_sponsorship_refund_status.sql'));
+  assert.ok(readme.includes('014_add_sponsorship_refund_amount_reason.sql'));
 });
 
 test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
@@ -2186,6 +2229,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(readme.includes('POST /api/admin/sponsorship-credit-notes/resend'));
   assert.ok(readme.includes('012_create_sponsorship_credit_notes.sql'));
   assert.ok(readme.includes('013_add_sponsorship_refund_status.sql'));
+  assert.ok(readme.includes('014_add_sponsorship_refund_amount_reason.sql'));
 });
 
 test('Admin setup page wraps Stripe and email configuration in a custom tour', () => {
