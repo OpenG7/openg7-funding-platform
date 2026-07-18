@@ -215,8 +215,9 @@ the PostgreSQL-backed launch path for real payments:
    the credit-note area and PDF download controls ready for refunded invoices.
    Confirm the sponsorship detail panel shows the refund workflow badge and
    that the refund history tab exposes milestones, notes/errors, and refund
-   audit entries. Confirm a guided refund cannot be launched again once the
-   workflow is completed.
+   audit entries. Confirm the guided refund form exposes partial amount and
+   Stripe reason controls. Confirm a guided refund cannot be launched again
+   while the workflow is processing or after a manual completed refund.
    If historical paid sponsorships predate app-generated invoices, run the
    missing-invoice backfill from that page once and confirm the result is
    audited before resending any invoice email.

@@ -39,6 +39,7 @@ import type {
   AdminSponsorLogoDeleteRequest,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
+  AdminSponsorshipStripeRefundReason,
   AdminSponsorshipRejectionRefundHandling,
   AdminSponsorshipInvoiceResendRequest,
   AdminSponsorshipInvoiceResendResult,
@@ -450,6 +451,8 @@ const readBodyBuffer = async (
 const normalizeAmount = (amount: number): number =>
   Number(Number(amount).toFixed(2));
 
+const amountToCents = (amount: number): number => Math.round(amount * 100);
+
 const isAllowedContributionType = (
   contributionType: unknown
 ): contributionType is ContributionType =>
@@ -502,6 +505,12 @@ const allowedSponsorshipRejectionRefundHandling =
     'none',
     'manual_required',
     'manual_completed'
+  ]);
+const allowedSponsorshipStripeRefundReasons =
+  new Set<AdminSponsorshipStripeRefundReason>([
+    'requested_by_customer',
+    'duplicate',
+    'fraudulent'
   ]);
 
 const isNonEmptySponsorText = (
@@ -559,6 +568,14 @@ const isAllowedSponsorshipRejectionRefundHandling = (
   typeof value === 'string' &&
   allowedSponsorshipRejectionRefundHandling.has(
     value as AdminSponsorshipRejectionRefundHandling
+  );
+
+const isAllowedSponsorshipStripeRefundReason = (
+  value: unknown
+): value is AdminSponsorshipStripeRefundReason =>
+  typeof value === 'string' &&
+  allowedSponsorshipStripeRefundReasons.has(
+    value as AdminSponsorshipStripeRefundReason
   );
 
 const isValidOptionalPublicSlug = (value: unknown): boolean =>
@@ -4853,6 +4870,27 @@ createServer(async (request, response) => {
         : '';
     const refundNote =
       typeof parsed.refundNote === 'string' ? parsed.refundNote.trim() : '';
+    const refundReason =
+      parsed.refundReason === undefined
+        ? 'requested_by_customer'
+        : parsed.refundReason;
+
+    if (!isAllowedSponsorshipStripeRefundReason(refundReason)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid Stripe refund reason.'
+      });
+      return;
+    }
+
+    if (
+      parsed.amount !== undefined &&
+      (typeof parsed.amount !== 'number' || !Number.isFinite(parsed.amount))
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Refund amount must be a number.'
+      });
+      return;
+    }
 
     if (
       !isValidOptionalBoundedText(
@@ -4896,6 +4934,8 @@ createServer(async (request, response) => {
     let stripeRefundCreated = false;
     let refundWorkflowContributionId: string | null = null;
     let refundWorkflowNote: string | null = refundNote || null;
+    let refundWorkflowAmountCents: number | null = null;
+    let refundWorkflowReason: AdminSponsorshipStripeRefundReason = refundReason;
 
     try {
       const target = await getSponsorshipRefundTarget(
@@ -4930,16 +4970,40 @@ createServer(async (request, response) => {
 
       if (
         target.refundWorkflowStatus === 'processing' ||
-        target.refundWorkflowStatus === 'completed'
+        (target.refundWorkflowStatus === 'completed' && !target.refundId)
       ) {
         writeJson(request, response, 409, {
           code: 'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
           message:
             target.refundWorkflowStatus === 'completed'
-              ? 'Cette commandite a deja un remboursement marque comme complete.'
+              ? 'Cette commandite a deja un remboursement manuel marque comme complete.'
               : 'Un remboursement est deja en cours pour cette commandite.',
           paymentStatus: target.paymentStatus,
           refundWorkflowStatus: target.refundWorkflowStatus
+        });
+        return;
+      }
+
+      const requestedRefundAmountCents =
+        parsed.amount === undefined
+          ? target.amountCents
+          : amountToCents(parsed.amount);
+      const isFullRefund = requestedRefundAmountCents === target.amountCents;
+      const hasValidCentPrecision =
+        parsed.amount === undefined ||
+        Math.abs(parsed.amount * 100 - requestedRefundAmountCents) < 0.000001;
+      refundWorkflowAmountCents = requestedRefundAmountCents;
+      refundWorkflowReason = refundReason;
+
+      if (
+        requestedRefundAmountCents <= 0 ||
+        requestedRefundAmountCents > target.amountCents ||
+        !hasValidCentPrecision
+      ) {
+        writeJson(request, response, 400, {
+          error: `Refund amount must be between 0.01 and ${target.amount.toFixed(
+            2
+          )} ${target.currency}.`
         });
         return;
       }
@@ -4964,6 +5028,8 @@ createServer(async (request, response) => {
       await updateSponsorshipRefundWorkflowStatus(dbPool, {
         contributionId: target.id,
         refundStatus: 'processing',
+        refundAmountCents: requestedRefundAmountCents,
+        refundReason,
         refundNote: refundWorkflowNote
       });
       refundWorkflowStarted = true;
@@ -4971,11 +5037,14 @@ createServer(async (request, response) => {
 
       const refund = await stripe.refunds.create(
         {
-          amount: target.amountCents,
+          amount: requestedRefundAmountCents,
           payment_intent: target.stripePaymentIntentId,
-          reason: 'requested_by_customer',
+          reason: refundReason,
           metadata: {
             contributionId: target.id,
+            refundType: isFullRefund ? 'full' : 'partial',
+            refundAmountCents: String(requestedRefundAmountCents),
+            refundReason,
             publicReference: target.publicReference ?? '',
             source: 'openg7_admin_sponsorship_refund'
           }
@@ -4994,15 +5063,19 @@ createServer(async (request, response) => {
       const refundAttemptAccepted = refundWorkflowStatus !== 'failed';
       const refundCompleted = refundWorkflowStatus === 'completed';
       const paymentStatusUpdated = refundCompleted
-        ? await updateContributionStatusByPaymentIntent(dbPool, {
-            stripePaymentIntentId: target.stripePaymentIntentId,
-            status: 'refunded'
-          })
+        ? isFullRefund
+          ? await updateContributionStatusByPaymentIntent(dbPool, {
+              stripePaymentIntentId: target.stripePaymentIntentId,
+              status: 'refunded'
+            })
+          : false
         : false;
       await updateSponsorshipRefundWorkflowStatus(dbPool, {
         contributionId: target.id,
         refundStatus: refundWorkflowStatus,
         refundId: refund.id,
+        refundAmountCents: refund.amount,
+        refundReason,
         refundNote: refundWorkflowNote,
         refundError:
           refundWorkflowStatus === 'failed'
@@ -5064,16 +5137,23 @@ createServer(async (request, response) => {
 
       await insertAdminAuditLog(dbPool, {
         actor: getAdminAuditActor(request),
-        action: 'sponsorship_refund.stripe_full',
+        action: isFullRefund
+          ? 'sponsorship_refund.stripe_full'
+          : 'sponsorship_refund.stripe_partial',
         entityType: 'sponsorship',
         entityId: target.id,
-        summary: `Stripe refund ${refund.id} created for ${target.sponsorName}.`,
+        summary: `Stripe ${isFullRefund ? 'full' : 'partial'} refund ${
+          refund.id
+        } created for ${target.sponsorName}.`,
         metadata: {
           amount: refund.amount,
           currency: refund.currency,
+          requestedAmount: requestedRefundAmountCents,
+          fullRefund: isFullRefund,
           paymentIntentId: target.stripePaymentIntentId,
           publicReference: target.publicReference,
           refundId: refund.id,
+          refundReason,
           refundNote: refundNote || null,
           refundStatus: refund.status,
           refundWorkflowStatus,
@@ -5094,6 +5174,8 @@ createServer(async (request, response) => {
         refundId: refund.id,
         refundStatus: refund.status,
         refundWorkflowStatus,
+        refundReason,
+        fullRefund: isFullRefund,
         amount: refundAmount,
         currency: refundCurrency,
         contributionId: target.id,
@@ -5127,6 +5209,8 @@ createServer(async (request, response) => {
           await updateSponsorshipRefundWorkflowStatus(dbPool, {
             contributionId: refundWorkflowContributionId,
             refundStatus: 'failed',
+            refundAmountCents: refundWorkflowAmountCents,
+            refundReason: refundWorkflowReason,
             refundNote: refundWorkflowNote,
             refundError: errorMessage
           });

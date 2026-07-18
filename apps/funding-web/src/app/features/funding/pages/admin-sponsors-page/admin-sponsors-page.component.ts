@@ -22,6 +22,7 @@ import type {
   AdminSponsorshipRecord,
   AdminSponsorshipRefundResult,
   AdminSponsorshipRefundWorkflowStatus,
+  AdminSponsorshipStripeRefundReason,
   AdminSponsorshipReviewResult,
   SponsorFeedChannel,
   SponsorFeedStatus,
@@ -100,6 +101,8 @@ interface SponsorRejectionDraft {
 
 interface SponsorRefundDraft {
   readonly confirmationText: string;
+  readonly refundAmount: string;
+  readonly refundReason: AdminSponsorshipStripeRefundReason;
   readonly notifySponsor: boolean;
   readonly recipientEmail: string;
   readonly sponsorMessage: string;
@@ -1121,6 +1124,27 @@ const controlledSponsorLogoUrlPrefixes = [
                       <strong>{{ formatMoney(selected) }}</strong>
                     </div>
                     <div>
+                      <span>Dernier montant rembourse</span>
+                      <strong>{{
+                        selected.sponsorship_refund_amount
+                          ? formatAmount(
+                              selected.sponsorship_refund_amount,
+                              selected.currency
+                            )
+                          : 'Non associe'
+                      }}</strong>
+                    </div>
+                    <div>
+                      <span>Raison Stripe</span>
+                      <strong>{{
+                        selected.sponsorship_refund_reason
+                          ? stripeRefundReasonLabel(
+                              selected.sponsorship_refund_reason
+                            )
+                          : 'Non associee'
+                      }}</strong>
+                    </div>
+                    <div>
                       <span>Reference publique</span>
                       <code>{{
                         selected.public_reference || 'Non attribuee'
@@ -1392,7 +1416,7 @@ const controlledSponsorLogoUrlPrefixes = [
                 <header>
                   <div>
                     <span>Stripe</span>
-                    <h3>Remboursement complet</h3>
+                    <h3>Remboursement Stripe</h3>
                   </div>
                   <button
                     type="button"
@@ -1405,10 +1429,37 @@ const controlledSponsorLogoUrlPrefixes = [
                 </header>
 
                 <p class="refund-warning rejection-span-2">
-                  Cette action declenche un remboursement Stripe complet de
+                  Cette action declenche un remboursement Stripe de
+                  {{ refundDraftAmountLabel(selected) }} sur un paiement de
                   {{ formatMoney(selected) }}. Elle est envoyee a Stripe
                   immediatement.
                 </p>
+
+                <label
+                  >Montant a rembourser<input
+                    type="number"
+                    min="0.01"
+                    [max]="selected.amount"
+                    step="0.01"
+                    inputmode="decimal"
+                    [value]="refundDraftFor(selected).refundAmount"
+                    (input)="
+                      setRefundDraftField(selected.id, 'refundAmount', $event)
+                    "
+                /></label>
+
+                <label
+                  >Raison Stripe<select
+                    [value]="refundDraftFor(selected).refundReason"
+                    (change)="setRefundDraftReason(selected.id, $event)"
+                  >
+                    <option value="requested_by_customer">
+                      Demande du commanditaire
+                    </option>
+                    <option value="duplicate">Paiement en double</option>
+                    <option value="fraudulent">Paiement frauduleux</option>
+                  </select></label
+                >
 
                 <label class="rejection-span-2"
                   >Texte de confirmation
@@ -3059,7 +3110,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   setRefundDraftField(
     id: string,
     field:
-      'confirmationText' | 'recipientEmail' | 'sponsorMessage' | 'refundNote',
+      | 'confirmationText'
+      | 'refundAmount'
+      | 'recipientEmail'
+      | 'sponsorMessage'
+      | 'refundNote',
     event: Event
   ): void {
     const input = event.target as HTMLInputElement | HTMLTextAreaElement;
@@ -3070,6 +3125,21 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         [id]: {
           ...current,
           [field]: input.value
+        }
+      };
+    });
+  }
+
+  setRefundDraftReason(id: string, event: Event): void {
+    const input = event.target as HTMLSelectElement;
+    const value = input.value as AdminSponsorshipStripeRefundReason;
+    this.refundDrafts.update((drafts) => {
+      const current = drafts[id] ?? this.emptyRefundDraft();
+      return {
+        ...drafts,
+        [id]: {
+          ...current,
+          refundReason: value
         }
       };
     });
@@ -3096,8 +3166,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   canRefundSponsorship(sponsorship: AdminSponsorshipRecord): boolean {
     return (
       sponsorship.payment_status === 'paid' &&
-      !['processing', 'completed'].includes(
-        sponsorship.sponsorship_refund_status
+      sponsorship.sponsorship_refund_status !== 'processing' &&
+      !(
+        sponsorship.sponsorship_refund_status === 'completed' &&
+        !sponsorship.sponsorship_refund_id
       )
     );
   }
@@ -3106,10 +3178,49 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return sponsorship.public_reference || sponsorship.id;
   }
 
+  refundAmountFor(sponsorship: AdminSponsorshipRecord): number | null {
+    const value = this.refundDraftFor(sponsorship)
+      .refundAmount.trim()
+      .replace(',', '.');
+    if (!value) {
+      return null;
+    }
+
+    if (!/^\d+(?:\.\d{1,2})?$/.test(value)) {
+      return null;
+    }
+
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) {
+      return null;
+    }
+
+    return amount;
+  }
+
+  refundDraftAmountLabel(sponsorship: AdminSponsorshipRecord): string {
+    const amount = this.refundAmountFor(sponsorship);
+    return amount
+      ? this.formatAmount(amount, sponsorship.currency)
+      : 'montant invalide';
+  }
+
+  isFullRefundDraft(sponsorship: AdminSponsorshipRecord): boolean {
+    const amount = this.refundAmountFor(sponsorship);
+    return (
+      amount !== null &&
+      Math.round(amount * 100) === Math.round(sponsorship.amount * 100)
+    );
+  }
+
   canConfirmRefund(sponsorship: AdminSponsorshipRecord): boolean {
     const draft = this.refundDraftFor(sponsorship);
+    const refundAmount = this.refundAmountFor(sponsorship);
     return (
       this.canRefundSponsorship(sponsorship) &&
+      refundAmount !== null &&
+      refundAmount > 0 &&
+      refundAmount <= sponsorship.amount &&
       draft.confirmationText.trim() ===
         this.refundConfirmationText(sponsorship) &&
       (!draft.notifySponsor ||
@@ -3122,7 +3233,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     const draft = this.refundDraftFor(sponsorship);
     if (!this.canRefundSponsorship(sponsorship)) {
       if (sponsorship.sponsorship_refund_status === 'completed') {
-        return 'Remboursement deja marque comme complete.';
+        return 'Remboursement manuel deja marque comme complete.';
       }
 
       if (sponsorship.sponsorship_refund_status === 'processing') {
@@ -3130,6 +3241,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       }
 
       return 'Remboursement Stripe disponible seulement pour un paiement paye.';
+    }
+
+    const refundAmount = this.refundAmountFor(sponsorship);
+    if (refundAmount === null || refundAmount <= 0) {
+      return 'Montant de remboursement obligatoire.';
+    }
+
+    if (refundAmount > sponsorship.amount) {
+      return `Montant maximum: ${this.formatMoney(sponsorship)}.`;
     }
 
     if (!draft.confirmationText.trim()) {
@@ -3150,9 +3270,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       return 'Message au commanditaire obligatoire.';
     }
 
+    const refundType = this.isFullRefundDraft(sponsorship)
+      ? 'complet'
+      : 'partiel';
     return draft.notifySponsor
-      ? 'Pret a rembourser et envoyer le courriel.'
-      : 'Pret a declencher le remboursement Stripe complet.';
+      ? `Pret a declencher le remboursement ${refundType} et envoyer le courriel.`
+      : `Pret a declencher le remboursement Stripe ${refundType}.`;
   }
 
   async confirmRefund(sponsorship: AdminSponsorshipRecord): Promise<void> {
@@ -3174,6 +3297,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         contributionId: sponsorship.id,
         expectedVersion: sponsorship.version,
         confirmationText: draft.confirmationText.trim(),
+        amount: this.refundAmountFor(sponsorship) ?? sponsorship.amount,
+        refundReason: draft.refundReason,
         refundNote: draft.refundNote.trim() || undefined,
         notifySponsor: draft.notifySponsor,
         notificationEmail: draft.notifySponsor
@@ -3710,9 +3835,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   ): SponsorProcessingState {
     const isBlocked =
       sponsorship.sponsor_review_status === 'rejected' ||
-      ['processing', 'completed'].includes(
-        sponsorship.sponsorship_refund_status
-      ) ||
+      sponsorship.sponsorship_refund_status === 'processing' ||
       ['refunded', 'disputed', 'failed'].includes(sponsorship.payment_status);
     if (isBlocked) {
       return 'blocked';
@@ -3854,6 +3977,18 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return 'Aucun remboursement demande';
   }
 
+  stripeRefundReasonLabel(reason: AdminSponsorshipStripeRefundReason): string {
+    if (reason === 'duplicate') {
+      return 'Paiement en double';
+    }
+
+    if (reason === 'fraudulent') {
+      return 'Paiement frauduleux';
+    }
+
+    return 'Demande du commanditaire';
+  }
+
   refundWorkflowStatusClass(
     status: AdminSponsorshipRefundWorkflowStatus
   ): string {
@@ -3991,6 +4126,23 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   private refundProcessingDetail(sponsorship: AdminSponsorshipRecord): string {
     const details = ['Statut: traitement en cours'];
 
+    if (sponsorship.sponsorship_refund_amount) {
+      details.push(
+        `Montant: ${this.formatAmount(
+          sponsorship.sponsorship_refund_amount,
+          sponsorship.currency
+        )}`
+      );
+    }
+
+    if (sponsorship.sponsorship_refund_reason) {
+      details.push(
+        `Raison: ${this.stripeRefundReasonLabel(
+          sponsorship.sponsorship_refund_reason
+        )}`
+      );
+    }
+
     if (sponsorship.sponsorship_refund_id) {
       details.push(`Refund Stripe: ${sponsorship.sponsorship_refund_id}`);
     }
@@ -4006,6 +4158,23 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     const details = [
       `Paiement: ${this.paymentStatusLabel(sponsorship.payment_status)}`
     ];
+
+    if (sponsorship.sponsorship_refund_amount) {
+      details.push(
+        `Montant: ${this.formatAmount(
+          sponsorship.sponsorship_refund_amount,
+          sponsorship.currency
+        )}`
+      );
+    }
+
+    if (sponsorship.sponsorship_refund_reason) {
+      details.push(
+        `Raison: ${this.stripeRefundReasonLabel(
+          sponsorship.sponsorship_refund_reason
+        )}`
+      );
+    }
 
     if (sponsorship.sponsorship_refund_id) {
       details.push(`Refund Stripe: ${sponsorship.sponsorship_refund_id}`);
@@ -4025,7 +4194,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   private isRefundAuditEntry(entry: AdminAuditLogEntry): boolean {
-    if (entry.action === 'sponsorship_refund.stripe_full') {
+    if (
+      entry.action === 'sponsorship_refund.stripe_full' ||
+      entry.action === 'sponsorship_refund.stripe_partial'
+    ) {
       return true;
     }
 
@@ -4051,7 +4223,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     if (sponsorship.sponsorship_refund_status === 'completed') {
-      return 'Remboursement complete: les nouvelles approbations et publications publiques sont bloquees.';
+      return sponsorship.payment_status === 'refunded'
+        ? 'Remboursement complet: les nouvelles approbations et publications publiques sont bloquees.'
+        : 'Dernier remboursement complete: le paiement demeure actif pour la commandite.';
     }
 
     if (sponsorship.sponsorship_refund_status === 'failed') {
@@ -4071,13 +4245,19 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   canApproveSponsorship(sponsorship: AdminSponsorshipRecord): boolean {
     return (
-      sponsorship.payment_status === 'paid' ||
+      (sponsorship.payment_status === 'paid' &&
+        !['requested', 'processing'].includes(
+          sponsorship.sponsorship_refund_status
+        )) ||
       sponsorship.sponsor_review_status === 'approved'
     );
   }
 
   canSavePublication(sponsorship: AdminSponsorshipRecord): boolean {
-    return sponsorship.payment_status === 'paid';
+    return (
+      sponsorship.payment_status === 'paid' &&
+      sponsorship.sponsorship_refund_status !== 'processing'
+    );
   }
 
   formatMoney(sponsorship: AdminSponsorshipRecord): string {
@@ -4236,6 +4416,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     const status = result.refundStatus
       ? ` Statut Stripe: ${result.refundStatus}.`
       : '';
+    const refundType = result.fullRefund ? 'complet' : 'partiel';
+    const reason = ` Raison: ${this.stripeRefundReasonLabel(
+      result.refundReason
+    )}.`;
     const workflow = ` Suivi: ${this.refundWorkflowStatusLabel(
       result.refundWorkflowStatus
     )}.`;
@@ -4246,10 +4430,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       ? ` Avoir cree: ${result.creditNote.credit_note_number}.`
       : '';
 
-    return `Remboursement Stripe cree: ${this.formatAmount(
+    return `Remboursement Stripe ${refundType} cree: ${this.formatAmount(
       result.amount,
       result.currency
-    )}.${status}${workflow}${localStatus}${creditNote}`;
+    )}.${reason}${status}${workflow}${localStatus}${creditNote}`;
   }
 
   refundNotificationResultLabel(result: AdminSponsorshipRefundResult): string {
@@ -4483,6 +4667,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         return 'Logo commanditaire supprime.';
       case 'sponsorship_refund.stripe_full':
         return 'Remboursement Stripe complet cree.';
+      case 'sponsorship_refund.stripe_partial':
+        return 'Remboursement Stripe partiel cree.';
       case 'sponsorship_publication.update':
         return 'Publication commanditaire mise a jour.';
       default:
@@ -4493,10 +4679,18 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   private adminAuditDetail(entry: AdminAuditLogEntry): string {
     const details = [`Acteur: ${entry.actor}`];
 
-    if (entry.action === 'sponsorship_refund.stripe_full') {
+    if (
+      entry.action === 'sponsorship_refund.stripe_full' ||
+      entry.action === 'sponsorship_refund.stripe_partial'
+    ) {
       const amount = this.metadataNumber(entry, 'amount');
       const currency = this.metadataString(entry, 'currency');
+      const fullRefund = this.metadataBoolean(entry, 'fullRefund');
       const refundId = this.metadataString(entry, 'refundId');
+      const refundReason = this.metadataString(
+        entry,
+        'refundReason'
+      ) as AdminSponsorshipStripeRefundReason | null;
       const paymentIntentId = this.metadataString(entry, 'paymentIntentId');
       const refundStatus = this.metadataString(entry, 'refundStatus');
       const refundWorkflowStatus = this.metadataString(
@@ -4510,6 +4704,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
       if (amount !== null && currency) {
         details.push(`Montant: ${this.formatAmount(amount / 100, currency)}`);
+      }
+      if (fullRefund !== null) {
+        details.push(fullRefund ? 'Type: complet' : 'Type: partiel');
+      }
+      if (refundReason) {
+        details.push(`Raison: ${this.stripeRefundReasonLabel(refundReason)}`);
       }
       if (refundId) {
         details.push(`Refund: ${refundId}`);
@@ -4711,12 +4911,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
     return {
       confirmationText: '',
+      refundAmount: sponsorship.amount.toFixed(2),
+      refundReason: 'requested_by_customer',
       notifySponsor: Boolean(sponsorship.sponsor_contact_email),
       recipientEmail: sponsorship.sponsor_contact_email ?? '',
       sponsorMessage: [
         `Bonjour ${sponsorName},`,
         '',
-        'Nous confirmons que le remboursement Stripe complet de votre commandite OpenG7 vient d etre lance.',
+        'Nous confirmons que le remboursement Stripe de votre commandite OpenG7 vient d etre lance.',
         '',
         'Selon votre institution financiere, le credit peut prendre quelques jours ouvrables avant d apparaitre.'
       ].join('\n'),
@@ -4727,6 +4929,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   private emptyRefundDraft(): SponsorRefundDraft {
     return {
       confirmationText: '',
+      refundAmount: '',
+      refundReason: 'requested_by_customer',
       notifySponsor: false,
       recipientEmail: '',
       sponsorMessage: '',
