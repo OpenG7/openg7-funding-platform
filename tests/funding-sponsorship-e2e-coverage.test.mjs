@@ -278,7 +278,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
   );
 });
 
-test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () => {
+test('E2E 5/8: admin can approve, reset, reject, or refund sponsorship visibility', () => {
   const adminPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
   );
@@ -298,8 +298,13 @@ test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () =
       'confirmRejection(selected)',
       'rejectionValidationMessage',
       'refundHandling',
+      'openRefundPanel(selected)',
+      'confirmRefund(selected)',
+      'refundConfirmationText',
+      'refundActionId',
       "review(selected, 'approved')",
       'canApproveSponsorship',
+      'canRefundSponsorship',
       'paymentEligibilityMessage',
       'reviewNoteFor'
     ],
@@ -308,7 +313,12 @@ test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () =
 
   assertIncludesAll(
     adminService,
-    ['/admin/sponsorships/review', 'AdminSponsorshipReviewRequest'],
+    [
+      '/admin/sponsorships/review',
+      'AdminSponsorshipReviewRequest',
+      '/admin/sponsorships/refund',
+      'AdminSponsorshipRefundRequest'
+    ],
     'admin review service'
   );
 
@@ -320,7 +330,10 @@ test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () =
       'queueSponsorshipRejectionEmail',
       'A rejection reason is required.',
       'ADMIN_REVIEW_NOTE_MAX_LENGTH',
-      'isValidAdminExpectedVersion'
+      'isValidAdminExpectedVersion',
+      "'/admin/sponsorships/refund'",
+      'stripe.refunds.create',
+      'SPONSORSHIP_REFUND_NOT_ELIGIBLE'
     ],
     'admin review API validation'
   );
@@ -330,6 +343,7 @@ test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () =
     [
       'updateSponsorshipReview',
       'getAdminSponsorshipById',
+      'getSponsorshipRefundTarget',
       'sponsor_review_status = $2',
       'payment_not_eligible',
       'targetRow.review_status !=='

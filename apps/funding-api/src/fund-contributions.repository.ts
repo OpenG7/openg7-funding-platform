@@ -142,6 +142,18 @@ export interface SponsorshipReviewInput {
   readonly expectedVersion: string;
 }
 
+export interface SponsorshipRefundTarget {
+  readonly id: string;
+  readonly version: string;
+  readonly publicReference: string | null;
+  readonly paymentStatus: string;
+  readonly amountCents: number;
+  readonly amount: number;
+  readonly currency: string;
+  readonly stripePaymentIntentId: string | null;
+  readonly sponsorName: string;
+}
+
 export type SponsorshipPublicationInput = AdminSponsorshipPublicationRequest;
 
 export type SponsorshipMutationStatus =
@@ -1422,6 +1434,67 @@ export const getAdminSponsorshipById = async (
   );
 
   return query.rows[0] ? mapAdminSponsorshipRow(query.rows[0]) : null;
+};
+
+export const getSponsorshipRefundTarget = async (
+  pool: Pool | null,
+  contributionId: string
+): Promise<SponsorshipRefundTarget | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const query = await pool.query<{
+    readonly id: string;
+    readonly version: string;
+    readonly public_reference: string | null;
+    readonly payment_status: string;
+    readonly amount_cents: string;
+    readonly currency: string;
+    readonly stripe_payment_intent_id: string | null;
+    readonly sponsor_name: string | null;
+  }>(
+    `
+      SELECT
+        id::text AS id,
+        updated_at::text AS version,
+        public_reference,
+        status AS payment_status,
+        amount_cents::text AS amount_cents,
+        currency,
+        stripe_payment_intent_id,
+        COALESCE(
+          NULLIF(btrim(sponsor_company_name), ''),
+          NULLIF(btrim(public_name), ''),
+          public_reference,
+          'Commanditaire'
+        ) AS sponsor_name
+      FROM fund_contributions
+      WHERE id = $1::uuid
+        AND contribution_type = 'sponsorship_interest'
+        AND status IN ('paid', 'refunded', 'disputed')
+      LIMIT 1
+    `,
+    [contributionId]
+  );
+
+  const row = query.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  const amountCents = parseDbInt(row.amount_cents);
+  return {
+    id: row.id,
+    version: row.version,
+    publicReference: row.public_reference,
+    paymentStatus: row.payment_status,
+    amountCents,
+    amount: centsToAmount(amountCents),
+    currency: row.currency.toUpperCase(),
+    stripePaymentIntentId: row.stripe_payment_intent_id,
+    sponsorName: row.sponsor_name ?? 'Commanditaire'
+  };
 };
 
 export const updateSponsorshipReview = async (

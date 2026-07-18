@@ -785,6 +785,24 @@ export interface AdminSponsorshipReviewResult {
   };
 }
 
+export interface AdminSponsorshipRefundRequest {
+  readonly contributionId: string;
+  readonly expectedVersion: string;
+  readonly confirmationText: string;
+  readonly refundNote?: string;
+}
+
+export interface AdminSponsorshipRefundResult {
+  readonly refunded: boolean;
+  readonly refundId: string;
+  readonly refundStatus: string | null;
+  readonly amount: number;
+  readonly currency: string;
+  readonly contributionId: string;
+  readonly paymentStatusUpdated: boolean;
+  readonly sponsorship: AdminSponsorshipRecord | null;
+}
+
 export interface AdminSponsorshipPublicationRequest {
   readonly contributionId: string;
   readonly expectedVersion: string;

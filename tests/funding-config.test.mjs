@@ -1522,6 +1522,60 @@ test('Admin sponsor rejection requires a reason and can notify the sponsor', () 
   assert.ok(email.includes('rejectionRefundHandlingLabel'));
 });
 
+test('Admin sponsorship refund uses Stripe with explicit confirmation and audit', () => {
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const readme = fs.readFileSync('README.md', 'utf8');
+
+  assert.ok(core.includes('AdminSponsorshipRefundRequest'));
+  assert.ok(core.includes('AdminSponsorshipRefundResult'));
+
+  assert.ok(service.includes('refundSponsorship'));
+  assert.ok(service.includes('/admin/sponsorships/refund'));
+
+  for (const marker of [
+    'refund-workflow',
+    'openRefundPanel',
+    'confirmRefund',
+    'refundConfirmationText',
+    'refundValidationMessage',
+    'refundActionId',
+    'canRefundSponsorship',
+    'Rembourser Stripe'
+  ]) {
+    assert.ok(page.includes(marker), `sponsors page must include ${marker}`);
+  }
+
+  for (const marker of [
+    "'/admin/sponsorships/refund'",
+    "'/api/admin/sponsorships/refund'",
+    'stripe.refunds.create',
+    'amount: target.amountCents',
+    'idempotencyKey: `sponsorship-refund:',
+    'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
+    'sponsorship_refund.stripe_full',
+    'updateContributionStatusByPaymentIntent'
+  ]) {
+    assert.ok(api.includes(marker), `API must include ${marker}`);
+  }
+
+  assert.ok(repository.includes('getSponsorshipRefundTarget'));
+  assert.ok(repository.includes('stripe_payment_intent_id'));
+  assert.ok(readme.includes('POST /api/admin/sponsorships/refund'));
+});
+
 test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = fs.readFileSync(
