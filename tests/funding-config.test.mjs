@@ -1634,6 +1634,11 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
   );
   assert.ok(core.includes('readonly pagination: AdminPagination;'));
   assert.ok(core.includes('readonly expectedVersion: string;'));
+  assert.ok(
+    core.includes(
+      'readonly admin_audit_entries: readonly AdminAuditLogEntry[];'
+    )
+  );
 
   assert.ok(service.includes('export interface AdminSponsorshipListQuery'));
   assert.ok(service.includes('const params = new URLSearchParams();'));
@@ -1649,6 +1654,9 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
   assert.ok(page.includes('response.items ?? response.sponsorships'));
   assert.ok(page.includes('paymentStatus: this.paymentFilter()'));
   assert.ok(page.includes('expectedVersion: sponsorship.version'));
+  assert.ok(page.includes('admin_audit_entries'));
+  assert.ok(page.includes('adminAuditLabel'));
+  assert.ok(page.includes('Acteur: ${entry.actor}'));
   assert.ok(page.includes('paymentEligibilityMessage'));
   assert.ok(page.includes('canApproveSponsorship'));
   assert.ok(page.includes('canSavePublication'));
@@ -1666,6 +1674,9 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
 
   assert.ok(repository.includes('export interface AdminSponsorshipListInput'));
   assert.ok(repository.includes('export interface AdminSponsorshipListResult'));
+  assert.ok(repository.includes('listAdminSponsorshipAuditEntries'));
+  assert.ok(repository.includes("to_regclass('public.admin_audit_log')"));
+  assert.ok(repository.includes('admin_audit_entries: adminAuditEntries'));
   assert.ok(repository.includes('COUNT(*)::text AS total_items'));
   assert.ok(repository.includes('MAX(updated_at)::text AS last_updated_at'));
   assert.ok(repository.includes('ILIKE ${placeholder}'));

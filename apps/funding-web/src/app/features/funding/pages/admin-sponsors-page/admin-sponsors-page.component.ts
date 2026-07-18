@@ -16,6 +16,7 @@ import {
   resolveSponsorshipBenefits
 } from '@openg7/funding-core';
 import type {
+  AdminAuditLogEntry,
   AdminSponsorshipRejectionRefundHandling,
   AdminPagination,
   AdminSponsorshipRecord,
@@ -73,6 +74,7 @@ type SponsorshipPublicationChannel = Extract<
 >;
 
 interface SponsorAuditEntry {
+  readonly id: string;
   readonly date: string;
   readonly label: string;
   readonly detail?: string;
@@ -1052,8 +1054,8 @@ const controlledSponsorLogoUrlPrefixes = [
                     </p></ng-template
                   >
                   <p class="muted-copy">
-                    Les donnees d'audit fines et l'administrateur responsable ne
-                    sont pas exposes par l'API actuelle.
+                    Les actions admin proviennent du journal prive et restent
+                    limitees a cette commandite.
                   </p>
                 </article>
               </section>
@@ -3796,12 +3798,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   auditEntriesFor(sponsorship: AdminSponsorshipRecord): SponsorAuditEntry[] {
     const entries: SponsorAuditEntry[] = [];
     entries.push({
+      id: `${sponsorship.id}:created`,
       date: sponsorship.created_at,
       label: 'Reception de la commandite.'
     });
 
     if (sponsorship.paid_at) {
       entries.push({
+        id: `${sponsorship.id}:paid`,
         date: sponsorship.paid_at,
         label: 'Paiement confirme.',
         detail: this.paymentStatusLabel(sponsorship.payment_status)
@@ -3810,6 +3814,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
     if (sponsorship.sponsor_details_submitted_at) {
       entries.push({
+        id: `${sponsorship.id}:details`,
         date: sponsorship.sponsor_details_submitted_at,
         label: 'Details commanditaire recus.'
       });
@@ -3817,6 +3822,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
     if (sponsorship.sponsor_reviewed_at) {
       entries.push({
+        id: `${sponsorship.id}:reviewed`,
         date: sponsorship.sponsor_reviewed_at,
         label: `Statut de revue: ${this.reviewStatusLabel(
           sponsorship.sponsor_review_status
@@ -3826,9 +3832,19 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
     if (sponsorship.sponsor_visibility_updated_at) {
       entries.push({
+        id: `${sponsorship.id}:visibility`,
         date: sponsorship.sponsor_visibility_updated_at,
         label: 'Donnees de publication mises a jour.',
         detail: this.feedStatusLabel(sponsorship.sponsor_feed_status)
+      });
+    }
+
+    for (const entry of sponsorship.admin_audit_entries ?? []) {
+      entries.push({
+        id: entry.id,
+        date: entry.created_at,
+        label: this.adminAuditLabel(entry),
+        detail: this.adminAuditDetail(entry)
       });
     }
 
@@ -3838,7 +3854,77 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   trackByAuditEntry(_: number, entry: SponsorAuditEntry): string {
-    return `${entry.date}:${entry.label}`;
+    return entry.id;
+  }
+
+  private adminAuditLabel(entry: AdminAuditLogEntry): string {
+    if (entry.action.startsWith('sponsorship_review.')) {
+      const reviewStatus =
+        typeof entry.metadata.reviewStatus === 'string'
+          ? (entry.metadata.reviewStatus as SponsorshipReviewStatus)
+          : null;
+      return reviewStatus
+        ? `Decision admin: ${this.reviewStatusLabel(reviewStatus)}.`
+        : 'Decision admin enregistree.';
+    }
+
+    switch (entry.action) {
+      case 'sponsorship.logo.upload':
+        return 'Logo commanditaire ajoute ou remplace.';
+      case 'sponsorship.logo.delete':
+        return 'Logo commanditaire supprime.';
+      case 'sponsorship_refund.stripe_full':
+        return 'Remboursement Stripe complet cree.';
+      case 'sponsorship_publication.update':
+        return 'Publication commanditaire mise a jour.';
+      default:
+        return entry.summary || entry.action;
+    }
+  }
+
+  private adminAuditDetail(entry: AdminAuditLogEntry): string {
+    const details = [`Acteur: ${entry.actor}`];
+
+    if (entry.action === 'sponsorship_refund.stripe_full') {
+      const refundId =
+        typeof entry.metadata.refundId === 'string'
+          ? entry.metadata.refundId
+          : null;
+      const refundStatus =
+        typeof entry.metadata.refundStatus === 'string'
+          ? entry.metadata.refundStatus
+          : null;
+      if (refundId) {
+        details.push(`Refund: ${refundId}`);
+      }
+      if (refundStatus) {
+        details.push(`Statut: ${refundStatus}`);
+      }
+    }
+
+    if (entry.action === 'sponsorship_publication.update') {
+      const feedStatus =
+        typeof entry.metadata.feedStatus === 'string'
+          ? (entry.metadata.feedStatus as SponsorFeedStatus)
+          : null;
+      if (feedStatus) {
+        details.push(`Publication: ${this.feedStatusLabel(feedStatus)}`);
+      }
+    }
+
+    if (entry.action.startsWith('sponsorship_review.')) {
+      const notificationSent =
+        typeof entry.metadata.notificationSent === 'boolean'
+          ? entry.metadata.notificationSent
+          : null;
+      if (notificationSent !== null) {
+        details.push(
+          notificationSent ? 'Courriel envoye' : 'Courriel non envoye'
+        );
+      }
+    }
+
+    return details.join(' · ');
   }
 
   async copyReference(sponsorship: AdminSponsorshipRecord): Promise<void> {
