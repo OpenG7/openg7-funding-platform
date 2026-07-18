@@ -16,8 +16,10 @@ import {
   resolveSponsorshipBenefits
 } from '@openg7/funding-core';
 import type {
+  AdminSponsorshipRejectionRefundHandling,
   AdminPagination,
   AdminSponsorshipRecord,
+  AdminSponsorshipReviewResult,
   SponsorFeedChannel,
   SponsorFeedStatus,
   SponsorFeedTarget,
@@ -73,6 +75,14 @@ interface SponsorAuditEntry {
   readonly date: string;
   readonly label: string;
   readonly detail?: string;
+}
+
+interface SponsorRejectionDraft {
+  readonly notifySponsor: boolean;
+  readonly recipientEmail: string;
+  readonly sponsorMessage: string;
+  readonly refundHandling: AdminSponsorshipRejectionRefundHandling;
+  readonly refundNote: string;
 }
 
 const pageSizeOptions = [6, 10, 25] as const;
@@ -1039,6 +1049,135 @@ const controlledSponsorLogoUrlPrefixes = [
                 </article>
               </section>
 
+              <section
+                class="rejection-workflow"
+                *ngIf="isRejectionPanelOpen(selected)"
+                aria-label="Refus de commandite"
+              >
+                <header>
+                  <div>
+                    <span>Action sensible</span>
+                    <h3>Refuser la commandite</h3>
+                  </div>
+                  <button
+                    type="button"
+                    class="icon-action"
+                    (click)="closeRejectionPanel()"
+                    aria-label="Fermer le refus"
+                  >
+                    ×
+                  </button>
+                </header>
+
+                <label class="rejection-span-2"
+                  >Raison interne du refus *<textarea
+                    rows="4"
+                    maxlength="1000"
+                    [value]="reviewNoteFor(selected.id)"
+                    (input)="setReviewNote(selected.id, $event)"
+                  ></textarea>
+                </label>
+
+                <label class="rejection-span-2"
+                  >Message au commanditaire *<textarea
+                    rows="5"
+                    maxlength="1000"
+                    [value]="rejectionDraftFor(selected).sponsorMessage"
+                    (input)="
+                      setRejectionDraftField(
+                        selected.id,
+                        'sponsorMessage',
+                        $event
+                      )
+                    "
+                  ></textarea>
+                </label>
+
+                <label class="checkbox-line rejection-span-2">
+                  <input
+                    type="checkbox"
+                    [checked]="rejectionDraftFor(selected).notifySponsor"
+                    (change)="
+                      setRejectionDraftBoolean(
+                        selected.id,
+                        'notifySponsor',
+                        $event
+                      )
+                    "
+                  />
+                  Envoyer le courriel de refus
+                </label>
+
+                <label
+                  >Destinataire<input
+                    type="email"
+                    autocomplete="email"
+                    [disabled]="!rejectionDraftFor(selected).notifySponsor"
+                    [value]="rejectionDraftFor(selected).recipientEmail"
+                    (input)="
+                      setRejectionDraftField(
+                        selected.id,
+                        'recipientEmail',
+                        $event
+                      )
+                    "
+                /></label>
+
+                <label
+                  >Remboursement<select
+                    [value]="rejectionDraftFor(selected).refundHandling"
+                    (change)="setRejectionRefundHandling(selected.id, $event)"
+                  >
+                    <option value="none">Ne pas rembourser maintenant</option>
+                    <option value="manual_required">
+                      A traiter manuellement dans Stripe
+                    </option>
+                    <option value="manual_completed">
+                      Deja rembourse manuellement
+                    </option>
+                  </select></label
+                >
+
+                <label class="rejection-span-2"
+                  >Note remboursement<textarea
+                    rows="3"
+                    maxlength="1000"
+                    [value]="rejectionDraftFor(selected).refundNote"
+                    (input)="
+                      setRejectionDraftField(selected.id, 'refundNote', $event)
+                    "
+                  ></textarea>
+                </label>
+
+                <footer>
+                  <span class="inline-status" aria-live="polite">{{
+                    rejectionValidationMessage(selected)
+                  }}</span>
+                  <button
+                    type="button"
+                    class="secondary-action"
+                    (click)="closeRejectionPanel()"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    class="review-button reject"
+                    [disabled]="
+                      !canConfirmRejection(selected) ||
+                      isAnyActionPending(selected.id)
+                    "
+                    (click)="confirmRejection(selected)"
+                  >
+                    {{
+                      isActionPending(reviewActionId(selected.id))
+                        ? 'Refus en cours...'
+                        : 'Confirmer le refus'
+                    }}
+                  </button>
+                </footer>
+              </section>
+
               <footer class="detail-actions">
                 <p
                   class="review-toast"
@@ -1060,7 +1199,7 @@ const controlledSponsorLogoUrlPrefixes = [
                   type="button"
                   class="review-button reject"
                   [disabled]="isAnyActionPending(selected.id)"
-                  (click)="review(selected, 'rejected')"
+                  (click)="openRejectionPanel(selected)"
                 >
                   Refuser
                 </button>
@@ -1353,6 +1492,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .search-control,
       .admin-table-toolbar label,
       .review-note-label,
+      .rejection-workflow label,
       .publication-grid label,
       .logo-upload-control {
         display: grid;
@@ -1611,6 +1751,49 @@ const controlledSponsorLogoUrlPrefixes = [
         grid-column: 1 / -1;
         margin: 0 1rem 1rem;
         padding: 0.75rem 0.9rem;
+      }
+
+      .rejection-workflow {
+        background: #fff8f8;
+        border-top: 1px solid #f1a8b4;
+        display: grid;
+        gap: 0.85rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 1rem;
+      }
+
+      .rejection-workflow header,
+      .rejection-workflow footer {
+        align-items: center;
+        display: flex;
+        gap: 0.75rem;
+        grid-column: 1 / -1;
+        justify-content: space-between;
+      }
+
+      .rejection-workflow header span {
+        color: #9f1d2f;
+        font-size: 0.72rem;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .rejection-workflow h3 {
+        margin: 0.15rem 0 0;
+      }
+
+      .rejection-span-2 {
+        grid-column: 1 / -1;
+      }
+
+      .checkbox-line {
+        align-items: center;
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .checkbox-line input {
+        min-height: auto;
       }
 
       .detail-badges,
@@ -1923,6 +2106,7 @@ const controlledSponsorLogoUrlPrefixes = [
         .admin-shell,
         .admin-summary-grid,
         .admin-table-toolbar,
+        .rejection-workflow,
         .publication-grid,
         .detail-card-grid,
         .detail-meta {
@@ -1985,6 +2169,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly feedFilter = signal<SponsorFeedStatusFilter>('all');
   readonly paymentFilter = signal<SponsorPaymentStatusFilter>('all');
   readonly selectedSponsorshipId = signal<string | null>(null);
+  readonly activeRejectionId = signal<string | null>(null);
   readonly activeTab = signal<SponsorDetailsTab>('overview');
   readonly page = signal<number>(1);
   readonly pageSize = signal<number>(6);
@@ -1994,6 +2179,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly publicationMessages = signal<Record<string, string>>({});
   readonly noteMessages = signal<Record<string, string>>({});
   readonly copyMessages = signal<Record<string, string>>({});
+  readonly rejectionDrafts = signal<Record<string, SponsorRejectionDraft>>({});
   readonly feedStatuses = feedStatuses;
   readonly pageSizeOptions = pageSizeOptions;
 
@@ -2112,6 +2298,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     sponsorship: AdminSponsorshipRecord,
     reviewStatus: SponsorshipReviewStatus
   ): Promise<void> {
+    if (reviewStatus === 'rejected') {
+      this.openRejectionPanel(sponsorship);
+      return;
+    }
+
     if (
       reviewStatus === 'approved' &&
       !this.canApproveSponsorship(sponsorship)
@@ -2125,20 +2316,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    let reviewNote = this.reviewNoteFor(sponsorship.id).trim();
-    if (reviewStatus === 'rejected' && !reviewNote) {
-      if (typeof window === 'undefined') {
-        return;
-      }
-
-      const refusalReason = window.prompt('Motif du refus');
-      if (refusalReason === null) {
-        return;
-      }
-
-      reviewNote = refusalReason.trim();
-      this.setReviewNoteValue(sponsorship.id, reviewNote);
-    }
+    const reviewNote = this.reviewNoteFor(sponsorship.id).trim();
 
     if (
       reviewStatus === 'pending_review' &&
@@ -2175,6 +2353,181 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         this.messageFromError(
           error,
           "Action impossible: la revue n'a pas pu etre enregistree."
+        ),
+        true
+      );
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
+  openRejectionPanel(sponsorship: AdminSponsorshipRecord): void {
+    this.ensureRejectionDraft(sponsorship);
+    this.activeTab.set('overview');
+    this.activeRejectionId.set(sponsorship.id);
+    this.setReviewMessage(
+      sponsorship.id,
+      'Completez la raison, le message et le traitement du remboursement.'
+    );
+  }
+
+  closeRejectionPanel(): void {
+    this.activeRejectionId.set(null);
+  }
+
+  isRejectionPanelOpen(sponsorship: AdminSponsorshipRecord): boolean {
+    return this.activeRejectionId() === sponsorship.id;
+  }
+
+  rejectionDraftFor(
+    sponsorship: AdminSponsorshipRecord
+  ): SponsorRejectionDraft {
+    return (
+      this.rejectionDrafts()[sponsorship.id] ??
+      this.defaultRejectionDraft(sponsorship)
+    );
+  }
+
+  setRejectionDraftField(
+    id: string,
+    field: 'recipientEmail' | 'sponsorMessage' | 'refundNote',
+    event: Event
+  ): void {
+    const input = event.target as HTMLInputElement | HTMLTextAreaElement;
+    this.rejectionDrafts.update((drafts) => {
+      const current = drafts[id] ?? this.emptyRejectionDraft();
+      return {
+        ...drafts,
+        [id]: {
+          ...current,
+          [field]: input.value
+        }
+      };
+    });
+  }
+
+  setRejectionDraftBoolean(
+    id: string,
+    field: 'notifySponsor',
+    event: Event
+  ): void {
+    const input = event.target as HTMLInputElement;
+    this.rejectionDrafts.update((drafts) => {
+      const current = drafts[id] ?? this.emptyRejectionDraft();
+      return {
+        ...drafts,
+        [id]: {
+          ...current,
+          [field]: input.checked
+        }
+      };
+    });
+  }
+
+  setRejectionRefundHandling(id: string, event: Event): void {
+    const input = event.target as HTMLSelectElement;
+    const value = input.value as AdminSponsorshipRejectionRefundHandling;
+    this.rejectionDrafts.update((drafts) => {
+      const current = drafts[id] ?? this.emptyRejectionDraft();
+      return {
+        ...drafts,
+        [id]: {
+          ...current,
+          refundHandling: value
+        }
+      };
+    });
+  }
+
+  canConfirmRejection(sponsorship: AdminSponsorshipRecord): boolean {
+    const draft = this.rejectionDraftFor(sponsorship);
+    const reason = this.reviewNoteFor(sponsorship.id).trim();
+
+    if (!reason) {
+      return false;
+    }
+
+    if (!draft.notifySponsor) {
+      return true;
+    }
+
+    return (
+      this.isValidEmailDraft(draft.recipientEmail) &&
+      draft.sponsorMessage.trim().length > 0
+    );
+  }
+
+  rejectionValidationMessage(sponsorship: AdminSponsorshipRecord): string {
+    const draft = this.rejectionDraftFor(sponsorship);
+    if (!this.reviewNoteFor(sponsorship.id).trim()) {
+      return 'Raison interne obligatoire.';
+    }
+
+    if (draft.notifySponsor && !this.isValidEmailDraft(draft.recipientEmail)) {
+      return 'Destinataire courriel requis.';
+    }
+
+    if (draft.notifySponsor && !draft.sponsorMessage.trim()) {
+      return 'Message au commanditaire obligatoire.';
+    }
+
+    return draft.notifySponsor
+      ? 'Pret a refuser et envoyer le courriel.'
+      : 'Pret a refuser sans courriel.';
+  }
+
+  async confirmRejection(sponsorship: AdminSponsorshipRecord): Promise<void> {
+    if (!this.canConfirmRejection(sponsorship)) {
+      this.setReviewMessage(
+        sponsorship.id,
+        this.rejectionValidationMessage(sponsorship),
+        true
+      );
+      return;
+    }
+
+    const draft = this.rejectionDraftFor(sponsorship);
+    const reviewNote = this.reviewNoteFor(sponsorship.id).trim();
+
+    this.actionState.set(this.reviewActionId(sponsorship.id));
+    this.setReviewMessage(sponsorship.id, 'Action en cours: refus...');
+
+    try {
+      const result = await this.admin.reviewSponsorship(this.adminToken(), {
+        contributionId: sponsorship.id,
+        reviewStatus: 'rejected',
+        reviewNote,
+        expectedVersion: sponsorship.version,
+        notifySponsor: draft.notifySponsor,
+        notificationEmail: draft.notifySponsor
+          ? draft.recipientEmail.trim()
+          : undefined,
+        sponsorMessage: draft.notifySponsor
+          ? draft.sponsorMessage.trim()
+          : undefined,
+        refundHandling: draft.refundHandling,
+        refundNote: draft.refundNote.trim() || undefined
+      });
+      await this.loadSponsorships();
+      this.activeRejectionId.set(null);
+      this.setReviewMessage(
+        sponsorship.id,
+        [
+          this.reviewSuccessMessage('rejected'),
+          this.rejectionNotificationResultLabel(result),
+          this.rejectionRefundResultLabel(result.refundHandling)
+        ]
+          .filter(Boolean)
+          .join(' '),
+        true
+      );
+      this.pulseSelection(sponsorship.id);
+    } catch (error) {
+      this.setReviewMessage(
+        sponsorship.id,
+        this.messageFromError(
+          error,
+          "Action impossible: le refus n'a pas pu etre enregistre."
         ),
         true
       );
@@ -2424,6 +2777,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   closeDetails(): void {
     this.selectedSponsorshipId.set(null);
+    this.activeRejectionId.set(null);
   }
 
   setActiveTab(tab: SponsorDetailsTab): void {
@@ -2921,6 +3275,40 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return sponsorship.public_name || 'Consenti, nom manquant';
   }
 
+  rejectionNotificationResultLabel(
+    result: AdminSponsorshipReviewResult
+  ): string {
+    if (!result.notification) {
+      return 'Aucun courriel envoye.';
+    }
+
+    if (result.notification.sent) {
+      return 'Courriel envoye au commanditaire.';
+    }
+
+    if (result.notification.queued) {
+      return 'Courriel mis en file.';
+    }
+
+    return result.notification.error
+      ? `Courriel non envoye: ${result.notification.error}`
+      : 'Courriel non envoye.';
+  }
+
+  rejectionRefundResultLabel(
+    handling: AdminSponsorshipRejectionRefundHandling | undefined
+  ): string {
+    if (handling === 'manual_required') {
+      return 'Remboursement a traiter manuellement.';
+    }
+
+    if (handling === 'manual_completed') {
+      return 'Remboursement marque comme deja traite.';
+    }
+
+    return '';
+  }
+
   isReviewNoteDirty(sponsorship: AdminSponsorshipRecord): boolean {
     return (
       this.reviewNoteFor(sponsorship.id).trim() !==
@@ -3106,6 +3494,54 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       feedPublicUrl: '',
       feedNotes: ''
     };
+  }
+
+  private ensureRejectionDraft(sponsorship: AdminSponsorshipRecord): void {
+    this.rejectionDrafts.update((drafts) =>
+      drafts[sponsorship.id]
+        ? drafts
+        : {
+            ...drafts,
+            [sponsorship.id]: this.defaultRejectionDraft(sponsorship)
+          }
+    );
+  }
+
+  private defaultRejectionDraft(
+    sponsorship: AdminSponsorshipRecord
+  ): SponsorRejectionDraft {
+    const sponsorName =
+      sponsorship.sponsor_company_name ||
+      sponsorship.public_name ||
+      'votre organisation';
+
+    return {
+      notifySponsor: Boolean(sponsorship.sponsor_contact_email),
+      recipientEmail: sponsorship.sponsor_contact_email ?? '',
+      sponsorMessage: [
+        `Bonjour ${sponsorName},`,
+        '',
+        'Apres revision, nous ne pouvons pas accepter cette commandite OpenG7 pour le moment.',
+        '',
+        'Merci de votre comprehension. Vous pouvez repondre a ce courriel si vous souhaitez clarifier la situation.'
+      ].join('\n'),
+      refundHandling: 'none',
+      refundNote: ''
+    };
+  }
+
+  private emptyRejectionDraft(): SponsorRejectionDraft {
+    return {
+      notifySponsor: false,
+      recipientEmail: '',
+      sponsorMessage: '',
+      refundHandling: 'none',
+      refundNote: ''
+    };
+  }
+
+  private isValidEmailDraft(value: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   }
 
   private saveToken(): void {

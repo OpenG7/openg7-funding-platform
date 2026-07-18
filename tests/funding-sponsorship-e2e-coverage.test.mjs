@@ -294,7 +294,10 @@ test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () =
     adminPage,
     [
       "review(selected, 'pending_review')",
-      "review(selected, 'rejected')",
+      'openRejectionPanel(selected)',
+      'confirmRejection(selected)',
+      'rejectionValidationMessage',
+      'refundHandling',
       "review(selected, 'approved')",
       'canApproveSponsorship',
       'paymentEligibilityMessage',
@@ -314,6 +317,8 @@ test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () =
     [
       "'/admin/sponsorships/review'",
       'isAllowedSponsorshipReviewStatus',
+      'queueSponsorshipRejectionEmail',
+      'A rejection reason is required.',
       'ADMIN_REVIEW_NOTE_MAX_LENGTH',
       'isValidAdminExpectedVersion'
     ],
@@ -324,6 +329,7 @@ test('E2E 5/8: admin can approve, reset, or reject sponsorship visibility', () =
     repository,
     [
       'updateSponsorshipReview',
+      'getAdminSponsorshipById',
       'sponsor_review_status = $2',
       'payment_not_eligible',
       'targetRow.review_status !=='

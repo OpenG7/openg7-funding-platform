@@ -242,6 +242,14 @@ placement metadata:
 
 It does not post automatically to Facebook or LinkedIn.
 
+When an admin refuses a sponsorship from `/admin/fundraiser/sponsors`, the
+review flow requires an internal refusal reason, can send a sponsor-facing
+email through the queued email system, and records the chosen refund handling
+(`none`, manual refund required, or manual refund already completed) in the
+admin audit metadata. It does not trigger a Stripe refund automatically yet;
+Stripe refunds remain a deliberate manual operation until a dedicated refund
+confirmation workflow is added.
+
 Sponsor logos can be uploaded by admins through
 `POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files
 only, validates MIME type and file signature, stores the file outside the web

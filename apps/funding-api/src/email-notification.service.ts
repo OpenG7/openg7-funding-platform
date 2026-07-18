@@ -1,10 +1,12 @@
 import type { Pool } from 'pg';
+import type { AdminSponsorshipRejectionRefundHandling } from '@openg7/funding-core';
 
 import type { SponsorshipInvoiceRecord } from './sponsorship-invoices.repository.js';
 
 type EmailTemplateKey =
   | 'sponsorship_followup'
   | 'sponsorship_confirmation'
+  | 'sponsorship_rejection'
   | 'sponsorship_invoice'
   | 'publication_batch_full'
   | 'email_configuration_test';
@@ -34,6 +36,20 @@ interface SponsorshipInvoiceEmailInput {
   readonly to: string;
   readonly invoice: SponsorshipInvoiceRecord;
   readonly followupUrl?: string;
+  readonly idempotencyKey?: string;
+}
+
+interface SponsorshipRejectionEmailInput {
+  readonly to: string;
+  readonly contributionId: string;
+  readonly publicReference: string | null;
+  readonly sponsorName: string;
+  readonly amount: number;
+  readonly currency: string;
+  readonly reviewReason: string;
+  readonly sponsorMessage: string;
+  readonly refundHandling: AdminSponsorshipRejectionRefundHandling;
+  readonly refundNote?: string;
   readonly idempotencyKey?: string;
 }
 
@@ -194,6 +210,20 @@ const formatBenefitList = (amount: number): readonly string[] => {
   return benefits.map((benefit) => sponsorshipBenefitLabels[benefit]);
 };
 
+const rejectionRefundHandlingLabel = (
+  handling: AdminSponsorshipRejectionRefundHandling
+): string => {
+  if (handling === 'manual_required') {
+    return 'Un remboursement sera traite separement par notre equipe.';
+  }
+
+  if (handling === 'manual_completed') {
+    return 'Le remboursement a ete marque comme deja traite par notre equipe.';
+  }
+
+  return 'Aucun remboursement automatique n est declenche par ce message.';
+};
+
 const sendEmailPayload = async (input: {
   readonly to: string;
   readonly from: string;
@@ -350,6 +380,78 @@ const renderSponsorshipConfirmationEmail = (
       publicReference: input.publicReference,
       stripePaymentIntentId: input.stripePaymentIntentId,
       stripeSessionId: input.stripeSessionId
+    }
+  };
+};
+
+const renderSponsorshipRejectionEmail = (
+  input: SponsorshipRejectionEmailInput
+): RenderedEmail => {
+  const reference = input.publicReference ?? 'Reference a confirmer';
+  const amount = formatMoney(input.amount, input.currency);
+  const refundLabel = rejectionRefundHandlingLabel(input.refundHandling);
+  const refundNote = input.refundNote?.trim() ?? '';
+  const subject = `Decision concernant votre commandite OpenG7 - ${reference}`;
+  const text = [
+    `Bonjour ${input.sponsorName},`,
+    '',
+    'Nous avons termine la revue de votre commandite OpenG7.',
+    '',
+    `Reference: ${reference}`,
+    `Montant: ${amount}`,
+    '',
+    'Decision: commandite refusee.',
+    '',
+    'Message de notre equipe:',
+    input.sponsorMessage,
+    '',
+    'Motif de revue:',
+    input.reviewReason,
+    '',
+    'Remboursement:',
+    refundLabel,
+    ...(refundNote ? ['', 'Note remboursement:', refundNote] : []),
+    '',
+    'Vous pouvez repondre a ce courriel si vous souhaitez clarifier la situation.'
+  ].join('\n');
+  const html = `
+    <p>Bonjour ${escapeHtml(input.sponsorName)},</p>
+    <p>Nous avons termine la revue de votre commandite OpenG7.</p>
+    <p>
+      <strong>Reference:</strong> ${escapeHtml(reference)}<br />
+      <strong>Montant:</strong> ${escapeHtml(amount)}<br />
+      <strong>Decision:</strong> commandite refusee
+    </p>
+    <p><strong>Message de notre equipe</strong></p>
+    <p>${escapeHtml(input.sponsorMessage).replaceAll('\n', '<br />')}</p>
+    <p><strong>Motif de revue</strong></p>
+    <p>${escapeHtml(input.reviewReason).replaceAll('\n', '<br />')}</p>
+    <p>
+      <strong>Remboursement:</strong>
+      ${escapeHtml(refundLabel)}
+    </p>
+    ${
+      refundNote
+        ? `<p><strong>Note remboursement:</strong> ${escapeHtml(refundNote)}</p>`
+        : ''
+    }
+    <p>
+      Vous pouvez repondre a ce courriel si vous souhaitez clarifier la
+      situation.
+    </p>
+  `;
+
+  return {
+    templateKey: 'sponsorship_rejection',
+    subject,
+    text,
+    html,
+    metadata: {
+      amount: input.amount,
+      contributionId: input.contributionId,
+      currency: input.currency,
+      publicReference: input.publicReference,
+      refundHandling: input.refundHandling
     }
   };
 };
@@ -1024,6 +1126,18 @@ export const queueSponsorshipConfirmationEmail = async (
   input: SponsorshipConfirmationEmailInput
 ): Promise<EmailQueueResult> => {
   const rendered = renderSponsorshipConfirmationEmail(input);
+  return queueAndProcessEmail(pool, {
+    ...rendered,
+    to: input.to,
+    idempotencyKey: input.idempotencyKey
+  });
+};
+
+export const queueSponsorshipRejectionEmail = async (
+  pool: Pool | null,
+  input: SponsorshipRejectionEmailInput
+): Promise<EmailQueueResult> => {
+  const rendered = renderSponsorshipRejectionEmail(input);
   return queueAndProcessEmail(pool, {
     ...rendered,
     to: input.to,

@@ -762,11 +762,27 @@ export interface AdminSponsorshipReviewRequest {
   readonly reviewStatus: SponsorshipReviewStatus;
   readonly reviewNote?: string;
   readonly expectedVersion: string;
+  readonly notifySponsor?: boolean;
+  readonly notificationEmail?: string;
+  readonly sponsorMessage?: string;
+  readonly refundHandling?: AdminSponsorshipRejectionRefundHandling;
+  readonly refundNote?: string;
 }
+
+export type AdminSponsorshipRejectionRefundHandling =
+  'none' | 'manual_required' | 'manual_completed';
 
 export interface AdminSponsorshipReviewResult {
   readonly updated: boolean;
   readonly reviewStatus: SponsorshipReviewStatus;
+  readonly refundHandling?: AdminSponsorshipRejectionRefundHandling;
+  readonly notification?: {
+    readonly queued: boolean;
+    readonly attempted: boolean;
+    readonly sent: boolean;
+    readonly messageId: string | null;
+    readonly error: string | null;
+  };
 }
 
 export interface AdminSponsorshipPublicationRequest {
