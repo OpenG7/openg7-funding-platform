@@ -29,6 +29,8 @@ import type {
   AdminSetupStatusResponse,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
+  AdminSponsorshipInvoiceBackfillRequest,
+  AdminSponsorshipInvoiceBackfillResult,
   AdminSponsorshipInvoiceResendRequest,
   AdminSponsorshipInvoiceResendResult,
   AdminSponsorshipInvoicesResponse,
@@ -240,6 +242,34 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminSponsorshipInvoicesResponse;
+  }
+
+  async backfillSponsorshipInvoices(
+    token: string,
+    payload: AdminSponsorshipInvoiceBackfillRequest = {}
+  ): Promise<AdminSponsorshipInvoiceBackfillResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorship-invoices/backfill`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsorship invoices could not be backfilled.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminSponsorshipInvoiceBackfillResult;
   }
 
   async resendSponsorshipInvoice(

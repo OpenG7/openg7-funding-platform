@@ -231,6 +231,9 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
 - Endpoints `GET /api/admin/sponsorship-invoices/pdf` et
   `GET /api/admin/sponsorship-credit-notes/pdf` pour telecharger les PDF
   descriptifs proteges par la session admin.
+- Endpoint `POST /api/admin/sponsorship-invoices/backfill` pour generer les
+  factures manquantes des anciennes commandites payees sans envoi courriel
+  automatique.
 - Endpoint `POST /api/admin/sponsorship-credit-notes/resend` pour renvoyer un
   avoir depuis la page admin Factures.
 - Endpoint `POST /api/admin/sponsorships/publication` pour preparer le profil
