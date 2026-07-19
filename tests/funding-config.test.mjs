@@ -635,35 +635,35 @@ test('Business sponsorship contribution choice is controlled by runtime flag', (
 test('Sponsorship pricing config resolves tiers and benefits from the real paid amount', () => {
   assert.deepEqual(
     DEFAULT_SPONSORSHIP_PRICING_CONFIG.presetAmounts,
-    [5, 10, 25, 50]
+    [50, 100, 250, 500]
   );
-  assert.equal(DEFAULT_SPONSORSHIP_PRICING_CONFIG.minimumAmount, 5);
+  assert.equal(DEFAULT_SPONSORSHIP_PRICING_CONFIG.minimumAmount, 50);
   assert.deepEqual(
     OPENG7_FUNDING_CONFIG.sponsorship,
     DEFAULT_SPONSORSHIP_PRICING_CONFIG
   );
 
   const cases = [
-    { amount: 5, tier: 'website_only', benefits: ['website_mention'] },
-    { amount: 10, tier: 'website_only', benefits: ['website_mention'] },
-    { amount: 24.99, tier: 'website_only', benefits: ['website_mention'] },
+    { amount: 50, tier: 'website_only', benefits: ['website_mention'] },
+    { amount: 100, tier: 'website_only', benefits: ['website_mention'] },
+    { amount: 249.99, tier: 'website_only', benefits: ['website_mention'] },
     {
-      amount: 25,
+      amount: 250,
       tier: 'website_facebook',
       benefits: ['website_mention', 'facebook_batch']
     },
     {
-      amount: 49.99,
+      amount: 499.99,
       tier: 'website_facebook',
       benefits: ['website_mention', 'facebook_batch']
     },
     {
-      amount: 50,
+      amount: 500,
       tier: 'website_facebook_linkedin',
       benefits: ['website_mention', 'facebook_batch', 'linkedin_batch']
     },
     {
-      amount: 75,
+      amount: 750,
       tier: 'website_facebook_linkedin',
       benefits: ['website_mention', 'facebook_batch', 'linkedin_batch']
     }
@@ -683,14 +683,14 @@ test('Sponsorship pricing config resolves tiers and benefits from the real paid 
   }
 
   const belowMinimum = resolveSponsorshipBenefits(
-    4.99,
+    49.99,
     DEFAULT_SPONSORSHIP_PRICING_CONFIG
   );
   assert.equal(belowMinimum.tier, null);
   assert.deepEqual(belowMinimum.achievedBenefits, []);
 
   const atWebsiteOnly = resolveSponsorshipBenefits(
-    10,
+    100,
     DEFAULT_SPONSORSHIP_PRICING_CONFIG
   );
   assert.deepEqual(
@@ -699,7 +699,7 @@ test('Sponsorship pricing config resolves tiers and benefits from the real paid 
   );
 
   const atFacebookTier = resolveSponsorshipBenefits(
-    25,
+    250,
     DEFAULT_SPONSORSHIP_PRICING_CONFIG
   );
   assert.deepEqual(
@@ -708,21 +708,21 @@ test('Sponsorship pricing config resolves tiers and benefits from the real paid 
   );
 
   const atTopTier = resolveSponsorshipBenefits(
-    50,
+    500,
     DEFAULT_SPONSORSHIP_PRICING_CONFIG
   );
   assert.deepEqual(atTopTier.upcomingBenefits, []);
 
   assert.equal(
-    isValidSponsorshipAmount(4.99, DEFAULT_SPONSORSHIP_PRICING_CONFIG),
+    isValidSponsorshipAmount(49.99, DEFAULT_SPONSORSHIP_PRICING_CONFIG),
     false
   );
   assert.equal(
-    isValidSponsorshipAmount(5, DEFAULT_SPONSORSHIP_PRICING_CONFIG),
+    isValidSponsorshipAmount(50, DEFAULT_SPONSORSHIP_PRICING_CONFIG),
     true
   );
   assert.equal(
-    isValidSponsorshipAmount(75, DEFAULT_SPONSORSHIP_PRICING_CONFIG),
+    isValidSponsorshipAmount(750, DEFAULT_SPONSORSHIP_PRICING_CONFIG),
     true
   );
 });
@@ -738,11 +738,11 @@ test('Sponsorship amount grid and benefits recap react to the selected amount wi
   );
 
   assert.ok(config.includes('sponsorship: {'));
-  assert.ok(config.includes('presetAmounts: [5, 10, 25, 50],'));
-  assert.ok(config.includes('minimumAmount: 5,'));
-  assert.ok(config.includes('websiteMention: { minimumAmount: 5 },'));
-  assert.ok(config.includes('facebookBatch: { minimumAmount: 25 },'));
-  assert.ok(config.includes('linkedinBatch: { minimumAmount: 50 }'));
+  assert.ok(config.includes('presetAmounts: [50, 100, 250, 500],'));
+  assert.ok(config.includes('minimumAmount: 50,'));
+  assert.ok(config.includes('websiteMention: { minimumAmount: 50 },'));
+  assert.ok(config.includes('facebookBatch: { minimumAmount: 250 },'));
+  assert.ok(config.includes('linkedinBatch: { minimumAmount: 500 }'));
 
   assert.ok(source.includes('resolveSponsorshipBenefits'));
   assert.ok(source.includes('isValidSponsorshipAmount'));
@@ -777,7 +777,7 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
   // dist/), so a real (non-type) cross-package import only resolves inside
   // the Angular bundle. The API keeps its own local mirror instead, same
   // convention as allowedContributionAmounts/FUNDING_ALLOWED_AMOUNTS.
-  assert.ok(source.includes('const sponsorshipMinimumAmount = 5;'));
+  assert.ok(source.includes('const sponsorshipMinimumAmount = 50;'));
   assert.ok(
     source.includes(
       'const isValidSponsorshipAmount = (amount: number): boolean =>'
@@ -903,15 +903,15 @@ test('Mock checkout fallback never claims a confirmed Stripe payment or webhook 
 test('Sponsorship MVP pricing tiers are documented', () => {
   const mvpStatus = fs.readFileSync('docs/fundraiser-mvp-status.md', 'utf8');
 
-  assert.ok(mvpStatus.includes('Commandite 5 $ a 24,99 $'));
+  assert.ok(mvpStatus.includes('Commandite 50 $ a 249,99 $'));
   assert.ok(mvpStatus.includes("mention de l'entreprise sur OpenG7.org"));
-  assert.ok(mvpStatus.includes('Commandite 25 $ a 49,99 $'));
-  assert.ok(mvpStatus.includes('Commandite 50 $ et plus'));
+  assert.ok(mvpStatus.includes('Commandite 250 $ a 499,99 $'));
+  assert.ok(mvpStatus.includes('Commandite 500 $ et plus'));
   assert.ok(mvpStatus.includes('resolveSponsorshipBenefits'));
   assert.ok(mvpStatus.includes('revue manuelle'));
   assert.ok(mvpStatus.includes('prochain lot disponible'));
   assert.ok(
-    mvpStatus.includes('5 $ a 50 $ constituent la gamme accessible du MVP')
+    mvpStatus.includes('50 $ a 500 $ constituent la gamme accessible du MVP')
   );
 });
 

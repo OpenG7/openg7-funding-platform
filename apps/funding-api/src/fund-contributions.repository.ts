@@ -35,9 +35,9 @@ const sponsorshipBenefitThresholds: readonly {
   readonly id: SponsorshipBenefitId;
   readonly minimumAmount: number;
 }[] = [
-  { id: 'website_mention', minimumAmount: 5 },
-  { id: 'facebook_batch', minimumAmount: 25 },
-  { id: 'linkedin_batch', minimumAmount: 50 }
+  { id: 'website_mention', minimumAmount: 50 },
+  { id: 'facebook_batch', minimumAmount: 250 },
+  { id: 'linkedin_batch', minimumAmount: 500 }
 ];
 
 const sponsorshipTierByAchievedCount: readonly (SponsorshipTierId | null)[] = [

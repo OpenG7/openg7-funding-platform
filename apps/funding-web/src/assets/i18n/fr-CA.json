@@ -649,7 +649,7 @@
           "reviewNote": "Chaque commandite est vérifiée et approuvée manuellement avant sa publication.",
           "afterPaymentNote": "Après le paiement, vous pourrez transmettre les renseignements de votre entreprise, votre site Web et votre logo aux fins de validation.",
           "manualReviewNote": "Toute commandite est vérifiée et approuvée manuellement avant sa publication. Les présences sur les réseaux sociaux sont planifiées dans les prochains lots disponibles.",
-          "amountFormatError": "Le montant minimal pour une commandite est de 5 $.",
+          "amountFormatError": "Le montant minimal pour une commandite est de 50 $.",
           "disabled": "Temporairement indisponible"
         },
         "otherAmount": "Autre montant",
