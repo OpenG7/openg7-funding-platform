@@ -649,7 +649,7 @@
           "reviewNote": "Each sponsorship is manually verified and approved before publication.",
           "afterPaymentNote": "After payment, you will be able to submit your company details, website, and logo for validation.",
           "manualReviewNote": "Every sponsorship is manually verified and approved before publication. Social media placements are scheduled in the next available batch.",
-          "amountFormatError": "The minimum sponsorship amount is $5.",
+          "amountFormatError": "The minimum sponsorship amount is $50.",
           "disabled": "Temporarily unavailable"
         },
         "otherAmount": "Other amount",

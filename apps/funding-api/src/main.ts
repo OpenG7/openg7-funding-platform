@@ -267,7 +267,7 @@ const allowedContributionAmounts = new Set(
 // Kept in sync by hand, same as allowedContributionAmounts/FUNDING_ALLOWED_AMOUNTS above:
 // `@openg7/funding-core` has no local package build, so a real (non-type)
 // cross-package import only resolves inside the Angular bundle, not here.
-const sponsorshipMinimumAmount = 5;
+const sponsorshipMinimumAmount = 50;
 
 const isValidSponsorshipAmount = (amount: number): boolean =>
   Number.isFinite(amount) && amount >= sponsorshipMinimumAmount;

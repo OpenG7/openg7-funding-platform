@@ -18,12 +18,12 @@ export const OPENG7_FUNDING_CONFIG: FundingProjectConfig = {
   // Kept in sync by hand with FUNDING_ALLOWED_AMOUNTS-style server-side
   // sponsorship validation in apps/funding-api (see docs/fundraiser-mvp-status.md).
   sponsorship: {
-    presetAmounts: [5, 10, 25, 50],
-    minimumAmount: 5,
+    presetAmounts: [50, 100, 250, 500],
+    minimumAmount: 50,
     benefits: {
-      websiteMention: { minimumAmount: 5 },
-      facebookBatch: { minimumAmount: 25 },
-      linkedinBatch: { minimumAmount: 50 }
+      websiteMention: { minimumAmount: 50 },
+      facebookBatch: { minimumAmount: 250 },
+      linkedinBatch: { minimumAmount: 500 }
     }
   }
 } as const;

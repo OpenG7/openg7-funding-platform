@@ -50,8 +50,8 @@ Le produit reste volontairement prudent:
 - Refus serveur si la mention non-charite n'est pas acceptee.
 - Validation serveur des montants via `FUNDING_ALLOWED_AMOUNTS` pour
   `personal_support`. Pour `sponsorship_interest`, tout montant a au plus 2
-  decimales et superieur ou egal au minimum de commandite (5 $) est accepte,
-  y compris un montant personnalise (ex. 75 $).
+  decimales et superieur ou egal au minimum de commandite (50 $) est accepte,
+  y compris un montant personnalise (ex. 750 $).
 - Validation serveur des types de contribution.
 - Validation prudente des URLs de retour Checkout.
 
@@ -65,10 +65,10 @@ par le navigateur. La logique de calcul et les seuils vivent a la fois dans
 `apps/funding-api` (meme convention que `FUNDING_ALLOWED_AMOUNTS`, car ce
 package n'a pas de build local et ne se resout pas cote API):
 
-- Commandite 5 $ a 24,99 $ -> mention de l'entreprise sur OpenG7.org.
-- Commandite 25 $ a 49,99 $ -> mention OpenG7.org + inclusion dans un lot
+- Commandite 50 $ a 249,99 $ -> mention de l'entreprise sur OpenG7.org.
+- Commandite 250 $ a 499,99 $ -> mention OpenG7.org + inclusion dans un lot
   collectif de reconnaissance Facebook.
-- Commandite 50 $ et plus -> mention OpenG7.org + lots collectifs de
+- Commandite 500 $ et plus -> mention OpenG7.org + lots collectifs de
   reconnaissance Facebook et LinkedIn.
 
 Precisions:
@@ -81,7 +81,7 @@ Precisions:
   immediate ni une date precise.
 - Toute commandite reste soumise a une revue manuelle avant toute visibilite
   publique, quel que soit le montant ou le palier atteint.
-- 5 $ a 50 $ constituent la gamme accessible du MVP. Les offres
+- 50 $ a 500 $ constituent la gamme accessible du MVP. Les offres
   professionnelles ou partenariats de plus grande valeur ne font pas partie
   de cette configuration.
 - Le systeme de lots qui planifie et publie ces publications collectives est
@@ -439,7 +439,7 @@ Les elements suivants restent volontairement hors perimetre:
 - fiches detaillees `/batisseurs/[slug]`;
 - bibliotheque avancee d'actifs de marque, variantes de logos et recadrage;
 - publication automatique de commanditaires;
-- publication automatique vers les feeds OpenG7/OpenG20;.0.
+- publication automatique vers les feeds OpenG7/OpenG20;
 
 - integration API LinkedIn/Facebook;
 - recus officiels de don;

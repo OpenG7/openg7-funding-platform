@@ -25,16 +25,16 @@ export interface SponsorshipBenefitsResult {
 }
 
 /**
- * MVP pricing for the business sponsorship flow (5 $ to 50 $ range).
+ * MVP pricing for the business sponsorship flow (50 $ to 500 $ range).
  * Larger professional/partnership offers are out of scope for this config.
  */
 export const DEFAULT_SPONSORSHIP_PRICING_CONFIG: SponsorshipPricingConfig = {
-  presetAmounts: [5, 10, 25, 50],
-  minimumAmount: 5,
+  presetAmounts: [50, 100, 250, 500],
+  minimumAmount: 50,
   benefits: {
-    websiteMention: { minimumAmount: 5 },
-    facebookBatch: { minimumAmount: 25 },
-    linkedinBatch: { minimumAmount: 50 }
+    websiteMention: { minimumAmount: 50 },
+    facebookBatch: { minimumAmount: 250 },
+    linkedinBatch: { minimumAmount: 500 }
   }
 };
 
