@@ -8,6 +8,7 @@
     "stripe:backfill": "node --env-file=../../.env --loader ts-node/esm src/stripe-backfill.cli.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1090.0",
     "@openg7/funding-core": "workspace:*",
     "pdfkit": "^0.19.1",
     "pg": "^8.16.3",

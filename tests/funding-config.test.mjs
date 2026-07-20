@@ -104,6 +104,9 @@ test('PostgreSQL compose service is private and profile-gated', () => {
   assert.ok(compose.includes('internal: true'));
   assert.ok(compose.includes('FUNDING_ADMIN_SESSION_SECRET'));
   assert.ok(compose.includes('FUNDING_SPONSOR_LOGO_STORAGE_DIR'));
+  assert.ok(compose.includes('SPONSOR_MEDIA_STORAGE_DRIVER'));
+  assert.ok(compose.includes('SPONSOR_MEDIA_PRIVATE_BUCKET'));
+  assert.ok(compose.includes('OVH_S3_ACCESS_KEY_ID'));
   assert.ok(compose.includes('openg7-sponsor-logos'));
   assert.equal(/['"]?5432:5432['"]?/.test(compose), false);
 });
@@ -1130,6 +1133,9 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(api.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES'));
   assert.ok(api.includes('FUNDING_SPONSOR_LOGO_STORAGE_DIR'));
   assert.ok(api.includes('FUNDING_SPONSOR_LOGO_MAX_BYTES'));
+  assert.ok(api.includes('SPONSOR_MEDIA_STORAGE_DRIVER'));
+  assert.ok(api.includes('SPONSOR_MEDIA_PRIVATE_BUCKET'));
+  assert.ok(api.includes('OVH_S3_SECRET_ACCESS_KEY'));
   assert.ok(
     envExample.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS=30')
   );
@@ -1138,6 +1144,12 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES=60'));
   assert.ok(envExample.includes('FUNDING_SPONSOR_LOGO_STORAGE_DIR='));
   assert.ok(envExample.includes('FUNDING_SPONSOR_LOGO_MAX_BYTES=524288'));
+  assert.ok(envExample.includes('SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3'));
+  assert.ok(
+    envExample.includes(
+      'SPONSOR_MEDIA_PRIVATE_BUCKET=openg7-funding-sponsor-media-private-prod'
+    )
+  );
 });
 
 test('Sponsorship follow-up page is routed but not added to the sitemap', () => {

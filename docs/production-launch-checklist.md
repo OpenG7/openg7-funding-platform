@@ -195,7 +195,7 @@ the PostgreSQL-backed launch path for real payments:
 1. Start from a clean private PostgreSQL volume and a clean
    `openg7-sponsor-logos` volume.
 2. Configure `DATABASE_URL`, `FUNDING_ADMIN_TOKEN`,
-   `FUNDING_ADMIN_SESSION_SECRET`, `FUNDING_SPONSOR_LOGO_STORAGE_DIR`, Stripe
+   `FUNDING_ADMIN_SESSION_SECRET`, `SPONSOR_MEDIA_STORAGE_DRIVER`, Stripe
    test keys, and a signed Stripe webhook secret.
 3. Apply every versioned migration, then run `corepack yarn test` and
    `corepack yarn workspace @openg7/funding-web build --configuration production`.
@@ -262,8 +262,9 @@ the PostgreSQL-backed launch path for real payments:
 - Confirm `FUNDING_PLATFORM_ENV=production`.
 - Confirm `FUNDING_ALLOWED_ORIGINS` contains only the intended production frontend origins.
 - Confirm sponsorship follow-up and admin rate limit variables are set for the expected traffic volume.
-- Confirm sponsor logo upload limits, storage directory, and `openg7-sponsor-logos` volume backups are configured.
-- Confirm `scripts/backup.sh` creates and offloads `openg7-sponsor-logos-*.tar.gz` once sponsor logo uploads are enabled.
+- Confirm sponsor logo upload limits and the selected sponsor media storage driver are configured.
+- If `SPONSOR_MEDIA_STORAGE_DRIVER=local`, confirm `scripts/backup.sh` creates and offloads `openg7-sponsor-logos-*.tar.gz` once sponsor logo uploads are enabled.
+- If `SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`, confirm `npm run storage:check` and `npm run storage:test` pass on the VPS.
 - Confirm admin sponsor logo preview, replacement cleanup, and delete flows work before public sponsorship display is enabled.
 - Confirm `/dev/stripe-setup`, `/dev/webhooks`, and `/dev/api-keys` are not accessible from the production domain.
 - Confirm all NorthDragon links open `https://northdragon.org` in a new tab.

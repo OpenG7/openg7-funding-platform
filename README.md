@@ -79,8 +79,10 @@ Set these variables for API and webhook processing:
 - `FUNDING_ADMIN_TOKEN` - required in production as the root secret used to create admin sessions.
 - `FUNDING_ADMIN_SESSION_SECRET` - optional but recommended separate HMAC secret for signed admin browser sessions.
 - `FUNDING_ADMIN_SESSION_TTL_MINUTES` - optional admin session duration, defaulting to 60 minutes.
-- `FUNDING_SPONSOR_LOGO_STORAGE_DIR` - private API filesystem directory for uploaded sponsor logos.
+- `SPONSOR_MEDIA_STORAGE_DRIVER` - sponsor media storage backend. Use `local` for filesystem storage or `ovh-s3` for OVH Object Storage.
+- `FUNDING_SPONSOR_LOGO_STORAGE_DIR` - private API filesystem directory for uploaded sponsor logos when `SPONSOR_MEDIA_STORAGE_DRIVER` is `local`.
 - `FUNDING_SPONSOR_LOGO_MAX_BYTES` - optional sponsor logo upload size limit, defaulting to 524288 bytes.
+- `SPONSOR_MEDIA_REGION`, `SPONSOR_MEDIA_ENDPOINT`, `SPONSOR_MEDIA_PUBLIC_BUCKET`, `SPONSOR_MEDIA_PUBLIC_BASE_URL`, `SPONSOR_MEDIA_PRIVATE_BUCKET`, `SPONSOR_MEDIA_PRIVATE_BASE_URL`, `OVH_S3_ACCESS_KEY_ID`, `OVH_S3_SECRET_ACCESS_KEY` - required when `SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`. The API stores uploaded controlled sponsor logos in the private bucket and never exposes the OVH credentials to browsers.
 - `FUNDING_EMAIL_FROM`, `FUNDING_EMAIL_REPLY_TO`, `FUNDING_ADMIN_NOTIFICATION_EMAIL`, `RESEND_API_KEY` - optional Resend email settings used to send sponsorship confirmations, follow-up links, admin publication-batch alerts, and setup tests.
 - `FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS`, `FUNDING_EMAIL_QUEUE_BATCH_SIZE` - optional email queue worker settings.
 - `FUNDING_SPONSORSHIP_INVOICE_PREFIX`, `FUNDING_SPONSORSHIP_CREDIT_NOTE_PREFIX`, `FUNDING_INVOICE_ISSUER_NAME`, `FUNDING_INVOICE_ISSUER_EMAIL`, `FUNDING_INVOICE_ISSUER_ADDRESS`, `FUNDING_INVOICE_TAX_ID`, `FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL`, `FUNDING_SPONSORSHIP_INVOICE_LEGAL_NOTE`, `FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE` - optional sponsorship invoice/credit-note identity and legal text displayed in app-generated invoice and credit-note emails.
@@ -293,8 +295,9 @@ Stripe refund id, notes/errors, and refund-related admin audit entries.
 Sponsor logos can be uploaded by admins through
 `POST /api/admin/sponsorships/logo`. The API accepts PNG, JPEG, and WebP files
 only, validates MIME type and file signature, stores the file outside the web
-bundle, records the controlled `/api/public/sponsor-logos/...` URL on the
-sponsorship, and audits the upload. Admins can preview controlled logos through
+bundle in either the local private storage directory or the OVH private bucket,
+records the controlled `/api/public/sponsor-logos/...` URL on the sponsorship,
+and audits the upload. Admins can preview controlled logos through
 `GET /api/admin/sponsorships/logo`, replace a logo with cleanup of the previous
 controlled file, or remove the logo with `POST /api/admin/sponsorships/logo/delete`.
 Uploaded logos are served publicly only when an approved, consented sponsorship

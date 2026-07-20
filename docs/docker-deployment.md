@@ -90,8 +90,17 @@ FUNDING_PROJECT_ID=openg7
 FUNDING_ADMIN_TOKEN=replace_with_a_long_random_admin_token
 FUNDING_ADMIN_SESSION_SECRET=replace_with_a_different_long_random_session_secret
 FUNDING_ADMIN_SESSION_TTL_MINUTES=60
+SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3
 FUNDING_SPONSOR_LOGO_STORAGE_DIR=/app/var/sponsor-logos
 FUNDING_SPONSOR_LOGO_MAX_BYTES=524288
+SPONSOR_MEDIA_REGION=bhs
+SPONSOR_MEDIA_ENDPOINT=https://s3.bhs.io.cloud.ovh.net
+SPONSOR_MEDIA_PUBLIC_BUCKET=openg7-funding-sponsor-media-public-prod
+SPONSOR_MEDIA_PUBLIC_BASE_URL=https://openg7-funding-sponsor-media-public-prod.s3.bhs.io.cloud.ovh.net
+SPONSOR_MEDIA_PRIVATE_BUCKET=openg7-funding-sponsor-media-private-prod
+SPONSOR_MEDIA_PRIVATE_BASE_URL=https://openg7-funding-sponsor-media-private-prod.s3.bhs.io.cloud.ovh.net
+OVH_S3_ACCESS_KEY_ID=
+OVH_S3_SECRET_ACCESS_KEY=
 STRIPE_SECRET_KEY=sk_live_replace_me
 STRIPE_WEBHOOK_SECRET=whsec_replace_me
 # Optional private PostgreSQL. Leave unset for Stripe-direct transparency.
@@ -405,10 +414,17 @@ Store both the configuration archive and the database dump outside the VPS as
 private secrets. The database may contain Stripe event payloads, sponsorship
 follow-up data, and admin review data.
 
-Uploaded sponsor logos are stored in the `openg7-sponsor-logos` Docker volume
-mounted at `/app/var/sponsor-logos` in the API container. Store sponsor logo
-volume archives with the configuration and database backups whenever sponsor
-logo uploads are enabled.
+When `SPONSOR_MEDIA_STORAGE_DRIVER=local`, uploaded sponsor logos are stored in
+the `openg7-sponsor-logos` Docker volume mounted at `/app/var/sponsor-logos` in
+the API container. Store sponsor logo volume archives with the configuration and
+database backups whenever local sponsor logo uploads are enabled.
+
+When `SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`, uploaded controlled sponsor logos
+are stored in the OVH private bucket. The API still serves
+`/api/public/sponsor-logos/<file>` only after database approval, so the browser
+never receives OVH credentials and the private bucket remains anonymous-private.
+Run `npm run storage:check` and `npm run storage:test` after changing the OVH
+storage configuration.
 
 Suggested cron:
 
@@ -526,7 +542,7 @@ If the API restarts in a loop:
 
 ```bash
 docker compose logs --tail=100 api
-docker compose config | grep -E "APP_DOMAIN|FUNDING_PUBLIC_BASE_URL|FUNDING_ALLOWED_ORIGINS|FUNDING_SPONSOR_LOGO|STRIPE_SECRET_KEY"
+docker compose config | grep -E "APP_DOMAIN|FUNDING_PUBLIC_BASE_URL|FUNDING_ALLOWED_ORIGINS|FUNDING_SPONSOR_LOGO|SPONSOR_MEDIA_|OVH_S3_|STRIPE_SECRET_KEY"
 ```
 
 Most startup loops come from missing production variables in `.env`, especially:
@@ -537,6 +553,10 @@ FUNDING_PUBLIC_BASE_URL=https://openg7.org
 FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
 FUNDING_ADMIN_TOKEN=replace_with_a_long_random_admin_token
 FUNDING_ADMIN_SESSION_SECRET=replace_with_a_different_long_random_session_secret
+SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3
+SPONSOR_MEDIA_REGION=bhs
+SPONSOR_MEDIA_ENDPOINT=https://s3.bhs.io.cloud.ovh.net
+SPONSOR_MEDIA_PRIVATE_BUCKET=openg7-funding-sponsor-media-private-prod
 FUNDING_SPONSOR_LOGO_STORAGE_DIR=/app/var/sponsor-logos
 FUNDING_SPONSOR_LOGO_MAX_BYTES=524288
 STRIPE_SECRET_KEY=sk_live_or_test_key
