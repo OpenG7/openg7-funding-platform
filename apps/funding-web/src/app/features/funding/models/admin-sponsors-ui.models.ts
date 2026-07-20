@@ -8,10 +8,30 @@ export type SponsorshipReviewFilter = 'all' | SponsorshipReviewStatus;
 export type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
 export type SponsorPaymentStatusFilter =
   'all' | 'paid' | 'refunded' | 'disputed';
+export type SponsorDetailsTab =
+  'overview' | 'identity' | 'publication' | 'refund' | 'audit';
 
 export interface AdminSponsorFeedStatusOption {
   readonly value: SponsorFeedStatus;
   readonly label: string;
+}
+
+export interface AdminSponsorDetailHeaderView {
+  readonly initials: string;
+  readonly companyName: string;
+  readonly amountLabel: string;
+  readonly tierLabel: string;
+  readonly reviewStatusClass: string;
+  readonly reviewStatusLabel: string;
+  readonly visibilityClass: string;
+  readonly visibilityLabel: string;
+  readonly paymentStatusClass: string;
+  readonly paymentStatusLabel: string;
+  readonly refundWorkflowStatusClass: string | null;
+  readonly refundWorkflowStatusLabel: string | null;
+  readonly publicReferenceLabel: string;
+  readonly submittedAtLabel: string;
+  readonly reviewedAtLabel: string;
 }
 
 export interface AdminSponsorListRow {

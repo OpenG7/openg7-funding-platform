@@ -33,11 +33,15 @@ import type {
 
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminSponsorDetailHeaderComponent } from '../../components/admin-sponsors/admin-sponsor-detail-header.component.js';
+import { AdminSponsorDetailTabsComponent } from '../../components/admin-sponsors/admin-sponsor-detail-tabs.component.js';
 import { AdminSponsorsListPanelComponent } from '../../components/admin-sponsors/admin-sponsors-list-panel.component.js';
 import { AdminSponsorsSummaryComponent } from '../../components/admin-sponsors/admin-sponsors-summary.component.js';
 import type {
+  AdminSponsorDetailHeaderView,
   AdminSponsorFeedStatusOption,
   AdminSponsorListRow,
+  SponsorDetailsTab,
   SponsorFeedStatusFilter,
   SponsorPaymentStatusFilter,
   SponsorshipReviewFilter
@@ -68,8 +72,6 @@ type SponsorshipPublicationTextField =
   | 'feedStatus'
   | 'feedPublicUrl'
   | 'feedNotes';
-type SponsorDetailsTab =
-  'overview' | 'identity' | 'publication' | 'refund' | 'audit';
 type SponsorProcessingState =
   | 'action-required'
   | 'approved-ready'
@@ -144,6 +146,8 @@ const controlledSponsorLogoUrlPrefixes = [
     CommonModule,
     RouterLink,
     AdminNavComponent,
+    AdminSponsorDetailHeaderComponent,
+    AdminSponsorDetailTabsComponent,
     AdminSponsorsListPanelComponent,
     AdminSponsorsSummaryComponent
   ],
@@ -240,70 +244,11 @@ const controlledSponsorLogoUrlPrefixes = [
             <ng-container
               *ngIf="selectedSponsorship() as selected; else noSelection"
             >
-              <header class="detail-header">
-                <div class="detail-title">
-                  <span class="sponsor-avatar large" aria-hidden="true">{{
-                    initialsFor(selected)
-                  }}</span>
-                  <div>
-                    <h2>
-                      {{
-                        selected.sponsor_company_name || 'Entreprise sans nom'
-                      }}
-                    </h2>
-                    <p>
-                      {{ formatMoney(selected) }} ·
-                      {{ sponsorshipTierLabel(selected) }}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  class="icon-action close-detail"
-                  (click)="closeDetails()"
-                  aria-label="Fermer le dossier"
-                >
-                  ×
-                </button>
-                <div class="detail-badges">
-                  <span [class]="statusClass(selected.sponsor_review_status)">{{
-                    reviewStatusLabel(selected.sponsor_review_status)
-                  }}</span
-                  ><span [class]="visibilityClass(selected)">{{
-                    visibilityLabel(selected)
-                  }}</span
-                  ><span
-                    [class]="paymentStatusClass(selected.payment_status)"
-                    >{{ paymentStatusLabel(selected.payment_status) }}</span
-                  ><span
-                    *ngIf="hasRefundWorkflow(selected)"
-                    [class]="
-                      refundWorkflowStatusClass(
-                        selected.sponsorship_refund_status
-                      )
-                    "
-                    >{{
-                      refundWorkflowStatusLabel(
-                        selected.sponsorship_refund_status
-                      )
-                    }}</span
-                  >
-                </div>
-                <dl class="detail-meta">
-                  <div>
-                    <dt>Reference publique</dt>
-                    <dd>{{ selected.public_reference || 'Non attribuee' }}</dd>
-                  </div>
-                  <div>
-                    <dt>Soumis le</dt>
-                    <dd>{{ dateOnlyLabel(submittedAt(selected)) }}</dd>
-                  </div>
-                  <div>
-                    <dt>Derniere revue</dt>
-                    <dd>{{ dateOnlyLabel(selected.sponsor_reviewed_at) }}</dd>
-                  </div>
-                </dl>
-              </header>
+              <openg7-admin-sponsor-detail-header
+                *ngIf="selectedSponsorDetailHeader() as detailHeader"
+                [detail]="detailHeader"
+                (close)="closeDetails()"
+              />
 
               <p
                 class="payment-alert"
@@ -313,43 +258,10 @@ const controlledSponsorLogoUrlPrefixes = [
                 {{ paymentEligibilityMessage(selected) }}
               </p>
 
-              <nav class="detail-tabs" aria-label="Onglets du dossier">
-                <button
-                  type="button"
-                  [class.active]="activeTab() === 'overview'"
-                  (click)="setActiveTab('overview')"
-                >
-                  Vue d'ensemble
-                </button>
-                <button
-                  type="button"
-                  [class.active]="activeTab() === 'identity'"
-                  (click)="setActiveTab('identity')"
-                >
-                  Identite & logo
-                </button>
-                <button
-                  type="button"
-                  [class.active]="activeTab() === 'publication'"
-                  (click)="setActiveTab('publication')"
-                >
-                  Publication
-                </button>
-                <button
-                  type="button"
-                  [class.active]="activeTab() === 'refund'"
-                  (click)="setActiveTab('refund')"
-                >
-                  Remboursements
-                </button>
-                <button
-                  type="button"
-                  [class.active]="activeTab() === 'audit'"
-                  (click)="setActiveTab('audit')"
-                >
-                  Historique & audit
-                </button>
-              </nav>
+              <openg7-admin-sponsor-detail-tabs
+                [activeTab]="activeTab()"
+                (activeTabChange)="setActiveTab($event)"
+              />
 
               <section
                 class="detail-body"
@@ -2530,6 +2442,39 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
     return this.sponsorships().find((item) => item.id === selectedId) ?? null;
   });
+  readonly selectedSponsorDetailHeader =
+    computed<AdminSponsorDetailHeaderView | null>(() => {
+      const selected = this.selectedSponsorship();
+      if (!selected) {
+        return null;
+      }
+
+      const hasRefundWorkflow = this.hasRefundWorkflow(selected);
+
+      return {
+        initials: this.initialsFor(selected),
+        companyName: selected.sponsor_company_name || 'Entreprise sans nom',
+        amountLabel: this.formatMoney(selected),
+        tierLabel: this.sponsorshipTierLabel(selected),
+        reviewStatusClass: this.statusClass(selected.sponsor_review_status),
+        reviewStatusLabel: this.reviewStatusLabel(
+          selected.sponsor_review_status
+        ),
+        visibilityClass: this.visibilityClass(selected),
+        visibilityLabel: this.visibilityLabel(selected),
+        paymentStatusClass: this.paymentStatusClass(selected.payment_status),
+        paymentStatusLabel: this.paymentStatusLabel(selected.payment_status),
+        refundWorkflowStatusClass: hasRefundWorkflow
+          ? this.refundWorkflowStatusClass(selected.sponsorship_refund_status)
+          : null,
+        refundWorkflowStatusLabel: hasRefundWorkflow
+          ? this.refundWorkflowStatusLabel(selected.sponsorship_refund_status)
+          : null,
+        publicReferenceLabel: selected.public_reference || 'Non attribuee',
+        submittedAtLabel: this.dateOnlyLabel(this.submittedAt(selected)),
+        reviewedAtLabel: this.dateOnlyLabel(selected.sponsor_reviewed_at)
+      };
+    });
   readonly hasActiveFilters = computed(
     () =>
       this.search().trim().length > 0 ||
