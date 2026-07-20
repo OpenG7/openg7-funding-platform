@@ -83,7 +83,8 @@ Set these variables for API and webhook processing:
 - `FUNDING_SPONSOR_LOGO_STORAGE_DIR` - private API filesystem directory for uploaded sponsor logos when `SPONSOR_MEDIA_STORAGE_DRIVER` is `local`.
 - `FUNDING_SPONSOR_LOGO_MAX_BYTES` - optional sponsor logo upload size limit, defaulting to 524288 bytes.
 - `SPONSOR_MEDIA_REGION`, `SPONSOR_MEDIA_ENDPOINT`, `SPONSOR_MEDIA_PUBLIC_BUCKET`, `SPONSOR_MEDIA_PUBLIC_BASE_URL`, `SPONSOR_MEDIA_PRIVATE_BUCKET`, `SPONSOR_MEDIA_PRIVATE_BASE_URL`, `OVH_S3_ACCESS_KEY_ID`, `OVH_S3_SECRET_ACCESS_KEY` - required when `SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`. The API stores uploaded controlled sponsor logos in the private bucket and never exposes the OVH credentials to browsers.
-- `FUNDING_EMAIL_FROM`, `FUNDING_EMAIL_REPLY_TO`, `FUNDING_ADMIN_NOTIFICATION_EMAIL`, `RESEND_API_KEY` - optional Resend email settings used to send sponsorship confirmations, follow-up links, admin publication-batch alerts, and setup tests.
+- `SMTP_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM_NAME`, `MAIL_FROM_ADDRESS`, `MAIL_REPLY_TO_NAME`, `MAIL_REPLY_TO_ADDRESS` - SMTP settings for low-volume transactional email. See [docs/email-smtp.md](docs/email-smtp.md).
+- `FUNDING_ADMIN_NOTIFICATION_EMAIL` - optional internal notification recipient for publication-batch alerts.
 - `FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS`, `FUNDING_EMAIL_QUEUE_BATCH_SIZE` - optional email queue worker settings.
 - `FUNDING_SPONSORSHIP_INVOICE_PREFIX`, `FUNDING_SPONSORSHIP_CREDIT_NOTE_PREFIX`, `FUNDING_INVOICE_ISSUER_NAME`, `FUNDING_INVOICE_ISSUER_EMAIL`, `FUNDING_INVOICE_ISSUER_ADDRESS`, `FUNDING_INVOICE_TAX_ID`, `FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL`, `FUNDING_SPONSORSHIP_INVOICE_LEGAL_NOTE`, `FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE` - optional sponsorship invoice/credit-note identity and legal text displayed in app-generated invoice and credit-note emails.
 
@@ -92,6 +93,18 @@ For the initial production launch, you can leave `DATABASE_URL` unset. Public tr
 When `FUNDING_PLATFORM_ENV=production`, checkout mock fallbacks are disabled. Missing Stripe configuration returns an API error instead of simulating a successful checkout.
 
 Example values are available in [.env.example](.env.example).
+
+SMTP can be verified without sending a message:
+
+```bash
+npm run email:verify
+```
+
+Send a manual test only to an explicitly provided recipient:
+
+```bash
+npm run email:test -- --to=adresse@example.com
+```
 
 ### Fast launch without PostgreSQL
 
@@ -355,7 +368,7 @@ GET /api/sponsorship-followup?token=...
 POST /api/sponsorship-followup/details
 ```
 
-When PostgreSQL, `RESEND_API_KEY`, `FUNDING_EMAIL_FROM`, and migrations 011/012 are
+When PostgreSQL, SMTP email configuration, and migrations 011/012 are
 configured, the `checkout.session.completed` webhook queues the follow-up link
 and creates an app-generated sponsorship invoice snapshot for the Stripe
 customer email. The invoice includes a stable invoice number, issuer details,

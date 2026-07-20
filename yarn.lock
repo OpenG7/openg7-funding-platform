@@ -2112,8 +2112,10 @@ __metadata:
     "@aws-sdk/client-s3": "npm:^3.1090.0"
     "@openg7/funding-core": "workspace:*"
     "@types/node": "npm:^24.10.1"
+    "@types/nodemailer": "npm:^8.0.1"
     "@types/pdfkit": "npm:^0.17.6"
     "@types/pg": "npm:^8.15.6"
+    nodemailer: "npm:^9.0.3"
     pdfkit: "npm:^0.19.1"
     pg: "npm:^8.16.3"
     stripe: "npm:^17.0.0"
@@ -3092,6 +3094,15 @@ __metadata:
   dependencies:
     undici-types: "npm:~7.18.0"
   checksum: 10c0/d7d48a88a4feb0a6aac3cbfaf9ef3b12752b4b09447f88dd0b4c77c03b281e3d4330fe6982a99aedcd63fc16c7540a0c248b91eb2abb0b3edd884d7fe684e9ea
+  languageName: node
+  linkType: hard
+
+"@types/nodemailer@npm:^8.0.1":
+  version: 8.0.1
+  resolution: "@types/nodemailer@npm:8.0.1"
+  dependencies:
+    "@types/node": "npm:*"
+  checksum: 10c0/4370ac478a6811faaa64fcf769556515c72b78c66961cde22be75bb975ce8a964cfbe5e7c0988a99250f3250faa34357c73958b019b3c63dd138ea3784442032
   languageName: node
   linkType: hard
 
@@ -6536,6 +6547,13 @@ __metadata:
     shell-escape: "npm:^0.2.0"
     ssh2: "npm:^1.14.0"
   checksum: 10c0/fcf97f57f8dd387c3aa66ce6abedd38c7c01aef2a020de889750ee7b8178d74267aeca06f60249bbf359d803159be0dbb83d54cf506a1b893be44d5f806ea86a
+  languageName: node
+  linkType: hard
+
+"nodemailer@npm:^9.0.3":
+  version: 9.0.3
+  resolution: "nodemailer@npm:9.0.3"
+  checksum: 10c0/9e93516fb9fcc8835b683cdf3b90135648dabf0133ac9b04890303c2e23eef1d7bae58fe98afb0e251ae10428b96f05df483deb78f0b49f47793debbb0383216
   languageName: node
   linkType: hard
 

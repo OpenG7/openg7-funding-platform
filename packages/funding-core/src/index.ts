@@ -466,7 +466,13 @@ export interface AdminSetupStatusResponse {
     readonly webhook_endpoint: string;
   };
   readonly email: {
-    readonly resend_api_key_configured: boolean;
+    readonly smtp_enabled: boolean;
+    readonly smtp_configured: boolean;
+    readonly smtp_host: string | null;
+    readonly smtp_port: number;
+    readonly smtp_secure: boolean;
+    readonly smtp_user_configured: boolean;
+    readonly smtp_password_configured: boolean;
     readonly from: string | null;
     readonly reply_to: string | null;
     readonly admin_notification_email: string | null;
@@ -506,6 +512,7 @@ export interface AdminEmailTestResult {
   readonly sent: boolean;
   readonly messageId: string | null;
   readonly error: string | null;
+  readonly deliveryMode?: 'disabled' | 'smtp';
 }
 
 export type AdminEmailQueueMessageStatus =

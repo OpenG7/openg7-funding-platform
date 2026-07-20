@@ -10,6 +10,12 @@ import type {
   SponsorshipCreditNoteRecord,
   SponsorshipInvoiceRecord
 } from './sponsorship-invoices.repository.js';
+import {
+  loadTransactionalEmailConfig,
+  sendTransactionalEmail,
+  TransactionalEmailError,
+  type EmailDeliveryMode
+} from './services/email/index.js';
 
 type EmailTemplateKey =
   | 'sponsorship_followup'
@@ -100,6 +106,7 @@ interface EmailSendResult {
   readonly attempted: boolean;
   readonly sent: boolean;
   readonly error: string | null;
+  readonly deliveryMode?: EmailDeliveryMode;
 }
 
 interface EmailQueueResult extends EmailSendResult {
@@ -194,9 +201,6 @@ export interface EmailQueueStatus {
   readonly lastError: string | null;
 }
 
-const resendApiKey = process.env.RESEND_API_KEY?.trim() ?? '';
-const emailFrom = process.env.FUNDING_EMAIL_FROM?.trim() ?? '';
-const emailReplyTo = process.env.FUNDING_EMAIL_REPLY_TO?.trim() ?? '';
 const adminNotificationEmail =
   process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ?? '';
 const defaultMaxAttempts = 5;
@@ -286,55 +290,58 @@ const rejectionRefundHandlingLabel = (
 
 const sendEmailPayload = async (input: {
   readonly to: string;
-  readonly from: string;
   readonly replyTo: string | null;
   readonly subject: string;
   readonly text: string;
   readonly html: string;
 }): Promise<EmailSendResult> => {
-  if (!resendApiKey || !input.from) {
-    return {
-      attempted: false,
-      sent: false,
-      error: 'Email provider is not configured.'
-    };
-  }
-
   try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: input.from,
-        to: [input.to],
-        subject: input.subject,
-        text: input.text,
-        html: input.html,
-        ...(input.replyTo ? { reply_to: input.replyTo } : {})
-      })
+    const result = await sendTransactionalEmail({
+      to: input.to,
+      replyTo: input.replyTo ?? undefined,
+      subject: input.subject,
+      text: input.text,
+      html: input.html
     });
 
-    if (!response.ok) {
+    if (result.deliveryMode === 'disabled') {
+      return {
+        attempted: false,
+        sent: false,
+        deliveryMode: result.deliveryMode,
+        error: 'EMAIL_DISABLED'
+      };
+    }
+
+    if (result.accepted.length === 0 && result.rejected.length > 0) {
       return {
         attempted: true,
         sent: false,
-        error: `Resend returned ${response.status}.`
+        deliveryMode: result.deliveryMode,
+        error: 'EMAIL_RECIPIENT_REJECTED'
       };
     }
 
     return {
       attempted: true,
-      sent: true,
+      sent: result.rejected.length === 0,
+      deliveryMode: result.deliveryMode,
       error: null
     };
   } catch (error) {
+    const emailError =
+      error instanceof TransactionalEmailError
+        ? error
+        : new TransactionalEmailError(
+            'EMAIL_SEND_ERROR',
+            'Transactional email request failed.',
+            { cause: error }
+          );
+
     return {
       attempted: true,
       sent: false,
-      error: error instanceof Error ? error.message : 'Email request failed.'
+      error: emailError.code
     };
   }
 };
@@ -1010,13 +1017,13 @@ const renderEmailConfigurationTest = (
     '',
     `Destinataire: ${input.to}`,
     '',
-    'Si vous recevez ce message, Resend, l expediteur et la file courriel fonctionnent.'
+    'Si vous recevez ce message, SMTP, l expediteur et la file courriel fonctionnent.'
   ].join('\n');
   const html = `
     <p>Ceci est un test de configuration courriel OpenG7.</p>
     <p><strong>Destinataire:</strong> ${escapeHtml(input.to)}</p>
     <p>
-      Si vous recevez ce message, Resend, l'expediteur et la file courriel
+      Si vous recevez ce message, SMTP, l'expediteur et la file courriel
       fonctionnent.
     </p>
   `;
@@ -1036,6 +1043,8 @@ const enqueueEmailMessage = async (
   pool: Pool | null,
   input: QueueEmailInput
 ): Promise<QueueInsertResult> => {
+  const emailConfig = loadTransactionalEmailConfig();
+
   if (!pool) {
     return {
       queued: false,
@@ -1043,16 +1052,6 @@ const enqueueEmailMessage = async (
       messageId: null,
       status: null,
       error: 'Email queue requires DATABASE_URL.'
-    };
-  }
-
-  if (!emailFrom) {
-    return {
-      queued: false,
-      duplicate: false,
-      messageId: null,
-      status: null,
-      error: 'Email sender is not configured.'
     };
   }
 
@@ -1078,8 +1077,8 @@ const enqueueEmailMessage = async (
       input.idempotencyKey ?? null,
       input.templateKey,
       input.to,
-      emailFrom,
-      emailReplyTo || null,
+      emailConfig.from.formatted,
+      emailConfig.replyTo.address,
       input.subject,
       input.text,
       input.html,
@@ -1473,8 +1472,7 @@ export const processQueuedEmailMessages = async (
   for (const row of rows) {
     const result = await sendEmailPayload({
       to: row.recipient_email,
-      from: row.from_email,
-      replyTo: row.reply_to_email,
+      replyTo: null,
       subject: row.subject,
       text: row.text_body,
       html: row.html_body
@@ -1541,6 +1539,9 @@ const queueAndProcessEmail = async (
   pool: Pool | null,
   input: QueueEmailInput
 ): Promise<EmailQueueResult> => {
+  const deliveryMode: EmailDeliveryMode = loadTransactionalEmailConfig().enabled
+    ? 'smtp'
+    : 'disabled';
   const queued = await enqueueEmailMessage(pool, input);
   if (!queued.messageId || queued.error) {
     return {
@@ -1549,7 +1550,8 @@ const queueAndProcessEmail = async (
       messageId: queued.messageId,
       attempted: false,
       sent: false,
-      error: queued.error
+      error: queued.error,
+      deliveryMode
     };
   }
 
@@ -1560,7 +1562,8 @@ const queueAndProcessEmail = async (
       messageId: queued.messageId,
       attempted: false,
       sent: true,
-      error: null
+      error: null,
+      deliveryMode
     };
   }
 
@@ -1576,6 +1579,7 @@ const queueAndProcessEmail = async (
     messageId: queued.messageId,
     attempted: processed.messageIds.includes(queued.messageId),
     sent,
+    deliveryMode,
     error:
       !sent && processed.failedMessageIds.includes(queued.messageId)
         ? 'Email delivery failed and will be retried.'
@@ -1589,8 +1593,7 @@ export const sendSponsorshipFollowupEmail = async (
   const rendered = renderSponsorshipFollowupEmail(input);
   return sendEmailPayload({
     to: input.to,
-    from: emailFrom,
-    replyTo: emailReplyTo || null,
+    replyTo: null,
     subject: rendered.subject,
     text: rendered.text,
     html: rendered.html
