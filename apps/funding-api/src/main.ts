@@ -3,7 +3,6 @@ import {
   type IncomingMessage,
   type ServerResponse
 } from 'node:http';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   createHash,
@@ -144,6 +143,7 @@ import {
   getSponsorshipInvoiceById,
   listAdminSponsorshipInvoices
 } from './sponsorship-invoices.repository.js';
+import { createSponsorLogoStorage } from './sponsor-media-storage.js';
 
 const parsePositiveIntegerEnv = (
   value: string | undefined,
@@ -240,6 +240,20 @@ const sponsorLogoMaxBytes = parsePositiveIntegerEnv(
 const sponsorLogoStorageDir = path.resolve(
   process.env.FUNDING_SPONSOR_LOGO_STORAGE_DIR ?? 'var/sponsor-logos'
 );
+const sponsorLogoStorage = createSponsorLogoStorage({
+  driver: process.env.SPONSOR_MEDIA_STORAGE_DRIVER,
+  localStorageDir: sponsorLogoStorageDir,
+  s3: {
+    region: process.env.SPONSOR_MEDIA_REGION,
+    endpoint: process.env.SPONSOR_MEDIA_ENDPOINT,
+    publicBucket: process.env.SPONSOR_MEDIA_PUBLIC_BUCKET,
+    publicBaseUrl: process.env.SPONSOR_MEDIA_PUBLIC_BASE_URL,
+    privateBucket: process.env.SPONSOR_MEDIA_PRIVATE_BUCKET,
+    privateBaseUrl: process.env.SPONSOR_MEDIA_PRIVATE_BASE_URL,
+    accessKeyId: process.env.OVH_S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.OVH_S3_SECRET_ACCESS_KEY
+  }
+});
 const allowedOrigins = (process.env.FUNDING_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
@@ -786,19 +800,6 @@ const parseSponsorLogoUpload = (
 const sponsorLogoPublicUrlForFilename = (filename: string): string =>
   `${SPONSOR_LOGO_PUBLIC_PATH_PREFIX}${filename}`;
 
-const resolveSponsorLogoFilePath = (filename: string): string | null => {
-  if (!SPONSOR_LOGO_FILENAME_PATTERN.test(filename)) {
-    return null;
-  }
-
-  const resolvedFilePath = path.resolve(sponsorLogoStorageDir, filename);
-  if (!resolvedFilePath.startsWith(`${sponsorLogoStorageDir}${path.sep}`)) {
-    return null;
-  }
-
-  return resolvedFilePath;
-};
-
 const getSponsorLogoFilenameFromUrl = (
   url: string | undefined
 ): string | null => {
@@ -837,18 +838,14 @@ const deleteControlledSponsorLogoFile = async (
     return false;
   }
 
-  const filePath = resolveSponsorLogoFilePath(filename);
-  if (!filePath) {
+  if (!SPONSOR_LOGO_FILENAME_PATTERN.test(filename)) {
     return false;
   }
 
   try {
-    await unlink(filePath);
-    return true;
+    return await sponsorLogoStorage.deleteLogo(filename);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.warn('Failed to delete controlled sponsor logo file.', error);
-    }
+    console.warn('Failed to delete controlled sponsor logo object.', error);
     return false;
   }
 };
@@ -1837,17 +1834,23 @@ createServer(async (request, response) => {
         return;
       }
 
-      const filePath = resolveSponsorLogoFilePath(filename);
       const contentType = contentTypeForSponsorLogoFilename(filename);
 
-      if (!filePath || !contentType) {
+      if (!SPONSOR_LOGO_FILENAME_PATTERN.test(filename) || !contentType) {
         writeJson(request, response, 404, {
           error: 'Sponsor logo was not found.'
         });
         return;
       }
 
-      const logo = await readFile(filePath);
+      const logo = await sponsorLogoStorage.readLogo(filename);
+      if (!logo) {
+        writeJson(request, response, 404, {
+          error: 'Sponsor logo was not found.'
+        });
+        return;
+      }
+
       writeBinary(request, response, 200, logo, contentType, {
         'Cache-Control': 'private, no-store'
       });
@@ -1920,7 +1923,7 @@ createServer(async (request, response) => {
         return;
       }
 
-      const deletedLocalFile = await deleteControlledSponsorLogoFile(
+      const deletedMediaObject = await deleteControlledSponsorLogoFile(
         deleteResult.previousLogoUrl
       );
 
@@ -1932,7 +1935,8 @@ createServer(async (request, response) => {
         summary: 'Sponsor logo removed from controlled public display.',
         metadata: {
           deletedLogoUrl: deleteResult.previousLogoUrl,
-          deletedLocalFile
+          deletedMediaObject,
+          storageDriver: sponsorLogoStorage.driver
         }
       });
 
@@ -2500,8 +2504,7 @@ createServer(async (request, response) => {
       return;
     }
 
-    const filePath = resolveSponsorLogoFilePath(logo.filename);
-    if (!filePath) {
+    if (!SPONSOR_LOGO_FILENAME_PATTERN.test(logo.filename)) {
       writeJson(request, response, 400, {
         error: 'Sponsor logo filename is invalid.'
       });
@@ -2511,8 +2514,11 @@ createServer(async (request, response) => {
     const logoUrl = sponsorLogoPublicUrlForFilename(logo.filename);
 
     try {
-      await mkdir(sponsorLogoStorageDir, { recursive: true });
-      await writeFile(filePath, logo.data, { flag: 'wx' });
+      await sponsorLogoStorage.writeLogo({
+        filename: logo.filename,
+        data: logo.data,
+        contentType: logo.mimeType
+      });
 
       const updateResult = await updateSponsorshipLogoUrl(dbPool, {
         contributionId,
@@ -2521,7 +2527,9 @@ createServer(async (request, response) => {
       });
 
       if (!updateResult.updated) {
-        await unlink(filePath).catch(() => undefined);
+        await sponsorLogoStorage
+          .deleteLogo(logo.filename)
+          .catch(() => undefined);
         writeSponsorshipMutationFailure(
           request,
           response,
@@ -2533,7 +2541,7 @@ createServer(async (request, response) => {
         return;
       }
 
-      const replacedLocalFile = await deleteControlledSponsorLogoFile(
+      const replacedMediaObject = await deleteControlledSponsorLogoFile(
         updateResult.previousLogoUrl
       );
 
@@ -2546,7 +2554,8 @@ createServer(async (request, response) => {
         metadata: {
           logoUrl,
           previousLogoUrl: updateResult.previousLogoUrl,
-          replacedLocalFile,
+          replacedMediaObject,
+          storageDriver: sponsorLogoStorage.driver,
           mimeType: logo.mimeType,
           sizeBytes: logo.sizeBytes
         }
@@ -3471,11 +3480,10 @@ createServer(async (request, response) => {
         return;
       }
 
-      const filePath = resolveSponsorLogoFilePath(filename);
       const contentType = contentTypeForSponsorLogoFilename(filename);
       const publicLogoUrl = sponsorLogoPublicUrlForFilename(filename);
 
-      if (!filePath || !contentType) {
+      if (!SPONSOR_LOGO_FILENAME_PATTERN.test(filename) || !contentType) {
         writeJson(request, response, 404, { error: 'Not found' });
         return;
       }
@@ -3491,7 +3499,12 @@ createServer(async (request, response) => {
           return;
         }
 
-        const logo = await readFile(filePath);
+        const logo = await sponsorLogoStorage.readLogo(filename);
+        if (!logo) {
+          writeJson(request, response, 404, { error: 'Not found' });
+          return;
+        }
+
         writeBinary(request, response, 200, logo, contentType, {
           'Cache-Control': 'public, max-age=86400'
         });

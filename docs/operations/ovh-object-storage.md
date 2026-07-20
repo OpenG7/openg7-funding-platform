@@ -121,12 +121,22 @@ public/sponsors/123/profile-<checksum>.webp
 chemins absolus et les cles contenant `..`. L'original prive n'est jamais
 supprime.
 
-## Role futur de funding-api
+## Role de funding-api
 
-`funding-api` restera responsable du flux normal: recevoir les uploads, valider
-types et tailles, stocker les originaux dans le bucket prive, generer des URL
-pre-signees, copier les medias approuves vers le bucket public, enregistrer les
-metadonnees dans PostgreSQL, gerer les remplacements, retraits et audits.
+`funding-api` est responsable du flux normal: recevoir les uploads, valider
+types et tailles, stocker les originaux controles dans le bucket prive lorsque
+`SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`, enregistrer les metadonnees dans
+PostgreSQL, gerer les remplacements, retraits et audits.
+
+Pour les logos commanditaires existants, l'URL conserve la forme controlee
+`/api/public/sponsor-logos/<file>`. L'API lit l'objet depuis le stockage choisi
+et ne sert le fichier publiquement que si PostgreSQL confirme une commandite
+approuvee et consentie. Le navigateur ne parle jamais directement a OVH S3 et ne
+voit jamais les cles.
+
+Les prochaines automatisations applicatives pourront ajouter la copie d'un media
+approuve vers le bucket public avec `public-read` objet par objet, sans rendre le
+bucket public listable.
 
 Les scripts Bash sont des outils d'administration, de reprise et de verification
 apres deploiement.
