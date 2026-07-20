@@ -32,6 +32,7 @@
     "db:backup": "node scripts/docker-ready.mjs -- bash scripts/backup.sh",
     "db:restore": "node scripts/docker-ready.mjs -- bash scripts/restore-from-backup.sh",
     "prod:check": "bash scripts/check.sh",
+    "services:check": "node scripts/services-check.mjs",
     "prod:deploy": "bash scripts/deploy.sh",
     "prod:backup": "bash scripts/backup.sh",
     "prod:rollback": "bash scripts/rollback.sh",

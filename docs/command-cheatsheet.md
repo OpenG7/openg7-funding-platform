@@ -11,6 +11,7 @@ Usage quotidien local :
 | Vérifier le build TypeScript    | `yarn build`                               |
 | Builder le frontend Angular     | `yarn workspace @openg7/funding-web build` |
 | Lancer le lint                  | `yarn lint`                                |
+| Voir les services à configurer  | `yarn services:check`                      |
 | Mettre à jour Docker localement | `yarn docker:update`                       |
 
 Les raccourcis `docker:*` et `db:*` locaux attendent que Docker soit prêt.
@@ -75,6 +76,16 @@ Lint :
 ```bash
 corepack yarn lint
 ```
+
+Audit de configuration des services :
+
+```bash
+corepack yarn services:check
+```
+
+Ce raccourci lit `.env` et l'environnement courant, puis indique ce qui manque
+pour piloter Stripe, SMTP, HTTPS, PostgreSQL et le stockage des médias sans
+afficher les valeurs secrètes.
 
 ## Docker Compose
 
