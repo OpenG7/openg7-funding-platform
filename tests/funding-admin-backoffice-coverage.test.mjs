@@ -51,6 +51,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const sponsorDetailOverview = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts'
   );
+  const sponsorDetailIdentity = read(
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-identity.component.ts'
+  );
   const invoicesPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts'
   );
@@ -271,6 +274,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'openg7-admin-sponsor-detail-header',
       'selectedSponsorDetailOverview',
       'openg7-admin-sponsor-detail-overview',
+      'selectedSponsorDetailIdentity',
+      'openg7-admin-sponsor-detail-identity',
       'openg7-admin-sponsor-detail-tabs',
       'visibleCount',
       'activeCount',
@@ -281,7 +286,6 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'secondary-danger-action',
       'sponsorship.public_reference',
       'copyReference',
-      'image/png,image/jpeg,image/webp',
       'sponsorLogoMaxBytes',
       'review-toast',
       'selection-pulse',
@@ -387,6 +391,21 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'is-dirty'
     ],
     'admin sponsor detail overview component'
+  );
+
+  assertIncludesAll(
+    sponsorDetailIdentity,
+    [
+      'AdminSponsorDetailIdentityView',
+      'ChangeDetectionStrategy.OnPush',
+      'uploadLogo = output<Event>()',
+      'deleteLogo = output<void>()',
+      'secondary-danger-action',
+      'compact-definition-list',
+      'large-preview',
+      'image/png,image/jpeg,image/webp'
+    ],
+    'admin sponsor detail identity component'
   );
 
   assertIncludesAll(
