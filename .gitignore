@@ -107,4 +107,10 @@ traefik/acme/*
 .env
 .env.*
 !.env.example
+
+# --- Local cloud credentials ------------------------------------------------
+.aws/
+.s3cfg
+aws-credentials*
+*.aws-credentials
 strapi/types/generated/contentTypes.d.ts
