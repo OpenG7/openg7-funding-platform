@@ -1404,6 +1404,10 @@ test('Admin sponsors page derives the sponsorship tier from the paid amount inst
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
     'utf8'
   );
+  const overviewComponent = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts',
+    'utf8'
+  );
 
   assert.ok(page.includes('DEFAULT_SPONSORSHIP_PRICING_CONFIG'));
   assert.ok(page.includes('resolveSponsorshipBenefits'));
@@ -1418,10 +1422,10 @@ test('Admin sponsors page derives the sponsorship tier from the paid amount inst
     )
   );
   assert.ok(page.includes('tierLabel: this.sponsorshipTierLabel(sponsorship)'));
-  assert.match(
-    page,
-    /\{\{\s*sponsorshipBenefitsLabel\((sponsorship|selected)\)\s*\}\}/
+  assert.ok(
+    page.includes('benefitsLabel: this.sponsorshipBenefitsLabel(selected)')
   );
+  assert.match(overviewComponent, /\{\{\s*overview\(\)\.benefitsLabel\s*\}\}/);
   // Derived from the record's own amount, never a value the client could send.
   assert.ok(page.includes('resolveSponsorshipBenefits('));
   assert.ok(page.includes('sponsorship.amount,'));
