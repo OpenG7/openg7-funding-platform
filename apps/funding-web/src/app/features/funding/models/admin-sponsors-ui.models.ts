@@ -61,6 +61,18 @@ export interface AdminSponsorDetailOverviewView {
   readonly reviewNoteSaving: boolean;
 }
 
+export interface AdminSponsorDetailIdentityView {
+  readonly companyName: string;
+  readonly logoPreviewSource: string | null;
+  readonly logoUrl: string | null;
+  readonly publicNameLabel: string;
+  readonly websiteUrl: string | null;
+  readonly logoActionLabel: string;
+  readonly uploadDisabled: boolean;
+  readonly deleteDisabled: boolean;
+  readonly statusMessage: string;
+}
+
 export interface AdminSponsorListRow {
   readonly id: string;
   readonly rowStateClass: string;

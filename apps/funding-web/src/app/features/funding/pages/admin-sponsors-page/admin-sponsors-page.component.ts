@@ -34,12 +34,14 @@ import type {
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminSponsorDetailHeaderComponent } from '../../components/admin-sponsors/admin-sponsor-detail-header.component.js';
+import { AdminSponsorDetailIdentityComponent } from '../../components/admin-sponsors/admin-sponsor-detail-identity.component.js';
 import { AdminSponsorDetailOverviewComponent } from '../../components/admin-sponsors/admin-sponsor-detail-overview.component.js';
 import { AdminSponsorDetailTabsComponent } from '../../components/admin-sponsors/admin-sponsor-detail-tabs.component.js';
 import { AdminSponsorsListPanelComponent } from '../../components/admin-sponsors/admin-sponsors-list-panel.component.js';
 import { AdminSponsorsSummaryComponent } from '../../components/admin-sponsors/admin-sponsors-summary.component.js';
 import type {
   AdminSponsorDetailHeaderView,
+  AdminSponsorDetailIdentityView,
   AdminSponsorDetailOverviewView,
   AdminSponsorFeedStatusOption,
   AdminSponsorListRow,
@@ -149,6 +151,7 @@ const controlledSponsorLogoUrlPrefixes = [
     RouterLink,
     AdminNavComponent,
     AdminSponsorDetailHeaderComponent,
+    AdminSponsorDetailIdentityComponent,
     AdminSponsorDetailOverviewComponent,
     AdminSponsorDetailTabsComponent,
     AdminSponsorsListPanelComponent,
@@ -276,87 +279,14 @@ const controlledSponsorLogoUrlPrefixes = [
                 />
               </ng-container>
 
-              <section
-                class="detail-body"
-                *ngIf="activeTab() === 'identity'"
-                aria-label="Identite et logo"
-              >
-                <article class="detail-card">
-                  <h3>Logo actuel</h3>
-                  <figure
-                    class="logo-preview large-preview"
-                    *ngIf="logoPreviewSourceFor(selected); else noLogoPreview"
-                  >
-                    <img
-                      [src]="logoPreviewSourceFor(selected)"
-                      [alt]="
-                        'Logo ' +
-                        (selected.sponsor_company_name || 'commanditaire')
-                      "
-                    />
-                  </figure>
-                  <ng-template #noLogoPreview
-                    ><p class="muted-copy">
-                      Aucun logo disponible.
-                    </p></ng-template
-                  >
-                  <dl class="compact-definition-list">
-                    <div>
-                      <dt>URL du logo</dt>
-                      <dd>
-                        <a
-                          *ngIf="selected.sponsor_logo_url; else emptyLogoUrl"
-                          [href]="selected.sponsor_logo_url"
-                          target="_blank"
-                          rel="noreferrer"
-                          >{{ selected.sponsor_logo_url }}</a
-                        ><ng-template #emptyLogoUrl>Non fourni</ng-template>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Nom public</dt>
-                      <dd>{{ publicNameLabel(selected) }}</dd>
-                    </div>
-                    <div>
-                      <dt>Site web public</dt>
-                      <dd>
-                        {{ selected.sponsor_website_url || 'Non fourni' }}
-                      </dd>
-                    </div>
-                  </dl>
-                  <div class="logo-actions">
-                    <label class="logo-upload-control"
-                      >{{
-                        selected.sponsor_logo_url
-                          ? 'Remplacer le logo'
-                          : 'Televerser un logo'
-                      }}<input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        [disabled]="
-                          isActionPending(logoActionId(selected.id)) ||
-                          isActionPending(deleteLogoActionId(selected.id))
-                        "
-                        (change)="uploadLogo(selected, $event)" /></label
-                    ><button
-                      type="button"
-                      class="secondary-danger-action"
-                      [disabled]="
-                        !selected.sponsor_logo_url ||
-                        isActionPending(deleteLogoActionId(selected.id)) ||
-                        isActionPending(logoActionId(selected.id))
-                      "
-                      (click)="deleteLogo(selected)"
-                    >
-                      Supprimer le logo
-                    </button>
-                  </div>
-                  <small class="inline-status" aria-live="polite">{{
-                    logoUploadMessageFor(selected.id) ||
-                      'Formats acceptes: PNG, JPEG ou WebP, max 512 KiB.'
-                  }}</small>
-                </article>
-              </section>
+              <ng-container *ngIf="activeTab() === 'identity'">
+                <openg7-admin-sponsor-detail-identity
+                  *ngIf="selectedSponsorDetailIdentity() as identity"
+                  [identity]="identity"
+                  (uploadLogo)="uploadLogo(selected, $event)"
+                  (deleteLogo)="deleteLogo(selected)"
+                />
+              </ng-container>
 
               <section
                 class="detail-body"
@@ -2337,6 +2267,33 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         reviewNoteDirty: this.isReviewNoteDirty(selected),
         reviewNoteStateLabel: this.reviewNoteStateLabel(selected),
         reviewNoteSaving: this.isActionPending(this.noteActionId(selected.id))
+      };
+    });
+  readonly selectedSponsorDetailIdentity =
+    computed<AdminSponsorDetailIdentityView | null>(() => {
+      const selected = this.selectedSponsorship();
+      if (!selected) {
+        return null;
+      }
+
+      const logoBusy =
+        this.isActionPending(this.logoActionId(selected.id)) ||
+        this.isActionPending(this.deleteLogoActionId(selected.id));
+
+      return {
+        companyName: selected.sponsor_company_name || 'Entreprise sans nom',
+        logoPreviewSource: this.logoPreviewSourceFor(selected) || null,
+        logoUrl: selected.sponsor_logo_url || null,
+        publicNameLabel: this.publicNameLabel(selected),
+        websiteUrl: selected.sponsor_website_url || null,
+        logoActionLabel: selected.sponsor_logo_url
+          ? 'Remplacer le logo'
+          : 'Televerser un logo',
+        uploadDisabled: logoBusy,
+        deleteDisabled: !selected.sponsor_logo_url || logoBusy,
+        statusMessage:
+          this.logoUploadMessageFor(selected.id) ||
+          'Formats acceptes: PNG, JPEG ou WebP, max 512 KiB.'
       };
     });
   readonly hasActiveFilters = computed(
