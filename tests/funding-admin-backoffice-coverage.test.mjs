@@ -48,6 +48,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const sponsorDetailTabs = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-tabs.component.ts'
   );
+  const sponsorDetailOverview = read(
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts'
+  );
   const invoicesPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts'
   );
@@ -266,6 +269,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'sponsor-detail-panel',
       'selectedSponsorDetailHeader',
       'openg7-admin-sponsor-detail-header',
+      'selectedSponsorDetailOverview',
+      'openg7-admin-sponsor-detail-overview',
       'openg7-admin-sponsor-detail-tabs',
       'visibleCount',
       'activeCount',
@@ -366,6 +371,22 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'aria-current'
     ],
     'admin sponsor detail tabs component'
+  );
+
+  assertIncludesAll(
+    sponsorDetailOverview,
+    [
+      'AdminSponsorDetailOverviewView',
+      'ChangeDetectionStrategy.OnPush',
+      'detail-card-grid',
+      'copyReference = output<void>()',
+      'reviewNoteChange = output<string>()',
+      'saveReviewNote = output<void>()',
+      'onReviewNoteInput',
+      'review-note-label',
+      'is-dirty'
+    ],
+    'admin sponsor detail overview component'
   );
 
   assertIncludesAll(

@@ -34,11 +34,13 @@ import type {
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminSponsorDetailHeaderComponent } from '../../components/admin-sponsors/admin-sponsor-detail-header.component.js';
+import { AdminSponsorDetailOverviewComponent } from '../../components/admin-sponsors/admin-sponsor-detail-overview.component.js';
 import { AdminSponsorDetailTabsComponent } from '../../components/admin-sponsors/admin-sponsor-detail-tabs.component.js';
 import { AdminSponsorsListPanelComponent } from '../../components/admin-sponsors/admin-sponsors-list-panel.component.js';
 import { AdminSponsorsSummaryComponent } from '../../components/admin-sponsors/admin-sponsors-summary.component.js';
 import type {
   AdminSponsorDetailHeaderView,
+  AdminSponsorDetailOverviewView,
   AdminSponsorFeedStatusOption,
   AdminSponsorListRow,
   SponsorDetailsTab,
@@ -147,6 +149,7 @@ const controlledSponsorLogoUrlPrefixes = [
     RouterLink,
     AdminNavComponent,
     AdminSponsorDetailHeaderComponent,
+    AdminSponsorDetailOverviewComponent,
     AdminSponsorDetailTabsComponent,
     AdminSponsorsListPanelComponent,
     AdminSponsorsSummaryComponent
@@ -263,192 +266,15 @@ const controlledSponsorLogoUrlPrefixes = [
                 (activeTabChange)="setActiveTab($event)"
               />
 
-              <section
-                class="detail-body"
-                *ngIf="activeTab() === 'overview'"
-                aria-label="Vue d'ensemble"
-              >
-                <div class="detail-card-grid">
-                  <article class="detail-card">
-                    <h3>Entreprise & contact</h3>
-                    <dl>
-                      <div>
-                        <dt>Nom de l'entreprise</dt>
-                        <dd>
-                          {{
-                            selected.sponsor_company_name ||
-                              'Entreprise sans nom'
-                          }}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Nom public</dt>
-                        <dd>{{ publicNameLabel(selected) }}</dd>
-                      </div>
-                      <div>
-                        <dt>Contact</dt>
-                        <dd>
-                          {{ selected.sponsor_contact_name || 'Non fourni' }}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Courriel</dt>
-                        <dd>
-                          <a
-                            *ngIf="
-                              selected.sponsor_contact_email;
-                              else emptyEmail
-                            "
-                            [href]="'mailto:' + selected.sponsor_contact_email"
-                            >{{ selected.sponsor_contact_email }}</a
-                          ><ng-template #emptyEmail>Non fourni</ng-template>
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Site web</dt>
-                        <dd>
-                          <a
-                            *ngIf="
-                              selected.sponsor_website_url;
-                              else emptyWebsiteOverview
-                            "
-                            [href]="selected.sponsor_website_url"
-                            target="_blank"
-                            rel="noreferrer"
-                            >{{ selected.sponsor_website_url }}</a
-                          ><ng-template #emptyWebsiteOverview
-                            >Non fourni</ng-template
-                          >
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Reference publique</dt>
-                        <dd class="copy-line">
-                          <code>{{
-                            selected.public_reference || 'Non attribuee'
-                          }}</code
-                          ><button
-                            type="button"
-                            class="mini-action"
-                            (click)="copyReference(selected)"
-                            [disabled]="!selected.public_reference"
-                          >
-                            Copier
-                          </button>
-                        </dd>
-                      </div>
-                    </dl>
-                    <small
-                      class="inline-status"
-                      *ngIf="copyMessageFor(selected.id)"
-                      >{{ copyMessageFor(selected.id) }}</small
-                    >
-                  </article>
-
-                  <article class="detail-card">
-                    <h3>Commandite</h3>
-                    <dl>
-                      <div>
-                        <dt>Montant</dt>
-                        <dd>{{ formatMoney(selected) }}</dd>
-                      </div>
-                      <div>
-                        <dt>Niveau / tier</dt>
-                        <dd>
-                          <span [class]="tierClass(selected)">{{
-                            sponsorshipTierLabel(selected)
-                          }}</span>
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Avantages</dt>
-                        <dd>{{ sponsorshipBenefitsLabel(selected) }}</dd>
-                      </div>
-                      <div>
-                        <dt>Paiement</dt>
-                        <dd>
-                          <span
-                            [class]="
-                              paymentStatusClass(selected.payment_status)
-                            "
-                            >{{
-                              paymentStatusLabel(selected.payment_status)
-                            }}</span
-                          >
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Remboursement</dt>
-                        <dd>
-                          <span
-                            [class]="
-                              refundWorkflowStatusClass(
-                                selected.sponsorship_refund_status
-                              )
-                            "
-                            >{{
-                              refundWorkflowStatusLabel(
-                                selected.sponsorship_refund_status
-                              )
-                            }}</span
-                          >
-                        </dd>
-                      </div>
-                      <div *ngIf="hasRefundWorkflow(selected)">
-                        <dt>Suivi remboursement</dt>
-                        <dd>{{ refundWorkflowTimelineLabel(selected) }}</dd>
-                      </div>
-                      <div *ngIf="selected.sponsorship_refund_id">
-                        <dt>Refund Stripe</dt>
-                        <dd>{{ selected.sponsorship_refund_id }}</dd>
-                      </div>
-                      <div>
-                        <dt>Date de paiement</dt>
-                        <dd>{{ dateOnlyLabel(selected.paid_at) }}</dd>
-                      </div>
-                    </dl>
-                  </article>
-                </div>
-
-                <article class="detail-card" *ngIf="selected.sponsor_message">
-                  <h3>Message du commanditaire</h3>
-                  <p>{{ selected.sponsor_message }}</p>
-                </article>
-
-                <article class="detail-card">
-                  <h3>Note interne</h3>
-                  <label class="review-note-label"
-                    >Note visible uniquement pour l'administration.<textarea
-                      rows="5"
-                      maxlength="1000"
-                      [value]="reviewNoteFor(selected.id)"
-                      (input)="setReviewNote(selected.id, $event)"
-                    ></textarea>
-                  </label>
-                  <div class="form-footer">
-                    <span
-                      class="inline-status"
-                      [class.is-dirty]="isReviewNoteDirty(selected)"
-                      aria-live="polite"
-                      >{{ reviewNoteStateLabel(selected) }}</span
-                    ><button
-                      type="button"
-                      class="secondary-action"
-                      (click)="saveReviewNote(selected)"
-                      [disabled]="
-                        !isReviewNoteDirty(selected) ||
-                        isActionPending(noteActionId(selected.id))
-                      "
-                    >
-                      {{
-                        isActionPending(noteActionId(selected.id))
-                          ? 'Enregistrement...'
-                          : 'Enregistrer la note'
-                      }}
-                    </button>
-                  </div>
-                </article>
-              </section>
+              <ng-container *ngIf="activeTab() === 'overview'">
+                <openg7-admin-sponsor-detail-overview
+                  *ngIf="selectedSponsorDetailOverview() as overview"
+                  [overview]="overview"
+                  (copyReference)="copyReference(selected)"
+                  (reviewNoteChange)="setReviewNoteValue(selected.id, $event)"
+                  (saveReviewNote)="saveReviewNote(selected)"
+                />
+              </ng-container>
 
               <section
                 class="detail-body"
@@ -2473,6 +2299,44 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         publicReferenceLabel: selected.public_reference || 'Non attribuee',
         submittedAtLabel: this.dateOnlyLabel(this.submittedAt(selected)),
         reviewedAtLabel: this.dateOnlyLabel(selected.sponsor_reviewed_at)
+      };
+    });
+  readonly selectedSponsorDetailOverview =
+    computed<AdminSponsorDetailOverviewView | null>(() => {
+      const selected = this.selectedSponsorship();
+      if (!selected) {
+        return null;
+      }
+
+      return {
+        companyName: selected.sponsor_company_name || 'Entreprise sans nom',
+        publicNameLabel: this.publicNameLabel(selected),
+        contactName: selected.sponsor_contact_name || 'Non fourni',
+        contactEmail: selected.sponsor_contact_email || null,
+        websiteUrl: selected.sponsor_website_url || null,
+        publicReference: selected.public_reference || null,
+        copyMessage: this.copyMessageFor(selected.id),
+        amountLabel: this.formatMoney(selected),
+        tierClass: this.tierClass(selected),
+        tierLabel: this.sponsorshipTierLabel(selected),
+        benefitsLabel: this.sponsorshipBenefitsLabel(selected),
+        paymentStatusClass: this.paymentStatusClass(selected.payment_status),
+        paymentStatusLabel: this.paymentStatusLabel(selected.payment_status),
+        refundStatusClass: this.refundWorkflowStatusClass(
+          selected.sponsorship_refund_status
+        ),
+        refundStatusLabel: this.refundWorkflowStatusLabel(
+          selected.sponsorship_refund_status
+        ),
+        hasRefundWorkflow: this.hasRefundWorkflow(selected),
+        refundWorkflowTimelineLabel: this.refundWorkflowTimelineLabel(selected),
+        refundId: selected.sponsorship_refund_id || null,
+        paidAtLabel: this.dateOnlyLabel(selected.paid_at),
+        sponsorMessage: selected.sponsor_message || null,
+        reviewNote: this.reviewNoteFor(selected.id),
+        reviewNoteDirty: this.isReviewNoteDirty(selected),
+        reviewNoteStateLabel: this.reviewNoteStateLabel(selected),
+        reviewNoteSaving: this.isActionPending(this.noteActionId(selected.id))
       };
     });
   readonly hasActiveFilters = computed(
