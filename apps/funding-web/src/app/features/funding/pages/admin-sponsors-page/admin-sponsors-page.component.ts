@@ -33,6 +33,15 @@ import type {
 
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminSponsorsListPanelComponent } from '../../components/admin-sponsors/admin-sponsors-list-panel.component.js';
+import { AdminSponsorsSummaryComponent } from '../../components/admin-sponsors/admin-sponsors-summary.component.js';
+import type {
+  AdminSponsorFeedStatusOption,
+  AdminSponsorListRow,
+  SponsorFeedStatusFilter,
+  SponsorPaymentStatusFilter,
+  SponsorshipReviewFilter
+} from '../../models/admin-sponsors-ui.models.js';
 
 const feedStatuses: readonly SponsorFeedStatus[] = [
   'not_planned',
@@ -59,9 +68,6 @@ type SponsorshipPublicationTextField =
   | 'feedStatus'
   | 'feedPublicUrl'
   | 'feedNotes';
-type SponsorshipReviewFilter = 'all' | SponsorshipReviewStatus;
-type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
-type SponsorPaymentStatusFilter = 'all' | 'paid' | 'refunded' | 'disputed';
 type SponsorDetailsTab =
   'overview' | 'identity' | 'publication' | 'refund' | 'audit';
 type SponsorProcessingState =
@@ -134,7 +140,13 @@ const controlledSponsorLogoUrlPrefixes = [
 @Component({
   selector: 'openg7-admin-sponsors-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, AdminNavComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    AdminNavComponent,
+    AdminSponsorsListPanelComponent,
+    AdminSponsorsSummaryComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="admin-shell">
@@ -176,311 +188,44 @@ const controlledSponsorLogoUrlPrefixes = [
           </div>
         </header>
 
-        <section class="admin-summary-grid" aria-label="Resume des commandites">
-          <article>
-            <span class="metric-mark">TO</span>
-            <div>
-              <span>Total commanditaires</span
-              ><strong>{{ pagination().totalItems }}</strong
-              ><small>Toutes organisations</small>
-            </div>
-          </article>
-          <article>
-            <span class="metric-mark gold">VI</span>
-            <div>
-              <span>Visibles publiquement</span
-              ><strong>{{ visibleCount() }}</strong
-              ><small>Affichees ou publiees</small>
-            </div>
-          </article>
-          <article>
-            <span class="metric-mark green">AC</span>
-            <div>
-              <span>Commanditaires actifs</span
-              ><strong>{{ activeCount() }}</strong
-              ><small>Avec paiement confirme</small>
-            </div>
-          </article>
-          <article>
-            <span class="metric-mark money">CA</span>
-            <div>
-              <span>Contribution totale</span
-              ><strong>{{ formatSummaryMoney(totalContribution()) }}</strong
-              ><small>Paiements confirmes</small>
-            </div>
-          </article>
-        </section>
+        <openg7-admin-sponsors-summary
+          [totalSponsorships]="pagination().totalItems"
+          [visibleCount]="visibleCount()"
+          [activeCount]="activeCount()"
+          [totalContributionLabel]="formatSummaryMoney(totalContribution())"
+        />
 
         <section class="sponsors-board" aria-label="Commandites admin">
-          <section
-            class="sponsors-list-panel"
-            aria-label="Liste des commandites"
-          >
-            <header class="admin-table-toolbar">
-              <label class="search-control">
-                Recherche
-                <input
-                  type="search"
-                  placeholder="Rechercher une entreprise ou un courriel..."
-                  [value]="search()"
-                  (input)="setSearch($event)"
-                />
-              </label>
-
-              <div class="filter-row">
-                <label>
-                  Statut de revue
-                  <select
-                    [value]="reviewFilter()"
-                    (change)="setReviewFilter($event)"
-                  >
-                    <option value="all">Tous</option>
-                    <option value="pending_review">En attente</option>
-                    <option value="approved">Approuvees</option>
-                    <option value="rejected">Refusees</option>
-                  </select>
-                </label>
-
-                <label>
-                  Visibilite / statut feed
-                  <select
-                    [value]="feedFilter()"
-                    (change)="setFeedFilter($event)"
-                  >
-                    <option value="all">Tous</option>
-                    <option
-                      *ngFor="let status of feedStatuses"
-                      [value]="status"
-                    >
-                      {{ feedStatusLabel(status) }}
-                    </option>
-                  </select>
-                </label>
-
-                <label>
-                  Paiement
-                  <select
-                    [value]="paymentFilter()"
-                    (change)="setPaymentFilter($event)"
-                  >
-                    <option value="all">Tous</option>
-                    <option value="paid">Paye</option>
-                    <option value="refunded">Rembourse</option>
-                    <option value="disputed">Litige</option>
-                  </select>
-                </label>
-
-                <button
-                  type="button"
-                  class="tertiary-action"
-                  (click)="resetFilters()"
-                  [disabled]="!hasActiveFilters()"
-                >
-                  Reinitialiser
-                </button>
-              </div>
-            </header>
-
-            <div
-              class="state state-loading"
-              *ngIf="state() === 'loading'"
-              aria-live="polite"
-            >
-              <span>Chargement des commandites...</span>
-              <div class="skeleton-list" aria-hidden="true">
-                <span></span><span></span><span></span>
-              </div>
-            </div>
-
-            <div class="state state-error" *ngIf="state() === 'error'">
-              <strong>Impossible de charger les commandites.</strong>
-              <span>Les donnees n'ont pas pu etre recuperees.</span>
-              <button
-                type="button"
-                class="secondary-action"
-                (click)="loadSponsorships()"
-              >
-                Reessayer
-              </button>
-            </div>
-
-            <ng-container *ngIf="state() !== 'loading' && state() !== 'error'">
-              <div
-                class="sponsor-table"
-                *ngIf="filteredSponsorships().length > 0"
-              >
-                <div class="sponsor-table-head" aria-hidden="true">
-                  <span>Commanditaire</span><span>Commandite</span
-                  ><span>Revue</span><span>Publication</span
-                  ><span>Paiement</span><span>Soumission</span><span></span>
-                </div>
-
-                <button
-                  type="button"
-                  class="sponsor-table-row"
-                  [ngClass]="sponsorshipRowStateClass(sponsorship)"
-                  [attr.title]="sponsorshipProcessingLabel(sponsorship)"
-                  [class.selection-pulse]="
-                    selectionPulseId() === sponsorship.id
-                  "
-                  *ngFor="
-                    let sponsorship of paginatedSponsorships();
-                    trackBy: trackById
-                  "
-                  [class.selected]="
-                    selectedSponsorship()?.id === sponsorship.id
-                  "
-                  [attr.aria-current]="
-                    selectedSponsorship()?.id === sponsorship.id ? 'true' : null
-                  "
-                  (click)="selectSponsorship(sponsorship)"
-                >
-                  <span class="row-cell sponsor-main">
-                    <span class="sponsor-avatar" aria-hidden="true">{{
-                      initialsFor(sponsorship)
-                    }}</span>
-                    <span
-                      ><strong>{{
-                        sponsorship.sponsor_company_name ||
-                          'Entreprise sans nom'
-                      }}</strong
-                      ><small>{{
-                        sponsorship.sponsor_contact_email ||
-                          'Courriel non fourni'
-                      }}</small></span
-                    >
-                  </span>
-                  <span class="row-cell amount-cell"
-                    ><strong>{{ formatMoney(sponsorship) }}</strong
-                    ><small [class]="tierClass(sponsorship)">{{
-                      sponsorshipTierLabel(sponsorship)
-                    }}</small></span
-                  >
-                  <span class="row-cell stacked-cell"
-                    ><span
-                      [class]="statusClass(sponsorship.sponsor_review_status)"
-                      >{{
-                        reviewStatusLabel(sponsorship.sponsor_review_status)
-                      }}</span
-                    ><span [class]="visibilityClass(sponsorship)">{{
-                      visibilityLabel(sponsorship)
-                    }}</span></span
-                  >
-                  <span class="row-cell stacked-cell"
-                    ><span
-                      [class]="feedStatusClass(sponsorship.sponsor_feed_status)"
-                      >{{
-                        feedStatusLabel(sponsorship.sponsor_feed_status)
-                      }}</span
-                    ><small>{{ feedTargetLabel(sponsorship) }}</small
-                    ><small>{{ feedChannelsLabel(sponsorship) }}</small></span
-                  >
-                  <span class="row-cell stacked-cell"
-                    ><span
-                      [class]="paymentStatusClass(sponsorship.payment_status)"
-                      >{{
-                        paymentStatusLabel(sponsorship.payment_status)
-                      }}</span
-                    ><span
-                      *ngIf="hasRefundWorkflow(sponsorship)"
-                      [class]="
-                        refundWorkflowStatusClass(
-                          sponsorship.sponsorship_refund_status
-                        )
-                      "
-                      >{{
-                        refundWorkflowStatusLabel(
-                          sponsorship.sponsorship_refund_status
-                        )
-                      }}</span
-                    ><small>{{
-                      dateOnlyLabel(sponsorship.paid_at)
-                    }}</small></span
-                  >
-                  <span class="row-cell stacked-cell"
-                    ><small>Soumis le</small
-                    ><span>{{
-                      dateOnlyLabel(submittedAt(sponsorship))
-                    }}</span></span
-                  >
-                  <span class="row-cell row-open" aria-hidden="true">›</span>
-                </button>
-              </div>
-
-              <article
-                class="empty-admin-state"
-                *ngIf="
-                  state() === 'ready' &&
-                  sponsorships().length === 0 &&
-                  !hasActiveFilters()
-                "
-              >
-                <h2>Toutes les commandites ont ete revisees.</h2>
-                <p>
-                  Il n'y a actuellement aucune nouvelle commandite a traiter.
-                </p>
-              </article>
-
-              <article
-                class="empty-admin-state"
-                *ngIf="
-                  state() === 'ready' &&
-                  sponsorships().length === 0 &&
-                  hasActiveFilters()
-                "
-              >
-                <h2>Aucune commandite ne correspond aux filtres.</h2>
-                <p>Reinitialisez les filtres ou elargissez la recherche.</p>
-                <button
-                  type="button"
-                  class="secondary-action"
-                  (click)="resetFilters()"
-                >
-                  Reinitialiser les filtres
-                </button>
-              </article>
-
-              <footer
-                class="pagination-bar"
-                *ngIf="filteredSponsorships().length > 0"
-              >
-                <span
-                  >Affichage de {{ paginationStart() }} a
-                  {{ paginationEnd() }} sur
-                  {{ pagination().totalItems }} resultats</span
-                >
-                <div class="pagination-controls">
-                  <button
-                    type="button"
-                    class="icon-action"
-                    (click)="previousPage()"
-                    [disabled]="normalizedPage() <= 1"
-                    aria-label="Page precedente"
-                  >
-                    ‹
-                  </button>
-                  <strong>{{ normalizedPage() }}</strong>
-                  <button
-                    type="button"
-                    class="icon-action"
-                    (click)="nextPage()"
-                    [disabled]="normalizedPage() >= totalPages()"
-                    aria-label="Page suivante"
-                  >
-                    ›
-                  </button>
-                </div>
-                <label
-                  ><span>Par page</span
-                  ><select [value]="pageSize()" (change)="setPageSize($event)">
-                    <option *ngFor="let size of pageSizeOptions" [value]="size">
-                      {{ size }}
-                    </option>
-                  </select></label
-                >
-              </footer>
-            </ng-container>
-          </section>
+          <openg7-admin-sponsors-list-panel
+            [state]="state()"
+            [rows]="sponsorListRows()"
+            [sponsorshipCount]="sponsorships().length"
+            [hasActiveFilters]="hasActiveFilters()"
+            [selectedSponsorshipId]="selectedSponsorshipId()"
+            [selectionPulseId]="selectionPulseId()"
+            [search]="search()"
+            [reviewFilter]="reviewFilter()"
+            [feedFilter]="feedFilter()"
+            [paymentFilter]="paymentFilter()"
+            [feedStatusOptions]="feedStatusOptions()"
+            [pageSizeOptions]="pageSizeOptions"
+            [paginationStart]="paginationStart()"
+            [paginationEnd]="paginationEnd()"
+            [totalItems]="pagination().totalItems"
+            [page]="normalizedPage()"
+            [totalPages]="totalPages()"
+            [pageSize]="pageSize()"
+            (refresh)="loadSponsorships()"
+            (searchChange)="setSearchValue($event)"
+            (reviewFilterChange)="setReviewFilterValue($event)"
+            (feedFilterChange)="setFeedFilterValue($event)"
+            (paymentFilterChange)="setPaymentFilterValue($event)"
+            (resetFilters)="resetFilters()"
+            (selectSponsorship)="selectSponsorshipById($event)"
+            (previousPage)="previousPage()"
+            (nextPage)="nextPage()"
+            (pageSizeChange)="setPageSizeValue($event)"
+          />
 
           <aside
             #sponsorDetailPanel
@@ -2722,11 +2467,51 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly refundDrafts = signal<Record<string, SponsorRefundDraft>>({});
   readonly feedStatuses = feedStatuses;
   readonly pageSizeOptions = pageSizeOptions;
+  readonly feedStatusOptions = computed<
+    readonly AdminSponsorFeedStatusOption[]
+  >(() =>
+    this.feedStatuses.map((status) => ({
+      value: status,
+      label: this.feedStatusLabel(status)
+    }))
+  );
 
-  readonly filteredSponsorships = computed(() => this.sponsorships());
   readonly totalPages = computed(() => this.pagination().totalPages);
   readonly normalizedPage = computed(() => this.pagination().page);
   readonly paginatedSponsorships = computed(() => this.sponsorships());
+  readonly sponsorListRows = computed<readonly AdminSponsorListRow[]>(() =>
+    this.paginatedSponsorships().map((sponsorship) => ({
+      id: sponsorship.id,
+      rowStateClass: this.sponsorshipRowStateClass(sponsorship),
+      processingLabel: this.sponsorshipProcessingLabel(sponsorship),
+      initials: this.initialsFor(sponsorship),
+      companyName: sponsorship.sponsor_company_name || 'Entreprise sans nom',
+      contactEmail: sponsorship.sponsor_contact_email || 'Courriel non fourni',
+      amountLabel: this.formatMoney(sponsorship),
+      tierClass: this.tierClass(sponsorship),
+      tierLabel: this.sponsorshipTierLabel(sponsorship),
+      reviewStatusClass: this.statusClass(sponsorship.sponsor_review_status),
+      reviewStatusLabel: this.reviewStatusLabel(
+        sponsorship.sponsor_review_status
+      ),
+      visibilityClass: this.visibilityClass(sponsorship),
+      visibilityLabel: this.visibilityLabel(sponsorship),
+      feedStatusClass: this.feedStatusClass(sponsorship.sponsor_feed_status),
+      feedStatusLabel: this.feedStatusLabel(sponsorship.sponsor_feed_status),
+      feedTargetLabel: this.feedTargetLabel(sponsorship),
+      feedChannelsLabel: this.feedChannelsLabel(sponsorship),
+      paymentStatusClass: this.paymentStatusClass(sponsorship.payment_status),
+      paymentStatusLabel: this.paymentStatusLabel(sponsorship.payment_status),
+      refundWorkflowStatusClass: this.hasRefundWorkflow(sponsorship)
+        ? this.refundWorkflowStatusClass(sponsorship.sponsorship_refund_status)
+        : null,
+      refundWorkflowStatusLabel: this.hasRefundWorkflow(sponsorship)
+        ? this.refundWorkflowStatusLabel(sponsorship.sponsorship_refund_status)
+        : null,
+      paidAtLabel: this.dateOnlyLabel(sponsorship.paid_at),
+      submittedAtLabel: this.dateOnlyLabel(this.submittedAt(sponsorship))
+    }))
+  );
   readonly paginationStart = computed(() =>
     this.pagination().totalItems === 0
       ? 0
@@ -3498,14 +3283,13 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.saveToken();
   }
 
-  setSearch(event: Event): void {
-    this.search.set(this.valueFromEvent(event));
+  setSearchValue(value: string): void {
+    this.search.set(value);
     this.page.set(1);
     void this.loadSponsorships();
   }
 
-  setReviewFilter(event: Event): void {
-    const value = this.valueFromEvent(event);
+  setReviewFilterValue(value: string): void {
     this.reviewFilter.set(
       value === 'pending_review' || value === 'approved' || value === 'rejected'
         ? value
@@ -3515,8 +3299,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     void this.loadSponsorships();
   }
 
-  setFeedFilter(event: Event): void {
-    const value = this.valueFromEvent(event);
+  setFeedFilterValue(value: string): void {
     this.feedFilter.set(
       value === 'not_planned' ||
         value === 'planned' ||
@@ -3529,8 +3312,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     void this.loadSponsorships();
   }
 
-  setPaymentFilter(event: Event): void {
-    const value = this.valueFromEvent(event);
+  setPaymentFilterValue(value: string): void {
     this.paymentFilter.set(
       value === 'paid' || value === 'refunded' || value === 'disputed'
         ? value
@@ -3549,8 +3331,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     void this.loadSponsorships();
   }
 
-  setPageSize(event: Event): void {
-    const value = Number.parseInt(this.valueFromEvent(event), 10);
+  setPageSizeValue(value: number): void {
     this.pageSize.set(
       pageSizeOptions.some((size) => size === value) ? value : 6
     );
@@ -3568,9 +3349,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     void this.loadSponsorships();
   }
 
-  selectSponsorship(sponsorship: AdminSponsorshipRecord): void {
-    this.selectedSponsorshipId.set(sponsorship.id);
-    this.pulseSelection(sponsorship.id);
+  selectSponsorshipById(id: string): void {
+    this.selectedSponsorshipId.set(id);
+    this.pulseSelection(id);
     this.scrollSelectedSponsorshipIntoView();
   }
 
@@ -3723,10 +3504,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   isAnyActionPending(id: string): boolean {
     const action = this.actionState();
     return Boolean(action && action.endsWith(id));
-  }
-
-  trackById(_: number, sponsorship: AdminSponsorshipRecord): string {
-    return sponsorship.id;
   }
 
   initialsFor(sponsorship: AdminSponsorshipRecord): string {
