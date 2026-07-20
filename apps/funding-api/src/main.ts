@@ -100,6 +100,10 @@ import {
   retryAdminEmailQueueMessage
 } from './email-notification.service.js';
 import {
+  getTransactionalEmailConfigStatus,
+  loadTransactionalEmailConfig
+} from './services/email/index.js';
+import {
   allowedSponsorFeedChannels,
   allowedSponsorFeedStatuses,
   allowedSponsorFeedTargets,
@@ -287,6 +291,7 @@ const isValidSponsorshipAmount = (amount: number): boolean =>
   Number.isFinite(amount) && amount >= sponsorshipMinimumAmount;
 
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+loadTransactionalEmailConfig();
 const allowedContributionTypes = new Set<ContributionType>([
   'personal_support',
   'sponsorship_interest'
@@ -1611,9 +1616,10 @@ const buildAdminSetupStatus = async (): Promise<AdminSetupStatusResponse> => {
     process.env.FUNDING_INVOICE_ISSUER_NAME?.trim() || 'OpenG7';
   const invoiceIssuerEmail =
     process.env.FUNDING_INVOICE_ISSUER_EMAIL?.trim() ||
-    process.env.FUNDING_EMAIL_REPLY_TO?.trim() ||
+    process.env.MAIL_REPLY_TO_ADDRESS?.trim() ||
     process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ||
     null;
+  const emailStatus = getTransactionalEmailConfigStatus();
 
   try {
     emailQueueStatus = await getEmailQueueStatus(dbPool);
@@ -1638,9 +1644,15 @@ const buildAdminSetupStatus = async (): Promise<AdminSetupStatusResponse> => {
       webhook_endpoint: `${publicBaseUrl ?? publicBaseOrigin}/api/stripe/webhook`
     },
     email: {
-      resend_api_key_configured: Boolean(process.env.RESEND_API_KEY?.trim()),
-      from: process.env.FUNDING_EMAIL_FROM?.trim() || null,
-      reply_to: process.env.FUNDING_EMAIL_REPLY_TO?.trim() || null,
+      smtp_enabled: emailStatus.enabled,
+      smtp_configured: emailStatus.configured,
+      smtp_host: emailStatus.host,
+      smtp_port: emailStatus.port,
+      smtp_secure: emailStatus.secure,
+      smtp_user_configured: emailStatus.userConfigured,
+      smtp_password_configured: emailStatus.passwordConfigured,
+      from: emailStatus.from,
+      reply_to: emailStatus.replyTo,
       admin_notification_email:
         process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() || null,
       queue_available: Boolean(dbPool && databaseReachable),
@@ -2853,12 +2865,9 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (
-      !process.env.RESEND_API_KEY?.trim() ||
-      !process.env.FUNDING_EMAIL_FROM?.trim()
-    ) {
+    if (!getTransactionalEmailConfigStatus().configured) {
       writeJson(request, response, 400, {
-        error: 'Email provider is not configured.'
+        error: 'SMTP email provider is not configured.'
       });
       return;
     }
@@ -2896,7 +2905,8 @@ createServer(async (request, response) => {
         attempted: result.attempted,
         sent: result.sent,
         messageId: result.messageId,
-        error: result.error
+        error: result.error,
+        deliveryMode: result.deliveryMode
       };
       writeJson(request, response, 200, payload);
     } catch (error) {
@@ -3210,12 +3220,9 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (
-      !process.env.RESEND_API_KEY?.trim() ||
-      !process.env.FUNDING_EMAIL_FROM?.trim()
-    ) {
+    if (!getTransactionalEmailConfigStatus().configured) {
       writeJson(request, response, 400, {
-        error: 'Email provider is not configured.'
+        error: 'SMTP email provider is not configured.'
       });
       return;
     }
@@ -3378,12 +3385,9 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (
-      !process.env.RESEND_API_KEY?.trim() ||
-      !process.env.FUNDING_EMAIL_FROM?.trim()
-    ) {
+    if (!getTransactionalEmailConfigStatus().configured) {
       writeJson(request, response, 400, {
-        error: 'Email provider is not configured.'
+        error: 'SMTP email provider is not configured.'
       });
       return;
     }

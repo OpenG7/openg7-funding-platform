@@ -17,9 +17,14 @@ type TestState = 'idle' | 'sending' | 'sent' | 'error';
 type SetupEnvKey =
   | 'STRIPE_SECRET_KEY'
   | 'STRIPE_WEBHOOK_SECRET'
-  | 'RESEND_API_KEY'
-  | 'FUNDING_EMAIL_FROM'
-  | 'FUNDING_EMAIL_REPLY_TO'
+  | 'SMTP_ENABLED'
+  | 'SMTP_HOST'
+  | 'SMTP_PORT'
+  | 'SMTP_SECURE'
+  | 'SMTP_USER'
+  | 'SMTP_PASSWORD'
+  | 'MAIL_FROM_ADDRESS'
+  | 'MAIL_REPLY_TO_ADDRESS'
   | 'FUNDING_ADMIN_NOTIFICATION_EMAIL'
   | 'FUNDING_SPONSORSHIP_INVOICE_PREFIX'
   | 'FUNDING_INVOICE_ISSUER_NAME'
@@ -175,7 +180,7 @@ interface SetupTourStep {
               <header>
                 <div>
                   <span>Courriel</span>
-                  <h2>Resend et expediteur</h2>
+                  <h2>SMTP et expediteur</h2>
                 </div>
                 <span
                   class="status-pill"
@@ -187,17 +192,41 @@ interface SetupTourStep {
               </header>
               <dl>
                 <div>
-                  <dt>RESEND_API_KEY</dt>
+                  <dt>SMTP_ENABLED</dt>
                   <dd>
-                    {{ configuredLabel(data.email.resend_api_key_configured) }}
+                    {{ enabledLabel(data.email.smtp_enabled) }}
                   </dd>
                 </div>
                 <div>
-                  <dt>FUNDING_EMAIL_FROM</dt>
+                  <dt>SMTP_HOST</dt>
+                  <dd>{{ valueLabel(data.email.smtp_host) }}</dd>
+                </div>
+                <div>
+                  <dt>SMTP_PORT</dt>
+                  <dd>
+                    {{ data.email.smtp_port }} / secure={{
+                      enabledLabel(data.email.smtp_secure)
+                    }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>SMTP_USER</dt>
+                  <dd>
+                    {{ configuredLabel(data.email.smtp_user_configured) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>SMTP_PASSWORD</dt>
+                  <dd>
+                    {{ configuredLabel(data.email.smtp_password_configured) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>MAIL_FROM_ADDRESS</dt>
                   <dd>{{ valueLabel(data.email.from) }}</dd>
                 </div>
                 <div>
-                  <dt>FUNDING_EMAIL_REPLY_TO</dt>
+                  <dt>MAIL_REPLY_TO_ADDRESS</dt>
                   <dd>{{ valueLabel(data.email.reply_to) }}</dd>
                 </div>
                 <div>
@@ -247,8 +276,8 @@ interface SetupTourStep {
                 </button>
               </div>
               <p class="panel-note" *ngIf="!canSendEmailTest(data)">
-                Le test demande DATABASE_URL, migration 010, RESEND_API_KEY et
-                FUNDING_EMAIL_FROM.
+                Le test demande DATABASE_URL, migration 010, SMTP_ENABLED=true
+                et SMTP_PASSWORD.
               </p>
               <p class="panel-note success" *ngIf="testState() === 'sent'">
                 Test envoye ou mis en file avec succes.
@@ -917,7 +946,7 @@ export class AdminSetupPageComponent implements OnInit {
     {
       anchor: 'email',
       title: 'Courriel applicatif',
-      body: 'Validez Resend, l expediteur, le reply-to et l adresse de notification admin, puis envoyez un test.'
+      body: 'Validez SMTP, l expediteur, le reply-to et l adresse de notification admin, puis envoyez un test.'
     },
     {
       anchor: 'queue',
@@ -953,17 +982,42 @@ export class AdminSetupPageComponent implements OnInit {
       note: 'Validation des evenements Stripe.'
     },
     {
-      key: 'RESEND_API_KEY',
-      label: 'Resend',
-      note: 'Envoi des courriels applicatifs.'
+      key: 'SMTP_ENABLED',
+      label: 'SMTP active',
+      note: 'Active les envois transactionnels.'
     },
     {
-      key: 'FUNDING_EMAIL_FROM',
+      key: 'SMTP_HOST',
+      label: 'Serveur SMTP',
+      note: 'Hote HostPapa ou fournisseur equivalent.'
+    },
+    {
+      key: 'SMTP_PORT',
+      label: 'Port SMTP',
+      note: 'Port de connexion SMTP.'
+    },
+    {
+      key: 'SMTP_SECURE',
+      label: 'TLS SMTP',
+      note: 'Connexion TLS implicite.'
+    },
+    {
+      key: 'SMTP_USER',
+      label: 'Utilisateur SMTP',
+      note: 'Adresse complete de la boite notify.'
+    },
+    {
+      key: 'SMTP_PASSWORD',
+      label: 'Mot de passe SMTP',
+      note: 'Secret prive injecte cote serveur seulement.'
+    },
+    {
+      key: 'MAIL_FROM_ADDRESS',
       label: 'Expediteur',
       note: 'Adresse visible comme expediteur.'
     },
     {
-      key: 'FUNDING_EMAIL_REPLY_TO',
+      key: 'MAIL_REPLY_TO_ADDRESS',
       label: 'Reply-to',
       note: 'Adresse de reponse des commanditaires.'
     },
@@ -1105,7 +1159,7 @@ export class AdminSetupPageComponent implements OnInit {
 
   isEmailReady(setup: AdminSetupStatusResponse): boolean {
     return (
-      setup.email.resend_api_key_configured &&
+      setup.email.smtp_configured &&
       Boolean(setup.email.from) &&
       Boolean(setup.email.admin_notification_email)
     );
@@ -1129,11 +1183,21 @@ export class AdminSetupPageComponent implements OnInit {
         return setup.stripe.secret_key_configured;
       case 'STRIPE_WEBHOOK_SECRET':
         return setup.stripe.webhook_secret_configured;
-      case 'RESEND_API_KEY':
-        return setup.email.resend_api_key_configured;
-      case 'FUNDING_EMAIL_FROM':
+      case 'SMTP_ENABLED':
+        return setup.email.smtp_enabled;
+      case 'SMTP_HOST':
+        return Boolean(setup.email.smtp_host);
+      case 'SMTP_PORT':
+        return setup.email.smtp_port > 0;
+      case 'SMTP_SECURE':
+        return setup.email.smtp_secure;
+      case 'SMTP_USER':
+        return setup.email.smtp_user_configured;
+      case 'SMTP_PASSWORD':
+        return setup.email.smtp_password_configured;
+      case 'MAIL_FROM_ADDRESS':
         return Boolean(setup.email.from);
-      case 'FUNDING_EMAIL_REPLY_TO':
+      case 'MAIL_REPLY_TO_ADDRESS':
         return Boolean(setup.email.reply_to);
       case 'FUNDING_ADMIN_NOTIFICATION_EMAIL':
         return Boolean(setup.email.admin_notification_email);
@@ -1211,10 +1275,10 @@ export class AdminSetupPageComponent implements OnInit {
 
   emailSummary(setup: AdminSetupStatusResponse): string {
     if (this.isEmailReady(setup)) {
-      return 'Resend et expediteur presents.';
+      return 'SMTP et expediteur presents.';
     }
 
-    return 'Resend, expediteur ou notification admin a completer.';
+    return 'SMTP, expediteur ou notification admin a completer.';
   }
 
   queueSummary(setup: AdminSetupStatusResponse): string {

@@ -113,8 +113,8 @@ Precisions:
 - Endpoints `GET /api/sponsorship-followup?token=...` et
   `POST /api/sponsorship-followup/details` pour lire le statut et soumettre
   les details par token.
-- Courriel de reprise optionnel via Resend lorsque `RESEND_API_KEY` et
-  `FUNDING_EMAIL_FROM` sont configures.
+- Courriel de reprise optionnel via SMTP lorsque `SMTP_ENABLED=true`,
+  `SMTP_USER` et `SMTP_PASSWORD` sont configures.
 - Aucun upload public de logo par le sponsor, aucune publication automatique:
   la revue reste manuelle.
 - En mode Stripe-direct sans PostgreSQL, le paiement et la transparence agregee
@@ -195,7 +195,7 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   regroupes par canal puis tries chronologiquement (lots planifies du plus
   proche au plus lointain, puis lots ouverts, puis historique) pour voir
   plusieurs lots a venir d'un coup d'oeil.
-- Notification admin par courriel (Resend, `FUNDING_ADMIN_NOTIFICATION_EMAIL`)
+- Notification admin par courriel (SMTP, `FUNDING_ADMIN_NOTIFICATION_EMAIL`)
   lorsqu'un lot ouvert atteint sa capacite, pour eviter qu'il reste plein et
   oublie. Purement informatif: n'planifie ni ne publie rien automatiquement.
 - Endpoint public `GET /api/public/sponsorship-batches/availability`: expose
@@ -389,8 +389,9 @@ Resultat attendu:
   `FUNDING_ADMIN_SESSION_TTL_MINUTES` ajuste selon la politique d'operation.
 - `FUNDING_SPONSOR_LOGO_STORAGE_DIR` persistant et
   `FUNDING_SPONSOR_LOGO_MAX_BYTES` alignes avec la limite d'upload attendue.
-- `RESEND_API_KEY` et `FUNDING_EMAIL_FROM` configures si les liens de reprise
-  doivent etre envoyes automatiquement.
+- `SMTP_ENABLED=true`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM_ADDRESS` et
+  `MAIL_REPLY_TO_ADDRESS` configures si les liens de reprise doivent etre
+  envoyes automatiquement.
 - `FUNDING_ADMIN_NOTIFICATION_EMAIL` configure si la notification de lot
   complet doit etre envoyee (sinon la verification de capacite reste
   disponible dans l'UI admin, sans courriel).
@@ -455,7 +456,7 @@ Les elements suivants restent volontairement hors perimetre:
 - Les depenses publiques et allocations restent limitees au modele existant.
 - La page `/batisseurs` depend des noms publics consentis; elle peut etre vide au lancement.
 - En mode Stripe-direct, la transparence publique reste agregee et ne peut pas afficher de profils publics consentis.
-- Sans Resend configure, aucun courriel de reprise n'est envoye; le suivi reste
+- Sans SMTP configure, aucun courriel de reprise n'est envoye; le suivi reste
   accessible via l'URL de retour Stripe tant que le sponsor la conserve, et
   l'admin peut detecter les commandites payees mais incompletes.
 

@@ -67,6 +67,8 @@
     "stripe:backfill:live": "node scripts/stripe-backfill.mjs --live",
     "stripe:backfill:docker": "node scripts/stripe-backfill-docker.mjs",
     "stripe:backfill:docker:live": "node scripts/stripe-backfill-docker.mjs --live",
+    "email:verify": "yarn workspace @openg7/funding-api email:verify",
+    "email:test": "yarn workspace @openg7/funding-api email:test",
     "lint": "eslint . --ext .ts,.mts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

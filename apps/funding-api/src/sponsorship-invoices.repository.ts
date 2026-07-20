@@ -188,7 +188,7 @@ const invoiceIssuerName =
   process.env.FUNDING_INVOICE_ISSUER_NAME?.trim() || 'OpenG7';
 const invoiceIssuerEmail =
   process.env.FUNDING_INVOICE_ISSUER_EMAIL?.trim() ||
-  process.env.FUNDING_EMAIL_REPLY_TO?.trim() ||
+  process.env.MAIL_REPLY_TO_ADDRESS?.trim() ||
   process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ||
   '';
 const invoiceIssuerAddress =

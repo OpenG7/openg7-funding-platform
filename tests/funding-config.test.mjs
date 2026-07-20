@@ -1052,8 +1052,8 @@ test('Sponsorship follow-up email is sent from checkout completion only when rec
   assert.ok(webhook.includes('followupEmail'));
   assert.ok(webhook.includes('markSponsorshipFollowupEmailResult'));
   assert.ok(email.includes("templateKey: 'sponsorship_followup'"));
-  assert.ok(email.includes('RESEND_API_KEY'));
-  assert.ok(email.includes('FUNDING_EMAIL_FROM'));
+  assert.ok(email.includes('sendTransactionalEmail'));
+  assert.ok(email.includes('loadTransactionalEmailConfig'));
 });
 
 test('Sponsorship follow-up tokens expire and details edits return to review', () => {
@@ -1931,7 +1931,7 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'FOR UPDATE SKIP LOCKED',
     "INTERVAL '15 minutes'",
     'nextRetryDate',
-    'Resend returned ${response.status}',
+    'EMAIL_RECIPIENT_REJECTED',
     'Facture de commandite OpenG7',
     'Avoir ${creditNote.creditNoteNumber}',
     'Stripe Refund',
@@ -2292,8 +2292,9 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
     'data-tour-anchor="database"',
     'STRIPE_SECRET_KEY',
     'STRIPE_WEBHOOK_SECRET',
-    'RESEND_API_KEY',
-    'FUNDING_EMAIL_FROM',
+    'SMTP_ENABLED',
+    'SMTP_PASSWORD',
+    'MAIL_FROM_ADDRESS',
     'FUNDING_ADMIN_NOTIFICATION_EMAIL',
     'FUNDING_SPONSORSHIP_INVOICE_PREFIX',
     'FUNDING_INVOICE_ISSUER_NAME',
