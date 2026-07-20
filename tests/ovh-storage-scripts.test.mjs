@@ -26,7 +26,9 @@ const runBash = (script) =>
   });
 
 test('OVH storage env example uses Beauharnois buckets without credentials', () => {
-  const envExample = fs.readFileSync('.env.example', 'utf8');
+  const envExample = fs
+    .readFileSync('.env.example', 'utf8')
+    .replace(/\r\n/g, '\n');
 
   assert.ok(envExample.includes('SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3'));
   assert.ok(envExample.includes('SPONSOR_MEDIA_REGION=bhs'));
