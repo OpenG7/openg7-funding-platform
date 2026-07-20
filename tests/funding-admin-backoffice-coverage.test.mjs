@@ -42,6 +42,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const sponsorsPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
   );
+  const sponsorDetailHeader = read(
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-header.component.ts'
+  );
+  const sponsorDetailTabs = read(
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-tabs.component.ts'
+  );
   const invoicesPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts'
   );
@@ -258,7 +264,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'response.items ?? response.sponsorships',
       'sponsors-board',
       'sponsor-detail-panel',
-      'detail-tabs',
+      'selectedSponsorDetailHeader',
+      'openg7-admin-sponsor-detail-header',
+      'openg7-admin-sponsor-detail-tabs',
       'visibleCount',
       'activeCount',
       'totalContribution',
@@ -333,6 +341,31 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'messageFromError'
     ],
     'admin sponsorship filters'
+  );
+
+  assertIncludesAll(
+    sponsorDetailHeader,
+    [
+      'AdminSponsorDetailHeaderView',
+      'ChangeDetectionStrategy.OnPush',
+      'detail-header',
+      'detail-badges',
+      'detail-meta',
+      'close = output<void>()'
+    ],
+    'admin sponsor detail header component'
+  );
+
+  assertIncludesAll(
+    sponsorDetailTabs,
+    [
+      'SponsorDetailsTab',
+      'ChangeDetectionStrategy.OnPush',
+      'detail-tabs',
+      'activeTabChange',
+      'aria-current'
+    ],
+    'admin sponsor detail tabs component'
   );
 
   assertIncludesAll(
