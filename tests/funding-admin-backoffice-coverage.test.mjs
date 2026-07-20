@@ -250,7 +250,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   assertIncludesAll(
     sponsorsPage,
     [
-      'filteredSponsorships',
+      'sponsorListRows',
       'reviewFilter',
       'feedFilter',
       'paymentFilter',

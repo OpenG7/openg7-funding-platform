@@ -1417,7 +1417,7 @@ test('Admin sponsors page derives the sponsorship tier from the paid amount inst
       'sponsorshipBenefitsLabel(sponsorship: AdminSponsorshipRecord): string {'
     )
   );
-  assert.match(page, /\{\{\s*sponsorshipTierLabel\(sponsorship\)\s*\}\}/);
+  assert.ok(page.includes('tierLabel: this.sponsorshipTierLabel(sponsorship)'));
   assert.match(
     page,
     /\{\{\s*sponsorshipBenefitsLabel\((sponsorship|selected)\)\s*\}\}/
@@ -1450,14 +1450,33 @@ test('Admin sponsor rows are color-coded by processing state', () => {
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
     'utf8'
   );
+  const listPanel = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsors-list-panel.component.ts',
+    'utf8'
+  );
 
   for (const marker of [
     'type SponsorProcessingState =',
     'sponsorshipProcessingState(',
     'sponsorshipRowStateClass(',
     'sponsorshipProcessingLabel(',
-    '[ngClass]="sponsorshipRowStateClass(sponsorship)"',
-    '[attr.title]="sponsorshipProcessingLabel(sponsorship)"',
+    'rowStateClass: this.sponsorshipRowStateClass(sponsorship)',
+    'processingLabel: this.sponsorshipProcessingLabel(sponsorship)',
+    'sponsorListRows',
+    'AdminSponsorsListPanelComponent',
+    'sponsor-row-state-action-required',
+    'sponsor-row-state-approved-ready',
+    'sponsor-row-state-publication-progress',
+    'sponsor-row-state-published',
+    'sponsor-row-state-blocked',
+    'sponsor-row-state-waiting-payment'
+  ]) {
+    assert.ok(page.includes(marker), `sponsors page must include ${marker}`);
+  }
+
+  for (const marker of [
+    '[ngClass]="row.rowStateClass"',
+    '[attr.title]="row.processingLabel"',
     'sponsor-row-state-action-required',
     'sponsor-row-state-approved-ready',
     'sponsor-row-state-publication-progress',
@@ -1466,7 +1485,10 @@ test('Admin sponsor rows are color-coded by processing state', () => {
     'sponsor-row-state-waiting-payment',
     '--sponsor-row-accent'
   ]) {
-    assert.ok(page.includes(marker), `sponsors page must include ${marker}`);
+    assert.ok(
+      listPanel.includes(marker),
+      `sponsors list panel must include ${marker}`
+    );
   }
 
   assert.ok(page.includes("sponsorship.sponsor_review_status === 'rejected'"));
