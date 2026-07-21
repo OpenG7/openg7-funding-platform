@@ -6,6 +6,7 @@ const baseURL =
 
 export default defineConfig({
   testDir: './tests/playwright',
+  globalTeardown: './tests/playwright/global-teardown.mjs',
   timeout: 30_000,
   expect: {
     timeout: 7_500

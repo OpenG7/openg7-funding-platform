@@ -1516,6 +1516,7 @@ const controlledSponsorLogoUrlPrefixes = [
         margin: 0;
         max-width: min(24rem, calc(100% - 2rem));
         padding: 0.75rem 0.9rem;
+        pointer-events: none;
         position: absolute;
         bottom: calc(100% + 0.75rem);
         right: 1rem;
