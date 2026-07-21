@@ -77,6 +77,18 @@ Lint :
 corepack yarn lint
 ```
 
+E2E navigateur contre Docker local :
+
+```bash
+corepack yarn playwright:install
+corepack yarn test:e2e:playwright
+```
+
+Ce raccourci démarre ou réutilise la stack Docker locale via
+`yarn docker:playwright`, puis lance Playwright sur `http://127.0.0.1:8080`.
+Il force une configuration locale de test en mode `development` et ne requiert
+pas de clés Stripe live. Utiliser Node.js 22.x, comme le reste du dépôt.
+
 Audit de configuration des services :
 
 ```bash
