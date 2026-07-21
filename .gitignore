@@ -86,6 +86,8 @@ strapi/data/db.sqlite
 **/dist/
 **/build/
 **/coverage/
+test-results/
+playwright-report/
 !strapi/scripts/test-*.js
 **/*.js.map
 *.tsbuildinfo
