@@ -70,5 +70,18 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
     reviewStatus: 'approved',
     stripePaymentIntentId: 'pi_e2e_playwright_fixture_partial_refund_00000',
     stripeSessionId: 'cs_e2e_playwright_fixture_partial_refund_00000'
+  }),
+  // Covers the rejection panel's own refund handling (manual_required /
+  // manual_completed), a DB-only flag distinct from the Stripe-guided refund
+  // panel -- no Stripe payment intent needed.
+  rejectRefund: Object.freeze({
+    publicReference: 'OG7-E2E-REJECT-REFUND',
+    companyName: 'E2E Playwright Fixture Reject Refund Inc.',
+    contactName: 'E2E Playwright Reject Refund',
+    contactEmail: 'e2e-playwright-fixture-reject-refund@example.com',
+    websiteUrl: 'https://example.com/e2e-playwright-fixture-reject-refund',
+    followupToken: 'e2e-playwright-fixture-followup-token-reject-refund-0',
+    amountCents: 40000,
+    reviewStatus: 'pending_review'
   })
 });

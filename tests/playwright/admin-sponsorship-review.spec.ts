@@ -196,4 +196,39 @@ test.describe('Docker admin sponsorship review', () => {
       .locator('xpath=following-sibling::dd[1]');
     await expect(paymentStatus).toHaveText('Paye');
   });
+
+  test('rejects a sponsorship and marks the refund as already handled manually', async ({
+    page
+  }) => {
+    await signInAsAdmin(page);
+
+    const fixture = SPONSORSHIP_FIXTURES.rejectRefund;
+    await openFixtureSponsorship(page, fixture.companyName);
+
+    await page.getByRole('button', { name: 'Refuser' }).click();
+    await page
+      .getByLabel(/Raison interne du refus/i)
+      .fill('E2E Playwright: refus avec remboursement deja traite.');
+    // Distinct code path from the Stripe-guided refund panel tested above:
+    // this is a DB-only flag recorded alongside the rejection, no Stripe
+    // call involved (apps/funding-api/src/main.ts, isRejection branch of the
+    // /admin/sponsorships/review handler). A <label> wrapping a <select>
+    // computes its accessible name as the label text plus the select's own
+    // name (the currently selected option's text), e.g. "RemboursementNe pas
+    // rembourser maintenant" -- so anchor to the start only (^Remboursement,
+    // no trailing $) rather than an exact match, which would never match.
+    // That start-anchor still excludes "Note remboursement" (starts with
+    // "Note", not "Remboursement").
+    await page
+      .getByLabel(/^Remboursement/i)
+      .selectOption('manual_completed');
+    await page.getByRole('button', { name: /Confirmer le refus/i }).click();
+
+    await expect(
+      page.getByText(/Remboursement marque comme deja traite/i)
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Suivi: Remboursement complete/i)
+    ).toBeVisible();
+  });
 });
