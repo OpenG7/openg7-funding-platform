@@ -212,8 +212,11 @@ test.describe('Docker admin sponsorship review', () => {
     // Distinct code path from the Stripe-guided refund panel tested above:
     // this is a DB-only flag recorded alongside the rejection, no Stripe
     // call involved (apps/funding-api/src/main.ts, isRejection branch of the
-    // /admin/sponsorships/review handler).
-    await page.getByLabel(/Remboursement/i).selectOption('manual_completed');
+    // /admin/sponsorships/review handler). Anchored regex: an unanchored
+    // /Remboursement/i also matches the "Note remboursement" textarea label.
+    await page
+      .getByLabel(/^Remboursement$/i)
+      .selectOption('manual_completed');
     await page.getByRole('button', { name: /Confirmer le refus/i }).click();
 
     await expect(
