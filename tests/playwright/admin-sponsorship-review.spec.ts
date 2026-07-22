@@ -178,11 +178,20 @@ test.describe('Docker admin sponsorship review', () => {
     // A partial refund must not flip the sponsorship's own payment status to
     // "refunded" -- only a full refund does that
     // (apps/funding-api/src/main.ts calls updateContributionStatusByPaymentIntent
-    // only when isFullRefund).
-    const row = page.getByRole('button', {
-      name: new RegExp(fixture.companyName)
-    });
-    await expect(row).toContainText('Paye');
-    await expect(row).not.toContainText('Rembourse');
+    // only when isFullRefund). Read the isolated "Paiement" definition inside
+    // the "Commandite" card rather than substring-checking the whole row: the
+    // row's flattened text also contains the unrelated refund *workflow*
+    // status ("Remboursement complete"), which itself contains the substring
+    // "Rembourse" and would make a naive not.toContainText('Rembourse') fail
+    // even though the payment status is correctly still "Paye". The sidebar
+    // search filter also has its own "Paye"/"Rembourse" <option> text, which
+    // rules out a bare exact-text match too.
+    const paymentStatus = page
+      .locator('article', {
+        has: page.getByRole('heading', { name: 'Commandite', exact: true })
+      })
+      .locator('dt', { hasText: 'Paiement' })
+      .locator('xpath=following-sibling::dd[1]');
+    await expect(paymentStatus).toHaveText('Paye');
   });
 });
