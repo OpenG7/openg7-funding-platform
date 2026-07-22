@@ -8,9 +8,11 @@ interface SponsorshipFixture {
   readonly websiteUrl: string;
   readonly followupToken: string;
   readonly amountCents: number;
+  readonly reviewStatus: 'pending_review' | 'approved' | 'rejected';
 }
 
 export declare const SPONSORSHIP_FIXTURES: {
   readonly approve: SponsorshipFixture;
   readonly reject: SponsorshipFixture;
+  readonly directory: SponsorshipFixture;
 };

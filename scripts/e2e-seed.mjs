@@ -31,25 +31,28 @@ WHERE sponsor_contact_email = ${sqlLiteral(fixture.contactEmail)}
   .join('\n');
 
 const insertStatements = fixtures
-  .map(
-    (fixture) => `
+  .map((fixture) => {
+    const reviewStatus = fixture.reviewStatus ?? 'pending_review';
+    const reviewedAt = reviewStatus === 'pending_review' ? 'NULL' : 'NOW()';
+
+    return `
 INSERT INTO fund_contributions (
   contribution_type, amount_cents, currency, status, paid_at,
   public_display_consent, display_amount_consent, non_charity_acknowledged,
   sponsor_company_name, sponsor_contact_name, sponsor_contact_email,
   sponsor_website_url, sponsor_details_submitted_at, sponsor_review_status,
-  sponsorship_followup_token_hash, sponsorship_followup_token_created_at,
-  public_reference
+  sponsor_reviewed_at, sponsorship_followup_token_hash,
+  sponsorship_followup_token_created_at, public_reference
 ) VALUES (
   'sponsorship_interest', ${fixture.amountCents}, 'cad', 'paid', NOW(),
   TRUE, TRUE, TRUE,
   ${sqlLiteral(fixture.companyName)}, ${sqlLiteral(fixture.contactName)},
   ${sqlLiteral(fixture.contactEmail)}, ${sqlLiteral(fixture.websiteUrl)},
-  NOW(), 'pending_review',
-  ${sqlLiteral(sha256Hex(fixture.followupToken))}, NOW(),
+  NOW(), ${sqlLiteral(reviewStatus)},
+  ${reviewedAt}, ${sqlLiteral(sha256Hex(fixture.followupToken))}, NOW(),
   ${sqlLiteral(fixture.publicReference)}
-);`
-  )
+);`;
+  })
   .join('\n');
 
 const sql = cleanupOnly
