@@ -145,4 +145,44 @@ test.describe('Docker admin sponsorship review', () => {
 
     expect(download.suggestedFilename()).toMatch(/^openg7-.*\.pdf$/);
   });
+
+  test('completes a partial Stripe refund without marking the sponsorship as fully refunded', async ({
+    page
+  }) => {
+    await signInAsAdmin(page);
+
+    const fixture = SPONSORSHIP_FIXTURES.partialRefund;
+    await openFixtureSponsorship(page, fixture.companyName);
+
+    await page.getByRole('button', { name: 'Rembourser Stripe' }).click();
+
+    const refundPanel = page.locator('[aria-label="Remboursement Stripe"]');
+    await expect(refundPanel).toBeVisible();
+
+    const partialAmount = fixture.amountCents / 100 / 2;
+    await refundPanel
+      .getByLabel(/Montant a rembourser/i)
+      .fill(String(partialAmount));
+    await refundPanel
+      .getByLabel(/Texte de confirmation/i)
+      .fill(fixture.publicReference);
+    await refundPanel
+      .getByRole('button', { name: 'Rembourser Stripe' })
+      .click();
+
+    await expect(
+      page.getByText(/Remboursement Stripe partiel cree:/i)
+    ).toBeVisible();
+    await expect(page.getByText(/Avoir cree:/i)).toBeVisible();
+
+    // A partial refund must not flip the sponsorship's own payment status to
+    // "refunded" -- only a full refund does that
+    // (apps/funding-api/src/main.ts calls updateContributionStatusByPaymentIntent
+    // only when isFullRefund).
+    const row = page.getByRole('button', {
+      name: new RegExp(fixture.companyName)
+    });
+    await expect(row).toContainText('Paye');
+    await expect(row).not.toContainText('Rembourse');
+  });
 });
