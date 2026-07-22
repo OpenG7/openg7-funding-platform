@@ -1697,6 +1697,24 @@ const createDevelopmentCheckoutResult = (
   status: 'mocked'
 });
 
+// Mirrors createDevelopmentCheckoutResult: lets the admin refund workflow
+// (credit note, refund email, audit log) run end-to-end in local/E2E
+// environments where STRIPE_SECRET_KEY is empty, without calling Stripe.
+// Only the fields the refund handler actually reads (id/amount/currency/
+// status) are populated; production always goes through the real SDK call.
+const createDevelopmentRefundResult = (params: {
+  readonly amountCents: number;
+  readonly currency: string;
+  readonly paymentIntentId: string;
+}): Stripe.Refund =>
+  ({
+    id: `re_dev_${randomBytes(12).toString('hex')}`,
+    amount: params.amountCents,
+    currency: params.currency,
+    status: 'succeeded',
+    payment_intent: params.paymentIntentId
+  }) as Stripe.Refund;
+
 const resolveStripePaymentIntentId = (
   paymentIntent: string | Stripe.PaymentIntent | null
 ): string | null => {
@@ -4830,7 +4848,7 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (!stripe) {
+    if (!stripe && isProduction) {
       writeJson(request, response, 503, {
         error: 'Stripe is not configured.'
       });
@@ -5052,24 +5070,30 @@ createServer(async (request, response) => {
       refundWorkflowStarted = true;
       refundWorkflowContributionId = target.id;
 
-      const refund = await stripe.refunds.create(
-        {
-          amount: requestedRefundAmountCents,
-          payment_intent: target.stripePaymentIntentId,
-          reason: refundReason,
-          metadata: {
-            contributionId: target.id,
-            refundType: isFullRefund ? 'full' : 'partial',
-            refundAmountCents: String(requestedRefundAmountCents),
-            refundReason,
-            publicReference: target.publicReference ?? '',
-            source: 'openg7_admin_sponsorship_refund'
-          }
-        },
-        {
-          idempotencyKey: `sponsorship-refund:${target.id}:${target.version}`
-        }
-      );
+      const refund = stripe
+        ? await stripe.refunds.create(
+            {
+              amount: requestedRefundAmountCents,
+              payment_intent: target.stripePaymentIntentId,
+              reason: refundReason,
+              metadata: {
+                contributionId: target.id,
+                refundType: isFullRefund ? 'full' : 'partial',
+                refundAmountCents: String(requestedRefundAmountCents),
+                refundReason,
+                publicReference: target.publicReference ?? '',
+                source: 'openg7_admin_sponsorship_refund'
+              }
+            },
+            {
+              idempotencyKey: `sponsorship-refund:${target.id}:${target.version}`
+            }
+          )
+        : createDevelopmentRefundResult({
+            amountCents: requestedRefundAmountCents,
+            currency: target.currency,
+            paymentIntentId: target.stripePaymentIntentId
+          });
       stripeRefundCreated = true;
       const refundWorkflowStatus =
         refund.status === 'succeeded'

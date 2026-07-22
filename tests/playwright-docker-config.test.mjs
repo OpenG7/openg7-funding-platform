@@ -16,7 +16,7 @@ test('Playwright browser E2E is wired to the local Docker stack', () => {
   );
   assert.equal(
     pkg.scripts['test:e2e:playwright'],
-    'yarn docker:playwright && playwright test'
+    'yarn docker:playwright && yarn db:migrate && yarn test:e2e:seed && playwright test'
   );
   assert.equal(
     pkg.scripts['playwright:install'],
@@ -28,7 +28,8 @@ test('Playwright browser E2E is wired to the local Docker stack', () => {
   assert.ok(dockerUp.includes('requires Node.js 22.x'));
   assert.ok(dockerUp.includes("FUNDING_PLATFORM_ENV: 'development'"));
   assert.ok(dockerUp.includes("STRIPE_SECRET_KEY: ''"));
-  assert.ok(dockerUp.includes("DATABASE_URL: ''"));
+  assert.ok(dockerUp.includes('DATABASE_URL:'));
+  assert.ok(dockerUp.includes('postgres://${POSTGRES_USER}'));
   assert.ok(smokeSpec.includes("page.getByRole('heading'"));
   assert.equal(smokeSpec.includes('.classList'), false);
 });
