@@ -1,0 +1,31 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "cohere-mini/north-mini-code-1-0",
+  "provider": {
+    "cohere-mini": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Cohere North Mini Code",
+      "options": {
+        "baseURL": "https://api.cohere.ai/compatibility/v1",
+        "apiKey": "{env:COHERE_API_KEY}"
+      },
+      "models": {
+        "north-mini-code-1-0": {
+          "name": "North Mini Code 1.0",
+          "limit": {
+            "context": 256000,
+            "output": 64000
+          }
+        }
+      }
+    }
+  },
+  "permission": {
+    "*": "ask",
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "edit": "ask",
+    "bash": "ask"
+  }
+}
