@@ -77,7 +77,9 @@
     "format:check": "prettier --check .",
     "test": "yarn build && node --test tests/**/*.test.mjs",
     "test:e2e": "yarn build && node --test tests/funding-sponsorship-e2e-coverage.test.mjs",
-    "test:e2e:playwright": "yarn docker:playwright && playwright test",
+    "test:e2e:seed": "node scripts/e2e-seed.mjs",
+    "test:e2e:seed:cleanup": "node scripts/e2e-seed.mjs --cleanup",
+    "test:e2e:playwright": "yarn docker:playwright && yarn db:migrate && yarn test:e2e:seed && playwright test",
     "build": "tsc -p tsconfig.build.json",
     "docs": "typedoc --options typedoc.json"
   },
