@@ -34,6 +34,12 @@ COPY --from=builder /app/dist/apps/funding-api ./dist/apps/funding-api
 
 EXPOSE 3333
 
+# The sponsor-logos named volume mounts here; Docker gives a freshly created
+# volume the ownership of whatever already exists at that path in the image,
+# so this must be created and chowned before USER node switches away from
+# root, or the local sponsor logo storage driver gets EACCES on every write.
+RUN mkdir -p /app/var/sponsor-logos && chown -R node:node /app/var/sponsor-logos
+
 USER node
 
 CMD ["node", "dist/apps/funding-api/src/main.js"]
