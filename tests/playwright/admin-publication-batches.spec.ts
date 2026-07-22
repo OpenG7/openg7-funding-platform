@@ -53,15 +53,17 @@ test.describe('Docker admin publication batches', () => {
     await expect(batchCard).toContainText('Facebook - 0/5');
 
     // batchCard becoming visible with the right text only proves the batch
-    // list refreshed -- it does not prove the draft's own "Lot" dropdown
-    // (a separate part of the page, refreshed by the same load() call but
-    // not guaranteed to be re-rendered in the same tick) has picked up the
-    // new batch as an option yet. Wait for that option explicitly before
-    // selecting it, and select by label rather than position so this still
+    // list refreshed -- it does not prove the draft's own "Lot" dropdown has
+    // picked up the new option yet. getByLabel/getByRole('option') on a
+    // closed native <select> reads Chromium's accessibility tree, which does
+    // not reliably expose <option> nodes while the dropdown isn't open
+    // (confirmed by CI: the option was present in the DOM by teardown time,
+    // yet toBeAttached() on the accessible-role locator still timed out) --
+    // use a plain DOM locator instead, and select by label so this still
     // works if a retry left a previous attempt's batch behind.
-    const lotSelect = draftCard.getByLabel(/^Lot/i);
+    const lotSelect = draftCard.locator('label.inline select');
     await expect(
-      lotSelect.getByRole('option', { name: 'Facebook (0/5)' }).first()
+      lotSelect.locator('option', { hasText: 'Facebook (0/5)' }).first()
     ).toBeAttached();
     await lotSelect.selectOption({ label: 'Facebook (0/5)' });
     await draftCard
