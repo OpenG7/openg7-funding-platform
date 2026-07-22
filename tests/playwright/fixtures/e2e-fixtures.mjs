@@ -93,5 +93,21 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
     followupToken: 'e2e-playwright-fixture-followup-token-logo-000000000',
     amountCents: 50000,
     reviewStatus: 'pending_review'
+  }),
+  // Seeded already approved with a feed target/channel already set (as if an
+  // admin had already saved the per-sponsor feed placement), so the
+  // publication batch spec can create a draft immediately instead of
+  // depending on admin-sponsorship-publication.spec.ts having run first.
+  publicationBatch: Object.freeze({
+    publicReference: 'OG7-E2E-PUBLICATION-BATCH',
+    companyName: 'E2E Playwright Fixture Publication Batch Inc.',
+    contactName: 'E2E Playwright Publication Batch',
+    contactEmail: 'e2e-playwright-fixture-publication-batch@example.com',
+    websiteUrl: 'https://example.com/e2e-playwright-fixture-publication-batch',
+    followupToken: 'e2e-playwright-fixture-followup-token-publication-batch',
+    amountCents: 50000,
+    reviewStatus: 'approved',
+    feedTarget: 'openg7',
+    feedChannels: ['facebook']
   })
 });
