@@ -3,12 +3,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   Injector,
+  computed,
   inject
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 
 interface NewsPreview {
@@ -115,10 +117,10 @@ interface NewsPreview {
             </h2>
             <p>{{ 'funding.musicPage.cta.copy' | translate }}</p>
             <div>
-              <a routerLink="/">{{
+              <a [routerLink]="homePath()">{{
                 'funding.musicPage.cta.home' | translate
               }}</a>
-              <a routerLink="/ecosystem">{{
+              <a [routerLink]="ecosystemPath()">{{
                 'funding.musicPage.cta.ecosystem' | translate
               }}</a>
             </div>
@@ -631,8 +633,14 @@ interface NewsPreview {
   ]
 })
 export class MusicPageComponent {
+  private readonly i18n = inject(FundingI18nService);
   private readonly injector = inject(Injector);
   private readonly seo = inject(FundingSeoService);
+
+  readonly homePath = computed(() => this.i18n.localizedPath('/'));
+  readonly ecosystemPath = computed(() =>
+    this.i18n.localizedPath('/ecosystem')
+  );
 
   readonly previewTracks = [1, 2, 3, 4];
 

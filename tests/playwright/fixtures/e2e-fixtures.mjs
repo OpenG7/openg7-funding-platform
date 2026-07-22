@@ -111,3 +111,20 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
     feedChannels: ['facebook']
   })
 });
+
+// Seeded directly into email_messages (rather than produced by an admin
+// action, like every fund_contributions fixture above) so
+// admin-email-queue.spec.ts has a deterministic, retryable row to click
+// "Relancer" on. SMTP is disabled in local/CI (docker-compose.yml defaults
+// SMTP_ENABLED to false), so retrying it always resolves the same way: the
+// send is attempted and fails with EMAIL_DISABLED, leaving the message
+// 'failed' rather than 'sent'.
+export const EMAIL_QUEUE_FIXTURE = Object.freeze({
+  idempotencyKey: 'e2e-playwright-fixture-email-queue-retry',
+  templateKey: 'e2e_playwright_fixture',
+  recipientEmail: 'e2e-playwright-fixture-email-queue@example.com',
+  fromEmail: 'no-reply@example.com',
+  subject: 'E2E Playwright: message de test pour la relance de la file courriel.',
+  textBody: 'E2E Playwright fixture email body (text).',
+  htmlBody: '<p>E2E Playwright fixture email body (html).</p>'
+});
