@@ -4,7 +4,7 @@ Cette matrice couvre le parcours commandite de bout en bout au niveau des
 routes, contrats API, etats UI, filtres publics, controles de securite, i18n
 et documentation de deploiement.
 
-Couverture cible: 8 scenarios sur 8, soit 100%.
+Couverture cible: 9 scenarios sur 9, soit 100%.
 
 | Scenario                                                                 | Couvert | Surface                                                                            |
 | ------------------------------------------------------------------------ | ------- | ---------------------------------------------------------------------------------- |
@@ -16,6 +16,7 @@ Couverture cible: 8 scenarios sur 8, soit 100%.
 | Admin prepare la publication OpenG7/OpenG20 Facebook/LinkedIn            | Oui     | Admin, migration feed                                                              |
 | Page publique affiche seulement les commandites approuvees et consenties | Oui     | `/commanditaires`, API publique                                                    |
 | Navigation FR/EN, prerender, sitemap et docs de prod restent alignes     | Oui     | Routes, i18n, deployment                                                           |
+| Page de suivi commandite en etat `pending_review` (avant soumission des details) | Oui | Suite suivi, statut UI et affichage en attente de details d'entreprise |
 
 Limite volontaire: ces tests ne publient pas sur Facebook ou LinkedIn. Le MVP
 trace le placement de feed et le lien public, mais l'integration API sociale

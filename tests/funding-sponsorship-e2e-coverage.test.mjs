@@ -458,6 +458,65 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
   );
 });
 
+test('E2E 8b/8: sponsor follow-up page shows pending review status before details submitted', () => {
+  const sponsorPage = read(
+    'apps/funding-web/src/app/features/funding/pages/sponsor-followup-page/sponsor-followup-page.component.ts'
+  );
+  const followupPage = read(
+    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts'
+  );
+  const adminService = read(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
+  );
+  const api = read('apps/funding-api/src/main.ts');
+
+  assertIncludesAll(
+    sponsorPage,
+    [
+      'pending_review',
+      'reviewStatus',
+      'detailsSubmitted',
+      'reviewPendingTitle',
+      'reviewPendingMessage'
+    ],
+    'sponsor follow-up component pending review state'
+  );
+
+  assertIncludesAll(
+    followupPage,
+    [
+      "reviewStatusLabel('pending_review')",
+      '[class.active="current.reviewStatus === \'pending_review\'"',
+      'En validation',
+      'Étape 3 de 4',
+      'validation en cours',
+      'La validation est en cours',
+      'la visibilité publique sera activée après approbation'
+    ],
+    'sponsorship follow-up pending review UI state'
+  );
+
+  assertIncludesAll(
+    adminService,
+    [
+      '/admin/sponsorships/review',
+      'isAllowedSponsorshipReviewStatus',
+      'sponsor_review_status: pending_review'
+    ],
+    'admin review service pending review handling'
+  );
+
+  assertIncludesAll(
+    api,
+    [
+      'isAllowedSponsorshipReviewStatus',
+      'sponsorshipReviewStatus.pending_review',
+      'sponsorship_review_status = $2'
+    ],
+    'api pending review validation'
+  );
+});
+
 test('E2E 7/8: public sponsors page exposes only approved consented sponsorships', () => {
   const routes = read('apps/funding-web/src/app/app.routes.ts');
   const sponsorsPage = read(
