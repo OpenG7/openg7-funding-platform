@@ -196,4 +196,31 @@ test.describe('Docker admin sponsorship review', () => {
       .locator('xpath=following-sibling::dd[1]');
     await expect(paymentStatus).toHaveText('Paye');
   });
+
+  test('rejects a sponsorship and marks the refund as already handled manually', async ({
+    page
+  }) => {
+    await signInAsAdmin(page);
+
+    const fixture = SPONSORSHIP_FIXTURES.rejectRefund;
+    await openFixtureSponsorship(page, fixture.companyName);
+
+    await page.getByRole('button', { name: 'Refuser' }).click();
+    await page
+      .getByLabel(/Raison interne du refus/i)
+      .fill('E2E Playwright: refus avec remboursement deja traite.');
+    // Distinct code path from the Stripe-guided refund panel tested above:
+    // this is a DB-only flag recorded alongside the rejection, no Stripe
+    // call involved (apps/funding-api/src/main.ts, isRejection branch of the
+    // /admin/sponsorships/review handler).
+    await page.getByLabel(/Remboursement/i).selectOption('manual_completed');
+    await page.getByRole('button', { name: /Confirmer le refus/i }).click();
+
+    await expect(
+      page.getByText(/Remboursement marque comme deja traite/i)
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Suivi: Remboursement complete/i)
+    ).toBeVisible();
+  });
 });
