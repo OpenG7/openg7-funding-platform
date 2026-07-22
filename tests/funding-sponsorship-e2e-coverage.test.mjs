@@ -458,6 +458,44 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
   );
 });
 
+test('E2E 8/9: sponsor follow-up page shows pending review status before details submitted', () => {
+  const followupPage = read(
+    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts'
+  );
+  const adminService = read(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
+  );
+  const api = read('apps/funding-api/src/main.ts');
+
+  assertIncludesAll(
+    followupPage,
+    [
+      'pending_review',
+      'reviewStatus',
+      'detailsSubmitted',
+      'En validation',
+      'validation en cours',
+      "current.reviewStatus === 'pending_review'"
+    ],
+    'sponsorship follow-up pending review UI state'
+  );
+
+  assertIncludesAll(
+    adminService,
+    ['/admin/sponsorships/review', 'reviewStatus'],
+    'admin review service pending review handling'
+  );
+
+  assertIncludesAll(
+    api,
+    [
+      'isAllowedSponsorshipReviewStatus',
+      'pending_review'
+    ],
+    'api pending review validation'
+  );
+});
+
 test('E2E 7/8: public sponsors page exposes only approved consented sponsorships', () => {
   const routes = read('apps/funding-web/src/app/app.routes.ts');
   const sponsorsPage = read(

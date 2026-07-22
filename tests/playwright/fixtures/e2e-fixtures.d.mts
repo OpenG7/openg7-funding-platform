@@ -25,3 +25,13 @@ export declare const SPONSORSHIP_FIXTURES: {
   readonly logo: SponsorshipFixture;
   readonly publicationBatch: SponsorshipFixture;
 };
+
+export declare const EMAIL_QUEUE_FIXTURE: {
+  readonly idempotencyKey: string;
+  readonly templateKey: string;
+  readonly recipientEmail: string;
+  readonly fromEmail: string;
+  readonly subject: string;
+  readonly textBody: string;
+  readonly htmlBody: string;
+};

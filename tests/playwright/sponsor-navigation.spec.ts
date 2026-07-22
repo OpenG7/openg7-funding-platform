@@ -44,6 +44,31 @@ test.describe('Docker corporate sponsor navigation', () => {
     ).toBeVisible();
   });
 
+  test('shows a client-side error and blocks checkout for a custom sponsorship amount below the minimum', async ({
+    page
+  }) => {
+    await page.goto('/fonds-des-batisseurs');
+
+    await page
+      .getByRole('button', { name: /Commandite d'entreprise/i })
+      .click();
+
+    await page.locator('#custom-contribution').fill('10');
+    await expect(
+      page.getByText(/Le montant minimal pour une commandite est de 50 \$\./i)
+    ).toBeVisible();
+
+    await page
+      .getByLabel(/OpenG7 est un projet ind.pendant en d.veloppement/i)
+      .check();
+
+    await expect(
+      page
+        .locator('#support')
+        .getByRole('button', { name: /Soutenir OpenG7/i })
+    ).toBeDisabled();
+  });
+
   test('arrives at the sponsor follow-up call to action after a successful checkout redirect', async ({
     page
   }) => {
@@ -125,6 +150,82 @@ test.describe('Docker corporate sponsor navigation', () => {
       .click();
 
     await expect(page.getByText(/Informations enregistr.es/i)).toBeVisible();
+  });
+
+  test('validates empty required fields show error messages and prevent form submission', async ({
+    page
+  }) => {
+    const fixture = SPONSORSHIP_FIXTURES.directory;
+
+    await page.goto(
+      `/fonds-des-batisseurs/suivi-commandite?token=${fixture.followupToken}`
+    );
+
+    await expect(
+      page.getByRole('heading', { name: /Suivi de votre commandite/i })
+    ).toBeVisible();
+
+    await page
+      .getByRole('button', { name: /Enregistrer les informations/i })
+      .click();
+
+    await expect(page.getByText(/Le nom de l'entreprise est requis./i)).toBeVisible();
+    await expect(page.getByText(/Le nom du contact est requis./i)).toBeVisible();
+    await expect(page.getByText(/Le courriel du contact est requis./i)).toBeVisible();
+
+    await expect(page.getByRole('button', { name: /Enregistrer les informations/i })).toBeDisabled();
+  });
+
+  test('validates invalid email format shows error and prevents form submission', async ({
+    page
+  }) => {
+    const fixture = SPONSORSHIP_FIXTURES.directory;
+
+    await page.goto(
+      `/fonds-des-batisseurs/suivi-commandite?token=${fixture.followupToken}`
+    );
+
+    await expect(
+      page.getByRole('heading', { name: /Suivi de votre commandite/i })
+    ).toBeVisible();
+
+    await page.getByLabel(/Nom de l'entreprise/i).fill(fixture.companyName);
+    await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
+    await page.getByLabel(/Courriel du contact/i).fill('invalid-email');
+    await page.getByLabel(/Site web/i).fill(fixture.websiteUrl);
+
+    await expect(page.getByText(/Le courriel du contact doit etre valide./i)).toBeVisible();
+
+    await expect(page.getByRole('button', { name: /Enregistrer les informations/i })).toBeDisabled();
+  });
+
+  test('validates non-https URLs show error and prevent form submission', async ({
+    page
+  }) => {
+    const fixture = SPONSORSHIP_FIXTURES.directory;
+
+    await page.goto(
+      `/fonds-des-batisseurs/suivi-commandite?token=${fixture.followupToken}`
+    );
+
+    await expect(
+      page.getByRole('heading', { name: /Suivi de votre commandite/i })
+    ).toBeVisible();
+
+    await page.getByLabel(/Nom de l'entreprise/i).fill(fixture.companyName);
+    await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
+    await page.getByLabel(/Courriel du contact/i).fill(fixture.contactEmail);
+    await page.getByLabel(/Site web/i).fill('http://invalid-http-url.com');
+    await page.getByLabel(/Lien du logo/i).fill('ftp://invalid-ftp-url.com');
+
+    await expect(
+      page.getByText(/Le site web doit commencer par https:./i)
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Le lien du logo doit commencer par https:./i)
+    ).toBeVisible();
+
+    await expect(page.getByRole('button', { name: /Enregistrer les informations/i })).toBeDisabled();
   });
 
   test('reaches the refund policy and support pages referenced during the sponsorship flow', async ({
