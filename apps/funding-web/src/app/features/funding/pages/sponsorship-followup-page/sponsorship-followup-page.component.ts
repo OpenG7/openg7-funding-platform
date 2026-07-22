@@ -997,7 +997,8 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
       this.state() !== 'submitting' &&
       this.formRevision() >= 0 &&
       this.sponsorshipForm.valid &&
-      this.isEligiblePaymentStatus(this.followup()?.paymentStatus ?? '')
+      this.isEligiblePaymentStatus(this.followup()?.paymentStatus ?? '') &&
+      this.followup()?.reviewStatus !== 'rejected'
   );
 
   ngOnInit(): void {
