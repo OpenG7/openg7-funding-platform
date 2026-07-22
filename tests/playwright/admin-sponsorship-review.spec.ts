@@ -145,4 +145,55 @@ test.describe('Docker admin sponsorship review', () => {
 
     expect(download.suggestedFilename()).toMatch(/^openg7-.*\.pdf$/);
   });
+
+  test('completes a partial Stripe refund without marking the sponsorship as fully refunded', async ({
+    page
+  }) => {
+    await signInAsAdmin(page);
+
+    const fixture = SPONSORSHIP_FIXTURES.partialRefund;
+    await openFixtureSponsorship(page, fixture.companyName);
+
+    await page.getByRole('button', { name: 'Rembourser Stripe' }).click();
+
+    const refundPanel = page.locator('[aria-label="Remboursement Stripe"]');
+    await expect(refundPanel).toBeVisible();
+
+    const partialAmount = fixture.amountCents / 100 / 2;
+    await refundPanel
+      .getByLabel(/Montant a rembourser/i)
+      .fill(String(partialAmount));
+    await refundPanel
+      .getByLabel(/Texte de confirmation/i)
+      .fill(fixture.publicReference);
+    await refundPanel
+      .getByRole('button', { name: 'Rembourser Stripe' })
+      .click();
+
+    await expect(
+      page.getByText(/Remboursement Stripe partiel cree:/i)
+    ).toBeVisible();
+    await expect(page.getByText(/Avoir cree:/i)).toBeVisible();
+
+    // A partial refund must not flip the sponsorship's own payment status to
+    // "refunded" -- only a full refund does that
+    // (apps/funding-api/src/main.ts calls updateContributionStatusByPaymentIntent
+    // only when isFullRefund). Read the isolated "Paiement" definition inside
+    // the "Commandite" card rather than substring-checking the whole row: the
+    // row's flattened text also contains the unrelated refund *workflow*
+    // status ("Remboursement complete"), which itself contains the substring
+    // "Rembourse" and would make a naive not.toContainText('Rembourse') fail
+    // even though the payment status is correctly still "Paye". The sidebar
+    // search filter also has its own "Paye"/"Rembourse" <option> text, which
+    // rules out a bare exact-text match too. hasText does a case-insensitive
+    // substring match, so an unanchored 'Paiement' also matches the "Date de
+    // paiement" term -- anchor it to match only the exact "Paiement" term.
+    const paymentStatus = page
+      .locator('article', {
+        has: page.getByRole('heading', { name: 'Commandite', exact: true })
+      })
+      .locator('dt', { hasText: /^Paiement$/ })
+      .locator('xpath=following-sibling::dd[1]');
+    await expect(paymentStatus).toHaveText('Paye');
+  });
 });
