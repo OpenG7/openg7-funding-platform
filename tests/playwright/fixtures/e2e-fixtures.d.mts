@@ -20,4 +20,5 @@ export declare const SPONSORSHIP_FIXTURES: {
   readonly refund: SponsorshipFixture;
   readonly partialRefund: SponsorshipFixture;
   readonly rejectRefund: SponsorshipFixture;
+  readonly logo: SponsorshipFixture;
 };
