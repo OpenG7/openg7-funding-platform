@@ -47,15 +47,23 @@ test.describe('Docker admin publication batches', () => {
       .getByRole('button', { name: 'Creer un lot', exact: true })
       .click();
 
-    const batchCard = page.locator('.batch-card');
+    const batchCard = page.locator('.batch-card').first();
     await expect(batchCard).toBeVisible();
     await expect(batchCard).toContainText('Ouvert');
     await expect(batchCard).toContainText('Facebook - 0/5');
 
-    // The <select> wrapped by the "Lot" label wasn't touched yet, so its
-    // only option besides the placeholder is this test's own freshly created
-    // batch (a fresh CI database has no other fixtures competing for it).
-    await draftCard.getByLabel(/^Lot/i).selectOption({ index: 1 });
+    // batchCard becoming visible with the right text only proves the batch
+    // list refreshed -- it does not prove the draft's own "Lot" dropdown
+    // (a separate part of the page, refreshed by the same load() call but
+    // not guaranteed to be re-rendered in the same tick) has picked up the
+    // new batch as an option yet. Wait for that option explicitly before
+    // selecting it, and select by label rather than position so this still
+    // works if a retry left a previous attempt's batch behind.
+    const lotSelect = draftCard.getByLabel(/^Lot/i);
+    await expect(
+      lotSelect.getByRole('option', { name: 'Facebook (0/5)' }).first()
+    ).toBeAttached();
+    await lotSelect.selectOption({ label: 'Facebook (0/5)' });
     await draftCard
       .getByRole('button', { name: 'Assigner au lot', exact: true })
       .click();
