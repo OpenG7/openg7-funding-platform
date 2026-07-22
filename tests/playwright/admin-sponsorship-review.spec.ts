@@ -70,6 +70,10 @@ test.describe('Docker admin sponsorship review', () => {
     const fixture = SPONSORSHIP_FIXTURES.approve;
     await openFixtureSponsorship(page, fixture.companyName);
 
+    // Resetting an already-reviewed sponsorship back to pending goes through a
+    // native window.confirm() guard (admin-sponsors-page.component.ts); it must
+    // be accepted or Playwright auto-dismisses it and the click is a no-op.
+    page.once('dialog', (dialog) => void dialog.accept());
     await page.getByRole('button', { name: 'Remettre en attente' }).click();
 
     await expect(

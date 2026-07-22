@@ -50,7 +50,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     const followupToken = 'e2e-playwright-checkout-return-deep-link-token-00';
 
     await page.goto(
-      `/fonds-des-batisseurs?checkout=success&contributionType=sponsorship_interest&followupToken=${followupToken}`
+      `/fonds-des-batisseurs?checkout=success&contributionType=sponsorship_interest&followup_token=${followupToken}`
     );
 
     await expect(
@@ -65,6 +65,36 @@ test.describe('Docker corporate sponsor navigation', () => {
     await expect(cta).toHaveAttribute(
       'href',
       new RegExp(`/fonds-des-batisseurs/suivi-commandite\\?token=${followupToken}`)
+    );
+  });
+
+  // Runs before the follow-up resubmission test below: recordSponsorshipDetailsForContribution
+  // (apps/funding-api/src/fund-contributions.repository.ts) resets sponsor_review_status back to
+  // pending_review on every resubmission, which would otherwise drop this fixture out of the
+  // public directory's approved-only listing before this test gets to check it.
+  test('lists the approved sponsorship in the public directory reachable from the header navigation', async ({
+    page
+  }) => {
+    const fixture = SPONSORSHIP_FIXTURES.directory;
+
+    await page.goto('/fonds-des-batisseurs');
+    await page.locator('nav').getByRole('link', { name: 'Commanditaires' }).click();
+
+    await expect(page).toHaveURL(/\/commanditaires/);
+    await expect(
+      page.getByRole('heading', { name: /Commanditaires OpenG7/i })
+    ).toBeVisible();
+
+    const sponsorRow = page.locator('.sponsors-list li', {
+      hasText: fixture.companyName
+    });
+    await expect(sponsorRow).toBeVisible();
+    await expect(
+      sponsorRow.getByRole('link', { name: /Site web/i })
+    ).toHaveAttribute('href', fixture.websiteUrl);
+
+    await expect(page.locator('body')).not.toContainText(
+      /sponsor_contact_email|email_private|stripe_session_id|stripe_payment_intent_id/i
     );
   });
 
@@ -95,32 +125,6 @@ test.describe('Docker corporate sponsor navigation', () => {
       .click();
 
     await expect(page.getByText(/Informations enregistr.es/i)).toBeVisible();
-  });
-
-  test('lists the approved sponsorship in the public directory reachable from the header navigation', async ({
-    page
-  }) => {
-    const fixture = SPONSORSHIP_FIXTURES.directory;
-
-    await page.goto('/fonds-des-batisseurs');
-    await page.locator('nav').getByRole('link', { name: 'Commanditaires' }).click();
-
-    await expect(page).toHaveURL(/\/commanditaires/);
-    await expect(
-      page.getByRole('heading', { name: /Commanditaires OpenG7/i })
-    ).toBeVisible();
-
-    const sponsorRow = page.locator('.sponsors-list li', {
-      hasText: fixture.companyName
-    });
-    await expect(sponsorRow).toBeVisible();
-    await expect(
-      sponsorRow.getByRole('link', { name: /Site web/i })
-    ).toHaveAttribute('href', fixture.websiteUrl);
-
-    await expect(page.locator('body')).not.toContainText(
-      /sponsor_contact_email|email_private|stripe_session_id|stripe_payment_intent_id/i
-    );
   });
 
   test('reaches the refund policy and support pages referenced during the sponsorship flow', async ({
