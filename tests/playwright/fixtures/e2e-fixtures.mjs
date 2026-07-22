@@ -83,5 +83,15 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
     followupToken: 'e2e-playwright-fixture-followup-token-reject-refund-0',
     amountCents: 40000,
     reviewStatus: 'pending_review'
+  }),
+  logo: Object.freeze({
+    publicReference: 'OG7-E2E-LOGO',
+    companyName: 'E2E Playwright Fixture Logo Inc.',
+    contactName: 'E2E Playwright Logo',
+    contactEmail: 'e2e-playwright-fixture-logo@example.com',
+    websiteUrl: 'https://example.com/e2e-playwright-fixture-logo',
+    followupToken: 'e2e-playwright-fixture-followup-token-logo-000000000',
+    amountCents: 50000,
+    reviewStatus: 'pending_review'
   })
 });

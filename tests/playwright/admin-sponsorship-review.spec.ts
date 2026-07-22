@@ -231,4 +231,48 @@ test.describe('Docker admin sponsorship review', () => {
       page.getByText(/Suivi: Remboursement complete/i)
     ).toBeVisible();
   });
+
+  test('uploads and deletes a sponsorship logo', async ({ page }) => {
+    await signInAsAdmin(page);
+
+    const fixture = SPONSORSHIP_FIXTURES.logo;
+    await openFixtureSponsorship(page, fixture.companyName);
+
+    await page
+      .getByRole('button', { name: 'Identite & logo', exact: true })
+      .click();
+
+    // The upload control is a <label> wrapping the file input, not a button.
+    await expect(page.getByText('Televerser un logo')).toBeVisible();
+
+    // The API detects the file type from magic bytes, not the declared MIME
+    // type (detectSponsorLogoFileType in apps/funding-api/src/main.ts), so
+    // this must be real PNG bytes -- a minimal valid 1x1 transparent PNG.
+    const onePixelPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64'
+    );
+    await page.locator('input[type="file"]').setInputFiles({
+      name: 'e2e-playwright-logo.png',
+      mimeType: 'image/png',
+      buffer: onePixelPng
+    });
+
+    await expect(page.getByText(/Logo enregistre/i)).toBeVisible();
+    await expect(
+      page.getByRole('img', { name: `Logo ${fixture.companyName}` })
+    ).toBeVisible();
+    await expect(page.getByText('Remplacer le logo')).toBeVisible();
+
+    // Deleting a logo goes through a native window.confirm() guard, the same
+    // pattern already hit for the reset-to-pending-review action -- accept it
+    // or Playwright auto-dismisses it and the click is a no-op.
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page
+      .getByRole('button', { name: 'Supprimer le logo' })
+      .click();
+
+    await expect(page.getByText(/Logo supprime/i)).toBeVisible();
+    await expect(page.getByText('Televerser un logo')).toBeVisible();
+  });
 });
