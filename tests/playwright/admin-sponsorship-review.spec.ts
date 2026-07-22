@@ -185,12 +185,14 @@ test.describe('Docker admin sponsorship review', () => {
     // "Rembourse" and would make a naive not.toContainText('Rembourse') fail
     // even though the payment status is correctly still "Paye". The sidebar
     // search filter also has its own "Paye"/"Rembourse" <option> text, which
-    // rules out a bare exact-text match too.
+    // rules out a bare exact-text match too. hasText does a case-insensitive
+    // substring match, so an unanchored 'Paiement' also matches the "Date de
+    // paiement" term -- anchor it to match only the exact "Paiement" term.
     const paymentStatus = page
       .locator('article', {
         has: page.getByRole('heading', { name: 'Commandite', exact: true })
       })
-      .locator('dt', { hasText: 'Paiement' })
+      .locator('dt', { hasText: /^Paiement$/ })
       .locator('xpath=following-sibling::dd[1]');
     await expect(paymentStatus).toHaveText('Paye');
   });
