@@ -7,7 +7,10 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
-import { SPONSORSHIP_FIXTURES } from '../tests/playwright/fixtures/e2e-fixtures.mjs';
+import {
+  EMAIL_QUEUE_FIXTURE,
+  SPONSORSHIP_FIXTURES
+} from '../tests/playwright/fixtures/e2e-fixtures.mjs';
 import { loadDotEnv } from './lib/load-dotenv.mjs';
 
 loadDotEnv('.env');
@@ -70,9 +73,28 @@ INSERT INTO fund_contributions (
   })
   .join('\n');
 
+const emailQueueDelete = `
+DELETE FROM email_messages
+WHERE idempotency_key = ${sqlLiteral(EMAIL_QUEUE_FIXTURE.idempotencyKey)};`;
+
+const emailQueueInsert = `
+INSERT INTO email_messages (
+  idempotency_key, template_key, recipient_email, from_email, subject,
+  text_body, html_body, status
+) VALUES (
+  ${sqlLiteral(EMAIL_QUEUE_FIXTURE.idempotencyKey)},
+  ${sqlLiteral(EMAIL_QUEUE_FIXTURE.templateKey)},
+  ${sqlLiteral(EMAIL_QUEUE_FIXTURE.recipientEmail)},
+  ${sqlLiteral(EMAIL_QUEUE_FIXTURE.fromEmail)},
+  ${sqlLiteral(EMAIL_QUEUE_FIXTURE.subject)},
+  ${sqlLiteral(EMAIL_QUEUE_FIXTURE.textBody)},
+  ${sqlLiteral(EMAIL_QUEUE_FIXTURE.htmlBody)},
+  'queued'
+);`;
+
 const sql = cleanupOnly
-  ? deleteStatements
-  : `${deleteStatements}\n${insertStatements}`;
+  ? `${deleteStatements}\n${emailQueueDelete}`
+  : `${deleteStatements}\n${insertStatements}\n${emailQueueDelete}\n${emailQueueInsert}`;
 
 const result = spawnSync(
   'docker',
@@ -108,6 +130,6 @@ if (result.status !== 0) {
 
 console.log(
   cleanupOnly
-    ? 'Removed Playwright sponsorship fixtures.'
-    : `Seeded ${fixtures.length} Playwright sponsorship fixture(s).`
+    ? 'Removed Playwright sponsorship and email queue fixtures.'
+    : `Seeded ${fixtures.length} Playwright sponsorship fixture(s) and 1 email queue fixture.`
 );
