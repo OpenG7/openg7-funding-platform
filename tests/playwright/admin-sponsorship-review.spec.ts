@@ -212,10 +212,15 @@ test.describe('Docker admin sponsorship review', () => {
     // Distinct code path from the Stripe-guided refund panel tested above:
     // this is a DB-only flag recorded alongside the rejection, no Stripe
     // call involved (apps/funding-api/src/main.ts, isRejection branch of the
-    // /admin/sponsorships/review handler). Anchored regex: an unanchored
-    // /Remboursement/i also matches the "Note remboursement" textarea label.
+    // /admin/sponsorships/review handler). A <label> wrapping a <select>
+    // computes its accessible name as the label text plus the select's own
+    // name (the currently selected option's text), e.g. "RemboursementNe pas
+    // rembourser maintenant" -- so anchor to the start only (^Remboursement,
+    // no trailing $) rather than an exact match, which would never match.
+    // That start-anchor still excludes "Note remboursement" (starts with
+    // "Note", not "Remboursement").
     await page
-      .getByLabel(/^Remboursement$/i)
+      .getByLabel(/^Remboursement/i)
       .selectOption('manual_completed');
     await page.getByRole('button', { name: /Confirmer le refus/i }).click();
 
