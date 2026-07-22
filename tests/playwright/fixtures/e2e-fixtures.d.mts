@@ -9,10 +9,13 @@ interface SponsorshipFixture {
   readonly followupToken: string;
   readonly amountCents: number;
   readonly reviewStatus: 'pending_review' | 'approved' | 'rejected';
+  readonly stripePaymentIntentId?: string;
+  readonly stripeSessionId?: string;
 }
 
 export declare const SPONSORSHIP_FIXTURES: {
   readonly approve: SponsorshipFixture;
   readonly reject: SponsorshipFixture;
   readonly directory: SponsorshipFixture;
+  readonly refund: SponsorshipFixture;
 };

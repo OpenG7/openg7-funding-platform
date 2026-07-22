@@ -34,6 +34,12 @@ const insertStatements = fixtures
   .map((fixture) => {
     const reviewStatus = fixture.reviewStatus ?? 'pending_review';
     const reviewedAt = reviewStatus === 'pending_review' ? 'NULL' : 'NOW()';
+    const stripePaymentIntentId = fixture.stripePaymentIntentId
+      ? sqlLiteral(fixture.stripePaymentIntentId)
+      : 'NULL';
+    const stripeSessionId = fixture.stripeSessionId
+      ? sqlLiteral(fixture.stripeSessionId)
+      : 'NULL';
 
     return `
 INSERT INTO fund_contributions (
@@ -42,7 +48,8 @@ INSERT INTO fund_contributions (
   sponsor_company_name, sponsor_contact_name, sponsor_contact_email,
   sponsor_website_url, sponsor_details_submitted_at, sponsor_review_status,
   sponsor_reviewed_at, sponsorship_followup_token_hash,
-  sponsorship_followup_token_created_at, public_reference
+  sponsorship_followup_token_created_at, public_reference,
+  stripe_payment_intent_id, stripe_session_id
 ) VALUES (
   'sponsorship_interest', ${fixture.amountCents}, 'cad', 'paid', NOW(),
   TRUE, TRUE, TRUE,
@@ -50,7 +57,8 @@ INSERT INTO fund_contributions (
   ${sqlLiteral(fixture.contactEmail)}, ${sqlLiteral(fixture.websiteUrl)},
   NOW(), ${sqlLiteral(reviewStatus)},
   ${reviewedAt}, ${sqlLiteral(sha256Hex(fixture.followupToken))}, NOW(),
-  ${sqlLiteral(fixture.publicReference)}
+  ${sqlLiteral(fixture.publicReference)}, ${stripePaymentIntentId},
+  ${stripeSessionId}
 );`;
   })
   .join('\n');
