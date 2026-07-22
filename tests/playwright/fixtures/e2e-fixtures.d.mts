@@ -11,6 +11,8 @@ interface SponsorshipFixture {
   readonly reviewStatus: 'pending_review' | 'approved' | 'rejected';
   readonly stripePaymentIntentId?: string;
   readonly stripeSessionId?: string;
+  readonly feedTarget?: 'openg7' | 'openg20';
+  readonly feedChannels?: readonly ('facebook' | 'linkedin')[];
 }
 
 export declare const SPONSORSHIP_FIXTURES: {
@@ -21,4 +23,5 @@ export declare const SPONSORSHIP_FIXTURES: {
   readonly partialRefund: SponsorshipFixture;
   readonly rejectRefund: SponsorshipFixture;
   readonly logo: SponsorshipFixture;
+  readonly publicationBatch: SponsorshipFixture;
 };

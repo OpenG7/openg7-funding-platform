@@ -40,6 +40,12 @@ const insertStatements = fixtures
     const stripeSessionId = fixture.stripeSessionId
       ? sqlLiteral(fixture.stripeSessionId)
       : 'NULL';
+    const feedTarget = fixture.feedTarget
+      ? sqlLiteral(fixture.feedTarget)
+      : 'NULL';
+    const feedChannels = fixture.feedChannels
+      ? `${sqlLiteral(JSON.stringify(fixture.feedChannels))}::jsonb`
+      : "'[]'::jsonb";
 
     return `
 INSERT INTO fund_contributions (
@@ -49,7 +55,8 @@ INSERT INTO fund_contributions (
   sponsor_website_url, sponsor_details_submitted_at, sponsor_review_status,
   sponsor_reviewed_at, sponsorship_followup_token_hash,
   sponsorship_followup_token_created_at, public_reference,
-  stripe_payment_intent_id, stripe_session_id
+  stripe_payment_intent_id, stripe_session_id,
+  sponsor_feed_target, sponsor_feed_channels
 ) VALUES (
   'sponsorship_interest', ${fixture.amountCents}, 'cad', 'paid', NOW(),
   TRUE, TRUE, TRUE,
@@ -58,7 +65,7 @@ INSERT INTO fund_contributions (
   NOW(), ${sqlLiteral(reviewStatus)},
   ${reviewedAt}, ${sqlLiteral(sha256Hex(fixture.followupToken))}, NOW(),
   ${sqlLiteral(fixture.publicReference)}, ${stripePaymentIntentId},
-  ${stripeSessionId}
+  ${stripeSessionId}, ${feedTarget}, ${feedChannels}
 );`;
   })
   .join('\n');
