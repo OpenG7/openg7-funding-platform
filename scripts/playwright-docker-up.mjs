@@ -4,9 +4,11 @@ import { spawnSync } from 'node:child_process';
 import { ADMIN_TOKEN } from '../tests/playwright/fixtures/e2e-fixtures.mjs';
 import { loadDotEnv } from './lib/load-dotenv.mjs';
 
-if (!process.versions.node.startsWith('22.')) {
+const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '', 10);
+
+if (!Number.isInteger(nodeMajor) || nodeMajor < 22) {
   console.error(
-    `Playwright Docker E2E requires Node.js 22.x. Current Node.js: ${process.version}.`
+    `Playwright Docker E2E requires Node.js 22 or newer. Current Node.js: ${process.version}.`
   );
   process.exit(1);
 }
@@ -32,7 +34,7 @@ const localOnlyEnv = {
   FUNDING_ALLOWED_ORIGINS: 'http://127.0.0.1:8080,http://localhost:8080',
   FUNDING_BUSINESS_SPONSORSHIP_ENABLED:
     process.env.FUNDING_BUSINESS_SPONSORSHIP_ENABLED || 'true',
-  FUNDING_ADMIN_TOKEN: process.env.FUNDING_ADMIN_TOKEN || ADMIN_TOKEN,
+  FUNDING_ADMIN_TOKEN: ADMIN_TOKEN,
   FUNDING_ADMIN_SESSION_SECRET:
     process.env.FUNDING_ADMIN_SESSION_SECRET ||
     'local-playwright-session-secret-not-sensitive',

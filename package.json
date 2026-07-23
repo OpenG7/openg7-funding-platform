@@ -29,7 +29,7 @@
     "db:stop": "node scripts/docker-ready.mjs -- docker compose --profile database stop postgres",
     "db:logs": "node scripts/docker-ready.mjs -- docker compose --profile database logs -f postgres",
     "db:psql": "node scripts/docker-ready.mjs -- bash scripts/db-psql.sh",
-    "db:migrate": "node scripts/docker-ready.mjs -- bash scripts/db-migrate.sh",
+    "db:migrate": "node scripts/docker-ready.mjs -- node scripts/db-migrate.mjs",
     "db:backup": "node scripts/docker-ready.mjs -- bash scripts/backup.sh",
     "db:restore": "node scripts/docker-ready.mjs -- bash scripts/restore-from-backup.sh",
     "prod:check": "bash scripts/check.sh",

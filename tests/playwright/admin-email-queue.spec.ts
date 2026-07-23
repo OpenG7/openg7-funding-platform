@@ -23,8 +23,16 @@ test.describe('Docker admin email queue', () => {
     await expect(
       page.getByRole('heading', { name: 'File courriel' })
     ).toBeVisible();
-    await expect(page.getByText('En file', { exact: true })).toBeVisible();
-    await expect(page.getByText('Echecs', { exact: true })).toBeVisible();
+    await expect(
+      page
+        .getByLabel('Resume file courriel')
+        .getByText('En file', { exact: true })
+    ).toBeVisible();
+    await expect(
+      page
+        .getByLabel('Resume file courriel')
+        .getByText('Echecs', { exact: true })
+    ).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Derniers courriels' })
     ).toBeVisible();

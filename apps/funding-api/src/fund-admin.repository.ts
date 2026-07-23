@@ -1181,7 +1181,10 @@ export const updateAdminExpense = async (
 
   if (input.status !== undefined) {
     addAssignment('status = ?', input.status);
-    if (input.status === 'published' || input.status === 'active') {
+    if (
+      input.publishedAt === undefined &&
+      (input.status === 'published' || input.status === 'active')
+    ) {
       assignments.push('published_at = COALESCE(published_at, NOW())');
     }
   }
