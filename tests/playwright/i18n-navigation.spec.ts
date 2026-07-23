@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 // Covers FR/EN navigation, the sitemap, and the prerendered English routes
 // (apps/funding-web/src/app/app.routes.server.ts marks 'commanditaires' and

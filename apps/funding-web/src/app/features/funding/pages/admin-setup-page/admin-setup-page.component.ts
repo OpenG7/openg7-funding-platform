@@ -806,6 +806,7 @@ interface SetupTourStep {
           0 0 0 0.22rem rgba(184, 130, 36, 0.55),
           0 1rem 2.2rem rgba(16, 24, 39, 0.22);
         isolation: isolate;
+        pointer-events: none;
         position: relative;
         z-index: 30;
       }

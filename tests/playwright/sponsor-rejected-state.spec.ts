@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin, openFixtureSponsorship } from './support/admin-auth.js';
@@ -38,16 +38,28 @@ test.describe('Sponsor side rejected state validation', () => {
     await expect(
       page.getByRole('heading', { name: /Commandite refus.e/i })
     ).toBeVisible();
-    await expect(page.getByText('Validation termin.ee')).toBeVisible();
-    await expect(page.getByText(fixture.publicReference)).toBeVisible();
+    await expect(page.getByText(/Validation termin.e/i)).toBeVisible();
+    await expect(
+      page
+        .locator('.reference-code', { hasText: fixture.publicReference })
+        .first()
+    ).toBeVisible();
 
     // Verify the action note is shown
     await expect(page.locator('article.review-note.rejected')).toBeVisible();
 
     // Verify the payment status is still paid
-    await expect(page.getByText('Confirme')).toBeVisible();
+    await expect(
+      page
+        .locator('.followup-status-panel div', {
+          hasText: /Statut du paiement/i
+        })
+        .locator('dd')
+    ).toHaveText('Confirme');
 
     // Verify the details form is not available (rejected sponsorships don't allow details submission)
-    await expect(page.getByRole('button', { name: /Enregistrer les informations/i })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: /Enregistrer les informations/i })
+    ).toBeDisabled();
   });
 });

@@ -7,6 +7,7 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 test('Playwright browser E2E is wired to the local Docker stack', () => {
   const pkg = JSON.parse(read('package.json'));
   const config = read('playwright.config.ts');
+  const compose = read('docker-compose.yml');
   const dockerUp = read('scripts/playwright-docker-up.mjs');
   const smokeSpec = read('tests/playwright/docker-public-smoke.spec.ts');
 
@@ -31,8 +32,18 @@ test('Playwright browser E2E is wired to the local Docker stack', () => {
   assert.ok(config.includes("name: 'chromium'"));
   assert.ok(dockerUp.includes('requires Node.js 22 or newer'));
   assert.ok(dockerUp.includes('FUNDING_ADMIN_TOKEN: ADMIN_TOKEN'));
+  assert.ok(dockerUp.includes("FUNDING_ADMIN_RATE_LIMIT_MAX: '0'"));
   assert.ok(dockerUp.includes("FUNDING_PLATFORM_ENV: 'development'"));
   assert.ok(dockerUp.includes("STRIPE_SECRET_KEY: ''"));
+  assert.ok(
+    compose.includes(
+      'FUNDING_ADMIN_RATE_LIMIT_MAX: ${FUNDING_ADMIN_RATE_LIMIT_MAX:-120}'
+    )
+  );
+  assert.ok(compose.includes('STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}'));
+  assert.ok(
+    compose.includes('STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}')
+  );
   assert.ok(dockerUp.includes('DATABASE_URL:'));
   assert.ok(dockerUp.includes('postgres://${POSTGRES_USER}'));
   assert.ok(smokeSpec.includes("page.getByRole('heading'"));

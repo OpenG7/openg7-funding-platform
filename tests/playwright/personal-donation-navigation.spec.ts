@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 // Covers the individual/personal contribution path (the default tier on
 // /fonds-des-batisseurs). It shares the same mocked-checkout and consent

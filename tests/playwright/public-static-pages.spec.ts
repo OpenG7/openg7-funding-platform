@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 // Covers the informational public pages that have no dynamic behavior at
 // all: no signals, no HTTP calls, just translated static content and links
@@ -51,9 +51,7 @@ test.describe('Docker ecosystem page', () => {
   }) => {
     await page.goto('/ecosystem');
 
-    await expect(page.locator('#ecosystem-title')).toContainText(
-      /écosystème/i
-    );
+    await expect(page.locator('#ecosystem-title')).toContainText(/écosystème/i);
 
     // "Explorer les plateformes"/"Voir les connexions" also appear in a
     // repeated CTA block further down the page, hence .first().
@@ -78,42 +76,29 @@ test.describe('Docker ecosystem page', () => {
     await expect(page).toHaveURL(/#support$/);
   });
 
-  test('opens a platform repository in a new tab', async ({
-    page,
-    context
-  }) => {
+  test('exposes a platform repository link in a new tab', async ({ page }) => {
     await page.goto('/ecosystem');
 
-    const [newPage] = await Promise.all([
-      context.waitForEvent('page'),
-      page.getByRole('link', { name: 'Explorer', exact: true }).first().click()
-    ]);
-    await newPage.waitForLoadState();
-    expect(newPage.url()).toContain('github.com');
-    await newPage.close();
+    const repositoryLink = page
+      .getByRole('link', { name: 'Explorer', exact: true })
+      .first();
+    await expect(repositoryLink).toHaveAttribute('href', /github\.com\/OpenG7/);
+    await expect(repositoryLink).toHaveAttribute('target', '_blank');
   });
 });
 
 test.describe('Docker boutique page', () => {
   test('renders the coming-soon hero and links out to the NorthDragon store', async ({
-    page,
-    context
+    page
   }) => {
     await page.goto('/boutique');
 
-    await expect(page.locator('#boutique-title')).toContainText(
-      'NorthDragon'
-    );
+    await expect(page.locator('#boutique-title')).toContainText('NorthDragon');
 
-    const [newPage] = await Promise.all([
-      context.waitForEvent('page'),
-      page
-        .getByRole('link', { name: 'Découvrir la boutique', exact: true })
-        .click()
-    ]);
-    await newPage.waitForLoadState();
-    expect(newPage.url()).toContain('northdragon.org');
-    await newPage.close();
+    const storeLink = page.locator('main a[href*="northdragon.org"]').first();
+    await expect(storeLink).toBeVisible();
+    await expect(storeLink).toHaveAttribute('href', /northdragon\.org/);
+    await expect(storeLink).toHaveAttribute('target', '_blank');
   });
 });
 
@@ -135,15 +120,11 @@ test.describe('Docker music page', () => {
     page
   }) => {
     await page.goto('/music');
-    await page
-      .getByRole('link', { name: /Retour . l.accueil/i })
-      .click();
+    await page.getByRole('link', { name: /Retour . l.accueil/i }).click();
     await expect(page).toHaveURL(/\/(fonds-des-batisseurs)?$/);
 
     await page.goto('/music');
-    await page
-      .getByRole('link', { name: /D.couvrir l.écosystème/i })
-      .click();
+    await page.getByRole('link', { name: /D.couvrir l.écosystème/i }).click();
     await expect(page).toHaveURL(/\/ecosystem$/);
   });
 

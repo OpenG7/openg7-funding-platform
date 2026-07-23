@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 // Covers funding-transparency-page.component.ts (/fonds-des-batisseurs
 // /transparence), the richest public page: live KPIs from

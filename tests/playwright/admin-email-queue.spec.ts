@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 import { EMAIL_QUEUE_FIXTURE } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
@@ -38,9 +38,7 @@ test.describe('Docker admin email queue', () => {
     ).toBeVisible();
   });
 
-  test('filters the fixture message by search and status', async ({
-    page
-  }) => {
+  test('filters the fixture message by search and status', async ({ page }) => {
     await signInAsAdmin(page);
     await page.goto('/admin/fundraiser/email-queue');
 
@@ -51,7 +49,9 @@ test.describe('Docker admin email queue', () => {
       exact: true
     });
 
-    await page.getByLabel(/Recherche/i).fill(EMAIL_QUEUE_FIXTURE.recipientEmail);
+    await page
+      .getByLabel(/Recherche/i)
+      .fill(EMAIL_QUEUE_FIXTURE.recipientEmail);
     await expect(row).toBeVisible();
 
     await page.getByLabel('Statut').selectOption({ label: 'Envoyes' });
@@ -113,9 +113,7 @@ test.describe('Docker admin email queue', () => {
     ).toBeVisible();
 
     await page.unroute('**/admin/email-queue');
-    await page
-      .getByRole('button', { name: 'Actualiser', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
 
     await expect(
       page.getByText('Admin email queue could not be loaded.', {

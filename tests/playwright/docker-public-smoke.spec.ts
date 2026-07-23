@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 test.describe('Docker local public experience', () => {
   test('serves the Angular shell and public API through the Docker web container', async ({

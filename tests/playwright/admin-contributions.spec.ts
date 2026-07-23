@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
@@ -11,9 +11,7 @@ import { signInAsAdmin } from './support/admin-auth.js';
 // other data the shared local dev database already holds.
 
 test.describe('Docker admin contributions', () => {
-  test('renders the contribution summary and admin list', async ({
-    page
-  }) => {
+  test('renders the contribution summary and admin list', async ({ page }) => {
     await signInAsAdmin(page);
     await page.goto('/admin/fundraiser/contributions');
 
@@ -84,14 +82,10 @@ test.describe('Docker admin contributions', () => {
     // no need to search/filter first for this assertion to be meaningful.
     const fixture = SPONSORSHIP_FIXTURES.approve;
     const downloadPromise = page.waitForEvent('download');
-    await page
-      .getByRole('button', { name: 'Export CSV', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Export CSV', exact: true }).click();
     const download = await downloadPromise;
 
-    expect(download.suggestedFilename()).toBe(
-      'openg7-admin-contributions.csv'
-    );
+    expect(download.suggestedFilename()).toBe('openg7-admin-contributions.csv');
 
     const stream = await download.createReadStream();
     const chunks: Buffer[] = [];
@@ -121,9 +115,7 @@ test.describe('Docker admin contributions', () => {
     ).toBeVisible();
 
     await page.unroute('**/admin/contributions');
-    await page
-      .getByRole('button', { name: 'Actualiser', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
 
     await expect(
       page.getByText(/Impossible de charger ou exporter les contributions/i)

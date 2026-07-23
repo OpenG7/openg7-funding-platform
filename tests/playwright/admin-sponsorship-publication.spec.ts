@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { openFixtureSponsorship, signInAsAdmin } from './support/admin-auth.js';
@@ -27,8 +27,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
     await expect(editor).toBeVisible();
 
     const slug = 'e2e-playwright-fixture-directory';
-    const feedUrl =
-      'https://example.com/e2e-playwright-fixture-directory-feed';
+    const feedUrl = 'https://example.com/e2e-playwright-fixture-directory-feed';
 
     await editor.getByLabel(/Slug public/i).fill(slug);
     await editor.getByLabel(/Destination feed/i).selectOption('openg7');

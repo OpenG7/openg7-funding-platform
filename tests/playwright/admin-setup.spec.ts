@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 import { signInAsAdmin } from './support/admin-auth.js';
 
@@ -81,9 +81,7 @@ test.describe('Docker admin setup', () => {
       await expect(
         dialog.getByText(`Etape ${index + 1} / 7`, { exact: true })
       ).toBeVisible();
-      await expect(
-        dialog.getByRole('heading', { name: title })
-      ).toBeVisible();
+      await expect(dialog.getByRole('heading', { name: title })).toBeVisible();
 
       if (index === 0) {
         await expect(
@@ -129,9 +127,7 @@ test.describe('Docker admin setup', () => {
     ).toBeVisible();
 
     await page.unroute('**/admin/setup-status');
-    await page
-      .getByRole('button', { name: 'Actualiser', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
 
     await expect(
       page.getByText(/Impossible de charger le setup admin/i)
