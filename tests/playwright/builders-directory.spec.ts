@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 // Covers builders-page.component.ts (/batisseurs), the only "static" public
 // page that actually fetches live data: GET /api/public/fund-transparency
@@ -18,9 +18,7 @@ test.describe('Docker builders directory page', () => {
     await expect(page.locator('#builders-directory-title')).toContainText(
       'Bâtisseurs OpenG7'
     );
-    await expect(
-      page.locator('.builders-list, .empty-builders')
-    ).toBeVisible();
+    await expect(page.locator('.builders-list, .empty-builders')).toBeVisible();
   });
 
   test('links to the fund support section and the transparency page', async ({
@@ -28,12 +26,16 @@ test.describe('Docker builders directory page', () => {
   }) => {
     await page.goto('/batisseurs');
     await page
-      .getByRole('link', { name: 'Soutenir OpenG7', exact: true })
+      .locator('a[href="/fonds-des-batisseurs#support"]')
+      .last()
       .click();
     await expect(page).toHaveURL(/#support$/);
 
     await page.goto('/batisseurs');
-    await page.getByRole('link', { name: 'Transparence', exact: true }).click();
+    await page
+      .getByRole('link', { name: 'Transparence', exact: true })
+      .last()
+      .click();
     await expect(page).toHaveURL(/\/fonds-des-batisseurs\/transparence$/);
   });
 

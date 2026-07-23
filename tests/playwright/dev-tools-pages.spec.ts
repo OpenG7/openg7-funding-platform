@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 // Covers the three local-development-only pages (stripe-setup-page,
 // webhooks-page, api-keys-page components): routes gated by
@@ -47,9 +47,9 @@ test.describe('Docker dev stripe setup page', () => {
     await expect(firstStep).toHaveClass(/done/);
 
     await page.reload();
-    await expect(
-      page.locator('.developer-commands li').first()
-    ).toHaveClass(/done/);
+    await expect(page.locator('.developer-commands li').first()).toHaveClass(
+      /done/
+    );
   });
 
   test('copies the webhook endpoint and opens the Stripe dashboard in a new tab', async ({
@@ -62,10 +62,9 @@ test.describe('Docker dev stripe setup page', () => {
     // needs OS-level clipboard access that's flaky across sandboxed/headless
     // environments even with permissions granted, so this only checks that
     // clicking "Copier" doesn't throw and leaves the page usable.
-    await page
-      .locator('.webhook-panel')
-      .getByRole('button', { name: 'Copier', exact: true })
-      .click();
+    const webhookCopyButton = page.locator('.webhook-panel label button');
+    await expect(webhookCopyButton).toBeVisible();
+    await webhookCopyButton.click();
     await expect(page.locator('#stripe-setup-title')).toBeVisible();
 
     const [newPage] = await Promise.all([
@@ -75,8 +74,7 @@ test.describe('Docker dev stripe setup page', () => {
         .getByRole('button', { name: 'Gerer le compte Stripe' })
         .click()
     ]);
-    await newPage.waitForLoadState();
-    expect(newPage.url()).toContain('dashboard.stripe.com');
+    await expect(newPage).toHaveURL(/dashboard\.stripe\.com/);
     await newPage.close();
   });
 
@@ -93,9 +91,12 @@ test.describe('Docker dev stripe setup page', () => {
     await page.goto('/dev/stripe-setup');
 
     await expect(
-      page.getByText('Diagnostic local indisponible. Verifiez que yarn dev tourne.', {
-        exact: true
-      })
+      page.getByText(
+        'Diagnostic local indisponible. Verifiez que yarn dev tourne.',
+        {
+          exact: true
+        }
+      )
     ).toBeVisible();
   });
 });
@@ -132,10 +133,9 @@ test.describe('Docker dev webhooks page', () => {
   }) => {
     await page.goto('/dev/webhooks');
 
-    await page
-      .locator('.endpoint-panel')
-      .getByRole('button', { name: 'Copier', exact: true })
-      .click();
+    const endpointCopyButton = page.locator('.endpoint-panel label button');
+    await expect(endpointCopyButton).toBeVisible();
+    await endpointCopyButton.click();
     await expect(page.locator('#webhooks-title')).toBeVisible();
   });
 });

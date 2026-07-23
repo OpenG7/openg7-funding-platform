@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
@@ -23,7 +23,9 @@ test.describe('Docker admin publication batches', () => {
       hasText: fixture.companyName
     });
     await expect(eligibleCard).toBeVisible();
-    await eligibleCard.getByRole('button', { name: 'Facebook', exact: true }).click();
+    await eligibleCard
+      .getByRole('button', { name: 'Facebook', exact: true })
+      .click();
 
     const draftCard = page.locator('.draft-card', {
       hasText: fixture.companyName
@@ -39,9 +41,13 @@ test.describe('Docker admin publication batches', () => {
     await draftCard
       .getByLabel('Divulgation')
       .fill('Commandite payante divulguee pour un test automatise.');
-    await draftCard.getByRole('button', { name: 'Approuver', exact: true }).click();
+    await draftCard
+      .getByRole('button', { name: 'Approuver', exact: true })
+      .click();
 
-    await expect(draftCard.getByText('Approuvee', { exact: true })).toBeVisible();
+    await expect(
+      draftCard.getByText('Approuvee', { exact: true })
+    ).toBeVisible();
 
     await page
       .getByRole('button', { name: 'Creer un lot', exact: true })
@@ -79,7 +85,9 @@ test.describe('Docker admin publication batches', () => {
     await batchCard
       .getByLabel('Prochaine disponibilite')
       .fill(nextAvailability);
-    await batchCard.getByRole('button', { name: 'Planifier', exact: true }).click();
+    await batchCard
+      .getByRole('button', { name: 'Planifier', exact: true })
+      .click();
 
     await expect(batchCard).toContainText('Planifie');
 

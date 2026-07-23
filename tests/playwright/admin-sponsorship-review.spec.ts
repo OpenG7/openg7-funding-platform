@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { openFixtureSponsorship, signInAsAdmin } from './support/admin-auth.js';
@@ -219,9 +219,7 @@ test.describe('Docker admin sponsorship review', () => {
     // no trailing $) rather than an exact match, which would never match.
     // That start-anchor still excludes "Note remboursement" (starts with
     // "Note", not "Remboursement").
-    await page
-      .getByLabel(/^Remboursement/i)
-      .selectOption('manual_completed');
+    await page.getByLabel(/^Remboursement/i).selectOption('manual_completed');
     await page.getByRole('button', { name: /Confirmer le refus/i }).click();
 
     await expect(
@@ -268,9 +266,7 @@ test.describe('Docker admin sponsorship review', () => {
     // pattern already hit for the reset-to-pending-review action -- accept it
     // or Playwright auto-dismisses it and the click is a no-op.
     page.once('dialog', (dialog) => void dialog.accept());
-    await page
-      .getByRole('button', { name: 'Supprimer le logo' })
-      .click();
+    await page.getByRole('button', { name: 'Supprimer le logo' }).click();
 
     await expect(page.getByText(/Logo supprime/i)).toBeVisible();
     await expect(page.getByText('Televerser un logo')).toBeVisible();

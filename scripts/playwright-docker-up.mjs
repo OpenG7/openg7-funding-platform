@@ -4,7 +4,10 @@ import { spawnSync } from 'node:child_process';
 import { ADMIN_TOKEN } from '../tests/playwright/fixtures/e2e-fixtures.mjs';
 import { loadDotEnv } from './lib/load-dotenv.mjs';
 
-const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '', 10);
+const nodeMajor = Number.parseInt(
+  process.versions.node.split('.')[0] ?? '',
+  10
+);
 
 if (!Number.isInteger(nodeMajor) || nodeMajor < 22) {
   console.error(
@@ -38,6 +41,7 @@ const localOnlyEnv = {
   FUNDING_ADMIN_SESSION_SECRET:
     process.env.FUNDING_ADMIN_SESSION_SECRET ||
     'local-playwright-session-secret-not-sensitive',
+  FUNDING_ADMIN_RATE_LIMIT_MAX: '0',
   SMTP_ENABLED: 'false',
   SMTP_PASSWORD: '',
   STRIPE_SECRET_KEY: '',

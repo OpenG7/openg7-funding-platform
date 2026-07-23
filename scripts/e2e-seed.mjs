@@ -77,10 +77,13 @@ const emailQueueDelete = `
 DELETE FROM email_messages
 WHERE idempotency_key = ${sqlLiteral(EMAIL_QUEUE_FIXTURE.idempotencyKey)};`;
 
+// Keep the row visible as "queued" without letting the background worker
+// process it before the Playwright retry test clicks "Relancer". The retry
+// endpoint sets next_attempt_at back to NOW() before claiming the message.
 const emailQueueInsert = `
 INSERT INTO email_messages (
   idempotency_key, template_key, recipient_email, from_email, subject,
-  text_body, html_body, status
+  text_body, html_body, status, next_attempt_at
 ) VALUES (
   ${sqlLiteral(EMAIL_QUEUE_FIXTURE.idempotencyKey)},
   ${sqlLiteral(EMAIL_QUEUE_FIXTURE.templateKey)},
@@ -89,7 +92,8 @@ INSERT INTO email_messages (
   ${sqlLiteral(EMAIL_QUEUE_FIXTURE.subject)},
   ${sqlLiteral(EMAIL_QUEUE_FIXTURE.textBody)},
   ${sqlLiteral(EMAIL_QUEUE_FIXTURE.htmlBody)},
-  'queued'
+  'queued',
+  NOW() + INTERVAL '1 day'
 );`;
 
 const sql = cleanupOnly

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 
@@ -63,9 +63,7 @@ test.describe('Docker corporate sponsor navigation', () => {
       .check();
 
     await expect(
-      page
-        .locator('#support')
-        .getByRole('button', { name: /Soutenir OpenG7/i })
+      page.locator('#support').getByRole('button', { name: /Soutenir OpenG7/i })
     ).toBeDisabled();
   });
 
@@ -89,7 +87,9 @@ test.describe('Docker corporate sponsor navigation', () => {
     });
     await expect(cta).toHaveAttribute(
       'href',
-      new RegExp(`/fonds-des-batisseurs/suivi-commandite\\?token=${followupToken}`)
+      new RegExp(
+        `/fonds-des-batisseurs/suivi-commandite\\?token=${followupToken}`
+      )
     );
   });
 
@@ -103,7 +103,10 @@ test.describe('Docker corporate sponsor navigation', () => {
     const fixture = SPONSORSHIP_FIXTURES.directory;
 
     await page.goto('/fonds-des-batisseurs');
-    await page.locator('nav').getByRole('link', { name: 'Commanditaires' }).click();
+    await page
+      .locator('nav')
+      .getByRole('link', { name: 'Commanditaires' })
+      .click();
 
     await expect(page).toHaveURL(/\/commanditaires/);
     await expect(
@@ -165,15 +168,23 @@ test.describe('Docker corporate sponsor navigation', () => {
       page.getByRole('heading', { name: /Suivi de votre commandite/i })
     ).toBeVisible();
 
-    await page
-      .getByRole('button', { name: /Enregistrer les informations/i })
-      .click();
+    await page.getByLabel(/Nom de l'entreprise/i).fill('');
+    await page.getByLabel(/Nom du contact/i).fill('');
+    await page.getByLabel(/Courriel du contact/i).fill('');
 
-    await expect(page.getByText(/Le nom de l'entreprise est requis./i)).toBeVisible();
-    await expect(page.getByText(/Le nom du contact est requis./i)).toBeVisible();
-    await expect(page.getByText(/Le courriel du contact est requis./i)).toBeVisible();
+    await expect(page.locator('#company-name-error')).toHaveText(
+      "Le nom de l'entreprise est requis."
+    );
+    await expect(page.locator('#contact-name-error')).toHaveText(
+      'Le nom du contact est requis.'
+    );
+    await expect(page.locator('#contact-email-error')).toHaveText(
+      'Le courriel du contact est requis.'
+    );
 
-    await expect(page.getByRole('button', { name: /Enregistrer les informations/i })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: /Enregistrer les informations/i })
+    ).toBeDisabled();
   });
 
   test('validates invalid email format shows error and prevents form submission', async ({
@@ -194,9 +205,13 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Courriel du contact/i).fill('invalid-email');
     await page.getByLabel(/Site web/i).fill(fixture.websiteUrl);
 
-    await expect(page.getByText(/Le courriel du contact doit etre valide./i)).toBeVisible();
+    await expect(page.locator('#contact-email-error')).toHaveText(
+      'Le courriel du contact doit etre valide.'
+    );
 
-    await expect(page.getByRole('button', { name: /Enregistrer les informations/i })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: /Enregistrer les informations/i })
+    ).toBeDisabled();
   });
 
   test('validates non-https URLs show error and prevent form submission', async ({
@@ -218,14 +233,16 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Site web/i).fill('http://invalid-http-url.com');
     await page.getByLabel(/Lien du logo/i).fill('ftp://invalid-ftp-url.com');
 
-    await expect(
-      page.getByText(/Le site web doit commencer par https:./i)
-    ).toBeVisible();
-    await expect(
-      page.getByText(/Le lien du logo doit commencer par https:./i)
-    ).toBeVisible();
+    await expect(page.locator('#website-url-error')).toHaveText(
+      'Le site web doit commencer par https://.'
+    );
+    await expect(page.locator('#logo-url-error')).toHaveText(
+      'Le lien du logo doit commencer par https://.'
+    );
 
-    await expect(page.getByRole('button', { name: /Enregistrer les informations/i })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: /Enregistrer les informations/i })
+    ).toBeDisabled();
   });
 
   test('reaches the refund policy and support pages referenced during the sponsorship flow', async ({

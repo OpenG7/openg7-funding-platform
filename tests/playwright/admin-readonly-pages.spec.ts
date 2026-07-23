@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 import { signInAsAdmin } from './support/admin-auth.js';
 
@@ -38,7 +38,11 @@ test.describe('Docker admin dashboard', () => {
     await signInAsAdmin(page);
 
     await page.route('**/admin/dashboard', (route) =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: '{}'
+      })
     );
     await page.goto('/admin/fundraiser');
 
@@ -90,7 +94,11 @@ test.describe('Docker admin audit log', () => {
     await signInAsAdmin(page);
 
     await page.route('**/admin/audit-log', (route) =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: '{}'
+      })
     );
     await page.goto('/admin/fundraiser/audit');
 
@@ -111,9 +119,7 @@ test.describe('Docker admin audit log', () => {
 });
 
 test.describe('Docker admin transparency snapshot', () => {
-  test('renders the summary and published expenses panel', async ({
-    page
-  }) => {
+  test('renders the summary and published expenses panel', async ({ page }) => {
     await signInAsAdmin(page);
     await page.goto('/admin/fundraiser/transparency');
 
@@ -138,7 +144,11 @@ test.describe('Docker admin transparency snapshot', () => {
     await signInAsAdmin(page);
 
     await page.route('**/admin/transparency', (route) =>
-      route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: '{}'
+      })
     );
     await page.goto('/admin/fundraiser/transparency');
 

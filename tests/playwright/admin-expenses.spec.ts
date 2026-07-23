@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/test.js';
 
 import { signInAsAdmin } from './support/admin-auth.js';
 
@@ -117,9 +117,7 @@ test.describe('Docker admin expenses', () => {
     ).toBeVisible();
 
     await page.unroute('**/admin/expenses');
-    await page
-      .getByRole('button', { name: 'Actualiser', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
 
     await expect(
       page.getByText(/Impossible de charger ou modifier les depenses/i)
