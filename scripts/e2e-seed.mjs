@@ -3,7 +3,7 @@
 // Playwright admin-review E2E spec. The `data` Docker network is internal
 // (no published Postgres port), so this shells out to
 // `docker compose exec postgres psql` instead of connecting over TCP from
-// the host, the same way scripts/db-migrate.sh and scripts/db-psql.sh do.
+// the host, the same way scripts/db-migrate.mjs and scripts/db-psql.sh do.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 

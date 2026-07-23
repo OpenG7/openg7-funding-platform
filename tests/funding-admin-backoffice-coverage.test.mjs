@@ -705,6 +705,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'listAdminExpenses',
       'createAdminExpense',
       'updateAdminExpense',
+      'input.publishedAt === undefined',
       'insertAdminAuditLog',
       'listAdminAuditLog',
       'allowedPublicationDraftStatuses'

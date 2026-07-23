@@ -87,7 +87,8 @@ corepack yarn test:e2e:playwright
 Ce raccourci démarre ou réutilise la stack Docker locale via
 `yarn docker:playwright`, puis lance Playwright sur `http://127.0.0.1:8080`.
 Il force une configuration locale de test en mode `development` et ne requiert
-pas de clés Stripe live. Utiliser Node.js 22.x, comme le reste du dépôt.
+pas de clés Stripe live. Utiliser Node.js 22 ou plus récent pour ce raccourci;
+le runtime cible du dépôt reste Node.js 22.x.
 
 Audit de configuration des services :
 

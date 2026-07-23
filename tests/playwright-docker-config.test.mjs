@@ -19,13 +19,18 @@ test('Playwright browser E2E is wired to the local Docker stack', () => {
     'yarn docker:playwright && yarn db:migrate && yarn test:e2e:seed && playwright test'
   );
   assert.equal(
+    pkg.scripts['db:migrate'],
+    'node scripts/docker-ready.mjs -- node scripts/db-migrate.mjs'
+  );
+  assert.equal(
     pkg.scripts['playwright:install'],
     'playwright install chromium'
   );
   assert.ok(pkg.devDependencies['@playwright/test']);
   assert.ok(config.includes("'http://127.0.0.1:8080'"));
   assert.ok(config.includes("name: 'chromium'"));
-  assert.ok(dockerUp.includes('requires Node.js 22.x'));
+  assert.ok(dockerUp.includes('requires Node.js 22 or newer'));
+  assert.ok(dockerUp.includes('FUNDING_ADMIN_TOKEN: ADMIN_TOKEN'));
   assert.ok(dockerUp.includes("FUNDING_PLATFORM_ENV: 'development'"));
   assert.ok(dockerUp.includes("STRIPE_SECRET_KEY: ''"));
   assert.ok(dockerUp.includes('DATABASE_URL:'));
