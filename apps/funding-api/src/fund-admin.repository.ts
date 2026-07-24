@@ -21,33 +21,36 @@ import type {
   AdminPublicationDraftRecord,
   AdminPublicationDraftUpdateRequest,
   AdminPublicationDraftsResponse,
+  AdminSocialPublicationBatchPublishResult,
+  AdminSocialPublicationJobRecord,
+  AdminSocialPublicationJobsResponse,
   PublicationBatchStatus,
   PublicationDraftStatus,
   PublicSponsorshipBatchAvailability,
   PublicSponsorshipBatchAvailabilityResponse,
+  SocialPublicationMode,
+  SocialPublicationStatus,
   SponsorFeedChannel,
   SponsorFeedTarget
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
-export const allowedPublicationDraftStatuses =
-  new Set<PublicationDraftStatus>([
-    'draft',
-    'pending_review',
-    'approved',
-    'scheduled',
-    'published',
-    'rejected',
-    'cancelled'
-  ]);
+export const allowedPublicationDraftStatuses = new Set<PublicationDraftStatus>([
+  'draft',
+  'pending_review',
+  'approved',
+  'scheduled',
+  'published',
+  'rejected',
+  'cancelled'
+]);
 
-export const allowedPublicationBatchStatuses =
-  new Set<PublicationBatchStatus>([
-    'open',
-    'scheduled',
-    'published',
-    'cancelled'
-  ]);
+export const allowedPublicationBatchStatuses = new Set<PublicationBatchStatus>([
+  'open',
+  'scheduled',
+  'published',
+  'cancelled'
+]);
 
 export const allowedAdminExpenseStatuses = new Set<AdminExpenseStatus>([
   'draft',
@@ -94,6 +97,28 @@ interface PublicationBatchRow {
   readonly updated_at: string;
 }
 
+interface SocialPublicationJobRow {
+  readonly id: string;
+  readonly batch_id: string;
+  readonly channel: SponsorFeedChannel;
+  readonly provider: 'facebook' | 'linkedin';
+  readonly mode: SocialPublicationMode;
+  readonly status: SocialPublicationStatus;
+  readonly idempotency_key: string;
+  readonly title: string;
+  readonly body: string;
+  readonly disclosure_text: string;
+  readonly draft_ids: readonly string[] | null;
+  readonly external_post_id: string | null;
+  readonly external_post_url: string | null;
+  readonly error_code: string | null;
+  readonly error_message: string | null;
+  readonly attempted_at: string | null;
+  readonly published_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
 interface SponsorDraftSourceRow {
   readonly id: string;
   readonly sponsor_company_name: string;
@@ -117,6 +142,7 @@ interface AuditLogRow {
 interface AdminBackofficePresenceRow {
   readonly has_publication_drafts: boolean;
   readonly has_publication_batches: boolean;
+  readonly has_social_publication_jobs: boolean;
   readonly has_audit_log: boolean;
   readonly has_fund_allocations: boolean;
 }
@@ -227,6 +253,32 @@ const mapPublicationBatchRow = (
   };
 };
 
+const mapSocialPublicationJobRow = (
+  row: SocialPublicationJobRow
+): AdminSocialPublicationJobRecord => ({
+  id: row.id,
+  batchId: row.batch_id,
+  channel: row.channel,
+  provider: row.provider,
+  mode: row.mode,
+  status: row.status,
+  idempotencyKey: row.idempotency_key,
+  title: row.title,
+  body: row.body,
+  disclosureText: row.disclosure_text,
+  draftIds: (row.draft_ids ?? []).filter((draftId): draftId is string =>
+    Boolean(draftId)
+  ),
+  externalPostId: row.external_post_id,
+  externalPostUrl: row.external_post_url,
+  errorCode: row.error_code,
+  errorMessage: row.error_message,
+  attemptedAt: row.attempted_at,
+  publishedAt: row.published_at,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
 const mapAuditLogRow = (row: AuditLogRow): AdminAuditLogEntry => ({
   id: row.id,
   actor: row.actor,
@@ -248,16 +300,20 @@ const getAdminBackofficePresence = async (
     SELECT
       to_regclass('public.sponsor_publication_drafts') IS NOT NULL AS has_publication_drafts,
       to_regclass('public.sponsor_publication_batches') IS NOT NULL AS has_publication_batches,
+      to_regclass('public.social_publication_jobs') IS NOT NULL AS has_social_publication_jobs,
       to_regclass('public.admin_audit_log') IS NOT NULL AS has_audit_log,
       to_regclass('public.fund_allocations') IS NOT NULL AS has_fund_allocations
   `);
 
-  return query.rows[0] ?? {
-    has_publication_drafts: false,
-    has_publication_batches: false,
-    has_audit_log: false,
-    has_fund_allocations: false
-  };
+  return (
+    query.rows[0] ?? {
+      has_publication_drafts: false,
+      has_publication_batches: false,
+      has_social_publication_jobs: false,
+      has_audit_log: false,
+      has_fund_allocations: false
+    }
+  );
 };
 
 const defaultDisclosureText =
@@ -267,7 +323,11 @@ const createDefaultDraftText = (
   sponsor: SponsorDraftSourceRow,
   feedTarget: SponsorFeedTarget,
   channel: SponsorFeedChannel
-): { readonly title: string; readonly body: string; readonly disclosureText: string } => {
+): {
+  readonly title: string;
+  readonly body: string;
+  readonly disclosureText: string;
+} => {
   const publicSummary =
     sponsor.sponsor_public_summary?.trim() ||
     sponsor.sponsor_message?.trim() ||
@@ -524,7 +584,7 @@ export const updateAdminPublicationDraft = async (
   }
 
   if (input.publicUrl !== undefined) {
-    addAssignment('public_url = NULLIF(?, \'\')', input.publicUrl.trim());
+    addAssignment("public_url = NULLIF(?, '')", input.publicUrl.trim());
   }
 
   if (input.scheduledAt !== undefined) {
@@ -532,7 +592,7 @@ export const updateAdminPublicationDraft = async (
   }
 
   if (input.reviewNote !== undefined) {
-    addAssignment('review_note = NULLIF(?, \'\')', input.reviewNote.trim());
+    addAssignment("review_note = NULLIF(?, '')", input.reviewNote.trim());
   }
 
   if (assignments.length === 0) {
@@ -940,6 +1000,446 @@ export const cancelAdminPublicationBatch = async (
     updated: (result.rowCount ?? 0) > 0,
     batch: await getPublicationBatchById(pool, input.batchId)
   };
+};
+
+const socialPublicationJobSelect = `
+  SELECT
+    id::text AS id,
+    batch_id::text AS batch_id,
+    channel,
+    provider,
+    mode,
+    status,
+    idempotency_key,
+    title,
+    body,
+    disclosure_text,
+    array(SELECT draft_id::text FROM unnest(draft_ids) AS draft_id) AS draft_ids,
+    external_post_id,
+    external_post_url,
+    error_code,
+    error_message,
+    attempted_at::text AS attempted_at,
+    published_at::text AS published_at,
+    created_at::text AS created_at,
+    updated_at::text AS updated_at
+  FROM social_publication_jobs
+`;
+
+const getSocialPublicationJobById = async (
+  pool: Pool,
+  jobId: string
+): Promise<AdminSocialPublicationJobRecord | null> => {
+  const query = await pool.query<SocialPublicationJobRow>(
+    `
+      ${socialPublicationJobSelect}
+      WHERE id = $1::uuid
+      LIMIT 1
+    `,
+    [jobId]
+  );
+  const row = query.rows[0];
+  return row ? mapSocialPublicationJobRow(row) : null;
+};
+
+export const listAdminSocialPublicationJobs = async (
+  pool: Pool | null,
+  runtime: {
+    readonly mode: SocialPublicationMode;
+    readonly configuredChannels: readonly SponsorFeedChannel[];
+  }
+): Promise<AdminSocialPublicationJobsResponse> => {
+  const now = new Date().toISOString();
+  if (!pool) {
+    return {
+      data_source: 'database',
+      mode: runtime.mode,
+      configuredChannels: runtime.configuredChannels,
+      jobs: [],
+      last_updated_at: now
+    };
+  }
+
+  const presence = await getAdminBackofficePresence(pool);
+  if (!presence.has_social_publication_jobs) {
+    return {
+      data_source: 'database',
+      mode: runtime.mode,
+      configuredChannels: runtime.configuredChannels,
+      jobs: [],
+      last_updated_at: now
+    };
+  }
+
+  const query = await pool.query<SocialPublicationJobRow>(`
+    ${socialPublicationJobSelect}
+    ORDER BY created_at DESC
+    LIMIT 100
+  `);
+
+  return {
+    data_source: 'database',
+    mode: runtime.mode,
+    configuredChannels: runtime.configuredChannels,
+    jobs: query.rows.map(mapSocialPublicationJobRow),
+    last_updated_at:
+      query.rows.reduce<string | null>((latest, row) => {
+        if (!latest) {
+          return row.updated_at;
+        }
+
+        return new Date(row.updated_at).getTime() > new Date(latest).getTime()
+          ? row.updated_at
+          : latest;
+      }, null) ?? now
+  };
+};
+
+const truncatePublicationText = (value: string, maxLength: number): string => {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length <= maxLength
+    ? normalized
+    : `${normalized.slice(0, Math.max(0, maxLength - 3))}...`;
+};
+
+const buildSocialPublicationText = (
+  batch: AdminPublicationBatchRecord,
+  drafts: readonly AdminPublicationDraftRecord[]
+): {
+  readonly title: string;
+  readonly body: string;
+  readonly disclosureText: string;
+  readonly draftIds: readonly string[];
+} => {
+  const targetNames = new Set(
+    drafts.map((draft) =>
+      draft.feed_target === 'openg20' ? 'OpenG20' : 'OpenG7'
+    )
+  );
+  const audience = Array.from(targetNames).join(' et ') || 'OpenG7';
+  const sponsorLines = drafts.map((draft) => {
+    const summary = draft.sponsor_public_summary
+      ? truncatePublicationText(draft.sponsor_public_summary, 220)
+      : truncatePublicationText(draft.body, 220);
+    const website = draft.sponsor_website_url
+      ? ` (${draft.sponsor_website_url})`
+      : '';
+
+    return `- ${draft.sponsor_company_name}${website}: ${summary}`;
+  });
+
+  return {
+    title: truncatePublicationText(
+      `Merci aux commanditaires du Fonds des batisseurs ${audience}`,
+      160
+    ),
+    body: truncatePublicationText(
+      [
+        `${audience} remercie ces organisations pour leur soutien au Fonds des batisseurs.`,
+        sponsorLines.join('\n'),
+        `Publication collective ${batch.channel === 'linkedin' ? 'LinkedIn' : 'Facebook'} preparee depuis le cockpit admin.`
+      ].join('\n\n'),
+      2500
+    ),
+    disclosureText: defaultDisclosureText,
+    draftIds: drafts.map((draft) => draft.id)
+  };
+};
+
+const listDraftsForPublicationBatch = async (
+  pool: Pool,
+  batchId: string
+): Promise<readonly AdminPublicationDraftRecord[]> => {
+  const query = await pool.query<PublicationDraftRow>(
+    `
+      SELECT
+        draft.id::text AS id,
+        draft.contribution_id::text AS contribution_id,
+        contribution.sponsor_company_name,
+        contribution.sponsor_website_url,
+        contribution.sponsor_logo_url,
+        contribution.sponsor_public_summary,
+        draft.feed_target,
+        draft.channel,
+        draft.title,
+        draft.body,
+        draft.disclosure_text,
+        draft.status,
+        draft.public_url,
+        draft.scheduled_at::text AS scheduled_at,
+        draft.approved_at::text AS approved_at,
+        draft.published_at::text AS published_at,
+        draft.review_note,
+        draft.batch_id::text AS batch_id,
+        draft.created_at::text AS created_at,
+        draft.updated_at::text AS updated_at
+      FROM sponsor_publication_drafts draft
+      INNER JOIN fund_contributions contribution
+        ON contribution.id = draft.contribution_id
+      WHERE draft.batch_id = $1::uuid
+        AND draft.status IN ('approved', 'scheduled')
+      ORDER BY draft.created_at ASC
+    `,
+    [batchId]
+  );
+
+  return query.rows.map(mapPublicationDraftRow);
+};
+
+export const createSocialPublicationJobForBatch = async (
+  pool: Pool | null,
+  input: {
+    readonly batchId: string;
+    readonly mode: Exclude<SocialPublicationMode, 'disabled'>;
+    readonly provider: 'facebook' | 'linkedin';
+  }
+): Promise<AdminSocialPublicationJobRecord | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const presence = await getAdminBackofficePresence(pool);
+  if (
+    !presence.has_publication_drafts ||
+    !presence.has_publication_batches ||
+    !presence.has_social_publication_jobs
+  ) {
+    return null;
+  }
+
+  const batch = await getPublicationBatchById(pool, input.batchId);
+  if (!batch || batch.status !== 'scheduled' || batch.capacityUsed <= 0) {
+    return null;
+  }
+
+  const drafts = await listDraftsForPublicationBatch(pool, input.batchId);
+  if (drafts.length === 0) {
+    return null;
+  }
+
+  const text = buildSocialPublicationText(batch, drafts);
+  const idempotencyKey = `social-publication-batch:${batch.id}:${batch.channel}`;
+  const insertResult = await pool.query<{ readonly id: string }>(
+    `
+      INSERT INTO social_publication_jobs (
+        batch_id,
+        channel,
+        provider,
+        mode,
+        status,
+        idempotency_key,
+        title,
+        body,
+        disclosure_text,
+        draft_ids
+      )
+      VALUES (
+        $1::uuid,
+        $2,
+        $3,
+        $4,
+        'pending',
+        $5,
+        $6,
+        $7,
+        $8,
+        $9::uuid[]
+      )
+      ON CONFLICT (idempotency_key)
+      DO UPDATE SET
+        provider = EXCLUDED.provider,
+        mode = EXCLUDED.mode,
+        title = EXCLUDED.title,
+        body = EXCLUDED.body,
+        disclosure_text = EXCLUDED.disclosure_text,
+        draft_ids = EXCLUDED.draft_ids,
+        status = CASE
+          WHEN social_publication_jobs.status = 'failed' THEN 'pending'
+          ELSE social_publication_jobs.status
+        END,
+        error_code = CASE
+          WHEN social_publication_jobs.status = 'failed' THEN NULL
+          ELSE social_publication_jobs.error_code
+        END,
+        error_message = CASE
+          WHEN social_publication_jobs.status = 'failed' THEN NULL
+          ELSE social_publication_jobs.error_message
+        END,
+        updated_at = NOW()
+      RETURNING id::text AS id
+    `,
+    [
+      batch.id,
+      batch.channel,
+      input.provider,
+      input.mode,
+      idempotencyKey,
+      text.title,
+      text.body,
+      text.disclosureText,
+      text.draftIds
+    ]
+  );
+
+  const jobId = insertResult.rows[0]?.id;
+  return jobId ? getSocialPublicationJobById(pool, jobId) : null;
+};
+
+export const markSocialPublicationJobPublishing = async (
+  pool: Pool | null,
+  jobId: string
+): Promise<AdminSocialPublicationJobRecord | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const result = await pool.query<{ readonly id: string }>(
+    `
+      UPDATE social_publication_jobs
+      SET
+        status = 'publishing',
+        attempted_at = NOW(),
+        error_code = NULL,
+        error_message = NULL,
+        updated_at = NOW()
+      WHERE id = $1::uuid
+        AND status IN ('pending', 'failed')
+      RETURNING id::text AS id
+    `,
+    [jobId]
+  );
+  const updatedJobId = result.rows[0]?.id ?? jobId;
+  return getSocialPublicationJobById(pool, updatedJobId);
+};
+
+export const markSocialPublicationJobPublished = async (
+  pool: Pool | null,
+  input: {
+    readonly jobId: string;
+    readonly externalPostId: string;
+    readonly externalPostUrl: string | null;
+  }
+): Promise<AdminSocialPublicationBatchPublishResult> => {
+  if (!pool) {
+    return { published: false, mode: 'disabled', job: null, batch: null };
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const jobResult = await client.query<SocialPublicationJobRow>(
+      `
+        UPDATE social_publication_jobs
+        SET
+          status = 'published',
+          external_post_id = $2,
+          external_post_url = $3,
+          published_at = COALESCE(published_at, NOW()),
+          updated_at = NOW()
+        WHERE id = $1::uuid
+        RETURNING
+          id::text AS id,
+          batch_id::text AS batch_id,
+          channel,
+          provider,
+          mode,
+          status,
+          idempotency_key,
+          title,
+          body,
+          disclosure_text,
+          array(SELECT draft_id::text FROM unnest(draft_ids) AS draft_id) AS draft_ids,
+          external_post_id,
+          external_post_url,
+          error_code,
+          error_message,
+          attempted_at::text AS attempted_at,
+          published_at::text AS published_at,
+          created_at::text AS created_at,
+          updated_at::text AS updated_at
+      `,
+      [input.jobId, input.externalPostId, input.externalPostUrl]
+    );
+    const job = jobResult.rows[0]
+      ? mapSocialPublicationJobRow(jobResult.rows[0])
+      : null;
+
+    if (job) {
+      await client.query(
+        `
+          UPDATE sponsor_publication_batches
+          SET
+            status = 'published',
+            published_at = COALESCE(published_at, NOW()),
+            updated_at = NOW()
+          WHERE id = $1::uuid
+            AND status = 'scheduled'
+        `,
+        [job.batchId]
+      );
+      await client.query(
+        `
+          UPDATE sponsor_publication_drafts
+          SET
+            status = 'published',
+            public_url = COALESCE($2, public_url),
+            published_at = COALESCE(published_at, NOW()),
+            updated_at = NOW()
+          WHERE batch_id = $1::uuid
+            AND status IN ('approved', 'scheduled')
+        `,
+        [job.batchId, input.externalPostUrl]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    return {
+      published: Boolean(job),
+      mode: job?.mode ?? 'disabled',
+      job,
+      batch: job ? await getPublicationBatchById(pool, job.batchId) : null
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+export const markSocialPublicationJobFailed = async (
+  pool: Pool | null,
+  input: {
+    readonly jobId: string;
+    readonly errorCode: string;
+    readonly errorMessage: string;
+  }
+): Promise<AdminSocialPublicationJobRecord | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const result = await pool.query<{ readonly id: string }>(
+    `
+      UPDATE social_publication_jobs
+      SET
+        status = 'failed',
+        error_code = $2,
+        error_message = $3,
+        updated_at = NOW()
+      WHERE id = $1::uuid
+      RETURNING id::text AS id
+    `,
+    [
+      input.jobId,
+      truncatePublicationText(input.errorCode, 160),
+      truncatePublicationText(input.errorMessage, 1000)
+    ]
+  );
+  const jobId = result.rows[0]?.id;
+  return jobId ? getSocialPublicationJobById(pool, jobId) : null;
 };
 
 const emptyAdminExpensesSummary = (): AdminExpensesSummary => ({

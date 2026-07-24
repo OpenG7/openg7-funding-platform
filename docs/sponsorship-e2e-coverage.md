@@ -6,22 +6,22 @@ et documentation de deploiement.
 
 Couverture cible: 9 scenarios sur 9, soit 100%.
 
-| Scenario                                                                 | Couvert | Surface                                                                            |
-| ------------------------------------------------------------------------ | ------- | ---------------------------------------------------------------------------------- |
-| Entreprise choisit une commandite, paie et revient avec token            | Oui     | Fonds, Checkout, API Stripe sans token brut en metadata ni formulaire `session_id` |
-| Entreprise rouvre le suivi par token et soumet ses details               | Oui     | Suivi commandite, API token, retrait du token de l'URL, resoumission idempotente   |
-| Token absent, invalide, expire ou introuvable affiche un etat d'erreur   | Oui     | Suivi commandite, validations API                                                  |
-| Admin liste les commandites payees avec jeton admin                      | Oui     | Admin, API privee                                                                  |
-| Admin approuve, remet en attente, refuse ou rembourse la commandite      | Oui     | Admin, revue DB, remboursement Stripe guide, avoir, PDF et courriel optionnel      |
-| Admin prepare la publication OpenG7/OpenG20 Facebook/LinkedIn            | Oui     | Admin, migration feed                                                              |
-| Page publique affiche seulement les commandites approuvees et consenties | Oui     | `/commanditaires`, API publique                                                    |
-| Navigation FR/EN, prerender, sitemap et docs de prod restent alignes     | Oui     | Routes, i18n, deployment                                                           |
-| Page de suivi commandite en etat `pending_review` (avant soumission des details) | Oui | Suite suivi, statut UI et affichage en attente de details d'entreprise |
+| Scenario                                                                         | Couvert | Surface                                                                            |
+| -------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------- |
+| Entreprise choisit une commandite, paie et revient avec token                    | Oui     | Fonds, Checkout, API Stripe sans token brut en metadata ni formulaire `session_id` |
+| Entreprise rouvre le suivi par token et soumet ses details                       | Oui     | Suivi commandite, API token, retrait du token de l'URL, resoumission idempotente   |
+| Token absent, invalide, expire ou introuvable affiche un etat d'erreur           | Oui     | Suivi commandite, validations API                                                  |
+| Admin liste les commandites payees avec jeton admin                              | Oui     | Admin, API privee                                                                  |
+| Admin approuve, remet en attente, refuse ou rembourse la commandite              | Oui     | Admin, revue DB, remboursement Stripe guide, avoir, PDF et courriel optionnel      |
+| Admin prepare et envoie la publication OpenG7/OpenG20 Facebook/LinkedIn          | Oui     | Admin, lots, job social mock/live configurable                                     |
+| Page publique affiche seulement les commandites approuvees et consenties         | Oui     | `/commanditaires`, API publique                                                    |
+| Navigation FR/EN, prerender, sitemap et docs de prod restent alignes             | Oui     | Routes, i18n, deployment                                                           |
+| Page de suivi commandite en etat `pending_review` (avant soumission des details) | Oui     | Suite suivi, statut UI et affichage en attente de details d'entreprise             |
 
-Limite volontaire: ces tests ne publient pas sur Facebook ou LinkedIn. Le MVP
-trace le placement de feed et le lien public, mais l'integration API sociale
-reste hors perimetre tant que les permissions et credentials ne sont pas
-branches.
+Limite volontaire: l'E2E local publie via `SOCIAL_PUBLICATION_MODE=mock`, pas
+avec de vrais tokens Facebook ou LinkedIn. Le chemin admin, le job social,
+l'idempotence, la cascade de statuts et l'URL publique sont verifies sans
+secret ni appel reseau externe.
 
 ## Deux niveaux de verification
 
@@ -42,9 +42,10 @@ scenarios 5, 6 et 8 ont ete completes par navigateur reel a leur tour:
   (`createDevelopmentRefundResult` dans `apps/funding-api/src/main.ts`, actif
   quand `STRIPE_SECRET_KEY` est vide et `FUNDING_PLATFORM_ENV !== production`)
   plutot que par un vrai appel Stripe.
-- Scenario 6 (preparation feed OpenG7/OpenG20 Facebook/LinkedIn): couvert par
+- Scenario 6 (publication OpenG7/OpenG20 Facebook/LinkedIn): couvert par
   `admin-sponsorship-publication.spec.ts`, jusqu'a l'affichage du placement
-  sur `/commanditaires`.
+  sur `/commanditaires`, et par `admin-publication-batches.spec.ts` pour le
+  lot collectif publie via provider social mocke.
 - Scenario 8 (navigation FR/EN, sitemap, prerender): couvert par
   `i18n-navigation.spec.ts`, y compris une requete brute sur les routes
   prerendues FR/EN (sans JavaScript) pour verifier le rendu serveur.

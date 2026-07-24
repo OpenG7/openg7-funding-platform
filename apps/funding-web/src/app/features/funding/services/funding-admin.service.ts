@@ -26,6 +26,9 @@ import type {
   AdminPublicationDraftUpdateRequest,
   AdminPublicationDraftsResponse,
   AdminSessionResponse,
+  AdminSocialPublicationBatchPublishRequest,
+  AdminSocialPublicationBatchPublishResult,
+  AdminSocialPublicationJobsResponse,
   AdminSetupStatusResponse,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
@@ -674,6 +677,52 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminPublicationBatchMutationResult;
+  }
+
+  async getSocialPublicationJobs(
+    token: string
+  ): Promise<AdminSocialPublicationJobsResponse> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/social-publication-jobs`,
+      {
+        method: 'GET',
+        headers: await this.createHeaders(token)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Admin social publication jobs could not be loaded.');
+    }
+
+    return (await response.json()) as AdminSocialPublicationJobsResponse;
+  }
+
+  async publishSocialPublicationBatch(
+    token: string,
+    payload: AdminSocialPublicationBatchPublishRequest
+  ): Promise<AdminSocialPublicationBatchPublishResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-batches/publish-social`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Publication batch could not be sent to the social provider.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminSocialPublicationBatchPublishResult;
   }
 
   async cancelPublicationBatch(

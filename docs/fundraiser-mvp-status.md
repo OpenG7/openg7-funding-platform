@@ -147,6 +147,10 @@ Precisions:
   `POST /api/admin/publication-drafts` et
   `POST /api/admin/publication-drafts/update` pour generer, editer, approuver,
   refuser, planifier ou marquer publies les brouillons commandites.
+- Endpoints `GET /api/admin/social-publication-jobs` et
+  `POST /api/admin/publication-batches/publish-social` pour declencher une
+  publication sociale admin explicite, suivre le job idempotent et conserver
+  l'URL publique retournee par le fournisseur.
 - Endpoint `GET /api/admin/audit-log` pour lire le journal prive des actions
   admin sensibles.
 - Endpoints `GET /api/admin/email-queue` et
@@ -176,6 +180,17 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   possible que depuis un lot deja planifie. Publier un lot marque tous ses
   brouillons assignes comme publies en une seule fois, comme la vraie
   publication collective qui les regroupe.
+- Publication sociale assistee:
+  - table `social_publication_jobs` (migration
+    `015_create_social_publication_jobs.sql`) pour tracer le fournisseur,
+    le mode (`mock` ou `live`), la cle d'idempotence, les brouillons inclus,
+    les IDs/URLs externes, les erreurs et les dates d'envoi/publication;
+  - mode `disabled` par defaut, mode `mock` pour E2E local, mode `live`
+    uniquement avec les tokens Facebook/LinkedIn fournis par l'environnement;
+  - l'endpoint social exige que le texte de confirmation corresponde a l'ID
+    du lot et que le lot soit deja `scheduled`;
+  - un succes social marque le job, le lot et les brouillons comme `published`
+    et copie l'URL publique externe sur les brouillons.
 - Annuler un lot libere ses brouillons assignes (retour a `approved`) pour
   qu'ils puissent rejoindre un autre lot. Retirer un brouillon deja publie
   d'un lot est impossible: l'historique n'est jamais reecrit.
@@ -187,14 +202,18 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   `POST /api/admin/publication-batches/unassign`,
   `POST /api/admin/publication-batches/schedule`,
   `POST /api/admin/publication-batches/publish`,
-  `POST /api/admin/publication-batches/cancel`. Meme authentification,
+  `POST /api/admin/publication-batches/publish-social`,
+  `POST /api/admin/publication-batches/cancel` et
+  `GET /api/admin/social-publication-jobs`. Meme authentification,
   limitation de debit et journal d'audit que les autres routes admin.
 - UI admin: section "Lots de publication collective" dans
   `/admin/fundraiser/publications`, avec creation de lot, assignation par
-  brouillon, planification, publication et annulation. Les lots sont
-  regroupes par canal puis tries chronologiquement (lots planifies du plus
-  proche au plus lointain, puis lots ouverts, puis historique) pour voir
-  plusieurs lots a venir d'un coup d'oeil.
+  brouillon, planification, publication sociale via API, publication manuelle
+  et annulation. Les lots sont regroupes par canal puis tries
+  chronologiquement (lots planifies du plus proche au plus lointain, puis
+  lots ouverts, puis historique) pour voir plusieurs lots a venir d'un coup
+  d'oeil. Le dernier job social affiche son statut, son mode et le lien public
+  retourne par le fournisseur.
 - Notification admin par courriel (SMTP, `FUNDING_ADMIN_NOTIFICATION_EMAIL`)
   lorsqu'un lot ouvert atteint sa capacite, pour eviter qu'il reste plein et
   oublie. Purement informatif: n'planifie ni ne publie rien automatiquement.
@@ -289,12 +308,15 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   - `012_create_sponsorship_credit_notes.sql`.
   - `013_add_sponsorship_refund_status.sql`.
   - `014_add_sponsorship_refund_amount_reason.sql`.
+  - `015_create_social_publication_jobs.sql`.
 - Tables MVP:
   - `stripe_events`;
   - `stripe_checkout_sessions`;
   - `fund_contributions` (colonnes `sponsor_*`, revue privee, hash de token
     de suivi commandite, placements feed et statut de remboursement commandite).
   - `sponsor_publication_drafts` (brouillons prives de publications commanditees).
+  - `sponsor_publication_batches` (lots collectifs planifies par canal).
+  - `social_publication_jobs` (jobs idempotents de publication sociale).
   - `admin_audit_log` (journal prive des actions admin).
   - `email_messages` (file courriel privee avec retry).
   - `sponsorship_invoices` (factures commandite descriptives).
@@ -354,7 +376,8 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
 - L'admin peut preparer un slug, un resume public, une cible `openg7` ou
   `openg20`, les canaux `facebook` et/ou `linkedin`, un statut feed et un lien
   de publication.
-- Aucune publication automatique vers Facebook ou LinkedIn n'est effectuee.
+- Aucune publication vers Facebook ou LinkedIn n'est effectuee sans action
+  admin explicite et sans configuration sociale active (`mock` ou `live`).
 
 ## Validation locale
 
@@ -427,6 +450,12 @@ Resultat attendu:
   - `GET /api/admin/publication-drafts`.
   - `POST /api/admin/publication-drafts`.
   - `POST /api/admin/publication-drafts/update`.
+  - `GET /api/admin/publication-batches`.
+  - `POST /api/admin/publication-batches`.
+  - `POST /api/admin/publication-batches/assign`.
+  - `POST /api/admin/publication-batches/schedule`.
+  - `POST /api/admin/publication-batches/publish-social`.
+  - `GET /api/admin/social-publication-jobs`.
   - `GET /api/admin/audit-log`.
 - Checkout teste avec une contribution reelle de faible montant ou en mode test Stripe.
 - Rejeu du meme evenement webhook teste pour confirmer l'idempotence.
@@ -439,10 +468,8 @@ Les elements suivants restent volontairement hors perimetre:
 - authentification admin par fournisseur externe;
 - fiches detaillees `/batisseurs/[slug]`;
 - bibliotheque avancee d'actifs de marque, variantes de logos et recadrage;
-- publication automatique de commanditaires;
-- publication automatique vers les feeds OpenG7/OpenG20;
-
-- integration API LinkedIn/Facebook;
+- publication automatique de commanditaires sans validation/admin;
+- planificateur autonome qui publierait seul les lots a l'heure prevue;
 - recus officiels de don;
 - taxes;
 - audit log metier complet;

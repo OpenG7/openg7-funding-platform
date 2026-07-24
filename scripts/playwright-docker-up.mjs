@@ -48,6 +48,7 @@ const localOnlyEnv = {
   FUNDING_ADMIN_RATE_LIMIT_MAX: '0',
   SMTP_ENABLED: 'false',
   SMTP_PASSWORD: '',
+  SOCIAL_PUBLICATION_MODE: 'mock',
   // Non-empty but not real credentials: apps/funding-api/src/main.ts only
   // needs STRIPE_SECRET_KEY to be truthy to construct a Stripe client, and
   // that client is pointed at the local stub (docker-compose.e2e.yml,
