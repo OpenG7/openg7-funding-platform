@@ -33,6 +33,11 @@ import type {
   AdminPublicationBatchUnassignRequest,
   AdminPublicationDraftCreateRequest,
   AdminPublicationDraftUpdateRequest,
+  AdminPublicationSlotAssignBatchRequest,
+  AdminPublicationSlotAssignDraftRequest,
+  AdminPublicationSlotCreateRequest,
+  AdminPublicationSlotLifecycleRequest,
+  AdminPublicationSlotUpdateRequest,
   AdminSessionCreateRequest,
   AdminSessionResponse,
   AdminSocialPublicationBatchPublishRequest,
@@ -70,10 +75,14 @@ import {
   allowedAdminExpenseStatuses,
   allowedPublicationDraftStatuses,
   assignDraftToPublicationBatch,
+  assignBatchToPublicationSlot,
+  assignDraftToPublicationSlot,
   cancelAdminPublicationBatch,
+  cancelAdminPublicationSlot,
   createAdminExpense,
   createAdminPublicationBatch,
   createAdminPublicationDraft,
+  createAdminPublicationSlot,
   createSocialPublicationJobForBatch,
   getPublicationBatchById,
   getPublicSponsorshipBatchAvailability,
@@ -82,15 +91,18 @@ import {
   listAdminAuditLog,
   listAdminPublicationBatches,
   listAdminPublicationDrafts,
+  listAdminPublicationSlots,
   listAdminSocialPublicationJobs,
   markSocialPublicationJobFailed,
   markSocialPublicationJobPublished,
   markSocialPublicationJobPublishing,
   publishAdminPublicationBatch,
+  publishAdminPublicationSlot,
   scheduleAdminPublicationBatch,
   unassignDraftFromPublicationBatch,
   updateAdminExpense,
-  updateAdminPublicationDraft
+  updateAdminPublicationDraft,
+  updateAdminPublicationSlot
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
 import {
@@ -525,6 +537,8 @@ const PUBLICATION_DRAFT_DISCLOSURE_MAX_LENGTH = 300;
 const PUBLICATION_BATCH_NOTES_MAX_LENGTH = 500;
 const PUBLICATION_BATCH_MIN_CAPACITY = 1;
 const PUBLICATION_BATCH_MAX_CAPACITY = 50;
+const PUBLICATION_SLOT_DEFAULT_TIMEZONE = 'America/Toronto';
+const PUBLICATION_SLOT_TIMEZONE_MAX_LENGTH = 64;
 const ADMIN_EXPENSE_NAME_MAX_LENGTH = 160;
 const ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
@@ -1107,6 +1121,37 @@ const isValidPublicationBatchCapacity = (value: unknown): value is number =>
   value >= PUBLICATION_BATCH_MIN_CAPACITY &&
   value <= PUBLICATION_BATCH_MAX_CAPACITY;
 
+const isFutureDateString = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  Number.isFinite(Date.parse(value)) &&
+  Date.parse(value) > Date.now();
+
+const isValidPublicationSlotTimezone = (value: unknown): value is string => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const trimmed = value.trim();
+  if (
+    trimmed.length === 0 ||
+    trimmed.length > PUBLICATION_SLOT_TIMEZONE_MAX_LENGTH
+  ) {
+    return false;
+  }
+
+  try {
+    new Intl.DateTimeFormat('fr-CA', { timeZone: trimmed });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const normalizePublicationSlotTimezone = (value: unknown): string =>
+  isValidPublicationSlotTimezone(value)
+    ? value.trim()
+    : PUBLICATION_SLOT_DEFAULT_TIMEZONE;
+
 const channelLabel = (channel: SponsorFeedChannel): string =>
   channel === 'linkedin' ? 'LinkedIn' : 'Facebook';
 
@@ -1614,6 +1659,18 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/publication-batches/publish-social',
       '/admin/publication-batches/cancel',
       '/api/admin/publication-batches/cancel',
+      '/admin/publication-slots',
+      '/api/admin/publication-slots',
+      '/admin/publication-slots/update',
+      '/api/admin/publication-slots/update',
+      '/admin/publication-slots/assign-batch',
+      '/api/admin/publication-slots/assign-batch',
+      '/admin/publication-slots/assign-draft',
+      '/api/admin/publication-slots/assign-draft',
+      '/admin/publication-slots/publish',
+      '/api/admin/publication-slots/publish',
+      '/admin/publication-slots/cancel',
+      '/api/admin/publication-slots/cancel',
       '/admin/social-publication-jobs',
       '/api/admin/social-publication-jobs',
       '/admin/audit-log',
@@ -4183,6 +4240,490 @@ createServer(async (request, response) => {
     request.method === 'GET' &&
     routeMatches(
       request.url,
+      '/admin/publication-slots',
+      '/api/admin/publication-slots'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await listAdminPublicationSlots(dbPool);
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load publication slots.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication slots could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-slots',
+      '/api/admin/publication-slots'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationSlotCreateRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationSlotCreateRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot request body.'
+      });
+      return;
+    }
+
+    if (!isAllowedSponsorFeedTarget(parsed.feedTarget)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot target.'
+      });
+      return;
+    }
+
+    if (!isAllowedSponsorFeedChannel(parsed.channel)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot channel.'
+      });
+      return;
+    }
+
+    if (!isFutureDateString(parsed.startsAt)) {
+      writeJson(request, response, 400, {
+        error: 'Publication slot date must be a future date.'
+      });
+      return;
+    }
+
+    if (
+      parsed.timezone !== undefined &&
+      !isValidPublicationSlotTimezone(parsed.timezone)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Publication slot timezone is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidPublicationBatchCapacity(parsed.capacity)) {
+      writeJson(request, response, 400, {
+        error: `Publication slot capacity must be an integer between ${PUBLICATION_BATCH_MIN_CAPACITY} and ${PUBLICATION_BATCH_MAX_CAPACITY}.`
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.notes,
+        PUBLICATION_BATCH_NOTES_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Publication slot notes are too long.'
+      });
+      return;
+    }
+
+    try {
+      const result = await createAdminPublicationSlot(dbPool, {
+        ...parsed,
+        startsAt: new Date(parsed.startsAt).toISOString(),
+        timezone: normalizePublicationSlotTimezone(parsed.timezone)
+      });
+      if (!result.updated || !result.slot) {
+        writeJson(request, response, 404, {
+          error: 'Publication slots migration is missing.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_slot.create',
+        entityType: 'publication_slot',
+        entityId: result.slot.id,
+        summary: `Publication slot created for ${channelLabel(result.slot.channel)} at ${result.slot.startsAt}.`,
+        metadata: {
+          feedTarget: result.slot.feedTarget,
+          channel: result.slot.channel,
+          startsAt: result.slot.startsAt,
+          timezone: result.slot.timezone,
+          capacity: result.slot.capacity
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to create publication slot.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication slot could not be created.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-slots/update',
+      '/api/admin/publication-slots/update'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationSlotUpdateRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationSlotUpdateRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot update request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.slotId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot id.'
+      });
+      return;
+    }
+
+    if (parsed.startsAt !== undefined && !isFutureDateString(parsed.startsAt)) {
+      writeJson(request, response, 400, {
+        error: 'Publication slot date must be a future date.'
+      });
+      return;
+    }
+
+    if (
+      parsed.timezone !== undefined &&
+      !isValidPublicationSlotTimezone(parsed.timezone)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Publication slot timezone is invalid.'
+      });
+      return;
+    }
+
+    if (
+      parsed.capacity !== undefined &&
+      !isValidPublicationBatchCapacity(parsed.capacity)
+    ) {
+      writeJson(request, response, 400, {
+        error: `Publication slot capacity must be an integer between ${PUBLICATION_BATCH_MIN_CAPACITY} and ${PUBLICATION_BATCH_MAX_CAPACITY}.`
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalBoundedText(
+        parsed.notes,
+        PUBLICATION_BATCH_NOTES_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Publication slot notes are too long.'
+      });
+      return;
+    }
+
+    try {
+      const result = await updateAdminPublicationSlot(dbPool, {
+        ...parsed,
+        startsAt:
+          parsed.startsAt !== undefined
+            ? new Date(parsed.startsAt).toISOString()
+            : undefined,
+        timezone:
+          parsed.timezone !== undefined
+            ? normalizePublicationSlotTimezone(parsed.timezone)
+            : undefined
+      });
+      if (!result.updated || !result.slot) {
+        writeJson(request, response, 409, {
+          error:
+            'Publication slot was not found, is final, is in the past, or capacity would be exceeded.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_slot.update',
+        entityType: 'publication_slot',
+        entityId: result.slot.id,
+        summary: `Publication slot updated for ${channelLabel(result.slot.channel)} at ${result.slot.startsAt}.`,
+        metadata: {
+          startsAt: result.slot.startsAt,
+          timezone: result.slot.timezone,
+          capacity: result.slot.capacity,
+          capacityUsed: result.slot.capacityUsed
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to update publication slot.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication slot could not be updated.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-slots/assign-batch',
+      '/api/admin/publication-slots/assign-batch'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationSlotAssignBatchRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationSlotAssignBatchRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot batch assignment request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.slotId) || !isValidUuid(parsed.batchId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot or batch id.'
+      });
+      return;
+    }
+
+    try {
+      const result = await assignBatchToPublicationSlot(dbPool, parsed);
+      if (!result.updated || !result.slot) {
+        writeJson(request, response, 409, {
+          error:
+            'Batch could not be assigned: it must match the slot channel and target, stay within capacity, and not already belong to another slot.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_slot.assign_batch',
+        entityType: 'publication_slot',
+        entityId: result.slot.id,
+        summary: `Batch assigned to publication slot ${result.slot.startsAt}.`,
+        metadata: { slotId: parsed.slotId, batchId: parsed.batchId }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to assign batch to publication slot.', error);
+      writeJson(request, response, 502, {
+        error: 'Batch could not be assigned to the publication slot.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-slots/assign-draft',
+      '/api/admin/publication-slots/assign-draft'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationSlotAssignDraftRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationSlotAssignDraftRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot draft assignment request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.slotId) || !isValidUuid(parsed.draftId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot or draft id.'
+      });
+      return;
+    }
+
+    try {
+      const result = await assignDraftToPublicationSlot(dbPool, parsed);
+      if (!result.updated || !result.slot) {
+        writeJson(request, response, 409, {
+          error:
+            'Draft could not be assigned: it must be approved, unbatched, match the slot target/channel, and fit remaining capacity.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_slot.assign_draft',
+        entityType: 'publication_slot',
+        entityId: result.slot.id,
+        summary: `Draft assigned directly to publication slot ${result.slot.startsAt}.`,
+        metadata: { slotId: parsed.slotId, draftId: parsed.draftId }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to assign draft to publication slot.', error);
+      writeJson(request, response, 502, {
+        error: 'Draft could not be assigned to the publication slot.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-slots/publish',
+      '/api/admin/publication-slots/publish'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationSlotLifecycleRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationSlotLifecycleRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.slotId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot id.'
+      });
+      return;
+    }
+
+    try {
+      const result = await publishAdminPublicationSlot(dbPool, parsed);
+      if (!result.updated || !result.slot) {
+        writeJson(request, response, 409, {
+          error:
+            'Publication slot was not found, is not scheduled, or has no assigned drafts.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_slot.publish',
+        entityType: 'publication_slot',
+        entityId: result.slot.id,
+        summary: `Publication slot published (${result.slot.assignedDraftIds.length} draft(s)).`,
+        metadata: {
+          channel: result.slot.channel,
+          feedTarget: result.slot.feedTarget,
+          assignedDraftIds: result.slot.assignedDraftIds
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to publish publication slot.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication slot could not be published.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-slots/cancel',
+      '/api/admin/publication-slots/cancel'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminPublicationSlotLifecycleRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminPublicationSlotLifecycleRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.slotId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication slot id.'
+      });
+      return;
+    }
+
+    try {
+      const result = await cancelAdminPublicationSlot(dbPool, parsed);
+      if (!result.updated || !result.slot) {
+        writeJson(request, response, 409, {
+          error: 'Publication slot was not found or is already final.'
+        });
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'publication_slot.cancel',
+        entityType: 'publication_slot',
+        entityId: result.slot.id,
+        summary: `Publication slot cancelled (${channelLabel(result.slot.channel)}).`,
+        metadata: {
+          channel: result.slot.channel,
+          feedTarget: result.slot.feedTarget
+        }
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to cancel publication slot.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication slot could not be cancelled.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
       '/admin/publication-batches',
       '/api/admin/publication-batches'
     )
@@ -4449,10 +4990,10 @@ createServer(async (request, response) => {
 
     if (
       typeof parsed.scheduledAt !== 'string' ||
-      !Number.isFinite(Date.parse(parsed.scheduledAt))
+      !isFutureDateString(parsed.scheduledAt)
     ) {
       writeJson(request, response, 400, {
-        error: 'Publication batch scheduled date is invalid.'
+        error: 'Publication batch scheduled date must be a future date.'
       });
       return;
     }

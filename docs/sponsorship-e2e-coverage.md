@@ -13,7 +13,7 @@ Couverture cible: 9 scenarios sur 9, soit 100%.
 | Token absent, invalide, expire ou introuvable affiche un etat d'erreur           | Oui     | Suivi commandite, validations API                                                  |
 | Admin liste les commandites payees avec jeton admin                              | Oui     | Admin, API privee                                                                  |
 | Admin approuve, remet en attente, refuse ou rembourse la commandite              | Oui     | Admin, revue DB, remboursement Stripe guide, avoir, PDF et courriel optionnel      |
-| Admin prepare et envoie la publication OpenG7/OpenG20 Facebook/LinkedIn          | Oui     | Admin, lots, job social mock/live configurable                                     |
+| Admin prepare, planifie et envoie la publication OpenG7/OpenG20 Facebook/LinkedIn | Oui     | Admin, calendrier, lots, job social mock/live configurable                         |
 | Page publique affiche seulement les commandites approuvees et consenties         | Oui     | `/commanditaires`, API publique                                                    |
 | Navigation FR/EN, prerender, sitemap et docs de prod restent alignes             | Oui     | Routes, i18n, deployment                                                           |
 | Page de suivi commandite en etat `pending_review` (avant soumission des details) | Oui     | Suite suivi, statut UI et affichage en attente de details d'entreprise             |
@@ -45,7 +45,8 @@ scenarios 5, 6 et 8 ont ete completes par navigateur reel a leur tour:
 - Scenario 6 (publication OpenG7/OpenG20 Facebook/LinkedIn): couvert par
   `admin-sponsorship-publication.spec.ts`, jusqu'a l'affichage du placement
   sur `/commanditaires`, et par `admin-publication-batches.spec.ts` pour le
-  lot collectif publie via provider social mocke.
+  lot collectif place dans un creneau calendrier puis publie via provider
+  social mocke.
 - Scenario 8 (navigation FR/EN, sitemap, prerender): couvert par
   `i18n-navigation.spec.ts`, y compris une requete brute sur les routes
   prerendues FR/EN (sans JavaScript) pour verifier le rendu serveur.

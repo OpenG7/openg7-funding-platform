@@ -155,6 +155,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/013_add_sponsorship_refund_status.sql
 \i apps/funding-api/migrations/014_add_sponsorship_refund_amount_reason.sql
 \i apps/funding-api/migrations/015_create_social_publication_jobs.sql
+\i apps/funding-api/migrations/016_create_publication_slots.sql
 ```
 
 These create:
@@ -166,6 +167,7 @@ These create:
 - `fund_contributions` (pending contribution records, sponsor follow-up details, private review status, hashed follow-up tokens, and sponsor feed placement fields)
 - `sponsor_publication_drafts` (private sponsored publication drafts for manual review)
 - `sponsor_publication_batches` (collective Facebook/LinkedIn publication batches)
+- `publication_slots` (capacity-bound publication calendar slots by target, channel, date and timezone)
 - `social_publication_jobs` (idempotent social provider publication jobs)
 - `admin_audit_log` (private admin action log)
 - `email_messages` (queued email templates with retry status)
@@ -210,6 +212,13 @@ POST /api/admin/publication-batches/schedule
 POST /api/admin/publication-batches/publish
 POST /api/admin/publication-batches/publish-social
 POST /api/admin/publication-batches/cancel
+GET /api/admin/publication-slots
+POST /api/admin/publication-slots
+POST /api/admin/publication-slots/update
+POST /api/admin/publication-slots/assign-batch
+POST /api/admin/publication-slots/assign-draft
+POST /api/admin/publication-slots/publish
+POST /api/admin/publication-slots/cancel
 GET /api/admin/social-publication-jobs
 GET /api/admin/audit-log
 GET /api/admin/setup-status

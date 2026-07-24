@@ -21,13 +21,23 @@ import type {
   AdminPublicationDraftRecord,
   AdminPublicationDraftUpdateRequest,
   AdminPublicationDraftsResponse,
+  AdminPublicationSlotAssignBatchRequest,
+  AdminPublicationSlotAssignDraftRequest,
+  AdminPublicationSlotCreateRequest,
+  AdminPublicationSlotLifecycleRequest,
+  AdminPublicationSlotMutationResult,
+  AdminPublicationSlotRecord,
+  AdminPublicationSlotsResponse,
+  AdminPublicationSlotUpdateRequest,
   AdminSocialPublicationBatchPublishResult,
   AdminSocialPublicationJobRecord,
   AdminSocialPublicationJobsResponse,
   PublicationBatchStatus,
   PublicationDraftStatus,
+  PublicationSlotStatus,
   PublicSponsorshipBatchAvailability,
   PublicSponsorshipBatchAvailabilityResponse,
+  PublicSponsorshipPublicationSlot,
   SocialPublicationMode,
   SocialPublicationStatus,
   SponsorFeedChannel,
@@ -46,6 +56,13 @@ export const allowedPublicationDraftStatuses = new Set<PublicationDraftStatus>([
 ]);
 
 export const allowedPublicationBatchStatuses = new Set<PublicationBatchStatus>([
+  'open',
+  'scheduled',
+  'published',
+  'cancelled'
+]);
+
+export const allowedPublicationSlotStatuses = new Set<PublicationSlotStatus>([
   'open',
   'scheduled',
   'published',
@@ -79,6 +96,7 @@ interface PublicationDraftRow {
   readonly published_at: string | null;
   readonly review_note: string | null;
   readonly batch_id: string | null;
+  readonly slot_id: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -88,9 +106,26 @@ interface PublicationBatchRow {
   readonly channel: SponsorFeedChannel;
   readonly capacity: string;
   readonly status: PublicationBatchStatus;
+  readonly slot_id: string | null;
   readonly scheduled_at: string | null;
   readonly published_at: string | null;
   readonly notes: string | null;
+  readonly assigned_draft_ids: readonly string[] | null;
+  readonly capacity_used: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+interface PublicationSlotRow {
+  readonly id: string;
+  readonly feed_target: SponsorFeedTarget;
+  readonly channel: SponsorFeedChannel;
+  readonly starts_at: string;
+  readonly timezone: string;
+  readonly capacity: string;
+  readonly status: PublicationSlotStatus;
+  readonly notes: string | null;
+  readonly assigned_batch_ids: readonly string[] | null;
   readonly assigned_draft_ids: readonly string[] | null;
   readonly capacity_used: string;
   readonly created_at: string;
@@ -142,6 +177,7 @@ interface AuditLogRow {
 interface AdminBackofficePresenceRow {
   readonly has_publication_drafts: boolean;
   readonly has_publication_batches: boolean;
+  readonly has_publication_slots: boolean;
   readonly has_social_publication_jobs: boolean;
   readonly has_audit_log: boolean;
   readonly has_fund_allocations: boolean;
@@ -225,6 +261,7 @@ const mapPublicationDraftRow = (
   published_at: row.published_at,
   review_note: row.review_note,
   batch_id: row.batch_id,
+  slot_id: row.slot_id,
   created_at: row.created_at,
   updated_at: row.updated_at
 });
@@ -240,9 +277,38 @@ const mapPublicationBatchRow = (
     channel: row.channel,
     capacity,
     status: row.status,
+    slotId: row.slot_id,
     scheduledAt: row.scheduled_at,
     publishedAt: row.published_at,
     notes: row.notes,
+    assignedDraftIds: (row.assigned_draft_ids ?? []).filter(
+      (draftId): draftId is string => Boolean(draftId)
+    ),
+    capacityUsed,
+    capacityAvailable: Math.max(0, capacity - capacityUsed),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+};
+
+const mapPublicationSlotRow = (
+  row: PublicationSlotRow
+): AdminPublicationSlotRecord => {
+  const capacity = parseDbInt(row.capacity);
+  const capacityUsed = parseDbInt(row.capacity_used);
+
+  return {
+    id: row.id,
+    feedTarget: row.feed_target,
+    channel: row.channel,
+    startsAt: row.starts_at,
+    timezone: row.timezone,
+    capacity,
+    status: row.status,
+    notes: row.notes,
+    assignedBatchIds: (row.assigned_batch_ids ?? []).filter(
+      (batchId): batchId is string => Boolean(batchId)
+    ),
     assignedDraftIds: (row.assigned_draft_ids ?? []).filter(
       (draftId): draftId is string => Boolean(draftId)
     ),
@@ -300,6 +366,7 @@ const getAdminBackofficePresence = async (
     SELECT
       to_regclass('public.sponsor_publication_drafts') IS NOT NULL AS has_publication_drafts,
       to_regclass('public.sponsor_publication_batches') IS NOT NULL AS has_publication_batches,
+      to_regclass('public.publication_slots') IS NOT NULL AS has_publication_slots,
       to_regclass('public.social_publication_jobs') IS NOT NULL AS has_social_publication_jobs,
       to_regclass('public.admin_audit_log') IS NOT NULL AS has_audit_log,
       to_regclass('public.fund_allocations') IS NOT NULL AS has_fund_allocations
@@ -309,6 +376,7 @@ const getAdminBackofficePresence = async (
     query.rows[0] ?? {
       has_publication_drafts: false,
       has_publication_batches: false,
+      has_publication_slots: false,
       has_social_publication_jobs: false,
       has_audit_log: false,
       has_fund_allocations: false
@@ -372,6 +440,7 @@ const getPublicationDraftById = async (
         draft.published_at::text AS published_at,
         draft.review_note,
         draft.batch_id::text AS batch_id,
+        draft.slot_id::text AS slot_id,
         draft.created_at::text AS created_at,
         draft.updated_at::text AS updated_at
       FROM sponsor_publication_drafts draft
@@ -428,6 +497,7 @@ export const listAdminPublicationDrafts = async (
       draft.published_at::text AS published_at,
       draft.review_note,
       draft.batch_id::text AS batch_id,
+      draft.slot_id::text AS slot_id,
       draft.created_at::text AS created_at,
       draft.updated_at::text AS updated_at
     FROM sponsor_publication_drafts draft
@@ -624,6 +694,7 @@ const publicationBatchSelect = `
     batch.channel,
     batch.capacity::text AS capacity,
     batch.status,
+    batch.slot_id::text AS slot_id,
     batch.scheduled_at::text AS scheduled_at,
     batch.published_at::text AS published_at,
     batch.notes,
@@ -660,6 +731,55 @@ export const getPublicationBatchById = async (
   return row ? mapPublicationBatchRow(row) : null;
 };
 
+const publicationSlotSelect = `
+  SELECT
+    slot.id::text AS id,
+    slot.feed_target,
+    slot.channel,
+    slot.starts_at::text AS starts_at,
+    slot.timezone,
+    slot.capacity::text AS capacity,
+    slot.status,
+    slot.notes,
+    COALESCE(
+      array_agg(DISTINCT batch.id::text) FILTER (WHERE batch.id IS NOT NULL),
+      ARRAY[]::text[]
+    ) AS assigned_batch_ids,
+    COALESCE(
+      array_agg(DISTINCT draft.id::text) FILTER (WHERE draft.id IS NOT NULL),
+      ARRAY[]::text[]
+    ) AS assigned_draft_ids,
+    COUNT(DISTINCT draft.id)::text AS capacity_used,
+    slot.created_at::text AS created_at,
+    slot.updated_at::text AS updated_at
+  FROM publication_slots slot
+  LEFT JOIN sponsor_publication_batches batch ON batch.slot_id = slot.id
+  LEFT JOIN sponsor_publication_drafts draft
+    ON draft.slot_id = slot.id OR draft.batch_id = batch.id
+`;
+
+const getPublicationSlotById = async (
+  pool: Pool | null,
+  slotId: string
+): Promise<AdminPublicationSlotRecord | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const query = await pool.query<PublicationSlotRow>(
+    `
+      ${publicationSlotSelect}
+      WHERE slot.id = $1::uuid
+      GROUP BY slot.id
+      LIMIT 1
+    `,
+    [slotId]
+  );
+
+  const row = query.rows[0];
+  return row ? mapPublicationSlotRow(row) : null;
+};
+
 const publicSponsorshipBatchChannels: readonly SponsorFeedChannel[] = [
   'facebook',
   'linkedin'
@@ -674,12 +794,56 @@ export const getPublicSponsorshipBatchAvailability = async (
   pool: Pool | null
 ): Promise<PublicSponsorshipBatchAvailabilityResponse> => {
   if (!pool) {
-    return { data_source: 'empty', availability: [] };
+    return { data_source: 'empty', availability: [], slots: [] };
   }
 
   const presence = await getAdminBackofficePresence(pool);
   if (!presence.has_publication_batches) {
-    return { data_source: 'empty', availability: [] };
+    return { data_source: 'empty', availability: [], slots: [] };
+  }
+
+  if (presence.has_publication_slots) {
+    const query = await pool.query<{
+      readonly feed_target: SponsorFeedTarget;
+      readonly channel: SponsorFeedChannel;
+      readonly starts_at: string;
+      readonly timezone: string;
+    }>(`
+      SELECT
+        feed_target,
+        channel,
+        starts_at::text AS starts_at,
+        timezone
+      FROM publication_slots
+      WHERE status = 'scheduled'
+        AND starts_at > NOW()
+      ORDER BY starts_at ASC
+      LIMIT 20
+    `);
+
+    const slots: readonly PublicSponsorshipPublicationSlot[] = query.rows.map(
+      (row) => ({
+        feedTarget: row.feed_target,
+        channel: row.channel,
+        startsAt: row.starts_at,
+        timezone: row.timezone
+      })
+    );
+
+    const nextAvailableByChannel = new Map<SponsorFeedChannel, string>();
+    for (const slot of slots) {
+      if (!nextAvailableByChannel.has(slot.channel)) {
+        nextAvailableByChannel.set(slot.channel, slot.startsAt);
+      }
+    }
+
+    const availability: readonly PublicSponsorshipBatchAvailability[] =
+      publicSponsorshipBatchChannels.map((channel) => ({
+        channel,
+        nextAvailableAt: nextAvailableByChannel.get(channel) ?? null
+      }));
+
+    return { data_source: 'database', availability, slots };
   }
 
   const query = await pool.query<{
@@ -702,7 +866,519 @@ export const getPublicSponsorshipBatchAvailability = async (
       nextAvailableAt: nextAvailableByChannel.get(channel) ?? null
     }));
 
-  return { data_source: 'database', availability };
+  return { data_source: 'database', availability, slots: [] };
+};
+
+export const listAdminPublicationSlots = async (
+  pool: Pool | null
+): Promise<AdminPublicationSlotsResponse> => {
+  const now = new Date().toISOString();
+  if (!pool) {
+    return { data_source: 'database', slots: [], last_updated_at: now };
+  }
+
+  const presence = await getAdminBackofficePresence(pool);
+  if (!presence.has_publication_slots) {
+    return { data_source: 'database', slots: [], last_updated_at: now };
+  }
+
+  const query = await pool.query<PublicationSlotRow>(`
+    ${publicationSlotSelect}
+    GROUP BY slot.id
+    ORDER BY
+      CASE slot.status
+        WHEN 'scheduled' THEN 0
+        WHEN 'open' THEN 1
+        WHEN 'published' THEN 2
+        ELSE 3
+      END,
+      slot.starts_at ASC
+    LIMIT 100
+  `);
+
+  return {
+    data_source: 'database',
+    slots: query.rows.map(mapPublicationSlotRow),
+    last_updated_at:
+      query.rows.reduce<string | null>((latest, row) => {
+        if (!latest) {
+          return row.updated_at;
+        }
+
+        return new Date(row.updated_at).getTime() > new Date(latest).getTime()
+          ? row.updated_at
+          : latest;
+      }, null) ?? now
+  };
+};
+
+export const createAdminPublicationSlot = async (
+  pool: Pool | null,
+  input: AdminPublicationSlotCreateRequest
+): Promise<AdminPublicationSlotMutationResult> => {
+  if (!pool) {
+    return { updated: false, slot: null };
+  }
+
+  const presence = await getAdminBackofficePresence(pool);
+  if (!presence.has_publication_slots) {
+    return { updated: false, slot: null };
+  }
+
+  const insertResult = await pool.query<{ readonly id: string }>(
+    `
+      INSERT INTO publication_slots (
+        feed_target,
+        channel,
+        starts_at,
+        timezone,
+        capacity,
+        status,
+        notes
+      )
+      SELECT $1, $2, $3::timestamptz, $4, $5, 'scheduled', NULLIF($6, '')
+      WHERE $3::timestamptz > NOW()
+      RETURNING id::text AS id
+    `,
+    [
+      input.feedTarget,
+      input.channel,
+      input.startsAt,
+      input.timezone?.trim() || 'America/Toronto',
+      input.capacity,
+      input.notes?.trim() ?? ''
+    ]
+  );
+
+  const slotId = insertResult.rows[0]?.id;
+  return {
+    updated: Boolean(slotId),
+    slot: slotId ? await getPublicationSlotById(pool, slotId) : null
+  };
+};
+
+export const updateAdminPublicationSlot = async (
+  pool: Pool | null,
+  input: AdminPublicationSlotUpdateRequest
+): Promise<AdminPublicationSlotMutationResult> => {
+  if (!pool) {
+    return { updated: false, slot: null };
+  }
+
+  const presence = await getAdminBackofficePresence(pool);
+  if (!presence.has_publication_slots) {
+    return { updated: false, slot: null };
+  }
+
+  const notesTouched = input.notes !== undefined;
+  const result = await pool.query<{ readonly id: string }>(
+    `
+      WITH slot_usage AS (
+        SELECT
+          slot.id,
+          COUNT(DISTINCT draft.id)::integer AS capacity_used
+        FROM publication_slots slot
+        LEFT JOIN sponsor_publication_batches batch ON batch.slot_id = slot.id
+        LEFT JOIN sponsor_publication_drafts draft
+          ON draft.slot_id = slot.id OR draft.batch_id = batch.id
+        WHERE slot.id = $1::uuid
+        GROUP BY slot.id
+      )
+      UPDATE publication_slots slot
+      SET
+        starts_at = COALESCE($2::timestamptz, slot.starts_at),
+        timezone = COALESCE(NULLIF($3, ''), slot.timezone),
+        capacity = COALESCE($4::integer, slot.capacity),
+        notes = CASE
+          WHEN $5::boolean THEN NULLIF($6, '')
+          ELSE slot.notes
+        END,
+        status = CASE
+          WHEN slot.status = 'open' THEN 'scheduled'
+          ELSE slot.status
+        END,
+        updated_at = NOW()
+      FROM slot_usage
+      WHERE slot.id = slot_usage.id
+        AND slot.id = $1::uuid
+        AND slot.status IN ('open', 'scheduled')
+        AND COALESCE($2::timestamptz, slot.starts_at) > NOW()
+        AND COALESCE($4::integer, slot.capacity) >= slot_usage.capacity_used
+      RETURNING slot.id::text AS id
+    `,
+    [
+      input.slotId,
+      input.startsAt ?? null,
+      input.timezone?.trim() ?? null,
+      input.capacity ?? null,
+      notesTouched,
+      input.notes?.trim() ?? ''
+    ]
+  );
+
+  const slotId = result.rows[0]?.id;
+  if (slotId) {
+    await pool.query(
+      `
+        UPDATE sponsor_publication_batches batch
+        SET
+          scheduled_at = slot.starts_at,
+          status = CASE
+            WHEN batch.status = 'open' THEN 'scheduled'
+            ELSE batch.status
+          END,
+          updated_at = NOW()
+        FROM publication_slots slot
+        WHERE batch.slot_id = slot.id
+          AND slot.id = $1::uuid
+          AND batch.status IN ('open', 'scheduled')
+      `,
+      [slotId]
+    );
+    await pool.query(
+      `
+        UPDATE sponsor_publication_drafts draft
+        SET
+          scheduled_at = slot.starts_at,
+          status = CASE
+            WHEN draft.status = 'approved' THEN 'scheduled'
+            ELSE draft.status
+          END,
+          updated_at = NOW()
+        FROM publication_slots slot
+        WHERE draft.slot_id = slot.id
+          AND slot.id = $1::uuid
+          AND draft.status IN ('approved', 'scheduled')
+      `,
+      [slotId]
+    );
+  }
+
+  return {
+    updated: Boolean(slotId),
+    slot: await getPublicationSlotById(pool, input.slotId)
+  };
+};
+
+export const assignBatchToPublicationSlot = async (
+  pool: Pool | null,
+  input: AdminPublicationSlotAssignBatchRequest
+): Promise<AdminPublicationSlotMutationResult> => {
+  if (!pool) {
+    return { updated: false, slot: null };
+  }
+
+  const presence = await getAdminBackofficePresence(pool);
+  if (!presence.has_publication_slots || !presence.has_publication_batches) {
+    return { updated: false, slot: null };
+  }
+
+  const result = await pool.query<{ readonly id: string }>(
+    `
+      WITH target_slot AS (
+        SELECT
+          slot.id,
+          slot.feed_target,
+          slot.channel,
+          slot.starts_at,
+          slot.capacity,
+          (
+            SELECT COUNT(DISTINCT used_draft.id)::integer
+            FROM sponsor_publication_drafts used_draft
+            LEFT JOIN sponsor_publication_batches used_batch
+              ON used_batch.id = used_draft.batch_id
+            WHERE used_draft.slot_id = slot.id
+              OR used_batch.slot_id = slot.id
+          ) AS used
+        FROM publication_slots slot
+        WHERE slot.id = $1::uuid
+          AND slot.status IN ('open', 'scheduled')
+          AND slot.starts_at > NOW()
+      ),
+      target_batch AS (
+        SELECT
+          batch.id,
+          batch.channel,
+          batch.status,
+          batch.slot_id,
+          COUNT(draft.id)::integer AS draft_count,
+          COALESCE(BOOL_AND(draft.feed_target = target_slot.feed_target), TRUE)
+            AS drafts_match_target
+        FROM sponsor_publication_batches batch
+        CROSS JOIN target_slot
+        LEFT JOIN sponsor_publication_drafts draft ON draft.batch_id = batch.id
+        WHERE batch.id = $2::uuid
+        GROUP BY batch.id, target_slot.feed_target
+      )
+      UPDATE sponsor_publication_batches batch
+      SET
+        slot_id = target_slot.id,
+        status = 'scheduled',
+        scheduled_at = target_slot.starts_at,
+        updated_at = NOW()
+      FROM target_slot, target_batch
+      WHERE batch.id = target_batch.id
+        AND target_batch.channel = target_slot.channel
+        AND target_batch.status IN ('open', 'scheduled')
+        AND (target_batch.slot_id IS NULL OR target_batch.slot_id = target_slot.id)
+        AND target_batch.drafts_match_target
+        AND target_slot.used + CASE
+          WHEN target_batch.slot_id = target_slot.id THEN 0
+          ELSE target_batch.draft_count
+        END <= target_slot.capacity
+      RETURNING batch.slot_id::text AS id
+    `,
+    [input.slotId, input.batchId]
+  );
+
+  const slotId = result.rows[0]?.id;
+  if (slotId) {
+    await pool.query(
+      `
+        UPDATE sponsor_publication_drafts draft
+        SET
+          slot_id = $1::uuid,
+          status = 'scheduled',
+          scheduled_at = slot.starts_at,
+          updated_at = NOW()
+        FROM publication_slots slot
+        WHERE draft.batch_id = $2::uuid
+          AND slot.id = $1::uuid
+          AND draft.status IN ('approved', 'scheduled')
+      `,
+      [slotId, input.batchId]
+    );
+  }
+
+  return {
+    updated: Boolean(slotId),
+    slot: await getPublicationSlotById(pool, input.slotId)
+  };
+};
+
+export const assignDraftToPublicationSlot = async (
+  pool: Pool | null,
+  input: AdminPublicationSlotAssignDraftRequest
+): Promise<AdminPublicationSlotMutationResult> => {
+  if (!pool) {
+    return { updated: false, slot: null };
+  }
+
+  const presence = await getAdminBackofficePresence(pool);
+  if (!presence.has_publication_slots || !presence.has_publication_drafts) {
+    return { updated: false, slot: null };
+  }
+
+  const result = await pool.query<{ readonly id: string }>(
+    `
+      WITH target_slot AS (
+        SELECT
+          slot.id,
+          slot.feed_target,
+          slot.channel,
+          slot.starts_at,
+          slot.capacity,
+          (
+            SELECT COUNT(DISTINCT used_draft.id)::integer
+            FROM sponsor_publication_drafts used_draft
+            LEFT JOIN sponsor_publication_batches used_batch
+              ON used_batch.id = used_draft.batch_id
+            WHERE used_draft.slot_id = slot.id
+              OR used_batch.slot_id = slot.id
+          ) AS used
+        FROM publication_slots slot
+        WHERE slot.id = $1::uuid
+          AND slot.status IN ('open', 'scheduled')
+          AND slot.starts_at > NOW()
+      )
+      UPDATE sponsor_publication_drafts draft
+      SET
+        slot_id = target_slot.id,
+        status = 'scheduled',
+        scheduled_at = target_slot.starts_at,
+        updated_at = NOW()
+      FROM target_slot
+      WHERE draft.id = $2::uuid
+        AND draft.batch_id IS NULL
+        AND draft.status IN ('approved', 'scheduled')
+        AND draft.channel = target_slot.channel
+        AND draft.feed_target = target_slot.feed_target
+        AND (draft.slot_id IS NULL OR draft.slot_id = target_slot.id)
+        AND target_slot.used + CASE
+          WHEN draft.slot_id = target_slot.id THEN 0
+          ELSE 1
+        END <= target_slot.capacity
+      RETURNING draft.slot_id::text AS id
+    `,
+    [input.slotId, input.draftId]
+  );
+
+  const slotId = result.rows[0]?.id;
+  return {
+    updated: Boolean(slotId),
+    slot: await getPublicationSlotById(pool, input.slotId)
+  };
+};
+
+export const publishAdminPublicationSlot = async (
+  pool: Pool | null,
+  input: AdminPublicationSlotLifecycleRequest
+): Promise<AdminPublicationSlotMutationResult> => {
+  if (!pool) {
+    return { updated: false, slot: null };
+  }
+
+  const presence = await getAdminBackofficePresence(pool);
+  if (!presence.has_publication_slots) {
+    return { updated: false, slot: null };
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query<{ readonly id: string }>(
+      `
+        WITH target_slot AS (
+          SELECT
+            slot.id,
+            COUNT(DISTINCT draft.id)::integer AS capacity_used
+          FROM publication_slots slot
+          LEFT JOIN sponsor_publication_batches batch ON batch.slot_id = slot.id
+          LEFT JOIN sponsor_publication_drafts draft
+            ON draft.slot_id = slot.id OR draft.batch_id = batch.id
+          WHERE slot.id = $1::uuid
+            AND slot.status = 'scheduled'
+          GROUP BY slot.id
+        )
+        UPDATE publication_slots slot
+        SET status = 'published', updated_at = NOW()
+        FROM target_slot
+        WHERE slot.id = target_slot.id
+          AND target_slot.capacity_used > 0
+        RETURNING slot.id::text AS id
+      `,
+      [input.slotId]
+    );
+
+    const slotId = result.rows[0]?.id;
+    if (slotId) {
+      await client.query(
+        `
+          UPDATE sponsor_publication_batches
+          SET
+            status = 'published',
+            published_at = COALESCE(published_at, NOW()),
+            updated_at = NOW()
+          WHERE slot_id = $1::uuid
+            AND status = 'scheduled'
+        `,
+        [slotId]
+      );
+      await client.query(
+        `
+          UPDATE sponsor_publication_drafts
+          SET
+            status = 'published',
+            published_at = COALESCE(published_at, NOW()),
+            updated_at = NOW()
+          WHERE (
+              slot_id = $1::uuid
+              OR batch_id IN (
+                SELECT id FROM sponsor_publication_batches
+                WHERE slot_id = $1::uuid
+              )
+            )
+            AND status IN ('approved', 'scheduled')
+        `,
+        [slotId]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    return {
+      updated: Boolean(slotId),
+      slot: await getPublicationSlotById(pool, input.slotId)
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+export const cancelAdminPublicationSlot = async (
+  pool: Pool | null,
+  input: AdminPublicationSlotLifecycleRequest
+): Promise<AdminPublicationSlotMutationResult> => {
+  if (!pool) {
+    return { updated: false, slot: null };
+  }
+
+  const presence = await getAdminBackofficePresence(pool);
+  if (!presence.has_publication_slots) {
+    return { updated: false, slot: null };
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query<{ readonly id: string }>(
+      `
+        UPDATE publication_slots
+        SET status = 'cancelled', updated_at = NOW()
+        WHERE id = $1::uuid
+          AND status IN ('open', 'scheduled')
+        RETURNING id::text AS id
+      `,
+      [input.slotId]
+    );
+
+    const slotId = result.rows[0]?.id;
+    if (slotId) {
+      await client.query(
+        `
+          UPDATE sponsor_publication_drafts
+          SET
+            slot_id = NULL,
+            status = CASE WHEN status = 'scheduled' THEN 'approved' ELSE status END,
+            scheduled_at = NULL,
+            updated_at = NOW()
+          WHERE slot_id = $1::uuid
+            AND status <> 'published'
+        `,
+        [slotId]
+      );
+      await client.query(
+        `
+          UPDATE sponsor_publication_batches
+          SET
+            slot_id = NULL,
+            status = CASE WHEN status = 'scheduled' THEN 'open' ELSE status END,
+            scheduled_at = NULL,
+            updated_at = NOW()
+          WHERE slot_id = $1::uuid
+            AND status <> 'published'
+        `,
+        [slotId]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    return {
+      updated: Boolean(slotId),
+      slot: await getPublicationSlotById(pool, input.slotId)
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const listAdminPublicationBatches = async (
@@ -808,21 +1484,61 @@ export const assignDraftToPublicationBatch = async (
           batch.channel,
           batch.status,
           batch.capacity,
+          batch.scheduled_at,
+          batch.slot_id,
+          slot.feed_target AS slot_feed_target,
+          slot.starts_at AS slot_starts_at,
+          slot.status AS slot_status,
+          slot.capacity AS slot_capacity,
           (
             SELECT COUNT(*) FROM sponsor_publication_drafts
             WHERE batch_id = batch.id
-          ) AS used
+          ) AS used,
+          (
+            SELECT COUNT(DISTINCT used_draft.id)::integer
+            FROM sponsor_publication_drafts used_draft
+            LEFT JOIN sponsor_publication_batches used_batch
+              ON used_batch.id = used_draft.batch_id
+            WHERE slot.id IS NOT NULL
+              AND (
+                used_draft.slot_id = slot.id
+                OR used_batch.slot_id = slot.id
+              )
+          ) AS slot_used
         FROM sponsor_publication_batches batch
+        LEFT JOIN publication_slots slot ON slot.id = batch.slot_id
         WHERE batch.id = $2::uuid
       )
       UPDATE sponsor_publication_drafts draft
-      SET batch_id = $2::uuid, updated_at = NOW()
+      SET
+        batch_id = $2::uuid,
+        slot_id = target_batch.slot_id,
+        status = CASE
+          WHEN target_batch.status = 'scheduled' THEN 'scheduled'
+          ELSE draft.status
+        END,
+        scheduled_at = CASE
+          WHEN target_batch.status = 'scheduled'
+            THEN COALESCE(target_batch.slot_starts_at, target_batch.scheduled_at)
+          ELSE draft.scheduled_at
+        END,
+        updated_at = NOW()
       FROM target_batch
       WHERE draft.id = $1::uuid
         AND draft.status = 'approved'
+        AND draft.batch_id IS NULL
         AND draft.channel = target_batch.channel
-        AND target_batch.status = 'open'
+        AND target_batch.status IN ('open', 'scheduled')
         AND target_batch.used < target_batch.capacity
+        AND (
+          target_batch.slot_id IS NULL
+          OR (
+            draft.feed_target = target_batch.slot_feed_target
+            AND target_batch.slot_status IN ('open', 'scheduled')
+            AND target_batch.slot_starts_at > NOW()
+            AND target_batch.slot_used < target_batch.slot_capacity
+          )
+        )
     `,
     [input.draftId, input.batchId]
   );
@@ -851,7 +1567,12 @@ export const unassignDraftFromPublicationBatch = async (
       UPDATE sponsor_publication_drafts
       SET
         batch_id = NULL,
+        slot_id = NULL,
         status = CASE WHEN status = 'scheduled' THEN 'approved' ELSE status END,
+        scheduled_at = CASE
+          WHEN status = 'scheduled' THEN NULL
+          ELSE scheduled_at
+        END,
         updated_at = NOW()
       WHERE id = $1::uuid
         AND batch_id IS NOT NULL
@@ -879,12 +1600,28 @@ export const scheduleAdminPublicationBatch = async (
     return { updated: false, batch: null };
   }
 
+  if (presence.has_publication_slots) {
+    await pool.query(
+      `
+        UPDATE publication_slots slot
+        SET starts_at = $2::timestamptz, status = 'scheduled', updated_at = NOW()
+        FROM sponsor_publication_batches batch
+        WHERE batch.id = $1::uuid
+          AND batch.slot_id = slot.id
+          AND slot.status IN ('open', 'scheduled')
+          AND $2::timestamptz > NOW()
+      `,
+      [input.batchId, input.scheduledAt]
+    );
+  }
+
   const result = await pool.query(
     `
       UPDATE sponsor_publication_batches
       SET status = 'scheduled', scheduled_at = $2::timestamptz, updated_at = NOW()
       WHERE id = $1::uuid
         AND status IN ('open', 'scheduled')
+        AND $2::timestamptz > NOW()
     `,
     [input.batchId, input.scheduledAt]
   );
@@ -892,10 +1629,16 @@ export const scheduleAdminPublicationBatch = async (
   if ((result.rowCount ?? 0) > 0) {
     await pool.query(
       `
-        UPDATE sponsor_publication_drafts
-        SET status = 'scheduled', scheduled_at = $2::timestamptz, updated_at = NOW()
-        WHERE batch_id = $1::uuid
-          AND status = 'approved'
+        UPDATE sponsor_publication_drafts draft
+        SET
+          status = 'scheduled',
+          slot_id = batch.slot_id,
+          scheduled_at = $2::timestamptz,
+          updated_at = NOW()
+        FROM sponsor_publication_batches batch
+        WHERE draft.batch_id = batch.id
+          AND batch.id = $1::uuid
+          AND draft.status IN ('approved', 'scheduled')
       `,
       [input.batchId, input.scheduledAt]
     );
@@ -951,6 +1694,38 @@ export const publishAdminPublicationBatch = async (
       `,
       [input.batchId]
     );
+
+    if (presence.has_publication_slots) {
+      await pool.query(
+        `
+          UPDATE publication_slots slot
+          SET status = 'published', updated_at = NOW()
+          WHERE slot.id IN (
+              SELECT slot_id
+              FROM sponsor_publication_batches
+              WHERE id = $1::uuid
+                AND slot_id IS NOT NULL
+            )
+            AND EXISTS (
+              SELECT 1
+              FROM sponsor_publication_drafts draft
+              LEFT JOIN sponsor_publication_batches batch
+                ON batch.id = draft.batch_id
+              WHERE (draft.slot_id = slot.id OR batch.slot_id = slot.id)
+                AND draft.status = 'published'
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM sponsor_publication_drafts draft
+              LEFT JOIN sponsor_publication_batches batch
+                ON batch.id = draft.batch_id
+              WHERE (draft.slot_id = slot.id OR batch.slot_id = slot.id)
+                AND draft.status <> 'published'
+            )
+        `,
+        [input.batchId]
+      );
+    }
   }
 
   return {
@@ -975,7 +1750,7 @@ export const cancelAdminPublicationBatch = async (
   const result = await pool.query(
     `
       UPDATE sponsor_publication_batches
-      SET status = 'cancelled', updated_at = NOW()
+      SET status = 'cancelled', slot_id = NULL, updated_at = NOW()
       WHERE id = $1::uuid
         AND status IN ('open', 'scheduled')
     `,
@@ -988,7 +1763,12 @@ export const cancelAdminPublicationBatch = async (
         UPDATE sponsor_publication_drafts
         SET
           batch_id = NULL,
+          slot_id = NULL,
           status = CASE WHEN status = 'scheduled' THEN 'approved' ELSE status END,
+          scheduled_at = CASE
+            WHEN status = 'scheduled' THEN NULL
+            ELSE scheduled_at
+          END,
           updated_at = NOW()
         WHERE batch_id = $1::uuid
       `,
@@ -1324,6 +2104,7 @@ export const markSocialPublicationJobPublished = async (
     return { published: false, mode: 'disabled', job: null, batch: null };
   }
 
+  const presence = await getAdminBackofficePresence(pool);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -1391,6 +2172,37 @@ export const markSocialPublicationJobPublished = async (
         `,
         [job.batchId, input.externalPostUrl]
       );
+      if (presence.has_publication_slots) {
+        await client.query(
+          `
+            UPDATE publication_slots slot
+            SET status = 'published', updated_at = NOW()
+            WHERE slot.id IN (
+                SELECT slot_id
+                FROM sponsor_publication_batches
+                WHERE id = $1::uuid
+                  AND slot_id IS NOT NULL
+              )
+              AND EXISTS (
+                SELECT 1
+                FROM sponsor_publication_drafts draft
+                LEFT JOIN sponsor_publication_batches batch
+                  ON batch.id = draft.batch_id
+                WHERE (draft.slot_id = slot.id OR batch.slot_id = slot.id)
+                  AND draft.status = 'published'
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM sponsor_publication_drafts draft
+                LEFT JOIN sponsor_publication_batches batch
+                  ON batch.id = draft.batch_id
+                WHERE (draft.slot_id = slot.id OR batch.slot_id = slot.id)
+                  AND draft.status <> 'published'
+              )
+          `,
+          [job.batchId]
+        );
+      }
     }
 
     await client.query('COMMIT');

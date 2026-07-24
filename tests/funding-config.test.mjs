@@ -1263,6 +1263,31 @@ test('Social publication migration adds idempotent provider jobs for publication
   }
 });
 
+test('Publication slot migration adds a real publication calendar without exposing private sponsor data', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/016_create_publication_slots.sql',
+    'utf8'
+  );
+
+  for (const marker of [
+    'CREATE TABLE IF NOT EXISTS publication_slots',
+    "feed_target TEXT NOT NULL CHECK (feed_target IN ('openg7', 'openg20'))",
+    "channel TEXT NOT NULL CHECK (channel IN ('facebook', 'linkedin'))",
+    'starts_at TIMESTAMPTZ NOT NULL',
+    "timezone TEXT NOT NULL DEFAULT 'America/Toronto'",
+    'capacity INTEGER NOT NULL CHECK (capacity > 0)',
+    "status TEXT NOT NULL DEFAULT 'open'",
+    'idx_publication_slots_channel_status_starts_at',
+    'idx_publication_slots_feed_target_starts_at',
+    'ADD COLUMN IF NOT EXISTS slot_id UUID',
+    'REFERENCES publication_slots(id) ON DELETE SET NULL',
+    'idx_sponsor_publication_batches_slot_id',
+    'idx_sponsor_publication_drafts_slot_id'
+  ]) {
+    assert.ok(migration.includes(marker), `migration must include ${marker}`);
+  }
+});
+
 test('Publication batch repository enforces capacity, channel match, and approval before assignment', () => {
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-admin.repository.ts',
@@ -1283,8 +1308,11 @@ test('Publication batch repository enforces capacity, channel match, and approva
   assert.ok(repository.includes('WITH target_batch AS ('));
   assert.ok(repository.includes("draft.status = 'approved'"));
   assert.ok(repository.includes('draft.channel = target_batch.channel'));
-  assert.ok(repository.includes("target_batch.status = 'open'"));
+  assert.ok(repository.includes("target_batch.status IN ('open', 'scheduled')"));
   assert.ok(repository.includes('target_batch.used < target_batch.capacity'));
+  assert.ok(repository.includes('draft.batch_id IS NULL'));
+  assert.ok(repository.includes('draft.feed_target = target_batch.slot_feed_target'));
+  assert.ok(repository.includes('target_batch.slot_used < target_batch.slot_capacity'));
 
   // Capacity math is derived from actual assigned drafts, not client input.
   assert.ok(
@@ -1307,6 +1335,7 @@ test('Publication batch lifecycle requires schedule before publish and preserves
       "SET status = 'scheduled', scheduled_at = $2::timestamptz, updated_at = NOW()"
     )
   );
+  assert.ok(repository.includes('AND $2::timestamptz > NOW()'));
 
   // Publishing is only possible from an already-scheduled batch (never open -> published directly).
   assert.ok(repository.includes("AND status = 'scheduled'"));
@@ -1318,7 +1347,7 @@ test('Publication batch lifecycle requires schedule before publish and preserves
 
   // Cancelling releases drafts back to 'approved' so they can be re-batched.
   assert.ok(
-    repository.includes("SET status = 'cancelled', updated_at = NOW()")
+    repository.includes("SET status = 'cancelled', slot_id = NULL, updated_at = NOW()")
   );
   assert.ok(
     repository.includes(
@@ -1329,6 +1358,36 @@ test('Publication batch lifecycle requires schedule before publish and preserves
   // A published draft can never be unassigned or silently rewritten.
   assert.ok(repository.includes('AND batch_id IS NOT NULL'));
   assert.ok(repository.includes("AND status <> 'published'"));
+});
+
+test('Publication slot repository enforces future dates, capacity, assignment, cancellation, and publication', () => {
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-admin.repository.ts',
+    'utf8'
+  );
+
+  for (const fn of [
+    'export const listAdminPublicationSlots',
+    'export const createAdminPublicationSlot',
+    'export const updateAdminPublicationSlot',
+    'export const assignBatchToPublicationSlot',
+    'export const assignDraftToPublicationSlot',
+    'export const publishAdminPublicationSlot',
+    'export const cancelAdminPublicationSlot'
+  ]) {
+    assert.ok(repository.includes(fn), `repository must expose ${fn}`);
+  }
+
+  assert.ok(repository.includes('slot.starts_at > NOW()'));
+  assert.ok(repository.includes('COALESCE($4::integer, slot.capacity) >= slot_usage.capacity_used'));
+  assert.ok(repository.includes('target_batch.drafts_match_target'));
+  assert.ok(repository.includes('target_slot.used + CASE'));
+  assert.ok(repository.includes('draft.batch_id IS NULL'));
+  assert.ok(repository.includes('draft.feed_target = target_slot.feed_target'));
+  assert.ok(repository.includes("WHERE id = $1::uuid\n          AND status IN ('open', 'scheduled')"));
+  assert.ok(repository.includes("WHERE slot.id = $1::uuid\n            AND slot.status = 'scheduled'"));
+  assert.ok(repository.includes('target_slot.capacity_used > 0'));
+  assert.equal(repository.includes('sponsor_email'), false);
 });
 
 test('Publication batch admin endpoints are authenticated, validated, rate-limited, and audited', () => {
@@ -1381,6 +1440,47 @@ test('Publication batch admin endpoints are authenticated, validated, rate-limit
   assert.ok(handlerCount >= 12, 'admin routes must all call ensureAdminAccess');
 });
 
+test('Publication slot admin endpoints are authenticated, validated, rate-limited, and audited', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  for (const route of [
+    "'/admin/publication-slots'",
+    "'/api/admin/publication-slots'",
+    "'/admin/publication-slots/update'",
+    "'/api/admin/publication-slots/update'",
+    "'/admin/publication-slots/assign-batch'",
+    "'/api/admin/publication-slots/assign-batch'",
+    "'/admin/publication-slots/assign-draft'",
+    "'/api/admin/publication-slots/assign-draft'",
+    "'/admin/publication-slots/publish'",
+    "'/api/admin/publication-slots/publish'",
+    "'/admin/publication-slots/cancel'",
+    "'/api/admin/publication-slots/cancel'"
+  ]) {
+    assert.ok(api.includes(route), `main.ts must route ${route}`);
+  }
+
+  assert.ok(api.includes("const PUBLICATION_SLOT_DEFAULT_TIMEZONE = 'America/Toronto';"));
+  assert.ok(api.includes('isFutureDateString'));
+  assert.ok(api.includes('isValidPublicationSlotTimezone'));
+  assert.ok(api.includes('isAllowedSponsorFeedTarget(parsed.feedTarget)'));
+  assert.ok(api.includes('isAllowedSponsorFeedChannel(parsed.channel)'));
+
+  for (const action of [
+    "'publication_slot.create'",
+    "'publication_slot.update'",
+    "'publication_slot.assign_batch'",
+    "'publication_slot.assign_draft'",
+    "'publication_slot.publish'",
+    "'publication_slot.cancel'"
+  ]) {
+    assert.ok(
+      api.includes(`action: ${action}`),
+      `main.ts must audit-log ${action}`
+    );
+  }
+});
+
 test('Publication batch types and admin UI expose capacity, next availability, and scheduled status', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = fs.readFileSync(
@@ -1395,6 +1495,7 @@ test('Publication batch types and admin UI expose capacity, next availability, a
   assert.ok(core.includes('export type PublicationBatchStatus ='));
   assert.ok(core.includes("'open' | 'scheduled' | 'published' | 'cancelled';"));
   assert.ok(core.includes('readonly capacity: number;'));
+  assert.ok(core.includes('readonly slotId: string | null;'));
   assert.ok(core.includes('readonly capacityUsed: number;'));
   assert.ok(core.includes('readonly capacityAvailable: number;'));
   assert.ok(core.includes('readonly scheduledAt: string | null;'));
@@ -1425,6 +1526,51 @@ test('Publication batch types and admin UI expose capacity, next availability, a
   assert.ok(page.includes('batch.capacityUsed'));
   assert.ok(page.includes('Prochaine disponibilite'));
   assert.ok(page.includes("aucune publication n'est jamais automatique"));
+});
+
+test('Publication slot types and admin UI expose calendar, edit, capacity, and assignments', () => {
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const service = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
+    'utf8'
+  );
+
+  assert.ok(core.includes('export type PublicationSlotStatus ='));
+  assert.ok(core.includes('export interface AdminPublicationSlotRecord'));
+  assert.ok(core.includes('readonly feedTarget: SponsorFeedTarget;'));
+  assert.ok(core.includes('readonly startsAt: string;'));
+  assert.ok(core.includes('readonly timezone: string;'));
+  assert.ok(core.includes('readonly assignedBatchIds: readonly string[];'));
+  assert.ok(core.includes('readonly assignedDraftIds: readonly string[];'));
+
+  for (const method of [
+    'getPublicationSlots',
+    'createPublicationSlot',
+    'updatePublicationSlot',
+    'assignBatchToPublicationSlot',
+    'assignDraftToPublicationSlot',
+    'publishPublicationSlot',
+    'cancelPublicationSlot'
+  ]) {
+    assert.ok(
+      service.includes(`async ${method}(`),
+      `service must expose ${method}`
+    );
+  }
+
+  assert.ok(page.includes('Calendrier de publication'));
+  assert.ok(page.includes('createSlot()'));
+  assert.ok(page.includes('updateSlot(slot)'));
+  assert.ok(page.includes('assignBatchToSlot(slot)'));
+  assert.ok(page.includes('assignDraftToSlot(slot)'));
+  assert.ok(page.includes('publishSlot(slot)'));
+  assert.ok(page.includes('cancelSlot(slot)'));
+  assert.ok(page.includes('slot.capacityAvailable'));
+  assert.ok(page.includes("newSlotTimezone = signal<string>('America/Toronto')"));
 });
 
 test('Social publication provider is explicit, configurable, audited, and visible in admin UI', () => {
@@ -2491,12 +2637,15 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
   const availabilityFn = extractBetween(
     repository,
     'export const getPublicSponsorshipBatchAvailability',
-    'export const listAdminPublicationBatches',
+    'export const listAdminPublicationSlots',
     'getPublicSponsorshipBatchAvailability'
   );
   assert.ok(availabilityFn.includes("WHERE status = 'scheduled'"));
+  assert.ok(availabilityFn.includes('FROM publication_slots'));
+  assert.ok(availabilityFn.includes('starts_at > NOW()'));
   assert.equal(availabilityFn.includes('sponsor_company_name'), false);
-  assert.equal(availabilityFn.includes('capacity'), false);
+  assert.equal(availabilityFn.includes('capacityUsed'), false);
+  assert.equal(availabilityFn.includes('capacityAvailable'), false);
 
   assert.ok(api.includes("'/public/sponsorship-batches/availability'"));
   assert.ok(api.includes("'/api/public/sponsorship-batches/availability'"));
@@ -2505,6 +2654,8 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
     core.includes('export interface PublicSponsorshipBatchAvailability {')
   );
   assert.ok(core.includes('readonly nextAvailableAt: string | null;'));
+  assert.ok(core.includes('export interface PublicSponsorshipPublicationSlot'));
+  assert.ok(core.includes('readonly slots: readonly PublicSponsorshipPublicationSlot[];'));
 
   assert.ok(
     service.includes(

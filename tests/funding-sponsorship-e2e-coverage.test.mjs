@@ -392,12 +392,28 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'
   );
+  const adminRepository = read(
+    'apps/funding-api/src/fund-admin.repository.ts'
+  );
+  const publicationAdminPage = read(
+    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts'
+  );
   const migration = read(
     'apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql'
   );
-  const allSource = [adminPage, adminService, api, repository, migration].join(
-    '\n'
+  const calendarMigration = read(
+    'apps/funding-api/migrations/016_create_publication_slots.sql'
   );
+  const allSource = [
+    adminPage,
+    adminService,
+    api,
+    repository,
+    adminRepository,
+    publicationAdminPage,
+    migration,
+    calendarMigration
+  ].join('\n');
 
   assertIncludesAll(
     adminPage,
@@ -450,6 +466,66 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
       'sponsor_feed_public_url'
     ],
     'publication migration'
+  );
+
+  assertIncludesAll(
+    publicationAdminPage,
+    [
+      'Calendrier de publication',
+      'createSlot()',
+      'assignBatchToSlot(slot)',
+      'assignDraftToSlot(slot)',
+      'slot.capacityAvailable',
+      'America/Toronto'
+    ],
+    'publication calendar admin UI'
+  );
+
+  assertIncludesAll(
+    adminService,
+    [
+      'getPublicationSlots',
+      'createPublicationSlot',
+      'assignBatchToPublicationSlot',
+      'assignDraftToPublicationSlot'
+    ],
+    'publication calendar admin service'
+  );
+
+  assertIncludesAll(
+    api,
+    [
+      "'/admin/publication-slots'",
+      "'/admin/publication-slots/assign-batch'",
+      "'/admin/publication-slots/assign-draft'",
+      'isFutureDateString',
+      'isValidPublicationSlotTimezone'
+    ],
+    'publication calendar API validation'
+  );
+
+  assertIncludesAll(
+    adminRepository,
+    [
+      'assignBatchToPublicationSlot',
+      'assignDraftToPublicationSlot',
+      'publishAdminPublicationSlot',
+      'cancelAdminPublicationSlot',
+      'slot.starts_at > NOW()',
+      'target_slot.used + CASE'
+    ],
+    'publication calendar repository'
+  );
+
+  assertIncludesAll(
+    calendarMigration,
+    [
+      'CREATE TABLE IF NOT EXISTS publication_slots',
+      'starts_at TIMESTAMPTZ NOT NULL',
+      "timezone TEXT NOT NULL DEFAULT 'America/Toronto'",
+      'ADD COLUMN IF NOT EXISTS slot_id UUID'
+    ],
+    'publication calendar migration'
   );
 
   assert.equal(
