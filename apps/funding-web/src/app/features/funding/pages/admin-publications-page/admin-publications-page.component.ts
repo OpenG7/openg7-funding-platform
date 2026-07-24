@@ -12,12 +12,16 @@ import type {
   AdminPublicationBatchesResponse,
   AdminPublicationDraftRecord,
   AdminPublicationDraftsResponse,
+  AdminPublicationSlotRecord,
+  AdminPublicationSlotsResponse,
   AdminSocialPublicationJobRecord,
   AdminSocialPublicationJobsResponse,
   AdminSponsorshipRecord,
   PublicationBatchStatus,
   PublicationDraftStatus,
-  SponsorFeedChannel
+  PublicationSlotStatus,
+  SponsorFeedChannel,
+  SponsorFeedTarget
 } from '@openg7/funding-core';
 
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
@@ -30,6 +34,13 @@ interface PublicationDraftEdit {
   readonly publicUrl: string;
   readonly scheduledAt: string;
   readonly reviewNote: string;
+}
+
+interface PublicationSlotEdit {
+  readonly startsAt: string;
+  readonly timezone: string;
+  readonly capacity: string;
+  readonly notes: string;
 }
 
 const publicationStatuses: readonly PublicationDraftStatus[] = [
@@ -164,6 +175,253 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
           >
             <h3>Aucune commandite prete</h3>
             <p>Approuvez une commandite et ajoutez une cible/canal feed.</p>
+          </article>
+        </section>
+
+        <section class="admin-panel" aria-labelledby="calendar-title">
+          <header>
+            <div>
+              <span>{{ slots().length }} creneau(x)</span>
+              <h2 id="calendar-title">Calendrier de publication</h2>
+            </div>
+          </header>
+          <p>
+            Les creneaux fixent la cible, le canal, l'horaire local et la
+            capacite avant l'assignation des lots ou des brouillons. La page
+            publique ne recoit que les dates, canaux, cibles et fuseaux.
+          </p>
+
+          <form
+            class="slot-create-form"
+            (submit)="$event.preventDefault(); createSlot()"
+          >
+            <label>
+              Cible
+              <select
+                [value]="newSlotFeedTarget()"
+                (change)="setNewSlotFeedTarget($event)"
+              >
+                <option value="openg7">OpenG7</option>
+                <option value="openg20">OpenG20</option>
+              </select>
+            </label>
+            <label>
+              Canal
+              <select
+                [value]="newSlotChannel()"
+                (change)="setNewSlotChannel($event)"
+              >
+                <option value="facebook">Facebook</option>
+                <option value="linkedin">LinkedIn</option>
+              </select>
+            </label>
+            <label>
+              Date et heure
+              <input
+                type="datetime-local"
+                [value]="newSlotStartsAt()"
+                (input)="setNewSlotStartsAt($event)"
+              />
+            </label>
+            <label>
+              Fuseau
+              <input
+                type="text"
+                maxlength="64"
+                [value]="newSlotTimezone()"
+                (input)="setNewSlotTimezone($event)"
+              />
+            </label>
+            <label>
+              Capacite
+              <input
+                type="number"
+                min="1"
+                max="50"
+                [value]="newSlotCapacity()"
+                (input)="setNewSlotCapacity($event)"
+              />
+            </label>
+            <label class="slot-notes-field">
+              Notes
+              <input
+                type="text"
+                maxlength="500"
+                [value]="newSlotNotes()"
+                (input)="setNewSlotNotes($event)"
+              />
+            </label>
+            <button type="submit" [disabled]="slotActionState() === 'create'">
+              Creer un creneau
+            </button>
+          </form>
+
+          <div class="slot-list" *ngIf="slots().length > 0">
+            <article
+              class="slot-card"
+              *ngFor="let slot of slots(); trackBy: trackBySlot"
+            >
+              <header>
+                <div>
+                  <span>{{ slotStatusLabel(slot.status) }}</span>
+                  <h3>
+                    {{ feedTargetName(slot.feedTarget) }} /
+                    {{ channelLabel(slot.channel) }}
+                  </h3>
+                </div>
+                <small>
+                  {{ dateLabel(slot.startsAt) }} - {{ slot.timezone }}
+                </small>
+              </header>
+
+              <div class="slot-capacity">
+                <strong>{{ slot.capacityUsed }}/{{ slot.capacity }}</strong>
+                <span
+                  >{{ slot.capacityAvailable }} place(s) restante(s)</span
+                >
+              </div>
+
+              <div
+                class="slot-edit-grid"
+                *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
+              >
+                <label>
+                  Date et heure
+                  <input
+                    type="datetime-local"
+                    [value]="slotEditFor(slot.id).startsAt"
+                    (input)="setSlotEditField(slot.id, 'startsAt', $event)"
+                  />
+                </label>
+                <label>
+                  Fuseau
+                  <input
+                    type="text"
+                    maxlength="64"
+                    [value]="slotEditFor(slot.id).timezone"
+                    (input)="setSlotEditField(slot.id, 'timezone', $event)"
+                  />
+                </label>
+                <label>
+                  Capacite
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    [value]="slotEditFor(slot.id).capacity"
+                    (input)="setSlotEditField(slot.id, 'capacity', $event)"
+                  />
+                </label>
+                <label>
+                  Notes
+                  <input
+                    type="text"
+                    maxlength="500"
+                    [value]="slotEditFor(slot.id).notes"
+                    (input)="setSlotEditField(slot.id, 'notes', $event)"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="neutral"
+                  [disabled]="slotActionState() === slot.id"
+                  (click)="updateSlot(slot)"
+                >
+                  Mettre a jour
+                </button>
+              </div>
+
+              <div
+                class="draft-batch-row"
+                *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
+              >
+                <label class="inline">
+                  Lot
+                  <select
+                    [value]="slotBatchSelection(slot.id)"
+                    (change)="setSlotBatchSelection(slot.id, $event)"
+                  >
+                    <option value="">Choisir un lot compatible...</option>
+                    <option
+                      *ngFor="let batch of assignableBatchesForSlot(slot)"
+                      [value]="batch.id"
+                    >
+                      {{ channelLabel(batch.channel) }} ({{
+                        batch.capacityUsed
+                      }}/{{ batch.capacity }})
+                    </option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="neutral"
+                  [disabled]="
+                    !slotBatchSelection(slot.id) ||
+                    slotActionState() === slot.id
+                  "
+                  (click)="assignBatchToSlot(slot)"
+                >
+                  Assigner le lot
+                </button>
+                <label class="inline">
+                  Brouillon
+                  <select
+                    [value]="slotDraftSelection(slot.id)"
+                    (change)="setSlotDraftSelection(slot.id, $event)"
+                  >
+                    <option value="">Choisir un brouillon...</option>
+                    <option
+                      *ngFor="let draft of assignableDraftsForSlot(slot)"
+                      [value]="draft.id"
+                    >
+                      {{ draft.sponsor_company_name }}
+                    </option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="neutral"
+                  [disabled]="
+                    !slotDraftSelection(slot.id) ||
+                    slotActionState() === slot.id
+                  "
+                  (click)="assignDraftToSlot(slot)"
+                >
+                  Assigner brouillon
+                </button>
+              </div>
+
+              <footer>
+                <button
+                  type="button"
+                  class="approve"
+                  *ngIf="slot.status === 'scheduled'"
+                  [disabled]="
+                    slot.capacityUsed === 0 || slotActionState() === slot.id
+                  "
+                  (click)="publishSlot(slot)"
+                >
+                  Publier le creneau
+                </button>
+                <button
+                  type="button"
+                  class="reject"
+                  *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
+                  [disabled]="slotActionState() === slot.id"
+                  (click)="cancelSlot(slot)"
+                >
+                  Annuler le creneau
+                </button>
+              </footer>
+            </article>
+          </div>
+
+          <article class="empty-state" *ngIf="slots().length === 0">
+            <h3>Aucun creneau</h3>
+            <p>
+              Creez plusieurs creneaux futurs par canal pour organiser les
+              publications Facebook et LinkedIn.
+            </p>
           </article>
         </section>
 
@@ -713,6 +971,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
       .eligible-list nav,
       .batch-card footer,
+      .slot-card footer,
       .draft-card footer {
         display: flex;
         flex-wrap: wrap;
@@ -724,6 +983,20 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         display: grid;
         gap: 0.75rem;
         grid-template-columns: minmax(8rem, 12rem) minmax(6rem, 8rem) auto;
+      }
+
+      .slot-create-form {
+        align-items: end;
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns:
+          minmax(7rem, 0.8fr) minmax(7rem, 0.8fr) minmax(12rem, 1.2fr)
+          minmax(10rem, 1fr) minmax(6rem, 0.6fr) minmax(12rem, 1.5fr)
+          auto;
+      }
+
+      .slot-notes-field {
+        min-width: 0;
       }
 
       .batch-timeline {
@@ -745,6 +1018,12 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         gap: 0.75rem;
       }
 
+      .slot-list {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+      }
+
       .batch-card {
         background: #f7f9fc;
         border: 1px solid #e4e9f2;
@@ -752,6 +1031,42 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         display: grid;
         gap: 0.75rem;
         padding: 0.85rem;
+      }
+
+      .slot-card {
+        background: #f7f9fc;
+        border: 1px solid #d9e7dd;
+        border-radius: 0.45rem;
+        display: grid;
+        gap: 0.75rem;
+        padding: 0.85rem;
+      }
+
+      .slot-capacity {
+        align-items: center;
+        background: #edf8f1;
+        border: 1px solid #c9e6d1;
+        border-radius: 0.45rem;
+        display: flex;
+        gap: 0.75rem;
+        justify-content: space-between;
+        padding: 0.75rem;
+      }
+
+      .slot-capacity strong {
+        font-size: 1.35rem;
+      }
+
+      .slot-capacity span {
+        color: #176236;
+        font-size: 0.85rem;
+        font-weight: 900;
+      }
+
+      .slot-edit-grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
       }
 
       .social-runtime,
@@ -779,14 +1094,16 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         font-weight: 900;
       }
 
-      .batch-card header {
+      .batch-card header,
+      .slot-card header {
         align-items: center;
         display: flex;
         gap: 0.75rem;
         justify-content: space-between;
       }
 
-      .batch-card h3 {
+      .batch-card h3,
+      .slot-card h3 {
         margin: 0;
       }
 
@@ -822,14 +1139,17 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         .admin-auth-panel,
         .admin-summary-grid,
         .filters,
-        .draft-grid {
+        .draft-grid,
+        .slot-create-form,
+        .slot-edit-grid {
           grid-template-columns: 1fr;
         }
 
         .admin-topbar,
         .admin-panel header,
         .draft-card header,
-        .eligible-list article {
+        .eligible-list article,
+        .slot-card header {
           align-items: start;
           flex-direction: column;
         }
@@ -853,16 +1173,28 @@ export class AdminPublicationsPageComponent implements OnInit {
   readonly batchesResponse = signal<AdminPublicationBatchesResponse | null>(
     null
   );
+  readonly slotsResponse = signal<AdminPublicationSlotsResponse | null>(null);
+  readonly slotEdits = signal<Record<string, PublicationSlotEdit>>({});
   readonly socialJobsResponse =
     signal<AdminSocialPublicationJobsResponse | null>(null);
   readonly batchActionState = signal<string | null>(null);
+  readonly slotActionState = signal<string | null>(null);
+  readonly newSlotFeedTarget = signal<SponsorFeedTarget>('openg7');
+  readonly newSlotChannel = signal<SponsorFeedChannel>('facebook');
+  readonly newSlotStartsAt = signal<string>('');
+  readonly newSlotTimezone = signal<string>('America/Toronto');
+  readonly newSlotCapacity = signal<string>('5');
+  readonly newSlotNotes = signal<string>('');
   readonly newBatchChannel = signal<SponsorFeedChannel>('facebook');
   readonly newBatchCapacity = signal<string>('5');
   readonly batchScheduleEdits = signal<Record<string, string>>({});
   readonly draftBatchSelections = signal<Record<string, string>>({});
+  readonly slotBatchSelections = signal<Record<string, string>>({});
+  readonly slotDraftSelections = signal<Record<string, string>>({});
 
   readonly drafts = computed(() => this.draftsResponse()?.drafts ?? []);
   readonly batches = computed(() => this.batchesResponse()?.batches ?? []);
+  readonly slots = computed(() => this.slotsResponse()?.slots ?? []);
   readonly socialJobs = computed(() => this.socialJobsResponse()?.jobs ?? []);
   readonly socialJobByBatchId = computed(() => {
     const jobs = new Map<string, AdminSocialPublicationJobRecord>();
@@ -926,10 +1258,12 @@ export class AdminPublicationsPageComponent implements OnInit {
     this.state.set('loading');
 
     try {
-      const [sponsorships, drafts, batches, socialJobs] = await Promise.all([
+      const [sponsorships, drafts, batches, slots, socialJobs] =
+        await Promise.all([
         this.admin.getSponsorships(this.adminToken()),
         this.admin.getPublicationDrafts(this.adminToken()),
         this.admin.getPublicationBatches(this.adminToken()),
+        this.admin.getPublicationSlots(this.adminToken()),
         this.admin.getSocialPublicationJobs(this.adminToken())
       ]);
       this.sponsorships.set(sponsorships.sponsorships);
@@ -940,6 +1274,12 @@ export class AdminPublicationsPageComponent implements OnInit {
         )
       );
       this.batchesResponse.set(batches);
+      this.slotsResponse.set(slots);
+      this.slotEdits.set(
+        Object.fromEntries(
+          slots.slots.map((slot) => [slot.id, this.toSlotEdit(slot)])
+        )
+      );
       this.socialJobsResponse.set(socialJobs);
       this.state.set('ready');
       this.admin.saveAdminToken(this.adminToken());
@@ -1006,6 +1346,135 @@ export class AdminPublicationsPageComponent implements OnInit {
       .join('\n\n');
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       await navigator.clipboard.writeText(text);
+    }
+  }
+
+  async createSlot(): Promise<void> {
+    const capacity = Number.parseInt(this.newSlotCapacity(), 10);
+    if (
+      !Number.isInteger(capacity) ||
+      capacity < 1 ||
+      capacity > 50 ||
+      !this.newSlotStartsAt()
+    ) {
+      this.state.set('error');
+      return;
+    }
+
+    this.slotActionState.set('create');
+    try {
+      await this.admin.createPublicationSlot(this.adminToken(), {
+        feedTarget: this.newSlotFeedTarget(),
+        channel: this.newSlotChannel(),
+        startsAt: new Date(this.newSlotStartsAt()).toISOString(),
+        timezone: this.newSlotTimezone().trim() || 'America/Toronto',
+        capacity,
+        notes: this.newSlotNotes()
+      });
+      this.newSlotNotes.set('');
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.slotActionState.set(null);
+    }
+  }
+
+  async updateSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    const edit = this.slotEditFor(slot.id);
+    const capacity = Number.parseInt(edit.capacity, 10);
+    if (
+      !Number.isInteger(capacity) ||
+      capacity < 1 ||
+      capacity > 50 ||
+      !edit.startsAt
+    ) {
+      this.state.set('error');
+      return;
+    }
+
+    this.slotActionState.set(slot.id);
+    try {
+      await this.admin.updatePublicationSlot(this.adminToken(), {
+        slotId: slot.id,
+        startsAt: new Date(edit.startsAt).toISOString(),
+        timezone: edit.timezone.trim() || 'America/Toronto',
+        capacity,
+        notes: edit.notes
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.slotActionState.set(null);
+    }
+  }
+
+  async assignBatchToSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    const batchId = this.slotBatchSelection(slot.id);
+    if (!batchId) {
+      return;
+    }
+
+    this.slotActionState.set(slot.id);
+    try {
+      await this.admin.assignBatchToPublicationSlot(this.adminToken(), {
+        slotId: slot.id,
+        batchId
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.slotActionState.set(null);
+    }
+  }
+
+  async assignDraftToSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    const draftId = this.slotDraftSelection(slot.id);
+    if (!draftId) {
+      return;
+    }
+
+    this.slotActionState.set(slot.id);
+    try {
+      await this.admin.assignDraftToPublicationSlot(this.adminToken(), {
+        slotId: slot.id,
+        draftId
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.slotActionState.set(null);
+    }
+  }
+
+  async publishSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    this.slotActionState.set(slot.id);
+    try {
+      await this.admin.publishPublicationSlot(this.adminToken(), {
+        slotId: slot.id
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.slotActionState.set(null);
+    }
+  }
+
+  async cancelSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    this.slotActionState.set(slot.id);
+    try {
+      await this.admin.cancelPublicationSlot(this.adminToken(), {
+        slotId: slot.id
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.slotActionState.set(null);
     }
   }
 
@@ -1158,6 +1627,32 @@ export class AdminPublicationsPageComponent implements OnInit {
     );
   }
 
+  setNewSlotFeedTarget(event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.newSlotFeedTarget.set(value === 'openg20' ? 'openg20' : 'openg7');
+  }
+
+  setNewSlotChannel(event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.newSlotChannel.set(value === 'linkedin' ? 'linkedin' : 'facebook');
+  }
+
+  setNewSlotStartsAt(event: Event): void {
+    this.newSlotStartsAt.set(this.valueFromEvent(event));
+  }
+
+  setNewSlotTimezone(event: Event): void {
+    this.newSlotTimezone.set(this.valueFromEvent(event));
+  }
+
+  setNewSlotCapacity(event: Event): void {
+    this.newSlotCapacity.set(this.valueFromEvent(event));
+  }
+
+  setNewSlotNotes(event: Event): void {
+    this.newSlotNotes.set(this.valueFromEvent(event));
+  }
+
   setNewBatchChannel(event: Event): void {
     const value = this.valueFromEvent(event);
     this.newBatchChannel.set(value === 'linkedin' ? 'linkedin' : 'facebook');
@@ -1191,6 +1686,49 @@ export class AdminPublicationsPageComponent implements OnInit {
     }));
   }
 
+  slotEditFor(slotId: string): PublicationSlotEdit {
+    return this.slotEdits()[slotId] ?? this.emptySlotEdit();
+  }
+
+  setSlotEditField(
+    slotId: string,
+    field: keyof PublicationSlotEdit,
+    event: Event
+  ): void {
+    const value = this.valueFromEvent(event);
+    this.slotEdits.update((edits) => ({
+      ...edits,
+      [slotId]: {
+        ...(edits[slotId] ?? this.emptySlotEdit()),
+        [field]: value
+      }
+    }));
+  }
+
+  slotBatchSelection(slotId: string): string {
+    return this.slotBatchSelections()[slotId] ?? '';
+  }
+
+  setSlotBatchSelection(slotId: string, event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.slotBatchSelections.update((selections) => ({
+      ...selections,
+      [slotId]: value
+    }));
+  }
+
+  slotDraftSelection(slotId: string): string {
+    return this.slotDraftSelections()[slotId] ?? '';
+  }
+
+  setSlotDraftSelection(slotId: string, event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.slotDraftSelections.update((selections) => ({
+      ...selections,
+      [slotId]: value
+    }));
+  }
+
   readonly batchChannels: readonly SponsorFeedChannel[] = [
     'facebook',
     'linkedin'
@@ -1207,6 +1745,35 @@ export class AdminPublicationsPageComponent implements OnInit {
   ): readonly AdminPublicationBatchRecord[] {
     return this.batches().filter(
       (batch) => batch.channel === channel && batch.status === 'open'
+    );
+  }
+
+  assignableBatchesForSlot(
+    slot: AdminPublicationSlotRecord
+  ): readonly AdminPublicationBatchRecord[] {
+    return this.batches().filter(
+      (batch) =>
+        batch.channel === slot.channel &&
+        (batch.status === 'open' || batch.status === 'scheduled') &&
+        (batch.slotId === null || batch.slotId === slot.id) &&
+        (batch.slotId === slot.id ||
+          batch.capacityUsed <= slot.capacityAvailable) &&
+        this.batchDraftsMatchSlot(batch, slot)
+    );
+  }
+
+  assignableDraftsForSlot(
+    slot: AdminPublicationSlotRecord
+  ): readonly AdminPublicationDraftRecord[] {
+    return this.drafts().filter(
+      (draft) =>
+        draft.channel === slot.channel &&
+        draft.feed_target === slot.feedTarget &&
+        draft.batch_id === null &&
+        (draft.status === 'approved' ||
+          (draft.status === 'scheduled' && draft.slot_id === slot.id)) &&
+        (draft.slot_id === null || draft.slot_id === slot.id) &&
+        (draft.slot_id === slot.id || slot.capacityAvailable > 0)
     );
   }
 
@@ -1294,8 +1861,16 @@ export class AdminPublicationsPageComponent implements OnInit {
     return batch.id;
   }
 
+  trackBySlot(_: number, slot: AdminPublicationSlotRecord): string {
+    return slot.id;
+  }
+
   channelLabel(channel: SponsorFeedChannel): string {
     return channel === 'linkedin' ? 'LinkedIn' : 'Facebook';
+  }
+
+  feedTargetName(feedTarget: SponsorFeedTarget): string {
+    return feedTarget === 'openg20' ? 'OpenG20' : 'OpenG7';
   }
 
   batchStatusLabel(status: PublicationBatchStatus | null): string {
@@ -1304,6 +1879,17 @@ export class AdminPublicationsPageComponent implements OnInit {
     }
 
     const labels: Record<PublicationBatchStatus, string> = {
+      open: 'Ouvert',
+      scheduled: 'Planifie',
+      published: 'Publie',
+      cancelled: 'Annule'
+    };
+
+    return labels[status];
+  }
+
+  slotStatusLabel(status: PublicationSlotStatus): string {
+    const labels: Record<PublicationSlotStatus, string> = {
       open: 'Ouvert',
       scheduled: 'Planifie',
       published: 'Publie',
@@ -1358,6 +1944,15 @@ export class AdminPublicationsPageComponent implements OnInit {
     };
   }
 
+  private toSlotEdit(slot: AdminPublicationSlotRecord): PublicationSlotEdit {
+    return {
+      startsAt: this.toDateTimeLocal(slot.startsAt),
+      timezone: slot.timezone,
+      capacity: String(slot.capacity),
+      notes: slot.notes ?? ''
+    };
+  }
+
   private emptyEdit(): PublicationDraftEdit {
     return {
       title: '',
@@ -1367,6 +1962,28 @@ export class AdminPublicationsPageComponent implements OnInit {
       scheduledAt: '',
       reviewNote: ''
     };
+  }
+
+  private emptySlotEdit(): PublicationSlotEdit {
+    return {
+      startsAt: '',
+      timezone: 'America/Toronto',
+      capacity: '5',
+      notes: ''
+    };
+  }
+
+  private batchDraftsMatchSlot(
+    batch: AdminPublicationBatchRecord,
+    slot: AdminPublicationSlotRecord
+  ): boolean {
+    const assignedDrafts = this.drafts().filter(
+      (draft) => draft.batch_id === batch.id
+    );
+
+    return assignedDrafts.every(
+      (draft) => draft.feed_target === slot.feedTarget
+    );
   }
 
   private toDateTimeLocal(value: string | null): string {

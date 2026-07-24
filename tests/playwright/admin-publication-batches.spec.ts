@@ -6,13 +6,13 @@ import { signInAsAdmin } from './support/admin-auth.js';
 // Covers the Facebook/LinkedIn publication batch lifecycle
 // (admin-publications-page.component.ts), never exercised in a browser
 // before: create a draft for an eligible sponsorship, approve it, create a
-// batch, assign the draft, schedule the batch, then publish it through the
-// mocked social provider. No Facebook/LinkedIn secret is used in E2E; the
-// API still exercises the social job, idempotency, status cascade, and
-// public URL write path.
+// batch, assign the draft, place the batch in a calendar slot, then publish
+// it through the mocked social provider. No Facebook/LinkedIn secret is used
+// in E2E; the API still exercises the social job, idempotency, status
+// cascade, and public URL write path.
 
 test.describe('Docker admin publication batches', () => {
-  test('creates a draft, assigns it to a batch, schedules, and publishes the batch', async ({
+  test('creates a draft, assigns it to a calendar slot, and publishes the batch', async ({
     page
   }) => {
     await signInAsAdmin(page);
@@ -80,16 +80,33 @@ test.describe('Docker admin publication batches', () => {
     await expect(draftCard.getByText(/Dans un lot \(Ouvert\)/i)).toBeVisible();
     await expect(batchCard).toContainText('Facebook - 1/5');
 
-    const nextAvailability = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    const slotStartsAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 16);
-    await batchCard
-      .getByLabel('Prochaine disponibilite')
-      .fill(nextAvailability);
-    await batchCard
-      .getByRole('button', { name: 'Planifier', exact: true })
+    await page
+      .locator('.slot-create-form')
+      .getByLabel('Date et heure')
+      .fill(slotStartsAt);
+    await page
+      .getByRole('button', { name: 'Creer un creneau', exact: true })
       .click();
 
+    const slotCard = page.locator('.slot-card', {
+      hasText: 'OpenG7 / Facebook'
+    }).first();
+    await expect(slotCard).toBeVisible();
+    await expect(slotCard).toContainText('0/5');
+
+    const slotBatchSelect = slotCard.locator('label.inline select').first();
+    await expect(
+      slotBatchSelect.locator('option', { hasText: 'Facebook (1/5)' }).first()
+    ).toBeAttached();
+    await slotBatchSelect.selectOption({ label: 'Facebook (1/5)' });
+    await slotCard
+      .getByRole('button', { name: 'Assigner le lot', exact: true })
+      .click();
+
+    await expect(slotCard).toContainText('1/5');
     await expect(batchCard).toContainText('Planifie');
 
     page.once('dialog', (dialog) => dialog.accept());

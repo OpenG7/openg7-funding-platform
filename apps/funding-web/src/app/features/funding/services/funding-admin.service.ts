@@ -25,6 +25,13 @@ import type {
   AdminPublicationDraftMutationResult,
   AdminPublicationDraftUpdateRequest,
   AdminPublicationDraftsResponse,
+  AdminPublicationSlotAssignBatchRequest,
+  AdminPublicationSlotAssignDraftRequest,
+  AdminPublicationSlotCreateRequest,
+  AdminPublicationSlotLifecycleRequest,
+  AdminPublicationSlotMutationResult,
+  AdminPublicationSlotsResponse,
+  AdminPublicationSlotUpdateRequest,
   AdminSessionResponse,
   AdminSocialPublicationBatchPublishRequest,
   AdminSocialPublicationBatchPublishResult,
@@ -585,6 +592,156 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminPublicationBatchMutationResult;
+  }
+
+  async getPublicationSlots(
+    token: string
+  ): Promise<AdminPublicationSlotsResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/publication-slots`, {
+      method: 'GET',
+      headers: await this.createHeaders(token)
+    });
+
+    if (!response.ok) {
+      throw new Error('Admin publication slots could not be loaded.');
+    }
+
+    return (await response.json()) as AdminPublicationSlotsResponse;
+  }
+
+  async createPublicationSlot(
+    token: string,
+    payload: AdminPublicationSlotCreateRequest
+  ): Promise<AdminPublicationSlotMutationResult> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/publication-slots`, {
+      method: 'POST',
+      headers: {
+        ...(await this.createHeaders(token)),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error('Admin publication slot could not be created.');
+    }
+
+    return (await response.json()) as AdminPublicationSlotMutationResult;
+  }
+
+  async updatePublicationSlot(
+    token: string,
+    payload: AdminPublicationSlotUpdateRequest
+  ): Promise<AdminPublicationSlotMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-slots/update`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Admin publication slot could not be updated.');
+    }
+
+    return (await response.json()) as AdminPublicationSlotMutationResult;
+  }
+
+  async assignBatchToPublicationSlot(
+    token: string,
+    payload: AdminPublicationSlotAssignBatchRequest
+  ): Promise<AdminPublicationSlotMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-slots/assign-batch`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Batch could not be assigned to the publication slot.');
+    }
+
+    return (await response.json()) as AdminPublicationSlotMutationResult;
+  }
+
+  async assignDraftToPublicationSlot(
+    token: string,
+    payload: AdminPublicationSlotAssignDraftRequest
+  ): Promise<AdminPublicationSlotMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-slots/assign-draft`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Draft could not be assigned to the publication slot.');
+    }
+
+    return (await response.json()) as AdminPublicationSlotMutationResult;
+  }
+
+  async publishPublicationSlot(
+    token: string,
+    payload: AdminPublicationSlotLifecycleRequest
+  ): Promise<AdminPublicationSlotMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-slots/publish`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Publication slot could not be published.');
+    }
+
+    return (await response.json()) as AdminPublicationSlotMutationResult;
+  }
+
+  async cancelPublicationSlot(
+    token: string,
+    payload: AdminPublicationSlotLifecycleRequest
+  ): Promise<AdminPublicationSlotMutationResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-slots/cancel`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Publication slot could not be cancelled.');
+    }
+
+    return (await response.json()) as AdminPublicationSlotMutationResult;
   }
 
   async assignDraftToBatch(

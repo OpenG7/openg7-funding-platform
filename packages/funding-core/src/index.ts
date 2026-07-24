@@ -215,9 +215,17 @@ export interface PublicSponsorshipBatchAvailability {
   readonly nextAvailableAt: string | null;
 }
 
+export interface PublicSponsorshipPublicationSlot {
+  readonly feedTarget: SponsorFeedTarget;
+  readonly channel: SponsorFeedChannel;
+  readonly startsAt: string;
+  readonly timezone: string;
+}
+
 export interface PublicSponsorshipBatchAvailabilityResponse {
   readonly data_source: 'database' | 'empty';
   readonly availability: readonly PublicSponsorshipBatchAvailability[];
+  readonly slots: readonly PublicSponsorshipPublicationSlot[];
 }
 
 export interface FundTransparencyPublicResponse {
@@ -735,6 +743,7 @@ export interface AdminPublicationDraftRecord {
   readonly published_at: string | null;
   readonly review_note: string | null;
   readonly batch_id: string | null;
+  readonly slot_id: string | null;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -776,11 +785,15 @@ export interface AdminPublicationDraftMutationResult {
 export type PublicationBatchStatus =
   'open' | 'scheduled' | 'published' | 'cancelled';
 
+export type PublicationSlotStatus =
+  'open' | 'scheduled' | 'published' | 'cancelled';
+
 export interface AdminPublicationBatchRecord {
   readonly id: string;
   readonly channel: SponsorFeedChannel;
   readonly capacity: number;
   readonly status: PublicationBatchStatus;
+  readonly slotId: string | null;
   readonly scheduledAt: string | null;
   readonly publishedAt: string | null;
   readonly notes: string | null;
@@ -824,6 +837,65 @@ export interface AdminPublicationBatchLifecycleRequest {
 export interface AdminPublicationBatchMutationResult {
   readonly updated: boolean;
   readonly batch: AdminPublicationBatchRecord | null;
+}
+
+export interface AdminPublicationSlotRecord {
+  readonly id: string;
+  readonly feedTarget: SponsorFeedTarget;
+  readonly channel: SponsorFeedChannel;
+  readonly startsAt: string;
+  readonly timezone: string;
+  readonly capacity: number;
+  readonly status: PublicationSlotStatus;
+  readonly notes: string | null;
+  readonly assignedBatchIds: readonly string[];
+  readonly assignedDraftIds: readonly string[];
+  readonly capacityUsed: number;
+  readonly capacityAvailable: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface AdminPublicationSlotsResponse {
+  readonly data_source: 'database';
+  readonly slots: readonly AdminPublicationSlotRecord[];
+  readonly last_updated_at: string;
+}
+
+export interface AdminPublicationSlotCreateRequest {
+  readonly feedTarget: SponsorFeedTarget;
+  readonly channel: SponsorFeedChannel;
+  readonly startsAt: string;
+  readonly timezone?: string;
+  readonly capacity: number;
+  readonly notes?: string;
+}
+
+export interface AdminPublicationSlotUpdateRequest {
+  readonly slotId: string;
+  readonly startsAt?: string;
+  readonly timezone?: string;
+  readonly capacity?: number;
+  readonly notes?: string | null;
+}
+
+export interface AdminPublicationSlotAssignBatchRequest {
+  readonly slotId: string;
+  readonly batchId: string;
+}
+
+export interface AdminPublicationSlotAssignDraftRequest {
+  readonly slotId: string;
+  readonly draftId: string;
+}
+
+export interface AdminPublicationSlotLifecycleRequest {
+  readonly slotId: string;
+}
+
+export interface AdminPublicationSlotMutationResult {
+  readonly updated: boolean;
+  readonly slot: AdminPublicationSlotRecord | null;
 }
 
 export type SocialPublicationMode = 'disabled' | 'mock' | 'live';

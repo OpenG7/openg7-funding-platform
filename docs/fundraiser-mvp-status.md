@@ -168,18 +168,26 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
 - Table `sponsor_publication_batches` (migration
   `008_add_sponsorship_publication_batches.sql`): canal, capacite, statut
   (`open`, `scheduled`, `published`, `cancelled`), date de prochaine
-  disponibilite (`scheduled_at`), date de publication, notes.
+  disponibilite projetee (`scheduled_at`), date de publication, notes et
+  lien optionnel vers un creneau calendrier.
+- Table `publication_slots` (migration
+  `016_create_publication_slots.sql`): cible (`openg7`/`openg20`), canal,
+  date/heure (`starts_at`), fuseau (`America/Toronto` par defaut), capacite,
+  statut, notes et index de consultation par canal/date. Plusieurs creneaux
+  futurs Facebook/LinkedIn peuvent coexister.
 - Colonne `batch_id` ajoutee a `sponsor_publication_drafts`: chaque brouillon
   approuve peut etre assigne a un lot ouvert du meme canal.
+- Colonne `slot_id` ajoutee aux lots et brouillons: un lot ou un brouillon
+  direct peut etre place dans un creneau futur compatible.
 - L'assignation verifie en une seule requete atomique que le brouillon est
-  `approved`, que son canal correspond au lot, que le lot est `open` et que
-  sa capacite n'est pas depassee: deux actions admin concurrentes ne peuvent
-  pas surbooker le meme lot.
+  `approved`, que son canal correspond au lot ou au creneau, que la cible
+  correspond lorsqu'un creneau est choisi, et que la capacite du lot comme du
+  creneau n'est pas depassee: deux actions admin concurrentes ne peuvent pas
+  surbooker la meme publication.
 - Planifier un lot (`scheduled`, avec une date de prochaine disponibilite)
-  et le publier sont deux actions manuelles distinctes; publier n'est
-  possible que depuis un lot deja planifie. Publier un lot marque tous ses
-  brouillons assignes comme publies en une seule fois, comme la vraie
-  publication collective qui les regroupe.
+  reste supporte comme compatibilite, mais la planification riche passe par
+  les creneaux. Publier un lot ou un creneau marque les brouillons assignes
+  comme publies; publier n'est possible qu'apres planification explicite.
 - Publication sociale assistee:
   - table `social_publication_jobs` (migration
     `015_create_social_publication_jobs.sql`) pour tracer le fournisseur,
@@ -194,6 +202,9 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
 - Annuler un lot libere ses brouillons assignes (retour a `approved`) pour
   qu'ils puissent rejoindre un autre lot. Retirer un brouillon deja publie
   d'un lot est impossible: l'historique n'est jamais reecrit.
+- Annuler un creneau non publie libere les lots/brouillons associes et remet
+  les brouillons planifies a `approved`; un creneau publie est final et ne
+  peut pas etre annule.
 - Aucune de ces actions ne rend une commandite publique automatiquement: la
   visibilite publique (`/commanditaires`) reste gouvernee separement par
   `sponsor_review_status = approved` et le consentement du sponsor.
@@ -204,11 +215,20 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   `POST /api/admin/publication-batches/publish`,
   `POST /api/admin/publication-batches/publish-social`,
   `POST /api/admin/publication-batches/cancel` et
+  `GET/POST /api/admin/publication-slots`,
+  `POST /api/admin/publication-slots/update`,
+  `POST /api/admin/publication-slots/assign-batch`,
+  `POST /api/admin/publication-slots/assign-draft`,
+  `POST /api/admin/publication-slots/publish`,
+  `POST /api/admin/publication-slots/cancel` et
   `GET /api/admin/social-publication-jobs`. Meme authentification,
   limitation de debit et journal d'audit que les autres routes admin.
-- UI admin: section "Lots de publication collective" dans
-  `/admin/fundraiser/publications`, avec creation de lot, assignation par
-  brouillon, planification, publication sociale via API, publication manuelle
+- UI admin: section "Calendrier de publication" dans
+  `/admin/fundraiser/publications`, avec creation/edition/annulation de
+  creneaux, capacite utilisee/restante, assignation de lot ou de brouillon
+  direct, puis publication manuelle du creneau. La section "Lots de
+  publication collective" conserve creation de lot, assignation par brouillon,
+  planification compatible, publication sociale via API, publication manuelle
   et annulation. Les lots sont regroupes par canal puis tries
   chronologiquement (lots planifies du plus proche au plus lointain, puis
   lots ouverts, puis historique) pour voir plusieurs lots a venir d'un coup
@@ -216,17 +236,12 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   retourne par le fournisseur.
 - Notification admin par courriel (SMTP, `FUNDING_ADMIN_NOTIFICATION_EMAIL`)
   lorsqu'un lot ouvert atteint sa capacite, pour eviter qu'il reste plein et
-  oublie. Purement informatif: n'planifie ni ne publie rien automatiquement.
+  oublie. Purement informatif: ne planifie ni ne publie rien automatiquement.
 - Endpoint public `GET /api/public/sponsorship-batches/availability`: expose
-  uniquement, par canal, la date du prochain lot deja planifie (aucune donnee
-  de sponsor, aucun chiffre de capacite). Affiche sur la page de financement
-  comme indication ("prochaine diffusion collective Facebook indicative:
-  ..."), sous le recapitulatif d'avantages de commandite, quand une date est
-  connue.
-- Reste a developper: un vrai calendrier avec plusieurs creneaux futurs
-  planifies a l'avance par l'admin (aujourd'hui un seul `scheduled_at` par
-  lot) et une vue publique dediee au-dela de la phrase indicative sur la
-  page de financement.
+  uniquement les prochaines dates/canaux/cibles/fuseaux autorises depuis
+  `publication_slots`, ainsi que l'agregat historique `nextAvailableAt` par
+  canal pour compatibilite. Aucun nom de sponsor, brouillon, note admin ni
+  chiffre de capacite n'est expose publiquement.
 - Route cachee `/admin/fundraiser/sponsors`.
 - Chaque commandite listee affiche son palier (mention OpenG7.org seule,
   - Facebook, + Facebook et LinkedIn) et le detail des avantages obtenus,
@@ -455,6 +470,13 @@ Resultat attendu:
   - `POST /api/admin/publication-batches/assign`.
   - `POST /api/admin/publication-batches/schedule`.
   - `POST /api/admin/publication-batches/publish-social`.
+  - `GET /api/admin/publication-slots`.
+  - `POST /api/admin/publication-slots`.
+  - `POST /api/admin/publication-slots/update`.
+  - `POST /api/admin/publication-slots/assign-batch`.
+  - `POST /api/admin/publication-slots/assign-draft`.
+  - `POST /api/admin/publication-slots/publish`.
+  - `POST /api/admin/publication-slots/cancel`.
   - `GET /api/admin/social-publication-jobs`.
   - `GET /api/admin/audit-log`.
 - Checkout teste avec une contribution reelle de faible montant ou en mode test Stripe.
