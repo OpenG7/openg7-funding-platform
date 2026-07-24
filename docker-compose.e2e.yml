@@ -1,0 +1,34 @@
+# Playwright Docker E2E overlay -- never used outside scripts/playwright-docker-up.mjs.
+# Adds an in-memory Stripe API stub (tests/stripe-stub/) that the `api`
+# container is pointed at via STRIPE_API_HOST/PORT/PROTOCOL (see
+# apps/funding-api/src/main.ts), so webhook/backfill/refund tests can exercise
+# real HTTP calls without a live Stripe account. Merged on top of
+# docker-compose.yml, never shipped or referenced by production tooling.
+services:
+  stripe-stub:
+    build:
+      context: .
+      dockerfile: tests/stripe-stub/Dockerfile
+    networks:
+      - data
+      # `data` is internal:true (docker-compose.yml) so container-to-container
+      # traffic from `api` stays off any public interface -- but an
+      # internal-only network also can't route a host port publish (Docker
+      # silently drops it; confirmed via `docker inspect`, no binding shows
+      # up even though `ports:` below is set). `edge` is a normal bridge, so
+      # it's what actually lets 127.0.0.1:4242 reach this container.
+      - edge
+    # Host-bound only in this E2E overlay so Playwright specs (running on the
+    # host, not in the Docker network) can seed/reset stub state directly.
+    ports:
+      - '127.0.0.1:4242:4242'
+    restart: unless-stopped
+
+  api:
+    environment:
+      STRIPE_API_HOST: stripe-stub
+      STRIPE_API_PORT: '4242'
+      STRIPE_API_PROTOCOL: http
+    depends_on:
+      stripe-stub:
+        condition: service_started
