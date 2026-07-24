@@ -6,9 +6,10 @@ import { signInAsAdmin } from './support/admin-auth.js';
 // Covers the Facebook/LinkedIn publication batch lifecycle
 // (admin-publications-page.component.ts), never exercised in a browser
 // before: create a draft for an eligible sponsorship, approve it, create a
-// batch, assign the draft, schedule the batch, then publish it. No external
-// network call is involved -- scheduling and publishing are both manual
-// admin actions recorded in the database only.
+// batch, assign the draft, schedule the batch, then publish it through the
+// mocked social provider. No Facebook/LinkedIn secret is used in E2E; the
+// API still exercises the social job, idempotency, status cascade, and
+// public URL write path.
 
 test.describe('Docker admin publication batches', () => {
   test('creates a draft, assigns it to a batch, schedules, and publishes the batch', async ({
@@ -91,11 +92,19 @@ test.describe('Docker admin publication batches', () => {
 
     await expect(batchCard).toContainText('Planifie');
 
+    page.once('dialog', (dialog) => dialog.accept());
     await batchCard
-      .getByRole('button', { name: 'Publier maintenant', exact: true })
+      .getByRole('button', { name: 'Publier via API sociale', exact: true })
       .click();
 
-    await expect(batchCard).toContainText('Publie');
+    const publishedBatchCard = page
+      .locator('.batch-card', { hasText: 'Facebook - 1/5' })
+      .filter({ hasText: 'Publie via API' });
+    await expect(publishedBatchCard).toContainText('Publie via API');
+    await expect(
+      publishedBatchCard.getByRole('link', { name: 'Voir la publication' })
+    ).toBeVisible();
+    await expect(publishedBatchCard).toContainText('Publie');
     await expect(draftCard.getByText(/Dans un lot \(Publie\)/i)).toBeVisible();
   });
 });

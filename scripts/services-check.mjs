@@ -20,6 +20,8 @@ const secretNames = new Set([
   'FUNDING_ADMIN_TOKEN',
   'OVH_S3_ACCESS_KEY_ID',
   'OVH_S3_SECRET_ACCESS_KEY',
+  'SOCIAL_PUBLICATION_FACEBOOK_PAGE_ACCESS_TOKEN',
+  'SOCIAL_PUBLICATION_LINKEDIN_ACCESS_TOKEN',
   'SMTP_PASSWORD',
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET'
@@ -136,6 +138,7 @@ requiredPattern(
 );
 
 checkSponsorMediaStorage();
+checkSocialPublication();
 
 printReport();
 process.exitCode = checks.some((check) => check.status === 'missing') ? 1 : 0;
@@ -513,6 +516,79 @@ function checkSponsorMediaStorage() {
     'OVH_S3_SECRET_ACCESS_KEY',
     'set the OVH S3 secret access key',
     16
+  );
+}
+
+function checkSocialPublication() {
+  const mode = readValue('SOCIAL_PUBLICATION_MODE') || 'disabled';
+  if (mode === 'disabled') {
+    record(
+      'warn',
+      'Social publication',
+      'SOCIAL_PUBLICATION_MODE',
+      'disabled; set mock for local E2E or live for Facebook/LinkedIn publishing'
+    );
+    return;
+  }
+
+  if (mode === 'mock') {
+    record(
+      'ok',
+      'Social publication',
+      'SOCIAL_PUBLICATION_MODE',
+      'mock provider enabled'
+    );
+    return;
+  }
+
+  if (mode !== 'live') {
+    record(
+      'missing',
+      'Social publication',
+      'SOCIAL_PUBLICATION_MODE',
+      'must be disabled, mock, or live'
+    );
+    return;
+  }
+
+  record('ok', 'Social publication', 'SOCIAL_PUBLICATION_MODE', 'live');
+  requiredHttpsUrl(
+    'Social publication',
+    'SOCIAL_PUBLICATION_FACEBOOK_GRAPH_BASE_URL',
+    'set the Meta Graph API base URL'
+  );
+  required(
+    'Social publication',
+    'SOCIAL_PUBLICATION_FACEBOOK_PAGE_ID',
+    'set the Facebook Page id'
+  );
+  requiredSecret(
+    'Social publication',
+    'SOCIAL_PUBLICATION_FACEBOOK_PAGE_ACCESS_TOKEN',
+    'set the Facebook Page access token',
+    16
+  );
+  requiredHttpsUrl(
+    'Social publication',
+    'SOCIAL_PUBLICATION_LINKEDIN_API_BASE_URL',
+    'set the LinkedIn API base URL'
+  );
+  required(
+    'Social publication',
+    'SOCIAL_PUBLICATION_LINKEDIN_ORGANIZATION_ID',
+    'set the LinkedIn organization id or urn'
+  );
+  requiredSecret(
+    'Social publication',
+    'SOCIAL_PUBLICATION_LINKEDIN_ACCESS_TOKEN',
+    'set the LinkedIn access token',
+    16
+  );
+  requiredPattern(
+    'Social publication',
+    'SOCIAL_PUBLICATION_LINKEDIN_VERSION',
+    /^[0-9]{6}$/,
+    'set a LinkedIn API version as YYYYMM'
   );
 }
 

@@ -1241,6 +1241,28 @@ test('Publication batch migration adds the batches table and links drafts to it'
   }
 });
 
+test('Social publication migration adds idempotent provider jobs for publication batches', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/015_create_social_publication_jobs.sql',
+    'utf8'
+  );
+
+  for (const marker of [
+    'CREATE TABLE IF NOT EXISTS social_publication_jobs',
+    'batch_id UUID NOT NULL REFERENCES sponsor_publication_batches(id) ON DELETE CASCADE',
+    "channel TEXT NOT NULL CHECK (channel IN ('facebook', 'linkedin'))",
+    "mode TEXT NOT NULL CHECK (mode IN ('mock', 'live'))",
+    'idempotency_key TEXT NOT NULL UNIQUE',
+    'draft_ids UUID[] NOT NULL',
+    'external_post_id TEXT',
+    'external_post_url TEXT',
+    'idx_social_publication_jobs_batch_id',
+    'idx_social_publication_jobs_channel_status'
+  ]) {
+    assert.ok(migration.includes(marker), `migration must include ${marker}`);
+  }
+});
+
 test('Publication batch repository enforces capacity, channel match, and approval before assignment', () => {
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-admin.repository.ts',
@@ -1323,8 +1345,12 @@ test('Publication batch admin endpoints are authenticated, validated, rate-limit
     "'/api/admin/publication-batches/schedule'",
     "'/admin/publication-batches/publish'",
     "'/api/admin/publication-batches/publish'",
+    "'/admin/publication-batches/publish-social'",
+    "'/api/admin/publication-batches/publish-social'",
     "'/admin/publication-batches/cancel'",
-    "'/api/admin/publication-batches/cancel'"
+    "'/api/admin/publication-batches/cancel'",
+    "'/admin/social-publication-jobs'",
+    "'/api/admin/social-publication-jobs'"
   ]) {
     assert.ok(api.includes(route), `main.ts must route ${route}`);
   }
@@ -1339,7 +1365,9 @@ test('Publication batch admin endpoints are authenticated, validated, rate-limit
     "'publication_batch.unassign'",
     "'publication_batch.schedule'",
     "'publication_batch.publish'",
-    "'publication_batch.cancel'"
+    "'publication_batch.cancel'",
+    "'social_publication.publish'",
+    "'social_publication.failed'"
   ]) {
     assert.ok(
       api.includes(`action: ${action}`),
@@ -1397,6 +1425,108 @@ test('Publication batch types and admin UI expose capacity, next availability, a
   assert.ok(page.includes('batch.capacityUsed'));
   assert.ok(page.includes('Prochaine disponibilite'));
   assert.ok(page.includes("aucune publication n'est jamais automatique"));
+});
+
+test('Social publication provider is explicit, configurable, audited, and visible in admin UI', () => {
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-admin.repository.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const socialService = fs.readFileSync(
+    'apps/funding-api/src/social-publication.service.ts',
+    'utf8'
+  );
+  const webService = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
+    'utf8'
+  );
+  const page = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
+    'utf8'
+  );
+  const compose = fs.readFileSync('docker-compose.yml', 'utf8');
+  const envExample = fs.readFileSync('.env.example', 'utf8');
+
+  for (const marker of [
+    'export type SocialPublicationMode =',
+    'AdminSocialPublicationJobRecord',
+    'AdminSocialPublicationJobsResponse',
+    'AdminSocialPublicationBatchPublishRequest',
+    'AdminSocialPublicationBatchPublishResult'
+  ]) {
+    assert.ok(core.includes(marker), `core must expose ${marker}`);
+  }
+
+  for (const marker of [
+    'createSocialPublicationJobForBatch',
+    'idempotencyKey = `social-publication-batch:${batch.id}:${batch.channel}`',
+    "batch.status !== 'scheduled'",
+    "status = 'publishing'",
+    "status = 'published'",
+    "status = 'failed'"
+  ]) {
+    assert.ok(repository.includes(marker), `repository must include ${marker}`);
+  }
+
+  for (const marker of [
+    'loadSocialPublicationConfig',
+    'SOCIAL_PUBLICATION_MODE',
+    'SOCIAL_PUBLICATION_FACEBOOK_PAGE_ACCESS_TOKEN',
+    'SOCIAL_PUBLICATION_LINKEDIN_ACCESS_TOKEN',
+    'publishFacebookPost',
+    'publishLinkedInPost',
+    'X-Restli-Protocol-Version'
+  ]) {
+    assert.ok(socialService.includes(marker), `service must include ${marker}`);
+  }
+
+  for (const marker of [
+    '/admin/social-publication-jobs',
+    '/admin/publication-batches/publish-social',
+    'SOCIAL_PUBLICATION_DISABLED',
+    'SOCIAL_PUBLICATION_CHANNEL_NOT_CONFIGURED',
+    'markSocialPublicationJobPublished',
+    'social_publication.publish',
+    'social_publication.failed'
+  ]) {
+    assert.ok(api.includes(marker), `api must include ${marker}`);
+  }
+
+  for (const marker of [
+    'getSocialPublicationJobs',
+    'publishSocialPublicationBatch',
+    '/admin/social-publication-jobs',
+    '/admin/publication-batches/publish-social'
+  ]) {
+    assert.ok(
+      webService.includes(marker),
+      `web service must include ${marker}`
+    );
+  }
+
+  for (const marker of [
+    'API sociale',
+    'Publier via API sociale',
+    'Voir la publication',
+    'socialJobStatusLabel',
+    'canPublishSocialBatch(batch)'
+  ]) {
+    assert.ok(page.includes(marker), `admin UI must include ${marker}`);
+  }
+
+  for (const marker of [
+    'SOCIAL_PUBLICATION_MODE',
+    'SOCIAL_PUBLICATION_FACEBOOK_PAGE_ID',
+    'SOCIAL_PUBLICATION_LINKEDIN_ORGANIZATION_ID'
+  ]) {
+    assert.ok(compose.includes(marker), `compose must include ${marker}`);
+    assert.ok(
+      envExample.includes(marker),
+      `.env.example must include ${marker}`
+    );
+  }
 });
 
 test('Admin sponsors page derives the sponsorship tier from the paid amount instead of showing nothing', () => {

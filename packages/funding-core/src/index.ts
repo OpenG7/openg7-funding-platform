@@ -826,6 +826,53 @@ export interface AdminPublicationBatchMutationResult {
   readonly batch: AdminPublicationBatchRecord | null;
 }
 
+export type SocialPublicationMode = 'disabled' | 'mock' | 'live';
+
+export type SocialPublicationStatus =
+  'pending' | 'publishing' | 'published' | 'failed';
+
+export interface AdminSocialPublicationJobRecord {
+  readonly id: string;
+  readonly batchId: string;
+  readonly channel: SponsorFeedChannel;
+  readonly provider: 'facebook' | 'linkedin';
+  readonly mode: SocialPublicationMode;
+  readonly status: SocialPublicationStatus;
+  readonly idempotencyKey: string;
+  readonly title: string;
+  readonly body: string;
+  readonly disclosureText: string;
+  readonly draftIds: readonly string[];
+  readonly externalPostId: string | null;
+  readonly externalPostUrl: string | null;
+  readonly errorCode: string | null;
+  readonly errorMessage: string | null;
+  readonly attemptedAt: string | null;
+  readonly publishedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface AdminSocialPublicationJobsResponse {
+  readonly data_source: 'database';
+  readonly mode: SocialPublicationMode;
+  readonly configuredChannels: readonly SponsorFeedChannel[];
+  readonly jobs: readonly AdminSocialPublicationJobRecord[];
+  readonly last_updated_at: string;
+}
+
+export interface AdminSocialPublicationBatchPublishRequest {
+  readonly batchId: string;
+  readonly confirmationText: string;
+}
+
+export interface AdminSocialPublicationBatchPublishResult {
+  readonly published: boolean;
+  readonly mode: SocialPublicationMode;
+  readonly job: AdminSocialPublicationJobRecord | null;
+  readonly batch: AdminPublicationBatchRecord | null;
+}
+
 export interface AdminAuditLogEntry {
   readonly id: string;
   readonly actor: string;

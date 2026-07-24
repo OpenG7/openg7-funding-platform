@@ -30,6 +30,7 @@ test('services readiness check reports placeholders without leaking values', () 
   assert.match(output, /SMTP_ENABLED/);
   assert.match(output, /DATABASE_URL/);
   assert.match(output, /OVH_S3_ACCESS_KEY_ID/);
+  assert.match(output, /SOCIAL_PUBLICATION_MODE/);
   assert.doesNotMatch(output, /sk_live_replace_me/);
   assert.doesNotMatch(output, /whsec_your_webhook_secret_here/);
   assert.doesNotMatch(output, /replace_with_a_long_random_admin_token/);
@@ -71,7 +72,15 @@ test('services readiness check accepts a complete configuration file', () => {
       'SPONSOR_MEDIA_PRIVATE_BUCKET=openg7-funding-sponsor-media-private-prod',
       'SPONSOR_MEDIA_PRIVATE_BASE_URL=https://openg7-funding-sponsor-media-private-prod.s3.bhs.io.cloud.ovh.net',
       `OVH_S3_ACCESS_KEY_ID=${'g'.repeat(24)}`,
-      `OVH_S3_SECRET_ACCESS_KEY=${'h'.repeat(40)}`
+      `OVH_S3_SECRET_ACCESS_KEY=${'h'.repeat(40)}`,
+      'SOCIAL_PUBLICATION_MODE=live',
+      'SOCIAL_PUBLICATION_FACEBOOK_GRAPH_BASE_URL=https://graph.facebook.com/v25.0',
+      'SOCIAL_PUBLICATION_FACEBOOK_PAGE_ID=1234567890',
+      `SOCIAL_PUBLICATION_FACEBOOK_PAGE_ACCESS_TOKEN=${'i'.repeat(40)}`,
+      'SOCIAL_PUBLICATION_LINKEDIN_API_BASE_URL=https://api.linkedin.com/rest',
+      'SOCIAL_PUBLICATION_LINKEDIN_ORGANIZATION_ID=987654321',
+      `SOCIAL_PUBLICATION_LINKEDIN_ACCESS_TOKEN=${'j'.repeat(40)}`,
+      'SOCIAL_PUBLICATION_LINKEDIN_VERSION=202606'
     ].join('\n')
   );
 

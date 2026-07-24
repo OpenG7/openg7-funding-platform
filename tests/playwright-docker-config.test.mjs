@@ -34,7 +34,8 @@ test('Playwright browser E2E is wired to the local Docker stack', () => {
   assert.ok(dockerUp.includes('FUNDING_ADMIN_TOKEN: ADMIN_TOKEN'));
   assert.ok(dockerUp.includes("FUNDING_ADMIN_RATE_LIMIT_MAX: '0'"));
   assert.ok(dockerUp.includes("FUNDING_PLATFORM_ENV: 'development'"));
-  assert.ok(dockerUp.includes("STRIPE_SECRET_KEY: ''"));
+  assert.ok(dockerUp.includes("SOCIAL_PUBLICATION_MODE: 'mock'"));
+  assert.ok(dockerUp.includes('STRIPE_SECRET_KEY: STRIPE_TEST_SECRET_KEY'));
   assert.ok(
     compose.includes(
       'FUNDING_ADMIN_RATE_LIMIT_MAX: ${FUNDING_ADMIN_RATE_LIMIT_MAX:-120}'

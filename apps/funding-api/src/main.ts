@@ -35,6 +35,8 @@ import type {
   AdminPublicationDraftUpdateRequest,
   AdminSessionCreateRequest,
   AdminSessionResponse,
+  AdminSocialPublicationBatchPublishRequest,
+  AdminSocialPublicationBatchPublishResult,
   AdminSponsorLogoDeleteRequest,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
@@ -72,6 +74,7 @@ import {
   createAdminExpense,
   createAdminPublicationBatch,
   createAdminPublicationDraft,
+  createSocialPublicationJobForBatch,
   getPublicationBatchById,
   getPublicSponsorshipBatchAvailability,
   insertAdminAuditLog,
@@ -79,6 +82,10 @@ import {
   listAdminAuditLog,
   listAdminPublicationBatches,
   listAdminPublicationDrafts,
+  listAdminSocialPublicationJobs,
+  markSocialPublicationJobFailed,
+  markSocialPublicationJobPublished,
+  markSocialPublicationJobPublishing,
   publishAdminPublicationBatch,
   scheduleAdminPublicationBatch,
   unassignDraftFromPublicationBatch,
@@ -99,6 +106,13 @@ import {
   queueSponsorshipRejectionEmail,
   retryAdminEmailQueueMessage
 } from './email-notification.service.js';
+import {
+  configuredSocialPublicationChannels,
+  loadSocialPublicationConfig,
+  publishSocialPublicationJob,
+  SocialPublicationError,
+  socialPublicationProviderForChannel
+} from './social-publication.service.js';
 import {
   getTransactionalEmailConfigStatus,
   loadTransactionalEmailConfig
@@ -297,9 +311,7 @@ const isValidSponsorshipAmount = (amount: number): boolean =>
 const stripeApiHost = process.env.STRIPE_API_HOST;
 const stripeApiPort = process.env.STRIPE_API_PORT;
 const stripeApiProtocol = process.env.STRIPE_API_PROTOCOL as
-  | 'http'
-  | 'https'
-  | undefined;
+  'http' | 'https' | undefined;
 const stripe = stripeSecretKey
   ? new Stripe(stripeSecretKey, {
       ...(stripeApiHost ? { host: stripeApiHost } : {}),
@@ -308,6 +320,7 @@ const stripe = stripeSecretKey
     })
   : null;
 loadTransactionalEmailConfig();
+const socialPublicationConfig = loadSocialPublicationConfig();
 const allowedContributionTypes = new Set<ContributionType>([
   'personal_support',
   'sponsorship_interest'
@@ -1097,6 +1110,23 @@ const isValidPublicationBatchCapacity = (value: unknown): value is number =>
 const channelLabel = (channel: SponsorFeedChannel): string =>
   channel === 'linkedin' ? 'LinkedIn' : 'Facebook';
 
+const isConfiguredSocialPublicationChannel = (
+  channel: SponsorFeedChannel
+): boolean =>
+  configuredSocialPublicationChannels(socialPublicationConfig).includes(
+    channel
+  );
+
+const socialPublicationRuntime = (): {
+  readonly mode: typeof socialPublicationConfig.mode;
+  readonly configuredChannels: readonly SponsorFeedChannel[];
+} => ({
+  mode: socialPublicationConfig.mode,
+  configuredChannels: configuredSocialPublicationChannels(
+    socialPublicationConfig
+  )
+});
+
 const isAllowedPublicationDraftStatus = (
   value: unknown
 ): value is NonNullable<AdminPublicationDraftUpdateRequest['status']> =>
@@ -1580,8 +1610,12 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/publication-batches/schedule',
       '/admin/publication-batches/publish',
       '/api/admin/publication-batches/publish',
+      '/admin/publication-batches/publish-social',
+      '/api/admin/publication-batches/publish-social',
       '/admin/publication-batches/cancel',
       '/api/admin/publication-batches/cancel',
+      '/admin/social-publication-jobs',
+      '/api/admin/social-publication-jobs',
       '/admin/audit-log',
       '/api/admin/audit-log',
       '/admin/sponsorships',
@@ -4509,6 +4543,210 @@ createServer(async (request, response) => {
       console.error('Failed to publish publication batch.', error);
       writeJson(request, response, 502, {
         error: 'Publication batch could not be published.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/social-publication-jobs',
+      '/api/admin/social-publication-jobs'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    try {
+      const result = await listAdminSocialPublicationJobs(
+        dbPool,
+        socialPublicationRuntime()
+      );
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load social publication jobs.', error);
+      writeJson(request, response, 502, {
+        error: 'Social publication jobs could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-batches/publish-social',
+      '/api/admin/publication-batches/publish-social'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminSocialPublicationBatchPublishRequest;
+    try {
+      const body = await readBody(request);
+      parsed = JSON.parse(body) as AdminSocialPublicationBatchPublishRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid social publication request body.'
+      });
+      return;
+    }
+
+    if (!isValidUuid(parsed.batchId)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid publication batch id.'
+      });
+      return;
+    }
+
+    if (parsed.confirmationText !== parsed.batchId) {
+      writeJson(request, response, 400, {
+        error: 'Social publication confirmation must match the batch id.'
+      });
+      return;
+    }
+
+    if (socialPublicationConfig.mode === 'disabled') {
+      writeJson(request, response, 409, {
+        code: 'SOCIAL_PUBLICATION_DISABLED',
+        error: 'Social publication automation is disabled.'
+      });
+      return;
+    }
+
+    try {
+      const batch = await getPublicationBatchById(dbPool, parsed.batchId);
+      if (!batch || batch.status !== 'scheduled') {
+        writeJson(request, response, 409, {
+          error:
+            'Publication batch was not found or must be scheduled before social publishing.'
+        });
+        return;
+      }
+
+      if (!isConfiguredSocialPublicationChannel(batch.channel)) {
+        writeJson(request, response, 409, {
+          code: 'SOCIAL_PUBLICATION_CHANNEL_NOT_CONFIGURED',
+          error: `${channelLabel(batch.channel)} social publication is not configured.`
+        });
+        return;
+      }
+
+      const job = await createSocialPublicationJobForBatch(dbPool, {
+        batchId: batch.id,
+        mode: socialPublicationConfig.mode,
+        provider: socialPublicationProviderForChannel(batch.channel)
+      });
+      if (!job) {
+        writeJson(request, response, 409, {
+          error:
+            'Social publication job could not be created: the batch must contain scheduled drafts.'
+        });
+        return;
+      }
+
+      if (job.status === 'published') {
+        const result: AdminSocialPublicationBatchPublishResult = {
+          published: true,
+          mode: job.mode,
+          job,
+          batch: await getPublicationBatchById(dbPool, job.batchId)
+        };
+        writeJson(request, response, 200, result);
+        return;
+      }
+
+      if (job.status === 'publishing') {
+        writeJson(request, response, 409, {
+          code: 'SOCIAL_PUBLICATION_ALREADY_RUNNING',
+          error: 'Social publication job is already running.'
+        });
+        return;
+      }
+
+      const publishingJob = await markSocialPublicationJobPublishing(
+        dbPool,
+        job.id
+      );
+      if (!publishingJob || publishingJob.status !== 'publishing') {
+        writeJson(request, response, 409, {
+          error: 'Social publication job could not be started.'
+        });
+        return;
+      }
+
+      try {
+        const providerResult = await publishSocialPublicationJob(
+          socialPublicationConfig,
+          publishingJob
+        );
+        const result = await markSocialPublicationJobPublished(dbPool, {
+          jobId: publishingJob.id,
+          externalPostId: providerResult.externalPostId,
+          externalPostUrl: providerResult.externalPostUrl
+        });
+
+        if (result.job) {
+          await insertAdminAuditLog(dbPool, {
+            actor: getAdminAuditActor(request),
+            action: 'social_publication.publish',
+            entityType: 'social_publication_job',
+            entityId: result.job.id,
+            summary: `Social publication sent to ${channelLabel(result.job.channel)} for batch ${result.job.batchId}.`,
+            metadata: {
+              batchId: result.job.batchId,
+              channel: result.job.channel,
+              mode: result.job.mode,
+              draftIds: result.job.draftIds,
+              externalPostId: result.job.externalPostId,
+              externalPostUrl: result.job.externalPostUrl
+            }
+          });
+        }
+
+        writeJson(request, response, 200, result);
+      } catch (error) {
+        const code =
+          error instanceof SocialPublicationError
+            ? error.code
+            : 'SOCIAL_PUBLICATION_FAILED';
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Social publication provider failed.';
+        const failedJob = await markSocialPublicationJobFailed(dbPool, {
+          jobId: publishingJob.id,
+          errorCode: code,
+          errorMessage: message
+        });
+        await insertAdminAuditLog(dbPool, {
+          actor: getAdminAuditActor(request),
+          action: 'social_publication.failed',
+          entityType: 'social_publication_job',
+          entityId: failedJob?.id ?? publishingJob.id,
+          summary: `Social publication failed for ${channelLabel(publishingJob.channel)}.`,
+          metadata: {
+            batchId: publishingJob.batchId,
+            channel: publishingJob.channel,
+            mode: publishingJob.mode,
+            errorCode: code
+          }
+        });
+        writeJson(request, response, 502, {
+          code,
+          error: message
+        });
+      }
+    } catch (error) {
+      console.error('Failed to publish social publication batch.', error);
+      writeJson(request, response, 502, {
+        error: 'Publication batch could not be sent to the social provider.'
       });
     }
     return;

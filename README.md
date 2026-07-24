@@ -86,6 +86,8 @@ Set these variables for API and webhook processing:
 - `SMTP_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM_NAME`, `MAIL_FROM_ADDRESS`, `MAIL_REPLY_TO_NAME`, `MAIL_REPLY_TO_ADDRESS` - SMTP settings for low-volume transactional email. See [docs/email-smtp.md](docs/email-smtp.md).
 - `FUNDING_ADMIN_NOTIFICATION_EMAIL` - optional internal notification recipient for publication-batch alerts.
 - `FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS`, `FUNDING_EMAIL_QUEUE_BATCH_SIZE` - optional email queue worker settings.
+- `SOCIAL_PUBLICATION_MODE` - `disabled` by default, `mock` for local/E2E social publishing, or `live` for real Facebook/LinkedIn publishing after credentials are configured.
+- `SOCIAL_PUBLICATION_FACEBOOK_GRAPH_BASE_URL`, `SOCIAL_PUBLICATION_FACEBOOK_PAGE_ID`, `SOCIAL_PUBLICATION_FACEBOOK_PAGE_ACCESS_TOKEN`, `SOCIAL_PUBLICATION_LINKEDIN_API_BASE_URL`, `SOCIAL_PUBLICATION_LINKEDIN_ORGANIZATION_ID`, `SOCIAL_PUBLICATION_LINKEDIN_ACCESS_TOKEN`, `SOCIAL_PUBLICATION_LINKEDIN_VERSION` - social provider settings used only by the API; never expose the tokens to browsers.
 - `FUNDING_SPONSORSHIP_INVOICE_PREFIX`, `FUNDING_SPONSORSHIP_CREDIT_NOTE_PREFIX`, `FUNDING_INVOICE_ISSUER_NAME`, `FUNDING_INVOICE_ISSUER_EMAIL`, `FUNDING_INVOICE_ISSUER_ADDRESS`, `FUNDING_INVOICE_TAX_ID`, `FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL`, `FUNDING_SPONSORSHIP_INVOICE_LEGAL_NOTE`, `FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE` - optional sponsorship invoice/credit-note identity and legal text displayed in app-generated invoice and credit-note emails.
 
 For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
@@ -152,6 +154,7 @@ Apply the versioned migrations:
 \i apps/funding-api/migrations/012_create_sponsorship_credit_notes.sql
 \i apps/funding-api/migrations/013_add_sponsorship_refund_status.sql
 \i apps/funding-api/migrations/014_add_sponsorship_refund_amount_reason.sql
+\i apps/funding-api/migrations/015_create_social_publication_jobs.sql
 ```
 
 These create:
@@ -162,6 +165,8 @@ These create:
 - `stripe_checkout_sessions` (created Checkout Sessions)
 - `fund_contributions` (pending contribution records, sponsor follow-up details, private review status, hashed follow-up tokens, and sponsor feed placement fields)
 - `sponsor_publication_drafts` (private sponsored publication drafts for manual review)
+- `sponsor_publication_batches` (collective Facebook/LinkedIn publication batches)
+- `social_publication_jobs` (idempotent social provider publication jobs)
 - `admin_audit_log` (private admin action log)
 - `email_messages` (queued email templates with retry status)
 - `sponsorship_invoices` (private app-generated sponsorship invoice snapshots)
@@ -197,6 +202,15 @@ GET /api/admin/transparency
 GET /api/admin/publication-drafts
 POST /api/admin/publication-drafts
 POST /api/admin/publication-drafts/update
+GET /api/admin/publication-batches
+POST /api/admin/publication-batches
+POST /api/admin/publication-batches/assign
+POST /api/admin/publication-batches/unassign
+POST /api/admin/publication-batches/schedule
+POST /api/admin/publication-batches/publish
+POST /api/admin/publication-batches/publish-social
+POST /api/admin/publication-batches/cancel
+GET /api/admin/social-publication-jobs
 GET /api/admin/audit-log
 GET /api/admin/setup-status
 POST /api/admin/email/test
@@ -266,8 +280,8 @@ for scripts and backwards-compatible admin operations. In local development,
 admin endpoints can be used without a token when `FUNDING_ADMIN_TOKEN` is unset,
 but the frontend admin routes still expect a browser session.
 
-The publication endpoint prepares the public sponsor profile and records feed
-placement metadata:
+The sponsorship publication endpoint prepares the public sponsor profile and
+records feed placement metadata:
 
 - public slug and short public summary
 - feed target: `openg7` or `openg20`
@@ -275,7 +289,10 @@ placement metadata:
 - feed status: `not_planned`, `planned`, `drafted`, or `published`
 - optional public post URL once a publication exists
 
-It does not post automatically to Facebook or LinkedIn.
+The publication-batch social endpoint can send a scheduled collective post to
+Facebook or LinkedIn through `SOCIAL_PUBLICATION_MODE=mock|live`. It is always
+an explicit admin action and writes an idempotent `social_publication_jobs`
+record with the external post id, public URL, status, and any safe error.
 
 When an admin refuses a sponsorship from `/admin/fundraiser/sponsors`, the
 review flow requires an internal refusal reason, can send a sponsor-facing

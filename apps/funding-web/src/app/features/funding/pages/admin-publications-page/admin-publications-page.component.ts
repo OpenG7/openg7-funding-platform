@@ -12,6 +12,8 @@ import type {
   AdminPublicationBatchesResponse,
   AdminPublicationDraftRecord,
   AdminPublicationDraftsResponse,
+  AdminSocialPublicationJobRecord,
+  AdminSocialPublicationJobsResponse,
   AdminSponsorshipRecord,
   PublicationBatchStatus,
   PublicationDraftStatus,
@@ -74,7 +76,9 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
           </label>
         </section>
 
-        <p class="state" *ngIf="state() === 'loading'">Chargement des publications...</p>
+        <p class="state" *ngIf="state() === 'loading'">
+          Chargement des publications...
+        </p>
         <p class="state state-error" *ngIf="state() === 'error'">
           Impossible de charger ou modifier les publications.
         </p>
@@ -112,7 +116,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             Statut
             <select [value]="statusFilter()" (change)="setStatusFilter($event)">
               <option value="all">Tous</option>
-              <option *ngFor="let status of publicationStatuses" [value]="status">
+              <option
+                *ngFor="let status of publicationStatuses"
+                [value]="status"
+              >
                 {{ statusLabel(status) }}
               </option>
             </select>
@@ -129,7 +136,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
           <div class="eligible-list" *ngIf="eligibleSponsorships().length > 0">
             <article
-              *ngFor="let sponsorship of eligibleSponsorships(); trackBy: trackBySponsor"
+              *ngFor="
+                let sponsorship of eligibleSponsorships();
+                trackBy: trackBySponsor
+              "
             >
               <div>
                 <strong>{{ sponsorship.sponsor_company_name }}</strong>
@@ -148,7 +158,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             </article>
           </div>
 
-          <article class="empty-state" *ngIf="eligibleSponsorships().length === 0">
+          <article
+            class="empty-state"
+            *ngIf="eligibleSponsorships().length === 0"
+          >
             <h3>Aucune commandite prete</h3>
             <p>Approuvez une commandite et ajoutez une cible/canal feed.</p>
           </article>
@@ -162,10 +175,14 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             </div>
           </header>
           <p>
-            Chaque lot regroupe plusieurs commandites approuvees dans une
-            seule publication collective Facebook ou LinkedIn, jusqu'a sa
-            capacite. Planifier puis publier restent deux actions manuelles
-            distinctes: aucune publication n'est jamais automatique.
+            Chaque lot regroupe plusieurs commandites approuvees dans une seule
+            publication collective Facebook ou LinkedIn, jusqu'a sa capacite.
+            Planifier puis publier restent deux actions manuelles distinctes:
+            aucune publication n'est jamais automatique.
+          </p>
+          <p class="social-runtime">
+            API sociale: {{ socialPublicationModeLabel() }} -
+            {{ socialPublicationConfiguredChannelsLabel() }}
           </p>
 
           <form
@@ -202,7 +219,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               class="batch-timeline-channel"
               *ngFor="let channel of batchChannels"
             >
-              <h3 class="batch-timeline-heading" *ngIf="batchesForChannel(channel).length > 0">
+              <h3
+                class="batch-timeline-heading"
+                *ngIf="batchesForChannel(channel).length > 0"
+              >
                 {{ channelLabel(channel) }}
               </h3>
               <div class="batch-list">
@@ -213,65 +233,102 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                     trackBy: trackByBatch
                   "
                 >
-              <header>
-                <div>
-                  <span>{{ batchStatusLabel(batch.status) }}</span>
-                  <h3>
-                    {{ channelLabel(batch.channel) }} - {{ batch.capacityUsed }}/{{
-                      batch.capacity
-                    }}
-                  </h3>
-                </div>
-                <small *ngIf="batch.scheduledAt"
-                  >Prochaine disponibilite: {{ dateLabel(batch.scheduledAt) }}</small
-                >
-              </header>
+                  <header>
+                    <div>
+                      <span>{{ batchStatusLabel(batch.status) }}</span>
+                      <h3>
+                        {{ channelLabel(batch.channel) }} -
+                        {{ batch.capacityUsed }}/{{ batch.capacity }}
+                      </h3>
+                    </div>
+                    <small *ngIf="batch.scheduledAt"
+                      >Prochaine disponibilite:
+                      {{ dateLabel(batch.scheduledAt) }}</small
+                    >
+                  </header>
 
-              <div
-                class="draft-grid"
-                *ngIf="batch.status === 'open' || batch.status === 'scheduled'"
-              >
-                <label>
-                  Prochaine disponibilite
-                  <input
-                    type="datetime-local"
-                    [value]="batchScheduleFor(batch.id)"
-                    (input)="setBatchSchedule(batch.id, $event)"
-                  />
-                </label>
-                <button
-                  type="button"
-                  class="neutral"
-                  [disabled]="
-                    !batchScheduleFor(batch.id) ||
-                    batchActionState() === batch.id
-                  "
-                  (click)="scheduleBatch(batch)"
-                >
-                  Planifier
-                </button>
-              </div>
+                  <div
+                    class="social-job"
+                    *ngIf="socialJobForBatch(batch.id) as job"
+                  >
+                    <div>
+                      <span>{{ socialJobStatusLabel(job.status) }}</span>
+                      <small>{{ job.provider }} / {{ job.mode }}</small>
+                    </div>
+                    <a
+                      *ngIf="job.externalPostUrl"
+                      [href]="job.externalPostUrl"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Voir la publication
+                    </a>
+                    <small class="state-error" *ngIf="job.errorMessage">
+                      {{ job.errorMessage }}
+                    </small>
+                  </div>
 
-              <footer>
-                <button
-                  type="button"
-                  class="approve"
-                  *ngIf="batch.status === 'scheduled'"
-                  [disabled]="batchActionState() === batch.id"
-                  (click)="publishBatch(batch)"
-                >
-                  Publier maintenant
-                </button>
-                <button
-                  type="button"
-                  class="reject"
-                  *ngIf="batch.status === 'open' || batch.status === 'scheduled'"
-                  [disabled]="batchActionState() === batch.id"
-                  (click)="cancelBatch(batch)"
-                >
-                  Annuler le lot
-                </button>
-              </footer>
+                  <div
+                    class="draft-grid"
+                    *ngIf="
+                      batch.status === 'open' || batch.status === 'scheduled'
+                    "
+                  >
+                    <label>
+                      Prochaine disponibilite
+                      <input
+                        type="datetime-local"
+                        [value]="batchScheduleFor(batch.id)"
+                        (input)="setBatchSchedule(batch.id, $event)"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      class="neutral"
+                      [disabled]="
+                        !batchScheduleFor(batch.id) ||
+                        batchActionState() === batch.id
+                      "
+                      (click)="scheduleBatch(batch)"
+                    >
+                      Planifier
+                    </button>
+                  </div>
+
+                  <footer>
+                    <button
+                      type="button"
+                      class="neutral"
+                      *ngIf="batch.status === 'scheduled'"
+                      [disabled]="
+                        !canPublishSocialBatch(batch) ||
+                        batchActionState() === 'social:' + batch.id
+                      "
+                      (click)="publishSocialBatch(batch)"
+                    >
+                      Publier via API sociale
+                    </button>
+                    <button
+                      type="button"
+                      class="approve"
+                      *ngIf="batch.status === 'scheduled'"
+                      [disabled]="batchActionState() === batch.id"
+                      (click)="publishBatch(batch)"
+                    >
+                      Publier maintenant
+                    </button>
+                    <button
+                      type="button"
+                      class="reject"
+                      *ngIf="
+                        batch.status === 'open' || batch.status === 'scheduled'
+                      "
+                      [disabled]="batchActionState() === batch.id"
+                      (click)="cancelBatch(batch)"
+                    >
+                      Annuler le lot
+                    </button>
+                  </footer>
                 </article>
               </div>
             </section>
@@ -280,8 +337,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
           <article class="empty-state" *ngIf="batches().length === 0">
             <h3>Aucun lot</h3>
             <p>
-              Creez un lot pour regrouper plusieurs commandites approuvees
-              dans une seule publication collective.
+              Creez un lot pour regrouper plusieurs commandites approuvees dans
+              une seule publication collective.
             </p>
           </article>
         </section>
@@ -296,7 +353,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                 <span>{{ statusLabel(draft.status) }}</span>
                 <h2>{{ draft.sponsor_company_name }}</h2>
               </div>
-              <small>{{ draft.feed_target }} / {{ channelLabel(draft.channel) }}</small>
+              <small
+                >{{ draft.feed_target }} /
+                {{ channelLabel(draft.channel) }}</small
+              >
             </header>
 
             <label>
@@ -375,9 +435,9 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                       *ngFor="let batch of openBatchesForChannel(draft.channel)"
                       [value]="batch.id"
                     >
-                      {{ channelLabel(batch.channel) }} ({{ batch.capacityUsed }}/{{
-                        batch.capacity
-                      }})
+                      {{ channelLabel(batch.channel) }} ({{
+                        batch.capacityUsed
+                      }}/{{ batch.capacity }})
                     </option>
                   </select>
                 </label>
@@ -385,8 +445,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   type="button"
                   class="neutral"
                   [disabled]="
-                    !draftBatchSelection(draft.id) ||
-                    actionState() === draft.id
+                    !draftBatchSelection(draft.id) || actionState() === draft.id
                   "
                   (click)="assignToBatch(draft)"
                 >
@@ -394,7 +453,11 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                 </button>
               </ng-container>
               <ng-container *ngIf="draft.batch_id as batchId">
-                <span>Dans un lot ({{ batchStatusLabel(batchStatusById(batchId)) }})</span>
+                <span
+                  >Dans un lot ({{
+                    batchStatusLabel(batchStatusById(batchId))
+                  }})</span
+                >
                 <button
                   type="button"
                   class="reject"
@@ -408,26 +471,50 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
             <footer>
               <button type="button" (click)="copyDraft(draft)">Copier</button>
-              <button type="button" (click)="saveDraft(draft)">Enregistrer</button>
-              <button type="button" (click)="saveDraft(draft, 'pending_review')">
+              <button type="button" (click)="saveDraft(draft)">
+                Enregistrer
+              </button>
+              <button
+                type="button"
+                (click)="saveDraft(draft, 'pending_review')"
+              >
                 Revue
               </button>
-              <button type="button" class="approve" (click)="saveDraft(draft, 'approved')">
+              <button
+                type="button"
+                class="approve"
+                (click)="saveDraft(draft, 'approved')"
+              >
                 Approuver
               </button>
-              <button type="button" class="neutral" (click)="saveDraft(draft, 'scheduled')">
+              <button
+                type="button"
+                class="neutral"
+                (click)="saveDraft(draft, 'scheduled')"
+              >
                 Planifier
               </button>
-              <button type="button" class="approve" (click)="saveDraft(draft, 'published')">
+              <button
+                type="button"
+                class="approve"
+                (click)="saveDraft(draft, 'published')"
+              >
                 Publiee
               </button>
-              <button type="button" class="reject" (click)="saveDraft(draft, 'rejected')">
+              <button
+                type="button"
+                class="reject"
+                (click)="saveDraft(draft, 'rejected')"
+              >
                 Refuser
               </button>
             </footer>
           </article>
 
-          <article class="empty-state" *ngIf="state() === 'ready' && filteredDrafts().length === 0">
+          <article
+            class="empty-state"
+            *ngIf="state() === 'ready' && filteredDrafts().length === 0"
+          >
             <h3>Aucun brouillon trouve</h3>
             <p>Generez un brouillon ou modifiez les filtres.</p>
           </article>
@@ -625,6 +712,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       .eligible-list nav,
+      .batch-card footer,
       .draft-card footer {
         display: flex;
         flex-wrap: wrap;
@@ -664,6 +752,31 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         display: grid;
         gap: 0.75rem;
         padding: 0.85rem;
+      }
+
+      .social-runtime,
+      .social-job {
+        background: #eef4ff;
+        border: 1px solid #c8dcff;
+        border-radius: 0.45rem;
+        color: #25406f;
+        font-size: 0.9rem;
+        font-weight: 800;
+        margin: 0;
+        padding: 0.75rem;
+      }
+
+      .social-job {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: space-between;
+      }
+
+      .social-job a {
+        color: #254db8;
+        font-weight: 900;
       }
 
       .batch-card header {
@@ -740,6 +853,8 @@ export class AdminPublicationsPageComponent implements OnInit {
   readonly batchesResponse = signal<AdminPublicationBatchesResponse | null>(
     null
   );
+  readonly socialJobsResponse =
+    signal<AdminSocialPublicationJobsResponse | null>(null);
   readonly batchActionState = signal<string | null>(null);
   readonly newBatchChannel = signal<SponsorFeedChannel>('facebook');
   readonly newBatchCapacity = signal<string>('5');
@@ -748,6 +863,16 @@ export class AdminPublicationsPageComponent implements OnInit {
 
   readonly drafts = computed(() => this.draftsResponse()?.drafts ?? []);
   readonly batches = computed(() => this.batchesResponse()?.batches ?? []);
+  readonly socialJobs = computed(() => this.socialJobsResponse()?.jobs ?? []);
+  readonly socialJobByBatchId = computed(() => {
+    const jobs = new Map<string, AdminSocialPublicationJobRecord>();
+    for (const job of this.socialJobs()) {
+      if (!jobs.has(job.batchId)) {
+        jobs.set(job.batchId, job);
+      }
+    }
+    return jobs;
+  });
   readonly eligibleSponsorships = computed(() =>
     this.sponsorships().filter(
       (sponsorship) =>
@@ -801,10 +926,11 @@ export class AdminPublicationsPageComponent implements OnInit {
     this.state.set('loading');
 
     try {
-      const [sponsorships, drafts, batches] = await Promise.all([
+      const [sponsorships, drafts, batches, socialJobs] = await Promise.all([
         this.admin.getSponsorships(this.adminToken()),
         this.admin.getPublicationDrafts(this.adminToken()),
-        this.admin.getPublicationBatches(this.adminToken())
+        this.admin.getPublicationBatches(this.adminToken()),
+        this.admin.getSocialPublicationJobs(this.adminToken())
       ]);
       this.sponsorships.set(sponsorships.sponsorships);
       this.draftsResponse.set(drafts);
@@ -814,6 +940,7 @@ export class AdminPublicationsPageComponent implements OnInit {
         )
       );
       this.batchesResponse.set(batches);
+      this.socialJobsResponse.set(socialJobs);
       this.state.set('ready');
       this.admin.saveAdminToken(this.adminToken());
     } catch {
@@ -971,6 +1098,34 @@ export class AdminPublicationsPageComponent implements OnInit {
     }
   }
 
+  async publishSocialBatch(batch: AdminPublicationBatchRecord): Promise<void> {
+    if (!this.canPublishSocialBatch(batch)) {
+      return;
+    }
+
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        `Publier le lot ${batch.id} sur ${this.channelLabel(batch.channel)} ?`
+      )
+    ) {
+      return;
+    }
+
+    this.batchActionState.set(`social:${batch.id}`);
+    try {
+      await this.admin.publishSocialPublicationBatch(this.adminToken(), {
+        batchId: batch.id,
+        confirmationText: batch.id
+      });
+      await this.load();
+    } catch {
+      this.state.set('error');
+    } finally {
+      this.batchActionState.set(null);
+    }
+  }
+
   async cancelBatch(batch: AdminPublicationBatchRecord): Promise<void> {
     this.batchActionState.set(batch.id);
     try {
@@ -1057,6 +1212,55 @@ export class AdminPublicationsPageComponent implements OnInit {
 
   batchStatusById(batchId: string): PublicationBatchStatus | null {
     return this.batches().find((batch) => batch.id === batchId)?.status ?? null;
+  }
+
+  socialPublicationModeLabel(): string {
+    const mode = this.socialJobsResponse()?.mode ?? 'disabled';
+    const labels = {
+      disabled: 'Desactive',
+      mock: 'Simulation',
+      live: 'Connecte'
+    } as const;
+
+    return labels[mode];
+  }
+
+  socialPublicationConfiguredChannelsLabel(): string {
+    const channels = this.socialJobsResponse()?.configuredChannels ?? [];
+    return channels.length > 0
+      ? channels.map((channel) => this.channelLabel(channel)).join(', ')
+      : 'Aucun canal';
+  }
+
+  socialJobForBatch(batchId: string): AdminSocialPublicationJobRecord | null {
+    return this.socialJobByBatchId().get(batchId) ?? null;
+  }
+
+  canPublishSocialBatch(batch: AdminPublicationBatchRecord): boolean {
+    const response = this.socialJobsResponse();
+    const job = this.socialJobForBatch(batch.id);
+    return Boolean(
+      response &&
+      response.mode !== 'disabled' &&
+      response.configuredChannels.includes(batch.channel) &&
+      batch.status === 'scheduled' &&
+      batch.capacityUsed > 0 &&
+      job?.status !== 'publishing' &&
+      job?.status !== 'published'
+    );
+  }
+
+  socialJobStatusLabel(
+    status: AdminSocialPublicationJobRecord['status']
+  ): string {
+    const labels: Record<AdminSocialPublicationJobRecord['status'], string> = {
+      pending: 'En attente',
+      publishing: 'Envoi en cours',
+      published: 'Publie via API',
+      failed: 'Echec API'
+    };
+
+    return labels[status];
   }
 
   setEditField(
@@ -1182,10 +1386,7 @@ export class AdminPublicationsPageComponent implements OnInit {
     return (
       (
         event.target as
-          | HTMLInputElement
-          | HTMLSelectElement
-          | HTMLTextAreaElement
-          | null
+          HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null
       )?.value ?? ''
     );
   }
