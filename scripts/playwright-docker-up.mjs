@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 
-import { ADMIN_TOKEN } from '../tests/playwright/fixtures/e2e-fixtures.mjs';
+import {
+  ADMIN_TOKEN,
+  STRIPE_TEST_SECRET_KEY,
+  STRIPE_TEST_WEBHOOK_SECRET
+} from '../tests/playwright/fixtures/e2e-fixtures.mjs';
 import { loadDotEnv } from './lib/load-dotenv.mjs';
 
 const nodeMajor = Number.parseInt(
@@ -44,8 +48,14 @@ const localOnlyEnv = {
   FUNDING_ADMIN_RATE_LIMIT_MAX: '0',
   SMTP_ENABLED: 'false',
   SMTP_PASSWORD: '',
-  STRIPE_SECRET_KEY: '',
-  STRIPE_WEBHOOK_SECRET: '',
+  // Non-empty but not real credentials: apps/funding-api/src/main.ts only
+  // needs STRIPE_SECRET_KEY to be truthy to construct a Stripe client, and
+  // that client is pointed at the local stub (docker-compose.e2e.yml,
+  // STRIPE_API_HOST) instead of api.stripe.com. STRIPE_WEBHOOK_SECRET must
+  // match what tests/playwright/support/stripe-webhook.ts signs requests
+  // with.
+  STRIPE_SECRET_KEY: STRIPE_TEST_SECRET_KEY,
+  STRIPE_WEBHOOK_SECRET: STRIPE_TEST_WEBHOOK_SECRET,
   POSTGRES_DB,
   POSTGRES_USER,
   POSTGRES_PASSWORD,
@@ -57,7 +67,18 @@ const localOnlyEnv = {
 
 const result = spawnSync(
   'docker',
-  ['compose', '--profile', 'database', 'up', '-d', '--build'],
+  [
+    'compose',
+    '-f',
+    'docker-compose.yml',
+    '-f',
+    'docker-compose.e2e.yml',
+    '--profile',
+    'database',
+    'up',
+    '-d',
+    '--build'
+  ],
   {
     env: localOnlyEnv,
     stdio: 'inherit'

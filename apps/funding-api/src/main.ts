@@ -290,7 +290,23 @@ const sponsorshipMinimumAmount = 50;
 const isValidSponsorshipAmount = (amount: number): boolean =>
   Number.isFinite(amount) && amount >= sponsorshipMinimumAmount;
 
-const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+// STRIPE_API_HOST/PORT/PROTOCOL let the Playwright Docker E2E stack point the
+// SDK at a local Stripe API stub instead of api.stripe.com (see
+// tests/stripe-stub/). Unset in every real environment, where the SDK falls
+// back to its own default host.
+const stripeApiHost = process.env.STRIPE_API_HOST;
+const stripeApiPort = process.env.STRIPE_API_PORT;
+const stripeApiProtocol = process.env.STRIPE_API_PROTOCOL as
+  | 'http'
+  | 'https'
+  | undefined;
+const stripe = stripeSecretKey
+  ? new Stripe(stripeSecretKey, {
+      ...(stripeApiHost ? { host: stripeApiHost } : {}),
+      ...(stripeApiPort ? { port: stripeApiPort } : {}),
+      ...(stripeApiProtocol ? { protocol: stripeApiProtocol } : {})
+    })
+  : null;
 loadTransactionalEmailConfig();
 const allowedContributionTypes = new Set<ContributionType>([
   'personal_support',
@@ -2065,7 +2081,14 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (!stripe) {
+    // When STRIPE_API_HOST is set, `stripe` is pointed at the Playwright E2E
+    // stub (see tests/stripe-stub/), which has no real Stripe-hosted checkout
+    // page to redirect to. Keep checkout creation mocked in that
+    // configuration even though `stripe` itself is configured, so the
+    // existing "local mode, no real Stripe session" E2E coverage keeps
+    // exercising the same code path it always has. Server-side flows the
+    // stub does emulate (webhooks, refunds, backfill) are unaffected.
+    if (!stripe || stripeApiHost) {
       if (!isProduction) {
         writeJson(
           request,

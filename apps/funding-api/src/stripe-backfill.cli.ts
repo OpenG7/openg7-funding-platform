@@ -276,7 +276,19 @@ const parseArgs = (rawArgs: readonly string[]): ParsedBackfillArgs => {
 
 const main = async (): Promise<void> => {
   const parsed = parseArgs(process.argv.slice(2));
-  const stripe = new Stripe(parsed.apiKey);
+  // See apps/funding-api/src/main.ts for why these exist: they let the
+  // Playwright Docker E2E stack point this CLI at a local Stripe API stub.
+  const stripeApiHost = process.env.STRIPE_API_HOST;
+  const stripeApiPort = process.env.STRIPE_API_PORT;
+  const stripeApiProtocol = process.env.STRIPE_API_PROTOCOL as
+    | 'http'
+    | 'https'
+    | undefined;
+  const stripe = new Stripe(parsed.apiKey, {
+    ...(stripeApiHost ? { host: stripeApiHost } : {}),
+    ...(stripeApiPort ? { port: stripeApiPort } : {}),
+    ...(stripeApiProtocol ? { protocol: stripeApiProtocol } : {})
+  });
   const pool = new Pool({
     connectionString: parsed.databaseUrl
   });

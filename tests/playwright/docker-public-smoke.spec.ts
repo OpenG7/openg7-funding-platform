@@ -1,5 +1,11 @@
 import { expect, test } from './support/test.js';
 
+import { WEBHOOK_FIXTURES } from './fixtures/e2e-fixtures.mjs';
+import {
+  buildPaymentIntentSucceededEvent,
+  buildSignedWebhookRequest
+} from './support/stripe-webhook.js';
+
 test.describe('Docker local public experience', () => {
   test('serves the Angular shell and public API through the Docker web container', async ({
     page,
@@ -42,6 +48,58 @@ test.describe('Docker local public experience', () => {
       })
     ).toBeVisible();
     await expect(page.getByText(/Aucun paiement confirm/i)).toBeVisible();
+  });
+
+  test('keeps checkout success non-authoritative until the matching Stripe webhook is processed', async ({
+    page,
+    request
+  }) => {
+    const fixture = WEBHOOK_FIXTURES.checkoutAuthoritative;
+
+    const before = await (
+      await request.get('/api/public/fund-transparency')
+    ).json();
+
+    await page.goto('/fonds-des-batisseurs?checkout=success');
+    // funding.home.checkout.successCopy (fr-CA.json): the browser return
+    // itself says the public fund still needs Stripe confirmation -- it's
+    // not claiming the payment is already reflected anywhere.
+    await expect(
+      page.getByText(/synchronis.*confirmation Stripe sera disponible/i)
+    ).toBeVisible();
+
+    const afterCheckoutReturn = await (
+      await request.get('/api/public/fund-transparency')
+    ).json();
+    expect(afterCheckoutReturn.total_received).toBeCloseTo(
+      before.total_received,
+      2
+    );
+    expect(afterCheckoutReturn.contributions_count).toBe(
+      before.contributions_count
+    );
+
+    const signed = buildSignedWebhookRequest(
+      buildPaymentIntentSucceededEvent({
+        eventId: fixture.stripeEventId,
+        paymentIntentId: fixture.stripePaymentIntentId,
+        chargeId: fixture.stripeChargeId,
+        amountCents: fixture.amountCents
+      })
+    );
+    const webhookResponse = await request.post('/api/stripe/webhook', {
+      data: signed.body,
+      headers: signed.headers
+    });
+    expect(webhookResponse.status()).toBe(200);
+
+    const afterWebhook = await (
+      await request.get('/api/public/fund-transparency')
+    ).json();
+    expect(afterWebhook.total_received - before.total_received).toBeCloseTo(
+      fixture.amountCents / 100,
+      2
+    );
   });
 
   test('shows the public sponsors page without private sponsorship fields', async ({
