@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanMatchFn, Router, Routes } from '@angular/router';
 
+import { AdminAssistantPageComponent } from './features/funding/pages/admin-assistant-page/admin-assistant-page.component.js';
 import { AdminAuditPageComponent } from './features/funding/pages/admin-audit-page/admin-audit-page.component.js';
 import { AdminContributionsPageComponent } from './features/funding/pages/admin-contributions-page/admin-contributions-page.component.js';
 import { AdminDashboardPageComponent } from './features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.js';
@@ -126,6 +127,11 @@ export const appRoutes: Routes = [
     path: 'admin/fundraiser',
     canMatch: [adminSessionRequired],
     component: AdminDashboardPageComponent
+  },
+  {
+    path: 'admin/fundraiser/assistant',
+    canMatch: [adminSessionRequired],
+    component: AdminAssistantPageComponent
   },
   {
     path: 'admin/fundraiser/contributions',

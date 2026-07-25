@@ -1,5 +1,8 @@
 import { Injectable } from '@angular/core';
 import type {
+  AdminAssistantQueryRequest,
+  AdminAssistantQueryResponse,
+  AdminAssistantSummary,
   AdminAuditLogResponse,
   AdminContributionsResponse,
   AdminDashboardResponse,
@@ -148,6 +151,49 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminDashboardResponse;
+  }
+
+  async getAssistantSummary(token: string): Promise<AdminAssistantSummary> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/assistant/summary`, {
+      method: 'GET',
+      headers: await this.createHeaders(token)
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Admin assistant summary could not be loaded.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminAssistantSummary;
+  }
+
+  async queryAssistant(
+    token: string,
+    payload: AdminAssistantQueryRequest
+  ): Promise<AdminAssistantQueryResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/assistant/query`, {
+      method: 'POST',
+      headers: {
+        ...(await this.createHeaders(token)),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Admin assistant query could not be completed.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminAssistantQueryResponse;
   }
 
   async getSetupStatus(token: string): Promise<AdminSetupStatusResponse> {

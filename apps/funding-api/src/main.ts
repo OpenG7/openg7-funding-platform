@@ -13,6 +13,7 @@ import {
 
 import Stripe from 'stripe';
 import type {
+  AdminAssistantQueryRequest,
   AdminContributionRecord,
   AdminEmailQueueRetryRequest,
   AdminEmailQueueRetryResult,
@@ -174,6 +175,9 @@ import {
   listAdminSponsorshipInvoices
 } from './sponsorship-invoices.repository.js';
 import { createSponsorLogoStorage } from './sponsor-media-storage.js';
+import { buildAdminAssistantSummary } from './admin-assistant/attention.service.js';
+import { loadAdminAssistantConfig } from './admin-assistant/config.js';
+import { runAdminAssistantQuery } from './admin-assistant/orchestrator.js';
 
 const parsePositiveIntegerEnv = (
   value: string | undefined,
@@ -263,6 +267,9 @@ const emailQueueBatchSize = parsePositiveIntegerEnv(
   process.env.FUNDING_EMAIL_QUEUE_BATCH_SIZE,
   10
 );
+// Read-only admin AI assistant configuration. Defaults to disabled; the
+// deterministic summary endpoint works regardless of this configuration.
+const adminAssistantConfig = loadAdminAssistantConfig();
 const sponsorLogoMaxBytes = parsePositiveIntegerEnv(
   process.env.FUNDING_SPONSOR_LOGO_MAX_BYTES,
   512 * 1024
@@ -1429,6 +1436,31 @@ const ensureAdminAccess = (
 const getAdminAuditActor = (request: ApiRequest): string =>
   resolveAdminAuthorization(request)?.actor ?? 'local-dev-admin';
 
+// Best-effort audit for admin assistant usage. Never stores the free-text
+// question (it may contain private data) — only which tool/data was consulted,
+// the actor, the outcome and timing. A failed audit never breaks the response.
+const recordAdminAssistantAudit = async (
+  request: ApiRequest,
+  action: string,
+  metadata: Record<string, unknown>
+): Promise<void> => {
+  if (!dbPool) {
+    return;
+  }
+  try {
+    await insertAdminAuditLog(dbPool, {
+      actor: getAdminAuditActor(request),
+      action,
+      entityType: 'admin_assistant',
+      entityId: null,
+      summary: null,
+      metadata
+    });
+  } catch (error) {
+    console.error('Failed to record admin assistant audit.', error);
+  }
+};
+
 const resolveCheckoutReturnUrl = (
   candidateUrl: string,
   fallbackPath: string
@@ -1631,6 +1663,10 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/sponsorship-credit-notes/resend',
       '/admin/dashboard',
       '/api/admin/dashboard',
+      '/admin/assistant/summary',
+      '/api/admin/assistant/summary',
+      '/admin/assistant/query',
+      '/api/admin/assistant/query',
       '/admin/contributions',
       '/api/admin/contributions',
       '/admin/contributions.csv',
@@ -3667,6 +3703,102 @@ createServer(async (request, response) => {
       console.error('Failed to load admin dashboard.', error);
       writeJson(request, response, 502, {
         error: 'Admin dashboard could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/assistant/summary',
+      '/api/admin/assistant/summary'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    const startedAt = Date.now();
+    try {
+      const summary = await buildAdminAssistantSummary(dbPool);
+      await recordAdminAssistantAudit(request, 'admin_assistant.summary', {
+        urgent: summary.counts.urgent,
+        today: summary.counts.today,
+        itemCount: summary.attentionItems.length,
+        durationMs: Date.now() - startedAt
+      });
+      writeJson(request, response, 200, summary);
+    } catch (error) {
+      console.error('Failed to build admin assistant summary.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin assistant summary could not be built.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/assistant/query',
+      '/api/admin/assistant/query'
+    )
+  ) {
+    if (!ensureAdminAuthorization(request, response)) {
+      return;
+    }
+
+    let parsed: AdminAssistantQueryRequest;
+    try {
+      const body = await readBody(request, 16 * 1024);
+      parsed = body.trim()
+        ? (JSON.parse(body) as AdminAssistantQueryRequest)
+        : ({} as AdminAssistantQueryRequest);
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid assistant query body.'
+      });
+      return;
+    }
+
+    const message =
+      typeof parsed.message === 'string' ? parsed.message.trim() : '';
+    if (!message) {
+      writeJson(request, response, 400, {
+        error: 'A question is required.'
+      });
+      return;
+    }
+    if (message.length > adminAssistantConfig.maxMessageLength) {
+      writeJson(request, response, 400, {
+        error: 'The question is too long.'
+      });
+      return;
+    }
+
+    const startedAt = Date.now();
+    try {
+      const result = await runAdminAssistantQuery({
+        pool: dbPool,
+        message,
+        config: adminAssistantConfig
+      });
+      await recordAdminAssistantAudit(request, 'admin_assistant.query', {
+        status: result.status,
+        mode: result.mode,
+        provider: result.provider.name,
+        model: result.provider.model,
+        toolCalls: result.toolInvocations.length,
+        durationMs: Date.now() - startedAt
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to run admin assistant query.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin assistant query could not be completed.'
       });
     }
     return;
