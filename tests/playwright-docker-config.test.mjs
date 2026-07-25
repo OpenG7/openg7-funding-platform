@@ -50,3 +50,33 @@ test('Playwright browser E2E is wired to the local Docker stack', () => {
   assert.ok(smokeSpec.includes("page.getByRole('heading'"));
   assert.equal(smokeSpec.includes('.classList'), false);
 });
+
+test('Playwright runs a desktop + mobile matrix without duplicating DB-mutating specs', () => {
+  const pkg = JSON.parse(read('package.json'));
+  const config = read('playwright.config.ts');
+  const mobileSpec = read('tests/playwright/mobile-public-responsive.spec.ts');
+
+  // Two projects: the full desktop suite and a read-only mobile smoke.
+  assert.ok(config.includes("name: 'chromium'"));
+  assert.ok(config.includes("name: 'mobile-chrome'"));
+  assert.ok(config.includes("devices['Desktop Chrome']"));
+  assert.ok(config.includes("devices['Pixel 5']"));
+
+  // The @mobile tag routing is what keeps DB-mutating specs desktop-only:
+  // desktop greps the tag out, mobile greps it in.
+  assert.ok(config.includes('grepInvert: MOBILE_TAG'));
+  assert.ok(config.includes('grep: MOBILE_TAG'));
+
+  // Pixel 5 is a Chromium device, so the matrix adds no new browser binary and
+  // the install script stays chromium-only.
+  assert.equal(
+    pkg.scripts['playwright:install'],
+    'playwright install chromium'
+  );
+
+  // The mobile spec is tagged and stays read-only: it must not pull in the
+  // admin-session or signed-webhook helpers that mutate the shared database.
+  assert.ok(mobileSpec.includes("tag: '@mobile'"));
+  assert.equal(mobileSpec.includes('signInAsAdmin'), false);
+  assert.equal(mobileSpec.includes('stripe-webhook'), false);
+});
