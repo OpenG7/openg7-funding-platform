@@ -13,6 +13,8 @@ import {
 
 import Stripe from 'stripe';
 import type {
+  AdminAssistantDraftType,
+  AdminAssistantPrepareRequest,
   AdminAssistantQueryRequest,
   AdminContributionRecord,
   AdminEmailQueueRetryRequest,
@@ -178,6 +180,7 @@ import { createSponsorLogoStorage } from './sponsor-media-storage.js';
 import { buildAdminAssistantSummary } from './admin-assistant/attention.service.js';
 import { loadAdminAssistantConfig } from './admin-assistant/config.js';
 import { runAdminAssistantQuery } from './admin-assistant/orchestrator.js';
+import { prepareAdminAssistantDraft } from './admin-assistant/preparation.service.js';
 
 const parsePositiveIntegerEnv = (
   value: string | undefined,
@@ -1667,6 +1670,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/assistant/summary',
       '/admin/assistant/query',
       '/api/admin/assistant/query',
+      '/admin/assistant/prepare',
+      '/api/admin/assistant/prepare',
       '/admin/contributions',
       '/api/admin/contributions',
       '/admin/contributions.csv',
@@ -3799,6 +3804,70 @@ createServer(async (request, response) => {
       console.error('Failed to run admin assistant query.', error);
       writeJson(request, response, 502, {
         error: 'Admin assistant query could not be completed.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/assistant/prepare',
+      '/api/admin/assistant/prepare'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+
+    let parsed: AdminAssistantPrepareRequest;
+    try {
+      const body = await readBody(request, 16 * 1024);
+      parsed = body.trim()
+        ? (JSON.parse(body) as AdminAssistantPrepareRequest)
+        : ({} as AdminAssistantPrepareRequest);
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid assistant prepare body.'
+      });
+      return;
+    }
+
+    const allowedDraftTypes: readonly AdminAssistantDraftType[] = [
+      'sponsorship_reminder',
+      'publication_draft',
+      'admin_note',
+      'slot_proposal'
+    ];
+    if (!allowedDraftTypes.includes(parsed.type)) {
+      writeJson(request, response, 400, {
+        error: 'A valid draft type is required.'
+      });
+      return;
+    }
+
+    const reference =
+      typeof parsed.reference === 'string'
+        ? parsed.reference.trim().slice(0, 64)
+        : undefined;
+
+    const startedAt = Date.now();
+    try {
+      const result = await prepareAdminAssistantDraft(dbPool, {
+        type: parsed.type,
+        reference
+      });
+      await recordAdminAssistantAudit(request, 'admin_assistant.prepare', {
+        draftType: parsed.type,
+        status: result.status,
+        durationMs: Date.now() - startedAt
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to prepare admin assistant draft.', error);
+      writeJson(request, response, 502, {
+        error: 'Admin assistant draft could not be prepared.'
       });
     }
     return;

@@ -1254,3 +1254,54 @@ export interface AdminAssistantQueryResponse {
     readonly model: string | null;
   };
 }
+
+// ============================================================================
+// Admin AI assistant — iteration 2: preparatory drafts (generation only).
+//
+// The assistant may PREPARE draft content the administrator can review, but it
+// NEVER persists, sends, publishes or executes anything. Every proposal is
+// explicitly flagged as not sent / not published / not persisted, and always
+// points to the existing admin screen where the human takes the real action.
+// Refund preparation is intentionally out of scope for this iteration.
+// ============================================================================
+
+export type AdminAssistantDraftType =
+  'sponsorship_reminder' | 'publication_draft' | 'admin_note' | 'slot_proposal';
+
+export interface AdminAssistantDraftField {
+  readonly label: string;
+  readonly value: string;
+}
+
+export interface AdminAssistantDraftProposal {
+  readonly type: AdminAssistantDraftType;
+  readonly generatedAt: string;
+  /** Public reference / admin id of the related record, never private data. */
+  readonly reference: string | null;
+  readonly title: string;
+  readonly bodyLines: readonly string[];
+  /** Structured extras (subject, channel, proposed date…). */
+  readonly fields: readonly AdminAssistantDraftField[];
+  readonly adminUrl: string;
+  /** Human-readable, unmissable "nothing was sent/published" notice. */
+  readonly notice: string;
+  readonly limitations: readonly string[];
+  readonly sent: false;
+  readonly published: false;
+  readonly persisted: false;
+}
+
+export interface AdminAssistantPrepareRequest {
+  readonly type: AdminAssistantDraftType;
+  /** Sponsorship reference/id, or publication id for a slot proposal. */
+  readonly reference?: string;
+}
+
+export type AdminAssistantPrepareStatus =
+  'ok' | 'not_found' | 'not_applicable' | 'assistant_unavailable';
+
+export interface AdminAssistantPrepareResponse {
+  readonly status: AdminAssistantPrepareStatus;
+  readonly draft: AdminAssistantDraftProposal | null;
+  readonly message: string | null;
+}

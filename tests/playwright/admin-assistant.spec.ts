@@ -114,4 +114,105 @@ test.describe('Docker admin assistant', () => {
       page.getByRole('heading', { name: 'Que faut-il traiter?' })
     ).toBeVisible();
   });
+
+  test('prepares a reminder draft clearly marked non envoyé / non publié', async ({
+    page
+  }) => {
+    await signInAsAdmin(page);
+
+    await page.route('**/admin/assistant/summary', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(stubbedSummaryWithReminder)
+      })
+    );
+    await page.route('**/admin/assistant/prepare', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(stubbedReminderDraft)
+      })
+    );
+
+    await page.goto('/admin/fundraiser/assistant');
+
+    await page
+      .getByRole('button', { name: 'Préparer une relance', exact: true })
+      .click();
+
+    await expect(
+      page.getByRole('heading', { name: /Relance — fiche commanditaire/ })
+    ).toBeVisible();
+    await expect(page.getByText('Non envoyé · non publié')).toBeVisible();
+  });
 });
+
+const stubbedSummaryWithReminder = {
+  generatedAt: '2026-07-24T00:00:00.000Z',
+  counts: { urgent: 1, today: 0, thisWeek: 0, informational: 0 },
+  sponsorships: { needsInfo: 1, needsReview: 0, approved: 0 },
+  publications: { needsPreparation: 0, scheduled: 0, late: 0 },
+  emails: { failed: 0 },
+  financialSummary: {
+    grossPaid: 0,
+    processingFees: null,
+    refunded: 0,
+    netReceived: null,
+    currency: 'CAD',
+    limitations: ['Frais Stripe non inclus.']
+  },
+  attentionItems: [
+    {
+      id: 'sponsorship_needs_info:c-1',
+      type: 'sponsorship_needs_info',
+      severity: 'urgent',
+      title: 'Commandite payée sans fiche complète (OG7-CMD-0001)',
+      explanation: 'Fiche commanditaire incomplète.',
+      sponsorshipId: 'c-1',
+      contributionId: 'c-1',
+      detectedAt: '2026-07-24T00:00:00.000Z',
+      adminUrl: '/admin/fundraiser/sponsors',
+      facts: { reference: 'OG7-CMD-0001' },
+      suggestedActions: [
+        {
+          actionType: 'prepare_reminder',
+          label: 'Préparer une relance',
+          executionMode: 'prepare'
+        },
+        {
+          actionType: 'open_sponsorship',
+          label: 'Ouvrir la commandite',
+          executionMode: 'navigate'
+        }
+      ]
+    }
+  ]
+};
+
+const stubbedReminderDraft = {
+  status: 'ok',
+  message: null,
+  draft: {
+    type: 'sponsorship_reminder',
+    generatedAt: '2026-07-24T00:00:00.000Z',
+    reference: 'OG7-CMD-0001',
+    title: 'Relance — fiche commanditaire OG7-CMD-0001',
+    bodyLines: [
+      'Bonjour,',
+      'Nous confirmons la réception de votre commandite.'
+    ],
+    fields: [
+      {
+        label: 'Objet',
+        value: 'Complétez votre fiche de commandite (OG7-CMD-0001)'
+      }
+    ],
+    adminUrl: '/admin/fundraiser/sponsors',
+    notice: "Ce brouillon n'a pas été envoyé.",
+    limitations: ['Personnalisez le nom du contact avant envoi.'],
+    sent: false,
+    published: false,
+    persisted: false
+  }
+};

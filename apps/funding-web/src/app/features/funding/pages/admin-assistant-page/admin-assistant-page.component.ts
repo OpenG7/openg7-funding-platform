@@ -10,11 +10,14 @@ import {
 import { RouterLink } from '@angular/router';
 import type {
   AdminAssistantAnswerBlock,
+  AdminAssistantDraftType,
+  AdminAssistantPrepareResponse,
   AdminAssistantQueryResponse,
   AdminAssistantSummary,
   AdminAttentionItem,
   AdminAttentionItemType,
-  AdminAttentionSeverity
+  AdminAttentionSeverity,
+  AdminAttentionSuggestedAction
 } from '@openg7/funding-core';
 
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
@@ -54,6 +57,15 @@ const ANSWER_BLOCK_LABELS: Record<AdminAssistantAnswerBlock['kind'], string> = {
   recommendation: 'Recommandation',
   data_unavailable: 'Donnée indisponible'
 };
+
+const DRAFT_TYPE_BY_ACTION: Record<string, AdminAssistantDraftType> = {
+  prepare_reminder: 'sponsorship_reminder',
+  prepare_publication: 'publication_draft',
+  prepare_note: 'admin_note',
+  propose_slot: 'slot_proposal'
+};
+
+type DraftState = 'idle' | 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'openg7-admin-assistant-page',
@@ -208,10 +220,63 @@ const ANSWER_BLOCK_LABELS: Record<AdminAssistantAnswerBlock['kind'], string> = {
               Échéance : {{ dateLabel(item.dueAt) }}
             </p>
             <div class="actions">
+              <button
+                *ngIf="prepareAction(item) as action"
+                type="button"
+                class="prepare-button"
+                [disabled]="draftState(item) === 'loading'"
+                (click)="prepare(item, action)"
+              >
+                {{
+                  draftState(item) === 'loading'
+                    ? 'Préparation...'
+                    : action.label
+                }}
+              </button>
               <a *ngIf="item.adminUrl as url" class="link" [routerLink]="url">
-                {{ item.suggestedActions[0]?.label ?? 'Ouvrir le dossier' }}
+                {{ navigateLabel(item) }}
               </a>
             </div>
+
+            <p class="state-error" *ngIf="draftState(item) === 'error'">
+              {{ draftError(item) }}
+            </p>
+
+            <aside
+              class="draft"
+              *ngIf="draftFor(item) as prepared"
+              aria-label="Brouillon préparé"
+            >
+              <p class="draft-notice" *ngIf="prepared.status !== 'ok'">
+                {{ prepared.message }}
+              </p>
+
+              <ng-container *ngIf="prepared.draft as draft">
+                <header>
+                  <h4>{{ draft.title }}</h4>
+                  <span class="draft-flag">Non envoyé · non publié</span>
+                </header>
+                <dl class="draft-fields" *ngIf="draft.fields.length > 0">
+                  <ng-container *ngFor="let field of draft.fields">
+                    <dt>{{ field.label }}</dt>
+                    <dd>{{ field.value }}</dd>
+                  </ng-container>
+                </dl>
+                <p class="draft-line" *ngFor="let line of draft.bodyLines">
+                  {{ line }}
+                </p>
+                <p class="draft-notice">{{ draft.notice }}</p>
+                <p
+                  class="limitation"
+                  *ngFor="let limitation of draft.limitations"
+                >
+                  {{ limitation }}
+                </p>
+                <a class="link" [routerLink]="draft.adminUrl">
+                  Ouvrir l'écran pour agir
+                </a>
+              </ng-container>
+            </aside>
           </article>
         </section>
 
@@ -606,6 +671,80 @@ const ANSWER_BLOCK_LABELS: Record<AdminAssistantAnswerBlock['kind'], string> = {
         font-weight: 800;
       }
 
+      .actions {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      .prepare-button {
+        background: #b98224;
+        color: #101827;
+        min-height: 2.4rem;
+      }
+
+      .draft {
+        background: #fbf7ee;
+        border: 1px solid #e6d5ab;
+        border-radius: 0.4rem;
+        display: grid;
+        gap: 0.5rem;
+        margin-top: 0.6rem;
+        padding: 0.85rem;
+      }
+
+      .draft header {
+        align-items: center;
+        display: flex;
+        gap: 0.75rem;
+        justify-content: space-between;
+      }
+
+      .draft h4 {
+        margin: 0;
+      }
+
+      .draft-flag {
+        background: #9f1d2f;
+        border-radius: 999px;
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 900;
+        padding: 0.2rem 0.6rem;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .draft-fields {
+        display: grid;
+        gap: 0.2rem 0.75rem;
+        grid-template-columns: auto minmax(0, 1fr);
+        margin: 0;
+      }
+
+      .draft-fields dt {
+        color: #7a5a12;
+        font-weight: 800;
+      }
+
+      .draft-fields dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .draft-line {
+        line-height: 1.5;
+        margin: 0;
+        white-space: pre-wrap;
+      }
+
+      .draft-notice {
+        color: #7a5a12;
+        font-weight: 800;
+        margin: 0;
+      }
+
       @media (max-width: 860px) {
         .admin-shell,
         .admin-auth-panel,
@@ -637,6 +776,14 @@ export class AdminAssistantPageComponent implements OnInit {
   readonly answer = signal<AdminAssistantQueryResponse | null>(null);
   readonly answerState = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   readonly answerError = signal<string>('');
+
+  // Prepared drafts (iteration 2), keyed by attention-item id. Generation only:
+  // these never persist, send or publish anything.
+  readonly draftResponses = signal<
+    Record<string, AdminAssistantPrepareResponse>
+  >({});
+  readonly draftStates = signal<Record<string, DraftState>>({});
+  readonly draftErrors = signal<Record<string, string>>({});
 
   readonly sections = computed<readonly AttentionSection[]>(() => {
     const items = this.summary()?.attentionItems ?? [];
@@ -685,6 +832,75 @@ export class AdminAssistantPageComponent implements OnInit {
       );
       this.answerState.set('error');
     }
+  }
+
+  prepareAction(
+    item: AdminAttentionItem
+  ): AdminAttentionSuggestedAction | null {
+    return (
+      item.suggestedActions.find(
+        (action) => action.executionMode === 'prepare'
+      ) ?? null
+    );
+  }
+
+  navigateLabel(item: AdminAttentionItem): string {
+    return (
+      item.suggestedActions.find(
+        (action) => action.executionMode === 'navigate'
+      )?.label ?? 'Ouvrir le dossier'
+    );
+  }
+
+  draftState(item: AdminAttentionItem): DraftState {
+    return this.draftStates()[item.id] ?? 'idle';
+  }
+
+  draftError(item: AdminAttentionItem): string {
+    return this.draftErrors()[item.id] ?? '';
+  }
+
+  draftFor(item: AdminAttentionItem): AdminAssistantPrepareResponse | null {
+    return this.draftResponses()[item.id] ?? null;
+  }
+
+  async prepare(
+    item: AdminAttentionItem,
+    action: AdminAttentionSuggestedAction
+  ): Promise<void> {
+    const type = DRAFT_TYPE_BY_ACTION[action.actionType];
+    if (!type) {
+      return;
+    }
+
+    const referenceFact = item.facts['reference'];
+    const reference =
+      item.sponsorshipId ??
+      item.publicationId ??
+      (typeof referenceFact === 'string' ? referenceFact : undefined);
+
+    this.setDraftState(item.id, 'loading');
+    try {
+      const result = await this.admin.prepareAssistantDraft(this.adminToken(), {
+        type,
+        reference
+      });
+      this.draftResponses.update((map) => ({ ...map, [item.id]: result }));
+      this.setDraftState(item.id, 'ready');
+    } catch (error) {
+      this.draftErrors.update((map) => ({
+        ...map,
+        [item.id]:
+          error instanceof Error
+            ? error.message
+            : 'La préparation du brouillon a échoué.'
+      }));
+      this.setDraftState(item.id, 'error');
+    }
+  }
+
+  private setDraftState(id: string, state: DraftState): void {
+    this.draftStates.update((map) => ({ ...map, [id]: state }));
   }
 
   setAdminToken(event: Event): void {

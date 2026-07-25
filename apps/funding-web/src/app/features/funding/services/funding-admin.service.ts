@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import type {
+  AdminAssistantPrepareRequest,
+  AdminAssistantPrepareResponse,
   AdminAssistantQueryRequest,
   AdminAssistantQueryResponse,
   AdminAssistantSummary,
@@ -194,6 +196,31 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminAssistantQueryResponse;
+  }
+
+  async prepareAssistantDraft(
+    token: string,
+    payload: AdminAssistantPrepareRequest
+  ): Promise<AdminAssistantPrepareResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/assistant/prepare`, {
+      method: 'POST',
+      headers: {
+        ...(await this.createHeaders(token)),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Admin assistant draft could not be prepared.'
+        )
+      );
+    }
+
+    return (await response.json()) as AdminAssistantPrepareResponse;
   }
 
   async getSetupStatus(token: string): Promise<AdminSetupStatusResponse> {
