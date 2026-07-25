@@ -108,7 +108,7 @@ const severityForAge = (
   return 'this_week';
 };
 
-const promisedSocialChannels = (
+export const promisedSocialChannels = (
   amount: number
 ): readonly SponsorFeedChannel[] => {
   const channels: SponsorFeedChannel[] = [];
@@ -121,20 +121,22 @@ const promisedSocialChannels = (
   return channels;
 };
 
-const sponsorshipRef = (record: SponsorshipAttentionRecord): string =>
+export const sponsorshipRef = (record: SponsorshipAttentionRecord): string =>
   record.publicReference ?? `#${record.contributionId.slice(0, 8)}`;
 
 // A sponsorship is "actionable" (not refunded/cancelled/in-refund) when its
 // payment is confirmed and no refund workflow is under way.
-const isActionableSponsorship = (record: SponsorshipAttentionRecord): boolean =>
+export const isActionableSponsorship = (
+  record: SponsorshipAttentionRecord
+): boolean =>
   record.paymentStatus === 'paid' && record.refundStatus === 'not_requested';
 
-const hasCompleteFiche = (record: SponsorshipAttentionRecord): boolean =>
+export const hasCompleteFiche = (record: SponsorshipAttentionRecord): boolean =>
   record.detailsSubmittedAt !== null &&
   record.hasCompanyName &&
   record.hasContactEmail;
 
-const missingFicheFields = (
+export const missingFicheFields = (
   record: SponsorshipAttentionRecord
 ): readonly string[] => {
   const missing: string[] = [];
@@ -187,6 +189,11 @@ export const detectSponsorshipInfoItems = (
         },
         suggestedActions: [
           {
+            actionType: 'prepare_reminder',
+            label: 'Préparer une relance',
+            executionMode: 'prepare'
+          },
+          {
             actionType: 'open_sponsorship',
             label: 'Ouvrir la commandite',
             executionMode: 'navigate'
@@ -235,6 +242,11 @@ export const detectSponsorshipReviewItems = (
         },
         suggestedActions: [
           {
+            actionType: 'prepare_note',
+            label: 'Préparer une note',
+            executionMode: 'prepare'
+          },
+          {
             actionType: 'review_sponsorship',
             label: 'Réviser la commandite',
             executionMode: 'navigate'
@@ -248,7 +260,7 @@ export const detectSponsorshipReviewItems = (
 // yet covered by an active draft. Publication benefits are derived server-side
 // from the amount actually paid (Facebook >= 250, LinkedIn >= 500).
 // ---------------------------------------------------------------------------
-const activeDraftChannels = (
+export const activeDraftChannels = (
   drafts: readonly AdminPublicationDraftRecord[],
   contributionId: string
 ): ReadonlySet<SponsorFeedChannel> => {
@@ -312,7 +324,12 @@ export const detectPublicationPreparationItems = (
           suggestedActions: [
             {
               actionType: 'prepare_publication',
-              label: 'Préparer la publication',
+              label: 'Préparer le brouillon de publication',
+              executionMode: 'prepare'
+            },
+            {
+              actionType: 'open_publications',
+              label: 'Ouvrir les publications',
               executionMode: 'navigate'
             }
           ]
@@ -360,6 +377,11 @@ export const detectLatePublicationItems = (
         capacity: slot.capacity
       },
       suggestedActions: [
+        {
+          actionType: 'propose_slot',
+          label: 'Proposer un créneau',
+          executionMode: 'prepare'
+        },
         {
           actionType: 'open_publication_slot',
           label: 'Ouvrir le créneau',

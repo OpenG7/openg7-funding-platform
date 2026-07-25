@@ -37,8 +37,10 @@ test('the assistant is wired into the Angular admin shell', () => {
     [
       'getAssistantSummary',
       'queryAssistant',
+      'prepareAssistantDraft',
       '/admin/assistant/summary',
-      '/admin/assistant/query'
+      '/admin/assistant/query',
+      '/admin/assistant/prepare'
     ],
     'funding-admin.service'
   );
@@ -56,6 +58,37 @@ test('the assistant is wired into the Angular admin shell', () => {
       'lecture seule'
     ],
     'admin-assistant-page'
+  );
+});
+
+test('the assistant prepares drafts (iteration 2) as generation only', () => {
+  const api = read('apps/funding-api/src/main.ts');
+  const preparation = read(
+    'apps/funding-api/src/admin-assistant/preparation.service.ts'
+  );
+  const page = read(
+    'apps/funding-web/src/app/features/funding/pages/admin-assistant-page/admin-assistant-page.component.ts'
+  );
+
+  assertIncludesAll(
+    api,
+    [
+      '/admin/assistant/prepare',
+      '/api/admin/assistant/prepare',
+      'prepareAdminAssistantDraft',
+      "'admin_assistant.prepare'"
+    ],
+    'main.ts prepare endpoint'
+  );
+  assertIncludesAll(
+    preparation,
+    ['sent: false', 'published: false', 'persisted: false', 'GENERATION ONLY'],
+    'preparation.service'
+  );
+  assertIncludesAll(
+    page,
+    ['prepare_reminder', 'Non envoyé · non publié', 'prepareAssistantDraft'],
+    'admin-assistant-page prepare UI'
   );
 });
 

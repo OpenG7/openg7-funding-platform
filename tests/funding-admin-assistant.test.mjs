@@ -17,6 +17,7 @@ import {
 import { resolveAdminAssistantProvider } from '../dist/apps/funding-api/src/admin-assistant/provider.js';
 import { loadAdminAssistantConfig } from '../dist/apps/funding-api/src/admin-assistant/config.js';
 import { runAdminAssistantQuery } from '../dist/apps/funding-api/src/admin-assistant/orchestrator.js';
+import { prepareDraftFromDataset } from '../dist/apps/funding-api/src/admin-assistant/preparation.service.js';
 
 const NOW = new Date('2026-07-24T00:00:00.000Z');
 
@@ -359,4 +360,102 @@ test('the orchestrator works end to end with the mock provider', async () => {
   assert.ok(['ok', 'no_results'].includes(result.status));
   assert.ok(result.answer.length > 0);
   assert.ok(result.limitations.length > 0);
+});
+
+// --- Iteration 2: preparatory drafts (generation only) ---------------------
+
+test('prepares a reminder draft that is never sent', () => {
+  const ds = dataset({
+    sponsorships: [sponsorship({ detailsSubmittedAt: null })]
+  });
+  const result = prepareDraftFromDataset(ds, {
+    type: 'sponsorship_reminder',
+    reference: 'OG7-CMD-0001'
+  });
+  assert.equal(result.status, 'ok');
+  assert.equal(result.draft.type, 'sponsorship_reminder');
+  assert.equal(result.draft.sent, false);
+  assert.equal(result.draft.published, false);
+  assert.equal(result.draft.persisted, false);
+  assert.ok(result.draft.bodyLines.length > 0);
+});
+
+test('does not prepare a reminder when the fiche is already complete', () => {
+  const ds = dataset({ sponsorships: [sponsorship()] });
+  const result = prepareDraftFromDataset(ds, {
+    type: 'sponsorship_reminder',
+    reference: 'OG7-CMD-0001'
+  });
+  assert.equal(result.status, 'not_applicable');
+  assert.equal(result.draft, null);
+});
+
+test('prepares a publication draft only for an approved sponsorship', () => {
+  const approved = dataset({
+    sponsorships: [sponsorship({ reviewStatus: 'approved', amount: 300 })]
+  });
+  const ok = prepareDraftFromDataset(approved, {
+    type: 'publication_draft',
+    reference: 'OG7-CMD-0001'
+  });
+  assert.equal(ok.status, 'ok');
+  assert.equal(ok.draft.type, 'publication_draft');
+  assert.equal(ok.draft.published, false);
+
+  const pending = dataset({ sponsorships: [sponsorship({ amount: 300 })] });
+  const blocked = prepareDraftFromDataset(pending, {
+    type: 'publication_draft',
+    reference: 'OG7-CMD-0001'
+  });
+  assert.equal(blocked.status, 'not_applicable');
+});
+
+test('prepares an admin note and a slot proposal in the future', () => {
+  const note = prepareDraftFromDataset(
+    dataset({ sponsorships: [sponsorship()] }),
+    { type: 'admin_note', reference: 'OG7-CMD-0001' }
+  );
+  assert.equal(note.status, 'ok');
+  assert.equal(note.draft.type, 'admin_note');
+  assert.equal(note.draft.persisted, false);
+
+  const ds = dataset({
+    slots: [
+      {
+        id: 's-1',
+        channel: 'facebook',
+        feedTarget: 'openg7',
+        startsAt: '2026-07-01T00:00:00.000Z',
+        status: 'scheduled',
+        capacity: 5,
+        capacityUsed: 2
+      }
+    ]
+  });
+  const slot = prepareDraftFromDataset(ds, {
+    type: 'slot_proposal',
+    reference: 's-1'
+  });
+  assert.equal(slot.status, 'ok');
+  assert.equal(slot.draft.type, 'slot_proposal');
+  const proposedField = slot.draft.fields.find(
+    (field) => field.label === 'Date proposée'
+  );
+  assert.ok(proposedField);
+  assert.ok(Date.parse(proposedField.value) > ds.now.getTime());
+});
+
+test('preparation reports not_found for an unknown or missing reference', () => {
+  const ds = dataset({ sponsorships: [sponsorship()] });
+  assert.equal(
+    prepareDraftFromDataset(ds, {
+      type: 'admin_note',
+      reference: 'OG7-CMD-NOPE'
+    }).status,
+    'not_found'
+  );
+  assert.equal(
+    prepareDraftFromDataset(ds, { type: 'sponsorship_reminder' }).status,
+    'not_found'
+  );
 });
