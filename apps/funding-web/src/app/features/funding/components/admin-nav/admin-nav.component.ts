@@ -28,6 +28,10 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           <span aria-hidden="true">TB</span>
           Tableau de bord
         </a>
+        <a routerLink="/admin/fundraiser/assistant" routerLinkActive="active">
+          <span aria-hidden="true">IA</span>
+          Assistant
+        </a>
         <a
           routerLink="/admin/fundraiser/contributions"
           routerLinkActive="active"

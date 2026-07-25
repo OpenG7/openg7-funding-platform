@@ -1572,6 +1572,134 @@ export const listAdminSponsorships = async (
   };
 };
 
+/**
+ * Minimal, privacy-preserving projection of every paid/refunded/disputed
+ * sponsorship, used by the read-only admin assistant to build a GLOBAL
+ * attention queue (never a single paginated page). Company names, contact
+ * emails and website URLs are collapsed to presence booleans inside SQL so the
+ * raw personal data never leaves the database layer.
+ */
+export interface SponsorshipAttentionRecord {
+  readonly contributionId: string;
+  readonly publicReference: string | null;
+  readonly amount: number;
+  readonly currency: string;
+  readonly paymentStatus: string;
+  readonly paidAt: string | null;
+  readonly updatedAt: string;
+  readonly detailsSubmittedAt: string | null;
+  readonly hasCompanyName: boolean;
+  readonly hasContactEmail: boolean;
+  readonly hasWebsite: boolean;
+  readonly hasLogo: boolean;
+  readonly reviewStatus: SponsorshipReviewStatus;
+  readonly feedStatus: SponsorFeedStatus;
+  readonly feedTarget: SponsorFeedTarget | null;
+  readonly feedChannels: readonly SponsorFeedChannel[];
+  readonly refundStatus: AdminSponsorshipRefundWorkflowStatus;
+}
+
+export interface SponsorshipAttentionQueryResult {
+  readonly items: readonly SponsorshipAttentionRecord[];
+  readonly lastUpdatedAt: string;
+  readonly truncated: boolean;
+}
+
+interface SponsorshipAttentionRow {
+  readonly contribution_id: string;
+  readonly public_reference: string | null;
+  readonly amount_cents: string;
+  readonly currency: string;
+  readonly payment_status: string;
+  readonly paid_at: string | null;
+  readonly updated_at: string;
+  readonly sponsor_details_submitted_at: string | null;
+  readonly has_company_name: boolean;
+  readonly has_contact_email: boolean;
+  readonly has_website: boolean;
+  readonly has_logo: boolean;
+  readonly sponsor_review_status: SponsorshipReviewStatus;
+  readonly sponsor_feed_status: SponsorFeedStatus;
+  readonly sponsor_feed_target: SponsorFeedTarget | null;
+  readonly sponsor_feed_channels: unknown;
+  readonly sponsorship_refund_status: AdminSponsorshipRefundWorkflowStatus;
+}
+
+const SPONSORSHIP_ATTENTION_MAX_ROWS = 2000;
+
+export const listSponsorshipsForAttention = async (
+  pool: Pool | null,
+  maxRows: number = SPONSORSHIP_ATTENTION_MAX_ROWS
+): Promise<SponsorshipAttentionQueryResult> => {
+  if (!pool) {
+    return {
+      items: [],
+      lastUpdatedAt: new Date().toISOString(),
+      truncated: false
+    };
+  }
+
+  const cap = Math.max(1, Math.min(maxRows, SPONSORSHIP_ATTENTION_MAX_ROWS));
+  const query = await pool.query<SponsorshipAttentionRow>(
+    `
+    SELECT
+      id::text AS contribution_id,
+      public_reference,
+      amount_cents::text AS amount_cents,
+      currency,
+      status AS payment_status,
+      paid_at::text AS paid_at,
+      updated_at::text AS updated_at,
+      sponsor_details_submitted_at::text AS sponsor_details_submitted_at,
+      (COALESCE(TRIM(sponsor_company_name), '') <> '') AS has_company_name,
+      (COALESCE(TRIM(sponsor_contact_email), '') <> '') AS has_contact_email,
+      (COALESCE(TRIM(sponsor_website_url), '') <> '') AS has_website,
+      (COALESCE(TRIM(sponsor_logo_url), '') <> '') AS has_logo,
+      COALESCE(sponsor_review_status, 'pending_review') AS sponsor_review_status,
+      COALESCE(sponsor_feed_status, 'not_planned') AS sponsor_feed_status,
+      sponsor_feed_target,
+      sponsor_feed_channels,
+      COALESCE(sponsorship_refund_status, 'not_requested') AS sponsorship_refund_status
+    FROM fund_contributions
+    WHERE contribution_type = 'sponsorship_interest'
+      AND status IN ('paid', 'refunded', 'disputed')
+    ORDER BY updated_at DESC
+    LIMIT $1
+  `,
+    [cap + 1]
+  );
+
+  const truncated = query.rows.length > cap;
+  const rows = truncated ? query.rows.slice(0, cap) : query.rows;
+  const items = rows.map((row): SponsorshipAttentionRecord => ({
+    contributionId: row.contribution_id,
+    publicReference: row.public_reference,
+    amount: centsToAmount(parseDbInt(row.amount_cents)),
+    currency: row.currency.toUpperCase(),
+    paymentStatus: row.payment_status,
+    paidAt: row.paid_at,
+    updatedAt: row.updated_at,
+    detailsSubmittedAt: row.sponsor_details_submitted_at,
+    hasCompanyName: row.has_company_name,
+    hasContactEmail: row.has_contact_email,
+    hasWebsite: row.has_website,
+    hasLogo: row.has_logo,
+    reviewStatus:
+      normalizeSponsorshipReviewStatus(row.sponsor_review_status) ??
+      'pending_review',
+    feedStatus: normalizeSponsorFeedStatus(row.sponsor_feed_status),
+    feedTarget: normalizeSponsorFeedTarget(row.sponsor_feed_target),
+    feedChannels: parseSponsorFeedChannels(row.sponsor_feed_channels),
+    refundStatus: normalizeSponsorshipRefundWorkflowStatus(
+      row.sponsorship_refund_status,
+      row.payment_status
+    )
+  }));
+
+  const lastUpdatedAt = items[0]?.updatedAt ?? new Date().toISOString();
+  return { items, lastUpdatedAt, truncated };
+};
+
 export const getAdminSponsorshipById = async (
   pool: Pool | null,
   contributionId: string
