@@ -348,6 +348,28 @@ interface AdminContributionRow {
   readonly updated_at: string;
 }
 
+export interface ContributionReferenceRecoveryRecord {
+  readonly publicReference: string;
+  readonly contributionType: ContributionType;
+  readonly amount: number;
+  readonly currency: string;
+  readonly paymentStatus: string;
+  readonly paidAt: string | null;
+  readonly createdAt: string;
+  readonly displayName: string | null;
+}
+
+interface ContributionReferenceRecoveryRow {
+  readonly public_reference: string;
+  readonly contribution_type: ContributionType;
+  readonly amount_cents: string;
+  readonly currency: string;
+  readonly payment_status: string;
+  readonly paid_at: string | null;
+  readonly created_at: string;
+  readonly display_name: string | null;
+}
+
 interface AdminContributionsSummaryRow {
   readonly total_count: string;
   readonly paid_count: string;
@@ -1103,6 +1125,53 @@ export const listAdminContributions = async (
     contributions,
     last_updated_at: lastUpdatedAt
   };
+};
+
+export const listContributionReferencesByEmail = async (
+  pool: Pool | null,
+  email: string
+): Promise<readonly ContributionReferenceRecoveryRecord[]> => {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!pool || !normalizedEmail) {
+    return [];
+  }
+
+  const query = await pool.query<ContributionReferenceRecoveryRow>(
+    `
+      SELECT
+        public_reference,
+        contribution_type,
+        amount_cents::text AS amount_cents,
+        currency,
+        status AS payment_status,
+        paid_at::text AS paid_at,
+        created_at::text AS created_at,
+        COALESCE(
+          NULLIF(TRIM(sponsor_company_name), ''),
+          NULLIF(TRIM(public_name), '')
+        ) AS display_name
+      FROM fund_contributions
+      WHERE public_reference IS NOT NULL
+        AND (
+          LOWER(COALESCE(email_private, '')) = $1
+          OR LOWER(COALESCE(sponsor_contact_email, '')) = $1
+        )
+      ORDER BY COALESCE(paid_at, updated_at, created_at) DESC
+      LIMIT 25
+    `,
+    [normalizedEmail]
+  );
+
+  return query.rows.map((row) => ({
+    publicReference: row.public_reference,
+    contributionType: row.contribution_type,
+    amount: centsToAmount(parseDbInt(row.amount_cents)),
+    currency: row.currency.toUpperCase(),
+    paymentStatus: row.payment_status,
+    paidAt: row.paid_at,
+    createdAt: row.created_at,
+    displayName: row.display_name
+  }));
 };
 
 const getAdminSponsorshipReviewSummary = async (
