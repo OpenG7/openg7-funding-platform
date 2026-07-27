@@ -4,12 +4,14 @@ import {
   Component,
   computed,
   Injector,
-  inject
+  inject,
+  signal
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingService } from '../../services/funding.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 
@@ -32,6 +34,8 @@ interface SupportStep {
   readonly titleKey: string;
   readonly descriptionKey: string;
 }
+
+type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
 
 @Component({
   selector: 'openg7-support-page',
@@ -174,6 +178,59 @@ interface SupportStep {
                 <p>{{ step.descriptionKey | translate }}</p>
               </li>
             </ol>
+          </article>
+
+          <article class="reference-recovery-panel">
+            <header>
+              <span aria-hidden="true">#</span>
+              <div>
+                <h2>
+                  {{ 'funding.supportPage.referenceRecovery.title' | translate }}
+                </h2>
+                <p>
+                  {{ 'funding.supportPage.referenceRecovery.copy' | translate }}
+                </p>
+              </div>
+            </header>
+
+            <form (submit)="requestReferenceRecovery($event)" novalidate>
+              <label for="reference-recovery-email">
+                {{ 'funding.supportPage.referenceRecovery.emailLabel' | translate }}
+              </label>
+              <div class="reference-recovery-row">
+                <input
+                  id="reference-recovery-email"
+                  type="email"
+                  autocomplete="email"
+                  [value]="referenceRecoveryEmail()"
+                  [disabled]="referenceRecoveryState() === 'submitting'"
+                  aria-describedby="reference-recovery-hint reference-recovery-status"
+                  (input)="setReferenceRecoveryEmail($event)"
+                />
+                <button
+                  type="submit"
+                  [disabled]="referenceRecoveryState() === 'submitting'"
+                >
+                  {{
+                    (referenceRecoveryState() === 'submitting'
+                      ? 'funding.supportPage.referenceRecovery.submitting'
+                      : 'funding.supportPage.referenceRecovery.submit') | translate
+                  }}
+                </button>
+              </div>
+              <p id="reference-recovery-hint" class="reference-recovery-hint">
+                {{ 'funding.supportPage.referenceRecovery.hint' | translate }}
+              </p>
+              <p
+                id="reference-recovery-status"
+                class="reference-recovery-status"
+                [class.error]="referenceRecoveryState() === 'error'"
+                role="status"
+                *ngIf="referenceRecoveryMessageKey() as messageKey"
+              >
+                {{ messageKey | translate }}
+              </p>
+            </form>
           </article>
 
           <article class="notice-panel warning">
@@ -390,6 +447,7 @@ interface SupportStep {
       .support-action-grid article,
       .repository-panel,
       .steps-panel,
+      .reference-recovery-panel,
       .notice-panel {
         background: rgb(4 21 43 / 78%);
         border: 1px solid rgb(76 166 235 / 30%);
@@ -411,6 +469,7 @@ interface SupportStep {
 
       .support-action-grid article > span,
       .repository-icon,
+      .reference-recovery-panel header > span,
       .notice-panel > span {
         background: radial-gradient(circle, rgb(11 75 111), rgb(4 29 55));
         border: 1px solid rgb(70 210 255 / 55%);
@@ -450,6 +509,7 @@ interface SupportStep {
 
       .repository-panel,
       .steps-panel,
+      .reference-recovery-panel,
       .notice-panel {
         border-radius: 0.72rem;
       }
@@ -470,7 +530,8 @@ interface SupportStep {
       }
 
       .repository-panel h2,
-      .steps-panel h2 {
+      .steps-panel h2,
+      .reference-recovery-panel h2 {
         color: #fff8e8;
         font-family: Georgia, 'Times New Roman', serif;
         font-size: 1.3rem;
@@ -626,6 +687,85 @@ interface SupportStep {
         color: #b8cbdc;
         font-size: 0.72rem;
         line-height: 1.35;
+      }
+
+      .reference-recovery-panel {
+        display: grid;
+        gap: 0.9rem;
+        padding: 1rem;
+      }
+
+      .reference-recovery-panel header {
+        align-items: start;
+        display: grid;
+        gap: 0.8rem;
+        grid-template-columns: auto 1fr;
+      }
+
+      .reference-recovery-panel header p,
+      .reference-recovery-hint,
+      .reference-recovery-status {
+        color: #c6d7e4;
+        font-size: 0.82rem;
+        line-height: 1.35;
+      }
+
+      .reference-recovery-panel form {
+        display: grid;
+        gap: 0.55rem;
+      }
+
+      .reference-recovery-panel label {
+        color: #fff2d6;
+        font-size: 0.82rem;
+        font-weight: 900;
+      }
+
+      .reference-recovery-row {
+        display: grid;
+        gap: 0.5rem;
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .reference-recovery-row input {
+        background: rgb(3 15 31 / 82%);
+        border: 1px solid rgb(92 184 245 / 38%);
+        border-radius: 0.45rem;
+        color: #f7fbff;
+        min-height: 2.65rem;
+        min-width: 0;
+        padding: 0 0.85rem;
+      }
+
+      .reference-recovery-row input:focus {
+        border-color: #64d7ff;
+        outline: 2px solid rgb(100 215 255 / 36%);
+        outline-offset: 2px;
+      }
+
+      .reference-recovery-row button {
+        background: linear-gradient(180deg, #f7d77a, #d99c23);
+        border: 1px solid #ffe49a;
+        border-radius: 0.45rem;
+        color: #211503;
+        font-weight: 900;
+        min-height: 2.65rem;
+        padding: 0 0.95rem;
+        white-space: nowrap;
+      }
+
+      .reference-recovery-row button:disabled,
+      .reference-recovery-row input:disabled {
+        cursor: progress;
+        opacity: 0.68;
+      }
+
+      .reference-recovery-status {
+        color: #77f0a7;
+      }
+
+      .reference-recovery-status.error {
+        color: #ffb4a8;
       }
 
       .notice-panel {
@@ -805,8 +945,13 @@ interface SupportStep {
         }
 
         .repository-list article,
+        .reference-recovery-panel header,
         .notice-panel,
         .repository-panel > header {
+          grid-template-columns: 1fr;
+        }
+
+        .reference-recovery-row {
           grid-template-columns: 1fr;
         }
 
@@ -825,6 +970,7 @@ interface SupportStep {
   ]
 })
 export class SupportPageComponent {
+  private readonly funding = inject(FundingService);
   private readonly i18n = inject(FundingI18nService);
   private readonly injector = inject(Injector);
   private readonly seo = inject(FundingSeoService);
@@ -840,6 +986,9 @@ export class SupportPageComponent {
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
   );
   readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly referenceRecoveryEmail = signal<string>('');
+  readonly referenceRecoveryState = signal<ReferenceRecoveryState>('idle');
+  readonly referenceRecoveryMessageKey = signal<string | null>(null);
   readonly currentYear = new Date().getFullYear();
 
   constructor() {
@@ -1014,4 +1163,47 @@ export class SupportPageComponent {
       descriptionKey: 'funding.supportPage.steps.items.pullRequest.description'
     }
   ];
+
+  setReferenceRecoveryEmail(event: Event): void {
+    this.referenceRecoveryEmail.set(this.valueFromEvent(event));
+
+    if (this.referenceRecoveryState() !== 'submitting') {
+      this.referenceRecoveryState.set('idle');
+      this.referenceRecoveryMessageKey.set(null);
+    }
+  }
+
+  async requestReferenceRecovery(event: Event): Promise<void> {
+    event.preventDefault();
+
+    const email = this.referenceRecoveryEmail().trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      this.referenceRecoveryState.set('error');
+      this.referenceRecoveryMessageKey.set(
+        'funding.supportPage.referenceRecovery.invalid'
+      );
+      return;
+    }
+
+    this.referenceRecoveryState.set('submitting');
+    this.referenceRecoveryMessageKey.set(null);
+
+    try {
+      await this.funding.requestContributionReferenceRecovery({ email });
+      this.referenceRecoveryState.set('sent');
+      this.referenceRecoveryMessageKey.set(
+        'funding.supportPage.referenceRecovery.success'
+      );
+    } catch {
+      this.referenceRecoveryState.set('error');
+      this.referenceRecoveryMessageKey.set(
+        'funding.supportPage.referenceRecovery.error'
+      );
+    }
+  }
+
+  private valueFromEvent(event: Event): string {
+    const target = event.target;
+    return target instanceof HTMLInputElement ? target.value : '';
+  }
 }

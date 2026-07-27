@@ -6,6 +6,8 @@ import {
   ContributionType,
   PublicFundingRuntimeConfig,
   PublicSponsorshipBatchAvailabilityResponse,
+  ReferenceRecoveryRequest,
+  ReferenceRecoveryResult,
   SponsorshipDetailsResult,
   SponsorshipFollowupDetailsRequest,
   SponsorshipFollowupResponse,
@@ -112,6 +114,25 @@ export class FundingService {
     }
 
     return (await response.json()) as PublicFundingRuntimeConfig;
+  }
+
+  async requestContributionReferenceRecovery(
+    payload: ReferenceRecoveryRequest
+  ): Promise<ReferenceRecoveryResult> {
+    const response = await fetch(`${this.apiBaseUrl}/reference-recovery`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error('Reference recovery could not be requested.');
+    }
+
+    return (await response.json()) as ReferenceRecoveryResult;
   }
 
   private buildReturnUrl(

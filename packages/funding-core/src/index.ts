@@ -297,6 +297,14 @@ export interface SponsorshipFollowupDetailsRequest {
   readonly message?: string;
 }
 
+export interface ReferenceRecoveryRequest {
+  readonly email: string;
+}
+
+export interface ReferenceRecoveryResult {
+  readonly accepted: true;
+}
+
 export type SponsorshipReviewStatus =
   'pending_review' | 'approved' | 'rejected';
 

@@ -423,6 +423,17 @@
       "workspace": {
         "ariaLabel": "OpenG7 support workspace"
       },
+      "referenceRecovery": {
+        "title": "Find an OpenG7 reference",
+        "copy": "Enter the email used for the contribution or sponsorship.",
+        "emailLabel": "Email",
+        "submit": "Send",
+        "submitting": "Sending...",
+        "hint": "If a reference matches, it will be sent by email. This page never publicly confirms whether a record exists.",
+        "success": "If a reference matches this email, a message has been prepared.",
+        "invalid": "Enter a valid email address.",
+        "error": "The request could not be sent. Try again later."
+      },
       "repositories": {
         "title": "Choose a repository",
         "copy": "Here are the main repositories of the OpenG7 ecosystem. Click to explore, read documentation, or contribute.",

@@ -1128,6 +1128,7 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(api.includes('FUNDING_RATE_LIMIT_WINDOW_MS'));
   assert.ok(api.includes('FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX'));
   assert.ok(api.includes('FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX'));
+  assert.ok(api.includes('FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX'));
   assert.ok(api.includes('FUNDING_ADMIN_RATE_LIMIT_MAX'));
   assert.ok(api.includes('FUNDING_ADMIN_SESSION_SECRET'));
   assert.ok(api.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES'));
@@ -1139,6 +1140,7 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(
     envExample.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS=30')
   );
+  assert.ok(envExample.includes('FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX=10'));
   assert.ok(envExample.includes('FUNDING_ADMIN_RATE_LIMIT_MAX=120'));
   assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_SECRET='));
   assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES=60'));
@@ -1148,6 +1150,84 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(
     envExample.includes(
       'SPONSOR_MEDIA_PRIVATE_BUCKET=openg7-funding-sponsor-media-private-prod'
+    )
+  );
+});
+
+test('Reference recovery accepts email requests without exposing contribution existence', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const email = fs.readFileSync(
+    'apps/funding-api/src/email-notification.service.ts',
+    'utf8'
+  );
+  const fundingService = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding.service.ts',
+    'utf8'
+  );
+  const supportPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/support-page/support-page.component.ts',
+    'utf8'
+  );
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const frenchCopy = fs.readFileSync(
+    'apps/funding-web/src/assets/i18n/fr-CA.json',
+    'utf8'
+  );
+  const englishCopy = fs.readFileSync(
+    'apps/funding-web/src/assets/i18n/en.json',
+    'utf8'
+  );
+
+  assert.ok(core.includes('export interface ReferenceRecoveryRequest'));
+  assert.ok(core.includes('export interface ReferenceRecoveryResult'));
+  assert.ok(api.includes("'/reference-recovery'"));
+  assert.ok(api.includes("'/api/reference-recovery'"));
+  assert.ok(api.includes('referenceRecoveryRateLimiter'));
+  assert.ok(api.includes('normalizeReferenceRecoveryEmail'));
+  assert.ok(api.includes('listContributionReferencesByEmail'));
+  assert.ok(api.includes('queueContributionReferenceRecoveryEmail'));
+  assert.ok(
+    api.includes('ReferenceRecoveryResult = { accepted: true }')
+  );
+  assert.equal(
+    api.includes('writeJson(request, response, 200, references'),
+    false
+  );
+  assert.equal(
+    api.includes('writeJson(request, response, 202, references'),
+    false
+  );
+  assert.ok(
+    repository.includes('export const listContributionReferencesByEmail')
+  );
+  assert.ok(repository.includes("LOWER(COALESCE(email_private, '')) = $1"));
+  assert.ok(
+    repository.includes("LOWER(COALESCE(sponsor_contact_email, '')) = $1")
+  );
+  assert.ok(repository.includes('LIMIT 25'));
+  assert.ok(email.includes("'contribution_reference_recovery'"));
+  assert.ok(email.includes('renderContributionReferenceRecoveryEmail'));
+  assert.ok(email.includes('publicReferences: input.references.map'));
+  assert.ok(fundingService.includes('requestContributionReferenceRecovery'));
+  assert.ok(fundingService.includes('/reference-recovery'));
+  assert.ok(supportPage.includes('referenceRecoveryEmail'));
+  assert.ok(
+    supportPage.includes('funding.supportPage.referenceRecovery.success')
+  );
+  assert.ok(frenchCopy.includes('Retrouver une référence OpenG7'));
+  assert.ok(
+    frenchCopy.includes(
+      "Cette page ne confirme jamais publiquement l'existence d'un dossier."
+    )
+  );
+  assert.ok(englishCopy.includes('Find an OpenG7 reference'));
+  assert.ok(
+    englishCopy.includes(
+      'This page never publicly confirms whether a record exists.'
     )
   );
 });
@@ -1361,10 +1441,9 @@ test('Publication batch lifecycle requires schedule before publish and preserves
 });
 
 test('Publication slot repository enforces future dates, capacity, assignment, cancellation, and publication', () => {
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-admin.repository.ts',
-    'utf8'
-  );
+  const repository = fs
+    .readFileSync('apps/funding-api/src/fund-admin.repository.ts', 'utf8')
+    .replaceAll('\r\n', '\n');
 
   for (const fn of [
     'export const listAdminPublicationSlots',
@@ -2220,6 +2299,7 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     "'sponsorship_refund'",
     "'sponsorship_invoice'",
     "'sponsorship_credit_note'",
+    "'contribution_reference_recovery'",
     "'email_configuration_test'",
     'queueSponsorshipInvoiceEmail',
     'queueSponsorshipCreditNoteEmail',
@@ -2227,6 +2307,7 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'queueSponsorshipRefundEmail',
     'queueSponsorshipConfirmationEmail',
     'queueSponsorshipFollowupEmail',
+    'queueContributionReferenceRecoveryEmail',
     'queueEmailConfigurationTest',
     'getEmailQueueStatus',
     'processQueuedEmailMessages',
