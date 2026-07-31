@@ -9,6 +9,8 @@ import type {
   AdminSponsorshipRefundWorkflowStatus,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipRecord,
+  PublicReferenceLookupFoundResponse,
+  PublicReferenceLookupNextStep,
   PublicSponsorshipProfile,
   PublicSponsorshipsResponse,
   SponsorFeedChannel,
@@ -368,6 +370,19 @@ interface ContributionReferenceRecoveryRow {
   readonly paid_at: string | null;
   readonly created_at: string;
   readonly display_name: string | null;
+}
+
+interface PublicReferenceLookupRow {
+  readonly public_reference: string;
+  readonly contribution_type: ContributionType;
+  readonly amount_cents: string;
+  readonly currency: string;
+  readonly payment_status: string;
+  readonly display_amount_consent: boolean;
+  readonly paid_at: string | null;
+  readonly created_at: string;
+  readonly review_status: SponsorshipReviewStatus | null;
+  readonly details_submitted: boolean | null;
 }
 
 interface AdminContributionsSummaryRow {
@@ -1124,6 +1139,83 @@ export const listAdminContributions = async (
     summary,
     contributions,
     last_updated_at: lastUpdatedAt
+  };
+};
+
+const publicReferenceNextStep = (
+  row: PublicReferenceLookupRow
+): PublicReferenceLookupNextStep => {
+  if (row.payment_status === 'pending' || row.payment_status === 'expired') {
+    return 'wait_for_payment_confirmation';
+  }
+
+  if (row.payment_status === 'disputed') {
+    return 'contact_support_with_reference';
+  }
+
+  if (row.contribution_type === 'sponsorship_interest') {
+    return 'recover_private_link_by_email';
+  }
+
+  return 'none';
+};
+
+export const lookupPublicContributionReference = async (
+  pool: Pool | null,
+  publicReference: string
+): Promise<PublicReferenceLookupFoundResponse | null> => {
+  if (!pool) {
+    return null;
+  }
+
+  const query = await pool.query<PublicReferenceLookupRow>(
+    `
+      SELECT
+        public_reference,
+        contribution_type,
+        amount_cents::text AS amount_cents,
+        currency,
+        status AS payment_status,
+        display_amount_consent,
+        paid_at::text AS paid_at,
+        created_at::text AS created_at,
+        CASE
+          WHEN contribution_type = 'sponsorship_interest'
+          THEN COALESCE(sponsor_review_status, 'pending_review')
+          ELSE NULL
+        END AS review_status,
+        CASE
+          WHEN contribution_type = 'sponsorship_interest'
+          THEN sponsor_details_submitted_at IS NOT NULL
+          ELSE NULL
+        END AS details_submitted
+      FROM fund_contributions
+      WHERE public_reference = $1
+      LIMIT 1
+    `,
+    [publicReference]
+  );
+  const row = query.rows[0] ?? null;
+
+  if (!row) {
+    return null;
+  }
+
+  const displayAmount = row.display_amount_consent === true;
+
+  return {
+    found: true,
+    publicReference: row.public_reference,
+    contributionType: row.contribution_type,
+    paymentStatus: row.payment_status,
+    amount: displayAmount ? centsToAmount(parseDbInt(row.amount_cents)) : null,
+    displayAmount,
+    currency: row.currency.toUpperCase(),
+    paidAt: row.paid_at,
+    createdAt: row.created_at,
+    reviewStatus: row.review_status,
+    detailsSubmitted: row.details_submitted,
+    nextStep: publicReferenceNextStep(row)
   };
 };
 

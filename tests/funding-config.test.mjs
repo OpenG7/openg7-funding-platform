@@ -299,6 +299,8 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
   assert.ok(migration.includes('idx_fund_contributions_public_reference'));
   assert.ok(migration.includes('CREATE EXTENSION IF NOT EXISTS pgcrypto'));
   assert.ok(api.includes('createContributionPublicReference'));
+  assert.ok(api.includes("'/reference-lookup'"));
+  assert.ok(api.includes("'/api/reference-lookup'"));
   assert.ok(api.includes('client_reference_id: publicReference'));
   assert.ok(
     /description:\s*buildContributionReceiptDescription\(\s*publicReference\s*\)/.test(
@@ -311,12 +313,99 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
     webhook.includes('metadata.publicReference ?? session.client_reference_id')
   );
   assert.ok(repository.includes('public_reference = COALESCE('));
+  assert.ok(repository.includes('lookupPublicContributionReference'));
   assert.ok(repository.includes('publicReference: row.public_reference'));
   assert.ok(core.includes('readonly publicReference: string | null;'));
   assert.ok(core.includes('readonly public_reference: string | null;'));
+  assert.ok(core.includes('export interface PublicReferenceLookupRequest'));
+  assert.ok(core.includes('export type PublicReferenceLookupResponse'));
   assert.ok(followupPage.includes('current.publicReference'));
   assert.ok(adminContributionsPage.includes('contribution.public_reference'));
   assert.ok(adminSponsorsPage.includes('sponsorship.public_reference'));
+});
+
+test('Public reference lookup returns minimal purchase status without private fields', () => {
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/fund-contributions.repository.ts',
+    'utf8'
+  );
+  const fundingService = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/services/funding.service.ts',
+    'utf8'
+  );
+  const supportPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/support-page/support-page.component.ts',
+    'utf8'
+  );
+  const frenchCopy = fs.readFileSync(
+    'apps/funding-web/src/assets/i18n/fr-CA.json',
+    'utf8'
+  );
+  const englishCopy = fs.readFileSync(
+    'apps/funding-web/src/assets/i18n/en.json',
+    'utf8'
+  );
+  const lookupRepositoryBody = extractBetween(
+    repository,
+    'export const lookupPublicContributionReference',
+    'export const listContributionReferencesByEmail',
+    'public reference lookup repository'
+  );
+  const lookupApiBody = extractBetween(
+    api,
+    "error: 'Reference lookup requires DATABASE_URL.'",
+    "routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')",
+    'public reference lookup endpoint'
+  );
+
+  assert.ok(api.includes('FUNDING_REFERENCE_LOOKUP_RATE_LIMIT_MAX'));
+  assert.ok(api.includes('referenceLookupRateLimiter'));
+  assert.ok(api.includes('lookupPublicContributionReference'));
+  assert.ok(api.includes('PublicReferenceLookupResponse = lookup ??'));
+  assert.ok(api.includes('found: false'));
+  assert.ok(api.includes('normalizeContributionPublicReference'));
+  assert.ok(lookupApiBody.includes('readBody(request, 4 * 1024)'));
+  assert.equal(lookupApiBody.includes('email_private'), false);
+  assert.equal(lookupApiBody.includes('sponsor_contact_email'), false);
+  assert.equal(lookupApiBody.includes('stripe_session_id'), false);
+  assert.equal(lookupApiBody.includes('stripe_payment_intent_id'), false);
+
+  assert.ok(lookupRepositoryBody.includes('display_amount_consent'));
+  assert.ok(
+    lookupRepositoryBody.includes(
+      'amount: displayAmount ? centsToAmount(parseDbInt(row.amount_cents)) : null'
+    )
+  );
+  assert.ok(lookupRepositoryBody.includes('reviewStatus: row.review_status'));
+  assert.ok(
+    lookupRepositoryBody.includes('nextStep: publicReferenceNextStep(row)')
+  );
+  for (const privateMarker of [
+    'email_private',
+    'sponsor_contact_email',
+    'sponsor_contact_name',
+    'sponsor_message',
+    'stripe_session_id',
+    'stripe_payment_intent_id',
+    'sponsorship_followup_token_hash'
+  ]) {
+    assert.equal(
+      lookupRepositoryBody.includes(privateMarker),
+      false,
+      `public lookup must not expose ${privateMarker}`
+    );
+  }
+
+  assert.ok(fundingService.includes('lookupPublicReference'));
+  assert.ok(fundingService.includes('/reference-lookup'));
+  assert.ok(supportPage.includes('referenceLookupValue'));
+  assert.ok(supportPage.includes('referenceLookupAmountLabel'));
+  assert.ok(supportPage.includes('referenceLookupNextStepKey'));
+  assert.ok(frenchCopy.includes('Retrouver un achat'));
+  assert.ok(frenchCopy.includes('Masque par consentement'));
+  assert.ok(englishCopy.includes('Find a purchase'));
+  assert.ok(englishCopy.includes('Hidden by consent'));
 });
 
 test('resolveCheckoutReturnUrl allows http localhost/127.0.0.1 only outside production', () => {
@@ -1050,8 +1139,18 @@ test('Sponsorship follow-up email is sent from checkout completion only when rec
   assert.ok(webhook.includes('extractSponsorshipFollowupTokenFromSession'));
   assert.ok(webhook.includes('followupToken'));
   assert.ok(webhook.includes('followupEmail'));
+  assert.ok(
+    webhook.includes(
+      'sessionMetadata.publicReference ?? session.client_reference_id'
+    )
+  );
+  assert.ok(webhook.includes('publicReference,'));
   assert.ok(webhook.includes('markSponsorshipFollowupEmailResult'));
   assert.ok(email.includes("templateKey: 'sponsorship_followup'"));
+  assert.ok(email.includes('readonly publicReference: string | null;'));
+  assert.ok(email.includes('Reference OpenG7: ${reference}'));
+  assert.ok(email.includes('<strong>Reference OpenG7:</strong>'));
+  assert.ok(email.includes('publicReference: input.publicReference'));
   assert.ok(email.includes('sendTransactionalEmail'));
   assert.ok(email.includes('loadTransactionalEmailConfig'));
 });
@@ -1128,6 +1227,7 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(api.includes('FUNDING_RATE_LIMIT_WINDOW_MS'));
   assert.ok(api.includes('FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX'));
   assert.ok(api.includes('FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX'));
+  assert.ok(api.includes('FUNDING_REFERENCE_LOOKUP_RATE_LIMIT_MAX'));
   assert.ok(api.includes('FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX'));
   assert.ok(api.includes('FUNDING_ADMIN_RATE_LIMIT_MAX'));
   assert.ok(api.includes('FUNDING_ADMIN_SESSION_SECRET'));
@@ -1140,6 +1240,7 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(
     envExample.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS=30')
   );
+  assert.ok(envExample.includes('FUNDING_REFERENCE_LOOKUP_RATE_LIMIT_MAX=30'));
   assert.ok(envExample.includes('FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX=10'));
   assert.ok(envExample.includes('FUNDING_ADMIN_RATE_LIMIT_MAX=120'));
   assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_SECRET='));
@@ -1369,10 +1470,9 @@ test('Publication slot migration adds a real publication calendar without exposi
 });
 
 test('Publication batch repository enforces capacity, channel match, and approval before assignment', () => {
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-admin.repository.ts',
-    'utf8'
-  );
+  const repository = fs
+    .readFileSync('apps/funding-api/src/fund-admin.repository.ts', 'utf8')
+    .replaceAll('\r\n', '\n');
 
   assert.ok(repository.includes('export const listAdminPublicationBatches'));
   assert.ok(repository.includes('export const createAdminPublicationBatch'));

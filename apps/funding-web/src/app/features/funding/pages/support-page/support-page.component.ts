@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import type { PublicReferenceLookupResponse } from '@openg7/funding-core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
 import { FundingService } from '../../services/funding.service.js';
@@ -35,6 +36,12 @@ interface SupportStep {
   readonly descriptionKey: string;
 }
 
+type ReferenceLookupState =
+  | 'idle'
+  | 'submitting'
+  | 'found'
+  | 'not_found'
+  | 'error';
 type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
 
 @Component({
@@ -178,6 +185,126 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
                 <p>{{ step.descriptionKey | translate }}</p>
               </li>
             </ol>
+          </article>
+
+          <article class="reference-lookup-panel">
+            <header>
+              <span aria-hidden="true">#</span>
+              <div>
+                <h2>
+                  {{ 'funding.supportPage.referenceLookup.title' | translate }}
+                </h2>
+                <p>
+                  {{ 'funding.supportPage.referenceLookup.copy' | translate }}
+                </p>
+              </div>
+            </header>
+
+            <form (submit)="lookupReference($event)" novalidate>
+              <label for="reference-lookup-input">
+                {{ 'funding.supportPage.referenceLookup.label' | translate }}
+              </label>
+              <div class="reference-lookup-row">
+                <input
+                  id="reference-lookup-input"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="OG7-2026-ABC123"
+                  [value]="referenceLookupValue()"
+                  [disabled]="referenceLookupState() === 'submitting'"
+                  aria-describedby="reference-lookup-hint reference-lookup-status"
+                  (input)="setReferenceLookupValue($event)"
+                />
+                <button
+                  type="submit"
+                  [disabled]="referenceLookupState() === 'submitting'"
+                >
+                  {{
+                    (referenceLookupState() === 'submitting'
+                      ? 'funding.supportPage.referenceLookup.submitting'
+                      : 'funding.supportPage.referenceLookup.submit') | translate
+                  }}
+                </button>
+              </div>
+              <p id="reference-lookup-hint" class="reference-lookup-hint">
+                {{ 'funding.supportPage.referenceLookup.hint' | translate }}
+              </p>
+            </form>
+
+            <section
+              class="reference-lookup-result"
+              [class.error]="referenceLookupState() === 'error'"
+              [class.not-found]="referenceLookupState() === 'not_found'"
+              role="status"
+              id="reference-lookup-status"
+              *ngIf="referenceLookupResult() as lookup"
+            >
+              <strong>{{ lookup.publicReference }}</strong>
+              <ng-container
+                *ngIf="referenceLookupIsFound(lookup); else referenceNotFound"
+              >
+                <dl>
+                  <div>
+                    <dt>
+                      {{
+                        'funding.supportPage.referenceLookup.fields.type'
+                          | translate
+                      }}
+                    </dt>
+                    <dd>{{ referenceLookupTypeKey(lookup) | translate }}</dd>
+                  </div>
+                  <div>
+                    <dt>
+                      {{
+                        'funding.supportPage.referenceLookup.fields.status'
+                          | translate
+                      }}
+                    </dt>
+                    <dd>{{ referenceLookupStatusKey(lookup) | translate }}</dd>
+                  </div>
+                  <div>
+                    <dt>
+                      {{
+                        'funding.supportPage.referenceLookup.fields.amount'
+                          | translate
+                      }}
+                    </dt>
+                    <dd>
+                      {{
+                        referenceLookupAmountLabel(lookup) ||
+                          ('funding.supportPage.referenceLookup.amountHidden'
+                            | translate)
+                      }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>
+                      {{
+                        'funding.supportPage.referenceLookup.fields.date'
+                          | translate
+                      }}
+                    </dt>
+                    <dd>{{ referenceLookupDateLabel(lookup) }}</dd>
+                  </div>
+                </dl>
+                <p>{{ referenceLookupNextStepKey(lookup) | translate }}</p>
+              </ng-container>
+              <ng-template #referenceNotFound>
+                <p>
+                  {{ 'funding.supportPage.referenceLookup.notFound' | translate }}
+                </p>
+              </ng-template>
+            </section>
+
+            <p
+              id="reference-lookup-status"
+              class="reference-lookup-result error"
+              role="status"
+              *ngIf="referenceLookupMessageKey() as messageKey"
+            >
+              {{ messageKey | translate }}
+            </p>
           </article>
 
           <article class="reference-recovery-panel">
@@ -447,6 +574,7 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
       .support-action-grid article,
       .repository-panel,
       .steps-panel,
+      .reference-lookup-panel,
       .reference-recovery-panel,
       .notice-panel {
         background: rgb(4 21 43 / 78%);
@@ -469,6 +597,7 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
 
       .support-action-grid article > span,
       .repository-icon,
+      .reference-lookup-panel header > span,
       .reference-recovery-panel header > span,
       .notice-panel > span {
         background: radial-gradient(circle, rgb(11 75 111), rgb(4 29 55));
@@ -509,6 +638,7 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
 
       .repository-panel,
       .steps-panel,
+      .reference-lookup-panel,
       .reference-recovery-panel,
       .notice-panel {
         border-radius: 0.72rem;
@@ -531,6 +661,7 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
 
       .repository-panel h2,
       .steps-panel h2,
+      .reference-lookup-panel h2,
       .reference-recovery-panel h2 {
         color: #fff8e8;
         font-family: Georgia, 'Times New Roman', serif;
@@ -689,12 +820,14 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
         line-height: 1.35;
       }
 
+      .reference-lookup-panel,
       .reference-recovery-panel {
         display: grid;
-        gap: 0.9rem;
+        gap: 0.85rem;
         padding: 1rem;
       }
 
+      .reference-lookup-panel header,
       .reference-recovery-panel header {
         align-items: start;
         display: grid;
@@ -702,6 +835,9 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
         grid-template-columns: auto 1fr;
       }
 
+      .reference-lookup-panel header p,
+      .reference-lookup-hint,
+      .reference-lookup-result,
       .reference-recovery-panel header p,
       .reference-recovery-hint,
       .reference-recovery-status {
@@ -710,23 +846,27 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
         line-height: 1.35;
       }
 
+      .reference-lookup-panel form,
       .reference-recovery-panel form {
         display: grid;
         gap: 0.55rem;
       }
 
+      .reference-lookup-panel label,
       .reference-recovery-panel label {
         color: #fff2d6;
         font-size: 0.82rem;
         font-weight: 900;
       }
 
+      .reference-lookup-row,
       .reference-recovery-row {
         display: grid;
         gap: 0.5rem;
         grid-template-columns: minmax(0, 1fr) auto;
       }
 
+      .reference-lookup-row input,
       .reference-recovery-row input {
         background: rgb(3 15 31 / 82%);
         border: 1px solid rgb(92 184 245 / 38%);
@@ -737,12 +877,14 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
         padding: 0 0.85rem;
       }
 
+      .reference-lookup-row input:focus,
       .reference-recovery-row input:focus {
         border-color: #64d7ff;
         outline: 2px solid rgb(100 215 255 / 36%);
         outline-offset: 2px;
       }
 
+      .reference-lookup-row button,
       .reference-recovery-row button {
         background: linear-gradient(180deg, #f7d77a, #d99c23);
         border: 1px solid #ffe49a;
@@ -754,10 +896,59 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
         white-space: nowrap;
       }
 
+      .reference-lookup-row button:disabled,
+      .reference-lookup-row input:disabled,
       .reference-recovery-row button:disabled,
       .reference-recovery-row input:disabled {
         cursor: progress;
         opacity: 0.68;
+      }
+
+      .reference-lookup-result {
+        background: rgb(20 77 52 / 36%);
+        border: 1px solid rgb(112 240 167 / 28%);
+        border-radius: 0.55rem;
+        display: grid;
+        gap: 0.55rem;
+        padding: 0.75rem;
+      }
+
+      .reference-lookup-result.not-found {
+        background: rgb(76 55 18 / 32%);
+        border-color: rgb(244 201 87 / 30%);
+      }
+
+      .reference-lookup-result.error {
+        background: rgb(97 35 35 / 32%);
+        border-color: rgb(255 180 168 / 30%);
+        color: #ffb4a8;
+      }
+
+      .reference-lookup-result strong {
+        color: #f7fbff;
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: 0.95rem;
+      }
+
+      .reference-lookup-result dl {
+        display: grid;
+        gap: 0.42rem;
+        margin: 0;
+      }
+
+      .reference-lookup-result dl > div {
+        display: grid;
+        gap: 0.4rem;
+        grid-template-columns: minmax(6rem, 0.85fr) minmax(0, 1fr);
+      }
+
+      .reference-lookup-result dt {
+        color: #9fb7c9;
+      }
+
+      .reference-lookup-result dd {
+        color: #f7fbff;
+        margin: 0;
       }
 
       .reference-recovery-status {
@@ -945,13 +1136,13 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
         }
 
         .repository-list article,
+        .reference-lookup-panel header,
+        .reference-lookup-row,
+        .reference-lookup-result dl > div,
         .reference-recovery-panel header,
+        .reference-recovery-row,
         .notice-panel,
         .repository-panel > header {
-          grid-template-columns: 1fr;
-        }
-
-        .reference-recovery-row {
           grid-template-columns: 1fr;
         }
 
@@ -986,6 +1177,12 @@ export class SupportPageComponent {
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
   );
   readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly referenceLookupValue = signal<string>('');
+  readonly referenceLookupState = signal<ReferenceLookupState>('idle');
+  readonly referenceLookupResult = signal<PublicReferenceLookupResponse | null>(
+    null
+  );
+  readonly referenceLookupMessageKey = signal<string | null>(null);
   readonly referenceRecoveryEmail = signal<string>('');
   readonly referenceRecoveryState = signal<ReferenceRecoveryState>('idle');
   readonly referenceRecoveryMessageKey = signal<string | null>(null);
@@ -1164,6 +1361,46 @@ export class SupportPageComponent {
     }
   ];
 
+  setReferenceLookupValue(event: Event): void {
+    this.referenceLookupValue.set(this.valueFromEvent(event).toUpperCase());
+
+    if (this.referenceLookupState() !== 'submitting') {
+      this.referenceLookupState.set('idle');
+      this.referenceLookupResult.set(null);
+      this.referenceLookupMessageKey.set(null);
+    }
+  }
+
+  async lookupReference(event: Event): Promise<void> {
+    event.preventDefault();
+
+    const reference = this.referenceLookupValue().trim().toUpperCase();
+    if (!/^OG7-\d{4}-[A-Z0-9]{4,8}$/.test(reference)) {
+      this.referenceLookupState.set('error');
+      this.referenceLookupResult.set(null);
+      this.referenceLookupMessageKey.set(
+        'funding.supportPage.referenceLookup.invalid'
+      );
+      return;
+    }
+
+    this.referenceLookupState.set('submitting');
+    this.referenceLookupResult.set(null);
+    this.referenceLookupMessageKey.set(null);
+
+    try {
+      const result = await this.funding.lookupPublicReference({ reference });
+      this.referenceLookupResult.set(result);
+      this.referenceLookupState.set(result.found ? 'found' : 'not_found');
+    } catch {
+      this.referenceLookupState.set('error');
+      this.referenceLookupResult.set(null);
+      this.referenceLookupMessageKey.set(
+        'funding.supportPage.referenceLookup.error'
+      );
+    }
+  }
+
   setReferenceRecoveryEmail(event: Event): void {
     this.referenceRecoveryEmail.set(this.valueFromEvent(event));
 
@@ -1200,6 +1437,65 @@ export class SupportPageComponent {
         'funding.supportPage.referenceRecovery.error'
       );
     }
+  }
+
+  referenceLookupIsFound(
+    result: PublicReferenceLookupResponse
+  ): result is Extract<PublicReferenceLookupResponse, { found: true }> {
+    return result.found;
+  }
+
+  referenceLookupTypeKey(result: PublicReferenceLookupResponse): string {
+    if (!result.found) {
+      return '';
+    }
+
+    return result.contributionType === 'sponsorship_interest'
+      ? 'funding.supportPage.referenceLookup.types.sponsorship'
+      : 'funding.supportPage.referenceLookup.types.personal';
+  }
+
+  referenceLookupStatusKey(result: PublicReferenceLookupResponse): string {
+    if (!result.found) {
+      return '';
+    }
+
+    return `funding.supportPage.referenceLookup.status.${result.paymentStatus}`;
+  }
+
+  referenceLookupAmountLabel(result: PublicReferenceLookupResponse): string {
+    if (!result.found || result.amount === null) {
+      return '';
+    }
+
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: result.currency
+    }).format(result.amount);
+  }
+
+  referenceLookupDateLabel(result: PublicReferenceLookupResponse): string {
+    if (!result.found) {
+      return '';
+    }
+
+    const value = result.paidAt ?? result.createdAt;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium'
+    }).format(date);
+  }
+
+  referenceLookupNextStepKey(result: PublicReferenceLookupResponse): string {
+    if (!result.found) {
+      return '';
+    }
+
+    return `funding.supportPage.referenceLookup.nextStep.${result.nextStep}`;
   }
 
   private valueFromEvent(event: Event): string {

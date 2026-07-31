@@ -272,6 +272,9 @@ export const processStripeWebhook = async (
         'sponsorship_interest';
       const followupToken = extractSponsorshipFollowupTokenFromSession(session);
       const followupEmail = session.customer_details?.email;
+      const publicReference = normalizeContributionPublicReference(
+        sessionMetadata.publicReference ?? session.client_reference_id
+      );
       let followupEmailSent = false;
       let sponsorshipInvoiceEmailSent = false;
 
@@ -289,6 +292,7 @@ export const processStripeWebhook = async (
         const sendResult = await queueSponsorshipFollowupEmail(pool, {
           idempotencyKey: `stripe-session:${session.id}:sponsorship-followup`,
           to: followupEmail,
+          publicReference,
           followupUrl
         });
         followupEmailSent = sendResult.sent;
@@ -299,9 +303,6 @@ export const processStripeWebhook = async (
           error: sendResult.sent ? null : sendResult.error
         });
 
-        const publicReference = normalizeContributionPublicReference(
-          sessionMetadata.publicReference ?? session.client_reference_id
-        );
         const invoice = await createSponsorshipInvoiceForStripeSession(pool, {
           stripeSessionId: session.id,
           stripePaymentIntentId: resolvePaymentIntentId(session.payment_intent),

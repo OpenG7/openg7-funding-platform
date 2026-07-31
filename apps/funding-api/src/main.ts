@@ -63,6 +63,8 @@ import type {
   CheckoutResult,
   CheckoutRequest,
   PublicFundingRuntimeConfig,
+  PublicReferenceLookupRequest,
+  PublicReferenceLookupResponse,
   ReferenceRecoveryRequest,
   ReferenceRecoveryResult,
   RedirectCheckoutResult,
@@ -148,6 +150,7 @@ import {
   insertCheckoutSessionRecord,
   getSponsorshipFollowupByTokenHash,
   isPublicApprovedSponsorshipLogoUrl,
+  lookupPublicContributionReference,
   listContributionReferencesByEmail,
   listPublicSponsorships,
   listAdminContributions,
@@ -262,6 +265,10 @@ const publicWriteRateLimitMax = parseNonNegativeIntegerEnv(
 const sponsorshipFollowupRateLimitMax = parseNonNegativeIntegerEnv(
   process.env.FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX,
   60
+);
+const referenceLookupRateLimitMax = parseNonNegativeIntegerEnv(
+  process.env.FUNDING_REFERENCE_LOOKUP_RATE_LIMIT_MAX,
+  30
 );
 const referenceRecoveryRateLimitMax = parseNonNegativeIntegerEnv(
   process.env.FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX,
@@ -1564,6 +1571,11 @@ const sponsorshipFollowupRateLimiter = createRateLimiter(
   sponsorshipFollowupRateLimitMax,
   rateLimitWindowMs
 );
+const referenceLookupRateLimiter = createRateLimiter(
+  'reference-lookup',
+  referenceLookupRateLimitMax,
+  rateLimitWindowMs
+);
 const referenceRecoveryRateLimiter = createRateLimiter(
   'reference-recovery',
   referenceRecoveryRateLimitMax,
@@ -1674,6 +1686,13 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
     )
   ) {
     return sponsorshipFollowupRateLimiter;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(request.url, '/reference-lookup', '/api/reference-lookup')
+  ) {
+    return referenceLookupRateLimiter;
   }
 
   if (
@@ -2165,6 +2184,58 @@ createServer(async (request, response) => {
       console.error('Failed to delete sponsor logo.', error);
       writeJson(request, response, 502, {
         error: 'Sponsor logo could not be deleted.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(request.url, '/reference-lookup', '/api/reference-lookup')
+  ) {
+    if (!hasDatabase) {
+      writeJson(request, response, 503, {
+        error: 'Reference lookup requires DATABASE_URL.'
+      });
+      return;
+    }
+
+    let parsed: Partial<PublicReferenceLookupRequest> | null;
+    try {
+      const body = await readBody(request, 4 * 1024);
+      parsed = JSON.parse(body) as Partial<PublicReferenceLookupRequest> | null;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid reference lookup request body.'
+      });
+      return;
+    }
+
+    const publicReference = normalizeContributionPublicReference(
+      parsed?.reference
+    );
+    if (!publicReference) {
+      writeJson(request, response, 400, {
+        error: 'A valid OpenG7 reference is required.'
+      });
+      return;
+    }
+
+    try {
+      const lookup = await lookupPublicContributionReference(
+        dbPool,
+        publicReference
+      );
+      const result: PublicReferenceLookupResponse = lookup ?? {
+        found: false,
+        publicReference
+      };
+
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to look up public contribution reference.', error);
+      writeJson(request, response, 502, {
+        error: 'Reference lookup could not be completed.'
       });
     }
     return;

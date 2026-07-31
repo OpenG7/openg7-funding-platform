@@ -5,6 +5,8 @@ import {
   CheckoutResult,
   ContributionType,
   PublicFundingRuntimeConfig,
+  PublicReferenceLookupRequest,
+  PublicReferenceLookupResponse,
   PublicSponsorshipBatchAvailabilityResponse,
   ReferenceRecoveryRequest,
   ReferenceRecoveryResult,
@@ -114,6 +116,25 @@ export class FundingService {
     }
 
     return (await response.json()) as PublicFundingRuntimeConfig;
+  }
+
+  async lookupPublicReference(
+    payload: PublicReferenceLookupRequest
+  ): Promise<PublicReferenceLookupResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/reference-lookup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error('OpenG7 reference lookup could not be completed.');
+    }
+
+    return (await response.json()) as PublicReferenceLookupResponse;
   }
 
   async requestContributionReferenceRecovery(
