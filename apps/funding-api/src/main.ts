@@ -189,6 +189,10 @@ import { buildAdminAssistantSummary } from './admin-assistant/attention.service.
 import { loadAdminAssistantConfig } from './admin-assistant/config.js';
 import { runAdminAssistantQuery } from './admin-assistant/orchestrator.js';
 import { prepareAdminAssistantDraft } from './admin-assistant/preparation.service.js';
+import {
+  loadAdminSponsorshipReviewReminderConfig,
+  queueDueSponsorshipReviewReminder
+} from './admin-reminder.service.js';
 
 const parsePositiveIntegerEnv = (
   value: string | undefined,
@@ -286,6 +290,8 @@ const emailQueueBatchSize = parsePositiveIntegerEnv(
   process.env.FUNDING_EMAIL_QUEUE_BATCH_SIZE,
   10
 );
+const adminSponsorshipReviewReminderConfig =
+  loadAdminSponsorshipReviewReminderConfig();
 // Read-only admin AI assistant configuration. Defaults to disabled; the
 // deterministic summary endpoint works regardless of this configuration.
 const adminAssistantConfig = loadAdminAssistantConfig();
@@ -1859,6 +1865,14 @@ const buildAdminSetupStatus = async (): Promise<AdminSetupStatusResponse> => {
       reply_to: emailStatus.replyTo,
       admin_notification_email:
         process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() || null,
+      admin_review_reminder_enabled:
+        adminSponsorshipReviewReminderConfig.enabled,
+      admin_review_reminder_min_age_days:
+        adminSponsorshipReviewReminderConfig.minAgeDays,
+      admin_review_reminder_poll_interval_ms:
+        adminSponsorshipReviewReminderConfig.pollIntervalMs,
+      admin_review_reminder_max_items:
+        adminSponsorshipReviewReminderConfig.maxItems,
       queue_available: Boolean(dbPool && databaseReachable),
       queue_poll_interval_ms: emailQueuePollIntervalMs,
       queue_batch_size: emailQueueBatchSize,
@@ -1991,6 +2005,7 @@ const buildAdminContributionsCsv = (
 };
 
 let emailQueueProcessing = false;
+let adminSponsorshipReviewReminderProcessing = false;
 
 const runEmailQueueWorker = async (): Promise<void> => {
   if (!dbPool || emailQueueProcessing) {
@@ -2012,6 +2027,36 @@ const runEmailQueueWorker = async (): Promise<void> => {
     console.error('Failed to process email queue.', error);
   } finally {
     emailQueueProcessing = false;
+  }
+};
+
+const runAdminSponsorshipReviewReminderWorker = async (): Promise<void> => {
+  if (!dbPool || adminSponsorshipReviewReminderProcessing) {
+    return;
+  }
+
+  adminSponsorshipReviewReminderProcessing = true;
+  try {
+    const result = await queueDueSponsorshipReviewReminder(dbPool, {
+      config: adminSponsorshipReviewReminderConfig
+    });
+
+    if (result.checked && !result.duplicate && (result.queued || result.sent)) {
+      console.info(
+        `Admin sponsorship review reminder queued for ${result.dueCount} pending sponsorship(s).`
+      );
+    }
+
+    if (result.checked && !result.duplicate && result.error) {
+      console.warn(
+        'Admin sponsorship review reminder could not be delivered.',
+        result.error
+      );
+    }
+  } catch (error) {
+    console.error('Failed to queue admin sponsorship review reminder.', error);
+  } finally {
+    adminSponsorshipReviewReminderProcessing = false;
   }
 };
 
@@ -6750,9 +6795,15 @@ createServer(async (request, response) => {
   }
 
   void runEmailQueueWorker();
+  void runAdminSponsorshipReviewReminderWorker();
   const emailQueueTimer = setInterval(
     () => void runEmailQueueWorker(),
     emailQueuePollIntervalMs
   );
   emailQueueTimer.unref();
+  const adminSponsorshipReviewReminderTimer = setInterval(
+    () => void runAdminSponsorshipReviewReminderWorker(),
+    adminSponsorshipReviewReminderConfig.pollIntervalMs
+  );
+  adminSponsorshipReviewReminderTimer.unref();
 });

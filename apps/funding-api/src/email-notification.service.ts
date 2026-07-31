@@ -26,6 +26,7 @@ type EmailTemplateKey =
   | 'sponsorship_refund'
   | 'sponsorship_invoice'
   | 'sponsorship_credit_note'
+  | 'sponsorship_review_reminder'
   | 'publication_batch_full'
   | 'email_configuration_test';
 
@@ -103,6 +104,23 @@ interface PublicationBatchFullEmailInput {
   readonly channel: string;
   readonly capacity: number;
   readonly batchId?: string;
+  readonly idempotencyKey?: string;
+}
+
+export interface SponsorshipReviewReminderEmailItem {
+  readonly reference: string;
+  readonly amount: number;
+  readonly currency: string;
+  readonly detailsSubmittedAt: string | null;
+  readonly daysWaiting: number | null;
+}
+
+interface SponsorshipReviewReminderEmailInput {
+  readonly totalCount: number;
+  readonly urgentCount: number;
+  readonly oldestDaysWaiting: number | null;
+  readonly adminUrl: string;
+  readonly items: readonly SponsorshipReviewReminderEmailItem[];
   readonly idempotencyKey?: string;
 }
 
@@ -271,6 +289,14 @@ const formatDate = (iso: string | null): string => {
   }).format(date);
 };
 
+const formatWaitingDays = (days: number | null): string => {
+  if (days === null) {
+    return 'age inconnu';
+  }
+
+  return `${days} jour${days > 1 ? 's' : ''}`;
+};
+
 const formatBenefitList = (amount: number): readonly string[] => {
   const benefits = sponsorshipBenefitThresholds
     .filter((benefit) => amount >= benefit.minimumAmount)
@@ -284,9 +310,7 @@ const formatBenefitList = (amount: number): readonly string[] => {
 };
 
 const contributionTypeEmailLabel = (type: string): string =>
-  type === 'sponsorship_interest'
-    ? 'Commandite'
-    : 'Contribution personnelle';
+  type === 'sponsorship_interest' ? 'Commandite' : 'Contribution personnelle';
 
 const contributionStatusEmailLabel = (status: string): string => {
   if (status === 'paid') {
@@ -1120,6 +1144,87 @@ const renderPublicationBatchFullNotification = (
   };
 };
 
+const renderSponsorshipReviewReminderNotification = (
+  input: SponsorshipReviewReminderEmailInput
+): RenderedEmail => {
+  const countLabel = `${input.totalCount} commandite${
+    input.totalCount > 1 ? 's' : ''
+  }`;
+  const subject = `Rappel: ${countLabel} a approuver`;
+  const oldestLabel = formatWaitingDays(input.oldestDaysWaiting);
+  const itemLines = input.items.flatMap((item, index) => [
+    `${index + 1}. ${item.reference}`,
+    `   Montant: ${formatMoney(item.amount, item.currency)}`,
+    `   Fiche soumise: ${formatDate(item.detailsSubmittedAt)}`,
+    `   En attente: ${formatWaitingDays(item.daysWaiting)}`
+  ]);
+  const text = [
+    `Il y a ${countLabel} payee${input.totalCount > 1 ? 's' : ''} avec fiche complete en attente de revue admin.`,
+    `Plus ancienne attente: ${oldestLabel}.`,
+    input.urgentCount > 0
+      ? `${input.urgentCount} commandite${input.urgentCount > 1 ? 's' : ''} depasse${input.urgentCount > 1 ? 'nt' : ''} le seuil urgent.`
+      : 'Aucune commandite ne depasse le seuil urgent.',
+    '',
+    ...itemLines,
+    '',
+    `Ouvrir les commandites: ${input.adminUrl}`,
+    '',
+    'Ce rappel est informatif. Il ne valide, ne refuse et ne publie aucune commandite.'
+  ].join('\n');
+  const htmlItems = input.items
+    .map(
+      (item) => `
+        <li>
+          <strong>${escapeHtml(item.reference)}</strong><br />
+          Montant: ${escapeHtml(formatMoney(item.amount, item.currency))}<br />
+          Fiche soumise: ${escapeHtml(formatDate(item.detailsSubmittedAt))}<br />
+          En attente: ${escapeHtml(formatWaitingDays(item.daysWaiting))}
+        </li>
+      `
+    )
+    .join('');
+  const html = `
+    <p>
+      Il y a <strong>${escapeHtml(countLabel)}</strong> payee${
+        input.totalCount > 1 ? 's' : ''
+      } avec fiche complete en attente de revue admin.
+    </p>
+    <p>Plus ancienne attente: ${escapeHtml(oldestLabel)}.</p>
+    <p>
+      ${
+        input.urgentCount > 0
+          ? `${input.urgentCount} commandite${
+              input.urgentCount > 1 ? 's' : ''
+            } depasse${input.urgentCount > 1 ? 'nt' : ''} le seuil urgent.`
+          : 'Aucune commandite ne depasse le seuil urgent.'
+      }
+    </p>
+    <ul>${htmlItems}</ul>
+    <p>
+      Ouvrir les commandites:
+      <code>${escapeHtml(input.adminUrl)}</code>
+    </p>
+    <p>
+      Ce rappel est informatif. Il ne valide, ne refuse et ne publie aucune
+      commandite.
+    </p>
+  `;
+
+  return {
+    templateKey: 'sponsorship_review_reminder',
+    subject,
+    text,
+    html,
+    metadata: {
+      totalCount: input.totalCount,
+      urgentCount: input.urgentCount,
+      oldestDaysWaiting: input.oldestDaysWaiting,
+      displayedCount: input.items.length,
+      adminUrl: input.adminUrl
+    }
+  };
+};
+
 const renderEmailConfigurationTest = (
   input: EmailConfigurationTestInput
 ): RenderedEmail => {
@@ -1818,6 +1923,33 @@ export const queuePublicationBatchFullNotification = async (
   }
 
   const rendered = renderPublicationBatchFullNotification(input);
+  return queueAndProcessEmail(pool, {
+    ...rendered,
+    to: adminNotificationEmail,
+    idempotencyKey: input.idempotencyKey
+  });
+};
+
+/**
+ * Sends a privacy-preserving daily nudge when paid sponsorships with complete
+ * fiches are still awaiting an explicit admin approval/refusal decision.
+ */
+export const queueSponsorshipReviewReminderNotification = async (
+  pool: Pool | null,
+  input: SponsorshipReviewReminderEmailInput
+): Promise<EmailQueueResult> => {
+  if (!adminNotificationEmail) {
+    return {
+      queued: false,
+      duplicate: false,
+      messageId: null,
+      attempted: false,
+      sent: false,
+      error: 'Admin notification address is not configured.'
+    };
+  }
+
+  const rendered = renderSponsorshipReviewReminderNotification(input);
   return queueAndProcessEmail(pool, {
     ...rendered,
     to: adminNotificationEmail,

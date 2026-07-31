@@ -237,6 +237,12 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
 - Notification admin par courriel (SMTP, `FUNDING_ADMIN_NOTIFICATION_EMAIL`)
   lorsqu'un lot ouvert atteint sa capacite, pour eviter qu'il reste plein et
   oublie. Purement informatif: ne planifie ni ne publie rien automatiquement.
+- Rappel admin quotidien des commandites payees dont la fiche est complete
+  mais encore en `pending_review`. Le rappel respecte
+  `FUNDING_ADMIN_REVIEW_REMINDER_ENABLED`,
+  `FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS`,
+  `FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS` et
+  `FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS`; il reste purement informatif.
 - Endpoint public `GET /api/public/sponsorship-batches/availability`: expose
   uniquement les prochaines dates/canaux/cibles/fuseaux autorises depuis
   `publication_slots`, ainsi que l'agregat historique `nextAvailableAt` par
@@ -431,8 +437,14 @@ Resultat attendu:
   `MAIL_REPLY_TO_ADDRESS` configures si les liens de reprise doivent etre
   envoyes automatiquement.
 - `FUNDING_ADMIN_NOTIFICATION_EMAIL` configure si la notification de lot
-  complet doit etre envoyee (sinon la verification de capacite reste
-  disponible dans l'UI admin, sans courriel).
+  complet et les rappels de revue commanditaire doivent etre envoyes (sinon
+  la verification de capacite et les dossiers a traiter restent disponibles
+  dans l'UI admin, sans courriel).
+- `FUNDING_ADMIN_REVIEW_REMINDER_ENABLED`,
+  `FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS`,
+  `FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS` et
+  `FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS` configurent le rappel quotidien
+  des commandites payees avec fiche complete encore en `pending_review`.
 - `DATABASE_URL` absent pour le mode Stripe-direct, ou configure seulement si PostgreSQL prive est deploye.
 - Migrations appliquees si PostgreSQL est active.
 - Webhook Stripe abonne aux evenements MVP.

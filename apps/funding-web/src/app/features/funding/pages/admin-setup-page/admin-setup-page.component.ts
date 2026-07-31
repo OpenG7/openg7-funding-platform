@@ -26,6 +26,10 @@ type SetupEnvKey =
   | 'MAIL_FROM_ADDRESS'
   | 'MAIL_REPLY_TO_ADDRESS'
   | 'FUNDING_ADMIN_NOTIFICATION_EMAIL'
+  | 'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED'
+  | 'FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS'
+  | 'FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS'
+  | 'FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS'
   | 'FUNDING_SPONSORSHIP_INVOICE_PREFIX'
   | 'FUNDING_INVOICE_ISSUER_NAME'
   | 'FUNDING_INVOICE_ISSUER_EMAIL'
@@ -232,6 +236,21 @@ interface SetupTourStep {
                 <div>
                   <dt>Notification admin</dt>
                   <dd>{{ valueLabel(data.email.admin_notification_email) }}</dd>
+                </div>
+                <div>
+                  <dt>Rappel approbation</dt>
+                  <dd>
+                    {{ enabledLabel(data.email.admin_review_reminder_enabled) }}
+                    - apres
+                    {{ data.email.admin_review_reminder_min_age_days }} jour(s)
+                  </dd>
+                </div>
+                <div>
+                  <dt>Verification rappel</dt>
+                  <dd>
+                    {{ data.email.admin_review_reminder_poll_interval_ms }} ms -
+                    {{ data.email.admin_review_reminder_max_items }} dossier(s)
+                  </dd>
                 </div>
                 <div>
                   <dt>Factures commandite</dt>
@@ -1025,7 +1044,27 @@ export class AdminSetupPageComponent implements OnInit {
     {
       key: 'FUNDING_ADMIN_NOTIFICATION_EMAIL',
       label: 'Notification admin',
-      note: 'Alerte interne quand un lot est complet.'
+      note: 'Alertes internes et rappels admin.'
+    },
+    {
+      key: 'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED',
+      label: 'Rappel approbation',
+      note: 'Active le rappel quotidien des commandites a approuver.'
+    },
+    {
+      key: 'FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS',
+      label: 'Age rappel approbation',
+      note: 'Nombre de jours avant le premier rappel.'
+    },
+    {
+      key: 'FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS',
+      label: 'Intervalle rappel',
+      note: 'Frequence de verification des rappels admin.'
+    },
+    {
+      key: 'FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS',
+      label: 'Dossiers dans le rappel',
+      note: 'Nombre maximal de dossiers listes dans le courriel.'
     },
     {
       key: 'FUNDING_SPONSORSHIP_INVOICE_PREFIX',
@@ -1202,6 +1241,14 @@ export class AdminSetupPageComponent implements OnInit {
         return Boolean(setup.email.reply_to);
       case 'FUNDING_ADMIN_NOTIFICATION_EMAIL':
         return Boolean(setup.email.admin_notification_email);
+      case 'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED':
+        return setup.email.admin_review_reminder_enabled;
+      case 'FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS':
+        return setup.email.admin_review_reminder_min_age_days >= 0;
+      case 'FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS':
+        return setup.email.admin_review_reminder_poll_interval_ms > 0;
+      case 'FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS':
+        return setup.email.admin_review_reminder_max_items > 0;
       case 'FUNDING_SPONSORSHIP_INVOICE_PREFIX':
         return Boolean(setup.invoice.prefix);
       case 'FUNDING_INVOICE_ISSUER_NAME':

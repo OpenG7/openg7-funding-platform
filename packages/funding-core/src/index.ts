@@ -328,8 +328,7 @@ export interface PublicReferenceLookupNotFoundResponse {
 }
 
 export type PublicReferenceLookupResponse =
-  | PublicReferenceLookupFoundResponse
-  | PublicReferenceLookupNotFoundResponse;
+  PublicReferenceLookupFoundResponse | PublicReferenceLookupNotFoundResponse;
 
 export interface ReferenceRecoveryRequest {
   readonly email: string;
@@ -526,6 +525,10 @@ export interface AdminSetupStatusResponse {
     readonly from: string | null;
     readonly reply_to: string | null;
     readonly admin_notification_email: string | null;
+    readonly admin_review_reminder_enabled: boolean;
+    readonly admin_review_reminder_min_age_days: number;
+    readonly admin_review_reminder_poll_interval_ms: number;
+    readonly admin_review_reminder_max_items: number;
     readonly queue_available: boolean;
     readonly queue_poll_interval_ms: number;
     readonly queue_batch_size: number;

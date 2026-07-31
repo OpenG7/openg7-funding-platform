@@ -40,10 +40,34 @@ MAIL_FROM_NAME=OpenG7
 MAIL_FROM_ADDRESS=notify@openg7.org
 MAIL_REPLY_TO_NAME=OpenG7
 MAIL_REPLY_TO_ADDRESS=contact@openg7.org
+FUNDING_ADMIN_NOTIFICATION_EMAIL=contact@openg7.org
+FUNDING_ADMIN_REVIEW_REMINDER_ENABLED=true
+FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS=1
+FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS=3600000
+FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS=5
 ```
 
 When `SMTP_ENABLED=false`, the API starts without `SMTP_PASSWORD`. Queued
 messages are not sent and are reported with `deliveryMode=disabled`.
+
+## Admin Reminders
+
+`FUNDING_ADMIN_NOTIFICATION_EMAIL` receives internal operational notifications.
+The API sends a sponsorship review reminder when all of these are true:
+
+- SMTP is enabled;
+- PostgreSQL and the `email_messages` queue are available;
+- `FUNDING_ADMIN_REVIEW_REMINDER_ENABLED=true`;
+- at least one paid sponsorship has a complete fiche and still has
+  `sponsor_review_status=pending_review`;
+- the fiche has waited at least
+  `FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS`.
+
+The reminder uses an idempotency key based on the UTC date, so a matching
+sponsorship backlog creates at most one admin reminder per day. It only lists
+public references, amounts, submission dates and wait age; it does not expose
+sponsor contact emails or private notes. The message is informational and never
+approves, refuses, refunds or publishes anything.
 
 ## Verify The Connection
 
