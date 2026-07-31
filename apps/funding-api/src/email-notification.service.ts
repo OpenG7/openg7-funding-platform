@@ -10,6 +10,7 @@ import type {
   SponsorshipCreditNoteRecord,
   SponsorshipInvoiceRecord
 } from './sponsorship-invoices.repository.js';
+import type { ContributionReferenceRecoveryRecord } from './fund-contributions.repository.js';
 import {
   loadTransactionalEmailConfig,
   sendTransactionalEmail,
@@ -18,6 +19,7 @@ import {
 } from './services/email/index.js';
 
 type EmailTemplateKey =
+  | 'contribution_reference_recovery'
   | 'sponsorship_followup'
   | 'sponsorship_confirmation'
   | 'sponsorship_rejection'
@@ -34,6 +36,12 @@ interface SponsorshipFollowupEmailInput {
   readonly to: string;
   readonly publicReference: string | null;
   readonly followupUrl: string;
+  readonly idempotencyKey?: string;
+}
+
+interface ContributionReferenceRecoveryEmailInput {
+  readonly to: string;
+  readonly references: readonly ContributionReferenceRecoveryRecord[];
   readonly idempotencyKey?: string;
 }
 
@@ -275,6 +283,31 @@ const formatBenefitList = (amount: number): readonly string[] => {
   return benefits.map((benefit) => sponsorshipBenefitLabels[benefit]);
 };
 
+const contributionTypeEmailLabel = (type: string): string =>
+  type === 'sponsorship_interest'
+    ? 'Commandite'
+    : 'Contribution personnelle';
+
+const contributionStatusEmailLabel = (status: string): string => {
+  if (status === 'paid') {
+    return 'confirmee';
+  }
+
+  if (status === 'refunded') {
+    return 'remboursee';
+  }
+
+  if (status === 'disputed') {
+    return 'contestee';
+  }
+
+  if (status === 'pending') {
+    return 'en attente';
+  }
+
+  return status;
+};
+
 const rejectionRefundHandlingLabel = (
   handling: AdminSponsorshipRejectionRefundHandling
 ): string => {
@@ -345,6 +378,77 @@ const sendEmailPayload = async (input: {
       error: emailError.code
     };
   }
+};
+
+const renderContributionReferenceRecoveryEmail = (
+  input: ContributionReferenceRecoveryEmailInput
+): RenderedEmail => {
+  const subject = 'Vos references OpenG7';
+  const referenceLines = input.references.flatMap((reference, index) => [
+    `${index + 1}. ${reference.publicReference}`,
+    `   Type: ${contributionTypeEmailLabel(reference.contributionType)}`,
+    `   Montant: ${formatMoney(reference.amount, reference.currency)}`,
+    `   Statut: ${contributionStatusEmailLabel(reference.paymentStatus)}`,
+    `   Date: ${formatDate(reference.paidAt ?? reference.createdAt)}`,
+    ...(reference.displayName ? [`   Nom: ${reference.displayName}`] : [])
+  ]);
+  const referenceHtml = input.references
+    .map((reference) => {
+      const displayName = reference.displayName?.trim();
+      return `
+        <li>
+          <strong>${escapeHtml(reference.publicReference)}</strong><br />
+          ${escapeHtml(contributionTypeEmailLabel(reference.contributionType))}
+          - ${escapeHtml(formatMoney(reference.amount, reference.currency))}
+          - ${escapeHtml(contributionStatusEmailLabel(reference.paymentStatus))}
+          <br />
+          <span>Date: ${escapeHtml(formatDate(reference.paidAt ?? reference.createdAt))}</span>
+          ${
+            displayName
+              ? `<br /><span>Nom: ${escapeHtml(displayName)}</span>`
+              : ''
+          }
+        </li>
+      `;
+    })
+    .join('');
+
+  const text = [
+    'Bonjour,',
+    '',
+    'Voici les references OpenG7 associees a ce courriel:',
+    '',
+    ...referenceLines,
+    '',
+    "Si vous n'avez pas demande ce message, vous pouvez l'ignorer.",
+    'Pour toute correction, repondez a ce courriel avec la reference concernee.'
+  ].join('\n');
+  const html = `
+    <p>Bonjour,</p>
+    <p>Voici les references OpenG7 associees a ce courriel:</p>
+    <ol>
+      ${referenceHtml}
+    </ol>
+    <p>
+      Si vous n'avez pas demande ce message, vous pouvez l'ignorer.
+    </p>
+    <p>
+      Pour toute correction, repondez a ce courriel avec la reference concernee.
+    </p>
+  `;
+
+  return {
+    templateKey: 'contribution_reference_recovery',
+    subject,
+    text,
+    html,
+    metadata: {
+      publicReferences: input.references.map(
+        (reference) => reference.publicReference
+      ),
+      referenceCount: input.references.length
+    }
+  };
 };
 
 const renderSponsorshipFollowupEmail = (
@@ -1613,6 +1717,18 @@ export const queueSponsorshipFollowupEmail = async (
   input: SponsorshipFollowupEmailInput
 ): Promise<EmailQueueResult> => {
   const rendered = renderSponsorshipFollowupEmail(input);
+  return queueAndProcessEmail(pool, {
+    ...rendered,
+    to: input.to,
+    idempotencyKey: input.idempotencyKey
+  });
+};
+
+export const queueContributionReferenceRecoveryEmail = async (
+  pool: Pool | null,
+  input: ContributionReferenceRecoveryEmailInput
+): Promise<EmailQueueResult> => {
+  const rendered = renderContributionReferenceRecoveryEmail(input);
   return queueAndProcessEmail(pool, {
     ...rendered,
     to: input.to,

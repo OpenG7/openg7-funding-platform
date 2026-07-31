@@ -65,6 +65,8 @@ import type {
   PublicFundingRuntimeConfig,
   PublicReferenceLookupRequest,
   PublicReferenceLookupResponse,
+  ReferenceRecoveryRequest,
+  ReferenceRecoveryResult,
   RedirectCheckoutResult,
   SponsorFeedChannel,
   SponsorFeedStatus,
@@ -115,6 +117,7 @@ import {
   getAdminEmailQueueMessageById,
   listAdminEmailQueue,
   processQueuedEmailMessages,
+  queueContributionReferenceRecoveryEmail,
   queueEmailConfigurationTest,
   queuePublicationBatchFullNotification,
   queueSponsorshipCreditNoteEmail,
@@ -132,6 +135,7 @@ import {
 } from './social-publication.service.js';
 import {
   getTransactionalEmailConfigStatus,
+  isValidEmailAddress,
   loadTransactionalEmailConfig
 } from './services/email/index.js';
 import {
@@ -147,6 +151,7 @@ import {
   getSponsorshipFollowupByTokenHash,
   isPublicApprovedSponsorshipLogoUrl,
   lookupPublicContributionReference,
+  listContributionReferencesByEmail,
   listPublicSponsorships,
   listAdminContributions,
   listAdminSponsorships,
@@ -264,6 +269,10 @@ const sponsorshipFollowupRateLimitMax = parseNonNegativeIntegerEnv(
 const referenceLookupRateLimitMax = parseNonNegativeIntegerEnv(
   process.env.FUNDING_REFERENCE_LOOKUP_RATE_LIMIT_MAX,
   30
+);
+const referenceRecoveryRateLimitMax = parseNonNegativeIntegerEnv(
+  process.env.FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX,
+  10
 );
 const adminRateLimitMax = parseNonNegativeIntegerEnv(
   process.env.FUNDING_ADMIN_RATE_LIMIT_MAX,
@@ -959,6 +968,22 @@ const normalizeContributionPublicReference = (
   return contributionPublicReferencePattern.test(reference) ? reference : null;
 };
 
+const normalizeReferenceRecoveryEmail = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const email = value.trim().toLowerCase();
+  return isValidEmailAddress(email) ? email : null;
+};
+
+const createReferenceRecoveryIdempotencyKey = (email: string): string => {
+  const emailHash = createHash('sha256').update(email).digest('hex');
+  const hourBucket = new Date().toISOString().slice(0, 13);
+
+  return `reference-recovery:${emailHash}:${hourBucket}`;
+};
+
 const buildContributionReceiptDescription = (publicReference: string): string =>
   `Reference OpenG7: ${publicReference}`;
 
@@ -1551,6 +1576,11 @@ const referenceLookupRateLimiter = createRateLimiter(
   referenceLookupRateLimitMax,
   rateLimitWindowMs
 );
+const referenceRecoveryRateLimiter = createRateLimiter(
+  'reference-recovery',
+  referenceRecoveryRateLimitMax,
+  rateLimitWindowMs
+);
 const adminRateLimiter = createRateLimiter(
   'admin',
   adminRateLimitMax,
@@ -1637,6 +1667,13 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
     routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')
   ) {
     return publicWriteRateLimiter;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(request.url, '/reference-recovery', '/api/reference-recovery')
+  ) {
+    return referenceRecoveryRateLimiter;
   }
 
   if (
@@ -2430,6 +2467,66 @@ createServer(async (request, response) => {
       });
       return;
     }
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(request.url, '/reference-recovery', '/api/reference-recovery')
+  ) {
+    if (!hasDatabase) {
+      writeJson(request, response, 503, {
+        error: 'Reference recovery requires DATABASE_URL.'
+      });
+      return;
+    }
+
+    let parsed: Partial<ReferenceRecoveryRequest> | null;
+    try {
+      const body = await readBody(request, 8 * 1024);
+      parsed = JSON.parse(body) as Partial<ReferenceRecoveryRequest> | null;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid reference recovery request body.'
+      });
+      return;
+    }
+
+    const email = normalizeReferenceRecoveryEmail(parsed?.email);
+    if (!email) {
+      writeJson(request, response, 400, {
+        error: 'A valid email address is required.'
+      });
+      return;
+    }
+
+    try {
+      const references = await listContributionReferencesByEmail(dbPool, email);
+
+      if (references.length > 0) {
+        const notificationResult =
+          await queueContributionReferenceRecoveryEmail(dbPool, {
+            to: email,
+            references,
+            idempotencyKey: createReferenceRecoveryIdempotencyKey(email)
+          });
+
+        if (!notificationResult.queued && !notificationResult.sent) {
+          console.warn(
+            'Reference recovery email could not be queued or sent.',
+            notificationResult.error
+          );
+        }
+      }
+
+      const result: ReferenceRecoveryResult = { accepted: true };
+      writeJson(request, response, 202, result);
+    } catch (error) {
+      console.error('Failed to process reference recovery request.', error);
+      writeJson(request, response, 502, {
+        error: 'Reference recovery request could not be processed.'
+      });
+    }
+    return;
   }
 
   if (

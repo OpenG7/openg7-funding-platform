@@ -459,6 +459,17 @@
           "contact_support_with_reference": "Contactez le support avec cette reference pour verifier la situation."
         }
       },
+      "referenceRecovery": {
+        "title": "Retrouver une référence OpenG7",
+        "copy": "Entrez le courriel utilisé lors de la contribution ou de la commandite.",
+        "emailLabel": "Courriel",
+        "submit": "Envoyer",
+        "submitting": "Envoi...",
+        "hint": "Si une référence correspond, elle sera envoyée par courriel. Cette page ne confirme jamais publiquement l'existence d'un dossier.",
+        "success": "Si une référence correspond à ce courriel, un message vient d'être préparé.",
+        "invalid": "Entrez une adresse courriel valide.",
+        "error": "La demande n'a pas pu être envoyée. Réessayez plus tard."
+      },
       "repositories": {
         "title": "Choisir un dépôt",
         "copy": "Voici les dépôts principaux de l’écosystème OpenG7. Cliquez pour explorer, lire la documentation ou contribuer.",

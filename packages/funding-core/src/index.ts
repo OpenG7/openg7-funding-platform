@@ -331,6 +331,14 @@ export type PublicReferenceLookupResponse =
   | PublicReferenceLookupFoundResponse
   | PublicReferenceLookupNotFoundResponse;
 
+export interface ReferenceRecoveryRequest {
+  readonly email: string;
+}
+
+export interface ReferenceRecoveryResult {
+  readonly accepted: true;
+}
+
 export type SponsorshipReviewStatus =
   'pending_review' | 'approved' | 'rejected';
 

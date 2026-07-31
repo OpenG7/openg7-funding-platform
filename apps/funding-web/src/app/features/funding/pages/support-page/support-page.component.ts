@@ -36,7 +36,13 @@ interface SupportStep {
   readonly descriptionKey: string;
 }
 
-type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'error';
+type ReferenceLookupState =
+  | 'idle'
+  | 'submitting'
+  | 'found'
+  | 'not_found'
+  | 'error';
+type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
 
 @Component({
   selector: 'openg7-support-page',
@@ -301,6 +307,59 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
             </p>
           </article>
 
+          <article class="reference-recovery-panel">
+            <header>
+              <span aria-hidden="true">#</span>
+              <div>
+                <h2>
+                  {{ 'funding.supportPage.referenceRecovery.title' | translate }}
+                </h2>
+                <p>
+                  {{ 'funding.supportPage.referenceRecovery.copy' | translate }}
+                </p>
+              </div>
+            </header>
+
+            <form (submit)="requestReferenceRecovery($event)" novalidate>
+              <label for="reference-recovery-email">
+                {{ 'funding.supportPage.referenceRecovery.emailLabel' | translate }}
+              </label>
+              <div class="reference-recovery-row">
+                <input
+                  id="reference-recovery-email"
+                  type="email"
+                  autocomplete="email"
+                  [value]="referenceRecoveryEmail()"
+                  [disabled]="referenceRecoveryState() === 'submitting'"
+                  aria-describedby="reference-recovery-hint reference-recovery-status"
+                  (input)="setReferenceRecoveryEmail($event)"
+                />
+                <button
+                  type="submit"
+                  [disabled]="referenceRecoveryState() === 'submitting'"
+                >
+                  {{
+                    (referenceRecoveryState() === 'submitting'
+                      ? 'funding.supportPage.referenceRecovery.submitting'
+                      : 'funding.supportPage.referenceRecovery.submit') | translate
+                  }}
+                </button>
+              </div>
+              <p id="reference-recovery-hint" class="reference-recovery-hint">
+                {{ 'funding.supportPage.referenceRecovery.hint' | translate }}
+              </p>
+              <p
+                id="reference-recovery-status"
+                class="reference-recovery-status"
+                [class.error]="referenceRecoveryState() === 'error'"
+                role="status"
+                *ngIf="referenceRecoveryMessageKey() as messageKey"
+              >
+                {{ messageKey | translate }}
+              </p>
+            </form>
+          </article>
+
           <article class="notice-panel warning">
             <span aria-hidden="true">◈</span>
             <div>
@@ -516,6 +575,7 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
       .repository-panel,
       .steps-panel,
       .reference-lookup-panel,
+      .reference-recovery-panel,
       .notice-panel {
         background: rgb(4 21 43 / 78%);
         border: 1px solid rgb(76 166 235 / 30%);
@@ -538,6 +598,7 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
       .support-action-grid article > span,
       .repository-icon,
       .reference-lookup-panel header > span,
+      .reference-recovery-panel header > span,
       .notice-panel > span {
         background: radial-gradient(circle, rgb(11 75 111), rgb(4 29 55));
         border: 1px solid rgb(70 210 255 / 55%);
@@ -578,6 +639,7 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
       .repository-panel,
       .steps-panel,
       .reference-lookup-panel,
+      .reference-recovery-panel,
       .notice-panel {
         border-radius: 0.72rem;
       }
@@ -599,7 +661,8 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
 
       .repository-panel h2,
       .steps-panel h2,
-      .reference-lookup-panel h2 {
+      .reference-lookup-panel h2,
+      .reference-recovery-panel h2 {
         color: #fff8e8;
         font-family: Georgia, 'Times New Roman', serif;
         font-size: 1.3rem;
@@ -757,13 +820,15 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
         line-height: 1.35;
       }
 
-      .reference-lookup-panel {
+      .reference-lookup-panel,
+      .reference-recovery-panel {
         display: grid;
         gap: 0.85rem;
         padding: 1rem;
       }
 
-      .reference-lookup-panel header {
+      .reference-lookup-panel header,
+      .reference-recovery-panel header {
         align-items: start;
         display: grid;
         gap: 0.8rem;
@@ -772,30 +837,37 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
 
       .reference-lookup-panel header p,
       .reference-lookup-hint,
-      .reference-lookup-result {
+      .reference-lookup-result,
+      .reference-recovery-panel header p,
+      .reference-recovery-hint,
+      .reference-recovery-status {
         color: #c6d7e4;
         font-size: 0.82rem;
         line-height: 1.35;
       }
 
-      .reference-lookup-panel form {
+      .reference-lookup-panel form,
+      .reference-recovery-panel form {
         display: grid;
         gap: 0.55rem;
       }
 
-      .reference-lookup-panel label {
+      .reference-lookup-panel label,
+      .reference-recovery-panel label {
         color: #fff2d6;
         font-size: 0.82rem;
         font-weight: 900;
       }
 
-      .reference-lookup-row {
+      .reference-lookup-row,
+      .reference-recovery-row {
         display: grid;
         gap: 0.5rem;
         grid-template-columns: minmax(0, 1fr) auto;
       }
 
-      .reference-lookup-row input {
+      .reference-lookup-row input,
+      .reference-recovery-row input {
         background: rgb(3 15 31 / 82%);
         border: 1px solid rgb(92 184 245 / 38%);
         border-radius: 0.45rem;
@@ -805,13 +877,15 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
         padding: 0 0.85rem;
       }
 
-      .reference-lookup-row input:focus {
+      .reference-lookup-row input:focus,
+      .reference-recovery-row input:focus {
         border-color: #64d7ff;
         outline: 2px solid rgb(100 215 255 / 36%);
         outline-offset: 2px;
       }
 
-      .reference-lookup-row button {
+      .reference-lookup-row button,
+      .reference-recovery-row button {
         background: linear-gradient(180deg, #f7d77a, #d99c23);
         border: 1px solid #ffe49a;
         border-radius: 0.45rem;
@@ -823,7 +897,9 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
       }
 
       .reference-lookup-row button:disabled,
-      .reference-lookup-row input:disabled {
+      .reference-lookup-row input:disabled,
+      .reference-recovery-row button:disabled,
+      .reference-recovery-row input:disabled {
         cursor: progress;
         opacity: 0.68;
       }
@@ -873,6 +949,14 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
       .reference-lookup-result dd {
         color: #f7fbff;
         margin: 0;
+      }
+
+      .reference-recovery-status {
+        color: #77f0a7;
+      }
+
+      .reference-recovery-status.error {
+        color: #ffb4a8;
       }
 
       .notice-panel {
@@ -1055,6 +1139,8 @@ type ReferenceLookupState = 'idle' | 'submitting' | 'found' | 'not_found' | 'err
         .reference-lookup-panel header,
         .reference-lookup-row,
         .reference-lookup-result dl > div,
+        .reference-recovery-panel header,
+        .reference-recovery-row,
         .notice-panel,
         .repository-panel > header {
           grid-template-columns: 1fr;
@@ -1097,6 +1183,9 @@ export class SupportPageComponent {
     null
   );
   readonly referenceLookupMessageKey = signal<string | null>(null);
+  readonly referenceRecoveryEmail = signal<string>('');
+  readonly referenceRecoveryState = signal<ReferenceRecoveryState>('idle');
+  readonly referenceRecoveryMessageKey = signal<string | null>(null);
   readonly currentYear = new Date().getFullYear();
 
   constructor() {
@@ -1308,6 +1397,44 @@ export class SupportPageComponent {
       this.referenceLookupResult.set(null);
       this.referenceLookupMessageKey.set(
         'funding.supportPage.referenceLookup.error'
+      );
+    }
+  }
+
+  setReferenceRecoveryEmail(event: Event): void {
+    this.referenceRecoveryEmail.set(this.valueFromEvent(event));
+
+    if (this.referenceRecoveryState() !== 'submitting') {
+      this.referenceRecoveryState.set('idle');
+      this.referenceRecoveryMessageKey.set(null);
+    }
+  }
+
+  async requestReferenceRecovery(event: Event): Promise<void> {
+    event.preventDefault();
+
+    const email = this.referenceRecoveryEmail().trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      this.referenceRecoveryState.set('error');
+      this.referenceRecoveryMessageKey.set(
+        'funding.supportPage.referenceRecovery.invalid'
+      );
+      return;
+    }
+
+    this.referenceRecoveryState.set('submitting');
+    this.referenceRecoveryMessageKey.set(null);
+
+    try {
+      await this.funding.requestContributionReferenceRecovery({ email });
+      this.referenceRecoveryState.set('sent');
+      this.referenceRecoveryMessageKey.set(
+        'funding.supportPage.referenceRecovery.success'
+      );
+    } catch {
+      this.referenceRecoveryState.set('error');
+      this.referenceRecoveryMessageKey.set(
+        'funding.supportPage.referenceRecovery.error'
       );
     }
   }
