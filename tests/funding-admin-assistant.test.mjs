@@ -18,6 +18,11 @@ import { resolveAdminAssistantProvider } from '../dist/apps/funding-api/src/admi
 import { loadAdminAssistantConfig } from '../dist/apps/funding-api/src/admin-assistant/config.js';
 import { runAdminAssistantQuery } from '../dist/apps/funding-api/src/admin-assistant/orchestrator.js';
 import { prepareDraftFromDataset } from '../dist/apps/funding-api/src/admin-assistant/preparation.service.js';
+import {
+  buildSponsorshipReviewReminderCandidate,
+  createSponsorshipReviewReminderIdempotencyKey,
+  loadAdminSponsorshipReviewReminderConfig
+} from '../dist/apps/funding-api/src/admin-reminder.service.js';
 
 const NOW = new Date('2026-07-24T00:00:00.000Z');
 
@@ -91,6 +96,65 @@ test('detects a complete fiche awaiting review, not as needs-info', () => {
   const review = detectSponsorshipReviewItems(ds);
   assert.equal(review.length, 1);
   assert.equal(review[0].type, 'sponsorship_needs_review');
+});
+
+test('builds a daily admin email reminder for stale sponsorship reviews', () => {
+  const candidate = buildSponsorshipReviewReminderCandidate(
+    [
+      sponsorship({
+        contributionId: 'c-old',
+        publicReference: 'OG7-CMD-OLD',
+        detailsSubmittedAt: '2026-07-10T00:00:00.000Z'
+      }),
+      sponsorship({
+        contributionId: 'c-new',
+        publicReference: 'OG7-CMD-NEW',
+        detailsSubmittedAt: '2026-07-24T00:00:00.000Z'
+      }),
+      sponsorship({
+        contributionId: 'c-approved',
+        publicReference: 'OG7-CMD-APPROVED',
+        reviewStatus: 'approved'
+      }),
+      sponsorship({
+        contributionId: 'c-incomplete',
+        publicReference: 'OG7-CMD-INCOMPLETE',
+        detailsSubmittedAt: null
+      })
+    ],
+    NOW,
+    { minAgeDays: 1, maxItems: 1 }
+  );
+
+  assert.ok(candidate);
+  assert.equal(candidate.totalCount, 1);
+  assert.equal(candidate.urgentCount, 1);
+  assert.equal(candidate.oldestDaysWaiting, 14);
+  assert.equal(candidate.items.length, 1);
+  assert.equal(candidate.items[0].reference, 'OG7-CMD-OLD');
+});
+
+test('admin sponsorship review reminder config is explicit and idempotent daily', () => {
+  const defaults = loadAdminSponsorshipReviewReminderConfig({});
+  assert.equal(defaults.enabled, true);
+  assert.equal(defaults.minAgeDays, 1);
+  assert.equal(defaults.maxItems, 5);
+  assert.equal(defaults.pollIntervalMs, 60 * 60 * 1000);
+
+  const configured = loadAdminSponsorshipReviewReminderConfig({
+    FUNDING_ADMIN_REVIEW_REMINDER_ENABLED: 'false',
+    FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS: '3',
+    FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS: '60000',
+    FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS: '2'
+  });
+  assert.equal(configured.enabled, false);
+  assert.equal(configured.minAgeDays, 3);
+  assert.equal(configured.pollIntervalMs, 60000);
+  assert.equal(configured.maxItems, 2);
+  assert.equal(
+    createSponsorshipReviewReminderIdempotencyKey(NOW),
+    'admin-reminder:sponsorship-review:2026-07-24'
+  );
 });
 
 test('detects a publication that must be prepared (Facebook >= 250)', () => {

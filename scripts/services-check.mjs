@@ -129,6 +129,7 @@ requiredEmail(
   'FUNDING_ADMIN_NOTIFICATION_EMAIL',
   'set the admin notification recipient'
 );
+checkAdminReviewReminder();
 
 requiredPattern(
   'PostgreSQL',
@@ -446,6 +447,83 @@ function checkSmtp() {
       record('ok', 'Mail', 'MAIL_REPLY_TO_ADDRESS', 'configured');
     }
   }
+}
+
+function checkAdminReviewReminder() {
+  const enabled = readValue('FUNDING_ADMIN_REVIEW_REMINDER_ENABLED')
+    .trim()
+    .toLowerCase();
+
+  if (!enabled) {
+    record(
+      'warn',
+      'Mail',
+      'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED',
+      'not set; API defaults to true'
+    );
+  } else if (
+    !['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'].includes(enabled)
+  ) {
+    record(
+      'missing',
+      'Mail',
+      'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED',
+      'set a boolean value'
+    );
+  } else {
+    record('ok', 'Mail', 'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED', 'configured');
+  }
+
+  optionalNonNegativeInteger(
+    'Mail',
+    'FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS',
+    '1',
+    'set a non-negative delay before the first reminder'
+  );
+  optionalPositiveInteger(
+    'Mail',
+    'FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS',
+    '3600000',
+    'set a positive reminder polling interval'
+  );
+  optionalPositiveInteger(
+    'Mail',
+    'FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS',
+    '5',
+    'set a positive reminder item display limit'
+  );
+}
+
+function optionalNonNegativeInteger(section, name, defaultValue, hint) {
+  if (!hasRealValue(name)) {
+    record('warn', section, name, `not set; defaults to ${defaultValue}`);
+    return true;
+  }
+
+  const value = Number(readValue(name));
+  if (!Number.isSafeInteger(value) || value < 0) {
+    record('missing', section, name, hint);
+    return false;
+  }
+
+  record('ok', section, name, 'configured');
+  return true;
+}
+
+function optionalPositiveInteger(section, name, defaultValue, hint) {
+  if (!hasRealValue(name)) {
+    record('warn', section, name, `not set; defaults to ${defaultValue}`);
+    return true;
+  }
+
+  const value = Number(readValue(name));
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    record('missing', section, name, hint);
+    return false;
+  }
+
+  record('ok', section, name, 'configured');
+  return true;
 }
 
 function checkSponsorMediaStorage() {

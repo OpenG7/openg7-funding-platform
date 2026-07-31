@@ -1241,7 +1241,9 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
     envExample.includes('FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS=30')
   );
   assert.ok(envExample.includes('FUNDING_REFERENCE_LOOKUP_RATE_LIMIT_MAX=30'));
-  assert.ok(envExample.includes('FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX=10'));
+  assert.ok(
+    envExample.includes('FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX=10')
+  );
   assert.ok(envExample.includes('FUNDING_ADMIN_RATE_LIMIT_MAX=120'));
   assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_SECRET='));
   assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES=60'));
@@ -1291,9 +1293,7 @@ test('Reference recovery accepts email requests without exposing contribution ex
   assert.ok(api.includes('normalizeReferenceRecoveryEmail'));
   assert.ok(api.includes('listContributionReferencesByEmail'));
   assert.ok(api.includes('queueContributionReferenceRecoveryEmail'));
-  assert.ok(
-    api.includes('ReferenceRecoveryResult = { accepted: true }')
-  );
+  assert.ok(api.includes('ReferenceRecoveryResult = { accepted: true }'));
   assert.equal(
     api.includes('writeJson(request, response, 200, references'),
     false
@@ -1488,11 +1488,17 @@ test('Publication batch repository enforces capacity, channel match, and approva
   assert.ok(repository.includes('WITH target_batch AS ('));
   assert.ok(repository.includes("draft.status = 'approved'"));
   assert.ok(repository.includes('draft.channel = target_batch.channel'));
-  assert.ok(repository.includes("target_batch.status IN ('open', 'scheduled')"));
+  assert.ok(
+    repository.includes("target_batch.status IN ('open', 'scheduled')")
+  );
   assert.ok(repository.includes('target_batch.used < target_batch.capacity'));
   assert.ok(repository.includes('draft.batch_id IS NULL'));
-  assert.ok(repository.includes('draft.feed_target = target_batch.slot_feed_target'));
-  assert.ok(repository.includes('target_batch.slot_used < target_batch.slot_capacity'));
+  assert.ok(
+    repository.includes('draft.feed_target = target_batch.slot_feed_target')
+  );
+  assert.ok(
+    repository.includes('target_batch.slot_used < target_batch.slot_capacity')
+  );
 
   // Capacity math is derived from actual assigned drafts, not client input.
   assert.ok(
@@ -1527,7 +1533,9 @@ test('Publication batch lifecycle requires schedule before publish and preserves
 
   // Cancelling releases drafts back to 'approved' so they can be re-batched.
   assert.ok(
-    repository.includes("SET status = 'cancelled', slot_id = NULL, updated_at = NOW()")
+    repository.includes(
+      "SET status = 'cancelled', slot_id = NULL, updated_at = NOW()"
+    )
   );
   assert.ok(
     repository.includes(
@@ -1558,13 +1566,25 @@ test('Publication slot repository enforces future dates, capacity, assignment, c
   }
 
   assert.ok(repository.includes('slot.starts_at > NOW()'));
-  assert.ok(repository.includes('COALESCE($4::integer, slot.capacity) >= slot_usage.capacity_used'));
+  assert.ok(
+    repository.includes(
+      'COALESCE($4::integer, slot.capacity) >= slot_usage.capacity_used'
+    )
+  );
   assert.ok(repository.includes('target_batch.drafts_match_target'));
   assert.ok(repository.includes('target_slot.used + CASE'));
   assert.ok(repository.includes('draft.batch_id IS NULL'));
   assert.ok(repository.includes('draft.feed_target = target_slot.feed_target'));
-  assert.ok(repository.includes("WHERE id = $1::uuid\n          AND status IN ('open', 'scheduled')"));
-  assert.ok(repository.includes("WHERE slot.id = $1::uuid\n            AND slot.status = 'scheduled'"));
+  assert.ok(
+    repository.includes(
+      "WHERE id = $1::uuid\n          AND status IN ('open', 'scheduled')"
+    )
+  );
+  assert.ok(
+    repository.includes(
+      "WHERE slot.id = $1::uuid\n            AND slot.status = 'scheduled'"
+    )
+  );
   assert.ok(repository.includes('target_slot.capacity_used > 0'));
   assert.equal(repository.includes('sponsor_email'), false);
 });
@@ -1639,7 +1659,9 @@ test('Publication slot admin endpoints are authenticated, validated, rate-limite
     assert.ok(api.includes(route), `main.ts must route ${route}`);
   }
 
-  assert.ok(api.includes("const PUBLICATION_SLOT_DEFAULT_TIMEZONE = 'America/Toronto';"));
+  assert.ok(
+    api.includes("const PUBLICATION_SLOT_DEFAULT_TIMEZONE = 'America/Toronto';")
+  );
   assert.ok(api.includes('isFutureDateString'));
   assert.ok(api.includes('isValidPublicationSlotTimezone'));
   assert.ok(api.includes('isAllowedSponsorFeedTarget(parsed.feedTarget)'));
@@ -1749,7 +1771,9 @@ test('Publication slot types and admin UI expose calendar, edit, capacity, and a
   assert.ok(page.includes('publishSlot(slot)'));
   assert.ok(page.includes('cancelSlot(slot)'));
   assert.ok(page.includes('slot.capacityAvailable'));
-  assert.ok(page.includes("newSlotTimezone = signal<string>('America/Toronto')"));
+  assert.ok(
+    page.includes("newSlotTimezone = signal<string>('America/Toronto')")
+  );
 });
 
 test('Social publication provider is explicit, configurable, audited, and visible in admin UI', () => {
@@ -2349,6 +2373,85 @@ test('An admin is notified by email when a publication batch fills up, but nothi
   assert.ok(envExample.includes('FUNDING_ADMIN_NOTIFICATION_EMAIL='));
 });
 
+test('An admin gets a daily email reminder for sponsorship reviews waiting on a human decision', () => {
+  const reminder = fs.readFileSync(
+    'apps/funding-api/src/admin-reminder.service.ts',
+    'utf8'
+  );
+  const email = fs.readFileSync(
+    'apps/funding-api/src/email-notification.service.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const setupPage = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts',
+    'utf8'
+  );
+  const envExample = fs.readFileSync('.env.example', 'utf8');
+  const emailDocs = fs.readFileSync('docs/email-smtp.md', 'utf8');
+
+  for (const marker of [
+    'buildSponsorshipReviewReminderCandidate',
+    'queueDueSponsorshipReviewReminder',
+    'createSponsorshipReviewReminderIdempotencyKey',
+    'admin-reminder:sponsorship-review:${sponsorshipReviewReminderDateKey(now)}',
+    "record.reviewStatus === 'pending_review'",
+    'hasCompleteFiche(record)',
+    'isActionableSponsorship(record)',
+    'loadTransactionalEmailConfig(env).enabled'
+  ]) {
+    assert.ok(
+      reminder.includes(marker),
+      `reminder service must include ${marker}`
+    );
+  }
+
+  for (const marker of [
+    "'sponsorship_review_reminder'",
+    'queueSponsorshipReviewReminderNotification',
+    'Rappel: ${countLabel} a approuver',
+    'Ce rappel est informatif. Il ne valide, ne refuse et ne publie aucune commandite.'
+  ]) {
+    assert.ok(email.includes(marker), `email service must include ${marker}`);
+  }
+
+  for (const marker of [
+    'loadAdminSponsorshipReviewReminderConfig',
+    'queueDueSponsorshipReviewReminder',
+    'runAdminSponsorshipReviewReminderWorker',
+    'adminSponsorshipReviewReminderConfig.pollIntervalMs'
+  ]) {
+    assert.ok(api.includes(marker), `main.ts must include ${marker}`);
+  }
+
+  for (const marker of [
+    'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED=true',
+    'FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS=1',
+    'FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS=3600000',
+    'FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS=5'
+  ]) {
+    assert.ok(
+      envExample.includes(marker),
+      `.env.example must include ${marker}`
+    );
+    assert.ok(emailDocs.includes(marker), `email docs must include ${marker}`);
+  }
+
+  for (const marker of [
+    'admin_review_reminder_enabled',
+    'admin_review_reminder_min_age_days',
+    'admin_review_reminder_poll_interval_ms',
+    'admin_review_reminder_max_items'
+  ]) {
+    assert.ok(
+      core.includes(marker),
+      `core setup status must include ${marker}`
+    );
+    assert.ok(setupPage.includes(marker), `setup page must include ${marker}`);
+  }
+});
+
 test('Email queue stores templates, retries delivery, and sends sponsorship invoices', () => {
   const email = fs.readFileSync(
     'apps/funding-api/src/email-notification.service.ts',
@@ -2399,12 +2502,14 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     "'sponsorship_refund'",
     "'sponsorship_invoice'",
     "'sponsorship_credit_note'",
+    "'sponsorship_review_reminder'",
     "'contribution_reference_recovery'",
     "'email_configuration_test'",
     'queueSponsorshipInvoiceEmail',
     'queueSponsorshipCreditNoteEmail',
     'queueSponsorshipRejectionEmail',
     'queueSponsorshipRefundEmail',
+    'queueSponsorshipReviewReminderNotification',
     'queueSponsorshipConfirmationEmail',
     'queueSponsorshipFollowupEmail',
     'queueContributionReferenceRecoveryEmail',
@@ -2779,6 +2884,10 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
     'SMTP_PASSWORD',
     'MAIL_FROM_ADDRESS',
     'FUNDING_ADMIN_NOTIFICATION_EMAIL',
+    'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED',
+    'FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS',
+    'FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS',
+    'FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS',
     'FUNDING_SPONSORSHIP_INVOICE_PREFIX',
     'FUNDING_INVOICE_ISSUER_NAME',
     'FUNDING_INVOICE_ISSUER_EMAIL',
@@ -2836,7 +2945,11 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
   );
   assert.ok(core.includes('readonly nextAvailableAt: string | null;'));
   assert.ok(core.includes('export interface PublicSponsorshipPublicationSlot'));
-  assert.ok(core.includes('readonly slots: readonly PublicSponsorshipPublicationSlot[];'));
+  assert.ok(
+    core.includes(
+      'readonly slots: readonly PublicSponsorshipPublicationSlot[];'
+    )
+  );
 
   assert.ok(
     service.includes(
