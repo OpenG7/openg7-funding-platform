@@ -423,6 +423,42 @@
       "workspace": {
         "ariaLabel": "OpenG7 support workspace"
       },
+      "referenceLookup": {
+        "title": "Find a purchase",
+        "copy": "Enter your OpenG7 reference to check the minimal public contribution status.",
+        "label": "OpenG7 reference",
+        "submit": "Search",
+        "submitting": "Searching...",
+        "hint": "Lookup never shows email, private name, Stripe identifiers, or follow-up links.",
+        "invalid": "Enter a valid reference, for example OG7-2026-ABC123.",
+        "error": "The lookup could not be completed. Try again later.",
+        "notFound": "No purchase matches this reference.",
+        "amountHidden": "Hidden by consent",
+        "fields": {
+          "type": "Type",
+          "status": "Status",
+          "amount": "Amount",
+          "date": "Date"
+        },
+        "types": {
+          "personal": "Personal contribution",
+          "sponsorship": "Sponsorship"
+        },
+        "status": {
+          "pending": "Pending",
+          "paid": "Paid",
+          "refunded": "Refunded",
+          "disputed": "Disputed",
+          "failed": "Failed",
+          "expired": "Expired"
+        },
+        "nextStep": {
+          "none": "No action is required. Keep this reference for follow-up.",
+          "wait_for_payment_confirmation": "Payment is not confirmed yet. Check again later with the same reference.",
+          "recover_private_link_by_email": "To edit the profile or recover the private link, use email recovery or contact support with this reference.",
+          "contact_support_with_reference": "Contact support with this reference to verify the situation."
+        }
+      },
       "repositories": {
         "title": "Choose a repository",
         "copy": "Here are the main repositories of the OpenG7 ecosystem. Click to explore, read documentation, or contribute.",

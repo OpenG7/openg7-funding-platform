@@ -297,6 +297,40 @@ export interface SponsorshipFollowupDetailsRequest {
   readonly message?: string;
 }
 
+export interface PublicReferenceLookupRequest {
+  readonly reference: string;
+}
+
+export type PublicReferenceLookupNextStep =
+  | 'none'
+  | 'wait_for_payment_confirmation'
+  | 'recover_private_link_by_email'
+  | 'contact_support_with_reference';
+
+export interface PublicReferenceLookupFoundResponse {
+  readonly found: true;
+  readonly publicReference: string;
+  readonly contributionType: ContributionType;
+  readonly paymentStatus: string;
+  readonly amount: number | null;
+  readonly displayAmount: boolean;
+  readonly currency: string;
+  readonly paidAt: string | null;
+  readonly createdAt: string;
+  readonly reviewStatus: SponsorshipReviewStatus | null;
+  readonly detailsSubmitted: boolean | null;
+  readonly nextStep: PublicReferenceLookupNextStep;
+}
+
+export interface PublicReferenceLookupNotFoundResponse {
+  readonly found: false;
+  readonly publicReference: string;
+}
+
+export type PublicReferenceLookupResponse =
+  | PublicReferenceLookupFoundResponse
+  | PublicReferenceLookupNotFoundResponse;
+
 export type SponsorshipReviewStatus =
   'pending_review' | 'approved' | 'rejected';
 

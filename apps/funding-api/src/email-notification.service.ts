@@ -32,6 +32,7 @@ type EmailSponsorshipBenefitId =
 
 interface SponsorshipFollowupEmailInput {
   readonly to: string;
+  readonly publicReference: string | null;
   readonly followupUrl: string;
   readonly idempotencyKey?: string;
 }
@@ -349,10 +350,13 @@ const sendEmailPayload = async (input: {
 const renderSponsorshipFollowupEmail = (
   input: SponsorshipFollowupEmailInput
 ): RenderedEmail => {
+  const reference = input.publicReference ?? 'Reference a confirmer';
   const safeUrl = escapeHtml(input.followupUrl);
   const subject = 'Votre commandite OpenG7 est en validation';
   const text = [
     'Merci pour votre commandite OpenG7.',
+    '',
+    `Reference OpenG7: ${reference}`,
     '',
     'Vous pouvez reprendre votre formulaire et suivre le statut ici:',
     input.followupUrl,
@@ -361,6 +365,9 @@ const renderSponsorshipFollowupEmail = (
   ].join('\n');
   const html = `
     <p>Merci pour votre commandite OpenG7.</p>
+    <p>
+      <strong>Reference OpenG7:</strong> ${escapeHtml(reference)}
+    </p>
     <p>
       Vous pouvez reprendre votre formulaire et suivre le statut ici:
       <br />
@@ -377,6 +384,7 @@ const renderSponsorshipFollowupEmail = (
     text,
     html,
     metadata: {
+      publicReference: input.publicReference,
       followupUrl: input.followupUrl
     }
   };

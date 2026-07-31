@@ -85,6 +85,7 @@ Set these variables for API and webhook processing:
 - `SPONSOR_MEDIA_REGION`, `SPONSOR_MEDIA_ENDPOINT`, `SPONSOR_MEDIA_PUBLIC_BUCKET`, `SPONSOR_MEDIA_PUBLIC_BASE_URL`, `SPONSOR_MEDIA_PRIVATE_BUCKET`, `SPONSOR_MEDIA_PRIVATE_BASE_URL`, `OVH_S3_ACCESS_KEY_ID`, `OVH_S3_SECRET_ACCESS_KEY` - required when `SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`. The API stores uploaded controlled sponsor logos in the private bucket and never exposes the OVH credentials to browsers.
 - `SMTP_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM_NAME`, `MAIL_FROM_ADDRESS`, `MAIL_REPLY_TO_NAME`, `MAIL_REPLY_TO_ADDRESS` - SMTP settings for low-volume transactional email. See [docs/email-smtp.md](docs/email-smtp.md).
 - `FUNDING_ADMIN_NOTIFICATION_EMAIL` - optional internal notification recipient for publication-batch alerts.
+- `FUNDING_REFERENCE_LOOKUP_RATE_LIMIT_MAX` - optional public OpenG7 reference lookup limit, defaulting to 30 requests per window.
 - `FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS`, `FUNDING_EMAIL_QUEUE_BATCH_SIZE` - optional email queue worker settings.
 - `SOCIAL_PUBLICATION_MODE` - `disabled` by default, `mock` for local/E2E social publishing, or `live` for real Facebook/LinkedIn publishing after credentials are configured.
 - `SOCIAL_PUBLICATION_FACEBOOK_GRAPH_BASE_URL`, `SOCIAL_PUBLICATION_FACEBOOK_PAGE_ID`, `SOCIAL_PUBLICATION_FACEBOOK_PAGE_ACCESS_TOKEN`, `SOCIAL_PUBLICATION_LINKEDIN_API_BASE_URL`, `SOCIAL_PUBLICATION_LINKEDIN_ORGANIZATION_ID`, `SOCIAL_PUBLICATION_LINKEDIN_ACCESS_TOKEN`, `SOCIAL_PUBLICATION_LINKEDIN_VERSION` - social provider settings used only by the API; never expose the tokens to browsers.
@@ -409,9 +410,10 @@ still works, but the recoverable sponsorship follow-up and public sponsor
 profile lifecycle are not available.
 
 The API also applies in-process rate limits to checkout, sponsorship follow-up,
-and admin sponsorship routes. Configure the window and limits with
+public reference lookup, and admin sponsorship routes. Configure the window and limits with
 `FUNDING_RATE_LIMIT_WINDOW_MS`, `FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX`,
-`FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX`, and
+`FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX`,
+`FUNDING_REFERENCE_LOOKUP_RATE_LIMIT_MAX`, and
 `FUNDING_ADMIN_RATE_LIMIT_MAX`; keep proxy-level limits enabled as a second
 layer in production.
 

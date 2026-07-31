@@ -423,6 +423,42 @@
       "workspace": {
         "ariaLabel": "Espace de support OpenG7"
       },
+      "referenceLookup": {
+        "title": "Retrouver un achat",
+        "copy": "Entrez votre reference OpenG7 pour verifier le statut public minimal de la contribution.",
+        "label": "Reference OpenG7",
+        "submit": "Rechercher",
+        "submitting": "Recherche...",
+        "hint": "La recherche n'affiche jamais de courriel, de nom prive, d'identifiant Stripe ou de lien de suivi.",
+        "invalid": "Entrez une reference valide, par exemple OG7-2026-ABC123.",
+        "error": "La recherche n'a pas pu etre completee. Reessayez plus tard.",
+        "notFound": "Aucun achat ne correspond a cette reference.",
+        "amountHidden": "Masque par consentement",
+        "fields": {
+          "type": "Type",
+          "status": "Statut",
+          "amount": "Montant",
+          "date": "Date"
+        },
+        "types": {
+          "personal": "Contribution personnelle",
+          "sponsorship": "Commandite"
+        },
+        "status": {
+          "pending": "En attente",
+          "paid": "Paye",
+          "refunded": "Rembourse",
+          "disputed": "Conteste",
+          "failed": "Echoue",
+          "expired": "Expire"
+        },
+        "nextStep": {
+          "none": "Aucune action requise. Conservez cette reference pour vos suivis.",
+          "wait_for_payment_confirmation": "Le paiement n'est pas encore confirme. Verifiez plus tard avec la meme reference.",
+          "recover_private_link_by_email": "Pour modifier la fiche ou retrouver le lien prive, utilisez la recuperation par courriel ou contactez le support avec cette reference.",
+          "contact_support_with_reference": "Contactez le support avec cette reference pour verifier la situation."
+        }
+      },
       "repositories": {
         "title": "Choisir un dépôt",
         "copy": "Voici les dépôts principaux de l’écosystème OpenG7. Cliquez pour explorer, lire la documentation ou contribuer.",
