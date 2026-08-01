@@ -1,4 +1,5 @@
 import type {
+  SponsorMediaReviewStatus,
   SponsorFeedStatus,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
@@ -71,6 +72,33 @@ export interface AdminSponsorDetailIdentityView {
   readonly uploadDisabled: boolean;
   readonly deleteDisabled: boolean;
   readonly statusMessage: string;
+  readonly mediaAssets: readonly AdminSponsorMediaAssetView[];
+  readonly mediaMessage: string;
+  readonly mediaBusy: boolean;
+}
+
+export interface AdminSponsorMediaAssetView {
+  readonly id: string;
+  readonly version: string;
+  readonly kindLabel: string;
+  readonly reviewStatus: SponsorMediaReviewStatus;
+  readonly reviewStatusLabel: string;
+  readonly previewSource: string | null;
+  readonly altText: string;
+  readonly dimensionsLabel: string;
+  readonly sizeLabel: string;
+}
+
+export interface AdminSponsorMediaReviewEvent {
+  readonly assetId: string;
+  readonly expectedVersion: string;
+  readonly reviewStatus: Exclude<SponsorMediaReviewStatus, 'pending_review'>;
+  readonly altText: string;
+}
+
+export interface AdminSponsorMediaDeleteEvent {
+  readonly assetId: string;
+  readonly expectedVersion: string;
 }
 
 export interface AdminSponsorListRow {

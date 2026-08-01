@@ -375,6 +375,8 @@ test('E2E 5/8: admin can approve, reset, reject, or refund sponsorship visibilit
       'getSponsorshipRefundTarget',
       'sponsor_review_status = $2',
       'payment_not_eligible',
+      'media_required',
+      'has_approved_presentation_photo',
       'targetRow.review_status !=='
     ],
     'admin review repository'
@@ -392,9 +394,7 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'
   );
-  const adminRepository = read(
-    'apps/funding-api/src/fund-admin.repository.ts'
-  );
+  const adminRepository = read('apps/funding-api/src/fund-admin.repository.ts');
   const publicationAdminPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts'
   );
@@ -564,10 +564,7 @@ test('E2E 8/9: sponsor follow-up page shows pending review status before details
 
   assertIncludesAll(
     api,
-    [
-      'isAllowedSponsorshipReviewStatus',
-      'pending_review'
-    ],
+    ['isAllowedSponsorshipReviewStatus', 'pending_review'],
     'api pending review validation'
   );
 });
@@ -619,6 +616,8 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
     [
       'public_display_consent IS TRUE',
       "sponsor_review_status = 'approved'",
+      "kind = 'supporting_image'",
+      "review_status = 'approved'",
       'sponsor_company_name IS NOT NULL',
       'display_amount_consent IS TRUE'
     ],
@@ -630,6 +629,17 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
       publicListBody
     ),
     false
+  );
+
+  const seed = read('scripts/e2e-seed.mjs');
+  assertIncludesAll(
+    seed,
+    [
+      'sponsorMediaInsertStatements',
+      "'supporting_image', 'approved'",
+      'Photo de presentation'
+    ],
+    'public sponsorship media fixtures'
   );
 });
 

@@ -10,9 +10,14 @@ import {
   PublicSponsorshipBatchAvailabilityResponse,
   ReferenceRecoveryRequest,
   ReferenceRecoveryResult,
+  SponsorMediaDeleteRequest,
+  SponsorMediaDeleteResult,
+  SponsorMediaKind,
+  SponsorMediaUploadResult,
   SponsorshipDetailsResult,
   SponsorshipFollowupDetailsRequest,
   SponsorshipFollowupResponse,
+  SponsorshipMediaResponse,
   createMockCheckoutResult
 } from '@openg7/funding-core';
 import { FundingSnapshot } from '@openg7/funding-core';
@@ -241,6 +246,83 @@ export class FundingService {
     }
 
     return (await response.json()) as SponsorshipDetailsResult;
+  }
+
+  async getSponsorshipMedia(token: string): Promise<SponsorshipMediaResponse> {
+    const params = new URLSearchParams({ token });
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup/media?${params.toString()}`,
+      { headers: { Accept: 'application/json' } }
+    );
+    if (!response.ok) {
+      throw new Error('Sponsorship media could not be loaded.');
+    }
+    return (await response.json()) as SponsorshipMediaResponse;
+  }
+
+  async getSponsorshipMediaPreview(
+    token: string,
+    assetId: string
+  ): Promise<Blob> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup/media/content/${encodeURIComponent(assetId)}`,
+      {
+        headers: {
+          Accept: 'image/*',
+          'X-Sponsorship-Followup-Token': token
+        }
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Sponsorship media preview could not be loaded.');
+    }
+    return response.blob();
+  }
+
+  async uploadSponsorshipMedia(
+    token: string,
+    kind: SponsorMediaKind,
+    file: File,
+    altText?: string
+  ): Promise<SponsorMediaUploadResult> {
+    const body = new FormData();
+    body.set('token', token);
+    body.set('kind', kind);
+    body.set('media', file);
+    if (altText?.trim()) {
+      body.set('altText', altText.trim());
+    }
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup/media`,
+      { method: 'POST', body }
+    );
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        readonly error?: string;
+      } | null;
+      throw new Error(payload?.error ?? 'Sponsor media could not be uploaded.');
+    }
+    return (await response.json()) as SponsorMediaUploadResult;
+  }
+
+  async deleteSponsorshipMedia(
+    payload: SponsorMediaDeleteRequest
+  ): Promise<SponsorMediaDeleteResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup/media/delete`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        readonly error?: string;
+      } | null;
+      throw new Error(body?.error ?? 'Sponsor media could not be deleted.');
+    }
+    return (await response.json()) as SponsorMediaDeleteResult;
   }
 
   private resolveApiBaseUrl(): string {

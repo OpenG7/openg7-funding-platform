@@ -8,6 +8,7 @@ import {
   createHash,
   createHmac,
   randomBytes,
+  randomUUID,
   timingSafeEqual
 } from 'node:crypto';
 
@@ -43,6 +44,9 @@ import type {
   AdminPublicationSlotUpdateRequest,
   AdminSessionCreateRequest,
   AdminSessionResponse,
+  AdminSponsorMediaDeleteRequest,
+  AdminSponsorMediaReviewRequest,
+  AdminSponsorMediaReviewResult,
   AdminSocialPublicationBatchPublishRequest,
   AdminSocialPublicationBatchPublishResult,
   AdminSponsorLogoDeleteRequest,
@@ -68,6 +72,10 @@ import type {
   ReferenceRecoveryRequest,
   ReferenceRecoveryResult,
   RedirectCheckoutResult,
+  SponsorMediaDeleteRequest,
+  SponsorMediaDeleteResult,
+  SponsorMediaKind,
+  SponsorMediaUploadResult,
   SponsorFeedChannel,
   SponsorFeedStatus,
   SponsorFeedTarget,
@@ -75,6 +83,7 @@ import type {
   SponsorshipDetailsResult,
   SponsorshipFollowupDetailsRequest,
   SponsorshipFollowupResponse,
+  SponsorshipMediaResponse,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
@@ -184,7 +193,20 @@ import {
   getSponsorshipInvoiceById,
   listAdminSponsorshipInvoices
 } from './sponsorship-invoices.repository.js';
-import { createSponsorLogoStorage } from './sponsor-media-storage.js';
+import {
+  createSponsorLogoStorage,
+  createSponsorMediaStorage
+} from './sponsor-media-storage.js';
+import { processSponsorImage } from './sponsor-image.service.js';
+import {
+  createSponsorMediaAsset,
+  deleteSponsorMediaAsset,
+  getApprovedPublicSponsorMedia,
+  getSponsorMediaStorageRecord,
+  listSponsorMediaAssets,
+  reviewSponsorMediaAsset,
+  type SponsorMediaStorageRecord
+} from './sponsor-media.repository.js';
 import { buildAdminAssistantSummary } from './admin-assistant/attention.service.js';
 import { loadAdminAssistantConfig } from './admin-assistant/config.js';
 import { runAdminAssistantQuery } from './admin-assistant/orchestrator.js';
@@ -316,6 +338,28 @@ const sponsorLogoStorage = createSponsorLogoStorage({
     secretAccessKey: process.env.OVH_S3_SECRET_ACCESS_KEY
   }
 });
+const sponsorMediaStorage = createSponsorMediaStorage({
+  driver: process.env.SPONSOR_MEDIA_STORAGE_DRIVER,
+  localStorageDir: sponsorLogoStorageDir,
+  s3: {
+    region: process.env.SPONSOR_MEDIA_REGION,
+    endpoint: process.env.SPONSOR_MEDIA_ENDPOINT,
+    publicBucket: process.env.SPONSOR_MEDIA_PUBLIC_BUCKET,
+    publicBaseUrl: process.env.SPONSOR_MEDIA_PUBLIC_BASE_URL,
+    privateBucket: process.env.SPONSOR_MEDIA_PRIVATE_BUCKET,
+    privateBaseUrl: process.env.SPONSOR_MEDIA_PRIVATE_BASE_URL,
+    accessKeyId: process.env.OVH_S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.OVH_S3_SECRET_ACCESS_KEY
+  }
+});
+const sponsorMediaMaxBytes = parsePositiveIntegerEnv(
+  process.env.FUNDING_SPONSOR_MEDIA_MAX_BYTES,
+  8 * 1024 * 1024
+);
+const sponsorMediaMaxSupportingImages = parsePositiveIntegerEnv(
+  process.env.FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES,
+  3
+);
 const allowedOrigins = (process.env.FUNDING_ALLOWED_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
@@ -580,6 +624,8 @@ const contributionPublicReferencePattern = /^OG7-\d{4}-[A-Z0-9]{4,8}$/;
 const ADMIN_SESSION_TOKEN_PREFIX = 'openg7-admin-session.';
 const ADMIN_SESSION_NONCE_BYTES = 16;
 const SPONSOR_LOGO_PUBLIC_PATH_PREFIX = '/api/public/sponsor-logos/';
+const SPONSOR_MEDIA_PUBLIC_PATH_PREFIX = '/api/public/sponsor-media/';
+const SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH = 300;
 const SPONSOR_LOGO_FILENAME_PATTERN =
   /^sponsor-logo-[0-9a-f-]{36}-[0-9]{13}-[a-f0-9]{16}\.(?:jpg|png|webp)$/;
 const sponsorLogoContentTypes = new Map<string, string>([
@@ -930,6 +976,92 @@ const deleteControlledSponsorLogoFile = async (
   }
 };
 
+const allowedSponsorMediaKinds = new Set<SponsorMediaKind>([
+  'logo',
+  'supporting_image'
+]);
+
+const parseSponsorMediaKind = (value: string): SponsorMediaKind | null =>
+  allowedSponsorMediaKinds.has(value as SponsorMediaKind)
+    ? (value as SponsorMediaKind)
+    : null;
+
+const sponsorMediaPrivateBaseKey = (
+  contributionId: string,
+  assetId: string
+): string => `sponsors/${contributionId}/${assetId}`;
+
+const sponsorMediaPublicKey = (asset: SponsorMediaStorageRecord): string =>
+  `public/sponsors/${asset.contributionId}/${asset.id}-${asset.checksumSha256.slice(0, 16)}.webp`;
+
+const sponsorMediaPublicUrl = (assetId: string, publicKey: string): string =>
+  sponsorMediaStorage.publicUrl(publicKey) ??
+  `${SPONSOR_MEDIA_PUBLIC_PATH_PREFIX}${assetId}`;
+
+const routeAssetId = (
+  url: string | undefined,
+  ...prefixes: readonly string[]
+): string | null => {
+  if (!url) {
+    return null;
+  }
+  try {
+    const pathname = new URL(url, publicBaseOrigin).pathname;
+    const prefix = prefixes.find((candidate) => pathname.startsWith(candidate));
+    if (!prefix) {
+      return null;
+    }
+    const assetId = decodeURIComponent(pathname.slice(prefix.length));
+    return isValidUuid(assetId) ? assetId : null;
+  } catch {
+    return null;
+  }
+};
+
+const deleteSponsorMediaObjects = async (
+  asset: SponsorMediaStorageRecord,
+  options: { readonly includePublic: boolean }
+): Promise<void> => {
+  const operations = [
+    sponsorMediaStorage.deletePrivateObject(asset.originalStorageKey),
+    sponsorMediaStorage.deletePrivateObject(asset.processedStorageKey)
+  ];
+  if (options.includePublic && asset.publicStorageKey) {
+    operations.push(
+      sponsorMediaStorage.deletePublicObject(asset.publicStorageKey)
+    );
+  }
+  const results = await Promise.allSettled(operations);
+  if (results.some((result) => result.status === 'rejected')) {
+    console.warn('One or more sponsor media objects could not be deleted.', {
+      assetId: asset.id,
+      storageDriver: sponsorMediaStorage.driver
+    });
+  }
+};
+
+const writeSponsorMediaMutationFailure = (
+  request: ApiRequest,
+  response: ApiResponse,
+  status: 'not_found' | 'conflict' | 'approved_locked'
+): void => {
+  if (status === 'conflict') {
+    writeJson(request, response, 409, {
+      code: 'SPONSOR_MEDIA_CONCURRENT_UPDATE',
+      error: 'Ce media a ete modifie. Rechargez la fiche puis reessayez.'
+    });
+    return;
+  }
+  if (status === 'approved_locked') {
+    writeJson(request, response, 409, {
+      code: 'SPONSOR_MEDIA_APPROVED',
+      error: "Un media approuve doit etre retire par l'administrateur."
+    });
+    return;
+  }
+  writeJson(request, response, 404, { error: 'Sponsor media was not found.' });
+};
+
 const isValidOptionalIsoDate = (value: unknown): boolean => {
   if (value === undefined || value === null || value === '') {
     return true;
@@ -1111,7 +1243,12 @@ const parseAdminSponsorshipsQuery = (
 const writeSponsorshipMutationFailure = (
   request: IncomingMessage,
   response: ServerResponse,
-  status: 'updated' | 'not_found' | 'conflict' | 'payment_not_eligible',
+  status:
+    | 'updated'
+    | 'not_found'
+    | 'conflict'
+    | 'payment_not_eligible'
+    | 'media_required',
   details: {
     readonly currentVersion?: string | null;
     readonly paymentStatus?: string | null;
@@ -1132,6 +1269,15 @@ const writeSponsorshipMutationFailure = (
       message:
         'Cette commandite ne peut pas etre publiee ou approuvee lorsque le paiement est rembourse ou conteste.',
       paymentStatus: details.paymentStatus ?? null
+    });
+    return;
+  }
+
+  if (status === 'media_required') {
+    writeJson(request, response, 409, {
+      code: 'SPONSORSHIP_PRESENTATION_PHOTO_REQUIRED',
+      message:
+        "Une photo de presentation approuvee est requise avant d'approuver cette commandite."
     });
     return;
   }
@@ -1556,6 +1702,21 @@ const routeMatches = (
   }
 };
 
+const routeStartsWith = (
+  url: string | undefined,
+  ...prefixes: readonly string[]
+): boolean => {
+  if (!url) {
+    return false;
+  }
+  try {
+    const pathname = new URL(url, publicBaseOrigin).pathname;
+    return prefixes.some((prefix) => pathname.startsWith(prefix));
+  } catch {
+    return false;
+  }
+};
+
 const createRateLimiter = (
   name: string,
   maxRequests: number,
@@ -1688,7 +1849,16 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/sponsorship-followup',
       '/api/sponsorship-followup',
       '/sponsorship-followup/details',
-      '/api/sponsorship-followup/details'
+      '/api/sponsorship-followup/details',
+      '/sponsorship-followup/media',
+      '/api/sponsorship-followup/media',
+      '/sponsorship-followup/media/delete',
+      '/api/sponsorship-followup/media/delete'
+    ) ||
+    routeStartsWith(
+      request.url,
+      '/sponsorship-followup/media/content/',
+      '/api/sponsorship-followup/media/content/'
     )
   ) {
     return sponsorshipFollowupRateLimiter;
@@ -1784,12 +1954,23 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/sponsorships/logo',
       '/admin/sponsorships/logo/delete',
       '/api/admin/sponsorships/logo/delete',
+      '/admin/sponsorships/media',
+      '/api/admin/sponsorships/media',
+      '/admin/sponsorships/media/review',
+      '/api/admin/sponsorships/media/review',
+      '/admin/sponsorships/media/delete',
+      '/api/admin/sponsorships/media/delete',
       '/admin/sponsorships/review',
       '/api/admin/sponsorships/review',
       '/admin/sponsorships/refund',
       '/api/admin/sponsorships/refund',
       '/admin/sponsorships/publication',
       '/api/admin/sponsorships/publication'
+    ) ||
+    routeStartsWith(
+      request.url,
+      '/admin/sponsorships/media/content/',
+      '/api/admin/sponsorships/media/content/'
     )
   ) {
     return adminRateLimiter;
@@ -2066,7 +2247,7 @@ createServer(async (request, response) => {
       ...createCorsHeaders(request),
       ...securityHeaders,
       'Access-Control-Allow-Headers':
-        'Content-Type, Stripe-Signature, Authorization, X-Funding-Admin-Token',
+        'Content-Type, Stripe-Signature, Authorization, X-Funding-Admin-Token, X-Sponsorship-Followup-Token',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
     });
     response.end();
@@ -2075,6 +2256,699 @@ createServer(async (request, response) => {
 
   const rateLimiter = getRequestRateLimiter(request);
   if (rateLimiter && !enforceRateLimit(request, response, rateLimiter)) {
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/media',
+      '/api/admin/sponsorships/media'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+    const contributionId = new URL(
+      request.url ?? '/',
+      publicBaseOrigin
+    ).searchParams.get('contributionId');
+    if (!isValidUuid(contributionId)) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor contribution id is invalid.'
+      });
+      return;
+    }
+    try {
+      const result: SponsorshipMediaResponse = {
+        assets: await listSponsorMediaAssets(dbPool, contributionId),
+        limits: {
+          maxUploadBytes: sponsorMediaMaxBytes,
+          maxSupportingImages: sponsorMediaMaxSupportingImages,
+          acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
+        }
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to list sponsor media for admin.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsor media could not be loaded. Apply migration 017.'
+      });
+    }
+    return;
+  }
+
+  const adminMediaContentId =
+    request.method === 'GET'
+      ? routeAssetId(
+          request.url,
+          '/admin/sponsorships/media/content/',
+          '/api/admin/sponsorships/media/content/'
+        )
+      : null;
+  if (adminMediaContentId) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+    try {
+      const asset = await getSponsorMediaStorageRecord(
+        dbPool,
+        adminMediaContentId
+      );
+      const image = asset
+        ? await sponsorMediaStorage.readPrivateObject(asset.processedStorageKey)
+        : null;
+      if (!asset || !image) {
+        writeJson(request, response, 404, {
+          error: 'Sponsor media was not found.'
+        });
+        return;
+      }
+      writeBinary(request, response, 200, image, 'image/webp', {
+        'Cache-Control': 'private, no-store'
+      });
+    } catch (error) {
+      console.error('Failed to load admin sponsor media preview.', error);
+      writeJson(request, response, 404, {
+        error: 'Sponsor media was not found.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/sponsorship-followup/media',
+      '/api/sponsorship-followup/media'
+    )
+  ) {
+    if (!hasDatabase) {
+      writeJson(request, response, 503, {
+        error: 'Sponsorship media requires DATABASE_URL.'
+      });
+      return;
+    }
+    const token = new URL(
+      request.url ?? '/',
+      publicBaseOrigin
+    ).searchParams.get('token');
+    if (!isValidFollowupToken(token)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship follow-up token.'
+      });
+      return;
+    }
+    try {
+      const followup = await getSponsorshipFollowupByTokenHash(
+        dbPool,
+        hashSponsorshipFollowupToken(token),
+        getSponsorshipFollowupTokenCutoffIso()
+      );
+      if (!followup) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship follow-up was not found.'
+        });
+        return;
+      }
+      const result: SponsorshipMediaResponse = {
+        assets: await listSponsorMediaAssets(dbPool, followup.contributionId),
+        limits: {
+          maxUploadBytes: sponsorMediaMaxBytes,
+          maxSupportingImages: sponsorMediaMaxSupportingImages,
+          acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
+        }
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to load sponsorship media.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsorship media could not be loaded. Apply migration 017.'
+      });
+    }
+    return;
+  }
+
+  const sponsorMediaContentId =
+    request.method === 'GET'
+      ? routeAssetId(
+          request.url,
+          '/sponsorship-followup/media/content/',
+          '/api/sponsorship-followup/media/content/'
+        )
+      : null;
+  if (sponsorMediaContentId) {
+    const token = firstHeaderValue(
+      request.headers['x-sponsorship-followup-token']
+    );
+    if (!isValidFollowupToken(token)) {
+      writeJson(request, response, 401, {
+        error: 'Sponsorship follow-up token is required.'
+      });
+      return;
+    }
+    try {
+      const [followup, asset] = await Promise.all([
+        getSponsorshipFollowupByTokenHash(
+          dbPool,
+          hashSponsorshipFollowupToken(token),
+          getSponsorshipFollowupTokenCutoffIso()
+        ),
+        getSponsorMediaStorageRecord(dbPool, sponsorMediaContentId)
+      ]);
+      if (
+        !followup ||
+        !asset ||
+        asset.contributionId !== followup.contributionId
+      ) {
+        writeJson(request, response, 404, {
+          error: 'Sponsor media was not found.'
+        });
+        return;
+      }
+      const image = await sponsorMediaStorage.readPrivateObject(
+        asset.processedStorageKey
+      );
+      if (!image) {
+        writeJson(request, response, 404, {
+          error: 'Sponsor media was not found.'
+        });
+        return;
+      }
+      writeBinary(request, response, 200, image, 'image/webp', {
+        'Cache-Control': 'private, no-store'
+      });
+    } catch (error) {
+      console.error('Failed to load sponsorship media preview.', error);
+      writeJson(request, response, 404, {
+        error: 'Sponsor media was not found.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/sponsorship-followup/media',
+      '/api/sponsorship-followup/media'
+    )
+  ) {
+    if (!hasDatabase) {
+      writeJson(request, response, 503, {
+        error: 'Sponsorship media requires DATABASE_URL.'
+      });
+      return;
+    }
+    const boundary = parseMultipartBoundary(request.headers['content-type']);
+    if (!boundary) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor media upload must use multipart/form-data.'
+      });
+      return;
+    }
+    let parts: readonly MultipartPart[];
+    try {
+      parts = parseMultipartFormData(
+        await readBodyBuffer(request, sponsorMediaMaxBytes + 128 * 1024),
+        boundary
+      );
+    } catch {
+      writeJson(request, response, 413, {
+        error: 'Sponsor media upload is too large.'
+      });
+      return;
+    }
+    const textPart = (name: string): string =>
+      parts
+        .find((part) => part.name === name)
+        ?.data.toString('utf8')
+        .trim() ?? '';
+    const token = textPart('token');
+    const kind = parseSponsorMediaKind(textPart('kind'));
+    const altText = textPart('altText') || null;
+    const file = parts.find((part) => part.name === 'media');
+    if (
+      !isValidFollowupToken(token) ||
+      !kind ||
+      !file?.filename ||
+      file.data.byteLength === 0 ||
+      file.data.byteLength > sponsorMediaMaxBytes ||
+      (altText?.length ?? 0) > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH
+    ) {
+      writeJson(request, response, 400, {
+        error: 'A valid token, media kind, and image file are required.'
+      });
+      return;
+    }
+
+    let originalStorageKey: string | null = null;
+    let processedStorageKey: string | null = null;
+    try {
+      const followup = await getSponsorshipFollowupByTokenHash(
+        dbPool,
+        hashSponsorshipFollowupToken(token),
+        getSponsorshipFollowupTokenCutoffIso()
+      );
+      if (!followup) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship follow-up was not found.'
+        });
+        return;
+      }
+      if (!followupEditablePaymentStatuses.has(followup.paymentStatus)) {
+        writeJson(request, response, 409, {
+          error: 'Payment for this sponsorship is not confirmed yet.'
+        });
+        return;
+      }
+
+      const image = await processSponsorImage({
+        data: file.data,
+        kind,
+        originalFilename: file.filename
+      });
+      if (file.contentType && file.contentType !== image.originalMimeType) {
+        writeJson(request, response, 400, {
+          error: 'The declared image type does not match its contents.'
+        });
+        return;
+      }
+      const assetId = randomUUID();
+      const baseKey = sponsorMediaPrivateBaseKey(
+        followup.contributionId,
+        assetId
+      );
+      originalStorageKey = `${baseKey}/original.${image.originalExtension}`;
+      processedStorageKey = `${baseKey}/processed.webp`;
+      await sponsorMediaStorage.writePrivateObject({
+        key: originalStorageKey,
+        data: image.originalData,
+        contentType: image.originalMimeType
+      });
+      await sponsorMediaStorage.writePrivateObject({
+        key: processedStorageKey,
+        data: image.processedData,
+        contentType: image.processedMimeType
+      });
+
+      const created = await createSponsorMediaAsset(dbPool, {
+        id: assetId,
+        contributionId: followup.contributionId,
+        kind,
+        uploadedBy: 'sponsor',
+        originalFilename: image.originalFilename,
+        originalMimeType: image.originalMimeType,
+        originalSizeBytes: image.originalSizeBytes,
+        originalStorageKey,
+        processedSizeBytes: image.processedSizeBytes,
+        processedStorageKey,
+        checksumSha256: image.checksumSha256,
+        width: image.width,
+        height: image.height,
+        altText,
+        maxSupportingImages: sponsorMediaMaxSupportingImages
+      });
+      if (created.status !== 'created') {
+        await Promise.allSettled([
+          sponsorMediaStorage.deletePrivateObject(originalStorageKey),
+          sponsorMediaStorage.deletePrivateObject(processedStorageKey)
+        ]);
+        const statusCode =
+          created.status === 'contribution_not_found' ? 404 : 409;
+        const error =
+          created.status === 'logo_locked'
+            ? 'The approved logo must be replaced by an administrator.'
+            : created.status === 'supporting_image_limit_reached'
+              ? 'The supporting image limit has been reached.'
+              : 'Sponsorship follow-up was not found.';
+        writeJson(request, response, statusCode, { error });
+        return;
+      }
+      if (created.replaced) {
+        await deleteSponsorMediaObjects(created.replaced, {
+          includePublic: false
+        });
+      }
+      await insertAdminAuditLog(dbPool, {
+        actor: 'sponsor-followup',
+        action: 'sponsorship.media.upload',
+        entityType: 'sponsor_media_asset',
+        entityId: created.asset.id,
+        summary: 'Sponsor media uploaded through the private follow-up flow.',
+        metadata: {
+          contributionId: created.asset.contributionId,
+          kind: created.asset.kind,
+          mimeType: created.asset.originalMimeType,
+          sizeBytes: created.asset.originalSizeBytes,
+          storageDriver: sponsorMediaStorage.driver
+        }
+      });
+      const result: SponsorMediaUploadResult = {
+        uploaded: true,
+        asset: created.asset
+      };
+      writeJson(request, response, 201, result);
+    } catch (error) {
+      if (originalStorageKey) {
+        await sponsorMediaStorage
+          .deletePrivateObject(originalStorageKey)
+          .catch(() => undefined);
+      }
+      if (processedStorageKey) {
+        await sponsorMediaStorage
+          .deletePrivateObject(processedStorageKey)
+          .catch(() => undefined);
+      }
+      console.error('Failed to upload sponsorship media.', error);
+      writeJson(request, response, 400, {
+        error: 'Sponsor media must be a valid JPEG, PNG, or WebP image.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/sponsorship-followup/media/delete',
+      '/api/sponsorship-followup/media/delete'
+    )
+  ) {
+    let parsed: SponsorMediaDeleteRequest;
+    try {
+      parsed = JSON.parse(
+        await readBody(request, 16 * 1024)
+      ) as SponsorMediaDeleteRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsor media delete request.'
+      });
+      return;
+    }
+    if (
+      !isValidFollowupToken(parsed.token) ||
+      !isValidUuid(parsed.assetId) ||
+      !isValidAdminExpectedVersion(parsed.expectedVersion)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'A valid token, media id, and version are required.'
+      });
+      return;
+    }
+    try {
+      const followup = await getSponsorshipFollowupByTokenHash(
+        dbPool,
+        hashSponsorshipFollowupToken(parsed.token),
+        getSponsorshipFollowupTokenCutoffIso()
+      );
+      if (!followup) {
+        writeJson(request, response, 404, {
+          error: 'Sponsorship follow-up was not found.'
+        });
+        return;
+      }
+      const deleted = await deleteSponsorMediaAsset(dbPool, {
+        assetId: parsed.assetId,
+        contributionId: followup.contributionId,
+        expectedVersion: parsed.expectedVersion,
+        allowApproved: false
+      });
+      if (deleted.status !== 'updated' || !deleted.asset) {
+        writeSponsorMediaMutationFailure(
+          request,
+          response,
+          deleted.status === 'conflict'
+            ? 'conflict'
+            : deleted.status === 'approved_locked'
+              ? 'approved_locked'
+              : 'not_found'
+        );
+        return;
+      }
+      await deleteSponsorMediaObjects(deleted.asset, { includePublic: false });
+      await insertAdminAuditLog(dbPool, {
+        actor: 'sponsor-followup',
+        action: 'sponsorship.media.delete',
+        entityType: 'sponsor_media_asset',
+        entityId: deleted.asset.id,
+        summary: 'Pending sponsor media deleted through the follow-up flow.',
+        metadata: {
+          contributionId: deleted.asset.contributionId,
+          kind: deleted.asset.kind
+        }
+      });
+      const result: SponsorMediaDeleteResult = {
+        deleted: true,
+        assetId: deleted.asset.id
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to delete sponsorship media.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsor media could not be deleted.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/media/review',
+      '/api/admin/sponsorships/media/review'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+    let parsed: AdminSponsorMediaReviewRequest;
+    try {
+      parsed = JSON.parse(
+        await readBody(request, 32 * 1024)
+      ) as AdminSponsorMediaReviewRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsor media review request.'
+      });
+      return;
+    }
+    const altText = parsed.altText?.trim() || null;
+    const reviewStatus =
+      parsed.reviewStatus === 'approved' || parsed.reviewStatus === 'rejected'
+        ? parsed.reviewStatus
+        : null;
+    if (
+      !isValidUuid(parsed.assetId) ||
+      !isValidAdminExpectedVersion(parsed.expectedVersion) ||
+      !reviewStatus ||
+      (altText?.length ?? 0) > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH ||
+      (parsed.reviewStatus === 'approved' && !altText)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Asset id, version, review decision, and alt text are required.'
+      });
+      return;
+    }
+
+    try {
+      const current = await getSponsorMediaStorageRecord(
+        dbPool,
+        parsed.assetId
+      );
+      if (!current) {
+        writeJson(request, response, 404, {
+          error: 'Sponsor media was not found.'
+        });
+        return;
+      }
+
+      let publishedKey: string | null = null;
+      let publicUrl: string | null = null;
+      let removedPublicObject = false;
+      if (reviewStatus === 'approved') {
+        publishedKey =
+          current.publicStorageKey ?? sponsorMediaPublicKey(current);
+        publicUrl =
+          current.publicUrl ?? sponsorMediaPublicUrl(current.id, publishedKey);
+        if (!current.publicStorageKey) {
+          await sponsorMediaStorage.publishObject({
+            privateKey: current.processedStorageKey,
+            publicKey: publishedKey,
+            contentType: 'image/webp'
+          });
+        }
+      } else if (current.publicStorageKey) {
+        removedPublicObject = await sponsorMediaStorage.deletePublicObject(
+          current.publicStorageKey
+        );
+      }
+
+      const reviewed = await reviewSponsorMediaAsset(dbPool, {
+        assetId: current.id,
+        expectedVersion: parsed.expectedVersion,
+        reviewStatus,
+        altText,
+        publicStorageKey: publishedKey,
+        publicUrl,
+        reviewedBy: getAdminAuditActor(request)
+      });
+
+      if (reviewed.status !== 'updated' || !reviewed.asset) {
+        if (publishedKey && !current.publicStorageKey) {
+          await sponsorMediaStorage
+            .deletePublicObject(publishedKey)
+            .catch(() => undefined);
+        } else if (removedPublicObject && current.publicStorageKey) {
+          await sponsorMediaStorage
+            .publishObject({
+              privateKey: current.processedStorageKey,
+              publicKey: current.publicStorageKey,
+              contentType: 'image/webp'
+            })
+            .catch(() => undefined);
+        }
+        writeSponsorMediaMutationFailure(
+          request,
+          response,
+          reviewed.status === 'conflict'
+            ? 'conflict'
+            : reviewed.status === 'approved_locked'
+              ? 'approved_locked'
+              : 'not_found'
+        );
+        return;
+      }
+
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: `sponsorship.media.${reviewStatus}`,
+        entityType: 'sponsor_media_asset',
+        entityId: reviewed.asset.id,
+        summary: `Sponsor media marked ${reviewStatus}.`,
+        metadata: {
+          contributionId: reviewed.asset.contributionId,
+          kind: reviewed.asset.kind,
+          storageDriver: sponsorMediaStorage.driver
+        }
+      });
+      const result: AdminSponsorMediaReviewResult = {
+        updated: true,
+        asset: reviewed.asset
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to review sponsor media.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsor media review could not be completed.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/media/delete',
+      '/api/admin/sponsorships/media/delete'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) {
+      return;
+    }
+    let parsed: AdminSponsorMediaDeleteRequest;
+    try {
+      parsed = JSON.parse(
+        await readBody(request, 16 * 1024)
+      ) as AdminSponsorMediaDeleteRequest;
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsor media delete request.'
+      });
+      return;
+    }
+    if (
+      !isValidUuid(parsed.assetId) ||
+      !isValidAdminExpectedVersion(parsed.expectedVersion)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Sponsor media id and version are required.'
+      });
+      return;
+    }
+    try {
+      const current = await getSponsorMediaStorageRecord(
+        dbPool,
+        parsed.assetId
+      );
+      if (!current) {
+        writeJson(request, response, 404, {
+          error: 'Sponsor media was not found.'
+        });
+        return;
+      }
+      let removedPublicObject = false;
+      if (current.publicStorageKey) {
+        removedPublicObject = await sponsorMediaStorage.deletePublicObject(
+          current.publicStorageKey
+        );
+      }
+      const deleted = await deleteSponsorMediaAsset(dbPool, {
+        assetId: parsed.assetId,
+        expectedVersion: parsed.expectedVersion,
+        allowApproved: true
+      });
+      if (deleted.status !== 'updated' || !deleted.asset) {
+        if (removedPublicObject && current.publicStorageKey) {
+          await sponsorMediaStorage
+            .publishObject({
+              privateKey: current.processedStorageKey,
+              publicKey: current.publicStorageKey,
+              contentType: 'image/webp'
+            })
+            .catch(() => undefined);
+        }
+        writeSponsorMediaMutationFailure(
+          request,
+          response,
+          deleted.status === 'conflict'
+            ? 'conflict'
+            : deleted.status === 'approved_locked'
+              ? 'approved_locked'
+              : 'not_found'
+        );
+        return;
+      }
+      await deleteSponsorMediaObjects(deleted.asset, { includePublic: false });
+      await insertAdminAuditLog(dbPool, {
+        actor: getAdminAuditActor(request),
+        action: 'sponsorship.media.delete',
+        entityType: 'sponsor_media_asset',
+        entityId: deleted.asset.id,
+        summary: 'Sponsor media deleted by an administrator.',
+        metadata: {
+          contributionId: deleted.asset.contributionId,
+          kind: deleted.asset.kind,
+          storageDriver: sponsorMediaStorage.driver
+        }
+      });
+      const result: SponsorMediaDeleteResult = {
+        deleted: true,
+        assetId: deleted.asset.id
+      };
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      console.error('Failed to delete sponsor media for admin.', error);
+      writeJson(request, response, 502, {
+        error: 'Sponsor media could not be deleted.'
+      });
+    }
     return;
   }
 
@@ -3858,6 +4732,37 @@ createServer(async (request, response) => {
         error:
           'Sponsorship credit note could not be resent. Check migration 012 and email queue configuration.'
       });
+    }
+    return;
+  }
+
+  const publicSponsorMediaId =
+    request.method === 'GET'
+      ? routeAssetId(
+          request.url,
+          '/public/sponsor-media/',
+          '/api/public/sponsor-media/'
+        )
+      : null;
+  if (publicSponsorMediaId) {
+    try {
+      const asset = await getApprovedPublicSponsorMedia(
+        dbPool,
+        publicSponsorMediaId
+      );
+      const image = asset?.publicStorageKey
+        ? await sponsorMediaStorage.readPublicObject(asset.publicStorageKey)
+        : null;
+      if (!asset || !image) {
+        writeJson(request, response, 404, { error: 'Not found' });
+        return;
+      }
+      writeBinary(request, response, 200, image, 'image/webp', {
+        'Cache-Control': 'public, max-age=31536000, immutable'
+      });
+    } catch (error) {
+      console.error('Failed to serve public sponsor media.', error);
+      writeJson(request, response, 404, { error: 'Not found' });
     }
     return;
   }

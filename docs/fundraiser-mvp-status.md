@@ -95,8 +95,11 @@ Precisions:
   `session_id` navigateur: il propose un lien de reprise tokenise vers
   `/fonds-des-batisseurs/suivi-commandite?token=...`.
 - Formulaire de reprise: nom d'entreprise, contact, courriel, site web
-  (optionnel), lien logo fourni par le sponsor (optionnel), message
-  (optionnel). L'upload de fichier logo reste reserve au back-office admin.
+  (optionnel), message (optionnel), logo optionnel et une a trois photos de
+  presentation, dont au moins une est requise avant la revue admin.
+- Le token de suivi permet de televerser JPEG, PNG ou WebP. L'API verifie le
+  contenu reel, conserve l'original en stockage prive et produit une copie WebP
+  redimensionnee sans metadonnees pour la revue.
 - Une commandite payee sans `sponsor_details_submitted_at` reste detectable en
   admin comme paiement confirme mais renseignements incomplets.
 - Endpoint historique `POST /api/sponsorship-details`: conserve pour
@@ -115,8 +118,9 @@ Precisions:
   les details par token.
 - Courriel de reprise optionnel via SMTP lorsque `SMTP_ENABLED=true`,
   `SMTP_USER` et `SMTP_PASSWORD` sont configures.
-- Aucun upload public de logo par le sponsor, aucune publication automatique:
-  la revue reste manuelle.
+- Aucun fichier televerse n'est public automatiquement: chaque media est
+  previsualise puis approuve ou refuse dans le back-office. Une modification
+  commanditaire remet la fiche en `pending_review`.
 - En mode Stripe-direct sans PostgreSQL, le paiement et la transparence agregee
   restent disponibles, mais le suivi recuperable, la revue admin complete et la
   publication commanditaire publique exigent PostgreSQL.
@@ -264,6 +268,11 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   `POST /api/admin/sponsorships/logo/delete` pour previsualiser, remplacer ou
   supprimer un logo commanditaire valide PNG/JPEG/WebP avec stockage controle
   par l'API et nettoyage des anciens fichiers controles.
+- Endpoints de medias commanditaires sous
+  `/api/sponsorship-followup/media` et `/api/admin/sponsorships/media` pour le
+  televersement prive, l'apercu protege, l'approbation, le refus et la
+  suppression auditee. Une photo de presentation approuvee est affichee sur la
+  page publique du commanditaire.
 - Endpoint `POST /api/admin/sponsorships/review` pour remettre en attente,
   accepter ou refuser une commandite.
 - Endpoint `POST /api/admin/sponsorships/refund` pour declencher un
@@ -291,6 +300,9 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
 - `FUNDING_ADMIN_SESSION_TTL_MINUTES` configure la duree de session admin.
 - `FUNDING_SPONSOR_LOGO_STORAGE_DIR` et `FUNDING_SPONSOR_LOGO_MAX_BYTES`
   configurent le stockage prive et la limite d'upload des logos.
+- `FUNDING_SPONSOR_MEDIA_MAX_BYTES` et
+  `FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES` configurent les nouveaux medias
+  traites, avec des valeurs par defaut de 8 Mio et 3 photos.
 - Les commandites ne peuvent apparaitre dans `/batisseurs` que si elles sont
   approuvees.
 
@@ -330,6 +342,8 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   - `013_add_sponsorship_refund_status.sql`.
   - `014_add_sponsorship_refund_amount_reason.sql`.
   - `015_create_social_publication_jobs.sql`.
+  - `016_create_publication_slots.sql`.
+  - `017_create_sponsor_media_assets.sql`.
 - Tables MVP:
   - `stripe_events`;
   - `stripe_checkout_sessions`;
@@ -338,6 +352,8 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
   - `sponsor_publication_drafts` (brouillons prives de publications commanditees).
   - `sponsor_publication_batches` (lots collectifs planifies par canal).
   - `social_publication_jobs` (jobs idempotents de publication sociale).
+  - `sponsor_media_assets` (metadonnees privees, statut de revue et references
+    de stockage des logos et photos commanditaires).
   - `admin_audit_log` (journal prive des actions admin).
   - `email_messages` (file courriel privee avec retry).
   - `sponsorship_invoices` (factures commandite descriptives).
@@ -392,6 +408,10 @@ fixee a la creation du lot. C'est le mecanisme reel derriere le vocabulaire
 - Endpoint public `GET /api/public/sponsorships`.
 - Endpoint public `GET /api/public/sponsor-logos/<file>` pour servir seulement
   les logos references par une commandite approuvee et consentie.
+- Endpoint public `GET /api/public/sponsor-media/<id>` pour servir uniquement
+  la copie optimisee d'un media approuve lie a une commandite payee, approuvee
+  et consentie. En stockage S3, l'URL publique immuable peut pointer directement
+  vers l'objet approuve.
 - Les commandites publiques exigent paiement confirme, consentement public,
   nom d'entreprise et `sponsor_review_status=approved`.
 - L'admin peut preparer un slug, un resume public, une cible `openg7` ou
@@ -433,6 +453,9 @@ Resultat attendu:
   `FUNDING_ADMIN_SESSION_TTL_MINUTES` ajuste selon la politique d'operation.
 - `FUNDING_SPONSOR_LOGO_STORAGE_DIR` persistant et
   `FUNDING_SPONSOR_LOGO_MAX_BYTES` alignes avec la limite d'upload attendue.
+- `FUNDING_SPONSOR_MEDIA_MAX_BYTES=8388608` et
+  `FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES=3` valides pour le parcours de
+  suivi commandite.
 - `SMTP_ENABLED=true`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM_ADDRESS` et
   `MAIL_REPLY_TO_ADDRESS` configures si les liens de reprise doivent etre
   envoyes automatiquement.

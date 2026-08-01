@@ -24,6 +24,8 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
+import { listPublicSponsorMediaByContributionIds } from './sponsor-media.repository.js';
+
 const allowedContributionTypes = new Set<ContributionType>([
   'personal_support',
   'sponsorship_interest'
@@ -198,7 +200,11 @@ export interface SponsorshipRefundWorkflowUpdateByPaymentIntentInput {
 export type SponsorshipPublicationInput = AdminSponsorshipPublicationRequest;
 
 export type SponsorshipMutationStatus =
-  'updated' | 'not_found' | 'conflict' | 'payment_not_eligible';
+  | 'updated'
+  | 'not_found'
+  | 'conflict'
+  | 'payment_not_eligible'
+  | 'media_required';
 
 export interface SponsorshipReviewMutationResult {
   readonly status: SponsorshipMutationStatus;
@@ -222,7 +228,10 @@ export interface SponsorshipLogoInput {
 }
 
 export interface SponsorshipLogoMutationResult {
-  readonly status: Exclude<SponsorshipMutationStatus, 'payment_not_eligible'>;
+  readonly status: Exclude<
+    SponsorshipMutationStatus,
+    'payment_not_eligible' | 'media_required'
+  >;
   readonly updated: boolean;
   readonly previousLogoUrl: string | null;
   readonly currentVersion: string | null;
@@ -419,6 +428,7 @@ interface AdminStripeEventSummaryRow {
 }
 
 interface PublicSponsorshipRow {
+  readonly contribution_id: string;
   readonly public_slug: string | null;
   readonly company_name: string;
   readonly website_url: string | null;
@@ -440,6 +450,7 @@ interface SponsorshipPublicationPresenceRow {
   readonly has_fund_contributions: boolean;
   readonly has_sponsor_review_status: boolean;
   readonly has_sponsor_publication_columns: boolean;
+  readonly has_sponsor_media_assets: boolean;
 }
 
 interface SponsorshipFollowupRow {
@@ -1753,6 +1764,7 @@ export interface SponsorshipAttentionRecord {
   readonly hasContactEmail: boolean;
   readonly hasWebsite: boolean;
   readonly hasLogo: boolean;
+  readonly hasSupportingImage: boolean;
   readonly reviewStatus: SponsorshipReviewStatus;
   readonly feedStatus: SponsorFeedStatus;
   readonly feedTarget: SponsorFeedTarget | null;
@@ -1779,6 +1791,7 @@ interface SponsorshipAttentionRow {
   readonly has_contact_email: boolean;
   readonly has_website: boolean;
   readonly has_logo: boolean;
+  readonly has_supporting_image: boolean;
   readonly sponsor_review_status: SponsorshipReviewStatus;
   readonly sponsor_feed_status: SponsorFeedStatus;
   readonly sponsor_feed_target: SponsorFeedTarget | null;
@@ -1801,6 +1814,18 @@ export const listSponsorshipsForAttention = async (
   }
 
   const cap = Math.max(1, Math.min(maxRows, SPONSORSHIP_ATTENTION_MAX_ROWS));
+  const mediaPresence = await pool.query<{ readonly exists: boolean }>(
+    `SELECT to_regclass('public.sponsor_media_assets') IS NOT NULL AS exists`
+  );
+  const supportingImageProjection = mediaPresence.rows[0]?.exists
+    ? `EXISTS (
+         SELECT 1
+         FROM sponsor_media_assets AS media
+         WHERE media.contribution_id = fund_contributions.id
+           AND media.kind = 'supporting_image'
+           AND media.deleted_at IS NULL
+       )`
+    : 'FALSE';
   const query = await pool.query<SponsorshipAttentionRow>(
     `
     SELECT
@@ -1816,6 +1841,7 @@ export const listSponsorshipsForAttention = async (
       (COALESCE(TRIM(sponsor_contact_email), '') <> '') AS has_contact_email,
       (COALESCE(TRIM(sponsor_website_url), '') <> '') AS has_website,
       (COALESCE(TRIM(sponsor_logo_url), '') <> '') AS has_logo,
+      ${supportingImageProjection} AS has_supporting_image,
       COALESCE(sponsor_review_status, 'pending_review') AS sponsor_review_status,
       COALESCE(sponsor_feed_status, 'not_planned') AS sponsor_feed_status,
       sponsor_feed_target,
@@ -1845,6 +1871,7 @@ export const listSponsorshipsForAttention = async (
     hasContactEmail: row.has_contact_email,
     hasWebsite: row.has_website,
     hasLogo: row.has_logo,
+    hasSupportingImage: row.has_supporting_image,
     reviewStatus:
       normalizeSponsorshipReviewStatus(row.sponsor_review_status) ??
       'pending_review',
@@ -2136,12 +2163,21 @@ export const updateSponsorshipReview = async (
     readonly status: string;
     readonly review_status: SponsorshipReviewStatus;
     readonly version: string;
+    readonly has_approved_presentation_photo: boolean;
   }>(
     `
       SELECT
         status,
         COALESCE(sponsor_review_status, 'pending_review') AS review_status,
-        updated_at::text AS version
+        updated_at::text AS version,
+        EXISTS (
+          SELECT 1
+          FROM sponsor_media_assets
+          WHERE contribution_id = fund_contributions.id
+            AND kind = 'supporting_image'
+            AND review_status = 'approved'
+            AND deleted_at IS NULL
+        ) AS has_approved_presentation_photo
       FROM fund_contributions
       WHERE id = $1::uuid
         AND contribution_type = 'sponsorship_interest'
@@ -2182,6 +2218,18 @@ export const updateSponsorshipReview = async (
     };
   }
 
+  if (
+    input.reviewStatus === 'approved' &&
+    !targetRow.has_approved_presentation_photo
+  ) {
+    return {
+      status: 'media_required',
+      updated: false,
+      currentVersion: targetRow.version,
+      paymentStatus: targetRow.status
+    };
+  }
+
   const result = await pool.query<{ readonly version: string }>(
     `
       UPDATE fund_contributions
@@ -2194,6 +2242,17 @@ export const updateSponsorshipReview = async (
         AND contribution_type = 'sponsorship_interest'
         AND status IN ('paid', 'refunded', 'disputed')
         AND updated_at::text = $4
+        AND (
+          $2 <> 'approved'
+          OR EXISTS (
+            SELECT 1
+            FROM sponsor_media_assets
+            WHERE contribution_id = fund_contributions.id
+              AND kind = 'supporting_image'
+              AND review_status = 'approved'
+              AND deleted_at IS NULL
+          )
+        )
       RETURNING updated_at::text AS version
     `,
     [
@@ -2560,14 +2619,16 @@ const getSponsorshipPublicationPresence = async (
             'sponsor_feed_public_url',
             'sponsor_visibility_updated_at'
           )
-      ) = 7 AS has_sponsor_publication_columns
+      ) = 7 AS has_sponsor_publication_columns,
+      to_regclass('public.sponsor_media_assets') IS NOT NULL AS has_sponsor_media_assets
   `);
 
   return (
     query.rows[0] ?? {
       has_fund_contributions: false,
       has_sponsor_review_status: false,
-      has_sponsor_publication_columns: false
+      has_sponsor_publication_columns: false,
+      has_sponsor_media_assets: false
     }
   );
 };
@@ -2589,7 +2650,8 @@ export const listPublicSponsorships = async (
   if (
     !presence.has_fund_contributions ||
     !presence.has_sponsor_review_status ||
-    !presence.has_sponsor_publication_columns
+    !presence.has_sponsor_publication_columns ||
+    !presence.has_sponsor_media_assets
   ) {
     return {
       data_source: 'empty',
@@ -2600,6 +2662,7 @@ export const listPublicSponsorships = async (
 
   const query = await pool.query<PublicSponsorshipRow>(`
     SELECT
+      id AS contribution_id,
       sponsor_public_slug AS public_slug,
       sponsor_company_name AS company_name,
       sponsor_website_url AS website_url,
@@ -2625,6 +2688,14 @@ export const listPublicSponsorships = async (
       AND sponsor_review_status = 'approved'
       AND sponsor_company_name IS NOT NULL
       AND btrim(sponsor_company_name) <> ''
+      AND EXISTS (
+        SELECT 1
+        FROM sponsor_media_assets
+        WHERE contribution_id = fund_contributions.id
+          AND kind = 'supporting_image'
+          AND review_status = 'approved'
+          AND deleted_at IS NULL
+      )
     ORDER BY COALESCE(
       sponsor_visibility_updated_at,
       sponsor_reviewed_at,
@@ -2635,23 +2706,33 @@ export const listPublicSponsorships = async (
     LIMIT 50
   `);
 
+  const mediaByContribution = await listPublicSponsorMediaByContributionIds(
+    pool,
+    query.rows.map((row) => row.contribution_id)
+  );
+
   const sponsorships: readonly PublicSponsorshipProfile[] = query.rows.map(
-    (row) => ({
-      public_slug: row.public_slug,
-      company_name: row.company_name,
-      website_url: row.website_url,
-      logo_url: row.logo_url,
-      message: row.message,
-      public_summary: row.public_summary,
-      amount: row.amount ? centsToAmount(parseDbInt(row.amount)) : null,
-      currency: row.currency.toUpperCase(),
-      paid_at: row.paid_at,
-      feed_target: normalizeSponsorFeedTarget(row.feed_target),
-      feed_channels: parseSponsorFeedChannels(row.feed_channels),
-      feed_status: normalizeSponsorFeedStatus(row.feed_status),
-      feed_public_url: row.feed_public_url,
-      visibility_updated_at: row.visibility_updated_at
-    })
+    (row) => {
+      const media = mediaByContribution.get(row.contribution_id) ?? [];
+      return {
+        public_slug: row.public_slug,
+        company_name: row.company_name,
+        website_url: row.website_url,
+        logo_url:
+          media.find((asset) => asset.kind === 'logo')?.url ?? row.logo_url,
+        media,
+        message: row.message,
+        public_summary: row.public_summary,
+        amount: row.amount ? centsToAmount(parseDbInt(row.amount)) : null,
+        currency: row.currency.toUpperCase(),
+        paid_at: row.paid_at,
+        feed_target: normalizeSponsorFeedTarget(row.feed_target),
+        feed_channels: parseSponsorFeedChannels(row.feed_channels),
+        feed_status: normalizeSponsorFeedStatus(row.feed_status),
+        feed_public_url: row.feed_public_url,
+        visibility_updated_at: row.visibility_updated_at
+      };
+    }
   );
 
   const lastUpdatedAt =

@@ -42,6 +42,9 @@ import type {
   AdminSocialPublicationBatchPublishResult,
   AdminSocialPublicationJobsResponse,
   AdminSetupStatusResponse,
+  AdminSponsorMediaDeleteRequest,
+  AdminSponsorMediaReviewRequest,
+  AdminSponsorMediaReviewResult,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
   AdminSponsorshipInvoiceBackfillRequest,
@@ -56,7 +59,9 @@ import type {
   AdminSponsorshipReviewRequest,
   AdminSponsorshipReviewResult,
   AdminSponsorshipsResponse,
-  AdminTransparencyResponse
+  AdminTransparencyResponse,
+  SponsorMediaDeleteResult,
+  SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
 const sessionTokenStorageKey = 'openg7-admin-session-token';
@@ -1118,6 +1123,94 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminSponsorLogoDeleteResult;
+  }
+
+  async getSponsorMedia(
+    token: string,
+    contributionId: string
+  ): Promise<SponsorshipMediaResponse> {
+    const params = new URLSearchParams({ contributionId });
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/media?${params.toString()}`,
+      { headers: await this.createHeaders(token) }
+    );
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsor media could not be loaded.'
+        )
+      );
+    }
+    return (await response.json()) as SponsorshipMediaResponse;
+  }
+
+  async getSponsorMediaPreview(token: string, assetId: string): Promise<Blob> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/media/content/${encodeURIComponent(assetId)}`,
+      {
+        headers: {
+          ...(await this.createHeaders(token)),
+          Accept: 'image/*'
+        }
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Sponsor media preview could not be loaded.');
+    }
+    return response.blob();
+  }
+
+  async reviewSponsorMedia(
+    token: string,
+    payload: AdminSponsorMediaReviewRequest
+  ): Promise<AdminSponsorMediaReviewResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/media/review`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsor media review could not be completed.'
+        )
+      );
+    }
+    return (await response.json()) as AdminSponsorMediaReviewResult;
+  }
+
+  async deleteSponsorMedia(
+    token: string,
+    payload: AdminSponsorMediaDeleteRequest
+  ): Promise<SponsorMediaDeleteResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/media/delete`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) {
+      throw new Error(
+        await this.errorMessageFromResponse(
+          response,
+          'Sponsor media could not be deleted.'
+        )
+      );
+    }
+    return (await response.json()) as SponsorMediaDeleteResult;
   }
 
   async reviewSponsorship(

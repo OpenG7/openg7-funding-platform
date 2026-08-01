@@ -134,7 +134,8 @@ export const isActionableSponsorship = (
 export const hasCompleteFiche = (record: SponsorshipAttentionRecord): boolean =>
   record.detailsSubmittedAt !== null &&
   record.hasCompanyName &&
-  record.hasContactEmail;
+  record.hasContactEmail &&
+  record.hasSupportingImage;
 
 export const missingFicheFields = (
   record: SponsorshipAttentionRecord
@@ -148,6 +149,9 @@ export const missingFicheFields = (
   }
   if (!record.hasContactEmail) {
     missing.push('courriel_contact');
+  }
+  if (!record.hasSupportingImage) {
+    missing.push('photo_presentation');
   }
   return missing;
 };

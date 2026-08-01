@@ -223,13 +223,20 @@ the PostgreSQL-backed launch path for real payments:
    audited before resending any invoice email.
    Open `/admin/fundraiser/email-queue` and confirm the queue summary,
    failed-message filter, and manual retry controls load for the admin session.
-7. Upload a small PNG/JPEG/WebP logo, confirm `GET /api/admin/sponsorships/logo`
-   returns a private preview, approve the sponsorship, and confirm
-   `/commanditaires` shows the logo only after consent and approval.
-8. Replace the logo and confirm the previous controlled file is no longer
-   served through `/api/public/sponsor-logos/<file>`.
-9. Delete the logo through `POST /api/admin/sponsorships/logo/delete` and confirm
-   the public sponsor entry falls back safely without exposing the deleted file.
+7. Through the sponsor follow-up token, upload a small PNG/JPEG/WebP logo and a
+   presentation photo. Confirm both stay private and that the sponsorship is
+   not included in the review reminder until a presentation photo exists.
+8. Confirm `GET /api/admin/sponsorships/media` returns protected previews, then
+   approve the assets through `POST /api/admin/sponsorships/media/review` with
+   alt text. Approve the sponsorship and confirm `/commanditaires` shows only
+   the optimized media after consent and approval.
+9. Refuse or delete a media asset through the admin flow and confirm its public
+   copy is unavailable while its original remains private. Also exercise the
+   legacy logo path: upload through `POST /api/admin/sponsorships/logo`, confirm
+   its private preview with `GET /api/admin/sponsorships/logo`, replace it and
+   confirm the previous controlled file is no longer served through
+   `/api/public/sponsor-logos/<file>`, then delete it through
+   `POST /api/admin/sponsorships/logo/delete`.
 10. Run `bash scripts/backup.sh`, confirm both PostgreSQL and
     `openg7-sponsor-logos-*.tar.gz` archives are present, then rehearse
     `bash scripts/restore-from-backup.sh --sponsor-logos-backup <archive>` on a
@@ -262,10 +269,13 @@ the PostgreSQL-backed launch path for real payments:
 - Confirm `FUNDING_PLATFORM_ENV=production`.
 - Confirm `FUNDING_ALLOWED_ORIGINS` contains only the intended production frontend origins.
 - Confirm sponsorship follow-up and admin rate limit variables are set for the expected traffic volume.
-- Confirm sponsor logo upload limits and the selected sponsor media storage driver are configured.
-- If `SPONSOR_MEDIA_STORAGE_DRIVER=local`, confirm `scripts/backup.sh` creates and offloads `openg7-sponsor-logos-*.tar.gz` once sponsor logo uploads are enabled.
+- Confirm sponsor logo and media upload limits and the selected sponsor media storage driver are configured.
+- Confirm migration `017_create_sponsor_media_assets.sql` is applied before enabling sponsor media uploads.
+- If `SPONSOR_MEDIA_STORAGE_DRIVER=local`, confirm `scripts/backup.sh` creates and offloads `openg7-sponsor-logos-*.tar.gz`; this volume now contains both legacy logos and `media-assets`.
 - If `SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`, confirm `npm run storage:check` and `npm run storage:test` pass on the VPS.
-- Confirm admin sponsor logo preview, replacement cleanup, and delete flows work before public sponsorship display is enabled.
+- Confirm a sponsor can upload JPEG/PNG/WebP through a valid follow-up token, while an invalid token and an oversized or malformed file are refused.
+- Confirm private media preview, admin approval/refusal, alt text, replacement cleanup and delete flows work before public sponsorship display is enabled.
+- Confirm the original remains private, only the approved WebP copy is public, and a sponsorship without a presentation photo is excluded from review reminders.
 - Confirm `/dev/stripe-setup`, `/dev/webhooks`, and `/dev/api-keys` are not accessible from the production domain.
 - Confirm all NorthDragon links open `https://northdragon.org` in a new tab.
 - Confirm GitHub repository links open the intended OpenG7 repositories.

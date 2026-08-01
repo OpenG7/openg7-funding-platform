@@ -66,19 +66,27 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
         <aside class="sponsors-sidebar">
           <section
             class="sponsors-summary"
-            [attr.aria-label]="'funding.sponsorsPage.summary.ariaLabel' | translate"
+            [attr.aria-label]="
+              'funding.sponsorsPage.summary.ariaLabel' | translate
+            "
           >
             <dl>
               <div>
-                <dt>{{ 'funding.sponsorsPage.summary.approved' | translate }}</dt>
+                <dt>
+                  {{ 'funding.sponsorsPage.summary.approved' | translate }}
+                </dt>
                 <dd>{{ sponsorships().length }}</dd>
               </div>
               <div>
-                <dt>{{ 'funding.sponsorsPage.summary.feedReady' | translate }}</dt>
+                <dt>
+                  {{ 'funding.sponsorsPage.summary.feedReady' | translate }}
+                </dt>
                 <dd>{{ feedReadyCount() }}</dd>
               </div>
               <div>
-                <dt>{{ 'funding.sponsorsPage.summary.published' | translate }}</dt>
+                <dt>
+                  {{ 'funding.sponsorsPage.summary.published' | translate }}
+                </dt>
                 <dd>{{ publishedCount() }}</dd>
               </div>
             </dl>
@@ -86,22 +94,39 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
 
           <section
             class="partner-visibility"
-            [attr.aria-label]="'funding.sponsorsPage.visibility.ariaLabel' | translate"
+            [attr.aria-label]="
+              'funding.sponsorsPage.visibility.ariaLabel' | translate
+            "
           >
-            <span>{{ 'funding.sponsorsPage.visibility.kicker' | translate }}</span>
+            <span>{{
+              'funding.sponsorsPage.visibility.kicker' | translate
+            }}</span>
             <h2>{{ 'funding.sponsorsPage.visibility.title' | translate }}</h2>
             <p>{{ 'funding.sponsorsPage.visibility.copy' | translate }}</p>
             <ul>
-              <li>{{ 'funding.sponsorsPage.visibility.items.profile' | translate }}</li>
-              <li>{{ 'funding.sponsorsPage.visibility.items.review' | translate }}</li>
-              <li>{{ 'funding.sponsorsPage.visibility.items.publication' | translate }}</li>
+              <li>
+                {{
+                  'funding.sponsorsPage.visibility.items.profile' | translate
+                }}
+              </li>
+              <li>
+                {{ 'funding.sponsorsPage.visibility.items.review' | translate }}
+              </li>
+              <li>
+                {{
+                  'funding.sponsorsPage.visibility.items.publication'
+                    | translate
+                }}
+              </li>
             </ul>
           </section>
         </aside>
 
         <section class="sponsors-panel">
           <header>
-            <span>{{ 'funding.sponsorsPage.directory.kicker' | translate }}</span>
+            <span>{{
+              'funding.sponsorsPage.directory.kicker' | translate
+            }}</span>
             <h2 id="sponsors-list-title">
               {{ 'funding.sponsorsPage.directory.title' | translate }}
             </h2>
@@ -116,9 +141,19 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
           </p>
 
           <ul class="sponsors-list" *ngIf="sponsorships().length > 0">
-            <li
-              *ngFor="let sponsor of sponsorships(); trackBy: trackBySponsor"
-            >
+            <li *ngFor="let sponsor of sponsorships(); trackBy: trackBySponsor">
+              <figure
+                class="sponsor-photo"
+                *ngIf="presentationPhoto(sponsor) as photo"
+              >
+                <img
+                  [src]="photo.url"
+                  [alt]="photo.alt_text"
+                  [width]="photo.width"
+                  [height]="photo.height"
+                  loading="lazy"
+                />
+              </figure>
               <a
                 *ngIf="sponsor.logo_url; else sponsorInitials"
                 class="sponsor-logo"
@@ -142,7 +177,9 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
                   </div>
                   <span
                     class="feed-status"
-                    [class.feed-status-muted]="sponsor.feed_status === 'not_planned'"
+                    [class.feed-status-muted]="
+                      sponsor.feed_status === 'not_planned'
+                    "
                   >
                     {{ feedStatusLabel(sponsor.feed_status) }}
                   </span>
@@ -189,18 +226,32 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
             <div class="sponsor-preview-grid">
               <article>
                 <span>01</span>
-                <strong>{{ 'funding.sponsorsPage.empty.preview.profile.title' | translate }}</strong>
-                <small>{{ 'funding.sponsorsPage.empty.preview.profile.copy' | translate }}</small>
+                <strong>{{
+                  'funding.sponsorsPage.empty.preview.profile.title' | translate
+                }}</strong>
+                <small>{{
+                  'funding.sponsorsPage.empty.preview.profile.copy' | translate
+                }}</small>
               </article>
               <article>
                 <span>02</span>
-                <strong>{{ 'funding.sponsorsPage.empty.preview.visibility.title' | translate }}</strong>
-                <small>{{ 'funding.sponsorsPage.empty.preview.visibility.copy' | translate }}</small>
+                <strong>{{
+                  'funding.sponsorsPage.empty.preview.visibility.title'
+                    | translate
+                }}</strong>
+                <small>{{
+                  'funding.sponsorsPage.empty.preview.visibility.copy'
+                    | translate
+                }}</small>
               </article>
               <article>
                 <span>03</span>
-                <strong>{{ 'funding.sponsorsPage.empty.preview.trust.title' | translate }}</strong>
-                <small>{{ 'funding.sponsorsPage.empty.preview.trust.copy' | translate }}</small>
+                <strong>{{
+                  'funding.sponsorsPage.empty.preview.trust.title' | translate
+                }}</strong>
+                <small>{{
+                  'funding.sponsorsPage.empty.preview.trust.copy' | translate
+                }}</small>
               </article>
             </div>
             <div class="empty-actions">
@@ -220,7 +271,11 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
     `
       .sponsors-shell {
         background:
-          radial-gradient(circle at 84% 16%, rgb(119 217 232 / 12%), transparent 30rem),
+          radial-gradient(
+            circle at 84% 16%,
+            rgb(119 217 232 / 12%),
+            transparent 30rem
+          ),
           linear-gradient(180deg, #06101b 0%, #081724 52%, #02070e 100%);
         color: #f7fbff;
         min-height: 100vh;
@@ -251,7 +306,12 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
 
       .hero-overlay {
         background:
-          linear-gradient(90deg, rgb(3 10 20 / 96%), rgb(5 22 38 / 48%), rgb(3 10 20 / 88%)),
+          linear-gradient(
+            90deg,
+            rgb(3 10 20 / 96%),
+            rgb(5 22 38 / 48%),
+            rgb(3 10 20 / 88%)
+          ),
           linear-gradient(0deg, rgb(3 10 20 / 80%), transparent 44%);
       }
 
@@ -336,10 +396,16 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
       .partner-visibility,
       .sponsors-panel,
       .empty-sponsors {
-        background: linear-gradient(180deg, rgb(7 28 47 / 88%), rgb(4 16 30 / 90%));
+        background: linear-gradient(
+          180deg,
+          rgb(7 28 47 / 88%),
+          rgb(4 16 30 / 90%)
+        );
         border: 1px solid rgb(119 217 232 / 26%);
         border-radius: 0.5rem;
-        box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 12px 30px rgb(0 0 0 / 22%);
+        box-shadow:
+          inset 0 1px 0 rgb(255 255 255 / 8%),
+          0 12px 30px rgb(0 0 0 / 22%);
       }
 
       .sponsors-summary {
@@ -423,7 +489,11 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
 
       .sponsors-list li {
         align-items: center;
-        background: linear-gradient(90deg, rgb(4 16 28 / 94%), rgb(8 30 49 / 78%));
+        background: linear-gradient(
+          90deg,
+          rgb(4 16 28 / 94%),
+          rgb(8 30 49 / 78%)
+        );
         border: 1px solid rgb(244 201 87 / 18%);
         border-radius: 0.5rem;
         display: grid;
@@ -431,6 +501,22 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
         grid-template-columns: auto minmax(0, 1fr) auto;
         min-height: 6rem;
         padding: 0.8rem;
+      }
+
+      .sponsor-photo {
+        aspect-ratio: 16 / 5;
+        background: #061522;
+        grid-column: 1 / -1;
+        margin: 0;
+        max-height: 14rem;
+        overflow: hidden;
+        width: 100%;
+      }
+
+      .sponsor-photo img {
+        height: 100%;
+        object-fit: cover;
+        width: 100%;
       }
 
       .sponsor-logo {
@@ -620,6 +706,11 @@ const emptySponsorships = (): PublicSponsorshipsResponse => ({
           width: 3.5rem;
         }
 
+        .sponsor-photo {
+          aspect-ratio: 16 / 9;
+          grid-column: 1;
+        }
+
         .sponsor-website {
           justify-self: start;
         }
@@ -652,7 +743,9 @@ export class SponsorsPageComponent implements OnInit {
       ).length
   );
 
-  readonly buildersPath = computed(() => this.i18n.localizedPath('/batisseurs'));
+  readonly buildersPath = computed(() =>
+    this.i18n.localizedPath('/batisseurs')
+  );
   readonly fundPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs')
   );
@@ -686,6 +779,10 @@ export class SponsorsPageComponent implements OnInit {
 
   trackBySponsor(_: number, sponsor: PublicSponsorshipProfile): string {
     return sponsor.public_slug || sponsor.company_name;
+  }
+
+  presentationPhoto(sponsor: PublicSponsorshipProfile) {
+    return sponsor.media?.find((asset) => asset.kind === 'supporting_image');
   }
 
   amountLabel(sponsor: PublicSponsorshipProfile): string {
