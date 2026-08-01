@@ -24,6 +24,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
   SponsorshipBenefitId,
+  SponsorMediaAsset,
+  SponsorMediaKind,
+  SponsorMediaLimits,
   SponsorshipFollowupDetailsRequest,
   SponsorshipFollowupResponse,
   SponsorshipReviewStatus
@@ -62,6 +65,12 @@ const optionalHttpsUrlValidator: ValidatorFn = (
   } catch {
     return { httpsUrl: true };
   }
+};
+
+const defaultSponsorMediaLimits: SponsorMediaLimits = {
+  maxUploadBytes: 8 * 1024 * 1024,
+  maxSupportingImages: 3,
+  acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
 };
 
 @Component({
@@ -261,7 +270,11 @@ const optionalHttpsUrlValidator: ValidatorFn = (
               </p>
             </header>
 
-            <form [formGroup]="sponsorshipForm" (ngSubmit)="submit()" novalidate>
+            <form
+              [formGroup]="sponsorshipForm"
+              (ngSubmit)="submit()"
+              novalidate
+            >
               <label>
                 <span>Nom de l'entreprise <small>requis</small></span>
                 <input
@@ -311,9 +324,7 @@ const optionalHttpsUrlValidator: ValidatorFn = (
                   required
                   autocomplete="email"
                   formControlName="contactEmail"
-                  [attr.aria-invalid]="
-                    errorFor('contactEmail') ? 'true' : null
-                  "
+                  [attr.aria-invalid]="errorFor('contactEmail') ? 'true' : null"
                   aria-describedby="contact-email-error"
                 />
                 <small
@@ -343,24 +354,100 @@ const optionalHttpsUrlValidator: ValidatorFn = (
                 >
               </label>
 
-              <label>
-                Lien du logo
-                <input
-                  #logoUrlInput
-                  type="url"
-                  maxlength="2048"
-                  placeholder="https://"
-                  formControlName="logoUrl"
-                  [attr.aria-invalid]="errorFor('logoUrl') ? 'true' : null"
-                  aria-describedby="logo-url-error"
-                />
-                <small
-                  id="logo-url-error"
-                  class="field-error"
-                  *ngIf="errorFor('logoUrl')"
-                  >{{ errorFor('logoUrl') }}</small
-                >
-              </label>
+              <section class="media-manager full" aria-labelledby="media-title">
+                <header>
+                  <div>
+                    <span class="eyebrow">Medias prives</span>
+                    <h3 id="media-title">Logo et photos de presentation</h3>
+                  </div>
+                  <p>
+                    Les fichiers restent prives jusqu'a leur validation par
+                    OpenG7. Une photo de presentation est requise pour completer
+                    la fiche.
+                  </p>
+                </header>
+
+                <label class="media-alt-field">
+                  Description de l'image a televerser
+                  <input
+                    type="text"
+                    maxlength="300"
+                    [value]="mediaAltText()"
+                    (input)="setMediaAltText($event)"
+                  />
+                  <small
+                    >Cette description sera utilisee pour
+                    l'accessibilite.</small
+                  >
+                </label>
+
+                <div class="media-upload-actions">
+                  <label class="media-upload-control">
+                    {{
+                      hasActiveLogo() ? 'Remplacer le logo' : 'Ajouter le logo'
+                    }}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      [disabled]="mediaBusy() || hasApprovedLogo()"
+                      (change)="uploadMedia('logo', $event)"
+                    />
+                  </label>
+                  <label class="media-upload-control">
+                    Ajouter des photos
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      multiple
+                      [disabled]="mediaBusy() || !canAddSupportingImage()"
+                      (change)="uploadMedia('supporting_image', $event)"
+                    />
+                  </label>
+                </div>
+
+                <p class="media-status" aria-live="polite">
+                  {{ mediaMessage() }}
+                </p>
+
+                <div class="media-list" *ngIf="mediaAssets().length > 0">
+                  <div
+                    class="media-item"
+                    *ngFor="
+                      let asset of mediaAssets();
+                      trackBy: trackMediaAsset
+                    "
+                  >
+                    <div class="media-preview">
+                      <img
+                        *ngIf="mediaPreviewFor(asset.id) as preview"
+                        [src]="preview"
+                        [alt]="asset.altText || mediaKindLabel(asset.kind)"
+                      />
+                    </div>
+                    <div class="media-item-copy">
+                      <strong>{{ mediaKindLabel(asset.kind) }}</strong>
+                      <span
+                        [class]="'media-review-status ' + asset.reviewStatus"
+                      >
+                        {{ mediaStatusLabel(asset.reviewStatus) }}
+                      </span>
+                      <small>
+                        {{ asset.width }} x {{ asset.height }} px ·
+                        {{ formatMediaSize(asset.processedSizeBytes) }}
+                      </small>
+                    </div>
+                    <button
+                      *ngIf="asset.reviewStatus !== 'approved'"
+                      type="button"
+                      class="media-delete-action"
+                      [disabled]="mediaBusy()"
+                      (click)="deleteMedia(asset)"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </section>
 
               <label class="full">
                 Message ou précision
@@ -788,6 +875,152 @@ const optionalHttpsUrlValidator: ValidatorFn = (
         grid-column: 1 / -1;
       }
 
+      .media-manager {
+        border-bottom: 1px solid #dce3ed;
+        border-top: 1px solid #dce3ed;
+        display: grid;
+        gap: 1rem;
+        grid-column: 1 / -1;
+        padding: 1.1rem 0;
+      }
+
+      .media-manager header {
+        align-items: start;
+        display: grid;
+        gap: 0.5rem 1rem;
+        grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.8fr);
+        margin: 0;
+      }
+
+      .media-manager h3,
+      .media-manager p {
+        margin: 0;
+      }
+
+      .media-manager h3 {
+        font-size: 1.05rem;
+      }
+
+      .media-manager header p,
+      .media-alt-field small,
+      .media-item-copy small {
+        color: #667085;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+
+      .media-alt-field {
+        max-width: 36rem;
+      }
+
+      .media-upload-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+      }
+
+      .media-upload-control {
+        align-items: center;
+        background: #1f5f99;
+        border: 1px solid #1f5f99;
+        border-radius: 0.35rem;
+        color: #ffffff;
+        cursor: pointer;
+        display: inline-flex;
+        font-size: 0.82rem;
+        justify-content: center;
+        min-height: 2.55rem;
+        padding: 0.65rem 0.85rem;
+      }
+
+      .media-upload-control:has(input:disabled) {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+
+      .media-upload-control input {
+        height: 1px;
+        opacity: 0;
+        overflow: hidden;
+        position: absolute;
+        width: 1px;
+      }
+
+      .media-upload-control:focus-within {
+        outline: 3px solid rgba(31, 95, 153, 0.24);
+        outline-offset: 2px;
+      }
+
+      .media-status {
+        color: #475467;
+        min-height: 1.25rem;
+      }
+
+      .media-list {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .media-item {
+        align-items: center;
+        display: grid;
+        gap: 0.85rem;
+        grid-template-columns: 6rem minmax(0, 1fr) auto;
+        min-height: 5rem;
+      }
+
+      .media-preview {
+        align-items: center;
+        aspect-ratio: 4 / 3;
+        background: #edf1f6;
+        border: 1px solid #d8e0ea;
+        display: flex;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      .media-preview img {
+        height: 100%;
+        object-fit: contain;
+        width: 100%;
+      }
+
+      .media-item-copy {
+        display: grid;
+        gap: 0.2rem;
+        min-width: 0;
+      }
+
+      .media-review-status {
+        font-size: 0.75rem;
+        font-weight: 800;
+      }
+
+      .media-review-status.approved {
+        color: #137047;
+      }
+
+      .media-review-status.pending_review {
+        color: #8a5a00;
+      }
+
+      .media-review-status.rejected {
+        color: #a32135;
+      }
+
+      .media-delete-action {
+        background: #ffffff;
+        border: 1px solid #c83c50;
+        border-radius: 0.35rem;
+        color: #9f1d2f;
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.8rem;
+        font-weight: 800;
+        min-height: 2.35rem;
+        padding: 0.55rem 0.75rem;
+      }
+
       .followup-form-panel input,
       .followup-form-panel textarea {
         background: #fbfdff;
@@ -912,6 +1145,10 @@ const optionalHttpsUrlValidator: ValidatorFn = (
         .followup-form-panel form {
           grid-template-columns: 1fr;
         }
+
+        .media-manager header {
+          grid-template-columns: 1fr;
+        }
       }
 
       @media (max-width: 560px) {
@@ -921,6 +1158,16 @@ const optionalHttpsUrlValidator: ValidatorFn = (
 
         .followup-status-panel {
           grid-template-columns: 1fr;
+        }
+
+        .media-item {
+          align-items: start;
+          grid-template-columns: 5rem minmax(0, 1fr);
+        }
+
+        .media-delete-action {
+          grid-column: 2;
+          justify-self: start;
         }
       }
     `
@@ -956,6 +1203,25 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
 
   readonly submitError = signal<string>('');
   readonly formRevision = signal<number>(0);
+  readonly mediaAssets = signal<readonly SponsorMediaAsset[]>([]);
+  readonly mediaLimits = signal<SponsorMediaLimits>(defaultSponsorMediaLimits);
+  readonly mediaPreviewUrls = signal<Record<string, string>>({});
+  readonly mediaBusy = signal<boolean>(false);
+  readonly mediaMessage = signal<string>('');
+  readonly mediaAltText = signal<string>('');
+  readonly hasActiveLogo = computed(() =>
+    this.mediaAssets().some((asset) => asset.kind === 'logo')
+  );
+  readonly hasApprovedLogo = computed(() =>
+    this.mediaAssets().some(
+      (asset) => asset.kind === 'logo' && asset.reviewStatus === 'approved'
+    )
+  );
+  readonly canAddSupportingImage = computed(
+    () =>
+      this.mediaAssets().filter((asset) => asset.kind === 'supporting_image')
+        .length < this.mediaLimits().maxSupportingImages
+  );
   readonly sponsorshipForm = this.formBuilder.nonNullable.group({
     companyName: ['', [Validators.required, Validators.maxLength(200)]],
     contactName: ['', [Validators.required, Validators.maxLength(200)]],
@@ -963,10 +1229,7 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
       '',
       [Validators.required, Validators.email, Validators.maxLength(200)]
     ],
-    websiteUrl: [
-      '',
-      [Validators.maxLength(2048), optionalHttpsUrlValidator]
-    ],
+    websiteUrl: ['', [Validators.maxLength(2048), optionalHttpsUrlValidator]],
     logoUrl: ['', [Validators.maxLength(2048), optionalHttpsUrlValidator]],
     message: ['', [Validators.maxLength(1000)]]
   });
@@ -1002,6 +1265,7 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
   );
 
   ngOnInit(): void {
+    this.destroyRef.onDestroy(() => this.revokeMediaPreviews());
     this.sponsorshipForm.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
@@ -1043,6 +1307,7 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
         logoUrl: followup.logoUrl ?? '',
         message: followup.message ?? ''
       });
+      await this.loadMedia();
       this.submitError.set('');
       this.state.set('ready');
       this.bumpFormRevision();
@@ -1083,6 +1348,140 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
       );
       this.state.set('ready');
     }
+  }
+
+  async uploadMedia(kind: SponsorMediaKind, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const selected = Array.from(input?.files ?? []);
+    if (selected.length === 0 || this.mediaBusy()) {
+      return;
+    }
+    const available =
+      kind === 'logo'
+        ? 1
+        : Math.max(
+            0,
+            this.mediaLimits().maxSupportingImages -
+              this.mediaAssets().filter(
+                (asset) => asset.kind === 'supporting_image'
+              ).length
+          );
+    const files = selected.slice(0, available);
+    if (files.length === 0) {
+      this.mediaMessage.set('La limite de photos est deja atteinte.');
+      if (input) {
+        input.value = '';
+      }
+      return;
+    }
+    const invalid = files.find(
+      (file) =>
+        file.size > this.mediaLimits().maxUploadBytes ||
+        (file.type.length > 0 &&
+          !this.mediaLimits().acceptedMimeTypes.includes(
+            file.type as 'image/jpeg' | 'image/png' | 'image/webp'
+          ))
+    );
+    if (invalid) {
+      this.mediaMessage.set(
+        `Le fichier ${invalid.name} doit etre une image JPEG, PNG ou WebP de ${this.formatMediaSize(this.mediaLimits().maxUploadBytes)} maximum.`
+      );
+      if (input) {
+        input.value = '';
+      }
+      return;
+    }
+
+    this.mediaBusy.set(true);
+    this.mediaMessage.set('Televersement et traitement en cours...');
+    try {
+      for (const file of files) {
+        await this.fundingService.uploadSponsorshipMedia(
+          this.token(),
+          kind,
+          file,
+          this.mediaAltText()
+        );
+      }
+      await this.loadMedia();
+      this.mediaAltText.set('');
+      this.mediaMessage.set(
+        `${files.length} fichier${files.length > 1 ? 's' : ''} recu${files.length > 1 ? 's' : ''}, en attente de validation.`
+      );
+    } catch (error) {
+      this.mediaMessage.set(
+        error instanceof Error
+          ? error.message
+          : "Le televersement n'a pas pu etre complete."
+      );
+    } finally {
+      this.mediaBusy.set(false);
+      if (input) {
+        input.value = '';
+      }
+    }
+  }
+
+  async deleteMedia(asset: SponsorMediaAsset): Promise<void> {
+    if (
+      this.mediaBusy() ||
+      (isPlatformBrowser(this.platformId) &&
+        !window.confirm('Supprimer ce media en attente?'))
+    ) {
+      return;
+    }
+    this.mediaBusy.set(true);
+    this.mediaMessage.set('Suppression en cours...');
+    try {
+      await this.fundingService.deleteSponsorshipMedia({
+        token: this.token(),
+        assetId: asset.id,
+        expectedVersion: asset.version
+      });
+      await this.loadMedia();
+      this.mediaMessage.set('Media supprime.');
+    } catch (error) {
+      this.mediaMessage.set(
+        error instanceof Error
+          ? error.message
+          : "Le media n'a pas pu etre supprime."
+      );
+    } finally {
+      this.mediaBusy.set(false);
+    }
+  }
+
+  setMediaAltText(event: Event): void {
+    const value = (event.target as HTMLInputElement | null)?.value ?? '';
+    this.mediaAltText.set(value.slice(0, 300));
+  }
+
+  mediaPreviewFor(assetId: string): string {
+    return this.mediaPreviewUrls()[assetId] ?? '';
+  }
+
+  mediaKindLabel(kind: SponsorMediaKind): string {
+    return kind === 'logo' ? 'Logo' : 'Photo de presentation';
+  }
+
+  mediaStatusLabel(status: SponsorMediaAsset['reviewStatus']): string {
+    if (status === 'approved') {
+      return 'Approuve';
+    }
+    if (status === 'rejected') {
+      return 'A remplacer';
+    }
+    return 'En validation';
+  }
+
+  formatMediaSize(bytes: number): string {
+    return bytes >= 1024 * 1024
+      ? `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+      : `${Math.max(1, Math.round(bytes / 1024))} Ko`;
+  }
+
+  trackMediaAsset(_: number, asset: SponsorMediaAsset): string {
+    return asset.id;
   }
 
   errorFor(field: keyof SponsorshipFollowupFormErrors): string {
@@ -1152,6 +1551,59 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
     return ['paid', 'refunded', 'disputed'].includes(status);
   }
 
+  private async loadMedia(): Promise<void> {
+    try {
+      const response = await this.fundingService.getSponsorshipMedia(
+        this.token()
+      );
+      this.mediaAssets.set(response.assets);
+      this.mediaLimits.set(response.limits);
+      await this.loadMediaPreviews(response.assets);
+    } catch {
+      this.mediaMessage.set(
+        "Les medias n'ont pas pu etre charges pour le moment."
+      );
+    }
+  }
+
+  private async loadMediaPreviews(
+    assets: readonly SponsorMediaAsset[]
+  ): Promise<void> {
+    this.revokeMediaPreviews();
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+    const previews = await Promise.all(
+      assets.map(async (asset): Promise<readonly [string, string] | null> => {
+        try {
+          const blob = await this.fundingService.getSponsorshipMediaPreview(
+            this.token(),
+            asset.id
+          );
+          return [asset.id, URL.createObjectURL(blob)] as const;
+        } catch {
+          return null;
+        }
+      })
+    );
+    this.mediaPreviewUrls.set(
+      Object.fromEntries(
+        previews.filter(
+          (entry): entry is readonly [string, string] => entry !== null
+        )
+      )
+    );
+  }
+
+  private revokeMediaPreviews(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      for (const url of Object.values(this.mediaPreviewUrls())) {
+        URL.revokeObjectURL(url);
+      }
+    }
+    this.mediaPreviewUrls.set({});
+  }
+
   private scheduleAutofillSync(): void {
     if (!isPlatformBrowser(this.platformId)) {
       return;
@@ -1166,7 +1618,11 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
     const values: Partial<Record<SponsorshipFollowupFormField, string>> = {};
     this.collectNativeInputValue(values, 'companyName', this.companyNameInput);
     this.collectNativeInputValue(values, 'contactName', this.contactNameInput);
-    this.collectNativeInputValue(values, 'contactEmail', this.contactEmailInput);
+    this.collectNativeInputValue(
+      values,
+      'contactEmail',
+      this.contactEmailInput
+    );
     this.collectNativeInputValue(values, 'websiteUrl', this.websiteUrlInput);
     this.collectNativeInputValue(values, 'logoUrl', this.logoUrlInput);
 

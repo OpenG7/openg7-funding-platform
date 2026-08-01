@@ -74,9 +74,11 @@ const allFixtureStripeEventIds = [
     ACCOUNTING_FIXTURES.excludedExpired,
     ACCOUNTING_FIXTURES.fullyRefunded
   ].flatMap((fixture) =>
-    [fixture.stripeEventId, fixture.stripeEventIdSucceeded, fixture.stripeEventIdRefunded].filter(
-      Boolean
-    )
+    [
+      fixture.stripeEventId,
+      fixture.stripeEventIdSucceeded,
+      fixture.stripeEventIdRefunded
+    ].filter(Boolean)
   )
 ];
 const stripeEventsDelete = `
@@ -173,6 +175,30 @@ INSERT INTO fund_contributions (
   ${sqlLiteral(fixture.publicReference)}, ${stripePaymentIntentId},
   ${stripeSessionId}, ${feedTarget}, ${feedChannels}
 );`;
+  })
+  .join('\n');
+
+const sponsorMediaInsertStatements = fixtures
+  .map((fixture) => {
+    const fixtureKey = `e2e/${fixture.publicReference.toLowerCase()}`;
+    return `
+INSERT INTO sponsor_media_assets (
+  contribution_id, kind, review_status, uploaded_by, original_filename,
+  original_mime_type, original_size_bytes, original_storage_key,
+  processed_size_bytes, processed_storage_key, public_storage_key, public_url,
+  checksum_sha256, width, height, alt_text, reviewed_at, reviewed_by
+)
+SELECT
+  id, 'supporting_image', 'approved', 'admin', 'presentation.png',
+  'image/png', 68, ${sqlLiteral(`${fixtureKey}/original.png`)},
+  44, ${sqlLiteral(`${fixtureKey}/processed.webp`)},
+  ${sqlLiteral(`${fixtureKey}/public.webp`)},
+  'data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAUAmJaQAA3AA/v89WAAAAA==',
+  ${sqlLiteral(sha256Hex(`${fixture.publicReference}:presentation`))},
+  1, 1, ${sqlLiteral(`Photo de presentation ${fixture.companyName}`)}, NOW(),
+  'e2e-seed'
+FROM fund_contributions
+WHERE public_reference = ${sqlLiteral(fixture.publicReference)};`;
   })
   .join('\n');
 
@@ -290,6 +316,7 @@ const sql = cleanupOnly
   : [
       deleteStatements,
       insertStatements,
+      sponsorMediaInsertStatements,
       emailQueueDelete,
       emailQueueInsert,
       webhookFixtureDeletes,

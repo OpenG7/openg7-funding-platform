@@ -24,6 +24,7 @@ import type {
   AdminSponsorshipRefundWorkflowStatus,
   AdminSponsorshipStripeRefundReason,
   AdminSponsorshipReviewResult,
+  SponsorMediaAsset,
   SponsorFeedChannel,
   SponsorFeedStatus,
   SponsorFeedTarget,
@@ -45,6 +46,8 @@ import type {
   AdminSponsorDetailOverviewView,
   AdminSponsorFeedStatusOption,
   AdminSponsorListRow,
+  AdminSponsorMediaDeleteEvent,
+  AdminSponsorMediaReviewEvent,
   SponsorDetailsTab,
   SponsorFeedStatusFilter,
   SponsorPaymentStatusFilter,
@@ -285,6 +288,8 @@ const controlledSponsorLogoUrlPrefixes = [
                   [identity]="identity"
                   (uploadLogo)="uploadLogo(selected, $event)"
                   (deleteLogo)="deleteLogo(selected)"
+                  (reviewMedia)="reviewSponsorMedia(selected, $event)"
+                  (deleteMedia)="deleteSponsorMedia(selected, $event)"
                 />
               </ng-container>
 
@@ -2116,6 +2121,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly actionState = signal<string | null>(null);
   readonly logoUploadMessages = signal<Record<string, string>>({});
   readonly logoPreviewUrls = signal<Record<string, string>>({});
+  readonly sponsorMedia = signal<Record<string, readonly SponsorMediaAsset[]>>(
+    {}
+  );
+  readonly sponsorMediaPreviewUrls = signal<Record<string, string>>({});
+  readonly sponsorMediaMessages = signal<Record<string, string>>({});
   readonly search = signal<string>('');
   readonly reviewFilter = signal<SponsorshipReviewFilter>('all');
   readonly feedFilter = signal<SponsorFeedStatusFilter>('all');
@@ -2280,6 +2290,21 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       const logoBusy =
         this.isActionPending(this.logoActionId(selected.id)) ||
         this.isActionPending(this.deleteLogoActionId(selected.id));
+      const mediaBusy = this.actionState()?.startsWith('media:') ?? false;
+      const mediaAssets = (this.sponsorMedia()[selected.id] ?? []).map(
+        (asset) => ({
+          id: asset.id,
+          version: asset.version,
+          kindLabel:
+            asset.kind === 'logo' ? 'Logo propose' : 'Photo de presentation',
+          reviewStatus: asset.reviewStatus,
+          reviewStatusLabel: this.sponsorMediaStatusLabel(asset.reviewStatus),
+          previewSource: this.sponsorMediaPreviewUrls()[asset.id] ?? null,
+          altText: asset.altText ?? '',
+          dimensionsLabel: `${asset.width} x ${asset.height} px`,
+          sizeLabel: this.formatMediaSize(asset.processedSizeBytes)
+        })
+      );
 
       return {
         companyName: selected.sponsor_company_name || 'Entreprise sans nom',
@@ -2294,7 +2319,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         deleteDisabled: !selected.sponsor_logo_url || logoBusy,
         statusMessage:
           this.logoUploadMessageFor(selected.id) ||
-          'Formats acceptes: PNG, JPEG ou WebP, max 512 KiB.'
+          'Formats acceptes: PNG, JPEG ou WebP, max 512 KiB.',
+        mediaAssets,
+        mediaMessage:
+          this.sponsorMediaMessages()[selected.id] ??
+          'Les decisions media sont independantes de la revue de la commandite.',
+        mediaBusy
       };
     });
   readonly hasActiveFilters = computed(
@@ -2340,6 +2370,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.revokeLogoPreviews();
+    this.revokeSponsorMediaPreviews();
     this.clearReviewMessageTimers();
     this.clearSelectionPulseTimer();
   }
@@ -2381,6 +2412,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.state.set('ready');
       this.saveToken();
       void this.loadLogoPreviews(sponsorships);
+      void this.loadSponsorMedia(this.selectedSponsorshipId());
     } catch {
       this.state.set('error');
     }
@@ -3045,6 +3077,88 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  async reviewSponsorMedia(
+    sponsorship: AdminSponsorshipRecord,
+    event: AdminSponsorMediaReviewEvent
+  ): Promise<void> {
+    const altText = event.altText.trim();
+    if (event.reviewStatus === 'approved' && !altText) {
+      this.setSponsorMediaMessage(
+        sponsorship.id,
+        "Le texte alternatif est requis avant l'approbation."
+      );
+      return;
+    }
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        event.reviewStatus === 'approved'
+          ? 'Approuver et publier ce media lorsque la commandite est visible?'
+          : 'Refuser ce media commanditaire?'
+      )
+    ) {
+      return;
+    }
+    this.actionState.set(this.sponsorMediaActionId(event.assetId));
+    this.setSponsorMediaMessage(sponsorship.id, 'Decision en cours...');
+    try {
+      await this.admin.reviewSponsorMedia(this.adminToken(), {
+        assetId: event.assetId,
+        expectedVersion: event.expectedVersion,
+        reviewStatus: event.reviewStatus,
+        altText: altText || undefined
+      });
+      await this.loadSponsorMedia(sponsorship.id);
+      this.setSponsorMediaMessage(
+        sponsorship.id,
+        event.reviewStatus === 'approved'
+          ? 'Media approuve et version publique preparee.'
+          : 'Media refuse; le fichier public a ete retire.'
+      );
+    } catch (error) {
+      this.setSponsorMediaMessage(
+        sponsorship.id,
+        this.messageFromError(
+          error,
+          "La decision sur ce media n'a pas pu etre enregistree."
+        )
+      );
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
+  async deleteSponsorMedia(
+    sponsorship: AdminSponsorshipRecord,
+    event: AdminSponsorMediaDeleteEvent
+  ): Promise<void> {
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        'Supprimer ce media, y compris ses copies privee et publique?'
+      )
+    ) {
+      return;
+    }
+    this.actionState.set(this.sponsorMediaActionId(event.assetId));
+    this.setSponsorMediaMessage(sponsorship.id, 'Suppression en cours...');
+    try {
+      await this.admin.deleteSponsorMedia(this.adminToken(), {
+        assetId: event.assetId,
+        expectedVersion: event.expectedVersion
+      });
+      await this.loadSponsorMedia(sponsorship.id);
+      this.setSponsorMediaMessage(sponsorship.id, 'Media supprime.');
+    } catch (error) {
+      this.setSponsorMediaMessage(
+        sponsorship.id,
+        this.messageFromError(error, "Le media n'a pas pu etre supprime.")
+      );
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
   setAdminToken(event: Event): void {
     this.adminToken.set(this.valueFromEvent(event));
     this.saveToken();
@@ -3118,6 +3232,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   selectSponsorshipById(id: string): void {
     this.selectedSponsorshipId.set(id);
+    void this.loadSponsorMedia(id);
     this.pulseSelection(id);
     this.scrollSelectedSponsorshipIntoView();
   }
@@ -3130,6 +3245,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   setActiveTab(tab: SponsorDetailsTab): void {
     this.activeTab.set(tab);
+    if (tab === 'identity') {
+      void this.loadSponsorMedia(this.selectedSponsorshipId());
+    }
   }
 
   setReviewNote(id: string, event: Event): void {
@@ -3211,6 +3329,26 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   deleteLogoActionId(id: string): string {
     return `logo-delete:${id}`;
+  }
+
+  sponsorMediaActionId(id: string): string {
+    return `media:${id}`;
+  }
+
+  sponsorMediaStatusLabel(status: SponsorMediaAsset['reviewStatus']): string {
+    if (status === 'approved') {
+      return 'Approuve';
+    }
+    if (status === 'rejected') {
+      return 'Refuse';
+    }
+    return 'En attente';
+  }
+
+  formatMediaSize(bytes: number): string {
+    return bytes >= 1024 * 1024
+      ? `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+      : `${Math.max(1, Math.round(bytes / 1024))} Ko`;
   }
 
   logoPreviewSourceFor(sponsorship: AdminSponsorshipRecord): string {
@@ -4497,6 +4635,13 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }));
   }
 
+  private setSponsorMediaMessage(id: string, message: string): void {
+    this.sponsorMediaMessages.update((messages) => ({
+      ...messages,
+      [id]: message
+    }));
+  }
+
   private setReviewMessage(
     id: string,
     message: string,
@@ -4666,6 +4811,75 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         )
       )
     );
+  }
+
+  private async loadSponsorMedia(contributionId: string | null): Promise<void> {
+    if (!contributionId) {
+      return;
+    }
+    try {
+      const response = await this.admin.getSponsorMedia(
+        this.adminToken(),
+        contributionId
+      );
+      this.sponsorMedia.update((current) => ({
+        ...current,
+        [contributionId]: response.assets
+      }));
+      await this.loadSponsorMediaPreviews(response.assets);
+    } catch (error) {
+      this.setSponsorMediaMessage(
+        contributionId,
+        this.messageFromError(
+          error,
+          'Les medias commanditaires ne peuvent pas etre charges.'
+        )
+      );
+    }
+  }
+
+  private async loadSponsorMediaPreviews(
+    assets: readonly SponsorMediaAsset[]
+  ): Promise<void> {
+    this.revokeSponsorMediaPreviews();
+    if (
+      typeof URL === 'undefined' ||
+      typeof URL.createObjectURL !== 'function'
+    ) {
+      return;
+    }
+    const entries = await Promise.all(
+      assets.map(async (asset): Promise<readonly [string, string] | null> => {
+        try {
+          const preview = await this.admin.getSponsorMediaPreview(
+            this.adminToken(),
+            asset.id
+          );
+          return [asset.id, URL.createObjectURL(preview)] as const;
+        } catch {
+          return null;
+        }
+      })
+    );
+    this.sponsorMediaPreviewUrls.set(
+      Object.fromEntries(
+        entries.filter(
+          (entry): entry is readonly [string, string] => entry !== null
+        )
+      )
+    );
+  }
+
+  private revokeSponsorMediaPreviews(): void {
+    if (
+      typeof URL !== 'undefined' &&
+      typeof URL.revokeObjectURL === 'function'
+    ) {
+      for (const objectUrl of Object.values(this.sponsorMediaPreviewUrls())) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+    this.sponsorMediaPreviewUrls.set({});
   }
 
   private revokeLogoPreviews(): void {

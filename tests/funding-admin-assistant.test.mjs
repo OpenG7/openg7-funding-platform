@@ -39,6 +39,7 @@ const sponsorship = (overrides = {}) => ({
   hasContactEmail: true,
   hasWebsite: true,
   hasLogo: true,
+  hasSupportingImage: true,
   reviewStatus: 'pending_review',
   feedStatus: 'not_planned',
   feedTarget: null,
@@ -96,6 +97,23 @@ test('detects a complete fiche awaiting review, not as needs-info', () => {
   const review = detectSponsorshipReviewItems(ds);
   assert.equal(review.length, 1);
   assert.equal(review[0].type, 'sponsorship_needs_review');
+});
+
+test('keeps a sponsorship without a presentation photo out of review reminders', () => {
+  const incomplete = sponsorship({ hasSupportingImage: false });
+  const ds = dataset({ sponsorships: [incomplete] });
+
+  const info = detectSponsorshipInfoItems(ds);
+  assert.equal(info.length, 1);
+  assert.match(info[0].facts.missingFields, /photo_presentation/);
+  assert.equal(detectSponsorshipReviewItems(ds).length, 0);
+  assert.equal(
+    buildSponsorshipReviewReminderCandidate([incomplete], NOW, {
+      minAgeDays: 1,
+      maxItems: 5
+    }),
+    null
+  );
 });
 
 test('builds a daily admin email reminder for stale sponsorship reviews', () => {

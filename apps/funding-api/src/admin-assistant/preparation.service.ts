@@ -33,7 +33,8 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MISSING_FIELD_LABELS: Record<string, string> = {
   formulaire_non_soumis: 'le formulaire de fiche commanditaire',
   nom_entreprise: "le nom de l'entreprise",
-  courriel_contact: 'un courriel de contact'
+  courriel_contact: 'un courriel de contact',
+  photo_presentation: 'une photo de presentation'
 };
 
 const ADMIN_URLS = {

@@ -1,9 +1,10 @@
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 
 import {
   DeleteObjectCommand,
+  CopyObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
@@ -40,6 +41,29 @@ export interface SponsorLogoS3StorageConfig {
   readonly privateBaseUrl: string | undefined;
   readonly accessKeyId: string | undefined;
   readonly secretAccessKey: string | undefined;
+}
+
+export interface SponsorMediaStorage {
+  readonly driver: SponsorMediaStorageDriver;
+  deletePrivateObject(key: string): Promise<boolean>;
+  deletePublicObject(key: string): Promise<boolean>;
+  publishObject(input: SponsorMediaPublishInput): Promise<void>;
+  publicUrl(key: string): string | null;
+  readPrivateObject(key: string): Promise<Buffer | null>;
+  readPublicObject(key: string): Promise<Buffer | null>;
+  writePrivateObject(input: SponsorMediaWriteInput): Promise<void>;
+}
+
+export interface SponsorMediaWriteInput {
+  readonly key: string;
+  readonly data: Buffer;
+  readonly contentType: string;
+}
+
+export interface SponsorMediaPublishInput {
+  readonly privateKey: string;
+  readonly publicKey: string;
+  readonly contentType: string;
 }
 
 const SPONSOR_LOGO_S3_PREFIX = 'sponsor-logos/';
@@ -88,6 +112,22 @@ const assertSafeFilename = (filename: string): void => {
     throw new Error(
       'Sponsor logo filename must be a single safe path segment.'
     );
+  }
+};
+
+const assertSafeObjectKey = (key: string): void => {
+  const segments = key.split('/');
+  if (
+    !key ||
+    key.startsWith('/') ||
+    key.endsWith('/') ||
+    key.includes('\\') ||
+    segments.some(
+      (segment) => !segment || segment === '.' || segment === '..'
+    ) ||
+    !/^[a-zA-Z0-9._/-]+$/.test(key)
+  ) {
+    throw new Error('Sponsor media key must be a safe relative object key.');
   }
 };
 
@@ -310,6 +350,245 @@ class OvhS3SponsorLogoStorage implements SponsorLogoStorage {
   }
 }
 
+class LocalSponsorMediaStorage implements SponsorMediaStorage {
+  readonly driver = 'local' as const;
+
+  private readonly privateDir: string;
+  private readonly publicDir: string;
+
+  constructor(storageDir: string) {
+    const root = path.resolve(storageDir);
+    this.privateDir = path.join(root, 'media-assets', 'private');
+    this.publicDir = path.join(root, 'media-assets', 'public');
+  }
+
+  readPrivateObject(key: string): Promise<Buffer | null> {
+    return this.readObject(this.privateDir, key);
+  }
+
+  readPublicObject(key: string): Promise<Buffer | null> {
+    return this.readObject(this.publicDir, key);
+  }
+
+  writePrivateObject(input: SponsorMediaWriteInput): Promise<void> {
+    return this.writeObject(this.privateDir, input.key, input.data);
+  }
+
+  async publishObject(input: SponsorMediaPublishInput): Promise<void> {
+    const source = this.resolveObjectPath(this.privateDir, input.privateKey);
+    const target = this.resolveObjectPath(this.publicDir, input.publicKey);
+    await mkdir(path.dirname(target), { recursive: true });
+    await copyFile(source, target, 1);
+  }
+
+  deletePrivateObject(key: string): Promise<boolean> {
+    return this.deleteObject(this.privateDir, key);
+  }
+
+  deletePublicObject(key: string): Promise<boolean> {
+    return this.deleteObject(this.publicDir, key);
+  }
+
+  publicUrl(): string | null {
+    return null;
+  }
+
+  private async readObject(root: string, key: string): Promise<Buffer | null> {
+    try {
+      return await readFile(this.resolveObjectPath(root, key));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  private async writeObject(
+    root: string,
+    key: string,
+    data: Buffer
+  ): Promise<void> {
+    const filePath = this.resolveObjectPath(root, key);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, data, { flag: 'wx' });
+  }
+
+  private async deleteObject(root: string, key: string): Promise<boolean> {
+    try {
+      await unlink(this.resolveObjectPath(root, key));
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  private resolveObjectPath(root: string, key: string): string {
+    assertSafeObjectKey(key);
+    const resolved = path.resolve(root, ...key.split('/'));
+    if (!resolved.startsWith(`${root}${path.sep}`)) {
+      throw new Error(
+        'Sponsor media key resolved outside the storage directory.'
+      );
+    }
+    return resolved;
+  }
+}
+
+class OvhS3SponsorMediaStorage implements SponsorMediaStorage {
+  readonly driver = 'ovh-s3' as const;
+
+  private readonly client: S3Client;
+  private readonly privateBucket: string;
+  private readonly publicBucket: string;
+  private readonly publicBaseUrl: string;
+
+  constructor(config: SponsorLogoS3StorageConfig) {
+    const region = required('SPONSOR_MEDIA_REGION', config.region);
+    const endpoint = required('SPONSOR_MEDIA_ENDPOINT', config.endpoint);
+    this.privateBucket = required(
+      'SPONSOR_MEDIA_PRIVATE_BUCKET',
+      config.privateBucket
+    );
+    this.publicBucket = required(
+      'SPONSOR_MEDIA_PUBLIC_BUCKET',
+      config.publicBucket
+    );
+    this.publicBaseUrl = required(
+      'SPONSOR_MEDIA_PUBLIC_BASE_URL',
+      config.publicBaseUrl
+    );
+    const privateBaseUrl = required(
+      'SPONSOR_MEDIA_PRIVATE_BASE_URL',
+      config.privateBaseUrl
+    );
+    const accessKeyId = required('OVH_S3_ACCESS_KEY_ID', config.accessKeyId);
+    const secretAccessKey = required(
+      'OVH_S3_SECRET_ACCESS_KEY',
+      config.secretAccessKey
+    );
+
+    assertNoTrailingSlash('SPONSOR_MEDIA_ENDPOINT', endpoint);
+    assertNoTrailingSlash('SPONSOR_MEDIA_PUBLIC_BASE_URL', this.publicBaseUrl);
+    assertNoTrailingSlash('SPONSOR_MEDIA_PRIVATE_BASE_URL', privateBaseUrl);
+
+    this.client = new S3Client({
+      credentials: { accessKeyId, secretAccessKey },
+      endpoint,
+      region
+    });
+  }
+
+  readPrivateObject(key: string): Promise<Buffer | null> {
+    return this.readObject(this.privateBucket, key);
+  }
+
+  readPublicObject(key: string): Promise<Buffer | null> {
+    return this.readObject(this.publicBucket, key);
+  }
+
+  async writePrivateObject(input: SponsorMediaWriteInput): Promise<void> {
+    assertSafeObjectKey(input.key);
+    if (await this.objectExists(this.privateBucket, input.key)) {
+      throw new Error('Sponsor media object already exists.');
+    }
+    await this.client.send(
+      new PutObjectCommand({
+        ACL: 'private',
+        Body: input.data,
+        Bucket: this.privateBucket,
+        CacheControl: 'private, no-store',
+        ContentType: input.contentType,
+        Key: input.key
+      })
+    );
+  }
+
+  async publishObject(input: SponsorMediaPublishInput): Promise<void> {
+    assertSafeObjectKey(input.privateKey);
+    assertSafeObjectKey(input.publicKey);
+    if (await this.objectExists(this.publicBucket, input.publicKey)) {
+      throw new Error('Published sponsor media object already exists.');
+    }
+    await this.client.send(
+      new CopyObjectCommand({
+        ACL: 'public-read',
+        Bucket: this.publicBucket,
+        CacheControl: 'public, max-age=31536000, immutable',
+        ContentType: input.contentType,
+        CopySource: `${this.privateBucket}/${input.privateKey
+          .split('/')
+          .map(encodeURIComponent)
+          .join('/')}`,
+        Key: input.publicKey,
+        MetadataDirective: 'REPLACE'
+      })
+    );
+  }
+
+  deletePrivateObject(key: string): Promise<boolean> {
+    return this.deleteObject(this.privateBucket, key);
+  }
+
+  deletePublicObject(key: string): Promise<boolean> {
+    return this.deleteObject(this.publicBucket, key);
+  }
+
+  publicUrl(key: string): string {
+    assertSafeObjectKey(key);
+    return `${this.publicBaseUrl}/${key
+      .split('/')
+      .map(encodeURIComponent)
+      .join('/')}`;
+  }
+
+  private async readObject(
+    bucket: string,
+    key: string
+  ): Promise<Buffer | null> {
+    assertSafeObjectKey(key);
+    try {
+      const response = await this.client.send(
+        new GetObjectCommand({ Bucket: bucket, Key: key })
+      );
+      return responseBodyToBuffer(response.Body);
+    } catch (error) {
+      if (isS3NotFoundError(error)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  private async objectExists(bucket: string, key: string): Promise<boolean> {
+    assertSafeObjectKey(key);
+    try {
+      await this.client.send(
+        new HeadObjectCommand({ Bucket: bucket, Key: key })
+      );
+      return true;
+    } catch (error) {
+      if (isS3NotFoundError(error)) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  private async deleteObject(bucket: string, key: string): Promise<boolean> {
+    if (!(await this.objectExists(bucket, key))) {
+      return false;
+    }
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: bucket, Key: key })
+    );
+    return true;
+  }
+}
+
 export const createSponsorLogoStorage = (
   config: SponsorLogoStorageConfig
 ): SponsorLogoStorage => {
@@ -320,4 +599,13 @@ export const createSponsorLogoStorage = (
   }
 
   return new LocalSponsorLogoStorage(config.localStorageDir);
+};
+
+export const createSponsorMediaStorage = (
+  config: SponsorLogoStorageConfig
+): SponsorMediaStorage => {
+  const driver = normalizeDriver(config.driver);
+  return driver === 'ovh-s3'
+    ? new OvhS3SponsorMediaStorage(config.s3)
+    : new LocalSponsorMediaStorage(config.localStorageDir);
 };

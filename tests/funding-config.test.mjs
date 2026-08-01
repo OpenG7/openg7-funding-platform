@@ -167,10 +167,9 @@ test('Production rehearsal docs cover PostgreSQL sponsor lifecycle', () => {
 
   assert.equal(mvpStatus.includes('- upload et moderation de logos;'), false);
   assert.equal(mvpStatus.includes('- Aucun upload de logo'), false);
+  assert.ok(mvpStatus.includes('Le token de suivi permet de televerser'));
   assert.ok(
-    mvpStatus.includes(
-      "L'upload de fichier logo reste reserve au back-office admin"
-    )
+    mvpStatus.includes("Aucun fichier televerse n'est public automatiquement")
   );
 
   assert.ok(launchChecklist.includes('## PostgreSQL-Backed Rehearsal'));
@@ -178,6 +177,9 @@ test('Production rehearsal docs cover PostgreSQL sponsor lifecycle', () => {
   assert.ok(launchChecklist.includes('GET /api/admin/sponsorships/logo'));
   assert.ok(
     launchChecklist.includes('POST /api/admin/sponsorships/logo/delete')
+  );
+  assert.ok(
+    launchChecklist.includes('POST /api/admin/sponsorships/media/review')
   );
   assert.match(
     launchChecklist,
@@ -1067,6 +1069,36 @@ test('Sponsorship review and follow-up migrations add private workflow columns',
   );
 });
 
+test('Sponsor media migration keeps originals private and approval explicit', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/017_create_sponsor_media_assets.sql',
+    'utf8'
+  );
+  const repository = fs.readFileSync(
+    'apps/funding-api/src/sponsor-media.repository.ts',
+    'utf8'
+  );
+  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(
+    migration.includes('CREATE TABLE IF NOT EXISTS sponsor_media_assets')
+  );
+  assert.ok(migration.includes("kind IN ('logo', 'supporting_image')"));
+  assert.ok(
+    migration.includes(
+      "review_status IN ('pending_review', 'approved', 'rejected')"
+    )
+  );
+  assert.ok(migration.includes('original_storage_key TEXT NOT NULL UNIQUE'));
+  assert.ok(migration.includes('processed_storage_key TEXT NOT NULL UNIQUE'));
+  assert.ok(migration.includes('public_storage_key TEXT UNIQUE'));
+  assert.ok(migration.includes('idx_sponsor_media_assets_active_logo'));
+  assert.ok(repository.includes("kind = 'supporting_image'"));
+  assert.ok(repository.includes("review_status = 'approved'"));
+  assert.ok(api.includes('SPONSORSHIP_PRESENTATION_PHOTO_REQUIRED'));
+  assert.ok(api.includes("'/api/public/sponsor-media/"));
+});
+
 test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe metadata', () => {
   const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
   const fundingService = fs.readFileSync(
@@ -1234,6 +1266,8 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(api.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES'));
   assert.ok(api.includes('FUNDING_SPONSOR_LOGO_STORAGE_DIR'));
   assert.ok(api.includes('FUNDING_SPONSOR_LOGO_MAX_BYTES'));
+  assert.ok(api.includes('FUNDING_SPONSOR_MEDIA_MAX_BYTES'));
+  assert.ok(api.includes('FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES'));
   assert.ok(api.includes('SPONSOR_MEDIA_STORAGE_DRIVER'));
   assert.ok(api.includes('SPONSOR_MEDIA_PRIVATE_BUCKET'));
   assert.ok(api.includes('OVH_S3_SECRET_ACCESS_KEY'));
@@ -1249,6 +1283,10 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   assert.ok(envExample.includes('FUNDING_ADMIN_SESSION_TTL_MINUTES=60'));
   assert.ok(envExample.includes('FUNDING_SPONSOR_LOGO_STORAGE_DIR='));
   assert.ok(envExample.includes('FUNDING_SPONSOR_LOGO_MAX_BYTES=524288'));
+  assert.ok(envExample.includes('FUNDING_SPONSOR_MEDIA_MAX_BYTES=8388608'));
+  assert.ok(
+    envExample.includes('FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES=3')
+  );
   assert.ok(envExample.includes('SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3'));
   assert.ok(
     envExample.includes(

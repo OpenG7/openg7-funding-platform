@@ -31,6 +31,8 @@ Configuration OVH attendue:
 
 ```env
 SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3
+FUNDING_SPONSOR_MEDIA_MAX_BYTES=8388608
+FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES=3
 SPONSOR_MEDIA_REGION=bhs
 SPONSOR_MEDIA_ENDPOINT=https://s3.bhs.io.cloud.ovh.net
 SPONSOR_MEDIA_PUBLIC_BUCKET=openg7-funding-sponsor-media-public-prod
@@ -123,20 +125,25 @@ supprime.
 
 ## Role de funding-api
 
-`funding-api` est responsable du flux normal: recevoir les uploads, valider
-types et tailles, stocker les originaux controles dans le bucket prive lorsque
-`SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`, enregistrer les metadonnees dans
-PostgreSQL, gerer les remplacements, retraits et audits.
+`funding-api` est responsable du flux normal: recevoir les uploads par le lien
+de suivi commandite, decoder le contenu reel JPEG/PNG/WebP, appliquer
+l'orientation, redimensionner et reencoder une copie WebP sans metadonnees,
+stocker l'original et la copie optimisee dans le bucket prive, puis enregistrer
+les metadonnees dans PostgreSQL. La limite par fichier est configuree par
+`FUNDING_SPONSOR_MEDIA_MAX_BYTES` et le nombre maximal de photos de presentation
+par `FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES`.
+
+L'original n'est jamais publie. Apres une approbation admin explicite, l'API
+copie uniquement la version WebP optimisee vers une cle immuable du bucket
+public avec `public-read` sur cet objet. Un refus ou une suppression retire la
+copie publique lorsqu'elle existe et conserve une trace d'audit. Les apercus
+prives passent par l'API avec le token de suivi ou la session admin.
 
 Pour les logos commanditaires existants, l'URL conserve la forme controlee
 `/api/public/sponsor-logos/<file>`. L'API lit l'objet depuis le stockage choisi
 et ne sert le fichier publiquement que si PostgreSQL confirme une commandite
 approuvee et consentie. Le navigateur ne parle jamais directement a OVH S3 et ne
-voit jamais les cles.
-
-Les prochaines automatisations applicatives pourront ajouter la copie d'un media
-approuve vers le bucket public avec `public-read` objet par objet, sans rendre le
-bucket public listable.
+voit jamais les cles privees.
 
 Les scripts Bash sont des outils d'administration, de reprise et de verification
 apres deploiement.

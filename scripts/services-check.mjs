@@ -527,6 +527,19 @@ function optionalPositiveInteger(section, name, defaultValue, hint) {
 }
 
 function checkSponsorMediaStorage() {
+  optionalPositiveInteger(
+    'Sponsor media',
+    'FUNDING_SPONSOR_MEDIA_MAX_BYTES',
+    '8388608',
+    'set a positive sponsor media upload limit'
+  );
+  optionalPositiveInteger(
+    'Sponsor media',
+    'FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES',
+    '3',
+    'set a positive supporting image limit'
+  );
+
   if (
     !required(
       'Sponsor media',
