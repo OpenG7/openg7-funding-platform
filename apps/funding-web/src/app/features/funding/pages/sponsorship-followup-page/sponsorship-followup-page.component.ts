@@ -34,6 +34,10 @@ import type {
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
 import { FundingService } from '../../services/funding.service.js';
+import {
+  getSponsorMediaFileValidationMessage,
+  getSponsorMediaUploadFailureMessage
+} from '../../services/sponsor-media-upload-feedback.js';
 
 type SponsorshipFollowupFormField =
   | 'companyName'
@@ -72,6 +76,19 @@ const defaultSponsorMediaLimits: SponsorMediaLimits = {
   maxSupportingImages: 3,
   acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
 };
+
+type SponsorMediaUploadAttemptStatus =
+  'queued' | 'uploading' | 'uploaded' | 'failed';
+
+interface SponsorMediaUploadAttempt {
+  readonly id: string;
+  readonly kind: SponsorMediaKind;
+  readonly filename: string;
+  readonly previewUrl: string;
+  readonly status: SponsorMediaUploadAttemptStatus;
+  readonly message: string;
+  readonly asset: SponsorMediaAsset | null;
+}
 
 @Component({
   selector: 'openg7-sponsorship-followup-page',
@@ -409,6 +426,60 @@ const defaultSponsorMediaLimits: SponsorMediaLimits = {
                   {{ mediaMessage() }}
                 </p>
 
+                <div
+                  class="media-upload-attempts"
+                  *ngIf="mediaUploadAttempts().length > 0"
+                  aria-label="Fichiers selectionnes"
+                >
+                  <article
+                    class="media-upload-attempt"
+                    [class.failed]="attempt.status === 'failed'"
+                    *ngFor="
+                      let attempt of mediaUploadAttempts();
+                      trackBy: trackMediaUploadAttempt
+                    "
+                  >
+                    <div class="media-preview">
+                      <img
+                        *ngIf="attempt.previewUrl"
+                        [src]="attempt.previewUrl"
+                        [alt]="'Apercu de ' + attempt.filename"
+                      />
+                      <span
+                        class="media-preview-placeholder"
+                        *ngIf="!attempt.previewUrl"
+                        aria-hidden="true"
+                        >!</span
+                      >
+                      <button
+                        type="button"
+                        class="media-remove-action"
+                        [disabled]="
+                          mediaBusy() ||
+                          attempt.status === 'queued' ||
+                          attempt.status === 'uploading'
+                        "
+                        [attr.aria-label]="'Retirer ' + attempt.filename"
+                        title="Retirer cette image"
+                        (click)="dismissMediaUploadAttempt(attempt)"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                    <div class="media-item-copy">
+                      <strong>{{ attempt.filename }}</strong>
+                      <span
+                        [class]="'media-upload-state ' + attempt.status"
+                        [attr.role]="
+                          attempt.status === 'failed' ? 'alert' : null
+                        "
+                      >
+                        {{ attempt.message }}
+                      </span>
+                    </div>
+                  </article>
+                </div>
+
                 <div class="media-list" *ngIf="mediaAssets().length > 0">
                   <div
                     class="media-item"
@@ -423,6 +494,19 @@ const defaultSponsorMediaLimits: SponsorMediaLimits = {
                         [src]="preview"
                         [alt]="asset.altText || mediaKindLabel(asset.kind)"
                       />
+                      <button
+                        *ngIf="asset.reviewStatus !== 'approved'"
+                        type="button"
+                        class="media-remove-action"
+                        [disabled]="mediaBusy()"
+                        [attr.aria-label]="
+                          'Supprimer ' + mediaKindLabel(asset.kind)
+                        "
+                        title="Supprimer cette image"
+                        (click)="deleteMedia(asset)"
+                      >
+                        &times;
+                      </button>
                     </div>
                     <div class="media-item-copy">
                       <strong>{{ mediaKindLabel(asset.kind) }}</strong>
@@ -436,15 +520,6 @@ const defaultSponsorMediaLimits: SponsorMediaLimits = {
                         {{ formatMediaSize(asset.processedSizeBytes) }}
                       </small>
                     </div>
-                    <button
-                      *ngIf="asset.reviewStatus !== 'approved'"
-                      type="button"
-                      class="media-delete-action"
-                      [disabled]="mediaBusy()"
-                      (click)="deleteMedia(asset)"
-                    >
-                      Supprimer
-                    </button>
                   </div>
                 </div>
               </section>
@@ -961,12 +1036,29 @@ const defaultSponsorMediaLimits: SponsorMediaLimits = {
         gap: 0.75rem;
       }
 
+      .media-upload-attempts {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .media-upload-attempt,
       .media-item {
         align-items: center;
         display: grid;
         gap: 0.85rem;
-        grid-template-columns: 6rem minmax(0, 1fr) auto;
+        grid-template-columns: 6rem minmax(0, 1fr);
         min-height: 5rem;
+      }
+
+      .media-upload-attempt {
+        border: 1px solid #d8e0ea;
+        border-radius: 0.35rem;
+        padding: 0.65rem;
+      }
+
+      .media-upload-attempt.failed {
+        background: #fff7f8;
+        border-color: #e5a4ae;
       }
 
       .media-preview {
@@ -977,6 +1069,7 @@ const defaultSponsorMediaLimits: SponsorMediaLimits = {
         display: flex;
         justify-content: center;
         overflow: hidden;
+        position: relative;
       }
 
       .media-preview img {
@@ -985,10 +1078,49 @@ const defaultSponsorMediaLimits: SponsorMediaLimits = {
         width: 100%;
       }
 
+      .media-preview-placeholder {
+        color: #9f1d2f;
+        font-size: 1.4rem;
+        font-weight: 900;
+      }
+
+      .media-remove-action {
+        align-items: center;
+        background: rgba(17, 24, 39, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 50%;
+        color: #ffffff;
+        cursor: pointer;
+        display: inline-flex;
+        font-size: 1.2rem;
+        height: 1.8rem;
+        justify-content: center;
+        line-height: 1;
+        padding: 0;
+        position: absolute;
+        right: 0.3rem;
+        top: 0.3rem;
+        width: 1.8rem;
+      }
+
+      .media-remove-action:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+
+      .media-remove-action:focus-visible {
+        outline: 3px solid rgba(31, 95, 153, 0.32);
+        outline-offset: 2px;
+      }
+
       .media-item-copy {
         display: grid;
         gap: 0.2rem;
         min-width: 0;
+      }
+
+      .media-item-copy strong {
+        overflow-wrap: anywhere;
       }
 
       .media-review-status {
@@ -1008,17 +1140,19 @@ const defaultSponsorMediaLimits: SponsorMediaLimits = {
         color: #a32135;
       }
 
-      .media-delete-action {
-        background: #ffffff;
-        border: 1px solid #c83c50;
-        border-radius: 0.35rem;
-        color: #9f1d2f;
-        cursor: pointer;
-        font: inherit;
+      .media-upload-state {
+        color: #475467;
         font-size: 0.8rem;
+        line-height: 1.4;
+      }
+
+      .media-upload-state.uploaded {
+        color: #137047;
+      }
+
+      .media-upload-state.failed {
+        color: #a32135;
         font-weight: 800;
-        min-height: 2.35rem;
-        padding: 0.55rem 0.75rem;
       }
 
       .followup-form-panel input,
@@ -1160,14 +1294,10 @@ const defaultSponsorMediaLimits: SponsorMediaLimits = {
           grid-template-columns: 1fr;
         }
 
+        .media-upload-attempt,
         .media-item {
           align-items: start;
           grid-template-columns: 5rem minmax(0, 1fr);
-        }
-
-        .media-delete-action {
-          grid-column: 2;
-          justify-self: start;
         }
       }
     `
@@ -1204,11 +1334,15 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
   readonly submitError = signal<string>('');
   readonly formRevision = signal<number>(0);
   readonly mediaAssets = signal<readonly SponsorMediaAsset[]>([]);
+  readonly mediaUploadAttempts = signal<readonly SponsorMediaUploadAttempt[]>(
+    []
+  );
   readonly mediaLimits = signal<SponsorMediaLimits>(defaultSponsorMediaLimits);
   readonly mediaPreviewUrls = signal<Record<string, string>>({});
   readonly mediaBusy = signal<boolean>(false);
   readonly mediaMessage = signal<string>('');
   readonly mediaAltText = signal<string>('');
+  private mediaUploadSequence = 0;
   readonly hasActiveLogo = computed(() =>
     this.mediaAssets().some((asset) => asset.kind === 'logo')
   );
@@ -1265,7 +1399,10 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
   );
 
   ngOnInit(): void {
-    this.destroyRef.onDestroy(() => this.revokeMediaPreviews());
+    this.destroyRef.onDestroy(() => {
+      this.revokeMediaPreviews();
+      this.revokeMediaUploadAttemptPreviews();
+    });
     this.sponsorshipForm.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
@@ -1366,54 +1503,102 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
                 (asset) => asset.kind === 'supporting_image'
               ).length
           );
-    const files = selected.slice(0, available);
-    if (files.length === 0) {
-      this.mediaMessage.set('La limite de photos est deja atteinte.');
-      if (input) {
-        input.value = '';
-      }
-      return;
-    }
-    const invalid = files.find(
-      (file) =>
-        file.size > this.mediaLimits().maxUploadBytes ||
-        (file.type.length > 0 &&
-          !this.mediaLimits().acceptedMimeTypes.includes(
-            file.type as 'image/jpeg' | 'image/png' | 'image/webp'
-          ))
+    const attempts = selected.map((file) =>
+      this.createMediaUploadAttempt(kind, file)
     );
-    if (invalid) {
-      this.mediaMessage.set(
-        `Le fichier ${invalid.name} doit etre une image JPEG, PNG ou WebP de ${this.formatMediaSize(this.mediaLimits().maxUploadBytes)} maximum.`
-      );
-      if (input) {
-        input.value = '';
-      }
-      return;
-    }
+    this.mediaUploadAttempts.update((current) => [...current, ...attempts]);
 
     this.mediaBusy.set(true);
     this.mediaMessage.set('Televersement et traitement en cours...');
+    let uploadedCount = 0;
+    let failedCount = 0;
+    const uploadedAttemptIds: string[] = [];
     try {
-      for (const file of files) {
-        await this.fundingService.uploadSponsorshipMedia(
-          this.token(),
-          kind,
+      for (const [index, file] of selected.entries()) {
+        const attempt = attempts[index]!;
+        if (index >= available) {
+          failedCount += 1;
+          this.updateMediaUploadAttempt(attempt.id, {
+            status: 'failed',
+            message:
+              kind === 'logo'
+                ? 'Un seul logo peut etre televerse.'
+                : `La limite de ${this.mediaLimits().maxSupportingImages} photos est atteinte.`
+          });
+          continue;
+        }
+
+        const validationMessage = getSponsorMediaFileValidationMessage(
           file,
-          this.mediaAltText()
+          this.mediaLimits()
+        );
+        if (validationMessage) {
+          failedCount += 1;
+          this.updateMediaUploadAttempt(attempt.id, {
+            status: 'failed',
+            message: validationMessage
+          });
+          continue;
+        }
+
+        this.updateMediaUploadAttempt(attempt.id, {
+          status: 'uploading',
+          message: 'Televersement et traitement en cours...'
+        });
+        try {
+          const result = await this.fundingService.uploadSponsorshipMedia(
+            this.token(),
+            kind,
+            file,
+            this.mediaAltText()
+          );
+          uploadedCount += 1;
+          uploadedAttemptIds.push(attempt.id);
+          this.updateMediaUploadAttempt(attempt.id, {
+            status: 'uploaded',
+            message: 'Televersement reussi. En attente de validation.',
+            asset: result.asset
+          });
+        } catch (error) {
+          failedCount += 1;
+          this.updateMediaUploadAttempt(attempt.id, {
+            status: 'failed',
+            message: getSponsorMediaUploadFailureMessage(
+              error,
+              this.mediaLimits()
+            )
+          });
+        }
+      }
+
+      if (uploadedCount > 0) {
+        const mediaReloaded = await this.loadMedia();
+        if (mediaReloaded) {
+          this.removeMediaUploadAttempts(uploadedAttemptIds);
+        } else {
+          for (const id of uploadedAttemptIds) {
+            this.updateMediaUploadAttempt(id, {
+              message:
+                "Televersement reussi. L'apercu serveur sera disponible apres actualisation."
+            });
+          }
+        }
+        this.mediaAltText.set('');
+      }
+
+      if (failedCount === 0) {
+        this.mediaMessage.set(
+          `${uploadedCount} fichier${uploadedCount > 1 ? 's' : ''} recu${uploadedCount > 1 ? 's' : ''}, en attente de validation.`
+        );
+      } else if (uploadedCount > 0) {
+        this.mediaMessage.set(
+          `${uploadedCount} fichier${uploadedCount > 1 ? 's' : ''} recu${uploadedCount > 1 ? 's' : ''}; ${failedCount} en echec. Consultez les miniatures ci-dessous.`
+        );
+      } else {
+        this.mediaMessage.set(
+          `Le televersement a echoue pour ${failedCount} fichier${failedCount > 1 ? 's' : ''}. Consultez les messages ci-dessous.`
         );
       }
-      await this.loadMedia();
-      this.mediaAltText.set('');
-      this.mediaMessage.set(
-        `${files.length} fichier${files.length > 1 ? 's' : ''} recu${files.length > 1 ? 's' : ''}, en attente de validation.`
-      );
-    } catch (error) {
-      this.mediaMessage.set(
-        error instanceof Error
-          ? error.message
-          : "Le televersement n'a pas pu etre complete."
-      );
     } finally {
       this.mediaBusy.set(false);
       if (input) {
@@ -1422,13 +1607,33 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
     }
   }
 
-  async deleteMedia(asset: SponsorMediaAsset): Promise<void> {
+  async dismissMediaUploadAttempt(
+    attempt: SponsorMediaUploadAttempt
+  ): Promise<void> {
+    if (
+      this.mediaBusy() ||
+      attempt.status === 'queued' ||
+      attempt.status === 'uploading'
+    ) {
+      return;
+    }
+    if (
+      attempt.status === 'uploaded' &&
+      attempt.asset &&
+      !(await this.deleteMedia(attempt.asset))
+    ) {
+      return;
+    }
+    this.removeMediaUploadAttempts([attempt.id]);
+  }
+
+  async deleteMedia(asset: SponsorMediaAsset): Promise<boolean> {
     if (
       this.mediaBusy() ||
       (isPlatformBrowser(this.platformId) &&
         !window.confirm('Supprimer ce media en attente?'))
     ) {
-      return;
+      return false;
     }
     this.mediaBusy.set(true);
     this.mediaMessage.set('Suppression en cours...');
@@ -1440,12 +1645,10 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
       });
       await this.loadMedia();
       this.mediaMessage.set('Media supprime.');
-    } catch (error) {
-      this.mediaMessage.set(
-        error instanceof Error
-          ? error.message
-          : "Le media n'a pas pu etre supprime."
-      );
+      return true;
+    } catch {
+      this.mediaMessage.set("La suppression de l'image a échoué. Réessayez.");
+      return false;
     } finally {
       this.mediaBusy.set(false);
     }
@@ -1482,6 +1685,13 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
 
   trackMediaAsset(_: number, asset: SponsorMediaAsset): string {
     return asset.id;
+  }
+
+  trackMediaUploadAttempt(
+    _: number,
+    attempt: SponsorMediaUploadAttempt
+  ): string {
+    return attempt.id;
   }
 
   errorFor(field: keyof SponsorshipFollowupFormErrors): string {
@@ -1551,7 +1761,7 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
     return ['paid', 'refunded', 'disputed'].includes(status);
   }
 
-  private async loadMedia(): Promise<void> {
+  private async loadMedia(): Promise<boolean> {
     try {
       const response = await this.fundingService.getSponsorshipMedia(
         this.token()
@@ -1559,11 +1769,70 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
       this.mediaAssets.set(response.assets);
       this.mediaLimits.set(response.limits);
       await this.loadMediaPreviews(response.assets);
+      return true;
     } catch {
       this.mediaMessage.set(
         "Les medias n'ont pas pu etre charges pour le moment."
       );
+      return false;
     }
+  }
+
+  private createMediaUploadAttempt(
+    kind: SponsorMediaKind,
+    file: File
+  ): SponsorMediaUploadAttempt {
+    this.mediaUploadSequence += 1;
+    const canPreview =
+      isPlatformBrowser(this.platformId) &&
+      file.type.startsWith('image/') &&
+      file.size > 0;
+    return {
+      id: `media-upload-${Date.now()}-${this.mediaUploadSequence}`,
+      kind,
+      filename: file.name || this.mediaKindLabel(kind),
+      previewUrl: canPreview ? URL.createObjectURL(file) : '',
+      status: 'queued',
+      message: 'En attente de televersement...',
+      asset: null
+    };
+  }
+
+  private updateMediaUploadAttempt(
+    id: string,
+    updates: Partial<SponsorMediaUploadAttempt>
+  ): void {
+    this.mediaUploadAttempts.update((attempts) =>
+      attempts.map((attempt) =>
+        attempt.id === id ? { ...attempt, ...updates } : attempt
+      )
+    );
+  }
+
+  private removeMediaUploadAttempts(ids: readonly string[]): void {
+    const removedIds = new Set(ids);
+    const attempts = this.mediaUploadAttempts();
+    if (isPlatformBrowser(this.platformId)) {
+      for (const attempt of attempts) {
+        if (removedIds.has(attempt.id) && attempt.previewUrl) {
+          URL.revokeObjectURL(attempt.previewUrl);
+        }
+      }
+    }
+    this.mediaUploadAttempts.set(
+      attempts.filter((attempt) => !removedIds.has(attempt.id))
+    );
+  }
+
+  private revokeMediaUploadAttemptPreviews(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      for (const attempt of this.mediaUploadAttempts()) {
+        if (attempt.previewUrl) {
+          URL.revokeObjectURL(attempt.previewUrl);
+        }
+      }
+    }
+    this.mediaUploadAttempts.set([]);
   }
 
   private async loadMediaPreviews(
