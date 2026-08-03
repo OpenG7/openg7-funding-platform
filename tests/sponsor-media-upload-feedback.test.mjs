@@ -79,3 +79,26 @@ test('sponsor follow-up renders dismissible upload thumbnails with accessible er
   assert.ok(component.includes('URL.createObjectURL(file)'));
   assert.ok(component.includes('URL.revokeObjectURL(attempt.previewUrl)'));
 });
+
+test('reverse proxies allow configured sponsor media uploads and CSP previews', () => {
+  const traefik = fs.readFileSync('traefik/dynamic.yml', 'utf8');
+  const nginx = fs.readFileSync('apps/funding-web/nginx.conf', 'utf8');
+
+  assert.ok(traefik.includes("img-src 'self' data: blob: https:"));
+  assert.match(
+    traefik,
+    /openg7-sponsor-media-upload:[\s\S]*Path\(`\/api\/sponsorship-followup\/media`\)[\s\S]*sponsor-media-body-limit/
+  );
+  assert.match(
+    traefik,
+    /openg7-sponsor-media-upload-local:[\s\S]*Path\(`\/api\/sponsorship-followup\/media`\)[\s\S]*sponsor-media-body-limit/
+  );
+  assert.match(
+    traefik,
+    /sponsor-media-body-limit:[\s\S]*maxRequestBodyBytes: 9437184/
+  );
+  assert.match(
+    nginx,
+    /location = \/api\/sponsorship-followup\/media \{[\s\S]*client_max_body_size 9m;/
+  );
+});

@@ -238,6 +238,30 @@ Traefik uses Let's Encrypt HTTP-01 challenge:
 - Dynamic routes, services, middlewares, and TLS policy: `traefik/dynamic.yml`
 - Persistent ACME store: `traefik/acme/acme.json`
 
+### HTTPS local de confiance
+
+Le certificat genere par defaut par Traefik n'est pas approuve par les
+navigateurs. Sous Windows, le raccourci suivant installe `mkcert` avec
+`winget` lorsqu'il est absent, installe son autorite locale, genere un
+certificat pour `localhost`, `127.0.0.1` et `::1`, puis recree uniquement
+Traefik avec `docker-compose.local-tls.yml` :
+
+```powershell
+yarn tls:local:setup
+```
+
+Fermer et rouvrir Firefox apres la premiere execution. Le renouvellement du
+certificat local utilise :
+
+```powershell
+yarn tls:local:renew
+```
+
+Les fichiers sous `traefik/certs/` sont locaux et ignores par Git. Ne jamais
+copier `localhost-key.pem` ni la cle privee de l'autorite mkcert vers le depot
+ou le VPS. La surcharge locale ajoute seulement le certificat de developpement;
+la configuration de production continue d'utiliser Let's Encrypt.
+
 Create secure ACME storage:
 
 ```bash
@@ -297,7 +321,11 @@ Applied:
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `Permissions-Policy`
 - Traefik rate limits
-- Nginx `client_max_body_size 256k`
+- Nginx `client_max_body_size 256k`, sauf `9m` sur le seul endpoint de
+  televersement des medias de commandite
+- Traefik limite ce meme endpoint a `9 MiB`; l'API conserve la limite
+  fonctionnelle configuree par `FUNDING_SPONSOR_MEDIA_MAX_BYTES` (`8 MiB` par
+  defaut)
 - API body limit
 - API in-process rate limits for checkout, sponsorship follow-up, and admin sponsorship routes
 - API checkout amount allow-list

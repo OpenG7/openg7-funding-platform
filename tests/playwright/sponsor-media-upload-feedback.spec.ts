@@ -1,5 +1,7 @@
 import { expect, test } from './support/test.js';
 
+test.use({ ignoreHTTPSErrors: true });
+
 const onePixelPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64'
@@ -79,9 +81,15 @@ test('@mobile keeps a failed photo preview visible until it is removed', async (
   const attempt = page.locator('.media-upload-attempt');
   await expect(attempt).toBeVisible();
   await attempt.scrollIntoViewIfNeeded();
-  await expect(
-    attempt.getByRole('img', { name: 'Apercu de presentation.png' })
-  ).toBeVisible();
+  const preview = attempt.getByRole('img', {
+    name: 'Apercu de presentation.png'
+  });
+  await expect(preview).toBeVisible();
+  await expect
+    .poll(() =>
+      preview.evaluate((image: HTMLImageElement) => image.naturalWidth)
+    )
+    .toBeGreaterThan(0);
   await expect(attempt.getByRole('alert')).toContainText(
     /paiement de cette commandite n'est pas encore confirm/i
   );
