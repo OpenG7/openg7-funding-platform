@@ -68,6 +68,35 @@ http:
         - compress
       tls: {}
 
+    openg7-sponsor-media-upload:
+      rule: "(Host(`openg7.org`) || Host(`www.openg7.org`)) && Path(`/api/sponsorship-followup/media`) && Method(`POST`)"
+      entryPoints:
+        - websecure
+      service: openg7-api
+      priority: 275
+      middlewares:
+        - secure-headers
+        - sponsor-media-body-limit
+        - api-in-flight
+        - api-rate-limit
+        - compress
+      tls:
+        certResolver: letsencrypt
+
+    openg7-sponsor-media-upload-local:
+      rule: "Host(`localhost`) && Path(`/api/sponsorship-followup/media`) && Method(`POST`)"
+      entryPoints:
+        - websecure
+      service: openg7-api
+      priority: 275
+      middlewares:
+        - secure-headers
+        - sponsor-media-body-limit
+        - api-in-flight
+        - api-rate-limit
+        - compress
+      tls: {}
+
     openg7-api:
       rule: "(Host(`openg7.org`) || Host(`www.openg7.org`)) && PathPrefix(`/api`)"
       entryPoints:
@@ -147,7 +176,7 @@ http:
         stsPreload: true
         stsSeconds: 31536000
         permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=()"
-        contentSecurityPolicy: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; media-src 'self'; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.stripe.com https://checkout.stripe.com; frame-src https://js.stripe.com https://checkout.stripe.com; form-action 'self' https://checkout.stripe.com; upgrade-insecure-requests"
+        contentSecurityPolicy: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https:; media-src 'self'; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.stripe.com https://checkout.stripe.com; frame-src https://js.stripe.com https://checkout.stripe.com; form-action 'self' https://checkout.stripe.com; upgrade-insecure-requests"
         customResponseHeaders:
           X-Robots-Tag: "index, follow"
           Server: ""
@@ -188,6 +217,13 @@ http:
       buffering:
         maxRequestBodyBytes: 262144
         memRequestBodyBytes: 262144
+
+    # The API separately enforces the configured 8 MiB image limit. The extra
+    # 1 MiB here only accommodates multipart fields and headers.
+    sponsor-media-body-limit:
+      buffering:
+        maxRequestBodyBytes: 9437184
+        memRequestBodyBytes: 1048576
 
     compress:
       compress:

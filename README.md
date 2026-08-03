@@ -61,6 +61,27 @@ yarn build
 yarn docs
 ```
 
+### HTTPS local approuve
+
+Sous Windows, cette commande installe `mkcert` avec `winget` lorsqu'il est
+absent, approuve son autorite locale, genere le certificat `localhost` et
+redemarre Traefik avec la surcharge Docker locale :
+
+```powershell
+yarn tls:local:setup
+```
+
+Fermer et rouvrir Firefox apres la premiere execution. Pour renouveler le
+certificat local :
+
+```powershell
+yarn tls:local:renew
+```
+
+Les certificats sont generes sous `traefik/certs/` et sont ignores par Git.
+Cette configuration locale ne remplace pas les certificats Let's Encrypt de
+production.
+
 ## Production launch
 
 Use [docs/production-launch-checklist.md](docs/production-launch-checklist.md) for the first public launch runbook. The initial production path is Stripe-direct and does not require PostgreSQL.

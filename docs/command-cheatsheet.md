@@ -545,7 +545,7 @@ docker compose exec api env | sort
 Vérifier les routes Traefik déclarées :
 
 ```bash
-docker compose exec traefik cat /etc/traefik/dynamic.yml
+docker compose exec traefik cat /etc/traefik/dynamic/routes.yml
 ```
 
 Nettoyer les containers arrêtés :
