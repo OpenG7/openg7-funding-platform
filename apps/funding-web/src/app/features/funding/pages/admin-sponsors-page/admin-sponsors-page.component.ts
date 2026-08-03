@@ -289,6 +289,7 @@ const controlledSponsorLogoUrlPrefixes = [
                   (uploadLogo)="uploadLogo(selected, $event)"
                   (deleteLogo)="deleteLogo(selected)"
                   (reviewMedia)="reviewSponsorMedia(selected, $event)"
+                  (approveAllMedia)="approveAllSponsorMedia(selected)"
                   (deleteMedia)="deleteSponsorMedia(selected, $event)"
                 />
               </ng-container>
@@ -2324,7 +2325,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         mediaMessage:
           this.sponsorMediaMessages()[selected.id] ??
           'Les decisions media sont independantes de la revue de la commandite.',
-        mediaBusy
+        mediaBusy,
+        approvableMediaCount: mediaAssets.filter(
+          (asset) => asset.reviewStatus !== 'approved'
+        ).length
       };
     });
   readonly hasActiveFilters = computed(
@@ -3081,38 +3085,22 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     sponsorship: AdminSponsorshipRecord,
     event: AdminSponsorMediaReviewEvent
   ): Promise<void> {
-    const altText = event.altText.trim();
-    if (event.reviewStatus === 'approved' && !altText) {
-      this.setSponsorMediaMessage(
-        sponsorship.id,
-        "Le texte alternatif est requis avant l'approbation."
-      );
-      return;
-    }
     if (
+      event.reviewStatus === 'rejected' &&
       typeof window !== 'undefined' &&
-      !window.confirm(
-        event.reviewStatus === 'approved'
-          ? 'Approuver et publier ce media lorsque la commandite est visible?'
-          : 'Refuser ce media commanditaire?'
-      )
+      !window.confirm('Refuser ce media commanditaire?')
     ) {
       return;
     }
     this.actionState.set(this.sponsorMediaActionId(event.assetId));
     this.setSponsorMediaMessage(sponsorship.id, 'Decision en cours...');
     try {
-      await this.admin.reviewSponsorMedia(this.adminToken(), {
-        assetId: event.assetId,
-        expectedVersion: event.expectedVersion,
-        reviewStatus: event.reviewStatus,
-        altText: altText || undefined
-      });
+      await this.saveSponsorMediaReview(event);
       await this.loadSponsorMedia(sponsorship.id);
       this.setSponsorMediaMessage(
         sponsorship.id,
         event.reviewStatus === 'approved'
-          ? 'Media approuve et version publique preparee.'
+          ? 'Media approuve. Il sera visible seulement lorsque la commandite publique est admissible.'
           : 'Media refuse; le fichier public a ete retire.'
       );
     } catch (error) {
@@ -3126,6 +3114,68 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     } finally {
       this.actionState.set(null);
     }
+  }
+
+  async approveAllSponsorMedia(
+    sponsorship: AdminSponsorshipRecord
+  ): Promise<void> {
+    const media = (this.sponsorMedia()[sponsorship.id] ?? []).filter(
+      (asset) => asset.reviewStatus !== 'approved'
+    );
+    if (media.length === 0) {
+      this.setSponsorMediaMessage(
+        sponsorship.id,
+        'Tous les medias sont deja approuves.'
+      );
+      return;
+    }
+
+    this.actionState.set(this.sponsorMediaBulkActionId(sponsorship.id));
+    this.setSponsorMediaMessage(
+      sponsorship.id,
+      `Approbation de ${media.length} media${media.length > 1 ? 's' : ''} en cours...`
+    );
+
+    let approvedCount = 0;
+    try {
+      for (const asset of media) {
+        await this.saveSponsorMediaReview({
+          assetId: asset.id,
+          expectedVersion: asset.version,
+          reviewStatus: 'approved',
+          altText: asset.altText ?? ''
+        });
+        approvedCount += 1;
+      }
+      await this.loadSponsorMedia(sponsorship.id);
+      this.setSponsorMediaMessage(
+        sponsorship.id,
+        `${approvedCount} media${approvedCount > 1 ? 's' : ''} approuve${approvedCount > 1 ? 's' : ''}. La visibilite publique reste controlee par le statut de la commandite.`
+      );
+    } catch (error) {
+      await this.loadSponsorMedia(sponsorship.id);
+      this.setSponsorMediaMessage(
+        sponsorship.id,
+        this.messageFromError(
+          error,
+          `${approvedCount} media${approvedCount > 1 ? 's' : ''} approuve${approvedCount > 1 ? 's' : ''}; l'approbation groupée s'est interrompue.`
+        )
+      );
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
+  private async saveSponsorMediaReview(
+    event: AdminSponsorMediaReviewEvent
+  ): Promise<void> {
+    const altText = event.altText.trim();
+    await this.admin.reviewSponsorMedia(this.adminToken(), {
+      assetId: event.assetId,
+      expectedVersion: event.expectedVersion,
+      reviewStatus: event.reviewStatus,
+      altText: altText || undefined
+    });
   }
 
   async deleteSponsorMedia(
@@ -3333,6 +3383,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   sponsorMediaActionId(id: string): string {
     return `media:${id}`;
+  }
+
+  sponsorMediaBulkActionId(id: string): string {
+    return `media:all:${id}`;
   }
 
   sponsorMediaStatusLabel(status: SponsorMediaAsset['reviewStatus']): string {

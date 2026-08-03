@@ -80,6 +80,28 @@ test('sponsor follow-up renders dismissible upload thumbnails with accessible er
   assert.ok(component.includes('URL.revokeObjectURL(attempt.previewUrl)'));
 });
 
+test('sponsor follow-up disables media uploads until payment is confirmed', () => {
+  const component = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
+    'utf8'
+  );
+
+  assert.ok(component.includes('readonly canUploadMedia = computed'));
+  assert.ok(component.includes('mediaUploadDisabledMessage'));
+  assert.ok(component.includes('media-payment-note'));
+  assert.ok(component.includes('Montant attendu'));
+  assert.ok(component.includes('Paiement en confirmation'));
+  assert.ok(
+    component.includes('!canUploadMedia() || mediaBusy() || hasApprovedLogo()')
+  );
+  assert.ok(
+    component.includes(
+      '!canUploadMedia() ||\n                        mediaBusy() ||\n                        !canAddSupportingImage()'
+    )
+  );
+  assert.ok(component.includes('if (!this.canUploadMedia())'));
+});
+
 test('reverse proxies allow configured sponsor media uploads and CSP previews', () => {
   const traefik = fs.readFileSync('traefik/dynamic.yml', 'utf8');
   const nginx = fs.readFileSync('apps/funding-web/nginx.conf', 'utf8');

@@ -83,10 +83,23 @@ import type {
             <span>Medias du commanditaire</span>
             <h3 id="media-review-title">Photos en revue</h3>
           </div>
-          <p>
-            Chaque fichier reste prive jusqu'a son approbation. Le texte
-            alternatif est requis avant publication.
-          </p>
+          <div class="media-review-summary">
+            <p>
+              Chaque fichier reste prive jusqu'a son approbation. Le texte
+              alternatif est optionnel; une description publique est generee
+              lorsqu'il est laisse vide.
+            </p>
+            <button
+              type="button"
+              class="approve-all-action"
+              [disabled]="
+                identity().mediaBusy || identity().approvableMediaCount === 0
+              "
+              (click)="approveAllMedia.emit()"
+            >
+              Tout approuver
+            </button>
+          </div>
         </header>
 
         <p class="muted-copy" *ngIf="identity().mediaAssets.length === 0">
@@ -115,11 +128,12 @@ import type {
               </div>
               <small>{{ asset.dimensionsLabel }} · {{ asset.sizeLabel }}</small>
               <label>
-                Texte alternatif
+                Texte alternatif <span>(optionnel)</span>
                 <input
                   #altTextInput
                   type="text"
                   maxlength="300"
+                  placeholder="Description publique automatique si vide"
                   [value]="asset.altText"
                   [disabled]="identity().mediaBusy"
                 />
@@ -128,7 +142,9 @@ import type {
                 <button
                   type="button"
                   class="approve-action"
-                  [disabled]="identity().mediaBusy"
+                  [disabled]="
+                    identity().mediaBusy || asset.reviewStatus === 'approved'
+                  "
                   (click)="
                     reviewMedia.emit({
                       assetId: asset.id,
@@ -138,7 +154,7 @@ import type {
                     })
                   "
                 >
-                  Approuver
+                  Approuver le media
                 </button>
                 <button
                   type="button"
@@ -335,6 +351,28 @@ import type {
         line-height: 1.5;
       }
 
+      .media-review-summary {
+        display: grid;
+        gap: 0.65rem;
+        justify-items: start;
+      }
+
+      .approve-all-action {
+        background: #176b43;
+        border: 1px solid #176b43;
+        border-radius: 0.4rem;
+        color: #ffffff;
+        cursor: pointer;
+        font-weight: 900;
+        min-height: 2.5rem;
+        padding: 0 0.85rem;
+      }
+
+      .approve-all-action:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
       .media-review-list {
         display: grid;
         gap: 1rem;
@@ -386,6 +424,11 @@ import type {
         font-size: 0.78rem;
         font-weight: 800;
         gap: 0.35rem;
+      }
+
+      .media-review-copy label span {
+        color: #667085;
+        font-weight: 700;
       }
 
       .media-review-copy input {
@@ -468,5 +511,6 @@ export class AdminSponsorDetailIdentityComponent {
   readonly uploadLogo = output<Event>();
   readonly deleteLogo = output<void>();
   readonly reviewMedia = output<AdminSponsorMediaReviewEvent>();
+  readonly approveAllMedia = output<void>();
   readonly deleteMedia = output<AdminSponsorMediaDeleteEvent>();
 }

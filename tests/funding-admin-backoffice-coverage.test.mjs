@@ -400,10 +400,13 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'ChangeDetectionStrategy.OnPush',
       'uploadLogo = output<Event>()',
       'deleteLogo = output<void>()',
+      'approveAllMedia = output<void>()',
       'secondary-danger-action',
       'compact-definition-list',
       'large-preview',
-      'image/png,image/jpeg,image/webp'
+      'image/png,image/jpeg,image/webp',
+      'Texte alternatif <span>(optionnel)</span>',
+      'Tout approuver'
     ],
     'admin sponsor detail identity component'
   );

@@ -1095,8 +1095,17 @@ test('Sponsor media migration keeps originals private and approval explicit', ()
   assert.ok(migration.includes('idx_sponsor_media_assets_active_logo'));
   assert.ok(repository.includes("kind = 'supporting_image'"));
   assert.ok(repository.includes("review_status = 'approved'"));
+  assert.ok(repository.includes('row.alt_text?.trim() ||'));
   assert.ok(api.includes('SPONSORSHIP_PRESENTATION_PHOTO_REQUIRED'));
   assert.ok(api.includes("'/api/public/sponsor-media/"));
+  assert.ok(api.includes('const altText = parsed.altText?.trim() || null'));
+  assert.ok(
+    api.includes('Asset id, version, and review decision are required.')
+  );
+  assert.equal(
+    api.includes("parsed.reviewStatus === 'approved' && !altText"),
+    false
+  );
 });
 
 test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe metadata', () => {

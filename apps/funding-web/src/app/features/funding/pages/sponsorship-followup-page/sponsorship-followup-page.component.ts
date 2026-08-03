@@ -109,11 +109,20 @@ interface SponsorMediaUploadAttempt {
           <div class="followup-hero-copy">
             <span class="eyebrow">Commandite OpenG7</span>
             <h1 id="followup-title">Suivi de votre commandite</h1>
-            <p>
-              Votre paiement est reçu. Confirmez maintenant les renseignements
-              de votre entreprise afin que l'équipe OpenG7 puisse valider la
-              commandite avant toute visibilité publique.
-            </p>
+            <ng-container
+              *ngIf="followup() as current; else followupIntroLoading"
+            >
+              <p>
+                {{
+                  isEligiblePaymentStatus(current.paymentStatus)
+                    ? "Votre paiement est reçu. Confirmez maintenant les renseignements de votre entreprise afin que l'équipe OpenG7 puisse valider la commandite avant toute visibilité publique."
+                    : 'Votre paiement est en attente de confirmation. Les renseignements et les médias seront disponibles dès que Stripe aura confirmé la commandite.'
+                }}
+              </p>
+            </ng-container>
+            <ng-template #followupIntroLoading>
+              <p>Chargement de l'état de votre commandite...</p>
+            </ng-template>
           </div>
 
           <aside
@@ -121,7 +130,11 @@ interface SponsorMediaUploadAttempt {
             *ngIf="followup() as current"
             aria-label="Résumé de la commandite"
           >
-            <span>Montant reçu</span>
+            <span>{{
+              isEligiblePaymentStatus(current.paymentStatus)
+                ? 'Montant reçu'
+                : 'Montant attendu'
+            }}</span>
             <strong>{{ formatMoney(current) }}</strong>
             <div class="reference-summary">
               <span>Référence OpenG7</span>
@@ -131,9 +144,11 @@ interface SponsorMediaUploadAttempt {
             </div>
             <p>
               {{
-                current.detailsSubmitted
-                  ? 'Détails reçus, validation en cours.'
-                  : 'Détails requis pour poursuivre la validation.'
+                !isEligiblePaymentStatus(current.paymentStatus)
+                  ? 'Paiement en attente de confirmation Stripe.'
+                  : current.detailsSubmitted
+                    ? 'Détails reçus, validation en cours.'
+                    : 'Détails requis pour poursuivre la validation.'
               }}
             </p>
           </aside>
@@ -242,12 +257,33 @@ interface SponsorMediaUploadAttempt {
               <span class="eyebrow">Chemin de validation</span>
               <h2 id="review-path-title">Prochaines étapes</h2>
               <ol>
-                <li class="done">
+                <li
+                  [class.done]="isEligiblePaymentStatus(current.paymentStatus)"
+                  [class.active]="
+                    !isEligiblePaymentStatus(current.paymentStatus)
+                  "
+                >
                   <span aria-hidden="true">1</span>
-                  <strong>Paiement reçu</strong>
-                  <p>{{ dateLabel(current.paidAt) }}</p>
+                  <strong>{{
+                    isEligiblePaymentStatus(current.paymentStatus)
+                      ? 'Paiement reçu'
+                      : 'Paiement en confirmation'
+                  }}</strong>
+                  <p>
+                    {{
+                      isEligiblePaymentStatus(current.paymentStatus)
+                        ? dateLabel(current.paidAt)
+                        : 'Stripe doit confirmer le paiement avant la suite.'
+                    }}
+                  </p>
                 </li>
-                <li [class.done]="current.detailsSubmitted">
+                <li
+                  [class.done]="current.detailsSubmitted"
+                  [class.active]="
+                    isEligiblePaymentStatus(current.paymentStatus) &&
+                    !current.detailsSubmitted
+                  "
+                >
                   <span aria-hidden="true">2</span>
                   <strong>Détails entreprise</strong>
                   <p>
@@ -382,6 +418,13 @@ interface SponsorMediaUploadAttempt {
                     OpenG7. Une photo de presentation est requise pour completer
                     la fiche.
                   </p>
+                  <p
+                    class="media-payment-note"
+                    *ngIf="mediaUploadDisabledMessage()"
+                    aria-live="polite"
+                  >
+                    {{ mediaUploadDisabledMessage() }}
+                  </p>
                 </header>
 
                 <label class="media-alt-field">
@@ -406,7 +449,9 @@ interface SponsorMediaUploadAttempt {
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
-                      [disabled]="mediaBusy() || hasApprovedLogo()"
+                      [disabled]="
+                        !canUploadMedia() || mediaBusy() || hasApprovedLogo()
+                      "
                       (change)="uploadMedia('logo', $event)"
                     />
                   </label>
@@ -416,7 +461,11 @@ interface SponsorMediaUploadAttempt {
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
                       multiple
-                      [disabled]="mediaBusy() || !canAddSupportingImage()"
+                      [disabled]="
+                        !canUploadMedia() ||
+                        mediaBusy() ||
+                        !canAddSupportingImage()
+                      "
                       (change)="uploadMedia('supporting_image', $event)"
                     />
                   </label>
@@ -984,6 +1033,15 @@ interface SponsorMediaUploadAttempt {
         line-height: 1.45;
       }
 
+      .media-manager header .media-payment-note {
+        background: #fff7ed;
+        border: 1px solid rgb(194 65 12 / 22%);
+        border-radius: 0.5rem;
+        color: #7c2d12;
+        grid-column: 1 / -1;
+        padding: 0.8rem 0.95rem;
+      }
+
       .media-alt-field {
         max-width: 36rem;
       }
@@ -1356,6 +1414,14 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
       this.mediaAssets().filter((asset) => asset.kind === 'supporting_image')
         .length < this.mediaLimits().maxSupportingImages
   );
+  readonly canUploadMedia = computed(() =>
+    this.isEligiblePaymentStatus(this.followup()?.paymentStatus ?? '')
+  );
+  readonly mediaUploadDisabledMessage = computed(() =>
+    this.canUploadMedia()
+      ? ''
+      : 'Le televersement sera disponible lorsque le paiement de cette commandite sera confirme.'
+  );
   readonly sponsorshipForm = this.formBuilder.nonNullable.group({
     companyName: ['', [Validators.required, Validators.maxLength(200)]],
     contactName: ['', [Validators.required, Validators.maxLength(200)]],
@@ -1491,6 +1557,13 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
     const input = event.target as HTMLInputElement | null;
     const selected = Array.from(input?.files ?? []);
     if (selected.length === 0 || this.mediaBusy()) {
+      return;
+    }
+    if (!this.canUploadMedia()) {
+      this.mediaMessage.set(this.mediaUploadDisabledMessage());
+      if (input) {
+        input.value = '';
+      }
       return;
     }
     const available =
@@ -1723,7 +1796,22 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
   }
 
   paymentLabel(status: string): string {
-    return status === 'paid' ? 'Confirme' : status;
+    switch (status) {
+      case 'paid':
+        return 'Confirmé';
+      case 'refunded':
+        return 'Remboursé';
+      case 'disputed':
+        return 'En litige';
+      case 'pending':
+        return 'En attente';
+      case 'expired':
+        return 'Expiré';
+      case 'failed':
+        return 'Échoué';
+      default:
+        return status;
+    }
   }
 
   benefitLabel(benefit: SponsorshipBenefitId): string {
@@ -1757,7 +1845,7 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
     }).format(new Date(value));
   }
 
-  private isEligiblePaymentStatus(status: string): boolean {
+  isEligiblePaymentStatus(status: string): boolean {
     return ['paid', 'refunded', 'disputed'].includes(status);
   }
 
