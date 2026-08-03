@@ -75,6 +75,7 @@ export interface AdminSponsorDetailIdentityView {
   readonly mediaAssets: readonly AdminSponsorMediaAssetView[];
   readonly mediaMessage: string;
   readonly mediaBusy: boolean;
+  readonly approvableMediaCount: number;
 }
 
 export interface AdminSponsorMediaAssetView {

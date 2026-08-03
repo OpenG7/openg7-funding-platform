@@ -2747,11 +2747,10 @@ createServer(async (request, response) => {
       !isValidUuid(parsed.assetId) ||
       !isValidAdminExpectedVersion(parsed.expectedVersion) ||
       !reviewStatus ||
-      (altText?.length ?? 0) > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH ||
-      (parsed.reviewStatus === 'approved' && !altText)
+      (altText?.length ?? 0) > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH
     ) {
       writeJson(request, response, 400, {
-        error: 'Asset id, version, review decision, and alt text are required.'
+        error: 'Asset id, version, and review decision are required.'
       });
       return;
     }
