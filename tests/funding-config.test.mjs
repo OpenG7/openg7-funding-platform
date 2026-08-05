@@ -1165,6 +1165,55 @@ test('Sponsorship follow-up endpoints are token based and do not require Stripe 
   assert.equal(fundingService.includes('submitSponsorshipDetails'), false);
 });
 
+test('Sponsorship follow-up refreshes pending payment status from Stripe before editable actions', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const refreshBody = extractBetween(
+    source,
+    'const refreshSponsorshipFollowupPaymentStatus',
+    'const getFreshSponsorshipFollowupByToken',
+    'sponsorship follow-up payment refresh'
+  );
+  const statusBody = extractBetween(
+    source,
+    'const stripeCheckoutSessionStatus',
+    'const checkoutSessionPaidAtIso',
+    'sponsorship checkout session status'
+  );
+  const uploadBody = extractBetween(
+    source,
+    'let originalStorageKey: string | null = null;',
+    'const image = await processSponsorImage',
+    'sponsor media upload payment refresh'
+  );
+  const detailsBody = extractBetween(
+    source,
+    'let parsed: SponsorshipFollowupDetailsRequest;',
+    'const companyName = parsed.companyName.trim();',
+    'sponsorship follow-up details payment refresh'
+  );
+
+  assert.ok(refreshBody.includes('stripe.checkout.sessions.retrieve'));
+  assert.ok(refreshBody.includes("expand: ['payment_intent']"));
+  assert.ok(statusBody.includes("session.payment_status === 'paid'"));
+  assert.ok(refreshBody.includes('metadata.sponsorshipFollowupTokenHash'));
+  assert.ok(
+    refreshBody.includes('normalizeContributionType(metadata.contributionType)')
+  );
+  assert.ok(refreshBody.includes('upsertCheckoutSessionFromWebhook'));
+  assert.ok(refreshBody.includes('getSponsorshipFollowupByTokenHash'));
+  assert.ok(uploadBody.includes('getFreshSponsorshipFollowupByToken(token)'));
+  assert.ok(
+    uploadBody.includes(
+      'followupEditablePaymentStatuses.has(followup.paymentStatus)'
+    )
+  );
+  assert.ok(
+    detailsBody.includes(
+      'getFreshSponsorshipFollowupByToken(parsed.token)'
+    )
+  );
+});
+
 test('Sponsorship follow-up email is sent from checkout completion only when recoverable', () => {
   const webhook = fs.readFileSync(
     'apps/funding-api/src/stripe-webhook.service.ts',
@@ -1226,6 +1275,10 @@ test('Sponsorship follow-up tokens expire and details edits return to review', (
   assert.ok(recordDetailsBody.includes('sponsor_reviewed_at = NULL'));
   assert.ok(followupPage.includes('history.replaceState'));
   assert.ok(followupPage.includes("url.searchParams.delete('token')"));
+  assert.ok(followupPage.includes('resolveInitialToken'));
+  assert.ok(followupPage.includes('openg7-sponsorship-followup-token'));
+  assert.ok(followupPage.includes('window.sessionStorage.setItem'));
+  assert.ok(followupPage.includes('window.sessionStorage.getItem'));
 });
 
 test('Sponsorship follow-up form explains disabled submit and browser autofill state', () => {

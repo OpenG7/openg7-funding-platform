@@ -76,6 +76,9 @@ const defaultSponsorMediaLimits: SponsorMediaLimits = {
   maxSupportingImages: 3,
   acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
 };
+const sponsorshipFollowupSessionStorageKey =
+  'openg7-sponsorship-followup-token';
+const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
 
 type SponsorMediaUploadAttemptStatus =
   'queued' | 'uploading' | 'uploaded' | 'failed';
@@ -1480,7 +1483,7 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.bumpFormRevision());
 
-    const token = this.route.snapshot.queryParamMap.get('token') ?? '';
+    const token = this.resolveInitialToken();
     this.token.set(token);
     this.removeTokenFromBrowserUrl();
     void this.load();
@@ -2038,6 +2041,47 @@ export class SponsorshipFollowupPageComponent implements OnInit, AfterViewInit {
 
   private bumpFormRevision(): void {
     this.formRevision.update((revision) => revision + 1);
+  }
+
+  private resolveInitialToken(): string {
+    const tokenFromUrl = this.route.snapshot.queryParamMap.get('token') ?? '';
+
+    if (sponsorshipFollowupTokenPattern.test(tokenFromUrl)) {
+      this.rememberFollowupToken(tokenFromUrl);
+      return tokenFromUrl;
+    }
+
+    return this.readRememberedFollowupToken();
+  }
+
+  private rememberFollowupToken(token: string): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    try {
+      window.sessionStorage.setItem(
+        sponsorshipFollowupSessionStorageKey,
+        token
+      );
+    } catch {
+      // The token remains in memory for the current render when storage is unavailable.
+    }
+  }
+
+  private readRememberedFollowupToken(): string {
+    if (!isPlatformBrowser(this.platformId)) {
+      return '';
+    }
+
+    try {
+      const token =
+        window.sessionStorage.getItem(sponsorshipFollowupSessionStorageKey) ??
+        '';
+      return sponsorshipFollowupTokenPattern.test(token) ? token : '';
+    } catch {
+      return '';
+    }
   }
 
   private removeTokenFromBrowserUrl(): void {

@@ -173,7 +173,9 @@ import {
   updateSponsorshipRefundWorkflowStatus,
   updateSponsorshipReview,
   getSponsorshipRefundTarget,
-  updateContributionStatusByPaymentIntent
+  updateContributionStatusByPaymentIntent,
+  upsertCheckoutSessionFromWebhook,
+  type SponsorshipFollowupLookup
 } from './fund-contributions.repository.js';
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
@@ -1139,6 +1141,112 @@ const buildSponsorshipCheckoutSuccessUrl = (
   url.hash = '';
   url.searchParams.set('token', token);
   return url.toString();
+};
+
+const stripeCheckoutSessionStatus = (
+  session: Stripe.Checkout.Session
+): 'pending' | 'paid' | 'expired' => {
+  if (session.payment_status === 'paid') {
+    return 'paid';
+  }
+
+  return session.status === 'expired' ? 'expired' : 'pending';
+};
+
+const checkoutSessionPaidAtIso = (
+  session: Stripe.Checkout.Session,
+  status: 'pending' | 'paid' | 'expired'
+): string | null =>
+  status === 'paid' ? new Date(session.created * 1000).toISOString() : null;
+
+const refreshSponsorshipFollowupPaymentStatus = async (
+  followup: SponsorshipFollowupLookup,
+  tokenHash: string
+): Promise<SponsorshipFollowupLookup> => {
+  if (
+    followupEditablePaymentStatuses.has(followup.paymentStatus) ||
+    !stripe ||
+    !followup.stripeSessionId
+  ) {
+    return followup;
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(
+      followup.stripeSessionId,
+      {
+        expand: ['payment_intent']
+      }
+    );
+    const metadata = session.metadata ?? {};
+    const sessionTokenHash = metadata.sponsorshipFollowupTokenHash ?? null;
+
+    if (
+      normalizeContributionType(metadata.contributionType) !==
+        'sponsorship_interest' ||
+      (sessionTokenHash !== null && sessionTokenHash !== tokenHash)
+    ) {
+      return followup;
+    }
+
+    const status = stripeCheckoutSessionStatus(session);
+    await upsertCheckoutSessionFromWebhook(dbPool, {
+      stripeSessionId: session.id,
+      stripePaymentIntentId: resolveStripePaymentIntentId(
+        session.payment_intent
+      ),
+      publicReference: normalizeContributionPublicReference(
+        metadata.publicReference ?? session.client_reference_id
+      ),
+      contributionType: 'sponsorship_interest',
+      amountCents: session.amount_total ?? 0,
+      currency: session.currency ?? 'cad',
+      metadata,
+      publicDisplayConsent: parseMetadataBoolean(
+        metadata.publicDisplayConsent
+      ),
+      publicName: metadata.publicDisplayName ?? null,
+      displayAmountConsent: parseMetadataBoolean(
+        metadata.displayAmountConsent
+      ),
+      nonCharityAcknowledged: parseMetadataBoolean(
+        metadata.nonCharityAcknowledged
+      ),
+      sponsorshipFollowupTokenHash: sessionTokenHash ?? tokenHash,
+      status,
+      paidAtIso: checkoutSessionPaidAtIso(session, status),
+      emailPrivate: session.customer_details?.email ?? null
+    });
+
+    return (
+      (await getSponsorshipFollowupByTokenHash(
+        dbPool,
+        tokenHash,
+        getSponsorshipFollowupTokenCutoffIso()
+      )) ?? followup
+    );
+  } catch (error) {
+    console.error(
+      'Failed to refresh sponsorship follow-up payment status from Stripe.',
+      error
+    );
+    return followup;
+  }
+};
+
+const getFreshSponsorshipFollowupByToken = async (
+  token: string
+): Promise<SponsorshipFollowupLookup | null> => {
+  const tokenHash = hashSponsorshipFollowupToken(token);
+  const followup = await getSponsorshipFollowupByTokenHash(
+    dbPool,
+    tokenHash,
+    getSponsorshipFollowupTokenCutoffIso()
+  );
+
+  return followup
+    ? refreshSponsorshipFollowupPaymentStatus(followup, tokenHash)
+    : null;
 };
 
 const isAllowedSponsorshipReviewStatus = (
@@ -2362,11 +2470,7 @@ createServer(async (request, response) => {
       return;
     }
     try {
-      const followup = await getSponsorshipFollowupByTokenHash(
-        dbPool,
-        hashSponsorshipFollowupToken(token),
-        getSponsorshipFollowupTokenCutoffIso()
-      );
+      const followup = await getFreshSponsorshipFollowupByToken(token);
       if (!followup) {
         writeJson(request, response, 404, {
           error: 'Sponsorship follow-up was not found.'
@@ -2411,11 +2515,7 @@ createServer(async (request, response) => {
     }
     try {
       const [followup, asset] = await Promise.all([
-        getSponsorshipFollowupByTokenHash(
-          dbPool,
-          hashSponsorshipFollowupToken(token),
-          getSponsorshipFollowupTokenCutoffIso()
-        ),
+        getFreshSponsorshipFollowupByToken(token),
         getSponsorMediaStorageRecord(dbPool, sponsorMediaContentId)
       ]);
       if (
@@ -2508,11 +2608,7 @@ createServer(async (request, response) => {
     let originalStorageKey: string | null = null;
     let processedStorageKey: string | null = null;
     try {
-      const followup = await getSponsorshipFollowupByTokenHash(
-        dbPool,
-        hashSponsorshipFollowupToken(token),
-        getSponsorshipFollowupTokenCutoffIso()
-      );
+      const followup = await getFreshSponsorshipFollowupByToken(token);
       if (!followup) {
         writeJson(request, response, 404, {
           error: 'Sponsorship follow-up was not found.'
@@ -2661,11 +2757,7 @@ createServer(async (request, response) => {
       return;
     }
     try {
-      const followup = await getSponsorshipFollowupByTokenHash(
-        dbPool,
-        hashSponsorshipFollowupToken(parsed.token),
-        getSponsorshipFollowupTokenCutoffIso()
-      );
+      const followup = await getFreshSponsorshipFollowupByToken(parsed.token);
       if (!followup) {
         writeJson(request, response, 404, {
           error: 'Sponsorship follow-up was not found.'
@@ -3665,11 +3757,7 @@ createServer(async (request, response) => {
     }
 
     try {
-      const followup = await getSponsorshipFollowupByTokenHash(
-        dbPool,
-        hashSponsorshipFollowupToken(token),
-        getSponsorshipFollowupTokenCutoffIso()
-      );
+      const followup = await getFreshSponsorshipFollowupByToken(token);
 
       if (!followup) {
         writeJson(request, response, 404, {
@@ -3929,11 +4017,7 @@ createServer(async (request, response) => {
     }
 
     try {
-      const followup = await getSponsorshipFollowupByTokenHash(
-        dbPool,
-        hashSponsorshipFollowupToken(parsed.token),
-        getSponsorshipFollowupTokenCutoffIso()
-      );
+      const followup = await getFreshSponsorshipFollowupByToken(parsed.token);
 
       if (!followup) {
         writeJson(request, response, 404, {
