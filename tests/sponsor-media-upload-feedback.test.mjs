@@ -81,10 +81,12 @@ test('sponsor follow-up renders dismissible upload thumbnails with accessible er
 });
 
 test('sponsor follow-up disables media uploads until payment is confirmed', () => {
-  const component = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
-    'utf8'
-  );
+  const component = fs
+    .readFileSync(
+      'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
+      'utf8'
+    )
+    .replace(/\r\n/g, '\n');
 
   assert.ok(component.includes('readonly canUploadMedia = computed'));
   assert.ok(component.includes('mediaUploadDisabledMessage'));
