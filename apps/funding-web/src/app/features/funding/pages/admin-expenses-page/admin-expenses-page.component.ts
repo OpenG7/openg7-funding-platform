@@ -160,6 +160,31 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
                   <option value="delivered">Livre</option>
                 </select>
               </label>
+              <label>
+                Preuve publique
+                <input
+                  type="url"
+                  [value]="newProofUrl()"
+                  (input)="setNewProofUrl($event)"
+                />
+              </label>
+              <label>
+                Source de la preuve
+                <input
+                  type="text"
+                  maxlength="500"
+                  [value]="newProofSource()"
+                  (input)="setNewProofSource($event)"
+                />
+              </label>
+              <label>
+                Date de la preuve
+                <input
+                  type="datetime-local"
+                  [value]="newProofPublishedAt()"
+                  (input)="setNewProofPublishedAt($event)"
+                />
+              </label>
             </div>
 
             <footer>
@@ -541,6 +566,9 @@ export class AdminExpensesPageComponent implements OnInit {
   readonly newAmount = signal<string>('');
   readonly newStatus = signal<AdminExpenseStatus>('draft');
   readonly newProgressStatus = signal<'planned' | 'in_progress' | 'delivered'>('planned');
+  readonly newProofUrl = signal<string>('');
+  readonly newProofSource = signal<string>('');
+  readonly newProofPublishedAt = signal<string>('');
 
   readonly expenses = computed(() => this.response()?.expenses ?? []);
   readonly filteredExpenses = computed(() => {
@@ -607,6 +635,11 @@ export class AdminExpensesPageComponent implements OnInit {
         publicDescription: this.newDescription().trim(),
         expectedOutcome: this.newExpectedOutcome().trim(),
         progressStatus: this.newProgressStatus(),
+        proofUrl: this.newProofUrl().trim() || null,
+        proofSource: this.newProofSource().trim() || null,
+        proofPublishedAt: this.newProofPublishedAt()
+          ? new Date(this.newProofPublishedAt()).toISOString()
+          : null,
         amountAllocated: amount,
         currency: 'CAD',
         status: this.newStatus()
@@ -617,6 +650,9 @@ export class AdminExpensesPageComponent implements OnInit {
       this.newAmount.set('');
       this.newStatus.set('draft');
       this.newProgressStatus.set('planned');
+      this.newProofUrl.set('');
+      this.newProofSource.set('');
+      this.newProofPublishedAt.set('');
       await this.loadExpenses();
     } catch {
       this.state.set('error');
@@ -695,6 +731,18 @@ export class AdminExpensesPageComponent implements OnInit {
     this.newProgressStatus.set(
       value === 'in_progress' || value === 'delivered' ? value : 'planned'
     );
+  }
+
+  setNewProofUrl(event: Event): void {
+    this.newProofUrl.set(this.valueFromEvent(event));
+  }
+
+  setNewProofSource(event: Event): void {
+    this.newProofSource.set(this.valueFromEvent(event));
+  }
+
+  setNewProofPublishedAt(event: Event): void {
+    this.newProofPublishedAt.set(this.valueFromEvent(event));
   }
 
   setNewAmount(event: Event): void {

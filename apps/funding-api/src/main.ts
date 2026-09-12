@@ -5238,6 +5238,13 @@ createServer(async (request, response) => {
       return;
     }
 
+    if (!isValidOptionalIsoDate(parsed.proofPublishedAt)) {
+      writeJson(request, response, 400, {
+        error: 'Expense proof date is invalid.'
+      });
+      return;
+    }
+
     if (
       !Number.isFinite(parsed.amountAllocated) ||
       parsed.amountAllocated <= 0
@@ -5385,6 +5392,13 @@ createServer(async (request, response) => {
     if (!isValidOptionalBoundedText(parsed.proofSource, 500)) {
       writeJson(request, response, 400, {
         error: 'Expense proof source is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalIsoDate(parsed.proofPublishedAt)) {
+      writeJson(request, response, 400, {
+        error: 'Expense proof date is invalid.'
       });
       return;
     }
