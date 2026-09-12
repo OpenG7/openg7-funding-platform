@@ -19,6 +19,11 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 interface ExpenseEdit {
   readonly projectName: string;
   readonly publicDescription: string;
+  readonly expectedOutcome: string;
+  readonly progressStatus: 'planned' | 'in_progress' | 'delivered';
+  readonly proofUrl: string;
+  readonly proofSource: string;
+  readonly proofPublishedAt: string;
   readonly amountAllocated: string;
   readonly status: AdminExpenseStatus;
   readonly publishedAt: string;
@@ -138,6 +143,23 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
                   (input)="setNewDescription($event)"
                 ></textarea>
               </label>
+              <label class="span-3">
+                Resultat attendu
+                <textarea
+                  rows="2"
+                  maxlength="1000"
+                  [value]="newExpectedOutcome()"
+                  (input)="setNewExpectedOutcome($event)"
+                ></textarea>
+              </label>
+              <label>
+                Avancement
+                <select [value]="newProgressStatus()" (change)="setNewProgressStatus($event)">
+                  <option value="planned">Prevu</option>
+                  <option value="in_progress">En cours</option>
+                  <option value="delivered">Livre</option>
+                </select>
+              </label>
             </div>
 
             <footer>
@@ -226,6 +248,51 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
                     [value]="editFor(expense.id).publicDescription"
                     (input)="setEditField(expense.id, 'publicDescription', $event)"
                   ></textarea>
+                </label>
+                <label class="span-3">
+                  Resultat attendu
+                  <textarea
+                    rows="2"
+                    maxlength="1000"
+                    [value]="editFor(expense.id).expectedOutcome"
+                    (input)="setEditField(expense.id, 'expectedOutcome', $event)"
+                  ></textarea>
+                </label>
+                <label>
+                  Avancement
+                  <select
+                    [value]="editFor(expense.id).progressStatus"
+                    (change)="setEditField(expense.id, 'progressStatus', $event)"
+                  >
+                    <option value="planned">Prevu</option>
+                    <option value="in_progress">En cours</option>
+                    <option value="delivered">Livre</option>
+                  </select>
+                </label>
+                <label>
+                  Preuve publique
+                  <input
+                    type="url"
+                    [value]="editFor(expense.id).proofUrl"
+                    (input)="setEditField(expense.id, 'proofUrl', $event)"
+                  />
+                </label>
+                <label>
+                  Source de la preuve
+                  <input
+                    type="text"
+                    maxlength="500"
+                    [value]="editFor(expense.id).proofSource"
+                    (input)="setEditField(expense.id, 'proofSource', $event)"
+                  />
+                </label>
+                <label>
+                  Date de la preuve
+                  <input
+                    type="datetime-local"
+                    [value]="editFor(expense.id).proofPublishedAt"
+                    (input)="setEditField(expense.id, 'proofPublishedAt', $event)"
+                  />
                 </label>
               </div>
 
@@ -470,8 +537,10 @@ export class AdminExpensesPageComponent implements OnInit {
   readonly statusFilter = signal<'all' | AdminExpenseStatus>('all');
   readonly newProjectName = signal<string>('');
   readonly newDescription = signal<string>('');
+  readonly newExpectedOutcome = signal<string>('');
   readonly newAmount = signal<string>('');
   readonly newStatus = signal<AdminExpenseStatus>('draft');
+  readonly newProgressStatus = signal<'planned' | 'in_progress' | 'delivered'>('planned');
 
   readonly expenses = computed(() => this.response()?.expenses ?? []);
   readonly filteredExpenses = computed(() => {
@@ -482,6 +551,8 @@ export class AdminExpensesPageComponent implements OnInit {
       const searchable = [
         expense.project_name,
         expense.public_description,
+        expense.expected_outcome,
+        expense.progress_status,
         expense.status
       ]
         .join(' ')
@@ -522,6 +593,7 @@ export class AdminExpensesPageComponent implements OnInit {
     if (
       !this.newProjectName().trim() ||
       !this.newDescription().trim() ||
+      !this.newExpectedOutcome().trim() ||
       !Number.isFinite(amount) ||
       amount <= 0
     ) {
@@ -533,14 +605,18 @@ export class AdminExpensesPageComponent implements OnInit {
       await this.admin.createExpense(this.adminToken(), {
         projectName: this.newProjectName().trim(),
         publicDescription: this.newDescription().trim(),
+        expectedOutcome: this.newExpectedOutcome().trim(),
+        progressStatus: this.newProgressStatus(),
         amountAllocated: amount,
         currency: 'CAD',
         status: this.newStatus()
       });
       this.newProjectName.set('');
       this.newDescription.set('');
+      this.newExpectedOutcome.set('');
       this.newAmount.set('');
       this.newStatus.set('draft');
+      this.newProgressStatus.set('planned');
       await this.loadExpenses();
     } catch {
       this.state.set('error');
@@ -564,6 +640,13 @@ export class AdminExpensesPageComponent implements OnInit {
         expenseId: expense.id,
         projectName: edit.projectName,
         publicDescription: edit.publicDescription,
+        expectedOutcome: edit.expectedOutcome,
+        progressStatus: edit.progressStatus,
+        proofUrl: edit.proofUrl.trim() || null,
+        proofSource: edit.proofSource.trim() || null,
+        proofPublishedAt: edit.proofPublishedAt
+          ? new Date(edit.proofPublishedAt).toISOString()
+          : null,
         amountAllocated: amount,
         currency: 'CAD',
         status: forcedStatus ?? edit.status,
@@ -601,6 +684,17 @@ export class AdminExpensesPageComponent implements OnInit {
 
   setNewDescription(event: Event): void {
     this.newDescription.set(this.valueFromEvent(event));
+  }
+
+  setNewExpectedOutcome(event: Event): void {
+    this.newExpectedOutcome.set(this.valueFromEvent(event));
+  }
+
+  setNewProgressStatus(event: Event): void {
+    const value = this.valueFromEvent(event);
+    this.newProgressStatus.set(
+      value === 'in_progress' || value === 'delivered' ? value : 'planned'
+    );
   }
 
   setNewAmount(event: Event): void {
@@ -666,6 +760,11 @@ export class AdminExpensesPageComponent implements OnInit {
     return {
       projectName: expense.project_name,
       publicDescription: expense.public_description,
+      expectedOutcome: expense.expected_outcome,
+      progressStatus: expense.progress_status,
+      proofUrl: expense.proof_url ?? '',
+      proofSource: expense.proof_source ?? '',
+      proofPublishedAt: this.toDateTimeLocal(expense.proof_published_at),
       amountAllocated: String(expense.amount_allocated),
       status: expense.status,
       publishedAt: this.toDateTimeLocal(expense.published_at)
@@ -676,6 +775,11 @@ export class AdminExpensesPageComponent implements OnInit {
     return {
       projectName: '',
       publicDescription: '',
+      expectedOutcome: '',
+      progressStatus: 'planned',
+      proofUrl: '',
+      proofSource: '',
+      proofPublishedAt: '',
       amountAllocated: '',
       status: 'draft',
       publishedAt: ''

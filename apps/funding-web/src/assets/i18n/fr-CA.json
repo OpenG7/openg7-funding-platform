@@ -1165,7 +1165,13 @@
       "expenses": {
         "title": "Dépenses réellement publiées",
         "empty": "Aucune dépense publiée. Les contributions et frais sont actuellement synchronisés depuis Stripe.",
-        "info": "Le registre automatisé des dépenses opérationnelles sera enrichi dans une prochaine phase."
+        "info": "Le registre automatisé des dépenses opérationnelles sera enrichi dans une prochaine phase.",
+        "proof": "Voir la preuve publique",
+        "progress": {
+          "planned": "Prévu",
+          "inProgress": "En cours",
+          "delivered": "Livré"
+        }
       },
       "platforms": {
         "title": "Plateformes soutenues par le fonds",

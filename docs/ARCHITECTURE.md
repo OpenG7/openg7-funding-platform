@@ -488,10 +488,17 @@ It may expose approved aggregates and records such as:
 - net funding;
 - refunds and credit adjustments;
 - approved expenses;
+- public achievement outcomes, progress states, and dated proof links attached to approved expenses;
 - public sponsor recognition;
 - update timestamps and methodology notes.
 
 It must not expose private email addresses, internal notes, Stripe secrets, unpublished sponsor profiles, raw webhook payloads, or unnecessary personal identifiers.
+
+Achievement tracking is separate from financial and publication state. An allocation's
+`status` controls whether it is visible in the public projection, while
+`progress_status` describes whether the funded outcome is planned, in progress, or
+delivered. A proof URL, source, and publication date are optional public evidence and
+must not contain private notes or credentials.
 
 ## Observability and Auditability
 
@@ -1107,10 +1114,17 @@ Elle peut exposer des agrégats et enregistrements approuvés comme :
 - financement net;
 - remboursements et ajustements de crédit;
 - dépenses approuvées;
+- résultats publics, états d'avancement et preuves datées liés aux dépenses approuvées;
 - reconnaissance publique des commanditaires;
 - date de mise à jour et notes méthodologiques.
 
 Elle ne doit jamais exposer les courriels privés, notes internes, secrets Stripe, profils non publiés, payloads webhook bruts ou identifiants personnels inutiles.
+
+Le suivi des réalisations est distinct de l'état financier et de la publication. Le
+champ `status` d'une allocation contrôle sa visibilité publique; `progress_status`
+indique si le résultat est prévu, en cours ou livré. L'URL, la source et la date de
+preuve sont facultatives et publiques; elles ne doivent jamais contenir de notes
+privées ni d'identifiants secrets.
 
 ## Observabilité et auditabilité
 

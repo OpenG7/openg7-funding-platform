@@ -87,6 +87,11 @@ interface AdjustmentMonthlyRow {
 interface AllocationRow {
   readonly project_name: string;
   readonly public_description: string;
+  readonly expected_outcome: string;
+  readonly progress_status: 'planned' | 'in_progress' | 'delivered';
+  readonly proof_url: string | null;
+  readonly proof_source: string | null;
+  readonly proof_published_at: string | null;
   readonly amount_allocated: string;
   readonly currency: string;
   readonly status: string;
@@ -277,6 +282,11 @@ const getLatestPublicAllocations = async (
     SELECT
       project_name,
       public_description,
+      expected_outcome,
+      progress_status,
+      proof_url,
+      proof_source,
+      proof_published_at::text AS proof_published_at,
       amount_allocated::text AS amount_allocated,
       currency,
       status,
@@ -290,6 +300,11 @@ const getLatestPublicAllocations = async (
   return allocationQuery.rows.map((row) => ({
     project_name: row.project_name,
     public_description: row.public_description,
+    expected_outcome: row.expected_outcome,
+    progress_status: row.progress_status,
+    proof_url: row.proof_url,
+    proof_source: row.proof_source,
+    proof_published_at: row.proof_published_at,
     amount_allocated: centsToAmount(parseDbInt(row.amount_allocated)),
     currency: row.currency.toUpperCase(),
     status: row.status,
