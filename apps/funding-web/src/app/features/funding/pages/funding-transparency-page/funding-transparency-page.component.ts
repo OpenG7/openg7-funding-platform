@@ -407,7 +407,15 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
           <div class="mini-table">
             <div *ngFor="let allocation of publicAllocations()">
               <span>{{ allocation.published_at | date: 'MMM y' }}</span>
-              <strong>{{ allocation.project_name }}</strong>
+              <div>
+                <strong>{{ allocation.project_name }}</strong>
+                <p
+                  class="allocation-description"
+                  *ngIf="allocation.public_description"
+                >
+                  {{ allocation.public_description }}
+                </p>
+              </div>
               <em>{{
                 allocation.amount_allocated
                   | currency: allocation.currency : 'symbol' : '1.2-2'
@@ -1158,6 +1166,13 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       color: #cfdceb;
       font-size: 0.78rem;
       font-style: normal;
+    }
+
+    .mini-table .allocation-description {
+      color: #9fb4c8;
+      font-size: 0.74rem;
+      line-height: 1.3;
+      margin: 0.18rem 0 0;
     }
 
     .info-box {

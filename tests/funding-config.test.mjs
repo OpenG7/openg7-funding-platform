@@ -461,6 +461,20 @@ test('Public transparency can read aggregate data from fund contributions', () =
   assert.equal(/SELECT[\s\S]*email_private/.test(source), false);
 });
 
+test('Public transparency preserves allocation descriptions for the web page', () => {
+  const apiSource = fs.readFileSync(
+    'apps/funding-api/src/fund-transparency.repository.ts',
+    'utf8'
+  );
+  const pageSource = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/funding-transparency-page/funding-transparency-page.component.ts',
+    'utf8'
+  );
+
+  assert.ok(apiSource.includes('public_description'));
+  assert.ok(pageSource.includes('allocation.public_description'));
+});
+
 test('Public builders are exposed only through consented public fields', () => {
   const source = fs.readFileSync(
     'apps/funding-api/src/fund-transparency.repository.ts',

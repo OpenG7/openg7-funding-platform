@@ -62,7 +62,10 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
 
       <section
         class="checkout-success-stage"
-        *ngIf="checkoutStatus() === 'success' && !showSponsorFollowUp()"
+        *ngIf="
+          (checkoutStatus() === 'pending' || checkoutStatus() === 'confirmed') &&
+          !showSponsorFollowUp()
+        "
         aria-labelledby="checkout-success-title"
       >
         <img
@@ -81,12 +84,24 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
         </button>
         <article class="checkout-success-card">
           <span class="section-kicker">{{
-            'funding.home.checkout.successKicker' | translate
+            (checkoutStatus() === 'confirmed'
+              ? 'funding.home.checkout.successKicker'
+              : 'funding.home.checkout.pendingKicker') | translate
           }}</span>
           <h2 id="checkout-success-title">
-            {{ 'funding.home.checkout.successTitle' | translate }}
+            {{
+              (checkoutStatus() === 'confirmed'
+                ? 'funding.home.checkout.successTitle'
+                : 'funding.home.checkout.pendingTitle') | translate
+            }}
           </h2>
-          <p>{{ 'funding.home.checkout.successCopy' | translate }}</p>
+          <p>
+            {{
+              (checkoutStatus() === 'confirmed'
+                ? 'funding.home.checkout.successCopy'
+                : 'funding.home.checkout.pendingCopy') | translate
+            }}
+          </p>
           <div class="checkout-success-actions">
             <a [routerLink]="transparencyPath()">{{
               'funding.home.actions.viewTransparency' | translate
@@ -863,6 +878,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   private readonly seo = inject(FundingSeoService);
   private readonly transparencyService = inject(FundTransparencyService);
   private transparencyRefreshId: number | null = null;
+  private checkoutStatusRefreshId: number | null = null;
   private readonly emptySnapshot: FundingSnapshot = {
     totals: {
       confirmedContributions: 0,
@@ -910,7 +926,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     'idle'
   );
   readonly checkoutResultMode = signal<'mocked' | null>(null);
-  readonly checkoutStatus = signal<'idle' | 'success' | 'cancel'>('idle');
+  readonly checkoutStatus = signal<
+    'idle' | 'pending' | 'confirmed' | 'cancel'
+  >('idle');
   readonly pendingSponsorFollowupToken = signal<string | null>(null);
   readonly transparencyState = signal<'loading' | 'synced' | 'empty' | 'error'>(
     'loading'
@@ -1109,7 +1127,8 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   readonly showSponsorFollowUp = computed<boolean>(
     () =>
-      this.checkoutStatus() === 'success' &&
+      (this.checkoutStatus() === 'pending' ||
+        this.checkoutStatus() === 'confirmed') &&
       this.pendingSponsorFollowupToken() !== null
   );
 
@@ -1256,8 +1275,11 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get('checkout');
-    if (checkout === 'success' || checkout === 'cancel') {
-      this.checkoutStatus.set(checkout);
+    if (checkout === 'cancel') {
+      this.checkoutStatus.set('cancel');
+    } else if (checkout === 'success') {
+      this.checkoutStatus.set('pending');
+      void this.resolveCheckoutStatus(params.get('reference'));
     }
 
     if (checkout === 'success') {
@@ -1313,6 +1335,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     if (this.transparencyRefreshId) {
       clearInterval(this.transparencyRefreshId);
     }
+    if (this.checkoutStatusRefreshId) {
+      clearInterval(this.checkoutStatusRefreshId);
+    }
   }
 
   async loadPublicTransparency(
@@ -1354,7 +1379,49 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     url.searchParams.delete('contributionType');
     url.searchParams.delete('followup_token');
     url.searchParams.delete('session_id');
+    url.searchParams.delete('reference');
     window.history.replaceState({}, '', url);
+  }
+
+  private async resolveCheckoutStatus(
+    publicReference: string | null
+  ): Promise<void> {
+    if (!publicReference) {
+      return;
+    }
+
+    try {
+      const result = await this.fundingService.lookupPublicReference({
+        reference: publicReference
+      });
+      if (result.found && result.paymentStatus === 'paid') {
+        this.checkoutStatus.set('confirmed');
+        if (this.checkoutStatusRefreshId) {
+          clearInterval(this.checkoutStatusRefreshId);
+          this.checkoutStatusRefreshId = null;
+        }
+      } else {
+        this.startCheckoutStatusRefresh(publicReference);
+      }
+    } catch {
+      this.startCheckoutStatusRefresh(publicReference);
+    }
+  }
+
+  private startCheckoutStatusRefresh(publicReference: string): void {
+    if (typeof window === 'undefined' || this.checkoutStatusRefreshId) {
+      return;
+    }
+
+    this.checkoutStatusRefreshId = window.setInterval(() => {
+      if (this.checkoutStatus() !== 'pending') {
+        clearInterval(this.checkoutStatusRefreshId as number);
+        this.checkoutStatusRefreshId = null;
+        return;
+      }
+
+      void this.resolveCheckoutStatus(publicReference);
+    }, 5000);
   }
 
   setContributionAmount(amount: number): void {
