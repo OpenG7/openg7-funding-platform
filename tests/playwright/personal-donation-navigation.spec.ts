@@ -35,14 +35,14 @@ test.describe('Docker personal donation navigation', () => {
     ).toBeVisible();
   });
 
-  test('arrives at the personal contribution success state without a sponsor follow-up token', async ({
+  test('arrives at the personal contribution pending state without a sponsor follow-up token', async ({
     page
   }) => {
     await page.goto('/fonds-des-batisseurs?checkout=success');
 
     await expect(
       page.getByRole('heading', {
-        name: /Le coffre des B.tisseurs vient de recevoir votre contribution/i
+        name: /Votre paiement est en cours de confirmation/i
       })
     ).toBeVisible();
 
@@ -52,5 +52,40 @@ test.describe('Docker personal donation navigation', () => {
     await expect(
       page.getByRole('link', { name: /Compl.ter le suivi commanditaire/i })
     ).toHaveCount(0);
+  });
+
+  test('shows confirmation only after the server reports a paid reference', async ({
+    page
+  }) => {
+    await page.route('**/reference-lookup', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          found: true,
+          publicReference: 'OG7-2026-PAID1',
+          contributionType: 'personal_support',
+          paymentStatus: 'paid',
+          amount: 25,
+          displayAmount: false,
+          currency: 'CAD',
+          paidAt: '2026-09-11T00:00:00.000Z',
+          createdAt: '2026-09-11T00:00:00.000Z',
+          reviewStatus: null,
+          detailsSubmitted: null,
+          nextStep: 'none'
+        })
+      })
+    );
+
+    await page.goto(
+      '/fonds-des-batisseurs?checkout=success&reference=OG7-2026-PAID1'
+    );
+
+    await expect(
+      page.getByRole('heading', {
+        name: /Le coffre des B.tisseurs vient de recevoir votre contribution/i
+      })
+    ).toBeVisible();
   });
 });

@@ -1127,6 +1127,15 @@ const createReferenceRecoveryIdempotencyKey = (email: string): string => {
 const buildContributionReceiptDescription = (publicReference: string): string =>
   `Reference OpenG7: ${publicReference}`;
 
+const buildContributionCheckoutSuccessUrl = (
+  returnUrl: string,
+  publicReference: string
+): string => {
+  const url = new URL(returnUrl, publicBaseOrigin);
+  url.searchParams.set('reference', publicReference);
+  return url.toString();
+};
+
 const buildSponsorshipCheckoutSuccessUrl = (
   returnUrl: string,
   token: string
@@ -3371,13 +3380,13 @@ createServer(async (request, response) => {
       const sponsorshipFollowupTokenHash = sponsorshipFollowupToken
         ? hashSponsorshipFollowupToken(sponsorshipFollowupToken)
         : null;
+      const publicReference = createContributionPublicReference();
       const checkoutSuccessUrl = sponsorshipFollowupToken
         ? buildSponsorshipCheckoutSuccessUrl(
             successUrl,
             sponsorshipFollowupToken
           )
-        : successUrl;
-      const publicReference = createContributionPublicReference();
+        : buildContributionCheckoutSuccessUrl(successUrl, publicReference);
       const publicDisplayName =
         parsed.publicDisplayConsent === true &&
         typeof parsed.publicDisplayName === 'string'
