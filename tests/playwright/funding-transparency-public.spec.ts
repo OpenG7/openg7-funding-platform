@@ -87,6 +87,63 @@ test.describe('Docker funding transparency page', () => {
     expect(download.suggestedFilename()).toBe('openg7-registre-public.csv');
   });
 
+  test('shows the public achievement details and never renders private fields', async ({
+    page
+  }) => {
+    await page.route('**/public/fund-transparency', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data_source: 'database',
+          total_received: 250,
+          total_fees: 8,
+          total_net: 242,
+          total_refunded: 0,
+          total_payouts: 0,
+          current_available_estimate: 242,
+          contributions_count: 4,
+          currency: 'CAD',
+          monthly_summary: [],
+          latest_public_allocations: [
+            {
+              project_name: 'Passerelle de services ouverts',
+              public_description: 'Une interface publique pour relier les services.',
+              expected_outcome: 'Les communautés peuvent suivre les demandes en ligne.',
+              progress_status: 'in_progress',
+              proof_url: 'https://openg7.org/preuve-passerelle',
+              proof_source: 'Démonstration publique',
+              proof_published_at: '2026-09-11T12:00:00.000Z',
+              amount_allocated: 125,
+              currency: 'CAD',
+              status: 'published',
+              published_at: '2026-09-10T12:00:00.000Z'
+            }
+          ],
+          public_builders: [],
+          last_updated_at: '2026-09-11T12:00:00.000Z'
+        })
+      })
+    );
+
+    await page.goto('/fonds-des-batisseurs/transparence');
+
+    await expect(page.getByText('Passerelle de services ouverts')).toBeVisible();
+    await expect(
+      page.getByText('Une interface publique pour relier les services.')
+    ).toBeVisible();
+    await expect(
+      page.getByText('Les communautés peuvent suivre les demandes en ligne.')
+    ).toBeVisible();
+    await expect(page.getByText('En cours', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /Démonstration publique/i })
+    ).toHaveAttribute('href', 'https://openg7.org/preuve-passerelle');
+    await expect(page.locator('body')).not.toContainText(
+      /email_private|stripe_payment_intent_id|notes? admin/i
+    );
+  });
+
   test('requires non-charity consent, then completes the mocked personal-contribution checkout', async ({
     page
   }) => {
