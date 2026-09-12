@@ -475,6 +475,16 @@ test('Public transparency preserves allocation descriptions for the web page', (
   assert.ok(pageSource.includes('allocation.public_description'));
 });
 
+test('Public achievements exclude unpublished allocation states', () => {
+  const source = fs.readFileSync(
+    'apps/funding-api/src/fund-transparency.repository.ts',
+    'utf8'
+  );
+
+  assert.ok(source.includes("WHERE status IN ('published', 'active')"));
+  assert.ok(source.includes('LIMIT 8'));
+});
+
 test('Fund allocation migration adds separate achievement tracking fields', () => {
   const migration = fs.readFileSync(
     'apps/funding-api/migrations/018_add_fund_achievement_tracking.sql',
