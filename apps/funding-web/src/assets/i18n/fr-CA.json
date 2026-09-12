@@ -345,6 +345,10 @@
       },
       "development": {
         "title": "État de développement",
+        "asOf": "Référence au",
+        "source": {
+          "internalRoadmap": "Source : feuille de route produit interne"
+        },
         "status": {
           "done": "Terminé",
           "inProgress": "En cours"

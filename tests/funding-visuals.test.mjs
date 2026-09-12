@@ -50,6 +50,18 @@ test('Funding i18n titles contain hero panel keys in both locales', () => {
   assert.ok(en.funding.map.title);
 });
 
+test('Ecosystem progress indicators include a date and source', () => {
+  const source = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/pages/ecosystem-page/ecosystem-page.component.ts',
+    'utf8'
+  );
+
+  assert.ok(source.includes('readonly asOf: string'));
+  assert.ok(source.includes('readonly sourceKey: string'));
+  assert.ok(source.includes("asOf: '2026-09-11'"));
+  assert.ok(source.includes('internalRoadmap'));
+});
+
 test('Visual-only state is not moved to NgRx funding store', () => {
   const storeSource = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.store.ts',

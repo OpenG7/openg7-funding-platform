@@ -345,6 +345,10 @@
       },
       "development": {
         "title": "Development status",
+        "asOf": "As of",
+        "source": {
+          "internalRoadmap": "Source: internal product roadmap"
+        },
         "status": {
           "done": "Done",
           "inProgress": "In progress"
