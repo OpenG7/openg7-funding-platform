@@ -38,6 +38,8 @@ interface DevelopmentRow {
   readonly labelKey: string;
   readonly progress: number;
   readonly statusKey: string;
+  readonly asOf: string;
+  readonly sourceKey: string;
 }
 
 @Component({
@@ -304,6 +306,11 @@ interface DevelopmentRow {
             <div aria-hidden="true"><i [style.width.%]="row.progress"></i></div>
             <strong>{{ row.progress }}%</strong>
             <em>{{ row.statusKey | translate }}</em>
+            <small>
+              {{ 'funding.ecosystemPage.development.asOf' | translate }}
+              {{ row.asOf | date: 'longDate' }} ·
+              {{ row.sourceKey | translate }}
+            </small>
           </div>
         </article>
 
@@ -1569,27 +1576,37 @@ export class EcosystemPageComponent {
     {
       labelKey: 'funding.ecosystemPage.development.rows.concepts',
       progress: 100,
-      statusKey: 'funding.ecosystemPage.development.status.done'
+      statusKey: 'funding.ecosystemPage.development.status.done',
+      asOf: '2026-09-11',
+      sourceKey: 'funding.ecosystemPage.development.source.internalRoadmap'
     },
     {
       labelKey: 'funding.ecosystemPage.development.rows.prototypes',
       progress: 78,
-      statusKey: 'funding.ecosystemPage.development.status.inProgress'
+      statusKey: 'funding.ecosystemPage.development.status.inProgress',
+      asOf: '2026-09-11',
+      sourceKey: 'funding.ecosystemPage.development.source.internalRoadmap'
     },
     {
       labelKey: 'funding.ecosystemPage.development.rows.visuals',
       progress: 85,
-      statusKey: 'funding.ecosystemPage.development.status.inProgress'
+      statusKey: 'funding.ecosystemPage.development.status.inProgress',
+      asOf: '2026-09-11',
+      sourceKey: 'funding.ecosystemPage.development.source.internalRoadmap'
     },
     {
       labelKey: 'funding.ecosystemPage.development.rows.integrations',
       progress: 56,
-      statusKey: 'funding.ecosystemPage.development.status.inProgress'
+      statusKey: 'funding.ecosystemPage.development.status.inProgress',
+      asOf: '2026-09-11',
+      sourceKey: 'funding.ecosystemPage.development.source.internalRoadmap'
     },
     {
       labelKey: 'funding.ecosystemPage.development.rows.sharedServices',
       progress: 72,
-      statusKey: 'funding.ecosystemPage.development.status.inProgress'
+      statusKey: 'funding.ecosystemPage.development.status.inProgress',
+      asOf: '2026-09-11',
+      sourceKey: 'funding.ecosystemPage.development.source.internalRoadmap'
     }
   ];
 
