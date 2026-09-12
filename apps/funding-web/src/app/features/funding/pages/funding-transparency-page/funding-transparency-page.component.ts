@@ -415,6 +415,37 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
                 >
                   {{ allocation.public_description }}
                 </p>
+                <p
+                  class="allocation-outcome"
+                  *ngIf="allocation.expected_outcome"
+                >
+                  {{ allocation.expected_outcome }}
+                </p>
+                <span class="allocation-progress">
+                  {{
+                    (allocation.progress_status === 'delivered'
+                      ? 'funding.transparencyPage.expenses.progress.delivered'
+                      : allocation.progress_status === 'in_progress'
+                        ? 'funding.transparencyPage.expenses.progress.inProgress'
+                        : 'funding.transparencyPage.expenses.progress.planned')
+                      | translate
+                  }}
+                </span>
+                <a
+                  class="allocation-proof"
+                  *ngIf="allocation.proof_url"
+                  [href]="allocation.proof_url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {{
+                    allocation.proof_source ||
+                      ('funding.transparencyPage.expenses.proof' | translate)
+                  }}
+                  <span *ngIf="allocation.proof_published_at">
+                    ({{ allocation.proof_published_at | date: 'mediumDate' }})
+                  </span>
+                </a>
               </div>
               <em>{{
                 allocation.amount_allocated
@@ -1173,6 +1204,28 @@ const emptyReport = (): FundTransparencyPublicResponse => ({
       font-size: 0.74rem;
       line-height: 1.3;
       margin: 0.18rem 0 0;
+    }
+
+    .mini-table .allocation-outcome {
+      color: #cfe8f8;
+      font-size: 0.74rem;
+      line-height: 1.3;
+      margin: 0.18rem 0 0;
+    }
+
+    .mini-table .allocation-progress {
+      color: #f6bf48;
+      display: block;
+      font-size: 0.7rem;
+      margin-top: 0.2rem;
+    }
+
+    .mini-table .allocation-proof {
+      color: #68eca2;
+      display: block;
+      font-size: 0.7rem;
+      margin-top: 0.2rem;
+      overflow-wrap: anywhere;
     }
 
     .info-box {

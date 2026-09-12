@@ -163,6 +163,11 @@ export interface PublicMonthlySummary {
 export interface PublicFundAllocation {
   readonly project_name: string;
   readonly public_description: string;
+  readonly expected_outcome: string;
+  readonly progress_status: 'planned' | 'in_progress' | 'delivered';
+  readonly proof_url: string | null;
+  readonly proof_source: string | null;
+  readonly proof_published_at: string | null;
   readonly amount_allocated: number;
   readonly currency: string;
   readonly status: string;
@@ -1096,6 +1101,11 @@ export interface AdminExpenseRecord {
   readonly id: string;
   readonly project_name: string;
   readonly public_description: string;
+  readonly expected_outcome: string;
+  readonly progress_status: 'planned' | 'in_progress' | 'delivered';
+  readonly proof_url: string | null;
+  readonly proof_source: string | null;
+  readonly proof_published_at: string | null;
   readonly amount_allocated: number;
   readonly currency: string;
   readonly status: AdminExpenseStatus;
@@ -1125,6 +1135,11 @@ export interface AdminExpensesResponse {
 export interface AdminExpenseCreateRequest {
   readonly projectName: string;
   readonly publicDescription: string;
+  readonly expectedOutcome: string;
+  readonly progressStatus: 'planned' | 'in_progress' | 'delivered';
+  readonly proofUrl?: string | null;
+  readonly proofSource?: string | null;
+  readonly proofPublishedAt?: string | null;
   readonly amountAllocated: number;
   readonly currency: 'CAD';
   readonly status: AdminExpenseStatus;
@@ -1135,6 +1150,11 @@ export interface AdminExpenseUpdateRequest {
   readonly expenseId: string;
   readonly projectName?: string;
   readonly publicDescription?: string;
+  readonly expectedOutcome?: string;
+  readonly progressStatus?: 'planned' | 'in_progress' | 'delivered';
+  readonly proofUrl?: string | null;
+  readonly proofSource?: string | null;
+  readonly proofPublishedAt?: string | null;
   readonly amountAllocated?: number;
   readonly currency?: 'CAD';
   readonly status?: AdminExpenseStatus;

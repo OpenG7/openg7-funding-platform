@@ -1499,6 +1499,17 @@ const isAllowedAdminExpenseStatus = (
     value as NonNullable<AdminExpenseUpdateRequest['status']>
   );
 
+const allowedFundAchievementProgressStatuses = new Set([
+  'planned',
+  'in_progress',
+  'delivered'
+]);
+
+const isAllowedFundAchievementProgressStatus = (
+  value: unknown
+): value is 'planned' | 'in_progress' | 'delivered' =>
+  typeof value === 'string' && allowedFundAchievementProgressStatuses.has(value);
+
 const isValidAdminExpenseId = (value: unknown): value is string =>
   typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value);
 
@@ -5198,6 +5209,43 @@ createServer(async (request, response) => {
     }
 
     if (
+      !isNonEmptySponsorText(parsed.expectedOutcome, ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Expense expected outcome is invalid.'
+      });
+      return;
+    }
+
+    if (!isAllowedFundAchievementProgressStatus(parsed.progressStatus)) {
+      writeJson(request, response, 400, {
+        error: 'Expense progress status is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.proofUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Expense proof URL is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalBoundedText(parsed.proofSource, 500)) {
+      writeJson(request, response, 400, {
+        error: 'Expense proof source is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalIsoDate(parsed.proofPublishedAt)) {
+      writeJson(request, response, 400, {
+        error: 'Expense proof date is invalid.'
+      });
+      return;
+    }
+
+    if (
       !Number.isFinite(parsed.amountAllocated) ||
       parsed.amountAllocated <= 0
     ) {
@@ -5308,6 +5356,49 @@ createServer(async (request, response) => {
     ) {
       writeJson(request, response, 400, {
         error: 'Expense public description is invalid.'
+      });
+      return;
+    }
+
+    if (
+      !isValidOptionalNonEmptyBoundedText(
+        parsed.expectedOutcome,
+        ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH
+      )
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Expense expected outcome is invalid.'
+      });
+      return;
+    }
+
+    if (
+      parsed.progressStatus !== undefined &&
+      !isAllowedFundAchievementProgressStatus(parsed.progressStatus)
+    ) {
+      writeJson(request, response, 400, {
+        error: 'Expense progress status is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalHttpsUrl(parsed.proofUrl)) {
+      writeJson(request, response, 400, {
+        error: 'Expense proof URL is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalBoundedText(parsed.proofSource, 500)) {
+      writeJson(request, response, 400, {
+        error: 'Expense proof source is invalid.'
+      });
+      return;
+    }
+
+    if (!isValidOptionalIsoDate(parsed.proofPublishedAt)) {
+      writeJson(request, response, 400, {
+        error: 'Expense proof date is invalid.'
       });
       return;
     }

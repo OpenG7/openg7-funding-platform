@@ -51,6 +51,19 @@ test.describe('Docker admin expenses', () => {
       .getByLabel('Description publique')
       .fill('E2E Playwright: depense de test automatisee.');
     await createPanel
+      .getByLabel('Resultat attendu')
+      .fill('E2E Playwright: resultat public verifiable.');
+    await createPanel.getByLabel('Avancement').selectOption('in_progress');
+    await createPanel
+      .getByLabel('Preuve publique')
+      .fill('https://openg7.org/e2e-achievement-proof');
+    await createPanel
+      .getByLabel('Source de la preuve')
+      .fill('Compte rendu E2E');
+    await createPanel
+      .getByLabel('Date de la preuve')
+      .fill('2026-09-11T12:00');
+    await createPanel
       .getByRole('button', { name: 'Ajouter', exact: true })
       .click();
 

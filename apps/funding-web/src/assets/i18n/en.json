@@ -1165,7 +1165,13 @@
       "expenses": {
         "title": "Published actual expenses",
         "empty": "No expense has been published yet. Contributions and fees are currently synchronized from Stripe.",
-        "info": "The automated registry of operational expenses will be enriched in a future phase."
+        "info": "The automated registry of operational expenses will be enriched in a future phase.",
+        "proof": "View public proof",
+        "progress": {
+          "planned": "Planned",
+          "inProgress": "In progress",
+          "delivered": "Delivered"
+        }
       },
       "platforms": {
         "title": "Platforms supported by the fund",

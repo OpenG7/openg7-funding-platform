@@ -187,6 +187,11 @@ interface AdminExpenseRow {
   readonly id: string;
   readonly project_name: string;
   readonly public_description: string;
+  readonly expected_outcome: string;
+  readonly progress_status: 'planned' | 'in_progress' | 'delivered';
+  readonly proof_url: string | null;
+  readonly proof_source: string | null;
+  readonly proof_published_at: string | null;
   readonly amount_allocated: string;
   readonly currency: string;
   readonly status: AdminExpenseStatus;
@@ -232,6 +237,11 @@ const mapAdminExpenseRow = (row: AdminExpenseRow): AdminExpenseRecord => ({
   id: row.id,
   project_name: row.project_name,
   public_description: row.public_description,
+  expected_outcome: row.expected_outcome,
+  progress_status: row.progress_status,
+  proof_url: row.proof_url,
+  proof_source: row.proof_source,
+  proof_published_at: row.proof_published_at,
   amount_allocated: centsToAmount(parseDbInt(row.amount_allocated)),
   currency: row.currency.toUpperCase(),
   status: normalizeAdminExpenseStatus(row.status),
@@ -2334,6 +2344,11 @@ const getAdminExpenseById = async (
         id::text AS id,
         project_name,
         public_description,
+        expected_outcome,
+        progress_status,
+        proof_url,
+        proof_source,
+        proof_published_at::text AS proof_published_at,
         amount_allocated::text AS amount_allocated,
         currency,
         status,
@@ -2381,6 +2396,11 @@ export const listAdminExpenses = async (
       id::text AS id,
       project_name,
       public_description,
+      expected_outcome,
+      progress_status,
+      proof_url,
+      proof_source,
+      proof_published_at::text AS proof_published_at,
       amount_allocated::text AS amount_allocated,
       currency,
       status,
@@ -2426,17 +2446,29 @@ export const createAdminExpense = async (
       INSERT INTO fund_allocations (
         project_name,
         public_description,
+        expected_outcome,
+        progress_status,
+        proof_url,
+        proof_source,
+        proof_published_at,
         amount_allocated,
         currency,
         status,
         published_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6::timestamptz)
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz
+      )
       RETURNING id::text AS id
     `,
     [
       input.projectName.trim(),
       input.publicDescription.trim(),
+      input.expectedOutcome.trim(),
+      input.progressStatus,
+      input.proofUrl?.trim() || null,
+      input.proofSource?.trim() || null,
+      input.proofPublishedAt ?? null,
       amountToCents(input.amountAllocated),
       input.currency.toLowerCase(),
       input.status,
@@ -2481,6 +2513,29 @@ export const updateAdminExpense = async (
 
   if (input.publicDescription !== undefined) {
     addAssignment('public_description = ?', input.publicDescription.trim());
+  }
+
+  if (input.expectedOutcome !== undefined) {
+    addAssignment('expected_outcome = ?', input.expectedOutcome.trim());
+  }
+
+  if (input.progressStatus !== undefined) {
+    addAssignment('progress_status = ?', input.progressStatus);
+  }
+
+  if (input.proofUrl !== undefined) {
+    addAssignment('proof_url = ?', input.proofUrl?.trim() || null);
+  }
+
+  if (input.proofSource !== undefined) {
+    addAssignment('proof_source = ?', input.proofSource?.trim() || null);
+  }
+
+  if (input.proofPublishedAt !== undefined) {
+    addAssignment(
+      'proof_published_at = ?::timestamptz',
+      input.proofPublishedAt
+    );
   }
 
   if (input.amountAllocated !== undefined) {

@@ -475,6 +475,33 @@ test('Public transparency preserves allocation descriptions for the web page', (
   assert.ok(pageSource.includes('allocation.public_description'));
 });
 
+test('Fund allocation migration adds separate achievement tracking fields', () => {
+  const migration = fs.readFileSync(
+    'apps/funding-api/migrations/018_add_fund_achievement_tracking.sql',
+    'utf8'
+  );
+
+  for (const column of [
+    'expected_outcome',
+    'progress_status',
+    'proof_url',
+    'proof_source',
+    'proof_published_at'
+  ]) {
+    assert.ok(migration.includes(`ADD COLUMN IF NOT EXISTS ${column}`));
+  }
+  assert.ok(migration.includes("'planned', 'in_progress', 'delivered'"));
+});
+
+test('Achievement proof fields are validated at the admin API boundary', () => {
+  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+
+  assert.ok(source.includes('Expense expected outcome is invalid.'));
+  assert.ok(source.includes('Expense progress status is invalid.'));
+  assert.ok(source.includes('Expense proof URL is invalid.'));
+  assert.ok(source.includes('isValidOptionalHttpsUrl(parsed.proofUrl)'));
+});
+
 test('Public builders are exposed only through consented public fields', () => {
   const source = fs.readFileSync(
     'apps/funding-api/src/fund-transparency.repository.ts',
