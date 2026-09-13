@@ -1148,6 +1148,7 @@ export interface AdminExpenseCreateRequest {
 
 export interface AdminExpenseUpdateRequest {
   readonly expenseId: string;
+  readonly expectedVersion: string;
   readonly projectName?: string;
   readonly publicDescription?: string;
   readonly expectedOutcome?: string;

@@ -510,6 +510,42 @@ test('Achievement proof fields are validated at the admin API boundary', () => {
   assert.ok(source.includes('isValidOptionalHttpsUrl(parsed.proofUrl)'));
 });
 
+test('Achievement mutations audit public outcome and proof fields', () => {
+  const apiSource = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const repositorySource = fs.readFileSync(
+    'apps/funding-api/src/fund-admin.repository.ts',
+    'utf8'
+  );
+
+  for (const action of [
+    'achievement.created',
+    'achievement.published',
+    'achievement.hidden',
+    'achievement.progress_changed',
+    'achievement.proof_changed',
+    'achievement.archived'
+  ]) {
+    assert.ok(apiSource.includes(`'${action}'`));
+  }
+
+  for (const field of [
+    'expectedOutcome',
+    'progressStatus',
+    'proofUrl',
+    'proofSource',
+    'proofPublishedAt'
+  ]) {
+    assert.ok(repositorySource.includes(`${field}: expense.`));
+  }
+  assert.equal(repositorySource.includes('emailPrivate: expense'), false);
+  assert.ok(
+    apiSource.includes('isValidAdminExpectedVersion(parsed.expectedVersion)')
+  );
+  assert.ok(
+    repositorySource.includes('AND updated_at = $${values.length}::timestamptz')
+  );
+});
+
 test('Public builders are exposed only through consented public fields', () => {
   const source = fs.readFileSync(
     'apps/funding-api/src/fund-transparency.repository.ts',
