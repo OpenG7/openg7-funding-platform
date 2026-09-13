@@ -24,6 +24,9 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
+import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
+import { getAdjustmentTotals } from './fund-transparency.repository.js';
+import { resolveRefundedAmountMinor } from './fund-refunds.js';
 import { listPublicSponsorMediaByContributionIds } from './sponsor-media.repository.js';
 
 const allowedContributionTypes = new Set<ContributionType>([
@@ -794,7 +797,11 @@ export const upsertCheckoutSessionFromWebhook = async (
             stripe_checkout_sessions.stripe_payment_intent_id
           ),
           metadata = stripe_checkout_sessions.metadata || EXCLUDED.metadata,
-          status = EXCLUDED.status,
+          status = CASE
+            WHEN stripe_checkout_sessions.status = ANY($8::text[])
+            THEN EXCLUDED.status
+            ELSE stripe_checkout_sessions.status
+          END,
           updated_at = NOW()
       `,
       [
@@ -804,7 +811,8 @@ export const upsertCheckoutSessionFromWebhook = async (
         input.amountCents,
         input.currency.toLowerCase(),
         JSON.stringify(input.metadata),
-        input.status
+        input.status,
+        allowedPreviousPaymentStatuses(input.status)
       ]
     );
 
@@ -852,10 +860,9 @@ export const upsertCheckoutSessionFromWebhook = async (
           display_amount_consent = EXCLUDED.display_amount_consent,
           non_charity_acknowledged = EXCLUDED.non_charity_acknowledged,
           status = CASE
-            WHEN fund_contributions.status = 'paid'
-              AND EXCLUDED.status IN ('pending', 'expired')
-            THEN fund_contributions.status
-            ELSE EXCLUDED.status
+            WHEN fund_contributions.status = ANY($15::text[])
+            THEN EXCLUDED.status
+            ELSE fund_contributions.status
           END,
           paid_at = COALESCE(fund_contributions.paid_at, EXCLUDED.paid_at),
           sponsorship_followup_token_hash = COALESCE(
@@ -882,7 +889,8 @@ export const upsertCheckoutSessionFromWebhook = async (
         input.stripePaymentIntentId,
         input.status,
         input.paidAtIso,
-        input.sponsorshipFollowupTokenHash
+        input.sponsorshipFollowupTokenHash,
+        allowedPreviousPaymentStatuses(input.status)
       ]
     );
 
@@ -915,8 +923,13 @@ export const updateContributionStatusByPaymentIntent = async (
           status = $2,
           updated_at = NOW()
         WHERE stripe_payment_intent_id = $1
+          AND status = ANY($3::text[])
       `,
-      [input.stripePaymentIntentId, input.status]
+      [
+        input.stripePaymentIntentId,
+        input.status,
+        allowedPreviousPaymentStatuses(input.status)
+      ]
     );
 
     const result = await client.query(
@@ -930,8 +943,14 @@ export const updateContributionStatusByPaymentIntent = async (
           END,
           updated_at = NOW()
         WHERE stripe_payment_intent_id = $1
+          AND status = ANY($4::text[])
       `,
-      [input.stripePaymentIntentId, input.status, input.paidAtIso ?? null]
+      [
+        input.stripePaymentIntentId,
+        input.status,
+        input.paidAtIso ?? null,
+        allowedPreviousPaymentStatuses(input.status)
+      ]
     );
 
     await client.query('COMMIT');
@@ -1071,6 +1090,17 @@ const getAdminContributionsSummary = async (
     };
   }
 
+  const adjustments = await getAdjustmentTotals(pool, true);
+  const refundedAmountMinor = resolveRefundedAmountMinor(
+    parseDbInt(adjustments.total_refunded),
+    parseDbInt(row.total_refunded)
+  );
+  const lastUpdatedAt =
+    adjustments.last_updated_at &&
+    new Date(adjustments.last_updated_at) > new Date(row.last_updated_at)
+      ? adjustments.last_updated_at
+      : row.last_updated_at;
+
   return {
     summary: {
       total_count: parseDbInt(row.total_count),
@@ -1079,11 +1109,11 @@ const getAdminContributionsSummary = async (
       sponsorship_count: parseDbInt(row.sponsorship_count),
       public_display_count: parseDbInt(row.public_display_count),
       total_received: centsToAmount(parseDbInt(row.total_received)),
-      total_refunded: centsToAmount(parseDbInt(row.total_refunded)),
+      total_refunded: centsToAmount(refundedAmountMinor),
       total_disputed: centsToAmount(parseDbInt(row.total_disputed)),
       currency: row.currency.toUpperCase()
     },
-    lastUpdatedAt: row.last_updated_at
+    lastUpdatedAt
   };
 };
 

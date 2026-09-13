@@ -2,10 +2,7 @@ import Stripe from 'stripe';
 import type { Pool } from 'pg';
 
 import {
-  insertStripeEventRecord,
   markSponsorshipFollowupEmailResult,
-  markStripeEventFailed,
-  markStripeEventProcessed,
   normalizeContributionType,
   parseMetadataBoolean,
   updateContributionStatusByPaymentIntent,
@@ -21,6 +18,7 @@ import {
   updateContributionFundTransactionBalance
 } from './fund-transparency.repository.js';
 import { createSponsorshipInvoiceForStripeSession } from './sponsorship-invoices.repository.js';
+import { withStripeEventProcessing } from './stripe-events.repository.js';
 
 interface ProcessWebhookDependencies {
   readonly stripe: Stripe;
@@ -186,56 +184,14 @@ const buildCheckoutSessionWebhookInput = (
   };
 };
 
-export const processStripeWebhook = async (
-  rawBody: string,
-  signature: string,
+const processVerifiedStripeEvent = async (
+  event: Stripe.Event,
   dependencies: ProcessWebhookDependencies
 ): Promise<{
   readonly statusCode: number;
   readonly payload: Record<string, unknown>;
 }> => {
-  const { stripe, webhookSecret, pool, publicBaseUrl } = dependencies;
-
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-  } catch {
-    return {
-      statusCode: 400,
-      payload: {
-        error: 'Invalid Stripe webhook signature'
-      }
-    };
-  }
-
-  let eventInserted: boolean;
-  try {
-    eventInserted = await insertStripeEventRecord(pool, {
-      stripeEventId: event.id,
-      eventType: event.type,
-      payload: event
-    });
-  } catch (error) {
-    console.error('Failed to record Stripe webhook event.', error);
-    return {
-      statusCode: 500,
-      payload: {
-        received: false,
-        error: 'Webhook event could not be recorded.'
-      }
-    };
-  }
-
-  if (!eventInserted) {
-    return {
-      statusCode: 200,
-      payload: {
-        received: true,
-        duplicate: true,
-        type: event.type
-      }
-    };
-  }
+  const { stripe, pool, publicBaseUrl } = dependencies;
 
   const acknowledge = async (
     payload: Record<string, unknown>
@@ -243,7 +199,6 @@ export const processStripeWebhook = async (
     readonly statusCode: number;
     readonly payload: Record<string, unknown>;
   }> => {
-    await markStripeEventProcessed(pool, event.id);
     return {
       statusCode: 200,
       payload
@@ -258,315 +213,357 @@ export const processStripeWebhook = async (
     });
   }
 
-  try {
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const status = session.payment_status === 'paid' ? 'paid' : 'pending';
-      const sessionMetadata = session.metadata ?? {};
-      const updated = await upsertCheckoutSessionFromWebhook(
-        pool,
-        buildCheckoutSessionWebhookInput(session, status)
-      );
-      const isSponsorship =
-        normalizeContributionType(sessionMetadata.contributionType) ===
-        'sponsorship_interest';
-      const followupToken = extractSponsorshipFollowupTokenFromSession(session);
-      const followupEmail = session.customer_details?.email;
-      const publicReference = normalizeContributionPublicReference(
-        sessionMetadata.publicReference ?? session.client_reference_id
-      );
-      let followupEmailSent = false;
-      let sponsorshipInvoiceEmailSent = false;
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const status = session.payment_status === 'paid' ? 'paid' : 'pending';
+    const sessionMetadata = session.metadata ?? {};
+    const updated = await upsertCheckoutSessionFromWebhook(
+      pool,
+      buildCheckoutSessionWebhookInput(session, status)
+    );
+    const isSponsorship =
+      normalizeContributionType(sessionMetadata.contributionType) ===
+      'sponsorship_interest';
+    const followupToken = extractSponsorshipFollowupTokenFromSession(session);
+    const followupEmail = session.customer_details?.email;
+    const publicReference = normalizeContributionPublicReference(
+      sessionMetadata.publicReference ?? session.client_reference_id
+    );
+    let followupEmailSent = false;
+    let sponsorshipInvoiceEmailSent = false;
 
-      if (
-        status === 'paid' &&
-        isSponsorship &&
-        pool &&
-        followupToken &&
-        followupEmail
-      ) {
-        const followupUrl = buildSponsorshipFollowupUrl(
-          publicBaseUrl,
-          followupToken
-        );
-        const sendResult = await queueSponsorshipFollowupEmail(pool, {
-          idempotencyKey: `stripe-session:${session.id}:sponsorship-followup`,
+    if (
+      status === 'paid' &&
+      isSponsorship &&
+      pool &&
+      followupToken &&
+      followupEmail
+    ) {
+      const followupUrl = buildSponsorshipFollowupUrl(
+        publicBaseUrl,
+        followupToken
+      );
+      const sendResult = await queueSponsorshipFollowupEmail(pool, {
+        idempotencyKey: `stripe-session:${session.id}:sponsorship-followup`,
+        deferDelivery: true,
+        to: followupEmail,
+        publicReference,
+        followupUrl
+      });
+      followupEmailSent = sendResult.sent;
+
+      await markSponsorshipFollowupEmailResult(pool, {
+        stripeSessionId: session.id,
+        sentAtIso: sendResult.sent ? new Date().toISOString() : undefined,
+        error: sendResult.sent ? null : sendResult.error
+      });
+
+      const invoice = await createSponsorshipInvoiceForStripeSession(pool, {
+        stripeSessionId: session.id,
+        stripePaymentIntentId: resolvePaymentIntentId(session.payment_intent),
+        publicReference,
+        amountCents: session.amount_total ?? 0,
+        currency: session.currency ?? 'cad',
+        paidAtIso: toIsoFromUnix(session.created),
+        customerEmail: followupEmail
+      });
+
+      if (invoice) {
+        const invoiceResult = await queueSponsorshipInvoiceEmail(pool, {
+          idempotencyKey: `stripe-session:${session.id}:sponsorship-invoice`,
+          deferDelivery: true,
           to: followupEmail,
-          publicReference,
+          invoice,
           followupUrl
         });
-        followupEmailSent = sendResult.sent;
-
-        await markSponsorshipFollowupEmailResult(pool, {
-          stripeSessionId: session.id,
-          sentAtIso: sendResult.sent ? new Date().toISOString() : undefined,
-          error: sendResult.sent ? null : sendResult.error
-        });
-
-        const invoice = await createSponsorshipInvoiceForStripeSession(pool, {
-          stripeSessionId: session.id,
-          stripePaymentIntentId: resolvePaymentIntentId(session.payment_intent),
-          publicReference,
-          amountCents: session.amount_total ?? 0,
-          currency: session.currency ?? 'cad',
-          paidAtIso: toIsoFromUnix(session.created),
-          customerEmail: followupEmail
-        });
-
-        if (invoice) {
-          const invoiceResult = await queueSponsorshipInvoiceEmail(pool, {
-            idempotencyKey: `stripe-session:${session.id}:sponsorship-invoice`,
-            to: followupEmail,
-            invoice,
-            followupUrl
-          });
-          sponsorshipInvoiceEmailSent = invoiceResult.sent;
-        }
+        sponsorshipInvoiceEmailSent = invoiceResult.sent;
       }
-
-      return acknowledge({
-        received: true,
-        updated,
-        followupEmailSent,
-        sponsorshipInvoiceEmailSent
-      });
-    }
-
-    if (event.type === 'checkout.session.expired') {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const updated = await upsertCheckoutSessionFromWebhook(
-        pool,
-        buildCheckoutSessionWebhookInput(session, 'expired')
-      );
-
-      return acknowledge({
-        received: true,
-        updated
-      });
-    }
-
-    if (event.type === 'payment_intent.succeeded') {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const statusUpdated = await updateContributionStatusByPaymentIntent(
-        pool,
-        {
-          stripePaymentIntentId: paymentIntent.id,
-          status: 'paid',
-          paidAtIso: toIsoFromUnix(paymentIntent.created)
-        }
-      );
-
-      const chargeId =
-        typeof paymentIntent.latest_charge === 'string'
-          ? paymentIntent.latest_charge
-          : paymentIntent.latest_charge?.id;
-
-      const charge = chargeId
-        ? await stripe.charges.retrieve(chargeId, {
-            expand: ['balance_transaction']
-          })
-        : null;
-
-      const balanceData = buildBalanceData(
-        await resolveBalanceTransaction(stripe, charge?.balance_transaction),
-        paymentIntent.amount_received || paymentIntent.amount,
-        paymentIntent.currency
-      );
-
-      const inserted = await insertFundTransaction(pool, {
-        stripeEventId: event.id,
-        stripeObjectId: paymentIntent.id,
-        stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
-        type: event.type,
-        amount: paymentIntent.amount_received || paymentIntent.amount,
-        fee: balanceData.fee,
-        net: balanceData.net,
-        currency: balanceData.currency,
-        status: paymentIntent.status,
-        createdAtIso: toIsoFromUnix(paymentIntent.created),
-        publicCategory: 'contribution',
-        metadataJson: {
-          source: 'stripe',
-          project:
-            paymentIntent.metadata.project ??
-            paymentIntent.metadata.projectId ??
-            'openg7',
-          eventType: event.type
-        }
-      });
-
-      return acknowledge({
-        received: true,
-        inserted,
-        statusUpdated
-      });
-    }
-
-    if (event.type === 'payment_intent.payment_failed') {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const updated = await updateContributionStatusByPaymentIntent(pool, {
-        stripePaymentIntentId: paymentIntent.id,
-        status: 'failed'
-      });
-
-      return acknowledge({
-        received: true,
-        updated
-      });
-    }
-
-    if (event.type === 'charge.updated') {
-      const charge = event.data.object as Stripe.Charge;
-      const paymentIntentId = resolvePaymentIntentId(charge.payment_intent);
-      const balanceTransaction = await resolveBalanceTransaction(
-        stripe,
-        charge.balance_transaction
-      );
-
-      if (!paymentIntentId || !balanceTransaction) {
-        return acknowledge({
-          received: true,
-          updated: false,
-          hasBalanceTransaction: Boolean(balanceTransaction)
-        });
-      }
-
-      const balanceData = buildBalanceData(
-        balanceTransaction,
-        charge.amount,
-        charge.currency
-      );
-      const updated = await updateContributionFundTransactionBalance(pool, {
-        stripePaymentIntentId: paymentIntentId,
-        stripeBalanceTransactionId: balanceTransaction.id,
-        amount: balanceData.amount,
-        fee: balanceData.fee,
-        net: balanceData.net,
-        currency: balanceData.currency,
-        status: charge.status
-      });
-
-      return acknowledge({
-        received: true,
-        updated
-      });
-    }
-
-    if (event.type === 'charge.refunded') {
-      const charge = event.data.object as Stripe.Charge;
-      const paymentIntentId = resolvePaymentIntentId(charge.payment_intent);
-      const latestRefund = charge.refunds?.data?.[0] ?? null;
-      const refundId = latestRefund?.id ?? null;
-      const refundAmount = latestRefund?.amount ?? charge.amount_refunded;
-      const isFullyRefunded = charge.amount_refunded >= charge.amount;
-      const statusUpdated =
-        paymentIntentId && isFullyRefunded
-          ? await updateContributionStatusByPaymentIntent(pool, {
-              stripePaymentIntentId: paymentIntentId,
-              status: 'refunded'
-            })
-          : false;
-      const refundWorkflowUpdated = paymentIntentId
-        ? await updateSponsorshipRefundWorkflowStatusByPaymentIntent(pool, {
-            stripePaymentIntentId: paymentIntentId,
-            refundStatus: 'completed',
-            refundId,
-            refundAmountCents: refundAmount,
-            refundNote: 'Confirmed by Stripe charge.refunded webhook.'
-          })
-        : false;
-      const balanceData = buildBalanceData(
-        await resolveBalanceTransaction(
-          stripe,
-          latestRefund?.balance_transaction ?? charge.balance_transaction
-        ),
-        refundAmount,
-        charge.currency
-      );
-
-      const inserted = await insertFundTransaction(pool, {
-        stripeEventId: event.id,
-        stripeObjectId: charge.id,
-        stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
-        type: event.type,
-        amount: refundAmount,
-        fee: balanceData.fee,
-        net: balanceData.net,
-        currency: balanceData.currency,
-        status: charge.status,
-        createdAtIso: toIsoFromUnix(charge.created),
-        publicCategory: 'refund',
-        metadataJson: {
-          source: 'stripe',
-          eventType: event.type,
-          refundId,
-          partialRefund: !isFullyRefunded
-        }
-      });
-
-      return acknowledge({
-        received: true,
-        inserted,
-        statusUpdated,
-        refundWorkflowUpdated
-      });
-    }
-
-    if (event.type === 'charge.dispute.created') {
-      const dispute = event.data.object as Stripe.Dispute;
-      const paymentIntentId = resolvePaymentIntentId(dispute.payment_intent);
-      const updated = paymentIntentId
-        ? await updateContributionStatusByPaymentIntent(pool, {
-            stripePaymentIntentId: paymentIntentId,
-            status: 'disputed'
-          })
-        : false;
-
-      return acknowledge({
-        received: true,
-        updated
-      });
-    }
-
-    if (event.type === 'payout.paid' || event.type === 'payout.failed') {
-      const payout = event.data.object as Stripe.Payout;
-      const balanceData = buildBalanceData(
-        await resolveBalanceTransaction(stripe, payout.balance_transaction),
-        payout.amount,
-        payout.currency
-      );
-
-      const inserted = await insertFundTransaction(pool, {
-        stripeEventId: event.id,
-        stripeObjectId: payout.id,
-        stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
-        type: event.type,
-        amount: payout.amount,
-        fee: balanceData.fee,
-        net: balanceData.net,
-        currency: balanceData.currency,
-        status: payout.status,
-        createdAtIso: toIsoFromUnix(payout.created),
-        publicCategory: 'payout',
-        metadataJson: {
-          source: 'stripe',
-          eventType: event.type
-        }
-      });
-
-      return acknowledge({
-        received: true,
-        inserted
-      });
     }
 
     return acknowledge({
       received: true,
-      ignored: true
+      updated,
+      followupEmailSent,
+      sponsorshipInvoiceEmailSent
     });
-  } catch (error) {
-    console.error('Failed to process Stripe webhook event.', error);
-    await markStripeEventFailed(pool, event.id);
+  }
+
+  if (event.type === 'checkout.session.expired') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const updated = await upsertCheckoutSessionFromWebhook(
+      pool,
+      buildCheckoutSessionWebhookInput(session, 'expired')
+    );
+
+    return acknowledge({
+      received: true,
+      updated
+    });
+  }
+
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const statusUpdated = await updateContributionStatusByPaymentIntent(pool, {
+      stripePaymentIntentId: paymentIntent.id,
+      status: 'paid',
+      paidAtIso: toIsoFromUnix(paymentIntent.created)
+    });
+
+    const chargeId =
+      typeof paymentIntent.latest_charge === 'string'
+        ? paymentIntent.latest_charge
+        : paymentIntent.latest_charge?.id;
+
+    const charge = chargeId
+      ? await stripe.charges.retrieve(chargeId, {
+          expand: ['balance_transaction']
+        })
+      : null;
+
+    const balanceData = buildBalanceData(
+      await resolveBalanceTransaction(stripe, charge?.balance_transaction),
+      paymentIntent.amount_received || paymentIntent.amount,
+      paymentIntent.currency
+    );
+
+    const inserted = await insertFundTransaction(pool, {
+      stripeEventId: event.id,
+      stripeObjectId: paymentIntent.id,
+      stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
+      type: event.type,
+      amount: paymentIntent.amount_received || paymentIntent.amount,
+      fee: balanceData.fee,
+      net: balanceData.net,
+      currency: balanceData.currency,
+      status: paymentIntent.status,
+      createdAtIso: toIsoFromUnix(paymentIntent.created),
+      publicCategory: 'contribution',
+      metadataJson: {
+        source: 'stripe',
+        project:
+          paymentIntent.metadata.project ??
+          paymentIntent.metadata.projectId ??
+          'openg7',
+        eventType: event.type
+      }
+    });
+
+    return acknowledge({
+      received: true,
+      inserted,
+      statusUpdated
+    });
+  }
+
+  if (event.type === 'payment_intent.payment_failed') {
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const updated = await updateContributionStatusByPaymentIntent(pool, {
+      stripePaymentIntentId: paymentIntent.id,
+      status: 'failed'
+    });
+
+    return acknowledge({
+      received: true,
+      updated
+    });
+  }
+
+  if (event.type === 'charge.updated') {
+    const charge = event.data.object as Stripe.Charge;
+    const paymentIntentId = resolvePaymentIntentId(charge.payment_intent);
+    const balanceTransaction = await resolveBalanceTransaction(
+      stripe,
+      charge.balance_transaction
+    );
+
+    if (!paymentIntentId || !balanceTransaction) {
+      return acknowledge({
+        received: true,
+        updated: false,
+        hasBalanceTransaction: Boolean(balanceTransaction)
+      });
+    }
+
+    const balanceData = buildBalanceData(
+      balanceTransaction,
+      charge.amount,
+      charge.currency
+    );
+    const updated = await updateContributionFundTransactionBalance(pool, {
+      stripePaymentIntentId: paymentIntentId,
+      stripeBalanceTransactionId: balanceTransaction.id,
+      amount: balanceData.amount,
+      fee: balanceData.fee,
+      net: balanceData.net,
+      currency: balanceData.currency,
+      status: charge.status
+    });
+
+    return acknowledge({
+      received: true,
+      updated
+    });
+  }
+
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object as Stripe.Charge;
+    const paymentIntentId = resolvePaymentIntentId(charge.payment_intent);
+    const latestRefund = charge.refunds?.data?.[0] ?? null;
+    const refundId = latestRefund?.id ?? null;
+    const refundAmount = latestRefund?.amount ?? charge.amount_refunded;
+    const isFullyRefunded = charge.amount_refunded >= charge.amount;
+    const statusUpdated =
+      paymentIntentId && isFullyRefunded
+        ? await updateContributionStatusByPaymentIntent(pool, {
+            stripePaymentIntentId: paymentIntentId,
+            status: 'refunded'
+          })
+        : false;
+    const refundWorkflowUpdated = paymentIntentId
+      ? await updateSponsorshipRefundWorkflowStatusByPaymentIntent(pool, {
+          stripePaymentIntentId: paymentIntentId,
+          refundStatus: 'completed',
+          refundId,
+          refundAmountCents: refundAmount,
+          refundNote: 'Confirmed by Stripe charge.refunded webhook.'
+        })
+      : false;
+    const balanceData = buildBalanceData(
+      await resolveBalanceTransaction(
+        stripe,
+        latestRefund?.balance_transaction ?? charge.balance_transaction
+      ),
+      refundAmount,
+      charge.currency
+    );
+
+    const inserted = await insertFundTransaction(pool, {
+      stripeEventId: event.id,
+      stripeObjectId: charge.id,
+      stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
+      type: event.type,
+      amount: refundAmount,
+      fee: balanceData.fee,
+      net: balanceData.net,
+      currency: balanceData.currency,
+      status: charge.status,
+      createdAtIso: toIsoFromUnix(charge.created),
+      publicCategory: 'refund',
+      metadataJson: {
+        source: 'stripe',
+        eventType: event.type,
+        refundId,
+        partialRefund: !isFullyRefunded
+      }
+    });
+
+    return acknowledge({
+      received: true,
+      inserted,
+      statusUpdated,
+      refundWorkflowUpdated
+    });
+  }
+
+  if (event.type === 'charge.dispute.created') {
+    const dispute = event.data.object as Stripe.Dispute;
+    const paymentIntentId = resolvePaymentIntentId(dispute.payment_intent);
+    const updated = paymentIntentId
+      ? await updateContributionStatusByPaymentIntent(pool, {
+          stripePaymentIntentId: paymentIntentId,
+          status: 'disputed'
+        })
+      : false;
+
+    return acknowledge({
+      received: true,
+      updated
+    });
+  }
+
+  if (event.type === 'payout.paid' || event.type === 'payout.failed') {
+    const payout = event.data.object as Stripe.Payout;
+    const balanceData = buildBalanceData(
+      await resolveBalanceTransaction(stripe, payout.balance_transaction),
+      payout.amount,
+      payout.currency
+    );
+
+    const inserted = await insertFundTransaction(pool, {
+      stripeEventId: event.id,
+      stripeObjectId: payout.id,
+      stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
+      type: event.type,
+      amount: payout.amount,
+      fee: balanceData.fee,
+      net: balanceData.net,
+      currency: balanceData.currency,
+      status: payout.status,
+      createdAtIso: toIsoFromUnix(payout.created),
+      publicCategory: 'payout',
+      metadataJson: {
+        source: 'stripe',
+        eventType: event.type
+      }
+    });
+
+    return acknowledge({
+      received: true,
+      inserted
+    });
+  }
+
+  return acknowledge({
+    received: true,
+    ignored: true
+  });
+};
+
+export const processStripeWebhook = async (
+  rawBody: string,
+  signature: string,
+  dependencies: ProcessWebhookDependencies
+): Promise<{
+  readonly statusCode: number;
+  readonly payload: Record<string, unknown>;
+}> => {
+  const { stripe, webhookSecret, pool } = dependencies;
+  let event: Stripe.Event;
+  try {
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+  } catch {
+    return {
+      statusCode: 400,
+      payload: { error: 'Invalid Stripe webhook signature' }
+    };
+  }
+
+  try {
+    const result = await withStripeEventProcessing(
+      pool,
+      { stripeEventId: event.id, eventType: event.type, payload: event },
+      (eventPool) =>
+        processVerifiedStripeEvent(event, { ...dependencies, pool: eventPool })
+    );
+    if (result.status === 'processed') return result.value;
+    if (result.status === 'busy') {
+      return {
+        statusCode: 503,
+        payload: {
+          received: false,
+          error: 'Webhook event is already processing. Retry this delivery.'
+        }
+      };
+    }
+    return {
+      statusCode: 200,
+      payload: { received: true, duplicate: true, type: event.type }
+    };
+  } catch {
+    console.error('Failed to process Stripe webhook event.', {
+      eventId: event.id,
+      eventType: event.type
+    });
     return {
       statusCode: 500,
       payload: {

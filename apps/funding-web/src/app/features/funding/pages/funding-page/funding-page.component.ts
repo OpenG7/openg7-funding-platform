@@ -132,20 +132,31 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
         >
           ×
         </button>
-        <article class="checkout-success-card sponsor-followup-card">
+        <article class="checkout-success-card sponsor-followup-card" aria-live="polite">
           <span class="section-kicker">{{
-            'funding.home.checkout.sponsorKicker' | translate
+            (checkoutStatus() === 'confirmed'
+              ? 'funding.home.checkout.sponsorKicker'
+              : 'funding.home.checkout.pendingKicker') | translate
           }}</span>
           <h2 id="checkout-sponsor-title">
-            {{ 'funding.home.checkout.sponsorTitle' | translate }}
+            {{
+              (checkoutStatus() === 'confirmed'
+                ? 'funding.home.checkout.sponsorTitle'
+                : 'funding.home.checkout.pendingTitle') | translate
+            }}
           </h2>
-          <p>{{ 'funding.home.checkout.sponsorCopy' | translate }}</p>
+          <p>{{
+            (checkoutStatus() === 'confirmed'
+              ? 'funding.home.checkout.sponsorCopy'
+              : 'funding.home.checkout.sponsorPendingCopy') | translate
+          }}</p>
           <ol class="sponsor-followup-steps">
             <li>
               <span aria-hidden="true">1</span>
               <strong>{{
-                'funding.home.checkout.sponsorStages.paymentReceived'
-                  | translate
+                (checkoutStatus() === 'confirmed'
+                  ? 'funding.home.checkout.sponsorStages.paymentReceived'
+                  : 'funding.home.checkout.sponsorStages.paymentPending') | translate
               }}</strong>
             </li>
             <li>
@@ -241,20 +252,21 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
 
           <article
             class="hero-progress-card"
+            data-og7="home-funding-progress"
             [attr.aria-label]="'funding.home.hero.progressAria' | translate"
           >
             <div>
               <span
-                >{{ formatMoney(snapshot().totals.confirmedContributions) }}
+                >{{ formatPublicMoney(snapshot().totals.confirmedContributions) }}
                 {{ 'funding.home.hero.raisedOn' | translate }}
                 {{ formatMoney(config.monthlyGoal) }}</span
               >
-              <strong>{{ campaignProgress() }}%</strong>
+              <strong>{{ campaignProgressLabel() }}</strong>
             </div>
-            <div class="progress-track" aria-hidden="true">
+            <div class="progress-track" *ngIf="hasTransparencySnapshot()" aria-hidden="true">
               <span [style.width.%]="campaignProgress()"></span>
             </div>
-            <small>{{ transparencyStatusLabel() }}</small>
+            <small role="status">{{ transparencyStatusLabel() }}</small>
             <button type="button" (click)="scrollToSupport()">
               {{ 'funding.nav.supportCta' | translate }}
               <span aria-hidden="true">→</span>
@@ -357,6 +369,7 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
 
         <section
           class="purpose-kpi-grid"
+          data-og7="home-funding-totals"
           [attr.aria-label]="'funding.home.purpose.kpiAria' | translate"
         >
           <article class="purpose-kpi blue">
@@ -364,7 +377,7 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
             <div>
               <h3>{{ 'funding.confirmedContributions' | translate }}</h3>
               <strong>{{
-                formatMoney(snapshot().totals.confirmedContributions)
+                formatPublicMoney(snapshot().totals.confirmedContributions)
               }}</strong>
               <p>{{ contributionCountLabel() }}</p>
             </div>
@@ -374,7 +387,7 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
             <div>
               <h3>{{ 'funding.home.purpose.paymentFees' | translate }}</h3>
               <strong>{{
-                formatMoney(snapshot().totals.transactionFees)
+                formatPublicMoney(snapshot().totals.transactionFees)
               }}</strong>
               <p>
                 {{ 'funding.home.purpose.deductedBeforeAvailable' | translate }}
@@ -386,7 +399,7 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
             <div>
               <h3>{{ 'funding.home.purpose.netAvailable' | translate }}</h3>
               <strong>{{
-                formatMoney(snapshot().totals.availableFunds)
+                formatPublicMoney(snapshot().totals.availableFunds)
               }}</strong>
               <p>
                 {{ 'funding.home.purpose.availableForProjects' | translate }}
@@ -399,12 +412,17 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
               <h3>{{ 'funding.goal.monthly' | translate }}</h3>
               <strong>{{ formatMoney(config.monthlyGoal) }}</strong>
               <p>
-                {{ campaignProgress() }} %
-                {{ 'funding.home.purpose.reached' | translate }}
+                {{ campaignProgressLabel() }}
+                <ng-container *ngIf="hasTransparencySnapshot()">{{
+                  'funding.home.purpose.reached' | translate
+                }}</ng-container>
               </p>
             </div>
           </article>
         </section>
+        <p role="status" *ngIf="transparencyState() === 'error'">
+          {{ transparencyStatusLabel() }}
+        </p>
 
         <article
           class="purpose-campaign-card"
@@ -416,14 +434,16 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
             <span>{{
               'funding.home.purpose.campaignProgress' | translate
             }}</span>
-            <strong>{{ campaignProgress() }} %</strong>
+            <strong>{{ campaignProgressLabel() }}</strong>
           </header>
-          <div class="purpose-track" aria-hidden="true">
+          <div class="purpose-track" *ngIf="hasTransparencySnapshot()" aria-hidden="true">
             <span [style.width.%]="campaignProgress()"></span>
           </div>
           <p>
-            {{ formatMoney(remainingForMonthlyGoal()) }}
-            {{ 'funding.home.purpose.remainingForGoal' | translate }}
+            {{ formatPublicMoney(remainingForMonthlyGoal()) }}
+            <ng-container *ngIf="hasTransparencySnapshot()">{{
+              'funding.home.purpose.remainingForGoal' | translate
+            }}</ng-container>
           </p>
         </article>
 
@@ -487,9 +507,12 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
             ></div>
             <p
               class="purpose-empty-state"
-              *ngIf="snapshot().allocation.length === 0"
+              *ngIf="hasTransparencySnapshot() && snapshot().allocation.length === 0"
             >
               {{ 'funding.home.allocation.empty' | translate }}
+            </p>
+            <p class="purpose-empty-state" *ngIf="!hasTransparencySnapshot()">
+              {{ publicValueUnavailableLabel() }}
             </p>
             <ul>
               <li
@@ -830,24 +853,27 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
               </p>
             </section>
 
-            <section class="finance-panel">
+            <section class="finance-panel" data-og7="home-finance-summary">
               <h3>{{ 'funding.home.finance.title' | translate }}</h3>
               <dl>
                 <div>
                   <dt>{{ 'funding.confirmedContributions' | translate }}</dt>
                   <dd>
-                    {{ formatMoney(snapshot().totals.confirmedContributions) }}
+                    {{ formatPublicMoney(snapshot().totals.confirmedContributions) }}
                   </dd>
                 </div>
                 <div>
                   <dt>{{ 'funding.home.finance.stripeFees' | translate }}</dt>
-                  <dd>{{ formatMoney(snapshot().totals.transactionFees) }}</dd>
+                  <dd>{{ formatPublicMoney(snapshot().totals.transactionFees) }}</dd>
                 </div>
                 <div>
                   <dt>{{ 'funding.home.purpose.netAvailable' | translate }}</dt>
-                  <dd>{{ formatMoney(snapshot().totals.availableFunds) }}</dd>
+                  <dd>{{ formatPublicMoney(snapshot().totals.availableFunds) }}</dd>
                 </div>
               </dl>
+              <p role="status" *ngIf="transparencyState() === 'error'">
+                {{ transparencyStatusLabel() }}
+              </p>
               <a [routerLink]="transparencyPath()">{{
                 'funding.home.finance.publicDetails' | translate
               }}</a>
@@ -913,6 +939,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   );
 
   readonly snapshot = signal<FundingSnapshot>(this.emptySnapshot);
+  readonly hasTransparencySnapshot = signal(false);
   readonly selectedContributionAmount = signal<number>(
     this.config.contributionAmounts[2] ?? this.config.contributionAmounts[0]
   );
@@ -949,6 +976,21 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     return Math.min(100, Math.max(0, Math.round(ratio)));
   });
 
+  readonly publicValueUnavailableLabel = computed<string>(() => {
+    this.i18n.trackTranslationState();
+    return this.i18n.t(
+      this.transparencyState() === 'loading'
+        ? 'funding.home.sync.loading'
+        : 'funding.home.sync.unavailable'
+    );
+  });
+
+  readonly campaignProgressLabel = computed<string>(() =>
+    this.hasTransparencySnapshot()
+      ? `${this.campaignProgress()} %`
+      : this.publicValueUnavailableLabel()
+  );
+
   readonly allocationTotal = computed<number>(() =>
     this.snapshot().allocation.reduce((sum, item) => sum + item.amount, 0)
   );
@@ -968,6 +1010,11 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     }
 
     if (state === 'error') {
+      if (this.hasTransparencySnapshot()) {
+        return this.i18n
+          .t('funding.home.status.stale')
+          .replace('{{ date }}', this.lastTransparencySyncLabel());
+      }
       return this.i18n.t('funding.home.status.unavailable');
     }
 
@@ -981,11 +1028,11 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly lastTransparencySyncLabel = computed<string>(() => {
     this.i18n.trackTranslationState();
     const state = this.transparencyState();
-    if (state === 'loading') {
+    if (state === 'loading' && !this.hasTransparencySnapshot()) {
       return this.i18n.t('funding.home.sync.loading');
     }
 
-    if (state === 'error') {
+    if (state === 'error' && !this.hasTransparencySnapshot()) {
       return this.i18n.t('funding.home.sync.unavailable');
     }
 
@@ -1010,8 +1057,8 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   });
 
   readonly transparencySourceLabel = computed<string>(() =>
-    this.transparencyState() === 'error'
-      ? this.i18n.t('funding.home.status.stripeUnsynced')
+    !this.hasTransparencySnapshot()
+      ? this.publicValueUnavailableLabel()
       : this.transparencySource() === 'database'
         ? this.i18n.t('funding.home.status.databaseRegistry')
         : this.i18n.t('funding.home.status.stripeRegistry')
@@ -1019,6 +1066,9 @@ export class FundingPageComponent implements OnInit, OnDestroy {
 
   readonly contributionCountLabel = computed<string>(() => {
     this.i18n.trackTranslationState();
+    if (!this.hasTransparencySnapshot()) {
+      return this.publicValueUnavailableLabel();
+    }
     const count = this.contributionCount();
     return count === 1
       ? this.i18n.t('funding.home.contributionCount.one')
@@ -1354,15 +1404,11 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       this.currency.set(report.currency || this.config.currency);
       this.lastTransparencySync.set(report.last_updated_at);
       this.transparencySource.set(report.data_source);
+      this.hasTransparencySnapshot.set(true);
       this.transparencyState.set(
         this.hasPublicFinanceData(report) ? 'synced' : 'empty'
       );
     } catch {
-      this.snapshot.set(this.emptySnapshot);
-      this.contributionCount.set(0);
-      this.currency.set(this.config.currency);
-      this.lastTransparencySync.set(null);
-      this.transparencySource.set('empty');
       this.transparencyState.set('error');
     }
   }
@@ -1500,6 +1546,12 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
       maximumFractionDigits: 2
     }).format(amount);
+  }
+
+  formatPublicMoney(amount: number): string {
+    return this.hasTransparencySnapshot()
+      ? this.formatMoney(amount)
+      : this.publicValueUnavailableLabel();
   }
 
   private formatDateOnly(value: string): string {

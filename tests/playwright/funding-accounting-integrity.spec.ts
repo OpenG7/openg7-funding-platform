@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { ADMIN_TOKEN, ACCOUNTING_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
 import { updateStripeBalanceTransaction } from './support/stripe-stub-client.mjs';
@@ -17,14 +16,9 @@ import {
 // this spec's own fixtures -- robust against however much other data the
 // shared local dev database already holds.
 //
-// The formulas asserted here are the ones the code actually computes today
-// (see apps/funding-api/src/fund-transparency.repository.ts): published
-// expenses are never netted out of the available balance, and the admin
-// dashboard's total_refunded (contribution-status based) can disagree with
-// the public page's total_refunded (Stripe-ledger based) after a partial
-// refund. Neither is "fixed" here -- these tests document the real current
-// behavior per the decision to test what exists, not what the equation
-// intuitively should be.
+// Public availability remains net receipts minus refunds: published allocations
+// are not deducted by this projection. Admin and public refund totals must both
+// include the same confirmed partial/full refund ledger entries.
 
 test.describe('Funding accounting integrity', () => {
   test('keeps gross, fees, refunds, net revenue, and available balance mathematically consistent', async ({
@@ -113,13 +107,11 @@ test.describe('Funding accounting integrity', () => {
     );
     expect(allocation).toBeTruthy();
 
-    // Documented asymmetry: a partial refund never flips
-    // fund_contributions.status to 'refunded', so the admin dashboard's
-    // status-based total_refunded stays flat here even though the public
-    // page's ledger-based total_refunded (asserted above) moved.
+    // Partial refunds leave the contribution paid, but still belong in both
+    // admin and public totals.
     const dashboardRefundedDelta =
       dashboardAfter.totals.total_refunded - dashboardBefore.totals.total_refunded;
-    expect(dashboardRefundedDelta).toBeCloseTo(0, 2);
+    expect(dashboardRefundedDelta).toBeCloseTo(refundedDelta, 2);
   });
 
   test('keeps the admin CSV export, public JSON report, and public CSV export consistent with the API totals', async ({

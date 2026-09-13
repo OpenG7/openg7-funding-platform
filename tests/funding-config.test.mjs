@@ -215,9 +215,7 @@ test('Stripe webhook service handles MVP idempotent event set', () => {
     assert.ok(source.includes(eventType));
   }
 
-  assert.ok(source.includes('insertStripeEventRecord'));
-  assert.ok(source.includes('markStripeEventProcessed'));
-  assert.ok(source.includes('markStripeEventFailed'));
+  assert.ok(source.includes('withStripeEventProcessing'));
   assert.ok(
     source.includes('updateSponsorshipRefundWorkflowStatusByPaymentIntent')
   );
