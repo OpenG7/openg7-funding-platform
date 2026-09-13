@@ -577,8 +577,10 @@
         "sponsorKicker": "Commandite en validation",
         "sponsorTitle": "Commandite reçue — visibilité en validation",
         "sponsorCopy": "Paiement reçu. Votre commandite n'est pas publiée: complétez le suivi, puis l'équipe OpenG7 validera les renseignements, le logo et la visibilité.",
+        "sponsorPendingCopy": "Le paiement de votre commandite est en attente de confirmation. Vous pouvez ouvrir le suivi pour consulter son état. La publication reste soumise à la révision et à l'approbation de l'équipe OpenG7.",
         "sponsorStages": {
           "paymentReceived": "Paiement reçu par Stripe",
+          "paymentPending": "Paiement en attente de confirmation",
           "detailsIncomplete": "Renseignements à compléter",
           "manualReview": "Révision manuelle avant publication",
           "publication": "Publication seulement après approbation"
@@ -765,7 +767,8 @@
       },
       "status": {
         "syncing": "Synchronisation Stripe en cours...",
-        "unavailable": "Registre Stripe indisponible pour le moment.",
+        "unavailable": "Registre public indisponible pour le moment.",
+        "stale": "Actualisation impossible. Dernières données connues du {{ date }} ; les montants peuvent avoir changé.",
         "empty": "Aucune contribution Stripe confirmée dans le registre.",
         "synced": "Données du registre synchronisées le",
         "stripeUnsynced": "Stripe non synchronisé",

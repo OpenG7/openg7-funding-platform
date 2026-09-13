@@ -80,6 +80,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "yarn build && node --test tests/**/*.test.mjs",
+    "test:integration:payments": "yarn build && node --test tests/integration/*.integration.mjs",
     "test:e2e": "yarn build && node --test tests/funding-sponsorship-e2e-coverage.test.mjs",
     "test:e2e:seed": "node scripts/e2e-seed.mjs",
     "test:e2e:seed:cleanup": "node scripts/e2e-seed.mjs --cleanup",

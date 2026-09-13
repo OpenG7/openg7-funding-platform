@@ -6,6 +6,8 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
+import { resolveRefundedAmountMinor } from './fund-refunds.js';
+
 interface FundTransactionInsert {
   readonly stripeEventId: string;
   readonly stripeObjectId: string;
@@ -431,7 +433,7 @@ const getTransactionTransparencySummary = async (
   };
 };
 
-const getAdjustmentTotals = async (
+export const getAdjustmentTotals = async (
   pool: Pool,
   hasFundTransactions: boolean
 ): Promise<AdjustmentTotalsRow> => {
@@ -531,10 +533,10 @@ const getContributionTransparencySummary = async (
   const totalFeesCents = parseDbInt(adjustmentTotals.total_fees);
   const transactionRefundedCents = parseDbInt(adjustmentTotals.total_refunded);
   const contributionRefundedCents = parseDbInt(totals.contribution_refunded);
-  const totalRefundedCents =
-    transactionRefundedCents > 0
-      ? transactionRefundedCents
-      : contributionRefundedCents;
+  const totalRefundedCents = resolveRefundedAmountMinor(
+    transactionRefundedCents,
+    contributionRefundedCents
+  );
   const totalPayoutsCents = parseDbInt(adjustmentTotals.total_payouts);
 
   const totalReceived = centsToAmount(totalReceivedCents);
@@ -558,9 +560,10 @@ const getContributionTransparencySummary = async (
     );
     const contributionRefundedForMonth = parseDbInt(row.contribution_refunded);
     const totalRefundedForMonth = centsToAmount(
-      transactionRefundedForMonth > 0
-        ? transactionRefundedForMonth
-        : contributionRefundedForMonth
+      resolveRefundedAmountMinor(
+        transactionRefundedForMonth,
+        contributionRefundedForMonth
+      )
     );
     const totalPayoutsForMonth = centsToAmount(
       parseDbInt(adjustment?.total_payouts ?? '0')

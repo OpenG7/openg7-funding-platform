@@ -38,6 +38,7 @@ interface SponsorshipFollowupEmailInput {
   readonly publicReference: string | null;
   readonly followupUrl: string;
   readonly idempotencyKey?: string;
+  readonly deferDelivery?: boolean;
 }
 
 interface ContributionReferenceRecoveryEmailInput {
@@ -63,6 +64,7 @@ interface SponsorshipInvoiceEmailInput {
   readonly invoice: SponsorshipInvoiceRecord;
   readonly followupUrl?: string;
   readonly idempotencyKey?: string;
+  readonly deferDelivery?: boolean;
 }
 
 interface SponsorshipCreditNoteEmailInput {
@@ -1754,7 +1756,8 @@ export const retryAdminEmailQueueMessage = async (
 
 const queueAndProcessEmail = async (
   pool: Pool | null,
-  input: QueueEmailInput
+  input: QueueEmailInput,
+  deferDelivery = false
 ): Promise<EmailQueueResult> => {
   const deliveryMode: EmailDeliveryMode = loadTransactionalEmailConfig().enabled
     ? 'smtp'
@@ -1779,6 +1782,18 @@ const queueAndProcessEmail = async (
       messageId: queued.messageId,
       attempted: false,
       sent: true,
+      error: null,
+      deliveryMode
+    };
+  }
+
+  if (deferDelivery) {
+    return {
+      queued: queued.queued,
+      duplicate: queued.duplicate,
+      messageId: queued.messageId,
+      attempted: false,
+      sent: false,
       error: null,
       deliveryMode
     };
@@ -1826,7 +1841,7 @@ export const queueSponsorshipFollowupEmail = async (
     ...rendered,
     to: input.to,
     idempotencyKey: input.idempotencyKey
-  });
+  }, input.deferDelivery);
 };
 
 export const queueContributionReferenceRecoveryEmail = async (
@@ -1886,7 +1901,7 @@ export const queueSponsorshipInvoiceEmail = async (
     ...rendered,
     to: input.to,
     idempotencyKey: input.idempotencyKey
-  });
+  }, input.deferDelivery);
 };
 
 export const queueSponsorshipCreditNoteEmail = async (
