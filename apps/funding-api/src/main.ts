@@ -5277,7 +5277,10 @@ createServer(async (request, response) => {
     }
 
     try {
-      const result = await createAdminExpense(dbPool, parsed);
+      const result = await createAdminExpense(dbPool, parsed, {
+        actor: getAdminAuditActor(request),
+        action: 'achievement.created'
+      });
       if (!result.updated || !result.expense) {
         writeJson(request, response, 404, {
           error: 'Expense could not be created or fund_allocations is missing.'
@@ -5285,17 +5288,6 @@ createServer(async (request, response) => {
         return;
       }
 
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'expense.create',
-        entityType: 'expense',
-        entityId: result.expense.id,
-        summary: `Expense created for ${result.expense.project_name}.`,
-        metadata: {
-          amountAllocated: result.expense.amount_allocated,
-          status: result.expense.status
-        }
-      });
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to create admin expense.', error);
@@ -5332,6 +5324,13 @@ createServer(async (request, response) => {
     if (!isValidAdminExpenseId(parsed.expenseId)) {
       writeJson(request, response, 400, {
         error: 'Invalid expense id.'
+      });
+      return;
+    }
+
+    if (!isValidAdminExpectedVersion(parsed.expectedVersion)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid expense version.'
       });
       return;
     }
@@ -5438,7 +5437,24 @@ createServer(async (request, response) => {
     }
 
     try {
-      const result = await updateAdminExpense(dbPool, parsed);
+      const action =
+        parsed.status === 'published' || parsed.status === 'active'
+          ? 'achievement.published'
+          : parsed.status === 'private'
+            ? 'achievement.hidden'
+            : parsed.status === 'archived'
+              ? 'achievement.archived'
+              : parsed.progressStatus !== undefined
+                ? 'achievement.progress_changed'
+                : parsed.proofUrl !== undefined ||
+                    parsed.proofSource !== undefined ||
+                    parsed.proofPublishedAt !== undefined
+                  ? 'achievement.proof_changed'
+                  : 'achievement.updated';
+      const result = await updateAdminExpense(dbPool, parsed, {
+        actor: getAdminAuditActor(request),
+        action
+      });
       if (!result.updated || !result.expense) {
         writeJson(request, response, 404, {
           error: 'Expense was not found.'
@@ -5446,17 +5462,6 @@ createServer(async (request, response) => {
         return;
       }
 
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: parsed.status ? `expense.${parsed.status}` : 'expense.update',
-        entityType: 'expense',
-        entityId: result.expense.id,
-        summary: `Expense updated for ${result.expense.project_name}.`,
-        metadata: {
-          amountAllocated: result.expense.amount_allocated,
-          status: result.expense.status
-        }
-      });
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to update admin expense.', error);

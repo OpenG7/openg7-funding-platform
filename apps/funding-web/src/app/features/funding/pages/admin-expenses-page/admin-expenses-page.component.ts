@@ -674,6 +674,7 @@ export class AdminExpensesPageComponent implements OnInit {
     try {
       await this.admin.updateExpense(this.adminToken(), {
         expenseId: expense.id,
+        expectedVersion: expense.updated_at,
         projectName: edit.projectName,
         publicDescription: edit.publicDescription,
         expectedOutcome: edit.expectedOutcome,

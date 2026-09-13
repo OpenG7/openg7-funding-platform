@@ -9,6 +9,10 @@ import {
   upsertCheckoutSessionFromWebhook
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import {
+  createAdminExpense,
+  updateAdminExpense
+} from '../../dist/apps/funding-api/src/fund-admin.repository.js';
+import {
   getPublicTransparencySummary,
   insertFundTransaction
 } from '../../dist/apps/funding-api/src/fund-transparency.repository.js';
@@ -222,6 +226,66 @@ test('Payment ordering and refund projections on disposable PostgreSQL', async (
         refundTransaction(fixture, 'full_refund', 10_000)
       );
       await assertRefundTotals(pool, 100);
+    }
+  );
+
+  await t.test(
+    'achievement mutations commit with a public audit and reject stale versions',
+    async () => {
+      const created = await createAdminExpense(
+        pool,
+        {
+          projectName: 'Integration achievement audit',
+          publicDescription: 'Public description',
+          expectedOutcome: 'Public outcome',
+          progressStatus: 'planned',
+          proofUrl: 'https://openg7.org/integration-proof',
+          proofSource: 'Integration test',
+          proofPublishedAt: paidAtIso,
+          amountAllocated: 100,
+          currency: 'CAD',
+          status: 'draft'
+        },
+        { actor: 'integration-test', action: 'achievement.created' }
+      );
+      assert.equal(created.updated, true);
+      assert.ok(created.expense);
+
+      const updated = await updateAdminExpense(
+        pool,
+        {
+          expenseId: created.expense.id,
+          expectedVersion: created.expense.updated_at,
+          progressStatus: 'delivered'
+        },
+        { actor: 'integration-test', action: 'achievement.progress_changed' }
+      );
+      assert.equal(updated.updated, true);
+      assert.equal(updated.expense?.progress_status, 'delivered');
+
+      const stale = await updateAdminExpense(
+        pool,
+        {
+          expenseId: created.expense.id,
+          expectedVersion: created.expense.updated_at,
+          progressStatus: 'planned'
+        },
+        { actor: 'integration-test', action: 'achievement.progress_changed' }
+      );
+      assert.equal(stale.updated, false);
+
+      const audit = await pool.query(
+        `SELECT action, actor, metadata
+           FROM admin_audit_log
+          WHERE entity_id = $1
+          ORDER BY created_at ASC`,
+        [created.expense.id]
+      );
+      assert.equal(audit.rowCount, 2);
+      assert.equal(audit.rows[0].action, 'achievement.created');
+      assert.equal(audit.rows[1].action, 'achievement.progress_changed');
+      assert.equal(audit.rows[1].metadata.progressStatus, 'delivered');
+      assert.equal(audit.rows[1].metadata.emailPrivate, undefined);
     }
   );
 });

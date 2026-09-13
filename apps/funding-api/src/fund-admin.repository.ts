@@ -43,7 +43,7 @@ import type {
   SponsorFeedChannel,
   SponsorFeedTarget
 } from '@openg7/funding-core';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 export const allowedPublicationDraftStatuses = new Set<PublicationDraftStatus>([
   'draft',
@@ -212,6 +212,11 @@ interface AdminExpensesSummaryRow {
   readonly last_updated_at: string;
 }
 
+export interface AdminExpenseAuditInput {
+  readonly actor: string;
+  readonly action: string;
+}
+
 export interface AdminAuditLogInput {
   readonly actor: string;
   readonly action: string;
@@ -370,7 +375,7 @@ const mapAuditLogRow = (row: AuditLogRow): AdminAuditLogEntry => ({
 });
 
 const getAdminBackofficePresence = async (
-  pool: Pool
+  pool: Pool | PoolClient
 ): Promise<AdminBackofficePresenceRow> => {
   const query = await pool.query<AdminBackofficePresenceRow>(`
     SELECT
@@ -2335,7 +2340,7 @@ const getAdminExpensesSummary = async (
 };
 
 const getAdminExpenseById = async (
-  pool: Pool,
+  pool: Pool | PoolClient,
   expenseId: string
 ): Promise<AdminExpenseRecord | null> => {
   const query = await pool.query<AdminExpenseRow>(
@@ -2430,7 +2435,8 @@ export const listAdminExpenses = async (
 
 export const createAdminExpense = async (
   pool: Pool | null,
-  input: AdminExpenseCreateRequest
+  input: AdminExpenseCreateRequest,
+  audit: AdminExpenseAuditInput
 ): Promise<AdminExpenseMutationResult> => {
   if (!pool) {
     return { updated: false, expense: null };
@@ -2441,7 +2447,10 @@ export const createAdminExpense = async (
     return { updated: false, expense: null };
   }
 
-  const result = await pool.query<{ readonly id: string }>(
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query<{ readonly id: string }>(
     `
       INSERT INTO fund_allocations (
         project_name,
@@ -2477,18 +2486,48 @@ export const createAdminExpense = async (
           ? new Date().toISOString()
           : null)
     ]
-  );
+    );
 
-  const id = result.rows[0]?.id;
-  return {
-    updated: Boolean(id),
-    expense: id ? await getAdminExpenseById(pool, id) : null
-  };
+    const id = result.rows[0]?.id;
+    const expense = id ? await getAdminExpenseById(client, id) : null;
+    if (!expense) {
+      await client.query('ROLLBACK');
+      return { updated: false, expense: null };
+    }
+
+    const audited = await insertAdminAuditLog(client, {
+      actor: audit.actor,
+      action: audit.action,
+      entityType: 'expense',
+      entityId: expense.id,
+      summary: `Expense created for ${expense.project_name}.`,
+      metadata: {
+        amountAllocated: expense.amount_allocated,
+        status: expense.status,
+        expectedOutcome: expense.expected_outcome,
+        progressStatus: expense.progress_status,
+        proofUrl: expense.proof_url,
+        proofSource: expense.proof_source,
+        proofPublishedAt: expense.proof_published_at
+      }
+    });
+    if (!audited) {
+      throw new Error('Achievement audit could not be recorded.');
+    }
+    await client.query('COMMIT');
+    return { updated: true, expense };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const updateAdminExpense = async (
   pool: Pool | null,
-  input: AdminExpenseUpdateRequest
+  input: AdminExpenseUpdateRequest,
+  audit: AdminExpenseAuditInput
 ): Promise<AdminExpenseMutationResult> => {
   if (!pool) {
     return { updated: false, expense: null };
@@ -2567,24 +2606,61 @@ export const updateAdminExpense = async (
     };
   }
 
-  assignments.push('updated_at = NOW()');
-  const result = await pool.query(
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    values.push(input.expectedVersion);
+    assignments.push('updated_at = NOW()');
+    const result = await client.query(
     `
       UPDATE fund_allocations
       SET ${assignments.join(', ')}
       WHERE id = $1::bigint
+        AND updated_at = $${values.length}::timestamptz
     `,
     values
-  );
+    );
 
-  return {
-    updated: (result.rowCount ?? 0) > 0,
-    expense: await getAdminExpenseById(pool, input.expenseId)
-  };
+    if ((result.rowCount ?? 0) === 0) {
+      await client.query('ROLLBACK');
+      return { updated: false, expense: null };
+    }
+
+    const expense = await getAdminExpenseById(client, input.expenseId);
+    if (!expense) {
+      throw new Error('Updated achievement could not be loaded.');
+    }
+    const audited = await insertAdminAuditLog(client, {
+      actor: audit.actor,
+      action: audit.action,
+      entityType: 'expense',
+      entityId: expense.id,
+      summary: `Expense updated for ${expense.project_name}.`,
+      metadata: {
+        amountAllocated: expense.amount_allocated,
+        status: expense.status,
+        expectedOutcome: expense.expected_outcome,
+        progressStatus: expense.progress_status,
+        proofUrl: expense.proof_url,
+        proofSource: expense.proof_source,
+        proofPublishedAt: expense.proof_published_at
+      }
+    });
+    if (!audited) {
+      throw new Error('Achievement audit could not be recorded.');
+    }
+    await client.query('COMMIT');
+    return { updated: true, expense };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const insertAdminAuditLog = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   input: AdminAuditLogInput
 ): Promise<boolean> => {
   if (!pool) {
