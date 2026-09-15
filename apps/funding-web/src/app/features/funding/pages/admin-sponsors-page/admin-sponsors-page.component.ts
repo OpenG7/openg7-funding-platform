@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   OnDestroy,
   OnInit,
@@ -10,7 +11,8 @@ import {
   inject,
   signal
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   DEFAULT_SPONSORSHIP_PRICING_CONFIG,
   resolveSponsorshipBenefits
@@ -1505,7 +1507,9 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .sponsor-detail-panel {
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         max-height: calc(100vh - 2.5rem);
+        overflow-y: auto;
         position: sticky;
         top: 1.25rem;
       }
@@ -2109,6 +2113,8 @@ const controlledSponsorLogoUrlPrefixes = [
 })
 export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   private readonly admin = inject(FundingAdminService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   @ViewChild('sponsorDetailPanel')
   private readonly sponsorDetailPanel?: ElementRef<HTMLElement>;
 
@@ -2369,7 +2375,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
-    void this.loadSponsorships();
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const sponsorshipId = params.get('sponsorshipId')?.trim() || null;
+        this.search.set(sponsorshipId ?? '');
+        this.selectedSponsorshipId.set(sponsorshipId);
+        this.page.set(1);
+        void this.loadSponsorships();
+      });
   }
 
   ngOnDestroy(): void {
@@ -2408,7 +2422,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         )
       );
       if (
-        sponsorships.length > 0 &&
         !sponsorships.some((item) => item.id === this.selectedSponsorshipId())
       ) {
         this.selectedSponsorshipId.set(sponsorships[0]?.id ?? null);

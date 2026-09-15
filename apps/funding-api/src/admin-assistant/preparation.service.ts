@@ -23,6 +23,7 @@ import {
   loadAttentionDataset,
   missingFicheFields,
   promisedSocialChannels,
+  sponsorshipAdminUrl,
   sponsorshipRef,
   type AttentionDataset
 } from './attention.service.js';
@@ -38,7 +39,6 @@ const MISSING_FIELD_LABELS: Record<string, string> = {
 };
 
 const ADMIN_URLS = {
-  sponsors: '/admin/fundraiser/sponsors',
   publications: '/admin/fundraiser/publications'
 } as const;
 
@@ -135,7 +135,7 @@ const prepareReminder = (
       'Au plaisir,',
       "L'équipe OpenG7"
     ],
-    adminUrl: ADMIN_URLS.sponsors,
+    adminUrl: sponsorshipAdminUrl(record.contributionId),
     notice: NOT_SENT_NOTICE,
     limitations: [
       'Brouillon générique : personnalisez le nom du contact avant envoi.'
@@ -204,7 +204,7 @@ const prepareNote = (
         ? 'Dossier prêt pour la prochaine étape administrative.'
         : 'Fiche à compléter avant toute décision de publication.'
     ],
-    adminUrl: ADMIN_URLS.sponsors,
+    adminUrl: sponsorshipAdminUrl(record.contributionId),
     notice: NOT_SAVED_NOTICE,
     limitations: [
       "Note suggérée : vérifiez les informations avant de l'enregistrer."
