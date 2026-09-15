@@ -239,7 +239,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'sponsorship_review.pending',
       'feed_publication.active',
       'stripe_events.failed',
-      'recent_contributions'
+      'recent_contributions',
+      '[routerLink]',
+      'queryParams',
+      'contributionId'
     ],
     'admin dashboard page'
   );
@@ -254,7 +257,10 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'exportCsv',
       'saveCsv',
       'contribution.public_reference',
-      'reference-cell'
+      'reference-cell',
+      'selectedContributionId',
+      'queryParamMap',
+      'Détail de la contribution'
     ],
     'admin contributions page'
   );

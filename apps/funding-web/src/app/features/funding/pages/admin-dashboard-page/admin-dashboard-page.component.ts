@@ -7,6 +7,7 @@ import {
   inject,
   signal
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import type { AdminContributionRecord, AdminDashboardResponse } from '@openg7/funding-core';
 
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
@@ -15,7 +16,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 @Component({
   selector: 'openg7-admin-dashboard-page',
   standalone: true,
-  imports: [CommonModule, AdminNavComponent],
+  imports: [CommonModule, AdminNavComponent, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="admin-shell">
@@ -164,6 +165,12 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
                 <tbody>
                   <tr
                     *ngFor="let contribution of recentContributions(); trackBy: trackByContribution"
+                    [routerLink]="['/admin/fundraiser/contributions']"
+                    [queryParams]="{ contributionId: contribution.id }"
+                    class="clickable-row"
+                    tabindex="0"
+                    (keydown.enter)="openContribution(contribution.id)"
+                    (keydown.space)="openContribution(contribution.id)"
                   >
                     <td>{{ contributionTypeLabel(contribution) }}</td>
                     <td>{{ displayName(contribution) }}</td>
@@ -364,6 +371,16 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
         width: 100%;
       }
 
+      .clickable-row {
+        cursor: pointer;
+      }
+
+      .clickable-row:focus {
+        background: #eef4ff;
+        outline: 2px solid #254db8;
+        outline-offset: -2px;
+      }
+
       th,
       td {
         border-bottom: 1px solid #e4e9f2;
@@ -439,6 +456,16 @@ export class AdminDashboardPageComponent implements OnInit {
 
   trackByContribution(_: number, contribution: AdminContributionRecord): string {
     return contribution.id;
+  }
+
+  openContribution(contributionId: string): void {
+    if (!contributionId) {
+      return;
+    }
+
+    window.location.assign(
+      `/admin/fundraiser/contributions?contributionId=${encodeURIComponent(contributionId)}`
+    );
   }
 
   contributionTypeLabel(contribution: AdminContributionRecord): string {
