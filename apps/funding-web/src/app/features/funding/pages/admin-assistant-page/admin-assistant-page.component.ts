@@ -7,7 +7,7 @@ import {
   inject,
   signal
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink, UrlTree } from '@angular/router';
 import type {
   AdminAssistantAnswerBlock,
   AdminAssistantDraftType,
@@ -233,7 +233,11 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
                     : action.label
                 }}
               </button>
-              <a *ngIf="item.adminUrl as url" class="link" [routerLink]="url">
+              <a
+                *ngIf="item.adminUrl as url"
+                class="link"
+                [routerLink]="adminLink(url)"
+              >
                 {{ navigateLabel(item) }}
               </a>
             </div>
@@ -272,7 +276,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
                 >
                   {{ limitation }}
                 </p>
-                <a class="link" [routerLink]="draft.adminUrl">
+                <a class="link" [routerLink]="adminLink(draft.adminUrl)">
                   Ouvrir l'écran pour agir
                 </a>
               </ng-container>
@@ -328,7 +332,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
               <a
                 *ngFor="let link of reply.links"
                 class="link"
-                [routerLink]="link.adminUrl"
+                [routerLink]="adminLink(link.adminUrl)"
               >
                 {{ link.label }}
               </a>
@@ -765,6 +769,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
 })
 export class AdminAssistantPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
+  private readonly router = inject(Router);
 
   readonly adminToken = signal<string>('');
   readonly summary = signal<AdminAssistantSummary | null>(null);
@@ -842,6 +847,10 @@ export class AdminAssistantPageComponent implements OnInit {
         (action) => action.executionMode === 'prepare'
       ) ?? null
     );
+  }
+
+  adminLink(url: string): UrlTree {
+    return this.router.parseUrl(url);
   }
 
   navigateLabel(item: AdminAttentionItem): string {

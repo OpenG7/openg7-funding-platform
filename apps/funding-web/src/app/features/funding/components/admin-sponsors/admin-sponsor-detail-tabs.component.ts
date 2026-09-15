@@ -41,8 +41,8 @@ interface AdminSponsorDetailTabItem {
         border-bottom: 1px solid #e4e9f2;
         border-top: 1px solid #e4e9f2;
         display: flex;
+        flex-wrap: wrap;
         gap: 0.25rem;
-        overflow-x: auto;
         padding: 0 1rem;
       }
 

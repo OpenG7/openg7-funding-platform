@@ -1643,8 +1643,13 @@ export const listAdminSponsorships = async (
     "status IN ('paid', 'refunded', 'disputed')"
   ];
 
-  if (input.search?.trim()) {
-    params.push(`%${input.search.trim()}%`);
+  const search = input.search?.trim();
+  if (search && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(search)) {
+    // Deep links use the contribution UUID to find a dossier across all pages.
+    params.push(search);
+    whereClauses.push(`id = $${params.length}::uuid`);
+  } else if (search) {
+    params.push(`%${search}%`);
     const placeholder = `$${params.length}`;
     whereClauses.push(`(
       sponsor_company_name ILIKE ${placeholder}

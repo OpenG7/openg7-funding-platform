@@ -119,6 +119,20 @@ yarn docker:update
 
 Ce raccourci attend aussi Docker Desktop avant de lancer les questions guidees.
 
+Pour intégrer une modification de code dans les conteneurs locaux :
+
+```bash
+yarn docker:update --development --no-build-app --no-prune-images --no-stripe-webhook
+```
+
+Les Dockerfiles compilent l'API et Angular pendant la construction des images;
+`--no-build-app` évite seulement une compilation supplémentaire sur l'hôte.
+`yarn build`, `docker compose restart` et `yarn docker:recreate` ne reconstruisent
+pas ces images. Un conteneur récemment recréé peut donc encore exécuter une
+ancienne version du code. Après la mise à jour, recharger la page; pour un build
+Angular de développement, utiliser `Ctrl+F5` si le navigateur conserve les anciens
+fichiers JavaScript.
+
 En developpement, lancer aussi le listener Stripe apres la mise a jour :
 
 ```bash

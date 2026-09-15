@@ -25,6 +25,17 @@ secret ni appel reseau externe.
 
 ## Deux niveaux de verification
 
+Depuis l'assistant admin, « Ouvrir la commandite », les liens des réponses et
+les brouillons de relance ou de note ciblent
+`/admin/fundraiser/sponsors?sponsorshipId=<UUID de contribution>`.
+La page initialise la recherche avec cet identifiant et sélectionne le dossier.
+L'API recherche un UUID par égalité exacte avant pagination; un identifiant
+introuvable affiche une liste vide. Le bouton de réinitialisation permet de
+retrouver la liste complète. Les recherches par nom ou référence restent disponibles.
+Les tests `admin-sponsorship-search.test.mjs`, `funding-admin-assistant.test.mjs`
+et les scénarios « assistant dossier links » de `admin-assistant.spec.ts`
+couvrent ce parcours avec des données simulées.
+
 Le 100% ci-dessus est verifie par `tests/funding-sponsorship-e2e-coverage.test.mjs`,
 qui confirme que chaque scenario a une trace dans le code source (routes,
 fonctions, requetes SQL, cles i18n). C'est une garantie statique: elle ne
@@ -58,6 +69,12 @@ La suite Playwright tourne desormais aussi en CI (job `e2e-playwright` dans
 `.github/workflows/deploy.yml`), et bloque le deploiement en cas d'echec.
 
 ## Matrice navigateur / mobile
+
+Le panneau de dossier commanditaire conserve ses contenus dans sa largeur,
+répartit les onglets sur plusieurs lignes et empile les cartes de la vue
+d'ensemble lorsque l'espace manque. Sur grand écran, la fiche défile
+verticalement avec les actions en bas du panneau. Sur écran plus étroit,
+sa hauteur reste libre et le défilement suit la page.
 
 `playwright.config.ts` declare deux projets :
 

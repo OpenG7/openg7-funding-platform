@@ -235,7 +235,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       .detail-card-grid {
         display: grid;
         gap: 0.9rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
       }
 
       .detail-card dl {

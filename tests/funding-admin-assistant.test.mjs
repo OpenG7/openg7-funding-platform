@@ -67,6 +67,10 @@ test('detects a paid sponsorship with an incomplete fiche', () => {
   assert.equal(items.length, 1);
   assert.equal(items[0].type, 'sponsorship_needs_info');
   assert.equal(items[0].sponsorshipId, 'c-1');
+  assert.equal(
+    items[0].adminUrl,
+    '/admin/fundraiser/sponsors?sponsorshipId=c-1'
+  );
 });
 
 test('ignores a refunded sponsorship', () => {
@@ -97,6 +101,10 @@ test('detects a complete fiche awaiting review, not as needs-info', () => {
   const review = detectSponsorshipReviewItems(ds);
   assert.equal(review.length, 1);
   assert.equal(review[0].type, 'sponsorship_needs_review');
+  assert.equal(
+    review[0].adminUrl,
+    '/admin/fundraiser/sponsors?sponsorshipId=c-1'
+  );
 });
 
 test('keeps a sponsorship without a presentation photo out of review reminders', () => {
@@ -386,6 +394,13 @@ test('the mock provider resists prompt injection in the question', async () => {
     ),
     'the real question keyword is honoured, the injected order is ignored'
   );
+  assert.deepEqual(
+    output.links.map((link) => link.adminUrl),
+    [
+      '/admin/fundraiser/sponsors?sponsorshipId=c-1',
+      '/admin/fundraiser/sponsors?sponsorshipId=c-2'
+    ]
+  );
 });
 
 test('the mock provider honours the tool-call budget', async () => {
@@ -456,6 +471,10 @@ test('prepares a reminder draft that is never sent', () => {
   });
   assert.equal(result.status, 'ok');
   assert.equal(result.draft.type, 'sponsorship_reminder');
+  assert.equal(
+    result.draft.adminUrl,
+    '/admin/fundraiser/sponsors?sponsorshipId=c-1'
+  );
   assert.equal(result.draft.sent, false);
   assert.equal(result.draft.published, false);
   assert.equal(result.draft.persisted, false);
@@ -499,6 +518,10 @@ test('prepares an admin note and a slot proposal in the future', () => {
   );
   assert.equal(note.status, 'ok');
   assert.equal(note.draft.type, 'admin_note');
+  assert.equal(
+    note.draft.adminUrl,
+    '/admin/fundraiser/sponsors?sponsorshipId=c-1'
+  );
   assert.equal(note.draft.persisted, false);
 
   const ds = dataset({

@@ -1,5 +1,10 @@
+import type { AdminAssistantSummary } from '@openg7/funding-core';
+
 import { signInAsAdmin } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
+
+const sponsorshipId = '831af81a-561e-4ec4-9d1c-f91944710116';
+const sponsorshipUrl = `/admin/fundraiser/sponsors?sponsorshipId=${sponsorshipId}`;
 
 // Covers the read-only admin assistant page (admin-assistant-page component).
 // The deterministic summary is served by the real /admin/assistant/summary
@@ -24,9 +29,7 @@ const stubbedAnswer = {
       lines: ['Traite les urgents en premier.']
     }
   ],
-  links: [
-    { label: 'Commandite à réviser', adminUrl: '/admin/fundraiser/sponsors' }
-  ],
+  links: [{ label: 'Commandite à réviser', adminUrl: sponsorshipUrl }],
   toolInvocations: [
     { tool: 'list_sponsorships_needing_review', resultCount: 2 }
   ],
@@ -37,6 +40,9 @@ const stubbedAnswer = {
 test.describe('Docker admin assistant', () => {
   test('renders the deterministic attention summary', async ({ page }) => {
     await signInAsAdmin(page);
+    const summaryResponse = page.waitForResponse(
+      '**/api/admin/assistant/summary'
+    );
     await page.goto('/admin/fundraiser/assistant');
 
     await expect(
@@ -49,6 +55,23 @@ test.describe('Docker admin assistant', () => {
     await expect(
       page.getByRole('heading', { name: 'Résumé financier prudent' })
     ).toBeVisible();
+
+    const response = await summaryResponse;
+    expect(response.ok()).toBe(true);
+    const summary = (await response.json()) as AdminAssistantSummary;
+    for (const item of summary.attentionItems.filter(
+      (item) =>
+        item.type === 'sponsorship_needs_info' ||
+        item.type === 'sponsorship_needs_review'
+    )) {
+      expect(item.contributionId).toBeTruthy();
+      const expectedUrl = `/admin/fundraiser/sponsors?sponsorshipId=${encodeURIComponent(item.contributionId!)}`;
+      expect(item.adminUrl).toBe(expectedUrl);
+      const card = page.getByRole('article').filter({
+        has: page.getByRole('heading', { name: item.title, exact: true })
+      });
+      await expect(card.getByRole('link')).toHaveAttribute('href', expectedUrl);
+    }
   });
 
   test('answers a question and never exposes a financial action button', async ({
@@ -67,7 +90,7 @@ test.describe('Docker admin assistant', () => {
     await page.goto('/admin/fundraiser/assistant');
 
     await page
-      .getByLabel('Question')
+      .getByLabel('Question', { exact: true })
       .fill('Quelles commandites sont à réviser?');
     await page.getByRole('button', { name: 'Demander', exact: true }).click();
 
@@ -164,15 +187,15 @@ const stubbedSummaryWithReminder = {
   },
   attentionItems: [
     {
-      id: 'sponsorship_needs_info:c-1',
+      id: `sponsorship_needs_info:${sponsorshipId}`,
       type: 'sponsorship_needs_info',
       severity: 'urgent',
       title: 'Commandite payée sans fiche complète (OG7-CMD-0001)',
       explanation: 'Fiche commanditaire incomplète.',
-      sponsorshipId: 'c-1',
-      contributionId: 'c-1',
+      sponsorshipId,
+      contributionId: sponsorshipId,
       detectedAt: '2026-07-24T00:00:00.000Z',
-      adminUrl: '/admin/fundraiser/sponsors',
+      adminUrl: sponsorshipUrl,
       facts: { reference: 'OG7-CMD-0001' },
       suggestedActions: [
         {
@@ -208,7 +231,7 @@ const stubbedReminderDraft = {
         value: 'Complétez votre fiche de commandite (OG7-CMD-0001)'
       }
     ],
-    adminUrl: '/admin/fundraiser/sponsors',
+    adminUrl: sponsorshipUrl,
     notice: "Ce brouillon n'a pas été envoyé.",
     limitations: ['Personnalisez le nom du contact avant envoi.'],
     sent: false,
@@ -216,3 +239,167 @@ const stubbedReminderDraft = {
     persisted: false
   }
 };
+
+// Isolated navigation regressions: all admin responses use synthetic records.
+test.describe('assistant dossier links', () => {
+  const target = {
+    id: sponsorshipId,
+    version: '2026-07-24T00:00:00.000Z',
+    public_reference: 'OG7-CMD-0001',
+    contribution_type: 'sponsorship_interest',
+    amount: 300,
+    currency: 'CAD',
+    payment_status: 'paid',
+    paid_at: '2026-07-24T00:00:00.000Z',
+    public_display_consent: false,
+    display_amount_consent: false,
+    sponsor_company_name: 'Commandite cible',
+    sponsor_contact_email: 'contact@example.test',
+    sponsor_review_status: 'pending_review',
+    sponsor_feed_channels: [],
+    sponsor_feed_status: 'not_planned',
+    sponsorship_refund_status: 'not_requested',
+    admin_audit_entries: [],
+    created_at: '2026-07-24T00:00:00.000Z',
+    updated_at: '2026-07-24T00:00:00.000Z'
+  };
+  const first = {
+    ...target,
+    id: '028486c4-c006-4201-b7b9-6e0ba72c8d49',
+    sponsor_company_name: 'Première commandite'
+  };
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem(
+        'openg7-admin-session-token',
+        'openg7-admin-session.test'
+      );
+      sessionStorage.setItem(
+        'openg7-admin-session-expires-at',
+        new Date(Date.now() + 3_600_000).toISOString()
+      );
+    });
+    await page.route('**/api/admin/**', async (route) => {
+      const url = new URL(route.request().url());
+      let response: unknown;
+      switch (url.pathname) {
+        case '/api/admin/assistant/summary':
+          response = stubbedSummaryWithReminder;
+          break;
+        case '/api/admin/assistant/query':
+          response = stubbedAnswer;
+          break;
+        case '/api/admin/assistant/prepare':
+          response = stubbedReminderDraft;
+          break;
+        case '/api/admin/sponsorships': {
+          const search = url.searchParams.get('search');
+          // The target is absent from the default first page.
+          const items =
+            search === sponsorshipId ? [target] : search ? [] : [first];
+          response = {
+            items,
+            pagination: {
+              page: 1,
+              pageSize: 6,
+              totalItems: search ? items.length : 7,
+              totalPages: search ? 1 : 2,
+              hasPreviousPage: false,
+              hasNextPage: !search
+            }
+          };
+          break;
+        }
+        case '/api/admin/sponsorships/media':
+          response = { assets: [] };
+          break;
+        default:
+          await route.abort();
+          return;
+      }
+      await route.fulfill({ json: response });
+    });
+  });
+
+  for (const source of ['summary', 'draft', 'answer'] as const) {
+    test(`${source} opens the specified dossier beyond the first page`, async ({
+      page
+    }) => {
+      await page.goto('/admin/fundraiser/assistant');
+      let label = 'Ouvrir la commandite';
+      if (source === 'draft') {
+        await page
+          .getByRole('button', { name: 'Préparer une relance', exact: true })
+          .click();
+        label = "Ouvrir l'écran pour agir";
+      } else if (source === 'answer') {
+        await page
+          .getByLabel('Question', { exact: true })
+          .fill('Quelles commandites sont à réviser?');
+        await page
+          .getByRole('button', { name: 'Demander', exact: true })
+          .click();
+        label = 'Commandite à réviser';
+      }
+      const link = page.getByRole('link', { name: label, exact: true });
+      await expect(link).toHaveAttribute('href', sponsorshipUrl);
+      await link.click();
+      await expect(page).toHaveURL(sponsorshipUrl);
+      await expect(page.getByLabel('Recherche', { exact: true })).toHaveValue(
+        sponsorshipId
+      );
+      const detail = page.getByRole('complementary', {
+        name: 'Dossier commanditaire selectionne'
+      });
+      await expect(
+        detail.getByRole('heading', {
+          name: target.sponsor_company_name,
+          exact: true
+        })
+      ).toBeVisible();
+
+      await page.reload();
+      await expect(
+        detail.getByRole('heading', {
+          name: target.sponsor_company_name,
+          exact: true
+        })
+      ).toBeVisible();
+      await page
+        .getByRole('button', { name: 'Reinitialiser', exact: true })
+        .click();
+      await expect(
+        detail.getByRole('heading', {
+          name: first.sponsor_company_name,
+          exact: true
+        })
+      ).toBeVisible();
+    });
+  }
+
+  test('an unknown dossier shows the empty state and can return to the list', async ({
+    page
+  }) => {
+    await page.goto(
+      '/admin/fundraiser/sponsors?sponsorshipId=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    );
+    await expect(
+      page.getByRole('heading', {
+        name: 'Aucune commandite ne correspond aux filtres.'
+      })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Fermer le dossier' })
+    ).toHaveCount(0);
+    await page
+      .getByRole('button', { name: 'Reinitialiser les filtres', exact: true })
+      .click();
+    await expect(
+      page.getByRole('heading', {
+        name: first.sponsor_company_name,
+        exact: true
+      })
+    ).toBeVisible();
+  });
+});

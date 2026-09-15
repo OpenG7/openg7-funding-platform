@@ -41,6 +41,9 @@ const ADMIN_URLS = {
   transparency: '/admin/fundraiser/transparency'
 } as const;
 
+export const sponsorshipAdminUrl = (contributionId: string): string =>
+  `${ADMIN_URLS.sponsors}?sponsorshipId=${encodeURIComponent(contributionId)}`;
+
 const SEVERITY_RANK: Record<AdminAttentionSeverity, number> = {
   urgent: 0,
   today: 1,
@@ -181,7 +184,7 @@ export const detectSponsorshipInfoItems = (
         sponsorshipId: record.contributionId,
         contributionId: record.contributionId,
         detectedAt: dataset.now.toISOString(),
-        adminUrl: ADMIN_URLS.sponsors,
+        adminUrl: sponsorshipAdminUrl(record.contributionId),
         facts: {
           reference: sponsorshipRef(record),
           amount: record.amount,
@@ -236,7 +239,7 @@ export const detectSponsorshipReviewItems = (
         sponsorshipId: record.contributionId,
         contributionId: record.contributionId,
         detectedAt: dataset.now.toISOString(),
-        adminUrl: ADMIN_URLS.sponsors,
+        adminUrl: sponsorshipAdminUrl(record.contributionId),
         facts: {
           reference: sponsorshipRef(record),
           amount: record.amount,
