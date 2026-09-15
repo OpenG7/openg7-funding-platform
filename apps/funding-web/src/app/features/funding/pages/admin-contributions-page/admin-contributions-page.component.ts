@@ -7,6 +7,7 @@ import {
   inject,
   signal
 } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import type {
   AdminContributionRecord,
   AdminContributionsResponse,
@@ -74,6 +75,40 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
         </p>
 
         <ng-container *ngIf="data() as response">
+          <section
+            class="detail-panel"
+            *ngIf="selectedContribution() as selected"
+            aria-live="polite"
+          >
+            <h3>Détail de la contribution</h3>
+            <dl>
+              <div>
+                <dt>Référence</dt>
+                <dd>{{ selected.public_reference || 'Non attribuée' }}</dd>
+              </div>
+              <div>
+                <dt>Nom</dt>
+                <dd>{{ displayName(selected) }}</dd>
+              </div>
+              <div>
+                <dt>Type</dt>
+                <dd>{{ contributionTypeLabel(selected) }}</dd>
+              </div>
+              <div>
+                <dt>Statut</dt>
+                <dd>{{ selected.payment_status }}</dd>
+              </div>
+              <div>
+                <dt>Montant</dt>
+                <dd>{{ formatMoney(selected.amount, selected.currency) }}</dd>
+              </div>
+              <div>
+                <dt>Date</dt>
+                <dd>{{ dateLabel(selected.paid_at || selected.updated_at) }}</dd>
+              </div>
+            </dl>
+          </section>
+
           <section class="admin-summary-grid" aria-label="Resume contributions">
             <article>
               <span>Total</span>
@@ -189,6 +224,11 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
                       let contribution of filteredContributions();
                       trackBy: trackByContribution
                     "
+                    [class.selected-row]="selectedContributionId() === contribution.id"
+                    tabindex="0"
+                    (click)="selectContribution(contribution.id)"
+                    (keydown.enter)="selectContribution(contribution.id)"
+                    (keydown.space)="selectContribution(contribution.id)"
                   >
                     <td>{{ contributionTypeLabel(contribution) }}</td>
                     <td class="reference-cell">
@@ -415,6 +455,46 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
         letter-spacing: 0;
       }
 
+      .detail-panel {
+        background: #fff;
+        border: 1px solid #d9e0ea;
+        border-radius: 0.45rem;
+        padding: 1rem;
+      }
+
+      .detail-panel h3 {
+        margin: 0 0 0.75rem;
+      }
+
+      .detail-panel dl {
+        display: grid;
+        gap: 0.65rem;
+        margin: 0;
+      }
+
+      .detail-panel div {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .detail-panel dt {
+        color: #667085;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .detail-panel dd {
+        margin: 0;
+        font-weight: 800;
+      }
+
+      .selected-row {
+        background: #eef4ff;
+      }
+
       .empty-state {
         background: #f7f9fc;
         border: 1px dashed #cdd6e3;
@@ -454,16 +534,26 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 })
 export class AdminContributionsPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
+  private readonly route = inject(ActivatedRoute);
 
   readonly adminToken = signal<string>('');
   readonly data = signal<AdminContributionsResponse | null>(null);
   readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   readonly search = signal<string>('');
+  readonly selectedContributionId = signal<string | null>(null);
   readonly typeFilter = signal<ContributionTypeFilter>('all');
   readonly statusFilter = signal<string>('all');
   readonly publicFilter = signal<PublicDisplayFilter>('all');
 
   readonly contributions = computed(() => this.data()?.contributions ?? []);
+  readonly selectedContribution = computed(() => {
+    const selectedId = this.selectedContributionId();
+    if (!selectedId) {
+      return null;
+    }
+
+    return this.contributions().find((item) => item.id === selectedId) ?? null;
+  });
   readonly filteredContributions = computed(() => {
     const search = this.search().trim().toLowerCase();
     const typeFilter = this.typeFilter();
@@ -502,6 +592,12 @@ export class AdminContributionsPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
+
+    this.route.queryParamMap.subscribe((params) => {
+      const contributionId = params.get('contributionId')?.trim() || null;
+      this.selectedContributionId.set(contributionId);
+    });
+
     void this.loadContributions();
   }
 
@@ -557,6 +653,13 @@ export class AdminContributionsPageComponent implements OnInit {
     this.publicFilter.set(
       value === 'public' || value === 'private' ? value : 'all'
     );
+  }
+
+  selectContribution(contributionId: string): void {
+    this.selectedContributionId.set(contributionId);
+    const url = new URL(window.location.href);
+    url.searchParams.set('contributionId', contributionId);
+    window.history.replaceState({}, '', url);
   }
 
   trackByContribution(
