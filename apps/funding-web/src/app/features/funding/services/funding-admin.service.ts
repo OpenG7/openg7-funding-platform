@@ -1,6 +1,9 @@
 import type { AdminWorkQueueQuery, AdminWorkQueueResponse } from '@openg7/funding-core';
 import { Injectable } from '@angular/core';
 import type {
+  AdminAssistantContextResponse,
+  AdminInformationRequest,
+  AdminInformationRequestResult,
   AdminAssistantPrepareRequest,
   AdminAssistantPrepareResponse,
   AdminAssistantQueryRequest,
@@ -155,14 +158,24 @@ export class FundingAdminService {
     return session;
   }
 
-  async getWorkQueue(token: string, query: AdminWorkQueueQuery = {}): Promise<AdminWorkQueueResponse> {
+  async getWorkQueue(
+    token: string,
+    query: AdminWorkQueueQuery = {}
+  ): Promise<AdminWorkQueueResponse> {
     const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') params.set(key, String(value));
-    const response = await fetch(this.apiBaseUrl + '/admin/attention?' + params.toString(), {
-      method: 'GET', headers: await this.createHeaders(token)
-    });
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== '') params.set(key, String(value));
+    }
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/attention?${params.toString()}`,
+      {
+        method: 'GET',
+        cache: 'no-store',
+        headers: await this.createHeaders(token)
+      }
+    );
     if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return await response.json() as AdminWorkQueueResponse;
+    return (await response.json()) as AdminWorkQueueResponse;
   }
 
   async getDashboard(token: string): Promise<AdminDashboardResponse> {
@@ -196,6 +209,42 @@ export class FundingAdminService {
     return (await response.json()) as AdminAssistantSummary;
   }
 
+  async getAssistantContext(
+    token: string,
+    sponsorshipId?: string
+  ): Promise<AdminAssistantContextResponse> {
+    const params = new URLSearchParams(sponsorshipId ? { sponsorshipId } : {});
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/assistant/context?${params}`,
+      {
+        cache: 'no-store',
+        headers: await this.createHeaders(token)
+      }
+    );
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return (await response.json()) as AdminAssistantContextResponse;
+  }
+
+  async requestSponsorshipInformation(
+    token: string,
+    payload: AdminInformationRequest
+  ): Promise<AdminInformationRequestResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/request-information`,
+      {
+        method: 'POST',
+        cache: 'no-store',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return (await response.json()) as AdminInformationRequestResult;
+  }
+
   async queryAssistant(
     token: string,
     payload: AdminAssistantQueryRequest
@@ -210,12 +259,7 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error(
-        await this.errorMessageFromResponse(
-          response,
-          'Admin assistant query could not be completed.'
-        )
-      );
+      throw new AdminDashboardRequestError(response.status);
     }
 
     return (await response.json()) as AdminAssistantQueryResponse;
@@ -235,12 +279,7 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error(
-        await this.errorMessageFromResponse(
-          response,
-          'Admin assistant draft could not be prepared.'
-        )
-      );
+      throw new AdminDashboardRequestError(response.status);
     }
 
     return (await response.json()) as AdminAssistantPrepareResponse;

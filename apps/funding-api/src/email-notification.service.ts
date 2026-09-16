@@ -1,4 +1,4 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type {
   AdminEmailQueueMessageRecord,
   AdminEmailQueueResponse,
@@ -20,6 +20,7 @@ import {
 
 type EmailTemplateKey =
   | 'contribution_reference_recovery'
+  | 'sponsorship_information_request'
   | 'sponsorship_followup'
   | 'sponsorship_confirmation'
   | 'sponsorship_rejection'
@@ -1259,7 +1260,7 @@ const renderEmailConfigurationTest = (
 };
 
 const enqueueEmailMessage = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   input: QueueEmailInput
 ): Promise<QueueInsertResult> => {
   const emailConfig = loadTransactionalEmailConfig();
@@ -1985,3 +1986,24 @@ export const queueEmailConfigurationTest = async (
     idempotencyKey: input.idempotencyKey
   });
 };
+
+/** Enqueue only; delivery is owned by the existing worker after commit. */
+export const queueSponsorshipInformationRequest = async (
+  pool: Pool | PoolClient,
+  input: {
+    contributionId: string;
+    recipient: string;
+    subject: string;
+    body: string;
+    idempotencyKey: string;
+  }
+) =>
+  enqueueEmailMessage(pool, {
+    templateKey: 'sponsorship_information_request',
+    to: input.recipient,
+    subject: input.subject,
+    text: input.body,
+    html: '<p>' + escapeHtml(input.body).replace(/\n/g, '<br>') + '</p>',
+    metadata: { contributionId: input.contributionId },
+    idempotencyKey: input.idempotencyKey
+  });

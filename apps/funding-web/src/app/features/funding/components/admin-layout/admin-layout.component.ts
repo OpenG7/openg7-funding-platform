@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  input
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
@@ -31,6 +36,9 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
             <a
               class="admin-button admin-button--primary"
               routerLink="/admin/fundraiser/assistant"
+              [queryParams]="
+                sponsorshipId() ? { sponsorshipId: sponsorshipId() } : {}
+              "
             >
               <openg7-admin-icon name="assistant" />{{
                 'admin.nav.assistant' | translate
@@ -67,5 +75,6 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
   ]
 })
 export class AdminLayoutComponent {
+  readonly sponsorshipId = input<string>();
   readonly i18n = inject(FundingI18nService);
 }

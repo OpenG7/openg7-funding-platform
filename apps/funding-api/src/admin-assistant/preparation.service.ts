@@ -16,6 +16,8 @@ import type { Pool } from 'pg';
 
 import type { SponsorshipAttentionRecord } from '../fund-contributions.repository.js';
 
+import { loadSponsorshipAssistantDataset } from './context.repository.js';
+import { canRequestSponsorshipInformation } from './context.service.js';
 import {
   activeDraftChannels,
   hasCompleteFiche,
@@ -107,7 +109,11 @@ const prepareReminder = (
   dataset: AttentionDataset,
   record: SponsorshipAttentionRecord
 ): AdminAssistantPrepareResponse => {
-  if (!isActionableSponsorship(record) || hasCompleteFiche(record)) {
+  if (
+    !isActionableSponsorship(record) ||
+    record.reviewStatus === 'rejected' ||
+    hasCompleteFiche(record)
+  ) {
     return notApplicable(
       'La fiche de cette commandite est déjà complète ou non éligible à une relance.'
     );
@@ -297,6 +303,122 @@ export const prepareAdminAssistantDraft = async (
   options: PrepareAdminAssistantDraftOptions = {}
 ): Promise<AdminAssistantPrepareResponse> => {
   const now = options.now ?? new Date();
-  const dataset = await loadAttentionDataset(pool, now);
-  return prepareDraftFromDataset(dataset, request);
+  if (!pool)
+    return {
+      status: 'assistant_unavailable',
+      draft: null,
+      message: 'Assistant unavailable.'
+    };
+  if (request.type === 'slot_proposal') {
+    return prepareDraftFromDataset(
+      await loadAttentionDataset(pool, now, true),
+      request
+    );
+  }
+  const source = request.reference
+    ? await loadSponsorshipAssistantDataset(pool, request.reference, now)
+    : null;
+  if (!source)
+    return notFound(
+      request.language === 'en'
+        ? 'Sponsorship not found.'
+        : 'Commandite introuvable.'
+    );
+  const result = prepareDraftFromDataset(source.dataset, {
+    ...request,
+    reference: source.record.contributionId
+  });
+  if (!result.draft) return result;
+  const draft =
+    request.language === 'en'
+      ? englishDraft(result.draft, source.record)
+      : result.draft;
+  if (
+    request.type !== 'sponsorship_reminder' ||
+    !canRequestSponsorshipInformation(source)
+  )
+    return { ...result, draft };
+  return {
+    ...result,
+    draft,
+    delivery: {
+      contributionId: source.record.contributionId,
+      contextVersion: source.version,
+      recipient: source.recipient!,
+      subject: draft.fields[0]!.value,
+      body: draft.bodyLines.join('\n\n')
+    }
+  };
+};
+
+/** Localised deterministic copy; no external model or side effects. */
+const englishDraft = (
+  draft: AdminAssistantDraftProposal,
+  record: SponsorshipAttentionRecord
+): AdminAssistantDraftProposal => {
+  const reference = sponsorshipRef(record);
+  if (draft.type === 'sponsorship_reminder') {
+    const labels: Record<string, string> = {
+      formulaire_non_soumis: 'the sponsor form',
+      nom_entreprise: 'company name',
+      courriel_contact: 'contact email',
+      photo_presentation: 'a presentation image'
+    };
+    return {
+      ...draft,
+      title: `Information request — ${reference}`,
+      fields: [
+        {
+          label: 'Subject',
+          value: `Complete your sponsorship profile (${reference})`
+        }
+      ],
+      bodyLines: [
+        'Hello,',
+        `Thank you for your sponsorship of ${record.amount} ${record.currency} in support of OpenG7!`,
+        `We still need: ${missingFicheFields(record)
+          .map((field) => labels[field])
+          .join(', ')}.`,
+        'Please complete your profile using the tracking link you received with your sponsorship.',
+        'Thank you,',
+        'The OpenG7 team'
+      ],
+      notice:
+        'This draft has not been sent. Review it before confirming delivery.',
+      limitations: ['Generic draft: personalise the message before sending.']
+    };
+  }
+  if (draft.type === 'publication_draft')
+    return {
+      ...draft,
+      title: `Publication draft — ${reference}`,
+      fields: [
+        { label: 'Suggested channels', value: draft.fields[0]!.value },
+        { label: 'Required disclosure', value: 'Sponsored publication' }
+      ],
+      bodyLines: [
+        'Thank you to {Company name} for supporting the OpenG7 Builders Fund!',
+        'Your support helps fund open, transparent public digital platforms.',
+        'Sponsored publication. #OpenG7'
+      ],
+      notice:
+        'This draft has not been published or saved. Review it in Publications.',
+      limitations: ['Replace {Company name} with the verified company name.']
+    };
+  return {
+    ...draft,
+    title: `Review note — ${reference}`,
+    fields: [
+      { label: 'Payment', value: record.paymentStatus },
+      { label: 'Review', value: record.reviewStatus },
+      { label: 'Visibility', value: record.feedStatus }
+    ],
+    bodyLines: [
+      `Sponsorship ${reference}: ${record.amount} ${record.currency}.`,
+      `Profile: ${hasCompleteFiche(record) ? 'complete' : 'incomplete'}.`,
+      'Check the media, public consent and publication commitments before making a decision.'
+    ],
+    notice: 'This note has not been saved.',
+    limitations: ['Verify these facts before saving the note.']
+  };
 };

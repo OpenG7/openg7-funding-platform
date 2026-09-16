@@ -472,8 +472,12 @@ const getPublicationDraftById = async (
 };
 
 export const listAdminPublicationDrafts = async (
-  pool: Pool | null,
-  options: { readonly all?: boolean; readonly id?: string } = {}
+  pool: Pool | PoolClient | null,
+  options: {
+    readonly all?: boolean;
+    readonly id?: string;
+    readonly contributionId?: string;
+  } = {}
 ): Promise<AdminPublicationDraftsResponse> => {
   const now = new Date().toISOString();
   if (!pool) {
@@ -520,6 +524,7 @@ export const listAdminPublicationDrafts = async (
     INNER JOIN fund_contributions contribution
       ON contribution.id = draft.contribution_id
     WHERE ($1::text IS NULL OR draft.id::text = $1)
+      AND ($3::text IS NULL OR draft.contribution_id::text = $3)
     ORDER BY
       CASE draft.status
         WHEN 'pending_review' THEN 0
@@ -531,7 +536,7 @@ export const listAdminPublicationDrafts = async (
       END,
       draft.updated_at DESC
     LIMIT $2
-  `, [options.id ?? null, options.all ? null : 100]);
+  `, [options.id ?? null, options.all ? null : 100, options.contributionId ?? null]);
 
   return {
     data_source: 'database',

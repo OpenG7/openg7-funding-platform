@@ -56,10 +56,12 @@ main:focus {
   position: fixed;
   top: 1rem;
   transform: translateY(-200%);
+  clip-path: inset(50%);
   z-index: 20;
 }
 .skip-link:focus {
   transform: translateY(0);
+  clip-path: none;
 }
 @media (max-width: 1200px) {
   .identity {

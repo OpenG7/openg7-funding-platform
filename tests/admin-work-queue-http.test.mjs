@@ -62,6 +62,7 @@ test(
       const headers = { authorization: `Bearer ${token}` };
       const valid = await fetch(url, { headers });
       assert.equal(valid.status, 200);
+      assert.equal(valid.headers.get('cache-control'), 'private, no-store');
       assert.equal((await valid.json()).available, false);
       assert.equal(
         (await fetch(url + '?pageSize=101', { headers })).status,
@@ -72,6 +73,65 @@ test(
         400
       );
       assert.equal((await fetch(url + '?pageSize=101')).status, 401);
+      const base = `http://127.0.0.1:${port}/api/admin`;
+      assert.equal((await fetch(`${base}/assistant/context`)).status, 401);
+      const context = await fetch(`${base}/assistant/context`, { headers });
+      assert.equal(context.status, 200);
+      assert.equal(context.headers.get('cache-control'), 'private, no-store');
+      assert.equal((await context.json()).status, 'unavailable');
+      assert.equal(
+        (
+          await fetch(`${base}/assistant/context?sponsorshipId=invalid`, {
+            headers
+          })
+        ).status,
+        400
+      );
+      assert.equal(
+        (await fetch(`${base}/assistant/context?sponsorshipId=invalid`)).status,
+        401
+      );
+      assert.equal(
+        (
+          await fetch(`${base}/sponsorships/request-information`, {
+            method: 'POST',
+            body: '{}'
+          })
+        ).status,
+        401
+      );
+      assert.equal(
+        (
+          await fetch(`${base}/sponsorships/request-information`, {
+            method: 'POST',
+            headers,
+            body: '{}'
+          })
+        ).status,
+        503
+      );
+      assert.equal(
+        (
+          await fetch(`${base}/assistant/query`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              message: 'Explain',
+              sponsorshipId: 'invalid'
+            })
+          })
+        ).status,
+        400
+      );
+      const query = await fetch(`${base}/assistant/query`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          message: 'Explain',
+          sponsorshipId: '10000000-0000-4000-8000-000000000001'
+        })
+      });
+      assert.equal((await query.json()).status, 'assistant_disabled');
     } finally {
       if (child.exitCode === null) {
         const exited = once(child, 'exit');

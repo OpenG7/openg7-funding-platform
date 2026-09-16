@@ -22,7 +22,7 @@ import type {
   SponsorshipTierId,
   ContributionType
 } from '@openg7/funding-core';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
 import { getAdjustmentTotals } from './fund-transparency.repository.js';
@@ -1838,8 +1838,9 @@ interface SponsorshipAttentionRow {
 const SPONSORSHIP_ATTENTION_MAX_ROWS = 2000;
 
 export const listSponsorshipsForAttention = async (
-  pool: Pool | null,
-  maxRows: number | null = SPONSORSHIP_ATTENTION_MAX_ROWS
+  pool: Pool | PoolClient | null,
+  maxRows: number | null = SPONSORSHIP_ATTENTION_MAX_ROWS,
+  reference?: string
 ): Promise<SponsorshipAttentionQueryResult> => {
   if (!pool) {
     return {
@@ -1885,11 +1886,12 @@ export const listSponsorshipsForAttention = async (
       COALESCE(sponsorship_refund_status, 'not_requested') AS sponsorship_refund_status
     FROM fund_contributions
     WHERE contribution_type = 'sponsorship_interest'
-      AND status IN ('paid', 'refunded', 'disputed')
+      AND ($2::text IS NOT NULL OR status IN ('paid', 'refunded', 'disputed'))
+      AND ($2::text IS NULL OR id::text = $2 OR public_reference = $2)
     ORDER BY updated_at DESC
     LIMIT $1
   `,
-    [cap === null ? null : cap + 1]
+    [cap === null ? null : cap + 1, reference ?? null]
   );
 
   const truncated = cap !== null && query.rows.length > cap;

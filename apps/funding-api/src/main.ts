@@ -217,6 +217,12 @@ import { buildAdminAssistantSummary } from './admin-assistant/attention.service.
 import { loadAdminAssistantConfig } from './admin-assistant/config.js';
 import { runAdminAssistantQuery } from './admin-assistant/orchestrator.js';
 import { prepareAdminAssistantDraft } from './admin-assistant/preparation.service.js';
+import { getAdminAssistantContext } from './admin-assistant/context.service.js';
+import {
+  InformationRequestError,
+  requestSponsorshipInformation,
+  validateInformationRequest
+} from './sponsorship-information.service.js';
 import {
   loadAdminSponsorshipReviewReminderConfig,
   queueDueSponsorshipReviewReminder
@@ -2038,6 +2044,10 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/assistant/query',
       '/admin/assistant/prepare',
       '/api/admin/assistant/prepare',
+      '/admin/assistant/context',
+      '/api/admin/assistant/context',
+      '/admin/sponsorships/request-information',
+      '/api/admin/sponsorships/request-information',
       '/admin/contributions',
       '/api/admin/contributions',
       '/admin/contributions.csv',
@@ -4947,7 +4957,9 @@ createServer(async (request, response) => {
       return;
     }
     try {
-      writeJson(request, response, 200, await getAdminWorkQueue(dbPool, query));
+      writeJson(request, response, 200, await getAdminWorkQueue(dbPool, query), {
+        'Cache-Control': 'private, no-store'
+      });
     } catch {
       writeJson(request, response, 502, { error: 'Admin attention queue could not be loaded.' });
     }
@@ -4970,6 +4982,86 @@ createServer(async (request, response) => {
       writeJson(request, response, 502, {
         error: 'Admin dashboard could not be loaded.'
       });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/assistant/context',
+      '/api/admin/assistant/context'
+    )
+  ) {
+    if (!ensureAdminAuthorization(request, response)) return;
+    const id = new URL(request.url!, 'http://localhost').searchParams.get(
+      'sponsorshipId'
+    );
+    if (id !== null && !isValidUuid(id)) {
+      writeJson(request, response, 400, { error: 'Invalid sponsorship ID.' });
+      return;
+    }
+    try {
+      const result = await getAdminAssistantContext(
+        dbPool,
+        id ?? undefined,
+        adminAssistantConfig.enabled && adminAssistantConfig.providerConfigured
+          ? adminAssistantConfig.provider
+          : 'disabled'
+      );
+      writeJson(request, response, 200, result, {
+        'Cache-Control': 'private, no-store'
+      });
+    } catch {
+      writeJson(
+        request,
+        response,
+        503,
+        { error: 'Assistant context unavailable.' },
+        { 'Cache-Control': 'private, no-store' }
+      );
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/request-information',
+      '/api/admin/sponsorships/request-information'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) return;
+    try {
+      let input;
+      try {
+        input = validateInformationRequest(
+          JSON.parse(await readBody(request, 32 * 1024))
+        );
+      } catch {
+        throw new InformationRequestError(400);
+      }
+      const result = await requestSponsorshipInformation(
+        dbPool!,
+        input,
+        getAdminAuditActor(request)
+      );
+      writeJson(request, response, 200, result, {
+        'Cache-Control': 'private, no-store'
+      });
+    } catch (error) {
+      writeJson(
+        request,
+        response,
+        error instanceof InformationRequestError ? error.status : 503,
+        {
+          error:
+            'Information request could not be queued. Refresh the record before trying again.'
+        },
+        { 'Cache-Control': 'private, no-store' }
+      );
     }
     return;
   }
@@ -5031,7 +5123,11 @@ createServer(async (request, response) => {
     }
 
     const message =
-      typeof parsed.message === 'string' ? parsed.message.trim() : '';
+      typeof parsed?.message === 'string' ? parsed.message.trim() : '';
+    if (parsed?.sponsorshipId !== undefined && !isValidUuid(parsed.sponsorshipId)) {
+      writeJson(request, response, 400, { error: 'Invalid sponsorship ID.' });
+      return;
+    }
     if (!message) {
       writeJson(request, response, 400, {
         error: 'A question is required.'
@@ -5050,6 +5146,7 @@ createServer(async (request, response) => {
       const result = await runAdminAssistantQuery({
         pool: dbPool,
         message,
+        sponsorshipId: parsed.sponsorshipId,
         config: adminAssistantConfig
       });
       await recordAdminAssistantAudit(request, 'admin_assistant.query', {
@@ -5101,7 +5198,10 @@ createServer(async (request, response) => {
       'admin_note',
       'slot_proposal'
     ];
-    if (!allowedDraftTypes.includes(parsed.type)) {
+    if (
+      !allowedDraftTypes.includes(parsed?.type) ||
+      (parsed.language !== undefined && parsed.language !== 'fr-CA' && parsed.language !== 'en')
+    ) {
       writeJson(request, response, 400, {
         error: 'A valid draft type is required.'
       });
@@ -5117,14 +5217,15 @@ createServer(async (request, response) => {
     try {
       const result = await prepareAdminAssistantDraft(dbPool, {
         type: parsed.type,
-        reference
+        reference,
+        language: parsed.language
       });
       await recordAdminAssistantAudit(request, 'admin_assistant.prepare', {
         draftType: parsed.type,
         status: result.status,
         durationMs: Date.now() - startedAt
       });
-      writeJson(request, response, 200, result);
+      writeJson(request, response, 200, result, { 'Cache-Control': 'private, no-store' });
     } catch (error) {
       console.error('Failed to prepare admin assistant draft.', error);
       writeJson(request, response, 502, {

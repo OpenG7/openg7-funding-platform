@@ -1364,6 +1364,7 @@ export interface AdminAssistantSummary {
 export type AdminAssistantMode = 'disabled' | 'mock' | 'live';
 
 export interface AdminAssistantQueryRequest {
+  readonly sponsorshipId?: string;
   readonly message: string;
 }
 
@@ -1451,6 +1452,7 @@ export interface AdminAssistantDraftProposal {
 }
 
 export interface AdminAssistantPrepareRequest {
+  readonly language?: 'fr-CA' | 'en';
   readonly type: AdminAssistantDraftType;
   /** Sponsorship reference/id, or publication id for a slot proposal. */
   readonly reference?: string;
@@ -1460,9 +1462,19 @@ export type AdminAssistantPrepareStatus =
   'ok' | 'not_found' | 'not_applicable' | 'assistant_unavailable';
 
 export interface AdminAssistantPrepareResponse {
+  readonly delivery?: import('./admin-assistant-context.js').AdminInformationRequestPreview;
   readonly status: AdminAssistantPrepareStatus;
   readonly draft: AdminAssistantDraftProposal | null;
   readonly message: string | null;
 }
 
 export type { AdminAttentionDueFilter, AdminWorkQueueQuery, AdminWorkQueueResponse } from './admin-work-queue.js';
+
+export type {
+  AdminAssistantContext,
+  AdminAssistantContextResponse,
+  AdminAssistantNextStep,
+  AdminInformationRequestPreview,
+  AdminInformationRequest,
+  AdminInformationRequestResult
+} from './admin-assistant-context.js';

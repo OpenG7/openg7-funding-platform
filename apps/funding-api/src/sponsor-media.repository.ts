@@ -132,7 +132,7 @@ const mapStorageRecord = (
 });
 
 export const listSponsorMediaAssets = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   contributionId: string
 ): Promise<readonly SponsorMediaAsset[]> => {
   if (!pool) {

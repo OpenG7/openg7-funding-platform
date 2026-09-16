@@ -34,6 +34,7 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
+import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminSponsorDetailHeaderComponent } from '../../components/admin-sponsors/admin-sponsor-detail-header.component.js';
@@ -152,6 +153,7 @@ const controlledSponsorLogoUrlPrefixes = [
   selector: 'openg7-admin-sponsors-page',
   standalone: true,
   imports: [
+    AdminAssistantContextComponent,
     CommonModule,
     RouterLink,
     AdminNavComponent,
@@ -269,6 +271,10 @@ const controlledSponsorLogoUrlPrefixes = [
                 {{ paymentEligibilityMessage(selected) }}
               </p>
 
+              <openg7-admin-assistant-context
+                [sponsorshipId]="selected.id"
+                [refreshKey]="assistantRefresh()"
+              />
               <openg7-admin-sponsor-detail-tabs
                 [activeTab]="activeTab()"
                 (activeTabChange)="setActiveTab($event)"
@@ -2137,6 +2143,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly reviewFilter = signal<SponsorshipReviewFilter>('all');
   readonly feedFilter = signal<SponsorFeedStatusFilter>('all');
   readonly paymentFilter = signal<SponsorPaymentStatusFilter>('all');
+  readonly assistantRefresh = signal(0);
   readonly selectedSponsorshipId = signal<string | null>(null);
   readonly activeRejectionId = signal<string | null>(null);
   readonly activeRefundId = signal<string | null>(null);
@@ -2409,6 +2416,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       });
       const sponsorships = response.items ?? response.sponsorships;
       this.sponsorships.set(sponsorships);
+      this.assistantRefresh.update((value) => value + 1);
       this.pagination.set(response.pagination ?? defaultPagination);
       this.page.set(response.pagination?.page ?? this.page());
       this.reviewNotes.set(
@@ -4893,6 +4901,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         ...current,
         [contributionId]: response.assets
       }));
+      this.assistantRefresh.update((value) => value + 1);
       await this.loadSponsorMediaPreviews(response.assets);
     } catch (error) {
       this.setSponsorMediaMessage(

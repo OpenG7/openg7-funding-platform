@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url';
 // Does not start the API, load .env, seed a DB, or run the Docker teardown.
 export default defineConfig({
   testDir: './playwright',
-  testMatch: ['admin-dashboard-layout.spec.ts', 'admin-attention.spec.ts'],
+  testMatch: [
+    'admin-dashboard-layout.spec.ts',
+    'admin-attention.spec.ts',
+    'admin-assistant-context.spec.ts'
+  ],
   outputDir: '../test-results/admin-layout',
   workers: 1,
   retries: 0,

@@ -8,7 +8,7 @@ Transformer l’administration en un espace qui indique **ce qui demande une int
 
 Ce document prépare l’implémentation. Les propositions contenues dans les documents sont des exigences à analyser et à organiser; elles ne constituent pas une instruction d’exécuter les opérations illustrées.
 
-**Avancement :** lot 1 réalisé le 15 septembre 2026 après instruction de démarrer sa mise en œuvre. Voir le [cadrage des données, les changements et la validation du lot 1](./admin-ux-lot-1.md).
+**Avancement :** lots 1, 2 et 3 réalisés après instruction de démarrer leur mise en œuvre. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md) et de l’[Assistant contextuel](./admin-ux-lot-3.md). Prochain lot : **Dossier commandite, progression et badges**.
 
 Le présent changement documentaire est à risque faible. L’implémentation prévue sera à risque modéré pour les contrats API, les sessions, les projections et les parcours administratifs. Toute opération réelle sur les paiements ou la production reste une intervention distincte.
 
@@ -78,7 +78,7 @@ Travail :
 
 ### Lot 2 — « À traiter » et première version du cockpit
 
-**Priorité : P0. Dépendance : lot 1.**
+**Priorité : P0. Dépendance : lot 1. Statut : réalisé.**
 
 Travail :
 
@@ -262,4 +262,4 @@ Pour ce livrable documentaire, les validations applicables sont la relecture des
 
 ## 8. Première action recommandée
 
-Commencer par le **lot 1**, puis livrer la tranche **layout admin + résumé « À traiter » + liens directs**, en réutilisant la détection existante. Cette première livraison doit déjà permettre de trouver une intervention, ouvrir le bon dossier et revenir à une file actualisée.
+Les **lots 1 à 3** livrent le layout admin, la file « À traiter » et l’Assistant contextuel avec préparation et demande d’informations confirmée. Poursuivre avec le **lot 4 — Dossier commandite, progression et badges**.

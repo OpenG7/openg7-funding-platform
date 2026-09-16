@@ -15,6 +15,7 @@ import type {
   AdminDashboardResponse
 } from '@openg7/funding-core';
 
+import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
 import { AdminAttentionPanelComponent } from '../../components/admin-attention/admin-attention-panel.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import {
@@ -33,6 +34,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   selector: 'openg7-admin-dashboard-page',
   standalone: true,
   imports: [
+    AdminAssistantContextComponent,
     RouterLink,
     TranslatePipe,
     AdminLayoutComponent,
