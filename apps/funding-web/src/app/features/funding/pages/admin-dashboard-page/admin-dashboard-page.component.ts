@@ -15,6 +15,7 @@ import type {
   AdminDashboardResponse
 } from '@openg7/funding-core';
 
+import { AdminAttentionPanelComponent } from '../../components/admin-attention/admin-attention-panel.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import {
   AdminBadgeComponent,
@@ -35,6 +36,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
     RouterLink,
     TranslatePipe,
     AdminLayoutComponent,
+    AdminAttentionPanelComponent,
     AdminBadgeComponent,
     AdminIconComponent,
     AdminMetricCardComponent
@@ -52,6 +54,7 @@ export class AdminDashboardPageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly platformId = inject(PLATFORM_ID);
   readonly i18n = inject(FundingI18nService);
+  readonly attentionRefresh = signal(0);
   readonly dashboard = signal<AdminDashboardResponse | null>(null);
   readonly state = signal<
     'idle' | 'loading' | 'ready' | 'error' | 'forbidden' | 'unavailable'
@@ -71,6 +74,7 @@ export class AdminDashboardPageComponent implements OnInit {
       await this.returnToLogin();
       return;
     }
+    this.attentionRefresh.update((value) => value + 1);
     this.state.set('loading');
     try {
       const dashboard = await this.admin.getDashboard(token);

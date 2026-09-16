@@ -1,11 +1,18 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   input,
   signal
 } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  ActivatedRoute,
+  Router,
+  RouterLink,
+  RouterLinkActive
+} from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
@@ -65,6 +72,14 @@ interface AdminNavigationGroup {
         </button>
       </header>
       <div id="admin-navigation-content" class="navigation-content">
+        @if (queueReturn(); as destination) {
+          <a
+            class="admin-link"
+            [routerLink]="destination"
+            data-og7="return-to-attention"
+            >{{ 'admin.attention.back' | translate }}</a
+          >
+        }
         <nav [attr.aria-label]="'admin.nav.label' | translate">
           @for (group of groups; track group.key) {
             <section [attr.aria-labelledby]="'admin-group-' + group.key">
@@ -117,6 +132,13 @@ interface AdminNavigationGroup {
 export class AdminNavComponent {
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
+  private readonly queryParams = toSignal(inject(ActivatedRoute).queryParamMap);
+  readonly queueReturn = computed(() => {
+    const value = this.queryParams()?.get('returnTo');
+    return value && /^\/admin\/fundraiser\/attention(?:\?|$)/.test(value)
+      ? this.router.parseUrl(value)
+      : null;
+  });
   readonly i18n = inject(FundingI18nService);
   readonly collapsible = input(false);
   readonly expanded = signal(false);
@@ -125,6 +147,7 @@ export class AdminNavComponent {
       key: 'steering',
       links: [
         { key: 'dashboard', url: '/admin/fundraiser', icon: 'dashboard' },
+        { key: 'attention', url: '/admin/fundraiser/attention', icon: 'audit' },
         {
           key: 'assistant',
           url: '/admin/fundraiser/assistant',

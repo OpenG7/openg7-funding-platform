@@ -209,6 +209,10 @@ import {
   reviewSponsorMediaAsset,
   type SponsorMediaStorageRecord
 } from './sponsor-media.repository.js';
+import {
+  getAdminWorkQueue,
+  parseWorkQueueQuery
+} from './admin-work-queue.service.js';
 import { buildAdminAssistantSummary } from './admin-assistant/attention.service.js';
 import { loadAdminAssistantConfig } from './admin-assistant/config.js';
 import { runAdminAssistantQuery } from './admin-assistant/orchestrator.js';
@@ -2026,6 +2030,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/sponsorship-credit-notes/resend',
       '/admin/dashboard',
       '/api/admin/dashboard',
+      '/admin/attention',
+      '/api/admin/attention',
       '/admin/assistant/summary',
       '/api/admin/assistant/summary',
       '/admin/assistant/query',
@@ -4290,7 +4296,9 @@ createServer(async (request, response) => {
     }
 
     try {
-      const result = await listAdminEmailQueue(dbPool);
+      const result = await listAdminEmailQueue(dbPool, {
+        id: new URL(request.url ?? '/', publicBaseOrigin).searchParams.get('messageId') ?? undefined
+      });
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to load admin email queue.', error);
@@ -4414,7 +4422,10 @@ createServer(async (request, response) => {
     }
 
     try {
-      const result = await listAdminSponsorshipInvoices(dbPool);
+      const result = await listAdminSponsorshipInvoices(
+        dbPool,
+        new URL(request.url ?? '/', publicBaseOrigin).searchParams.get('contributionId') ?? undefined
+      );
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to load admin sponsorship invoices.', error);
@@ -4453,7 +4464,15 @@ createServer(async (request, response) => {
             body
           ) as Partial<AdminSponsorshipInvoiceBackfillRequest> | null)
         : {};
+      if (
+        raw && 'contributionId' in raw &&
+        (typeof raw.contributionId !== 'string' ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw.contributionId))
+      ) {
+        throw new Error('Invalid contributionId');
+      }
       parsed = {
+        contributionId: raw?.contributionId,
         limit: typeof raw?.limit === 'number' ? raw.limit : undefined
       };
     } catch {
@@ -4485,6 +4504,7 @@ createServer(async (request, response) => {
         entityId: null,
         summary: `Sponsorship invoice backfill created ${result.created_count} invoice(s).`,
         metadata: {
+          contributionId: parsed.contributionId ?? null,
           eligibleCount: result.eligible_count,
           missingCount: result.missing_count,
           processedCount: result.processed_count,
@@ -4912,6 +4932,26 @@ createServer(async (request, response) => {
       }
       return;
     }
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/admin/attention', '/api/admin/attention')
+  ) {
+    if (!ensureAdminAuthorization(request, response)) return;
+    let query;
+    try {
+      query = parseWorkQueueQuery(new URL(request.url ?? '/', publicBaseOrigin).searchParams);
+    } catch {
+      writeJson(request, response, 400, { error: 'Invalid attention filters or pagination.' });
+      return;
+    }
+    try {
+      writeJson(request, response, 200, await getAdminWorkQueue(dbPool, query));
+    } catch {
+      writeJson(request, response, 502, { error: 'Admin attention queue could not be loaded.' });
+    }
+    return;
   }
 
   if (
@@ -5520,7 +5560,9 @@ createServer(async (request, response) => {
     }
 
     try {
-      const result = await listAdminPublicationDrafts(dbPool);
+      const result = await listAdminPublicationDrafts(dbPool, {
+        id: new URL(request.url ?? '/', publicBaseOrigin).searchParams.get('draftId') ?? undefined
+      });
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to load publication drafts.', error);
@@ -5756,7 +5798,9 @@ createServer(async (request, response) => {
     }
 
     try {
-      const result = await listAdminPublicationSlots(dbPool);
+      const result = await listAdminPublicationSlots(dbPool, {
+        id: new URL(request.url ?? '/', publicBaseOrigin).searchParams.get('slotId') ?? undefined
+      });
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to load publication slots.', error);
@@ -6240,7 +6284,9 @@ createServer(async (request, response) => {
     }
 
     try {
-      const result = await listAdminPublicationBatches(dbPool);
+      const result = await listAdminPublicationBatches(dbPool, {
+        id: new URL(request.url ?? '/', publicBaseOrigin).searchParams.get('batchId') ?? undefined
+      });
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to load publication batches.', error);

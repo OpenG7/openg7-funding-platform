@@ -5,6 +5,7 @@
     "../apps/**/*.ts",
     "../packages/**/*.ts",
     "playwright/admin-dashboard-layout.spec.ts",
+    "playwright/admin-attention.spec.ts",
     "playwright/admin-readonly-pages.spec.ts"
   ]
 }

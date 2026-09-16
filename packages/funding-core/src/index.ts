@@ -798,6 +798,7 @@ export interface AdminSponsorshipInvoicesResponse {
 }
 
 export interface AdminSponsorshipInvoiceBackfillRequest {
+  readonly contributionId?: string;
   readonly limit?: number;
 }
 
@@ -1272,6 +1273,11 @@ export type AdminAttentionItemType =
   | 'publication_needs_preparation'
   | 'publication_late'
   | 'email_delivery_failed'
+  | 'invoice_missing'
+  | 'stripe_event_failed'
+  | 'stripe_event_stalled'
+  | 'publication_ready'
+  | 'publication_slot_upcoming'
   | 'financial_data_warning';
 
 export type AdminAttentionSeverity =
@@ -1458,3 +1464,5 @@ export interface AdminAssistantPrepareResponse {
   readonly draft: AdminAssistantDraftProposal | null;
   readonly message: string | null;
 }
+
+export type { AdminAttentionDueFilter, AdminWorkQueueQuery, AdminWorkQueueResponse } from './admin-work-queue.js';

@@ -1,3 +1,4 @@
+import type { AdminWorkQueueQuery, AdminWorkQueueResponse } from '@openg7/funding-core';
 import { Injectable } from '@angular/core';
 import type {
   AdminAssistantPrepareRequest,
@@ -154,6 +155,16 @@ export class FundingAdminService {
     return session;
   }
 
+  async getWorkQueue(token: string, query: AdminWorkQueueQuery = {}): Promise<AdminWorkQueueResponse> {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') params.set(key, String(value));
+    const response = await fetch(this.apiBaseUrl + '/admin/attention?' + params.toString(), {
+      method: 'GET', headers: await this.createHeaders(token)
+    });
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return await response.json() as AdminWorkQueueResponse;
+  }
+
   async getDashboard(token: string): Promise<AdminDashboardResponse> {
     const response = await fetch(`${this.apiBaseUrl}/admin/dashboard`, {
       method: 'GET',
@@ -273,8 +284,8 @@ export class FundingAdminService {
     return (await response.json()) as AdminEmailTestResult;
   }
 
-  async getEmailQueue(token: string): Promise<AdminEmailQueueResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/admin/email-queue`, {
+  async getEmailQueue(token: string, id?: string): Promise<AdminEmailQueueResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/email-queue${id ? "?messageId=" + encodeURIComponent(id) : ""}`, {
       method: 'GET',
       headers: await this.createHeaders(token)
     });
@@ -317,10 +328,10 @@ export class FundingAdminService {
   }
 
   async getSponsorshipInvoices(
-    token: string
+    token: string, contributionId?: string
   ): Promise<AdminSponsorshipInvoicesResponse> {
     const response = await fetch(
-      `${this.apiBaseUrl}/admin/sponsorship-invoices`,
+      `${this.apiBaseUrl}/admin/sponsorship-invoices${contributionId ? "?contributionId=" + encodeURIComponent(contributionId) : ""}`,
       {
         method: 'GET',
         headers: await this.createHeaders(token)
@@ -575,10 +586,10 @@ export class FundingAdminService {
   }
 
   async getPublicationDrafts(
-    token: string
+    token: string, id?: string
   ): Promise<AdminPublicationDraftsResponse> {
     const response = await fetch(
-      `${this.apiBaseUrl}/admin/publication-drafts`,
+      `${this.apiBaseUrl}/admin/publication-drafts${id ? "?draftId=" + encodeURIComponent(id) : ""}`,
       {
         method: 'GET',
         headers: await this.createHeaders(token)
@@ -639,10 +650,10 @@ export class FundingAdminService {
   }
 
   async getPublicationBatches(
-    token: string
+    token: string, id?: string
   ): Promise<AdminPublicationBatchesResponse> {
     const response = await fetch(
-      `${this.apiBaseUrl}/admin/publication-batches`,
+      `${this.apiBaseUrl}/admin/publication-batches${id ? "?batchId=" + encodeURIComponent(id) : ""}`,
       {
         method: 'GET',
         headers: await this.createHeaders(token)
@@ -680,9 +691,9 @@ export class FundingAdminService {
   }
 
   async getPublicationSlots(
-    token: string
+    token: string, id?: string
   ): Promise<AdminPublicationSlotsResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/admin/publication-slots`, {
+    const response = await fetch(`${this.apiBaseUrl}/admin/publication-slots${id ? "?slotId=" + encodeURIComponent(id) : ""}`, {
       method: 'GET',
       headers: await this.createHeaders(token)
     });

@@ -115,7 +115,12 @@
           [detail]="'admin.dashboard.plannedHelp' | translate"
         />
       </section>
-
+    }
+    <openg7-admin-attention-panel
+      [compact]="true"
+      [refreshKey]="attentionRefresh()"
+    />
+    @if (dashboard(); as data) {
       <section
         class="summaries"
         [attr.aria-label]="'admin.dashboard.operations' | translate"

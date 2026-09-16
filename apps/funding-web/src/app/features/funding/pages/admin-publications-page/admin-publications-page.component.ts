@@ -1,7 +1,11 @@
-import { CommonModule } from '@angular/common';
+import { TranslatePipe } from '@ngx-translate/core';
+import { ActivatedRoute } from '@angular/router';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  Injector,
+  afterNextRender,
   OnInit,
   computed,
   inject,
@@ -56,7 +60,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 @Component({
   selector: 'openg7-admin-publications-page',
   standalone: true,
-  imports: [CommonModule, AdminNavComponent],
+  imports: [CommonModule, AdminNavComponent, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="admin-shell">
@@ -70,6 +74,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
           </div>
           <button type="button" (click)="load()">Actualiser</button>
         </header>
+        @if (targetId) { <p class="state" data-og7="attention-object-target">{{ 'admin.attention.targetObject' | translate: { id: targetId } }}</p> }
+        @if (state() === 'ready' && !targetFound()) { <p role="status">{{ 'admin.attention.objectMissing' | translate }}</p> }
 
         <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
           <div>
@@ -260,6 +266,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             <article
               class="slot-card"
               *ngFor="let slot of slots(); trackBy: trackBySlot"
+              [attr.id]="'attention-object-' + slot.id" tabindex="-1"
             >
               <header>
                 <div>
@@ -485,7 +492,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               </h3>
               <div class="batch-list">
                 <article
-                  class="batch-card"
+                  class="batch-card" [attr.id]="'attention-object-' + batch.id" tabindex="-1"
                   *ngFor="
                     let batch of batchesForChannel(channel);
                     trackBy: trackByBatch
@@ -605,6 +612,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
           <article
             class="draft-card"
             *ngFor="let draft of filteredDrafts(); trackBy: trackByDraft"
+            [attr.id]="'attention-object-' + draft.id" tabindex="-1"
           >
             <header>
               <div>
@@ -1159,6 +1167,11 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 })
 export class AdminPublicationsPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly document = inject(DOCUMENT);
+  private readonly injector = inject(Injector);
+  readonly targetId = this.route.snapshot.queryParamMap.get('slotId') || this.route.snapshot.queryParamMap.get('batchId') || this.route.snapshot.queryParamMap.get('draftId');
+  readonly targetFound = computed(() => !this.targetId || [...this.slots(), ...this.batches(), ...this.drafts(), ...this.sponsorships()].some(item => item.id === this.targetId));
 
   readonly publicationStatuses = publicationStatuses;
   readonly adminToken = signal<string>('');
@@ -1261,9 +1274,9 @@ export class AdminPublicationsPageComponent implements OnInit {
       const [sponsorships, drafts, batches, slots, socialJobs] =
         await Promise.all([
         this.admin.getSponsorships(this.adminToken()),
-        this.admin.getPublicationDrafts(this.adminToken()),
-        this.admin.getPublicationBatches(this.adminToken()),
-        this.admin.getPublicationSlots(this.adminToken()),
+        this.admin.getPublicationDrafts(this.adminToken(), this.route.snapshot.queryParamMap.get('draftId') ?? undefined),
+        this.admin.getPublicationBatches(this.adminToken(), this.route.snapshot.queryParamMap.get('batchId') ?? undefined),
+        this.admin.getPublicationSlots(this.adminToken(), this.route.snapshot.queryParamMap.get('slotId') ?? undefined),
         this.admin.getSocialPublicationJobs(this.adminToken())
       ]);
       this.sponsorships.set(sponsorships.sponsorships);
@@ -1282,6 +1295,11 @@ export class AdminPublicationsPageComponent implements OnInit {
       );
       this.socialJobsResponse.set(socialJobs);
       this.state.set('ready');
+      if (this.targetId) afterNextRender(() => {
+        const target = this.document.getElementById('attention-object-' + this.targetId);
+        target?.focus({ preventScroll: true });
+        target?.scrollIntoView({ block: 'center' });
+      }, { injector: this.injector });
       this.admin.saveAdminToken(this.adminToken());
     } catch {
       this.state.set('error');

@@ -1,3 +1,5 @@
+import { TranslatePipe } from '@ngx-translate/core';
+import { ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -23,7 +25,7 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
 @Component({
   selector: 'openg7-admin-email-queue-page',
   standalone: true,
-  imports: [CommonModule, AdminNavComponent],
+  imports: [CommonModule, AdminNavComponent, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="admin-shell">
@@ -43,6 +45,8 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
             Actualiser
           </button>
         </header>
+        @if (targetId) { <p class="state" data-og7="attention-object-target">{{ 'admin.attention.targetObject' | translate: { id: targetId } }}</p> }
+        @if (targetId && state() === 'ready' && !messages().length) { <p role="status">{{ 'admin.attention.objectMissing' | translate }}</p> }
 
         <p class="state" *ngIf="state() === 'loading'" aria-live="polite">
           Chargement de la file courriel...
@@ -478,6 +482,8 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
 })
 export class AdminEmailQueuePageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
+  private readonly route = inject(ActivatedRoute);
+  readonly targetId = this.route.snapshot.queryParamMap.get('messageId');
 
   readonly adminToken = signal('');
   readonly state = signal<LoadState>('idle');
@@ -524,7 +530,7 @@ export class AdminEmailQueuePageComponent implements OnInit {
     this.state.set('loading');
 
     try {
-      this.queue.set(await this.admin.getEmailQueue(this.adminToken()));
+      this.queue.set(await this.admin.getEmailQueue(this.adminToken(), this.route.snapshot.queryParamMap.get('messageId') ?? undefined));
       this.state.set('ready');
       this.errorMessage.set('');
     } catch (error) {

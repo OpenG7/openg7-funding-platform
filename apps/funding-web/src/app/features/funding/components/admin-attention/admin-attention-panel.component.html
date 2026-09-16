@@ -1,0 +1,191 @@
+<section
+  class="attention-panel"
+  data-og7="attention-panel"
+  [attr.aria-busy]="state() === 'loading'"
+>
+  <header class="attention-heading">
+    <div>
+      <h2>
+        <openg7-admin-icon name="audit" />{{
+          (compact() ? 'admin.attention.todayTitle' : 'admin.attention.title')
+            | translate
+        }}
+        @if (data(); as response) {
+          <span class="count">{{
+            compact() ? response.todayTotal : response.total
+          }}</span>
+        }
+      </h2>
+      <p>
+        {{
+          (compact() ? 'admin.attention.todayHelp' : 'admin.attention.help')
+            | translate
+        }}
+      </p>
+    </div>
+    @if (compact()) {
+      <a
+        class="admin-link"
+        routerLink="/admin/fundraiser/attention"
+        [queryParams]="{ due: 'today' }"
+        >{{ 'admin.attention.viewAll' | translate }} →</a
+      >
+    }
+    <button
+      class="admin-button"
+      type="button"
+      (click)="load()"
+      [disabled]="state() === 'loading'"
+      [attr.aria-label]="'admin.attention.refresh' | translate"
+    >
+      <openg7-admin-icon name="refresh" />{{
+        'admin.attention.refresh' | translate
+      }}
+    </button>
+  </header>
+  @if (!compact()) {
+    <div class="filters">
+      <label
+        >{{ 'admin.attention.type' | translate
+        }}<select
+          [ngModel]="query().type || ''"
+          (ngModelChange)="filter('type', $event)"
+          data-og7="attention-type"
+        >
+          <option value="">{{ 'admin.attention.allTypes' | translate }}</option>
+          @for (type of types; track type) {
+            <option [value]="type">
+              {{ 'admin.attention.types.' + type | translate }}
+            </option>
+          }
+        </select></label
+      >
+      <label
+        >{{ 'admin.attention.priorityLabel' | translate
+        }}<select
+          [ngModel]="query().priority || ''"
+          (ngModelChange)="filter('priority', $event)"
+          data-og7="attention-priority"
+        >
+          <option value="">
+            {{ 'admin.attention.allPriorities' | translate }}
+          </option>
+          @for (priority of priorities; track priority) {
+            <option [value]="priority">
+              {{ 'admin.attention.priority.' + priority | translate }}
+            </option>
+          }
+        </select></label
+      >
+      <label
+        >{{ 'admin.attention.dueFilter' | translate
+        }}<select
+          [ngModel]="query().due || 'all'"
+          (ngModelChange)="filter('due', $event)"
+          data-og7="attention-due"
+        >
+          @for (
+            due of ['all', 'today', 'overdue', 'this_week', 'undated'];
+            track due
+          ) {
+            <option [value]="due">
+              {{ 'admin.attention.due.' + due | translate }}
+            </option>
+          }
+        </select></label
+      >
+      <a class="admin-link" routerLink="/admin/fundraiser/attention">{{
+        'admin.attention.reset' | translate
+      }}</a>
+    </div>
+  }
+  <div role="status" aria-live="polite">
+    @if (state() === 'loading') {
+      <p class="notice">{{ 'admin.attention.loading' | translate }}</p>
+    }
+    @if (state() === 'error') {
+      <p class="notice error">
+        {{
+          (data() ? 'admin.attention.stale' : 'admin.attention.error')
+            | translate
+        }}
+      </p>
+    }
+    @if (state() === 'forbidden') {
+      <p class="notice error">
+        {{ 'admin.dashboard.forbiddenHelp' | translate }}
+      </p>
+    }
+    @if (state() === 'unavailable') {
+      <p class="notice">
+        {{ 'admin.attention.unavailable' | translate }}
+        <a class="admin-link" routerLink="/admin/fundraiser/setup">{{
+          'admin.nav.settings' | translate
+        }}</a>
+      </p>
+    }
+    @if (data(); as response) {
+      @if (!compact()) {
+        <p class="notice" data-og7="attention-count">
+          {{
+            'admin.attention.results'
+              | translate
+                : { count: response.filteredTotal, total: response.total }
+          }}
+        </p>
+      }
+      @if (!response.items.length) {
+        <p class="notice" data-og7="attention-empty">
+          {{
+            (query().itemId
+              ? 'admin.attention.resolved'
+              : 'admin.attention.empty'
+            ) | translate
+          }}
+        </p>
+      }
+    }
+  </div>
+  @if (data(); as response) {
+    <openg7-admin-attention-list
+      [items]="response.items"
+      [showLink]="!query().itemId"
+      [returnTo]="returnTo()"
+    />
+    <footer>
+      <small
+        >{{ 'admin.dashboard.updated' | translate }}
+        <time [attr.datetime]="response.generatedAt">{{
+          date(response.generatedAt)
+        }}</time></small
+      >
+      @if (!compact() && response.filteredTotal > response.pageSize) {
+        <nav
+          class="pagination"
+          [attr.aria-label]="'admin.attention.pagination' | translate"
+        >
+          <button
+            class="admin-button"
+            (click)="page(response.page - 1)"
+            [disabled]="response.page === 1 || state() === 'loading'"
+          >
+            {{ 'admin.attention.previous' | translate }}
+          </button>
+          <span>{{
+            'admin.attention.page' | translate: { page: response.page }
+          }}</span>
+          <button
+            class="admin-button"
+            (click)="page(response.page + 1)"
+            [disabled]="
+              response.page * response.pageSize >= response.filteredTotal ||
+              state() === 'loading'
+            "
+          >
+            {{ 'admin.attention.next' | translate }}
+          </button>
+        </nav>
+      }
+    </footer>
+  }
+</section>

@@ -85,6 +85,17 @@ async function fixtures(page: Page, expired = false): Promise<void> {
     const pathname = new URL(route.request().url()).pathname;
     if (pathname === '/api/admin/dashboard') {
       await route.fulfill({ json: dashboard });
+    } else if (pathname === '/api/admin/attention') {
+      await route.fulfill({ json: {
+        available: true, coverage: 'complete', missingSources: [], generatedAt: dashboard.last_updated_at,
+        timezone: 'America/Toronto', total: 4, filteredTotal: 4, todayTotal: 4, page: 1, pageSize: 4,
+        counts: { urgent: 1, today: 3, this_week: 0, informational: 0 }, typeCounts: {},
+        items: ['stripe_event_failed', 'sponsorship_needs_review', 'email_delivery_failed', 'invoice_missing'].map((type, index) => ({
+          id: 'dashboard-task-' + index, type, severity: index === 0 ? 'urgent' : 'today',
+          title: type, explanation: type, detectedAt: dashboard.last_updated_at,
+          adminUrl: '/admin/fundraiser/attention', facts: { reference: 'DEMO-2026-00' + index }, suggestedActions: []
+        }))
+      } });
     } else if (pathname === '/api/admin/assistant/summary') {
       await route.fulfill({
         json: {
@@ -231,8 +242,10 @@ test('loading prevents duplicate refreshes; failures preserve and label the last
     await route.fulfill({ json: dashboard });
   });
   await page.goto('/admin/fundraiser', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('status')).toContainText('Actualisation');
-  await expect(page.getByRole('button', { name: 'Actualiser' })).toBeDisabled();
+  await expect(page.getByRole('status').filter({ hasText: 'Actualisation' })).toContainText('Actualisation');
+  await expect(
+    page.getByRole('button', { name: 'Actualiser', exact: true })
+  ).toBeDisabled();
   release?.();
   await expect(
     page.getByRole('article', { name: 'Montants encaissés' })
@@ -241,13 +254,13 @@ test('loading prevents duplicate refreshes; failures preserve and label the last
   await page.route('**/api/admin/dashboard', (route) =>
     route.fulfill({ status: 502, json: {} })
   );
-  await page.getByRole('button', { name: 'Actualiser' }).click();
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('périmées');
   await expect(
     page.getByRole('article', { name: 'Montants encaissés' })
   ).toBeVisible();
   await page.unroute('**/api/admin/dashboard');
-  await page.getByRole('button', { name: 'Actualiser' }).click();
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
@@ -282,7 +295,7 @@ test('unavailable storage is distinct from an empty fund', async ({ page }) => {
       }
     })
   );
-  await page.getByRole('button', { name: 'Actualiser' }).click();
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Aucune contribution enregistrée' })
   ).toBeVisible();
@@ -302,7 +315,7 @@ test('a forbidden response removes previously displayed private data', async ({
   await page.route('**/api/admin/dashboard', (route) =>
     route.fulfill({ status: 403, json: {} })
   );
-  await page.getByRole('button', { name: 'Actualiser' }).click();
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Accès refusé');
   await expect(page.getByRole('link', { name: /Atelier Boréal/ })).toHaveCount(
     0

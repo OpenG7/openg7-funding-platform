@@ -472,7 +472,8 @@ const getPublicationDraftById = async (
 };
 
 export const listAdminPublicationDrafts = async (
-  pool: Pool | null
+  pool: Pool | null,
+  options: { readonly all?: boolean; readonly id?: string } = {}
 ): Promise<AdminPublicationDraftsResponse> => {
   const now = new Date().toISOString();
   if (!pool) {
@@ -518,6 +519,7 @@ export const listAdminPublicationDrafts = async (
     FROM sponsor_publication_drafts draft
     INNER JOIN fund_contributions contribution
       ON contribution.id = draft.contribution_id
+    WHERE ($1::text IS NULL OR draft.id::text = $1)
     ORDER BY
       CASE draft.status
         WHEN 'pending_review' THEN 0
@@ -528,8 +530,8 @@ export const listAdminPublicationDrafts = async (
         ELSE 5
       END,
       draft.updated_at DESC
-    LIMIT 100
-  `);
+    LIMIT $2
+  `, [options.id ?? null, options.all ? null : 100]);
 
   return {
     data_source: 'database',
@@ -885,7 +887,8 @@ export const getPublicSponsorshipBatchAvailability = async (
 };
 
 export const listAdminPublicationSlots = async (
-  pool: Pool | null
+  pool: Pool | null,
+  options: { readonly all?: boolean; readonly id?: string } = {}
 ): Promise<AdminPublicationSlotsResponse> => {
   const now = new Date().toISOString();
   if (!pool) {
@@ -899,6 +902,7 @@ export const listAdminPublicationSlots = async (
 
   const query = await pool.query<PublicationSlotRow>(`
     ${publicationSlotSelect}
+    WHERE ($1::text IS NULL OR slot.id::text = $1)
     GROUP BY slot.id
     ORDER BY
       CASE slot.status
@@ -908,8 +912,8 @@ export const listAdminPublicationSlots = async (
         ELSE 3
       END,
       slot.starts_at ASC
-    LIMIT 100
-  `);
+    LIMIT $2
+  `, [options.id ?? null, options.all ? null : 100]);
 
   return {
     data_source: 'database',
@@ -1397,7 +1401,8 @@ export const cancelAdminPublicationSlot = async (
 };
 
 export const listAdminPublicationBatches = async (
-  pool: Pool | null
+  pool: Pool | null,
+  options: { readonly all?: boolean; readonly id?: string } = {}
 ): Promise<AdminPublicationBatchesResponse> => {
   const now = new Date().toISOString();
   if (!pool) {
@@ -1415,6 +1420,7 @@ export const listAdminPublicationBatches = async (
   // open (undated) batches, then published/cancelled history.
   const query = await pool.query<PublicationBatchRow>(`
     ${publicationBatchSelect}
+    WHERE ($1::text IS NULL OR batch.id::text = $1)
     GROUP BY batch.id
     ORDER BY
       batch.channel,
@@ -1425,8 +1431,8 @@ export const listAdminPublicationBatches = async (
         ELSE 3
       END,
       COALESCE(batch.scheduled_at, batch.created_at) ASC
-    LIMIT 100
-  `);
+    LIMIT $2
+  `, [options.id ?? null, options.all ? null : 100]);
 
   return {
     data_source: 'database',

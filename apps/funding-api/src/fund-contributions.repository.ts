@@ -1839,7 +1839,7 @@ const SPONSORSHIP_ATTENTION_MAX_ROWS = 2000;
 
 export const listSponsorshipsForAttention = async (
   pool: Pool | null,
-  maxRows: number = SPONSORSHIP_ATTENTION_MAX_ROWS
+  maxRows: number | null = SPONSORSHIP_ATTENTION_MAX_ROWS
 ): Promise<SponsorshipAttentionQueryResult> => {
   if (!pool) {
     return {
@@ -1849,7 +1849,7 @@ export const listSponsorshipsForAttention = async (
     };
   }
 
-  const cap = Math.max(1, Math.min(maxRows, SPONSORSHIP_ATTENTION_MAX_ROWS));
+  const cap = maxRows === null ? null : Math.max(1, Math.min(maxRows, SPONSORSHIP_ATTENTION_MAX_ROWS));
   const mediaPresence = await pool.query<{ readonly exists: boolean }>(
     `SELECT to_regclass('public.sponsor_media_assets') IS NOT NULL AS exists`
   );
@@ -1889,11 +1889,11 @@ export const listSponsorshipsForAttention = async (
     ORDER BY updated_at DESC
     LIMIT $1
   `,
-    [cap + 1]
+    [cap === null ? null : cap + 1]
   );
 
-  const truncated = query.rows.length > cap;
-  const rows = truncated ? query.rows.slice(0, cap) : query.rows;
+  const truncated = cap !== null && query.rows.length > cap;
+  const rows = truncated ? query.rows.slice(0, cap ?? undefined) : query.rows;
   const items = rows.map((row): SponsorshipAttentionRecord => ({
     contributionId: row.contribution_id,
     publicReference: row.public_reference,

@@ -1433,7 +1433,8 @@ export const getAdminEmailQueueMessageById = async (
 };
 
 export const listAdminEmailQueue = async (
-  pool: Pool | null
+  pool: Pool | null,
+  options: { readonly all?: boolean; readonly id?: string } = {}
 ): Promise<AdminEmailQueueResponse> => {
   if (!pool || !(await hasEmailMessagesTable(pool))) {
     return emptyAdminEmailQueueResponse();
@@ -1443,9 +1444,10 @@ export const listAdminEmailQueue = async (
     pool.query<AdminEmailQueueMessageRow>(`
       SELECT ${adminEmailQueueMessageSelect}
       FROM email_messages
+      WHERE ($1::text IS NULL OR id::text = $1)
       ORDER BY updated_at DESC, created_at DESC
-      LIMIT 150
-    `),
+      LIMIT $2
+    `, [options.id ?? null, options.all ? null : 150]),
     pool.query<AdminEmailQueueSummaryRow>(`
       WITH counts AS (
         SELECT
