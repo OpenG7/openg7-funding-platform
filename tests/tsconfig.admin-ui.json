@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": [
+    "../apps/**/*.ts",
+    "../packages/**/*.ts",
+    "playwright/admin-dashboard-layout.spec.ts",
+    "playwright/admin-readonly-pages.spec.ts"
+  ]
+}

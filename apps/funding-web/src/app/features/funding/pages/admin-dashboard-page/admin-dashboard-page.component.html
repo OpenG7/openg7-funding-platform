@@ -1,0 +1,307 @@
+<openg7-admin-layout>
+  <div class="dashboard" data-og7="admin-dashboard">
+    <header class="page-heading">
+      <div>
+        <p class="eyebrow">{{ 'admin.nav.steering' | translate }}</p>
+        <h1>{{ 'admin.dashboard.title' | translate }}</h1>
+        <p class="subtitle">{{ 'admin.dashboard.subtitle' | translate }}</p>
+      </div>
+      <button
+        class="admin-button"
+        type="button"
+        (click)="loadDashboard()"
+        [disabled]="state() === 'loading'"
+      >
+        <openg7-admin-icon name="refresh" />{{
+          'admin.dashboard.refresh' | translate
+        }}
+      </button>
+    </header>
+
+    @if (state() === 'loading') {
+      <p class="notice" role="status">
+        {{ 'admin.dashboard.loading' | translate }}
+      </p>
+    }
+    @if (state() === 'error') {
+      <div class="notice notice-error" role="alert">
+        <openg7-admin-icon name="warning" />
+        <div>
+          <strong>{{ 'admin.dashboard.error' | translate }}</strong>
+          <p>
+            {{
+              (dashboard() ? 'admin.dashboard.stale' : 'admin.dashboard.retry')
+                | translate
+            }}
+          </p>
+        </div>
+      </div>
+    }
+    @if (state() === 'forbidden' || state() === 'unavailable') {
+      <section class="notice" role="alert">
+        <openg7-admin-icon name="warning" />
+        <div>
+          <h2>
+            {{
+              (state() === 'forbidden'
+                ? 'admin.dashboard.forbidden'
+                : 'admin.dashboard.unavailable'
+              ) | translate
+            }}
+          </h2>
+          <p>
+            {{
+              (state() === 'forbidden'
+                ? 'admin.dashboard.forbiddenHelp'
+                : 'admin.dashboard.unavailableHelp'
+              ) | translate
+            }}
+          </p>
+          @if (state() === 'unavailable') {
+            <a class="admin-link" routerLink="/admin/fundraiser/setup">{{
+              'admin.nav.settings' | translate
+            }}</a>
+          }
+        </div>
+      </section>
+    }
+
+    @if (dashboard(); as data) {
+      <div class="snapshot">
+        <span>{{ 'admin.dashboard.period' | translate }}</span>
+        <span
+          ><openg7-admin-icon name="clock" />
+          {{ 'admin.dashboard.updated' | translate }}
+          <time [attr.datetime]="data.last_updated_at">{{
+            dateLabel(data.last_updated_at)
+          }}</time>
+        </span>
+      </div>
+      <section
+        class="metrics"
+        [attr.aria-label]="'admin.dashboard.metrics' | translate"
+      >
+        <openg7-admin-metric-card
+          icon="contributions"
+          tone="green"
+          [label]="'admin.dashboard.received' | translate"
+          [value]="
+            formatMoney(data.totals.total_received, data.totals.currency)
+          "
+          [detail]="'admin.dashboard.receivedHelp' | translate"
+        />
+        <openg7-admin-metric-card
+          icon="expenses"
+          tone="gold"
+          [label]="'admin.dashboard.estimate' | translate"
+          [value]="
+            formatMoney(
+              data.totals.current_available_estimate,
+              data.totals.currency
+            )
+          "
+          [detail]="'admin.dashboard.estimateHelp' | translate"
+        />
+        <openg7-admin-metric-card
+          icon="sponsors"
+          [label]="'admin.nav.sponsors' | translate"
+          [value]="formatCount(data.sponsorship_review.total)"
+          [detail]="'admin.dashboard.sponsorsHelp' | translate"
+        />
+        <openg7-admin-metric-card
+          icon="publications"
+          [label]="'admin.dashboard.planned' | translate"
+          [value]="formatCount(data.feed_publication.planned)"
+          [detail]="'admin.dashboard.plannedHelp' | translate"
+        />
+      </section>
+
+      <section
+        class="summaries"
+        [attr.aria-label]="'admin.dashboard.operations' | translate"
+      >
+        <article class="panel">
+          <header class="panel-heading">
+            <h2>
+              <openg7-admin-icon name="sponsors" />{{
+                'admin.dashboard.review' | translate
+              }}
+            </h2>
+            <a class="admin-link" routerLink="/admin/fundraiser/sponsors"
+              >{{ 'admin.dashboard.viewFiles' | translate }}
+              <openg7-admin-icon name="arrow"
+            /></a>
+          </header>
+          <dl class="status-list">
+            <div>
+              <dt>{{ 'admin.dashboard.pendingReview' | translate }}</dt>
+              <dd>
+                <openg7-admin-badge
+                  [tone]="
+                    data.sponsorship_review.pending > 0 ? 'warning' : 'neutral'
+                  "
+                  >{{
+                    formatCount(data.sponsorship_review.pending)
+                  }}</openg7-admin-badge
+                >
+              </dd>
+            </div>
+            <div>
+              <dt>{{ 'admin.dashboard.approved' | translate }}</dt>
+              <dd>{{ formatCount(data.sponsorship_review.approved) }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'admin.dashboard.rejected' | translate }}</dt>
+              <dd>{{ formatCount(data.sponsorship_review.rejected) }}</dd>
+            </div>
+          </dl>
+          <p class="panel-note">
+            {{ 'admin.dashboard.reviewHelp' | translate }}
+          </p>
+        </article>
+        <article class="panel">
+          <header class="panel-heading">
+            <h2>
+              <openg7-admin-icon name="publications" />{{
+                'admin.dashboard.publicationTitle' | translate
+              }}
+            </h2>
+            <a class="admin-link" routerLink="/admin/fundraiser/publications"
+              >{{ 'admin.dashboard.viewPublications' | translate }}
+              <openg7-admin-icon name="arrow"
+            /></a>
+          </header>
+          <dl class="status-list">
+            <div>
+              <dt>{{ 'admin.dashboard.plannedStatus' | translate }}</dt>
+              <dd>{{ formatCount(data.feed_publication.planned) }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'admin.dashboard.drafted' | translate }}</dt>
+              <dd>{{ formatCount(data.feed_publication.drafted) }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'admin.dashboard.published' | translate }}</dt>
+              <dd>{{ formatCount(data.feed_publication.published) }}</dd>
+            </div>
+          </dl>
+          <p class="panel-note">
+            {{
+              'admin.dashboard.activePublications'
+                | translate
+                  : { count: formatCount(data.feed_publication.active) }
+            }}
+          </p>
+        </article>
+      </section>
+
+      <div class="details">
+        <section class="panel recent" aria-labelledby="admin-recent-title">
+          <header class="panel-heading">
+            <h2 id="admin-recent-title">
+              <openg7-admin-icon name="clock" />{{
+                'admin.dashboard.recent' | translate
+              }}
+            </h2>
+            <a class="admin-link" routerLink="/admin/fundraiser/contributions"
+              >{{ 'admin.dashboard.viewAll' | translate }}
+              <openg7-admin-icon name="arrow"
+            /></a>
+          </header>
+          @if (recentContributions().length) {
+            <ul class="contributions">
+              @for (
+                contribution of recentContributions();
+                track contribution.id
+              ) {
+                <li>
+                  <a
+                    [routerLink]="['/admin/fundraiser/contributions']"
+                    [queryParams]="{ contributionId: contribution.id }"
+                  >
+                    <span class="contribution-icon"
+                      ><openg7-admin-icon
+                        [name]="
+                          contribution.contribution_type ===
+                          'sponsorship_interest'
+                            ? 'sponsors'
+                            : 'contributions'
+                        "
+                    /></span>
+                    <span class="contributor"
+                      ><strong>{{ displayName(contribution) }}</strong>
+                      <small
+                        >{{ contributionTypeLabel(contribution) }} ·
+                        {{
+                          dateLabel(
+                            contribution.paid_at || contribution.updated_at
+                          )
+                        }}</small
+                      >
+                    </span>
+                    <span class="contribution-amount"
+                      ><strong>{{
+                        formatMoney(contribution.amount, contribution.currency)
+                      }}</strong>
+                      <openg7-admin-badge
+                        [tone]="paymentTone(contribution.payment_status)"
+                        >{{
+                          paymentLabel(contribution.payment_status)
+                        }}</openg7-admin-badge
+                      >
+                    </span>
+                  </a>
+                </li>
+              }
+            </ul>
+          } @else {
+            <div class="empty">
+              <openg7-admin-icon name="contributions" />
+              <h3>{{ 'admin.dashboard.empty' | translate }}</h3>
+              <p>{{ 'admin.dashboard.emptyHelp' | translate }}</p>
+            </div>
+          }
+        </section>
+        <section class="panel stripe" aria-labelledby="admin-stripe-title">
+          <header class="panel-heading">
+            <h2 id="admin-stripe-title">
+              <openg7-admin-icon name="audit" />{{
+                'admin.dashboard.stripe' | translate
+              }}
+            </h2>
+          </header>
+          <dl class="status-list">
+            <div>
+              <dt>{{ 'admin.dashboard.failedEvents' | translate }}</dt>
+              <dd>
+                <openg7-admin-badge
+                  [tone]="data.stripe_events.failed > 0 ? 'danger' : 'neutral'"
+                  >{{
+                    formatCount(data.stripe_events.failed)
+                  }}</openg7-admin-badge
+                >
+              </dd>
+            </div>
+            <div>
+              <dt>{{ 'admin.dashboard.processingEvents' | translate }}</dt>
+              <dd>{{ formatCount(data.stripe_events.processing) }}</dd>
+            </div>
+          </dl>
+          <p class="panel-note">
+            {{ 'admin.dashboard.lastFailure' | translate }}<br />{{
+              dateLabel(data.stripe_events.last_failed_at)
+            }}
+          </p>
+          <p class="panel-note">
+            {{ 'admin.dashboard.stripeHelp' | translate }}
+          </p>
+          <a class="admin-button" routerLink="/admin/fundraiser/setup"
+            ><openg7-admin-icon name="settings" />{{
+              'admin.nav.settings' | translate
+            }}</a
+          >
+        </section>
+      </div>
+    }
+  </div>
+</openg7-admin-layout>

@@ -69,6 +69,13 @@ const sessionExpiresAtStorageKey = 'openg7-admin-session-expires-at';
 const legacyTokenStorageKey = 'openg7-admin-token';
 const adminSessionTokenPrefix = 'openg7-admin-session.';
 
+export class AdminDashboardRequestError extends Error {
+  constructor(readonly status: number) {
+    super('Admin dashboard could not be loaded.');
+    this.name = 'AdminDashboardRequestError';
+  }
+}
+
 export interface AdminSponsorshipListQuery {
   readonly page: number;
   readonly pageSize: number;
@@ -154,7 +161,7 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error('Admin dashboard could not be loaded.');
+      throw new AdminDashboardRequestError(response.status);
     }
 
     return (await response.json()) as AdminDashboardResponse;

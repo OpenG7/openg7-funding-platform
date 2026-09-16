@@ -1434,6 +1434,7 @@ export const getAdminDashboard = async (
       contributions_count: summary.total_count,
       paid_contributions_count: summary.paid_count
     },
+    data_available: pool !== null,
     sponsorship_review: sponsorshipReview,
     feed_publication: feedPublication,
     stripe_events: stripeEvents,

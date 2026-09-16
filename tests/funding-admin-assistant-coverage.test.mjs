@@ -29,7 +29,7 @@ test('the assistant is wired into the Angular admin shell', () => {
   );
   assertIncludesAll(
     nav,
-    ['/admin/fundraiser/assistant', 'Assistant'],
+    ['/admin/fundraiser/assistant', "key: 'assistant'"],
     'admin-nav'
   );
   assertIncludesAll(

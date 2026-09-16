@@ -562,6 +562,8 @@ export interface AdminContributionsResponse {
 
 export interface AdminDashboardResponse {
   readonly data_source: 'database';
+  /** False when PostgreSQL is not configured. Optional for older API versions. */
+  readonly data_available?: boolean;
   readonly totals: {
     readonly total_received: number;
     readonly total_refunded: number;
