@@ -41,14 +41,15 @@ Réalisé le 16 septembre 2026 selon le [plan](./admin-ux-plan-de-travail.md), l
 - Navigateur : URLs directes, rechargement d’onglet, retour à la file filtrée, sélection de session, actualisation des badges, conflit de version, désactivation pendant une action, réponse tardive, refus d’accès, expiration, clavier, anglais et largeur mobile de 390 px.
 - ESLint ciblé et format des nouveaux fichiers vérifiés, ainsi que `git diff --check`. Le lint global garde **14 erreurs d’import et un avertissement préexistants hors périmètre**. Le contrôle de format global relève encore des écarts historiques; ces commandes globales ne sont pas vertes.
 
-Rejouer l’intégration uniquement sur une base locale **neuve**, nommée `progress_test` :
+Depuis le lot 8, l’intégration crée sa propre base jetable avec Docker local. Reproduction avec Node 22 et Yarn 4 :
 
 ```sh
+docker pull postgres:16-alpine
 yarn build
-SPONSOR_PROGRESS_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55481/progress_test node --test tests/integration/sponsorship-progress.integration.mjs
+node --test tests/integration/sponsorship-progress.integration.mjs
 ```
 
-Sans variable explicite, le scénario est ignoré. Il ne charge pas `.env` et ne démarre aucun worker.
+Le scénario ne charge ni `.env` ni `SPONSOR_PROGRESS_TEST_DATABASE_URL` et ne démarre aucun worker. Il s’exécute systématiquement et supprime son conteneur en fin de test. Voir la [recette actuelle](./admin-ux-lot-8.md) ; les résultats ci-dessus décrivent la validation initiale du lot 4.
 
 ## Limites et suite
 

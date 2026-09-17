@@ -81,7 +81,17 @@ Cette commande couvre aussi les suites admin malgré son nom historique. Les bas
 
 `.github/workflows/admin-acceptance.yml` lance le lint, le contrôle TypeScript complet, les tests Node, les intégrations PostgreSQL, le build Angular/SSR, les tests UI et la recette Docker. Les preuves sont conservées pendant sept jours dans l’artefact `admin-acceptance-results`.
 
-Ce workflow est limité aux validations. Son exécution sur GitHub doit être vérifiée après publication de la branche et ouverture de la PR.
+Ce workflow est limité aux validations. La première exécution sur GitHub a réussi pour la PR #116 ; les révisions et preuves sont consignées dans la section « Résultats CI » ci-dessous. Chaque changement ultérieur doit être validé sur sa propre révision.
+
+### Lecture des preuves pour une PR
+
+1. Ouvrir l’exécution **Admin acceptance** associée au dernier commit de la PR et relever son URL et le SHA testé. Une fusion de PR ne constitue pas à elle seule une preuve de réussite.
+2. Vérifier la conclusion du job et de chaque étape : lint, TypeScript, tests Node, intégrations PostgreSQL, UI/SSR et Docker. Une étape ignorée, annulée ou encore en cours n’est pas validée.
+3. Télécharger l’artefact `admin-acceptance-results` avant son expiration. Le rapport Docker est `acceptance/results.json` ; `acceptance/run.json` identifie la révision, le projet temporaire et la date. Les captures UI se trouvent sous `admin-layout/`.
+4. Comparer les compteurs du rapport avec les logs. Consigner les échecs, tests ignorés ou instables et vérifier le nettoyage Docker. Ne pas appliquer les résultats d’une ancienne exécution à un nouveau commit.
+5. En cas d’échec, examiner les traces et erreurs, corriger puis relancer la recette entière sur une base neuve. Les sorties ignorées par Git restent dans l’artefact ; le bilan versionné conserve les liens, les révisions et les conclusions.
+
+Cette vérification concerne la recette sur données synthétiques. Elle ne remplace pas les contrôles de l’environnement livré ni ceux des fournisseurs réels.
 
 ## Corrections issues de la recette
 
@@ -115,9 +125,29 @@ Validation locale du 17 septembre 2026, exécutée avec Node 22 et Yarn 4 sur la
 | `yarn format:check` global                        | Échec : écarts de formatage historiques dans le dépôt                                            |
 | `git diff --check`                                | Réussi                                                                                           |
 
-La dernière recette Docker est sortie avec le code 0. Ses conteneurs et réseaux ont été supprimés ; les services PostgreSQL et simulateur Stripe déjà présents avant la recette sont restés actifs. Les résultats portent sur l’arbre de travail local : la validation du commit final par GitHub Actions reste à obtenir dans la PR.
+La dernière recette Docker locale est sortie avec le code 0. Ses conteneurs et réseaux ont été supprimés ; les services PostgreSQL et simulateur Stripe déjà présents avant la recette sont restés actifs. Ces résultats portent sur l’arbre de travail local de l’implémentation initiale ; la validation CI du code ensuite commité est décrite ci-dessous.
 
 Les fichiers `test-results/acceptance/results.json`, `run.json`, les captures et les traces sont des sorties locales ignorées par Git. Le rapport JSON distingue les tests attendus, échoués et ignorés ; le code de sortie reste non nul en cas d’échec, y compris pendant le nettoyage.
+
+### Résultats CI — PR #116
+
+Le 17 septembre 2026, l’exécution [Admin acceptance #1](https://github.com/OpenG7/openg7-funding-platform/actions/runs/35287062740) s’est terminée avec la conclusion **success**. Le [job et ses logs](https://github.com/OpenG7/openg7-funding-platform/actions/runs/35287062740/job/105421647155) ont été consultés après sa fin. Toutes les étapes ont réussi.
+
+| Preuve                     | Résultat observé sur Ubuntu 24.04, Node 22 et Yarn 4                                  |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| Lint et TypeScript complet | Réussis ; le lint conserve son avertissement préexistant                              |
+| Tests Node                 | 230 réussis, aucun échec ni test ignoré                                               |
+| Intégrations PostgreSQL    | 23 réussis, aucun échec ni test ignoré                                                |
+| Angular/SSR et UI          | Build réussi, 22 routes prérendues et 77 tests réussis                                |
+| Navigateur sur Docker      | 121 tests réussis, aucun échec, test ignoré ou résultat instable ; retries désactivés |
+| Nettoyage                  | Les quatre conteneurs et les deux réseaux du projet de recette ont été supprimés      |
+| Artefact                   | `admin-acceptance-results` conservé, expiration le 24 septembre 2026 à 23:38 UTC      |
+
+La [PR #116](https://github.com/OpenG7/openg7-funding-platform/pull/116) portait le commit `9426ec0b09ac0146dcd21efa38dd709e93f5b267`. GitHub Actions a testé son commit de fusion temporaire `06439a9b2bd2a910d3b04aec712b328ebacdfcdd`, visible dans les logs de checkout. Le commit fusionné dans `main` est `2511b5041f567f8765d40bd7e48a9b2f09c31900` ; son arbre de fichiers est identique à celui de la tête de PR (`e4b006aa72f6a0dc884f6a0e686bd1592528fcf9`).
+
+L’[artefact de recette](https://github.com/OpenG7/openg7-funding-platform/actions/runs/35287062740/artifacts/10524559008) porte l’identifiant `10524559008`. Il a été téléchargé et son empreinte SHA-256 vérifiée contre celle publiée par GitHub : `d60cb692d72eeea7ba9ff9d1412aab5b0653a2d900d913037dd0c2d155a9edaf`. `acceptance/run.json` confirme la révision testée et un arbre de travail propre ; `acceptance/results.json` confirme les 121 succès et zéro échec, test ignoré ou résultat instable. Cette preuve concerne la recette de PR ; elle n’atteste pas un déploiement ni le fonctionnement des fournisseurs réels.
+
+Le suivi sur `chore/admin-acceptance-followup`, créée depuis `2511b50`, actualise les commandes de reproduction des lots 2 à 6 et consigne ces preuves. Il est documentaire : format ciblé, liens locaux et diff vérifiés ; les suites applicatives ne sont pas relancées pour ces seuls changements de texte.
 
 ## Livraison et limites
 
@@ -127,4 +157,4 @@ Les fichiers `test-results/acceptance/results.json`, `run.json`, les captures et
 - Les snapshots de documents, textes saisis et messages externes conservent leur langue d’origine.
 - Le formatage global présente encore des écarts historiques. Le changement ne reformate pas l’ensemble du dépôt.
 
-Prochaine étape : faire exécuter le workflow de cette branche sur GitHub et joindre son résultat à la revue de PR.
+La recette locale et la recette CI du périmètre initial sont validées. Pour la suite, définir un nouveau lot à partir des besoins produit restants et des limites ci-dessus ; le plan initial ne prévoit pas de lot 9.

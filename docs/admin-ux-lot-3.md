@@ -56,14 +56,15 @@ Composants standalone, OnPush et signals; aucun chargement contextuel côté SSR
 - ESLint ciblé, format des nouveaux fichiers et `git diff --check` vérifiés. Le lint global conserve 15 erreurs d’import préexistantes et un avertissement hors périmètre; le format global comporte encore des écarts historiques.
 - Capture et contrôle mobile à 390 px, langue anglaise, absence de débordement; tests de focus, session expirée, accès refusé et réponse tardive.
 
-Rejouer l’intégration uniquement sur une base locale **neuve** nommée `assistant_test` :
+Depuis le lot 8, l’intégration crée sa propre base jetable avec Docker local. Reproduction avec Node 22 et Yarn 4 :
 
 ```sh
+docker pull postgres:16-alpine
 yarn build
-ASSISTANT_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55480/assistant_test node --test tests/integration/admin-assistant-context.integration.mjs
+node --test tests/integration/admin-assistant-context.integration.mjs
 ```
 
-Le test ne charge pas `.env`, ne démarre aucun worker et n’envoie aucun courriel. Sans variable explicite, il est ignoré.
+Le test ne charge ni `.env` ni `ASSISTANT_TEST_DATABASE_URL`, ne démarre aucun worker et n’envoie aucun courriel. Il s’exécute systématiquement et supprime son conteneur en fin de test. Voir la [recette actuelle](./admin-ux-lot-8.md) ; les résultats ci-dessus décrivent la validation initiale du lot 3.
 
 ## Limites et suite
 

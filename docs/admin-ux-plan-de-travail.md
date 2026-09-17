@@ -8,7 +8,7 @@ Transformer l’administration en un espace qui indique **ce qui demande une int
 
 Ce document prépare l’implémentation. Les propositions contenues dans les documents sont des exigences à analyser et à organiser; elles ne constituent pas une instruction d’exécuter les opérations illustrées.
 
-**Avancement au 17 septembre 2026 :** lots 1 à 7 réalisés ; recette locale du lot 8 validée, exécution CI à confirmer dans la PR. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md), de l’[Assistant contextuel](./admin-ux-lot-3.md), du [dossier commandite](./admin-ux-lot-4.md), des [indicateurs, activité et systèmes](./admin-ux-lot-5.md), de la [recherche globale](./admin-ux-lot-6.md), des [panneaux latéraux et de l’harmonisation](./admin-ux-lot-7.md) et de la [recette et des preuves d’exécution](./admin-ux-lot-8.md).
+**Avancement au 17 septembre 2026 :** lots 1 à 7 réalisés ; recettes locale et CI du lot 8 validées. L’exécution [Admin acceptance #1](https://github.com/OpenG7/openg7-funding-platform/actions/runs/35287062740) de la PR #116 a réussi. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md), de l’[Assistant contextuel](./admin-ux-lot-3.md), du [dossier commandite](./admin-ux-lot-4.md), des [indicateurs, activité et systèmes](./admin-ux-lot-5.md), de la [recherche globale](./admin-ux-lot-6.md), des [panneaux latéraux et de l’harmonisation](./admin-ux-lot-7.md) et de la [recette et des preuves d’exécution](./admin-ux-lot-8.md).
 
 Le présent changement documentaire est à risque faible. L’implémentation prévue sera à risque modéré pour les contrats API, les sessions, les projections et les parcours administratifs. Toute opération réelle sur les paiements ou la production reste une intervention distincte.
 
@@ -186,11 +186,11 @@ Travail :
 
 ### Lot 8 — Recette et preuves d’exécution
 
-Recette et outillage : voir le [bilan du lot 8](./admin-ux-lot-8.md), qui distingue les résultats locaux de la validation CI à obtenir.
+Recette et outillage : voir le [bilan du lot 8](./admin-ux-lot-8.md), qui distingue les résultats locaux, les preuves CI obtenues et leurs limites.
 
 **Priorité : transversale; clôture après les lots 1 à 7.**
 
-**État :** recette locale validée ; résultats du workflow GitHub Actions à obtenir sur le commit final. Les limites de vérification visuelle et des fournisseurs externes sont détaillées dans le bilan.
+**État :** recettes locale et GitHub Actions validées pour la PR #116. Le bilan conserve les révisions testées, le lien d’exécution et les preuves. Les limites de vérification visuelle et des fournisseurs externes restent explicites.
 
 Les tests sont ajoutés avec chaque lot. Ce lot termine la recette de l’ensemble.
 
@@ -268,4 +268,4 @@ Pour ce livrable documentaire, les validations applicables sont la relecture des
 
 ## 8. Première action recommandée
 
-Les **lots 1 à 7** livrent le layout admin, la file « À traiter », l’Assistant contextuel, le dossier commandite, les indicateurs du cockpit, la recherche globale et les panneaux latéraux. Le **lot 8** apporte une recette locale validée et un workflow de PR. Prochaine étape : obtenir les résultats CI sur le commit final et les joindre à la revue, en s’appuyant sur le [bilan de recette](./admin-ux-lot-8.md).
+Les **lots 1 à 7** livrent le layout admin, la file « À traiter », l’Assistant contextuel, le dossier commandite, les indicateurs du cockpit, la recherche globale et les panneaux latéraux. Le **lot 8** apporte des recettes locale et CI validées, détaillées dans le [bilan de recette](./admin-ux-lot-8.md). Le plan initial s’arrête à huit lots. Prochaine étape : cadrer un nouveau lot selon les besoins produit prioritaires, en distinguant les fonctionnalités à ajouter des vérifications d’environnement encore nécessaires.
