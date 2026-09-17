@@ -6,11 +6,11 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
+import { getAdminWorkQueue } from '../admin-work-queue.service.js';
+
 import {
   activeDraftChannels,
-  buildAttentionItems,
   isActionableSponsorship,
-  loadAttentionDataset,
   missingFicheFields,
   promisedSocialChannels,
   sponsorshipAdminUrl,
@@ -107,10 +107,10 @@ export const getAdminAssistantContext = async (
   if (!pool) return { ...base, status: 'unavailable', context: null };
   let reference = sponsorshipId;
   if (!reference) {
-    const dataset = await loadAttentionDataset(pool, now, true);
-    reference = buildAttentionItems(dataset).find(
-      (item) => item.sponsorshipId
-    )?.sponsorshipId;
+    const queue = await getAdminWorkQueue(pool, {}, now);
+    if (!queue.available)
+      return { ...base, status: 'unavailable', context: null };
+    reference = queue.firstSponsorshipId ?? undefined;
     if (!reference) return { ...base, status: 'empty', context: null };
   }
   const source = await loadSponsorshipAssistantDataset(pool, reference, now);

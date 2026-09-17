@@ -1478,3 +1478,14 @@ export type {
   AdminInformationRequest,
   AdminInformationRequestResult
 } from './admin-assistant-context.js';
+
+export type {
+  SponsorshipDossierTab,
+  SponsorshipMilestoneId,
+  SponsorshipProgressState,
+  SponsorshipMilestone,
+  SponsorshipProgressDocument,
+  SponsorshipProgressPublication,
+  AdminSponsorshipProgress,
+  AdminSponsorshipProgressResponse
+} from './sponsorship-progress.js';

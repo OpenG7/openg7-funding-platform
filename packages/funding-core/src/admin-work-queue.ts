@@ -27,7 +27,13 @@ export interface AdminWorkQueueResponse {
   readonly todayTotal: number;
   readonly counts: Readonly<Record<AdminAttentionSeverity, number>>;
   readonly typeCounts: Readonly<Record<AdminAttentionItemType, number>>;
+  /** Counts of required actions only, excluding informational entries. */
+  readonly actionCounts?: Readonly<
+    Partial<Record<AdminAttentionItemType, number>>
+  >;
   readonly page: number;
   readonly pageSize: number;
   readonly items: readonly AdminAttentionItem[];
+  /** First actionable sponsorship across the complete queue, before filters/pagination. */
+  readonly firstSponsorshipId?: string | null;
 }

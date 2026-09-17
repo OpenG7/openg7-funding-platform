@@ -254,3 +254,14 @@ dd {
     display: none;
   }
 }
+.workflow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+@media (min-width: 1320px) {
+  .workflow-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}

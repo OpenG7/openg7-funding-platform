@@ -167,7 +167,7 @@ export const detectSponsorshipInfoItems = (
 ): AdminAttentionItem[] =>
   dataset.sponsorships
     .filter(
-      (record) => isActionableSponsorship(record) && !hasCompleteFiche(record)
+      (record) => isActionableSponsorship(record) && record.reviewStatus !== 'rejected' && !hasCompleteFiche(record)
     )
     .map((record) => {
       const ageDays = daysBetween(dataset.now, record.paidAt);

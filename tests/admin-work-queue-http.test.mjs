@@ -74,6 +74,26 @@ test(
       );
       assert.equal((await fetch(url + '?pageSize=101')).status, 401);
       const base = `http://127.0.0.1:${port}/api/admin`;
+      assert.equal((await fetch(`${base}/sponsorships/progress`)).status, 401);
+      assert.equal(
+        (await fetch(`${base}/sponsorships/progress?sponsorshipId=invalid`))
+          .status,
+        401
+      );
+      assert.equal(
+        (
+          await fetch(`${base}/sponsorships/progress?sponsorshipId=invalid`, {
+            headers
+          })
+        ).status,
+        400
+      );
+      const progress = await fetch(`${base}/sponsorships/progress`, {
+        headers
+      });
+      assert.equal(progress.status, 200);
+      assert.equal(progress.headers.get('cache-control'), 'private, no-store');
+      assert.equal((await progress.json()).status, 'unavailable');
       assert.equal((await fetch(`${base}/assistant/context`)).status, 401);
       const context = await fetch(`${base}/assistant/context`, { headers });
       assert.equal(context.status, 200);

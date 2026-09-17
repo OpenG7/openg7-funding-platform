@@ -116,12 +116,20 @@
         />
       </section>
     }
-    <openg7-admin-attention-panel
-      [compact]="true"
-      [refreshKey]="attentionRefresh()"
-    />
+    <div class="workflow-grid">
+      <openg7-admin-attention-panel
+        [compact]="true"
+        [refreshKey]="attentionRefresh()"
+      />
+      <openg7-admin-sponsorship-progress
+        [compact]="true"
+        [refreshKey]="attentionRefresh()"
+        (loaded)="currentSponsorshipId.set($event?.contributionId)"
+      />
+    </div>
     <openg7-admin-assistant-context
       [compact]="true"
+      [sponsorshipId]="currentSponsorshipId()"
       [refreshKey]="attentionRefresh()"
     />
     @if (dashboard(); as data) {

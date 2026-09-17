@@ -227,6 +227,12 @@ deterministic next steps and draft preparation to the cockpit and sponsorships.
 Information requests show an editable preview and require human confirmation
 through `POST /api/admin/sponsorships/request-information`; queue insertion
 and audit are atomic and duplicate requests reuse the original email.
+The [Sponsorship dossier — lot 4](docs/admin-ux-lot-4.md) adds seven linked tabs,
+six independent milestones, persisted billing/publication/refund facts, session
+selection in the cockpit and navigation badges from the same work queue.
+`GET /api/admin/sponsorships/progress` accepts an optional `sponsorshipId` and
+performs a read-only projection. Direct tab links use
+`/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`.
 `GET /api/admin/dashboard` includes the additive `data_available` flag;
 `false` means PostgreSQL is not configured and the UI must not present the
 legacy zero-valued snapshot as an empty fund.

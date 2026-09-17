@@ -9,7 +9,8 @@ export default defineConfig({
   testMatch: [
     'admin-dashboard-layout.spec.ts',
     'admin-attention.spec.ts',
-    'admin-assistant-context.spec.ts'
+    'admin-assistant-context.spec.ts',
+    'admin-sponsorship-progress.spec.ts'
   ],
   outputDir: '../test-results/admin-layout',
   workers: 1,

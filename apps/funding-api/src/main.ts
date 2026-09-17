@@ -218,6 +218,7 @@ import { loadAdminAssistantConfig } from './admin-assistant/config.js';
 import { runAdminAssistantQuery } from './admin-assistant/orchestrator.js';
 import { prepareAdminAssistantDraft } from './admin-assistant/preparation.service.js';
 import { getAdminAssistantContext } from './admin-assistant/context.service.js';
+import { getSponsorshipProgress } from './sponsorship-progress.service.js';
 import {
   InformationRequestError,
   requestSponsorshipInformation,
@@ -2046,6 +2047,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/assistant/prepare',
       '/admin/assistant/context',
       '/api/admin/assistant/context',
+      '/admin/sponsorships/progress',
+      '/api/admin/sponsorships/progress',
       '/admin/sponsorships/request-information',
       '/api/admin/sponsorships/request-information',
       '/admin/contributions',
@@ -4982,6 +4985,34 @@ createServer(async (request, response) => {
       writeJson(request, response, 502, {
         error: 'Admin dashboard could not be loaded.'
       });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/admin/sponsorships/progress', '/api/admin/sponsorships/progress')
+  ) {
+    if (!ensureAdminAuthorization(request, response)) return;
+    const id = new URL(request.url!, 'http://localhost').searchParams.get(
+      'sponsorshipId'
+    );
+    if (id !== null && !isValidUuid(id)) {
+      writeJson(request, response, 400, { error: 'Invalid sponsorship ID.' });
+      return;
+    }
+    try {
+      writeJson(
+        request, response, 200,
+        await getSponsorshipProgress(dbPool, id ?? undefined),
+        { 'Cache-Control': 'private, no-store' }
+      );
+    } catch {
+      writeJson(
+        request, response, 503,
+        { error: 'Sponsorship progress unavailable.' },
+        { 'Cache-Control': 'private, no-store' }
+      );
     }
     return;
   }

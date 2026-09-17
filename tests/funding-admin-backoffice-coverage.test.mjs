@@ -15,11 +15,13 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const adminService = read(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
   );
-  const dashboardPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.ts'
-  ) + read(
-    'apps/funding-web/src/app/features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.html'
-  );
+  const dashboardPage =
+    read(
+      'apps/funding-web/src/app/features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.ts'
+    ) +
+    read(
+      'apps/funding-web/src/app/features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.html'
+    );
   const loginPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-login-page/admin-login-page.component.ts'
   );
@@ -54,7 +56,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts'
   );
   const sponsorDetailIdentity = read(
-    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-identity.component.ts'
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
   );
   const invoicesPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts'

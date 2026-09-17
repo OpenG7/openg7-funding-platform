@@ -185,3 +185,18 @@ footer button {
     height: 2.5rem;
   }
 }
+:host .action-count {
+  margin-left: auto;
+  border-radius: 999px;
+  background: #b82e42;
+  color: #fff;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.75rem;
+}
+:host .count-description {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

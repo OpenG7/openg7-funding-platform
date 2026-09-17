@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  OnInit,
   computed,
   inject,
   input,
@@ -95,11 +96,32 @@ interface AdminNavigationGroup {
                     exact: link.url === '/admin/fundraiser'
                   }"
                   (click)="closeMenu(toggle)"
+                  [attr.aria-describedby]="
+                    badge(link.key) ? 'admin-count-' + link.key : null
+                  "
                 >
                   <openg7-admin-icon [name]="link.icon" />{{
                     'admin.nav.' + link.key | translate
                   }}
+                  @if (badge(link.key); as count) {
+                    <span
+                      class="action-count"
+                      aria-hidden="true"
+                      data-og7="nav-count"
+                      [attr.data-og7-id]="link.key"
+                      >{{ count }}</span
+                    >
+                  }
                 </a>
+                @if (badge(link.key); as count) {
+                  <span
+                    class="count-description"
+                    [id]="'admin-count-' + link.key"
+                    >{{
+                      'admin.dossier.actionCount' | translate: { count }
+                    }}</span
+                  >
+                }
               }
             </section>
           }
@@ -129,7 +151,7 @@ interface AdminNavigationGroup {
     './admin-nav.component.css'
   ]
 })
-export class AdminNavComponent {
+export class AdminNavComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
   private readonly queryParams = toSignal(inject(ActivatedRoute).queryParamMap);
@@ -142,6 +164,37 @@ export class AdminNavComponent {
   readonly i18n = inject(FundingI18nService);
   readonly collapsible = input(false);
   readonly expanded = signal(false);
+  ngOnInit(): void {
+    // The cockpit and queue page already load the same projection.
+    if (
+      typeof window !== 'undefined' &&
+      !/^\/admin\/fundraiser(?:\?|$)|^\/admin\/fundraiser\/attention(?:\?|$)/.test(
+        this.router.url
+      )
+    )
+      void this.admin.refreshWorkQueue();
+  }
+  badge(key: string): number {
+    const counts = this.admin.workQueue()?.actionCounts;
+    if (!counts) return 0;
+    if (key === 'attention')
+      return Object.values(counts).reduce((sum, n) => sum + (n ?? 0), 0);
+    if (key === 'sponsors')
+      return (
+        (counts.sponsorship_needs_info ?? 0) +
+        (counts.sponsorship_needs_review ?? 0)
+      );
+    if (key === 'email') return counts.email_delivery_failed ?? 0;
+    if (key === 'invoices') return counts.invoice_missing ?? 0;
+    if (key === 'publications')
+      return (
+        (counts.publication_needs_preparation ?? 0) +
+        (counts.publication_late ?? 0) +
+        (counts.publication_ready ?? 0) +
+        (counts.publication_slot_upcoming ?? 0)
+      );
+    return 0;
+  }
   readonly groups: readonly AdminNavigationGroup[] = [
     {
       key: 'steering',

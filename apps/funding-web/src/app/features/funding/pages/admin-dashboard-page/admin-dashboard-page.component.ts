@@ -16,6 +16,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
+import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminAttentionPanelComponent } from '../../components/admin-attention/admin-attention-panel.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import {
@@ -35,6 +36,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   standalone: true,
   imports: [
     AdminAssistantContextComponent,
+    AdminSponsorshipProgressComponent,
     RouterLink,
     TranslatePipe,
     AdminLayoutComponent,
@@ -57,6 +59,7 @@ export class AdminDashboardPageComponent implements OnInit {
   private readonly platformId = inject(PLATFORM_ID);
   readonly i18n = inject(FundingI18nService);
   readonly attentionRefresh = signal(0);
+  readonly currentSponsorshipId = signal<string | undefined>(undefined);
   readonly dashboard = signal<AdminDashboardResponse | null>(null);
   readonly state = signal<
     'idle' | 'loading' | 'ready' | 'error' | 'forbidden' | 'unavailable'

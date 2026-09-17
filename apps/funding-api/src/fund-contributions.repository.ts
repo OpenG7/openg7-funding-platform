@@ -1647,6 +1647,7 @@ export const listAdminSponsorships = async (
   const search = input.search?.trim();
   if (search && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(search)) {
     // Deep links use the contribution UUID to find a dossier across all pages.
+    whereClauses.splice(1, 1); // Exact dossiers can also have an unconfirmed/cancelled payment.
     params.push(search);
     whereClauses.push(`id = $${params.length}::uuid`);
   } else if (search) {

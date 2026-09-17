@@ -176,6 +176,7 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
       );
       return () => {
         this.delivery.set(result);
+        void this.admin.refreshWorkQueue();
         this.prepared.set(null);
         this.subject.set('');
         this.body.set('');

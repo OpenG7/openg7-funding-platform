@@ -9,6 +9,37 @@ import {
 } from '../dist/apps/funding-api/src/admin-work-queue.service.js';
 
 const now = new Date('2026-09-15T14:00:00Z');
+
+test('navigation action counts and fallback dossier use the complete queue before filters', () => {
+  const items = [
+    {
+      id: 'info',
+      type: 'financial_data_warning',
+      severity: 'informational',
+      sponsorshipId: 'ignore'
+    },
+    {
+      id: 'action',
+      type: 'sponsorship_needs_review',
+      severity: 'today',
+      sponsorshipId: 'selected'
+    },
+    {
+      id: 'other',
+      type: 'invoice_missing',
+      severity: 'this_week',
+      sponsorshipId: 'later'
+    }
+  ];
+  const result = paginateWorkQueue(items, now, {
+    type: 'invoice_missing',
+    pageSize: 1
+  });
+  assert.equal(result.firstSponsorshipId, 'selected');
+  assert.equal(result.actionCounts.financial_data_warning, 0);
+  assert.equal(result.actionCounts.sponsorship_needs_review, 1);
+  assert.equal(result.items[0].id, 'other');
+});
 const dataset = (overrides = {}) => ({
   now,
   sponsorships: [],
@@ -19,6 +50,29 @@ const dataset = (overrides = {}) => ({
   emailMessages: [],
   financialTotals: { grossPaid: 0, refunded: 0, disputed: 0, currency: 'CAD' },
   ...overrides
+});
+
+test('a refused incomplete dossier does not request information through navigation badges', () => {
+  const items = buildWorkQueueItems(
+    dataset({
+      sponsorships: [
+        {
+          contributionId: 'refused',
+          paymentStatus: 'paid',
+          refundStatus: 'not_requested',
+          reviewStatus: 'rejected',
+          detailsSubmittedAt: null,
+          hasCompanyName: false,
+          hasContactEmail: false,
+          hasSupportingImage: false
+        }
+      ]
+    })
+  );
+  assert.equal(
+    items.filter((item) => item.type === 'sponsorship_needs_info').length,
+    0
+  );
 });
 const event = (
   id,

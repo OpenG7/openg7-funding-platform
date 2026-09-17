@@ -188,7 +188,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
   );
   const adminSponsorDetailIdentity = read(
-    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-identity.component.ts'
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
   );
   const adminService = read(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'

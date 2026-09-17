@@ -1,0 +1,98 @@
+<section
+  class="progress-panel"
+  data-og7="sponsorship-progress"
+  [attr.aria-label]="'admin.dossier.progress' | translate"
+  [attr.aria-busy]="state() === 'loading'"
+>
+  <header>
+    <h2>
+      {{
+        (compact() ? 'admin.dossier.current' : 'admin.dossier.progress')
+          | translate
+      }}
+    </h2>
+    <button
+      type="button"
+      class="admin-button"
+      [disabled]="disabled() || state() === 'loading'"
+      (click)="load()"
+    >
+      {{ 'admin.dossier.refresh' | translate }}
+    </button>
+  </header>
+  @if (state() === 'loading') {
+    <p role="status">{{ 'admin.dossier.loading' | translate }}</p>
+  } @else if (state() !== 'ready') {
+    <p role="alert">{{ 'admin.dossier.' + state() | translate }}</p>
+  } @else if (data()?.dossier; as d) {
+    @if (compact()) {
+      <h3>{{ d.companyName || d.reference }}</h3>
+      <p>{{ d.reference }} · {{ money(d.amountMinor, d.currency) }}</p>
+    }
+    <dl class="independent-states">
+      <div>
+        <dt>{{ 'admin.dossier.review' | translate }}</dt>
+        <dd>{{ 'admin.dossier.values.' + d.reviewStatus | translate }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'admin.dossier.consent' | translate }}</dt>
+        <dd>
+          {{ 'admin.dossier.' + (d.publicConsent ? 'yes' : 'no') | translate }}
+        </dd>
+      </div>
+      <div>
+        <dt>{{ 'admin.dossier.eligibility' | translate }}</dt>
+        <dd>
+          {{ 'admin.dossier.' + (d.publicEligible ? 'yes' : 'no') | translate }}
+        </dd>
+      </div>
+      <div>
+        <dt>{{ 'admin.dossier.tabs.publication' | translate }}</dt>
+        <dd>{{ 'admin.dossier.values.' + d.feedStatus | translate }}</dd>
+      </div>
+    </dl>
+    <ol class="milestones">
+      @for (step of d.milestones; track step.id) {
+        <li [attr.data-state]="step.state" [attr.data-og7-id]="step.id">
+          <a
+            [routerLink]="'/admin/fundraiser/sponsors'"
+            [queryParams]="params(d.contributionId, step.tab)"
+            queryParamsHandling="merge"
+          >
+            <span class="step-marker" aria-hidden="true">{{
+              step.state === 'complete' ? '✓' : $index + 1
+            }}</span>
+            <strong>{{ 'admin.dossier.steps.' + step.id | translate }}</strong>
+            <span>{{ 'admin.dossier.states.' + step.state | translate }}</span>
+            @if (!compact()) {
+              <small>{{
+                'admin.dossier.reasons.' + step.reason | translate
+              }}</small>
+            }
+          </a>
+        </li>
+      }
+    </ol>
+    <div class="next-step">
+      <div>
+        <strong>{{ 'admin.dossier.next' | translate }}</strong>
+        <p>{{ 'admin.dossier.reasons.' + d.next.reason | translate }}</p>
+      </div>
+      <a
+        class="admin-button primary"
+        routerLink="/admin/fundraiser/sponsors"
+        [queryParams]="params(d.contributionId, d.next.tab)"
+        queryParamsHandling="merge"
+        data-og7="dossier-next"
+        >{{ 'admin.dossier.openStep' | translate }}</a
+      >
+    </div>
+    @if (!compact()) {
+      <p class="help">{{ 'admin.dossier.independent' | translate }}</p>
+    }
+  } @else {
+    <p role="status">
+      {{ 'admin.dossier.' + (data()?.status || 'unavailable') | translate }}
+    </p>
+  }
+</section>

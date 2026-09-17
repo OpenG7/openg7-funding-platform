@@ -8,7 +8,7 @@ Transformer l’administration en un espace qui indique **ce qui demande une int
 
 Ce document prépare l’implémentation. Les propositions contenues dans les documents sont des exigences à analyser et à organiser; elles ne constituent pas une instruction d’exécuter les opérations illustrées.
 
-**Avancement :** lots 1, 2 et 3 réalisés après instruction de démarrer leur mise en œuvre. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md) et de l’[Assistant contextuel](./admin-ux-lot-3.md). Prochain lot : **Dossier commandite, progression et badges**.
+**Avancement :** lots 1 à 4 réalisés. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md), de l’[Assistant contextuel](./admin-ux-lot-3.md) et du [dossier commandite](./admin-ux-lot-4.md). Prochain lot : **Indicateurs, activité et état des systèmes**.
 
 Le présent changement documentaire est à risque faible. L’implémentation prévue sera à risque modéré pour les contrats API, les sessions, les projections et les parcours administratifs. Toute opération réelle sur les paiements ou la production reste une intervention distincte.
 
@@ -262,4 +262,4 @@ Pour ce livrable documentaire, les validations applicables sont la relecture des
 
 ## 8. Première action recommandée
 
-Les **lots 1 à 3** livrent le layout admin, la file « À traiter » et l’Assistant contextuel avec préparation et demande d’informations confirmée. Poursuivre avec le **lot 4 — Dossier commandite, progression et badges**.
+Les **lots 1 à 4** livrent le layout admin, la file « À traiter », l’Assistant contextuel et le dossier commandite avec progression et badges. Poursuivre avec le **lot 5 — Indicateurs, activité et état des systèmes**.

@@ -120,6 +120,30 @@ export const buildWorkQueueItems = (
     facts: AdminAttentionItem['facts'],
     dueAt?: string
   ): void => {
+    const sponsorshipId =
+      type === 'invoice_missing'
+        ? id
+        : dataset.drafts
+            .filter((draft) =>
+              facts['kind'] === 'draft'
+                ? draft.id === facts['reference']
+                : facts['kind'] === 'batch'
+                  ? draft.batch_id === facts['reference']
+                  : facts['kind'] === 'slot'
+                    ? draft.slot_id === facts['reference'] ||
+                      dataset.batches.some(
+                        (batch) =>
+                          batch.id === draft.batch_id &&
+                          batch.slotId === facts['reference']
+                      )
+                    : false
+            )
+            .filter(
+              (draft) =>
+                !['cancelled', 'rejected', 'published'].includes(draft.status)
+            )
+            .map((draft) => draft.contribution_id)
+            .sort()[0];
     items.push({
       id: `${type}:${id}`,
       type,
@@ -130,6 +154,9 @@ export const buildWorkQueueItems = (
       dueAt,
       adminUrl,
       facts,
+      ...(sponsorshipId
+        ? { sponsorshipId, contributionId: sponsorshipId }
+        : {}),
       suggestedActions: [
         { actionType: 'open', label: 'Ouvrir', executionMode: 'navigate' }
       ]
@@ -323,9 +350,21 @@ export const paginateWorkQueue = (
     todayTotal: items.filter(todayItem).length,
     counts,
     typeCounts,
+    actionCounts: Object.fromEntries(
+      WORK_QUEUE_TYPES.map((type) => [
+        type,
+        items.filter(
+          (item) => item.type === type && item.severity !== 'informational'
+        ).length
+      ])
+    ),
     page,
     pageSize,
-    items: filtered.slice((page - 1) * pageSize, page * pageSize)
+    items: filtered.slice((page - 1) * pageSize, page * pageSize),
+    firstSponsorshipId:
+      items.find(
+        (item) => item.sponsorshipId && item.severity !== 'informational'
+      )?.sponsorshipId ?? null
   };
 };
 
