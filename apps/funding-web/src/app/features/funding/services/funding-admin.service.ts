@@ -1,6 +1,9 @@
 import type { AdminWorkQueueQuery, AdminWorkQueueResponse } from '@openg7/funding-core';
 import { Injectable, signal } from '@angular/core';
 import type {
+  AdminCockpitMetrics,
+  AdminCockpitActivity,
+  AdminCockpitSystems,
   AdminAssistantContextResponse,
   AdminSponsorshipProgressResponse,
   AdminInformationRequest,
@@ -247,6 +250,21 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminDashboardResponse;
+  }
+
+  async getCockpit<T extends 'metrics' | 'activity' | 'systems'>(
+    block: T,
+    token: string
+  ): Promise<{
+    metrics: AdminCockpitMetrics;
+    activity: AdminCockpitActivity;
+    systems: AdminCockpitSystems;
+  }[T]> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/cockpit/${block}`, {
+      headers: await this.createHeaders(token)
+    });
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return response.json();
   }
 
   async getAssistantSummary(token: string): Promise<AdminAssistantSummary> {

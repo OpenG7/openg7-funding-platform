@@ -5,6 +5,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { cockpitFixtures } from './support/cockpit-fixtures.js';
 
 const record: AdminContributionRecord = {
   id: 'ui-sponsorship-1',
@@ -85,6 +86,10 @@ async function fixtures(page: Page, expired = false): Promise<void> {
     const pathname = new URL(route.request().url()).pathname;
     if (pathname === '/api/admin/dashboard') {
       await route.fulfill({ json: dashboard });
+    } else if (pathname.startsWith('/api/admin/cockpit/')) {
+      const block = pathname.split('/').pop() as
+        'metrics' | 'activity' | 'systems';
+      await route.fulfill({ json: cockpitFixtures()[block] });
     } else if (pathname === '/api/admin/attention') {
       await route.fulfill({
         json: {
@@ -160,13 +165,13 @@ test('dashboard displays truthful metrics and preserves every navigation destina
     page.getByRole('heading', { name: 'Centre de pilotage' })
   ).toBeVisible();
   await expect(
-    page.getByRole('article', { name: 'Solde estimé' })
-  ).toContainText('Hors frais Stripe et dépenses');
+    page.getByRole('article', { name: 'Net des encaissements' })
+  ).toContainText('Brut moins frais confirmés');
   await expect(
     page.getByRole('article', { name: 'Commandites', exact: true })
   ).toContainText('48');
   await expect(
-    page.getByRole('article', { name: 'Commandites à publier' })
+    page.getByRole('article', { name: 'Publications prévues' })
   ).toContainText('12');
   await expect(page.getByText('private@example.invalid')).toHaveCount(0);
   await expect(page.getByLabel(/Jeton admin/)).toHaveCount(0);
@@ -267,9 +272,7 @@ test('loading prevents duplicate refreshes; failures preserve and label the last
   await expect(
     page.getByRole('status').filter({ hasText: 'Actualisation' })
   ).toContainText('Actualisation');
-  await expect(
-    page.getByRole('button', { name: 'Actualiser', exact: true })
-  ).toBeDisabled();
+  await expect(page.locator('[data-og7=dashboard-refresh]')).toBeDisabled();
   release?.();
   await expect(
     page.getByRole('article', { name: 'Montants encaissés' })
@@ -278,7 +281,7 @@ test('loading prevents duplicate refreshes; failures preserve and label the last
   await page.route('**/api/admin/dashboard', (route) =>
     route.fulfill({ status: 502, json: {} })
   );
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await page.locator('[data-og7=dashboard-refresh]').click();
   await expect(
     page.getByRole('alert').filter({ hasText: 'périmées' })
   ).toContainText('périmées');
@@ -286,7 +289,7 @@ test('loading prevents duplicate refreshes; failures preserve and label the last
     page.getByRole('article', { name: 'Montants encaissés' })
   ).toBeVisible();
   await page.unroute('**/api/admin/dashboard');
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await page.locator('[data-og7=dashboard-refresh]').click();
   await expect(
     page.getByRole('alert').filter({ hasText: 'périmées' })
   ).toHaveCount(0);
@@ -294,6 +297,9 @@ test('loading prevents duplicate refreshes; failures preserve and label the last
 
 test('unavailable storage is distinct from an empty fund', async ({ page }) => {
   await fixtures(page);
+  await page.route('**/api/admin/cockpit/metrics', (route) =>
+    route.fulfill({ json: { ...cockpitFixtures().metrics, available: false } })
+  );
   await page.route('**/api/admin/dashboard', (route) =>
     route.fulfill({ json: { ...dashboard, data_available: false } })
   );
@@ -325,7 +331,17 @@ test('unavailable storage is distinct from an empty fund', async ({ page }) => {
       }
     })
   );
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await page.route('**/api/admin/cockpit/metrics', (route) =>
+    route.fulfill({
+      json: {
+        ...cockpitFixtures().metrics,
+        currencies: [],
+        sponsorshipCount: 0,
+        plannedPublicationCount: 0
+      }
+    })
+  );
+  await page.locator('[data-og7=dashboard-refresh]').click();
   await expect(
     page.getByRole('heading', { name: 'Aucune contribution enregistrée' })
   ).toBeVisible();
@@ -345,7 +361,7 @@ test('a forbidden response removes previously displayed private data', async ({
   await page.route('**/api/admin/dashboard', (route) =>
     route.fulfill({ status: 403, json: {} })
   );
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await page.locator('[data-og7=dashboard-refresh]').click();
   await expect(
     page.getByRole('alert').filter({ hasText: 'Accès refusé' })
   ).toContainText('Accès refusé');

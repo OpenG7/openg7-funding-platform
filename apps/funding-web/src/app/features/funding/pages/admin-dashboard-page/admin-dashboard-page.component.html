@@ -8,6 +8,7 @@
       </div>
       <button
         class="admin-button"
+        data-og7="dashboard-refresh"
         type="button"
         (click)="loadDashboard()"
         [disabled]="state() === 'loading'"
@@ -66,56 +67,7 @@
       </section>
     }
 
-    @if (dashboard(); as data) {
-      <div class="snapshot">
-        <span>{{ 'admin.dashboard.period' | translate }}</span>
-        <span
-          ><openg7-admin-icon name="clock" />
-          {{ 'admin.dashboard.updated' | translate }}
-          <time [attr.datetime]="data.last_updated_at">{{
-            dateLabel(data.last_updated_at)
-          }}</time>
-        </span>
-      </div>
-      <section
-        class="metrics"
-        [attr.aria-label]="'admin.dashboard.metrics' | translate"
-      >
-        <openg7-admin-metric-card
-          icon="contributions"
-          tone="green"
-          [label]="'admin.dashboard.received' | translate"
-          [value]="
-            formatMoney(data.totals.total_received, data.totals.currency)
-          "
-          [detail]="'admin.dashboard.receivedHelp' | translate"
-        />
-        <openg7-admin-metric-card
-          icon="expenses"
-          tone="gold"
-          [label]="'admin.dashboard.estimate' | translate"
-          [value]="
-            formatMoney(
-              data.totals.current_available_estimate,
-              data.totals.currency
-            )
-          "
-          [detail]="'admin.dashboard.estimateHelp' | translate"
-        />
-        <openg7-admin-metric-card
-          icon="sponsors"
-          [label]="'admin.nav.sponsors' | translate"
-          [value]="formatCount(data.sponsorship_review.total)"
-          [detail]="'admin.dashboard.sponsorsHelp' | translate"
-        />
-        <openg7-admin-metric-card
-          icon="publications"
-          [label]="'admin.dashboard.planned' | translate"
-          [value]="formatCount(data.feed_publication.planned)"
-          [detail]="'admin.dashboard.plannedHelp' | translate"
-        />
-      </section>
-    }
+    <openg7-admin-cockpit-metrics [refreshKey]="attentionRefresh()" />
     <div class="workflow-grid">
       <openg7-admin-attention-panel
         [compact]="true"
@@ -127,12 +79,26 @@
         (loaded)="currentSponsorshipId.set($event?.contributionId)"
       />
     </div>
-    <openg7-admin-assistant-context
-      [compact]="true"
-      [sponsorshipId]="currentSponsorshipId()"
-      [refreshKey]="attentionRefresh()"
-    />
+    <div class="cockpit-secondary">
+      <openg7-admin-assistant-context
+        [compact]="true"
+        [sponsorshipId]="currentSponsorshipId()"
+        [refreshKey]="attentionRefresh()"
+      />
+      <openg7-admin-cockpit-activity [refreshKey]="attentionRefresh()" />
+      <openg7-admin-cockpit-systems [refreshKey]="attentionRefresh()" />
+    </div>
     @if (dashboard(); as data) {
+      <div class="snapshot">
+        <span>{{ 'admin.dashboard.period' | translate }}</span>
+        <span
+          ><openg7-admin-icon name="clock" />
+          {{ 'admin.dashboard.updated' | translate }}
+          <time [attr.datetime]="data.last_updated_at">{{
+            dateLabel(data.last_updated_at)
+          }}</time>
+        </span>
+      </div>
       <section
         class="summaries"
         [attr.aria-label]="'admin.dashboard.operations' | translate"

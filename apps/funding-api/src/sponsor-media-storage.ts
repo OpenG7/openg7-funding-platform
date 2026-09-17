@@ -1,4 +1,13 @@
-import { copyFile, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import {
+  access,
+  copyFile,
+  mkdir,
+  readFile,
+  stat,
+  unlink,
+  writeFile
+} from 'node:fs/promises';
+import { constants } from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 
@@ -7,6 +16,7 @@ import {
   CopyObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  HeadBucketCommand,
   PutObjectCommand,
   S3Client
 } from '@aws-sdk/client-s3';
@@ -45,6 +55,7 @@ export interface SponsorLogoS3StorageConfig {
 
 export interface SponsorMediaStorage {
   readonly driver: SponsorMediaStorageDriver;
+  checkReadAccess?(signal: AbortSignal): Promise<void>;
   deletePrivateObject(key: string): Promise<boolean>;
   deletePublicObject(key: string): Promise<boolean>;
   publishObject(input: SponsorMediaPublishInput): Promise<void>;
@@ -362,6 +373,13 @@ class LocalSponsorMediaStorage implements SponsorMediaStorage {
     this.publicDir = path.join(root, 'media-assets', 'public');
   }
 
+  async checkReadAccess(): Promise<void> {
+    const root = path.resolve(this.privateDir, '..', '..');
+    if (!(await stat(root)).isDirectory())
+      throw new Error('Storage directory unavailable');
+    await access(root, constants.R_OK | constants.X_OK);
+  }
+
   readPrivateObject(key: string): Promise<Buffer | null> {
     return this.readObject(this.privateDir, key);
   }
@@ -484,6 +502,14 @@ class OvhS3SponsorMediaStorage implements SponsorMediaStorage {
 
   readPrivateObject(key: string): Promise<Buffer | null> {
     return this.readObject(this.privateBucket, key);
+  }
+
+  async checkReadAccess(signal: AbortSignal): Promise<void> {
+    await Promise.all(
+      [this.privateBucket, this.publicBucket].map((Bucket) =>
+        this.client.send(new HeadBucketCommand({ Bucket }), { abortSignal: signal })
+      )
+    );
   }
 
   readPublicObject(key: string): Promise<Buffer | null> {

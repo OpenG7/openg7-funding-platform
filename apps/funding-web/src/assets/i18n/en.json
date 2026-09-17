@@ -1,5 +1,97 @@
 {
   "admin": {
+    "cockpit": {
+      "state": {
+        "loading": "Loading this block…",
+        "ready": "Up to date",
+        "error": "This block is unavailable. Try again.",
+        "forbidden": "Access to this block denied.",
+        "unavailable": "The data required for this block is unavailable."
+      },
+      "stale": "Last successful snapshot retained: these data may be stale.",
+      "source": "Confirmed contributions recorded in PostgreSQL",
+      "asOf": "Read at",
+      "periods": "Last 30 complete days compared with the preceding 30 days",
+      "currency": "Amount currency",
+      "noPayments": "No confirmed receipts recorded.",
+      "grossHelp": "Recorded total, before fees, refunds and disputes.",
+      "net": "Net receipts",
+      "netHelp": "Gross less confirmed fees, before refunds and disputes.",
+      "missingFees": "Unconfirmed fees for {{count}} receipt(s). Total net remains unavailable.",
+      "sponsorsHelp": "Dossiers with confirmed payment, all currencies. An organization may have several dossiers.",
+      "planned": "Planned publications",
+      "publicationsHelp": "Active records per sponsorship, target and channel awaiting preparation or publication. Batches and slots are not counted separately.",
+      "noPublicationHistory": "Change unavailable: historical counts of active publication records are not reconstructed.",
+      "method": "Understand amounts and coverage",
+      "fees": "Known confirmed fees",
+      "refunds": "Confirmed refunds",
+      "disputes": "Amounts associated with disputes",
+      "afterRefunds": "Net after refunds",
+      "availableHelp": "This net is not an available balance. Disputes are shown separately. Expenses and refund fee adjustments are not deducted. A Stripe payout to the bank is not an expense.",
+      "feeTiming": "Fees come from Stripe balance transactions matched to the payment. Late fees complete the corresponding receipt period. Missing values are not replaced with zero.",
+      "comparison": "Change between periods",
+      "noComparison": "Not calculable",
+      "series": "View chart values",
+      "dailySeries": "Daily values — complete days, America/Toronto",
+      "day": "Day",
+      "value": "Value",
+      "currentPeriod": "Recent period",
+      "previousPeriod": "Previous period",
+      "activity": "Recent activity",
+      "today": "Today",
+      "partialActivity": "Partial activity: some sources are unavailable.",
+      "noActivity": "No recorded activity.",
+      "kind": {
+        "payment": "Payment confirmed",
+        "invoice": "Invoice issued",
+        "publication": "Publication recorded",
+        "review": "Administrative review",
+        "information": "Information request queued",
+        "refund": "Admin refund confirmed"
+      },
+      "todayKind": {
+        "payment": "Payments",
+        "invoice": "Invoices",
+        "publication": "Publications",
+        "review": "Reviews",
+        "information": "Information requests",
+        "refund": "Admin refunds"
+      },
+      "warning": {
+        "publications_unavailable": "Publication count is unavailable.",
+        "unlinked_transactions": "Some Stripe entries have no matching confirmed contribution; they are excluded from these totals and require reconciliation.",
+        "duplicate_payments": "Several dossiers reference the same payment. It is counted once; the dossiers require reconciliation.",
+        "undated_payments": "Some confirmed payments have no date: affected trends are unavailable."
+      },
+      "systems": "System status",
+      "system": {
+        "stripe": "Payments",
+        "email": "Email",
+        "storage": "Storage",
+        "database": "Database"
+      },
+      "health": {
+        "operational": "Operational",
+        "degraded": "Degraded",
+        "unavailable": "Unavailable",
+        "not_configured": "Not configured",
+        "unknown": "Unknown"
+      },
+      "evidence": {
+        "database_read": "PostgreSQL read succeeded.",
+        "storage_read": "Read access to the directory or buckets verified.",
+        "recent_webhook": "Payment webhook processed within the last 15 minutes.",
+        "recent_email": "Email handed to the transport within the last 15 minutes.",
+        "pending_errors": "Failures or delayed processing require review.",
+        "no_recent_observation": "No recent observation of operation.",
+        "not_configured": "Integration disabled or configuration incomplete.",
+        "check_failed": "The check did not complete successfully.",
+        "expired": "Observation expired. Refresh this block."
+      },
+      "observed": "Last success:",
+      "checked": "Checked at",
+      "healthScope": "Read-only checks cached for at most one minute. They do not prove storage writes, email receipt or full provider availability."
+    },
     "dossier": {
       "mode": "Mode",
       "simulation": "Simulation",

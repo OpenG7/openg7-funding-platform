@@ -8,7 +8,7 @@ Transformer l’administration en un espace qui indique **ce qui demande une int
 
 Ce document prépare l’implémentation. Les propositions contenues dans les documents sont des exigences à analyser et à organiser; elles ne constituent pas une instruction d’exécuter les opérations illustrées.
 
-**Avancement :** lots 1 à 4 réalisés. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md), de l’[Assistant contextuel](./admin-ux-lot-3.md) et du [dossier commandite](./admin-ux-lot-4.md). Prochain lot : **Indicateurs, activité et état des systèmes**.
+**Avancement :** lots 1 à 5 réalisés. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md), de l’[Assistant contextuel](./admin-ux-lot-3.md), du [dossier commandite](./admin-ux-lot-4.md) et des [indicateurs, activité et systèmes](./admin-ux-lot-5.md). Prochain lot : **Recherche globale**.
 
 Le présent changement documentaire est à risque faible. L’implémentation prévue sera à risque modéré pour les contrats API, les sessions, les projections et les parcours administratifs. Toute opération réelle sur les paiements ou la production reste une intervention distincte.
 
@@ -133,7 +133,7 @@ Travail :
 
 ### Lot 5 — Indicateurs, activité et état des systèmes
 
-**Priorité : P1. Dépendances : lots 1 et 2; intégration au dossier du lot 4.**
+**Priorité : P1. Dépendances : lots 1 et 2; intégration au dossier du lot 4. Statut : réalisé.**
 
 Travail :
 
@@ -262,4 +262,4 @@ Pour ce livrable documentaire, les validations applicables sont la relecture des
 
 ## 8. Première action recommandée
 
-Les **lots 1 à 4** livrent le layout admin, la file « À traiter », l’Assistant contextuel et le dossier commandite avec progression et badges. Poursuivre avec le **lot 5 — Indicateurs, activité et état des systèmes**.
+Les **lots 1 à 5** livrent le layout admin, la file « À traiter », l’Assistant contextuel, le dossier commandite et les indicateurs, activité et systèmes du cockpit. Poursuivre avec le **lot 6 — Recherche globale**.

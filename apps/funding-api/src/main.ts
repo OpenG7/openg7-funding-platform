@@ -121,6 +121,13 @@ import {
   updateAdminPublicationSlot
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
+import { getCockpitMetrics } from './admin-cockpit/metrics.js';
+import { getCockpitActivity } from './admin-cockpit/activity.js';
+import {
+  createCockpitSystemsReader,
+  readSystemObservation
+} from './admin-cockpit/systems.js';
+import { readSnapshot } from './admin-cockpit/read.js';
 import {
   getEmailQueueStatus,
   getAdminEmailQueueMessageById,
@@ -421,6 +428,25 @@ const stripe = stripeSecretKey
     })
   : null;
 loadTransactionalEmailConfig();
+const readCockpitSystems = createCockpitSystemsReader({
+  stripeConfigured: Boolean(stripe && stripeWebhookSecret),
+  emailConfigured: getTransactionalEmailConfigStatus().configured,
+  storageProvider: sponsorMediaStorage.driver === 'ovh-s3' ? 'OVH S3' : 'Local',
+  databaseConfigured: Boolean(dbPool),
+  database: async () => {
+    if (!dbPool) throw new Error('Database unavailable');
+    await readSnapshot(dbPool, async (client) => {
+      await client.query('SELECT 1');
+    });
+  },
+  stripe: () => readSystemObservation(dbPool, 'stripe'),
+  email: () => readSystemObservation(dbPool, 'email'),
+  storage: async (signal) => {
+    if (!sponsorMediaStorage.checkReadAccess)
+      throw new Error('Storage check unavailable');
+    await sponsorMediaStorage.checkReadAccess(signal);
+  }
+});
 const socialPublicationConfig = loadSocialPublicationConfig();
 const allowedContributionTypes = new Set<ContributionType>([
   'personal_support',
@@ -2037,6 +2063,12 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/sponsorship-credit-notes/resend',
       '/admin/dashboard',
       '/api/admin/dashboard',
+      '/admin/cockpit/metrics',
+      '/api/admin/cockpit/metrics',
+      '/admin/cockpit/activity',
+      '/api/admin/cockpit/activity',
+      '/admin/cockpit/systems',
+      '/api/admin/cockpit/systems',
       '/admin/attention',
       '/api/admin/attention',
       '/admin/assistant/summary',
@@ -4965,6 +4997,39 @@ createServer(async (request, response) => {
       });
     } catch {
       writeJson(request, response, 502, { error: 'Admin attention queue could not be loaded.' });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(
+      request.url,
+      '/admin/cockpit/metrics',
+      '/api/admin/cockpit/metrics',
+      '/admin/cockpit/activity',
+      '/api/admin/cockpit/activity',
+      '/admin/cockpit/systems',
+      '/api/admin/cockpit/systems'
+    )
+  ) {
+    if (!ensureAdminAuthorization(request, response)) return;
+    const path = new URL(request.url!, publicBaseOrigin).pathname;
+    try {
+      const result = path.endsWith('/metrics')
+        ? await getCockpitMetrics(dbPool)
+        : path.endsWith('/activity')
+          ? await getCockpitActivity(dbPool)
+          : await readCockpitSystems();
+      writeJson(request, response, 200, result, {
+        'Cache-Control': 'private, no-store'
+      });
+    } catch {
+      writeJson(
+        request, response, 503,
+        { error: 'Cockpit data unavailable.', code: 'COCKPIT_UNAVAILABLE' },
+        { 'Cache-Control': 'private, no-store' }
+      );
     }
     return;
   }

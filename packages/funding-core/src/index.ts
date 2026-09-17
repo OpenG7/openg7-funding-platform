@@ -1489,3 +1489,16 @@ export type {
   AdminSponsorshipProgress,
   AdminSponsorshipProgressResponse
 } from './sponsorship-progress.js';
+export type {
+  AdminCockpitMetrics,
+  AdminCockpitActivity,
+  AdminCockpitSystems,
+  CockpitCurrencyMetrics,
+  CockpitPeriod,
+  CockpitTrend,
+  CockpitActivityItem,
+  CockpitActivityKind,
+  CockpitSystem,
+  CockpitSystemState,
+  CockpitSystemEvidence
+} from './admin-cockpit.js';

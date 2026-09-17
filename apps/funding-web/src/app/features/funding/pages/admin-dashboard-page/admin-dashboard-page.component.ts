@@ -24,7 +24,9 @@ import {
   type AdminBadgeTone
 } from '../../components/admin-ui/admin-badge.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
-import { AdminMetricCardComponent } from '../../components/admin-ui/admin-metric-card.component.js';
+import { AdminCockpitMetricsComponent } from '../../components/admin-cockpit/admin-cockpit-metrics.component.js';
+import { AdminCockpitActivityComponent } from '../../components/admin-cockpit/admin-cockpit-activity.component.js';
+import { AdminCockpitSystemsComponent } from '../../components/admin-cockpit/admin-cockpit-systems.component.js';
 import {
   AdminDashboardRequestError,
   FundingAdminService
@@ -43,7 +45,9 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
     AdminAttentionPanelComponent,
     AdminBadgeComponent,
     AdminIconComponent,
-    AdminMetricCardComponent
+    AdminCockpitMetricsComponent,
+    AdminCockpitActivityComponent,
+    AdminCockpitSystemsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-dashboard-page.component.html',

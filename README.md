@@ -233,6 +233,13 @@ selection in the cockpit and navigation badges from the same work queue.
 `GET /api/admin/sponsorships/progress` accepts an optional `sponsorshipId` and
 performs a read-only projection. Direct tab links use
 `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`.
+The [Cockpit indicators, activity and system status — lot 5](docs/admin-ux-lot-5.md)
+adds independent protected read endpoints under `/api/admin/cockpit/metrics`,
+`/api/admin/cockpit/activity` and `/api/admin/cockpit/systems`. Amounts use integer
+minor units per currency; missing fees keep net receipts unavailable. System
+status shows dated evidence with expiration, without sending email or writing
+test files. PostgreSQL integration uses an explicitly configured disposable
+`cockpit_test` database; see the lot report for reproduction and coverage limits.
 `GET /api/admin/dashboard` includes the additive `data_available` flag;
 `false` means PostgreSQL is not configured and the UI must not present the
 legacy zero-valued snapshot as an empty fund.

@@ -260,6 +260,17 @@ dd {
   gap: 1rem;
   align-items: start;
 }
+.cockpit-secondary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+@media (min-width: 1500px) {
+  .cockpit-secondary {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1fr);
+  }
+}
 @media (min-width: 1320px) {
   .workflow-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
