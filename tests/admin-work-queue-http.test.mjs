@@ -74,6 +74,19 @@ test(
       );
       assert.equal((await fetch(url + '?pageSize=101')).status, 401);
       const base = `http://127.0.0.1:${port}/api/admin`;
+      for (const block of ['metrics', 'activity', 'systems']) {
+        assert.equal((await fetch(`${base}/cockpit/${block}`)).status, 401);
+        const result = await fetch(`${base}/cockpit/${block}`, { headers });
+        assert.equal(result.status, 200);
+        assert.equal(result.headers.get('cache-control'), 'private, no-store');
+        const body = await result.json();
+        if (block !== 'systems') assert.equal(body.available, false);
+        else
+          assert.equal(
+            body.systems.find((system) => system.id === 'stripe').state,
+            'not_configured'
+          );
+      }
       assert.equal((await fetch(`${base}/sponsorships/progress`)).status, 401);
       assert.equal(
         (await fetch(`${base}/sponsorships/progress?sponsorshipId=invalid`))

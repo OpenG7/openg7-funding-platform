@@ -1,5 +1,97 @@
 {
   "admin": {
+    "cockpit": {
+      "state": {
+        "loading": "Chargement du bloc…",
+        "ready": "À jour",
+        "error": "Ce bloc est indisponible. Réessayez.",
+        "forbidden": "Accès refusé à ce bloc.",
+        "unavailable": "Les données nécessaires à ce bloc sont indisponibles."
+      },
+      "stale": "Dernière lecture conservée : ces données peuvent être périmées.",
+      "source": "Contributions confirmées enregistrées en PostgreSQL",
+      "asOf": "Lecture du",
+      "periods": "Comparaison des 30 derniers jours complets avec les 30 précédents",
+      "currency": "Devise des montants",
+      "noPayments": "Aucun encaissement confirmé enregistré.",
+      "grossHelp": "Total enregistré, avant frais, remboursements et litiges.",
+      "net": "Net des encaissements",
+      "netHelp": "Brut moins frais confirmés, avant remboursements et litiges.",
+      "missingFees": "Frais non confirmés pour {{count}} encaissement(s). Le net total reste indisponible.",
+      "sponsorsHelp": "Dossiers avec paiement confirmé, toutes devises. Un organisme peut avoir plusieurs dossiers.",
+      "planned": "Publications prévues",
+      "publicationsHelp": "Fiches actives par commandite, cible et canal, à préparer ou à publier. Lots et créneaux exclus du comptage.",
+      "noPublicationHistory": "Variation indisponible : l’historique du nombre de fiches actives n’est pas reconstitué.",
+      "method": "Comprendre les montants et leur couverture",
+      "fees": "Frais confirmés connus",
+      "refunds": "Remboursements confirmés",
+      "disputes": "Montants associés aux litiges",
+      "afterRefunds": "Net après remboursements",
+      "availableHelp": "Ce net n’est pas un solde disponible. Les litiges sont présentés séparément. Les dépenses et ajustements de frais de remboursement ne sont pas déduits. Un virement Stripe vers la banque ne constitue pas une dépense.",
+      "feeTiming": "Les frais proviennent des transactions de solde Stripe rapprochées du paiement. Leur réception tardive complète la période d’encaissement concernée. Une valeur manquante n’est pas remplacée par zéro.",
+      "comparison": "Variation entre périodes",
+      "noComparison": "Non calculable",
+      "series": "Voir les valeurs de la courbe",
+      "dailySeries": "Valeurs quotidiennes — jours complets, America/Toronto",
+      "day": "Jour",
+      "value": "Valeur",
+      "currentPeriod": "Période récente",
+      "previousPeriod": "Période précédente",
+      "activity": "Activité récente",
+      "today": "Aujourd’hui",
+      "partialActivity": "Activité partielle : certaines sources sont indisponibles.",
+      "noActivity": "Aucune activité enregistrée.",
+      "kind": {
+        "payment": "Paiement confirmé",
+        "invoice": "Facture émise",
+        "publication": "Publication enregistrée",
+        "review": "Revue administrative",
+        "information": "Demande d’informations mise en file",
+        "refund": "Remboursement admin confirmé"
+      },
+      "todayKind": {
+        "payment": "Paiements",
+        "invoice": "Factures",
+        "publication": "Publications",
+        "review": "Revues",
+        "information": "Demandes d’infos",
+        "refund": "Remboursements admin"
+      },
+      "warning": {
+        "publications_unavailable": "Le comptage des publications est indisponible.",
+        "unlinked_transactions": "Des écritures Stripe sans contribution confirmée correspondante restent à rapprocher; elles sont exclues de ces totaux.",
+        "duplicate_payments": "Plusieurs dossiers sont associés au même paiement. Celui-ci est compté une seule fois; les dossiers sont à rapprocher.",
+        "undated_payments": "Des paiements confirmés sont sans date : les tendances concernées sont indisponibles."
+      },
+      "systems": "État des systèmes",
+      "system": {
+        "stripe": "Paiements",
+        "email": "Courriels",
+        "storage": "Stockage",
+        "database": "Base de données"
+      },
+      "health": {
+        "operational": "Opérationnel",
+        "degraded": "Dégradé",
+        "unavailable": "Indisponible",
+        "not_configured": "Non configuré",
+        "unknown": "Inconnu"
+      },
+      "evidence": {
+        "database_read": "Lecture PostgreSQL réussie.",
+        "storage_read": "Accès en lecture au répertoire ou aux buckets vérifié.",
+        "recent_webhook": "Webhook de paiement traité il y a moins de 15 minutes.",
+        "recent_email": "Courriel remis au transport il y a moins de 15 minutes.",
+        "pending_errors": "Échecs ou traitements en retard à vérifier.",
+        "no_recent_observation": "Aucune observation récente du fonctionnement.",
+        "not_configured": "Intégration désactivée ou configuration incomplète.",
+        "check_failed": "La vérification n’a pas abouti.",
+        "expired": "Observation périmée. Actualisez ce bloc."
+      },
+      "observed": "Dernier succès :",
+      "checked": "Vérifié le",
+      "healthScope": "Contrôles en lecture seule, conservés au plus une minute. Ils ne prouvent ni l’écriture dans le stockage, ni la réception des courriels, ni la disponibilité complète du fournisseur."
+    },
     "dossier": {
       "mode": "Mode",
       "simulation": "Simulation",

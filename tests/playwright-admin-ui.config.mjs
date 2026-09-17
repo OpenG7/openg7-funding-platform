@@ -8,6 +8,7 @@ export default defineConfig({
   testDir: './playwright',
   testMatch: [
     'admin-dashboard-layout.spec.ts',
+    'admin-cockpit.spec.ts',
     'admin-attention.spec.ts',
     'admin-assistant-context.spec.ts',
     'admin-sponsorship-progress.spec.ts'
