@@ -20,9 +20,9 @@
   min-height: 4.75rem;
   padding: 0.8rem 1.75rem;
 }
-.workspace-label {
-  color: var(--admin-muted);
-  font-size: 0.9rem;
+.topbar openg7-admin-global-search {
+  flex: 1;
+  max-width: 42rem;
 }
 .tools {
   align-items: center;
@@ -83,8 +83,11 @@ main:focus {
   }
 }
 @media (max-width: 480px) {
-  .workspace-label {
-    display: none;
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .topbar openg7-admin-global-search {
+    flex-basis: 100%;
   }
   .tools {
     width: 100%;

@@ -6,6 +6,7 @@
     "../packages/**/*.ts",
     "playwright/admin-dashboard-layout.spec.ts",
     "playwright/admin-cockpit.spec.ts",
+    "playwright/admin-global-search.spec.ts",
     "playwright/admin-attention.spec.ts",
     "playwright/admin-assistant-context.spec.ts",
     "playwright/admin-sponsorship-progress.spec.ts",

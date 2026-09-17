@@ -1,0 +1,156 @@
+<button
+  type="button"
+  class="search-trigger"
+  (click)="open()"
+  data-og7="admin-search-open"
+  aria-haspopup="dialog"
+  aria-keyshortcuts="Control+k Meta+k"
+>
+  <openg7-admin-icon name="search" />
+  <span>{{ 'admin.search.open' | translate }}</span>
+  <kbd aria-hidden="true">Ctrl / ⌘ K</kbd>
+</button>
+<dialog
+  #dialog
+  aria-labelledby="admin-search-title"
+  aria-describedby="admin-search-help"
+  (cancel)="close($event)"
+  (keydown)="keydown($event)"
+  data-og7="admin-search"
+>
+  <header>
+    <h2 id="admin-search-title">{{ 'admin.search.title' | translate }}</h2>
+    <button
+      class="admin-button"
+      type="button"
+      (click)="close()"
+      [attr.aria-label]="'admin.search.close' | translate"
+    >
+      <openg7-admin-icon name="close" />
+    </button>
+  </header>
+  <label for="admin-search-input">{{ 'admin.search.label' | translate }}</label>
+  <input
+    #input
+    id="admin-search-input"
+    type="search"
+    maxlength="120"
+    autocomplete="off"
+    spellcheck="false"
+    [value]="query()"
+    (input)="changed(input.value)"
+    aria-describedby="admin-search-help"
+  />
+  <p id="admin-search-help" class="muted">
+    {{ 'admin.search.help' | translate }}
+  </p>
+  <div role="status" aria-live="polite">
+    @if (state() === 'idle') {
+      <p>{{ 'admin.search.minimum' | translate }}</p>
+    }
+    @if (state() === 'loading') {
+      <p>{{ 'admin.search.loading' | translate }}</p>
+    }
+    @if (state() === 'unavailable') {
+      <p>{{ 'admin.search.unavailable' | translate }}</p>
+    }
+    @if (state() === 'ready' && result(); as data) {
+      <p>{{ 'admin.search.count' | translate: { count: data.total } }}</p>
+      @if (data.missingSources.length) {
+        <p class="warning">{{ 'admin.search.partial' | translate }}</p>
+      }
+      @if (!data.total) {
+        <p>{{ 'admin.search.empty' | translate }}</p>
+      }
+    }
+  </div>
+  @if (
+    state() === 'error' || state() === 'forbidden' || state() === 'limited'
+  ) {
+    <p role="alert">{{ 'admin.search.' + state() | translate }}</p>
+  }
+  @if (
+    state() === 'error' || state() === 'limited' || state() === 'unavailable'
+  ) {
+    <button class="admin-button" type="button" (click)="search()">
+      {{ 'admin.search.retry' | translate }}
+    </button>
+  }
+  @if (state() === 'ready' && result(); as data) {
+    <ul class="results" [attr.aria-label]="'admin.search.results' | translate">
+      @for (group of data.groups; track group.contributionId) {
+        <li [attr.data-og7-id]="group.contributionId">
+          <h3>{{ group.title }}</h3>
+          <p class="muted">
+            {{ group.reference }} ·
+            {{ amount(group.amountMinor, group.currency) }}
+          </p>
+          <div class="links">
+            @if (group.sponsorship) {
+              <a
+                routerLink="/admin/fundraiser/sponsors"
+                [queryParams]="{ sponsorshipId: group.contributionId }"
+                (click)="close()"
+                data-og7="search-result-link"
+                >{{ 'admin.search.sponsorship' | translate }}</a
+              >
+            }
+            <a
+              routerLink="/admin/fundraiser/contributions"
+              [queryParams]="{ contributionId: group.contributionId }"
+              (click)="close()"
+              data-og7="search-result-link"
+              >{{ 'admin.search.contribution' | translate }}</a
+            >
+            @if (group.invoice; as invoice) {
+              <a
+                routerLink="/admin/fundraiser/invoices"
+                [queryParams]="{ contributionId: group.contributionId }"
+                (click)="close()"
+                data-og7="search-result-link"
+                >{{ 'admin.search.invoice' | translate }}
+                {{ invoice.number }}</a
+              >
+            }
+            @for (publication of group.publications; track publication.id) {
+              <a
+                routerLink="/admin/fundraiser/publications"
+                [queryParams]="{ draftId: publication.id }"
+                (click)="close()"
+                data-og7="search-result-link"
+                >{{ 'admin.search.publication' | translate }} ·
+                {{ publication.target }} / {{ publication.channel }}</a
+              >
+            }
+          </div>
+        </li>
+      }
+    </ul>
+    @if (data.total > data.pageSize) {
+      <nav
+        class="pagination"
+        [attr.aria-label]="'admin.search.pagination' | translate"
+      >
+        <button
+          class="admin-button"
+          type="button"
+          [disabled]="data.page <= 1"
+          (click)="search(data.page - 1)"
+        >
+          {{ 'admin.search.previous' | translate }}
+        </button>
+        <span>{{ 'admin.search.page' | translate: { page: data.page } }}</span>
+        <button
+          class="admin-button"
+          type="button"
+          [disabled]="
+            data.page * data.pageSize >= data.total || data.page >= 10000
+          "
+          (click)="search(data.page + 1)"
+        >
+          {{ 'admin.search.next' | translate }}
+        </button>
+      </nav>
+    }
+  }
+</dialog>

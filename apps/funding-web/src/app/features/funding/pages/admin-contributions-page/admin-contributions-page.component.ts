@@ -2,12 +2,14 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
   computed,
   inject,
   signal
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type {
   AdminContributionRecord,
   AdminContributionsResponse,
@@ -79,8 +81,9 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
             class="detail-panel"
             *ngIf="selectedContribution() as selected"
             aria-live="polite"
+            aria-labelledby="selected-contribution-title"
           >
-            <h3>Détail de la contribution</h3>
+            <h3 id="selected-contribution-title">Détail de la contribution</h3>
             <dl>
               <div>
                 <dt>Référence</dt>
@@ -535,6 +538,8 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 export class AdminContributionsPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroy = inject(DestroyRef);
+  private loadGeneration = 0;
 
   readonly adminToken = signal<string>('');
   readonly data = signal<AdminContributionsResponse | null>(null);
@@ -593,22 +598,31 @@ export class AdminContributionsPageComponent implements OnInit {
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
 
-    this.route.queryParamMap.subscribe((params) => {
+    this.destroy.onDestroy(() => this.loadGeneration++);
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe((params) => {
       const contributionId = params.get('contributionId')?.trim() || null;
       this.selectedContributionId.set(contributionId);
+      this.search.set('');
+      this.typeFilter.set('all');
+      this.statusFilter.set('all');
+      this.publicFilter.set('all');
+      this.data.set(null);
+      void this.loadContributions();
     });
-
-    void this.loadContributions();
   }
 
   async loadContributions(): Promise<void> {
+    const generation = ++this.loadGeneration;
     this.state.set('loading');
 
     try {
-      this.data.set(await this.admin.getContributions(this.adminToken()));
+      const response = await this.admin.getContributions(this.adminToken(), this.route.snapshot.queryParamMap.get('contributionId') ?? undefined);
+      if (generation !== this.loadGeneration) return;
+      this.data.set(response);
       this.state.set('ready');
       this.admin.saveAdminToken(this.adminToken());
     } catch {
+      if (generation !== this.loadGeneration) return;
       this.state.set('error');
     }
   }

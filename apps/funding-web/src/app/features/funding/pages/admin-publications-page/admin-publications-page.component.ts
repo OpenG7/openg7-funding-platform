@@ -1,9 +1,11 @@
 import { TranslatePipe } from '@ngx-translate/core';
 import { ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   Injector,
   afterNextRender,
   OnInit,
@@ -1170,7 +1172,10 @@ export class AdminPublicationsPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly document = inject(DOCUMENT);
   private readonly injector = inject(Injector);
-  readonly targetId = this.route.snapshot.queryParamMap.get('slotId') || this.route.snapshot.queryParamMap.get('batchId') || this.route.snapshot.queryParamMap.get('draftId');
+  private readonly destroy = inject(DestroyRef);
+  private loadGeneration = 0;
+  private readonly target = signal<string | null>(null);
+  get targetId(): string | null { return this.target(); }
   readonly targetFound = computed(() => !this.targetId || [...this.slots(), ...this.batches(), ...this.drafts(), ...this.sponsorships()].some(item => item.id === this.targetId));
 
   readonly publicationStatuses = publicationStatuses;
@@ -1264,10 +1269,20 @@ export class AdminPublicationsPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
-    void this.load();
+    this.destroy.onDestroy(() => this.loadGeneration++);
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe((params) => {
+      this.target.set(params.get('slotId') || params.get('batchId') || params.get('draftId'));
+      this.search.set('');
+      this.statusFilter.set('all');
+      this.draftsResponse.set(null);
+      this.batchesResponse.set(null);
+      this.slotsResponse.set(null);
+      void this.load();
+    });
   }
 
   async load(): Promise<void> {
+    const generation = ++this.loadGeneration;
     this.state.set('loading');
 
     try {
@@ -1279,6 +1294,7 @@ export class AdminPublicationsPageComponent implements OnInit {
         this.admin.getPublicationSlots(this.adminToken(), this.route.snapshot.queryParamMap.get('slotId') ?? undefined),
         this.admin.getSocialPublicationJobs(this.adminToken())
       ]);
+      if (generation !== this.loadGeneration) return;
       this.sponsorships.set(sponsorships.sponsorships);
       this.draftsResponse.set(drafts);
       this.draftEdits.set(
@@ -1296,12 +1312,14 @@ export class AdminPublicationsPageComponent implements OnInit {
       this.socialJobsResponse.set(socialJobs);
       this.state.set('ready');
       if (this.targetId) afterNextRender(() => {
+        if (generation !== this.loadGeneration) return;
         const target = this.document.getElementById('attention-object-' + this.targetId);
         target?.focus({ preventScroll: true });
         target?.scrollIntoView({ block: 'center' });
       }, { injector: this.injector });
       this.admin.saveAdminToken(this.adminToken());
     } catch {
+      if (generation !== this.loadGeneration) return;
       this.state.set('error');
     }
   }

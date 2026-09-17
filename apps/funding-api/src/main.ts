@@ -121,6 +121,7 @@ import {
   updateAdminPublicationSlot
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
+import { parseAdminSearch, searchAdmin } from './admin-search.service.js';
 import { getCockpitMetrics } from './admin-cockpit/metrics.js';
 import { getCockpitActivity } from './admin-cockpit/activity.js';
 import {
@@ -2071,6 +2072,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/cockpit/systems',
       '/admin/attention',
       '/api/admin/attention',
+      '/admin/search',
+      '/api/admin/search',
       '/admin/assistant/summary',
       '/api/admin/assistant/summary',
       '/admin/assistant/query',
@@ -4979,6 +4982,33 @@ createServer(async (request, response) => {
     }
   }
 
+  if (routeMatches(request.url, '/admin/search', '/api/admin/search')) {
+    if (!ensureAdminAuthorization(request, response)) return;
+    const headers = { 'Cache-Control': 'private, no-store' };
+    if (request.method !== 'POST') {
+      writeJson(request, response, 405, { error: 'Use POST for admin search.' }, { ...headers, Allow: 'POST' });
+      return;
+    }
+    if (request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !== 'application/json') {
+      writeJson(request, response, 415, { error: 'JSON body required.' }, headers);
+      return;
+    }
+    let query;
+    try {
+      query = parseAdminSearch(JSON.parse(await readBody(request, 4096)));
+    } catch {
+      writeJson(request, response, 400, { error: 'Invalid search or pagination.' }, headers);
+      return;
+    }
+    try {
+      writeJson(request, response, 200, await searchAdmin(dbPool, query), headers);
+    } catch {
+      // Database errors can contain query parameters: never log them here.
+      writeJson(request, response, 503, { error: 'Admin search unavailable.' }, headers);
+    }
+    return;
+  }
+
   if (
     request.method === 'GET' &&
     routeMatches(request.url, '/admin/attention', '/api/admin/attention')
@@ -5344,7 +5374,12 @@ createServer(async (request, response) => {
     }
 
     try {
-      const result = await listAdminContributions(dbPool);
+      const contributionId = new URL(request.url!, publicBaseOrigin).searchParams.get('contributionId') ?? undefined;
+      if (contributionId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contributionId)) {
+        writeJson(request, response, 400, { error: 'Invalid contribution identifier.' });
+        return;
+      }
+      const result = await listAdminContributions(dbPool, contributionId);
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to load admin contributions.', error);

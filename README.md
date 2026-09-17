@@ -240,6 +240,13 @@ minor units per currency; missing fees keep net receipts unavailable. System
 status shows dated evidence with expiration, without sending email or writing
 test files. PostgreSQL integration uses an explicitly configured disposable
 `cockpit_test` database; see the lot report for reproduction and coverage limits.
+The [Global admin search — lot 6](docs/admin-ux-lot-6.md) adds
+`POST /api/admin/search` with private JSON input, grouped dossier results and
+bounded pagination. Use Ctrl+K / Cmd+K from the admin layout or shared navigation.
+Search terms stay out of URLs and browser storage. Direct contribution links
+accept `contributionId` before the list limit; invoice and publication pages
+reload when their target changes on the same route. PostgreSQL search tests
+require an explicitly configured fresh local `search_test` database.
 `GET /api/admin/dashboard` includes the additive `data_available` flag;
 `false` means PostgreSQL is not configured and the UI must not present the
 legacy zero-valued snapshot as an empty fund.
@@ -248,6 +255,7 @@ It exposes private operational views through:
 
 ```text
 GET /api/admin/dashboard
+POST /api/admin/search
 POST /api/admin/session
 GET /api/admin/contributions
 GET /api/admin/contributions.csv

@@ -1,9 +1,11 @@
 import { ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
   computed,
   inject,
@@ -1086,7 +1088,10 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 export class AdminInvoicesPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
   private readonly i18n = inject(FundingI18nService);
-  readonly contributionId = inject(ActivatedRoute).snapshot.queryParamMap.get('contributionId') ?? undefined;
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroy = inject(DestroyRef);
+  private loadGeneration = 0;
+  contributionId: string | undefined;
 
   readonly adminToken = signal('');
   readonly state = signal<LoadState>('idle');
@@ -1116,10 +1121,21 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
-    void this.loadInvoices();
+    this.destroy.onDestroy(() => this.loadGeneration++);
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe((params) => {
+      this.contributionId = params.get('contributionId') ?? undefined;
+      this.data.set(null);
+      this.selectedInvoiceId.set('');
+      this.resendEmail.set('');
+      this.resendState.set('idle');
+      this.invoicePdfMessage.set('');
+      this.backfillMessage.set('');
+      void this.loadInvoices();
+    });
   }
 
   async loadInvoices(): Promise<void> {
+    const generation = ++this.loadGeneration;
     const token = this.adminToken() || this.admin.getSavedAdminToken();
     this.adminToken.set(token);
     this.state.set('loading');
@@ -1127,6 +1143,7 @@ export class AdminInvoicesPageComponent implements OnInit {
 
     try {
       const response = await this.admin.getSponsorshipInvoices(token, this.contributionId);
+      if (generation !== this.loadGeneration) return;
       this.data.set(response);
       const selectedStillExists = response.invoices.some(
         (invoice) => invoice.id === this.selectedInvoiceId()
@@ -1141,6 +1158,7 @@ export class AdminInvoicesPageComponent implements OnInit {
       }
       this.state.set('ready');
     } catch (error) {
+      if (generation !== this.loadGeneration) return;
       this.state.set('error');
       this.resendMessage.set(this.messageFromError(error));
     }

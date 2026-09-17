@@ -74,6 +74,40 @@ test(
       );
       assert.equal((await fetch(url + '?pageSize=101')).status, 401);
       const base = `http://127.0.0.1:${port}/api/admin`;
+      const searchUrl = base + '/search';
+      assert.equal(
+        (await fetch(searchUrl, { method: 'POST', body: '{}' })).status,
+        401
+      );
+      assert.equal((await fetch(searchUrl, { headers })).status, 405);
+      assert.equal(
+        (await fetch(searchUrl, { method: 'POST', headers, body: '{}' }))
+          .status,
+        415
+      );
+      const searchHeaders = { ...headers, 'Content-Type': 'application/json' };
+      for (const body of [
+        '{',
+        '{}',
+        JSON.stringify({ query: 'private@example.invalid', pageSize: 21 }),
+        JSON.stringify({ query: 'x'.repeat(5000) })
+      ]) {
+        const invalid = await fetch(searchUrl, {
+          method: 'POST',
+          headers: searchHeaders,
+          body
+        });
+        assert.equal(invalid.status, 400);
+        assert.ok(!(await invalid.text()).includes('private@'));
+      }
+      const search = await fetch(searchUrl, {
+        method: 'POST',
+        headers: searchHeaders,
+        body: JSON.stringify({ query: 'private@example.invalid' })
+      });
+      assert.equal(search.status, 200);
+      assert.equal(search.headers.get('cache-control'), 'private, no-store');
+      assert.equal((await search.json()).available, false);
       for (const block of ['metrics', 'activity', 'systems']) {
         assert.equal((await fetch(`${base}/cockpit/${block}`)).status, 401);
         const result = await fetch(`${base}/cockpit/${block}`, { headers });

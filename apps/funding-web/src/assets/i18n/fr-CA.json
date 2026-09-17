@@ -1,5 +1,31 @@
 {
   "admin": {
+    "search": {
+      "open": "Rechercher un dossier, une facture…",
+      "title": "Recherche globale",
+      "close": "Fermer la recherche",
+      "label": "Rechercher dans l’administration",
+      "help": "Entreprise, courriel, référence, facture, identifiant Stripe, slug ou montant (ex. 100,50 CAD). Utilisez les flèches ou Tab pour parcourir les liens, Entrée pour ouvrir et Échap pour fermer.",
+      "minimum": "Saisissez au moins 2 caractères.",
+      "loading": "Recherche en cours…",
+      "unavailable": "La recherche est indisponible pour le moment.",
+      "count": "{{count}} dossier(s) trouvé(s)",
+      "partial": "Résultats partiels : certaines sources sont indisponibles. Des dossiers ou documents peuvent manquer.",
+      "empty": "Aucun dossier trouvé dans les sources disponibles.",
+      "error": "La recherche a échoué. Réessayez.",
+      "forbidden": "Vous n’avez pas accès à cette recherche.",
+      "limited": "Trop de recherches. Patientez quelques instants avant de réessayer.",
+      "retry": "Réessayer",
+      "results": "Dossiers correspondants",
+      "sponsorship": "Commandite",
+      "contribution": "Contribution",
+      "invoice": "Facture",
+      "publication": "Publication",
+      "pagination": "Pagination des dossiers",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "page": "Page {{page}}"
+    },
     "cockpit": {
       "state": {
         "loading": "Chargement du bloc…",

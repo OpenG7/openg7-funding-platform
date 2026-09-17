@@ -18,6 +18,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminGlobalSearchComponent } from '../admin-search/admin-global-search.component.js';
 import {
   AdminIconComponent,
   type AdminIconName
@@ -35,7 +36,13 @@ interface AdminNavigationGroup {
 @Component({
   selector: 'openg7-admin-nav',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, TranslatePipe, AdminIconComponent],
+  imports: [
+    RouterLink,
+    RouterLinkActive,
+    TranslatePipe,
+    AdminIconComponent,
+    AdminGlobalSearchComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <aside
@@ -72,6 +79,9 @@ interface AdminNavigationGroup {
           {{ 'admin.nav.menu' | translate }}
         </button>
       </header>
+      @if (!collapsible()) {
+        <openg7-admin-global-search />
+      }
       <div id="admin-navigation-content" class="navigation-content">
         @if (queueReturn(); as destination) {
           <a

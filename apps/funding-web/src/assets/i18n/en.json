@@ -1,5 +1,31 @@
 {
   "admin": {
+    "search": {
+      "open": "Search a dossier, an invoice…",
+      "title": "Global search",
+      "close": "Close search",
+      "label": "Search administration",
+      "help": "Company, email, reference, invoice, Stripe ID, slug or amount (e.g. 100.50 CAD). Use arrows or Tab to browse links, Enter to open and Escape to close.",
+      "minimum": "Enter at least 2 characters.",
+      "loading": "Searching…",
+      "unavailable": "Search is currently unavailable.",
+      "count": "{{count}} matching dossier(s)",
+      "partial": "Partial results: some sources are unavailable. Dossiers or documents may be missing.",
+      "empty": "No matching dossier in the available sources.",
+      "error": "Search failed. Please try again.",
+      "forbidden": "You do not have access to this search.",
+      "limited": "Too many searches. Wait a moment before trying again.",
+      "retry": "Try again",
+      "results": "Matching dossiers",
+      "sponsorship": "Sponsorship",
+      "contribution": "Contribution",
+      "invoice": "Invoice",
+      "publication": "Publication",
+      "pagination": "Dossier pagination",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {{page}}"
+    },
     "cockpit": {
       "state": {
         "loading": "Loading this block…",

@@ -1469,6 +1469,7 @@ export interface AdminAssistantPrepareResponse {
 }
 
 export type { AdminAttentionDueFilter, AdminWorkQueueQuery, AdminWorkQueueResponse } from './admin-work-queue.js';
+export type { AdminSearchRequest, AdminSearchResponse, AdminSearchGroup } from './admin-search.js';
 
 export type {
   AdminAssistantContext,
