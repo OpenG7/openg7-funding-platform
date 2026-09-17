@@ -76,15 +76,15 @@ yarn test
 yarn test:ui:admin
 ```
 
-Le [test PostgreSQL](../tests/integration/admin-search.integration.mjs) exige une base **locale neuve** nommée `search_test`. Il refuse une base déjà initialisée, applique les migrations existantes et crée des fixtures synthétiques. Aucun fichier `.env` n’est chargé et aucun worker n’est démarré.
+Depuis le lot 8, le [test PostgreSQL](../tests/integration/admin-search.integration.mjs) crée sa propre base jetable avec Docker local. Il vérifie une base vide, applique les migrations existantes et crée des fixtures synthétiques. Aucun fichier `.env` ni `SEARCH_TEST_DATABASE_URL` n’est chargé et aucun worker n’est démarré.
 
 ```powershell
+docker pull postgres:16-alpine
 yarn build
-$env:SEARCH_TEST_DATABASE_URL = 'postgresql://postgres@127.0.0.1:55483/search_test'
 node --test tests/integration/admin-search.integration.mjs
 ```
 
-Ce scénario est ignoré sans la variable explicite et reste séparé de `yarn test`.
+Ce scénario s’exécute systématiquement et supprime son conteneur en fin de test. Il est inclus dans `yarn test:integration:payments`, séparément de `yarn test`. Voir la [recette actuelle](./admin-ux-lot-8.md) ; les résultats ci-dessous décrivent la validation initiale du lot 6.
 
 ## Résultats de validation
 

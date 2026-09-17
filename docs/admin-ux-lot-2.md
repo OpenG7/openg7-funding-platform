@@ -98,13 +98,15 @@ yarn test
 yarn test:ui:admin
 ```
 
-Test PostgreSQL facultatif : utiliser une **base jetable neuve** nommée `attention_test`, sur `127.0.0.1` ou `localhost`, puis définir `ATTENTION_TEST_DATABASE_URL` pour exécuter :
+Depuis le lot 8, le test PostgreSQL crée lui-même une base jetable avec Docker local. Reproduction avec Node 22 et Yarn 4 :
 
 ```sh
+docker pull postgres:16-alpine
+yarn build
 node --test tests/integration/admin-work-queue.integration.mjs
 ```
 
-Ce test refuse une base contenant déjà `fund_contributions`, applique les migrations et insère uniquement des fixtures synthétiques. Il ne lit pas `.env`. La base jetable utilisée pendant ce lot est supprimée avec son conteneur après validation.
+Ce test vérifie une base vide, applique les migrations et insère uniquement des fixtures synthétiques. Il ne lit ni `.env` ni `ATTENTION_TEST_DATABASE_URL` et ne s’ignore plus faute de variable. Son conteneur est supprimé en fin d’exécution. Voir la [recette actuelle](./admin-ux-lot-8.md) ; les résultats ci-dessus décrivent la validation initiale du lot 2.
 
 ## Limites et suite
 

@@ -98,15 +98,15 @@ Ces preuves ne garantissent ni réception du courriel chez le destinataire, ni p
 
 Reproduction : Node 22, Yarn 4, `yarn test` et `yarn test:ui:admin`.
 
-L’intégration [PostgreSQL du cockpit](../tests/integration/admin-cockpit.integration.mjs) exige une base **locale neuve** nommée `cockpit_test`. Elle refuse une base contenant déjà les tables applicatives, applique les migrations existantes et crée uniquement des fixtures synthétiques. Elle ne lit pas `.env` et ne démarre aucun worker.
+Depuis le lot 8, l’intégration [PostgreSQL du cockpit](../tests/integration/admin-cockpit.integration.mjs) crée sa propre base jetable avec Docker local. Elle vérifie une base vide, applique les migrations existantes et crée uniquement des fixtures synthétiques. Elle ne lit ni `.env` ni `COCKPIT_TEST_DATABASE_URL` et ne démarre aucun worker.
 
 ```powershell
+docker pull postgres:16-alpine
 yarn build
-$env:COCKPIT_TEST_DATABASE_URL = 'postgresql://postgres@127.0.0.1:55482/cockpit_test'
 node --test tests/integration/admin-cockpit.integration.mjs
 ```
 
-Sans variable explicite, le scénario est ignoré. Il n'est pas inclus dans `yarn test`.
+Le scénario s’exécute systématiquement et supprime son conteneur en fin de test. Il est inclus dans `yarn test:integration:payments`, séparément de `yarn test`. Voir la [recette actuelle](./admin-ux-lot-8.md) ; les résultats ci-dessus décrivent la validation initiale du lot 5.
 
 ## Limites et suite
 
