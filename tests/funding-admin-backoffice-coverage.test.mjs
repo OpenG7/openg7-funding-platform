@@ -15,9 +15,13 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const adminService = read(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
   );
-  const dashboardPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.ts'
-  );
+  const dashboardPage =
+    read(
+      'apps/funding-web/src/app/features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.ts'
+    ) +
+    read(
+      'apps/funding-web/src/app/features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.html'
+    );
   const loginPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-login-page/admin-login-page.component.ts'
   );
@@ -52,7 +56,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts'
   );
   const sponsorDetailIdentity = read(
-    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-identity.component.ts'
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
   );
   const invoicesPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts'
@@ -127,16 +131,16 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   assertIncludesAll(
     adminNav,
     [
-      'routerLink="/admin/fundraiser"',
-      'routerLink="/admin/fundraiser/contributions"',
-      'routerLink="/admin/fundraiser/sponsors"',
-      'routerLink="/admin/fundraiser/invoices"',
-      'routerLink="/admin/fundraiser/publications"',
-      'routerLink="/admin/fundraiser/expenses"',
-      'routerLink="/admin/fundraiser/transparency"',
-      'routerLink="/admin/fundraiser/audit"',
-      'routerLink="/admin/fundraiser/email-queue"',
-      'routerLink="/admin/fundraiser/setup"'
+      "url: '/admin/fundraiser'",
+      "url: '/admin/fundraiser/contributions'",
+      "url: '/admin/fundraiser/sponsors'",
+      "url: '/admin/fundraiser/invoices'",
+      "url: '/admin/fundraiser/publications'",
+      "url: '/admin/fundraiser/expenses'",
+      "url: '/admin/fundraiser/transparency'",
+      "url: '/admin/fundraiser/audit'",
+      "url: '/admin/fundraiser/email-queue'",
+      "url: '/admin/fundraiser/setup'"
     ],
     'admin navigation'
   );

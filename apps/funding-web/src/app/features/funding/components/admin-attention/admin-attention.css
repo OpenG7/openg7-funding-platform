@@ -1,0 +1,135 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.attention-panel {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-panel);
+  color: var(--admin-text);
+  overflow: hidden;
+}
+.attention-heading {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+.attention-heading > div {
+  flex: 1;
+  min-width: min(100%, 240px);
+}
+h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0;
+  font-size: 1.2rem;
+  flex-wrap: wrap;
+}
+h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+p {
+  color: var(--admin-muted);
+  margin: 0.5rem 0 0;
+}
+.count {
+  background: #792735;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.9rem;
+}
+.filters {
+  padding: 1.25rem;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: end;
+}
+label {
+  display: grid;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: min(100%, 200px);
+}
+select {
+  font: inherit;
+  padding: 0.65rem;
+  width: 100%;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  background: #102035;
+  color: var(--admin-text);
+}
+select:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.tasks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.tasks li {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+  border-top: 1px solid var(--admin-border);
+}
+.task-main {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.task-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+small {
+  display: block;
+  color: var(--admin-muted);
+  margin-top: 0.4rem;
+  overflow-wrap: anywhere;
+}
+.notice {
+  padding: 1rem 1.25rem;
+  margin: 0;
+}
+.error {
+  color: #ffc4ca;
+}
+footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+@media (max-width: 600px) {
+  .tasks li {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .attention-heading {
+    align-items: start;
+  }
+}

@@ -1,3 +1,5 @@
+import { ActivatedRoute } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -14,6 +16,7 @@ import type {
   AdminSponsorshipInvoicesResponse
 } from '@openg7/funding-core';
 
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
@@ -25,7 +28,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 @Component({
   selector: 'openg7-admin-invoices-page',
   standalone: true,
-  imports: [CommonModule, AdminNavComponent],
+  imports: [CommonModule, AdminNavComponent, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="admin-shell">
@@ -48,7 +51,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
               {{
                 backfillState() === 'sending'
                   ? 'Generation...'
-                  : 'Generer factures manquantes'
+                  : contributionId ? ('admin.attention.generateInvoice' | translate) : 'Generer factures manquantes'
               }}
             </button>
             <button
@@ -61,6 +64,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
           </nav>
         </header>
 
+        @if (contributionId) { <p class="state" data-og7="attention-invoice-target">{{ 'admin.attention.targetInvoice' | translate: { id: contributionId } }}</p> }
         <p class="state" *ngIf="state() === 'loading'" aria-live="polite">
           Chargement des factures...
         </p>
@@ -1081,6 +1085,8 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 })
 export class AdminInvoicesPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
+  private readonly i18n = inject(FundingI18nService);
+  readonly contributionId = inject(ActivatedRoute).snapshot.queryParamMap.get('contributionId') ?? undefined;
 
   readonly adminToken = signal('');
   readonly state = signal<LoadState>('idle');
@@ -1120,7 +1126,7 @@ export class AdminInvoicesPageComponent implements OnInit {
     this.resendMessage.set('');
 
     try {
-      const response = await this.admin.getSponsorshipInvoices(token);
+      const response = await this.admin.getSponsorshipInvoices(token, this.contributionId);
       this.data.set(response);
       const selectedStillExists = response.invoices.some(
         (invoice) => invoice.id === this.selectedInvoiceId()
@@ -1156,6 +1162,8 @@ export class AdminInvoicesPageComponent implements OnInit {
   }
 
   async backfillInvoices(): Promise<void> {
+    if (this.backfillState() === 'sending') return;
+    if (this.contributionId && (typeof window === 'undefined' || !window.confirm(this.i18n.t('admin.attention.confirmInvoice').replace('{{id}}', this.contributionId)))) return;
     const token = this.adminToken() || this.admin.getSavedAdminToken();
     this.adminToken.set(token);
     this.backfillState.set('sending');
@@ -1163,7 +1171,8 @@ export class AdminInvoicesPageComponent implements OnInit {
 
     try {
       const result = await this.admin.backfillSponsorshipInvoices(token, {
-        limit: 250
+        limit: this.contributionId ? 1 : 250,
+        contributionId: this.contributionId
       });
       const message = this.backfillResultMessage(result);
       this.backfillState.set(result.failed_count > 0 ? 'error' : 'done');

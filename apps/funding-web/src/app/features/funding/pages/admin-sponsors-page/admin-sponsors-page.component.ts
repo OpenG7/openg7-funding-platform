@@ -12,7 +12,8 @@ import {
   signal
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 import {
   DEFAULT_SPONSORSHIP_PRICING_CONFIG,
   resolveSponsorshipBenefits
@@ -22,6 +23,7 @@ import type {
   AdminSponsorshipRejectionRefundHandling,
   AdminPagination,
   AdminSponsorshipRecord,
+  AdminSponsorshipProgress,
   AdminSponsorshipRefundResult,
   AdminSponsorshipRefundWorkflowStatus,
   AdminSponsorshipStripeRefundReason,
@@ -34,8 +36,13 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
+import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
-import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminDashboardRequestError, FundingAdminService } from '../../services/funding-admin.service.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
+import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
+import { AdminSponsorshipFactsComponent } from '../../components/admin-sponsors/admin-sponsorship-facts.component.js';
 import { AdminSponsorDetailHeaderComponent } from '../../components/admin-sponsors/admin-sponsor-detail-header.component.js';
 import { AdminSponsorDetailIdentityComponent } from '../../components/admin-sponsors/admin-sponsor-detail-identity.component.js';
 import { AdminSponsorDetailOverviewComponent } from '../../components/admin-sponsors/admin-sponsor-detail-overview.component.js';
@@ -152,6 +159,11 @@ const controlledSponsorLogoUrlPrefixes = [
   selector: 'openg7-admin-sponsors-page',
   standalone: true,
   imports: [
+    AdminAssistantContextComponent,
+    TranslatePipe,
+    AdminSponsorDetailMediaComponent,
+    AdminSponsorshipProgressComponent,
+    AdminSponsorshipFactsComponent,
     CommonModule,
     RouterLink,
     AdminNavComponent,
@@ -269,12 +281,29 @@ const controlledSponsorLogoUrlPrefixes = [
                 {{ paymentEligibilityMessage(selected) }}
               </p>
 
+              @if (versionConflict()) {
+                <p role="alert">{{ 'admin.dossier.conflict' | translate }}
+                  <button type="button" [disabled]="state() === 'loading' || actionState() !== null" (click)="loadSponsorships()">{{ 'admin.dossier.refresh' | translate }}</button>
+                </p>
+              }
+              <openg7-admin-sponsorship-progress
+                [sponsorshipId]="selected.id"
+                [refreshKey]="assistantRefresh()"
+                [disabled]="actionState() !== null"
+                (loaded)="progress.set($event)"
+              />
               <openg7-admin-sponsor-detail-tabs
                 [activeTab]="activeTab()"
                 (activeTabChange)="setActiveTab($event)"
               />
 
               <ng-container *ngIf="activeTab() === 'overview'">
+                <openg7-admin-assistant-context
+                  [sponsorshipId]="selected.id"
+                  [refreshKey]="assistantRefresh()"
+                  [compact]="true"
+                />
+                <openg7-admin-sponsorship-facts view="overview" [dossier]="progress()" />
                 <openg7-admin-sponsor-detail-overview
                   *ngIf="selectedSponsorDetailOverview() as overview"
                   [overview]="overview"
@@ -286,6 +315,13 @@ const controlledSponsorLogoUrlPrefixes = [
 
               <ng-container *ngIf="activeTab() === 'identity'">
                 <openg7-admin-sponsor-detail-identity
+                  *ngIf="selectedSponsorDetailOverview() as identity"
+                  [identity]="identity"
+                />
+              </ng-container>
+
+              <ng-container *ngIf="activeTab() === 'media'">
+                <openg7-admin-sponsor-detail-media
                   *ngIf="selectedSponsorDetailIdentity() as identity"
                   [identity]="identity"
                   (uploadLogo)="uploadLogo(selected, $event)"
@@ -295,6 +331,16 @@ const controlledSponsorLogoUrlPrefixes = [
                   (deleteMedia)="deleteSponsorMedia(selected, $event)"
                 />
               </ng-container>
+
+              @if (activeTab() === 'billing') {
+                <openg7-admin-sponsorship-facts view="billing" [dossier]="progress()" />
+              }
+              @if (activeTab() === 'publication') {
+                <openg7-admin-sponsorship-facts view="publication" [dossier]="progress()" />
+              }
+              @if (activeTab() === 'refund') {
+                <openg7-admin-sponsorship-facts view="refund" [dossier]="progress()" />
+              }
 
               <section
                 class="detail-body"
@@ -1508,6 +1554,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .sponsor-detail-panel {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
+        grid-auto-rows: max-content;
         max-height: calc(100vh - 2.5rem);
         overflow-y: auto;
         position: sticky;
@@ -2137,6 +2184,13 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly reviewFilter = signal<SponsorshipReviewFilter>('all');
   readonly feedFilter = signal<SponsorFeedStatusFilter>('all');
   readonly paymentFilter = signal<SponsorPaymentStatusFilter>('all');
+  readonly assistantRefresh = signal(0);
+  readonly progress = signal<AdminSponsorshipProgress | null>(null);
+  readonly versionConflict = signal(false);
+  private readonly router = inject(Router);
+  private readonly i18n = inject(FundingI18nService);
+  private loadGeneration = 0;
+  private routeInitialized = false;
   readonly selectedSponsorshipId = signal<string | null>(null);
   readonly activeRejectionId = signal<string | null>(null);
   readonly activeRefundId = signal<string | null>(null);
@@ -2350,8 +2404,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.sponsorships().filter(
         (item) =>
           item.sponsor_review_status === 'approved' &&
-          (item.public_display_consent ||
-            item.sponsor_feed_status === 'published')
+          item.public_display_consent
       ).length
   );
   readonly activeCount = computed(
@@ -2378,9 +2431,37 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
-        const sponsorshipId = params.get('sponsorshipId')?.trim() || null;
-        this.search.set(sponsorshipId ?? '');
+        const sponsorshipId = params.get("sponsorshipId")?.trim() || null;
+        const tab = params.get("tab") as SponsorDetailsTab;
+        this.activeTab.set(
+          [
+            "overview",
+            "identity",
+            "media",
+            "publication",
+            "billing",
+            "refund",
+            "audit",
+          ].includes(tab)
+            ? tab
+            : "overview",
+        );
+        if (
+          this.routeInitialized &&
+          sponsorshipId === this.selectedSponsorshipId()
+        )
+          return;
+        const alreadyLoaded = this.sponsorships().some(
+          (item) => item.id === sponsorshipId,
+        );
         this.selectedSponsorshipId.set(sponsorshipId);
+        this.admin.selectSponsorship(sponsorshipId);
+        if (this.routeInitialized && (!sponsorshipId || alreadyLoaded)) {
+          void this.loadSponsorMedia(sponsorshipId);
+          return;
+        }
+        this.routeInitialized = true;
+        this.search.set(sponsorshipId ?? "");
         this.page.set(1);
         void this.loadSponsorships();
       });
@@ -2394,7 +2475,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   async loadSponsorships(): Promise<void> {
-    this.state.set('loading');
+    const generation = ++this.loadGeneration;
+    this.state.set("loading");
 
     try {
       const response = await this.admin.getSponsorships(this.adminToken(), {
@@ -2404,34 +2486,51 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         reviewStatus: this.reviewFilter(),
         feedStatus: this.feedFilter(),
         paymentStatus: this.paymentFilter(),
-        sort: 'priority',
-        direction: 'desc'
+        sort: "priority",
+        direction: "desc",
       });
       const sponsorships = response.items ?? response.sponsorships;
+      if (generation !== this.loadGeneration || this.destroyRef.destroyed)
+        return;
+      this.versionConflict.set(false);
       this.sponsorships.set(sponsorships);
+      this.assistantRefresh.update((value) => value + 1);
       this.pagination.set(response.pagination ?? defaultPagination);
       this.page.set(response.pagination?.page ?? this.page());
       this.reviewNotes.set(
         Object.fromEntries(
-          sponsorships.map((item) => [item.id, item.sponsor_review_note ?? ''])
-        )
+          sponsorships.map((item) => [item.id, item.sponsor_review_note ?? ""]),
+        ),
       );
       this.publicationDrafts.set(
         Object.fromEntries(
-          sponsorships.map((item) => [item.id, this.toPublicationDraft(item)])
-        )
+          sponsorships.map((item) => [item.id, this.toPublicationDraft(item)]),
+        ),
       );
       if (
         !sponsorships.some((item) => item.id === this.selectedSponsorshipId())
       ) {
-        this.selectedSponsorshipId.set(sponsorships[0]?.id ?? null);
+        const directId = this.route.snapshot.queryParamMap.get("sponsorshipId");
+        this.selectedSponsorshipId.set(
+          directId && this.search() === directId
+            ? null
+            : (sponsorships[0]?.id ?? null),
+        );
       }
-      this.state.set('ready');
+      if (this.selectedSponsorshipId())
+        this.admin.selectSponsorship(this.selectedSponsorshipId());
+      void this.admin.refreshWorkQueue();
+      this.state.set("ready");
       this.saveToken();
       void this.loadLogoPreviews(sponsorships);
       void this.loadSponsorMedia(this.selectedSponsorshipId());
-    } catch {
-      this.state.set('error');
+    } catch (error) {
+      if (generation !== this.loadGeneration || this.destroyRef.destroyed)
+        return;
+      this.sponsorships.set([]);
+      this.progress.set(null);
+      this.messageFromError(error, "");
+      this.state.set("error");
     }
   }
 
@@ -3295,6 +3394,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   selectSponsorshipById(id: string): void {
     this.selectedSponsorshipId.set(id);
+    this.admin.selectSponsorship(id);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { sponsorshipId: id, tab: this.activeTab() },
+      queryParamsHandling: "merge",
+    });
     void this.loadSponsorMedia(id);
     this.pulseSelection(id);
     this.scrollSelectedSponsorshipIntoView();
@@ -3302,13 +3407,24 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   closeDetails(): void {
     this.selectedSponsorshipId.set(null);
+    this.admin.selectSponsorship(null);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { sponsorshipId: null, tab: null },
+      queryParamsHandling: "merge",
+    });
     this.activeRejectionId.set(null);
     this.activeRefundId.set(null);
   }
 
   setActiveTab(tab: SponsorDetailsTab): void {
     this.activeTab.set(tab);
-    if (tab === 'identity') {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { sponsorshipId: this.selectedSponsorshipId(), tab },
+      queryParamsHandling: "merge",
+    });
+    if (tab === "media") {
       void this.loadSponsorMedia(this.selectedSponsorshipId());
     }
   }
@@ -3495,32 +3611,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   visibilityLabel(sponsorship: AdminSponsorshipRecord): string {
-    if (
-      sponsorship.sponsor_review_status === 'approved' &&
-      (sponsorship.public_display_consent ||
-        sponsorship.sponsor_feed_status === 'published')
-    ) {
-      return 'Visible';
-    }
-
-    if (sponsorship.sponsor_review_status === 'pending_review') {
-      return 'En revision';
-    }
-
-    return 'Masque';
+    this.i18n.trackTranslationState();
+    return this.i18n.t(sponsorship.public_display_consent ? 'admin.dossier.consentGranted' : 'admin.dossier.consentMissing');
   }
 
   visibilityClass(sponsorship: AdminSponsorshipRecord): string {
-    const state =
-      sponsorship.sponsor_review_status === 'approved' &&
-      (sponsorship.public_display_consent ||
-        sponsorship.sponsor_feed_status === 'published')
-        ? 'visible'
-        : sponsorship.sponsor_review_status === 'pending_review'
-          ? 'review'
-          : 'hidden';
-
-    return `visibility-badge visibility-${state}`;
+    return sponsorship.public_display_consent ? 'visibility-badge visibility-visible' : 'visibility-badge visibility-hidden';
   }
 
   reviewActionName(status: SponsorshipReviewStatus): string {
@@ -4826,6 +4922,18 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   private messageFromError(error: unknown, fallback: string): string {
+    if (error instanceof AdminDashboardRequestError && error.status === 409) {
+      this.versionConflict.set(true);
+      return this.i18n.t("admin.dossier.conflict");
+    }
+    if (error instanceof AdminDashboardRequestError && error.status === 401) {
+      this.admin.clearAdminSession();
+      this.sponsorships.set([]);
+      this.progress.set(null);
+      void this.router.navigate(["/admin/login"], {
+        queryParams: { returnUrl: this.router.url },
+      });
+    }
     return error instanceof Error && error.message.trim()
       ? error.message
       : fallback;
@@ -4893,6 +5001,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         ...current,
         [contributionId]: response.assets
       }));
+      this.assistantRefresh.update((value) => value + 1);
       await this.loadSponsorMediaPreviews(response.assets);
     } catch (error) {
       this.setSponsorMediaMessage(

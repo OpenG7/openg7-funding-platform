@@ -1,0 +1,288 @@
+<section
+  class="context-card"
+  data-og7="assistant-context"
+  [attr.aria-label]="'admin.context.title' | translate"
+  [attr.aria-busy]="state() === 'loading'"
+>
+  <header class="heading">
+    <h2>
+      <openg7-admin-icon name="assistant" />{{
+        'admin.context.title' | translate
+      }}
+    </h2>
+    <button
+      class="admin-button"
+      type="button"
+      (click)="load()"
+      [disabled]="state() === 'loading' || busy()"
+    >
+      {{ 'admin.context.refresh' | translate }}
+    </button>
+  </header>
+  @if (state() !== 'ready') {
+    <p role="status">{{ 'admin.context.state.' + state() | translate }}</p>
+  }
+  @if (data(); as result) {
+    @if (result.context; as context) {
+      <p class="reference" data-og7="assistant-reference">
+        {{ context.reference }}
+      </p>
+      <details [open]="!compact()">
+        <summary>
+          {{ 'admin.context.facts' | translate }} ·
+          {{ 'admin.context.status.' + context.paymentStatus | translate }} ·
+          {{ 'admin.context.status.' + context.reviewStatus | translate }}
+        </summary>
+        <dl class="facts" data-og7="assistant-facts">
+          <div>
+            <dt>{{ 'admin.context.payment' | translate }}</dt>
+            <dd>
+              {{ 'admin.context.status.' + context.paymentStatus | translate }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.context.refund' | translate }}</dt>
+            <dd>
+              {{ 'admin.context.status.' + context.refundStatus | translate }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.context.review' | translate }}</dt>
+            <dd>
+              {{ 'admin.context.status.' + context.reviewStatus | translate }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.context.visibility' | translate }}</dt>
+            <dd>
+              {{ 'admin.context.status.' + context.feedStatus | translate }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.context.consent' | translate }}</dt>
+            <dd>
+              {{
+                (context.publicConsent
+                  ? 'admin.context.yes'
+                  : 'admin.context.no'
+                ) | translate
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.context.media' | translate }}</dt>
+            <dd>
+              {{ 'admin.context.mediaCounts' | translate: context.media }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.context.commitments' | translate }}</dt>
+            <dd>
+              {{
+                context.promisedChannels.join(', ') ||
+                  ('admin.context.none' | translate)
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.context.covered' | translate }}</dt>
+            <dd>
+              {{
+                context.coveredChannels.join(', ') ||
+                  ('admin.context.none' | translate)
+              }}
+            </dd>
+          </div>
+        </dl>
+        @if (context.missingFields.length) {
+          <h3>{{ 'admin.context.missing' | translate }}</h3>
+          <ul>
+            @for (field of context.missingFields; track field) {
+              <li>{{ 'admin.context.fields.' + field | translate }}</li>
+            }
+          </ul>
+        }
+      </details>
+      <div class="recommendation" data-og7="assistant-next-step">
+        <h3>{{ 'admin.context.next' | translate }}</h3>
+        <p>{{ 'admin.context.steps.' + context.nextStep | translate }}</p>
+        <a
+          class="admin-button admin-button--primary"
+          [routerLink]="router.parseUrl(context.adminUrl)"
+          >{{ 'admin.context.open' | translate }}</a
+        >
+      </div>
+      <div class="actions">
+        @if (context.canRequestInformation) {
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="busy()"
+            (click)="prepare('sponsorship_reminder')"
+          >
+            {{ 'admin.context.requestInfo' | translate }}
+          </button>
+        }
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="busy()"
+          (click)="prepare('admin_note')"
+        >
+          {{ 'admin.context.prepareNote' | translate }}
+        </button>
+        @if (context.nextStep === 'prepare_publication') {
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="busy()"
+            (click)="prepare('publication_draft')"
+          >
+            {{ 'admin.context.preparePublication' | translate }}
+          </button>
+        }
+        <a
+          class="admin-link"
+          routerLink="/admin/fundraiser/assistant"
+          [queryParams]="{ sponsorshipId: context.contributionId }"
+          >{{ 'admin.context.workspace' | translate }}</a
+        >
+      </div>
+      @if (prepared(); as proposal) {
+        @if (proposal.draft; as draft) {
+          <openg7-admin-assistant-draft
+            [draft]="draft"
+            [showBody]="!proposal.delivery"
+          />
+        } @else {
+          <p role="status">{{ 'admin.context.notApplicable' | translate }}</p>
+        }
+        @if (proposal.delivery; as preview) {
+          <form
+            class="inset"
+            (ngSubmit)="reviewSend()"
+            data-og7="assistant-information-form"
+          >
+            <p>{{ 'admin.context.draftNotice' | translate }}</p>
+            <label
+              >{{ 'admin.context.recipient' | translate
+              }}<input type="email" [value]="preview.recipient" readonly
+            /></label>
+            <label
+              >{{ 'admin.context.subject' | translate
+              }}<input
+                name="subject"
+                [ngModel]="subject()"
+                (ngModelChange)="subject.set($event)"
+                required
+                maxlength="200"
+                [disabled]="busy()"
+            /></label>
+            <label
+              >{{ 'admin.context.message' | translate
+              }}<textarea
+                name="body"
+                [ngModel]="body()"
+                (ngModelChange)="body.set($event)"
+                required
+                maxlength="6000"
+                rows="8"
+                [disabled]="busy()"
+              ></textarea>
+            </label>
+            <button
+              type="submit"
+              class="admin-button admin-button--primary"
+              [disabled]="busy() || !subject().trim() || !body().trim()"
+            >
+              {{ 'admin.context.reviewSend' | translate }}
+            </button>
+          </form>
+        }
+      }
+      @if (delivery(); as sent) {
+        <div class="inset" role="status" data-og7="assistant-delivery-result">
+          <p>{{ 'admin.context.delivery.' + sent.status | translate }}</p>
+          <a
+            class="admin-link"
+            routerLink="/admin/fundraiser/email-queue"
+            [queryParams]="{ messageId: sent.messageId }"
+            >{{ 'admin.context.viewEmail' | translate }}</a
+          >
+        </div>
+      }
+      @if (result.conversationMode === 'disabled') {
+        <p class="muted">{{ 'admin.context.disabled' | translate }}</p>
+      } @else {
+        <form class="question" (ngSubmit)="ask()">
+          <label
+            >{{ 'admin.context.question' | translate
+            }}<input
+              name="question"
+              [ngModel]="question()"
+              (ngModelChange)="question.set($event)"
+              maxlength="1000"
+              required
+              [disabled]="busy()"
+          /></label>
+          <button
+            type="submit"
+            class="admin-button"
+            [disabled]="busy() || !question().trim()"
+          >
+            {{ 'admin.context.ask' | translate }}
+          </button>
+        </form>
+        <p class="muted">{{ 'admin.context.mock' | translate }}</p>
+      }
+      @if (answer(); as reply) {
+        <openg7-admin-assistant-answer [answer]="reply" />
+      }
+    } @else {
+      <p role="status">
+        {{ 'admin.context.state.' + result.status | translate }}
+      </p>
+    }
+  }
+  @if (busy()) {
+    <p role="status">{{ 'admin.context.working' | translate }}</p>
+  }
+  @if (error()) {
+    <p role="alert" class="error">
+      {{ 'admin.context.' + error() | translate }}
+    </p>
+  }
+  <dialog
+    #confirmationDialog
+    (cancel)="confirmation.set(null)"
+    [attr.aria-label]="'admin.context.confirmTitle' | translate"
+  >
+    @if (confirmation(); as pending) {
+      <h2>{{ 'admin.context.confirmTitle' | translate }}</h2>
+      <p>{{ 'admin.context.confirmHelp' | translate }}</p>
+      <p>
+        <strong>{{ 'admin.context.recipient' | translate }}:</strong>
+        {{ pending.recipient }}
+      </p>
+      <h3>{{ pending.subject }}</h3>
+      <p class="message">{{ pending.body }}</p>
+      <div class="actions">
+        <button
+          class="admin-button"
+          type="button"
+          autofocus
+          (click)="cancelSend()"
+        >
+          {{ 'admin.context.cancel' | translate }}
+        </button>
+        <button
+          class="admin-button admin-button--primary"
+          type="button"
+          (click)="send()"
+        >
+          {{ 'admin.context.confirmSend' | translate }}
+        </button>
+      </div>
+    }
+  </dialog>
+</section>

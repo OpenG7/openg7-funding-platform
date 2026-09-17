@@ -2807,7 +2807,7 @@ test('Admin email queue page lists failed messages and retries them manually', (
 
   assert.ok(routes.includes("path: 'admin/fundraiser/email-queue'"));
   assert.ok(routes.includes('AdminEmailQueuePageComponent'));
-  assert.ok(nav.includes('routerLink="/admin/fundraiser/email-queue"'));
+  assert.ok(nav.includes("url: '/admin/fundraiser/email-queue'"));
 
   assert.ok(service.includes('getEmailQueue'));
   assert.ok(service.includes('/admin/email-queue'));
@@ -2892,7 +2892,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
 
   assert.ok(routes.includes("path: 'admin/fundraiser/invoices'"));
   assert.ok(routes.includes('AdminInvoicesPageComponent'));
-  assert.ok(nav.includes('routerLink="/admin/fundraiser/invoices"'));
+  assert.ok(nav.includes("url: '/admin/fundraiser/invoices'"));
 
   assert.ok(service.includes('getSponsorshipInvoices'));
   assert.ok(service.includes('/admin/sponsorship-invoices'));
@@ -3039,7 +3039,7 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
 
   assert.ok(routes.includes("path: 'admin/fundraiser/setup'"));
   assert.ok(routes.includes('AdminSetupPageComponent'));
-  assert.ok(nav.includes('routerLink="/admin/fundraiser/setup"'));
+  assert.ok(nav.includes("url: '/admin/fundraiser/setup'"));
   assert.ok(service.includes('getSetupStatus'));
   assert.ok(service.includes('/admin/setup-status'));
   assert.ok(service.includes('sendEmailTest'));

@@ -29,7 +29,7 @@ test('the assistant is wired into the Angular admin shell', () => {
   );
   assertIncludesAll(
     nav,
-    ['/admin/fundraiser/assistant', 'Assistant'],
+    ['/admin/fundraiser/assistant', "key: 'assistant'"],
     'admin-nav'
   );
   assertIncludesAll(
@@ -87,7 +87,11 @@ test('the assistant prepares drafts (iteration 2) as generation only', () => {
   );
   assertIncludesAll(
     page,
-    ['prepare_reminder', 'Non envoyé · non publié', 'prepareAssistantDraft'],
+    [
+      'prepare_reminder',
+      'openg7-admin-assistant-draft',
+      'prepareAssistantDraft'
+    ],
     'admin-assistant-page prepare UI'
   );
 });
@@ -102,15 +106,24 @@ test('the admin assistant page exposes every required UI state', () => {
       "summaryState() === 'loading'",
       "summaryState() === 'error'",
       "answerState() === 'loading'",
-      'Assistant conversationnel désactivé',
-      'Modèle non configuré',
-      'Délai dépassé',
-      'Erreur du fournisseur',
-      'Aucun résultat pour cette question',
       'Aucune action urgente'
     ],
     'admin-assistant-page states'
   );
+  for (const language of ['fr-CA', 'en']) {
+    const labels = JSON.parse(
+      read(`apps/funding-web/src/assets/i18n/${language}.json`)
+    ).admin.context.queryStatus;
+    for (const status of [
+      'ok',
+      'assistant_disabled',
+      'provider_not_configured',
+      'no_results',
+      'timeout',
+      'provider_error'
+    ])
+      assert.ok(labels[status]);
+  }
 });
 
 test('the API exposes the read-only assistant endpoints with guards', () => {

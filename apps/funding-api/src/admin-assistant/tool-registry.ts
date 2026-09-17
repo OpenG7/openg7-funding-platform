@@ -13,6 +13,7 @@ import type {
 import {
   buildAttentionItems,
   buildFinancialSummary,
+  hasCompleteFiche,
   type AttentionDataset
 } from './attention.service.js';
 
@@ -232,10 +233,7 @@ const explainSponsorshipTool: AssistantTool = {
         refundStatus: record.refundStatus,
         reviewStatus: record.reviewStatus,
         feedStatus: record.feedStatus,
-        ficheComplete:
-          record.detailsSubmittedAt !== null &&
-          record.hasCompanyName &&
-          record.hasContactEmail,
+        ficheComplete: hasCompleteFiche(record),
         flaggedAs
       }
     };

@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { openFixtureSponsorship, signInAsAdmin } from './support/admin-auth.js';
 
@@ -236,9 +235,7 @@ test.describe('Docker admin sponsorship review', () => {
     const fixture = SPONSORSHIP_FIXTURES.logo;
     await openFixtureSponsorship(page, fixture.companyName);
 
-    await page
-      .getByRole('button', { name: 'Identite & logo', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Médias', exact: true }).click();
 
     // The upload control is a <label> wrapping the file input, not a button.
     await expect(page.getByText('Televerser un logo')).toBeVisible();

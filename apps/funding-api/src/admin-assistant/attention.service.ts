@@ -167,7 +167,7 @@ export const detectSponsorshipInfoItems = (
 ): AdminAttentionItem[] =>
   dataset.sponsorships
     .filter(
-      (record) => isActionableSponsorship(record) && !hasCompleteFiche(record)
+      (record) => isActionableSponsorship(record) && record.reviewStatus !== 'rejected' && !hasCompleteFiche(record)
     )
     .map((record) => {
       const ageDays = daysBetween(dataset.now, record.paidAt);
@@ -701,15 +701,16 @@ export interface BuildAdminAssistantSummaryOptions {
  */
 export const loadAttentionDataset = async (
   pool: Pool | null,
-  now: Date = new Date()
+  now: Date = new Date(),
+  complete = false
 ): Promise<AttentionDataset> => {
   const [sponsorships, drafts, batches, slots, emailQueue, dashboard] =
     await Promise.all([
-      listSponsorshipsForAttention(pool),
-      listAdminPublicationDrafts(pool),
-      listAdminPublicationBatches(pool),
-      listAdminPublicationSlots(pool),
-      listAdminEmailQueue(pool),
+      listSponsorshipsForAttention(pool, complete ? null : undefined),
+      listAdminPublicationDrafts(pool, { all: complete }),
+      listAdminPublicationBatches(pool, { all: complete }),
+      listAdminPublicationSlots(pool, { all: complete }),
+      listAdminEmailQueue(pool, { all: complete }),
       getAdminDashboard(pool)
     ]);
 

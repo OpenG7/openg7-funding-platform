@@ -562,6 +562,8 @@ export interface AdminContributionsResponse {
 
 export interface AdminDashboardResponse {
   readonly data_source: 'database';
+  /** False when PostgreSQL is not configured. Optional for older API versions. */
+  readonly data_available?: boolean;
   readonly totals: {
     readonly total_received: number;
     readonly total_refunded: number;
@@ -796,6 +798,7 @@ export interface AdminSponsorshipInvoicesResponse {
 }
 
 export interface AdminSponsorshipInvoiceBackfillRequest {
+  readonly contributionId?: string;
   readonly limit?: number;
 }
 
@@ -1270,6 +1273,11 @@ export type AdminAttentionItemType =
   | 'publication_needs_preparation'
   | 'publication_late'
   | 'email_delivery_failed'
+  | 'invoice_missing'
+  | 'stripe_event_failed'
+  | 'stripe_event_stalled'
+  | 'publication_ready'
+  | 'publication_slot_upcoming'
   | 'financial_data_warning';
 
 export type AdminAttentionSeverity =
@@ -1356,6 +1364,7 @@ export interface AdminAssistantSummary {
 export type AdminAssistantMode = 'disabled' | 'mock' | 'live';
 
 export interface AdminAssistantQueryRequest {
+  readonly sponsorshipId?: string;
   readonly message: string;
 }
 
@@ -1443,6 +1452,7 @@ export interface AdminAssistantDraftProposal {
 }
 
 export interface AdminAssistantPrepareRequest {
+  readonly language?: 'fr-CA' | 'en';
   readonly type: AdminAssistantDraftType;
   /** Sponsorship reference/id, or publication id for a slot proposal. */
   readonly reference?: string;
@@ -1452,7 +1462,30 @@ export type AdminAssistantPrepareStatus =
   'ok' | 'not_found' | 'not_applicable' | 'assistant_unavailable';
 
 export interface AdminAssistantPrepareResponse {
+  readonly delivery?: import('./admin-assistant-context.js').AdminInformationRequestPreview;
   readonly status: AdminAssistantPrepareStatus;
   readonly draft: AdminAssistantDraftProposal | null;
   readonly message: string | null;
 }
+
+export type { AdminAttentionDueFilter, AdminWorkQueueQuery, AdminWorkQueueResponse } from './admin-work-queue.js';
+
+export type {
+  AdminAssistantContext,
+  AdminAssistantContextResponse,
+  AdminAssistantNextStep,
+  AdminInformationRequestPreview,
+  AdminInformationRequest,
+  AdminInformationRequestResult
+} from './admin-assistant-context.js';
+
+export type {
+  SponsorshipDossierTab,
+  SponsorshipMilestoneId,
+  SponsorshipProgressState,
+  SponsorshipMilestone,
+  SponsorshipProgressDocument,
+  SponsorshipProgressPublication,
+  AdminSponsorshipProgress,
+  AdminSponsorshipProgressResponse
+} from './sponsorship-progress.js';

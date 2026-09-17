@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { TranslatePipe } from '@ngx-translate/core';
 
 @Component({
   selector: 'openg7-admin-sponsors-summary',
   standalone: true,
+  imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="admin-summary-grid" aria-label="Resume des commandites">
@@ -17,9 +19,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       <article>
         <span class="metric-mark gold">VI</span>
         <div>
-          <span>Visibles publiquement</span>
+          <span>{{ 'admin.dossier.approvedConsent' | translate }}</span>
           <strong>{{ visibleCount() }}</strong>
-          <small>Affichees ou publiees</small>
+          <small>{{ 'admin.dossier.listScope' | translate }}</small>
         </div>
       </article>
       <article>

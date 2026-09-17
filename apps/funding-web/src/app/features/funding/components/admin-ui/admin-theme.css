@@ -1,0 +1,17 @@
+:host {
+  --admin-bg: #0b1727;
+  --admin-sidebar: #0d1b2c;
+  --admin-panel: #142338;
+  --admin-panel-raised: #1b2d44;
+  --admin-border: #344860;
+  --admin-text: #f1f5fc;
+  --admin-muted: #bdcbe0;
+  --admin-gold: var(--gold-400, #f4c957);
+  --admin-focus: #9edaff;
+  --admin-success: #a1e7b1;
+  --admin-warning: #ffda85;
+  --admin-danger: #ffb5bc;
+  color: var(--admin-text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.5;
+}

@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanMatchFn, Router, Routes } from '@angular/router';
 
+import { AdminAttentionPageComponent } from './features/funding/pages/admin-attention-page/admin-attention-page.component.js';
 import { AdminAssistantPageComponent } from './features/funding/pages/admin-assistant-page/admin-assistant-page.component.js';
 import { AdminAuditPageComponent } from './features/funding/pages/admin-audit-page/admin-audit-page.component.js';
 import { AdminContributionsPageComponent } from './features/funding/pages/admin-contributions-page/admin-contributions-page.component.js';
@@ -39,8 +40,12 @@ const adminSessionRequired: CanMatchFn = (_route, segments) => {
     return true;
   }
 
-  const returnUrl = `/${segments.map((segment) => segment.path).join('/')}`;
-  return inject(Router).createUrlTree(['/admin/login'], {
+  const router = inject(Router);
+  const destination = router.currentNavigation()?.extractedUrl;
+  const returnUrl = destination
+    ? router.serializeUrl(destination)
+    : `/${segments.map((segment) => segment.path).join('/')}`;
+  return router.createUrlTree(['/admin/login'], {
     queryParams: {
       returnUrl: returnUrl || '/admin/fundraiser'
     }
@@ -127,6 +132,11 @@ export const appRoutes: Routes = [
     path: 'admin/fundraiser',
     canMatch: [adminSessionRequired],
     component: AdminDashboardPageComponent
+  },
+  {
+    path: 'admin/fundraiser/attention',
+    canMatch: [adminSessionRequired],
+    component: AdminAttentionPageComponent
   },
   {
     path: 'admin/fundraiser/assistant',

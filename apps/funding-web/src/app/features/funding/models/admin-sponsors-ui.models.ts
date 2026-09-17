@@ -10,7 +10,13 @@ export type SponsorFeedStatusFilter = 'all' | SponsorFeedStatus;
 export type SponsorPaymentStatusFilter =
   'all' | 'paid' | 'refunded' | 'disputed';
 export type SponsorDetailsTab =
-  'overview' | 'identity' | 'publication' | 'refund' | 'audit';
+  | 'overview'
+  | 'identity'
+  | 'media'
+  | 'publication'
+  | 'billing'
+  | 'refund'
+  | 'audit';
 
 export interface AdminSponsorFeedStatusOption {
   readonly value: SponsorFeedStatus;

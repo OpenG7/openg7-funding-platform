@@ -891,7 +891,7 @@ export const getAdminSponsorshipInvoiceById = async (
 
 export const backfillMissingSponsorshipInvoices = async (
   pool: Pool | null,
-  input: { readonly limit?: number } = {}
+  input: { readonly limit?: number; readonly contributionId?: string } = {}
 ): Promise<AdminSponsorshipInvoiceBackfillResult> => {
   const now = new Date().toISOString();
   if (!pool) {
@@ -925,7 +925,8 @@ export const backfillMissingSponsorshipInvoices = async (
     WHERE contribution.contribution_type = 'sponsorship_interest'
       AND contribution.status IN ('paid', 'refunded', 'disputed')
       AND contribution.stripe_session_id IS NOT NULL
-  `);
+      AND ($1::text IS NULL OR contribution.id::text = $1)
+  `, [input.contributionId ?? null]);
   const counts = countResult.rows[0];
   const eligibleCount = parseDbInt(counts?.eligible_count ?? '0');
   const missingCount = parseDbInt(counts?.missing_count ?? '0');
@@ -949,6 +950,7 @@ export const backfillMissingSponsorshipInvoices = async (
           AND contribution.status IN ('paid', 'refunded', 'disputed')
           AND contribution.stripe_session_id IS NOT NULL
           AND invoice.id IS NULL
+          AND ($2::text IS NULL OR contribution.id::text = $2)
         ORDER BY
           COALESCE(
             contribution.paid_at,
@@ -957,7 +959,7 @@ export const backfillMissingSponsorshipInvoices = async (
           ) ASC
         LIMIT $1
       `,
-      [limit]
+      [limit, input.contributionId ?? null]
     );
 
   const invoiceIds: string[] = [];
@@ -1095,7 +1097,8 @@ const listAdminSponsorshipCreditNotesForInvoices = async (
 };
 
 export const listAdminSponsorshipInvoices = async (
-  pool: Pool | null
+  pool: Pool | null,
+  contributionId?: string
 ): Promise<AdminSponsorshipInvoicesResponse> => {
   const now = new Date().toISOString();
   if (!pool) {
@@ -1120,9 +1123,10 @@ export const listAdminSponsorshipInvoices = async (
         SELECT ${sponsorshipInvoiceSelect}, ${latestEmailSelect}
         FROM sponsorship_invoices invoice
         ${latestInvoiceEmailJoin}
+        WHERE ($1::text IS NULL OR invoice.contribution_id::text = $1)
         ORDER BY invoice.issued_at DESC, invoice.created_at DESC
         LIMIT 250
-      `
+      `, [contributionId ?? null]
     ),
     pool.query<AdminSponsorshipInvoiceSummaryRow>(
       `

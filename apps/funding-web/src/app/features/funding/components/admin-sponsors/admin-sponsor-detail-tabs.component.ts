@@ -5,21 +5,25 @@ import {
   input,
   output
 } from '@angular/core';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import type { SponsorDetailsTab } from '../../models/admin-sponsors-ui.models.js';
 
 interface AdminSponsorDetailTabItem {
   readonly id: SponsorDetailsTab;
-  readonly label: string;
 }
 
 @Component({
   selector: 'openg7-admin-sponsor-detail-tabs',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <nav class="detail-tabs" aria-label="Onglets du dossier">
+    <nav
+      class="detail-tabs"
+      [attr.aria-label]="'admin.dossier.tabsLabel' | translate"
+      data-og7="dossier-tabs"
+    >
       <button
         *ngFor="let tab of tabs"
         type="button"
@@ -27,7 +31,7 @@ interface AdminSponsorDetailTabItem {
         [attr.aria-current]="activeTab() === tab.id ? 'page' : null"
         (click)="selectTab(tab.id)"
       >
-        {{ tab.label }}
+        {{ 'admin.dossier.tabs.' + tab.id | translate }}
       </button>
     </nav>
   `,
@@ -75,11 +79,13 @@ export class AdminSponsorDetailTabsComponent {
   readonly activeTabChange = output<SponsorDetailsTab>();
 
   readonly tabs: readonly AdminSponsorDetailTabItem[] = [
-    { id: 'overview', label: "Vue d'ensemble" },
-    { id: 'identity', label: 'Identite & logo' },
-    { id: 'publication', label: 'Publication' },
-    { id: 'refund', label: 'Remboursements' },
-    { id: 'audit', label: 'Historique & audit' }
+    { id: 'overview' },
+    { id: 'identity' },
+    { id: 'media' },
+    { id: 'publication' },
+    { id: 'billing' },
+    { id: 'refund' },
+    { id: 'audit' }
   ];
 
   selectTab(tab: SponsorDetailsTab): void {

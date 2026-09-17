@@ -134,6 +134,17 @@ export class FundingI18nService {
 
   private resolveLanguageFromPath(path: string): FundingLanguage {
     const normalizedPath = this.normalizePath(path);
+    // Admin URLs have no locale prefix. Keep the chosen language across
+    // admin navigation/reloads; public URLs retain their canonical locale.
+    if (
+      normalizedPath.startsWith('/admin/') &&
+      isPlatformBrowser(this.platformId)
+    ) {
+      const savedLanguage = window.localStorage.getItem(languageStorageKey);
+      if (this.isSupportedLanguage(savedLanguage)) {
+        return savedLanguage;
+      }
+    }
     return normalizedPath === '/en' || normalizedPath.startsWith('/en/')
       ? 'en'
       : FUNDING_DEFAULT_LANGUAGE;

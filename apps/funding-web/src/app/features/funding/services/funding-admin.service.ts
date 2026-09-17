@@ -1,5 +1,10 @@
-import { Injectable } from '@angular/core';
+import type { AdminWorkQueueQuery, AdminWorkQueueResponse } from '@openg7/funding-core';
+import { Injectable, signal } from '@angular/core';
 import type {
+  AdminAssistantContextResponse,
+  AdminSponsorshipProgressResponse,
+  AdminInformationRequest,
+  AdminInformationRequestResult,
   AdminAssistantPrepareRequest,
   AdminAssistantPrepareResponse,
   AdminAssistantQueryRequest,
@@ -68,6 +73,14 @@ const sessionTokenStorageKey = 'openg7-admin-session-token';
 const sessionExpiresAtStorageKey = 'openg7-admin-session-expires-at';
 const legacyTokenStorageKey = 'openg7-admin-token';
 const adminSessionTokenPrefix = 'openg7-admin-session.';
+const selectedSponsorshipStorageKey = 'openg7-admin-selected-sponsorship';
+
+export class AdminDashboardRequestError extends Error {
+  constructor(readonly status: number, message = 'Admin dashboard could not be loaded.') {
+    super(message);
+    this.name = 'AdminDashboardRequestError';
+  }
+}
 
 export interface AdminSponsorshipListQuery {
   readonly page: number;
@@ -83,6 +96,50 @@ export interface AdminSponsorshipListQuery {
 @Injectable({ providedIn: 'root' })
 export class FundingAdminService {
   private readonly apiBaseUrl = this.resolveApiBaseUrl();
+  readonly workQueue = signal<AdminWorkQueueResponse | null>(null);
+  private queueGeneration = 0;
+
+  getSelectedSponsorship(): string | undefined {
+    if (typeof window === "undefined" || !this.hasValidAdminSession())
+      return undefined;
+    const id = window.sessionStorage.getItem(selectedSponsorshipStorageKey);
+    return id &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+      ? id
+      : undefined;
+  }
+
+  selectSponsorship(id: string | null): void {
+    if (typeof window === "undefined") return;
+    if (id) window.sessionStorage.setItem(selectedSponsorshipStorageKey, id);
+    else window.sessionStorage.removeItem(selectedSponsorshipStorageKey);
+  }
+
+  async refreshWorkQueue(): Promise<void> {
+    const token = this.getSavedAdminToken();
+    if (!token) return;
+    try {
+      await this.getWorkQueue(token, { pageSize: 1 });
+    } catch {
+      /* Count is unknown after a failed refresh. */
+    }
+  }
+
+  async getSponsorshipProgress(
+    token: string,
+    sponsorshipId?: string,
+  ): Promise<AdminSponsorshipProgressResponse> {
+    const params = new URLSearchParams(sponsorshipId ? { sponsorshipId } : {});
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/progress?${params}`,
+      {
+        cache: "no-store",
+        headers: await this.createHeaders(token),
+      },
+    );
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return (await response.json()) as AdminSponsorshipProgressResponse;
+  }
 
   getSavedAdminToken(): string {
     if (typeof window === 'undefined') {
@@ -127,11 +184,14 @@ export class FundingAdminService {
   }
 
   clearAdminSession(): void {
+    this.queueGeneration++;
+    this.workQueue.set(null);
     if (typeof window === 'undefined') {
       return;
     }
 
     window.sessionStorage.removeItem(sessionTokenStorageKey);
+    window.sessionStorage.removeItem(selectedSponsorshipStorageKey);
     window.sessionStorage.removeItem(sessionExpiresAtStorageKey);
     window.sessionStorage.removeItem(legacyTokenStorageKey);
     window.localStorage.removeItem(legacyTokenStorageKey);
@@ -147,6 +207,35 @@ export class FundingAdminService {
     return session;
   }
 
+  async getWorkQueue(
+    token: string,
+    query: AdminWorkQueueQuery = {},
+  ): Promise<AdminWorkQueueResponse> {
+    const generation = ++this.queueGeneration;
+    try {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(query)) {
+        if (value !== undefined && value !== "") params.set(key, String(value));
+      }
+      const response = await fetch(
+        `${this.apiBaseUrl}/admin/attention?${params.toString()}`,
+        {
+          method: "GET",
+          cache: "no-store",
+          headers: await this.createHeaders(token),
+        },
+      );
+      if (!response.ok) throw new AdminDashboardRequestError(response.status);
+      const data = (await response.json()) as AdminWorkQueueResponse;
+      if (generation === this.queueGeneration)
+        this.workQueue.set(data.available ? data : null);
+      return data;
+    } catch (error) {
+      if (generation === this.queueGeneration) this.workQueue.set(null);
+      throw error;
+    }
+  }
+
   async getDashboard(token: string): Promise<AdminDashboardResponse> {
     const response = await fetch(`${this.apiBaseUrl}/admin/dashboard`, {
       method: 'GET',
@@ -154,7 +243,7 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error('Admin dashboard could not be loaded.');
+      throw new AdminDashboardRequestError(response.status);
     }
 
     return (await response.json()) as AdminDashboardResponse;
@@ -178,6 +267,42 @@ export class FundingAdminService {
     return (await response.json()) as AdminAssistantSummary;
   }
 
+  async getAssistantContext(
+    token: string,
+    sponsorshipId?: string
+  ): Promise<AdminAssistantContextResponse> {
+    const params = new URLSearchParams(sponsorshipId ? { sponsorshipId } : {});
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/assistant/context?${params}`,
+      {
+        cache: 'no-store',
+        headers: await this.createHeaders(token)
+      }
+    );
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return (await response.json()) as AdminAssistantContextResponse;
+  }
+
+  async requestSponsorshipInformation(
+    token: string,
+    payload: AdminInformationRequest
+  ): Promise<AdminInformationRequestResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/request-information`,
+      {
+        method: 'POST',
+        cache: 'no-store',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return (await response.json()) as AdminInformationRequestResult;
+  }
+
   async queryAssistant(
     token: string,
     payload: AdminAssistantQueryRequest
@@ -192,12 +317,7 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error(
-        await this.errorMessageFromResponse(
-          response,
-          'Admin assistant query could not be completed.'
-        )
-      );
+      throw new AdminDashboardRequestError(response.status);
     }
 
     return (await response.json()) as AdminAssistantQueryResponse;
@@ -217,12 +337,7 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error(
-        await this.errorMessageFromResponse(
-          response,
-          'Admin assistant draft could not be prepared.'
-        )
-      );
+      throw new AdminDashboardRequestError(response.status);
     }
 
     return (await response.json()) as AdminAssistantPrepareResponse;
@@ -266,8 +381,8 @@ export class FundingAdminService {
     return (await response.json()) as AdminEmailTestResult;
   }
 
-  async getEmailQueue(token: string): Promise<AdminEmailQueueResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/admin/email-queue`, {
+  async getEmailQueue(token: string, id?: string): Promise<AdminEmailQueueResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/email-queue${id ? "?messageId=" + encodeURIComponent(id) : ""}`, {
       method: 'GET',
       headers: await this.createHeaders(token)
     });
@@ -310,10 +425,10 @@ export class FundingAdminService {
   }
 
   async getSponsorshipInvoices(
-    token: string
+    token: string, contributionId?: string
   ): Promise<AdminSponsorshipInvoicesResponse> {
     const response = await fetch(
-      `${this.apiBaseUrl}/admin/sponsorship-invoices`,
+      `${this.apiBaseUrl}/admin/sponsorship-invoices${contributionId ? "?contributionId=" + encodeURIComponent(contributionId) : ""}`,
       {
         method: 'GET',
         headers: await this.createHeaders(token)
@@ -568,10 +683,10 @@ export class FundingAdminService {
   }
 
   async getPublicationDrafts(
-    token: string
+    token: string, id?: string
   ): Promise<AdminPublicationDraftsResponse> {
     const response = await fetch(
-      `${this.apiBaseUrl}/admin/publication-drafts`,
+      `${this.apiBaseUrl}/admin/publication-drafts${id ? "?draftId=" + encodeURIComponent(id) : ""}`,
       {
         method: 'GET',
         headers: await this.createHeaders(token)
@@ -632,10 +747,10 @@ export class FundingAdminService {
   }
 
   async getPublicationBatches(
-    token: string
+    token: string, id?: string
   ): Promise<AdminPublicationBatchesResponse> {
     const response = await fetch(
-      `${this.apiBaseUrl}/admin/publication-batches`,
+      `${this.apiBaseUrl}/admin/publication-batches${id ? "?batchId=" + encodeURIComponent(id) : ""}`,
       {
         method: 'GET',
         headers: await this.createHeaders(token)
@@ -673,9 +788,9 @@ export class FundingAdminService {
   }
 
   async getPublicationSlots(
-    token: string
+    token: string, id?: string
   ): Promise<AdminPublicationSlotsResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/admin/publication-slots`, {
+    const response = await fetch(`${this.apiBaseUrl}/admin/publication-slots${id ? "?slotId=" + encodeURIComponent(id) : ""}`, {
       method: 'GET',
       headers: await this.createHeaders(token)
     });
@@ -1033,7 +1148,8 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await this.errorMessageFromResponse(
           response,
           'Admin sponsorships could not be loaded.'
@@ -1062,7 +1178,8 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await this.errorMessageFromResponse(
           response,
           'Sponsor logo could not be uploaded.'
@@ -1114,7 +1231,8 @@ export class FundingAdminService {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await this.errorMessageFromResponse(
           response,
           'Sponsor logo could not be deleted.'
@@ -1135,7 +1253,8 @@ export class FundingAdminService {
       { headers: await this.createHeaders(token) }
     );
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await this.errorMessageFromResponse(
           response,
           'Sponsor media could not be loaded.'
@@ -1177,7 +1296,8 @@ export class FundingAdminService {
       }
     );
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await this.errorMessageFromResponse(
           response,
           'Sponsor media review could not be completed.'
@@ -1203,7 +1323,8 @@ export class FundingAdminService {
       }
     );
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await this.errorMessageFromResponse(
           response,
           'Sponsor media could not be deleted.'
@@ -1230,7 +1351,8 @@ export class FundingAdminService {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await this.errorMessageFromResponse(
           response,
           'Sponsorship review could not be updated.'
@@ -1258,7 +1380,8 @@ export class FundingAdminService {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await this.errorMessageFromResponse(
           response,
           'Sponsorship refund could not be created.'
@@ -1286,7 +1409,8 @@ export class FundingAdminService {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(
+        response.status,
         await this.errorMessageFromResponse(
           response,
           'Sponsorship publication could not be updated.'
@@ -1374,6 +1498,8 @@ export class FundingAdminService {
       return;
     }
 
+    this.selectSponsorship(null);
+    this.workQueue.set(null);
     window.sessionStorage.setItem(sessionTokenStorageKey, session.sessionToken);
     window.sessionStorage.setItem(
       sessionExpiresAtStorageKey,

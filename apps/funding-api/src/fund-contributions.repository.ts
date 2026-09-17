@@ -22,7 +22,7 @@ import type {
   SponsorshipTierId,
   ContributionType
 } from '@openg7/funding-core';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
 import { getAdjustmentTotals } from './fund-transparency.repository.js';
@@ -1434,6 +1434,7 @@ export const getAdminDashboard = async (
       contributions_count: summary.total_count,
       paid_contributions_count: summary.paid_count
     },
+    data_available: pool !== null,
     sponsorship_review: sponsorshipReview,
     feed_publication: feedPublication,
     stripe_events: stripeEvents,
@@ -1646,6 +1647,7 @@ export const listAdminSponsorships = async (
   const search = input.search?.trim();
   if (search && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(search)) {
     // Deep links use the contribution UUID to find a dossier across all pages.
+    whereClauses.splice(1, 1); // Exact dossiers can also have an unconfirmed/cancelled payment.
     params.push(search);
     whereClauses.push(`id = $${params.length}::uuid`);
   } else if (search) {
@@ -1837,8 +1839,9 @@ interface SponsorshipAttentionRow {
 const SPONSORSHIP_ATTENTION_MAX_ROWS = 2000;
 
 export const listSponsorshipsForAttention = async (
-  pool: Pool | null,
-  maxRows: number = SPONSORSHIP_ATTENTION_MAX_ROWS
+  pool: Pool | PoolClient | null,
+  maxRows: number | null = SPONSORSHIP_ATTENTION_MAX_ROWS,
+  reference?: string
 ): Promise<SponsorshipAttentionQueryResult> => {
   if (!pool) {
     return {
@@ -1848,7 +1851,7 @@ export const listSponsorshipsForAttention = async (
     };
   }
 
-  const cap = Math.max(1, Math.min(maxRows, SPONSORSHIP_ATTENTION_MAX_ROWS));
+  const cap = maxRows === null ? null : Math.max(1, Math.min(maxRows, SPONSORSHIP_ATTENTION_MAX_ROWS));
   const mediaPresence = await pool.query<{ readonly exists: boolean }>(
     `SELECT to_regclass('public.sponsor_media_assets') IS NOT NULL AS exists`
   );
@@ -1884,15 +1887,16 @@ export const listSponsorshipsForAttention = async (
       COALESCE(sponsorship_refund_status, 'not_requested') AS sponsorship_refund_status
     FROM fund_contributions
     WHERE contribution_type = 'sponsorship_interest'
-      AND status IN ('paid', 'refunded', 'disputed')
+      AND ($2::text IS NOT NULL OR status IN ('paid', 'refunded', 'disputed'))
+      AND ($2::text IS NULL OR id::text = $2 OR public_reference = $2)
     ORDER BY updated_at DESC
     LIMIT $1
   `,
-    [cap + 1]
+    [cap === null ? null : cap + 1, reference ?? null]
   );
 
-  const truncated = query.rows.length > cap;
-  const rows = truncated ? query.rows.slice(0, cap) : query.rows;
+  const truncated = cap !== null && query.rows.length > cap;
+  const rows = truncated ? query.rows.slice(0, cap ?? undefined) : query.rows;
   const items = rows.map((row): SponsorshipAttentionRecord => ({
     contributionId: row.contribution_id,
     publicReference: row.public_reference,

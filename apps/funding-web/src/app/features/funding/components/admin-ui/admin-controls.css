@@ -1,0 +1,37 @@
+.admin-button {
+  align-items: center;
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.6rem;
+  color: var(--admin-text);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 600;
+  gap: 0.6rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.95rem;
+  text-decoration: none;
+}
+.admin-button:hover {
+  border-color: var(--admin-gold);
+}
+.admin-button--primary {
+  background: linear-gradient(135deg, #f4c957, #dbaa42);
+  border-color: #f4c957;
+  color: #182033;
+}
+.admin-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+:where(a, button, input, select):focus-visible {
+  outline: 3px solid var(--admin-focus, #9edaff);
+  outline-offset: 4px;
+}
+.admin-link {
+  color: var(--admin-gold);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

@@ -213,6 +213,30 @@ through `POST /api/admin/session` before loading `/admin/fundraiser` or any
 `/admin/fundraiser/...` child route. The API remains the source of truth for
 authorization on every admin endpoint.
 
+The dashboard now uses the admin visual foundation described in
+[Admin UX — lot 1](docs/admin-ux-lot-1.md). Run `yarn test:ui:admin` to build
+and check this UI with synthetic API fixtures, without starting the API or a DB.
+The [To do queue — lot 2](docs/admin-ux-lot-2.md) is available at
+`/admin/fundraiser/attention`, with server pagination, URL filters, exact record
+links and an independent dashboard summary. Its protected API is
+`GET /api/admin/attention`. Missing invoices can be generated for one confirmed
+record through the existing backfill endpoint, without sending email.
+The [Contextual assistant — lot 3](docs/admin-ux-lot-3.md) adds dossier facts,
+deterministic next steps and draft preparation to the cockpit and sponsorships.
+`GET /api/admin/assistant/context` accepts an optional `sponsorshipId`.
+Information requests show an editable preview and require human confirmation
+through `POST /api/admin/sponsorships/request-information`; queue insertion
+and audit are atomic and duplicate requests reuse the original email.
+The [Sponsorship dossier — lot 4](docs/admin-ux-lot-4.md) adds seven linked tabs,
+six independent milestones, persisted billing/publication/refund facts, session
+selection in the cockpit and navigation badges from the same work queue.
+`GET /api/admin/sponsorships/progress` accepts an optional `sponsorshipId` and
+performs a read-only projection. Direct tab links use
+`/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`.
+`GET /api/admin/dashboard` includes the additive `data_available` flag;
+`false` means PostgreSQL is not configured and the UI must not present the
+legacy zero-valued snapshot as an empty fund.
+
 It exposes private operational views through:
 
 ```text

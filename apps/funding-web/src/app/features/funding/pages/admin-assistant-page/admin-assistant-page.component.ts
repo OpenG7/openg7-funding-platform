@@ -1,15 +1,18 @@
-import { CommonModule } from '@angular/common';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
+  PLATFORM_ID,
   computed,
   inject,
   signal
 } from '@angular/core';
-import { Router, RouterLink, UrlTree } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink, UrlTree } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 import type {
-  AdminAssistantAnswerBlock,
   AdminAssistantDraftType,
   AdminAssistantPrepareResponse,
   AdminAssistantQueryResponse,
@@ -20,6 +23,10 @@ import type {
   AdminAttentionSuggestedAction
 } from '@openg7/funding-core';
 
+import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
+import { AdminAssistantDraftComponent } from '../../components/admin-assistant/admin-assistant-draft.component.js';
+import { AdminAssistantAnswerComponent } from '../../components/admin-assistant/admin-assistant-answer.component.js';
+import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
@@ -51,13 +58,6 @@ const SEVERITY_LABELS: Record<AdminAttentionSeverity, string> = {
   informational: 'Information'
 };
 
-const ANSWER_BLOCK_LABELS: Record<AdminAssistantAnswerBlock['kind'], string> = {
-  facts: 'Faits (issus des outils)',
-  interpretation: 'Interprétation',
-  recommendation: 'Recommandation',
-  data_unavailable: 'Donnée indisponible'
-};
-
 const DRAFT_TYPE_BY_ACTION: Record<string, AdminAssistantDraftType> = {
   prepare_reminder: 'sponsorship_reminder',
   prepare_publication: 'publication_draft',
@@ -70,286 +70,261 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
 @Component({
   selector: 'openg7-admin-assistant-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, AdminNavComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    TranslatePipe,
+    AdminNavComponent,
+    AdminAssistantContextComponent,
+    AdminAssistantDraftComponent,
+    AdminAssistantAnswerComponent,
+    AdminLayoutComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="admin-shell">
-      <openg7-admin-nav />
+    @if (sponsorshipId(); as id) {
+      <openg7-admin-layout [sponsorshipId]="id">
+        <h1 class="context-title">{{ 'admin.nav.assistant' | translate }}</h1>
+        <openg7-admin-assistant-context [sponsorshipId]="id" />
+      </openg7-admin-layout>
+    } @else {
+      <main class="admin-shell">
+        <openg7-admin-nav />
 
-      <section class="admin-content">
-        <header class="admin-topbar">
-          <div>
-            <span>Administration</span>
-            <h1>Assistant</h1>
-          </div>
-          <button type="button" (click)="loadSummary()">Actualiser</button>
-        </header>
-
-        <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
-          <div>
-            <h2 id="admin-auth-title">
-              Copilote opérationnel en lecture seule
-            </h2>
-            <p>
-              L'assistant détecte et explique ce qui demande votre attention. Il
-              ne peut ni approuver, ni rembourser, ni publier, ni modifier une
-              donnée.
-            </p>
-          </div>
-          <label>
-            Jeton admin
-            <input
-              type="password"
-              autocomplete="off"
-              [value]="adminToken()"
-              (input)="setAdminToken($event)"
-            />
-          </label>
-        </section>
-
-        <p class="state" *ngIf="summaryState() === 'loading'">
-          Chargement du résumé...
-        </p>
-        <p class="state state-error" *ngIf="summaryState() === 'error'">
-          Impossible de charger le résumé de l'assistant.
-        </p>
-
-        <section
-          class="summary-panel"
-          *ngIf="summary() as data"
-          aria-labelledby="summary-title"
-        >
-          <header>
+        <section class="admin-content">
+          <header class="admin-topbar">
             <div>
-              <span>Priorités</span>
-              <h2 id="summary-title">Que faut-il traiter?</h2>
+              <span>Administration</span>
+              <h1>Assistant</h1>
             </div>
-            <small>Généré {{ dateLabel(data.generatedAt) }}</small>
+            <button type="button" (click)="loadSummary()">Actualiser</button>
           </header>
 
-          <div class="counts">
-            <article class="count count-urgent">
-              <strong>{{ data.counts.urgent }}</strong>
-              <span>Urgent</span>
-            </article>
-            <article class="count count-today">
-              <strong>{{ data.counts.today }}</strong>
-              <span>Aujourd'hui</span>
-            </article>
-            <article class="count count-week">
-              <strong>{{ data.counts.thisWeek }}</strong>
-              <span>Cette semaine</span>
-            </article>
-            <article class="count count-info">
-              <strong>{{ data.counts.informational }}</strong>
-              <span>Information</span>
-            </article>
-          </div>
-
-          <article
-            class="empty-state calm"
-            *ngIf="data.attentionItems.length === 0"
-          >
-            <h3>Aucune action urgente</h3>
-            <p>Rien ne demande votre attention immédiate pour le moment.</p>
-          </article>
-
-          <section
-            class="financial"
-            *ngIf="data.financialSummary as financial"
-            aria-label="Résumé financier"
-          >
-            <h3>Résumé financier prudent</h3>
-            <ul class="facts">
-              <li>
-                <span>Montant brut payé</span>
-                <strong
-                  >{{ financial.grossPaid }} {{ financial.currency }}</strong
-                >
-              </li>
-              <li>
-                <span>Remboursements</span>
-                <strong
-                  >{{ financial.refunded }} {{ financial.currency }}</strong
-                >
-              </li>
-              <li>
-                <span>Montant net estimé</span>
-                <strong>{{
-                  financial.netReceived === null
-                    ? 'Données incomplètes'
-                    : financial.netReceived + ' ' + financial.currency
-                }}</strong>
-              </li>
-            </ul>
-            <p
-              class="limitation"
-              *ngFor="let limitation of financial.limitations"
-            >
-              {{ limitation }}
-            </p>
-          </section>
-        </section>
-
-        <section
-          class="attention-section"
-          *ngFor="let section of sections(); trackBy: trackBySection"
-          [attr.aria-label]="section.title"
-        >
-          <header>
-            <h2>{{ section.title }}</h2>
-            <span class="badge">{{ section.items.length }}</span>
-          </header>
-
-          <p class="empty-note" *ngIf="section.items.length === 0">
-            Aucun élément.
-          </p>
-
-          <article
-            class="attention-item"
-            *ngFor="let item of section.items; trackBy: trackByItem"
-          >
-            <header>
-              <h3>{{ item.title }}</h3>
-              <span class="severity" [class]="'severity-' + item.severity">
-                {{ severityLabel(item.severity) }}
-              </span>
-            </header>
-            <p class="explanation">{{ item.explanation }}</p>
-            <p class="due" *ngIf="item.dueAt">
-              Échéance : {{ dateLabel(item.dueAt) }}
-            </p>
-            <div class="actions">
-              <button
-                *ngIf="prepareAction(item) as action"
-                type="button"
-                class="prepare-button"
-                [disabled]="draftState(item) === 'loading'"
-                (click)="prepare(item, action)"
-              >
-                {{
-                  draftState(item) === 'loading'
-                    ? 'Préparation...'
-                    : action.label
-                }}
-              </button>
-              <a
-                *ngIf="item.adminUrl as url"
-                class="link"
-                [routerLink]="adminLink(url)"
-              >
-                {{ navigateLabel(item) }}
-              </a>
-            </div>
-
-            <p class="state-error" *ngIf="draftState(item) === 'error'">
-              {{ draftError(item) }}
-            </p>
-
-            <aside
-              class="draft"
-              *ngIf="draftFor(item) as prepared"
-              aria-label="Brouillon préparé"
-            >
-              <p class="draft-notice" *ngIf="prepared.status !== 'ok'">
-                {{ prepared.message }}
+          <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
+            <div>
+              <h2 id="admin-auth-title">
+                Copilote opérationnel en lecture seule
+              </h2>
+              <p>
+                L'assistant détecte et explique ce qui demande votre attention.
+                Il ne peut ni approuver, ni rembourser, ni publier, ni modifier
+                une donnée.
               </p>
-
-              <ng-container *ngIf="prepared.draft as draft">
-                <header>
-                  <h4>{{ draft.title }}</h4>
-                  <span class="draft-flag">Non envoyé · non publié</span>
-                </header>
-                <dl class="draft-fields" *ngIf="draft.fields.length > 0">
-                  <ng-container *ngFor="let field of draft.fields">
-                    <dt>{{ field.label }}</dt>
-                    <dd>{{ field.value }}</dd>
-                  </ng-container>
-                </dl>
-                <p class="draft-line" *ngFor="let line of draft.bodyLines">
-                  {{ line }}
-                </p>
-                <p class="draft-notice">{{ draft.notice }}</p>
-                <p
-                  class="limitation"
-                  *ngFor="let limitation of draft.limitations"
-                >
-                  {{ limitation }}
-                </p>
-                <a class="link" [routerLink]="adminLink(draft.adminUrl)">
-                  Ouvrir l'écran pour agir
-                </a>
-              </ng-container>
-            </aside>
-          </article>
-        </section>
-
-        <section class="conversation" aria-labelledby="conversation-title">
-          <header>
-            <h2 id="conversation-title">Poser une question</h2>
-            <small>
-              L'assistant répond à partir d'outils en lecture seule et n'exécute
-              aucune action.
-            </small>
-          </header>
-
-          <form (submit)="ask($event)">
+            </div>
             <label>
-              Question
+              Jeton admin
               <input
-                type="text"
-                name="assistant-question"
-                placeholder="Quelles commandites dois-je traiter aujourd'hui?"
-                [value]="question()"
-                (input)="setQuestion($event)"
+                type="password"
+                autocomplete="off"
+                [value]="adminToken()"
+                (input)="setAdminToken($event)"
               />
             </label>
-            <button type="submit" [disabled]="answerState() === 'loading'">
-              {{ answerState() === 'loading' ? 'En cours...' : 'Demander' }}
-            </button>
-          </form>
+          </section>
 
-          <p class="state state-error" *ngIf="answerState() === 'error'">
-            {{ answerError() }}
+          <p class="state" *ngIf="summaryState() === 'loading'">
+            Chargement du résumé...
+          </p>
+          <p class="state state-error" *ngIf="summaryState() === 'error'">
+            Impossible de charger le résumé de l'assistant.
           </p>
 
-          <article class="answer" *ngIf="answer() as reply">
-            <p class="answer-status" [class]="'answer-status-' + reply.status">
-              {{ statusLabel(reply.status) }}
-            </p>
+          <section
+            class="summary-panel"
+            *ngIf="summary() as data"
+            aria-labelledby="summary-title"
+          >
+            <header>
+              <div>
+                <span>Priorités</span>
+                <h2 id="summary-title">Que faut-il traiter?</h2>
+              </div>
+              <small>Généré {{ dateLabel(data.generatedAt) }}</small>
+            </header>
+
+            <div class="counts">
+              <article class="count count-urgent">
+                <strong>{{ data.counts.urgent }}</strong>
+                <span>Urgent</span>
+              </article>
+              <article class="count count-today">
+                <strong>{{ data.counts.today }}</strong>
+                <span>Aujourd'hui</span>
+              </article>
+              <article class="count count-week">
+                <strong>{{ data.counts.thisWeek }}</strong>
+                <span>Cette semaine</span>
+              </article>
+              <article class="count count-info">
+                <strong>{{ data.counts.informational }}</strong>
+                <span>Information</span>
+              </article>
+            </div>
+
+            <article
+              class="empty-state calm"
+              *ngIf="data.attentionItems.length === 0"
+            >
+              <h3>Aucune action urgente</h3>
+              <p>Rien ne demande votre attention immédiate pour le moment.</p>
+            </article>
 
             <section
-              class="answer-block"
-              *ngFor="let block of reply.answer; trackBy: trackByBlock"
+              class="financial"
+              *ngIf="data.financialSummary as financial"
+              aria-label="Résumé financier"
             >
-              <h4>{{ blockLabel(block.kind) }}</h4>
-              <ul>
-                <li *ngFor="let line of block.lines">{{ line }}</li>
+              <h3>Résumé financier prudent</h3>
+              <ul class="facts">
+                <li>
+                  <span>Montant brut payé</span>
+                  <strong
+                    >{{ financial.grossPaid }} {{ financial.currency }}</strong
+                  >
+                </li>
+                <li>
+                  <span>Remboursements</span>
+                  <strong
+                    >{{ financial.refunded }} {{ financial.currency }}</strong
+                  >
+                </li>
+                <li>
+                  <span>Montant net estimé</span>
+                  <strong>{{
+                    financial.netReceived === null
+                      ? 'Données incomplètes'
+                      : financial.netReceived + ' ' + financial.currency
+                  }}</strong>
+                </li>
               </ul>
-            </section>
-
-            <nav class="answer-links" *ngIf="reply.links.length > 0">
-              <a
-                *ngFor="let link of reply.links"
-                class="link"
-                [routerLink]="adminLink(link.adminUrl)"
+              <p
+                class="limitation"
+                *ngFor="let limitation of financial.limitations"
               >
-                {{ link.label }}
-              </a>
-            </nav>
-
-            <ul class="limitations" *ngIf="reply.limitations.length > 0">
-              <li *ngFor="let limitation of reply.limitations">
                 {{ limitation }}
-              </li>
-            </ul>
-          </article>
+              </p>
+            </section>
+          </section>
+
+          <section
+            class="attention-section"
+            *ngFor="let section of sections(); trackBy: trackBySection"
+            [attr.aria-label]="section.title"
+          >
+            <header>
+              <h2>{{ section.title }}</h2>
+              <span class="badge">{{ section.items.length }}</span>
+            </header>
+
+            <p class="empty-note" *ngIf="section.items.length === 0">
+              Aucun élément.
+            </p>
+
+            <article
+              class="attention-item"
+              *ngFor="let item of section.items; trackBy: trackByItem"
+            >
+              <header>
+                <h3>{{ item.title }}</h3>
+                <span class="severity" [class]="'severity-' + item.severity">
+                  {{ severityLabel(item.severity) }}
+                </span>
+              </header>
+              <p class="explanation">{{ item.explanation }}</p>
+              <p class="due" *ngIf="item.dueAt">
+                Échéance : {{ dateLabel(item.dueAt) }}
+              </p>
+              <div class="actions">
+                <button
+                  *ngIf="prepareAction(item) as action"
+                  type="button"
+                  class="prepare-button"
+                  [disabled]="draftState(item) === 'loading'"
+                  (click)="prepare(item, action)"
+                >
+                  {{
+                    draftState(item) === 'loading'
+                      ? 'Préparation...'
+                      : action.label
+                  }}
+                </button>
+                <a
+                  *ngIf="item.adminUrl as url"
+                  class="link"
+                  [routerLink]="adminLink(url)"
+                >
+                  {{ navigateLabel(item) }}
+                </a>
+              </div>
+
+              <p class="state-error" *ngIf="draftState(item) === 'error'">
+                {{ draftError(item) }}
+              </p>
+
+              <aside
+                class="draft"
+                *ngIf="draftFor(item) as prepared"
+                aria-label="Brouillon préparé"
+              >
+                <p class="draft-notice" *ngIf="prepared.status !== 'ok'">
+                  {{ prepared.message }}
+                </p>
+
+                <openg7-admin-assistant-draft
+                  *ngIf="prepared.draft as draft"
+                  [draft]="draft"
+                />
+              </aside>
+            </article>
+          </section>
+
+          <section class="conversation" aria-labelledby="conversation-title">
+            <header>
+              <h2 id="conversation-title">Poser une question</h2>
+              <small>
+                L'assistant répond à partir d'outils en lecture seule et
+                n'exécute aucune action.
+              </small>
+            </header>
+
+            <form (submit)="ask($event)">
+              <label>
+                Question
+                <input
+                  type="text"
+                  name="assistant-question"
+                  placeholder="Quelles commandites dois-je traiter aujourd'hui?"
+                  [value]="question()"
+                  (input)="setQuestion($event)"
+                />
+              </label>
+              <button type="submit" [disabled]="answerState() === 'loading'">
+                {{ answerState() === 'loading' ? 'En cours...' : 'Demander' }}
+              </button>
+            </form>
+
+            <p class="state state-error" *ngIf="answerState() === 'error'">
+              {{ answerError() }}
+            </p>
+
+            <openg7-admin-assistant-answer
+              *ngIf="answer() as reply"
+              [answer]="reply"
+            />
+          </section>
         </section>
-      </section>
-    </main>
+      </main>
+    }
   `,
   styles: [
     `
+      .context-title {
+        font:
+          700 1.75rem 'Segoe UI',
+          system-ui,
+          sans-serif;
+        margin: 0 0 1rem;
+      }
       .admin-shell {
         background: #f5f7fb;
         color: #172033;
@@ -629,47 +604,6 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
         grid-template-columns: minmax(0, 1fr) auto;
       }
 
-      .answer {
-        border-top: 1px solid #e4e9f2;
-        display: grid;
-        gap: 0.75rem;
-        margin-top: 1rem;
-        padding-top: 0.85rem;
-      }
-
-      .answer-status {
-        font-weight: 800;
-        margin: 0;
-      }
-
-      .answer-status-timeout,
-      .answer-status-provider_error {
-        color: #9f1d2f;
-      }
-
-      .answer-block h4 {
-        margin: 0 0 0.3rem;
-      }
-
-      .answer-block ul,
-      .limitations {
-        color: #384457;
-        line-height: 1.5;
-        margin: 0;
-        padding-left: 1.1rem;
-      }
-
-      .limitations {
-        color: #667085;
-        font-size: 0.85rem;
-      }
-
-      .answer-links {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-      }
-
       .state-error {
         color: #9f1d2f;
         font-weight: 800;
@@ -686,67 +620,6 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
         background: #b98224;
         color: #101827;
         min-height: 2.4rem;
-      }
-
-      .draft {
-        background: #fbf7ee;
-        border: 1px solid #e6d5ab;
-        border-radius: 0.4rem;
-        display: grid;
-        gap: 0.5rem;
-        margin-top: 0.6rem;
-        padding: 0.85rem;
-      }
-
-      .draft header {
-        align-items: center;
-        display: flex;
-        gap: 0.75rem;
-        justify-content: space-between;
-      }
-
-      .draft h4 {
-        margin: 0;
-      }
-
-      .draft-flag {
-        background: #9f1d2f;
-        border-radius: 999px;
-        color: #fff;
-        font-size: 0.7rem;
-        font-weight: 900;
-        padding: 0.2rem 0.6rem;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-
-      .draft-fields {
-        display: grid;
-        gap: 0.2rem 0.75rem;
-        grid-template-columns: auto minmax(0, 1fr);
-        margin: 0;
-      }
-
-      .draft-fields dt {
-        color: #7a5a12;
-        font-weight: 800;
-      }
-
-      .draft-fields dd {
-        margin: 0;
-        overflow-wrap: anywhere;
-      }
-
-      .draft-line {
-        line-height: 1.5;
-        margin: 0;
-        white-space: pre-wrap;
-      }
-
-      .draft-notice {
-        color: #7a5a12;
-        font-weight: 800;
-        margin: 0;
       }
 
       @media (max-width: 860px) {
@@ -770,6 +643,13 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
 export class AdminAssistantPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly params = toSignal(this.route.queryParamMap);
+  private readonly destroy = inject(DestroyRef);
+  private readonly platform = inject(PLATFORM_ID);
+  readonly sponsorshipId = computed(
+    () => this.params()?.get('sponsorshipId') || undefined
+  );
 
   readonly adminToken = signal<string>('');
   readonly summary = signal<AdminAssistantSummary | null>(null);
@@ -800,8 +680,13 @@ export class AdminAssistantPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    if (!isPlatformBrowser(this.platform)) return;
     this.adminToken.set(this.admin.getSavedAdminToken());
-    void this.loadSummary();
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe((params) => {
+        if (!params.get('sponsorshipId')) void this.loadSummary();
+      });
   }
 
   async loadSummary(): Promise<void> {
@@ -925,29 +810,6 @@ export class AdminAssistantPageComponent implements OnInit {
     return SEVERITY_LABELS[severity];
   }
 
-  blockLabel(kind: AdminAssistantAnswerBlock['kind']): string {
-    return ANSWER_BLOCK_LABELS[kind];
-  }
-
-  statusLabel(status: AdminAssistantQueryResponse['status']): string {
-    switch (status) {
-      case 'ok':
-        return 'Réponse fondée sur les outils.';
-      case 'assistant_disabled':
-        return 'Assistant conversationnel désactivé.';
-      case 'provider_not_configured':
-        return 'Modèle non configuré.';
-      case 'no_results':
-        return 'Aucun résultat pour cette question.';
-      case 'timeout':
-        return 'Délai dépassé.';
-      case 'provider_error':
-        return 'Erreur du fournisseur.';
-      default:
-        return status;
-    }
-  }
-
   dateLabel(value: string | null | undefined): string {
     if (!value) {
       return 'Non disponible';
@@ -964,10 +826,6 @@ export class AdminAssistantPageComponent implements OnInit {
 
   trackByItem(_: number, item: AdminAttentionItem): string {
     return item.id;
-  }
-
-  trackByBlock(index: number, block: AdminAssistantAnswerBlock): string {
-    return `${block.kind}-${index}`;
   }
 
   private valueFromEvent(event: Event): string {

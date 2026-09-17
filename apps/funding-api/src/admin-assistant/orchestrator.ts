@@ -19,12 +19,14 @@ import {
 import { ADMIN_ASSISTANT_SYSTEM_PROMPT } from './prompt.js';
 import { resolveAdminAssistantProvider } from './provider.js';
 import { createAssistantToolRegistry } from './tool-registry.js';
+import { loadSponsorshipAssistantDataset } from './context.repository.js';
 
 export interface RunAdminAssistantQueryInput {
   readonly pool: Pool | null;
   readonly message: string;
   readonly config: AdminAssistantConfig;
   readonly now?: Date;
+  readonly sponsorshipId?: string;
 }
 
 const DEFAULT_LIMITATIONS = [
@@ -107,9 +109,36 @@ export const runAdminAssistantQuery = async (
     );
   }
 
-  const dataset = await loadAttentionDataset(input.pool, now);
-  const summary = buildSummaryFromDataset(dataset, config.maxItemsPerTool);
-  const registry = createAssistantToolRegistry(config.maxItemsPerTool);
+  const scoped =
+    input.sponsorshipId && input.pool
+      ? await loadSponsorshipAssistantDataset(
+          input.pool,
+          input.sponsorshipId,
+          now
+        )
+      : null;
+  if (input.sponsorshipId && !scoped)
+    return disabledResponse(
+      config,
+      now,
+      'no_results',
+      'Commandite introuvable ou indisponible.'
+    );
+  const dataset =
+    scoped?.dataset ?? (await loadAttentionDataset(input.pool, now));
+  const rawSummary = buildSummaryFromDataset(dataset, config.maxItemsPerTool);
+  const summary = scoped
+    ? { ...rawSummary, financialSummary: undefined }
+    : rawSummary;
+  const registry = new Map(createAssistantToolRegistry(config.maxItemsPerTool));
+  if (scoped) {
+    for (const name of [
+      'get_fund_financial_summary',
+      'list_late_publications',
+      'list_failed_transactional_emails'
+    ])
+      registry.delete(name);
+  }
 
   let output;
   try {
@@ -157,6 +186,14 @@ export const runAdminAssistantQuery = async (
     links: output.links,
     toolInvocations: output.toolInvocations,
     provider: { name: provider.name, model: provider.model },
-    limitations: [...DEFAULT_LIMITATIONS, ...output.limitations]
+    limitations: [
+      ...DEFAULT_LIMITATIONS,
+      ...(scoped
+        ? [
+            'Réponse limitée au dossier sélectionné. Totaux globaux, courriels et calendrier non consultés.'
+          ]
+        : []),
+      ...output.limitations
+    ]
   };
 };
