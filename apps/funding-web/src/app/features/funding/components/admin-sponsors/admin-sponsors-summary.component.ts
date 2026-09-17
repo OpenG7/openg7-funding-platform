@@ -7,17 +7,22 @@ import { TranslatePipe } from '@ngx-translate/core';
   imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="admin-summary-grid" aria-label="Resume des commandites">
+    <section
+      class="admin-summary-grid"
+      [attr.aria-label]="'admin.legacy.resume_des_commandites' | translate"
+    >
       <article>
-        <span class="metric-mark">TO</span>
+        <span class="metric-mark">{{ 'admin.legacy.to' | translate }}</span>
         <div>
-          <span>Total commanditaires</span>
+          <span>{{ 'admin.legacy.total_commanditaires' | translate }}</span>
           <strong>{{ totalSponsorships() }}</strong>
-          <small>Toutes organisations</small>
+          <small>{{ 'admin.legacy.toutes_organisations' | translate }}</small>
         </div>
       </article>
       <article>
-        <span class="metric-mark gold">VI</span>
+        <span class="metric-mark gold">{{
+          'admin.legacy.vi' | translate
+        }}</span>
         <div>
           <span>{{ 'admin.dossier.approvedConsent' | translate }}</span>
           <strong>{{ visibleCount() }}</strong>
@@ -25,23 +30,32 @@ import { TranslatePipe } from '@ngx-translate/core';
         </div>
       </article>
       <article>
-        <span class="metric-mark green">AC</span>
+        <span class="metric-mark green">{{
+          'admin.legacy.ac' | translate
+        }}</span>
         <div>
-          <span>Commanditaires actifs</span>
+          <span>{{ 'admin.legacy.commanditaires_actifs' | translate }}</span>
           <strong>{{ activeCount() }}</strong>
-          <small>Avec paiement confirme</small>
+          <small>{{ 'admin.legacy.avec_paiement_confirme' | translate }}</small>
         </div>
       </article>
       <article>
-        <span class="metric-mark money">CA</span>
+        <span class="metric-mark money">{{
+          'admin.legacy.ca' | translate
+        }}</span>
         <div>
-          <span>Contribution totale</span>
+          <span>{{ 'admin.legacy.contribution_totale' | translate }}</span>
           <strong>{{ totalContributionLabel() }}</strong>
-          <small>Paiements confirmes</small>
+          <small>{{ 'admin.legacy.paiements_confirmes' | translate }}</small>
         </div>
       </article>
     </section>
   `,
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       :host {
@@ -58,8 +72,8 @@ import { TranslatePipe } from '@ngx-translate/core';
 
       .admin-summary-grid article {
         align-items: center;
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.5rem;
         display: grid;
         gap: 0.9rem;
@@ -70,9 +84,9 @@ import { TranslatePipe } from '@ngx-translate/core';
 
       .metric-mark {
         align-items: center;
-        background: #eef2f7;
+        background: var(--admin-panel-raised);
         border-radius: 999px;
-        color: #172033;
+        color: var(--admin-text);
         display: inline-flex;
         font-weight: 900;
         height: 3rem;
@@ -81,22 +95,22 @@ import { TranslatePipe } from '@ngx-translate/core';
       }
 
       .metric-mark.gold {
-        background: #fff4d9;
-        color: #a86f16;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       .metric-mark.green {
-        background: #e8f7ee;
-        color: #177245;
+        background: var(--admin-panel-raised);
+        color: var(--admin-success);
       }
 
       .metric-mark.money {
-        background: #f4eadb;
-        color: #9a6414;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       .admin-summary-grid article span:not(.metric-mark) {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.76rem;
         font-weight: 900;
         letter-spacing: 0;
@@ -111,7 +125,7 @@ import { TranslatePipe } from '@ngx-translate/core';
       }
 
       .admin-summary-grid small {
-        color: #667085;
+        color: var(--admin-muted);
       }
 
       @media (max-width: 860px) {

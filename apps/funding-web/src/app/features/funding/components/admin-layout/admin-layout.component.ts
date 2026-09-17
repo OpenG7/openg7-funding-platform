@@ -11,6 +11,8 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminNavComponent } from '../admin-nav/admin-nav.component.js';
 import { AdminGlobalSearchComponent } from '../admin-search/admin-global-search.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
+import { AdminInspectorComponent } from '../admin-inspector/admin-inspector.component.js';
+import { AdminConfirmationComponent } from '../admin-ui/admin-confirmation.component.js';
 
 /** Admin page template: placement and navigation, no business data loading. */
 @Component({
@@ -21,7 +23,9 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
     TranslatePipe,
     AdminNavComponent,
     AdminIconComponent,
-    AdminGlobalSearchComponent
+    AdminGlobalSearchComponent,
+    AdminInspectorComponent,
+    AdminConfirmationComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -70,6 +74,8 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
           </div>
         </header>
         <main id="admin-main" #main tabindex="-1"><ng-content /></main>
+        <openg7-admin-inspector />
+        <openg7-admin-confirmation />
       </div>
     </div>
   `,

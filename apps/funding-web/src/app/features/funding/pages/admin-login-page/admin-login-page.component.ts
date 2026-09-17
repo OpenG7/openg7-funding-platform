@@ -1,3 +1,4 @@
+import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -8,66 +9,96 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 @Component({
   selector: 'openg7-admin-login-page',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [TranslatePipe, CommonModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="admin-login-shell">
       <section class="admin-login-panel" aria-labelledby="admin-login-title">
         <header>
           <span>OpenG7</span>
-          <h1 id="admin-login-title">Acces admin</h1>
+          <button
+            type="button"
+            (click)="i18n.toggleLanguage()"
+            [attr.aria-label]="
+              (i18n.currentLanguage() === 'fr-CA'
+                ? 'admin.shell.toEnglish'
+                : 'admin.shell.toFrench'
+              ) | translate
+            "
+          >
+            {{ i18n.currentLanguage() === 'fr-CA' ? 'EN' : 'FR' }}
+          </button>
+          <h1 id="admin-login-title">
+            {{ 'admin.legacy.acces_admin' | translate }}
+          </h1>
           <p>
-            Entrez le jeton admin configure cote serveur pour ouvrir une
-            session temporaire.
+            {{
+              'admin.legacy.entrez_le_jeton_admin_configure_cote_serveur_pour_ouvrir_une_sess'
+                | translate
+            }}
           </p>
         </header>
 
         <form (submit)="$event.preventDefault(); signIn()">
           <label>
-            Jeton admin
+            {{ 'admin.legacy.jeton_admin' | translate }}
             <input
               type="password"
-              autocomplete="off"
-              autofocus
-              required
+              autocomplete="current-password"
               [value]="token()"
               (input)="setToken($event)"
+              required
             />
           </label>
 
           <button type="submit" [disabled]="state() === 'loading'">
-            {{ state() === 'loading' ? 'Connexion...' : 'Se connecter' }}
+            {{
+              state() === 'loading'
+                ? ('admin.legacy.connexion' | translate)
+                : ('admin.legacy.se_connecter' | translate)
+            }}
           </button>
         </form>
 
         <p class="state state-error" *ngIf="state() === 'error'">
-          Connexion refusee. Verifiez le jeton admin et la configuration API.
+          {{
+            'admin.legacy.connexion_refusee_verifiez_le_jeton_admin_et_la_configuration_api'
+              | translate
+          }}
         </p>
 
-        <a routerLink="/fonds-des-batisseurs">Retour au fonds</a>
+        <a routerLink="/fonds-des-batisseurs">{{
+          'admin.legacy.retour_au_fonds' | translate
+        }}</a>
       </section>
     </main>
   `,
+  styleUrls: [
+    '../../components/admin-ui/admin-theme.css',
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       .admin-login-shell {
         align-items: center;
-        background: #f5f7fb;
-        color: #172033;
+        background: var(--admin-panel-raised);
+        color: var(--admin-text);
         display: grid;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
+        font-family: inherit;
         min-height: 100vh;
         padding: 1rem;
       }
 
       .admin-login-panel {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.5rem;
         box-shadow: 0 1rem 2.5rem rgb(15 23 42 / 10%);
         display: grid;
@@ -79,7 +110,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       }
 
       .admin-login-panel span {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: 900;
         letter-spacing: 0;
@@ -87,14 +118,14 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       }
 
       .admin-login-panel h1 {
-        font-family: Georgia, 'Times New Roman', serif;
+        font-family: inherit;
         font-size: clamp(2rem, 6vw, 3rem);
         line-height: 1;
         margin: 0.35rem 0 0.65rem;
       }
 
       .admin-login-panel p {
-        color: #526070;
+        color: var(--admin-muted);
         line-height: 1.55;
         margin: 0;
       }
@@ -118,14 +149,14 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       }
 
       .admin-login-panel input {
-        border: 1px solid #cdd6e3;
+        border: 1px solid var(--admin-border);
         padding: 0.65rem 0.75rem;
       }
 
       .admin-login-panel button {
-        background: #172033;
+        background: var(--admin-panel-raised);
         border: 0;
-        color: #fff;
+        color: var(--admin-text);
         cursor: pointer;
         font-weight: 900;
         padding: 0 1rem;
@@ -137,16 +168,16 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       }
 
       .admin-login-panel a {
-        color: #254db8;
+        color: var(--admin-muted);
         font-weight: 800;
         text-decoration: none;
       }
 
       .state-error {
-        background: #fff0f2;
-        border: 1px solid #f1a8b4;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
-        color: #9f1d2f;
+        color: var(--admin-danger);
         font-weight: 800;
         padding: 0.75rem 0.85rem;
       }
@@ -154,6 +185,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
   ]
 })
 export class AdminLoginPageComponent implements OnInit {
+  readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);

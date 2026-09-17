@@ -1,3 +1,4 @@
+import { translatedUiSource } from './support/translated-ui-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -5,6 +6,7 @@ import test from 'node:test';
 const read = (path) => fs.readFileSync(path, 'utf8');
 
 const assertIncludesAll = (source, values, label) => {
+  source = translatedUiSource(source);
   for (const value of values) {
     assert.ok(source.includes(value), `${label} must include ${value}`);
   }
@@ -415,7 +417,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'compact-definition-list',
       'large-preview',
       'image/png,image/jpeg,image/webp',
-      'Texte alternatif <span>(optionnel)</span>',
+      'admin.legacy.texte_alternatif',
+      'admin.legacy.optionnel',
       'Tout approuver'
     ],
     'admin sponsor detail identity component'

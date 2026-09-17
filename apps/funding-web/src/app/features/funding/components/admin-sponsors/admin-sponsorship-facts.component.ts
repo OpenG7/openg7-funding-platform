@@ -166,6 +166,11 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
       }
     </section>
   `,
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       :host {
@@ -173,11 +178,11 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
       }
       section {
         padding: 1rem;
-        color: #172a43;
+        color: var(--admin-text);
       }
       article {
         padding: 0.8rem 0;
-        border-bottom: 1px solid #c6d2e1;
+        border-bottom: 1px solid var(--admin-border);
       }
       dl {
         display: flex;
@@ -191,7 +196,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
         margin: 0.2rem 0;
       }
       a {
-        color: #164d94;
+        color: var(--admin-muted);
         font-weight: 650;
       }
       a:focus-visible {
@@ -202,11 +207,12 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   ]
 })
 export class AdminSponsorshipFactsComponent {
+  private readonly i18n = inject(FundingI18nService);
   readonly dossier = input<AdminSponsorshipProgress | null>(null);
   readonly view = input.required<
     'billing' | 'publication' | 'refund' | 'overview'
   >();
-  private readonly i18n = inject(FundingI18nService);
+
   money(amount: number, currency: string): string {
     return new Intl.NumberFormat(this.i18n.currentLanguage(), {
       style: 'currency',

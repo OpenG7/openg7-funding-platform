@@ -45,6 +45,11 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       </dl>
     </section>
   `,
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       section {
@@ -55,7 +60,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
         gap: 1rem;
       }
       dt {
-        color: #4a5670;
+        color: var(--admin-muted);
       }
       dd {
         margin: 0.3rem 0 0;

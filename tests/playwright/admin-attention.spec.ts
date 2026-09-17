@@ -235,15 +235,19 @@ test('invoice action is scoped and requires confirmation, opening is read-only',
     page.locator('[data-og7="attention-invoice-target"]')
   ).toContainText(contributionId);
   expect(writes).toHaveLength(0);
-  page.once('dialog', (dialog) => dialog.dismiss());
   await page
     .getByRole('button', { name: 'Générer la facture de ce dossier' })
+    .click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Annuler', exact: true })
+    .last()
     .click();
   expect(writes).toHaveLength(0);
-  page.once('dialog', (dialog) => dialog.accept());
   await page
     .getByRole('button', { name: 'Générer la facture de ce dossier' })
     .click();
+  await page.locator('[data-og7="confirm-action"]').click();
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0]).toEqual({ contributionId, limit: 1 });
 });

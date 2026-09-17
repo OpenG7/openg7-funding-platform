@@ -1,3 +1,4 @@
+import { translatedUiSource } from './support/translated-ui-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -1293,9 +1294,7 @@ test('Sponsorship follow-up refreshes pending payment status from Stripe before 
     )
   );
   assert.ok(
-    detailsBody.includes(
-      'getFreshSponsorshipFollowupByToken(parsed.token)'
-    )
+    detailsBody.includes('getFreshSponsorshipFollowupByToken(parsed.token)')
   );
 });
 
@@ -1902,16 +1901,22 @@ test('Publication batch types and admin UI expose capacity, next availability, a
     );
   }
 
-  assert.ok(page.includes('Lots de publication collective'));
-  assert.ok(page.includes('createBatch()'));
-  assert.ok(page.includes('scheduleBatch(batch)'));
-  assert.ok(page.includes('publishBatch(batch)'));
-  assert.ok(page.includes('cancelBatch(batch)'));
-  assert.ok(page.includes('assignToBatch(draft)'));
-  assert.ok(page.includes('unassignFromBatch(draft)'));
-  assert.ok(page.includes('batch.capacityUsed'));
-  assert.ok(page.includes('Prochaine disponibilite'));
-  assert.ok(page.includes("aucune publication n'est jamais automatique"));
+  assert.ok(
+    translatedUiSource(page).includes('Lots de publication collective')
+  );
+  assert.ok(translatedUiSource(page).includes('createBatch()'));
+  assert.ok(translatedUiSource(page).includes('scheduleBatch(batch)'));
+  assert.ok(translatedUiSource(page).includes('publishBatch(batch)'));
+  assert.ok(translatedUiSource(page).includes('cancelBatch(batch)'));
+  assert.ok(translatedUiSource(page).includes('assignToBatch(draft)'));
+  assert.ok(translatedUiSource(page).includes('unassignFromBatch(draft)'));
+  assert.ok(translatedUiSource(page).includes('batch.capacityUsed'));
+  assert.ok(translatedUiSource(page).includes('Prochaine disponibilite'));
+  assert.ok(
+    translatedUiSource(page).includes(
+      "aucune publication n'est jamais automatique"
+    )
+  );
 });
 
 test('Publication slot types and admin UI expose calendar, edit, capacity, and assignments', () => {
@@ -1948,16 +1953,18 @@ test('Publication slot types and admin UI expose calendar, edit, capacity, and a
     );
   }
 
-  assert.ok(page.includes('Calendrier de publication'));
-  assert.ok(page.includes('createSlot()'));
-  assert.ok(page.includes('updateSlot(slot)'));
-  assert.ok(page.includes('assignBatchToSlot(slot)'));
-  assert.ok(page.includes('assignDraftToSlot(slot)'));
-  assert.ok(page.includes('publishSlot(slot)'));
-  assert.ok(page.includes('cancelSlot(slot)'));
-  assert.ok(page.includes('slot.capacityAvailable'));
+  assert.ok(translatedUiSource(page).includes('Calendrier de publication'));
+  assert.ok(translatedUiSource(page).includes('createSlot()'));
+  assert.ok(translatedUiSource(page).includes('updateSlot(slot)'));
+  assert.ok(translatedUiSource(page).includes('assignBatchToSlot(slot)'));
+  assert.ok(translatedUiSource(page).includes('assignDraftToSlot(slot)'));
+  assert.ok(translatedUiSource(page).includes('publishSlot(slot)'));
+  assert.ok(translatedUiSource(page).includes('cancelSlot(slot)'));
+  assert.ok(translatedUiSource(page).includes('slot.capacityAvailable'));
   assert.ok(
-    page.includes("newSlotTimezone = signal<string>('America/Toronto')")
+    translatedUiSource(page).includes(
+      "newSlotTimezone = signal<string>('America/Toronto')"
+    )
   );
 });
 
@@ -2047,7 +2054,10 @@ test('Social publication provider is explicit, configurable, audited, and visibl
     'socialJobStatusLabel',
     'canPublishSocialBatch(batch)'
   ]) {
-    assert.ok(page.includes(marker), `admin UI must include ${marker}`);
+    assert.ok(
+      translatedUiSource(page).includes(marker),
+      `admin UI must include ${marker}`
+    );
   }
 
   for (const marker of [
@@ -2073,26 +2083,34 @@ test('Admin sponsors page derives the sponsorship tier from the paid amount inst
     'utf8'
   );
 
-  assert.ok(page.includes('DEFAULT_SPONSORSHIP_PRICING_CONFIG'));
-  assert.ok(page.includes('resolveSponsorshipBenefits'));
   assert.ok(
-    page.includes(
+    translatedUiSource(page).includes('DEFAULT_SPONSORSHIP_PRICING_CONFIG')
+  );
+  assert.ok(translatedUiSource(page).includes('resolveSponsorshipBenefits'));
+  assert.ok(
+    translatedUiSource(page).includes(
       'sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {'
     )
   );
   assert.ok(
-    page.includes(
+    translatedUiSource(page).includes(
       'sponsorshipBenefitsLabel(sponsorship: AdminSponsorshipRecord): string {'
     )
   );
-  assert.ok(page.includes('tierLabel: this.sponsorshipTierLabel(sponsorship)'));
   assert.ok(
-    page.includes('benefitsLabel: this.sponsorshipBenefitsLabel(selected)')
+    translatedUiSource(page).includes(
+      'tierLabel: this.sponsorshipTierLabel(sponsorship)'
+    )
+  );
+  assert.ok(
+    translatedUiSource(page).includes(
+      'benefitsLabel: this.sponsorshipBenefitsLabel(selected)'
+    )
   );
   assert.match(overviewComponent, /\{\{\s*overview\(\)\.benefitsLabel\s*\}\}/);
   // Derived from the record's own amount, never a value the client could send.
-  assert.ok(page.includes('resolveSponsorshipBenefits('));
-  assert.ok(page.includes('sponsorship.amount,'));
+  assert.ok(translatedUiSource(page).includes('resolveSponsorshipBenefits('));
+  assert.ok(translatedUiSource(page).includes('sponsorship.amount,'));
 });
 
 test('Admin sponsors publication channels are preselected from amount-based benefits', () => {
@@ -2101,15 +2119,25 @@ test('Admin sponsors publication channels are preselected from amount-based bene
     'utf8'
   );
 
-  assert.ok(page.includes('benefitFeedChannelMap'));
-  assert.ok(page.includes("facebook_batch: 'facebook'"));
-  assert.ok(page.includes("linkedin_batch: 'linkedin'"));
-  assert.ok(page.includes('promisedFeedChannelsFor('));
-  assert.ok(page.includes('isPromisedFeedChannel('));
-  assert.ok(page.includes("isPromisedFeedChannel(selected, 'facebook')"));
-  assert.ok(page.includes("isPromisedFeedChannel(selected, 'linkedin')"));
+  assert.ok(translatedUiSource(page).includes('benefitFeedChannelMap'));
+  assert.ok(translatedUiSource(page).includes("facebook_batch: 'facebook'"));
+  assert.ok(translatedUiSource(page).includes("linkedin_batch: 'linkedin'"));
+  assert.ok(translatedUiSource(page).includes('promisedFeedChannelsFor('));
+  assert.ok(translatedUiSource(page).includes('isPromisedFeedChannel('));
   assert.ok(
-    page.includes('this.toPublicationDraft(sponsorship, false, false)')
+    translatedUiSource(page).includes(
+      "isPromisedFeedChannel(selected, 'facebook')"
+    )
+  );
+  assert.ok(
+    translatedUiSource(page).includes(
+      "isPromisedFeedChannel(selected, 'linkedin')"
+    )
+  );
+  assert.ok(
+    translatedUiSource(page).includes(
+      'this.toPublicationDraft(sponsorship, false, false)'
+    )
   );
 });
 
@@ -2139,7 +2167,10 @@ test('Admin sponsor rows are color-coded by processing state', () => {
     'sponsor-row-state-blocked',
     'sponsor-row-state-waiting-payment'
   ]) {
-    assert.ok(page.includes(marker), `sponsors page must include ${marker}`);
+    assert.ok(
+      translatedUiSource(page).includes(marker),
+      `sponsors page must include ${marker}`
+    );
   }
 
   for (const marker of [
@@ -2159,14 +2190,34 @@ test('Admin sponsor rows are color-coded by processing state', () => {
     );
   }
 
-  assert.ok(page.includes("sponsorship.sponsor_review_status === 'rejected'"));
-  assert.ok(page.includes("sponsorship.payment_status !== 'paid'"));
   assert.ok(
-    page.includes("sponsorship.sponsor_review_status === 'pending_review'")
+    translatedUiSource(page).includes(
+      "sponsorship.sponsor_review_status === 'rejected'"
+    )
   );
-  assert.ok(page.includes("sponsorship.sponsor_feed_status === 'published'"));
-  assert.ok(page.includes("sponsorship.sponsor_feed_status === 'planned'"));
-  assert.ok(page.includes("sponsorship.sponsor_feed_status === 'drafted'"));
+  assert.ok(
+    translatedUiSource(page).includes("sponsorship.payment_status !== 'paid'")
+  );
+  assert.ok(
+    translatedUiSource(page).includes(
+      "sponsorship.sponsor_review_status === 'pending_review'"
+    )
+  );
+  assert.ok(
+    translatedUiSource(page).includes(
+      "sponsorship.sponsor_feed_status === 'published'"
+    )
+  );
+  assert.ok(
+    translatedUiSource(page).includes(
+      "sponsorship.sponsor_feed_status === 'planned'"
+    )
+  );
+  assert.ok(
+    translatedUiSource(page).includes(
+      "sponsorship.sponsor_feed_status === 'drafted'"
+    )
+  );
 });
 
 test('Admin sponsor rejection requires a reason and can notify the sponsor', () => {
@@ -2216,7 +2267,10 @@ test('Admin sponsor rejection requires a reason and can notify the sponsor', () 
     'manual_required',
     'manual_completed'
   ]) {
-    assert.ok(page.includes(marker), `sponsors page must include ${marker}`);
+    assert.ok(
+      translatedUiSource(page).includes(marker),
+      `sponsors page must include ${marker}`
+    );
   }
 
   assert.ok(api.includes('A rejection reason is required.'));
@@ -2332,7 +2386,10 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'sponsorMessage',
     'Rembourser Stripe'
   ]) {
-    assert.ok(page.includes(marker), `sponsors page must include ${marker}`);
+    assert.ok(
+      translatedUiSource(page).includes(marker),
+      `sponsors page must include ${marker}`
+    );
   }
 
   for (const marker of [
@@ -2453,18 +2510,30 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
   assert.ok(service.includes("body.set('expectedVersion', expectedVersion);"));
   assert.ok(service.includes('errorMessageFromResponse'));
 
-  assert.ok(page.includes('readonly pagination = signal<AdminPagination>'));
-  assert.ok(page.includes('readonly paymentFilter = signal'));
-  assert.ok(page.includes('response.items ?? response.sponsorships'));
-  assert.ok(page.includes('paymentStatus: this.paymentFilter()'));
-  assert.ok(page.includes('expectedVersion: sponsorship.version'));
-  assert.ok(page.includes('admin_audit_entries'));
-  assert.ok(page.includes('adminAuditLabel'));
-  assert.ok(page.includes('Acteur: ${entry.actor}'));
-  assert.ok(page.includes('paymentEligibilityMessage'));
-  assert.ok(page.includes('canApproveSponsorship'));
-  assert.ok(page.includes('canSavePublication'));
-  assert.ok(page.includes('messageFromError'));
+  assert.ok(
+    translatedUiSource(page).includes(
+      'readonly pagination = signal<AdminPagination>'
+    )
+  );
+  assert.ok(
+    translatedUiSource(page).includes('readonly paymentFilter = signal')
+  );
+  assert.ok(
+    translatedUiSource(page).includes('response.items ?? response.sponsorships')
+  );
+  assert.ok(
+    translatedUiSource(page).includes('paymentStatus: this.paymentFilter()')
+  );
+  assert.ok(
+    translatedUiSource(page).includes('expectedVersion: sponsorship.version')
+  );
+  assert.ok(translatedUiSource(page).includes('admin_audit_entries'));
+  assert.ok(translatedUiSource(page).includes('adminAuditLabel'));
+  assert.ok(translatedUiSource(page).includes('Acteur: ${entry.actor}'));
+  assert.ok(translatedUiSource(page).includes('paymentEligibilityMessage'));
+  assert.ok(translatedUiSource(page).includes('canApproveSponsorship'));
+  assert.ok(translatedUiSource(page).includes('canSavePublication'));
+  assert.ok(translatedUiSource(page).includes('messageFromError'));
 
   assert.ok(api.includes('parseAdminSponsorshipsQuery'));
   assert.ok(
@@ -2508,12 +2577,16 @@ test('Publication batches are listed chronologically per channel, not just by st
     repository.includes('COALESCE(batch.scheduled_at, batch.created_at) ASC')
   );
 
-  assert.ok(page.includes('class="batch-timeline"'));
-  assert.ok(page.includes('*ngFor="let channel of batchChannels"'));
+  assert.ok(translatedUiSource(page).includes('class="batch-timeline"'));
   assert.ok(
-    page.includes('readonly batchChannels: readonly SponsorFeedChannel[] = [')
+    translatedUiSource(page).includes('*ngFor="let channel of batchChannels"')
   );
-  assert.ok(page.includes('batchesForChannel('));
+  assert.ok(
+    translatedUiSource(page).includes(
+      'readonly batchChannels: readonly SponsorFeedChannel[] = ['
+    )
+  );
+  assert.ok(translatedUiSource(page).includes('batchesForChannel('));
 });
 
 test('An admin is notified by email when a publication batch fills up, but nothing publishes automatically', () => {
@@ -2828,7 +2901,10 @@ test('Admin email queue page lists failed messages and retries them manually', (
     'last_failed_at',
     'last_error'
   ]) {
-    assert.ok(page.includes(marker), `email queue page must include ${marker}`);
+    assert.ok(
+      translatedUiSource(page).includes(marker),
+      `email queue page must include ${marker}`
+    );
   }
 
   assert.ok(api.includes("'/admin/email-queue'"));
@@ -2934,7 +3010,10 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'resendInvoice()',
     'Renvoyer'
   ]) {
-    assert.ok(page.includes(marker), `invoice page must include ${marker}`);
+    assert.ok(
+      translatedUiSource(page).includes(marker),
+      `invoice page must include ${marker}`
+    );
   }
 
   assert.ok(api.includes("'/admin/sponsorship-invoices'"));
@@ -3078,7 +3157,10 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
     'FUNDING_INVOICE_ISSUER_EMAIL',
     'DATABASE_URL'
   ]) {
-    assert.ok(page.includes(marker), `setup page must include ${marker}`);
+    assert.ok(
+      translatedUiSource(page).includes(marker),
+      `setup page must include ${marker}`
+    );
   }
 });
 
@@ -3143,9 +3225,15 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
   );
   assert.ok(service.includes('/public/sponsorship-batches/availability'));
 
-  assert.ok(page.includes('loadSponsorshipBatchAvailability'));
-  assert.ok(page.includes('sponsorshipAvailabilityEntries'));
-  assert.ok(page.includes('class="sponsorship-tier-availability"'));
+  assert.ok(
+    translatedUiSource(page).includes('loadSponsorshipBatchAvailability')
+  );
+  assert.ok(
+    translatedUiSource(page).includes('sponsorshipAvailabilityEntries')
+  );
+  assert.ok(
+    translatedUiSource(page).includes('class="sponsorship-tier-availability"')
+  );
 
   for (const locale of [fr, en]) {
     assert.ok(

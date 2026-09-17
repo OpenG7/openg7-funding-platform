@@ -1,3 +1,4 @@
+import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -16,7 +17,9 @@ import type {
   ContributionType
 } from '@openg7/funding-core';
 
-import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
+import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 type ContributionTypeFilter = 'all' | ContributionType;
@@ -25,21 +28,19 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 @Component({
   selector: 'openg7-admin-contributions-page',
   standalone: true,
-  imports: [CommonModule, AdminNavComponent],
+  imports: [TranslatePipe, CommonModule, AdminLayoutComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="admin-shell">
-      <openg7-admin-nav />
-
+    <openg7-admin-layout>
       <section class="admin-content">
         <header class="admin-topbar">
           <div>
-            <span>Administration</span>
-            <h1>Contributions</h1>
+            <span>{{ 'admin.legacy.administration' | translate }}</span>
+            <h1>{{ 'admin.legacy.contributions' | translate }}</h1>
           </div>
           <nav>
             <button type="button" (click)="loadContributions()">
-              Actualiser
+              {{ 'admin.legacy.actualiser' | translate }}
             </button>
             <button
               type="button"
@@ -47,33 +48,19 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
               [disabled]="state() === 'loading' || contributions().length === 0"
               (click)="exportCsv()"
             >
-              Export CSV
+              {{ 'admin.legacy.export_csv' | translate }}
             </button>
           </nav>
         </header>
 
-        <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
-          <div>
-            <h2 id="admin-auth-title">Acces admin</h2>
-            <p>Les donnees privees restent derriere le jeton admin.</p>
-          </div>
-          <label>
-            Jeton admin
-            <input
-              type="password"
-              autocomplete="off"
-              [value]="adminToken()"
-              (input)="setAdminToken($event)"
-            />
-          </label>
-        </section>
-
         <p class="state" *ngIf="state() === 'loading'">
-          Chargement des contributions...
+          {{ 'admin.legacy.chargement_des_contributions' | translate }}
         </p>
         <p class="state state-error" *ngIf="state() === 'error'">
-          Impossible de charger ou exporter les contributions. Verifiez le
-          jeton, la base de donnees et les migrations.
+          {{
+            'admin.legacy.impossible_de_charger_ou_exporter_les_contributions_verifiez_le_j'
+              | translate
+          }}
         </p>
 
         <ng-container *ngIf="data() as response">
@@ -83,50 +70,62 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
             aria-live="polite"
             aria-labelledby="selected-contribution-title"
           >
-            <h3 id="selected-contribution-title">Détail de la contribution</h3>
+            <h3 id="selected-contribution-title">
+              {{ 'admin.legacy.detail_de_la_contribution' | translate }}
+            </h3>
             <dl>
               <div>
-                <dt>Référence</dt>
-                <dd>{{ selected.public_reference || 'Non attribuée' }}</dd>
+                <dt>{{ 'admin.legacy.reference' | translate }}</dt>
+                <dd>
+                  {{
+                    selected.public_reference ||
+                      ('admin.legacy.non_attribuee' | translate)
+                  }}
+                </dd>
               </div>
               <div>
-                <dt>Nom</dt>
+                <dt>{{ 'admin.legacy.nom' | translate }}</dt>
                 <dd>{{ displayName(selected) }}</dd>
               </div>
               <div>
-                <dt>Type</dt>
+                <dt>{{ 'admin.legacy.type' | translate }}</dt>
                 <dd>{{ contributionTypeLabel(selected) }}</dd>
               </div>
               <div>
-                <dt>Statut</dt>
+                <dt>{{ 'admin.legacy.statut' | translate }}</dt>
                 <dd>{{ selected.payment_status }}</dd>
               </div>
               <div>
-                <dt>Montant</dt>
+                <dt>{{ 'admin.legacy.montant' | translate }}</dt>
                 <dd>{{ formatMoney(selected.amount, selected.currency) }}</dd>
               </div>
               <div>
-                <dt>Date</dt>
-                <dd>{{ dateLabel(selected.paid_at || selected.updated_at) }}</dd>
+                <dt>{{ 'admin.legacy.date' | translate }}</dt>
+                <dd>
+                  {{ dateLabel(selected.paid_at || selected.updated_at) }}
+                </dd>
               </div>
             </dl>
           </section>
 
-          <section class="admin-summary-grid" aria-label="Resume contributions">
+          <section
+            class="admin-summary-grid"
+            [attr.aria-label]="'admin.legacy.resume_contributions' | translate"
+          >
             <article>
-              <span>Total</span>
+              <span>{{ 'admin.legacy.total' | translate }}</span>
               <strong>{{ response.summary.total_count }}</strong>
             </article>
             <article>
-              <span>Payees</span>
+              <span>{{ 'admin.legacy.payees' | translate }}</span>
               <strong>{{ response.summary.paid_count }}</strong>
             </article>
             <article>
-              <span>Commandites</span>
+              <span>{{ 'admin.legacy.commandites' | translate }}</span>
               <strong>{{ response.summary.sponsorship_count }}</strong>
             </article>
             <article>
-              <span>Total recu</span>
+              <span>{{ 'admin.legacy.total_recu' | translate }}</span>
               <strong>
                 {{
                   formatMoney(
@@ -138,53 +137,82 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
             </article>
           </section>
 
-          <section class="filters" aria-label="Filtres contributions">
+          <section
+            class="filters"
+            [attr.aria-label]="'admin.legacy.filtres_contributions' | translate"
+          >
             <label>
-              Recherche
-              <input
+              {{ 'admin.legacy.recherche' | translate
+              }}<input
                 type="search"
-                placeholder="Nom, courriel, référence, Stripe..."
+                [attr.placeholder]="
+                  'admin.legacy.nom_courriel_reference_stripe' | translate
+                "
                 [value]="search()"
                 (input)="setSearch($event)"
               />
             </label>
 
             <label>
-              Type
-              <select [value]="typeFilter()" (change)="setTypeFilter($event)">
-                <option value="all">Tous</option>
-                <option value="personal_support">
-                  Contribution personnelle
+              {{ 'admin.legacy.type' | translate
+              }}<select [value]="typeFilter()" (change)="setTypeFilter($event)">
+                <option value="all">
+                  {{ 'admin.legacy.tous' | translate }}
                 </option>
-                <option value="sponsorship_interest">Commandite</option>
+                <option value="personal_support">
+                  {{ 'admin.legacy.contribution_personnelle' | translate }}
+                </option>
+                <option value="sponsorship_interest">
+                  {{ 'admin.legacy.commandite' | translate }}
+                </option>
               </select>
             </label>
 
             <label>
-              Statut paiement
-              <select
+              {{ 'admin.legacy.statut_paiement' | translate
+              }}<select
                 [value]="statusFilter()"
                 (change)="setStatusFilter($event)"
               >
-                <option value="all">Tous</option>
-                <option value="pending">Pending</option>
-                <option value="paid">Paid</option>
-                <option value="refunded">Refunded</option>
-                <option value="disputed">Disputed</option>
-                <option value="expired">Expired</option>
-                <option value="failed">Failed</option>
+                <option value="all">
+                  {{ 'admin.legacy.tous' | translate }}
+                </option>
+                <option value="pending">
+                  {{ 'admin.legacy.pending' | translate }}
+                </option>
+                <option value="paid">
+                  {{ 'admin.legacy.paid' | translate }}
+                </option>
+                <option value="refunded">
+                  {{ 'admin.legacy.refunded' | translate }}
+                </option>
+                <option value="disputed">
+                  {{ 'admin.legacy.disputed' | translate }}
+                </option>
+                <option value="expired">
+                  {{ 'admin.legacy.expired' | translate }}
+                </option>
+                <option value="failed">
+                  {{ 'admin.legacy.failed' | translate }}
+                </option>
               </select>
             </label>
 
             <label>
-              Affichage public
-              <select
+              {{ 'admin.legacy.affichage_public' | translate
+              }}<select
                 [value]="publicFilter()"
                 (change)="setPublicFilter($event)"
               >
-                <option value="all">Tous</option>
-                <option value="public">Consentis</option>
-                <option value="private">Non publics</option>
+                <option value="all">
+                  {{ 'admin.legacy.tous' | translate }}
+                </option>
+                <option value="public">
+                  {{ 'admin.legacy.consentis' | translate }}
+                </option>
+                <option value="private">
+                  {{ 'admin.legacy.non_publics' | translate }}
+                </option>
               </select>
             </label>
           </section>
@@ -195,12 +223,18 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
           >
             <header>
               <div>
-                <span>{{ filteredContributions().length }} resultat(s)</span>
-                <h2 id="contributions-title">Liste admin</h2>
+                <span>{{
+                  'admin.legacy.p0_resultat_s'
+                    | translate: { p0: filteredContributions().length }
+                }}</span>
+                <h2 id="contributions-title">
+                  {{ 'admin.legacy.liste_admin' | translate }}
+                </h2>
               </div>
-              <small
-                >Mis a jour {{ dateLabel(response.last_updated_at) }}</small
-              >
+              <small>{{
+                'admin.legacy.mis_a_jour_p0'
+                  | translate: { p0: dateLabel(response.last_updated_at) }
+              }}</small>
             </header>
 
             <div
@@ -210,15 +244,15 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
               <table>
                 <thead>
                   <tr>
-                    <th>Type</th>
-                    <th>Référence</th>
-                    <th>Nom</th>
-                    <th>Courriel</th>
-                    <th>Statut</th>
-                    <th>Public</th>
-                    <th>Commandite</th>
-                    <th>Montant</th>
-                    <th>Date</th>
+                    <th>{{ 'admin.legacy.type' | translate }}</th>
+                    <th>{{ 'admin.legacy.reference' | translate }}</th>
+                    <th>{{ 'admin.legacy.nom' | translate }}</th>
+                    <th>{{ 'admin.legacy.courriel' | translate }}</th>
+                    <th>{{ 'admin.legacy.statut' | translate }}</th>
+                    <th>{{ 'admin.legacy.public' | translate }}</th>
+                    <th>{{ 'admin.legacy.commandite' | translate }}</th>
+                    <th>{{ 'admin.legacy.montant' | translate }}</th>
+                    <th>{{ 'admin.legacy.date' | translate }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -227,7 +261,9 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
                       let contribution of filteredContributions();
                       trackBy: trackByContribution
                     "
-                    [class.selected-row]="selectedContributionId() === contribution.id"
+                    [class.selected-row]="
+                      selectedContributionId() === contribution.id
+                    "
                     tabindex="0"
                     (click)="selectContribution(contribution.id)"
                     (keydown.enter)="selectContribution(contribution.id)"
@@ -235,7 +271,10 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
                   >
                     <td>{{ contributionTypeLabel(contribution) }}</td>
                     <td class="reference-cell">
-                      {{ contribution.public_reference || 'Non attribuée' }}
+                      {{
+                        contribution.public_reference ||
+                          ('admin.legacy.non_attribuee' | translate)
+                      }}
                     </td>
                     <td>{{ displayName(contribution) }}</td>
                     <td>{{ privateEmailLabel(contribution) }}</td>
@@ -263,27 +302,28 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
               class="empty-state"
               *ngIf="filteredContributions().length === 0"
             >
-              <h3>Aucune contribution trouvee</h3>
-              <p>Modifiez les filtres ou rechargez la liste admin.</p>
+              <h3>
+                {{ 'admin.legacy.aucune_contribution_trouvee' | translate }}
+              </h3>
+              <p>
+                {{
+                  'admin.legacy.modifiez_les_filtres_ou_rechargez_la_liste_admin'
+                    | translate
+                }}
+              </p>
             </article>
           </section>
         </ng-container>
       </section>
-    </main>
+    </openg7-admin-layout>
   `,
+  styleUrls: [
+    '../../components/admin-ui/admin-theme.css',
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css'
+  ],
   styles: [
     `
-      .admin-shell {
-        background: #f5f7fb;
-        color: #172033;
-        display: grid;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        gap: 1rem;
-        grid-template-columns: 15rem minmax(0, 1fr);
-        min-height: 100vh;
-        padding: 1.25rem;
-      }
-
       .admin-content {
         display: grid;
         gap: 1rem;
@@ -313,7 +353,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       .admin-topbar span,
       .admin-summary-grid span,
       .admin-table-panel span {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: 800;
         letter-spacing: 0;
@@ -335,9 +375,9 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       }
 
       button {
-        background: #18233a;
+        background: var(--admin-panel-raised);
         border: 0;
-        color: #fff;
+        color: var(--admin-text);
         cursor: pointer;
         font-weight: 800;
         min-height: 2.7rem;
@@ -345,7 +385,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       }
 
       button.secondary {
-        background: #254db8;
+        background: var(--admin-panel-raised);
       }
 
       button:disabled {
@@ -357,8 +397,8 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       .filters,
       .admin-summary-grid article,
       .admin-table-panel {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
       }
 
@@ -373,7 +413,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       .admin-auth-panel p,
       .admin-table-panel small,
       .empty-state p {
-        color: #526070;
+        color: var(--admin-muted);
         line-height: 1.55;
         margin: 0.35rem 0 0;
       }
@@ -388,7 +428,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 
       input,
       select {
-        border: 1px solid #cdd6e3;
+        border: 1px solid var(--admin-border);
         padding: 0.65rem 0.75rem;
       }
 
@@ -435,14 +475,14 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 
       th,
       td {
-        border-bottom: 1px solid #e4e9f2;
+        border-bottom: 1px solid var(--admin-border);
         padding: 0.7rem 0.5rem;
         text-align: left;
         vertical-align: top;
       }
 
       th {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         text-transform: uppercase;
       }
@@ -459,8 +499,8 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       }
 
       .detail-panel {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         padding: 1rem;
       }
@@ -482,7 +522,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       }
 
       .detail-panel dt {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: 800;
         letter-spacing: 0;
@@ -495,18 +535,18 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       }
 
       .selected-row {
-        background: #eef4ff;
+        background: var(--admin-panel-raised);
       }
 
       .empty-state {
-        background: #f7f9fc;
-        border: 1px dashed #cdd6e3;
+        background: var(--admin-panel-raised);
+        border: 1px dashed var(--admin-border);
         border-radius: 0.45rem;
         padding: 1rem;
       }
 
       .state-error {
-        color: #9f1d2f;
+        color: var(--admin-danger);
         font-weight: 800;
       }
 
@@ -536,6 +576,8 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
   ]
 })
 export class AdminContributionsPageComponent implements OnInit {
+  private readonly confirmation = inject(AdminConfirmationService);
+  readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroy = inject(DestroyRef);
@@ -599,16 +641,18 @@ export class AdminContributionsPageComponent implements OnInit {
     this.adminToken.set(this.admin.getSavedAdminToken());
 
     this.destroy.onDestroy(() => this.loadGeneration++);
-    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe((params) => {
-      const contributionId = params.get('contributionId')?.trim() || null;
-      this.selectedContributionId.set(contributionId);
-      this.search.set('');
-      this.typeFilter.set('all');
-      this.statusFilter.set('all');
-      this.publicFilter.set('all');
-      this.data.set(null);
-      void this.loadContributions();
-    });
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe((params) => {
+        const contributionId = params.get('contributionId')?.trim() || null;
+        this.selectedContributionId.set(contributionId);
+        this.search.set('');
+        this.typeFilter.set('all');
+        this.statusFilter.set('all');
+        this.publicFilter.set('all');
+        this.data.set(null);
+        void this.loadContributions();
+      });
   }
 
   async loadContributions(): Promise<void> {
@@ -616,7 +660,10 @@ export class AdminContributionsPageComponent implements OnInit {
     this.state.set('loading');
 
     try {
-      const response = await this.admin.getContributions(this.adminToken(), this.route.snapshot.queryParamMap.get('contributionId') ?? undefined);
+      const response = await this.admin.getContributions(
+        this.adminToken(),
+        this.route.snapshot.queryParamMap.get('contributionId') ?? undefined
+      );
       if (generation !== this.loadGeneration) return;
       this.data.set(response);
       this.state.set('ready');
@@ -628,6 +675,13 @@ export class AdminContributionsPageComponent implements OnInit {
   }
 
   async exportCsv(): Promise<void> {
+    if (this.state() === 'loading') return;
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.confirmation.exportPrivate')
+      ))
+    )
+      return;
     this.state.set('loading');
 
     try {
@@ -685,8 +739,8 @@ export class AdminContributionsPageComponent implements OnInit {
 
   contributionTypeLabel(contribution: AdminContributionRecord): string {
     return contribution.contribution_type === 'sponsorship_interest'
-      ? 'Commandite'
-      : 'Contribution';
+      ? this.i18n.t('admin.legacy.commandite')
+      : this.i18n.t('admin.dashboard.contribution');
   }
 
   displayName(contribution: AdminContributionRecord): string {
@@ -694,7 +748,7 @@ export class AdminContributionsPageComponent implements OnInit {
       contribution.sponsor_company_name ||
       contribution.public_name ||
       contribution.email_private ||
-      'Sans nom'
+      this.i18n.t('admin.dashboard.unnamed')
     );
   }
 
@@ -702,36 +756,38 @@ export class AdminContributionsPageComponent implements OnInit {
     return (
       contribution.sponsor_contact_email ||
       contribution.email_private ||
-      'Non fourni'
+      this.i18n.t('admin.legacy.non_fourni')
     );
   }
 
   publicDisplayLabel(contribution: AdminContributionRecord): string {
     if (!contribution.public_display_consent) {
-      return 'Non';
+      return this.i18n.t('admin.dossier.no');
     }
 
-    return contribution.display_amount_consent ? 'Nom et montant' : 'Nom seul';
+    return contribution.display_amount_consent
+      ? this.i18n.t('admin.messages.nom_et_montant')
+      : this.i18n.t('admin.messages.nom_seul');
   }
 
   sponsorStatusLabel(contribution: AdminContributionRecord): string {
     if (contribution.contribution_type !== 'sponsorship_interest') {
-      return 'Sans objet';
+      return this.i18n.t('admin.messages.sans_objet');
     }
 
     if (contribution.sponsor_review_status === 'approved') {
-      return 'Approuvee';
+      return this.i18n.t('admin.messages.approuvee');
     }
 
     if (contribution.sponsor_review_status === 'rejected') {
-      return 'Refusee';
+      return this.i18n.t('admin.messages.refusee');
     }
 
-    return 'En attente';
+    return this.i18n.t('admin.legacy.en_attente');
   }
 
   formatMoney(amount: number, currency: string): string {
-    return new Intl.NumberFormat('fr-CA', {
+    return new Intl.NumberFormat(this.i18n.currentLanguage(), {
       style: 'currency',
       currency: currency || 'CAD'
     }).format(amount);
@@ -739,10 +795,10 @@ export class AdminContributionsPageComponent implements OnInit {
 
   dateLabel(value: string | null): string {
     if (!value) {
-      return 'Non disponible';
+      return this.i18n.t('admin.dashboard.notAvailable');
     }
 
-    return new Intl.DateTimeFormat('fr-CA', {
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(new Date(value));

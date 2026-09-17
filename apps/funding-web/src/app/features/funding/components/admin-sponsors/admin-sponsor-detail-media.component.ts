@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { TranslatePipe } from '@ngx-translate/core';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -15,12 +16,15 @@ import type {
 @Component({
   selector: 'openg7-admin-sponsor-detail-media',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="detail-body" aria-label="Medias du commanditaire">
+    <section
+      class="detail-body"
+      [attr.aria-label]="'admin.legacy.medias_du_commanditaire' | translate"
+    >
       <article class="detail-card">
-        <h3>Logo actuel</h3>
+        <h3>{{ 'admin.legacy.logo_actuel' | translate }}</h3>
         <figure
           class="logo-preview large-preview"
           *ngIf="identity().logoPreviewSource; else noLogoPreview"
@@ -31,11 +35,13 @@ import type {
           />
         </figure>
         <ng-template #noLogoPreview
-          ><p class="muted-copy">Aucun logo disponible.</p></ng-template
+          ><p class="muted-copy">
+            {{ 'admin.legacy.aucun_logo_disponible' | translate }}
+          </p></ng-template
         >
         <dl class="compact-definition-list">
           <div>
-            <dt>URL du logo</dt>
+            <dt>{{ 'admin.legacy.url_du_logo' | translate }}</dt>
             <dd>
               <a
                 *ngIf="identity().logoUrl; else emptyLogoUrl"
@@ -43,16 +49,22 @@ import type {
                 target="_blank"
                 rel="noreferrer"
                 >{{ identity().logoUrl }}</a
-              ><ng-template #emptyLogoUrl>Non fourni</ng-template>
+              ><ng-template #emptyLogoUrl>{{
+                'admin.legacy.non_fourni' | translate
+              }}</ng-template>
             </dd>
           </div>
           <div>
-            <dt>Nom public</dt>
+            <dt>{{ 'admin.legacy.nom_public' | translate }}</dt>
             <dd>{{ identity().publicNameLabel }}</dd>
           </div>
           <div>
-            <dt>Site web public</dt>
-            <dd>{{ identity().websiteUrl || 'Non fourni' }}</dd>
+            <dt>{{ 'admin.legacy.site_web_public' | translate }}</dt>
+            <dd>
+              {{
+                identity().websiteUrl || ('admin.legacy.non_fourni' | translate)
+              }}
+            </dd>
           </div>
         </dl>
         <div class="logo-actions">
@@ -69,7 +81,7 @@ import type {
             [disabled]="identity().deleteDisabled"
             (click)="deleteLogo.emit()"
           >
-            Supprimer le logo
+            {{ 'admin.legacy.supprimer_le_logo' | translate }}
           </button>
         </div>
         <small class="inline-status" aria-live="polite">{{
@@ -80,14 +92,19 @@ import type {
       <section class="media-review-panel" aria-labelledby="media-review-title">
         <header>
           <div>
-            <span>Medias du commanditaire</span>
-            <h3 id="media-review-title">Photos en revue</h3>
+            <span>{{
+              'admin.legacy.medias_du_commanditaire' | translate
+            }}</span>
+            <h3 id="media-review-title">
+              {{ 'admin.legacy.photos_en_revue' | translate }}
+            </h3>
           </div>
           <div class="media-review-summary">
             <p>
-              Chaque fichier reste prive jusqu'a son approbation. Le texte
-              alternatif est optionnel; une description publique est generee
-              lorsqu'il est laisse vide.
+              {{
+                'admin.legacy.chaque_fichier_reste_prive_jusqu_a_son_approbation_le_texte_alter'
+                  | translate
+              }}
             </p>
             <button
               type="button"
@@ -97,13 +114,16 @@ import type {
               "
               (click)="approveAllMedia.emit()"
             >
-              Tout approuver
+              {{ 'admin.legacy.tout_approuver' | translate }}
             </button>
           </div>
         </header>
 
         <p class="muted-copy" *ngIf="identity().mediaAssets.length === 0">
-          Aucun media televerse par le commanditaire.
+          {{
+            'admin.legacy.aucun_media_televerse_par_le_commanditaire'
+              | translate
+          }}
         </p>
 
         <div class="media-review-list">
@@ -128,17 +148,32 @@ import type {
               </div>
               <small>{{ asset.dimensionsLabel }} · {{ asset.sizeLabel }}</small>
               <label>
-                Texte alternatif <span>(optionnel)</span>
+                {{ 'admin.legacy.texte_alternatif' | translate
+                }}<span>{{ 'admin.legacy.optionnel' | translate }}</span>
                 <input
                   #altTextInput
                   type="text"
                   maxlength="300"
-                  placeholder="Description publique automatique si vide"
+                  [attr.placeholder]="
+                    'admin.legacy.description_publique_automatique_si_vide'
+                      | translate
+                  "
                   [value]="asset.altText"
                   [disabled]="identity().mediaBusy"
                 />
               </label>
               <div class="media-review-actions">
+                <button
+                  type="button"
+                  (click)="
+                    previewMedia.emit({
+                      id: asset.id,
+                      alt: asset.altText || asset.kindLabel
+                    })
+                  "
+                >
+                  {{ 'admin.inspector.preview' | translate }}
+                </button>
                 <button
                   type="button"
                   class="approve-action"
@@ -154,7 +189,7 @@ import type {
                     })
                   "
                 >
-                  Approuver le media
+                  {{ 'admin.legacy.approuver_le_media' | translate }}
                 </button>
                 <button
                   type="button"
@@ -169,7 +204,7 @@ import type {
                     })
                   "
                 >
-                  Refuser
+                  {{ 'admin.legacy.refuser' | translate }}
                 </button>
                 <button
                   type="button"
@@ -182,7 +217,7 @@ import type {
                     })
                   "
                 >
-                  Supprimer
+                  {{ 'admin.legacy.supprimer' | translate }}
                 </button>
               </div>
             </div>
@@ -195,6 +230,11 @@ import type {
       </section>
     </section>
   `,
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       :host {
@@ -215,10 +255,10 @@ import type {
 
       .secondary-danger-action {
         align-items: center;
-        background: #fff8f8;
-        border: 1px solid #f1a8b4;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
-        color: #9f1d2f;
+        color: var(--admin-danger);
         cursor: pointer;
         display: inline-flex;
         font-weight: 900;
@@ -241,8 +281,8 @@ import type {
       }
 
       .detail-card {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.5rem;
         display: grid;
         gap: 0.85rem;
@@ -254,13 +294,13 @@ import type {
       }
 
       .muted-copy {
-        color: #566274;
+        color: var(--admin-muted);
         line-height: 1.55;
         margin: 0.35rem 0 0;
       }
 
       dt {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.76rem;
         font-weight: 900;
         letter-spacing: 0;
@@ -280,8 +320,8 @@ import type {
 
       .logo-preview {
         align-items: center;
-        background: #f4f7fb;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         display: flex;
         height: 4.5rem;
@@ -316,7 +356,7 @@ import type {
       }
 
       .media-review-panel {
-        border-top: 1px solid #d9e0ea;
+        border-top: 1px solid var(--admin-border);
         display: grid;
         gap: 1rem;
         padding-top: 1rem;
@@ -329,7 +369,7 @@ import type {
       }
 
       .media-review-panel header span {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.72rem;
         font-weight: 900;
         text-transform: uppercase;
@@ -346,7 +386,7 @@ import type {
       }
 
       .media-review-panel header p {
-        color: #566274;
+        color: var(--admin-muted);
         font-size: 0.82rem;
         line-height: 1.5;
       }
@@ -358,10 +398,10 @@ import type {
       }
 
       .approve-all-action {
-        background: #176b43;
-        border: 1px solid #176b43;
+        background: #193d32;
+        border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
-        color: #ffffff;
+        color: var(--admin-text);
         cursor: pointer;
         font-weight: 900;
         min-height: 2.5rem;
@@ -388,8 +428,8 @@ import type {
       .media-preview {
         align-items: center;
         aspect-ratio: 4 / 3;
-        background: #edf1f6;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         display: flex;
         justify-content: center;
         overflow: hidden;
@@ -416,7 +456,7 @@ import type {
       }
 
       .media-review-copy small {
-        color: #667085;
+        color: var(--admin-muted);
       }
 
       .media-review-copy label {
@@ -427,12 +467,12 @@ import type {
       }
 
       .media-review-copy label span {
-        color: #667085;
+        color: var(--admin-muted);
         font-weight: 700;
       }
 
       .media-review-copy input {
-        border: 1px solid #b8c3d1;
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         min-height: 2.5rem;
         padding: 0.55rem 0.65rem;
@@ -445,15 +485,15 @@ import type {
       }
 
       .media-status.approved {
-        color: #137047;
+        color: var(--admin-success);
       }
 
       .media-status.pending_review {
-        color: #8a5a00;
+        color: var(--admin-warning);
       }
 
       .media-status.rejected {
-        color: #9f1d2f;
+        color: var(--admin-danger);
       }
 
       .media-review-actions {
@@ -472,15 +512,15 @@ import type {
       }
 
       .approve-action {
-        background: #176b43;
-        border: 1px solid #176b43;
-        color: #ffffff;
+        background: #193d32;
+        border: 1px solid var(--admin-border);
+        color: var(--admin-text);
       }
 
       .reject-action {
-        background: #fff8f8;
-        border: 1px solid #d97888;
-        color: #8b2032;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
+        color: var(--admin-danger);
       }
 
       .approve-action:disabled,
@@ -490,7 +530,7 @@ import type {
       }
 
       .inline-status {
-        color: #667085;
+        color: var(--admin-muted);
       }
 
       @media (max-width: 720px) {
@@ -507,6 +547,7 @@ import type {
   ]
 })
 export class AdminSponsorDetailMediaComponent {
+  readonly previewMedia = output<{ id: string; alt: string }>();
   readonly identity = input.required<AdminSponsorDetailIdentityView>();
   readonly uploadLogo = output<Event>();
   readonly deleteLogo = output<void>();

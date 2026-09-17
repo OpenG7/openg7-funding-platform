@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
 
@@ -83,6 +82,7 @@ test.describe('Docker admin contributions', () => {
     const fixture = SPONSORSHIP_FIXTURES.approve;
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export CSV', exact: true }).click();
+    await page.locator('[data-og7="confirm-action"]').click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toBe('openg7-admin-contributions.csv');

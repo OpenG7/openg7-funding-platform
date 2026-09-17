@@ -66,8 +66,9 @@ export class FundingI18nService {
     this.translationVersion();
   }
 
-  t(key: string): string {
-    return this.translate.instant(key);
+  t(key: string, params?: Record<string, unknown>): string {
+    this.trackTranslationState();
+    return this.translate.instant(key, params);
   }
 
   setLanguage(language: FundingLanguage): void {

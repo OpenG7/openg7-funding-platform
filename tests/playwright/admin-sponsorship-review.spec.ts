@@ -69,11 +69,9 @@ test.describe('Docker admin sponsorship review', () => {
     const fixture = SPONSORSHIP_FIXTURES.approve;
     await openFixtureSponsorship(page, fixture.companyName);
 
-    // Resetting an already-reviewed sponsorship back to pending goes through a
-    // native window.confirm() guard (admin-sponsors-page.component.ts); it must
-    // be accepted or Playwright auto-dismisses it and the click is a no-op.
-    page.once('dialog', (dialog) => void dialog.accept());
+    // Confirm the reviewed administrative action in the shared dialog.
     await page.getByRole('button', { name: 'Remettre en attente' }).click();
+    await page.locator('[data-og7="confirm-action"]').click();
 
     await expect(
       page.getByText('Action confirmee: commandite remise en attente.')
@@ -89,6 +87,7 @@ test.describe('Docker admin sponsorship review', () => {
     await page
       .getByRole('button', { name: /Generer factures manquantes/i })
       .click();
+    await page.locator('[data-og7="confirm-action"]').click();
 
     const fixture = SPONSORSHIP_FIXTURES.approve;
     await page
@@ -259,11 +258,8 @@ test.describe('Docker admin sponsorship review', () => {
     ).toBeVisible();
     await expect(page.getByText('Remplacer le logo')).toBeVisible();
 
-    // Deleting a logo goes through a native window.confirm() guard, the same
-    // pattern already hit for the reset-to-pending-review action -- accept it
-    // or Playwright auto-dismisses it and the click is a no-op.
-    page.once('dialog', (dialog) => void dialog.accept());
     await page.getByRole('button', { name: 'Supprimer le logo' }).click();
+    await page.locator('[data-og7="confirm-action"]').click();
 
     await expect(page.getByText(/Logo supprime/i)).toBeVisible();
     await expect(page.getByText('Televerser un logo')).toBeVisible();

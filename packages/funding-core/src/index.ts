@@ -1468,8 +1468,20 @@ export interface AdminAssistantPrepareResponse {
   readonly message: string | null;
 }
 
-export type { AdminAttentionDueFilter, AdminWorkQueueQuery, AdminWorkQueueResponse } from './admin-work-queue.js';
-export type { AdminSearchRequest, AdminSearchResponse, AdminSearchGroup } from './admin-search.js';
+export type {
+  AdminAttentionDueFilter,
+  AdminWorkQueueQuery,
+  AdminWorkQueueResponse
+} from './admin-work-queue.js';
+export type {
+  AdminSearchRequest,
+  AdminSearchResponse,
+  AdminSearchGroup
+} from './admin-search.js';
+export type {
+  AdminStripeEvent,
+  AdminStripeEventResponse
+} from './admin-stripe-event.js';
 
 export type {
   AdminAssistantContext,

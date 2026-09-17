@@ -1,5 +1,9 @@
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
 import {
+  DestroyRef,
   ChangeDetectionStrategy,
   Component,
   OnInit,
@@ -7,56 +11,54 @@ import {
   inject,
   signal
 } from '@angular/core';
-import type { AdminAuditLogEntry, AdminAuditLogResponse } from '@openg7/funding-core';
+import type {
+  AdminAuditLogEntry,
+  AdminAuditLogResponse
+} from '@openg7/funding-core';
 
-import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
+import { AdminInspectionService } from '../../services/admin-inspection.service.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 @Component({
   selector: 'openg7-admin-audit-page',
   standalone: true,
-  imports: [CommonModule, AdminNavComponent],
+  imports: [TranslatePipe, CommonModule, AdminLayoutComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="admin-shell">
-      <openg7-admin-nav />
-
+    <openg7-admin-layout>
       <section class="admin-content">
         <header class="admin-topbar">
           <div>
-            <span>Administration</span>
-            <h1>Audit</h1>
+            <span>{{ 'admin.legacy.administration' | translate }}</span>
+            <h1>{{ 'admin.legacy.audit' | translate }}</h1>
           </div>
-          <button type="button" (click)="loadAuditLog()">Actualiser</button>
+          <button type="button" (click)="loadAuditLog()">
+            {{ 'admin.legacy.actualiser' | translate }}
+          </button>
         </header>
 
-        <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
-          <div>
-            <h2 id="admin-auth-title">Acces admin</h2>
-            <p>Les actions sensibles sont journalisees cote serveur.</p>
-          </div>
-          <label>
-            Jeton admin
-            <input
-              type="password"
-              autocomplete="off"
-              [value]="adminToken()"
-              (input)="setAdminToken($event)"
-            />
-          </label>
-        </section>
-
-        <p class="state" *ngIf="state() === 'loading'">Chargement de l'audit...</p>
+        <p class="state" *ngIf="state() === 'loading'">
+          {{ 'admin.legacy.chargement_de_l_audit' | translate }}
+        </p>
         <p class="state state-error" *ngIf="state() === 'error'">
-          Impossible de charger le journal d'audit.
+          {{
+            'admin.legacy.impossible_de_charger_le_journal_d_audit' | translate
+          }}
         </p>
 
-        <section class="filters" aria-label="Filtres audit">
+        <section
+          class="filters"
+          [attr.aria-label]="'admin.legacy.filtres_audit' | translate"
+        >
           <label>
-            Recherche
-            <input
+            {{ 'admin.legacy.recherche' | translate
+            }}<input
               type="search"
-              placeholder="Action, entite, resume..."
+              [attr.placeholder]="
+                'admin.legacy.action_entite_resume' | translate
+              "
               [value]="search()"
               (input)="setSearch($event)"
             />
@@ -66,56 +68,77 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
         <section class="audit-panel" aria-labelledby="audit-title">
           <header>
             <div>
-              <span>{{ filteredEntries().length }} entree(s)</span>
-              <h2 id="audit-title">Journal admin</h2>
+              <span>{{
+                'admin.legacy.p0_entree_s'
+                  | translate: { p0: filteredEntries().length }
+              }}</span>
+              <h2 id="audit-title">
+                {{ 'admin.legacy.journal_admin' | translate }}
+              </h2>
             </div>
-            <small>Mis a jour {{ dateLabel(response()?.last_updated_at ?? null) }}</small>
+            <small>{{
+              'admin.legacy.mis_a_jour_p0'
+                | translate
+                  : { p0: dateLabel(response()?.last_updated_at ?? null) }
+            }}</small>
           </header>
 
           <div class="table-scroll" *ngIf="filteredEntries().length > 0">
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Action</th>
-                  <th>Entite</th>
-                  <th>Resume</th>
-                  <th>Acteur</th>
+                  <th>{{ 'admin.legacy.date' | translate }}</th>
+                  <th>{{ 'admin.legacy.action' | translate }}</th>
+                  <th>{{ 'admin.legacy.entite' | translate }}</th>
+                  <th>{{ 'admin.legacy.resume' | translate }}</th>
+                  <th>{{ 'admin.legacy.acteur' | translate }}</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let entry of filteredEntries(); trackBy: trackByEntry">
+                <tr
+                  *ngFor="let entry of filteredEntries(); trackBy: trackByEntry"
+                >
                   <td>{{ dateLabel(entry.created_at) }}</td>
-                  <td>{{ entry.action }}</td>
+                  <td>
+                    <button type="button" (click)="inspection.audit(entry)">
+                      {{ entry.action }}
+                    </button>
+                  </td>
                   <td>{{ entityLabel(entry) }}</td>
-                  <td>{{ entry.summary || 'Non fourni' }}</td>
+                  <td>
+                    {{
+                      entry.summary || ('admin.legacy.non_fourni' | translate)
+                    }}
+                  </td>
                   <td>{{ entry.actor }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <article class="empty-state" *ngIf="state() === 'ready' && filteredEntries().length === 0">
-            <h3>Aucune entree trouvee</h3>
-            <p>Le journal se remplira lors des prochaines actions admin.</p>
+          <article
+            class="empty-state"
+            *ngIf="state() === 'ready' && filteredEntries().length === 0"
+          >
+            <h3>{{ 'admin.legacy.aucune_entree_trouvee' | translate }}</h3>
+            <p>
+              {{
+                'admin.legacy.le_journal_se_remplira_lors_des_prochaines_actions_admin'
+                  | translate
+              }}
+            </p>
           </article>
         </section>
       </section>
-    </main>
+    </openg7-admin-layout>
   `,
+  styleUrls: [
+    '../../components/admin-ui/admin-theme.css',
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css'
+  ],
   styles: [
     `
-      .admin-shell {
-        background: #f5f7fb;
-        color: #172033;
-        display: grid;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        gap: 1rem;
-        grid-template-columns: 15rem minmax(0, 1fr);
-        min-height: 100vh;
-        padding: 1.25rem;
-      }
-
       .admin-content {
         display: grid;
         gap: 1rem;
@@ -142,7 +165,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 
       .admin-topbar span,
       .audit-panel span {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: 800;
         letter-spacing: 0;
@@ -160,8 +183,8 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       .filters,
       .audit-panel,
       .empty-state {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         padding: 1rem;
       }
@@ -176,7 +199,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       .admin-auth-panel p,
       .empty-state p,
       .audit-panel small {
-        color: #526070;
+        color: var(--admin-muted);
         line-height: 1.55;
         margin: 0.35rem 0 0;
       }
@@ -189,17 +212,17 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       }
 
       input {
-        border: 1px solid #cdd6e3;
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         font: inherit;
         padding: 0.65rem 0.75rem;
       }
 
       button {
-        background: #18233a;
+        background: var(--admin-panel-raised);
         border: 0;
         border-radius: 0.35rem;
-        color: #fff;
+        color: var(--admin-text);
         cursor: pointer;
         font: inherit;
         font-weight: 800;
@@ -224,14 +247,14 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 
       th,
       td {
-        border-bottom: 1px solid #e4e9f2;
+        border-bottom: 1px solid var(--admin-border);
         padding: 0.7rem 0.5rem;
         text-align: left;
         vertical-align: top;
       }
 
       th {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         text-transform: uppercase;
       }
@@ -241,7 +264,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       }
 
       .state-error {
-        color: #9f1d2f;
+        color: var(--admin-danger);
         font-weight: 800;
       }
 
@@ -261,6 +284,13 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
   ]
 })
 export class AdminAuditPageComponent implements OnInit {
+  readonly i18n = inject(FundingI18nService);
+  private readonly destroyRef = inject(DestroyRef);
+  private requestGeneration = 0;
+  private exactId: string | undefined;
+  private readonly route = inject(ActivatedRoute);
+
+  readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
 
   readonly adminToken = signal<string>('');
@@ -292,17 +322,35 @@ export class AdminAuditPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
-    void this.loadAuditLog();
+    this.destroyRef.onDestroy(() => {
+      this.requestGeneration++;
+    });
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        this.exactId = params.get('entryId') ?? undefined;
+        this.response.set(null);
+        this.search.set('');
+
+        void this.loadAuditLog();
+      });
   }
 
   async loadAuditLog(): Promise<void> {
+    const generation = ++this.requestGeneration;
     this.state.set('loading');
 
     try {
-      this.response.set(await this.admin.getAuditLog(this.adminToken()));
+      const result = await this.admin.getAuditLog(
+        this.adminToken(),
+        this.exactId
+      );
+      if (generation !== this.requestGeneration) return;
+      this.response.set(result);
       this.state.set('ready');
       this.admin.saveAdminToken(this.adminToken());
     } catch {
+      if (generation !== this.requestGeneration) return;
       this.state.set('error');
     }
   }
@@ -328,10 +376,10 @@ export class AdminAuditPageComponent implements OnInit {
 
   dateLabel(value: string | null): string {
     if (!value) {
-      return 'Non disponible';
+      return this.i18n.t('admin.dashboard.notAvailable');
     }
 
-    return new Intl.DateTimeFormat('fr-CA', {
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(new Date(value));

@@ -261,6 +261,98 @@ const progress = (page: Page) =>
   page.locator('[data-og7="sponsorship-progress"]');
 const tabs = (page: Page) => page.locator('[data-og7="dossier-tabs"]');
 
+test('note drawer retains the draft after failure, blocks duplicate save and restores focus', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.reviewStatus = 503;
+  let release!: () => void;
+  options.reviewGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.goto(path());
+  const opener = page.getByRole('button', { name: 'Modifier la note' });
+  await opener.click();
+  const drawer = page.locator('dialog[open]');
+  await drawer.getByRole('textbox').fill('Note de test conservée');
+  await drawer.getByRole('button', { name: 'Enregistrer la note' }).click();
+  await expect(
+    drawer.getByRole('button', { name: 'Enregistrement...' })
+  ).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeVisible();
+  release();
+  await expect(drawer).toContainText('Conflict');
+  await expect(drawer.getByRole('textbox')).toHaveValue(
+    'Note de test conservée'
+  );
+  expect(calls.filter((c) => c.url.pathname.endsWith('/review'))).toHaveLength(
+    1
+  );
+  options.reviewGate = null;
+  options.reviewStatus = 200;
+  await drawer.getByRole('button', { name: 'Enregistrer la note' }).click();
+  await expect(drawer).toContainText('Note enregistree.');
+  expect(
+    calls.filter((c) => c.url.pathname.endsWith('/review'))[1]?.body?.[
+      'reviewNote'
+    ]
+  ).toBe('Note de test conservée');
+  await page.keyboard.press('Escape');
+  await expect(opener).toBeFocused();
+});
+
+test('media and history inspections stay inside the selected dossier', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.route('**/api/admin/sponsorships/media?**', (route) =>
+    route.fulfill({
+      json: {
+        assets: [
+          {
+            id: secondId,
+            contributionId: id,
+            kind: 'logo',
+            version: 'v1',
+            reviewStatus: 'pending_review',
+            altText: 'Logo de test',
+            width: 1,
+            height: 1,
+            sizeBytes: 68,
+            mimeType: 'image/png',
+            createdAt: date,
+            updatedAt: date
+          }
+        ]
+      }
+    })
+  );
+  await page.route('**/api/admin/sponsorships/media/content/**', (route) =>
+    route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aV0cAAAAASUVORK5CYII=',
+        'base64'
+      )
+    })
+  );
+  await page.goto(path('media'));
+  await page.getByRole('button', { name: 'Aperçu', exact: true }).click();
+  await expect(page.locator('dialog[open]').getByRole('img')).toHaveAttribute(
+    'src',
+    /^blob:/
+  );
+  await page.keyboard.press('Escape');
+  await tabs(page).getByRole('button', { name: 'Historique' }).click();
+  await page.getByRole('button', { name: 'Historique du dossier' }).click();
+  await expect(page.locator('dialog[open]')).toContainText(
+    'Aucune entrée d’audit disponible'
+  );
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(/tab=audit/);
+});
+
 test('seven dossier tabs use direct URLs; invoice is complete before review; browsing makes no writes', async ({
   page
 }) => {

@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { signInAsAdmin } from './support/admin-auth.js';
 
 // Covers admin-expenses-page.component.ts, the only admin page with real
@@ -60,9 +59,7 @@ test.describe('Docker admin expenses', () => {
     await createPanel
       .getByLabel('Source de la preuve')
       .fill('Compte rendu E2E');
-    await createPanel
-      .getByLabel('Date de la preuve')
-      .fill('2026-09-11T12:00');
+    await createPanel.getByLabel('Date de la preuve').fill('2026-09-11T12:00');
     await createPanel
       .getByRole('button', { name: 'Ajouter', exact: true })
       .click();
@@ -94,12 +91,15 @@ test.describe('Docker admin expenses', () => {
     await expect(card).toBeVisible();
 
     await card.getByRole('button', { name: 'Publier', exact: true }).click();
+    await page.locator('[data-og7="confirm-action"]').click();
     await expect(statusBadge).toHaveText('Publiee');
 
     await card.getByRole('button', { name: 'Masquer', exact: true }).click();
+    await page.locator('[data-og7="confirm-action"]').click();
     await expect(statusBadge).toHaveText('Privee');
 
     await card.getByRole('button', { name: 'Archiver', exact: true }).click();
+    await page.locator('[data-og7="confirm-action"]').click();
     await expect(statusBadge).toHaveText('Archivee');
 
     await card.getByLabel('Montant CAD').fill('99.99');

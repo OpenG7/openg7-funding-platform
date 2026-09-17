@@ -1,3 +1,4 @@
+import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -12,64 +13,81 @@ import type {
   AdminTransparencyResponse
 } from '@openg7/funding-core';
 
-import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 @Component({
   selector: 'openg7-admin-transparency-page',
   standalone: true,
-  imports: [CommonModule, AdminNavComponent],
+  imports: [TranslatePipe, CommonModule, AdminLayoutComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="admin-shell">
-      <openg7-admin-nav />
-
+    <openg7-admin-layout>
       <section class="admin-content">
         <header class="admin-topbar">
           <div>
-            <span>Administration</span>
-            <h1>Transparence</h1>
+            <span>{{ 'admin.legacy.administration' | translate }}</span>
+            <h1>{{ 'admin.legacy.transparence' | translate }}</h1>
           </div>
-          <button type="button" (click)="loadTransparency()">Actualiser</button>
+          <button type="button" (click)="loadTransparency()">
+            {{ 'admin.legacy.actualiser' | translate }}
+          </button>
         </header>
 
         <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
           <div>
-            <h2 id="admin-auth-title">Acces admin</h2>
-            <p>Vue privee des donnees qui alimentent la transparence publique.</p>
+            <h2 id="admin-auth-title">
+              {{ 'admin.legacy.acces_admin' | translate }}
+            </h2>
+            <p>
+              {{
+                'admin.legacy.vue_privee_des_donnees_qui_alimentent_la_transparence_publique'
+                  | translate
+              }}
+            </p>
           </div>
-          <label>
-            Jeton admin
-            <input
-              type="password"
-              autocomplete="off"
-              [value]="adminToken()"
-              (input)="setAdminToken($event)"
-            />
-          </label>
         </section>
 
-        <p class="state" *ngIf="state() === 'loading'">Chargement de la transparence...</p>
+        <p class="state" *ngIf="state() === 'loading'">
+          {{ 'admin.legacy.chargement_de_la_transparence' | translate }}
+        </p>
         <p class="state state-error" *ngIf="state() === 'error'">
-          Impossible de charger la transparence admin.
+          {{
+            'admin.legacy.impossible_de_charger_la_transparence_admin'
+              | translate
+          }}
         </p>
 
         <ng-container *ngIf="transparency() as data">
-          <section class="summary-grid" aria-label="Resume transparence">
+          <section
+            class="summary-grid"
+            [attr.aria-label]="'admin.legacy.resume_transparence' | translate"
+          >
             <article>
-              <span>Total recu</span>
+              <span>{{ 'admin.legacy.total_recu' | translate }}</span>
               <strong>
-                {{ formatMoney(data.public_summary.total_received, data.public_summary.currency) }}
+                {{
+                  formatMoney(
+                    data.public_summary.total_received,
+                    data.public_summary.currency
+                  )
+                }}
               </strong>
             </article>
             <article>
-              <span>Net estime</span>
+              <span>{{ 'admin.legacy.net_estime' | translate }}</span>
               <strong>
-                {{ formatMoney(data.public_summary.total_net, data.public_summary.currency) }}
+                {{
+                  formatMoney(
+                    data.public_summary.total_net,
+                    data.public_summary.currency
+                  )
+                }}
               </strong>
             </article>
             <article>
-              <span>Disponible estime</span>
+              <span>{{ 'admin.legacy.disponible_estime' | translate }}</span>
               <strong>
                 {{
                   formatMoney(
@@ -80,7 +98,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
               </strong>
             </article>
             <article>
-              <span>Alloue publie</span>
+              <span>{{ 'admin.legacy.alloue_publie' | translate }}</span>
               <strong>
                 {{
                   formatMoney(
@@ -92,21 +110,24 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
             </article>
           </section>
 
-          <section class="status-grid" aria-label="Statuts depenses">
+          <section
+            class="status-grid"
+            [attr.aria-label]="'admin.legacy.statuts_depenses' | translate"
+          >
             <article>
-              <span>Depenses</span>
+              <span>{{ 'admin.legacy.depenses' | translate }}</span>
               <strong>{{ data.expenses_summary.total_count }}</strong>
             </article>
             <article>
-              <span>Publiees</span>
+              <span>{{ 'admin.legacy.publiees' | translate }}</span>
               <strong>{{ data.expenses_summary.published_count }}</strong>
             </article>
             <article>
-              <span>Brouillons</span>
+              <span>{{ 'admin.legacy.brouillons' | translate }}</span>
               <strong>{{ data.expenses_summary.draft_count }}</strong>
             </article>
             <article>
-              <span>Privees</span>
+              <span>{{ 'admin.legacy.privees' | translate }}</span>
               <strong>{{ data.expenses_summary.private_count }}</strong>
             </article>
           </section>
@@ -115,29 +136,53 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
             <header>
               <div>
                 <span>{{ data.public_summary.data_source }}</span>
-                <h2 id="snapshot-title">Snapshot public courant</h2>
+                <h2 id="snapshot-title">
+                  {{ 'admin.legacy.snapshot_public_courant' | translate }}
+                </h2>
               </div>
-              <small>Mis a jour {{ dateLabel(data.last_updated_at) }}</small>
+              <small>{{
+                'admin.legacy.mis_a_jour_p0'
+                  | translate: { p0: dateLabel(data.last_updated_at) }
+              }}</small>
             </header>
 
             <dl>
               <div>
-                <dt>Contributions</dt>
+                <dt>{{ 'admin.legacy.contributions' | translate }}</dt>
                 <dd>{{ data.public_summary.contributions_count }}</dd>
               </div>
               <div>
-                <dt>Frais</dt>
-                <dd>{{ formatMoney(data.public_summary.total_fees, data.public_summary.currency) }}</dd>
-              </div>
-              <div>
-                <dt>Remboursements</dt>
+                <dt>{{ 'admin.legacy.frais' | translate }}</dt>
                 <dd>
-                  {{ formatMoney(data.public_summary.total_refunded, data.public_summary.currency) }}
+                  {{
+                    formatMoney(
+                      data.public_summary.total_fees,
+                      data.public_summary.currency
+                    )
+                  }}
                 </dd>
               </div>
               <div>
-                <dt>Payouts</dt>
-                <dd>{{ formatMoney(data.public_summary.total_payouts, data.public_summary.currency) }}</dd>
+                <dt>{{ 'admin.legacy.remboursements' | translate }}</dt>
+                <dd>
+                  {{
+                    formatMoney(
+                      data.public_summary.total_refunded,
+                      data.public_summary.currency
+                    )
+                  }}
+                </dd>
+              </div>
+              <div>
+                <dt>{{ 'admin.legacy.payouts' | translate }}</dt>
+                <dd>
+                  {{
+                    formatMoney(
+                      data.public_summary.total_payouts,
+                      data.public_summary.currency
+                    )
+                  }}
+                </dd>
               </div>
             </dl>
           </section>
@@ -145,8 +190,15 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           <section class="admin-panel" aria-labelledby="expenses-title">
             <header>
               <div>
-                <span>{{ publishedExpenses().length }} entree(s) publiques</span>
-                <h2 id="expenses-title">Depenses visibles publiquement</h2>
+                <span>{{
+                  'admin.legacy.p0_entree_s_publiques'
+                    | translate: { p0: publishedExpenses().length }
+                }}</span>
+                <h2 id="expenses-title">
+                  {{
+                    'admin.legacy.depenses_visibles_publiquement' | translate
+                  }}
+                </h2>
               </div>
             </header>
 
@@ -154,45 +206,56 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
               <table>
                 <thead>
                   <tr>
-                    <th>Projet</th>
-                    <th>Description</th>
-                    <th>Montant</th>
-                    <th>Publication</th>
+                    <th>{{ 'admin.legacy.projet' | translate }}</th>
+                    <th>{{ 'admin.legacy.description' | translate }}</th>
+                    <th>{{ 'admin.legacy.montant' | translate }}</th>
+                    <th>{{ 'admin.legacy.publication' | translate }}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let expense of publishedExpenses(); trackBy: trackByExpense">
+                  <tr
+                    *ngFor="
+                      let expense of publishedExpenses();
+                      trackBy: trackByExpense
+                    "
+                  >
                     <td>{{ expense.project_name }}</td>
                     <td>{{ expense.public_description }}</td>
-                    <td>{{ formatMoney(expense.amount_allocated, expense.currency) }}</td>
+                    <td>
+                      {{
+                        formatMoney(expense.amount_allocated, expense.currency)
+                      }}
+                    </td>
                     <td>{{ dateLabel(expense.published_at) }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
-            <article class="empty-state" *ngIf="publishedExpenses().length === 0">
-              <h3>Aucune depense publique</h3>
-              <p>Publiez une depense depuis la page Depenses.</p>
+            <article
+              class="empty-state"
+              *ngIf="publishedExpenses().length === 0"
+            >
+              <h3>{{ 'admin.legacy.aucune_depense_publique' | translate }}</h3>
+              <p>
+                {{
+                  'admin.legacy.publiez_une_depense_depuis_la_page_depenses'
+                    | translate
+                }}
+              </p>
             </article>
           </section>
         </ng-container>
       </section>
-    </main>
+    </openg7-admin-layout>
   `,
+  styleUrls: [
+    '../../components/admin-ui/admin-theme.css',
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css'
+  ],
   styles: [
     `
-      .admin-shell {
-        background: #f5f7fb;
-        color: #172033;
-        display: grid;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        gap: 1rem;
-        grid-template-columns: 15rem minmax(0, 1fr);
-        min-height: 100vh;
-        padding: 1.25rem;
-      }
-
       .admin-content,
       .admin-panel {
         display: grid;
@@ -224,7 +287,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       .status-grid span,
       .admin-panel span,
       dt {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: 800;
         letter-spacing: 0;
@@ -243,8 +306,8 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       .status-grid article,
       .admin-panel,
       .empty-state {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
       }
 
@@ -264,7 +327,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       .admin-auth-panel p,
       .empty-state p,
       .admin-panel small {
-        color: #526070;
+        color: var(--admin-muted);
         line-height: 1.55;
         margin: 0.35rem 0 0;
       }
@@ -296,17 +359,17 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       }
 
       input {
-        border: 1px solid #cdd6e3;
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         font: inherit;
         padding: 0.65rem 0.75rem;
       }
 
       button {
-        background: #18233a;
+        background: var(--admin-panel-raised);
         border: 0;
         border-radius: 0.35rem;
-        color: #fff;
+        color: var(--admin-text);
         cursor: pointer;
         font: inherit;
         font-weight: 800;
@@ -339,20 +402,20 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 
       th,
       td {
-        border-bottom: 1px solid #e4e9f2;
+        border-bottom: 1px solid var(--admin-border);
         padding: 0.7rem 0.5rem;
         text-align: left;
         vertical-align: top;
       }
 
       th {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         text-transform: uppercase;
       }
 
       .state-error {
-        color: #9f1d2f;
+        color: var(--admin-danger);
         font-weight: 800;
       }
 
@@ -375,6 +438,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
   ]
 })
 export class AdminTransparencyPageComponent implements OnInit {
+  readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
 
   readonly adminToken = signal<string>('');
@@ -396,7 +460,9 @@ export class AdminTransparencyPageComponent implements OnInit {
     this.state.set('loading');
 
     try {
-      this.transparency.set(await this.admin.getTransparency(this.adminToken()));
+      this.transparency.set(
+        await this.admin.getTransparency(this.adminToken())
+      );
       this.state.set('ready');
       this.admin.saveAdminToken(this.adminToken());
     } catch {
@@ -414,7 +480,7 @@ export class AdminTransparencyPageComponent implements OnInit {
   }
 
   formatMoney(amount: number, currency: string): string {
-    return new Intl.NumberFormat('fr-CA', {
+    return new Intl.NumberFormat(this.i18n.currentLanguage(), {
       style: 'currency',
       currency: currency || 'CAD'
     }).format(amount);
@@ -422,10 +488,10 @@ export class AdminTransparencyPageComponent implements OnInit {
 
   dateLabel(value: string | null): string {
     if (!value) {
-      return 'Non disponible';
+      return this.i18n.t('admin.dashboard.notAvailable');
     }
 
-    return new Intl.DateTimeFormat('fr-CA', {
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(new Date(value));

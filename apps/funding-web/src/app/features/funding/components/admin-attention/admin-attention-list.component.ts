@@ -9,6 +9,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import type { AdminAttentionItem } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminInspectionService } from '../../services/admin-inspection.service.js';
 import {
   AdminBadgeComponent,
   type AdminBadgeTone
@@ -63,6 +64,18 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
             }
           </div>
           @if (showLink()) {
+            @if (
+              item.type === 'stripe_event_failed' ||
+              item.type === 'stripe_event_stalled'
+            ) {
+              <button
+                class="admin-button"
+                type="button"
+                (click)="inspectStripe(item)"
+              >
+                {{ 'admin.inspector.kinds.stripe' | translate }}
+              </button>
+            }
             <a
               class="admin-button admin-button--primary"
               [routerLink]="destination(item)"
@@ -92,6 +105,13 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
   ]
 })
 export class AdminAttentionListComponent {
+  readonly inspection = inject(AdminInspectionService);
+  inspectStripe(item: AdminAttentionItem): void {
+    this.inspection.stripe(
+      String(item.facts['reference'] ?? ''),
+      item.adminUrl ?? '/admin/fundraiser/attention'
+    );
+  }
   readonly items = input.required<readonly AdminAttentionItem[]>();
   readonly showLink = input(true);
   readonly returnTo = input('/admin/fundraiser/attention');
