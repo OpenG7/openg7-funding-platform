@@ -30,7 +30,9 @@ import type {
   SponsorFeedTarget
 } from '@openg7/funding-core';
 
-import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
+import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 interface PublicationDraftEdit {
@@ -62,79 +64,83 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 @Component({
   selector: 'openg7-admin-publications-page',
   standalone: true,
-  imports: [CommonModule, AdminNavComponent, TranslatePipe],
+  imports: [CommonModule, AdminLayoutComponent, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="admin-shell">
-      <openg7-admin-nav />
-
+    <openg7-admin-layout>
       <section class="admin-content">
         <header class="admin-topbar">
           <div>
-            <span>Administration</span>
-            <h1>Publications commanditees</h1>
+            <span>{{ 'admin.legacy.administration' | translate }}</span>
+            <h1>{{ 'admin.legacy.publications_commanditees' | translate }}</h1>
           </div>
-          <button type="button" (click)="load()">Actualiser</button>
+          <button type="button" (click)="load()">
+            {{ 'admin.legacy.actualiser' | translate }}
+          </button>
         </header>
-        @if (targetId) { <p class="state" data-og7="attention-object-target">{{ 'admin.attention.targetObject' | translate: { id: targetId } }}</p> }
-        @if (state() === 'ready' && !targetFound()) { <p role="status">{{ 'admin.attention.objectMissing' | translate }}</p> }
-
-        <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
-          <div>
-            <h2 id="admin-auth-title">Acces admin</h2>
-            <p>Brouillons et approbations restent prives.</p>
-          </div>
-          <label>
-            Jeton admin
-            <input
-              type="password"
-              autocomplete="off"
-              [value]="adminToken()"
-              (input)="setAdminToken($event)"
-            />
-          </label>
-        </section>
+        @if (targetId) {
+          <p class="state" data-og7="attention-object-target">
+            {{ 'admin.attention.targetObject' | translate: { id: targetId } }}
+          </p>
+        }
+        @if (state() === 'ready' && !targetFound()) {
+          <p role="status">{{ 'admin.attention.objectMissing' | translate }}</p>
+        }
 
         <p class="state" *ngIf="state() === 'loading'">
-          Chargement des publications...
+          {{ 'admin.legacy.chargement_des_publications' | translate }}
         </p>
         <p class="state state-error" *ngIf="state() === 'error'">
-          Impossible de charger ou modifier les publications.
+          {{
+            'admin.legacy.impossible_de_charger_ou_modifier_les_publications'
+              | translate
+          }}
         </p>
 
-        <section class="admin-summary-grid" aria-label="Resume publications">
+        <section
+          class="admin-summary-grid"
+          [attr.aria-label]="'admin.legacy.resume_publications' | translate"
+        >
           <article>
-            <span>Brouillons</span>
+            <span>{{ 'admin.legacy.brouillons' | translate }}</span>
             <strong>{{ draftCount() }}</strong>
           </article>
           <article>
-            <span>A approuver</span>
+            <span>{{ 'admin.legacy.a_approuver' | translate }}</span>
             <strong>{{ pendingCount() }}</strong>
           </article>
           <article>
-            <span>Approuvees</span>
+            <span>{{ 'admin.legacy.approuvees' | translate }}</span>
             <strong>{{ approvedCount() }}</strong>
           </article>
           <article>
-            <span>Publiees</span>
+            <span>{{ 'admin.legacy.publiees' | translate }}</span>
             <strong>{{ publishedCount() }}</strong>
           </article>
         </section>
 
-        <section class="filters" aria-label="Filtres publications">
+        <section
+          class="filters"
+          [attr.aria-label]="'admin.legacy.filtres_publications' | translate"
+        >
           <label>
-            Recherche
-            <input
+            {{ 'admin.legacy.recherche' | translate
+            }}<input
               type="search"
-              placeholder="Entreprise, titre, texte..."
+              [attr.placeholder]="
+                'admin.legacy.entreprise_titre_texte' | translate
+              "
               [value]="search()"
               (input)="setSearch($event)"
             />
           </label>
           <label>
-            Statut
-            <select [value]="statusFilter()" (change)="setStatusFilter($event)">
-              <option value="all">Tous</option>
+            {{ 'admin.legacy.statut' | translate
+            }}<select
+              [value]="statusFilter()"
+              (change)="setStatusFilter($event)"
+            >
+              <option value="all">{{ 'admin.legacy.tous' | translate }}</option>
               <option
                 *ngFor="let status of publicationStatuses"
                 [value]="status"
@@ -148,8 +154,13 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         <section class="admin-panel" aria-labelledby="eligible-title">
           <header>
             <div>
-              <span>{{ eligibleSponsorships().length }} commandite(s)</span>
-              <h2 id="eligible-title">Commandites pretes</h2>
+              <span>{{
+                'admin.legacy.p0_commandite_s'
+                  | translate: { p0: eligibleSponsorships().length }
+              }}</span>
+              <h2 id="eligible-title">
+                {{ 'admin.legacy.commandites_pretes' | translate }}
+              </h2>
             </div>
           </header>
 
@@ -181,22 +192,32 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             class="empty-state"
             *ngIf="eligibleSponsorships().length === 0"
           >
-            <h3>Aucune commandite prete</h3>
-            <p>Approuvez une commandite et ajoutez une cible/canal feed.</p>
+            <h3>{{ 'admin.legacy.aucune_commandite_prete' | translate }}</h3>
+            <p>
+              {{
+                'admin.legacy.approuvez_une_commandite_et_ajoutez_une_cible_canal_feed'
+                  | translate
+              }}
+            </p>
           </article>
         </section>
 
         <section class="admin-panel" aria-labelledby="calendar-title">
           <header>
             <div>
-              <span>{{ slots().length }} creneau(x)</span>
-              <h2 id="calendar-title">Calendrier de publication</h2>
+              <span>{{
+                'admin.legacy.p0_creneau_x' | translate: { p0: slots().length }
+              }}</span>
+              <h2 id="calendar-title">
+                {{ 'admin.legacy.calendrier_de_publication' | translate }}
+              </h2>
             </div>
           </header>
           <p>
-            Les creneaux fixent la cible, le canal, l'horaire local et la
-            capacite avant l'assignation des lots ou des brouillons. La page
-            publique ne recoit que les dates, canaux, cibles et fuseaux.
+            {{
+              'admin.legacy.les_creneaux_fixent_la_cible_le_canal_l_horaire_local_et_la_capac'
+                | translate
+            }}
           </p>
 
           <form
@@ -204,8 +225,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             (submit)="$event.preventDefault(); createSlot()"
           >
             <label>
-              Cible
-              <select
+              {{ 'admin.legacy.cible' | translate
+              }}<select
                 [value]="newSlotFeedTarget()"
                 (change)="setNewSlotFeedTarget($event)"
               >
@@ -214,8 +235,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               </select>
             </label>
             <label>
-              Canal
-              <select
+              {{ 'admin.legacy.canal' | translate
+              }}<select
                 [value]="newSlotChannel()"
                 (change)="setNewSlotChannel($event)"
               >
@@ -224,16 +245,16 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               </select>
             </label>
             <label>
-              Date et heure
-              <input
+              {{ 'admin.legacy.date_et_heure' | translate
+              }}<input
                 type="datetime-local"
                 [value]="newSlotStartsAt()"
                 (input)="setNewSlotStartsAt($event)"
               />
             </label>
             <label>
-              Fuseau
-              <input
+              {{ 'admin.legacy.fuseau' | translate
+              }}<input
                 type="text"
                 maxlength="64"
                 [value]="newSlotTimezone()"
@@ -241,8 +262,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               />
             </label>
             <label>
-              Capacite
-              <input
+              {{ 'admin.legacy.capacite' | translate
+              }}<input
                 type="number"
                 min="1"
                 max="50"
@@ -251,8 +272,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               />
             </label>
             <label class="slot-notes-field">
-              Notes
-              <input
+              {{ 'admin.legacy.notes' | translate
+              }}<input
                 type="text"
                 maxlength="500"
                 [value]="newSlotNotes()"
@@ -260,7 +281,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               />
             </label>
             <button type="submit" [disabled]="slotActionState() === 'create'">
-              Creer un creneau
+              {{ 'admin.legacy.creer_un_creneau' | translate }}
             </button>
           </form>
 
@@ -268,7 +289,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             <article
               class="slot-card"
               *ngFor="let slot of slots(); trackBy: trackBySlot"
-              [attr.id]="'attention-object-' + slot.id" tabindex="-1"
+              [attr.id]="'attention-object-' + slot.id"
+              tabindex="-1"
             >
               <header>
                 <div>
@@ -285,9 +307,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
               <div class="slot-capacity">
                 <strong>{{ slot.capacityUsed }}/{{ slot.capacity }}</strong>
-                <span
-                  >{{ slot.capacityAvailable }} place(s) restante(s)</span
-                >
+                <span>{{
+                  'admin.legacy.p0_place_s_restante_s'
+                    | translate: { p0: slot.capacityAvailable }
+                }}</span>
               </div>
 
               <div
@@ -295,16 +318,16 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                 *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
               >
                 <label>
-                  Date et heure
-                  <input
+                  {{ 'admin.legacy.date_et_heure' | translate
+                  }}<input
                     type="datetime-local"
                     [value]="slotEditFor(slot.id).startsAt"
                     (input)="setSlotEditField(slot.id, 'startsAt', $event)"
                   />
                 </label>
                 <label>
-                  Fuseau
-                  <input
+                  {{ 'admin.legacy.fuseau' | translate
+                  }}<input
                     type="text"
                     maxlength="64"
                     [value]="slotEditFor(slot.id).timezone"
@@ -312,8 +335,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   />
                 </label>
                 <label>
-                  Capacite
-                  <input
+                  {{ 'admin.legacy.capacite' | translate
+                  }}<input
                     type="number"
                     min="1"
                     max="50"
@@ -322,8 +345,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   />
                 </label>
                 <label>
-                  Notes
-                  <input
+                  {{ 'admin.legacy.notes' | translate
+                  }}<input
                     type="text"
                     maxlength="500"
                     [value]="slotEditFor(slot.id).notes"
@@ -336,7 +359,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   [disabled]="slotActionState() === slot.id"
                   (click)="updateSlot(slot)"
                 >
-                  Mettre a jour
+                  {{ 'admin.legacy.mettre_a_jour' | translate }}
                 </button>
               </div>
 
@@ -345,12 +368,14 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                 *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
               >
                 <label class="inline">
-                  Lot
-                  <select
+                  {{ 'admin.legacy.lot' | translate
+                  }}<select
                     [value]="slotBatchSelection(slot.id)"
                     (change)="setSlotBatchSelection(slot.id, $event)"
                   >
-                    <option value="">Choisir un lot compatible...</option>
+                    <option value="">
+                      {{ 'admin.legacy.choisir_un_lot_compatible' | translate }}
+                    </option>
                     <option
                       *ngFor="let batch of assignableBatchesForSlot(slot)"
                       [value]="batch.id"
@@ -370,15 +395,17 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   "
                   (click)="assignBatchToSlot(slot)"
                 >
-                  Assigner le lot
+                  {{ 'admin.legacy.assigner_le_lot' | translate }}
                 </button>
                 <label class="inline">
-                  Brouillon
-                  <select
+                  {{ 'admin.legacy.brouillon' | translate
+                  }}<select
                     [value]="slotDraftSelection(slot.id)"
                     (change)="setSlotDraftSelection(slot.id, $event)"
                   >
-                    <option value="">Choisir un brouillon...</option>
+                    <option value="">
+                      {{ 'admin.legacy.choisir_un_brouillon' | translate }}
+                    </option>
                     <option
                       *ngFor="let draft of assignableDraftsForSlot(slot)"
                       [value]="draft.id"
@@ -396,7 +423,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   "
                   (click)="assignDraftToSlot(slot)"
                 >
-                  Assigner brouillon
+                  {{ 'admin.legacy.assigner_brouillon' | translate }}
                 </button>
               </div>
 
@@ -410,7 +437,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   "
                   (click)="publishSlot(slot)"
                 >
-                  Publier le creneau
+                  {{ 'admin.legacy.publier_le_creneau' | translate }}
                 </button>
                 <button
                   type="button"
@@ -419,17 +446,19 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   [disabled]="slotActionState() === slot.id"
                   (click)="cancelSlot(slot)"
                 >
-                  Annuler le creneau
+                  {{ 'admin.legacy.annuler_le_creneau' | translate }}
                 </button>
               </footer>
             </article>
           </div>
 
           <article class="empty-state" *ngIf="slots().length === 0">
-            <h3>Aucun creneau</h3>
+            <h3>{{ 'admin.legacy.aucun_creneau' | translate }}</h3>
             <p>
-              Creez plusieurs creneaux futurs par canal pour organiser les
-              publications Facebook et LinkedIn.
+              {{
+                'admin.legacy.creez_plusieurs_creneaux_futurs_par_canal_pour_organiser_les_publ'
+                  | translate
+              }}
             </p>
           </article>
         </section>
@@ -437,19 +466,29 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         <section class="admin-panel" aria-labelledby="batches-title">
           <header>
             <div>
-              <span>{{ batches().length }} lot(s)</span>
-              <h2 id="batches-title">Lots de publication collective</h2>
+              <span>{{
+                'admin.legacy.p0_lot_s' | translate: { p0: batches().length }
+              }}</span>
+              <h2 id="batches-title">
+                {{ 'admin.legacy.lots_de_publication_collective' | translate }}
+              </h2>
             </div>
           </header>
           <p>
-            Chaque lot regroupe plusieurs commandites approuvees dans une seule
-            publication collective Facebook ou LinkedIn, jusqu'a sa capacite.
-            Planifier puis publier restent deux actions manuelles distinctes:
-            aucune publication n'est jamais automatique.
+            {{
+              'admin.legacy.chaque_lot_regroupe_plusieurs_commandites_approuvees_dans_une_seu'
+                | translate
+            }}
           </p>
           <p class="social-runtime">
-            API sociale: {{ socialPublicationModeLabel() }} -
-            {{ socialPublicationConfiguredChannelsLabel() }}
+            {{
+              'admin.legacy.api_sociale_p0_p1'
+                | translate
+                  : {
+                      p0: socialPublicationModeLabel(),
+                      p1: socialPublicationConfiguredChannelsLabel()
+                    }
+            }}
           </p>
 
           <form
@@ -457,8 +496,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             (submit)="$event.preventDefault(); createBatch()"
           >
             <label>
-              Canal
-              <select
+              {{ 'admin.legacy.canal' | translate
+              }}<select
                 [value]="newBatchChannel()"
                 (change)="setNewBatchChannel($event)"
               >
@@ -467,8 +506,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               </select>
             </label>
             <label>
-              Capacite
-              <input
+              {{ 'admin.legacy.capacite' | translate
+              }}<input
                 type="number"
                 min="1"
                 max="50"
@@ -477,7 +516,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               />
             </label>
             <button type="submit" [disabled]="batchActionState() === 'create'">
-              Creer un lot
+              {{ 'admin.legacy.creer_un_lot' | translate }}
             </button>
           </form>
 
@@ -494,7 +533,9 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               </h3>
               <div class="batch-list">
                 <article
-                  class="batch-card" [attr.id]="'attention-object-' + batch.id" tabindex="-1"
+                  class="batch-card"
+                  [attr.id]="'attention-object-' + batch.id"
+                  tabindex="-1"
                   *ngFor="
                     let batch of batchesForChannel(channel);
                     trackBy: trackByBatch
@@ -508,10 +549,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                         {{ batch.capacityUsed }}/{{ batch.capacity }}
                       </h3>
                     </div>
-                    <small *ngIf="batch.scheduledAt"
-                      >Prochaine disponibilite:
-                      {{ dateLabel(batch.scheduledAt) }}</small
-                    >
+                    <small *ngIf="batch.scheduledAt">{{
+                      'admin.legacy.prochaine_disponibilite_p0'
+                        | translate: { p0: dateLabel(batch.scheduledAt) }
+                    }}</small>
                   </header>
 
                   <div
@@ -528,8 +569,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Voir la publication
-                    </a>
+                      {{ 'admin.legacy.voir_la_publication' | translate }}</a
+                    >
                     <small class="state-error" *ngIf="job.errorMessage">
                       {{ job.errorMessage }}
                     </small>
@@ -542,8 +583,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                     "
                   >
                     <label>
-                      Prochaine disponibilite
-                      <input
+                      {{ 'admin.legacy.prochaine_disponibilite' | translate
+                      }}<input
                         type="datetime-local"
                         [value]="batchScheduleFor(batch.id)"
                         (input)="setBatchSchedule(batch.id, $event)"
@@ -558,7 +599,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                       "
                       (click)="scheduleBatch(batch)"
                     >
-                      Planifier
+                      {{ 'admin.legacy.planifier' | translate }}
                     </button>
                   </div>
 
@@ -573,7 +614,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                       "
                       (click)="publishSocialBatch(batch)"
                     >
-                      Publier via API sociale
+                      {{ 'admin.legacy.publier_via_api_sociale' | translate }}
                     </button>
                     <button
                       type="button"
@@ -582,7 +623,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                       [disabled]="batchActionState() === batch.id"
                       (click)="publishBatch(batch)"
                     >
-                      Publier maintenant
+                      {{ 'admin.legacy.publier_maintenant' | translate }}
                     </button>
                     <button
                       type="button"
@@ -593,7 +634,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                       [disabled]="batchActionState() === batch.id"
                       (click)="cancelBatch(batch)"
                     >
-                      Annuler le lot
+                      {{ 'admin.legacy.annuler_le_lot' | translate }}
                     </button>
                   </footer>
                 </article>
@@ -602,19 +643,27 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
           </div>
 
           <article class="empty-state" *ngIf="batches().length === 0">
-            <h3>Aucun lot</h3>
+            <h3>{{ 'admin.legacy.aucun_lot' | translate }}</h3>
             <p>
-              Creez un lot pour regrouper plusieurs commandites approuvees dans
-              une seule publication collective.
+              {{
+                'admin.legacy.creez_un_lot_pour_regrouper_plusieurs_commandites_approuvees_dans'
+                  | translate
+              }}
             </p>
           </article>
         </section>
 
-        <section class="draft-list" aria-label="Brouillons de publication">
+        <section
+          class="draft-list"
+          [attr.aria-label]="
+            'admin.legacy.brouillons_de_publication' | translate
+          "
+        >
           <article
             class="draft-card"
             *ngFor="let draft of filteredDrafts(); trackBy: trackByDraft"
-            [attr.id]="'attention-object-' + draft.id" tabindex="-1"
+            [attr.id]="'attention-object-' + draft.id"
+            tabindex="-1"
           >
             <header>
               <div>
@@ -628,8 +677,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             </header>
 
             <label>
-              Titre
-              <input
+              {{ 'admin.legacy.titre' | translate
+              }}<input
                 type="text"
                 maxlength="160"
                 [value]="editFor(draft.id).title"
@@ -638,8 +687,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             </label>
 
             <label>
-              Texte
-              <textarea
+              {{ 'admin.legacy.texte' | translate
+              }}<textarea
                 rows="8"
                 maxlength="2500"
                 [value]="editFor(draft.id).body"
@@ -648,8 +697,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             </label>
 
             <label>
-              Divulgation
-              <input
+              {{ 'admin.legacy.divulgation' | translate
+              }}<input
                 type="text"
                 maxlength="300"
                 [value]="editFor(draft.id).disclosureText"
@@ -659,8 +708,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
             <div class="draft-grid">
               <label>
-                URL publique
-                <input
+                {{ 'admin.legacy.url_publique' | translate
+                }}<input
                   type="url"
                   maxlength="2048"
                   [value]="editFor(draft.id).publicUrl"
@@ -668,8 +717,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                 />
               </label>
               <label>
-                Planification
-                <input
+                {{ 'admin.legacy.planification' | translate
+                }}<input
                   type="datetime-local"
                   [value]="editFor(draft.id).scheduledAt"
                   (input)="setEditField(draft.id, 'scheduledAt', $event)"
@@ -678,8 +727,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             </div>
 
             <label>
-              Note revue
-              <textarea
+              {{ 'admin.legacy.note_revue' | translate
+              }}<textarea
                 rows="3"
                 maxlength="1000"
                 [value]="editFor(draft.id).reviewNote"
@@ -693,12 +742,14 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             >
               <ng-container *ngIf="!draft.batch_id">
                 <label class="inline">
-                  Lot
-                  <select
+                  {{ 'admin.legacy.lot' | translate
+                  }}<select
                     [value]="draftBatchSelection(draft.id)"
                     (change)="setDraftBatchSelection(draft.id, $event)"
                   >
-                    <option value="">Choisir un lot ouvert...</option>
+                    <option value="">
+                      {{ 'admin.legacy.choisir_un_lot_ouvert' | translate }}
+                    </option>
                     <option
                       *ngFor="let batch of openBatchesForChannel(draft.channel)"
                       [value]="batch.id"
@@ -717,64 +768,66 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   "
                   (click)="assignToBatch(draft)"
                 >
-                  Assigner au lot
+                  {{ 'admin.legacy.assigner_au_lot' | translate }}
                 </button>
               </ng-container>
               <ng-container *ngIf="draft.batch_id as batchId">
-                <span
-                  >Dans un lot ({{
-                    batchStatusLabel(batchStatusById(batchId))
-                  }})</span
-                >
+                <span>{{
+                  'admin.legacy.dans_un_lot_p0'
+                    | translate
+                      : { p0: batchStatusLabel(batchStatusById(batchId)) }
+                }}</span>
                 <button
                   type="button"
                   class="reject"
                   [disabled]="actionState() === draft.id"
                   (click)="unassignFromBatch(draft)"
                 >
-                  Retirer du lot
+                  {{ 'admin.legacy.retirer_du_lot' | translate }}
                 </button>
               </ng-container>
             </div>
 
             <footer>
-              <button type="button" (click)="copyDraft(draft)">Copier</button>
+              <button type="button" (click)="copyDraft(draft)">
+                {{ 'admin.legacy.copier' | translate }}
+              </button>
               <button type="button" (click)="saveDraft(draft)">
-                Enregistrer
+                {{ 'admin.legacy.enregistrer' | translate }}
               </button>
               <button
                 type="button"
                 (click)="saveDraft(draft, 'pending_review')"
               >
-                Revue
+                {{ 'admin.legacy.revue' | translate }}
               </button>
               <button
                 type="button"
                 class="approve"
                 (click)="saveDraft(draft, 'approved')"
               >
-                Approuver
+                {{ 'admin.legacy.approuver' | translate }}
               </button>
               <button
                 type="button"
                 class="neutral"
                 (click)="saveDraft(draft, 'scheduled')"
               >
-                Planifier
+                {{ 'admin.legacy.planifier' | translate }}
               </button>
               <button
                 type="button"
                 class="approve"
                 (click)="saveDraft(draft, 'published')"
               >
-                Publiee
+                {{ 'admin.legacy.publiee' | translate }}
               </button>
               <button
                 type="button"
                 class="reject"
                 (click)="saveDraft(draft, 'rejected')"
               >
-                Refuser
+                {{ 'admin.legacy.refuser' | translate }}
               </button>
             </footer>
           </article>
@@ -783,26 +836,25 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             class="empty-state"
             *ngIf="state() === 'ready' && filteredDrafts().length === 0"
           >
-            <h3>Aucun brouillon trouve</h3>
-            <p>Generez un brouillon ou modifiez les filtres.</p>
+            <h3>{{ 'admin.legacy.aucun_brouillon_trouve' | translate }}</h3>
+            <p>
+              {{
+                'admin.legacy.generez_un_brouillon_ou_modifiez_les_filtres'
+                  | translate
+              }}
+            </p>
           </article>
         </section>
       </section>
-    </main>
+    </openg7-admin-layout>
   `,
+  styleUrls: [
+    '../../components/admin-ui/admin-theme.css',
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css'
+  ],
   styles: [
     `
-      .admin-shell {
-        background: #f5f7fb;
-        color: #172033;
-        display: grid;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        gap: 1rem;
-        grid-template-columns: 15rem minmax(0, 1fr);
-        min-height: 100vh;
-        padding: 1.25rem;
-      }
-
       .admin-content {
         display: grid;
         gap: 1rem;
@@ -836,7 +888,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       .admin-summary-grid span,
       .admin-panel span,
       .draft-card header span {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: 800;
         letter-spacing: 0;
@@ -857,8 +909,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       .admin-panel,
       .draft-card,
       .empty-state {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
       }
 
@@ -880,7 +932,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       .admin-auth-panel p,
       .empty-state p,
       small {
-        color: #526070;
+        color: var(--admin-muted);
         line-height: 1.55;
         margin: 0.35rem 0 0;
       }
@@ -921,7 +973,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       input,
       select,
       textarea {
-        border: 1px solid #cdd6e3;
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         font: inherit;
         padding: 0.65rem 0.75rem;
@@ -932,10 +984,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       button {
-        background: #18233a;
+        background: var(--admin-panel-raised);
         border: 0;
         border-radius: 0.35rem;
-        color: #fff;
+        color: var(--admin-text);
         cursor: pointer;
         font: inherit;
         font-weight: 800;
@@ -949,15 +1001,15 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       button.neutral {
-        background: #254db8;
+        background: var(--admin-panel-raised);
       }
 
       button.approve {
-        background: #176236;
+        background: #193d32;
       }
 
       button.reject {
-        background: #9f1d2f;
+        background: #422532;
       }
 
       .admin-panel,
@@ -973,8 +1025,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       .eligible-list article {
-        background: #f7f9fc;
-        border: 1px solid #e4e9f2;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         padding: 0.85rem;
       }
@@ -1015,7 +1067,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       .batch-timeline-heading {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: 900;
         letter-spacing: 0;
@@ -1035,8 +1087,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       .batch-card {
-        background: #f7f9fc;
-        border: 1px solid #e4e9f2;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         display: grid;
         gap: 0.75rem;
@@ -1044,8 +1096,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       .slot-card {
-        background: #f7f9fc;
-        border: 1px solid #d9e7dd;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         display: grid;
         gap: 0.75rem;
@@ -1054,8 +1106,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
       .slot-capacity {
         align-items: center;
-        background: #edf8f1;
-        border: 1px solid #c9e6d1;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         display: flex;
         gap: 0.75rem;
@@ -1068,7 +1120,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       .slot-capacity span {
-        color: #176236;
+        color: var(--admin-success);
         font-size: 0.85rem;
         font-weight: 900;
       }
@@ -1081,10 +1133,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
       .social-runtime,
       .social-job {
-        background: #eef4ff;
-        border: 1px solid #c8dcff;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
-        color: #25406f;
+        color: var(--admin-muted);
         font-size: 0.9rem;
         font-weight: 800;
         margin: 0;
@@ -1100,7 +1152,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       .social-job a {
-        color: #254db8;
+        color: var(--admin-muted);
         font-weight: 900;
       }
 
@@ -1119,8 +1171,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
       .draft-batch-row {
         align-items: end;
-        background: #f7f9fc;
-        border: 1px solid #e4e9f2;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         display: flex;
         flex-wrap: wrap;
@@ -1129,7 +1181,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       .draft-batch-row span {
-        color: #526070;
+        color: var(--admin-muted);
         font-size: 0.82rem;
         font-weight: 700;
       }
@@ -1140,7 +1192,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       .state-error {
-        color: #9f1d2f;
+        color: var(--admin-danger);
         font-weight: 800;
       }
 
@@ -1168,6 +1220,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
   ]
 })
 export class AdminPublicationsPageComponent implements OnInit {
+  readonly i18n = inject(FundingI18nService);
+  private readonly confirmation = inject(AdminConfirmationService);
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
   private readonly document = inject(DOCUMENT);
@@ -1175,8 +1229,19 @@ export class AdminPublicationsPageComponent implements OnInit {
   private readonly destroy = inject(DestroyRef);
   private loadGeneration = 0;
   private readonly target = signal<string | null>(null);
-  get targetId(): string | null { return this.target(); }
-  readonly targetFound = computed(() => !this.targetId || [...this.slots(), ...this.batches(), ...this.drafts(), ...this.sponsorships()].some(item => item.id === this.targetId));
+  get targetId(): string | null {
+    return this.target();
+  }
+  readonly targetFound = computed(
+    () =>
+      !this.targetId ||
+      [
+        ...this.slots(),
+        ...this.batches(),
+        ...this.drafts(),
+        ...this.sponsorships()
+      ].some((item) => item.id === this.targetId)
+  );
 
   readonly publicationStatuses = publicationStatuses;
   readonly adminToken = signal<string>('');
@@ -1270,15 +1335,19 @@ export class AdminPublicationsPageComponent implements OnInit {
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
     this.destroy.onDestroy(() => this.loadGeneration++);
-    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe((params) => {
-      this.target.set(params.get('slotId') || params.get('batchId') || params.get('draftId'));
-      this.search.set('');
-      this.statusFilter.set('all');
-      this.draftsResponse.set(null);
-      this.batchesResponse.set(null);
-      this.slotsResponse.set(null);
-      void this.load();
-    });
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe((params) => {
+        this.target.set(
+          params.get('slotId') || params.get('batchId') || params.get('draftId')
+        );
+        this.search.set('');
+        this.statusFilter.set('all');
+        this.draftsResponse.set(null);
+        this.batchesResponse.set(null);
+        this.slotsResponse.set(null);
+        void this.load();
+      });
   }
 
   async load(): Promise<void> {
@@ -1288,12 +1357,21 @@ export class AdminPublicationsPageComponent implements OnInit {
     try {
       const [sponsorships, drafts, batches, slots, socialJobs] =
         await Promise.all([
-        this.admin.getSponsorships(this.adminToken()),
-        this.admin.getPublicationDrafts(this.adminToken(), this.route.snapshot.queryParamMap.get('draftId') ?? undefined),
-        this.admin.getPublicationBatches(this.adminToken(), this.route.snapshot.queryParamMap.get('batchId') ?? undefined),
-        this.admin.getPublicationSlots(this.adminToken(), this.route.snapshot.queryParamMap.get('slotId') ?? undefined),
-        this.admin.getSocialPublicationJobs(this.adminToken())
-      ]);
+          this.admin.getSponsorships(this.adminToken()),
+          this.admin.getPublicationDrafts(
+            this.adminToken(),
+            this.route.snapshot.queryParamMap.get('draftId') ?? undefined
+          ),
+          this.admin.getPublicationBatches(
+            this.adminToken(),
+            this.route.snapshot.queryParamMap.get('batchId') ?? undefined
+          ),
+          this.admin.getPublicationSlots(
+            this.adminToken(),
+            this.route.snapshot.queryParamMap.get('slotId') ?? undefined
+          ),
+          this.admin.getSocialPublicationJobs(this.adminToken())
+        ]);
       if (generation !== this.loadGeneration) return;
       this.sponsorships.set(sponsorships.sponsorships);
       this.draftsResponse.set(drafts);
@@ -1311,12 +1389,18 @@ export class AdminPublicationsPageComponent implements OnInit {
       );
       this.socialJobsResponse.set(socialJobs);
       this.state.set('ready');
-      if (this.targetId) afterNextRender(() => {
-        if (generation !== this.loadGeneration) return;
-        const target = this.document.getElementById('attention-object-' + this.targetId);
-        target?.focus({ preventScroll: true });
-        target?.scrollIntoView({ block: 'center' });
-      }, { injector: this.injector });
+      if (this.targetId)
+        afterNextRender(
+          () => {
+            if (generation !== this.loadGeneration) return;
+            const target = this.document.getElementById(
+              'attention-object-' + this.targetId
+            );
+            target?.focus({ preventScroll: true });
+            target?.scrollIntoView({ block: 'center' });
+          },
+          { injector: this.injector }
+        );
       this.admin.saveAdminToken(this.adminToken());
     } catch {
       if (generation !== this.loadGeneration) return;
@@ -1351,6 +1435,23 @@ export class AdminPublicationsPageComponent implements OnInit {
     draft: AdminPublicationDraftRecord,
     status?: PublicationDraftStatus
   ): Promise<void> {
+    if (this.actionState()) return;
+    if (
+      status === 'rejected' &&
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.confirmation.refuse'),
+        draft.title
+      ))
+    )
+      return;
+    if (
+      status === 'published' &&
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.confirmation.publish'),
+        draft.title
+      ))
+    )
+      return;
     const edit = this.editFor(draft.id);
     this.actionState.set(draft.id);
 
@@ -1487,6 +1588,14 @@ export class AdminPublicationsPageComponent implements OnInit {
   }
 
   async publishSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    if (this.slotActionState()) return;
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.confirmation.publish'),
+        slot.id
+      ))
+    )
+      return;
     this.slotActionState.set(slot.id);
     try {
       await this.admin.publishPublicationSlot(this.adminToken(), {
@@ -1501,6 +1610,14 @@ export class AdminPublicationsPageComponent implements OnInit {
   }
 
   async cancelSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    if (this.slotActionState()) return;
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.confirmation.cancelPublication'),
+        slot.id
+      ))
+    )
+      return;
     this.slotActionState.set(slot.id);
     try {
       await this.admin.cancelPublicationSlot(this.adminToken(), {
@@ -1590,6 +1707,14 @@ export class AdminPublicationsPageComponent implements OnInit {
   }
 
   async publishBatch(batch: AdminPublicationBatchRecord): Promise<void> {
+    if (this.batchActionState()) return;
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.confirmation.publish'),
+        batch.id
+      ))
+    )
+      return;
     this.batchActionState.set(batch.id);
     try {
       await this.admin.publishPublicationBatch(this.adminToken(), {
@@ -1604,15 +1729,18 @@ export class AdminPublicationsPageComponent implements OnInit {
   }
 
   async publishSocialBatch(batch: AdminPublicationBatchRecord): Promise<void> {
+    if (this.batchActionState()) return;
     if (!this.canPublishSocialBatch(batch)) {
       return;
     }
 
     if (
-      typeof window !== 'undefined' &&
-      !window.confirm(
-        `Publier le lot ${batch.id} sur ${this.channelLabel(batch.channel)} ?`
-      )
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.messages.publier_le_lot_p0_sur_p1', {
+          p0: batch.id,
+          p1: this.channelLabel(batch.channel)
+        })
+      ))
     ) {
       return;
     }
@@ -1632,6 +1760,14 @@ export class AdminPublicationsPageComponent implements OnInit {
   }
 
   async cancelBatch(batch: AdminPublicationBatchRecord): Promise<void> {
+    if (this.batchActionState()) return;
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.confirmation.cancelPublication'),
+        batch.id
+      ))
+    )
+      return;
     this.batchActionState.set(batch.id);
     try {
       await this.admin.cancelPublicationBatch(this.adminToken(), {
@@ -1820,9 +1956,9 @@ export class AdminPublicationsPageComponent implements OnInit {
   socialPublicationModeLabel(): string {
     const mode = this.socialJobsResponse()?.mode ?? 'disabled';
     const labels = {
-      disabled: 'Desactive',
-      mock: 'Simulation',
-      live: 'Connecte'
+      disabled: this.i18n.t('admin.messages.desactive'),
+      mock: this.i18n.t('admin.dossier.simulation'),
+      live: this.i18n.t('admin.messages.connecte')
     } as const;
 
     return labels[mode];
@@ -1832,7 +1968,7 @@ export class AdminPublicationsPageComponent implements OnInit {
     const channels = this.socialJobsResponse()?.configuredChannels ?? [];
     return channels.length > 0
       ? channels.map((channel) => this.channelLabel(channel)).join(', ')
-      : 'Aucun canal';
+      : this.i18n.t('admin.messages.aucun_canal');
   }
 
   socialJobForBatch(batchId: string): AdminSocialPublicationJobRecord | null {
@@ -1857,10 +1993,10 @@ export class AdminPublicationsPageComponent implements OnInit {
     status: AdminSocialPublicationJobRecord['status']
   ): string {
     const labels: Record<AdminSocialPublicationJobRecord['status'], string> = {
-      pending: 'En attente',
-      publishing: 'Envoi en cours',
-      published: 'Publie via API',
-      failed: 'Echec API'
+      pending: this.i18n.t('admin.legacy.en_attente'),
+      publishing: this.i18n.t('admin.messages.envoi_en_cours'),
+      published: this.i18n.t('admin.messages.publie_via_api'),
+      failed: this.i18n.t('admin.messages.echec_api')
     };
 
     return labels[status];
@@ -1902,7 +2038,9 @@ export class AdminPublicationsPageComponent implements OnInit {
   }
 
   channelLabel(channel: SponsorFeedChannel): string {
-    return channel === 'linkedin' ? 'LinkedIn' : 'Facebook';
+    return channel === 'linkedin'
+      ? 'LinkedIn'
+      : this.i18n.t('admin.messages.facebook');
   }
 
   feedTargetName(feedTarget: SponsorFeedTarget): string {
@@ -1911,14 +2049,14 @@ export class AdminPublicationsPageComponent implements OnInit {
 
   batchStatusLabel(status: PublicationBatchStatus | null): string {
     if (!status) {
-      return 'Inconnu';
+      return this.i18n.t('admin.cockpit.health.unknown');
     }
 
     const labels: Record<PublicationBatchStatus, string> = {
-      open: 'Ouvert',
-      scheduled: 'Planifie',
-      published: 'Publie',
-      cancelled: 'Annule'
+      open: this.i18n.t('admin.dossier.values.open'),
+      scheduled: this.i18n.t('admin.messages.planifie'),
+      published: this.i18n.t('admin.messages.publie'),
+      cancelled: this.i18n.t('admin.messages.annule')
     };
 
     return labels[status];
@@ -1926,10 +2064,10 @@ export class AdminPublicationsPageComponent implements OnInit {
 
   slotStatusLabel(status: PublicationSlotStatus): string {
     const labels: Record<PublicationSlotStatus, string> = {
-      open: 'Ouvert',
-      scheduled: 'Planifie',
-      published: 'Publie',
-      cancelled: 'Annule'
+      open: this.i18n.t('admin.dossier.values.open'),
+      scheduled: this.i18n.t('admin.messages.planifie'),
+      published: this.i18n.t('admin.messages.publie'),
+      cancelled: this.i18n.t('admin.messages.annule')
     };
 
     return labels[status];
@@ -1937,15 +2075,15 @@ export class AdminPublicationsPageComponent implements OnInit {
 
   dateLabel(value: string | null): string {
     if (!value) {
-      return 'Non disponible';
+      return this.i18n.t('admin.dashboard.notAvailable');
     }
 
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) {
-      return 'Non disponible';
+      return this.i18n.t('admin.dashboard.notAvailable');
     }
 
-    return new Intl.DateTimeFormat('fr-CA', {
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(date);
@@ -1957,13 +2095,13 @@ export class AdminPublicationsPageComponent implements OnInit {
 
   statusLabel(status: PublicationDraftStatus): string {
     const labels: Record<PublicationDraftStatus, string> = {
-      draft: 'Brouillon',
-      pending_review: 'A approuver',
-      approved: 'Approuvee',
-      scheduled: 'Planifiee',
-      published: 'Publiee',
-      rejected: 'Refusee',
-      cancelled: 'Annulee'
+      draft: this.i18n.t('admin.legacy.brouillon'),
+      pending_review: this.i18n.t('admin.legacy.a_approuver'),
+      approved: this.i18n.t('admin.messages.approuvee'),
+      scheduled: this.i18n.t('admin.messages.planifiee'),
+      published: this.i18n.t('admin.legacy.publiee'),
+      rejected: this.i18n.t('admin.messages.refusee'),
+      cancelled: this.i18n.t('admin.messages.annulee')
     };
 
     return labels[status];

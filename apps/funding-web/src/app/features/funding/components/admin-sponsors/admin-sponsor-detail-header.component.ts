@@ -1,3 +1,4 @@
+import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -11,7 +12,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
 @Component({
   selector: 'openg7-admin-sponsor-detail-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [TranslatePipe, CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="detail-header">
@@ -29,9 +30,9 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
         type="button"
         class="icon-action close-detail"
         (click)="close.emit()"
-        aria-label="Fermer le dossier"
+        [attr.aria-label]="'admin.legacy.fermer_le_dossier' | translate"
       >
-        &times;
+        ?
       </button>
 
       <div class="detail-badges">
@@ -55,20 +56,25 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
 
       <dl class="detail-meta">
         <div>
-          <dt>Reference publique</dt>
+          <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
           <dd>{{ detail().publicReferenceLabel }}</dd>
         </div>
         <div>
-          <dt>Soumis le</dt>
+          <dt>{{ 'admin.legacy.soumis_le' | translate }}</dt>
           <dd>{{ detail().submittedAtLabel }}</dd>
         </div>
         <div>
-          <dt>Derniere revue</dt>
+          <dt>{{ 'admin.legacy.derniere_revue' | translate }}</dt>
           <dd>{{ detail().reviewedAtLabel }}</dd>
         </div>
       </dl>
     </header>
   `,
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       :host {
@@ -94,15 +100,15 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
       }
 
       .detail-title p {
-        color: #38425a;
+        color: var(--admin-muted);
         margin: 0.2rem 0 0;
       }
 
       .sponsor-avatar {
         align-items: center;
-        background: #172033;
+        background: var(--admin-panel-raised);
         border-radius: 999px;
-        color: #fff;
+        color: var(--admin-text);
         display: inline-flex;
         font-weight: 900;
         height: 2.35rem;
@@ -118,10 +124,10 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
 
       .icon-action {
         align-items: center;
-        background: #fff;
-        border: 1px solid #cfd8e6;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
-        color: #172033;
+        color: var(--admin-text);
         cursor: pointer;
         display: inline-flex;
         font: inherit;
@@ -163,7 +169,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
       }
 
       dt {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.76rem;
         font-weight: 900;
         letter-spacing: 0;
@@ -191,34 +197,34 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
       .payment-pending,
       .refund-requested,
       .visibility-review {
-        background: #fff2cf;
-        color: #8a5a00;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       .status-approved,
       .payment-paid,
       .refund-completed,
       .visibility-visible {
-        background: #dff7e8;
-        color: #176236;
+        background: #193d32;
+        color: var(--admin-success);
       }
 
       .status-rejected,
       .payment-failed,
       .refund-failed {
-        background: #ffe0e5;
-        color: #9f1d2f;
+        background: #422532;
+        color: var(--admin-danger);
       }
 
       .visibility-hidden,
       .refund-not-requested {
-        background: #eef1f5;
-        color: #667085;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       .refund-processing {
-        background: #e8f1ff;
-        color: #174ea6;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       @media (max-width: 860px) {

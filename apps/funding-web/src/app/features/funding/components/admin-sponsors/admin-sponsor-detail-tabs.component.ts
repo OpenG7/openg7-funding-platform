@@ -35,6 +35,11 @@ interface AdminSponsorDetailTabItem {
       </button>
     </nav>
   `,
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       :host {
@@ -42,8 +47,8 @@ interface AdminSponsorDetailTabItem {
       }
 
       .detail-tabs {
-        border-bottom: 1px solid #e4e9f2;
-        border-top: 1px solid #e4e9f2;
+        border-bottom: 1px solid var(--admin-border);
+        border-top: 1px solid var(--admin-border);
         display: flex;
         flex-wrap: wrap;
         gap: 0.25rem;
@@ -54,7 +59,7 @@ interface AdminSponsorDetailTabItem {
         background: transparent;
         border: 0;
         border-bottom: 0.18rem solid transparent;
-        color: #38425a;
+        color: var(--admin-muted);
         cursor: pointer;
         font: inherit;
         font-weight: 900;
@@ -68,8 +73,8 @@ interface AdminSponsorDetailTabItem {
       }
 
       .detail-tabs button.active {
-        border-color: #2563eb;
-        color: #0f3e99;
+        border-color: var(--admin-border);
+        color: var(--admin-muted);
       }
     `
   ]

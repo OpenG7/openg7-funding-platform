@@ -1,3 +1,4 @@
+import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -18,16 +19,22 @@ import type {
 @Component({
   selector: 'openg7-admin-sponsors-list-panel',
   standalone: true,
-  imports: [CommonModule],
+  imports: [TranslatePipe, CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="sponsors-list-panel" aria-label="Liste des commandites">
+    <section
+      class="sponsors-list-panel"
+      [attr.aria-label]="'admin.legacy.liste_des_commandites' | translate"
+    >
       <header class="admin-table-toolbar">
         <label class="search-control">
-          Recherche
-          <input
+          {{ 'admin.legacy.recherche' | translate
+          }}<input
             type="search"
-            placeholder="Rechercher une entreprise ou un courriel..."
+            [attr.placeholder]="
+              'admin.legacy.rechercher_une_entreprise_ou_un_courriel'
+                | translate
+            "
             [value]="search()"
             (input)="onSearch($event)"
           />
@@ -35,25 +42,31 @@ import type {
 
         <div class="filter-row">
           <label>
-            Statut de revue
-            <select
+            {{ 'admin.legacy.statut_de_revue' | translate
+            }}<select
               [value]="reviewFilter()"
               (change)="onReviewFilterChange($event)"
             >
-              <option value="all">Tous</option>
-              <option value="pending_review">En attente</option>
-              <option value="approved">Approuvees</option>
-              <option value="rejected">Refusees</option>
+              <option value="all">{{ 'admin.legacy.tous' | translate }}</option>
+              <option value="pending_review">
+                {{ 'admin.legacy.en_attente' | translate }}
+              </option>
+              <option value="approved">
+                {{ 'admin.legacy.approuvees' | translate }}
+              </option>
+              <option value="rejected">
+                {{ 'admin.legacy.refusees' | translate }}
+              </option>
             </select>
           </label>
 
           <label>
-            Visibilite / statut feed
-            <select
+            {{ 'admin.legacy.visibilite_statut_feed' | translate
+            }}<select
               [value]="feedFilter()"
               (change)="onFeedFilterChange($event)"
             >
-              <option value="all">Tous</option>
+              <option value="all">{{ 'admin.legacy.tous' | translate }}</option>
               <option
                 *ngFor="let status of feedStatusOptions()"
                 [value]="status.value"
@@ -64,15 +77,21 @@ import type {
           </label>
 
           <label>
-            Paiement
-            <select
+            {{ 'admin.legacy.paiement' | translate
+            }}<select
               [value]="paymentFilter()"
               (change)="onPaymentFilterChange($event)"
             >
-              <option value="all">Tous</option>
-              <option value="paid">Paye</option>
-              <option value="refunded">Rembourse</option>
-              <option value="disputed">Litige</option>
+              <option value="all">{{ 'admin.legacy.tous' | translate }}</option>
+              <option value="paid">
+                {{ 'admin.legacy.paye' | translate }}
+              </option>
+              <option value="refunded">
+                {{ 'admin.legacy.rembourse' | translate }}
+              </option>
+              <option value="disputed">
+                {{ 'admin.legacy.litige' | translate }}
+              </option>
             </select>
           </label>
 
@@ -82,7 +101,7 @@ import type {
             (click)="resetFilters.emit()"
             [disabled]="!hasActiveFilters()"
           >
-            Reinitialiser
+            {{ 'admin.legacy.reinitialiser' | translate }}
           </button>
         </div>
       </header>
@@ -92,25 +111,33 @@ import type {
         *ngIf="state() === 'loading'"
         aria-live="polite"
       >
-        <span>Chargement des commandites...</span>
+        <span>{{ 'admin.legacy.chargement_des_commandites' | translate }}</span>
         <div class="skeleton-list" aria-hidden="true">
           <span></span><span></span><span></span>
         </div>
       </div>
 
       <div class="state state-error" *ngIf="state() === 'error'">
-        <strong>Impossible de charger les commandites.</strong>
-        <span>Les donnees n'ont pas pu etre recuperees.</span>
+        <strong>{{
+          'admin.legacy.impossible_de_charger_les_commandites' | translate
+        }}</strong>
+        <span>{{
+          'admin.legacy.les_donnees_n_ont_pas_pu_etre_recuperees' | translate
+        }}</span>
         <button type="button" class="secondary-action" (click)="refresh.emit()">
-          Reessayer
+          {{ 'admin.legacy.reessayer' | translate }}
         </button>
       </div>
 
       <ng-container *ngIf="state() !== 'loading' && state() !== 'error'">
         <div class="sponsor-table" *ngIf="rows().length > 0">
           <div class="sponsor-table-head" aria-hidden="true">
-            <span>Commanditaire</span><span>Commandite</span><span>Revue</span
-            ><span>Publication</span><span>Paiement</span><span>Soumission</span
+            <span>{{ 'admin.legacy.commanditaire' | translate }}</span
+            ><span>{{ 'admin.legacy.commandite' | translate }}</span
+            ><span>{{ 'admin.legacy.revue' | translate }}</span
+            ><span>{{ 'admin.legacy.publication' | translate }}</span
+            ><span>{{ 'admin.legacy.paiement' | translate }}</span
+            ><span>{{ 'admin.legacy.soumission' | translate }}</span
             ><span></span>
           </div>
 
@@ -167,7 +194,7 @@ import type {
               <small>{{ row.paidAtLabel }}</small>
             </span>
             <span class="row-cell stacked-cell">
-              <small>Soumis le</small>
+              <small>{{ 'admin.legacy.soumis_le' | translate }}</small>
               <span>{{ row.submittedAtLabel }}</span>
             </span>
             <span class="row-cell row-open" aria-hidden="true">&rsaquo;</span>
@@ -182,8 +209,17 @@ import type {
             !hasActiveFilters()
           "
         >
-          <h2>Toutes les commandites ont ete revisees.</h2>
-          <p>Il n'y a actuellement aucune nouvelle commandite a traiter.</p>
+          <h2>
+            {{
+              'admin.legacy.toutes_les_commandites_ont_ete_revisees' | translate
+            }}
+          </h2>
+          <p>
+            {{
+              'admin.legacy.il_n_y_a_actuellement_aucune_nouvelle_commandite_a_traiter'
+                | translate
+            }}
+          </p>
         </article>
 
         <article
@@ -194,29 +230,46 @@ import type {
             hasActiveFilters()
           "
         >
-          <h2>Aucune commandite ne correspond aux filtres.</h2>
-          <p>Reinitialisez les filtres ou elargissez la recherche.</p>
+          <h2>
+            {{
+              'admin.legacy.aucune_commandite_ne_correspond_aux_filtres'
+                | translate
+            }}
+          </h2>
+          <p>
+            {{
+              'admin.legacy.reinitialisez_les_filtres_ou_elargissez_la_recherche'
+                | translate
+            }}
+          </p>
           <button
             type="button"
             class="secondary-action"
             (click)="resetFilters.emit()"
           >
-            Reinitialiser les filtres
+            {{ 'admin.legacy.reinitialiser_les_filtres' | translate }}
           </button>
         </article>
 
         <footer class="pagination-bar" *ngIf="rows().length > 0">
           <span>
-            Affichage de {{ paginationStart() }} a {{ paginationEnd() }} sur
-            {{ totalItems() }} resultats
-          </span>
+            {{
+              'admin.legacy.affichage_de_p0_a_p1_sur_p2_resultats'
+                | translate
+                  : {
+                      p0: paginationStart(),
+                      p1: paginationEnd(),
+                      p2: totalItems()
+                    }
+            }}</span
+          >
           <div class="pagination-controls">
             <button
               type="button"
               class="icon-action"
               (click)="previousPage.emit()"
               [disabled]="page() <= 1"
-              aria-label="Page precedente"
+              [attr.aria-label]="'admin.legacy.page_precedente' | translate"
             >
               &lsaquo;
             </button>
@@ -226,13 +279,13 @@ import type {
               class="icon-action"
               (click)="nextPage.emit()"
               [disabled]="page() >= totalPages()"
-              aria-label="Page suivante"
+              [attr.aria-label]="'admin.legacy.page_suivante' | translate"
             >
               &rsaquo;
             </button>
           </div>
           <label>
-            <span>Par page</span>
+            <span>{{ 'admin.legacy.par_page' | translate }}</span>
             <select [value]="pageSize()" (change)="onPageSizeChange($event)">
               <option *ngFor="let size of pageSizeOptions()" [value]="size">
                 {{ size }}
@@ -243,6 +296,11 @@ import type {
       </ng-container>
     </section>
   `,
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       :host {
@@ -252,8 +310,8 @@ import type {
 
       .sponsors-list-panel,
       .empty-admin-state {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.5rem;
       }
 
@@ -264,7 +322,7 @@ import type {
 
       .admin-table-toolbar {
         align-items: end;
-        border-bottom: 1px solid #e4e9f2;
+        border-bottom: 1px solid var(--admin-border);
         display: grid;
         gap: 1rem;
         grid-template-columns: minmax(16rem, 1fr) auto;
@@ -306,7 +364,7 @@ import type {
 
       input,
       select {
-        border: 1px solid #cdd6e3;
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         padding: 0.65rem 0.75rem;
       }
@@ -328,9 +386,9 @@ import type {
       .secondary-action,
       .tertiary-action,
       .icon-action {
-        background: #fff;
-        border: 1px solid #cfd8e6;
-        color: #172033;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
+        color: var(--admin-text);
       }
 
       .tertiary-action:disabled,
@@ -358,18 +416,18 @@ import type {
       }
 
       .empty-admin-state p {
-        color: #566274;
+        color: var(--admin-muted);
         line-height: 1.55;
         margin: 0.35rem 0 0;
       }
 
       .state-error {
-        background: #fff7f8;
-        color: #9f1d2f;
+        background: var(--admin-panel);
+        color: var(--admin-danger);
       }
 
       .state-loading {
-        color: #38425a;
+        color: var(--admin-muted);
       }
 
       .skeleton-list {
@@ -378,7 +436,12 @@ import type {
       }
 
       .skeleton-list span {
-        background: linear-gradient(90deg, #edf2f7, #f8fafc, #edf2f7);
+        background: linear-gradient(
+          90deg,
+          var(--admin-panel-raised),
+          var(--admin-panel),
+          var(--admin-panel-raised)
+        );
         border-radius: 0.35rem;
         display: block;
         height: 3.5rem;
@@ -400,17 +463,17 @@ import type {
       }
 
       .sponsor-table-head {
-        border-bottom: 1px solid #e8edf5;
-        color: #506079;
+        border-bottom: 1px solid var(--admin-border);
+        color: var(--admin-muted);
         font-size: 0.76rem;
         font-weight: 900;
       }
 
       .sponsor-table-row {
         appearance: none;
-        background: var(--sponsor-row-bg, #fff);
+        background: var(--sponsor-row-bg, var(--admin-panel));
         border: 0;
-        border-bottom: 1px solid #edf1f6;
+        border-bottom: 1px solid var(--admin-border);
         border-left: 0.28rem solid var(--sponsor-row-accent, transparent);
         box-sizing: border-box;
         color: inherit;
@@ -424,11 +487,11 @@ import type {
       }
 
       .sponsor-table-row:hover {
-        background: var(--sponsor-row-hover-bg, #f8fbff);
+        background: var(--sponsor-row-hover-bg, var(--admin-panel));
       }
 
       .sponsor-table-row.selected {
-        background: var(--sponsor-row-selected-bg, #f8fbff);
+        background: var(--sponsor-row-selected-bg, var(--admin-panel));
         box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.24);
       }
 
@@ -498,9 +561,9 @@ import type {
 
       .sponsor-avatar {
         align-items: center;
-        background: #172033;
+        background: var(--admin-panel-raised);
         border-radius: 999px;
-        color: #fff;
+        color: var(--admin-text);
         display: inline-flex;
         font-weight: 900;
         height: 2.35rem;
@@ -509,7 +572,7 @@ import type {
       }
 
       .row-open {
-        color: #506079;
+        color: var(--admin-muted);
         font-size: 1.6rem;
         justify-content: center;
       }
@@ -529,7 +592,7 @@ import type {
       }
 
       .sponsor-table-row small {
-        color: #667085;
+        color: var(--admin-muted);
       }
 
       .status-badge,
@@ -552,8 +615,8 @@ import type {
       .refund-requested,
       .visibility-review,
       .tier-gold {
-        background: #fff2cf;
-        color: #8a5a00;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       .status-approved,
@@ -561,42 +624,42 @@ import type {
       .payment-paid,
       .refund-completed,
       .visibility-visible {
-        background: #dff7e8;
-        color: #176236;
+        background: #193d32;
+        color: var(--admin-success);
       }
 
       .status-rejected,
       .payment-failed,
       .refund-failed {
-        background: #ffe0e5;
-        color: #9f1d2f;
+        background: #422532;
+        color: var(--admin-danger);
       }
 
       .visibility-hidden,
       .feed-not_planned,
       .refund-not-requested {
-        background: #eef1f5;
-        color: #667085;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       .refund-processing {
-        background: #e8f1ff;
-        color: #174ea6;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       .feed-drafted {
-        background: #ede9fe;
-        color: #5b21b6;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       .tier-silver {
-        background: #eef2f7;
-        color: #38425a;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       .tier-bronze {
-        background: #fff0e5;
-        color: #9a4d13;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       @keyframes selected-box-fade-in {

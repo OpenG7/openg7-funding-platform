@@ -18,8 +18,10 @@ import type {
   AdminSponsorshipInvoicesResponse
 } from '@openg7/funding-core';
 
+import { AdminInspectionService } from '../../services/admin-inspection.service.js';
+import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
-import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
+import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
@@ -30,17 +32,15 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 @Component({
   selector: 'openg7-admin-invoices-page',
   standalone: true,
-  imports: [CommonModule, AdminNavComponent, TranslatePipe],
+  imports: [CommonModule, AdminLayoutComponent, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="admin-shell">
-      <openg7-admin-nav />
-
+    <openg7-admin-layout>
       <section class="admin-content">
         <header class="admin-topbar">
           <div>
-            <span>Administration</span>
-            <h1>Factures commandite</h1>
+            <span>{{ 'admin.legacy.administration' | translate }}</span>
+            <h1>{{ 'admin.legacy.factures_commandite' | translate }}</h1>
           </div>
           <nav>
             <button
@@ -52,8 +52,10 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
             >
               {{
                 backfillState() === 'sending'
-                  ? 'Generation...'
-                  : contributionId ? ('admin.attention.generateInvoice' | translate) : 'Generer factures manquantes'
+                  ? ('admin.legacy.generation' | translate)
+                  : contributionId
+                    ? ('admin.attention.generateInvoice' | translate)
+                    : ('admin.legacy.generer_factures_manquantes' | translate)
               }}
             </button>
             <button
@@ -61,22 +63,31 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
               (click)="loadInvoices()"
               [disabled]="state() === 'loading'"
             >
-              Actualiser
+              {{ 'admin.legacy.actualiser' | translate }}
             </button>
           </nav>
         </header>
 
-        @if (contributionId) { <p class="state" data-og7="attention-invoice-target">{{ 'admin.attention.targetInvoice' | translate: { id: contributionId } }}</p> }
+        @if (contributionId) {
+          <p class="state" data-og7="attention-invoice-target">
+            {{
+              'admin.attention.targetInvoice'
+                | translate: { id: contributionId }
+            }}
+          </p>
+        }
         <p class="state" *ngIf="state() === 'loading'" aria-live="polite">
-          Chargement des factures...
+          {{ 'admin.legacy.chargement_des_factures' | translate }}
         </p>
         <p
           class="state state-error"
           *ngIf="state() === 'error'"
           aria-live="polite"
         >
-          Impossible de charger les factures. Verifiez DATABASE_URL et la
-          migration 011/012.
+          {{
+            'admin.legacy.impossible_de_charger_les_factures_verifiez_database_url_et_la_mi'
+              | translate
+          }}
         </p>
         <p
           class="state"
@@ -88,14 +99,17 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
         </p>
 
         <ng-container *ngIf="data() as response">
-          <section class="admin-summary-grid" aria-label="Resume factures">
+          <section
+            class="admin-summary-grid"
+            [attr.aria-label]="'admin.legacy.resume_factures' | translate"
+          >
             <article>
-              <span>Factures</span>
+              <span>{{ 'admin.legacy.factures' | translate }}</span>
               <strong>{{ response.summary.total_count }}</strong>
-              <small>Commandites payees</small>
+              <small>{{ 'admin.legacy.commandites_payees' | translate }}</small>
             </article>
             <article>
-              <span>Total facture</span>
+              <span>{{ 'admin.legacy.total_facture' | translate }}</span>
               <strong>
                 {{
                   formatMoney(
@@ -107,7 +121,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
               <small>{{ response.summary.currency }}</small>
             </article>
             <article>
-              <span>Total credite</span>
+              <span>{{ 'admin.legacy.total_credite' | translate }}</span>
               <strong>
                 {{
                   formatMoney(
@@ -116,26 +130,40 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                   )
                 }}
               </strong>
-              <small>{{ response.summary.credit_note_count }} avoir(s)</small>
+              <small>{{
+                'admin.legacy.p0_avoir_s'
+                  | translate: { p0: response.summary.credit_note_count }
+              }}</small>
             </article>
             <article>
-              <span>Courriels echoues</span>
+              <span>{{ 'admin.legacy.courriels_echoues' | translate }}</span>
               <strong>{{ response.summary.failed_email_count }}</strong>
-              <small>Dernier statut facture</small>
+              <small>{{
+                'admin.legacy.dernier_statut_facture' | translate
+              }}</small>
             </article>
             <article>
-              <span>Mis a jour</span>
+              <span>{{ 'admin.legacy.mis_a_jour' | translate }}</span>
               <strong>{{ shortDateLabel(response.last_updated_at) }}</strong>
-              <small>Snapshot admin</small>
+              <small>{{ 'admin.legacy.snapshot_admin' | translate }}</small>
             </article>
           </section>
 
-          <section class="invoices-board" aria-label="Factures admin">
-            <section class="invoice-list-panel" aria-label="Liste factures">
+          <section
+            class="invoices-board"
+            [attr.aria-label]="'admin.legacy.factures_admin' | translate"
+          >
+            <section
+              class="invoice-list-panel"
+              [attr.aria-label]="'admin.legacy.liste_factures' | translate"
+            >
               <header>
                 <div>
-                  <span>{{ invoices().length }} resultat(s)</span>
-                  <h2>Factures emises</h2>
+                  <span>{{
+                    'admin.legacy.p0_resultat_s'
+                      | translate: { p0: invoices().length }
+                  }}</span>
+                  <h2>{{ 'admin.legacy.factures_emises' | translate }}</h2>
                 </div>
               </header>
 
@@ -173,8 +201,8 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                     class="credit-status"
                     *ngIf="invoice.credit_notes.length > 0"
                   >
-                    Avoir
-                  </span>
+                    {{ 'admin.legacy.avoir' | translate }}</span
+                  >
                   <strong>
                     {{ formatMoney(invoice.total, invoice.currency) }}
                   </strong>
@@ -183,23 +211,27 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
               <ng-template #emptyInvoices>
                 <article class="empty-state">
-                  <strong>Aucune facture commandite.</strong>
+                  <strong>{{
+                    'admin.legacy.aucune_facture_commandite' | translate
+                  }}</strong>
                   <span>
-                    Les factures apparaissent apres un paiement de commandite
-                    traite par Stripe.
-                  </span>
+                    {{
+                      'admin.legacy.les_factures_apparaissent_apres_un_paiement_de_commandite_traite_'
+                        | translate
+                    }}</span
+                  >
                 </article>
               </ng-template>
             </section>
 
             <section
               class="invoice-detail-panel"
-              aria-label="Detail facture"
+              [attr.aria-label]="'admin.legacy.detail_facture' | translate"
               *ngIf="selectedInvoice() as invoice; else noInvoiceSelected"
             >
               <header class="detail-header">
                 <div>
-                  <span>Facture</span>
+                  <span>{{ 'admin.legacy.facture' | translate }}</span>
                   <h2>{{ invoice.invoice_number }}</h2>
                   <p>{{ invoice.sponsor_name }}</p>
                 </div>
@@ -215,9 +247,18 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                   >
                     {{
                       invoicePdfState() === 'loading'
-                        ? 'Preparation...'
-                        : 'Telecharger PDF'
+                        ? ('admin.legacy.preparation_171' | translate)
+                        : ('admin.legacy.telecharger_pdf' | translate)
                     }}
+                  </button>
+                  <button
+                    type="button"
+                    class="secondary-action"
+                    (click)="
+                      inspection.invoice(invoice.id, invoice.contribution_id)
+                    "
+                  >
+                    {{ 'admin.inspector.previewInvoice' | translate }}
                   </button>
                   <span
                     class="download-message error"
@@ -228,56 +269,81 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                 </div>
               </header>
 
-              <section class="detail-grid" aria-label="Identite facture">
+              <section
+                class="detail-grid"
+                [attr.aria-label]="'admin.legacy.identite_facture' | translate"
+              >
                 <dl>
                   <div>
-                    <dt>Reference publique</dt>
-                    <dd>{{ invoice.public_reference || 'Non attribuee' }}</dd>
+                    <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
+                    <dd>
+                      {{
+                        invoice.public_reference ||
+                          ('admin.legacy.non_attribuee_175' | translate)
+                      }}
+                    </dd>
                   </div>
                   <div>
-                    <dt>Payee le</dt>
+                    <dt>{{ 'admin.legacy.payee_le' | translate }}</dt>
                     <dd>{{ dateLabel(invoice.paid_at) }}</dd>
                   </div>
                   <div>
-                    <dt>Emise le</dt>
+                    <dt>{{ 'admin.legacy.emise_le' | translate }}</dt>
                     <dd>{{ dateLabel(invoice.issued_at) }}</dd>
                   </div>
                 </dl>
 
                 <dl>
                   <div>
-                    <dt>Contact</dt>
+                    <dt>{{ 'admin.legacy.contact' | translate }}</dt>
                     <dd>{{ contactLabel(invoice) }}</dd>
                   </div>
                   <div>
-                    <dt>Courriel facture</dt>
-                    <dd>{{ invoice.sponsor_contact_email || 'Absent' }}</dd>
+                    <dt>{{ 'admin.legacy.courriel_facture' | translate }}</dt>
+                    <dd>
+                      {{
+                        invoice.sponsor_contact_email ||
+                          ('admin.legacy.absent' | translate)
+                      }}
+                    </dd>
                   </div>
                   <div>
-                    <dt>Site web</dt>
-                    <dd>{{ invoice.sponsor_website_url || 'Absent' }}</dd>
+                    <dt>{{ 'admin.legacy.site_web' | translate }}</dt>
+                    <dd>
+                      {{
+                        invoice.sponsor_website_url ||
+                          ('admin.legacy.absent' | translate)
+                      }}
+                    </dd>
                   </div>
                 </dl>
               </section>
 
-              <section class="line-items" aria-label="Lignes facture">
+              <section
+                class="line-items"
+                [attr.aria-label]="'admin.legacy.lignes_facture' | translate"
+              >
                 <header>
-                  <span>Lignes</span>
+                  <span>{{ 'admin.legacy.lignes' | translate }}</span>
                   <strong>{{ invoice.currency }}</strong>
                 </header>
                 <div class="line-item" *ngFor="let line of invoice.line_items">
                   <span>{{ line.description }}</span>
-                  <small
-                    >{{ line.quantity }} x
-                    {{ formatMoney(line.unit_amount, invoice.currency) }}</small
-                  >
+                  <small>{{
+                    'admin.legacy.p0_x_p1'
+                      | translate
+                        : {
+                            p0: line.quantity,
+                            p1: formatMoney(line.unit_amount, invoice.currency)
+                          }
+                  }}</small>
                   <strong>{{
                     formatMoney(line.total, invoice.currency)
                   }}</strong>
                 </div>
                 <dl class="totals">
                   <div>
-                    <dt>Sous-total</dt>
+                    <dt>{{ 'admin.legacy.sous_total' | translate }}</dt>
                     <dd>
                       {{ formatMoney(invoice.subtotal, invoice.currency) }}
                     </dd>
@@ -287,7 +353,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                     <dd>{{ formatMoney(invoice.tax, invoice.currency) }}</dd>
                   </div>
                   <div>
-                    <dt>Total paye</dt>
+                    <dt>{{ 'admin.legacy.total_paye' | translate }}</dt>
                     <dd>{{ formatMoney(invoice.total, invoice.currency) }}</dd>
                   </div>
                 </dl>
@@ -296,12 +362,16 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
               <section
                 class="credit-notes-panel"
                 *ngIf="invoice.credit_notes.length > 0"
-                aria-label="Avoirs de commandite"
+                [attr.aria-label]="
+                  'admin.legacy.avoirs_de_commandite' | translate
+                "
               >
                 <header>
                   <div>
-                    <span>Avoirs</span>
-                    <h3>Remboursements documentes</h3>
+                    <span>{{ 'admin.legacy.avoirs' | translate }}</span>
+                    <h3>
+                      {{ 'admin.legacy.remboursements_documentes' | translate }}
+                    </h3>
                   </div>
                   <strong>{{
                     formatMoney(creditedTotal(invoice), invoice.currency)
@@ -327,19 +397,26 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
                   <dl class="credit-note-meta">
                     <div>
-                      <dt>Refund Stripe</dt>
+                      <dt>{{ 'admin.legacy.refund_stripe' | translate }}</dt>
                       <dd>{{ creditNote.stripe_refund_id }}</dd>
                     </div>
                     <div>
-                      <dt>Dernier destinataire</dt>
-                      <dd>{{ creditNote.last_email_recipient || 'Absent' }}</dd>
+                      <dt>
+                        {{ 'admin.legacy.dernier_destinataire' | translate }}
+                      </dt>
+                      <dd>
+                        {{
+                          creditNote.last_email_recipient ||
+                            ('admin.legacy.absent' | translate)
+                        }}
+                      </dd>
                     </div>
                     <div>
-                      <dt>Dernier envoi</dt>
+                      <dt>{{ 'admin.legacy.dernier_envoi' | translate }}</dt>
                       <dd>{{ dateLabel(creditNote.last_email_sent_at) }}</dd>
                     </div>
                     <div *ngIf="creditNote.last_email_error">
-                      <dt>Erreur</dt>
+                      <dt>{{ 'admin.legacy.erreur' | translate }}</dt>
                       <dd>{{ creditNote.last_email_error }}</dd>
                     </div>
                   </dl>
@@ -371,8 +448,8 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                     >
                       {{
                         creditNotePdfStateFor(creditNote.id) === 'loading'
-                          ? 'Preparation...'
-                          : 'Telecharger PDF'
+                          ? ('admin.legacy.preparation_171' | translate)
+                          : ('admin.legacy.telecharger_pdf' | translate)
                       }}
                     </button>
                     <span
@@ -384,8 +461,8 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                   </div>
 
                   <label>
-                    Destinataire avoir
-                    <input
+                    {{ 'admin.legacy.destinataire_avoir' | translate
+                    }}<input
                       type="email"
                       autocomplete="email"
                       [value]="creditNoteResendEmail(creditNote)"
@@ -405,8 +482,8 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                     >
                       {{
                         creditNoteResendStateFor(creditNote.id) === 'sending'
-                          ? 'Envoi...'
-                          : 'Renvoyer avoir'
+                          ? ('admin.legacy.envoi_195' | translate)
+                          : ('admin.legacy.renvoyer_avoir' | translate)
                       }}
                     </button>
                     <span
@@ -425,24 +502,35 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                 </article>
               </section>
 
-              <section class="stripe-grid" aria-label="References Stripe">
+              <section
+                class="stripe-grid"
+                [attr.aria-label]="'admin.legacy.references_stripe' | translate"
+              >
                 <dl>
                   <div>
-                    <dt>Checkout Session</dt>
+                    <dt>{{ 'admin.legacy.checkout_session' | translate }}</dt>
                     <dd>{{ invoice.stripe_session_id }}</dd>
                   </div>
                   <div>
-                    <dt>Payment Intent</dt>
-                    <dd>{{ invoice.stripe_payment_intent_id || 'Absent' }}</dd>
+                    <dt>{{ 'admin.legacy.payment_intent' | translate }}</dt>
+                    <dd>
+                      {{
+                        invoice.stripe_payment_intent_id ||
+                          ('admin.legacy.absent' | translate)
+                      }}
+                    </dd>
                   </div>
                 </dl>
               </section>
 
-              <section class="email-panel" aria-label="Renvoi courriel">
+              <section
+                class="email-panel"
+                [attr.aria-label]="'admin.legacy.renvoi_courriel' | translate"
+              >
                 <header>
                   <div>
-                    <span>Courriel</span>
-                    <h3>Renvoi facture</h3>
+                    <span>{{ 'admin.legacy.courriel' | translate }}</span>
+                    <h3>{{ 'admin.legacy.renvoi_facture' | translate }}</h3>
                   </div>
                   <span
                     class="email-status"
@@ -461,22 +549,29 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
                 <dl class="email-meta">
                   <div>
-                    <dt>Dernier destinataire</dt>
-                    <dd>{{ invoice.last_email_recipient || 'Absent' }}</dd>
+                    <dt>
+                      {{ 'admin.legacy.dernier_destinataire' | translate }}
+                    </dt>
+                    <dd>
+                      {{
+                        invoice.last_email_recipient ||
+                          ('admin.legacy.absent' | translate)
+                      }}
+                    </dd>
                   </div>
                   <div>
-                    <dt>Dernier envoi</dt>
+                    <dt>{{ 'admin.legacy.dernier_envoi' | translate }}</dt>
                     <dd>{{ dateLabel(invoice.last_email_sent_at) }}</dd>
                   </div>
                   <div *ngIf="invoice.last_email_error">
-                    <dt>Erreur</dt>
+                    <dt>{{ 'admin.legacy.erreur' | translate }}</dt>
                     <dd>{{ invoice.last_email_error }}</dd>
                   </div>
                 </dl>
 
                 <label>
-                  Destinataire
-                  <input
+                  {{ 'admin.legacy.destinataire' | translate
+                  }}<input
                     type="email"
                     autocomplete="email"
                     [value]="resendEmail()"
@@ -493,7 +588,11 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                     "
                     (click)="resendInvoice()"
                   >
-                    {{ resendState() === 'sending' ? 'Envoi...' : 'Renvoyer' }}
+                    {{
+                      resendState() === 'sending'
+                        ? ('admin.legacy.envoi_195' | translate)
+                        : ('admin.legacy.renvoyer' | translate)
+                    }}
                   </button>
                   <span
                     class="resend-message"
@@ -513,28 +612,25 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
             <ng-template #noInvoiceSelected>
               <section class="invoice-detail-panel empty-detail">
-                <strong>Aucune facture selectionnee.</strong>
+                <strong>{{
+                  'admin.legacy.aucune_facture_selectionnee' | translate
+                }}</strong>
               </section>
             </ng-template>
           </section>
         </ng-container>
       </section>
-    </main>
+    </openg7-admin-layout>
   `,
+  styleUrls: [
+    '../../components/admin-ui/admin-theme.css',
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       :host {
         display: block;
-      }
-
-      .admin-shell {
-        background: #f3f0ea;
-        color: #172033;
-        display: grid;
-        gap: 1.25rem;
-        grid-template-columns: 16.5rem minmax(0, 1fr);
-        min-height: 100vh;
-        padding: 1.25rem;
       }
 
       .admin-content {
@@ -545,7 +641,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
       .admin-topbar {
         align-items: center;
-        background: #fffaf1;
+        background: var(--admin-panel-raised);
         border: 1px solid rgba(23, 32, 51, 0.1);
         border-radius: 0.5rem;
         display: flex;
@@ -573,7 +669,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       .line-items header span,
       .credit-notes-panel header span,
       .email-panel header span {
-        color: #736456;
+        color: var(--admin-warning);
         font-size: 0.73rem;
         font-weight: 900;
         letter-spacing: 0;
@@ -608,19 +704,19 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
       .admin-topbar button,
       .primary-action {
-        background: #172033;
+        background: var(--admin-panel-raised);
         border-radius: 0.4rem;
-        color: #fff;
+        color: var(--admin-text);
         font-weight: 900;
         min-height: 2.45rem;
         padding: 0 0.95rem;
       }
 
       .secondary-action {
-        background: #ffffff;
+        background: var(--admin-panel);
         border: 1px solid rgba(23, 32, 51, 0.18);
         border-radius: 0.4rem;
-        color: #172033;
+        color: var(--admin-text);
         font-weight: 900;
         min-height: 2.35rem;
         padding: 0 0.85rem;
@@ -634,18 +730,18 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .state {
-        background: #fffaf1;
+        background: var(--admin-panel-raised);
         border: 1px solid rgba(23, 32, 51, 0.1);
         border-radius: 0.45rem;
-        color: #5f6f90;
+        color: var(--admin-muted);
         font-weight: 800;
         padding: 0.85rem 1rem;
       }
 
       .state-error {
-        background: #fff1f0;
+        background: var(--admin-panel-raised);
         border-color: rgba(179, 38, 30, 0.22);
-        color: #9c2f28;
+        color: var(--admin-danger);
       }
 
       .admin-summary-grid {
@@ -657,7 +753,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       .admin-summary-grid article,
       .invoice-list-panel,
       .invoice-detail-panel {
-        background: #fffaf1;
+        background: var(--admin-panel-raised);
         border: 1px solid rgba(23, 32, 51, 0.1);
         border-radius: 0.5rem;
         box-shadow: 0 0.8rem 1.8rem rgba(23, 32, 51, 0.06);
@@ -676,7 +772,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .admin-summary-grid small {
-        color: #6f7a8e;
+        color: var(--admin-muted);
         font-weight: 800;
       }
 
@@ -715,10 +811,10 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .invoice-list button {
-        background: #ffffff;
+        background: var(--admin-panel);
         border: 1px solid rgba(23, 32, 51, 0.1);
         border-radius: 0.45rem;
-        color: #172033;
+        color: var(--admin-text);
         display: grid;
         gap: 0.25rem 0.75rem;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -745,22 +841,22 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .invoice-name {
-        color: #354159;
+        color: var(--admin-muted);
         grid-column: 1 / -1;
         font-weight: 800;
       }
 
       .invoice-meta {
-        color: #6f7a8e;
+        color: var(--admin-muted);
         font-size: 0.88rem;
         font-weight: 800;
       }
 
       .email-status {
         align-items: center;
-        background: #edf1f7;
+        background: var(--admin-panel-raised);
         border-radius: 999px;
-        color: #4d5d78;
+        color: var(--admin-muted);
         display: inline-flex;
         font-size: 0.72rem;
         font-weight: 950;
@@ -772,9 +868,9 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
       .credit-status {
         align-items: center;
-        background: #e8f1ff;
+        background: var(--admin-panel-raised);
         border-radius: 999px;
-        color: #174ea6;
+        color: var(--admin-muted);
         display: inline-flex;
         font-size: 0.72rem;
         font-weight: 950;
@@ -785,18 +881,18 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .status-sent {
-        background: #e4f4e7;
-        color: #236b34;
+        background: var(--admin-panel-raised);
+        color: var(--admin-success);
       }
 
       .status-failed {
-        background: #ffe7e4;
-        color: #9c2f28;
+        background: #422532;
+        color: var(--admin-danger);
       }
 
       .status-queued {
-        background: #fff0d7;
-        color: #7a4f09;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       .invoice-detail-panel {
@@ -810,7 +906,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .detail-header p {
-        color: #4d5d78;
+        color: var(--admin-muted);
         font-weight: 800;
         margin-top: 0.2rem;
       }
@@ -853,7 +949,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       dt {
-        color: #6f7a8e;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: 900;
         text-transform: uppercase;
@@ -869,7 +965,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       .line-items,
       .credit-notes-panel,
       .email-panel {
-        background: #ffffff;
+        background: var(--admin-panel);
         border: 1px solid rgba(23, 32, 51, 0.1);
         border-radius: 0.45rem;
         padding: 0.85rem;
@@ -880,7 +976,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .credit-note-card {
-        background: #f7faff;
+        background: var(--admin-panel);
         border: 1px solid rgba(23, 78, 166, 0.16);
         border-radius: 0.4rem;
         display: grid;
@@ -901,13 +997,13 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .credit-note-title span {
-        color: #6f7a8e;
+        color: var(--admin-muted);
         font-size: 0.86rem;
         font-weight: 800;
       }
 
       .credit-note-meta {
-        background: #ffffff;
+        background: var(--admin-panel);
         border-radius: 0.35rem;
         padding: 0.7rem;
       }
@@ -917,7 +1013,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .line-item small {
-        color: #6f7a8e;
+        color: var(--admin-muted);
         font-weight: 800;
         white-space: nowrap;
       }
@@ -932,7 +1028,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
       .totals div:last-child dt,
       .totals div:last-child dd {
-        color: #172033;
+        color: var(--admin-text);
         font-size: 1rem;
       }
 
@@ -944,13 +1040,13 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .email-meta {
-        background: #f8f5ee;
+        background: var(--admin-panel-raised);
         border-radius: 0.4rem;
         padding: 0.75rem;
       }
 
       label {
-        color: #6f7a8e;
+        color: var(--admin-muted);
         display: grid;
         font-size: 0.8rem;
         font-weight: 900;
@@ -959,10 +1055,10 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       input {
-        background: #fff;
+        background: var(--admin-panel);
         border: 1px solid rgba(23, 32, 51, 0.16);
         border-radius: 0.35rem;
-        color: #172033;
+        color: var(--admin-text);
         font: inherit;
         min-height: 2.5rem;
         padding: 0 0.75rem;
@@ -984,33 +1080,33 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       .resend-message {
-        color: #4d5d78;
+        color: var(--admin-muted);
         font-weight: 850;
       }
 
       .resend-message.success {
-        color: #236b34;
+        color: var(--admin-success);
       }
 
       .resend-message.error {
-        color: #9c2f28;
+        color: var(--admin-danger);
       }
 
       .download-message {
-        color: #4d5d78;
+        color: var(--admin-muted);
         font-weight: 850;
       }
 
       .download-message.error {
-        color: #9c2f28;
+        color: var(--admin-danger);
       }
 
       .invoice-note,
       .empty-state,
       .empty-detail {
-        background: #f8f5ee;
+        background: var(--admin-panel-raised);
         border-radius: 0.4rem;
-        color: #4d5d78;
+        color: var(--admin-muted);
         display: grid;
         gap: 0.25rem;
         padding: 0.85rem;
@@ -1018,7 +1114,7 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
       .empty-state strong,
       .empty-detail strong {
-        color: #172033;
+        color: var(--admin-text);
       }
 
       @media (max-width: 1080px) {
@@ -1035,20 +1131,12 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
       }
 
       @media (max-width: 860px) {
-        .admin-shell {
-          grid-template-columns: 1fr;
-        }
-
         .admin-summary-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
 
       @media (max-width: 620px) {
-        .admin-shell {
-          padding: 0.75rem;
-        }
-
         .admin-topbar,
         .detail-header,
         .detail-actions,
@@ -1086,8 +1174,11 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
   ]
 })
 export class AdminInvoicesPageComponent implements OnInit {
-  private readonly admin = inject(FundingAdminService);
   private readonly i18n = inject(FundingI18nService);
+  private readonly confirmation = inject(AdminConfirmationService);
+  readonly inspection = inject(AdminInspectionService);
+  private readonly admin = inject(FundingAdminService);
+
   private readonly route = inject(ActivatedRoute);
   private readonly destroy = inject(DestroyRef);
   private loadGeneration = 0;
@@ -1122,16 +1213,18 @@ export class AdminInvoicesPageComponent implements OnInit {
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
     this.destroy.onDestroy(() => this.loadGeneration++);
-    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe((params) => {
-      this.contributionId = params.get('contributionId') ?? undefined;
-      this.data.set(null);
-      this.selectedInvoiceId.set('');
-      this.resendEmail.set('');
-      this.resendState.set('idle');
-      this.invoicePdfMessage.set('');
-      this.backfillMessage.set('');
-      void this.loadInvoices();
-    });
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe((params) => {
+        this.contributionId = params.get('contributionId') ?? undefined;
+        this.data.set(null);
+        this.selectedInvoiceId.set('');
+        this.resendEmail.set('');
+        this.resendState.set('idle');
+        this.invoicePdfMessage.set('');
+        this.backfillMessage.set('');
+        void this.loadInvoices();
+      });
   }
 
   async loadInvoices(): Promise<void> {
@@ -1142,7 +1235,10 @@ export class AdminInvoicesPageComponent implements OnInit {
     this.resendMessage.set('');
 
     try {
-      const response = await this.admin.getSponsorshipInvoices(token, this.contributionId);
+      const response = await this.admin.getSponsorshipInvoices(
+        token,
+        this.contributionId
+      );
       if (generation !== this.loadGeneration) return;
       this.data.set(response);
       const selectedStillExists = response.invoices.some(
@@ -1181,7 +1277,18 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   async backfillInvoices(): Promise<void> {
     if (this.backfillState() === 'sending') return;
-    if (this.contributionId && (typeof window === 'undefined' || !window.confirm(this.i18n.t('admin.attention.confirmInvoice').replace('{{id}}', this.contributionId)))) return;
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n
+          .t(
+            this.contributionId
+              ? 'admin.attention.confirmInvoice'
+              : 'admin.confirmation.backfill'
+          )
+          .replace('{{id}}', this.contributionId ?? '')
+      ))
+    )
+      return;
     const token = this.adminToken() || this.admin.getSavedAdminToken();
     this.adminToken.set(token);
     this.backfillState.set('sending');
@@ -1275,12 +1382,20 @@ export class AdminInvoicesPageComponent implements OnInit {
   }
 
   async resendInvoice(): Promise<void> {
+    if (this.resendState() === 'sending') return;
     const invoice = this.selectedInvoice();
     const to = this.resendEmail().trim();
     if (!invoice || !to) {
       return;
     }
 
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.confirmation.retryEmail'),
+        to
+      ))
+    )
+      return;
     this.resendState.set('sending');
     this.resendMessage.set('');
 
@@ -1300,10 +1415,10 @@ export class AdminInvoicesPageComponent implements OnInit {
       this.resendState.set('sent');
       this.resendMessage.set(
         result.sent
-          ? 'Facture envoyee.'
+          ? this.i18n.t('admin.messages.facture_envoyee')
           : result.queued
-            ? 'Facture remise en file.'
-            : 'Demande traitee.'
+            ? this.i18n.t('admin.messages.facture_remise_en_file')
+            : this.i18n.t('admin.messages.demande_traitee')
       );
     } catch (error) {
       this.resendState.set('error');
@@ -1314,11 +1429,19 @@ export class AdminInvoicesPageComponent implements OnInit {
   async resendCreditNote(
     creditNote: AdminSponsorshipCreditNoteRecord
   ): Promise<void> {
+    if (this.creditNoteResendStateFor(creditNote.id) === 'sending') return;
     const to = this.creditNoteResendEmail(creditNote).trim();
     if (!to) {
       return;
     }
 
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.confirmation.retryEmail'),
+        to
+      ))
+    )
+      return;
     this.setCreditNoteResendState(creditNote.id, 'sending');
     this.setCreditNoteResendMessage(creditNote.id, '');
 
@@ -1339,10 +1462,10 @@ export class AdminInvoicesPageComponent implements OnInit {
       this.setCreditNoteResendMessage(
         creditNote.id,
         result.sent
-          ? 'Avoir envoye.'
+          ? this.i18n.t('admin.messages.avoir_envoye')
           : result.queued
-            ? 'Avoir remis en file.'
-            : 'Demande traitee.'
+            ? this.i18n.t('admin.messages.avoir_remis_en_file')
+            : this.i18n.t('admin.messages.demande_traitee')
       );
     } catch (error) {
       this.setCreditNoteResendState(creditNote.id, 'error');
@@ -1375,7 +1498,7 @@ export class AdminInvoicesPageComponent implements OnInit {
   }
 
   formatMoney(value: number, currency: string): string {
-    return new Intl.NumberFormat('fr-CA', {
+    return new Intl.NumberFormat(this.i18n.currentLanguage(), {
       style: 'currency',
       currency: currency || 'CAD'
     }).format(value);
@@ -1383,7 +1506,7 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   dateLabel(value: string | null): string {
     if (!value) {
-      return 'Absent';
+      return this.i18n.t('admin.legacy.absent');
     }
 
     const date = new Date(value);
@@ -1391,7 +1514,7 @@ export class AdminInvoicesPageComponent implements OnInit {
       return value;
     }
 
-    return new Intl.DateTimeFormat('fr-CA', {
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(date);
@@ -1399,7 +1522,7 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   shortDateLabel(value: string | null): string {
     if (!value) {
-      return 'Absent';
+      return this.i18n.t('admin.legacy.absent');
     }
 
     const date = new Date(value);
@@ -1407,7 +1530,7 @@ export class AdminInvoicesPageComponent implements OnInit {
       return value;
     }
 
-    return new Intl.DateTimeFormat('fr-CA', {
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium'
     }).format(date);
   }
@@ -1415,15 +1538,15 @@ export class AdminInvoicesPageComponent implements OnInit {
   emailStatusLabel(status: string | null): string {
     switch (status) {
       case 'sent':
-        return 'Envoye';
+        return this.i18n.t('admin.messages.envoye');
       case 'failed':
-        return 'Echec';
+        return this.i18n.t('admin.messages.echec');
       case 'sending':
-        return 'Envoi';
+        return this.i18n.t('admin.legacy.envoi');
       case 'queued':
-        return 'En file';
+        return this.i18n.t('admin.legacy.en_file');
       default:
-        return 'Jamais envoye';
+        return this.i18n.t('admin.messages.jamais_envoye');
     }
   }
 
@@ -1542,24 +1665,39 @@ export class AdminInvoicesPageComponent implements OnInit {
     result: AdminSponsorshipInvoiceBackfillResult
   ): string {
     if (result.eligible_count === 0) {
-      return 'Aucune commandite payee admissible a facturer.';
+      return this.i18n.t(
+        'admin.messages.aucune_commandite_payee_admissible_a_facturer'
+      );
     }
 
     if (result.missing_count === 0) {
-      return `Backfill termine: aucune facture manquante, ${result.skipped_count} deja presente(s).`;
+      return this.i18n.t(
+        'admin.messages.backfill_termine_aucune_facture_manquante_p0_deja_presente_s',
+        { p0: result.skipped_count }
+      );
     }
 
     const remaining =
       result.remaining_count > 0
-        ? ` ${result.remaining_count} restante(s): relancez le backfill.`
+        ? this.i18n.t('admin.messages.p0_restante_s_relancez_le_backfill', {
+            p0: result.remaining_count
+          })
         : '';
 
-    return `Backfill termine: ${result.created_count} facture(s) creee(s), ${result.skipped_count} deja presente(s), ${result.failed_count} erreur(s).${remaining}`;
+    return this.i18n.t(
+      'admin.messages.backfill_termine_p0_facture_s_creee_s_p1_deja_presente_s_p2_erreur_s_p3',
+      {
+        p0: result.created_count,
+        p1: result.skipped_count,
+        p2: result.failed_count,
+        p3: remaining
+      }
+    );
   }
 
   private messageFromError(error: unknown): string {
     return error instanceof Error
       ? error.message
-      : 'Operation admin impossible.';
+      : this.i18n.t('admin.messages.operation_admin_impossible');
   }
 }

@@ -1,3 +1,4 @@
+import { translatedUiSource } from './support/translated-ui-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -5,6 +6,7 @@ import test from 'node:test';
 const read = (path) => fs.readFileSync(path, 'utf8');
 
 const assertIncludesAll = (source, values, label) => {
+  source = translatedUiSource(source);
   for (const value of values) {
     assert.ok(source.includes(value), `${label} must include ${value}`);
   }

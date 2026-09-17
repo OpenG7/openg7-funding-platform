@@ -75,6 +75,38 @@ test(
       assert.equal((await fetch(url + '?pageSize=101')).status, 401);
       const base = `http://127.0.0.1:${port}/api/admin`;
       const searchUrl = base + '/search';
+      for (const prefix of ['/api/admin', '/admin']) {
+        const eventUrl = `http://127.0.0.1:${port}${prefix}/stripe-event`;
+        assert.equal((await fetch(eventUrl + '?eventId=invalid')).status, 401);
+        assert.equal(
+          (await fetch(eventUrl + '?eventId=invalid', { headers })).status,
+          400
+        );
+        const event = await fetch(eventUrl + '?eventId=evt_fixture', {
+          headers
+        });
+        assert.equal(event.status, 200);
+        assert.match(event.headers.get('cache-control'), /no-store/);
+        assert.deepEqual(await event.json(), { available: false, event: null });
+      }
+      for (const [path, key] of [
+        ['audit-log', 'entryId'],
+        ['expenses', 'expenseId']
+      ]) {
+        assert.equal(
+          (await fetch(`${base}/${path}?${key}=invalid`)).status,
+          401
+        );
+        // These existing backoffice routes require configured storage before validating filters.
+        assert.equal(
+          (await fetch(`${base}/${path}?${key}=invalid`, { headers })).status,
+          503
+        );
+        const id =
+          key === 'expenseId' ? '1' : '10000000-0000-4000-8000-000000000701';
+        const exact = await fetch(`${base}/${path}?${key}=${id}`, { headers });
+        assert.equal(exact.status, 503);
+      }
       assert.equal(
         (await fetch(searchUrl, { method: 'POST', body: '{}' })).status,
         401

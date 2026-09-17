@@ -1,48 +1,56 @@
 import { CommonModule } from '@angular/common';
+import { TranslatePipe } from '@ngx-translate/core';
 import {
   ChangeDetectionStrategy,
   Component,
   input,
+  signal,
   output
 } from '@angular/core';
 
+import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
 import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors-ui.models.js';
 
 @Component({
   selector: 'openg7-admin-sponsor-detail-overview',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe, AdminDrawerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="detail-body" aria-label="Vue d'ensemble">
+    <section
+      class="detail-body"
+      [attr.aria-label]="'admin.legacy.vue_d_ensemble' | translate"
+    >
       <div class="detail-card-grid">
         <article class="detail-card">
-          <h3>Entreprise & contact</h3>
+          <h3>{{ 'admin.legacy.entreprise_contact' | translate }}</h3>
           <dl>
             <div>
-              <dt>Nom de l'entreprise</dt>
+              <dt>{{ 'admin.legacy.nom_de_l_entreprise' | translate }}</dt>
               <dd>{{ overview().companyName }}</dd>
             </div>
             <div>
-              <dt>Nom public</dt>
+              <dt>{{ 'admin.legacy.nom_public' | translate }}</dt>
               <dd>{{ overview().publicNameLabel }}</dd>
             </div>
             <div>
-              <dt>Contact</dt>
+              <dt>{{ 'admin.legacy.contact' | translate }}</dt>
               <dd>{{ overview().contactName }}</dd>
             </div>
             <div>
-              <dt>Courriel</dt>
+              <dt>{{ 'admin.legacy.courriel' | translate }}</dt>
               <dd>
                 <a
                   *ngIf="overview().contactEmail; else emptyEmail"
                   [href]="'mailto:' + overview().contactEmail"
                   >{{ overview().contactEmail }}</a
-                ><ng-template #emptyEmail>Non fourni</ng-template>
+                ><ng-template #emptyEmail>{{
+                  'admin.legacy.non_fourni' | translate
+                }}</ng-template>
               </dd>
             </div>
             <div>
-              <dt>Site web</dt>
+              <dt>{{ 'admin.legacy.site_web' | translate }}</dt>
               <dd>
                 <a
                   *ngIf="overview().websiteUrl; else emptyWebsite"
@@ -50,20 +58,25 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
                   target="_blank"
                   rel="noreferrer"
                   >{{ overview().websiteUrl }}</a
-                ><ng-template #emptyWebsite>Non fourni</ng-template>
+                ><ng-template #emptyWebsite>{{
+                  'admin.legacy.non_fourni' | translate
+                }}</ng-template>
               </dd>
             </div>
             <div>
-              <dt>Reference publique</dt>
+              <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
               <dd class="copy-line">
-                <code>{{ overview().publicReference || 'Non attribuee' }}</code
+                <code>{{
+                  overview().publicReference ||
+                    ('admin.legacy.non_attribuee_175' | translate)
+                }}</code
                 ><button
                   type="button"
                   class="mini-action"
                   (click)="copyReference.emit()"
                   [disabled]="!overview().publicReference"
                 >
-                  Copier
+                  {{ 'admin.legacy.copier' | translate }}
                 </button>
               </dd>
             </div>
@@ -74,14 +87,14 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
         </article>
 
         <article class="detail-card">
-          <h3>Commandite</h3>
+          <h3>{{ 'admin.legacy.commandite' | translate }}</h3>
           <dl>
             <div>
-              <dt>Montant</dt>
+              <dt>{{ 'admin.legacy.montant' | translate }}</dt>
               <dd>{{ overview().amountLabel }}</dd>
             </div>
             <div>
-              <dt>Niveau / tier</dt>
+              <dt>{{ 'admin.legacy.niveau_tier' | translate }}</dt>
               <dd>
                 <span [class]="overview().tierClass">{{
                   overview().tierLabel
@@ -89,11 +102,11 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
               </dd>
             </div>
             <div>
-              <dt>Avantages</dt>
+              <dt>{{ 'admin.legacy.avantages' | translate }}</dt>
               <dd>{{ overview().benefitsLabel }}</dd>
             </div>
             <div>
-              <dt>Paiement</dt>
+              <dt>{{ 'admin.legacy.paiement' | translate }}</dt>
               <dd>
                 <span [class]="overview().paymentStatusClass">{{
                   overview().paymentStatusLabel
@@ -101,7 +114,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
               </dd>
             </div>
             <div>
-              <dt>Remboursement</dt>
+              <dt>{{ 'admin.legacy.remboursement' | translate }}</dt>
               <dd>
                 <span [class]="overview().refundStatusClass">{{
                   overview().refundStatusLabel
@@ -109,15 +122,15 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
               </dd>
             </div>
             <div *ngIf="overview().hasRefundWorkflow">
-              <dt>Suivi remboursement</dt>
+              <dt>{{ 'admin.legacy.suivi_remboursement' | translate }}</dt>
               <dd>{{ overview().refundWorkflowTimelineLabel }}</dd>
             </div>
             <div *ngIf="overview().refundId">
-              <dt>Refund Stripe</dt>
+              <dt>{{ 'admin.legacy.refund_stripe' | translate }}</dt>
               <dd>{{ overview().refundId }}</dd>
             </div>
             <div>
-              <dt>Date de paiement</dt>
+              <dt>{{ 'admin.legacy.date_de_paiement' | translate }}</dt>
               <dd>{{ overview().paidAtLabel }}</dd>
             </div>
           </dl>
@@ -125,44 +138,71 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       </div>
 
       <article class="detail-card" *ngIf="overview().sponsorMessage">
-        <h3>Message du commanditaire</h3>
+        <h3>{{ 'admin.legacy.message_du_commanditaire' | translate }}</h3>
         <p>{{ overview().sponsorMessage }}</p>
       </article>
 
       <article class="detail-card">
-        <h3>Note interne</h3>
-        <label class="review-note-label"
-          >Note visible uniquement pour l'administration.<textarea
-            rows="5"
-            maxlength="1000"
-            [value]="overview().reviewNote"
-            (input)="onReviewNoteInput($event)"
-          ></textarea>
-        </label>
-        <div class="form-footer">
-          <span
-            class="inline-status"
-            [class.is-dirty]="overview().reviewNoteDirty"
-            aria-live="polite"
-            >{{ overview().reviewNoteStateLabel }}</span
-          ><button
+        <h3>{{ 'admin.legacy.note_interne' | translate }}</h3>
+        <button type="button" (click)="noteOpen.set(true)">
+          {{ 'admin.inspector.editNote' | translate }}
+        </button>
+        <openg7-admin-drawer
+          [opened]="noteOpen()"
+          [title]="'admin.inspector.note' | translate"
+          [closeLabel]="'admin.inspector.close' | translate"
+          [busy]="overview().reviewNoteSaving"
+          (closed)="noteOpen.set(false)"
+        >
+          <label class="review-note-label"
+            >{{
+              'admin.legacy.note_visible_uniquement_pour_l_administration'
+                | translate
+            }}<textarea
+              rows="5"
+              maxlength="1000"
+              [disabled]="overview().reviewNoteSaving"
+              [value]="overview().reviewNote"
+              (input)="onReviewNoteInput($event)"
+            ></textarea>
+          </label>
+          <div class="form-footer">
+            <span
+              class="inline-status"
+              [class.is-dirty]="overview().reviewNoteDirty"
+              aria-live="polite"
+              >{{ overview().reviewNoteStateLabel }}</span
+            ><button
+              type="button"
+              class="secondary-action"
+              (click)="saveReviewNote.emit()"
+              [disabled]="
+                !overview().reviewNoteDirty || overview().reviewNoteSaving
+              "
+            >
+              {{
+                overview().reviewNoteSaving
+                  ? ('admin.legacy.enregistrement' | translate)
+                  : ('admin.legacy.enregistrer_la_note' | translate)
+              }}
+            </button>
+          </div>
+          <button
             type="button"
-            class="secondary-action"
-            (click)="saveReviewNote.emit()"
-            [disabled]="
-              !overview().reviewNoteDirty || overview().reviewNoteSaving
-            "
+            [disabled]="overview().reviewNoteSaving"
+            (click)="noteOpen.set(false)"
           >
-            {{
-              overview().reviewNoteSaving
-                ? 'Enregistrement...'
-                : 'Enregistrer la note'
-            }}
+            {{ 'admin.inspector.back' | translate }}
           </button>
-        </div>
+        </openg7-admin-drawer>
       </article>
     </section>
   `,
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       :host {
@@ -186,10 +226,10 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       .secondary-action,
       .mini-action {
         align-items: center;
-        background: #fff;
-        border: 1px solid #cfd8e6;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
-        color: #172033;
+        color: var(--admin-text);
         cursor: pointer;
         display: inline-flex;
         font-weight: 900;
@@ -206,7 +246,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       }
 
       textarea {
-        border: 1px solid #cdd6e3;
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         padding: 0.65rem 0.75rem;
         resize: vertical;
@@ -220,8 +260,8 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       }
 
       .detail-card {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.5rem;
         display: grid;
         gap: 0.85rem;
@@ -245,7 +285,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       }
 
       dt {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.76rem;
         font-weight: 900;
         letter-spacing: 0;
@@ -265,11 +305,11 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       }
 
       .inline-status {
-        color: #667085;
+        color: var(--admin-muted);
       }
 
       .inline-status.is-dirty {
-        color: #a86f16;
+        color: var(--admin-warning);
         font-weight: 900;
       }
 
@@ -301,40 +341,40 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       .payment-pending,
       .refund-requested,
       .tier-gold {
-        background: #fff2cf;
-        color: #8a5a00;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       .payment-paid,
       .refund-completed {
-        background: #dff7e8;
-        color: #176236;
+        background: #193d32;
+        color: var(--admin-success);
       }
 
       .payment-failed,
       .refund-failed {
-        background: #ffe0e5;
-        color: #9f1d2f;
+        background: #422532;
+        color: var(--admin-danger);
       }
 
       .refund-not-requested {
-        background: #eef1f5;
-        color: #667085;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       .refund-processing {
-        background: #e8f1ff;
-        color: #174ea6;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       .tier-silver {
-        background: #eef2f7;
-        color: #38425a;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       .tier-bronze {
-        background: #fff0e5;
-        color: #9a4d13;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       @media (max-width: 860px) {
@@ -346,6 +386,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
   ]
 })
 export class AdminSponsorDetailOverviewComponent {
+  readonly noteOpen = signal(false);
   readonly overview = input.required<AdminSponsorDetailOverviewView>();
   readonly copyReference = output<void>();
   readonly reviewNoteChange = output<string>();

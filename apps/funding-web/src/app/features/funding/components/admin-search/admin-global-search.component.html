@@ -111,6 +111,20 @@
                 >{{ 'admin.search.invoice' | translate }}
                 {{ invoice.number }}</a
               >
+              <button
+                class="admin-button"
+                type="button"
+                (click)="
+                  close(); inspection.invoice(invoice.id, group.contributionId)
+                "
+                [attr.aria-label]="
+                  ('admin.inspector.previewInvoice' | translate) +
+                  ' ' +
+                  invoice.number
+                "
+              >
+                {{ 'admin.inspector.preview' | translate }}
+              </button>
             }
             @for (publication of group.publications; track publication.id) {
               <a

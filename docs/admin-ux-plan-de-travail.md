@@ -8,7 +8,7 @@ Transformer l’administration en un espace qui indique **ce qui demande une int
 
 Ce document prépare l’implémentation. Les propositions contenues dans les documents sont des exigences à analyser et à organiser; elles ne constituent pas une instruction d’exécuter les opérations illustrées.
 
-**Avancement :** lots 1 à 6 réalisés. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md), de l’[Assistant contextuel](./admin-ux-lot-3.md), du [dossier commandite](./admin-ux-lot-4.md), des [indicateurs, activité et systèmes](./admin-ux-lot-5.md) et de la [recherche globale](./admin-ux-lot-6.md). Prochain lot : **Panneaux latéraux et harmonisation des pages**.
+**Avancement :** lots 1 à 7 réalisés. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md), de l’[Assistant contextuel](./admin-ux-lot-3.md), du [dossier commandite](./admin-ux-lot-4.md), des [indicateurs, activité et systèmes](./admin-ux-lot-5.md), de la [recherche globale](./admin-ux-lot-6.md) et des [panneaux latéraux et de l’harmonisation](./admin-ux-lot-7.md). Prochain lot : **Recette et preuves d’exécution**.
 
 Le présent changement documentaire est à risque faible. L’implémentation prévue sera à risque modéré pour les contrats API, les sessions, les projections et les parcours administratifs. Toute opération réelle sur les paiements ou la production reste une intervention distincte.
 
@@ -262,4 +262,4 @@ Pour ce livrable documentaire, les validations applicables sont la relecture des
 
 ## 8. Première action recommandée
 
-Les **lots 1 à 5** livrent le layout admin, la file « À traiter », l’Assistant contextuel, le dossier commandite et les indicateurs, activité et systèmes du cockpit. Poursuivre avec le **lot 6 — Recherche globale**.
+Les **lots 1 à 7** livrent le layout admin, la file « À traiter », l’Assistant contextuel, le dossier commandite, les indicateurs du cockpit, la recherche globale et les panneaux latéraux. Poursuivre avec le **lot 8 — Recette et preuves d’exécution**, en distinguant les parcours utilisateur des garanties sur la pile complète.

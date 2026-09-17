@@ -1,0 +1,87 @@
+:host {
+  display: block;
+  color: var(--admin-text);
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+input,
+select,
+textarea {
+  background: var(--admin-panel);
+  color: var(--admin-text);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.4rem;
+  min-width: 0;
+  max-width: 100%;
+  font: inherit;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--admin-muted);
+  opacity: 0.85;
+}
+button {
+  min-height: 2.75rem;
+  border-radius: 0.6rem;
+  font: inherit;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+button:not(:disabled):hover {
+  outline: 1px solid var(--admin-gold);
+}
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+a {
+  color: var(--admin-gold);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+td,
+dd,
+p {
+  overflow-wrap: anywhere;
+}
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+:host .primary-action,
+:host button[type='submit'] {
+  background: linear-gradient(135deg, #f0c66c, var(--admin-gold));
+  color: #172033;
+  border: 1px solid var(--admin-gold);
+}
+:host :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.state-error,
+[role='alert'] {
+  color: var(--admin-danger);
+}
+[role='status'],
+.inline-status {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .admin-content {
+    min-width: 0;
+  }
+  .admin-topbar {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .admin-topbar nav {
+    flex-wrap: wrap;
+  }
+}

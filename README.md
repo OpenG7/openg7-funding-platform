@@ -247,6 +247,12 @@ Search terms stay out of URLs and browser storage. Direct contribution links
 accept `contributionId` before the list limit; invoice and publication pages
 reload when their target changes on the same route. PostgreSQL search tests
 require an explicitly configured fresh local `search_test` database.
+The [Admin drawers and page harmonization — lot 7](docs/admin-ux-lot-7.md)
+extends the shared FR/EN layout to the operational pages and adds accessible
+inspection drawers, protected invoice/media previews and explicit action
+confirmations. Stripe inspection returns minimal stored event facts without raw
+webhook payloads. Audit and expense pages accept exact identifiers before list
+limits. The PostgreSQL inspection test owns and removes its disposable container.
 `GET /api/admin/dashboard` includes the additive `data_available` flag;
 `false` means PostgreSQL is not configured and the UI must not present the
 legacy zero-valued snapshot as an empty fund.
@@ -256,6 +262,7 @@ It exposes private operational views through:
 ```text
 GET /api/admin/dashboard
 POST /api/admin/search
+GET /api/admin/stripe-event?eventId=evt_...
 POST /api/admin/session
 GET /api/admin/contributions
 GET /api/admin/contributions.csv

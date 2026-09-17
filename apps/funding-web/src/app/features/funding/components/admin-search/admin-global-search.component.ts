@@ -18,6 +18,7 @@ import {
   FundingAdminService
 } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminInspectionService } from '../../services/admin-inspection.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 
 /** Admin organism: private, transient search and navigation to existing dossier pages. */
@@ -40,6 +41,7 @@ export class AdminGlobalSearchComponent {
   private readonly document = inject(DOCUMENT);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
   readonly i18n = inject(FundingI18nService);
+  readonly inspection = inject(AdminInspectionService);
   private readonly dialog =
     viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly input =
@@ -66,6 +68,7 @@ export class AdminGlobalSearchComponent {
   }
 
   shortcut(event: KeyboardEvent): void {
+    if (!this.opened() && this.document.querySelector('dialog[open]')) return;
     if (
       (event.ctrlKey || event.metaKey) &&
       !event.altKey &&

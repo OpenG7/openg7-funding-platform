@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
 
@@ -91,9 +90,11 @@ test.describe('Docker admin publication batches', () => {
       .getByRole('button', { name: 'Creer un creneau', exact: true })
       .click();
 
-    const slotCard = page.locator('.slot-card', {
-      hasText: 'OpenG7 / Facebook'
-    }).first();
+    const slotCard = page
+      .locator('.slot-card', {
+        hasText: 'OpenG7 / Facebook'
+      })
+      .first();
     await expect(slotCard).toBeVisible();
     await expect(slotCard).toContainText('0/5');
 
@@ -109,10 +110,10 @@ test.describe('Docker admin publication batches', () => {
     await expect(slotCard).toContainText('1/5');
     await expect(batchCard).toContainText('Planifie');
 
-    page.once('dialog', (dialog) => dialog.accept());
     await batchCard
       .getByRole('button', { name: 'Publier via API sociale', exact: true })
       .click();
+    await page.locator('[data-og7="confirm-action"]').click();
 
     const publishedBatchCard = page
       .locator('.batch-card', { hasText: 'Facebook - 1/5' })

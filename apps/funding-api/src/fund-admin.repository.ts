@@ -2383,7 +2383,8 @@ const getAdminExpenseById = async (
 };
 
 export const listAdminExpenses = async (
-  pool: Pool | null
+  pool: Pool | null,
+  expenseId?: string
 ): Promise<AdminExpensesResponse> => {
   const now = new Date().toISOString();
   const { summary, lastUpdatedAt } = await getAdminExpensesSummary(pool);
@@ -2424,6 +2425,7 @@ export const listAdminExpenses = async (
       created_at::text AS created_at,
       updated_at::text AS updated_at
     FROM fund_allocations
+    WHERE ($1::bigint IS NULL OR id = $1::bigint)
     ORDER BY
       CASE status
         WHEN 'draft' THEN 0
@@ -2434,7 +2436,7 @@ export const listAdminExpenses = async (
       END,
       COALESCE(published_at, updated_at, created_at) DESC
     LIMIT 250
-  `);
+  `, [expenseId ?? null]);
 
   return {
     data_source: 'database',
@@ -2709,7 +2711,8 @@ export const insertAdminAuditLog = async (
 };
 
 export const listAdminAuditLog = async (
-  pool: Pool | null
+  pool: Pool | null,
+  entryId?: string
 ): Promise<AdminAuditLogResponse> => {
   const now = new Date().toISOString();
   if (!pool) {
@@ -2740,9 +2743,10 @@ export const listAdminAuditLog = async (
       metadata,
       created_at::text AS created_at
     FROM admin_audit_log
+    WHERE ($1::uuid IS NULL OR id = $1::uuid)
     ORDER BY created_at DESC
     LIMIT 100
-  `);
+  `, [entryId ?? null]);
 
   return {
     data_source: 'database',

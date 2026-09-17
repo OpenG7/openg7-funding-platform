@@ -3,6 +3,7 @@ import { Injectable, signal } from '@angular/core';
 import type {
   AdminSearchRequest,
   AdminSearchResponse,
+  AdminStripeEventResponse,
   AdminCockpitMetrics,
   AdminCockpitActivity,
   AdminCockpitSystems,
@@ -456,7 +457,7 @@ export class FundingAdminService {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(response.status,
         await this.errorMessageFromResponse(
           response,
           'Admin sponsorship invoices could not be loaded.'
@@ -540,7 +541,7 @@ export class FundingAdminService {
     );
 
     if (!response.ok) {
-      throw new Error(
+      throw new AdminDashboardRequestError(response.status,
         await this.errorMessageFromResponse(
           response,
           'Sponsorship invoice PDF could not be downloaded.'
@@ -607,6 +608,14 @@ export class FundingAdminService {
     return response.blob();
   }
 
+  async getStripeEvent(token: string, eventId: string): Promise<AdminStripeEventResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/stripe-event?${new URLSearchParams({ eventId })}`, {
+      headers: await this.createHeaders(token), cache: 'no-store'
+    });
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return response.json() as Promise<AdminStripeEventResponse>;
+  }
+
   async search(token: string, query: AdminSearchRequest, signal: AbortSignal): Promise<AdminSearchResponse> {
     const headers = await this.createHeaders(token);
     signal.throwIfAborted();
@@ -651,9 +660,10 @@ export class FundingAdminService {
     return response.text();
   }
 
-  async getExpenses(token: string): Promise<AdminExpensesResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/admin/expenses`, {
+  async getExpenses(token: string, expenseId?: string): Promise<AdminExpensesResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/expenses${expenseId ? '?expenseId=' + encodeURIComponent(expenseId) : ''}`, {
       method: 'GET',
+      cache: 'no-store',
       headers: await this.createHeaders(token)
     });
 
@@ -1133,9 +1143,10 @@ export class FundingAdminService {
     return (await response.json()) as AdminPublicationBatchMutationResult;
   }
 
-  async getAuditLog(token: string): Promise<AdminAuditLogResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/admin/audit-log`, {
+  async getAuditLog(token: string, entryId?: string): Promise<AdminAuditLogResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/audit-log${entryId ? '?entryId=' + encodeURIComponent(entryId) : ''}`, {
       method: 'GET',
+      cache: 'no-store',
       headers: await this.createHeaders(token)
     });
 
@@ -1310,7 +1321,7 @@ export class FundingAdminService {
       }
     );
     if (!response.ok) {
-      throw new Error('Sponsor media preview could not be loaded.');
+      throw new AdminDashboardRequestError(response.status, 'Sponsor media preview could not be loaded.');
     }
     return response.blob();
   }

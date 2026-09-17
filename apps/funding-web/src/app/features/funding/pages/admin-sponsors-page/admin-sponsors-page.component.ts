@@ -36,9 +36,14 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
+import { AdminInspectionService } from '../../services/admin-inspection.service.js';
+import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
-import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
-import { AdminDashboardRequestError, FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import {
+  AdminDashboardRequestError,
+  FundingAdminService
+} from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
@@ -166,7 +171,7 @@ const controlledSponsorLogoUrlPrefixes = [
     AdminSponsorshipFactsComponent,
     CommonModule,
     RouterLink,
-    AdminNavComponent,
+    AdminLayoutComponent,
     AdminSponsorDetailHeaderComponent,
     AdminSponsorDetailIdentityComponent,
     AdminSponsorDetailOverviewComponent,
@@ -176,26 +181,37 @@ const controlledSponsorLogoUrlPrefixes = [
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="admin-shell">
-      <openg7-admin-nav />
-
+    <openg7-admin-layout>
       <section class="admin-workspace">
         <header class="admin-page-header">
-          <nav class="admin-breadcrumb" aria-label="Fil d'Ariane admin">
-            <a routerLink="/admin/fundraiser">Accueil</a>
+          <nav
+            class="admin-breadcrumb"
+            [attr.aria-label]="'admin.legacy.fil_d_ariane_admin' | translate"
+          >
+            <a routerLink="/admin/fundraiser">{{
+              'admin.legacy.accueil' | translate
+            }}</a>
             <span aria-hidden="true">/</span>
-            <a routerLink="/admin/fundraiser">Fundraiser</a>
+            <a routerLink="/admin/fundraiser">{{
+              'admin.legacy.fundraiser' | translate
+            }}</a>
             <span aria-hidden="true">/</span>
-            <strong>Commanditaires</strong>
+            <strong>{{ 'admin.legacy.commanditaires' | translate }}</strong>
           </nav>
 
           <div class="admin-title-row">
             <div>
-              <span class="admin-kicker">Administration</span>
-              <h1>Commanditaires / partenaires</h1>
+              <span class="admin-kicker">{{
+                'admin.legacy.administration' | translate
+              }}</span>
+              <h1>
+                {{ 'admin.legacy.commanditaires_partenaires' | translate }}
+              </h1>
               <p>
-                Gestion des organisations commanditaires, statut de revue et
-                visibilite publique.
+                {{
+                  'admin.legacy.gestion_des_organisations_commanditaires_statut_de_revue_et_visib'
+                    | translate
+                }}
               </p>
             </div>
 
@@ -206,11 +222,11 @@ const controlledSponsorLogoUrlPrefixes = [
                 (click)="loadSponsorships()"
                 [disabled]="state() === 'loading'"
               >
-                Actualiser
+                {{ 'admin.legacy.actualiser' | translate }}
               </button>
-              <a class="primary-action" routerLink="/fonds-des-batisseurs"
-                >Retour public</a
-              >
+              <a class="primary-action" routerLink="/fonds-des-batisseurs">{{
+                'admin.legacy.retour_public' | translate
+              }}</a>
             </div>
           </div>
         </header>
@@ -222,7 +238,10 @@ const controlledSponsorLogoUrlPrefixes = [
           [totalContributionLabel]="formatSummaryMoney(totalContribution())"
         />
 
-        <section class="sponsors-board" aria-label="Commandites admin">
+        <section
+          class="sponsors-board"
+          [attr.aria-label]="'admin.legacy.commandites_admin' | translate"
+        >
           <openg7-admin-sponsors-list-panel
             [state]="state()"
             [rows]="sponsorListRows()"
@@ -262,7 +281,9 @@ const controlledSponsorLogoUrlPrefixes = [
               selectedSponsorship() &&
               selectionPulseId() === selectedSponsorship()?.id
             "
-            aria-label="Dossier commanditaire selectionne"
+            [attr.aria-label]="
+              'admin.legacy.dossier_commanditaire_selectionne' | translate
+            "
           >
             <ng-container
               *ngIf="selectedSponsorship() as selected; else noSelection"
@@ -282,8 +303,15 @@ const controlledSponsorLogoUrlPrefixes = [
               </p>
 
               @if (versionConflict()) {
-                <p role="alert">{{ 'admin.dossier.conflict' | translate }}
-                  <button type="button" [disabled]="state() === 'loading' || actionState() !== null" (click)="loadSponsorships()">{{ 'admin.dossier.refresh' | translate }}</button>
+                <p role="alert">
+                  {{ 'admin.dossier.conflict' | translate }}
+                  <button
+                    type="button"
+                    [disabled]="state() === 'loading' || actionState() !== null"
+                    (click)="loadSponsorships()"
+                  >
+                    {{ 'admin.dossier.refresh' | translate }}
+                  </button>
                 </p>
               }
               <openg7-admin-sponsorship-progress
@@ -303,7 +331,10 @@ const controlledSponsorLogoUrlPrefixes = [
                   [refreshKey]="assistantRefresh()"
                   [compact]="true"
                 />
-                <openg7-admin-sponsorship-facts view="overview" [dossier]="progress()" />
+                <openg7-admin-sponsorship-facts
+                  view="overview"
+                  [dossier]="progress()"
+                />
                 <openg7-admin-sponsor-detail-overview
                   *ngIf="selectedSponsorDetailOverview() as overview"
                   [overview]="overview"
@@ -325,6 +356,9 @@ const controlledSponsorLogoUrlPrefixes = [
                   *ngIf="selectedSponsorDetailIdentity() as identity"
                   [identity]="identity"
                   (uploadLogo)="uploadLogo(selected, $event)"
+                  (previewMedia)="
+                    inspection.media($event.id, selected.id, $event.alt)
+                  "
                   (deleteLogo)="deleteLogo(selected)"
                   (reviewMedia)="reviewSponsorMedia(selected, $event)"
                   (approveAllMedia)="approveAllSponsorMedia(selected)"
@@ -333,25 +367,36 @@ const controlledSponsorLogoUrlPrefixes = [
               </ng-container>
 
               @if (activeTab() === 'billing') {
-                <openg7-admin-sponsorship-facts view="billing" [dossier]="progress()" />
+                <openg7-admin-sponsorship-facts
+                  view="billing"
+                  [dossier]="progress()"
+                />
               }
               @if (activeTab() === 'publication') {
-                <openg7-admin-sponsorship-facts view="publication" [dossier]="progress()" />
+                <openg7-admin-sponsorship-facts
+                  view="publication"
+                  [dossier]="progress()"
+                />
               }
               @if (activeTab() === 'refund') {
-                <openg7-admin-sponsorship-facts view="refund" [dossier]="progress()" />
+                <openg7-admin-sponsorship-facts
+                  view="refund"
+                  [dossier]="progress()"
+                />
               }
 
               <section
                 class="detail-body"
                 *ngIf="activeTab() === 'publication'"
-                aria-label="Publication"
+                [attr.aria-label]="'admin.legacy.publication' | translate"
               >
                 <article class="detail-card publication-editor">
                   <header>
                     <div>
-                      <span>Publication</span>
-                      <h3>Commanditaire et feeds</h3>
+                      <span>{{ 'admin.legacy.publication' | translate }}</span>
+                      <h3>
+                        {{ 'admin.legacy.commanditaire_et_feeds' | translate }}
+                      </h3>
                     </div>
                     <button
                       type="button"
@@ -366,8 +411,8 @@ const controlledSponsorLogoUrlPrefixes = [
                     >
                       {{
                         isActionPending(publicationActionId(selected.id))
-                          ? 'Enregistrement...'
-                          : 'Enregistrer'
+                          ? ('admin.legacy.enregistrement' | translate)
+                          : ('admin.legacy.enregistrer' | translate)
                       }}
                     </button>
                   </header>
@@ -380,7 +425,8 @@ const controlledSponsorLogoUrlPrefixes = [
                   </p>
                   <div class="publication-grid">
                     <label
-                      >Slug public<input
+                      >{{ 'admin.legacy.slug_public' | translate
+                      }}<input
                         type="text"
                         maxlength="120"
                         [value]="publicationDraftFor(selected.id).publicSlug"
@@ -397,19 +443,23 @@ const controlledSponsorLogoUrlPrefixes = [
                       ></label
                     >
                     <label
-                      >Destination feed<select
+                      >{{ 'admin.legacy.destination_feed' | translate
+                      }}<select
                         [value]="publicationDraftFor(selected.id).feedTarget"
                         (change)="
                           setPublicationField(selected.id, 'feedTarget', $event)
                         "
                       >
-                        <option value="">Aucune</option>
+                        <option value="">
+                          {{ 'admin.legacy.aucune' | translate }}
+                        </option>
                         <option value="openg7">OpenG7</option>
                         <option value="openg20">OpenG20</option>
                       </select></label
                     >
                     <label
-                      >Statut feed<select
+                      >{{ 'admin.legacy.statut_feed' | translate
+                      }}<select
                         [value]="publicationDraftFor(selected.id).feedStatus"
                         (change)="
                           setPublicationField(selected.id, 'feedStatus', $event)
@@ -424,7 +474,7 @@ const controlledSponsorLogoUrlPrefixes = [
                       </select></label
                     >
                     <fieldset>
-                      <legend>Canaux</legend>
+                      <legend>{{ 'admin.legacy.canaux' | translate }}</legend>
                       <label
                         ><input
                           type="checkbox"
@@ -470,7 +520,8 @@ const controlledSponsorLogoUrlPrefixes = [
                       >
                     </fieldset>
                     <label class="publication-span-2"
-                      >Resume public<textarea
+                      >{{ 'admin.legacy.resume_public' | translate
+                      }}<textarea
                         rows="4"
                         maxlength="500"
                         [value]="publicationDraftFor(selected.id).publicSummary"
@@ -484,7 +535,8 @@ const controlledSponsorLogoUrlPrefixes = [
                       ></textarea>
                     </label>
                     <label
-                      >Lien de publication<input
+                      >{{ 'admin.legacy.lien_de_publication' | translate
+                      }}<input
                         type="url"
                         maxlength="2048"
                         [value]="publicationDraftFor(selected.id).feedPublicUrl"
@@ -497,7 +549,8 @@ const controlledSponsorLogoUrlPrefixes = [
                         "
                     /></label>
                     <label class="publication-span-2"
-                      >Notes feed<textarea
+                      >{{ 'admin.legacy.notes_feed' | translate
+                      }}<textarea
                         rows="4"
                         maxlength="1000"
                         [value]="publicationDraftFor(selected.id).feedNotes"
@@ -510,7 +563,9 @@ const controlledSponsorLogoUrlPrefixes = [
                 </article>
 
                 <article class="detail-card public-preview">
-                  <span>Previsualisation non publiee</span>
+                  <span>{{
+                    'admin.legacy.previsualisation_non_publiee' | translate
+                  }}</span>
                   <div>
                     <figure
                       class="logo-preview"
@@ -529,31 +584,32 @@ const controlledSponsorLogoUrlPrefixes = [
                       <p>
                         {{
                           publicationDraftFor(selected.id).publicSummary ||
-                            'Aucun resume public pour le moment.'
+                            ('admin.legacy.aucun_resume_public_pour_le_moment'
+                              | translate)
                         }}
                       </p>
                     </div>
                   </div>
                   <dl class="compact-definition-list">
                     <div>
-                      <dt>Destination</dt>
+                      <dt>{{ 'admin.legacy.destination' | translate }}</dt>
                       <dd>
                         {{
                           publicationDraftFor(selected.id).feedTarget ||
-                            'Aucune'
+                            ('admin.legacy.aucune' | translate)
                         }}
                       </dd>
                     </div>
                     <div>
-                      <dt>Canaux</dt>
+                      <dt>{{ 'admin.legacy.canaux' | translate }}</dt>
                       <dd>{{ draftChannelsLabel(selected.id) }}</dd>
                     </div>
                     <div>
-                      <dt>Lien</dt>
+                      <dt>{{ 'admin.legacy.lien' | translate }}</dt>
                       <dd>
                         {{
                           publicationDraftFor(selected.id).feedPublicUrl ||
-                            'Non defini'
+                            ('admin.legacy.non_defini' | translate)
                         }}
                       </dd>
                     </div>
@@ -564,13 +620,15 @@ const controlledSponsorLogoUrlPrefixes = [
               <section
                 class="detail-body refund-history-body"
                 *ngIf="activeTab() === 'refund'"
-                aria-label="Historique remboursement"
+                [attr.aria-label]="
+                  'admin.legacy.historique_remboursement' | translate
+                "
               >
                 <article class="detail-card">
-                  <h3>Suivi remboursement</h3>
+                  <h3>{{ 'admin.legacy.suivi_remboursement' | translate }}</h3>
                   <div class="refund-summary-grid">
                     <div>
-                      <span>Statut</span>
+                      <span>{{ 'admin.legacy.statut' | translate }}</span>
                       <strong
                         ><span
                           [class]="
@@ -587,50 +645,65 @@ const controlledSponsorLogoUrlPrefixes = [
                       >
                     </div>
                     <div>
-                      <span>Montant commandite</span>
+                      <span>{{
+                        'admin.legacy.montant_commandite' | translate
+                      }}</span>
                       <strong>{{ formatMoney(selected) }}</strong>
                     </div>
                     <div>
-                      <span>Dernier montant rembourse</span>
+                      <span>{{
+                        'admin.legacy.dernier_montant_rembourse' | translate
+                      }}</span>
                       <strong>{{
                         selected.sponsorship_refund_amount
                           ? formatAmount(
                               selected.sponsorship_refund_amount,
                               selected.currency
                             )
-                          : 'Non associe'
+                          : ('admin.legacy.non_associe' | translate)
                       }}</strong>
                     </div>
                     <div>
-                      <span>Raison Stripe</span>
+                      <span>{{
+                        'admin.legacy.raison_stripe' | translate
+                      }}</span>
                       <strong>{{
                         selected.sponsorship_refund_reason
                           ? stripeRefundReasonLabel(
                               selected.sponsorship_refund_reason
                             )
-                          : 'Non associee'
+                          : ('admin.legacy.non_associee' | translate)
                       }}</strong>
                     </div>
                     <div>
-                      <span>Reference publique</span>
+                      <span>{{
+                        'admin.legacy.reference_publique' | translate
+                      }}</span>
                       <code>{{
-                        selected.public_reference || 'Non attribuee'
+                        selected.public_reference ||
+                          ('admin.legacy.non_attribuee_175' | translate)
                       }}</code>
                     </div>
                     <div>
-                      <span>Refund Stripe</span>
+                      <span>{{
+                        'admin.legacy.refund_stripe' | translate
+                      }}</span>
                       <code>{{
-                        selected.sponsorship_refund_id || 'Non associe'
+                        selected.sponsorship_refund_id ||
+                          ('admin.legacy.non_associe' | translate)
                       }}</code>
                     </div>
                   </div>
                   <p class="muted-copy" *ngIf="!hasRefundWorkflow(selected)">
-                    Aucun remboursement n'est demande pour cette commandite.
+                    {{
+                      'admin.legacy.aucun_remboursement_n_est_demande_pour_cette_commandite'
+                        | translate
+                    }}
                   </p>
                 </article>
 
                 <article class="detail-card">
-                  <h3>Jalons remboursement</h3>
+                  <h3>{{ 'admin.legacy.jalons_remboursement' | translate }}</h3>
                   <ol
                     class="refund-history-list"
                     *ngIf="
@@ -652,8 +725,10 @@ const controlledSponsorLogoUrlPrefixes = [
                   </ol>
                   <ng-template #noRefundHistory
                     ><p class="muted-copy">
-                      Aucun jalon de remboursement n'est encore date pour ce
-                      dossier.
+                      {{
+                        'admin.legacy.aucun_jalon_de_remboursement_n_est_encore_date_pour_ce_dossier'
+                          | translate
+                      }}
                     </p></ng-template
                   >
                 </article>
@@ -665,16 +740,18 @@ const controlledSponsorLogoUrlPrefixes = [
                     selected.sponsorship_refund_error
                   "
                 >
-                  <h3>Notes et erreurs</h3>
+                  <h3>{{ 'admin.legacy.notes_et_erreurs' | translate }}</h3>
                   <dl class="compact-definition-list">
                     <div *ngIf="selected.sponsorship_refund_note">
-                      <dt>Note remboursement</dt>
+                      <dt>
+                        {{ 'admin.legacy.note_remboursement' | translate }}
+                      </dt>
                       <dd class="preserve-lines">
                         {{ selected.sponsorship_refund_note }}
                       </dd>
                     </div>
                     <div *ngIf="selected.sponsorship_refund_error">
-                      <dt>Derniere erreur</dt>
+                      <dt>{{ 'admin.legacy.derniere_erreur' | translate }}</dt>
                       <dd class="preserve-lines">
                         {{ selected.sponsorship_refund_error }}
                       </dd>
@@ -683,7 +760,7 @@ const controlledSponsorLogoUrlPrefixes = [
                 </article>
 
                 <article class="detail-card">
-                  <h3>Actions admin liees</h3>
+                  <h3>{{ 'admin.legacy.actions_admin_liees' | translate }}</h3>
                   <ol
                     class="audit-list"
                     *ngIf="
@@ -704,8 +781,10 @@ const controlledSponsorLogoUrlPrefixes = [
                   </ol>
                   <ng-template #noRefundAudit
                     ><p class="muted-copy">
-                      Aucune action admin de remboursement n'est encore associee
-                      a cette commandite.
+                      {{
+                        'admin.legacy.aucune_action_admin_de_remboursement_n_est_encore_associee_a_cett'
+                          | translate
+                      }}
                     </p></ng-template
                   >
                 </article>
@@ -714,10 +793,17 @@ const controlledSponsorLogoUrlPrefixes = [
               <section
                 class="detail-body"
                 *ngIf="activeTab() === 'audit'"
-                aria-label="Historique et audit"
+                [attr.aria-label]="
+                  'admin.legacy.historique_et_audit' | translate
+                "
               >
                 <article class="detail-card">
-                  <h3>Historique disponible</h3>
+                  <h3>
+                    {{ 'admin.legacy.historique_disponible' | translate }}
+                  </h3>
+                  <button type="button" (click)="inspection.history(selected)">
+                    {{ 'admin.inspector.kinds.history' | translate }}
+                  </button>
                   <ol
                     class="audit-list"
                     *ngIf="auditEntriesFor(selected).length > 0; else noAudit"
@@ -735,13 +821,17 @@ const controlledSponsorLogoUrlPrefixes = [
                   </ol>
                   <ng-template #noAudit
                     ><p class="muted-copy">
-                      Aucun historique administratif detaille n'est encore
-                      disponible pour ce dossier.
+                      {{
+                        'admin.legacy.aucun_historique_administratif_detaille_n_est_encore_disponible_p'
+                          | translate
+                      }}
                     </p></ng-template
                   >
                   <p class="muted-copy">
-                    Les actions admin proviennent du journal prive et restent
-                    limitees a cette commandite.
+                    {{
+                      'admin.legacy.les_actions_admin_proviennent_du_journal_prive_et_restent_limitee'
+                        | translate
+                    }}
                   </p>
                 </article>
               </section>
@@ -749,25 +839,34 @@ const controlledSponsorLogoUrlPrefixes = [
               <section
                 class="rejection-workflow"
                 *ngIf="isRejectionPanelOpen(selected)"
-                aria-label="Refus de commandite"
+                [attr.aria-label]="
+                  'admin.legacy.refus_de_commandite' | translate
+                "
               >
                 <header>
                   <div>
-                    <span>Action sensible</span>
-                    <h3>Refuser la commandite</h3>
+                    <span>{{
+                      'admin.legacy.action_sensible' | translate
+                    }}</span>
+                    <h3>
+                      {{ 'admin.legacy.refuser_la_commandite' | translate }}
+                    </h3>
                   </div>
                   <button
                     type="button"
                     class="icon-action"
                     (click)="closeRejectionPanel()"
-                    aria-label="Fermer le refus"
+                    [attr.aria-label]="
+                      'admin.legacy.fermer_le_refus' | translate
+                    "
                   >
-                    ×
+                    ?
                   </button>
                 </header>
 
                 <label class="rejection-span-2"
-                  >Raison interne du refus *<textarea
+                  >{{ 'admin.legacy.raison_interne_du_refus' | translate
+                  }}<textarea
                     rows="4"
                     maxlength="1000"
                     [value]="reviewNoteFor(selected.id)"
@@ -776,7 +875,8 @@ const controlledSponsorLogoUrlPrefixes = [
                 </label>
 
                 <label class="rejection-span-2"
-                  >Message au commanditaire *<textarea
+                  >{{ 'admin.legacy.message_au_commanditaire' | translate
+                  }}<textarea
                     rows="5"
                     maxlength="1000"
                     [value]="rejectionDraftFor(selected).sponsorMessage"
@@ -802,11 +902,14 @@ const controlledSponsorLogoUrlPrefixes = [
                       )
                     "
                   />
-                  Envoyer le courriel de refus
-                </label>
+                  {{
+                    'admin.legacy.envoyer_le_courriel_de_refus' | translate
+                  }}</label
+                >
 
                 <label
-                  >Destinataire<input
+                  >{{ 'admin.legacy.destinataire' | translate
+                  }}<input
                     type="email"
                     autocomplete="email"
                     [disabled]="!rejectionDraftFor(selected).notifySponsor"
@@ -821,22 +924,33 @@ const controlledSponsorLogoUrlPrefixes = [
                 /></label>
 
                 <label
-                  >Remboursement<select
+                  >{{ 'admin.legacy.remboursement' | translate
+                  }}<select
                     [value]="rejectionDraftFor(selected).refundHandling"
                     (change)="setRejectionRefundHandling(selected.id, $event)"
                   >
-                    <option value="none">Ne pas rembourser maintenant</option>
+                    <option value="none">
+                      {{
+                        'admin.legacy.ne_pas_rembourser_maintenant' | translate
+                      }}
+                    </option>
                     <option value="manual_required">
-                      A traiter manuellement dans Stripe
+                      {{
+                        'admin.legacy.a_traiter_manuellement_dans_stripe'
+                          | translate
+                      }}
                     </option>
                     <option value="manual_completed">
-                      Deja rembourse manuellement
+                      {{
+                        'admin.legacy.deja_rembourse_manuellement' | translate
+                      }}
                     </option>
                   </select></label
                 >
 
                 <label class="rejection-span-2"
-                  >Note remboursement<textarea
+                  >{{ 'admin.legacy.note_remboursement' | translate
+                  }}<textarea
                     rows="3"
                     maxlength="1000"
                     [value]="rejectionDraftFor(selected).refundNote"
@@ -855,7 +969,7 @@ const controlledSponsorLogoUrlPrefixes = [
                     class="secondary-action"
                     (click)="closeRejectionPanel()"
                   >
-                    Annuler
+                    {{ 'admin.legacy.annuler' | translate }}
                   </button>
                   <button
                     type="button"
@@ -868,8 +982,8 @@ const controlledSponsorLogoUrlPrefixes = [
                   >
                     {{
                       isActionPending(reviewActionId(selected.id))
-                        ? 'Refus en cours...'
-                        : 'Confirmer le refus'
+                        ? ('admin.legacy.refus_en_cours' | translate)
+                        : ('admin.legacy.confirmer_le_refus' | translate)
                     }}
                   </button>
                 </footer>
@@ -878,32 +992,43 @@ const controlledSponsorLogoUrlPrefixes = [
               <section
                 class="refund-workflow"
                 *ngIf="isRefundPanelOpen(selected)"
-                aria-label="Remboursement Stripe"
+                [attr.aria-label]="
+                  'admin.legacy.remboursement_stripe' | translate
+                "
               >
                 <header>
                   <div>
                     <span>Stripe</span>
-                    <h3>Remboursement Stripe</h3>
+                    <h3>
+                      {{ 'admin.legacy.remboursement_stripe' | translate }}
+                    </h3>
                   </div>
                   <button
                     type="button"
                     class="icon-action"
                     (click)="closeRefundPanel()"
-                    aria-label="Fermer le remboursement"
+                    [attr.aria-label]="
+                      'admin.legacy.fermer_le_remboursement' | translate
+                    "
                   >
-                    ×
+                    ?
                   </button>
                 </header>
 
                 <p class="refund-warning rejection-span-2">
-                  Cette action declenche un remboursement Stripe de
-                  {{ refundDraftAmountLabel(selected) }} sur un paiement de
-                  {{ formatMoney(selected) }}. Elle est envoyee a Stripe
-                  immediatement.
+                  {{
+                    'admin.legacy.cette_action_declenche_un_remboursement_stripe_de_p0_sur_un_paiem'
+                      | translate
+                        : {
+                            p0: refundDraftAmountLabel(selected),
+                            p1: formatMoney(selected)
+                          }
+                  }}
                 </p>
 
                 <label
-                  >Montant a rembourser<input
+                  >{{ 'admin.legacy.montant_a_rembourser' | translate
+                  }}<input
                     type="number"
                     min="0.01"
                     [max]="selected.amount"
@@ -916,23 +1041,28 @@ const controlledSponsorLogoUrlPrefixes = [
                 /></label>
 
                 <label
-                  >Raison Stripe<select
+                  >{{ 'admin.legacy.raison_stripe' | translate
+                  }}<select
                     [value]="refundDraftFor(selected).refundReason"
                     (change)="setRefundDraftReason(selected.id, $event)"
                   >
                     <option value="requested_by_customer">
-                      Demande du commanditaire
+                      {{ 'admin.legacy.demande_du_commanditaire' | translate }}
                     </option>
-                    <option value="duplicate">Paiement en double</option>
-                    <option value="fraudulent">Paiement frauduleux</option>
+                    <option value="duplicate">
+                      {{ 'admin.legacy.paiement_en_double' | translate }}
+                    </option>
+                    <option value="fraudulent">
+                      {{ 'admin.legacy.paiement_frauduleux' | translate }}
+                    </option>
                   </select></label
                 >
 
                 <label class="rejection-span-2"
-                  >Texte de confirmation
-                  <small
-                    >Recopiez
-                    <code>{{ refundConfirmationText(selected) }}</code></small
+                  >{{ 'admin.legacy.texte_de_confirmation' | translate
+                  }}<small
+                    >{{ 'admin.legacy.recopiez' | translate
+                    }}<code>{{ refundConfirmationText(selected) }}</code></small
                   ><input
                     type="text"
                     autocomplete="off"
@@ -958,11 +1088,15 @@ const controlledSponsorLogoUrlPrefixes = [
                       )
                     "
                   />
-                  Envoyer le courriel de remboursement
-                </label>
+                  {{
+                    'admin.legacy.envoyer_le_courriel_de_remboursement'
+                      | translate
+                  }}</label
+                >
 
                 <label
-                  >Destinataire<input
+                  >{{ 'admin.legacy.destinataire' | translate
+                  }}<input
                     type="email"
                     autocomplete="email"
                     [disabled]="!refundDraftFor(selected).notifySponsor"
@@ -973,7 +1107,8 @@ const controlledSponsorLogoUrlPrefixes = [
                 /></label>
 
                 <label
-                  >Message au commanditaire<textarea
+                  >{{ 'admin.legacy.message_au_commanditaire_405' | translate
+                  }}<textarea
                     rows="4"
                     maxlength="1000"
                     [disabled]="!refundDraftFor(selected).notifySponsor"
@@ -985,7 +1120,8 @@ const controlledSponsorLogoUrlPrefixes = [
                 </label>
 
                 <label class="rejection-span-2"
-                  >Note remboursement<textarea
+                  >{{ 'admin.legacy.note_remboursement' | translate
+                  }}<textarea
                     rows="3"
                     maxlength="1000"
                     [value]="refundDraftFor(selected).refundNote"
@@ -1004,7 +1140,7 @@ const controlledSponsorLogoUrlPrefixes = [
                     class="secondary-action"
                     (click)="closeRefundPanel()"
                   >
-                    Annuler
+                    {{ 'admin.legacy.annuler' | translate }}
                   </button>
                   <button
                     type="button"
@@ -1017,8 +1153,8 @@ const controlledSponsorLogoUrlPrefixes = [
                   >
                     {{
                       isActionPending(refundActionId(selected.id))
-                        ? 'Remboursement...'
-                        : 'Rembourser Stripe'
+                        ? ('admin.legacy.remboursement_406' | translate)
+                        : ('admin.legacy.rembourser_stripe' | translate)
                     }}
                   </button>
                 </footer>
@@ -1039,7 +1175,7 @@ const controlledSponsorLogoUrlPrefixes = [
                   [disabled]="isAnyActionPending(selected.id)"
                   (click)="review(selected, 'pending_review')"
                 >
-                  Remettre en attente
+                  {{ 'admin.legacy.remettre_en_attente' | translate }}
                 </button>
                 <button
                   type="button"
@@ -1047,7 +1183,7 @@ const controlledSponsorLogoUrlPrefixes = [
                   [disabled]="isAnyActionPending(selected.id)"
                   (click)="openRejectionPanel(selected)"
                 >
-                  Refuser
+                  {{ 'admin.legacy.refuser' | translate }}
                 </button>
                 <button
                   type="button"
@@ -1058,7 +1194,7 @@ const controlledSponsorLogoUrlPrefixes = [
                   "
                   (click)="openRefundPanel(selected)"
                 >
-                  Rembourser Stripe
+                  {{ 'admin.legacy.rembourser_stripe' | translate }}
                 </button>
                 <button
                   type="button"
@@ -1069,38 +1205,38 @@ const controlledSponsorLogoUrlPrefixes = [
                   "
                   (click)="review(selected, 'approved')"
                 >
-                  Accepter
+                  {{ 'admin.legacy.accepter' | translate }}
                 </button>
               </footer>
             </ng-container>
 
             <ng-template #noSelection
               ><article class="empty-detail-state">
-                <h2>Aucun commanditaire selectionne</h2>
+                <h2>
+                  {{
+                    'admin.legacy.aucun_commanditaire_selectionne' | translate
+                  }}
+                </h2>
                 <p>
-                  Selectionnez une ligne dans la liste pour ouvrir le dossier,
-                  reviser la commandite et preparer sa publication.
+                  {{
+                    'admin.legacy.selectionnez_une_ligne_dans_la_liste_pour_ouvrir_le_dossier_revis'
+                      | translate
+                  }}
                 </p>
               </article></ng-template
             >
           </aside>
         </section>
       </section>
-    </main>
+    </openg7-admin-layout>
   `,
+  styleUrls: [
+    '../../components/admin-ui/admin-theme.css',
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css'
+  ],
   styles: [
     `
-      .admin-shell {
-        background: #f6f8fc;
-        color: #111827;
-        display: grid;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        gap: 1.25rem;
-        grid-template-columns: 15rem minmax(0, 1fr);
-        min-height: 100vh;
-        padding: 1.25rem;
-      }
-
       .admin-workspace {
         display: grid;
         gap: 1rem;
@@ -1132,7 +1268,7 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .admin-breadcrumb {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.84rem;
       }
 
@@ -1165,7 +1301,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .muted-copy,
       .empty-admin-state p,
       .empty-detail-state p {
-        color: #566274;
+        color: var(--admin-muted);
         line-height: 1.55;
         margin: 0.35rem 0 0;
       }
@@ -1175,7 +1311,7 @@ const controlledSponsorLogoUrlPrefixes = [
       dt,
       .publication-editor header span,
       .public-preview > span {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.76rem;
         font-weight: 900;
         letter-spacing: 0;
@@ -1219,18 +1355,18 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .primary-action,
       .publication-save {
-        background: #a86f16;
-        border: 1px solid #9a6414;
-        color: #fff;
+        background: #3c3221;
+        border: 1px solid var(--admin-border);
+        color: var(--admin-text);
       }
 
       .secondary-action,
       .tertiary-action,
       .mini-action,
       .icon-action {
-        background: #fff;
-        border: 1px solid #cfd8e6;
-        color: #172033;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
+        color: var(--admin-text);
       }
 
       .tertiary-action:disabled,
@@ -1245,9 +1381,9 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .secondary-danger-action {
-        background: #fff8f8;
-        border: 1px solid #f1a8b4;
-        color: #9f1d2f;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
+        color: var(--admin-danger);
       }
 
       .icon-action {
@@ -1268,8 +1404,8 @@ const controlledSponsorLogoUrlPrefixes = [
       .detail-card,
       .empty-admin-state,
       .empty-detail-state {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.5rem;
       }
 
@@ -1292,23 +1428,23 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .metric-mark {
-        background: #eef2f7;
-        color: #172033;
+        background: var(--admin-panel-raised);
+        color: var(--admin-text);
         height: 3rem;
         width: 3rem;
       }
 
       .metric-mark.gold {
-        background: #fff4d9;
-        color: #a86f16;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
       .metric-mark.green {
-        background: #e8f7ee;
-        color: #177245;
+        background: var(--admin-panel-raised);
+        color: var(--admin-success);
       }
       .metric-mark.money {
-        background: #f4eadb;
-        color: #9a6414;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       .admin-summary-grid strong {
@@ -1321,7 +1457,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .admin-summary-grid small,
       .sponsor-table-row small,
       .inline-status {
-        color: #667085;
+        color: var(--admin-muted);
       }
 
       .sponsors-board {
@@ -1339,7 +1475,7 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .admin-table-toolbar {
         align-items: end;
-        border-bottom: 1px solid #e4e9f2;
+        border-bottom: 1px solid var(--admin-border);
         display: grid;
         gap: 1rem;
         grid-template-columns: minmax(16rem, 1fr) auto;
@@ -1367,7 +1503,7 @@ const controlledSponsorLogoUrlPrefixes = [
       input,
       select,
       textarea {
-        border: 1px solid #cdd6e3;
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         padding: 0.65rem 0.75rem;
       }
@@ -1385,11 +1521,11 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .state-error {
-        background: #fff7f8;
-        color: #9f1d2f;
+        background: var(--admin-panel);
+        color: var(--admin-danger);
       }
       .state-loading {
-        color: #38425a;
+        color: var(--admin-muted);
       }
 
       .skeleton-list {
@@ -1398,7 +1534,12 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .skeleton-list span {
-        background: linear-gradient(90deg, #edf2f7, #f8fafc, #edf2f7);
+        background: linear-gradient(
+          90deg,
+          var(--admin-panel-raised),
+          var(--admin-panel),
+          var(--admin-panel-raised)
+        );
         border-radius: 0.35rem;
         display: block;
         height: 3.5rem;
@@ -1420,17 +1561,17 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .sponsor-table-head {
-        border-bottom: 1px solid #e8edf5;
-        color: #506079;
+        border-bottom: 1px solid var(--admin-border);
+        color: var(--admin-muted);
         font-size: 0.76rem;
         font-weight: 900;
       }
 
       .sponsor-table-row {
         appearance: none;
-        background: var(--sponsor-row-bg, #fff);
+        background: var(--sponsor-row-bg, var(--admin-panel));
         border: 0;
-        border-bottom: 1px solid #edf1f6;
+        border-bottom: 1px solid var(--admin-border);
         border-left: 0.28rem solid var(--sponsor-row-accent, transparent);
         box-sizing: border-box;
         color: inherit;
@@ -1444,11 +1585,11 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .sponsor-table-row:hover {
-        background: var(--sponsor-row-hover-bg, #f8fbff);
+        background: var(--sponsor-row-hover-bg, var(--admin-panel));
       }
 
       .sponsor-table-row.selected {
-        background: var(--sponsor-row-selected-bg, #f8fbff);
+        background: var(--sponsor-row-selected-bg, var(--admin-panel));
         box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.24);
       }
 
@@ -1519,8 +1660,8 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .sponsor-avatar {
-        background: #172033;
-        color: #fff;
+        background: var(--admin-panel-raised);
+        color: var(--admin-text);
         height: 2.35rem;
         width: 2.35rem;
       }
@@ -1532,7 +1673,7 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .row-open {
-        color: #506079;
+        color: var(--admin-muted);
         font-size: 1.6rem;
         justify-content: center;
       }
@@ -1563,11 +1704,11 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .review-toast {
         animation: review-toast-in 0.22s ease both;
-        background: #10233d;
+        background: var(--admin-panel-raised);
         border: 1px solid rgb(255 255 255 / 12%);
         border-radius: 0.45rem;
         box-shadow: 0 16px 34px rgb(15 23 42 / 24%);
-        color: #fff;
+        color: var(--admin-text);
         font-size: 0.86rem;
         font-weight: 900;
         margin: 0;
@@ -1600,15 +1741,15 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .detail-title p {
-        color: #38425a;
+        color: var(--admin-muted);
         margin: 0.2rem 0 0;
       }
 
       .payment-alert {
-        background: #fff7ed;
-        border: 1px solid #fed7aa;
+        background: #3c3221;
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
-        color: #9a3412;
+        color: var(--admin-danger);
         font-weight: 900;
         grid-column: 1 / -1;
         margin: 0 1rem 1rem;
@@ -1616,8 +1757,8 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .rejection-workflow {
-        background: #fff8f8;
-        border-top: 1px solid #f1a8b4;
+        background: var(--admin-panel);
+        border-top: 1px solid var(--admin-border);
         display: grid;
         gap: 0.85rem;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1625,8 +1766,8 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .refund-workflow {
-        background: #f3f7ff;
-        border-top: 1px solid #b8cff7;
+        background: var(--admin-panel-raised);
+        border-top: 1px solid var(--admin-border);
         display: grid;
         gap: 0.85rem;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1652,14 +1793,14 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .rejection-workflow header span {
-        color: #9f1d2f;
+        color: var(--admin-danger);
         font-size: 0.72rem;
         font-weight: 900;
         text-transform: uppercase;
       }
 
       .refund-workflow header span {
-        color: #0f3e99;
+        color: var(--admin-muted);
         font-size: 0.72rem;
         font-weight: 900;
         text-transform: uppercase;
@@ -1674,10 +1815,10 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .refund-warning {
-        background: #e8f1ff;
-        border: 1px solid #b8cff7;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
-        color: #173b76;
+        color: var(--admin-muted);
         font-weight: 900;
         margin: 0;
         padding: 0.75rem 0.9rem;
@@ -1722,8 +1863,8 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .detail-tabs {
-        border-bottom: 1px solid #e4e9f2;
-        border-top: 1px solid #e4e9f2;
+        border-bottom: 1px solid var(--admin-border);
+        border-top: 1px solid var(--admin-border);
         display: flex;
         gap: 0.25rem;
         overflow-x: auto;
@@ -1734,7 +1875,7 @@ const controlledSponsorLogoUrlPrefixes = [
         background: transparent;
         border: 0;
         border-bottom: 0.18rem solid transparent;
-        color: #38425a;
+        color: var(--admin-muted);
         cursor: pointer;
         font-weight: 900;
         padding: 0.9rem 0.65rem 0.72rem;
@@ -1742,8 +1883,8 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .detail-tabs button.active {
-        border-color: #2563eb;
-        color: #0f3e99;
+        border-color: var(--admin-border);
+        color: var(--admin-muted);
       }
 
       .detail-body {
@@ -1773,8 +1914,8 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .logo-preview {
         align-items: center;
-        background: #f4f7fb;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         display: flex;
         height: 4.5rem;
@@ -1812,7 +1953,7 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       fieldset {
-        border: 1px solid #d9e0ea;
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         display: grid;
         gap: 0.4rem;
@@ -1827,13 +1968,13 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .public-preview > span {
-        color: #a86f16;
+        color: var(--admin-warning);
       }
 
       .detail-actions {
         align-items: center;
-        background: #fff;
-        border-top: 1px solid #e4e9f2;
+        background: var(--admin-panel);
+        border-top: 1px solid var(--admin-border);
         display: flex;
         flex-wrap: wrap;
         gap: 0.7rem;
@@ -1867,74 +2008,74 @@ const controlledSponsorLogoUrlPrefixes = [
       .refund-requested,
       .visibility-review,
       .tier-gold {
-        background: #fff2cf;
-        color: #8a5a00;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
       .status-approved,
       .feed-published,
       .payment-paid,
       .refund-completed,
       .visibility-visible {
-        background: #dff7e8;
-        color: #176236;
+        background: #193d32;
+        color: var(--admin-success);
       }
       .status-rejected,
       .payment-failed,
       .refund-failed {
-        background: #ffe0e5;
-        color: #9f1d2f;
+        background: #422532;
+        color: var(--admin-danger);
       }
       .visibility-hidden,
       .feed-not_planned,
       .refund-not-requested {
-        background: #eef1f5;
-        color: #667085;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
       .refund-processing {
-        background: #e8f1ff;
-        color: #174ea6;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
       .feed-drafted {
-        background: #ede9fe;
-        color: #5b21b6;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
       .tier-silver {
-        background: #eef2f7;
-        color: #38425a;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
       .tier-bronze {
-        background: #fff0e5;
-        color: #9a4d13;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       .field-error {
-        color: #9f1d2f;
+        color: var(--admin-danger);
         font-weight: 800;
       }
       .inline-status.is-dirty {
-        color: #a86f16;
+        color: var(--admin-warning);
         font-weight: 900;
       }
 
       .review-button.neutral {
-        background: #eef2f7;
-        border: 1px solid #d8e0ea;
-        color: #1f2937;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
+        color: var(--admin-text);
       }
       .review-button.reject {
-        background: #fff8f8;
-        border: 1px solid #d9394f;
-        color: #c0182c;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
+        color: var(--admin-danger);
       }
       .review-button.approve {
-        background: #178244;
-        border: 1px solid #146b39;
-        color: #fff;
+        background: #193d32;
+        border: 1px solid var(--admin-border);
+        color: var(--admin-text);
       }
       .review-button.refund {
-        background: #174ea6;
-        border: 1px solid #123d82;
-        color: #fff;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
+        color: var(--admin-text);
       }
 
       @keyframes review-toast-in {
@@ -1985,8 +2126,8 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .refund-summary-grid div {
-        background: #f8fafc;
-        border: 1px solid #e4e7ec;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 8px;
         min-width: 0;
         padding: 0.8rem;
@@ -1999,7 +2140,7 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .refund-summary-grid > div > span {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: 800;
         text-transform: uppercase;
@@ -2007,7 +2148,7 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .refund-summary-grid strong,
       .refund-summary-grid code {
-        color: #101828;
+        color: var(--admin-text);
         font-size: 0.9rem;
         margin-top: 0.3rem;
         overflow-wrap: anywhere;
@@ -2022,46 +2163,46 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .refund-history-list li {
-        background: #f8fafc;
-        border: 1px solid #e4e7ec;
-        border-left: 0.28rem solid #d0d5dd;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
+        border-left: 0.28rem solid var(--admin-border);
         border-radius: 8px;
         padding: 0.8rem 0.9rem;
       }
 
       .refund-history-requested {
-        background: #fff8e6;
-        border-left-color: #f59e0b;
+        background: #3c3221;
+        border-left-color: var(--admin-border);
       }
 
       .refund-history-processing {
-        background: #f0f6ff;
-        border-left-color: #2563eb;
+        background: var(--admin-panel-raised);
+        border-left-color: var(--admin-border);
       }
 
       .refund-history-completed {
-        background: #ecfdf3;
-        border-left-color: #16a34a;
+        background: var(--admin-panel-raised);
+        border-left-color: var(--admin-border);
       }
 
       .refund-history-failed {
-        background: #fff1f3;
-        border-left-color: #dc2626;
+        background: var(--admin-panel-raised);
+        border-left-color: var(--admin-border);
       }
 
       .refund-history-not-requested {
-        background: #f8fafc;
-        border-left-color: #98a2b3;
+        background: var(--admin-panel);
+        border-left-color: var(--admin-border);
       }
 
       .audit-list time {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.82rem;
         font-weight: 800;
       }
 
       .refund-history-list time {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.82rem;
         font-weight: 800;
       }
@@ -2159,6 +2300,9 @@ const controlledSponsorLogoUrlPrefixes = [
   ]
 })
 export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
+  private readonly i18n = inject(FundingI18nService);
+  private readonly confirmation = inject(AdminConfirmationService);
+  readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
@@ -2188,7 +2332,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly progress = signal<AdminSponsorshipProgress | null>(null);
   readonly versionConflict = signal(false);
   private readonly router = inject(Router);
-  private readonly i18n = inject(FundingI18nService);
+
   private loadGeneration = 0;
   private routeInitialized = false;
   readonly selectedSponsorshipId = signal<string | null>(null);
@@ -2225,8 +2369,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       rowStateClass: this.sponsorshipRowStateClass(sponsorship),
       processingLabel: this.sponsorshipProcessingLabel(sponsorship),
       initials: this.initialsFor(sponsorship),
-      companyName: sponsorship.sponsor_company_name || 'Entreprise sans nom',
-      contactEmail: sponsorship.sponsor_contact_email || 'Courriel non fourni',
+      companyName:
+        sponsorship.sponsor_company_name ||
+        this.i18n.t('admin.messages.entreprise_sans_nom'),
+      contactEmail:
+        sponsorship.sponsor_contact_email ||
+        this.i18n.t('admin.messages.courriel_non_fourni'),
       amountLabel: this.formatMoney(sponsorship),
       tierClass: this.tierClass(sponsorship),
       tierLabel: this.sponsorshipTierLabel(sponsorship),
@@ -2281,7 +2429,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
       return {
         initials: this.initialsFor(selected),
-        companyName: selected.sponsor_company_name || 'Entreprise sans nom',
+        companyName:
+          selected.sponsor_company_name ||
+          this.i18n.t('admin.messages.entreprise_sans_nom'),
         amountLabel: this.formatMoney(selected),
         tierLabel: this.sponsorshipTierLabel(selected),
         reviewStatusClass: this.statusClass(selected.sponsor_review_status),
@@ -2298,7 +2448,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         refundWorkflowStatusLabel: hasRefundWorkflow
           ? this.refundWorkflowStatusLabel(selected.sponsorship_refund_status)
           : null,
-        publicReferenceLabel: selected.public_reference || 'Non attribuee',
+        publicReferenceLabel:
+          selected.public_reference ||
+          this.i18n.t('admin.legacy.non_attribuee_175'),
         submittedAtLabel: this.dateOnlyLabel(this.submittedAt(selected)),
         reviewedAtLabel: this.dateOnlyLabel(selected.sponsor_reviewed_at)
       };
@@ -2311,9 +2463,13 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       }
 
       return {
-        companyName: selected.sponsor_company_name || 'Entreprise sans nom',
+        companyName:
+          selected.sponsor_company_name ||
+          this.i18n.t('admin.messages.entreprise_sans_nom'),
         publicNameLabel: this.publicNameLabel(selected),
-        contactName: selected.sponsor_contact_name || 'Non fourni',
+        contactName:
+          selected.sponsor_contact_name ||
+          this.i18n.t('admin.legacy.non_fourni'),
         contactEmail: selected.sponsor_contact_email || null,
         websiteUrl: selected.sponsor_website_url || null,
         publicReference: selected.public_reference || null,
@@ -2357,7 +2513,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
           id: asset.id,
           version: asset.version,
           kindLabel:
-            asset.kind === 'logo' ? 'Logo propose' : 'Photo de presentation',
+            asset.kind === 'logo'
+              ? this.i18n.t('admin.messages.logo_propose')
+              : this.i18n.t('admin.messages.photo_de_presentation'),
           reviewStatus: asset.reviewStatus,
           reviewStatusLabel: this.sponsorMediaStatusLabel(asset.reviewStatus),
           previewSource: this.sponsorMediaPreviewUrls()[asset.id] ?? null,
@@ -2368,23 +2526,29 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       );
 
       return {
-        companyName: selected.sponsor_company_name || 'Entreprise sans nom',
+        companyName:
+          selected.sponsor_company_name ||
+          this.i18n.t('admin.messages.entreprise_sans_nom'),
         logoPreviewSource: this.logoPreviewSourceFor(selected) || null,
         logoUrl: selected.sponsor_logo_url || null,
         publicNameLabel: this.publicNameLabel(selected),
         websiteUrl: selected.sponsor_website_url || null,
         logoActionLabel: selected.sponsor_logo_url
-          ? 'Remplacer le logo'
-          : 'Televerser un logo',
+          ? this.i18n.t('admin.messages.remplacer_le_logo')
+          : this.i18n.t('admin.messages.televerser_un_logo'),
         uploadDisabled: logoBusy,
         deleteDisabled: !selected.sponsor_logo_url || logoBusy,
         statusMessage:
           this.logoUploadMessageFor(selected.id) ||
-          'Formats acceptes: PNG, JPEG ou WebP, max 512 KiB.',
+          this.i18n.t(
+            'admin.messages.formats_acceptes_png_jpeg_ou_webp_max_512_kib'
+          ),
         mediaAssets,
         mediaMessage:
           this.sponsorMediaMessages()[selected.id] ??
-          'Les decisions media sont independantes de la revue de la commandite.',
+          this.i18n.t(
+            'admin.messages.les_decisions_media_sont_independantes_de_la_revue_de_la_commandite'
+          ),
         mediaBusy,
         approvableMediaCount: mediaAssets.filter(
           (asset) => asset.reviewStatus !== 'approved'
@@ -2431,20 +2595,20 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
-        const sponsorshipId = params.get("sponsorshipId")?.trim() || null;
-        const tab = params.get("tab") as SponsorDetailsTab;
+        const sponsorshipId = params.get('sponsorshipId')?.trim() || null;
+        const tab = params.get('tab') as SponsorDetailsTab;
         this.activeTab.set(
           [
-            "overview",
-            "identity",
-            "media",
-            "publication",
-            "billing",
-            "refund",
-            "audit",
+            'overview',
+            'identity',
+            'media',
+            'publication',
+            'billing',
+            'refund',
+            'audit'
           ].includes(tab)
             ? tab
-            : "overview",
+            : 'overview'
         );
         if (
           this.routeInitialized &&
@@ -2452,7 +2616,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         )
           return;
         const alreadyLoaded = this.sponsorships().some(
-          (item) => item.id === sponsorshipId,
+          (item) => item.id === sponsorshipId
         );
         this.selectedSponsorshipId.set(sponsorshipId);
         this.admin.selectSponsorship(sponsorshipId);
@@ -2461,7 +2625,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
           return;
         }
         this.routeInitialized = true;
-        this.search.set(sponsorshipId ?? "");
+        this.search.set(sponsorshipId ?? '');
         this.page.set(1);
         void this.loadSponsorships();
       });
@@ -2476,7 +2640,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   async loadSponsorships(): Promise<void> {
     const generation = ++this.loadGeneration;
-    this.state.set("loading");
+    this.state.set('loading');
 
     try {
       const response = await this.admin.getSponsorships(this.adminToken(), {
@@ -2486,8 +2650,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         reviewStatus: this.reviewFilter(),
         feedStatus: this.feedFilter(),
         paymentStatus: this.paymentFilter(),
-        sort: "priority",
-        direction: "desc",
+        sort: 'priority',
+        direction: 'desc'
       });
       const sponsorships = response.items ?? response.sponsorships;
       if (generation !== this.loadGeneration || this.destroyRef.destroyed)
@@ -2499,28 +2663,28 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.page.set(response.pagination?.page ?? this.page());
       this.reviewNotes.set(
         Object.fromEntries(
-          sponsorships.map((item) => [item.id, item.sponsor_review_note ?? ""]),
-        ),
+          sponsorships.map((item) => [item.id, item.sponsor_review_note ?? ''])
+        )
       );
       this.publicationDrafts.set(
         Object.fromEntries(
-          sponsorships.map((item) => [item.id, this.toPublicationDraft(item)]),
-        ),
+          sponsorships.map((item) => [item.id, this.toPublicationDraft(item)])
+        )
       );
       if (
         !sponsorships.some((item) => item.id === this.selectedSponsorshipId())
       ) {
-        const directId = this.route.snapshot.queryParamMap.get("sponsorshipId");
+        const directId = this.route.snapshot.queryParamMap.get('sponsorshipId');
         this.selectedSponsorshipId.set(
           directId && this.search() === directId
             ? null
-            : (sponsorships[0]?.id ?? null),
+            : (sponsorships[0]?.id ?? null)
         );
       }
       if (this.selectedSponsorshipId())
         this.admin.selectSponsorship(this.selectedSponsorshipId());
       void this.admin.refreshWorkQueue();
-      this.state.set("ready");
+      this.state.set('ready');
       this.saveToken();
       void this.loadLogoPreviews(sponsorships);
       void this.loadSponsorMedia(this.selectedSponsorshipId());
@@ -2529,8 +2693,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         return;
       this.sponsorships.set([]);
       this.progress.set(null);
-      this.messageFromError(error, "");
-      this.state.set("error");
+      this.messageFromError(error, '');
+      this.state.set('error');
     }
   }
 
@@ -2550,7 +2714,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.setReviewMessage(
         sponsorship.id,
         this.paymentEligibilityMessage(sponsorship) ||
-          "Action impossible: le paiement n'est pas admissible.",
+          this.i18n.t(
+            'admin.messages.action_impossible_le_paiement_n_est_pas_admissible'
+          ),
         true
       );
       return;
@@ -2561,8 +2727,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     if (
       reviewStatus === 'pending_review' &&
       sponsorship.sponsor_review_status !== 'pending_review' &&
-      typeof window !== 'undefined' &&
-      !window.confirm('Remettre ce dossier en attente?')
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.messages.remettre_ce_dossier_en_attente')
+      ))
     ) {
       return;
     }
@@ -2570,7 +2737,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.actionState.set(this.reviewActionId(sponsorship.id));
     this.setReviewMessage(
       sponsorship.id,
-      `Action en cours: ${this.reviewActionName(reviewStatus)}...`
+      this.i18n.t('admin.messages.action_en_cours_p0', {
+        p0: this.reviewActionName(reviewStatus)
+      })
     );
 
     try {
@@ -2592,7 +2761,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         sponsorship.id,
         this.messageFromError(
           error,
-          "Action impossible: la revue n'a pas pu etre enregistree."
+          this.i18n.t(
+            'admin.messages.action_impossible_la_revue_n_a_pas_pu_etre_enregistree'
+          )
         ),
         true
       );
@@ -2608,7 +2779,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.activeRejectionId.set(sponsorship.id);
     this.setReviewMessage(
       sponsorship.id,
-      'Completez la raison, le message et le traitement du remboursement.'
+      this.i18n.t(
+        'admin.messages.completez_la_raison_le_message_et_le_traitement_du_remboursement'
+      )
     );
   }
 
@@ -2701,20 +2874,20 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   rejectionValidationMessage(sponsorship: AdminSponsorshipRecord): string {
     const draft = this.rejectionDraftFor(sponsorship);
     if (!this.reviewNoteFor(sponsorship.id).trim()) {
-      return 'Raison interne obligatoire.';
+      return this.i18n.t('admin.messages.raison_interne_obligatoire');
     }
 
     if (draft.notifySponsor && !this.isValidEmailDraft(draft.recipientEmail)) {
-      return 'Destinataire courriel requis.';
+      return this.i18n.t('admin.messages.destinataire_courriel_requis');
     }
 
     if (draft.notifySponsor && !draft.sponsorMessage.trim()) {
-      return 'Message au commanditaire obligatoire.';
+      return this.i18n.t('admin.messages.message_au_commanditaire_obligatoire');
     }
 
     return draft.notifySponsor
-      ? 'Pret a refuser et envoyer le courriel.'
-      : 'Pret a refuser sans courriel.';
+      ? this.i18n.t('admin.messages.pret_a_refuser_et_envoyer_le_courriel')
+      : this.i18n.t('admin.messages.pret_a_refuser_sans_courriel');
   }
 
   async confirmRejection(sponsorship: AdminSponsorshipRecord): Promise<void> {
@@ -2731,7 +2904,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     const reviewNote = this.reviewNoteFor(sponsorship.id).trim();
 
     this.actionState.set(this.reviewActionId(sponsorship.id));
-    this.setReviewMessage(sponsorship.id, 'Action en cours: refus...');
+    this.setReviewMessage(
+      sponsorship.id,
+      this.i18n.t('admin.messages.action_en_cours_refus')
+    );
 
     try {
       const result = await this.admin.reviewSponsorship(this.adminToken(), {
@@ -2771,7 +2947,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         sponsorship.id,
         this.messageFromError(
           error,
-          "Action impossible: le refus n'a pas pu etre enregistre."
+          this.i18n.t(
+            'admin.messages.action_impossible_le_refus_n_a_pas_pu_etre_enregistre'
+          )
         ),
         true
       );
@@ -2786,9 +2964,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.activeRefundId.set(sponsorship.id);
     this.setReviewMessage(
       sponsorship.id,
-      `Recopiez ${this.refundConfirmationText(
-        sponsorship
-      )} pour confirmer le remboursement Stripe.`
+      this.i18n.t(
+        'admin.messages.recopiez_p0_pour_confirmer_le_remboursement_stripe',
+        { p0: this.refundConfirmationText(sponsorship) }
+      )
     );
   }
 
@@ -2933,49 +3112,63 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     const draft = this.refundDraftFor(sponsorship);
     if (!this.canRefundSponsorship(sponsorship)) {
       if (sponsorship.sponsorship_refund_status === 'completed') {
-        return 'Remboursement manuel deja marque comme complete.';
+        return this.i18n.t(
+          'admin.messages.remboursement_manuel_deja_marque_comme_complete'
+        );
       }
 
       if (sponsorship.sponsorship_refund_status === 'processing') {
-        return 'Un remboursement est deja en cours.';
+        return this.i18n.t('admin.messages.un_remboursement_est_deja_en_cours');
       }
 
-      return 'Remboursement Stripe disponible seulement pour un paiement paye.';
+      return this.i18n.t(
+        'admin.messages.remboursement_stripe_disponible_seulement_pour_un_paiement_paye'
+      );
     }
 
     const refundAmount = this.refundAmountFor(sponsorship);
     if (refundAmount === null || refundAmount <= 0) {
-      return 'Montant de remboursement obligatoire.';
+      return this.i18n.t('admin.messages.montant_de_remboursement_obligatoire');
     }
 
     if (refundAmount > sponsorship.amount) {
-      return `Montant maximum: ${this.formatMoney(sponsorship)}.`;
+      return this.i18n.t('admin.messages.montant_maximum_p0', {
+        p0: this.formatMoney(sponsorship)
+      });
     }
 
     if (!draft.confirmationText.trim()) {
-      return 'Texte de confirmation obligatoire.';
+      return this.i18n.t('admin.messages.texte_de_confirmation_obligatoire');
     }
 
     if (
       draft.confirmationText.trim() !== this.refundConfirmationText(sponsorship)
     ) {
-      return 'Le texte ne correspond pas a la reference demandee.';
+      return this.i18n.t(
+        'admin.messages.le_texte_ne_correspond_pas_a_la_reference_demandee'
+      );
     }
 
     if (draft.notifySponsor && !this.isValidEmailDraft(draft.recipientEmail)) {
-      return 'Destinataire courriel requis.';
+      return this.i18n.t('admin.messages.destinataire_courriel_requis');
     }
 
     if (draft.notifySponsor && !draft.sponsorMessage.trim()) {
-      return 'Message au commanditaire obligatoire.';
+      return this.i18n.t('admin.messages.message_au_commanditaire_obligatoire');
     }
 
     const refundType = this.isFullRefundDraft(sponsorship)
-      ? 'complet'
-      : 'partiel';
+      ? this.i18n.t('admin.messages.complet')
+      : this.i18n.t('admin.messages.partiel');
     return draft.notifySponsor
-      ? `Pret a declencher le remboursement ${refundType} et envoyer le courriel.`
-      : `Pret a declencher le remboursement Stripe ${refundType}.`;
+      ? this.i18n.t(
+          'admin.messages.pret_a_declencher_le_remboursement_p0_et_envoyer_le_courriel',
+          { p0: refundType }
+        )
+      : this.i18n.t(
+          'admin.messages.pret_a_declencher_le_remboursement_stripe_p0',
+          { p0: refundType }
+        );
   }
 
   async confirmRefund(sponsorship: AdminSponsorshipRecord): Promise<void> {
@@ -2990,7 +3183,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
     const draft = this.refundDraftFor(sponsorship);
     this.actionState.set(this.refundActionId(sponsorship.id));
-    this.setReviewMessage(sponsorship.id, 'Remboursement Stripe en cours...');
+    this.setReviewMessage(
+      sponsorship.id,
+      this.i18n.t('admin.messages.remboursement_stripe_en_cours')
+    );
 
     try {
       const result = await this.admin.refundSponsorship(this.adminToken(), {
@@ -3026,7 +3222,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         sponsorship.id,
         this.messageFromError(
           error,
-          "Action impossible: le remboursement Stripe n'a pas pu etre cree."
+          this.i18n.t(
+            'admin.messages.action_impossible_le_remboursement_stripe_n_a_pas_pu_etre_cree'
+          )
         ),
         true
       );
@@ -3036,8 +3234,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   async saveReviewNote(sponsorship: AdminSponsorshipRecord): Promise<void> {
+    if (this.actionState()) return;
     this.actionState.set(this.noteActionId(sponsorship.id));
-    this.setNoteMessage(sponsorship.id, 'Enregistrement en cours...');
+    this.setNoteMessage(
+      sponsorship.id,
+      this.i18n.t('admin.messages.enregistrement_en_cours')
+    );
 
     try {
       await this.admin.reviewSponsorship(this.adminToken(), {
@@ -3047,11 +3249,17 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         expectedVersion: sponsorship.version
       });
       await this.loadSponsorships();
-      this.setNoteMessage(sponsorship.id, 'Note enregistree.');
+      this.setNoteMessage(
+        sponsorship.id,
+        this.i18n.t('admin.messages.note_enregistree_')
+      );
     } catch (error) {
       this.setNoteMessage(
         sponsorship.id,
-        this.messageFromError(error, "La note n'a pas pu etre enregistree.")
+        this.messageFromError(
+          error,
+          this.i18n.t('admin.messages.la_note_n_a_pas_pu_etre_enregistree')
+        )
       );
     } finally {
       this.actionState.set(null);
@@ -3059,12 +3267,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   async savePublication(sponsorship: AdminSponsorshipRecord): Promise<void> {
+    if (this.actionState()) return;
     const draft = this.publicationDraftFor(sponsorship.id);
     const slugError = this.slugErrorFor(sponsorship);
     if (!this.publicationDirtyFor(sponsorship) || slugError) {
       this.setPublicationMessage(
         sponsorship.id,
-        slugError || 'Aucune modification a enregistrer.'
+        slugError ||
+          this.i18n.t('admin.messages.aucune_modification_a_enregistrer')
       );
       return;
     }
@@ -3073,13 +3283,35 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.setPublicationMessage(
         sponsorship.id,
         this.paymentEligibilityMessage(sponsorship) ||
-          "Publication bloquee: le paiement n'est pas admissible."
+          this.i18n.t(
+            'admin.messages.publication_bloquee_le_paiement_n_est_pas_admissible'
+          )
       );
       return;
     }
 
+    if (
+      draft.feedStatus !== sponsorship.sponsor_feed_status &&
+      (draft.feedStatus === 'published' ||
+        sponsorship.sponsor_feed_status === 'published')
+    ) {
+      if (
+        !(await this.confirmation.confirm(
+          this.i18n.t(
+            draft.feedStatus === 'published'
+              ? 'admin.confirmation.publish'
+              : 'admin.confirmation.cancelPublication'
+          ),
+          sponsorship.public_reference ?? sponsorship.id
+        ))
+      )
+        return;
+    }
     this.actionState.set(this.publicationActionId(sponsorship.id));
-    this.setPublicationMessage(sponsorship.id, 'Enregistrement en cours...');
+    this.setPublicationMessage(
+      sponsorship.id,
+      this.i18n.t('admin.messages.enregistrement_en_cours')
+    );
 
     try {
       await this.admin.updateSponsorshipPublication(this.adminToken(), {
@@ -3097,13 +3329,18 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         feedNotes: draft.feedNotes.trim() || undefined
       });
       await this.loadSponsorships();
-      this.setPublicationMessage(sponsorship.id, 'Publication enregistree.');
+      this.setPublicationMessage(
+        sponsorship.id,
+        this.i18n.t('admin.messages.publication_enregistree_')
+      );
     } catch (error) {
       this.setPublicationMessage(
         sponsorship.id,
         this.messageFromError(
           error,
-          "Les donnees de publication n'ont pas pu etre enregistrees."
+          this.i18n.t(
+            'admin.messages.les_donnees_de_publication_n_ont_pas_pu_etre_enregistrees'
+          )
         )
       );
     } finally {
@@ -3128,7 +3365,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     ) {
       this.setLogoUploadMessage(
         sponsorship.id,
-        'Logo refuse: PNG, JPEG ou WebP, max 512 KiB.'
+        this.i18n.t('admin.messages.logo_refuse_png_jpeg_ou_webp_max_512_kib')
       );
       if (input) {
         input.value = '';
@@ -3137,7 +3374,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     this.actionState.set(this.logoActionId(sponsorship.id));
-    this.setLogoUploadMessage(sponsorship.id, 'Upload en cours...');
+    this.setLogoUploadMessage(
+      sponsorship.id,
+      this.i18n.t('admin.messages.upload_en_cours')
+    );
 
     try {
       const result = await this.admin.uploadSponsorLogo(
@@ -3148,13 +3388,18 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       );
       this.setLogoUploadMessage(
         sponsorship.id,
-        `Logo enregistre (${Math.ceil(result.sizeBytes / 1024)} KiB).`
+        this.i18n.t('admin.messages.logo_enregistre_p0_kib', {
+          p0: Math.ceil(result.sizeBytes / 1024)
+        })
       );
       await this.loadSponsorships();
     } catch (error) {
       this.setLogoUploadMessage(
         sponsorship.id,
-        this.messageFromError(error, 'Upload du logo impossible.')
+        this.messageFromError(
+          error,
+          this.i18n.t('admin.messages.upload_du_logo_impossible')
+        )
       );
     } finally {
       this.actionState.set(null);
@@ -3166,14 +3411,18 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   async deleteLogo(sponsorship: AdminSponsorshipRecord): Promise<void> {
     if (
-      typeof window !== 'undefined' &&
-      !window.confirm('Supprimer ce logo commanditaire?')
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.messages.supprimer_ce_logo_commanditaire')
+      ))
     ) {
       return;
     }
 
     this.actionState.set(this.deleteLogoActionId(sponsorship.id));
-    this.setLogoUploadMessage(sponsorship.id, 'Suppression en cours...');
+    this.setLogoUploadMessage(
+      sponsorship.id,
+      this.i18n.t('admin.messages.suppression_en_cours')
+    );
 
     try {
       await this.admin.deleteSponsorLogo(
@@ -3181,12 +3430,18 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         sponsorship.id,
         sponsorship.version
       );
-      this.setLogoUploadMessage(sponsorship.id, 'Logo supprime.');
+      this.setLogoUploadMessage(
+        sponsorship.id,
+        this.i18n.t('admin.messages.logo_supprime')
+      );
       await this.loadSponsorships();
     } catch (error) {
       this.setLogoUploadMessage(
         sponsorship.id,
-        this.messageFromError(error, 'Suppression du logo impossible.')
+        this.messageFromError(
+          error,
+          this.i18n.t('admin.messages.suppression_du_logo_impossible')
+        )
       );
     } finally {
       this.actionState.set(null);
@@ -3199,28 +3454,38 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   ): Promise<void> {
     if (
       event.reviewStatus === 'rejected' &&
-      typeof window !== 'undefined' &&
-      !window.confirm('Refuser ce media commanditaire?')
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.messages.refuser_ce_media_commanditaire')
+      ))
     ) {
       return;
     }
     this.actionState.set(this.sponsorMediaActionId(event.assetId));
-    this.setSponsorMediaMessage(sponsorship.id, 'Decision en cours...');
+    this.setSponsorMediaMessage(
+      sponsorship.id,
+      this.i18n.t('admin.messages.decision_en_cours')
+    );
     try {
       await this.saveSponsorMediaReview(event);
       await this.loadSponsorMedia(sponsorship.id);
       this.setSponsorMediaMessage(
         sponsorship.id,
         event.reviewStatus === 'approved'
-          ? 'Media approuve. Il sera visible seulement lorsque la commandite publique est admissible.'
-          : 'Media refuse; le fichier public a ete retire.'
+          ? this.i18n.t(
+              'admin.messages.media_approuve_il_sera_visible_seulement_lorsque_la_commandite_publique_est_admissible'
+            )
+          : this.i18n.t(
+              'admin.messages.media_refuse_le_fichier_public_a_ete_retire'
+            )
       );
     } catch (error) {
       this.setSponsorMediaMessage(
         sponsorship.id,
         this.messageFromError(
           error,
-          "La decision sur ce media n'a pas pu etre enregistree."
+          this.i18n.t(
+            'admin.messages.la_decision_sur_ce_media_n_a_pas_pu_etre_enregistree'
+          )
         )
       );
     } finally {
@@ -3237,7 +3502,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     if (media.length === 0) {
       this.setSponsorMediaMessage(
         sponsorship.id,
-        'Tous les medias sont deja approuves.'
+        this.i18n.t('admin.messages.tous_les_medias_sont_deja_approuves')
       );
       return;
     }
@@ -3245,7 +3510,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.actionState.set(this.sponsorMediaBulkActionId(sponsorship.id));
     this.setSponsorMediaMessage(
       sponsorship.id,
-      `Approbation de ${media.length} media${media.length > 1 ? 's' : ''} en cours...`
+      this.i18n.t('admin.messages.approbation_de_p0_media_p1_en_cours', {
+        p0: media.length,
+        p1: media.length > 1 ? 's' : ''
+      })
     );
 
     let approvedCount = 0;
@@ -3262,7 +3530,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       await this.loadSponsorMedia(sponsorship.id);
       this.setSponsorMediaMessage(
         sponsorship.id,
-        `${approvedCount} media${approvedCount > 1 ? 's' : ''} approuve${approvedCount > 1 ? 's' : ''}. La visibilite publique reste controlee par le statut de la commandite.`
+        this.i18n.t(
+          'admin.messages.p0_media_p1_approuve_p2_la_visibilite_publique_reste_controlee_par_le_statut_de_la_commandite',
+          {
+            p0: approvedCount,
+            p1: approvedCount > 1 ? 's' : '',
+            p2: approvedCount > 1 ? 's' : ''
+          }
+        )
       );
     } catch (error) {
       await this.loadSponsorMedia(sponsorship.id);
@@ -3270,7 +3545,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         sponsorship.id,
         this.messageFromError(
           error,
-          `${approvedCount} media${approvedCount > 1 ? 's' : ''} approuve${approvedCount > 1 ? 's' : ''}; l'approbation groupée s'est interrompue.`
+          this.i18n.t(
+            'admin.messages.p0_media_p1_approuve_p2_l_approbation_groupee_s_est_interrompue',
+            {
+              p0: approvedCount,
+              p1: approvedCount > 1 ? 's' : '',
+              p2: approvedCount > 1 ? 's' : ''
+            }
+          )
         )
       );
     } finally {
@@ -3295,26 +3577,36 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     event: AdminSponsorMediaDeleteEvent
   ): Promise<void> {
     if (
-      typeof window !== 'undefined' &&
-      !window.confirm(
-        'Supprimer ce media, y compris ses copies privee et publique?'
-      )
+      !(await this.confirmation.confirm(
+        this.i18n.t(
+          'admin.messages.supprimer_ce_media_y_compris_ses_copies_privee_et_publique'
+        )
+      ))
     ) {
       return;
     }
     this.actionState.set(this.sponsorMediaActionId(event.assetId));
-    this.setSponsorMediaMessage(sponsorship.id, 'Suppression en cours...');
+    this.setSponsorMediaMessage(
+      sponsorship.id,
+      this.i18n.t('admin.messages.suppression_en_cours')
+    );
     try {
       await this.admin.deleteSponsorMedia(this.adminToken(), {
         assetId: event.assetId,
         expectedVersion: event.expectedVersion
       });
       await this.loadSponsorMedia(sponsorship.id);
-      this.setSponsorMediaMessage(sponsorship.id, 'Media supprime.');
+      this.setSponsorMediaMessage(
+        sponsorship.id,
+        this.i18n.t('admin.messages.media_supprime')
+      );
     } catch (error) {
       this.setSponsorMediaMessage(
         sponsorship.id,
-        this.messageFromError(error, "Le media n'a pas pu etre supprime.")
+        this.messageFromError(
+          error,
+          this.i18n.t('admin.messages.le_media_n_a_pas_pu_etre_supprime')
+        )
       );
     } finally {
       this.actionState.set(null);
@@ -3398,7 +3690,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { sponsorshipId: id, tab: this.activeTab() },
-      queryParamsHandling: "merge",
+      queryParamsHandling: 'merge'
     });
     void this.loadSponsorMedia(id);
     this.pulseSelection(id);
@@ -3411,7 +3703,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { sponsorshipId: null, tab: null },
-      queryParamsHandling: "merge",
+      queryParamsHandling: 'merge'
     });
     this.activeRejectionId.set(null);
     this.activeRefundId.set(null);
@@ -3422,9 +3714,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { sponsorshipId: this.selectedSponsorshipId(), tab },
-      queryParamsHandling: "merge",
+      queryParamsHandling: 'merge'
     });
-    if (tab === "media") {
+    if (tab === 'media') {
       void this.loadSponsorMedia(this.selectedSponsorshipId());
     }
   }
@@ -3520,12 +3812,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   sponsorMediaStatusLabel(status: SponsorMediaAsset['reviewStatus']): string {
     if (status === 'approved') {
-      return 'Approuve';
+      return this.i18n.t('admin.messages.approuve');
     }
     if (status === 'rejected') {
-      return 'Refuse';
+      return this.i18n.t('admin.messages.refuse');
     }
-    return 'En attente';
+    return this.i18n.t('admin.legacy.en_attente');
   }
 
   formatMediaSize(bytes: number): string {
@@ -3612,63 +3904,71 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   visibilityLabel(sponsorship: AdminSponsorshipRecord): string {
     this.i18n.trackTranslationState();
-    return this.i18n.t(sponsorship.public_display_consent ? 'admin.dossier.consentGranted' : 'admin.dossier.consentMissing');
+    return this.i18n.t(
+      sponsorship.public_display_consent
+        ? 'admin.dossier.consentGranted'
+        : 'admin.dossier.consentMissing'
+    );
   }
 
   visibilityClass(sponsorship: AdminSponsorshipRecord): string {
-    return sponsorship.public_display_consent ? 'visibility-badge visibility-visible' : 'visibility-badge visibility-hidden';
+    return sponsorship.public_display_consent
+      ? 'visibility-badge visibility-visible'
+      : 'visibility-badge visibility-hidden';
   }
 
   reviewActionName(status: SponsorshipReviewStatus): string {
     if (status === 'approved') {
-      return 'acceptation';
+      return this.i18n.t('admin.messages.acceptation');
     }
 
     if (status === 'rejected') {
-      return 'refus';
+      return this.i18n.t('admin.messages.refus');
     }
 
-    return 'remise en attente';
+    return this.i18n.t('admin.messages.remise_en_attente');
   }
 
   reviewSuccessMessage(status: SponsorshipReviewStatus): string {
     if (status === 'approved') {
-      return 'Action confirmee: commandite acceptee.';
+      return this.i18n.t('admin.messages.action_confirmee_commandite_acceptee');
     }
 
     if (status === 'rejected') {
-      return 'Action confirmee: commandite refusee.';
+      return this.i18n.t('admin.messages.action_confirmee_commandite_refusee');
     }
 
-    return 'Action confirmee: commandite remise en attente.';
+    return this.i18n.t(
+      'admin.messages.action_confirmee_commandite_remise_en_attente'
+    );
   }
 
   reviewStatusLabel(status: SponsorshipReviewStatus): string {
     if (status === 'approved') {
-      return 'Approuvee';
+      return this.i18n.t('admin.messages.approuvee');
     }
 
     if (status === 'rejected') {
-      return 'Refusee';
+      return this.i18n.t('admin.messages.refusee');
     }
 
-    return 'En attente';
+    return this.i18n.t('admin.legacy.en_attente');
   }
 
   feedStatusLabel(status: SponsorFeedStatus): string {
     if (status === 'published') {
-      return 'Publie';
+      return this.i18n.t('admin.messages.publie');
     }
 
     if (status === 'drafted') {
-      return 'Brouillon';
+      return this.i18n.t('admin.legacy.brouillon');
     }
 
     if (status === 'planned') {
-      return 'Planifie';
+      return this.i18n.t('admin.messages.planifie');
     }
 
-    return 'Non planifie';
+    return this.i18n.t('admin.messages.non_planifie');
   }
 
   feedStatusClass(status: SponsorFeedStatus): string {
@@ -3715,17 +4015,17 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   sponsorshipProcessingLabel(sponsorship: AdminSponsorshipRecord): string {
     switch (this.sponsorshipProcessingState(sponsorship)) {
       case 'action-required':
-        return 'Traitement requis';
+        return this.i18n.t('admin.messages.traitement_requis');
       case 'approved-ready':
         return 'Approuvee, publication a planifier';
       case 'publication-progress':
-        return 'Publication en preparation';
+        return this.i18n.t('admin.messages.publication_en_preparation');
       case 'published':
-        return 'Publication terminee';
+        return this.i18n.t('admin.messages.publication_terminee');
       case 'blocked':
-        return 'Commandite bloquee';
+        return this.i18n.t('admin.messages.commandite_bloquee');
       case 'waiting-payment':
-        return 'Paiement en attente';
+        return this.i18n.t('admin.messages.paiement_en_attente');
     }
   }
 
@@ -3738,27 +4038,33 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       return 'OpenG20';
     }
 
-    return 'Aucune';
+    return this.i18n.t('admin.legacy.aucune');
   }
 
   feedChannelsLabel(sponsorship: AdminSponsorshipRecord): string {
     if (sponsorship.sponsor_feed_channels.length === 0) {
-      return 'Aucun canal';
+      return this.i18n.t('admin.messages.aucun_canal');
     }
 
     return sponsorship.sponsor_feed_channels
-      .map((channel) => (channel === 'linkedin' ? 'LinkedIn' : 'Facebook'))
+      .map((channel) =>
+        channel === 'linkedin'
+          ? 'LinkedIn'
+          : this.i18n.t('admin.messages.facebook')
+      )
       .join(' / ');
   }
 
   draftChannelsLabel(id: string): string {
     const draft = this.publicationDraftFor(id);
     const channels = [
-      ...(draft.facebook ? ['Facebook'] : []),
+      ...(draft.facebook ? [this.i18n.t('admin.messages.facebook')] : []),
       ...(draft.linkedin ? ['LinkedIn'] : [])
     ];
 
-    return channels.length > 0 ? channels.join(' / ') : 'Aucun canal';
+    return channels.length > 0
+      ? channels.join(' / ')
+      : this.i18n.t('admin.messages.aucun_canal');
   }
 
   statusClass(status: SponsorshipReviewStatus): string {
@@ -3767,22 +4073,22 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   paymentStatusLabel(status: string): string {
     if (status === 'paid') {
-      return 'Paye';
+      return this.i18n.t('admin.legacy.paye');
     }
 
     if (status === 'refunded') {
-      return 'Rembourse';
+      return this.i18n.t('admin.legacy.rembourse');
     }
 
     if (status === 'disputed') {
-      return 'Litige';
+      return this.i18n.t('admin.legacy.litige');
     }
 
     if (status === 'failed') {
-      return 'Echec de paiement';
+      return this.i18n.t('admin.messages.echec_de_paiement');
     }
 
-    return 'En attente';
+    return this.i18n.t('admin.legacy.en_attente');
   }
 
   paymentStatusClass(status: string): string {
@@ -3804,34 +4110,34 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     status: AdminSponsorshipRefundWorkflowStatus
   ): string {
     if (status === 'requested') {
-      return 'Remboursement demande';
+      return this.i18n.t('admin.messages.remboursement_demande');
     }
 
     if (status === 'processing') {
-      return 'Remboursement en cours';
+      return this.i18n.t('admin.messages.remboursement_en_cours');
     }
 
     if (status === 'completed') {
-      return 'Remboursement complete';
+      return this.i18n.t('admin.messages.remboursement_complete_');
     }
 
     if (status === 'failed') {
-      return 'Remboursement en echec';
+      return this.i18n.t('admin.messages.remboursement_en_echec_');
     }
 
-    return 'Aucun remboursement demande';
+    return this.i18n.t('admin.messages.aucun_remboursement_demande_');
   }
 
   stripeRefundReasonLabel(reason: AdminSponsorshipStripeRefundReason): string {
     if (reason === 'duplicate') {
-      return 'Paiement en double';
+      return this.i18n.t('admin.legacy.paiement_en_double');
     }
 
     if (reason === 'fraudulent') {
-      return 'Paiement frauduleux';
+      return this.i18n.t('admin.legacy.paiement_frauduleux');
     }
 
-    return 'Demande du commanditaire';
+    return this.i18n.t('admin.legacy.demande_du_commanditaire');
   }
 
   refundWorkflowStatusClass(
@@ -3842,31 +4148,33 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   refundWorkflowTimelineLabel(sponsorship: AdminSponsorshipRecord): string {
     if (sponsorship.sponsorship_refund_status === 'completed') {
-      return `Complete le ${this.dateOnlyLabel(
-        sponsorship.sponsorship_refund_completed_at
-      )}`;
+      return this.i18n.t('admin.messages.complete_le_p0', {
+        p0: this.dateOnlyLabel(sponsorship.sponsorship_refund_completed_at)
+      });
     }
 
     if (sponsorship.sponsorship_refund_status === 'processing') {
-      return `En cours depuis ${this.dateOnlyLabel(
-        sponsorship.sponsorship_refund_processed_at ??
-          sponsorship.sponsorship_refund_requested_at
-      )}`;
+      return this.i18n.t('admin.messages.en_cours_depuis_p0', {
+        p0: this.dateOnlyLabel(
+          sponsorship.sponsorship_refund_processed_at ??
+            sponsorship.sponsorship_refund_requested_at
+        )
+      });
     }
 
     if (sponsorship.sponsorship_refund_status === 'requested') {
-      return `Demande le ${this.dateOnlyLabel(
-        sponsorship.sponsorship_refund_requested_at
-      )}`;
+      return this.i18n.t('admin.messages.demande_le_p0', {
+        p0: this.dateOnlyLabel(sponsorship.sponsorship_refund_requested_at)
+      });
     }
 
     if (sponsorship.sponsorship_refund_status === 'failed') {
       return sponsorship.sponsorship_refund_error
         ? `Echec: ${sponsorship.sponsorship_refund_error}`
-        : 'Derniere tentative en echec.';
+        : this.i18n.t('admin.messages.derniere_tentative_en_echec');
     }
 
-    return 'Aucun remboursement demande.';
+    return this.i18n.t('admin.messages.aucun_remboursement_demande');
   }
 
   refundHistoryEntriesFor(
@@ -3883,8 +4191,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       entries.push({
         id: `${sponsorship.id}:refund-requested`,
         date: sponsorship.sponsorship_refund_requested_at,
-        label: 'Demande de remboursement enregistree.',
-        detail: refundNote ? `Note: ${refundNote}` : undefined,
+        label: this.i18n.t(
+          'admin.messages.demande_de_remboursement_enregistree'
+        ),
+        detail: refundNote
+          ? this.i18n.t('admin.messages.note_p0', { p0: refundNote })
+          : undefined,
         tone: 'requested'
       });
     }
@@ -3898,7 +4210,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       entries.push({
         id: `${sponsorship.id}:refund-processing`,
         date: sponsorship.sponsorship_refund_processed_at,
-        label: 'Traitement du remboursement lance.',
+        label: this.i18n.t('admin.messages.traitement_du_remboursement_lance'),
         detail: this.refundProcessingDetail(sponsorship),
         tone: 'processing'
       });
@@ -3908,7 +4220,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       entries.push({
         id: `${sponsorship.id}:refund-completed`,
         date: sponsorship.sponsorship_refund_completed_at,
-        label: 'Remboursement complete.',
+        label: this.i18n.t('admin.messages.remboursement_complete'),
         detail: this.refundCompletionDetail(sponsorship),
         tone: 'completed'
       });
@@ -3918,10 +4230,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       entries.push({
         id: `${sponsorship.id}:refund-failed`,
         date: this.refundHistoryFallbackDate(sponsorship),
-        label: 'Remboursement en echec.',
+        label: this.i18n.t('admin.messages.remboursement_en_echec'),
         detail:
           sponsorship.sponsorship_refund_error ||
-          'Consultez Stripe et le journal admin avant de relancer.',
+          this.i18n.t(
+            'admin.messages.consultez_stripe_et_le_journal_admin_avant_de_relancer'
+          ),
         tone: 'failed'
       });
     }
@@ -3933,7 +4247,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         label: this.refundWorkflowStatusLabel(
           sponsorship.sponsorship_refund_status
         ),
-        detail: 'Aucun horodatage detaille expose pour ce statut.',
+        detail: this.i18n.t(
+          'admin.messages.aucun_horodatage_detaille_expose_pour_ce_statut'
+        ),
         tone: sponsorship.sponsorship_refund_status
       });
     }
@@ -3969,31 +4285,43 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   private refundProcessingDetail(sponsorship: AdminSponsorshipRecord): string {
-    const details = ['Statut: traitement en cours'];
+    const details = [this.i18n.t('admin.messages.statut_traitement_en_cours')];
 
     if (sponsorship.sponsorship_refund_amount) {
       details.push(
-        `Montant: ${this.formatAmount(
-          sponsorship.sponsorship_refund_amount,
-          sponsorship.currency
-        )}`
+        this.i18n.t('admin.messages.montant_p0', {
+          p0: this.formatAmount(
+            sponsorship.sponsorship_refund_amount,
+            sponsorship.currency
+          )
+        })
       );
     }
 
     if (sponsorship.sponsorship_refund_reason) {
       details.push(
-        `Raison: ${this.stripeRefundReasonLabel(
-          sponsorship.sponsorship_refund_reason
-        )}`
+        this.i18n.t('admin.messages.raison_p0', {
+          p0: this.stripeRefundReasonLabel(
+            sponsorship.sponsorship_refund_reason
+          )
+        })
       );
     }
 
     if (sponsorship.sponsorship_refund_id) {
-      details.push(`Refund Stripe: ${sponsorship.sponsorship_refund_id}`);
+      details.push(
+        this.i18n.t('admin.messages.refund_stripe_p0', {
+          p0: sponsorship.sponsorship_refund_id
+        })
+      );
     }
 
     if (sponsorship.sponsorship_refund_note) {
-      details.push(`Note: ${sponsorship.sponsorship_refund_note}`);
+      details.push(
+        this.i18n.t('admin.messages.note_p0', {
+          p0: sponsorship.sponsorship_refund_note
+        })
+      );
     }
 
     return details.join(' - ');
@@ -4001,28 +4329,38 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   private refundCompletionDetail(sponsorship: AdminSponsorshipRecord): string {
     const details = [
-      `Paiement: ${this.paymentStatusLabel(sponsorship.payment_status)}`
+      this.i18n.t('admin.messages.paiement_p0', {
+        p0: this.paymentStatusLabel(sponsorship.payment_status)
+      })
     ];
 
     if (sponsorship.sponsorship_refund_amount) {
       details.push(
-        `Montant: ${this.formatAmount(
-          sponsorship.sponsorship_refund_amount,
-          sponsorship.currency
-        )}`
+        this.i18n.t('admin.messages.montant_p0', {
+          p0: this.formatAmount(
+            sponsorship.sponsorship_refund_amount,
+            sponsorship.currency
+          )
+        })
       );
     }
 
     if (sponsorship.sponsorship_refund_reason) {
       details.push(
-        `Raison: ${this.stripeRefundReasonLabel(
-          sponsorship.sponsorship_refund_reason
-        )}`
+        this.i18n.t('admin.messages.raison_p0', {
+          p0: this.stripeRefundReasonLabel(
+            sponsorship.sponsorship_refund_reason
+          )
+        })
       );
     }
 
     if (sponsorship.sponsorship_refund_id) {
-      details.push(`Refund Stripe: ${sponsorship.sponsorship_refund_id}`);
+      details.push(
+        this.i18n.t('admin.messages.refund_stripe_p0', {
+          p0: sponsorship.sponsorship_refund_id
+        })
+      );
     }
 
     return details.join(' - ');
@@ -4060,29 +4398,43 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   paymentEligibilityMessage(sponsorship: AdminSponsorshipRecord): string {
     if (sponsorship.sponsorship_refund_status === 'requested') {
-      return 'Remboursement demande: traitez le dossier ou lancez le remboursement Stripe guide.';
+      return this.i18n.t(
+        'admin.messages.remboursement_demande_traitez_le_dossier_ou_lancez_le_remboursement_stripe_guide'
+      );
     }
 
     if (sponsorship.sponsorship_refund_status === 'processing') {
-      return 'Remboursement en cours: attendez la confirmation Stripe avant de relancer.';
+      return this.i18n.t(
+        'admin.messages.remboursement_en_cours_attendez_la_confirmation_stripe_avant_de_relancer'
+      );
     }
 
     if (sponsorship.sponsorship_refund_status === 'completed') {
       return sponsorship.payment_status === 'refunded'
-        ? 'Remboursement complet: les nouvelles approbations et publications publiques sont bloquees.'
-        : 'Dernier remboursement complete: le paiement demeure actif pour la commandite.';
+        ? this.i18n.t(
+            'admin.messages.remboursement_complet_les_nouvelles_approbations_et_publications_publiques_sont_bloquees'
+          )
+        : this.i18n.t(
+            'admin.messages.dernier_remboursement_complete_le_paiement_demeure_actif_pour_la_commandite'
+          );
     }
 
     if (sponsorship.sponsorship_refund_status === 'failed') {
-      return 'Derniere tentative de remboursement en echec: le remboursement Stripe peut etre relance apres verification.';
+      return this.i18n.t(
+        'admin.messages.derniere_tentative_de_remboursement_en_echec_le_remboursement_stripe_peut_etre_relance_apres_ve'
+      );
     }
 
     if (sponsorship.payment_status === 'refunded') {
-      return 'Paiement rembourse: les nouvelles approbations et publications publiques sont bloquees.';
+      return this.i18n.t(
+        'admin.messages.paiement_rembourse_les_nouvelles_approbations_et_publications_publiques_sont_bloquees'
+      );
     }
 
     if (sponsorship.payment_status === 'disputed') {
-      return "Paiement conteste: la visibilite et les nouvelles publications sont bloquees jusqu'a resolution.";
+      return this.i18n.t(
+        'admin.messages.paiement_conteste_la_visibilite_et_les_nouvelles_publications_sont_bloquees_jusqu_a_resolution'
+      );
     }
 
     return '';
@@ -4106,7 +4458,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   formatMoney(sponsorship: AdminSponsorshipRecord): string {
-    return `${new Intl.NumberFormat('fr-CA', {
+    return `${new Intl.NumberFormat(this.i18n.currentLanguage(), {
       maximumFractionDigits: 0
     }).format(
       sponsorship.amount
@@ -4114,13 +4466,13 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   formatSummaryMoney(amount: number): string {
-    return `${new Intl.NumberFormat('fr-CA', {
+    return `${new Intl.NumberFormat(this.i18n.currentLanguage(), {
       maximumFractionDigits: 0
     }).format(amount)} $ CAD`;
   }
 
   formatAmount(amount: number, currency: string): string {
-    return new Intl.NumberFormat('fr-CA', {
+    return new Intl.NumberFormat(this.i18n.currentLanguage(), {
       currency: currency || 'CAD',
       style: 'currency'
     }).format(amount);
@@ -4136,11 +4488,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       case 'website_facebook_linkedin':
         return 'Or';
       case 'website_facebook':
-        return 'Argent';
+        return this.i18n.t('admin.messages.argent');
       case 'website_only':
-        return 'Bronze';
+        return this.i18n.t('admin.messages.bronze');
       default:
-        return 'Indetermine';
+        return this.i18n.t('admin.messages.indetermine');
     }
   }
 
@@ -4159,13 +4511,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     );
 
     if (achievedBenefits.length === 0) {
-      return 'Aucun avantage (montant sous le minimum de commandite)';
+      return this.i18n.t(
+        'admin.messages.aucun_avantage_montant_sous_le_minimum_de_commandite'
+      );
     }
 
     const labels: Record<(typeof achievedBenefits)[number], string> = {
-      website_mention: 'Mention OpenG7.org',
-      facebook_batch: 'Lot collectif Facebook',
-      linkedin_batch: 'Lot collectif LinkedIn'
+      website_mention: this.i18n.t('admin.messages.mention_openg7_org'),
+      facebook_batch: this.i18n.t('admin.messages.lot_collectif_facebook'),
+      linkedin_batch: this.i18n.t('admin.messages.lot_collectif_linkedin')
     };
 
     return achievedBenefits.map((benefit) => labels[benefit]).join(', ');
@@ -4173,30 +4527,30 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   dateOnlyLabel(value: string | null): string {
     if (!value) {
-      return 'Non disponible';
+      return this.i18n.t('admin.dashboard.notAvailable');
     }
 
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) {
-      return 'Non disponible';
+      return this.i18n.t('admin.dashboard.notAvailable');
     }
 
-    return new Intl.DateTimeFormat('fr-CA', {
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium'
     }).format(date);
   }
 
   dateTimeLabel(value: string | null): string {
     if (!value) {
-      return 'Non disponible';
+      return this.i18n.t('admin.dashboard.notAvailable');
     }
 
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) {
-      return 'Non disponible';
+      return this.i18n.t('admin.dashboard.notAvailable');
     }
 
-    return new Intl.DateTimeFormat('fr-CA', {
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(date);
@@ -4212,7 +4566,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   publicNameLabel(sponsorship: AdminSponsorshipRecord): string {
     if (!sponsorship.public_display_consent) {
-      return 'Non consenti';
+      return this.i18n.t('admin.messages.non_consenti');
     }
 
     return sponsorship.public_name || 'Consenti, nom manquant';
@@ -4222,20 +4576,22 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     result: AdminSponsorshipReviewResult
   ): string {
     if (!result.notification) {
-      return 'Aucun courriel envoye.';
+      return this.i18n.t('admin.messages.aucun_courriel_envoye');
     }
 
     if (result.notification.sent) {
-      return 'Courriel envoye au commanditaire.';
+      return this.i18n.t('admin.messages.courriel_envoye_au_commanditaire');
     }
 
     if (result.notification.queued) {
-      return 'Courriel mis en file.';
+      return this.i18n.t('admin.messages.courriel_mis_en_file');
     }
 
     return result.notification.error
-      ? `Courriel non envoye: ${result.notification.error}`
-      : 'Courriel non envoye.';
+      ? this.i18n.t('admin.messages.courriel_non_envoye_p0', {
+          p0: result.notification.error
+        })
+      : this.i18n.t('admin.messages.courriel_non_envoye_');
   }
 
   rejectionRefundResultLabel(
@@ -4247,11 +4603,17 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       : '';
 
     if (handling === 'manual_required') {
-      return `Remboursement a traiter manuellement.${workflow}`;
+      return this.i18n.t(
+        'admin.messages.remboursement_a_traiter_manuellement_p0',
+        { p0: workflow }
+      );
     }
 
     if (handling === 'manual_completed') {
-      return `Remboursement marque comme deja traite.${workflow}`;
+      return this.i18n.t(
+        'admin.messages.remboursement_marque_comme_deja_traite_p0',
+        { p0: workflow }
+      );
     }
 
     return '';
@@ -4259,26 +4621,40 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   refundResultLabel(result: AdminSponsorshipRefundResult): string {
     const status = result.refundStatus
-      ? ` Statut Stripe: ${result.refundStatus}.`
+      ? this.i18n.t('admin.messages.statut_stripe_p0', {
+          p0: result.refundStatus
+        })
       : '';
-    const refundType = result.fullRefund ? 'complet' : 'partiel';
-    const reason = ` Raison: ${this.stripeRefundReasonLabel(
-      result.refundReason
-    )}.`;
+    const refundType = result.fullRefund
+      ? this.i18n.t('admin.messages.complet')
+      : this.i18n.t('admin.messages.partiel');
+    const reason = this.i18n.t('admin.messages.raison_p0', {
+      p0: this.stripeRefundReasonLabel(result.refundReason)
+    });
     const workflow = ` Suivi: ${this.refundWorkflowStatusLabel(
       result.refundWorkflowStatus
     )}.`;
     const localStatus = result.paymentStatusUpdated
-      ? ' Commandite marquee comme remboursee.'
+      ? this.i18n.t('admin.messages.commandite_marquee_comme_remboursee')
       : '';
     const creditNote = result.creditNote
-      ? ` Avoir cree: ${result.creditNote.credit_note_number}.`
+      ? this.i18n.t('admin.messages.avoir_cree_p0', {
+          p0: result.creditNote.credit_note_number
+        })
       : '';
 
-    return `Remboursement Stripe ${refundType} cree: ${this.formatAmount(
-      result.amount,
-      result.currency
-    )}.${reason}${status}${workflow}${localStatus}${creditNote}`;
+    return this.i18n.t(
+      'admin.messages.remboursement_stripe_p0_cree_p1_p2_p3_p4_p5_p6',
+      {
+        p0: refundType,
+        p1: this.formatAmount(result.amount, result.currency),
+        p2: reason,
+        p3: status,
+        p4: workflow,
+        p5: localStatus,
+        p6: creditNote
+      }
+    );
   }
 
   refundNotificationResultLabel(result: AdminSponsorshipRefundResult): string {
@@ -4287,16 +4663,22 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     if (result.notification.sent) {
-      return 'Courriel de remboursement/avoir envoye.';
+      return this.i18n.t(
+        'admin.messages.courriel_de_remboursement_avoir_envoye'
+      );
     }
 
     if (result.notification.queued) {
-      return 'Courriel de remboursement/avoir mis en file.';
+      return this.i18n.t(
+        'admin.messages.courriel_de_remboursement_avoir_mis_en_file'
+      );
     }
 
     return result.notification.error
       ? `Courriel de remboursement/avoir non envoye: ${result.notification.error}`
-      : 'Courriel de remboursement/avoir non envoye.';
+      : this.i18n.t(
+          'admin.messages.courriel_de_remboursement_avoir_non_envoye'
+        );
   }
 
   isReviewNoteDirty(sponsorship: AdminSponsorshipRecord): boolean {
@@ -4313,8 +4695,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     return this.isReviewNoteDirty(sponsorship)
-      ? 'Modifications non enregistrees'
-      : 'Note enregistree';
+      ? this.i18n.t('admin.messages.modifications_non_enregistrees')
+      : this.i18n.t('admin.messages.note_enregistree');
   }
 
   publicationDirtyFor(sponsorship: AdminSponsorshipRecord): boolean {
@@ -4350,8 +4732,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     return this.publicationDirtyFor(sponsorship)
-      ? 'Modifications non enregistrees'
-      : 'Publication enregistree';
+      ? this.i18n.t('admin.messages.modifications_non_enregistrees')
+      : this.i18n.t('admin.messages.publication_enregistree');
   }
 
   slugErrorFor(sponsorship: AdminSponsorshipRecord): string {
@@ -4361,7 +4743,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-      return 'Utilisez seulement des lettres, chiffres et tirets.';
+      return this.i18n.t(
+        'admin.messages.utilisez_seulement_des_lettres_chiffres_et_tirets'
+      );
     }
 
     const duplicate = this.sponsorships().some(
@@ -4370,7 +4754,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         this.normalizeSlug(item.sponsor_public_slug ?? '') === slug
     );
 
-    return duplicate ? 'Ce slug est deja utilise.' : '';
+    return duplicate
+      ? this.i18n.t('admin.messages.ce_slug_est_deja_utilise')
+      : '';
   }
 
   hasSlugError(sponsorship: AdminSponsorshipRecord): boolean {
@@ -4382,14 +4768,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     entries.push({
       id: `${sponsorship.id}:created`,
       date: sponsorship.created_at,
-      label: 'Reception de la commandite.'
+      label: this.i18n.t('admin.messages.reception_de_la_commandite')
     });
 
     if (sponsorship.paid_at) {
       entries.push({
         id: `${sponsorship.id}:paid`,
         date: sponsorship.paid_at,
-        label: 'Paiement confirme.',
+        label: this.i18n.t('admin.messages.paiement_confirme'),
         detail: this.paymentStatusLabel(sponsorship.payment_status)
       });
     }
@@ -4398,7 +4784,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       entries.push({
         id: `${sponsorship.id}:details`,
         date: sponsorship.sponsor_details_submitted_at,
-        label: 'Details commanditaire recus.'
+        label: this.i18n.t('admin.messages.details_commanditaire_recus')
       });
     }
 
@@ -4406,9 +4792,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       entries.push({
         id: `${sponsorship.id}:reviewed`,
         date: sponsorship.sponsor_reviewed_at,
-        label: `Statut de revue: ${this.reviewStatusLabel(
-          sponsorship.sponsor_review_status
-        )}.`
+        label: this.i18n.t('admin.messages.statut_de_revue_p0', {
+          p0: this.reviewStatusLabel(sponsorship.sponsor_review_status)
+        })
       });
     }
 
@@ -4416,7 +4802,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       entries.push({
         id: `${sponsorship.id}:visibility`,
         date: sponsorship.sponsor_visibility_updated_at,
-        label: 'Donnees de publication mises a jour.',
+        label: this.i18n.t(
+          'admin.messages.donnees_de_publication_mises_a_jour'
+        ),
         detail: this.feedStatusLabel(sponsorship.sponsor_feed_status)
       });
     }
@@ -4484,14 +4872,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     handling: AdminSponsorshipRejectionRefundHandling
   ): string {
     if (handling === 'manual_required') {
-      return 'remboursement manuel demande';
+      return this.i18n.t('admin.messages.remboursement_manuel_demande');
     }
 
     if (handling === 'manual_completed') {
-      return 'remboursement manuel deja traite';
+      return this.i18n.t('admin.messages.remboursement_manuel_deja_traite');
     }
 
-    return 'aucun remboursement demande';
+    return this.i18n.t('admin.messages.aucun_remboursement_demande');
   }
 
   private adminAuditLabel(entry: AdminAuditLogEntry): string {
@@ -4501,21 +4889,27 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
           ? (entry.metadata.reviewStatus as SponsorshipReviewStatus)
           : null;
       return reviewStatus
-        ? `Decision admin: ${this.reviewStatusLabel(reviewStatus)}.`
-        : 'Decision admin enregistree.';
+        ? this.i18n.t('admin.messages.decision_admin_p0', {
+            p0: this.reviewStatusLabel(reviewStatus)
+          })
+        : this.i18n.t('admin.messages.decision_admin_enregistree');
     }
 
     switch (entry.action) {
       case 'sponsorship.logo.upload':
-        return 'Logo commanditaire ajoute ou remplace.';
+        return this.i18n.t(
+          'admin.messages.logo_commanditaire_ajoute_ou_remplace'
+        );
       case 'sponsorship.logo.delete':
-        return 'Logo commanditaire supprime.';
+        return this.i18n.t('admin.messages.logo_commanditaire_supprime');
       case 'sponsorship_refund.stripe_full':
-        return 'Remboursement Stripe complet cree.';
+        return this.i18n.t('admin.messages.remboursement_stripe_complet_cree');
       case 'sponsorship_refund.stripe_partial':
-        return 'Remboursement Stripe partiel cree.';
+        return this.i18n.t('admin.messages.remboursement_stripe_partiel_cree');
       case 'sponsorship_publication.update':
-        return 'Publication commanditaire mise a jour.';
+        return this.i18n.t(
+          'admin.messages.publication_commanditaire_mise_a_jour'
+        );
       default:
         return entry.summary || entry.action;
     }
@@ -4548,13 +4942,25 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       const notificationError = this.metadataString(entry, 'notificationError');
 
       if (amount !== null && currency) {
-        details.push(`Montant: ${this.formatAmount(amount / 100, currency)}`);
+        details.push(
+          this.i18n.t('admin.messages.montant_p0', {
+            p0: this.formatAmount(amount / 100, currency)
+          })
+        );
       }
       if (fullRefund !== null) {
-        details.push(fullRefund ? 'Type: complet' : 'Type: partiel');
+        details.push(
+          fullRefund
+            ? this.i18n.t('admin.messages.type_complet')
+            : this.i18n.t('admin.messages.type_partiel')
+        );
       }
       if (refundReason) {
-        details.push(`Raison: ${this.stripeRefundReasonLabel(refundReason)}`);
+        details.push(
+          this.i18n.t('admin.messages.raison_p0', {
+            p0: this.stripeRefundReasonLabel(refundReason)
+          })
+        );
       }
       if (refundId) {
         details.push(`Refund: ${refundId}`);
@@ -4574,15 +4980,23 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         details.push(`Avoir: ${creditNoteNumber}`);
       }
       if (creditNoteError) {
-        details.push(`Erreur avoir: ${creditNoteError}`);
+        details.push(
+          this.i18n.t('admin.messages.erreur_avoir_p0', { p0: creditNoteError })
+        );
       }
       if (notificationSent !== null) {
         details.push(
-          notificationSent ? 'Courriel envoye' : 'Courriel non envoye'
+          notificationSent
+            ? this.i18n.t('admin.messages.courriel_envoye')
+            : this.i18n.t('admin.messages.courriel_non_envoye')
         );
       }
       if (notificationError) {
-        details.push(`Erreur courriel: ${notificationError}`);
+        details.push(
+          this.i18n.t('admin.messages.erreur_courriel_p0', {
+            p0: notificationError
+          })
+        );
       }
     }
 
@@ -4609,7 +5023,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       const hasRefundNote = this.metadataBoolean(entry, 'hasRefundNote');
       if (notificationSent !== null) {
         details.push(
-          notificationSent ? 'Courriel envoye' : 'Courriel non envoye'
+          notificationSent
+            ? this.i18n.t('admin.messages.courriel_envoye')
+            : this.i18n.t('admin.messages.courriel_non_envoye')
         );
       }
       if (refundHandling && refundHandling !== 'none') {
@@ -4623,7 +5039,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         );
       }
       if (hasRefundNote) {
-        details.push('Note remboursement presente');
+        details.push(this.i18n.t('admin.messages.note_remboursement_presente'));
       }
     }
 
@@ -4639,9 +5055,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
         await navigator.clipboard.writeText(sponsorship.public_reference);
       }
-      this.setCopyMessage(sponsorship.id, 'Reference copiee.');
+      this.setCopyMessage(
+        sponsorship.id,
+        this.i18n.t('admin.messages.reference_copiee')
+      );
     } catch {
-      this.setCopyMessage(sponsorship.id, 'Copie impossible.');
+      this.setCopyMessage(
+        sponsorship.id,
+        this.i18n.t('admin.messages.copie_impossible')
+      );
     }
   }
 
@@ -4714,11 +5136,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       notifySponsor: Boolean(sponsorship.sponsor_contact_email),
       recipientEmail: sponsorship.sponsor_contact_email ?? '',
       sponsorMessage: [
-        `Bonjour ${sponsorName},`,
+        this.i18n.t('admin.messages.bonjour_p0', { p0: sponsorName }),
         '',
-        'Apres revision, nous ne pouvons pas accepter cette commandite OpenG7 pour le moment.',
+        this.i18n.t(
+          'admin.messages.apres_revision_nous_ne_pouvons_pas_accepter_cette_commandite_openg7_pour_le_moment'
+        ),
         '',
-        'Merci de votre comprehension. Vous pouvez repondre a ce courriel si vous souhaitez clarifier la situation.'
+        this.i18n.t(
+          'admin.messages.merci_de_votre_comprehension_vous_pouvez_repondre_a_ce_courriel_si_vous_souhaitez_clarifier_la_'
+        )
       ].join('\n'),
       refundHandling: 'none',
       refundNote: ''
@@ -4761,11 +5187,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       notifySponsor: Boolean(sponsorship.sponsor_contact_email),
       recipientEmail: sponsorship.sponsor_contact_email ?? '',
       sponsorMessage: [
-        `Bonjour ${sponsorName},`,
+        this.i18n.t('admin.messages.bonjour_p0', { p0: sponsorName }),
         '',
-        'Nous confirmons que le remboursement Stripe de votre commandite OpenG7 vient d etre lance.',
+        this.i18n.t(
+          'admin.messages.nous_confirmons_que_le_remboursement_stripe_de_votre_commandite_openg7_vient_d_etre_lance'
+        ),
         '',
-        'Selon votre institution financiere, le credit peut prendre quelques jours ouvrables avant d apparaitre.'
+        this.i18n.t(
+          'admin.messages.selon_votre_institution_financiere_le_credit_peut_prendre_quelques_jours_ouvrables_avant_d_appa'
+        )
       ].join('\n'),
       refundNote: ''
     };
@@ -4924,14 +5354,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   private messageFromError(error: unknown, fallback: string): string {
     if (error instanceof AdminDashboardRequestError && error.status === 409) {
       this.versionConflict.set(true);
-      return this.i18n.t("admin.dossier.conflict");
+      return this.i18n.t('admin.dossier.conflict');
     }
     if (error instanceof AdminDashboardRequestError && error.status === 401) {
       this.admin.clearAdminSession();
       this.sponsorships.set([]);
       this.progress.set(null);
-      void this.router.navigate(["/admin/login"], {
-        queryParams: { returnUrl: this.router.url },
+      void this.router.navigate(['/admin/login'], {
+        queryParams: { returnUrl: this.router.url }
       });
     }
     return error instanceof Error && error.message.trim()
@@ -5008,7 +5438,9 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         contributionId,
         this.messageFromError(
           error,
-          'Les medias commanditaires ne peuvent pas etre charges.'
+          this.i18n.t(
+            'admin.messages.les_medias_commanditaires_ne_peuvent_pas_etre_charges'
+          )
         )
       );
     }

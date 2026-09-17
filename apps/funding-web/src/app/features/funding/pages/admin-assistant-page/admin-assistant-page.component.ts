@@ -23,11 +23,11 @@ import type {
   AdminAttentionSuggestedAction
 } from '@openg7/funding-core';
 
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
 import { AdminAssistantDraftComponent } from '../../components/admin-assistant/admin-assistant-draft.component.js';
 import { AdminAssistantAnswerComponent } from '../../components/admin-assistant/admin-assistant-answer.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
-import { AdminNavComponent } from '../../components/admin-nav/admin-nav.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 interface AttentionSection {
@@ -51,13 +51,6 @@ const SECTION_ORDER: readonly {
   { type: 'financial_data_warning', title: 'Avertissements financiers' }
 ];
 
-const SEVERITY_LABELS: Record<AdminAttentionSeverity, string> = {
-  urgent: 'Urgent',
-  today: "Aujourd'hui",
-  this_week: 'Cette semaine',
-  informational: 'Information'
-};
-
 const DRAFT_TYPE_BY_ACTION: Record<string, AdminAssistantDraftType> = {
   prepare_reminder: 'sponsorship_reminder',
   prepare_publication: 'publication_draft',
@@ -74,7 +67,6 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
     CommonModule,
     RouterLink,
     TranslatePipe,
-    AdminNavComponent,
     AdminAssistantContextComponent,
     AdminAssistantDraftComponent,
     AdminAssistantAnswerComponent,
@@ -88,45 +80,43 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
         <openg7-admin-assistant-context [sponsorshipId]="id" />
       </openg7-admin-layout>
     } @else {
-      <main class="admin-shell">
-        <openg7-admin-nav />
-
+      <openg7-admin-layout>
         <section class="admin-content">
           <header class="admin-topbar">
             <div>
-              <span>Administration</span>
-              <h1>Assistant</h1>
+              <span>{{ 'admin.legacy.administration' | translate }}</span>
+              <h1>{{ 'admin.legacy.assistant' | translate }}</h1>
             </div>
-            <button type="button" (click)="loadSummary()">Actualiser</button>
+            <button type="button" (click)="loadSummary()">
+              {{ 'admin.legacy.actualiser' | translate }}
+            </button>
           </header>
 
           <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
             <div>
               <h2 id="admin-auth-title">
-                Copilote opérationnel en lecture seule
+                {{
+                  'admin.legacy.copilote_operationnel_en_lecture_seule'
+                    | translate
+                }}
               </h2>
               <p>
-                L'assistant détecte et explique ce qui demande votre attention.
-                Il ne peut ni approuver, ni rembourser, ni publier, ni modifier
-                une donnée.
+                {{
+                  'admin.legacy.l_assistant_detecte_et_explique_ce_qui_demande_votre_attention_il'
+                    | translate
+                }}
               </p>
             </div>
-            <label>
-              Jeton admin
-              <input
-                type="password"
-                autocomplete="off"
-                [value]="adminToken()"
-                (input)="setAdminToken($event)"
-              />
-            </label>
           </section>
 
           <p class="state" *ngIf="summaryState() === 'loading'">
-            Chargement du résumé...
+            {{ 'admin.legacy.chargement_du_resume' | translate }}
           </p>
           <p class="state state-error" *ngIf="summaryState() === 'error'">
-            Impossible de charger le résumé de l'assistant.
+            {{
+              'admin.legacy.impossible_de_charger_le_resume_de_l_assistant'
+                | translate
+            }}
           </p>
 
           <section
@@ -136,28 +126,33 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
           >
             <header>
               <div>
-                <span>Priorités</span>
-                <h2 id="summary-title">Que faut-il traiter?</h2>
+                <span>{{ 'admin.legacy.priorites' | translate }}</span>
+                <h2 id="summary-title">
+                  {{ 'admin.legacy.que_faut_il_traiter' | translate }}
+                </h2>
               </div>
-              <small>Généré {{ dateLabel(data.generatedAt) }}</small>
+              <small>{{
+                'admin.legacy.genere_p0'
+                  | translate: { p0: dateLabel(data.generatedAt) }
+              }}</small>
             </header>
 
             <div class="counts">
               <article class="count count-urgent">
                 <strong>{{ data.counts.urgent }}</strong>
-                <span>Urgent</span>
+                <span>{{ 'admin.legacy.urgent' | translate }}</span>
               </article>
               <article class="count count-today">
                 <strong>{{ data.counts.today }}</strong>
-                <span>Aujourd'hui</span>
+                <span>{{ 'admin.legacy.aujourd_hui' | translate }}</span>
               </article>
               <article class="count count-week">
                 <strong>{{ data.counts.thisWeek }}</strong>
-                <span>Cette semaine</span>
+                <span>{{ 'admin.legacy.cette_semaine' | translate }}</span>
               </article>
               <article class="count count-info">
                 <strong>{{ data.counts.informational }}</strong>
-                <span>Information</span>
+                <span>{{ 'admin.legacy.information' | translate }}</span>
               </article>
             </div>
 
@@ -165,34 +160,43 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
               class="empty-state calm"
               *ngIf="data.attentionItems.length === 0"
             >
-              <h3>Aucune action urgente</h3>
-              <p>Rien ne demande votre attention immédiate pour le moment.</p>
+              <h3>{{ 'admin.legacy.aucune_action_urgente' | translate }}</h3>
+              <p>
+                {{
+                  'admin.legacy.rien_ne_demande_votre_attention_immediate_pour_le_moment'
+                    | translate
+                }}
+              </p>
             </article>
 
             <section
               class="financial"
               *ngIf="data.financialSummary as financial"
-              aria-label="Résumé financier"
+              [attr.aria-label]="'admin.legacy.resume_financier' | translate"
             >
-              <h3>Résumé financier prudent</h3>
+              <h3>{{ 'admin.legacy.resume_financier_prudent' | translate }}</h3>
               <ul class="facts">
                 <li>
-                  <span>Montant brut payé</span>
+                  <span>{{
+                    'admin.legacy.montant_brut_paye' | translate
+                  }}</span>
                   <strong
                     >{{ financial.grossPaid }} {{ financial.currency }}</strong
                   >
                 </li>
                 <li>
-                  <span>Remboursements</span>
+                  <span>{{ 'admin.legacy.remboursements' | translate }}</span>
                   <strong
                     >{{ financial.refunded }} {{ financial.currency }}</strong
                   >
                 </li>
                 <li>
-                  <span>Montant net estimé</span>
+                  <span>{{
+                    'admin.legacy.montant_net_estime' | translate
+                  }}</span>
                   <strong>{{
                     financial.netReceived === null
-                      ? 'Données incomplètes'
+                      ? ('admin.legacy.donnees_incompletes' | translate)
                       : financial.netReceived + ' ' + financial.currency
                   }}</strong>
                 </li>
@@ -217,7 +221,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
             </header>
 
             <p class="empty-note" *ngIf="section.items.length === 0">
-              Aucun élément.
+              {{ 'admin.legacy.aucun_element' | translate }}
             </p>
 
             <article
@@ -232,7 +236,10 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
               </header>
               <p class="explanation">{{ item.explanation }}</p>
               <p class="due" *ngIf="item.dueAt">
-                Échéance : {{ dateLabel(item.dueAt) }}
+                {{
+                  'admin.legacy.echeance_p0'
+                    | translate: { p0: dateLabel(item.dueAt) }
+                }}
               </p>
               <div class="actions">
                 <button
@@ -244,7 +251,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
                 >
                   {{
                     draftState(item) === 'loading'
-                      ? 'Préparation...'
+                      ? ('admin.legacy.preparation' | translate)
                       : action.label
                   }}
                 </button>
@@ -264,7 +271,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
               <aside
                 class="draft"
                 *ngIf="draftFor(item) as prepared"
-                aria-label="Brouillon préparé"
+                [attr.aria-label]="'admin.legacy.brouillon_prepare' | translate"
               >
                 <p class="draft-notice" *ngIf="prepared.status !== 'ok'">
                   {{ prepared.message }}
@@ -280,26 +287,37 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
 
           <section class="conversation" aria-labelledby="conversation-title">
             <header>
-              <h2 id="conversation-title">Poser une question</h2>
+              <h2 id="conversation-title">
+                {{ 'admin.legacy.poser_une_question' | translate }}
+              </h2>
               <small>
-                L'assistant répond à partir d'outils en lecture seule et
-                n'exécute aucune action.
-              </small>
+                {{
+                  'admin.legacy.l_assistant_repond_a_partir_d_outils_en_lecture_seule_et_n_execut'
+                    | translate
+                }}</small
+              >
             </header>
 
             <form (submit)="ask($event)">
               <label>
-                Question
-                <input
+                {{ 'admin.legacy.question' | translate
+                }}<input
                   type="text"
                   name="assistant-question"
-                  placeholder="Quelles commandites dois-je traiter aujourd'hui?"
+                  [attr.placeholder]="
+                    'admin.legacy.quelles_commandites_dois_je_traiter_aujourd_hui'
+                      | translate
+                  "
                   [value]="question()"
                   (input)="setQuestion($event)"
                 />
               </label>
               <button type="submit" [disabled]="answerState() === 'loading'">
-                {{ answerState() === 'loading' ? 'En cours...' : 'Demander' }}
+                {{
+                  answerState() === 'loading'
+                    ? ('admin.legacy.en_cours' | translate)
+                    : ('admin.legacy.demander' | translate)
+                }}
               </button>
             </form>
 
@@ -313,9 +331,14 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
             />
           </section>
         </section>
-      </main>
+      </openg7-admin-layout>
     }
   `,
+  styleUrls: [
+    '../../components/admin-ui/admin-theme.css',
+    '../../components/admin-ui/admin-controls.css',
+    '../../components/admin-ui/admin-forms.css'
+  ],
   styles: [
     `
       .context-title {
@@ -324,16 +347,6 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
           system-ui,
           sans-serif;
         margin: 0 0 1rem;
-      }
-      .admin-shell {
-        background: #f5f7fb;
-        color: #172033;
-        display: grid;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        gap: 1rem;
-        grid-template-columns: 15rem minmax(0, 1fr);
-        min-height: 100vh;
-        padding: 1.25rem;
       }
 
       .admin-content {
@@ -365,7 +378,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
 
       .admin-topbar span,
       .summary-panel span {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: 800;
         text-transform: uppercase;
@@ -385,8 +398,8 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       .attention-section,
       .conversation,
       .empty-state {
-        background: #fff;
-        border: 1px solid #d9e0ea;
+        background: var(--admin-panel);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         padding: 1rem;
       }
@@ -400,7 +413,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
 
       .admin-auth-panel p,
       .empty-state p {
-        color: #526070;
+        color: var(--admin-muted);
         line-height: 1.55;
         margin: 0.35rem 0 0;
       }
@@ -413,17 +426,17 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       }
 
       input {
-        border: 1px solid #cdd6e3;
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         font: inherit;
         padding: 0.65rem 0.75rem;
       }
 
       button {
-        background: #18233a;
+        background: var(--admin-panel-raised);
         border: 0;
         border-radius: 0.35rem;
-        color: #fff;
+        color: var(--admin-text);
         cursor: pointer;
         font: inherit;
         font-weight: 800;
@@ -444,7 +457,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       }
 
       .count {
-        border: 1px solid #e4e9f2;
+        border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
         display: grid;
         gap: 0.2rem;
@@ -457,29 +470,29 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       }
 
       .count span {
-        color: #667085;
+        color: var(--admin-muted);
         font-size: 0.75rem;
         font-weight: 800;
         text-transform: uppercase;
       }
 
       .count-urgent {
-        background: #fdecec;
-        border-color: #f4c4c4;
+        background: var(--admin-panel-raised);
+        border-color: var(--admin-border);
       }
 
       .count-today {
-        background: #fff4e5;
-        border-color: #f4dcae;
+        background: #3c3221;
+        border-color: var(--admin-border);
       }
 
       .count-week {
-        background: #eef4ff;
-        border-color: #cad9f5;
+        background: var(--admin-panel-raised);
+        border-color: var(--admin-border);
       }
 
       .financial {
-        border-top: 1px solid #e4e9f2;
+        border-top: 1px solid var(--admin-border);
         margin-top: 1rem;
         padding-top: 0.85rem;
       }
@@ -499,11 +512,11 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       }
 
       .facts span {
-        color: #526070;
+        color: var(--admin-muted);
       }
 
       .limitation {
-        color: #7a5a12;
+        color: var(--admin-warning);
         font-size: 0.85rem;
         margin: 0.2rem 0 0;
       }
@@ -514,9 +527,9 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       }
 
       .badge {
-        background: #18233a;
+        background: var(--admin-panel-raised);
         border-radius: 999px;
-        color: #fff;
+        color: var(--admin-text);
         font-size: 0.8rem;
         font-weight: 800;
         min-width: 1.6rem;
@@ -525,7 +538,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       }
 
       .attention-item {
-        border: 1px solid #e4e9f2;
+        border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
         display: grid;
         gap: 0.4rem;
@@ -545,13 +558,13 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       }
 
       .explanation {
-        color: #384457;
+        color: var(--admin-muted);
         line-height: 1.5;
         margin: 0;
       }
 
       .due {
-        color: #7a5a12;
+        color: var(--admin-warning);
         font-size: 0.85rem;
         margin: 0;
       }
@@ -566,33 +579,33 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       }
 
       .severity-urgent {
-        background: #fdecec;
-        color: #9f1d2f;
+        background: var(--admin-panel-raised);
+        color: var(--admin-danger);
       }
 
       .severity-today {
-        background: #fff4e5;
-        color: #8a5a00;
+        background: #3c3221;
+        color: var(--admin-warning);
       }
 
       .severity-this_week {
-        background: #eef4ff;
-        color: #23508f;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       .severity-informational {
-        background: #eef1f6;
-        color: #4a5568;
+        background: var(--admin-panel-raised);
+        color: var(--admin-muted);
       }
 
       .link {
-        color: #18233a;
+        color: var(--admin-text);
         font-weight: 800;
         text-decoration: underline;
       }
 
       .empty-note {
-        color: #667085;
+        color: var(--admin-muted);
         font-style: italic;
         margin: 0;
       }
@@ -605,7 +618,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       }
 
       .state-error {
-        color: #9f1d2f;
+        color: var(--admin-danger);
         font-weight: 800;
       }
 
@@ -617,8 +630,8 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
       }
 
       .prepare-button {
-        background: #b98224;
-        color: #101827;
+        background: #3c3221;
+        color: var(--admin-text);
         min-height: 2.4rem;
       }
 
@@ -641,6 +654,7 @@ type DraftState = 'idle' | 'loading' | 'ready' | 'error';
   ]
 })
 export class AdminAssistantPageComponent implements OnInit {
+  readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -674,7 +688,7 @@ export class AdminAssistantPageComponent implements OnInit {
     const items = this.summary()?.attentionItems ?? [];
     return SECTION_ORDER.map((section) => ({
       type: section.type,
-      title: section.title,
+      title: this.i18n.t('admin.attention.types.' + section.type),
       items: items.filter((item) => item.type === section.type)
     }));
   });
@@ -718,7 +732,7 @@ export class AdminAssistantPageComponent implements OnInit {
       this.answerError.set(
         error instanceof Error
           ? error.message
-          : "La demande n'a pas pu être traitée."
+          : this.i18n.t('admin.messages.la_demande_n_a_pas_pu_etre_traitee')
       );
       this.answerState.set('error');
     }
@@ -742,7 +756,7 @@ export class AdminAssistantPageComponent implements OnInit {
     return (
       item.suggestedActions.find(
         (action) => action.executionMode === 'navigate'
-      )?.label ?? 'Ouvrir le dossier'
+      )?.label ?? this.i18n.t('admin.context.open')
     );
   }
 
@@ -787,7 +801,7 @@ export class AdminAssistantPageComponent implements OnInit {
         [item.id]:
           error instanceof Error
             ? error.message
-            : 'La préparation du brouillon a échoué.'
+            : this.i18n.t('admin.messages.la_preparation_du_brouillon_a_echoue')
       }));
       this.setDraftState(item.id, 'error');
     }
@@ -807,14 +821,14 @@ export class AdminAssistantPageComponent implements OnInit {
   }
 
   severityLabel(severity: AdminAttentionSeverity): string {
-    return SEVERITY_LABELS[severity];
+    return this.i18n.t('admin.attention.priority.' + severity);
   }
 
   dateLabel(value: string | null | undefined): string {
     if (!value) {
-      return 'Non disponible';
+      return this.i18n.t('admin.dashboard.notAvailable');
     }
-    return new Intl.DateTimeFormat('fr-CA', {
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(new Date(value));

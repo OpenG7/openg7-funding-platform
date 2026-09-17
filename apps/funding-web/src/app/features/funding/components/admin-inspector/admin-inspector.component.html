@@ -1,0 +1,107 @@
+<openg7-admin-drawer
+  [opened]="!!inspection.current()"
+  [title]="
+    'admin.inspector.kinds.' + (inspection.current()?.kind || 'invoice')
+      | translate
+  "
+  [closeLabel]="'admin.inspector.close' | translate"
+  (closed)="inspection.close()"
+>
+  @if (inspection.current(); as context) {
+    <p class="reference">{{ context.id }}</p>
+    @if (state() === 'loading') {
+      <p role="status">{{ 'admin.inspector.loading' | translate }}</p>
+    }
+    @if (
+      state() === 'error' ||
+      state() === 'forbidden' ||
+      state() === 'missing' ||
+      state() === 'unavailable'
+    ) {
+      <p role="alert">{{ 'admin.inspector.' + state() | translate }}</p>
+      @if (state() !== 'forbidden') {
+        <button type="button" class="admin-button" (click)="load()">
+          {{ 'admin.inspector.retry' | translate }}
+        </button>
+      }
+    }
+    @if (state() === 'ready') {
+      @if (processingFailed()) {
+        <p role="status">
+          {{ 'admin.inspector.processingFailed' | translate }}
+        </p>
+      }
+      <dl>
+        @for (field of fields(); track field.label) {
+          <div>
+            <dt>{{ 'admin.inspector.fields.' + field.label | translate }}</dt>
+            <dd>{{ fieldValue(field) }}</dd>
+          </div>
+        }
+      </dl>
+      @if (context.history; as history) {
+        <ol>
+          @for (entry of history; track entry.id) {
+            <li>
+              <time>{{ entry.created_at }}</time>
+              <h3>{{ entry.action }}</h3>
+              <p>{{ entry.summary }}</p>
+              <p>
+                {{ 'admin.inspector.fields.actor' | translate }} :
+                {{ entry.actor }}
+              </p>
+            </li>
+          } @empty {
+            <p role="status">{{ 'admin.inspector.noHistory' | translate }}</p>
+          }
+        </ol>
+      }
+      @if (invoice(); as document) {
+        <ul>
+          @for (line of document.line_items; track $index) {
+            <li>
+              {{ line.description }} · {{ line.quantity }} ×
+              {{ money(line.unit_amount, document.currency) }}
+            </li>
+          }
+        </ul>
+      }
+      @if (context.kind === 'media' && resourceUrl(); as source) {
+        <img
+          [src]="source"
+          [alt]="context.alt || ('admin.inspector.kinds.media' | translate)"
+        />
+      }
+      @if (context.kind === 'invoice' && resourceUrl(); as source) {
+        <a
+          class="admin-button"
+          [href]="source"
+          target="_blank"
+          rel="noopener noreferrer"
+          >{{ 'admin.inspector.openPdf' | translate }}</a
+        >
+      }
+      @if (context.externalUrl) {
+        <p>{{ 'admin.inspector.externalProof' | translate }}</p>
+        <a
+          class="admin-button"
+          [href]="context.externalUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          >{{ 'admin.inspector.openProof' | translate }}</a
+        >
+      }
+    }
+    <footer>
+      <a
+        class="admin-button admin-button--primary"
+        [routerLink]="router.parseUrl(context.fullUrl)"
+        (click)="inspection.close()"
+        >{{ 'admin.inspector.fullPage' | translate }}</a
+      >
+      <button type="button" class="admin-button" (click)="inspection.close()">
+        {{ 'admin.inspector.back' | translate }}
+      </button>
+    </footer>
+  }
+</openg7-admin-drawer>

@@ -122,6 +122,10 @@ import {
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
 import { parseAdminSearch, searchAdmin } from './admin-search.service.js';
+import {
+  getAdminStripeEvent,
+  validStripeEventId
+} from './admin-stripe-event.service.js';
 import { getCockpitMetrics } from './admin-cockpit/metrics.js';
 import { getCockpitActivity } from './admin-cockpit/activity.js';
 import {
@@ -2074,6 +2078,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/attention',
       '/admin/search',
       '/api/admin/search',
+      '/admin/stripe-event',
+      '/api/admin/stripe-event',
       '/admin/assistant/summary',
       '/api/admin/assistant/summary',
       '/admin/assistant/query',
@@ -4982,6 +4988,28 @@ createServer(async (request, response) => {
     }
   }
 
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/admin/stripe-event', '/api/admin/stripe-event')
+  ) {
+    if (!ensureAdminAuthorization(request, response)) return;
+    const headers = { 'Cache-Control': 'private, no-store' };
+    const id =
+      new URL(request.url!, publicBaseOrigin).searchParams.get('eventId') ?? '';
+    if (!validStripeEventId(id)) {
+      writeJson(request, response, 400,
+        { error: 'Invalid event identifier.' }, headers);
+      return;
+    }
+    try {
+      writeJson(request, response, 200,
+        await getAdminStripeEvent(dbPool, id), headers);
+    } catch {
+      writeJson(request, response, 503, { error: 'Event unavailable.' }, headers);
+    }
+    return;
+  }
+
   if (routeMatches(request.url, '/admin/search', '/api/admin/search')) {
     if (!ensureAdminAuthorization(request, response)) return;
     const headers = { 'Cache-Control': 'private, no-store' };
@@ -5429,7 +5457,18 @@ createServer(async (request, response) => {
     }
 
     try {
-      const result = await listAdminExpenses(dbPool);
+      const expenseId = new URL(request.url ?? '/', 'http://localhost')
+        .searchParams.get('expenseId');
+      response.setHeader('Cache-Control', 'no-store');
+      if (
+        expenseId !== null &&
+        (!/^[1-9]\d{0,18}$/.test(expenseId) ||
+          BigInt(expenseId) > 9223372036854775807n)
+      ) {
+        writeJson(request, response, 400, { error: 'Invalid expenseId.' });
+        return;
+      }
+      const result = await listAdminExpenses(dbPool, expenseId ?? undefined);
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to load admin expenses.', error);
@@ -7144,7 +7183,14 @@ createServer(async (request, response) => {
     }
 
     try {
-      const result = await listAdminAuditLog(dbPool);
+      const entryId = new URL(request.url ?? '/', 'http://localhost')
+        .searchParams.get('entryId');
+      response.setHeader('Cache-Control', 'no-store');
+      if (entryId !== null && !isValidUuid(entryId)) {
+        writeJson(request, response, 400, { error: 'Invalid entryId.' });
+        return;
+      }
+      const result = await listAdminAuditLog(dbPool, entryId ?? undefined);
       writeJson(request, response, 200, result);
     } catch (error) {
       console.error('Failed to load admin audit log.', error);
