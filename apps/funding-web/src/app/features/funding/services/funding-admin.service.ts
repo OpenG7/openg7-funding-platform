@@ -1,6 +1,8 @@
 import type { AdminWorkQueueQuery, AdminWorkQueueResponse } from '@openg7/funding-core';
 import { Injectable, signal } from '@angular/core';
 import type {
+  AdminSearchRequest,
+  AdminSearchResponse,
   AdminCockpitMetrics,
   AdminCockpitActivity,
   AdminCockpitSystems,
@@ -605,8 +607,23 @@ export class FundingAdminService {
     return response.blob();
   }
 
-  async getContributions(token: string): Promise<AdminContributionsResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/admin/contributions`, {
+  async search(token: string, query: AdminSearchRequest, signal: AbortSignal): Promise<AdminSearchResponse> {
+    const headers = await this.createHeaders(token);
+    signal.throwIfAborted();
+    const response = await fetch(`${this.apiBaseUrl}/admin/search`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(query),
+      signal,
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return (await response.json()) as AdminSearchResponse;
+  }
+
+  async getContributions(token: string, contributionId?: string): Promise<AdminContributionsResponse> {
+    const params = contributionId ? '?' + new URLSearchParams({ contributionId }) : '';
+    const response = await fetch(`${this.apiBaseUrl}/admin/contributions${params}`, {
       method: 'GET',
       headers: await this.createHeaders(token)
     });

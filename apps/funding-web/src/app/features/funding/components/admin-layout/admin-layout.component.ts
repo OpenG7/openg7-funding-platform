@@ -9,13 +9,20 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminNavComponent } from '../admin-nav/admin-nav.component.js';
+import { AdminGlobalSearchComponent } from '../admin-search/admin-global-search.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 
 /** Admin page template: placement and navigation, no business data loading. */
 @Component({
   selector: 'openg7-admin-layout',
   standalone: true,
-  imports: [RouterLink, TranslatePipe, AdminNavComponent, AdminIconComponent],
+  imports: [
+    RouterLink,
+    TranslatePipe,
+    AdminNavComponent,
+    AdminIconComponent,
+    AdminGlobalSearchComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <a
@@ -29,9 +36,7 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
       <openg7-admin-nav [collapsible]="true" />
       <div class="workspace">
         <header class="topbar">
-          <span class="workspace-label">{{
-            'admin.shell.workspace' | translate
-          }}</span>
+          <openg7-admin-global-search />
           <div class="tools">
             <a
               class="admin-button admin-button--primary"

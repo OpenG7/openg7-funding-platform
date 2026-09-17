@@ -1,0 +1,120 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.search-trigger {
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.6rem;
+  background: var(--admin-panel-raised);
+  color: var(--admin-muted);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.search-trigger span {
+  flex: 1;
+  min-width: 0;
+}
+kbd {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  box-sizing: border-box;
+  width: min(46rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.85rem;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  box-shadow: 0 1rem 4rem #0008;
+}
+dialog::backdrop {
+  background: #050c18bb;
+}
+header,
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+h2 {
+  font-size: 1.3rem;
+  margin: 0;
+}
+header {
+  margin-bottom: 1rem;
+}
+input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 0.35rem;
+  color: var(--admin-text);
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.4rem;
+  font: inherit;
+}
+.muted {
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+}
+.warning {
+  color: var(--admin-warning);
+}
+.results {
+  padding: 0;
+  list-style: none;
+}
+.results li {
+  margin: 0.75rem 0;
+  padding: 1rem;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+  border-radius: 0.6rem;
+  overflow-wrap: anywhere;
+}
+h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+}
+.links a {
+  color: var(--admin-gold);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  padding: 0.3rem 0;
+}
+:is(button, input, a):focus-visible {
+  outline: 2px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+@media (max-width: 480px) {
+  dialog {
+    padding: 1rem;
+    width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+  }
+  kbd {
+    display: none;
+  }
+  .pagination {
+    flex-wrap: wrap;
+  }
+}
