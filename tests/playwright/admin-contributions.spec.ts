@@ -37,7 +37,9 @@ test.describe('Docker admin contributions', () => {
       name: 'Aucune contribution trouvee'
     });
 
-    await page.getByLabel(/Recherche/i).fill(fixture.companyName);
+    await page
+      .getByLabel('Recherche', { exact: true })
+      .fill(fixture.companyName);
     await expect(row).toBeVisible();
     await expect(resultCount).toHaveText('1 resultat(s)');
 

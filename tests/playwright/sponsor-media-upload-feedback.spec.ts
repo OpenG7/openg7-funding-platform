@@ -67,7 +67,7 @@ test('@mobile keeps a failed photo preview visible until it is removed', async (
   });
 
   await page.goto(
-    '/fonds-des-batisseurs/suivi-commandite?token=e2e-photo-feedback'
+    '/fonds-des-batisseurs/suivi-commandite?token=e2e-photo-feedback-fixture-local-only-000000'
   );
 
   const photoInput = page.getByLabel('Ajouter des photos');

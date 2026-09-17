@@ -1,21 +1,17 @@
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
-import pg from 'pg';
+import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 import { getCockpitMetrics } from '../../dist/apps/funding-api/src/admin-cockpit/metrics.js';
 import { getCockpitActivity } from '../../dist/apps/funding-api/src/admin-cockpit/activity.js';
 import { readSystemObservation } from '../../dist/apps/funding-api/src/admin-cockpit/systems.js';
 
-const connectionString = process.env.COCKPIT_TEST_DATABASE_URL;
 test(
   'cockpit reconciles real PostgreSQL facts beyond list limits without writes or private payloads',
-  { skip: !connectionString },
+  { timeout: 90000 },
   async () => {
-    const url = new URL(connectionString);
-    assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
-    assert.equal(url.pathname, '/cockpit_test');
-    const pool = new pg.Pool({ connectionString });
+    const { pool, stop } = await startDisposablePostgres({ migrate: false });
     const now = new Date('2026-09-16T14:00:00Z');
     try {
       assert.equal(
@@ -230,7 +226,7 @@ test(
         /Inconsistent payment projection/
       );
     } finally {
-      await pool.end();
+      await stop();
     }
   }
 );

@@ -110,7 +110,8 @@ test.describe('Funding accounting integrity', () => {
     // Partial refunds leave the contribution paid, but still belong in both
     // admin and public totals.
     const dashboardRefundedDelta =
-      dashboardAfter.totals.total_refunded - dashboardBefore.totals.total_refunded;
+      dashboardAfter.totals.total_refunded -
+      dashboardBefore.totals.total_refunded;
     expect(dashboardRefundedDelta).toBeCloseTo(refundedDelta, 2);
   });
 
@@ -126,9 +127,8 @@ test.describe('Funding accounting integrity', () => {
     await signInAsAdmin(page);
     await page.goto('/admin/fundraiser/contributions');
     const csvDownloadPromise = page.waitForEvent('download');
-    await page
-      .getByRole('button', { name: 'Export CSV', exact: true })
-      .click();
+    await page.getByRole('button', { name: 'Export CSV', exact: true }).click();
+    await page.locator('[data-og7="confirm-action"]').click();
     const csvDownload = await csvDownloadPromise;
     const csvStream = await csvDownload.createReadStream();
     const csvChunks: Buffer[] = [];

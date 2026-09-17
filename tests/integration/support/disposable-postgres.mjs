@@ -15,7 +15,7 @@ const migrationsDirectory = new URL(
 
 // This helper never consumes DATABASE_URL or .env. Every invocation owns a
 // fresh container and an in-memory data directory, with only a loopback port.
-export const startDisposablePostgres = async () => {
+export const startDisposablePostgres = async ({ migrate = true } = {}) => {
   const runDocker = async (args, env = process.env) => {
     const { stdout } = await execFileAsync('docker', args, {
       encoding: 'utf8',
@@ -125,7 +125,7 @@ export const startDisposablePostgres = async () => {
     const migrations = (await readdir(migrationsDirectory))
       .filter((name) => /^\d+_.+\.sql$/.test(name))
       .sort();
-    for (const migration of migrations) {
+    for (const migration of migrate ? migrations : []) {
       await pool.query(
         await readFile(new URL(migration, migrationsDirectory), 'utf8')
       );

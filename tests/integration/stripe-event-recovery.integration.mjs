@@ -279,7 +279,10 @@ test('Stripe event ownership and recovery on disposable PostgreSQL', async (t) =
         'SELECT amount, fee, net FROM fund_transactions WHERE stripe_event_id=$1',
         [item.id]
       );
-      assert.deepEqual(rows.rows, [{ amount: 2500, fee: 102, net: 2398 }]);
+      // pg preserves BIGINT values as exact decimal strings.
+      assert.deepEqual(rows.rows, [
+        { amount: '2500', fee: '102', net: '2398' }
+      ]);
     }
   );
 

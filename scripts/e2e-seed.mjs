@@ -28,7 +28,7 @@ import {
 } from '../tests/playwright/support/stripe-stub-client.mjs';
 import { loadDotEnv } from './lib/load-dotenv.mjs';
 
-loadDotEnv('.env');
+loadDotEnv(process.env.OPENG7_E2E_ENV_FILE ?? '.env');
 
 const POSTGRES_DB = process.env.POSTGRES_DB || 'openg7_funding';
 const POSTGRES_USER = process.env.POSTGRES_USER || 'openg7_funding';

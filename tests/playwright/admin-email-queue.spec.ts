@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { EMAIL_QUEUE_FIXTURE } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
 
@@ -50,7 +49,7 @@ test.describe('Docker admin email queue', () => {
     });
 
     await page
-      .getByLabel(/Recherche/i)
+      .getByLabel('Recherche', { exact: true })
       .fill(EMAIL_QUEUE_FIXTURE.recipientEmail);
     await expect(row).toBeVisible();
 
@@ -74,12 +73,19 @@ test.describe('Docker admin email queue', () => {
       hasText: EMAIL_QUEUE_FIXTURE.recipientEmail
     });
     const statusPill = row.locator('.status-pill');
-    const retryButton = row.locator('button.secondary-action');
+    const retryButton = row.getByRole('button', {
+      name: 'Relancer',
+      exact: true
+    });
     const retryResult = row.locator('.retry-message');
 
     await expect(statusPill).toHaveText('En file');
 
     await retryButton.click();
+    await expect(page.getByRole('dialog')).toContainText(
+      EMAIL_QUEUE_FIXTURE.recipientEmail
+    );
+    await page.locator('[data-og7="confirm-action"]').click();
 
     // SMTP is disabled in this environment (see the EMAIL_QUEUE_FIXTURE
     // comment in fixtures/e2e-fixtures.mjs), so the retry always attempts

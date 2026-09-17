@@ -75,7 +75,7 @@ test.describe('Docker admin expenses', () => {
     // a row visible and make the empty-state assertion flaky. The search
     // stays filled for the rest of the test, which also keeps `card`
     // unambiguous while the status changes below.
-    const search = page.getByLabel(/Recherche/i);
+    const search = page.getByLabel('Recherche', { exact: true });
     const statusFilter = page.locator('.filters').getByLabel('Statut');
     const emptyState = page.getByRole('heading', {
       name: 'Aucune entree trouvee'

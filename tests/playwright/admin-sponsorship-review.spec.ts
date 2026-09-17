@@ -21,7 +21,9 @@ test.describe('Docker admin sponsorship review', () => {
     await signInAsAdmin(page);
 
     const fixture = SPONSORSHIP_FIXTURES.approve;
-    await page.getByLabel(/Recherche/i).fill(fixture.companyName);
+    await page
+      .getByLabel('Recherche', { exact: true })
+      .fill(fixture.companyName);
     await expect(
       page.getByRole('button', { name: new RegExp(fixture.companyName) })
     ).toBeVisible();

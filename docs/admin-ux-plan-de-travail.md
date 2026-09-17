@@ -8,7 +8,7 @@ Transformer l’administration en un espace qui indique **ce qui demande une int
 
 Ce document prépare l’implémentation. Les propositions contenues dans les documents sont des exigences à analyser et à organiser; elles ne constituent pas une instruction d’exécuter les opérations illustrées.
 
-**Avancement :** lots 1 à 7 réalisés. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md), de l’[Assistant contextuel](./admin-ux-lot-3.md), du [dossier commandite](./admin-ux-lot-4.md), des [indicateurs, activité et systèmes](./admin-ux-lot-5.md), de la [recherche globale](./admin-ux-lot-6.md) et des [panneaux latéraux et de l’harmonisation](./admin-ux-lot-7.md). Prochain lot : **Recette et preuves d’exécution**.
+**Avancement au 17 septembre 2026 :** lots 1 à 7 réalisés ; recette locale du lot 8 validée, exécution CI à confirmer dans la PR. Voir les bilans du [socle visuel](./admin-ux-lot-1.md), de la [file À traiter](./admin-ux-lot-2.md), de l’[Assistant contextuel](./admin-ux-lot-3.md), du [dossier commandite](./admin-ux-lot-4.md), des [indicateurs, activité et systèmes](./admin-ux-lot-5.md), de la [recherche globale](./admin-ux-lot-6.md), des [panneaux latéraux et de l’harmonisation](./admin-ux-lot-7.md) et de la [recette et des preuves d’exécution](./admin-ux-lot-8.md).
 
 Le présent changement documentaire est à risque faible. L’implémentation prévue sera à risque modéré pour les contrats API, les sessions, les projections et les parcours administratifs. Toute opération réelle sur les paiements ou la production reste une intervention distincte.
 
@@ -186,7 +186,11 @@ Travail :
 
 ### Lot 8 — Recette et preuves d’exécution
 
+Recette et outillage : voir le [bilan du lot 8](./admin-ux-lot-8.md), qui distingue les résultats locaux de la validation CI à obtenir.
+
 **Priorité : transversale; clôture après les lots 1 à 7.**
+
+**État :** recette locale validée ; résultats du workflow GitHub Actions à obtenir sur le commit final. Les limites de vérification visuelle et des fournisseurs externes sont détaillées dans le bilan.
 
 Les tests sont ajoutés avec chaque lot. Ce lot termine la recette de l’ensemble.
 
@@ -205,7 +209,7 @@ Les tests sont ajoutés avec chaque lot. Ce lot termine la recette de l’ensemb
 - Tests API d’autorisation, expiration de session, absence de données sensibles, conflits de version et disponibilité partielle.
 - Tests de déduplication, double soumission et retry sur les mutations touchées. Réutiliser les suites paiement, facture, publication et remboursement existantes.
 - Tests Playwright du cockpit, navigation, Assistant contextuel, dossier, recherche et panneaux; fixtures au-delà des limites de pagination et cas sans données.
-- Tests responsive admin en lecture seule ou sur fixtures isolées. La configuration actuelle réserve `@mobile` aux parcours publics en lecture seule; adapter explicitement cette convention sans rejouer les mutations contre la même DB.
+- Tests responsive admin en lecture seule ou sur fixtures isolées. La convention `@mobile` couvre désormais les lectures publiques/admin et les parcours aux mutations interceptées, sans rejouer les mutations métier contre la même DB.
 - Compilation Angular/SSR, compilation TypeScript et résultats CI sur la version finale du changement. Les réponses IA simulées ne constituent pas une validation d’un fournisseur réel.
 
 **Livrable :** rapport de recette distinguant comportement visible, résultats automatisés, limites restantes et étapes de livraison.
@@ -249,6 +253,7 @@ yarn workspace @openg7/funding-web build
 yarn test
 yarn test:e2e
 yarn test:e2e:playwright
+yarn test:e2e:acceptance
 git diff --check
 git status --short
 ```
@@ -256,10 +261,11 @@ git status --short
 - `yarn test` inclut la compilation TypeScript; la compilation Angular reste une commande distincte.
 - `yarn test:e2e` lance la suite Node de couverture commandite. Les parcours navigateur sont exécutés par `yarn test:e2e:playwright`.
 - Le script Playwright prépare Docker, applique les migrations et charge les fixtures : l’exécuter uniquement sur l’environnement local de test vérifié. Si une migration est ajoutée, vérifier une DB locale propre et une DB locale avec données existantes.
+- Pour la recette, préférer `yarn test:e2e:acceptance` : cette commande crée une pile jetable sans charger le `.env` applicatif ni réutiliser les volumes locaux. Les tests UI interceptés sont exécutés séparément avec `yarn test:ui:admin`.
 - Réutiliser notamment les suites `admin-readonly-pages`, `admin-assistant`, `admin-sponsorship-review`, `admin-sponsorship-publication`, `admin-publication-batches`, `admin-email-queue` et `admin-refund-integrity`.
 
 Pour ce livrable documentaire, les validations applicables sont la relecture des liens et chemins et `git diff --check`. Les tests applicatifs et E2E seront exécutés lors de la réalisation; ils n’ont pas été exécutés pour établir ce plan.
 
 ## 8. Première action recommandée
 
-Les **lots 1 à 7** livrent le layout admin, la file « À traiter », l’Assistant contextuel, le dossier commandite, les indicateurs du cockpit, la recherche globale et les panneaux latéraux. Poursuivre avec le **lot 8 — Recette et preuves d’exécution**, en distinguant les parcours utilisateur des garanties sur la pile complète.
+Les **lots 1 à 7** livrent le layout admin, la file « À traiter », l’Assistant contextuel, le dossier commandite, les indicateurs du cockpit, la recherche globale et les panneaux latéraux. Le **lot 8** apporte une recette locale validée et un workflow de PR. Prochaine étape : obtenir les résultats CI sur le commit final et les joindre à la revue, en s’appuyant sur le [bilan de recette](./admin-ux-lot-8.md).

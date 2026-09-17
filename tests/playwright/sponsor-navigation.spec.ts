@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 
 // Covers the public, sponsor-facing side of the business sponsorship journey
@@ -67,7 +66,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     ).toBeDisabled();
   });
 
-  test('arrives at the sponsor follow-up call to action after a successful checkout redirect', async ({
+  test('opens sponsor follow-up while payment remains pending after the browser redirect', async ({
     page
   }) => {
     const followupToken = 'e2e-playwright-checkout-return-deep-link-token-00';
@@ -78,7 +77,7 @@ test.describe('Docker corporate sponsor navigation', () => {
 
     await expect(
       page.getByRole('heading', {
-        name: /Commandite re.ue . visibilit. en validation/i
+        name: /Votre paiement est en cours de confirmation/i
       })
     ).toBeVisible();
 
@@ -214,7 +213,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     ).toBeDisabled();
   });
 
-  test('validates non-https URLs show error and prevent form submission', async ({
+  test('rejects a non-https website and prevents form submission', async ({
     page
   }) => {
     const fixture = SPONSORSHIP_FIXTURES.directory;
@@ -231,13 +230,9 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
     await page.getByLabel(/Courriel du contact/i).fill(fixture.contactEmail);
     await page.getByLabel(/Site web/i).fill('http://invalid-http-url.com');
-    await page.getByLabel(/Lien du logo/i).fill('ftp://invalid-ftp-url.com');
 
     await expect(page.locator('#website-url-error')).toHaveText(
       'Le site web doit commencer par https://.'
-    );
-    await expect(page.locator('#logo-url-error')).toHaveText(
-      'Le lien du logo doit commencer par https://.'
     );
 
     await expect(

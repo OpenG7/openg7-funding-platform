@@ -1,20 +1,16 @@
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
-import pg from 'pg';
+import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 import { searchAdmin } from '../../dist/apps/funding-api/src/admin-search.service.js';
 import { listAdminContributions } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 
-const connectionString = process.env.SEARCH_TEST_DATABASE_URL;
 test(
   'global search groups and paginates actual PostgreSQL records with literal, private input',
-  { skip: !connectionString },
+  { timeout: 90000 },
   async (t) => {
-    const url = new URL(connectionString);
-    assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
-    assert.equal(url.pathname, '/search_test');
-    const pool = new pg.Pool({ connectionString });
+    const { pool, stop } = await startDisposablePostgres({ migrate: false });
     try {
       assert.equal(
         (await pool.query("SELECT to_regclass('fund_contributions') AS name"))
@@ -218,7 +214,7 @@ test(
         false
       );
     } finally {
-      await pool.end();
+      await stop();
     }
   }
 );

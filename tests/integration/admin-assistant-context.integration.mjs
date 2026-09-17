@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
-import pg from 'pg';
+import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { getAdminAssistantContext } from '../../dist/apps/funding-api/src/admin-assistant/context.service.js';
 import { prepareAdminAssistantDraft } from '../../dist/apps/funding-api/src/admin-assistant/preparation.service.js';
 import { requestSponsorshipInformation } from '../../dist/apps/funding-api/src/sponsorship-information.service.js';
@@ -9,15 +9,11 @@ import { runAdminAssistantQuery } from '../../dist/apps/funding-api/src/admin-as
 import { loadAdminAssistantConfig } from '../../dist/apps/funding-api/src/admin-assistant/config.js';
 
 // Fresh, disposable database only. No .env, email worker, model network or Stripe.
-const connectionString = process.env.ASSISTANT_TEST_DATABASE_URL;
 test(
   'exact context, preparation and atomic confirmed email requests against PostgreSQL',
-  { skip: !connectionString },
+  { timeout: 90000 },
   async () => {
-    const url = new URL(connectionString);
-    assert.ok(['127.0.0.1', 'localhost'].includes(url.hostname));
-    assert.equal(url.pathname, '/assistant_test');
-    const pool = new pg.Pool({ connectionString });
+    const { pool, stop } = await startDisposablePostgres({ migrate: false });
     try {
       assert.equal(
         (
@@ -276,7 +272,7 @@ test(
       );
       assert.equal(await count('email_messages'), 1);
     } finally {
-      await pool.end();
+      await stop();
     }
   }
 );

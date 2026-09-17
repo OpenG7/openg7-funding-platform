@@ -9,7 +9,7 @@ import { loadDotEnv } from './lib/load-dotenv.mjs';
 const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(ROOT_DIR);
 
-loadDotEnv('.env');
+loadDotEnv(process.env.OPENG7_E2E_ENV_FILE ?? '.env');
 
 const POSTGRES_DB = process.env.POSTGRES_DB || 'openg7_funding';
 const POSTGRES_USER = process.env.POSTGRES_USER || 'openg7_funding';
@@ -37,7 +37,8 @@ const run = (args, options = {}) => {
 const dockerOk = (args) =>
   spawnSync('docker', args, { stdio: 'ignore' }).status === 0;
 
-const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+const sleep = (ms) =>
+  new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 
 const migrationsPath = resolve(ROOT_DIR, MIGRATIONS_DIR);
 

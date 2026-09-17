@@ -156,6 +156,90 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1672, height: 941 });
 });
 
+test('admin text palette remains readable and the cockpit reflows with enlarged text in both languages', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.goto('/admin/fundraiser');
+  const palette = await page
+    .locator('[data-og7="admin-layout"]')
+    .evaluate((element) => {
+      const style = getComputedStyle(element);
+      return Object.fromEntries(
+        [
+          'text',
+          'muted',
+          'gold',
+          'success',
+          'warning',
+          'danger',
+          'bg',
+          'panel',
+          'panel-raised'
+        ].map((name) => [
+          name,
+          style.getPropertyValue('--admin-' + name).trim()
+        ])
+      );
+    });
+  const luminance = (hex: string) => {
+    expect(hex).toMatch(/^#[a-f\d]{6}$/i);
+    const channels = [1, 3, 5].map((offset) => {
+      const value = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return value <= 0.04045
+        ? value / 12.92
+        : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return (
+      channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722
+    );
+  };
+  for (const text of [
+    'text',
+    'muted',
+    'gold',
+    'success',
+    'warning',
+    'danger'
+  ]) {
+    for (const surface of ['bg', 'panel', 'panel-raised']) {
+      const a = luminance(palette[text]!);
+      const b = luminance(palette[surface]!);
+      expect(
+        (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+        `${text}/${surface}`
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  }
+  // 836 CSS px models the layout space at 200% browser zoom on a 1672px
+  // desktop; doubling root text size separately checks text enlargement.
+  // This is reflow coverage, not a claim to automate browser-chrome zoom.
+  await page.setViewportSize({ width: 836, height: 941 });
+  await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+  for (const language of ['fr-CA', 'en']) {
+    if (language === 'en')
+      await page
+        .getByRole('button', {
+          name: 'Switch administration language to English'
+        })
+        .click();
+    await expect(page.locator('h1')).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+    await page.locator('[data-og7="admin-search-open"]').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-og7="admin-search-open"]')).toBeFocused();
+    await page.screenshot({
+      path: `test-results/lot8-reflow-${language}.png`,
+      fullPage: true
+    });
+  }
+});
+
 test('dashboard displays truthful metrics and preserves every navigation destination', async ({
   page
 }) => {

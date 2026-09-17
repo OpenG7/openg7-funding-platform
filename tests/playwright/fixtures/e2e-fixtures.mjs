@@ -5,6 +5,17 @@
 export const ADMIN_TOKEN = 'local-playwright-admin-token';
 
 export const SPONSORSHIP_FIXTURES = Object.freeze({
+  acceptanceReview: Object.freeze({
+    publicReference: 'OG7-E2E-ACCEPTANCE',
+    companyName: 'E2E Acceptance Atelier Nord Inc.',
+    contactName: 'E2E Acceptance',
+    contactEmail: 'acceptance@example.invalid',
+    websiteUrl: 'https://example.invalid/acceptance',
+    followupToken: 'e2e-acceptance-followup-token-local-only-000000',
+    amountCents: 50000,
+    reviewStatus: 'pending_review',
+    stripeSessionId: 'cs_e2e_acceptance_review'
+  }),
   approve: Object.freeze({
     publicReference: 'OG7-E2E-APPROVE',
     companyName: 'E2E Playwright Fixture Approve Inc.',
@@ -148,8 +159,7 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
     companyName: 'E2E Playwright Fixture Concurrent Refund Inc.',
     contactName: 'E2E Playwright Concurrent Refund',
     contactEmail: 'e2e-playwright-fixture-concurrent-refund@example.com',
-    websiteUrl:
-      'https://example.com/e2e-playwright-fixture-concurrent-refund',
+    websiteUrl: 'https://example.com/e2e-playwright-fixture-concurrent-refund',
     followupToken: 'e2e-playwright-fixture-followup-token-concurrent-refund',
     amountCents: 60000,
     reviewStatus: 'rejected',
@@ -213,8 +223,7 @@ export const WEBHOOK_FIXTURES = Object.freeze({
     stripeChargeId: 'ch_e2e_playwright_fixture_webhook_fee_backfill',
     stripeBalanceTransactionId:
       'txn_e2e_playwright_fixture_webhook_fee_backfill',
-    stripeEventIdSucceeded:
-      'evt_e2e_playwright_fixture_webhook_fee_succeeded',
+    stripeEventIdSucceeded: 'evt_e2e_playwright_fixture_webhook_fee_succeeded',
     stripeEventIdUpdated: 'evt_e2e_playwright_fixture_webhook_fee_updated',
     amountCents: 8000,
     initialFeeCents: 300,
@@ -261,8 +270,7 @@ export const BACKFILL_FIXTURES = Object.freeze({
     stripeSessionId: 'cs_e2e_playwright_fixture_backfill_matched',
     stripePaymentIntentId: 'pi_e2e_playwright_fixture_backfill_matched',
     stripeChargeId: 'ch_e2e_playwright_fixture_backfill_matched',
-    stripeBalanceTransactionId:
-      'txn_e2e_playwright_fixture_backfill_matched',
+    stripeBalanceTransactionId: 'txn_e2e_playwright_fixture_backfill_matched',
     publicReference: 'OG7-2026-BKFILL1',
     contactEmail: 'e2e-playwright-fixture-backfill-matched@example.com',
     amountCents: 12000,
@@ -274,8 +282,7 @@ export const BACKFILL_FIXTURES = Object.freeze({
     stripeSessionId: 'cs_e2e_playwright_fixture_backfill_unmatched',
     stripePaymentIntentId: 'pi_e2e_playwright_fixture_backfill_unmatched',
     stripeChargeId: 'ch_e2e_playwright_fixture_backfill_unmatched',
-    stripeBalanceTransactionId:
-      'txn_e2e_playwright_fixture_backfill_unmatched',
+    stripeBalanceTransactionId: 'txn_e2e_playwright_fixture_backfill_unmatched',
     amountCents: 9000,
     feeCents: 300
   }),
@@ -285,8 +292,7 @@ export const BACKFILL_FIXTURES = Object.freeze({
     stripeSessionId: 'cs_e2e_playwright_fixture_backfill_sponsor',
     stripePaymentIntentId: 'pi_e2e_playwright_fixture_backfill_sponsor',
     stripeChargeId: 'ch_e2e_playwright_fixture_backfill_sponsor',
-    stripeBalanceTransactionId:
-      'txn_e2e_playwright_fixture_backfill_sponsor',
+    stripeBalanceTransactionId: 'txn_e2e_playwright_fixture_backfill_sponsor',
     publicReference: 'OG7-2026-BKFILL2',
     contactEmail: 'e2e-playwright-fixture-backfill-sponsor@example.com',
     amountCents: 75000,
@@ -304,8 +310,7 @@ export const ACCOUNTING_FIXTURES = Object.freeze({
     stripeChargeId: 'ch_e2e_playwright_fixture_accounting_scenario',
     stripeBalanceTransactionId:
       'txn_e2e_playwright_fixture_accounting_scenario',
-    stripeEventIdSucceeded:
-      'evt_e2e_playwright_fixture_accounting_succeeded',
+    stripeEventIdSucceeded: 'evt_e2e_playwright_fixture_accounting_succeeded',
     stripeEventIdRefunded: 'evt_e2e_playwright_fixture_accounting_refunded',
     stripeRefundId: 're_e2e_playwright_fixture_accounting_refund',
     stripeRefundBalanceTransactionId:
@@ -373,7 +378,8 @@ export const EMAIL_QUEUE_FIXTURE = Object.freeze({
   templateKey: 'e2e_playwright_fixture',
   recipientEmail: 'e2e-playwright-fixture-email-queue@example.com',
   fromEmail: 'no-reply@example.com',
-  subject: 'E2E Playwright: message de test pour la relance de la file courriel.',
+  subject:
+    'E2E Playwright: message de test pour la relance de la file courriel.',
   textBody: 'E2E Playwright fixture email body (text).',
   htmlBody: '<p>E2E Playwright fixture email body (html).</p>'
 });
