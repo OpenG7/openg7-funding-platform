@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { expect, test } from './support/test';
+import { expect, test } from './support/test.js';
 
 const emptyReport = {
   data_source: 'database',

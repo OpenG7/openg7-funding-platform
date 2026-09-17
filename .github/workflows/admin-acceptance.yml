@@ -1,0 +1,44 @@
+name: Admin acceptance
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack
+        run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn lint
+      - run: yarn exec tsc --noEmit -p tsconfig.json
+      - run: yarn test
+      - run: docker pull postgres:16-alpine
+      - name: PostgreSQL integration suites
+        run: node --test tests/integration/*.integration.mjs
+      - run: yarn exec playwright install --with-deps chromium
+      - name: Angular SSR and isolated UI fixtures
+        run: yarn test:ui:admin
+      - name: Docker acceptance with disposable fixtures
+        run: yarn test:e2e:acceptance
+      - name: Preserve acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-acceptance-results
+          path: test-results/
+          retention-days: 7

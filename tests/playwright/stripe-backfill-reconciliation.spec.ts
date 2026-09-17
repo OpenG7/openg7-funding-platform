@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { ADMIN_TOKEN, BACKFILL_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { runStripeBackfill } from './support/stripe-backfill-cli.js';
 
@@ -49,7 +48,9 @@ test.describe('Stripe backfill reconciliation', () => {
       fixture.publicReference
     );
     expect(afterFirstRun).toHaveLength(1);
-    expect(afterFirstRun[0].amount_cents ?? afterFirstRun[0].amount).toBeTruthy();
+    expect(
+      afterFirstRun[0].amount_cents ?? afterFirstRun[0].amount
+    ).toBeTruthy();
 
     // Re-running backfill (e.g. the operator running it again, or a
     // scheduled rerun) must not duplicate the contribution or its ledger
@@ -79,9 +80,7 @@ test.describe('Stripe backfill reconciliation', () => {
     // matchedSession and sponsorshipSession both carry project: 'openg7'.
     expect(summary.checkoutSessions.matched).toBeGreaterThanOrEqual(2);
     // unmatchedSession carries a different project id.
-    expect(summary.checkoutSessions.skippedUnmatched).toBeGreaterThanOrEqual(
-      1
-    );
+    expect(summary.checkoutSessions.skippedUnmatched).toBeGreaterThanOrEqual(1);
   });
 
   test('restores a missing sponsorship transaction without sending duplicate sponsor emails or invoices', async ({

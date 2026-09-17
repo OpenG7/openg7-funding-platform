@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { WEBHOOK_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { updateStripeBalanceTransaction } from './support/stripe-stub-client.mjs';
 import {

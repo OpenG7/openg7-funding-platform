@@ -1,19 +1,9 @@
 import { expect, test } from './support/test.js';
 import { signInAsAdmin } from './support/admin-auth.js';
 
-// Covers the three admin pages that share one pattern (admin-dashboard-page,
-// admin-audit-page, admin-transparency-page components): a single GET on
-// load, no mutating actions, and an error state that never clears
-// previously loaded data (the *ngIf on the data block and the *ngIf on the
-// error message are independent, so stale content and the error banner can
-// both render at once). That last point is why the error-state assertions
-// below only check that the error text appears, not that the rest of the
-// page disappears. The request is intercepted with page.route(); the
-// dashboard uses the existing session directly. On the other legacy pages,
-// typing a bad token into the "Jeton admin" field is insufficient because the service
-// silently falls back to the already-saved session token whenever the typed
-// value isn't itself a session-shaped token -- so a bad token alone never
-// actually reaches the API while a real session is active.
+// Real authenticated reads for dashboard, audit and transparency. Only error
+// responses are intercepted. Cockpit blocks load independently, so a dashboard
+// failure may coexist with successfully loaded metrics and activity.
 
 test.describe('Docker admin dashboard', () => {
   test('renders fund metrics and recent contributions', async ({ page }) => {
@@ -53,7 +43,7 @@ test.describe('Docker admin dashboard', () => {
     ).toBeVisible();
 
     await page.unroute('**/admin/dashboard');
-    await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+    await page.locator('[data-og7="dashboard-refresh"]').click();
 
     await expect(
       page.getByText(/Impossible de charger le tableau de bord/i)
@@ -80,7 +70,7 @@ test.describe('Docker admin audit log', () => {
 
     const entryCount = page.locator('.audit-panel header span');
     const initialCountText = (await entryCount.textContent()) ?? '';
-    const search = page.getByLabel(/Recherche/i);
+    const search = page.getByLabel('Recherche', { exact: true });
 
     await search.fill('e2e-playwright-audit-search-no-match');
     await expect(

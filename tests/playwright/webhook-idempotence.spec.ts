@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { ADMIN_TOKEN, WEBHOOK_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import {
   buildCheckoutSessionCompletedEvent,
@@ -66,7 +65,10 @@ test.describe('Stripe webhook idempotence', () => {
     const afterSecond = await (
       await request.get('/api/public/fund-transparency')
     ).json();
-    expect(afterSecond.total_received).toBeCloseTo(afterFirst.total_received, 2);
+    expect(afterSecond.total_received).toBeCloseTo(
+      afterFirst.total_received,
+      2
+    );
     expect(afterSecond.total_fees).toBeCloseTo(afterFirst.total_fees, 2);
   });
 

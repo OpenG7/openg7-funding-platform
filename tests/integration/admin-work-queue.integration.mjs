@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
-import pg from 'pg';
+import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 import { getAdminWorkQueue } from '../../dist/apps/funding-api/src/admin-work-queue.service.js';
 import { listAdminEmailQueue } from '../../dist/apps/funding-api/src/email-notification.service.js';
@@ -15,16 +15,12 @@ import {
   listAdminSponsorshipInvoices
 } from '../../dist/apps/funding-api/src/sponsorship-invoices.repository.js';
 
-// Explicitly opt in with a disposable, loopback-only database. Never loads .env.
-const connectionString = process.env.ATTENTION_TEST_DATABASE_URL;
+// Owns a disposable, loopback-only database. Never loads .env.
 test(
   'complete queue, exact links and scoped invoice recovery against PostgreSQL',
-  { skip: !connectionString },
+  { timeout: 90000 },
   async () => {
-    const url = new URL(connectionString);
-    assert.ok(['127.0.0.1', 'localhost'].includes(url.hostname));
-    assert.equal(url.pathname, '/attention_test');
-    const pool = new pg.Pool({ connectionString });
+    const { pool, stop } = await startDisposablePostgres({ migrate: false });
     try {
       const existing = await pool.query(
         "SELECT to_regclass('public.fund_contributions') AS table_name"
@@ -157,7 +153,7 @@ test(
       assert.equal(resolved.filteredTotal, 0);
       assert.equal(resolved.typeCounts.invoice_missing, 2004);
     } finally {
-      await pool.end();
+      await stop();
     }
   }
 );

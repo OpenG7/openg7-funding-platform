@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { WEBHOOK_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import {
   buildPaymentIntentSucceededEvent,
@@ -7,6 +6,15 @@ import {
 } from './support/stripe-webhook.js';
 
 test.describe('Docker local public experience', () => {
+  test('prerendered directory redirects preserve the external origin', async ({
+    request
+  }) => {
+    const response = await request.get('/en/fonds-des-batisseurs', {
+      maxRedirects: 0
+    });
+    expect(response.status()).toBe(301);
+    expect(response.headers()['location']).toBe('/en/fonds-des-batisseurs/');
+  });
   test('serves the Angular shell and public API through the Docker web container', async ({
     page,
     request
@@ -61,11 +69,11 @@ test.describe('Docker local public experience', () => {
     ).json();
 
     await page.goto('/fonds-des-batisseurs?checkout=success');
-    // funding.home.checkout.successCopy (fr-CA.json): the browser return
-    // itself says the public fund still needs Stripe confirmation -- it's
-    // not claiming the payment is already reflected anywhere.
+    // The browser return remains pending until a server-confirmed payment.
     await expect(
-      page.getByText(/synchronis.*confirmation Stripe sera disponible/i)
+      page.getByRole('heading', {
+        name: /Votre paiement est en cours de confirmation/i
+      })
     ).toBeVisible();
 
     const afterCheckoutReturn = await (

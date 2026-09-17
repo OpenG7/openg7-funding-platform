@@ -1,20 +1,16 @@
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
-import pg from 'pg';
+import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { getSponsorshipProgress } from '../../dist/apps/funding-api/src/sponsorship-progress.service.js';
 import { getAdminWorkQueue } from '../../dist/apps/funding-api/src/admin-work-queue.service.js';
 import { getAdminAssistantContext } from '../../dist/apps/funding-api/src/admin-assistant/context.service.js';
 
-const connectionString = process.env.SPONSOR_PROGRESS_TEST_DATABASE_URL;
 test(
   'dossier progress reads exact persisted facts and the complete work queue on PostgreSQL',
-  { skip: !connectionString },
+  { timeout: 90000 },
   async () => {
-    const url = new URL(connectionString);
-    assert.ok(['localhost', '127.0.0.1'].includes(url.hostname));
-    assert.equal(url.pathname, '/progress_test');
-    const pool = new pg.Pool({ connectionString });
+    const { pool, stop } = await startDisposablePostgres({ migrate: false });
     try {
       assert.equal(
         (
@@ -225,7 +221,7 @@ test(
         'opening the dossier performs no writes'
       );
     } finally {
-      await pool.end();
+      await stop();
     }
   }
 );

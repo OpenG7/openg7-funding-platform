@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { signInAsAdmin } from './support/admin-auth.js';
 
 // Covers admin-setup-page.component.ts: a read-only operational-readiness

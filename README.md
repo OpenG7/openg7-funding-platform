@@ -61,6 +61,24 @@ yarn build
 yarn docs
 ```
 
+### Recette admin isolée
+
+Avec Node 22, Yarn 4, Docker local (conteneurs Linux) et Chromium installé :
+
+```bash
+yarn playwright:install
+yarn test:ui:admin
+docker pull postgres:16-alpine
+yarn test:integration:payments
+yarn test:e2e:acceptance
+```
+
+La recette Docker crée ses propres conteneurs, réseaux et données temporaires,
+sans charger le `.env` applicatif ni réutiliser les volumes locaux. Stripe est
+simulé, SMTP est désactivé et les publications sociales sont simulées.
+Les rapports sont conservés sous `test-results/acceptance/` et dans les artefacts
+du workflow de PR. Voir le [bilan et les limites de la recette](docs/admin-ux-lot-8.md).
+
 ### HTTPS local approuve
 
 Sous Windows, cette commande installe `mkcert` avec `winget` lorsqu'il est

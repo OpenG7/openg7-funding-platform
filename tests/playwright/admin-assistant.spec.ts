@@ -50,7 +50,10 @@ test.describe('Docker admin assistant', () => {
     ).toBeVisible();
     await expect(page.getByText('Urgent', { exact: true })).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Fiches commanditaires incomplètes' })
+      page.getByRole('heading', {
+        name: 'Fiche commanditaire à compléter',
+        exact: true
+      })
     ).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Résumé financier prudent' })
@@ -95,10 +98,10 @@ test.describe('Docker admin assistant', () => {
     await page.getByRole('button', { name: 'Demander', exact: true }).click();
 
     await expect(
-      page.getByText('Réponse fondée sur les outils.')
+      page.getByText('Réponse sur le dossier', { exact: true })
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Faits (issus des outils)' })
+      page.getByRole('heading', { name: 'Faits vérifiés', exact: true })
     ).toBeVisible();
 
     // No automated financial action may ever be offered by the assistant.
@@ -167,7 +170,9 @@ test.describe('Docker admin assistant', () => {
     await expect(
       page.getByRole('heading', { name: /Relance — fiche commanditaire/ })
     ).toBeVisible();
-    await expect(page.getByText('Non envoyé · non publié')).toBeVisible();
+    await expect(
+      page.getByText('Brouillon non envoyé, non publié et non enregistré.')
+    ).toBeVisible();
   });
 });
 
@@ -332,7 +337,7 @@ test.describe('assistant dossier links', () => {
         await page
           .getByRole('button', { name: 'Préparer une relance', exact: true })
           .click();
-        label = "Ouvrir l'écran pour agir";
+        label = 'Ouvrir l’écran pour agir';
       } else if (source === 'answer') {
         await page
           .getByLabel('Question', { exact: true })

@@ -85,6 +85,7 @@
     "test:e2e:seed": "node scripts/e2e-seed.mjs",
     "test:e2e:seed:cleanup": "node scripts/e2e-seed.mjs --cleanup",
     "test:e2e:playwright": "yarn docker:playwright && yarn db:migrate && yarn test:e2e:seed && playwright test",
+    "test:e2e:acceptance": "node scripts/admin-acceptance.mjs",
     "test:ui:admin": "yarn workspace @openg7/funding-web build && tsc -p tests/tsconfig.admin-ui.json && playwright test --config tests/playwright-admin-ui.config.mjs",
     "build": "tsc -p tsconfig.build.json",
     "docs": "typedoc --options typedoc.json",

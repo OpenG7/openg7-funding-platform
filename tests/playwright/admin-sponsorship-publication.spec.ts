@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { openFixtureSponsorship, signInAsAdmin } from './support/admin-auth.js';
 
@@ -53,6 +52,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
       .fill('E2E Playwright: note de feed automatisee.');
 
     await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await page.locator('[data-og7="confirm-action"]').click();
 
     await expect(page.getByText('Publication enregistree')).toBeVisible();
 

@@ -1,0 +1,98 @@
+# Disposable acceptance stack. Run through yarn test:e2e:acceptance.
+# Production Dockerfiles and nginx are exercised; .env is never loaded.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: acceptance
+      POSTGRES_USER: acceptance
+      POSTGRES_PASSWORD: local-acceptance-only
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U acceptance -d acceptance']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  stripe-stub:
+    build:
+      context: .
+      dockerfile: tests/stripe-stub/Dockerfile
+    ports:
+      - '127.0.0.1:${ACCEPTANCE_STRIPE_PORT:?}:4242'
+    networks: [edge, data]
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          'fetch("http://127.0.0.1:4242/v1/balance").then(()=>process.exit(0)).catch(()=>process.exit(1))'
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/funding-api/Dockerfile
+    environment:
+      FUNDING_PLATFORM_ENV: development
+      FUNDING_API_PORT: '3333'
+      FUNDING_PUBLIC_BASE_URL: '${PLAYWRIGHT_BASE_URL:?}'
+      FUNDING_ALLOWED_ORIGINS: '${PLAYWRIGHT_BASE_URL:?}'
+      FUNDING_BUSINESS_SPONSORSHIP_ENABLED: 'true'
+      FUNDING_ADMIN_TOKEN: '${FUNDING_ADMIN_TOKEN:?}'
+      FUNDING_ADMIN_SESSION_SECRET: local-acceptance-session-only
+      FUNDING_ADMIN_RATE_LIMIT_MAX: '0'
+      FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX: '0'
+      FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX: '0'
+      FUNDING_ADMIN_REVIEW_REMINDER_ENABLED: 'false'
+      DATABASE_URL: postgres://acceptance:local-acceptance-only@postgres:5432/acceptance
+      STRIPE_SECRET_KEY: '${STRIPE_SECRET_KEY:?}'
+      STRIPE_WEBHOOK_SECRET: '${STRIPE_WEBHOOK_SECRET:?}'
+      STRIPE_API_HOST: stripe-stub
+      STRIPE_API_PORT: '4242'
+      STRIPE_API_PROTOCOL: http
+      SMTP_ENABLED: 'false'
+      SOCIAL_PUBLICATION_MODE: mock
+      SPONSOR_MEDIA_STORAGE_DRIVER: local
+      ADMIN_AI_ASSISTANT_ENABLED: 'false'
+    depends_on:
+      postgres: { condition: service_healthy }
+      stripe-stub: { condition: service_healthy }
+    networks: [data]
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          'fetch("http://127.0.0.1:3333/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - '127.0.0.1:${ACCEPTANCE_WEB_PORT:?}:8080'
+    networks: [edge, data]
+    healthcheck:
+      test: [CMD-SHELL, 'wget -qO- http://127.0.0.1:8080/health | grep -q ok']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+networks:
+  edge: {}
+  data:
+    internal: true

@@ -1,30 +1,49 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import adminUiConfig from './tests/playwright-admin-ui.config.mjs';
+
 const baseURL =
   process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, '') ??
   'http://127.0.0.1:8080';
 
-// Tests tagged @mobile are read-only public journeys that are safe to replay
-// on more than one browser/viewport. Every other spec mutates the shared local
-// database (Stripe webhooks, admin actions, seeded fixtures), so it must run on
-// exactly one project -- desktop Chromium -- and never be replayed by a second
-// browser against the same database.
+// @mobile covers public/admin reads and journeys with intercepted mutations.
+// Session creation is allowed. Real business mutations run once on desktop
+// Chromium; replaying them on a second browser would reuse modified fixtures.
 const MOBILE_TAG = /@mobile/;
 
 export default defineConfig({
   testDir: './tests/playwright',
+  // Pure intercepted UI suites have their own mandatory acceptance CI step.
+  // Keep their list in one place and avoid replaying them against Docker.
+  testIgnore:
+    process.env.OPENG7_E2E_ISOLATED === '1'
+      ? adminUiConfig.testMatch
+      : undefined,
+  outputDir:
+    process.env.OPENG7_E2E_ISOLATED === '1'
+      ? 'test-results/acceptance/browser'
+      : 'test-results',
   globalTeardown: './tests/playwright/global-teardown.mjs',
   timeout: 30_000,
   expect: {
     timeout: 7_500
   },
   fullyParallel: false,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.OPENG7_E2E_ISOLATED === '1' ? 0 : process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: [['list']],
+  reporter:
+    process.env.OPENG7_E2E_ISOLATED === '1'
+      ? [
+          ['list'],
+          ['json', { outputFile: 'test-results/acceptance/results.json' }]
+        ]
+      : [['list']],
   use: {
     baseURL,
-    trace: 'on-first-retry',
+    trace:
+      process.env.OPENG7_E2E_ISOLATED === '1'
+        ? 'retain-on-failure'
+        : 'on-first-retry',
     screenshot: 'only-on-failure'
   },
   projects: [
@@ -37,7 +56,7 @@ export default defineConfig({
       grepInvert: MOBILE_TAG
     },
     {
-      // Pragmatic mobile smoke: read-only public journeys on an emulated
+      // Public/admin reads or isolated fixtures on an emulated
       // Pixel 5. Pixel 5 is a Chromium device, so it reuses the browser binary
       // already installed by `playwright install chromium` -- no extra
       // download and no change to the install script.

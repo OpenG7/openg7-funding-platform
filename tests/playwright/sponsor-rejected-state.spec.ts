@@ -1,5 +1,4 @@
 import { expect, test } from './support/test.js';
-
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin, openFixtureSponsorship } from './support/admin-auth.js';
 
@@ -55,7 +54,7 @@ test.describe('Sponsor side rejected state validation', () => {
           hasText: /Statut du paiement/i
         })
         .locator('dd')
-    ).toHaveText('Confirme');
+    ).toHaveText('Confirmé');
 
     // Verify the details form is not available (rejected sponsorships don't allow details submission)
     await expect(

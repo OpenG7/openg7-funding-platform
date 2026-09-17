@@ -20,6 +20,6 @@ export const openFixtureSponsorship = async (
   page: Page,
   companyName: string
 ): Promise<void> => {
-  await page.getByLabel(/Recherche/i).fill(companyName);
+  await page.getByLabel('Recherche', { exact: true }).fill(companyName);
   await page.getByRole('button', { name: new RegExp(companyName) }).click();
 };
