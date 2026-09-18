@@ -358,7 +358,7 @@ import type {
       button:focus-visible,
       input:focus-visible,
       select:focus-visible {
-        outline: 3px solid rgba(37, 99, 235, 0.28);
+        outline: 3px solid var(--admin-focus);
         outline-offset: 2px;
       }
 
@@ -463,6 +463,7 @@ import type {
       }
 
       .sponsor-table-head {
+        background: var(--admin-panel-raised);
         border-bottom: 1px solid var(--admin-border);
         color: var(--admin-muted);
         font-size: 0.76rem;
@@ -470,13 +471,19 @@ import type {
       }
 
       .sponsor-table-row {
+        --sponsor-row-accent: var(--admin-muted);
         appearance: none;
-        background: var(--sponsor-row-bg, var(--admin-panel));
+        background: color-mix(
+          in srgb,
+          var(--admin-panel) 96%,
+          var(--sponsor-row-accent)
+        );
         border: 0;
         border-bottom: 1px solid var(--admin-border);
         border-left: 0.28rem solid var(--sponsor-row-accent, transparent);
         box-sizing: border-box;
-        color: inherit;
+        color: var(--admin-text);
+        cursor: pointer;
         padding-left: 0.72rem;
         text-align: left;
         transition:
@@ -486,55 +493,52 @@ import type {
         width: 100%;
       }
 
-      .sponsor-table-row:hover {
-        background: var(--sponsor-row-hover-bg, var(--admin-panel));
+      .sponsor-table-row:not(:disabled):hover {
+        background: color-mix(
+          in srgb,
+          var(--admin-panel-raised) 94%,
+          var(--sponsor-row-accent)
+        );
+        outline: none;
       }
 
-      .sponsor-table-row.selected {
-        background: var(--sponsor-row-selected-bg, var(--admin-panel));
-        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.24);
+      .sponsor-table-row.selected,
+      .sponsor-table-row.selected:hover {
+        background: color-mix(
+          in srgb,
+          var(--admin-panel) 88%,
+          var(--admin-focus)
+        );
+        box-shadow: inset 0 0 0 1px var(--admin-focus);
+      }
+
+      :host .sponsor-table-row:focus-visible {
+        outline: 3px solid var(--admin-focus);
+        outline-offset: -3px;
       }
 
       .sponsor-row-state-action-required {
-        --sponsor-row-accent: #d8941f;
-        --sponsor-row-bg: #fff8ea;
-        --sponsor-row-hover-bg: #fff1d4;
-        --sponsor-row-selected-bg: #fff4dc;
+        --sponsor-row-accent: var(--admin-warning);
       }
 
       .sponsor-row-state-approved-ready {
-        --sponsor-row-accent: #2f855a;
-        --sponsor-row-bg: #f0fbf4;
-        --sponsor-row-hover-bg: #e4f7eb;
-        --sponsor-row-selected-bg: #e8f7ee;
+        --sponsor-row-accent: var(--admin-success);
       }
 
       .sponsor-row-state-publication-progress {
-        --sponsor-row-accent: #3b73d9;
-        --sponsor-row-bg: #eef5ff;
-        --sponsor-row-hover-bg: #e4efff;
-        --sponsor-row-selected-bg: #e8f1ff;
+        --sponsor-row-accent: var(--admin-focus);
       }
 
       .sponsor-row-state-published {
-        --sponsor-row-accent: #2aa198;
-        --sponsor-row-bg: #ebfaf7;
-        --sponsor-row-hover-bg: #ddf6f1;
-        --sponsor-row-selected-bg: #e4f6f3;
+        --sponsor-row-accent: #7dd3c7;
       }
 
       .sponsor-row-state-blocked {
-        --sponsor-row-accent: #c0392b;
-        --sponsor-row-bg: #fff0ee;
-        --sponsor-row-hover-bg: #ffe4e1;
-        --sponsor-row-selected-bg: #fdecea;
+        --sponsor-row-accent: var(--admin-danger);
       }
 
       .sponsor-row-state-waiting-payment {
-        --sponsor-row-accent: #6f7a8e;
-        --sponsor-row-bg: #f3f6fa;
-        --sponsor-row-hover-bg: #edf1f7;
-        --sponsor-row-selected-bg: #eef2f7;
+        --sponsor-row-accent: var(--admin-muted);
       }
 
       .row-cell,
@@ -591,7 +595,7 @@ import type {
         gap: 0.45rem;
       }
 
-      .sponsor-table-row small {
+      .sponsor-table-row small:not(.tier-badge) {
         color: var(--admin-muted);
       }
 
@@ -642,14 +646,10 @@ import type {
         color: var(--admin-muted);
       }
 
-      .refund-processing {
-        background: var(--admin-panel-raised);
-        color: var(--admin-muted);
-      }
-
+      .refund-processing,
       .feed-drafted {
-        background: var(--admin-panel-raised);
-        color: var(--admin-muted);
+        background: #203951;
+        color: var(--admin-focus);
       }
 
       .tier-silver {
@@ -658,28 +658,28 @@ import type {
       }
 
       .tier-bronze {
-        background: #3c3221;
-        color: var(--admin-warning);
+        background: #3b2d26;
+        color: #f2bd96;
       }
 
       @keyframes selected-box-fade-in {
         0% {
           box-shadow:
-            inset 0.18rem 0 0 #2563eb,
-            0 0 0 0 rgb(37 99 235 / 0%);
+            inset 0 0 0 1px var(--admin-focus),
+            0 0 0 0 rgb(158 218 255 / 0%);
           opacity: 0.62;
           transform: translateY(0.25rem);
         }
         45% {
           box-shadow:
-            inset 0.18rem 0 0 #2563eb,
-            0 0 0 0.28rem rgb(37 99 235 / 14%);
+            inset 0 0 0 1px var(--admin-focus),
+            0 0 0 0.28rem rgb(158 218 255 / 14%);
           opacity: 1;
         }
         100% {
           box-shadow:
-            inset 0.18rem 0 0 #2563eb,
-            0 0 0 0 rgb(37 99 235 / 0%);
+            inset 0 0 0 1px var(--admin-focus),
+            0 0 0 0 rgb(158 218 255 / 0%);
           opacity: 1;
           transform: translateY(0);
         }
