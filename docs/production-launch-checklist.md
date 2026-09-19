@@ -1,20 +1,27 @@
 # Production Launch Checklist
 
-This checklist is for the first public OpenG7 Funding Platform launch. The default launch path is intentionally simple: Angular frontend, Funding API, Stripe checkout, Stripe-direct public transparency, and no PostgreSQL.
+This checklist covers the selected OpenG7 deployment scope. The minimal path is
+Angular, Funding API, Stripe Checkout and Stripe-direct aggregate transparency.
+The full platform adds private PostgreSQL and the configured operational services.
 
-This historical minimal launch path does not include the full sponsor follow-up,
+The minimal launch path does not include the full sponsor follow-up,
 public directories or persistent administration. Those features require private
 PostgreSQL; access recovery also requires working email. Start with the
 [current platform status](platform-status.md) and the
 [controlled integration rehearsal](operations/integration-rehearsal.md) to choose
 the scope being validated.
 
+Before updating an existing database, read the
+[migration replay limitation](operations/database-migrations.md). The current
+deployment runner reapplies every migration; `019`–`021` cannot be replayed.
+A successful rehearsal on a fresh database does not resolve this deployment issue.
+
 ## Launch Decision
 
-- PostgreSQL is optional for the fundraiser MVP.
+- PostgreSQL is optional only for the limited Stripe-direct path.
 - Leave `DATABASE_URL` unset for the simplest Stripe-direct launch.
 - If `DATABASE_URL` is unset, public transparency reads directly from Stripe through `STRIPE_SECRET_KEY`.
-- If PostgreSQL is enabled, keep it private and apply the fundraiser MVP migrations before taking real payments.
+- Persistent sponsorship, directories, admin state, OIDC and alert episodes require private PostgreSQL and the applicable migrations through `021`.
 - Checkout mock fallbacks must stay disabled in production.
 - NorthDragon and GitHub links remain external redirects; no Shopify iframe or repository mirroring is hosted by this app.
 
@@ -27,6 +34,7 @@ FUNDING_PLATFORM_ENV=production
 FUNDING_API_PORT=<platform-provided-port-or-3333>
 FUNDING_ALLOWED_ORIGINS=https://openg7.org,https://www.openg7.org
 FUNDING_BUSINESS_SPONSORSHIP_ENABLED=false
+FUNDING_ADMIN_AUTH_MODE=token
 FUNDING_ADMIN_TOKEN=<long-random-root-admin-secret>
 FUNDING_ADMIN_SESSION_SECRET=<different-long-random-session-secret>
 FUNDING_ADMIN_SESSION_TTL_MINUTES=60
@@ -42,9 +50,18 @@ Do not set this variable for the simplest Stripe-direct launch:
 DATABASE_URL=
 ```
 
-For the PostgreSQL-backed fundraiser MVP, configure the private database values from `docs/docker-deployment.md` and apply all versioned database migrations before deployment.
+These admin secret/session values describe `token` mode. For named accounts,
+choose `FUNDING_ADMIN_AUTH_MODE=oidc` and follow the
+[identity and alerts runbook](operations/admin-identity-and-alerts.md), including
+MFA, owner subjects and same-origin Web/API hosting. Root tokens are rejected in
+OIDC mode. Enable the separate operations watcher only after testing its receiver.
 
-If the frontend and API are served from different origins, the frontend host must either proxy `/api` to the Funding API or inject:
+For the PostgreSQL-backed platform, configure the private database values from
+[the Docker guide](docker-deployment.md) and prepare the required migrations
+before deployment according to the migration procedure above.
+
+Proxy `/api` through the Web origin for OIDC. For the public API and legacy token
+mode, a separate API origin can also be configured through:
 
 ```js
 window.__OPENG7_FUNDING_API_BASE_URL__ = 'https://api.openg7.org/api';
@@ -74,6 +91,7 @@ The production web build uses Angular SSG and prerenders these public French rou
 - `/politique-utilisation-remboursement`
 - `/fonds-des-batisseurs/a-propos`
 - `/fonds-des-batisseurs/transparence`
+- `/404` (error document, excluded from indexing)
 
 It also prerenders the English equivalents:
 
@@ -88,9 +106,13 @@ It also prerenders the English equivalents:
 - `/en/politique-utilisation-remboursement`
 - `/en/fonds-des-batisseurs/a-propos`
 - `/en/fonds-des-batisseurs/transparence`
+- `/en/404` (error document, excluded from indexing)
 
 Confirm the build writes `dist/apps/funding-web/prerendered-routes.json` with those routes before deployment.
-Each public route should include a language-specific canonical URL and `hreflang` alternates for `fr-CA`, `en`, and `x-default`.
+The build currently prerenders 24 routes. Indexable public pages include a
+language-specific canonical URL and `hreflang` alternates for `fr-CA`, `en`
+and `x-default`; error documents use `noindex`. The production initial bundle
+has an 800 kB warning budget and a 900 kB error budget.
 
 Known note: if Angular reports a `.tsbuildinfo` path mismatch on Windows, remove only the generated cache and rebuild:
 
@@ -107,7 +129,10 @@ The frontend must serve the Angular production output:
 dist/apps/funding-web/browser
 ```
 
-The host should serve the prerendered route files directly when present, then fall back to `index.csr.html` or `index.html` for unknown client-side routes depending on the host capabilities.
+Serve prerendered files directly. Only known client-rendered routes (admin and
+private sponsor follow-up) receive `index.csr.html`. Unknown URLs must return
+HTTP 404 with the FR/EN error document, as in `apps/funding-web/nginx.conf`.
+Do not replace this behavior with an unrestricted successful SPA fallback.
 
 The API must run:
 
@@ -119,10 +144,11 @@ The hosting layer must provide:
 
 - HTTPS for the public frontend.
 - HTTPS for the API or an HTTPS frontend proxy to `/api`.
-- Angular route fallback to `index.html` for public routes such as `/fonds-des-batisseurs`, `/batisseurs`, `/commanditaires`, `/politique-utilisation-remboursement`, `/support`, `/music`, and `/boutique`.
+- Prerendered public files, an explicit allowlist of client-rendered routes, and localized HTTP 404 responses for unknown paths.
 - `/api/checkout-sessions` routed to the Funding API.
 - `/api/public/fund-transparency` routed to the Funding API.
 - `/api/public/sponsorships` routed to the Funding API.
+- `/api/public/builders`, `/api/public/funding-config`, private sponsor follow-up and `/api/admin/*` routed to the Funding API.
 - `/api/public/sponsor-logos/*` routed to the Funding API.
 - `/api/stripe/webhook` routed to the Funding API.
 
@@ -143,6 +169,7 @@ https://<production-domain>/api/stripe/webhook
   - `checkout.session.expired`
   - `payment_intent.succeeded`
   - `payment_intent.payment_failed`
+  - `charge.updated` (late fee/net enrichment)
   - `charge.refunded`
   - `charge.dispute.created`
   - `payout.paid`
@@ -192,7 +219,12 @@ Expected transparency behavior:
 - `/commanditaires` loads approved public sponsor profiles when consented data exists, or a safe empty state.
 - `/politique-utilisation-remboursement` explains contribution use, refunds, disputes, sponsorship approval, feed visibility, and privacy limits.
 - If no Stripe contributions exist yet, the page may show an empty public state.
-- No personal contributor data is exposed.
+- No private contributor contact details or payment references are exposed.
+
+Also verify unknown FR/EN URLs return HTTP 404 and `noindex`, and that a direct
+visit to a known admin or follow-up route still loads its client-rendered shell.
+Public sponsor and builder pages may expose only the fields explicitly allowed
+by consent; contact details and private payment references remain excluded.
 
 ## PostgreSQL-Backed Rehearsal
 
@@ -201,8 +233,8 @@ the PostgreSQL-backed launch path for real payments:
 
 1. Start from a clean private PostgreSQL volume and a clean
    `openg7-sponsor-logos` volume.
-2. Configure `DATABASE_URL`, `FUNDING_ADMIN_TOKEN`,
-   `FUNDING_ADMIN_SESSION_SECRET`, `SPONSOR_MEDIA_STORAGE_DRIVER`, Stripe
+2. Configure `DATABASE_URL`, the selected admin authentication mode,
+   `SPONSOR_MEDIA_STORAGE_DRIVER`, Stripe
    test keys, and a signed Stripe webhook secret.
 3. Apply every versioned migration, then run `corepack yarn test` and
    `corepack yarn workspace @openg7/funding-web build --configuration production`.
@@ -213,8 +245,8 @@ the PostgreSQL-backed launch path for real payments:
 5. Open the sponsor follow-up link, refresh it, close the tab, reopen the same
    link, submit company details, submit them a second time, and confirm the
    commandite remains a single paid row that returns to manual review.
-6. Open `/admin/login`, create an admin browser session with
-   `FUNDING_ADMIN_TOKEN` through `POST /api/admin/session`, then continue to
+6. Open `/admin/login`, create a token-mode session through
+   `POST /api/admin/session` or authenticate with MFA in OIDC mode, then continue to
    `/admin/fundraiser/sponsors` and review the paid sponsorship.
    Confirm the guided Stripe refund panel and optional sponsor email fields are
    present for a paid sponsorship, but do not submit it during the normal launch
@@ -277,7 +309,9 @@ the PostgreSQL-backed launch path for real payments:
 - Confirm `FUNDING_ALLOWED_ORIGINS` contains only the intended production frontend origins.
 - Confirm sponsorship follow-up and admin rate limit variables are set for the expected traffic volume.
 - Confirm sponsor logo and media upload limits and the selected sponsor media storage driver are configured.
-- Confirm migration `017_create_sponsor_media_assets.sql` is applied before enabling sponsor media uploads.
+- Confirm schema readiness for media (`017`), achievements (`018`), recovery/drafts (`019`), OIDC (`020`) and alerts (`021`); resolve the migration replay limitation before repeated deployment.
+- In OIDC mode, verify MFA, reader/operator/owner authorization, account disabling and session revocation with the real test identity provider.
+- If independent alerts are enabled, verify the signed receiver, deduplication and separate monitoring of the watcher/VPS.
 - If `SPONSOR_MEDIA_STORAGE_DRIVER=local`, confirm `scripts/backup.sh` creates and offloads `openg7-sponsor-logos-*.tar.gz`; this volume now contains both legacy logos and `media-assets`.
 - If `SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`, confirm `npm run storage:check` and `npm run storage:test` pass on the VPS.
 - Confirm a sponsor can upload JPEG/PNG/WebP through a valid follow-up token, while an invalid token and an oversized or malformed file are refused.
@@ -290,10 +324,11 @@ the PostgreSQL-backed launch path for real payments:
 - Confirm no Shopify iframe, Facebook iframe, or third-party embed was introduced.
 - Confirm the production deployment includes all required assets from `apps/funding-web/src/assets`.
 
-## Future Work After Launch
+## Remaining Operational Checks
 
-- Add hosting-specific configuration once the production target is chosen.
+- Exercise the real OIDC provider and external alert receiver before activation.
 - Keep hosting/proxy rate limits and security headers aligned with the API-level limits.
-- Add image optimization for large hero assets, especially WebP or AVIF variants.
+- Keep the existing responsive WebP variants and production bundle budgets verified when assets change.
 - Consider Shopify Storefront API integration for the Boutique editorial previews.
-- Automate the PostgreSQL-backed rehearsal once the final production target is chosen.
+- Run the controlled provider and full-VPS recovery rehearsal on an identified test target; local Docker, OIDC, Mailpit and S3Mock tests already exist.
+- Complete human screen-reader, native zoom and physical-device checks described in the integration rehearsal.

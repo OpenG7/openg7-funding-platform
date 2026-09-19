@@ -6,6 +6,12 @@ production VPS.
 It can read YAML checklists, select typed tools, execute only whitelisted SSH
 commands, store history in SQLite, and generate Markdown/JSON reports.
 
+This optional VPS tool is separate from the Web administration and its OIDC
+accounts: `PLA_ROLE` does not grant a Web/API role. Before executing a deployment
+with PostgreSQL, review the [current migration limitation](../../docs/operations/database-migrations.md).
+Current platform features and validation evidence are indexed in
+[the documentation guide](../../docs/README.md).
+
 ## Safety Model
 
 - No arbitrary shell command execution.

@@ -1,5 +1,9 @@
 # Analyse fonctionnelle nettoyée — Fundraiser OpenG7 avec budget Codex
 
+> Archive du plan initial du 7 juillet 2026. Les exclusions, estimations et
+> formulations « non implémentée » ne décrivent pas l'état actuel. Consulter
+> l'[état de la plateforme](platform-status.md) et l'[index](README.md).
+
 Date: 2026-07-07  
 Projet: OpenG7 — Fonds des bâtisseurs / Fundraiser  
 Objectif: transformer l'analyse initiale en plan de développement réaliste, découpé pour tenir dans une limite d'utilisation Codex hebdomadaire restante estimée à 76 %.  

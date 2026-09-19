@@ -1,5 +1,9 @@
 # Cadrage MVP - Fonds des batisseurs OpenG7
 
+> Périmètre historique du 7 juillet 2026. Les exclusions de l'admin, des médias
+> ou des PDF appartiennent à ce cadrage initial; ces fonctions ont depuis été
+> livrées. Référence actuelle : [état de la plateforme](platform-status.md).
+
 Date: 2026-07-07  
 Projet: OpenG7 - Fonds des batisseurs / Fundraiser  
 Statut: cadrage MVP pour la premiere passe de developpement.  

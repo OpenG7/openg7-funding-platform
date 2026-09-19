@@ -2,6 +2,12 @@
 
 OpenG7 uses SMTP only for low-volume transactional email.
 
+SMTP delivers queued follow-up/recovery links, invoices, credit notes and admin
+notifications. A queued or SMTP-accepted message is not proof of inbox delivery;
+see the [controlled rehearsal](operations/integration-rehearsal.md). Independent
+failure alerts use a separate [signed webhook watcher](operations/admin-identity-and-alerts.md)
+so they do not rely on this SMTP service.
+
 ## Roles
 
 ```text

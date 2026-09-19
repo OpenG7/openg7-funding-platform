@@ -1,5 +1,10 @@
 # Direction UX du volet admin : cockpit opérationnel
 
+> Document de conception initial. Les lots 1 à 8 ont été livrés; les formulations
+> prospectives expliquent la direction retenue. Consulter l'[index](README.md)
+> pour les contrats livrés et l'[état courant](platform-status.md) pour les preuves
+> et les compléments OIDC/alertes.
+
 ## Thèse directrice
 
 L'administration est déjà riche en fonctionnalités. Le principal risque UX n'est plus le manque de fonctions, mais la dispersion des tâches : l'administratrice doit savoir où aller pour terminer un processus.
