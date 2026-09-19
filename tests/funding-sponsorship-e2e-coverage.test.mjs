@@ -148,7 +148,7 @@ test('E2E 2/8: sponsor can reopen token follow-up and submit company details', (
       "'/sponsorship-followup/details'",
       "'/api/sponsorship-followup/details'",
       'publicReference: followup.publicReference',
-      'recordSponsorshipDetailsForContribution'
+      'submitSponsorshipDraft'
     ],
     'follow-up API routes'
   );

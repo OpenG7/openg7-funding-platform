@@ -324,6 +324,40 @@ export class FundingAdminService {
     return (await response.json()) as AdminInformationRequestResult;
   }
 
+  async getSponsorshipAccessRecipient(
+    token: string,
+    contributionId: string
+  ): Promise<{ recipient: string | null }> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/followup-access?${new URLSearchParams({ contributionId })}`,
+      {
+        headers: await this.createHeaders(token),
+        cache: 'no-store'
+      }
+    );
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return response.json();
+  }
+
+  async resendSponsorshipAccess(
+    token: string,
+    payload: import('@openg7/funding-core').AdminSponsorshipAccessRequest
+  ): Promise<import('@openg7/funding-core').AdminSponsorshipAccessResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/followup-access`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return response.json();
+  }
+
   async queryAssistant(
     token: string,
     payload: AdminAssistantQueryRequest

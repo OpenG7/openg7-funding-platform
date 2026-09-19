@@ -19,6 +19,7 @@ import {
 } from './services/email/index.js';
 
 type EmailTemplateKey =
+  | 'sponsorship_access_recovery'
   | 'contribution_reference_recovery'
   | 'sponsorship_information_request'
   | 'sponsorship_followup'
@@ -1442,13 +1443,16 @@ export const listAdminEmailQueue = async (
   }
 
   const [messageResult, summaryResult] = await Promise.all([
-    pool.query<AdminEmailQueueMessageRow>(`
+    pool.query<AdminEmailQueueMessageRow>(
+      `
       SELECT ${adminEmailQueueMessageSelect}
       FROM email_messages
       WHERE ($1::text IS NULL OR id::text = $1)
       ORDER BY updated_at DESC, created_at DESC
       LIMIT $2
-    `, [options.id ?? null, options.all ? null : 150]),
+    `,
+      [options.id ?? null, options.all ? null : 150]
+    ),
     pool.query<AdminEmailQueueSummaryRow>(`
       WITH counts AS (
         SELECT
@@ -1840,11 +1844,51 @@ export const queueSponsorshipFollowupEmail = async (
   input: SponsorshipFollowupEmailInput
 ): Promise<EmailQueueResult> => {
   const rendered = renderSponsorshipFollowupEmail(input);
-  return queueAndProcessEmail(pool, {
-    ...rendered,
+  return queueAndProcessEmail(
+    pool,
+    {
+      ...rendered,
+      to: input.to,
+      idempotencyKey: input.idempotencyKey
+    },
+    input.deferDelivery
+  );
+};
+
+/** Queue inside the caller's transaction; delivery happens after commit. */
+export const enqueueSponsorshipAccessEmail = async (
+  client: PoolClient,
+  input: {
+    to: string;
+    url: string;
+    reference: string | null;
+    locale: 'fr-CA' | 'en';
+    idempotencyKey: string;
+  }
+): Promise<string> => {
+  const english = input.locale === 'en';
+  const subject = english
+    ? 'Your OpenG7 sponsorship access link'
+    : 'Votre lien de suivi de commandite OpenG7';
+  const intro = english
+    ? 'Use this private link to resume your sponsorship. Your saved information and draft are preserved.'
+    : 'Utilisez ce lien privé pour reprendre votre commandite. Vos informations et votre brouillon sauvegardés sont conservés.';
+  const ignore = english
+    ? 'If you did not request this email, you can ignore it. Do not share this link.'
+    : 'Si vous n’avez pas demandé ce courriel, vous pouvez l’ignorer. Ne partagez pas ce lien.';
+  const reference = input.reference ?? '';
+  const result = await enqueueEmailMessage(client, {
+    templateKey: 'sponsorship_access_recovery',
     to: input.to,
-    idempotencyKey: input.idempotencyKey
-  }, input.deferDelivery);
+    idempotencyKey: input.idempotencyKey,
+    subject,
+    text: [intro, reference, input.url, ignore].join('\n\n'),
+    html: `<p>${escapeHtml(intro)}</p><p>${escapeHtml(reference)}</p><p><a href="${escapeHtml(input.url)}">${english ? 'Resume my sponsorship' : 'Reprendre ma commandite'}</a></p><p>${escapeHtml(ignore)}</p>`,
+    metadata: { publicReference: input.reference }
+  });
+  if (!result.messageId || result.error)
+    throw new Error('Access email could not be queued.');
+  return result.messageId;
 };
 
 export const queueContributionReferenceRecoveryEmail = async (

@@ -1236,7 +1236,7 @@ test('Sponsorship follow-up endpoints are token based and do not require Stripe 
   assert.ok(source.includes("'/api/sponsorship-followup/details'"));
   assert.ok(source.includes('isValidFollowupToken'));
   assert.ok(source.includes('getSponsorshipFollowupByTokenHash'));
-  assert.ok(source.includes('recordSponsorshipDetailsForContribution'));
+  assert.ok(source.includes('submitSponsorshipDraft'));
   assert.ok(fundingPage.includes("params.get('followup_token')"));
   assert.ok(fundingPage.includes('pendingSponsorFollowupToken'));
   assert.ok(fundingPage.includes('sponsorshipFollowupTokenPattern'));

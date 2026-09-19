@@ -121,6 +121,16 @@ import {
   updateAdminPublicationSlot
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
+import {
+  SponsorshipAccessError,
+  normalizeRecoveryEmail,
+  recoverSponsorshipAccess,
+  getSponsorshipAccessRecipient,
+  issueSponsorshipAccess,
+  getSponsorshipDraft,
+  saveSponsorshipDraft,
+  submitSponsorshipDraft
+} from './sponsorship-access.service.js';
 import { parseAdminSearch, searchAdmin } from './admin-search.service.js';
 import {
   getAdminStripeEvent,
@@ -178,7 +188,6 @@ import {
   listAdminSponsorships,
   normalizeContributionType,
   parseMetadataBoolean,
-  recordSponsorshipDetailsForContribution,
   recordSponsorshipDetails,
   updateSponsorshipLogoUrl,
   updateSponsorshipPublication,
@@ -2008,7 +2017,13 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
 
   if (
     request.method === 'POST' &&
-    routeMatches(request.url, '/reference-recovery', '/api/reference-recovery')
+    routeMatches(
+      request.url,
+      '/reference-recovery',
+      '/api/reference-recovery',
+      '/sponsorship-followup/recover',
+      '/api/sponsorship-followup/recover'
+    )
   ) {
     return referenceRecoveryRateLimiter;
   }
@@ -2020,6 +2035,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/sponsorship-followup',
       '/sponsorship-followup/details',
       '/api/sponsorship-followup/details',
+      '/sponsorship-followup/draft',
+      '/api/sponsorship-followup/draft',
       '/sponsorship-followup/media',
       '/api/sponsorship-followup/media',
       '/sponsorship-followup/media/delete',
@@ -2092,6 +2109,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/sponsorships/progress',
       '/admin/sponsorships/request-information',
       '/api/admin/sponsorships/request-information',
+      '/admin/sponsorships/followup-access',
+      '/api/admin/sponsorships/followup-access',
       '/admin/contributions',
       '/api/admin/contributions',
       '/admin/contributions.csv',
@@ -3623,6 +3642,171 @@ createServer(async (request, response) => {
     request.method === 'POST' &&
     routeMatches(
       request.url,
+      '/sponsorship-followup/recover',
+      '/api/sponsorship-followup/recover'
+    )
+  ) {
+    if (!dbPool) {
+      writeJson(request, response, 503, { error: 'Recovery is unavailable.' });
+      return;
+    }
+    let email: string;
+    let locale: 'fr-CA' | 'en';
+    try {
+      const input = JSON.parse(await readBody(request, 8 * 1024));
+      email = normalizeRecoveryEmail(input?.email);
+      locale = input?.locale === 'en' ? 'en' : 'fr-CA';
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'A valid email is required.'
+      });
+      return;
+    }
+    try {
+      await recoverSponsorshipAccess(dbPool, email, {
+        baseUrl: publicBaseOrigin,
+        ttlDays: sponsorshipFollowupTokenTtlDays,
+        locale
+      });
+    } catch {
+      // Same public response even if a matching dossier encounters a queue error.
+      console.error('Sponsorship access recovery could not be queued.');
+    }
+    writeJson(request, response, 202, { accepted: true });
+    return;
+  }
+
+  if (
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/followup-access',
+      '/api/admin/sponsorships/followup-access'
+    ) &&
+    ['GET', 'POST'].includes(request.method ?? '')
+  ) {
+    if (!ensureAdminAccess(request, response)) return;
+    if (!dbPool) {
+      writeJson(request, response, 503, { error: 'Recovery is unavailable.' });
+      return;
+    }
+    try {
+      if (request.method === 'GET') {
+        const id =
+          new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+            'contributionId'
+          ) ?? '';
+        if (!isValidUuid(id))
+          throw new SponsorshipAccessError(400, 'validation');
+        writeJson(request, response, 200, {
+          recipient: await getSponsorshipAccessRecipient(dbPool, id)
+        });
+      } else {
+        const input = JSON.parse(await readBody(request, 8 * 1024));
+        if (
+          !input ||
+          !isValidUuid(input.contributionId) ||
+          !isValidUuid(input.requestId) ||
+          input.confirmed !== true
+        )
+          throw new SponsorshipAccessError(400, 'validation');
+        const recipient = normalizeRecoveryEmail(input.recipient);
+        const result = await issueSponsorshipAccess(
+          dbPool,
+          input.contributionId,
+          recipient,
+          {
+            baseUrl: publicBaseOrigin,
+            ttlDays: sponsorshipFollowupTokenTtlDays,
+            locale: input.locale === 'en' ? 'en' : 'fr-CA'
+          },
+          { actor: getAdminAuditActor(request), requestId: input.requestId }
+        );
+        writeJson(request, response, 200, result);
+      }
+    } catch (error) {
+      writeJson(
+        request,
+        response,
+        error instanceof SponsorshipAccessError
+          ? error.status
+          : error instanceof SyntaxError
+            ? 400
+            : 503,
+        {
+          error: 'Access link could not be queued.',
+          code:
+            error instanceof SponsorshipAccessError ? error.code : 'unavailable'
+        }
+      );
+    }
+    return;
+  }
+
+  if (
+    routeMatches(
+      request.url,
+      '/sponsorship-followup/draft',
+      '/api/sponsorship-followup/draft'
+    ) &&
+    ['GET', 'POST'].includes(request.method ?? '')
+  ) {
+    if (!dbPool) {
+      writeJson(request, response, 503, {
+        error: 'Draft storage is unavailable.'
+      });
+      return;
+    }
+    try {
+      const input =
+        request.method === 'POST'
+          ? JSON.parse(await readBody(request, 16 * 1024))
+          : null;
+      const token =
+        request.method === 'POST'
+          ? input?.token
+          : new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+              'token'
+            );
+      if (!isValidFollowupToken(token))
+        throw new SponsorshipAccessError(404, 'access');
+      const result =
+        request.method === 'GET'
+          ? await getSponsorshipDraft(
+              dbPool,
+              token,
+              sponsorshipFollowupTokenTtlDays
+            )
+          : await saveSponsorshipDraft(
+              dbPool,
+              token,
+              sponsorshipFollowupTokenTtlDays,
+              input?.expectedRevision,
+              input?.data
+            );
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      writeJson(
+        request,
+        response,
+        error instanceof SponsorshipAccessError
+          ? error.status
+          : error instanceof SyntaxError
+            ? 400
+            : 503,
+        {
+          error: 'Draft operation failed.',
+          code:
+            error instanceof SponsorshipAccessError ? error.code : 'unavailable'
+        }
+      );
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
       '/sponsorship-details',
       '/api/sponsorship-details'
     )
@@ -4043,7 +4227,7 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (!isValidFollowupToken(parsed.token)) {
+    if (!parsed || !isValidFollowupToken(parsed.token)) {
       writeJson(request, response, 400, {
         error: 'Invalid sponsorship follow-up token.'
       });
@@ -4120,6 +4304,21 @@ createServer(async (request, response) => {
       const logoUrl = parsed.logoUrl?.trim() || null;
       const message = parsed.message?.trim() || null;
 
+      const recorded = await submitSponsorshipDraft(
+        dbPool!,
+        parsed.token,
+        sponsorshipFollowupTokenTtlDays,
+        parsed.draftRevision,
+        {
+          companyName,
+          contactName,
+          contactEmail,
+          websiteUrl: websiteUrl ?? '',
+          logoUrl: logoUrl ?? '',
+          message: message ?? ''
+        }
+      );
+
       if (stripe && followup.stripePaymentIntentId) {
         try {
           await stripe.paymentIntents.update(followup.stripePaymentIntentId, {
@@ -4148,23 +4347,20 @@ createServer(async (request, response) => {
         }
       }
 
-      const recorded = await recordSponsorshipDetailsForContribution(dbPool, {
-        contributionId: followup.contributionId,
-        companyName,
-        contactName,
-        contactEmail,
-        websiteUrl,
-        logoUrl,
-        message
-      });
-
       const result: SponsorshipDetailsResult = { received: true, recorded };
       writeJson(request, response, 200, result);
     } catch (error) {
-      console.error('Failed to record sponsorship follow-up details.', error);
-      writeJson(request, response, 502, {
-        error: 'Sponsorship follow-up details could not be recorded.'
-      });
+      console.error('Failed to record sponsorship follow-up details.');
+      writeJson(
+        request,
+        response,
+        error instanceof SponsorshipAccessError ? error.status : 502,
+        {
+          error: 'Sponsorship follow-up details could not be recorded.',
+          code:
+            error instanceof SponsorshipAccessError ? error.code : 'unavailable'
+        }
+      );
     }
     return;
   }

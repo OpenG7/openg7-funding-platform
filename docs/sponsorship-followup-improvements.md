@@ -69,6 +69,8 @@ Ce lot porte sur les garanties d'exécution, sans changement de comportement app
 
 ## Portée et limites
 
+Ces limites décrivent les PR #119 et #120. Le lot suivant ajoute une [récupération d'accès et un brouillon persistant](./sponsorship-access-and-drafts.md), avec contrats API, migration et garanties d'idempotence côté serveur.
+
 - Risque modéré : modification du suivi et de son orchestration côté navigateur.
 - Aucun changement de contrat API, migration, backfill ou opération de production.
 - La protection contre une sauvegarde identique est locale à cette visite ; elle n'ajoute pas de garantie d'idempotence entre appareils côté API.

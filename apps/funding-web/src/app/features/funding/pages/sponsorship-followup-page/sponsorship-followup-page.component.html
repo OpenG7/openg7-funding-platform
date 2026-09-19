@@ -21,6 +21,7 @@
       <a [routerLink]="i18n.localizedPath('/support')">{{
         'funding.followup.support' | translate
       }}</a>
+      <openg7-sponsorship-access-recovery />
     </article>
     <div
       *ngIf="loadError() === 'unavailable'"
@@ -53,14 +54,41 @@
         </button>
       </div>
       <openg7-sponsorship-followup-status [followup]="current" />
+      <aside class="notice-panel" data-og7="followup-draft-status">
+        <p role="status">
+          {{ 'funding.followup.draft.' + drafts.state() | translate }}
+        </p>
+        <p>{{ 'funding.followup.draft.explanation' | translate }}</p>
+        <button
+          *ngIf="drafts.state() === 'error'"
+          type="button"
+          [disabled]="busy()"
+          (click)="drafts.flush()"
+        >
+          {{ 'funding.followup.retry' | translate }}
+        </button>
+        <button
+          *ngIf="
+            drafts.state() === 'unavailable' || drafts.state() === 'conflict'
+          "
+          type="button"
+          [disabled]="busy()"
+          (click)="reloadDraft()"
+        >
+          {{ 'funding.followup.draft.reload' | translate }}
+        </button>
+      </aside>
       <openg7-sponsorship-followup-form
         [followup]="current"
         [token]="token()"
         [busy]="busy()"
+        [draftBlocked]="!drafts.ready()"
+        [restoredDraft]="drafts.restored()"
         [savedDetails]="savedDetails()"
         [saveState]="saveState()"
         (save)="submit($event)"
-        (draftChanged)="saveState.set('idle')"
+        (draftChanged)="saveState.set('idle'); drafts.changed($event)"
+        (discardDraft)="drafts.discard()"
       />
     </ng-container>
   </section>

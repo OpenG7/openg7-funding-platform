@@ -1,5 +1,8 @@
 import type { Page, Route } from '@playwright/test';
-import type { SponsorshipFollowupResponse } from '@openg7/funding-core';
+import type {
+  SponsorshipFollowupResponse,
+  SponsorshipDraftSnapshot
+} from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
 
@@ -34,6 +37,7 @@ const json = (route: Route, body: unknown, status = 200) =>
 async function mock(
   page: Page,
   options: {
+    draft?: SponsorshipDraftSnapshot;
     current?: SponsorshipFollowupResponse;
     get?: (route: Route, count: number) => Promise<void>;
     post?: (route: Route) => Promise<void>;
@@ -42,13 +46,31 @@ async function mock(
   let current = options.current ?? fixture();
   let reads = 0;
   let posts = 0;
+  let draft: SponsorshipDraftSnapshot = options.draft ?? {
+    revision: 0,
+    data: null,
+    updatedAt: null
+  };
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname === '/api/sponsorship-followup') {
+    if (url.pathname === '/api/sponsorship-followup/draft') {
+      if (route.request().method() === 'POST')
+        draft = {
+          revision: draft.revision + 1,
+          data: route.request().postDataJSON().data,
+          updatedAt: new Date().toISOString()
+        };
+      await json(route, draft);
+    } else if (url.pathname === '/api/sponsorship-followup') {
       reads++;
       await (options.get ? options.get(route, reads) : json(route, current));
     } else if (url.pathname === '/api/sponsorship-followup/details') {
       posts++;
+      draft = {
+        revision: draft.revision + 1,
+        data: null,
+        updatedAt: new Date().toISOString()
+      };
       if (options.post) await options.post(route);
       else {
         current = {
@@ -70,7 +92,7 @@ async function mock(
       });
     } else await json(route, {}, 503);
   });
-  return { posts: () => posts, reads: () => reads };
+  return { posts: () => posts, reads: () => reads, draft: () => draft };
 }
 async function visit(page: Page, english = false) {
   await page.goto((english ? '/en' : '') + path + '?token=' + token);
@@ -87,6 +109,271 @@ const save = (page: Page) =>
   });
 const company = (page: Page) =>
   page.getByLabel("Nom de l'entreprise", { exact: false });
+
+const draftStatus = (page: Page) =>
+  page.locator('[data-og7="followup-draft-status"]');
+const draftValues = (companyName: string) => ({
+  companyName,
+  contactName: 'Camille',
+  contactEmail: 'camille@example.test',
+  websiteUrl: '',
+  logoUrl: '',
+  message: ''
+});
+
+test('autosave survives reload without submitting an approved sponsorship', async ({
+  page
+}) => {
+  const calls = await mock(page, {
+    current: { ...fixture(), reviewStatus: 'approved' }
+  });
+  await visit(page);
+  await page.getByRole('button', { name: 'Modifier mes informations' }).click();
+  await company(page).fill('Brouillon privé');
+  await expect(draftStatus(page)).toContainText('Brouillon enregistré.');
+  expect(calls.posts()).toBe(0);
+  await page.reload();
+  await expect(company(page)).toHaveValue('Brouillon privé');
+  await expect(company(page)).toBeEnabled();
+  await expect(
+    page.getByRole('heading', { name: 'Commandite acceptée' })
+  ).toBeVisible();
+  await save(page).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toBeVisible();
+  expect(calls.posts()).toBe(1);
+  expect(calls.draft().data).toBeNull();
+  await expect(
+    page.getByRole('button', { name: 'Abandonner les modifications' })
+  ).toHaveCount(0);
+});
+
+test('autosave failure preserves input and manual retry persists it', async ({
+  page
+}) => {
+  const calls = await mock(page);
+  let fail = true;
+  await page.route('**/api/sponsorship-followup/draft', async (route) => {
+    if (route.request().method() === 'POST' && fail) await json(route, {}, 503);
+    else await route.fallback();
+  });
+  await visit(page);
+  await company(page).fill('Saisie conservée');
+  await expect(draftStatus(page)).toContainText('n’a pas pu être sauvegardé');
+  await expect(company(page)).toHaveValue('Saisie conservée');
+  expect(calls.draft().data).toBeNull();
+  fail = false;
+  await draftStatus(page).getByRole('button', { name: 'Réessayer' }).click();
+  await expect(draftStatus(page)).toContainText('Brouillon enregistré.');
+  expect(calls.draft().data?.companyName).toBe('Saisie conservée');
+});
+
+test('a concurrent draft conflict preserves local input until explicit reload', async ({
+  page
+}) => {
+  await mock(page);
+  let conflict = false;
+  await page.route('**/api/sponsorship-followup/draft**', async (route) => {
+    if (route.request().method() === 'POST') {
+      conflict = true;
+      await json(route, { code: 'draft_conflict' }, 409);
+    } else if (conflict)
+      await json(route, {
+        revision: 2,
+        data: draftValues('Autre onglet'),
+        updatedAt: new Date().toISOString()
+      });
+    else await route.fallback();
+  });
+  await visit(page);
+  await company(page).fill('Mon onglet');
+  await expect(draftStatus(page)).toContainText('autre onglet');
+  await expect(company(page)).toHaveValue('Mon onglet');
+  await expect(save(page)).toBeDisabled();
+  await draftStatus(page)
+    .getByRole('button', { name: 'Charger le brouillon sauvegardé' })
+    .click();
+  await expect(company(page)).toHaveValue('Autre onglet');
+  await expect(company(page)).toBeEnabled();
+});
+
+test('edits during a slow autosave are serialized and the latest values win', async ({
+  page
+}) => {
+  await mock(page);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const writes: string[] = [];
+  await page.route('**/api/sponsorship-followup/draft', async (route) => {
+    if (route.request().method() === 'POST') {
+      writes.push(route.request().postDataJSON().data.companyName);
+      if (writes.length === 1) await gate;
+    }
+    await route.fallback();
+  });
+  await visit(page);
+  await company(page).fill('Première saisie');
+  await expect.poll(() => writes.length).toBe(1);
+  await company(page).fill('Dernière saisie');
+  release();
+  await expect(draftStatus(page)).toContainText('Brouillon enregistré.');
+  expect(writes).toEqual(['Première saisie', 'Dernière saisie']);
+  await page.reload();
+  await expect(company(page)).toHaveValue('Dernière saisie');
+});
+
+test('an expired access during autosave removes the private form and offers recovery', async ({
+  page
+}) => {
+  await mock(page);
+  await page.route('**/api/sponsorship-followup/draft', async (route) => {
+    if (route.request().method() === 'POST')
+      await json(route, { code: 'access' }, 404);
+    else await route.fallback();
+  });
+  await visit(page);
+  await company(page).fill('Données privées');
+  await expect(page.locator('[data-og7="followup-recovery"]')).toBeVisible();
+  await expect(company(page)).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem('openg7-sponsorship-followup-token')
+    )
+  ).toBeNull();
+});
+
+test('a late refresh cannot restore private information after access expires during autosave', async ({
+  page
+}) => {
+  let releaseRead!: () => void;
+  let releaseSave!: () => void;
+  const readGate = new Promise<void>((resolve) => {
+    releaseRead = resolve;
+  });
+  const saveGate = new Promise<void>((resolve) => {
+    releaseSave = resolve;
+  });
+  let writing = false;
+  let refreshing = false;
+  await mock(page, {
+    get: async (route, count) => {
+      if (count > 1) {
+        refreshing = true;
+        await readGate;
+      }
+      await json(route, fixture());
+    }
+  });
+  await page.route('**/api/sponsorship-followup/draft', async (route) => {
+    if (route.request().method() === 'POST') {
+      writing = true;
+      await saveGate;
+      await json(route, { code: 'access' }, 404);
+    } else await route.fallback();
+  });
+  await visit(page);
+  await company(page).fill('Saisie privée');
+  await expect.poll(() => writing).toBe(true);
+  await page.getByRole('button', { name: 'Actualiser le statut' }).click();
+  await expect.poll(() => refreshing).toBe(true);
+  releaseSave();
+  await expect(page.locator('[data-og7="followup-recovery"]')).toBeVisible();
+  const finished = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/sponsorship-followup'
+  );
+  releaseRead();
+  await (await finished).finished();
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      )
+  );
+  await expect(company(page)).toHaveCount(0);
+  await expect(page.locator('[data-og7="followup-recovery"]')).toBeVisible();
+});
+
+test('recovery validates the address and offers a retry after network failure', async ({
+  page
+}) => {
+  await mock(page);
+  let attempts = 0;
+  await page.route('**/api/sponsorship-followup/recover', (route) =>
+    ++attempts === 1
+      ? route.abort('failed')
+      : json(route, { accepted: true }, 202)
+  );
+  await page.goto(path);
+  const recovery = page.locator('[data-og7="followup-recovery"]');
+  await recovery.getByRole('button').click();
+  await expect(recovery.getByRole('status')).toContainText(
+    'adresse courriel valide'
+  );
+  expect(attempts).toBe(0);
+  await recovery.locator('input').fill('payer@example.test');
+  await recovery.getByRole('button').click();
+  await expect(recovery.getByRole('status')).toContainText(
+    'n’a pas pu être transmise'
+  );
+  await recovery.getByRole('button').click();
+  await expect(recovery.getByRole('status')).toContainText('Si une commandite');
+});
+
+test('discarding an incomplete restored draft clears it on the server', async ({
+  page
+}) => {
+  const calls = await mock(page, {
+    draft: {
+      revision: 1,
+      data: { ...draftValues('Incomplet'), contactEmail: 'invalide' },
+      updatedAt: null
+    }
+  });
+  await visit(page);
+  await expect(company(page)).toHaveValue('Incomplet');
+  await page
+    .getByRole('button', { name: 'Abandonner les modifications' })
+    .click();
+  await expect(company(page)).toHaveValue('Atelier Boréal');
+  expect(calls.draft().data).toBeNull();
+  expect(calls.posts()).toBe(0);
+});
+
+for (const english of [false, true]) {
+  test(
+    'missing access offers email recovery with a uniform response ' +
+      (english ? 'EN' : 'FR'),
+    async ({ page }) => {
+      await mock(page);
+      let received: Record<string, unknown> = {};
+      await page.route('**/api/sponsorship-followup/recover', async (route) => {
+        received = route.request().postDataJSON();
+        await json(route, { accepted: true }, 202);
+      });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto((english ? '/en' : '') + path);
+      const recovery = page.locator('[data-og7="followup-recovery"]');
+      await recovery.locator('input').fill('absent@example.test');
+      await recovery.getByRole('button').click();
+      await expect(recovery.getByRole('status')).toContainText(
+        english ? 'If a sponsorship' : 'Si une commandite'
+      );
+      expect(received).toEqual({
+        email: 'absent@example.test',
+        locale: english ? 'en' : 'fr-CA'
+      });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth
+        )
+      ).toBe(true);
+    }
+  );
+}
 
 test('an unavailable service is retryable and never reported as an invalid link', async ({
   page

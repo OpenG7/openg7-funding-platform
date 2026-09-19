@@ -7,6 +7,7 @@ import {
   PLATFORM_ID,
   ViewChild,
   computed,
+  effect,
   inject,
   signal
 } from '@angular/core';
@@ -28,6 +29,8 @@ import {
 } from '../../models/sponsorship-followup-ui.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingService } from '../../services/funding.service.js';
+import { SponsorshipDraftService } from '../../services/sponsorship-draft.service.js';
+import { SponsorshipAccessRecoveryComponent } from '../../components/sponsorship-followup/sponsorship-access-recovery.component.js';
 
 const sponsorshipFollowupSessionStorageKey =
   'openg7-sponsorship-followup-token';
@@ -42,8 +45,10 @@ const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
     TranslatePipe,
     FundingHeaderComponent,
     SponsorshipFollowupFormComponent,
-    SponsorshipFollowupStatusComponent
+    SponsorshipFollowupStatusComponent,
+    SponsorshipAccessRecoveryComponent
   ],
+  providers: [SponsorshipDraftService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sponsorship-followup-page.component.html',
   styleUrls: ['../../components/sponsorship-followup/sponsorship-followup.css']
@@ -54,6 +59,7 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly destroyRef = inject(DestroyRef);
   readonly i18n = inject(FundingI18nService);
+  readonly drafts = inject(SponsorshipDraftService);
   @ViewChild(SponsorshipFollowupFormComponent)
   private form?: SponsorshipFollowupFormComponent;
 
@@ -68,6 +74,12 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   readonly savedDetails = signal<SponsorshipDetailsDraft | null>(null);
   readonly busy = computed(() => this.loading() || this.saving());
   private readSequence = 0;
+
+  constructor() {
+    effect(() => {
+      if (this.drafts.accessExpired()) this.clearAccess();
+    });
+  }
 
   ngOnInit(): void {
     this.destroyRef.onDestroy(() => {
@@ -98,6 +110,7 @@ export class SponsorshipFollowupPageComponent implements OnInit {
       if (this.destroyRef.destroyed || sequence !== this.readSequence)
         return false;
       this.followup.set(followup);
+      if (this.drafts.revision() === null) await this.drafts.load(this.token());
       return true;
     } catch (error) {
       if (this.destroyRef.destroyed || sequence !== this.readSequence)
@@ -135,8 +148,13 @@ export class SponsorshipFollowupPageComponent implements OnInit {
     this.saving.set(true);
     this.saveState.set('idle');
     try {
+      if (!(await this.drafts.flush())) return;
       const result = await this.fundingService.submitSponsorshipFollowupDetails(
-        { token: this.token(), ...draft }
+        {
+          token: this.token(),
+          ...draft,
+          draftRevision: this.drafts.revision()!
+        }
       );
       if (this.destroyRef.destroyed) return;
       if (result.received !== true || result.recorded !== true) {
@@ -146,10 +164,16 @@ export class SponsorshipFollowupPageComponent implements OnInit {
       // Only the confirmed mutation may mark this draft as saved.
       this.savedDetails.set(draft);
       this.saveState.set('saved');
+      await this.drafts.load(this.token(), false);
       await this.readFollowup();
     } catch (error) {
       if (this.destroyRef.destroyed) return;
       this.saveState.set('error');
+      if (
+        error instanceof SponsorshipFollowupError &&
+        error.code === 'draft_conflict'
+      )
+        this.drafts.state.set('conflict');
       // A 400 on POST can be field validation; keep the user's draft available.
       if (
         followupAccessExpired(error) &&
@@ -166,6 +190,9 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   }
 
   private clearAccess(): void {
+    this.readSequence++;
+    this.loading.set(false);
+    this.drafts.clear();
     this.loadError.set('access');
     this.followup.set(null);
     this.savedDetails.set(null);
@@ -177,6 +204,11 @@ export class SponsorshipFollowupPageComponent implements OnInit {
         /* Storage can be unavailable. */
       }
     }
+  }
+
+  async reloadDraft(): Promise<void> {
+    if (this.busy()) return;
+    if (await this.readFollowup()) await this.drafts.load(this.token());
   }
 
   private resolveInitialToken(): string {

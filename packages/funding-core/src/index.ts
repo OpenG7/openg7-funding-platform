@@ -379,6 +379,7 @@ export interface SponsorshipFollowupResponse {
 
 export interface SponsorshipFollowupDetailsRequest {
   readonly token: string;
+  readonly draftRevision?: number;
   readonly companyName: string;
   readonly contactName: string;
   readonly contactEmail: string;
@@ -386,6 +387,15 @@ export interface SponsorshipFollowupDetailsRequest {
   readonly logoUrl?: string;
   readonly message?: string;
 }
+
+export type {
+  SponsorshipDraftValues,
+  SponsorshipDraftSnapshot,
+  SponsorshipDraftRequest,
+  SponsorshipAccessRecoveryRequest,
+  AdminSponsorshipAccessRequest,
+  AdminSponsorshipAccessResult
+} from './sponsorship-followup.js';
 
 export interface PublicReferenceLookupRequest {
   readonly reference: string;

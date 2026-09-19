@@ -19,7 +19,7 @@
     <button
       *ngIf="!editing()"
       type="button"
-      [disabled]="busy()"
+      [disabled]="busy() || draftBlocked()"
       (click)="beginEditing()"
     >
       {{ 'funding.followup.form.edit' | translate }}
@@ -27,14 +27,14 @@
     <button
       *ngIf="editing()"
       type="button"
-      [disabled]="busy() || mediaBusy()"
+      [disabled]="busy() || draftBlocked() || mediaBusy()"
       (click)="cancelEditing()"
     >
       {{ 'funding.followup.form.cancel' | translate }}
     </button>
   </div>
   <form [formGroup]="sponsorshipForm" (ngSubmit)="submit()" novalidate>
-    <fieldset [disabled]="busy() || readOnly()">
+    <fieldset [disabled]="busy() || draftBlocked() || readOnly()">
       <legend class="sr-only">
         {{ 'funding.followup.form.title' | translate }}
       </legend>
@@ -147,6 +147,19 @@
       }}
     </p>
     <div class="toolbar">
+      <button
+        *ngIf="
+          allowed() &&
+          !readOnly() &&
+          followup().reviewStatus !== 'approved' &&
+          (restoredDraft()?.data || changed())
+        "
+        type="button"
+        [disabled]="busy() || draftBlocked()"
+        (click)="discardDraft.emit()"
+      >
+        {{ 'funding.followup.draft.discard' | translate }}
+      </button>
       <button type="submit" [disabled]="!canSubmit()">
         {{
           (busy()

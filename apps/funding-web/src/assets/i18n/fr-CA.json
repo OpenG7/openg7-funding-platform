@@ -1,5 +1,20 @@
 {
   "admin": {
+    "followupAccess": {
+      "title": "Accès au suivi commanditaire",
+      "copy": "Renvoyez un lien privé à l’adresse du paiement. Le dossier et son brouillon sont conservés.",
+      "send": "Renvoyer le lien de suivi",
+      "working": "Préparation…",
+      "confirm": "Envoyer un nouveau lien privé de suivi à cette adresse ?",
+      "idle": "",
+      "missing": "Aucune adresse de paiement admissible n’est disponible pour ce dossier.",
+      "queued": "Le courriel est en file d’envoi. Son état est visible dans la file des courriels.",
+      "already_queued": "Un lien récent est déjà en file d’envoi.",
+      "already_sent": "Un lien vient d’être envoyé. Attendez une minute avant un nouveau renvoi.",
+      "delivery_failed": "Le dernier envoi a échoué. Consultez la file des courriels pour le relancer.",
+      "unauthorized": "Votre accès administrateur a expiré ou ne permet pas cette action.",
+      "error": "Le lien n’a pas pu être mis en file. Réessayez ; vérifiez le dossier si l’adresse a changé."
+    },
     "inspector": {
       "close": "Fermer le panneau",
       "back": "Revenir à la page",
@@ -2585,6 +2600,30 @@
       }
     },
     "followup": {
+      "recovery": {
+        "title": "Retrouver mon accès commanditaire",
+        "copy": "Entrez le courriel utilisé lors du paiement pour recevoir un nouveau lien privé. Vos informations et votre brouillon sauvegardés seront conservés.",
+        "email": "Courriel utilisé pour le paiement",
+        "submit": "Recevoir un nouveau lien de suivi",
+        "sending": "Demande en cours…",
+        "idle": "Le lien permet de reprendre le suivi sans compte utilisateur.",
+        "invalid": "Entrez une adresse courriel valide.",
+        "accepted": "Si une commandite correspond à cette adresse, un courriel sera envoyé. Vérifiez aussi les indésirables. Une demande récente peut être regroupée avec la précédente.",
+        "error": "La demande n’a pas pu être transmise. Réessayez plus tard."
+      },
+      "draft": {
+        "loading": "Chargement du brouillon…",
+        "idle": "Les modifications seront sauvegardées automatiquement.",
+        "dirty": "Modifications en attente de sauvegarde…",
+        "saving": "Sauvegarde du brouillon…",
+        "saved": "Brouillon enregistré.",
+        "error": "Le brouillon n’a pas pu être sauvegardé. Votre saisie reste dans cette page.",
+        "unavailable": "Impossible de charger le brouillon. Réessayez avant de modifier les informations.",
+        "conflict": "Le dossier a changé dans un autre onglet ou n’est plus modifiable. Votre saisie est conservée. Charger le brouillon sauvegardé remplacera la saisie de cette page.",
+        "reload": "Charger le brouillon sauvegardé",
+        "discard": "Abandonner les modifications",
+        "explanation": "Le brouillon est privé. Seul le bouton « Enregistrer les informations » soumet les modifications à la revue. Les dernières secondes de saisie peuvent être perdues avant confirmation de la sauvegarde."
+      },
       "eyebrow": "Commandite OpenG7",
       "title": "Suivi de votre commandite",
       "intro": "Consultez l’état de votre commandite et complétez les renseignements nécessaires à sa révision.",
