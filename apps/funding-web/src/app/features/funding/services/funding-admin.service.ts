@@ -80,6 +80,25 @@ const sessionExpiresAtStorageKey = 'openg7-admin-session-expires-at';
 const legacyTokenStorageKey = 'openg7-admin-token';
 const adminSessionTokenPrefix = 'openg7-admin-session.';
 const selectedSponsorshipStorageKey = 'openg7-admin-selected-sponsorship';
+const cookieSessionMarker = 'openg7-admin-session.cookie';
+export interface AdminIdentityProfile {
+  id: string;
+  sessionId: string;
+  displayName: string;
+  role: 'reader' | 'operator' | 'owner';
+  expiresAt: string;
+}
+export interface AdminAccessAccount {
+  id: string;
+  subject: string;
+  displayName: string;
+  role: 'reader' | 'operator' | 'owner';
+  disabled: boolean;
+}
+export interface AdminAccessResponse {
+  accounts: AdminAccessAccount[];
+  sessions: { id: string; accountId: string; createdAt: string; expiresAt: string }[];
+}
 
 export class AdminDashboardRequestError extends Error {
   constructor(readonly status: number, message = 'Admin dashboard could not be loaded.') {
@@ -101,6 +120,80 @@ export interface AdminSponsorshipListQuery {
 
 @Injectable({ providedIn: 'root' })
 export class FundingAdminService {
+  readonly identity = signal<AdminIdentityProfile | null>(null);
+  private usesCookieSession = false;
+  async authMode(): Promise<'oidc' | 'token'> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/auth/config`, {
+      cache: 'no-store'
+    });
+    if (!response.ok)
+      throw new Error('Authentication configuration unavailable.');
+    return (await response.json()).mode;
+  }
+  identitySignInUrl(returnUrl: string): string {
+    return `${this.apiBaseUrl}/admin/auth/start?returnUrl=${encodeURIComponent(returnUrl)}`;
+  }
+  async restoreSession(): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
+    const saved = this.getSavedAdminToken();
+    if (saved && saved !== cookieSessionMarker) return true;
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/admin/auth/current`, {
+        cache: 'no-store'
+      });
+      if (!response.ok) {
+        this.clearAdminSession();
+        return false;
+      }
+      const identity = (await response.json()) as AdminIdentityProfile;
+      this.usesCookieSession = true;
+      this.identity.set(identity);
+      window.sessionStorage.setItem(
+        sessionTokenStorageKey,
+        cookieSessionMarker
+      );
+      window.sessionStorage.setItem(
+        sessionExpiresAtStorageKey,
+        identity.expiresAt
+      );
+      return true;
+    } catch {
+      this.clearAdminSession();
+      return false;
+    }
+  }
+  async signOut(): Promise<void> {
+    if (
+      this.usesCookieSession ||
+      (typeof window !== 'undefined' &&
+        window.sessionStorage.getItem(sessionTokenStorageKey) ===
+          cookieSessionMarker)
+    ) {
+      const response = await fetch(`${this.apiBaseUrl}/admin/auth/logout`, {
+        method: 'POST'
+      });
+      if (!response.ok) throw new Error('Sign-out unavailable.');
+    }
+    this.usesCookieSession = false;
+    this.clearAdminSession();
+  }
+  async accessAccounts(): Promise<AdminAccessResponse> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/access`, {
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error('Access unavailable.');
+    return response.json();
+  }
+  async updateAccess(
+    input: AdminAccessAccount | { sessionId: string }
+  ): Promise<void> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/access`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input)
+    });
+    if (!response.ok) throw new Error('Access change refused.');
+  }
   private readonly apiBaseUrl = this.resolveApiBaseUrl();
   readonly workQueue = signal<AdminWorkQueueResponse | null>(null);
   private queueGeneration = 0;
@@ -190,6 +283,7 @@ export class FundingAdminService {
   }
 
   clearAdminSession(): void {
+    this.identity.set(null);
     this.queueGeneration++;
     this.workQueue.set(null);
     if (typeof window === 'undefined') {
@@ -208,6 +302,8 @@ export class FundingAdminService {
   }
 
   async signIn(token: string): Promise<AdminSessionResponse> {
+    this.usesCookieSession = false;
+    this.identity.set(null);
     const session = await this.createAdminSession(token);
     this.saveAdminSession(session);
     return session;
@@ -1506,7 +1602,7 @@ export class FundingAdminService {
 
     return {
       Accept: 'application/json',
-      ...(sessionToken
+      ...(sessionToken && sessionToken !== cookieSessionMarker
         ? {
             Authorization: `Bearer ${sessionToken}`
           }

@@ -13,7 +13,7 @@ const assertIncludesAll = (source, values, label) => {
 };
 
 test('admin back-office exposes dashboard, contributions, and CSV export', () => {
-  const routes = read('apps/funding-web/src/app/app.routes.ts');
+  const routes = read('apps/funding-web/src/app/admin.routes.ts');
   const adminService = read(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
   );
@@ -103,28 +103,28 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   assertIncludesAll(
     routes,
     [
-      "path: 'admin/login'",
+      "path: 'login'",
       'AdminLoginPageComponent',
       'adminSessionRequired',
       "createUrlTree(['/admin/login']",
-      "path: 'admin/fundraiser'",
+      "path: 'fundraiser'",
       'canMatch: [adminSessionRequired]',
       'AdminDashboardPageComponent',
-      "path: 'admin/fundraiser/contributions'",
+      "path: 'fundraiser/contributions'",
       'AdminContributionsPageComponent',
-      "path: 'admin/fundraiser/invoices'",
+      "path: 'fundraiser/invoices'",
       'AdminInvoicesPageComponent',
-      "path: 'admin/fundraiser/publications'",
+      "path: 'fundraiser/publications'",
       'AdminPublicationsPageComponent',
-      "path: 'admin/fundraiser/expenses'",
+      "path: 'fundraiser/expenses'",
       'AdminExpensesPageComponent',
-      "path: 'admin/fundraiser/transparency'",
+      "path: 'fundraiser/transparency'",
       'AdminTransparencyPageComponent',
-      "path: 'admin/fundraiser/audit'",
+      "path: 'fundraiser/audit'",
       'AdminAuditPageComponent',
-      "path: 'admin/fundraiser/email-queue'",
+      "path: 'fundraiser/email-queue'",
       'AdminEmailQueuePageComponent',
-      "path: 'admin/fundraiser/setup'",
+      "path: 'fundraiser/setup'",
       'AdminSetupPageComponent'
     ],
     'admin Angular routes'
@@ -217,7 +217,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'getSavedAdminToken',
       'saveAdminToken',
       'clearAdminSession',
-      'hasValidAdminSession',
+      'restoreSession',
       'signIn',
       'createAdminSession',
       '/admin/session',
@@ -229,13 +229,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
 
   assertIncludesAll(
     loginPage,
-    [
-      'Acces admin',
-      'signIn()',
-      'hasValidAdminSession',
-      'navigateByUrl',
-      'returnUrl'
-    ],
+    ['Acces admin', 'signIn()', 'restoreSession', 'navigateByUrl', 'returnUrl'],
     'admin login page'
   );
 

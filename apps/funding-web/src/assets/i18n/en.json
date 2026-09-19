@@ -1360,6 +1360,36 @@
       "remboursement_manuel_demande": "manual refund requested",
       "remboursement_manuel_deja_traite": "manual refund already processed",
       "bonjour_p0": "Hello {{p0}},"
+    },
+    "access": {
+      "title": "Access and sessions",
+      "back": "Back to administration",
+      "help": "Named accounts require multi-factor authentication. Account changes end all sessions for that account. The last enabled owner must remain.",
+      "signIn": "Sign in with your organization",
+      "signInHelp": "Use your named account and multi-factor authentication.",
+      "readOnly": "Reader account: consultation only. Changes require an operator or owner.",
+      "logoutFailed": "Sign-out failed. Try again to revoke your session.",
+      "accounts": "Accounts",
+      "sessions": "Active sessions",
+      "edit": "Add or edit account",
+      "subject": "Identity provider subject (sub)",
+      "name": "Display name",
+      "role": "Role",
+      "disabled": "Disabled",
+      "confirm": "I confirm this access change and the termination of this account’s sessions.",
+      "save": "Save access",
+      "revoke": "Revoke session",
+      "revokeConfirm": "Confirm ending this session immediately.",
+      "cancel": "Cancel",
+      "error": "Unable to complete this request. Check your owner access and keep at least one enabled owner.",
+      "loading": "Loading…",
+      "roles": {
+        "reader": "Reader",
+        "operator": "Operator",
+        "owner": "Owner"
+      },
+      "new": "New account",
+      "signInError": "Sign-in could not be completed. Check your account access, multi-factor authentication and service availability."
     }
   },
   "funding": {
@@ -2927,6 +2957,13 @@
         "expiredLink": "Upload failed: this follow-up link is invalid or expired.",
         "uploadError": "Upload failed: the server could not accept this image. Try again or choose another file."
       }
+    },
+    "notFound": {
+      "title": "Page not found",
+      "copy": "This address does not exist or is no longer available. Visit the Builders Fund or contact our team.",
+      "navigation": "Find your way",
+      "home": "Return to the Fund",
+      "help": "Get help"
     }
   }
 }

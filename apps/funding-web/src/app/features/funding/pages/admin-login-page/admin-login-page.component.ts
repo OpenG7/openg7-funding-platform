@@ -37,39 +37,51 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           <h1 id="admin-login-title">
             {{ 'admin.legacy.acces_admin' | translate }}
           </h1>
-          <p>
-            {{
-              'admin.legacy.entrez_le_jeton_admin_configure_cote_serveur_pour_ouvrir_une_sess'
-                | translate
-            }}
-          </p>
+          @if (mode() === 'token') {
+            <p>
+              {{
+                'admin.legacy.entrez_le_jeton_admin_configure_cote_serveur_pour_ouvrir_une_sess'
+                  | translate
+              }}
+            </p>
+          }
         </header>
 
-        <form (submit)="$event.preventDefault(); signIn()">
-          <label>
-            {{ 'admin.legacy.jeton_admin' | translate }}
-            <input
-              type="password"
-              autocomplete="current-password"
-              [value]="token()"
-              (input)="setToken($event)"
-              required
-            />
-          </label>
+        @if (mode() === 'oidc') {
+          <p>{{ 'admin.access.signInHelp' | translate }}</p>
+          <a [href]="identityUrl()" data-og7="identity-sign-in">{{
+            'admin.access.signIn' | translate
+          }}</a>
+        }
+        @if (mode() === 'token') {
+          <form (submit)="$event.preventDefault(); signIn()">
+            <label>
+              {{ 'admin.legacy.jeton_admin' | translate }}
+              <input
+                type="password"
+                autocomplete="current-password"
+                [value]="token()"
+                (input)="setToken($event)"
+                required
+              />
+            </label>
 
-          <button type="submit" [disabled]="state() === 'loading'">
-            {{
-              state() === 'loading'
-                ? ('admin.legacy.connexion' | translate)
-                : ('admin.legacy.se_connecter' | translate)
-            }}
-          </button>
-        </form>
+            <button type="submit" [disabled]="state() === 'loading'">
+              {{
+                state() === 'loading'
+                  ? ('admin.legacy.connexion' | translate)
+                  : ('admin.legacy.se_connecter' | translate)
+              }}
+            </button>
+          </form>
+        }
 
-        <p class="state state-error" *ngIf="state() === 'error'">
+        <p role="alert" class="state state-error" *ngIf="state() === 'error'">
           {{
-            'admin.legacy.connexion_refusee_verifiez_le_jeton_admin_et_la_configuration_api'
-              | translate
+            (mode() === 'token'
+              ? 'admin.legacy.connexion_refusee_verifiez_le_jeton_admin_et_la_configuration_api'
+              : 'admin.access.signInError'
+            ) | translate
           }}
         </p>
 
@@ -192,9 +204,21 @@ export class AdminLoginPageComponent implements OnInit {
 
   readonly token = signal<string>('');
   readonly state = signal<'idle' | 'loading' | 'error'>('idle');
+  readonly mode = signal<'oidc' | 'token' | null>(null);
+  identityUrl(): string {
+    return this.admin.identitySignInUrl(this.returnUrl());
+  }
 
-  ngOnInit(): void {
-    if (this.admin.hasValidAdminSession()) {
+  async ngOnInit(): Promise<void> {
+    try {
+      this.mode.set(await this.admin.authMode());
+    } catch {
+      this.state.set('error');
+      return;
+    }
+    if (this.route.snapshot.queryParamMap.has('identityError'))
+      this.state.set('error');
+    if (await this.admin.restoreSession()) {
       void this.router.navigateByUrl(this.returnUrl());
     }
   }

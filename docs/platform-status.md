@@ -19,15 +19,30 @@ visible et une preuve sur les fournisseurs réels sont deux informations distinc
 
 ## Reproduire les validations
 
+Le lot `feat/platform-access-alerts-and-performance` ajoute les routes différées,
+un budget du bundle initial de production (avertissement 800 ko, plafond 900 ko),
+les pages 404 FR/EN avec statut HTTP 404, les comptes OIDC optionnels avec MFA,
+rôles et révocation, et un processus d'alertes indépendant du SMTP.
+Les fonctions et préconditions d'activation sont décrites dans le
+[runbook accès et alertes](operations/admin-identity-and-alerts.md).
+
+L'interface **Accès et sessions** gère les comptes et sessions. Le mode OIDC
+et le canal d'alerte externe attendent leur configuration; ils ne sont pas
+activés en production. Les migrations additives `020` et `021` sont livrées,
+sans backfill financier.
+
 ```sh
 yarn install --immutable
 yarn lint
 yarn exec tsc --noEmit -p tsconfig.json
 yarn test
 docker pull postgres:16-alpine
+docker pull axllent/mailpit:v1.27.4
+docker pull adobe/s3mock:5.1.0
 node --test tests/integration/*.integration.mjs
 yarn exec playwright install --with-deps chromium firefox webkit
 yarn test:ui:public-journeys
+yarn test:ui:platform-accessibility
 yarn test:e2e:acceptance
 git diff --check
 ```
@@ -39,6 +54,43 @@ lui attribuer les résultats d'une autre révision. Le formatage global conserve
 des écarts historiques; contrôler les fichiers du changement sans les masquer.
 
 ## Preuves locales du 19 septembre 2026
+
+### Lot accès, alertes et performance
+
+Branche `feat/platform-access-alerts-and-performance`, Node 22.23.2 :
+
+| Vérification            | Résultat                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Tests Node              | 260 réussis; nouvelle politique de rôles et MFA incluse                                                                              |
+| Intégrations jetables   | 47 réussies; OIDC signé, révocation, alertes, recette SMTP et restauration S3/PostgreSQL inclus                                      |
+| Régression admin        | 77 tests navigateur réussis                                                                                                          |
+| Parcours publics FR/EN  | 60 tests réussis sur Chromium, Firefox, WebKit et mobile WebKit                                                                      |
+| Accessibilité et routes | 20 tests réussis sur ces quatre projets; axe, 404, absence des pages admin dans le téléchargement public                             |
+| Déconnexion OIDC        | Vérifiée sur les quatre projets, même avec un état navigateur expiré; deux scénarios de connexion/déconnexion historiques revérifiés |
+| Compilation             | TypeScript strict et Angular production réussis; 24 routes prérendues                                                                |
+| Bundle initial          | 719,94 ko bruts, estimation compressée Angular 180,25 ko; budgets 800/900 ko respectés                                               |
+| Lint                    | Aucune erreur; avertissement préexistant dans `scripts/smoke-public.mjs`                                                             |
+| Configuration           | Overlay Compose des alertes validé; aucune activation externe                                                                        |
+
+La recette Docker complète a réussi : **168 tests**, dont les statuts HTTP
+404 derrière Nginx, avec nettoyage des conteneurs réussi. Stripe est simulé
+dans cette recette; les nouvelles garanties OIDC sont couvertes par la recette
+d’identité signée et les contrôles navigateur dédiés.
+
+Les captures de la nouvelle page d'accès ont été relues sur mobile. Le dernier
+ajustement de droits de consultation a été revérifié avec la suite Node et
+l'intégration OIDC, soit 261 tests dans cette exécution ciblée.
+
+Le contrôle Prettier global conserve des écarts historiques. Les fichiers du
+lot sont contrôlés séparément; `main.ts`, `funding-admin.service.ts`, `AGENTS.md`
+et `ARCHITECTURE.md` conservent leur formatage global préexistant, vérifié dans
+`HEAD`, pour éviter une réécriture sans rapport avec le changement.
+
+L'activation OIDC et du canal réel, la réception dans une boîte externe, les
+politiques S3 réelles, la restauration complète du VPS et la recette humaine
+au lecteur d'écran restent à effectuer. Voir les runbooks liés ci-dessus.
+
+### Lot précédent : fiabilité et parcours publics
 
 Ces résultats concernent la copie de travail de
 `feat/platform-reliability-and-public-journeys`, avec Node 22.23.2. Ils ne
@@ -74,6 +126,7 @@ empêche des exécutions concurrentes de livraison.
 
 Pour un lancement manuel, préparer explicitement le checkout désiré avant
 `deploy.sh`; le script ne le met plus à jour. Les migrations, la sauvegarde et
-la vérification de santé suivent les règles d'exploitation existantes. Aucun
-changement de schéma n'est requis par ce lot. Le nouvel endpoint des bâtisseurs
-exige une livraison conjointe du Web et de l'API.
+la vérification de santé suivent les règles d'exploitation existantes. Le lot
+précédent des parcours publics ne nécessitait aucun changement de schéma;
+le lot actuel ajoute les migrations `020` et `021`. L'endpoint des bâtisseurs
+et les parcours d'identité exigent une livraison conjointe du Web et de l'API.
