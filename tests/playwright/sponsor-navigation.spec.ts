@@ -59,7 +59,7 @@ test.describe('Docker corporate sponsor navigation', () => {
 
     await page.locator('#custom-contribution').fill('10');
     await expect(
-      page.getByText(/Le montant minimal pour une commandite est de 50 \$\./i)
+      page.getByText(/Le montant minimal pour une commandite est de 50\s+\$\./i)
     ).toBeVisible();
 
     await page
@@ -327,7 +327,10 @@ test.describe('Docker corporate sponsor navigation', () => {
       .click();
     await expect(page).toHaveURL(/\/support/);
     await expect(
-      page.getByRole('heading', { name: /Construire OpenG7 avec/i })
+      page.getByRole('heading', {
+        name: 'De l’aide pour votre contribution',
+        exact: true
+      })
     ).toBeVisible();
   });
 });

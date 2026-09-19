@@ -198,7 +198,11 @@ import {
   upsertCheckoutSessionFromWebhook,
   type SponsorshipFollowupLookup
 } from './fund-contributions.repository.js';
-import { getPublicTransparencySummary } from './fund-transparency.repository.js';
+import {
+  getPublicTransparencySummary,
+  listPublicBuilders
+} from './fund-transparency.repository.js';
+import { parsePublicDirectoryPagination } from './public-directory-pagination.js';
 import { parsePublicSponsorshipPagination } from './public-sponsorship-pagination.js';
 import { createPublicTransparencyCache } from './public-transparency-cache.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
@@ -8309,6 +8313,36 @@ createServer(async (request, response) => {
       console.error('Failed to load public sponsorships.', error);
       writeJson(request, response, 502, {
         error: 'Public sponsorships could not be loaded.'
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/public/builders', '/api/public/builders')
+  ) {
+    const pagination = parsePublicDirectoryPagination(
+      new URL(request.url ?? '/', publicBaseOrigin).searchParams,
+      24
+    );
+    if (!pagination) {
+      writeJson(request, response, 400, {
+        error: 'Invalid public directory pagination.'
+      });
+      return;
+    }
+    try {
+      writeJson(
+        request,
+        response,
+        200,
+        await listPublicBuilders(dbPool, pagination)
+      );
+    } catch {
+      console.error('Failed to load public builders.');
+      writeJson(request, response, 502, {
+        error: 'Public builders could not be loaded.'
       });
     }
     return;

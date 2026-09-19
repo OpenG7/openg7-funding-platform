@@ -340,19 +340,28 @@ Applied:
 
 ## Deployment
 
+Prepare the intended Git checkout explicitly. `deploy.sh` deploys that checkout
+and never runs `git pull`; `yarn vps:update` remains the explicit pull-and-deploy
+wrapper, while `yarn vps:deploy` uses the revision already present.
+
 Local build on VPS:
 
 ```bash
 bash scripts/deploy.sh
 ```
 
-Registry deployment:
+Registry deployment: set `WEB_IMAGE` and `API_IMAGE` in `.env` to the two GHCR
+images tagged with the checkout's full 40-character commit SHA, then run:
 
 ```bash
-WEB_IMAGE=ghcr.io/openg7/openg7-funding-platform-web:latest \
-API_IMAGE=ghcr.io/openg7/openg7-funding-platform-api:latest \
-bash scripts/deploy.sh --no-build
+DEPLOY_REVISION="$(git rev-parse HEAD)"
+bash scripts/deploy.sh --no-build --revision "${DEPLOY_REVISION}"
 ```
+
+The revision check rejects tracked changes and mismatched image tags before
+Docker operations. The GitHub workflow publishes full SHA tags and serializes
+deliveries. See the [current platform status](platform-status.md) for validation
+scope and the deployment contract.
 
 Rollback:
 

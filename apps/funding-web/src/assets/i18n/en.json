@@ -1381,8 +1381,8 @@
         "description": "Explore OpenG7 platforms, their families, connections, and shared architecture for public digital services."
       },
       "support": {
-        "title": "Support and GitHub repositories | OpenG7",
-        "description": "Access OpenG7 GitHub repositories, review projects, open issues, and contribute to the ecosystem."
+        "title": "Contributor and sponsor support | OpenG7",
+        "description": "Find your contribution, resume your sponsorship or contact OpenG7. You can also help develop the platform."
       },
       "about": {
         "title": "About OpenG7 | Builders Fund",
@@ -1442,7 +1442,7 @@
         "title": "Consented public entries",
         "copy": "Only explicitly consented names are displayed. Sponsorships remain subject to manual review before visibility.",
         "personal": "Personal contribution",
-        "sponsorship": "Sponsorship in review",
+        "sponsorship": "Approved sponsorship",
         "amountHidden": "Amount hidden"
       },
       "empty": {
@@ -1454,7 +1454,24 @@
       "state": {
         "loading": "Loading public registry...",
         "error": "Unable to load the public registry."
-      }
+      },
+      "refresh": "Refresh",
+      "retry": "Try again",
+      "noscript": "Enable JavaScript to view the public registry. Names and totals cannot be confirmed before loading.",
+      "unavailable": "The named registry is unavailable. Financial information is still accessible on the Transparency page.",
+      "outOfRange": "This page no longer contains any entries.",
+      "firstPage": "Return to the first page",
+      "paginationLabel": "Builders pagination",
+      "previous": "Previous",
+      "next": "Next",
+      "pageStatus": "Page {{page}} of {{pages}} · {{total}} public entries",
+      "recognitionTitle": "Voluntary recognition",
+      "publicRecords": "Public entries",
+      "countMeaning": "This number counts displayed contributions, not distinct people. The same name may appear more than once.",
+      "recognitionCopy": "Names and amounts have separate consent settings. A sponsorship also requires approval. This registry does not represent all contributions to the Fund.",
+      "related": "Continue exploring",
+      "sponsors": "Discover our sponsors",
+      "help": "Get help"
     },
     "sponsorsPage": {
       "followup": "Find my sponsorship",
@@ -1786,8 +1803,8 @@
       "hero": {
         "mapAlt": "Digital map of Canada connected to the OpenG7 ecosystem",
         "dragonAlt": "Guardian dragon of the OpenG7 ecosystem",
-        "title": "Build OpenG7 with",
-        "copy": "GitHub is the public workshop of the ecosystem. Explore repositories, report an issue, suggest an idea, and contribute code."
+        "title": "Help with your contribution",
+        "copy": "Find your contribution, resume your sponsorship or contact OpenG7. You can also help develop the platform."
       },
       "links": {
         "viewRepos": "View repositories",
@@ -1911,6 +1928,22 @@
         "security": "Security",
         "documentation": "Documentation",
         "license": "License"
+      },
+      "help": {
+        "title": "How can we help?",
+        "navigation": "Choose how to get help",
+        "contribution": "Find my contribution",
+        "sponsorship": "Track my sponsorship",
+        "contact": "Get help",
+        "sponsorshipTitle": "Resume a sponsorship",
+        "sponsorshipCopy": "Open your record or request a new access link at the email address used for your sponsorship.",
+        "followup": "Open sponsorship follow-up",
+        "contactTitle": "Contact OpenG7",
+        "contactCopy": "For a question about your contribution, an invoice or a refund request, email our team.",
+        "contactPrivacy": "Include your contribution reference if you know it. Do not post card numbers or private follow-up links in a public space.",
+        "policy": "Read the usage and refund policy",
+        "technicalTitle": "Help develop the platform",
+        "technicalCopy": "Our GitHub repositories welcome ideas, technical issues and code contributions. For a payment question, use the help options above."
       }
     },
     "aboutPage": {

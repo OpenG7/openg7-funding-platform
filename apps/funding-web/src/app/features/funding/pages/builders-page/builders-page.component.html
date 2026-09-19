@@ -1,0 +1,168 @@
+<main class="builders-directory-shell">
+  <openg7-funding-header />
+  <section
+    class="builders-directory-hero"
+    aria-labelledby="builders-directory-title"
+  >
+    <img
+      src="assets/fonds-des-batisseurs-dragon-coffre-lumineux.png"
+      alt=""
+      fetchpriority="high"
+    />
+    <div class="hero-overlay" aria-hidden="true"></div>
+    <article>
+      <span>{{ 'funding.buildersPage.hero.kicker' | translate }}</span>
+      <h1 id="builders-directory-title">
+        {{ 'funding.buildersPage.hero.title' | translate }}
+      </h1>
+      <p>{{ 'funding.buildersPage.hero.copy' | translate }}</p>
+      <div class="hero-actions">
+        <a [routerLink]="fundPath()" fragment="support">{{
+          'funding.nav.supportCta' | translate
+        }}</a>
+        <a [routerLink]="transparencyPath()">{{
+          'funding.nav.transparency' | translate
+        }}</a>
+      </div>
+    </article>
+  </section>
+  <section
+    class="builders-directory-content"
+    aria-labelledby="public-builders-title"
+  >
+    <section
+      class="public-builders-panel"
+      [attr.aria-busy]="loading()"
+      data-og7="builders-directory"
+    >
+      <header>
+        <span>{{ 'funding.buildersPage.directory.kicker' | translate }}</span>
+        <h2 id="public-builders-title" tabindex="-1">
+          {{ 'funding.buildersPage.directory.title' | translate }}
+        </h2>
+        <p>{{ 'funding.buildersPage.directory.copy' | translate }}</p>
+      </header>
+      <div class="directory-actions">
+        <button
+          type="button"
+          (click)="load()"
+          [disabled]="loading()"
+          data-og7="builders-refresh"
+        >
+          {{ 'funding.buildersPage.refresh' | translate }}
+        </button>
+      </div>
+      <noscript>{{ 'funding.buildersPage.noscript' | translate }}</noscript>
+      <p class="state" role="status" *ngIf="loading()">
+        {{ 'funding.buildersPage.state.loading' | translate }}
+      </p>
+      <div class="state state-error" role="alert" *ngIf="error()">
+        <p>{{ 'funding.buildersPage.state.error' | translate }}</p>
+        <button type="button" (click)="load()" data-og7="builders-retry">
+          {{ 'funding.buildersPage.retry' | translate }}
+        </button>
+      </div>
+      <p
+        class="state"
+        role="status"
+        *ngIf="!loading() && !error() && !hasData()"
+        data-og7="builders-unavailable"
+      >
+        {{ 'funding.buildersPage.unavailable' | translate }}
+      </p>
+      <ul class="builders-list" *ngIf="publicBuilders().length > 0">
+        <li
+          *ngFor="let builder of publicBuilders(); trackBy: trackBuilder"
+          data-og7="builder-record"
+          [attr.data-og7-id]="builder.public_id"
+        >
+          <span class="builder-avatar" aria-hidden="true">{{
+            initials(builder.display_name)
+          }}</span>
+          <div>
+            <strong>{{ builder.display_name }}</strong
+            ><small>{{
+              contributionTypeLabel(builder.contribution_type)
+            }}</small>
+          </div>
+          <em>{{ amountLabel(builder) }}</em>
+        </li>
+      </ul>
+      <article
+        class="empty-builders"
+        *ngIf="hasData() && publicBuilders().length === 0"
+        data-og7="builders-empty"
+      >
+        <h3>
+          {{
+            (total() === 0
+              ? 'funding.buildersPage.empty.title'
+              : 'funding.buildersPage.outOfRange'
+            ) | translate
+          }}
+        </h3>
+        <p *ngIf="total() === 0">
+          {{ 'funding.buildersPage.empty.copy' | translate }}
+        </p>
+        <button *ngIf="page() > 1" type="button" (click)="load(1, true)">
+          {{ 'funding.buildersPage.firstPage' | translate }}
+        </button>
+        <div class="empty-actions" *ngIf="total() === 0">
+          <a [routerLink]="fundPath()" fragment="support">{{
+            'funding.buildersPage.empty.primaryAction' | translate
+          }}</a>
+        </div>
+      </article>
+      <nav
+        class="directory-pagination"
+        *ngIf="hasData() && publicBuilders().length > 0"
+        [attr.aria-label]="'funding.buildersPage.paginationLabel' | translate"
+      >
+        <button
+          type="button"
+          [disabled]="page() <= 1"
+          (click)="load(page() - 1, true)"
+          data-og7="builders-previous"
+        >
+          {{ 'funding.buildersPage.previous' | translate }}
+        </button>
+        <span role="status">{{
+          'funding.buildersPage.pageStatus'
+            | translate: { page: page(), pages: totalPages(), total: total() }
+        }}</span>
+        <button
+          type="button"
+          [disabled]="page() >= totalPages()"
+          (click)="load(page() + 1, true)"
+          data-og7="builders-next"
+        >
+          {{ 'funding.buildersPage.next' | translate }}
+        </button>
+      </nav>
+    </section>
+    <aside class="builders-sidebar">
+      <section class="builders-summary">
+        <h2>{{ 'funding.buildersPage.recognitionTitle' | translate }}</h2>
+        <dl>
+          <dt>{{ 'funding.buildersPage.publicRecords' | translate }}</dt>
+          <dd data-og7="builders-total">
+            {{ total() === null ? '—' : total() }}
+          </dd>
+        </dl>
+        <p>{{ 'funding.buildersPage.countMeaning' | translate }}</p>
+        <p>{{ 'funding.buildersPage.recognitionCopy' | translate }}</p>
+        <nav [attr.aria-label]="'funding.buildersPage.related' | translate">
+          <a [routerLink]="transparencyPath()">{{
+            'funding.nav.transparency' | translate
+          }}</a>
+          <a [routerLink]="sponsorsPath()">{{
+            'funding.buildersPage.sponsors' | translate
+          }}</a>
+          <a [routerLink]="supportPath()">{{
+            'funding.buildersPage.help' | translate
+          }}</a>
+        </nav>
+      </section>
+    </aside>
+  </section>
+</main>

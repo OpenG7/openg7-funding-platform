@@ -72,26 +72,268 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
         <div class="support-copy">
           <h1 id="support-title">
             {{ 'funding.supportPage.hero.title' | translate }}
-            <strong>GitHub</strong>
           </h1>
           <p>
             {{ 'funding.supportPage.hero.copy' | translate }}
           </p>
-          <div class="support-actions-row">
+          <nav
+            class="support-actions-row"
+            [attr.aria-label]="
+              'funding.supportPage.help.navigation' | translate
+            "
+          >
             <a
               class="primary"
-              href="https://github.com/orgs/OpenG7/repositories"
-              target="_blank"
-              rel="noreferrer"
-              >{{ 'funding.supportPage.links.viewRepos' | translate }}</a
+              [routerLink]="supportPath()"
+              fragment="contribution-help"
+              (click)="focusHelp('reference-lookup-input')"
+              >{{ 'funding.supportPage.help.contribution' | translate }}</a
             >
-            <a href="https://github.com/OpenG7" target="_blank" rel="noreferrer"
-              >{{ 'funding.supportPage.links.openGithub' | translate }}
-              <span aria-hidden="true">↗</span></a
+            <a
+              [routerLink]="supportPath()"
+              fragment="sponsorship-help"
+              (click)="focusHelp('sponsorship-help-title')"
+              >{{ 'funding.supportPage.help.sponsorship' | translate }}</a
             >
-          </div>
+            <a
+              [routerLink]="supportPath()"
+              fragment="contact-help"
+              (click)="focusHelp('contact-help')"
+              >{{ 'funding.supportPage.help.contact' | translate }}</a
+            >
+          </nav>
         </div>
+      </section>
 
+      <section
+        class="support-help"
+        aria-labelledby="support-help-title"
+        data-og7="support-help"
+      >
+        <h2 id="support-help-title">
+          {{ 'funding.supportPage.help.title' | translate }}
+        </h2>
+        <div class="support-help-grid">
+          <article
+            class="reference-lookup-panel"
+            id="contribution-help"
+            data-og7="contribution-help"
+          >
+            <header>
+              <span aria-hidden="true">#</span>
+              <div>
+                <h2>
+                  {{ 'funding.supportPage.referenceLookup.title' | translate }}
+                </h2>
+                <p>
+                  {{ 'funding.supportPage.referenceLookup.copy' | translate }}
+                </p>
+              </div>
+            </header>
+
+            <form (submit)="lookupReference($event)" novalidate>
+              <label for="reference-lookup-input">
+                {{ 'funding.supportPage.referenceLookup.label' | translate }}
+              </label>
+              <div class="reference-lookup-row">
+                <input
+                  id="reference-lookup-input"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="OG7-2026-ABC123"
+                  [value]="referenceLookupValue()"
+                  [disabled]="referenceLookupState() === 'submitting'"
+                  aria-describedby="reference-lookup-hint reference-lookup-status"
+                  (input)="setReferenceLookupValue($event)"
+                />
+                <button
+                  type="submit"
+                  [disabled]="referenceLookupState() === 'submitting'"
+                >
+                  {{
+                    (referenceLookupState() === 'submitting'
+                      ? 'funding.supportPage.referenceLookup.submitting'
+                      : 'funding.supportPage.referenceLookup.submit'
+                    ) | translate
+                  }}
+                </button>
+              </div>
+              <p id="reference-lookup-hint" class="reference-lookup-hint">
+                {{ 'funding.supportPage.referenceLookup.hint' | translate }}
+              </p>
+            </form>
+
+            <section
+              class="reference-lookup-result"
+              [class.error]="referenceLookupState() === 'error'"
+              [class.not-found]="referenceLookupState() === 'not_found'"
+              role="status"
+              id="reference-lookup-status"
+              *ngIf="referenceLookupResult() as lookup"
+            >
+              <strong>{{ lookup.publicReference }}</strong>
+              <ng-container
+                *ngIf="referenceLookupIsFound(lookup); else referenceNotFound"
+              >
+                <dl>
+                  <div>
+                    <dt>
+                      {{
+                        'funding.supportPage.referenceLookup.fields.type'
+                          | translate
+                      }}
+                    </dt>
+                    <dd>{{ referenceLookupTypeKey(lookup) | translate }}</dd>
+                  </div>
+                  <div>
+                    <dt>
+                      {{
+                        'funding.supportPage.referenceLookup.fields.status'
+                          | translate
+                      }}
+                    </dt>
+                    <dd>{{ referenceLookupStatusKey(lookup) | translate }}</dd>
+                  </div>
+                  <div>
+                    <dt>
+                      {{
+                        'funding.supportPage.referenceLookup.fields.amount'
+                          | translate
+                      }}
+                    </dt>
+                    <dd>
+                      {{
+                        referenceLookupAmountLabel(lookup) ||
+                          ('funding.supportPage.referenceLookup.amountHidden'
+                            | translate)
+                      }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>
+                      {{
+                        'funding.supportPage.referenceLookup.fields.date'
+                          | translate
+                      }}
+                    </dt>
+                    <dd>{{ referenceLookupDateLabel(lookup) }}</dd>
+                  </div>
+                </dl>
+                <p>{{ referenceLookupNextStepKey(lookup) | translate }}</p>
+              </ng-container>
+              <ng-template #referenceNotFound>
+                <p>
+                  {{
+                    'funding.supportPage.referenceLookup.notFound' | translate
+                  }}
+                </p>
+              </ng-template>
+            </section>
+
+            <p
+              id="reference-lookup-status"
+              class="reference-lookup-result error"
+              role="status"
+              *ngIf="referenceLookupMessageKey() as messageKey"
+            >
+              {{ messageKey | translate }}
+            </p>
+          </article>
+
+          <section
+            id="sponsorship-help"
+            aria-labelledby="sponsorship-help-title"
+            data-og7="sponsorship-help"
+          >
+            <h2 id="sponsorship-help-title">
+              {{ 'funding.supportPage.help.sponsorshipTitle' | translate }}
+            </h2>
+            <p>{{ 'funding.supportPage.help.sponsorshipCopy' | translate }}</p>
+            <a [routerLink]="followupPath()">{{
+              'funding.supportPage.help.followup' | translate
+            }}</a
+            ><openg7-sponsorship-access-recovery />
+          </section>
+          <article class="reference-recovery-panel">
+            <header>
+              <span aria-hidden="true">#</span>
+              <div>
+                <h2>
+                  {{
+                    'funding.supportPage.referenceRecovery.title' | translate
+                  }}
+                </h2>
+                <p>
+                  {{ 'funding.supportPage.referenceRecovery.copy' | translate }}
+                </p>
+              </div>
+            </header>
+
+            <form (submit)="requestReferenceRecovery($event)" novalidate>
+              <label for="reference-recovery-email">
+                {{
+                  'funding.supportPage.referenceRecovery.emailLabel' | translate
+                }}
+              </label>
+              <div class="reference-recovery-row">
+                <input
+                  id="reference-recovery-email"
+                  type="email"
+                  autocomplete="email"
+                  [value]="referenceRecoveryEmail()"
+                  [disabled]="referenceRecoveryState() === 'submitting'"
+                  aria-describedby="reference-recovery-hint reference-recovery-status"
+                  (input)="setReferenceRecoveryEmail($event)"
+                />
+                <button
+                  type="submit"
+                  [disabled]="referenceRecoveryState() === 'submitting'"
+                >
+                  {{
+                    (referenceRecoveryState() === 'submitting'
+                      ? 'funding.supportPage.referenceRecovery.submitting'
+                      : 'funding.supportPage.referenceRecovery.submit'
+                    ) | translate
+                  }}
+                </button>
+              </div>
+              <p id="reference-recovery-hint" class="reference-recovery-hint">
+                {{ 'funding.supportPage.referenceRecovery.hint' | translate }}
+              </p>
+              <p
+                id="reference-recovery-status"
+                class="reference-recovery-status"
+                [class.error]="referenceRecoveryState() === 'error'"
+                role="status"
+                *ngIf="referenceRecoveryMessageKey() as messageKey"
+              >
+                {{ messageKey | translate }}
+              </p>
+            </form>
+          </article>
+
+          <article id="contact-help" data-og7="contact-help">
+            <h2>{{ 'funding.supportPage.help.contactTitle' | translate }}</h2>
+            <p>{{ 'funding.supportPage.help.contactCopy' | translate }}</p>
+            <a href="mailto:contact@openg7.org">contact@openg7.org</a>
+            <p>{{ 'funding.supportPage.help.contactPrivacy' | translate }}</p>
+            <a [routerLink]="policyPath()">{{
+              'funding.supportPage.help.policy' | translate
+            }}</a>
+          </article>
+        </div>
+      </section>
+
+      <section
+        id="technical-participation"
+        class="support-technical"
+        aria-labelledby="technical-title"
+      >
+        <h2 id="technical-title">
+          {{ 'funding.supportPage.help.technicalTitle' | translate }}
+        </h2>
+        <p>{{ 'funding.supportPage.help.technicalCopy' | translate }}</p>
         <div
           class="support-action-grid"
           [attr.aria-label]="
@@ -108,7 +350,6 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
           </article>
         </div>
       </section>
-
       <section
         class="support-workspace"
         [attr.aria-label]="
@@ -190,182 +431,6 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
             </ol>
           </article>
 
-          <article class="reference-lookup-panel">
-            <header>
-              <span aria-hidden="true">#</span>
-              <div>
-                <h2>
-                  {{ 'funding.supportPage.referenceLookup.title' | translate }}
-                </h2>
-                <p>
-                  {{ 'funding.supportPage.referenceLookup.copy' | translate }}
-                </p>
-              </div>
-            </header>
-
-            <form (submit)="lookupReference($event)" novalidate>
-              <label for="reference-lookup-input">
-                {{ 'funding.supportPage.referenceLookup.label' | translate }}
-              </label>
-              <div class="reference-lookup-row">
-                <input
-                  id="reference-lookup-input"
-                  type="text"
-                  autocomplete="off"
-                  spellcheck="false"
-                  placeholder="OG7-2026-ABC123"
-                  [value]="referenceLookupValue()"
-                  [disabled]="referenceLookupState() === 'submitting'"
-                  aria-describedby="reference-lookup-hint reference-lookup-status"
-                  (input)="setReferenceLookupValue($event)"
-                />
-                <button
-                  type="submit"
-                  [disabled]="referenceLookupState() === 'submitting'"
-                >
-                  {{
-                    (referenceLookupState() === 'submitting'
-                      ? 'funding.supportPage.referenceLookup.submitting'
-                      : 'funding.supportPage.referenceLookup.submit') | translate
-                  }}
-                </button>
-              </div>
-              <p id="reference-lookup-hint" class="reference-lookup-hint">
-                {{ 'funding.supportPage.referenceLookup.hint' | translate }}
-              </p>
-            </form>
-
-            <section
-              class="reference-lookup-result"
-              [class.error]="referenceLookupState() === 'error'"
-              [class.not-found]="referenceLookupState() === 'not_found'"
-              role="status"
-              id="reference-lookup-status"
-              *ngIf="referenceLookupResult() as lookup"
-            >
-              <strong>{{ lookup.publicReference }}</strong>
-              <ng-container
-                *ngIf="referenceLookupIsFound(lookup); else referenceNotFound"
-              >
-                <dl>
-                  <div>
-                    <dt>
-                      {{
-                        'funding.supportPage.referenceLookup.fields.type'
-                          | translate
-                      }}
-                    </dt>
-                    <dd>{{ referenceLookupTypeKey(lookup) | translate }}</dd>
-                  </div>
-                  <div>
-                    <dt>
-                      {{
-                        'funding.supportPage.referenceLookup.fields.status'
-                          | translate
-                      }}
-                    </dt>
-                    <dd>{{ referenceLookupStatusKey(lookup) | translate }}</dd>
-                  </div>
-                  <div>
-                    <dt>
-                      {{
-                        'funding.supportPage.referenceLookup.fields.amount'
-                          | translate
-                      }}
-                    </dt>
-                    <dd>
-                      {{
-                        referenceLookupAmountLabel(lookup) ||
-                          ('funding.supportPage.referenceLookup.amountHidden'
-                            | translate)
-                      }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>
-                      {{
-                        'funding.supportPage.referenceLookup.fields.date'
-                          | translate
-                      }}
-                    </dt>
-                    <dd>{{ referenceLookupDateLabel(lookup) }}</dd>
-                  </div>
-                </dl>
-                <p>{{ referenceLookupNextStepKey(lookup) | translate }}</p>
-              </ng-container>
-              <ng-template #referenceNotFound>
-                <p>
-                  {{ 'funding.supportPage.referenceLookup.notFound' | translate }}
-                </p>
-              </ng-template>
-            </section>
-
-            <p
-              id="reference-lookup-status"
-              class="reference-lookup-result error"
-              role="status"
-              *ngIf="referenceLookupMessageKey() as messageKey"
-            >
-              {{ messageKey | translate }}
-            </p>
-          </article>
-
-          <openg7-sponsorship-access-recovery />
-          <article class="reference-recovery-panel">
-            <header>
-              <span aria-hidden="true">#</span>
-              <div>
-                <h2>
-                  {{
-                    'funding.supportPage.referenceRecovery.title' | translate
-                  }}
-                </h2>
-                <p>
-                  {{ 'funding.supportPage.referenceRecovery.copy' | translate }}
-                </p>
-              </div>
-            </header>
-
-            <form (submit)="requestReferenceRecovery($event)" novalidate>
-              <label for="reference-recovery-email">
-                {{ 'funding.supportPage.referenceRecovery.emailLabel' | translate }}
-              </label>
-              <div class="reference-recovery-row">
-                <input
-                  id="reference-recovery-email"
-                  type="email"
-                  autocomplete="email"
-                  [value]="referenceRecoveryEmail()"
-                  [disabled]="referenceRecoveryState() === 'submitting'"
-                  aria-describedby="reference-recovery-hint reference-recovery-status"
-                  (input)="setReferenceRecoveryEmail($event)"
-                />
-                <button
-                  type="submit"
-                  [disabled]="referenceRecoveryState() === 'submitting'"
-                >
-                  {{
-                    (referenceRecoveryState() === 'submitting'
-                      ? 'funding.supportPage.referenceRecovery.submitting'
-                      : 'funding.supportPage.referenceRecovery.submit') | translate
-                  }}
-                </button>
-              </div>
-              <p id="reference-recovery-hint" class="reference-recovery-hint">
-                {{ 'funding.supportPage.referenceRecovery.hint' | translate }}
-              </p>
-              <p
-                id="reference-recovery-status"
-                class="reference-recovery-status"
-                [class.error]="referenceRecoveryState() === 'error'"
-                role="status"
-                *ngIf="referenceRecoveryMessageKey() as messageKey"
-              >
-                {{ messageKey | translate }}
-              </p>
-            </form>
-          </article>
-
           <article class="notice-panel warning">
             <span aria-hidden="true">◈</span>
             <div>
@@ -423,6 +488,52 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
   `,
   styles: [
     `
+      .support-help,
+      .support-technical {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 1.5rem;
+      }
+      .support-help-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.5rem;
+      }
+      .support-help-grid > article,
+      .support-help-grid > section {
+        min-width: 0;
+        border: 1px solid #43647d;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        background: #092139;
+      }
+      .support-help h2,
+      .support-technical h2 {
+        color: #fff;
+      }
+      .support-help p,
+      .support-technical p {
+        color: #d3e6f2;
+        line-height: 1.6;
+      }
+      .support-help a {
+        color: #a6e4ff;
+        display: inline-block;
+        padding: 0.6rem 0;
+      }
+      .support-help :is(a, button, input):focus-visible,
+      .support-help [tabindex='-1']:focus {
+        outline: 3px solid #ffd77b;
+        outline-offset: 4px;
+      }
+      [id$='-help'] {
+        scroll-margin-top: 6rem;
+      }
+      @media (max-width: 760px) {
+        .support-help-grid {
+          grid-template-columns: 1fr;
+        }
+      }
       :host {
         display: block;
       }
@@ -450,7 +561,7 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
         align-items: start;
         display: grid;
         gap: 1.2rem;
-        grid-template-columns: minmax(24rem, 0.85fr) minmax(30rem, 1.15fr);
+        grid-template-columns: minmax(0, 1fr);
         min-height: 18.5rem;
         overflow: hidden;
         padding: 2rem clamp(1rem, 7vw, 8rem) 1.25rem;
@@ -829,6 +940,7 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
       .reference-lookup-panel,
       .reference-recovery-panel {
         display: grid;
+        align-content: start;
         gap: 0.85rem;
         padding: 1rem;
       }
@@ -1086,17 +1198,19 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
 
         .support-copy h1 {
           font-size: 1.72rem;
-          line-height: 0.92;
+          line-height: 1.1;
         }
 
         .support-copy p {
-          font-size: 0.78rem;
-          line-height: 1.22;
+          font-size: 1rem;
+          line-height: 1.5;
           margin-top: 0.35rem;
         }
 
         .support-actions-row {
-          display: none;
+          display: flex;
+          gap: 0.6rem;
+          margin-top: 1rem;
         }
 
         .support-action-grid {
@@ -1119,12 +1233,12 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
         }
 
         .support-action-grid h2 {
-          font-size: 0.72rem;
+          font-size: 1rem;
         }
 
         .support-action-grid p {
-          font-size: 0.6rem;
-          line-height: 1.15;
+          font-size: 0.9rem;
+          line-height: 1.4;
           margin-top: 0.2rem;
         }
 
@@ -1183,6 +1297,18 @@ export class SupportPageComponent {
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
   );
   readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly followupPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/suivi-commandite')
+  );
+  readonly policyPath = computed(() =>
+    this.i18n.localizedPath('/politique-utilisation-remboursement')
+  );
+  focusHelp(id: string): void {
+    const target = document.getElementById(id);
+    if (target && !target.matches('input'))
+      target.setAttribute('tabindex', '-1');
+    target?.focus();
+  }
   readonly referenceLookupValue = signal<string>('');
   readonly referenceLookupState = signal<ReferenceLookupState>('idle');
   readonly referenceLookupResult = signal<PublicReferenceLookupResponse | null>(

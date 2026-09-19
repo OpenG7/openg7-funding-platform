@@ -2,6 +2,13 @@
 
 This checklist is for the first public OpenG7 Funding Platform launch. The default launch path is intentionally simple: Angular frontend, Funding API, Stripe checkout, Stripe-direct public transparency, and no PostgreSQL.
 
+This historical minimal launch path does not include the full sponsor follow-up,
+public directories or persistent administration. Those features require private
+PostgreSQL; access recovery also requires working email. Start with the
+[current platform status](platform-status.md) and the
+[controlled integration rehearsal](operations/integration-rehearsal.md) to choose
+the scope being validated.
+
 ## Launch Decision
 
 - PostgreSQL is optional for the fundraiser MVP.

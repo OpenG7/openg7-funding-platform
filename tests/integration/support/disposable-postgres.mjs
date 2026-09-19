@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { setTimeout } from 'node:timers/promises';
@@ -19,6 +19,7 @@ export const startDisposablePostgres = async ({ migrate = true } = {}) => {
   const runDocker = async (args, env = process.env) => {
     const { stdout } = await execFileAsync('docker', args, {
       encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
       timeout: 30_000,
       windowsHide: true,
       env
@@ -130,7 +131,66 @@ export const startDisposablePostgres = async ({ migrate = true } = {}) => {
         await readFile(new URL(migration, migrationsDirectory), 'utf8')
       );
     }
-    return { pool, stop };
+    // These operations are scoped to this helper's disposable container only.
+    const dumpDatabase = () =>
+      docker([
+        'exec',
+        containerId,
+        'pg_dump',
+        '-U',
+        'og7_test',
+        '-d',
+        database,
+        '--no-owner',
+        '--no-acl'
+      ]);
+    const restoreDatabase = async (sql) => {
+      const { rows } = await pool.query(
+        "SELECT count(*)::int AS count FROM pg_tables WHERE schemaname='public'"
+      );
+      if (rows[0].count !== 0)
+        throw new Error('Restore requires an empty disposable database.');
+      await new Promise((resolve, reject) => {
+        const child = spawn(
+          'docker',
+          [
+            '--context',
+            context,
+            'exec',
+            '-i',
+            containerId,
+            'psql',
+            '-U',
+            'og7_test',
+            '-d',
+            database,
+            '-v',
+            'ON_ERROR_STOP=1'
+          ],
+          {
+            windowsHide: true,
+            stdio: ['pipe', 'ignore', 'ignore']
+          }
+        );
+        const timer = globalThis.setTimeout(() => {
+          child.kill();
+          reject(new Error('Disposable restore timed out.'));
+        }, 30000);
+        child.on('error', () => {
+          globalThis.clearTimeout(timer);
+          reject(new Error('Disposable restore could not start.'));
+        });
+        child.on('exit', (code) => {
+          globalThis.clearTimeout(timer);
+          code === 0
+            ? resolve()
+            : reject(new Error('Disposable restore failed.'));
+        });
+        child.stdin.on('error', () => {});
+        child.stdin.end(sql);
+      });
+    };
+    return { pool, stop, dumpDatabase, restoreDatabase };
   } catch (error) {
     await stop();
     throw error;

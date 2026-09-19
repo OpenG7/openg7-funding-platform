@@ -5,8 +5,27 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
 NO_BUILD=0
-if [[ "${1:-}" == "--no-build" ]]; then
-  NO_BUILD=1
+EXPECTED_REVISION=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-build) NO_BUILD=1; shift ;;
+    --revision)
+      [[ $# -ge 2 && "$2" =~ ^[0-9a-f]{40}$ ]] || {
+        echo "--revision requires a full Git commit SHA." >&2; exit 1;
+      }
+      EXPECTED_REVISION="$2"; shift 2 ;;
+    *) echo "Unknown deployment option: $1" >&2; exit 1 ;;
+  esac
+done
+
+# Deploy the selected checkout. Never advance it while choosing images/migrations.
+if [[ -n "${EXPECTED_REVISION}" ]]; then
+  [[ "$(git rev-parse HEAD)" == "${EXPECTED_REVISION}" ]] || {
+    echo "Deployment checkout does not match the requested revision." >&2; exit 1;
+  }
+  [[ -z "$(git status --porcelain --untracked-files=no)" ]] || {
+    echo "Deployment checkout contains tracked changes." >&2; exit 1;
+  }
 fi
 
 [[ -f .env ]] || {
@@ -16,6 +35,14 @@ fi
 
 # shellcheck disable=SC1091
 source scripts/load-env.sh .env
+
+if [[ "${NO_BUILD}" -eq 1 && -n "${EXPECTED_REVISION}" ]]; then
+  for deployment_image in "${WEB_IMAGE:-}" "${API_IMAGE:-}"; do
+    [[ "${deployment_image}" == *":${EXPECTED_REVISION}" ]] || {
+      echo "Deployment images must match the requested revision." >&2; exit 1;
+    }
+  done
+fi
 
 APP_DOMAIN="${APP_DOMAIN:-openg7.org}"
 ROLLBACK_WEB_IMAGE="openg7-funding-web:rollback"
@@ -61,10 +88,6 @@ fi
 
 if [[ -n "${CURRENT_API}" ]]; then
   docker tag "${CURRENT_API}" "${ROLLBACK_API_IMAGE}" || true
-fi
-
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  git pull --ff-only
 fi
 
 if [[ "${NO_BUILD}" -eq 1 ]]; then
