@@ -38,12 +38,14 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
         <a
           [routerLink]="homePath()"
           routerLinkActive="active"
+          ariaCurrentWhenActive="page"
           [routerLinkActiveOptions]="{ exact: true }"
           >{{ 'funding.nav.home' | translate }}</a
         >
         <a
           [routerLink]="aboutPath()"
           routerLinkActive="active"
+          ariaCurrentWhenActive="page"
           [routerLinkActiveOptions]="{ exact: true }"
         >
           {{ 'funding.nav.about' | translate }}
@@ -51,6 +53,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
         <a
           [routerLink]="ecosystemPath()"
           routerLinkActive="active"
+          ariaCurrentWhenActive="page"
           [routerLinkActiveOptions]="{ exact: true }"
         >
           {{ 'funding.nav.ecosystem' | translate }}
@@ -58,30 +61,35 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
         <a
           [routerLink]="musicPath()"
           routerLinkActive="active"
+          ariaCurrentWhenActive="page"
           [routerLinkActiveOptions]="{ exact: true }"
           >{{ 'funding.nav.music' | translate }}</a
         >
         <a
           [routerLink]="shopPath()"
           routerLinkActive="active"
+          ariaCurrentWhenActive="page"
           [routerLinkActiveOptions]="{ exact: true }"
           >{{ 'funding.nav.shop' | translate }}</a
         >
         <a
           [routerLink]="buildersPath()"
           routerLinkActive="active"
+          ariaCurrentWhenActive="page"
           [routerLinkActiveOptions]="{ exact: true }"
           >{{ 'funding.nav.builders' | translate }}</a
         >
         <a
           [routerLink]="sponsorsPath()"
           routerLinkActive="active"
+          ariaCurrentWhenActive="page"
           [routerLinkActiveOptions]="{ exact: true }"
           >{{ 'funding.nav.sponsors' | translate }}</a
         >
         <a
           [routerLink]="transparencyPath()"
           routerLinkActive="active"
+          ariaCurrentWhenActive="page"
           [routerLinkActiveOptions]="{ exact: true }"
         >
           {{ 'funding.nav.transparency' | translate }}
@@ -114,7 +122,9 @@ export class FundingHeaderComponent {
   );
   readonly musicPath = computed(() => this.i18n.localizedPath('/music'));
   readonly shopPath = computed(() => this.i18n.localizedPath('/boutique'));
-  readonly buildersPath = computed(() => this.i18n.localizedPath('/batisseurs'));
+  readonly buildersPath = computed(() =>
+    this.i18n.localizedPath('/batisseurs')
+  );
   readonly sponsorsPath = computed(() =>
     this.i18n.localizedPath('/commanditaires')
   );

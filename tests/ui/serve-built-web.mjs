@@ -1,4 +1,4 @@
-// Local, read-only static server for the isolated admin UI suite.
+// Local, read-only static server for the isolated UI suites.
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -12,6 +12,7 @@ const types = {
   '.json': 'application/json',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.webp': 'image/webp',
   '.woff2': 'font/woff2'
 };
 

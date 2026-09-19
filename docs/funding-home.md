@@ -5,6 +5,9 @@ contribution, le bandeau de retour Checkout et le résumé financier. La page
 orchestre le démarrage de Checkout et la projection publique; les composants
 de présentation ne confirment jamais un paiement.
 
+La [page À propos](funding-about.md) explique le rôle du fonds et oriente vers
+ses sections de financement, la transparence et les autres parcours publics.
+
 ## Montants
 
 `GET /api/public/funding-config` expose désormais `allowed_contribution_amounts`,
@@ -54,6 +57,8 @@ yarn images:funding-home
 Les vignettes ont des variantes de 480 et 960 pixels; les grandes illustrations,
 de 960 et 1920 pixels. Le navigateur choisit via `srcset`; les images hors écran
 sont différées. Les sources PNG restent disponibles pour les autres pages.
+La même commande produit les variantes de l’illustration À propos en 960 et
+1672 pixels.
 
 ```sh
 yarn build

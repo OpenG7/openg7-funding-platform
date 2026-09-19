@@ -1897,7 +1897,32 @@
       "actions": {
         "discover": "Découvrir OpenG7",
         "understandFund": "Comprendre le fonds",
-        "support": "Soutenir le projet"
+        "support": "Soutenir le projet",
+        "platforms": "Explorer les plateformes",
+        "registry": "Voir le registre public",
+        "builders": "Rencontrer les bâtisseurs",
+        "sponsors": "Découvrir les commanditaires",
+        "askQuestion": "Poser une question à l’équipe",
+        "contribute": "Contribuer au fonds",
+        "transparency": "Consulter la transparence"
+      },
+      "mission": {
+        "eyebrow": "Le projet et son fonds",
+        "title": "Des outils ouverts pour les organisations et les communautés",
+        "description": "OpenG7 est un projet indépendant en développement. Il vise à relier les provinces, les organisations et les communautés grâce à des plateformes numériques ouvertes et à des bases techniques communes.",
+        "fund": {
+          "title": "Pourquoi un fonds commun ?",
+          "description": "Le Fonds des Bâtisseurs soutient les fondations partagées de l’écosystème. Il vise à financer les besoins qui permettent aux plateformes de se développer et de durer :",
+          "uses": {
+            "hosting": "Hébergement et maintien des services en ligne.",
+            "development": "Développement et amélioration des outils publics.",
+            "maintenance": "Maintenance, sécurité et fiabilité de l’infrastructure."
+          }
+        },
+        "team": {
+          "title": "Qui porte le projet ?",
+          "description": "L’équipe OpenG7 développe le projet avec le soutien de personnes et d’organisations. Elle assure le suivi des contributions et la revue des commandites. La page d’aide présente les moyens de participer, de proposer une idée ou de poser une question sur le fonds."
+        }
       },
       "foundations": {
         "eyebrow": "Fondations partagées",
@@ -1909,13 +1934,34 @@
           },
           "transparency": {
             "title": "Financement transparent",
-            "description": "Chaque contribution soutient le fonds général et peut être suivie publiquement."
+            "description": "Les contributions confirmées et les frais sont présentés publiquement sous forme agrégée."
           },
           "impact": {
-            "title": "Impact collectif",
-            "description": "Les plateformes avancent ensemble pour servir les communautés, les données et le terrain."
+            "title": "Une communauté de bâtisseurs",
+            "description": "Des personnes et des organisations soutiennent le projet. Leur reconnaissance publique respecte leurs choix de visibilité."
           }
         }
+      },
+      "accountability": {
+        "eyebrow": "Confiance et suivi",
+        "title": "Des engagements que vous pouvez vérifier",
+        "finances": {
+          "title": "Comprendre l’utilisation du fonds",
+          "description": "La page Transparence présente les montants confirmés, les frais et les allocations publiées. La répartition prévue du fonds est distinguée des contributions déjà reçues, et la source ainsi que la date de mise à jour des données sont indiquées."
+        },
+        "recognition": {
+          "title": "Choisir sa visibilité publique",
+          "description": "Les noms des bâtisseurs sont affichés selon leur consentement. Les commandites sont examinées par l’équipe OpenG7 avant leur publication : un paiement ne rend pas automatiquement une entreprise visible."
+        }
+      },
+      "next": {
+        "title": "Prenez part aux prochaines étapes",
+        "description": "Consultez l’état du fonds ou choisissez votre contribution pour soutenir les bases communes d’OpenG7."
+      },
+      "footer": {
+        "ariaLabel": "Aide et conditions du fonds",
+        "help": "Besoin d’aide ?",
+        "policy": "Politique d’utilisation et de remboursement"
       }
     },
     "home": {

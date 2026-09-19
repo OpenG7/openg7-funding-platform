@@ -21,6 +21,10 @@ if (cards.length !== 13)
   throw new Error('Expected the 13 funding ecosystem images.');
 const images = [
   ...cards.map((name) => ({ name, widths: [480, 960] })),
+  {
+    name: 'fonds-des-batisseurs-dragon-coffre-lumineux',
+    widths: [960, 1672]
+  },
   ...[
     'fonds-des-batisseurs-feuille-erable-lumineuse',
     'fonds-des-batisseurs-dragon-coffre-fort',
