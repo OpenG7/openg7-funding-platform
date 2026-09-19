@@ -1901,7 +1901,32 @@
       "actions": {
         "discover": "Discover OpenG7",
         "understandFund": "Understand the fund",
-        "support": "Support the project"
+        "support": "Support the project",
+        "platforms": "Explore the platforms",
+        "registry": "View the public registry",
+        "builders": "Meet the builders",
+        "sponsors": "Discover the sponsors",
+        "askQuestion": "Ask the team a question",
+        "contribute": "Contribute to the fund",
+        "transparency": "View transparency"
+      },
+      "mission": {
+        "eyebrow": "The project and its fund",
+        "title": "Open tools for organizations and communities",
+        "description": "OpenG7 is an independent project in development. It aims to connect provinces, organizations, and communities through open digital platforms and shared technical foundations.",
+        "fund": {
+          "title": "Why a shared fund?",
+          "description": "The Builders Fund supports the ecosystem’s shared foundations. It aims to fund the needs that help platforms grow and last:",
+          "uses": {
+            "hosting": "Hosting and keeping services online.",
+            "development": "Developing and improving public tools.",
+            "maintenance": "Infrastructure maintenance, security, and reliability."
+          }
+        },
+        "team": {
+          "title": "Who is behind the project?",
+          "description": "The OpenG7 team develops the project with support from individuals and organizations. It manages contribution follow-up and sponsorship review. The help page explains how to participate, suggest an idea, or ask a question about the fund."
+        }
       },
       "foundations": {
         "eyebrow": "Shared foundations",
@@ -1913,13 +1938,34 @@
           },
           "transparency": {
             "title": "Transparent funding",
-            "description": "Every contribution supports the general fund and can be followed publicly."
+            "description": "Confirmed contributions and fees are presented publicly in aggregate form."
           },
           "impact": {
-            "title": "Collective impact",
-            "description": "The platforms move forward together to serve communities, data, and real-world needs."
+            "title": "A community of builders",
+            "description": "Individuals and organizations support the project. Public recognition respects their visibility choices."
           }
         }
+      },
+      "accountability": {
+        "eyebrow": "Trust and follow-up",
+        "title": "Commitments you can verify",
+        "finances": {
+          "title": "Understand how the fund is used",
+          "description": "The Transparency page presents confirmed amounts, fees, and published allocations. Planned allocations are distinguished from contributions already received, and the data source and update date are provided."
+        },
+        "recognition": {
+          "title": "Choose your public visibility",
+          "description": "Builders’ names are displayed according to their consent. Sponsorships are reviewed by the OpenG7 team before publication: a payment does not automatically make a business visible."
+        }
+      },
+      "next": {
+        "title": "Be part of the next steps",
+        "description": "Check the fund’s status or choose your contribution to support OpenG7’s shared foundations."
+      },
+      "footer": {
+        "ariaLabel": "Fund help and policies",
+        "help": "Need help?",
+        "policy": "Usage and refund policy"
       }
     },
     "home": {
