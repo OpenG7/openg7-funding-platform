@@ -53,6 +53,18 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
     amountCents: 50000,
     reviewStatus: 'approved'
   }),
+  // Only the follow-up resubmission test mutates this record. Directory and
+  // validation tests keep their approved fixture, regardless of test order.
+  followupEditing: Object.freeze({
+    publicReference: 'OG7-E2E-FOLLOWUP-EDIT',
+    companyName: 'E2E Followup Editing Inc.',
+    contactName: 'E2E Followup Editing',
+    contactEmail: 'followup-editing@example.invalid',
+    websiteUrl: 'https://example.invalid/followup-editing',
+    followupToken: 'e2e-followup-editing-local-only-token-00000000',
+    amountCents: 50000,
+    reviewStatus: 'approved'
+  }),
   // Seeded already approved with a fake Stripe payment intent id so the
   // admin refund spec can exercise the refund -> credit note -> email
   // pipeline against the dev-mode refund mock (no real Stripe call).

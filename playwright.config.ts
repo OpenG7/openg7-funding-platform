@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 import adminUiConfig from './tests/playwright-admin-ui.config.mjs';
+import followupUiConfig from './tests/playwright-followup-ui.config.mjs';
 
 const baseURL =
   process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, '') ??
@@ -13,16 +14,19 @@ const MOBILE_TAG = /@mobile/;
 
 export default defineConfig({
   testDir: './tests/playwright',
-  // Pure intercepted UI suites have their own mandatory acceptance CI step.
-  // Keep their list in one place and avoid replaying them against Docker.
-  testIgnore:
+  // Follow-up fixtures run in their isolated CI step in both workflows.
+  // Admin fixtures have a separate step in the disposable acceptance workflow.
+  // Reuse each suite's testMatch so no fixture is replayed against Docker there.
+  testIgnore: [
+    followupUiConfig.testMatch ?? [],
     process.env.OPENG7_E2E_ISOLATED === '1'
-      ? adminUiConfig.testMatch
-      : undefined,
+      ? (adminUiConfig.testMatch ?? [])
+      : []
+  ].flat(),
   outputDir:
     process.env.OPENG7_E2E_ISOLATED === '1'
       ? 'test-results/acceptance/browser'
-      : 'test-results',
+      : 'test-results/docker',
   globalTeardown: './tests/playwright/global-teardown.mjs',
   timeout: 30_000,
   expect: {

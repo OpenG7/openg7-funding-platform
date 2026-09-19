@@ -33,6 +33,8 @@ jobs:
       - run: yarn exec playwright install --with-deps chromium
       - name: Angular SSR and isolated UI fixtures
         run: yarn test:ui:admin
+      - name: Isolated sponsorship follow-up UI
+        run: yarn test:ui:followup
       - name: Docker acceptance with disposable fixtures
         run: yarn test:e2e:acceptance
       - name: Preserve acceptance evidence

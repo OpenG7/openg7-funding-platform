@@ -66,6 +66,9 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
+      - name: Isolated sponsorship follow-up UI
+        run: yarn test:ui:followup
+
       - name: Create empty .env for Docker Compose
         run: touch .env
 
