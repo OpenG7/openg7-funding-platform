@@ -292,6 +292,8 @@ export interface PublicSponsorshipsResponse {
 
 export interface PublicFundingRuntimeConfig {
   readonly business_sponsorship_enabled: boolean;
+  /** Optional during rolling upgrades; amounts use the existing Checkout major-unit contract. */
+  readonly allowed_contribution_amounts?: readonly number[];
   readonly last_updated_at: string;
 }
 

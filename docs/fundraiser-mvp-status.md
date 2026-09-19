@@ -6,6 +6,9 @@ Ce document resume l'etat du MVP apres les lots de travail sur le Fonds des
 batisseurs. Il sert de point de controle avant PR, revue de production ou
 deploiement progressif.
 
+Voir aussi [le comportement actuel de la page de financement](funding-home.md)
+pour la validation des montants, la progression mensuelle et le suivi Checkout.
+
 ## Resume
 
 Le coeur MVP est en place:

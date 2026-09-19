@@ -1958,7 +1958,10 @@
           "successTitle": "Merci, votre demande de commandite est en révision.",
           "successCopy": "Notre équipe examine chaque commandite manuellement avant toute visibilité publique. Nous vous recontacterons par courriel pour les prochaines étapes.",
           "nextStepsLink": "Voir les prochaines étapes"
-        }
+        },
+        "verifying": "Vérification de la confirmation du paiement…",
+        "verificationPaused": "La confirmation est toujours en attente. Vous pouvez vérifier à nouveau ou contacter le support.",
+        "checkAgain": "Vérifier à nouveau"
       },
       "actions": {
         "viewTransparency": "Voir la transparence",
@@ -1974,7 +1977,7 @@
         "line3": "Un avenir.",
         "copy": "Le Fonds des Bâtisseurs alimente un écosystème numérique ouvert pour renforcer l'économie, la transparence et la résilience du Canada.",
         "progressAria": "Progression de la collecte",
-        "raisedOn": "recueillis sur"
+        "raisedOn": "réunis ce mois-ci sur"
       },
       "ecosystem": {
         "title": "L'écosystème",
@@ -2065,11 +2068,12 @@
           "afterPaymentNote": "Après le paiement, vous pourrez transmettre les renseignements de votre entreprise, votre site Web et votre logo aux fins de validation.",
           "manualReviewNote": "Toute commandite est vérifiée et approuvée manuellement avant sa publication. Les présences sur les réseaux sociaux sont planifiées dans les prochains lots disponibles.",
           "amountFormatError": "Le montant minimal pour une commandite est de 50 $.",
-          "disabled": "Temporairement indisponible"
+          "disabled": "Temporairement indisponible",
+          "minimumAmountError": "Le montant minimal pour une commandite est de {{ minimum }}."
         },
         "otherAmount": "Autre montant",
         "amountFormatHint": "Chiffres seulement, avec un maximum de 2 décimales.",
-        "amountFormatError": "Entrez un montant valide supérieur à 0.",
+        "amountFormatError": "Entrez un montant positif avec un maximum de deux décimales.",
         "consentLegend": "Consentements",
         "publicDisplayConsent": "Afficher mon nom publiquement si un nom public est fourni plus tard.",
         "publicDisplayNameLabel": "Nom à afficher publiquement (utilisé seulement si la case ci-dessus est cochée)",
@@ -2080,7 +2084,9 @@
         "policyLink": "Politique d'utilisation et de remboursement",
         "loading": "Préparation du paiement...",
         "success": "Mode local : Stripe n’a pas ouvert de session réelle, donc le paiement est simulé. Vérifiez /dev/stripe-setup pour activer le paiement réel.",
-        "error": "Impossible de démarrer le paiement."
+        "error": "Impossible de démarrer le paiement.",
+        "personalAmountHint": "Les contributions personnelles acceptent ces montants : {{ amounts }}.",
+        "publicDisplayNameRequired": "Indiquez le nom à afficher publiquement."
       },
       "finance": {
         "title": "Transparence financière",

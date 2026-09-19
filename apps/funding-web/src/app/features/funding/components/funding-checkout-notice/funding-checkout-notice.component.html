@@ -1,0 +1,239 @@
+<ng-template #pendingActions>
+  @if (checkoutStatus() === 'pending') {
+    <p role="status">
+      {{
+        (paused()
+          ? 'funding.home.checkout.verificationPaused'
+          : 'funding.home.checkout.verifying'
+        ) | translate
+      }}
+    </p>
+    @if (paused() && canRetry()) {
+      <button
+        type="button"
+        [disabled]="checking()"
+        (click)="retryRequested.emit()"
+      >
+        {{ 'funding.home.checkout.checkAgain' | translate }}
+      </button>
+    }
+  }
+</ng-template>
+<section
+  class="checkout-success-stage"
+  *ngIf="
+    (checkoutStatus() === 'pending' || checkoutStatus() === 'confirmed') &&
+    !showSponsorFollowUp()
+  "
+  aria-labelledby="checkout-success-title"
+>
+  <img
+    class="checkout-success-art"
+    src="assets/openg7-dragon-dime-coffre-fort-960.webp"
+    srcset="
+      assets/openg7-dragon-dime-coffre-fort-960.webp   960w,
+      assets/openg7-dragon-dime-coffre-fort-1920.webp 1920w
+    "
+    sizes="100vw"
+    width="1672"
+    height="941"
+    decoding="async"
+    [alt]="'funding.home.checkout.successAlt' | translate"
+  />
+  <div class="checkout-success-glow" aria-hidden="true"></div>
+  <button
+    type="button"
+    class="checkout-success-close"
+    [attr.aria-label]="'funding.home.checkout.closeSuccess' | translate"
+    (click)="dismissed.emit()"
+  >
+    ×
+  </button>
+  <article class="checkout-success-card" aria-live="polite">
+    <span class="section-kicker">{{
+      (checkoutStatus() === 'confirmed'
+        ? 'funding.home.checkout.successKicker'
+        : 'funding.home.checkout.pendingKicker'
+      ) | translate
+    }}</span>
+    <h2 id="checkout-success-title">
+      {{
+        (checkoutStatus() === 'confirmed'
+          ? 'funding.home.checkout.successTitle'
+          : 'funding.home.checkout.pendingTitle'
+        ) | translate
+      }}
+    </h2>
+    <p>
+      {{
+        (checkoutStatus() === 'confirmed'
+          ? 'funding.home.checkout.successCopy'
+          : 'funding.home.checkout.pendingCopy'
+        ) | translate
+      }}
+    </p>
+    <ng-container *ngTemplateOutlet="pendingActions"></ng-container>
+    <div class="checkout-success-actions">
+      <a [routerLink]="transparencyPath()">{{
+        'funding.home.actions.viewTransparency' | translate
+      }}</a>
+      <a *ngIf="checkoutStatus() === 'pending'" [routerLink]="supportPath()">{{
+        'funding.home.actions.contactSupport' | translate
+      }}</a>
+      <button
+        *ngIf="checkoutStatus() === 'confirmed'"
+        type="button"
+        (click)="supportRequested.emit()"
+      >
+        {{ 'funding.home.actions.contributeAgain' | translate }}
+      </button>
+    </div>
+  </article>
+</section>
+
+<section
+  class="checkout-success-stage checkout-sponsor-stage"
+  *ngIf="showSponsorFollowUp()"
+  aria-labelledby="checkout-sponsor-title"
+>
+  <img
+    class="checkout-success-art"
+    src="assets/openg7-dragon-dime-coffre-fort-960.webp"
+    srcset="
+      assets/openg7-dragon-dime-coffre-fort-960.webp   960w,
+      assets/openg7-dragon-dime-coffre-fort-1920.webp 1920w
+    "
+    sizes="100vw"
+    width="1672"
+    height="941"
+    decoding="async"
+    [alt]="'funding.home.checkout.successAlt' | translate"
+  />
+  <div class="checkout-success-glow" aria-hidden="true"></div>
+  <button
+    type="button"
+    class="checkout-success-close"
+    [attr.aria-label]="'funding.home.checkout.closeSuccess' | translate"
+    (click)="dismissed.emit()"
+  >
+    ×
+  </button>
+  <article
+    class="checkout-success-card sponsor-followup-card"
+    aria-live="polite"
+  >
+    <span class="section-kicker">{{
+      (checkoutStatus() === 'confirmed'
+        ? 'funding.home.checkout.sponsorKicker'
+        : 'funding.home.checkout.pendingKicker'
+      ) | translate
+    }}</span>
+    <h2 id="checkout-sponsor-title">
+      {{
+        (checkoutStatus() === 'confirmed'
+          ? 'funding.home.checkout.sponsorTitle'
+          : 'funding.home.checkout.pendingTitle'
+        ) | translate
+      }}
+    </h2>
+    <p>
+      {{
+        (checkoutStatus() === 'confirmed'
+          ? 'funding.home.checkout.sponsorCopy'
+          : 'funding.home.checkout.sponsorPendingCopy'
+        ) | translate
+      }}
+    </p>
+    <ol class="sponsor-followup-steps">
+      <li>
+        <span aria-hidden="true">1</span>
+        <strong>{{
+          (checkoutStatus() === 'confirmed'
+            ? 'funding.home.checkout.sponsorStages.paymentReceived'
+            : 'funding.home.checkout.sponsorStages.paymentPending'
+          ) | translate
+        }}</strong>
+      </li>
+      <li>
+        <span aria-hidden="true">2</span>
+        <strong>{{
+          'funding.home.checkout.sponsorStages.detailsIncomplete' | translate
+        }}</strong>
+      </li>
+      <li>
+        <span aria-hidden="true">3</span>
+        <strong>{{
+          'funding.home.checkout.sponsorStages.manualReview' | translate
+        }}</strong>
+      </li>
+      <li>
+        <span aria-hidden="true">4</span>
+        <strong>{{
+          'funding.home.checkout.sponsorStages.publication' | translate
+        }}</strong>
+      </li>
+    </ol>
+    <ng-container *ngTemplateOutlet="pendingActions"></ng-container>
+    <div class="checkout-success-actions">
+      <a
+        [routerLink]="sponsorshipFollowupPath()"
+        [queryParams]="{ token: pendingSponsorFollowupToken() }"
+      >
+        {{ 'funding.home.checkout.sponsorFollowupCta' | translate }}
+      </a>
+      <a [routerLink]="supportPath()" class="secondary-link">{{
+        'funding.home.actions.contactSupport' | translate
+      }}</a>
+    </div>
+  </article>
+</section>
+
+<section
+  class="checkout-success-stage checkout-cancel-stage"
+  *ngIf="checkoutStatus() === 'cancel'"
+  aria-labelledby="checkout-cancel-title"
+>
+  <img
+    class="checkout-success-art"
+    src="assets/openg7-coffre-fort-ferme-dragon-960.webp"
+    srcset="
+      assets/openg7-coffre-fort-ferme-dragon-960.webp   960w,
+      assets/openg7-coffre-fort-ferme-dragon-1920.webp 1920w
+    "
+    sizes="100vw"
+    width="1672"
+    height="941"
+    decoding="async"
+    [alt]="'funding.home.checkout.cancelAlt' | translate"
+  />
+  <div
+    class="checkout-success-glow checkout-cancel-glow"
+    aria-hidden="true"
+  ></div>
+  <button
+    type="button"
+    class="checkout-success-close"
+    [attr.aria-label]="'funding.home.checkout.closeCancel' | translate"
+    (click)="dismissed.emit()"
+  >
+    ×
+  </button>
+  <article class="checkout-success-card checkout-cancel-card">
+    <span class="section-kicker">{{
+      'funding.home.checkout.cancelKicker' | translate
+    }}</span>
+    <h2 id="checkout-cancel-title">
+      {{ 'funding.home.checkout.cancelTitle' | translate }}
+    </h2>
+    <p>{{ 'funding.home.checkout.cancelCopy' | translate }}</p>
+    <ng-container *ngTemplateOutlet="pendingActions"></ng-container>
+    <div class="checkout-success-actions">
+      <button type="button" (click)="supportRequested.emit()">
+        {{ 'funding.home.actions.retry' | translate }}
+      </button>
+      <a [routerLink]="supportPath()">{{
+        'funding.home.actions.contactSupport' | translate
+      }}</a>
+    </div>
+  </article>
+</section>

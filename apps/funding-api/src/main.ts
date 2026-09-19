@@ -8332,6 +8332,7 @@ createServer(async (request, response) => {
   ) {
     const runtimeConfig: PublicFundingRuntimeConfig = {
       business_sponsorship_enabled: businessSponsorshipEnabled,
+      allowed_contribution_amounts: [...allowedContributionAmounts],
       last_updated_at: new Date().toISOString()
     };
     writeJson(request, response, 200, runtimeConfig);

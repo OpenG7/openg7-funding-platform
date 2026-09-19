@@ -1,3 +1,4 @@
+import { readFundingHomeSource } from './support/funding-home-source.mjs';
 import { readSponsorshipFollowupSource } from './support/sponsorship-followup-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import assert from 'node:assert/strict';
@@ -723,43 +724,24 @@ test('Public display name input has matching i18n keys in both locales', () => {
   }
 });
 
-test('Custom contribution amount input accepts only decimal numeric values', () => {
-  const source = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
-    'utf8'
-  );
-  const styles = fs.readFileSync('apps/funding-web/src/styles.css', 'utf8');
-  const fr = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
-  );
-  const en = JSON.parse(
-    fs.readFileSync('apps/funding-web/src/assets/i18n/en.json', 'utf8')
-  );
-
-  assert.ok(source.includes('class="custom-amount-input"'));
-  assert.ok(source.includes('type="text"'));
+test('Contribution form exposes accessible amount validation in both languages', () => {
+  const source = readFundingHomeSource();
   assert.ok(source.includes('inputmode="decimal"'));
-  assert.ok(source.includes('pattern="[0-9]+([.,][0-9]{0,2})?"'));
-  assert.ok(source.includes('sanitizeCustomContributionValue'));
-  assert.ok(source.includes("normalizedValue.replace(/[^0-9.]/g, '')"));
-  assert.ok(source.includes("decimalParts.join('').slice(0, 2)"));
-  assert.ok(source.includes('parseCustomContributionAmount'));
-  assert.ok(source.includes('/^\\d+(?:\\.\\d{0,2})?$/.test(value)'));
-  assert.ok(source.includes('!this.hasInvalidCustomContribution()'));
-  assert.ok(source.includes('normalizeCustomContributionFromEvent'));
-  assert.ok(styles.includes(".custom-amount-input[aria-invalid='true']"));
-
-  for (const locale of [fr, en]) {
-    assert.ok(locale.funding.home.contribution.amountFormatHint);
-    assert.ok(locale.funding.home.contribution.amountFormatError);
+  assert.ok(source.includes('aria-describedby="custom-contribution-help"'));
+  for (const language of ['fr-CA', 'en']) {
+    const locale = JSON.parse(
+      fs.readFileSync(
+        'apps/funding-web/src/assets/i18n/' + language + '.json',
+        'utf8'
+      )
+    );
+    assert.ok(locale.funding.home.contribution.personalAmountHint);
+    assert.ok(locale.funding.home.contribution.sponsorship.minimumAmountError);
   }
 });
 
 test('Business sponsorship contribution choice is controlled by runtime flag', () => {
-  const source = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
-    'utf8'
-  );
+  const source = readFundingHomeSource();
   const service = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
     'utf8'
@@ -908,11 +890,8 @@ test('Sponsorship pricing config resolves tiers and benefits from the real paid 
   );
 });
 
-test('Sponsorship amount grid and benefits recap react to the selected amount without touching personal contribution behavior', () => {
-  const source = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
-    'utf8'
-  );
+test('Contribution form uses sponsorship pricing and the personal server allowlist', () => {
+  const source = readFundingHomeSource();
   const config = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/config/openg7-funding.config.ts',
     'utf8'
@@ -933,22 +912,19 @@ test('Sponsorship amount grid and benefits recap react to the selected amount wi
     )
   );
   assert.ok(source.includes('? this.config.sponsorship.presetAmounts'));
-  assert.ok(source.includes(': this.config.contributionAmounts'));
+  assert.ok(source.includes(': this.allowedAmounts()'));
   assert.ok(source.includes('*ngFor="let amount of activeAmountPresets()"'));
   assert.ok(
-    source.includes(
-      '!isValidSponsorshipAmount(amount, this.config.sponsorship)'
-    )
+    source.includes('isValidSponsorshipAmount(amount, this.config.sponsorship)')
   );
   assert.ok(source.includes('readonly sponsorshipBenefits = computed(() =>'));
   assert.ok(source.includes('sponsorshipBenefits().achievedBenefits'));
   assert.ok(source.includes('sponsorshipBenefits().upcomingBenefits'));
   assert.ok(
-    source.includes('funding.home.contribution.sponsorship.amountFormatError')
+    source.includes('funding.home.contribution.sponsorship.minimumAmountError')
   );
 
-  // Personal contribution keeps its original, unconditional custom-amount path.
-  assert.ok(source.includes('if (customValue.length === 0) {'));
+  assert.ok(source.includes('this.allowedAmounts().includes(amount)'));
 });
 
 test('Checkout API validates sponsorship custom amounts against the real minimum, not the fixed personal allowlist', () => {
@@ -1221,10 +1197,7 @@ test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe 
 
 test('Sponsorship follow-up endpoints are token based and do not require Stripe session ids', () => {
   const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
-  const fundingPage = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
-    'utf8'
-  );
+  const fundingPage = readFundingHomeSource();
   const fundingService = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
     'utf8'
@@ -3138,10 +3111,7 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
     'utf8'
   );
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
-    'utf8'
-  );
+  const page = readFundingHomeSource();
   const fr = JSON.parse(
     fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
   );
@@ -3303,10 +3273,7 @@ test('Usage and refund policy page is routed, linked, documented, and indexed', 
     'apps/funding-web/src/app/features/funding/services/funding-i18n.service.ts',
     'utf8'
   );
-  const fundingPage = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts',
-    'utf8'
-  );
+  const fundingPage = readFundingHomeSource();
   const policyPage = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/usage-refund-policy-page/usage-refund-policy-page.component.ts',
     'utf8'
