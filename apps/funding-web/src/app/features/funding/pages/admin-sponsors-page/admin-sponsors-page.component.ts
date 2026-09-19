@@ -47,6 +47,7 @@ import {
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
+import { AdminSponsorshipAccessComponent } from '../../components/admin-sponsors/admin-sponsorship-access.component.js';
 import { AdminSponsorshipFactsComponent } from '../../components/admin-sponsors/admin-sponsorship-facts.component.js';
 import { AdminSponsorDetailHeaderComponent } from '../../components/admin-sponsors/admin-sponsor-detail-header.component.js';
 import { AdminSponsorDetailIdentityComponent } from '../../components/admin-sponsors/admin-sponsor-detail-identity.component.js';
@@ -177,7 +178,8 @@ const controlledSponsorLogoUrlPrefixes = [
     AdminSponsorDetailOverviewComponent,
     AdminSponsorDetailTabsComponent,
     AdminSponsorsListPanelComponent,
-    AdminSponsorsSummaryComponent
+    AdminSponsorsSummaryComponent,
+    AdminSponsorshipAccessComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -319,6 +321,11 @@ const controlledSponsorLogoUrlPrefixes = [
                 [refreshKey]="assistantRefresh()"
                 [disabled]="actionState() !== null"
                 (loaded)="progress.set($event)"
+              />
+              <openg7-admin-sponsorship-access
+                [contributionId]="selected.id"
+                [token]="adminToken()"
+                (queued)="loadSponsorships()"
               />
               <openg7-admin-sponsor-detail-tabs
                 [activeTab]="activeTab()"

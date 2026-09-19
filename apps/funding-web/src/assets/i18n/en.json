@@ -1,5 +1,20 @@
 {
   "admin": {
+    "followupAccess": {
+      "title": "Sponsor follow-up access",
+      "copy": "Send a private link to the payment email. The record and its draft are preserved.",
+      "send": "Resend follow-up link",
+      "working": "Preparing…",
+      "confirm": "Send a new private follow-up link to this address?",
+      "idle": "",
+      "missing": "No eligible payment email is available for this record.",
+      "queued": "The email is queued. Check its status in the email queue.",
+      "already_queued": "A recent link is already queued.",
+      "already_sent": "A link was just sent. Wait one minute before sending another.",
+      "delivery_failed": "The last delivery failed. Open the email queue to retry it.",
+      "unauthorized": "Your administrator access expired or does not allow this action.",
+      "error": "The link could not be queued. Retry; check the record if the address changed."
+    },
     "inspector": {
       "close": "Close panel",
       "back": "Return to page",
@@ -2589,6 +2604,30 @@
       }
     },
     "followup": {
+      "recovery": {
+        "title": "Recover my sponsorship access",
+        "copy": "Enter the email used for payment to receive a new private link. Your saved information and draft will be preserved.",
+        "email": "Email used for payment",
+        "submit": "Send me a new follow-up link",
+        "sending": "Requesting…",
+        "idle": "Use the link to resume your follow-up without an account.",
+        "invalid": "Enter a valid email address.",
+        "accepted": "If a sponsorship matches this address, an email will be sent. Check your spam folder too. Recent requests may be grouped with the previous one.",
+        "error": "The request could not be submitted. Please try again later."
+      },
+      "draft": {
+        "loading": "Loading your draft…",
+        "idle": "Changes will be saved automatically.",
+        "dirty": "Changes waiting to be saved…",
+        "saving": "Saving your draft…",
+        "saved": "Draft saved.",
+        "error": "Your draft could not be saved. Your input remains on this page.",
+        "unavailable": "Your draft could not be loaded. Retry before editing your information.",
+        "conflict": "The record changed in another tab or can no longer be edited. Your input is preserved. Loading the saved draft will replace the input on this page.",
+        "reload": "Load the saved draft",
+        "discard": "Discard changes",
+        "explanation": "Your draft is private. Only “Save information” submits changes for review. The last few seconds of typing may be lost before saving is confirmed."
+      },
       "eyebrow": "OpenG7 sponsorship",
       "title": "Your sponsorship follow-up",
       "intro": "Check your sponsorship status and complete the information required for its review.",

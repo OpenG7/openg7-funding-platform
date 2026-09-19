@@ -2,6 +2,17 @@
 // Regenerate when fixture exports change; do not narrow this list by hand.
 export const ADMIN_TOKEN: 'local-playwright-admin-token';
 export const SPONSORSHIP_FIXTURES: Readonly<{
+  followupRecovery: Readonly<{
+    publicReference: 'OG7-E2E-FOLLOWUP-RECOVERY';
+    companyName: 'E2E Followup Recovery Inc.';
+    contactName: 'E2E Recovery';
+    contactEmail: 'recovery-contact@example.invalid';
+    paymentEmail: 'recovery-payment@example.invalid';
+    websiteUrl: 'https://example.invalid/recovery';
+    followupToken: 'e2e-followup-recovery-local-only-token-00000000';
+    amountCents: 50000;
+    reviewStatus: 'approved';
+  }>;
   acceptanceReview: Readonly<{
     publicReference: 'OG7-E2E-ACCEPTANCE';
     companyName: 'E2E Acceptance Atelier Nord Inc.';

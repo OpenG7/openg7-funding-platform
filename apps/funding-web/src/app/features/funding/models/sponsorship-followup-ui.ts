@@ -5,7 +5,7 @@ import type {
 
 export type SponsorshipDetailsDraft = Omit<
   SponsorshipFollowupDetailsRequest,
-  'token'
+  'token' | 'draftRevision'
 >;
 
 /** Editing eligibility is separate from the payment label and publication. */
@@ -43,7 +43,10 @@ export const sameSponsorshipDetails = (
   JSON.stringify(normalizeSponsorshipDetails(second));
 
 export class SponsorshipFollowupError extends Error {
-  constructor(readonly status: number) {
+  constructor(
+    readonly status: number,
+    readonly code = ''
+  ) {
     super('Sponsorship follow-up request failed.');
   }
 }

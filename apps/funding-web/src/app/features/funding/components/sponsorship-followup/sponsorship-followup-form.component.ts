@@ -22,7 +22,11 @@ import {
   type ValidatorFn
 } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
-import type { SponsorshipFollowupResponse } from '@openg7/funding-core';
+import type {
+  SponsorshipFollowupResponse,
+  SponsorshipDraftSnapshot,
+  SponsorshipDraftValues
+} from '@openg7/funding-core';
 
 import {
   canEditSponsorshipDetails,
@@ -65,12 +69,16 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
   readonly followup = input.required<SponsorshipFollowupResponse>();
   readonly token = input.required<string>();
   readonly busy = input(false);
+  readonly draftBlocked = input(false);
   readonly savedDetails = input<SponsorshipDetailsDraft | null>(null);
+  readonly restoredDraft = input<SponsorshipDraftSnapshot | null>(null);
+  private appliedRestoredDraft: SponsorshipDraftSnapshot | null = null;
   readonly saveState = input<'idle' | 'saved' | 'error' | 'unconfirmed'>(
     'idle'
   );
   readonly save = output<SponsorshipDetailsDraft>();
-  readonly draftChanged = output<void>();
+  readonly draftChanged = output<SponsorshipDraftValues>();
+  readonly discardDraft = output<void>();
   readonly i18n = inject(FundingI18nService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -78,6 +86,7 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly revision = signal(0);
   private initialized = false;
+  private appliedFollowup: SponsorshipFollowupResponse | null = null;
   private appliedSavedDetails: SponsorshipDetailsDraft | null = null;
   private readonly baseline = signal<SponsorshipDetailsDraft | null>(null);
   readonly editing = signal(false);
@@ -122,6 +131,7 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
   readonly canSubmit = computed(
     () =>
       !this.busy() &&
+      !this.draftBlocked() &&
       !this.mediaBusy() &&
       !this.readOnly() &&
       ((!this.followup().detailsSubmitted && !this.savedDetails()) ||
@@ -141,16 +151,35 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
       .subscribe(() => this.revision.update((value) => value + 1));
     this.sponsorshipForm.valueChanges
       .pipe(takeUntilDestroyed())
-      .subscribe(() => this.draftChanged.emit());
+      .subscribe(() => {
+        if (!this.readOnly())
+          this.draftChanged.emit(this.sponsorshipForm.getRawValue());
+      });
     effect(() => {
       const current = this.followup();
       const saved = this.savedDetails();
+      const restored = this.restoredDraft();
       untracked(() => {
+        const followupChanged = current !== this.appliedFollowup;
+        this.appliedFollowup = current;
         if (saved && saved !== this.appliedSavedDetails) {
           this.appliedSavedDetails = saved;
           this.reset(saved);
           this.editing.set(false);
-        } else if (!this.initialized || (!this.editing() && !this.changed())) {
+        } else if (restored && restored !== this.appliedRestoredDraft) {
+          this.appliedRestoredDraft = restored;
+          this.reset(sponsorshipDetailsFromFollowup(current));
+          if (restored.data) {
+            this.sponsorshipForm.patchValue(restored.data, {
+              emitEvent: false
+            });
+            this.editing.set(true);
+            this.revision.update((value) => value + 1);
+          } else this.editing.set(false);
+        } else if (
+          !this.initialized ||
+          (followupChanged && !this.editing() && !this.changed())
+        ) {
           this.reset(sponsorshipDetailsFromFollowup(current));
         }
         this.initialized = true;
@@ -173,14 +202,17 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
   }
 
   cancelEditing(): void {
-    const baseline = this.baseline();
-    if (baseline) this.reset(baseline);
-    this.editing.set(false);
-    this.draftChanged.emit();
+    this.discardDraft.emit();
   }
 
   submit(): void {
-    if (this.busy() || this.mediaBusy() || this.readOnly()) return;
+    if (
+      this.busy() ||
+      this.draftBlocked() ||
+      this.mediaBusy() ||
+      this.readOnly()
+    )
+      return;
     this.syncFormControlsFromInputs();
     this.submitted.set(true);
     this.sponsorshipForm.markAllAsTouched();
@@ -243,7 +275,12 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
     if (!isPlatformBrowser(this.platformId)) return;
     const timers = [0, 250, 1000].map((delay) =>
       setTimeout(() => {
-        if (!this.destroyRef.destroyed && !this.readOnly() && !this.busy())
+        if (
+          !this.destroyRef.destroyed &&
+          !this.readOnly() &&
+          !this.busy() &&
+          !this.draftBlocked()
+        )
           this.syncFormControlsFromInputs();
       }, delay)
     );

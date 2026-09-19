@@ -15,6 +15,7 @@ import { FundingHeaderComponent } from '../../components/funding-header/funding-
 import { FundingService } from '../../services/funding.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
+import { SponsorshipAccessRecoveryComponent } from '../../components/sponsorship-followup/sponsorship-access-recovery.component.js';
 
 interface SupportAction {
   readonly titleKey: string;
@@ -37,17 +38,19 @@ interface SupportStep {
 }
 
 type ReferenceLookupState =
-  | 'idle'
-  | 'submitting'
-  | 'found'
-  | 'not_found'
-  | 'error';
+  'idle' | 'submitting' | 'found' | 'not_found' | 'error';
 type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
 
 @Component({
   selector: 'openg7-support-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, TranslatePipe, FundingHeaderComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    TranslatePipe,
+    FundingHeaderComponent,
+    SponsorshipAccessRecoveryComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="support-page">
@@ -307,12 +310,15 @@ type ReferenceRecoveryState = 'idle' | 'submitting' | 'sent' | 'error';
             </p>
           </article>
 
+          <openg7-sponsorship-access-recovery />
           <article class="reference-recovery-panel">
             <header>
               <span aria-hidden="true">#</span>
               <div>
                 <h2>
-                  {{ 'funding.supportPage.referenceRecovery.title' | translate }}
+                  {{
+                    'funding.supportPage.referenceRecovery.title' | translate
+                  }}
                 </h2>
                 <p>
                   {{ 'funding.supportPage.referenceRecovery.copy' | translate }}

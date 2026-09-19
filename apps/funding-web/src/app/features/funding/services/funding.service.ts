@@ -223,6 +223,51 @@ export class FundingService {
     return (await response.json()) as SponsorshipFollowupResponse;
   }
 
+  async requestSponsorshipAccess(
+    email: string,
+    locale: 'fr-CA' | 'en'
+  ): Promise<void> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup/recover`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, locale })
+      }
+    );
+    if (!response.ok || (await response.json()).accepted !== true)
+      throw new SponsorshipFollowupError(response.status);
+  }
+
+  async getSponsorshipDraft(
+    token: string
+  ): Promise<import('@openg7/funding-core').SponsorshipDraftSnapshot> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup/draft?${new URLSearchParams({ token })}`,
+      { cache: 'no-store' }
+    );
+    if (!response.ok) throw new SponsorshipFollowupError(response.status);
+    return response.json();
+  }
+
+  async saveSponsorshipDraft(
+    payload: import('@openg7/funding-core').SponsorshipDraftRequest
+  ): Promise<import('@openg7/funding-core').SponsorshipDraftSnapshot> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/sponsorship-followup/draft`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new SponsorshipFollowupError(response.status, error.code ?? '');
+    }
+    return response.json();
+  }
+
   async submitSponsorshipFollowupDetails(
     payload: SponsorshipFollowupDetailsRequest
   ): Promise<SponsorshipDetailsResult> {
@@ -238,7 +283,8 @@ export class FundingService {
     );
 
     if (!response.ok) {
-      throw new SponsorshipFollowupError(response.status);
+      const error = await response.json().catch(() => ({}));
+      throw new SponsorshipFollowupError(response.status, error.code ?? '');
     }
 
     return (await response.json()) as SponsorshipDetailsResult;

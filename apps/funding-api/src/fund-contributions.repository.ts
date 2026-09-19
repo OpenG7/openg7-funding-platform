@@ -2837,8 +2837,11 @@ export const getSponsorshipFollowupByTokenHash = async (
         sponsorship_followup_email_sent_at::text AS sponsorship_followup_email_sent_at
       FROM fund_contributions
       WHERE contribution_type = 'sponsorship_interest'
-        AND sponsorship_followup_token_hash = $1
-        AND sponsorship_followup_token_created_at >= $2::timestamptz
+        AND ((sponsorship_followup_token_hash = $1
+          AND sponsorship_followup_token_created_at >= $2::timestamptz)
+          OR EXISTS (SELECT 1 FROM sponsorship_access_tokens access
+            WHERE access.contribution_id = fund_contributions.id
+              AND access.token_hash = $1 AND access.expires_at > NOW()))
       LIMIT 1
     `,
     [tokenHash, tokenCreatedAfterIso]
@@ -2879,7 +2882,7 @@ export const getSponsorshipFollowupByTokenHash = async (
 };
 
 export const recordSponsorshipDetailsForContribution = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   input: SponsorshipFollowupRecordInput
 ): Promise<boolean> => {
   if (!pool) {

@@ -132,6 +132,14 @@ const accountingPendingFixtures = [
 const deleteStatements = fixtures
   .map(
     (fixture) => `
+WITH removed AS (
+  DELETE FROM sponsorship_access_tokens WHERE contribution_id IN (
+    SELECT id FROM fund_contributions WHERE public_reference = ${sqlLiteral(fixture.publicReference)}
+  ) RETURNING email_message_id
+) DELETE FROM email_messages WHERE id IN (SELECT email_message_id FROM removed);
+DELETE FROM sponsorship_followup_drafts WHERE contribution_id IN (
+  SELECT id FROM fund_contributions WHERE public_reference = ${sqlLiteral(fixture.publicReference)}
+);
 DELETE FROM fund_contributions
 WHERE sponsor_contact_email = ${sqlLiteral(fixture.contactEmail)}
    OR public_reference = ${sqlLiteral(fixture.publicReference)};`
@@ -164,7 +172,7 @@ INSERT INTO fund_contributions (
   sponsor_reviewed_at, sponsorship_followup_token_hash,
   sponsorship_followup_token_created_at, public_reference,
   stripe_payment_intent_id, stripe_session_id,
-  sponsor_feed_target, sponsor_feed_channels
+  sponsor_feed_target, sponsor_feed_channels, email_private
 ) VALUES (
   'sponsorship_interest', ${fixture.amountCents}, 'cad', 'paid', NOW(),
   TRUE, TRUE, TRUE,
@@ -173,7 +181,7 @@ INSERT INTO fund_contributions (
   NOW(), ${sqlLiteral(reviewStatus)},
   ${reviewedAt}, ${sqlLiteral(sha256Hex(fixture.followupToken))}, NOW(),
   ${sqlLiteral(fixture.publicReference)}, ${stripePaymentIntentId},
-  ${stripeSessionId}, ${feedTarget}, ${feedChannels}
+  ${stripeSessionId}, ${feedTarget}, ${feedChannels}, ${fixture.paymentEmail ? sqlLiteral(fixture.paymentEmail) : 'NULL'}
 );`;
   })
   .join('\n');

@@ -14,6 +14,13 @@ test('@mobile keeps a failed photo preview visible until it is removed', async (
     const request = route.request();
     const url = new URL(request.url());
 
+    if (url.pathname.endsWith('/draft')) {
+      await route.fulfill({
+        json: { revision: 0, data: null, updatedAt: null }
+      });
+      return;
+    }
+
     if (url.pathname.endsWith('/media') && request.method() === 'POST') {
       await route.fulfill({
         status: 409,
