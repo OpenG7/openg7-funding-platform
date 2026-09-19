@@ -25,6 +25,12 @@ secret ni appel reseau externe.
 
 ## Deux niveaux de verification
 
+Le suivi dispose aussi d'une suite navigateur isolée : `yarn test:ui:followup`.
+Elle couvre les interactions avec API interceptée, notamment les reprises réseau,
+les doubles soumissions, les statuts distincts, les médias et le formulaire FR/EN.
+Voir le [détail des travaux et des limites](./sponsorship-followup-improvements.md).
+Cette suite complète les contrôles statiques et les scénarios Docker ci-dessous.
+
 Depuis l'assistant admin, « Ouvrir la commandite », les liens des réponses et
 les brouillons de relance ou de note ciblent
 `/admin/fundraiser/sponsors?sponsorshipId=<UUID de contribution>`.

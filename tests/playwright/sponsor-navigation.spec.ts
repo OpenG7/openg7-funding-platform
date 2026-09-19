@@ -142,7 +142,12 @@ test.describe('Docker corporate sponsor navigation', () => {
       page.getByRole('heading', { name: /Commandite accept.e/i })
     ).toBeVisible();
 
-    await page.getByLabel(/Nom de l'entreprise/i).fill(fixture.companyName);
+    await page
+      .getByRole('button', { name: /Modifier mes informations/i })
+      .click();
+    await page
+      .getByLabel(/Nom de l'entreprise/i)
+      .fill(fixture.companyName + ' - mise a jour');
     await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
     await page.getByLabel(/Courriel du contact/i).fill(fixture.contactEmail);
     await page.getByLabel(/Site web/i).fill(fixture.websiteUrl);
@@ -151,7 +156,9 @@ test.describe('Docker corporate sponsor navigation', () => {
       .getByRole('button', { name: /Enregistrer les informations/i })
       .click();
 
-    await expect(page.getByText(/Informations enregistr.es/i)).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: /Informations enregistr.es/i })
+    ).toBeVisible();
   });
 
   test('validates empty required fields show error messages and prevent form submission', async ({
@@ -171,19 +178,20 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Nom du contact/i).fill('');
     await page.getByLabel(/Courriel du contact/i).fill('');
 
-    await expect(page.locator('#company-name-error')).toHaveText(
-      "Le nom de l'entreprise est requis."
+    await page
+      .getByRole('button', { name: /Enregistrer les informations/i })
+      .click();
+    await expect(page.locator('#followup-companyName-error')).toHaveText(
+      "Nom de l'entreprise : ce champ est requis."
     );
-    await expect(page.locator('#contact-name-error')).toHaveText(
-      'Le nom du contact est requis.'
+    await expect(page.locator('#followup-contactName-error')).toHaveText(
+      'Nom du contact : ce champ est requis.'
     );
-    await expect(page.locator('#contact-email-error')).toHaveText(
-      'Le courriel du contact est requis.'
+    await expect(page.locator('#followup-contactEmail-error')).toHaveText(
+      'Courriel du contact : ce champ est requis.'
     );
 
-    await expect(
-      page.getByRole('button', { name: /Enregistrer les informations/i })
-    ).toBeDisabled();
+    await expect(page.getByLabel(/Nom de l'entreprise/i)).toBeFocused();
   });
 
   test('validates invalid email format shows error and prevents form submission', async ({
@@ -204,13 +212,14 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Courriel du contact/i).fill('invalid-email');
     await page.getByLabel(/Site web/i).fill(fixture.websiteUrl);
 
-    await expect(page.locator('#contact-email-error')).toHaveText(
-      'Le courriel du contact doit etre valide.'
+    await expect(page.locator('#followup-contactEmail-error')).toHaveText(
+      'Le courriel du contact doit être valide.'
     );
 
-    await expect(
-      page.getByRole('button', { name: /Enregistrer les informations/i })
-    ).toBeDisabled();
+    await page
+      .getByRole('button', { name: /Enregistrer les informations/i })
+      .click();
+    await expect(page.getByLabel(/Courriel du contact/i)).toBeFocused();
   });
 
   test('rejects a non-https website and prevents form submission', async ({
@@ -231,13 +240,14 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Courriel du contact/i).fill(fixture.contactEmail);
     await page.getByLabel(/Site web/i).fill('http://invalid-http-url.com');
 
-    await expect(page.locator('#website-url-error')).toHaveText(
-      'Le site web doit commencer par https://.'
+    await page
+      .getByRole('button', { name: /Enregistrer les informations/i })
+      .click();
+    await expect(page.locator('#followup-websiteUrl-error')).toHaveText(
+      'Site web doit commencer par https://.'
     );
 
-    await expect(
-      page.getByRole('button', { name: /Enregistrer les informations/i })
-    ).toBeDisabled();
+    await expect(page.getByLabel(/Site web/i)).toBeFocused();
   });
 
   test('reaches the refund policy and support pages referenced during the sponsorship flow', async ({

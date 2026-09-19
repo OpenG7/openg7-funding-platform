@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": [
+    "../apps/**/*.ts",
+    "../packages/**/*.ts",
+    "playwright/sponsorship-followup.spec.ts",
+    "playwright/sponsor-media-upload-feedback.spec.ts"
+  ]
+}

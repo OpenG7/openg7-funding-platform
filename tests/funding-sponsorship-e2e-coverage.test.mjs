@@ -1,3 +1,4 @@
+import { readSponsorshipFollowupSource } from './support/sponsorship-followup-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -90,9 +91,7 @@ test('E2E 1/8: enterprise sponsorship checkout returns with recovery token', () 
 
 test('E2E 2/8: sponsor can reopen token follow-up and submit company details', () => {
   const routes = read('apps/funding-web/src/app/app.routes.ts');
-  const followupPage = read(
-    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts'
-  );
+  const followupPage = readSponsorshipFollowupSource();
   const fundingService = read(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts'
   );
@@ -119,8 +118,8 @@ test('E2E 2/8: sponsor can reopen token follow-up and submit company details', (
       'getSponsorshipFollowup',
       'submitSponsorshipFollowupDetails',
       'ReactiveFormsModule',
-      'formControlName="contactEmail"',
-      'formErrorMessages',
+      'contactEmail',
+      'formErrors',
       'errorFor(',
       'scheduleAutofillSync',
       'current.publicReference',
@@ -156,16 +155,14 @@ test('E2E 2/8: sponsor can reopen token follow-up and submit company details', (
 });
 
 test('E2E 3/8: invalid or missing follow-up token stays private and shows an error', () => {
-  const followupPage = read(
-    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts'
-  );
+  const followupPage = readSponsorshipFollowupSource();
   const api = read('apps/funding-api/src/main.ts');
 
   assertIncludesAll(
     followupPage,
     [
       'if (!this.token())',
-      "this.state.set('error')",
+      "this.loadError.set('access')",
       'Lien introuvable',
       'Contacter le support'
     ],
@@ -540,9 +537,7 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
 });
 
 test('E2E 8/9: sponsor follow-up page shows pending review status before details submitted', () => {
-  const followupPage = read(
-    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts'
-  );
+  const followupPage = readSponsorshipFollowupSource();
   const adminService = read(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
   );

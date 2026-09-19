@@ -2583,6 +2583,159 @@
         "loading": "Synchronisation des données publiques...",
         "error": "Impossible de charger la transparence publique."
       }
+    },
+    "followup": {
+      "eyebrow": "Commandite OpenG7",
+      "title": "Suivi de votre commandite",
+      "intro": "Consultez l’état de votre commandite et complétez les renseignements nécessaires à sa révision.",
+      "loading": "Chargement du suivi...",
+      "accessTitle": "Lien introuvable",
+      "accessCopy": "Le lien de suivi est absent, invalide ou expiré. Reprenez le lien reçu par courriel ou contactez le support OpenG7.",
+      "support": "Contacter le support",
+      "loadError": "Le suivi est temporairement indisponible. Réessayez dans un instant.",
+      "refreshError": "L’actualisation a échoué. Les informations affichées peuvent être anciennes. Votre saisie est conservée.",
+      "retry": "Réessayer",
+      "refresh": "Actualiser le statut",
+      "completeDetails": "Compléter mes informations",
+      "status": {
+        "title": "État de la commandite",
+        "reference": "Référence OpenG7",
+        "assigning": "En attribution",
+        "payment": "Statut du paiement",
+        "review": "Validation",
+        "amount": "Montant de la contribution",
+        "reviewedAt": "Dernière revue",
+        "unavailable": "Non disponible"
+      },
+      "payment": {
+        "paid": {
+          "label": "Confirmé",
+          "copy": "Votre paiement est reçu. Vous pouvez compléter les informations de votre entreprise pour la révision OpenG7."
+        },
+        "pending": {
+          "label": "En attente",
+          "copy": "Votre paiement est en cours de confirmation. Actualisez le statut dans un instant."
+        },
+        "failed": {
+          "label": "Échoué",
+          "copy": "Le paiement a échoué. Contactez le support si vous avez besoin d’aide pour poursuivre."
+        },
+        "expired": {
+          "label": "Expiré",
+          "copy": "La session de paiement a expiré. Contactez le support pour connaître la suite."
+        },
+        "refunded": {
+          "label": "Remboursé",
+          "copy": "Ce paiement a été remboursé. Ce statut ne confirme aucune visibilité publique. Les renseignements du dossier restent modifiables selon son état de revue."
+        },
+        "disputed": {
+          "label": "En litige",
+          "copy": "Ce paiement fait l’objet d’un litige. Contactez le support pour le suivi ; ce statut ne confirme aucune visibilité publique."
+        },
+        "unknown": {
+          "label": "Statut indisponible",
+          "copy": "Le statut du paiement ne peut pas être interprété. Actualisez le suivi ou contactez le support."
+        }
+      },
+      "review": {
+        "pending_review": {
+          "label": "En validation",
+          "title": "Révision OpenG7",
+          "copy": "La validation en cours est indépendante du paiement. Complétez les renseignements demandés pour permettre la révision."
+        },
+        "approved": {
+          "label": "Acceptée",
+          "title": "Commandite acceptée",
+          "copy": "Votre commandite est approuvée. La visibilité publique et la publication sont décidées séparément par OpenG7."
+        },
+        "rejected": {
+          "label": "Refusée",
+          "title": "Commandite refusée",
+          "copy": "La visibilité publique n’est pas activée. Contactez le support pour toute clarification. Le refus ne confirme pas un remboursement."
+        }
+      },
+      "steps": {
+        "title": "Prochaines étapes",
+        "details": "Détails entreprise",
+        "received": "Informations enregistrées",
+        "required": "À compléter ci-dessous",
+        "review": "Révision OpenG7",
+        "publication": "Publication",
+        "publicationUnknown": "Le calendrier de publication n’est pas communiqué dans ce suivi. L’approbation ne confirme ni planification ni publication."
+      },
+      "benefits": {
+        "title": "Avantages de votre commandite",
+        "website_mention": "Mention de votre entreprise sur OpenG7.org",
+        "facebook_batch": "Inclusion dans une publication collective de reconnaissance sur Facebook",
+        "linkedin_batch": "Inclusion dans une publication collective de reconnaissance sur LinkedIn",
+        "manual": "Ces présences sont soumises à une décision manuelle et ne sont jamais publiées automatiquement au paiement."
+      },
+      "form": {
+        "title": "Informations de commandite",
+        "privacy": "Aucun nom ni logo n’est publié automatiquement. Les coordonnées de contact restent privées.",
+        "companyName": "Nom de l'entreprise",
+        "contactName": "Nom du contact",
+        "contactEmail": "Courriel du contact",
+        "websiteUrl": "Site web",
+        "logoUrl": "Lien du logo existant",
+        "message": "Message ou précision",
+        "required": "requis",
+        "unavailable": "La modification des renseignements n’est pas disponible pour l’état actuel de ce dossier.",
+        "editWarning": "Enregistrer une modification remettra votre commandite en révision et peut suspendre sa présence au répertoire public jusqu’à une nouvelle approbation.",
+        "edit": "Modifier mes informations",
+        "cancel": "Annuler la saisie",
+        "errorTitle": "Vérifiez les champs suivants",
+        "unconfirmed": "Le serveur n’a pas confirmé l’enregistrement. Votre saisie est conservée ; réessayez.",
+        "saveError": "L’enregistrement a échoué. Votre saisie est conservée ; réessayez.",
+        "saving": "Traitement en cours...",
+        "save": "Enregistrer les informations",
+        "unchanged": "Aucune modification à enregistrer.",
+        "saved": "Informations enregistrées. Les modifications ont été transmises pour révision.",
+        "errors": {
+          "required": "{{field}} : ce champ est requis.",
+          "email": "Le courriel du contact doit être valide.",
+          "https": "{{field}} doit commencer par https://.",
+          "length": "{{field}} dépasse la longueur permise."
+        }
+      },
+      "media": {
+        "title": "Logo et photos de présentation",
+        "privacy": "Les fichiers sont enregistrés dès leur téléversement, séparément des renseignements, et restent privés jusqu’à leur validation. Une photo est nécessaire pour préparer la publication.",
+        "limits": "JPEG, PNG ou WebP · {{size}} Mo maximum par fichier · {{count}} photos maximum.",
+        "disabled": "Le téléversement est disponible lorsque le dossier autorise la modification.",
+        "approvedLogo": "Le logo approuvé doit être remplacé par l’administrateur.",
+        "description": "Description des images à téléverser",
+        "descriptionHelp": "Cette description sera utilisée pour l’accessibilité. Téléversez les images séparément pour donner une description différente à chacune.",
+        "replaceLogo": "Remplacer le logo",
+        "addLogo": "Ajouter le logo",
+        "addPhotos": "Ajouter des photos",
+        "missingPhoto": "Aucune photo de présentation n’a encore été ajoutée.",
+        "preview": "Aperçu de {{name}}",
+        "remove": "Retirer {{name}}",
+        "previewUnavailable": "Aperçu indisponible",
+        "logo": "Logo",
+        "supporting_image": "Photo de présentation",
+        "review": {
+          "pending_review": "En validation",
+          "approved": "Approuvé",
+          "rejected": "À remplacer"
+        },
+        "queued": "En attente de téléversement...",
+        "uploading": "Téléversement et traitement en cours...",
+        "uploaded": "Téléversement réussi. En attente de validation.",
+        "result": "{{received}} fichier(s) reçu(s), {{failed}} échec(s).",
+        "limit": "La limite de {{count}} fichier(s) est atteinte.",
+        "deleteConfirm": "Supprimer ce média en attente ?",
+        "deleted": "Média supprimé.",
+        "deleteError": "La suppression de l’image a échoué. Réessayez.",
+        "loadError": "Les médias n’ont pas pu être actualisés. Les fichiers téléversés sont conservés.",
+        "emptyFile": "Échec du téléversement : le fichier est vide.",
+        "tooLarge": "Échec du téléversement : le fichier dépasse la limite de {{size}} Mo.",
+        "invalidType": "Échec du téléversement : choisissez une image JPEG, PNG ou WebP valide.",
+        "paymentUnconfirmed": "Échec du téléversement : le paiement de cette commandite n'est pas encore confirmé.",
+        "expiredLink": "Échec du téléversement : ce lien de suivi est invalide ou expiré.",
+        "uploadError": "Échec du téléversement : le serveur n’a pas pu accepter cette image. Réessayez ou choisissez un autre fichier."
+      }
     }
   }
 }

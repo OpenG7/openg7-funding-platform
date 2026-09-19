@@ -1,0 +1,579 @@
+import type { Page, Route } from '@playwright/test';
+import type { SponsorshipFollowupResponse } from '@openg7/funding-core';
+
+import { expect, test } from './support/test.js';
+
+const token = 'e2e-followup-fixture-local-only-000000000001';
+const path = '/fonds-des-batisseurs/suivi-commandite';
+const fixture = (): SponsorshipFollowupResponse => ({
+  found: true,
+  publicReference: 'CMD-LOCAL-101',
+  paymentStatus: 'paid',
+  reviewStatus: 'pending_review',
+  amount: 250,
+  currency: 'CAD',
+  paidAt: '2026-09-18T12:00:00Z',
+  sponsorshipTier: null,
+  sponsorshipBenefits: ['website_mention'],
+  detailsSubmitted: true,
+  companyName: 'Atelier Boréal',
+  contactName: 'Camille',
+  contactEmail: 'camille@example.test',
+  websiteUrl: 'https://example.test',
+  logoUrl: null,
+  message: null,
+  reviewedAt: null
+});
+const json = (route: Route, body: unknown, status = 200) =>
+  route.fulfill({
+    status,
+    contentType: 'application/json',
+    body: JSON.stringify(body)
+  });
+
+async function mock(
+  page: Page,
+  options: {
+    current?: SponsorshipFollowupResponse;
+    get?: (route: Route, count: number) => Promise<void>;
+    post?: (route: Route) => Promise<void>;
+  } = {}
+) {
+  let current = options.current ?? fixture();
+  let reads = 0;
+  let posts = 0;
+  await page.route('**/api/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/sponsorship-followup') {
+      reads++;
+      await (options.get ? options.get(route, reads) : json(route, current));
+    } else if (url.pathname === '/api/sponsorship-followup/details') {
+      posts++;
+      if (options.post) await options.post(route);
+      else {
+        current = {
+          ...current,
+          ...route.request().postDataJSON(),
+          reviewStatus: 'pending_review',
+          detailsSubmitted: true
+        };
+        await json(route, { received: true, recorded: true });
+      }
+    } else if (url.pathname === '/api/sponsorship-followup/media') {
+      await json(route, {
+        assets: [],
+        limits: {
+          maxUploadBytes: 8 * 1024 * 1024,
+          maxSupportingImages: 3,
+          acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
+        }
+      });
+    } else await json(route, {}, 503);
+  });
+  return { posts: () => posts, reads: () => reads };
+}
+async function visit(page: Page, english = false) {
+  await page.goto((english ? '/en' : '') + path + '?token=' + token);
+  await expect(
+    page.getByRole('heading', {
+      name: english ? 'Your sponsorship follow-up' : 'Suivi de votre commandite'
+    })
+  ).toBeVisible();
+}
+const save = (page: Page) =>
+  page.getByRole('button', {
+    name: 'Enregistrer les informations',
+    exact: true
+  });
+const company = (page: Page) =>
+  page.getByLabel("Nom de l'entreprise", { exact: false });
+
+test('an unavailable service is retryable and never reported as an invalid link', async ({
+  page
+}) => {
+  await mock(page, {
+    get: (route, count) => json(route, fixture(), count === 1 ? 503 : 200)
+  });
+  await visit(page);
+  await expect(page.getByRole('alert')).toContainText(
+    'temporairement indisponible'
+  );
+  await expect(
+    page.getByRole('heading', { name: 'Lien introuvable' })
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Réessayer', exact: true }).click();
+  await expect(company(page)).toHaveValue('Atelier Boréal');
+});
+
+test('refresh confirms pending payment from the server and preserves typed details', async ({
+  page
+}) => {
+  await mock(page, {
+    get: (route, count) =>
+      json(route, {
+        ...fixture(),
+        paymentStatus: count === 1 ? 'pending' : 'paid'
+      })
+  });
+  await visit(page);
+  await expect(company(page)).toBeDisabled();
+  await page.getByRole('button', { name: 'Actualiser le statut' }).click();
+  await expect(company(page)).toBeEnabled();
+  await company(page).fill('Mon brouillon');
+  await page.getByRole('button', { name: 'Actualiser le statut' }).click();
+  await expect(company(page)).toHaveValue('Mon brouillon');
+});
+
+test('a confirmed save stays saved when refresh fails and cannot be submitted twice', async ({
+  page
+}) => {
+  let releaseRead: (() => void) | undefined;
+  const readGate = new Promise<void>((resolve) => {
+    releaseRead = resolve;
+  });
+  const calls = await mock(page, {
+    get: async (route, count) => {
+      if (count > 1) {
+        await readGate;
+        await json(route, {}, 503);
+      } else await json(route, { ...fixture(), detailsSubmitted: false });
+    }
+  });
+  await visit(page);
+  await company(page).fill('Nouveau nom');
+  await save(page).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toBeVisible();
+  await expect(company(page)).toBeDisabled();
+  await page.locator('form').evaluate((form) => {
+    form.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true })
+    );
+  });
+  expect(calls.posts()).toBe(1);
+  releaseRead!();
+  await expect(page.getByRole('alert')).toContainText('actualisation a échoué');
+  await expect(company(page)).toHaveValue('Nouveau nom');
+  await expect(save(page)).toBeDisabled();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toBeVisible();
+});
+
+test('a pending POST cannot be submitted twice and the confirmed draft becomes pristine', async ({
+  page
+}) => {
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const calls = await mock(page, {
+    post: async (route) => {
+      await gate;
+      await json(route, { received: true, recorded: true });
+    },
+    get: (route, count) =>
+      json(route, {
+        ...fixture(),
+        companyName: count === 1 ? 'Atelier Boréal' : 'Nouveau nom'
+      })
+  });
+  await visit(page);
+  await company(page).fill('Nouveau nom');
+  await save(page).click();
+  await expect(company(page)).toBeDisabled();
+  await page
+    .locator('form')
+    .evaluate((form) =>
+      form.dispatchEvent(
+        new Event('submit', { bubbles: true, cancelable: true })
+      )
+    );
+  expect(calls.posts()).toBe(1);
+  release!();
+  await expect(save(page)).toBeDisabled();
+  await expect(company(page)).toHaveValue('Nouveau nom');
+});
+
+test('recorded false preserves the draft and permits a retry without a success message', async ({
+  page
+}) => {
+  let attempt = 0;
+  const calls = await mock(page, {
+    post: (route) => json(route, { received: true, recorded: ++attempt > 1 })
+  });
+  await visit(page);
+  await company(page).fill('Brouillon non enregistré');
+  await save(page).click();
+  await expect(page.getByRole('alert')).toContainText('n’a pas confirmé');
+  await expect(company(page)).toHaveValue('Brouillon non enregistré');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toHaveCount(0);
+  await save(page).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toBeVisible();
+  expect(calls.posts()).toBe(2);
+});
+
+test('network failure on save preserves the draft and permits a retry', async ({
+  page
+}) => {
+  let attempt = 0;
+  await mock(page, {
+    post: (route) =>
+      ++attempt === 1
+        ? route.abort('failed')
+        : json(route, { received: true, recorded: true })
+  });
+  await visit(page);
+  await company(page).fill('Brouillon réseau');
+  await save(page).click();
+  await expect(page.getByRole('alert')).toContainText(
+    'enregistrement a échoué'
+  );
+  await expect(company(page)).toHaveValue('Brouillon réseau');
+  await save(page).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toBeVisible();
+});
+
+test('approved sponsorship requires explicit editing; unchanged information is never resubmitted', async ({
+  page
+}) => {
+  const calls = await mock(page, {
+    current: { ...fixture(), reviewStatus: 'approved' }
+  });
+  await visit(page);
+  await expect(company(page)).toBeDisabled();
+  await expect(page.locator('[data-og7="followup-publication"]')).toContainText(
+    'ne confirme ni planification ni publication'
+  );
+  await page.getByRole('button', { name: 'Modifier mes informations' }).click();
+  await expect(company(page)).toBeEnabled();
+  await expect(save(page)).toBeDisabled();
+  await expect(
+    page.getByText('Enregistrer une modification remettra', { exact: false })
+  ).toBeVisible();
+  await company(page).fill('Atelier modifié');
+  await page.getByRole('button', { name: 'Annuler la saisie' }).click();
+  await expect(company(page)).toHaveValue('Atelier Boréal');
+  expect(calls.posts()).toBe(0);
+  await page.getByRole('button', { name: 'Modifier mes informations' }).click();
+  await company(page).fill('Atelier modifié');
+  await save(page).click();
+  await expect(
+    page.getByRole('heading', { name: 'Commandite acceptée' })
+  ).toHaveCount(0);
+  expect(calls.posts()).toBe(1);
+});
+
+for (const [status, label] of [
+  ['failed', 'Échoué'],
+  ['expired', 'Expiré'],
+  ['refunded', 'Remboursé'],
+  ['disputed', 'En litige']
+]) {
+  test(
+    'payment ' + status + ' has its own message and never claims to be pending',
+    async ({ page }) => {
+      await mock(page, { current: { ...fixture(), paymentStatus: status! } });
+      await visit(page);
+      await expect(
+        page.getByRole('heading', { name: label!, exact: true })
+      ).toBeVisible();
+      await expect(
+        page.getByText('Paiement en confirmation', { exact: false })
+      ).toHaveCount(0);
+    }
+  );
+}
+
+test('required errors wait for submission and lead keyboard focus to the first invalid field', async ({
+  page
+}) => {
+  const calls = await mock(page, {
+    current: {
+      ...fixture(),
+      detailsSubmitted: false,
+      companyName: null,
+      contactName: null,
+      contactEmail: null
+    }
+  });
+  await visit(page);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await save(page).click();
+  await expect(company(page)).toBeFocused();
+  await expect(page.getByRole('alert')).toContainText(
+    'Vérifiez les champs suivants'
+  );
+  await company(page).fill('   ');
+  await save(page).click();
+  expect(calls.posts()).toBe(0);
+  await page
+    .getByRole('link', { name: /Courriel du contact : ce champ est requis/ })
+    .click();
+  await expect(page.getByLabel('Courriel du contact')).toBeFocused();
+});
+
+test('expired access clears the displayed record and token instead of retaining private information', async ({
+  page
+}) => {
+  await mock(page, {
+    get: (route, count) => json(route, fixture(), count === 1 ? 200 : 404)
+  });
+  await visit(page);
+  await expect(company(page)).toBeVisible();
+  await page.getByRole('button', { name: 'Actualiser le statut' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Lien introuvable' })
+  ).toBeVisible();
+  await expect(company(page)).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem('openg7-sponsorship-followup-token')
+    )
+  ).toBeNull();
+});
+
+test('an explicit invalid token never opens a different record from session storage', async ({
+  page
+}) => {
+  const calls = await mock(page);
+  await visit(page);
+  await expect(company(page)).toBeVisible();
+  await page.goto(path + '?token=invalid');
+  await expect(
+    page.getByRole('heading', { name: 'Lien introuvable' })
+  ).toBeVisible();
+  expect(calls.reads()).toBe(1);
+});
+
+test('English mobile follow-up is translated and language navigation keeps the same record without exposing the token', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mock(page);
+  await visit(page, true);
+  await expect(page.getByLabel('Company name')).toHaveValue('Atelier Boréal');
+  await expect(
+    page.getByRole('heading', { name: 'Logo and presentation photos' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Save information', exact: true })
+  ).toBeVisible();
+  expect(new URL(page.url()).searchParams.has('token')).toBe(false);
+  await page.screenshot({
+    path: test.info().outputPath('followup-mobile-en.png'),
+    fullPage: true
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  ).toBe(true);
+  await page
+    .getByRole('button', { name: 'Changer la langue du site vers le français' })
+    .click();
+  await expect(page).toHaveURL(new RegExp(path + '$'));
+  await expect(company(page)).toHaveValue('Atelier Boréal');
+  await page.reload();
+  await expect(company(page)).toHaveValue('Atelier Boréal');
+});
+
+test('a rejected sponsorship keeps details and uploads disabled', async ({
+  page
+}) => {
+  await mock(page, { current: { ...fixture(), reviewStatus: 'rejected' } });
+  await visit(page);
+  await expect(
+    page.getByRole('heading', { name: 'Commandite refusée' })
+  ).toBeVisible();
+  await expect(company(page)).toBeDisabled();
+  await expect(
+    page.getByLabel('Ajouter des photos', { exact: true })
+  ).toBeDisabled();
+  await expect(save(page)).toBeDisabled();
+});
+
+test('server validation failure preserves the record and draft for correction', async ({
+  page
+}) => {
+  await mock(page, {
+    post: (route) => json(route, { error: 'Invalid field' }, 400)
+  });
+  await visit(page);
+  await company(page).fill('À corriger');
+  await save(page).click();
+  await expect(page.getByRole('alert')).toContainText(
+    'enregistrement a échoué'
+  );
+  await expect(company(page)).toHaveValue('À corriger');
+  await expect(
+    page.getByRole('heading', { name: 'Lien introuvable' })
+  ).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem('openg7-sponsorship-followup-token')
+    )
+  ).toBe(token);
+});
+
+test('native autofill is synchronized before saving even without input events', async ({
+  page
+}) => {
+  let received: Record<string, unknown> = {};
+  await mock(page, {
+    current: { ...fixture(), detailsSubmitted: false },
+    post: async (route) => {
+      received = route.request().postDataJSON();
+      await json(route, { received: true, recorded: true });
+    }
+  });
+  await visit(page);
+  await company(page).evaluate((input: HTMLInputElement) => {
+    input.value = 'Nom rempli par le navigateur';
+  });
+  await save(page).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toBeVisible();
+  expect(received.companyName).toBe('Nom rempli par le navigateur');
+});
+
+test('media uses server limits, preserves uploads after refresh failure and confirms deletion', async ({
+  page
+}) => {
+  await mock(page);
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    'base64'
+  );
+  let uploaded = false;
+  let deleted = false;
+  let reloadFails = true;
+  let posts = 0;
+  let deletes = 0;
+  const asset = {
+    id: 'media-local-1',
+    kind: 'supporting_image',
+    reviewStatus: 'pending_review',
+    altText: 'Atelier',
+    width: 1,
+    height: 1,
+    processedSizeBytes: png.length,
+    version: 'v1'
+  };
+  await page.route('**/api/sponsorship-followup/media**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/delete')) {
+      deletes++;
+      deleted = true;
+      await json(route, { deleted: true, assetId: asset.id });
+    } else if (url.pathname.includes('/content/'))
+      await route.fulfill({ contentType: 'image/png', body: png });
+    else if (route.request().method() === 'POST') {
+      posts++;
+      uploaded = true;
+      await json(route, { asset });
+    } else if (uploaded && reloadFails) await json(route, {}, 503);
+    else
+      await json(route, {
+        assets: uploaded && !deleted ? [asset] : [],
+        limits: {
+          maxUploadBytes: 1024,
+          maxSupportingImages: 1,
+          acceptedMimeTypes: ['image/png']
+        }
+      });
+  });
+  await visit(page);
+  const input = page.getByLabel('Ajouter des photos', { exact: true });
+  await expect(input).toBeEnabled();
+  await input.setInputFiles([
+    { name: 'invalid.gif', mimeType: 'image/gif', buffer: png },
+    { name: 'atelier.png', mimeType: 'image/png', buffer: png }
+  ]);
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Les médias' })
+  ).toBeVisible();
+  expect(posts).toBe(1);
+  await expect(
+    page
+      .locator('[data-og7="media-upload-attempt"]')
+      .filter({ hasText: 'atelier.png' })
+  ).toContainText('Téléversement réussi');
+  reloadFails = false;
+  await page.getByRole('button', { name: 'Réessayer', exact: true }).click();
+  await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(1);
+  await expect(
+    page
+      .locator('[data-og7="media-upload-attempt"]')
+      .filter({ hasText: 'atelier.png' })
+  ).toHaveCount(0);
+  await expect(input).toBeDisabled();
+  await expect(
+    page.getByRole('img', { name: 'Atelier', exact: true })
+  ).toBeVisible();
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page
+    .getByRole('button', { name: 'Retirer Photo de présentation' })
+    .click();
+  expect(deletes).toBe(0);
+  page.once('dialog', (dialog) => dialog.accept());
+  await page
+    .getByRole('button', { name: 'Retirer Photo de présentation' })
+    .click();
+  await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(0);
+  await expect(input).toBeEnabled();
+  expect(deletes).toBe(1);
+});
+
+test('desktop layout supports the form without horizontal overflow', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await mock(page);
+  await visit(page);
+  await expect(company(page)).toBeEnabled();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  ).toBe(true);
+  await page.screenshot({
+    path: test.info().outputPath('followup-desktop-fr.png'),
+    fullPage: true
+  });
+});
+
+test('a pristine form refreshes from the server after saving and can intentionally restore an earlier value', async ({
+  page
+}) => {
+  let current = fixture();
+  const calls = await mock(page, {
+    get: (route) => json(route, current),
+    post: async (route) => {
+      current = { ...current, ...route.request().postDataJSON() };
+      await json(route, { received: true, recorded: true });
+    }
+  });
+  await visit(page);
+  await company(page).fill('Premier changement');
+  await save(page).click();
+  await expect(save(page)).toBeDisabled();
+  current = { ...current, companyName: 'Correction externe' };
+  await page.getByRole('button', { name: 'Actualiser le statut' }).click();
+  await expect(company(page)).toHaveValue('Correction externe');
+  await expect(save(page)).toBeDisabled();
+  await company(page).fill('Premier changement');
+  await save(page).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toBeVisible();
+  expect(calls.posts()).toBe(2);
+});

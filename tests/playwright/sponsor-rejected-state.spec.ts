@@ -37,7 +37,6 @@ test.describe('Sponsor side rejected state validation', () => {
     await expect(
       page.getByRole('heading', { name: /Commandite refus.e/i })
     ).toBeVisible();
-    await expect(page.getByText(/Validation termin.e/i)).toBeVisible();
     await expect(
       page
         .locator('.reference-code', { hasText: fixture.publicReference })
@@ -45,7 +44,7 @@ test.describe('Sponsor side rejected state validation', () => {
     ).toBeVisible();
 
     // Verify the action note is shown
-    await expect(page.locator('article.review-note.rejected')).toBeVisible();
+    await expect(page.locator('.review-note.rejected')).toBeVisible();
 
     // Verify the payment status is still paid
     await expect(

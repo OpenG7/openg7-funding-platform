@@ -23,6 +23,7 @@ import {
 import { FundingSnapshot } from '@openg7/funding-core';
 import { FundingProjectConfig } from '@openg7/funding-models';
 
+import { SponsorshipFollowupError } from '../models/sponsorship-followup-ui.js';
 import { FUNDING_PROJECT_CONFIG } from '../config/funding-project-config.token.js';
 import { OPENG7_FUNDING_CONFIG } from '../config/openg7-funding.config.js';
 
@@ -216,7 +217,7 @@ export class FundingService {
     );
 
     if (!response.ok) {
-      throw new Error('Sponsorship follow-up could not be loaded.');
+      throw new SponsorshipFollowupError(response.status);
     }
 
     return (await response.json()) as SponsorshipFollowupResponse;
@@ -237,12 +238,7 @@ export class FundingService {
     );
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        readonly error?: string;
-      } | null;
-      throw new Error(
-        body?.error ?? 'Sponsorship follow-up details could not be submitted.'
-      );
+      throw new SponsorshipFollowupError(response.status);
     }
 
     return (await response.json()) as SponsorshipDetailsResult;

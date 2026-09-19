@@ -1,3 +1,4 @@
+import { readSponsorshipFollowupSource } from './support/sponsorship-followup-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -283,10 +284,7 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
     'utf8'
   );
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const followupPage = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
-    'utf8'
-  );
+  const followupPage = readSponsorshipFollowupSource();
   const adminContributionsPage = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/admin-contributions-page/admin-contributions-page.component.ts',
     'utf8'
@@ -1029,10 +1027,7 @@ test('Sponsorship never publishes automatically and stays gated behind manual re
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
   );
-  const followupPage = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
-    'utf8'
-  );
+  const followupPage = readSponsorshipFollowupSource();
 
   const recordDetailsBody = extractBetween(
     repository,
@@ -1046,7 +1041,7 @@ test('Sponsorship never publishes automatically and stays gated behind manual re
   );
 
   assert.ok(followupPage.includes('current.sponsorshipBenefits'));
-  assert.ok(followupPage.includes('benefitLabel(benefit)'));
+  assert.ok(followupPage.includes('funding.followup.benefits.'));
   assert.match(
     followupPage,
     /jamais publi(?:e|é)es automatiquement au\s+paiement/
@@ -1335,10 +1330,7 @@ test('Sponsorship follow-up tokens expire and details edits return to review', (
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
   );
-  const followupPage = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
-    'utf8'
-  );
+  const followupPage = readSponsorshipFollowupSource();
   const recordDetailsBody = extractBetween(
     repository,
     'export const recordSponsorshipDetailsForContribution',
@@ -1363,35 +1355,6 @@ test('Sponsorship follow-up tokens expire and details edits return to review', (
   assert.ok(followupPage.includes('openg7-sponsorship-followup-token'));
   assert.ok(followupPage.includes('window.sessionStorage.setItem'));
   assert.ok(followupPage.includes('window.sessionStorage.getItem'));
-});
-
-test('Sponsorship follow-up form explains disabled submit and browser autofill state', () => {
-  const followupPage = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
-    'utf8'
-  );
-
-  assert.ok(followupPage.includes('SponsorshipFollowupFormErrors'));
-  assert.ok(followupPage.includes('ReactiveFormsModule'));
-  assert.ok(followupPage.includes('[formGroup]="sponsorshipForm"'));
-  assert.ok(followupPage.includes('formControlName="contactEmail"'));
-  assert.ok(
-    followupPage.includes(
-      'readonly sponsorshipForm = this.formBuilder.nonNullable.group'
-    )
-  );
-  assert.ok(followupPage.includes('Validators.required'));
-  assert.ok(followupPage.includes('optionalHttpsUrlValidator'));
-  assert.ok(followupPage.includes('readonly formErrors = computed'));
-  assert.ok(followupPage.includes('readonly formErrorMessages = computed'));
-  assert.ok(followupPage.includes("errorFor('companyName')"));
-  assert.ok(followupPage.includes("errorFor('contactEmail')"));
-  assert.ok(followupPage.includes('class="field-error"'));
-  assert.ok(followupPage.includes('class="form-error-summary full"'));
-  assert.ok(followupPage.includes('scheduleAutofillSync'));
-  assert.ok(followupPage.includes('syncFormControlsFromInputs'));
-  assert.ok(followupPage.includes('this.sponsorshipForm.patchValue(values)'));
-  assert.ok(followupPage.includes('this.sponsorshipForm.getRawValue()'));
 });
 
 test('Sensitive sponsorship API routes have in-process rate limiting', () => {
