@@ -2493,26 +2493,39 @@
         "dragonAlt": "Guardian dragon protecting a public fund chest",
         "title": "Builders Fund",
         "titleStrong": "transparency",
-        "copy": "Trust is built through proof. Every contribution, fee, and fund movement is published in aggregated form.",
+        "copy": "Follow confirmed contributions, recorded fees and refunds. Review published allocations and the calculation method.",
         "viewRegistry": "View registry",
-        "downloadReport": "Download report"
+        "downloadReport": "Download the JSON report"
       },
       "sync": {
         "activeCampaignValue": "Builders Fund",
-        "pending": "Pending"
+        "pending": "Pending",
+        "title": "Public data status",
+        "snapshot": "Data timestamp",
+        "checked": "Last successful check",
+        "database": "Fund registry",
+        "stripe": "Stripe direct"
       },
       "kpis": {
         "ariaLabel": "Public financial indicators",
         "contributionCount": "{{ count }} confirmed contributions",
         "refunds": "Refunds",
-        "totalFees": "Total fees",
-        "totalRefunded": "Total refunded",
-        "availableForProjects": "Available for our projects",
-        "monthlyProgress": "{{ progress }}% reached"
+        "totalFees": "Fees recorded in the source",
+        "totalRefunded": "Cumulative refunds",
+        "availableForProjects": "After fees and refunds, before operating expenses",
+        "monthlyProgress": "{{ progress }}% reached",
+        "cumulative": "Cumulative since the fund began",
+        "netBeforeExpenses": "Net before expenses",
+        "feesPending": "Provisional net: fees await confirmation for {{ count }} payment(s).",
+        "feesComplete": "Fees are recorded for all payments in this projection.",
+        "feesUnknown": "This source does not specify whether all fees are available."
       },
       "campaign": {
-        "progress": "Campaign progress",
-        "remaining": "still needed to reach the monthly goal."
+        "progress": "This month’s contributions",
+        "remaining": "still needed to reach the monthly goal.",
+        "goal": "monthly goal",
+        "unavailable": "This report cannot determine progress for the current month.",
+        "scope": "Progress uses gross confirmed contributions for the UTC month, in the campaign currency. Refunds appear separately in the registry."
       },
       "flow": {
         "title": "From payment to available funds",
@@ -2549,7 +2562,8 @@
         "filters": {
           "all": "All",
           "contributions": "Contributions",
-          "fees": "Fees"
+          "fees": "Fees",
+          "refunds": "Refunds"
         },
         "headers": {
           "period": "Period",
@@ -2569,8 +2583,15 @@
           "confirmed": "Confirmed",
           "accounted": "Accounted"
         },
-        "empty": "No public movement has been synchronized yet.",
-        "exportCsv": "Export CSV registry"
+        "empty": "No movements for this period and filter.",
+        "exportCsv": "Export CSV registry",
+        "scope": "Available monthly aggregates, up to the latest 12 periods. The indicators above remain cumulative across the full history.",
+        "period": "Registry and export period",
+        "unavailablePeriod": "This period is not available in the received report. Choose an available period to export data.",
+        "allPeriods": "All available periods",
+        "filterLabel": "Movement type",
+        "caption": "Aggregated amounts by UTC month and currency",
+        "feesNote": "Fees may be completed after payment confirmation. Missing fees do not guarantee a fee-free payment."
       },
       "allocation": {
         "title": "Planned fund allocation",
@@ -2582,32 +2603,38 @@
           "data": "Data & documentation",
           "community": "Community & communication",
           "reserve": "Reserve & resilience"
-        }
+        },
+        "learnMore": "Understand how the fund is used"
       },
       "expenses": {
-        "title": "Published actual expenses",
-        "empty": "No expense has been published yet. Contributions and fees are currently synchronized from Stripe.",
-        "info": "The automated registry of operational expenses will be enriched in a future phase.",
+        "title": "Published allocations and achievements",
+        "empty": "No published allocations in the available data.",
+        "info": "The latest published allocations, their progress and evidence. An allocated amount is not proof of an expense or delivery.",
         "proof": "View public proof",
         "progress": {
           "planned": "Planned",
           "inProgress": "In progress",
           "delivered": "Delivered"
-        }
+        },
+        "published": "Published:"
       },
       "platforms": {
-        "title": "Platforms supported by the fund",
-        "copy": "All these platforms are supported by the general fund."
+        "title": "Understand the ecosystem",
+        "copy": "Discover the platforms and their relationship with the Builders’ Fund. Assigned amounts appear in the published allocations.",
+        "link": "Explore the platforms"
       },
       "method": {
         "title": "Calculation method",
         "result": "= Net funds available",
-        "copy": "Click each item to learn more.",
-        "disputedAmounts": "Disputed amounts"
+        "copy": "The net reflects confirmed payments, after recorded fees and refunds. It is neither the bank balance nor the remaining budget after operating expenses.",
+        "disputedAmounts": "Disputed amounts",
+        "formula": "Contributions − recorded fees − refunds = net before expenses",
+        "payouts": "Stripe payouts transfer money to the bank account: they are not deducted again as expenses.",
+        "limits": "Fees that are not yet available may change the net. Disputes are not detailed separately in this projection. In Stripe-direct mode, refunds belong to the original payment month."
       },
       "privacy": {
         "title": "Integrity and privacy",
-        "copy": "Displayed data is automatically aggregated from Stripe transactions. No personal contributor information is published.",
+        "copy": "The registry and exports contain financial aggregates. Contact details, bank data, payment references and administrative notes remain private. Allocation evidence links to public publications.",
         "publicData": {
           "aggregateAmounts": "Aggregated amounts",
           "fees": "Fees",
@@ -2624,13 +2651,18 @@
           "addresses": "Addresses",
           "personalData": "Personal data",
           "technicalIdentifiers": "Sensitive technical identifiers"
-        }
+        },
+        "policy": "Usage and refund policy"
       },
       "reports": {
         "title": "Exports and reports",
         "exportCsv": "Export as CSV",
-        "downloadMonthly": "Download monthly report",
-        "copyLink": "Copy transparency link"
+        "downloadMonthly": "Download as JSON",
+        "copyLink": "Copy transparency link",
+        "scope": "Selected period:",
+        "contents": "CSV: monthly aggregates. JSON: period aggregates, with cumulative totals only when all periods are selected. Currency, source and dates accompany the data.",
+        "copied": "Link copied.",
+        "copyFailed": "Could not copy the link. You can copy this page’s address from your browser."
       },
       "about": {
         "title": "About this page",
@@ -2641,8 +2673,8 @@
       },
       "support": {
         "imageAlt": "Funding Platform card",
-        "title": "You now know where the fund stands and how it is calculated.",
-        "copy": "Every contribution helps build open infrastructure for the whole OpenG7 ecosystem.",
+        "title": "Contribute to the Builders’ Fund",
+        "copy": "Find contribution amounts, options and terms on the fund page.",
         "loading": "Preparing secure payment...",
         "success": "Local mode: Stripe did not open a real checkout session, so payment is simulated. Check /dev/stripe-setup to enable real payment.",
         "error": "Unable to start payment."
@@ -2651,8 +2683,14 @@
         "tagline": "Builders Fund - building the future together."
       },
       "state": {
-        "loading": "Synchronizing public data...",
-        "error": "Unable to load public transparency."
+        "loading": "Reading public data…",
+        "error": "Unable to load public transparency.",
+        "stale": "Refresh failed. The last received figures remain visible; exports are paused until a successful check.",
+        "noSource": "No financial source is available. Amounts cannot be displayed yet.",
+        "ready": "Data received. Checked every minute while this page is visible.",
+        "retry": "Retry",
+        "refresh": "Refresh",
+        "unavailable": "Data is currently unavailable."
       }
     },
     "followup": {

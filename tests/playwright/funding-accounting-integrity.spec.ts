@@ -140,10 +140,7 @@ test.describe('Funding accounting integrity', () => {
 
     await page.goto('/fonds-des-batisseurs/transparence');
     const reportDownloadPromise = page.waitForEvent('download');
-    await page
-      .locator('.hero-actions')
-      .getByRole('button', { name: 'Télécharger le rapport', exact: true })
-      .click();
+    await page.locator('[data-og7="transparency-json"]').click();
     const reportDownload = await reportDownloadPromise;
     const reportStream = await reportDownload.createReadStream();
     const reportChunks: Buffer[] = [];
@@ -151,9 +148,7 @@ test.describe('Funding accounting integrity', () => {
       reportChunks.push(chunk as Buffer);
     }
     const report = JSON.parse(Buffer.concat(reportChunks).toString('utf-8'));
-    // downloadReport() is a client-side JSON.stringify of the same already-
-    // fetched report signal, so this is a strong regression lock: it should
-    // never be able to disagree with a fresh API call.
+    // The all-periods financial export preserves the server's cumulative totals.
     expect(report.total_received).toBeCloseTo(apiSummary.total_received, 2);
     expect(report.total_fees).toBeCloseTo(apiSummary.total_fees, 2);
     expect(report.total_net).toBeCloseTo(apiSummary.total_net, 2);

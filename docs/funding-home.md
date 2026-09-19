@@ -7,6 +7,9 @@ de présentation ne confirment jamais un paiement.
 
 La [page À propos](funding-about.md) explique le rôle du fonds et oriente vers
 ses sections de financement, la transparence et les autres parcours publics.
+La [page Transparence](funding-transparency.md) détaille les agrégats et les
+allocations publiées, partage l’objectif mensuel de l’accueil et renvoie vers
+son formulaire de contribution.
 
 ## Montants
 

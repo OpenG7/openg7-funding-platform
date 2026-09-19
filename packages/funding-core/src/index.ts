@@ -157,6 +157,8 @@ export interface PublicMonthlySummary {
   readonly total_refunded: number;
   readonly total_payouts: number;
   readonly contributions_count: number;
+  /** Missing processor fee facts; null/absent means completeness is unknown. */
+  readonly pending_fee_count?: number | null;
   readonly currency: string;
 }
 
@@ -329,11 +331,14 @@ export interface FundTransparencyPublicResponse {
   readonly total_payouts: number;
   readonly current_available_estimate: number;
   readonly contributions_count: number;
+  readonly pending_fee_count?: number | null;
   readonly currency: string;
   readonly monthly_summary: readonly PublicMonthlySummary[];
   readonly latest_public_allocations: readonly PublicFundAllocation[];
   readonly public_builders: readonly PublicBuilderProfile[];
   readonly last_updated_at: string;
+  /** Start of this projection read, preserved when serving a cached result. */
+  readonly generated_at?: string;
 }
 
 export const createMockCheckoutResult = (
