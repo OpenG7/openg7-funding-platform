@@ -48,7 +48,7 @@ test('@mobile keeps a failed photo preview visible until it is removed', async (
         found: true,
         publicReference: 'CMD-E2E-PHOTO',
         paymentStatus: 'paid',
-        reviewStatus: 'pending',
+        reviewStatus: 'pending_review',
         amount: 250,
         currency: 'CAD',
         paidAt: '2026-07-31T12:00:00.000Z',
@@ -78,11 +78,11 @@ test('@mobile keeps a failed photo preview visible until it is removed', async (
     buffer: onePixelPng
   });
 
-  const attempt = page.locator('.media-upload-attempt');
+  const attempt = page.locator('[data-og7="media-upload-attempt"]');
   await expect(attempt).toBeVisible();
   await attempt.scrollIntoViewIfNeeded();
   const preview = attempt.getByRole('img', {
-    name: 'Apercu de presentation.png'
+    name: /Aper.u de presentation.png/
   });
   await expect(preview).toBeVisible();
   await expect

@@ -1,0 +1,135 @@
+<ng-container *ngIf="followup() as current">
+  <dl
+    class="followup-status-panel"
+    [attr.aria-label]="'funding.followup.status.title' | translate"
+  >
+    <div>
+      <dt>{{ 'funding.followup.status.reference' | translate }}</dt>
+      <dd class="reference-code">
+        {{
+          current.publicReference ||
+            ('funding.followup.status.assigning' | translate)
+        }}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'funding.followup.status.payment' | translate }}</dt>
+      <dd>
+        {{ 'funding.followup.payment.' + paymentKey() + '.label' | translate }}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'funding.followup.status.review' | translate }}</dt>
+      <dd>
+        {{
+          'funding.followup.review.' + current.reviewStatus + '.label'
+            | translate
+        }}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'funding.followup.status.amount' | translate }}</dt>
+      <dd>{{ amount() }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'funding.followup.status.reviewedAt' | translate }}</dt>
+      <dd>{{ reviewedAt() }}</dd>
+    </div>
+  </dl>
+  <div class="followup-layout">
+    <article class="state-card">
+      <h2>
+        {{ 'funding.followup.payment.' + paymentKey() + '.label' | translate }}
+      </h2>
+      <p>
+        {{ 'funding.followup.payment.' + paymentKey() + '.copy' | translate }}
+      </p>
+      <div
+        class="review-note"
+        [class.approved]="current.reviewStatus === 'approved'"
+        [class.rejected]="current.reviewStatus === 'rejected'"
+      >
+        <h2>
+          {{
+            'funding.followup.review.' + current.reviewStatus + '.title'
+              | translate
+          }}
+        </h2>
+        <p>
+          {{
+            'funding.followup.review.' + current.reviewStatus + '.copy'
+              | translate
+          }}
+        </p>
+      </div>
+      <details
+        class="sponsorship-benefits-recap"
+        *ngIf="current.sponsorshipBenefits.length"
+      >
+        <summary>{{ 'funding.followup.benefits.title' | translate }}</summary>
+        <ul>
+          <li *ngFor="let benefit of current.sponsorshipBenefits">
+            {{ 'funding.followup.benefits.' + benefit | translate }}
+          </li>
+        </ul>
+        <p>{{ 'funding.followup.benefits.manual' | translate }}</p>
+      </details>
+    </article>
+    <aside class="state-card review-path" aria-labelledby="review-path-title">
+      <h2 id="review-path-title">
+        {{ 'funding.followup.steps.title' | translate }}
+      </h2>
+      <ol>
+        <li [class.done]="current.paymentStatus === 'paid'">
+          <strong>{{ 'funding.followup.status.payment' | translate }}</strong>
+          <p>
+            {{
+              'funding.followup.payment.' + paymentKey() + '.label' | translate
+            }}
+          </p>
+        </li>
+        <li
+          [class.done]="current.detailsSubmitted"
+          [attr.aria-current]="
+            current.paymentStatus === 'paid' && !current.detailsSubmitted
+              ? 'step'
+              : null
+          "
+        >
+          <strong>{{ 'funding.followup.steps.details' | translate }}</strong>
+          <p>
+            {{
+              (current.detailsSubmitted
+                ? 'funding.followup.steps.received'
+                : 'funding.followup.steps.required'
+              ) | translate
+            }}
+          </p>
+        </li>
+        <li
+          [class.done]="current.reviewStatus === 'approved'"
+          [attr.aria-current]="
+            current.detailsSubmitted &&
+            current.reviewStatus === 'pending_review'
+              ? 'step'
+              : null
+          "
+        >
+          <strong>{{ 'funding.followup.steps.review' | translate }}</strong>
+          <p>
+            {{
+              'funding.followup.review.' + current.reviewStatus + '.label'
+                | translate
+            }}
+          </p>
+        </li>
+        <li data-og7="followup-publication">
+          <strong>{{
+            'funding.followup.steps.publication' | translate
+          }}</strong>
+          <p>{{ 'funding.followup.steps.publicationUnknown' | translate }}</p>
+        </li>
+      </ol>
+    </aside>
+  </div>
+</ng-container>

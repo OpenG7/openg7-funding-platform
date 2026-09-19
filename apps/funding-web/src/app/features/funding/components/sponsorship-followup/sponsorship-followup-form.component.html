@@ -1,0 +1,169 @@
+<section
+  class="followup-form-panel state-card"
+  aria-labelledby="followup-form-title"
+>
+  <header>
+    <h2 id="followup-form-title">
+      {{ 'funding.followup.form.title' | translate }}
+    </h2>
+    <p>{{ 'funding.followup.form.privacy' | translate }}</p>
+  </header>
+  <p *ngIf="!allowed()" class="notice-panel">
+    {{ 'funding.followup.form.unavailable' | translate }}
+  </p>
+  <div
+    *ngIf="followup().reviewStatus === 'approved' && allowed()"
+    class="notice-panel"
+  >
+    <p>{{ 'funding.followup.form.editWarning' | translate }}</p>
+    <button
+      *ngIf="!editing()"
+      type="button"
+      [disabled]="busy()"
+      (click)="beginEditing()"
+    >
+      {{ 'funding.followup.form.edit' | translate }}
+    </button>
+    <button
+      *ngIf="editing()"
+      type="button"
+      [disabled]="busy() || mediaBusy()"
+      (click)="cancelEditing()"
+    >
+      {{ 'funding.followup.form.cancel' | translate }}
+    </button>
+  </div>
+  <form [formGroup]="sponsorshipForm" (ngSubmit)="submit()" novalidate>
+    <fieldset [disabled]="busy() || readOnly()">
+      <legend class="sr-only">
+        {{ 'funding.followup.form.title' | translate }}
+      </legend>
+      <div class="form-grid">
+        <label *ngFor="let field of fields" [class.full]="field === 'message'">
+          <span
+            >{{ 'funding.followup.form.' + field | translate }}
+            <small
+              *ngIf="
+                field === 'companyName' ||
+                field === 'contactName' ||
+                field === 'contactEmail'
+              "
+              >{{ 'funding.followup.form.required' | translate }}</small
+            ></span
+          >
+          <input
+            *ngIf="field !== 'message'"
+            [id]="'followup-' + field"
+            [formControlName]="field"
+            [type]="
+              field === 'contactEmail'
+                ? 'email'
+                : field === 'websiteUrl'
+                  ? 'url'
+                  : 'text'
+            "
+            [attr.maxlength]="field === 'websiteUrl' ? 2048 : 200"
+            [attr.required]="field !== 'websiteUrl' ? '' : null"
+            [attr.autocomplete]="
+              field === 'companyName'
+                ? 'organization'
+                : field === 'contactName'
+                  ? 'name'
+                  : field === 'contactEmail'
+                    ? 'email'
+                    : 'url'
+            "
+            [attr.placeholder]="field === 'websiteUrl' ? 'https://' : null"
+            [attr.aria-invalid]="errorFor(field) ? 'true' : null"
+            [attr.aria-describedby]="
+              errorFor(field) ? 'followup-' + field + '-error' : null
+            "
+          />
+          <textarea
+            *ngIf="field === 'message'"
+            id="followup-message"
+            formControlName="message"
+            rows="4"
+            maxlength="1000"
+            [attr.aria-invalid]="errorFor(field) ? 'true' : null"
+            [attr.aria-describedby]="
+              errorFor(field) ? 'followup-message-error' : null
+            "
+          ></textarea>
+          <small
+            *ngIf="errorFor(field)"
+            [id]="'followup-' + field + '-error'"
+            class="field-error"
+            >{{ errorFor(field) }}</small
+          >
+        </label>
+        <label class="full" *ngIf="sponsorshipForm.controls.logoUrl.value">
+          {{ 'funding.followup.form.logoUrl' | translate }}
+          <input
+            id="followup-logoUrl"
+            formControlName="logoUrl"
+            type="url"
+            maxlength="2048"
+            [attr.aria-invalid]="errorFor('logoUrl') ? 'true' : null"
+            aria-describedby="followup-logoUrl-error"
+          />
+          <small id="followup-logoUrl-error" class="field-error">{{
+            errorFor('logoUrl')
+          }}</small>
+        </label>
+      </div>
+    </fieldset>
+    <openg7-sponsorship-followup-media
+      [token]="token()"
+      [canUploadMedia]="allowed() && !readOnly() && !busy()"
+      (busyChange)="mediaBusy.set($event)"
+    />
+    <div
+      *ngIf="formErrors().length && !readOnly()"
+      class="form-error-summary full"
+      role="alert"
+    >
+      <strong>{{ 'funding.followup.form.errorTitle' | translate }}</strong>
+      <ul>
+        <li *ngFor="let field of formErrors()">
+          <a
+            [href]="'#followup-' + field"
+            (click)="$event.preventDefault(); focusField(field)"
+            >{{ errorFor(field) }}</a
+          >
+        </li>
+      </ul>
+    </div>
+    <p
+      *ngIf="saveState() === 'error' || saveState() === 'unconfirmed'"
+      role="alert"
+      class="notice-panel error"
+    >
+      {{
+        (saveState() === 'unconfirmed'
+          ? 'funding.followup.form.unconfirmed'
+          : 'funding.followup.form.saveError'
+        ) | translate
+      }}
+    </p>
+    <div class="toolbar">
+      <button type="submit" [disabled]="!canSubmit()">
+        {{
+          (busy()
+            ? 'funding.followup.form.saving'
+            : 'funding.followup.form.save'
+          ) | translate
+        }}
+      </button>
+      <span
+        *ngIf="
+          allowed() && !readOnly() && followup().detailsSubmitted && !changed()
+        "
+        >{{ 'funding.followup.form.unchanged' | translate }}</span
+      >
+    </div>
+    <p *ngIf="saveState() === 'saved'" class="state-success" role="status">
+      {{ 'funding.followup.form.saved' | translate }}
+    </p>
+  </form>
+</section>

@@ -1,0 +1,167 @@
+<section
+  class="media-manager"
+  aria-labelledby="media-title"
+  [attr.aria-busy]="busy()"
+>
+  <header>
+    <h3 id="media-title">{{ 'funding.followup.media.title' | translate }}</h3>
+    <p>{{ 'funding.followup.media.privacy' | translate }}</p>
+    <p>
+      {{
+        'funding.followup.media.limits'
+          | translate
+            : {
+                size: size(limits().maxUploadBytes),
+                count: limits().maxSupportingImages
+              }
+      }}
+    </p>
+    <p *ngIf="!canUploadMedia()" class="media-payment-note">
+      {{ 'funding.followup.media.disabled' | translate }}
+    </p>
+    <p *ngIf="hasApprovedLogo()">
+      {{ 'funding.followup.media.approvedLogo' | translate }}
+    </p>
+  </header>
+  <div *ngIf="loadError()" class="notice-panel error" role="alert">
+    <p>{{ 'funding.followup.media.loadError' | translate }}</p>
+    <button type="button" [disabled]="busy()" (click)="refresh()">
+      {{ 'funding.followup.retry' | translate }}
+    </button>
+  </div>
+  <label
+    >{{ 'funding.followup.media.description' | translate }}
+    <input
+      type="text"
+      maxlength="300"
+      [value]="altText()"
+      (input)="setAltText($event)"
+      [disabled]="!canUploadMedia() || busy()"
+    />
+    <small>{{ 'funding.followup.media.descriptionHelp' | translate }}</small>
+  </label>
+  <div class="toolbar">
+    <label class="media-upload-control"
+      >{{
+        (hasActiveLogo()
+          ? 'funding.followup.media.replaceLogo'
+          : 'funding.followup.media.addLogo'
+        ) | translate
+      }}
+      <input
+        type="file"
+        [accept]="limits().acceptedMimeTypes.join(',')"
+        [disabled]="
+          !canUploadMedia() || busy() || !loaded() || hasApprovedLogo()
+        "
+        (change)="uploadMedia('logo', $event)"
+      />
+    </label>
+    <label class="media-upload-control"
+      >{{ 'funding.followup.media.addPhotos' | translate }}
+      <input
+        type="file"
+        [accept]="limits().acceptedMimeTypes.join(',')"
+        multiple
+        [disabled]="
+          !canUploadMedia() || busy() || !loaded() || !canAddSupportingImage()
+        "
+        (change)="uploadMedia('supporting_image', $event)"
+      />
+    </label>
+  </div>
+  <p role="status">
+    {{
+      message()
+        ? ('funding.followup.media.' + message()!.key
+          | translate: message()!.params)
+        : ''
+    }}
+  </p>
+  <p *ngIf="loaded() && !photoCount()">
+    {{ 'funding.followup.media.missingPhoto' | translate }}
+  </p>
+  <div class="media-list">
+    <article
+      *ngFor="let attempt of attempts()"
+      class="media-upload-attempt"
+      data-og7="media-upload-attempt"
+      [class.failed]="attempt.status === 'failed'"
+    >
+      <div class="media-preview">
+        <img
+          *ngIf="attempt.previewUrl"
+          [src]="attempt.previewUrl"
+          [alt]="
+            'funding.followup.media.preview'
+              | translate: { name: attempt.filename }
+          "
+        />
+        <span *ngIf="!attempt.previewUrl" aria-hidden="true">!</span>
+        <button
+          type="button"
+          [disabled]="busy()"
+          [attr.aria-label]="
+            'funding.followup.media.remove'
+              | translate: { name: attempt.filename }
+          "
+          (click)="dismiss(attempt)"
+        >
+          &times;
+        </button>
+      </div>
+      <div>
+        <strong>{{ attempt.filename }}</strong>
+        <p [attr.role]="attempt.status === 'failed' ? 'alert' : null">
+          {{
+            'funding.followup.media.' + attempt.feedback.key
+              | translate: attempt.feedback.params
+          }}
+        </p>
+      </div>
+    </article>
+    <article
+      *ngFor="let asset of assets()"
+      class="media-item"
+      data-og7="followup-media"
+    >
+      <div class="media-preview">
+        <img
+          *ngIf="previews()[asset.id]"
+          [src]="previews()[asset.id]"
+          [alt]="
+            asset.altText ||
+            ('funding.followup.media.' + asset.kind | translate)
+          "
+        />
+        <span *ngIf="!previews()[asset.id]">{{
+          'funding.followup.media.previewUnavailable' | translate
+        }}</span>
+        <button
+          *ngIf="asset.reviewStatus !== 'approved'"
+          type="button"
+          [disabled]="!canUploadMedia() || busy()"
+          [attr.aria-label]="
+            'funding.followup.media.remove'
+              | translate
+                : { name: 'funding.followup.media.' + asset.kind | translate }
+          "
+          (click)="deleteMedia(asset)"
+        >
+          &times;
+        </button>
+      </div>
+      <div>
+        <strong>{{
+          'funding.followup.media.' + asset.kind | translate
+        }}</strong>
+        <p>
+          {{
+            'funding.followup.media.review.' + asset.reviewStatus | translate
+          }}
+        </p>
+        <small>{{ asset.width }} × {{ asset.height }} px</small>
+      </div>
+    </article>
+  </div>
+</section>

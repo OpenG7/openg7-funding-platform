@@ -1,0 +1,67 @@
+<main class="followup-shell">
+  <openg7-funding-header />
+  <header class="followup-hero">
+    <div class="container">
+      <span class="eyebrow">{{ 'funding.followup.eyebrow' | translate }}</span>
+      <h1>{{ 'funding.followup.title' | translate }}</h1>
+      <p>{{ 'funding.followup.intro' | translate }}</p>
+    </div>
+  </header>
+  <section class="followup-content container" [attr.aria-busy]="loading()">
+    <p *ngIf="loading()" role="status">
+      {{ 'funding.followup.loading' | translate }}
+    </p>
+    <article
+      *ngIf="loadError() === 'access'"
+      class="state-card error"
+      role="alert"
+    >
+      <h2>{{ 'funding.followup.accessTitle' | translate }}</h2>
+      <p>{{ 'funding.followup.accessCopy' | translate }}</p>
+      <a [routerLink]="i18n.localizedPath('/support')">{{
+        'funding.followup.support' | translate
+      }}</a>
+    </article>
+    <div
+      *ngIf="loadError() === 'unavailable'"
+      class="notice-panel error"
+      role="alert"
+    >
+      <p>
+        {{
+          (followup()
+            ? 'funding.followup.refreshError'
+            : 'funding.followup.loadError'
+          ) | translate
+        }}
+      </p>
+      <button type="button" [disabled]="busy()" (click)="load()">
+        {{ 'funding.followup.retry' | translate }}
+      </button>
+    </div>
+    <ng-container *ngIf="followup() as current">
+      <div class="toolbar">
+        <button type="button" [disabled]="busy()" (click)="load()">
+          {{ 'funding.followup.refresh' | translate }}
+        </button>
+        <button
+          *ngIf="!current.detailsSubmitted && current.paymentStatus === 'paid'"
+          type="button"
+          (click)="focusForm()"
+        >
+          {{ 'funding.followup.completeDetails' | translate }}
+        </button>
+      </div>
+      <openg7-sponsorship-followup-status [followup]="current" />
+      <openg7-sponsorship-followup-form
+        [followup]="current"
+        [token]="token()"
+        [busy]="busy()"
+        [savedDetails]="savedDetails()"
+        [saveState]="saveState()"
+        (save)="submit($event)"
+        (draftChanged)="saveState.set('idle')"
+      />
+    </ng-container>
+  </section>
+</main>

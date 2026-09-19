@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 import {
-  getSponsorMediaFileValidationMessage,
-  getSponsorMediaUploadFailureMessage
+  getSponsorMediaFileValidationFeedback,
+  getSponsorMediaUploadFailureFeedback
 } from '../dist/apps/funding-web/src/app/features/funding/services/sponsor-media-upload-feedback.js';
 
 const limits = {
@@ -13,95 +13,66 @@ const limits = {
   acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
 };
 
-test('sponsor media file validation explains empty, oversized, and unsupported files', () => {
+test('media validation returns actionable feedback for empty, oversized and unsupported files', () => {
   assert.equal(
-    getSponsorMediaFileValidationMessage(
+    getSponsorMediaFileValidationFeedback(
       { size: 1024, type: 'image/png' },
       limits
     ),
-    ''
+    null
   );
-  assert.match(
-    getSponsorMediaFileValidationMessage(
+  assert.deepEqual(
+    getSponsorMediaFileValidationFeedback(
       { size: 0, type: 'image/png' },
       limits
     ),
-    /fichier est vide/
+    { key: 'emptyFile' }
   );
-  assert.match(
-    getSponsorMediaFileValidationMessage(
+  assert.deepEqual(
+    getSponsorMediaFileValidationFeedback(
       { size: limits.maxUploadBytes + 1, type: 'image/jpeg' },
       limits
     ),
-    /8\.0 Mo/
+    { key: 'tooLarge', params: { size: 8 } }
   );
-  assert.match(
-    getSponsorMediaFileValidationMessage(
+  assert.deepEqual(
+    getSponsorMediaFileValidationFeedback(
       { size: 1024, type: 'image/gif' },
       limits
     ),
-    /JPEG, PNG ou WebP/
+    { key: 'invalidType' }
   );
 });
 
-test('sponsor media upload failures translate API errors into clear French messages', () => {
-  assert.match(
-    getSponsorMediaUploadFailureMessage(
-      new Error('Payment for this sponsorship is not confirmed yet.'),
+test('media API failures have safe localized feedback without exposing server content', () => {
+  const cases = [
+    [
+      'Payment for this sponsorship is not confirmed yet.',
+      'paymentUnconfirmed'
+    ],
+    ['The supporting image limit has been reached.', 'limit'],
+    ['approved logo', 'approvedLogo'],
+    ['follow-up was not found', 'expiredLink'],
+    ['declared image type', 'invalidType'],
+    ['too large', 'tooLarge'],
+    ['private server diagnostic', 'uploadError']
+  ];
+  for (const [message, key] of cases) {
+    const feedback = getSponsorMediaUploadFailureFeedback(
+      new Error(message),
       limits
-    ),
-    /paiement de cette commandite n'est pas encore confirmé/
-  );
-  assert.match(
-    getSponsorMediaUploadFailureMessage(
-      new Error('The supporting image limit has been reached.'),
-      limits
-    ),
-    /limite de 3 photos/
-  );
-  assert.match(
-    getSponsorMediaUploadFailureMessage(new Error('fetch failed'), limits),
-    /Réessayez ou choisissez un autre fichier/
-  );
-});
-
-test('sponsor follow-up renders dismissible upload thumbnails with accessible errors', () => {
-  const component = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
-    'utf8'
-  );
-
-  assert.ok(component.includes('mediaUploadAttempts'));
-  assert.ok(component.includes('class="media-upload-attempt"'));
-  assert.ok(component.includes('class="media-remove-action"'));
-  assert.ok(component.includes('&times;'));
-  assert.ok(component.includes("attempt.status === 'failed' ? 'alert'"));
-  assert.ok(component.includes('URL.createObjectURL(file)'));
-  assert.ok(component.includes('URL.revokeObjectURL(attempt.previewUrl)'));
-});
-
-test('sponsor follow-up disables media uploads until payment is confirmed', () => {
-  const component = fs
-    .readFileSync(
-      'apps/funding-web/src/app/features/funding/pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
-      'utf8'
-    )
-    .replace(/\r\n/g, '\n');
-
-  assert.ok(component.includes('readonly canUploadMedia = computed'));
-  assert.ok(component.includes('mediaUploadDisabledMessage'));
-  assert.ok(component.includes('media-payment-note'));
-  assert.ok(component.includes('Montant attendu'));
-  assert.ok(component.includes('Paiement en confirmation'));
-  assert.ok(
-    component.includes('!canUploadMedia() || mediaBusy() || hasApprovedLogo()')
-  );
-  assert.ok(
-    component.includes(
-      '!canUploadMedia() ||\n                        mediaBusy() ||\n                        !canAddSupportingImage()'
-    )
-  );
-  assert.ok(component.includes('if (!this.canUploadMedia())'));
+    );
+    assert.equal(feedback.key, key);
+    for (const locale of ['fr-CA', 'en']) {
+      const catalog = JSON.parse(
+        fs.readFileSync(
+          'apps/funding-web/src/assets/i18n/' + locale + '.json',
+          'utf8'
+        )
+      );
+      assert.equal(typeof catalog.funding.followup.media[key], 'string');
+    }
+  }
 });
 
 test('reverse proxies allow configured sponsor media uploads and CSP previews', () => {

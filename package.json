@@ -89,7 +89,8 @@
     "test:ui:admin": "yarn workspace @openg7/funding-web build && tsc -p tests/tsconfig.admin-ui.json && playwright test --config tests/playwright-admin-ui.config.mjs",
     "build": "tsc -p tsconfig.build.json",
     "docs": "typedoc --options typedoc.json",
-    "opencode": "dotenv -e .env -- opencode"
+    "opencode": "dotenv -e .env -- opencode",
+    "test:ui:followup": "yarn workspace @openg7/funding-web build && tsc -p tests/tsconfig.followup-ui.json && playwright test --config tests/playwright-followup-ui.config.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
