@@ -1,0 +1,294 @@
+<main class="sponsors-shell">
+  <openg7-funding-header />
+  <section class="sponsors-hero" aria-labelledby="sponsors-title">
+    <img
+      src="/assets/openg7-social-communautes-connectees-canada-1920.webp"
+      srcset="
+        /assets/openg7-social-communautes-connectees-canada-960.webp   960w,
+        /assets/openg7-social-communautes-connectees-canada-1920.webp 1920w
+      "
+      sizes="100vw"
+      width="1920"
+      height="2880"
+      fetchpriority="high"
+      alt=""
+    />
+    <div class="hero-overlay" aria-hidden="true"></div>
+    <article>
+      <span class="eyebrow">{{
+        'funding.sponsorsPage.hero.kicker' | translate
+      }}</span>
+      <h1 id="sponsors-title">
+        {{ 'funding.sponsorsPage.hero.title' | translate }}
+      </h1>
+      <p>{{ 'funding.sponsorsPage.hero.copy' | translate }}</p>
+      <div class="hero-actions">
+        <a
+          class="button primary"
+          [routerLink]="fundPath()"
+          [queryParams]="{ intent: 'sponsorship' }"
+          fragment="support"
+          data-og7="sponsors-become"
+          >{{ 'funding.sponsorsPage.empty.action' | translate }}</a
+        >
+        <a
+          class="button"
+          [routerLink]="followupPath()"
+          data-og7="sponsors-followup"
+          >{{ 'funding.sponsorsPage.followup' | translate }}</a
+        >
+      </div>
+    </article>
+  </section>
+  <div class="sponsors-content">
+    <section
+      class="sponsors-panel"
+      aria-labelledby="sponsors-list-title"
+      [attr.aria-busy]="loading()"
+    >
+      <header class="directory-header">
+        <div>
+          <h2 id="sponsors-list-title" tabindex="-1">
+            {{ 'funding.sponsorsPage.directory.title' | translate }}
+          </h2>
+          <p>{{ 'funding.sponsorsPage.directory.copy' | translate }}</p>
+        </div>
+        <button
+          class="button"
+          type="button"
+          [disabled]="loading()"
+          (click)="load()"
+          data-og7="sponsors-refresh"
+        >
+          {{ 'funding.sponsorsPage.refresh' | translate }}
+        </button>
+      </header>
+      <div class="sponsors-summary">
+        <dl
+          [attr.aria-label]="
+            'funding.sponsorsPage.summary.ariaLabel' | translate
+          "
+        >
+          <div>
+            <dt>{{ 'funding.sponsorsPage.summary.approved' | translate }}</dt>
+            <dd data-og7="sponsors-total">{{ totalCount() ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'funding.sponsorsPage.summary.published' | translate }}</dt>
+            <dd data-og7="sponsors-published">{{ publishedCount() ?? '—' }}</dd>
+          </div>
+        </dl>
+        <small>{{
+          'funding.sponsorsPage.summary.explanation' | translate
+        }}</small>
+      </div>
+      <p class="state" role="status" *ngIf="loading()">
+        {{ 'funding.sponsorsPage.state.loading' | translate }}
+      </p>
+      <noscript>{{
+        'funding.sponsorsPage.state.javascript' | translate
+      }}</noscript>
+      <div class="state state-error" role="alert" *ngIf="error()">
+        <p>{{ 'funding.sponsorsPage.state.error' | translate }}</p>
+        <button
+          class="button"
+          type="button"
+          (click)="load()"
+          data-og7="sponsors-retry"
+        >
+          {{ 'funding.sponsorsPage.retry' | translate }}
+        </button>
+      </div>
+      <p
+        class="state"
+        role="status"
+        *ngIf="!loading() && !error() && !hasData()"
+      >
+        {{ 'funding.sponsorsPage.state.unavailable' | translate }}
+      </p>
+      <p role="status" *ngIf="hasData() && sponsorships().length > 0">
+        @if (pagination()) {
+          {{
+            'funding.sponsorsPage.pagination.range'
+              | translate
+                : {
+                    first: firstVisible(),
+                    last: lastVisible(),
+                    total: totalCount()
+                  }
+          }}
+        } @else {
+          {{
+            'funding.sponsorsPage.pagination.legacy'
+              | translate: { count: sponsorships().length }
+          }}
+        }
+      </p>
+      <ul class="sponsors-list" *ngIf="sponsorships().length > 0">
+        <li
+          *ngFor="let sponsor of sponsorships(); trackBy: trackBySponsor"
+          data-og7="sponsor-card"
+          [attr.data-og7-id]="sponsor.public_id"
+        >
+          @if (presentationPhoto(sponsor); as photo) {
+            <figure class="sponsor-photo">
+              <img
+                [src]="photo.url"
+                [alt]="photo.alt_text"
+                [width]="photo.width"
+                [height]="photo.height"
+                loading="lazy"
+                decoding="async"
+                (error)="imageFailed(photo.url)"
+              />
+            </figure>
+          }
+          <div class="sponsor-logo">
+            @if (logoUrl(sponsor); as logo) {
+              <img
+                [src]="logo"
+                [alt]="sponsor.company_name"
+                width="64"
+                height="64"
+                loading="lazy"
+                decoding="async"
+                (error)="imageFailed(logo)"
+              />
+            } @else {
+              <span class="sponsor-initials" aria-hidden="true">{{
+                initials(sponsor.company_name)
+              }}</span>
+            }
+          </div>
+          <div class="sponsor-body">
+            <h3>{{ sponsor.company_name }}</h3>
+            <small>{{ amountLabel(sponsor) }}</small>
+            <p *ngIf="sponsor.public_summary || sponsor.message">
+              {{ sponsor.public_summary || sponsor.message }}
+            </p>
+            <div class="feed-placement" *ngIf="hasFeedPlacement(sponsor)">
+              <span *ngIf="sponsor.feed_target">{{
+                feedTargetLabel(sponsor.feed_target)
+              }}</span>
+              <span *ngFor="let channel of sponsor.feed_channels">{{
+                feedChannelLabel(channel)
+              }}</span>
+              <a
+                [href]="publicationUrl(sponsor)"
+                target="_blank"
+                rel="noopener noreferrer"
+                [attr.aria-label]="
+                  ('funding.sponsorsPage.directory.feedLink' | translate) +
+                  ' — ' +
+                  sponsor.company_name +
+                  ' (' +
+                  ('funding.sponsorsPage.newTab' | translate) +
+                  ')'
+                "
+                >{{ 'funding.sponsorsPage.directory.feedLink' | translate }}</a
+              >
+            </div>
+          </div>
+          <a
+            *ngIf="websiteUrl(sponsor) as url"
+            class="button sponsor-website"
+            [href]="url"
+            target="_blank"
+            rel="noopener noreferrer"
+            [attr.aria-label]="
+              ('funding.sponsorsPage.directory.website' | translate) +
+              ' — ' +
+              sponsor.company_name +
+              ' (' +
+              ('funding.sponsorsPage.newTab' | translate) +
+              ')'
+            "
+            >{{ 'funding.sponsorsPage.directory.website' | translate }}</a
+          >
+        </li>
+      </ul>
+      <article
+        class="empty-sponsors"
+        *ngIf="hasData() && sponsorships().length === 0"
+      >
+        @if (page() === 1) {
+          <h3>{{ 'funding.sponsorsPage.empty.title' | translate }}</h3>
+          <p>{{ 'funding.sponsorsPage.empty.copy' | translate }}</p>
+        } @else {
+          <p>{{ 'funding.sponsorsPage.pagination.emptyPage' | translate }}</p>
+          <button class="button" type="button" (click)="load(1, true)">
+            {{ 'funding.sponsorsPage.pagination.first' | translate }}
+          </button>
+        }
+      </article>
+      <nav
+        class="pagination"
+        *ngIf="pagination() && totalPages() > 1"
+        [attr.aria-label]="'funding.sponsorsPage.pagination.label' | translate"
+      >
+        <button
+          class="button"
+          type="button"
+          [disabled]="loading() || page() <= 1"
+          (click)="load(page() - 1, true)"
+          data-og7="sponsors-previous"
+        >
+          {{ 'funding.sponsorsPage.pagination.previous' | translate }}
+        </button>
+        <span>{{
+          'funding.sponsorsPage.pagination.page'
+            | translate: { page: page(), total: totalPages() }
+        }}</span>
+        <button
+          class="button"
+          type="button"
+          [disabled]="loading() || page() >= totalPages()"
+          (click)="load(page() + 1, true)"
+          data-og7="sponsors-next"
+        >
+          {{ 'funding.sponsorsPage.pagination.next' | translate }}
+        </button>
+      </nav>
+    </section>
+    <aside class="sponsors-sidebar">
+      <section class="partner-visibility">
+        <span class="eyebrow">{{
+          'funding.sponsorsPage.visibility.kicker' | translate
+        }}</span>
+        <h2>{{ 'funding.sponsorsPage.visibility.title' | translate }}</h2>
+        <p>{{ 'funding.sponsorsPage.visibility.copy' | translate }}</p>
+        <ul>
+          <li>
+            {{ 'funding.sponsorsPage.visibility.items.profile' | translate }}
+          </li>
+          <li>
+            {{ 'funding.sponsorsPage.visibility.items.review' | translate }}
+          </li>
+          <li>
+            {{
+              'funding.sponsorsPage.visibility.items.publication' | translate
+            }}
+          </li>
+        </ul>
+        <a [routerLink]="policyPath()">{{
+          'funding.sponsorsPage.links.policy' | translate
+        }}</a>
+      </section>
+      <section class="partner-visibility">
+        <h2>{{ 'funding.sponsorsPage.links.title' | translate }}</h2>
+        <p>{{ 'funding.sponsorsPage.links.copy' | translate }}</p>
+        <nav [attr.aria-label]="'funding.sponsorsPage.links.title' | translate">
+          <a [routerLink]="transparencyPath()">{{
+            'funding.sponsorsPage.links.transparency' | translate
+          }}</a>
+          <a [routerLink]="buildersPath()">{{
+            'funding.sponsorsPage.links.builders' | translate
+          }}</a>
+          <a [routerLink]="supportPath()">{{
+            'funding.sponsorsPage.links.contact' | translate
+          }}</a>
+        </nav>
+      </section>
+    </aside>
+  </div>
+</main>

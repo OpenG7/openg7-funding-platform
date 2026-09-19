@@ -94,7 +94,9 @@
     "images:funding-home": "node scripts/optimize-funding-home-images.mjs",
     "test:ui:funding-home": "playwright test --config tests/playwright/home-trust.config.ts",
     "test:ui:funding-about": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-about-ui.config.mjs",
-    "test:ui:funding-transparency": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-transparency-ui.config.mjs"
+    "test:ui:funding-transparency": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-transparency-ui.config.mjs",
+    "test:ui:sponsors": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-sponsors-ui.config.mjs",
+    "images:sponsors": "node scripts/optimize-sponsors-images.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

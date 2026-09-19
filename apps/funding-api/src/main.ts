@@ -199,6 +199,7 @@ import {
   type SponsorshipFollowupLookup
 } from './fund-contributions.repository.js';
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
+import { parsePublicSponsorshipPagination } from './public-sponsorship-pagination.js';
 import { createPublicTransparencyCache } from './public-transparency-cache.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
@@ -8292,7 +8293,16 @@ createServer(async (request, response) => {
     )
   ) {
     try {
-      const sponsorships = await listPublicSponsorships(dbPool);
+      const pagination = parsePublicSponsorshipPagination(
+        new URL(request.url ?? '/', publicBaseOrigin).searchParams
+      );
+      if (!pagination) {
+        writeJson(request, response, 400, {
+          error: 'Invalid public sponsorship pagination.'
+        });
+        return;
+      }
+      const sponsorships = await listPublicSponsorships(dbPool, pagination);
 
       writeJson(request, response, 200, sponsorships);
     } catch (error) {

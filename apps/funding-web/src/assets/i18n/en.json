@@ -1457,33 +1457,56 @@
       }
     },
     "sponsorsPage": {
+      "followup": "Find my sponsorship",
+      "refresh": "Refresh",
+      "retry": "Try again",
+      "newTab": "new tab",
+      "pagination": {
+        "label": "Sponsorship directory pages",
+        "range": "Profiles {{first}} to {{last}} of {{total}}",
+        "legacy": "{{count}} profiles shown. The directory total is unavailable.",
+        "page": "Page {{page}} of {{total}}",
+        "previous": "Previous",
+        "next": "Next",
+        "emptyPage": "This page no longer contains public profiles. The directory may have changed.",
+        "first": "Return to the first page"
+      },
+      "links": {
+        "title": "The fund and its supporters",
+        "copy": "Sponsorships support OpenG7 development. View the fund’s finances or discover public personal contributions.",
+        "transparency": "View fund transparency",
+        "builders": "Discover the builders",
+        "policy": "Terms and refunds",
+        "contact": "Contact the team"
+      },
       "hero": {
         "imageAlt": "Connected digital communities in Canada",
         "kicker": "Approved sponsorships",
         "title": "OpenG7 Sponsors",
-        "copy": "This partner showcase gathers manually approved business sponsorships. Every public appearance goes through consent, review, and editorial control."
+        "copy": "Meet the businesses supporting OpenG7 development, discover their work and explore their partner publications. Profiles appear with consent and after review."
       },
       "summary": {
         "ariaLabel": "Public sponsors summary",
-        "approved": "Approved sponsors",
+        "approved": "Public sponsorship profiles",
         "feedReady": "Prepared visibility",
-        "published": "Published posts"
+        "published": "Profiles with a publication",
+        "explanation": "A business may have several profiles. Publications are counted by profile with a published link, not by post or social network."
       },
       "visibility": {
         "ariaLabel": "Sponsor visibility promise",
         "kicker": "Partner showcase",
-        "title": "Useful public presence, never automatic",
+        "title": "How to appear here",
         "copy": "Approved sponsors can receive a public profile and visibility prepared for OpenG7 channels.",
         "items": {
           "profile": "Logo, website, short message, and contribution shown according to consent.",
           "review": "Manual review before any public appearance.",
-          "publication": "Tracked partner publication when visibility is ready."
+          "publication": "Partner publications are prepared separately, according to the sponsorship terms."
         }
       },
       "directory": {
         "kicker": "Visibility",
         "title": "Public sponsors",
-        "copy": "Only consenting and approved companies are displayed. Partner posts show where visibility is prepared or already live.",
+        "copy": "Browse approved profiles, their presentations and available publication links.",
         "amountHidden": "Amount not published",
         "feedTargetPending": "Visibility to define",
         "feedLink": "View post",
@@ -1497,7 +1520,7 @@
       },
       "empty": {
         "title": "No public sponsor yet",
-        "copy": "The first approved sponsors will appear here with their logo, public message, and prepared visibility.",
+        "copy": "Profiles appear after consent and review of their presentation. Use the links above to become a sponsor or find your sponsorship.",
         "action": "Become a sponsor",
         "preview": {
           "profile": {
@@ -1515,8 +1538,10 @@
         }
       },
       "state": {
-        "loading": "Loading sponsors...",
-        "error": "Unable to load sponsors."
+        "loading": "Loading public profiles…",
+        "error": "Unable to load sponsors. The data is temporarily unavailable.",
+        "unavailable": "The directory is temporarily unavailable. This does not mean there are no sponsorships.",
+        "javascript": "Enable JavaScript to view current profiles. Contribution and contact links remain available."
       }
     },
     "policyPage": {

@@ -35,6 +35,8 @@ jobs:
         run: yarn test:ui:admin
       - name: Isolated sponsorship follow-up UI
         run: yarn test:ui:followup
+      - name: Public sponsor directory UI
+        run: yarn test:ui:sponsors
       - name: Docker acceptance with disposable fixtures
         run: yarn test:e2e:acceptance
       - name: Preserve acceptance evidence

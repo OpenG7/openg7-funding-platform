@@ -366,6 +366,7 @@
         [attr.aria-label]="'funding.home.contribution.ariaLabel' | translate"
       >
         <openg7-funding-contribution-form
+          [requestedContributionType]="requestedContributionType"
           [sponsorshipSelectionEnabled]="sponsorshipSelectionEnabled()"
           [allowedAmounts]="allowedContributionAmounts()"
           [sponsorshipBatchAvailability]="sponsorshipBatchAvailability()"

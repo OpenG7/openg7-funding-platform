@@ -64,6 +64,7 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   private form?: SponsorshipFollowupFormComponent;
 
   readonly token = signal('');
+  readonly recoveryEntry = signal(false);
   readonly followup = signal<SponsorshipFollowupResponse | null>(null);
   readonly loading = signal(false);
   readonly saving = signal(false);
@@ -86,6 +87,9 @@ export class SponsorshipFollowupPageComponent implements OnInit {
       this.readSequence++;
     });
     this.token.set(this.resolveInitialToken());
+    this.recoveryEntry.set(
+      !this.token() && !this.route.snapshot.queryParamMap.has('token')
+    );
     this.removeTokenFromBrowserUrl();
     void this.load();
   }

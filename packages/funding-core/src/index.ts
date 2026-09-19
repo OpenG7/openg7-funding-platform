@@ -269,6 +269,8 @@ export interface AdminSponsorMediaDeleteRequest {
 }
 
 export interface PublicSponsorshipProfile {
+  /** Stable public directory key, unrelated to access or payment references. */
+  readonly public_id?: string;
   readonly public_slug: string | null;
   readonly company_name: string;
   readonly website_url: string | null;
@@ -290,6 +292,13 @@ export interface PublicSponsorshipsResponse {
   readonly data_source: 'database' | 'empty';
   readonly sponsorships: readonly PublicSponsorshipProfile[];
   readonly last_updated_at: string;
+  /** Counts of public sponsorship dossiers, not distinct companies or posts. */
+  readonly pagination?: {
+    readonly page: number;
+    readonly page_size: number;
+    readonly total_count: number;
+    readonly published_count: number;
+  };
 }
 
 export interface PublicFundingRuntimeConfig {

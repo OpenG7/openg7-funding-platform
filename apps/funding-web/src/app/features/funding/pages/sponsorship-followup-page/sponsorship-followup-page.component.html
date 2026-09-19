@@ -12,7 +12,7 @@
       {{ 'funding.followup.loading' | translate }}
     </p>
     <article
-      *ngIf="loadError() === 'access'"
+      *ngIf="loadError() === 'access' && !recoveryEntry()"
       class="state-card error"
       role="alert"
     >
@@ -23,6 +23,9 @@
       }}</a>
       <openg7-sponsorship-access-recovery />
     </article>
+    <openg7-sponsorship-access-recovery
+      *ngIf="loadError() === 'access' && recoveryEntry()"
+    />
     <div
       *ngIf="loadError() === 'unavailable'"
       class="notice-panel error"
