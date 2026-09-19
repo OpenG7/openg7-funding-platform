@@ -306,6 +306,8 @@ test('a timeout can be retried and navigation stops polling', async ({
   await hook(page, 'transparency-refresh').click();
   await expect(hook(page, 'transparency-json')).toBeEnabled();
   await page.locator('footer a[href="/fonds-des-batisseurs/a-propos"]').click();
+  await expect(page).toHaveURL(/\/fonds-des-batisseurs\/a-propos$/);
+  await expect(hook(page, 'transparency-status')).toHaveCount(0);
   let requests = 0;
   page.on('request', (request) => {
     if (request.url().endsWith('/public/fund-transparency')) requests++;

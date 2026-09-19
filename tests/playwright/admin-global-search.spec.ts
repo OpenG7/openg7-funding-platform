@@ -160,6 +160,7 @@ test('keyboard opens search, traps focus, groups links and restores the opener',
   await page.goto('/admin/fundraiser');
   const trigger = page.locator('[data-og7="admin-search-open"]');
   await trigger.focus();
+  await expect(page.locator('[data-og7="admin-search-open"]')).toBeVisible();
   await page.keyboard.press('Control+k');
   await expect(input(page)).toBeFocused();
   await input(page).fill('FAC-601');
@@ -267,6 +268,7 @@ test('new input aborts the previous request and late results never replace newer
     };
   });
   await page.goto('/admin/fundraiser');
+  await expect(page.locator('[data-og7="admin-search-open"]')).toBeVisible();
   await page.keyboard.press('Control+k');
   await input(page).fill('Slow');
   await page.waitForTimeout(400);
@@ -308,6 +310,7 @@ test('pagination stays in memory and partial coverage differs from an empty comp
     });
   });
   await page.goto('/admin/fundraiser');
+  await expect(page.locator('[data-og7="admin-search-open"]')).toBeVisible();
   await page.keyboard.press('Control+k');
   await input(page).fill('Atelier');
   await expect(dialog(page).getByText(/Résultats partiels/)).toBeVisible();
@@ -330,6 +333,7 @@ for (const [status, message] of [
   test('search clears private results on HTTP ' + status, async ({ page }) => {
     await fixtures(page);
     await page.goto('/admin/fundraiser');
+    await expect(page.locator('[data-og7="admin-search-open"]')).toBeVisible();
     await page.keyboard.press('Control+k');
     await input(page).fill('Acme');
     await expect(dialog(page).getByRole('listitem')).toHaveCount(1);
@@ -350,6 +354,7 @@ test('expired search session clears authentication and redirects to login', asyn
     route.fulfill({ status: 401, json: {} })
   );
   await page.goto('/admin/fundraiser');
+  await expect(page.locator('[data-og7="admin-search-open"]')).toBeVisible();
   await page.keyboard.press('Control+k');
   await input(page).fill('private@example.invalid');
   await expect(page).toHaveURL(/\/admin\/login/);
@@ -378,6 +383,9 @@ for (const destination of [
           ? 'draftId=' + draftId
           : 'contributionId=' + id;
       await page.goto('/admin/fundraiser/' + destination + '?' + query);
+      await expect(
+        page.locator('[data-og7="admin-search-open"]')
+      ).toBeVisible();
       await page.keyboard.press('Control+k');
       await input(page).fill('Rivage');
       const label =

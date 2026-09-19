@@ -28,6 +28,8 @@ jobs:
       - run: yarn exec tsc --noEmit -p tsconfig.json
       - run: yarn test
       - run: docker pull postgres:16-alpine
+      - run: docker pull axllent/mailpit:v1.27.4
+      - run: docker pull adobe/s3mock:5.1.0
       - name: PostgreSQL integration suites
         run: node --test tests/integration/*.integration.mjs
       - run: yarn exec playwright install --with-deps chromium firefox webkit
@@ -39,6 +41,8 @@ jobs:
         run: yarn test:ui:sponsors
       - name: Public journeys across browsers and accessibility
         run: yarn test:ui:public-journeys
+      - name: Admin accessibility and HTTP 404 across browsers
+        run: yarn test:ui:platform-accessibility
       - name: Docker acceptance with disposable fixtures
         run: yarn test:e2e:acceptance
       - name: Preserve acceptance evidence

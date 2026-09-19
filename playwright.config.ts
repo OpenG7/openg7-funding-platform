@@ -19,6 +19,7 @@ export default defineConfig({
   // Admin fixtures have a separate step in the disposable acceptance workflow.
   // Reuse each suite's testMatch so no fixture is replayed against Docker there.
   testIgnore: [
+    'platform-accessibility.spec.ts',
     followupUiConfig.testMatch ?? [],
     publicJourneysConfig.testMatch ?? [],
     process.env.OPENG7_E2E_ISOLATED === '1'

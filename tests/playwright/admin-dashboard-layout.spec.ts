@@ -134,6 +134,8 @@ async function fixtures(page: Page, expired = false): Promise<void> {
           attentionItems: []
         }
       });
+    } else if (pathname === '/api/admin/auth/config') {
+      await route.fulfill({ json: { mode: 'token' } });
     } else if (pathname === '/api/admin/session') {
       await route.fulfill({
         json: {

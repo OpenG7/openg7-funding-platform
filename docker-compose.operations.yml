@@ -1,0 +1,24 @@
+# Optional overlay. Start only after configuring the receiver and migration 021.
+# Shares the API image but runs independently of the HTTP/SMTP workers.
+services:
+  operations:
+    image: ${API_IMAGE:-openg7-funding-api:local}
+    command: ['node', 'scripts/operations-watch.mjs']
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-}
+      FUNDING_PUBLIC_BASE_URL: ${FUNDING_PUBLIC_BASE_URL:-https://openg7.org}
+      FUNDING_OPERATIONS_WEBHOOK_URL: ${FUNDING_OPERATIONS_WEBHOOK_URL:-}
+      FUNDING_OPERATIONS_WEBHOOK_SECRET: ${FUNDING_OPERATIONS_WEBHOOK_SECRET:-}
+    networks: [edge, data]
+    restart: unless-stopped
+    init: true
+    cpus: '0.25'
+    mem_limit: 128m
+    pids_limit: 64
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

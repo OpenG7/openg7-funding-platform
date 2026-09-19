@@ -25,6 +25,12 @@ The platform is not a charity receipt system. User-facing copy and receipts must
 
 ## Architectural Principles
 
+Named administrative identity, MFA, server-side roles and the independent
+operations watcher are specified in the [2026-09-19 decision](decisions/2026-09-19-admin-identity-and-operations.md).
+OIDC is opt-in; PostgreSQL owns account permissions and revocable sessions.
+The provider owns authentication and MFA assertions. Public routes load admin
+code only on navigation; unknown public URLs preserve HTTP 404 through Nginx.
+
 1. **Domain-first organization**: funding, payments, sponsorships, accounting, expenses, transparency, media, reconciliation, and audit are explicit business boundaries.
 2. **Stripe is authoritative for payment-rail facts**: payment status, charge status, processor fees, net amounts, disputes, and Stripe refunds come from Stripe.
 3. **PostgreSQL is authoritative for OpenG7 business state**: contribution metadata, sponsor review, public visibility, publication workflow, internal expenses, notes, credit-note records, source attribution, and audit history live in PostgreSQL.

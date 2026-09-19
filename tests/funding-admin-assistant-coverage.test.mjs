@@ -13,7 +13,7 @@ const assertIncludesAll = (source, values, label) => {
 };
 
 test('the assistant is wired into the Angular admin shell', () => {
-  const routes = read('apps/funding-web/src/app/app.routes.ts');
+  const routes = read('apps/funding-web/src/app/admin.routes.ts');
   const nav = read(
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts'
   );
@@ -26,7 +26,7 @@ test('the assistant is wired into the Angular admin shell', () => {
 
   assertIncludesAll(
     routes,
-    ['admin/fundraiser/assistant', 'AdminAssistantPageComponent'],
+    ['fundraiser/assistant', 'AdminAssistantPageComponent'],
     'app.routes.ts'
   );
   assertIncludesAll(

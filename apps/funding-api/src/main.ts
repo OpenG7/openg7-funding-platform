@@ -87,6 +87,7 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
+import { AdminIdentityService } from './admin-identity.js';
 import {
   allowedAdminExpenseStatuses,
   allowedPublicationDraftStatuses,
@@ -1622,6 +1623,11 @@ const adminTokenMatches = (candidate: string): boolean => {
   );
 };
 
+const adminAuthMode = process.env.FUNDING_ADMIN_AUTH_MODE ?? 'token';
+if (!['token', 'oidc'].includes(adminAuthMode)) throw new Error('Invalid admin auth mode.');
+if (adminAuthMode === 'oidc' && !dbPool) throw new Error('OIDC requires PostgreSQL.');
+const adminIdentity = adminAuthMode === 'oidc' ? new AdminIdentityService(dbPool!, process.env) : null;
+
 interface AdminSessionPayload {
   readonly actor: 'funding-admin-session';
   readonly exp: number;
@@ -1631,9 +1637,8 @@ interface AdminSessionPayload {
 }
 
 interface AdminAuthorization {
-  readonly actor:
-    'funding-admin-session' | 'funding-admin-token' | 'local-dev-admin';
-  readonly source: 'session' | 'static-token' | 'local-dev';
+  readonly actor: string;
+  readonly source: 'session' | 'static-token' | 'local-dev' | 'oidc';
 }
 
 const getAdminSessionSigningSecret = (): string | null =>
@@ -1736,6 +1741,10 @@ const verifyAdminSession = (
 const resolveAdminAuthorization = (
   request: ApiRequest
 ): AdminAuthorization | null => {
+  if (adminIdentity) {
+    const identity = adminIdentity.identity(request);
+    return identity ? { actor: `admin:${identity.id}`, source: 'oidc' } : null;
+  }
   if (!adminToken) {
     return isProduction
       ? null
@@ -1775,13 +1784,17 @@ const ensureAdminAuthorization = (
   request: ApiRequest,
   response: ApiResponse
 ): boolean => {
-  if (!adminToken && isProduction) {
+  if (!adminIdentity && !adminToken && isProduction) {
     writeJson(request, response, 503, {
       error: 'Admin review is not configured.'
     });
     return false;
   }
 
+  if (adminIdentity && adminIdentity.identity(request) && !adminIdentity.permits(request)) {
+    writeJson(request, response, 403, { error: 'This action is not permitted for this account or origin.' });
+    return false;
+  }
   if (!isAdminAuthorized(request)) {
     writeJson(request, response, 401, {
       error: 'Admin authorization is required.'
@@ -2019,6 +2032,10 @@ const enforceRateLimit = (
 };
 
 const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
+  if (routeStartsWith(request.url, '/admin/auth/', '/api/admin/auth/') ||
+      routeMatches(request.url, '/admin/access', '/api/admin/access')) {
+    return adminRateLimiter;
+  }
   if (
     request.method === 'POST' &&
     routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')
@@ -2475,6 +2492,20 @@ createServer(async (request, response) => {
   const rateLimiter = getRequestRateLimiter(request);
   if (rateLimiter && !enforceRateLimit(request, response, rateLimiter)) {
     return;
+  }
+
+  if (request.method === 'GET' && routeMatches(request.url, '/admin/auth/config', '/api/admin/auth/config')) {
+    writeJson(request, response, 200, { mode: adminAuthMode });
+    return;
+  }
+  if (adminIdentity && routeStartsWith(request.url, '/admin/', '/api/admin/')) {
+    try {
+      await adminIdentity.resolve(request);
+      if (await adminIdentity.handle(request, response)) return;
+    } catch {
+      writeJson(request, response, 503, { error: 'Identity service unavailable.' });
+      return;
+    }
   }
 
   if (

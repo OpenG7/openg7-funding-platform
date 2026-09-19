@@ -75,6 +75,33 @@ ou du script de restauration de production. Leur exercice complet exige une
 cible jetable explicitement identifiée et des archives de test; ne pas lancer
 `restore-from-backup.sh` sur le workspace ou le VPS réel pour compléter ce test.
 
+## Recette locale des fournisseurs et des médias
+
+```sh
+docker pull axllent/mailpit:v1.27.4
+docker pull adobe/s3mock:5.1.0
+docker pull postgres:16-alpine
+yarn test:rehearsal
+```
+
+Cette recette a réussi le 19 septembre 2026. Elle ne charge aucun fichier
+`.env`, publie uniquement sur loopback et crée des conteneurs à noms uniques.
+Elle utilise les adaptateurs SMTP et S3 réels de l'application, avec des
+serveurs locaux : un message MIME est reçu et relu dans Mailpit; les objets
+privés sont copiés vers le stockage public puis sauvegardés avec une empreinte
+SHA-256. Un fichier de configuration synthétique, le dump PostgreSQL et les
+octets des médias sont relus et restaurés vers des cibles distinctes. Le retrait
+d'une copie publique restaurée ne touche pas la source.
+
+S3Mock prouve le protocole de stockage et la restauration des octets. Il ne
+prouve pas les politiques IAM/ACL ou l'isolation publique du fournisseur OVH.
+Mailpit prouve une réception SMTP locale, pas la délivrabilité dans une boîte
+externe. Le snapshot du test n'est pas une archive générée par les scripts de
+production : leur restauration complète sur un VPS jetable reste à exercer.
+
+Références : [Mailpit Docker](https://mailpit.axllent.org/docs/install/docker/),
+[S3Mock](https://github.com/adobe/S3Mock).
+
 ## Vérification humaine de l'accessibilité
 
 Avec NVDA/Firefox ou VoiceOver/Safari, parcourir Fonds → Commanditaires → Suivi,

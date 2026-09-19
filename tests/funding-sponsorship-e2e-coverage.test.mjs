@@ -181,7 +181,7 @@ test('E2E 3/8: invalid or missing follow-up token stays private and shows an err
 });
 
 test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () => {
-  const routes = read('apps/funding-web/src/app/app.routes.ts');
+  const routes = read('apps/funding-web/src/app/admin.routes.ts');
   const adminPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
   );
@@ -198,7 +198,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
 
   assertIncludesAll(
     routes,
-    ["path: 'admin/fundraiser/sponsors'", 'AdminSponsorsPageComponent'],
+    ["path: 'fundraiser/sponsors'", 'AdminSponsorsPageComponent'],
     'admin route'
   );
 

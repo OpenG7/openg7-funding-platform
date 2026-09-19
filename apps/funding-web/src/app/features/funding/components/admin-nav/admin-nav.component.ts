@@ -137,6 +137,23 @@ interface AdminNavigationGroup {
           }
         </nav>
         <footer>
+          @if (admin.identity(); as identity) {
+            <p>
+              {{ identity.displayName }} ·
+              {{ 'admin.access.roles.' + identity.role | translate }}
+            </p>
+            @if (identity.role === 'owner') {
+              <a routerLink="/admin/fundraiser/access">{{
+                'admin.access.title' | translate
+              }}</a>
+            }
+            @if (identity.role === 'reader') {
+              <p role="status">{{ 'admin.access.readOnly' | translate }}</p>
+            }
+          }
+          @if (logoutFailed()) {
+            <p role="alert">{{ 'admin.access.logoutFailed' | translate }}</p>
+          }
           <div class="signature">
             <openg7-admin-icon name="mountain" />
             <p>{{ 'admin.nav.motto' | translate }}</p>
@@ -162,7 +179,8 @@ interface AdminNavigationGroup {
   ]
 })
 export class AdminNavComponent implements OnInit {
-  private readonly admin = inject(FundingAdminService);
+  readonly admin = inject(FundingAdminService);
+  readonly logoutFailed = signal(false);
   private readonly router = inject(Router);
   private readonly queryParams = toSignal(inject(ActivatedRoute).queryParamMap);
   readonly queueReturn = computed(() => {
@@ -276,7 +294,11 @@ export class AdminNavComponent implements OnInit {
   }
 
   async clearSession(): Promise<void> {
-    this.admin.clearAdminSession();
-    await this.router.navigateByUrl('/admin/login');
+    try {
+      await this.admin.signOut();
+      await this.router.navigateByUrl('/admin/login');
+    } catch {
+      this.logoutFailed.set(true);
+    }
   }
 }

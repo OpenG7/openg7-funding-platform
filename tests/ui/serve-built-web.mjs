@@ -31,9 +31,25 @@ createServer(async (request, response) => {
       return;
     }
     const info = await stat(file).catch(() => null);
+    let status = 200;
     if (info?.isDirectory()) file = resolve(file, 'index.html');
-    else if (!info?.isFile()) file = resolve(root, 'index.csr.html');
-    response.writeHead(200, {
+    else if (!info?.isFile()) {
+      const clientRoute =
+        /^\/(?:admin\/(?:login|auth\/callback|fundraiser(?:\/(?:attention|assistant|contributions|sponsors|invoices|publications|expenses|transparency|audit|email-queue|setup|access))?)|dev\/(?:stripe-setup|webhooks|api-keys)|(?:en\/)?fonds-des-batisseurs\/suivi-commandite)\/?$/.test(
+          pathname
+        );
+      status = clientRoute ? 200 : 404;
+      file = resolve(
+        root,
+        clientRoute
+          ? 'index.csr.html'
+          : pathname.startsWith('/en/')
+            ? 'en/404/index.html'
+            : '404/index.html'
+      );
+    }
+    if (/^\/(?:en\/)?404(?:\/|$)/.test(pathname)) status = 404;
+    response.writeHead(status, {
       'Content-Type': types[extname(file)] ?? 'application/octet-stream',
       'Cache-Control': 'no-store'
     });

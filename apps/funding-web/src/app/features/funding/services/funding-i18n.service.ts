@@ -6,6 +6,7 @@ import { FUNDING_DEFAULT_LANGUAGE } from '@openg7/funding-i18n';
 
 export type FundingLanguage = 'fr-CA' | 'en';
 export type FundingCanonicalPath =
+  | '/404'
   | '/'
   | '/fonds-des-batisseurs'
   | '/ecosystem'
@@ -22,6 +23,7 @@ export type FundingCanonicalPath =
 const supportedLanguages: readonly FundingLanguage[] = ['fr-CA', 'en'];
 const languageStorageKey = 'openg7.language';
 const supportedCanonicalPaths: readonly FundingCanonicalPath[] = [
+  '/404',
   '/',
   '/fonds-des-batisseurs',
   '/ecosystem',
@@ -155,7 +157,9 @@ export class FundingI18nService {
 
   private toCanonicalPath(path: string): FundingCanonicalPath {
     const normalizedPath = this.stripEnglishPrefix(this.normalizePath(path));
-    return this.isSupportedCanonicalPath(normalizedPath) ? normalizedPath : '/';
+    return this.isSupportedCanonicalPath(normalizedPath)
+      ? normalizedPath
+      : '/404';
   }
 
   private normalizePath(path: string): string {

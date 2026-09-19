@@ -1356,6 +1356,36 @@
       "remboursement_manuel_demande": "remboursement manuel demande",
       "remboursement_manuel_deja_traite": "remboursement manuel deja traite",
       "bonjour_p0": "Bonjour {{p0}},"
+    },
+    "access": {
+      "title": "Accès et sessions",
+      "back": "Retour à l’administration",
+      "help": "Les comptes nominatifs exigent une authentification multifacteur. Modifier un compte termine ses sessions. Au moins un propriétaire actif doit rester.",
+      "signIn": "Connexion avec votre organisation",
+      "signInHelp": "Utilisez votre compte nominatif et l’authentification multifacteur.",
+      "readOnly": "Compte lecteur : consultation seulement. Les modifications exigent un opérateur ou un propriétaire.",
+      "logoutFailed": "La déconnexion a échoué. Réessayez pour révoquer votre session.",
+      "accounts": "Comptes",
+      "sessions": "Sessions actives",
+      "edit": "Ajouter ou modifier un compte",
+      "subject": "Identifiant du fournisseur d’identité (sub)",
+      "name": "Nom affiché",
+      "role": "Rôle",
+      "disabled": "Désactivé",
+      "confirm": "Je confirme ce changement d’accès et la fermeture des sessions de ce compte.",
+      "save": "Enregistrer les accès",
+      "revoke": "Révoquer la session",
+      "revokeConfirm": "Confirmer la fermeture immédiate de cette session.",
+      "cancel": "Annuler",
+      "error": "Impossible de terminer la demande. Vérifiez votre accès propriétaire et conservez au moins un propriétaire actif.",
+      "loading": "Chargement…",
+      "roles": {
+        "reader": "Lecteur",
+        "operator": "Opérateur",
+        "owner": "Propriétaire"
+      },
+      "new": "Nouveau compte",
+      "signInError": "Connexion impossible. Vérifiez les accès du compte, l’authentification multifacteur et la disponibilité du service."
     }
   },
   "funding": {
@@ -2923,6 +2953,13 @@
         "expiredLink": "Échec du téléversement : ce lien de suivi est invalide ou expiré.",
         "uploadError": "Échec du téléversement : le serveur n’a pas pu accepter cette image. Réessayez ou choisissez un autre fichier."
       }
+    },
+    "notFound": {
+      "title": "Page introuvable",
+      "copy": "Cette adresse n’existe pas ou n’est plus disponible. Retrouvez le Fonds des Bâtisseurs ou contactez notre équipe.",
+      "navigation": "Retrouver votre chemin",
+      "home": "Retour au Fonds",
+      "help": "Obtenir de l’aide"
     }
   }
 }

@@ -786,6 +786,17 @@ Pour une contribution provenant d’une plateforme comme La Ruche :
 
 ### 14.1 Sessions admin
 
+Le mode optionnel `FUNDING_ADMIN_AUTH_MODE=oidc` remplace l'échange du secret
+racine par des comptes nominatifs avec MFA, cookie HttpOnly et sessions
+révocables en PostgreSQL (migration 020). En mode OIDC, aucun secret racine
+ne doit contourner l'authentification. Vérifier le rôle côté API et l'origine
+des mutations; ne jamais inférer le MFA depuis une valeur navigateur.
+Voir [la décision](docs/decisions/2026-09-19-admin-identity-and-operations.md)
+et [le runbook](docs/operations/admin-identity-and-alerts.md).
+
+Les règles d'échange de secret ci-dessous concernent le mode `token` conservé
+pour compatibilité. Ne pas lui attribuer les garanties nominatives du mode OIDC.
+
 Le navigateur échange le secret racine par l’endpoint de session prévu. Ensuite, il utilise un token de session signé et limité dans le temps.
 
 Règles :

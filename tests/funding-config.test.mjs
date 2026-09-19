@@ -2791,7 +2791,7 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
 
 test('Admin email queue page lists failed messages and retries them manually', () => {
   const routes = fs.readFileSync(
-    'apps/funding-web/src/app/app.routes.ts',
+    'apps/funding-web/src/app/admin.routes.ts',
     'utf8'
   );
   const nav = fs.readFileSync(
@@ -2814,7 +2814,7 @@ test('Admin email queue page lists failed messages and retries them manually', (
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const readme = fs.readFileSync('README.md', 'utf8');
 
-  assert.ok(routes.includes("path: 'admin/fundraiser/email-queue'"));
+  assert.ok(routes.includes("path: 'fundraiser/email-queue'"));
   assert.ok(routes.includes('AdminEmailQueuePageComponent'));
   assert.ok(nav.includes("url: '/admin/fundraiser/email-queue'"));
 
@@ -2871,7 +2871,7 @@ test('Admin email queue page lists failed messages and retries them manually', (
 
 test('Admin sponsorship invoices can be listed and resent from the back-office', () => {
   const routes = fs.readFileSync(
-    'apps/funding-web/src/app/app.routes.ts',
+    'apps/funding-web/src/app/admin.routes.ts',
     'utf8'
   );
   const nav = fs.readFileSync(
@@ -2902,7 +2902,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const readme = fs.readFileSync('README.md', 'utf8');
 
-  assert.ok(routes.includes("path: 'admin/fundraiser/invoices'"));
+  assert.ok(routes.includes("path: 'fundraiser/invoices'"));
   assert.ok(routes.includes('AdminInvoicesPageComponent'));
   assert.ok(nav.includes("url: '/admin/fundraiser/invoices'"));
 
@@ -3034,7 +3034,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
 
 test('Admin setup page wraps Stripe and email configuration in a custom tour', () => {
   const routes = fs.readFileSync(
-    'apps/funding-web/src/app/app.routes.ts',
+    'apps/funding-web/src/app/admin.routes.ts',
     'utf8'
   );
   const page = fs.readFileSync(
@@ -3052,7 +3052,7 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
   const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
 
-  assert.ok(routes.includes("path: 'admin/fundraiser/setup'"));
+  assert.ok(routes.includes("path: 'fundraiser/setup'"));
   assert.ok(routes.includes('AdminSetupPageComponent'));
   assert.ok(nav.includes("url: '/admin/fundraiser/setup'"));
   assert.ok(service.includes('getSetupStatus'));
