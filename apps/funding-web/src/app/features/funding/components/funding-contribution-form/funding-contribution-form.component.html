@@ -1,0 +1,285 @@
+<form
+  class="contribution-panel"
+  (ngSubmit)="submitContribution()"
+  [attr.aria-busy]="loadingState() === 'loading'"
+  data-og7="contribution-form"
+>
+  <h3>{{ 'funding.home.contribution.title' | translate }}</h3>
+  <div
+    class="contribution-type-grid"
+    [attr.aria-label]="'funding.home.contribution.typeAria' | translate"
+  >
+    <button
+      type="button"
+      class="contribution-type-card"
+      [class.active]="contributionType() === 'personal_support'"
+      [attr.aria-pressed]="contributionType() === 'personal_support'"
+      (click)="setContributionType('personal_support')"
+    >
+      <span class="contribution-type-kicker">{{
+        'funding.home.contribution.personal.kicker' | translate
+      }}</span>
+      <span class="contribution-card-heading">
+        <span
+          class="contribution-card-icon contribution-card-icon-personal"
+          aria-hidden="true"
+        ></span>
+        <strong>{{
+          'funding.home.contribution.personal.title' | translate
+        }}</strong>
+      </span>
+      <p>
+        {{ 'funding.home.contribution.personal.copy' | translate }}
+      </p>
+      <p>
+        {{
+          'funding.home.contribution.personal.transparencyIncluded' | translate
+        }}
+      </p>
+      <p>
+        {{ 'funding.home.contribution.personal.consentOptions' | translate }}
+      </p>
+      <span class="default-mention-badge">
+        <span class="shield-check-icon" aria-hidden="true"></span>
+        {{ 'funding.home.contribution.personal.defaultMention' | translate }}
+      </span>
+    </button>
+    <button
+      type="button"
+      class="contribution-type-card review"
+      [class.active]="contributionType() === 'sponsorship_interest'"
+      [attr.aria-pressed]="contributionType() === 'sponsorship_interest'"
+      [disabled]="!sponsorshipSelectionEnabled()"
+      [attr.aria-disabled]="!sponsorshipSelectionEnabled()"
+      (click)="setContributionType('sponsorship_interest')"
+    >
+      <span class="contribution-type-kicker">{{
+        'funding.home.contribution.sponsorship.kicker' | translate
+      }}</span>
+      <span class="contribution-card-heading">
+        <span
+          class="contribution-card-icon contribution-card-icon-business"
+          aria-hidden="true"
+        ></span>
+        <strong>{{
+          'funding.home.contribution.sponsorship.title' | translate
+        }}</strong>
+      </span>
+      <p>
+        {{ 'funding.home.contribution.sponsorship.copy' | translate }}
+      </p>
+      <span class="sponsorship-benefit-label">
+        {{
+          'funding.home.contribution.sponsorship.includedByDefault' | translate
+        }}
+      </span>
+      <span
+        class="sponsorship-benefits sponsorship-benefits-default"
+        role="list"
+      >
+        <span role="listitem">
+          {{
+            'funding.home.contribution.sponsorship.benefits.openg7' | translate
+          }}
+        </span>
+      </span>
+      <span class="sponsorship-benefit-label">
+        {{ 'funding.home.contribution.sponsorship.amountBased' | translate }}
+      </span>
+      <span class="sponsorship-benefits" role="list">
+        <span role="listitem">
+          {{
+            'funding.home.contribution.sponsorship.benefits.facebook'
+              | translate
+          }}
+        </span>
+        <span role="listitem">
+          {{
+            'funding.home.contribution.sponsorship.benefits.linkedin'
+              | translate
+          }}
+        </span>
+      </span>
+      <p class="sponsorship-review-note">
+        {{ 'funding.home.contribution.sponsorship.reviewNote' | translate }}
+      </p>
+      <small class="unavailable-badge" *ngIf="!sponsorshipSelectionEnabled()">
+        {{ 'funding.home.contribution.sponsorship.disabled' | translate }}
+      </small>
+    </button>
+  </div>
+  <p
+    class="sponsorship-selection-note"
+    *ngIf="contributionType() === 'sponsorship_interest'"
+  >
+    {{ 'funding.home.contribution.sponsorship.afterPaymentNote' | translate }}
+  </p>
+  <div class="amount-grid">
+    <button
+      type="button"
+      *ngFor="let amount of activeAmountPresets()"
+      [class.active]="isSelectedAmount(amount)"
+      [attr.aria-pressed]="isSelectedAmount(amount)"
+      (click)="setContributionAmount(amount)"
+    >
+      {{ formatMoney(amount) }}
+    </button>
+  </div>
+  <label for="custom-contribution">{{
+    'funding.home.contribution.otherAmount' | translate
+  }}</label>
+  <input
+    id="custom-contribution"
+    class="custom-amount-input"
+    type="text"
+    inputmode="decimal"
+    autocomplete="off"
+    pattern="[0-9]+([.,][0-9]{1,2})?"
+    maxlength="10"
+    placeholder="$"
+    [value]="customContributionValue()"
+    [attr.aria-invalid]="hasInvalidCustomContribution()"
+    aria-describedby="custom-contribution-help"
+    (input)="setCustomContributionFromEvent($event)"
+    (blur)="normalizeCustomContributionFromEvent($event)"
+  />
+  <p
+    id="custom-contribution-help"
+    aria-live="polite"
+    class="input-help"
+    [class.input-error]="hasInvalidCustomContribution()"
+  >
+    {{
+      customContributionHelpKey()
+        | translate
+          : {
+              amounts: allowedAmountsLabel(),
+              minimum: formatMoney(config.sponsorship.minimumAmount)
+            }
+    }}
+  </p>
+  <div
+    class="sponsorship-tier-summary"
+    *ngIf="
+      contributionType() === 'sponsorship_interest' &&
+      !hasInvalidCustomContribution()
+    "
+  >
+    <p class="sponsorship-tier-summary-title">
+      {{ 'funding.home.contribution.sponsorship.summary.title' | translate }}
+    </p>
+    <ul class="sponsorship-tier-achieved" role="list">
+      <li *ngFor="let benefitId of sponsorshipBenefits().achievedBenefits">
+        {{ sponsorshipBenefitLabelKeys[benefitId] | translate }}
+      </li>
+    </ul>
+    <p
+      class="sponsorship-tier-upcoming"
+      *ngFor="let upcoming of sponsorshipBenefits().upcomingBenefits"
+    >
+      {{
+        sponsorshipUpcomingLabelKeys[upcoming.id]
+          | translate: { amount: formatMoney(upcoming.minimumAmount) }
+      }}
+    </p>
+    <p
+      class="sponsorship-tier-availability"
+      *ngFor="let entry of sponsorshipAvailabilityEntries()"
+    >
+      {{
+        sponsorshipAvailabilityLabelKeys[entry.channel]
+          | translate: { date: entry.date }
+      }}
+    </p>
+  </div>
+  <fieldset class="consent-options">
+    <legend>
+      {{ 'funding.home.contribution.consentLegend' | translate }}
+    </legend>
+    <label class="consent-option">
+      <input
+        type="checkbox"
+        [checked]="publicDisplayConsent()"
+        (change)="setPublicDisplayConsent($event)"
+      />
+      <span>{{
+        'funding.home.contribution.publicDisplayConsent' | translate
+      }}</span>
+    </label>
+    <ng-container *ngIf="publicDisplayConsent()">
+      <label for="public-display-name">{{
+        'funding.home.contribution.publicDisplayNameLabel' | translate
+      }}</label>
+      <input
+        id="public-display-name"
+        type="text"
+        required
+        maxlength="100"
+        [placeholder]="
+          'funding.home.contribution.publicDisplayNamePlaceholder' | translate
+        "
+        [value]="publicDisplayName()"
+        [attr.aria-invalid]="!publicDisplayName().trim()"
+        [attr.aria-describedby]="
+          !publicDisplayName().trim() ? 'public-display-name-help' : null
+        "
+        (input)="setPublicDisplayName($event)"
+      />
+      <p
+        id="public-display-name-help"
+        class="input-help"
+        *ngIf="!publicDisplayName().trim()"
+      >
+        {{ 'funding.home.contribution.publicDisplayNameRequired' | translate }}
+      </p>
+    </ng-container>
+    <label class="consent-option">
+      <input
+        type="checkbox"
+        [checked]="displayAmountConsent()"
+        (change)="setDisplayAmountConsent($event)"
+      />
+      <span>{{
+        'funding.home.contribution.displayAmountConsent' | translate
+      }}</span>
+    </label>
+    <label class="consent-option required">
+      <input
+        type="checkbox"
+        [checked]="nonCharityAcknowledged()"
+        (change)="setNonCharityAcknowledged($event)"
+      />
+      <span>{{
+        'funding.home.contribution.nonCharityNotice' | translate
+      }}</span>
+    </label>
+  </fieldset>
+  <button type="submit" class="gold-cta" [disabled]="!canStartCheckout()">
+    {{ 'funding.nav.supportCta' | translate }}
+  </button>
+  <p class="payment-note">
+    {{ 'funding.home.contribution.securePayment' | translate }}
+    <a [routerLink]="policyPath()">
+      {{ 'funding.home.contribution.policyLink' | translate }}
+    </a>
+  </p>
+  <p
+    class="payment-note sponsorship-payment-note"
+    *ngIf="contributionType() === 'sponsorship_interest'"
+  >
+    {{ 'funding.home.contribution.sponsorship.manualReviewNote' | translate }}
+  </p>
+  <p role="status" class="state" *ngIf="loadingState() === 'loading'">
+    {{ 'funding.home.contribution.loading' | translate }}
+  </p>
+  <p
+    role="status"
+    class="state state-success"
+    *ngIf="loadingState() === 'success' && checkoutResultMode() === 'mocked'"
+  >
+    {{ 'funding.home.contribution.success' | translate }}
+  </p>
+  <p role="alert" class="state state-error" *ngIf="loadingState() === 'error'">
+    {{ 'funding.home.contribution.error' | translate }}
+  </p>
+</form>

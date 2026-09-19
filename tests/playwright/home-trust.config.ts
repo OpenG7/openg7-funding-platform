@@ -17,7 +17,7 @@ export default defineConfig({
     screenshot: 'only-on-failure'
   },
   webServer: {
-    command: 'yarn workspace @openg7/funding-web start --host 127.0.0.1 --port 4301',
+    command: `"${process.execPath}" node_modules/@angular/cli/bin/ng.js serve funding-web --host 127.0.0.1 --port 4301`,
     cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'),
     url: 'http://127.0.0.1:4301',
     timeout: 120_000,

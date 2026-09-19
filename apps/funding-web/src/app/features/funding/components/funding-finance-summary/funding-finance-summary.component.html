@@ -1,0 +1,25 @@
+<section class="finance-panel" data-og7="home-finance-summary">
+  <h3>{{ 'funding.home.finance.title' | translate }}</h3>
+  <dl>
+    <div>
+      <dt>{{ 'funding.confirmedContributions' | translate }}</dt>
+      <dd>
+        {{ received() }}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'funding.home.finance.stripeFees' | translate }}</dt>
+      <dd>{{ fees() }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'funding.home.purpose.netAvailable' | translate }}</dt>
+      <dd>{{ available() }}</dd>
+    </div>
+  </dl>
+  <p role="status" *ngIf="error()">
+    {{ statusLabel() }}
+  </p>
+  <a [routerLink]="transparencyPath()">{{
+    'funding.home.finance.publicDetails' | translate
+  }}</a>
+</section>

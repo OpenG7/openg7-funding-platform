@@ -90,7 +90,9 @@
     "build": "tsc -p tsconfig.build.json",
     "docs": "typedoc --options typedoc.json",
     "opencode": "dotenv -e .env -- opencode",
-    "test:ui:followup": "yarn workspace @openg7/funding-web build && tsc -p tests/tsconfig.followup-ui.json && playwright test --config tests/playwright-followup-ui.config.mjs"
+    "test:ui:followup": "yarn workspace @openg7/funding-web build && tsc -p tests/tsconfig.followup-ui.json && playwright test --config tests/playwright-followup-ui.config.mjs",
+    "images:funding-home": "node scripts/optimize-funding-home-images.mjs",
+    "test:ui:funding-home": "playwright test --config tests/playwright/home-trust.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
@@ -104,6 +106,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.31.0",
     "prettier": "^3.6.2",
+    "sharp": "0.35.3",
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.19",
     "typescript": "^5.6.2"

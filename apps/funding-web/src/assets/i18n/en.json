@@ -1962,7 +1962,10 @@
           "successTitle": "Thank you, your sponsorship request is under review.",
           "successCopy": "Our team reviews every sponsorship manually before any public visibility. We will follow up by email with next steps.",
           "nextStepsLink": "See next steps"
-        }
+        },
+        "verifying": "Checking payment confirmation…",
+        "verificationPaused": "Confirmation is still pending. You can check again or contact support.",
+        "checkAgain": "Check again"
       },
       "actions": {
         "viewTransparency": "View transparency",
@@ -1978,7 +1981,7 @@
         "line3": "One future.",
         "copy": "The Builders Fund powers an open digital ecosystem to strengthen Canada’s economy, transparency, and resilience.",
         "progressAria": "Fundraising progress",
-        "raisedOn": "raised of"
+        "raisedOn": "raised this month toward"
       },
       "ecosystem": {
         "title": "The ecosystem",
@@ -2069,11 +2072,12 @@
           "afterPaymentNote": "After payment, you will be able to submit your company details, website, and logo for validation.",
           "manualReviewNote": "Every sponsorship is manually verified and approved before publication. Social media placements are scheduled in the next available batch.",
           "amountFormatError": "The minimum sponsorship amount is $50.",
-          "disabled": "Temporarily unavailable"
+          "disabled": "Temporarily unavailable",
+          "minimumAmountError": "The minimum sponsorship amount is {{ minimum }}."
         },
         "otherAmount": "Other amount",
         "amountFormatHint": "Numbers only, with up to 2 decimals.",
-        "amountFormatError": "Enter a valid amount greater than 0.",
+        "amountFormatError": "Enter a positive amount with no more than two decimal places.",
         "consentLegend": "Consents",
         "publicDisplayConsent": "Display my name publicly if a public name is provided later.",
         "publicDisplayNameLabel": "Name to display publicly (only used if the box above is checked)",
@@ -2084,7 +2088,9 @@
         "policyLink": "Usage and refund policy",
         "loading": "Preparing payment...",
         "success": "Local mode: Stripe did not open a real checkout session, so payment is simulated. Check /dev/stripe-setup to enable real payment.",
-        "error": "Unable to start payment."
+        "error": "Unable to start payment.",
+        "personalAmountHint": "Personal contributions accept these amounts: {{ amounts }}.",
+        "publicDisplayNameRequired": "Enter the name you want to display publicly."
       },
       "finance": {
         "title": "Financial transparency",

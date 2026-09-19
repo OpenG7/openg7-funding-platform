@@ -5,13 +5,19 @@ import type { FundTransparencyPublicResponse } from '@openg7/funding-core';
 export class FundTransparencyService {
   private readonly apiBaseUrl = this.resolveApiBaseUrl();
 
-  async getPublicTransparency(): Promise<FundTransparencyPublicResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/public/fund-transparency`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json'
+  async getPublicTransparency(
+    signal?: AbortSignal
+  ): Promise<FundTransparencyPublicResponse> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/public/fund-transparency`,
+      {
+        signal,
+        method: 'GET',
+        headers: {
+          Accept: 'application/json'
+        }
       }
-    });
+    );
 
     if (!response.ok) {
       throw new Error('Failed to load public transparency data');
@@ -23,9 +29,11 @@ export class FundTransparencyService {
   private resolveApiBaseUrl(): string {
     const globalApiBaseUrl =
       typeof window !== 'undefined'
-        ? (window as Window & {
-            readonly __OPENG7_FUNDING_API_BASE_URL__?: string;
-          }).__OPENG7_FUNDING_API_BASE_URL__
+        ? (
+            window as Window & {
+              readonly __OPENG7_FUNDING_API_BASE_URL__?: string;
+            }
+          ).__OPENG7_FUNDING_API_BASE_URL__
         : undefined;
 
     return globalApiBaseUrl?.replace(/\/$/, '') ?? '/api';

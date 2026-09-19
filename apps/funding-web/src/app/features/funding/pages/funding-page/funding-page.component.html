@@ -1,0 +1,402 @@
+<main class="builders-shell">
+  <openg7-funding-header></openg7-funding-header>
+
+  <openg7-funding-checkout-notice
+    [checkoutStatus]="checkoutMonitor.status()"
+    [pendingSponsorFollowupToken]="pendingSponsorFollowupToken()"
+    [paused]="checkoutMonitor.paused()"
+    [checking]="checkoutMonitor.checking()"
+    [canRetry]="checkoutMonitor.canRetry()"
+    (dismissed)="dismissCheckoutNotice()"
+    (retryRequested)="checkoutMonitor.retry()"
+    (supportRequested)="scrollToSupport()"
+  />
+
+  <section class="poster-hero" aria-labelledby="builders-title">
+    <img
+      class="hero-backdrop"
+      fetchpriority="high"
+      src="assets/fonds-des-batisseurs-feuille-erable-lumineuse-960.webp"
+      srcset="
+        assets/fonds-des-batisseurs-feuille-erable-lumineuse-960.webp   960w,
+        assets/fonds-des-batisseurs-feuille-erable-lumineuse-1920.webp 1920w
+      "
+      sizes="100vw"
+      width="1916"
+      height="821"
+      decoding="async"
+      [alt]="'funding.home.hero.backgroundAlt' | translate"
+    />
+    <div class="hero-shade" aria-hidden="true"></div>
+
+    <div class="hero-copy">
+      <h1 id="builders-title">
+        <span>{{ 'funding.home.hero.line1' | translate }}</span>
+        <span>{{ 'funding.home.hero.line2' | translate }}</span>
+        <strong>{{ 'funding.home.hero.line3' | translate }}</strong>
+      </h1>
+      <p>{{ 'funding.home.hero.copy' | translate }}</p>
+
+      <article
+        class="hero-progress-card"
+        data-og7="home-funding-progress"
+        [attr.aria-label]="'funding.home.hero.progressAria' | translate"
+      >
+        <div>
+          <span
+            >{{ formatPublicMoney(currentMonthContributions()) }}
+            {{ 'funding.home.hero.raisedOn' | translate }}
+            {{ formatMoney(config.monthlyGoal) }}</span
+          >
+          <strong>{{ campaignProgressLabel() }}</strong>
+        </div>
+        <div
+          class="progress-track"
+          *ngIf="hasTransparencySnapshot()"
+          aria-hidden="true"
+        >
+          <span [style.width.%]="campaignProgress()"></span>
+        </div>
+        <small role="status">{{ transparencyStatusLabel() }}</small>
+        <button type="button" (click)="scrollToSupport()">
+          {{ 'funding.nav.supportCta' | translate }}
+          <span aria-hidden="true">→</span>
+        </button>
+      </article>
+    </div>
+  </section>
+
+  <section
+    id="ecosystem"
+    class="ecosystem-section"
+    aria-labelledby="ecosystem-title"
+  >
+    <header class="section-title ornament-title">
+      <h2 id="ecosystem-title">
+        {{ 'funding.home.ecosystem.title' | translate }}
+        <strong>OpenG7</strong>
+      </h2>
+      <p>{{ 'funding.home.ecosystem.copy' | translate }}</p>
+    </header>
+
+    <div class="tool-grid">
+      <article
+        class="tool-card"
+        data-og7="ecosystem-card"
+        *ngFor="let card of ecosystemCards"
+      >
+        <img
+          [src]="card.asset"
+          [srcset]="
+            card.asset +
+            ' 480w, ' +
+            card.asset.replace('-480.webp', '-960.webp') +
+            ' 960w'
+          "
+          sizes="(max-width: 860px) 50vw, (max-width: 1440px) 25vw, 15vw"
+          width="480"
+          height="300"
+          loading="lazy"
+          decoding="async"
+          alt=""
+        />
+        <div class="tool-card-copy">
+          <span>{{ card.id }}</span>
+          <div>
+            <h3>{{ card.title }}</h3>
+            <p>{{ card.descriptionKey | translate }}</p>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <p class="solid-foundations">
+      {{ 'funding.home.ecosystem.foundationLead' | translate }}
+      <strong>{{
+        'funding.home.ecosystem.foundationStrong' | translate
+      }}</strong>
+    </p>
+  </section>
+
+  <section
+    id="funding-purpose"
+    class="funding-purpose-board"
+    aria-labelledby="funding-purpose-title"
+  >
+    <img
+      class="purpose-city"
+      loading="lazy"
+      src="assets/fonds-des-batisseurs-feuille-erable-lumineuse-960.webp"
+      srcset="
+        assets/fonds-des-batisseurs-feuille-erable-lumineuse-960.webp   960w,
+        assets/fonds-des-batisseurs-feuille-erable-lumineuse-1920.webp 1920w
+      "
+      sizes="100vw"
+      width="1916"
+      height="821"
+      decoding="async"
+      [alt]="'funding.home.hero.backgroundAlt' | translate"
+    />
+    <img
+      class="purpose-dragon"
+      loading="lazy"
+      src="assets/fonds-des-batisseurs-dragon-coffre-fort-960.webp"
+      srcset="
+        assets/fonds-des-batisseurs-dragon-coffre-fort-960.webp   960w,
+        assets/fonds-des-batisseurs-dragon-coffre-fort-1920.webp 1920w
+      "
+      sizes="100vw"
+      width="1916"
+      height="821"
+      decoding="async"
+      [alt]="'funding.home.purpose.dragonAlt' | translate"
+    />
+    <div class="purpose-overlay" aria-hidden="true"></div>
+
+    <article class="purpose-intro">
+      <span class="section-kicker">{{
+        'funding.brand.title' | translate
+      }}</span>
+      <h2 id="funding-purpose-title">
+        {{ 'funding.home.purpose.title' | translate }}
+        <strong>OpenG7</strong> ?
+      </h2>
+      <p>{{ 'funding.home.purpose.copy' | translate }}</p>
+      <div class="purpose-actions">
+        <button type="button" (click)="scrollToSupport()">
+          {{ 'funding.nav.supportCta' | translate }}
+        </button>
+        <a [routerLink]="transparencyPath()">{{
+          'funding.home.actions.viewRegistry' | translate
+        }}</a>
+      </div>
+    </article>
+
+    <dl
+      class="purpose-proof-strip"
+      [attr.aria-label]="'funding.home.purpose.proofAria' | translate"
+    >
+      <div>
+        <dt>{{ 'funding.home.purpose.lastSync' | translate }}</dt>
+        <dd>{{ lastTransparencySyncLabel() }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'funding.home.purpose.source' | translate }}</dt>
+        <dd>{{ transparencySourceLabel() }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'funding.home.purpose.currency' | translate }}</dt>
+        <dd>{{ currency() }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'funding.home.purpose.activeCampaign' | translate }}</dt>
+        <dd>{{ config.campaignTitle }}</dd>
+      </div>
+    </dl>
+
+    <section
+      class="purpose-kpi-grid"
+      data-og7="home-funding-totals"
+      [attr.aria-label]="'funding.home.purpose.kpiAria' | translate"
+    >
+      <article class="purpose-kpi blue">
+        <span aria-hidden="true">+</span>
+        <div>
+          <h3>{{ 'funding.confirmedContributions' | translate }}</h3>
+          <strong>{{
+            formatPublicMoney(snapshot().totals.confirmedContributions)
+          }}</strong>
+          <p>{{ contributionCountLabel() }}</p>
+        </div>
+      </article>
+      <article class="purpose-kpi red">
+        <span aria-hidden="true">-</span>
+        <div>
+          <h3>{{ 'funding.home.purpose.paymentFees' | translate }}</h3>
+          <strong>{{
+            formatPublicMoney(snapshot().totals.transactionFees)
+          }}</strong>
+          <p>
+            {{ 'funding.home.purpose.deductedBeforeAvailable' | translate }}
+          </p>
+        </div>
+      </article>
+      <article class="purpose-kpi green">
+        <span aria-hidden="true">=</span>
+        <div>
+          <h3>{{ 'funding.home.purpose.netAvailable' | translate }}</h3>
+          <strong>{{
+            formatPublicMoney(snapshot().totals.availableFunds)
+          }}</strong>
+          <p>
+            {{ 'funding.home.purpose.availableForProjects' | translate }}
+          </p>
+        </div>
+      </article>
+      <article class="purpose-kpi gold">
+        <span aria-hidden="true">%</span>
+        <div>
+          <h3>{{ 'funding.goal.monthly' | translate }}</h3>
+          <strong>{{ formatMoney(config.monthlyGoal) }}</strong>
+          <p>
+            {{ campaignProgressLabel() }}
+            <ng-container *ngIf="hasTransparencySnapshot()">{{
+              'funding.home.purpose.reached' | translate
+            }}</ng-container>
+          </p>
+        </div>
+      </article>
+    </section>
+    <p role="status" *ngIf="transparencyState() === 'error'">
+      {{ transparencyStatusLabel() }}
+    </p>
+
+    <article
+      class="purpose-campaign-card"
+      [attr.aria-label]="
+        'funding.home.purpose.campaignProgressAria' | translate
+      "
+    >
+      <header>
+        <span>{{ 'funding.home.purpose.campaignProgress' | translate }}</span>
+        <strong>{{ campaignProgressLabel() }}</strong>
+      </header>
+      <div
+        class="purpose-track"
+        *ngIf="hasTransparencySnapshot()"
+        aria-hidden="true"
+      >
+        <span [style.width.%]="campaignProgress()"></span>
+      </div>
+      <p>
+        {{ formatPublicMoney(remainingForMonthlyGoal()) }}
+        <ng-container *ngIf="hasTransparencySnapshot()">{{
+          'funding.home.purpose.remainingForGoal' | translate
+        }}</ng-container>
+      </p>
+    </article>
+
+    <div class="purpose-dashboard-grid">
+      <article class="purpose-panel purpose-flow">
+        <h3>{{ 'funding.home.flow.title' | translate }}</h3>
+        <ol>
+          <li>
+            <span>1</span>
+            <div>
+              <strong>{{
+                'funding.home.flow.steps.received.title' | translate
+              }}</strong>
+              <p>
+                {{ 'funding.home.flow.steps.received.copy' | translate }}
+              </p>
+            </div>
+          </li>
+          <li>
+            <span>2</span>
+            <div>
+              <strong>{{
+                'funding.home.flow.steps.confirmed.title' | translate
+              }}</strong>
+              <p>
+                {{ 'funding.home.flow.steps.confirmed.copy' | translate }}
+              </p>
+            </div>
+          </li>
+          <li>
+            <span>3</span>
+            <div>
+              <strong>{{
+                'funding.home.flow.steps.fees.title' | translate
+              }}</strong>
+              <p>
+                {{ 'funding.home.flow.steps.fees.copy' | translate }}
+              </p>
+            </div>
+          </li>
+          <li>
+            <span>4</span>
+            <div>
+              <strong>{{
+                'funding.home.flow.steps.available.title' | translate
+              }}</strong>
+              <p>
+                {{ 'funding.home.flow.steps.available.copy' | translate }}
+              </p>
+            </div>
+          </li>
+        </ol>
+      </article>
+
+      <article class="purpose-panel purpose-allocation">
+        <h3>{{ 'funding.home.allocation.title' | translate }}</h3>
+        <div
+          class="purpose-donut"
+          [style.background]="allocationDonut()"
+          aria-hidden="true"
+        ></div>
+        <p
+          class="purpose-empty-state"
+          *ngIf="
+            hasTransparencySnapshot() && snapshot().allocation.length === 0
+          "
+        >
+          {{ 'funding.home.allocation.empty' | translate }}
+        </p>
+        <p class="purpose-empty-state" *ngIf="!hasTransparencySnapshot()">
+          {{ publicValueUnavailableLabel() }}
+        </p>
+        <ul>
+          <li
+            *ngFor="let allocation of snapshot().allocation; let index = index"
+          >
+            <span
+              [style.background]="allocationColor(index)"
+              aria-hidden="true"
+            ></span>
+            <strong>{{ allocationShare(allocation.amount) }}%</strong>
+            <p>{{ allocation.category }}</p>
+          </li>
+        </ul>
+      </article>
+
+      <aside
+        id="support"
+        tabindex="-1"
+        class="purpose-support-panel"
+        [attr.aria-label]="'funding.home.contribution.ariaLabel' | translate"
+      >
+        <openg7-funding-contribution-form
+          [sponsorshipSelectionEnabled]="sponsorshipSelectionEnabled()"
+          [allowedAmounts]="allowedContributionAmounts()"
+          [sponsorshipBatchAvailability]="sponsorshipBatchAvailability()"
+          [loadingState]="loadingState()"
+          [checkoutResultMode]="checkoutResultMode()"
+          (contributionSubmitted)="supportProject($event)"
+        />
+
+        <openg7-funding-finance-summary
+          [received]="
+            formatPublicMoney(snapshot().totals.confirmedContributions)
+          "
+          [fees]="formatPublicMoney(snapshot().totals.transactionFees)"
+          [available]="formatPublicMoney(snapshot().totals.availableFunds)"
+          [error]="transparencyState() === 'error'"
+          [statusLabel]="transparencyStatusLabel()"
+        />
+      </aside>
+    </div>
+  </section>
+
+  <footer class="builders-footer">
+    <p>
+      {{ 'funding.home.footer.copy' | translate }}
+      <strong>{{ 'funding.home.footer.strong' | translate }}</strong>
+    </p>
+    <ul>
+      <li *ngFor="let pillar of foundationPillars">
+        <strong>{{ pillar.titleKey | translate }}</strong>
+        <span>{{ pillar.descriptionKey | translate }}</span>
+      </li>
+    </ul>
+  </footer>
+</main>

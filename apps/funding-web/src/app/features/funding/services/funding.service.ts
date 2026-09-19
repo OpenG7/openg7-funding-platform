@@ -125,9 +125,11 @@ export class FundingService {
   }
 
   async lookupPublicReference(
-    payload: PublicReferenceLookupRequest
+    payload: PublicReferenceLookupRequest,
+    signal?: AbortSignal
   ): Promise<PublicReferenceLookupResponse> {
     const response = await fetch(`${this.apiBaseUrl}/reference-lookup`, {
+      signal,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

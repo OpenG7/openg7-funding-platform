@@ -1,3 +1,4 @@
+import { readFundingHomeSource } from './support/funding-home-source.mjs';
 import { readSponsorshipFollowupSource } from './support/sponsorship-followup-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import assert from 'node:assert/strict';
@@ -24,9 +25,7 @@ const extractBetween = (source, start, end, label) => {
 const coverageDoc = read('docs/sponsorship-e2e-coverage.md');
 
 test('E2E 1/8: enterprise sponsorship checkout returns with recovery token', () => {
-  const fundingPage = read(
-    'apps/funding-web/src/app/features/funding/pages/funding-page/funding-page.component.ts'
-  );
+  const fundingPage = readFundingHomeSource();
   const fundingService = read(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts'
   );
