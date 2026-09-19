@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 
 // Local browser coverage with intercepted synthetic data; no API, Stripe or DB.
@@ -19,6 +19,18 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure'
   },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      grepInvert: /@mobile/
+    },
+    {
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 5'] },
+      grep: /@mobile/
+    }
+  ],
   webServer: {
     command: '"' + process.execPath + '" tests/ui/serve-built-web.mjs',
     cwd: fileURLToPath(new URL('..', import.meta.url)),

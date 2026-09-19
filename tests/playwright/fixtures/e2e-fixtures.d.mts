@@ -44,6 +44,16 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
     amountCents: 50000;
     reviewStatus: 'approved';
   }>;
+  followupEditing: Readonly<{
+    publicReference: 'OG7-E2E-FOLLOWUP-EDIT';
+    companyName: 'E2E Followup Editing Inc.';
+    contactName: 'E2E Followup Editing';
+    contactEmail: 'followup-editing@example.invalid';
+    websiteUrl: 'https://example.invalid/followup-editing';
+    followupToken: 'e2e-followup-editing-local-only-token-00000000';
+    amountCents: 50000;
+    reviewStatus: 'approved';
+  }>;
   refund: Readonly<{
     publicReference: 'OG7-E2E-REFUND';
     companyName: 'E2E Playwright Fixture Refund Inc.';

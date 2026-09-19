@@ -24,7 +24,7 @@
 - `sponsorship-followup-ui.ts` : normalisation du brouillon, comparaison sans changements et erreurs de transport structurées.
 - Les catalogues restent dans `src/assets/i18n`. Les styles sont limités aux composants de ce suivi.
 
-## Validation
+## Validation de la PR #119
 
 Sous Node 22 :
 
@@ -41,7 +41,31 @@ Les cas navigateur couvrent notamment la reprise réseau, la confirmation tardiv
 
 Résultats locaux : 230 tests Node réussis ; 22 tests navigateur réussis ; build Angular et 22 routes publiques pré-rendues ; vérification TypeScript complète réussie. Le lint termine sans erreur, avec un avertissement existant dans `scripts/smoke-public.mjs`. Le format des fichiers de ce changement et `git diff --check` sont conformes. Le contrôle de format global signale encore 323 fichiers hors périmètre.
 
-Les contrôles historiques de présence de chaînes dans les sources restent des garanties statiques. La suite isolée vérifie les interactions, sans prouver le fonctionnement de la pile Docker ou des fournisseurs externes. Les scénarios Docker existants sont adaptés au nouveau mode d'édition ; ils nécessitent leur environnement habituel pour être rejoués.
+Les contrôles historiques de présence de chaînes dans les sources restent des garanties statiques. La suite isolée vérifie les interactions, sans prouver le fonctionnement de la pile Docker ou des fournisseurs externes. Les scénarios Docker ont été adaptés au nouveau mode d'édition dans la PR #119 ; ils n'avaient pas été rejoués dans ce lot.
+
+## Recette du suivi après la PR #119
+
+Les workflows `admin-acceptance.yml` (pull requests) et `deploy.yml` (validation de `main`) exécutent explicitement `yarn test:ui:followup`. Un échec bloque la suite du job. Les traces et captures sont conservées dans les artefacts `test-results/` déjà prévus par ces workflows. Docker écrit dans son propre sous-répertoire pour ne pas effacer les preuves de la suite isolée au démarrage. La suite utilise Chromium sur ordinateur et un Pixel 5 émulé pour les scénarios marqués `@mobile`, chacun exécuté une seule fois.
+
+`playwright.config.ts` exclut ces fixtures interceptées de ses suites Docker, à partir du `testMatch` de leur propre configuration. Le test `playwright-followup-selection.test.mjs` interroge la découverte Playwright pour vérifier l'absence de doublons et la présence des parcours persistés dans les deux modes Docker.
+
+La commande suivante utilise la vraie API et PostgreSQL dans une pile locale jetable, sans charger `.env`. Stripe est remplacé par le serveur de test et SMTP est désactivé :
+
+```sh
+yarn test:e2e:acceptance tests/playwright/sponsor-navigation.spec.ts tests/playwright/sponsor-rejected-state.spec.ts
+```
+
+Le scénario de resoumission dispose d'une fixture approuvée dédiée. Il vérifie la consultation initiale, le blocage d'une sauvegarde identique, la persistance des changements, le maintien du paiement confirmé, le retour en révision et le retrait de l'annuaire public. Le rechargement doit retrouver les renseignements enregistrés grâce au jeton conservé en session. Les tests d'annuaire et de validation du formulaire conservent leur propre fixture approuvée et ne dépendent plus de cette resoumission.
+
+Résultats locaux du 18 septembre 2026, sous Node 22 :
+
+- `yarn test` : 231 tests Node réussis.
+- `yarn test:ui:followup` : 22 tests navigateur réussis ; build Angular et 22 routes pré-rendues.
+- Recette Docker ciblée ci-dessus : 10 tests réussis, après construction des images, migrations sur la base jetable et chargement des fixtures. La pile a été supprimée par le runner à la fin.
+- Vérification TypeScript complète réussie ; lint sans erreur, avec le même avertissement préexistant dans `scripts/smoke-public.mjs`.
+- Format des fichiers du lot et `git diff --check` conformes. Le contrôle de format global reste en échec et signale 345 fichiers hors lot dans cette exécution.
+
+Ce lot porte sur les garanties d'exécution, sans changement de comportement applicatif ni nouvelle migration. La suite Docker complète et les workflows GitHub n'ont pas été exécutés pour ce lot ; les intégrations externes réelles restent hors de cette recette locale.
 
 ## Portée et limites
 

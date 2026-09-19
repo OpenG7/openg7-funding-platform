@@ -1,3 +1,8 @@
+import type {
+  PublicSponsorshipsResponse,
+  SponsorshipFollowupResponse
+} from '@openg7/funding-core';
+
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 
@@ -92,10 +97,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     );
   });
 
-  // Runs before the follow-up resubmission test below: recordSponsorshipDetailsForContribution
-  // (apps/funding-api/src/fund-contributions.repository.ts) resets sponsor_review_status back to
-  // pending_review on every resubmission, which would otherwise drop this fixture out of the
-  // public directory's approved-only listing before this test gets to check it.
+  // This approved fixture is read-only: editing uses its own record below.
   test('lists the approved sponsorship in the public directory reachable from the header navigation', async ({
     page
   }) => {
@@ -125,10 +127,21 @@ test.describe('Docker corporate sponsor navigation', () => {
     );
   });
 
-  test('shows the post-approval status and accepts a follow-up resubmission for an approved sponsorship', async ({
-    page
+  test('persists follow-up changes, returns the approved dossier to review and removes its public listing', async ({
+    page,
+    request
   }) => {
-    const fixture = SPONSORSHIP_FIXTURES.directory;
+    const fixture = SPONSORSHIP_FIXTURES.followupEditing;
+    const publicProfiles = async () => {
+      const response = await request.get('/api/public/sponsorships');
+      expect(response.ok()).toBe(true);
+      return (await response.json()) as PublicSponsorshipsResponse;
+    };
+    expect(
+      (await publicProfiles()).sponsorships.some(
+        (item) => item.company_name === fixture.companyName
+      )
+    ).toBe(true);
 
     await page.goto(
       `/fonds-des-batisseurs/suivi-commandite?token=${fixture.followupToken}`
@@ -141,10 +154,15 @@ test.describe('Docker corporate sponsor navigation', () => {
     await expect(
       page.getByRole('heading', { name: /Commandite accept.e/i })
     ).toBeVisible();
+    await expect(page).not.toHaveURL(/token=/);
+    await expect(page.getByLabel(/Nom de l'entreprise/i)).toBeDisabled();
 
     await page
       .getByRole('button', { name: /Modifier mes informations/i })
       .click();
+    await expect(
+      page.getByRole('button', { name: /Enregistrer les informations/i })
+    ).toBeDisabled();
     await page
       .getByLabel(/Nom de l'entreprise/i)
       .fill(fixture.companyName + ' - mise a jour');
@@ -159,6 +177,30 @@ test.describe('Docker corporate sponsor navigation', () => {
     await expect(
       page.getByRole('status').filter({ hasText: /Informations enregistr.es/i })
     ).toBeVisible();
+
+    // Read persisted facts through the real API, independently of UI signals.
+    const response = await request.get('/api/sponsorship-followup', {
+      params: { token: fixture.followupToken }
+    });
+    expect(response.ok()).toBe(true);
+    const stored = (await response.json()) as SponsorshipFollowupResponse;
+    expect(stored.companyName).toBe(fixture.companyName + ' - mise a jour');
+    expect(stored.paymentStatus).toBe('paid');
+    expect(stored.reviewStatus).toBe('pending_review');
+    expect(stored.detailsSubmitted).toBe(true);
+    expect(
+      (await publicProfiles()).sponsorships.some((item) =>
+        item.company_name?.startsWith(fixture.companyName)
+      )
+    ).toBe(false);
+
+    await page.reload();
+    await expect(page.getByLabel(/Nom de l'entreprise/i)).toHaveValue(
+      stored.companyName!
+    );
+    await expect(
+      page.getByRole('button', { name: /Enregistrer les informations/i })
+    ).toBeDisabled();
   });
 
   test('validates empty required fields show error messages and prevent form submission', async ({
@@ -173,6 +215,10 @@ test.describe('Docker corporate sponsor navigation', () => {
     await expect(
       page.getByRole('heading', { name: /Suivi de votre commandite/i })
     ).toBeVisible();
+
+    await page
+      .getByRole('button', { name: /Modifier mes informations/i })
+      .click();
 
     await page.getByLabel(/Nom de l'entreprise/i).fill('');
     await page.getByLabel(/Nom du contact/i).fill('');
@@ -207,6 +253,10 @@ test.describe('Docker corporate sponsor navigation', () => {
       page.getByRole('heading', { name: /Suivi de votre commandite/i })
     ).toBeVisible();
 
+    await page
+      .getByRole('button', { name: /Modifier mes informations/i })
+      .click();
+
     await page.getByLabel(/Nom de l'entreprise/i).fill(fixture.companyName);
     await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
     await page.getByLabel(/Courriel du contact/i).fill('invalid-email');
@@ -234,6 +284,10 @@ test.describe('Docker corporate sponsor navigation', () => {
     await expect(
       page.getByRole('heading', { name: /Suivi de votre commandite/i })
     ).toBeVisible();
+
+    await page
+      .getByRole('button', { name: /Modifier mes informations/i })
+      .click();
 
     await page.getByLabel(/Nom de l'entreprise/i).fill(fixture.companyName);
     await page.getByLabel(/Nom du contact/i).fill(fixture.contactName);
