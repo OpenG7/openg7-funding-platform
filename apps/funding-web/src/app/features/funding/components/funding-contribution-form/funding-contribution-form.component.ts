@@ -48,6 +48,10 @@ export class FundingContributionFormComponent implements OnChanges {
   readonly config =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
   readonly sponsorshipSelectionEnabled = input(false);
+  readonly requestedContributionType =
+    input<ContributionType>('personal_support');
+  private requestedTypeApplied = false;
+  private typeChosenByVisitor = false;
   readonly allowedAmounts = input<readonly number[]>(
     this.config.contributionAmounts
   );
@@ -155,6 +159,15 @@ export class FundingContributionFormComponent implements OnChanges {
   );
   ngOnChanges(): void {
     if (
+      !this.requestedTypeApplied &&
+      !this.typeChosenByVisitor &&
+      this.requestedContributionType() === 'sponsorship_interest' &&
+      this.sponsorshipSelectionEnabled()
+    ) {
+      this.contributionType.set('sponsorship_interest');
+      this.requestedTypeApplied = true;
+    }
+    if (
       !this.sponsorshipSelectionEnabled() &&
       this.contributionType() === 'sponsorship_interest'
     )
@@ -179,6 +192,7 @@ export class FundingContributionFormComponent implements OnChanges {
   setContributionType(type: ContributionType): void {
     if (type === 'sponsorship_interest' && !this.sponsorshipSelectionEnabled())
       return;
+    this.typeChosenByVisitor = true;
     this.contributionType.set(type);
     this.reconcilePreset();
   }

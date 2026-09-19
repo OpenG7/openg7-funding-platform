@@ -1453,33 +1453,56 @@
       }
     },
     "sponsorsPage": {
+      "followup": "Retrouver ma commandite",
+      "refresh": "Actualiser",
+      "retry": "Réessayer",
+      "newTab": "nouvel onglet",
+      "pagination": {
+        "label": "Pages de l’annuaire des commandites",
+        "range": "Fiches {{first}} à {{last}} sur {{total}}",
+        "legacy": "{{count}} fiches affichées. Le total de l’annuaire n’est pas disponible.",
+        "page": "Page {{page}} sur {{total}}",
+        "previous": "Précédent",
+        "next": "Suivant",
+        "emptyPage": "Cette page ne contient plus de fiche publique. L’annuaire a peut-être changé.",
+        "first": "Revenir à la première page"
+      },
+      "links": {
+        "title": "Le fonds et ses soutiens",
+        "copy": "Les commandites soutiennent le développement d’OpenG7. Consultez les finances du fonds ou découvrez les contributions personnelles publiques.",
+        "transparency": "Consulter la transparence du fonds",
+        "builders": "Découvrir les bâtisseurs",
+        "policy": "Conditions et remboursements",
+        "contact": "Contacter l’équipe"
+      },
       "hero": {
         "imageAlt": "Communautés numériques connectées au Canada",
         "kicker": "Commandites approuvées",
         "title": "Commanditaires OpenG7",
-        "copy": "Cette vitrine rassemble les commandites d'entreprise approuvées manuellement. Chaque apparition publique passe par consentement, validation et contrôle éditorial."
+        "copy": "Découvrez les entreprises qui soutiennent le développement d’OpenG7, leur activité et leurs publications partenaires. Les fiches sont présentées avec leur consentement et après validation."
       },
       "summary": {
         "ariaLabel": "Résumé public des commanditaires",
-        "approved": "Commanditaires approuvés",
+        "approved": "Fiches de commandite publiques",
         "feedReady": "Visibilités préparées",
-        "published": "Publications en ligne"
+        "published": "Fiches avec publication",
+        "explanation": "Une entreprise peut avoir plusieurs fiches. Les publications sont comptées par fiche disposant d’un lien publié, et non par message ou par réseau."
       },
       "visibility": {
         "ariaLabel": "Promesse de visibilité commanditaire",
         "kicker": "Vitrine partenaire",
-        "title": "Une présence publique utile, pas automatique",
+        "title": "Comment apparaître ici",
         "copy": "Les commanditaires approuvés peuvent obtenir une fiche publique et une visibilité préparée pour les canaux OpenG7.",
         "items": {
           "profile": "Logo, site web, message court et contribution publiée selon le consentement.",
           "review": "Validation manuelle avant toute apparition publique.",
-          "publication": "Publication partenaire suivie lorsque la visibilité est prête."
+          "publication": "Les publications partenaires sont préparées séparément, selon les conditions de la commandite."
         }
       },
       "directory": {
         "kicker": "Visibilité",
         "title": "Commanditaires publics",
-        "copy": "Seules les entreprises consenties et approuvées sont affichées. Les publications partenaires indiquent où la visibilité est préparée ou déjà en ligne.",
+        "copy": "Parcourez les fiches approuvées, leurs présentations et les liens de publication disponibles.",
         "amountHidden": "Montant non publié",
         "feedTargetPending": "Visibilité à définir",
         "feedLink": "Voir la publication",
@@ -1493,7 +1516,7 @@
       },
       "empty": {
         "title": "Aucun commanditaire public pour le moment",
-        "copy": "Les premiers commanditaires approuvés apparaîtront ici avec leur logo, leur message public et leur visibilité préparée.",
+        "copy": "Les fiches apparaissent après consentement et validation de la présentation. Vous pouvez devenir commanditaire ou retrouver votre dossier à partir des liens ci-dessus.",
         "action": "Devenir commanditaire",
         "preview": {
           "profile": {
@@ -1511,8 +1534,10 @@
         }
       },
       "state": {
-        "loading": "Chargement des commanditaires...",
-        "error": "Impossible de charger les commanditaires."
+        "loading": "Chargement des fiches publiques…",
+        "error": "Impossible de charger les commanditaires. Les données ne sont pas disponibles pour le moment.",
+        "unavailable": "L’annuaire n’est pas disponible pour le moment. Cela ne signifie pas qu’aucune commandite n’existe.",
+        "javascript": "Activez JavaScript pour consulter les fiches actualisées. Les liens de contribution et de contact restent disponibles."
       }
     },
     "policyPage": {

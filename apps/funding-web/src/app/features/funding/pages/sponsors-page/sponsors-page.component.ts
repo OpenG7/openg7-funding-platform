@@ -2,6 +2,7 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   Injector,
   OnInit,
   PLATFORM_ID,
@@ -15,818 +16,182 @@ import type {
   PublicSponsorshipProfile,
   PublicSponsorshipsResponse,
   SponsorFeedChannel,
-  SponsorFeedStatus,
   SponsorFeedTarget
 } from '@openg7/funding-core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import {
+  isPublicSponsorshipsResponse,
+  publicHttpsUrl,
+  publicMediaUrl
+} from '../../models/public-sponsors.utils.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 import { SponsorshipsService } from '../../services/sponsorships.service.js';
 
-const emptySponsorships = (): PublicSponsorshipsResponse => ({
-  data_source: 'empty',
-  sponsorships: [],
-  last_updated_at: new Date().toISOString()
-});
-
+/** Directory page: loading, pagination and navigation; publication is owned by the API. */
 @Component({
   selector: 'openg7-sponsors-page',
   standalone: true,
   imports: [CommonModule, RouterLink, TranslatePipe, FundingHeaderComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <main class="sponsors-shell">
-      <openg7-funding-header></openg7-funding-header>
-
-      <section class="sponsors-hero" aria-labelledby="sponsors-title">
-        <img
-          src="assets/openg7-social-communautes-connectees-canada.png"
-          [alt]="'funding.sponsorsPage.hero.imageAlt' | translate"
-        />
-        <div class="hero-overlay" aria-hidden="true"></div>
-        <article>
-          <span>{{ 'funding.sponsorsPage.hero.kicker' | translate }}</span>
-          <h1 id="sponsors-title">
-            {{ 'funding.sponsorsPage.hero.title' | translate }}
-          </h1>
-          <p>{{ 'funding.sponsorsPage.hero.copy' | translate }}</p>
-          <div class="hero-actions">
-            <a [routerLink]="fundPath()" fragment="support">
-              {{ 'funding.nav.supportCta' | translate }}
-            </a>
-            <a [routerLink]="buildersPath()">
-              {{ 'funding.nav.builders' | translate }}
-            </a>
-          </div>
-        </article>
-      </section>
-
-      <section class="sponsors-content" aria-labelledby="sponsors-list-title">
-        <aside class="sponsors-sidebar">
-          <section
-            class="sponsors-summary"
-            [attr.aria-label]="
-              'funding.sponsorsPage.summary.ariaLabel' | translate
-            "
-          >
-            <dl>
-              <div>
-                <dt>
-                  {{ 'funding.sponsorsPage.summary.approved' | translate }}
-                </dt>
-                <dd>{{ sponsorships().length }}</dd>
-              </div>
-              <div>
-                <dt>
-                  {{ 'funding.sponsorsPage.summary.feedReady' | translate }}
-                </dt>
-                <dd>{{ feedReadyCount() }}</dd>
-              </div>
-              <div>
-                <dt>
-                  {{ 'funding.sponsorsPage.summary.published' | translate }}
-                </dt>
-                <dd>{{ publishedCount() }}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section
-            class="partner-visibility"
-            [attr.aria-label]="
-              'funding.sponsorsPage.visibility.ariaLabel' | translate
-            "
-          >
-            <span>{{
-              'funding.sponsorsPage.visibility.kicker' | translate
-            }}</span>
-            <h2>{{ 'funding.sponsorsPage.visibility.title' | translate }}</h2>
-            <p>{{ 'funding.sponsorsPage.visibility.copy' | translate }}</p>
-            <ul>
-              <li>
-                {{
-                  'funding.sponsorsPage.visibility.items.profile' | translate
-                }}
-              </li>
-              <li>
-                {{ 'funding.sponsorsPage.visibility.items.review' | translate }}
-              </li>
-              <li>
-                {{
-                  'funding.sponsorsPage.visibility.items.publication'
-                    | translate
-                }}
-              </li>
-            </ul>
-          </section>
-        </aside>
-
-        <section class="sponsors-panel">
-          <header>
-            <span>{{
-              'funding.sponsorsPage.directory.kicker' | translate
-            }}</span>
-            <h2 id="sponsors-list-title">
-              {{ 'funding.sponsorsPage.directory.title' | translate }}
-            </h2>
-            <p>{{ 'funding.sponsorsPage.directory.copy' | translate }}</p>
-          </header>
-
-          <p class="state" *ngIf="loading()">
-            {{ 'funding.sponsorsPage.state.loading' | translate }}
-          </p>
-          <p class="state state-error" *ngIf="error()">
-            {{ 'funding.sponsorsPage.state.error' | translate }}
-          </p>
-
-          <ul class="sponsors-list" *ngIf="sponsorships().length > 0">
-            <li *ngFor="let sponsor of sponsorships(); trackBy: trackBySponsor">
-              <figure
-                class="sponsor-photo"
-                *ngIf="presentationPhoto(sponsor) as photo"
-              >
-                <img
-                  [src]="photo.url"
-                  [alt]="photo.alt_text"
-                  [width]="photo.width"
-                  [height]="photo.height"
-                  loading="lazy"
-                />
-              </figure>
-              <a
-                *ngIf="sponsor.logo_url; else sponsorInitials"
-                class="sponsor-logo"
-                [href]="sponsor.website_url || sponsor.logo_url"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <img [src]="sponsor.logo_url" [alt]="sponsor.company_name" />
-              </a>
-              <ng-template #sponsorInitials>
-                <span class="sponsor-logo sponsor-initials" aria-hidden="true">
-                  {{ initials(sponsor.company_name) }}
-                </span>
-              </ng-template>
-
-              <div class="sponsor-body">
-                <div class="sponsor-title-row">
-                  <div>
-                    <strong>{{ sponsor.company_name }}</strong>
-                    <small>{{ amountLabel(sponsor) }}</small>
-                  </div>
-                  <span
-                    class="feed-status"
-                    [class.feed-status-muted]="
-                      sponsor.feed_status === 'not_planned'
-                    "
-                  >
-                    {{ feedStatusLabel(sponsor.feed_status) }}
-                  </span>
-                </div>
-
-                <p *ngIf="sponsor.public_summary || sponsor.message">
-                  {{ sponsor.public_summary || sponsor.message }}
-                </p>
-
-                <div class="feed-placement" *ngIf="hasFeedPlacement(sponsor)">
-                  <span>{{ feedTargetLabel(sponsor.feed_target) }}</span>
-                  <span *ngFor="let channel of sponsor.feed_channels">
-                    {{ feedChannelLabel(channel) }}
-                  </span>
-                  <a
-                    *ngIf="sponsor.feed_public_url"
-                    [href]="sponsor.feed_public_url"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {{ 'funding.sponsorsPage.directory.feedLink' | translate }}
-                  </a>
-                </div>
-              </div>
-
-              <a
-                *ngIf="sponsor.website_url"
-                class="sponsor-website"
-                [href]="sponsor.website_url"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {{ 'funding.sponsorsPage.directory.website' | translate }}
-              </a>
-            </li>
-          </ul>
-
-          <article
-            class="empty-sponsors"
-            *ngIf="!loading() && !error() && sponsorships().length === 0"
-          >
-            <h3>{{ 'funding.sponsorsPage.empty.title' | translate }}</h3>
-            <p>{{ 'funding.sponsorsPage.empty.copy' | translate }}</p>
-            <div class="sponsor-preview-grid">
-              <article>
-                <span>01</span>
-                <strong>{{
-                  'funding.sponsorsPage.empty.preview.profile.title' | translate
-                }}</strong>
-                <small>{{
-                  'funding.sponsorsPage.empty.preview.profile.copy' | translate
-                }}</small>
-              </article>
-              <article>
-                <span>02</span>
-                <strong>{{
-                  'funding.sponsorsPage.empty.preview.visibility.title'
-                    | translate
-                }}</strong>
-                <small>{{
-                  'funding.sponsorsPage.empty.preview.visibility.copy'
-                    | translate
-                }}</small>
-              </article>
-              <article>
-                <span>03</span>
-                <strong>{{
-                  'funding.sponsorsPage.empty.preview.trust.title' | translate
-                }}</strong>
-                <small>{{
-                  'funding.sponsorsPage.empty.preview.trust.copy' | translate
-                }}</small>
-              </article>
-            </div>
-            <div class="empty-actions">
-              <a [routerLink]="fundPath()" fragment="support">
-                {{ 'funding.sponsorsPage.empty.action' | translate }}
-              </a>
-              <a [routerLink]="buildersPath()">
-                {{ 'funding.nav.builders' | translate }}
-              </a>
-            </div>
-          </article>
-        </section>
-      </section>
-    </main>
-  `,
-  styles: [
-    `
-      .sponsors-shell {
-        background:
-          radial-gradient(
-            circle at 84% 16%,
-            rgb(119 217 232 / 12%),
-            transparent 30rem
-          ),
-          linear-gradient(180deg, #06101b 0%, #081724 52%, #02070e 100%);
-        color: #f7fbff;
-        min-height: 100vh;
-      }
-
-      .sponsors-hero {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: minmax(0, 1fr);
-        height: clamp(24rem, 42vw, 28rem);
-        overflow: hidden;
-        position: relative;
-      }
-
-      .sponsors-hero img,
-      .hero-overlay,
-      .sponsors-hero article {
-        grid-area: 1 / 1;
-        min-height: 0;
-        min-width: 0;
-      }
-
-      .sponsors-hero img {
-        height: 100%;
-        object-fit: cover;
-        width: 100%;
-      }
-
-      .hero-overlay {
-        background:
-          linear-gradient(
-            90deg,
-            rgb(3 10 20 / 96%),
-            rgb(5 22 38 / 48%),
-            rgb(3 10 20 / 88%)
-          ),
-          linear-gradient(0deg, rgb(3 10 20 / 80%), transparent 44%);
-      }
-
-      .sponsors-hero article {
-        align-self: end;
-        max-width: 48rem;
-        padding: clamp(4rem, 9vw, 7rem) clamp(1rem, 5vw, 4rem) 2.4rem;
-        position: relative;
-        z-index: 1;
-      }
-
-      .sponsors-hero span,
-      .partner-visibility > span,
-      .sponsors-panel header span {
-        color: #77d9e8;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        font-size: 0.78rem;
-        font-weight: 800;
-        letter-spacing: 0;
-        text-transform: uppercase;
-      }
-
-      .sponsors-hero h1 {
-        font-family: Georgia, 'Times New Roman', serif;
-        font-size: clamp(2.35rem, 5vw, 4.55rem);
-        line-height: 0.98;
-        margin: 0.65rem 0 1rem;
-      }
-
-      .sponsors-hero p,
-      .partner-visibility p,
-      .sponsors-panel p,
-      .empty-sponsors p {
-        color: #d4e4ef;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        line-height: 1.55;
-        margin: 0;
-      }
-
-      .hero-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        margin-top: 1.35rem;
-      }
-
-      .hero-actions a,
-      .empty-sponsors a,
-      .sponsor-website {
-        align-items: center;
-        border: 1px solid rgb(119 217 232 / 42%);
-        border-radius: 0.45rem;
-        color: #e9fbff;
-        display: inline-flex;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        font-weight: 800;
-        min-height: 2.65rem;
-        padding: 0 0.9rem;
-        text-decoration: none;
-      }
-
-      .hero-actions a:first-child {
-        background: #f4c957;
-        border-color: #f4c957;
-        color: #07101b;
-      }
-
-      .sponsors-content {
-        display: grid;
-        gap: clamp(1rem, 2vw, 1.35rem);
-        grid-template-columns: minmax(17rem, 0.4fr) minmax(0, 1fr);
-        padding: clamp(1rem, 4vw, 2.6rem);
-      }
-
-      .sponsors-sidebar {
-        align-self: start;
-        display: grid;
-        gap: 1rem;
-      }
-
-      .sponsors-summary,
-      .partner-visibility,
-      .sponsors-panel,
-      .empty-sponsors {
-        background: linear-gradient(
-          180deg,
-          rgb(7 28 47 / 88%),
-          rgb(4 16 30 / 90%)
-        );
-        border: 1px solid rgb(119 217 232 / 26%);
-        border-radius: 0.5rem;
-        box-shadow:
-          inset 0 1px 0 rgb(255 255 255 / 8%),
-          0 12px 30px rgb(0 0 0 / 22%);
-      }
-
-      .sponsors-summary {
-        align-self: start;
-        padding: 1rem;
-      }
-
-      .partner-visibility {
-        padding: 1rem;
-      }
-
-      .partner-visibility h2 {
-        color: #fff2cf;
-        font-family: Georgia, 'Times New Roman', serif;
-        font-size: 1.35rem;
-        line-height: 1;
-        margin: 0.45rem 0 0.75rem;
-      }
-
-      .partner-visibility ul {
-        display: grid;
-        gap: 0.55rem;
-        list-style: none;
-        margin: 0.9rem 0 0;
-        padding: 0;
-      }
-
-      .partner-visibility li {
-        border-left: 2px solid rgb(119 217 232 / 42%);
-        color: #e9fbff;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        font-size: 0.88rem;
-        line-height: 1.35;
-        padding-left: 0.65rem;
-      }
-
-      .sponsors-summary dl {
-        display: grid;
-        gap: 0.8rem;
-        margin: 0;
-      }
-
-      .sponsors-summary dt,
-      .sponsors-summary dd {
-        margin: 0;
-      }
-
-      .sponsors-summary dt {
-        color: #9db7c9;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        font-size: 0.75rem;
-      }
-
-      .sponsors-summary dd {
-        color: #fff2cf;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        font-size: 1.15rem;
-        font-weight: 900;
-        margin-top: 0.1rem;
-      }
-
-      .sponsors-panel {
-        display: grid;
-        gap: 1rem;
-        padding: clamp(1rem, 3vw, 1.5rem);
-      }
-
-      .sponsors-panel h2 {
-        font-family: Georgia, 'Times New Roman', serif;
-        font-size: clamp(1.65rem, 3vw, 2.45rem);
-        margin: 0.35rem 0 0.5rem;
-      }
-
-      .sponsors-list {
-        display: grid;
-        gap: 0.72rem;
-        list-style: none;
-        margin: 0;
-        padding: 0;
-      }
-
-      .sponsors-list li {
-        align-items: center;
-        background: linear-gradient(
-          90deg,
-          rgb(4 16 28 / 94%),
-          rgb(8 30 49 / 78%)
-        );
-        border: 1px solid rgb(244 201 87 / 18%);
-        border-radius: 0.5rem;
-        display: grid;
-        gap: 0.85rem;
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        min-height: 6rem;
-        padding: 0.8rem;
-      }
-
-      .sponsor-photo {
-        aspect-ratio: 16 / 5;
-        background: #061522;
-        grid-column: 1 / -1;
-        margin: 0;
-        max-height: 14rem;
-        overflow: hidden;
-        width: 100%;
-      }
-
-      .sponsor-photo img {
-        height: 100%;
-        object-fit: cover;
-        width: 100%;
-      }
-
-      .sponsor-logo {
-        align-items: center;
-        background: #fff;
-        border-radius: 0.45rem;
-        display: inline-flex;
-        height: 4rem;
-        justify-content: center;
-        overflow: hidden;
-        width: 4rem;
-      }
-
-      .sponsor-logo img {
-        max-height: 3rem;
-        max-width: 3.3rem;
-        object-fit: contain;
-      }
-
-      .sponsor-initials {
-        background: linear-gradient(145deg, #2f9fe5, #f4c957);
-        color: #fff;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        font-weight: 900;
-      }
-
-      .sponsor-body {
-        display: grid;
-        gap: 0.55rem;
-        min-width: 0;
-      }
-
-      .sponsor-title-row {
-        align-items: start;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.65rem;
-        justify-content: space-between;
-      }
-
-      .sponsor-title-row strong,
-      .sponsor-title-row small {
-        display: block;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-      }
-
-      .sponsor-title-row strong {
-        color: #f7fbff;
-        font-size: 1.05rem;
-      }
-
-      .sponsor-title-row small {
-        color: #9db7c9;
-        font-size: 0.8rem;
-        margin-top: 0.15rem;
-      }
-
-      .feed-status,
-      .feed-placement span,
-      .feed-placement a {
-        border-radius: 999px;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-        font-size: 0.72rem;
-        font-weight: 900;
-        padding: 0.28rem 0.55rem;
-        text-transform: uppercase;
-      }
-
-      .feed-status {
-        background: #dff7e8;
-        color: #176236;
-        white-space: nowrap;
-      }
-
-      .feed-status-muted {
-        background: #eef2f7;
-        color: #526070;
-      }
-
-      .feed-placement {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-      }
-
-      .feed-placement span,
-      .feed-placement a {
-        background: rgb(119 217 232 / 16%);
-        color: #dffaff;
-        text-decoration: none;
-      }
-
-      .sponsor-website {
-        justify-self: end;
-        min-height: 2.35rem;
-      }
-
-      .empty-sponsors {
-        background:
-          linear-gradient(135deg, rgb(119 217 232 / 12%), transparent 44%),
-          rgb(4 16 28 / 56%);
-        border-style: dashed;
-        padding: clamp(1rem, 3vw, 1.35rem);
-      }
-
-      .empty-sponsors h3 {
-        color: #fff2cf;
-        font-size: 1rem;
-        margin: 0 0 0.45rem;
-      }
-
-      .sponsor-preview-grid {
-        display: grid;
-        gap: 0.65rem;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        margin-top: 0.8rem;
-      }
-
-      .sponsor-preview-grid article {
-        background: rgb(2 10 20 / 58%);
-        border: 1px solid rgb(119 217 232 / 18%);
-        border-radius: 0.45rem;
-        display: grid;
-        gap: 0.25rem;
-        min-height: 6rem;
-        padding: 0.72rem;
-      }
-
-      .sponsor-preview-grid span {
-        color: #77d9e8;
-        font-family: Georgia, 'Times New Roman', serif;
-        font-weight: 800;
-      }
-
-      .sponsor-preview-grid strong,
-      .sponsor-preview-grid small {
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-      }
-
-      .sponsor-preview-grid strong {
-        color: #f7fbff;
-      }
-
-      .sponsor-preview-grid small {
-        color: #9db7c9;
-        line-height: 1.35;
-      }
-
-      .empty-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.65rem;
-        margin-top: 0.85rem;
-      }
-
-      .empty-actions a:first-child {
-        background: #f4c957;
-        border-color: #f4c957;
-        color: #07101b;
-      }
-
-      .state {
-        color: #d4e4ef;
-        font-family: 'Trebuchet MS', Arial, sans-serif;
-      }
-
-      .state-error {
-        color: #ffb5a8;
-      }
-
-      @media (max-width: 880px) {
-        .sponsors-content,
-        .sponsors-list li {
-          grid-template-columns: 1fr;
-        }
-
-        .sponsors-hero {
-          height: 26rem;
-        }
-
-        .sponsor-preview-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .sponsor-logo {
-          height: 3.5rem;
-          width: 3.5rem;
-        }
-
-        .sponsor-photo {
-          aspect-ratio: 16 / 9;
-          grid-column: 1;
-        }
-
-        .sponsor-website {
-          justify-self: start;
-        }
-      }
-    `
-  ]
+  templateUrl: './sponsors-page.component.html',
+  styleUrl: './sponsors-page.component.css'
 })
 export class SponsorsPageComponent implements OnInit {
-  private readonly i18n = inject(FundingI18nService);
-  private readonly injector = inject(Injector);
+  readonly i18n = inject(FundingI18nService);
   private readonly platformId = inject(PLATFORM_ID);
-  private readonly seo = inject(FundingSeoService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly sponsorshipsService = inject(SponsorshipsService);
-
+  private controller: AbortController | null = null;
+  readonly pageSize = 12;
   readonly data = signal<PublicSponsorshipsResponse | null>(null);
-  readonly loading = signal<boolean>(true);
-  readonly error = signal<boolean>(false);
-  readonly report = computed(() => this.data() ?? emptySponsorships());
-  readonly sponsorships = computed(() => this.report().sponsorships);
-  readonly feedReadyCount = computed(
-    () =>
-      this.sponsorships().filter(
-        (sponsor) => sponsor.feed_status !== 'not_planned'
-      ).length
+  readonly loading = signal(true);
+  readonly error = signal(false);
+  readonly page = signal(1);
+  readonly failedImages = signal<ReadonlySet<string>>(new Set());
+  readonly hasData = computed(() => this.data()?.data_source === 'database');
+  readonly sponsorships = computed(() =>
+    this.hasData() ? this.data()!.sponsorships : []
   );
+  readonly pagination = computed(() =>
+    this.hasData() ? this.data()?.pagination : undefined
+  );
+  readonly totalCount = computed(() => this.pagination()?.total_count ?? null);
   readonly publishedCount = computed(
-    () =>
-      this.sponsorships().filter(
-        (sponsor) => sponsor.feed_status === 'published'
-      ).length
+    () => this.pagination()?.published_count ?? null
   );
-
-  readonly buildersPath = computed(() =>
-    this.i18n.localizedPath('/batisseurs')
+  readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil((this.totalCount() ?? 0) / this.pageSize))
+  );
+  readonly firstVisible = computed(() => (this.page() - 1) * this.pageSize + 1);
+  readonly lastVisible = computed(
+    () => this.firstVisible() + this.sponsorships().length - 1
   );
   readonly fundPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs')
   );
+  readonly buildersPath = computed(() =>
+    this.i18n.localizedPath('/batisseurs')
+  );
+  readonly transparencyPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
+  );
+  readonly policyPath = computed(() =>
+    this.i18n.localizedPath('/politique-utilisation-remboursement')
+  );
+  readonly supportPath = computed(() => this.i18n.localizedPath('/support'));
+  readonly followupPath = computed(() =>
+    this.i18n.localizedPath('/fonds-des-batisseurs/suivi-commandite')
+  );
 
   constructor() {
-    this.seo.bind(
+    inject(FundingSeoService).bind(
       {
         titleKey: 'funding.seo.sponsors.title',
         descriptionKey: 'funding.seo.sponsors.description',
         path: '/commanditaires',
-        imagePath: '/assets/openg7-social-communautes-connectees-canada.png'
+        imagePath:
+          '/assets/openg7-social-communautes-connectees-canada-1920.webp'
       },
-      this.injector
+      inject(Injector)
     );
+    this.destroyRef.onDestroy(() => this.controller?.abort());
   }
 
-  async ngOnInit(): Promise<void> {
-    if (!isPlatformBrowser(this.platformId)) {
-      this.loading.set(false);
-      return;
-    }
+  ngOnInit(): void {
+    if (isPlatformBrowser(this.platformId)) void this.load();
+  }
 
+  async load(page = this.page(), moveFocus = false): Promise<void> {
+    if (!isPlatformBrowser(this.platformId) || this.controller) return;
+    const controller = new AbortController();
+    this.controller = controller;
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    this.page.set(page);
+    this.loading.set(true);
+    this.error.set(false);
+    // Do not retain a profile whose consent may have been withdrawn after a failed refresh.
+    this.data.set(null);
+    this.failedImages.set(new Set());
     try {
-      this.data.set(await this.sponsorshipsService.getPublicSponsorships());
+      const report = await this.sponsorshipsService.getPublicSponsorshipPage(
+        page,
+        this.pageSize,
+        controller.signal
+      );
+      if (this.destroyRef.destroyed) return;
+      if (
+        !isPublicSponsorshipsResponse(report) ||
+        (!report.pagination && page !== 1) ||
+        (report.pagination &&
+          (report.pagination.page !== page ||
+            report.pagination.page_size !== this.pageSize))
+      ) {
+        throw new Error('Invalid public sponsorship response');
+      }
+      this.data.set(report);
     } catch {
-      this.error.set(true);
+      if (!this.destroyRef.destroyed) this.error.set(true);
     } finally {
-      this.loading.set(false);
+      clearTimeout(timeout);
+      this.controller = null;
+      if (!this.destroyRef.destroyed) {
+        this.loading.set(false);
+        if (moveFocus) document.getElementById('sponsors-list-title')?.focus();
+      }
     }
   }
 
-  trackBySponsor(_: number, sponsor: PublicSponsorshipProfile): string {
-    return sponsor.public_slug || sponsor.company_name;
+  trackBySponsor(index: number, sponsor: PublicSponsorshipProfile): string {
+    return sponsor.public_id ?? `legacy-${index}`;
   }
-
+  imageFailed(url: string): void {
+    this.failedImages.update((previous) => new Set([...previous, url]));
+  }
+  logoUrl(sponsor: PublicSponsorshipProfile): string | null {
+    const url = publicMediaUrl(sponsor.logo_url);
+    return url && !this.failedImages().has(url) ? url : null;
+  }
   presentationPhoto(sponsor: PublicSponsorshipProfile) {
-    return sponsor.media?.find((asset) => asset.kind === 'supporting_image');
+    const photo = sponsor.media.find(
+      (asset) => asset.kind === 'supporting_image'
+    );
+    const url = publicMediaUrl(photo?.url);
+    return photo && url && !this.failedImages().has(url)
+      ? { ...photo, url }
+      : null;
   }
-
+  websiteUrl = (sponsor: PublicSponsorshipProfile) =>
+    publicHttpsUrl(sponsor.website_url);
+  publicationUrl = (sponsor: PublicSponsorshipProfile) =>
+    sponsor.feed_status === 'published'
+      ? publicHttpsUrl(sponsor.feed_public_url)
+      : null;
+  hasFeedPlacement(sponsor: PublicSponsorshipProfile): boolean {
+    return this.publicationUrl(sponsor) !== null;
+  }
   amountLabel(sponsor: PublicSponsorshipProfile): string {
-    if (sponsor.amount === null) {
+    if (sponsor.amount === null)
       return this.i18n.t('funding.sponsorsPage.directory.amountHidden');
-    }
-
     return new Intl.NumberFormat(this.i18n.currentLanguage(), {
       style: 'currency',
       currency: sponsor.currency,
+      currencyDisplay: 'code',
       minimumFractionDigits: Number.isInteger(sponsor.amount) ? 0 : 2,
       maximumFractionDigits: 2
     }).format(sponsor.amount);
   }
-
-  hasFeedPlacement(sponsor: PublicSponsorshipProfile): boolean {
-    return (
-      sponsor.feed_status !== 'not_planned' &&
-      Boolean(sponsor.feed_target) &&
-      sponsor.feed_channels.length > 0
-    );
-  }
-
   feedTargetLabel(target: SponsorFeedTarget | null): string {
-    if (target === 'openg20') {
-      return 'OpenG20';
-    }
-
-    return target === 'openg7'
-      ? 'OpenG7'
-      : this.i18n.t('funding.sponsorsPage.directory.feedTargetPending');
+    return target === 'openg20' ? 'OpenG20' : 'OpenG7';
   }
-
   feedChannelLabel(channel: SponsorFeedChannel): string {
     return channel === 'facebook' ? 'Facebook' : 'LinkedIn';
   }
-
-  feedStatusLabel(status: SponsorFeedStatus): string {
-    return this.i18n.t(`funding.sponsorsPage.feedStatus.${status}`);
-  }
-
   initials(name: string): string {
-    const parts = name.split(' ').filter(Boolean);
-    return parts
+    return name
+      .trim()
+      .split(/\s+/)
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase() ?? '')
       .join('');

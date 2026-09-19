@@ -10,6 +10,10 @@ ses sections de financement, la transparence et les autres parcours publics.
 La [page Transparence](funding-transparency.md) détaille les agrégats et les
 allocations publiées, partage l’objectif mensuel de l’accueil et renvoie vers
 son formulaire de contribution.
+La [page Commanditaires](public-sponsors.md) utilise `?intent=sponsorship#support`
+pour demander la présélection du type entreprise, sous réserve de son activation
+côté serveur. Les consentements restent à remplir; un choix personnel explicite
+du visiteur est préservé si la configuration arrive tard.
 
 ## Montants
 

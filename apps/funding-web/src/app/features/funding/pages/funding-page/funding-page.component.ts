@@ -10,9 +10,10 @@ import {
   OnInit,
   signal
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
+  ContributionType,
   FundTransparencyPublicResponse,
   FundingSnapshot,
   PublicSponsorshipBatchAvailabilityResponse,
@@ -108,6 +109,12 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly config: FundingProjectConfig =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
   readonly sponsorshipSelectionEnabled = signal<boolean>(false);
+  // This public intent only selects a form type; it never grants consent or confirms payment.
+  readonly requestedContributionType: ContributionType =
+    inject(ActivatedRoute).snapshot.queryParamMap.get('intent') ===
+    'sponsorship'
+      ? 'sponsorship_interest'
+      : 'personal_support';
 
   readonly transparencyPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')

@@ -73,7 +73,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
     });
     await expect(sponsorRow).toBeVisible();
     await expect(
-      sponsorRow.getByRole('link', { name: 'Voir la publication' })
+      sponsorRow.getByRole('link', { name: /Voir la publication/ })
     ).toHaveAttribute('href', feedUrl);
   });
 });

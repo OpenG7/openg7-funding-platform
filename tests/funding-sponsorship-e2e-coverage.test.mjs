@@ -570,9 +570,13 @@ test('E2E 8/9: sponsor follow-up page shows pending review status before details
 
 test('E2E 7/8: public sponsors page exposes only approved consented sponsorships', () => {
   const routes = read('apps/funding-web/src/app/app.routes.ts');
-  const sponsorsPage = read(
-    'apps/funding-web/src/app/features/funding/pages/sponsors-page/sponsors-page.component.ts'
-  );
+  const sponsorsPage =
+    read(
+      'apps/funding-web/src/app/features/funding/pages/sponsors-page/sponsors-page.component.ts'
+    ) +
+    read(
+      'apps/funding-web/src/app/features/funding/pages/sponsors-page/sponsors-page.component.html'
+    );
   const sponsorshipsService = read(
     'apps/funding-web/src/app/features/funding/services/sponsorships.service.ts'
   );
@@ -602,7 +606,7 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
     sponsorsPage,
     [
       'hasFeedPlacement',
-      'feedStatusLabel',
+      'publicationUrl',
       'feed_public_url',
       'funding.sponsorsPage.directory.feedLink',
       'funding.sponsorsPage.empty.title'

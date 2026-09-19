@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type {
   AdminAuditLogEntry,
   AdminContributionRecord,
@@ -28,6 +30,7 @@ import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js'
 import { getAdjustmentTotals } from './fund-transparency.repository.js';
 import { resolveRefundedAmountMinor } from './fund-refunds.js';
 import { listPublicSponsorMediaByContributionIds } from './sponsor-media.repository.js';
+import type { PublicSponsorshipPagination } from './public-sponsorship-pagination.js';
 
 const allowedContributionTypes = new Set<ContributionType>([
   'personal_support',
@@ -2676,8 +2679,19 @@ const getSponsorshipPublicationPresence = async (
 };
 
 export const listPublicSponsorships = async (
-  pool: Pool | null
+  pool: Pool | null,
+  { page = 1, pageSize = 50 }: Partial<PublicSponsorshipPagination> = {}
 ): Promise<PublicSponsorshipsResponse> => {
+  if (
+    !Number.isSafeInteger(page) ||
+    page < 1 ||
+    page > 100_000 ||
+    !Number.isSafeInteger(pageSize) ||
+    pageSize < 1 ||
+    pageSize > 50
+  ) {
+    throw new RangeError('Invalid public sponsorship pagination');
+  }
   const now = new Date().toISOString();
 
   if (!pool) {
@@ -2702,7 +2716,16 @@ export const listPublicSponsorships = async (
     };
   }
 
-  const query = await pool.query<PublicSponsorshipRow>(`
+  // Page and totals share one database statement/snapshot and eligibility rule.
+  const query = await pool.query<
+    PublicSponsorshipRow & {
+      readonly total_count: string;
+      readonly published_count: string;
+      readonly last_updated_at: string | null;
+    }
+  >(
+    `
+    WITH eligible AS (
     SELECT
       id AS contribution_id,
       sponsor_public_slug AS public_slug,
@@ -2722,7 +2745,8 @@ export const listPublicSponsorships = async (
       COALESCE(sponsor_feed_status, 'not_planned') AS feed_status,
       sponsor_feed_public_url AS feed_public_url,
       sponsor_visibility_updated_at::text AS visibility_updated_at,
-      updated_at::text AS updated_at
+      updated_at::text AS updated_at,
+      COALESCE(sponsor_visibility_updated_at, sponsor_reviewed_at, paid_at, updated_at, created_at) AS sort_at
     FROM fund_contributions
     WHERE contribution_type = 'sponsorship_interest'
       AND status IN ('paid', 'refunded', 'disputed')
@@ -2738,61 +2762,66 @@ export const listPublicSponsorships = async (
           AND review_status = 'approved'
           AND deleted_at IS NULL
       )
-    ORDER BY COALESCE(
-      sponsor_visibility_updated_at,
-      sponsor_reviewed_at,
-      paid_at,
-      updated_at,
-      created_at
-    ) DESC
-    LIMIT 50
-  `);
+    ), totals AS (
+      SELECT COUNT(*)::text AS total_count,
+        COUNT(*) FILTER (WHERE feed_status = 'published' AND feed_public_url ~* '^https://')::text AS published_count,
+        MAX(updated_at::timestamptz)::text AS last_updated_at
+      FROM eligible
+    ), selected_page AS (
+      SELECT * FROM eligible
+      ORDER BY sort_at DESC, contribution_id DESC
+      LIMIT $1 OFFSET $2
+    )
+    SELECT selected_page.*, totals.*
+    FROM totals LEFT JOIN selected_page ON TRUE
+    ORDER BY selected_page.sort_at DESC, selected_page.contribution_id DESC
+  `,
+    [pageSize, (page - 1) * pageSize]
+  );
+  // A LEFT JOIN retains the totals even for an empty/out-of-range page.
+  const rows = query.rows.filter((row) => row.contribution_id !== null);
 
   const mediaByContribution = await listPublicSponsorMediaByContributionIds(
     pool,
-    query.rows.map((row) => row.contribution_id)
+    rows.map((row) => row.contribution_id)
   );
 
-  const sponsorships: readonly PublicSponsorshipProfile[] = query.rows.map(
-    (row) => {
-      const media = mediaByContribution.get(row.contribution_id) ?? [];
-      return {
-        public_slug: row.public_slug,
-        company_name: row.company_name,
-        website_url: row.website_url,
-        logo_url:
-          media.find((asset) => asset.kind === 'logo')?.url ?? row.logo_url,
-        media,
-        message: row.message,
-        public_summary: row.public_summary,
-        amount: row.amount ? centsToAmount(parseDbInt(row.amount)) : null,
-        currency: row.currency.toUpperCase(),
-        paid_at: row.paid_at,
-        feed_target: normalizeSponsorFeedTarget(row.feed_target),
-        feed_channels: parseSponsorFeedChannels(row.feed_channels),
-        feed_status: normalizeSponsorFeedStatus(row.feed_status),
-        feed_public_url: row.feed_public_url,
-        visibility_updated_at: row.visibility_updated_at
-      };
-    }
-  );
-
-  const lastUpdatedAt =
-    query.rows.reduce<string | null>((latest, row) => {
-      const candidate = row.visibility_updated_at ?? row.updated_at;
-      if (!latest) {
-        return candidate;
-      }
-
-      return new Date(candidate).getTime() > new Date(latest).getTime()
-        ? candidate
-        : latest;
-    }, null) ?? now;
+  const sponsorships: readonly PublicSponsorshipProfile[] = rows.map((row) => {
+    const media = mediaByContribution.get(row.contribution_id) ?? [];
+    return {
+      public_id: createHash('sha256')
+        .update(`public-sponsor:${row.contribution_id}`)
+        .digest('hex'),
+      public_slug: row.public_slug,
+      company_name: row.company_name,
+      website_url: row.website_url,
+      logo_url:
+        media.find((asset) => asset.kind === 'logo')?.url ?? row.logo_url,
+      media,
+      message: row.message,
+      public_summary: row.public_summary,
+      amount: row.amount ? centsToAmount(parseDbInt(row.amount)) : null,
+      currency: row.currency.toUpperCase(),
+      paid_at: row.paid_at,
+      feed_target: normalizeSponsorFeedTarget(row.feed_target),
+      feed_channels: parseSponsorFeedChannels(row.feed_channels),
+      feed_status: normalizeSponsorFeedStatus(row.feed_status),
+      feed_public_url:
+        row.feed_status === 'published' ? row.feed_public_url : null,
+      visibility_updated_at: row.visibility_updated_at
+    };
+  });
 
   return {
     data_source: 'database',
     sponsorships,
-    last_updated_at: lastUpdatedAt
+    last_updated_at: query.rows[0]?.last_updated_at ?? now,
+    pagination: {
+      page,
+      page_size: pageSize,
+      total_count: Number(query.rows[0]?.total_count ?? 0),
+      published_count: Number(query.rows[0]?.published_count ?? 0)
+    }
   };
 };
 
