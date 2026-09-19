@@ -2487,28 +2487,41 @@
       "hero": {
         "cityAlt": "Ville canadienne illuminée par une feuille d’érable numérique pour le Fonds des Bâtisseurs",
         "dragonAlt": "Dragon gardien protégeant un coffre de fonds publics",
-        "title": "Transparence du Fonds des",
-        "titleStrong": "Bâtisseurs",
-        "copy": "La confiance se construit par la preuve. Chaque contribution, chaque frais et chaque mouvement du fonds sont publiés sous forme agrégée.",
+        "title": "Transparence du",
+        "titleStrong": "Fonds des Bâtisseurs",
+        "copy": "Suivez les contributions confirmées, les frais renseignés et les remboursements. Consultez les allocations publiées et la méthode de calcul.",
         "viewRegistry": "Voir le registre",
-        "downloadReport": "Télécharger le rapport"
+        "downloadReport": "Télécharger le rapport JSON"
       },
       "sync": {
         "activeCampaignValue": "Fonds des Bâtisseurs",
-        "pending": "En attente"
+        "pending": "En attente",
+        "title": "État des données publiques",
+        "snapshot": "Date des données",
+        "checked": "Dernière lecture réussie",
+        "database": "Registre du fonds",
+        "stripe": "Stripe direct"
       },
       "kpis": {
         "ariaLabel": "Indicateurs financiers publics",
         "contributionCount": "{{ count }} contributions confirmées",
         "refunds": "Remboursements",
-        "totalFees": "Total des frais",
-        "totalRefunded": "Total remboursé",
-        "availableForProjects": "Disponible pour nos projets",
-        "monthlyProgress": "{{ progress }}% atteint"
+        "totalFees": "Frais renseignés dans la source",
+        "totalRefunded": "Cumul des remboursements",
+        "availableForProjects": "Après frais et remboursements, avant dépenses opérationnelles",
+        "monthlyProgress": "{{ progress }}% atteint",
+        "cumulative": "Cumul depuis le début du fonds",
+        "netBeforeExpenses": "Net avant dépenses",
+        "feesPending": "Net provisoire : frais à confirmer pour {{ count }} paiement(s).",
+        "feesComplete": "Frais renseignés pour tous les paiements de cette projection.",
+        "feesUnknown": "La complétude des frais n’est pas précisée par cette source."
       },
       "campaign": {
-        "progress": "Progression de la campagne",
-        "remaining": "sont encore nécessaires pour atteindre l’objectif mensuel."
+        "progress": "Contributions du mois",
+        "remaining": "sont encore nécessaires pour atteindre l’objectif mensuel.",
+        "goal": "objectif mensuel",
+        "unavailable": "La progression du mois courant ne peut pas être déterminée avec ce rapport.",
+        "scope": "Progression calculée sur les contributions brutes confirmées du mois UTC, dans la devise de la campagne. Les remboursements figurent séparément au registre."
       },
       "flow": {
         "title": "Du paiement au fonds disponible",
@@ -2545,7 +2558,8 @@
         "filters": {
           "all": "Tous",
           "contributions": "Contributions",
-          "fees": "Frais"
+          "fees": "Frais",
+          "refunds": "Remboursements"
         },
         "headers": {
           "period": "Période",
@@ -2565,8 +2579,15 @@
           "confirmed": "Confirmée",
           "accounted": "Comptabilisé"
         },
-        "empty": "Aucun mouvement public synchronisé pour le moment.",
-        "exportCsv": "Exporter le registre CSV"
+        "empty": "Aucun mouvement pour cette période et ce filtre.",
+        "exportCsv": "Exporter le registre CSV",
+        "scope": "Agrégats mensuels disponibles, jusqu’aux 12 dernières périodes. Les indicateurs ci-dessus restent cumulés sur tout l’historique.",
+        "period": "Période du registre et des exports",
+        "unavailablePeriod": "Cette période n’est pas disponible dans le rapport reçu. Choisissez une période proposée pour exporter les données.",
+        "allPeriods": "Toutes les périodes disponibles",
+        "filterLabel": "Type de mouvement",
+        "caption": "Montants agrégés par mois UTC et par devise",
+        "feesNote": "Les frais peuvent être complétés après confirmation du paiement. Leur absence ne garantit pas un paiement sans frais."
       },
       "allocation": {
         "title": "Répartition prévue du fonds",
@@ -2578,32 +2599,38 @@
           "data": "Données & documentation",
           "community": "Communauté & communication",
           "reserve": "Réserve & résilience"
-        }
+        },
+        "learnMore": "Comprendre l’utilisation du fonds"
       },
       "expenses": {
-        "title": "Dépenses réellement publiées",
-        "empty": "Aucune dépense publiée. Les contributions et frais sont actuellement synchronisés depuis Stripe.",
-        "info": "Le registre automatisé des dépenses opérationnelles sera enrichi dans une prochaine phase.",
+        "title": "Allocations et réalisations publiées",
+        "empty": "Aucune allocation publiée dans les données disponibles.",
+        "info": "Les dernières allocations publiées, leur avancement et leurs preuves. Un montant alloué ne constitue pas une preuve de dépense ni de livraison.",
         "proof": "Voir la preuve publique",
         "progress": {
           "planned": "Prévu",
           "inProgress": "En cours",
           "delivered": "Livré"
-        }
+        },
+        "published": "Publication :"
       },
       "platforms": {
-        "title": "Plateformes soutenues par le fonds",
-        "copy": "Toutes ces plateformes sont soutenues par le fonds général."
+        "title": "Comprendre l’écosystème",
+        "copy": "Découvrez les plateformes et leurs liens avec le Fonds des Bâtisseurs. Les montants attribués sont présentés dans les allocations publiées.",
+        "link": "Explorer les plateformes"
       },
       "method": {
         "title": "Méthode de calcul",
         "result": "= Fonds nets disponibles",
-        "copy": "Cliquez sur chaque élément pour en savoir plus.",
-        "disputedAmounts": "Montants contestés"
+        "copy": "Le net correspond aux paiements confirmés, après les frais renseignés et les remboursements. Il ne représente pas le solde bancaire ni le budget restant après les dépenses opérationnelles.",
+        "disputedAmounts": "Montants contestés",
+        "formula": "Contributions − frais renseignés − remboursements = net avant dépenses",
+        "payouts": "Les versements Stripe transfèrent de l’argent vers le compte bancaire : ils ne sont pas déduits une seconde fois comme dépenses.",
+        "limits": "Les frais encore indisponibles peuvent faire évoluer le net. Les contestations ne sont pas détaillées séparément dans cette projection. En mode Stripe direct, les remboursements sont rattachés au mois du paiement d’origine."
       },
       "privacy": {
         "title": "Intégrité et confidentialité",
-        "copy": "Les données affichées sont agrégées automatiquement à partir des transactions Stripe. Aucune information personnelle des contributeurs n’est publiée.",
+        "copy": "Le registre et les exports contiennent des agrégats financiers. Les coordonnées, données bancaires, références de paiement et notes administratives restent privées. Les preuves liées aux allocations sont des publications publiques.",
         "publicData": {
           "aggregateAmounts": "Montants agrégés",
           "fees": "Frais",
@@ -2620,13 +2647,18 @@
           "addresses": "Adresses",
           "personalData": "Données personnelles",
           "technicalIdentifiers": "Identifiants techniques sensibles"
-        }
+        },
+        "policy": "Politique d’utilisation et de remboursement"
       },
       "reports": {
         "title": "Export et rapports",
         "exportCsv": "Exporter en CSV",
-        "downloadMonthly": "Télécharger le rapport mensuel",
-        "copyLink": "Copier le lien de transparence"
+        "downloadMonthly": "Télécharger en JSON",
+        "copyLink": "Copier le lien de transparence",
+        "scope": "Période choisie :",
+        "contents": "CSV : agrégats mensuels. JSON : agrégats de la période, avec les totaux cumulés uniquement si toutes les périodes sont choisies. La devise, la source et les dates accompagnent les données.",
+        "copied": "Lien copié.",
+        "copyFailed": "Copie impossible. Vous pouvez copier l’adresse de cette page dans votre navigateur."
       },
       "about": {
         "title": "À propos de cette page",
@@ -2637,8 +2669,8 @@
       },
       "support": {
         "imageAlt": "Carte Funding Platform",
-        "title": "Vous savez maintenant où se trouve le fonds et comment il est calculé.",
-        "copy": "Chaque contribution aide à bâtir une infrastructure ouverte pour l’ensemble de l’écosystème OpenG7.",
+        "title": "Contribuer au Fonds des Bâtisseurs",
+        "copy": "Retrouvez les montants, les options de contribution et les conditions sur la page du fonds.",
         "loading": "Préparation du paiement sécurisé...",
         "success": "Mode local : Stripe n’a pas ouvert de session réelle, donc le paiement est simulé. Vérifiez /dev/stripe-setup pour activer le paiement réel.",
         "error": "Impossible de démarrer le paiement."
@@ -2647,8 +2679,14 @@
         "tagline": "Fonds des Bâtisseurs - bâtir l’avenir ensemble."
       },
       "state": {
-        "loading": "Synchronisation des données publiques...",
-        "error": "Impossible de charger la transparence publique."
+        "loading": "Lecture des données publiques…",
+        "error": "Impossible de charger la transparence publique.",
+        "stale": "Actualisation impossible. Les derniers chiffres reçus restent affichés; les exports sont suspendus jusqu’à une lecture réussie.",
+        "noSource": "Aucune source financière disponible. Les montants ne peuvent pas encore être affichés.",
+        "ready": "Données reçues. Nouvelle lecture chaque minute lorsque cette page est visible.",
+        "retry": "Réessayer",
+        "refresh": "Actualiser",
+        "unavailable": "Données indisponibles pour le moment."
       }
     },
     "followup": {

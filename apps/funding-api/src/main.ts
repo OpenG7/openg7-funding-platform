@@ -199,6 +199,7 @@ import {
   type SponsorshipFollowupLookup
 } from './fund-contributions.repository.js';
 import { getPublicTransparencySummary } from './fund-transparency.repository.js';
+import { createPublicTransparencyCache } from './public-transparency-cache.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
 import {
@@ -440,6 +441,11 @@ const stripe = stripeSecretKey
       ...(stripeApiPort ? { port: stripeApiPort } : {}),
       ...(stripeApiProtocol ? { protocol: stripeApiProtocol } : {})
     })
+  : null;
+const readStripeTransparency = stripe
+  ? createPublicTransparencyCache(() =>
+      getStripePublicTransparencySummary(stripe, { projectId })
+    )
   : null;
 loadTransactionalEmailConfig();
 const readCockpitSystems = createCockpitSystemsReader({
@@ -8350,8 +8356,8 @@ createServer(async (request, response) => {
     try {
       const summary = hasDatabase
         ? await getPublicTransparencySummary(dbPool)
-        : stripe
-          ? await getStripePublicTransparencySummary(stripe, { projectId })
+        : readStripeTransparency
+          ? await readStripeTransparency()
           : await getPublicTransparencySummary(null);
 
       writeJson(request, response, 200, summary);
@@ -8359,7 +8365,7 @@ createServer(async (request, response) => {
       console.error('Failed to build public fund transparency summary.', error);
       writeJson(request, response, 502, {
         error:
-          'Public fund transparency summary could not be loaded from Stripe.'
+          'Public fund transparency summary could not be loaded.'
       });
     }
     return;

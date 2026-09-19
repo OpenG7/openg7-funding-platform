@@ -34,6 +34,8 @@ interface ContributionFundTransactionBalanceUpdate {
 }
 
 interface TotalsRow {
+  readonly currency_count?: string;
+  readonly pending_fee_count?: string;
   readonly total_received: string;
   readonly total_fees: string;
   readonly total_net: string;
@@ -45,6 +47,8 @@ interface TotalsRow {
 }
 
 interface ContributionTotalsRow {
+  readonly currency_count?: string;
+  readonly pending_fee_count?: string;
   readonly total_received: string;
   readonly contribution_refunded: string;
   readonly contributions_count: string;
@@ -53,6 +57,8 @@ interface ContributionTotalsRow {
 }
 
 interface AdjustmentTotalsRow {
+  readonly currency?: string;
+  readonly currency_count?: string;
   readonly total_fees: string;
   readonly total_refunded: string;
   readonly total_payouts: string;
@@ -60,6 +66,8 @@ interface AdjustmentTotalsRow {
 }
 
 interface MonthlyRow {
+  readonly currency_count?: string;
+  readonly pending_fee_count?: string;
   readonly month: string;
   readonly total_received: string;
   readonly total_fees: string;
@@ -71,6 +79,8 @@ interface MonthlyRow {
 }
 
 interface ContributionMonthlyRow {
+  readonly currency_count?: string;
+  readonly pending_fee_count?: string;
   readonly month: string;
   readonly total_received: string;
   readonly contribution_refunded: string;
@@ -79,6 +89,7 @@ interface ContributionMonthlyRow {
 }
 
 interface AdjustmentMonthlyRow {
+  readonly currency_count?: string;
   readonly month: string;
   readonly total_fees: string;
   readonly total_refunded: string;
@@ -118,6 +129,21 @@ interface TablePresenceRow {
 const centsToAmount = (value: number): number =>
   Number((value / 100).toFixed(2));
 const parseDbInt = (value: string): number => Number.parseInt(value, 10);
+const pendingFeeCount = (value: string | undefined): number | null =>
+  value === undefined ? null : parseDbInt(value);
+const assertProjectionCurrency = (
+  row: { currency?: string; currency_count?: string },
+  expected?: string
+): void => {
+  if (
+    Number(row.currency_count ?? 0) > 1 ||
+    (Number(row.currency_count ?? 0) > 0 &&
+      expected &&
+      row.currency !== expected)
+  ) {
+    throw new Error('Multiple currencies in public transparency');
+  }
+};
 const maxIso = (left: string, right: string | null): string => {
   if (!right) {
     return left;
@@ -145,6 +171,7 @@ const emptyResponse = (): FundTransparencyPublicResponse => {
     total_payouts: 0,
     current_available_estimate: 0,
     contributions_count: 0,
+    pending_fee_count: null,
     currency: 'CAD',
     monthly_summary: [],
     latest_public_allocations: [],
@@ -367,28 +394,37 @@ const getTransactionTransparencySummary = async (
       COALESCE(SUM(CASE WHEN type = 'charge.refunded' THEN amount ELSE 0 END), 0)::text AS total_refunded,
       COALESCE(SUM(CASE WHEN type = 'payout.paid' THEN amount ELSE 0 END), 0)::text AS total_payouts,
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN 1 ELSE 0 END), 0)::text AS contributions_count,
+      COUNT(*) FILTER (WHERE type = 'payment_intent.succeeded' AND stripe_balance_transaction_id IS NULL)::text AS pending_fee_count,
+      COUNT(DISTINCT currency)::text AS currency_count,
       COALESCE(MAX(currency), 'cad') AS currency,
       COALESCE(MAX(inserted_at), NOW())::text AS last_updated_at
     FROM fund_transactions
+    WHERE type IN ('payment_intent.succeeded', 'charge.refunded', 'payout.paid')
   `);
 
   const monthlyQuery = await pool.query<MonthlyRow>(`
     SELECT
-      TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+      TO_CHAR(DATE_TRUNC('month', created_at AT TIME ZONE 'UTC'), 'YYYY-MM') AS month,
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN amount ELSE 0 END), 0)::text AS total_received,
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN fee ELSE 0 END), 0)::text AS total_fees,
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN net ELSE 0 END), 0)::text AS total_net,
       COALESCE(SUM(CASE WHEN type = 'charge.refunded' THEN amount ELSE 0 END), 0)::text AS total_refunded,
       COALESCE(SUM(CASE WHEN type = 'payout.paid' THEN amount ELSE 0 END), 0)::text AS total_payouts,
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN 1 ELSE 0 END), 0)::text AS contributions_count,
+      COUNT(*) FILTER (WHERE type = 'payment_intent.succeeded' AND stripe_balance_transaction_id IS NULL)::text AS pending_fee_count,
+      COUNT(DISTINCT currency)::text AS currency_count,
       COALESCE(MAX(currency), 'cad') AS currency
     FROM fund_transactions
-    GROUP BY DATE_TRUNC('month', created_at)
-    ORDER BY DATE_TRUNC('month', created_at) DESC
+    WHERE type IN ('payment_intent.succeeded', 'charge.refunded', 'payout.paid')
+    GROUP BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC')
+    ORDER BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC') DESC
     LIMIT 12
   `);
 
   const totals = totalsQuery.rows[0];
+  assertProjectionCurrency(totals);
+  for (const row of monthlyQuery.rows)
+    assertProjectionCurrency(row, totals.currency);
 
   const totalReceived = centsToAmount(parseDbInt(totals.total_received));
   const totalFees = centsToAmount(parseDbInt(totals.total_fees));
@@ -409,6 +445,7 @@ const getTransactionTransparencySummary = async (
       total_refunded: centsToAmount(parseDbInt(row.total_refunded)),
       total_payouts: centsToAmount(parseDbInt(row.total_payouts)),
       contributions_count: parseDbInt(row.contributions_count),
+      pending_fee_count: pendingFeeCount(row.pending_fee_count),
       currency: row.currency.toUpperCase()
     })
   );
@@ -425,6 +462,7 @@ const getTransactionTransparencySummary = async (
     total_payouts: totalPayouts,
     current_available_estimate: currentAvailableEstimate,
     contributions_count: parseDbInt(totals.contributions_count),
+    pending_fee_count: pendingFeeCount(totals.pending_fee_count),
     currency: totals.currency.toUpperCase(),
     monthly_summary: monthlySummary,
     latest_public_allocations: latestAllocations,
@@ -451,8 +489,11 @@ export const getAdjustmentTotals = async (
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN fee ELSE 0 END), 0)::text AS total_fees,
       COALESCE(SUM(CASE WHEN type = 'charge.refunded' THEN amount ELSE 0 END), 0)::text AS total_refunded,
       COALESCE(SUM(CASE WHEN type = 'payout.paid' THEN amount ELSE 0 END), 0)::text AS total_payouts,
+      COALESCE(MAX(currency), 'cad') AS currency,
+      COUNT(DISTINCT currency)::text AS currency_count,
       MAX(inserted_at)::text AS last_updated_at
     FROM fund_transactions
+    WHERE type IN ('payment_intent.succeeded', 'charge.refunded', 'payout.paid')
   `);
 
   return (
@@ -475,13 +516,17 @@ const getAdjustmentMonthly = async (
 
   const query = await pool.query<AdjustmentMonthlyRow>(`
     SELECT
-      TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+      TO_CHAR(DATE_TRUNC('month', created_at AT TIME ZONE 'UTC'), 'YYYY-MM') AS month,
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN fee ELSE 0 END), 0)::text AS total_fees,
       COALESCE(SUM(CASE WHEN type = 'charge.refunded' THEN amount ELSE 0 END), 0)::text AS total_refunded,
       COALESCE(SUM(CASE WHEN type = 'payout.paid' THEN amount ELSE 0 END), 0)::text AS total_payouts,
-      COALESCE(MAX(currency), 'cad') AS currency
+      COALESCE(MAX(currency), 'cad') AS currency,
+      COUNT(DISTINCT currency)::text AS currency_count
     FROM fund_transactions
-    GROUP BY DATE_TRUNC('month', created_at)
+    WHERE type IN ('payment_intent.succeeded', 'charge.refunded', 'payout.paid')
+    GROUP BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC')
+    ORDER BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC') DESC
+    LIMIT 12
   `);
 
   return query.rows;
@@ -491,12 +536,23 @@ const getContributionTransparencySummary = async (
   pool: Pool,
   tables: TablePresenceRow
 ): Promise<FundTransparencyPublicResponse> => {
+  const feeMissing = tables.has_fund_transactions
+    ? `NOT EXISTS (
+    SELECT 1 FROM fund_transactions payment
+    WHERE payment.type = 'payment_intent.succeeded'
+      AND payment.stripe_object_id = fund_contributions.stripe_payment_intent_id
+      AND payment.currency = fund_contributions.currency
+      AND payment.stripe_balance_transaction_id IS NOT NULL
+  )`
+    : 'TRUE';
   const totalsQuery = await pool.query<ContributionTotalsRow>(`
     SELECT
       COALESCE(SUM(CASE WHEN status IN ('paid', 'refunded', 'disputed') THEN amount_cents ELSE 0 END), 0)::text AS total_received,
       COALESCE(SUM(CASE WHEN status = 'refunded' THEN amount_cents ELSE 0 END), 0)::text AS contribution_refunded,
       COALESCE(SUM(CASE WHEN status IN ('paid', 'refunded', 'disputed') THEN 1 ELSE 0 END), 0)::text AS contributions_count,
-      COALESCE(MAX(currency), 'cad') AS currency,
+      COALESCE(MAX(currency) FILTER (WHERE status IN ('paid', 'refunded', 'disputed')), 'cad') AS currency,
+      COUNT(DISTINCT currency) FILTER (WHERE status IN ('paid', 'refunded', 'disputed'))::text AS currency_count,
+      COUNT(*) FILTER (WHERE status IN ('paid', 'refunded', 'disputed') AND ${feeMissing})::text AS pending_fee_count,
       COALESCE(MAX(updated_at), NOW())::text AS last_updated_at
     FROM fund_contributions
     WHERE non_charity_acknowledged IS TRUE
@@ -504,16 +560,18 @@ const getContributionTransparencySummary = async (
 
   const monthlyQuery = await pool.query<ContributionMonthlyRow>(`
     SELECT
-      TO_CHAR(DATE_TRUNC('month', COALESCE(paid_at, updated_at, created_at)), 'YYYY-MM') AS month,
+      TO_CHAR(DATE_TRUNC('month', COALESCE(paid_at, updated_at, created_at) AT TIME ZONE 'UTC'), 'YYYY-MM') AS month,
       COALESCE(SUM(CASE WHEN status IN ('paid', 'refunded', 'disputed') THEN amount_cents ELSE 0 END), 0)::text AS total_received,
       COALESCE(SUM(CASE WHEN status = 'refunded' THEN amount_cents ELSE 0 END), 0)::text AS contribution_refunded,
       COALESCE(SUM(CASE WHEN status IN ('paid', 'refunded', 'disputed') THEN 1 ELSE 0 END), 0)::text AS contributions_count,
-      COALESCE(MAX(currency), 'cad') AS currency
+      COALESCE(MAX(currency), 'cad') AS currency,
+      COUNT(DISTINCT currency)::text AS currency_count,
+      COUNT(*) FILTER (WHERE ${feeMissing})::text AS pending_fee_count
     FROM fund_contributions
     WHERE non_charity_acknowledged IS TRUE
       AND status IN ('paid', 'refunded', 'disputed')
-    GROUP BY DATE_TRUNC('month', COALESCE(paid_at, updated_at, created_at))
-    ORDER BY DATE_TRUNC('month', COALESCE(paid_at, updated_at, created_at)) DESC
+    GROUP BY DATE_TRUNC('month', COALESCE(paid_at, updated_at, created_at) AT TIME ZONE 'UTC')
+    ORDER BY DATE_TRUNC('month', COALESCE(paid_at, updated_at, created_at) AT TIME ZONE 'UTC') DESC
     LIMIT 12
   `);
 
@@ -529,6 +587,15 @@ const getContributionTransparencySummary = async (
     adjustmentMonthly.map((row) => [row.month, row])
   );
   const totals = totalsQuery.rows[0];
+  assertProjectionCurrency(totals);
+  assertProjectionCurrency(adjustmentTotals);
+  const currency =
+    Number(totals.currency_count ?? totals.contributions_count) > 0
+      ? totals.currency
+      : (adjustmentTotals.currency ?? totals.currency);
+  assertProjectionCurrency(adjustmentTotals, currency);
+  for (const row of monthlyQuery.rows) assertProjectionCurrency(row, currency);
+  for (const row of adjustmentMonthly) assertProjectionCurrency(row, currency);
   const totalReceivedCents = parseDbInt(totals.total_received);
   const totalFeesCents = parseDbInt(adjustmentTotals.total_fees);
   const transactionRefundedCents = parseDbInt(adjustmentTotals.total_refunded);
@@ -543,44 +610,61 @@ const getContributionTransparencySummary = async (
   const totalFees = centsToAmount(totalFeesCents);
   const totalRefunded = centsToAmount(totalRefundedCents);
   const totalPayouts = centsToAmount(totalPayoutsCents);
-  const totalNet = Number((totalReceived - totalFees).toFixed(2));
+  const totalNet = centsToAmount(totalReceivedCents - totalFeesCents);
   const currentAvailableEstimate = calculateCurrentAvailableEstimate(
     totalNet,
     totalRefunded
   );
 
-  const monthlySummary = monthlyQuery.rows.map((row) => {
-    const adjustment = adjustmentMonthlyByMonth.get(row.month);
-    const totalReceivedForMonth = centsToAmount(parseDbInt(row.total_received));
+  const contributionsByMonth = new Map(
+    monthlyQuery.rows.map((row) => [row.month, row])
+  );
+  const months = [
+    ...new Set([
+      ...contributionsByMonth.keys(),
+      ...adjustmentMonthlyByMonth.keys()
+    ])
+  ]
+    .sort()
+    .reverse()
+    .slice(0, 12);
+  const monthlySummary = months.map((month) => {
+    const row = contributionsByMonth.get(month);
+    const adjustment = adjustmentMonthlyByMonth.get(month);
+    const receivedMinor = parseDbInt(row?.total_received ?? '0');
+    const feesMinor = parseDbInt(adjustment?.total_fees ?? '0');
+    const totalReceivedForMonth = centsToAmount(receivedMinor);
     const totalFeesForMonth = centsToAmount(
       parseDbInt(adjustment?.total_fees ?? '0')
     );
     const transactionRefundedForMonth = parseDbInt(
       adjustment?.total_refunded ?? '0'
     );
-    const contributionRefundedForMonth = parseDbInt(row.contribution_refunded);
+    const contributionRefundedForMonth = parseDbInt(
+      row?.contribution_refunded ?? '0'
+    );
     const totalRefundedForMonth = centsToAmount(
-      resolveRefundedAmountMinor(
-        transactionRefundedForMonth,
-        contributionRefundedForMonth
-      )
+      // Use the same source policy as the cumulative total, across all months.
+      // A refund ledger in a later month must not duplicate a status fallback.
+      transactionRefundedCents > 0
+        ? transactionRefundedForMonth
+        : contributionRefundedForMonth
     );
     const totalPayoutsForMonth = centsToAmount(
       parseDbInt(adjustment?.total_payouts ?? '0')
     );
-    const totalNetForMonth = Number(
-      (totalReceivedForMonth - totalFeesForMonth).toFixed(2)
-    );
+    const totalNetForMonth = centsToAmount(receivedMinor - feesMinor);
 
     return {
-      month: row.month,
+      month,
       total_received: totalReceivedForMonth,
       total_fees: totalFeesForMonth,
       total_net: totalNetForMonth,
       total_refunded: totalRefundedForMonth,
       total_payouts: totalPayoutsForMonth,
-      contributions_count: parseDbInt(row.contributions_count),
-      currency: row.currency.toUpperCase()
+      contributions_count: parseDbInt(row?.contributions_count ?? '0'),
+      pending_fee_count: row ? pendingFeeCount(row.pending_fee_count) : 0,
+      currency: currency.toUpperCase()
     };
   });
 
@@ -593,7 +677,8 @@ const getContributionTransparencySummary = async (
     total_payouts: totalPayouts,
     current_available_estimate: currentAvailableEstimate,
     contributions_count: parseDbInt(totals.contributions_count),
-    currency: totals.currency.toUpperCase(),
+    pending_fee_count: pendingFeeCount(totals.pending_fee_count),
+    currency: currency.toUpperCase(),
     monthly_summary: monthlySummary,
     latest_public_allocations: await getLatestPublicAllocations(
       pool,
@@ -610,17 +695,27 @@ const getContributionTransparencySummary = async (
 export const getPublicTransparencySummary = async (
   pool: Pool | null
 ): Promise<FundTransparencyPublicResponse> => {
+  const generatedAt = new Date().toISOString();
   if (!pool) {
     return emptyResponse();
   }
 
   const tables = await getTablePresence(pool);
   if (tables.has_fund_contributions) {
-    return getContributionTransparencySummary(pool, tables);
+    return {
+      ...(await getContributionTransparencySummary(pool, tables)),
+      generated_at: generatedAt
+    };
   }
 
   if (tables.has_fund_transactions) {
-    return getTransactionTransparencySummary(pool, tables.has_fund_allocations);
+    return {
+      ...(await getTransactionTransparencySummary(
+        pool,
+        tables.has_fund_allocations
+      )),
+      generated_at: generatedAt
+    };
   }
 
   return emptyResponse();

@@ -15,12 +15,14 @@ interface FinanceAccumulator {
   totalRefunded: number;
   totalPayouts: number;
   contributionsCount: number;
+  pendingFeeCount: number;
   currency: string;
 }
 
 interface StripeContribution {
   readonly amount: number;
   readonly fee: number;
+  readonly feePending: boolean;
   readonly net: number;
   readonly refunded: number;
   readonly currency: string;
@@ -50,6 +52,7 @@ const createAccumulator = (currency = 'cad'): FinanceAccumulator => ({
   totalRefunded: 0,
   totalPayouts: 0,
   contributionsCount: 0,
+  pendingFeeCount: 0,
   currency
 });
 
@@ -145,9 +148,15 @@ const toContribution = async (
     session.currency ??
     'cad';
 
+  // This projection has one currency; an FX settlement must not mix gross and net.
+  if (currency !== paymentIntent.currency) {
+    throw new Error('Unsupported currency conversion in public transparency');
+  }
+
   return {
     amount,
     fee,
+    feePending: balanceTransaction === null,
     net,
     refunded: charge?.amount_refunded ?? 0,
     currency,
@@ -159,11 +168,18 @@ const applyContribution = (
   accumulator: FinanceAccumulator,
   contribution: StripeContribution
 ): void => {
+  if (
+    accumulator.contributionsCount > 0 &&
+    accumulator.currency !== contribution.currency
+  ) {
+    throw new Error('Multiple contribution currencies in public transparency');
+  }
   accumulator.totalReceived += contribution.amount;
   accumulator.totalFees += contribution.fee;
   accumulator.totalNet += contribution.net;
   accumulator.totalRefunded += contribution.refunded;
   accumulator.contributionsCount += 1;
+  accumulator.pendingFeeCount += contribution.feePending ? 1 : 0;
   accumulator.currency = contribution.currency;
 };
 
@@ -186,23 +202,46 @@ const toMonthlySummary = (
   total_refunded: centsToAmount(accumulator.totalRefunded),
   total_payouts: centsToAmount(accumulator.totalPayouts),
   contributions_count: accumulator.contributionsCount,
+  pending_fee_count: accumulator.pendingFeeCount,
   currency: accumulator.currency.toUpperCase()
 });
+
+/** Exhaust every page or fail; a partial aggregate must never look complete. */
+async function* stripePages<T extends { id: string }>(
+  list: (startingAfter?: string) => Promise<{ data: T[]; has_more: boolean }>
+): AsyncGenerator<T> {
+  let cursor: string | undefined;
+  const cursors = new Set<string>();
+  do {
+    const page = await list(cursor);
+    for (const item of page.data) yield item;
+    if (!page.has_more) return;
+    const next = page.data.at(-1)?.id;
+    if (!next || cursors.has(next)) {
+      throw new Error('Incomplete Stripe pagination in public transparency');
+    }
+    cursors.add(next);
+    cursor = next;
+  } while (cursor);
+}
 
 export const getStripePublicTransparencySummary = async (
   stripe: Stripe,
   options: StripeTransparencyOptions
 ): Promise<FundTransparencyPublicResponse> => {
+  const generatedAt = new Date().toISOString();
   const totals = createAccumulator();
   const monthly = new Map<string, FinanceAccumulator>();
-  let lastUpdatedAt = new Date().toISOString();
+  const sessions = stripePages((startingAfter) =>
+    stripe.checkout.sessions.list({
+      limit: 100,
+      expand: ['data.payment_intent'],
+      ...(startingAfter ? { starting_after: startingAfter } : {})
+    })
+  );
+  const paymentIntents = new Set<string>();
 
-  const sessions = await stripe.checkout.sessions.list({
-    limit: 100,
-    expand: ['data.payment_intent']
-  });
-
-  for (const session of sessions.data) {
+  for await (const session of sessions) {
     const paymentIntent = await resolvePaymentIntent(
       stripe,
       session.payment_intent
@@ -214,10 +253,13 @@ export const getStripePublicTransparencySummary = async (
       continue;
     }
 
+    if (paymentIntents.has(paymentIntent.id)) continue;
+
     const contribution = await toContribution(stripe, session, paymentIntent);
     if (!contribution) {
       continue;
     }
+    paymentIntents.add(paymentIntent.id);
 
     applyContribution(totals, contribution);
 
@@ -226,14 +268,17 @@ export const getStripePublicTransparencySummary = async (
       monthly.get(month) ?? createAccumulator(contribution.currency);
     applyContribution(monthAccumulator, contribution);
     monthly.set(month, monthAccumulator);
-    lastUpdatedAt = new Date(
-      Math.max(new Date(lastUpdatedAt).getTime(), contribution.created * 1000)
-    ).toISOString();
   }
 
-  const payouts = await stripe.payouts.list({ limit: 100 });
-  for (const payout of payouts.data) {
-    if (payout.status !== 'paid') {
+  const payouts = stripePages((startingAfter) =>
+    stripe.payouts.list({
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {})
+    })
+  );
+  for await (const payout of payouts) {
+    // Payouts are account-wide transfers, reported only in the fund's currency.
+    if (payout.status !== 'paid' || payout.currency !== totals.currency) {
       continue;
     }
 
@@ -250,9 +295,6 @@ export const getStripePublicTransparencySummary = async (
       monthly.get(month) ?? createAccumulator(payoutRecord.currency);
     applyPayout(monthAccumulator, payoutRecord);
     monthly.set(month, monthAccumulator);
-    lastUpdatedAt = new Date(
-      Math.max(new Date(lastUpdatedAt).getTime(), payoutRecord.created * 1000)
-    ).toISOString();
   }
 
   const totalNet = centsToAmount(totals.totalNet);
@@ -272,6 +314,7 @@ export const getStripePublicTransparencySummary = async (
     total_payouts: totalPayouts,
     current_available_estimate: currentAvailableEstimate,
     contributions_count: totals.contributionsCount,
+    pending_fee_count: totals.pendingFeeCount,
     currency: totals.currency.toUpperCase(),
     monthly_summary: Array.from(monthly.entries())
       .sort(([left], [right]) => right.localeCompare(left))
@@ -279,6 +322,7 @@ export const getStripePublicTransparencySummary = async (
       .map(([month, accumulator]) => toMonthlySummary(month, accumulator)),
     latest_public_allocations: [],
     public_builders: [],
-    last_updated_at: lastUpdatedAt
+    last_updated_at: new Date().toISOString(),
+    generated_at: generatedAt
   };
 };
