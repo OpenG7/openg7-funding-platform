@@ -1377,8 +1377,8 @@
         "description": "Explorez les plateformes OpenG7, leurs familles, leurs connexions et l’architecture commune qui relie les services numériques publics."
       },
       "support": {
-        "title": "Support et dépôts GitHub | OpenG7",
-        "description": "Accédez aux dépôts GitHub OpenG7, consultez les projets, ouvrez des issues et contribuez à l’écosystème."
+        "title": "Aide aux contributeurs et commanditaires | OpenG7",
+        "description": "Retrouvez votre contribution, reprenez votre commandite ou contactez OpenG7. Vous pouvez aussi participer au développement de la plateforme."
       },
       "about": {
         "title": "À propos d’OpenG7 | Fonds des bâtisseurs",
@@ -1438,7 +1438,7 @@
         "title": "Entrées publiques consenties",
         "copy": "Seuls les noms explicitement consentis sont affichés. Les commandites demeurent soumises à validation manuelle avant visibilité.",
         "personal": "Contribution personnelle",
-        "sponsorship": "Commandite en validation",
+        "sponsorship": "Commandite approuvée",
         "amountHidden": "Montant masqué"
       },
       "empty": {
@@ -1450,7 +1450,24 @@
       "state": {
         "loading": "Chargement du registre public...",
         "error": "Impossible de charger le registre public."
-      }
+      },
+      "refresh": "Actualiser",
+      "retry": "Réessayer",
+      "noscript": "Activez JavaScript pour consulter le registre public. Aucun nom ni total ne peut être confirmé sans chargement.",
+      "unavailable": "Le registre nominatif est indisponible. Les informations financières restent accessibles sur la page Transparence.",
+      "outOfRange": "Cette page ne contient plus d’entrée.",
+      "firstPage": "Revenir à la première page",
+      "paginationLabel": "Pagination des bâtisseurs",
+      "previous": "Précédente",
+      "next": "Suivante",
+      "pageStatus": "Page {{page}} sur {{pages}} · {{total}} entrées publiques",
+      "recognitionTitle": "Une reconnaissance volontaire",
+      "publicRecords": "Entrées publiques",
+      "countMeaning": "Ce nombre compte les contributions affichées, pas les personnes distinctes. Un même nom peut apparaître plusieurs fois.",
+      "recognitionCopy": "Le nom et le montant suivent des consentements distincts. Une commandite nécessite aussi une approbation. Ce registre ne représente pas toutes les contributions au Fonds.",
+      "related": "Poursuivre votre visite",
+      "sponsors": "Découvrir les commanditaires",
+      "help": "Obtenir de l’aide"
     },
     "sponsorsPage": {
       "followup": "Retrouver ma commandite",
@@ -1782,8 +1799,8 @@
       "hero": {
         "mapAlt": "Carte numérique du Canada connectée à l'écosystème OpenG7",
         "dragonAlt": "Dragon gardien de l'écosystème OpenG7",
-        "title": "Construire OpenG7 avec",
-        "copy": "GitHub est l’atelier public de l’écosystème. Explorez les dépôts, signalez un problème, proposez une idée et contribuez au code."
+        "title": "De l’aide pour votre contribution",
+        "copy": "Retrouvez votre contribution, reprenez votre commandite ou contactez OpenG7. Vous pouvez aussi participer au développement de la plateforme."
       },
       "links": {
         "viewRepos": "Voir les dépôts",
@@ -1907,6 +1924,22 @@
         "security": "Sécurité",
         "documentation": "Documentation",
         "license": "Licence"
+      },
+      "help": {
+        "title": "Comment pouvons-nous vous aider ?",
+        "navigation": "Choisir une aide",
+        "contribution": "Retrouver ma contribution",
+        "sponsorship": "Suivre ma commandite",
+        "contact": "Obtenir de l’aide",
+        "sponsorshipTitle": "Reprendre une commandite",
+        "sponsorshipCopy": "Consultez votre dossier ou demandez un nouveau lien d’accès à l’adresse utilisée pour votre commandite.",
+        "followup": "Ouvrir le suivi de commandite",
+        "contactTitle": "Contacter OpenG7",
+        "contactCopy": "Pour une question sur votre contribution, une facture ou une demande de remboursement, écrivez à notre équipe.",
+        "contactPrivacy": "Indiquez votre référence de contribution si vous la connaissez. Ne transmettez pas de numéro de carte ni de lien privé de suivi dans un espace public.",
+        "policy": "Consulter la politique d’utilisation et de remboursement",
+        "technicalTitle": "Participer au développement",
+        "technicalCopy": "Les dépôts GitHub accueillent les idées, les signalements techniques et les contributions au code. Pour un dossier de paiement, utilisez les options d’aide ci-dessus."
       }
     },
     "aboutPage": {

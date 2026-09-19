@@ -263,7 +263,9 @@ test.describe('Docker admin sponsorship review', () => {
     await page.getByRole('button', { name: 'Supprimer le logo' }).click();
     await page.locator('[data-og7="confirm-action"]').click();
 
-    await expect(page.getByText(/Logo supprime/i)).toBeVisible();
+    await expect(
+      page.getByText('Logo supprime.', { exact: true })
+    ).toBeVisible();
     await expect(page.getByText('Televerser un logo')).toBeVisible();
   });
 });

@@ -190,6 +190,13 @@ explicite : elle n'appartient pas à ce runbook non destructif.
 
 ## 9. Écarts résiduels connus
 
+La commande `yarn providers:verify --env <configuration>` vérifie en lecture
+seule l'authentification Stripe **test**, SMTP et l'accès aux deux buckets S3.
+Elle refuse d'utiliser une clé Stripe live et ne lit aucun objet média. Les
+résultats sont limités à des libellés fixes, des statuts et un horodatage.
+Une réussite ne prouve ni la livraison d'un courriel ni la publication d'un média.
+Voir la [recette contrôlée](integration-rehearsal.md) pour la suite.
+
 - `storage:check`/`storage:test` et `email:verify`/`email:test` exigent des
   credentials réels : ils ne peuvent pas s'exécuter en CI sans secrets et
   restent des vérifications manuelles côté VPS.

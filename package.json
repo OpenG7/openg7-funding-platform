@@ -96,9 +96,12 @@
     "test:ui:funding-about": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-about-ui.config.mjs",
     "test:ui:funding-transparency": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-transparency-ui.config.mjs",
     "test:ui:sponsors": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-sponsors-ui.config.mjs",
-    "images:sponsors": "node scripts/optimize-sponsors-images.mjs"
+    "images:sponsors": "node scripts/optimize-sponsors-images.mjs",
+    "test:ui:public-journeys": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-public-journeys.config.mjs",
+    "providers:verify": "yarn build && node scripts/providers-verify.mjs"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.61.1",
     "@types/node": "^24.10.1",
     "@typescript-eslint/eslint-plugin": "^8.10.0",
@@ -109,6 +112,7 @@
     "eslint": "^9.12.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.31.0",
+    "playwright-core": "1.61.1",
     "prettier": "^3.6.2",
     "sharp": "0.35.3",
     "ts-node": "^10.9.2",

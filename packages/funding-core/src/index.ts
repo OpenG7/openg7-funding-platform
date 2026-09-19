@@ -177,11 +177,24 @@ export interface PublicFundAllocation {
 }
 
 export interface PublicBuilderProfile {
+  readonly public_id?: string;
   readonly display_name: string;
   readonly contribution_type: ContributionType;
   readonly amount: number | null;
   readonly currency: string;
   readonly paid_at: string | null;
+}
+
+export interface PublicBuildersResponse {
+  readonly data_source: 'database' | 'empty';
+  readonly builders: readonly PublicBuilderProfile[];
+  readonly last_updated_at: string;
+  readonly pagination: {
+    readonly page: number;
+    readonly page_size: number;
+    /** Public contribution records, not distinct people. */
+    readonly total_count: number;
+  };
 }
 
 export type SponsorMediaKind = 'logo' | 'supporting_image';

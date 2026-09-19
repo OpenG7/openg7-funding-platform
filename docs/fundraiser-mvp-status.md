@@ -1,6 +1,7 @@
 # Statut MVP - Fonds des batisseurs OpenG7
 
-Date: 2026-07-07
+État historique initial : 2026-07-07. Référence actuelle :
+[état de la plateforme](platform-status.md).
 
 Ce document resume l'etat du MVP apres les lots de travail sur le Fonds des
 batisseurs. Il sert de point de controle avant PR, revue de production ou
@@ -524,7 +525,6 @@ Resultat attendu:
 
 Les elements suivants restent volontairement hors perimetre:
 
-- back-office admin avance;
 - authentification admin par fournisseur externe;
 - fiches detaillees `/batisseurs/[slug]`;
 - bibliotheque avancee d'actifs de marque, variantes de logos et recadrage;
@@ -532,11 +532,15 @@ Les elements suivants restent volontairement hors perimetre:
 - planificateur autonome qui publierait seul les lots a l'heure prevue;
 - recus officiels de don;
 - taxes;
-- audit log metier complet;
 - gestion avancee des partenaires;
 - snapshots publics de transparence.
 
 ## Risques restants
+
+Le back-office et l'audit des actions administratives sont maintenant présents.
+Leur périmètre et leurs preuves se trouvent dans les lots admin et dans la
+[matrice actuelle](platform-status.md); ils ne sont plus des fonctionnalités
+globalement « hors MVP ».
 
 - Le texte fiscal final doit etre valide selon la structure juridique reelle d'OpenG7.
 - Les commandites payees restent des interets soumis a validation manuelle, pas une visibilite automatique.

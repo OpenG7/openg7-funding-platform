@@ -726,6 +726,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@axe-core/playwright@npm:^4.13.0":
+  version: 4.13.0
+  resolution: "@axe-core/playwright@npm:4.13.0"
+  dependencies:
+    axe-core: "npm:~4.13.0"
+  peerDependencies:
+    playwright-core: ">= 1.0.0"
+  checksum: 10c0/0938f24f3955bfa11c77c326300646a4f1dcd513389320ace9985d68486a622c443b2a34cd86f6002f617a3395623ad1e99a622450830873166aaa7e0312aa68
+  languageName: node
+  linkType: hard
+
 "@babel/code-frame@npm:^7.29.7":
   version: 7.29.7
   resolution: "@babel/code-frame@npm:7.29.7"
@@ -3850,6 +3861,13 @@ __metadata:
   dependencies:
     possible-typed-array-names: "npm:^1.0.0"
   checksum: 10c0/d07226ef4f87daa01bd0fe80f8f310982e345f372926da2e5296aecc25c41cab440916bbaa4c5e1034b453af3392f67df5961124e4b586df1e99793a1374bdb2
+  languageName: node
+  linkType: hard
+
+"axe-core@npm:~4.13.0":
+  version: 4.13.0
+  resolution: "axe-core@npm:4.13.0"
+  checksum: 10c0/0e3be8be10eea64beddefd3007e1425424ff60c26c5f4d5f748ec48c2825356839c02ad4167fc1f03a6d84ecd82108f49fb2846ab7fe949273787391745561ca
   languageName: node
   linkType: hard
 
@@ -7113,6 +7131,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "openg7-funding-platform@workspace:."
   dependencies:
+    "@axe-core/playwright": "npm:^4.13.0"
     "@playwright/test": "npm:^1.61.1"
     "@types/node": "npm:^24.10.1"
     "@typescript-eslint/eslint-plugin": "npm:^8.10.0"
@@ -7123,6 +7142,7 @@ __metadata:
     eslint: "npm:^9.12.0"
     eslint-config-prettier: "npm:^10.1.8"
     eslint-plugin-import: "npm:^2.31.0"
+    playwright-core: "npm:1.61.1"
     prettier: "npm:^3.6.2"
     sharp: "npm:0.35.3"
     ts-node: "npm:^10.9.2"

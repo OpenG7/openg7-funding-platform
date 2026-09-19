@@ -434,8 +434,13 @@ bash scripts/deploy.sh
 
 Déployer sans rebuild local, avec images déjà publiées :
 
+Préparer le checkout voulu et renseigner `WEB_IMAGE` et `API_IMAGE` dans `.env`
+avec son SHA complet. Le script ne fait plus de `git pull` et vérifie la
+concordance des images avec cette révision :
+
 ```bash
-bash scripts/deploy.sh --no-build
+DEPLOY_REVISION="$(git rev-parse HEAD)"
+bash scripts/deploy.sh --no-build --revision "${DEPLOY_REVISION}"
 ```
 
 ## Sauvegardes

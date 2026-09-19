@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: production-delivery
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   WEB_IMAGE_NAME: openg7/openg7-funding-platform-web
@@ -64,10 +68,13 @@ jobs:
         run: yarn install --immutable
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: yarn exec playwright install --with-deps chromium firefox webkit
 
       - name: Isolated sponsorship follow-up UI
         run: yarn test:ui:followup
+
+      - name: Public journeys across browsers and accessibility
+        run: yarn test:ui:public-journeys
 
       - name: Create empty .env for Docker Compose
         run: touch .env
@@ -126,7 +133,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}
           tags: |
-            type=sha,prefix=
+            type=sha,prefix=,format=long
             type=raw,value=latest
 
       - name: Docker metadata api
@@ -135,7 +142,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}
           tags: |
-            type=sha,prefix=
+            type=sha,prefix=,format=long
             type=raw,value=latest
 
       - name: Build and push web
@@ -205,4 +212,4 @@ jobs:
             chmod 600 .env
 
             echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
-            bash scripts/deploy.sh --no-build
+            bash scripts/deploy.sh --no-build --revision "${{ github.sha }}"

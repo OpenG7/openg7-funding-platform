@@ -1,8 +1,7 @@
 import { expect, test } from './support/test.js';
 
-// Covers builders-page.component.ts (/batisseurs), the only "static" public
-// page that actually fetches live data: GET /api/public/fund-transparency
-// via FundTransparencyService.getPublicTransparency(). The directory only
+// Covers builders-page.component.ts (/batisseurs) with the real public builders API.
+// The directory only
 // lists rows with a non-null `public_name` (fund_contributions.repository's
 // getPublicBuilders query), which scripts/e2e-seed.mjs's sponsorship
 // fixtures don't set -- they use sponsor_company_name instead, which feeds
@@ -50,7 +49,7 @@ test.describe('Docker builders directory page', () => {
   test('shows an error state when the public registry request fails', async ({
     page
   }) => {
-    await page.route('**/public/fund-transparency', (route) =>
+    await page.route('**/public/builders?*', (route) =>
       route.fulfill({
         status: 500,
         contentType: 'application/json',

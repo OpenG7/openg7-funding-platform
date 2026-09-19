@@ -2,6 +2,10 @@
 
 Reusable, transparent and configurable funding engine for OpenG7 ecosystem projects.
 
+See the [current platform status](docs/platform-status.md) for available features,
+validation evidence and remaining operational checks. The older MVP documents
+describe the project's evolution and should not be used alone as a current backlog.
+
 ## Workspace architecture
 
 - `apps/funding-web`: Angular standalone funding experience.

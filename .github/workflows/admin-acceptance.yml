@@ -30,13 +30,15 @@ jobs:
       - run: docker pull postgres:16-alpine
       - name: PostgreSQL integration suites
         run: node --test tests/integration/*.integration.mjs
-      - run: yarn exec playwright install --with-deps chromium
+      - run: yarn exec playwright install --with-deps chromium firefox webkit
       - name: Angular SSR and isolated UI fixtures
         run: yarn test:ui:admin
       - name: Isolated sponsorship follow-up UI
         run: yarn test:ui:followup
       - name: Public sponsor directory UI
         run: yarn test:ui:sponsors
+      - name: Public journeys across browsers and accessibility
+        run: yarn test:ui:public-journeys
       - name: Docker acceptance with disposable fixtures
         run: yarn test:e2e:acceptance
       - name: Preserve acceptance evidence

@@ -56,6 +56,7 @@ h3 {
 .state-card,
 .followup-status-panel > div {
   background: #fff;
+  color: #121b2d;
   border: 1px solid #d8e1ed;
   border-radius: 0.5rem;
   padding: 1.25rem;
