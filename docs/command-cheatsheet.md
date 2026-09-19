@@ -1,18 +1,25 @@
 # Aide-mémoire des commandes
 
+Les guides associés sont regroupés dans l'[index documentaire](README.md).
+Avant toute mise à jour d'une base existante ou livraison avec PostgreSQL,
+consulter la [limite de réexécution des migrations](operations/database-migrations.md).
+
 ## Commandes les plus courantes
 
 Usage quotidien local :
 
-| Besoin                          | Commande                                   |
-| ------------------------------- | ------------------------------------------ |
-| Installer les dépendances       | `corepack enable && corepack yarn install` |
-| Lancer le site et l'API         | `yarn dev`                                 |
-| Vérifier le build TypeScript    | `yarn build`                               |
-| Builder le frontend Angular     | `yarn workspace @openg7/funding-web build` |
-| Lancer le lint                  | `yarn lint`                                |
-| Voir les services à configurer  | `yarn services:check`                      |
-| Mettre à jour Docker localement | `yarn docker:update`                       |
+| Besoin                                   | Commande                                   |
+| ---------------------------------------- | ------------------------------------------ |
+| Installer les dépendances                | `corepack enable && corepack yarn install` |
+| Lancer le site et l'API                  | `yarn dev`                                 |
+| Vérifier le build TypeScript             | `yarn build`                               |
+| Builder le frontend Angular              | `yarn workspace @openg7/funding-web build` |
+| Lancer le lint                           | `yarn lint`                                |
+| Voir les services à configurer           | `yarn services:check`                      |
+| Mettre à jour Docker localement          | `yarn docker:update`                       |
+| Parcours publics sur quatre navigateurs  | `yarn test:ui:public-journeys`             |
+| Accessibilité, 404 et chargement différé | `yarn test:ui:platform-accessibility`      |
+| Recette SMTP/S3 et restauration jetable  | `yarn test:rehearsal`                      |
 
 Les raccourcis `docker:*` et `db:*` locaux attendent que Docker soit prêt.
 Si Docker Desktop est fermé, ils tentent de l'ouvrir et affichent un message
@@ -48,6 +55,8 @@ Usage courant PostgreSQL sur le VPS :
 Les raccourcis `vps:*` lisent `VPS_HOST`, `VPS_USER`, `VPS_PORT`,
 `VPS_APP_DIR` et `VPS_BACKUP_DOWNLOAD_DIR` depuis l'environnement ou `.env`.
 Sans clé SSH configurée, `ssh` demande le mot de passe dans le terminal.
+Actuellement, `vps:db:update` **et** `vps:db:migrate` font un
+`git pull --ff-only` avant le runner SQL; aucun des deux ne déploie les images.
 
 ## Local
 
@@ -200,10 +209,10 @@ docker compose logs -f api
 docker compose logs -f traefik
 ```
 
-Voir la configuration Compose finale :
+Valider la configuration Compose sans afficher les secrets interpolés :
 
 ```bash
-docker compose config
+docker compose config --quiet
 ```
 
 ## URLs
@@ -235,7 +244,7 @@ corepack yarn stripe:webhook:listen
 Rejouer un ou plusieurs evenements Stripe echoues en mode test :
 
 ```bash
-corepack yarn stripe:events:resend evt_1TsrBoCWK41rMb2iwrzTtqRg evt_1TsmxRCWK41rMb2iWywWcofZ
+corepack yarn stripe:events:resend evt_1... evt_2...
 ```
 
 Previsualiser sans envoyer :
@@ -283,6 +292,12 @@ https://openg7.org/api/public/fund-transparency
 ```
 
 ## Tests rapides
+
+Les suites publiques sur quatre navigateurs nécessitent
+`yarn exec playwright install --with-deps chromium firefox webkit`.
+Les intégrations jetables utilisent `postgres:16-alpine`,
+`axllent/mailpit:v1.27.4` et `adobe/s3mock:5.1.0`; les prérequis et la portée
+des preuves sont dans l'[état de la plateforme](platform-status.md).
 
 Tester le frontend local :
 
@@ -487,11 +502,15 @@ Les sauvegardes téléchargées depuis le VPS arrivent par défaut dans :
 backups/vps/
 ```
 
-Appliquer toutes les migrations SQL dans l'ordre :
+Initialiser une base locale neuve avec les migrations SQL dans l'ordre :
 
 ```bash
 yarn db:migrate
 ```
+
+Sur une base existante, le runner rejoue également les fichiers déjà appliqués.
+Les migrations `019`–`021` ne supportent pas cette répétition; suivre la procédure
+liée en tête du document avant d'utiliser ce raccourci ou le déploiement VPS.
 
 Les migrations doivent etre des fichiers `.sql` dans :
 
@@ -555,11 +574,16 @@ Vérifier que Nginx a la bonne config dans l’image :
 docker compose exec web cat /etc/nginx/conf.d/default.conf
 ```
 
-Vérifier que l’API voit les variables :
+Vérifier la configuration sans imprimer les valeurs secrètes :
 
 ```bash
-docker compose exec api env | sort
+yarn services:check
+docker compose config --quiet
 ```
+
+Le premier contrôle lit la configuration locale, pas l'environnement effectif
+du conteneur; son contrôle admin concerne encore le mode token. Compléter avec
+la [recette OIDC](operations/admin-identity-and-alerts.md) pour ce mode.
 
 Vérifier les routes Traefik déclarées :
 

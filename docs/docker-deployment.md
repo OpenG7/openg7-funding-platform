@@ -58,6 +58,8 @@ project/
 - `traefik`: public reverse proxy, HTTP to HTTPS redirect, Let's Encrypt, HTTP/2, HTTP/3, security headers, rate limits.
 - `web`: Angular static app served by Nginx unprivileged.
 - `api`: Node funding API for checkout, public transparency, and Stripe webhooks.
+- `postgres`: private PostgreSQL 16 service, enabled by the `database` profile for persistent features.
+- `operations`: optional independent alert watcher from `docker-compose.operations.yml`, configured and started separately.
 - `cadvisor`: local-only Docker metrics on `127.0.0.1:8082`.
 
 ## Environment
@@ -87,6 +89,7 @@ FUNDING_ALLOWED_AMOUNTS=5,10,25,50
 FUNDING_BUSINESS_SPONSORSHIP_ENABLED=false
 FUNDING_API_PORT=3333
 FUNDING_PROJECT_ID=openg7
+FUNDING_ADMIN_AUTH_MODE=token
 FUNDING_ADMIN_TOKEN=replace_with_a_long_random_admin_token
 FUNDING_ADMIN_SESSION_SECRET=replace_with_a_different_long_random_session_secret
 FUNDING_ADMIN_SESSION_TTL_MINUTES=60
@@ -128,6 +131,13 @@ STRIPE_WEBHOOK_SECRET=whsec_replace_me
 BACKUP_DIR=./backups
 ```
 
+The example uses legacy token authentication. Named OIDC accounts, MFA and
+revocable sessions require PostgreSQL and the settings in the
+[identity/alerts runbook](operations/admin-identity-and-alerts.md). OIDC requires
+one public origin for Web and API. The operations overlay is not started or
+updated automatically by the standard deployment script; manage its API image
+revision and configuration explicitly when that service is enabled.
+
 ## First VPS Installation
 
 Run on Ubuntu 24.04 LTS:
@@ -151,9 +161,11 @@ bash scripts/deploy.sh
 
 ## Optional Private PostgreSQL
 
-The platform can still launch without PostgreSQL. Leave `DATABASE_URL` unset to keep the Stripe-direct transparency fallback.
+The limited public checkout/transparency path can run without PostgreSQL.
+Persistent administration, sponsorship follow-up, public directories, OIDC and
+alert episodes require the private database.
 
-To enable the private PostgreSQL MVP:
+To initialize private PostgreSQL on an authorized fresh environment:
 
 1. Set these values in `.env`:
 
@@ -170,37 +182,17 @@ DATABASE_URL=postgres://openg7_funding:replace_with_a_long_random_secret@postgre
 docker compose --profile database up -d postgres
 ```
 
-3. Apply migrations from the host:
+3. On a fresh database, apply the full sequence from the host:
 
 ```bash
-docker compose --profile database exec -T postgres \
-  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-  < apps/funding-api/migrations/001_create_fund_transparency_tables.sql
-
-docker compose --profile database exec -T postgres \
-  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-  < apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql
-
-docker compose --profile database exec -T postgres \
-  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-  < apps/funding-api/migrations/003_add_sponsorship_details.sql
-
-docker compose --profile database exec -T postgres \
-  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-  < apps/funding-api/migrations/004_add_sponsorship_review.sql
-
-docker compose --profile database exec -T postgres \
-  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-  < apps/funding-api/migrations/005_add_sponsorship_followup_token.sql
-
-docker compose --profile database exec -T postgres \
-  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-  < apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql
-
-docker compose --profile database exec -T postgres \
-  psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-  < apps/funding-api/migrations/007_add_admin_audit_and_publication_drafts.sql
+yarn db:migrate
 ```
+
+The sequence currently ends at `021`; applying only `001`–`007` leaves most
+administrative features unavailable. For an existing database, follow the
+[migration procedure](operations/database-migrations.md): the runners replay
+all files and `019`–`021` are not replayable. Do not use the fresh-database
+command as an unconditional upgrade procedure.
 
 4. Restart the API:
 
@@ -340,6 +332,11 @@ Applied:
 
 ## Deployment
 
+The current runner automatically calls `scripts/db-migrate.sh` when a database
+is configured. Resolve the [migration replay limitation](operations/database-migrations.md)
+before repeating deployment on an existing schema. A rollback of the images
+does not undo SQL statements already applied.
+
 Prepare the intended Git checkout explicitly. `deploy.sh` deploys that checkout
 and never runs `git pull`; `yarn vps:update` remains the explicit pull-and-deploy
 wrapper, while `yarn vps:deploy` uses the revision already present.
@@ -433,6 +430,8 @@ yarn db:restore --config-backup /path/to/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz -
 to become ready, then applies every SQL file in
 `apps/funding-api/migrations` in filename order. New database migrations must
 be committed as `.sql` files in that directory.
+It does not record applied migrations or skip them; see the migration procedure
+before reusing this command on a populated database.
 
 Run:
 
@@ -560,7 +559,10 @@ Traefik logs are JSON:
 docker compose logs -f traefik
 ```
 
-Nginx logs are JSON:
+Nginx output is available through Docker logs; API access logging under `/api/`
+is disabled to avoid logging OIDC callback codes. Traefik access logs omit
+request paths, request lines and headers. Do not enable those fields while
+diagnosing identity failures:
 
 ```bash
 docker compose logs -f web
@@ -596,8 +598,13 @@ If the API restarts in a loop:
 
 ```bash
 docker compose logs --tail=100 api
-docker compose config | grep -E "APP_DOMAIN|FUNDING_PUBLIC_BASE_URL|FUNDING_ALLOWED_ORIGINS|FUNDING_SPONSOR_LOGO|SPONSOR_MEDIA_|OVH_S3_|STRIPE_SECRET_KEY"
+docker compose config --quiet
+yarn services:check
 ```
+
+These checks avoid printing expanded secret values. `services:check` still
+validates the legacy admin-token settings; it is not an OIDC configuration test.
+Use the identity runbook to verify the selected mode.
 
 Most startup loops come from missing production variables in `.env`, especially:
 

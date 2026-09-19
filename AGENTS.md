@@ -939,7 +939,7 @@ Règles :
 - un courriel échoué reste visible dans l’admin;
 - un test d’envoi est distingué d’un message réel;
 - corriger l’adresse d’envoi ne modifie pas silencieusement l’identité financière originale;
-- les paramètres Resend demeurent côté serveur.
+- les paramètres SMTP et les identifiants du fournisseur demeurent côté serveur.
 
 ---
 
@@ -1658,4 +1658,4 @@ Ne pas prétendre avoir déployé, envoyé, remboursé, restauré ou validé un 
 
 ---
 
-_Dernière adaptation pour `openg7-funding-platform` : 2026-07-18_
+_Dernière adaptation pour `openg7-funding-platform` : 2026-09-19_

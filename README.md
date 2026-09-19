@@ -5,10 +5,14 @@ Reusable, transparent and configurable funding engine for OpenG7 ecosystem proje
 See the [current platform status](docs/platform-status.md) for available features,
 validation evidence and remaining operational checks. The older MVP documents
 describe the project's evolution and should not be used alone as a current backlog.
+The [documentation index](docs/README.md) separates current feature guides,
+operational procedures and historical design/validation reports.
 
 ## Workspace architecture
 
 - `apps/funding-web`: Angular standalone funding experience.
+- `apps/funding-api`: Node API, payments, administration, media and email workers.
+- `apps/production-launch-agent`: optional controlled VPS operations tooling.
 - `packages/funding-core`: reusable funding domain logic and checkout contract.
 - `packages/funding-ui`: reusable design tokens.
 - `packages/funding-models`: immutable funding models.
@@ -73,6 +77,8 @@ Avec Node 22, Yarn 4, Docker local (conteneurs Linux) et Chromium installé :
 yarn playwright:install
 yarn test:ui:admin
 docker pull postgres:16-alpine
+docker pull axllent/mailpit:v1.27.4
+docker pull adobe/s3mock:5.1.0
 yarn test:integration:payments
 yarn test:e2e:acceptance
 ```
@@ -82,6 +88,19 @@ sans charger le `.env` applicatif ni réutiliser les volumes locaux. Stripe est
 simulé, SMTP est désactivé et les publications sociales sont simulées.
 Les rapports sont conservés sous `test-results/acceptance/` et dans les artefacts
 du workflow de PR. Voir le [bilan et les limites de la recette](docs/admin-ux-lot-8.md).
+
+Les intégrations utilisent aussi un fournisseur OIDC signé local, Mailpit et
+S3Mock dans des conteneurs jetables. Pour les parcours publics et les contrôles
+d'accessibilité sur Chromium, Firefox, WebKit et mobile WebKit :
+
+```bash
+yarn exec playwright install --with-deps chromium firefox webkit
+yarn test:ui:public-journeys
+yarn test:ui:platform-accessibility
+```
+
+Voir les [preuves locales et leurs limites](docs/platform-status.md). Ces suites
+ne prouvent pas l'activation des services externes en production.
 
 ### HTTPS local approuve
 
@@ -106,7 +125,10 @@ production.
 
 ## Production launch
 
-Use [docs/production-launch-checklist.md](docs/production-launch-checklist.md) for the first public launch runbook. The initial production path is Stripe-direct and does not require PostgreSQL.
+Use the [production checklist](docs/production-launch-checklist.md) for the
+chosen deployment scope. Stripe-direct supports checkout and aggregate
+transparency without PostgreSQL. Persistent administration, sponsor follow-up,
+public directories, OIDC and operational alerts require the private database.
 
 ## Fund transparency module (V1)
 
@@ -119,9 +141,12 @@ Set these variables for API and webhook processing:
 - `FUNDING_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the API in production.
 
 - `FUNDING_BUSINESS_SPONSORSHIP_ENABLED` - set to `true` only when the business sponsorship flow is ready to accept new sponsorship checkouts. Defaults to `false`.
-- `FUNDING_ADMIN_TOKEN` - required in production as the root secret used to create admin sessions.
-- `FUNDING_ADMIN_SESSION_SECRET` - optional but recommended separate HMAC secret for signed admin browser sessions.
-- `FUNDING_ADMIN_SESSION_TTL_MINUTES` - optional admin session duration, defaulting to 60 minutes.
+- `FUNDING_ADMIN_AUTH_MODE` - `token` by default; `oidc` enables named accounts, MFA, API roles and revocable sessions.
+- `FUNDING_ADMIN_TOKEN` - root secret required for production admin access in `token` mode; rejected as an authentication method in `oidc` mode.
+- `FUNDING_ADMIN_SESSION_SECRET` - recommended separate HMAC secret for signed browser sessions in `token` mode.
+- `FUNDING_ADMIN_SESSION_TTL_MINUTES` - token-mode session duration, defaulting to 60 minutes. OIDC sessions currently last one hour without automatic renewal.
+- `FUNDING_ADMIN_OIDC_ISSUER`, `FUNDING_ADMIN_OIDC_CLIENT_ID`, `FUNDING_ADMIN_OIDC_CLIENT_SECRET`, `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS`, `FUNDING_ADMIN_OIDC_MFA_ACR` - server-only identity configuration; see the [identity and alerts runbook](docs/operations/admin-identity-and-alerts.md).
+- `FUNDING_OPERATIONS_WEBHOOK_URL`, `FUNDING_OPERATIONS_WEBHOOK_SECRET` - optional independent signed alert channel, enabled by configuring and starting the operations watcher.
 - `SPONSOR_MEDIA_STORAGE_DRIVER` - sponsor media storage backend. Use `local` for filesystem storage or `ovh-s3` for OVH Object Storage.
 - `FUNDING_SPONSOR_LOGO_STORAGE_DIR` - private API filesystem directory for uploaded sponsor logos when `SPONSOR_MEDIA_STORAGE_DRIVER` is `local`.
 - `FUNDING_SPONSOR_LOGO_MAX_BYTES` - optional sponsor logo upload size limit, defaulting to 524288 bytes.
@@ -155,7 +180,9 @@ npm run email:test -- --to=adresse@example.com
 
 ### Fast launch without PostgreSQL
 
-For the first launch, PostgreSQL is intentionally not used. When `DATABASE_URL` is absent and `STRIPE_SECRET_KEY` is configured, the public transparency endpoint aggregates recent Stripe Checkout sessions and payouts directly from Stripe:
+When `DATABASE_URL` is absent and `STRIPE_SECRET_KEY` is configured, the public
+transparency endpoint aggregates Stripe Checkout sessions and payouts directly
+from Stripe. This is a limited deployment option:
 
 ```bash
 GET http://localhost:3333/api/public/fund-transparency
@@ -167,7 +194,8 @@ This is the default quick-launch path. It avoids local persistence while still s
 
 PostgreSQL is optional and must stay private. The Compose service is behind the `database` profile and publishes no `5432` port.
 
-Enable it only when you are ready to persist checkout sessions and webhook state:
+Enable it for persistent checkout/webhook state, sponsor follow-up, directories,
+administration, OIDC and alert episodes:
 
 ```env
 POSTGRES_DB=openg7_funding
@@ -182,32 +210,22 @@ Start the private database:
 docker compose --profile database up -d postgres
 ```
 
-Apply the versioned migrations:
+For a **fresh local database**, apply all versioned migrations:
 
-```sql
-\i apps/funding-api/migrations/001_create_fund_transparency_tables.sql
-\i apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql
-\i apps/funding-api/migrations/003_add_sponsorship_details.sql
-\i apps/funding-api/migrations/004_add_sponsorship_review.sql
-\i apps/funding-api/migrations/005_add_sponsorship_followup_token.sql
-\i apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql
-\i apps/funding-api/migrations/007_add_admin_audit_and_publication_drafts.sql
-\i apps/funding-api/migrations/008_add_sponsorship_publication_batches.sql
-\i apps/funding-api/migrations/009_add_contribution_public_reference.sql
-\i apps/funding-api/migrations/010_create_email_messages.sql
-\i apps/funding-api/migrations/011_create_sponsorship_invoices.sql
-\i apps/funding-api/migrations/012_create_sponsorship_credit_notes.sql
-\i apps/funding-api/migrations/013_add_sponsorship_refund_status.sql
-\i apps/funding-api/migrations/014_add_sponsorship_refund_amount_reason.sql
-\i apps/funding-api/migrations/015_create_social_publication_jobs.sql
-\i apps/funding-api/migrations/016_create_publication_slots.sql
+```bash
+yarn db:migrate
 ```
+
+The current sequence runs through `021`. Read the
+[migration procedure and replay limitation](docs/operations/database-migrations.md)
+before updating an existing database: the runners currently replay every file,
+and migrations `019`–`021` cannot be applied twice.
 
 These create:
 
 - `fund_transactions` (Stripe event level, aggregate-safe values only)
 - `fund_allocations` (publicly publishable allocations)
-- `stripe_events` (future webhook idempotency)
+- `stripe_events` (webhook idempotency and processing status)
 - `stripe_checkout_sessions` (created Checkout Sessions)
 - `fund_contributions` (pending contribution records, sponsor follow-up details, private review status, hashed follow-up tokens, and sponsor feed placement fields)
 - `sponsor_publication_drafts` (private sponsored publication drafts for manual review)
@@ -218,22 +236,36 @@ These create:
 - `email_messages` (queued email templates with retry status)
 - `sponsorship_invoices` (private app-generated sponsorship invoice snapshots)
 - `sponsorship_credit_notes` (private app-generated sponsorship credit-note snapshots tied to Stripe refunds)
+- `sponsor_media_assets` (private originals and reviewed public media)
+- `sponsorship_access_tokens`, `sponsorship_followup_drafts` (access recovery and revision-protected drafts)
+- `admin_accounts`, `admin_identity_sessions`, `admin_login_challenges` (OIDC access)
+- `operations_alerts` (persistent incident episodes and delivery retries)
+
+Migration `018` also adds achievement/proof fields to public allocations.
 
 When `DATABASE_URL` is absent, the API continues to run with Stripe-direct public transparency.
 
 ### Fundraiser admin
 
-The MVP admin dashboard is available at:
+The admin dashboard is available at:
 
 ```text
 /admin/fundraiser
 ```
 
-The browser entry point is protected by a lightweight frontend session gate.
-Open `/admin/login`, enter `FUNDING_ADMIN_TOKEN`, and the frontend exchanges it
-through `POST /api/admin/session` before loading `/admin/fundraiser` or any
-`/admin/fundraiser/...` child route. The API remains the source of truth for
-authorization on every admin endpoint.
+Open `/admin/login`. In default `token` mode, the frontend exchanges
+`FUNDING_ADMIN_TOKEN` through `POST /api/admin/session`. In `oidc` mode, it
+redirects to the configured identity provider and requires verified MFA.
+The browser then uses an HttpOnly cookie for a revocable server session.
+The API checks authorization on every admin endpoint; Angular guards only
+control navigation. Admin routes are loaded on demand from `admin.routes.ts`.
+
+The [access and sessions page](docs/operations/admin-identity-and-alerts.md)
+at `/admin/fundraiser/access` lets OIDC owners manage readers, operators and
+owners, disable accounts and revoke sessions. Changing an account revokes its
+sessions; the last active owner is protected. Token mode does not provide these
+named-account guarantees. Independent alerts use `yarn operations:watch` or the
+optional Compose overlay and remain disabled until configured and started.
 
 The dashboard now uses the admin visual foundation described in
 [Admin UX — lot 1](docs/admin-ux-lot-1.md). Run `yarn test:ui:admin` to build
@@ -279,7 +311,8 @@ limits. The PostgreSQL inspection test owns and removes its disposable container
 `false` means PostgreSQL is not configured and the UI must not present the
 legacy zero-valued snapshot as an empty fund.
 
-It exposes private operational views through:
+Selected operational endpoints (the feature guides in the
+[documentation index](docs/README.md) describe the additional contracts):
 
 ```text
 GET /api/admin/dashboard
@@ -355,7 +388,7 @@ for historical paid sponsorships without emailing sponsors automatically.
 
 ### Sponsorship review admin
 
-The MVP admin review screen is available at:
+The admin review screen is available at:
 
 ```text
 /admin/fundraiser/sponsors
@@ -373,12 +406,14 @@ POST /api/admin/sponsorships/refund
 POST /api/admin/sponsorships/publication
 ```
 
-In production, first exchange `FUNDING_ADMIN_TOKEN` from `/admin/login` through
+In `token` mode, first exchange `FUNDING_ADMIN_TOKEN` from `/admin/login` through
 `POST /api/admin/session`. The browser admin then calls operational endpoints
 with `Authorization: Bearer <sessionToken>`. The static token remains accepted
 for scripts and backwards-compatible admin operations. In local development,
 admin endpoints can be used without a token when `FUNDING_ADMIN_TOKEN` is unset,
-but the frontend admin routes still expect a browser session.
+but the frontend admin routes still expect a browser session. In `oidc` mode,
+root tokens and legacy signed sessions are rejected; the API requires a valid
+cookie session and sufficient role, plus the exact public origin on mutations.
 
 The sponsorship publication endpoint prepares the public sponsor profile and
 records feed placement metadata:
@@ -449,9 +484,13 @@ The public pages are:
 /en/commanditaires
 ```
 
-Only paid sponsorships with `public_display_consent=true`,
-`sponsor_review_status=approved`, and a company name are returned. Private
-contact fields, Stripe ids, emails, and internal notes are never exposed.
+Eligibility requires `public_display_consent=true`,
+`sponsor_review_status=approved`, a company name and an approved, undeleted
+presentation image. The existing policy allows `paid`, `refunded` and
+`disputed` records; inclusion is not a statement of the current payment balance.
+Amounts require separate consent. Private contacts, Stripe IDs and internal
+notes are never exposed. See [pagination, totals and visibility](docs/public-sponsors.md)
+and the separate [builders directory](docs/public-builders-and-support.md).
 
 ### Usage and refund policy
 
@@ -485,21 +524,26 @@ GET /api/sponsorship-followup?token=...
 POST /api/sponsorship-followup/details
 ```
 
-When PostgreSQL, SMTP email configuration, and migrations 011/012 are
+When PostgreSQL, SMTP email configuration, and the required migrations are
 configured, the `checkout.session.completed` webhook queues the follow-up link
 and creates an app-generated sponsorship invoice snapshot for the Stripe
 customer email. The invoice includes a stable invoice number, issuer details,
 sponsor recipient snapshot, Stripe references, line item, totals, tax label,
 and a non-charity receipt disclaimer. Without email configuration, the immediate
-Stripe return shows a tokenized follow-up action; if the tab is closed, admins
-can still see the paid but incomplete sponsorship from the admin screen. If
+Stripe return shows a tokenized follow-up action. Recovery from the follow-up
+page or `/support` sends a new private link to the payment email when SMTP is
+available. Admin owners in OIDC mode can also resend access from the dossier.
+Text drafts are saved server-side with revision checks; saving a draft does not
+submit it for review. See [recovery and drafts](docs/sponsorship-access-and-drafts.md).
+Admins can still see paid but incomplete sponsorships from the admin screen. If
 details are
 resubmitted after approval, the sponsorship returns to `pending_review` before
 any public display continues. Without PostgreSQL, Stripe-direct transparency
 still works, but the recoverable sponsorship follow-up and public sponsor
 profile lifecycle are not available.
 
-public reference lookup, reference recovery, and admin sponsorship routes.
+API rate limits cover checkout, sponsorship follow-up, access recovery,
+public reference lookup, reference recovery, admin authentication and sponsorship routes.
 Configure the window and limits with
 `FUNDING_RATE_LIMIT_WINDOW_MS`, `FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX`,
 `FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX`,
@@ -520,6 +564,7 @@ Handled events:
 - `checkout.session.expired`
 - `payment_intent.succeeded`
 - `payment_intent.payment_failed`
+- `charge.updated` (late fee/net enrichment)
 - `charge.refunded`
 - `charge.dispute.created`
 - `payout.paid`
@@ -600,9 +645,10 @@ corepack yarn stripe:events:resend:live evt_1... evt_2... --endpoint we_...
 ```
 
 Use `--dry-run` to print the Stripe CLI calls without sending anything. The
-endpoint can also be provided through `STRIPE_WEBHOOK_ENDPOINT_ID`. Replaying a
-`checkout.session.completed` sponsorship event can resend the follow-up email
-when email configuration is active.
+endpoint can also be provided through `STRIPE_WEBHOOK_ENDPOINT_ID`. Replaying
+an already processed event does not resend a logical email. Recover failed
+processing through the idempotent webhook flow; use the confirmed admin resend
+or email retry action when a new delivery is required.
 
 ### Stripe historical backfill to PostgreSQL
 
@@ -699,6 +745,16 @@ Public route:
 - `/fonds-des-batisseurs/transparence`
 
 The page consumes `/api/public/fund-transparency` and displays civic, readable aggregate reporting with an explicit privacy statement.
+See the [current transparency contract](docs/funding-transparency.md) for fee
+completeness, source/freshness fields, monthly filters and exports.
+
+### Public routing and performance
+
+The main funding page stays eager; secondary public and admin pages load on
+demand. The production initial-bundle budgets are 800 kB (warning) and 900 kB
+(error). The build prerenders 24 routes, including `/404` and `/en/404`.
+Nginx serves unknown URLs with localized HTTP 404 pages; only explicitly
+declared client-rendered routes receive the application shell.
 
 ## Production deployment
 

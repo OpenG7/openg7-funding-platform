@@ -2,6 +2,11 @@
 
 Date : 15 septembre 2026.
 
+> Plan historique des huit lots, maintenant livrés. Leur découpage et leurs
+> critères restent utiles à la lecture des bilans; ils ne sont pas une liste
+> de travaux encore ouverts. Voir l'[index](README.md) et l'[état actuel](platform-status.md),
+> notamment pour les accès nominatifs ajoutés après ces lots.
+
 ## 1. Objectif et portée
 
 Transformer l’administration en un espace qui indique **ce qui demande une intervention, pourquoi et quelle action effectuer ensuite**, selon les [requis UX](./admin-ux-direction.md) et la [maquette](./images/admin-ui.png).

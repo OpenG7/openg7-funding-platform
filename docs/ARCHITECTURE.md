@@ -8,6 +8,11 @@ This document defines the durable architectural principles of the `openg7-fundin
 
 `ARCHITECTURE.md` explains **why, where, and which system is authoritative**. [`AGENTS.md`](../AGENTS.md) defines **how agents and contributors must execute the work**, including repository-specific commands, acceptance checks, and safety rules.
 
+This document includes durable principles and target boundaries. Use the
+[current platform status](platform-status.md) for implemented features and
+execution evidence, and the [documentation index](README.md) for feature guides.
+External contribution imports such as La Ruche remain a design proposal.
+
 ## Product Scope
 
 `openg7-funding-platform` is the transparent funding engine for the OpenG7 ecosystem. It supports:
@@ -18,7 +23,7 @@ This document defines the durable architectural principles of the `openg7-fundin
 - public fund transparency;
 - expenses, refunds, credit notes, fees, and net amounts;
 - sponsor profiles, logos, supporting images, and publication planning;
-- source attribution, including external campaigns such as La Ruche;
+- planned external-source attribution, including campaigns such as La Ruche (design scope);
 - audit trails, reconciliation, backups, and operational recovery.
 
 The platform is not a charity receipt system. User-facing copy and receipts must not imply charitable status or a tax-deductible donation unless the legal status of the project changes and the architecture is explicitly updated.
@@ -344,9 +349,13 @@ After a successful Stripe-backed transaction:
 
 The current sponsorship benefits are cumulative and expressed in the configured project currency:
 
-- `5.00–24.99`: mention on OpenG7.org;
-- `25.00–49.99`: OpenG7.org plus Facebook;
-- `50.00+`: OpenG7.org plus Facebook and LinkedIn.
+- `50.00–249.99 CAD`: mention on OpenG7.org;
+- `250.00–499.99 CAD`: OpenG7.org plus a collective Facebook publication;
+- `500.00+ CAD`: OpenG7.org plus collective Facebook and LinkedIn publications.
+
+The configured presets are 50, 100, 250 and 500 CAD, with a 50 CAD minimum.
+The current sources are `DEFAULT_SPONSORSHIP_PRICING_CONFIG` in `funding-core` and
+the Web funding configuration; the API validates eligibility.
 
 A mention on OpenG7.org is also available for personal contributions when the contributor grants public-recognition consent. Benefit eligibility never bypasses manual validation and never triggers automatic publication.
 
@@ -578,7 +587,8 @@ Local development should preserve the same boundaries as production:
 - Web communicates with the API, not directly with PostgreSQL or Stripe secret APIs.
 - Stripe CLI or approved test webhooks exercise the real webhook path.
 - Mock checkout is explicitly local-only.
-- Database migrations are repeatable and reviewed.
+- Database upgrades must be reviewed and safely resumable. The current runners
+  have a [replay limitation](operations/database-migrations.md) on an existing schema.
 - Secrets come from local environment files excluded from Git.
 
 CI should validate, according to the scripts present in `package.json`:
@@ -640,6 +650,11 @@ Ce document définit les principes architecturaux durables du dépôt `openg7-fu
 
 `ARCHITECTURE.md` explique **pourquoi, où et quel système fait autorité**. [`AGENTS.md`](../AGENTS.md) définit **comment les agents et les contributeurs exécutent le travail**, notamment les commandes propres au dépôt, les validations et les règles de sécurité.
 
+Ce document comporte des principes durables et des frontières cibles. Consulter
+l'[état de la plateforme](platform-status.md) pour les fonctionnalités livrées
+et leurs preuves, et l'[index documentaire](README.md) pour les guides actuels.
+L'import de contributions externes comme La Ruche reste un cadrage.
+
 ## Portée du produit
 
 `openg7-funding-platform` est le moteur de financement transparent de l’écosystème OpenG7. Il prend en charge :
@@ -650,12 +665,20 @@ Ce document définit les principes architecturaux durables du dépôt `openg7-fu
 - la transparence publique du fonds;
 - les dépenses, remboursements, notes de crédit, frais et montants nets;
 - les profils commanditaires, logos, images complémentaires et planification des publications;
-- l’attribution de provenance, notamment les campagnes externes comme La Ruche;
+- la provenance externe prévue au cadrage, notamment les campagnes comme La Ruche;
 - les pistes d’audit, la réconciliation, les sauvegardes et la récupération opérationnelle.
 
 La plateforme n’est pas un système de reçus de charité. Les textes destinés aux utilisateurs et les reçus ne doivent jamais laisser entendre qu’une contribution est déductible d’impôt, sauf si le statut juridique change et que l’architecture est explicitement mise à jour.
 
 ## Principes architecturaux
+
+Les comptes administrateurs nominatifs, le MFA, les rôles côté API et le
+processus indépendant d'alertes sont décrits dans la
+[décision du 19 septembre 2026](decisions/2026-09-19-admin-identity-and-operations.md).
+OIDC est optionnel : PostgreSQL conserve les permissions et sessions révocables;
+le fournisseur fait autorité pour l'authentification et les assertions MFA.
+Les routes admin sont chargées à la navigation; Nginx préserve le statut HTTP
+404 des URL publiques inconnues.
 
 1. **Organisation orientée domaines** : financement, paiements, commandites, comptabilité, dépenses, transparence, médias, réconciliation et audit sont des frontières métier explicites.
 2. **Stripe fait autorité pour les faits du rail de paiement** : statut du paiement et de la charge, frais du processeur, montant net, litiges et remboursements Stripe proviennent de Stripe.
@@ -970,9 +993,13 @@ Après une transaction confirmée par Stripe :
 
 Les avantages actuels sont cumulatifs et exprimés dans la devise configurée du projet :
 
-- `5,00–24,99` : mention sur OpenG7.org;
-- `25,00–49,99` : OpenG7.org et Facebook;
-- `50,00+` : OpenG7.org, Facebook et LinkedIn.
+- `50,00–249,99 CAD` : mention sur OpenG7.org;
+- `250,00–499,99 CAD` : OpenG7.org et publication collective Facebook;
+- `500,00+ CAD` : OpenG7.org et publications collectives Facebook et LinkedIn.
+
+Les montants proposés sont 50, 100, 250 et 500 CAD, avec un minimum de 50 CAD.
+Les sources actuelles sont `DEFAULT_SPONSORSHIP_PRICING_CONFIG` dans `funding-core`
+et la configuration Funding du Web; l'API valide l'admissibilité.
 
 Une mention sur OpenG7.org est également offerte aux contributions personnelles lorsque la personne consent à la reconnaissance publique. L’admissibilité à un avantage ne contourne jamais la validation manuelle et ne déclenche aucune publication automatique.
 
@@ -1204,7 +1231,9 @@ Le développement local conserve les mêmes frontières que la production :
 - le Web communique avec l’API, jamais directement avec PostgreSQL ou les API Stripe secrètes;
 - Stripe CLI ou des webhooks de test approuvés exercent le vrai chemin webhook;
 - le Checkout simulé est strictement local;
-- les migrations sont rejouables et révisées;
+- les mises à jour du schéma doivent être révisées et reprises sans risque;
+  les runners actuels ont une [limite de réexécution](operations/database-migrations.md)
+  sur une base existante;
 - les secrets proviennent de fichiers d’environnement exclus de Git.
 
 La CI valide, selon les scripts présents dans `package.json` :
@@ -1258,4 +1287,4 @@ Mettre à jour `ARCHITECTURE.md` pour les principes durables et `AGENTS.md` pour
 
 ---
 
-_Last updated / Dernière mise à jour: 2026-07-18_
+_Last updated / Dernière mise à jour: 2026-09-19_

@@ -700,13 +700,19 @@ test('E2E 8/8: FR/EN navigation, prerender, sitemap, and deployment docs cover s
   }
 
   assertIncludesAll(
-    [readme, dockerDocs, launchChecklist, coverageDoc].join('\n'),
+    [
+      readme,
+      dockerDocs,
+      launchChecklist,
+      coverageDoc,
+      read('docs/operations/database-migrations.md')
+    ].join('\n'),
     [
       '006_add_sponsorship_publication_feed.sql',
       'GET /api/public/sponsorships',
       '/commanditaires',
       '/en/commanditaires',
-      '100%'
+      'Matrice statique'
     ],
     'documentation coverage'
   );

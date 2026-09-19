@@ -1,5 +1,9 @@
 # Analyse fonctionnelle - Evolution du Fundraiser OpenG7
 
+> Archive de l'analyse initiale. Les propositions et mentions « non implémenté »
+> décrivent la situation du 5 juillet 2026, pas le backlog actuel. Consulter
+> l'[état de la plateforme](platform-status.md) et l'[index](README.md).
+
 Date: 2026-07-05  
 Perimetre: analyse produit, fonctionnelle, technique, UX, conformite et architecture.  
 Statut: document d'analyse, aucune fonctionnalite implementee.

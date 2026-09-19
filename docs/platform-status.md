@@ -3,6 +3,7 @@
 Référence : état du dépôt au 19 septembre 2026. Le code et les contrats présents
 font foi; les analyses MVP antérieures sont historiques. Une fonctionnalité
 visible et une preuve sur les fournisseurs réels sont deux informations distinctes.
+L'[index documentaire](README.md) oriente vers les guides actuels et les archives.
 
 | Domaine                      | Disponible pour l'utilisateur                                                          | Garanties et limites                                                                                                                                                                                  |
 | ---------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -12,10 +13,27 @@ visible et une preuve sur les fournisseurs réels sont deux informations distinc
 | Bâtisseurs                   | Registre paginé et consentements nom/montant distincts                                 | [Contrat et tests](public-builders-and-support.md); le total représente des entrées, pas des personnes uniques.                                                                                       |
 | Aide                         | Recherche de contribution, récupération d'accès, contact, participation technique      | FR/EN, clavier et reprise testables; les paiements privés ne passent pas par des issues publiques.                                                                                                    |
 | Administration               | Tableau de bord, file de travail, dossiers, publications, factures, courriels et audit | Fonctionnalités présentes, documentées dans les [lots admin](admin-ux-lot-8.md). L'API reste l'autorité d'accès.                                                                                      |
+| Accès nominatifs             | OIDC optionnel, MFA, rôles et gestion des comptes/sessions                             | Fournisseur signé local et révocation testés; activation et recette du fournisseur réel encore requises. [Runbook](operations/admin-identity-and-alerts.md).                                          |
+| Alertes indépendantes        | Webhook signé pour événements Stripe bloqués/échoués et courriels échoués              | Déduplication/reprises testées; récepteur externe à configurer et processus à démarrer séparément.                                                                                                    |
+| Routage et performance       | Chargement différé des pages secondaires/admin, pages 404 FR/EN                        | Budget initial de production 800/900 ko, 24 routes prérendues; statuts HTTP Nginx et navigation testés.                                                                                               |
 | Livraison                    | Images et scripts associés au même SHA complet; livraisons sérialisées                 | Tests du script sur commandes simulées. Le script ne fait plus de `git pull`; il exécute le checkout préparé. Aucune livraison réelle n'est attestée par ces tests.                                   |
 | Fournisseurs                 | Stripe, SMTP et stockage S3 intégrés                                                   | Authentification/accès en lecture seule vérifiés; [recette et preuves](operations/integration-rehearsal.md). Livraison courriel et publication média réelles restent à exercer sur une cible de test. |
 | Reprise                      | Scripts de sauvegarde et restauration; exercice PostgreSQL jetable                     | Dump/restauration réelle sur conteneurs temporaires; pas de preuve de restauration complète du VPS ou des médias distants.                                                                            |
 | Navigateurs et accessibilité | Suite FR/EN Chromium, Firefox, WebKit et mobile WebKit                                 | Axe, clavier et réagencement automatisés; lecteur d'écran humain, iPhone physique et zoom natif restent à vérifier.                                                                                   |
+
+## Écarts d'exploitation confirmés lors de la revue documentaire
+
+- Les runners SQL rejouent toutes les migrations, sans registre d'application;
+  `019`–`021` ne sont pas rejouables. Cela peut bloquer un déploiement répété avec
+  PostgreSQL. Voir la [procédure de migration](operations/database-migrations.md).
+- `services:check` vérifie encore les paramètres admin du mode token; il ne
+  constitue pas une validation OIDC/MFA ou du canal d'alerte.
+- Le processus d'alertes fourni par l'overlay Compose doit être exploité et mis
+  à jour explicitement; le script de déploiement standard n'inclut pas cet overlay.
+
+Ces constats proviennent de la lecture des scripts au commit `137720c`, pas
+d'une tentative de migration ou d'activation en production. Les recettes
+ci-dessous ne suppriment pas ces limites.
 
 ## Reproduire les validations
 

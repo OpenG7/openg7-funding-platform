@@ -4,7 +4,9 @@ Cette matrice couvre le parcours commandite de bout en bout au niveau des
 routes, contrats API, etats UI, filtres publics, controles de securite, i18n
 et documentation de deploiement.
 
-Couverture cible: 9 scenarios sur 9, soit 100%.
+Matrice statique : 9 scénarios disposent d'une trace dans les sources. Ce nombre
+ne mesure ni la couverture des branches ni une recette avec les fournisseurs réels.
+Les [preuves datées et limites actuelles](platform-status.md) complètent cette matrice.
 
 | Scenario                                                                          | Couvert | Surface                                                                            |
 | --------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------- |
@@ -42,7 +44,7 @@ Les tests `admin-sponsorship-search.test.mjs`, `funding-admin-assistant.test.mjs
 et les scénarios « assistant dossier links » de `admin-assistant.spec.ts`
 couvrent ce parcours avec des données simulées.
 
-Le 100% ci-dessus est verifie par `tests/funding-sponsorship-e2e-coverage.test.mjs`,
+La présence des neuf scénarios est vérifiée par `tests/funding-sponsorship-e2e-coverage.test.mjs`,
 qui confirme que chaque scenario a une trace dans le code source (routes,
 fonctions, requetes SQL, cles i18n). C'est une garantie statique: elle ne
 lance pas de navigateur et ne verifie pas le comportement a l'execution.
@@ -87,10 +89,11 @@ sa hauteur reste libre et le défilement suit la page.
 - `chromium` (Desktop Chrome) : la suite fonctionnelle complete. Elle exclut
   les tests marques `@mobile` (`grepInvert`).
 - `mobile-chrome` (Pixel 5 emule) : uniquement les tests marques `@mobile`
-  (`grep`), c'est-a-dire un smoke responsive **read-only** des parcours publics
+  (`grep`), incluant le smoke responsive des parcours publics
   critiques (`mobile-public-responsive.spec.ts`) : `/fonds-des-batisseurs`,
   checkout mock local, `/commanditaires`, suivi commandite avec token invalide,
-  et redirection admin vers `/admin/login`.
+  et redirection admin vers `/admin/login`, ainsi que les scénarios admin
+  marqués `@mobile` avec lectures ou mutations interceptées.
 
 Le tag `@mobile` garantit qu'aucun test mutant la base partagee (webhooks,
 actions admin, comptabilite, backfill) n'est rejoue sur un second navigateur :
@@ -100,10 +103,11 @@ viewports.
 
 Pixel 5 est un appareil Chromium : la matrice reutilise le binaire deja
 installe par `playwright install chromium`, sans telechargement supplementaire
-ni changement du script d'installation. Firefox et WebKit ne sont pas ajoutes
-pour l'instant (voir « Risques residuels » : emulation mobile en persistent
-context limitee hors Chromium, binaires additionnels a installer et maintenir,
-stabilite non prouvee sur cette suite ajustee pour Windows/Chromium).
+ni changement du script d'installation Chromium. Cette configuration Docker
+reste distincte des suites `test:ui:public-journeys` et
+`test:ui:platform-accessibility`, qui utilisent Chromium, Firefox, WebKit et
+mobile WebKit avec API interceptée. Installer ces navigateurs avec
+`yarn exec playwright install --with-deps chromium firefox webkit`.
 
 `corepack yarn test:e2e:playwright` execute les deux projets en serie
 (`workers: 1`).

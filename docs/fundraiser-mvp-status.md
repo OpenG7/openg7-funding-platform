@@ -3,9 +3,10 @@
 État historique initial : 2026-07-07. Référence actuelle :
 [état de la plateforme](platform-status.md).
 
-Ce document resume l'etat du MVP apres les lots de travail sur le Fonds des
-batisseurs. Il sert de point de controle avant PR, revue de production ou
-deploiement progressif.
+Ce document conserve le bilan des premiers lots du Fonds des bâtisseurs.
+Ses validations et limites sont historiques. Pour une revue de PR ou de
+production actuelle, utiliser le bilan lié ci-dessus et les guides de
+l'[index documentaire](README.md).
 
 Voir aussi [le comportement actuel de la page de financement](funding-home.md)
 pour la validation des montants, la progression mensuelle et le suivi Checkout.

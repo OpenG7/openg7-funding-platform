@@ -2404,8 +2404,14 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
   );
   assert.ok(readme.includes('POST /api/admin/sponsorships/refund'));
   assert.ok(readme.includes('sponsorship_credit_notes'));
-  assert.ok(readme.includes('013_add_sponsorship_refund_status.sql'));
-  assert.ok(readme.includes('014_add_sponsorship_refund_amount_reason.sql'));
+  const migrationGuide = fs.readFileSync(
+    'docs/operations/database-migrations.md',
+    'utf8'
+  );
+  assert.ok(migrationGuide.includes('013_add_sponsorship_refund_status.sql'));
+  assert.ok(
+    migrationGuide.includes('014_add_sponsorship_refund_amount_reason.sql')
+  );
 });
 
 test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
@@ -3027,9 +3033,15 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     )
   );
   assert.ok(readme.includes('POST /api/admin/sponsorship-credit-notes/resend'));
-  assert.ok(readme.includes('012_create_sponsorship_credit_notes.sql'));
-  assert.ok(readme.includes('013_add_sponsorship_refund_status.sql'));
-  assert.ok(readme.includes('014_add_sponsorship_refund_amount_reason.sql'));
+  const migrationGuide = fs.readFileSync(
+    'docs/operations/database-migrations.md',
+    'utf8'
+  );
+  assert.ok(migrationGuide.includes('012_create_sponsorship_credit_notes.sql'));
+  assert.ok(migrationGuide.includes('013_add_sponsorship_refund_status.sql'));
+  assert.ok(
+    migrationGuide.includes('014_add_sponsorship_refund_amount_reason.sql')
+  );
 });
 
 test('Admin setup page wraps Stripe and email configuration in a custom tour', () => {

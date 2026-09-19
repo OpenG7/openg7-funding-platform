@@ -141,7 +141,7 @@ vérité pour les envois réels : elle est persistante, idempotente, garde les
 Vérifications de configuration sans exécution destructive :
 
 ```bash
-docker compose config                            # valide la composition
+docker compose config --quiet                    # valide sans afficher les secrets
 docker compose ps                                # état et santé des services
 ```
 
@@ -180,7 +180,7 @@ explicite : elle n'appartient pas à ce runbook non destructif.
 ## 8. Séquence recommandée avant une mise en service
 
 1. `corepack yarn services:check` — configuration complète et bien formée.
-2. `docker compose config` et `docker compose ps` — composition et santé.
+2. `docker compose config --quiet` et `docker compose ps` — composition sans afficher les secrets et état des services.
 3. `corepack yarn smoke:public --base-url <url>` — contrat public + frontière
    admin (ajouter `--expect-secure-headers` contre le domaine HTTPS).
 4. `corepack yarn storage:check` puis, si demandé, `corepack yarn storage:test`.
@@ -189,6 +189,12 @@ explicite : elle n'appartient pas à ce runbook non destructif.
 7. `corepack yarn db:backup` avant tout changement d'état.
 
 ## 9. Écarts résiduels connus
+
+- `services:check` contrôle encore les variables d'administration du mode
+  token. Il ne valide pas OIDC/MFA ni le récepteur d'alertes; suivre le
+  [runbook d'identité et d'alertes](admin-identity-and-alerts.md).
+- Les runners SQL rejouent tous les fichiers et ne suivent pas les migrations
+  déjà appliquées. Voir la [limite de déploiement sur base existante](database-migrations.md).
 
 La commande `yarn providers:verify --env <configuration>` vérifie en lecture
 seule l'authentification Stripe **test**, SMTP et l'accès aux deux buckets S3.
@@ -200,9 +206,10 @@ Voir la [recette contrôlée](integration-rehearsal.md) pour la suite.
 - `storage:check`/`storage:test` et `email:verify`/`email:test` exigent des
   credentials réels : ils ne peuvent pas s'exécuter en CI sans secrets et
   restent des vérifications manuelles côté VPS.
-- Aucun test applicatif de bout en bout n'exerce le driver `ovh-s3` de
-  `funding-api` (upload/remplacement/suppression via S3 réel) ; le driver
-  `local` est couvert par les tests. La validation S3 réelle passe par
+- La recette `yarn test:rehearsal` exerce l'adaptateur S3 de l'application
+  contre S3Mock et le SMTP contre Mailpit, avec sauvegarde/restauration jetable.
+  Elle ne valide pas les politiques IAM/ACL d'OVH ni la délivrabilité externe.
+  La validation S3 réelle passe par
   `storage:test` et par le rehearsal PostgreSQL de
   `production-launch-checklist.md`.
 - La délivrabilité courriel (SPF/DKIM/DMARC) reste une vérification DNS manuelle

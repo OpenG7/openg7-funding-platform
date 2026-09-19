@@ -851,7 +851,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
-    readme,
+    [readme, read('docs/operations/database-migrations.md')].join('\n'),
     [
       '/admin/fundraiser',
       '/admin/fundraiser/setup',
