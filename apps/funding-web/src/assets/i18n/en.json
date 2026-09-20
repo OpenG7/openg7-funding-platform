@@ -2421,18 +2421,19 @@
     "boutique": {
       "seo": {
         "title": "NorthDragon Shop | OpenG7",
-        "description": "Discover the NorthDragon shop, its clothing, accessories, and creations inspired by strength, faith, resilience, and transformation."
+        "description": "Discover NorthDragon’s enchanted realms: dragons, princesses and unicorns through clothing, accessories and creations."
       },
       "hero": {
         "backgroundAlt": "Golden dragon and castle under dark skies for the NorthDragon universe",
         "eyebrow": "The NorthDragon universe",
         "title": "NorthDragon Shop",
         "comingSoon": "Coming soon",
-        "subtitle": "Creations inspired by strength, faith, resilience, and inner nobility.",
+        "subtitle": "The strength of dragons, the courage of princesses and the magic of unicorns.",
         "copy": "Discover clothing, accessories, and exclusive creations designed for those who carry their story with courage."
       },
       "links": {
         "discover": "Discover the shop",
+        "discoverProducts": "Explore the selection",
         "discoverAria": "Discover the NorthDragon shop in a new tab",
         "discoverUniverse": "Discover the NorthDragon universe",
         "collection": "View collection",
@@ -2492,27 +2493,43 @@
         }
       },
       "featured": {
-        "eyebrow": "Editorial previews",
-        "title": "A selection from the Realm",
-        "subtitle": "The full collections are available on NorthDragon.org.",
-        "dynamicComingSoon": "Dynamic selection coming soon",
+        "eyebrow": "Featured products",
+        "title": "Enchanted realms",
+        "subtitle": "Three worlds of legends, courage and magic, united under the NorthDragon signature.",
+        "empty": "A new selection is taking shape. Come back to discover our next creations.",
+        "purchaseNote": "Orders are placed on NorthDragon.org, where you can find options, shipping and return details.",
         "items": {
-          "signature": {
-            "category": "Signature outfits",
-            "description": "Pieces to wear like soft armor, between restraint and presence."
+          "dragons": {
+            "title": "The spirit of the dragon",
+            "description": "Strength, protection and rebirth: the first creations from this realm will be revealed soon."
           },
-          "accessories": {
-            "category": "Realm accessories",
-            "description": "Visual complements that extend the NorthDragon identity every day."
+          "princesses": {
+            "title": "Legendary princesses",
+            "description": "Courage, nobility and freedom: princesses who write their own stories."
           },
-          "symbolic": {
-            "category": "Symbolic creations",
-            "description": "Editorial previews around rebirth, faith, and transformation."
-          },
-          "universe": {
-            "category": "Universe objects",
-            "description": "Style and atmosphere ideas that carry the story beyond clothing."
+          "unicorns": {
+            "title": "The magic of unicorns",
+            "description": "Wonder, gentleness and hope: an invitation to keep a place for magic."
           }
+        }
+      },
+      "universes": {
+        "filterLabel": "Explore creations by realm",
+        "all": "All realms",
+        "dragons": "Dragons",
+        "princesses": "Princesses",
+        "unicorns": "Unicorns",
+        "count": "Creations to discover: {{ count }}"
+      },
+      "product": {
+        "imageComingSoon": "Photo coming soon",
+        "imageUnavailable": "Photo temporarily unavailable",
+        "view": "View on NorthDragon",
+        "viewAria": "View {{ product }} on NorthDragon in a new tab",
+        "status": {
+          "coming-soon": "Revealing soon",
+          "available": "Our selection",
+          "sold-out": "Currently unavailable"
         }
       },
       "brand": {

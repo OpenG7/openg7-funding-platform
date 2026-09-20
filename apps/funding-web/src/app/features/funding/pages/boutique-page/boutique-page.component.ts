@@ -3,12 +3,21 @@ import {
   ChangeDetectionStrategy,
   Component,
   Injector,
-  inject
+  computed,
+  inject,
+  signal
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { BoutiqueProductCardComponent } from '../../components/boutique-product-card/boutique-product-card.component.js';
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import {
+  BOUTIQUE_FEATURED_PRODUCTS,
+  BOUTIQUE_UNIVERSES
+} from '../../config/boutique-products.config.js';
+import type { BoutiqueUniverse } from '../../models/boutique-product.model.js';
+import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 
 interface BoutiqueBenefit {
@@ -23,16 +32,16 @@ interface BoutiqueCollection {
   readonly tone: 'gold' | 'ember' | 'stone' | 'royal';
 }
 
-interface BoutiquePreview {
-  readonly categoryKey: string;
-  readonly descriptionKey: string;
-  readonly tone: 'dragon' | 'crown' | 'ember' | 'night';
-}
-
 @Component({
   selector: 'openg7-boutique-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, TranslatePipe, FundingHeaderComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    TranslatePipe,
+    FundingHeaderComponent,
+    BoutiqueProductCardComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="boutique-page">
@@ -53,10 +62,12 @@ interface BoutiquePreview {
           <h1 id="boutique-title">
             {{ 'funding.boutique.hero.title' | translate }}
           </h1>
-          <span class="coming-badge">
-            <span aria-hidden="true">✦</span>
-            {{ 'funding.boutique.hero.comingSoon' | translate }}
-          </span>
+          @if (selectionComingSoon) {
+            <span class="coming-badge">
+              <span aria-hidden="true">✦</span>
+              {{ 'funding.boutique.hero.comingSoon' | translate }}
+            </span>
+          }
           <p class="hero-subtitle">
             {{ 'funding.boutique.hero.subtitle' | translate }}
           </p>
@@ -66,21 +77,91 @@ interface BoutiquePreview {
           <div class="hero-actions">
             <a
               class="primary-action"
-              [href]="storeUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              [attr.aria-label]="
-                'funding.boutique.links.discoverAria' | translate
-              "
+              [href]="i18n.localizedPath('/boutique') + '#featured-products'"
+              data-og7="boutique-discover-products"
             >
-              {{ 'funding.boutique.links.discover' | translate }}
-              <span aria-hidden="true">↗</span>
+              {{ 'funding.boutique.links.discoverProducts' | translate }}
+              <span aria-hidden="true">↓</span>
             </a>
-            <a class="secondary-action" href="#northdragon-universe">{{
-              'funding.boutique.links.discoverUniverse' | translate
-            }}</a>
+            <a
+              class="secondary-action"
+              [href]="i18n.localizedPath('/boutique') + '#northdragon-universe'"
+              >{{ 'funding.boutique.links.discoverUniverse' | translate }}</a
+            >
           </div>
         </div>
+      </section>
+
+      <section
+        id="featured-products"
+        class="featured-section"
+        aria-labelledby="featured-title"
+        data-og7="boutique-featured"
+        tabindex="-1"
+      >
+        <header class="section-heading">
+          <p class="eyebrow">
+            {{ 'funding.boutique.featured.eyebrow' | translate }}
+          </p>
+          <h2 id="featured-title">
+            {{ 'funding.boutique.featured.title' | translate }}
+          </h2>
+          <p>{{ 'funding.boutique.featured.subtitle' | translate }}</p>
+        </header>
+
+        <div
+          class="universe-filters"
+          role="group"
+          [attr.aria-label]="
+            'funding.boutique.universes.filterLabel' | translate
+          "
+          data-og7="boutique-universes"
+        >
+          <button
+            type="button"
+            [attr.aria-pressed]="selectedUniverse() === 'all'"
+            aria-controls="featured-grid"
+            (click)="selectedUniverse.set('all')"
+          >
+            {{ 'funding.boutique.universes.all' | translate }}
+          </button>
+          @for (universe of universes; track universe) {
+            <button
+              type="button"
+              [attr.aria-pressed]="selectedUniverse() === universe"
+              aria-controls="featured-grid"
+              (click)="selectedUniverse.set(universe)"
+            >
+              {{ 'funding.boutique.universes.' + universe | translate }}
+            </button>
+          }
+        </div>
+        <p
+          class="selection-count"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {{
+            'funding.boutique.universes.count'
+              | translate: { count: visibleProducts().length }
+          }}
+        </p>
+        <div id="featured-grid" class="featured-grid">
+          @for (product of visibleProducts(); track product.id) {
+            <openg7-boutique-product-card
+              [product]="product"
+              [locale]="i18n.currentLanguage()"
+            />
+          } @empty {
+            <p class="selection-empty">
+              {{ 'funding.boutique.featured.empty' | translate }}
+            </p>
+          }
+        </div>
+        <p class="featured-note">
+          {{ 'funding.boutique.featured.purchaseNote' | translate }}
+        </p>
       </section>
 
       <section
@@ -125,45 +206,6 @@ interface BoutiquePreview {
               "
             >
               {{ 'funding.boutique.links.collection' | translate }}
-              <span aria-hidden="true">↗</span>
-            </a>
-          </article>
-        </div>
-      </section>
-
-      <section class="featured-section" aria-labelledby="featured-title">
-        <header class="section-heading">
-          <p class="eyebrow">
-            {{ 'funding.boutique.featured.eyebrow' | translate }}
-          </p>
-          <h2 id="featured-title">
-            {{ 'funding.boutique.featured.title' | translate }}
-          </h2>
-          <p>{{ 'funding.boutique.featured.subtitle' | translate }}</p>
-        </header>
-
-        <div class="featured-grid">
-          <article *ngFor="let preview of featuredPreviews">
-            <div
-              class="preview-visual"
-              [class]="preview.tone"
-              aria-hidden="true"
-            ></div>
-            <span>{{
-              'funding.boutique.featured.dynamicComingSoon' | translate
-            }}</span>
-            <h3>{{ preview.categoryKey | translate }}</h3>
-            <p>{{ preview.descriptionKey | translate }}</p>
-            <a
-              [href]="storeUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              [attr.aria-label]="
-                'funding.boutique.links.previewAria'
-                  | translate: { selection: preview.categoryKey | translate }
-              "
-            >
-              {{ 'funding.boutique.links.preview' | translate }}
               <span aria-hidden="true">↗</span>
             </a>
           </article>
@@ -224,7 +266,7 @@ interface BoutiquePreview {
             {{ 'funding.boutique.links.access' | translate }}
             <span aria-hidden="true">↗</span>
           </a>
-          <a class="secondary-action" routerLink="/">{{
+          <a class="secondary-action" [routerLink]="i18n.localizedPath('/')">{{
             'funding.boutique.links.home' | translate
           }}</a>
         </div>
@@ -262,9 +304,9 @@ interface BoutiquePreview {
       .boutique-hero {
         align-items: center;
         display: grid;
-        min-height: calc(100dvh - 4.15rem);
+        min-height: 32rem;
         overflow: hidden;
-        padding: clamp(2rem, 6vw, 5.6rem) clamp(1rem, 7vw, 7rem);
+        padding: clamp(2rem, 4vw, 3.5rem) clamp(1rem, 7vw, 7rem);
         position: relative;
       }
 
@@ -347,7 +389,7 @@ interface BoutiquePreview {
 
       h1 {
         color: #fff4d4;
-        font-size: clamp(3rem, 7vw, 6.6rem);
+        font-size: clamp(2.8rem, 6vw, 5rem);
         line-height: 0.9;
         margin-top: 0.6rem;
         text-shadow:
@@ -407,7 +449,6 @@ interface BoutiquePreview {
       .primary-action,
       .secondary-action,
       .collection-grid a,
-      .featured-grid a,
       .brand-story a {
         align-items: center;
         border-radius: 0.5rem;
@@ -429,7 +470,6 @@ interface BoutiquePreview {
 
       .secondary-action,
       .collection-grid a,
-      .featured-grid a,
       .brand-story a {
         background: rgb(10 11 13 / 62%);
         border: 1px solid rgb(244 201 87 / 42%);
@@ -456,7 +496,6 @@ interface BoutiquePreview {
 
       .benefits-band article,
       .collection-grid article,
-      .featured-grid article,
       .brand-story,
       .ecosystem-link,
       .boutique-cta,
@@ -496,16 +535,14 @@ interface BoutiquePreview {
       }
 
       .benefits-band h2,
-      .collection-grid h3,
-      .featured-grid h3 {
+      .collection-grid h3 {
         color: #fff2d2;
         font-size: 1.02rem;
         line-height: 1.1;
       }
 
       .benefits-band p,
-      .collection-grid p,
-      .featured-grid p {
+      .collection-grid p {
         color: #cfc5b2;
         font-family: 'Trebuchet MS', sans-serif;
         font-size: 0.86rem;
@@ -551,8 +588,7 @@ interface BoutiquePreview {
         grid-template-columns: repeat(4, minmax(0, 1fr));
       }
 
-      .collection-grid article,
-      .featured-grid article {
+      .collection-grid article {
         display: grid;
         gap: 0.75rem;
         min-height: 17rem;
@@ -601,72 +637,70 @@ interface BoutiquePreview {
           linear-gradient(135deg, #090908, #33250e);
       }
 
-      .collection-grid a,
-      .featured-grid a {
+      .collection-grid a {
         align-self: end;
         justify-self: start;
       }
 
       .featured-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
-      .featured-grid article > span {
-        align-self: start;
-        border: 1px solid rgb(244 201 87 / 36%);
+      .universe-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        justify-content: center;
+      }
+
+      .universe-filters button {
+        background: #151619;
+        border: 1px solid rgb(244 201 87 / 42%);
         border-radius: 999px;
-        color: #ffe7a4;
+        color: #fff1c8;
+        cursor: pointer;
         font-family: 'Trebuchet MS', sans-serif;
-        font-size: 0.7rem;
-        font-weight: 900;
-        justify-self: start;
-        padding: 0.24rem 0.55rem;
-        text-transform: uppercase;
+        font-weight: 700;
+        min-height: 2.75rem;
+        padding: 0.6rem 1.1rem;
       }
 
-      .preview-visual {
-        border: 1px solid rgb(244 201 87 / 24%);
-        min-height: 8rem;
+      .universe-filters button[aria-pressed='true'] {
+        background: #ffe08a;
+        color: #101114;
       }
 
-      .preview-visual.dragon {
-        background:
-          radial-gradient(
-            circle at 70% 28%,
-            rgb(244 201 87 / 28%),
-            transparent 3.3rem
-          ),
-          linear-gradient(135deg, #050505, #241407);
+      .selection-count {
+        color: #d8cfbe;
+        font-family: 'Trebuchet MS', sans-serif;
+        font-size: 0.85rem;
+        margin: 0.85rem 0;
+        text-align: center;
       }
 
-      .preview-visual.crown {
-        background:
-          radial-gradient(
-            circle at 38% 28%,
-            rgb(255 232 166 / 22%),
-            transparent 3.1rem
-          ),
-          linear-gradient(135deg, #070707, #3a2b0e);
+      .featured-section {
+        scroll-margin-top: 7rem;
       }
 
-      .preview-visual.ember {
-        background:
-          radial-gradient(
-            circle at 58% 32%,
-            rgb(218 105 39 / 26%),
-            transparent 3.4rem
-          ),
-          linear-gradient(135deg, #080808, #261006);
+      a:focus-visible,
+      .universe-filters button:focus-visible,
+      .featured-section:focus-visible {
+        outline: 3px solid #ffe08a;
+        outline-offset: 4px;
       }
 
-      .preview-visual.night {
-        background:
-          radial-gradient(
-            circle at 46% 30%,
-            rgb(244 201 87 / 16%),
-            transparent 3rem
-          ),
-          linear-gradient(135deg, #050505, #161719);
+      .featured-note,
+      .selection-empty {
+        color: #d8cfbe;
+        font-family: 'Trebuchet MS', sans-serif;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        margin-top: 1rem;
+        text-align: center;
+      }
+
+      .selection-empty {
+        grid-column: 1 / -1;
       }
 
       .brand-story {
@@ -781,7 +815,6 @@ interface BoutiquePreview {
 
         .benefits-band,
         .collection-grid,
-        .featured-grid,
         .brand-story {
           grid-template-columns: 1fr;
         }
@@ -793,6 +826,10 @@ interface BoutiquePreview {
       }
 
       @media (max-width: 520px) {
+        .featured-grid {
+          grid-template-columns: 1fr;
+        }
+
         .boutique-hero,
         .benefits-band,
         .collections-section,
@@ -837,8 +874,22 @@ interface BoutiquePreview {
 export class BoutiquePageComponent {
   private readonly injector = inject(Injector);
   private readonly seo = inject(FundingSeoService);
+  readonly i18n = inject(FundingI18nService);
 
   readonly storeUrl = 'https://northdragon.org';
+  readonly featuredProducts = BOUTIQUE_FEATURED_PRODUCTS;
+  readonly universes = BOUTIQUE_UNIVERSES;
+  readonly selectedUniverse = signal<BoutiqueUniverse | 'all'>('all');
+  readonly visibleProducts = computed(() =>
+    this.featuredProducts.filter(
+      (product) =>
+        this.selectedUniverse() === 'all' ||
+        product.universe === this.selectedUniverse()
+    )
+  );
+  readonly selectionComingSoon = this.featuredProducts.every(
+    (product) => product.availability === 'coming-soon'
+  );
 
   readonly benefits: readonly BoutiqueBenefit[] = [
     {
@@ -889,30 +940,6 @@ export class BoutiquePageComponent {
       titleKey: 'funding.boutique.collections.items.special.title',
       descriptionKey: 'funding.boutique.collections.items.special.description',
       tone: 'royal'
-    }
-  ];
-
-  // This editorial preview can later be replaced by a Shopify Storefront API integration.
-  readonly featuredPreviews: readonly BoutiquePreview[] = [
-    {
-      categoryKey: 'funding.boutique.featured.items.signature.category',
-      descriptionKey: 'funding.boutique.featured.items.signature.description',
-      tone: 'dragon'
-    },
-    {
-      categoryKey: 'funding.boutique.featured.items.accessories.category',
-      descriptionKey: 'funding.boutique.featured.items.accessories.description',
-      tone: 'crown'
-    },
-    {
-      categoryKey: 'funding.boutique.featured.items.symbolic.category',
-      descriptionKey: 'funding.boutique.featured.items.symbolic.description',
-      tone: 'ember'
-    },
-    {
-      categoryKey: 'funding.boutique.featured.items.universe.category',
-      descriptionKey: 'funding.boutique.featured.items.universe.description',
-      tone: 'night'
     }
   ];
 
