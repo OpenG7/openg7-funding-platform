@@ -2,6 +2,8 @@
 
 Depuis `/admin/fundraiser/sponsors`, sélectionner le dossier puis choisir **Modifier le dossier**, sous son en-tête. Le formulaire est accessible depuis chaque onglet, en français et en anglais, sur ordinateur et mobile.
 
+Les cinq champs sont préremplis avec les informations du dossier sélectionné dès l’ouverture du formulaire. Un champ non renseigné reste vide. Après une annulation, rouvrir le formulaire reprend les informations enregistrées ; le brouillon annulé n’est pas conservé.
+
 Champs corrigibles : entreprise (obligatoire, 200 caractères), nom public (100 caractères), contact et courriel (200 caractères), site web (URL HTTP/HTTPS sans identifiants, 2 048 caractères). Les champs facultatifs peuvent être effacés. Choisir un motif : correction d’une erreur, mise à jour du contact ou de l’entreprise, puis enregistrer et confirmer le récapitulatif. Annuler ne sauvegarde rien et restaure le focus.
 
 La correction conserve le paiement, la devise, les montants, les identifiants Stripe, les factures et notes de crédit déjà émises, le courriel original du paiement, les consentements, la revue et les statuts de publication. Le courriel du contact corrigé sert aux prochains messages qui ciblent ce contact ; les messages déjà en file et les snapshots de facturation ne sont pas réécrits. Le nom et le site d’un dossier déjà admissible au répertoire public peuvent changer après cette confirmation administrative.

@@ -9,7 +9,6 @@ import {
   output,
   signal
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { validateAdminSponsorshipDetails } from '@openg7/funding-core';
@@ -49,7 +48,7 @@ const emptyDetails: AdminSponsorshipDetails = {
 @Component({
   selector: 'openg7-admin-sponsor-edit',
   standalone: true,
-  imports: [FormsModule, TranslatePipe, AdminDrawerComponent],
+  imports: [TranslatePipe, AdminDrawerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsor-edit.component.html',
   styleUrls: [
@@ -176,6 +175,15 @@ export class AdminSponsorEditComponent {
 
   setField(field: keyof AdminSponsorshipDetails, value: string): void {
     this.draft.update((draft) => ({ ...draft, [field]: value }));
+  }
+
+  setReason(value: string): void {
+    if (
+      value === 'correction' ||
+      value === 'contact_update' ||
+      value === 'organization_update'
+    )
+      this.reason.set(value);
   }
 
   async save(): Promise<void> {
