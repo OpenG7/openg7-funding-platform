@@ -54,7 +54,7 @@ test.beforeEach(async ({ page }) => {
       pathname.endsWith('/reference-recovery') ||
       pathname.endsWith('/sponsorship-followup/recover')
     )
-      await r.fulfill({ json: { status: 'accepted' } });
+      await r.fulfill({ json: { accepted: true } });
     else await r.fulfill({ status: 503, json: {} });
   });
 });
@@ -93,11 +93,14 @@ for (const prefix of ['', '/en']) {
     await expect(
       page.locator('[data-og7="contact-help"] a').first()
     ).toHaveAttribute('href', 'mailto:contact@openg7.org');
+    await page.locator('[data-og7="reference-recovery"] summary').click();
     await page
       .locator('#reference-recovery-email')
       .fill('fixture@example.invalid');
     await page.locator('#reference-recovery-email').press('Enter');
-    await expect(page.locator('#reference-recovery-status')).toBeVisible();
+    await expect(page.locator('#reference-recovery-status')).toContainText(
+      prefix ? 'If a contribution matches' : 'Si une contribution correspond'
+    );
     expect(errors).toEqual([]);
   });
   test(`business intent and pending payment remain safe ${prefix || 'fr'}`, async ({

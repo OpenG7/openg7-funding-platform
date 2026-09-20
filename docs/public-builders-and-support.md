@@ -26,16 +26,48 @@ du registre. Comme pour les commanditaires, des modifications simultanées peuve
 déplacer des entrées entre deux requêtes de pagination.
 
 `/support` et sa version anglaise présentent d'abord la recherche de contribution,
-la récupération des références, le suivi de commandite et le contact déjà utilisé
-par les courriels du projet (`contact@openg7.org`). Les liens internes conservent
-la langue et le focus. Les dépôts GitHub restent accessibles ensuite pour les
-questions techniques. Les endpoints de récupération et leur réponse uniforme
-restent inchangés. Aucune publication ni confirmation de paiement n'est ajoutée.
+le suivi de commandite et le contact déjà utilisé par les courriels du projet
+(`contact@openg7.org`). La récupération par courriel se déplie directement sous
+la recherche, via « Je ne connais pas ma référence ». Les formulaires partagent
+la même présentation sombre; le composant de récupération commanditaire conserve
+sa présentation habituelle sur les autres pages. Les liens internes conservent
+la langue et le focus.
+
+Une FAQ propose les étapes suivantes pour un paiement en attente, un courriel
+non reçu, une facture de commandite et une demande de remboursement. Les quatre
+actions techniques renvoient au catalogue traduit existant `/ecosystem#platforms`,
+à deux formulaires GitHub de signalement/suggestion et au guide `CONTRIBUTING.md`
+du dépôt de financement. Elles n'envoient aucun message automatiquement.
+Un lien de contact par courriel reste disponible dans cette section pour les
+personnes sans compte GitHub ou sans droit de créer une issue.
+
+Les trois formulaires expirent après 15 secondes, annulent leur requête lors
+de la navigation et permettent une reprise sans effacer la saisie. Une requête
+déjà partie peut néanmoins avoir été traitée par le serveur; les réponses de
+récupération restent conditionnelles et ne révèlent pas l'existence d'un dossier.
+Le Web vérifie `accepted: true` avant d'afficher la prise en compte d'une demande
+de récupération. Les endpoints, leur idempotence et leur réponse uniforme sont
+inchangés. Aucune publication ni confirmation de paiement n'est ajoutée.
+
+Les champs invalides exposent `aria-invalid`; les zones `role="status"` restent
+dans le DOM pour annoncer les mises à jour. Les accordéons natifs sont utilisables
+au clavier. Les dates et montants de recherche suivent la langue sélectionnée;
+les dates utilisent UTC.
+
+Le bandeau utilise des WebP responsives : environ 150 Ko pour les deux variantes
+960 px, contre 4,97 Mo pour les PNG précédents (poids des fichiers, hors cache).
+Les variantes les plus grandes totalisent environ 441 Ko. Régénérer la carte avec
+`yarn images:support`; les variantes du dragon sont produites par
+`yarn images:funding-home`. Les PNG restent disponibles pour les autres pages.
 
 Validations : `yarn test`, `node --test tests/integration/public-builders.integration.mjs`
 et `yarn test:ui:public-journeys`. Cette dernière couvre Chromium, Firefox,
 WebKit et un iPhone émulé, les erreurs/reprises, les homonymes, la navigation FR/EN,
 les contrôles axe, la largeur 320 px et l'agrandissement des polices.
+`support-page.spec.ts` ajoute les recherches invalides/introuvables, le statut
+confirmé uniquement par l'API, les pannes réseau/serveur, les délais dépassés,
+les annulations à la navigation, les réponses privées uniformes, la FAQ au clavier,
+les liens techniques, les images et les formulaires ouverts en erreur.
 WebKit émulé n'atteste pas un test sur un iPhone physique. L'agrandissement CSS
 n'atteste pas le zoom natif et axe ne remplace pas un lecteur d'écran humain.
 

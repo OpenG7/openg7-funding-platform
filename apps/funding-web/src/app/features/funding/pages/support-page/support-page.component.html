@@ -1,0 +1,474 @@
+<main class="support-page">
+  <openg7-funding-header />
+
+  <section class="support-hero" aria-labelledby="support-title">
+    <img
+      class="support-hero-image"
+      src="assets/fonds-des-batisseurs-canada-coffre-lumineux-960.webp"
+      srcset="
+        assets/fonds-des-batisseurs-canada-coffre-lumineux-960.webp   960w,
+        assets/fonds-des-batisseurs-canada-coffre-lumineux-1920.webp 1920w
+      "
+      sizes="100vw"
+      width="960"
+      height="540"
+      alt=""
+      fetchpriority="high"
+    />
+    <img
+      class="support-dragon"
+      src="assets/fonds-des-batisseurs-dragon-coffre-fort-960.webp"
+      srcset="
+        assets/fonds-des-batisseurs-dragon-coffre-fort-960.webp   960w,
+        assets/fonds-des-batisseurs-dragon-coffre-fort-1920.webp 1920w
+      "
+      sizes="46vw"
+      width="960"
+      height="411"
+      alt=""
+      decoding="async"
+    />
+    <div class="support-hero-overlay" aria-hidden="true"></div>
+    <div class="support-copy">
+      <h1 id="support-title">
+        {{ 'funding.supportPage.hero.title' | translate }}
+      </h1>
+      <p>{{ 'funding.supportPage.hero.copy' | translate }}</p>
+      <nav
+        class="support-actions-row"
+        [attr.aria-label]="'funding.supportPage.help.navigation' | translate"
+      >
+        <a
+          class="primary"
+          [routerLink]="supportPath()"
+          fragment="contribution-help"
+          (click)="focusHelp('reference-lookup-input')"
+          >{{ 'funding.supportPage.help.contribution' | translate }}</a
+        >
+        <a
+          [routerLink]="supportPath()"
+          fragment="sponsorship-help"
+          (click)="focusHelp('sponsorship-help-title')"
+          >{{ 'funding.supportPage.help.sponsorship' | translate }}</a
+        >
+        <a
+          [routerLink]="supportPath()"
+          fragment="contact-help"
+          (click)="focusHelp('contact-help')"
+          >{{ 'funding.supportPage.help.contact' | translate }}</a
+        >
+      </nav>
+    </div>
+  </section>
+
+  <section
+    class="support-section"
+    aria-labelledby="support-help-title"
+    data-og7="support-help"
+  >
+    <h2 id="support-help-title">
+      {{ 'funding.supportPage.help.title' | translate }}
+    </h2>
+    <div class="support-help-grid">
+      <article
+        class="help-card support-form"
+        id="contribution-help"
+        data-og7="contribution-help"
+        aria-labelledby="contribution-help-title"
+      >
+        <h3 id="contribution-help-title">
+          {{ 'funding.supportPage.referenceLookup.title' | translate }}
+        </h3>
+        <p>{{ 'funding.supportPage.referenceLookup.copy' | translate }}</p>
+        <form (submit)="lookupReference($event)" novalidate>
+          <label for="reference-lookup-input">{{
+            'funding.supportPage.referenceLookup.label' | translate
+          }}</label>
+          <div class="form-row">
+            <input
+              id="reference-lookup-input"
+              type="text"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              required
+              maxlength="17"
+              placeholder="OG7-2026-ABC123"
+              [value]="referenceLookupValue()"
+              [readOnly]="referenceLookupState() === 'submitting'"
+              [attr.aria-invalid]="
+                referenceLookupMessageKey() ===
+                'funding.supportPage.referenceLookup.invalid'
+              "
+              aria-describedby="reference-lookup-hint reference-lookup-status"
+              (input)="setReferenceLookupValue($event)"
+            />
+            <button
+              type="submit"
+              [disabled]="referenceLookupState() === 'submitting'"
+            >
+              {{
+                (referenceLookupState() === 'submitting'
+                  ? 'funding.supportPage.referenceLookup.submitting'
+                  : 'funding.supportPage.referenceLookup.submit'
+                ) | translate
+              }}
+            </button>
+          </div>
+          <p id="reference-lookup-hint" class="field-hint">
+            {{ 'funding.supportPage.referenceLookup.hint' | translate }}
+          </p>
+          <div
+            id="reference-lookup-status"
+            class="field-status"
+            role="status"
+            aria-atomic="true"
+            [class.error]="referenceLookupState() === 'error'"
+          >
+            @if (referenceLookupState() === 'submitting') {
+              <p>
+                {{
+                  'funding.supportPage.referenceLookup.submitting' | translate
+                }}
+              </p>
+            }
+            @if (referenceLookupMessageKey(); as messageKey) {
+              <p>{{ messageKey | translate }}</p>
+            }
+            @if (referenceLookupResult(); as lookup) {
+              <div class="lookup-result">
+                <strong>{{ lookup.publicReference }}</strong>
+                @if (referenceLookupIsFound(lookup)) {
+                  <dl>
+                    <div>
+                      <dt>
+                        {{
+                          'funding.supportPage.referenceLookup.fields.type'
+                            | translate
+                        }}
+                      </dt>
+                      <dd>{{ referenceLookupTypeKey(lookup) | translate }}</dd>
+                    </div>
+                    <div>
+                      <dt>
+                        {{
+                          'funding.supportPage.referenceLookup.fields.status'
+                            | translate
+                        }}
+                      </dt>
+                      <dd>
+                        {{ referenceLookupStatusKey(lookup) | translate }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>
+                        {{
+                          'funding.supportPage.referenceLookup.fields.amount'
+                            | translate
+                        }}
+                      </dt>
+                      <dd>
+                        {{
+                          referenceLookupAmountLabel(lookup) ||
+                            ('funding.supportPage.referenceLookup.amountHidden'
+                              | translate)
+                        }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>
+                        {{
+                          'funding.supportPage.referenceLookup.fields.date'
+                            | translate
+                        }}
+                      </dt>
+                      <dd>{{ referenceLookupDateLabel(lookup) }}</dd>
+                    </div>
+                  </dl>
+                  <p>{{ referenceLookupNextStepKey(lookup) | translate }}</p>
+                } @else {
+                  <p>
+                    {{
+                      'funding.supportPage.referenceLookup.notFound' | translate
+                    }}
+                  </p>
+                }
+              </div>
+            }
+          </div>
+        </form>
+        @if (referenceLookupResult(); as lookup) {
+          @if (
+            lookup.found && lookup.nextStep === 'recover_private_link_by_email'
+          ) {
+            <a
+              [routerLink]="supportPath()"
+              fragment="sponsorship-help"
+              (click)="focusHelp('followup-recovery-email')"
+              >{{ 'funding.supportPage.help.sponsorship' | translate }}</a
+            >
+          }
+          @if (
+            lookup.found && lookup.nextStep === 'contact_support_with_reference'
+          ) {
+            <a
+              [routerLink]="supportPath()"
+              fragment="contact-help"
+              (click)="focusHelp('contact-help')"
+              >{{ 'funding.supportPage.help.contact' | translate }}</a
+            >
+          }
+        }
+        <details
+          id="reference-recovery"
+          class="reference-recovery"
+          data-og7="reference-recovery"
+        >
+          <summary>
+            {{ 'funding.supportPage.referenceRecovery.toggle' | translate }}
+          </summary>
+          <p>{{ 'funding.supportPage.referenceRecovery.copy' | translate }}</p>
+          <form (submit)="requestReferenceRecovery($event)" novalidate>
+            <label for="reference-recovery-email">{{
+              'funding.supportPage.referenceRecovery.emailLabel' | translate
+            }}</label>
+            <input
+              id="reference-recovery-email"
+              type="email"
+              autocomplete="email"
+              required
+              maxlength="254"
+              [value]="referenceRecoveryEmail()"
+              [readOnly]="referenceRecoveryState() === 'submitting'"
+              [attr.aria-invalid]="
+                referenceRecoveryMessageKey() ===
+                'funding.supportPage.referenceRecovery.invalid'
+              "
+              aria-describedby="reference-recovery-hint reference-recovery-status"
+              (input)="setReferenceRecoveryEmail($event)"
+            />
+            <button
+              type="submit"
+              [disabled]="referenceRecoveryState() === 'submitting'"
+            >
+              {{
+                (referenceRecoveryState() === 'submitting'
+                  ? 'funding.supportPage.referenceRecovery.submitting'
+                  : 'funding.supportPage.referenceRecovery.submit'
+                ) | translate
+              }}
+            </button>
+            <p id="reference-recovery-hint" class="field-hint">
+              {{ 'funding.supportPage.referenceRecovery.hint' | translate }}
+            </p>
+            <div
+              id="reference-recovery-status"
+              class="field-status"
+              role="status"
+              aria-atomic="true"
+              [class.error]="referenceRecoveryState() === 'error'"
+            >
+              @if (referenceRecoveryState() === 'submitting') {
+                <p>
+                  {{
+                    'funding.supportPage.referenceRecovery.submitting'
+                      | translate
+                  }}
+                </p>
+              }
+              @if (referenceRecoveryMessageKey(); as messageKey) {
+                <p>{{ messageKey | translate }}</p>
+              }
+            </div>
+          </form>
+        </details>
+      </article>
+
+      <section
+        class="help-card"
+        id="sponsorship-help"
+        aria-labelledby="sponsorship-help-title"
+        data-og7="sponsorship-help"
+      >
+        <h3 id="sponsorship-help-title">
+          {{ 'funding.supportPage.help.sponsorshipTitle' | translate }}
+        </h3>
+        <p>{{ 'funding.supportPage.help.sponsorshipCopy' | translate }}</p>
+        <a [routerLink]="followupPath()">{{
+          'funding.supportPage.help.followup' | translate
+        }}</a>
+        <openg7-sponsorship-access-recovery [embedded]="true" />
+      </section>
+    </div>
+
+    <article
+      class="help-card contact-card"
+      id="contact-help"
+      data-og7="contact-help"
+      aria-labelledby="contact-help-title"
+    >
+      <div>
+        <h3 id="contact-help-title">
+          {{ 'funding.supportPage.help.contactTitle' | translate }}
+        </h3>
+        <p>{{ 'funding.supportPage.help.contactCopy' | translate }}</p>
+        <p class="field-hint">
+          {{ 'funding.supportPage.help.contactPrivacy' | translate }}
+        </p>
+      </div>
+      <div class="contact-actions">
+        <a class="primary" href="mailto:contact@openg7.org">{{
+          'funding.supportPage.help.contactAction' | translate
+        }}</a>
+        <span>contact@openg7.org</span>
+        <a [routerLink]="policyPath()">{{
+          'funding.supportPage.help.policy' | translate
+        }}</a>
+      </div>
+    </article>
+  </section>
+
+  <section
+    class="support-section support-faq"
+    aria-labelledby="faq-title"
+    data-og7="support-faq"
+  >
+    <h2 id="faq-title">{{ 'funding.supportPage.faq.title' | translate }}</h2>
+    <details>
+      <summary>
+        {{ 'funding.supportPage.faq.pending.question' | translate }}
+      </summary>
+      <p>{{ 'funding.supportPage.faq.pending.answer' | translate }}</p>
+      <a
+        [routerLink]="supportPath()"
+        fragment="contribution-help"
+        (click)="focusHelp('reference-lookup-input')"
+        >{{ 'funding.supportPage.help.contribution' | translate }}</a
+      >
+    </details>
+    <details>
+      <summary>
+        {{ 'funding.supportPage.faq.email.question' | translate }}
+      </summary>
+      <p>{{ 'funding.supportPage.faq.email.answer' | translate }}</p>
+      <button
+        class="text-action"
+        type="button"
+        (click)="openReferenceRecovery()"
+      >
+        {{ 'funding.supportPage.referenceRecovery.title' | translate }}
+      </button>
+    </details>
+    <details>
+      <summary>
+        {{ 'funding.supportPage.faq.invoice.question' | translate }}
+      </summary>
+      <p>{{ 'funding.supportPage.faq.invoice.answer' | translate }}</p>
+      <a
+        [routerLink]="supportPath()"
+        fragment="contact-help"
+        (click)="focusHelp('contact-help')"
+        >{{ 'funding.supportPage.help.contactTitle' | translate }}</a
+      >
+    </details>
+    <details>
+      <summary>
+        {{ 'funding.supportPage.faq.refund.question' | translate }}
+      </summary>
+      <p>{{ 'funding.supportPage.faq.refund.answer' | translate }}</p>
+      <a [routerLink]="policyPath()">{{
+        'funding.supportPage.help.policy' | translate
+      }}</a>
+    </details>
+  </section>
+
+  <section
+    id="technical-participation"
+    class="support-section support-technical"
+    aria-labelledby="technical-title"
+  >
+    <h2 id="technical-title">
+      {{ 'funding.supportPage.help.technicalTitle' | translate }}
+    </h2>
+    <p>{{ 'funding.supportPage.help.technicalCopy' | translate }}</p>
+    <nav
+      class="support-action-grid"
+      [attr.aria-label]="'funding.supportPage.actions.ariaLabel' | translate"
+    >
+      <a
+        [routerLink]="ecosystemPath()"
+        fragment="platforms"
+        data-og7="support-explore"
+      >
+        <strong>{{
+          'funding.supportPage.actions.explore.title' | translate
+        }}</strong>
+        <span>{{
+          'funding.supportPage.actions.explore.description' | translate
+        }}</span>
+        <span aria-hidden="true">→</span>
+      </a>
+      <a [href]="issueUrl('issue')" data-og7="support-issue">
+        <strong>{{
+          'funding.supportPage.actions.issue.title' | translate
+        }}</strong>
+        <span>{{
+          'funding.supportPage.actions.issue.description' | translate
+        }}</span>
+        <span aria-hidden="true">↗</span>
+      </a>
+      <a [href]="issueUrl('idea')" data-og7="support-idea">
+        <strong>{{
+          'funding.supportPage.actions.idea.title' | translate
+        }}</strong>
+        <span>{{
+          'funding.supportPage.actions.idea.description' | translate
+        }}</span>
+        <span aria-hidden="true">↗</span>
+      </a>
+      <a
+        [href]="fundingRepositoryUrl + '/blob/HEAD/CONTRIBUTING.md'"
+        data-og7="support-code"
+      >
+        <strong>{{
+          'funding.supportPage.actions.code.title' | translate
+        }}</strong>
+        <span>{{
+          'funding.supportPage.actions.code.description' | translate
+        }}</span>
+        <span aria-hidden="true">↗</span>
+      </a>
+    </nav>
+    <p class="field-hint">
+      {{ 'funding.supportPage.help.technicalPrivacy' | translate }}
+      <a href="mailto:contact@openg7.org">{{
+        'funding.supportPage.help.contactAction' | translate
+      }}</a>
+    </p>
+  </section>
+
+  <footer class="support-footer">
+    <a
+      class="support-footer-brand"
+      [routerLink]="homePath()"
+      [attr.aria-label]="'funding.aria.brandHome' | translate"
+      >OpenG7</a
+    >
+    <nav [attr.aria-label]="'funding.supportPage.footer.linksAria' | translate">
+      <a [routerLink]="aboutPath()">{{ 'funding.nav.about' | translate }}</a>
+      <a [routerLink]="ecosystemPath()">{{
+        'funding.ecosystemPage.footer.documentation' | translate
+      }}</a>
+      <a
+        [routerLink]="supportPath()"
+        fragment="contact-help"
+        (click)="focusHelp('contact-help')"
+        >{{ 'funding.nav.contact' | translate }}</a
+      >
+    </nav>
+    <small>{{
+      'funding.ecosystemPage.footer.copyright'
+        | translate: { year: currentYear }
+    }}</small>
+  </footer>
+</main>

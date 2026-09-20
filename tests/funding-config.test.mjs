@@ -402,10 +402,10 @@ test('Public reference lookup returns minimal purchase status without private fi
   assert.ok(supportPage.includes('referenceLookupValue'));
   assert.ok(supportPage.includes('referenceLookupAmountLabel'));
   assert.ok(supportPage.includes('referenceLookupNextStepKey'));
-  assert.ok(frenchCopy.includes('Retrouver un achat'));
-  assert.ok(frenchCopy.includes('Masque par consentement'));
-  assert.ok(englishCopy.includes('Find a purchase'));
-  assert.ok(englishCopy.includes('Hidden by consent'));
+  assert.ok(frenchCopy.includes('Retrouver ma contribution'));
+  assert.ok(frenchCopy.includes('Montant non public'));
+  assert.ok(englishCopy.includes('Find my contribution'));
+  assert.ok(englishCopy.includes('Amount not public'));
 });
 
 test('resolveCheckoutReturnUrl allows http localhost/127.0.0.1 only outside production', () => {
@@ -1441,16 +1441,10 @@ test('Reference recovery accepts email requests without exposing contribution ex
   );
   assert.ok(frenchCopy.includes('Retrouver une référence OpenG7'));
   assert.ok(
-    frenchCopy.includes(
-      "Cette page ne confirme jamais publiquement l'existence d'un dossier."
-    )
+    frenchCopy.includes('Si une contribution correspond à cette adresse')
   );
   assert.ok(englishCopy.includes('Find an OpenG7 reference'));
-  assert.ok(
-    englishCopy.includes(
-      'This page never publicly confirms whether a record exists.'
-    )
-  );
+  assert.ok(englishCopy.includes('If a contribution matches this address'));
 });
 
 test('Sponsorship follow-up page is routed but not added to the sitemap', () => {

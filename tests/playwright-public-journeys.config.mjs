@@ -3,7 +3,11 @@ import publicConfig from './playwright-about-ui.config.mjs';
 
 export default defineConfig({
   ...publicConfig,
-  testMatch: ['builders-public.spec.ts', 'public-journeys.spec.ts'],
+  testMatch: [
+    'builders-public.spec.ts',
+    'public-journeys.spec.ts',
+    'support-page.spec.ts'
+  ],
   outputDir: '../test-results/public-journeys',
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

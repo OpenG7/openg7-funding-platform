@@ -1848,31 +1848,33 @@
         },
         "issue": {
           "title": "Report an issue",
-          "description": "Help improve quality by reporting a bug or unexpected behavior."
+          "description": "Report a technical problem with the funding platform on GitHub.",
+          "issueTitle": "Technical issue: "
         },
         "idea": {
           "title": "Suggest an idea",
-          "description": "Share improvement ideas, new features, or use cases."
+          "description": "Suggest an improvement to the funding platform on GitHub.",
+          "issueTitle": "Suggestion: "
         },
         "code": {
           "title": "Contribute code",
-          "description": "Forks, code, tests, and pull requests: every contribution counts."
+          "description": "Read the funding platform’s guide to contributing code."
         }
       },
       "workspace": {
         "ariaLabel": "OpenG7 support workspace"
       },
       "referenceLookup": {
-        "title": "Find a purchase",
-        "copy": "Enter your OpenG7 reference to check the minimal public contribution status.",
+        "title": "Find my contribution",
+        "copy": "Enter your OpenG7 reference to check the status of your contribution.",
         "label": "OpenG7 reference",
         "submit": "Search",
         "submitting": "Searching...",
-        "hint": "Lookup never shows email, private name, Stripe identifiers, or follow-up links.",
+        "hint": "Your reference is in the email about your contribution. Your contact details and private link are not shown here.",
         "invalid": "Enter a valid reference, for example OG7-2026-ABC123.",
-        "error": "The lookup could not be completed. Try again later.",
-        "notFound": "No purchase matches this reference.",
-        "amountHidden": "Hidden by consent",
+        "error": "The search did not complete. Check your connection and try again. If the problem persists, contact OpenG7.",
+        "notFound": "No contribution matches this reference. Check the characters or recover your reference by email below.",
+        "amountHidden": "Amount not public",
         "fields": {
           "type": "Type",
           "status": "Status",
@@ -1884,7 +1886,7 @@
           "sponsorship": "Sponsorship"
         },
         "status": {
-          "pending": "Pending",
+          "pending": "Awaiting confirmation",
           "paid": "Paid",
           "refunded": "Refunded",
           "disputed": "Disputed",
@@ -1893,21 +1895,22 @@
         },
         "nextStep": {
           "none": "No action is required. Keep this reference for follow-up.",
-          "wait_for_payment_confirmation": "Payment is not confirmed yet. Check again later with the same reference.",
-          "recover_private_link_by_email": "To edit the profile or recover the private link, use email recovery or contact support with this reference.",
-          "contact_support_with_reference": "Contact support with this reference to verify the situation."
+          "wait_for_payment_confirmation": "Payment is not confirmed yet. Check again later with the same reference. If the wait continues, contact OpenG7.",
+          "recover_private_link_by_email": "To edit your profile, request a new private link in the sponsorship section.",
+          "contact_support_with_reference": "Contact OpenG7 with this reference to check the situation."
         }
       },
       "referenceRecovery": {
         "title": "Find an OpenG7 reference",
         "copy": "Enter the email used for the contribution or sponsorship.",
-        "emailLabel": "Email",
-        "submit": "Send",
+        "emailLabel": "Email used for the contribution",
+        "submit": "Email me my reference",
         "submitting": "Sending...",
-        "hint": "If a reference matches, it will be sent by email. This page never publicly confirms whether a record exists.",
-        "success": "If a reference matches this email, a message has been prepared.",
+        "hint": "The reference will only be sent to the email used for the contribution.",
+        "success": "If a contribution matches this address, you will receive an email with your reference. Check your spam folder too. If nothing arrives, check the address you entered or contact OpenG7.",
         "invalid": "Enter a valid email address.",
-        "error": "The request could not be sent. Try again later."
+        "error": "The request did not complete. Check your connection and try again. If you already requested an email, check your inbox too.",
+        "toggle": "I don’t know my reference"
       },
       "repositories": {
         "title": "Choose a repository",
@@ -1973,7 +1976,28 @@
         "contactPrivacy": "Include your contribution reference if you know it. Do not post card numbers or private follow-up links in a public space.",
         "policy": "Read the usage and refund policy",
         "technicalTitle": "Help develop the platform",
-        "technicalCopy": "Our GitHub repositories welcome ideas, technical issues and code contributions. For a payment question, use the help options above."
+        "technicalCopy": "Explore the ecosystem or help improve the funding platform on GitHub.",
+        "contactAction": "Email OpenG7",
+        "technicalPrivacy": "GitHub is public. For a payment question or security vulnerability, email OpenG7 without posting personal details or private links."
+      },
+      "faq": {
+        "title": "Frequently asked questions",
+        "pending": {
+          "question": "My payment is pending. What should I do?",
+          "answer": "Returning from the payment page does not by itself confirm a contribution. Check its status using your reference. If the wait continues, email OpenG7 with that reference before making another payment."
+        },
+        "email": {
+          "question": "I haven’t received an email. What should I do?",
+          "answer": "Check your spam folder and the address used during payment. You can request your reference below, or a new private link in the sponsorship section. If no message arrives, contact OpenG7."
+        },
+        "invoice": {
+          "question": "I can’t find my sponsorship invoice.",
+          "answer": "Check the email received after payment, including your spam folder. For help with your sponsorship invoice, contact OpenG7 and include your reference if you know it."
+        },
+        "refund": {
+          "question": "How can I request a refund?",
+          "answer": "Read the usage and refund policy, then email contact@openg7.org with your reference if you know it. The team will review your request; submitting it does not confirm a refund."
+        }
       }
     },
     "aboutPage": {

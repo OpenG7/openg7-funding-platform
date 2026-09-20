@@ -146,9 +146,11 @@ export class FundingService {
   }
 
   async requestContributionReferenceRecovery(
-    payload: ReferenceRecoveryRequest
+    payload: ReferenceRecoveryRequest,
+    signal?: AbortSignal
   ): Promise<ReferenceRecoveryResult> {
     const response = await fetch(`${this.apiBaseUrl}/reference-recovery`, {
+      signal,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -161,7 +163,11 @@ export class FundingService {
       throw new Error('Reference recovery could not be requested.');
     }
 
-    return (await response.json()) as ReferenceRecoveryResult;
+    const result = (await response.json()) as ReferenceRecoveryResult;
+    if (result.accepted !== true) {
+      throw new Error('Reference recovery was not accepted.');
+    }
+    return result;
   }
 
   private buildReturnUrl(
@@ -227,11 +233,13 @@ export class FundingService {
 
   async requestSponsorshipAccess(
     email: string,
-    locale: 'fr-CA' | 'en'
+    locale: 'fr-CA' | 'en',
+    signal?: AbortSignal
   ): Promise<void> {
     const response = await fetch(
       `${this.apiBaseUrl}/sponsorship-followup/recover`,
       {
+        signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, locale })
