@@ -1,5 +1,7 @@
 # OpenG7 Funding Platform
 
+![OpenG7 — Le Fonds des Bâtisseurs](docs/images/openg7-fonds-des-batisseurs-banner.png)
+
 Reusable, transparent and configurable funding engine for OpenG7 ecosystem projects.
 
 See the [current platform status](docs/platform-status.md) for available features,
