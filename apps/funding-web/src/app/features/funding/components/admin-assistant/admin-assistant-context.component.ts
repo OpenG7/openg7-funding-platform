@@ -9,6 +9,7 @@ import {
   PLATFORM_ID,
   inject,
   input,
+  output,
   signal,
   viewChild
 } from '@angular/core';
@@ -56,6 +57,8 @@ import { AdminAssistantAnswerComponent } from './admin-assistant-answer.componen
 })
 export class AdminAssistantContextComponent implements OnInit, OnChanges {
   readonly compact = input(false);
+  readonly inlineDossier = input(false);
+  readonly dossierOpen = output<void>();
   readonly sponsorshipId = input<string>();
   readonly refreshKey = input<unknown>(0);
   readonly data = signal<AdminAssistantContextResponse | null>(null);

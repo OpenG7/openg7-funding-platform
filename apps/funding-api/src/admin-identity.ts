@@ -17,6 +17,7 @@ export const identityHash = (value: string): string =>
 const random = (): string => randomBytes(32).toString('base64url');
 const roles: readonly string[] = ['reader', 'operator', 'owner'];
 const operatorActions = new Set([
+  '/admin/sponsorships/details',
   '/admin/sponsorships/review',
   '/admin/sponsorships/request-information',
   '/admin/sponsorships/publication',

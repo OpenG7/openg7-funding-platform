@@ -3,9 +3,11 @@ import { TranslatePipe } from '@ngx-translate/core';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   input,
   signal,
-  output
+  output,
+  viewChild
 } from '@angular/core';
 
 import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
@@ -18,7 +20,9 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section
+      #details
       class="detail-body"
+      tabindex="-1"
       [attr.aria-label]="'admin.legacy.vue_d_ensemble' | translate"
     >
       <div class="detail-card-grid">
@@ -209,6 +213,11 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
         display: block;
       }
 
+      .detail-body:focus {
+        outline: 3px solid var(--admin-focus);
+        outline-offset: -3px;
+      }
+
       button,
       input,
       select,
@@ -386,11 +395,19 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
   ]
 })
 export class AdminSponsorDetailOverviewComponent {
+  private readonly details = viewChild<ElementRef<HTMLElement>>('details');
   readonly noteOpen = signal(false);
   readonly overview = input.required<AdminSponsorDetailOverviewView>();
   readonly copyReference = output<void>();
   readonly reviewNoteChange = output<string>();
   readonly saveReviewNote = output<void>();
+
+  focusDetails(): void {
+    const details = this.details()?.nativeElement;
+    if (!details) return;
+    details.focus({ preventScroll: true });
+    details.scrollIntoView({ behavior: 'instant', block: 'start' });
+  }
 
   onReviewNoteInput(event: Event): void {
     this.reviewNoteChange.emit(this.valueFromEvent(event));

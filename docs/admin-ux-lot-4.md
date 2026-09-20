@@ -4,6 +4,7 @@ Réalisé le 16 septembre 2026 selon le [plan](./admin-ux-plan-de-travail.md), l
 
 ## Résultat visible
 
+- **Modifier le dossier** permet de corriger les coordonnées depuis chaque onglet, avec confirmation, gestion des conflits et historique. Voir le [parcours et son contrat](./admin-sponsorship-editing.md).
 - Sept onglets : **Résumé, Identité, Médias, Publication, Facturation, Remboursements, Historique**. URL directe : `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`. Les changements d’onglet conservent les filtres de la liste ouverte et le lien de retour vers la file filtrée.
 - Six jalons indépendants avec état, explication et lien : paiement, identité, médias, revue, facturation, publication. Une facture déjà émise reste terminée avant l’approbation administrative.
 - Bloc **Prochaine étape** dans le dossier et carte **Commandite en cours** à côté de « À traiter » dans le cockpit large. Les jalons se réorganisent selon la largeur disponible.

@@ -2,6 +2,8 @@ import type { AdminWorkQueueQuery, AdminWorkQueueResponse } from '@openg7/fundin
 import { Injectable, signal } from '@angular/core';
 import type {
   AdminSearchRequest,
+  AdminSponsorshipDetailsRequest,
+  AdminSponsorshipDetailsResult,
   AdminSearchResponse,
   AdminStripeEventResponse,
   AdminCockpitMetrics,
@@ -1508,6 +1510,27 @@ export class FundingAdminService {
       );
     }
     return (await response.json()) as SponsorMediaDeleteResult;
+  }
+
+  async updateSponsorshipDetails(
+    token: string,
+    payload: AdminSponsorshipDetailsRequest
+  ): Promise<AdminSponsorshipDetailsResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/details`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) {
+      throw new AdminDashboardRequestError(response.status);
+    }
+    return (await response.json()) as AdminSponsorshipDetailsResult;
   }
 
   async reviewSponsorship(

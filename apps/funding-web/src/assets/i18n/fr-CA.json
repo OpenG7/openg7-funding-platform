@@ -1,5 +1,40 @@
 {
   "admin": {
+    "editDossier": {
+      "title": "Modifier le dossier",
+      "history": "Coordonnées du dossier corrigées",
+      "actor": "Acteur : {{actor}}",
+      "help": "Corrigez les coordonnées de ce dossier. Seul le nom de l’entreprise est obligatoire. Les modifications sont consignées dans l’historique administratif.",
+      "fields": {
+        "companyName": "Nom de l’entreprise",
+        "publicName": "Nom public",
+        "contactName": "Nom du contact",
+        "contactEmail": "Courriel du contact",
+        "websiteUrl": "Site web"
+      },
+      "validation": {
+        "companyName": "Indiquez un nom d’entreprise de 1 à 200 caractères, sur une seule ligne.",
+        "publicName": "Le nom public doit tenir sur une ligne de 100 caractères maximum.",
+        "contactName": "Le nom du contact doit tenir sur une ligne de 200 caractères maximum.",
+        "contactEmail": "Indiquez une adresse courriel valide de 200 caractères maximum, ou laissez ce champ vide.",
+        "websiteUrl": "Indiquez une URL HTTP ou HTTPS sans identifiants, de 2 048 caractères maximum, ou laissez ce champ vide."
+      },
+      "reason": "Motif de la modification",
+      "reasons": {
+        "correction": "Correction d’une erreur",
+        "contact_update": "Mise à jour du contact",
+        "organization_update": "Mise à jour de l’entreprise"
+      },
+      "save": "Enregistrer les modifications",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "confirm": "Confirmer ces corrections ? Les prochains messages destinés au contact utiliseront le courriel corrigé. Les informations publiques d’un dossier déjà approuvé peuvent être mises à jour. Les paiements, factures émises, consentements et statuts sont conservés.",
+      "success": "Les modifications du dossier sont enregistrées.",
+      "conflict": "Ce dossier a changé depuis l’ouverture du formulaire. Vos saisies sont conservées ici. Fermez ce panneau et actualisez le dossier avant de reprendre la correction.",
+      "notFound": "Ce dossier est introuvable. Fermez ce panneau et actualisez la liste.",
+      "forbidden": "Votre session a expiré ou vous n’avez pas l’autorisation de modifier ce dossier.",
+      "saveError": "L’enregistrement n’a pas pu être confirmé. Vos saisies sont conservées ; vous pouvez réessayer."
+    },
     "followupAccess": {
       "title": "Accès au suivi commanditaire",
       "copy": "Renvoyez un lien privé à l’adresse du paiement. Le dossier et son brouillon sont conservés.",

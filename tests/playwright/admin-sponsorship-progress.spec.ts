@@ -155,6 +155,9 @@ async function fixtures(page: Page) {
     status: 200,
     state: 'ok' as AdminSponsorshipProgressResponse['status'],
     reviewStatus: 409,
+    detailsStatus: 200,
+    detailsGate: null as Promise<void> | null,
+    edited: new Map<string, Partial<AdminSponsorshipRecord>>(),
     queueCount: 3,
     version: 'v1',
     reviewGate: null as Promise<void> | null,
@@ -186,7 +189,11 @@ async function fixtures(page: Page) {
       const search = url.searchParams.get('search');
       const records = [id, secondId]
         .filter((value) => !search || !search.includes('-') || search === value)
-        .map((value) => ({ ...record(value), version: options.version }));
+        .map((value) => ({
+          ...record(value),
+          version: options.version,
+          ...options.edited.get(value)
+        }));
       return route.fulfill({
         json: {
           data_source: 'database',
@@ -206,6 +213,26 @@ async function fixtures(page: Page) {
     }
     if (url.pathname === '/api/admin/sponsorships/media')
       return route.fulfill({ json: { assets: [] } });
+    if (url.pathname === '/api/admin/sponsorships/details') {
+      if (options.detailsGate) await options.detailsGate;
+      const input = req.postDataJSON();
+      if (options.detailsStatus === 200)
+        options.edited.set(input.contributionId, {
+          sponsor_company_name: input.companyName,
+          public_name: input.publicName || null,
+          sponsor_contact_name: input.contactName || null,
+          sponsor_contact_email: input.contactEmail || null,
+          sponsor_website_url: input.websiteUrl || null,
+          version: 'v2'
+        });
+      return route.fulfill({
+        status: options.detailsStatus,
+        json:
+          options.detailsStatus === 200
+            ? { updated: true, version: 'v2' }
+            : { error: 'Synthetic correction failure' }
+      });
+    }
     if (url.pathname === '/api/admin/sponsorships/review') {
       if (options.reviewGate) await options.reviewGate;
       return route.fulfill({
@@ -260,6 +287,261 @@ async function fixtures(page: Page) {
 const progress = (page: Page) =>
   page.locator('[data-og7="sponsorship-progress"]');
 const tabs = (page: Page) => page.locator('[data-og7="dossier-tabs"]');
+
+const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
+const saveDetails = async (page: Page) => {
+  await editForm(page)
+    .getByRole('button', { name: 'Enregistrer les modifications' })
+    .click();
+  await page.locator('[data-og7="confirm-action"]').click();
+};
+
+test('dossier identity correction requires confirmation and refreshes the saved fields', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page);
+  await page.goto(path());
+  await page
+    .getByRole('button', { name: 'Modifier le dossier', exact: true })
+    .click();
+  const form = editForm(page);
+  await expect(
+    form.getByLabel('Nom de l’entreprise', { exact: true })
+  ).toHaveValue('Atelier Boréal');
+  await form
+    .getByLabel('Nom de l’entreprise', { exact: true })
+    .fill('Atelier corrigé');
+  await form
+    .getByLabel('Nom public', { exact: true })
+    .fill('Nom public corrigé');
+  await form
+    .getByLabel('Courriel du contact', { exact: true })
+    .fill('corrected@example.invalid');
+  await form
+    .getByLabel('Site web', { exact: true })
+    .fill('https://example.invalid/updated');
+  await form
+    .getByRole('button', { name: 'Enregistrer les modifications' })
+    .click();
+  await expect(
+    page
+      .getByRole('dialog')
+      .filter({ has: page.locator('[data-og7="confirm-action"]') })
+  ).toContainText('corrected@example.invalid');
+  expect(calls.filter((c) => c.url.pathname.endsWith('/details'))).toHaveLength(
+    0
+  );
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(
+    page
+      .getByRole('status')
+      .filter({ hasText: 'Les modifications du dossier sont enregistrées.' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Atelier corrigé', exact: true })
+  ).toBeVisible();
+  const writes = calls.filter((c) => c.method === 'POST');
+  expect(writes).toHaveLength(1);
+  expect(writes[0].body).toMatchObject({
+    contributionId: id,
+    expectedVersion: 'v1',
+    confirmed: true,
+    companyName: 'Atelier corrigé',
+    publicName: 'Nom public corrigé',
+    contactEmail: 'corrected@example.invalid',
+    reason: 'correction'
+  });
+  expect(writes[0].body?.['requestId']).toMatch(/^[0-9a-f-]{36}$/);
+  await page
+    .getByRole('button', { name: 'Modifier le dossier', exact: true })
+    .click();
+  await expect(
+    form.getByLabel('Courriel du contact', { exact: true })
+  ).toHaveValue('corrected@example.invalid');
+});
+
+test('invalid dossier fields show associated errors and cancellation restores focus without saving', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page);
+  await page.goto(path());
+  const opener = page.getByRole('button', {
+    name: 'Modifier le dossier',
+    exact: true
+  });
+  await opener.click();
+  const form = editForm(page);
+  await form.getByLabel('Nom de l’entreprise', { exact: true }).fill('');
+  await form
+    .getByLabel('Courriel du contact', { exact: true })
+    .fill('invalid-email');
+  await form
+    .getByLabel('Site web', { exact: true })
+    .fill('javascript:alert(1)');
+  await form
+    .getByRole('button', { name: 'Enregistrer les modifications' })
+    .click();
+  for (const label of [
+    'Nom de l’entreprise',
+    'Courriel du contact',
+    'Site web'
+  ]) {
+    await expect(form.getByLabel(label, { exact: true })).toHaveAttribute(
+      'aria-invalid',
+      'true'
+    );
+    await expect(form.getByLabel(label, { exact: true })).toHaveAttribute(
+      'aria-describedby',
+      /sponsor-edit-error-/
+    );
+  }
+  await page.keyboard.press('Escape');
+  await expect(form).not.toBeVisible();
+  await expect(opener).toBeFocused();
+  expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
+});
+
+test('dossier save failure preserves entries and retry reuses the same request without duplicate submissions', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.detailsStatus = 503;
+  await page.goto(path());
+  await page
+    .getByRole('button', { name: 'Modifier le dossier', exact: true })
+    .click();
+  const form = editForm(page);
+  await form
+    .getByLabel('Nom de l’entreprise', { exact: true })
+    .fill('Correction conservée');
+  await saveDetails(page);
+  await expect(form.getByRole('alert')).toContainText(
+    'Vos saisies sont conservées'
+  );
+  await expect(
+    form.getByLabel('Nom de l’entreprise', { exact: true })
+  ).toHaveValue('Correction conservée');
+  options.detailsStatus = 200;
+  let release!: () => void;
+  options.detailsGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await saveDetails(page);
+  await expect(
+    form.getByRole('button', { name: 'Enregistrement…' })
+  ).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(form).toBeVisible();
+  await expect
+    .poll(() => calls.filter((c) => c.url.pathname.endsWith('/details')).length)
+    .toBe(2);
+  const writes = calls.filter((c) => c.url.pathname.endsWith('/details'));
+  expect(writes[0].body).toEqual(writes[1].body);
+  release();
+  await expect(form).not.toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Correction conservée', exact: true })
+  ).toBeVisible();
+});
+
+test('a conflicting dossier requires refresh before another correction', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.detailsStatus = 409;
+  await page.goto(path());
+  await page
+    .getByRole('button', { name: 'Modifier le dossier', exact: true })
+    .click();
+  const form = editForm(page);
+  await form
+    .getByLabel('Nom de l’entreprise', { exact: true })
+    .fill('Correction en conflit');
+  await saveDetails(page);
+  await expect(form.getByRole('alert')).toContainText('Ce dossier a changé');
+  await expect(
+    form.getByLabel('Nom de l’entreprise', { exact: true })
+  ).toHaveValue('Correction en conflit');
+  await expect(
+    form.getByRole('button', { name: 'Enregistrer les modifications' })
+  ).toBeDisabled();
+  await form.getByRole('button', { name: 'Annuler', exact: true }).click();
+  options.version = 'v2';
+  options.detailsStatus = 200;
+  await page
+    .getByRole('alert')
+    .filter({ hasText: 'Le dossier a changé' })
+    .getByRole('button', { name: 'Actualiser le dossier' })
+    .click();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Le dossier a changé' })
+  ).not.toBeVisible();
+  await page
+    .getByRole('button', { name: 'Modifier le dossier', exact: true })
+    .click();
+  await form
+    .getByLabel('Nom de l’entreprise', { exact: true })
+    .fill('Correction après actualisation');
+  await saveDetails(page);
+  await expect(form).not.toBeVisible();
+  const writes = calls.filter((c) => c.url.pathname.endsWith('/details'));
+  expect(writes[1].body?.['expectedVersion']).toBe('v2');
+});
+
+for (const status of [401, 403]) {
+  test(`dossier correction clears the draft on authorization failure ${status}`, async ({
+    page
+  }) => {
+    const { options } = await fixtures(page);
+    options.detailsStatus = status;
+    await page.goto(path());
+    await page
+      .getByRole('button', { name: 'Modifier le dossier', exact: true })
+      .click();
+    await editForm(page)
+      .getByLabel('Nom de l’entreprise', { exact: true })
+      .fill('Private correction draft');
+    await saveDetails(page);
+    await expect(editForm(page)).not.toBeVisible();
+    if (status === 401)
+      await expect(page).toHaveURL(/\/admin\/login\?returnUrl=/);
+    else
+      await expect(
+        page
+          .getByRole('alert')
+          .filter({ hasText: 'l’autorisation de modifier' })
+      ).toBeVisible();
+  });
+}
+
+test('English dossier editing works on mobile and cancelling confirmation keeps the draft', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(path());
+  await page
+    .getByRole('button', { name: 'Switch administration language to English' })
+    .click();
+  await page.getByRole('button', { name: 'Edit dossier', exact: true }).click();
+  const form = editForm(page);
+  await form.getByLabel('Company name', { exact: true }).fill('Corrected name');
+  await form.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(form.getByLabel('Company name', { exact: true })).toHaveValue(
+    'Corrected name'
+  );
+  await expect(
+    form.getByRole('button', { name: 'Save changes', exact: true })
+  ).toBeFocused();
+  expect(
+    await form.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 1
+    )
+  ).toBe(true);
+  expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
+});
 
 test('note drawer retains the draft after failure, blocks duplicate save and restores focus', async ({
   page

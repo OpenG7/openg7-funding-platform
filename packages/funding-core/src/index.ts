@@ -1541,6 +1541,13 @@ export type {
   AdminSponsorshipProgress,
   AdminSponsorshipProgressResponse
 } from './sponsorship-progress.js';
+export { validateAdminSponsorshipDetails } from './admin-sponsorship-details.js';
+export type {
+  AdminSponsorshipDetails,
+  AdminSponsorshipCorrectionReason,
+  AdminSponsorshipDetailsRequest,
+  AdminSponsorshipDetailsResult
+} from './admin-sponsorship-details.js';
 export type {
   AdminCockpitMetrics,
   AdminCockpitActivity,

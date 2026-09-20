@@ -89,6 +89,10 @@ import type {
 
 import { AdminIdentityService } from './admin-identity.js';
 import {
+  SponsorshipDetailsError,
+  updateAdminSponsorshipDetails
+} from './admin-sponsorship-details.service.js';
+import {
   allowedAdminExpenseStatuses,
   allowedPublicationDraftStatuses,
   assignDraftToPublicationBatch,
@@ -2197,6 +2201,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/sponsorships/media/delete',
       '/admin/sponsorships/review',
       '/api/admin/sponsorships/review',
+      '/admin/sponsorships/details',
+      '/api/admin/sponsorships/details',
       '/admin/sponsorships/refund',
       '/api/admin/sponsorships/refund',
       '/admin/sponsorships/publication',
@@ -7466,6 +7472,54 @@ createServer(async (request, response) => {
       writeJson(request, response, 502, {
         error: 'Admin sponsorships could not be loaded.'
       });
+    }
+    return;
+  }
+
+  if (
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/details',
+      '/api/admin/sponsorships/details'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response)) return;
+    response.setHeader('Cache-Control', 'private, no-store');
+    if (request.method !== 'POST') {
+      response.setHeader('Allow', 'POST');
+      writeJson(request, response, 405, { error: 'Method not allowed.' });
+      return;
+    }
+    if (
+      request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
+      'application/json'
+    ) {
+      writeJson(request, response, 415, { error: 'JSON body required.' });
+      return;
+    }
+    let input: unknown;
+    try {
+      input = JSON.parse(await readBody(request, 16 * 1024));
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid sponsorship details request.'
+      });
+      return;
+    }
+    try {
+      const result = await updateAdminSponsorshipDetails(
+        dbPool!,
+        input,
+        getAdminAuditActor(request)
+      );
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      writeJson(
+        request,
+        response,
+        error instanceof SponsorshipDetailsError ? error.status : 503,
+        { error: 'Sponsorship details could not be updated.' }
+      );
     }
     return;
   }
