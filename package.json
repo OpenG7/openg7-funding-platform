@@ -97,6 +97,7 @@
     "test:ui:funding-transparency": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-transparency-ui.config.mjs",
     "test:ui:sponsors": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-sponsors-ui.config.mjs",
     "images:sponsors": "node scripts/optimize-sponsors-images.mjs",
+    "images:support": "node scripts/optimize-support-images.mjs",
     "test:ui:public-journeys": "yarn workspace @openg7/funding-web build && playwright test --config tests/playwright-public-journeys.config.mjs",
     "providers:verify": "yarn build && node scripts/providers-verify.mjs",
     "test:ui:platform-accessibility": "yarn workspace @openg7/funding-web build --configuration production && playwright test --config tests/playwright-platform-accessibility.config.mjs",

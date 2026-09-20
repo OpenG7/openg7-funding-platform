@@ -1844,31 +1844,33 @@
         },
         "issue": {
           "title": "Signaler un problème",
-          "description": "Aidez à améliorer la qualité en signalant un bug ou un comportement inattendu."
+          "description": "Signalez un problème technique de la plateforme de financement sur GitHub.",
+          "issueTitle": "Problème technique : "
         },
         "idea": {
           "title": "Proposer une idée",
-          "description": "Partagez vos idées d’amélioration, nouvelles fonctionnalités ou cas d’usage."
+          "description": "Proposez une amélioration de la plateforme de financement sur GitHub.",
+          "issueTitle": "Suggestion : "
         },
         "code": {
           "title": "Contribuer au code",
-          "description": "Fork, code, tests et pull requests : chaque contribution compte."
+          "description": "Consultez le guide de contribution au code de la plateforme de financement."
         }
       },
       "workspace": {
         "ariaLabel": "Espace de support OpenG7"
       },
       "referenceLookup": {
-        "title": "Retrouver un achat",
-        "copy": "Entrez votre reference OpenG7 pour verifier le statut public minimal de la contribution.",
-        "label": "Reference OpenG7",
+        "title": "Retrouver ma contribution",
+        "copy": "Entrez votre référence OpenG7 pour consulter l’état de votre contribution.",
+        "label": "Référence OpenG7",
         "submit": "Rechercher",
         "submitting": "Recherche...",
-        "hint": "La recherche n'affiche jamais de courriel, de nom prive, d'identifiant Stripe ou de lien de suivi.",
-        "invalid": "Entrez une reference valide, par exemple OG7-2026-ABC123.",
-        "error": "La recherche n'a pas pu etre completee. Reessayez plus tard.",
-        "notFound": "Aucun achat ne correspond a cette reference.",
-        "amountHidden": "Masque par consentement",
+        "hint": "Votre référence figure dans le courriel lié à votre contribution. Vos coordonnées et votre lien privé ne sont pas affichés ici.",
+        "invalid": "Entrez une référence valide, par exemple OG7-2026-ABC123.",
+        "error": "La recherche n’a pas abouti. Vérifiez votre connexion et réessayez. Si le problème persiste, contactez OpenG7.",
+        "notFound": "Aucune contribution ne correspond à cette référence. Vérifiez les caractères saisis ou retrouvez votre référence par courriel ci-dessous.",
+        "amountHidden": "Montant non public",
         "fields": {
           "type": "Type",
           "status": "Statut",
@@ -1880,30 +1882,31 @@
           "sponsorship": "Commandite"
         },
         "status": {
-          "pending": "En attente",
-          "paid": "Paye",
-          "refunded": "Rembourse",
-          "disputed": "Conteste",
-          "failed": "Echoue",
-          "expired": "Expire"
+          "pending": "En attente de confirmation",
+          "paid": "Payé",
+          "refunded": "Remboursé",
+          "disputed": "Contesté",
+          "failed": "Échoué",
+          "expired": "Expiré"
         },
         "nextStep": {
-          "none": "Aucune action requise. Conservez cette reference pour vos suivis.",
-          "wait_for_payment_confirmation": "Le paiement n'est pas encore confirme. Verifiez plus tard avec la meme reference.",
-          "recover_private_link_by_email": "Pour modifier la fiche ou retrouver le lien prive, utilisez la recuperation par courriel ou contactez le support avec cette reference.",
-          "contact_support_with_reference": "Contactez le support avec cette reference pour verifier la situation."
+          "none": "Aucune action requise. Conservez cette référence pour vos suivis.",
+          "wait_for_payment_confirmation": "Le paiement n’est pas encore confirmé. Vérifiez plus tard avec la même référence. Si l’attente se prolonge, contactez OpenG7.",
+          "recover_private_link_by_email": "Pour modifier votre fiche, demandez un nouveau lien privé dans la section commandite.",
+          "contact_support_with_reference": "Contactez OpenG7 avec cette référence pour vérifier la situation."
         }
       },
       "referenceRecovery": {
         "title": "Retrouver une référence OpenG7",
         "copy": "Entrez le courriel utilisé lors de la contribution ou de la commandite.",
-        "emailLabel": "Courriel",
-        "submit": "Envoyer",
+        "emailLabel": "Courriel utilisé pour la contribution",
+        "submit": "Recevoir ma référence par courriel",
         "submitting": "Envoi...",
-        "hint": "Si une référence correspond, elle sera envoyée par courriel. Cette page ne confirme jamais publiquement l'existence d'un dossier.",
-        "success": "Si une référence correspond à ce courriel, un message vient d'être préparé.",
+        "hint": "La référence sera envoyée uniquement au courriel utilisé lors de la contribution.",
+        "success": "Si une contribution correspond à cette adresse, vous recevrez un courriel avec votre référence. Vérifiez aussi les indésirables. Si vous ne recevez rien, vérifiez l’adresse saisie ou contactez OpenG7.",
         "invalid": "Entrez une adresse courriel valide.",
-        "error": "La demande n'a pas pu être envoyée. Réessayez plus tard."
+        "error": "La demande n’a pas abouti. Vérifiez votre connexion et réessayez. Si vous aviez déjà demandé un courriel, vérifiez aussi votre boîte de réception.",
+        "toggle": "Je ne connais pas ma référence"
       },
       "repositories": {
         "title": "Choisir un dépôt",
@@ -1969,7 +1972,28 @@
         "contactPrivacy": "Indiquez votre référence de contribution si vous la connaissez. Ne transmettez pas de numéro de carte ni de lien privé de suivi dans un espace public.",
         "policy": "Consulter la politique d’utilisation et de remboursement",
         "technicalTitle": "Participer au développement",
-        "technicalCopy": "Les dépôts GitHub accueillent les idées, les signalements techniques et les contributions au code. Pour un dossier de paiement, utilisez les options d’aide ci-dessus."
+        "technicalCopy": "Explorez l’écosystème ou aidez à améliorer la plateforme de financement sur GitHub.",
+        "contactAction": "Écrire à OpenG7",
+        "technicalPrivacy": "GitHub est public. Pour une question de paiement ou une faille de sécurité, contactez OpenG7 par courriel, sans publier de renseignements personnels ni de lien privé."
+      },
+      "faq": {
+        "title": "Questions fréquentes",
+        "pending": {
+          "question": "Mon paiement est en attente. Que faire ?",
+          "answer": "Le retour de la page de paiement ne suffit pas à confirmer une contribution. Consultez son état avec votre référence. Si l’attente se prolonge, écrivez à OpenG7 avec cette référence avant de refaire un paiement."
+        },
+        "email": {
+          "question": "Je n’ai pas reçu de courriel. Que faire ?",
+          "answer": "Vérifiez les indésirables et l’adresse utilisée lors du paiement. Vous pouvez demander votre référence ci-dessous, ou un nouveau lien privé dans la section commandite. Si aucun message n’arrive, contactez OpenG7."
+        },
+        "invoice": {
+          "question": "Je ne retrouve pas ma facture de commandite.",
+          "answer": "Vérifiez le courriel reçu après votre paiement, y compris les indésirables. Pour obtenir de l’aide avec votre facture de commandite, contactez OpenG7 en indiquant votre référence si vous la connaissez."
+        },
+        "refund": {
+          "question": "Comment demander un remboursement ?",
+          "answer": "Consultez la politique d’utilisation et de remboursement, puis écrivez à contact@openg7.org avec votre référence si vous la connaissez. Votre demande sera examinée par l’équipe ; son envoi ne confirme pas un remboursement."
+        }
       }
     },
     "aboutPage": {

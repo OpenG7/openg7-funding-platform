@@ -1,0 +1,90 @@
+/* Shared presentation for the contributor and embedded sponsorship help forms. */
+.support-form form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+.support-form label {
+  display: block;
+  font-weight: 700;
+  color: #f7fbff;
+}
+.support-form .form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+.support-form input:not([type='file']) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 0.8rem;
+  color: #f7fbff;
+  background: #031426;
+  border: 1px solid #67869e;
+  border-radius: 0.6rem;
+  font: inherit;
+}
+.support-form .form-row input {
+  flex: 1 1 12rem;
+}
+.support-form input::placeholder {
+  color: #adc4d4;
+}
+.support-form input[aria-invalid='true'] {
+  border-color: #ffb7af;
+}
+.support-form button {
+  justify-self: start;
+  max-width: 100%;
+  min-height: 44px;
+  border: 1px solid #ffdf89;
+  border-radius: 0.6rem;
+  background: linear-gradient(180deg, #ffdf89, #e5ac28);
+  color: #161b24;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.support-form button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+.support-form :is(input, button):focus-visible {
+  outline: 3px solid #ffd77b;
+  outline-offset: 4px;
+}
+.support-form .field-hint {
+  color: #c2d7e6;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.support-form .field-status {
+  color: #d3e6f2;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.support-form .field-status.error,
+.support-form .field-status.error p {
+  color: #ffb7af;
+  background: transparent;
+}
+.state-card.embedded {
+  color: #f7fbff;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #43647d;
+  border-radius: 0;
+  padding: 1.25rem 0 0;
+  margin-top: 1rem;
+}
+.state-card.embedded h3 {
+  font: inherit;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+}
+.state-card.embedded p {
+  color: #d3e6f2;
+}
