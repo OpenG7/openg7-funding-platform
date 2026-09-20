@@ -31,6 +31,9 @@ sont définies dans `apps/funding-web/src/app/app.routes.ts`; le rendu initial
 est décrit dans `app.routes.server.ts` et le statut HTTP dans `nginx.conf`.
 Les pages inconnues renvoient HTTP 404, avec textes FR/EN et `noindex`.
 
+Pour renseigner les photos, prix et liens de la sélection NorthDragon, consulter
+le [guide des produits vedettes](boutique-products.md).
+
 ## Administration
 
 L'entrée est `/admin/login`. Les pages protégées sous `/admin/fundraiser`

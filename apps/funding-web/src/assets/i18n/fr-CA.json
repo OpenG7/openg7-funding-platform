@@ -2417,18 +2417,19 @@
     "boutique": {
       "seo": {
         "title": "Boutique NorthDragon | OpenG7",
-        "description": "Découvrez la boutique NorthDragon, ses vêtements, accessoires et créations inspirés par la force, la foi, la résilience et la transformation."
+        "description": "Découvrez les royaumes enchantés de NorthDragon : dragons, princesses et licornes à travers ses vêtements, accessoires et créations."
       },
       "hero": {
         "backgroundAlt": "Dragon doré et château dans un ciel sombre pour l'univers NorthDragon",
         "eyebrow": "L’univers NorthDragon",
         "title": "Boutique NorthDragon",
         "comingSoon": "À venir",
-        "subtitle": "Des créations inspirées par la force, la foi, la résilience et la noblesse intérieure.",
+        "subtitle": "La force des dragons, le courage des princesses et la magie des licornes.",
         "copy": "Découvrez des vêtements, accessoires et créations exclusives conçus pour celles et ceux qui portent leur histoire avec courage."
       },
       "links": {
         "discover": "Découvrir la boutique",
+        "discoverProducts": "Découvrir la sélection",
         "discoverAria": "Découvrir la boutique NorthDragon dans un nouvel onglet",
         "discoverUniverse": "Découvrir l’univers NorthDragon",
         "collection": "Voir la collection",
@@ -2488,27 +2489,43 @@
         }
       },
       "featured": {
-        "eyebrow": "Aperçus éditoriaux",
-        "title": "Une sélection du Royaume",
-        "subtitle": "Les collections complètes sont disponibles sur NorthDragon.org.",
-        "dynamicComingSoon": "Sélection dynamique à venir",
+        "eyebrow": "Produits vedettes",
+        "title": "Royaumes enchantés",
+        "subtitle": "Trois univers de légendes, de courage et de magie, réunis sous la signature NorthDragon.",
+        "empty": "Une nouvelle sélection se prépare. Revenez découvrir nos prochaines créations.",
+        "purchaseNote": "Les commandes se passent sur NorthDragon.org. Les options, la livraison et les retours y sont précisés.",
         "items": {
-          "signature": {
-            "category": "Tenues signature",
-            "description": "Des pièces à porter comme une armure douce, entre sobriété et présence."
+          "dragons": {
+            "title": "L’esprit du dragon",
+            "description": "Force, protection et renaissance : les premières créations de cet univers seront bientôt dévoilées."
           },
-          "accessories": {
-            "category": "Accessoires du Royaume",
-            "description": "Des compléments visuels pour prolonger l’identité NorthDragon au quotidien."
+          "princesses": {
+            "title": "Princesses de légende",
+            "description": "Courage, noblesse et liberté : des princesses qui écrivent leur propre histoire."
           },
-          "symbolic": {
-            "category": "Créations symboliques",
-            "description": "Des aperçus éditoriaux autour de la renaissance, de la foi et de la transformation."
-          },
-          "universe": {
-            "category": "Objets d’univers",
-            "description": "Des idées de style et d’ambiance pour faire vivre le récit au-delà du vêtement."
+          "unicorns": {
+            "title": "La magie des licornes",
+            "description": "Émerveillement, douceur et espoir : une invitation à garder une place pour la magie."
           }
+        }
+      },
+      "universes": {
+        "filterLabel": "Explorer les créations par univers",
+        "all": "Tous les univers",
+        "dragons": "Dragons",
+        "princesses": "Princesses",
+        "unicorns": "Licornes",
+        "count": "Créations à découvrir : {{ count }}"
+      },
+      "product": {
+        "imageComingSoon": "Visuel à venir",
+        "imageUnavailable": "Visuel momentanément indisponible",
+        "view": "Voir sur NorthDragon",
+        "viewAria": "Voir {{ product }} sur NorthDragon dans un nouvel onglet",
+        "status": {
+          "coming-soon": "Bientôt dévoilé",
+          "available": "Notre sélection",
+          "sold-out": "Indisponible pour le moment"
         }
       },
       "brand": {

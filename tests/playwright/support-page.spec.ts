@@ -7,7 +7,7 @@ const reference = 'OG7-2026-ABC123';
 const contribution: PublicReferenceLookupFoundResponse = {
   found: true,
   publicReference: reference,
-  contributionType: 'personal',
+  contributionType: 'personal_support',
   paymentStatus: 'pending',
   amount: null,
   displayAmount: false,
