@@ -439,10 +439,7 @@ test('cockpit contextual recommendation loads independently from dashboard metri
   await expect(page.locator('[data-og7="assistant-facts"]')).toBeVisible();
 });
 
-test('selected sponsorship opens its exact Assistant context', async ({
-  page
-}) => {
-  await fixtures(page);
+async function sponsorshipFixture(page: Page) {
   const record: AdminSponsorshipRecord = {
     id,
     version: '2026-09-16T14:00:00Z',
@@ -504,6 +501,49 @@ test('selected sponsorship opens its exact Assistant context', async ({
       }
     })
   );
+}
+
+for (const width of [1920, 1280, 390]) {
+  test(`open dossier reveals and focuses the selected sponsorship details at ${width}px`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page);
+    await sponsorshipFixture(page);
+    await page.setViewportSize({ width, height: 844 });
+    const url = `/admin/fundraiser/sponsors?sponsorshipId=${id}`;
+    await page.goto(url);
+    const open = page
+      .locator('[data-og7="assistant-next-step"]')
+      .getByText('Ouvrir le dossier', { exact: true });
+    const details = page.getByRole('region', {
+      name: "Vue d'ensemble",
+      exact: true
+    });
+    await expect(open).toBeVisible();
+    await open.click();
+    await expect(details).toBeFocused();
+    await expect(
+      details.getByRole('heading', { name: 'Entreprise & contact' })
+    ).toBeInViewport();
+    await expect(details).toContainText('Atelier démo');
+    await expect(page).toHaveURL(url);
+
+    // Opening the same dossier again must also work from the keyboard.
+    await open.focus();
+    await open.press('Enter');
+    await expect(details).toBeFocused();
+    await expect(
+      details.getByRole('heading', { name: 'Entreprise & contact' })
+    ).toBeInViewport();
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
+test('selected sponsorship opens its exact Assistant context', async ({
+  page
+}) => {
+  await fixtures(page);
+  await sponsorshipFixture(page);
   await page.goto(`/admin/fundraiser/sponsors?sponsorshipId=${id}`);
   await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
     'DEMO-301'

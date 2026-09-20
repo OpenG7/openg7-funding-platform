@@ -5,6 +5,7 @@ Réalisé le 16 septembre 2026 selon le [plan de travail](./admin-ux-plan-de-tra
 ## Résultat visible
 
 - Carte **Assistant contextuel** après « À traiter » dans le cockpit, avec faits dépliables, et dans la commandite sélectionnée. L’ouverture du dossier dans l’Assistant conserve son identifiant dans l’URL : `/admin/fundraiser/assistant?sponsorshipId=<uuid>`.
+- Dans la commandite sélectionnée, **Ouvrir le dossier** affiche la fiche détaillée « Vue d’ensemble » et y place le focus, y compris sur mobile et lors d’une nouvelle activation. Depuis le cockpit ou l’Assistant, l’action conserve son lien vers la page du dossier.
 - Faits distincts : paiement, remboursement, revue, visibilité, consentement, médias approuvés/à réviser/refusés, informations manquantes et couverture des canaux de publication promis.
 - Prochaine étape déterministe, accessible sans fournisseur de modèle : vérifier le paiement/remboursement/refus, compléter la fiche, réviser les médias, effectuer la revue, vérifier le consentement, préparer ou suivre les publications.
 - Préparation d’une relance, d’une note de revue ou d’un brouillon de publication. Chaque proposition indique qu’elle n’est ni envoyée, ni publiée, ni enregistrée.

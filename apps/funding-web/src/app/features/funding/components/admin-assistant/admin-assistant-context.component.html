@@ -106,11 +106,21 @@
       <div class="recommendation" data-og7="assistant-next-step">
         <h3>{{ 'admin.context.next' | translate }}</h3>
         <p>{{ 'admin.context.steps.' + context.nextStep | translate }}</p>
-        <a
-          class="admin-button admin-button--primary"
-          [routerLink]="router.parseUrl(context.adminUrl)"
-          >{{ 'admin.context.open' | translate }}</a
-        >
+        @if (inlineDossier()) {
+          <button
+            type="button"
+            class="admin-button admin-button--primary"
+            (click)="dossierOpen.emit()"
+          >
+            {{ 'admin.context.open' | translate }}
+          </button>
+        } @else {
+          <a
+            class="admin-button admin-button--primary"
+            [routerLink]="router.parseUrl(context.adminUrl)"
+            >{{ 'admin.context.open' | translate }}</a
+          >
+        }
       </div>
       <div class="actions">
         @if (context.canRequestInformation) {

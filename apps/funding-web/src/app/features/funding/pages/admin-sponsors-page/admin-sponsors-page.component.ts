@@ -9,7 +9,8 @@ import {
   ViewChild,
   computed,
   inject,
-  signal
+  signal,
+  viewChild
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -50,6 +51,7 @@ import { AdminSponsorshipProgressComponent } from '../../components/admin-sponso
 import { AdminSponsorshipAccessComponent } from '../../components/admin-sponsors/admin-sponsorship-access.component.js';
 import { AdminSponsorshipFactsComponent } from '../../components/admin-sponsors/admin-sponsorship-facts.component.js';
 import { AdminSponsorDetailHeaderComponent } from '../../components/admin-sponsors/admin-sponsor-detail-header.component.js';
+import { AdminSponsorEditComponent } from '../../components/admin-sponsors/admin-sponsor-edit.component.js';
 import { AdminSponsorDetailIdentityComponent } from '../../components/admin-sponsors/admin-sponsor-detail-identity.component.js';
 import { AdminSponsorDetailOverviewComponent } from '../../components/admin-sponsors/admin-sponsor-detail-overview.component.js';
 import { AdminSponsorDetailTabsComponent } from '../../components/admin-sponsors/admin-sponsor-detail-tabs.component.js';
@@ -174,6 +176,7 @@ const controlledSponsorLogoUrlPrefixes = [
     RouterLink,
     AdminLayoutComponent,
     AdminSponsorDetailHeaderComponent,
+    AdminSponsorEditComponent,
     AdminSponsorDetailIdentityComponent,
     AdminSponsorDetailOverviewComponent,
     AdminSponsorDetailTabsComponent,
@@ -295,6 +298,12 @@ const controlledSponsorLogoUrlPrefixes = [
                 [detail]="detailHeader"
                 (close)="closeDetails()"
               />
+              <openg7-admin-sponsor-edit
+                [sponsorship]="selected"
+                [disabled]="state() === 'loading' || actionState() !== null"
+                (saved)="loadSponsorships()"
+                (conflicted)="versionConflict.set(true)"
+              />
 
               <p
                 class="payment-alert"
@@ -337,6 +346,8 @@ const controlledSponsorLogoUrlPrefixes = [
                   [sponsorshipId]="selected.id"
                   [refreshKey]="assistantRefresh()"
                   [compact]="true"
+                  [inlineDossier]="true"
+                  (dossierOpen)="sponsorOverview()?.focusDetails()"
                 />
                 <openg7-admin-sponsorship-facts
                   view="overview"
@@ -2307,6 +2318,7 @@ const controlledSponsorLogoUrlPrefixes = [
   ]
 })
 export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
+  readonly sponsorOverview = viewChild(AdminSponsorDetailOverviewComponent);
   private readonly i18n = inject(FundingI18nService);
   private readonly confirmation = inject(AdminConfirmationService);
   readonly inspection = inject(AdminInspectionService);
@@ -4903,6 +4915,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     switch (entry.action) {
+      case 'sponsorship.details.update':
+        return this.i18n.t('admin.editDossier.history');
       case 'sponsorship.logo.upload':
         return this.i18n.t(
           'admin.messages.logo_commanditaire_ajoute_ou_remplace'
@@ -4923,6 +4937,34 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   private adminAuditDetail(entry: AdminAuditLogEntry): string {
+    if (entry.action === 'sponsorship.details.update') {
+      const fields = Array.isArray(entry.metadata.changedFields)
+        ? entry.metadata.changedFields.filter(
+            (field): field is string =>
+              typeof field === 'string' &&
+              [
+                'companyName',
+                'publicName',
+                'contactName',
+                'contactEmail',
+                'websiteUrl'
+              ].includes(field)
+          )
+        : [];
+      const reason = this.metadataString(entry, 'reason');
+      return [
+        this.i18n.t('admin.editDossier.actor', { actor: entry.actor }),
+        fields
+          .map((field) => this.i18n.t('admin.editDossier.fields.' + field))
+          .join(', '),
+        reason &&
+        ['correction', 'contact_update', 'organization_update'].includes(reason)
+          ? this.i18n.t('admin.editDossier.reasons.' + reason)
+          : ''
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    }
     const details = [`Acteur: ${entry.actor}`];
 
     if (

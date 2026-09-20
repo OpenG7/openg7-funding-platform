@@ -1,0 +1,104 @@
+<button
+  type="button"
+  class="admin-button"
+  [disabled]="disabled() || busy() || readonlyAccess()"
+  (click)="open()"
+  data-og7="edit-dossier"
+>
+  {{ 'admin.editDossier.title' | translate }}
+</button>
+@if (success()) {
+  <p role="status">{{ 'admin.editDossier.success' | translate }}</p>
+}
+@if (error() === 'forbidden') {
+  <p role="alert">{{ 'admin.editDossier.forbidden' | translate }}</p>
+}
+<openg7-admin-drawer
+  [opened]="opened()"
+  [title]="'admin.editDossier.title' | translate"
+  [closeLabel]="'admin.editDossier.cancel' | translate"
+  [busy]="busy()"
+  (closed)="close()"
+>
+  @if (opened()) {
+    <form (ngSubmit)="save()" data-og7="edit-dossier-form">
+      <p>{{ 'admin.editDossier.help' | translate }}</p>
+      @for (field of fields; track field.key) {
+        <label [for]="'sponsor-edit-' + field.key">{{
+          'admin.editDossier.fields.' + field.key | translate
+        }}</label>
+        <input
+          [id]="'sponsor-edit-' + field.key"
+          [name]="field.key"
+          [type]="field.type"
+          [attr.autocomplete]="field.autocomplete"
+          [maxlength]="
+            field.key === 'websiteUrl'
+              ? 2048
+              : field.key === 'publicName'
+                ? 100
+                : 200
+          "
+          [required]="field.key === 'companyName'"
+          [ngModel]="draft()[field.key]"
+          (ngModelChange)="setField(field.key, $event)"
+          [disabled]="busy()"
+          [attr.aria-invalid]="errors()[field.key] ? 'true' : null"
+          [attr.aria-describedby]="
+            errors()[field.key] ? 'sponsor-edit-error-' + field.key : null
+          "
+        />
+        @if (errors()[field.key]) {
+          <span class="error" [id]="'sponsor-edit-error-' + field.key">{{
+            'admin.editDossier.validation.' + field.key | translate
+          }}</span>
+        }
+      }
+      <label for="sponsor-edit-reason">{{
+        'admin.editDossier.reason' | translate
+      }}</label>
+      <select
+        id="sponsor-edit-reason"
+        name="reason"
+        [ngModel]="reason()"
+        (ngModelChange)="reason.set($event)"
+        [disabled]="busy()"
+      >
+        @for (
+          value of ['correction', 'contact_update', 'organization_update'];
+          track value
+        ) {
+          <option [value]="value">
+            {{ 'admin.editDossier.reasons.' + value | translate }}
+          </option>
+        }
+      </select>
+      @if (error() && error() !== 'forbidden') {
+        <p class="error" role="alert">
+          {{ 'admin.editDossier.' + error() | translate }}
+        </p>
+      }
+      <div class="actions">
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="busy()"
+          (click)="close()"
+        >
+          {{ 'admin.editDossier.cancel' | translate }}
+        </button>
+        <button
+          type="submit"
+          class="admin-button admin-button--primary"
+          [disabled]="saving() || !changed() || error() === 'conflict'"
+          [attr.aria-disabled]="busy() ? 'true' : null"
+        >
+          {{
+            (saving() ? 'admin.editDossier.saving' : 'admin.editDossier.save')
+              | translate
+          }}
+        </button>
+      </div>
+    </form>
+  }
+</openg7-admin-drawer>

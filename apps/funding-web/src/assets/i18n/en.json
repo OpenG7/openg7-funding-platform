@@ -1,5 +1,40 @@
 {
   "admin": {
+    "editDossier": {
+      "title": "Edit dossier",
+      "history": "Dossier details corrected",
+      "actor": "Actor: {{actor}}",
+      "help": "Correct this dossier’s contact details. Only the company name is required. Changes are recorded in the administrative history.",
+      "fields": {
+        "companyName": "Company name",
+        "publicName": "Public name",
+        "contactName": "Contact name",
+        "contactEmail": "Contact email",
+        "websiteUrl": "Website"
+      },
+      "validation": {
+        "companyName": "Enter a company name of 1 to 200 characters on one line.",
+        "publicName": "The public name must fit on one line of up to 100 characters.",
+        "contactName": "The contact name must fit on one line of up to 200 characters.",
+        "contactEmail": "Enter a valid email address of up to 200 characters, or leave this field blank.",
+        "websiteUrl": "Enter an HTTP or HTTPS URL without credentials, up to 2,048 characters, or leave this field blank."
+      },
+      "reason": "Reason for the change",
+      "reasons": {
+        "correction": "Correct an error",
+        "contact_update": "Update contact details",
+        "organization_update": "Update company details"
+      },
+      "save": "Save changes",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "confirm": "Confirm these corrections? Future messages to the contact will use the corrected email. Public details of an already approved dossier may be updated. Payments, issued invoices, consent and statuses are preserved.",
+      "success": "The dossier changes have been saved.",
+      "conflict": "This dossier has changed since you opened the form. Your entries are preserved here. Close this panel and refresh the dossier before editing again.",
+      "notFound": "This dossier could not be found. Close this panel and refresh the list.",
+      "forbidden": "Your session has expired or you do not have permission to edit this dossier.",
+      "saveError": "The save could not be confirmed. Your entries are preserved; you can retry."
+    },
     "followupAccess": {
       "title": "Sponsor follow-up access",
       "copy": "Send a private link to the payment email. The record and its draft are preserved.",
