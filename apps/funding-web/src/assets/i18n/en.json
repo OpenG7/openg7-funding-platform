@@ -2906,7 +2906,7 @@
       },
       "draft": {
         "loading": "Loading your draft…",
-        "idle": "Changes will be saved automatically.",
+        "idle": "Private draft · automatic saving.",
         "dirty": "Changes waiting to be saved…",
         "saving": "Saving your draft…",
         "saved": "Draft saved.",
@@ -2915,11 +2915,13 @@
         "conflict": "The record changed in another tab or can no longer be edited. Your input is preserved. Loading the saved draft will replace the input on this page.",
         "reload": "Load the saved draft",
         "discard": "Discard changes",
-        "explanation": "Your draft is private. Only “Save information” submits changes for review. The last few seconds of typing may be lost before saving is confirmed."
+        "explanation": "Your draft stays private. “Submit my information to the team” sends your changes for review."
       },
       "eyebrow": "OpenG7 sponsorship",
+      "accessHeading": "Access my sponsorship",
+      "accessIntro": "Receive a private link to view your record and continue completing it.",
       "title": "Your sponsorship follow-up",
-      "intro": "Check your sponsorship status and complete the information required for its review.",
+      "intro": "Find your information and follow the progress of your sponsorship.",
       "loading": "Loading your follow-up...",
       "accessTitle": "Link not found",
       "accessCopy": "This follow-up link is missing, invalid or expired. Use the link from your email or contact OpenG7 support.",
@@ -2929,8 +2931,13 @@
       "retry": "Try again",
       "refresh": "Refresh status",
       "completeDetails": "Complete my information",
+      "nextStep": {
+        "title": "Your next step",
+        "details": "Complete your company profile for OpenG7 to review.",
+        "submitted": "Your information has been submitted for review. You can view your record while the review is in progress."
+      },
       "status": {
-        "title": "Sponsorship status",
+        "title": "Sponsorship summary",
         "reference": "OpenG7 reference",
         "assigning": "Being assigned",
         "payment": "Payment status",
@@ -2942,7 +2949,7 @@
       "payment": {
         "paid": {
           "label": "Confirmed",
-          "copy": "Your payment has been received. You can complete your company information for OpenG7 to review."
+          "copy": "Your payment has been received. Sponsorship approval and publication remain separate decisions."
         },
         "pending": {
           "label": "Pending",
@@ -2973,7 +2980,7 @@
         "pending_review": {
           "label": "Under review",
           "title": "OpenG7 review",
-          "copy": "Review is independent of payment. Complete the requested information so that your sponsorship can be reviewed."
+          "copy": "The review is independent of payment and does not confirm publication."
         },
         "approved": {
           "label": "Approved",
@@ -2990,7 +2997,7 @@
         "title": "Next steps",
         "details": "Company details",
         "received": "Information saved",
-        "required": "Complete below",
+        "required": "Information required",
         "review": "OpenG7 review",
         "publication": "Publication",
         "publicationUnknown": "The publication schedule is not provided in this follow-up. Approval confirms neither scheduling nor publication."
@@ -3013,15 +3020,15 @@
         "message": "Message or additional information",
         "required": "required",
         "unavailable": "Editing information is unavailable for the current status of this record.",
-        "editWarning": "Saving a change will send your sponsorship back for review and may suspend its public directory listing until it is approved again.",
+        "editWarning": "Submitting a change will send your sponsorship back for review and may suspend its public directory listing until it is approved again.",
         "edit": "Edit my information",
         "cancel": "Discard text changes",
         "errorTitle": "Check the following fields",
         "unconfirmed": "The server did not confirm that your information was saved. Your draft has been preserved; please try again.",
         "saveError": "Saving failed. Your draft has been preserved; please try again.",
         "saving": "Processing...",
-        "save": "Save information",
-        "unchanged": "No changes to save.",
+        "save": "Submit my information to the team",
+        "unchanged": "No changes to submit.",
         "saved": "Information saved. Your changes have been submitted for review.",
         "errors": {
           "required": "{{field}}: this field is required.",

@@ -57,7 +57,9 @@ test.describe('Sponsor side rejected state validation', () => {
 
     // Verify the details form is not available (rejected sponsorships don't allow details submission)
     await expect(
-      page.getByRole('button', { name: /Enregistrer les informations/i })
+      page.getByRole('button', {
+        name: /Soumettre mes informations à l’équipe/i
+      })
     ).toBeDisabled();
   });
 });

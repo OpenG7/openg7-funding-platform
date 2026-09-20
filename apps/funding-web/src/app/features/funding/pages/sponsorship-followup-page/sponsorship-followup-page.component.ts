@@ -74,6 +74,39 @@ export class SponsorshipFollowupPageComponent implements OnInit {
   );
   readonly savedDetails = signal<SponsorshipDetailsDraft | null>(null);
   readonly busy = computed(() => this.loading() || this.saving());
+  readonly needsDetails = computed(() => {
+    const current = this.followup();
+    return (
+      current?.paymentStatus === 'paid' &&
+      current.reviewStatus === 'pending_review' &&
+      !current.detailsSubmitted &&
+      !this.savedDetails()
+    );
+  });
+  readonly nextStepMessage = computed(() => {
+    const current = this.followup();
+    if (!current) return '';
+    if (current.paymentStatus !== 'paid') {
+      const status = [
+        'pending',
+        'failed',
+        'expired',
+        'refunded',
+        'disputed'
+      ].includes(current.paymentStatus)
+        ? current.paymentStatus
+        : 'unknown';
+      return 'funding.followup.payment.' + status + '.copy';
+    }
+    if (current.reviewStatus !== 'pending_review')
+      return 'funding.followup.review.' + current.reviewStatus + '.copy';
+    return (
+      'funding.followup.nextStep.' +
+      (current.detailsSubmitted || this.savedDetails()
+        ? 'submitted'
+        : 'details')
+    );
+  });
   private readSequence = 0;
 
   constructor() {

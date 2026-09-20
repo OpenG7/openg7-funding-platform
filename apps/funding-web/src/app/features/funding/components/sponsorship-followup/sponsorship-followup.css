@@ -18,12 +18,13 @@
     linear-gradient(135deg, #07111ef0, #1c3148e6),
     url('/assets/openg7-funding-platform-dragon-coffre.png') center/cover;
   color: white;
-  padding-block: 7rem 2.5rem;
+  padding-block: 2.5rem 2rem;
 }
 .followup-hero h1 {
   font:
-    bold clamp(2rem, 5vw, 3.5rem)/1.1 Georgia,
+    bold clamp(1.75rem, 4vw, 2.75rem)/1.15 Georgia,
     serif;
+  margin-block: 0.65rem;
 }
 .followup-hero p {
   max-width: 46rem;
@@ -39,6 +40,68 @@
   gap: 1.25rem;
   padding-block: 1.5rem 4rem;
 }
+.access-content {
+  width: min(44rem, 100%);
+  padding-inline: clamp(1rem, 3vw, 2rem);
+}
+.recovery-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.recovery-form button {
+  justify-self: start;
+}
+.next-step.state-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  border-left: 4px solid #b47b19;
+}
+.next-step > div:first-child {
+  flex: 1 1 24rem;
+}
+.next-step h2 {
+  font: inherit;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+}
+.next-step p {
+  margin: 0;
+}
+.followup-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(18rem, 1fr);
+  align-items: start;
+  gap: 1.25rem;
+}
+.followup-workspace > * {
+  min-width: 0;
+}
+.draft-status {
+  font-size: 0.875rem;
+  color: #435269;
+  margin-block: 0.75rem;
+}
+.draft-status p {
+  margin: 0;
+}
+.draft-attention {
+  padding: 0.75rem;
+  border-left: 3px solid #9c6a14;
+  background: #fff8e8;
+  color: #614309;
+}
+.draft-attention button {
+  margin-top: 0.5rem;
+}
+.submission-help {
+  font-size: 0.9rem;
+  color: #435269;
+  margin-block: 1rem;
+}
 p {
   line-height: 1.6;
   margin-block: 0.5rem;
@@ -53,8 +116,7 @@ h2 {
 h3 {
   margin-top: 0;
 }
-.state-card,
-.followup-status-panel > div {
+.state-card {
   background: #fff;
   color: #121b2d;
   border: 1px solid #d8e1ed;
@@ -62,10 +124,14 @@ h3 {
   padding: 1.25rem;
 }
 .followup-status-panel {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.75rem;
   margin: 0 0 1rem;
+}
+.followup-status-panel > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  padding-block: 0.65rem;
+  border-bottom: 1px solid #d8e1ed;
 }
 dt {
   color: #435269;
@@ -73,26 +139,30 @@ dt {
   font-weight: 700;
 }
 dd {
-  margin: 0.4rem 0 0;
+  margin: 0;
   font-weight: 700;
+  font-size: 0.875rem;
   overflow-wrap: anywhere;
 }
 .reference-code {
   font-family: monospace;
 }
-.followup-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: 1rem;
-}
-.review-note {
-  border-top: 1px solid #d8e1ed;
-  padding-top: 1rem;
-  margin-top: 1rem;
-}
-.review-path ol {
+.review-path {
   padding-left: 1.5rem;
   margin-bottom: 0;
+}
+.review-path h3 {
+  font-size: 1rem;
+  margin-bottom: 0.35rem;
+}
+.review-path p {
+  font-size: 0.9rem;
+}
+.step-label {
+  display: block;
+  color: #435269;
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
 }
 .review-path li {
   margin-bottom: 1rem;
@@ -151,6 +221,11 @@ button:disabled,
 .media-upload-control:has(input:disabled) {
   opacity: 0.6;
   cursor: not-allowed;
+}
+button.secondary-button {
+  background: transparent;
+  color: #24384f;
+  border-color: #9facbe;
 }
 button:focus-visible,
 a:focus-visible,
@@ -279,19 +354,26 @@ small {
   white-space: nowrap;
 }
 @media (max-width: 980px) {
-  .followup-layout {
+  .followup-workspace {
     grid-template-columns: 1fr;
-  }
-  .followup-status-panel {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 600px) {
-  .form-grid,
-  .followup-status-panel {
+  .followup-content {
+    gap: 1rem;
+    padding-top: 1rem;
+  }
+  .next-step.state-card,
+  .followup-form-panel {
+    padding: 1rem;
+  }
+  .form-grid {
     grid-template-columns: 1fr;
   }
   .followup-hero {
-    padding-top: 5.75rem;
+    padding-block: 1rem;
+  }
+  .recovery-form button {
+    justify-self: stretch;
   }
 }

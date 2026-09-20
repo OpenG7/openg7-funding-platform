@@ -161,7 +161,9 @@ test.describe('Docker corporate sponsor navigation', () => {
       .getByRole('button', { name: /Modifier mes informations/i })
       .click();
     await expect(
-      page.getByRole('button', { name: /Enregistrer les informations/i })
+      page.getByRole('button', {
+        name: /Soumettre mes informations à l’équipe/i
+      })
     ).toBeDisabled();
     await page
       .getByLabel(/Nom de l'entreprise/i)
@@ -171,7 +173,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Site web/i).fill(fixture.websiteUrl);
 
     await page
-      .getByRole('button', { name: /Enregistrer les informations/i })
+      .getByRole('button', { name: /Soumettre mes informations à l’équipe/i })
       .click();
 
     await expect(
@@ -199,7 +201,9 @@ test.describe('Docker corporate sponsor navigation', () => {
       stored.companyName!
     );
     await expect(
-      page.getByRole('button', { name: /Enregistrer les informations/i })
+      page.getByRole('button', {
+        name: /Soumettre mes informations à l’équipe/i
+      })
     ).toBeDisabled();
   });
 
@@ -225,7 +229,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Courriel du contact/i).fill('');
 
     await page
-      .getByRole('button', { name: /Enregistrer les informations/i })
+      .getByRole('button', { name: /Soumettre mes informations à l’équipe/i })
       .click();
     await expect(page.locator('#followup-companyName-error')).toHaveText(
       "Nom de l'entreprise : ce champ est requis."
@@ -267,7 +271,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     );
 
     await page
-      .getByRole('button', { name: /Enregistrer les informations/i })
+      .getByRole('button', { name: /Soumettre mes informations à l’équipe/i })
       .click();
     await expect(page.getByLabel(/Courriel du contact/i)).toBeFocused();
   });
@@ -295,7 +299,7 @@ test.describe('Docker corporate sponsor navigation', () => {
     await page.getByLabel(/Site web/i).fill('http://invalid-http-url.com');
 
     await page
-      .getByRole('button', { name: /Enregistrer les informations/i })
+      .getByRole('button', { name: /Soumettre mes informations à l’équipe/i })
       .click();
     await expect(page.locator('#followup-websiteUrl-error')).toHaveText(
       'Site web doit commencer par https://.'

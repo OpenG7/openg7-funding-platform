@@ -3,11 +3,29 @@
   <header class="followup-hero">
     <div class="container">
       <span class="eyebrow">{{ 'funding.followup.eyebrow' | translate }}</span>
-      <h1>{{ 'funding.followup.title' | translate }}</h1>
-      <p>{{ 'funding.followup.intro' | translate }}</p>
+      <h1>
+        {{
+          (loadError() === 'access'
+            ? 'funding.followup.accessHeading'
+            : 'funding.followup.title'
+          ) | translate
+        }}
+      </h1>
+      <p>
+        {{
+          (loadError() === 'access'
+            ? 'funding.followup.accessIntro'
+            : 'funding.followup.intro'
+          ) | translate
+        }}
+      </p>
     </div>
   </header>
-  <section class="followup-content container" [attr.aria-busy]="loading()">
+  <section
+    class="followup-content container"
+    [class.access-content]="loadError() === 'access'"
+    [attr.aria-busy]="loading()"
+  >
     <p *ngIf="loading()" role="status">
       {{ 'funding.followup.loading' | translate }}
     </p>
@@ -44,55 +62,85 @@
       </button>
     </div>
     <ng-container *ngIf="followup() as current">
-      <div class="toolbar">
-        <button type="button" [disabled]="busy()" (click)="load()">
-          {{ 'funding.followup.refresh' | translate }}
-        </button>
-        <button
-          *ngIf="!current.detailsSubmitted && current.paymentStatus === 'paid'"
-          type="button"
-          (click)="focusForm()"
+      <section
+        class="next-step state-card"
+        aria-labelledby="followup-next-step-title"
+        data-og7="followup-next-step"
+      >
+        <div>
+          <h2 id="followup-next-step-title">
+            {{ 'funding.followup.nextStep.title' | translate }}
+          </h2>
+          <p>{{ nextStepMessage() | translate }}</p>
+        </div>
+        <div class="toolbar">
+          <button
+            *ngIf="needsDetails()"
+            type="button"
+            [disabled]="busy() || !drafts.ready()"
+            (click)="focusForm()"
+          >
+            {{ 'funding.followup.completeDetails' | translate }}
+          </button>
+          <button
+            class="secondary-button"
+            type="button"
+            [disabled]="busy()"
+            (click)="load()"
+          >
+            {{ 'funding.followup.refresh' | translate }}
+          </button>
+        </div>
+      </section>
+      <div class="followup-workspace">
+        <openg7-sponsorship-followup-form
+          [followup]="current"
+          [token]="token()"
+          [busy]="busy()"
+          [draftBlocked]="!drafts.ready()"
+          [restoredDraft]="drafts.restored()"
+          [savedDetails]="savedDetails()"
+          [saveState]="saveState()"
+          (save)="submit($event)"
+          (draftChanged)="saveState.set('idle'); drafts.changed($event)"
+          (discardDraft)="drafts.discard()"
         >
-          {{ 'funding.followup.completeDetails' | translate }}
-        </button>
+          <div
+            followup-draft-status
+            class="draft-status"
+            [class.draft-attention]="
+              drafts.state() === 'error' ||
+              drafts.state() === 'unavailable' ||
+              drafts.state() === 'conflict'
+            "
+            data-og7="followup-draft-status"
+          >
+            <p role="status" aria-atomic="true">
+              {{ 'funding.followup.draft.' + drafts.state() | translate }}
+            </p>
+            <button
+              *ngIf="drafts.state() === 'error'"
+              type="button"
+              [disabled]="busy()"
+              (click)="drafts.flush()"
+            >
+              {{ 'funding.followup.retry' | translate }}
+            </button>
+            <button
+              *ngIf="
+                drafts.state() === 'unavailable' ||
+                drafts.state() === 'conflict'
+              "
+              type="button"
+              [disabled]="busy()"
+              (click)="reloadDraft()"
+            >
+              {{ 'funding.followup.draft.reload' | translate }}
+            </button>
+          </div>
+        </openg7-sponsorship-followup-form>
+        <openg7-sponsorship-followup-status [followup]="current" />
       </div>
-      <openg7-sponsorship-followup-status [followup]="current" />
-      <aside class="notice-panel" data-og7="followup-draft-status">
-        <p role="status">
-          {{ 'funding.followup.draft.' + drafts.state() | translate }}
-        </p>
-        <p>{{ 'funding.followup.draft.explanation' | translate }}</p>
-        <button
-          *ngIf="drafts.state() === 'error'"
-          type="button"
-          [disabled]="busy()"
-          (click)="drafts.flush()"
-        >
-          {{ 'funding.followup.retry' | translate }}
-        </button>
-        <button
-          *ngIf="
-            drafts.state() === 'unavailable' || drafts.state() === 'conflict'
-          "
-          type="button"
-          [disabled]="busy()"
-          (click)="reloadDraft()"
-        >
-          {{ 'funding.followup.draft.reload' | translate }}
-        </button>
-      </aside>
-      <openg7-sponsorship-followup-form
-        [followup]="current"
-        [token]="token()"
-        [busy]="busy()"
-        [draftBlocked]="!drafts.ready()"
-        [restoredDraft]="drafts.restored()"
-        [savedDetails]="savedDetails()"
-        [saveState]="saveState()"
-        (save)="submit($event)"
-        (draftChanged)="saveState.set('idle'); drafts.changed($event)"
-        (discardDraft)="drafts.discard()"
-      />
     </ng-container>
   </section>
 </main>
