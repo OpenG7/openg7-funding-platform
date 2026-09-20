@@ -41,6 +41,11 @@ du dépôt de financement. Elles n'envoient aucun message automatiquement.
 Un lien de contact par courriel reste disponible dans cette section pour les
 personnes sans compte GitHub ou sans droit de créer une issue.
 
+La [politique d’utilisation et de remboursement](usage-refund-policy.md) décrit
+la revue au cas par cas, les démarches, les délais bancaires indicatifs et les
+conditions de visibilité. Elle renvoie vers la recherche de référence et le
+contact de cette page, dans la langue sélectionnée.
+
 Les trois formulaires expirent après 15 secondes, annulent leur requête lors
 de la navigation et permettent une reprise sans effacer la saisie. Une requête
 déjà partie peut néanmoins avoir été traitée par le serveur; les réponses de

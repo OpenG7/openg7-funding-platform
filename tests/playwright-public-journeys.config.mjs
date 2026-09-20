@@ -6,7 +6,8 @@ export default defineConfig({
   testMatch: [
     'builders-public.spec.ts',
     'public-journeys.spec.ts',
-    'support-page.spec.ts'
+    'support-page.spec.ts',
+    'refund-policy.spec.ts'
   ],
   outputDir: '../test-results/public-journeys',
   projects: [
