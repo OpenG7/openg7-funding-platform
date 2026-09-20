@@ -1,3 +1,4 @@
+import { AxeBuilder } from '@axe-core/playwright';
 import type { Page, Route } from '@playwright/test';
 import type {
   SponsorshipFollowupResponse,
@@ -104,7 +105,7 @@ async function visit(page: Page, english = false) {
 }
 const save = (page: Page) =>
   page.getByRole('button', {
-    name: 'Enregistrer les informations',
+    name: 'Soumettre mes informations à l’équipe',
     exact: true
   });
 const company = (page: Page) =>
@@ -120,6 +121,154 @@ const draftValues = (companyName: string) => ({
   logoUrl: '',
   message: ''
 });
+
+for (const english of [false, true]) {
+  test(
+    'the first field is on the initial mobile screen and the next step moves keyboard focus ' +
+      (english ? 'EN' : 'FR') +
+      ' @mobile',
+    async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      const calls = await mock(page, {
+        current: {
+          ...fixture(),
+          detailsSubmitted: false,
+          companyName: null,
+          contactName: null,
+          contactEmail: null
+        }
+      });
+      await visit(page, english);
+      const firstField = page.getByLabel(
+        english ? 'Company name' : "Nom de l'entreprise",
+        { exact: false }
+      );
+      await expect(firstField).toBeEnabled();
+      const fieldBox = await firstField.boundingBox();
+      expect(fieldBox!.y + fieldBox!.height).toBeLessThan(844);
+      const form = await page
+        .getByRole('region', {
+          name: english
+            ? 'Sponsorship information'
+            : 'Informations de commandite',
+          exact: true
+        })
+        .boundingBox();
+      const summary = await page
+        .locator('[data-og7="followup-summary"]')
+        .boundingBox();
+      expect(summary!.y).toBeGreaterThan(form!.y + form!.height);
+      const next = page.locator('[data-og7="followup-next-step"]');
+      const complete = next.getByRole('button', {
+        name: english ? 'Complete my information' : 'Compléter mes informations'
+      });
+      await complete.focus();
+      await page.keyboard.press('Enter');
+      await expect(firstField).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(
+        page.getByLabel(english ? 'Contact name' : 'Nom du contact', {
+          exact: false
+        })
+      ).toBeFocused();
+      await firstField.fill('Atelier mobile');
+      await expect(draftStatus(page)).toContainText(
+        english ? 'Draft saved.' : 'Brouillon enregistré.'
+      );
+      expect(calls.posts()).toBe(0);
+      const submit = page.getByRole('button', {
+        name: english
+          ? 'Submit my information to the team'
+          : 'Soumettre mes informations à l’équipe',
+        exact: true
+      });
+      await expect(submit).toHaveAccessibleDescription(
+        english ? /Your draft stays private/ : /Votre brouillon reste privé/
+      );
+      expect(
+        (
+          await new AxeBuilder({ page })
+            .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+            .analyze()
+        ).violations
+      ).toEqual([]);
+      await page.screenshot({
+        path: test
+          .info()
+          .outputPath(
+            'followup-first-action-' + (english ? 'en' : 'fr') + '.png'
+          ),
+        fullPage: true
+      });
+    }
+  );
+}
+
+for (const scenario of [
+  {
+    paymentStatus: 'paid',
+    reviewStatus: 'pending_review',
+    detailsSubmitted: false,
+    complete: true,
+    message: 'Complétez votre fiche'
+  },
+  {
+    paymentStatus: 'paid',
+    reviewStatus: 'pending_review',
+    detailsSubmitted: true,
+    complete: false,
+    message: 'Vos informations ont été soumises'
+  },
+  {
+    paymentStatus: 'paid',
+    reviewStatus: 'approved',
+    detailsSubmitted: true,
+    complete: false,
+    message: 'Votre commandite est approuvée'
+  },
+  {
+    paymentStatus: 'paid',
+    reviewStatus: 'rejected',
+    detailsSubmitted: false,
+    complete: false,
+    message: 'Contactez le support'
+  },
+  {
+    paymentStatus: 'pending',
+    reviewStatus: 'pending_review',
+    detailsSubmitted: false,
+    complete: false,
+    message: 'Votre paiement est en cours de confirmation'
+  }
+] as const) {
+  test(
+    'next action follows server state: ' +
+      scenario.paymentStatus +
+      '/' +
+      scenario.reviewStatus +
+      '/' +
+      scenario.detailsSubmitted,
+    async ({ page }) => {
+      await mock(page, {
+        current: {
+          ...fixture(),
+          paymentStatus: scenario.paymentStatus,
+          reviewStatus: scenario.reviewStatus,
+          detailsSubmitted: scenario.detailsSubmitted
+        }
+      });
+      await visit(page);
+      const next = page.locator('[data-og7="followup-next-step"]');
+      await expect(next).toContainText(scenario.message);
+      await expect(
+        next.getByRole('button', { name: 'Compléter mes informations' })
+      ).toHaveCount(scenario.complete ? 1 : 0);
+      await expect(
+        next.getByRole('button', { name: 'Actualiser le statut' })
+      ).toBeEnabled();
+    }
+  );
+}
 
 test('autosave survives reload without submitting an approved sponsorship', async ({
   page
@@ -356,7 +505,14 @@ for (const english of [false, true]) {
       });
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto((english ? '/en' : '') + path);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+        english ? 'Access my sponsorship' : 'Accéder à ma commandite'
+      );
       const recovery = page.locator('[data-og7="followup-recovery"]');
+      const inputBox = await recovery.locator('input').boundingBox();
+      const buttonBox = await recovery.getByRole('button').boundingBox();
+      expect(buttonBox!.y).toBeGreaterThan(inputBox!.y + inputBox!.height);
+      expect(buttonBox!.y + buttonBox!.height).toBeLessThan(844);
       await recovery.locator('input').fill('absent@example.test');
       await recovery.getByRole('button').click();
       await expect(recovery.getByRole('status')).toContainText(
@@ -441,6 +597,12 @@ test('a confirmed save stays saved when refresh fails and cannot be submitted tw
   expect(calls.posts()).toBe(1);
   releaseRead!();
   await expect(page.getByRole('alert')).toContainText('actualisation a échoué');
+  await expect(page.locator('[data-og7="followup-next-step"]')).toContainText(
+    'Vos informations ont été soumises'
+  );
+  await expect(
+    page.getByRole('button', { name: 'Compléter mes informations' })
+  ).toHaveCount(0);
   await expect(company(page)).toHaveValue('Nouveau nom');
   await expect(save(page)).toBeDisabled();
   await expect(
@@ -543,7 +705,7 @@ test('approved sponsorship requires explicit editing; unchanged information is n
   await expect(company(page)).toBeEnabled();
   await expect(save(page)).toBeDisabled();
   await expect(
-    page.getByText('Enregistrer une modification remettra', { exact: false })
+    page.getByText('Soumettre une modification remettra', { exact: false })
   ).toBeVisible();
   await company(page).fill('Atelier modifié');
   await page.getByRole('button', { name: 'Annuler la saisie' }).click();
@@ -651,7 +813,10 @@ test('English mobile follow-up is translated and language navigation keeps the s
     page.getByRole('heading', { name: 'Logo and presentation photos' })
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Save information', exact: true })
+    page.getByRole('button', {
+      name: 'Submit my information to the team',
+      exact: true
+    })
   ).toBeVisible();
   expect(new URL(page.url()).searchParams.has('token')).toBe(false);
   await page.screenshot({
@@ -827,6 +992,13 @@ test('desktop layout supports the form without horizontal overflow', async ({
   await mock(page);
   await visit(page);
   await expect(company(page)).toBeEnabled();
+  const form = await page
+    .getByRole('region', { name: 'Informations de commandite', exact: true })
+    .boundingBox();
+  const summary = await page
+    .locator('[data-og7="followup-summary"]')
+    .boundingBox();
+  expect(summary!.x).toBeGreaterThan(form!.x + form!.width);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth

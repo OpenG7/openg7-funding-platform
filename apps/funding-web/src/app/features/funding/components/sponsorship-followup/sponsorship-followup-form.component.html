@@ -33,6 +33,9 @@
       {{ 'funding.followup.form.cancel' | translate }}
     </button>
   </div>
+  <div *ngIf="!readOnly() || draftBlocked()">
+    <ng-content select="[followup-draft-status]" />
+  </div>
   <form [formGroup]="sponsorshipForm" (ngSubmit)="submit()" novalidate>
     <fieldset [disabled]="busy() || draftBlocked() || readOnly()">
       <legend class="sr-only">
@@ -146,6 +149,9 @@
         ) | translate
       }}
     </p>
+    <p id="followup-submit-help" *ngIf="!readOnly()" class="submission-help">
+      {{ 'funding.followup.draft.explanation' | translate }}
+    </p>
     <div class="toolbar">
       <button
         *ngIf="
@@ -155,12 +161,17 @@
           (restoredDraft()?.data || changed())
         "
         type="button"
+        class="secondary-button"
         [disabled]="busy() || draftBlocked()"
         (click)="discardDraft.emit()"
       >
         {{ 'funding.followup.draft.discard' | translate }}
       </button>
-      <button type="submit" [disabled]="!canSubmit()">
+      <button
+        type="submit"
+        [disabled]="!canSubmit()"
+        [attr.aria-describedby]="!readOnly() ? 'followup-submit-help' : null"
+      >
         {{
           (busy()
             ? 'funding.followup.form.saving'

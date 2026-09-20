@@ -2902,7 +2902,7 @@
       },
       "draft": {
         "loading": "Chargement du brouillon…",
-        "idle": "Les modifications seront sauvegardées automatiquement.",
+        "idle": "Brouillon privé · sauvegarde automatique.",
         "dirty": "Modifications en attente de sauvegarde…",
         "saving": "Sauvegarde du brouillon…",
         "saved": "Brouillon enregistré.",
@@ -2911,11 +2911,13 @@
         "conflict": "Le dossier a changé dans un autre onglet ou n’est plus modifiable. Votre saisie est conservée. Charger le brouillon sauvegardé remplacera la saisie de cette page.",
         "reload": "Charger le brouillon sauvegardé",
         "discard": "Abandonner les modifications",
-        "explanation": "Le brouillon est privé. Seul le bouton « Enregistrer les informations » soumet les modifications à la revue. Les dernières secondes de saisie peuvent être perdues avant confirmation de la sauvegarde."
+        "explanation": "Votre brouillon reste privé. Le bouton « Soumettre mes informations à l’équipe » transmet vos modifications pour révision."
       },
       "eyebrow": "Commandite OpenG7",
+      "accessHeading": "Accéder à ma commandite",
+      "accessIntro": "Recevez un lien privé pour consulter votre dossier et reprendre votre saisie.",
       "title": "Suivi de votre commandite",
-      "intro": "Consultez l’état de votre commandite et complétez les renseignements nécessaires à sa révision.",
+      "intro": "Retrouvez vos informations et l’avancement de votre dossier.",
       "loading": "Chargement du suivi...",
       "accessTitle": "Lien introuvable",
       "accessCopy": "Le lien de suivi est absent, invalide ou expiré. Reprenez le lien reçu par courriel ou contactez le support OpenG7.",
@@ -2925,8 +2927,13 @@
       "retry": "Réessayer",
       "refresh": "Actualiser le statut",
       "completeDetails": "Compléter mes informations",
+      "nextStep": {
+        "title": "Votre prochaine étape",
+        "details": "Complétez votre fiche pour la révision OpenG7.",
+        "submitted": "Vos informations ont été soumises pour révision. Vous pouvez consulter votre dossier pendant la validation."
+      },
       "status": {
-        "title": "État de la commandite",
+        "title": "Résumé de votre commandite",
         "reference": "Référence OpenG7",
         "assigning": "En attribution",
         "payment": "Statut du paiement",
@@ -2938,7 +2945,7 @@
       "payment": {
         "paid": {
           "label": "Confirmé",
-          "copy": "Votre paiement est reçu. Vous pouvez compléter les informations de votre entreprise pour la révision OpenG7."
+          "copy": "Votre paiement est reçu. La validation de la commandite et sa publication restent des décisions distinctes."
         },
         "pending": {
           "label": "En attente",
@@ -2969,7 +2976,7 @@
         "pending_review": {
           "label": "En validation",
           "title": "Révision OpenG7",
-          "copy": "La validation en cours est indépendante du paiement. Complétez les renseignements demandés pour permettre la révision."
+          "copy": "La validation en cours est indépendante du paiement et ne confirme aucune publication."
         },
         "approved": {
           "label": "Acceptée",
@@ -2986,7 +2993,7 @@
         "title": "Prochaines étapes",
         "details": "Détails entreprise",
         "received": "Informations enregistrées",
-        "required": "À compléter ci-dessous",
+        "required": "Informations à compléter",
         "review": "Révision OpenG7",
         "publication": "Publication",
         "publicationUnknown": "Le calendrier de publication n’est pas communiqué dans ce suivi. L’approbation ne confirme ni planification ni publication."
@@ -3009,15 +3016,15 @@
         "message": "Message ou précision",
         "required": "requis",
         "unavailable": "La modification des renseignements n’est pas disponible pour l’état actuel de ce dossier.",
-        "editWarning": "Enregistrer une modification remettra votre commandite en révision et peut suspendre sa présence au répertoire public jusqu’à une nouvelle approbation.",
+        "editWarning": "Soumettre une modification remettra votre commandite en révision et peut suspendre sa présence au répertoire public jusqu’à une nouvelle approbation.",
         "edit": "Modifier mes informations",
         "cancel": "Annuler la saisie",
         "errorTitle": "Vérifiez les champs suivants",
         "unconfirmed": "Le serveur n’a pas confirmé l’enregistrement. Votre saisie est conservée ; réessayez.",
         "saveError": "L’enregistrement a échoué. Votre saisie est conservée ; réessayez.",
         "saving": "Traitement en cours...",
-        "save": "Enregistrer les informations",
-        "unchanged": "Aucune modification à enregistrer.",
+        "save": "Soumettre mes informations à l’équipe",
+        "unchanged": "Aucune modification à soumettre.",
         "saved": "Informations enregistrées. Les modifications ont été transmises pour révision.",
         "errors": {
           "required": "{{field}} : ce champ est requis.",

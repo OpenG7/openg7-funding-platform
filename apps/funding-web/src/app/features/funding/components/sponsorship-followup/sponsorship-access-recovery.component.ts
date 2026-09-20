@@ -30,7 +30,11 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
       <h2>{{ 'funding.followup.recovery.title' | translate }}</h2>
     }
     <p>{{ 'funding.followup.recovery.copy' | translate }}</p>
-    <form (submit)="$event.preventDefault(); submit()" novalidate>
+    <form
+      class="recovery-form"
+      (submit)="$event.preventDefault(); submit()"
+      novalidate
+    >
       <label for="followup-recovery-email">{{
         'funding.followup.recovery.email' | translate
       }}</label>

@@ -1,5 +1,60 @@
 # Suivi de commandite — fiabilité et expérience
 
+Priorités et observations initiales : [notes UX du 20 septembre 2026](./sponsorship-followup-ux-notes-2026-09-20.md).
+
+## Lot UX du 20 septembre 2026
+
+Le dossier à compléter présentait plusieurs répétitions des statuts avant le
+formulaire. Sur mobile, le premier champ se trouvait à environ 2 400 px du haut
+dans le scénario examiné. Le lot reprend les points 1 à 3 des notes :
+
+- Bandeau réduit et titre « Accéder à ma commandite » à l'entrée sans accès ;
+  formulaire de récupération moins large sur ordinateur et champs espacés.
+- Prochaine étape adaptée aux faits serveur, avec accès clavier au formulaire
+  lorsqu'il reste à compléter. L'actualisation devient une action secondaire.
+- Formulaire avant le résumé dans l'ordre de lecture ; résumé à droite sur
+  ordinateur et après le formulaire sur mobile. Les étapes sont regroupées
+  avec la référence, le montant et la dernière revue dans une seule surface.
+- Statut de brouillon près des champs et explication près du bouton
+  « Soumettre mes informations à l’équipe ». Le brouillon ne soumet rien à la
+  revue ; les médias conservent leurs confirmations indépendantes.
+
+Les composants existants conservent leurs responsabilités : orchestration
+dans la page, présentation des faits dans le statut, saisie dans le formulaire.
+Le formulaire accueille le statut de brouillon par projection de contenu,
+sans dépendre du service de persistance. Les textes et les sélecteurs des
+tests concernés sont adaptés en français et en anglais.
+
+Risque modéré, limité au suivi côté navigateur. Aucun contrat API ou schéma
+persistant ne change. Aucun déploiement, publication, courriel réel ou backfill
+n'est exécuté. Le suivi réel de publication et l'aide d'accès complémentaire
+(points 4 et 5) restent des lots ultérieurs.
+
+Résultats locaux du lot sous Node 22.23.2 :
+
+- `yarn test:ui:followup` : 39 tests réussis, sans retry ni test ignoré ;
+  construction Angular et 24 routes pré-rendues. Le premier champ du dossier
+  à compléter est entièrement dans l'écran initial à 390 × 844 px en FR/EN.
+  L'accès au formulaire avec Entrée, le focus suivant avec Tab, les annonces
+  de brouillon et la description accessible de la soumission sont vérifiés.
+- Les analyses axe intégrées aux deux scénarios mobiles ne signalent aucune
+  violation pour les règles WCAG A/AA 2.0 et 2.1 sélectionnées. Les captures
+  ordinateur et mobile produites sous `test-results/followup/` ont été relues.
+- `yarn test` : compilation TypeScript et 265 tests Node réussis.
+- `yarn tsc --noEmit` : vérification TypeScript complète réussie.
+- `yarn lint` : aucune erreur, un avertissement préexistant dans
+  `scripts/smoke-public.mjs` concernant une directive eslint-disable inutilisée.
+- `yarn format:check` : échec global sur 442 fichiers hors de ce lot.
+  Vérification Prettier ciblée sur tous les fichiers modifiés et créés réussie.
+- `git diff --check`, liens de documentation et diff relus sans anomalie.
+
+Les tests navigateur utilisent une API interceptée ; ils ne prouvent pas la
+livraison réelle des courriels ou le fonctionnement des fournisseurs externes.
+La recette Docker et les workflows distants n'ont pas été exécutés pour ce lot.
+Les sélecteurs des scénarios Docker concernés ont été mis à jour et compilés.
+Le conteneur servant `https://localhost` n'a pas été reconstruit ; les captures
+et les tests portent sur la version compilée servie par le serveur UI isolé.
+
 ## Tâches réalisées
 
 1. **Enregistrement et reprise** : attendre `received: true` et `recorded: true`, bloquer les soumissions concurrentes, conserver la saisie sur erreur et distinguer une sauvegarde confirmée d'une actualisation échouée. Les erreurs de validation du POST ne sont pas assimilées à un lien expiré.
