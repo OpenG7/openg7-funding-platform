@@ -21,13 +21,18 @@
   (closed)="close()"
 >
   @if (opened()) {
-    <form (ngSubmit)="save()" data-og7="edit-dossier-form">
+    <form
+      (submit)="$event.preventDefault(); save()"
+      data-og7="edit-dossier-form"
+      novalidate
+    >
       <p>{{ 'admin.editDossier.help' | translate }}</p>
       @for (field of fields; track field.key) {
         <label [for]="'sponsor-edit-' + field.key">{{
           'admin.editDossier.fields.' + field.key | translate
         }}</label>
         <input
+          #fieldInput
           [id]="'sponsor-edit-' + field.key"
           [name]="field.key"
           [type]="field.type"
@@ -40,8 +45,8 @@
                 : 200
           "
           [required]="field.key === 'companyName'"
-          [ngModel]="draft()[field.key]"
-          (ngModelChange)="setField(field.key, $event)"
+          [value]="draft()[field.key]"
+          (input)="setField(field.key, fieldInput.value)"
           [disabled]="busy()"
           [attr.aria-invalid]="errors()[field.key] ? 'true' : null"
           [attr.aria-describedby]="
@@ -58,17 +63,17 @@
         'admin.editDossier.reason' | translate
       }}</label>
       <select
+        #reasonInput
         id="sponsor-edit-reason"
         name="reason"
-        [ngModel]="reason()"
-        (ngModelChange)="reason.set($event)"
+        (change)="setReason(reasonInput.value)"
         [disabled]="busy()"
       >
         @for (
           value of ['correction', 'contact_update', 'organization_update'];
           track value
         ) {
-          <option [value]="value">
+          <option [value]="value" [selected]="reason() === value">
             {{ 'admin.editDossier.reasons.' + value | translate }}
           </option>
         }

@@ -296,6 +296,117 @@ const saveDetails = async (page: Page) => {
   await page.locator('[data-og7="confirm-action"]').click();
 };
 
+for (const width of [1440, 390]) {
+  test(`opening dossier editing prefills every company field at ${width}px`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page);
+    options.edited.set(id, {
+      public_name: 'Boréal public',
+      sponsor_contact_name: 'Camille Boréal',
+      sponsor_contact_email: 'camille@example.invalid',
+      sponsor_website_url: 'https://boreal.example.invalid'
+    });
+    await page.addInitScript(() => {
+      const showModal = HTMLDialogElement.prototype.showModal;
+      HTMLDialogElement.prototype.showModal = function () {
+        const form = this.querySelector('[data-og7="edit-dossier-form"]');
+        if (form) {
+          form.setAttribute(
+            'data-values-at-open',
+            JSON.stringify(
+              Array.from(form.querySelectorAll('input'), (input) => input.value)
+            )
+          );
+        }
+        showModal.call(this);
+      };
+    });
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(path());
+    const opener = page.getByRole('button', {
+      name: 'Modifier le dossier',
+      exact: true
+    });
+    const form = editForm(page);
+    const expected = [
+      ['Nom de l’entreprise', 'Atelier Boréal'],
+      ['Nom public', 'Boréal public'],
+      ['Nom du contact', 'Camille Boréal'],
+      ['Courriel du contact', 'camille@example.invalid'],
+      ['Site web', 'https://boreal.example.invalid']
+    ];
+    for (let opening = 0; opening < 2; opening++) {
+      await opener.click();
+      await expect(form).toHaveAttribute(
+        'data-values-at-open',
+        JSON.stringify(expected.map(([, value]) => value))
+      );
+      for (const [label, value] of expected) {
+        await expect(form.getByLabel(label, { exact: true })).toHaveValue(
+          value
+        );
+      }
+      await expect(
+        form.getByRole('button', { name: 'Enregistrer les modifications' })
+      ).toBeDisabled();
+      await expect(form.getByLabel('Motif de la modification')).toHaveValue(
+        'correction'
+      );
+      await form
+        .getByLabel('Motif de la modification')
+        .selectOption('organization_update');
+      await form
+        .getByLabel('Nom de l’entreprise', { exact: true })
+        .fill('Brouillon annulé');
+      await form.getByRole('button', { name: 'Annuler', exact: true }).click();
+    }
+    expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
+  });
+}
+
+test('switching dossiers prefills the selected company and clears absent optional fields', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.edited.set(id, {
+    public_name: 'Boréal public',
+    sponsor_website_url: 'https://boreal.example.invalid'
+  });
+  options.edited.set(secondId, {
+    sponsor_contact_name: null,
+    sponsor_contact_email: null
+  });
+  await page.goto('/admin/fundraiser/sponsors');
+  const opener = page.getByRole('button', {
+    name: 'Modifier le dossier',
+    exact: true
+  });
+  const form = editForm(page);
+  await opener.click();
+  await expect(form.getByLabel('Nom public', { exact: true })).toHaveValue(
+    'Boréal public'
+  );
+  await form.getByRole('button', { name: 'Annuler', exact: true }).click();
+  await page.getByRole('button', { name: /Atelier Rivage/ }).click();
+  await opener.click();
+  await expect(
+    form.getByLabel('Nom de l’entreprise', { exact: true })
+  ).toHaveValue('Atelier Rivage');
+  for (const label of [
+    'Nom public',
+    'Nom du contact',
+    'Courriel du contact',
+    'Site web'
+  ]) {
+    await expect(form.getByLabel(label, { exact: true })).toHaveValue('');
+  }
+  await expect(
+    form.getByRole('button', { name: 'Enregistrer les modifications' })
+  ).toBeDisabled();
+  expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
+});
+
 test('dossier identity correction requires confirmation and refreshes the saved fields', async ({
   page
 }) => {
@@ -320,6 +431,9 @@ test('dossier identity correction requires confirmation and refreshes the saved 
   await form
     .getByLabel('Site web', { exact: true })
     .fill('https://example.invalid/updated');
+  await form
+    .getByLabel('Motif de la modification')
+    .selectOption('contact_update');
   await form
     .getByRole('button', { name: 'Enregistrer les modifications' })
     .click();
@@ -348,8 +462,10 @@ test('dossier identity correction requires confirmation and refreshes the saved 
     confirmed: true,
     companyName: 'Atelier corrigé',
     publicName: 'Nom public corrigé',
+    contactName: 'Contact démo',
     contactEmail: 'corrected@example.invalid',
-    reason: 'correction'
+    websiteUrl: 'https://example.invalid/updated',
+    reason: 'contact_update'
   });
   expect(writes[0].body?.['requestId']).toMatch(/^[0-9a-f-]{36}$/);
   await page
