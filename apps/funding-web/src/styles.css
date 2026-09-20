@@ -14,6 +14,41 @@
   --panel-border: rgb(226 170 65 / 55%);
 }
 
+/* Keep the policy printout readable, without the site-wide audio controls. */
+@media print {
+  body:has(openg7-usage-refund-policy-page) {
+    background: white;
+    color: black;
+  }
+
+  openg7-root:has(openg7-usage-refund-policy-page) > openg7-site-music {
+    display: none !important;
+  }
+}
+
+/* Let the policy header reflow on narrow screens, including enlarged text. */
+@media (max-width: 480px) {
+  openg7-usage-refund-policy-page .builders-nav {
+    grid-template-areas: 'brand' 'actions' 'nav';
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  openg7-usage-refund-policy-page .nav-actions {
+    min-width: 0;
+    justify-self: stretch;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  openg7-usage-refund-policy-page .nav-contribute {
+    white-space: normal;
+    text-align: center;
+    min-width: 0;
+    padding: 0.5rem;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

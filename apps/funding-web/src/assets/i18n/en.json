@@ -1432,7 +1432,7 @@
       },
       "policy": {
         "title": "Usage and refund policy | OpenG7",
-        "description": "Review the public Builders Fund policy for contributions, refunds, Stripe disputes, and business sponsorships."
+        "description": "Builders Fund contributions: request a refund, follow up on a payment and understand sponsorship and public visibility conditions."
       }
     },
     "buildersPage": {
@@ -1593,96 +1593,131 @@
     },
     "policyPage": {
       "hero": {
-        "imageAlt": "Luminous map of Canada and Builders Fund chest",
         "kicker": "Public terms",
         "title": "Usage and refund policy",
-        "copy": "This page explains how Builders Fund contributions are handled, how refunds are requested, and how business sponsorships are reviewed before any public visibility.",
-        "updated": "Last updated: July 8, 2026"
+        "copy": "Understand your contribution, request a refund and learn how sponsorship visibility is reviewed.",
+        "updated": "Updated: September 19, 2026"
       },
+      "version": "Version {{version}}",
       "actions": {
-        "contribute": "Support the Fund",
-        "support": "Contact support",
-        "transparency": "View transparency"
+        "refund": "Request a refund",
+        "reference": "Find my contribution",
+        "print": "Print this policy",
+        "email": "Request by email",
+        "missingReference": "I do not know my reference",
+        "support": "Open support",
+        "transparency": "See how funds are used",
+        "stripe": "Refund timing: Stripe documentation",
+        "top": "Back to top"
       },
       "summary": {
-        "ariaLabel": "Usage and refund policy summary",
         "title": "Key points",
-        "copy": "OpenG7 is an independent project in development. Contributions are not charitable donations and sponsorship visibility is never automatic."
+        "items": {
+          "nature": "Voluntary support, with no official charitable donation receipt.",
+          "refunds": "Refund requests reviewed on a case-by-case basis.",
+          "visibility": "Public visibility subject to consent and review."
+        }
       },
-      "intro": {
-        "kicker": "Public framework",
-        "title": "How contributions are handled",
-        "copy": "This policy describes the public operating model of the funding MVP. It is not a substitute for legal, tax, or accounting advice."
+      "navigation": {
+        "title": "On this page"
+      },
+      "request": {
+        "kicker": "Your next steps",
+        "title": "Request a refund",
+        "copy": "The OpenG7 team reviews each request individually. Sending a request does not confirm approval or the return of funds.",
+        "emailSubject": "Refund request — Builders Fund",
+        "emailAlternative": "You can also write directly to",
+        "privacy": "Do not send card numbers, security codes, passwords or private follow-up links. Share payment information only with support, never in a public space.",
+        "steps": {
+          "reference": {
+            "title": "Find your payment",
+            "copy": "Find your OpenG7 reference in the confirmation email or on the support page. If you cannot find it, provide the approximate payment date and amount."
+          },
+          "contact": {
+            "title": "Explain your request",
+            "copy": "Write to contact@openg7.org, preferably from the email address used for payment. Include the reference, the reason and the requested amount if you are asking for a partial refund."
+          },
+          "decision": {
+            "title": "Follow up with the team",
+            "copy": "After reviewing the request, OpenG7 may approve, decline or ask for more information. Approval and receiving the refund in your account are separate steps."
+          }
+        }
       },
       "sections": {
         "nature": {
           "title": "Nature of contributions",
-          "copy": "Payments support OpenG7 infrastructure and development.",
+          "copy": "Contributions to the Builders Fund support OpenG7 infrastructure and development. OpenG7 is an independent project in development.",
           "items": {
             "nonCharity": "OpenG7 is not presented as a registered charity.",
-            "noReceipt": "No official charitable donation receipt is issued.",
-            "voluntary": "Each payment is voluntary support for the Builders Fund."
+            "noReceipt": "No official charitable donation receipt is issued. A payment confirmation or sponsorship invoice is not a charitable tax receipt.",
+            "voluntary": "A personal contribution is voluntary support. A business sponsorship also follows the review and visibility conditions below."
           }
         },
         "payments": {
-          "title": "Stripe payments",
-          "copy": "Payment starts through Stripe Checkout and is confirmed by webhook when Stripe sends the expected event.",
+          "title": "Payment and confirmation",
+          "copy": "Payment takes place through Stripe’s secure checkout. Your contribution status is updated after Stripe confirms the payment.",
           "items": {
-            "stripe": "Stripe processes card details and payment confirmations.",
-            "currency": "Public amounts are shown in Canadian dollars when the currency is available.",
-            "confirmation": "Public totals may wait for Stripe synchronization or database confirmation."
+            "stripe": "Stripe processes card details. Do not email them to OpenG7.",
+            "currency": "Contributions offered on this platform are in Canadian dollars (CAD). Check the amount and currency shown before paying.",
+            "confirmation": "Returning to the site after payment does not by itself confirm a contribution. Its status and public totals may take a little time to update."
           }
         },
         "refunds": {
-          "title": "Refund requests",
-          "copy": "Refunds are reviewed manually to protect the fund, contributors, and accounting records.",
+          "title": "Refund review and follow-up",
+          "copy": "Requests are reviewed on a case-by-case basis, using the payment record and the circumstances explained to support.",
           "items": {
-            "request": "A request must go through support with enough detail to identify the payment.",
-            "review": "OpenG7 may approve, reject, or request more information before processing the request.",
-            "timing": "Timing, fees, and returned funds also depend on Stripe and the financial institution."
+            "request": "Contact us as soon as you notice a problem, such as a duplicate payment, an incorrect amount or an issue with a sponsorship. These examples do not guarantee approval.",
+            "review": "OpenG7 may approve, decline or ask for more information. Contact support with your reference to follow up on the review.",
+            "amount": "Specify whether you are requesting a full or partial refund. Contact support about the amount covered by the decision and any fees; this page does not set an automatic flat deduction.",
+            "destination": "When Stripe issues a refund, it goes back to the original payment method.",
+            "timing": "Once the refund has been issued, Stripe generally estimates about 5 to 10 business days for the credit to appear on your statement, depending on your bank. This estimate excludes the initial review of your request and is not a guarantee.",
+            "retry": "If the credit has not appeared after that time, or you are told the refund failed, contact support again with your reference. A refund issued shortly after payment may instead appear as a reversal of the original charge."
           }
         },
         "disputes": {
-          "title": "Disputes and chargebacks",
-          "copy": "Card disputes are handled in Stripe and may affect public states tied to the payment.",
+          "title": "Payment disputes",
+          "copy": "A dispute with your card issuer is a separate process from a request to OpenG7 support.",
           "items": {
-            "stripe": "A Stripe dispute may create a hold, require evidence, or trigger a temporary debit.",
-            "visibility": "Public visibility tied to the payment may be suspended during review.",
-            "records": "Minimal records are kept for audit, idempotency, and reconciliation."
+            "stripe": "If a dispute is already open, let support know so the team can take the ongoing process into account.",
+            "visibility": "Public visibility linked to the payment may be suspended while the dispute is reviewed.",
+            "records": "Information needed to follow up on the payment and dispute is kept to verify transactions and their history."
           }
         },
         "sponsorship": {
           "title": "Business sponsorships",
-          "copy": "A paid sponsorship is not published automatically. It goes through a follow-up form and admin review.",
+          "copy": "Paying for a sponsorship does not publish it. The team reviews the information submitted through the follow-up form.",
           "items": {
-            "review": "The administrator approves, rejects, or returns the sponsorship to review.",
-            "followup": "The follow-up link can reopen the form and show status while the token is valid.",
-            "noAutomaticPublication": "Logo, message, website, and feed placement remain private until approval."
+            "review": "The team may approve, decline or ask for revisions to the presentation.",
+            "followup": "Your private follow-up link lets you complete your file and check its status. You can request a new link from the support page if needed.",
+            "noAutomaticPublication": "The logo, message, website and associated posts remain private until review and subject to the applicable consent.",
+            "refusal": "If a sponsorship is declined after payment, contact support to follow up and discuss a possible refund request. Declining publication does not by itself confirm a refund; refunds receive a separate, case-by-case review."
           }
         },
         "visibility": {
-          "title": "Public visibility and feeds",
-          "copy": "OpenG7 keeps editorial control over sponsorships that appear publicly.",
+          "title": "Visibility and publications",
+          "copy": "OpenG7 retains editorial control over public sponsor presentations.",
           "items": {
-            "approval": "An approved sponsorship may appear on the public sponsors page.",
-            "removal": "OpenG7 may reject, remove, or edit visibility that is incompatible, misleading, or risky.",
-            "feed": "Facebook and LinkedIn placements indicate prepared or tracked publication, not an automatic guarantee."
+            "approval": "A reviewed and approved sponsorship may appear on the sponsors page, subject to the applicable consent.",
+            "removal": "OpenG7 may decline, remove or edit a presentation that is incompatible, misleading or risky.",
+            "feed": "Facebook and LinkedIn posts depend on the benefits associated with the sponsorship and preparation managed by the team. Payment does not publish them automatically."
           }
         },
         "privacy": {
           "title": "Privacy and public data",
-          "copy": "The platform favors aggregated transparency and limits published personal data.",
+          "copy": "Fund transparency relies on aggregated information and limits the personal data that is published.",
           "items": {
-            "publicData": "Public names, amounts, and sponsorships are displayed only under applicable consent and review rules.",
-            "privateData": "Emails, Stripe identifiers, and payment details are not shown publicly.",
-            "aggregate": "Totals, fees, and estimates may remain public in aggregate form."
+            "publicData": "Public names, individual amounts and sponsorships are displayed according to the applicable consent and review rules.",
+            "privateData": "Email addresses, Stripe identifiers and payment details are not displayed publicly.",
+            "aggregate": "Totals, fees and estimates may remain public in aggregate form.",
+            "contact": "Contact support with questions about your data or requests concerning your public presentation. Removing a public presentation does not delete records needed to follow up on transactions."
           }
         }
       },
       "contact": {
-        "kicker": "Questions",
-        "title": "Need help with a contribution?",
-        "copy": "Use the support page for a refund request, a sponsorship question, or a payment issue."
+        "kicker": "Responsibility and contact",
+        "title": "OpenG7 — Builders Fund",
+        "copy": "This policy describes how the OpenG7 fund operates. Contact the team with questions about a contribution, refund, sponsorship or your data:",
+        "versionCopy": "The version and revision date appear at the top of this page. You can print this policy or save it as a PDF using your browser’s print dialog."
       }
     },
     "ecosystemPage": {

@@ -1,0 +1,333 @@
+:host {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.policy-page {
+  background: linear-gradient(180deg, #020a17, #03172d 48%, #020a17);
+  color: #f7fbff;
+  font-family: 'Trebuchet MS', Arial, sans-serif;
+  padding-bottom: 4rem;
+  overflow-wrap: anywhere;
+}
+.policy-page :is(h1, h2, h3) {
+  color: #f7fbff;
+  line-height: 1.25;
+}
+h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  margin: 0.65rem 0 1rem;
+  max-width: 22ch;
+}
+h2 {
+  font-size: clamp(1.3rem, 2.5vw, 1.75rem);
+  margin: 0 0 0.75rem;
+}
+h3 {
+  font-size: 1.05rem;
+  margin: 0 0 0.4rem;
+}
+p,
+li {
+  color: #d3e6f2;
+  line-height: 1.65;
+}
+p {
+  margin: 0.75rem 0;
+}
+a {
+  color: #a6e4ff;
+  text-underline-offset: 0.2em;
+}
+.policy-page :is(a, button):focus-visible,
+.policy-page [tabindex='-1']:focus {
+  outline: 3px solid #ffd77b;
+  outline-offset: 4px;
+}
+[id] {
+  scroll-margin-top: 1.5rem;
+}
+.eyebrow {
+  display: block;
+  color: #ffd77b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 0.65rem;
+}
+.policy-hero {
+  position: relative;
+  padding: 2.5rem max(1.25rem, calc((100vw - 1152px) / 2));
+  overflow: hidden;
+}
+.policy-hero img,
+.policy-hero-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.policy-hero img {
+  object-fit: cover;
+  object-position: center 42%;
+}
+.policy-hero-overlay {
+  background: linear-gradient(90deg, #020a17f5, #020a17e0 48%, #020a179c);
+}
+.policy-hero-copy {
+  position: relative;
+  max-width: 54rem;
+}
+.policy-hero-copy > p {
+  max-width: 65ch;
+}
+.policy-version {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  font-size: 0.9rem;
+}
+.policy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 1.25rem;
+}
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  min-height: 44px;
+  border: 1px solid #67869e;
+  border-radius: 0.6rem;
+  background: #092139;
+  color: #f7fbff;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+.primary {
+  background: linear-gradient(180deg, #ffdf89, #e5ac28);
+  color: #161b24;
+  border-color: #ffdf89;
+}
+.policy-layout {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.36fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  max-width: 1200px;
+  margin: 2rem auto 0;
+  padding: 0 1.5rem;
+  align-items: start;
+}
+.policy-sidebar {
+  position: sticky;
+  top: 1.5rem;
+  min-width: 0;
+}
+.policy-summary,
+.policy-toc {
+  padding: 1rem 0;
+}
+.policy-summary {
+  border-bottom: 1px solid #43647d;
+  padding-top: 0;
+}
+.policy-sidebar h2 {
+  font-size: 1.15rem;
+}
+.policy-sidebar ul {
+  padding-left: 1.1rem;
+}
+.policy-sidebar li {
+  margin-block: 0.5rem;
+}
+.policy-toc ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.policy-toc li {
+  margin: 0;
+}
+.policy-toc a {
+  display: block;
+  padding: 0.5rem 0;
+}
+.policy-content {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.panel {
+  min-width: 0;
+  padding: clamp(1.1rem, 2.5vw, 1.75rem);
+  background: #092139;
+  border: 1px solid #43647d;
+  border-radius: 1rem;
+}
+.refund-request {
+  border-color: #b28b3f;
+}
+.request-steps {
+  padding-left: 1.5rem;
+  margin: 1.5rem 0;
+}
+.request-steps > li {
+  padding-left: 0.4rem;
+  margin-block: 1.25rem;
+}
+.request-steps > li::marker {
+  color: #ffd77b;
+  font-weight: 700;
+}
+.request-steps p {
+  margin: 0;
+}
+.privacy-note {
+  border-left: 3px solid #ffd77b;
+  padding-left: 1rem;
+}
+.email-alternative,
+.source-link {
+  font-size: 0.9rem;
+}
+.section-heading {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+.section-heading h2 {
+  min-width: 0;
+}
+.section-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.8rem;
+  height: 1.8rem;
+  color: #ffd77b;
+  background: #18364f;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.policy-section ul {
+  padding-left: 1.2rem;
+  margin-bottom: 0;
+}
+.policy-section li {
+  margin-top: 0.65rem;
+}
+.policy-section li::marker {
+  color: #83d8fa;
+}
+address {
+  font-style: normal;
+}
+@media (max-width: 860px), (max-height: 740px) {
+  .policy-sidebar {
+    position: static;
+  }
+}
+@media (max-width: 860px) {
+  .policy-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .policy-toc ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 1rem;
+  }
+}
+@media (max-width: 480px) {
+  .policy-layout {
+    padding: 0 1rem;
+  }
+  .policy-toc ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .policy-hero {
+    padding: 2rem 1rem;
+  }
+  .policy-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+@media print {
+  openg7-funding-header,
+  .policy-hero img,
+  .policy-hero-overlay,
+  .policy-actions,
+  .policy-sidebar {
+    display: none !important;
+  }
+  .policy-page {
+    background: white;
+    color: black;
+    padding: 0;
+    font-size: 10pt;
+  }
+  .policy-page :is(h1, h2, h3, p, li, a, span, time) {
+    color: black;
+  }
+  .policy-hero {
+    padding: 0 0 1rem;
+  }
+  h1 {
+    font-size: 22pt;
+    max-width: none;
+  }
+  h2 {
+    font-size: 14pt;
+  }
+  h3 {
+    font-size: 11pt;
+  }
+  .policy-layout,
+  .policy-content {
+    display: block;
+    padding: 0;
+    margin: 0;
+    max-width: none;
+  }
+  .panel {
+    background: white;
+    border: 0;
+    border-top: 1px solid #999;
+    border-radius: 0;
+    padding: 1rem 0;
+  }
+  .section-number {
+    background: white;
+    border: 1px solid #999;
+  }
+  .privacy-note {
+    border-color: #555;
+  }
+  .policy-page li::marker {
+    color: black;
+  }
+  .section-heading,
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+  li {
+    break-inside: avoid;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  .source-link a::after {
+    content: ' (' attr(href) ')';
+    font-size: 9pt;
+  }
+}

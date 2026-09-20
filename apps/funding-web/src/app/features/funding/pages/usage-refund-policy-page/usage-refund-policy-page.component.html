@@ -1,0 +1,227 @@
+<openg7-funding-header />
+<main class="policy-page" data-og7="refund-policy">
+  <section class="policy-hero" aria-labelledby="policy-title">
+    <img
+      src="assets/fonds-des-batisseurs-canada-coffre-lumineux-960.webp"
+      srcset="
+        assets/fonds-des-batisseurs-canada-coffre-lumineux-960.webp   960w,
+        assets/fonds-des-batisseurs-canada-coffre-lumineux-1920.webp 1920w
+      "
+      sizes="100vw"
+      width="960"
+      height="540"
+      alt=""
+      fetchpriority="high"
+    />
+    <div class="policy-hero-overlay" aria-hidden="true"></div>
+    <div class="policy-hero-copy">
+      <span class="eyebrow">{{
+        'funding.policyPage.hero.kicker' | translate
+      }}</span>
+      <h1 id="policy-title" tabindex="-1">
+        {{ 'funding.policyPage.hero.title' | translate }}
+      </h1>
+      <p>{{ 'funding.policyPage.hero.copy' | translate }}</p>
+      <p class="policy-version">
+        <span>{{
+          'funding.policyPage.version' | translate: { version: revision }
+        }}</span>
+        <time [attr.datetime]="revision">{{
+          'funding.policyPage.hero.updated' | translate
+        }}</time>
+      </p>
+      <div class="policy-actions">
+        <a
+          class="button primary"
+          [routerLink]="policyPath()"
+          fragment="refund-request"
+          (click)="focusSection($event, 'refund-request')"
+          >{{ 'funding.policyPage.actions.refund' | translate }}</a
+        >
+        <a
+          class="button"
+          [routerLink]="supportPath()"
+          fragment="contribution-help"
+          >{{ 'funding.policyPage.actions.reference' | translate }}</a
+        >
+        @if (canPrint()) {
+          <button
+            class="button"
+            type="button"
+            (click)="printPolicy()"
+            data-og7="print-policy"
+          >
+            {{ 'funding.policyPage.actions.print' | translate }}
+          </button>
+        }
+      </div>
+    </div>
+  </section>
+
+  <div class="policy-layout">
+    <aside class="policy-sidebar">
+      <section class="policy-summary" aria-labelledby="policy-summary-title">
+        <h2 id="policy-summary-title">
+          {{ 'funding.policyPage.summary.title' | translate }}
+        </h2>
+        <ul>
+          @for (item of summaryItems; track item) {
+            <li>
+              {{ 'funding.policyPage.summary.items.' + item | translate }}
+            </li>
+          }
+        </ul>
+        <a [routerLink]="transparencyPath()">{{
+          'funding.policyPage.actions.transparency' | translate
+        }}</a>
+      </section>
+      <nav
+        class="policy-toc"
+        aria-labelledby="policy-toc-title"
+        data-og7="policy-toc"
+      >
+        <h2 id="policy-toc-title">
+          {{ 'funding.policyPage.navigation.title' | translate }}
+        </h2>
+        <ol>
+          <li>
+            <a
+              [routerLink]="policyPath()"
+              fragment="refund-request"
+              (click)="focusSection($event, 'refund-request')"
+              >{{ 'funding.policyPage.request.title' | translate }}</a
+            >
+          </li>
+          @for (section of sections; track section.id) {
+            <li>
+              <a
+                [routerLink]="policyPath()"
+                [fragment]="section.id"
+                (click)="focusSection($event, section.id)"
+                >{{ section.titleKey | translate }}</a
+              >
+            </li>
+          }
+          <li>
+            <a
+              [routerLink]="policyPath()"
+              fragment="policy-contact"
+              (click)="focusSection($event, 'policy-contact')"
+              >{{ 'funding.policyPage.contact.title' | translate }}</a
+            >
+          </li>
+        </ol>
+      </nav>
+    </aside>
+
+    <div class="policy-content">
+      <section
+        class="refund-request panel"
+        aria-labelledby="refund-request"
+        data-og7="refund-request"
+      >
+        <span class="eyebrow">{{
+          'funding.policyPage.request.kicker' | translate
+        }}</span>
+        <h2 id="refund-request" tabindex="-1">
+          {{ 'funding.policyPage.request.title' | translate }}
+        </h2>
+        <p>{{ 'funding.policyPage.request.copy' | translate }}</p>
+        <ol class="request-steps">
+          @for (step of requestSteps; track step) {
+            <li>
+              <h3>
+                {{
+                  'funding.policyPage.request.steps.' + step + '.title'
+                    | translate
+                }}
+              </h3>
+              <p>
+                {{
+                  'funding.policyPage.request.steps.' + step + '.copy'
+                    | translate
+                }}
+              </p>
+            </li>
+          }
+        </ol>
+        <p class="privacy-note">
+          {{ 'funding.policyPage.request.privacy' | translate }}
+        </p>
+        <div class="policy-actions">
+          <a
+            class="button primary"
+            [href]="refundEmailHref()"
+            data-og7="refund-email"
+          >
+            {{ 'funding.policyPage.actions.email' | translate }}
+          </a>
+          <a [routerLink]="supportPath()" fragment="contribution-help">{{
+            'funding.policyPage.actions.missingReference' | translate
+          }}</a>
+        </div>
+        <p class="email-alternative">
+          {{ 'funding.policyPage.request.emailAlternative' | translate }}
+          <a [href]="'mailto:' + contactEmail">{{ contactEmail }}</a>
+        </p>
+      </section>
+
+      @for (section of sections; track section.id; let index = $index) {
+        <section
+          class="policy-section panel"
+          [attr.aria-labelledby]="section.id"
+        >
+          <div class="section-heading">
+            <span class="section-number" aria-hidden="true">{{
+              index + 1
+            }}</span>
+            <h2 [id]="section.id" tabindex="-1">
+              {{ section.titleKey | translate }}
+            </h2>
+          </div>
+          <p>{{ section.copyKey | translate }}</p>
+          <ul>
+            @for (item of section.items; track item) {
+              <li>{{ item | translate }}</li>
+            }
+          </ul>
+          @if (section.id === 'refunds') {
+            <p class="source-link">
+              <a href="https://docs.stripe.com/refunds#trace-a-refund">{{
+                'funding.policyPage.actions.stripe' | translate
+              }}</a>
+            </p>
+          }
+        </section>
+      }
+
+      <section class="policy-contact panel" aria-labelledby="policy-contact">
+        <span class="eyebrow">{{
+          'funding.policyPage.contact.kicker' | translate
+        }}</span>
+        <h2 id="policy-contact" tabindex="-1">
+          {{ 'funding.policyPage.contact.title' | translate }}
+        </h2>
+        <p>{{ 'funding.policyPage.contact.copy' | translate }}</p>
+        <address>
+          <a [href]="'mailto:' + contactEmail">{{ contactEmail }}</a>
+        </address>
+        <p>{{ 'funding.policyPage.contact.versionCopy' | translate }}</p>
+        <div class="policy-actions">
+          <a
+            class="button"
+            [routerLink]="supportPath()"
+            fragment="contact-help"
+            >{{ 'funding.policyPage.actions.support' | translate }}</a
+          >
+          <a
+            [routerLink]="policyPath()"
+            fragment="policy-title"
+            (click)="focusSection($event, 'policy-title')"
+            >{{ 'funding.policyPage.actions.top' | translate }}</a
+          >
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
