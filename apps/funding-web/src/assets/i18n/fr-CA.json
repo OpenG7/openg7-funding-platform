@@ -1,5 +1,29 @@
 {
   "admin": {
+    "publicationQueue": {
+      "eyebrow": "Ordre de passage",
+      "title": "Les prochains lots",
+      "help": "Parcourez l’ordre prévu des lots affichés. Leur publication nécessite une action de l’équipe.",
+      "previous": "Voir les lots précédents",
+      "next": "Voir les lots suivants",
+      "loading": "Chargement des prochains lots…",
+      "error": "Le résumé des lots est indisponible. Réessayez pour actualiser les informations.",
+      "retry": "Réessayer",
+      "empty": "Aucun lot à venir parmi les lots affichés. Créez un lot ci-dessous pour préparer les prochaines publications.",
+      "count": "{{scheduled}} lot(s) planifié(s) · {{undated}} à planifier",
+      "first": "Prochain lot",
+      "following": "À suivre",
+      "undated": "À planifier",
+      "unknownTarget": "Cible à vérifier",
+      "noDate": "Date à définir",
+      "noOrder": "À placer dans le calendrier",
+      "capacity": "{{used}} / {{capacity}} commandites",
+      "others": "+ {{count}} à consulter dans le détail",
+      "noMembers": "Aucune commandite assignée",
+      "open": "Voir le lot",
+      "openLabel": "Voir le lot {{position}} — {{channel}}",
+      "keyboard": "Faites défiler avec les flèches ou par glissement. Au clavier : flèches gauche/droite, Début et Fin."
+    },
     "editDossier": {
       "title": "Modifier le dossier",
       "history": "Coordonnées du dossier corrigées",
@@ -1421,6 +1445,74 @@
       },
       "new": "Nouveau compte",
       "signInError": "Connexion impossible. Vérifiez les accès du compte, l’authentification multifacteur et la disponibilité du service."
+    },
+    "publications": {
+      "title": "Publications",
+      "prepare": "Préparer une publication",
+      "navigation": "Espaces de publication",
+      "activeDrafts": "En cours",
+      "close": "Fermer",
+      "open": "Ouvrir",
+      "newBatch": "Nouveau lot",
+      "newSlot": "Nouveau créneau",
+      "showHistory": "Inclure les éléments publiés et annulés",
+      "draftOptions": "Date, lien et note interne",
+      "submitReview": "Soumettre à la revue",
+      "otherActions": "Autres actions",
+      "markPublished": "Marquer comme publiée manuellement",
+      "unsaved": "Modifications non enregistrées",
+      "saved": "Brouillon enregistré.",
+      "copied": "Texte copié.",
+      "copyFailed": "La copie a échoué. Sélectionnez et copiez le texte manuellement.",
+      "back": "Retour aux publications",
+      "spaces": {
+        "overview": {
+          "title": "Publications",
+          "help": "Trois espaces pour préparer, regrouper et planifier vos publications."
+        },
+        "drafts": {
+          "title": "Rédaction et validation",
+          "help": "Écrivez les textes et validez les brouillons.",
+          "open": "Ouvrir les brouillons"
+        },
+        "batches": {
+          "title": "Lots de publication",
+          "help": "Regroupez les publications par canal et gérez leur envoi.",
+          "open": "Gérer les lots"
+        },
+        "calendar": {
+          "title": "Calendrier éditorial",
+          "help": "Choisissez les dates et attribuez les créneaux.",
+          "open": "Ouvrir le calendrier"
+        }
+      }
+    },
+    "publicationCalendar": {
+      "title": "Vue mensuelle des publications",
+      "navigation": "Navigation du calendrier",
+      "previous": "Mois précédent",
+      "next": "Mois suivant",
+      "today": "Aujourd’hui",
+      "chooseMonth": "Choisir un mois",
+      "channels": "Filtrer par canal",
+      "allChannels": "Tous les canaux",
+      "timezone": "Heures affichées : {{timezone}}",
+      "monthCount": "{{count}} élément(s) ce mois-ci",
+      "dayCount": "{{count}} élément(s)",
+      "more": "+ {{count}} autres",
+      "undated": "À planifier",
+      "emptyMonth": "Aucune publication pour ce mois et ce canal.",
+      "emptyDay": "Rien de prévu ce jour-là.",
+      "loading": "Chargement du calendrier…",
+      "error": "Le calendrier est indisponible pour le moment.",
+      "batchDetail": "Détail du lot",
+      "slotDetail": "Détail du créneau",
+      "status": {
+        "open": "Ouvert",
+        "scheduled": "Planifié",
+        "published": "Publié",
+        "cancelled": "Annulé"
+      }
     }
   },
   "funding": {

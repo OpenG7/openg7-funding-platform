@@ -1,3 +1,5 @@
+import type { Page } from '@playwright/test';
+
 import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
@@ -10,6 +12,30 @@ import { signInAsAdmin } from './support/admin-auth.js';
 // in E2E; the API still exercises the social job, idempotency, status
 // cascade, and public URL write path.
 
+async function openSpace(
+  page: Page,
+  space: 'drafts' | 'batches' | 'calendar'
+): Promise<void> {
+  const drawer = page.locator('[data-og7="admin-drawer"][open]');
+  if (await drawer.count()) await drawer.getByRole('button').first().click();
+  await page.locator('[data-og7="publications-home"]').click();
+  await page
+    .locator('[data-og7="publication-space"][data-og7-id="' + space + '"]')
+    .click();
+}
+
+async function openBatch(page: Page, id: string | null): Promise<void> {
+  await page
+    .locator(
+      '[data-og7="calendar-entry"][data-og7-id="' +
+        id +
+        '"], [data-og7="calendar-undated-entry"][data-og7-id="' +
+        id +
+        '"]'
+    )
+    .click();
+}
+
 test.describe('Docker admin publication batches', () => {
   test('creates a draft, assigns it to a calendar slot, and publishes the batch', async ({
     page
@@ -17,7 +43,10 @@ test.describe('Docker admin publication batches', () => {
     await signInAsAdmin(page);
 
     const fixture = SPONSORSHIP_FIXTURES.publicationBatch;
-    await page.goto('/admin/fundraiser/publications');
+    await page.goto('/admin/fundraiser/publications/drafts');
+    await page
+      .getByRole('button', { name: 'Préparer une publication', exact: true })
+      .click();
 
     const eligibleCard = page.locator('.eligible-list article', {
       hasText: fixture.companyName
@@ -27,7 +56,7 @@ test.describe('Docker admin publication batches', () => {
       .getByRole('button', { name: 'Facebook', exact: true })
       .click();
 
-    const draftCard = page.locator('.draft-card', {
+    const draftCard = page.locator('[data-og7="publication-draft"]', {
       hasText: fixture.companyName
     });
     await expect(draftCard).toBeVisible();
@@ -41,6 +70,7 @@ test.describe('Docker admin publication batches', () => {
     await draftCard
       .getByLabel('Divulgation')
       .fill('Commandite payante divulguee pour un test automatise.');
+    await draftCard.getByText('Autres actions', { exact: true }).click();
     await draftCard
       .getByRole('button', { name: 'Approuver', exact: true })
       .click();
@@ -49,14 +79,20 @@ test.describe('Docker admin publication batches', () => {
       draftCard.getByText('Approuvee', { exact: true })
     ).toBeVisible();
 
+    await openSpace(page, 'batches');
+    await page
+      .getByRole('button', { name: 'Nouveau lot', exact: true })
+      .click();
     await page
       .getByRole('button', { name: 'Creer un lot', exact: true })
       .click();
 
-    const batchCard = page.locator('.batch-card').first();
+    const batchCard = page.locator('[data-og7="publication-batch"]').first();
     await expect(batchCard).toBeVisible();
+    const batchId = await batchCard.getAttribute('data-og7-id');
     await expect(batchCard).toContainText('Ouvert');
     await expect(batchCard).toContainText('Facebook - 0/5');
+    await openSpace(page, 'drafts');
 
     // batchCard becoming visible with the right text only proves the batch
     // list refreshed -- it does not prove the draft's own "Lot" dropdown has
@@ -77,7 +113,13 @@ test.describe('Docker admin publication batches', () => {
       .click();
 
     await expect(draftCard.getByText(/Dans un lot \(Ouvert\)/i)).toBeVisible();
+    await openSpace(page, 'batches');
+    await openBatch(page, batchId);
     await expect(batchCard).toContainText('Facebook - 1/5');
+    await openSpace(page, 'calendar');
+    await page
+      .getByRole('button', { name: 'Nouveau créneau', exact: true })
+      .click();
 
     const slotStartsAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
       .toISOString()
@@ -91,7 +133,7 @@ test.describe('Docker admin publication batches', () => {
       .click();
 
     const slotCard = page
-      .locator('.slot-card', {
+      .locator('[data-og7="publication-slot"]', {
         hasText: 'OpenG7 / Facebook'
       })
       .first();
@@ -108,6 +150,9 @@ test.describe('Docker admin publication batches', () => {
       .click();
 
     await expect(slotCard).toContainText('1/5');
+    await openSpace(page, 'batches');
+    await page.getByLabel('Choisir un mois').fill(slotStartsAt.slice(0, 7));
+    await openBatch(page, batchId);
     await expect(batchCard).toContainText('Planifie');
 
     await batchCard
@@ -116,13 +161,14 @@ test.describe('Docker admin publication batches', () => {
     await page.locator('[data-og7="confirm-action"]').click();
 
     const publishedBatchCard = page
-      .locator('.batch-card', { hasText: 'Facebook - 1/5' })
+      .locator('[data-og7="publication-batch"]', { hasText: 'Facebook - 1/5' })
       .filter({ hasText: 'Publie via API' });
     await expect(publishedBatchCard).toContainText('Publie via API');
     await expect(
       publishedBatchCard.getByRole('link', { name: 'Voir la publication' })
     ).toBeVisible();
     await expect(publishedBatchCard).toContainText('Publie');
+    await openSpace(page, 'drafts');
     await expect(draftCard.getByText(/Dans un lot \(Publie\)/i)).toBeVisible();
   });
 });

@@ -1,5 +1,11 @@
 import { TranslatePipe } from '@ngx-translate/core';
-import { ActivatedRoute } from '@angular/router';
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterLink
+} from '@angular/router';
+import { distinctUntilChanged, filter, map, startWith } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import {
@@ -33,6 +39,10 @@ import type {
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
+import { AdminPublicationCalendarComponent } from '../../components/admin-publications/admin-publication-calendar.component.js';
+import type { PublicationCalendarEntry } from '../../components/admin-publications/publication-calendar.js';
+import { AdminPublicationQueueComponent } from '../../components/admin-publications/admin-publication-queue.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 interface PublicationDraftEdit {
@@ -51,6 +61,8 @@ interface PublicationSlotEdit {
   readonly notes: string;
 }
 
+type PublicationView = 'overview' | 'drafts' | 'batches' | 'calendar';
+
 const publicationStatuses: readonly PublicationDraftStatus[] = [
   'draft',
   'pending_review',
@@ -64,19 +76,102 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 @Component({
   selector: 'openg7-admin-publications-page',
   standalone: true,
-  imports: [CommonModule, AdminLayoutComponent, TranslatePipe],
+  imports: [
+    CommonModule,
+    AdminLayoutComponent,
+    AdminPublicationQueueComponent,
+    AdminPublicationCalendarComponent,
+    AdminDrawerComponent,
+    RouterLink,
+    TranslatePipe
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <openg7-admin-layout>
-      <section class="admin-content">
+      <section
+        class="admin-content"
+        data-og7="publications-page"
+        [attr.data-og7-view]="activeView()"
+      >
+        @if (activeView() !== 'overview') {
+          <nav
+            class="publication-breadcrumb"
+            [attr.aria-label]="'admin.publications.navigation' | translate"
+          >
+            <a
+              [routerLink]="publicationPath"
+              [queryParams]="navigationParams()"
+              data-og7="publications-home"
+            >
+              <span aria-hidden="true">←</span>
+              {{ 'admin.publications.back' | translate }}
+            </a>
+          </nav>
+        }
         <header class="admin-topbar">
           <div>
-            <span>{{ 'admin.legacy.administration' | translate }}</span>
-            <h1>{{ 'admin.legacy.publications_commanditees' | translate }}</h1>
+            <span>{{
+              (activeView() === 'overview'
+                ? 'admin.legacy.administration'
+                : 'admin.publications.title'
+              ) | translate
+            }}</span>
+            <h1 id="publication-heading" tabindex="-1">
+              {{
+                'admin.publications.spaces.' + activeView() + '.title'
+                  | translate
+              }}
+            </h1>
+            <p class="page-help">
+              {{
+                'admin.publications.spaces.' + activeView() + '.help'
+                  | translate
+              }}
+            </p>
           </div>
-          <button type="button" (click)="load()">
-            {{ 'admin.legacy.actualiser' | translate }}
-          </button>
+          <div class="header-actions">
+            @if (activeView() === 'drafts') {
+              <button
+                type="button"
+                class="primary-action"
+                id="publication-prepare"
+                [attr.aria-expanded]="showEligible()"
+                aria-controls="publication-eligible"
+                (click)="prepareDraft()"
+              >
+                {{ 'admin.publications.prepare' | translate }}
+              </button>
+            }
+            @if (activeView() === 'batches') {
+              <button
+                type="button"
+                class="primary-action"
+                [attr.aria-expanded]="newBatchOpen()"
+                aria-controls="new-batch-form"
+                (click)="newBatchOpen.set(!newBatchOpen())"
+              >
+                {{ 'admin.publications.newBatch' | translate }}
+              </button>
+            }
+            @if (activeView() === 'calendar') {
+              <button
+                type="button"
+                class="primary-action"
+                [attr.aria-expanded]="newSlotOpen()"
+                aria-controls="new-slot-form"
+                (click)="newSlotOpen.set(!newSlotOpen())"
+              >
+                {{ 'admin.publications.newSlot' | translate }}
+              </button>
+            }
+            <button
+              type="button"
+              (click)="load()"
+              [disabled]="state() === 'loading'"
+            >
+              {{ 'admin.legacy.actualiser' | translate }}
+            </button>
+          </div>
         </header>
         @if (targetId) {
           <p class="state" data-og7="attention-object-target">
@@ -87,242 +182,754 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
           <p role="status">{{ 'admin.attention.objectMissing' | translate }}</p>
         }
 
-        <p class="state" *ngIf="state() === 'loading'">
+        <p class="state" role="status" *ngIf="state() === 'loading'">
           {{ 'admin.legacy.chargement_des_publications' | translate }}
         </p>
-        <p class="state state-error" *ngIf="state() === 'error'">
+        <p class="state state-error" role="alert" *ngIf="state() === 'error'">
           {{
             'admin.legacy.impossible_de_charger_ou_modifier_les_publications'
               | translate
           }}
         </p>
 
+        <p class="action-notice" role="status">{{ notice() | translate }}</p>
         <section
-          class="admin-summary-grid"
-          [attr.aria-label]="'admin.legacy.resume_publications' | translate"
+          class="publication-view"
+          id="publication-panel-overview"
+          aria-labelledby="publication-heading"
+          [hidden]="activeView() !== 'overview'"
         >
-          <article>
-            <span>{{ 'admin.legacy.brouillons' | translate }}</span>
-            <strong>{{ draftCount() }}</strong>
-          </article>
-          <article>
-            <span>{{ 'admin.legacy.a_approuver' | translate }}</span>
-            <strong>{{ pendingCount() }}</strong>
-          </article>
-          <article>
-            <span>{{ 'admin.legacy.approuvees' | translate }}</span>
-            <strong>{{ approvedCount() }}</strong>
-          </article>
-          <article>
-            <span>{{ 'admin.legacy.publiees' | translate }}</span>
-            <strong>{{ publishedCount() }}</strong>
-          </article>
-        </section>
-
-        <section
-          class="filters"
-          [attr.aria-label]="'admin.legacy.filtres_publications' | translate"
-        >
-          <label>
-            {{ 'admin.legacy.recherche' | translate
-            }}<input
-              type="search"
-              [attr.placeholder]="
-                'admin.legacy.entreprise_titre_texte' | translate
-              "
-              [value]="search()"
-              (input)="setSearch($event)"
-            />
-          </label>
-          <label>
-            {{ 'admin.legacy.statut' | translate
-            }}<select
-              [value]="statusFilter()"
-              (change)="setStatusFilter($event)"
+          @if (activeView() === 'overview') {
+            <nav
+              class="publication-spaces"
+              [attr.aria-label]="'admin.publications.navigation' | translate"
             >
-              <option value="all">{{ 'admin.legacy.tous' | translate }}</option>
-              <option
-                *ngFor="let status of publicationStatuses"
-                [value]="status"
-              >
-                {{ statusLabel(status) }}
-              </option>
-            </select>
-          </label>
-        </section>
-
-        <section class="admin-panel" aria-labelledby="eligible-title">
-          <header>
-            <div>
-              <span>{{
-                'admin.legacy.p0_commandite_s'
-                  | translate: { p0: eligibleSponsorships().length }
-              }}</span>
-              <h2 id="eligible-title">
-                {{ 'admin.legacy.commandites_pretes' | translate }}
-              </h2>
-            </div>
-          </header>
-
-          <div class="eligible-list" *ngIf="eligibleSponsorships().length > 0">
-            <article
-              *ngFor="
-                let sponsorship of eligibleSponsorships();
-                trackBy: trackBySponsor
-              "
-            >
-              <div>
-                <strong>{{ sponsorship.sponsor_company_name }}</strong>
-                <small>{{ feedTargetLabel(sponsorship) }}</small>
-              </div>
-              <nav>
-                <button
-                  type="button"
-                  *ngFor="let channel of sponsorship.sponsor_feed_channels"
-                  [disabled]="actionState() === sponsorship.id + channel"
-                  (click)="createDraft(sponsorship, channel)"
+              @for (
+                space of publicationSpaces;
+                track space;
+                let index = $index
+              ) {
+                <a
+                  [routerLink]="[publicationPath, space]"
+                  [queryParams]="navigationParams()"
+                  data-og7="publication-space"
+                  [attr.data-og7-id]="space"
                 >
-                  {{ channelLabel(channel) }}
-                </button>
-              </nav>
-            </article>
-          </div>
-
-          <article
-            class="empty-state"
-            *ngIf="eligibleSponsorships().length === 0"
-          >
-            <h3>{{ 'admin.legacy.aucune_commandite_prete' | translate }}</h3>
-            <p>
-              {{
-                'admin.legacy.approuvez_une_commandite_et_ajoutez_une_cible_canal_feed'
-                  | translate
-              }}
-            </p>
-          </article>
+                  <span class="space-number" aria-hidden="true"
+                    >0{{ index + 1 }}</span
+                  >
+                  <div>
+                    <h2>
+                      {{
+                        'admin.publications.spaces.' + space + '.title'
+                          | translate
+                      }}
+                    </h2>
+                    <p>
+                      {{
+                        'admin.publications.spaces.' + space + '.help'
+                          | translate
+                      }}
+                    </p>
+                  </div>
+                  <span class="space-open"
+                    >{{
+                      'admin.publications.spaces.' + space + '.open' | translate
+                    }}
+                    <span aria-hidden="true">→</span></span
+                  >
+                </a>
+              }
+            </nav>
+            <openg7-admin-publication-queue
+              [batches]="batches()"
+              [drafts]="drafts()"
+              [slots]="slots()"
+              [state]="state()"
+              (openBatch)="focusBatch($event)"
+              (retry)="load()"
+            />
+          }
         </section>
+        <section
+          class="publication-view"
+          id="publication-panel-drafts"
+          aria-labelledby="publication-heading"
+          [hidden]="activeView() !== 'drafts'"
+        >
+          @if (activeView() === 'drafts') {
+            <section
+              class="filters"
+              [attr.aria-label]="
+                'admin.legacy.filtres_publications' | translate
+              "
+            >
+              <label>
+                {{ 'admin.legacy.recherche' | translate
+                }}<input
+                  type="search"
+                  [attr.placeholder]="
+                    'admin.legacy.entreprise_titre_texte' | translate
+                  "
+                  [value]="search()"
+                  (input)="setSearch($event)"
+                />
+              </label>
+              <label>
+                {{ 'admin.legacy.statut' | translate
+                }}<select
+                  [value]="statusFilter()"
+                  (change)="setStatusFilter($event)"
+                >
+                  <option value="active">
+                    {{ 'admin.publications.activeDrafts' | translate }}
+                  </option>
+                  <option value="all">
+                    {{ 'admin.legacy.tous' | translate }}
+                  </option>
+                  <option
+                    *ngFor="let status of publicationStatuses"
+                    [value]="status"
+                  >
+                    {{ statusLabel(status) }}
+                  </option>
+                </select>
+              </label>
+            </section>
 
-        <section class="admin-panel" aria-labelledby="calendar-title">
-          <header>
-            <div>
-              <span>{{
-                'admin.legacy.p0_creneau_x' | translate: { p0: slots().length }
-              }}</span>
-              <h2 id="calendar-title">
-                {{ 'admin.legacy.calendrier_de_publication' | translate }}
-              </h2>
-            </div>
-          </header>
-          <p>
-            {{
-              'admin.legacy.les_creneaux_fixent_la_cible_le_canal_l_horaire_local_et_la_capac'
-                | translate
-            }}
-          </p>
-
-          <form
-            class="slot-create-form"
-            (submit)="$event.preventDefault(); createSlot()"
-          >
-            <label>
-              {{ 'admin.legacy.cible' | translate
-              }}<select
-                [value]="newSlotFeedTarget()"
-                (change)="setNewSlotFeedTarget($event)"
-              >
-                <option value="openg7">OpenG7</option>
-                <option value="openg20">OpenG20</option>
-              </select>
-            </label>
-            <label>
-              {{ 'admin.legacy.canal' | translate
-              }}<select
-                [value]="newSlotChannel()"
-                (change)="setNewSlotChannel($event)"
-              >
-                <option value="facebook">Facebook</option>
-                <option value="linkedin">LinkedIn</option>
-              </select>
-            </label>
-            <label>
-              {{ 'admin.legacy.date_et_heure' | translate
-              }}<input
-                type="datetime-local"
-                [value]="newSlotStartsAt()"
-                (input)="setNewSlotStartsAt($event)"
-              />
-            </label>
-            <label>
-              {{ 'admin.legacy.fuseau' | translate
-              }}<input
-                type="text"
-                maxlength="64"
-                [value]="newSlotTimezone()"
-                (input)="setNewSlotTimezone($event)"
-              />
-            </label>
-            <label>
-              {{ 'admin.legacy.capacite' | translate
-              }}<input
-                type="number"
-                min="1"
-                max="50"
-                [value]="newSlotCapacity()"
-                (input)="setNewSlotCapacity($event)"
-              />
-            </label>
-            <label class="slot-notes-field">
-              {{ 'admin.legacy.notes' | translate
-              }}<input
-                type="text"
-                maxlength="500"
-                [value]="newSlotNotes()"
-                (input)="setNewSlotNotes($event)"
-              />
-            </label>
-            <button type="submit" [disabled]="slotActionState() === 'create'">
-              {{ 'admin.legacy.creer_un_creneau' | translate }}
-            </button>
-          </form>
-
-          <div class="slot-list" *ngIf="slots().length > 0">
-            <article
-              class="slot-card"
-              *ngFor="let slot of slots(); trackBy: trackBySlot"
-              [attr.id]="'attention-object-' + slot.id"
-              tabindex="-1"
+            <section
+              *ngIf="showEligible()"
+              class="admin-panel"
+              id="publication-eligible"
+              aria-labelledby="eligible-title"
             >
               <header>
                 <div>
-                  <span>{{ slotStatusLabel(slot.status) }}</span>
-                  <h3>
-                    {{ feedTargetName(slot.feedTarget) }} /
-                    {{ channelLabel(slot.channel) }}
-                  </h3>
+                  <span>{{
+                    'admin.legacy.p0_commandite_s'
+                      | translate: { p0: eligibleSponsorships().length }
+                  }}</span>
+                  <h2 id="eligible-title">
+                    {{ 'admin.legacy.commandites_pretes' | translate }}
+                  </h2>
                 </div>
-                <small>
-                  {{ dateLabel(slot.startsAt) }} - {{ slot.timezone }}
-                </small>
+                <button type="button" (click)="closePreparation()">
+                  {{ 'admin.publications.close' | translate }}
+                </button>
               </header>
 
-              <div class="slot-capacity">
-                <strong>{{ slot.capacityUsed }}/{{ slot.capacity }}</strong>
-                <span>{{
-                  'admin.legacy.p0_place_s_restante_s'
-                    | translate: { p0: slot.capacityAvailable }
-                }}</span>
+              <div
+                class="eligible-list"
+                *ngIf="eligibleSponsorships().length > 0"
+              >
+                <article
+                  *ngFor="
+                    let sponsorship of eligibleSponsorships();
+                    trackBy: trackBySponsor
+                  "
+                >
+                  <div>
+                    <strong>{{ sponsorship.sponsor_company_name }}</strong>
+                    <small>{{ feedTargetLabel(sponsorship) }}</small>
+                  </div>
+                  <nav>
+                    <button
+                      type="button"
+                      *ngFor="let channel of sponsorship.sponsor_feed_channels"
+                      [disabled]="actionState() === sponsorship.id + channel"
+                      (click)="createDraft(sponsorship, channel)"
+                    >
+                      {{ channelLabel(channel) }}
+                    </button>
+                  </nav>
+                </article>
               </div>
 
-              <div
-                class="slot-edit-grid"
-                *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
+              <article
+                class="empty-state"
+                *ngIf="eligibleSponsorships().length === 0"
               >
+                <h3>
+                  {{ 'admin.legacy.aucune_commandite_prete' | translate }}
+                </h3>
+                <p>
+                  {{
+                    'admin.legacy.approuvez_une_commandite_et_ajoutez_une_cible_canal_feed'
+                      | translate
+                  }}
+                </p>
+              </article>
+            </section>
+
+            <section
+              class="draft-list"
+              [attr.aria-label]="
+                'admin.legacy.brouillons_de_publication' | translate
+              "
+            >
+              <article
+                class="draft-card"
+                data-og7="publication-draft"
+                [attr.data-og7-id]="draft.id"
+                *ngFor="let draft of filteredDrafts(); trackBy: trackByDraft"
+                [attr.id]="'attention-object-' + draft.id"
+                tabindex="-1"
+              >
+                <header>
+                  <div>
+                    <span>{{ statusLabel(draft.status) }}</span>
+                    <h2>{{ draft.sponsor_company_name }}</h2>
+                    @if (dirtyDraftIds().has(draft.id)) {
+                      <small class="dirty-note">{{
+                        'admin.publications.unsaved' | translate
+                      }}</small>
+                    }
+                  </div>
+                  <small
+                    >{{ draft.feed_target }} /
+                    {{ channelLabel(draft.channel) }}</small
+                  >
+                  <button
+                    type="button"
+                    class="neutral"
+                    [attr.aria-expanded]="selectedDraftId() === draft.id"
+                    [attr.aria-controls]="'draft-editor-' + draft.id"
+                    (click)="
+                      selectedDraftId.set(
+                        selectedDraftId() === draft.id ? null : draft.id
+                      )
+                    "
+                  >
+                    {{
+                      (selectedDraftId() === draft.id
+                        ? 'admin.publications.close'
+                        : 'admin.publications.open'
+                      ) | translate
+                    }}
+                  </button>
+                </header>
+                @if (selectedDraftId() === draft.id) {
+                  <fieldset
+                    class="item-editor"
+                    [disabled]="!!actionState()"
+                    [attr.id]="'draft-editor-' + draft.id"
+                  >
+                    <label>
+                      {{ 'admin.legacy.titre' | translate
+                      }}<input
+                        type="text"
+                        maxlength="160"
+                        [value]="editFor(draft.id).title"
+                        (input)="setEditField(draft.id, 'title', $event)"
+                      />
+                    </label>
+
+                    <label>
+                      {{ 'admin.legacy.texte' | translate
+                      }}<textarea
+                        rows="8"
+                        maxlength="2500"
+                        [value]="editFor(draft.id).body"
+                        (input)="setEditField(draft.id, 'body', $event)"
+                      ></textarea>
+                    </label>
+
+                    <label>
+                      {{ 'admin.legacy.divulgation' | translate
+                      }}<input
+                        type="text"
+                        maxlength="300"
+                        [value]="editFor(draft.id).disclosureText"
+                        (input)="
+                          setEditField(draft.id, 'disclosureText', $event)
+                        "
+                      />
+                    </label>
+
+                    <details class="secondary-options">
+                      <summary>
+                        {{ 'admin.publications.draftOptions' | translate }}
+                      </summary>
+                      <div class="draft-grid">
+                        <label>
+                          {{ 'admin.legacy.url_publique' | translate
+                          }}<input
+                            type="url"
+                            maxlength="2048"
+                            [value]="editFor(draft.id).publicUrl"
+                            (input)="
+                              setEditField(draft.id, 'publicUrl', $event)
+                            "
+                          />
+                        </label>
+                        <label>
+                          {{ 'admin.legacy.planification' | translate
+                          }}<input
+                            type="datetime-local"
+                            [value]="editFor(draft.id).scheduledAt"
+                            (input)="
+                              setEditField(draft.id, 'scheduledAt', $event)
+                            "
+                          />
+                        </label>
+                      </div>
+
+                      <label>
+                        {{ 'admin.legacy.note_revue' | translate
+                        }}<textarea
+                          rows="3"
+                          maxlength="1000"
+                          [value]="editFor(draft.id).reviewNote"
+                          (input)="setEditField(draft.id, 'reviewNote', $event)"
+                        ></textarea>
+                      </label>
+                    </details>
+                    <div
+                      class="draft-batch-row"
+                      *ngIf="draft.status === 'approved' || draft.batch_id"
+                    >
+                      <ng-container *ngIf="!draft.batch_id">
+                        <label class="inline">
+                          {{ 'admin.legacy.lot' | translate
+                          }}<select
+                            [value]="draftBatchSelection(draft.id)"
+                            (change)="setDraftBatchSelection(draft.id, $event)"
+                          >
+                            <option value="">
+                              {{
+                                'admin.legacy.choisir_un_lot_ouvert' | translate
+                              }}
+                            </option>
+                            <option
+                              *ngFor="
+                                let batch of openBatchesForChannel(
+                                  draft.channel
+                                )
+                              "
+                              [value]="batch.id"
+                            >
+                              {{ channelLabel(batch.channel) }} ({{
+                                batch.capacityUsed
+                              }}/{{ batch.capacity }})
+                            </option>
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          class="neutral"
+                          [disabled]="
+                            !draftBatchSelection(draft.id) ||
+                            actionState() === draft.id
+                          "
+                          (click)="assignToBatch(draft)"
+                        >
+                          {{ 'admin.legacy.assigner_au_lot' | translate }}
+                        </button>
+                      </ng-container>
+                      <ng-container *ngIf="draft.batch_id as batchId">
+                        <span>{{
+                          'admin.legacy.dans_un_lot_p0'
+                            | translate
+                              : {
+                                  p0: batchStatusLabel(batchStatusById(batchId))
+                                }
+                        }}</span>
+                        <button
+                          type="button"
+                          class="reject"
+                          [disabled]="actionState() === draft.id"
+                          (click)="unassignFromBatch(draft)"
+                        >
+                          {{ 'admin.legacy.retirer_du_lot' | translate }}
+                        </button>
+                      </ng-container>
+                    </div>
+
+                    <footer>
+                      <button
+                        type="button"
+                        class="primary-action"
+                        (click)="saveDraft(draft)"
+                      >
+                        {{ 'admin.legacy.enregistrer' | translate }}
+                      </button>
+                      @if (draft.status === 'pending_review') {
+                        <button
+                          type="button"
+                          class="approve"
+                          (click)="saveDraft(draft, 'approved')"
+                        >
+                          {{ 'admin.legacy.approuver' | translate }}
+                        </button>
+                      } @else if (
+                        draft.status === 'draft' || draft.status === 'rejected'
+                      ) {
+                        <button
+                          type="button"
+                          (click)="saveDraft(draft, 'pending_review')"
+                        >
+                          {{ 'admin.publications.submitReview' | translate }}
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        class="neutral"
+                        (click)="copyDraft(draft)"
+                      >
+                        {{ 'admin.legacy.copier' | translate }}
+                      </button>
+                    </footer>
+                    <details class="secondary-options">
+                      <summary>
+                        {{ 'admin.publications.otherActions' | translate }}
+                      </summary>
+                      <div class="secondary-actions">
+                        <button
+                          *ngIf="
+                            draft.status !== 'draft' &&
+                            draft.status !== 'rejected' &&
+                            draft.status !== 'pending_review'
+                          "
+                          type="button"
+                          (click)="saveDraft(draft, 'pending_review')"
+                        >
+                          {{ 'admin.legacy.revue' | translate }}
+                        </button>
+                        <button
+                          *ngIf="
+                            draft.status !== 'pending_review' &&
+                            draft.status !== 'approved'
+                          "
+                          type="button"
+                          class="approve"
+                          (click)="saveDraft(draft, 'approved')"
+                        >
+                          {{ 'admin.legacy.approuver' | translate }}
+                        </button>
+                        <button
+                          *ngIf="draft.status !== 'scheduled'"
+                          type="button"
+                          class="neutral"
+                          (click)="saveDraft(draft, 'scheduled')"
+                        >
+                          {{ 'admin.legacy.planifier' | translate }}
+                        </button>
+                        <button
+                          *ngIf="draft.status !== 'published'"
+                          type="button"
+                          class="neutral"
+                          (click)="saveDraft(draft, 'published')"
+                        >
+                          {{ 'admin.publications.markPublished' | translate }}
+                        </button>
+                        <button
+                          *ngIf="draft.status !== 'rejected'"
+                          type="button"
+                          class="reject"
+                          (click)="saveDraft(draft, 'rejected')"
+                        >
+                          {{ 'admin.legacy.refuser' | translate }}
+                        </button>
+                      </div>
+                    </details>
+                  </fieldset>
+                }
+              </article>
+
+              <article
+                class="empty-state"
+                *ngIf="state() === 'ready' && filteredDrafts().length === 0"
+              >
+                <h3>{{ 'admin.legacy.aucun_brouillon_trouve' | translate }}</h3>
+                <p>
+                  {{
+                    'admin.legacy.generez_un_brouillon_ou_modifiez_les_filtres'
+                      | translate
+                  }}
+                </p>
+              </article>
+            </section>
+          }
+        </section>
+        <section
+          class="publication-view"
+          id="publication-panel-batches"
+          aria-labelledby="publication-heading"
+          [hidden]="activeView() !== 'batches'"
+        >
+          @if (activeView() === 'batches') {
+            <section class="admin-panel" aria-labelledby="batches-title">
+              <h2 class="visually-hidden" id="batches-title">
+                {{ 'admin.legacy.lots_de_publication_collective' | translate }}
+              </h2>
+              <form
+                class="batch-create-form"
+                id="new-batch-form"
+                *ngIf="newBatchOpen()"
+                (submit)="$event.preventDefault(); createBatch()"
+              >
+                <label>
+                  {{ 'admin.legacy.canal' | translate
+                  }}<select
+                    [value]="newBatchChannel()"
+                    (change)="setNewBatchChannel($event)"
+                  >
+                    <option value="facebook">Facebook</option>
+                    <option value="linkedin">LinkedIn</option>
+                  </select>
+                </label>
+                <label>
+                  {{ 'admin.legacy.capacite' | translate
+                  }}<input
+                    type="number"
+                    min="1"
+                    max="50"
+                    [value]="newBatchCapacity()"
+                    (input)="setNewBatchCapacity($event)"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  [disabled]="batchActionState() === 'create'"
+                >
+                  {{ 'admin.legacy.creer_un_lot' | translate }}
+                </button>
+              </form>
+              <label class="history-toggle"
+                ><input
+                  type="checkbox"
+                  [checked]="showBatchHistory()"
+                  (change)="showBatchHistory.set(!showBatchHistory())"
+                />{{ 'admin.publications.showHistory' | translate }}</label
+              >
+
+              <openg7-admin-publication-calendar
+                [entries]="batchCalendarEntries()"
+                [selectedId]="selectedBatchId()"
+                [state]="state()"
+                (openEntry)="selectedBatchId.set($event)"
+                (retry)="load()"
+              />
+              <openg7-admin-drawer
+                [opened]="!!selectedBatch()"
+                [title]="'admin.publicationCalendar.batchDetail' | translate"
+                [closeLabel]="'admin.publications.close' | translate"
+                [busy]="!!batchActionState()"
+                (closed)="selectedBatchId.set(null)"
+              >
+                @if (selectedBatch(); as batch) {
+                  @if (state() === 'error') {
+                    <p class="state-error" role="alert">
+                      {{
+                        'admin.legacy.impossible_de_charger_ou_modifier_les_publications'
+                          | translate
+                      }}
+                    </p>
+                  }
+                  <p>
+                    {{
+                      'admin.legacy.chaque_lot_regroupe_plusieurs_commandites_approuvees_dans_une_seu'
+                        | translate
+                    }}
+                  </p>
+                  <p class="social-runtime">
+                    {{
+                      'admin.legacy.api_sociale_p0_p1'
+                        | translate
+                          : {
+                              p0: socialPublicationModeLabel(),
+                              p1: socialPublicationConfiguredChannelsLabel()
+                            }
+                    }}
+                  </p>
+                  <article
+                    class="batch-card"
+                    data-og7="publication-batch"
+                    [attr.data-og7-id]="batch.id"
+                    [attr.id]="'attention-object-' + batch.id"
+                    tabindex="-1"
+                  >
+                    <header>
+                      <div>
+                        <span>{{ batchStatusLabel(batch.status) }}</span>
+                        <h3>
+                          {{ channelLabel(batch.channel) }} -
+                          {{ batch.capacityUsed }}/{{ batch.capacity }}
+                        </h3>
+                      </div>
+                      <small *ngIf="batch.scheduledAt">{{
+                        'admin.legacy.prochaine_disponibilite_p0'
+                          | translate: { p0: dateLabel(batch.scheduledAt) }
+                      }}</small>
+                    </header>
+                    @if (selectedBatchId() === batch.id) {
+                      <div
+                        class="item-editor"
+                        [attr.id]="'batch-editor-' + batch.id"
+                      >
+                        <div
+                          class="social-job"
+                          *ngIf="socialJobForBatch(batch.id) as job"
+                        >
+                          <div>
+                            <span>{{ socialJobStatusLabel(job.status) }}</span>
+                            <small>{{ job.provider }} / {{ job.mode }}</small>
+                          </div>
+                          <a
+                            *ngIf="job.externalPostUrl"
+                            [href]="job.externalPostUrl"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {{
+                              'admin.legacy.voir_la_publication' | translate
+                            }}</a
+                          >
+                          <small class="state-error" *ngIf="job.errorMessage">
+                            {{ job.errorMessage }}
+                          </small>
+                        </div>
+
+                        <div
+                          class="draft-grid"
+                          *ngIf="
+                            batch.status === 'open' ||
+                            batch.status === 'scheduled'
+                          "
+                        >
+                          <label>
+                            {{
+                              'admin.legacy.prochaine_disponibilite'
+                                | translate
+                            }}<input
+                              type="datetime-local"
+                              [value]="batchScheduleFor(batch.id)"
+                              (input)="setBatchSchedule(batch.id, $event)"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            class="neutral"
+                            [disabled]="
+                              !batchScheduleFor(batch.id) ||
+                              batchActionState() === batch.id
+                            "
+                            (click)="scheduleBatch(batch)"
+                          >
+                            {{ 'admin.legacy.planifier' | translate }}
+                          </button>
+                        </div>
+
+                        <footer>
+                          <button
+                            type="button"
+                            class="neutral"
+                            *ngIf="batch.status === 'scheduled'"
+                            [disabled]="
+                              !canPublishSocialBatch(batch) ||
+                              batchActionState() === 'social:' + batch.id
+                            "
+                            (click)="publishSocialBatch(batch)"
+                          >
+                            {{
+                              'admin.legacy.publier_via_api_sociale' | translate
+                            }}
+                          </button>
+                        </footer>
+                        <details class="secondary-options">
+                          <summary>
+                            {{ 'admin.publications.otherActions' | translate }}
+                          </summary>
+                          <div class="secondary-actions">
+                            <button
+                              type="button"
+                              class="approve"
+                              *ngIf="batch.status === 'scheduled'"
+                              [disabled]="batchActionState() === batch.id"
+                              (click)="publishBatch(batch)"
+                            >
+                              {{
+                                'admin.publications.markPublished' | translate
+                              }}
+                            </button>
+                            <button
+                              type="button"
+                              class="reject"
+                              *ngIf="
+                                batch.status === 'open' ||
+                                batch.status === 'scheduled'
+                              "
+                              [disabled]="batchActionState() === batch.id"
+                              (click)="cancelBatch(batch)"
+                            >
+                              {{ 'admin.legacy.annuler_le_lot' | translate }}
+                            </button>
+                          </div>
+                        </details>
+                      </div>
+                    }
+                  </article>
+                }
+              </openg7-admin-drawer>
+
+              <article
+                class="empty-state"
+                *ngIf="visibleBatches().length === 0"
+              >
+                <h3>{{ 'admin.legacy.aucun_lot' | translate }}</h3>
+                <p>
+                  {{
+                    'admin.legacy.creez_un_lot_pour_regrouper_plusieurs_commandites_approuvees_dans'
+                      | translate
+                  }}
+                </p>
+              </article>
+            </section>
+          }
+        </section>
+        <section
+          class="publication-view"
+          id="publication-panel-calendar"
+          aria-labelledby="publication-heading"
+          [hidden]="activeView() !== 'calendar'"
+        >
+          @if (activeView() === 'calendar') {
+            <section class="admin-panel" aria-labelledby="calendar-title">
+              <h2 class="visually-hidden" id="calendar-title">
+                {{ 'admin.legacy.calendrier_de_publication' | translate }}
+              </h2>
+              <form
+                class="slot-create-form"
+                id="new-slot-form"
+                *ngIf="newSlotOpen()"
+                (submit)="$event.preventDefault(); createSlot()"
+              >
+                <label>
+                  {{ 'admin.legacy.cible' | translate
+                  }}<select
+                    [value]="newSlotFeedTarget()"
+                    (change)="setNewSlotFeedTarget($event)"
+                  >
+                    <option value="openg7">OpenG7</option>
+                    <option value="openg20">OpenG20</option>
+                  </select>
+                </label>
+                <label>
+                  {{ 'admin.legacy.canal' | translate
+                  }}<select
+                    [value]="newSlotChannel()"
+                    (change)="setNewSlotChannel($event)"
+                  >
+                    <option value="facebook">Facebook</option>
+                    <option value="linkedin">LinkedIn</option>
+                  </select>
+                </label>
                 <label>
                   {{ 'admin.legacy.date_et_heure' | translate
                   }}<input
                     type="datetime-local"
-                    [value]="slotEditFor(slot.id).startsAt"
-                    (input)="setSlotEditField(slot.id, 'startsAt', $event)"
+                    [value]="newSlotStartsAt()"
+                    (input)="setNewSlotStartsAt($event)"
                   />
                 </label>
                 <label>
@@ -330,8 +937,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                   }}<input
                     type="text"
                     maxlength="64"
-                    [value]="slotEditFor(slot.id).timezone"
-                    (input)="setSlotEditField(slot.id, 'timezone', $event)"
+                    [value]="newSlotTimezone()"
+                    (input)="setNewSlotTimezone($event)"
                   />
                 </label>
                 <label>
@@ -340,510 +947,279 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                     type="number"
                     min="1"
                     max="50"
-                    [value]="slotEditFor(slot.id).capacity"
-                    (input)="setSlotEditField(slot.id, 'capacity', $event)"
+                    [value]="newSlotCapacity()"
+                    (input)="setNewSlotCapacity($event)"
                   />
                 </label>
-                <label>
+                <label class="slot-notes-field">
                   {{ 'admin.legacy.notes' | translate
                   }}<input
                     type="text"
                     maxlength="500"
-                    [value]="slotEditFor(slot.id).notes"
-                    (input)="setSlotEditField(slot.id, 'notes', $event)"
+                    [value]="newSlotNotes()"
+                    (input)="setNewSlotNotes($event)"
                   />
                 </label>
                 <button
-                  type="button"
-                  class="neutral"
-                  [disabled]="slotActionState() === slot.id"
-                  (click)="updateSlot(slot)"
+                  type="submit"
+                  [disabled]="slotActionState() === 'create'"
                 >
-                  {{ 'admin.legacy.mettre_a_jour' | translate }}
+                  {{ 'admin.legacy.creer_un_creneau' | translate }}
                 </button>
-              </div>
-
-              <div
-                class="draft-batch-row"
-                *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
+              </form>
+              <label class="history-toggle"
+                ><input
+                  type="checkbox"
+                  [checked]="showSlotHistory()"
+                  (change)="showSlotHistory.set(!showSlotHistory())"
+                />{{ 'admin.publications.showHistory' | translate }}</label
               >
-                <label class="inline">
-                  {{ 'admin.legacy.lot' | translate
-                  }}<select
-                    [value]="slotBatchSelection(slot.id)"
-                    (change)="setSlotBatchSelection(slot.id, $event)"
+
+              <openg7-admin-publication-calendar
+                [entries]="slotCalendarEntries()"
+                [selectedId]="selectedSlotId()"
+                [state]="state()"
+                (openEntry)="selectedSlotId.set($event)"
+                (retry)="load()"
+              />
+              <openg7-admin-drawer
+                [opened]="!!selectedSlot()"
+                [title]="'admin.publicationCalendar.slotDetail' | translate"
+                [closeLabel]="'admin.publications.close' | translate"
+                [busy]="!!slotActionState()"
+                (closed)="selectedSlotId.set(null)"
+              >
+                @if (selectedSlot(); as slot) {
+                  @if (state() === 'error') {
+                    <p class="state-error" role="alert">
+                      {{
+                        'admin.legacy.impossible_de_charger_ou_modifier_les_publications'
+                          | translate
+                      }}
+                    </p>
+                  }
+                  <p>
+                    {{
+                      'admin.legacy.les_creneaux_fixent_la_cible_le_canal_l_horaire_local_et_la_capac'
+                        | translate
+                    }}
+                  </p>
+                  <article
+                    class="slot-card"
+                    data-og7="publication-slot"
+                    [attr.data-og7-id]="slot.id"
+                    [attr.id]="'attention-object-' + slot.id"
+                    tabindex="-1"
                   >
-                    <option value="">
-                      {{ 'admin.legacy.choisir_un_lot_compatible' | translate }}
-                    </option>
-                    <option
-                      *ngFor="let batch of assignableBatchesForSlot(slot)"
-                      [value]="batch.id"
-                    >
-                      {{ channelLabel(batch.channel) }} ({{
-                        batch.capacityUsed
-                      }}/{{ batch.capacity }})
-                    </option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  class="neutral"
-                  [disabled]="
-                    !slotBatchSelection(slot.id) ||
-                    slotActionState() === slot.id
-                  "
-                  (click)="assignBatchToSlot(slot)"
-                >
-                  {{ 'admin.legacy.assigner_le_lot' | translate }}
-                </button>
-                <label class="inline">
-                  {{ 'admin.legacy.brouillon' | translate
-                  }}<select
-                    [value]="slotDraftSelection(slot.id)"
-                    (change)="setSlotDraftSelection(slot.id, $event)"
-                  >
-                    <option value="">
-                      {{ 'admin.legacy.choisir_un_brouillon' | translate }}
-                    </option>
-                    <option
-                      *ngFor="let draft of assignableDraftsForSlot(slot)"
-                      [value]="draft.id"
-                    >
-                      {{ draft.sponsor_company_name }}
-                    </option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  class="neutral"
-                  [disabled]="
-                    !slotDraftSelection(slot.id) ||
-                    slotActionState() === slot.id
-                  "
-                  (click)="assignDraftToSlot(slot)"
-                >
-                  {{ 'admin.legacy.assigner_brouillon' | translate }}
-                </button>
-              </div>
+                    <header>
+                      <div>
+                        <span>{{ slotStatusLabel(slot.status) }}</span>
+                        <h3>
+                          {{ feedTargetName(slot.feedTarget) }} /
+                          {{ channelLabel(slot.channel) }}
+                        </h3>
+                      </div>
+                      <small>
+                        {{ dateLabel(slot.startsAt, slot.timezone) }} -
+                        {{ slot.timezone }}
+                      </small>
+                    </header>
+                    @if (selectedSlotId() === slot.id) {
+                      <div
+                        class="item-editor"
+                        [attr.id]="'slot-editor-' + slot.id"
+                      >
+                        <div class="slot-capacity">
+                          <strong
+                            >{{ slot.capacityUsed }}/{{ slot.capacity }}</strong
+                          >
+                          <span>{{
+                            'admin.legacy.p0_place_s_restante_s'
+                              | translate: { p0: slot.capacityAvailable }
+                          }}</span>
+                        </div>
 
-              <footer>
-                <button
-                  type="button"
-                  class="approve"
-                  *ngIf="slot.status === 'scheduled'"
-                  [disabled]="
-                    slot.capacityUsed === 0 || slotActionState() === slot.id
-                  "
-                  (click)="publishSlot(slot)"
-                >
-                  {{ 'admin.legacy.publier_le_creneau' | translate }}
-                </button>
-                <button
-                  type="button"
-                  class="reject"
-                  *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
-                  [disabled]="slotActionState() === slot.id"
-                  (click)="cancelSlot(slot)"
-                >
-                  {{ 'admin.legacy.annuler_le_creneau' | translate }}
-                </button>
-              </footer>
-            </article>
-          </div>
+                        <div
+                          class="slot-edit-grid"
+                          *ngIf="
+                            slot.status === 'open' ||
+                            slot.status === 'scheduled'
+                          "
+                        >
+                          <label>
+                            {{ 'admin.legacy.date_et_heure' | translate
+                            }}<input
+                              type="datetime-local"
+                              [value]="slotEditFor(slot.id).startsAt"
+                              (input)="
+                                setSlotEditField(slot.id, 'startsAt', $event)
+                              "
+                            />
+                          </label>
+                          <label>
+                            {{ 'admin.legacy.fuseau' | translate
+                            }}<input
+                              type="text"
+                              maxlength="64"
+                              [value]="slotEditFor(slot.id).timezone"
+                              (input)="
+                                setSlotEditField(slot.id, 'timezone', $event)
+                              "
+                            />
+                          </label>
+                          <label>
+                            {{ 'admin.legacy.capacite' | translate
+                            }}<input
+                              type="number"
+                              min="1"
+                              max="50"
+                              [value]="slotEditFor(slot.id).capacity"
+                              (input)="
+                                setSlotEditField(slot.id, 'capacity', $event)
+                              "
+                            />
+                          </label>
+                          <label>
+                            {{ 'admin.legacy.notes' | translate
+                            }}<input
+                              type="text"
+                              maxlength="500"
+                              [value]="slotEditFor(slot.id).notes"
+                              (input)="
+                                setSlotEditField(slot.id, 'notes', $event)
+                              "
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            class="neutral"
+                            [disabled]="slotActionState() === slot.id"
+                            (click)="updateSlot(slot)"
+                          >
+                            {{ 'admin.legacy.mettre_a_jour' | translate }}
+                          </button>
+                        </div>
 
-          <article class="empty-state" *ngIf="slots().length === 0">
-            <h3>{{ 'admin.legacy.aucun_creneau' | translate }}</h3>
-            <p>
-              {{
-                'admin.legacy.creez_plusieurs_creneaux_futurs_par_canal_pour_organiser_les_publ'
-                  | translate
-              }}
-            </p>
-          </article>
-        </section>
+                        <div
+                          class="draft-batch-row"
+                          *ngIf="
+                            slot.status === 'open' ||
+                            slot.status === 'scheduled'
+                          "
+                        >
+                          <label class="inline">
+                            {{ 'admin.legacy.lot' | translate
+                            }}<select
+                              [value]="slotBatchSelection(slot.id)"
+                              (change)="setSlotBatchSelection(slot.id, $event)"
+                            >
+                              <option value="">
+                                {{
+                                  'admin.legacy.choisir_un_lot_compatible'
+                                    | translate
+                                }}
+                              </option>
+                              <option
+                                *ngFor="
+                                  let batch of assignableBatchesForSlot(slot)
+                                "
+                                [value]="batch.id"
+                              >
+                                {{ channelLabel(batch.channel) }} ({{
+                                  batch.capacityUsed
+                                }}/{{ batch.capacity }})
+                              </option>
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            class="neutral"
+                            [disabled]="
+                              !slotBatchSelection(slot.id) ||
+                              slotActionState() === slot.id
+                            "
+                            (click)="assignBatchToSlot(slot)"
+                          >
+                            {{ 'admin.legacy.assigner_le_lot' | translate }}
+                          </button>
+                          <label class="inline">
+                            {{ 'admin.legacy.brouillon' | translate
+                            }}<select
+                              [value]="slotDraftSelection(slot.id)"
+                              (change)="setSlotDraftSelection(slot.id, $event)"
+                            >
+                              <option value="">
+                                {{
+                                  'admin.legacy.choisir_un_brouillon'
+                                    | translate
+                                }}
+                              </option>
+                              <option
+                                *ngFor="
+                                  let draft of assignableDraftsForSlot(slot)
+                                "
+                                [value]="draft.id"
+                              >
+                                {{ draft.sponsor_company_name }}
+                              </option>
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            class="neutral"
+                            [disabled]="
+                              !slotDraftSelection(slot.id) ||
+                              slotActionState() === slot.id
+                            "
+                            (click)="assignDraftToSlot(slot)"
+                          >
+                            {{ 'admin.legacy.assigner_brouillon' | translate }}
+                          </button>
+                        </div>
 
-        <section class="admin-panel" aria-labelledby="batches-title">
-          <header>
-            <div>
-              <span>{{
-                'admin.legacy.p0_lot_s' | translate: { p0: batches().length }
-              }}</span>
-              <h2 id="batches-title">
-                {{ 'admin.legacy.lots_de_publication_collective' | translate }}
-              </h2>
-            </div>
-          </header>
-          <p>
-            {{
-              'admin.legacy.chaque_lot_regroupe_plusieurs_commandites_approuvees_dans_une_seu'
-                | translate
-            }}
-          </p>
-          <p class="social-runtime">
-            {{
-              'admin.legacy.api_sociale_p0_p1'
-                | translate
-                  : {
-                      p0: socialPublicationModeLabel(),
-                      p1: socialPublicationConfiguredChannelsLabel()
+                        <footer>
+                          <button
+                            type="button"
+                            class="approve"
+                            *ngIf="slot.status === 'scheduled'"
+                            [disabled]="
+                              slot.capacityUsed === 0 ||
+                              slotActionState() === slot.id
+                            "
+                            (click)="publishSlot(slot)"
+                          >
+                            {{ 'admin.publications.markPublished' | translate }}
+                          </button>
+                          <button
+                            type="button"
+                            class="reject"
+                            *ngIf="
+                              slot.status === 'open' ||
+                              slot.status === 'scheduled'
+                            "
+                            [disabled]="slotActionState() === slot.id"
+                            (click)="cancelSlot(slot)"
+                          >
+                            {{ 'admin.legacy.annuler_le_creneau' | translate }}
+                          </button>
+                        </footer>
+                      </div>
                     }
-            }}
-          </p>
+                  </article>
+                }
+              </openg7-admin-drawer>
 
-          <form
-            class="batch-create-form"
-            (submit)="$event.preventDefault(); createBatch()"
-          >
-            <label>
-              {{ 'admin.legacy.canal' | translate
-              }}<select
-                [value]="newBatchChannel()"
-                (change)="setNewBatchChannel($event)"
-              >
-                <option value="facebook">Facebook</option>
-                <option value="linkedin">LinkedIn</option>
-              </select>
-            </label>
-            <label>
-              {{ 'admin.legacy.capacite' | translate
-              }}<input
-                type="number"
-                min="1"
-                max="50"
-                [value]="newBatchCapacity()"
-                (input)="setNewBatchCapacity($event)"
-              />
-            </label>
-            <button type="submit" [disabled]="batchActionState() === 'create'">
-              {{ 'admin.legacy.creer_un_lot' | translate }}
-            </button>
-          </form>
-
-          <div class="batch-timeline" *ngIf="batches().length > 0">
-            <section
-              class="batch-timeline-channel"
-              *ngFor="let channel of batchChannels"
-            >
-              <h3
-                class="batch-timeline-heading"
-                *ngIf="batchesForChannel(channel).length > 0"
-              >
-                {{ channelLabel(channel) }}
-              </h3>
-              <div class="batch-list">
-                <article
-                  class="batch-card"
-                  [attr.id]="'attention-object-' + batch.id"
-                  tabindex="-1"
-                  *ngFor="
-                    let batch of batchesForChannel(channel);
-                    trackBy: trackByBatch
-                  "
-                >
-                  <header>
-                    <div>
-                      <span>{{ batchStatusLabel(batch.status) }}</span>
-                      <h3>
-                        {{ channelLabel(batch.channel) }} -
-                        {{ batch.capacityUsed }}/{{ batch.capacity }}
-                      </h3>
-                    </div>
-                    <small *ngIf="batch.scheduledAt">{{
-                      'admin.legacy.prochaine_disponibilite_p0'
-                        | translate: { p0: dateLabel(batch.scheduledAt) }
-                    }}</small>
-                  </header>
-
-                  <div
-                    class="social-job"
-                    *ngIf="socialJobForBatch(batch.id) as job"
-                  >
-                    <div>
-                      <span>{{ socialJobStatusLabel(job.status) }}</span>
-                      <small>{{ job.provider }} / {{ job.mode }}</small>
-                    </div>
-                    <a
-                      *ngIf="job.externalPostUrl"
-                      [href]="job.externalPostUrl"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {{ 'admin.legacy.voir_la_publication' | translate }}</a
-                    >
-                    <small class="state-error" *ngIf="job.errorMessage">
-                      {{ job.errorMessage }}
-                    </small>
-                  </div>
-
-                  <div
-                    class="draft-grid"
-                    *ngIf="
-                      batch.status === 'open' || batch.status === 'scheduled'
-                    "
-                  >
-                    <label>
-                      {{ 'admin.legacy.prochaine_disponibilite' | translate
-                      }}<input
-                        type="datetime-local"
-                        [value]="batchScheduleFor(batch.id)"
-                        (input)="setBatchSchedule(batch.id, $event)"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      class="neutral"
-                      [disabled]="
-                        !batchScheduleFor(batch.id) ||
-                        batchActionState() === batch.id
-                      "
-                      (click)="scheduleBatch(batch)"
-                    >
-                      {{ 'admin.legacy.planifier' | translate }}
-                    </button>
-                  </div>
-
-                  <footer>
-                    <button
-                      type="button"
-                      class="neutral"
-                      *ngIf="batch.status === 'scheduled'"
-                      [disabled]="
-                        !canPublishSocialBatch(batch) ||
-                        batchActionState() === 'social:' + batch.id
-                      "
-                      (click)="publishSocialBatch(batch)"
-                    >
-                      {{ 'admin.legacy.publier_via_api_sociale' | translate }}
-                    </button>
-                    <button
-                      type="button"
-                      class="approve"
-                      *ngIf="batch.status === 'scheduled'"
-                      [disabled]="batchActionState() === batch.id"
-                      (click)="publishBatch(batch)"
-                    >
-                      {{ 'admin.legacy.publier_maintenant' | translate }}
-                    </button>
-                    <button
-                      type="button"
-                      class="reject"
-                      *ngIf="
-                        batch.status === 'open' || batch.status === 'scheduled'
-                      "
-                      [disabled]="batchActionState() === batch.id"
-                      (click)="cancelBatch(batch)"
-                    >
-                      {{ 'admin.legacy.annuler_le_lot' | translate }}
-                    </button>
-                  </footer>
-                </article>
-              </div>
+              <article class="empty-state" *ngIf="visibleSlots().length === 0">
+                <h3>{{ 'admin.legacy.aucun_creneau' | translate }}</h3>
+                <p>
+                  {{
+                    'admin.legacy.creez_plusieurs_creneaux_futurs_par_canal_pour_organiser_les_publ'
+                      | translate
+                  }}
+                </p>
+              </article>
             </section>
-          </div>
-
-          <article class="empty-state" *ngIf="batches().length === 0">
-            <h3>{{ 'admin.legacy.aucun_lot' | translate }}</h3>
-            <p>
-              {{
-                'admin.legacy.creez_un_lot_pour_regrouper_plusieurs_commandites_approuvees_dans'
-                  | translate
-              }}
-            </p>
-          </article>
-        </section>
-
-        <section
-          class="draft-list"
-          [attr.aria-label]="
-            'admin.legacy.brouillons_de_publication' | translate
-          "
-        >
-          <article
-            class="draft-card"
-            *ngFor="let draft of filteredDrafts(); trackBy: trackByDraft"
-            [attr.id]="'attention-object-' + draft.id"
-            tabindex="-1"
-          >
-            <header>
-              <div>
-                <span>{{ statusLabel(draft.status) }}</span>
-                <h2>{{ draft.sponsor_company_name }}</h2>
-              </div>
-              <small
-                >{{ draft.feed_target }} /
-                {{ channelLabel(draft.channel) }}</small
-              >
-            </header>
-
-            <label>
-              {{ 'admin.legacy.titre' | translate
-              }}<input
-                type="text"
-                maxlength="160"
-                [value]="editFor(draft.id).title"
-                (input)="setEditField(draft.id, 'title', $event)"
-              />
-            </label>
-
-            <label>
-              {{ 'admin.legacy.texte' | translate
-              }}<textarea
-                rows="8"
-                maxlength="2500"
-                [value]="editFor(draft.id).body"
-                (input)="setEditField(draft.id, 'body', $event)"
-              ></textarea>
-            </label>
-
-            <label>
-              {{ 'admin.legacy.divulgation' | translate
-              }}<input
-                type="text"
-                maxlength="300"
-                [value]="editFor(draft.id).disclosureText"
-                (input)="setEditField(draft.id, 'disclosureText', $event)"
-              />
-            </label>
-
-            <div class="draft-grid">
-              <label>
-                {{ 'admin.legacy.url_publique' | translate
-                }}<input
-                  type="url"
-                  maxlength="2048"
-                  [value]="editFor(draft.id).publicUrl"
-                  (input)="setEditField(draft.id, 'publicUrl', $event)"
-                />
-              </label>
-              <label>
-                {{ 'admin.legacy.planification' | translate
-                }}<input
-                  type="datetime-local"
-                  [value]="editFor(draft.id).scheduledAt"
-                  (input)="setEditField(draft.id, 'scheduledAt', $event)"
-                />
-              </label>
-            </div>
-
-            <label>
-              {{ 'admin.legacy.note_revue' | translate
-              }}<textarea
-                rows="3"
-                maxlength="1000"
-                [value]="editFor(draft.id).reviewNote"
-                (input)="setEditField(draft.id, 'reviewNote', $event)"
-              ></textarea>
-            </label>
-
-            <div
-              class="draft-batch-row"
-              *ngIf="draft.status === 'approved' || draft.batch_id"
-            >
-              <ng-container *ngIf="!draft.batch_id">
-                <label class="inline">
-                  {{ 'admin.legacy.lot' | translate
-                  }}<select
-                    [value]="draftBatchSelection(draft.id)"
-                    (change)="setDraftBatchSelection(draft.id, $event)"
-                  >
-                    <option value="">
-                      {{ 'admin.legacy.choisir_un_lot_ouvert' | translate }}
-                    </option>
-                    <option
-                      *ngFor="let batch of openBatchesForChannel(draft.channel)"
-                      [value]="batch.id"
-                    >
-                      {{ channelLabel(batch.channel) }} ({{
-                        batch.capacityUsed
-                      }}/{{ batch.capacity }})
-                    </option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  class="neutral"
-                  [disabled]="
-                    !draftBatchSelection(draft.id) || actionState() === draft.id
-                  "
-                  (click)="assignToBatch(draft)"
-                >
-                  {{ 'admin.legacy.assigner_au_lot' | translate }}
-                </button>
-              </ng-container>
-              <ng-container *ngIf="draft.batch_id as batchId">
-                <span>{{
-                  'admin.legacy.dans_un_lot_p0'
-                    | translate
-                      : { p0: batchStatusLabel(batchStatusById(batchId)) }
-                }}</span>
-                <button
-                  type="button"
-                  class="reject"
-                  [disabled]="actionState() === draft.id"
-                  (click)="unassignFromBatch(draft)"
-                >
-                  {{ 'admin.legacy.retirer_du_lot' | translate }}
-                </button>
-              </ng-container>
-            </div>
-
-            <footer>
-              <button type="button" (click)="copyDraft(draft)">
-                {{ 'admin.legacy.copier' | translate }}
-              </button>
-              <button type="button" (click)="saveDraft(draft)">
-                {{ 'admin.legacy.enregistrer' | translate }}
-              </button>
-              <button
-                type="button"
-                (click)="saveDraft(draft, 'pending_review')"
-              >
-                {{ 'admin.legacy.revue' | translate }}
-              </button>
-              <button
-                type="button"
-                class="approve"
-                (click)="saveDraft(draft, 'approved')"
-              >
-                {{ 'admin.legacy.approuver' | translate }}
-              </button>
-              <button
-                type="button"
-                class="neutral"
-                (click)="saveDraft(draft, 'scheduled')"
-              >
-                {{ 'admin.legacy.planifier' | translate }}
-              </button>
-              <button
-                type="button"
-                class="approve"
-                (click)="saveDraft(draft, 'published')"
-              >
-                {{ 'admin.legacy.publiee' | translate }}
-              </button>
-              <button
-                type="button"
-                class="reject"
-                (click)="saveDraft(draft, 'rejected')"
-              >
-                {{ 'admin.legacy.refuser' | translate }}
-              </button>
-            </footer>
-          </article>
-
-          <article
-            class="empty-state"
-            *ngIf="state() === 'ready' && filteredDrafts().length === 0"
-          >
-            <h3>{{ 'admin.legacy.aucun_brouillon_trouve' | translate }}</h3>
-            <p>
-              {{
-                'admin.legacy.generez_un_brouillon_ou_modifiez_les_filtres'
-                  | translate
-              }}
-            </p>
-          </article>
+          }
         </section>
       </section>
     </openg7-admin-layout>
@@ -857,8 +1233,185 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
     `
       .admin-content {
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         gap: 1rem;
         min-width: 0;
+      }
+
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      .publication-view[hidden] {
+        display: none;
+      }
+
+      .publication-view,
+      .item-editor {
+        display: grid;
+        gap: 1rem;
+        min-width: 0;
+      }
+
+      .publication-breadcrumb,
+      .publication-spaces,
+      .action-notice {
+        width: 100%;
+        max-width: 78rem;
+        margin: 0 auto;
+      }
+
+      .header-actions,
+      .secondary-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .publication-breadcrumb a {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.75rem;
+        color: var(--admin-gold);
+        text-decoration: none;
+      }
+
+      .publication-breadcrumb a:hover {
+        text-decoration: underline;
+      }
+
+      .page-help {
+        color: var(--admin-muted);
+        font-size: 0.9rem;
+        margin: 0.5rem 0 0;
+      }
+
+      .publication-spaces {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+
+      .publication-spaces a {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 1rem;
+        padding: 1.25rem;
+        border: 1px solid var(--admin-border);
+        border-radius: 0.75rem;
+        background: var(--admin-panel);
+        color: var(--admin-text);
+        text-decoration: none;
+      }
+
+      .publication-spaces a:hover {
+        border-color: var(--admin-gold);
+      }
+
+      .publication-spaces a:focus-visible,
+      .publication-breadcrumb a:focus-visible {
+        outline: 3px solid var(--admin-focus);
+        outline-offset: 4px;
+      }
+
+      .publication-spaces h2 {
+        margin: 0;
+        font-size: 1.15rem;
+      }
+
+      .publication-spaces p {
+        margin: 0.5rem 0 0;
+        color: var(--admin-muted);
+        line-height: 1.5;
+      }
+
+      .space-number {
+        color: var(--admin-gold);
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+      }
+
+      .space-open {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        color: var(--admin-gold);
+        font-weight: 600;
+      }
+
+      .item-editor {
+        border: 0;
+        border-top: 1px solid var(--admin-border);
+        margin: 0;
+        padding: 1rem 0 0;
+      }
+
+      .secondary-options {
+        border: 1px solid var(--admin-border);
+        border-radius: 0.4rem;
+        padding: 0.75rem;
+      }
+
+      .secondary-options summary {
+        cursor: pointer;
+        font-weight: 600;
+        min-height: 2rem;
+      }
+
+      .secondary-options[open] > :not(summary) {
+        margin-top: 0.75rem;
+      }
+
+      .secondary-options summary:focus-visible {
+        outline: 3px solid var(--admin-focus);
+        outline-offset: 3px;
+      }
+
+      .history-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+      }
+
+      .action-notice {
+        color: var(--admin-success);
+      }
+
+      .action-notice:empty {
+        display: none;
+      }
+
+      .dirty-note {
+        color: var(--admin-warning);
+      }
+
+      @media (max-width: 700px) {
+        .publication-spaces {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .publication-spaces a {
+          grid-template-columns: auto minmax(0, 1fr);
+          grid-template-rows: auto auto;
+          gap: 0.65rem 1rem;
+          padding: 1rem;
+        }
+        .space-open {
+          grid-column: 2;
+        }
+      }
+
+      .batch-card:focus {
+        outline: 3px solid var(--admin-focus);
+        outline-offset: 4px;
       }
 
       .admin-topbar,
@@ -1061,31 +1614,6 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         min-width: 0;
       }
 
-      .batch-timeline {
-        display: grid;
-        gap: 1rem;
-      }
-
-      .batch-timeline-heading {
-        color: var(--admin-muted);
-        font-size: 0.78rem;
-        font-weight: 900;
-        letter-spacing: 0;
-        margin: 0 0 0.5rem;
-        text-transform: uppercase;
-      }
-
-      .batch-list {
-        display: grid;
-        gap: 0.75rem;
-      }
-
-      .slot-list {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
-      }
-
       .batch-card {
         background: var(--admin-panel-raised);
         border: 1px solid var(--admin-border);
@@ -1188,7 +1716,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
       label.inline {
         margin: 0;
-        min-width: 14rem;
+        min-width: min(14rem, 100%);
       }
 
       .state-error {
@@ -1202,9 +1730,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         .admin-summary-grid,
         .filters,
         .draft-grid,
+        .batch-create-form,
         .slot-create-form,
         .slot-edit-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
         }
 
         .admin-topbar,
@@ -1224,10 +1753,26 @@ export class AdminPublicationsPageComponent implements OnInit {
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly document = inject(DOCUMENT);
   private readonly injector = inject(Injector);
   private readonly destroy = inject(DestroyRef);
   private loadGeneration = 0;
+  readonly publicationPath = '/admin/fundraiser/publications';
+  readonly publicationSpaces = ['drafts', 'batches', 'calendar'] as const;
+  readonly navigationParams = signal<Record<string, string>>({});
+  readonly activeView = signal<PublicationView>('overview');
+  readonly selectedDraftId = signal<string | null>(null);
+  readonly selectedBatchId = signal<string | null>(null);
+  readonly selectedSlotId = signal<string | null>(null);
+  readonly showEligible = signal(false);
+  readonly newBatchOpen = signal(false);
+  readonly newSlotOpen = signal(false);
+  readonly showBatchHistory = signal(false);
+  readonly showSlotHistory = signal(false);
+  readonly dirtyDraftIds = signal<ReadonlySet<string>>(new Set());
+  readonly dirtySlotIds = signal<ReadonlySet<string>>(new Set());
+  readonly notice = signal('');
   private readonly target = signal<string | null>(null);
   get targetId(): string | null {
     return this.target();
@@ -1251,7 +1796,9 @@ export class AdminPublicationsPageComponent implements OnInit {
   readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   readonly actionState = signal<string | null>(null);
   readonly search = signal<string>('');
-  readonly statusFilter = signal<'all' | PublicationDraftStatus>('all');
+  readonly statusFilter = signal<'active' | 'all' | PublicationDraftStatus>(
+    'active'
+  );
 
   readonly batchesResponse = signal<AdminPublicationBatchesResponse | null>(
     null
@@ -1278,6 +1825,55 @@ export class AdminPublicationsPageComponent implements OnInit {
   readonly drafts = computed(() => this.draftsResponse()?.drafts ?? []);
   readonly batches = computed(() => this.batchesResponse()?.batches ?? []);
   readonly slots = computed(() => this.slotsResponse()?.slots ?? []);
+  readonly selectedBatch = computed(
+    () =>
+      this.batches().find((batch) => batch.id === this.selectedBatchId()) ??
+      null
+  );
+  readonly selectedSlot = computed(
+    () => this.slots().find((slot) => slot.id === this.selectedSlotId()) ?? null
+  );
+  readonly batchCalendarEntries = computed<readonly PublicationCalendarEntry[]>(
+    () =>
+      this.visibleBatches().map((batch) => ({
+        id: batch.id,
+        channel: batch.channel,
+        status: batch.status,
+        startsAt: batch.scheduledAt ?? batch.publishedAt,
+        capacity: batch.capacity,
+        capacityUsed: batch.capacityUsed
+      }))
+  );
+  readonly slotCalendarEntries = computed<readonly PublicationCalendarEntry[]>(
+    () =>
+      this.visibleSlots().map((slot) => ({
+        id: slot.id,
+        channel: slot.channel,
+        status: slot.status,
+        startsAt: slot.startsAt,
+        capacity: slot.capacity,
+        capacityUsed: slot.capacityUsed,
+        target: this.feedTargetName(slot.feedTarget)
+      }))
+  );
+  readonly visibleBatches = computed(() =>
+    this.batches().filter(
+      (batch) =>
+        this.showBatchHistory() ||
+        batch.status === 'open' ||
+        batch.status === 'scheduled' ||
+        batch.id === this.selectedBatchId()
+    )
+  );
+  readonly visibleSlots = computed(() =>
+    this.slots().filter(
+      (slot) =>
+        this.showSlotHistory() ||
+        slot.status === 'open' ||
+        slot.status === 'scheduled' ||
+        slot.id === this.selectedSlotId()
+    )
+  );
   readonly socialJobs = computed(() => this.socialJobsResponse()?.jobs ?? []);
   readonly socialJobByBatchId = computed(() => {
     const jobs = new Map<string, AdminSocialPublicationJobRecord>();
@@ -1314,39 +1910,78 @@ export class AdminPublicationsPageComponent implements OnInit {
 
       return (
         (!search || searchable.includes(search)) &&
-        (status === 'all' || draft.status === status)
+        (status === 'all' ||
+          (status === 'active' &&
+            draft.status !== 'published' &&
+            draft.status !== 'cancelled') ||
+          draft.status === status ||
+          draft.id === this.selectedDraftId())
       );
     });
   });
-  readonly draftCount = computed(
-    () => this.drafts().filter((draft) => draft.status === 'draft').length
-  );
-  readonly pendingCount = computed(
-    () =>
-      this.drafts().filter((draft) => draft.status === 'pending_review').length
-  );
-  readonly approvedCount = computed(
-    () => this.drafts().filter((draft) => draft.status === 'approved').length
-  );
-  readonly publishedCount = computed(
-    () => this.drafts().filter((draft) => draft.status === 'published').length
-  );
-
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
     this.destroy.onDestroy(() => this.loadGeneration++);
-    this.route.queryParamMap
-      .pipe(takeUntilDestroyed(this.destroy))
-      .subscribe((params) => {
-        this.target.set(
-          params.get('slotId') || params.get('batchId') || params.get('draftId')
+    // Read both path and query parameters after a completed navigation so a
+    // history traversal cannot briefly apply parameters from two different URLs.
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        startWith(null),
+        map(() => this.router.url),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroy)
+      )
+      .subscribe(() => {
+        const params = this.route.snapshot.queryParamMap;
+        const view = (this.route.snapshot.paramMap.get('workspace') ??
+          'overview') as PublicationView;
+        const targetView = params.has('slotId')
+          ? 'calendar'
+          : params.has('batchId')
+            ? 'batches'
+            : params.has('draftId')
+              ? 'drafts'
+              : null;
+        // Existing attention and search links continue to open the right page.
+        if (targetView && view !== targetView) {
+          void this.router.navigate([this.publicationPath, targetView], {
+            queryParams: this.route.snapshot.queryParams,
+            replaceUrl: true
+          });
+          return;
+        }
+        const previousView = this.activeView();
+        const previousTarget = this.target();
+        const target =
+          params.get('slotId') ||
+          params.get('batchId') ||
+          params.get('draftId');
+        this.target.set(target);
+        this.activeView.set(view);
+        this.navigationParams.set(
+          params.has('returnTo') ? { returnTo: params.get('returnTo')! } : {}
         );
-        this.search.set('');
-        this.statusFilter.set('all');
-        this.draftsResponse.set(null);
-        this.batchesResponse.set(null);
-        this.slotsResponse.set(null);
-        void this.load();
+        if (params.has('slotId')) this.selectedSlotId.set(params.get('slotId'));
+        if (params.has('batchId'))
+          this.selectedBatchId.set(params.get('batchId'));
+        if (params.has('draftId')) {
+          this.selectedDraftId.set(params.get('draftId'));
+          this.search.set('');
+          this.statusFilter.set('all');
+        }
+        if (previousView !== view) this.notice.set('');
+        if (this.state() === 'idle' || previousTarget !== target) {
+          void this.load();
+        } else if (target) {
+          this.focusObject(target);
+        }
+        if (!target && previousView !== view) {
+          afterNextRender(
+            () => this.document.getElementById('publication-heading')?.focus(),
+            { injector: this.injector }
+          );
+        }
       });
   }
 
@@ -1377,14 +2012,24 @@ export class AdminPublicationsPageComponent implements OnInit {
       this.draftsResponse.set(drafts);
       this.draftEdits.set(
         Object.fromEntries(
-          drafts.drafts.map((draft) => [draft.id, this.toEdit(draft)])
+          drafts.drafts.map((draft) => [
+            draft.id,
+            this.dirtyDraftIds().has(draft.id)
+              ? (this.draftEdits()[draft.id] ?? this.toEdit(draft))
+              : this.toEdit(draft)
+          ])
         )
       );
       this.batchesResponse.set(batches);
       this.slotsResponse.set(slots);
       this.slotEdits.set(
         Object.fromEntries(
-          slots.slots.map((slot) => [slot.id, this.toSlotEdit(slot)])
+          slots.slots.map((slot) => [
+            slot.id,
+            this.dirtySlotIds().has(slot.id)
+              ? (this.slotEdits()[slot.id] ?? this.toSlotEdit(slot))
+              : this.toSlotEdit(slot)
+          ])
         )
       );
       this.socialJobsResponse.set(socialJobs);
@@ -1418,17 +2063,57 @@ export class AdminPublicationsPageComponent implements OnInit {
 
     this.actionState.set(sponsorship.id + channel);
     try {
-      await this.admin.createPublicationDraft(this.adminToken(), {
-        contributionId: sponsorship.id,
-        feedTarget: sponsorship.sponsor_feed_target,
-        channel
-      });
+      const result = await this.admin.createPublicationDraft(
+        this.adminToken(),
+        {
+          contributionId: sponsorship.id,
+          feedTarget: sponsorship.sponsor_feed_target,
+          channel
+        }
+      );
       await this.load();
+      if (result.draft) {
+        this.showEligible.set(false);
+        this.selectedDraftId.set(result.draft.id);
+        this.statusFilter.set('all');
+        this.focusObject(result.draft.id);
+      }
     } catch {
       this.state.set('error');
     } finally {
       this.actionState.set(null);
     }
+  }
+
+  async focusBatch(batchId: string): Promise<void> {
+    if (
+      !(await this.router.navigate([this.publicationPath, 'batches'], {
+        queryParams: this.navigationParams()
+      }))
+    )
+      return;
+    this.selectedBatchId.set(batchId);
+    this.focusObject(batchId);
+  }
+
+  private focusObject(id: string): void {
+    afterNextRender(
+      () => {
+        const target = this.document.getElementById('attention-object-' + id);
+        target?.focus({ preventScroll: true });
+        target?.scrollIntoView({ block: 'center' });
+      },
+      { injector: this.injector }
+    );
+  }
+
+  prepareDraft(): void {
+    this.showEligible.set(true);
+  }
+
+  closePreparation(): void {
+    this.showEligible.set(false);
+    this.document.getElementById('publication-prepare')?.focus();
   }
 
   async saveDraft(
@@ -1456,18 +2141,28 @@ export class AdminPublicationsPageComponent implements OnInit {
     this.actionState.set(draft.id);
 
     try {
-      await this.admin.updatePublicationDraft(this.adminToken(), {
-        draftId: draft.id,
-        title: edit.title,
-        body: edit.body,
-        disclosureText: edit.disclosureText,
-        status,
-        publicUrl: edit.publicUrl,
-        scheduledAt: edit.scheduledAt
-          ? new Date(edit.scheduledAt).toISOString()
-          : null,
-        reviewNote: edit.reviewNote
+      const result = await this.admin.updatePublicationDraft(
+        this.adminToken(),
+        {
+          draftId: draft.id,
+          title: edit.title,
+          body: edit.body,
+          disclosureText: edit.disclosureText,
+          status,
+          publicUrl: edit.publicUrl,
+          scheduledAt: edit.scheduledAt
+            ? new Date(edit.scheduledAt).toISOString()
+            : null,
+          reviewNote: edit.reviewNote
+        }
+      );
+      if (!result.updated) throw new Error('Draft was not saved.');
+      this.dirtyDraftIds.update((ids) => {
+        const next = new Set(ids);
+        next.delete(draft.id);
+        return next;
       });
+      this.notice.set('admin.publications.saved');
       await this.load();
     } catch {
       this.state.set('error');
@@ -1482,7 +2177,12 @@ export class AdminPublicationsPageComponent implements OnInit {
       .filter(Boolean)
       .join('\n\n');
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(text);
+      try {
+        await navigator.clipboard.writeText(text);
+        this.notice.set('admin.publications.copied');
+      } catch {
+        this.notice.set('admin.publications.copyFailed');
+      }
     }
   }
 
@@ -1500,7 +2200,7 @@ export class AdminPublicationsPageComponent implements OnInit {
 
     this.slotActionState.set('create');
     try {
-      await this.admin.createPublicationSlot(this.adminToken(), {
+      const result = await this.admin.createPublicationSlot(this.adminToken(), {
         feedTarget: this.newSlotFeedTarget(),
         channel: this.newSlotChannel(),
         startsAt: new Date(this.newSlotStartsAt()).toISOString(),
@@ -1509,7 +2209,10 @@ export class AdminPublicationsPageComponent implements OnInit {
         notes: this.newSlotNotes()
       });
       this.newSlotNotes.set('');
+      this.newSlotOpen.set(false);
+      this.selectedSlotId.set(result.slot?.id ?? null);
       await this.load();
+      if (result.slot) this.focusObject(result.slot.id);
     } catch {
       this.state.set('error');
     } finally {
@@ -1532,13 +2235,20 @@ export class AdminPublicationsPageComponent implements OnInit {
 
     this.slotActionState.set(slot.id);
     try {
-      await this.admin.updatePublicationSlot(this.adminToken(), {
+      const result = await this.admin.updatePublicationSlot(this.adminToken(), {
         slotId: slot.id,
         startsAt: new Date(edit.startsAt).toISOString(),
         timezone: edit.timezone.trim() || 'America/Toronto',
         capacity,
         notes: edit.notes
       });
+      if (!result.updated) throw new Error('Slot was not saved.');
+      if (this.slotEdits()[slot.id] === edit)
+        this.dirtySlotIds.update((ids) => {
+          const next = new Set(ids);
+          next.delete(slot.id);
+          return next;
+        });
       await this.load();
     } catch {
       this.state.set('error');
@@ -1640,11 +2350,17 @@ export class AdminPublicationsPageComponent implements OnInit {
 
     this.batchActionState.set('create');
     try {
-      await this.admin.createPublicationBatch(this.adminToken(), {
-        channel: this.newBatchChannel(),
-        capacity
-      });
+      const result = await this.admin.createPublicationBatch(
+        this.adminToken(),
+        {
+          channel: this.newBatchChannel(),
+          capacity
+        }
+      );
+      this.newBatchOpen.set(false);
+      this.selectedBatchId.set(result.batch?.id ?? null);
       await this.load();
+      if (result.batch) this.focusObject(result.batch.id);
     } catch {
       this.state.set('error');
     } finally {
@@ -1792,10 +2508,13 @@ export class AdminPublicationsPageComponent implements OnInit {
 
   setStatusFilter(event: Event): void {
     const value = this.valueFromEvent(event);
+    this.selectedDraftId.set(null);
     this.statusFilter.set(
-      publicationStatuses.includes(value as PublicationDraftStatus)
-        ? (value as PublicationDraftStatus)
-        : 'all'
+      value === 'active'
+        ? 'active'
+        : publicationStatuses.includes(value as PublicationDraftStatus)
+          ? (value as PublicationDraftStatus)
+          : 'all'
     );
   }
 
@@ -1867,6 +2586,7 @@ export class AdminPublicationsPageComponent implements OnInit {
     field: keyof PublicationSlotEdit,
     event: Event
   ): void {
+    this.dirtySlotIds.update((ids) => new Set([...ids, slotId]));
     const value = this.valueFromEvent(event);
     this.slotEdits.update((edits) => ({
       ...edits,
@@ -1899,17 +2619,6 @@ export class AdminPublicationsPageComponent implements OnInit {
       ...selections,
       [slotId]: value
     }));
-  }
-
-  readonly batchChannels: readonly SponsorFeedChannel[] = [
-    'facebook',
-    'linkedin'
-  ];
-
-  batchesForChannel(
-    channel: SponsorFeedChannel
-  ): readonly AdminPublicationBatchRecord[] {
-    return this.batches().filter((batch) => batch.channel === channel);
   }
 
   openBatchesForChannel(
@@ -2007,6 +2716,7 @@ export class AdminPublicationsPageComponent implements OnInit {
     field: keyof PublicationDraftEdit,
     event: Event
   ): void {
+    this.dirtyDraftIds.update((ids) => new Set([...ids, draftId]));
     const value = this.valueFromEvent(event);
     this.draftEdits.update((edits) => ({
       ...edits,
@@ -2027,14 +2737,6 @@ export class AdminPublicationsPageComponent implements OnInit {
 
   trackByDraft(_: number, draft: AdminPublicationDraftRecord): string {
     return draft.id;
-  }
-
-  trackByBatch(_: number, batch: AdminPublicationBatchRecord): string {
-    return batch.id;
-  }
-
-  trackBySlot(_: number, slot: AdminPublicationSlotRecord): string {
-    return slot.id;
   }
 
   channelLabel(channel: SponsorFeedChannel): string {
@@ -2073,7 +2775,7 @@ export class AdminPublicationsPageComponent implements OnInit {
     return labels[status];
   }
 
-  dateLabel(value: string | null): string {
+  dateLabel(value: string | null, timezone = 'America/Toronto'): string {
     if (!value) {
       return this.i18n.t('admin.dashboard.notAvailable');
     }
@@ -2083,10 +2785,15 @@ export class AdminPublicationsPageComponent implements OnInit {
       return this.i18n.t('admin.dashboard.notAvailable');
     }
 
-    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    }).format(date);
+    try {
+      return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: timezone
+      }).format(date);
+    } catch {
+      return value;
+    }
   }
 
   feedTargetLabel(sponsorship: AdminSponsorshipRecord): string {

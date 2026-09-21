@@ -11,6 +11,7 @@
     "playwright/admin-attention.spec.ts",
     "playwright/admin-assistant-context.spec.ts",
     "playwright/admin-sponsorship-progress.spec.ts",
-    "playwright/admin-readonly-pages.spec.ts"
+    "playwright/admin-readonly-pages.spec.ts",
+    "playwright/admin-publication-queue.spec.ts"
   ]
 }

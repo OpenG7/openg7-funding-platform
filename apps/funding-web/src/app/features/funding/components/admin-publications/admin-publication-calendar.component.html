@@ -1,0 +1,233 @@
+<section
+  class="publication-calendar"
+  data-og7="publication-calendar"
+  [attr.aria-label]="'admin.publicationCalendar.title' | translate"
+  [attr.aria-busy]="state() === 'loading'"
+>
+  <header class="calendar-toolbar">
+    <div>
+      <h3 aria-live="polite" data-og7="calendar-month">{{ monthLabel() }}</h3>
+      <p>
+        {{ 'admin.publicationCalendar.timezone' | translate: { timezone } }}
+      </p>
+    </div>
+    <nav [attr.aria-label]="'admin.publicationCalendar.navigation' | translate">
+      <button
+        type="button"
+        class="admin-button"
+        (click)="moveMonth(-1)"
+        [disabled]="!month()"
+        [attr.aria-label]="'admin.publicationCalendar.previous' | translate"
+      >
+        ‹
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        (click)="goToDay(today()!)"
+        [disabled]="!today()"
+      >
+        {{ 'admin.publicationCalendar.today' | translate }}
+      </button>
+      <button
+        type="button"
+        class="admin-button"
+        (click)="moveMonth(1)"
+        [disabled]="!month()"
+        [attr.aria-label]="'admin.publicationCalendar.next' | translate"
+      >
+        ›
+      </button>
+      <input
+        type="month"
+        [value]="month() ?? ''"
+        (change)="changeMonth($event)"
+        [attr.aria-label]="'admin.publicationCalendar.chooseMonth' | translate"
+      />
+    </nav>
+  </header>
+  <div class="calendar-filters">
+    <div
+      role="group"
+      [attr.aria-label]="'admin.publicationCalendar.channels' | translate"
+    >
+      @for (value of channels; track value) {
+        <button
+          type="button"
+          class="channel-filter"
+          [attr.data-channel]="value"
+          [attr.aria-pressed]="channel() === value"
+          (click)="channel.set(value)"
+        >
+          {{
+            value === 'all'
+              ? ('admin.publicationCalendar.allChannels' | translate)
+              : value === 'facebook'
+                ? 'Facebook'
+                : 'LinkedIn'
+          }}
+        </button>
+      }
+    </div>
+    <span>{{
+      'admin.publicationCalendar.monthCount'
+        | translate: { count: monthCount() }
+    }}</span>
+  </div>
+
+  @if (state() === 'loading' || state() === 'idle') {
+    <p role="status">{{ 'admin.publicationCalendar.loading' | translate }}</p>
+  }
+  @if (state() === 'error') {
+    <p role="alert">
+      {{ 'admin.publicationCalendar.error' | translate }}
+      <button type="button" class="admin-button" (click)="retry.emit()">
+        {{ 'admin.publicationQueue.retry' | translate }}
+      </button>
+    </p>
+  }
+  @if (month()) {
+    <div class="month-grid" data-og7="calendar-grid">
+      @for (weekday of weekdays(); track $index) {
+        <div class="weekday" aria-hidden="true">{{ weekday }}</div>
+      }
+      @for (day of days(); track day.key) {
+        <div
+          class="calendar-day"
+          [class.outside-month]="!day.key.startsWith(month()!)"
+          [class.selected-day]="day.key === selectedDay()"
+          [class.today]="day.key === today()"
+          [attr.data-og7-date]="day.key"
+        >
+          <button
+            type="button"
+            class="day-number"
+            [id]="'publication-day-' + day.key"
+            [attr.aria-label]="
+              dateLabel(day.key) +
+              ' · ' +
+              ('admin.publicationCalendar.dayCount'
+                | translate: { count: day.entries.length })
+            "
+            [attr.aria-pressed]="day.key === selectedDay()"
+            [attr.aria-current]="day.key === today() ? 'date' : null"
+            [attr.tabindex]="day.key === selectedDay() ? 0 : -1"
+            (click)="selectDay(day.key)"
+            (keydown)="navigateDay($event, day.key)"
+          >
+            <span>{{ day.day }}</span
+            ><span
+              class="mobile-count"
+              [class.has-events]="day.entries.length > 0"
+              >{{ day.entries.length || '·' }}</span
+            >
+          </button>
+          <div class="day-events">
+            @for (entry of day.entries.slice(0, 3); track entry.id) {
+              <button
+                type="button"
+                class="calendar-event"
+                data-og7="calendar-entry"
+                [attr.data-og7-id]="entry.id"
+                [attr.data-channel]="entry.channel"
+                [attr.data-status]="entry.status"
+                [attr.aria-label]="entryLabel(entry)"
+                [title]="entryLabel(entry)"
+                (click)="openEntry.emit(entry.id)"
+              >
+                <span class="event-top"
+                  ><time [attr.datetime]="entry.startsAt">{{
+                    timeLabel(entry.startsAt)
+                  }}</time
+                  ><span
+                    >{{ entry.capacityUsed }}/{{ entry.capacity }}</span
+                  ></span
+                >
+                <strong>{{ channelLabel(entry.channel) }}</strong>
+                <small>{{
+                  'admin.publicationCalendar.status.' + entry.status | translate
+                }}</small>
+              </button>
+            }
+            @if (day.entries.length > 3) {
+              <button
+                type="button"
+                class="more-events"
+                (click)="selectDay(day.key, true)"
+              >
+                {{
+                  'admin.publicationCalendar.more'
+                    | translate: { count: day.entries.length - 3 }
+                }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+    @if (state() === 'ready' && monthCount() === 0) {
+      <p class="calendar-empty" role="status">
+        {{ 'admin.publicationCalendar.emptyMonth' | translate }}
+      </p>
+    }
+    @if (selectedDay()) {
+      <section class="day-agenda" aria-labelledby="publication-day-agenda">
+        <h4 id="publication-day-agenda" tabindex="-1">
+          {{ dateLabel(selectedDay()!) }}
+        </h4>
+        <div class="agenda-items">
+          @for (entry of dayEntries(); track entry.id) {
+            <button
+              type="button"
+              class="calendar-event agenda-event"
+              data-og7="calendar-agenda-entry"
+              [attr.data-og7-id]="entry.id"
+              [attr.data-channel]="entry.channel"
+              [attr.data-status]="entry.status"
+              (click)="openEntry.emit(entry.id)"
+            >
+              <time [attr.datetime]="entry.startsAt">{{
+                timeLabel(entry.startsAt)
+              }}</time
+              ><strong
+                >{{ channelLabel(entry.channel) }} {{ entry.target }}</strong
+              ><span>{{ entry.capacityUsed }}/{{ entry.capacity }}</span
+              ><small>{{
+                'admin.publicationCalendar.status.' + entry.status | translate
+              }}</small
+              ><span aria-hidden="true">↗</span>
+            </button>
+          } @empty {
+            <p>{{ 'admin.publicationCalendar.emptyDay' | translate }}</p>
+          }
+        </div>
+      </section>
+    }
+  }
+  @if (undated().length > 0) {
+    <section class="undated" aria-labelledby="publication-undated-title">
+      <h4 id="publication-undated-title">
+        {{ 'admin.publicationCalendar.undated' | translate }}
+        <span>({{ undated().length }})</span>
+      </h4>
+      <div class="undated-items">
+        @for (entry of undated(); track entry.id) {
+          <button
+            type="button"
+            class="calendar-event"
+            data-og7="calendar-undated-entry"
+            [attr.data-og7-id]="entry.id"
+            [attr.data-channel]="entry.channel"
+            (click)="openEntry.emit(entry.id)"
+          >
+            <strong>{{ channelLabel(entry.channel) }}</strong>
+            <span>{{ entry.capacityUsed }}/{{ entry.capacity }}</span
+            ><small>{{
+              'admin.publicationCalendar.status.' + entry.status | translate
+            }}</small>
+          </button>
+        }
+      </div>
+    </section>
+  }
+</section>

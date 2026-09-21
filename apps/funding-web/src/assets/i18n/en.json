@@ -1,5 +1,29 @@
 {
   "admin": {
+    "publicationQueue": {
+      "eyebrow": "Publication order",
+      "title": "Upcoming batches",
+      "help": "Browse the planned order of the batches shown. Publishing still requires an action from the team.",
+      "previous": "View previous batches",
+      "next": "View next batches",
+      "loading": "Loading upcoming batches…",
+      "error": "The batch overview is unavailable. Try again to refresh the information.",
+      "retry": "Try again",
+      "empty": "None of the batches shown are upcoming. Create a batch below to prepare the next publications.",
+      "count": "{{scheduled}} scheduled batch(es) · {{undated}} to schedule",
+      "first": "Next batch",
+      "following": "Up next",
+      "undated": "To schedule",
+      "unknownTarget": "Target to check",
+      "noDate": "Date to be set",
+      "noOrder": "To add to the calendar",
+      "capacity": "{{used}} / {{capacity}} sponsorships",
+      "others": "+ {{count}} to view in the details",
+      "noMembers": "No sponsorships assigned",
+      "open": "View batch",
+      "openLabel": "View batch {{position}} — {{channel}}",
+      "keyboard": "Browse with the buttons or swipe. Keyboard: Left/Right arrows, Home and End."
+    },
     "editDossier": {
       "title": "Edit dossier",
       "history": "Dossier details corrected",
@@ -1425,6 +1449,74 @@
       },
       "new": "New account",
       "signInError": "Sign-in could not be completed. Check your account access, multi-factor authentication and service availability."
+    },
+    "publications": {
+      "title": "Publications",
+      "prepare": "Prepare a publication",
+      "navigation": "Publication workspaces",
+      "activeDrafts": "In progress",
+      "close": "Close",
+      "open": "Open",
+      "newBatch": "New batch",
+      "newSlot": "New slot",
+      "showHistory": "Include published and cancelled items",
+      "draftOptions": "Date, link and internal note",
+      "submitReview": "Submit for review",
+      "otherActions": "More actions",
+      "markPublished": "Mark as published manually",
+      "unsaved": "Unsaved changes",
+      "saved": "Draft saved.",
+      "copied": "Text copied.",
+      "copyFailed": "Copy failed. Select and copy the text manually.",
+      "back": "Back to publications",
+      "spaces": {
+        "overview": {
+          "title": "Publications",
+          "help": "Three spaces to write, group and schedule your publications."
+        },
+        "drafts": {
+          "title": "Writing and review",
+          "help": "Write your content and review the drafts.",
+          "open": "Open drafts"
+        },
+        "batches": {
+          "title": "Publication batches",
+          "help": "Group publications by channel and manage publishing.",
+          "open": "Manage batches"
+        },
+        "calendar": {
+          "title": "Editorial calendar",
+          "help": "Choose dates and assign calendar slots.",
+          "open": "Open calendar"
+        }
+      }
+    },
+    "publicationCalendar": {
+      "title": "Monthly publication view",
+      "navigation": "Calendar navigation",
+      "previous": "Previous month",
+      "next": "Next month",
+      "today": "Today",
+      "chooseMonth": "Choose a month",
+      "channels": "Filter by channel",
+      "allChannels": "All channels",
+      "timezone": "Times shown in {{timezone}}",
+      "monthCount": "{{count}} item(s) this month",
+      "dayCount": "{{count}} item(s)",
+      "more": "+ {{count}} more",
+      "undated": "To schedule",
+      "emptyMonth": "No publications for this month and channel.",
+      "emptyDay": "Nothing scheduled for this day.",
+      "loading": "Loading calendar…",
+      "error": "The calendar is unavailable right now.",
+      "batchDetail": "Batch details",
+      "slotDetail": "Slot details",
+      "status": {
+        "open": "Open",
+        "scheduled": "Scheduled",
+        "published": "Published",
+        "cancelled": "Cancelled"
+      }
     }
   },
   "funding": {
