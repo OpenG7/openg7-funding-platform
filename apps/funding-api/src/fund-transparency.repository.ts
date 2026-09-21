@@ -358,7 +358,7 @@ const getPublicBuilderPage = async (
   };
   if (!tables.has_fund_contributions) return empty;
   const sponsorshipFilter = tables.has_sponsor_review_status
-    ? "AND (contribution_type <> 'sponsorship_interest' OR sponsor_review_status = 'approved')"
+    ? "AND (contribution_type <> 'sponsorship_interest' OR (sponsor_review_status = 'approved' AND COALESCE((to_jsonb(fund_contributions)->>'sponsor_site_visibility_held')::boolean,FALSE) IS FALSE))"
     : "AND contribution_type <> 'sponsorship_interest'";
   const result = await pool.query<
     PublicBuilderRow & {

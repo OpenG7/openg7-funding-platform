@@ -1737,9 +1737,7 @@ test('Publication batch admin endpoints are authenticated, validated, rate-limit
     "'publication_batch.unassign'",
     "'publication_batch.schedule'",
     "'publication_batch.publish'",
-    "'publication_batch.cancel'",
-    "'social_publication.publish'",
-    "'social_publication.failed'"
+    "'publication_batch.cancel'"
   ]) {
     assert.ok(
       api.includes(`action: ${action}`),
@@ -1956,11 +1954,9 @@ test('Social publication provider is explicit, configurable, audited, and visibl
   for (const marker of [
     '/admin/social-publication-jobs',
     '/admin/publication-batches/publish-social',
-    'SOCIAL_PUBLICATION_DISABLED',
-    'SOCIAL_PUBLICATION_CHANNEL_NOT_CONFIGURED',
-    'markSocialPublicationJobPublished',
-    'social_publication.publish',
-    'social_publication.failed'
+    'FINAL_APPROVAL_REQUIRED',
+    'PublicationAutomationService',
+    '/admin/publication-automation'
   ]) {
     assert.ok(api.includes(marker), `api must include ${marker}`);
   }
@@ -1979,7 +1975,7 @@ test('Social publication provider is explicit, configurable, audited, and visibl
 
   for (const marker of [
     'API sociale',
-    'Publier via API sociale',
+    'admin.publicationAutomation.prepareSend',
     'Voir la publication',
     'socialJobStatusLabel',
     'canPublishSocialBatch(batch)'
@@ -2498,13 +2494,9 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
   assert.ok(repository.includes('AND updated_at::text = $9'));
 });
 
-test('Publication batches are listed chronologically per channel, not just by status', () => {
+test('Publication batches retain chronological backend ordering', () => {
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-admin.repository.ts',
-    'utf8'
-  );
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
     'utf8'
   );
 
@@ -2512,17 +2504,6 @@ test('Publication batches are listed chronologically per channel, not just by st
   assert.ok(
     repository.includes('COALESCE(batch.scheduled_at, batch.created_at) ASC')
   );
-
-  assert.ok(translatedUiSource(page).includes('class="batch-timeline"'));
-  assert.ok(
-    translatedUiSource(page).includes('*ngFor="let channel of batchChannels"')
-  );
-  assert.ok(
-    translatedUiSource(page).includes(
-      'readonly batchChannels: readonly SponsorFeedChannel[] = ['
-    )
-  );
-  assert.ok(translatedUiSource(page).includes('batchesForChannel('));
 });
 
 test('An admin is notified by email when a publication batch fills up, but nothing publishes automatically', () => {

@@ -427,6 +427,7 @@ export const listPublicSponsorMediaByContributionIds = async (
      WHERE contribution.status IN ('paid', 'refunded', 'disputed')
        AND contribution.public_display_consent IS TRUE
        AND contribution.sponsor_review_status = 'approved'
+       AND COALESCE((to_jsonb(contribution)->>'sponsor_site_visibility_held')::boolean,FALSE) IS FALSE
      ORDER BY media.kind, media.sort_order, media.created_at`,
     [contributionIds]
   );
@@ -468,6 +469,7 @@ export const getApprovedPublicSponsorMedia = async (
            AND contribution.status IN ('paid', 'refunded', 'disputed')
            AND contribution.public_display_consent IS TRUE
            AND contribution.sponsor_review_status = 'approved'
+           AND COALESCE((to_jsonb(contribution)->>'sponsor_site_visibility_held')::boolean,FALSE) IS FALSE
        )`,
     [assetId]
   );

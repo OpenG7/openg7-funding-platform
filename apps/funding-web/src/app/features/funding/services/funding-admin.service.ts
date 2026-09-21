@@ -1,4 +1,4 @@
-import type { AdminWorkQueueQuery, AdminWorkQueueResponse } from '@openg7/funding-core';
+import type { AdminWorkQueueQuery, AdminWorkQueueResponse, PublicationAutomationState, PublicationAutomationCommand } from '@openg7/funding-core';
 import { Injectable, signal } from '@angular/core';
 import type {
   AdminSearchRequest,
@@ -122,6 +122,23 @@ export interface AdminSponsorshipListQuery {
 
 @Injectable({ providedIn: 'root' })
 export class FundingAdminService {
+  async publicationAutomation(command?: PublicationAutomationCommand): Promise<PublicationAutomationState | { id?: string }> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/publication-automation`, {
+      method: command ? 'POST' : 'GET', cache: 'no-store',
+      headers: { ...(await this.createHeaders(this.getSavedAdminToken())), 'Content-Type': 'application/json' },
+      ...(command ? { body: JSON.stringify(command) } : {})
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({})) as { code?: string };
+      throw new Error(data.code ?? 'AUTOMATION_UNAVAILABLE');
+    }
+    return response.json() as Promise<PublicationAutomationState | { id?: string }>;
+  }
+  async publicationMedia(): Promise<{ id: string; url: string; alt: string; company: string }[]> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/publication-automation/media`, { cache: 'no-store', headers: await this.createHeaders(this.getSavedAdminToken()) });
+    if (!response.ok) throw new Error('AUTOMATION_UNAVAILABLE');
+    return response.json() as Promise<{ id: string; url: string; alt: string; company: string }[]>;
+  }
   readonly identity = signal<AdminIdentityProfile | null>(null);
   private usesCookieSession = false;
   async authMode(): Promise<'oidc' | 'token'> {

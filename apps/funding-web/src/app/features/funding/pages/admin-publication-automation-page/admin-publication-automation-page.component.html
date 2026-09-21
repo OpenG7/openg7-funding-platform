@@ -1,0 +1,574 @@
+<openg7-admin-layout>
+  <main
+    class="automation"
+    data-og7="publication-automation"
+    [attr.aria-busy]="busy()"
+  >
+    <a routerLink="/admin/fundraiser/publications"
+      >← {{ 'admin.publications.title' | translate }}</a
+    >
+    <header>
+      <div>
+        <h1>{{ 'admin.publicationAutomation.title' | translate }}</h1>
+        <p>{{ 'admin.publicationAutomation.intro' | translate }}</p>
+      </div>
+      <div class="actions">
+        <a
+          class="admin-button"
+          routerLink="/admin/fundraiser/publications/calendar"
+          >{{ 'admin.publicationAutomation.calendar' | translate }}</a
+        ><button
+          class="admin-button"
+          [disabled]="busy() || !state()"
+          (click)="run({ action: 'pause-all' })"
+        >
+          {{ 'admin.publicationAutomation.pauseAll' | translate }}
+        </button>
+      </div>
+    </header>
+    @if (error() && !selected() && !composing()) {
+      <p role="alert" class="alert">
+        {{ error() | translate }}
+        <button class="admin-button" (click)="load()">
+          {{ 'admin.publicationAutomation.refresh' | translate }}
+        </button>
+      </p>
+    }
+    <p role="status">{{ notice() | translate }}</p>
+    @if (state(); as s) {
+      @if (!s.workerEnabled) {
+        <p class="alert">
+          {{ 'admin.publicationAutomation.workerOff' | translate }}
+        </p>
+      }
+      <details data-og7="publication-feed-settings">
+        <summary>
+          {{ 'admin.publicationAutomation.feedSettings' | translate }}
+        </summary>
+        <section
+          class="feeds"
+          [attr.aria-label]="'admin.publicationAutomation.feeds' | translate"
+        >
+          @for (feed of s.feeds; track feed.id) {
+            <article>
+              <header>
+                <h2>
+                  {{ feed.id.split(':')[0].toUpperCase() }}
+                  <span>{{
+                    feed.id.endsWith('facebook') ? 'Facebook' : 'LinkedIn'
+                  }}</span>
+                </h2>
+                <span class="badge">{{
+                  'admin.publicationAutomation.modes.' + feed.mode | translate
+                }}</span>
+              </header>
+              <p>
+                {{
+                  'admin.publicationAutomation.connection.' + feed.connection
+                    | translate
+                }}
+                ·
+                {{
+                  (feed.paused
+                    ? 'admin.publicationAutomation.paused'
+                    : 'admin.publicationAutomation.active'
+                  ) | translate
+                }}
+              </p>
+              <p class="detail">
+                {{
+                  feed.accountId ||
+                    ('admin.publicationAutomation.unconfigured' | translate)
+                }}
+              </p>
+              @if (feed.expiresAt) {
+                <p>
+                  {{ 'admin.publicationAutomation.expires' | translate }}
+                  {{ dateLabel(feed.expiresAt) }}
+                </p>
+              }
+              <div class="actions">
+                <button
+                  class="admin-button"
+                  [disabled]="busy() || !feed.configured"
+                  (click)="pause(feed)"
+                >
+                  {{
+                    (feed.paused
+                      ? 'admin.publicationAutomation.resume'
+                      : 'admin.publicationAutomation.pause'
+                    ) | translate
+                  }}</button
+                ><button
+                  class="admin-button"
+                  [disabled]="busy()"
+                  (click)="configure(feed)"
+                >
+                  {{ 'admin.publicationAutomation.settings' | translate }}
+                </button>
+              </div>
+            </article>
+          }
+        </section>
+      </details>
+      <div
+        class="summary"
+        [attr.aria-label]="'admin.publicationAutomation.summary' | translate"
+      >
+        <span
+          ><b>{{ s.summary.awaitingApproval }}</b>
+          {{ 'admin.publicationAutomation.tabs.review' | translate }}</span
+        ><span
+          ><b>{{ s.summary.scheduled }}</b>
+          {{ 'admin.publicationAutomation.tabs.scheduled' | translate }}</span
+        ><span
+          ><b>{{ s.summary.exceptions }}</b>
+          {{ 'admin.publicationAutomation.tabs.exceptions' | translate }}</span
+        ><span
+          ><b>{{ s.summary.publishedToday }}</b>
+          {{ 'admin.publicationAutomation.last24h' | translate }}</span
+        >
+      </div>
+      <section>
+        <header>
+          <div
+            class="tabs"
+            role="group"
+            [attr.aria-label]="'admin.publicationAutomation.filter' | translate"
+          >
+            @for (t of tabs; track t) {
+              <button
+                class="admin-button"
+                [attr.aria-pressed]="tab() === t"
+                (click)="tab.set(t)"
+              >
+                {{ 'admin.publicationAutomation.tabs.' + t | translate }}
+              </button>
+            }
+          </div>
+          <button class="admin-button" (click)="create()" [disabled]="busy()">
+            {{ 'admin.publicationAutomation.new' | translate }}
+          </button>
+        </header>
+        <label class="filter"
+          >{{ 'admin.publicationAutomation.feed' | translate
+          }}<select
+            [ngModel]="feedFilter()"
+            (ngModelChange)="feedFilter.set($event)"
+          >
+            <option value="">
+              {{ 'admin.publicationAutomation.all' | translate }}
+            </option>
+            @for (feed of s.feeds; track feed.id) {
+              <option [value]="feed.id">{{ feed.id }}</option>
+            }
+          </select></label
+        >
+        @if (tab() === 'calendar') {
+          <openg7-admin-publication-calendar
+            [entries]="calendarEntries()"
+            state="ready"
+            [selectedId]="selected()?.id ?? null"
+            (openEntry)="openCalendar($event)"
+            (retry)="load()"
+          />
+        } @else {
+          <div class="jobs">
+            @for (job of visible(); track job.id) {
+              <button
+                class="job"
+                (click)="open(job)"
+                [attr.data-og7-id]="job.id"
+              >
+                <span class="detail"
+                  >{{ job.feedId }} ·
+                  {{
+                    'admin.publicationAutomation.kinds.' + job.kind | translate
+                  }}</span
+                ><strong>{{ job.message.slice(0, 120) }}</strong
+                ><span
+                  >{{ dateLabel(job.scheduledAt) }} ·
+                  {{
+                    'admin.publicationAutomation.status.' + job.status
+                      | translate
+                  }}</span
+                >
+                @if (job.mode === 'mock') {
+                  <span class="badge">{{
+                    'admin.publicationAutomation.modes.mock' | translate
+                  }}</span>
+                }
+              </button>
+            } @empty {
+              <p class="empty">
+                {{ 'admin.publicationAutomation.empty' | translate }}
+              </p>
+            }
+          </div>
+        }
+      </section>
+    } @else if (!error()) {
+      <p role="status">
+        {{ 'admin.publicationAutomation.loading' | translate }}
+      </p>
+    }
+  </main>
+  <openg7-admin-drawer
+    [opened]="!!selected() || composing()"
+    [title]="'admin.publicationAutomation.preview' | translate"
+    [closeLabel]="'admin.publicationAutomation.close' | translate"
+    [busy]="busy()"
+    (closed)="close()"
+  >
+    @if (selected() || composing()) {
+      @if (error()) {
+        <p role="alert" class="alert">{{ error() | translate }}</p>
+      }
+      @if (selected(); as job) {
+        <p class="destination">
+          <strong>{{ job.feedId }} · {{ job.accountId }}</strong
+          ><span
+            >{{ 'admin.publicationAutomation.modes.' + job.mode | translate }} ·
+            {{
+              'admin.publicationAutomation.status.' + job.status | translate
+            }}</span
+          >
+        </p>
+        @if (job.status === 'uncertain') {
+          <p class="alert">
+            {{ 'admin.publicationAutomation.uncertain' | translate }}
+          </p>
+        }
+        @if (job.status === 'blocked') {
+          <p class="alert">
+            {{ 'admin.publicationAutomation.blocked' | translate }}
+          </p>
+        }
+        @if (job.nextAttemptAt && job.status === 'approved') {
+          <p>
+            {{ 'admin.publicationAutomation.retryAt' | translate }}
+            {{ dateLabel(job.nextAttemptAt) }}
+          </p>
+        }
+      }
+      @if (!editing()) {
+        @if (selected(); as job) {
+          <p class="publication-copy">{{ job.message }}</p>
+          <p>{{ dateLabel(job.scheduledAt) }}</p>
+          @if (mediaPreview(); as image) {
+            <img class="preview-image" [src]="image.url" [alt]="image.alt" />
+          }
+          @if (editable()) {
+            <button
+              class="admin-button"
+              [disabled]="busy()"
+              (click)="editing.set(true)"
+            >
+              {{ 'admin.publicationAutomation.modify' | translate }}
+            </button>
+          }
+        }
+      }
+      @if (editing()) {
+        <form (ngSubmit)="save()">
+          <fieldset [disabled]="busy() || !editable()">
+            @if (composing()) {
+              <label
+                >{{ 'admin.publicationAutomation.feed' | translate
+                }}<select name="feed" [(ngModel)]="composeFeed">
+                  @for (feed of state()?.feeds; track feed.id) {
+                    <option [value]="feed.id">{{ feed.id }}</option>
+                  }
+                </select></label
+              >
+              <label
+                >{{ 'admin.publicationAutomation.kind' | translate
+                }}<select name="kind" [(ngModel)]="composeKind">
+                  @for (kind of kinds; track kind) {
+                    <option [value]="kind">
+                      {{
+                        'admin.publicationAutomation.kinds.' + kind | translate
+                      }}
+                    </option>
+                  }
+                </select></label
+              >
+            }
+            <label
+              >{{ 'admin.publicationAutomation.message' | translate
+              }}<textarea
+                name="message"
+                required
+                maxlength="2900"
+                rows="10"
+                [(ngModel)]="edit.message"
+                (ngModelChange)="approved = false"
+              ></textarea
+              ><small>{{ edit.message.length }} / 2900</small></label
+            >
+            <label
+              >{{ 'admin.publicationAutomation.schedule' | translate }} ({{
+                browserTimezone
+              }})<input
+                name="date"
+                type="datetime-local"
+                required
+                [(ngModel)]="edit.scheduledAt"
+                (ngModelChange)="approved = false"
+            /></label>
+            <label
+              >{{ 'admin.publicationAutomation.image' | translate
+              }}<select
+                name="media"
+                [(ngModel)]="edit.mediaId"
+                (ngModelChange)="approved = false; loadPreview($event)"
+              >
+                <option value="">
+                  {{ 'admin.publicationAutomation.noImage' | translate }}
+                </option>
+                @for (item of media(); track item.id) {
+                  <option [value]="item.id">
+                    {{ item.company }} · {{ item.alt }}
+                  </option>
+                }
+              </select></label
+            >
+            @if (edit.mediaId) {
+              @if (mediaPreview(); as image) {
+                <img
+                  class="preview-image"
+                  [src]="image.url"
+                  [alt]="image.alt"
+                />
+              }
+            }
+            @if (editable()) {
+              <button
+                class="admin-button"
+                type="submit"
+                [disabled]="!edit.message.trim() || !edit.scheduledAt"
+              >
+                {{ 'admin.publicationAutomation.save' | translate }}
+              </button>
+            }
+          </fieldset>
+        </form>
+      }
+      @if (selected(); as job) {
+        @if (pendingSponsors().length) {
+          <section data-og7="publication-sponsor-review">
+            <h3>
+              {{ 'admin.publicationAutomation.sponsorReview' | translate }}
+            </h3>
+            <p>
+              {{ 'admin.publicationAutomation.sponsorReviewHelp' | translate }}
+            </p>
+            <ul>
+              @for (sponsor of pendingSponsors(); track sponsor.id) {
+                <li>
+                  <a
+                    routerLink="/admin/fundraiser/sponsors"
+                    [queryParams]="{ sponsorshipId: sponsor.id }"
+                    >{{ sponsor.name }}</a
+                  >
+                  @if (!sponsor.presentationApproved) {
+                    <span class="alert">
+                      —
+                      {{
+                        'admin.publicationAutomation.missingPresentation'
+                          | translate
+                      }}</span
+                    >
+                  }
+                </li>
+              }
+            </ul>
+          </section>
+        }
+        @if (job.status === 'draft') {
+          <div class="approval">
+            <p>{{ 'admin.publicationAutomation.approvalHelp' | translate }}</p>
+            <label class="check"
+              ><input
+                type="checkbox"
+                [(ngModel)]="approved"
+                [disabled]="busy() || dirty() || missingPresentation()"
+              />{{
+                (pendingSponsors().length
+                  ? 'admin.publicationAutomation.combinedApproval'
+                  : 'admin.publicationAutomation.approval'
+                ) | translate
+              }}</label
+            ><button
+              class="admin-button"
+              [disabled]="
+                busy() ||
+                !approved ||
+                dirty() ||
+                missingPresentation() ||
+                (job.mediaId && !previewUrl())
+              "
+              (click)="approve()"
+            >
+              {{ 'admin.publicationAutomation.approve' | translate }}
+            </button>
+          </div>
+        }
+        @if (editable()) {
+          <button class="admin-button" [disabled]="busy()" (click)="reject()">
+            {{ 'admin.publicationAutomation.reject' | translate }}
+          </button>
+        }
+        @if (job.status === 'approved') {
+          <button class="admin-button" [disabled]="busy()" (click)="cancel()">
+            {{ 'admin.publicationAutomation.cancel' | translate }}
+          </button>
+        }
+        @if (job.status === 'uncertain' && !job.mediaId) {
+          <label
+            >{{ 'admin.publicationAutomation.externalId' | translate
+            }}<input [(ngModel)]="externalPostId" /></label
+          ><button
+            class="admin-button"
+            [disabled]="busy() || !externalPostId.trim()"
+            (click)="reconcile()"
+          >
+            {{ 'admin.publicationAutomation.reconcile' | translate }}
+          </button>
+        }
+        @if (job.status === 'uncertain') {
+          <details>
+            <summary>
+              {{ 'admin.publicationAutomation.absenceTitle' | translate }}
+            </summary>
+            <p>{{ 'admin.publicationAutomation.absenceHelp' | translate }}</p>
+            <label
+              >{{ 'admin.publicationAutomation.absenceReason' | translate
+              }}<textarea
+                rows="3"
+                maxlength="500"
+                [(ngModel)]="absenceReason"
+              ></textarea></label
+            ><label class="check"
+              ><input type="checkbox" [(ngModel)]="absenceChecked" />{{
+                'admin.publicationAutomation.absenceCheck' | translate
+              }}</label
+            ><button
+              class="admin-button"
+              [disabled]="
+                busy() || !absenceChecked || absenceReason.trim().length < 20
+              "
+              (click)="confirmAbsent()"
+            >
+              {{ 'admin.publicationAutomation.absenceAction' | translate }}
+            </button>
+          </details>
+        }
+        @if (job.externalPostUrl) {
+          <a
+            [href]="job.externalPostUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            >{{ 'admin.publicationAutomation.seePost' | translate }}</a
+          >
+        }
+      }
+    }
+  </openg7-admin-drawer>
+  <openg7-admin-drawer
+    [opened]="!!settings()"
+    [title]="'admin.publicationAutomation.settings' | translate"
+    [closeLabel]="'admin.publicationAutomation.close' | translate"
+    [busy]="busy()"
+    (closed)="settings.set(null)"
+  >
+    @if (settings(); as s) {
+      <h3>{{ s.id }}</h3>
+      <p>{{ 'admin.publicationAutomation.connectionHelp' | translate }}</p>
+      <button
+        class="admin-button"
+        [disabled]="busy()"
+        (click)="run({ action: 'check', feedId: s.id })"
+      >
+        {{ 'admin.publicationAutomation.check' | translate }}
+      </button>
+      @for (f of state()?.feeds; track f.id) {
+        @if (f.id === s.id) {
+          <p role="status">
+            {{
+              'admin.publicationAutomation.connection.' + f.connection
+                | translate
+            }}
+          </p>
+        }
+      }
+      @if (error()) {
+        <p role="alert" class="alert">{{ error() | translate }}</p>
+      }
+      <form (ngSubmit)="saveSettings()">
+        <fieldset [disabled]="busy()">
+          <label class="check"
+            ><input type="checkbox" name="auto" [(ngModel)]="s.autoPrepare" />{{
+              'admin.publicationAutomation.autoPrepare' | translate
+            }}</label
+          >
+          <p>{{ 'admin.publicationAutomation.preparationHelp' | translate }}</p>
+          <fieldset class="weekdays">
+            <legend>
+              {{ 'admin.publicationAutomation.days' | translate }}
+            </legend>
+            @for (day of weekdays; track day) {
+              <label
+                ><input
+                  type="checkbox"
+                  [checked]="s.weekdays.includes(day)"
+                  (change)="toggleDay(day)"
+                />{{
+                  'admin.publicationAutomation.weekdays.' + day | translate
+                }}</label
+              >
+            }
+          </fieldset>
+          <label
+            >{{ 'admin.publicationAutomation.time' | translate
+            }}<input name="time" type="time" required [(ngModel)]="s.localTime"
+          /></label>
+          <label
+            >{{ 'admin.publicationAutomation.timezone' | translate
+            }}<input name="timezone" required [(ngModel)]="s.timezone"
+          /></label>
+          <label
+            >{{ 'admin.publicationAutomation.capacity' | translate
+            }}<input
+              name="capacity"
+              type="number"
+              min="1"
+              max="10"
+              required
+              [(ngModel)]="s.capacity"
+          /></label>
+          <label
+            >{{ 'admin.publicationAutomation.horizon' | translate
+            }}<input
+              name="horizon"
+              type="number"
+              min="1"
+              max="28"
+              required
+              [(ngModel)]="s.horizonDays"
+          /></label>
+          <button class="admin-button" type="submit">
+            {{ 'admin.publicationAutomation.saveSettings' | translate }}
+          </button>
+        </fieldset>
+      </form>
+      <button
+        class="admin-button"
+        [disabled]="busy()"
+        (click)="run({ action: 'prepare', feedId: s.id })"
+      >
+        {{ 'admin.publicationAutomation.prepareNow' | translate }}
+      </button>
+    }
+  </openg7-admin-drawer>
+</openg7-admin-layout>

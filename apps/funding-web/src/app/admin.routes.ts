@@ -88,10 +88,33 @@ export const adminRoutes: Routes = [
   {
     path: 'fundraiser/publications',
     canMatch: [adminSessionRequired],
-    loadComponent: () =>
-      import('./features/funding/pages/admin-publications-page/admin-publications-page.component.js').then(
-        (m) => m.AdminPublicationsPageComponent
-      )
+    children: [
+      {
+        path: 'automation',
+        loadComponent: () => import('./features/funding/pages/admin-publication-automation-page/admin-publication-automation-page.component.js').then(m => m.AdminPublicationAutomationPageComponent)
+      },
+      {
+        // One route configuration preserves local edits between these pages.
+        // Match only declared spaces so unknown admin URLs remain 404s.
+        matcher: (segments) => {
+          if (segments.length === 0) return { consumed: [] };
+          if (
+            segments.length === 1 &&
+            ['drafts', 'batches', 'calendar'].includes(segments[0]!.path)
+          ) {
+            return {
+              consumed: segments,
+              posParams: { workspace: segments[0]! }
+            };
+          }
+          return null;
+        },
+        loadComponent: () =>
+          import('./features/funding/pages/admin-publications-page/admin-publications-page.component.js').then(
+            (m) => m.AdminPublicationsPageComponent
+          )
+      }
+    ]
   },
   {
     path: 'fundraiser/expenses',

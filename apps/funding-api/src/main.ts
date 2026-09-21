@@ -12,6 +12,7 @@ import {
   timingSafeEqual
 } from 'node:crypto';
 
+import type { PublicationAutomationCommand } from '@openg7/funding-core';
 import Stripe from 'stripe';
 import type {
   AdminAssistantDraftType,
@@ -47,8 +48,6 @@ import type {
   AdminSponsorMediaDeleteRequest,
   AdminSponsorMediaReviewRequest,
   AdminSponsorMediaReviewResult,
-  AdminSocialPublicationBatchPublishRequest,
-  AdminSocialPublicationBatchPublishResult,
   AdminSponsorLogoDeleteRequest,
   AdminSponsorLogoDeleteResult,
   AdminSponsorLogoUploadResult,
@@ -87,6 +86,8 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
+import { PublicationAutomationError } from './publication-automation/policy.js';
+import { PublicationAutomationService } from './publication-automation/service.js';
 import { AdminIdentityService } from './admin-identity.js';
 import {
   SponsorshipDetailsError,
@@ -104,7 +105,6 @@ import {
   createAdminPublicationBatch,
   createAdminPublicationDraft,
   createAdminPublicationSlot,
-  createSocialPublicationJobForBatch,
   getPublicationBatchById,
   getPublicSponsorshipBatchAvailability,
   insertAdminAuditLog,
@@ -114,9 +114,6 @@ import {
   listAdminPublicationDrafts,
   listAdminPublicationSlots,
   listAdminSocialPublicationJobs,
-  markSocialPublicationJobFailed,
-  markSocialPublicationJobPublished,
-  markSocialPublicationJobPublishing,
   publishAdminPublicationBatch,
   publishAdminPublicationSlot,
   scheduleAdminPublicationBatch,
@@ -165,9 +162,6 @@ import {
 import {
   configuredSocialPublicationChannels,
   loadSocialPublicationConfig,
-  publishSocialPublicationJob,
-  SocialPublicationError,
-  socialPublicationProviderForChannel
 } from './social-publication.service.js';
 import {
   getTransactionalEmailConfigStatus,
@@ -1533,13 +1527,6 @@ const normalizePublicationSlotTimezone = (value: unknown): string =>
 const channelLabel = (channel: SponsorFeedChannel): string =>
   channel === 'linkedin' ? 'LinkedIn' : 'Facebook';
 
-const isConfiguredSocialPublicationChannel = (
-  channel: SponsorFeedChannel
-): boolean =>
-  configuredSocialPublicationChannels(socialPublicationConfig).includes(
-    channel
-  );
-
 const socialPublicationRuntime = (): {
   readonly mode: typeof socialPublicationConfig.mode;
   readonly configuredChannels: readonly SponsorFeedChannel[];
@@ -2153,6 +2140,10 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/expenses/update',
       '/admin/transparency',
       '/api/admin/transparency',
+      '/admin/publication-automation',
+      '/api/admin/publication-automation',
+      '/admin/publication-automation/media',
+      '/api/admin/publication-automation/media',
       '/admin/publication-drafts',
       '/api/admin/publication-drafts',
       '/admin/publication-drafts/update',
@@ -2482,6 +2473,12 @@ const runAdminSponsorshipReviewReminderWorker = async (): Promise<void> => {
   }
 };
 
+const publicationAutomation = dbPool ? new PublicationAutomationService(dbPool, sponsorMediaStorage) : null;
+const runPublicationWorker = async (): Promise<void> => {
+  try { await publicationAutomation?.tick(); }
+  catch { console.error('Publication worker interrupted; inspect publication exceptions and database availability.'); }
+};
+
 createServer(async (request, response) => {
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
@@ -2512,6 +2509,23 @@ createServer(async (request, response) => {
       writeJson(request, response, 503, { error: 'Identity service unavailable.' });
       return;
     }
+  }
+
+  if (routeMatches(request.url, '/admin/publication-automation', '/api/admin/publication-automation', '/admin/publication-automation/media', '/api/admin/publication-automation/media')) {
+    if (!ensureAdminAccess(request, response) || !publicationAutomation) return;
+    try {
+      if (request.method === 'GET') {
+        const isMedia = new URL(request.url ?? '/', publicBaseOrigin).pathname.endsWith('/media');
+        writeJson(request, response, 200, isMedia ? await publicationAutomation.mediaOptions() : await publicationAutomation.state());
+      } else if (request.method === 'POST' && !new URL(request.url ?? '/', publicBaseOrigin).pathname.endsWith('/media')) {
+        const input = JSON.parse(await readBody(request)) as PublicationAutomationCommand;
+        writeJson(request, response, 200, await publicationAutomation.command(input, getAdminAuditActor(request)));
+      } else writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+    } catch (error) {
+      const status = error instanceof PublicationAutomationError ? error.status : error instanceof SyntaxError ? 400 : 503;
+      writeJson(request, response, status, { code: error instanceof PublicationAutomationError ? error.code : 'AUTOMATION_UNAVAILABLE' });
+    }
+    return;
   }
 
   if (
@@ -7184,180 +7198,9 @@ createServer(async (request, response) => {
     return;
   }
 
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-batches/publish-social',
-      '/api/admin/publication-batches/publish-social'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminSocialPublicationBatchPublishRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminSocialPublicationBatchPublishRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid social publication request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.batchId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch id.'
-      });
-      return;
-    }
-
-    if (parsed.confirmationText !== parsed.batchId) {
-      writeJson(request, response, 400, {
-        error: 'Social publication confirmation must match the batch id.'
-      });
-      return;
-    }
-
-    if (socialPublicationConfig.mode === 'disabled') {
-      writeJson(request, response, 409, {
-        code: 'SOCIAL_PUBLICATION_DISABLED',
-        error: 'Social publication automation is disabled.'
-      });
-      return;
-    }
-
-    try {
-      const batch = await getPublicationBatchById(dbPool, parsed.batchId);
-      if (!batch || batch.status !== 'scheduled') {
-        writeJson(request, response, 409, {
-          error:
-            'Publication batch was not found or must be scheduled before social publishing.'
-        });
-        return;
-      }
-
-      if (!isConfiguredSocialPublicationChannel(batch.channel)) {
-        writeJson(request, response, 409, {
-          code: 'SOCIAL_PUBLICATION_CHANNEL_NOT_CONFIGURED',
-          error: `${channelLabel(batch.channel)} social publication is not configured.`
-        });
-        return;
-      }
-
-      const job = await createSocialPublicationJobForBatch(dbPool, {
-        batchId: batch.id,
-        mode: socialPublicationConfig.mode,
-        provider: socialPublicationProviderForChannel(batch.channel)
-      });
-      if (!job) {
-        writeJson(request, response, 409, {
-          error:
-            'Social publication job could not be created: the batch must contain scheduled drafts.'
-        });
-        return;
-      }
-
-      if (job.status === 'published') {
-        const result: AdminSocialPublicationBatchPublishResult = {
-          published: true,
-          mode: job.mode,
-          job,
-          batch: await getPublicationBatchById(dbPool, job.batchId)
-        };
-        writeJson(request, response, 200, result);
-        return;
-      }
-
-      if (job.status === 'publishing') {
-        writeJson(request, response, 409, {
-          code: 'SOCIAL_PUBLICATION_ALREADY_RUNNING',
-          error: 'Social publication job is already running.'
-        });
-        return;
-      }
-
-      const publishingJob = await markSocialPublicationJobPublishing(
-        dbPool,
-        job.id
-      );
-      if (!publishingJob || publishingJob.status !== 'publishing') {
-        writeJson(request, response, 409, {
-          error: 'Social publication job could not be started.'
-        });
-        return;
-      }
-
-      try {
-        const providerResult = await publishSocialPublicationJob(
-          socialPublicationConfig,
-          publishingJob
-        );
-        const result = await markSocialPublicationJobPublished(dbPool, {
-          jobId: publishingJob.id,
-          externalPostId: providerResult.externalPostId,
-          externalPostUrl: providerResult.externalPostUrl
-        });
-
-        if (result.job) {
-          await insertAdminAuditLog(dbPool, {
-            actor: getAdminAuditActor(request),
-            action: 'social_publication.publish',
-            entityType: 'social_publication_job',
-            entityId: result.job.id,
-            summary: `Social publication sent to ${channelLabel(result.job.channel)} for batch ${result.job.batchId}.`,
-            metadata: {
-              batchId: result.job.batchId,
-              channel: result.job.channel,
-              mode: result.job.mode,
-              draftIds: result.job.draftIds,
-              externalPostId: result.job.externalPostId,
-              externalPostUrl: result.job.externalPostUrl
-            }
-          });
-        }
-
-        writeJson(request, response, 200, result);
-      } catch (error) {
-        const code =
-          error instanceof SocialPublicationError
-            ? error.code
-            : 'SOCIAL_PUBLICATION_FAILED';
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Social publication provider failed.';
-        const failedJob = await markSocialPublicationJobFailed(dbPool, {
-          jobId: publishingJob.id,
-          errorCode: code,
-          errorMessage: message
-        });
-        await insertAdminAuditLog(dbPool, {
-          actor: getAdminAuditActor(request),
-          action: 'social_publication.failed',
-          entityType: 'social_publication_job',
-          entityId: failedJob?.id ?? publishingJob.id,
-          summary: `Social publication failed for ${channelLabel(publishingJob.channel)}.`,
-          metadata: {
-            batchId: publishingJob.batchId,
-            channel: publishingJob.channel,
-            mode: publishingJob.mode,
-            errorCode: code
-          }
-        });
-        writeJson(request, response, 502, {
-          code,
-          error: message
-        });
-      }
-    } catch (error) {
-      console.error('Failed to publish social publication batch.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication batch could not be sent to the social provider.'
-      });
-    }
+  if (request.method === 'POST' && routeMatches(request.url, '/admin/publication-batches/publish-social', '/api/admin/publication-batches/publish-social')) {
+    if (!ensureAdminAccess(request, response)) return;
+    writeJson(request, response, 409, { code: 'FINAL_APPROVAL_REQUIRED', error: 'Prepare and approve the exact publication in /admin/fundraiser/publications/automation.' });
     return;
   }
 
@@ -8544,6 +8387,9 @@ createServer(async (request, response) => {
   }
 
   void runEmailQueueWorker();
+  void runPublicationWorker();
+  const publicationTimer = setInterval(() => void runPublicationWorker(), 30000);
+  publicationTimer.unref();
   void runAdminSponsorshipReviewReminderWorker();
   const emailQueueTimer = setInterval(
     () => void runEmailQueueWorker(),

@@ -1,0 +1,169 @@
+<section
+  class="queue"
+  aria-labelledby="publication-queue-title"
+  data-og7="publication-queue"
+>
+  <header class="queue-header">
+    <div>
+      <p class="eyebrow">{{ 'admin.publicationQueue.eyebrow' | translate }}</p>
+      <h2 id="publication-queue-title">
+        {{ 'admin.publicationQueue.title' | translate }}
+      </h2>
+      <p class="help">{{ 'admin.publicationQueue.help' | translate }}</p>
+    </div>
+    @if (state() === 'ready' && queue().length > 0) {
+      <div class="queue-controls">
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="!canGoBack()"
+          [attr.aria-label]="'admin.publicationQueue.previous' | translate"
+          aria-controls="publication-queue-viewport"
+          (click)="move(-1)"
+        >
+          <span aria-hidden="true">←</span>
+        </button>
+        <button
+          type="button"
+          class="admin-button"
+          [disabled]="!canGoForward()"
+          [attr.aria-label]="'admin.publicationQueue.next' | translate"
+          aria-controls="publication-queue-viewport"
+          (click)="move(1)"
+        >
+          <span aria-hidden="true">→</span>
+        </button>
+      </div>
+    }
+  </header>
+
+  @if (state() === 'loading' || state() === 'idle') {
+    <p role="status">{{ 'admin.publicationQueue.loading' | translate }}</p>
+  } @else if (state() === 'error') {
+    <div class="queue-message">
+      <p role="alert">{{ 'admin.publicationQueue.error' | translate }}</p>
+      <button type="button" class="admin-button" (click)="retry.emit()">
+        {{ 'admin.publicationQueue.retry' | translate }}
+      </button>
+    </div>
+  } @else if (queue().length === 0) {
+    <p class="queue-message" role="status">
+      {{ 'admin.publicationQueue.empty' | translate }}
+    </p>
+  } @else {
+    <p class="queue-count" role="status">
+      {{
+        'admin.publicationQueue.count'
+          | translate: { scheduled: scheduledCount(), undated: undatedCount() }
+      }}
+    </p>
+  }
+
+  <div
+    #viewport
+    id="publication-queue-viewport"
+    class="queue-viewport"
+    [hidden]="state() !== 'ready' || queue().length === 0"
+    tabindex="0"
+    role="group"
+    [attr.aria-label]="'admin.publicationQueue.title' | translate"
+    aria-describedby="publication-queue-keyboard"
+    (scroll)="updateNavigation()"
+    (keydown)="navigate($event)"
+  >
+    <ol #track class="queue-track" role="list">
+      @for (item of queue(); track item.batch.id; let index = $index) {
+        <li
+          class="queue-card"
+          [class.queue-card-next]="index === 0 && !!item.scheduledAt"
+          data-og7="publication-queue-card"
+          [attr.data-og7-id]="item.batch.id"
+        >
+          <div class="card-order">
+            <span class="order-number" aria-hidden="true">{{ index + 1 }}</span>
+            <span>
+              {{
+                (item.scheduledAt
+                  ? index === 0
+                    ? 'admin.publicationQueue.first'
+                    : 'admin.publicationQueue.following'
+                  : 'admin.publicationQueue.undated'
+                ) | translate
+              }}
+            </span>
+          </div>
+          <h3>
+            {{ item.batch.channel === 'linkedin' ? 'LinkedIn' : 'Facebook' }}
+          </h3>
+          <p class="card-target">
+            {{
+              item.targets ||
+                ('admin.publicationQueue.unknownTarget' | translate)
+            }}
+          </p>
+          <div class="card-date">
+            @if (item.scheduledAt) {
+              <time [attr.datetime]="item.scheduledAt">{{
+                dateLabel(item.scheduledAt, item.timezone)
+              }}</time>
+              <small>{{ item.timezone }}</small>
+            } @else {
+              <strong>{{ 'admin.publicationQueue.noDate' | translate }}</strong>
+              <small>{{ 'admin.publicationQueue.noOrder' | translate }}</small>
+            }
+          </div>
+          <p class="card-capacity">
+            {{
+              'admin.publicationQueue.capacity'
+                | translate
+                  : {
+                      used: item.batch.capacityUsed,
+                      capacity: item.batch.capacity
+                    }
+            }}
+          </p>
+          <div class="card-members">
+            @for (company of item.companies; track $index) {
+              <p>{{ company }}</p>
+            }
+            @if (item.otherCompanies > 0) {
+              <small>{{
+                'admin.publicationQueue.others'
+                  | translate: { count: item.otherCompanies }
+              }}</small>
+            } @else if (item.batch.capacityUsed === 0) {
+              <small>{{
+                'admin.publicationQueue.noMembers' | translate
+              }}</small>
+            }
+          </div>
+          <button
+            type="button"
+            class="admin-button"
+            [class.admin-button--primary]="index === 0 && !!item.scheduledAt"
+            (click)="openBatch.emit(item.batch.id)"
+            [attr.aria-label]="
+              'admin.publicationQueue.openLabel'
+                | translate
+                  : {
+                      position: index + 1,
+                      channel:
+                        item.batch.channel === 'linkedin'
+                          ? 'LinkedIn'
+                          : 'Facebook'
+                    }
+            "
+          >
+            {{ 'admin.publicationQueue.open' | translate }}
+            <span aria-hidden="true">↗</span>
+          </button>
+        </li>
+      }
+    </ol>
+  </div>
+  @if (state() === 'ready' && queue().length > 0) {
+    <p id="publication-queue-keyboard" class="help keyboard-help">
+      {{ 'admin.publicationQueue.keyboard' | translate }}
+    </p>
+  }
+</section>

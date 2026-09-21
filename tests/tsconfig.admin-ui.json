@@ -1,6 +1,8 @@
 {
   "extends": "../tsconfig.json",
-  "compilerOptions": { "noEmit": true },
+  "compilerOptions": {
+    "noEmit": true
+  },
   "include": [
     "playwright/admin-inspection.spec.ts",
     "../apps/**/*.ts",
@@ -11,6 +13,8 @@
     "playwright/admin-attention.spec.ts",
     "playwright/admin-assistant-context.spec.ts",
     "playwright/admin-sponsorship-progress.spec.ts",
-    "playwright/admin-readonly-pages.spec.ts"
+    "playwright/admin-readonly-pages.spec.ts",
+    "playwright/admin-publication-queue.spec.ts",
+    "playwright/admin-publication-automation.spec.ts"
   ]
 }

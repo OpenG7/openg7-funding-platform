@@ -43,17 +43,18 @@ test.describe('Sponsor side rejected state validation', () => {
         .first()
     ).toBeVisible();
 
-    // Verify the action note is shown
-    await expect(page.locator('.review-note.rejected')).toBeVisible();
+    // The internal refusal reason must remain private on the sponsor page.
+    await expect(
+      page.getByText('E2E Playwright: refus de test pour validation sponsor.')
+    ).toHaveCount(0);
 
     // Verify the payment status is still paid
     await expect(
-      page
-        .locator('.followup-status-panel div', {
-          hasText: /Statut du paiement/i
-        })
-        .locator('dd')
-    ).toHaveText('Confirmé');
+      page.locator('[data-og7="followup-summary"]').getByRole('heading', {
+        name: 'Confirmé',
+        exact: true
+      })
+    ).toBeVisible();
 
     // Verify the details form is not available (rejected sponsorships don't allow details submission)
     await expect(

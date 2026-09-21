@@ -400,6 +400,7 @@ for (const destination of [
       await expect(page).toHaveURL(
         '/admin/fundraiser/' +
           destination +
+          (destination === 'publications' ? '/drafts' : '') +
           '?' +
           (destination === 'publications'
             ? 'draftId=' + nextDraftId

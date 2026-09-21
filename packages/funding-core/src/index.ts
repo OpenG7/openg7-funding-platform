@@ -1561,3 +1561,5 @@ export type {
   CockpitSystemState,
   CockpitSystemEvidence
 } from './admin-cockpit.js';
+
+export * from './publication-automation.js';

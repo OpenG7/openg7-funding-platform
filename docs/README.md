@@ -41,6 +41,10 @@ couvrent le cockpit, À traiter, l'Assistant, les contributions, commandites,
 factures/avoirs, publications, dépenses, transparence, audit, courriels,
 configuration et accès/sessions. Les routes sont dans `admin.routes.ts`.
 
+L’[administration des publications](admin-publication-queue.md) propose un accueil
+avec carrousel et trois pages distinctes : rédaction et validation, lots de
+publication et calendrier éditorial.
+
 Les [lots 1](admin-ux-lot-1.md), [2](admin-ux-lot-2.md),
 [3](admin-ux-lot-3.md), [4](admin-ux-lot-4.md), [5](admin-ux-lot-5.md),
 [6](admin-ux-lot-6.md) et [7](admin-ux-lot-7.md) décrivent les contrats et

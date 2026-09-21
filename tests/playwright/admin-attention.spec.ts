@@ -466,6 +466,11 @@ test('direct publication links load and focus the exact slot, batch and draft', 
     await expect(
       page.locator(`#attention-object-${contributionId}`)
     ).toBeFocused();
+    const space =
+      kind === 'slot' ? 'calendar' : kind === 'batch' ? 'batches' : 'drafts';
+    await expect(page).toHaveURL(
+      `/admin/fundraiser/publications/${space}?${kind}Id=${contributionId}`
+    );
     expect(requests).toEqual([contributionId]);
   }
 });
