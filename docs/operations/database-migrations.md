@@ -30,6 +30,8 @@ Les migrations déjà appliquées restent immuables.
 | [020](../../apps/funding-api/migrations/020_create_admin_identity.sql)                  | Comptes, sessions et challenges OIDC administratifs         |
 | [021](../../apps/funding-api/migrations/021_create_operations_alerts.sql)               | Épisodes d'alertes et reprises de livraison                 |
 
+Ajouts du 21 septembre 2026 : [022](../../apps/funding-api/migrations/022_create_publication_automation.sql) (moteur de publication), [023](../../apps/funding-api/migrations/023_prepare_publications_for_human_review.sql) (préparation privée) et [024](../../apps/funding-api/migrations/024_create_admin_command_receipts.sql) (reçus des commandes de pilotage).
+
 Appliquer les dépendances dans l'ordre. PostgreSQL est nécessaire pour les
 fonctions persistantes, OIDC et les alertes. Le mode Stripe-direct conserve
 uniquement les parcours compatibles avec l'absence de base.

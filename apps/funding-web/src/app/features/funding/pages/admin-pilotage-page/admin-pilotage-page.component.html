@@ -1,0 +1,835 @@
+<div class="pilot" data-og7="pilotage">
+  <a class="skip" href="#admin-main">{{ t('skip') }}</a>
+  <header class="masthead">
+    <a routerLink="/admin/fundraiser" class="brand"
+      >OpenG7 <span aria-hidden="true">🍁</span></a
+    >
+    <span class="fund-name">{{ t('fund') }}</span>
+    <button class="connection" type="button" (click)="open('settings')">
+      <span aria-hidden="true">◉</span
+      >{{
+        t(
+          controller.connected()
+            ? controller.enabled()
+              ? controller.ready()
+                ? 'connected'
+                : 'needsCalibration'
+              : 'capturePaused'
+            : 'disconnected'
+        )
+      }}
+      <i
+        class="dot"
+        [class.online]="controller.ready() && controller.enabled()"
+      ></i>
+    </button>
+    <strong class="decision-count"
+      >{{ state()?.total ?? '—' }} {{ t('toReview') }}</strong
+    >
+    <button
+      type="button"
+      class="account"
+      (click)="open('menu')"
+      [attr.aria-label]="t('menu')"
+    >
+      <openg7-admin-icon name="menu" />
+    </button>
+  </header>
+  <aside class="rail">
+    <nav [attr.aria-label]="t('navigation')">
+      <button
+        type="button"
+        [class.active]="domain() === ''"
+        (click)="changeDomain('')"
+        [disabled]="busy()"
+      >
+        <openg7-admin-icon name="dashboard" />{{ t('title') }}
+      </button>
+      @for (d of domains; track d.id) {
+        <button
+          type="button"
+          [class.active]="domain() === d.id"
+          (click)="changeDomain(d.id)"
+          [disabled]="busy()"
+        >
+          <openg7-admin-icon [name]="d.icon" />{{ t('domains.' + d.id)
+          }}<small>{{ state()?.domains?.[d.id] ?? '' }}</small>
+        </button>
+      }
+      <button type="button" (click)="openCalendar()">
+        <openg7-admin-icon name="clock" />{{ t('calendar') }}
+      </button>
+      <button type="button" (click)="open('settings')">
+        <openg7-admin-icon name="settings" />{{ t('settings') }}
+      </button>
+    </nav>
+    <div class="rail-note">
+      <span aria-hidden="true">✳</span>
+      <p>{{ t('community') }}</p>
+      <a routerLink="/admin/fundraiser" (click)="portal()"
+        >{{ t('fullPortal') }} ↗</a
+      >
+    </div>
+  </aside>
+  <main id="admin-main" tabindex="-1">
+    <section class="intro">
+      <div>
+        <p class="eyebrow">
+          {{ t('fund') }} · {{ t('domains.' + (domain() || 'publications')) }}
+        </p>
+        <h1>{{ t('title') }}</h1>
+        <p>{{ t('subtitle') }}</p>
+      </div>
+      <div class="automation">
+        <strong
+          ><i class="dot" [class.online]="state()?.workerEnabled"></i
+          >{{
+            t(state()?.workerEnabled ? 'automationActive' : 'automationStopped')
+          }}</strong
+        >
+        <p>
+          {{
+            t(
+              preparing()
+                ? 'preparing'
+                : state()?.workerEnabled
+                  ? 'preparationDisabled'
+                  : 'workerHelp'
+            )
+          }}
+        </p>
+      </div>
+    </section>
+    <div class="announcements" aria-live="polite" aria-atomic="true">
+      @if (error() && !panel()) {
+        <p class="alert" role="alert">
+          {{ errorLabel(error()) }}
+          <button type="button" (click)="load(true)">{{ t('refresh') }}</button>
+        </p>
+      }
+      @if (state()?.coverage === 'partial') {
+        <p class="alert">
+          {{ t('partial') }}
+          <button type="button" (click)="open('menu')">
+            {{ t('details') }}
+          </button>
+        </p>
+      }
+      @if (state() && !state()?.writable) {
+        <p class="alert">{{ t('readOnly') }}</p>
+      }
+      @if (stale() && receipt()?.status !== 'completed') {
+        <p class="alert">
+          {{ t('stale') }}
+          <button type="button" (click)="load(true)">{{ t('reread') }}</button>
+        </p>
+      }
+      @if (unresolved()) {
+        <p class="alert">
+          {{ t('uncertain') }}
+          <button type="button" (click)="recover()" [disabled]="busy()">
+            {{ t('checkReceipt') }}
+          </button>
+          @if (receipt()?.status === 'uncertain' && state()?.writable) {
+            <button type="button" (click)="open('incident')">
+              {{ t('incident') }}
+            </button>
+          }
+        </p>
+      }
+      @if (receipt()?.status === 'completed') {
+        <p class="success" data-og7="pilot-receipt">
+          {{ t('receipts.' + receipt()?.code) }}
+          <button
+            type="button"
+            (click)="
+              receipt()?.action === 'publication.edit' ? load(true) : next()
+            "
+          >
+            {{
+              t(receipt()?.action === 'publication.edit' ? 'reread' : 'next')
+            }}
+            →
+          </button>
+        </p>
+      }
+    </div>
+    @if (domain() === 'operations') {
+      <section class="operations">
+        <h2>{{ t('feeds') }}</h2>
+        <p>{{ t('pauseHelp') }}</p>
+        @for (f of state()?.feeds ?? []; track f.id) {
+          <article>
+            <h3>{{ f.id }}</h3>
+            <p>
+              {{ f.accountId || t('notConnected') }} ·
+              {{ i18n.t('admin.publicationAutomation.modes.' + f.mode) }}
+            </p>
+            <p>
+              {{
+                i18n.t('admin.publicationAutomation.connection.' + f.connection)
+              }}
+            </p>
+            <button
+              type="button"
+              (click)="feed(f)"
+              [disabled]="!state()?.writable || busy() || !!unresolved()"
+            >
+              {{ t(f.paused ? 'resumeFeed' : 'pauseFeed') }}
+            </button>
+          </article>
+        }
+        <a routerLink="/admin/fundraiser/setup" (click)="portal()"
+          >{{ t('configuration') }} ↗</a
+        >
+      </section>
+    } @else if (selected(); as d) {
+      <div class="workspace">
+        <article
+          class="decision"
+          data-og7="pilot-decision"
+          [attr.data-og7-id]="d.id"
+          [attr.aria-busy]="busy()"
+        >
+          <div class="preview">
+            <div class="visual">
+              @if (image()) {
+                <img
+                  [src]="image()"
+                  [alt]="d.publication?.mediaAlt || d.sponsor?.name || d.title"
+                  (error)="previewFailed.set(true)"
+                />
+              } @else {
+                <div class="no-image">
+                  <openg7-admin-icon
+                    [name]="
+                      d.domain === 'publications'
+                        ? 'publications'
+                        : d.domain === 'projects'
+                          ? 'mountain'
+                          : 'audit'
+                    "
+                  /><span>{{
+                    t(
+                      previewFailed()
+                        ? 'previewFailed'
+                        : d.publication?.mediaId || d.sponsor?.presentationId
+                          ? 'loading'
+                          : 'noImage'
+                    )
+                  }}</span>
+                </div>
+              }
+            </div>
+            <div class="decision-heading">
+              <span class="badge"
+                ><openg7-admin-icon name="publications" />{{ kind(d) }}</span
+              >
+              <h2>{{ d.title || kind(d) }}</h2>
+              @if (d.publication; as p) {
+                <p class="destination">
+                  {{ p.feedId }} <span>·</span>
+                  {{ i18n.t('admin.publicationAutomation.modes.' + p.mode) }}
+                </p>
+              }
+              <p class="date">
+                <openg7-admin-icon name="clock" />{{ date(d.dueAt) }}
+              </p>
+              @if (pendingSponsors().length) {
+                <button class="sponsors" type="button" (click)="details()">
+                  <openg7-admin-icon name="sponsors" />{{
+                    pendingSponsors().length
+                  }}
+                  {{ t('sponsorsToApprove') }} <span>›</span>
+                </button>
+              }
+            </div>
+          </div>
+          <div
+            class="decision-copy"
+            tabindex="0"
+            [attr.aria-label]="t('content')"
+          >
+            {{
+              d.publication?.message ||
+                d.project?.public_description ||
+                t('inspectHelp')
+            }}
+          </div>
+          <div class="decision-summary">
+            <section>
+              <openg7-admin-icon name="publications" />
+              <div>
+                <h3>{{ t('situation') }}</h3>
+                <p>
+                  {{
+                    primary()?.blocked
+                      ? errorLabel(primary()!.blocked!)
+                      : t(d.publication ? 'contentReady' : 'reviewNeeded')
+                  }}
+                </p>
+              </div>
+            </section>
+            <section>
+              <openg7-admin-icon name="audit" />
+              <div>
+                <h3>{{ t('proposal') }}</h3>
+                <p>
+                  {{ primary() ? actionLabel(primary()!.id) : t('details') }}
+                </p>
+              </div>
+            </section>
+            <section>
+              <openg7-admin-icon name="expenses" />
+              <div>
+                <h3>{{ t('consequence') }}</h3>
+                <p>{{ consequence(primary()?.id) }}</p>
+              </div>
+            </section>
+          </div>
+        </article>
+        <aside class="up-next">
+          <div class="queue-heading">
+            <h2>{{ t('following') }}</h2>
+            <span>{{ state()?.page }} / {{ pageCount() }}</span>
+          </div>
+          <div class="queue-scroll">
+            @for (item of following(); track item.id) {
+              <button
+                type="button"
+                class="queue-card"
+                (click)="choose(item)"
+                [disabled]="busy()"
+              >
+                <span class="queue-icon"
+                  ><openg7-admin-icon
+                    [name]="
+                      item.domain === 'email'
+                        ? 'email'
+                        : item.domain === 'projects'
+                          ? 'mountain'
+                          : 'publications'
+                    " /></span
+                ><span
+                  ><strong>{{ kind(item) }}</strong
+                  ><span>{{ item.title || t('reviewNeeded') }}</span
+                  ><small
+                    >{{ t('domains.' + item.domain) }} ·
+                    {{ date(item.dueAt) }}</small
+                  ></span
+                ><span aria-hidden="true">›</span>
+              </button>
+            }
+            @if (!following().length) {
+              <p class="quiet">{{ t('queueEnd') }}</p>
+            }
+          </div>
+          @if ((state()?.total ?? 0) > (state()?.pageSize ?? 30)) {
+            <div class="pagination">
+              <button
+                (click)="page(-1)"
+                [disabled]="busy() || (state()?.page ?? 1) <= 1"
+              >
+                ← {{ t('previous') }}</button
+              ><button
+                (click)="page(1)"
+                [disabled]="
+                  busy() ||
+                  (state()?.page ?? 1) * (state()?.pageSize ?? 30) >=
+                    (state()?.total ?? 0)
+                "
+              >
+                {{ t('next') }} →
+              </button>
+            </div>
+          }
+        </aside>
+      </div>
+    } @else {
+      <section class="empty">
+        <openg7-admin-icon name="audit" />
+        <h2>
+          {{ t(loading() ? 'loading' : error() ? 'unavailable' : 'empty') }}
+        </h2>
+        <p>{{ t('emptyHelp') }}</p>
+        <button type="button" (click)="load(true)">{{ t('refresh') }}</button>
+      </section>
+    }
+    <footer class="controls" [attr.aria-label]="t('controls')">
+      <div class="face-buttons">
+        <button
+          type="button"
+          data-og7="pilot-accept"
+          (click)="primary() && request(primary()!.id)"
+          [disabled]="blocked() || !primary() || !!primary()?.blocked"
+        >
+          <kbd
+            [class]="
+              ['a', 'b', 'x', 'y'][controller.profile().bindings.primary]
+            "
+            >{{
+              ['A', 'B', 'X', 'Y'][controller.profile().bindings.primary]
+            }}</kbd
+          >{{ t('accept') }}
+        </button>
+        <button
+          type="button"
+          data-og7="pilot-reject"
+          (click)="reject() && request(reject()!.id)"
+          [disabled]="blocked() || !reject() || !!reject()?.blocked"
+        >
+          <kbd
+            [class]="
+              ['a', 'b', 'x', 'y'][controller.profile().bindings.secondary]
+            "
+            >{{
+              ['A', 'B', 'X', 'Y'][controller.profile().bindings.secondary]
+            }}</kbd
+          >{{ t('reject') }}
+        </button>
+        <button
+          type="button"
+          data-og7="pilot-edit"
+          (click)="startEdit()"
+          [disabled]="blocked() || !editable() || !!editable()?.blocked"
+        >
+          <kbd
+            [class]="['a', 'b', 'x', 'y'][controller.profile().bindings.edit]"
+            >{{ ['A', 'B', 'X', 'Y'][controller.profile().bindings.edit] }}</kbd
+          >{{ t('edit') }}
+        </button>
+        <button
+          type="button"
+          data-og7="pilot-details"
+          (click)="details()"
+          [disabled]="busy() || !selected()"
+        >
+          <kbd
+            [class]="
+              ['a', 'b', 'x', 'y'][controller.profile().bindings.details]
+            "
+            >{{
+              ['A', 'B', 'X', 'Y'][controller.profile().bindings.details]
+            }}</kbd
+          >{{ t('details') }}
+        </button>
+      </div>
+      <div class="shortcuts">
+        <div>
+          <button type="button" (click)="next(-1)"><kbd>LB</kbd></button
+          ><span>/</span
+          ><button type="button" (click)="next()"><kbd>RB</kbd></button
+          ><span>{{ t('decisionNavigation') }}</span>
+        </div>
+        <div>
+          <button type="button" (click)="openCalendar()">
+            <kbd
+              >LT +
+              {{
+                ['A', 'B', 'X', 'Y'][controller.profile().bindings.details]
+              }}</kbd
+            >
+            {{ t('calendar') }}</button
+          ><button type="button" (click)="open('menu')">
+            <openg7-admin-icon name="menu" /> {{ t('menu') }}
+          </button>
+        </div>
+      </div>
+    </footer>
+    <div class="session-hint">
+      <button type="button" (click)="open('help')">
+        {{ t('help') }} · A / B / X / Y</button
+      ><span>{{ t('keyboardHint') }}</span>
+    </div>
+  </main>
+</div>
+
+<openg7-admin-drawer
+  [opened]="!!panel()"
+  [title]="t(panel() || 'details')"
+  [closeLabel]="t('close')"
+  [busy]="busy()"
+  (closed)="close()"
+>
+  <div class="panel-content" [attr.data-og7]="'pilot-panel-' + panel()">
+    @if (panel() === 'incident') {
+      <p>{{ t('incidentHelp') }}</p>
+      <p>{{ receipt()?.requestId }}</p>
+      <p>{{ receipt()?.targetId }}</p>
+      <a routerLink="/admin/fundraiser/audit" (click)="portal()"
+        >{{ t('audit') }} ↗</a
+      >
+      <label
+        >{{ t('incidentReason')
+        }}<textarea
+          [(ngModel)]="incidentReason"
+          minlength="10"
+          maxlength="500"
+        ></textarea>
+      </label>
+      <button
+        type="button"
+        (click)="acknowledgeIncident()"
+        [disabled]="busy() || incidentReason.trim().length < 10"
+      >
+        {{ t('acknowledgeIncident') }}
+      </button>
+    }
+    @if (error()) {
+      <p class="alert" role="alert">{{ errorLabel(error()) }}</p>
+    }
+    @if (panel() === 'confirm' && pending(); as p) {
+      <p class="eyebrow">{{ actionLabel(p.action) }}</p>
+      <h3>{{ p.title }}</h3>
+      @if (p.action.startsWith('publication.')) {
+        <p class="full-copy">{{ selected()?.publication?.message }}</p>
+        <p>
+          {{ selected()?.publication?.feedId }} ·
+          {{ date(selected()?.dueAt ?? null) }} ·
+          {{ selected()?.publication?.accountId }}
+        </p>
+      }
+      @if (p.action === 'publication.approve' && pendingSponsors().length) {
+        <h4>{{ t('combinedApproval') }}</h4>
+        <ul>
+          @for (s of pendingSponsors(); track s.id) {
+            <li>{{ s.name }}</li>
+          }
+        </ul>
+        <p>{{ t('privateReview') }}</p>
+      }
+      @if (p.action === 'email.retry' && selected()?.email; as email) {
+        <p>{{ email.recipient }}</p>
+        <p class="full-copy">{{ email.text }}</p>
+      }
+      @if (p.action === 'project.publish' && selected()?.project; as project) {
+        <p class="full-copy">{{ project.public_description }}</p>
+        <p>{{ project.expected_outcome }}</p>
+      }
+      @if (p.action === 'sponsor.reject') {
+        <label
+          >{{ t('reason')
+          }}<textarea
+            [(ngModel)]="reason"
+            maxlength="500"
+            minlength="3"
+            required
+          ></textarea>
+        </label>
+      }
+      <p class="consequence">
+        <strong>{{ t('consequence') }}</strong
+        ><br />{{ consequence(p.action) }}
+      </p>
+      <div class="panel-actions">
+        <button type="button" (click)="close()" [disabled]="busy()">
+          {{ ['A', 'B', 'X', 'Y'][controller.profile().bindings.secondary] }} ·
+          {{ t('cancel') }}</button
+        ><button
+          type="button"
+          class="primary"
+          data-og7="pilot-confirm"
+          (click)="confirm()"
+          [disabled]="
+            busy() ||
+            (p.action === 'sponsor.reject' && reason.trim().length < 3)
+          "
+        >
+          {{ ['A', 'B', 'X', 'Y'][controller.profile().bindings.primary] }} ·
+          {{ actionLabel(p.action) }}
+        </button>
+      </div>
+    }
+    @if (panel() === 'edit') {
+      <label
+        >{{ t('content')
+        }}<textarea
+          rows="8"
+          maxlength="2900"
+          [(ngModel)]="edit.message"
+          data-og7="pilot-message"
+        ></textarea>
+      </label>
+      <button
+        type="button"
+        (click)="keyboard.set(!keyboard()); controller.reset()"
+      >
+        {{ t('keyboard') }}
+      </button>
+      @if (keyboard()) {
+        <openg7-pilot-keyboard
+          [value]="edit.message"
+          (changed)="edit.message = $event"
+        />
+      }
+      <label
+        >{{ t('schedule')
+        }}<input
+          type="datetime-local"
+          [(ngModel)]="edit.scheduledAt"
+          data-og7="pilot-date"
+      /></label>
+      <div class="date-steps">
+        <button type="button" (click)="shiftDate(-1440)">
+          − {{ t('day') }}</button
+        ><button type="button" (click)="shiftDate(1440)">
+          + {{ t('day') }}</button
+        ><button type="button" (click)="shiftDate(-30)">− 30 min</button
+        ><button type="button" (click)="shiftDate(30)">+ 30 min</button>
+      </div>
+      <p>{{ t('editHelp') }}</p>
+      <div class="panel-actions">
+        <button type="button" (click)="close()">{{ t('cancel') }}</button
+        ><button
+          type="button"
+          class="primary"
+          (click)="saveEdit()"
+          data-og7="pilot-save"
+        >
+          {{ t('save') }}
+        </button>
+      </div>
+    }
+    @if (panel() === 'details' && selected(); as d) {
+      <h3>{{ d.title || kind(d) }}</h3>
+      <p>{{ kind(d) }}</p>
+      @if (image()) {
+        <img
+          class="detail-image"
+          [src]="image()"
+          [alt]="d.publication?.mediaAlt || d.title"
+        />
+      }
+      <p class="full-copy">
+        {{ d.publication?.message || d.project?.public_description }}
+      </p>
+      @if (d.publication) {
+        <p>{{ d.publication.feedId }} · {{ date(d.dueAt) }}</p>
+        <ul>
+          @for (s of d.publication.sponsors; track s.id) {
+            <li>
+              {{ s.name }} ·
+              {{ i18n.t('admin.context.status.' + s.reviewStatus) }}
+            </li>
+          }
+        </ul>
+      }
+      <dl>
+        @for (f of d.facts; track f.label) {
+          <div>
+            <dt>
+              {{
+                t('facts.' + f.label) === 'admin.pilotage.facts.' + f.label
+                  ? f.label
+                  : t('facts.' + f.label)
+              }}
+            </dt>
+            <dd>{{ f.value }}</dd>
+          </div>
+        }
+      </dl>
+      @if (d.project) {
+        <p>{{ d.project.expected_outcome }}</p>
+      }
+      @if (detailLoading()) {
+        <p>{{ t('loading') }}</p>
+      }
+      @if (d.email) {
+        <p>{{ d.email.recipient }}</p>
+        <p class="full-copy">{{ d.email.text }}</p>
+      }
+      <p>{{ consequence(primary()?.id) }}</p>
+      <a [href]="d.detailsUrl" (click)="portal()">{{ t('fullRecord') }} ↗</a>
+    }
+    @if (panel() === 'calendar') {
+      <openg7-admin-publication-calendar
+        [entries]="calendar()"
+        [state]="calendarState()"
+        (openEntry)="calendarSelect($event)"
+        (retry)="openCalendar()"
+      /><a
+        routerLink="/admin/fundraiser/publications/automation"
+        (click)="portal()"
+        >{{ t('calendarHistory') }} ↗</a
+      >
+    }
+    @if (panel() === 'menu') {
+      <p>{{ admin.identity()?.displayName || t('administrator') }}</p>
+      <button type="button" (click)="controller.toggle()">
+        {{ t(controller.enabled() ? 'pauseCapture' : 'resumeCapture') }}
+      </button>
+      <p>{{ t('captureHelp') }}</p>
+      <button type="button" (click)="open('settings')">
+        {{ t('settings') }}</button
+      ><button type="button" (click)="open('help')">{{ t('help') }}</button>
+      <h3>{{ t('feeds') }}</h3>
+      <p>{{ t('pauseHelp') }}</p>
+      @for (f of state()?.feeds ?? []; track f.id) {
+        <div class="feed-row">
+          <span>{{ f.id }} · {{ t(f.paused ? 'paused' : 'active') }}</span
+          ><button
+            type="button"
+            (click)="feed(f)"
+            [disabled]="!state()?.writable || busy() || !!unresolved()"
+          >
+            {{ t(f.paused ? 'resumeFeed' : 'pauseFeed') }}
+          </button>
+        </div>
+      }
+      @if (state()?.missingSources?.length) {
+        <p>
+          {{ t('missingSources') }}: {{ state()?.missingSources?.join(', ') }}
+        </p>
+      }
+      <p>
+        {{ metrics().decisions }} {{ t('decisionsDone') }} ·
+        {{ metrics().details }} {{ t('detailsOpened') }} ·
+        {{ metrics().portal }} {{ t('portalOpened') }}
+      </p>
+      <a routerLink="/admin/fundraiser" (click)="portal()"
+        >{{ t('fullPortal') }} ↗</a
+      >
+    }
+    @if (panel() === 'help') {
+      <p>{{ t('helpIntro') }}</p>
+      <button type="button" (click)="i18n.toggleLanguage()">
+        {{ i18n.currentLanguage() === 'fr-CA' ? 'English' : 'Français' }}
+      </button>
+      <dl>
+        @for (
+          key of [
+            'faces',
+            'confirm',
+            'navigation',
+            'domains',
+            'scroll',
+            'keyboard',
+            'menu'
+          ];
+          track key
+        ) {
+          <div>
+            <dt>{{ t('helpKeys.' + key) }}</dt>
+            <dd>{{ t('helpText.' + key) }}</dd>
+          </div>
+        }
+      </dl>
+      <p>{{ t('releaseHelp') }}</p>
+      <p>{{ t('hardwareHelp') }}</p>
+      <button type="button" (click)="open('settings')">
+        {{ t('diagnostic') }}
+      </button>
+    }
+    @if (panel() === 'settings') {
+      <h3>{{ t('diagnostic') }}</h3>
+      <p>
+        {{
+          t(
+            !controller.supported()
+              ? 'unsupported'
+              : !controller.connected()
+                ? 'connectHelp'
+                : controller.standard()
+                  ? 'standardMapping'
+                  : 'unknownMapping'
+          )
+        }}
+      </p>
+      <p>
+        {{ t('buttons') }}:
+        {{ controller.diagnostic().buttons.join(', ') || '—' }}
+      </p>
+      <p>
+        {{ t('axes') }}: {{ controller.diagnostic().axes.join(' / ') || '—' }}
+      </p>
+      @if (controller.connected() && !controller.standard()) {
+        <fieldset>
+          <legend>{{ t('calibration') }}</legend>
+          <p>{{ t('calibrationHelp') }}</p>
+          @for (label of rawLabels; track label; let i = $index) {
+            <label
+              >{{ label
+              }}<input
+                type="number"
+                min="0"
+                max="63"
+                [(ngModel)]="profile.rawButtons[i]"
+            /></label>
+          }
+          @for (axis of profile.rawAxes; track $index; let i = $index) {
+            <label
+              >{{ t('axis' + i)
+              }}<input
+                type="number"
+                min="0"
+                max="15"
+                [(ngModel)]="axis.index" /></label
+            ><label
+              >{{ t('axisDirection')
+              }}<select [(ngModel)]="axis.sign">
+                <option [ngValue]="1">+1</option>
+                <option [ngValue]="-1">−1</option>
+              </select></label
+            >
+          }
+          <label class="checkbox"
+            ><input type="checkbox" [(ngModel)]="profile.calibrated" />{{
+              t('calibrationConfirm')
+            }}</label
+          >
+        </fieldset>
+      }
+      <label
+        >{{ t('deadzone') }}
+        <input
+          type="range"
+          min="0.2"
+          max="0.85"
+          step="0.05"
+          [(ngModel)]="profile.deadzone"
+        />{{ profile.deadzone }}</label
+      >
+      <label
+        >{{ t('repeatDelay')
+        }}<input
+          type="number"
+          min="250"
+          max="1000"
+          step="50"
+          [(ngModel)]="profile.repeatDelay"
+      /></label>
+      @for (
+        action of ['primary', 'secondary', 'edit', 'details'];
+        track action
+      ) {
+        <label
+          >{{ t('bindings.' + action)
+          }}<select [(ngModel)]="$any(profile.bindings)[action]">
+            @for (
+              button of ['A', 'B', 'X', 'Y'];
+              track button;
+              let index = $index
+            ) {
+              <option [ngValue]="index">{{ button }}</option>
+            }
+          </select></label
+        >
+      }
+      <label class="checkbox"
+        ><input
+          type="checkbox"
+          [ngModel]="controller.vibrate()"
+          (ngModelChange)="controller.vibrate.set($event)"
+        />{{ t('vibration') }}</label
+      >
+      <p>{{ t('settingsHelp') }}</p>
+      <div class="panel-actions">
+        <button type="button" (click)="resetProfile()">{{ t('reset') }}</button
+        ><button type="button" class="primary" (click)="saveProfile()">
+          {{ t('save') }}
+        </button>
+      </div>
+    }
+  </div>
+</openg7-admin-drawer>
+<openg7-admin-inspector />

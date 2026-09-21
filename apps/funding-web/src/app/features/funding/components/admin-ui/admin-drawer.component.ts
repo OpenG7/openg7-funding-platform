@@ -111,7 +111,7 @@ export class AdminDrawerComponent {
 
   private restoreFocus(): void {
     if (!this.opener) return;
-    if (this.opener.isConnected) this.opener.focus();
+    if (this.opener.isConnected && !this.opener.matches(':disabled')) this.opener.focus();
     else this.document.getElementById('admin-main')?.focus();
     this.opener = null;
   }

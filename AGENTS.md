@@ -1678,3 +1678,16 @@ Ne pas prétendre avoir déployé, envoyé, remboursé, restauré ou validé un 
 ---
 
 _Dernière adaptation pour `openg7-funding-platform` : 2026-09-19_
+
+### Pilotage administratif
+
+La route /admin/fundraiser/pilotage réutilise les services de domaine. Toute
+commande ajoutée exige un identifiant de requête, une version, une confirmation,
+un contrôle de rôle côté API et un reçu audité. Les commandes du domaine dépenses
+restent réservées au propriétaire. Ne jamais rejouer automatiquement un reçu
+incertain ni déclencher de mutation depuis le registre de l’assistant IA.
+
+Après modification des entrées, vérifier maintien, retour au neutre, combinaisons,
+focus et priorité des panneaux. Distinguer une recette Gamepad simulée d’une
+qualification USB/Bluetooth réelle. Voir le [runbook](docs/operations/admin-pilotage.md)
+et la migration 024 pour les préconditions d’activation.

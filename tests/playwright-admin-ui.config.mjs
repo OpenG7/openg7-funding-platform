@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 export default defineConfig({
   testDir: './playwright',
   testMatch: [
+    'admin-pilotage.spec.ts',
     'admin-inspection.spec.ts',
     'admin-dashboard-layout.spec.ts',
     'admin-cockpit.spec.ts',

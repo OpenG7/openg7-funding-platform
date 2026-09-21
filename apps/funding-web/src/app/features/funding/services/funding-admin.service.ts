@@ -1,4 +1,4 @@
-import type { AdminWorkQueueQuery, AdminWorkQueueResponse, PublicationAutomationState, PublicationAutomationCommand } from '@openg7/funding-core';
+import type { AdminWorkQueueQuery, AdminWorkQueueResponse, PublicationAutomationState, PublicationAutomationCommand, PilotState, PilotCommand, PilotReceipt } from '@openg7/funding-core';
 import { Injectable, signal } from '@angular/core';
 import type {
   AdminSearchRequest,
@@ -122,6 +122,67 @@ export interface AdminSponsorshipListQuery {
 
 @Injectable({ providedIn: 'root' })
 export class FundingAdminService {
+  async pilotage(
+    query: { page?: number; domain?: string; id?: string } = {}
+  ): Promise<PilotState> {
+    const params = new URLSearchParams(
+      Object.entries(query)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, String(v)])
+    );
+    return this.pilotageRequest<PilotState>(`?${params}`);
+  }
+  async pilotageCommand(command: PilotCommand): Promise<PilotReceipt> {
+    return this.pilotageRequest<PilotReceipt>('/command', command);
+  }
+  async pilotageReceipt(id: string): Promise<PilotReceipt> {
+    return this.pilotageRequest<PilotReceipt>(
+      `/receipt?id=${encodeURIComponent(id)}`
+    );
+  }
+  async acknowledgePilotReceipt(
+    requestId: string,
+    reason: string
+  ): Promise<PilotReceipt> {
+    return this.pilotageRequest<PilotReceipt>('/receipt', {
+      requestId,
+      confirmation: requestId,
+      reason
+    });
+  }
+  private async pilotageRequest<T>(
+    path: string,
+    command?:
+      PilotCommand | { requestId: string; confirmation: string; reason: string }
+  ): Promise<T> {
+    const response = await fetch(`${this.apiBaseUrl}/admin/pilotage${path}`, {
+      method: command ? 'POST' : 'GET',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15000),
+      headers: {
+        ...(await this.createHeaders(this.getSavedAdminToken())),
+        'Content-Type': 'application/json'
+      },
+      ...(command ? { body: JSON.stringify(command) } : {})
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as {
+        code?: string;
+      };
+      if (response.status === 401) this.clearAdminSession();
+      throw Object.assign(
+        new Error(
+          response.status === 401
+            ? 'SESSION_EXPIRED'
+            : response.status === 403
+              ? 'READ_ONLY'
+              : (data.code ?? 'PILOTAGE_UNAVAILABLE')
+        ),
+        { status: response.status }
+      );
+    }
+    return response.json() as Promise<T>;
+  }
   async publicationAutomation(command?: PublicationAutomationCommand): Promise<PublicationAutomationState | { id?: string }> {
     const response = await fetch(`${this.apiBaseUrl}/admin/publication-automation`, {
       method: command ? 'POST' : 'GET', cache: 'no-store',

@@ -15,6 +15,7 @@
     "playwright/admin-sponsorship-progress.spec.ts",
     "playwright/admin-readonly-pages.spec.ts",
     "playwright/admin-publication-queue.spec.ts",
-    "playwright/admin-publication-automation.spec.ts"
+    "playwright/admin-publication-automation.spec.ts",
+    "playwright/admin-pilotage.spec.ts"
   ]
 }
