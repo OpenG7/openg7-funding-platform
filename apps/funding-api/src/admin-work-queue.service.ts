@@ -373,7 +373,13 @@ export const getAdminWorkQueue = async (
   query: AdminWorkQueueQuery = {},
   now = new Date()
 ): Promise<AdminWorkQueueResponse> => {
-  if (!pool) return paginateWorkQueue([], now, query, ['database']);
+  const snapshot = await loadAdminWorkQueue(pool, now);
+  return paginateWorkQueue(snapshot.items, now, query, snapshot.missingSources);
+};
+
+/** Shared deterministic projection; callers paginate after cross-domain deduplication. */
+export const loadAdminWorkQueue = async (pool: Pool | null, now = new Date()): Promise<{ items: AdminAttentionItem[]; missingSources: string[] }> => {
+  if (!pool) return { items: [], missingSources: ['database'] };
   const required = [
     'fund_contributions',
     'stripe_events',
@@ -391,7 +397,7 @@ export const getAdminWorkQueue = async (
   const missing = required.filter(
     (name) => !presence.rows.some((row) => row.name === name && row.present)
   );
-  if (missing.length) return paginateWorkQueue([], now, query, missing);
+  if (missing.length) return { items: [], missingSources: missing };
   const [dataset, invoices, events] = await Promise.all([
     loadAttentionDataset(pool, now, true),
     pool.query<QueueInvoiceCandidate>(`SELECT c.id::text AS id, c.public_reference AS reference, c.paid_at::text AS paid_at
@@ -404,9 +410,5 @@ export const getAdminWorkQueue = async (
       [new Date(now.getTime() - STRIPE_STALLED_AFTER_MS).toISOString()]
     )
   ]);
-  return paginateWorkQueue(
-    buildWorkQueueItems(dataset, invoices.rows, events.rows),
-    now,
-    query
-  );
+  return { items: buildWorkQueueItems(dataset, invoices.rows, events.rows), missingSources: [] };
 };

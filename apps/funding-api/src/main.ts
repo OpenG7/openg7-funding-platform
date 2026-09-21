@@ -88,6 +88,7 @@ import type {
 
 import { PublicationAutomationError } from './publication-automation/policy.js';
 import { PublicationAutomationService } from './publication-automation/service.js';
+import { AdminPilotageService, PilotError } from './admin-pilotage.service.js';
 import { AdminIdentityService } from './admin-identity.js';
 import {
   SponsorshipDetailsError,
@@ -2080,6 +2081,9 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
   if (
     routeMatches(
       request.url,
+      '/admin/pilotage', '/api/admin/pilotage',
+      '/admin/pilotage/command', '/api/admin/pilotage/command',
+      '/admin/pilotage/receipt', '/api/admin/pilotage/receipt',
       '/admin/session',
       '/api/admin/session',
       '/admin/setup-status',
@@ -2474,6 +2478,7 @@ const runAdminSponsorshipReviewReminderWorker = async (): Promise<void> => {
 };
 
 const publicationAutomation = dbPool ? new PublicationAutomationService(dbPool, sponsorMediaStorage) : null;
+const adminPilotage = dbPool && publicationAutomation ? new AdminPilotageService(dbPool, publicationAutomation) : null;
 const runPublicationWorker = async (): Promise<void> => {
   try { await publicationAutomation?.tick(); }
   catch { console.error('Publication worker interrupted; inspect publication exceptions and database availability.'); }
@@ -2509,6 +2514,121 @@ createServer(async (request, response) => {
       writeJson(request, response, 503, { error: 'Identity service unavailable.' });
       return;
     }
+  }
+
+  if (
+    routeMatches(
+      request.url,
+      '/admin/pilotage',
+      '/api/admin/pilotage',
+      '/admin/pilotage/command',
+      '/api/admin/pilotage/command',
+      '/admin/pilotage/receipt',
+      '/api/admin/pilotage/receipt'
+    )
+  ) {
+    response.setHeader('Cache-Control', 'private, no-store');
+    if (!ensureAdminAccess(request, response)) return;
+    if (!adminPilotage) {
+      writeJson(request, response, 503, { code: 'PILOTAGE_UNAVAILABLE' });
+      return;
+    }
+    try {
+      const url = new URL(request.url ?? '/', publicBaseOrigin);
+      const writable = adminIdentity?.identity(request)?.role !== 'reader';
+      const owner =
+        !adminIdentity || adminIdentity.identity(request)?.role === 'owner';
+      const actor = getAdminAuditActor(request);
+      if (request.method === 'POST' && url.pathname.endsWith('/command')) {
+        if (
+          !request.headers['content-type']
+            ?.toLowerCase()
+            .startsWith('application/json')
+        )
+          throw new PilotError('INVALID_COMMAND', 415);
+        writeJson(
+          request,
+          response,
+          200,
+          await adminPilotage.command(
+            JSON.parse(await readBody(request, 16 * 1024)),
+            actor,
+            writable,
+            owner
+          )
+        );
+      } else if (
+        request.method === 'POST' &&
+        url.pathname.endsWith('/receipt')
+      ) {
+        if (!writable) throw new PilotError('READ_ONLY', 403);
+        if (
+          !request.headers['content-type']
+            ?.toLowerCase()
+            .startsWith('application/json')
+        )
+          throw new PilotError('INVALID_COMMAND', 415);
+        writeJson(
+          request,
+          response,
+          200,
+          await adminPilotage.acknowledgeReceipt(
+            JSON.parse(await readBody(request, 4096)),
+            actor
+          )
+        );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.endsWith('/receipt')
+      ) {
+        const result = await adminPilotage.readReceipt(
+          url.searchParams.get('id') ?? '',
+          actor
+        );
+        writeJson(
+          request,
+          response,
+          result ? 200 : 404,
+          result ?? { code: 'RECEIPT_NOT_FOUND' }
+        );
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.endsWith('/pilotage')
+      ) {
+        const page = Number(url.searchParams.get('page') ?? 1);
+        if (!Number.isSafeInteger(page) || page < 1)
+          throw new PilotError('INVALID_QUERY', 400);
+        writeJson(
+          request,
+          response,
+          200,
+          await adminPilotage.state(
+            {
+              page,
+              domain: url.searchParams.get('domain') ?? undefined,
+              id: url.searchParams.get('id') ?? undefined
+            },
+            writable,
+            owner
+          )
+        );
+      } else writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+    } catch (error) {
+      writeJson(
+        request,
+        response,
+        error instanceof PilotError
+          ? error.status
+          : error instanceof SyntaxError
+            ? 400
+            : 503,
+        {
+          code:
+            error instanceof PilotError ? error.code : 'PILOTAGE_UNAVAILABLE'
+        }
+      );
+    }
+    return;
   }
 
   if (routeMatches(request.url, '/admin/publication-automation', '/api/admin/publication-automation', '/admin/publication-automation/media', '/api/admin/publication-automation/media')) {

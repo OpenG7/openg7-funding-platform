@@ -1563,3 +1563,4 @@ export type {
 } from './admin-cockpit.js';
 
 export * from './publication-automation.js';
+export * from './admin-pilotage.js';

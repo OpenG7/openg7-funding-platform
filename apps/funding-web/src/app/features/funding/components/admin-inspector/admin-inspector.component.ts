@@ -104,7 +104,7 @@ export class AdminInspectorComponent {
         );
         if (generation !== this.generation) return;
         const invoice = response.invoices.find(
-          (item) => item.id === context.id
+          (item) => item.id === context.id || (context.id === context.contributionId && item.contribution_id === context.contributionId)
         );
         if (!invoice) {
           this.state.set('missing');
@@ -122,7 +122,7 @@ export class AdminInspectorComponent {
         ]);
         const blob = await this.admin.getSponsorshipInvoicePdf(
           token,
-          context.id
+          invoice.id
         );
         if (generation !== this.generation) return;
         if (blob.type !== 'application/pdf')

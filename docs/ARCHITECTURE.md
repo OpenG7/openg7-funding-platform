@@ -1306,4 +1306,18 @@ auditée, sans activer sa visibilité sur le site. Le refus d'une proposition es
 persistant; le planificateur ne réécrit pas les modifications humaines ni les
 publications déjà autorisées.
 
+### Poste de pilotage administratif
+
+Le pilotage normalise les entrées de manette en intentions indépendantes du
+navigateur et des mutations. Sa projection réutilise les décisions existantes;
+il ne crée ni second calendrier autoritaire ni seconde file d’envoi. Clavier,
+contrôles visibles et manette partagent un catalogue fermé de commandes serveur.
+L’assistant IA ne reçoit pas de capacité de mutation supplémentaire.
+
+La cible, sa version et une confirmation explicite accompagnent chaque commande.
+Des reçus persistants liés à l’acteur empêchent la réexécution d’une requête.
+L’absence de transaction distribuée entre reçu et mutation est représentée par
+un résultat incertain, jamais par une relance implicite. Voir [l’ADR](decisions/2026-09-21-admin-controller.md)
+et [le runbook](operations/admin-pilotage.md).
+
 _Last updated / Dernière mise à jour: 2026-09-21_

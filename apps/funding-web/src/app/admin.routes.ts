@@ -23,6 +23,10 @@ const adminSessionRequired: CanMatchFn = async (_route, segments) => {
 
 export const adminRoutes: Routes = [
   {
+    path: 'fundraiser/pilotage', canMatch: [adminSessionRequired],
+    loadComponent: () => import('./features/funding/pages/admin-pilotage-page/admin-pilotage-page.component.js').then(m => m.AdminPilotagePageComponent)
+  },
+  {
     path: 'fundraiser/access',
     canMatch: [adminSessionRequired],
     loadComponent: () =>

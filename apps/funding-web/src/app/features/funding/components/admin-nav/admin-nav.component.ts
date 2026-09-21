@@ -227,6 +227,7 @@ export class AdminNavComponent implements OnInit {
     {
       key: 'steering',
       links: [
+        { key: 'pilotage', url: '/admin/fundraiser/pilotage', icon: 'dashboard' },
         { key: 'dashboard', url: '/admin/fundraiser', icon: 'dashboard' },
         { key: 'attention', url: '/admin/fundraiser/attention', icon: 'audit' },
         {

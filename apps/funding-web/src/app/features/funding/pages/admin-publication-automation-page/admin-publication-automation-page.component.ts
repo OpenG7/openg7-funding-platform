@@ -151,6 +151,9 @@ export class AdminPublicationAutomationPageComponent {
     afterNextRender(() => {
       this.browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       void this.load().then(async () => {
+        const deliveryId = this.route.snapshot.queryParamMap.get('deliveryId');
+        const delivery = this.state()?.deliveries.find(d => d.id === deliveryId);
+        if (delivery) this.open(delivery);
         const batchId = this.route.snapshot.queryParamMap.get('batchId');
         const feedId = this.route.snapshot.queryParamMap.get(
           'feedId'
