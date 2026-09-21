@@ -777,7 +777,14 @@ récurrente ne vaut jamais approbation. Une modification révoque cette autorisa
 Le worker revalide consentement, admissibilité, contenu et média avant envoi.
 Un résultat externe ambigu est mis en quarantaine; aucune relance aveugle n'est
 permise. La déclaration humaine d'absence exige une raison et un audit.
-Migration 022 et activation live restent des opérations contrôlées; les feeds
+La préparation privée (migration 023) accepte les paiements confirmés avec
+consentement même si la revue du commanditaire est en attente. L'action humaine
+« Accepter et programmer » peut réunir les deux validations : elle exige les
+identifiants et versions des dossiers concernés, vérifie leur photo approuvée,
+audite chaque décision et conserve leur fiche publique masquée jusqu'à une
+décision de visibilité séparée. Un refus de publication ne vaut pas refus du
+commanditaire et ne doit jamais être annulé par le planificateur.
+Les migrations 022/023 et l'activation live restent des opérations contrôlées; les feeds
 sont initialement en pause et le worker désactivé.
 
 ### 13.6 Provenance externe

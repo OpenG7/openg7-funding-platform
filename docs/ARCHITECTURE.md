@@ -1299,4 +1299,11 @@ ou déclaration humaine auditée avant toute nouvelle autorisation. Les quatre f
 ont des destinations et pauses distinctes. Un mode simulé n'écrit pas de publication
 réelle sur les commanditaires. Voir le [runbook](operations/publication-automation.md).
 
+La préparation privée exploite les paiements confirmés et les consentements pour
+proposer textes, lots partiels ou complets et créneaux. La revue du commanditaire
+peut être réunie à l'acceptation humaine de la publication, dans une transaction
+auditée, sans activer sa visibilité sur le site. Le refus d'une proposition est
+persistant; le planificateur ne réécrit pas les modifications humaines ni les
+publications déjà autorisées.
+
 _Last updated / Dernière mise à jour: 2026-09-21_

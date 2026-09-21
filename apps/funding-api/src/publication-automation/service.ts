@@ -10,6 +10,7 @@ import type {
   PublicationFeedId
 } from '@openg7/funding-core';
 
+import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../../../../packages/funding-core/src/index.js';
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 import { isSocialPublicationChannelConfigured } from '../social-publication.service.js';
 
@@ -61,7 +62,9 @@ interface DeliveryRow {
   media_snapshot: Media | null;
   source_snapshot: Source[];
   account_id: string;
-  mode: 'mock' | 'live';
+  mode: PublicationDelivery['mode'];
+  auto_managed: boolean;
+  sponsors?: PublicationDelivery['sponsors'];
   version: number;
   status: PublicationDelivery['status'];
   attempts: number;
@@ -85,6 +88,8 @@ const publicDelivery = (r: DeliveryRow): PublicationDelivery => ({
   mediaAlt: r.media_snapshot?.alt ?? null,
   accountId: r.account_id,
   mode: r.mode,
+  autoManaged: r.auto_managed,
+  sponsors: r.sponsors ?? [],
   version: r.version,
   status: r.status,
   attempts: r.attempts,
@@ -125,6 +130,19 @@ async function transaction<T>(
   }
 }
 const sourceEqual = (a: Source[], b: Source[]) => isDeepStrictEqual(a, b);
+const sourceMessage = (sources: Source[]) =>
+  sources
+    .map((s) =>
+      [s.title, s.body, s.disclosure_text].filter(Boolean).join('\n\n')
+    )
+    .join('\n\n');
+// Explicit destinations take precedence. Unassigned CAD orders use the existing
+// promised benefits, routed to OpenG7; preparation does not publish the profile.
+const eligibleDestination = (alias: string, target: string, channel: string) =>
+  `COALESCE(${alias}.sponsor_feed_target,'openg7')=${target} AND (
+    ${alias}.sponsor_feed_channels ? ${channel} OR (
+      ${alias}.sponsor_feed_channels='[]'::jsonb AND lower(${alias}.currency)='cad'
+      AND ${alias}.amount_cents >= CASE WHEN ${channel}='facebook' THEN ${DEFAULT_SPONSORSHIP_PRICING_CONFIG.benefits.facebookBatch.minimumAmount * 100} ELSE ${DEFAULT_SPONSORSHIP_PRICING_CONFIG.benefits.linkedinBatch.minimumAmount * 100} END))`;
 
 export class PublicationAutomationService {
   private running = false;
@@ -179,7 +197,7 @@ export class PublicationAutomationService {
     const [feeds, jobs, counts] = await Promise.all([
       this.feeds(),
       this.pool.query<DeliveryRow>(
-        `SELECT * FROM publication_deliveries ORDER BY CASE WHEN status IN ('blocked','uncertain') THEN 0 WHEN status IN ('draft','approved','publishing') THEN 1 ELSE 2 END,scheduled_at DESC LIMIT 200`
+        `SELECT d.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'name',c.sponsor_company_name,'version',c.updated_at::text,'reviewStatus',c.sponsor_review_status,'presentationApproved',EXISTS(SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id=c.id AND m.kind='supporting_image' AND m.review_status='approved' AND m.deleted_at IS NULL)) ORDER BY c.id) FROM fund_contributions c WHERE c.id IN (SELECT s.contribution_id FROM sponsor_publication_drafts s WHERE s.batch_id=d.batch_id)),'[]'::jsonb) AS sponsors FROM publication_deliveries d ORDER BY CASE WHEN status IN ('blocked','uncertain') THEN 0 WHEN status IN ('draft','approved','publishing') THEN 1 ELSE 2 END,scheduled_at DESC LIMIT 200`
       ),
       this.pool.query(
         `SELECT count(*) FILTER(WHERE status='draft')::int AS "awaitingApproval",count(*) FILTER(WHERE status IN ('approved','publishing'))::int AS scheduled,count(*) FILTER(WHERE status IN ('blocked','uncertain'))::int AS exceptions,count(*) FILTER(WHERE published_at >= NOW()-INTERVAL '24 hours')::int AS "publishedToday" FROM publication_deliveries`
@@ -217,7 +235,8 @@ export class PublicationAutomationService {
   private async sources(
     db: Db,
     batchId: string,
-    feedId: PublicationFeedId
+    feedId: PublicationFeedId,
+    allowPending = false
   ): Promise<Source[]> {
     const batch = (
       await db.query(
@@ -240,7 +259,7 @@ export class PublicationAutomationService {
     );
     const all = (
       await db.query(
-        `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.status,c.sponsor_feed_status,c.public_display_consent,c.sponsor_review_status,c.status AS payment_status FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id FOR UPDATE OF d,c`,
+        `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.status,c.sponsor_feed_status,c.public_display_consent,c.sponsor_review_status,c.status AS payment_status,(${eligibleDestination('c', 'd.feed_target', 'd.channel')}) AS destination_eligible FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id FOR UPDATE OF d,c`,
         [batchId]
       )
     ).rows;
@@ -251,7 +270,9 @@ export class PublicationAutomationService {
           `${d.feed_target}:${d.channel}` === feedId &&
           ['draft', 'approved', 'scheduled'].includes(d.status) &&
           d.public_display_consent &&
-          d.sponsor_review_status === 'approved' &&
+          (d.sponsor_review_status === 'approved' ||
+            (allowPending && d.sponsor_review_status === 'pending_review')) &&
+          d.destination_eligible &&
           d.payment_status === 'paid' &&
           d.sponsor_feed_status !== 'hidden'
       ),
@@ -317,7 +338,8 @@ export class PublicationAutomationService {
   }
   async command(
     input: PublicationAutomationCommand,
-    actor: string
+    actor: string,
+    automatic = false
   ): Promise<{ id?: string }> {
     assert(input && typeof input === 'object', 'INVALID_COMMAND', 400);
     if (input.action === 'settings') {
@@ -434,7 +456,7 @@ export class PublicationAutomationService {
           400
         );
         const sources = input.batchId
-          ? await this.sources(db, input.batchId, input.feedId)
+          ? await this.sources(db, input.batchId, input.feedId, true)
           : [];
         const message =
           input.message ??
@@ -456,13 +478,9 @@ export class PublicationAutomationService {
           new Date(Date.now() + 86400000).toISOString();
         validateContent(message, date);
         const c = feedConfig(input.feedId, this.env);
-        assert(
-          c.config.mode !== 'disabled' && c.accountId,
-          'CONNECTION_REQUIRED'
-        );
         const media = await this.media(db, input.mediaId ?? null);
         const r = await db.query(
-          `INSERT INTO publication_deliveries(feed_id,kind,batch_id,message,scheduled_at,source_snapshot,media_id,media_snapshot,account_id,mode) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9,$10) RETURNING id`,
+          `INSERT INTO publication_deliveries(feed_id,kind,batch_id,message,scheduled_at,source_snapshot,media_id,media_snapshot,account_id,mode,auto_managed) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8::jsonb,$9,$10,$11) RETURNING id`,
           [
             input.feedId,
             input.kind,
@@ -473,7 +491,8 @@ export class PublicationAutomationService {
             media?.id ?? null,
             media ? JSON.stringify(media) : null,
             c.accountId,
-            c.config.mode
+            c.config.mode,
+            automatic
           ]
         );
         await audit(db, actor, 'compose', r.rows[0].id, {
@@ -484,9 +503,14 @@ export class PublicationAutomationService {
       });
     }
     assert(
-      ['edit', 'approve', 'cancel', 'reconcile', 'confirm-absent'].includes(
-        input.action
-      ) &&
+      [
+        'edit',
+        'approve',
+        'reject',
+        'cancel',
+        'reconcile',
+        'confirm-absent'
+      ].includes(input.action) &&
         validId(input.id) &&
         Number.isInteger(input.version),
       'INVALID_COMMAND',
@@ -508,15 +532,11 @@ export class PublicationAutomationService {
         validateContent(input.message, input.scheduledAt);
         const media = await this.media(db, input.mediaId);
         const sources = row.batch_id
-          ? await this.sources(db, row.batch_id, row.feed_id)
+          ? await this.sources(db, row.batch_id, row.feed_id, true)
           : [];
         const c = feedConfig(row.feed_id, this.env);
-        assert(
-          c.config.mode !== 'disabled' && c.accountId,
-          'CONNECTION_REQUIRED'
-        );
         await db.query(
-          `UPDATE publication_deliveries SET message=$2,scheduled_at=$3,media_id=$4,media_snapshot=$5::jsonb,source_snapshot=$6::jsonb,account_id=$7,mode=$8,status='draft',approved_at=NULL,approved_by=NULL,error_code=NULL,next_attempt_at=NULL,provider_media_id=NULL,version=version+1,updated_at=NOW() WHERE id=$1`,
+          `UPDATE publication_deliveries SET message=$2,scheduled_at=$3,media_id=$4,media_snapshot=$5::jsonb,source_snapshot=$6::jsonb,account_id=$7,mode=$8,status='draft',auto_managed=FALSE,approved_at=NULL,approved_by=NULL,error_code=NULL,next_attempt_at=NULL,provider_media_id=NULL,version=version+1,updated_at=NOW() WHERE id=$1`,
           [
             row.id,
             input.message,
@@ -535,6 +555,65 @@ export class PublicationAutomationService {
             row.status === 'draft' && row.scheduled_at.getTime() > Date.now(),
             'APPROVAL_UNAVAILABLE'
           );
+          if (row.batch_id) {
+            // All decisions share the delivery transaction: any failed check
+            // rolls back sponsor approvals as well as the sending authorization.
+            const sources = await this.sources(
+              db,
+              row.batch_id,
+              row.feed_id,
+              true
+            );
+            assert(sourceEqual(sources, row.source_snapshot), 'SOURCE_CHANGED');
+            const pending = (
+              await db.query<{
+                id: string;
+                version: string;
+                presentation_approved: boolean;
+              }>(
+                `SELECT c.id,c.updated_at::text AS version,EXISTS(SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id=c.id AND m.kind='supporting_image' AND m.review_status='approved' AND m.deleted_at IS NULL) AS presentation_approved FROM fund_contributions c WHERE c.id=ANY($1::uuid[]) AND c.sponsor_review_status='pending_review' ORDER BY c.id`,
+                [sources.map((s) => s.contribution_id)]
+              )
+            ).rows;
+            const confirmed = input.approveSponsors ?? [];
+            assert(
+              Array.isArray(confirmed) &&
+                confirmed.every(
+                  (s) => s && validId(s.id) && typeof s.version === 'string'
+                ),
+              'SPONSOR_APPROVAL_REQUIRED',
+              400
+            );
+            // Previously approved sponsors may still be included after another
+            // reviewer approved a different channel for the same sponsor.
+            assert(
+              pending.every((s) => confirmed.some((c) => c.id === s.id)) &&
+                confirmed.every((c) =>
+                  sources.some((s) => s.contribution_id === c.id)
+                ),
+              'SPONSOR_APPROVAL_REQUIRED'
+            );
+            assert(
+              pending.every((s) =>
+                confirmed.some((c) => c.id === s.id && c.version === s.version)
+              ),
+              'VERSION_CONFLICT'
+            );
+            assert(
+              pending.every((s) => s.presentation_approved),
+              'SPONSOR_MEDIA_REQUIRED'
+            );
+            for (const sponsor of pending) {
+              await db.query(
+                `UPDATE fund_contributions SET sponsor_review_status='approved',sponsor_reviewed_at=NOW(),sponsor_site_visibility_held=TRUE,updated_at=NOW() WHERE id=$1`,
+                [sponsor.id]
+              );
+              await audit(db, actor, 'approve_sponsor', row.id, {
+                contributionId: sponsor.id,
+                siteVisibility: 'unchanged_private'
+              });
+            }
+          }
           await this.ready(db, row);
           await db.query(
             `UPDATE publication_deliveries SET status='approved',approved_at=NOW(),approved_by=$2,version=version+1,updated_at=NOW() WHERE id=$1`,
@@ -550,14 +629,14 @@ export class PublicationAutomationService {
               [row.batch_id, row.scheduled_at]
             );
           }
-        } else if (input.action === 'cancel') {
+        } else if (input.action === 'reject' || input.action === 'cancel') {
           assert(
             ['draft', 'approved', 'blocked'].includes(row.status),
             'DELIVERY_LOCKED'
           );
           await db.query(
-            `UPDATE publication_deliveries SET status='cancelled',version=version+1,updated_at=NOW() WHERE id=$1`,
-            [row.id]
+            `UPDATE publication_deliveries SET status=$2,auto_managed=FALSE,approved_at=NULL,approved_by=NULL,version=version+1,updated_at=NOW() WHERE id=$1`,
+            [row.id, input.action === 'reject' ? 'rejected' : 'cancelled']
           );
         } else if (input.action === 'confirm-absent') {
           assert(
@@ -610,7 +689,7 @@ export class PublicationAutomationService {
     actor: string,
     now = new Date()
   ): Promise<void> {
-    const full: string[] = [];
+    const proposals: string[] = [];
     await transaction(this.pool, async (db) => {
       await db.query(
         `SELECT id FROM publication_feeds WHERE id=$1 FOR NO KEY UPDATE`,
@@ -619,18 +698,42 @@ export class PublicationAutomationService {
       const feed = (await this.feeds(db)).find((f) => f.id === feedId)!;
       assert(feed, 'INVALID_FEED', 400);
       const [target, channel] = feedId.split(':');
-      // Only explicitly selected publication destinations and public, approved, paid sponsors are eligible.
+      // Only confirmed payments and public consent enter private preparation.
+      // Sponsor review belongs to the final human decision, never to this worker.
       await db.query(
         `INSERT INTO sponsor_publication_drafts(contribution_id,feed_target,channel,title,body,disclosure_text)
-        SELECT id,$1,$2,CASE WHEN $2='linkedin' THEN 'Un partenaire engagé : ' ELSE 'Merci à ' END || sponsor_company_name,left(sponsor_public_summary,300),'Commandite rémunérée.' FROM fund_contributions
-        WHERE contribution_type='sponsorship_interest' AND status='paid' AND public_display_consent IS TRUE AND sponsor_review_status='approved' AND sponsor_feed_target=$1 AND sponsor_feed_channels ? $2 AND sponsor_company_name IS NOT NULL AND NULLIF(btrim(sponsor_public_summary),'') IS NOT NULL AND sponsor_feed_status NOT IN ('hidden','published')
+        SELECT c.id,$1,$2,CASE WHEN $2='linkedin' THEN 'Un partenaire engagé : ' ELSE 'Merci à ' END || c.sponsor_company_name,left(COALESCE(NULLIF(btrim(c.sponsor_public_summary),''),'Merci de soutenir le Fonds des Bâtisseurs OpenG7.'),300),'Commandite rémunérée.' FROM fund_contributions c
+        WHERE c.contribution_type='sponsorship_interest' AND c.status='paid' AND c.public_display_consent IS TRUE AND c.sponsor_review_status IN ('pending_review','approved') AND ${eligibleDestination('c', '$1', '$2')} AND NULLIF(btrim(c.sponsor_company_name),'') IS NOT NULL AND c.sponsor_feed_status NOT IN ('hidden','published')
         ON CONFLICT (contribution_id,feed_target,channel) DO NOTHING`,
         [target, channel]
       );
+      // An untouched, overdue proposal is repacked into the next recurrence.
+      // Human edits and authorized/uncertain/rejected deliveries are never moved.
+      const overdue = (
+        await db.query<DeliveryRow>(
+          `SELECT * FROM publication_deliveries WHERE feed_id=$1 AND status='draft' AND auto_managed AND scheduled_at<=$2 ORDER BY id FOR UPDATE`,
+          [feedId, now]
+        )
+      ).rows;
+      for (const job of overdue) {
+        await db.query(
+          `UPDATE publication_deliveries SET status='cancelled',version=version+1,updated_at=NOW() WHERE id=$1`,
+          [job.id]
+        );
+        await db.query(
+          `UPDATE sponsor_publication_batches SET status='cancelled',updated_at=NOW() WHERE id=$1`,
+          [job.batch_id]
+        );
+        await db.query(
+          `UPDATE sponsor_publication_drafts SET batch_id=NULL,scheduled_at=NULL,updated_at=NOW() WHERE batch_id=$1`,
+          [job.batch_id]
+        );
+        await audit(db, actor, 'reschedule_proposal', job.id);
+      }
       for (const date of recurrenceTimes(feed, now)) {
         let batch = (
           await db.query(
-            `SELECT b.* FROM publication_recurrences r JOIN sponsor_publication_batches b ON b.id=r.batch_id WHERE r.feed_id=$1 AND r.starts_at=$2 FOR UPDATE OF b`,
+            `SELECT b.* FROM publication_recurrences r JOIN sponsor_publication_batches b ON b.id=r.batch_id WHERE r.feed_id=$1 AND r.starts_at=$2`,
             [feedId, date]
           )
         ).rows[0];
@@ -652,43 +755,97 @@ export class PublicationAutomationService {
             [feedId, date, batch.id]
           );
         }
+        // Match approval's lock order (delivery, then batch).
+        const job = (
+          await db.query<DeliveryRow>(
+            `SELECT * FROM publication_deliveries WHERE batch_id=$1 AND status<>'cancelled' FOR UPDATE`,
+            [batch.id]
+          )
+        ).rows[0];
+        batch = (
+          await db.query(
+            `SELECT * FROM sponsor_publication_batches WHERE id=$1 FOR UPDATE`,
+            [batch.id]
+          )
+        ).rows[0];
         if (
           batch.status !== 'open' ||
-          (
-            await db.query(
-              `SELECT 1 FROM publication_deliveries WHERE batch_id=$1 AND status<>'cancelled'`,
-              [batch.id]
-            )
-          ).rowCount
+          (job && !(job.status === 'draft' && job.auto_managed))
         )
           continue;
-        const count = Number(
-          (
+        const members = (
+          await db.query<Source>(
+            `SELECT * FROM sponsor_publication_drafts WHERE batch_id=$1 ORDER BY id`,
+            [batch.id]
+          )
+        ).rows;
+        const remaining = Math.max(0, batch.capacity - members.length);
+        const candidates = (
+          await db.query<Source>(
+            `SELECT d.* FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id IS NULL AND d.slot_id IS NULL AND d.feed_target=$1 AND d.channel=$2 AND d.status IN ('draft','approved') AND c.status='paid' AND c.public_display_consent IS TRUE AND c.sponsor_review_status IN ('pending_review','approved') AND ${eligibleDestination('c', '$1', '$2')} AND c.sponsor_feed_status NOT IN ('hidden','published') ORDER BY d.created_at,d.id LIMIT $3 FOR UPDATE OF d SKIP LOCKED`,
+            [target, channel, remaining]
+          )
+        ).rows;
+        for (const candidate of candidates) {
+          // Capacity is a maximum, and provider text limits also bound a batch.
+          if (sourceMessage([...members, candidate]).length > 2900) break;
+          await db.query(
+            `UPDATE sponsor_publication_drafts SET batch_id=$2,scheduled_at=$3,updated_at=NOW() WHERE id=$1`,
+            [candidate.id, batch.id, date]
+          );
+          members.push(candidate);
+        }
+        if (!members.length) continue;
+        if (job) {
+          try {
+            const sources = await this.sources(db, batch.id, feedId, true);
+            const message = sourceMessage(sources);
+            validateContent(message, date);
+            const c = feedConfig(feedId, this.env);
+            if (
+              !sourceEqual(sources, job.source_snapshot) ||
+              message !== job.message ||
+              job.account_id !== c.accountId ||
+              job.mode !== c.config.mode
+            ) {
+              await db.query(
+                `UPDATE publication_deliveries SET message=$2,source_snapshot=$3::jsonb,account_id=$4,mode=$5,version=version+1,updated_at=NOW() WHERE id=$1`,
+                [
+                  job.id,
+                  message,
+                  JSON.stringify(sources),
+                  c.accountId,
+                  c.config.mode
+                ]
+              );
+              await audit(db, actor, 'refresh_proposal', job.id);
+            }
+          } catch (error) {
+            if (!(error instanceof PublicationAutomationError)) throw error;
             await db.query(
-              `SELECT count(*) FROM sponsor_publication_drafts WHERE batch_id=$1`,
-              [batch.id]
-            )
-          ).rows[0].count
-        );
-        const remaining = Math.max(0, batch.capacity - count);
-        const assigned = await db.query(
-          `UPDATE sponsor_publication_drafts SET batch_id=$1,scheduled_at=$2,updated_at=NOW() WHERE id IN (SELECT d.id FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id IS NULL AND d.slot_id IS NULL AND d.feed_target=$3 AND d.channel=$4 AND d.status IN ('draft','approved') AND c.status='paid' AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.sponsor_feed_target=$3 AND c.sponsor_feed_channels ? $4 AND c.sponsor_feed_status NOT IN ('hidden','published') ORDER BY d.created_at,d.id LIMIT $5 FOR UPDATE OF d SKIP LOCKED) RETURNING id`,
-          [batch.id, date, target, channel, remaining]
-        );
-        if (count + (assigned.rowCount ?? 0) === batch.capacity)
-          full.push(batch.id);
+              `UPDATE publication_deliveries SET status='blocked',error_code=$2,version=version+1,updated_at=NOW() WHERE id=$1`,
+              [job.id, error.code]
+            );
+            await audit(db, actor, 'blocked', job.id, { code: error.code });
+          }
+        } else proposals.push(batch.id);
       }
-      await audit(db, actor, 'prepare', feedId, { fullBatches: full.length });
+      await audit(db, actor, 'prepare', feedId, {
+        proposedBatches: proposals.length
+      });
     });
-    for (const batchId of full) {
+    for (const batchId of proposals) {
       try {
         await this.command(
           { action: 'compose', feedId, kind: 'sponsorship', batchId },
-          actor
+          actor,
+          true
         );
       } catch (error) {
-        if (!(error instanceof PublicationAutomationError))
-          throw error; /* Ineligible or oversized batches stay visible for manual preparation. */
+        if (!(error instanceof PublicationAutomationError)) throw error;
+        await audit(this.pool, actor, 'preparation_blocked', batchId, {
+          code: error.code
+        });
       }
     }
   }
@@ -750,12 +907,11 @@ export class PublicationAutomationService {
           'publication-worker'
         );
       }
-      for (const f of feeds.filter(
-        (f) => f.autoPrepare && !f.paused && f.configured
-      )) {
-        // At most one planner pass per hour, persisted across processes/restarts.
+      for (const f of feeds.filter((f) => f.autoPrepare)) {
+        // Private preparation continues while sending is paused or unconfigured.
+        // The persisted claim also bounds concurrent planners/restarts.
         const claim = await this.pool.query(
-          `UPDATE publication_feeds SET last_prepared_at=$2 WHERE id=$1 AND (last_prepared_at IS NULL OR last_prepared_at<$2::timestamptz-INTERVAL '1 hour') RETURNING id`,
+          `UPDATE publication_feeds SET last_prepared_at=$2 WHERE id=$1 AND (last_prepared_at IS NULL OR last_prepared_at<$2::timestamptz-INTERVAL '5 minutes') RETURNING id`,
           [f.id, now]
         );
         if (claim.rowCount) await this.prepare(f.id, 'publication-worker', now);

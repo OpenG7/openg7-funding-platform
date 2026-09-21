@@ -251,86 +251,140 @@
           </p>
         }
       }
-      <form (ngSubmit)="save()">
-        <fieldset [disabled]="busy() || !editable()">
-          @if (composing()) {
-            <label
-              >{{ 'admin.publicationAutomation.feed' | translate
-              }}<select name="feed" [(ngModel)]="composeFeed">
-                @for (feed of state()?.feeds; track feed.id) {
-                  <option [value]="feed.id">{{ feed.id }}</option>
-                }
-              </select></label
-            >
-            <label
-              >{{ 'admin.publicationAutomation.kind' | translate
-              }}<select name="kind" [(ngModel)]="composeKind">
-                @for (kind of kinds; track kind) {
-                  <option [value]="kind">
-                    {{
-                      'admin.publicationAutomation.kinds.' + kind | translate
-                    }}
-                  </option>
-                }
-              </select></label
-            >
-          }
-          <label
-            >{{ 'admin.publicationAutomation.message' | translate
-            }}<textarea
-              name="message"
-              required
-              maxlength="2900"
-              rows="10"
-              [(ngModel)]="edit.message"
-              (ngModelChange)="approved = false"
-            ></textarea
-            ><small>{{ edit.message.length }} / 2900</small></label
-          >
-          <label
-            >{{ 'admin.publicationAutomation.schedule' | translate }} ({{
-              browserTimezone
-            }})<input
-              name="date"
-              type="datetime-local"
-              required
-              [(ngModel)]="edit.scheduledAt"
-              (ngModelChange)="approved = false"
-          /></label>
-          <label
-            >{{ 'admin.publicationAutomation.image' | translate
-            }}<select
-              name="media"
-              [(ngModel)]="edit.mediaId"
-              (ngModelChange)="approved = false"
-            >
-              <option value="">
-                {{ 'admin.publicationAutomation.noImage' | translate }}
-              </option>
-              @for (item of media(); track item.id) {
-                <option [value]="item.id">
-                  {{ item.company }} · {{ item.alt }}
-                </option>
-              }
-            </select></label
-          >
-          @if (edit.mediaId) {
-            @if (mediaPreview(); as image) {
-              <img class="preview-image" [src]="image.url" [alt]="image.alt" />
-            }
+      @if (!editing()) {
+        @if (selected(); as job) {
+          <p class="publication-copy">{{ job.message }}</p>
+          <p>{{ dateLabel(job.scheduledAt) }}</p>
+          @if (mediaPreview(); as image) {
+            <img class="preview-image" [src]="image.url" [alt]="image.alt" />
           }
           @if (editable()) {
             <button
               class="admin-button"
-              type="submit"
-              [disabled]="!edit.message.trim() || !edit.scheduledAt"
+              [disabled]="busy()"
+              (click)="editing.set(true)"
             >
-              {{ 'admin.publicationAutomation.save' | translate }}
+              {{ 'admin.publicationAutomation.modify' | translate }}
             </button>
           }
-        </fieldset>
-      </form>
+        }
+      }
+      @if (editing()) {
+        <form (ngSubmit)="save()">
+          <fieldset [disabled]="busy() || !editable()">
+            @if (composing()) {
+              <label
+                >{{ 'admin.publicationAutomation.feed' | translate
+                }}<select name="feed" [(ngModel)]="composeFeed">
+                  @for (feed of state()?.feeds; track feed.id) {
+                    <option [value]="feed.id">{{ feed.id }}</option>
+                  }
+                </select></label
+              >
+              <label
+                >{{ 'admin.publicationAutomation.kind' | translate
+                }}<select name="kind" [(ngModel)]="composeKind">
+                  @for (kind of kinds; track kind) {
+                    <option [value]="kind">
+                      {{
+                        'admin.publicationAutomation.kinds.' + kind | translate
+                      }}
+                    </option>
+                  }
+                </select></label
+              >
+            }
+            <label
+              >{{ 'admin.publicationAutomation.message' | translate
+              }}<textarea
+                name="message"
+                required
+                maxlength="2900"
+                rows="10"
+                [(ngModel)]="edit.message"
+                (ngModelChange)="approved = false"
+              ></textarea
+              ><small>{{ edit.message.length }} / 2900</small></label
+            >
+            <label
+              >{{ 'admin.publicationAutomation.schedule' | translate }} ({{
+                browserTimezone
+              }})<input
+                name="date"
+                type="datetime-local"
+                required
+                [(ngModel)]="edit.scheduledAt"
+                (ngModelChange)="approved = false"
+            /></label>
+            <label
+              >{{ 'admin.publicationAutomation.image' | translate
+              }}<select
+                name="media"
+                [(ngModel)]="edit.mediaId"
+                (ngModelChange)="approved = false; loadPreview($event)"
+              >
+                <option value="">
+                  {{ 'admin.publicationAutomation.noImage' | translate }}
+                </option>
+                @for (item of media(); track item.id) {
+                  <option [value]="item.id">
+                    {{ item.company }} · {{ item.alt }}
+                  </option>
+                }
+              </select></label
+            >
+            @if (edit.mediaId) {
+              @if (mediaPreview(); as image) {
+                <img
+                  class="preview-image"
+                  [src]="image.url"
+                  [alt]="image.alt"
+                />
+              }
+            }
+            @if (editable()) {
+              <button
+                class="admin-button"
+                type="submit"
+                [disabled]="!edit.message.trim() || !edit.scheduledAt"
+              >
+                {{ 'admin.publicationAutomation.save' | translate }}
+              </button>
+            }
+          </fieldset>
+        </form>
+      }
       @if (selected(); as job) {
+        @if (pendingSponsors().length) {
+          <section data-og7="publication-sponsor-review">
+            <h3>
+              {{ 'admin.publicationAutomation.sponsorReview' | translate }}
+            </h3>
+            <p>
+              {{ 'admin.publicationAutomation.sponsorReviewHelp' | translate }}
+            </p>
+            <ul>
+              @for (sponsor of pendingSponsors(); track sponsor.id) {
+                <li>
+                  <a
+                    routerLink="/admin/fundraiser/sponsors"
+                    [queryParams]="{ sponsorshipId: sponsor.id }"
+                    >{{ sponsor.name }}</a
+                  >
+                  @if (!sponsor.presentationApproved) {
+                    <span class="alert">
+                      —
+                      {{
+                        'admin.publicationAutomation.missingPresentation'
+                          | translate
+                      }}</span
+                    >
+                  }
+                </li>
+              }
+            </ul>
+          </section>
+        }
         @if (job.status === 'draft') {
           <div class="approval">
             <p>{{ 'admin.publicationAutomation.approvalHelp' | translate }}</p>
@@ -338,11 +392,22 @@
               ><input
                 type="checkbox"
                 [(ngModel)]="approved"
-                [disabled]="busy() || dirty()"
-              />{{ 'admin.publicationAutomation.approval' | translate }}</label
+                [disabled]="busy() || dirty() || missingPresentation()"
+              />{{
+                (pendingSponsors().length
+                  ? 'admin.publicationAutomation.combinedApproval'
+                  : 'admin.publicationAutomation.approval'
+                ) | translate
+              }}</label
             ><button
               class="admin-button"
-              [disabled]="busy() || !approved || dirty()"
+              [disabled]="
+                busy() ||
+                !approved ||
+                dirty() ||
+                missingPresentation() ||
+                (job.mediaId && !previewUrl())
+              "
               (click)="approve()"
             >
               {{ 'admin.publicationAutomation.approve' | translate }}
@@ -350,6 +415,11 @@
           </div>
         }
         @if (editable()) {
+          <button class="admin-button" [disabled]="busy()" (click)="reject()">
+            {{ 'admin.publicationAutomation.reject' | translate }}
+          </button>
+        }
+        @if (job.status === 'approved') {
           <button class="admin-button" [disabled]="busy()" (click)="cancel()">
             {{ 'admin.publicationAutomation.cancel' | translate }}
           </button>

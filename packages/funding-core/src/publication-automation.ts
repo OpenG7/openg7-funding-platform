@@ -10,6 +10,7 @@ export type PublicationDeliveryStatus =
   | 'published'
   | 'blocked'
   | 'uncertain'
+  | 'rejected'
   | 'cancelled';
 export interface PublicationFeedSettings {
   id: PublicationFeedId;
@@ -40,7 +41,15 @@ export interface PublicationDelivery {
   mediaUrl: string | null;
   mediaAlt: string | null;
   accountId: string;
-  mode: 'mock' | 'live';
+  mode: 'disabled' | 'mock' | 'live';
+  autoManaged: boolean;
+  sponsors: {
+    id: string;
+    name: string;
+    version: string;
+    reviewStatus: 'pending_review' | 'approved' | 'rejected';
+    presentationApproved: boolean;
+  }[];
   version: number;
   status: PublicationDeliveryStatus;
   attempts: number;
@@ -85,7 +94,14 @@ export type PublicationAutomationCommand =
       mediaId: string | null;
     }
   | {
-      action: 'approve' | 'cancel';
+      action: 'approve';
+      id: string;
+      version: number;
+      confirmation: string;
+      approveSponsors?: { id: string; version: string }[];
+    }
+  | {
+      action: 'reject' | 'cancel';
       id: string;
       version: number;
       confirmation: string;

@@ -101,7 +101,7 @@ export async function sendDelivery(
   cachedImage: string | null = null,
   persistImage: (id: string) => Promise<void> = async () => {}
 ): Promise<SocialPublicationProviderResult> {
-  assert(c.mode === job.mode, 'MODE_CHANGED');
+  assert(c.mode !== 'disabled' && c.mode === job.mode, 'MODE_CHANGED');
   if (c.mode === 'mock')
     return {
       externalPostId: `mock-${job.id}`,

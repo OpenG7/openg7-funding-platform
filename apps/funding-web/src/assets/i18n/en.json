@@ -1520,12 +1520,12 @@
     },
     "publicationAutomation": {
       "title": "Feed management",
-      "intro": "Review upcoming posts. The server sends authorized publications and flags exceptions.",
+      "intro": "The system prepares copy, batches and dates from payments and consent. You accept, edit or reject before sending.",
       "calendar": "Batch calendar",
       "pauseAll": "Pause all feeds",
       "refresh": "Refresh",
       "saved": "Saved.",
-      "workerOff": "Scheduled delivery is disabled on this server. You can prepare and approve content.",
+      "workerOff": "The automatic worker is disabled on this server. Automatic preparation and delivery require activation.",
       "feeds": "Destinations",
       "paused": "Paused",
       "active": "Active",
@@ -1555,7 +1555,7 @@
       "save": "Save draft",
       "approvalHelp": "Any change revokes the previous authorization. Check the account, text, image and time above.",
       "approval": "I approve this exact content and its delivery to this destination at this time.",
-      "approve": "Authorize delivery",
+      "approve": "Accept and schedule",
       "cancel": "Cancel delivery",
       "cancelConfirm": "Cancel this scheduled publication?",
       "externalId": "ID of the post already visible on the network",
@@ -1564,7 +1564,7 @@
       "connectionHelp": "Account credentials are configured on the server. This check verifies account access without publishing.",
       "check": "Check connection",
       "autoPrepare": "Prepare upcoming batches automatically",
-      "preparationHelp": "Batches group eligible sponsors for this feed. Full batches are submitted for approval. Partial batches remain in the calendar.",
+      "preparationHelp": "Full and partial batches enter the review queue. Preparation continues while delivery is paused. Without a selected destination, Facebook and LinkedIn benefits from CAD orders are proposed on OpenG7.",
       "days": "Publication days",
       "time": "Local time",
       "timezone": "IANA time zone",
@@ -1604,7 +1604,8 @@
         "published": "Published",
         "blocked": "Blocked",
         "uncertain": "Needs verification",
-        "cancelled": "Cancelled"
+        "cancelled": "Cancelled",
+        "rejected": "Rejected"
       },
       "weekdays": {
         "0": "Sun",
@@ -1628,14 +1629,23 @@
         "LEGACY_DELIVERY_EXISTS": "An earlier delivery exists for this batch. Verify its outcome first.",
         "INVALID_MESSAGE": "The text must contain between 1 and 2,900 characters. Reduce the batch or its content.",
         "POST_MISMATCH": "This post does not match the approved content and account.",
-        "MEDIA_RECONCILIATION_REQUIRED": "The image needs verification on the social network. Delivery remains blocked to prevent a duplicate."
+        "MEDIA_RECONCILIATION_REQUIRED": "The image needs verification on the social network. Delivery remains blocked to prevent a duplicate.",
+        "SPONSOR_APPROVAL_REQUIRED": "Review the pending sponsors and confirm their approval with this publication.",
+        "SPONSOR_MEDIA_REQUIRED": "Each new sponsor requires an approved presentation photo."
       },
       "absenceTitle": "After checking: the publication is absent",
       "absenceHelp": "Use this action only after checking the account’s history on the social network. It allows new preparation followed by fresh approval.",
       "absenceReason": "Verification performed (at least 20 characters, no private data)",
       "absenceCheck": "I verified that this delivery did not create any publication.",
       "absenceAction": "Record verification",
-      "feedSettings": "Connections and schedule for 4 feeds"
+      "feedSettings": "Connections and schedule for 4 feeds",
+      "modify": "Edit",
+      "reject": "Reject",
+      "rejectConfirm": "Reject this publication? This batch stays in history and will not be proposed again automatically. This does not reject the sponsors globally.",
+      "sponsorReview": "Sponsors to approve with this publication",
+      "sponsorReviewHelp": "Accepting also approves these sponsors. Their website profiles remain private until a separate visibility decision.",
+      "combinedApproval": "I approve these sponsors, this exact content and delivery to this destination at this time.",
+      "missingPresentation": "Add or approve a presentation photo in the sponsor record."
     }
   },
   "funding": {

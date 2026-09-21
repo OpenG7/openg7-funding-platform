@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 import { markSocialPublicationJobPublishing } from '../../dist/apps/funding-api/src/fund-admin.repository.js';
+import {
+  listPublicSponsorships,
+  updateSponsorshipPublication
+} from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
+import { listPublicBuilders } from '../../dist/apps/funding-api/src/fund-transparency.repository.js';
+import { getApprovedPublicSponsorMedia } from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
 
 test(
   'publication automation with disposable PostgreSQL',
@@ -25,10 +32,10 @@ test(
     const due = new Date(Date.now() + 120000);
     async function reset() {
       await pool.query(
-        'TRUNCATE publication_deliveries,publication_recurrences,social_publication_jobs,sponsor_publication_drafts,sponsor_publication_batches,publication_slots,admin_audit_log CASCADE'
+        'TRUNCATE fund_contributions,publication_deliveries,publication_recurrences,social_publication_jobs,sponsor_publication_drafts,sponsor_publication_batches,publication_slots,admin_audit_log CASCADE'
       );
       await pool.query(
-        "UPDATE publication_feeds SET paused=TRUE,auto_prepare=FALSE,connection='unchecked',account_fingerprint=NULL"
+        "UPDATE publication_feeds SET paused=TRUE,auto_prepare=FALSE,connection='unchecked',account_fingerprint=NULL,last_prepared_at=NULL,capacity=5,horizon_days=14"
       );
       env.SOCIAL_PUBLICATION_MODE = 'mock';
     }
@@ -72,6 +79,272 @@ test(
       );
       return id;
     }
+    async function presentation(contributionId) {
+      const id = randomUUID();
+      await pool.query(
+        `INSERT INTO sponsor_media_assets(id,contribution_id,kind,review_status,original_filename,original_mime_type,original_size_bytes,original_storage_key,processed_size_bytes,processed_storage_key,public_storage_key,public_url,checksum_sha256,width,height,alt_text) VALUES($1,$2,'supporting_image','approved','fixture.png','image/png',1,$3,1,$4,$5,'https://example.test/image.webp',$6,2,2,'Approved image')`,
+        [
+          id,
+          contributionId,
+          `${id}/original`,
+          `${id}/processed`,
+          `${id}/public`,
+          '0'.repeat(64)
+        ]
+      );
+      return id;
+    }
+    async function pendingProposal() {
+      const contributionId = await sponsor();
+      await pool.query(
+        "UPDATE fund_contributions SET sponsor_review_status='pending_review' WHERE id=$1",
+        [contributionId]
+      );
+      await service.prepare(feedId, 'planner');
+      const job = (await service.state()).deliveries.find(
+        (j) => j.status === 'draft'
+      );
+      return { contributionId, job };
+    }
+    function combinedApproval(job) {
+      return {
+        action: 'approve',
+        id: job.id,
+        version: job.version,
+        confirmation: job.id,
+        approveSponsors: job.sponsors
+          .filter((s) => s.reviewStatus === 'pending_review')
+          .map(({ id, version }) => ({ id, version }))
+      };
+    }
+    await t.test(
+      'private preparation works while paused and disconnected, derives promised destinations and excludes ineligible orders',
+      async () => {
+        await reset();
+        env.SOCIAL_PUBLICATION_MODE = 'disabled';
+        const valid = await sponsor();
+        const noConsent = await sponsor();
+        const unpaid = await sponsor();
+        const rejected = await sponsor();
+        const lowerTier = await sponsor();
+        const foreignCurrency = await sponsor();
+        await pool.query(
+          "UPDATE fund_contributions SET sponsor_feed_target=NULL,sponsor_feed_channels='[]',sponsor_public_summary=NULL,sponsor_review_status='pending_review'"
+        );
+        await pool.query(
+          'UPDATE fund_contributions SET public_display_consent=FALSE WHERE id=$1',
+          [noConsent]
+        );
+        await pool.query(
+          "UPDATE fund_contributions SET status='pending' WHERE id=$1",
+          [unpaid]
+        );
+        await pool.query(
+          "UPDATE fund_contributions SET sponsor_review_status='rejected' WHERE id=$1",
+          [rejected]
+        );
+        await pool.query(
+          'UPDATE fund_contributions SET amount_cents=5000 WHERE id=$1',
+          [lowerTier]
+        );
+        await pool.query(
+          "UPDATE fund_contributions SET currency='eur' WHERE id=$1",
+          [foreignCurrency]
+        );
+        await pool.query(
+          "UPDATE publication_feeds SET auto_prepare=TRUE WHERE id='openg7:facebook'"
+        );
+        await service.tick();
+        const state = await service.state();
+        assert.equal(state.deliveries.length, 1);
+        const job = state.deliveries[0];
+        assert.equal(job.mode, 'disabled');
+        assert.equal(job.status, 'draft');
+        assert.equal(job.autoManaged, true);
+        assert.equal(job.sponsors[0].id, valid);
+        assert.equal(job.sponsors[0].reviewStatus, 'pending_review');
+        assert.equal(job.feedId, 'openg7:facebook');
+        assert.ok(job.message.includes('Merci'));
+        await service.tick();
+        assert.equal((await service.state()).deliveries.length, 1);
+        assert.equal((await record(job.id)).approvedAt, null);
+      }
+    );
+    await t.test(
+      'partial proposals fill automatically; human edits and refusals survive later planning',
+      async () => {
+        await reset();
+        const { job } = await pendingProposal();
+        await sponsor();
+        await service.prepare(feedId, 'planner');
+        const filled = await record(job.id);
+        assert.equal(filled.sponsors.length, 2);
+        assert.equal(filled.version, job.version + 1);
+        await service.command(
+          {
+            action: 'edit',
+            id: job.id,
+            version: filled.version,
+            message: 'Human editorial choice',
+            scheduledAt: filled.scheduledAt,
+            mediaId: null
+          },
+          'reviewer'
+        );
+        await sponsor();
+        await service.prepare(feedId, 'planner');
+        assert.equal((await record(job.id)).message, 'Human editorial choice');
+        assert.equal((await record(job.id)).sponsors.length, 2);
+        await service.command(
+          {
+            action: 'reject',
+            id: job.id,
+            version: (await record(job.id)).version,
+            confirmation: job.id
+          },
+          'reviewer'
+        );
+        await service.prepare(feedId, 'planner');
+        const deliveries = (await service.state()).deliveries;
+        assert.equal((await record(job.id)).status, 'rejected');
+        assert.equal(
+          deliveries.filter((j) => j.batchId === job.batchId).length,
+          1
+        );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT sponsor_review_status FROM fund_contributions WHERE id=$1',
+              [job.sponsors[0].id]
+            )
+          ).rows[0].sponsor_review_status,
+          'pending_review'
+        );
+      }
+    );
+    await t.test(
+      'combined acceptance is explicit and atomic and keeps website profiles and media private',
+      async () => {
+        await reset();
+        const { contributionId, job } = await pendingProposal();
+        await assert.rejects(approve(job.id), {
+          code: 'SPONSOR_APPROVAL_REQUIRED'
+        });
+        await assert.rejects(
+          service.command(combinedApproval(job), 'reviewer'),
+          { code: 'SPONSOR_MEDIA_REQUIRED' }
+        );
+        const mediaId = await presentation(contributionId);
+        await pool.query(
+          "UPDATE fund_contributions SET public_name='Fixture sponsor' WHERE id=$1",
+          [contributionId]
+        );
+        const fresh = await record(job.id);
+        await assert.rejects(
+          service.command(combinedApproval(fresh), 'reviewer'),
+          { code: 'CONNECTION_REQUIRED' }
+        );
+        assert.equal(
+          (await record(job.id)).sponsors[0].reviewStatus,
+          'pending_review'
+        );
+        await activate();
+        await service.command(
+          combinedApproval(await record(job.id)),
+          'reviewer'
+        );
+        assert.equal((await record(job.id)).status, 'approved');
+        assert.equal(
+          (await record(job.id)).sponsors[0].reviewStatus,
+          'approved'
+        );
+        assert.equal(
+          (await listPublicSponsorships(pool)).sponsorships.length,
+          0
+        );
+        assert.equal((await listPublicBuilders(pool)).builders.length, 0);
+        assert.equal(await getApprovedPublicSponsorMedia(pool, mediaId), null);
+        assert.equal(
+          (
+            await pool.query(
+              "SELECT count(*)::int AS n FROM admin_audit_log WHERE action='publication_automation.approve_sponsor' AND actor='reviewer'"
+            )
+          ).rows[0].n,
+          1
+        );
+        const version = (
+          await pool.query(
+            'SELECT updated_at::text AS version FROM fund_contributions WHERE id=$1',
+            [contributionId]
+          )
+        ).rows[0].version;
+        const result = await updateSponsorshipPublication(pool, {
+          contributionId,
+          expectedVersion: version,
+          publicSlug: 'fixture',
+          publicSummary: 'Approved public description',
+          feedTarget: 'openg20',
+          feedChannels: ['facebook'],
+          feedStatus: 'planned',
+          feedPublicUrl: null,
+          feedNotes: null
+        });
+        assert.equal(result.updated, true);
+        assert.equal(
+          (await listPublicSponsorships(pool)).sponsorships.length,
+          1
+        );
+        assert.equal((await listPublicBuilders(pool)).builders.length, 1);
+      }
+    );
+    await t.test(
+      'changed sponsor details and withdrawn consent invalidate combined acceptance without partial approval',
+      async () => {
+        await reset();
+        const { contributionId, job } = await pendingProposal();
+        await presentation(contributionId);
+        await activate();
+        const stale = combinedApproval(job);
+        await pool.query(
+          "UPDATE fund_contributions SET sponsor_company_name='Changed company',updated_at=NOW() WHERE id=$1",
+          [contributionId]
+        );
+        await assert.rejects(service.command(stale, 'reviewer'), {
+          code: 'VERSION_CONFLICT'
+        });
+        await pool.query(
+          'UPDATE fund_contributions SET public_display_consent=FALSE WHERE id=$1',
+          [contributionId]
+        );
+        await assert.rejects(
+          service.command(combinedApproval(await record(job.id)), 'reviewer'),
+          { code: 'SOURCE_NOT_ELIGIBLE' }
+        );
+        await service.prepare(feedId, 'planner');
+        assert.equal((await record(job.id)).status, 'blocked');
+        assert.equal((await record(job.id)).approvedAt, null);
+        assert.equal(
+          (await record(job.id)).sponsors[0].reviewStatus,
+          'pending_review'
+        );
+      }
+    );
+    await t.test(
+      'untouched overdue proposals roll into a future recurrence without authorizing a send',
+      async () => {
+        await reset();
+        const { job } = await pendingProposal();
+        const after = new Date(Date.parse(job.scheduledAt) + 1000);
+        await service.prepare(feedId, 'planner', after);
+        const state = await service.state();
+        assert.equal((await record(job.id)).status, 'cancelled');
+        const next = state.deliveries.filter((j) => j.status === 'draft');
+        assert.equal(next.length, 1);
+        assert.ok(Date.parse(next[0].scheduledAt) > after.getTime());
+        assert.equal(next[0].sponsors[0].id, job.sponsors[0].id);
+        assert.equal(next[0].approvedAt, null);
+      }
+    );
     await t.test(
       "legacy claiming does not return another worker's publishing job",
       async () => {
@@ -218,8 +491,8 @@ test(
           'tester'
         );
         await Promise.all([
-          service.prepare(feedId, 'tester'),
-          service.prepare(feedId, 'tester')
+          service.prepare(feedId, 'tester', new Date('2030-06-03T12:00:00Z')),
+          service.prepare(feedId, 'tester', new Date('2030-06-03T12:00:00Z'))
         ]);
         assert.equal(
           (
@@ -468,5 +741,68 @@ test(
         }
       }
     );
+  }
+);
+
+test(
+  'migration 023 preserves existing authorizations and website decisions while enabling private planning',
+  { timeout: 60000 },
+  async (t) => {
+    const database = await startDisposablePostgres({ migrate: false });
+    t.after(database.stop);
+    const pool = database.pool;
+    const directory = new URL(
+      '../../apps/funding-api/migrations/',
+      import.meta.url
+    );
+    for (const name of (await readdir(directory))
+      .filter((n) => /^\d+_.+\.sql$/.test(n) && n < '023_')
+      .sort()) {
+      await pool.query(await readFile(new URL(name, directory), 'utf8'));
+    }
+    const contributionId = randomUUID();
+    await pool.query(
+      "INSERT INTO fund_contributions(id,contribution_type,amount_cents,status,public_display_consent,sponsor_review_status,sponsor_company_name) VALUES($1,'sponsorship_interest',25000,'paid',TRUE,'approved','Existing sponsor')",
+      [contributionId]
+    );
+    await pool.query(
+      "UPDATE publication_feeds SET paused=FALSE WHERE id='openg7:facebook'"
+    );
+    const existing = (
+      await pool.query(
+        "INSERT INTO publication_deliveries(feed_id,kind,message,scheduled_at,account_id,mode,status,approved_at,approved_by) VALUES('openg7:facebook','news','Previously authorized','2030-06-03T14:00:00Z','fixture','mock','approved',NOW(),'reviewer') RETURNING *"
+      )
+    ).rows[0];
+    await pool.query(
+      await readFile(
+        new URL('023_prepare_publications_for_human_review.sql', directory),
+        'utf8'
+      )
+    );
+    const after = (
+      await pool.query('SELECT * FROM publication_deliveries WHERE id=$1', [
+        existing.id
+      ])
+    ).rows[0];
+    assert.equal(after.status, 'approved');
+    assert.equal(after.message, existing.message);
+    assert.equal(after.version, existing.version);
+    assert.deepEqual(after.approved_at, existing.approved_at);
+    assert.equal(after.auto_managed, false);
+    const feed = (
+      await pool.query(
+        "SELECT * FROM publication_feeds WHERE id='openg7:facebook'"
+      )
+    ).rows[0];
+    assert.equal(feed.paused, false);
+    assert.equal(feed.auto_prepare, true);
+    const sponsor = (
+      await pool.query(
+        'SELECT sponsor_review_status,sponsor_site_visibility_held FROM fund_contributions WHERE id=$1',
+        [contributionId]
+      )
+    ).rows[0];
+    assert.equal(sponsor.sponsor_review_status, 'approved');
+    assert.equal(sponsor.sponsor_site_visibility_held, false);
   }
 );

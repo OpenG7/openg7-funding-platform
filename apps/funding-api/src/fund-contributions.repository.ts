@@ -2434,6 +2434,7 @@ export const updateSponsorshipPublication = async (
         sponsor_feed_status = $6,
         sponsor_feed_public_url = $7,
         sponsor_feed_notes = $8,
+        sponsor_site_visibility_held = FALSE,
         sponsor_visibility_updated_at = NOW(),
         updated_at = NOW()
       WHERE id = $1::uuid
@@ -2628,6 +2629,7 @@ export const isPublicApprovedSponsorshipLogoUrl = async (
           AND status IN ('paid', 'refunded', 'disputed')
           AND public_display_consent = TRUE
           AND sponsor_review_status = 'approved'
+          AND COALESCE((to_jsonb(fund_contributions)->>'sponsor_site_visibility_held')::boolean,FALSE) IS FALSE
           AND sponsor_logo_url = $1
       ) AS exists
     `,
@@ -2752,6 +2754,7 @@ export const listPublicSponsorships = async (
       AND status IN ('paid', 'refunded', 'disputed')
       AND public_display_consent IS TRUE
       AND sponsor_review_status = 'approved'
+      AND COALESCE((to_jsonb(fund_contributions)->>'sponsor_site_visibility_held')::boolean,FALSE) IS FALSE
       AND sponsor_company_name IS NOT NULL
       AND btrim(sponsor_company_name) <> ''
       AND EXISTS (

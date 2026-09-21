@@ -177,7 +177,7 @@ test.describe('Docker admin publication batches', () => {
       .first()
       .click();
     await preview.getByRole('checkbox', { name: /J’approuve/ }).check();
-    await preview.getByRole('button', { name: 'Autoriser cet envoi' }).click();
+    await preview.getByRole('button', { name: 'Accepter et programmer' }).click();
     await expect(preview).toContainText('Autorisée');
     await expect(preview).toContainText('Simulation');
     await preview.getByRole('button', { name: 'Fermer', exact: true }).click();

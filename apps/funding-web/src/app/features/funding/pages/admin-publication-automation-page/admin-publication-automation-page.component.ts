@@ -61,6 +61,17 @@ export class AdminPublicationAutomationPageComponent {
   readonly feedFilter = signal('');
   readonly selected = signal<PublicationDelivery | null>(null);
   readonly composing = signal(false);
+  readonly editing = signal(false);
+  readonly previewUrl = signal('');
+  private previewRequest = 0;
+  readonly pendingSponsors = computed(() =>
+    (this.selected()?.sponsors ?? []).filter(
+      (s) => s.reviewStatus === 'pending_review'
+    )
+  );
+  readonly missingPresentation = computed(() =>
+    this.pendingSponsors().some((s) => !s.presentationApproved)
+  );
   readonly settings = signal<PublicationFeedSettings | null>(null);
   readonly media = signal<
     { id: string; url: string; alt: string; company: string }[]
@@ -76,7 +87,7 @@ export class AdminPublicationAutomationPageComponent {
               ? ['approved', 'publishing'].includes(d.status)
               : this.tab() === 'exceptions'
                 ? ['blocked', 'uncertain'].includes(d.status)
-                : ['published', 'cancelled'].includes(d.status))
+                : ['published', 'cancelled', 'rejected'].includes(d.status))
       )
       .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
   );
@@ -91,7 +102,7 @@ export class AdminPublicationAutomationPageComponent {
         status:
           d.status === 'published'
             ? 'published'
-            : d.status === 'cancelled'
+            : ['cancelled', 'rejected'].includes(d.status)
               ? 'cancelled'
               : ['approved', 'publishing'].includes(d.status)
                 ? 'scheduled'
@@ -136,6 +147,7 @@ export class AdminPublicationAutomationPageComponent {
   }
   constructor() {
     const destroy = inject(DestroyRef);
+    destroy.onDestroy(() => this.clearPreview());
     afterNextRender(() => {
       this.browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       void this.load().then(async () => {
@@ -182,6 +194,8 @@ export class AdminPublicationAutomationPageComponent {
       'SOURCE_CHANGED',
       'MEDIA_CHANGED',
       'SOURCE_NOT_ELIGIBLE',
+      'SPONSOR_APPROVAL_REQUIRED',
+      'SPONSOR_MEDIA_REQUIRED',
       'CONNECTION_REQUIRED',
       'APPROVAL_UNAVAILABLE',
       'DESTINATION_CHANGED',
@@ -232,6 +246,7 @@ export class AdminPublicationAutomationPageComponent {
     this.absenceChecked = false;
     this.absenceReason = '';
     this.selected.set(job);
+    this.editing.set(false);
     this.composing.set(false);
     this.approved = false;
     this.externalPostId = '';
@@ -240,6 +255,7 @@ export class AdminPublicationAutomationPageComponent {
       scheduledAt: this.localDate(job.scheduledAt),
       mediaId: job.mediaId ?? ''
     };
+    void this.loadPreview(this.edit.mediaId);
     void this.loadMedia();
   }
   async loadMedia(): Promise<void> {
@@ -250,8 +266,10 @@ export class AdminPublicationAutomationPageComponent {
     }
   }
   create(): void {
+    this.clearPreview();
     this.selected.set(null);
     this.composing.set(true);
+    this.editing.set(true);
     this.approved = false;
     this.edit = {
       message: '',
@@ -263,6 +281,7 @@ export class AdminPublicationAutomationPageComponent {
     void this.loadMedia();
   }
   close(): void {
+    this.clearPreview();
     this.selected.set(null);
     this.composing.set(false);
     this.error.set('');
@@ -312,9 +331,38 @@ export class AdminPublicationAutomationPageComponent {
   }
   async approve(): Promise<void> {
     const s = this.selected();
-    if (s && this.approved && !this.dirty())
+    if (
+      s &&
+      this.approved &&
+      !this.dirty() &&
+      !this.missingPresentation() &&
+      (!s.mediaId || this.previewUrl())
+    )
       await this.run({
         action: 'approve',
+        id: s.id,
+        version: s.version,
+        confirmation: s.id,
+        ...(this.pendingSponsors().length
+          ? {
+              approveSponsors: this.pendingSponsors().map(
+                ({ id, version }) => ({ id, version })
+              )
+            }
+          : {})
+      });
+  }
+  async reject(): Promise<void> {
+    const s = this.selected();
+    if (
+      s &&
+      (await this.confirmation.confirm(
+        this.i18n.t('admin.publicationAutomation.rejectConfirm'),
+        s.feedId
+      ))
+    )
+      await this.run({
+        action: 'reject',
         id: s.id,
         version: s.version,
         confirmation: s.id
@@ -383,15 +431,35 @@ export class AdminPublicationAutomationPageComponent {
     const s = this.settings();
     if (s) void this.run({ action: 'settings', settings: s });
   }
+  private clearPreview(): void {
+    this.previewRequest++;
+    if (this.previewUrl()) URL.revokeObjectURL(this.previewUrl());
+    this.previewUrl.set('');
+  }
+  async loadPreview(id: string): Promise<void> {
+    this.clearPreview();
+    if (!id) return;
+    const request = this.previewRequest;
+    try {
+      const blob = await this.admin.getSponsorMediaPreview(
+        this.admin.getSavedAdminToken(),
+        id
+      );
+      if (request === this.previewRequest)
+        this.previewUrl.set(URL.createObjectURL(blob));
+    } catch (error) {
+      if (request === this.previewRequest) this.showError(error);
+    }
+  }
   mediaPreview(): { url: string; alt: string } | undefined {
-    return (
-      this.media().find((m) => m.id === this.edit.mediaId) ??
-      (this.selected()?.mediaUrl
-        ? {
-            url: this.selected()!.mediaUrl!,
-            alt: this.selected()!.mediaAlt ?? ''
-          }
-        : undefined)
-    );
+    return this.previewUrl()
+      ? {
+          url: this.previewUrl(),
+          alt:
+            this.media().find((m) => m.id === this.edit.mediaId)?.alt ??
+            this.selected()?.mediaAlt ??
+            ''
+        }
+      : undefined;
   }
 }

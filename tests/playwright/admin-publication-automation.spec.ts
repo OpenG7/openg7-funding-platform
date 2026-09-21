@@ -20,6 +20,8 @@ const initialJob: PublicationDelivery = {
   mediaAlt: null,
   accountId: 'fixture-page-20',
   mode: 'mock',
+  autoManaged: false,
+  sponsors: [],
   version: 1,
   status: 'draft',
   attempts: 0,
@@ -33,7 +35,9 @@ const initialJob: PublicationDelivery = {
 async function fixtures(
   page: Page,
   status: PublicationDelivery['status'] = 'draft',
-  conflict = false
+  conflict = false,
+  sponsors: PublicationDelivery['sponsors'] = [],
+  overrides: Partial<PublicationDelivery> = {}
 ): Promise<PublicationAutomationCommand[]> {
   const commands: PublicationAutomationCommand[] = [];
   const state: PublicationAutomationState = {
@@ -65,7 +69,7 @@ async function fixtures(
       connection: 'ready',
       checkedAt: '2030-06-01T12:00:00Z'
     })),
-    deliveries: [{ ...initialJob, status }]
+    deliveries: [{ ...initialJob, status, sponsors, ...overrides }]
   };
   await page.addInitScript(() => {
     sessionStorage.setItem(
@@ -92,6 +96,13 @@ async function fixtures(
     const job = state.deliveries[0]!;
     if (c.action === 'approve') {
       job.status = 'approved';
+      job.sponsors.forEach((s) => {
+        s.reviewStatus = 'approved';
+      });
+      job.version++;
+    }
+    if (c.action === 'reject') {
+      job.status = 'rejected';
       job.version++;
     }
     if (c.action === 'edit') {
@@ -123,7 +134,9 @@ test('approves the exact destination and version only after an explicit decision
   await page.locator('[data-og7-id="' + initialJob.id + '"]').click();
   const dialog = page.getByRole('dialog', { name: 'Publication finale' });
   await expect(dialog).toContainText('fixture-page-20');
-  const authorize = dialog.getByRole('button', { name: 'Autoriser cet envoi' });
+  const authorize = dialog.getByRole('button', {
+    name: 'Accepter et programmer'
+  });
   await expect(authorize).toBeDisabled();
   await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
   await authorize.click();
@@ -134,12 +147,13 @@ test('approves the exact destination and version only after an explicit decision
     version: 1,
     confirmation: initialJob.id
   });
+  await dialog.getByRole('button', { name: 'Modifier', exact: true }).click();
   await dialog.getByLabel('Texte exact à publier').fill('Texte final modifié.');
   await dialog
     .getByRole('button', { name: 'Enregistrer le brouillon' })
     .click();
   await expect(
-    dialog.getByRole('button', { name: 'Autoriser cet envoi' })
+    dialog.getByRole('button', { name: 'Accepter et programmer' })
   ).toBeDisabled();
   expect(commands[1]).toMatchObject({
     action: 'edit',
@@ -154,6 +168,7 @@ test('unsaved changes cannot be approved and stale versions never show success',
   await page.goto('/admin/fundraiser/publications/automation');
   await page.locator('[data-og7-id="' + initialJob.id + '"]').click();
   const dialog = page.getByRole('dialog', { name: 'Publication finale' });
+  await dialog.getByRole('button', { name: 'Modifier', exact: true }).click();
   await dialog.getByLabel('Texte exact à publier').fill('A local change');
   await expect(
     dialog.getByRole('checkbox', { name: /J’approuve/ })
@@ -179,7 +194,7 @@ test('exceptions require investigation and never offer a blind retry', async ({
   const dialog = page.getByRole('dialog', { name: 'Publication finale' });
   await expect(dialog).toContainText('Aucune relance automatique');
   await expect(
-    dialog.getByRole('button', { name: 'Autoriser cet envoi' })
+    dialog.getByRole('button', { name: 'Accepter et programmer' })
   ).toHaveCount(0);
   await expect(
     dialog.getByRole('button', { name: 'Annuler cet envoi' })
@@ -194,6 +209,130 @@ test('exceptions require investigation and never offer a blind retry', async ({
   ).toBeDisabled();
   expect(commands).toHaveLength(0);
 });
+test('one explicit acceptance reviews pending sponsors and the publication together', async ({
+  page
+}) => {
+  const sponsors: PublicationDelivery['sponsors'] = [
+    {
+      id: '22222222-2222-4222-8222-222222222222',
+      name: 'Atelier Boréal',
+      version: '2030-06-01 12:00:00+00',
+      reviewStatus: 'pending_review',
+      presentationApproved: true
+    }
+  ];
+  const commands = await fixtures(page, 'draft', false, sponsors);
+  await page.goto('/admin/fundraiser/publications/automation');
+  await page.locator('[data-og7-id="' + initialJob.id + '"]').click();
+  const dialog = page.getByRole('dialog', { name: 'Publication finale' });
+  await expect(dialog.getByRole('textbox')).toHaveCount(0);
+  await expect(dialog).toContainText('Atelier Boréal');
+  await expect(dialog).toContainText('Leurs fiches restent privées');
+  await expect(
+    dialog.getByRole('button', { name: 'Accepter et programmer' })
+  ).toBeDisabled();
+  await dialog
+    .getByRole('checkbox', { name: /J’approuve ces commanditaires/ })
+    .check();
+  await dialog.getByRole('button', { name: 'Accepter et programmer' }).click();
+  expect(commands[0]).toMatchObject({
+    action: 'approve',
+    approveSponsors: [{ id: sponsors[0]!.id, version: sponsors[0]!.version }]
+  });
+  await expect(dialog).toContainText('Autorisée');
+});
+
+test('a missing sponsor photo blocks acceptance and links to the dossier', async ({
+  page
+}) => {
+  await fixtures(page, 'draft', false, [
+    {
+      id: '22222222-2222-4222-8222-222222222222',
+      name: 'Atelier Boréal',
+      version: 'v1',
+      reviewStatus: 'pending_review',
+      presentationApproved: false
+    }
+  ]);
+  await page.goto('/admin/fundraiser/publications/automation');
+  await page.locator('[data-og7-id="' + initialJob.id + '"]').click();
+  const dialog = page.getByRole('dialog', { name: 'Publication finale' });
+  await expect(dialog).toContainText('Photo de présentation à fournir');
+  await expect(
+    dialog.getByRole('checkbox', { name: /J’approuve/ })
+  ).toBeDisabled();
+  await expect(
+    dialog.getByRole('link', { name: 'Atelier Boréal' })
+  ).toHaveAttribute('href', /sponsorshipId=22222222/);
+  const a11y = await new AxeBuilder({ page }).include('dialog[open]').analyze();
+  expect(a11y.violations).toEqual([]);
+});
+
+test('refusing a proposal requires a decision and moves it to history', async ({
+  page
+}) => {
+  const commands = await fixtures(page);
+  await page.goto('/admin/fundraiser/publications/automation');
+  await page.locator('[data-og7-id="' + initialJob.id + '"]').click();
+  const dialog = page.getByRole('dialog', { name: 'Publication finale' });
+  await dialog.getByRole('button', { name: 'Refuser', exact: true }).click();
+  await expect(
+    page.getByText(/Ce lot restera dans l’historique/)
+  ).toBeVisible();
+  expect(commands).toHaveLength(0);
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(dialog).toContainText('Refusée');
+  expect(commands[0]).toMatchObject({
+    action: 'reject',
+    id: initialJob.id,
+    version: 1
+  });
+  await dialog.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await expect(
+    page.locator('[data-og7-id="' + initialJob.id + '"]').first()
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Historique', exact: true }).click();
+  await expect(
+    page.locator('[data-og7-id="' + initialJob.id + '"]').first()
+  ).toContainText('Refusée');
+});
+
+test('private media uses the authenticated admin preview before acceptance', async ({
+  page
+}) => {
+  const mediaId = '33333333-3333-4333-8333-333333333333';
+  await fixtures(page, 'draft', false, [], {
+    mediaId,
+    mediaUrl: 'https://example.test/private.png',
+    mediaAlt: 'Photo approuvée'
+  });
+  let previewRequests = 0;
+  await page.route(
+    '**/api/admin/sponsorships/media/content/' + mediaId,
+    async (route) => {
+      previewRequests++;
+      await route.fulfill({
+        contentType: 'image/png',
+        body: Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+          'base64'
+        )
+      });
+    }
+  );
+  await page.goto('/admin/fundraiser/publications/automation');
+  await page.locator('[data-og7-id="' + initialJob.id + '"]').click();
+  const dialog = page.getByRole('dialog', { name: 'Publication finale' });
+  await expect(
+    dialog.getByRole('img', { name: 'Photo approuvée' })
+  ).toHaveAttribute('src', /^blob:/);
+  expect(previewRequests).toBe(1);
+  await dialog.getByRole('checkbox', { name: /J’approuve/ }).check();
+  await expect(
+    dialog.getByRole('button', { name: 'Accepter et programmer' })
+  ).toBeEnabled();
+});
+
 test('editorial posts appear in the calendar with localized status and open their approval', async ({
   page
 }) => {

@@ -1516,12 +1516,12 @@
     },
     "publicationAutomation": {
       "title": "Pilotage des feeds",
-      "intro": "Validez les publications à venir. Le serveur s’occupe des envois autorisés et signale les exceptions.",
+      "intro": "La machine prépare les textes, les lots et les dates selon les paiements et les consentements. Vous acceptez, modifiez ou refusez avant l’envoi.",
       "calendar": "Calendrier des lots",
       "pauseAll": "Tout mettre en pause",
       "refresh": "Actualiser",
       "saved": "Enregistré.",
-      "workerOff": "Les envois programmés sont désactivés sur ce serveur. Vous pouvez préparer et valider le contenu.",
+      "workerOff": "Le moteur automatique est désactivé sur ce serveur. La préparation et les envois automatiques nécessitent son activation.",
       "feeds": "Destinations",
       "paused": "En pause",
       "active": "Actif",
@@ -1551,7 +1551,7 @@
       "save": "Enregistrer le brouillon",
       "approvalHelp": "Toute modification annule l’autorisation précédente. Vérifiez le compte, le texte, l’image et l’heure ci-dessus.",
       "approval": "J’approuve ce contenu exact et son envoi à cette destination, à cette heure.",
-      "approve": "Autoriser cet envoi",
+      "approve": "Accepter et programmer",
       "cancel": "Annuler cet envoi",
       "cancelConfirm": "Annuler l’envoi programmé de cette publication ?",
       "externalId": "Identifiant de la publication déjà visible sur le réseau",
@@ -1560,7 +1560,7 @@
       "connectionHelp": "Les identifiants des comptes se configurent côté serveur. La vérification contrôle l’accès au compte sans publier.",
       "check": "Vérifier la connexion",
       "autoPrepare": "Préparer les prochains lots automatiquement",
-      "preparationHelp": "Les lots regroupent les commanditaires admissibles pour ce feed. Les lots complets sont proposés à la validation. Les lots partiels restent dans le calendrier.",
+      "preparationHelp": "Les lots complets ou partiels arrivent à la validation. La préparation continue lorsque les envois sont en pause. Sans destination choisie, les avantages Facebook et LinkedIn des commandes CAD sont proposés sur OpenG7.",
       "days": "Jours de publication",
       "time": "Heure locale",
       "timezone": "Fuseau horaire IANA",
@@ -1600,7 +1600,8 @@
         "published": "Publiée",
         "blocked": "Bloquée",
         "uncertain": "À vérifier",
-        "cancelled": "Annulée"
+        "cancelled": "Annulée",
+        "rejected": "Refusée"
       },
       "weekdays": {
         "0": "Dim.",
@@ -1624,14 +1625,23 @@
         "LEGACY_DELIVERY_EXISTS": "Un ancien envoi existe déjà pour ce lot. Vérifiez son résultat avant de poursuivre.",
         "INVALID_MESSAGE": "Le texte doit contenir entre 1 et 2 900 caractères. Réduisez le lot ou son contenu.",
         "POST_MISMATCH": "La publication indiquée ne correspond pas au contenu et au compte approuvés.",
-        "MEDIA_RECONCILIATION_REQUIRED": "Une vérification de l’image sur le réseau social est nécessaire. Cet envoi reste bloqué pour éviter un doublon."
+        "MEDIA_RECONCILIATION_REQUIRED": "Une vérification de l’image sur le réseau social est nécessaire. Cet envoi reste bloqué pour éviter un doublon.",
+        "SPONSOR_APPROVAL_REQUIRED": "Vérifiez les commanditaires en attente et confirmez leur approbation avec cette publication.",
+        "SPONSOR_MEDIA_REQUIRED": "Une photo de présentation approuvée est requise pour chaque nouveau commanditaire."
       },
       "absenceTitle": "Après vérification : la publication est absente",
       "absenceHelp": "Utilisez cette action seulement après avoir vérifié l’historique du compte sur le réseau social. Elle permet une nouvelle préparation suivie d’une nouvelle approbation.",
       "absenceReason": "Vérification effectuée (20 caractères minimum, sans donnée privée)",
       "absenceCheck": "J’ai vérifié que cet envoi n’a créé aucune publication.",
       "absenceAction": "Consigner la vérification",
-      "feedSettings": "Connexions et cadence des 4 feeds"
+      "feedSettings": "Connexions et cadence des 4 feeds",
+      "modify": "Modifier",
+      "reject": "Refuser",
+      "rejectConfirm": "Refuser cette publication ? Ce lot restera dans l’historique et ne sera plus proposé automatiquement. Les commanditaires ne seront pas refusés globalement.",
+      "sponsorReview": "Commanditaires à approuver avec cette publication",
+      "sponsorReviewHelp": "Accepter approuve aussi ces dossiers. Leurs fiches restent privées sur le site jusqu’à une décision de visibilité séparée.",
+      "combinedApproval": "J’approuve ces commanditaires, ce contenu exact et son envoi à cette destination, à cette heure.",
+      "missingPresentation": "Photo de présentation à fournir ou à approuver dans le dossier."
     }
   },
   "funding": {
