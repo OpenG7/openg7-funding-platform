@@ -1,663 +1,183 @@
 # Aide-mémoire des commandes
 
-Les guides associés sont regroupés dans l'[index documentaire](README.md).
-Avant toute mise à jour d'une base existante ou livraison avec PostgreSQL,
-consulter la [limite de réexécution des migrations](operations/database-migrations.md).
-
-## Commandes les plus courantes
-
-Usage quotidien local :
-
-| Besoin                                   | Commande                                   |
-| ---------------------------------------- | ------------------------------------------ |
-| Installer les dépendances                | `corepack enable && corepack yarn install` |
-| Lancer le site et l'API                  | `yarn dev`                                 |
-| Vérifier le build TypeScript             | `yarn build`                               |
-| Builder le frontend Angular              | `yarn workspace @openg7/funding-web build` |
-| Lancer le lint                           | `yarn lint`                                |
-| Voir les services à configurer           | `yarn services:check`                      |
-| Mettre à jour Docker localement          | `yarn docker:update`                       |
-| Parcours publics sur quatre navigateurs  | `yarn test:ui:public-journeys`             |
-| Accessibilité, 404 et chargement différé | `yarn test:ui:platform-accessibility`      |
-| Recette SMTP/S3 et restauration jetable  | `yarn test:rehearsal`                      |
-
-Les raccourcis `docker:*` et `db:*` locaux attendent que Docker soit prêt.
-Si Docker Desktop est fermé, ils tentent de l'ouvrir et affichent un message
-`Patientez pendant l'ouverture de Docker...` avant de continuer.
-
-Usage courant VPS :
-
-| Besoin                                      | Commande                     |
-| ------------------------------------------- | ---------------------------- |
-| Mettre à jour le VPS et déployer            | `yarn vps:update`            |
-| Déployer sans refaire `git pull`            | `yarn vps:deploy`            |
-| Déployer sans rebuild Docker local au VPS   | `yarn vps:update --no-build` |
-| Revenir aux images applicatives précédentes | `yarn vps:rollback`          |
-| Vérifier la production                      | `yarn vps:check`             |
-| Voir les containers                         | `yarn vps:ps`                |
-| Suivre les logs                             | `yarn vps:logs`              |
-| Suivre les logs API                         | `yarn vps:logs api`          |
-| Ouvrir un shell dans le projet sur le VPS   | `yarn vps:ssh`               |
-| Lister les backups sur le VPS               | `yarn vps:backup:list`       |
-
-Usage courant PostgreSQL sur le VPS :
-
-| Besoin                                       | Commande                      |
-| -------------------------------------------- | ----------------------------- |
-| Appliquer les migrations après un `git pull` | `yarn vps:db:update`          |
-| Appliquer les migrations sans déployer l'app | `yarn vps:db:migrate`         |
-| Ouvrir `psql` sur la base du VPS             | `yarn vps:db:psql`            |
-| Créer un backup DB sur le VPS                | `yarn vps:db:backup`          |
-| Lister les backups DB sur le VPS             | `yarn vps:db:backup:list`     |
-| Créer et télécharger un backup DB            | `yarn vps:db:backup:download` |
-| Créer et télécharger un backup config        | `yarn vps:backup:download`    |
-
-Les raccourcis `vps:*` lisent `VPS_HOST`, `VPS_USER`, `VPS_PORT`,
-`VPS_APP_DIR` et `VPS_BACKUP_DOWNLOAD_DIR` depuis l'environnement ou `.env`.
-Sans clé SSH configurée, `ssh` demande le mot de passe dans le terminal.
-Actuellement, `vps:db:update` **et** `vps:db:migrate` font un
-`git pull --ff-only` avant le runner SQL; aucun des deux ne déploie les images.
+Exécuter depuis la racine du dépôt, avec Node 22 et Yarn 4. Les scripts de
+[package.json](../package.json) font foi. Lire uniquement la section utile.
+Les cibles de production, le mode live et les opérations destructives exigent
+la [procédure à risque élevé](../AGENTS.md#risque-eleve). Les exemples ne valent
+pas autorisation d'exécution.
 
 ## Local
 
-Installer les dépendances :
+| Besoin                                 | Commande                                                              |
+| -------------------------------------- | --------------------------------------------------------------------- |
+| Installer                              | `corepack enable`, puis `yarn install`                                |
+| Web + API                              | `yarn dev`                                                            |
+| Web / API séparés                      | `yarn dev:funding-web` / `yarn dev:api`                               |
+| Compilation TypeScript                 | `yarn build`                                                          |
+| Build Angular                          | `yarn workspace @openg7/funding-web build --configuration production` |
+| Tests Node avec compilation            | `yarn test`                                                           |
+| Lint / format                          | `yarn lint` / `yarn format:check`                                     |
+| Documentation TypeDoc                  | `yarn docs`                                                           |
+| Budget et liens des consignes          | `node scripts/check-agent-docs.mjs`                                   |
+| Configuration sans afficher de secrets | `yarn services:check`                                                 |
 
-```bash
-corepack enable
-corepack yarn install
-```
-
-Lancer le site + API en développement :
-
-```bash
-corepack yarn dev
-```
-
-Build de validation :
-
-```bash
-corepack yarn build
-corepack yarn workspace @openg7/funding-web build
-```
-
-Lint :
-
-```bash
-corepack yarn lint
-```
-
-E2E navigateur contre Docker local :
-
-```bash
-corepack yarn playwright:install
-corepack yarn test:e2e:playwright
-```
-
-Ce raccourci démarre ou réutilise la stack Docker locale via
-`yarn docker:playwright`, puis lance Playwright sur `http://127.0.0.1:8080`.
-Il force une configuration locale de test en mode `development` et ne requiert
-pas de clés Stripe live. Utiliser Node.js 22 ou plus récent pour ce raccourci;
-le runtime cible du dépôt reste Node.js 22.x.
-
-Audit de configuration des services :
-
-```bash
-corepack yarn services:check
-```
-
-Ce raccourci lit `.env` et l'environnement courant, puis indique ce qui manque
-pour piloter Stripe, SMTP, HTTPS, PostgreSQL et le stockage des médias sans
-afficher les valeurs secrètes.
+La [matrice de validation](development/validation.md) précise les contrôles
+nécessaires, les suites navigateur et leurs prérequis. Ne pas doubler la compilation
+de `yarn test`. `services:check` lit la configuration locale, pas celle des
+conteneurs; son contrôle admin reste orienté token, sans recette OIDC/MFA.
 
 ## Docker Compose
 
-Démarrer toute la stack :
+Les raccourcis Docker/DB locaux attendent Docker et tentent d'ouvrir Docker Desktop
+si nécessaire. Guide détaillé : [Docker](docker-deployment.md).
 
-```bash
-yarn docker:up
-```
+| Besoin                                    | Commande                                                                                |
+| ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| Stack au premier plan avec build          | `yarn docker:up`                                                                        |
+| Stack détachée avec PostgreSQL            | `yarn docker:local`                                                                     |
+| Mise à jour guidée                        | `yarn docker:update`                                                                    |
+| Code local dans les images                | `yarn docker:update --development --no-build-app --no-prune-images --no-stripe-webhook` |
+| Ajouter le listener Stripe local          | `yarn docker:update --development --stripe-webhook`                                     |
+| Conserver / supprimer les images dangling | `yarn docker:update --no-prune-images` / `yarn docker:update --prune-images`            |
+| Arrêter sans supprimer les volumes        | `yarn docker:down`                                                                      |
+| Recréer Web/API                           | `yarn docker:recreate`                                                                  |
+| Redémarrer un service                     | `docker compose restart web` (ou `api`, `traefik`)                                      |
+| État / ressources                         | `docker compose ps` / `docker stats`                                                    |
+| Logs ciblés                               | `docker compose logs --tail=100 api` (ou `web`, `traefik`; `-f` pour suivre)            |
+| Valider sans exposer l'environnement      | `docker compose config --quiet`                                                         |
 
-Ce raccourci ouvre Docker Desktop au besoin, attend que Docker soit prêt, puis
-lance `docker compose up --build`.
+`--no-build-app` évite la compilation sur l'hôte; les Dockerfiles compilent
+toujours API et Angular. `yarn build`, restart et recreate ne reconstruisent pas
+les images. Recharger la page après update; en développement, `Ctrl+F5` peut être utile.
 
-Mettre a jour Docker avec les questions guidees :
+Pour forcer un rebuild local Web sans cache :
 
-```bash
-yarn docker:update
-```
-
-Ce raccourci attend aussi Docker Desktop avant de lancer les questions guidees.
-
-Pour intégrer une modification de code dans les conteneurs locaux :
-
-```bash
-yarn docker:update --development --no-build-app --no-prune-images --no-stripe-webhook
-```
-
-Les Dockerfiles compilent l'API et Angular pendant la construction des images;
-`--no-build-app` évite seulement une compilation supplémentaire sur l'hôte.
-`yarn build`, `docker compose restart` et `yarn docker:recreate` ne reconstruisent
-pas ces images. Un conteneur récemment recréé peut donc encore exécuter une
-ancienne version du code. Après la mise à jour, recharger la page; pour un build
-Angular de développement, utiliser `Ctrl+F5` si le navigateur conserve les anciens
-fichiers JavaScript.
-
-En developpement, lancer aussi le listener Stripe apres la mise a jour :
-
-```bash
-yarn docker:update --development --stripe-webhook
-```
-
-Garder les anciennes images Docker dangling apres un rebuild :
-
-```bash
-yarn docker:update --no-prune-images
-```
-
-Nettoyer les anciennes images Docker dangling sans question :
-
-```bash
-yarn docker:update --prune-images
-```
-
-Arrêter :
-
-```bash
-yarn docker:down
-```
-
-Redémarrer un service :
-
-```bash
-docker compose restart web
-docker compose restart api
-docker compose restart traefik
-```
-
-Rebuild forcé du frontend :
-
-```bash
+```sh
 docker compose stop web
 docker compose rm -f web
-docker image rm openg7-funding-web:local || true
+docker image rm openg7-funding-web:local
 docker compose build --no-cache web
 docker compose up -d web
 ```
 
-Rebuild forcé de l’API :
+Remplacer `web` par `api` pour l'API. Vérifier d'abord la cible et l'usage de l'image;
+si elle est déjà absente, poursuivre au build après vérification de ce seul cas.
 
-```bash
-docker compose stop api
-docker compose rm -f api
-docker image rm openg7-funding-api:local || true
-docker compose build --no-cache api
-docker compose up -d api
-```
+## URLs et Stripe
 
-Voir l’état :
+Local Traefik : `https://localhost`; API native : `http://localhost:3333`.
+Production : `https://openg7.org`. Webhook : `/api/stripe/webhook`;
+projection publique : `/api/public/fund-transparency`.
 
-```bash
-docker compose ps
-```
+| Mode test local           | Commande                                                |
+| ------------------------- | ------------------------------------------------------- |
+| Version CLI               | `yarn stripe:cli:version`                               |
+| Listener HTTPS local      | `yarn stripe:webhook:listen`                            |
+| Prévisualiser un resend   | `yarn stripe:events:resend evt_1... evt_2... --dry-run` |
+| Rejouer des événements    | `yarn stripe:events:resend evt_1... evt_2...`           |
+| Prévisualiser un backfill | `yarn stripe:backfill --dry-run`                        |
+| Import borné              | `yarn stripe:backfill --from 2026-01-01 --limit 100`    |
+| Docker explicite          | `yarn stripe:backfill:docker --dry-run`                 |
 
-Voir les logs :
-
-```bash
-docker compose logs -f
-docker compose logs -f web
-docker compose logs -f api
-docker compose logs -f traefik
-```
-
-Valider la configuration Compose sans afficher les secrets interpolés :
-
-```bash
-docker compose config --quiet
-```
-
-## URLs
-
-Production :
-
-```text
-https://openg7.org
-```
-
-Local via Traefik :
-
-```text
-https://localhost
-```
-
-Webhook Stripe :
-
-```text
-https://openg7.org/api/stripe/webhook
-```
-
-Ecouter les webhooks Stripe locaux :
-
-```bash
-corepack yarn stripe:webhook:listen
-```
-
-Rejouer un ou plusieurs evenements Stripe echoues en mode test :
-
-```bash
-corepack yarn stripe:events:resend evt_1... evt_2...
-```
-
-Previsualiser sans envoyer :
-
-```bash
-corepack yarn stripe:events:resend evt_1... evt_2... --dry-run
-```
-
-Rejouer en production en ciblant le webhook Stripe exact :
-
-```bash
-corepack yarn stripe:events:resend:live evt_1... evt_2... --endpoint we_...
-```
-
-Importer l'historique Stripe initial vers PostgreSQL :
-
-```bash
-corepack yarn db:migrate
-corepack yarn stripe:backfill --dry-run
-corepack yarn stripe:backfill
-```
-
-Si `DATABASE_URL` pointe vers `postgres`, `stripe:backfill` bascule
-automatiquement vers Docker Compose. Commandes explicites equivalentes :
-
-```bash
-corepack yarn stripe:backfill:docker --dry-run
-corepack yarn stripe:backfill:docker
-```
-
-Importer en production avec verification de cle live :
-
-```bash
-corepack yarn stripe:backfill:live --from 2026-01-01 --dry-run
-corepack yarn stripe:backfill:live --from 2026-01-01
-```
-
-Options utiles : `--project openg7`, `--include-unmatched`, `--limit 100`,
-`--skip-payouts`, `--skip-refunds`, `--skip-disputes`.
-
-Endpoint public transparence :
-
-```text
-https://openg7.org/api/public/fund-transparency
-```
+Le backfill bascule dans Compose si `DATABASE_URL` utilise l'hôte `postgres`.
+Options : `--project`, `--include-unmatched`, `--from`, `--to`, `--limit`,
+`--skip-payouts`, `--skip-refunds`, `--skip-disputes`. Préconditions, événements,
+reprise et exemples live autorisés : [référence Stripe](technical/stripe.md).
 
 ## Tests rapides
 
-Les suites publiques sur quatre navigateurs nécessitent
-`yarn exec playwright install --with-deps chromium firefox webkit`.
-Les intégrations jetables utilisent `postgres:16-alpine`,
-`axllent/mailpit:v1.27.4` et `adobe/s3mock:5.1.0`; les prérequis et la portée
-des preuves sont dans l'[état de la plateforme](platform-status.md).
+`curl -kI https://localhost/health` teste le Web local;
+`curl -k https://localhost/api/public/fund-transparency` teste la projection.
+`-k` est réservé au certificat local non approuvé. Les vérifications de production
+emploient HTTPS vérifié et une cible explicitement autorisée; voir
+[smoke tests](operations/production-smoke-tests.md).
 
-Tester le frontend local :
+Pour les parcours navigateur, privilégier la [recette jetable](development/validation.md)
+lorsque l'état local doit être préservé. `yarn test:e2e:playwright` réutilise la
+stack locale et exécute migrations/seed; lire leurs préconditions avant lancement.
 
-```bash
-curl -kI https://localhost
-curl -kI https://localhost/health
-```
+## Traefik et certificat HTTPS
 
-Tester l’API locale :
+| Besoin                                        | Commande / guide                                                                                                 |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Logs et redémarrage proxy                     | `docker compose logs --tail=200 traefik`, `docker compose restart traefik`                                       |
+| HTTPS local approuvé                          | `yarn tls:local:setup`                                                                                           |
+| Renouveler le certificat local                | `yarn tls:local:renew`                                                                                           |
+| Vérifier les routes chargées                  | `docker compose exec traefik cat /etc/traefik/dynamic/routes.yml`                                                |
+| Vérifier Nginx dans l'image                   | `docker compose exec web cat /etc/nginx/conf.d/default.conf`                                                     |
+| Certificats publics, ACME et tunnel dashboard | [Docker/HTTPS](docker-deployment.md#https-and-certificates), [dashboard](docker-deployment.md#traefik-dashboard) |
 
-```bash
-curl -k https://localhost/api/public/fund-transparency
-```
+Le setup local Windows peut installer mkcert via winget, approuver son autorité,
+générer les certificats ignorés sous `traefik/certs/` et redémarrer Traefik.
+Relancer Firefox après la première installation. Cela ne remplace pas Let's Encrypt.
+Pour diagnostiquer une cible publique autorisée :
 
-Tester la production :
-
-```bash
-curl -I https://openg7.org
-curl -I https://openg7.org/health
-curl https://openg7.org/api/public/fund-transparency
-```
-
-Validation complète :
-
-```bash
-bash scripts/check.sh
-```
-
-## Traefik
-
-Recharger Traefik :
-
-```bash
-docker compose restart traefik
-```
-
-Logs Traefik :
-
-```bash
-docker compose logs --tail=200 traefik
-docker compose logs -f traefik
-```
-
-Dashboard local Traefik :
-
-```bash
-ssh -L 8081:127.0.0.1:8081 "${VPS_USER:-ubuntu}@${VPS_HOST}"
-```
-
-Puis ouvrir :
-
-```text
-http://127.0.0.1:8081/dashboard/
-```
-
-## Certificat HTTPS
-
-Vérifier le certificat :
-
-```bash
+```sh
 echo | openssl s_client -servername openg7.org -connect openg7.org:443 2>/dev/null | openssl x509 -noout -issuer -subject -dates
 ```
 
-Forcer une vérification renouvellement :
-
-```bash
-bash scripts/renew-certs.sh
-```
-
-Voir le fichier ACME :
-
-```bash
-ls -lah traefik/acme/
-```
+`bash scripts/renew-certs.sh` contrôle le renouvellement; les fichiers ACME sont
+sous `traefik/acme/`. Les dashboards Traefik/cAdvisor restent locaux
+(`127.0.0.1:8081/dashboard/`, `127.0.0.1:8082/`), accessibles par tunnel SSH.
 
 ## Déploiement VPS
 
-Depuis le poste local, mettre à jour le code sur le VPS puis déployer :
-
-```bash
-yarn vps:update
-```
-
-Même opération, mais sans rebuild si les images sont déjà disponibles :
-
-```bash
-yarn vps:update --no-build
-```
-
-Relancer seulement le script de déploiement déjà présent sur le VPS :
-
-```bash
-yarn vps:deploy
-```
-
-Vérifier l'état de production après un déploiement :
-
-```bash
-yarn vps:check
-```
-
-Revenir aux images applicatives précédentes :
-
-```bash
-yarn vps:rollback
-```
-
-Ce rollback utilise les tags Docker créés avant le dernier déploiement :
-
-```text
-openg7-funding-web:rollback
-openg7-funding-api:rollback
-```
-
-Il ne restaure pas la base de données. Si une migration PostgreSQL incompatible a
-été appliquée, restaurer un backup DB séparément.
-
-Voir les containers et les logs depuis le poste local :
-
-```bash
-yarn vps:ps
-yarn vps:logs
-yarn vps:logs api
-yarn vps:logs web
-yarn vps:logs traefik
-```
-
-Ouvrir un shell directement dans le dossier du projet sur le VPS :
-
-```bash
-yarn vps:ssh
-```
-
-Première installation :
-
-```bash
-sudo bash scripts/install-vps.sh
-cp .env.example .env
-nano .env
-bash scripts/deploy.sh
-```
-
-Déployer une mise à jour :
-
-```bash
-git pull
-bash scripts/deploy.sh
-```
-
-Déployer sans rebuild local, avec images déjà publiées :
-
-Préparer le checkout voulu et renseigner `WEB_IMAGE` et `API_IMAGE` dans `.env`
-avec son SHA complet. Le script ne fait plus de `git pull` et vérifie la
-concordance des images avec cette révision :
-
-```bash
-DEPLOY_REVISION="$(git rev-parse HEAD)"
-bash scripts/deploy.sh --no-build --revision "${DEPLOY_REVISION}"
-```
-
-## Sauvegardes
-
-Créer une sauvegarde de configuration sur le VPS :
-
-```bash
-yarn vps:backup
-```
-
-Lister les sauvegardes présentes sur le VPS :
-
-```bash
-yarn vps:backup:list
-```
-
-Créer et télécharger une sauvegarde de configuration depuis le VPS :
-
-```bash
-yarn vps:backup:download
-```
-
-Créer une sauvegarde PostgreSQL sur le VPS :
-
-```bash
-yarn vps:db:backup
-```
-
-Lister les sauvegardes PostgreSQL présentes sur le VPS :
-
-```bash
-yarn vps:db:backup:list
-```
-
-Créer et télécharger une sauvegarde PostgreSQL depuis le VPS :
-
-```bash
-yarn vps:db:backup:download
-```
-
-Les sauvegardes téléchargées depuis le VPS arrivent par défaut dans :
-
-```text
-backups/vps/
-```
-
-Initialiser une base locale neuve avec les migrations SQL dans l'ordre :
-
-```bash
-yarn db:migrate
-```
-
-Sur une base existante, le runner rejoue également les fichiers déjà appliqués.
-Les migrations `019`–`021` ne supportent pas cette répétition; suivre la procédure
-liée en tête du document avant d'utiliser ce raccourci ou le déploiement VPS.
-
-Les migrations doivent etre des fichiers `.sql` dans :
-
-```text
-apps/funding-api/migrations/
-```
-
-Créer une sauvegarde :
-
-```bash
-yarn db:backup
-```
-
-Si `DATABASE_URL` est configure, ce script cree aussi :
-
-```text
-backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
-```
-
-Si le volume Docker `openg7-sponsor-logos` existe, le script cree aussi :
-
-```text
-backups/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
-```
-
-Lister les sauvegardes :
-
-```bash
-ls -lah backups/
-```
-
-Restaurer :
-
-```bash
-yarn db:restore --config-backup backups/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz --database-dump backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql --sponsor-logos-backup backups/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
-```
-
-Équivalent direct :
-
-```bash
-bash scripts/restore-from-backup.sh \
-  --config-backup backups/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz \
-  --database-dump backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql \
-  --sponsor-logos-backup backups/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
-```
-
-## Debug fréquent
-
-Container qui redémarre :
-
-```bash
-docker compose ps
-docker compose logs --tail=100 web
-docker compose logs --tail=100 api
-docker compose logs --tail=100 traefik
-```
-
-Vérifier que Nginx a la bonne config dans l’image :
-
-```bash
-docker compose exec web cat /etc/nginx/conf.d/default.conf
-```
-
-Vérifier la configuration sans imprimer les valeurs secrètes :
-
-```bash
-yarn services:check
-docker compose config --quiet
-```
-
-Le premier contrôle lit la configuration locale, pas l'environnement effectif
-du conteneur; son contrôle admin concerne encore le mode token. Compléter avec
-la [recette OIDC](operations/admin-identity-and-alerts.md) pour ce mode.
-
-Vérifier les routes Traefik déclarées :
-
-```bash
-docker compose exec traefik cat /etc/traefik/dynamic/routes.yml
-```
-
-Nettoyer les containers arrêtés :
-
-```bash
-docker container prune
-```
-
-Nettoyer les images inutilisées :
-
-```bash
-docker image prune
-```
-
-Nettoyer prudemment tout ce qui est inutilisé :
-
-```bash
-docker system prune
-```
-
-## Sécurité et anti-abus
-
-Lancer le contrôle sécurité :
-
-```bash
-bash scripts/security-check.sh
-```
-
-Voir les connexions et erreurs côté Traefik :
-
-```bash
-docker compose logs --tail=300 traefik
-```
-
-Voir les requêtes qui touchent l’API :
-
-```bash
-docker compose logs --tail=300 api
-```
-
-Redémarrer uniquement le proxy après modification Traefik :
-
-```bash
-docker compose restart traefik
-```
-
-Limiter le pare-feu aux ports publics essentiels sur Ubuntu :
-
-```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-sudo ufw status verbose
-```
-
-En cas de pic suspect :
-
-```bash
-docker stats
-docker compose ps
-docker compose logs --tail=200 traefik
-docker compose logs --tail=200 api
-```
-
-Vérifier que le dashboard Traefik et cAdvisor restent locaux :
-
-```bash
-docker compose ps
-curl -I http://127.0.0.1:8081/dashboard/
-curl -I http://127.0.0.1:8082/
-```
+Préconditions, première installation, révision/images et retour :
+[déploiement Docker/VPS](docker-deployment.md#deployment). Les raccourcis lisent
+`VPS_HOST`, `VPS_USER`, `VPS_PORT`, `VPS_APP_DIR` et `VPS_BACKUP_DOWNLOAD_DIR`.
+Sans clé SSH, le terminal peut demander un mot de passe.
+
+| Opération autorisée                     | Commande                                               |
+| --------------------------------------- | ------------------------------------------------------ |
+| Mettre à jour le checkout puis déployer | `yarn vps:update`                                      |
+| Même opération sans build VPS           | `yarn vps:update --no-build`                           |
+| Déployer le checkout préparé            | `yarn vps:deploy`                                      |
+| Contrôler / état / logs                 | `yarn vps:check` / `yarn vps:ps` / `yarn vps:logs api` |
+| Shell dans le projet distant            | `yarn vps:ssh`                                         |
+| Revenir aux images précédentes          | `yarn vps:rollback`                                    |
+| Mettre à jour le code puis migrer       | `yarn vps:db:update` ou `yarn vps:db:migrate`          |
+| Console PostgreSQL                      | `yarn vps:db:psql`                                     |
+
+Les deux raccourcis `vps:db:*` de migration font `git pull --ff-only` et ne
+déploient pas les images. Le script `deploy.sh` utilise le checkout préparé;
+il ne fait pas de pull. Avec `--no-build`, `WEB_IMAGE`/`API_IMAGE` doivent correspondre
+au SHA complet fourni par `--revision`. Le rollback des images
+`openg7-funding-web:rollback`/`openg7-funding-api:rollback` ne restaure pas la base.
+
+## Sauvegardes et PostgreSQL
+
+Lire les [migrations](operations/database-migrations.md) avant toute application :
+les runners rejouent les fichiers, et une base existante peut échouer. Ne pas
+modifier les migrations historiques pour contourner cela.
+
+| Opération autorisée                | Commande                                                     |
+| ---------------------------------- | ------------------------------------------------------------ |
+| PostgreSQL local                   | `yarn db:up`, `yarn db:stop`, `yarn db:logs`, `yarn db:psql` |
+| Initialiser une base locale neuve  | `yarn db:migrate`                                            |
+| Sauvegarde locale                  | `yarn db:backup`                                             |
+| Sauvegarde configuration VPS       | `yarn vps:backup`                                            |
+| Sauvegarde DB VPS                  | `yarn vps:db:backup`                                         |
+| Lister / télécharger configuration | `yarn vps:backup:list` / `yarn vps:backup:download`          |
+| Lister / télécharger DB            | `yarn vps:db:backup:list` / `yarn vps:db:backup:download`    |
+
+Les téléchargements arrivent par défaut dans `backups/vps/`. Selon configuration,
+la sauvegarde inclut archive de configuration, dump PostgreSQL et archive du volume
+`openg7-sponsor-logos`. Noms, restauration ciblée et vérifications :
+[sauvegarde](docker-deployment.md#backup), [restauration](docker-deployment.md#restore).
+Une restauration est une opération distincte exigeant sauvegarde et instruction explicite.
+
+## Debug, sécurité et nettoyage
+
+Commencer par état/logs ciblés et `yarn services:check`; compléter par la
+[recette OIDC](operations/admin-identity-and-alerts.md) pour ce mode.
+`bash scripts/check.sh` et `bash scripts/security-check.sh` concernent les contrôles
+d'exploitation, pas la suite unitaire locale. Examiner cible et effets avant exécution.
+
+Le nettoyage Docker (`docker container prune`, `docker image prune`,
+`docker system prune`) peut affecter d'autres projets : inventorier les ressources
+et obtenir l'instruction destructive explicite. Ne jamais supprimer implicitement
+les volumes de production.
+
+Pare-feu Ubuntu, dashboard local et anti-abus : [sécurité Docker/VPS](docker-deployment.md#security).
+Une modification réseau exige la procédure à risque élevé; préserver l'accès SSH
+et n'exposer que les ports publics nécessaires.

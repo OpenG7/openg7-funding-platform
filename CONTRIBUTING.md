@@ -11,15 +11,12 @@
 yarn install
 ```
 
-## Quality commands
+## Validation
 
-```bash
-yarn lint
-yarn format:check
-yarn test
-yarn build
-yarn docs
-```
+Use the [validation matrix](docs/development/validation.md) to select the required
+checks for the change. It distinguishes TypeScript compilation, Angular builds,
+Node tests, browser fixtures and disposable integration tests, and records their
+prerequisites. `yarn test` already compiles TypeScript.
 
 Use French (`fr-CA`) as default locale for user-facing content and keep all user-facing strings in translation files.
 
@@ -29,9 +26,7 @@ permissions, migrations or visible behavior change. Historical lot reports keep
 their dated validation results; current evidence belongs in
 [platform status](docs/platform-status.md).
 
-`yarn build` compiles TypeScript; build the Web separately with
-`yarn workspace @openg7/funding-web build --configuration production`.
-Browser and disposable integration checks, including their Docker images and
-browser prerequisites, are listed in the platform status document. The global
-format check currently reports existing differences; do not mix an unrelated
-repository-wide formatting rewrite into a functional change.
+For documentation/instruction maintenance, run `node scripts/check-agent-docs.mjs`.
+See [documentation ownership and budgets](docs/development/documentation.md).
+Keep checks and formatting scoped as described in the matrix; report existing
+failures separately from regressions introduced by the change.
