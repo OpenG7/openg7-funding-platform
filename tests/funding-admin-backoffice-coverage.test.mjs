@@ -98,7 +98,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     'apps/funding-api/migrations/014_add_sponsorship_refund_amount_reason.sql'
   );
   const core = read('packages/funding-core/src/index.ts');
-  const readme = read('README.md');
+  const adminDocs = read('docs/technical/admin-api.md');
 
   assertIncludesAll(
     routes,
@@ -851,7 +851,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
-    [readme, read('docs/operations/database-migrations.md')].join('\n'),
+    [adminDocs, read('docs/technical/public-api.md'), read('docs/operations/database-migrations.md')].join('\n'),
     [
       '/admin/fundraiser',
       '/admin/fundraiser/setup',

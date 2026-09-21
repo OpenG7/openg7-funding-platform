@@ -20,6 +20,7 @@ import {
     <dialog
       #dialog
       [attr.aria-label]="title()"
+      [class.wide]="wide()"
       (cancel)="requestClose($event)"
       (keydown)="keydown($event)"
       data-og7="admin-drawer"
@@ -51,6 +52,7 @@ export class AdminDrawerComponent {
   readonly title = input.required<string>();
   readonly closeLabel = input.required<string>();
   readonly busy = input(false);
+  readonly wide = input(false);
   readonly closed = output<void>();
   private readonly document = inject(DOCUMENT);
   private readonly dialog =
@@ -111,7 +113,8 @@ export class AdminDrawerComponent {
 
   private restoreFocus(): void {
     if (!this.opener) return;
-    if (this.opener.isConnected && !this.opener.matches(':disabled')) this.opener.focus();
+    if (this.opener.isConnected && !this.opener.matches(':disabled'))
+      this.opener.focus();
     else this.document.getElementById('admin-main')?.focus();
     this.opener = null;
   }

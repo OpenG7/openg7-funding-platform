@@ -364,6 +364,15 @@ test(
     await t.test(
       'real HTTP routes enforce OIDC roles, origin, receipt ownership and closed catalog',
       async () => {
+        await pool.query(
+          await readFile(
+            new URL(
+              '025_create_publication_editorial_profiles.sql',
+              migrations
+            ),
+            'utf8'
+          )
+        );
         const issuer = 'https://issuer.example.test/',
           origin = 'http://127.0.0.1:4179';
         const cookies = {};
@@ -459,6 +468,68 @@ test(
               },
               body: typeof body === 'string' ? body : JSON.stringify(body)
             });
+          const programme = await fetch(url + '/programme', {
+            headers: { cookie: cookies.reader }
+          });
+          assert.equal(programme.status, 200);
+          assert.equal((await programme.json()).writable, false);
+          assert.match(programme.headers.get('cache-control'), /no-store/);
+          assert.equal((await fetch(url + '/programme')).status, 401);
+          const preparation = (role, suffix, body, originHeader = true) =>
+            fetch(url + suffix, {
+              method: 'POST',
+              headers: {
+                cookie: cookies[role],
+                'Content-Type': 'application/json',
+                ...(originHeader ? { origin } : {})
+              },
+              body: JSON.stringify(body)
+            });
+          assert.equal(
+            (
+              await preparation('reader', '/programme', {
+                feedId: 'openg7:facebook',
+                cadence: 2,
+                includeApproved: false
+              })
+            ).status,
+            403
+          );
+          assert.equal(
+            (
+              await preparation(
+                'operator',
+                '/programme',
+                {
+                  feedId: 'openg7:facebook',
+                  cadence: 2,
+                  includeApproved: false
+                },
+                false
+              )
+            ).status,
+            403
+          );
+          assert.equal(
+            (
+              await preparation('operator', '/programme', {
+                feedId: 'openg7:facebook',
+                cadence: 2,
+                includeApproved: false
+              })
+            ).status,
+            200
+          );
+          assert.equal(
+            (
+              await preparation('operator', '/variant', {
+                id,
+                version: 2,
+                instruction: 'execute arbitrary command'
+              })
+            ).status,
+            400
+          );
           const c = command('publication.reject', id, 2);
           assert.equal((await post('reader', c)).status, 403);
           assert.equal((await post('operator', c, false)).status, 403);

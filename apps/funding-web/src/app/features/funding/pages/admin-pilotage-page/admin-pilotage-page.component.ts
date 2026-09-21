@@ -24,6 +24,10 @@ import type {
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
+import {
+  EditorialProgrammeComponent,
+  type ProgrammeCommand
+} from '../../components/admin-pilotage/editorial-programme.component.js';
 import { AdminInspectorComponent } from '../../components/admin-inspector/admin-inspector.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import {
@@ -48,7 +52,8 @@ type Panel =
   | 'menu'
   | 'help'
   | 'settings'
-  | 'incident';
+  | 'incident'
+  | 'programme';
 
 /** Routed orchestration: one stable decision, explicit commands and server receipts. */
 @Component({
@@ -62,7 +67,8 @@ type Panel =
     AdminIconComponent,
     PilotKeyboardComponent,
     AdminPublicationCalendarComponent,
-    AdminInspectorComponent
+    AdminInspectorComponent,
+    EditorialProgrammeComponent
   ],
   providers: [ControllerService],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -103,6 +109,9 @@ export class AdminPilotagePageComponent {
     title: string;
   } | null>(null);
   readonly metrics = signal({ decisions: 0, details: 0, portal: 0 });
+  readonly sessionStart = signal(0);
+  readonly sessionDecisions = signal(0);
+  readonly sessionElapsed = signal(0);
   readonly domains: { id: PilotDomain; icon: AdminIconName }[] = [
     { id: 'publications', icon: 'publications' },
     { id: 'sponsors', icon: 'sponsors' },
@@ -221,6 +230,38 @@ export class AdminPilotagePageComponent {
         void this.load(true);
       }
       this.controller.start((intent) => this.intent(intent));
+      try {
+        const saved = JSON.parse(
+          this.document.defaultView!.sessionStorage.getItem(
+            this.sessionKey()
+          ) ?? 'null'
+        );
+        if (
+          saved &&
+          Number.isFinite(saved.start) &&
+          saved.start > Date.now() - 86400000 &&
+          saved.start <= Date.now()
+        ) {
+          this.sessionStart.set(saved.start);
+          this.sessionDecisions.set(
+            Number.isSafeInteger(saved.decisions) && saved.decisions >= 0
+              ? saved.decisions
+              : 0
+          );
+        }
+      } catch {
+        /* Optional session context. */
+      }
+      const sessionTimer = setInterval(
+        () =>
+          this.sessionElapsed.set(
+            this.sessionStart()
+              ? Math.floor((Date.now() - this.sessionStart()) / 60000)
+              : 0
+          ),
+        5000
+      );
+      destroy.onDestroy(() => clearInterval(sessionTimer));
       Object.assign(this.profile, structuredClone(this.controller.profile()));
       if (this.unresolved()) void this.recover();
       const timer = setInterval(() => {
@@ -231,6 +272,57 @@ export class AdminPilotagePageComponent {
   }
   private receiptStorageKey(): string {
     return 'og7-pilot-receipt:' + (this.admin.identity()?.id ?? 'token');
+  }
+  private sessionKey(): string {
+    return 'og7-pilot-session:' + (this.admin.identity()?.id ?? 'token');
+  }
+  startSession(): void {
+    if (!this.sessionStart()) {
+      this.sessionStart.set(Date.now());
+      this.sessionDecisions.set(0);
+      this.sessionElapsed.set(0);
+    }
+    this.saveSession();
+    this.close();
+    this.document.getElementById('admin-main')?.focus();
+  }
+  stopSession(): void {
+    this.sessionStart.set(0);
+    this.saveSession();
+  }
+  private saveSession(): void {
+    try {
+      this.document.defaultView?.sessionStorage.setItem(
+        this.sessionKey(),
+        JSON.stringify({
+          start: this.sessionStart(),
+          decisions: this.sessionDecisions()
+        })
+      );
+    } catch {
+      /* Optional counters only. */
+    }
+  }
+  async reviewDecision(id: string): Promise<void> {
+    if (this.busy()) return;
+    try {
+      const snapshot = await this.admin.pilotage({ id });
+      const d = snapshot.decisions[0];
+      if (!d) {
+        this.error.set('VERSION_CONFLICT');
+        return;
+      }
+      this.close();
+      this.domain.set('');
+      await this.load(false, snapshot.focusPage ?? 1);
+      this.choose(d);
+      this.document.getElementById('admin-main')?.focus();
+    } catch {
+      this.error.set('PILOTAGE_UNAVAILABLE');
+    }
+  }
+  programmeCommand(command: ProgrammeCommand): void {
+    void this.send(command);
   }
   t(key: string): string {
     return this.i18n.t('admin.pilotage.' + key);
@@ -258,6 +350,8 @@ export class AdminPilotagePageComponent {
       : this.t('undated');
   }
   errorLabel(code: string): string {
+    const programme = 'admin.programme.errors.' + code;
+    if (this.i18n.t(programme) !== programme) return this.i18n.t(programme);
     const key = 'admin.pilotage.errors.' + code,
       label = this.i18n.t(key);
     if (label !== key) return label;
@@ -569,6 +663,10 @@ export class AdminPilotagePageComponent {
       if (receipt.status === 'completed') {
         this.controller.feedback();
         this.metrics.update((m) => ({ ...m, decisions: m.decisions + 1 }));
+        if (this.sessionStart()) {
+          this.sessionDecisions.update((n) => n + 1);
+          this.saveSession();
+        }
       } else if (!receipt.reviewedAt) this.error.set(receipt.code ?? 'generic');
       await this.load(false);
     }
@@ -716,7 +814,7 @@ export class AdminPilotagePageComponent {
     if (this.panel()) {
       if (intent === 'scrollDown' || intent === 'scrollUp') {
         this.document
-          .querySelector('dialog[open] .body')
+          .querySelector('dialog[open]')
           ?.scrollBy({ top: intent === 'scrollDown' ? 140 : -140 });
         return;
       }

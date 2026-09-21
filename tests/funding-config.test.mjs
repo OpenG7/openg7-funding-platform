@@ -2243,7 +2243,10 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'apps/funding-api/src/email-notification.service.ts',
     'utf8'
   );
-  const readme = fs.readFileSync('README.md', 'utf8');
+  const adminDocs = [
+    fs.readFileSync('docs/technical/admin-api.md', 'utf8'),
+    fs.readFileSync('docs/technical/configuration.md', 'utf8')
+  ].join('\n');
 
   assert.ok(core.includes('AdminSponsorshipRefundRequest'));
   assert.ok(core.includes('AdminSponsorshipRefundResult'));
@@ -2392,8 +2395,8 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
       'fund_contributions_sponsorship_refund_reason_check'
     )
   );
-  assert.ok(readme.includes('POST /api/admin/sponsorships/refund'));
-  assert.ok(readme.includes('sponsorship_credit_notes'));
+  assert.ok(adminDocs.includes('POST /api/admin/sponsorships/refund'));
+  assert.ok(adminDocs.includes('sponsorship_credit_notes'));
   const migrationGuide = fs.readFileSync(
     'docs/operations/database-migrations.md',
     'utf8'
@@ -2793,7 +2796,10 @@ test('Admin email queue page lists failed messages and retries them manually', (
     'utf8'
   );
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const readme = fs.readFileSync('README.md', 'utf8');
+  const adminDocs = [
+    fs.readFileSync('docs/technical/admin-api.md', 'utf8'),
+    fs.readFileSync('docs/technical/configuration.md', 'utf8')
+  ].join('\n');
 
   assert.ok(routes.includes("path: 'fundraiser/email-queue'"));
   assert.ok(routes.includes('AdminEmailQueuePageComponent'));
@@ -2845,9 +2851,9 @@ test('Admin email queue page lists failed messages and retries them manually', (
   assert.ok(core.includes('AdminEmailQueueRetryRequest'));
   assert.ok(core.includes('AdminEmailQueueRetryResult'));
 
-  assert.ok(readme.includes('/admin/fundraiser/email-queue'));
-  assert.ok(readme.includes('GET /api/admin/email-queue'));
-  assert.ok(readme.includes('POST /api/admin/email-queue/retry'));
+  assert.ok(adminDocs.includes('/admin/fundraiser/email-queue'));
+  assert.ok(adminDocs.includes('GET /api/admin/email-queue'));
+  assert.ok(adminDocs.includes('POST /api/admin/email-queue/retry'));
 });
 
 test('Admin sponsorship invoices can be listed and resent from the back-office', () => {
@@ -2881,7 +2887,10 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'utf8'
   );
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const readme = fs.readFileSync('README.md', 'utf8');
+  const adminDocs = [
+    fs.readFileSync('docs/technical/admin-api.md', 'utf8'),
+    fs.readFileSync('docs/technical/configuration.md', 'utf8')
+  ].join('\n');
 
   assert.ok(routes.includes("path: 'fundraiser/invoices'"));
   assert.ok(routes.includes('AdminInvoicesPageComponent'));
@@ -2995,19 +3004,19 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(core.includes('AdminSponsorshipCreditNoteResendRequest'));
   assert.ok(core.includes('AdminSponsorshipCreditNoteResendResult'));
 
-  assert.ok(readme.includes('/admin/fundraiser/invoices'));
-  assert.ok(readme.includes('GET /api/admin/sponsorship-invoices'));
-  assert.ok(readme.includes('POST /api/admin/sponsorship-invoices/backfill'));
+  assert.ok(adminDocs.includes('/admin/fundraiser/invoices'));
+  assert.ok(adminDocs.includes('GET /api/admin/sponsorship-invoices'));
+  assert.ok(adminDocs.includes('POST /api/admin/sponsorship-invoices/backfill'));
   assert.ok(
-    readme.includes('GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>')
+    adminDocs.includes('GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>')
   );
-  assert.ok(readme.includes('POST /api/admin/sponsorship-invoices/resend'));
+  assert.ok(adminDocs.includes('POST /api/admin/sponsorship-invoices/resend'));
   assert.ok(
-    readme.includes(
+    adminDocs.includes(
       'GET /api/admin/sponsorship-credit-notes/pdf?creditNoteId=<uuid>'
     )
   );
-  assert.ok(readme.includes('POST /api/admin/sponsorship-credit-notes/resend'));
+  assert.ok(adminDocs.includes('POST /api/admin/sponsorship-credit-notes/resend'));
   const migrationGuide = fs.readFileSync(
     'docs/operations/database-migrations.md',
     'utf8'

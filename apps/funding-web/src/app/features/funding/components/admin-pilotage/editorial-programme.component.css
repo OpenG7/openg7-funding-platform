@@ -1,0 +1,278 @@
+:host {
+  display: block;
+  min-width: 0;
+  color: #e4edf8;
+}
+.programme {
+  display: grid;
+  gap: 1rem;
+}
+.tabs,
+.toolbar,
+.scope {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.tabs {
+  border-bottom: 1px solid #35536b;
+  padding-bottom: 0.75rem;
+}
+.tabs button[aria-current],
+.primary {
+  background: #155671;
+  border-color: #71e0f7;
+}
+.programme button,
+.programme select,
+.programme input {
+  font: inherit;
+  color: inherit;
+  border: 1px solid #50708a;
+  border-radius: 0.5rem;
+  background: #102b40;
+  padding: 0.6rem 0.8rem;
+}
+.programme button {
+  cursor: pointer;
+  text-align: left;
+}
+.programme button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.programme :focus-visible {
+  outline: 3px solid #70e3ff;
+  outline-offset: 3px;
+}
+.programme a {
+  color: #8ceaff;
+}
+.programme label {
+  display: grid;
+  gap: 0.4rem;
+}
+.programme input[type='number'] {
+  width: 5rem;
+}
+.programme input[type='checkbox'] {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: #1bb9d6;
+}
+.programme .check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.programme h2,
+.programme h3,
+.programme h4,
+.programme p {
+  margin: 0;
+}
+.programme h2 {
+  font-size: 1.45rem;
+}
+.programme p {
+  line-height: 1.65;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.stats div {
+  display: grid;
+  padding: 1rem;
+  border: 1px solid #35536b;
+  border-radius: 0.7rem;
+}
+.stats strong {
+  font-size: 2.2rem;
+  color: #88eaff;
+}
+.priority {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.priority small {
+  color: #b5ccdf;
+}
+.notice {
+  padding: 0.8rem;
+  border-left: 3px solid #f9c86a;
+  background: #172d42;
+}
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+  min-height: 18rem;
+}
+.day {
+  background: #0b1e30;
+  border: 1px solid #345068;
+  border-radius: 0.6rem;
+  padding: 0.5rem;
+  min-width: 0;
+}
+.day h3 {
+  font-size: 0.82rem;
+  margin-bottom: 0.6rem;
+  color: #b5e9f4;
+}
+.calendar-card {
+  display: grid;
+  gap: 0.4rem;
+  width: 100%;
+  font-size: 0.82rem !important;
+  margin-bottom: 0.6rem;
+  overflow-wrap: anywhere;
+}
+.calendar-card time,
+.calendar-card small {
+  font-size: 0.73rem;
+}
+.calendar-card.selected {
+  outline: 2px solid #63def6;
+}
+.empty-day {
+  font-size: 0.8rem;
+  color: #a6b9ca;
+}
+.selected-card,
+.rule,
+.incident {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid #426079;
+  border-radius: 0.65rem;
+  padding: 1rem;
+}
+.changes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.changes li {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  background: #142a3d;
+}
+.changes del {
+  color: #ffb2ac;
+}
+.changes ins {
+  color: #93efd2;
+  text-decoration: none;
+}
+.screen {
+  border: 1px solid #548199;
+  border-radius: 0.8rem;
+  overflow: hidden;
+  max-width: 650px;
+  margin: auto;
+  width: 100%;
+}
+.screen header,
+.screen footer {
+  padding: 1rem;
+  background: #17344b;
+}
+.screen footer {
+  font-size: 0.85rem;
+  color: #bed0df;
+}
+.screen img {
+  width: 100%;
+  max-height: 350px;
+  object-fit: contain;
+  background: #071725;
+}
+.screen > .copy {
+  padding: 1.25rem;
+}
+.copy {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.sequence {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.5rem;
+}
+.sequence button {
+  width: 100%;
+}
+.sequence [aria-current] {
+  border-color: #71e0f7;
+}
+.comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.comparison section {
+  display: grid;
+  gap: 0.7rem;
+  align-content: start;
+  min-width: 0;
+}
+.comparison p {
+  padding: 0.6rem;
+}
+.removed {
+  background: #522d36;
+  border-left: 3px solid #ffb2ac;
+}
+.added {
+  background: #153e37;
+  border-left: 3px solid #93efd2;
+}
+.confirmation {
+  border: 2px solid #77dff7;
+  padding: 1.2rem;
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.8rem;
+  background: #10283c;
+}
+.programme details > button {
+  display: block;
+  margin-top: 0.6rem;
+  width: 100%;
+}
+@media (max-width: 1100px) {
+  .week {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .week {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stats {
+    grid-template-columns: 1fr;
+  }
+  .comparison {
+    grid-template-columns: 1fr;
+  }
+  .priority {
+    display: grid;
+  }
+  .scope select {
+    max-width: 100%;
+  }
+  .toolbar {
+    align-items: stretch;
+  }
+  .tabs button {
+    flex: 1 1 40%;
+  }
+}

@@ -36,6 +36,11 @@ Appliquer les dépendances dans l'ordre. PostgreSQL est nécessaire pour les
 fonctions persistantes, OIDC et les alertes. Le mode Stripe-direct conserve
 uniquement les parcours compatibles avec l'absence de base.
 
+La migration [025](../../apps/funding-api/migrations/025_create_publication_editorial_profiles.sql)
+ajoute les préférences éditoriales par destination et les observations de
+corrections distinctes. Elle n'active aucun envoi et préserve les publications
+existantes. Voir [Ma semaine](editorial-programme.md).
+
 ## Première application locale
 
 Sur une base Docker locale neuve et explicitement dédiée à ce projet :

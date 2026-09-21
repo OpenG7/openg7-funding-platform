@@ -19,6 +19,8 @@ const roles: readonly string[] = ['reader', 'operator', 'owner'];
 const operatorActions = new Set([
   '/admin/pilotage/command',
   '/admin/pilotage/receipt',
+  '/admin/pilotage/programme',
+  '/admin/pilotage/variant',
   '/admin/sponsorships/details',
   '/admin/sponsorships/review',
   '/admin/sponsorships/request-information',

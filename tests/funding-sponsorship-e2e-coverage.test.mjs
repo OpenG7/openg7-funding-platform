@@ -702,6 +702,7 @@ test('E2E 8/8: FR/EN navigation, prerender, sitemap, and deployment docs cover s
   assertIncludesAll(
     [
       readme,
+      read('docs/technical/public-api.md'),
       dockerDocs,
       launchChecklist,
       coverageDoc,

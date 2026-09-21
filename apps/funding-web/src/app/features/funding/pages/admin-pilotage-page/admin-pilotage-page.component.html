@@ -79,6 +79,14 @@
         </p>
         <h1>{{ t('title') }}</h1>
         <p>{{ t('subtitle') }}</p>
+        <button
+          type="button"
+          data-og7="open-programme"
+          (click)="open('programme')"
+          [disabled]="busy()"
+        >
+          {{ t('programme') }}
+        </button>
       </div>
       <div class="automation">
         <strong
@@ -101,6 +109,15 @@
       </div>
     </section>
     <div class="announcements" aria-live="polite" aria-atomic="true">
+      @if (sessionStart()) {
+        <p class="alert">
+          {{ t('fiveMinutes') }} · {{ sessionElapsed() }} min ·
+          {{ sessionDecisions() }} {{ t('sessionDecisions') }}
+          <button type="button" (click)="stopSession()">
+            {{ t('endSession') }}
+          </button>
+        </p>
+      }
       @if (error() && !panel()) {
         <p class="alert" role="alert">
           {{ errorLabel(error()) }}
@@ -445,6 +462,7 @@
 </div>
 
 <openg7-admin-drawer
+  [wide]="panel() === 'programme'"
   [opened]="!!panel()"
   [title]="t(panel() || 'details')"
   [closeLabel]="t('close')"
@@ -452,6 +470,16 @@
   (closed)="close()"
 >
   <div class="panel-content" [attr.data-og7]="'pilot-panel-' + panel()">
+    @if (panel() === 'programme') {
+      <openg7-editorial-programme
+        [queue]="state()"
+        [disabled]="busy() || !!unresolved() || !state()?.writable"
+        (command)="programmeCommand($event)"
+        (review)="reviewDecision($event)"
+        (session)="startSession()"
+        (contextChanged)="controller.reset()"
+      />
+    }
     @if (panel() === 'incident') {
       <p>{{ t('incidentHelp') }}</p>
       <p>{{ receipt()?.requestId }}</p>

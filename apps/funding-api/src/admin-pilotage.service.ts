@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 
 import type { Pool, PoolClient } from 'pg';
+
+import {
+  EDITORIAL_INTENTS,
+  type PublicationFeedId
+} from '../../../packages/funding-core/src/index.js';
 import type {
   PilotAction,
   PilotCommand,
@@ -8,8 +13,9 @@ import type {
   PilotDomain,
   PilotReceipt,
   PilotState
-} from '@openg7/funding-core';
+} from '../../../packages/funding-core/src/index.js';
 
+import { EditorialProgrammeService } from './editorial-programme.service.js';
 import {
   loadAdminWorkQueue,
   WORK_QUEUE_PRIORITIES
@@ -35,6 +41,9 @@ const domains: PilotDomain[] = [
   'operations'
 ];
 const actions: PilotAction[] = [
+  'programme.apply',
+  'editorial.preferences',
+  'publication.repair',
   'publication.approve',
   'publication.reject',
   'publication.edit',
@@ -92,7 +101,11 @@ export function parsePilotCommand(value: unknown): PilotCommand {
     'INVALID_COMMAND',
     400
   );
-  if (c.action.startsWith('feed.'))
+  if (
+    c.action.startsWith('feed.') ||
+    c.action === 'programme.apply' ||
+    c.action === 'editorial.preferences'
+  )
     requireValue(
       /^openg(?:7|20):(facebook|linkedin)$/.test(c.targetId),
       'INVALID_COMMAND',
@@ -112,8 +125,51 @@ export function parsePilotCommand(value: unknown): PilotCommand {
             'scheduledAt',
             'mediaId',
             'approveSponsors',
-            'reason'
+            'reason',
+            'editorialIntent',
+            'preferences',
+            'moves'
           ].includes(k)
+        ),
+      'INVALID_COMMAND',
+      400
+    );
+  if (c.payload?.editorialIntent !== undefined)
+    requireValue(
+      c.action === 'publication.edit' &&
+        EDITORIAL_INTENTS.includes(c.payload.editorialIntent),
+      'INVALID_COMMAND',
+      400
+    );
+  if (c.payload?.moves !== undefined)
+    requireValue(c.action === 'programme.apply', 'INVALID_COMMAND', 400);
+  if (c.payload?.preferences !== undefined)
+    requireValue(c.action === 'editorial.preferences', 'INVALID_COMMAND', 400);
+  if (c.action === 'editorial.preferences')
+    requireValue(
+      /^[1-9]\d{0,8}$/.test(c.version) &&
+        Array.isArray(c.payload?.preferences) &&
+        c.payload.preferences.length <= 4 &&
+        c.payload.preferences.every((p) => EDITORIAL_INTENTS.includes(p)),
+      'INVALID_COMMAND',
+      400
+    );
+  if (c.action === 'programme.apply')
+    requireValue(
+      Array.isArray(c.payload?.moves) &&
+        c.payload.moves.length > 0 &&
+        c.payload.moves.length <= 100 &&
+        c.payload.moves.every(
+          (m) =>
+            m &&
+            Object.keys(m).every((k) =>
+              ['id', 'version', 'scheduledAt'].includes(k)
+            ) &&
+            validId(m.id) &&
+            Number.isSafeInteger(m.version) &&
+            m.version > 0 &&
+            typeof m.scheduledAt === 'string' &&
+            m.scheduledAt.length <= 40
         ),
       'INVALID_COMMAND',
       400
@@ -168,7 +224,14 @@ export function parsePilotCommand(value: unknown): PilotCommand {
               id: s.id,
               version: s.version
             })),
-            reason: c.payload.reason
+            reason: c.payload.reason,
+            editorialIntent: c.payload.editorialIntent,
+            preferences: c.payload.preferences,
+            moves: c.payload.moves?.map((m) => ({
+              id: m.id,
+              version: m.version,
+              scheduledAt: m.scheduledAt
+            }))
           }
         }
       : {})
@@ -214,10 +277,13 @@ async function audit(
 }
 
 export class AdminPilotageService {
+  readonly editorial: EditorialProgrammeService;
   constructor(
     private readonly pool: Pool,
     private readonly publications: PublicationAutomationService
-  ) {}
+  ) {
+    this.editorial = new EditorialProgrammeService(pool, publications);
+  }
   async state(
     query: { page?: number; domain?: string; id?: string } = {},
     writable = true,
@@ -604,6 +670,25 @@ export class AdminPilotageService {
     const c = parsePilotCommand(value),
       digest = hash(c);
     requireValue(owner || !c.action.startsWith('project.'), 'READ_ONLY', 403);
+    if (
+      [
+        'programme.apply',
+        'editorial.preferences',
+        'publication.repair'
+      ].includes(c.action) ||
+      c.payload?.editorialIntent
+    ) {
+      const schema = (
+        await this.pool.query(
+          "SELECT to_regclass('public.publication_editorial_profiles') AS profiles,to_regclass('public.publication_editorial_observations') AS observations"
+        )
+      ).rows[0];
+      requireValue(
+        schema?.profiles && schema?.observations,
+        'PROGRAMME_UNAVAILABLE',
+        503
+      );
+    }
     const claimed = await transaction(this.pool, async (db) => {
       const result = await db.query(
         `INSERT INTO admin_command_receipts(request_id,actor,action,target_id,request_hash,status) VALUES($1,$2,$3,$4,$5,'executing') ON CONFLICT DO NOTHING RETURNING *`,
@@ -660,6 +745,32 @@ export class AdminPilotageService {
     };
   }
   private async execute(c: PilotCommand, actor: string): Promise<string> {
+    if (c.action === 'programme.apply') {
+      await this.editorial.apply(
+        c.targetId as PublicationFeedId,
+        c.version,
+        c.payload!.moves!,
+        actor
+      );
+      return 'REVIEW_REQUIRED';
+    }
+    if (c.action === 'editorial.preferences') {
+      await this.editorial.preferences(
+        c.targetId as PublicationFeedId,
+        c.version,
+        c.payload!.preferences!,
+        actor
+      );
+      return 'SAVED';
+    }
+    if (c.action === 'publication.repair') {
+      await this.publications.repair(c.targetId, c.version, actor);
+      return 'REVIEW_REQUIRED';
+    }
+    if (c.action === 'publication.edit' && c.payload?.editorialIntent) {
+      await this.editorial.editWithIntent(c, actor);
+      return 'REVIEW_REQUIRED';
+    }
     if (c.action.startsWith('publication.')) {
       const version = Number(c.version);
       requireValue(
