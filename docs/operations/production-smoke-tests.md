@@ -13,7 +13,7 @@ explicitement et exigent une intention manuelle.
 
 Les commandes à risque élevé (déploiement, remboursement, backfill live,
 restauration, migration prod) restent hors de ce runbook et suivent la
-procédure de la section 4.3 de `AGENTS.md`.
+[procédure à risque élevé](../../AGENTS.md#risque-eleve).
 
 ## 1. Vue d'ensemble des commandes
 

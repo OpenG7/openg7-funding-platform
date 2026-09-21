@@ -7,6 +7,15 @@ présente dans le dépôt n'est pas nécessairement activée en production.
 
 ## Guides fonctionnels actuels
 
+Pour modifier le dépôt, partir du [socle agent](../AGENTS.md), puis lire seulement
+les règles du chemin et du domaine concernés. La [matrice de validation](development/validation.md)
+centralise les commandes et leurs garanties; l'[architecture](ARCHITECTURE.md)
+se lit en français **ou** en [anglais](ARCHITECTURE.en.md).
+
+Références techniques extraites du README : [configuration](technical/configuration.md),
+[API admin](technical/admin-api.md), [API publique](technical/public-api.md) et
+[Stripe/webhooks/backfill](technical/stripe.md). Lire la section utile seulement.
+
 | Parcours                                                      | Référence                                                                                                                                     |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Fonds, montants et retour Checkout                            | [Accueil](funding-home.md), [confirmation des paiements](payment-trust-validation.md)                                                         |
