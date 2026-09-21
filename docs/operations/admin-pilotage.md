@@ -4,6 +4,11 @@ Route : `/admin/fundraiser/pilotage`, accessible depuis la navigation admin.
 La page reprend la référence visuelle fournie : une décision centrale, la file
 « À suivre » et les commandes en bas. Le portail existant reste accessible.
 
+**Ma semaine** ajoute briefing, session de cinq minutes, calendrier proposé,
+répétition générale, variantes de texte, préférences éditoriales et solutions
+aux incidents. Les contrats, la migration 025 et les limites sont décrits dans
+le [runbook éditorial](editorial-programme.md).
+
 ## Parcours disponibles
 
 | Espace                    | Dans le pilotage                                                                                                                        | Dossier complet                                                                             |

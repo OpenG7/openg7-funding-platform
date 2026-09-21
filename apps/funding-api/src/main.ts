@@ -2082,6 +2082,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
     routeMatches(
       request.url,
       '/admin/pilotage', '/api/admin/pilotage',
+      '/admin/pilotage/programme', '/api/admin/pilotage/programme',
+      '/admin/pilotage/variant', '/api/admin/pilotage/variant',
       '/admin/pilotage/command', '/api/admin/pilotage/command',
       '/admin/pilotage/receipt', '/api/admin/pilotage/receipt',
       '/admin/session',
@@ -2524,7 +2526,11 @@ createServer(async (request, response) => {
       '/admin/pilotage/command',
       '/api/admin/pilotage/command',
       '/admin/pilotage/receipt',
-      '/api/admin/pilotage/receipt'
+      '/api/admin/pilotage/receipt',
+      '/admin/pilotage/programme',
+      '/api/admin/pilotage/programme',
+      '/admin/pilotage/variant',
+      '/api/admin/pilotage/variant'
     )
   ) {
     response.setHeader('Cache-Control', 'private, no-store');
@@ -2539,7 +2545,32 @@ createServer(async (request, response) => {
       const owner =
         !adminIdentity || adminIdentity.identity(request)?.role === 'owner';
       const actor = getAdminAuditActor(request);
-      if (request.method === 'POST' && url.pathname.endsWith('/command')) {
+      if (
+        url.pathname.endsWith('/programme') ||
+        url.pathname.endsWith('/variant')
+      ) {
+        if (request.method === 'GET' && url.pathname.endsWith('/programme')) {
+          writeJson(
+            request,
+            response,
+            200,
+            await adminPilotage.editorial.state(writable)
+          );
+        } else if (request.method === 'POST') {
+          if (!writable) throw new PilotError('READ_ONLY', 403);
+          if (
+            !request.headers['content-type']
+              ?.toLowerCase()
+              .startsWith('application/json')
+          )
+            throw new PilotError('INVALID_COMMAND', 415);
+          const input = JSON.parse(await readBody(request, 4096));
+          const result = url.pathname.endsWith('/variant')
+            ? await adminPilotage.editorial.variant(input)
+            : await adminPilotage.editorial.propose(input);
+          writeJson(request, response, 200, result);
+        } else writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+      } else if (request.method === 'POST' && url.pathname.endsWith('/command')) {
         if (
           !request.headers['content-type']
             ?.toLowerCase()
@@ -2557,10 +2588,7 @@ createServer(async (request, response) => {
             owner
           )
         );
-      } else if (
-        request.method === 'POST' &&
-        url.pathname.endsWith('/receipt')
-      ) {
+      } else if (request.method === 'POST' && url.pathname.endsWith('/receipt')) {
         if (!writable) throw new PilotError('READ_ONLY', 403);
         if (
           !request.headers['content-type']
@@ -2577,10 +2605,7 @@ createServer(async (request, response) => {
             actor
           )
         );
-      } else if (
-        request.method === 'GET' &&
-        url.pathname.endsWith('/receipt')
-      ) {
+      } else if (request.method === 'GET' && url.pathname.endsWith('/receipt')) {
         const result = await adminPilotage.readReceipt(
           url.searchParams.get('id') ?? '',
           actor
@@ -2591,10 +2616,7 @@ createServer(async (request, response) => {
           result ? 200 : 404,
           result ?? { code: 'RECEIPT_NOT_FOUND' }
         );
-      } else if (
-        request.method === 'GET' &&
-        url.pathname.endsWith('/pilotage')
-      ) {
+      } else if (request.method === 'GET' && url.pathname.endsWith('/pilotage')) {
         const page = Number(url.searchParams.get('page') ?? 1);
         if (!Number.isSafeInteger(page) || page < 1)
           throw new PilotError('INVALID_QUERY', 400);
@@ -2617,14 +2639,17 @@ createServer(async (request, response) => {
       writeJson(
         request,
         response,
-        error instanceof PilotError
+        error instanceof PilotError || error instanceof PublicationAutomationError
           ? error.status
           : error instanceof SyntaxError
             ? 400
             : 503,
         {
           code:
-            error instanceof PilotError ? error.code : 'PILOTAGE_UNAVAILABLE'
+            error instanceof PilotError ||
+            error instanceof PublicationAutomationError
+              ? error.code
+              : 'PILOTAGE_UNAVAILABLE'
         }
       );
     }

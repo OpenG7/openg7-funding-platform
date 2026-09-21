@@ -1,4 +1,5 @@
 import type { AdminWorkQueueQuery, AdminWorkQueueResponse, PublicationAutomationState, PublicationAutomationCommand, PilotState, PilotCommand, PilotReceipt } from '@openg7/funding-core';
+import type { ProgrammeState, ProgrammePlan, PublicationFeedId, EditorialIntent } from '@openg7/funding-core';
 import { Injectable, signal } from '@angular/core';
 import type {
   AdminSearchRequest,
@@ -122,6 +123,34 @@ export interface AdminSponsorshipListQuery {
 
 @Injectable({ providedIn: 'root' })
 export class FundingAdminService {
+  pilotageProgramme(): Promise<ProgrammeState> {
+    return this.pilotageRequest('/programme');
+  }
+  proposeProgramme(
+    feedId: PublicationFeedId,
+    cadence: number,
+    includeApproved: boolean
+  ): Promise<{ version: string; plan: ProgrammePlan }> {
+    return this.pilotageRequest('/programme', {
+      feedId,
+      cadence,
+      includeApproved
+    });
+  }
+  editorialVariant(
+    id: string,
+    version: number,
+    instruction: string
+  ): Promise<{
+    intent: EditorialIntent;
+    before: string;
+    after: string;
+    deliveryId: string;
+    version: number;
+    feedId: PublicationFeedId;
+  }> {
+    return this.pilotageRequest('/variant', { id, version, instruction });
+  }
   async pilotage(
     query: { page?: number; domain?: string; id?: string } = {}
   ): Promise<PilotState> {
@@ -152,8 +181,7 @@ export class FundingAdminService {
   }
   private async pilotageRequest<T>(
     path: string,
-    command?:
-      PilotCommand | { requestId: string; confirmation: string; reason: string }
+    command?: object
   ): Promise<T> {
     const response = await fetch(`${this.apiBaseUrl}/admin/pilotage${path}`, {
       method: command ? 'POST' : 'GET',

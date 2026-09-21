@@ -7,6 +7,7 @@ import type {
   PilotDecision,
   PilotState
 } from '@openg7/funding-core';
+import type { ProgrammeState } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
 
@@ -406,4 +407,295 @@ test('settings validate remapping and unknown controller input remains inert', a
   await expect(
     page.getByRole('button', { name: /Calibration requise/ })
   ).toBeVisible();
+});
+
+async function programmeFixtures(page: Page) {
+  const fixture = await fixtures(page, 3);
+  const date = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    d.setHours(13, 0, 0, 0);
+    return d.toISOString();
+  };
+  fixture.state.decisions.forEach((d, i) => {
+    d.publication!.scheduledAt = date(i + 1);
+    d.publication!.message =
+      'Merci à Atelier ' +
+      (i + 1) +
+      '\n\nLe projet avance. Ensemble, nous avançons.\n\nCommandite rémunérée.';
+  });
+  const programme: ProgrammeState = {
+    generatedAt: new Date().toISOString(),
+    version: 'programme-v1',
+    complete: true,
+    writable: true,
+    feeds: [
+      {
+        id: 'openg7:facebook',
+        paused: true,
+        autoPrepare: true,
+        timezone: 'America/Toronto',
+        weekdays: [1, 4],
+        localTime: '09:00',
+        capacity: 5,
+        horizonDays: 14,
+        mode: 'mock',
+        accountId: 'fixture',
+        configured: true,
+        connection: 'ready',
+        checkedAt: null,
+        expiresAt: null
+      }
+    ],
+    profiles: [
+      {
+        feedId: 'openg7:facebook',
+        version: 1,
+        preferences: [],
+        observations: { neutral: 3 }
+      }
+    ],
+    deliveries: fixture.state.decisions.map((d) => d.publication!),
+    issues: [],
+    briefing: { ready: 3, scheduled: 0, blocked: 0, coveredUntil: null }
+  };
+  await page.route('**/pilotage/programme', async (route) => {
+    if (route.request().method() === 'POST')
+      return route.fulfill({
+        json: {
+          version: programme.version,
+          plan: {
+            moves: programme.deliveries.slice(0, 2).map((d, i) => ({
+              id: d.id,
+              version: d.version,
+              scheduledAt: date(i + 5)
+            })),
+            warnings: [],
+            emptySlots: []
+          }
+        }
+      });
+    return route.fulfill({ json: programme });
+  });
+  await page.route('**/pilotage/variant', async (route) => {
+    const input = route.request().postDataJSON();
+    const d = programme.deliveries.find((d) => d.id === input.id)!;
+    if (!['neutral', 'Ton neutre'].includes(input.instruction))
+      return route.fulfill({
+        status: 400,
+        json: { code: 'INTENT_NOT_SUPPORTED' }
+      });
+    return route.fulfill({
+      json: {
+        intent: 'neutral',
+        before: d.message,
+        after: d.message.replace('Merci à', 'Partenaire :'),
+        deliveryId: d.id,
+        version: d.version,
+        feedId: d.feedId
+      }
+    });
+  });
+  await page.goto('/admin/fundraiser/pilotage');
+  await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
+  const open = async () => {
+    await page.locator('[data-og7="open-programme"]').click();
+    await expect(
+      page.locator('[data-og7="editorial-programme"]')
+    ).toBeVisible();
+  };
+  return { ...fixture, programme, open };
+}
+
+test('weekly briefing starts and resumes a five-minute session without mutating publications', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  await f.open();
+  await expect(
+    page.getByRole('heading', { name: 'Les décisions qui comptent maintenant' })
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'J’ai cinq minutes' }).click();
+  await expect(page.getByText(/Session de cinq minutes/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByText(/Session de cinq minutes/)).toBeVisible();
+  expect(f.commands).toHaveLength(0);
+  await page.getByRole('button', { name: 'Terminer la session' }).click();
+  await expect(page.getByText(/Session de cinq minutes/)).toHaveCount(0);
+});
+
+test('weekly calendar and rehearsal show proposed changes before a controller confirmation', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  await f.open();
+  await page
+    .getByRole('button', { name: 'Composer la semaine', exact: true })
+    .click();
+  await buttons(page);
+  await page.evaluate(() => {
+    document.querySelector('dialog[open]')!.scrollTop = 0;
+    (
+      window as unknown as { fixturePad: { axes: number[] } }
+    ).fixturePad.axes[3] = 0.9;
+  });
+  await expect
+    .poll(() => page.locator('dialog[open]').evaluate((d) => d.scrollTop))
+    .toBeGreaterThan(0);
+  await page.evaluate(() => {
+    (
+      window as unknown as { fixturePad: { axes: number[] } }
+    ).fixturePad.axes[3] = 0;
+  });
+  await page.getByRole('button', { name: 'Proposer une répartition' }).click();
+  await expect(page.locator('[data-og7="programme-moves"] li')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Voir le déroulement' }).click();
+  await expect(page.locator('[data-og7="programme-rehearsal"]')).toContainText(
+    'Merci à Atelier'
+  );
+  await page
+    .getByRole('button', { name: 'Publication suivante', exact: true })
+    .click();
+  expect(f.commands).toHaveLength(0);
+  await page
+    .getByRole('button', { name: 'Composer la semaine', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Examiner les déplacements' }).click();
+  await expect(
+    page.locator('[data-og7="programme-confirmation"]')
+  ).toContainText('nouvelle approbation');
+  await page
+    .getByRole('button', { name: 'Confirmer l’enregistrement' })
+    .focus();
+  await buttons(page);
+  await buttons(page, [0]);
+  await page.waitForTimeout(500);
+  expect(f.commands).toHaveLength(1);
+  expect(f.commands[0]!.action).toBe('programme.apply');
+  expect(f.commands[0]!.payload!.moves).toHaveLength(2);
+  await buttons(page);
+});
+
+test('weekly variants require review and recover a lost command response without a replay', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  await f.open();
+  await page
+    .getByRole('button', { name: 'Variante de texte', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Ton neutre', exact: true }).click();
+  await expect(page.locator('[data-og7="programme-comparison"]')).toContainText(
+    'Partenaire : Atelier'
+  );
+  expect(f.commands).toHaveLength(0);
+  await page.getByRole('button', { name: 'Examiner cette variante' }).click();
+  f.fail();
+  await page
+    .getByRole('button', { name: 'Confirmer l’enregistrement' })
+    .click();
+  await expect.poll(() => f.commands.length).toBe(1);
+  await page.reload();
+  await expect(page.locator('[data-og7="pilot-receipt"]')).toBeVisible();
+  expect(f.commands).toHaveLength(1);
+  expect(f.commands[0]!.payload!.editorialIntent).toBe('neutral');
+});
+
+test('weekly memory and incident solutions remain explicit reviewed commands', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  const d = f.programme.deliveries[2]!;
+  f.programme.issues = [
+    {
+      deliveryId: d.id,
+      codes: ['CONSENT_WITHDRAWN'],
+      excludedSponsorIds: ['withdrawn'],
+      repair: {
+        version: 'repair-v1',
+        message: 'Merci au commanditaire admissible.\n\nCommandite rémunérée.',
+        scheduledAt: d.scheduledAt,
+        sponsors: [{ id: 'retained', name: 'Atelier admissible' }],
+        removed: ['withdrawn'],
+        added: []
+      }
+    }
+  ];
+  await f.open();
+  await page.getByRole('button', { name: 'Préférences', exact: true }).click();
+  await expect(
+    page.getByText('Cette correction revient régulièrement.', { exact: false })
+  ).toBeVisible();
+  await page.getByRole('checkbox', { name: 'Ton neutre' }).check();
+  expect(f.commands).toHaveLength(0);
+  await page.getByRole('button', { name: 'Examiner mes préférences' }).click();
+  await page
+    .getByRole('button', { name: 'Confirmer l’enregistrement' })
+    .click();
+  await expect.poll(() => f.commands.length).toBe(1);
+  expect(f.commands[0]!.action).toBe('editorial.preferences');
+  await f.open();
+  await page
+    .getByRole('button', { name: 'Résoudre les incidents', exact: true })
+    .click();
+  await expect(
+    page.getByText('Le consentement de publication a été retiré.')
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Examiner cette recomposition' })
+    .click();
+  await page
+    .getByRole('button', { name: 'Confirmer l’enregistrement' })
+    .click();
+  await expect.poll(() => f.commands.length).toBe(2);
+  expect(f.commands[1]!.action).toBe('publication.repair');
+});
+
+test('weekly views expose errors, readonly coverage and accessible responsive calendar', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  await f.open();
+  await page
+    .getByRole('button', { name: 'Variante de texte', exact: true })
+    .click();
+  await page
+    .getByRole('textbox', { name: 'Mon intention' })
+    .fill('Publier sans revue');
+  await page
+    .getByRole('button', { name: 'Préparer la variante', exact: true })
+    .click();
+  await expect(page.getByRole('alert')).toContainText('quatre transformations');
+  await page
+    .getByRole('button', { name: 'Composer la semaine', exact: true })
+    .click();
+  await page.screenshot({
+    path: 'test-results/programme-desktop.png',
+    fullPage: true
+  });
+  const axe = await new AxeBuilder({ page })
+    .include('[data-og7="editorial-programme"]')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(axe.violations).toEqual([]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: 'test-results/programme-mobile.png',
+    fullPage: true
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  ).toBe(true);
+  f.programme.complete = false;
+  f.programme.writable = false;
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(
+    page.getByText('La projection est incomplète.', { exact: false })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Proposer une répartition' })
+  ).toBeDisabled();
+  expect(f.commands).toHaveLength(0);
 });

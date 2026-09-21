@@ -1,0 +1,460 @@
+<section
+  class="programme"
+  data-og7="editorial-programme"
+  [attr.aria-busy]="loading() || working()"
+>
+  <nav class="tabs" [attr.aria-label]="t('navigation')">
+    @for (v of views; track v) {
+      <button
+        type="button"
+        (click)="switchView(v)"
+        [attr.aria-current]="view() === v ? 'page' : null"
+        [disabled]="working()"
+      >
+        {{ t('views.' + v) }}
+      </button>
+    }
+    <button type="button" (click)="load()" [disabled]="working() || loading()">
+      {{ t('refresh') }}
+    </button>
+  </nav>
+  @if (loading()) {
+    <p role="status">{{ t('loading') }}</p>
+  }
+  @if (error()) {
+    <p role="alert" class="notice">{{ label(error()) }}</p>
+  }
+  @if (state(); as s) {
+    @if (!s.complete) {
+      <p class="notice">{{ t('partial') }}</p>
+    }
+    @if (!s.writable) {
+      <p class="notice">{{ t('readonly') }}</p>
+    }
+    @if (view() === 'brief') {
+      <h2>{{ t('briefTitle') }}</h2>
+      <p>{{ t('briefHelp') }}</p>
+      <div class="stats">
+        <div>
+          <strong>{{ s.briefing.ready }}</strong
+          >{{ t('ready') }}
+        </div>
+        <div>
+          <strong>{{ s.briefing.scheduled }}</strong
+          >{{ t('scheduled') }}
+        </div>
+        <div>
+          <strong>{{ s.briefing.blocked }}</strong
+          >{{ t('blocked') }}
+        </div>
+      </div>
+      <p>
+        {{ t('lastScheduled') }}
+        {{
+          s.briefing.coveredUntil
+            ? date(s.briefing.coveredUntil)
+            : t('noneScheduled')
+        }}
+      </p>
+      <button type="button" class="primary" (click)="session.emit()">
+        {{ t('startSession') }}
+      </button>
+      <h3>{{ t('priorities') }}</h3>
+      @for (d of queue()?.decisions?.slice(0, 5) ?? []; track d.id) {
+        <button type="button" class="priority" (click)="review.emit(d.id)">
+          <span>{{ d.title || i18n.t('admin.attention.types.' + d.kind) }}</span
+          ><small>{{ i18n.t('admin.attention.priority.' + d.severity) }}</small>
+        </button>
+      } @empty {
+        <p>{{ t('emptyDecisions') }}</p>
+      }
+      <button type="button" (click)="switchView('incidents')">
+        {{ t('seeIncidents') }}
+      </button>
+    } @else {
+      <div class="scope">
+        <label
+          >{{ t('destination')
+          }}<select
+            [ngModel]="feedId()"
+            (ngModelChange)="changeFeed($event)"
+            [disabled]="working()"
+          >
+            @for (f of s.feeds; track f.id) {
+              <option [value]="f.id">{{ f.id }}</option>
+            }
+          </select></label
+        ><span>{{ feed()?.timezone }}</span>
+      </div>
+      @if (view() === 'calendar') {
+        <h2>{{ t('calendarTitle') }}</h2>
+        <p>{{ t('calendarHelp') }}</p>
+        <div class="toolbar">
+          <label
+            >{{ t('cadence')
+            }}<input
+              type="number"
+              min="1"
+              max="7"
+              [(ngModel)]="cadence"
+              (ngModelChange)="resetPlan(); pending.set(null)"
+              [disabled]="readonly()" /></label
+          ><label class="check"
+            ><input
+              type="checkbox"
+              [(ngModel)]="includeApproved"
+              (ngModelChange)="resetPlan(); pending.set(null)"
+              [disabled]="readonly()"
+            />{{ t('includeApproved') }}</label
+          ><button type="button" (click)="propose()" [disabled]="readonly()">
+            {{ t('compose') }}
+          </button>
+        </div>
+        <div class="week" data-og7="programme-week">
+          @for (day of days(); track day) {
+            <section class="day">
+              <h3>{{ dayLabel(day) }}</h3>
+              @for (d of entries(day); track d.id) {
+                <button
+                  type="button"
+                  class="calendar-card"
+                  [class.selected]="selected()?.id === d.id"
+                  (click)="select(d.id)"
+                >
+                  <time>{{ date(d.scheduledAt) }}</time
+                  ><span>{{ d.message.slice(0, 90) }}</span
+                  ><small>{{
+                    i18n.t('admin.publicationAutomation.status.' + d.status)
+                  }}</small>
+                  @if (issue(d.id)) {
+                    <b>{{ t('blocked') }}</b>
+                  }
+                </button>
+              } @empty {
+                <p class="empty-day">{{ t('noPublication') }}</p>
+              }
+            </section>
+          }
+        </div>
+        @if (outsideWeek().length) {
+          <details>
+            <summary>
+              {{ t('outsideWeek') }} ({{ outsideWeek().length }})
+            </summary>
+            @for (d of outsideWeek(); track d.id) {
+              <button type="button" (click)="select(d.id)">
+                {{ date(d.scheduledAt) }} · {{ d.message.slice(0, 70) }}
+              </button>
+            }
+          </details>
+        }
+        @if (selected(); as d) {
+          <div class="selected-card">
+            <strong>{{ d.message.slice(0, 100) }}</strong
+            ><span>{{ date(d.scheduledAt) }}</span>
+            <div class="toolbar">
+              @for (minutes of [-1440, -30, 30, 1440]; track minutes) {
+                <button
+                  type="button"
+                  (click)="shift(minutes)"
+                  [disabled]="
+                    readonly() ||
+                    !!issue(d.id) ||
+                    !['draft', 'approved'].includes(d.status) ||
+                    (d.status === 'approved' && !includeApproved)
+                  "
+                >
+                  {{
+                    minutes === -1440
+                      ? '−24 h'
+                      : minutes === 1440
+                        ? '+24 h'
+                        : minutes === -30
+                          ? '−30 min'
+                          : '+30 min'
+                  }}
+                </button>
+              }
+            </div>
+          </div>
+        }
+        @for (w of warnings(); track $index) {
+          <p class="notice">
+            {{ t('warnings.' + w.code) }}
+            @for (id of w.ids; track id) {
+              <button type="button" (click)="select(id)">
+                {{ title(id) }}
+              </button>
+            }
+          </p>
+        }
+        @if (unplaced().length) {
+          <p class="notice">{{ unplaced().length }} {{ t('unplaced') }}</p>
+        }
+        @if (planned()) {
+          <p>{{ emptySlots().length }} {{ t('emptySlots') }}</p>
+        }
+        @if (changes().length) {
+          <ul class="changes" data-og7="programme-moves">
+            @for (m of changes(); track m.id) {
+              <li>
+                <strong>{{ title(m.id) }}</strong
+                ><del>{{ date(originalDate(m.id)) }}</del
+                ><ins>{{ date(m.scheduledAt) }}</ins>
+              </li>
+            }
+          </ul>
+        }
+        <div class="toolbar">
+          <button
+            type="button"
+            (click)="stagePlan()"
+            [disabled]="readonly() || !changes().length"
+          >
+            {{ t('reviewPlan') }}</button
+          ><button type="button" (click)="switchView('rehearsal')">
+            {{ t('rehearse') }}</button
+          ><button type="button" (click)="resetPlan()">
+            {{ t('discardPlan') }}
+          </button>
+        </div>
+      }
+      @if (view() === 'rehearsal') {
+        <h2>{{ t('rehearsalTitle') }}</h2>
+        <p class="notice">{{ t('simulation') }}</p>
+        @if (selected(); as d) {
+          <article class="screen" data-og7="programme-rehearsal">
+            <header>
+              {{ d.feedId }} · {{ date(d.scheduledAt) }} ·
+              {{ i18n.t('admin.publicationAutomation.status.' + d.status) }}
+            </header>
+            @if (image()) {
+              <img [src]="image()" [alt]="d.mediaAlt || t('media')" />
+            }
+            @if (imageFailed()) {
+              <p role="status">{{ t('mediaError') }}</p>
+            }
+            <p class="copy">{{ d.message }}</p>
+            @if (issue(d.id)) {
+              <p class="notice">{{ t('blockedRehearsal') }}</p>
+            }
+            <footer>{{ t('approximation') }}</footer>
+          </article>
+          <div class="toolbar">
+            <button type="button" (click)="next(-1)">{{ t('previous') }}</button
+            ><button type="button" (click)="next(1)">{{ t('next') }}</button>
+            @if (d.status === 'draft') {
+              <button type="button" (click)="reviewPublication(d)">
+                {{ t('reviewPublication') }}
+              </button>
+            }
+          </div>
+        } @else {
+          <p>{{ t('emptyPublications') }}</p>
+        }
+        <ol class="sequence">
+          @for (d of projection(); track d.id) {
+            <li>
+              <button
+                type="button"
+                (click)="select(d.id)"
+                [attr.aria-current]="selected()?.id === d.id ? 'step' : null"
+              >
+                {{ date(d.scheduledAt) }} · {{ d.message.slice(0, 80) }}
+              </button>
+            </li>
+          }
+        </ol>
+      }
+      @if (view() === 'editorial') {
+        <h2>{{ t('editorialTitle') }}</h2>
+        <p>{{ t('editorialHelp') }}</p>
+        <label
+          >{{ t('publication')
+          }}<select
+            [ngModel]="selected()?.id ?? ''"
+            (ngModelChange)="select($event)"
+            [disabled]="working()"
+          >
+            @for (d of projection(); track d.id) {
+              <option [value]="d.id">{{ d.message.slice(0, 80) }}</option>
+            }
+          </select></label
+        >
+        <label
+          >{{ t('instruction')
+          }}<input
+            type="text"
+            maxlength="300"
+            [(ngModel)]="instruction"
+            [placeholder]="t('instructionExample')"
+            [disabled]="readonly()"
+        /></label>
+        <button
+          type="button"
+          (click)="transform()"
+          [disabled]="readonly() || !selected() || !instruction.trim()"
+        >
+          {{ t('proposeVariant') }}
+        </button>
+        <div class="toolbar">
+          @for (intent of intents; track intent) {
+            <button
+              type="button"
+              (click)="transform(intent)"
+              [disabled]="readonly() || !selected()"
+            >
+              {{ t('intents.' + intent) }}
+            </button>
+          }
+        </div>
+        @if (variant(); as v) {
+          <div class="comparison" data-og7="programme-comparison">
+            <section>
+              <h3>{{ t('before') }}</h3>
+              @for (p of paragraphs(v.before); track $index) {
+                <p class="copy" [class.removed]="changed(p, v.after)">
+                  {{ p }}
+                </p>
+              }
+            </section>
+            <section>
+              <h3>{{ t('after') }}</h3>
+              @for (p of paragraphs(v.after); track $index) {
+                <p class="copy" [class.added]="changed(p, v.before)">{{ p }}</p>
+              }
+            </section>
+          </div>
+          <p>{{ t('variantHelp') }}</p>
+          @if (v.before === v.after) {
+            <p role="status">{{ t('unchanged') }}</p>
+          }
+          <button
+            type="button"
+            (click)="stageVariant()"
+            [disabled]="readonly() || v.before === v.after"
+          >
+            {{ t('keepVariant') }}
+          </button>
+        }
+      }
+      @if (view() === 'memory') {
+        <h2>{{ t('memoryTitle') }}</h2>
+        <p>{{ t('memoryHelp') }}</p>
+        @for (intent of intents; track intent) {
+          <article class="rule">
+            <label class="check"
+              ><input
+                type="checkbox"
+                [checked]="preferences().includes(intent)"
+                (change)="toggle(intent)"
+                [disabled]="readonly()"
+              />{{ t('intents.' + intent) }}</label
+            >
+            <p>{{ t('rules.' + intent) }}</p>
+            <small
+              >{{ profile()?.observations?.[intent] ?? 0 }}
+              {{ t('observations') }}</small
+            >
+            @if (
+              (profile()?.observations?.[intent] ?? 0) >= 3 &&
+              !profile()?.preferences?.includes(intent)
+            ) {
+              <p>{{ t('suggestion') }}</p>
+            }
+          </article>
+        }
+        <button
+          type="button"
+          (click)="stagePreferences()"
+          [disabled]="readonly() || !profile()"
+        >
+          {{ t('savePreferences') }}
+        </button>
+      }
+      @if (view() === 'incidents') {
+        <h2>{{ t('incidentsTitle') }}</h2>
+        <p>{{ t('incidentsHelp') }}</p>
+        @for (i of issues(); track i.deliveryId) {
+          <article class="incident">
+            <h3>{{ title(i.deliveryId) }}</h3>
+            <ul>
+              @for (code of i.codes; track code) {
+                <li>{{ label(code) }}</li>
+              }
+            </ul>
+            @if (i.repair; as repair) {
+              <h4>{{ t('repairProposal') }}</h4>
+              <p>
+                {{ repair.removed.length }} {{ t('removedSponsors') }} ·
+                {{ repair.added.length }} {{ t('addedSponsors') }}
+              </p>
+              <p>{{ date(repair.scheduledAt) }}</p>
+              <ul>
+                @for (sponsor of repair.sponsors; track sponsor.id) {
+                  <li>{{ sponsor.name }}</li>
+                }
+              </ul>
+              <p class="copy">{{ repair.message }}</p>
+              <p>{{ t('repairMedia') }}</p>
+              <button
+                type="button"
+                (click)="stageRepair(i.deliveryId)"
+                [disabled]="readonly()"
+              >
+                {{ t('reviewRepair') }}
+              </button>
+            } @else {
+              <p>{{ t('investigationRequired') }}</p>
+            }
+            <a
+              routerLink="/admin/fundraiser/publications/automation"
+              [queryParams]="{ deliveryId: i.deliveryId }"
+              >{{ t('openDossier') }}</a
+            >
+          </article>
+        } @empty {
+          <p>{{ t('noIncidents') }}</p>
+        }
+      }
+    }
+    @if (pending(); as p) {
+      <section
+        class="confirmation"
+        data-og7="programme-confirmation"
+        role="region"
+        [attr.aria-label]="t('confirmation')"
+      >
+        <h3>{{ t('confirmation') }}</h3>
+        <p>
+          {{
+            t(
+              p.action === 'editorial.preferences'
+                ? 'confirmPreferences'
+                : 'confirmDrafts'
+            )
+          }}
+        </p>
+        @if (p.action === 'programme.apply') {
+          <p>{{ p.payload?.moves?.length }} {{ t('changedPublications') }}</p>
+        }
+        <p>{{ p.targetId }}</p>
+        <div class="toolbar">
+          <button
+            type="button"
+            class="primary"
+            (click)="confirm()"
+            [disabled]="readonly()"
+          >
+            {{ t('confirm') }}</button
+          ><button
+            type="button"
+            (click)="pending.set(null); contextChanged.emit()"
+          >
+            {{ t('cancel') }}
+          </button>
+        </div>
+      </section>
+    }
+  }
+</section>

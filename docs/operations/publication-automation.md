@@ -58,7 +58,11 @@ generated copy. Rejected, hidden, unpaid or nonconsenting sponsors are excluded.
 Untouched automatic proposals can fill as new payments arrive; their version
 changes and any stale review fails. Overdue untouched proposals are repacked at
 the next recurrence. Once a human edits a proposal, the planner preserves that
-content and membership. It never changes an approved or uncertain delivery.
+content and membership. It never rewrites an approved or uncertain delivery.
+The preflight eligibility guard can revoke a draft/approved delivery whose
+source payment, consent, review, visibility or destination is no longer eligible,
+before its due date. A reviewed recomposition returns it to draft; see
+[the editorial programme](editorial-programme.md).
 **Reject** retains the batch reservation and cannot be undone by the planner;
 it rejects that publication, not the sponsor's entire dossier. **Cancel** revokes
 a scheduled sending authorization and allows later preparation.

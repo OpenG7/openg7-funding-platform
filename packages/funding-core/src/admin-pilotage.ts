@@ -14,6 +14,9 @@ export type PilotDomain =
   | 'projects'
   | 'operations';
 export type PilotAction =
+  | 'programme.apply'
+  | 'editorial.preferences'
+  | 'publication.repair'
   | 'publication.approve'
   | 'publication.reject'
   | 'publication.edit'
@@ -78,6 +81,9 @@ export interface PilotCommand {
     mediaId?: string | null;
     approveSponsors?: { id: string; version: string }[];
     reason?: string;
+    editorialIntent?: import('./editorial-programme.js').EditorialIntent;
+    preferences?: import('./editorial-programme.js').EditorialIntent[];
+    moves?: import('./editorial-programme.js').ProgrammeMove[];
   };
 }
 export interface PilotReceipt {

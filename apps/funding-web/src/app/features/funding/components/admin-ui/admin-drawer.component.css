@@ -18,6 +18,9 @@ dialog {
 dialog::backdrop {
   background: #030d1bcc;
 }
+dialog.wide {
+  width: min(90rem, 98vw);
+}
 header {
   position: sticky;
   top: 0;
