@@ -12,6 +12,9 @@ export interface PublicationCalendarEntry {
   readonly capacityUsed: number;
   readonly capacity: number;
   readonly target?: string;
+  readonly label?: string;
+  readonly detail?: string;
+  readonly statusLabel?: string;
 }
 
 // A single explicit timezone keeps events comparable across channels and slots.

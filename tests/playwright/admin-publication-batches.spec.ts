@@ -4,13 +4,8 @@ import { expect, test } from './support/test.js';
 import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { signInAsAdmin } from './support/admin-auth.js';
 
-// Covers the Facebook/LinkedIn publication batch lifecycle
-// (admin-publications-page.component.ts), never exercised in a browser
-// before: create a draft for an eligible sponsorship, approve it, create a
-// batch, assign the draft, place the batch in a calendar slot, then publish
-// it through the mocked social provider. No Facebook/LinkedIn secret is used
-// in E2E; the API still exercises the social job, idempotency, status
-// cascade, and public URL write path.
+// Exercises the real admin API through final content approval. Sending/recovery
+// is covered separately with disposable PostgreSQL and synthetic provider responses.
 
 async function openSpace(
   page: Page,
@@ -37,7 +32,7 @@ async function openBatch(page: Page, id: string | null): Promise<void> {
 }
 
 test.describe('Docker admin publication batches', () => {
-  test('creates a draft, assigns it to a calendar slot, and publishes the batch', async ({
+  test('creates a draft, assigns a calendar slot and authorizes its final content', async ({
     page
   }) => {
     await signInAsAdmin(page);
@@ -156,19 +151,41 @@ test.describe('Docker admin publication batches', () => {
     await expect(batchCard).toContainText('Planifie');
 
     await batchCard
-      .getByRole('button', { name: 'Publier via API sociale', exact: true })
+      .getByRole('button', { name: 'Préparer l’envoi', exact: true })
       .click();
-    await page.locator('[data-og7="confirm-action"]').click();
-
-    const publishedBatchCard = page
-      .locator('[data-og7="publication-batch"]', { hasText: 'Facebook - 1/5' })
-      .filter({ hasText: 'Publie via API' });
-    await expect(publishedBatchCard).toContainText('Publie via API');
+    const preview = page.getByRole('dialog', { name: 'Publication finale' });
+    await expect(preview).toBeVisible();
+    await preview.getByRole('button', { name: 'Fermer', exact: true }).click();
+    await page
+      .locator('[data-og7="publication-feed-settings"] summary')
+      .click();
+    const feed = page
+      .locator('[data-og7="publication-automation"] article')
+      .filter({ hasText: 'OPENG7' })
+      .filter({ hasText: 'Facebook' });
+    await feed.getByRole('button', { name: 'Réglages', exact: true }).click();
+    const settings = page.getByRole('dialog', { name: 'Réglages' });
+    await settings
+      .getByRole('button', { name: 'Vérifier la connexion', exact: true })
+      .click();
+    await expect(settings.getByRole('status')).toContainText(
+      'Connexion vérifiée'
+    );
+    await settings.getByRole('button', { name: 'Fermer', exact: true }).click();
+    await page
+      .locator('[data-og7="publication-automation"] .job')
+      .first()
+      .click();
+    await preview.getByRole('checkbox', { name: /J’approuve/ }).check();
+    await preview.getByRole('button', { name: 'Autoriser cet envoi' }).click();
+    await expect(preview).toContainText('Autorisée');
+    await expect(preview).toContainText('Simulation');
+    await preview.getByRole('button', { name: 'Fermer', exact: true }).click();
+    await page
+      .getByRole('button', { name: 'Programmées', exact: true })
+      .click();
     await expect(
-      publishedBatchCard.getByRole('link', { name: 'Voir la publication' })
-    ).toBeVisible();
-    await expect(publishedBatchCard).toContainText('Publie');
-    await openSpace(page, 'drafts');
-    await expect(draftCard.getByText(/Dans un lot \(Publie\)/i)).toBeVisible();
+      page.locator('[data-og7="publication-automation"] .job')
+    ).not.toHaveCount(0);
   });
 });

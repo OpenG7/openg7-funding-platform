@@ -14,7 +14,8 @@ export default defineConfig({
     'admin-attention.spec.ts',
     'admin-assistant-context.spec.ts',
     'admin-sponsorship-progress.spec.ts',
-    'admin-publication-queue.spec.ts'
+    'admin-publication-queue.spec.ts',
+    'admin-publication-automation.spec.ts'
   ],
   outputDir: '../test-results/admin-layout',
   workers: 1,

@@ -315,18 +315,18 @@ test.describe('Docker corporate sponsor navigation', () => {
 
     await page
       .getByRole('link', {
-        name: /Politique d'utilisation et de remboursement/i
+        name: /Politique d['’]utilisation et de remboursement/i
       })
       .click();
     await expect(page).toHaveURL(/\/politique-utilisation-remboursement/);
     await expect(
       page.getByRole('heading', {
-        name: /Politique d'utilisation et de remboursement/i
+        name: /Politique d['’]utilisation et de remboursement/i
       })
     ).toBeVisible();
 
     await page
-      .getByRole('link', { name: /Contacter le support/i })
+      .getByRole('link', { name: 'Retrouver ma contribution', exact: true })
       .first()
       .click();
     await expect(page).toHaveURL(/\/support/);

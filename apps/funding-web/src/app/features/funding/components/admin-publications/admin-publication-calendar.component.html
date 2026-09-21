@@ -139,13 +139,17 @@
                   ><time [attr.datetime]="entry.startsAt">{{
                     timeLabel(entry.startsAt)
                   }}</time
-                  ><span
-                    >{{ entry.capacityUsed }}/{{ entry.capacity }}</span
-                  ></span
+                  ><span>{{
+                    entry.detail || entry.capacityUsed + '/' + entry.capacity
+                  }}</span></span
                 >
-                <strong>{{ channelLabel(entry.channel) }}</strong>
+                <strong>{{
+                  entry.label || channelLabel(entry.channel)
+                }}</strong>
                 <small>{{
-                  'admin.publicationCalendar.status.' + entry.status | translate
+                  entry.statusLabel ||
+                    ('admin.publicationCalendar.status.' + entry.status
+                      | translate)
                 }}</small>
               </button>
             }
@@ -190,10 +194,15 @@
                 timeLabel(entry.startsAt)
               }}</time
               ><strong
-                >{{ channelLabel(entry.channel) }} {{ entry.target }}</strong
-              ><span>{{ entry.capacityUsed }}/{{ entry.capacity }}</span
+                >{{ entry.label || channelLabel(entry.channel) }}
+                {{ entry.target }}</strong
+              ><span>{{
+                entry.detail || entry.capacityUsed + '/' + entry.capacity
+              }}</span
               ><small>{{
-                'admin.publicationCalendar.status.' + entry.status | translate
+                entry.statusLabel ||
+                  ('admin.publicationCalendar.status.' + entry.status
+                    | translate)
               }}</small
               ><span aria-hidden="true">↗</span>
             </button>
@@ -220,10 +229,13 @@
             [attr.data-channel]="entry.channel"
             (click)="openEntry.emit(entry.id)"
           >
-            <strong>{{ channelLabel(entry.channel) }}</strong>
-            <span>{{ entry.capacityUsed }}/{{ entry.capacity }}</span
+            <strong>{{ entry.label || channelLabel(entry.channel) }}</strong>
+            <span>{{
+              entry.detail || entry.capacityUsed + '/' + entry.capacity
+            }}</span
             ><small>{{
-              'admin.publicationCalendar.status.' + entry.status | translate
+              entry.statusLabel ||
+                ('admin.publicationCalendar.status.' + entry.status | translate)
             }}</small>
           </button>
         }

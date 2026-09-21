@@ -211,10 +211,11 @@ export class AdminPublicationCalendarComponent {
   entryLabel(entry: PublicationCalendarEntry): string {
     return [
       this.timeLabel(entry.startsAt),
-      this.channelLabel(entry.channel),
+      entry.label || this.channelLabel(entry.channel),
       entry.target,
-      `${entry.capacityUsed}/${entry.capacity}`,
-      this.i18n.t('admin.publicationCalendar.status.' + entry.status)
+      entry.detail || `${entry.capacityUsed}/${entry.capacity}`,
+      entry.statusLabel ||
+        this.i18n.t('admin.publicationCalendar.status.' + entry.status)
     ]
       .filter(Boolean)
       .join(' · ');

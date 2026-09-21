@@ -130,6 +130,11 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             </p>
           </div>
           <div class="header-actions">
+            <a
+              [routerLink]="publicationPath + '/automation'"
+              class="primary-action"
+              >{{ 'admin.publicationAutomation.title' | translate }}</a
+            >
             @if (activeView() === 'drafts') {
               <button
                 type="button"
@@ -824,7 +829,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                           <button
                             type="button"
                             class="neutral"
-                            *ngIf="batch.status === 'scheduled'"
+                            *ngIf="
+                              batch.status === 'scheduled' ||
+                              batch.status === 'open'
+                            "
                             [disabled]="
                               !canPublishSocialBatch(batch) ||
                               batchActionState() === 'social:' + batch.id
@@ -832,7 +840,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                             (click)="publishSocialBatch(batch)"
                           >
                             {{
-                              'admin.legacy.publier_via_api_sociale' | translate
+                              'admin.publicationAutomation.prepareSend'
+                                | translate
                             }}
                           </button>
                         </footer>
@@ -2445,34 +2454,12 @@ export class AdminPublicationsPageComponent implements OnInit {
   }
 
   async publishSocialBatch(batch: AdminPublicationBatchRecord): Promise<void> {
-    if (this.batchActionState()) return;
-    if (!this.canPublishSocialBatch(batch)) {
-      return;
-    }
-
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.messages.publier_le_lot_p0_sur_p1', {
-          p0: batch.id,
-          p1: this.channelLabel(batch.channel)
-        })
-      ))
-    ) {
-      return;
-    }
-
-    this.batchActionState.set(`social:${batch.id}`);
-    try {
-      await this.admin.publishSocialPublicationBatch(this.adminToken(), {
-        batchId: batch.id,
-        confirmationText: batch.id
-      });
-      await this.load();
-    } catch {
-      this.state.set('error');
-    } finally {
-      this.batchActionState.set(null);
-    }
+    const drafts = this.drafts().filter((d) => d.batch_id === batch.id);
+    const target = drafts[0]?.feed_target;
+    if (!target) return;
+    await this.router.navigate([this.publicationPath + '/automation'], {
+      queryParams: { batchId: batch.id, feedId: target + ':' + batch.channel }
+    });
   }
 
   async cancelBatch(batch: AdminPublicationBatchRecord): Promise<void> {
@@ -2685,16 +2672,11 @@ export class AdminPublicationsPageComponent implements OnInit {
   }
 
   canPublishSocialBatch(batch: AdminPublicationBatchRecord): boolean {
-    const response = this.socialJobsResponse();
     const job = this.socialJobForBatch(batch.id);
-    return Boolean(
-      response &&
-      response.mode !== 'disabled' &&
-      response.configuredChannels.includes(batch.channel) &&
-      batch.status === 'scheduled' &&
+    return (
+      ['open', 'scheduled'].includes(batch.status) &&
       batch.capacityUsed > 0 &&
-      job?.status !== 'publishing' &&
-      job?.status !== 'published'
+      !['publishing', 'published', 'failed'].includes(job?.status ?? '')
     );
   }
 

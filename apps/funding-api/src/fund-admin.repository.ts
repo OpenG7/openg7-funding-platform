@@ -2114,8 +2114,8 @@ export const markSocialPublicationJobPublishing = async (
     `,
     [jobId]
   );
-  const updatedJobId = result.rows[0]?.id ?? jobId;
-  return getSocialPublicationJobById(pool, updatedJobId);
+  const updatedJobId = result.rows[0]?.id;
+  return updatedJobId ? getSocialPublicationJobById(pool, updatedJobId) : null;
 };
 
 export const markSocialPublicationJobPublished = async (

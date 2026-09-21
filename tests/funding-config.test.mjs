@@ -1737,9 +1737,7 @@ test('Publication batch admin endpoints are authenticated, validated, rate-limit
     "'publication_batch.unassign'",
     "'publication_batch.schedule'",
     "'publication_batch.publish'",
-    "'publication_batch.cancel'",
-    "'social_publication.publish'",
-    "'social_publication.failed'"
+    "'publication_batch.cancel'"
   ]) {
     assert.ok(
       api.includes(`action: ${action}`),
@@ -1956,11 +1954,9 @@ test('Social publication provider is explicit, configurable, audited, and visibl
   for (const marker of [
     '/admin/social-publication-jobs',
     '/admin/publication-batches/publish-social',
-    'SOCIAL_PUBLICATION_DISABLED',
-    'SOCIAL_PUBLICATION_CHANNEL_NOT_CONFIGURED',
-    'markSocialPublicationJobPublished',
-    'social_publication.publish',
-    'social_publication.failed'
+    'FINAL_APPROVAL_REQUIRED',
+    'PublicationAutomationService',
+    '/admin/publication-automation'
   ]) {
     assert.ok(api.includes(marker), `api must include ${marker}`);
   }
@@ -1979,7 +1975,7 @@ test('Social publication provider is explicit, configurable, audited, and visibl
 
   for (const marker of [
     'API sociale',
-    'Publier via API sociale',
+    'admin.publicationAutomation.prepareSend',
     'Voir la publication',
     'socialJobStatusLabel',
     'canPublishSocialBatch(batch)'

@@ -1,5 +1,9 @@
 # Administration des publications
 
+Le [pilotage des feeds](operations/publication-automation.md) est accessible à
+`/admin/fundraiser/publications/automation` pour préparer les envois récurrents,
+approuver le contenu final, consulter le calendrier des envois et traiter les exceptions.
+
 `/admin/fundraiser/publications` est un accueil léger : trois liens vers des
 espaces distincts et le carrousel des prochains lots. Aucun formulaire ne s’y
 affiche. Chaque espace dispose de son adresse, de son titre et d’un lien

@@ -1287,4 +1287,16 @@ Mettre à jour `ARCHITECTURE.md` pour les principes durables et `AGENTS.md` pour
 
 ---
 
-_Last updated / Dernière mise à jour: 2026-09-19_
+### Publication différée après autorisation
+
+Le moteur de publication conserve dans PostgreSQL une autorisation explicite,
+versionnée, portant sur le message exact, son média, la destination et l'horaire.
+La préparation récurrente reste une proposition. Le worker exécute les autorisations
+valides indépendamment du navigateur et revalide les sources avant l'effet externe.
+La réservation concurrente est atomique; le résultat externe et PostgreSQL ne
+forment pas une transaction distribuée. Une issue ambiguë exige donc réconciliation
+ou déclaration humaine auditée avant toute nouvelle autorisation. Les quatre feeds
+ont des destinations et pauses distinctes. Un mode simulé n'écrit pas de publication
+réelle sur les commanditaires. Voir le [runbook](operations/publication-automation.md).
+
+_Last updated / Dernière mise à jour: 2026-09-21_

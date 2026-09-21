@@ -90,6 +90,10 @@ export const adminRoutes: Routes = [
     canMatch: [adminSessionRequired],
     children: [
       {
+        path: 'automation',
+        loadComponent: () => import('./features/funding/pages/admin-publication-automation-page/admin-publication-automation-page.component.js').then(m => m.AdminPublicationAutomationPageComponent)
+      },
+      {
         // One route configuration preserves local edits between these pages.
         // Match only declared spaces so unknown admin URLs remain 404s.
         matcher: (segments) => {
