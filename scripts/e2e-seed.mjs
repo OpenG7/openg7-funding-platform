@@ -129,6 +129,54 @@ const accountingPendingFixtures = [
   ACCOUNTING_FIXTURES.fullyRefunded
 ];
 
+// Release only fixture-owned publications before contribution/media cascades.
+// Migration 022 deliberately prevents deleting an authorized batch's drafts;
+// the guard must stay enabled, including for unrelated local records.
+const publicationFixtures = [
+  ...fixtures,
+  ...webhookFixtures,
+  ...accountingPendingFixtures,
+  ACCOUNTING_FIXTURES.excludedExpired,
+  ...backfillContributionRefs.map((publicReference) => ({ publicReference }))
+];
+const publicationCleanup = `
+DO $$
+DECLARE
+  contribution_ids UUID[];
+  batch_ids UUID[];
+  delivery_ids UUID[];
+BEGIN
+  SELECT ARRAY(SELECT id FROM fund_contributions
+    WHERE public_reference = ANY(ARRAY[${publicationFixtures.map((fixture) => sqlLiteral(fixture.publicReference)).join(', ')}]::text[])
+       OR sponsor_contact_email = ANY(ARRAY[${publicationFixtures
+         .filter((fixture) => fixture.contactEmail)
+         .map((fixture) => sqlLiteral(fixture.contactEmail))
+         .join(', ')}]::text[]))
+    INTO contribution_ids;
+  SELECT ARRAY(SELECT DISTINCT batch_id FROM sponsor_publication_drafts
+    WHERE contribution_id = ANY(contribution_ids) AND batch_id IS NOT NULL)
+    INTO batch_ids;
+  IF EXISTS(SELECT 1 FROM sponsor_publication_drafts
+    WHERE batch_id = ANY(batch_ids) AND NOT contribution_id = ANY(contribution_ids)) THEN
+    RAISE EXCEPTION 'Cannot clean Playwright fixtures in a publication batch shared with non-fixture contributions';
+  END IF;
+  SELECT ARRAY(SELECT id FROM publication_deliveries
+    WHERE batch_id = ANY(batch_ids) OR media_id IN (
+      SELECT id FROM sponsor_media_assets WHERE contribution_id = ANY(contribution_ids)
+    )) INTO delivery_ids;
+  IF EXISTS(SELECT 1 FROM publication_deliveries
+    WHERE id = ANY(delivery_ids) AND (mode = 'live'
+      OR (batch_id IS NOT NULL AND NOT batch_id = ANY(batch_ids))))
+    OR EXISTS(SELECT 1 FROM social_publication_jobs
+      WHERE batch_id = ANY(batch_ids) AND mode = 'live') THEN
+    RAISE EXCEPTION 'Cannot clean Playwright fixtures referenced by live or non-fixture publications';
+  END IF;
+  DELETE FROM publication_editorial_observations WHERE delivery_id = ANY(delivery_ids);
+  DELETE FROM publication_deliveries WHERE id = ANY(delivery_ids);
+  DELETE FROM publication_recurrences WHERE batch_id = ANY(batch_ids);
+  DELETE FROM sponsor_publication_batches WHERE id = ANY(batch_ids);
+END $$;`;
+
 const deleteStatements = fixtures
   .map(
     (fixture) => `
@@ -309,6 +357,7 @@ ON CONFLICT (stripe_event_id) DO NOTHING;`;
 
 const sql = cleanupOnly
   ? [
+      publicationCleanup,
       deleteStatements,
       emailQueueDelete,
       webhookFixtureDeletes,
@@ -322,6 +371,7 @@ const sql = cleanupOnly
       backfillContributionsDelete
     ].join('\n')
   : [
+      publicationCleanup,
       deleteStatements,
       insertStatements,
       sponsorMediaInsertStatements,
@@ -363,7 +413,8 @@ const result = spawnSync(
     POSTGRES_DB
   ],
   {
-    input: sql,
+    // A failed seed/cleanup must not leave partially removed fixtures behind.
+    input: `BEGIN;\n${sql}\nCOMMIT;`,
     stdio: ['pipe', 'inherit', 'inherit']
   }
 );

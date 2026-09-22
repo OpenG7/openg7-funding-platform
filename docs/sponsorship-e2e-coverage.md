@@ -76,6 +76,17 @@ ci-dessus) est couvert par `personal-donation-navigation.spec.ts`.
 La suite Playwright tourne desormais aussi en CI (job `e2e-playwright` dans
 `.github/workflows/deploy.yml`), et bloque le deploiement en cas d'echec.
 
+Le seed et le nettoyage (`yarn test:e2e:seed:cleanup`) exécutent leurs écritures
+SQL dans une transaction. Ils retirent d'abord les publications simulées des
+fixtures, leurs observations éditoriales, récurrences et lots, puis les
+commandites et médias associés. Les protections des publications autorisées
+restent actives. Un lot partagé avec une commandite hors fixtures ou une
+publication en mode `live` bloque le nettoyage sans suppression partielle.
+Le test [de nettoyage PostgreSQL](../tests/integration/playwright-fixture-cleanup.integration.mjs)
+vérifie ces protections et la réexécution sur une base jetable. La recette
+isolée `yarn test:e2e:acceptance` conserve les fixtures pour les diagnostics
+avant de détruire sa propre pile.
+
 ## Matrice navigateur / mobile
 
 Le panneau de dossier commanditaire conserve ses contenus dans sa largeur,
