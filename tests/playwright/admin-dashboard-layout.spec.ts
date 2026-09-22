@@ -513,10 +513,16 @@ test('mobile disclosure supports Escape, focus restoration and keyboard navigati
   await toggle.focus();
   await page.keyboard.press('Enter');
   await expect(nav).toBeVisible();
-  await page.keyboard.press('Tab');
   await expect(
-    nav.getByRole('link', { name: 'Tableau de bord' })
-  ).toBeFocused();
+    page.getByRole('button', { name: 'Fermer le menu' })
+  ).toHaveAttribute('aria-expanded', 'true');
+  const links = nav.getByRole('link');
+  await page.keyboard.press('Tab');
+  await expect(links.first()).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(links.nth(1)).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(links.first()).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(nav).toBeHidden();
   await expect(toggle).toBeFocused();
