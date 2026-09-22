@@ -3,6 +3,14 @@
   data-og7="editorial-programme"
   [attr.aria-busy]="loading() || working()"
 >
+  <openg7-admin-guide
+    guideId="programme"
+    [accountId]="admin.identity()?.id ?? 'token'"
+    [steps]="guideSteps"
+    [disabled]="loading() || working() || !!pending() || !state()"
+    (activeChanged)="guideActive($event)"
+    (stepChanged)="guideStep($event)"
+  />
   <nav class="tabs" [attr.aria-label]="t('navigation')">
     @for (v of views; track v) {
       <button
@@ -34,7 +42,7 @@
     @if (view() === 'brief') {
       <h2>{{ t('briefTitle') }}</h2>
       <p>{{ t('briefHelp') }}</p>
-      <div class="stats">
+      <div class="stats" data-og7="programme-brief">
         <div>
           <strong>{{ s.briefing.ready }}</strong
           >{{ t('ready') }}
@@ -89,7 +97,7 @@
       @if (view() === 'calendar') {
         <h2>{{ t('calendarTitle') }}</h2>
         <p>{{ t('calendarHelp') }}</p>
-        <div class="toolbar">
+        <div class="toolbar" data-og7="programme-compose">
           <label
             >{{ t('cadence')
             }}<input
@@ -220,7 +228,7 @@
         </div>
       }
       @if (view() === 'rehearsal') {
-        <h2>{{ t('rehearsalTitle') }}</h2>
+        <h2 data-og7="programme-rehearsal-title">{{ t('rehearsalTitle') }}</h2>
         <p class="notice">{{ t('simulation') }}</p>
         @if (selected(); as d) {
           <article class="screen" data-og7="programme-rehearsal">
@@ -285,6 +293,7 @@
           >{{ t('instruction')
           }}<input
             type="text"
+            data-og7="programme-instruction"
             maxlength="300"
             [(ngModel)]="instruction"
             [placeholder]="t('instructionExample')"
@@ -339,7 +348,7 @@
         }
       }
       @if (view() === 'memory') {
-        <h2>{{ t('memoryTitle') }}</h2>
+        <h2 data-og7="programme-memory">{{ t('memoryTitle') }}</h2>
         <p>{{ t('memoryHelp') }}</p>
         @for (intent of intents; track intent) {
           <article class="rule">
@@ -373,7 +382,7 @@
         </button>
       }
       @if (view() === 'incidents') {
-        <h2>{{ t('incidentsTitle') }}</h2>
+        <h2 data-og7="programme-incidents">{{ t('incidentsTitle') }}</h2>
         <p>{{ t('incidentsHelp') }}</p>
         @for (i of issues(); track i.deliveryId) {
           <article class="incident">

@@ -11,6 +11,309 @@ import type { ProgrammeState } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
 
+function guide(page: Page, id = 'pilotage') {
+  return page.locator(`[data-og7="admin-guide"][data-og7-id="${id}"]`);
+}
+function guideLaunch(page: Page, id = 'pilotage') {
+  return page.locator(`[data-og7="guide-launch"][data-og7-id="${id}"]`);
+}
+
+test('guide explains real targets, resumes after reload and remembers completion without commands', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.setViewportSize({ width: 1512, height: 930 });
+  await page.goto('/admin/fundraiser/pilotage');
+  const tour = guide(page);
+  await expect(tour).not.toBeVisible();
+  await guideLaunch(page).click();
+  await expect(
+    tour.getByRole('button', { name: 'Précédent', exact: true })
+  ).toBeDisabled();
+  await expect(tour.locator('[data-og7="guide-highlight"]')).toHaveAttribute(
+    'data-og7-id',
+    'pilot-automation'
+  );
+  await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'automation'
+  );
+  await tour.getByRole('button', { name: 'Suivant', exact: true }).click();
+  await tour.getByRole('button', { name: 'Suivant', exact: true }).click();
+  await expect(tour.locator('[data-og7="guide-highlight"]')).toHaveAttribute(
+    'data-og7-id',
+    'pilot-decision'
+  );
+  await tour.getByRole('button', { name: 'Précédent', exact: true }).click();
+  await tour.getByRole('button', { name: 'Quitter le guide' }).click();
+  await expect(guideLaunch(page)).toBeFocused();
+  await expect(guideLaunch(page)).toHaveText(/Reprendre le guide/);
+  await page.reload();
+  await expect(tour).not.toBeVisible();
+  await guideLaunch(page).click();
+  await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'domains'
+  );
+  for (let i = 0; i < 8; i++)
+    await tour.getByRole('button', { name: 'Suivant', exact: true }).click();
+  await tour.getByRole('button', { name: 'J’ai compris' }).click();
+  await expect(tour).not.toBeVisible();
+  await page.reload();
+  await expect(guideLaunch(page)).toHaveText(/Revoir le guide/);
+  await guideLaunch(page).click();
+  await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'automation'
+  );
+  expect(commands).toHaveLength(0);
+});
+
+test('guide owns controller shortcuts, requires release and traps keyboard focus', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.goto('/admin/fundraiser/pilotage');
+  await guideLaunch(page).click();
+  const tour = guide(page);
+  await buttons(page);
+  await buttons(page, [0]);
+  await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'domains'
+  );
+  await page.waitForTimeout(600);
+  await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'domains'
+  );
+  await tap(page, 2);
+  await tap(page, 3);
+  await page.keyboard.press('c');
+  await expect(page.locator('[data-og7="admin-drawer"][open]')).toHaveCount(0);
+  await tap(page, 5);
+  await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'decision'
+  );
+  await tap(page, 4);
+  await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'domains'
+  );
+  await page.keyboard.press('Tab');
+  await expect(
+    tour.getByRole('button', { name: 'Quitter le guide' })
+  ).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(
+    tour.getByRole('button', { name: 'Suivant', exact: true })
+  ).toBeFocused();
+  await tap(page, 1);
+  await expect(tour).not.toBeVisible();
+  await expect(guideLaunch(page)).toBeFocused();
+  await expect(
+    page.locator('[data-og7="pilot-panel-confirm"]')
+  ).not.toBeVisible();
+  expect(commands).toHaveLength(0);
+});
+
+test('weekly guide opens each workspace, preserves unfinished edits and resumes inside its drawer', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  await f.open();
+  const programme = page.locator('[data-og7="editorial-programme"]');
+  await programme
+    .getByRole('button', { name: 'Variante de texte', exact: true })
+    .click();
+  await programme
+    .locator('[data-og7="programme-instruction"]')
+    .fill('Mon intention en cours');
+  const mutations: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() !== 'GET' && request.url().includes('/api/'))
+      mutations.push(request.url());
+  });
+  await guideLaunch(page, 'programme').click();
+  const tour = guide(page, 'programme');
+  await expect(tour.locator('[data-og7="guide-highlight"]')).toHaveAttribute(
+    'data-og7-id',
+    'programme-brief'
+  );
+  await tour.getByRole('button', { name: 'Suivant', exact: true }).click();
+  await expect(tour.locator('[data-og7="guide-highlight"]')).toHaveAttribute(
+    'data-og7-id',
+    'programme-compose'
+  );
+  await page.keyboard.press('Escape');
+  await expect(tour).not.toBeVisible();
+  await expect(
+    page.getByRole('dialog', { name: 'Ma semaine', exact: true })
+  ).toBeVisible();
+  await expect(
+    programme.locator('[data-og7="programme-instruction"]')
+  ).toHaveValue('Mon intention en cours');
+  await expect(guideLaunch(page, 'programme')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await f.open();
+  await expect(guideLaunch(page, 'programme')).toHaveText(/Reprendre le guide/);
+  await guideLaunch(page, 'programme').click();
+  await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'calendar'
+  );
+  for (const id of ['rehearsal', 'editorial', 'memory', 'incidents']) {
+    await tour.getByRole('button', { name: 'Suivant', exact: true }).click();
+    await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
+      'data-og7-id',
+      id
+    );
+    await expect(tour.locator('[data-og7="guide-highlight"]')).toBeVisible();
+  }
+  await tour.getByRole('button', { name: 'J’ai compris' }).click();
+  await expect(programme).toBeVisible();
+  expect(mutations).toEqual([]);
+  expect(f.commands).toEqual([]);
+});
+
+test('guide is translated, accessible and stays in the viewport on mobile and resize', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.addInitScript(() => localStorage.setItem('openg7.language', 'en'));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/admin/fundraiser/pilotage');
+  await guideLaunch(page).click();
+  const tour = guide(page);
+  await expect(
+    tour.getByRole('heading', { name: 'Check what the machine is preparing' })
+  ).toBeVisible();
+  const results = await new AxeBuilder({ page })
+    .include('[data-og7="admin-guide"][open]')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(results.violations).toEqual([]);
+  for (const size of [
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+    { width: 1512, height: 930 }
+  ]) {
+    await page.setViewportSize(size);
+    const card = tour.locator('[data-og7="guide-card"]');
+    await expect(async () => {
+      const box = (await card.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+      expect(box.y + box.height).toBeLessThanOrEqual(size.height);
+    }).toPass();
+    await tour.getByRole('button', { name: 'Next', exact: true }).click();
+    await expect(tour.locator('[data-og7="guide-highlight"]')).toBeVisible();
+  }
+  await page.screenshot({ path: 'test-results/guide-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(async () => {
+    const target = (await page
+      .locator('[data-og7="pilot-summary"]')
+      .boundingBox())!;
+    const ring = (await tour
+      .locator('[data-og7="guide-highlight"]')
+      .boundingBox())!;
+    expect(Math.abs(ring.y - Math.max(6, target.y - 5))).toBeLessThan(2);
+    expect(target.y).toBeGreaterThanOrEqual(0);
+    expect(target.y).toBeLessThan(400);
+  }).toPass();
+  await page.screenshot({ path: 'test-results/guide-mobile.png' });
+  await page.keyboard.press('Escape');
+  await expect(guideLaunch(page)).toBeFocused();
+});
+
+test('guide handles empty readonly state, unavailable storage and stale saved step', async ({
+  page
+}) => {
+  const f = await fixtures(page, 0);
+  f.state.writable = false;
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'og7-admin-guide:v1:token:pilotage',
+      JSON.stringify({ step: 'removed-step', completed: false })
+    );
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith('og7-admin-guide:'))
+        throw new DOMException('Storage disabled', 'QuotaExceededError');
+      original.call(this, key, value);
+    };
+  });
+  await page.goto('/admin/fundraiser/pilotage');
+  await expect(guideLaunch(page)).toHaveText(/Guide pas à pas/);
+  await guideLaunch(page).click();
+  const tour = guide(page);
+  await expect(tour).toContainText(
+    'Le navigateur ne permet pas de sauvegarder'
+  );
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect(tour).toContainText('Cet élément n’est pas affiché');
+  await expect(tour.locator('[data-og7="guide-highlight"]')).not.toBeVisible();
+  await page.keyboard.press('Escape');
+  await guideLaunch(page).click();
+  await expect(tour.locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'decision'
+  );
+  expect(f.commands).toEqual([]);
+});
+
+test('guide progress is isolated between named administrator accounts', async ({
+  page
+}) => {
+  const f = await fixtures(page);
+  f.state.writable = false;
+  await page.addInitScript(() =>
+    sessionStorage.setItem(
+      'openg7-admin-session-token',
+      'openg7-admin-session.cookie'
+    )
+  );
+  let account = 'guide-reader-a';
+  await page.route('**/admin/auth/current', (route) =>
+    route.fulfill({
+      json: {
+        id: account,
+        displayName: 'Guide reader',
+        role: 'reader',
+        expiresAt: '2099-01-01T00:00:00Z'
+      }
+    })
+  );
+  await page.goto('/admin/fundraiser/pilotage');
+  await guideLaunch(page).click();
+  await guide(page)
+    .getByRole('button', { name: 'Suivant', exact: true })
+    .click();
+  await page.keyboard.press('Escape');
+  account = 'guide-reader-b';
+  await page.reload();
+  await expect(guideLaunch(page)).toHaveText(/Guide pas à pas/);
+  await guideLaunch(page).click();
+  await expect(guide(page).locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'automation'
+  );
+  await page.keyboard.press('Escape');
+  account = 'guide-reader-a';
+  await page.reload();
+  await expect(guideLaunch(page)).toHaveText(/Reprendre le guide/);
+  await guideLaunch(page).click();
+  await expect(guide(page).locator('[data-og7="guide-card"]')).toHaveAttribute(
+    'data-og7-id',
+    'domains'
+  );
+  expect(f.commands).toEqual([]);
+});
+
 async function fixtures(page: Page, count = 4) {
   const commands: PilotCommand[] = [];
   const state: PilotState = {

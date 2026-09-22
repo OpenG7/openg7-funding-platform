@@ -7,7 +7,8 @@ import {
   computed,
   effect,
   inject,
-  signal
+  signal,
+  viewChild
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -22,6 +23,8 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminGuideComponent } from '../../components/admin-guide/admin-guide.component.js';
+import { PILOTAGE_GUIDE } from '../../components/admin-pilotage/pilotage-guides.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
 import {
@@ -68,7 +71,8 @@ type Panel =
     PilotKeyboardComponent,
     AdminPublicationCalendarComponent,
     AdminInspectorComponent,
-    EditorialProgrammeComponent
+    EditorialProgrammeComponent,
+    AdminGuideComponent
   ],
   providers: [ControllerService],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -84,6 +88,9 @@ export class AdminPilotagePageComponent {
   readonly i18n = inject(FundingI18nService);
   readonly controller = inject(ControllerService);
   readonly inspection = inject(AdminInspectionService);
+  readonly guideSteps = PILOTAGE_GUIDE;
+  private readonly guide = viewChild(AdminGuideComponent);
+  private readonly programme = viewChild(EditorialProgrammeComponent);
   private readonly document = inject(DOCUMENT);
   readonly state = signal<PilotState | null>(null);
   readonly selected = signal<PilotDecision | null>(null);
@@ -791,6 +798,11 @@ export class AdminPilotagePageComponent {
     this.error.set('');
   }
   intent(intent: ControllerIntent): void {
+    if (
+      this.guide()?.handleIntent(intent) ||
+      this.programme()?.guide()?.handleIntent(intent)
+    )
+      return;
     if (this.busy()) return;
     if (this.inspection.current()) {
       if (intent === 'secondary') {
