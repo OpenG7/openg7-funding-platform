@@ -328,6 +328,8 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                 *ngIf="eligibleSponsorships().length > 0"
               >
                 <article
+                  data-og7="publication-eligible-sponsor"
+                  [attr.data-og7-id]="sponsorship.id"
                   *ngFor="
                     let sponsorship of eligibleSponsorships();
                     trackBy: trackBySponsor
@@ -2001,7 +2003,7 @@ export class AdminPublicationsPageComponent implements OnInit {
     try {
       const [sponsorships, drafts, batches, slots, socialJobs] =
         await Promise.all([
-          this.admin.getSponsorships(this.adminToken()),
+          this.loadApprovedSponsorships(generation),
           this.admin.getPublicationDrafts(
             this.adminToken(),
             this.route.snapshot.queryParamMap.get('draftId') ?? undefined
@@ -2017,7 +2019,7 @@ export class AdminPublicationsPageComponent implements OnInit {
           this.admin.getSocialPublicationJobs(this.adminToken())
         ]);
       if (generation !== this.loadGeneration) return;
-      this.sponsorships.set(sponsorships.sponsorships);
+      this.sponsorships.set(sponsorships);
       this.draftsResponse.set(drafts);
       this.draftEdits.set(
         Object.fromEntries(
@@ -2059,6 +2061,26 @@ export class AdminPublicationsPageComponent implements OnInit {
     } catch {
       if (generation !== this.loadGeneration) return;
       this.state.set('error');
+    }
+  }
+
+  private async loadApprovedSponsorships(
+    generation: number
+  ): Promise<readonly AdminSponsorshipRecord[]> {
+    const sponsors: AdminSponsorshipRecord[] = [];
+    const token = this.adminToken();
+    for (let page = 1; ; page++) {
+      const response = await this.admin.getSponsorships(token, {
+        page,
+        pageSize: 25,
+        reviewStatus: 'approved',
+        paymentStatus: 'paid',
+        sort: 'company',
+        direction: 'asc'
+      });
+      if (generation !== this.loadGeneration) return [];
+      sponsors.push(...response.sponsorships);
+      if (!response.pagination.hasNextPage) return sponsors;
     }
   }
 

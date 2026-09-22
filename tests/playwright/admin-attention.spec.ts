@@ -430,7 +430,19 @@ test('direct publication links load and focus the exact slot, batch and draft', 
     updated_at: now
   };
   await page.route('**/api/admin/sponsorships**', (route) =>
-    route.fulfill({ json: { sponsorships: [] } })
+    route.fulfill({
+      json: {
+        sponsorships: [],
+        pagination: {
+          page: 1,
+          pageSize: 25,
+          totalItems: 0,
+          totalPages: 1,
+          hasPreviousPage: false,
+          hasNextPage: false
+        }
+      }
+    })
   );
   await page.route('**/api/admin/social-publication-jobs**', (route) =>
     route.fulfill({ json: { jobs: [] } })

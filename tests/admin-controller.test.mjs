@@ -76,6 +76,7 @@ test('closed command catalog rejects malformed sponsors, missing confirmation an
   for (const bad of [
     { ...c, action: 'refund' },
     { ...c, confirmation: '' },
+    { ...c, title: 'Display-only confirmation title' },
     { ...c, payload: { approveSponsors: {} } },
     { ...c, payload: { approveSponsors: [null] } },
     { ...c, payload: { unexpected: true } }

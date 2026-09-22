@@ -589,7 +589,10 @@ export class AdminPilotagePageComponent {
     try {
       await this.receive(
         await this.admin.pilotageCommand({
-          ...command,
+          action: command.action,
+          targetId: command.targetId,
+          version: command.version,
+          payload: command.payload,
           requestId,
           confirmation: command.targetId
         })

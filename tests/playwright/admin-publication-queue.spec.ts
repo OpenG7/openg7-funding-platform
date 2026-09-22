@@ -104,7 +104,17 @@ async function fixtures(
       '/api/admin/publication-batches': { batches: records },
       '/api/admin/publication-drafts': { drafts: draftRecords },
       '/api/admin/publication-slots': { slots: [slot] },
-      '/api/admin/sponsorships': { sponsorships: [] },
+      '/api/admin/sponsorships': {
+        sponsorships: [],
+        pagination: {
+          page: 1,
+          pageSize: 25,
+          totalItems: 0,
+          totalPages: 1,
+          hasPreviousPage: false,
+          hasNextPage: false
+        }
+      },
       '/api/admin/social-publication-jobs': {
         jobs: [],
         mode: 'disabled',
@@ -118,6 +128,111 @@ async function fixtures(
   });
   return mutations;
 }
+
+async function preparationFixtures(page: Page) {
+  const mutations = await fixtures(page);
+  const reads: URLSearchParams[] = [];
+  let failNextPage = false;
+  const records = Array.from({ length: 26 }, (_, index) => ({
+    id: `sponsor-${index + 1}`,
+    sponsor_company_name: `Commandite ${String(index + 1).padStart(2, '0')}`,
+    sponsor_review_status: 'approved',
+    public_display_consent: index !== 24,
+    sponsor_feed_target: index === 22 ? null : 'openg7',
+    sponsor_feed_channels: index === 23 ? [] : ['facebook']
+  }));
+  await page.route('**/api/admin/sponsorships**', (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    reads.push(query);
+    const currentPage = Number(query.get('page') ?? 1);
+    const pageSize = Number(query.get('pageSize') ?? 6);
+    if (currentPage === 2 && failNextPage)
+      return route.fulfill({ status: 503, json: {} });
+    const items = records.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+    return route.fulfill({
+      json: {
+        data_source: 'database',
+        items,
+        sponsorships: items,
+        pagination: {
+          page: currentPage,
+          pageSize,
+          totalItems: records.length,
+          totalPages: Math.ceil(records.length / pageSize),
+          hasPreviousPage: currentPage > 1,
+          hasNextPage: currentPage * pageSize < records.length
+        },
+        last_updated_at: timestamp
+      }
+    });
+  });
+  return {
+    reads,
+    mutations,
+    failSecondPage: (value: boolean) => {
+      failNextPage = value;
+    }
+  };
+}
+
+test('publication preparation includes eligible sponsors beyond the first API page', async ({
+  page
+}) => {
+  const { reads, mutations } = await preparationFixtures(page);
+  await page.goto('/admin/fundraiser/publications/drafts');
+  await page
+    .getByRole('button', { name: 'Préparer une publication', exact: true })
+    .click();
+  const eligible = page.getByRole('region', { name: 'Commandites pretes' });
+  await expect(
+    eligible.getByText('Commandite 26', { exact: true })
+  ).toBeVisible();
+  await expect(eligible.getByRole('article')).toHaveCount(23);
+  for (const name of ['Commandite 23', 'Commandite 24', 'Commandite 25'])
+    await expect(eligible.getByText(name, { exact: true })).toHaveCount(0);
+  expect(reads.map((query) => query.get('page'))).toEqual(['1', '2']);
+  expect(
+    reads.every(
+      (query) =>
+        query.get('reviewStatus') === 'approved' &&
+        query.get('paymentStatus') === 'paid'
+    )
+  ).toBe(true);
+  expect(mutations).toEqual([]);
+});
+
+test('a later sponsorship page failure is reported and a retry loads the complete preparation list', async ({
+  page
+}) => {
+  const f = await preparationFixtures(page);
+  f.failSecondPage(true);
+  await page.goto('/admin/fundraiser/publications/drafts');
+  await expect(page.getByRole('alert')).toContainText('Impossible de charger');
+  await page
+    .getByRole('button', { name: 'Préparer une publication', exact: true })
+    .click();
+  const eligible = page.getByRole('region', { name: 'Commandites pretes' });
+  await expect(
+    eligible.getByText('Commandite 01', { exact: true })
+  ).toHaveCount(0);
+  f.failSecondPage(false);
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(
+    eligible.getByText('Commandite 26', { exact: true })
+  ).toBeVisible();
+  await expect(eligible.getByRole('article')).toHaveCount(23);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(f.reads.map((query) => query.get('page'))).toEqual([
+    '1',
+    '2',
+    '1',
+    '2'
+  ]);
+  expect(f.mutations).toEqual([]);
+});
 
 async function openSpace(
   page: Page,

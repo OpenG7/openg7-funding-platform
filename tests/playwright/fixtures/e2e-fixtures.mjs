@@ -153,11 +153,8 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // reviewStatus is 'rejected' rather than 'approved' on purpose: the
   // refund route only cares about payment status (getSponsorshipRefundTarget
   // in fund-contributions.repository.ts filters on `status`, never
-  // `sponsor_review_status`), and admin-publications-page.component.ts's
-  // default sort ranks pending_review, then approved, before everything
-  // else with only a 6-item page 1 -- an 'approved' fixture here would
-  // compete with admin-publication-batches.spec.ts's own fixture for one of
-  // those slots. 'rejected' sorts last and stays out of the way.
+  // `sponsor_review_status`). This record remains separate from publication
+  // fixtures; publication preparation reads all pages of approved sponsors.
   multiPartialRefund: Object.freeze({
     publicReference: 'OG7-E2E-MULTI-PARTIAL-REFUND',
     companyName: 'E2E Playwright Fixture Multi Partial Refund Inc.',
@@ -175,8 +172,8 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
   // Backs admin-refund-integrity.spec.ts (test 91): kept separate from every
   // other refund fixture so two "admins" (two API requests carrying the same
   // captured version) racing each other never collides with an unrelated
-  // spec's own mutation of the row. reviewStatus is 'rejected' for the same
-  // page-1-ranking reason as multiPartialRefund above.
+  // spec's own mutation of the row. As above, reviewStatus is 'rejected'
+  // to exercise a refund independently of sponsor approval.
   concurrentRefund: Object.freeze({
     publicReference: 'OG7-E2E-CONCURRENT-REFUND',
     companyName: 'E2E Playwright Fixture Concurrent Refund Inc.',

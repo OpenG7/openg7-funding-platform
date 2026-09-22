@@ -43,9 +43,12 @@ test.describe('Docker admin publication batches', () => {
       .getByRole('button', { name: 'Préparer une publication', exact: true })
       .click();
 
-    const eligibleCard = page.locator('.eligible-list article', {
-      hasText: fixture.companyName
-    });
+    const eligibleCard = page.locator(
+      '[data-og7="publication-eligible-sponsor"]',
+      {
+        hasText: fixture.companyName
+      }
+    );
     await expect(eligibleCard).toBeVisible();
     await eligibleCard
       .getByRole('button', { name: 'Facebook', exact: true })
@@ -177,7 +180,9 @@ test.describe('Docker admin publication batches', () => {
       .first()
       .click();
     await preview.getByRole('checkbox', { name: /J’approuve/ }).check();
-    await preview.getByRole('button', { name: 'Accepter et programmer' }).click();
+    await preview
+      .getByRole('button', { name: 'Accepter et programmer' })
+      .click();
     await expect(preview).toContainText('Autorisée');
     await expect(preview).toContainText('Simulation');
     await preview.getByRole('button', { name: 'Fermer', exact: true }).click();
