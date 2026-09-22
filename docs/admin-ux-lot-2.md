@@ -54,7 +54,7 @@ Paramètres facultatifs :
 
 La réponse [AdminWorkQueueResponse](../packages/funding-core/src/admin-work-queue.ts) contient `total`, `filteredTotal`, `todayTotal`, `counts`, `typeCounts`, `items`, la pagination, `generatedAt`, `timezone` et l’état de couverture.
 
-Les compteurs sont calculés sur **l’ensemble analysé avant pagination**. Le chargement interne de cette file ne reprend pas les anciennes limites de 100 publications, 150 courriels ou 2 000 commandites. Les endpoints historiques conservent leurs limites par défaut. Le résumé historique de l’Assistant conserve son contrat et ses limites; il sera traité séparément au lot 3.
+Les compteurs sont calculés sur **l’ensemble analysé avant pagination**. Le chargement interne de cette file ne reprend pas les anciennes limites de 100 publications, 150 courriels ou 2 000 commandites. Les endpoints historiques conservent leurs limites par défaut. La [vue d'ensemble actuelle de l'Assistant](admin-assistant-overview.md) réutilise cette file complète; son résumé historique est chargé uniquement pour le volet financier. Ce guide détaille aussi les paramètres facultatifs de regroupement des courriels et de synthèse.
 
 Une DB absente ou des tables opérationnelles manquantes donnent `available: false`, `coverage: unavailable` et `missingSources`. L’interface ne présente alors aucun compteur comme une preuve d’absence de travail. Une erreur de requête produit HTTP 502. Les paramètres invalides produisent HTTP 400; une requête non autorisée produit HTTP 401.
 

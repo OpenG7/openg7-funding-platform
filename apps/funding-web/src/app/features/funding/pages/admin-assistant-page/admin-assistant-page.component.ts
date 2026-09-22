@@ -1,659 +1,92 @@
+import { DOCUMENT, ViewportScroller, isPlatformBrowser } from '@angular/common';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  OnInit,
   PLATFORM_ID,
   computed,
   inject,
   signal
 } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink, UrlTree } from '@angular/router';
+import {
+  ActivatedRoute,
+  Router,
+  RouterLink,
+  Scroll,
+  type Params,
+  type UrlTree
+} from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   AdminAssistantDraftType,
+  AdminAssistantMode,
   AdminAssistantPrepareResponse,
   AdminAssistantQueryResponse,
   AdminAssistantSummary,
   AdminAttentionItem,
   AdminAttentionItemType,
   AdminAttentionSeverity,
-  AdminAttentionSuggestedAction
+  AdminWorkQueueQuery,
+  AdminWorkQueueResponse
 } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import {
+  AdminDashboardRequestError,
+  FundingAdminService
+} from '../../services/funding-admin.service.js';
 import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
 import { AdminAssistantDraftComponent } from '../../components/admin-assistant/admin-assistant-draft.component.js';
 import { AdminAssistantAnswerComponent } from '../../components/admin-assistant/admin-assistant-answer.component.js';
+import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
-import { FundingAdminService } from '../../services/funding-admin.service.js';
 
-interface AttentionSection {
-  readonly type: AdminAttentionItemType;
-  readonly title: string;
-  readonly items: readonly AdminAttentionItem[];
-}
-
-const SECTION_ORDER: readonly {
-  readonly type: AdminAttentionItemType;
-  readonly title: string;
-}[] = [
-  {
-    type: 'sponsorship_needs_info',
-    title: 'Fiches commanditaires incomplètes'
-  },
-  { type: 'sponsorship_needs_review', title: 'Commandites à réviser' },
-  { type: 'publication_needs_preparation', title: 'Publications à préparer' },
-  { type: 'publication_late', title: 'Publications en retard' },
-  { type: 'email_delivery_failed', title: 'Courriels échoués' },
-  { type: 'financial_data_warning', title: 'Avertissements financiers' }
+const TYPES: readonly AdminAttentionItemType[] = [
+  'sponsorship_needs_info',
+  'sponsorship_needs_review',
+  'publication_needs_preparation',
+  'publication_late',
+  'publication_ready',
+  'publication_slot_upcoming',
+  'email_delivery_failed',
+  'financial_data_warning',
+  'invoice_missing',
+  'stripe_event_failed',
+  'stripe_event_stalled'
 ];
-
-const DRAFT_TYPE_BY_ACTION: Record<string, AdminAssistantDraftType> = {
+const DRAFT_TYPES: Readonly<Record<string, AdminAssistantDraftType>> = {
   prepare_reminder: 'sponsorship_reminder',
   prepare_publication: 'publication_draft',
   prepare_note: 'admin_note',
   propose_slot: 'slot_proposal'
 };
+type LoadState =
+  'idle' | 'loading' | 'ready' | 'error' | 'forbidden' | 'unavailable';
 
-type DraftState = 'idle' | 'loading' | 'ready' | 'error';
-
+/** Routed overview of the existing queue; preparation never sends or publishes. */
 @Component({
   selector: 'openg7-admin-assistant-page',
   standalone: true,
   imports: [
-    CommonModule,
     RouterLink,
     TranslatePipe,
     AdminAssistantContextComponent,
     AdminAssistantDraftComponent,
     AdminAssistantAnswerComponent,
+    AdminDrawerComponent,
     AdminLayoutComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    @if (sponsorshipId(); as id) {
-      <openg7-admin-layout [sponsorshipId]="id">
-        <h1 class="context-title">{{ 'admin.nav.assistant' | translate }}</h1>
-        <openg7-admin-assistant-context [sponsorshipId]="id" />
-      </openg7-admin-layout>
-    } @else {
-      <openg7-admin-layout>
-        <section class="admin-content">
-          <header class="admin-topbar">
-            <div>
-              <span>{{ 'admin.legacy.administration' | translate }}</span>
-              <h1>{{ 'admin.legacy.assistant' | translate }}</h1>
-            </div>
-            <button type="button" (click)="loadSummary()">
-              {{ 'admin.legacy.actualiser' | translate }}
-            </button>
-          </header>
-
-          <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
-            <div>
-              <h2 id="admin-auth-title">
-                {{
-                  'admin.legacy.copilote_operationnel_en_lecture_seule'
-                    | translate
-                }}
-              </h2>
-              <p>
-                {{
-                  'admin.legacy.l_assistant_detecte_et_explique_ce_qui_demande_votre_attention_il'
-                    | translate
-                }}
-              </p>
-            </div>
-          </section>
-
-          <p class="state" *ngIf="summaryState() === 'loading'">
-            {{ 'admin.legacy.chargement_du_resume' | translate }}
-          </p>
-          <p class="state state-error" *ngIf="summaryState() === 'error'">
-            {{
-              'admin.legacy.impossible_de_charger_le_resume_de_l_assistant'
-                | translate
-            }}
-          </p>
-
-          <section
-            class="summary-panel"
-            *ngIf="summary() as data"
-            aria-labelledby="summary-title"
-          >
-            <header>
-              <div>
-                <span>{{ 'admin.legacy.priorites' | translate }}</span>
-                <h2 id="summary-title">
-                  {{ 'admin.legacy.que_faut_il_traiter' | translate }}
-                </h2>
-              </div>
-              <small>{{
-                'admin.legacy.genere_p0'
-                  | translate: { p0: dateLabel(data.generatedAt) }
-              }}</small>
-            </header>
-
-            <div class="counts">
-              <article class="count count-urgent">
-                <strong>{{ data.counts.urgent }}</strong>
-                <span>{{ 'admin.legacy.urgent' | translate }}</span>
-              </article>
-              <article class="count count-today">
-                <strong>{{ data.counts.today }}</strong>
-                <span>{{ 'admin.legacy.aujourd_hui' | translate }}</span>
-              </article>
-              <article class="count count-week">
-                <strong>{{ data.counts.thisWeek }}</strong>
-                <span>{{ 'admin.legacy.cette_semaine' | translate }}</span>
-              </article>
-              <article class="count count-info">
-                <strong>{{ data.counts.informational }}</strong>
-                <span>{{ 'admin.legacy.information' | translate }}</span>
-              </article>
-            </div>
-
-            <article
-              class="empty-state calm"
-              *ngIf="data.attentionItems.length === 0"
-            >
-              <h3>{{ 'admin.legacy.aucune_action_urgente' | translate }}</h3>
-              <p>
-                {{
-                  'admin.legacy.rien_ne_demande_votre_attention_immediate_pour_le_moment'
-                    | translate
-                }}
-              </p>
-            </article>
-
-            <section
-              class="financial"
-              *ngIf="data.financialSummary as financial"
-              [attr.aria-label]="'admin.legacy.resume_financier' | translate"
-            >
-              <h3>{{ 'admin.legacy.resume_financier_prudent' | translate }}</h3>
-              <ul class="facts">
-                <li>
-                  <span>{{
-                    'admin.legacy.montant_brut_paye' | translate
-                  }}</span>
-                  <strong
-                    >{{ financial.grossPaid }} {{ financial.currency }}</strong
-                  >
-                </li>
-                <li>
-                  <span>{{ 'admin.legacy.remboursements' | translate }}</span>
-                  <strong
-                    >{{ financial.refunded }} {{ financial.currency }}</strong
-                  >
-                </li>
-                <li>
-                  <span>{{
-                    'admin.legacy.montant_net_estime' | translate
-                  }}</span>
-                  <strong>{{
-                    financial.netReceived === null
-                      ? ('admin.legacy.donnees_incompletes' | translate)
-                      : financial.netReceived + ' ' + financial.currency
-                  }}</strong>
-                </li>
-              </ul>
-              <p
-                class="limitation"
-                *ngFor="let limitation of financial.limitations"
-              >
-                {{ limitation }}
-              </p>
-            </section>
-          </section>
-
-          <section
-            class="attention-section"
-            *ngFor="let section of sections(); trackBy: trackBySection"
-            [attr.aria-label]="section.title"
-          >
-            <header>
-              <h2>{{ section.title }}</h2>
-              <span class="badge">{{ section.items.length }}</span>
-            </header>
-
-            <p class="empty-note" *ngIf="section.items.length === 0">
-              {{ 'admin.legacy.aucun_element' | translate }}
-            </p>
-
-            <article
-              class="attention-item"
-              *ngFor="let item of section.items; trackBy: trackByItem"
-            >
-              <header>
-                <h3>{{ item.title }}</h3>
-                <span class="severity" [class]="'severity-' + item.severity">
-                  {{ severityLabel(item.severity) }}
-                </span>
-              </header>
-              <p class="explanation">{{ item.explanation }}</p>
-              <p class="due" *ngIf="item.dueAt">
-                {{
-                  'admin.legacy.echeance_p0'
-                    | translate: { p0: dateLabel(item.dueAt) }
-                }}
-              </p>
-              <div class="actions">
-                <button
-                  *ngIf="prepareAction(item) as action"
-                  type="button"
-                  class="prepare-button"
-                  [disabled]="draftState(item) === 'loading'"
-                  (click)="prepare(item, action)"
-                >
-                  {{
-                    draftState(item) === 'loading'
-                      ? ('admin.legacy.preparation' | translate)
-                      : action.label
-                  }}
-                </button>
-                <a
-                  *ngIf="item.adminUrl as url"
-                  class="link"
-                  [routerLink]="adminLink(url)"
-                >
-                  {{ navigateLabel(item) }}
-                </a>
-              </div>
-
-              <p class="state-error" *ngIf="draftState(item) === 'error'">
-                {{ draftError(item) }}
-              </p>
-
-              <aside
-                class="draft"
-                *ngIf="draftFor(item) as prepared"
-                [attr.aria-label]="'admin.legacy.brouillon_prepare' | translate"
-              >
-                <p class="draft-notice" *ngIf="prepared.status !== 'ok'">
-                  {{ prepared.message }}
-                </p>
-
-                <openg7-admin-assistant-draft
-                  *ngIf="prepared.draft as draft"
-                  [draft]="draft"
-                />
-              </aside>
-            </article>
-          </section>
-
-          <section class="conversation" aria-labelledby="conversation-title">
-            <header>
-              <h2 id="conversation-title">
-                {{ 'admin.legacy.poser_une_question' | translate }}
-              </h2>
-              <small>
-                {{
-                  'admin.legacy.l_assistant_repond_a_partir_d_outils_en_lecture_seule_et_n_execut'
-                    | translate
-                }}</small
-              >
-            </header>
-
-            <form (submit)="ask($event)">
-              <label>
-                {{ 'admin.legacy.question' | translate
-                }}<input
-                  type="text"
-                  name="assistant-question"
-                  [attr.placeholder]="
-                    'admin.legacy.quelles_commandites_dois_je_traiter_aujourd_hui'
-                      | translate
-                  "
-                  [value]="question()"
-                  (input)="setQuestion($event)"
-                />
-              </label>
-              <button type="submit" [disabled]="answerState() === 'loading'">
-                {{
-                  answerState() === 'loading'
-                    ? ('admin.legacy.en_cours' | translate)
-                    : ('admin.legacy.demander' | translate)
-                }}
-              </button>
-            </form>
-
-            <p class="state state-error" *ngIf="answerState() === 'error'">
-              {{ answerError() }}
-            </p>
-
-            <openg7-admin-assistant-answer
-              *ngIf="answer() as reply"
-              [answer]="reply"
-            />
-          </section>
-        </section>
-      </openg7-admin-layout>
-    }
-  `,
+  templateUrl: './admin-assistant-page.component.html',
   styleUrls: [
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
-    '../../components/admin-ui/admin-forms.css'
-  ],
-  styles: [
-    `
-      .context-title {
-        font:
-          700 1.75rem 'Segoe UI',
-          system-ui,
-          sans-serif;
-        margin: 0 0 1rem;
-      }
-
-      .admin-content {
-        display: grid;
-        gap: 1rem;
-        min-width: 0;
-      }
-
-      .admin-topbar,
-      .admin-auth-panel,
-      .summary-panel,
-      .attention-section,
-      .conversation,
-      .state {
-        margin: 0 auto;
-        max-width: 78rem;
-        width: 100%;
-      }
-
-      .admin-topbar,
-      .summary-panel header,
-      .attention-section header,
-      .conversation header {
-        align-items: center;
-        display: flex;
-        gap: 1rem;
-        justify-content: space-between;
-      }
-
-      .admin-topbar span,
-      .summary-panel span {
-        color: var(--admin-muted);
-        font-size: 0.78rem;
-        font-weight: 800;
-        text-transform: uppercase;
-      }
-
-      .admin-topbar h1,
-      .admin-auth-panel h2,
-      .summary-panel h2,
-      .attention-section h2,
-      .conversation h2,
-      .empty-state h3 {
-        margin: 0;
-      }
-
-      .admin-auth-panel,
-      .summary-panel,
-      .attention-section,
-      .conversation,
-      .empty-state {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.45rem;
-        padding: 1rem;
-      }
-
-      .admin-auth-panel {
-        align-items: end;
-        display: grid;
-        gap: 1rem;
-        grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
-      }
-
-      .admin-auth-panel p,
-      .empty-state p {
-        color: var(--admin-muted);
-        line-height: 1.55;
-        margin: 0.35rem 0 0;
-      }
-
-      label {
-        display: grid;
-        gap: 0.35rem;
-        font-size: 0.85rem;
-        font-weight: 800;
-      }
-
-      input {
-        border: 1px solid var(--admin-border);
-        border-radius: 0.35rem;
-        font: inherit;
-        padding: 0.65rem 0.75rem;
-      }
-
-      button {
-        background: var(--admin-panel-raised);
-        border: 0;
-        border-radius: 0.35rem;
-        color: var(--admin-text);
-        cursor: pointer;
-        font: inherit;
-        font-weight: 800;
-        min-height: 2.7rem;
-        padding: 0 0.9rem;
-      }
-
-      button:disabled {
-        cursor: progress;
-        opacity: 0.6;
-      }
-
-      .counts {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-        margin-top: 0.85rem;
-      }
-
-      .count {
-        border: 1px solid var(--admin-border);
-        border-radius: 0.4rem;
-        display: grid;
-        gap: 0.2rem;
-        padding: 0.85rem;
-        text-align: center;
-      }
-
-      .count strong {
-        font-size: 1.7rem;
-      }
-
-      .count span {
-        color: var(--admin-muted);
-        font-size: 0.75rem;
-        font-weight: 800;
-        text-transform: uppercase;
-      }
-
-      .count-urgent {
-        background: var(--admin-panel-raised);
-        border-color: var(--admin-border);
-      }
-
-      .count-today {
-        background: #3c3221;
-        border-color: var(--admin-border);
-      }
-
-      .count-week {
-        background: var(--admin-panel-raised);
-        border-color: var(--admin-border);
-      }
-
-      .financial {
-        border-top: 1px solid var(--admin-border);
-        margin-top: 1rem;
-        padding-top: 0.85rem;
-      }
-
-      .facts {
-        display: grid;
-        gap: 0.4rem;
-        list-style: none;
-        margin: 0.5rem 0;
-        padding: 0;
-      }
-
-      .facts li {
-        display: flex;
-        gap: 1rem;
-        justify-content: space-between;
-      }
-
-      .facts span {
-        color: var(--admin-muted);
-      }
-
-      .limitation {
-        color: var(--admin-warning);
-        font-size: 0.85rem;
-        margin: 0.2rem 0 0;
-      }
-
-      .attention-section {
-        display: grid;
-        gap: 0.75rem;
-      }
-
-      .badge {
-        background: var(--admin-panel-raised);
-        border-radius: 999px;
-        color: var(--admin-text);
-        font-size: 0.8rem;
-        font-weight: 800;
-        min-width: 1.6rem;
-        padding: 0.15rem 0.55rem;
-        text-align: center;
-      }
-
-      .attention-item {
-        border: 1px solid var(--admin-border);
-        border-radius: 0.4rem;
-        display: grid;
-        gap: 0.4rem;
-        padding: 0.85rem;
-      }
-
-      .attention-item header {
-        align-items: center;
-        display: flex;
-        gap: 0.75rem;
-        justify-content: space-between;
-      }
-
-      .attention-item h3 {
-        font-size: 1rem;
-        margin: 0;
-      }
-
-      .explanation {
-        color: var(--admin-muted);
-        line-height: 1.5;
-        margin: 0;
-      }
-
-      .due {
-        color: var(--admin-warning);
-        font-size: 0.85rem;
-        margin: 0;
-      }
-
-      .severity {
-        border-radius: 999px;
-        font-size: 0.72rem;
-        font-weight: 900;
-        padding: 0.2rem 0.6rem;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-
-      .severity-urgent {
-        background: var(--admin-panel-raised);
-        color: var(--admin-danger);
-      }
-
-      .severity-today {
-        background: #3c3221;
-        color: var(--admin-warning);
-      }
-
-      .severity-this_week {
-        background: var(--admin-panel-raised);
-        color: var(--admin-muted);
-      }
-
-      .severity-informational {
-        background: var(--admin-panel-raised);
-        color: var(--admin-muted);
-      }
-
-      .link {
-        color: var(--admin-text);
-        font-weight: 800;
-        text-decoration: underline;
-      }
-
-      .empty-note {
-        color: var(--admin-muted);
-        font-style: italic;
-        margin: 0;
-      }
-
-      .conversation form {
-        align-items: end;
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: minmax(0, 1fr) auto;
-      }
-
-      .state-error {
-        color: var(--admin-danger);
-        font-weight: 800;
-      }
-
-      .actions {
-        align-items: center;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-      }
-
-      .prepare-button {
-        background: #3c3221;
-        color: var(--admin-text);
-        min-height: 2.4rem;
-      }
-
-      @media (max-width: 860px) {
-        .admin-shell,
-        .admin-auth-panel,
-        .conversation form {
-          grid-template-columns: 1fr;
-        }
-
-        .admin-topbar,
-        .summary-panel header,
-        .attention-section header,
-        .conversation header {
-          align-items: start;
-          flex-direction: column;
-        }
-      }
-    `
+    '../../components/admin-ui/admin-forms.css',
+    './admin-assistant-page.component.css'
   ]
 })
-export class AdminAssistantPageComponent implements OnInit {
+export class AdminAssistantPageComponent {
   readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
@@ -661,188 +94,426 @@ export class AdminAssistantPageComponent implements OnInit {
   private readonly params = toSignal(this.route.queryParamMap);
   private readonly destroy = inject(DestroyRef);
   private readonly platform = inject(PLATFORM_ID);
+  private readonly document = inject(DOCUMENT);
+  private readonly viewport = inject(ViewportScroller);
+  private pendingScroll: [number, number] | null = null;
+  private listScroll: [number, number] | null = null;
+  private pendingFocus: string | null = null;
   readonly sponsorshipId = computed(
     () => this.params()?.get('sponsorshipId') || undefined
   );
-
-  readonly adminToken = signal<string>('');
-  readonly summary = signal<AdminAssistantSummary | null>(null);
-  readonly summaryState = signal<'idle' | 'loading' | 'ready' | 'error'>(
-    'idle'
+  readonly selectedId = signal<string | null>(null);
+  readonly selected = signal<AdminAttentionItem | null>(null);
+  readonly detailState = signal<LoadState>('idle');
+  readonly query = signal<AdminWorkQueueQuery>({});
+  readonly data = signal<AdminWorkQueueResponse | null>(null);
+  readonly state = signal<LoadState>('idle');
+  readonly priorities: readonly AdminAttentionSeverity[] = [
+    'urgent',
+    'today',
+    'this_week',
+    'informational'
+  ];
+  readonly categories = computed(() =>
+    TYPES.filter(
+      (type) =>
+        (this.data()?.typeCounts[type] ?? 0) > 0 || this.query().type === type
+    )
   );
-
-  readonly question = signal<string>('');
-  readonly answer = signal<AdminAssistantQueryResponse | null>(null);
-  readonly answerState = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
-  readonly answerError = signal<string>('');
-
-  // Prepared drafts (iteration 2), keyed by attention-item id. Generation only:
-  // these never persist, send or publish anything.
-  readonly draftResponses = signal<
-    Record<string, AdminAssistantPrepareResponse>
-  >({});
-  readonly draftStates = signal<Record<string, DraftState>>({});
-  readonly draftErrors = signal<Record<string, string>>({});
-
-  readonly sections = computed<readonly AttentionSection[]>(() => {
-    const items = this.summary()?.attentionItems ?? [];
-    return SECTION_ORDER.map((section) => ({
-      type: section.type,
-      title: this.i18n.t('admin.attention.types.' + section.type),
-      items: items.filter((item) => item.type === section.type)
-    }));
+  readonly pages = computed(() =>
+    Math.max(
+      1,
+      Math.ceil(
+        (this.data()?.filteredTotal ?? 0) / (this.data()?.pageSize ?? 15)
+      )
+    )
+  );
+  readonly returnTo = computed(() => {
+    const params = this.params();
+    return this.router.serializeUrl(
+      this.router.createUrlTree(['/admin/fundraiser/assistant'], {
+        queryParams: Object.fromEntries(
+          (params?.keys ?? [])
+            .filter((key) => key !== 'returnTo')
+            .map((key) => [key, params?.get(key)])
+        )
+      })
+    );
   });
+  readonly summary = signal<AdminAssistantSummary | null>(null);
+  readonly summaryState = signal<LoadState>('idle');
+  readonly conversationMode = signal<AdminAssistantMode | null>(null);
+  readonly conversationState = signal<LoadState>('idle');
+  readonly question = signal('');
+  readonly answer = signal<AdminAssistantQueryResponse | null>(null);
+  readonly answerState = signal<LoadState>('idle');
+  readonly prepared = signal<AdminAssistantPrepareResponse | null>(null);
+  readonly draftState = signal<LoadState>('idle');
+  readonly canPrepare = computed(
+    () => this.admin.identity()?.role !== 'reader'
+  );
+  private generation = 0;
+  private detailGeneration = 0;
+  private draftGeneration = 0;
+  private queryKey = '';
 
-  ngOnInit(): void {
+  constructor() {
     if (!isPlatformBrowser(this.platform)) return;
-    this.adminToken.set(this.admin.getSavedAdminToken());
+    this.router.events
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe((event) => {
+        if (!(event instanceof Scroll)) return;
+        if (this.pendingFocus) {
+          const id = this.pendingFocus;
+          const row = Array.from(
+            this.document.querySelectorAll<HTMLElement>(
+              '[data-og7="assistant-items"] > li'
+            )
+          ).find((element) => element.dataset['og7Id'] === id);
+          row
+            ?.querySelector<HTMLButtonElement>('button')
+            ?.focus({ preventScroll: !!this.pendingScroll });
+          this.pendingFocus = null;
+        }
+        if (this.pendingScroll) {
+          this.viewport.scrollToPosition(this.pendingScroll, {
+            behavior: 'instant'
+          });
+          this.pendingScroll = null;
+        }
+      });
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe((params) => {
-        if (!params.get('sponsorshipId')) void this.loadSummary();
+        if (params.get('sponsorshipId')) {
+          this.generation++;
+          this.detailGeneration++;
+          this.queryKey = '';
+          return;
+        }
+        const type = params.get('type') as AdminAttentionItemType;
+        const priority = params.get('priority') as AdminAttentionSeverity;
+        const page = Number(params.get('page') || 1);
+        const query: AdminWorkQueueQuery = {
+          type: TYPES.includes(type) ? type : undefined,
+          priority: this.priorities.includes(priority) ? priority : undefined,
+          page:
+            Number.isInteger(page) && page > 0 && page <= 1000000 ? page : 1,
+          pageSize: 15,
+          overview: true,
+          emailTemplate: params.get('emailTemplate') || undefined,
+          emailError: params.get('emailError') || undefined
+        };
+        const key = JSON.stringify(query);
+        if (key !== this.queryKey) {
+          this.queryKey = key;
+          this.query.set(query);
+          void this.load();
+        }
+        const id = params.get('selected');
+        if (id !== this.selectedId()) {
+          this.selectedId.set(id);
+          this.selected.set(null);
+          this.prepared.set(null);
+          this.draftState.set('idle');
+          this.draftGeneration++;
+          this.detailGeneration++;
+          if (id) void this.loadDetail(id);
+        }
       });
   }
 
-  async loadSummary(): Promise<void> {
-    this.summaryState.set('loading');
+  async load(): Promise<void> {
+    const generation = ++this.generation;
+    this.state.set('loading');
     try {
-      this.summary.set(await this.admin.getAssistantSummary(this.adminToken()));
-      this.summaryState.set('ready');
-      this.admin.saveAdminToken(this.adminToken());
-    } catch {
-      this.summaryState.set('error');
+      const result = await this.admin.getWorkQueue(
+        this.admin.getSavedAdminToken(),
+        this.query()
+      );
+      if (generation !== this.generation || this.destroy.destroyed) return;
+      this.data.set(result.available ? result : null);
+      this.state.set(result.available ? 'ready' : 'unavailable');
+    } catch (error) {
+      if (generation !== this.generation || this.destroy.destroyed) return;
+      await this.handleError(error, this.state);
     }
   }
 
+  refresh(): void {
+    void this.load();
+    const id = this.selectedId();
+    if (id) void this.loadDetail(id);
+  }
+
+  private async loadDetail(id: string): Promise<void> {
+    const generation = ++this.detailGeneration;
+    this.detailState.set('loading');
+    this.prepared.set(null);
+    this.draftGeneration++;
+    this.draftState.set('idle');
+    try {
+      const result = await this.admin.getWorkQueue(
+        this.admin.getSavedAdminToken(),
+        { itemId: id, pageSize: 1 }
+      );
+      if (generation !== this.detailGeneration || this.destroy.destroyed)
+        return;
+      this.selected.set(result.available ? (result.items[0] ?? null) : null);
+      this.detailState.set(result.available ? 'ready' : 'unavailable');
+    } catch (error) {
+      if (generation !== this.detailGeneration || this.destroy.destroyed)
+        return;
+      await this.handleError(error, this.detailState);
+    }
+  }
+
+  private async handleError(
+    error: unknown,
+    state: { set(value: LoadState): void }
+  ): Promise<void> {
+    if (error instanceof AdminDashboardRequestError && error.status === 401) {
+      this.data.set(null);
+      this.selected.set(null);
+      this.admin.clearAdminSession();
+      await this.router.navigate(['/admin/login'], {
+        queryParams: { returnUrl: this.router.url }
+      });
+    } else {
+      const forbidden =
+        error instanceof AdminDashboardRequestError && error.status === 403;
+      if (forbidden) {
+        this.data.set(null);
+        this.selected.set(null);
+      }
+      state.set(forbidden ? 'forbidden' : 'error');
+    }
+  }
+
+  navigate(params: Params): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: params,
+      queryParamsHandling: 'merge',
+      scroll:
+        Object.hasOwn(params, 'selected') && !Object.hasOwn(params, 'page')
+          ? 'manual'
+          : undefined
+    });
+  }
+  filter(type: string | null): void {
+    this.navigate({
+      type,
+      page: null,
+      selected: null,
+      emailTemplate: null,
+      emailError: null
+    });
+  }
+  priority(value: string): void {
+    this.navigate({ priority: value || null, page: null, selected: null });
+  }
+  emailGroup(template: string, error: string): void {
+    this.navigate({
+      type: 'email_delivery_failed',
+      emailTemplate: template || null,
+      emailError: error,
+      page: null,
+      selected: null
+    });
+  }
+  open(item: AdminAttentionItem): void {
+    this.listScroll = this.viewport.getScrollPosition();
+    this.pendingScroll = this.listScroll;
+    this.navigate({ selected: item.id });
+  }
+  close(): void {
+    this.pendingFocus = this.selectedId();
+    this.pendingScroll = this.listScroll;
+    this.navigate({ selected: null });
+  }
+  page(page: number): void {
+    this.navigate({ page, selected: null });
+  }
+
+  adminLink(item: AdminAttentionItem): UrlTree {
+    const tree = this.router.parseUrl(
+      item.adminUrl?.startsWith('/admin/fundraiser/')
+        ? item.adminUrl
+        : '/admin/fundraiser/attention'
+    );
+    tree.queryParams = { ...tree.queryParams, returnTo: this.returnTo() };
+    return tree;
+  }
+  typeLabel(type: AdminAttentionItemType): string {
+    return this.i18n.t('admin.attention.types.' + type);
+  }
+  title(item: AdminAttentionItem): string {
+    if (item.type === 'email_delivery_failed')
+      return this.templateLabel(String(item.facts['templateKey'] ?? ''));
+    return String(item.facts['reference'] ?? this.typeLabel(item.type));
+  }
+  templateLabel(template: string): string {
+    const key = 'admin.assistantOverview.templates.' + template;
+    const label = this.i18n.t(key);
+    return label === key
+      ? this.i18n.t('admin.assistantOverview.templates.other')
+      : label;
+  }
+  errorLabel(error: string): string {
+    const key = 'admin.assistantOverview.errors.' + error;
+    const label = this.i18n.t(key);
+    return label === key
+      ? this.i18n.t('admin.assistantOverview.errors.autre')
+      : label;
+  }
+  missingFields(item: AdminAttentionItem): string[] {
+    return String(item.facts['missingFields'] ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((field) => {
+        const key = 'admin.context.fields.' + field;
+        const label = this.i18n.t(key);
+        return label === key
+          ? this.i18n.t('admin.assistantOverview.missingInformation')
+          : label;
+      });
+  }
+  reason(item: AdminAttentionItem): string {
+    const days = item.facts['daysSincePaid'] ?? item.facts['daysWaiting'];
+    if (typeof days === 'number')
+      return this.i18n.t('admin.assistantOverview.waiting', { days });
+    if (item.type === 'email_delivery_failed')
+      return this.i18n.t(
+        item.facts['attemptsExhausted']
+          ? 'admin.assistantOverview.exhausted'
+          : 'admin.assistantOverview.attempts',
+        { count: item.facts['attempts'], max: item.facts['maxAttempts'] }
+      );
+    if (item.dueAt)
+      return this.i18n.t('admin.assistantOverview.due', {
+        date: this.dateLabel(item.dueAt)
+      });
+    return this.i18n.t('admin.attention.reasons.' + item.type);
+  }
+  amount(item: AdminAttentionItem): string {
+    const amount = item.facts['amount'],
+      currency = item.facts['currency'];
+    return typeof amount === 'number' && typeof currency === 'string'
+      ? new Intl.NumberFormat(this.i18n.currentLanguage()).format(amount) +
+          ' ' +
+          currency
+      : '';
+  }
+  dateLabel(value: string): string {
+    return Number.isFinite(Date.parse(value))
+      ? new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: 'America/Toronto'
+        }).format(new Date(value))
+      : this.i18n.t('admin.dashboard.notAvailable');
+  }
+  prepareType(item: AdminAttentionItem): AdminAssistantDraftType | undefined {
+    const action = item.suggestedActions.find(
+      (candidate) => candidate.executionMode === 'prepare'
+    );
+    return action ? DRAFT_TYPES[action.actionType] : undefined;
+  }
+  async prepare(item: AdminAttentionItem): Promise<void> {
+    const type = this.prepareType(item);
+    if (
+      !type ||
+      !this.canPrepare() ||
+      this.draftState() === 'loading' ||
+      this.detailState() !== 'ready'
+    )
+      return;
+    const generation = ++this.draftGeneration;
+    this.draftState.set('loading');
+    this.prepared.set(null);
+    try {
+      const result = await this.admin.prepareAssistantDraft(
+        this.admin.getSavedAdminToken(),
+        {
+          type,
+          reference:
+            item.sponsorshipId ??
+            item.publicationId ??
+            String(item.facts['reference'] ?? ''),
+          language: this.i18n.currentLanguage()
+        }
+      );
+      if (generation !== this.draftGeneration || this.destroy.destroyed) return;
+      this.prepared.set(result);
+      this.draftState.set('ready');
+    } catch {
+      if (generation === this.draftGeneration && !this.destroy.destroyed)
+        this.draftState.set('error');
+    }
+  }
+
+  async loadSummary(event: Event): Promise<void> {
+    if (
+      !(event.target as HTMLDetailsElement).open ||
+      this.summaryState() === 'loading' ||
+      this.summaryState() === 'ready'
+    )
+      return;
+    this.summaryState.set('loading');
+    try {
+      const summary = await this.admin.getAssistantSummary(
+        this.admin.getSavedAdminToken()
+      );
+      if (this.destroy.destroyed) return;
+      this.summary.set(summary);
+      this.summaryState.set('ready');
+    } catch {
+      if (!this.destroy.destroyed) this.summaryState.set('error');
+    }
+  }
+  async loadConversation(event: Event): Promise<void> {
+    if (
+      !(event.target as HTMLDetailsElement).open ||
+      this.conversationState() === 'loading' ||
+      this.conversationState() === 'ready'
+    )
+      return;
+    this.conversationState.set('loading');
+    try {
+      const response = await this.admin.getAssistantContext(
+        this.admin.getSavedAdminToken()
+      );
+      if (this.destroy.destroyed) return;
+      this.conversationMode.set(response.conversationMode);
+      this.conversationState.set('ready');
+    } catch {
+      if (!this.destroy.destroyed) this.conversationState.set('error');
+    }
+  }
   async ask(event: Event): Promise<void> {
     event.preventDefault();
     const message = this.question().trim();
-    if (!message) {
+    if (
+      !message ||
+      this.answerState() === 'loading' ||
+      !this.conversationMode() ||
+      this.conversationMode() === 'disabled'
+    )
       return;
-    }
-
     this.answerState.set('loading');
-    this.answerError.set('');
+    this.answer.set(null);
     try {
-      this.answer.set(
-        await this.admin.queryAssistant(this.adminToken(), { message })
+      const response = await this.admin.queryAssistant(
+        this.admin.getSavedAdminToken(),
+        { message }
       );
+      if (this.destroy.destroyed) return;
+      this.answer.set(response);
       this.answerState.set('ready');
-    } catch (error) {
-      this.answerError.set(
-        error instanceof Error
-          ? error.message
-          : this.i18n.t('admin.messages.la_demande_n_a_pas_pu_etre_traitee')
-      );
-      this.answerState.set('error');
+    } catch {
+      if (!this.destroy.destroyed) this.answerState.set('error');
     }
-  }
-
-  prepareAction(
-    item: AdminAttentionItem
-  ): AdminAttentionSuggestedAction | null {
-    return (
-      item.suggestedActions.find(
-        (action) => action.executionMode === 'prepare'
-      ) ?? null
-    );
-  }
-
-  adminLink(url: string): UrlTree {
-    return this.router.parseUrl(url);
-  }
-
-  navigateLabel(item: AdminAttentionItem): string {
-    return (
-      item.suggestedActions.find(
-        (action) => action.executionMode === 'navigate'
-      )?.label ?? this.i18n.t('admin.context.open')
-    );
-  }
-
-  draftState(item: AdminAttentionItem): DraftState {
-    return this.draftStates()[item.id] ?? 'idle';
-  }
-
-  draftError(item: AdminAttentionItem): string {
-    return this.draftErrors()[item.id] ?? '';
-  }
-
-  draftFor(item: AdminAttentionItem): AdminAssistantPrepareResponse | null {
-    return this.draftResponses()[item.id] ?? null;
-  }
-
-  async prepare(
-    item: AdminAttentionItem,
-    action: AdminAttentionSuggestedAction
-  ): Promise<void> {
-    const type = DRAFT_TYPE_BY_ACTION[action.actionType];
-    if (!type) {
-      return;
-    }
-
-    const referenceFact = item.facts['reference'];
-    const reference =
-      item.sponsorshipId ??
-      item.publicationId ??
-      (typeof referenceFact === 'string' ? referenceFact : undefined);
-
-    this.setDraftState(item.id, 'loading');
-    try {
-      const result = await this.admin.prepareAssistantDraft(this.adminToken(), {
-        type,
-        reference
-      });
-      this.draftResponses.update((map) => ({ ...map, [item.id]: result }));
-      this.setDraftState(item.id, 'ready');
-    } catch (error) {
-      this.draftErrors.update((map) => ({
-        ...map,
-        [item.id]:
-          error instanceof Error
-            ? error.message
-            : this.i18n.t('admin.messages.la_preparation_du_brouillon_a_echoue')
-      }));
-      this.setDraftState(item.id, 'error');
-    }
-  }
-
-  private setDraftState(id: string, state: DraftState): void {
-    this.draftStates.update((map) => ({ ...map, [id]: state }));
-  }
-
-  setAdminToken(event: Event): void {
-    this.adminToken.set(this.valueFromEvent(event));
-    this.admin.saveAdminToken(this.adminToken());
-  }
-
-  setQuestion(event: Event): void {
-    this.question.set(this.valueFromEvent(event));
-  }
-
-  severityLabel(severity: AdminAttentionSeverity): string {
-    return this.i18n.t('admin.attention.priority.' + severity);
-  }
-
-  dateLabel(value: string | null | undefined): string {
-    if (!value) {
-      return this.i18n.t('admin.dashboard.notAvailable');
-    }
-    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    }).format(new Date(value));
-  }
-
-  trackBySection(_: number, section: AttentionSection): string {
-    return section.type;
-  }
-
-  trackByItem(_: number, item: AdminAttentionItem): string {
-    return item.id;
-  }
-
-  private valueFromEvent(event: Event): string {
-    return (event.target as HTMLInputElement | null)?.value ?? '';
   }
 }

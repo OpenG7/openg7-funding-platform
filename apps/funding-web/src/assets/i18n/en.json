@@ -1,5 +1,57 @@
 {
   "admin": {
+    "assistantOverview": {
+      "mock": "Demo conversation about administrative data. Asking a question does not execute an action.",
+      "eyebrow": "Your next step",
+      "intro": "Find a blocker, review the record, then prepare the next step.",
+      "next": "Where to start?",
+      "order": "One suggestion per category, ordered by priority and due date",
+      "browse": "Explore items needing attention",
+      "fullQueue": "Open work queue",
+      "all": "All",
+      "sorted": "Sorted by priority, then due date",
+      "examine": "Review",
+      "page": "Page {{page}} of {{pages}}",
+      "detail": "Item details",
+      "back": "Back to the list",
+      "return": "Back to Assistant",
+      "emptyFilter": "No items match these filters.",
+      "emailGroups": "Group failed emails",
+      "groupHelp": "Groups use the message type and error category. A shared category does not establish a shared cause.",
+      "allEmails": "All emails",
+      "emailReference": "Email reference:",
+      "openEmail": "Open this email",
+      "missingInformation": "Information to complete",
+      "missingCount": "{{count}} missing item(s)",
+      "waiting": "Waiting for {{days}} day(s)",
+      "exhausted": "Delivery stopped after {{count}} attempts",
+      "attempts": "{{count}} / {{max}} attempts",
+      "due": "Due: {{date}",
+      "optionalError": "This section is unavailable. Close and reopen it to try again.",
+      "questionError": "Your question could not be processed. You can try again.",
+      "prepare": {
+        "sponsorship_reminder": "Prepare a reminder",
+        "publication_draft": "Prepare a publication",
+        "admin_note": "Prepare a note",
+        "slot_proposal": "Propose a slot"
+      },
+      "templates": {
+        "sponsorship_invoice": "Sponsorship invoice",
+        "sponsorship_followup": "Sponsorship follow-up",
+        "sponsorship_rejection": "Sponsorship rejection",
+        "sponsorship_approval": "Sponsorship approval",
+        "sponsorship_information_request": "Information request",
+        "contribution_receipt": "Contribution receipt",
+        "other": "Transactional email"
+      },
+      "errors": {
+        "inconnue": "Unknown cause",
+        "authentification": "Delivery service authentication",
+        "destinataire_rejeté": "Recipient rejected",
+        "connexion": "Delivery service connection",
+        "autre": "Cause to investigate"
+      }
+    },
     "publicationQueue": {
       "eyebrow": "Publication order",
       "title": "Upcoming batches",

@@ -1,0 +1,533 @@
+@if (sponsorshipId(); as id) {
+  <openg7-admin-layout [sponsorshipId]="id">
+    <h1>{{ 'admin.nav.assistant' | translate }}</h1>
+    <openg7-admin-assistant-context [sponsorshipId]="id" />
+  </openg7-admin-layout>
+} @else {
+  <openg7-admin-layout>
+    <div class="assistant-page" data-og7="assistant-overview">
+      <header class="page-heading">
+        <div>
+          <span class="eyebrow">{{
+            'admin.assistantOverview.eyebrow' | translate
+          }}</span>
+          <h1>{{ 'admin.nav.assistant' | translate }}</h1>
+          <p class="muted">{{ 'admin.assistantOverview.intro' | translate }}</p>
+        </div>
+        <button
+          type="button"
+          class="admin-button"
+          (click)="refresh()"
+          [disabled]="state() === 'loading'"
+        >
+          {{ 'admin.context.refresh' | translate }}
+        </button>
+      </header>
+
+      <details
+        class="disclosure"
+        (toggle)="loadConversation($event)"
+        data-og7="assistant-question"
+      >
+        <summary>{{ 'admin.legacy.poser_une_question' | translate }}</summary>
+        @if (conversationState() === 'loading') {
+          <p role="status">{{ 'admin.attention.loading' | translate }}</p>
+        }
+        @if (conversationState() === 'error') {
+          <p role="alert">
+            {{ 'admin.assistantOverview.optionalError' | translate }}
+          </p>
+        }
+        @if (conversationMode() === 'disabled') {
+          <p>{{ 'admin.context.disabled' | translate }}</p>
+        }
+        @if (
+          conversationState() === 'ready' && conversationMode() !== 'disabled'
+        ) {
+          <p class="muted">{{ 'admin.assistantOverview.mock' | translate }}</p>
+          <form class="question-form" (submit)="ask($event)">
+            <label
+              >{{ 'admin.legacy.question' | translate
+              }}<input
+                name="question"
+                maxlength="1000"
+                required
+                [value]="question()"
+                (input)="question.set($any($event.target).value)"
+            /></label>
+            <button
+              type="submit"
+              class="admin-button"
+              [disabled]="answerState() === 'loading' || !question().trim()"
+            >
+              {{ 'admin.legacy.demander' | translate }}
+            </button>
+          </form>
+          @if (answerState() === 'loading') {
+            <p role="status">{{ 'admin.context.working' | translate }}</p>
+          }
+          @if (answerState() === 'error') {
+            <p role="alert">
+              {{ 'admin.assistantOverview.questionError' | translate }}
+            </p>
+          }
+          @if (answer(); as reply) {
+            <openg7-admin-assistant-answer
+              [answer]="reply"
+              [returnTo]="returnTo()"
+            />
+          }
+        }
+      </details>
+
+      <div role="status" aria-live="polite" data-og7="assistant-state">
+        @if (state() === 'loading') {
+          <p>{{ 'admin.attention.loading' | translate }}</p>
+        }
+        @if (state() === 'error') {
+          <p class="notice error">
+            {{
+              (data() ? 'admin.attention.stale' : 'admin.attention.error')
+                | translate
+            }}
+          </p>
+        }
+        @if (state() === 'forbidden') {
+          <p>{{ 'admin.dashboard.forbiddenHelp' | translate }}</p>
+        }
+        @if (state() === 'unavailable') {
+          <p>{{ 'admin.attention.unavailable' | translate }}</p>
+        }
+      </div>
+
+      @if (data(); as response) {
+        <div
+          class="categories"
+          role="group"
+          [attr.aria-label]="'admin.attention.type' | translate"
+          data-og7="assistant-categories"
+        >
+          <button
+            type="button"
+            class="category"
+            [attr.aria-pressed]="!query().type"
+            (click)="filter(null)"
+          >
+            {{ 'admin.assistantOverview.all' | translate }}
+            <span>{{ response.total }}</span>
+          </button>
+          @for (type of categories(); track type) {
+            <button
+              type="button"
+              class="category"
+              [attr.aria-pressed]="query().type === type"
+              (click)="filter(type)"
+              [attr.data-og7-id]="type"
+            >
+              {{ typeLabel(type) }}
+              <span>{{ response.typeCounts[type] || 0 }}</span>
+            </button>
+          }
+        </div>
+
+        @if (
+          !query().type &&
+          !query().priority &&
+          !query().emailTemplate &&
+          !query().emailError &&
+          response.overview?.recommendations?.length
+        ) {
+          <section aria-labelledby="assistant-next-title" class="next-panel">
+            <div class="section-heading">
+              <h2 id="assistant-next-title">
+                {{ 'admin.assistantOverview.next' | translate }}
+              </h2>
+              <span class="muted">{{
+                'admin.assistantOverview.order' | translate
+              }}</span>
+            </div>
+            <ol class="recommendations" data-og7="assistant-recommendations">
+              @for (item of response.overview?.recommendations; track item.id) {
+                <li>
+                  <div>
+                    <strong>{{ typeLabel(item.type) }}</strong>
+                    <p class="muted">{{ title(item) }} · {{ reason(item) }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="admin-button"
+                    (click)="open(item)"
+                    [disabled]="state() !== 'ready'"
+                    [attr.aria-label]="
+                      ('admin.assistantOverview.examine' | translate) +
+                      ' · ' +
+                      title(item)
+                    "
+                  >
+                    {{ 'admin.assistantOverview.examine' | translate }}
+                  </button>
+                </li>
+              }
+            </ol>
+          </section>
+        }
+
+        <section
+          class="queue-panel"
+          aria-labelledby="assistant-queue-title"
+          [attr.aria-busy]="state() === 'loading'"
+        >
+          <div class="section-heading">
+            <h2 id="assistant-queue-title">
+              {{ 'admin.assistantOverview.browse' | translate }}
+            </h2>
+            <a class="admin-link" routerLink="/admin/fundraiser/attention">{{
+              'admin.assistantOverview.fullQueue' | translate
+            }}</a>
+          </div>
+          <div class="filters">
+            <label
+              >{{ 'admin.attention.priorityLabel' | translate
+              }}<select
+                [value]="query().priority || ''"
+                (change)="priority($any($event.target).value)"
+                data-og7="assistant-priority"
+              >
+                <option value="">
+                  {{ 'admin.attention.allPriorities' | translate }}
+                </option>
+                @for (value of priorities; track value) {
+                  <option [value]="value">
+                    {{ 'admin.attention.priority.' + value | translate }} ·
+                    {{ response.counts[value] }}
+                  </option>
+                }
+              </select></label
+            >
+            <p class="muted">
+              {{ 'admin.assistantOverview.sorted' | translate }}
+            </p>
+            @if (
+              query().type ||
+              query().priority ||
+              query().emailTemplate ||
+              query().emailError
+            ) {
+              <a class="admin-link" routerLink="/admin/fundraiser/assistant">{{
+                'admin.attention.reset' | translate
+              }}</a>
+            }
+          </div>
+
+          @if (
+            query().type === 'email_delivery_failed' &&
+            response.overview?.emailGroups?.length
+          ) {
+            <details
+              class="email-groups"
+              [open]="!query().emailTemplate && !query().emailError"
+            >
+              <summary>
+                {{ 'admin.assistantOverview.emailGroups' | translate }}
+              </summary>
+              <p class="muted">
+                {{ 'admin.assistantOverview.groupHelp' | translate }}
+              </p>
+              <ul>
+                @for (
+                  group of response.overview?.emailGroups;
+                  track group.template + ':' + group.error
+                ) {
+                  <li>
+                    <button
+                      type="button"
+                      class="group-button"
+                      (click)="emailGroup(group.template, group.error)"
+                      [attr.aria-pressed]="
+                        query().emailTemplate === group.template &&
+                        query().emailError === group.error
+                      "
+                    >
+                      <span
+                        >{{ templateLabel(group.template) }} ·
+                        {{ errorLabel(group.error) }}</span
+                      ><strong>{{ group.count }}</strong>
+                    </button>
+                  </li>
+                }
+              </ul>
+            </details>
+          }
+          @if (query().emailTemplate || query().emailError) {
+            <p class="active-filter">
+              {{ templateLabel(query().emailTemplate || '') }} ·
+              {{ errorLabel(query().emailError || '') }}
+              <button
+                type="button"
+                class="admin-button"
+                (click)="filter('email_delivery_failed')"
+              >
+                {{ 'admin.assistantOverview.allEmails' | translate }}
+              </button>
+            </p>
+          }
+          <p class="result-count" role="status" data-og7="assistant-count">
+            {{
+              'admin.attention.results'
+                | translate
+                  : { count: response.filteredTotal, total: response.total }
+            }}
+          </p>
+          @if (!response.items.length) {
+            <p class="empty">
+              {{
+                (response.total
+                  ? 'admin.assistantOverview.emptyFilter'
+                  : 'admin.attention.empty'
+                ) | translate
+              }}
+            </p>
+          }
+          <ul class="item-list" data-og7="assistant-items">
+            @for (item of response.items; track item.id) {
+              <li [attr.data-og7-id]="item.id">
+                <div class="item-content">
+                  <div class="item-title">
+                    <strong>{{ title(item) }}</strong>
+                    @if (amount(item)) {
+                      <span class="amount">{{ amount(item) }}</span>
+                    }
+                  </div>
+                  <p>
+                    {{ typeLabel(item.type) }}
+                    @if (missingFields(item).length) {
+                      ·
+                      {{
+                        'admin.assistantOverview.missingCount'
+                          | translate: { count: missingFields(item).length }
+                      }}
+                    }
+                  </p>
+                  <small class="muted"
+                    >{{ reason(item) }}
+                    @if (item.emailQueueId) {
+                      · {{ item.emailQueueId.slice(-8) }}
+                    }
+                  </small>
+                </div>
+                <span
+                  class="priority"
+                  [class.urgent]="item.severity === 'urgent'"
+                  >{{
+                    'admin.attention.priority.' + item.severity | translate
+                  }}</span
+                >
+                <button
+                  type="button"
+                  class="admin-button"
+                  (click)="open(item)"
+                  [disabled]="state() !== 'ready'"
+                  [attr.aria-label]="
+                    ('admin.assistantOverview.examine' | translate) +
+                    ' · ' +
+                    title(item)
+                  "
+                >
+                  {{ 'admin.assistantOverview.examine' | translate }}
+                </button>
+              </li>
+            }
+          </ul>
+          <footer class="queue-footer">
+            <small class="muted"
+              >{{ 'admin.dashboard.updated' | translate }}
+              {{ dateLabel(response.generatedAt) }}</small
+            >
+            @if (pages() > 1) {
+              <nav
+                class="pagination"
+                [attr.aria-label]="'admin.attention.pagination' | translate"
+              >
+                <button
+                  type="button"
+                  class="admin-button"
+                  (click)="page(response.page - 1)"
+                  [disabled]="response.page === 1 || state() !== 'ready'"
+                >
+                  {{ 'admin.attention.previous' | translate }}
+                </button>
+                <span>{{
+                  'admin.assistantOverview.page'
+                    | translate: { page: response.page, pages: pages() }
+                }}</span>
+                <button
+                  type="button"
+                  class="admin-button"
+                  (click)="page(response.page + 1)"
+                  [disabled]="response.page === pages() || state() !== 'ready'"
+                >
+                  {{ 'admin.attention.next' | translate }}
+                </button>
+              </nav>
+            }
+          </footer>
+        </section>
+      }
+
+      <details class="disclosure" (toggle)="loadSummary($event)">
+        <summary>
+          {{ 'admin.legacy.resume_financier_prudent' | translate }}
+        </summary>
+        @if (summaryState() === 'loading') {
+          <p role="status">{{ 'admin.attention.loading' | translate }}</p>
+        }
+        @if (summaryState() === 'error') {
+          <p role="alert">
+            {{ 'admin.assistantOverview.optionalError' | translate }}
+          </p>
+        }
+        @if (summary(); as financialData) {
+          @if (financialData.financialSummary; as financial) {
+            <dl class="financial-facts">
+              <div>
+                <dt>{{ 'admin.legacy.montant_brut_paye' | translate }}</dt>
+                <dd>{{ financial.grossPaid }} {{ financial.currency }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'admin.legacy.remboursements' | translate }}</dt>
+                <dd>{{ financial.refunded }} {{ financial.currency }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'admin.legacy.montant_net_estime' | translate }}</dt>
+                <dd>
+                  {{
+                    financial.netReceived === null
+                      ? ('admin.legacy.donnees_incompletes' | translate)
+                      : financial.netReceived + ' ' + financial.currency
+                  }}
+                </dd>
+              </div>
+            </dl>
+            @for (limitation of financial.limitations; track $index) {
+              <p class="muted">{{ limitation }}</p>
+            }
+            <small>{{ dateLabel(financialData.generatedAt) }}</small>
+          }
+        }
+      </details>
+    </div>
+
+    <openg7-admin-drawer
+      [opened]="!!selectedId()"
+      [title]="'admin.assistantOverview.detail' | translate"
+      [closeLabel]="'admin.assistantOverview.back' | translate"
+      (closed)="close()"
+    >
+      @if (detailState() === 'loading') {
+        <p role="status">{{ 'admin.attention.loading' | translate }}</p>
+      }
+      @if (detailState() === 'error') {
+        <p role="alert">{{ 'admin.attention.error' | translate }}</p>
+        <button type="button" class="admin-button" (click)="refresh()">
+          {{ 'admin.context.refresh' | translate }}
+        </button>
+      }
+      @if (detailState() === 'forbidden') {
+        <p role="status">{{ 'admin.dashboard.forbiddenHelp' | translate }}</p>
+      }
+      @if (detailState() === 'unavailable') {
+        <p role="status">{{ 'admin.attention.unavailable' | translate }}</p>
+      }
+      @if (detailState() === 'ready') {
+        @if (selected(); as item) {
+          <div class="detail-content" data-og7="assistant-detail">
+            <span class="eyebrow">{{ typeLabel(item.type) }}</span>
+            <h3>{{ title(item) }}</h3>
+            @if (amount(item)) {
+              <p>{{ amount(item) }}</p>
+            }
+            <p>{{ 'admin.attention.reasons.' + item.type | translate }}</p>
+            <p class="notice">
+              {{ 'admin.attention.priority.' + item.severity | translate }} ·
+              {{ reason(item) }}
+            </p>
+            @if (missingFields(item).length) {
+              <h4>{{ 'admin.context.missing' | translate }}</h4>
+              <ul>
+                @for (field of missingFields(item); track $index) {
+                  <li>{{ field }}</li>
+                }
+              </ul>
+            }
+            @if (item.type === 'email_delivery_failed') {
+              <p>
+                {{
+                  errorLabel('' + (item.facts['errorCategory'] || 'inconnue'))
+                }}
+              </p>
+              <p class="muted">
+                {{ 'admin.assistantOverview.emailReference' | translate }}
+                {{ item.emailQueueId }}
+              </p>
+            }
+            @if (item.facts['channel']) {
+              <p>{{ item.facts['channel'] }}</p>
+            }
+            <div class="detail-actions">
+              <a
+                class="admin-button admin-button--primary"
+                [routerLink]="adminLink(item)"
+                >{{
+                  (item.type === 'email_delivery_failed'
+                    ? 'admin.assistantOverview.openEmail'
+                    : 'admin.context.open'
+                  ) | translate
+                }}</a
+              >
+              @if (prepareType(item); as type) {
+                @if (canPrepare()) {
+                  <button
+                    type="button"
+                    class="admin-button"
+                    (click)="prepare(item)"
+                    [disabled]="draftState() === 'loading'"
+                  >
+                    {{ 'admin.assistantOverview.prepare.' + type | translate }}
+                  </button>
+                }
+              }
+            </div>
+            @if (draftState() === 'loading') {
+              <p role="status">{{ 'admin.context.working' | translate }}</p>
+            }
+            @if (draftState() === 'error') {
+              <p role="alert">
+                {{
+                  'admin.messages.la_preparation_du_brouillon_a_echoue'
+                    | translate
+                }}
+              </p>
+            }
+            @if (prepared(); as proposal) {
+              @if (proposal.draft; as draft) {
+                <openg7-admin-assistant-draft
+                  [draft]="draft"
+                  [returnTo]="returnTo()"
+                />
+              } @else {
+                <p role="status">
+                  {{ 'admin.context.notApplicable' | translate }}
+                </p>
+              }
+            }
+          </div>
+        } @else {
+          <p role="status">{{ 'admin.attention.resolved' | translate }}</p>
+        }
+      }
+      <button type="button" class="admin-button back-button" (click)="close()">
+        {{ 'admin.assistantOverview.back' | translate }}
+      </button>
+    </openg7-admin-drawer>
+  </openg7-admin-layout>
+}

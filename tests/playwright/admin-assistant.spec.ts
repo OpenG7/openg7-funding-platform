@@ -1,4 +1,4 @@
-import type { AdminAssistantSummary } from '@openg7/funding-core';
+import type { AdminWorkQueueResponse } from '@openg7/funding-core';
 
 import { signInAsAdmin } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
@@ -7,7 +7,7 @@ const sponsorshipId = '831af81a-561e-4ec4-9d1c-f91944710116';
 const sponsorshipUrl = `/admin/fundraiser/sponsors?sponsorshipId=${sponsorshipId}`;
 
 // Covers the read-only admin assistant page (admin-assistant-page component).
-// The deterministic summary is served by the real /admin/assistant/summary
+// The deterministic queue is served by the real /admin/attention
 // endpoint (it works even when the AI provider is disabled). The conversational
 // answer is stubbed so the assertions stay deterministic regardless of whether
 // a model provider is configured in the environment under test.
@@ -41,28 +41,24 @@ test.describe('Docker admin assistant', () => {
   test('renders the deterministic attention summary', async ({ page }) => {
     await signInAsAdmin(page);
     const summaryResponse = page.waitForResponse(
-      '**/api/admin/assistant/summary'
+      (response) =>
+        response.url().includes('/api/admin/attention?') &&
+        response.url().includes('overview=true')
     );
     await page.goto('/admin/fundraiser/assistant');
 
     await expect(
-      page.getByRole('heading', { name: 'Que faut-il traiter?' })
+      page.getByRole('heading', { name: 'Explorer les éléments à traiter' })
     ).toBeVisible();
-    await expect(page.getByText('Urgent', { exact: true })).toBeVisible();
+    await page.getByText('Résumé financier prudent', { exact: true }).click();
     await expect(
-      page.getByRole('heading', {
-        name: 'Fiche commanditaire à compléter',
-        exact: true
-      })
-    ).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Résumé financier prudent' })
+      page.getByText('Montant brut payé', { exact: true })
     ).toBeVisible();
 
     const response = await summaryResponse;
     expect(response.ok()).toBe(true);
-    const summary = (await response.json()) as AdminAssistantSummary;
-    for (const item of summary.attentionItems.filter(
+    const summary = (await response.json()) as AdminWorkQueueResponse;
+    for (const item of summary.items.filter(
       (item) =>
         item.type === 'sponsorship_needs_info' ||
         item.type === 'sponsorship_needs_review'
@@ -70,10 +66,17 @@ test.describe('Docker admin assistant', () => {
       expect(item.contributionId).toBeTruthy();
       const expectedUrl = `/admin/fundraiser/sponsors?sponsorshipId=${encodeURIComponent(item.contributionId!)}`;
       expect(item.adminUrl).toBe(expectedUrl);
-      const card = page.getByRole('article').filter({
-        has: page.getByRole('heading', { name: item.title, exact: true })
-      });
-      await expect(card.getByRole('link')).toHaveAttribute('href', expectedUrl);
+      await page
+        .locator('[data-og7="assistant-items"]')
+        .locator(`[data-og7-id="${item.id}"]`)
+        .getByRole('button')
+        .click();
+      const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
+      const href = await dialog
+        .getByRole('link', { name: 'Ouvrir le dossier', exact: true })
+        .getAttribute('href');
+      expect(href?.split('&returnTo=')[0]).toBe(expectedUrl);
+      await page.keyboard.press('Escape');
     }
   });
 
@@ -91,7 +94,17 @@ test.describe('Docker admin assistant', () => {
     );
 
     await page.goto('/admin/fundraiser/assistant');
-
+    await page.route('**/api/admin/assistant/context*', (route) =>
+      route.fulfill({
+        json: {
+          status: 'empty',
+          context: null,
+          generatedAt: '2026-09-21T14:00:00Z',
+          conversationMode: 'mock'
+        }
+      })
+    );
+    await page.locator('[data-og7="assistant-question"] summary').click();
     await page
       .getByLabel('Question', { exact: true })
       .fill('Quelles commandites sont à réviser?');
@@ -117,7 +130,7 @@ test.describe('Docker admin assistant', () => {
   }) => {
     await signInAsAdmin(page);
 
-    await page.route('**/admin/assistant/summary', (route) =>
+    await page.route('**/admin/attention?*', (route) =>
       route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -126,18 +139,16 @@ test.describe('Docker admin assistant', () => {
     );
     await page.goto('/admin/fundraiser/assistant');
 
-    await expect(
-      page.getByText(/Impossible de charger le résumé de l'assistant/i)
-    ).toBeVisible();
+    await expect(page.locator('[data-og7="assistant-state"]')).toBeVisible();
 
-    await page.unroute('**/admin/assistant/summary');
-    await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+    await page.unroute('**/admin/attention?*');
+    await page
+      .getByRole('button', { name: 'Actualiser le contexte', exact: true })
+      .click();
 
+    await expect(page.locator('[data-og7="assistant-state"]')).toBeEmpty();
     await expect(
-      page.getByText(/Impossible de charger le résumé de l'assistant/i)
-    ).not.toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Que faut-il traiter?' })
+      page.getByRole('heading', { name: 'Explorer les éléments à traiter' })
     ).toBeVisible();
   });
 
@@ -146,11 +157,11 @@ test.describe('Docker admin assistant', () => {
   }) => {
     await signInAsAdmin(page);
 
-    await page.route('**/admin/assistant/summary', (route) =>
+    await page.route('**/admin/attention?*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(stubbedSummaryWithReminder)
+        body: JSON.stringify(stubbedQueueWithReminder())
       })
     );
     await page.route('**/admin/assistant/prepare', (route) =>
@@ -162,7 +173,7 @@ test.describe('Docker admin assistant', () => {
     );
 
     await page.goto('/admin/fundraiser/assistant');
-
+    await page.locator('[data-og7="assistant-items"] button').first().click();
     await page
       .getByRole('button', { name: 'Préparer une relance', exact: true })
       .click();
@@ -245,6 +256,24 @@ const stubbedReminderDraft = {
   }
 };
 
+function stubbedQueueWithReminder() {
+  return {
+    available: true,
+    coverage: 'complete',
+    missingSources: [],
+    generatedAt: stubbedSummaryWithReminder.generatedAt,
+    timezone: 'America/Toronto',
+    total: 1,
+    filteredTotal: 1,
+    todayTotal: 1,
+    counts: { urgent: 1, today: 0, this_week: 0, informational: 0 },
+    typeCounts: { sponsorship_needs_info: 1 },
+    page: 1,
+    pageSize: 15,
+    items: stubbedSummaryWithReminder.attentionItems
+  };
+}
+
 // Isolated navigation regressions: all admin responses use synthetic records.
 test.describe('assistant dossier links', () => {
   const target = {
@@ -289,6 +318,17 @@ test.describe('assistant dossier links', () => {
       const url = new URL(route.request().url());
       let response: unknown;
       switch (url.pathname) {
+        case '/api/admin/attention':
+          response = stubbedQueueWithReminder();
+          break;
+        case '/api/admin/assistant/context':
+          response = {
+            status: 'empty',
+            context: null,
+            generatedAt: '2026-09-21T14:00:00Z',
+            conversationMode: 'mock'
+          };
+          break;
         case '/api/admin/assistant/summary':
           response = stubbedSummaryWithReminder;
           break;
@@ -332,13 +372,19 @@ test.describe('assistant dossier links', () => {
       page
     }) => {
       await page.goto('/admin/fundraiser/assistant');
-      let label = 'Ouvrir la commandite';
+      let label = 'Ouvrir le dossier';
+      if (source !== 'answer')
+        await page
+          .locator('[data-og7="assistant-items"] button')
+          .first()
+          .click();
       if (source === 'draft') {
         await page
           .getByRole('button', { name: 'Préparer une relance', exact: true })
           .click();
         label = 'Ouvrir l’écran pour agir';
       } else if (source === 'answer') {
+        await page.locator('[data-og7="assistant-question"] summary').click();
         await page
           .getByLabel('Question', { exact: true })
           .fill('Quelles commandites sont à réviser?');
@@ -348,9 +394,19 @@ test.describe('assistant dossier links', () => {
         label = 'Commandite à réviser';
       }
       const link = page.getByRole('link', { name: label, exact: true });
-      await expect(link).toHaveAttribute('href', sponsorshipUrl);
+      expect((await link.getAttribute('href'))?.split('&returnTo=')[0]).toBe(
+        sponsorshipUrl
+      );
+      expect(
+        new URL(
+          (await link.getAttribute('href'))!,
+          'http://localhost'
+        ).searchParams.get('returnTo')
+      ).toContain('/admin/fundraiser/assistant');
       await link.click();
-      await expect(page).toHaveURL(sponsorshipUrl);
+      await expect(page).toHaveURL(
+        new RegExp(`sponsorshipId=${sponsorshipId}`)
+      );
       await expect(page.getByLabel('Recherche', { exact: true })).toHaveValue(
         sponsorshipId
       );

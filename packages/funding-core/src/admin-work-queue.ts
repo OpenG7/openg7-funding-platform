@@ -14,6 +14,20 @@ export interface AdminWorkQueueQuery {
   readonly priority?: AdminAttentionSeverity;
   readonly due?: AdminAttentionDueFilter;
   readonly itemId?: string;
+  /** Optional assistant overview, computed before pagination. */
+  readonly overview?: boolean;
+  readonly emailTemplate?: string;
+  readonly emailError?: string;
+}
+
+export interface AdminWorkQueueOverview {
+  /** One actionable item per type, in the existing priority order (maximum three). */
+  readonly recommendations: readonly AdminAttentionItem[];
+  readonly emailGroups: readonly {
+    readonly template: string;
+    readonly error: string;
+    readonly count: number;
+  }[];
 }
 
 export interface AdminWorkQueueResponse {
@@ -36,4 +50,5 @@ export interface AdminWorkQueueResponse {
   readonly items: readonly AdminAttentionItem[];
   /** First actionable sponsorship across the complete queue, before filters/pagination. */
   readonly firstSponsorshipId?: string | null;
+  readonly overview?: AdminWorkQueueOverview;
 }

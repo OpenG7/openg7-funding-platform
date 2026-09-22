@@ -1,5 +1,57 @@
 {
   "admin": {
+    "assistantOverview": {
+      "mock": "Conversation de démonstration sur les données administratives. Une question n’exécute aucune action.",
+      "eyebrow": "Votre prochaine action",
+      "intro": "Repérez un blocage, examinez le dossier, puis préparez la suite.",
+      "next": "Par où commencer?",
+      "order": "Une suggestion par catégorie, selon la priorité et l’échéance",
+      "browse": "Explorer les éléments à traiter",
+      "fullQueue": "Ouvrir À traiter",
+      "all": "Tout",
+      "sorted": "Tri : priorité, puis échéance",
+      "examine": "Examiner",
+      "page": "Page {{page}} sur {{pages}}",
+      "detail": "Détail de l’élément",
+      "back": "Revenir à la liste",
+      "return": "Retour à l’Assistant",
+      "emptyFilter": "Aucun élément ne correspond à ces filtres.",
+      "emailGroups": "Regrouper les courriels en échec",
+      "groupHelp": "Groupes par type de message et catégorie d’erreur. Une même catégorie ne prouve pas une cause commune.",
+      "allEmails": "Tous les courriels",
+      "emailReference": "Référence du courriel :",
+      "openEmail": "Ouvrir ce courriel",
+      "missingInformation": "Information à compléter",
+      "missingCount": "{{count}} élément(s) manquant(s)",
+      "waiting": "En attente depuis {{days}} jour(s)",
+      "exhausted": "Envoi arrêté après {{count}} tentatives",
+      "attempts": "{{count}} / {{max}} tentatives",
+      "due": "Échéance : {{date}}",
+      "optionalError": "Ce volet est indisponible. Fermez-le et rouvrez-le pour réessayer.",
+      "questionError": "La question n’a pas pu être traitée. Vous pouvez réessayer.",
+      "prepare": {
+        "sponsorship_reminder": "Préparer une relance",
+        "publication_draft": "Préparer une publication",
+        "admin_note": "Préparer une note",
+        "slot_proposal": "Proposer un créneau"
+      },
+      "templates": {
+        "sponsorship_invoice": "Facture de commandite",
+        "sponsorship_followup": "Suivi de commandite",
+        "sponsorship_rejection": "Refus de commandite",
+        "sponsorship_approval": "Approbation de commandite",
+        "sponsorship_information_request": "Demande d’informations",
+        "contribution_receipt": "Reçu de contribution",
+        "other": "Courriel transactionnel"
+      },
+      "errors": {
+        "inconnue": "Cause inconnue",
+        "authentification": "Authentification du service d’envoi",
+        "destinataire_rejeté": "Destinataire rejeté",
+        "connexion": "Connexion au service d’envoi",
+        "autre": "Cause à examiner"
+      }
+    },
     "publicationQueue": {
       "eyebrow": "Ordre de passage",
       "title": "Les prochains lots",

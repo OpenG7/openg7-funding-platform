@@ -4,6 +4,14 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
+const readPage = () =>
+  ['ts', 'html']
+    .map((ext) =>
+      read(
+        `apps/funding-web/src/app/features/funding/pages/admin-assistant-page/admin-assistant-page.component.${ext}`
+      )
+    )
+    .join('\n');
 
 const assertIncludesAll = (source, values, label) => {
   source = translatedUiSource(source);
@@ -20,9 +28,7 @@ test('the assistant is wired into the Angular admin shell', () => {
   const service = read(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
   );
-  const page = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-assistant-page/admin-assistant-page.component.ts'
-  );
+  const page = readPage();
 
   assertIncludesAll(
     routes,
@@ -50,14 +56,15 @@ test('the assistant is wired into the Angular admin shell', () => {
     page,
     [
       'openg7-admin-assistant-page',
-      'Fiches commanditaires incomplètes',
-      'Commandites à réviser',
-      'Publications à préparer',
-      'Publications en retard',
-      'Courriels échoués',
-      'Avertissements financiers',
+      'getWorkQueue',
+      'sponsorship_needs_info',
+      'sponsorship_needs_review',
+      'publication_needs_preparation',
+      'publication_late',
+      'email_delivery_failed',
+      'financial_data_warning',
       'Poser une question',
-      'lecture seule'
+      'openg7-admin-drawer'
     ],
     'admin-assistant-page'
   );
@@ -68,9 +75,7 @@ test('the assistant prepares drafts (iteration 2) as generation only', () => {
   const preparation = read(
     'apps/funding-api/src/admin-assistant/preparation.service.ts'
   );
-  const page = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-assistant-page/admin-assistant-page.component.ts'
-  );
+  const page = readPage();
 
   assertIncludesAll(
     api,
@@ -99,16 +104,14 @@ test('the assistant prepares drafts (iteration 2) as generation only', () => {
 });
 
 test('the admin assistant page exposes every required UI state', () => {
-  const page = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-assistant-page/admin-assistant-page.component.ts'
-  );
+  const page = readPage();
   assertIncludesAll(
     page,
     [
       "summaryState() === 'loading'",
       "summaryState() === 'error'",
       "answerState() === 'loading'",
-      'Aucune action urgente'
+      'admin.attention.empty'
     ],
     'admin-assistant-page states'
   );

@@ -557,19 +557,26 @@ test('selected sponsorship opens its exact Assistant context', async ({
   );
 });
 
-test('returning from a dossier to the global Assistant reloads its summary', async ({
+test('returning from a dossier to the global Assistant reloads its complete queue', async ({
   page
 }) => {
   await fixtures(page);
-  await page.route('**/api/admin/assistant/summary', (route) =>
+  await page.route('**/api/admin/attention?*', (route) =>
     route.fulfill({
       json: {
         generatedAt: '2026-09-16T14:00:00Z',
-        counts: { urgent: 0, today: 0, thisWeek: 0, informational: 0 },
-        sponsorships: { needsInfo: 0, needsReview: 0, approved: 0 },
-        publications: { needsPreparation: 0, scheduled: 0, late: 0 },
-        emails: { failed: 0 },
-        attentionItems: []
+        counts: { urgent: 0, today: 0, this_week: 0, informational: 0 },
+        available: true,
+        coverage: 'complete',
+        missingSources: [],
+        timezone: 'America/Toronto',
+        total: 0,
+        filteredTotal: 0,
+        todayTotal: 0,
+        typeCounts: {},
+        page: 1,
+        pageSize: 15,
+        items: []
       }
     })
   );
@@ -582,7 +589,7 @@ test('returning from a dossier to the global Assistant reloads its summary', asy
     .getByRole('link', { name: 'Assistant', exact: true })
     .click();
   await expect(page).toHaveURL('/admin/fundraiser/assistant');
-  await expect(
-    page.getByRole('heading', { name: 'Aucune action urgente' })
-  ).toBeVisible();
+  await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
+    '0 résultat(s) sur 0 intervention(s).'
+  );
 });

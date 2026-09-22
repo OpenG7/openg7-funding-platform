@@ -36,7 +36,7 @@ import type { AdminAssistantDraftProposal } from '@openg7/funding-core';
         <li>{{ limit }}</li>
       }
     </ul>
-    <a class="admin-link" [routerLink]="router.parseUrl(draft().adminUrl)">{{
+    <a class="admin-link" [routerLink]="destination()">{{
       'admin.context.openAction' | translate
     }}</a>
   </article>`,
@@ -49,5 +49,12 @@ import type { AdminAssistantDraftProposal } from '@openg7/funding-core';
 export class AdminAssistantDraftComponent {
   readonly draft = input.required<AdminAssistantDraftProposal>();
   readonly showBody = input(true);
+  readonly returnTo = input<string>();
   readonly router = inject(Router);
+  destination() {
+    const url = this.router.parseUrl(this.draft().adminUrl);
+    if (this.returnTo())
+      url.queryParams = { ...url.queryParams, returnTo: this.returnTo() };
+    return url;
+  }
 }
