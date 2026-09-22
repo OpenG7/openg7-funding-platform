@@ -66,6 +66,10 @@ L'Assistant contextuel utilise des règles déterministes. Le volet
 conversationnel est optionnel et possède un fournisseur `mock`; aucun
 fournisseur IA externe n'est actuellement raccordé à ce volet dans l'API.
 
+La [vue d'ensemble de l'Assistant](admin-assistant-overview.md) propose une
+synthèse, des catégories filtrables, des groupes de courriels et un détail avec
+retour au contexte, à partir de la file complète et paginée de **À traiter**.
+
 ## Exploitation et validation
 
 | Besoin                                          | Référence                                                                              |

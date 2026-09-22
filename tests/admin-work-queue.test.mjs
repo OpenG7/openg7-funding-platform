@@ -126,6 +126,75 @@ test('all results beyond the old 100-item cap remain reachable with global count
   assert.equal(paginateWorkQueue(items, now, { page: 999 }).page, 10);
 });
 
+test('assistant overview groups the complete email queue and keeps other priorities visible', () => {
+  const emails = Array.from({ length: 127 }, (_, i) => ({
+    id: `mail-${String(i).padStart(3, '0')}`,
+    status: 'failed',
+    template_key: i < 71 ? 'sponsorship_invoice' : 'sponsorship_followup',
+    attempts: 5,
+    max_attempts: 5,
+    last_error: 'ECONNRESET private detail',
+    recipient_email: 'private@example.invalid'
+  }));
+  const items = buildWorkQueueItems(
+    dataset({ emailMessages: emails }),
+    [{ id: 'invoice', reference: 'DEMO', paid_at: null }],
+    [event('evt_1')]
+  );
+  const query = parseWorkQueueQuery(
+    new URLSearchParams(
+      'overview=true&type=email_delivery_failed&emailTemplate=sponsorship_followup&emailError=connexion&page=4&pageSize=15'
+    )
+  );
+  const result = paginateWorkQueue(items, now, query);
+  assert.equal(result.filteredTotal, 56);
+  assert.equal(result.items.length, 11);
+  assert.equal(result.total, 129);
+  assert.equal(result.typeCounts.email_delivery_failed, 127);
+  assert.deepEqual(result.overview.emailGroups, [
+    { template: 'sponsorship_invoice', error: 'connexion', count: 71 },
+    { template: 'sponsorship_followup', error: 'connexion', count: 56 }
+  ]);
+  assert.equal(
+    new Set(result.overview.recommendations.map((item) => item.type)).size,
+    3
+  );
+  assert.ok(
+    result.overview.recommendations.some(
+      (item) => item.type === 'stripe_event_failed'
+    )
+  );
+  assert.ok(
+    result.items.every((item) => item.adminUrl.includes('?messageId='))
+  );
+  assert.ok(!JSON.stringify(result).includes('private'));
+  assert.equal(paginateWorkQueue(items, now).overview, undefined);
+  assert.equal(
+    paginateWorkQueue(items, now, { emailTemplate: 'absent' }).filteredTotal,
+    0
+  );
+  assert.equal(
+    paginateWorkQueue(items, now, { overview: true, priority: 'today' })
+      .overview.emailGroups.length,
+    0
+  );
+});
+
+test('assistant group filters and overview flag reject unsupported values', () => {
+  for (const query of [
+    'overview=1',
+    'overview=yes',
+    'emailError=raw-secret',
+    'emailTemplate=a%20b',
+    `emailTemplate=${'a'.repeat(101)}`
+  ]) {
+    assert.throws(() => parseWorkQueueQuery(new URLSearchParams(query)));
+  }
+  const result = paginateWorkQueue([], now, { overview: true }, ['database']);
+  assert.equal(result.available, false);
+  assert.deepEqual(result.overview.recommendations, []);
+});
+
 test('combined filters count the filtered dataset before pagination', () => {
   const items = buildWorkQueueItems(
     dataset(),

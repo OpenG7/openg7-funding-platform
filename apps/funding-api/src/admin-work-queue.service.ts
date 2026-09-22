@@ -70,12 +70,25 @@ export const parseWorkQueueQuery = (
   const priority = params.get('priority') || undefined;
   const due = params.get('due') || 'all';
   const itemId = params.get('itemId') || undefined;
+  const emailTemplate = params.get('emailTemplate') || undefined;
+  const emailError = params.get('emailError') || undefined;
+  const overview = params.get('overview');
   if (
     (type && !WORK_QUEUE_TYPES.includes(type as AdminAttentionItemType)) ||
     (priority &&
       !WORK_QUEUE_PRIORITIES.includes(priority as AdminAttentionSeverity)) ||
     !['all', 'today', 'overdue', 'this_week', 'undated'].includes(due) ||
-    (itemId && itemId.length > 200)
+    (itemId && itemId.length > 200) ||
+    (emailTemplate && !/^[a-zA-Z0-9_-]{1,100}$/.test(emailTemplate)) ||
+    (emailError &&
+      ![
+        'inconnue',
+        'authentification',
+        'destinataire_rejeté',
+        'connexion',
+        'autre'
+      ].includes(emailError)) ||
+    (overview !== null && overview !== 'true' && overview !== 'false')
   ) {
     throw new Error('Invalid queue query');
   }
@@ -85,7 +98,10 @@ export const parseWorkQueueQuery = (
     type: type as AdminWorkQueueQuery['type'],
     priority: priority as AdminWorkQueueQuery['priority'],
     due: due as AdminWorkQueueQuery['due'],
-    itemId
+    itemId,
+    ...(overview !== null ? { overview: overview === 'true' } : {}),
+    ...(emailTemplate ? { emailTemplate } : {}),
+    ...(emailError ? { emailError } : {})
   };
 };
 
@@ -318,6 +334,18 @@ export const paginateWorkQueue = (
     if (query.itemId && item.id !== query.itemId) return false;
     if (query.type && item.type !== query.type) return false;
     if (query.priority && item.severity !== query.priority) return false;
+    if (
+      (query.emailTemplate || query.emailError) &&
+      item.type !== 'email_delivery_failed'
+    )
+      return false;
+    if (
+      query.emailTemplate &&
+      item.facts['templateKey'] !== query.emailTemplate
+    )
+      return false;
+    if (query.emailError && item.facts['errorCategory'] !== query.emailError)
+      return false;
     if (query.due === 'today') return todayItem(item);
     if (query.due === 'overdue')
       return Boolean(item.dueAt && Date.parse(item.dueAt) < now.getTime());
@@ -339,6 +367,32 @@ export const paginateWorkQueue = (
       Math.max(1, Math.ceil(filtered.length / pageSize))
     )
   );
+  const recommendations: AdminAttentionItem[] = [];
+  const emailGroups = new Map<
+    string,
+    { template: string; error: string; count: number }
+  >();
+  if (query.overview) {
+    for (const item of items) {
+      if (
+        recommendations.length < 3 &&
+        item.severity !== 'informational' &&
+        !recommendations.some((candidate) => candidate.type === item.type)
+      )
+        recommendations.push(item);
+      if (
+        item.type !== 'email_delivery_failed' ||
+        (query.priority && item.severity !== query.priority)
+      )
+        continue;
+      const template = String(item.facts['templateKey'] ?? '');
+      const error = String(item.facts['errorCategory'] ?? 'inconnue');
+      const key = JSON.stringify([template, error]);
+      const group = emailGroups.get(key) ?? { template, error, count: 0 };
+      group.count++;
+      emailGroups.set(key, group);
+    }
+  }
   return {
     available: missingSources.length === 0,
     coverage: missingSources.length ? 'unavailable' : 'complete',
@@ -364,7 +418,20 @@ export const paginateWorkQueue = (
     firstSponsorshipId:
       items.find(
         (item) => item.sponsorshipId && item.severity !== 'informational'
-      )?.sponsorshipId ?? null
+      )?.sponsorshipId ?? null,
+    ...(query.overview
+      ? {
+          overview: {
+            recommendations,
+            emailGroups: [...emailGroups.values()].sort(
+              (a, b) =>
+                b.count - a.count ||
+                a.template.localeCompare(b.template) ||
+                a.error.localeCompare(b.error)
+            )
+          }
+        }
+      : {})
   };
 };
 
@@ -378,7 +445,10 @@ export const getAdminWorkQueue = async (
 };
 
 /** Shared deterministic projection; callers paginate after cross-domain deduplication. */
-export const loadAdminWorkQueue = async (pool: Pool | null, now = new Date()): Promise<{ items: AdminAttentionItem[]; missingSources: string[] }> => {
+export const loadAdminWorkQueue = async (
+  pool: Pool | null,
+  now = new Date()
+): Promise<{ items: AdminAttentionItem[]; missingSources: string[] }> => {
   if (!pool) return { items: [], missingSources: ['database'] };
   const required = [
     'fund_contributions',
@@ -410,5 +480,8 @@ export const loadAdminWorkQueue = async (pool: Pool | null, now = new Date()): P
       [new Date(now.getTime() - STRIPE_STALLED_AFTER_MS).toISOString()]
     )
   ]);
-  return { items: buildWorkQueueItems(dataset, invoices.rows, events.rows), missingSources: [] };
+  return {
+    items: buildWorkQueueItems(dataset, invoices.rows, events.rows),
+    missingSources: []
+  };
 };

@@ -33,7 +33,7 @@ import type { AdminAssistantQueryResponse } from '@openg7/funding-core';
     }
     <nav class="actions" [attr.aria-label]="'admin.context.links' | translate">
       @for (link of answer().links; track $index) {
-        <a class="admin-link" [routerLink]="router.parseUrl(link.adminUrl)">{{
+        <a class="admin-link" [routerLink]="destination(link.adminUrl)">{{
           link.label
         }}</a>
       }
@@ -53,5 +53,12 @@ import type { AdminAssistantQueryResponse } from '@openg7/funding-core';
 })
 export class AdminAssistantAnswerComponent {
   readonly answer = input.required<AdminAssistantQueryResponse>();
+  readonly returnTo = input<string>();
   readonly router = inject(Router);
+  destination(adminUrl: string) {
+    const url = this.router.parseUrl(adminUrl);
+    if (this.returnTo())
+      url.queryParams = { ...url.queryParams, returnTo: this.returnTo() };
+    return url;
+  }
 }

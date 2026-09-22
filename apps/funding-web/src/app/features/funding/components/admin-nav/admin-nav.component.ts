@@ -88,7 +88,12 @@ interface AdminNavigationGroup {
             class="admin-link"
             [routerLink]="destination"
             data-og7="return-to-attention"
-            >{{ 'admin.attention.back' | translate }}</a
+            >{{
+              (destination.toString().startsWith('/admin/fundraiser/assistant')
+                ? 'admin.assistantOverview.return'
+                : 'admin.attention.back'
+              ) | translate
+            }}</a
           >
         }
         <nav [attr.aria-label]="'admin.nav.label' | translate">
@@ -185,7 +190,8 @@ export class AdminNavComponent implements OnInit {
   private readonly queryParams = toSignal(inject(ActivatedRoute).queryParamMap);
   readonly queueReturn = computed(() => {
     const value = this.queryParams()?.get('returnTo');
-    return value && /^\/admin\/fundraiser\/attention(?:\?|$)/.test(value)
+    return value &&
+      /^\/admin\/fundraiser\/(?:attention|assistant)(?:\?|$)/.test(value)
       ? this.router.parseUrl(value)
       : null;
   });
@@ -194,8 +200,12 @@ export class AdminNavComponent implements OnInit {
   readonly expanded = signal(false);
   ngOnInit(): void {
     // The cockpit and queue page already load the same projection.
+    const globalAssistant =
+      this.router.url.startsWith('/admin/fundraiser/assistant') &&
+      !this.queryParams()?.get('sponsorshipId');
     if (
       typeof window !== 'undefined' &&
+      !globalAssistant &&
       !/^\/admin\/fundraiser(?:\?|$)|^\/admin\/fundraiser\/attention(?:\?|$)/.test(
         this.router.url
       )
@@ -227,7 +237,11 @@ export class AdminNavComponent implements OnInit {
     {
       key: 'steering',
       links: [
-        { key: 'pilotage', url: '/admin/fundraiser/pilotage', icon: 'dashboard' },
+        {
+          key: 'pilotage',
+          url: '/admin/fundraiser/pilotage',
+          icon: 'dashboard'
+        },
         { key: 'dashboard', url: '/admin/fundraiser', icon: 'dashboard' },
         { key: 'attention', url: '/admin/fundraiser/attention', icon: 'audit' },
         {
