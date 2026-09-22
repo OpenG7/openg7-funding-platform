@@ -45,6 +45,7 @@
       <button
         type="button"
         [class.active]="domain() === ''"
+        [attr.aria-current]="domain() === '' ? 'page' : null"
         (click)="changeDomain('')"
         [disabled]="busy()"
       >
@@ -54,11 +55,15 @@
         <button
           type="button"
           [class.active]="domain() === d.id"
+          [attr.aria-current]="domain() === d.id ? 'page' : null"
+          [attr.data-domain]="d.id"
           (click)="changeDomain(d.id)"
           [disabled]="busy()"
         >
-          <openg7-admin-icon [name]="d.icon" />{{ t('domains.' + d.id)
-          }}<small>{{ state()?.domains?.[d.id] ?? '' }}</small>
+          <openg7-admin-icon [name]="d.icon" /><span>{{
+            t('domains.' + d.id)
+          }}</span
+          ><small>{{ state()?.domains?.[d.id] ?? '—' }}</small>
         </button>
       }
       <button type="button" data-og7="pilot-calendar" (click)="openCalendar()">
@@ -78,50 +83,93 @@
   </aside>
   <main id="admin-main" tabindex="-1">
     <section class="intro">
-      <div>
+      <div class="intro-copy">
         <p class="eyebrow">
-          {{ t('fund') }} · {{ t('domains.' + (domain() || 'publications')) }}
+          <span class="eyebrow-mark" aria-hidden="true"></span>
+          {{ t('fund') }} <span aria-hidden="true">/</span>
+          {{ t(domain() ? 'domains.' + domain() : 'overview') }}
         </p>
         <h1>{{ t('title') }}</h1>
         <p>{{ t('subtitle') }}</p>
-        <button
-          type="button"
-          data-og7="open-programme"
-          (click)="open('programme')"
-          [disabled]="busy()"
-        >
-          {{ t('programme') }}
-        </button>
-        <openg7-admin-guide
-          guideId="pilotage"
-          [accountId]="admin.identity()?.id ?? 'token'"
-          [steps]="guideSteps"
-          [disabled]="
-            busy() || loading() || !!panel() || !!inspection.current()
-          "
-          (activeChanged)="controller.reset()"
-        />
+        <div class="intro-actions">
+          <button
+            type="button"
+            class="programme-button"
+            data-og7="open-programme"
+            (click)="open('programme')"
+            [disabled]="busy()"
+          >
+            <openg7-admin-icon name="clock" />
+            {{ t('programme') }}
+            <openg7-admin-icon name="arrow" />
+          </button>
+          <openg7-admin-guide
+            guideId="pilotage"
+            [accountId]="admin.identity()?.id ?? 'token'"
+            [steps]="guideSteps"
+            [disabled]="
+              busy() || loading() || !!panel() || !!inspection.current()
+            "
+            (activeChanged)="controller.reset()"
+          />
+        </div>
       </div>
-      <div class="automation" data-og7="pilot-automation">
-        <strong
-          ><i class="dot" [class.online]="state()?.workerEnabled"></i
-          >{{
-            t(state()?.workerEnabled ? 'automationActive' : 'automationStopped')
-          }}</strong
-        >
-        <p>
-          {{
-            t(
-              preparing()
-                ? 'preparing'
-                : state()?.workerEnabled
-                  ? 'preparationDisabled'
-                  : 'workerHelp'
-            )
-          }}
-        </p>
+      <div
+        class="automation"
+        data-og7="pilot-automation"
+        [class.is-active]="state()?.workerEnabled"
+      >
+        <span class="automation-icon" aria-hidden="true">
+          <openg7-admin-icon name="assistant" />
+        </span>
+        <div>
+          <strong
+            ><i class="dot" [class.online]="state()?.workerEnabled"></i
+            >{{
+              t(
+                state()?.workerEnabled
+                  ? 'automationActive'
+                  : 'automationStopped'
+              )
+            }}</strong
+          >
+          <p>
+            {{
+              t(
+                preparing()
+                  ? 'preparing'
+                  : state()?.workerEnabled
+                    ? 'preparationDisabled'
+                    : 'workerHelp'
+              )
+            }}
+          </p>
+        </div>
       </div>
     </section>
+    <dl
+      class="overview"
+      data-og7="pilot-overview"
+      [attr.aria-label]="t('overview')"
+    >
+      <div class="overview-stat stat-pending">
+        <dt>
+          <openg7-admin-icon name="publications" />{{ t('pendingDecisions') }}
+        </dt>
+        <dd>{{ state()?.total ?? '—' }}</dd>
+        <dd class="stat-context">{{ t('inThisSpace') }}</dd>
+      </div>
+      <div class="overview-stat stat-done">
+        <dt><openg7-admin-icon name="audit" />{{ t('decisionsDone') }}</dt>
+        <dd>{{ metrics().decisions }}</dd>
+        <dd class="stat-context">{{ t('duringVisit') }}</dd>
+      </div>
+      <div class="overview-stat stat-details">
+        <dt><openg7-admin-icon name="search" />{{ t('detailsOpened') }}</dt>
+        <dd>{{ metrics().details }}</dd>
+        <dd class="stat-context">{{ t('duringVisit') }}</dd>
+      </div>
+    </dl>
     <div class="announcements" aria-live="polite" aria-atomic="true">
       @if (sessionStart()) {
         <p class="alert">
@@ -220,8 +268,19 @@
           class="decision"
           data-og7="pilot-decision"
           [attr.data-og7-id]="d.id"
+          [attr.data-domain]="d.domain"
           [attr.aria-busy]="busy()"
         >
+          <div class="decision-topline">
+            <span class="decision-focus"
+              ><span aria-hidden="true"></span>{{ t('yourDecision') }}</span
+            >
+            <span class="badge"
+              ><openg7-admin-icon [name]="domainIcon(d.domain)" />{{
+                kind(d)
+              }}</span
+            >
+          </div>
           <div class="preview">
             <div class="visual">
               @if (image()) {
@@ -232,15 +291,9 @@
                 />
               } @else {
                 <div class="no-image">
-                  <openg7-admin-icon
-                    [name]="
-                      d.domain === 'publications'
-                        ? 'publications'
-                        : d.domain === 'projects'
-                          ? 'mountain'
-                          : 'audit'
-                    "
-                  /><span>{{
+                  <span class="no-image-icon"
+                    ><openg7-admin-icon [name]="domainIcon(d.domain)" /></span
+                  ><span>{{
                     t(
                       previewFailed()
                         ? 'previewFailed'
@@ -253,9 +306,6 @@
               }
             </div>
             <div class="decision-heading">
-              <span class="badge"
-                ><openg7-admin-icon name="publications" />{{ kind(d) }}</span
-              >
               <h2>{{ d.title || kind(d) }}</h2>
               @if (d.publication; as p) {
                 <p class="destination">
@@ -321,7 +371,10 @@
         </article>
         <aside class="up-next" data-og7="pilot-queue">
           <div class="queue-heading">
-            <h2>{{ t('following') }}</h2>
+            <h2>
+              <span class="queue-mark" aria-hidden="true"></span
+              >{{ t('following') }}
+            </h2>
             <span>{{ state()?.page }} / {{ pageCount() }}</span>
           </div>
           <div class="queue-scroll">
@@ -329,18 +382,12 @@
               <button
                 type="button"
                 class="queue-card"
+                [attr.data-domain]="item.domain"
                 (click)="choose(item)"
                 [disabled]="busy()"
               >
                 <span class="queue-icon"
-                  ><openg7-admin-icon
-                    [name]="
-                      item.domain === 'email'
-                        ? 'email'
-                        : item.domain === 'projects'
-                          ? 'mountain'
-                          : 'publications'
-                    " /></span
+                  ><openg7-admin-icon [name]="domainIcon(item.domain)" /></span
                 ><span
                   ><strong>{{ kind(item) }}</strong
                   ><span>{{ item.title || t('reviewNeeded') }}</span
@@ -348,7 +395,7 @@
                     >{{ t('domains.' + item.domain) }} ·
                     {{ date(item.dueAt) }}</small
                   ></span
-                ><span aria-hidden="true">›</span>
+                ><span class="queue-arrow" aria-hidden="true">›</span>
               </button>
             }
             @if (!following().length) {
@@ -377,8 +424,15 @@
         </aside>
       </div>
     } @else {
-      <section class="empty">
-        <openg7-admin-icon name="audit" />
+      <section
+        class="empty"
+        [class.is-loading]="loading()"
+        [attr.aria-busy]="loading()"
+      >
+        <span class="empty-icon"
+          ><openg7-admin-icon
+            [name]="loading() ? 'refresh' : error() ? 'warning' : 'audit'"
+        /></span>
         <h2>
           {{ t(loading() ? 'loading' : error() ? 'unavailable' : 'empty') }}
         </h2>
@@ -447,9 +501,15 @@
       </div>
       <div class="shortcuts">
         <div>
-          <button type="button" (click)="next(-1)"><kbd>LB</kbd></button
+          <button
+            type="button"
+            (click)="next(-1)"
+            [attr.aria-label]="t('previous')"
+          >
+            <kbd>LB</kbd></button
           ><span>/</span
-          ><button type="button" (click)="next()"><kbd>RB</kbd></button
+          ><button type="button" (click)="next()" [attr.aria-label]="t('next')">
+            <kbd>RB</kbd></button
           ><span>{{ t('decisionNavigation') }}</span>
         </div>
         <div>

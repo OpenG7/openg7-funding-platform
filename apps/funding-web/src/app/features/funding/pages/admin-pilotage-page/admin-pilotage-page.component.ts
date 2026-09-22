@@ -129,6 +129,9 @@ export class AdminPilotagePageComponent {
     { id: 'operations', icon: 'settings' }
   ];
   readonly queue = computed(() => this.state()?.decisions ?? []);
+  domainIcon(domain: PilotDomain): AdminIconName {
+    return this.domains.find((item) => item.id === domain)?.icon ?? 'audit';
+  }
   readonly pageCount = computed(() =>
     Math.max(
       1,

@@ -4,6 +4,12 @@ Route : `/admin/fundraiser/pilotage`, accessible depuis la navigation admin.
 La page reprend la référence visuelle fournie : une décision centrale, la file
 « À suivre » et les commandes en bas. Le portail existant reste accessible.
 
+La vue d’ensemble affiche les décisions à examiner dans l’espace sélectionné,
+les décisions traitées et les ouvertures de dossiers pendant la visite. Ces deux
+derniers compteurs sont locaux et repartent à zéro au rechargement; ils ne sont
+pas un historique d’activité. Les espaces disposent de repères colorés et nommés.
+Les transitions et animations respectent la préférence de mouvement réduit.
+
 **Ma semaine** ajoute briefing, session de cinq minutes, calendrier proposé,
 répétition générale, variantes de texte, préférences éditoriales et solutions
 aux incidents. Les contrats, la migration 025 et les limites sont décrits dans
