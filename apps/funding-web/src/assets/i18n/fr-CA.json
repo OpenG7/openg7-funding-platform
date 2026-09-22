@@ -1646,6 +1646,11 @@
     },
     "pilotage": {
       "title": "Poste de pilotage",
+      "overview": "Vue d’ensemble",
+      "pendingDecisions": "À examiner",
+      "inThisSpace": "Dans cet espace",
+      "duringVisit": "Pendant cette visite",
+      "yourDecision": "À vous de décider",
       "subtitle": "Une décision humaine, un plus grand impact.",
       "fund": "Fonds des bâtisseurs",
       "skip": "Aller aux décisions",

@@ -1650,6 +1650,11 @@
     },
     "pilotage": {
       "title": "Control desk",
+      "overview": "Overview",
+      "pendingDecisions": "To review",
+      "inThisSpace": "In this workspace",
+      "duringVisit": "During this visit",
+      "yourDecision": "Your next decision",
       "subtitle": "One human decision. A greater impact.",
       "fund": "Builders Fund",
       "skip": "Skip to decisions",
