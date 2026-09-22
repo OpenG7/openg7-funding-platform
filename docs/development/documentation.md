@@ -31,7 +31,7 @@ garde-fous référencés. Dater les preuves; aucun secret ou preuve inventée.
 
 ## Budgets et contrôle
 
-Le socle est plafonné à **8 Kio**; chaque chaîne racine → instructions locales à
+Le [standard interprojets](../standards/README.md) fixe le socle à **8 Kio**; chaque chaîne racine → instructions locales à
 **16 Kio**. Les références ne sont pas automatiquement ajoutées à la chaîne :
 leurs déclencheurs sont dans le socle. Garder de la marge pour les instructions
 globales et les autres sources de contexte.
@@ -42,6 +42,7 @@ choisir d'abord son propriétaire et son déclencheur; modifier un plafond deman
 une justification, pas une augmentation pour absorber une duplication.
 
 ```sh
+node scripts/check-project-standards.mjs
 node scripts/check-agent-docs.mjs
 node scripts/check-agent-docs.mjs --json
 ```
@@ -91,8 +92,8 @@ Cette table sert à revoir le découpage; les numéros ne sont plus des destinat
 | 31 : maintenance | Ce guide et contrôle de budgets |
 | Ajout pilotage administratif | Web/API, architecture FR/EN et runbook pilotage |
 
-Relire les destinations selon les risques : garder les quinze garde-fous dans le
-socle, les exceptions d'approbation différée avec leurs conditions, les limites des
+Relire les destinations selon les risques : garder les garde-fous financiers dans le
+socle local, les exceptions d'approbation différée avec leurs conditions, les limites des
 migrations et les issues incertaines. La concision ne doit pas supprimer une
 précondition ou étendre une autorisation. Ne pas recopier l'ancien monolithe dans
 un document que chaque tâche serait ensuite tenue de lire.

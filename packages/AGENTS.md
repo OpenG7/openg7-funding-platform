@@ -1,5 +1,7 @@
 # Consignes des packages
 
+Portée : `packages/**`; spécialisation métier du standard OpenG7.
+
 Complète le [socle du dépôt](../AGENTS.md). Lire également ses références métier
 selon le sujet : une règle financière s'applique ici autant que dans l'API.
 

@@ -1,5 +1,7 @@
 # Consignes Funding API
 
+Portée : `apps/funding-api/**`; spécialisation métier du standard OpenG7.
+
 Complète le [socle du dépôt](../../AGENTS.md). Les règles de domaine indiquées
 dans sa table de lecture s'appliquent aussi aux adaptateurs et aux tests.
 

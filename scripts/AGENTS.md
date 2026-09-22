@@ -1,5 +1,7 @@
 # Consignes des scripts et de l'exploitation
 
+Portée : `scripts/**`; spécialisation métier du standard OpenG7.
+
 Complète le [socle du dépôt](../AGENTS.md). Lire ces règles aussi pour Docker,
 Traefik, CI/CD ou l'outil `apps/production-launch-agent`, puis le runbook concerné.
 

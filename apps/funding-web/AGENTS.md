@@ -1,5 +1,7 @@
 # Consignes Funding Web
 
+Portée : `apps/funding-web/**`; spécialisation métier du standard OpenG7.
+
 Complète le [socle du dépôt](../../AGENTS.md). Lire les références métier de sa
 table de lecture lorsque le parcours touché le demande, y compris pour une UI.
 
