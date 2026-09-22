@@ -1,45 +1,69 @@
-# OpenG7 Funding Platform — consignes communes
+# OpenG7 Funding Platform — consignes
 
-Ce socle s'applique à tout le dépôt. Les instructions locales le complètent sans
-assouplir ses garde-fous. Lire les consignes des répertoires concernés avant
-modification, même si la session démarre à la racine; ne pas supposer qu'elles
-ont été chargées automatiquement. Une référence liée n'impose sa lecture que
-lorsque son déclencheur ci-dessous correspond à la tâche.
+## Mission
+
+Financement OpenG7 : contributions, commandites, comptabilité, transparence et
+administration, avec confirmation Stripe et publication autorisée séparément.
+
+<!-- openg7:common:start -->
+
+## Socle commun OpenG7
+
+<!-- openg7-standard: 1 -->
+
+- Respecter la mission du dépôt. Le code, les manifests et les tests décrivent
+  l'existant; une architecture cible ou une roadmap ne prouve pas une livraison.
+- Avant modification : `git status --short`, instructions des chemins concernés,
+  code utile et équivalents existants. Préserver les changements de l'utilisateur.
+- Lire uniquement les références déclenchées par le chemin ou le sujet traité,
+  même pour un test ou un package. Chercher avec `rg`, lire la section utile;
+  ne pas charger tout `docs/`, les registres ou les historiques par défaut.
+- Réutiliser les contrats publics; éviter cycles, imports privés entre domaines,
+  duplication métier et refactorisations étrangères à la demande.
+- Ne placer aucun secret ni donnée privée inutile dans Git, sorties, logs, tests
+  ou documentation. Exemples synthétiques; droits vérifiés côté serveur.
+- Respecter l'autorisation déjà donnée et son périmètre. Préparer et vérifier les
+  changements locaux autorisés; une demande de code n'autorise pas une opération
+  de production, un envoi externe, une publication ou une destruction de données.
+- Commit, push et ouverture de PR seulement dans le cadre demandé par l’utilisateur;
+  une autorisation déjà donnée reste valable pour cette même opération et portée.
+- Pour un effet externe : cible, droits, entrées/sorties, limites, idempotence,
+  audit et reprise explicites. Réconcilier un résultat incertain avant de relancer.
+- Choisir les validations selon le changement et les scripts réellement présents.
+  Tester le comportement et les échecs pertinents; une modification documentaire
+  seule ne déclenche pas les suites applicatives, les seeds ou un déploiement.
+- Mettre à jour la référence propriétaire et les consommateurs d'un contrat dans
+  le même changement. Les différences locales justifient une mission, une stack
+  effective ou un risque métier; elles ne recopient pas le socle.
+- Terminer par le diff, les contrôles applicables et `git diff --check`. Rapporter
+  résultat, validations exécutées, limites et opérations restantes, sans faux succès.
+
+<!-- openg7:common:end -->
 
 ## Contexte et sources
 
 Monorepo Yarn 4, Node 22, Angular 21 standalone/SSR, Tailwind 4, API TypeScript ESM,
 Stripe, PostgreSQL 16 optionnel, Docker Compose et Traefik 3.2. Licence MIT.
-Le code, les migrations, les manifests, Compose et la configuration effective font
-foi. Documenter/corriger un écart avec les guides; ne pas inventer une troisième règle.
 Avant un changement de version majeure/runtime, vérifier manifests, images, CI et
 documentation de production.
 
 <a id="garde-fous"></a>
 
-## Garde-fous
+## Périmètre local
 
-1. Inspecter avant de modifier : `git status --short`, fichiers concernés, implémentations équivalentes et tests; préserver les changements existants.
-2. Frontières : Web → API; aucun accès Web à PostgreSQL ou aux API Stripe secrètes. Aucun cycle ni import de `apps/**` par un package partagé.
-3. Stripe confirme le paiement. URL, redirection de succès et état navigateur ne créent jamais de transaction payée.
-4. Événements et opérations répétables sont idempotents, y compris livraisons retardées/désordonnées; aucun doublon financier ou effet externe logique.
-5. Aucun secret, contenu privé inutile ou donnée de carte dans Git, bundles, tests, logs, captures ou documentation. Minimiser les projections publiques.
-6. Séparer test et production : aucune commande `:live`, clé live ou cible de production sans demande explicite.
-7. Montants en unités mineures entières avec devise explicite; aucun flottant comptable ni addition de devises différentes. Corriger les faits confirmés par compensation tracée.
-8. Migrations additives et numérotées; ne jamais modifier une migration déjà appliquée.
-9. PostgreSQL privé : aucun port `5432` public ni routage par Traefik.
-10. Paiement, consentement, revue, visibilité et publication sont distincts. Toute publication exige une autorisation administrative; une préparation n'est pas une approbation.
-11. Chaque endpoint admin vérifie les droits côté API; ni bouton masqué ni guard Angular ne constitue une sécurité.
-12. Actions sensibles auditées : acteur, action, cible, date, résultat et corrélation, sans secret. Confirmation UI et validation serveur pour remboursement, suppression de logo, publication, refus, masquage, retry massif, backfill, correction de destinataire et export privé.
-13. Aucun déploiement, restauration, migration de production, remboursement réel, suppression de données, rollback, changement de secret, approbation/publication ou lot réel de courriels sans instruction explicite et garde-fous.
-14. Aucun commit, push ou ouverture de PR sans demande explicite.
-15. Rapporter uniquement les validations réellement exécutées. Une issue externe ambiguë exige réconciliation/revue humaine, jamais un faux succès ou une relance aveugle.
+1. Frontières : Web → API; aucun accès Web à PostgreSQL ou aux API Stripe secrètes. Aucun cycle ni import de `apps/**` par un package partagé.
+2. Stripe confirme le paiement. URL, redirection de succès et état navigateur ne créent jamais de transaction payée.
+3. Événements et opérations répétables sont idempotents, y compris livraisons retardées/désordonnées; aucun doublon financier ou effet externe logique.
+4. Séparer test et production : aucune commande `:live`, clé live ou cible de production sans demande explicite.
+5. Montants en unités mineures entières avec devise explicite; aucun flottant comptable ni addition de devises différentes. Corriger les faits confirmés par compensation tracée.
+6. Migrations additives et numérotées; ne jamais modifier une migration déjà appliquée.
+7. PostgreSQL privé : aucun port `5432` public ni routage par Traefik.
+8. Paiement, consentement, revue, visibilité et publication sont distincts. Toute publication exige une autorisation administrative; une préparation n'est pas une approbation.
+9. Chaque endpoint admin vérifie les droits côté API; ni bouton masqué ni guard Angular ne constitue une sécurité.
+10. Actions sensibles auditées : acteur, action, cible, date, résultat et corrélation, sans secret. Confirmation UI et validation serveur pour remboursement, suppression de logo, publication, refus, masquage, retry massif, backfill, correction de destinataire et export privé.
+11. Aucun déploiement, restauration, migration de production, remboursement réel, suppression de données, rollback, changement de secret, approbation/publication ou lot réel de courriels sans instruction explicite et garde-fous.
 
 ## Lectures selon la tâche
-
-Appliquer les lignes pertinentes par chemin **et** par sujet, y compris aux tests
-et packages. Lire la section utile, puis ses dépendances indispensables; ne pas
-charger tout `docs/` ni suivre récursivement tous les liens.
 
 <!-- prettier-ignore -->
 | Déclencheur | Lire avant intervention |
@@ -57,46 +81,33 @@ charger tout `docs/` ni suivre récursivement tous les liens.
 | Choix des vérifications | [Matrice de validation](docs/development/validation.md) |
 | Maintenance des consignes/documentation | [Organisation et budgets](docs/development/documentation.md) |
 
-Lire `package.json` et le manifest du workspace pour les commandes/dépendances
-concernées; `.env.example` pour une configuration touchée, jamais un secret réel
-pour documenter un exemple. L'[index documentaire](docs/README.md) oriente vers
-les contrats fonctionnels actuels; les bilans historiques ne sont pas le backlog.
+Configuration : `.env.example` et manifest du workspace; contrats fonctionnels :
+[index](docs/README.md). Les bilans historiques ne sont pas le backlog.
 
-## Procédure et risque
+## Validation
 
-- **Faible** : documentation, texte/style/UI de présentation, test isolé ou script
-  local non destructif; inspection, changement ciblé, validations applicables.
-- **Modéré** : endpoint, métier, session, file, document comptable, projection,
-  Docker/Traefik, migration locale ou contrat partagé; examiner états, compatibilité,
-  sécurité, idempotence et tests.
+Appliquer la [matrice](docs/development/validation.md) selon le changement, puis
+`node scripts/check-project-standards.mjs` et `node scripts/check-agent-docs.mjs`
+pour les consignes. Pour les opérations à risque, appliquer les conditions suivantes.
 
 <a id="risque-eleve"></a>
 
-- **Élevé** : live, production, remboursement réel, secret, restauration/rollback,
-  suppression/correction financière, exposition réseau ou modèle comptable.
-  Ne pas exécuter par défaut. Présenter l'opération exacte, cible, portée,
-  préconditions, sauvegardes et retour; obtenir une instruction explicite,
-  procéder une étape à la fois, vérifier et consigner le résultat.
+Live, production, remboursement réel, secret, restauration/rollback, suppression
+ou correction financière, exposition réseau ou modèle comptable : présenter
+opération exacte, cible, portée, préconditions, sauvegardes et retour; exiger
+l’instruction explicite correspondante, vérifier et consigner chaque étape.
+Une opération préparée n’est pas une opération autorisée.
 
-Définir le plus petit changement cohérent, préserver les contrats sauf décision
-explicite, éviter les refactorisations sans rapport. Ajouter tests adaptés et
-migration si le schéma change; mettre à jour les guides touchés dans le même
-changement. Vérifier erreurs et reprises; ne jamais cacher un échec par un succès.
+Dépendances : utiles, maintenues, licence compatible, workspace propriétaire;
+examiner taille, postinstall et surface d’attaque. Aucun contournement TLS, CORS,
+CSRF ou signature. Variables : exemple non secret, classification publique/privée,
+validation au démarrage, propagation et tests présente/absente.
+Les effets externes conservent droits, idempotence, audit et reprise. Un agent IA
+hérite des droits humains : moindre privilège, scopes, expiration, confirmation,
+limites de volume et annulation. L’assistant administratif est en lecture seule
+par défaut. Rapporter valeur utilisateur et preuves de fiabilité séparément.
 
-Une nouvelle dépendance doit être utile, maintenue, de licence compatible et
-placée dans son workspace; examiner taille, surface d'attaque et postinstall.
-Ne pas désactiver TLS, CORS, CSRF ou signature en production. Origines explicites.
-Chaque nouvelle variable : documentée dans `.env.example`, publique/secrète
-classée, validée au démarrage, propagée et testée présente/absente; `.env` hors Git.
+## Maintenance
 
-Pour tout effet externe, préciser input/output, autorisation, idempotence, audit,
-échec et reprise. Un agent IA hérite des droits humains : moindre privilège,
-scopes, expiration, confirmation, limite de volume et annulation si possible.
-Une intégration IA administrative est en lecture seule par défaut.
-
-Après modification : relire le diff, exécuter les contrôles applicables de la
-matrice, `git diff --check` et `git status --short`. Rapport proportionné : résultat,
-fichiers, décisions, validations exécutées/omises avec raisons, risques et
-migrations/opérations manuelles nécessaires; omettre les rubriques sans objet.
-Tout bilan distingue **valeur visible pour l'utilisateur** et **preuves de fiabilité**
-(tests/E2E, CI, migrations, Docker, intégrations et production réellement vérifiée).
+Pour changer les consignes : [standard et budgets](docs/standards/README.md).
+Conserver le bloc commun synchronisé et les différences dans leur périmètre.

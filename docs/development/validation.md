@@ -8,7 +8,7 @@ foi. Utiliser Node 22 et Yarn 4; ne pas changer le lockfile sans nécessité.
 
 | Changement                                           | Vérifications                                                                                                                                    |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Documentation                                        | `git diff --check`, format ciblé, liens/ancres et `node scripts/check-agent-docs.mjs`                                                            |
+| Documentation                                        | `git diff --check`, format ciblé, liens/ancres et `node scripts/check-project-standards.mjs` et `node scripts/check-agent-docs.mjs`              |
 | UI/style                                             | Format, `yarn lint`, build Angular, tests d'états/interactions pertinents, SSR, i18n, clavier/focus et responsive                                |
 | Configuration ou package                             | Compilation et tests de configuration/domaine; consommateurs concernés                                                                           |
 | API                                                  | Format, `yarn lint`, `yarn test`; contrats, erreurs et chemins de reprise                                                                        |
