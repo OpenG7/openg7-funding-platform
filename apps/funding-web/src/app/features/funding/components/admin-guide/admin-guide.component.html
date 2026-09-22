@@ -1,0 +1,69 @@
+<button
+  type="button"
+  data-og7="guide-launch"
+  [attr.data-og7-id]="guideId()"
+  [disabled]="disabled() || !ready()"
+  (click)="start()"
+>
+  <span aria-hidden="true">?</span>
+  {{ t(completed() ? 'replay' : started() ? 'resume' : 'launch') }}
+</button>
+<dialog
+  #dialog
+  data-og7="admin-guide"
+  [attr.data-og7-id]="guideId()"
+  [attr.aria-labelledby]="'guide-title-' + guideId()"
+  [attr.aria-describedby]="'guide-body-' + guideId()"
+  (cancel)="quit($event)"
+  (keydown)="keydown($event)"
+>
+  @if (rectangle(); as rect) {
+    <div
+      class="spotlight"
+      data-og7="guide-highlight"
+      aria-hidden="true"
+      [attr.data-og7-id]="current()?.target"
+      [style.top.px]="rect.top"
+      [style.left.px]="rect.left"
+      [style.width.px]="rect.width"
+      [style.height.px]="rect.height"
+    ></div>
+  } @else {
+    <div class="shade" aria-hidden="true"></div>
+  }
+  <section
+    #card
+    class="card"
+    [class.at-top]="cardAtTop()"
+    data-og7="guide-card"
+    [attr.data-og7-id]="current()?.id"
+  >
+    <div class="heading">
+      <span>{{ t('title') }}</span>
+      <button type="button" class="quit" (click)="quit()">
+        {{ t('quit') }}
+      </button>
+    </div>
+    <div aria-live="polite" aria-atomic="true">
+      <p class="progress">
+        {{ t('step') }} {{ index() + 1 }} / {{ steps().length }}
+      </p>
+      <h2 [id]="'guide-title-' + guideId()">{{ text('title') }}</h2>
+      <p [id]="'guide-body-' + guideId()">{{ text('body') }}</p>
+      @if (targetMissing()) {
+        <p class="notice">{{ t('missing') }}</p>
+      }
+    </div>
+    <p class="hint">
+      {{ t(storageAvailable() ? 'saved' : 'storageUnavailable') }}
+    </p>
+    <footer>
+      <button type="button" (click)="previous()" [disabled]="index() === 0">
+        {{ t('previous') }}
+      </button>
+      <button #advance type="button" class="primary" (click)="next()">
+        {{ t(last() ? 'understood' : 'next') }}
+      </button>
+    </footer>
+  </section>
+</dialog>

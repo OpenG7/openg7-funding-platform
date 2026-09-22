@@ -1974,6 +1974,88 @@
         "DESTINATION_CHANGED": "The authorized destination has changed.",
         "RESULT_UNKNOWN": "This sending result requires human investigation."
       }
+    },
+    "guide": {
+      "title": "Step-by-step guide",
+      "launch": "Step-by-step guide",
+      "resume": "Resume guide",
+      "replay": "Review guide",
+      "quit": "Exit guide",
+      "previous": "Previous",
+      "next": "Next",
+      "understood": "Got it",
+      "step": "Step",
+      "saved": "Your step is saved in this browser. You can exit and resume later.",
+      "storageUnavailable": "This browser cannot save your progress. It remains available while this page stays open.",
+      "missing": "This element is not displayed in the current view. You can continue the guide and return to this step when a record is available.",
+      "pilotage": {
+        "automation": {
+          "title": "Check what the machine is preparing",
+          "body": "Check this indicator to see whether the worker and automatic preparation are active. The machine prepares eligible records based on payments and consent. Your approval is still required before anything is sent."
+        },
+        "domains": {
+          "title": "Choose a workspace",
+          "body": "Use these categories to filter decisions: publications, sponsors, email or operations. Return to the control desk to see all areas. The counters show available decisions."
+        },
+        "decision": {
+          "title": "Review the proposed record",
+          "body": "Read the central card and check its image, destination and date. The guide explains controls without activating them. If the record changes while you read, the control desk will ask you to review its new version."
+        },
+        "summary": {
+          "title": "Understand the decision",
+          "body": "Read the three summaries: Situation explains the current state, Proposal describes the suggested action, and Consequence states its effect. Any blocking issue must be resolved before approval."
+        },
+        "details": {
+          "title": "Inspect the relevant details",
+          "body": "After the guide, use Details to review the sponsors and record information. Open the full portal when a correction or a deeper investigation is needed."
+        },
+        "actions": {
+          "title": "Accept, reject or edit",
+          "body": "Accept opens a confirmation of the target and its effect. For a publication, it may also approve the listed sponsors without making their profiles public. You can reject or edit according to your permissions; an edit requires fresh approval."
+        },
+        "queue": {
+          "title": "Move to the next record",
+          "body": "Select a card in Up next to change the current decision. LB and RB also move through the queue. Selecting a record does not approve it."
+        },
+        "week": {
+          "title": "Prepare your week",
+          "body": "Open My week after this guide to read the briefing, compose a calendar and preview publications. A second guide covers text variants, preferences and incidents."
+        },
+        "calendar": {
+          "title": "Consult the calendar",
+          "body": "Open the calendar to see publications over time and inspect a record. A proposed time or a rescheduled publication does not grant permission to send it."
+        },
+        "controller": {
+          "title": "Choose your controls",
+          "body": "Use this button to check the connection and configure the controller. Keyboard and mouse remain available. With the default profile, during the guide, LB/RB change steps, A activates the selected button, and B exits. Got it only completes the guide."
+        }
+      },
+      "programme": {
+        "brief": {
+          "title": "Start with the briefing",
+          "body": "Review ready drafts, approved publications and incidents. The five-minute session helps you work through priorities. The last scheduled date does not guarantee that every day is covered."
+        },
+        "calendar": {
+          "title": "Compose and review the week",
+          "body": "Choose the destination and cadence, then request a proposal. Review dates, conflicts and repetitions before confirming changes. Approved publications remain fixed unless you explicitly include them; moving them requires fresh approval."
+        },
+        "rehearsal": {
+          "title": "Watch publications in sequence",
+          "body": "Use the rehearsal to review text, images, destinations and dates, including proposed changes. This preview is a simulation: it does not publish to your networks."
+        },
+        "editorial": {
+          "title": "Request a text variant",
+          "body": "Select a publication and an intention: shorten, neutral tone, project first or LinkedIn introduction. Compare the before and after text, then choose whether to keep the variant. Saving requires confirmation and fresh approval before sending."
+        },
+        "memory": {
+          "title": "Set your preferences",
+          "body": "Enable the rules you want applied to future preparation for this destination. Repeated edits can suggest a preference; it stays inactive without your confirmation. Existing human edits are preserved."
+        },
+        "incidents": {
+          "title": "Resolve blocking issues",
+          "body": "Review the reasons related to payments, consent or other requirements. When a replacement batch is available, check the removed and added sponsors before confirming it. An uncertain delivery requires investigating the record."
+        }
+      }
     }
   },
   "funding": {

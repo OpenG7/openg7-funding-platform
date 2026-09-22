@@ -5,7 +5,12 @@
       >OpenG7 <span aria-hidden="true">🍁</span></a
     >
     <span class="fund-name">{{ t('fund') }}</span>
-    <button class="connection" type="button" (click)="open('settings')">
+    <button
+      class="connection"
+      data-og7="pilot-controller"
+      type="button"
+      (click)="open('settings')"
+    >
       <span aria-hidden="true">◉</span
       >{{
         t(
@@ -36,7 +41,7 @@
     </button>
   </header>
   <aside class="rail">
-    <nav [attr.aria-label]="t('navigation')">
+    <nav data-og7="pilot-domains" [attr.aria-label]="t('navigation')">
       <button
         type="button"
         [class.active]="domain() === ''"
@@ -56,7 +61,7 @@
           }}<small>{{ state()?.domains?.[d.id] ?? '' }}</small>
         </button>
       }
-      <button type="button" (click)="openCalendar()">
+      <button type="button" data-og7="pilot-calendar" (click)="openCalendar()">
         <openg7-admin-icon name="clock" />{{ t('calendar') }}
       </button>
       <button type="button" (click)="open('settings')">
@@ -87,8 +92,17 @@
         >
           {{ t('programme') }}
         </button>
+        <openg7-admin-guide
+          guideId="pilotage"
+          [accountId]="admin.identity()?.id ?? 'token'"
+          [steps]="guideSteps"
+          [disabled]="
+            busy() || loading() || !!panel() || !!inspection.current()
+          "
+          (activeChanged)="controller.reset()"
+        />
       </div>
-      <div class="automation">
+      <div class="automation" data-og7="pilot-automation">
         <strong
           ><i class="dot" [class.online]="state()?.workerEnabled"></i
           >{{
@@ -273,7 +287,7 @@
                 t('inspectHelp')
             }}
           </div>
-          <div class="decision-summary">
+          <div class="decision-summary" data-og7="pilot-summary">
             <section>
               <openg7-admin-icon name="publications" />
               <div>
@@ -305,7 +319,7 @@
             </section>
           </div>
         </article>
-        <aside class="up-next">
+        <aside class="up-next" data-og7="pilot-queue">
           <div class="queue-heading">
             <h2>{{ t('following') }}</h2>
             <span>{{ state()?.page }} / {{ pageCount() }}</span>
@@ -373,7 +387,7 @@
       </section>
     }
     <footer class="controls" [attr.aria-label]="t('controls')">
-      <div class="face-buttons">
+      <div class="face-buttons" data-og7="pilot-actions">
         <button
           type="button"
           data-og7="pilot-accept"

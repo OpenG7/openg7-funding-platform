@@ -8,7 +8,8 @@ import {
   inject,
   input,
   output,
-  signal
+  signal,
+  viewChild
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -26,6 +27,9 @@ import {
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminGuideComponent } from '../admin-guide/admin-guide.component.js';
+
+import { PROGRAMME_GUIDE } from './pilotage-guides.js';
 
 export type ProgrammeCommand = Pick<
   PilotCommand,
@@ -37,7 +41,7 @@ type View =
 @Component({
   selector: 'openg7-editorial-programme',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, AdminGuideComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './editorial-programme.component.html',
   styleUrl: './editorial-programme.component.css'
@@ -49,6 +53,9 @@ export class EditorialProgrammeComponent {
   readonly review = output<string>();
   readonly session = output<void>();
   readonly contextChanged = output<void>();
+  readonly guide = viewChild(AdminGuideComponent);
+  readonly guideSteps = PROGRAMME_GUIDE;
+  private guidePreviousView: View | null = null;
   readonly admin = inject(FundingAdminService);
   readonly i18n = inject(FundingI18nService);
   private readonly document = inject(DOCUMENT);
@@ -146,6 +153,22 @@ export class EditorialProgrammeComponent {
   }
   t(key: string): string {
     return this.i18n.t('admin.programme.' + key);
+  }
+  guideActive(active: boolean): void {
+    if (active && this.guidePreviousView === null)
+      this.guidePreviousView = this.view();
+    if (!active && this.guidePreviousView !== null) {
+      this.view.set(this.guidePreviousView);
+      this.guidePreviousView = null;
+    }
+    this.contextChanged.emit();
+  }
+  guideStep(id: string): void {
+    if (this.views.includes(id as View)) {
+      // Presentation only: preserve proposals, fields and pending edits.
+      this.view.set(id as View);
+      if (id === 'rehearsal') void this.preview();
+    }
   }
   label(code: string): string {
     for (const prefix of [

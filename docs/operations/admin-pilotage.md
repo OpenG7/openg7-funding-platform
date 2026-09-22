@@ -9,6 +9,38 @@ répétition générale, variantes de texte, préférences éditoriales et solut
 aux incidents. Les contrats, la migration 025 et les limites sont décrits dans
 le [runbook éditorial](editorial-programme.md).
 
+## Guides interactifs
+
+Le bouton **Guide pas à pas** du poste de pilotage présente dix repères :
+préparation automatique, espaces, dossier, situation/proposition/conséquence,
+détails, décisions, file, semaine, calendrier et manette. Dans **Ma semaine**,
+un second guide parcourt les six outils en ouvrant leur vue. Ces guides sont
+volontaires et consultables aussi en lecture seule. Ils expliquent les contrôles
+sans les activer, sans envoyer de commande métier ni confirmer une publication.
+
+Chaque étape met son élément en évidence et propose **Précédent**, **Suivant**
+ou **J’ai compris** à la fin. **Quitter le guide** et Échap ferment uniquement
+le guide et rendent le focus au bouton de départ. Dans Ma semaine, la vue
+initiale et les saisies non enregistrées sont préservées tant que le panneau
+reste ouvert. Tab/Entrée et les flèches gauche/droite fonctionnent au clavier.
+À la manette, LB/RB changent d'étape, A active le bouton sélectionné, B quitte;
+les autres raccourcis métier sont neutralisés pendant le guide. Chaque changement
+d'étape exige le retour au neutre habituel.
+
+La progression (identifiant d'étape et fin du guide) est conservée dans
+`localStorage`, par guide, version du parcours et compte OIDC. Le mode token
+partage une progression locale entre ses utilisateurs. Aucun contenu de dossier
+ou secret n'est enregistré. Le bouton devient **Reprendre le guide**, puis
+**Revoir le guide** une fois terminé. La reprise est volontaire, jamais ouverte
+automatiquement. Elle reste limitée à ce navigateur; pas de synchronisation
+entre appareils. Un stockage indisponible est signalé et garde seulement la
+progression en mémoire. Un élément absent est expliqué sans bloquer le parcours.
+
+La recette `admin-pilotage.spec.ts` couvre reprise après rechargement, fin et
+relecture, isolation des comptes, absence de commande métier, priorité manette,
+focus, panneaux imbriqués, stockage indisponible, état vide, FR/EN,
+accessibilité et redimensionnement. La qualification physique reste distincte.
+
 ## Parcours disponibles
 
 | Espace                    | Dans le pilotage                                                                                                                        | Dossier complet                                                                             |

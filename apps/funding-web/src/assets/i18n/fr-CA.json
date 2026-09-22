@@ -1970,6 +1970,88 @@
         "DESTINATION_CHANGED": "La destination autorisée a changé.",
         "RESULT_UNKNOWN": "Le résultat de cet envoi nécessite une vérification humaine."
       }
+    },
+    "guide": {
+      "title": "Guide pas à pas",
+      "launch": "Guide pas à pas",
+      "resume": "Reprendre le guide",
+      "replay": "Revoir le guide",
+      "quit": "Quitter le guide",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "understood": "J’ai compris",
+      "step": "Étape",
+      "saved": "Votre étape est conservée dans ce navigateur. Vous pouvez quitter et reprendre plus tard.",
+      "storageUnavailable": "Le navigateur ne permet pas de sauvegarder votre progression. Elle reste disponible tant que cette page est ouverte.",
+      "missing": "Cet élément n’est pas affiché dans la vue actuelle. Vous pouvez continuer le guide et revenir à cette étape quand un dossier sera disponible.",
+      "pilotage": {
+        "automation": {
+          "title": "Vérifier ce que prépare la machine",
+          "body": "Consultez cet indicateur pour savoir si le moteur et la préparation automatique sont actifs. La machine prépare les dossiers admissibles selon les paiements et consentements. Votre validation reste nécessaire avant un envoi."
+        },
+        "domains": {
+          "title": "Choisir un espace de travail",
+          "body": "Utilisez ces catégories pour filtrer les décisions : publications, commanditaires, courriels ou opérations. Revenez au Poste de pilotage pour retrouver tous les espaces. Les compteurs indiquent les décisions disponibles."
+        },
+        "decision": {
+          "title": "Examiner le dossier proposé",
+          "body": "Lisez le contenu de la carte centrale et vérifiez son visuel, sa destination et sa date. Le guide présente les commandes sans les exécuter. Si le dossier change pendant votre lecture, le pilotage vous demandera de relire sa nouvelle version."
+        },
+        "summary": {
+          "title": "Comprendre la décision",
+          "body": "Lisez les trois repères : Situation explique l’état actuel, Proposition indique l’action suggérée et Conséquence annonce son effet. Un blocage doit être résolu avant de pouvoir accepter."
+        },
+        "details": {
+          "title": "Consulter les détails utiles",
+          "body": "Après le guide, utilisez Détails pour examiner les commanditaires et les informations du dossier. Vous pourrez ouvrir le portail complet si une correction ou une investigation plus approfondie est nécessaire."
+        },
+        "actions": {
+          "title": "Accepter, refuser ou modifier",
+          "body": "Accepter ouvre une confirmation de la cible et de son effet. Pour une publication, cette validation peut aussi approuver les commanditaires indiqués, sans rendre leur fiche publique. Refuser ou modifier reste possible selon vos droits ; une modification demande une nouvelle approbation."
+        },
+        "queue": {
+          "title": "Passer au prochain dossier",
+          "body": "Choisissez une carte dans À suivre pour changer de décision. Les commandes LB et RB permettent aussi de parcourir la file. La sélection d’un dossier ne l’approuve pas."
+        },
+        "week": {
+          "title": "Préparer votre semaine",
+          "body": "Ouvrez Ma semaine après ce guide pour consulter le briefing, composer un calendrier et prévisualiser les publications. Vous y trouverez un second guide pour les variantes de texte, préférences et incidents."
+        },
+        "calendar": {
+          "title": "Consulter le calendrier",
+          "body": "Ouvrez le calendrier pour situer les publications dans le temps et consulter un dossier. Un créneau proposé ou un déplacement n’équivaut pas à une autorisation d’envoi."
+        },
+        "controller": {
+          "title": "Choisir vos commandes",
+          "body": "Ce bouton permet de vérifier la connexion et de régler la manette. Le clavier et la souris restent disponibles. Avec le profil par défaut, pendant le guide, LB/RB changent d’étape, A active le bouton sélectionné et B quitte. J’ai compris termine uniquement le guide."
+        }
+      },
+      "programme": {
+        "brief": {
+          "title": "Commencer par le briefing",
+          "body": "Repérez les brouillons prêts, les publications autorisées et les incidents. La session de cinq minutes vous aide à traiter les priorités. La dernière date programmée ne garantit pas que tous les jours sont couverts."
+        },
+        "calendar": {
+          "title": "Composer puis revoir la semaine",
+          "body": "Choisissez la destination et une cadence, puis demandez une proposition. Vérifiez les dates, les collisions et les répétitions avant de confirmer les changements. Les publications déjà autorisées restent fixes sauf si vous les incluez explicitement ; leur déplacement exige une nouvelle approbation."
+        },
+        "rehearsal": {
+          "title": "Voir les publications se succéder",
+          "body": "Parcourez la répétition générale pour vérifier les textes, visuels, destinations et dates, y compris les changements encore proposés. Cet aperçu est une simulation : il ne publie rien sur vos réseaux."
+        },
+        "editorial": {
+          "title": "Demander une variante de texte",
+          "body": "Sélectionnez une publication et une intention : raccourcir, ton neutre, projet en premier ou introduction LinkedIn. Comparez le texte avant et après, puis choisissez de conserver la variante. L’enregistrement nécessite une confirmation et une nouvelle approbation avant envoi."
+        },
+        "memory": {
+          "title": "Définir vos préférences",
+          "body": "Activez les règles que vous souhaitez appliquer aux prochaines préparations de cette destination. Les corrections répétées peuvent suggérer une préférence ; elle reste inactive sans votre confirmation. Les modifications humaines existantes sont préservées."
+        },
+        "incidents": {
+          "title": "Résoudre les blocages",
+          "body": "Examinez les raisons liées aux paiements, consentements ou autres conditions. Quand une recomposition est disponible, vérifiez les commanditaires retirés et ajoutés avant de la confirmer. Un envoi au résultat incertain exige une investigation du dossier."
+        }
+      }
     }
   },
   "funding": {
