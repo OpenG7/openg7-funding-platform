@@ -18,6 +18,206 @@ function guideLaunch(page: Page, id = 'pilotage') {
   return page.locator(`[data-og7="guide-launch"][data-og7-id="${id}"]`);
 }
 
+function overviewCount(page: Page, label: string) {
+  return page
+    .locator('[data-og7="pilot-overview"] > div')
+    .filter({ has: page.getByRole('term').filter({ hasText: label }) })
+    .getByRole('definition')
+    .first();
+}
+
+test('overview counts confirmed decisions and opened details for this visit only', async ({
+  page
+}) => {
+  const { commands, hold } = await fixtures(page);
+  await page.goto('/admin/fundraiser/pilotage');
+  const pending = overviewCount(page, 'À examiner');
+  const done = overviewCount(page, 'décisions traitées');
+  const details = overviewCount(page, 'dossiers ouverts');
+  await expect(pending).toHaveText('4');
+  await expect(done).toHaveText('0');
+  await expect(details).toHaveText('0');
+  await page.locator('[data-og7="pilot-details"]').click();
+  await expect(details).toHaveText('1');
+  await page.keyboard.press('Escape');
+  await page.locator('[data-og7="pilot-accept"]').click();
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
+  await expect(done).toHaveText('0');
+  await page.keyboard.press('Escape');
+  expect(commands).toHaveLength(0);
+  await expect(pending).toHaveText('4');
+  await page.locator('[data-og7="pilot-accept"]').click();
+  const release = hold();
+  try {
+    await page.locator('[data-og7="pilot-confirm"]').click();
+    await expect.poll(() => commands.length).toBe(1);
+    await expect(page.locator('[data-og7="pilot-confirm"]')).toBeDisabled();
+    await expect(done).toHaveText('0');
+    await expect(pending).toHaveText('4');
+  } finally {
+    release();
+  }
+  await expect(done).toHaveText('1');
+  await expect(pending).toHaveText('3');
+  expect(commands).toHaveLength(1);
+  expect(commands[0]).toEqual({
+    requestId: expect.any(String),
+    action: 'publication.approve',
+    targetId: '11111111-1111-4111-8111-000000000001',
+    version: '1',
+    confirmation: '11111111-1111-4111-8111-000000000001',
+    payload: { approveSponsors: [] }
+  });
+  await page.reload();
+  await expect(pending).toHaveText('3');
+  await expect(done).toHaveText('0');
+  await expect(details).toHaveText('0');
+  expect(commands).toHaveLength(1);
+});
+
+for (const status of ['failed', 'uncertain'] as const) {
+  test(`overview never counts a ${status} receipt as a processed decision`, async ({
+    page
+  }) => {
+    const f = await fixtures(page);
+    f.result(status);
+    await page.goto('/admin/fundraiser/pilotage');
+    await page.locator('[data-og7="pilot-accept"]').click();
+    const response = page.waitForResponse('**/api/admin/pilotage/command');
+    await page.locator('[data-og7="pilot-confirm"]').click();
+    expect(await (await response).json()).toMatchObject({ status });
+    await expect(
+      page.locator('[data-og7="pilot-panel-confirm"]')
+    ).not.toBeVisible();
+    if (status === 'uncertain')
+      await expect(
+        page.getByRole('button', { name: 'Examiner cet incident' })
+      ).toBeVisible();
+    else await expect(page.locator('[data-og7="pilot-accept"]')).toBeEnabled();
+    await expect(page.locator('[data-og7="pilot-receipt"]')).not.toBeVisible();
+    await expect(overviewCount(page, 'décisions traitées')).toHaveText('0');
+    await expect(overviewCount(page, 'À examiner')).toHaveText('4');
+    expect(f.commands).toHaveLength(1);
+  });
+}
+
+test('empty overview and unavailable actions remain clear in French and English', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page, 0);
+  await page.goto('/admin/fundraiser/pilotage');
+  await expect(overviewCount(page, 'À examiner')).toHaveText('0');
+  await expect(overviewCount(page, 'décisions traitées')).toHaveText('0');
+  await expect(overviewCount(page, 'dossiers ouverts')).toHaveText('0');
+  await page.evaluate(() => localStorage.setItem('openg7.language', 'en'));
+  await page.reload();
+  await expect(overviewCount(page, 'To review')).toHaveText('0');
+  await expect(overviewCount(page, 'decisions processed')).toHaveText('0');
+  await expect(overviewCount(page, 'details opened')).toHaveText('0');
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveCount(0);
+  for (const action of ['accept', 'reject', 'edit', 'details'])
+    await expect(page.locator(`[data-og7="pilot-${action}"]`)).toBeDisabled();
+  expect(commands).toEqual([]);
+});
+
+for (const width of [390, 1512]) {
+  test(`actions stay reachable while scrolling and preserve keyboard confirmation at ${width}px`, async ({
+    page
+  }) => {
+    const { commands, state } = await fixtures(page);
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/admin/fundraiser/pilotage');
+    const card = page.locator('[data-og7="pilot-decision"]');
+    await expect(card).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+    for (const progress of [0, 0.5, 1]) {
+      await page.evaluate(
+        (fraction) =>
+          window.scrollTo({
+            top:
+              (document.documentElement.scrollHeight - innerHeight) * fraction,
+            behavior: 'instant'
+          }),
+        progress
+      );
+      for (const action of ['accept', 'reject', 'edit', 'details']) {
+        const button = page.locator(`[data-og7="pilot-${action}"]`);
+        await expect(button).toBeInViewport({ ratio: 1 });
+        // Visibility alone does not detect another sticky surface covering it.
+        await expect
+          .poll(() =>
+            button.evaluate((element) => {
+              const rect = element.getBoundingClientRect();
+              return element.contains(
+                document.elementFromPoint(
+                  rect.x + rect.width / 2,
+                  rect.y + rect.height / 2
+                )
+              );
+            })
+          )
+          .toBe(true);
+      }
+    }
+    const accept = page.locator('[data-og7="pilot-accept"]');
+    await accept.focus();
+    for (const action of ['reject', 'edit', 'details']) {
+      await page.keyboard.press('Tab');
+      await expect(page.locator(`[data-og7="pilot-${action}"]`)).toBeFocused();
+    }
+    await page.keyboard.press('Enter');
+    await expect(
+      page.locator('[data-og7="pilot-panel-details"]')
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-og7="pilot-details"]')).toBeFocused();
+    for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+Tab');
+    await expect(accept).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(
+      page.locator('[data-og7="pilot-panel-confirm"]')
+    ).toContainText(state.decisions[0]!.title);
+    expect(commands).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(accept).toBeFocused();
+    await expect(card).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+  });
+}
+
+test('reduced motion keeps the mobile overview, preview and actions accessible', async ({
+  page
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixtures(page);
+  await page.goto('/admin/fundraiser/pilotage');
+  const pilotage = page.locator('[data-og7="pilotage"]');
+  await expect(page.locator('[data-og7="pilot-decision"] img')).toBeVisible();
+  expect(
+    await pilotage.evaluate(
+      (element) =>
+        element
+          .getAnimations({ subtree: true })
+          .filter(
+            (animation) =>
+              animation.playState === 'running' &&
+              Number(animation.effect?.getComputedTiming().activeDuration) > 1
+          ).length
+    )
+  ).toBe(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth
+    )
+  ).toBe(true);
+  const results = await new AxeBuilder({ page })
+    .include('[data-og7="pilotage"]')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(results.violations).toEqual([]);
+  await page.locator('[data-og7="pilot-details"]').click();
+  await expect(page.locator('[data-og7="pilot-panel-details"]')).toBeVisible();
+});
+
 test('guide explains real targets, resumes after reload and remembers completion without commands', async ({
   page
 }) => {
@@ -410,7 +610,8 @@ async function fixtures(page: Page, count = 4) {
   );
   const results = new Map<string, object>();
   let fail = false;
-  let uncertain = false;
+  let commandGate: Promise<void> | undefined;
+  let status: 'completed' | 'failed' | 'uncertain' = 'completed';
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.includes('/media/content/'))
@@ -432,26 +633,29 @@ async function fixtures(page: Page, count = 4) {
     if (url.pathname.endsWith('/pilotage/command')) {
       const c = route.request().postDataJSON() as PilotCommand;
       commands.push(c);
+      await commandGate;
       const r = {
         requestId: c.requestId,
         action: c.action,
         targetId: c.targetId,
-        status: uncertain ? 'uncertain' : 'completed',
+        status,
         code:
-          c.action === 'publication.approve'
-            ? 'SCHEDULED'
-            : c.action === 'publication.reject'
-              ? 'REJECTED'
-              : 'SAVED'
+          status !== 'completed'
+            ? 'RESULT_UNKNOWN'
+            : c.action === 'publication.approve'
+              ? 'SCHEDULED'
+              : c.action === 'publication.reject'
+                ? 'REJECTED'
+                : 'SAVED'
       };
       results.set(c.requestId, r);
-      if (c.action === 'publication.edit') {
+      if (status === 'completed' && c.action === 'publication.edit') {
         const d = state.decisions.find((d) => d.targetId === c.targetId)!;
         d.version = String(Number(d.version) + 1);
         d.title = c.payload!.message!;
         d.publication!.message = c.payload!.message!;
         d.publication!.scheduledAt = c.payload!.scheduledAt!;
-      } else
+      } else if (status === 'completed')
         state.decisions = state.decisions.filter(
           (d) => d.targetId !== c.targetId
         );
@@ -492,8 +696,18 @@ async function fixtures(page: Page, count = 4) {
   return {
     state,
     commands,
+    hold: () => {
+      let release!: () => void;
+      commandGate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return release;
+    },
     uncertain: () => {
-      uncertain = true;
+      status = 'uncertain';
+    },
+    result: (value: typeof status) => {
+      status = value;
     },
     fail: () => {
       fail = true;
@@ -605,6 +819,11 @@ test('lost response recovers its receipt without replaying a command, including 
   expect(f.commands).toHaveLength(1);
   await page.reload();
   await expect(page.locator('[data-og7="pilot-receipt"]')).toBeVisible();
+  expect(f.commands).toHaveLength(1);
+  await expect(overviewCount(page, 'décisions traitées')).toHaveText('1');
+  await expect(overviewCount(page, 'À examiner')).toHaveText('3');
+  await page.reload();
+  await expect(overviewCount(page, 'décisions traitées')).toHaveText('0');
   expect(f.commands).toHaveLength(1);
 });
 test('stable snapshot blocks stale decisions; focus, accessibility and narrow screen remain usable', async ({

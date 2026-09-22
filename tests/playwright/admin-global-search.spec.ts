@@ -140,8 +140,21 @@ async function fixtures(page: Page) {
         }
       });
     }
+    if (url.pathname.endsWith('/sponsorships'))
+      return route.fulfill({
+        json: {
+          sponsorships: [],
+          pagination: {
+            page: 1,
+            pageSize: 25,
+            totalItems: 0,
+            totalPages: 1,
+            hasPreviousPage: false,
+            hasNextPage: false
+          }
+        }
+      });
     for (const [path, key] of [
-      ['sponsorships', 'sponsorships'],
       ['publication-batches', 'batches'],
       ['publication-slots', 'slots'],
       ['social-publication-jobs', 'jobs']

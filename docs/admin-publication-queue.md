@@ -20,7 +20,12 @@ clavier, ouverture dans un autre onglet et historique du navigateur fonctionnent
 Le focus rejoint le titre après un changement de page, ou l’objet ciblé lorsqu’un
 lien direct est utilisé. Les routes restent protégées par la session admin.
 
-Dans Rédaction et validation, « Préparer une publication » ouvre le choix d’une commandite. Les formulaires
+Dans Rédaction et validation, « Préparer une publication » ouvre le choix d’une commandite.
+Le chargement parcourt toutes les pages de commandites approuvées et payées,
+par groupes de 25, avant d'afficher celles qui ont un consentement public et une
+cible avec au moins un canal. Une erreur sur une page affiche l'état d'erreur
+avec possibilité d'actualiser, sans présenter une liste partielle comme complète.
+Les formulaires
 de nouveau lot et de nouveau créneau restent fermés jusqu’à leur ouverture
 explicite. Les brouillons affichent un résumé et un bouton « Ouvrir » ; les lots
 et créneaux se consultent dans une grille mensuelle. Un seul éditeur peut être

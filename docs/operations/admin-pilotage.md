@@ -144,6 +144,22 @@ Playwright exerce 20 décisions à la manette simulée, édition, refus, calendr
 réponse perdue, rechargement, focus, version périmée, accessibilité et vue étroite.
 Les mesures de session (décisions, détails, sorties portail) restent en mémoire.
 
+`tests/playwright/admin-pilotage.spec.ts` vérifie aussi les compteurs avant le
+reçu serveur, après annulation, échec ou résultat incertain, puis leur remise à
+zéro au rechargement. Les commandes restent accessibles au clavier et pendant
+le défilement sur mobile et desktop; le mode de mouvement réduit et l'état vide
+FR/EN sont couverts avec des réponses API simulées.
+
+`tests/playwright/admin-pilotage-acceptance.spec.ts` utilise la pile Docker
+jetable : navigateur, API et PostgreSQL réels. Deux parcours vérifient la
+confirmation d'un brouillon synthétique, son reçu, son audit et sa persistance,
+dont une réponse perdue après exécution serveur, récupérée sans seconde commande.
+Ils exercent aussi la validation du contrat : les métadonnées d'affichage du
+panneau, comme son titre, restent côté client.
+Ils exigent le runner isolé, le worker désactivé et une destination suspendue en
+mode `mock`. Le fournisseur social reste simulé; l'approbation ne prouve pas un
+envoi externe. Le workflow `Admin acceptance` découvre ces tests automatiquement.
+
 Commandes de recette :
 
 ```sh
@@ -152,6 +168,7 @@ yarn build
 node --test tests/admin-controller.test.mjs tests/integration/admin-pilotage.integration.mjs
 yarn tsc -p tests/tsconfig.admin-ui.json
 yarn playwright test --config tests/playwright-admin-ui.config.mjs admin-pilotage.spec.ts
+yarn test:e2e:acceptance admin-pilotage-acceptance.spec.ts --project=chromium
 ```
 
 Le build Angular efface la sortie TypeScript des helpers Web; relancer `yarn build`
