@@ -98,6 +98,71 @@ Les choix de période, l’export CSV, le partage et les versements du scénario
 restent hors du périmètre de cette recette. Les fournisseurs réels et les autres
 navigateurs ne sont pas qualifiés par cette exécution.
 
+## Recette des remboursements et avoirs
+
+```sh
+yarn test:e2e:acceptance refund-journey-acceptance.spec.ts admin-refund-integrity.spec.ts funding-accounting-integrity.spec.ts --project=chromium
+```
+
+La recette `refund-journey-acceptance.spec.ts` utilise le même runner jetable,
+l’API et PostgreSQL réels, les webhooks signés et les workers, sans interception
+des requêtes applicatives. Stripe et SMTP sont simulés. Deux commandites de
+500 CAD sont payées depuis le formulaire et Checkout : l’une est remboursée
+en deux opérations de 200 puis 300 CAD, l’autre en une seule de 500 CAD.
+Les frais synthétiques de 10 CAD restent acquis au fournisseur simulé : après
+remboursement intégral, la variation du disponible est donc de −10 CAD. Ce
+montant ne représente pas un tarif Stripe réel.
+
+Le navigateur saisit les montants, confirme la référence et demande les courriels.
+La recette compare le journal exposé par Transparence avec les résumés
+administratifs après chaque confirmation Stripe. Elle vérifie la conservation
+de la facture originale, les montants et libellés des avoirs, leurs téléchargements
+PDF authentifiés et leur livraison unique capturée dans Mailpit. Elle contrôle
+aussi l’audit, l’export JSON public sans référence privée, et les refus suivants :
+absence d’authentification, mauvaise confirmation, fraction de cent, version
+périmée et tentative après remboursement intégral. Après 200 CAD, une demande
+de 400 CAD échoue chez le fournisseur simulé sans avoir supplémentaire ; le
+remboursement valide des 300 CAD restants permet ensuite de reprendre le parcours.
+
+Les confirmations de paiement et de remboursement sont rejouées avec les mêmes
+identifiants d’événement, sans doubler les montants ni les documents. Le simulateur
+fournit une écriture de solde propre à chaque remboursement et présente les
+remboursements du plus récent au plus ancien.
+
+La première exécution a révélé une collision de numéros : le second remboursement
+réussissait chez Stripe mais son avoir reprenait le numéro du premier. Les nouveaux
+numéros incluent désormais un suffixe déterministe propre au remboursement.
+Les tests PostgreSQL de `sponsorship-credit-notes.integration.mjs` vérifient les
+avoirs multiples, les rejeux simultanés de leur création, les préfixes de facture
+standards ou personnalisés et la conservation d’un avoir historique. Les documents
+existants ne sont ni renumérotés ni réécrits. Les nouveaux avoirs partiels indiquent
+le montant crédité, au lieu de prétendre annuler toute la facture ; une surcharge
+de `FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE` garde toutefois son texte configuré.
+
+Cette recette cible les scénarios 28, 29, 30 et 61 de
+l’[inventaire](development/end-to-end-scenarios-inventory.md), la création et le
+PDF de facture du scénario 25, ainsi que les totaux et l’export JSON du scénario 59.
+La version périmée est testée par soumissions successives, pas par une course
+parallèle. Les remboursements Stripe en attente, les pertes de réponse réseau,
+les événements distincts décrivant le même remboursement et les fournisseurs
+réels restent hors de cette preuve. Le formulaire propose encore le montant
+initial, sans calcul du solde restant ; le fournisseur refuse le dépassement.
+Après plusieurs remboursements partiels, le statut intégral dépend du webhook
+cumulatif. Aucun retrait de reconnaissance publique n’est qualifié ici.
+
+Exécution du 23 septembre 2026 (America/Toronto), sur `7eb9157` avec les changements
+locaux de cette recette : **7 tests Chromium réussis**, dont les deux variantes
+ci-dessus, les deux tests d’intégrité des remboursements et les trois tests
+d’intégrité comptable. Aucun échec, test ignoré ou instable dans l’exécution finale.
+Les captures, les cinq PDF téléchargés et les deux rapports JSON du parcours sont
+conservés sous `test-results/acceptance/`. La pile jetable est supprimée après la
+recette. Les contrôles complémentaires passent : **290 tests Node**, **31 tests
+d’intégration PostgreSQL** des suites `sponsorship-credit-notes`,
+`funding-payment-trust`, `stripe-event-recovery` et `funding-transparency`,
+compilation TypeScript, lint, format ciblé et contrôles documentaires. Le lint
+conserve un avertissement préexistant dans `scripts/smoke-public.mjs` ; le build
+Angular conserve son avertissement de budget initial de 813,77 ko pour 800 ko.
+
 ## Vérifications locales isolées
 
 ```sh

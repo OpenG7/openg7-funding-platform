@@ -119,7 +119,9 @@ const chargeObject = (record, { expandBalanceTransaction, expandPaymentIntent } 
       : record.balanceTransactionId,
   refunds: {
     object: 'list',
-    data: record.refundIds.map((id) => refundObject(state.refunds.get(id))),
+    data: [...record.refundIds]
+      .reverse()
+      .map((id) => refundObject(state.refunds.get(id))),
     has_more: false,
     url: `/v1/charges/${record.id}/refunds`
   },
@@ -153,6 +155,7 @@ const refundObject = (record) => ({
   payment_intent: record.paymentIntentId,
   charge: record.chargeId,
   reason: record.reason,
+  balance_transaction: record.balanceTransactionId ?? null,
   created: record.created
 });
 
@@ -411,9 +414,20 @@ const handleCreateRefund = async (request, response) => {
     paymentIntentId: charge.paymentIntentId,
     chargeId: charge.id,
     reason: body.reason ?? null,
+    balanceTransactionId: randomId('txn_refund'),
     created: nowSeconds()
   };
   state.refunds.set(refund.id, refund);
+  state.balanceTransactions.set(refund.balanceTransactionId, {
+    id: refund.balanceTransactionId,
+    amount: -requestedAmount,
+    fee: 0,
+    net: -requestedAmount,
+    currency: charge.currency,
+    status: 'available',
+    created: refund.created,
+    type: 'refund'
+  });
   charge.amountRefunded += requestedAmount;
   charge.refundIds.push(refund.id);
 

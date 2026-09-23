@@ -25,6 +25,14 @@ Facebook et LinkedIn simulés**. La recette cible les scénarios 6, 11, 18, 20,
 La visibilité de la fiche Web reste une décision distincte des envois sociaux.
 Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--commandite-de-500-cad-et-deux-destinations).
 
+Troisième priorité testée le 23 septembre 2026 : **remboursements partiels puis
+intégral → avoirs et courriels → totaux et transparence**. Les variantes 200 puis
+300 CAD et 500 CAD en une fois passent avec fournisseurs simulés. La recette
+couvre les scénarios 28, 29, 30 et 61, la création et le PDF de facture du scénario
+25, ainsi que les totaux et l’export JSON du scénario 59. Elle corrige la collision
+des numéros d’avoirs multiples et les libellés erronés des avoirs partiels.
+Voir la [recette et ses limites](../payment-trust-validation.md#recette-des-remboursements-et-avoirs).
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |
