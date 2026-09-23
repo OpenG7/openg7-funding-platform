@@ -202,7 +202,7 @@ const invoiceLegalNote =
   'Facture de commandite descriptive. Ce document ne constitue pas un recu officiel de don de bienfaisance.';
 const creditNoteLegalNote =
   process.env.FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE?.trim() ||
-  'Avoir de commandite descriptif emis apres remboursement Stripe. Ce document annule la facture de commandite associee et ne constitue pas un recu officiel de don de bienfaisance.';
+  'Avoir de commandite lie a un remboursement Stripe. Ce document reduit la facture associee du montant indique et ne constitue pas un recu officiel de don de bienfaisance.';
 
 const parseDbInt = (value: string): number => Number.parseInt(value, 10);
 
@@ -257,15 +257,15 @@ const createCreditNoteNumber = (
   const invoiceSuffix = invoiceNumber.startsWith(`${invoicePrefix}-`)
     ? invoiceNumber.slice(invoicePrefix.length + 1)
     : '';
-  const suffix =
-    invoiceSuffix ||
-    createHash('sha256')
-      .update(`${invoiceNumber}:${stripeRefundId}`)
-      .digest('hex')
-      .slice(0, 10)
-      .toUpperCase();
+  // One invoice can have several refunds. Include the refund identity even
+  // when the invoice uses our prefix; existing numbers survive the upsert.
+  const refundSuffix = createHash('sha256')
+    .update(`${invoiceNumber}:${stripeRefundId}`)
+    .digest('hex')
+    .slice(0, 16)
+    .toUpperCase();
 
-  return `${creditNotePrefix}-${suffix}`;
+  return `${creditNotePrefix}-${invoiceSuffix ? `${invoiceSuffix}-` : ''}${refundSuffix}`;
 };
 
 const parseLineItems = (
@@ -711,9 +711,10 @@ export const createSponsorshipCreditNoteForRefund = async (
 
   const invoice = await pool.query<{
     readonly invoice_number: string;
+    readonly total_cents: string;
   }>(
     `
-      SELECT invoice_number
+      SELECT invoice_number, total_cents::text AS total_cents
       FROM sponsorship_invoices
       WHERE contribution_id = $1::uuid
       LIMIT 1
@@ -731,7 +732,10 @@ export const createSponsorshipCreditNoteForRefund = async (
   );
   const lineItems: readonly SponsorshipInvoiceLineItem[] = [
     {
-      description: 'Avoir - remboursement complet de la commandite OpenG7',
+      description:
+        input.refundAmountCents < parseDbInt(invoice.rows[0]!.total_cents)
+          ? 'Avoir - remboursement partiel de la commandite OpenG7'
+          : 'Avoir - remboursement complet de la commandite OpenG7',
       quantity: 1,
       unitAmountCents: input.refundAmountCents,
       totalCents: input.refundAmountCents
@@ -912,7 +916,8 @@ export const backfillMissingSponsorshipInvoices = async (
   }
 
   const limit = normalizeBackfillLimit(input.limit);
-  const countResult = await pool.query<SponsorshipInvoiceBackfillCountRow>(`
+  const countResult = await pool.query<SponsorshipInvoiceBackfillCountRow>(
+    `
     SELECT
       COUNT(contribution.id)::text AS eligible_count,
       COALESCE(
@@ -926,7 +931,9 @@ export const backfillMissingSponsorshipInvoices = async (
       AND contribution.status IN ('paid', 'refunded', 'disputed')
       AND contribution.stripe_session_id IS NOT NULL
       AND ($1::text IS NULL OR contribution.id::text = $1)
-  `, [input.contributionId ?? null]);
+  `,
+    [input.contributionId ?? null]
+  );
   const counts = countResult.rows[0];
   const eligibleCount = parseDbInt(counts?.eligible_count ?? '0');
   const missingCount = parseDbInt(counts?.missing_count ?? '0');
@@ -1126,7 +1133,8 @@ export const listAdminSponsorshipInvoices = async (
         WHERE ($1::text IS NULL OR invoice.contribution_id::text = $1)
         ORDER BY invoice.issued_at DESC, invoice.created_at DESC
         LIMIT 250
-      `, [contributionId ?? null]
+      `,
+      [contributionId ?? null]
     ),
     pool.query<AdminSponsorshipInvoiceSummaryRow>(
       `

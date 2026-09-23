@@ -216,6 +216,21 @@ reason on the sponsorship record. When a matching sponsorship invoice
 exists, the refund also creates an app-generated credit note tied to the Stripe
 refund; the credit note is visible and resendable from `/admin/fundraiser/invoices`,
 with its own downloadable PDF.
+New credit-note numbers include a deterministic suffix derived from the invoice
+and Stripe refund identifiers, so several refunds of one invoice receive distinct
+numbers. Retrying an already issued refund keeps its original number and snapshot,
+including numbers issued before this change; no historical renumbering is needed.
+Each new credit note describes its own refund amount: a refund smaller than the
+original invoice is labelled partial, including the last instalment of a
+cumulative full refund. The default note states that it reduces the invoice by
+the indicated amount. Existing invoice and credit-note snapshots are preserved.
+`FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE` still overrides this default; an
+installation retaining the former full-cancellation wording must update its
+configured text separately. The cumulative `charge.refunded` confirmation marks
+the payment fully refunded when the sum reaches the original payment. The form
+still defaults to the original amount; Stripe enforces the remaining refundable
+amount. See the [isolated refund recipe](../payment-trust-validation.md#recette-des-remboursements-et-avoirs)
+for the tested cases and limitations.
 The sponsor detail panel also includes an "Historique & audit" tab that merges
 the sponsorship timeline with recent `admin_audit_log` entries for that
 specific sponsorship, including the recorded admin actor. A dedicated
