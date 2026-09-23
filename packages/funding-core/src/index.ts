@@ -278,6 +278,7 @@ export interface PublicSponsorshipProfile {
   readonly website_url: string | null;
   readonly logo_url: string | null;
   readonly media: readonly PublicSponsorMediaAsset[];
+  /** @deprecated Always null on current servers; use the admin's public_summary. */
   readonly message: string | null;
   readonly public_summary: string | null;
   readonly amount: number | null;

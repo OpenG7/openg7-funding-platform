@@ -8,6 +8,73 @@ Matrice statique : 9 scénarios disposent d'une trace dans les sources. Ce nombr
 ne mesure ni la couverture des branches ni une recette avec les fournisseurs réels.
 Les [preuves datées et limites actuelles](platform-status.md) complètent cette matrice.
 
+## Recette navigateur : commandite de 500 CAD et deux destinations
+
+La recette `tests/playwright/sponsorship-publication-acceptance.spec.ts` couvre
+le deuxième parcours prioritaire de l’[inventaire](development/end-to-end-scenarios-inventory.md) :
+commandite de 500 CAD, dossier et médias, préparation privée, revue humaine,
+puis envois Facebook et LinkedIn pour OpenG7. Elle utilise l’API, PostgreSQL,
+les workers et le navigateur réels, avec Stripe, SMTP, SMS et réseaux sociaux simulés.
+Les requêtes applicatives ne sont pas interceptées.
+
+```sh
+yarn test:e2e:acceptance sponsorship-publication-acceptance.spec.ts --project=chromium
+```
+
+Le runner Node 22 crée une pile Docker jetable et ignore `.env`. Les paramètres
+des deux feeds sont restaurés en fin de test. Captures et preuves JSON sont
+conservées sous `test-results/acceptance/`.
+La recette conserve la cadence réelle : la préparation peut attendre cinq
+minutes après un test précédent, puis chaque envoi attend son échéance et le
+prochain passage du worker. Son délai maximal est de douze minutes.
+
+Exécution du 23 septembre 2026 sur `30d37c0` avec les changements locaux :
+**1 recette réussie en 4,5 minutes**, sans échec, reprise ni test ignoré.
+Les contrôles complémentaires passent : 290 tests Node, 6 tests PostgreSQL
+de l’annuaire et 36 tests UI français/anglais sur ordinateur et mobile.
+TypeScript, lint (un avertissement préexistant dans `scripts/smoke-public.mjs`)
+et builds API/Web passent. Le build Web conserve son avertissement de budget
+initial. Ces preuves concernent les fournisseurs simulés, sans publication réelle.
+
+La recette vérifie les étapes suivantes :
+
+1. Paiement de 500 CAD depuis le formulaire et confirmation par webhook signé.
+   La contribution conserve une revue en attente et n’apparaît pas publiquement.
+2. Soumission de la fiche, du logo et d’une photo avec texte alternatif. Le worker
+   prépare une proposition privée par canal, sur des destinations en pause.
+   Les coordonnées privées, le message interne et le montant restent hors du texte.
+3. Refus de l’approbation sans authentification et sans photo approuvée, puis
+   revue des médias dans le dossier. « Accepter et programmer » approuve le
+   commanditaire et le contenu exact, en conservant sa fiche Web privée.
+4. Modification de Facebook après approbation : l’autorisation est retirée,
+   une version obsolète est refusée et LinkedIn peut être envoyé sans que
+   Facebook ne parte. Une nouvelle décision explicite autorise ensuite Facebook.
+5. Envois à échéance par le worker, page admin fermée. Les résultats conservent
+   le mode `mock`, un identifiant simulé et une seule tentative par destination.
+   Les lots et brouillons sources ne deviennent pas des publications réelles.
+6. Décision distincte de visibilité Web, enregistrée dans le dossier. La fiche et
+   ses médias deviennent alors publics, sans divulguer les données privées.
+   Le rejeu du paiement conserve un seul événement d’activité et deux livraisons.
+
+Cette recette qualifie Chromium et les deux destinations OpenG7 en simulation.
+Elle ne qualifie pas les comptes réels, OpenG20, les incidents fournisseur,
+les publications collectives de plusieurs commanditaires ni tous les cas de
+reprise. Les contrôles d’intégration du moteur conservent leur périmètre propre.
+Point UX restant : l’enregistrement de l’éditeur de visibilité peut lever le
+masquage Web avec le statut feed `planned`, sans confirmation supplémentaire.
+Le bouton « Enregistrer » décide actuellement de cette visibilité, sans
+confirmation dédiée à la mise en ligne de la fiche.
+Le texte alternatif est nécessaire pour joindre une image à une publication,
+même si la revue du média a été acceptée sans description. Le simulateur Stripe
+prend aussi en charge la mise à jour des métadonnées du PaymentIntent utilisée
+par le suivi commanditaire ; cette opération ne change aucun fait de paiement.
+La projection de l’annuaire a été corrigée pendant cette recette : le message
+privé du suivi n’est plus retourné ni utilisé comme texte public de remplacement.
+Le [contrat de confidentialité](public-sponsors.md#visibilité-et-confidentialité)
+conserve le champ historique `message` à `null` et expose le résumé public admin.
+
+## Matrice statique
+
 | Scenario                                                                          | Couvert | Surface                                                                            |
 | --------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------- |
 | Entreprise choisit une commandite, paie et revient avec token                     | Oui     | Fonds, Checkout, API Stripe sans token brut en metadata ni formulaire `session_id` |
@@ -64,8 +131,8 @@ scenarios 5, 6 et 8 ont ete completes par navigateur reel a leur tour:
 - Scenario 6 (publication OpenG7/OpenG20 Facebook/LinkedIn): couvert par
   `admin-sponsorship-publication.spec.ts`, jusqu'a l'affichage du placement
   sur `/commanditaires`, et par `admin-publication-batches.spec.ts` pour le
-  lot collectif place dans un creneau calendrier puis publie via provider
-  social mocke.
+  lot collectif place dans un creneau calendrier puis autorise. La nouvelle
+  recette de 500 CAD ci-dessus poursuit jusqu'aux deux envois simules du worker.
 - Scenario 8 (navigation FR/EN, sitemap, prerender): couvert par
   `i18n-navigation.spec.ts`, y compris une requete brute sur les routes
   prerendues FR/EN (sans JavaScript) pour verifier le rendu serveur.

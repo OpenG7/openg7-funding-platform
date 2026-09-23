@@ -284,6 +284,30 @@ const handleGetPaymentIntent = (response, id, query) => {
   );
 };
 
+// The follow-up form also persists its metadata through the real Stripe SDK.
+// Restrict this simulator endpoint to metadata; payment facts stay unchanged.
+const handleUpdatePaymentIntent = async (request, response, id) => {
+  const record = state.paymentIntents.get(id);
+  if (!record) {
+    sendStripeError(response, 404, 'Unknown payment intent.', 'resource_missing');
+    return;
+  }
+  const form = parseFormBody(await readBody(request));
+  const updates = Object.entries(form).map(([key, value]) => [
+    /^metadata\[([A-Za-z][A-Za-z0-9_]*)\]$/.exec(key)?.[1],
+    value
+  ]);
+  if (updates.some(([key]) => !key)) {
+    sendStripeError(response, 400, 'Only metadata updates are supported.', null);
+    return;
+  }
+  record.metadata = { ...record.metadata, ...Object.fromEntries(updates) };
+  for (const [key, value] of updates) {
+    if (value === '') delete record.metadata[key];
+  }
+  sendJson(response, 200, paymentIntentObject(record));
+};
+
 const handleListCheckoutSessions = (response, query) => {
   const expand = query.getAll('expand[]');
   const all = state.checkoutSessionOrder.map((id) => state.checkoutSessions.get(id));
@@ -830,6 +854,14 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'GET' && pathname === '/v1/checkout/sessions') {
       handleListCheckoutSessions(response, searchParams);
+      return;
+    }
+    if (request.method === 'POST' && pathname.startsWith('/v1/payment_intents/')) {
+      await handleUpdatePaymentIntent(
+        request,
+        response,
+        decodeURIComponent(pathname.slice('/v1/payment_intents/'.length))
+      );
       return;
     }
     if (request.method === 'GET' && pathname.startsWith('/v1/payment_intents/')) {

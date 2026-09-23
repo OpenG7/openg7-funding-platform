@@ -16,9 +16,11 @@ test(
       INSERT INTO fund_contributions (contribution_type, amount_cents, currency, status,
         public_display_consent, display_amount_consent, sponsor_review_status, sponsor_company_name,
         sponsor_contact_email, email_private, sponsor_feed_notes, stripe_session_id,
+        sponsor_message, sponsor_public_summary,
         sponsor_feed_status, sponsor_feed_public_url, paid_at, updated_at)
       SELECT 'sponsorship_interest', 25000, 'cad', 'paid', true, false, 'approved', 'Same company',
         'private@example.invalid', 'payer@example.invalid', 'PRIVATE NOTE', 'cs_private_' || n,
+        'PRIVATE FOLLOWUP NOTE', 'Approved public summary',
         'not_planned', NULL, '2026-09-01', '2026-09-01'
       FROM generate_series(1, $1::integer) n RETURNING id`,
         [count]
@@ -103,11 +105,25 @@ test(
           'private@example.invalid',
           'payer@example.invalid',
           'PRIVATE NOTE',
+          'PRIVATE FOLLOWUP NOTE',
           'cs_private_'
         ])
           assert.equal(publicJson.includes(secret), false);
         assert.notEqual(result.sponsorships[0].public_id, ids[8]);
         assert.equal(result.sponsorships[0].amount, null);
+        assert.equal(result.sponsorships[0].message, null);
+        assert.equal(
+          result.sponsorships[0].public_summary,
+          'Approved public summary'
+        );
+        await pool.query(
+          'UPDATE fund_contributions SET sponsor_public_summary=NULL WHERE id=$1',
+          [ids[8]]
+        );
+        const withoutSummary = (await listPublicSponsorships(pool))
+          .sponsorships[0];
+        assert.equal(withoutSummary.public_summary, null);
+        assert.equal(withoutSummary.message, null);
         await pool.query(
           'UPDATE fund_contributions SET display_amount_consent=true WHERE id=$1',
           [ids[8]]

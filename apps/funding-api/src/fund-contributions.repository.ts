@@ -2778,7 +2778,7 @@ export const listPublicSponsorships = async (
       sponsor_company_name AS company_name,
       sponsor_website_url AS website_url,
       sponsor_logo_url AS logo_url,
-      sponsor_message AS message,
+      NULL::text AS message,
       sponsor_public_summary AS public_summary,
       CASE
         WHEN display_amount_consent IS TRUE THEN amount_cents::text
@@ -2845,7 +2845,8 @@ export const listPublicSponsorships = async (
       logo_url:
         media.find((asset) => asset.kind === 'logo')?.url ?? row.logo_url,
       media,
-      message: row.message,
+      // Keep the legacy response key without exposing private follow-up notes.
+      message: null,
       public_summary: row.public_summary,
       amount: row.amount ? centsToAmount(parseDbInt(row.amount)) : null,
       currency: row.currency.toUpperCase(),

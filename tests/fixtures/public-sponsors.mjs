@@ -15,8 +15,9 @@ export const sponsorProfile = (index = 0, overrides = {}) => ({
       sort_order: 0
     }
   ],
-  message: 'Une entreprise qui contribue au développement de services ouverts.',
-  public_summary: null,
+  message: null,
+  public_summary:
+    'Une entreprise qui contribue au développement de services ouverts.',
   amount: index === 0 ? null : 250,
   currency: 'CAD',
   paid_at: '2026-09-01T00:00:00Z',
