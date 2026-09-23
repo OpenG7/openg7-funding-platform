@@ -5,6 +5,9 @@ import {
   SponsorshipPricingConfig
 } from '@openg7/funding-models';
 
+import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
+export { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
+
 export type ContributionType = 'personal_support' | 'sponsorship_interest';
 
 export type SponsorshipBenefitId =
@@ -23,20 +26,6 @@ export interface SponsorshipBenefitsResult {
   readonly achievedBenefits: readonly SponsorshipBenefitId[];
   readonly upcomingBenefits: readonly SponsorshipBenefitStatus[];
 }
-
-/**
- * MVP pricing for the business sponsorship flow (50 $ to 500 $ range).
- * Larger professional/partnership offers are out of scope for this config.
- */
-export const DEFAULT_SPONSORSHIP_PRICING_CONFIG: SponsorshipPricingConfig = {
-  presetAmounts: [50, 100, 250, 500],
-  minimumAmount: 50,
-  benefits: {
-    websiteMention: { minimumAmount: 50 },
-    facebookBatch: { minimumAmount: 250 },
-    linkedinBatch: { minimumAmount: 500 }
-  }
-};
 
 const sponsorshipTierByAchievedCount: readonly (SponsorshipTierId | null)[] = [
   null,
@@ -1565,3 +1554,4 @@ export type {
 export * from './publication-automation.js';
 export * from './admin-pilotage.js';
 export * from './editorial-programme.js';
+export * from './contribution-activity.js';

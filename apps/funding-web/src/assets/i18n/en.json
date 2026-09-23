@@ -1,5 +1,59 @@
 {
   "admin": {
+    "contributionActivity": {
+      "title": "Contributions received",
+      "paymentConfirmed": "Payment confirmed",
+      "why": "Why this decision?",
+      "view": "View preparation",
+      "close": "Close",
+      "back": "All contributions",
+      "email": "Admin email",
+      "sms": "Admin SMS",
+      "simulation": "Simulated SMS: no real text message is sent.",
+      "privatePreview": "Private preview · Website mention",
+      "review": "Prepared for review. Administrative approval and public visibility remain separate steps.",
+      "settings": "Worker settings",
+      "dossier": "Open dossier",
+      "history": "Processing steps",
+      "loading": "Loading contributions…",
+      "empty": "No newly confirmed contributions.",
+      "more": "Earlier contributions",
+      "error": "Activity is temporarily unavailable. Another attempt will happen automatically.",
+      "forbidden": "Your session cannot access this activity.",
+      "states": {
+        "queued": "Awaiting analysis",
+        "waiting_identity": "Company details needed",
+        "waiting_consent": "Public consent required",
+        "worker_stopped": "Preparation waiting: worker stopped",
+        "prepared": "Website card prepared",
+        "ineligible": "Preparation unavailable for this dossier"
+      },
+      "delivery": {
+        "not_configured": "Not configured",
+        "disabled": "Disabled",
+        "queued": "Queued",
+        "sending": "In progress",
+        "sent": "Accepted by the email server",
+        "captured": "Captured by simulator",
+        "failed": "Failed",
+        "uncertain": "Receipt needs verification"
+      },
+      "reasons": {
+        "payment_confirmed": "Stripe confirmed the payment.",
+        "payment_inactive": "The payment or dossier status prevents preparation.",
+        "company_missing": "The company still needs to complete its identity.",
+        "consent_missing": "Public display consent is missing.",
+        "website_eligible": "The amount qualifies for a website mention.",
+        "facebook_eligible": "The amount also qualifies for Facebook; social preparation is tracked in publications.",
+        "linkedin_eligible": "The amount also qualifies for LinkedIn; social preparation is tracked in publications.",
+        "facebook_below_threshold": "The Facebook contribution threshold has not been reached.",
+        "linkedin_below_threshold": "The LinkedIn contribution threshold has not been reached.",
+        "worker_stopped": "The worker must be enabled to prepare the card.",
+        "review_required": "Administrative review is still required.",
+        "media_required": "An approved supporting image is still required for public visibility.",
+        "unsupported_contribution": "This contribution type, amount or currency does not qualify for automatic website preparation."
+      }
+    },
     "assistantOverview": {
       "mock": "Demo conversation about administrative data. Asking a question does not execute an action.",
       "eyebrow": "Your next step",

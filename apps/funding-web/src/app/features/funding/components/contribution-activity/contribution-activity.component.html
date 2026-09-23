@@ -1,0 +1,191 @@
+<button
+  type="button"
+  class="admin-button"
+  data-og7="contribution-activity-open"
+  (click)="activity.open()"
+>
+  {{ 'admin.contributionActivity.title' | translate }}
+</button>
+<section
+  class="toasts"
+  aria-live="polite"
+  aria-relevant="additions text"
+  [attr.aria-label]="'admin.contributionActivity.title' | translate"
+>
+  @for (item of activity.toasts(); track item.id) {
+    <article
+      class="toast"
+      data-og7="contribution-toast"
+      [attr.data-og7-id]="item.id"
+    >
+      <strong
+        >{{ item.companyName || item.reference }} —
+        {{ amount(item.amountMinor, item.currency) }}</strong
+      >
+      <p>{{ 'admin.contributionActivity.paymentConfirmed' | translate }}</p>
+      <p data-og7="preparation-state">
+        {{
+          'admin.contributionActivity.states.' +
+            (item.preparation?.state || 'queued') | translate
+        }}
+      </p>
+      @if (item.preparation; as preparation) {
+        <details>
+          <summary>{{ 'admin.contributionActivity.why' | translate }}</summary>
+          <ul>
+            @for (reason of preparation.reasons; track reason) {
+              <li>
+                {{ 'admin.contributionActivity.reasons.' + reason | translate }}
+              </li>
+            }
+          </ul>
+        </details>
+      }
+      <div class="actions">
+        <button
+          type="button"
+          class="admin-button admin-button--primary"
+          (click)="activity.open(item.id)"
+        >
+          {{ 'admin.contributionActivity.view' | translate }}
+        </button>
+        <button
+          type="button"
+          class="admin-button"
+          (click)="activity.dismiss(item.id)"
+        >
+          {{ 'admin.contributionActivity.close' | translate }}
+        </button>
+      </div>
+    </article>
+  }
+</section>
+<openg7-admin-drawer
+  [opened]="activity.opened()"
+  [title]="'admin.contributionActivity.title' | translate"
+  [closeLabel]="'admin.contributionActivity.close' | translate"
+  (closed)="activity.close()"
+>
+  @if (activity.status() === 'error' || activity.status() === 'forbidden') {
+    <p role="status">
+      {{ 'admin.contributionActivity.' + activity.status() | translate }}
+    </p>
+  }
+  @if (activity.selected(); as item) {
+    <button
+      type="button"
+      class="admin-button"
+      (click)="activity.selectedId.set(null)"
+    >
+      {{ 'admin.contributionActivity.back' | translate }}
+    </button>
+    <h3>
+      {{ item.companyName || item.reference }} —
+      {{ amount(item.amountMinor, item.currency) }}
+    </h3>
+    <p>{{ item.reference }} · {{ date(item.confirmedAt) }}</p>
+    <p>
+      {{
+        'admin.contributionActivity.states.' +
+          (item.preparation?.state || 'queued') | translate
+      }}
+    </p>
+    <dl class="channels">
+      <dt>{{ 'admin.contributionActivity.email' | translate }}</dt>
+      <dd data-og7="activity-email">
+        {{ 'admin.contributionActivity.delivery.' + item.email | translate }}
+      </dd>
+      <dt>{{ 'admin.contributionActivity.sms' | translate }}</dt>
+      <dd data-og7="activity-sms">
+        {{ 'admin.contributionActivity.delivery.' + item.sms | translate }}
+      </dd>
+    </dl>
+    @if (item.simulatedSms) {
+      <p class="muted">
+        {{ 'admin.contributionActivity.simulation' | translate }}
+      </p>
+    }
+    @if (item.preparation; as preparation) {
+      <h3>{{ 'admin.contributionActivity.why' | translate }}</h3>
+      <ul>
+        @for (reason of preparation.reasons; track reason) {
+          <li>
+            {{ 'admin.contributionActivity.reasons.' + reason | translate }}
+          </li>
+        }
+      </ul>
+      @if (preparation.cartouche; as cartouche) {
+        <article class="cartouche" data-og7="website-cartouche">
+          <span class="muted"
+            >{{ 'admin.contributionActivity.privatePreview' | translate }} · v{{
+              item.revision
+            }}</span
+          >
+          <h3>{{ cartouche.title }}</h3>
+          <p>{{ cartouche.body }}</p>
+          <p class="muted">
+            {{ 'admin.contributionActivity.review' | translate }}
+          </p>
+        </article>
+      }
+      @if (preparation.state === 'worker_stopped') {
+        <a
+          class="admin-button"
+          routerLink="/admin/fundraiser/publications/automation"
+          [queryParams]="{ settings: 'feeds' }"
+          (click)="activity.close()"
+          >{{ 'admin.contributionActivity.settings' | translate }}</a
+        >
+      }
+    }
+    <a
+      class="admin-button admin-button--primary"
+      [routerLink]="'/admin/fundraiser/sponsors'"
+      [queryParams]="{ sponsorshipId: item.contributionId, tab: 'overview' }"
+      (click)="activity.close()"
+      >{{ 'admin.contributionActivity.dossier' | translate }}</a
+    >
+    <h3>{{ 'admin.contributionActivity.history' | translate }}</h3>
+    <ol class="history">
+      @for (step of item.history; track step.revision) {
+        <li>
+          <time>{{ date(step.at) }}</time> ·
+          {{ 'admin.contributionActivity.states.' + step.state | translate }}
+        </li>
+      }
+    </ol>
+  } @else {
+    @if (activity.status() === 'loading') {
+      <p role="status">
+        {{ 'admin.contributionActivity.loading' | translate }}
+      </p>
+    }
+    @for (item of activity.items(); track item.id) {
+      <button
+        type="button"
+        class="activity-row"
+        [attr.data-og7-id]="item.id"
+        (click)="activity.selectedId.set(item.id)"
+      >
+        <strong>{{ item.companyName || item.reference }}</strong>
+        <span
+          >{{ amount(item.amountMinor, item.currency) }} ·
+          {{ date(item.confirmedAt) }}</span
+        >
+        <span>{{
+          'admin.contributionActivity.states.' +
+            (item.preparation?.state || 'queued') | translate
+        }}</span>
+      </button>
+    } @empty {
+      @if (activity.status() === 'ready') {
+        <p>{{ 'admin.contributionActivity.empty' | translate }}</p>
+      }
+    }
+    @if (activity.hasMore()) {
+      <button type="button" class="admin-button" (click)="activity.more()">
+        {{ 'admin.contributionActivity.more' | translate }}
+      </button>
+    }
+  }
+</openg7-admin-drawer>

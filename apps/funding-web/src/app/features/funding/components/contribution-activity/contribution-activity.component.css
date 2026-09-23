@@ -1,0 +1,94 @@
+:host {
+  display: contents;
+}
+.toasts {
+  position: fixed;
+  z-index: 80;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(25rem, calc(100vw - 2rem));
+  max-height: 75vh;
+  overflow: auto;
+  display: grid;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  padding: 1rem;
+  border: 1px solid #54768a;
+  border-radius: 1rem;
+  background: #102538;
+  color: #eef6ff;
+  box-shadow: 0 8px 32px #0006;
+  overflow-wrap: anywhere;
+}
+.toast p {
+  margin: 0.5rem 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+summary {
+  cursor: pointer;
+  padding: 0.4rem 0;
+}
+ul,
+.history {
+  padding-left: 1.25rem;
+}
+li {
+  margin: 0.4rem 0;
+}
+.cartouche {
+  border: 1px solid #54768a;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  margin: 1rem 0;
+  background: #102538;
+  color: #eef6ff;
+  overflow-wrap: anywhere;
+}
+.muted {
+  color: #b8ccdb;
+  font-size: 0.9rem;
+}
+.channels {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+}
+dd {
+  margin: 0;
+}
+.activity-row {
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+  background: transparent;
+  border: 1px solid #54768a;
+  border-radius: 0.6rem;
+  padding: 1rem;
+  margin: 0.6rem 0;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+button:focus-visible,
+summary:focus-visible,
+a:focus-visible {
+  outline: 3px solid #f2cb62;
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .toasts {
+    bottom: 0.5rem;
+    right: 0.5rem;
+    width: calc(100vw - 1rem);
+    max-height: 55vh;
+  }
+}

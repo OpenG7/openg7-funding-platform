@@ -1,5 +1,59 @@
 {
   "admin": {
+    "contributionActivity": {
+      "title": "Contributions reçues",
+      "paymentConfirmed": "Paiement confirmé",
+      "why": "Pourquoi cette décision ?",
+      "view": "Voir la préparation",
+      "close": "Fermer",
+      "back": "Toutes les contributions",
+      "email": "Courriel admin",
+      "sms": "SMS admin",
+      "simulation": "SMS simulé : aucun texto réel n’est envoyé.",
+      "privatePreview": "Aperçu privé · Mention sur le site",
+      "review": "Préparée pour vérification. La validation administrative et la mise en visibilité restent des étapes distinctes.",
+      "settings": "Réglages du moteur",
+      "dossier": "Ouvrir le dossier",
+      "history": "Étapes du traitement",
+      "loading": "Chargement des contributions…",
+      "empty": "Aucune nouvelle contribution confirmée.",
+      "more": "Contributions précédentes",
+      "error": "Le suivi est momentanément indisponible. Une nouvelle tentative aura lieu automatiquement.",
+      "forbidden": "Votre session ne permet pas de consulter ce suivi.",
+      "states": {
+        "queued": "Analyse en attente",
+        "waiting_identity": "Fiche d’entreprise à compléter",
+        "waiting_consent": "Consentement public requis",
+        "worker_stopped": "Préparation en attente : moteur arrêté",
+        "prepared": "Cartouche pour le site préparée",
+        "ineligible": "Préparation indisponible pour ce dossier"
+      },
+      "delivery": {
+        "not_configured": "Non configuré",
+        "disabled": "Désactivé",
+        "queued": "En file",
+        "sending": "En cours",
+        "sent": "Accepté par le serveur de courriel",
+        "captured": "Capturé par le simulateur",
+        "failed": "Échec",
+        "uncertain": "Réception à vérifier"
+      },
+      "reasons": {
+        "payment_confirmed": "Stripe a confirmé le paiement.",
+        "payment_inactive": "L’état du paiement ou du dossier bloque la préparation.",
+        "company_missing": "L’entreprise doit encore compléter son identité.",
+        "consent_missing": "Le consentement d’affichage public est absent.",
+        "website_eligible": "Le montant donne accès à une mention sur le site.",
+        "facebook_eligible": "Le montant donne aussi accès à Facebook ; la préparation sociale est suivie dans les publications.",
+        "linkedin_eligible": "Le montant donne aussi accès à LinkedIn ; la préparation sociale est suivie dans les publications.",
+        "facebook_below_threshold": "Le seuil de contribution pour Facebook n’est pas atteint.",
+        "linkedin_below_threshold": "Le seuil de contribution pour LinkedIn n’est pas atteint.",
+        "worker_stopped": "Le moteur doit être activé pour préparer la cartouche.",
+        "review_required": "La revue administrative reste à effectuer.",
+        "media_required": "Une image de soutien approuvée reste nécessaire pour la mise en visibilité.",
+        "unsupported_contribution": "Ce type de contribution, ce montant ou cette devise n’est pas admissible à la préparation Web automatique."
+      }
+    },
     "assistantOverview": {
       "mock": "Conversation de démonstration sur les données administratives. Une question n’exécute aucune action.",
       "eyebrow": "Votre prochaine action",

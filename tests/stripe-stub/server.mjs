@@ -15,9 +15,10 @@
 // that guard in application code.
 
 import { createServer } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHmac } from 'node:crypto';
 
 const port = Number(process.env.PORT ?? 4242);
+const smsReceipts = new Map();
 
 const state = {
   paymentIntents: new Map(),
@@ -159,7 +160,11 @@ const checkoutSessionObject = (record, { expandPaymentIntent } = {}) => ({
   id: record.id,
   object: 'checkout.session',
   mode: 'payment',
-  status: 'complete',
+  status: record.paymentStatus === 'paid' ? 'complete' : 'open',
+  client_reference_id: record.clientReferenceId ?? null,
+  success_url: record.successUrl ?? null,
+  cancel_url: record.cancelUrl ?? null,
+  url: record.checkoutUrl ?? null,
   payment_status: record.paymentStatus,
   amount_total: record.amountTotal,
   currency: record.currency,
@@ -553,11 +558,193 @@ const handleTestRegisterDispute = async (request, response) => {
 
 // --- Dispatch ---------------------------------------------------------
 
+const handleCreateCheckout = async (request, response) => {
+  if (!process.env.STUB_PUBLIC_BASE_URL || !process.env.STUB_WEBHOOK_URL) {
+    sendStripeError(
+      response,
+      503,
+      'Navigable Checkout is enabled only in acceptance.'
+    );
+    return;
+  }
+  const form = parseFormBody(await readBody(request));
+  const amount = Number(form['line_items[0][price_data][unit_amount]']);
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    sendStripeError(response, 400, 'Invalid amount.');
+    return;
+  }
+  const metadata = Object.fromEntries(
+    Object.entries(form)
+      .filter(([key]) => /^metadata\[[^\]]+\]$/.test(key))
+      .map(([key, value]) => [key.slice(9, -1), value])
+  );
+  const id = randomId('cs_test'),
+    paymentIntentId = randomId('pi_test');
+  const record = {
+    id,
+    paymentIntentId,
+    amountTotal: amount,
+    currency: form['line_items[0][price_data][currency]'],
+    metadata,
+    customerEmail: 'company@simulation.example.test',
+    paymentStatus: 'unpaid',
+    created: nowSeconds(),
+    clientReferenceId: form.client_reference_id,
+    successUrl: form.success_url,
+    cancelUrl: form.cancel_url,
+    checkoutUrl: process.env.STUB_PUBLIC_BASE_URL + '/checkout/' + id
+  };
+  state.checkoutSessions.set(id, record);
+  state.checkoutSessionOrder.push(id);
+  state.paymentIntents.set(paymentIntentId, {
+    id: paymentIntentId,
+    amount,
+    amountReceived: 0,
+    currency: record.currency,
+    status: 'requires_payment_method',
+    created: record.created,
+    metadata,
+    latestChargeId: null
+  });
+  sendJson(response, 200, checkoutSessionObject(record));
+};
+const handleCheckoutPage = async (request, response, id) => {
+  const record = state.checkoutSessions.get(id);
+  if (!record?.checkoutUrl) {
+    sendStripeError(response, 404, 'Unknown simulated Checkout.');
+    return;
+  }
+  if (request.method === 'GET') {
+    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    response.end(
+      `<!doctype html><html lang="fr"><meta name="viewport" content="width=device-width"><title>Checkout simulé</title><body><main><h1>Checkout simulé</h1><p>Aucun paiement réel. Contribution : ${(record.amountTotal / 100).toFixed(2)} CAD.</p><form method="post"><button type="submit">Confirmer le paiement simulé</button></form></main></body></html>`
+    );
+    return;
+  }
+  if (request.method !== 'POST') {
+    sendStripeError(response, 405, 'Method not allowed.');
+    return;
+  }
+  record.paymentStatus = 'paid';
+  const intent = state.paymentIntents.get(record.paymentIntentId);
+  intent.status = 'succeeded';
+  intent.amountReceived = record.amountTotal;
+  record.eventId ??= randomId('evt');
+  const body = JSON.stringify({
+    id: record.eventId,
+    object: 'event',
+    type: 'checkout.session.completed',
+    created: nowSeconds(),
+    livemode: false,
+    data: { object: checkoutSessionObject(record) }
+  });
+  const time = nowSeconds();
+  const signature = createHmac('sha256', process.env.STRIPE_WEBHOOK_SECRET)
+    .update(`${time}.${body}`)
+    .digest('hex');
+  const delivery = await fetch(process.env.STUB_WEBHOOK_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'stripe-signature': `t=${time},v1=${signature}`
+    },
+    body,
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!delivery.ok) {
+    sendStripeError(
+      response,
+      502,
+      'Webhook simulation failed; retry uses the same event.'
+    );
+    return;
+  }
+  response.writeHead(303, {
+    location: record.successUrl.replace('{CHECKOUT_SESSION_ID}', record.id)
+  });
+  response.end();
+};
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', 'http://stripe-stub.local');
   const { pathname, searchParams } = url;
 
   try {
+    if (request.method === 'POST' && pathname === '/v1/checkout/sessions') {
+      await handleCreateCheckout(request, response);
+      return;
+    }
+    if (pathname.startsWith('/checkout/')) {
+      await handleCheckoutPage(
+        request,
+        response,
+        decodeURIComponent(pathname.slice('/checkout/'.length))
+      );
+      return;
+    }
+    if (request.method === 'GET' && pathname.startsWith('/v1/checkout/sessions/')) {
+      const record = state.checkoutSessions.get(
+        decodeURIComponent(pathname.slice('/v1/checkout/sessions/'.length))
+      );
+      if (!record) sendStripeError(response, 404, 'Unknown session.');
+      else
+        sendJson(
+          response,
+          200,
+          checkoutSessionObject(record, {
+            expandPaymentIntent: searchParams
+              .getAll('expand[]')
+              .includes('payment_intent')
+          })
+        );
+      return;
+    }
+    if (pathname === '/__test__/sms' && request.method === 'POST') {
+      const body = JSON.parse(await readBody(request));
+      if (
+        typeof body.idempotencyKey !== 'string' ||
+        typeof body.text !== 'string' ||
+        body.recipient !== 'simulation-admin'
+      ) {
+        sendJson(response, 400, {});
+        return;
+      }
+      const existing = smsReceipts.get(body.idempotencyKey);
+      if (existing && existing.text !== body.text) {
+        sendJson(response, 409, {});
+        return;
+      }
+      const receipt = existing ?? {
+        ...body,
+        id: randomId('sms_mock'),
+        capturedAt: new Date().toISOString(),
+        simulated: true
+      };
+      smsReceipts.set(body.idempotencyKey, receipt);
+      sendJson(response, 200, receipt);
+      return;
+    }
+    if (pathname === '/__test__/sms' && request.method === 'GET') {
+      sendJson(response, 200, { items: [...smsReceipts.values()] });
+      return;
+    }
+    if (pathname.startsWith('/__test__/sms/') && request.method === 'GET') {
+      const receipt = smsReceipts.get(
+        decodeURIComponent(pathname.slice('/__test__/sms/'.length))
+      );
+      sendJson(response, receipt ? 200 : 404, receipt ?? {});
+      return;
+    }
+    if (
+      pathname === '/__test__/mail' &&
+      request.method === 'GET' &&
+      process.env.STUB_MAILPIT_URL
+    ) {
+      const mail = await fetch(process.env.STUB_MAILPIT_URL + '/api/v1/messages', {
+        signal: AbortSignal.timeout(3000)
+      });
+      sendJson(response, mail.status, await mail.json());
+      return;
+    }
     if (request.method === 'POST' && pathname === '/__test__/reset') {
       handleTestReset(response);
       return;

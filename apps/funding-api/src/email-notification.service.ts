@@ -19,6 +19,7 @@ import {
 } from './services/email/index.js';
 
 type EmailTemplateKey =
+  | 'admin_contribution_received'
   | 'sponsorship_access_recovery'
   | 'contribution_reference_recovery'
   | 'sponsorship_information_request'
@@ -2028,6 +2029,39 @@ export const queueEmailConfigurationTest = async (
     ...rendered,
     to: input.to,
     idempotencyKey: input.idempotencyKey
+  });
+};
+
+/** Enqueue only; delivery is owned by the existing worker after commit. */
+export const queueAdminContributionReceived = async (
+  pool: Pool | PoolClient,
+  input: {
+    activityId: string;
+    contributionId: string;
+    to: string;
+    reference: string;
+    amountMinor: number;
+    currency: string;
+    adminUrl: string;
+  }
+) => {
+  const amount = new Intl.NumberFormat('fr-CA', {
+    style: 'currency',
+    currency: input.currency
+  }).format(input.amountMinor / 100);
+  const subject = `Contribution reçue — ${amount}`;
+  const text = `${input.reference} : paiement confirmé de ${amount}.\nLa préparation reste privée et nécessite une validation administrative.\n${input.adminUrl}`;
+  return enqueueEmailMessage(pool, {
+    templateKey: 'admin_contribution_received',
+    to: input.to,
+    subject,
+    text,
+    html: '<p>' + escapeHtml(text).replace(/\n/g, '<br>') + '</p>',
+    idempotencyKey: `contribution:${input.activityId}:admin-email`,
+    metadata: {
+      contributionId: input.contributionId,
+      activityId: input.activityId
+    }
   });
 };
 

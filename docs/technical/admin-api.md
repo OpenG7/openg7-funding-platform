@@ -1,5 +1,11 @@
 # Administration API
 
+Payment notifications and private website preparation use the protected
+`GET /api/admin/contribution-activity` and per-actor
+`POST /api/admin/contribution-activity/present` endpoints. Pagination, states,
+permissions and simulation are documented in
+[contribution activity](../operations/contribution-activity.md).
+
 Reference extracted from the main README. Read only the relevant section; current
 feature guides and implementation define the exact contract. Commands run from
 the repository root. [Documentation index](../README.md).

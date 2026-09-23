@@ -406,8 +406,16 @@ export const getSponsorshipProgress = async (
       failedEmails: failedEmails.rows,
       failedStripeEvents: failedStripeEvents.rows
     });
+    const activity = await client.query<{ id: string }>(
+      'SELECT id::text FROM contribution_activity WHERE contribution_id=$1',
+      [id]
+    );
     await client.query('COMMIT');
-    return { ...base, status: 'ok', dossier };
+    return {
+      ...base,
+      status: 'ok',
+      dossier: { ...dossier, preparationActivityId: activity.rows[0]?.id ?? null }
+    };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

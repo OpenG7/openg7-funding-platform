@@ -20,6 +20,11 @@ services:
     build:
       context: .
       dockerfile: tests/stripe-stub/Dockerfile
+    environment:
+      STUB_PUBLIC_BASE_URL: '${STRIPE_STUB_BASE_URL:?}'
+      STUB_WEBHOOK_URL: http://api:3333/api/stripe/webhook
+      STRIPE_WEBHOOK_SECRET: '${STRIPE_WEBHOOK_SECRET:?}'
+      STUB_MAILPIT_URL: http://mailpit:8025
     ports:
       - '127.0.0.1:${ACCEPTANCE_STRIPE_PORT:?}:4242'
     networks: [edge, data]
@@ -34,6 +39,13 @@ services:
       interval: 2s
       timeout: 5s
       retries: 30
+
+  mailpit:
+    image: axllent/mailpit:v1.27.4
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: '1'
+      MP_SMTP_AUTH_ALLOW_INSECURE: '1'
+    networks: [data]
 
   api:
     build:
@@ -57,7 +69,20 @@ services:
       STRIPE_API_HOST: stripe-stub
       STRIPE_API_PORT: '4242'
       STRIPE_API_PROTOCOL: http
-      SMTP_ENABLED: 'false'
+      STRIPE_SIMULATED_CHECKOUT_ENABLED: 'true'
+      SMTP_ENABLED: 'true'
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+      SMTP_SECURE: 'false'
+      SMTP_USER: sender@simulation.example.test
+      SMTP_PASSWORD: local-acceptance-only
+      MAIL_FROM_ADDRESS: sender@simulation.example.test
+      FUNDING_EMAIL_WORKER_ENABLED: 'true'
+      FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS: '1000'
+      FUNDING_ADMIN_NOTIFICATION_EMAIL: admin@simulation.example.test
+      FUNDING_CONTRIBUTION_EMAIL_ENABLED: 'true'
+      FUNDING_CONTRIBUTION_SMS_MODE: mock
+      FUNDING_CONTRIBUTION_SMS_MOCK_URL: http://stripe-stub:4242/__test__/sms
       SOCIAL_PUBLICATION_MODE: mock
       SPONSOR_MEDIA_STORAGE_DRIVER: local
       ADMIN_AI_ASSISTANT_ENABLED: 'false'

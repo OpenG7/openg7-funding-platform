@@ -13,6 +13,7 @@ import { AdminGlobalSearchComponent } from '../admin-search/admin-global-search.
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { AdminInspectorComponent } from '../admin-inspector/admin-inspector.component.js';
 import { AdminConfirmationComponent } from '../admin-ui/admin-confirmation.component.js';
+import { ContributionActivityComponent } from '../contribution-activity/contribution-activity.component.js';
 
 /** Admin page template: placement and navigation, no business data loading. */
 @Component({
@@ -25,7 +26,8 @@ import { AdminConfirmationComponent } from '../admin-ui/admin-confirmation.compo
     AdminIconComponent,
     AdminGlobalSearchComponent,
     AdminInspectorComponent,
-    AdminConfirmationComponent
+    AdminConfirmationComponent,
+    ContributionActivityComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -42,6 +44,7 @@ import { AdminConfirmationComponent } from '../admin-ui/admin-confirmation.compo
         <header class="topbar">
           <openg7-admin-global-search />
           <div class="tools">
+            <openg7-contribution-activity />
             <a
               class="admin-button admin-button--primary"
               routerLink="/admin/fundraiser/assistant"

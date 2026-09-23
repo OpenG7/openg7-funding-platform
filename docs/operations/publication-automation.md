@@ -6,6 +6,11 @@ editorial posts. The three existing publication workspaces remain separate.
 
 ## Operating model
 
+The global worker switch also gates the private website card preparation added
+in migration 027. Payment notifications remain independent of this switch.
+See [contribution activity](contribution-activity.md) for that two-second worker,
+its reasons and local notification rehearsal. It does not publish website profiles.
+
 1. Configure and check each destination: OpenG7/OpenG20 × Facebook/LinkedIn.
 2. Select recurrence weekdays, local time, IANA timezone, capacity and horizon.
 3. The worker prepares eligible sponsorship drafts and fills recurring batches,

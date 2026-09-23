@@ -45,6 +45,11 @@ le [guide des produits vedettes](boutique-products.md).
 
 ## Administration
 
+Le [suivi des contributions reçues](operations/contribution-activity.md) relie
+confirmation, toast global, courriel admin, SMS simulé et préparation privée
+d’une cartouche Web. Il nécessite la migration 027 ; les envois sont configurés
+séparément de la préparation.
+
 L'entrée est `/admin/login`. Les pages protégées sous `/admin/fundraiser`
 couvrent le cockpit, À traiter, l'Assistant, les contributions, commandites,
 factures/avoirs, publications, dépenses, transparence, audit, courriels,
@@ -102,6 +107,7 @@ ne constituent pas le backlog actuel :
 - [Direction UX admin](admin-ux-direction.md) et [plan des huit lots](admin-ux-plan-de-travail.md).
 - [Améliorations du suivi, PR #119/#120](sponsorship-followup-improvements.md).
 - [Cadrage des contributions externes/La Ruche](external-contributions-laruche-cadrage.md) : proposition toujours distincte d'une fonctionnalité d'import livrée.
+- [Parcours virtuel d’une contribution d’entreprise de 50 CAD](development/virtual-contribution-journey-analysis.md) : diagnostic daté et proposition de notifications admin et de préparation privée, distincts d’un parcours E2E livré.
 
 ## Entretien
 

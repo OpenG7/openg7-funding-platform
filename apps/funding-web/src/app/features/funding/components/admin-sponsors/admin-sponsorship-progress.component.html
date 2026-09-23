@@ -74,6 +74,16 @@
       }
     </ol>
     <div class="next-step">
+      @if (d.preparationActivityId; as activityId) {
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="dossier-preparation"
+          (click)="activity.openPreparation(activityId)"
+        >
+          {{ 'admin.contributionActivity.view' | translate }}
+        </button>
+      }
       <div>
         <strong>{{ 'admin.dossier.next' | translate }}</strong>
         <p>{{ 'admin.dossier.reasons.' + d.next.reason | translate }}</p>
