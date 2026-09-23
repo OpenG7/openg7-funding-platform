@@ -19,6 +19,12 @@ confirmation → reconnaissance consentie et transparence**, soit les scénarios
 combinaisons de consentements passent dans une pile jetable avec fournisseurs
 simulés. Voir la [recette et ses limites](../payment-trust-validation.md#recette-complète-dune-contribution-personnelle).
 
+Deuxième priorité testée le 23 septembre 2026 : **commandite de 500 CAD → dossier et médias → revue →
+Facebook et LinkedIn simulés**. La recette cible les scénarios 6, 11, 18, 20,
+35, 36 et 39, ainsi que la pause et la reprise des destinations du scénario 41.
+La visibilité de la fiche Web reste une décision distincte des envois sociaux.
+Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--commandite-de-500-cad-et-deux-destinations).
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

@@ -163,8 +163,8 @@
           <div class="sponsor-body">
             <h3>{{ sponsor.company_name }}</h3>
             <small>{{ amountLabel(sponsor) }}</small>
-            <p *ngIf="sponsor.public_summary || sponsor.message">
-              {{ sponsor.public_summary || sponsor.message }}
+            <p *ngIf="sponsor.public_summary">
+              {{ sponsor.public_summary }}
             </p>
             <div class="feed-placement" *ngIf="hasFeedPlacement(sponsor)">
               <span *ngIf="sponsor.feed_target">{{

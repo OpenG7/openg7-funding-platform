@@ -7,7 +7,11 @@ import {
 
 import { expect, test } from './support/test.js';
 
-const profiles = [sponsorProfile(), sponsorProfile(1)];
+// Older servers may still return follow-up notes. Never render that legacy field.
+const profiles = [
+  sponsorProfile(0, { message: 'PRIVATE FOLLOWUP NOTE' }),
+  sponsorProfile(1, { message: 'PRIVATE FOLLOWUP NOTE', public_summary: null })
+];
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
 const endpoint = '**/api/public/sponsorships?*';
 
@@ -56,6 +60,12 @@ for (const prefix of ['', '/en']) {
     });
     await page.goto(`${prefix}/commanditaires`);
     await expect(hook(page, 'sponsor-card')).toHaveCount(2);
+    await expect(hook(page, 'sponsor-card').first()).toContainText(
+      profiles[0]!.public_summary!
+    );
+    await expect(page.locator('body')).not.toContainText(
+      'PRIVATE FOLLOWUP NOTE'
+    );
     await expect(hook(page, 'sponsors-total')).toHaveText('2');
     await expect(hook(page, 'sponsors-published')).toHaveText('1');
     await expect(hook(page, 'sponsor-card').first()).toContainText(

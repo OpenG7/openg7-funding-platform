@@ -27,7 +27,9 @@ presentation image. The existing policy allows `paid`, `refunded` and
 The separate visibility hold after combined social approval must also be respected;
 see [publication approval and visibility](../operations/publication-automation.md).
 Amounts require separate consent. Private contacts, Stripe IDs and internal
-notes are never exposed. See [pagination, totals and visibility](../public-sponsors.md)
+notes are never exposed. The legacy `message` field is always `null`; only the
+admin-authored `public_summary` is public. Follow-up messages remain private.
+See [pagination, totals and visibility](../public-sponsors.md)
 and the separate [builders directory](../public-builders-and-support.md).
 
 ## Usage and refund policy
