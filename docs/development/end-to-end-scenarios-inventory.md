@@ -33,6 +33,14 @@ couvre les scénarios 28, 29, 30 et 61, la création et le PDF de facture du sc�
 des numéros d’avoirs multiples et les libellés erronés des avoirs partiels.
 Voir la [recette et ses limites](../payment-trust-validation.md#recette-des-remboursements-et-avoirs).
 
+Quatrième priorité testée le 23 septembre 2026 : **publication programmée →
+remboursement ou contestation → blocage avant envoi**, soit les scénarios 31 et 44,
+avec remboursement intégral du scénario 29. Trois commandites de 500 CAD donnent
+six publications autorisées : les quatre devenues inadmissibles sont bloquées
+avant échéance, les deux témoins partent une seule fois en simulation. Les rejeux
+ne rétablissent aucune autorisation. L’interface précise le motif et ouvre le dossier.
+Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--paiement-invalidé-après-programmation).
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

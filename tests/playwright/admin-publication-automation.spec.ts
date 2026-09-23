@@ -354,6 +354,131 @@ test('exceptions require investigation and never offer a blind retry', async ({
   ).toBeDisabled();
   expect(commands).toHaveLength(0);
 });
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1280]) {
+    test(`payment blockers explain each affected sponsor and link to their dossier in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      await fixtures(
+        page,
+        'blocked',
+        false,
+        [
+          {
+            id: '22222222-2222-4222-8222-222222222222',
+            name: 'Atelier Remboursé',
+            version: 'v2',
+            reviewStatus: 'approved',
+            presentationApproved: true,
+            paymentStatus: 'refunded'
+          },
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            name: 'Atelier Contesté',
+            version: 'v2',
+            reviewStatus: 'approved',
+            presentationApproved: true,
+            paymentStatus: 'disputed'
+          },
+          {
+            id: '44444444-4444-4444-8444-444444444444',
+            name: 'Atelier Témoin',
+            version: 'v1',
+            reviewStatus: 'approved',
+            presentationApproved: true,
+            paymentStatus: 'paid'
+          }
+        ],
+        { kind: 'sponsorship', errorCode: 'SOURCE_NOT_ELIGIBLE' }
+      );
+      await page.goto(
+        '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
+      );
+      const dialog = page.getByRole('dialog', {
+        name: language === 'en' ? 'Final publication' : 'Publication finale'
+      });
+      const blockers = dialog.locator(
+        '[data-og7="publication-payment-blocker"]'
+      );
+      await expect(blockers).toHaveCount(2);
+      await expect(blockers.nth(0)).toContainText(
+        language === 'en'
+          ? 'The payment was refunded.'
+          : 'Le paiement a été remboursé.'
+      );
+      await expect(blockers.nth(1)).toContainText(
+        language === 'en'
+          ? 'The payment is disputed.'
+          : 'Le paiement fait l’objet d’une contestation.'
+      );
+      const refunded = blockers.getByRole('link', {
+        name: 'Atelier Remboursé'
+      });
+      const disputed = blockers.getByRole('link', { name: 'Atelier Contesté' });
+      await expect(refunded).toHaveAttribute(
+        'href',
+        /sponsorshipId=22222222-2222-4222-8222-222222222222&tab=refund$/
+      );
+      await expect(disputed).toHaveAttribute(
+        'href',
+        /sponsorshipId=33333333-3333-4333-8333-333333333333&tab=overview$/
+      );
+      expect(
+        await dialog.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth
+        )
+      ).toBe(true);
+      const a11y = await new AxeBuilder({ page })
+        .include('dialog[open]')
+        .analyze();
+      expect(a11y.violations).toEqual([]);
+      await dialog.screenshot({
+        path: `test-results/admin-layout/payment-blockers-${language}-${width}.png`
+      });
+      await refunded.focus();
+      await expect(refunded).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(
+        /sponsorshipId=22222222-2222-4222-8222-222222222222&tab=refund$/
+      );
+    });
+  }
+}
+
+test('a blocked publication without a payment fact keeps the general explanation', async ({
+  page
+}) => {
+  await fixtures(
+    page,
+    'blocked',
+    false,
+    [
+      {
+        id: '22222222-2222-4222-8222-222222222222',
+        name: 'Atelier Historique',
+        version: 'v1',
+        reviewStatus: 'approved',
+        presentationApproved: true
+      }
+    ],
+    { errorCode: 'SOURCE_NOT_ELIGIBLE' }
+  );
+  await page.goto(
+    '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
+  );
+  const dialog = page.getByRole('dialog', { name: 'Publication finale' });
+  await expect(dialog).toBeVisible();
+  await expect(
+    dialog.locator('[data-og7="publication-payment-blocker"]')
+  ).toHaveCount(0);
+  await expect(dialog.locator('.alert')).toBeVisible();
+});
+
 test('one explicit acceptance reviews pending sponsors and the publication together', async ({
   page
 }) => {

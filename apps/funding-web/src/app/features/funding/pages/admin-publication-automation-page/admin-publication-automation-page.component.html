@@ -294,6 +294,33 @@
           <p class="alert">
             {{ 'admin.publicationAutomation.blocked' | translate }}
           </p>
+          @if (job.errorCode === 'SOURCE_NOT_ELIGIBLE') {
+            @for (sponsor of job.sponsors; track sponsor.id) {
+              @if (
+                sponsor.paymentStatus === 'refunded' ||
+                sponsor.paymentStatus === 'disputed'
+              ) {
+                <p data-og7="publication-payment-blocker" role="status">
+                  <a
+                    routerLink="/admin/fundraiser/sponsors"
+                    [queryParams]="{
+                      sponsorshipId: sponsor.id,
+                      tab:
+                        sponsor.paymentStatus === 'refunded'
+                          ? 'refund'
+                          : 'overview'
+                    }"
+                    >{{ sponsor.name }}</a
+                  >
+                  —
+                  {{
+                    'admin.publicationAutomation.paymentBlocked.' +
+                      sponsor.paymentStatus | translate
+                  }}
+                </p>
+              }
+            }
+          }
         }
         @if (job.nextAttemptAt && job.status === 'approved') {
           <p>

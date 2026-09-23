@@ -1659,7 +1659,11 @@
       "preview": "Final publication",
       "close": "Close",
       "uncertain": "The result of this delivery is unknown. Check the social network before publishing again. No automatic retry will occur.",
-      "blocked": "This delivery needs attention. Check the connection, consent, content and schedule, then save and approve again.",
+      "blocked": "This delivery needs attention. Check the connection, publication requirements, content and schedule before approving again.",
+      "paymentBlocked": {
+        "refunded": "The payment was refunded. This publication is blocked.",
+        "disputed": "The payment is disputed. This publication is blocked."
+      },
       "retryAt": "Next attempt at",
       "kind": "Content type",
       "message": "Exact text to publish",

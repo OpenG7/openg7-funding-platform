@@ -48,6 +48,8 @@ export interface PublicationDelivery {
     name: string;
     version: string;
     reviewStatus: 'pending_review' | 'approved' | 'rejected';
+    /** Current payment fact; optional for compatibility with older API responses. */
+    paymentStatus?: string;
     presentationApproved: boolean;
   }[];
   version: number;

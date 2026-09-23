@@ -1655,7 +1655,11 @@
       "preview": "Publication finale",
       "close": "Fermer",
       "uncertain": "Le résultat de cet envoi est incertain. Vérifiez le réseau social avant toute nouvelle publication. Aucune relance automatique ne sera effectuée.",
-      "blocked": "Cet envoi demande une intervention. Vérifiez la connexion, les consentements, le contenu et l’horaire, puis enregistrez et approuvez à nouveau.",
+      "blocked": "Cet envoi demande une intervention. Vérifiez la connexion, les conditions de publication, le contenu et l’horaire avant toute nouvelle approbation.",
+      "paymentBlocked": {
+        "refunded": "Le paiement a été remboursé. Cette publication est bloquée.",
+        "disputed": "Le paiement fait l’objet d’une contestation. Cette publication est bloquée."
+      },
       "retryAt": "Nouvelle tentative à",
       "kind": "Type de contenu",
       "message": "Texte exact à publier",
