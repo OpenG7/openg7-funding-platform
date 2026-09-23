@@ -86,6 +86,11 @@ import type {
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
+import {
+  ContributionActivityService,
+  contributionNotificationConfig
+} from './contribution-activity.service.js';
+import { simulatedCheckoutEnabled } from './stripe-checkout-config.js';
 import { PublicationAutomationError } from './publication-automation/policy.js';
 import { PublicationAutomationService } from './publication-automation/service.js';
 import { AdminPilotageService, PilotError } from './admin-pilotage.service.js';
@@ -437,6 +442,7 @@ const isValidSponsorshipAmount = (amount: number): boolean =>
 // tests/stripe-stub/). Unset in every real environment, where the SDK falls
 // back to its own default host.
 const stripeApiHost = process.env.STRIPE_API_HOST;
+const navigableSimulatedCheckout = simulatedCheckoutEnabled(process.env);
 const stripeApiPort = process.env.STRIPE_API_PORT;
 const stripeApiProtocol = process.env.STRIPE_API_PROTOCOL as
   'http' | 'https' | undefined;
@@ -1262,6 +1268,7 @@ const refreshSponsorshipFollowupPaymentStatus = async (
 
     const status = stripeCheckoutSessionStatus(session);
     await upsertCheckoutSessionFromWebhook(dbPool, {
+      notifyAdmin: true,
       stripeSessionId: session.id,
       stripePaymentIntentId: resolveStripePaymentIntentId(
         session.payment_intent
@@ -2480,6 +2487,17 @@ const runAdminSponsorshipReviewReminderWorker = async (): Promise<void> => {
 };
 
 const publicationAutomation = dbPool ? new PublicationAutomationService(dbPool, sponsorMediaStorage) : null;
+const contributionNotifications = contributionNotificationConfig(process.env);
+const contributionActivity = dbPool
+  ? new ContributionActivityService(dbPool, contributionNotifications)
+  : null;
+const runContributionActivity = async (): Promise<void> => {
+  try {
+    await contributionActivity?.tick();
+  } catch {
+    console.error('Contribution activity worker interrupted; verify migration 027 and database availability.');
+  }
+};
 const adminPilotage = dbPool && publicationAutomation ? new AdminPilotageService(dbPool, publicationAutomation) : null;
 const runPublicationWorker = async (): Promise<void> => {
   try { await publicationAutomation?.tick(); }
@@ -2652,6 +2670,51 @@ createServer(async (request, response) => {
               : 'PILOTAGE_UNAVAILABLE'
         }
       );
+    }
+    return;
+  }
+
+  if (routeMatches(request.url, '/admin/contribution-activity/present', '/api/admin/contribution-activity/present')) {
+    if (!ensureAdminAccess(request, response)) return;
+    if (request.method !== 'POST') {
+      writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+      return;
+    }
+    try {
+      const input = JSON.parse(await readBody(request)) as { ids?: unknown };
+      const result = await contributionActivity!.claimPresentation(
+        input?.ids,
+        getAdminAuditActor(request)
+      );
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      writeJson(
+        request,
+        response,
+        error instanceof RangeError || error instanceof SyntaxError ? 400 : 503,
+        { code: 'ACTIVITY_PRESENTATION_FAILED' }
+      );
+    }
+    return;
+  }
+  if (routeMatches(request.url, '/admin/contribution-activity', '/api/admin/contribution-activity')) {
+    if (!ensureAdminAccess(request, response)) return;
+    if (request.method !== 'GET') {
+      writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+      return;
+    }
+    try {
+      const params = new URL(request.url ?? '/', publicBaseOrigin).searchParams;
+      const result = await contributionActivity!.list({
+        ...(params.has('before') ? { before: params.get('before')! } : {}),
+        ...(params.has('after') ? { after: params.get('after')! } : {}),
+        ...(params.has('id') ? { id: params.get('id')! } : {})
+      });
+      writeJson(request, response, 200, result);
+    } catch (error) {
+      writeJson(request, response, error instanceof RangeError ? 400 : 503, {
+        code: error instanceof RangeError ? 'INVALID_ACTIVITY_CURSOR' : 'ACTIVITY_UNAVAILABLE'
+      });
     }
     return;
   }
@@ -3637,14 +3700,9 @@ createServer(async (request, response) => {
       return;
     }
 
-    // When STRIPE_API_HOST is set, `stripe` is pointed at the Playwright E2E
-    // stub (see tests/stripe-stub/), which has no real Stripe-hosted checkout
-    // page to redirect to. Keep checkout creation mocked in that
-    // configuration even though `stripe` itself is configured, so the
-    // existing "local mode, no real Stripe session" E2E coverage keeps
-    // exercising the same code path it always has. Server-side flows the
-    // stub does emulate (webhooks, refunds, backfill) are unaffected.
-    if (!stripe || stripeApiHost) {
+    // Legacy local fallback remains available. Acceptance opts into a local,
+    // navigable Checkout and still confirms payment through the signed webhook.
+    if (!stripe || (stripeApiHost && !navigableSimulatedCheckout)) {
       if (!isProduction) {
         writeJson(
           request,
@@ -8532,6 +8590,9 @@ createServer(async (request, response) => {
   }
 
   void runEmailQueueWorker();
+  void runContributionActivity();
+  const contributionTimer = setInterval(() => void runContributionActivity(), 2000);
+  contributionTimer.unref();
   void runPublicationWorker();
   const publicationTimer = setInterval(() => void runPublicationWorker(), 30000);
   publicationTimer.unref();

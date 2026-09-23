@@ -123,6 +123,35 @@ export interface AdminSponsorshipListQuery {
 
 @Injectable({ providedIn: 'root' })
 export class FundingAdminService {
+  readonly sessionGeneration = signal(0);
+  async contributionActivity(
+    query: { before?: string; after?: string; id?: string } = {}
+  ): Promise<import('@openg7/funding-core').ContributionActivityResponse> {
+    return this.activityRequest('?' + new URLSearchParams(query));
+  }
+  async claimContributionToasts(ids: string[]): Promise<{ ids: string[] }> {
+    return this.activityRequest('/present', { ids });
+  }
+  private async activityRequest<T>(path: string, body?: object): Promise<T> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/contribution-activity${path}`,
+      {
+        method: body ? 'POST' : 'GET',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000),
+        headers: {
+          ...(await this.createHeaders(this.getSavedAdminToken())),
+          'Content-Type': 'application/json'
+        },
+        ...(body ? { body: JSON.stringify(body) } : {})
+      }
+    );
+    if (!response.ok) {
+      if (response.status === 401) this.clearAdminSession();
+      throw new AdminDashboardRequestError(response.status, 'ACTIVITY_UNAVAILABLE');
+    }
+    return response.json() as Promise<T>;
+  }
   pilotageProgramme(): Promise<ProgrammeState> {
     return this.pilotageRequest('/programme');
   }
@@ -391,6 +420,7 @@ export class FundingAdminService {
   }
 
   clearAdminSession(): void {
+    this.sessionGeneration.update((value) => value + 1);
     this.identity.set(null);
     this.queueGeneration++;
     this.workQueue.set(null);

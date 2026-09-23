@@ -49,6 +49,13 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [027](../../apps/funding-api/migrations/027_create_contribution_activity.sql)
+ajoute les événements de paiement, preuves de confirmation arrivées en avance,
+préparations privées, réceptions SMS simulées et réservations de toasts par acteur.
+Elle marque les paiements déjà confirmés comme historiques, sans créer d’alertes.
+Cette mise à jour parcourt les contributions existantes : prévoir sa durée et
+ses verrous selon le volume. Voir le [contrat d’activité](contribution-activity.md).
+
 Sur une base Docker locale neuve et explicitement dédiée à ce projet :
 
 ```sh

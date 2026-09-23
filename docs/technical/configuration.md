@@ -19,6 +19,7 @@ Set these variables for API and webhook processing:
 - `FUNDING_ADMIN_SESSION_TTL_MINUTES` - token-mode session duration, defaulting to 60 minutes. OIDC sessions currently last one hour without automatic renewal.
 - `FUNDING_ADMIN_OIDC_ISSUER`, `FUNDING_ADMIN_OIDC_CLIENT_ID`, `FUNDING_ADMIN_OIDC_CLIENT_SECRET`, `FUNDING_ADMIN_OIDC_OWNER_SUBJECTS`, `FUNDING_ADMIN_OIDC_MFA_ACR` - server-only identity configuration; see the [identity and alerts runbook](../operations/admin-identity-and-alerts.md).
 - `FUNDING_OPERATIONS_WEBHOOK_URL`, `FUNDING_OPERATIONS_WEBHOOK_SECRET` - optional independent signed alert channel, enabled by configuring and starting the operations watcher.
+- `FUNDING_CONTRIBUTION_EMAIL_ENABLED`, `FUNDING_CONTRIBUTION_SMS_MODE`, `FUNDING_CONTRIBUTION_SMS_MOCK_URL` — private payment-notification settings, disabled by default; see [contribution activity](../operations/contribution-activity.md). `STRIPE_SIMULATED_CHECKOUT_ENABLED` is a separate local-only acceptance setting.
 - `SPONSOR_MEDIA_STORAGE_DRIVER` - sponsor media storage backend. Use `local` for filesystem storage or `ovh-s3` for OVH Object Storage.
 - `FUNDING_SPONSOR_LOGO_STORAGE_DIR` - private API filesystem directory for uploaded sponsor logos when `SPONSOR_MEDIA_STORAGE_DRIVER` is `local`.
 - `FUNDING_SPONSOR_LOGO_MAX_BYTES` - optional sponsor logo upload size limit, defaulting to 524288 bytes.

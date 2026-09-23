@@ -47,6 +47,11 @@ l'opérateur est dans `adminRoleAllows` (`apps/funding-api/src/admin-identity.ts
 une nouvelle mutation est refusée par défaut. Les confirmations métier restent
 obligatoires même avec le rôle approprié.
 
+Le marqueur de présentation d’un [toast de contribution](contribution-activity.md)
+est accessible aux trois rôles, uniquement pour l’acteur authentifié. Il ne
+modifie aucun dossier ni autorisation de publication. Les comptes OIDC ont des
+marqueurs distincts ; le mode token partagé conserve une identité commune.
+
 Le navigateur découvre le mode avec `GET /api/admin/auth/config`. En OIDC :
 
 - `GET /api/admin/auth/start` ouvre la connexion;

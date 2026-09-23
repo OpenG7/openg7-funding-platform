@@ -24,6 +24,7 @@ import {
   FundingAdminService
 } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { ContributionActivityService } from '../../services/contribution-activity.service.js';
 
 /** Funding organism: read-only dossier projection and navigation to existing actions. */
 @Component({
@@ -39,6 +40,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   ]
 })
 export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
+  readonly activity = inject(ContributionActivityService);
   readonly sponsorshipId = input<string>();
   readonly compact = input(false);
   readonly refreshKey = input<unknown>(0);

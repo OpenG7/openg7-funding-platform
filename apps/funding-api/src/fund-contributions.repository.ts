@@ -27,6 +27,7 @@ import type {
 import type { Pool, PoolClient } from 'pg';
 
 import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
+import { recordContributionActivity } from './contribution-activity.repository.js';
 import { getAdjustmentTotals } from './fund-transparency.repository.js';
 import { resolveRefundedAmountMinor } from './fund-refunds.js';
 import { listPublicSponsorMediaByContributionIds } from './sponsor-media.repository.js';
@@ -133,12 +134,14 @@ export interface StripeEventRecordInput {
 }
 
 export interface CheckoutSessionWebhookInput extends CheckoutSessionRecordInput {
+  readonly notifyAdmin?: boolean;
   readonly status: 'pending' | 'paid' | 'expired';
   readonly paidAtIso: string | null;
   readonly emailPrivate: string | null;
 }
 
 export interface PaymentIntentStatusInput {
+  readonly notifyAdmin?: boolean;
   readonly stripePaymentIntentId: string;
   readonly status: 'paid' | 'failed' | 'refunded' | 'disputed';
   readonly paidAtIso?: string | null;
@@ -781,6 +784,23 @@ export const upsertCheckoutSessionFromWebhook = async (
   try {
     await client.query('BEGIN');
 
+    if (input.stripePaymentIntentId) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        'payment-confirmation:' + input.stripePaymentIntentId
+      ]);
+      const proof = await client.query<{ paid_at: Date }>(
+        'SELECT paid_at FROM contribution_payment_confirmations WHERE payment_intent_id=$1',
+        [input.stripePaymentIntentId]
+      );
+      if (proof.rows[0]) {
+        input = {
+          ...input,
+          status: 'paid',
+          paidAtIso: proof.rows[0].paid_at.toISOString()
+        };
+      }
+    }
+
     await client.query(
       `
         INSERT INTO stripe_checkout_sessions (
@@ -897,6 +917,12 @@ export const upsertCheckoutSessionFromWebhook = async (
       ]
     );
 
+    await recordContributionActivity(
+      client,
+      input.stripeSessionId,
+      input.stripePaymentIntentId,
+      input.notifyAdmin === true
+    );
     await client.query('COMMIT');
     return (result.rowCount ?? 0) > 0;
   } catch (error) {
@@ -918,6 +944,16 @@ export const updateContributionStatusByPaymentIntent = async (
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      'payment-confirmation:' + input.stripePaymentIntentId
+    ]);
+    if (input.status === 'paid' && input.notifyAdmin) {
+      await client.query(
+        `INSERT INTO contribution_payment_confirmations(payment_intent_id,paid_at) VALUES($1,COALESCE($2,NOW())) ON CONFLICT DO NOTHING`,
+        [input.stripePaymentIntentId, input.paidAtIso ?? null]
+      );
+    }
 
     await client.query(
       `
@@ -956,6 +992,14 @@ export const updateContributionStatusByPaymentIntent = async (
       ]
     );
 
+    if (input.status === 'paid') {
+      await recordContributionActivity(
+        client,
+        null,
+        input.stripePaymentIntentId,
+        input.notifyAdmin === true
+      );
+    }
     await client.query('COMMIT');
     return (result.rowCount ?? 0) > 0;
   } catch (error) {

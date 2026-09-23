@@ -44,6 +44,7 @@ export interface SponsorshipProgressPublication {
   readonly publishedAt: string | null;
 }
 export interface AdminSponsorshipProgress {
+  readonly preparationActivityId?: string | null;
   readonly contributionId: string;
   readonly reference: string;
   readonly companyName: string | null;

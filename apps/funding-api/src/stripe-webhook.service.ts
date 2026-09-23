@@ -219,7 +219,7 @@ const processVerifiedStripeEvent = async (
     const sessionMetadata = session.metadata ?? {};
     const updated = await upsertCheckoutSessionFromWebhook(
       pool,
-      buildCheckoutSessionWebhookInput(session, status)
+      { ...buildCheckoutSessionWebhookInput(session, status), notifyAdmin: true }
     );
     const isSponsorship =
       normalizeContributionType(sessionMetadata.contributionType) ===
@@ -292,7 +292,7 @@ const processVerifiedStripeEvent = async (
     const session = event.data.object as Stripe.Checkout.Session;
     const updated = await upsertCheckoutSessionFromWebhook(
       pool,
-      buildCheckoutSessionWebhookInput(session, 'expired')
+      { ...buildCheckoutSessionWebhookInput(session, 'expired'), notifyAdmin: true }
     );
 
     return acknowledge({
@@ -304,6 +304,7 @@ const processVerifiedStripeEvent = async (
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     const statusUpdated = await updateContributionStatusByPaymentIntent(pool, {
+      notifyAdmin: true,
       stripePaymentIntentId: paymentIntent.id,
       status: 'paid',
       paidAtIso: toIsoFromUnix(paymentIntent.created)

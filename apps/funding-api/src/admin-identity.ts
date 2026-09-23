@@ -66,10 +66,10 @@ export const adminRoleAllows = (
   )
     return false;
   if (method === 'GET') return true;
-  // These read-only queries use POST so private search text stays out of URLs.
+  // Read-only queries and the caller's own toast markers are allowed for all admins.
   if (
     method === 'POST' &&
-    ['/admin/search', '/admin/assistant/query'].includes(path)
+    ['/admin/search', '/admin/assistant/query', '/admin/contribution-activity/present'].includes(path)
   )
     return true;
   return role === 'operator' && method === 'POST' && operatorActions.has(path);
