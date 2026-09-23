@@ -6,6 +6,8 @@ import type {
 
 export interface SocialPublicationConfig {
   readonly mode: SocialPublicationMode;
+  /** Optional private HTTP receiver for isolated mock rehearsals. */
+  readonly mockBaseUrl?: string;
   readonly facebook: {
     readonly graphBaseUrl: string;
     readonly pageId: string;
@@ -54,10 +56,41 @@ const normalizeSocialPublicationMode = (
 const stripTrailingSlash = (value: string): string =>
   value.endsWith('/') ? value.slice(0, -1) : value;
 
+const localMockReceiver = (env: NodeJS.ProcessEnv): string | undefined => {
+  const value = trimmed(env.SOCIAL_PUBLICATION_MOCK_URL);
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    if (
+      normalizeSocialPublicationMode(env.SOCIAL_PUBLICATION_MODE) === 'mock' &&
+      ['development', 'test'].includes(
+        env.FUNDING_PLATFORM_ENV ?? env.NODE_ENV ?? ''
+      ) &&
+      url.protocol === 'http:' &&
+      ['localhost', '127.0.0.1', '[::1]', 'stripe-stub'].includes(
+        url.hostname
+      ) &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      stripTrailingSlash(url.pathname) === '/__test__/social'
+    )
+      return stripTrailingSlash(url.href);
+  } catch {
+    /* Report a safe configuration error without disclosing the URL. */
+  }
+  throw new SocialPublicationError(
+    'SOCIAL_PUBLICATION_MOCK_URL_INVALID',
+    'Social simulation requires an isolated local receiver in mock mode.'
+  );
+};
+
 export const loadSocialPublicationConfig = (
   env: NodeJS.ProcessEnv = process.env
 ): SocialPublicationConfig => ({
   mode: normalizeSocialPublicationMode(env.SOCIAL_PUBLICATION_MODE),
+  mockBaseUrl: localMockReceiver(env),
   facebook: {
     graphBaseUrl: stripTrailingSlash(
       trimmed(env.SOCIAL_PUBLICATION_FACEBOOK_GRAPH_BASE_URL) ||

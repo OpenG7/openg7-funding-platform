@@ -16,9 +16,11 @@
 
 import { createServer } from 'node:http';
 import { randomBytes, createHmac } from 'node:crypto';
+import { socialSimulator } from './social.mjs';
 
 const port = Number(process.env.PORT ?? 4242);
 const smsReceipts = new Map();
+const social = socialSimulator();
 
 const state = {
   paymentIntents: new Map(),
@@ -739,6 +741,7 @@ const server = createServer(async (request, response) => {
   const { pathname, searchParams } = url;
 
   try {
+    if (await social(request, response, url)) return;
     if (request.method === 'POST' && pathname === '/__test__/checkout-delivery') {
       await handleCheckoutDelivery(request, response);
       return;

@@ -1744,6 +1744,7 @@
         "LEGACY_DELIVERY_EXISTS": "Un ancien envoi existe déjà pour ce lot. Vérifiez son résultat avant de poursuivre.",
         "INVALID_MESSAGE": "Le texte doit contenir entre 1 et 2 900 caractères. Réduisez le lot ou son contenu.",
         "POST_MISMATCH": "La publication indiquée ne correspond pas au contenu et au compte approuvés.",
+        "REMOTE_POST_UNVERIFIED": "Impossible de vérifier cette publication. Vérifiez l’identifiant et l’accès au compte avant de conclure à son absence.",
         "MEDIA_RECONCILIATION_REQUIRED": "Une vérification de l’image sur le réseau social est nécessaire. Cet envoi reste bloqué pour éviter un doublon.",
         "SPONSOR_APPROVAL_REQUIRED": "Vérifiez les commanditaires en attente et confirmez leur approbation avec cette publication.",
         "SPONSOR_MEDIA_REQUIRED": "Une photo de présentation approuvée est requise pour chaque nouveau commanditaire."

@@ -115,6 +115,22 @@ Simulation deliveries are visibly labelled and do not mark sponsorship batches o
 drafts as genuinely published. After switching to live, preparing the same batch
 archives its completed simulation and requires a fresh content approval.
 
+For isolated rehearsals, the private server-only `SOCIAL_PUBLICATION_MOCK_URL`
+option connects mock deliveries to a local HTTP receiver. It is optional; absent,
+the existing immediate mock success remains available. Startup rejects the option
+unless mode is `mock`, the environment is explicitly development/test, and the URL
+uses HTTP on loopback or the acceptance `stripe-stub` hostname, with path
+`/__test__/social` and no credentials, query or fragment. Redirects are refused.
+The disposable acceptance Compose file supplies this receiver; inherited shell
+credentials or URLs cannot override it. It is not a production provider setting.
+Changing the receiver invalidates the saved connection check.
+
+The receiver keeps posts and every send request independently of the API process.
+Its test-only controls can lose a response after accepting a post or without
+creating one. It deliberately does not deduplicate requests, so a worker resend
+would remain observable. These controls are part of the isolated fixture server,
+not application admin endpoints. Only synthetic content belongs in this receiver.
+
 ## Authorization and concurrency
 
 `GET /api/admin/publication-automation` returns safe feed metadata, summaries and
@@ -188,6 +204,12 @@ concurrently.
   supply the existing external ID; the API checks author, exact text and published
   state before recording success. Image cases require investigation of the image
   as well and are not automatically reconciled by text alone.
+  An interrupted send has no automatic retry date. Provider lookup failures
+  return `503 REMOTE_POST_UNVERIFIED`, leave the delivery uncertain and explain
+  that an inaccessible identifier does not establish absence. Wrong content or
+  account still returns `POST_MISMATCH`; neither result records success.
+  Reconciliation rejects a changed simulation/live mode before checking the
+  external reference, including when the server has been switched to mock mode.
 - **Confirmed absent:** only after checking provider history, an operator can
   attest that no post was created and record a non-sensitive reason. This changes
   the job to blocked, revokes approval and permits new preparation/approval. An
@@ -220,6 +242,13 @@ It also checks payment replay, audit and dossier links. See the
 [recipe and limits](../sponsorship-e2e-coverage.md#recette-navigateur--paiement-invalidé-après-programmation).
 This does not recall an already submitted provider request or decide whether an
 existing public website profile should be withdrawn.
+
+`tests/playwright/publication-uncertain-recovery-acceptance.spec.ts` follows two
+lost-response outcomes on both OpenG7 channels, restarts only the disposable API,
+then checks verified reconciliation and explicitly approved resending after human
+absence review. Provider receipts and audit prove one post per delivery; healthy
+controls prove the restarted worker is processing other jobs. See the
+[recovery recipe and limits](../sponsorship-e2e-coverage.md#recette-navigateur--résultat-incertain-et-reprise-sans-doublon).
 
 Provider contracts: [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api?view=li-lms-2026-06),
 [LinkedIn Images API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/images-api?view=li-lms-2026-06),

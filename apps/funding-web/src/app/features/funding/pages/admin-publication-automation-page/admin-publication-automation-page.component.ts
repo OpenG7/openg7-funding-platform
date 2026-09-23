@@ -216,6 +216,7 @@ export class AdminPublicationAutomationPageComponent {
       'LEGACY_DELIVERY_EXISTS',
       'INVALID_MESSAGE',
       'POST_MISMATCH',
+      'REMOTE_POST_UNVERIFIED',
       'MEDIA_RECONCILIATION_REQUIRED'
     ].includes(code)
       ? code

@@ -128,6 +128,68 @@ Le dernier ajustement du message général de blocage est vérifié par le build
 et les 19 tests UI. Les avertissements existants de lint et de budget du bundle
 Web restent présents. Ces preuves concernent uniquement les fournisseurs simulés.
 
+## Recette navigateur : résultat incertain et reprise sans doublon
+
+La recette `tests/playwright/publication-uncertain-recovery-acceptance.spec.ts`
+traite le scénario 43 de l’[inventaire](development/end-to-end-scenarios-inventory.md).
+Trois entreprises contribuent 500 CAD et soumettent leurs dossiers et médias.
+L’admin approuve les présentations et six publications textuelles Facebook/LinkedIn.
+Les deux publications témoins sont prévues une minute après les quatre cas d’incident.
+
+```sh
+yarn test:e2e:acceptance publication-uncertain-recovery-acceptance.spec.ts --project=chromium
+```
+
+Le navigateur, PostgreSQL, l’API et son worker sont réels. Stripe et les réseaux
+sociaux sont simulés. L’application conserve le mode `mock`, visible dans le
+cockpit ; aucune requête applicative n’est interceptée et le test ne modifie pas
+directement la base. Le récepteur HTTP local conserve les publications et les
+tentatives pour détecter les doublons, sans les masquer par une déduplication.
+
+1. Sur chaque canal, le récepteur coupe une réponse après création de la
+   publication, puis une autre sans création. Les quatre livraisons deviennent
+   incertaines : une tentative, aucun succès local et aucune prochaine tentative.
+2. La recette redémarre uniquement le service API du projet Docker jetable dont
+   elle vérifie le nom et le fichier Compose. Les états et autorisations persistent.
+   Les témoins partent ensuite une seule fois : le worker a repris son activité,
+   tandis que les livraisons incertaines restent sans nouvelle tentative.
+3. L’admin consulte la page du réseau simulé. Pour les publications retrouvées,
+   un identifiant d’un autre contenu est refusé, puis le bon identifiant permet
+   de confirmer le succès sans nouvel envoi. Une requête sans authentification,
+   sans confirmation ou rejouée avec une version obsolète est refusée.
+4. Pour les publications absentes, un identifiant inventé ne crée aucun succès.
+   L’admin doit saisir le motif de vérification et cocher l’attestation d’absence.
+   L’autorisation est retirée ; un passage direct du blocage à l’approbation échoue.
+   Un brouillon enregistré et une nouvelle approbation permettent ensuite un envoi.
+5. Navigateur fermé, les deux reprises sont envoyées. Chacune a deux requêtes
+   fournisseur mais une seule publication créée. Les publications retrouvées et
+   les témoins conservent une seule requête et une seule publication. L’audit
+   conserve l’incident, la vérification, la nouvelle décision et un seul succès.
+
+Captures et preuves JSON sont conservées dans `test-results/acceptance/`. Les
+réglages initiaux des feeds et du moteur sont restaurés en fin de recette.
+Le délai maximal est de huit minutes pour respecter les échéances et la cadence
+réelle de 30 secondes du worker. Les tests UI séparés couvrent la reprise en
+français/anglais, sur mobile/ordinateur, au clavier et avec contrôle d’accessibilité.
+
+La qualification porte sur Chromium, les textes sans image et les deux canaux
+OpenG7. Elle ne prouve pas les permissions ou contrats des réseaux réels, ni une
+réconciliation d’image. Le redémarrage intervient après persistance de l’incertitude ;
+il ne simule pas un arrêt brutal pendant la requête externe. Une attestation humaine
+erronée reste capable de provoquer un doublon : le système exige cette décision et
+la trace, mais ne prétend pas prouver automatiquement l’absence d’une publication.
+
+Exécution du 23 septembre 2026 sur `0c2e6db` avec les changements locaux :
+**recette finale réussie en 4,5 minutes**, sans reprise ni test ignoré. La recette
+de paiement devenu inadmissible passe également avec le récepteur HTTP local
+(premier passage combiné : deux recettes réussies en 8,5 minutes). Les contrôles
+complémentaires passent : 294 tests Node, 37 tests PostgreSQL, 23 tests UI du
+cockpit, TypeScript, lint, builds API/Web et images Docker, contrôles documentaires
+et `git diff --check`. Les avertissements antérieurs de lint et de budget du
+bundle Web subsistent. Le format ciblé passe sauf les écarts préexistants du fichier
+`tests/stripe-stub/server.mjs`, conservés hors des trois lignes de raccordement.
+Les nouveaux fichiers du simulateur et de la recette sont formatés.
+
 ## Matrice statique
 
 | Scenario                                                                          | Couvert | Surface                                                                            |

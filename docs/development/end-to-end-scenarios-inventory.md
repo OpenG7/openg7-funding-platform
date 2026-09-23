@@ -41,6 +41,13 @@ avant échéance, les deux témoins partent une seule fois en simulation. Les re
 ne rétablissent aucune autorisation. L’interface précise le motif et ouvre le dossier.
 Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--paiement-invalidé-après-programmation).
 
+Cinquième priorité testée le 23 septembre 2026 : **réponse sociale perdue →
+redémarrage → vérification ou nouvelle approbation sans doublon**, soit le scénario 43. Les publications retrouvées sont confirmées sans renvoi ; les publications
+absentes exigent une attestation motivée, un brouillon et une nouvelle approbation.
+Les témoins prouvent que le worker redémarré continue à traiter les autres envois.
+Les reçus du fournisseur simulé comptent chaque requête et chaque publication.
+Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--résultat-incertain-et-reprise-sans-doublon).
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |
