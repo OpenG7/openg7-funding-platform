@@ -16,6 +16,10 @@ Références techniques extraites du README : [configuration](technical/configur
 [API admin](technical/admin-api.md), [API publique](technical/public-api.md) et
 [Stripe/webhooks/backfill](technical/stripe.md). Lire la section utile seulement.
 
+L’[inventaire daté des 71 scénarios de bout en bout](development/end-to-end-scenarios-inventory.md)
+conserve les parcours recensés pour préparer les prochaines recettes. Ses numéros
+servent de repères ; la présence d’un scénario ne constitue pas une preuve de test.
+
 | Parcours                                                      | Référence                                                                                                                                     |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Fonds, montants et retour Checkout                            | [Accueil](funding-home.md), [confirmation des paiements](payment-trust-validation.md)                                                         |

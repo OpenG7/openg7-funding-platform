@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import sharp from 'sharp';
-import AxeBuilder from '@axe-core/playwright';
+import { AxeBuilder } from '@axe-core/playwright';
 import type { ContributionActivityResponse } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
