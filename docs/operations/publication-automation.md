@@ -124,6 +124,12 @@ commands for worker control, settings, preparation, composition, editing, approv
 connection checks and reconciliation. All routes use the existing server admin
 authentication, role/origin checks and rate limiter. No token is returned.
 
+Each delivery's sponsor metadata includes its current `paymentStatus`, alongside
+review and presentation readiness. Clients tolerate its absence from older API
+responses. A `SOURCE_NOT_ELIGIBLE` blocked delivery identifies refunded/disputed
+sponsors in the review panel and links to the corresponding admin dossier.
+These payment facts explain the block; they never authorize a new delivery.
+
 State includes `workerEnabled` and `workerVersion`. The owner-only `worker`
 command carries `enabled`, `version` and `confirmation` (`enable-worker` or
 `disable-worker`). Changes and audit are committed together. An immediate replay
@@ -175,6 +181,9 @@ concurrently.
 
 - **Blocked:** repair the connection, source, media or date; save the draft and
   approve again. Deliveries more than 24 hours overdue require rescheduling.
+  A refunded or disputed payment remains ineligible: editing or approving the
+  blocked delivery cannot bypass that requirement. After the worker revokes an
+  authorization, replaying an earlier payment confirmation does not restore it.
 - **Uncertain:** inspect the actual destination account. For text-only posts,
   supply the existing external ID; the API checks author, exact text and published
   state before recording success. Image cases require investigation of the image
@@ -201,6 +210,16 @@ isolation, time zones/DST, error classification, upload resumption and remote ch
 for migrations, concurrent claims/planning, source revocation, approval versions,
 stale leases and a database failure after provider success. Browser fixtures cover
 exact approval, edits, stale versions, exceptions, mobile focus and accessibility.
+
+The isolated browser recipe
+`tests/playwright/publication-payment-ineligibility-acceptance.spec.ts` follows
+three confirmed 500 CAD sponsorships through scheduling, a full refund and a
+signed dispute event. It checks that the worker blocks those four deliveries
+before their deadline, while the eligible control sends once to each destination.
+It also checks payment replay, audit and dossier links. See the
+[recipe and limits](../sponsorship-e2e-coverage.md#recette-navigateur--paiement-invalidé-après-programmation).
+This does not recall an already submitted provider request or decide whether an
+existing public website profile should be withdrawn.
 
 Provider contracts: [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api?view=li-lms-2026-06),
 [LinkedIn Images API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/images-api?view=li-lms-2026-06),

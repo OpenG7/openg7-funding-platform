@@ -73,6 +73,61 @@ privé du suivi n’est plus retourné ni utilisé comme texte public de remplac
 Le [contrat de confidentialité](public-sponsors.md#visibilité-et-confidentialité)
 conserve le champ historique `message` à `null` et expose le résumé public admin.
 
+## Recette navigateur : paiement invalidé après programmation
+
+La recette `tests/playwright/publication-payment-ineligibility-acceptance.spec.ts`
+traite la quatrième priorité de l’[inventaire](development/end-to-end-scenarios-inventory.md) :
+**publication autorisée → remboursement ou contestation → blocage avant envoi**.
+Elle utilise le navigateur, l’API, PostgreSQL et le worker réels dans une pile
+Docker jetable, avec les fournisseurs simulés, sans interception des requêtes
+applicatives ni modification directe de la base par le test.
+
+```sh
+yarn test:e2e:acceptance publication-payment-ineligibility-acceptance.spec.ts --project=chromium
+```
+
+1. Trois entreprises contribuent chacune 500 CAD depuis le formulaire et le
+   Checkout simulé. Des webhooks signés confirment les paiements ; chaque
+   entreprise soumet sa fiche, un logo et une photo décrite.
+2. L’admin approuve les médias, prépare les propositions par la commande API
+   existante et approuve explicitement six publications textuelles dans le
+   navigateur : Facebook et LinkedIn pour chacune des trois entreprises.
+   Les destinations sont en pause et le moteur arrêté pendant ces décisions.
+3. Avant l’échéance, l’admin rembourse intégralement la première entreprise
+   depuis son dossier. Le test livre la confirmation Stripe signée ainsi qu’une
+   contestation signée pour la deuxième. La troisième reste payée.
+4. À l’activation du moteur, les quatre publications devenues inadmissibles
+   passent à `blocked` avant leur échéance : autorisation retirée, aucune
+   tentative ni identifiant externe, une seule invalidation auditée par livraison.
+   Les approbations avec une version ancienne ou courante sont refusées.
+5. Le panneau explique « paiement remboursé » ou « paiement contesté » et mène
+   au bon dossier. Les contrôles UI distincts vérifient français/anglais,
+   ordinateur/mobile, clavier et accessibilité de ce panneau.
+6. Navigateur fermé, les deux publications témoins sont envoyées une seule fois
+   à échéance en mode `mock`. Le rejeu des événements financiers et des anciennes
+   confirmations de paiement conserve les statuts remboursé/contesté, les quatre
+   blocages et l’absence d’envoi. Captures et preuve JSON sont conservées sous
+   `test-results/acceptance/` ; les réglages du moteur et des feeds sont restaurés.
+
+Le test conserve une échéance réelle et le passage du worker toutes les 30 secondes.
+Il couvre Chromium, les deux destinations OpenG7, un commanditaire par publication
+et un remboursement intégral. Il ne couvre pas la clôture d’une contestation,
+les lots mixtes, tous les motifs d’inadmissibilité, ni les fournisseurs réels.
+Une requête sociale déjà envoyée n’est pas rappelée. Le retrait d’une fiche Web
+déjà publique reste une décision distincte et n’est pas qualifié par cette recette.
+Le moteur contrôlait déjà l’admissibilité ; l’évolution applicative expose le fait
+de paiement au panneau et permet d’ouvrir le dossier pour comprendre le blocage.
+
+Exécution du 23 septembre 2026 sur `57d6d4c` avec les changements locaux :
+**1 recette réussie en 2,9 minutes**, sans reprise ni test ignoré. Les contrôles
+de non-régression des remboursements 200 + 300 CAD et 500 CAD passent dans la même
+pile : **3 recettes réussies en 3,3 minutes** au total. Les contrôles
+complémentaires passent : 290 tests Node, 37 tests PostgreSQL sur les paiements et
+les publications, 19 tests UI du cockpit, TypeScript, lint et builds API/Web.
+Le dernier ajustement du message général de blocage est vérifié par le build Web
+et les 19 tests UI. Les avertissements existants de lint et de budget du bundle
+Web restent présents. Ces preuves concernent uniquement les fournisseurs simulés.
+
 ## Matrice statique
 
 | Scenario                                                                          | Couvert | Surface                                                                            |
