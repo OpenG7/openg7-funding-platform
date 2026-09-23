@@ -129,16 +129,11 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
               }}
             </p>
           </div>
-          <div class="header-actions">
-            <a
-              [routerLink]="publicationPath + '/automation'"
-              class="primary-action"
-              >{{ 'admin.publicationAutomation.title' | translate }}</a
-            >
+          <div class="header-actions" data-og7="publication-header-actions">
             @if (activeView() === 'drafts') {
               <button
                 type="button"
-                class="primary-action"
+                class="admin-button admin-button--primary"
                 id="publication-prepare"
                 [attr.aria-expanded]="showEligible()"
                 aria-controls="publication-eligible"
@@ -150,7 +145,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             @if (activeView() === 'batches') {
               <button
                 type="button"
-                class="primary-action"
+                class="admin-button admin-button--primary"
                 [attr.aria-expanded]="newBatchOpen()"
                 aria-controls="new-batch-form"
                 (click)="newBatchOpen.set(!newBatchOpen())"
@@ -161,7 +156,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
             @if (activeView() === 'calendar') {
               <button
                 type="button"
-                class="primary-action"
+                class="admin-button admin-button--primary"
                 [attr.aria-expanded]="newSlotOpen()"
                 aria-controls="new-slot-form"
                 (click)="newSlotOpen.set(!newSlotOpen())"
@@ -169,8 +164,14 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
                 {{ 'admin.publications.newSlot' | translate }}
               </button>
             }
+            <a
+              [routerLink]="publicationPath + '/automation'"
+              class="admin-button"
+              >{{ 'admin.publicationAutomation.title' | translate }}</a
+            >
             <button
               type="button"
+              class="admin-button"
               (click)="load()"
               [disabled]="state() === 'loading'"
             >
@@ -1284,6 +1285,14 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
+      }
+
+      .header-actions {
+        align-items: center;
+      }
+
+      .admin-topbar {
+        flex-wrap: wrap;
       }
 
       .publication-breadcrumb a {

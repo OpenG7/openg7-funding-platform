@@ -107,11 +107,18 @@ async function audit(
   actor: string,
   action: string,
   id: string,
-  metadata: object = {}
+  metadata: object = {},
+  entityType = 'publication_delivery'
 ): Promise<void> {
   await db.query(
-    `INSERT INTO admin_audit_log(actor,action,entity_type,entity_id,summary,metadata) VALUES($1,$2,'publication_delivery',$3,$2,$4::jsonb)`,
-    [actor, `publication_automation.${action}`, id, JSON.stringify(metadata)]
+    `INSERT INTO admin_audit_log(actor,action,entity_type,entity_id,summary,metadata) VALUES($1,$2,$5,$3,$2,$4::jsonb)`,
+    [
+      actor,
+      `publication_automation.${action}`,
+      id,
+      JSON.stringify(metadata),
+      entityType
+    ]
   );
 }
 async function transaction<T>(
@@ -148,13 +155,26 @@ const eligibleDestination = (alias: string, target: string, channel: string) =>
 
 export class PublicationAutomationService {
   private running = false;
-  readonly enabled: boolean;
   constructor(
     private readonly pool: Pool,
     private readonly storage: SponsorMediaStorage,
     private readonly env: NodeJS.ProcessEnv = process.env
-  ) {
-    this.enabled = env.SOCIAL_PUBLICATION_WORKER_ENABLED === 'true';
+  ) {}
+  private async workerSettings(
+    db: Db = this.pool,
+    lock: '' | 'FOR SHARE' | 'FOR UPDATE' = ''
+  ): Promise<{ enabled: boolean; version: number }> {
+    const result = await db.query<{ enabled: boolean | null; version: number }>(
+      `SELECT enabled,version FROM publication_worker_settings WHERE id=TRUE ${lock}`
+    );
+    const settings = result.rows[0];
+    assert(settings, 'WORKER_UNAVAILABLE', 503);
+    return {
+      enabled:
+        settings.enabled ??
+        this.env.SOCIAL_PUBLICATION_WORKER_ENABLED === 'true',
+      version: settings.version
+    };
   }
   async feeds(db: Db = this.pool): Promise<PublicationFeed[]> {
     const result = await db.query(
@@ -196,6 +216,7 @@ export class PublicationAutomationService {
     });
   }
   async state(db: Db = this.pool): Promise<PublicationAutomationState> {
+    const worker = await this.workerSettings(db);
     const feeds = await this.feeds(db);
     const jobs = await db.query<DeliveryRow>(
       `SELECT d.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',c.id,'name',c.sponsor_company_name,'version',c.updated_at::text,'reviewStatus',c.sponsor_review_status,'presentationApproved',EXISTS(SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id=c.id AND m.kind='supporting_image' AND m.review_status='approved' AND m.deleted_at IS NULL)) ORDER BY c.id) FROM fund_contributions c WHERE c.id IN (SELECT s.contribution_id FROM sponsor_publication_drafts s WHERE s.batch_id=d.batch_id)),'[]'::jsonb) AS sponsors FROM publication_deliveries d ORDER BY CASE WHEN status IN ('blocked','uncertain') THEN 0 WHEN status IN ('draft','approved','publishing') THEN 1 ELSE 2 END,scheduled_at DESC LIMIT 200`
@@ -204,7 +225,8 @@ export class PublicationAutomationService {
       `SELECT count(*) FILTER(WHERE status='draft')::int AS "awaitingApproval",count(*) FILTER(WHERE status IN ('approved','publishing'))::int AS scheduled,count(*) FILTER(WHERE status IN ('blocked','uncertain'))::int AS exceptions,count(*) FILTER(WHERE published_at >= NOW()-INTERVAL '24 hours')::int AS "publishedToday" FROM publication_deliveries`
     );
     return {
-      workerEnabled: this.enabled,
+      workerEnabled: worker.enabled,
+      workerVersion: worker.version,
       feeds,
       deliveries: jobs.rows.map(publicDelivery),
       summary: counts.rows[0]
@@ -570,6 +592,49 @@ export class PublicationAutomationService {
     const run = <T>(fn: (db: PoolClient) => Promise<T>) =>
       client ? fn(client) : transaction(this.pool, fn);
     assert(input && typeof input === 'object', 'INVALID_COMMAND', 400);
+    if (input.action === 'worker') {
+      assert(
+        typeof input.enabled === 'boolean' &&
+          Number.isSafeInteger(input.version) &&
+          input.version > 0,
+        'INVALID_COMMAND',
+        400
+      );
+      assert(
+        input.confirmation ===
+          (input.enabled ? 'enable-worker' : 'disable-worker'),
+        'CONFIRMATION_REQUIRED',
+        400
+      );
+      await run(async (db) => {
+        const current = await this.workerSettings(db, 'FOR UPDATE');
+        // An immediate replay has no second effect or audit. Older decisions conflict.
+        if (
+          current.version === input.version + 1 &&
+          current.enabled === input.enabled
+        )
+          return;
+        assert(current.version === input.version, 'WORKER_VERSION_CONFLICT');
+        await db.query(
+          'UPDATE publication_worker_settings SET enabled=$1,version=version+1,updated_at=NOW() WHERE id=TRUE',
+          [input.enabled]
+        );
+        await audit(
+          db,
+          actor,
+          'worker_settings',
+          'worker',
+          {
+            previousEnabled: current.enabled,
+            enabled: input.enabled,
+            previousVersion: current.version,
+            version: current.version + 1
+          },
+          'publication_worker'
+        );
+      });
+      return {};
+    }
     if (input.action === 'settings') {
       validateSettings(input.settings);
       const s = input.settings;
@@ -1115,9 +1180,10 @@ export class PublicationAutomationService {
     });
   }
   async tick(now = new Date()): Promise<void> {
-    if (!this.enabled || this.running) return;
+    if (this.running) return;
     this.running = true;
     try {
+      if (!(await this.workerSettings()).enabled) return;
       await this.guardEligibility();
       await transaction(this.pool, async (db) => {
         const stale = await db.query(
@@ -1137,12 +1203,14 @@ export class PublicationAutomationService {
           (!f.checkedAt ||
             Date.parse(f.checkedAt) < now.getTime() - 6 * 3600000)
       )) {
+        if (!(await this.workerSettings()).enabled) return;
         await this.command(
           { action: 'check', feedId: f.id },
           'publication-worker'
         );
       }
       for (const f of feeds.filter((f) => f.autoPrepare)) {
+        if (!(await this.workerSettings()).enabled) return;
         // Private preparation continues while sending is paused or unconfigured.
         // The persisted claim also bounds concurrent planners/restarts.
         const claim = await this.pool.query(
@@ -1153,6 +1221,9 @@ export class PublicationAutomationService {
       }
       for (let i = 0; i < 5; i++) {
         const row = await transaction(this.pool, async (db) => {
+          // Serialize new claims with the global switch across server instances.
+          if (!(await this.workerSettings(db, 'FOR SHARE')).enabled)
+            return null;
           const r = (
             await db.query<DeliveryRow>(
               `SELECT d.* FROM publication_deliveries d JOIN publication_feeds f ON f.id=d.feed_id WHERE d.status='approved' AND f.paused=FALSE AND d.scheduled_at<=$1 AND (d.next_attempt_at IS NULL OR d.next_attempt_at<=$1) ORDER BY d.scheduled_at LIMIT 1 FOR UPDATE OF d SKIP LOCKED`,
@@ -1185,6 +1256,7 @@ export class PublicationAutomationService {
           });
           if (now.getTime() - row.scheduled_at.getTime() > 86400000)
             throw new PublicationAutomationError('SCHEDULE_EXPIRED');
+          assert((await this.workerSettings()).enabled, 'WORKER_DISABLED');
           sending = true;
           const result = await sendDelivery(
             feedConfig(row.feed_id, this.env).config,
@@ -1213,6 +1285,22 @@ export class PublicationAutomationService {
             );
           });
         } catch (error) {
+          if (
+            !sending &&
+            error instanceof PublicationAutomationError &&
+            error.code === 'WORKER_DISABLED'
+          ) {
+            await transaction(this.pool, async (db) => {
+              await db.query(
+                `UPDATE publication_deliveries SET status='approved',attempts=attempts-1,lease_until=NULL,updated_at=NOW() WHERE id=$1 AND status='publishing'`,
+                [row.id]
+              );
+              await audit(db, 'publication-worker', 'deferred', row.id, {
+                code: 'WORKER_DISABLED'
+              });
+            });
+            return;
+          }
           const outcome =
             error instanceof DeliveryFailure
               ? error.outcome

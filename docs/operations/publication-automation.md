@@ -33,8 +33,8 @@ are outside this implementation.
 
 ## Configuration and activation
 
-Apply additive migrations `022_create_publication_automation.sql` and
-`023_prepare_publications_for_human_review.sql` to the intended
+Apply the missing additive migrations through
+`026_create_publication_worker_settings.sql` to the intended
 environment using the repository migration procedure. Production migration and
 deployment require an explicit operational instruction and verified backup.
 Existing batches, drafts and historical jobs are preserved. No backfill is needed.
@@ -43,7 +43,24 @@ All feeds start **paused** and the server worker is disabled by default. Migrati
 023 enables private automatic preparation on all four feeds, including existing
 ones, without enabling sending or changing any payment/consent/review decision.
 It can be disabled per feed in settings. Set `SOCIAL_PUBLICATION_MODE=mock` for rehearsal.
-`SOCIAL_PUBLICATION_WORKER_ENABLED=true` enables the 30-second worker. It processes
+The **Automatic processing** On / Off switch in the cockpit controls the
+30-second worker without restarting the server. Only owners (or the existing
+token administrator) can change it. Turning it on requires explicit confirmation:
+already approved deliveries can become eligible for sending on active,
+connected destinations. It does not change feed pauses, provider mode, credentials
+or any publication approval. Turning it off stops new claims and upcoming
+preparation; work already in progress may finish, including a provider request
+already submitted.
+
+Migration 026 creates a singleton setting with a nullable override: until the
+first administrative decision, `SOCIAL_PUBLICATION_WORKER_ENABLED` remains the
+default (`false` when absent). An explicit On or Off choice then takes precedence,
+persists across restarts and is read by every server instance. Configuration
+reads fail closed when the table is absent or inaccessible. Apply the migration
+before starting the updated API, and stop old workers that only read the
+environment variable. The migration itself does not activate processing.
+
+The worker processes
 at most five due deliveries per pass and prepares each enabled feed at most once
 per five minutes, with a horizon of 1–28 days and capacity of 1–10 sponsors.
 The provider's text limit may result in smaller batches. Empty calendar slots
@@ -98,9 +115,18 @@ archives its completed simulation and requires a fresh content approval.
 `GET /api/admin/publication-automation` returns safe feed metadata, summaries and
 up to 200 recent/actionable deliveries. `GET .../media` lists up to 200 approved,
 eligible assets. `POST /api/admin/publication-automation` accepts the shared typed
-commands for settings, preparation, composition, editing, approval, rejection, cancellation,
+commands for worker control, settings, preparation, composition, editing, approval, rejection, cancellation,
 connection checks and reconciliation. All routes use the existing server admin
 authentication, role/origin checks and rate limiter. No token is returned.
+
+State includes `workerEnabled` and `workerVersion`. The owner-only `worker`
+command carries `enabled`, `version` and `confirmation` (`enable-worker` or
+`disable-worker`). Changes and audit are committed together. An immediate replay
+of the same version and desired state has no additional effect; an intervening
+decision returns `409 WORKER_VERSION_CONFLICT`. Refresh before deciding again.
+The audit records actor, previous/new state and versions. Worker claims serialize
+with the switch, and dispatch checks it again after preflight. If processing was
+stopped before dispatch, the claim is released while keeping its authorization.
 
 Approval binds a version, exact message, account, mode, timestamp, source drafts
 and media snapshot. Stale versions return 409. Workers recheck consent, review,

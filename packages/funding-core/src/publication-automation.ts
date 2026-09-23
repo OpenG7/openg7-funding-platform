@@ -62,6 +62,7 @@ export interface PublicationDelivery {
 }
 export interface PublicationAutomationState {
   workerEnabled: boolean;
+  workerVersion: number;
   feeds: PublicationFeed[];
   deliveries: PublicationDelivery[];
   summary: {
@@ -72,6 +73,12 @@ export interface PublicationAutomationState {
   };
 }
 export type PublicationAutomationCommand =
+  | {
+      action: 'worker';
+      enabled: boolean;
+      version: number;
+      confirmation: 'enable-worker' | 'disable-worker';
+    }
   | { action: 'settings'; settings: PublicationFeedSettings }
   | { action: 'pause-all' }
   | { action: 'check'; feedId: PublicationFeedId }

@@ -53,8 +53,14 @@ export class AdminPublicationAutomationPageComponent {
   readonly i18n = inject(FundingI18nService);
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly route = inject(ActivatedRoute);
+  readonly feedSettingsExpanded =
+    this.route.snapshot.queryParamMap.get('settings') === 'feeds';
   readonly state = signal<PublicationAutomationState | null>(null);
   readonly busy = signal(false);
+  readonly workerChanging = signal(false);
+  readonly canManageWorker = computed(
+    () => (this.admin.identity()?.role ?? 'owner') === 'owner'
+  );
   readonly error = signal('');
   readonly notice = signal('');
   readonly tab = signal('review');
@@ -152,7 +158,9 @@ export class AdminPublicationAutomationPageComponent {
       this.browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       void this.load().then(async () => {
         const deliveryId = this.route.snapshot.queryParamMap.get('deliveryId');
-        const delivery = this.state()?.deliveries.find(d => d.id === deliveryId);
+        const delivery = this.state()?.deliveries.find(
+          (d) => d.id === deliveryId
+        );
         if (delivery) this.open(delivery);
         const batchId = this.route.snapshot.queryParamMap.get('batchId');
         const feedId = this.route.snapshot.queryParamMap.get(
@@ -171,6 +179,7 @@ export class AdminPublicationAutomationPageComponent {
       const timer = setInterval(() => {
         if (
           !this.busy() &&
+          !this.workerChanging() &&
           !this.selected() &&
           !this.composing() &&
           !this.settings()
@@ -194,6 +203,7 @@ export class AdminPublicationAutomationPageComponent {
     const code = error instanceof Error ? error.message : '';
     const key = [
       'VERSION_CONFLICT',
+      'WORKER_VERSION_CONFLICT',
       'SOURCE_CHANGED',
       'MEDIA_CHANGED',
       'SOURCE_NOT_ELIGIBLE',
@@ -237,6 +247,36 @@ export class AdminPublicationAutomationPageComponent {
       this.showError(error);
     } finally {
       this.busy.set(false);
+    }
+  }
+  async toggleWorker(): Promise<void> {
+    const state = this.state();
+    if (
+      !state ||
+      this.busy() ||
+      this.workerChanging() ||
+      !this.canManageWorker()
+    )
+      return;
+    this.workerChanging.set(true);
+    try {
+      const enabled = !state.workerEnabled;
+      if (
+        enabled &&
+        !(await this.confirmation.confirm(
+          this.i18n.t('admin.publicationAutomation.workerConfirm'),
+          this.i18n.t('admin.publicationAutomation.workerTitle')
+        ))
+      )
+        return;
+      await this.run({
+        action: 'worker',
+        enabled,
+        version: state.workerVersion,
+        confirmation: enabled ? 'enable-worker' : 'disable-worker'
+      });
+    } finally {
+      this.workerChanging.set(false);
     }
   }
   private localDate(date: string): string {

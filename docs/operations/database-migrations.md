@@ -41,6 +41,12 @@ ajoute les préférences éditoriales par destination et les observations de
 corrections distinctes. Elle n'active aucun envoi et préserve les publications
 existantes. Voir [Ma semaine](editorial-programme.md).
 
+La migration [026](../../apps/funding-api/migrations/026_create_publication_worker_settings.sql)
+ajoute l'état persistant du moteur automatique. Sa valeur initiale conserve le
+réglage serveur existant; elle n'active aucun traitement. Appliquer cette migration
+avant de démarrer l'API mise à jour. Le bouton On / Off, les droits et la reprise
+sont décrits dans le [runbook de publication](publication-automation.md).
+
 ## Première application locale
 
 Sur une base Docker locale neuve et explicitement dédiée à ce projet :

@@ -38,6 +38,9 @@ test(
         "UPDATE publication_feeds SET paused=TRUE,auto_prepare=FALSE,connection='unchecked',account_fingerprint=NULL,last_prepared_at=NULL,capacity=5,horizon_days=14"
       );
       env.SOCIAL_PUBLICATION_MODE = 'mock';
+      await pool.query(
+        'UPDATE publication_worker_settings SET enabled=NULL,version=1'
+      );
     }
     async function activate(s = service) {
       await s.command({ action: 'check', feedId }, 'tester');
@@ -117,6 +120,194 @@ test(
           .map(({ id, version }) => ({ id, version }))
       };
     }
+    await t.test(
+      'worker control persists across instances, requires confirmation and rejects stale decisions',
+      async () => {
+        await reset();
+        const stoppedEnv = {
+          SOCIAL_PUBLICATION_WORKER_ENABLED: 'false',
+          SOCIAL_PUBLICATION_MODE: 'disabled'
+        };
+        const stopped = new PublicationAutomationService(
+          pool,
+          storage,
+          stoppedEnv
+        );
+        const initial = await stopped.state();
+        assert.equal(initial.workerEnabled, false);
+        assert.equal(initial.workerVersion, 1);
+        const enable = {
+          action: 'worker',
+          enabled: true,
+          version: 1,
+          confirmation: 'enable-worker'
+        };
+        await assert.rejects(
+          stopped.command({ ...enable, confirmation: '' }, 'owner'),
+          { code: 'CONFIRMATION_REQUIRED' }
+        );
+        await assert.rejects(
+          stopped.command({ ...enable, enabled: 'true' }, 'owner'),
+          { code: 'INVALID_COMMAND' }
+        );
+        await assert.rejects(
+          stopped.command({ ...enable, version: 0 }, 'owner'),
+          { code: 'INVALID_COMMAND' }
+        );
+        await pool.query(
+          "UPDATE publication_feeds SET auto_prepare=TRUE WHERE id='openg20:facebook'"
+        );
+        await sponsor();
+        await stopped.tick();
+        assert.equal((await stopped.state()).deliveries.length, 0);
+        await stopped.command(enable, 'owner');
+        await stopped.command(enable, 'owner');
+        const restarted = new PublicationAutomationService(
+          pool,
+          storage,
+          stoppedEnv
+        );
+        assert.equal((await restarted.state()).workerEnabled, true);
+        assert.equal((await restarted.state()).workerVersion, 2);
+        await restarted.tick();
+        const prepared = await restarted.state();
+        assert.equal(prepared.deliveries.length, 1);
+        assert.equal(prepared.deliveries[0].status, 'draft');
+        assert.equal(prepared.deliveries[0].mode, 'disabled');
+        assert.ok(prepared.feeds.every((f) => f.paused));
+        await restarted.command(
+          {
+            action: 'worker',
+            enabled: false,
+            version: 2,
+            confirmation: 'disable-worker'
+          },
+          'owner'
+        );
+        await assert.rejects(restarted.command(enable, 'stale-tab'), {
+          code: 'WORKER_VERSION_CONFLICT'
+        });
+        assert.equal((await service.state()).workerEnabled, false);
+        assert.equal((await service.state()).workerVersion, 3);
+        const audit = (
+          await pool.query(
+            "SELECT actor,entity_type,metadata FROM admin_audit_log WHERE action='publication_automation.worker_settings' ORDER BY created_at,id"
+          )
+        ).rows;
+        assert.equal(audit.length, 2);
+        assert.ok(
+          audit.every(
+            (r) => r.actor === 'owner' && r.entity_type === 'publication_worker'
+          )
+        );
+        assert.deepEqual(
+          audit.map((r) => r.metadata.enabled),
+          [true, false]
+        );
+      }
+    );
+    await t.test(
+      'turning off prevents claims and turning on resumes only approved deliveries',
+      async () => {
+        await reset();
+        await activate();
+        const approvedId = await compose();
+        await approve(approvedId);
+        const draftId = await compose();
+        await service.command(
+          {
+            action: 'worker',
+            enabled: false,
+            version: 1,
+            confirmation: 'disable-worker'
+          },
+          'owner'
+        );
+        await service.tick(due);
+        assert.equal((await record(approvedId)).status, 'approved');
+        assert.equal((await record(approvedId)).attempts, 0);
+        assert.equal((await record(draftId)).status, 'draft');
+        await service.command(
+          {
+            action: 'worker',
+            enabled: true,
+            version: 2,
+            confirmation: 'enable-worker'
+          },
+          'owner'
+        );
+        await service.tick(due);
+        assert.equal((await record(approvedId)).status, 'published');
+        assert.equal((await record(draftId)).status, 'draft');
+      }
+    );
+    await t.test(
+      'turning off during preflight releases the claim without losing approval',
+      async () => {
+        await reset();
+        await activate();
+        const id = await compose();
+        await approve(id);
+        const ready = service.ready;
+        service.ready = async function (...args) {
+          const media = await ready.apply(this, args);
+          await service.command(
+            {
+              action: 'worker',
+              enabled: false,
+              version: 1,
+              confirmation: 'disable-worker'
+            },
+            'owner'
+          );
+          return media;
+        };
+        try {
+          await service.tick(due);
+        } finally {
+          service.ready = ready;
+        }
+        const after = await record(id);
+        assert.equal(after.status, 'approved');
+        assert.equal(after.attempts, 0);
+        assert.equal(after.externalPostId, null);
+        assert.equal(after.errorCode, null);
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT lease_until FROM publication_deliveries WHERE id=$1',
+              [id]
+            )
+          ).rows[0].lease_until,
+          null
+        );
+      }
+    );
+    await t.test('audit failure rolls back a worker state change', async () => {
+      await reset();
+      await pool.query(`CREATE FUNCTION fail_worker_audit() RETURNS TRIGGER LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='publication_automation.worker_settings' THEN RAISE EXCEPTION 'synthetic audit failure'; END IF; RETURN NEW; END $$;
+        CREATE TRIGGER fail_worker_audit BEFORE INSERT ON admin_audit_log FOR EACH ROW EXECUTE FUNCTION fail_worker_audit();`);
+      try {
+        await assert.rejects(
+          service.command(
+            {
+              action: 'worker',
+              enabled: false,
+              version: 1,
+              confirmation: 'disable-worker'
+            },
+            'owner'
+          ),
+          /synthetic audit failure/
+        );
+        assert.equal((await service.state()).workerEnabled, true);
+        assert.equal((await service.state()).workerVersion, 1);
+      } finally {
+        await pool.query(
+          'DROP TRIGGER fail_worker_audit ON admin_audit_log; DROP FUNCTION fail_worker_audit()'
+        );
+      }
+    });
     await t.test(
       'private preparation works while paused and disconnected, derives promised destinations and excludes ineligible orders',
       async () => {
@@ -804,5 +995,36 @@ test(
     ).rows[0];
     assert.equal(sponsor.sponsor_review_status, 'approved');
     assert.equal(sponsor.sponsor_site_visibility_held, false);
+    await pool.query(
+      await readFile(
+        new URL('026_create_publication_worker_settings.sql', directory),
+        'utf8'
+      )
+    );
+    assert.deepEqual(
+      (
+        await pool.query(
+          'SELECT enabled,version FROM publication_worker_settings'
+        )
+      ).rows,
+      [{ enabled: null, version: 1 }]
+    );
+    assert.equal(
+      (
+        await pool.query(
+          'SELECT status FROM publication_deliveries WHERE id=$1',
+          [existing.id]
+        )
+      ).rows[0].status,
+      'approved'
+    );
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT paused FROM publication_feeds WHERE id='openg7:facebook'"
+        )
+      ).rows[0].paused,
+      false
+    );
   }
 );
