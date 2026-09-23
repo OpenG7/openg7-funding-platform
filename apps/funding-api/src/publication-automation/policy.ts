@@ -143,7 +143,9 @@ export function feedConfig(
     config,
     accountId,
     expiresAt,
-    fingerprint: digest(`${config.mode}:${accountId}:${token}`)
+    fingerprint: digest(
+      `${config.mode}:${accountId}:${token}${config.mockBaseUrl ? ':' + config.mockBaseUrl : ''}`
+    )
   };
 }
 

@@ -123,6 +123,25 @@ async function fixtures(
       state.workerVersion++;
     }
     const job = state.deliveries[0]!;
+    if (c.action === 'reconcile') {
+      if (c.externalPostId === 'missing-post')
+        return route.fulfill({
+          status: 503,
+          json: { code: 'REMOTE_POST_UNVERIFIED' }
+        });
+      if (c.externalPostId === 'different-post')
+        return route.fulfill({ status: 409, json: { code: 'POST_MISMATCH' } });
+      job.status = 'published';
+      job.externalPostId = c.externalPostId;
+      job.externalPostUrl = 'https://social.openg7.local/verified';
+      job.version++;
+    }
+    if (c.action === 'confirm-absent') {
+      job.status = 'blocked';
+      job.approvedAt = null;
+      job.errorCode = 'ABSENCE_CONFIRMED';
+      job.version++;
+    }
     if (c.action === 'approve') {
       job.status = 'approved';
       job.sponsors.forEach((s) => {
@@ -478,6 +497,106 @@ test('a blocked publication without a payment fact keeps the general explanation
   ).toHaveCount(0);
   await expect(dialog.locator('.alert')).toBeVisible();
 });
+
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1280]) {
+    test(`uncertain recovery keeps evidence and explicit decisions visible in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      const commands = await fixtures(page, 'uncertain');
+      const en = language === 'en';
+      await page.goto(
+        '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
+      );
+      const dialog = page.getByRole('dialog', {
+        name: en ? 'Final publication' : 'Publication finale'
+      });
+      const remoteId = dialog.getByRole('textbox').first();
+      const reconcile = dialog.getByRole('button', {
+        name: en
+          ? 'Verify and confirm publication'
+          : 'Vérifier et confirmer la publication'
+      });
+      await expect(reconcile).toBeDisabled();
+      await remoteId.fill('missing-post');
+      await reconcile.click();
+      await expect(dialog.getByRole('alert')).toContainText(
+        en
+          ? 'before concluding that it is absent'
+          : 'avant de conclure à son absence'
+      );
+      await expect(
+        dialog.getByRole('link', {
+          name: en ? 'View publication' : 'Voir la publication'
+        })
+      ).toHaveCount(0);
+      await remoteId.fill('different-post');
+      await reconcile.click();
+      await expect(dialog.getByRole('alert')).toContainText(
+        en ? 'does not match' : 'ne correspond pas'
+      );
+      await remoteId.fill('verified-post');
+      await reconcile.click();
+      await expect(
+        dialog.getByRole('link', {
+          name: en ? 'View publication' : 'Voir la publication'
+        })
+      ).toBeVisible();
+      expect(commands.filter((c) => c.action === 'reconcile')).toHaveLength(3);
+
+      await page.unroute('**/api/**');
+      const absenceCommands = await fixtures(page, 'uncertain');
+      await page.reload();
+      await dialog.locator('summary').click();
+      const reason = dialog.locator('textarea');
+      const checkbox = dialog.getByRole('checkbox');
+      const confirm = dialog.getByRole('button', {
+        name: en ? 'Record verification' : 'Consigner la vérification'
+      });
+      await expect(confirm).toBeDisabled();
+      await reason.fill(
+        'Checked provider history; no corresponding post was found.'
+      );
+      await expect(confirm).toBeDisabled();
+      await checkbox.check();
+      await expect(confirm).toBeEnabled();
+      const a11y = await new AxeBuilder({ page })
+        .include('dialog[open]')
+        .analyze();
+      expect(a11y.violations).toEqual([]);
+      expect(
+        await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)
+      ).toBe(true);
+      await confirm.focus();
+      await page.keyboard.press('Enter');
+      expect(absenceCommands).toEqual([
+        {
+          action: 'confirm-absent',
+          id: initialJob.id,
+          version: 1,
+          confirmation: initialJob.id,
+          reason: 'Checked provider history; no corresponding post was found.'
+        }
+      ]);
+      await expect(
+        dialog.getByRole('button', {
+          name: en ? 'Edit' : 'Modifier',
+          exact: true
+        })
+      ).toBeVisible();
+      await expect(
+        dialog.getByRole('button', {
+          name: en ? 'Accept and schedule' : 'Accepter et programmer'
+        })
+      ).toHaveCount(0);
+    });
+  }
+}
 
 test('one explicit acceptance reviews pending sponsors and the publication together', async ({
   page

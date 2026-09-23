@@ -960,7 +960,14 @@ export class PublicationAutomationService {
             c.config,
             publicDelivery(row),
             input.externalPostId
-          );
+          ).catch((error: unknown) => {
+            if (error instanceof DeliveryFailure)
+              throw new PublicationAutomationError(
+                'REMOTE_POST_UNVERIFIED',
+                503
+              );
+            throw error;
+          });
           await this.complete(
             db,
             row,
@@ -1325,7 +1332,7 @@ export class PublicationAutomationService {
               );
             }
             await db.query(
-              `UPDATE publication_deliveries SET status=$2,error_code=$3,next_attempt_at=NOW()+($4 * INTERVAL '1 minute'),lease_until=NULL,version=version+1,updated_at=NOW() WHERE id=$1 AND status='publishing'`,
+              `UPDATE publication_deliveries SET status=$2,error_code=$3,next_attempt_at=CASE WHEN $2='approved' THEN NOW()+($4 * INTERVAL '1 minute') ELSE NULL END,lease_until=NULL,version=version+1,updated_at=NOW() WHERE id=$1 AND status='publishing'`,
               [row.id, status, safeCode(error), Math.min(60, 2 ** row.attempts)]
             );
             await audit(db, 'publication-worker', status, row.id, {

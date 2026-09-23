@@ -1748,6 +1748,7 @@
         "LEGACY_DELIVERY_EXISTS": "An earlier delivery exists for this batch. Verify its outcome first.",
         "INVALID_MESSAGE": "The text must contain between 1 and 2,900 characters. Reduce the batch or its content.",
         "POST_MISMATCH": "This post does not match the approved content and account.",
+        "REMOTE_POST_UNVERIFIED": "This publication could not be verified. Check its identifier and account access before concluding that it is absent.",
         "MEDIA_RECONCILIATION_REQUIRED": "The image needs verification on the social network. Delivery remains blocked to prevent a duplicate.",
         "SPONSOR_APPROVAL_REQUIRED": "Review the pending sponsors and confirm their approval with this publication.",
         "SPONSOR_MEDIA_REQUIRED": "Each new sponsor requires an approved presentation photo."

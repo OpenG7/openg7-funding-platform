@@ -777,6 +777,7 @@ test(
         let outcome = 'timeout';
         st.mock.method(globalThis, 'fetch', async (url, init) => {
           if (url.includes('/me?')) return Response.json({ id: '20' });
+          if (!init.method) return new Response('{}', { status: 404 });
           requests.push(init.body.get('message'));
           if (outcome === 'timeout') throw new Error('synthetic timeout');
           if (outcome === 'limit') return new Response('{}', { status: 429 });
@@ -788,12 +789,29 @@ test(
         await service.tick(due);
         await service.tick(due);
         assert.equal((await record(first)).status, 'uncertain');
+        assert.equal((await record(first)).nextAttemptAt, null);
         assert.equal(requests.length, 1);
+        const uncertain = await record(first);
+        await assert.rejects(
+          service.command(
+            {
+              action: 'reconcile',
+              id: first,
+              version: uncertain.version,
+              confirmation: first,
+              externalPostId: '20_404'
+            },
+            'tester'
+          ),
+          { code: 'REMOTE_POST_UNVERIFIED', status: 503 }
+        );
+        assert.deepEqual(await record(first), uncertain);
         const second = await compose();
         await approve(second);
         outcome = 'limit';
         await service.tick(due);
         assert.equal((await record(second)).status, 'approved');
+        assert.ok((await record(second)).nextAttemptAt);
         outcome = 'ok';
         await pool.query(
           'UPDATE publication_deliveries SET next_attempt_at=NOW() WHERE id=$1',

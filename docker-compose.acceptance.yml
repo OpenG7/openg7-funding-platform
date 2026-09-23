@@ -84,6 +84,7 @@ services:
       FUNDING_CONTRIBUTION_SMS_MODE: mock
       FUNDING_CONTRIBUTION_SMS_MOCK_URL: http://stripe-stub:4242/__test__/sms
       SOCIAL_PUBLICATION_MODE: mock
+      SOCIAL_PUBLICATION_MOCK_URL: http://stripe-stub:4242/__test__/social
       SPONSOR_MEDIA_STORAGE_DRIVER: local
       ADMIN_AI_ASSISTANT_ENABLED: 'false'
     depends_on:

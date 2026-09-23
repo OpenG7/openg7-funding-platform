@@ -70,7 +70,16 @@ export async function checkConnection(
   accountId: string
 ): Promise<void> {
   assert(c.mode !== 'disabled', 'DISABLED');
-  if (c.mode === 'mock') return;
+  if (c.mode === 'mock') {
+    if (c.mockBaseUrl) {
+      const { data } = await call(
+        `${c.mockBaseUrl}/accounts/${encodeURIComponent(accountId)}`,
+        {}
+      );
+      assert(data.id === accountId, 'ACCOUNT_MISMATCH');
+    }
+    return;
+  }
   if (channel === 'facebook') {
     const { data } = await call(`${c.facebook.graphBaseUrl}/me?fields=id`, {
       headers: { Authorization: `Bearer ${c.facebook.pageAccessToken}` }
@@ -102,11 +111,31 @@ export async function sendDelivery(
   persistImage: (id: string) => Promise<void> = async () => {}
 ): Promise<SocialPublicationProviderResult> {
   assert(c.mode !== 'disabled' && c.mode === job.mode, 'MODE_CHANGED');
-  if (c.mode === 'mock')
+  if (c.mode === 'mock') {
+    if (c.mockBaseUrl) {
+      const { data } = await call(
+        `${c.mockBaseUrl}/deliveries`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deliveryId: job.id,
+            feedId: job.feedId,
+            accountId: job.accountId,
+            message: job.message,
+            mediaId: job.mediaId
+          })
+        },
+        true
+      );
+      if (data.id !== `mock-${job.id}`)
+        throw new DeliveryFailure('PROVIDER_MISSING_ID', 'uncertain');
+    }
     return {
       externalPostId: `mock-${job.id}`,
       externalPostUrl: `https://social.openg7.local/${job.feedId}/${job.id}`
     };
+  }
   if (job.feedId.endsWith(':facebook')) {
     let body: URLSearchParams | FormData;
     if (media) {
@@ -214,14 +243,30 @@ export async function verifyRemote(
   job: PublicationDelivery,
   id: string
 ): Promise<SocialPublicationProviderResult> {
+  assert(c.mode === job.mode, 'MODE_CHANGED');
   if (c.mode === 'mock') {
-    assert(id === `mock-${job.id}`, 'POST_MISMATCH');
+    if (c.mockBaseUrl) {
+      assert(!job.mediaId, 'MEDIA_RECONCILIATION_REQUIRED');
+      const { data } = await call(
+        `${c.mockBaseUrl}/posts/${encodeURIComponent(id)}`,
+        {}
+      );
+      assert(
+        data.id === id &&
+          data.deliveryId === job.id &&
+          data.accountId === job.accountId &&
+          data.feedId === job.feedId &&
+          data.message === job.message &&
+          data.isPublished === true &&
+          !data.mediaId,
+        'POST_MISMATCH'
+      );
+    } else assert(id === `mock-${job.id}`, 'POST_MISMATCH');
     return {
       externalPostId: id,
       externalPostUrl: `https://social.openg7.local/${job.feedId}/${job.id}`
     };
   }
-  assert(c.mode === job.mode, 'MODE_CHANGED');
   // Text, author and publication state must match. Media reconciliation requires a manual provider investigation.
   assert(!job.mediaId, 'MEDIA_RECONCILIATION_REQUIRED');
   if (job.feedId.endsWith(':facebook')) {
