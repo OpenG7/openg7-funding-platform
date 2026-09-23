@@ -29,10 +29,16 @@ test('administrative roles default to refusing mutations and reserve money and p
     for (const path of [
       '/admin/sponsorships/refund',
       '/admin/sponsorship-invoices/backfill',
+      '/admin/publication-automation',
+      '/api/admin/publication-automation',
       '/admin/new-action'
     ])
       assert.equal(adminRoleAllows(role, 'POST', path), false);
   }
+  assert.equal(
+    adminRoleAllows('owner', 'POST', '/api/admin/publication-automation'),
+    true
+  );
   assert.equal(
     adminRoleAllows('owner', 'POST', '/admin/sponsorships/refund'),
     true

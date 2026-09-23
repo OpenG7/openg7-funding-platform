@@ -36,12 +36,63 @@
     }
     <p role="status">{{ notice() | translate }}</p>
     @if (state(); as s) {
-      @if (!s.workerEnabled) {
-        <p class="alert">
-          {{ 'admin.publicationAutomation.workerOff' | translate }}
-        </p>
-      }
-      <details data-og7="publication-feed-settings">
+      <section
+        class="worker-control"
+        data-og7="publication-worker"
+        aria-labelledby="worker-title"
+      >
+        <div>
+          <h2 id="worker-title">
+            {{ 'admin.publicationAutomation.workerTitle' | translate }}
+          </h2>
+          <p id="worker-description">
+            {{
+              (s.workerEnabled
+                ? 'admin.publicationAutomation.workerOn'
+                : 'admin.publicationAutomation.workerOff'
+              ) | translate
+            }}
+          </p>
+          <p class="detail">
+            {{ 'admin.publicationAutomation.workerStopHelp' | translate }}
+          </p>
+          @if (!canManageWorker()) {
+            <p class="detail" id="worker-permission">
+              {{ 'admin.publicationAutomation.workerOwnerOnly' | translate }}
+            </p>
+          }
+        </div>
+        <button
+          type="button"
+          role="switch"
+          class="worker-toggle"
+          data-og7="publication-worker-toggle"
+          aria-labelledby="worker-title"
+          [attr.aria-describedby]="
+            canManageWorker()
+              ? 'worker-description'
+              : 'worker-description worker-permission'
+          "
+          [attr.aria-checked]="s.workerEnabled"
+          [disabled]="!canManageWorker()"
+          [attr.aria-disabled]="
+            busy() || workerChanging() || !canManageWorker()
+          "
+          (click)="toggleWorker()"
+        >
+          <span class="worker-toggle__track" aria-hidden="true"></span>
+          <span aria-hidden="true">{{
+            (s.workerEnabled
+              ? 'admin.publicationAutomation.workerOnLabel'
+              : 'admin.publicationAutomation.workerOffLabel'
+            ) | translate
+          }}</span>
+        </button>
+      </section>
+      <details
+        data-og7="publication-feed-settings"
+        [open]="feedSettingsExpanded"
+      >
         <summary>
           {{ 'admin.publicationAutomation.feedSettings' | translate }}
         </summary>

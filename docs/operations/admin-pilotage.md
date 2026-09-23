@@ -1,8 +1,20 @@
 # Poste de pilotage administratif
 
 Route : `/admin/fundraiser/pilotage`, accessible depuis la navigation admin.
-La page reprend la référence visuelle fournie : une décision centrale, la file
-« À suivre » et les commandes en bas. Le portail existant reste accessible.
+La page utilise le cadre commun de l'administration : menu latéral, recherche,
+langue et menu repliable sur mobile. Les espaces de pilotage sont des filtres
+dans le contenu, sous le titre; ils changent la file sans quitter la page.
+Une décision centrale, la file « À suivre » et les commandes en bas conservent
+le parcours spécialisé. Les raccourcis du pilotage sont neutralisés lorsque
+le focus est dans la navigation globale ou la recherche; le retour aux décisions
+exige de relâcher la manette.
+
+La carte d'état du traitement automatique est un lien **Ouvrir les réglages**
+vers `/admin/fundraiser/publications/automation?settings=feeds`, avec la section
+des connexions et cadences dépliée. Ce raccourci ne change aucun réglage.
+Le propriétaire peut activer ou arrêter le moteur sur cette page avec le bouton
+On / Off; les réglages des destinations restent distincts. Voir le
+[runbook de publication](publication-automation.md) pour les conditions d'activation.
 
 La vue d’ensemble affiche les décisions à examiner dans l’espace sélectionné,
 les décisions traitées et les ouvertures de dossiers pendant la visite. Ces deux

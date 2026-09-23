@@ -23,6 +23,12 @@ test(
       .filter((f) => f.endsWith('.sql') && f < '024')
       .sort())
       await pool.query(await readFile(new URL(file, migrations), 'utf8'));
+    await pool.query(
+      await readFile(
+        new URL('026_create_publication_worker_settings.sql', migrations),
+        'utf8'
+      )
+    );
     const automation = new PublicationAutomationService(
       pool,
       { readPrivateObject: async () => null },
@@ -451,6 +457,46 @@ test(
         });
         const base = `http://127.0.0.1:${port}`;
         for (const prefix of ['/admin', '/api/admin']) {
+          const automationUrl = base + prefix + '/publication-automation';
+          const workerCommand = {
+            action: 'worker',
+            enabled: false,
+            version: 1,
+            confirmation: 'disable-worker'
+          };
+          const changeWorker = (
+            role,
+            originHeader = true,
+            command = workerCommand
+          ) =>
+            fetch(automationUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(role ? { cookie: cookies[role] } : {}),
+                ...(originHeader ? { origin } : {})
+              },
+              body: JSON.stringify(command)
+            });
+          assert.equal((await changeWorker(null)).status, 401);
+          assert.equal((await changeWorker('reader')).status, 403);
+          assert.equal((await changeWorker('operator')).status, 403);
+          assert.equal((await changeWorker('owner', false)).status, 403);
+          assert.equal(
+            (
+              await changeWorker('owner', true, {
+                ...workerCommand,
+                confirmation: ''
+              })
+            ).status,
+            400
+          );
+          assert.equal((await changeWorker('owner')).status, 200);
+          const workerState = await fetch(automationUrl, {
+            headers: { cookie: cookies.reader }
+          });
+          assert.equal(workerState.status, 200);
+          assert.equal((await workerState.json()).workerEnabled, false);
           const url = base + prefix + '/pilotage';
           assert.equal((await fetch(url)).status, 401);
           const reader = await fetch(url, {

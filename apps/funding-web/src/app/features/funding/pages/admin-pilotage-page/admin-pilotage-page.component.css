@@ -5,19 +5,11 @@
   --line: #28445e;
   --accent: #67ddff;
   --domain-color: #8bdaff;
-  color: var(--ink);
-  background: #061424;
-  min-height: 100dvh;
-  font-size: 14px;
 }
 .pilot {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  grid-template-rows: 80px 1fr;
-  min-height: 100dvh;
-  background:
-    radial-gradient(ellipse at 75% 0%, #164f6552, transparent 45%),
-    radial-gradient(ellipse at 25% 65%, #23305a30, transparent 55%), #071522;
+  min-width: 0;
+  color: var(--ink);
+  font-size: 14px;
 }
 button,
 a,
@@ -69,51 +61,24 @@ select:focus-visible,
   outline: 3px solid var(--accent);
   outline-offset: 4px;
 }
-.skip {
-  position: fixed;
-  top: -100px;
-  left: 12px;
-  z-index: 99;
-  background: #152e46;
-  padding: 1rem;
-}
-.skip:focus {
-  top: 12px;
-}
-.masthead {
-  grid-column: 1/-1;
+.pilot-tools {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 0 32px;
-  border-bottom: 1px solid #173048;
-  background: #071522b3;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
 }
-.brand {
-  font-size: 34px;
-  letter-spacing: -1.5px;
-  color: #fff;
-  font-weight: 750;
-  white-space: nowrap;
-}
-.brand span {
-  font-size: 25px;
-}
-.fund-name {
-  color: #98d8f6;
-  font-size: 18px;
-  border-left: 1px solid var(--line);
-  padding-left: 22px;
+.pilot-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 12px;
 }
 .connection {
   margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 12px;
   border: 0;
   background: none;
-  padding: 5px;
 }
 .dot {
   display: inline-block;
@@ -127,46 +92,35 @@ select:focus-visible,
   background: #79e3ad;
   box-shadow: 0 0 8px #66d39e45;
 }
-.decision-count {
-  border: 1px solid #385571;
-  border-radius: 30px;
-  background: #142d43;
-  color: #d2edfa;
-  padding: 7px 13px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-.account {
-  border-radius: 50%;
-  padding: 9px;
-  display: flex;
-}
-.rail {
-  padding: 24px 12px 0;
-  border-right: 1px solid #173048;
-  display: flex;
-  flex-direction: column;
+.domain-picker {
   min-width: 0;
-  background: linear-gradient(180deg, #091b2c, #091a2980);
+  margin-bottom: 14px;
 }
-.rail nav {
+.domain-picker h2 {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+.domain-filters {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 7px;
+  padding: 5px;
+  margin: -5px;
 }
-.rail nav button {
+.domain-filters button {
   display: flex;
   align-items: center;
   text-align: left;
   gap: 10px;
-  border: 1px solid transparent;
+  border: 1px solid var(--line);
   border-radius: 10px;
   background: transparent;
   padding: 12px 10px;
   font-size: 13px;
   color: #bfd0e5;
 }
-.rail nav button.active {
+.domain-filters button.active {
   border-color: #3b6582;
   box-shadow:
     inset 3px 0 var(--domain-color),
@@ -174,7 +128,7 @@ select:focus-visible,
   background: linear-gradient(100deg, #204361, #132c43);
   color: #fff;
 }
-.rail nav small {
+.domain-filters small {
   margin-left: auto;
   color: #d3e4f4;
   background: #ffffff0a;
@@ -185,7 +139,7 @@ select:focus-visible,
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.rail nav openg7-admin-icon {
+.domain-filters openg7-admin-icon {
   color: var(--domain-color);
 }
 [data-domain='sponsors'] {
@@ -200,29 +154,6 @@ select:focus-visible,
 }
 [data-domain='projects'] {
   --domain-color: #f3d785;
-}
-.rail-note {
-  padding: 22px 16px;
-  margin: auto 0 20px;
-  color: #adc5dd;
-  background: radial-gradient(ellipse at 0 0, #1c60582b, transparent 75%);
-  border-top: 1px solid #284b58;
-}
-.rail-note > span {
-  font-size: 44px;
-  font-weight: 200;
-  color: #8adeca;
-}
-.rail-note p {
-  font-size: 16px;
-  line-height: 1.35;
-}
-.rail-note a {
-  font-size: 12px;
-}
-main {
-  padding: 30px 32px 20px;
-  min-width: 0;
 }
 .intro {
   display: flex;
@@ -299,11 +230,30 @@ h1 {
   padding: 20px;
   background: linear-gradient(130deg, #183148cc, #0c2034cc);
   box-shadow: 0 12px 32px #00000014;
+  color: var(--ink);
+  text-decoration: none;
 }
 .automation.is-active {
   border-color: #36675f;
   background:
     radial-gradient(ellipse at 0 0, #276d5e40, transparent 80%), #0f2832;
+}
+.automation:hover {
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px #0003;
+  text-decoration: none;
+}
+.automation-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: #a2e6ff;
+  font-size: 12px;
+  font-weight: 600;
+}
+.automation:hover .automation-shortcut {
+  text-decoration: underline;
 }
 .automation-icon {
   display: grid;
@@ -939,9 +889,6 @@ h1 {
   gap: 16px;
 }
 @media (min-width: 1600px) {
-  main {
-    padding: 42px 48px;
-  }
   .decision {
     padding: 28px;
   }
@@ -962,22 +909,6 @@ h1 {
   }
 }
 @media (max-width: 1150px) {
-  .pilot {
-    grid-template-columns: 200px minmax(0, 1fr);
-  }
-  .masthead {
-    gap: 14px;
-    padding: 0 20px;
-  }
-  .fund-name {
-    font-size: 14px;
-  }
-  .decision-count {
-    display: none;
-  }
-  main {
-    padding: 25px 20px;
-  }
   .workspace {
     grid-template-columns: minmax(0, 1.7fr) minmax(220px, 1fr);
     gap: 15px;
@@ -1028,50 +959,25 @@ h1 {
   }
 }
 @media (max-width: 960px) {
-  .pilot {
-    display: block;
-  }
-  .masthead {
-    height: 70px;
-    padding: 0 16px;
-  }
-  .brand {
-    font-size: 27px;
-  }
-  .fund-name {
-    display: none;
-  }
-  .connection {
-    font-size: 11px;
-  }
-  .rail {
-    border: 0;
-    padding: 8px 0 0;
-  }
-  .rail nav {
-    flex-direction: row;
+  .domain-filters {
+    flex-wrap: nowrap;
     overflow: auto;
-    padding: 4px 12px 8px;
   }
-  .rail nav button {
+  .domain-filters button {
     flex-shrink: 0;
     white-space: nowrap;
     padding: 10px;
-    border: 1px solid transparent;
     gap: 7px;
   }
-  .rail-note {
-    display: none;
-  }
-  .rail nav button.active {
+  .domain-filters button.active {
     border-color: #60cee9;
     border-radius: 7px;
   }
-  .rail nav small {
+  .domain-filters small {
     min-width: 20px;
   }
-  main {
-    padding: 22px 16px;
+  .connection {
+    margin-left: 0;
   }
   .intro {
     display: block;

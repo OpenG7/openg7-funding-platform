@@ -1,87 +1,5 @@
-<div class="pilot" data-og7="pilotage">
-  <a class="skip" href="#admin-main">{{ t('skip') }}</a>
-  <header class="masthead">
-    <a routerLink="/admin/fundraiser" class="brand"
-      >OpenG7 <span aria-hidden="true">🍁</span></a
-    >
-    <span class="fund-name">{{ t('fund') }}</span>
-    <button
-      class="connection"
-      data-og7="pilot-controller"
-      type="button"
-      (click)="open('settings')"
-    >
-      <span aria-hidden="true">◉</span
-      >{{
-        t(
-          controller.connected()
-            ? controller.enabled()
-              ? controller.ready()
-                ? 'connected'
-                : 'needsCalibration'
-              : 'capturePaused'
-            : 'disconnected'
-        )
-      }}
-      <i
-        class="dot"
-        [class.online]="controller.ready() && controller.enabled()"
-      ></i>
-    </button>
-    <strong class="decision-count"
-      >{{ state()?.total ?? '—' }} {{ t('toReview') }}</strong
-    >
-    <button
-      type="button"
-      class="account"
-      (click)="open('menu')"
-      [attr.aria-label]="t('menu')"
-    >
-      <openg7-admin-icon name="menu" />
-    </button>
-  </header>
-  <aside class="rail">
-    <nav data-og7="pilot-domains" [attr.aria-label]="t('navigation')">
-      <button
-        type="button"
-        [class.active]="domain() === ''"
-        [attr.aria-current]="domain() === '' ? 'page' : null"
-        (click)="changeDomain('')"
-        [disabled]="busy()"
-      >
-        <openg7-admin-icon name="dashboard" />{{ t('title') }}
-      </button>
-      @for (d of domains; track d.id) {
-        <button
-          type="button"
-          [class.active]="domain() === d.id"
-          [attr.aria-current]="domain() === d.id ? 'page' : null"
-          [attr.data-domain]="d.id"
-          (click)="changeDomain(d.id)"
-          [disabled]="busy()"
-        >
-          <openg7-admin-icon [name]="d.icon" /><span>{{
-            t('domains.' + d.id)
-          }}</span
-          ><small>{{ state()?.domains?.[d.id] ?? '—' }}</small>
-        </button>
-      }
-      <button type="button" data-og7="pilot-calendar" (click)="openCalendar()">
-        <openg7-admin-icon name="clock" />{{ t('calendar') }}
-      </button>
-      <button type="button" (click)="open('settings')">
-        <openg7-admin-icon name="settings" />{{ t('settings') }}
-      </button>
-    </nav>
-    <div class="rail-note">
-      <span aria-hidden="true">✳</span>
-      <p>{{ t('community') }}</p>
-      <a routerLink="/admin/fundraiser" (click)="portal()"
-        >{{ t('fullPortal') }} ↗</a
-      >
-    </div>
-  </aside>
-  <main id="admin-main" tabindex="-1">
+<openg7-admin-layout>
+  <div class="pilot" data-og7="pilotage">
     <section class="intro">
       <div class="intro-copy">
         <p class="eyebrow">
@@ -114,10 +32,13 @@
           />
         </div>
       </div>
-      <div
+      <a
         class="automation"
         data-og7="pilot-automation"
         [class.is-active]="state()?.workerEnabled"
+        routerLink="/admin/fundraiser/publications/automation"
+        [queryParams]="{ settings: 'feeds' }"
+        (click)="portal()"
       >
         <span class="automation-icon" aria-hidden="true">
           <openg7-admin-icon name="assistant" />
@@ -144,9 +65,78 @@
               )
             }}
           </p>
+          <span class="automation-shortcut">
+            {{ t('automationSettings') }}
+            <openg7-admin-icon name="arrow" />
+          </span>
         </div>
+      </a>
+    </section>
+    <section class="domain-picker" aria-labelledby="pilot-domains-heading">
+      <h2 id="pilot-domains-heading">{{ t('navigation') }}</h2>
+      <div
+        class="domain-filters"
+        role="group"
+        data-og7="pilot-domains"
+        aria-labelledby="pilot-domains-heading"
+      >
+        <button
+          type="button"
+          [class.active]="domain() === ''"
+          [attr.aria-pressed]="domain() === ''"
+          (click)="changeDomain('')"
+          [disabled]="busy()"
+        >
+          <openg7-admin-icon name="dashboard" />{{ t('overview') }}
+        </button>
+        @for (d of domains; track d.id) {
+          <button
+            type="button"
+            [class.active]="domain() === d.id"
+            [attr.aria-pressed]="domain() === d.id"
+            [attr.data-domain]="d.id"
+            (click)="changeDomain(d.id)"
+            [disabled]="busy()"
+          >
+            <openg7-admin-icon [name]="d.icon" /><span>{{
+              t('domains.' + d.id)
+            }}</span
+            ><small>{{ state()?.domains?.[d.id] ?? '—' }}</small>
+          </button>
+        }
       </div>
     </section>
+    <div class="pilot-tools">
+      <button type="button" data-og7="pilot-calendar" (click)="openCalendar()">
+        <openg7-admin-icon name="clock" />{{ t('calendar') }}
+      </button>
+      <button type="button" (click)="open('settings')">
+        <openg7-admin-icon name="settings" />{{ t('settings') }}
+      </button>
+      <button
+        class="connection"
+        data-og7="pilot-controller"
+        type="button"
+        (click)="open('settings')"
+      >
+        <span aria-hidden="true">◉</span
+        >{{
+          t(
+            controller.connected()
+              ? controller.enabled()
+                ? controller.ready()
+                  ? 'connected'
+                  : 'needsCalibration'
+                : 'capturePaused'
+              : 'disconnected'
+          )
+        }}
+        <i
+          class="dot"
+          [class.online]="controller.ready() && controller.enabled()"
+        ></i>
+      </button>
+    </div>
     <dl
       class="overview"
       data-og7="pilot-overview"
@@ -532,8 +522,8 @@
         {{ t('help') }} · A / B / X / Y</button
       ><span>{{ t('keyboardHint') }}</span>
     </div>
-  </main>
-</div>
+  </div>
+</openg7-admin-layout>
 
 <openg7-admin-drawer
   [wide]="panel() === 'programme'"
@@ -934,4 +924,3 @@
     }
   </div>
 </openg7-admin-drawer>
-<openg7-admin-inspector />

@@ -31,7 +31,7 @@ import {
   EditorialProgrammeComponent,
   type ProgrammeCommand
 } from '../../components/admin-pilotage/editorial-programme.component.js';
-import { AdminInspectorComponent } from '../../components/admin-inspector/admin-inspector.component.js';
+import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import {
   AdminIconComponent,
@@ -70,7 +70,7 @@ type Panel =
     AdminIconComponent,
     PilotKeyboardComponent,
     AdminPublicationCalendarComponent,
-    AdminInspectorComponent,
+    AdminLayoutComponent,
     EditorialProgrammeComponent,
     AdminGuideComponent
   ],
@@ -240,6 +240,16 @@ export class AdminPilotagePageComponent {
         void this.load(true);
       }
       this.controller.start((intent) => this.intent(intent));
+      let globalNavigation = this.globalNavigationActive();
+      const focusChanged = () => {
+        const next = this.globalNavigationActive();
+        if (next !== globalNavigation) this.controller.reset();
+        globalNavigation = next;
+      };
+      this.document.addEventListener('focusin', focusChanged);
+      destroy.onDestroy(() =>
+        this.document.removeEventListener('focusin', focusChanged)
+      );
       try {
         const saved = JSON.parse(
           this.document.defaultView!.sessionStorage.getItem(
@@ -809,6 +819,12 @@ export class AdminPilotagePageComponent {
       this.programme()?.guide()?.handleIntent(intent)
     )
       return;
+    // The shared navigation and search own their focus; cockpit shortcuts
+    // must never act on a decision while the user is using those controls.
+    if (this.globalNavigationActive()) {
+      this.controller.reset();
+      return;
+    }
     if (this.busy()) return;
     if (this.inspection.current()) {
       if (intent === 'secondary') {
@@ -917,6 +933,16 @@ export class AdminPilotagePageComponent {
           ?.scrollBy({ top: intent === 'scrollDown' ? 150 : -150 });
         break;
     }
+  }
+  private globalNavigationActive(): boolean {
+    if (this.panel() || this.inspection.current()) return false;
+    const active = this.document.activeElement;
+    return !!(
+      this.document.querySelector('dialog[open]') ||
+      (active?.closest('openg7-admin-layout') &&
+        active.id !== 'admin-main' &&
+        !active.closest('[data-og7="pilotage"]'))
+    );
   }
   private moveFocus(intent: ControllerIntent): void {
     const active = this.document.activeElement;

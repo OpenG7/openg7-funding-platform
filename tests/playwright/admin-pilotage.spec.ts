@@ -681,6 +681,7 @@ async function fixtures(page: Page, count = 4) {
       return route.fulfill({
         json: {
           workerEnabled: true,
+          workerVersion: 1,
           feeds: [],
           deliveries: state.decisions.map((d) => d.publication),
           summary: {
@@ -834,6 +835,8 @@ test('stable snapshot blocks stale decisions; focus, accessibility and narrow sc
   await page.clock.install();
   await page.goto('/admin/fundraiser/pilotage');
   await expect(page.locator('[data-og7="pilot-decision"] img')).toBeVisible();
+  // Let the entrance animation finish before freezing the visual evidence.
+  await page.clock.runFor(500);
   await page.screenshot({
     path: 'test-results/pilotage-desktop.png',
     fullPage: true
@@ -901,13 +904,153 @@ test('uncertain command is acknowledged after investigation without another muta
   await expect(page.locator('[data-og7="pilot-accept"]')).toBeEnabled();
 });
 
+for (const width of [390, 1512]) {
+  test(`shared navigation and local pilotage filters stay distinct at ${width}px`, async ({
+    page
+  }) => {
+    const { commands, state } = await fixtures(page);
+    state.workerEnabled = false;
+    const mutations: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/api/') && request.method() !== 'GET')
+        mutations.push(request.url());
+    });
+    await page.setViewportSize({ width, height: 930 });
+    await page.goto('/admin/fundraiser/pilotage');
+    const navigation = page.getByRole('navigation', {
+      name: 'Navigation admin du fonds'
+    });
+    const openMenu = async () => {
+      if (width === 390)
+        await page
+          .getByRole('button', { name: 'Ouvrir le menu', exact: true })
+          .click();
+      await expect(navigation).toBeVisible();
+    };
+    await openMenu();
+    const links = await navigation.getByRole('link').evaluateAll((items) =>
+      items.map((item) => ({
+        text: item.textContent,
+        href: item.getAttribute('href')
+      }))
+    );
+    await expect(
+      navigation.getByRole('link', { name: 'Poste de pilotage' })
+    ).toHaveAttribute('aria-current', 'page');
+    await navigation
+      .getByRole('link', { name: 'Tableau de bord', exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/admin\/fundraiser$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Centre de pilotage'
+    );
+    await openMenu();
+    expect(
+      await navigation.getByRole('link').evaluateAll((items) =>
+        items.map((item) => ({
+          text: item.textContent,
+          href: item.getAttribute('href')
+        }))
+      )
+    ).toEqual(links);
+    await navigation.getByRole('link', { name: 'Poste de pilotage' }).click();
+    await expect(page).toHaveURL(/\/pilotage$/);
+    await expect(page.getByRole('main')).toHaveCount(1);
+    const spaces = page.getByRole('group', { name: 'Espaces de pilotage' });
+    const invoices = spaces.getByRole('button', { name: /^Factures/ });
+    await invoices.focus();
+    await page.keyboard.press('Enter');
+    await expect(invoices).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-og7="pilot-decision"]')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/pilotage$/);
+    await spaces.getByRole('button', { name: /^Publications/ }).click();
+    await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
+    await expect(page.locator('[data-og7="pilot-automation"]')).toContainText(
+      'Activez le moteur dans les réglages.'
+    );
+    await page
+      .getByRole('button', {
+        name: 'Switch administration language to English'
+      })
+      .click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Control desk'
+    );
+    await expect(
+      page.getByRole('group', { name: 'Control areas' })
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      )
+    ).toBe(true);
+    const shortcut = page.getByRole('link', { name: /Open settings/ });
+    await expect(shortcut).toContainText(
+      'Turn on automatic processing in settings.'
+    );
+    await shortcut.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/publications\/automation\?settings=feeds$/);
+    await expect(
+      page.locator('[data-og7="publication-feed-settings"]')
+    ).toHaveAttribute('open', '');
+    await page.goBack();
+    state.workerEnabled = true;
+    await page.reload();
+    await expect(shortcut).toContainText('Automatic processing active');
+    await shortcut.click();
+    await expect(
+      page.locator('[data-og7="publication-feed-settings"]')
+    ).toHaveAttribute('open', '');
+    expect(mutations).toEqual([]);
+    expect(commands).toEqual([]);
+  });
+}
+
+test('shared navigation and search suppress pilotage shortcuts until controller release', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.goto('/admin/fundraiser/pilotage');
+  const decision = page.locator('[data-og7="pilot-decision"]');
+  await expect(decision).toBeVisible();
+  const navigation = page.getByRole('navigation', {
+    name: 'Navigation admin du fonds'
+  });
+  await navigation
+    .getByRole('link', { name: 'Contributions', exact: true })
+    .focus();
+  await page.keyboard.press('a');
+  await tap(page, 0);
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await expect(page).toHaveURL(/\/pilotage$/);
+  await page.keyboard.press('Control+k');
+  const search = page.locator('[data-og7="admin-search"]');
+  await expect(search).toBeVisible();
+  for (const button of [0, 1, 2, 3, 5, 9]) await tap(page, button);
+  await expect(search).toBeVisible();
+  await expect(
+    page.locator('[data-og7="pilot-panel-confirm"]')
+  ).not.toBeVisible();
+  await buttons(page, [0]);
+  await page.keyboard.press('Escape');
+  await page.locator('#admin-main').focus();
+  await page.waitForTimeout(350);
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await buttons(page);
+  await tap(page, 0);
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  expect(commands).toEqual([]);
+});
+
 test('settings validate remapping and unknown controller input remains inert', async ({
   page
 }) => {
   const f = await fixtures(page);
   await page.goto('/admin/fundraiser/pilotage');
   await page
-    .getByRole('navigation')
+    .locator('[data-og7="pilotage"]')
     .getByRole('button', { name: 'Réglages de la manette' })
     .click();
   await page.getByLabel('Accepter / sélectionner').selectOption({ label: 'B' });

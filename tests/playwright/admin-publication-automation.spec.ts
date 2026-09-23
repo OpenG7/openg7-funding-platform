@@ -37,11 +37,17 @@ async function fixtures(
   status: PublicationDelivery['status'] = 'draft',
   conflict = false,
   sponsors: PublicationDelivery['sponsors'] = [],
-  overrides: Partial<PublicationDelivery> = {}
+  overrides: Partial<PublicationDelivery> = {},
+  options: {
+    workerEnabled?: boolean;
+    role?: 'reader' | 'operator';
+    workerResponse?: () => Promise<void>;
+  } = {}
 ): Promise<PublicationAutomationCommand[]> {
   const commands: PublicationAutomationCommand[] = [];
   const state: PublicationAutomationState = {
-    workerEnabled: true,
+    workerEnabled: options.workerEnabled ?? true,
+    workerVersion: 1,
     summary: {
       awaitingApproval: 1,
       scheduled: 0,
@@ -71,18 +77,28 @@ async function fixtures(
     })),
     deliveries: [{ ...initialJob, status, sponsors, ...overrides }]
   };
-  await page.addInitScript(() => {
+  await page.addInitScript((role) => {
     sessionStorage.setItem(
       'openg7-admin-session-token',
-      'openg7-admin-session.ui-fixture'
+      role ? 'openg7-admin-session.cookie' : 'openg7-admin-session.ui-fixture'
     );
     sessionStorage.setItem(
       'openg7-admin-session-expires-at',
       '2099-01-01T00:00:00Z'
     );
-  });
+  }, options.role);
   await page.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/auth/current'))
+      return route.fulfill({
+        json: {
+          id: 'fixture-account',
+          sessionId: 'fixture-session',
+          displayName: 'Fixture reader',
+          role: options.role,
+          expiresAt: '2099-01-01T00:00:00Z'
+        }
+      });
     if (path.endsWith('/publication-automation/media'))
       return route.fulfill({ json: [] });
     if (!path.endsWith('/publication-automation'))
@@ -91,8 +107,21 @@ async function fixtures(
       return route.fulfill({ json: state });
     const c = route.request().postDataJSON() as PublicationAutomationCommand;
     commands.push(c);
+    if (c.action === 'worker') await options.workerResponse?.();
     if (conflict)
-      return route.fulfill({ status: 409, json: { code: 'VERSION_CONFLICT' } });
+      return route.fulfill({
+        status: 409,
+        json: {
+          code:
+            c.action === 'worker'
+              ? 'WORKER_VERSION_CONFLICT'
+              : 'VERSION_CONFLICT'
+        }
+      });
+    if (c.action === 'worker') {
+      state.workerEnabled = c.enabled;
+      state.workerVersion++;
+    }
     const job = state.deliveries[0]!;
     if (c.action === 'approve') {
       job.status = 'approved';
@@ -119,6 +148,122 @@ async function fixtures(
     return route.fulfill({ json: { id: 'id' in c ? c.id : undefined } });
   });
   return commands;
+}
+
+for (const width of [390, 1280]) {
+  test(`worker switch confirms activation, persists state and stops processing at ${width}px`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const commands = await fixtures(
+      page,
+      'draft',
+      false,
+      [],
+      {},
+      { workerEnabled: false }
+    );
+    await page.goto('/admin/fundraiser/publications/automation?settings=feeds');
+    const toggle = page.getByRole('switch', { name: 'Moteur automatique' });
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await toggle.focus();
+    await page.keyboard.press('Space');
+    await expect(page.getByText(/Activer le moteur automatique/)).toBeVisible();
+    expect(commands).toHaveLength(0);
+    await page.keyboard.press('Escape');
+    await expect(toggle).toBeEnabled();
+    await expect(toggle).toBeFocused();
+    expect(commands).toHaveLength(0);
+    await toggle.press('Enter');
+    await page.locator('[data-og7="confirm-action"]').click();
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(commands).toEqual([
+      {
+        action: 'worker',
+        enabled: true,
+        version: 1,
+        confirmation: 'enable-worker'
+      }
+    ]);
+    await page.reload();
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(commands[1]).toEqual({
+      action: 'worker',
+      enabled: false,
+      version: 2,
+      confirmation: 'disable-worker'
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      )
+    ).toBe(true);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-og7="publication-worker"]')
+          .analyze()
+      ).violations
+    ).toEqual([]);
+  });
+}
+
+test('worker switch waits for the server and reports a stale decision without false success', async ({
+  page
+}) => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const commands = await fixtures(
+    page,
+    'draft',
+    true,
+    [],
+    {},
+    { workerResponse: () => held }
+  );
+  await page.goto('/admin/fundraiser/publications/automation');
+  const toggle = page.getByRole('switch', { name: 'Moteur automatique' });
+  await toggle.click();
+  try {
+    await expect(toggle).toBeDisabled();
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(commands).toHaveLength(1);
+  } finally {
+    release();
+  }
+  await expect(page.getByRole('alert')).toContainText(
+    'L’état du moteur a changé'
+  );
+  await expect(toggle).toBeEnabled();
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('status')).not.toContainText('enregistr');
+});
+
+for (const role of ['reader', 'operator'] as const) {
+  test(`${role} can read the worker state but cannot change it`, async ({
+    page
+  }) => {
+    const commands = await fixtures(
+      page,
+      'draft',
+      false,
+      [],
+      {},
+      { role, workerEnabled: false }
+    );
+    await page.goto('/admin/fundraiser/publications/automation');
+    await expect(
+      page.getByRole('switch', { name: 'Moteur automatique' })
+    ).toBeDisabled();
+    await expect(
+      page.getByText('Seul un propriétaire peut activer ou arrêter le moteur.')
+    ).toBeVisible();
+    expect(commands).toHaveLength(0);
+  });
 }
 test('approves the exact destination and version only after an explicit decision; edits revoke approval', async ({
   page
