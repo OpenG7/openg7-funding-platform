@@ -1,12 +1,12 @@
 import { expect, test } from './support/test.js';
 
 // Covers the individual/personal contribution path (the default tier on
-// /fonds-des-batisseurs). It shares the same mocked-checkout and consent
-// machinery as the business sponsorship flow already covered by
-// sponsor-navigation.spec.ts, but returns without a sponsor follow-up token.
+// /fonds-des-batisseurs). Acceptance uses the navigable local Stripe simulator;
+// the legacy local stack keeps its mocked Checkout fallback. The complete signed
+// payment/consent/transparency journey lives in personal-contribution-acceptance.
 
 test.describe('Docker personal donation navigation', () => {
-  test('selects the personal contribution tier and completes the mocked checkout', async ({
+  test('selects the personal contribution tier and starts the configured local checkout', async ({
     page
   }) => {
     await page.goto('/fonds-des-batisseurs');
@@ -30,6 +30,16 @@ test.describe('Docker personal donation navigation', () => {
     await expect(submitButton).toBeEnabled();
 
     await submitButton.click();
+    if (process.env.OPENG7_E2E_ISOLATED === '1') {
+      await expect(page).toHaveURL(/\/checkout\/cs_test_/);
+      await expect(
+        page.getByRole('heading', { name: 'Checkout simulé' })
+      ).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Confirmer le paiement simulé' })
+      ).toBeVisible();
+      return;
+    }
     await expect(
       page.getByText(/Mode local ?: Stripe n.a pas ouvert de session r.elle/i)
     ).toBeVisible();

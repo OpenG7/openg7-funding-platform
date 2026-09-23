@@ -629,6 +629,21 @@ const handleCheckoutPage = async (request, response, id) => {
   const intent = state.paymentIntents.get(record.paymentIntentId);
   intent.status = 'succeeded';
   intent.amountReceived = record.amountTotal;
+  if (!record.deferWebhook && !(await deliverCheckoutWebhook(record))) {
+    sendStripeError(
+      response,
+      502,
+      'Webhook simulation failed; retry uses the same event.'
+    );
+    return;
+  }
+  response.writeHead(303, {
+    location: record.successUrl.replace('{CHECKOUT_SESSION_ID}', record.id)
+  });
+  response.end();
+};
+
+const deliverCheckoutWebhook = async (record) => {
   record.eventId ??= randomId('evt');
   const body = JSON.stringify({
     id: record.eventId,
@@ -651,24 +666,45 @@ const handleCheckoutPage = async (request, response, id) => {
     body,
     signal: AbortSignal.timeout(10000)
   });
-  if (!delivery.ok) {
-    sendStripeError(
-      response,
-      502,
-      'Webhook simulation failed; retry uses the same event.'
-    );
+  return delivery.ok;
+};
+
+// Acceptance can delay the provider callback independently of the browser return.
+// This control exists only in the local simulator, never in the application API.
+const handleCheckoutDelivery = async (request, response) => {
+  if (!process.env.STUB_PUBLIC_BASE_URL || !process.env.STUB_WEBHOOK_URL) {
+    sendJson(response, 503, { error: 'Acceptance Checkout is not configured.' });
     return;
   }
-  response.writeHead(303, {
-    location: record.successUrl.replace('{CHECKOUT_SESSION_ID}', record.id)
-  });
-  response.end();
+  const { sessionId, action } = JSON.parse(await readBody(request));
+  if (typeof sessionId !== 'string' || !['defer', 'deliver'].includes(action)) {
+    sendJson(response, 400, { error: 'Invalid delivery control.' });
+    return;
+  }
+  const record = state.checkoutSessions.get(sessionId);
+  if (!record?.checkoutUrl) {
+    sendJson(response, 404, { error: 'Unknown acceptance Checkout.' });
+    return;
+  }
+  if (action === 'defer' && record.paymentStatus === 'unpaid') {
+    record.deferWebhook = true;
+    sendJson(response, 200, { deferred: true });
+  } else if (action === 'deliver' && record.paymentStatus === 'paid') {
+    const delivered = await deliverCheckoutWebhook(record);
+    sendJson(response, delivered ? 200 : 502, { delivered });
+  } else {
+    sendJson(response, 409, { error: 'Checkout is not in the required state.' });
+  }
 };
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', 'http://stripe-stub.local');
   const { pathname, searchParams } = url;
 
   try {
+    if (request.method === 'POST' && pathname === '/__test__/checkout-delivery') {
+      await handleCheckoutDelivery(request, response);
+      return;
+    }
     if (request.method === 'POST' && pathname === '/v1/checkout/sessions') {
       await handleCreateCheckout(request, response);
       return;

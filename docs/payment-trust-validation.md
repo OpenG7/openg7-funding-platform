@@ -51,6 +51,53 @@ nécessaire. Le déploiement du code ne rejoue pas spontanément les anciens
 événements : un événement interrompu est repris à sa prochaine livraison.
 Une rediffusion ou un backfill live reste une opération explicite et bornée.
 
+## Recette complète d’une contribution personnelle
+
+Les scénarios 1, 2, 3 et 8 ainsi que la consultation des totaux et l’export JSON
+du scénario 59 de l’[inventaire](development/end-to-end-scenarios-inventory.md)
+disposent d’une recette navigateur contre l’API réelle, PostgreSQL et les workers :
+
+```sh
+yarn test:e2e:acceptance personal-contribution-acceptance.spec.ts --project=chromium
+```
+
+Le runner exige Node 22, crée une pile Docker jetable, ignore `.env` et conserve
+les résultats sous `test-results/acceptance/`. Les fournisseurs Stripe, SMTP et
+SMS sont simulés ; les requêtes applicatives ne sont pas interceptées. La recette
+crée une contribution personnelle de 25 CAD depuis le formulaire pour chacune
+des quatre combinaisons des consentements de nom et de montant.
+
+Le simulateur retarde volontairement le webhook Checkout, indépendamment du
+retour du navigateur. Avant sa livraison, le paiement reste en attente, les
+totaux et l’annuaire sont inchangés, y compris après rechargement du retour
+de succès et rejet d’une signature invalide. Après confirmation signée, le
+navigateur affiche le paiement reçu. Un second événement signé apporte les
+faits du PaymentIntent et des frais synthétiques de 0,73 CAD, sans représenter
+un tarif Stripe réel. Le brut augmente de 25 CAD, les frais de 0,73 CAD et le net
+de 24,27 CAD ; les contrôles utilisent des différences en unités mineures.
+
+La recette rejoue les événements pour vérifier l’unicité, contrôle les
+notifications capturées et l’absence de cartouche d’entreprise pour ce paiement
+personnel. Elle compare les consentements entre recherche de référence, annuaire
+public et page Bâtisseurs, puis vérifie les totaux affichés et l’export JSON
+de Transparence. L’export financier ne contient ni nom ni référence individuelle.
+Les captures et le rapport JSON de chaque variante servent de preuves locales.
+
+Le contrôle `/__test__/checkout-delivery` appartient uniquement au simulateur
+isolé. Il ne crée aucun endpoint de test dans l’API applicative et ne modifie
+pas son mécanisme de signature. Cette recette ne qualifie aucun paiement réel.
+
+Exécution du 22 septembre 2026 (America/Toronto), sur `ee0b827` avec les
+changements locaux de cette recette : **4 variantes personnelles réussies** sous
+Chromium, ainsi que **2 tests de non-régression** de
+`contribution-journey-acceptance.spec.ts`. Une seconde exécution confirme les
+4 variantes avec captures complètes et les **3 tests de navigation** de
+`personal-donation-navigation.spec.ts`, dont un utilise une réponse API
+interceptée. Aucun test ignoré ni instable dans ces deux exécutions.
+Les choix de période, l’export CSV, le partage et les versements du scénario 59
+restent hors du périmètre de cette recette. Les fournisseurs réels et les autres
+navigateurs ne sont pas qualifiés par cette exécution.
+
 ## Vérifications locales isolées
 
 ```sh
