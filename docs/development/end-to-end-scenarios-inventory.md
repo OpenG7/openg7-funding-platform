@@ -66,6 +66,14 @@ et une facture, sans doublon après rejeu. Le dossier reste privé et en attente
 revue. Les messages de reprise sont vérifiés sur mobile en FR/EN.
 Voir la [recette et ses limites](../payment-trust-validation.md#recette-de-reprise-après-paiement-interrompu).
 
+Huitième priorité testée le 23 septembre 2026 : **paiement confirmé → webhook
+interrompu → redémarrage → reprise sans doublon**, soit le scénario 62 avec
+rediffusion locale signée, sans exécution du CLI d'exploitation. Les deux pannes
+ciblent l'écriture de la facture puis la connexion PostgreSQL avant mise en file
+de son courriel. Les compteurs admin FR/EN reflètent l'interruption et la reprise ;
+la facture, les totaux, le toast et les courriels/SMS restent uniques après rejeu.
+Voir la [recette et ses limites](../payment-trust-validation.md#recette-de-reprise-après-interruption-du-webhook).
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

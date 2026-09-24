@@ -720,13 +720,14 @@ const handleCheckoutPage = async (request, response, id) => {
   const intent = state.paymentIntents.get(record.paymentIntentId);
   intent.status = 'succeeded';
   intent.amountReceived = record.amountTotal;
-  if (!record.deferWebhook && !(await deliverCheckoutWebhook(record))) {
-    sendStripeError(
-      response,
-      502,
-      'Webhook simulation failed; retry uses the same event.'
-    );
-    return;
+  if (!record.deferWebhook) {
+    // A delivery failure does not undo the provider's confirmed payment or
+    // prevent the browser return. Acceptance can redeliver the same event.
+    try {
+      await deliverCheckoutWebhook(record);
+    } catch {
+      // The application keeps its own processing state; no automatic resend.
+    }
   }
   response.writeHead(303, {
     location: record.successUrl.replace('{CHECKOUT_SESSION_ID}', record.id)
