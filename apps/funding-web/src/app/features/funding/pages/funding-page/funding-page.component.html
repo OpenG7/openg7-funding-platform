@@ -9,7 +9,7 @@
     [canRetry]="checkoutMonitor.canRetry()"
     (dismissed)="dismissCheckoutNotice()"
     (retryRequested)="checkoutMonitor.retry()"
-    (supportRequested)="scrollToSupport()"
+    (supportRequested)="restartContribution()"
   />
 
   <section class="poster-hero" aria-labelledby="builders-title">

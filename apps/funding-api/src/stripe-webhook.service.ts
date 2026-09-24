@@ -358,8 +358,20 @@ const processVerifiedStripeEvent = async (
 
   if (event.type === 'payment_intent.payment_failed') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const publicReference = normalizeContributionPublicReference(
+      paymentIntent.metadata.publicReference
+    );
     const updated = await updateContributionStatusByPaymentIntent(pool, {
       stripePaymentIntentId: paymentIntent.id,
+      ...(publicReference
+        ? {
+            checkoutMatch: {
+              publicReference,
+              amountCents: paymentIntent.amount,
+              currency: paymentIntent.currency
+            }
+          }
+        : {}),
       status: 'failed'
     });
 
