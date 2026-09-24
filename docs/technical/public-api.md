@@ -45,6 +45,16 @@ They explain contribution use, Stripe payment handling, refund requests,
 disputes, sponsorship review, feed visibility, and privacy limits. Keep this
 policy reviewed before accepting real payments.
 
+## Contribution reference lookup and recovery
+
+`POST /api/reference-lookup` returns the permitted payment status and next step;
+a reference never grants access to a private dossier. `POST /api/reference-recovery`
+accepts an email address and returns the same `202 { "accepted": true }` for known
+and unknown addresses after a successful database lookup, including email queue
+failure. This response does not promise delivery. See the
+[support contract and end-to-end recipe](../public-builders-and-support.md#références-publiques-et-accès-privé)
+for recipients, limits, deduplication and separate private access recovery.
+
 ## Sponsorship follow-up links
 
 Paid sponsorships receive a non-guessable follow-up token when Checkout is

@@ -3891,25 +3891,32 @@ createServer(async (request, response) => {
       const references = await listContributionReferencesByEmail(dbPool, email);
 
       if (references.length > 0) {
-        const notificationResult =
-          await queueContributionReferenceRecoveryEmail(dbPool, {
-            to: email,
-            references,
-            idempotencyKey: createReferenceRecoveryIdempotencyKey(email)
-          });
+        try {
+          const notificationResult =
+            await queueContributionReferenceRecoveryEmail(dbPool, {
+              to: email,
+              references,
+              idempotencyKey: createReferenceRecoveryIdempotencyKey(email)
+            });
 
-        if (!notificationResult.queued && !notificationResult.sent) {
-          console.warn(
-            'Reference recovery email could not be queued or sent.',
-            notificationResult.error
+          if (!notificationResult.queued && !notificationResult.sent) {
+            console.warn(
+              'Reference recovery email could not be queued or sent.'
+            );
+          }
+        } catch {
+          // A matching address must not be disclosed by a queue/SMTP failure.
+          // Do not log the database error: it can contain private message data.
+          console.error(
+            'Reference recovery email could not be queued or sent.'
           );
         }
       }
 
       const result: ReferenceRecoveryResult = { accepted: true };
       writeJson(request, response, 202, result);
-    } catch (error) {
-      console.error('Failed to process reference recovery request.', error);
+    } catch {
+      console.error('Failed to process reference recovery request.');
       writeJson(request, response, 502, {
         error: 'Reference recovery request could not be processed.'
       });
