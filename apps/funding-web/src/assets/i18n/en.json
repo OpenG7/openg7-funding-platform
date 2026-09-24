@@ -1742,6 +1742,7 @@
         "SOURCE_CHANGED": "A source draft changed. Save and review the final content again.",
         "MEDIA_CHANGED": "The image changed. Select an approved image and approve again.",
         "SOURCE_NOT_ELIGIBLE": "A sponsor in this batch no longer meets publication requirements.",
+        "SPONSOR_REVIEW_REQUIRED": "A sponsorship dossier was changed or returned to review after authorization. Check its new version, then save and approve this publication again. Approving the dossier alone does not reauthorize this delivery.",
         "CONNECTION_REQUIRED": "Configure and check this feed’s connection in its settings.",
         "APPROVAL_UNAVAILABLE": "Choose a future time and save the draft before approving.",
         "DESTINATION_CHANGED": "The destination account changed. Save and review the publication again.",
@@ -2097,6 +2098,7 @@
         "CONSENT_WITHDRAWN": "Publication consent has been withdrawn.",
         "PAYMENT_REQUIRED": "An eligible confirmed payment is missing.",
         "SOURCE_NOT_ELIGIBLE": "A batch source is no longer eligible.",
+        "SPONSOR_REVIEW_REQUIRED": "A sponsorship dossier changed. The delivery requires a new approval.",
         "DESTINATION_CHANGED": "The authorized destination has changed.",
         "RESULT_UNKNOWN": "This sending result requires human investigation."
       }

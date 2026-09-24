@@ -294,6 +294,23 @@
           <p class="alert">
             {{ 'admin.publicationAutomation.blocked' | translate }}
           </p>
+          @if (job.errorCode === 'SPONSOR_REVIEW_REQUIRED') {
+            <section data-og7="publication-review-blocker" role="status">
+              <p>
+                {{
+                  'admin.publicationAutomation.errors.SPONSOR_REVIEW_REQUIRED'
+                    | translate
+                }}
+              </p>
+              @for (sponsor of job.sponsors; track sponsor.id) {
+                <a
+                  routerLink="/admin/fundraiser/sponsors"
+                  [queryParams]="{ sponsorshipId: sponsor.id }"
+                  >{{ sponsor.name }}</a
+                >
+              }
+            </section>
+          }
           @if (job.errorCode === 'SOURCE_NOT_ELIGIBLE') {
             @for (sponsor of job.sponsors; track sponsor.id) {
               @if (

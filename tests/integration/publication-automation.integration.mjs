@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
@@ -8,10 +8,15 @@ import { PublicationAutomationService } from '../../dist/apps/funding-api/src/pu
 import { markSocialPublicationJobPublishing } from '../../dist/apps/funding-api/src/fund-admin.repository.js';
 import {
   listPublicSponsorships,
+  recordSponsorshipDetailsForContribution,
   updateSponsorshipPublication
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import { listPublicBuilders } from '../../dist/apps/funding-api/src/fund-transparency.repository.js';
 import { getApprovedPublicSponsorMedia } from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
+import {
+  saveSponsorshipDraft,
+  submitSponsorshipDraft
+} from '../../dist/apps/funding-api/src/sponsorship-access.service.js';
 
 test(
   'publication automation with disposable PostgreSQL',
@@ -709,6 +714,158 @@ test(
         );
       }
     );
+    for (const scenario of [
+      'pending',
+      'reapproved',
+      'before-dispatch',
+      'before-dispatch-pending',
+      'early-transaction'
+    ]) {
+      await t.test(
+        `submitted dossier changes require a new delivery approval: ${scenario}`,
+        async (st) => {
+          await reset();
+          await activate();
+          const contributionId = await sponsor();
+          await presentation(contributionId);
+          const token = 'fixture-revision-' + randomUUID();
+          await pool.query(
+            `UPDATE fund_contributions SET sponsorship_followup_token_hash=$2,
+           sponsorship_followup_token_created_at=NOW(),sponsor_details_submitted_at=NOW()-INTERVAL '1 day'
+           WHERE id=$1`,
+            [contributionId, createHash('sha256').update(token).digest('hex')]
+          );
+          await service.prepare(feedId, 'planner');
+          const job = (await service.state()).deliveries.find((j) =>
+            j.sponsors.some((s) => s.id === contributionId)
+          );
+          // A transaction can begin before authorization and write its dossier
+          // later. The submission timestamp must reflect the write, not BEGIN.
+          const earlier =
+            scenario === 'early-transaction' ? await pool.connect() : null;
+          if (earlier) {
+            st.after(async () => {
+              await earlier.query('ROLLBACK');
+              earlier.release();
+            });
+            await earlier.query('BEGIN');
+            await earlier.query('SELECT NOW()');
+          }
+          await approve(job.id);
+          const original = await record(job.id);
+          const data = {
+            companyName: 'Revised company',
+            contactName: 'Synthetic contact',
+            contactEmail: 'contact@example.test',
+            websiteUrl: 'https://example.test',
+            logoUrl: '',
+            message: 'Private updated dossier'
+          };
+          const draft = await saveSponsorshipDraft(pool, token, 30, 0, data);
+          await service.guardEligibility();
+          assert.deepEqual(
+            await record(job.id),
+            original,
+            'autosave preserves the approved delivery'
+          );
+          const submit = async () => {
+            if (earlier) {
+              await recordSponsorshipDetailsForContribution(earlier, {
+                contributionId,
+                ...data
+              });
+              await earlier.query('COMMIT');
+            } else {
+              await submitSponsorshipDraft(
+                pool,
+                token,
+                30,
+                draft.revision,
+                data
+              );
+            }
+            if (!['pending', 'before-dispatch-pending'].includes(scenario)) {
+              await pool.query(
+                "UPDATE fund_contributions SET sponsor_review_status='approved',sponsor_reviewed_at=NOW() WHERE id=$1",
+                [contributionId]
+              );
+            }
+          };
+          if (scenario.startsWith('before-dispatch')) {
+            const guard = service.guardEligibility.bind(service);
+            st.mock.method(service, 'guardEligibility', async () => {
+              await guard();
+              await submit();
+            });
+            await service.tick(new Date(Date.parse(job.scheduledAt) + 1000));
+            st.mock.restoreAll();
+          } else {
+            await submit();
+            await service.guardEligibility();
+            await service.guardEligibility();
+          }
+          const blocked = await record(job.id);
+          assert.equal(blocked.status, 'blocked');
+          assert.equal(blocked.errorCode, 'SPONSOR_REVIEW_REQUIRED');
+          assert.equal(blocked.approvedAt, null);
+          assert.equal(blocked.externalPostId, null);
+          assert.equal(
+            blocked.attempts,
+            scenario.startsWith('before-dispatch') ? 1 : 0
+          );
+          assert.equal(blocked.version, original.version + 1);
+          await assert.rejects(approve(job.id), {
+            code: 'APPROVAL_UNAVAILABLE'
+          });
+          const audits = (
+            await pool.query(
+              "SELECT action,metadata FROM admin_audit_log WHERE entity_id=$1 AND action IN ('publication_automation.source_invalidated','publication_automation.blocked')",
+              [job.id]
+            )
+          ).rows;
+          assert.equal(audits.length, 1);
+          if (!scenario.startsWith('before-dispatch'))
+            assert.deepEqual(audits[0].metadata, {
+              codes: ['SPONSOR_REVIEW_REQUIRED'],
+              affected: [contributionId]
+            });
+
+          await service.command(
+            {
+              action: 'edit',
+              id: job.id,
+              version: blocked.version,
+              message: 'Reviewed publication for Revised company',
+              scheduledAt: job.scheduledAt,
+              mediaId: null
+            },
+            'reviewer'
+          );
+          await service.command(
+            combinedApproval(await record(job.id)),
+            'reviewer'
+          );
+          const authorized = await record(job.id);
+          await submitSponsorshipDraft(pool, token, 30, draft.revision, data);
+          await service.guardEligibility();
+          assert.deepEqual(
+            await record(job.id),
+            authorized,
+            'repeated submission must not revoke the new approval'
+          );
+          await service.tick(new Date(Date.parse(job.scheduledAt) + 1000));
+          assert.equal((await record(job.id)).status, 'published');
+          const after = (
+            await pool.query(
+              'SELECT status,amount_cents FROM fund_contributions WHERE id=$1',
+              [contributionId]
+            )
+          ).rows[0];
+          assert.equal(after.status, 'paid');
+          assert.equal(Number(after.amount_cents), 25000);
+        }
+      );
+    }
     await t.test(
       'manual batch snapshots preserve edited drafts and detect changes after approval',
       async () => {

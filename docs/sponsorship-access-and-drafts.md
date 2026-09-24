@@ -9,6 +9,14 @@
 
 Les médias conservent leur parcours indépendant : téléversement et suppression ont leurs propres confirmations. Abandonner le brouillon texte ne supprime pas les fichiers téléversés.
 
+Après modification d'une fiche approuvée, la soumission remet le dossier en revue.
+Le moteur bloque les anciens envois autorisés avant leur échéance, y compris si
+le dossier a déjà été réapprouvé entre-temps. L'admin doit examiner le nouveau
+contenu, enregistrer la publication et autoriser à nouveau son envoi. Le brouillon
+automatique seul conserve la fiche approuvée et ses autorisations. Le paiement et
+la facture émise restent inchangés. Voir le [contrat du moteur](operations/publication-automation.md#authorization-and-concurrency)
+et la [recette de révision](sponsorship-e2e-coverage.md#recette-navigateur--révision-dun-dossier-approuvé).
+
 ## Contrats et garanties
 
 | Route                                                          | Accès et comportement                                                                                                                                                                                                                                                                                   |
