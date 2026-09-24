@@ -24,12 +24,22 @@ export const sponsorshipCreditNotePdfFilename = (
   creditNote: SponsorshipCreditNoteRecord
 ): string => `openg7-${safeFilenamePart(creditNote.creditNoteNumber)}.pdf`;
 
-const collectPdf = (build: (document: PdfDocument) => void): Promise<Buffer> =>
+const collectPdf = (
+  issuedAt: string,
+  title: string,
+  build: (document: PdfDocument) => void
+): Promise<Buffer> =>
   new Promise((resolve, reject) => {
     const document = new PDFDocument({
       autoFirstPage: true,
       margin: 48,
-      size: 'LETTER'
+      size: 'LETTER',
+      info: {
+        Title: title,
+        Author: 'OpenG7',
+        CreationDate: new Date(issuedAt),
+        ModDate: new Date(issuedAt)
+      }
     });
     const chunks: Buffer[] = [];
 
@@ -377,133 +387,135 @@ const addNote = (
 export const renderSponsorshipInvoicePdf = (
   invoice: SponsorshipInvoiceRecord
 ): Promise<Buffer> =>
-  collectPdf((document) => {
-    document.info.Title = `Facture ${invoice.invoiceNumber}`;
-    document.info.Author = 'OpenG7';
-
-    addHeader(
-      document,
-      'Facture de commandite',
-      invoice.invoiceNumber,
-      'Fonds des batisseurs OpenG7'
-    );
-    addTwoColumnSection(
-      document,
-      'Emetteur',
-      [
-        ['Nom', invoice.issuerName],
-        ['Courriel', valueOrFallback(invoice.issuerEmail)],
-        ['Adresse', valueOrFallback(invoice.issuerAddress)],
-        ['Identifiant fiscal', valueOrFallback(invoice.issuerTaxId)]
-      ],
-      'Commanditaire',
-      [
-        ['Nom', invoice.sponsorName],
-        ['Contact', valueOrFallback(invoice.sponsorContactName)],
-        ['Courriel', valueOrFallback(invoice.sponsorContactEmail)],
-        ['Site web', valueOrFallback(invoice.sponsorWebsiteUrl)]
-      ]
-    );
-    addTwoColumnSection(
-      document,
-      'Document',
-      [
-        ['Numero', invoice.invoiceNumber],
-        ['Reference publique', valueOrFallback(invoice.publicReference)],
-        ['Date emission', formatDate(invoice.issuedAtIso)]
-      ],
-      'Paiement',
-      [
-        ['Date paiement', formatDate(invoice.paidAtIso)],
-        ['Devise', invoice.currency.toUpperCase()],
-        ['Statut', 'Paye']
-      ]
-    );
-    addLineItems(document, invoice.lineItems, invoice.currency);
-    addTotals(
-      document,
-      invoice.subtotalCents,
-      invoice.taxCents,
-      invoice.totalCents,
-      invoice.taxLabel,
-      invoice.currency,
-      'Total paye'
-    );
-    addReferences(document, [
-      ['Stripe Session', invoice.stripeSessionId],
-      [
-        'Payment Intent',
-        valueOrFallback(invoice.stripePaymentIntentId, 'Absent')
-      ]
-    ]);
-    addNote(document, 'Note', invoice.notes);
-  });
+  collectPdf(
+    invoice.issuedAtIso,
+    `Facture ${invoice.invoiceNumber}`,
+    (document) => {
+      addHeader(
+        document,
+        'Facture de commandite',
+        invoice.invoiceNumber,
+        'Fonds des batisseurs OpenG7'
+      );
+      addTwoColumnSection(
+        document,
+        'Emetteur',
+        [
+          ['Nom', invoice.issuerName],
+          ['Courriel', valueOrFallback(invoice.issuerEmail)],
+          ['Adresse', valueOrFallback(invoice.issuerAddress)],
+          ['Identifiant fiscal', valueOrFallback(invoice.issuerTaxId)]
+        ],
+        'Commanditaire',
+        [
+          ['Nom', invoice.sponsorName],
+          ['Contact', valueOrFallback(invoice.sponsorContactName)],
+          ['Courriel', valueOrFallback(invoice.sponsorContactEmail)],
+          ['Site web', valueOrFallback(invoice.sponsorWebsiteUrl)]
+        ]
+      );
+      addTwoColumnSection(
+        document,
+        'Document',
+        [
+          ['Numero', invoice.invoiceNumber],
+          ['Reference publique', valueOrFallback(invoice.publicReference)],
+          ['Date emission', formatDate(invoice.issuedAtIso)]
+        ],
+        'Paiement',
+        [
+          ['Date paiement', formatDate(invoice.paidAtIso)],
+          ['Devise', invoice.currency.toUpperCase()],
+          ['Statut', 'Paye']
+        ]
+      );
+      addLineItems(document, invoice.lineItems, invoice.currency);
+      addTotals(
+        document,
+        invoice.subtotalCents,
+        invoice.taxCents,
+        invoice.totalCents,
+        invoice.taxLabel,
+        invoice.currency,
+        'Total paye'
+      );
+      addReferences(document, [
+        ['Stripe Session', invoice.stripeSessionId],
+        [
+          'Payment Intent',
+          valueOrFallback(invoice.stripePaymentIntentId, 'Absent')
+        ]
+      ]);
+      addNote(document, 'Note', invoice.notes);
+    }
+  );
 
 export const renderSponsorshipCreditNotePdf = (
   creditNote: SponsorshipCreditNoteRecord
 ): Promise<Buffer> =>
-  collectPdf((document) => {
-    document.info.Title = `Avoir ${creditNote.creditNoteNumber}`;
-    document.info.Author = 'OpenG7';
-
-    addHeader(
-      document,
-      'Avoir de commandite',
-      creditNote.creditNoteNumber,
-      'Remboursement documente apres operation Stripe'
-    );
-    addTwoColumnSection(
-      document,
-      'Emetteur',
-      [
-        ['Nom', creditNote.issuerName],
-        ['Courriel', valueOrFallback(creditNote.issuerEmail)],
-        ['Adresse', valueOrFallback(creditNote.issuerAddress)],
-        ['Identifiant fiscal', valueOrFallback(creditNote.issuerTaxId)]
-      ],
-      'Commanditaire',
-      [
-        ['Nom', creditNote.sponsorName],
-        ['Contact', valueOrFallback(creditNote.sponsorContactName)],
-        ['Courriel', valueOrFallback(creditNote.sponsorContactEmail)],
-        ['Site web', valueOrFallback(creditNote.sponsorWebsiteUrl)]
-      ]
-    );
-    addTwoColumnSection(
-      document,
-      'Avoir',
-      [
-        ['Numero', creditNote.creditNoteNumber],
+  collectPdf(
+    creditNote.issuedAtIso,
+    `Avoir ${creditNote.creditNoteNumber}`,
+    (document) => {
+      addHeader(
+        document,
+        'Avoir de commandite',
+        creditNote.creditNoteNumber,
+        'Remboursement documente apres operation Stripe'
+      );
+      addTwoColumnSection(
+        document,
+        'Emetteur',
+        [
+          ['Nom', creditNote.issuerName],
+          ['Courriel', valueOrFallback(creditNote.issuerEmail)],
+          ['Adresse', valueOrFallback(creditNote.issuerAddress)],
+          ['Identifiant fiscal', valueOrFallback(creditNote.issuerTaxId)]
+        ],
+        'Commanditaire',
+        [
+          ['Nom', creditNote.sponsorName],
+          ['Contact', valueOrFallback(creditNote.sponsorContactName)],
+          ['Courriel', valueOrFallback(creditNote.sponsorContactEmail)],
+          ['Site web', valueOrFallback(creditNote.sponsorWebsiteUrl)]
+        ]
+      );
+      addTwoColumnSection(
+        document,
+        'Avoir',
+        [
+          ['Numero', creditNote.creditNoteNumber],
+          ['Facture associee', creditNote.invoiceNumber],
+          ['Date emission', formatDate(creditNote.issuedAtIso)]
+        ],
+        'Remboursement',
+        [
+          ['Stripe Refund', creditNote.stripeRefundId],
+          [
+            'Payment Intent',
+            valueOrFallback(creditNote.stripePaymentIntentId, 'Absent')
+          ],
+          ['Reference publique', valueOrFallback(creditNote.publicReference)]
+        ]
+      );
+      addLineItems(document, creditNote.lineItems, creditNote.currency);
+      addTotals(
+        document,
+        creditNote.subtotalCents,
+        creditNote.taxCents,
+        creditNote.totalCents,
+        creditNote.taxLabel,
+        creditNote.currency,
+        'Total credite'
+      );
+      addReferences(document, [
         ['Facture associee', creditNote.invoiceNumber],
-        ['Date emission', formatDate(creditNote.issuedAtIso)]
-      ],
-      'Remboursement',
-      [
         ['Stripe Refund', creditNote.stripeRefundId],
         [
           'Payment Intent',
           valueOrFallback(creditNote.stripePaymentIntentId, 'Absent')
-        ],
-        ['Reference publique', valueOrFallback(creditNote.publicReference)]
-      ]
-    );
-    addLineItems(document, creditNote.lineItems, creditNote.currency);
-    addTotals(
-      document,
-      creditNote.subtotalCents,
-      creditNote.taxCents,
-      creditNote.totalCents,
-      creditNote.taxLabel,
-      creditNote.currency,
-      'Total credite'
-    );
-    addReferences(document, [
-      ['Facture associee', creditNote.invoiceNumber],
-      ['Stripe Refund', creditNote.stripeRefundId],
-      [
-        'Payment Intent',
-        valueOrFallback(creditNote.stripePaymentIntentId, 'Absent')
-      ]
-    ]);
-    addNote(document, 'Note', creditNote.notes);
-  });
+        ]
+      ]);
+      addNote(document, 'Note', creditNote.notes);
+    }
+  );

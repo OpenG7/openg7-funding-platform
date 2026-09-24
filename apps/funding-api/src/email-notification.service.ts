@@ -1967,6 +1967,27 @@ export const queueSponsorshipInvoiceEmail = async (
   );
 };
 
+/** Persist a document resend inside the audit transaction; the worker sends later. */
+export const enqueueSponsorshipDocumentEmail = async (
+  client: PoolClient,
+  input: (SponsorshipInvoiceEmailInput | SponsorshipCreditNoteEmailInput) & {
+    idempotencyKey: string;
+  }
+): Promise<string> => {
+  const rendered =
+    'invoice' in input
+      ? renderSponsorshipInvoiceEmail(input)
+      : renderSponsorshipCreditNoteEmail(input);
+  const result = await enqueueEmailMessage(client, {
+    ...rendered,
+    to: input.to,
+    idempotencyKey: input.idempotencyKey
+  });
+  if (!result.messageId || result.error)
+    throw new Error('Document email could not be queued.');
+  return result.messageId;
+};
+
 export const queueSponsorshipCreditNoteEmail = async (
   pool: Pool | null,
   input: SponsorshipCreditNoteEmailInput

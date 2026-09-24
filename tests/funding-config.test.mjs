@@ -2961,11 +2961,9 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(api.includes('renderSponsorshipInvoicePdf'));
   assert.ok(api.includes('renderSponsorshipCreditNotePdf'));
   assert.ok(api.includes("'application/pdf'"));
-  assert.ok(api.includes('queueSponsorshipInvoiceEmail'));
+  assert.ok(api.includes('queueAdminDocumentResend'));
   assert.ok(api.includes('queueSponsorshipCreditNoteEmail'));
-  assert.ok(api.includes('sponsorship_invoice.resend'));
   assert.ok(api.includes('sponsorship_invoice.backfill'));
-  assert.ok(api.includes('sponsorship_credit_note.resend'));
   assert.ok(api.includes('AdminSponsorshipInvoiceBackfillResult'));
   assert.ok(api.includes('AdminSponsorshipInvoiceResendResult'));
   assert.ok(api.includes('AdminSponsorshipCreditNoteResendResult'));

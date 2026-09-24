@@ -1,4 +1,4 @@
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
@@ -25,14 +25,14 @@ import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
-type ResendState = 'idle' | 'sending' | 'sent' | 'error';
+type ResendState = 'idle' | 'confirming' | 'sending' | 'sent' | 'error';
 type DownloadState = 'idle' | 'loading' | 'error';
 type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
 @Component({
   selector: 'openg7-admin-invoices-page',
   standalone: true,
-  imports: [CommonModule, AdminLayoutComponent, TranslatePipe],
+  imports: [CommonModule, AdminLayoutComponent, TranslatePipe, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <openg7-admin-layout>
@@ -380,6 +380,8 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
                 <article
                   class="credit-note-card"
+                  data-og7="credit-note"
+                  [attr.data-og7-id]="creditNote.id"
                   *ngFor="
                     let creditNote of invoice.credit_notes;
                     trackBy: trackByCreditNote
@@ -498,6 +500,14 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                     >
                       {{ creditNoteResendMessageFor(creditNote.id) }}
                     </span>
+                    <a
+                      *ngIf="resendMessageIds()[creditNote.id] as messageId"
+                      routerLink="/admin/fundraiser/email-queue"
+                      [queryParams]="{ messageId }"
+                      data-og7="document-email-status"
+                      [attr.data-og7-id]="creditNote.id"
+                      >{{ 'admin.messages.suivre_courriel' | translate }}</a
+                    >
                   </div>
                 </article>
               </section>
@@ -602,6 +612,14 @@ type BackfillState = 'idle' | 'sending' | 'done' | 'error';
                   >
                     {{ resendMessage() }}
                   </span>
+                  <a
+                    *ngIf="resendMessageIds()[invoice.id] as messageId"
+                    routerLink="/admin/fundraiser/email-queue"
+                    [queryParams]="{ messageId }"
+                    data-og7="document-email-status"
+                    [attr.data-og7-id]="invoice.id"
+                    >{{ 'admin.messages.suivre_courriel' | translate }}</a
+                  >
                 </div>
               </section>
 
@@ -1191,6 +1209,47 @@ export class AdminInvoicesPageComponent implements OnInit {
   readonly resendState = signal<ResendState>('idle');
   readonly resendMessage = signal('');
   readonly resendEmail = signal('');
+  readonly resendMessageIds = signal<Record<string, string>>({});
+  private readonly pendingResends = new Map<string, string>();
+
+  // Called only by browser actions. Store an opaque fingerprint and UUID, never the recipient.
+  private async resendRequest(
+    id: string,
+    to: string
+  ): Promise<{ key: string; requestId: string }> {
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(`${id}:${to}`)
+    );
+    const key =
+      'openg7-admin-document-resend:' +
+      Array.from(new Uint8Array(digest), (byte) =>
+        byte.toString(16).padStart(2, '0')
+      ).join('');
+    let requestId = this.pendingResends.get(key);
+    try {
+      requestId ??= sessionStorage.getItem(key) ?? undefined;
+    } catch {
+      /* Memory fallback when browser storage is unavailable. */
+    }
+    requestId ??= crypto.randomUUID();
+    this.pendingResends.set(key, requestId);
+    try {
+      sessionStorage.setItem(key, requestId);
+    } catch {
+      /* Retain the request in memory. */
+    }
+    return { key, requestId };
+  }
+
+  private completeResend(key: string): void {
+    this.pendingResends.delete(key);
+    try {
+      sessionStorage.removeItem(key);
+    } catch {
+      /* A retained UUID can only deduplicate a later retry. */
+    }
+  }
   readonly invoicePdfState = signal<DownloadState>('idle');
   readonly invoicePdfMessage = signal('');
   readonly creditNoteResendEmails = signal<Record<string, string>>({});
@@ -1382,31 +1441,44 @@ export class AdminInvoicesPageComponent implements OnInit {
   }
 
   async resendInvoice(): Promise<void> {
-    if (this.resendState() === 'sending') return;
+    if (['confirming', 'sending'].includes(this.resendState())) return;
     const invoice = this.selectedInvoice();
     const to = this.resendEmail().trim();
     if (!invoice || !to) {
       return;
     }
 
+    this.resendState.set('confirming');
     if (
       !(await this.confirmation.confirm(
         this.i18n.t('admin.confirmation.retryEmail'),
-        to
+        `${invoice.invoice_number} → ${to}`
       ))
-    )
+    ) {
+      this.resendState.set('idle');
       return;
-    this.resendState.set('sending');
+    }
     this.resendMessage.set('');
+    this.resendState.set('sending');
 
     try {
+      const pending = await this.resendRequest(invoice.id, to);
       const result = await this.admin.resendSponsorshipInvoice(
         this.adminToken(),
         {
           invoiceId: invoice.id,
-          to
+          to,
+          confirmation: invoice.id,
+          requestId: pending.requestId
         }
       );
+
+      this.completeResend(pending.key);
+      if (result.messageId)
+        this.resendMessageIds.update((ids) => ({
+          ...ids,
+          [invoice.id]: result.messageId!
+        }));
 
       if (result.invoice) {
         this.replaceInvoice(result.invoice);
@@ -1429,30 +1501,48 @@ export class AdminInvoicesPageComponent implements OnInit {
   async resendCreditNote(
     creditNote: AdminSponsorshipCreditNoteRecord
   ): Promise<void> {
-    if (this.creditNoteResendStateFor(creditNote.id) === 'sending') return;
+    if (
+      ['confirming', 'sending'].includes(
+        this.creditNoteResendStateFor(creditNote.id)
+      )
+    )
+      return;
     const to = this.creditNoteResendEmail(creditNote).trim();
     if (!to) {
       return;
     }
 
+    this.setCreditNoteResendState(creditNote.id, 'confirming');
     if (
       !(await this.confirmation.confirm(
         this.i18n.t('admin.confirmation.retryEmail'),
-        to
+        `${creditNote.credit_note_number} → ${to}`
       ))
-    )
+    ) {
+      this.setCreditNoteResendState(creditNote.id, 'idle');
       return;
-    this.setCreditNoteResendState(creditNote.id, 'sending');
+    }
     this.setCreditNoteResendMessage(creditNote.id, '');
+    this.setCreditNoteResendState(creditNote.id, 'sending');
 
     try {
+      const pending = await this.resendRequest(creditNote.id, to);
       const result = await this.admin.resendSponsorshipCreditNote(
         this.adminToken(),
         {
           creditNoteId: creditNote.id,
-          to
+          to,
+          confirmation: creditNote.id,
+          requestId: pending.requestId
         }
       );
+
+      this.completeResend(pending.key);
+      if (result.messageId)
+        this.resendMessageIds.update((ids) => ({
+          ...ids,
+          [creditNote.id]: result.messageId!
+        }));
 
       if (result.creditNote) {
         this.replaceCreditNote(result.creditNote);

@@ -163,6 +163,13 @@ corrected admin-entered address. The same page can run
 `POST /api/admin/sponsorship-invoices/backfill` to generate missing invoices
 for historical paid sponsorships without emailing sponsors automatically.
 
+Resends require `to`, UUID `requestId`, and `confirmation` matching `invoiceId`
+or `creditNoteId` (400 `CONFIRMATION_REQUIRED` if confirmation/UUID is missing).
+Update Web/API together; no migration. Identical retries share one `messageId`;
+reusing the UUID for another document/recipient returns 409 `REQUEST_CONFLICT`.
+Queue and audit commit atomically; the worker delivers afterward. Replay never
+resets backoff or alters issued documents. See [UI recovery and limits](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
+
 ## Sponsorship review admin
 
 The admin review screen is available at:

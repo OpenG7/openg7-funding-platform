@@ -855,7 +855,9 @@ export interface AdminSponsorshipInvoiceBackfillResult {
 
 export interface AdminSponsorshipInvoiceResendRequest {
   readonly invoiceId: string;
-  readonly to?: string;
+  readonly to: string;
+  readonly confirmation: string;
+  readonly requestId: string;
 }
 
 export interface AdminSponsorshipInvoiceResendResult {
@@ -869,7 +871,9 @@ export interface AdminSponsorshipInvoiceResendResult {
 
 export interface AdminSponsorshipCreditNoteResendRequest {
   readonly creditNoteId: string;
-  readonly to?: string;
+  readonly to: string;
+  readonly confirmation: string;
+  readonly requestId: string;
 }
 
 export interface AdminSponsorshipCreditNoteResendResult {

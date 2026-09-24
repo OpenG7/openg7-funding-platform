@@ -385,7 +385,11 @@
         <h2 data-og7="programme-incidents">{{ t('incidentsTitle') }}</h2>
         <p>{{ t('incidentsHelp') }}</p>
         @for (i of issues(); track i.deliveryId) {
-          <article class="incident">
+          <article
+            class="incident"
+            data-og7="programme-incident"
+            [attr.data-og7-id]="i.deliveryId"
+          >
             <h3>{{ title(i.deliveryId) }}</h3>
             <ul>
               @for (code of i.codes; track code) {

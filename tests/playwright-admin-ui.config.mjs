@@ -10,6 +10,7 @@ export default defineConfig({
     'admin-pilotage.spec.ts',
     'admin-inspection.spec.ts',
     'admin-email-recovery-ui.spec.ts',
+    'admin-document-resend-ui.spec.ts',
     'admin-dashboard-layout.spec.ts',
     'admin-cockpit.spec.ts',
     'admin-global-search.spec.ts',
