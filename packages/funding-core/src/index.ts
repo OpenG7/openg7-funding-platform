@@ -268,6 +268,7 @@ export interface AdminSponsorMediaReviewResult {
 export interface AdminSponsorMediaDeleteRequest {
   readonly assetId: string;
   readonly expectedVersion: string;
+  readonly confirmation: string;
 }
 
 export interface PublicSponsorshipProfile {

@@ -130,6 +130,8 @@ import type {
           <div
             class="media-review-item"
             *ngFor="let asset of identity().mediaAssets"
+            data-og7="admin-sponsor-media"
+            [attr.data-og7-id]="asset.id"
           >
             <div class="media-preview">
               <img

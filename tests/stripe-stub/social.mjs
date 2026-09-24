@@ -96,6 +96,7 @@ export function socialSimulator() {
             accountId: value.accountId,
             message: value.message,
             mediaId: value.mediaId,
+            mediaSha256: value.mediaSha256 ?? null,
             isPublished: true,
             publishedAt: receivedAt
           });

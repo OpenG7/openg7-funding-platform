@@ -12,6 +12,18 @@ the repository root. [Documentation index](../README.md).
 
 ## Fundraiser admin
 
+`POST /api/admin/sponsorships/media/delete` requires the current `assetId`,
+`expectedVersion`, and `confirmation` equal to the selected asset ID. Missing or
+different confirmation returns `400 CONFIRMATION_REQUIRED` before any storage
+mutation; a stale version returns `409`. The UI supplies confirmation only after
+its explicit confirmation dialog. API and Web must be deployed together: older
+clients without this field must refresh before deleting media. Existing admin
+authorization checks and the sponsor-side lock on approved assets remain active.
+The controlled public media endpoint uses `Cache-Control: no-store` so subsequent
+requests recheck admissibility after removal. This cannot revoke copies already
+downloaded or previously cached under older headers. See the
+[media recipe](../sponsorship-e2e-coverage.md#recette-navigateur--retrait-et-remplacement-de-médias-approuvés).
+
 The admin dashboard is available at:
 
 ```text

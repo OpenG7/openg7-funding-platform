@@ -533,6 +533,77 @@ for (const language of ['fr-CA', 'en'] as const) {
   }
 }
 
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1280]) {
+    test(`media withdrawal explains reauthorization and opens the media tab in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      await fixtures(
+        page,
+        'blocked',
+        false,
+        [
+          {
+            id: '22222222-2222-4222-8222-222222222222',
+            name: 'Atelier Visuel',
+            version: 'v2',
+            reviewStatus: 'approved',
+            presentationApproved: true,
+            paymentStatus: 'paid'
+          }
+        ],
+        {
+          kind: 'sponsorship',
+          errorCode: width === 390 ? 'MEDIA_NOT_APPROVED' : 'MEDIA_CHANGED',
+          mediaId: '33333333-3333-4333-8333-333333333333'
+        }
+      );
+      let previewRequests = 0;
+      await page.route(
+        '**/api/admin/sponsorships/media/content/**',
+        async (route) => {
+          previewRequests++;
+          await route.fulfill({ status: 404, json: { error: 'Not found' } });
+        }
+      );
+      await page.goto(
+        '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
+      );
+      const dialog = page.getByRole('dialog', {
+        name: language === 'en' ? 'Final publication' : 'Publication finale'
+      });
+      const explanation = dialog.locator(
+        '[data-og7="publication-media-blocker"]'
+      );
+      await expect(explanation).toContainText(
+        language === 'en'
+          ? 'Each destination requires a new authorization.'
+          : 'Une nouvelle autorisation est nécessaire pour chaque destination.'
+      );
+      await expect(dialog.getByRole('checkbox')).toHaveCount(0);
+      await expect(dialog.getByRole('alert')).toHaveCount(0);
+      expect(previewRequests).toBe(0);
+      expect(
+        await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)
+      ).toBe(true);
+      expect(
+        (await new AxeBuilder({ page }).include('dialog[open]').analyze())
+          .violations
+      ).toEqual([]);
+      await explanation.getByRole('link', { name: 'Atelier Visuel' }).focus();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(
+        /sponsorshipId=22222222-2222-4222-8222-222222222222&tab=media$/
+      );
+    });
+  }
+}
+
 test('a blocked publication without a payment fact keeps the general explanation', async ({
   page
 }) => {

@@ -5,7 +5,7 @@ import type {
   SocialPublicationProviderResult
 } from '../social-publication.service.js';
 
-import { PublicationAutomationError, assert } from './policy.js';
+import { PublicationAutomationError, assert, digest } from './policy.js';
 
 export class DeliveryFailure extends Error {
   constructor(
@@ -123,7 +123,8 @@ export async function sendDelivery(
             feedId: job.feedId,
             accountId: job.accountId,
             message: job.message,
-            mediaId: job.mediaId
+            mediaId: job.mediaId,
+            mediaSha256: media ? digest(media) : null
           })
         },
         true

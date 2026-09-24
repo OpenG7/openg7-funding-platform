@@ -3612,7 +3612,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     try {
       await this.admin.deleteSponsorMedia(this.adminToken(), {
         assetId: event.assetId,
-        expectedVersion: event.expectedVersion
+        expectedVersion: event.expectedVersion,
+        confirmation: event.assetId
       });
       await this.loadSponsorMedia(sponsorship.id);
       this.setSponsorMediaMessage(
