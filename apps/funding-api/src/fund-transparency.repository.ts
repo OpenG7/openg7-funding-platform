@@ -7,7 +7,7 @@ import type {
   PublicFundAllocation,
   PublicMonthlySummary
 } from '@openg7/funding-core';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 import { resolveRefundedAmountMinor } from './fund-refunds.js';
 import type { PublicDirectoryPagination } from './public-directory-pagination.js';
@@ -184,14 +184,10 @@ const emptyResponse = (): FundTransparencyPublicResponse => {
   };
 };
 
-export const insertFundTransaction = async (
-  pool: Pool | null,
+const writeFundTransaction = async (
+  pool: Pool | PoolClient,
   transaction: FundTransactionInsert
 ): Promise<boolean> => {
-  if (!pool) {
-    return false;
-  }
-
   const result = await pool.query(
     `
       INSERT INTO fund_transactions (
@@ -241,6 +237,61 @@ export const insertFundTransaction = async (
   );
 
   return result.rowCount === 1;
+};
+
+export const insertFundTransaction = async (
+  pool: Pool | null,
+  transaction: FundTransactionInsert
+): Promise<boolean> => {
+  if (!pool) return false;
+  if (!['payout.paid', 'payout.failed'].includes(transaction.type)) {
+    return writeFundTransaction(pool, transaction);
+  }
+  if (transaction.type !== `payout.${transaction.status}`) {
+    throw new Error('Inconsistent payout status.');
+  }
+
+  // Different webhook IDs and backfills can describe the same bank transfer.
+  // Keep one immutable fact per outcome, on the event owner's connection.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended('fund-payout:' || $1::text, 0))",
+      [transaction.stripeObjectId]
+    );
+    const existing = await client.query<{
+      amount: string;
+      currency: string;
+      type: string;
+    }>(
+      `SELECT amount::text, currency, type FROM fund_transactions
+       WHERE stripe_object_id = $1 AND type IN ('payout.paid', 'payout.failed')`,
+      [transaction.stripeObjectId]
+    );
+    if (
+      existing.rows.some(
+        (row) =>
+          row.amount !== String(transaction.amount) ||
+          row.currency.toLowerCase() !== transaction.currency.toLowerCase()
+      )
+    ) {
+      throw new Error('Inconsistent payout monetary facts.');
+    }
+    const duplicate = existing.rows.some(
+      (row) => row.type === transaction.type
+    );
+    const inserted = duplicate
+      ? false
+      : await writeFundTransaction(client, transaction);
+    await client.query('COMMIT');
+    return inserted;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const updateContributionFundTransactionBalance = async (
@@ -446,11 +497,32 @@ const getPublicBuilders = async (
   (await getPublicBuilderPage(pool, tables, { page: 1, pageSize: 24 }))
     .builders;
 
+// Project old duplicate facts once without deleting or rewriting the ledger.
+// A terminal failure cancels that payout even when its older success arrives last.
+const effectiveFundTransactionsSql = `
+  WITH successful_payouts AS (
+    SELECT DISTINCT ON (payout.stripe_object_id) payout.*
+    FROM fund_transactions payout
+    WHERE payout.type = 'payout.paid' AND payout.status = 'paid'
+      AND NOT EXISTS (
+        SELECT 1 FROM fund_transactions failure
+        WHERE failure.stripe_object_id = payout.stripe_object_id
+          AND failure.type = 'payout.failed' AND failure.status = 'failed'
+      )
+    ORDER BY payout.stripe_object_id, payout.id
+  ), effective_transactions AS (
+    SELECT * FROM fund_transactions WHERE type NOT IN ('payout.paid', 'payout.failed')
+    UNION ALL
+    SELECT * FROM successful_payouts
+  )
+`;
+
 const getTransactionTransparencySummary = async (
   pool: Pool,
   hasFundAllocations: boolean
 ): Promise<FundTransparencyPublicResponse> => {
   const totalsQuery = await pool.query<TotalsRow>(`
+    ${effectiveFundTransactionsSql}
     SELECT
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN amount ELSE 0 END), 0)::text AS total_received,
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN fee ELSE 0 END), 0)::text AS total_fees,
@@ -461,12 +533,15 @@ const getTransactionTransparencySummary = async (
       COUNT(*) FILTER (WHERE type = 'payment_intent.succeeded' AND stripe_balance_transaction_id IS NULL)::text AS pending_fee_count,
       COUNT(DISTINCT currency)::text AS currency_count,
       COALESCE(MAX(currency), 'cad') AS currency,
-      COALESCE(MAX(inserted_at), NOW())::text AS last_updated_at
-    FROM fund_transactions
+      COALESCE(GREATEST(MAX(inserted_at),
+        (SELECT MAX(inserted_at) FROM fund_transactions WHERE type = 'payout.failed')
+      ), NOW())::text AS last_updated_at
+    FROM effective_transactions
     WHERE type IN ('payment_intent.succeeded', 'charge.refunded', 'payout.paid')
   `);
 
   const monthlyQuery = await pool.query<MonthlyRow>(`
+    ${effectiveFundTransactionsSql}
     SELECT
       TO_CHAR(DATE_TRUNC('month', created_at AT TIME ZONE 'UTC'), 'YYYY-MM') AS month,
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN amount ELSE 0 END), 0)::text AS total_received,
@@ -478,7 +553,7 @@ const getTransactionTransparencySummary = async (
       COUNT(*) FILTER (WHERE type = 'payment_intent.succeeded' AND stripe_balance_transaction_id IS NULL)::text AS pending_fee_count,
       COUNT(DISTINCT currency)::text AS currency_count,
       COALESCE(MAX(currency), 'cad') AS currency
-    FROM fund_transactions
+    FROM effective_transactions
     WHERE type IN ('payment_intent.succeeded', 'charge.refunded', 'payout.paid')
     GROUP BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC')
     ORDER BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC') DESC
@@ -549,14 +624,17 @@ export const getAdjustmentTotals = async (
   }
 
   const query = await pool.query<AdjustmentTotalsRow>(`
+    ${effectiveFundTransactionsSql}
     SELECT
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN fee ELSE 0 END), 0)::text AS total_fees,
       COALESCE(SUM(CASE WHEN type = 'charge.refunded' THEN amount ELSE 0 END), 0)::text AS total_refunded,
       COALESCE(SUM(CASE WHEN type = 'payout.paid' THEN amount ELSE 0 END), 0)::text AS total_payouts,
       COALESCE(MAX(currency), 'cad') AS currency,
       COUNT(DISTINCT currency)::text AS currency_count,
-      MAX(inserted_at)::text AS last_updated_at
-    FROM fund_transactions
+      GREATEST(MAX(inserted_at),
+        (SELECT MAX(inserted_at) FROM fund_transactions WHERE type = 'payout.failed')
+      )::text AS last_updated_at
+    FROM effective_transactions
     WHERE type IN ('payment_intent.succeeded', 'charge.refunded', 'payout.paid')
   `);
 
@@ -579,6 +657,7 @@ const getAdjustmentMonthly = async (
   }
 
   const query = await pool.query<AdjustmentMonthlyRow>(`
+    ${effectiveFundTransactionsSql}
     SELECT
       TO_CHAR(DATE_TRUNC('month', created_at AT TIME ZONE 'UTC'), 'YYYY-MM') AS month,
       COALESCE(SUM(CASE WHEN type = 'payment_intent.succeeded' THEN fee ELSE 0 END), 0)::text AS total_fees,
@@ -586,7 +665,7 @@ const getAdjustmentMonthly = async (
       COALESCE(SUM(CASE WHEN type = 'payout.paid' THEN amount ELSE 0 END), 0)::text AS total_payouts,
       COALESCE(MAX(currency), 'cad') AS currency,
       COUNT(DISTINCT currency)::text AS currency_count
-    FROM fund_transactions
+    FROM effective_transactions
     WHERE type IN ('payment_intent.succeeded', 'charge.refunded', 'payout.paid')
     GROUP BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC')
     ORDER BY DATE_TRUNC('month', created_at AT TIME ZONE 'UTC') DESC

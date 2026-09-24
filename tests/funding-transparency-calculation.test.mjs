@@ -95,7 +95,7 @@ test('Contribution transparency keeps Stripe payouts separate from fund availabi
 
       if (
         sql.includes('FROM fund_transactions') &&
-        sql.includes('MAX(inserted_at)::text')
+        sql.includes('AS last_updated_at')
       ) {
         return {
           rows: [

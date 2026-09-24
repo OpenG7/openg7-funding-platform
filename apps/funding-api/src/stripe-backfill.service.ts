@@ -9,6 +9,7 @@ import {
   updateContributionStatusByPaymentIntent,
   upsertCheckoutSessionFromWebhook
 } from './fund-contributions.repository.js';
+import { insertFundTransaction } from './fund-transparency.repository.js';
 
 export interface StripeBackfillCreatedRange {
   readonly gte?: number;
@@ -367,6 +368,11 @@ const insertBackfilledFundTransaction = async (
       skippedExisting: false,
       dryRunWouldInsert: true
     };
+  }
+
+  if (input.type === 'payout.paid' || input.type === 'payout.failed') {
+    const inserted = await insertFundTransaction(pool, input);
+    return { inserted, skippedExisting: !inserted, dryRunWouldInsert: false };
   }
 
   const result = await pool.query(

@@ -209,6 +209,34 @@ Fournisseurs simulés, pile jetable supprimée, aucune migration ni opération d
 production. La réponse uniforme ne garantit pas des délais identiques; le
 courriel de références reste en français.
 
+Dix-huitième priorité testée le 24 septembre 2026 : **commandite confirmée → frais
+Stripe tardifs puis corrigés → versement bancaire → transparence administrative
+et publique**, soit les scénarios 64, 60, 61 et les exports du scénario 59. Une
+commandite simulée de 250 CAD reçoit 8,05 CAD de frais confirmés; les transferts
+bancaires ne réduisent pas à nouveau son net de 241,95 CAD. La recette couvre
+succès répétés/concurrents, échec après succès, ancien succès reçu après échec,
+remplacement distinct et versement dans un mois sans nouvelle contribution.
+
+Deux défauts reproduits avant correction sont résolus : des événements distincts
+pour le même versement pouvaient créer plusieurs écritures, et un versement
+finalement échoué restait dans les totaux. Webhooks et backfill partagent la
+protection par versement. Les anciens doublons sont neutralisés dans la projection,
+sans réécrire le registre. Facture/PDF, contribution et activité de paiement restent
+uniques; le snapshot admin et les exports JSON/CSV FR/EN concordent, sans données
+privées. Voir le [contrat des versements](../funding-transparency.md#versements-stripe-et-échecs-tardifs)
+et la [recette navigateur](../../tests/playwright/payout-transparency-acceptance.spec.ts).
+
+Preuve sur `427e735` avec les changements locaux : **1 parcours Chromium FR/EN
+réussi en 8,1 secondes**, sans échec, test ignoré ou instable dans l'exécution
+finale, le 24 septembre 2026 à 21:32 UTC. **296 tests Node et 19 tests PostgreSQL**
+passent, ainsi que TypeScript, lint, builds API/Web et contrôles documentaires.
+Les intégrations couvrent aussi concurrence avec le backfill, simulation sans
+écriture, faits contradictoires, reprise après échec d'insertion, registre
+historique et concordance Stripe direct. Les avertissements préexistants du lint
+et du budget Angular (818,98 ko pour 800 ko) subsistent. Pile jetable supprimée,
+fournisseurs simulés, aucune migration nouvelle ni opération de production;
+aucune réception bancaire réelle n'est qualifiée.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |
