@@ -231,6 +231,65 @@ nécessitent une réconciliation distincte. La reprise sur la même page Checkou
 les moyens de paiement asynchrones, les frais et la publication après revue ne
 sont pas qualifiés par ces trois variantes.
 
+## Recette de reprise après interruption du webhook
+
+Le scénario 62 de l'[inventaire](development/end-to-end-scenarios-inventory.md)
+est exercé par [webhook-recovery-acceptance.spec.ts](../tests/playwright/webhook-recovery-acceptance.spec.ts).
+Chaque variante confirme une commandite de 500 CAD depuis le formulaire mobile
+et Checkout simulé, puis interrompt le traitement SQL du webhook signé :
+
+- une erreur d'écriture empêche la création de la facture et laisse l'événement
+  en état `failed` ;
+- une coupure de la connexion PostgreSQL après création de la facture, avant
+  l'insertion de son courriel, laisse l'événement orphelin en état `processing`.
+
+Les déclencheurs de panne sont limités à la session de paiement de la recette,
+dans sa base jetable. Le paiement, l'activité admin et le courriel de suivi ont
+déjà été enregistrés. Le retour navigateur reste accessible même lorsque le
+webhook échoue ; cette indépendance est reproduite par le simulateur Stripe.
+La recette vérifie le toast, le courriel admin et le SMS capturés, ainsi que les
+compteurs d'événements en erreur ou en traitement dans le tableau de bord FR/EN.
+
+Une nouvelle livraison pendant la panne échoue encore sans doubler les effets
+acquis. L'API redémarre, les états persistent, puis la panne est retirée et le
+même événement signé est livré à nouveau. Le traitement termine la facture et
+son courriel, conserve le numéro et la date de la facture déjà créée, et ramène
+les compteurs admin à leur valeur initiale. Deux rejeux simultanés après la
+réussite préservent une contribution, une facture, deux courriels entreprise
+(suivi et facture), un événement d'activité, un courriel admin et un SMS.
+Ces deux rejeux utilisent directement l'endpoint signé : un éventuel `503` dû
+au verrou doit réussir lors de la relance après la réponse du premier traitement.
+La recette contrôle le PDF authentifié, les totaux, l'accès au suivi privé et
+l'absence du nom de l'entreprise dans l'annuaire public.
+
+```sh
+node scripts/admin-acceptance.mjs webhook-recovery-acceptance.spec.ts --project=chromium
+node --test tests/integration/stripe-event-recovery.integration.mjs
+```
+
+La seconde commande nécessite les fichiers compilés par `yarn test`. Les tests
+PostgreSQL complémentaires vérifient notamment la signature, le verrou pendant
+un traitement actif, la perte de connexion et la reprise après erreur.
+
+Exécution du 23 septembre 2026 (America/Toronto), sur `1a43140` avec les changements
+locaux de cette recette : **5 parcours Chromium réussis**, dont les deux variantes
+de panne et les trois cas de `payment-recovery-acceptance.spec.ts`, sans échec,
+test ignoré ou instable dans l'exécution finale. Les captures des compteurs avant
+et après reprise, le manifeste et les preuves JSON sans jeton de suivi sont sous
+`test-results/acceptance/`. La pile a été supprimée après l'essai.
+
+Contrôles complémentaires réussis : **294 tests Node**, **8 tests PostgreSQL**
+de `stripe-event-recovery`, TypeScript, lint et build Angular de production dans
+la pile. Les avertissements préexistants du lint (`scripts/smoke-public.mjs`) et
+du budget Angular (816,73 ko pour 800 ko) restent présents.
+
+Limites : les rediffusions viennent du fournisseur local signé ; le CLI Stripe
+et l'outil d'exploitation `stripe-resend-events.mjs` ne sont pas exercés. L'arrêt
+brutal du processus API, les pannes SMTP et les fournisseurs réels sont hors du
+périmètre de ces deux variantes. Les requêtes applicatives ne sont pas interceptées.
+Les objets SQL de panne disparaissent avec la pile ; aucune migration applicative
+ni modification du moteur de reprise n'est nécessaire pour cette recette.
+
 ## Vérifications locales isolées
 
 ```sh
