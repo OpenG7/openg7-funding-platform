@@ -114,6 +114,11 @@ historical Checkout Sessions from Stripe, filters them by `FUNDING_PROJECT_ID`
 metadata, and writes idempotent rows to `stripe_checkout_sessions`,
 `fund_contributions`, and `fund_transactions`.
 
+Payout imports share the webhook's transaction lock and deduplicate by payout ID
+and outcome, including concurrent deliveries. A failed payout supersedes its earlier
+success in financial projections without rewriting the ledger; see the
+[payout transparency contract](../funding-transparency.md#versements-stripe-et-échecs-tardifs).
+
 Preview first:
 
 ```bash

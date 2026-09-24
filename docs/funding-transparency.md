@@ -16,6 +16,14 @@ La règle de remboursement cumulée est conservée : dès qu’un montant de rem
 
 La projection PostgreSQL refuse les contributions confirmées de plusieurs devises, les mouvements de plusieurs devises et les devises incompatibles entre contributions et mouvements. Les contributions non confirmées n’influencent pas la devise publique. Ce refus retourne une indisponibilité, jamais un total additionnant CAD et USD.
 
+## Versements Stripe et échecs tardifs
+
+`total_payouts` représente les versements déclarés réussis par Stripe, une fois par identifiant de versement. Ce total figure dans le snapshot administratif et les exports publics; il n'est ni une contribution, ni une dépense, ni un relevé bancaire. Stripe peut signaler un échec après avoir annoncé un versement payé ([contrat du fournisseur](https://docs.stripe.com/api/payouts/object)).
+
+En PostgreSQL, un `payout.failed` exclut le versement correspondant des totaux cumulés et du mois de création du versement, même si un ancien `payout.paid` arrive ensuite. Un remplacement possède son propre identifiant. L'échec reste enregistré et actualise la date des données. Une période contenant seulement un versement échoué n'ajoute pas une ligne financière à zéro. La lecture Stripe direct retient également uniquement les versements dont l'état courant est `paid`.
+
+Webhooks et backfill partagent un verrou transactionnel par versement : une écriture par résultat (`paid` ou `failed`), indépendamment des identifiants d'événement et des arrivées concurrentes. Les événements signés distincts restent dans `stripe_events`. Les montants ou devises contradictoires détectés à l'insertion font échouer le traitement pour permettre une reprise après diagnostic. Les anciens doublons du registre sont comptés une seule fois à la lecture, sans suppression ni réécriture des faits financiers. Ce correctif peut donc réduire un ancien total de versements surévalué; il ne change pas la formule du net du fonds et ne nécessite aucune migration.
+
 ## Disponibilité et actualisation
 
 Le premier chargement, une erreur initiale et `data_source: empty` affichent des montants inconnus (`—`), sans date de données inventée. Un rapport valide à zéro conserve un vrai zéro. Les réponses financières malformées ou contenant des agrégats de devises différentes sont refusées par la page.
@@ -57,6 +65,8 @@ yarn test
 yarn lint
 yarn test:ui:funding-transparency
 node --test tests/integration/funding-transparency.integration.mjs tests/integration/funding-payment-trust.integration.mjs
+node --test tests/integration/payout-transparency.integration.mjs
+yarn test:e2e:acceptance tests/playwright/payout-transparency-acceptance.spec.ts
 ```
 
 La suite UI sert le build pré-rendu sur `127.0.0.1:4179` avec les API interceptées, sur Chromium desktop et mobile. Elle couvre FR/EN, cohérence avec l’accueil, navigation clavier, preuves publiées, exports et confidentialité, chargement/erreur/reprise, expiration des requêtes, actualisation, source absente, vrai zéro et SSR sans JavaScript. Elle n’effectue ni seed, ni paiement, ni opération sur une base de données.
@@ -64,3 +74,5 @@ La suite UI sert le build pré-rendu sur `127.0.0.1:4179` avec les API intercept
 Les tests Node couvrent les calculs existants PostgreSQL et Stripe direct, les pages Stripe au-delà de 100 éléments, les erreurs de pagination, les devises, les champs exportés et le cache partagé. La suite navigateur couvre également le changement de mois pendant une panne, une réponse issue du cache du mois précédent, les états des frais et les liens avec période/filtre.
 
 Les tests d’intégration utilisent PostgreSQL 16 dans des conteneurs jetables locaux, sans lire `.env` ni `DATABASE_URL`. Ils appliquent les migrations existantes et vérifient les mois sans contribution, les remboursements complets sans doublon, les frais manquants/tardifs, les devises, la limite des 12 périodes, les frontières UTC, le mode transaction seul et la concordance des sources. Ils nécessitent l’image locale `postgres:16-alpine`. La validation de la production et les parcours comptables E2E complets restent des vérifications distinctes.
+
+La recette `payout-transparency-acceptance` utilise l'API, PostgreSQL et le Web réels dans une pile Docker jetable, avec Stripe et les envois simulés. Elle relie une commandite de 250 CAD aux frais tardifs puis corrigés, aux événements répétés/désordonnés, à un versement échoué puis remplacé et à un versement dans un autre mois. Elle vérifie l'unicité des écritures, les événements conservés, la stabilité de la facture et de son PDF, le snapshot administratif et les exports JSON/CSV FR/EN sur bureau/mobile, utilisables au clavier et sans coordonnées privées. Les tests PostgreSQL couvrent aussi la concurrence avec le backfill, son mode simulation, les doublons historiques et la concordance avec Stripe direct. Cette recette ne qualifie aucun versement bancaire réel.
