@@ -189,6 +189,26 @@ une horloge injectée dans son service compilé; la cadence horaire réelle n’
 pas qualifiée. Fournisseurs simulés et pile jetable supprimée; aucune migration
 ni opération de production.
 
+Dix-septième priorité testée le 24 septembre 2026 : **référence oubliée → courriel de récupération → recherche
+publique → récupération distincte du lien privé → reprise et soumission**, soit
+les scénarios 9 et 10. La recette relie deux contributions de la même adresse,
+exclut celle d’un autre payeur et vérifie Support en FR/EN sur mobile et bureau.
+La référence seule ne donne aucun accès au dossier; le montant public respecte
+son consentement. Les rejeux partagent leur courriel dans la même heure UTC.
+Une panne d’insertion du message révélait une différence de réponse entre adresse
+connue et inconnue; le correctif conserve la réponse conditionnelle uniforme.
+Voir la [recette et ses limites](../public-builders-and-support.md#recette-de-récupération-des-références).
+
+Preuve sur `7dd6050` avec les changements locaux : **1 parcours Chromium FR/EN
+réussi en 18,8 secondes**, sans échec, test ignoré ou instable, le 24 septembre
+2026 à 21:02 UTC. Le test échouait avec 502 au lieu de 202 sur l’ancienne API lors
+de la panne ciblée. **296 tests Node et 2 tests PostgreSQL** passent, ainsi que
+TypeScript, lint, builds API/Web et contrôles documentaires. Les avertissements
+préexistants du lint et du budget Angular (818,98 ko pour 800 ko) subsistent.
+Fournisseurs simulés, pile jetable supprimée, aucune migration ni opération de
+production. La réponse uniforme ne garantit pas des délais identiques; le
+courriel de références reste en français.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |
