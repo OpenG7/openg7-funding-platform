@@ -2,6 +2,40 @@
 // Regenerate when fixture exports change; do not narrow this list by hand.
 export const ADMIN_TOKEN: 'local-playwright-admin-token';
 export const SPONSORSHIP_FIXTURES: Readonly<{
+  draftConcurrency: Readonly<{
+    publicReference: 'OG7-E2E-DRAFT-CONCURRENCY';
+    companyName: 'E2E Concurrent Drafts Inc.';
+    contactName: 'E2E Draft Contact';
+    contactEmail: 'draft-contact@example.invalid';
+    websiteUrl: 'https://example.invalid/draft-concurrency';
+    followupToken: 'e2e-draft-concurrency-local-only-token-00000000';
+    amountCents: 50000;
+    reviewStatus: 'approved';
+  }>;
+  collectiveRemoved: Readonly<{
+    publicReference: 'OG7-E2E-COLLECTIVE-REMOVED';
+    companyName: 'E2E Collective Removed Inc.';
+    contactName: 'E2E Removed Contact';
+    contactEmail: 'removed-contact@example.invalid';
+    websiteUrl: 'https://example.invalid/collective-removed';
+    followupToken: 'e2e-collective-removed-local-only-token-0000000';
+    amountCents: 50000;
+    reviewStatus: 'approved';
+    feedTarget: 'openg7';
+    feedChannels: string[];
+  }>;
+  collectiveRetained: Readonly<{
+    publicReference: 'OG7-E2E-COLLECTIVE-RETAINED';
+    companyName: 'E2E Collective Retained Inc.';
+    contactName: 'E2E Retained Contact';
+    contactEmail: 'retained-contact@example.invalid';
+    websiteUrl: 'https://example.invalid/collective-retained';
+    followupToken: 'e2e-collective-retained-local-only-token-000000';
+    amountCents: 50000;
+    reviewStatus: 'approved';
+    feedTarget: 'openg7';
+    feedChannels: string[];
+  }>;
   followupRecovery: Readonly<{
     publicReference: 'OG7-E2E-FOLLOWUP-RECOVERY';
     companyName: 'E2E Followup Recovery Inc.';

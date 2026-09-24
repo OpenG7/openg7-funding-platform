@@ -290,6 +290,50 @@ périmètre de ces deux variantes. Les requêtes applicatives ne sont pas interc
 Les objets SQL de panne disparaissent avec la pile ; aucune migration applicative
 ni modification du moteur de reprise n'est nécessaire pour cette recette.
 
+## Recette de renvoi des factures et avoirs
+
+La recette [document-resend-acceptance.spec.ts](../tests/playwright/document-resend-acceptance.spec.ts)
+couvre les scénarios 27 et 54 de l'inventaire. Une entreprise paie 500 CAD via
+Checkout simulé ; un remboursement simulé de 100 CAD prépare un avoir. L'admin
+corrige le destinataire de chaque document et vérifie sa confirmation. Annuler
+ne crée aucun courriel ; les demandes sans authentification, confirmation,
+UUID ou destinataire valide sont refusées côté serveur.
+
+Pour chaque document, la recette transmet la demande à l'API réelle puis coupe
+uniquement sa réponse. Après rechargement et nouvelle saisie de la même adresse,
+la reprise conserve le UUID et le même message. Deux rejeux concurrents ne créent
+aucun doublon ; changer le destinataire du même UUID produit un conflit. Un refus
+SMTP laisse un échec visible dans la file. Après rétablissement, la relance du
+message existant donne un seul courriel capturé par Mailpit. Un message déjà
+envoyé ne peut plus être relancé par ce mécanisme.
+
+La facture et l'avoir conservent leurs snapshots et leurs PDF (empreintes SHA-256
+identiques à version de rendu identique). Les métadonnées techniques du PDF
+utilisent la date d'émission, pas celle de son téléchargement. Le paiement, le remboursement et les totaux ne changent pas lors du
+renvoi. La nouvelle adresse n'est pas publiée. Les intégrations PostgreSQL
+vérifient aussi six demandes simultanées, le maintien du délai de reprise et
+l'annulation atomique de la mise en file lorsque l'audit échoue. Les tests UI
+complètent FR/EN, mobile/ordinateur, clavier, focus, attente et raccourci vers le
+message exact.
+
+```sh
+node scripts/admin-acceptance.mjs document-resend-acceptance.spec.ts --project=chromium
+node --test tests/integration/document-resend.integration.mjs
+```
+
+Limites : une réponse HTTP perdue et un échec connu avant acceptation SMTP, sans
+qualification de délivrabilité réelle ni ambiguïté après acceptation SMTP. La
+conservation du UUID après rechargement nécessite le stockage de session du
+navigateur ; sans ce stockage, la reprise conserve le UUID seulement sur la page
+ouverte. Aucun secret, courriel réel ou mouvement de fonds réel n'est utilisé.
+Le contrat exige une mise à jour coordonnée API/Web ; aucune migration.
+
+Exécution finale pendant la nuit du 23 au 24 septembre 2026 : cette recette et les
+deux recettes de [brouillons concurrents](sponsorship-access-and-drafts.md#recette-de-conflits-entre-deux-onglets)
+et de [recomposition collective](operations/editorial-programme.md#recette)
+passent ensemble en **1,3 minute**, sur `b5c9451` avec les changements locaux.
+Les captures et reçus sont sous `test-results/acceptance/` ; la pile a été supprimée.
+
 ## Vérifications locales isolées
 
 ```sh

@@ -107,3 +107,21 @@ yarn playwright test --config tests/playwright-admin-ui.config.mjs admin-pilotag
 La qualification Xbox physique et les permissions des fournisseurs restent
 distinctes de ces preuves. Voir le [pilotage](admin-pilotage.md) et le
 [moteur de publication](publication-automation.md).
+
+La recette [collective-publication-repair-acceptance.spec.ts](../../tests/playwright/collective-publication-repair-acceptance.spec.ts)
+utilise l'API, PostgreSQL et le navigateur réels dans une pile jetable. Deux
+commanditaires synthétiques déjà payés et approuvés forment un lot de capacité
+deux, programmé et autorisé. Le refus confirmé d'une entreprise bloque le lot
+avant échéance sans requête sociale. Une proposition lue avant ce blocage devient
+obsolète. L'admin consulte ensuite la recomposition, peut l'annuler sans mutation,
+puis l'enregistre explicitement : le contenu conservé revient en brouillon.
+Le rejeu de la commande conserve le même résultat. Une nouvelle approbation de
+son texte et de son horaire produit un seul envoi au fournisseur simulé.
+
+```sh
+node scripts/admin-acceptance.mjs collective-publication-repair-acceptance.spec.ts --project=chromium
+```
+
+Cette variante concerne un lot Facebook sans image, réduit à un commanditaire.
+Elle ne qualifie pas le remplacement automatique par un troisième commanditaire,
+les médias collectifs, un fournisseur réel ou une manette physique.

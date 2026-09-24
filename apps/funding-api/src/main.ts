@@ -91,6 +91,10 @@ import {
   contributionNotificationConfig
 } from './contribution-activity.service.js';
 import { simulatedCheckoutEnabled } from './stripe-checkout-config.js';
+import {
+  DocumentResendConflict,
+  queueAdminDocumentResend
+} from './admin-document-resend.service.js';
 import { PublicationAutomationError } from './publication-automation/policy.js';
 import { PublicationAutomationService } from './publication-automation/service.js';
 import { AdminPilotageService, PilotError } from './admin-pilotage.service.js';
@@ -160,7 +164,6 @@ import {
   queueEmailConfigurationTest,
   queuePublicationBatchFullNotification,
   queueSponsorshipCreditNoteEmail,
-  queueSponsorshipInvoiceEmail,
   queueSponsorshipRefundEmail,
   queueSponsorshipRejectionEmail,
   retryAdminEmailQueueMessage
@@ -5145,9 +5148,20 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (!isValidUuid(parsed.invoiceId)) {
+    if (!parsed || !isValidUuid(parsed.invoiceId)) {
       writeJson(request, response, 400, {
         error: 'Invoice id is invalid.'
+      });
+      return;
+    }
+
+    if (
+      parsed.confirmation !== parsed.invoiceId ||
+      !isValidUuid(parsed.requestId)
+    ) {
+      writeJson(request, response, 400, {
+        code: 'CONFIRMATION_REQUIRED',
+        error: 'Confirm this document and provide a request UUID.'
       });
       return;
     }
@@ -5161,10 +5175,7 @@ createServer(async (request, response) => {
         return;
       }
 
-      const recipient =
-        typeof parsed.to === 'string' && parsed.to.trim()
-          ? parsed.to.trim()
-          : (invoice.sponsorContactEmail ?? '');
+      const recipient = typeof parsed.to === 'string' ? parsed.to.trim() : '';
 
       if (!isValidSponsorEmail(recipient)) {
         writeJson(request, response, 400, {
@@ -5173,28 +5184,15 @@ createServer(async (request, response) => {
         return;
       }
 
-      const result = await queueSponsorshipInvoiceEmail(dbPool, {
-        to: recipient,
-        invoice,
-        idempotencyKey: `admin-invoice-resend:${invoice.id}:${Date.now()}:${randomBytes(6).toString('hex')}`
-      });
+      const result = await queueAdminDocumentResend(
+        dbPool,
+        { to: recipient, invoice, requestId: parsed.requestId },
+        getAdminAuditActor(request)
+      );
       const refreshedInvoice = await getAdminSponsorshipInvoiceById(
         dbPool,
         invoice.id
       );
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'sponsorship_invoice.resend',
-        entityType: 'sponsorship_invoice',
-        entityId: invoice.id,
-        summary: `Sponsorship invoice ${invoice.invoiceNumber} resent.`,
-        metadata: {
-          messageId: result.messageId,
-          recipient,
-          sent: result.sent
-        }
-      });
 
       const payload: AdminSponsorshipInvoiceResendResult = {
         queued: result.queued,
@@ -5206,7 +5204,14 @@ createServer(async (request, response) => {
       };
       writeJson(request, response, 200, payload);
     } catch (error) {
-      console.error('Failed to resend sponsorship invoice.', error);
+      if (error instanceof DocumentResendConflict) {
+        writeJson(request, response, 409, {
+          code: error.code,
+          error: error.message
+        });
+        return;
+      }
+      console.error('Failed to resend sponsorship invoice.');
       writeJson(request, response, 502, {
         error:
           'Sponsorship invoice could not be resent. Check migrations 011 and 012 and email queue configuration.'
@@ -5310,9 +5315,20 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (!isValidUuid(parsed.creditNoteId)) {
+    if (!parsed || !isValidUuid(parsed.creditNoteId)) {
       writeJson(request, response, 400, {
         error: 'Credit note id is invalid.'
+      });
+      return;
+    }
+
+    if (
+      parsed.confirmation !== parsed.creditNoteId ||
+      !isValidUuid(parsed.requestId)
+    ) {
+      writeJson(request, response, 400, {
+        code: 'CONFIRMATION_REQUIRED',
+        error: 'Confirm this document and provide a request UUID.'
       });
       return;
     }
@@ -5329,10 +5345,7 @@ createServer(async (request, response) => {
         return;
       }
 
-      const recipient =
-        typeof parsed.to === 'string' && parsed.to.trim()
-          ? parsed.to.trim()
-          : (creditNote.sponsorContactEmail ?? '');
+      const recipient = typeof parsed.to === 'string' ? parsed.to.trim() : '';
 
       if (!isValidSponsorEmail(recipient)) {
         writeJson(request, response, 400, {
@@ -5341,28 +5354,15 @@ createServer(async (request, response) => {
         return;
       }
 
-      const result = await queueSponsorshipCreditNoteEmail(dbPool, {
-        to: recipient,
-        creditNote,
-        idempotencyKey: `admin-credit-note-resend:${creditNote.id}:${Date.now()}:${randomBytes(6).toString('hex')}`
-      });
+      const result = await queueAdminDocumentResend(
+        dbPool,
+        { to: recipient, creditNote, requestId: parsed.requestId },
+        getAdminAuditActor(request)
+      );
       const refreshedCreditNote = await getAdminSponsorshipCreditNoteById(
         dbPool,
         creditNote.id
       );
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'sponsorship_credit_note.resend',
-        entityType: 'sponsorship_credit_note',
-        entityId: creditNote.id,
-        summary: `Sponsorship credit note ${creditNote.creditNoteNumber} resent.`,
-        metadata: {
-          messageId: result.messageId,
-          recipient,
-          sent: result.sent
-        }
-      });
 
       const payload: AdminSponsorshipCreditNoteResendResult = {
         queued: result.queued,
@@ -5374,7 +5374,14 @@ createServer(async (request, response) => {
       };
       writeJson(request, response, 200, payload);
     } catch (error) {
-      console.error('Failed to resend sponsorship credit note.', error);
+      if (error instanceof DocumentResendConflict) {
+        writeJson(request, response, 409, {
+          code: error.code,
+          error: error.message
+        });
+        return;
+      }
+      console.error('Failed to resend sponsorship credit note.');
       writeJson(request, response, 502, {
         error:
           'Sponsorship credit note could not be resent. Check migration 012 and email queue configuration.'

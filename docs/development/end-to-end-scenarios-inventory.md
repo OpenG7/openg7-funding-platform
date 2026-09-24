@@ -95,6 +95,39 @@ la décision explicite. Empreintes des images, audits, factures et totaux sont
 vérifiés avec fournisseurs simulés.
 Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--retrait-et-remplacement-de-médias-approuvés).
 
+Onzième priorité testée pendant la nuit du 23 au 24 septembre 2026 : **deux onglets
+sur un dossier → conflit conservant la saisie → rechargement explicite → abandon
+du brouillon → soumission valide**, soit les scénarios 13 et 14. Une sauvegarde,
+un abandon ou une soumission obsolètes ne peuvent écraser la nouvelle révision.
+Le dossier soumis, son paiement et les totaux sont préservés jusqu'à la nouvelle
+soumission volontaire. Voir la [recette et ses limites](../sponsorship-access-and-drafts.md#recette-de-conflits-entre-deux-onglets).
+
+Douzième priorité testée pendant cette même nuit : **facture et avoir → destinataire
+corrigé et confirmé → réponse perdue → rechargement → panne SMTP → relance unique**,
+soit les scénarios 27 et 54. Une demande répétée conserve son message et son audit ;
+une autre adresse avec le même identifiant est refusée. Un lien ouvre le courriel
+exact dans la file. Les documents, leurs PDF et les montants restent identiques.
+Voir la [recette et ses limites](../payment-trust-validation.md#recette-de-renvoi-des-factures-et-avoirs).
+
+Treizième priorité testée pendant cette même nuit : **lot collectif autorisé →
+refus d'une entreprise → blocage → recomposition examinée → nouvelle approbation**,
+soit les scénarios 33 et 44, avec refus motivé du scénario 21. Le lot de deux
+entreprises revient à un brouillon contenant uniquement l'entreprise admissible.
+Une proposition périmée est refusée, une annulation ne change rien, et le rejeu de
+la réparation ne la répète pas. Un seul envoi Facebook simulé suit la nouvelle
+autorisation ; le refus n'effectue aucun remboursement.
+Voir la [recette et ses limites](../operations/editorial-programme.md#recette).
+
+Preuve commune sur `b5c9451` avec les changements locaux : **3 parcours Chromium
+réussis en 1,3 minute**, sans échec, test ignoré ou instable dans l'exécution finale
+du 24 septembre 2026 à 03:59 UTC. API, base et workers réels ; Stripe, SMTP et réseaux
+sociaux simulés. Dossiers de test dédiés ; pile jetable supprimée. Contrôles
+complémentaires : **295 tests Node, 13 tests PostgreSQL et 31 tests UI** réussis,
+TypeScript, lint, builds API/Web et contrôles documentaires. Restent les
+avertissements préexistants du lint et du budget initial Angular (818,31 ko pour
+800 ko). Les renvois exigent une mise à jour coordonnée du contrat API/Web,
+sans migration ni opération de production.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

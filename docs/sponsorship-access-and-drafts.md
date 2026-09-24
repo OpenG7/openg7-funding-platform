@@ -141,6 +141,25 @@ Les avertissements préexistants de lint et de budget du bundle Web subsistent.
 Le format ciblé passe ; les écarts préexistants hors du raccordement dans
 `tests/stripe-stub/server.mjs` sont conservés. La pile jetable a été supprimée.
 
+## Recette de conflits entre deux onglets
+
+La recette [sponsorship-draft-conflict-acceptance.spec.ts](../tests/playwright/sponsorship-draft-conflict-acceptance.spec.ts)
+couvre les scénarios 13 et 14 de l'inventaire dans deux onglets Chromium
+avec leurs états locaux distincts, dont un au format mobile. Elle part d'un dossier synthétique déjà payé et
+approuvé. Une sauvegarde concurrente provoque un conflit sans effacer la saisie
+locale. Le chargement explicite permet de reprendre, puis une tentative d'abandon
+obsolète ne peut pas supprimer la nouvelle révision. L'abandon confirmé par le
+serveur revient aux informations soumises et avance la révision du brouillon.
+
+Une sauvegarde et une soumission anciennes ne peuvent pas recréer le brouillon
+abandonné. Après rechargement explicite, seule une nouvelle soumission remet le
+dossier en revue, avec un seul audit et sans effet sur les montants. Ce parcours
+ne qualifie pas une coupure hors ligne prolongée ni la fusion automatique de champs.
+
+```sh
+node scripts/admin-acceptance.mjs sponsorship-draft-conflict-acceptance.spec.ts --project=chromium
+```
+
 ## Description de commit historique
 
 ```text
