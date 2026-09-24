@@ -237,6 +237,36 @@ et du budget Angular (818,98 ko pour 800 ko) subsistent. Pile jetable supprimée
 fournisseurs simulés, aucune migration nouvelle ni opération de production;
 aucune réception bancaire réelle n'est qualifiée.
 
+Dix-neuvième priorité testée le 24 septembre 2026 : **paiement Stripe historique absent → aperçu borné →
+reprise silencieuse → webhooks tardifs → facture manquante confirmée → PDF et
+transparence**, soit les scénarios 63 et 26, avec rejeux du scénario 61. Une
+commandite de 250 CAD, avec 7,55 CAD de frais et 242,45 CAD de net, est importée
+par la vraie CLI dans une pile jetable. Les limites de projet, date et volume
+sont vérifiées; l'aperçu n'écrit rien. L'administrateur ouvre « À traiter »,
+annule puis confirme la génération ciblée et télécharge son PDF. Les rejeux
+conservent le même numéro et le même document, sans courriel ni activité de
+paiement; les exports publics FR/EN respectent les montants et la confidentialité.
+
+Les défauts reproduits puis corrigés concernent le double comptage des frais,
+les messages/factures déclenchés par un ancien Checkout et l'écrasement des
+consentements ou du nom public par les métadonnées historiques. Les anciens
+doublons sont neutralisés dans les agrégats sans réécrire le registre. La
+génération de facture exige désormais une confirmation du périmètre côté API;
+les confirmations absentes ou incorrectes sont refusées avant toute écriture.
+Voir la [recette et ses limites](../technical/stripe.md#historical-payment-recovery-recipe).
+
+Preuve sur `e8466d8` avec les changements locaux : **1 parcours Chromium FR/EN
+réussi en 21,2 secondes**, sans échec, test ignoré ou instable dans l'exécution
+finale, le 24 septembre 2026 à 22:16 UTC. Les quatre tests voisins de versements
+et de reprise Stripe passent également. **296 tests Node, 41 tests PostgreSQL
+et 10 tests UI** passent, ainsi que TypeScript, lint et builds API/Web. Les
+intégrations couvrent concurrence, reprise après panne d'insertion, doublons
+historiques, consentements locaux et maintien des notifications des nouveaux
+paiements. Les avertissements préexistants du lint et du budget Angular
+(819,00 ko pour 800 ko) subsistent. Fournisseurs simulés et pile jetable supprimée;
+aucune migration nouvelle ni opération de production. API et Web doivent être
+livrés ensemble pour le nouveau contrat de confirmation.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

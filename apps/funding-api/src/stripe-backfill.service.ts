@@ -354,6 +354,15 @@ const insertBackfilledFundTransaction = async (
   input: FundTransactionInput,
   dryRun: boolean
 ): Promise<BackfillInsertResult> => {
+  if (
+    !dryRun &&
+    ['payment_intent.succeeded', 'payout.paid', 'payout.failed'].includes(
+      input.type
+    )
+  ) {
+    const inserted = await insertFundTransaction(pool, input);
+    return { inserted, skippedExisting: !inserted, dryRunWouldInsert: false };
+  }
   if (await hasLogicalFundTransaction(pool, input)) {
     return {
       inserted: false,
@@ -368,11 +377,6 @@ const insertBackfilledFundTransaction = async (
       skippedExisting: false,
       dryRunWouldInsert: true
     };
-  }
-
-  if (input.type === 'payout.paid' || input.type === 'payout.failed') {
-    const inserted = await insertFundTransaction(pool, input);
-    return { inserted, skippedExisting: !inserted, dryRunWouldInsert: false };
   }
 
   const result = await pool.query(

@@ -746,7 +746,7 @@ export class FundingAdminService {
 
   async backfillSponsorshipInvoices(
     token: string,
-    payload: AdminSponsorshipInvoiceBackfillRequest = {}
+    payload: AdminSponsorshipInvoiceBackfillRequest
   ): Promise<AdminSponsorshipInvoiceBackfillResult> {
     const response = await fetch(
       `${this.apiBaseUrl}/admin/sponsorship-invoices/backfill`,

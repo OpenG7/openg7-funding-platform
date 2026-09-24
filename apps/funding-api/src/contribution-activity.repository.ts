@@ -1,4 +1,18 @@
-import type { PoolClient } from 'pg';
+import type { Pool, PoolClient } from 'pg';
+
+/** Historical confirmations have a marker but no activity and must stay silent. */
+export async function hasContributionActivityForSession(
+  db: Pool,
+  sessionId: string
+): Promise<boolean> {
+  const result = await db.query(
+    `SELECT 1 FROM contribution_activity activity
+     JOIN fund_contributions contribution ON contribution.id=activity.contribution_id
+     WHERE contribution.stripe_session_id=$1 LIMIT 1`,
+    [sessionId]
+  );
+  return result.rowCount === 1;
+}
 
 /** Caller owns the payment transaction. Serializing insertions makes IDs safe cursors. */
 export async function recordContributionActivity(

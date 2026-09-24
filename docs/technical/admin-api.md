@@ -155,14 +155,14 @@ recent queued, sending, sent and failed emails, summarizes retryable failures,
 and can manually retry an unsent message through `POST /api/admin/email-queue/retry`.
 Manual retries are recorded in the admin audit log.
 
-The sponsorship invoice page is available at `/admin/fundraiser/invoices`. It
-lists app-generated sponsorship invoices, shows Stripe references and latest
-email delivery status, shows credit notes generated after guided Stripe
-refunds, downloads invoice or credit-note PDFs, and can resend either the
-invoice email or the credit-note email to the recorded sponsor contact or a
-corrected admin-entered address. The same page can run
-`POST /api/admin/sponsorship-invoices/backfill` to generate missing invoices
-for historical paid sponsorships without emailing sponsors automatically.
+At `/admin/fundraiser/invoices`, admins inspect invoices/credit notes, Stripe
+references and email status, download PDFs and resend to a corrected contact.
+`POST /api/admin/sponsorship-invoices/backfill` generates missing historical
+invoices without emailing sponsors.
+
+Backfill requires `confirmation` matching `contributionId`, or `BACKFILL_INVOICES`
+for a bulk run (400 `confirmation_required` otherwise). Update API/Web together;
+no migration. Owner access and the UI confirmation remain required.
 
 Resends require `to`, UUID `requestId`, and `confirmation` matching `invoiceId`
 or `creditNoteId` (400 `CONFIRMATION_REQUIRED` if confirmation/UUID is missing).

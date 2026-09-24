@@ -16,6 +16,8 @@ La règle de remboursement cumulée est conservée : dès qu’un montant de rem
 
 La projection PostgreSQL refuse les contributions confirmées de plusieurs devises, les mouvements de plusieurs devises et les devises incompatibles entre contributions et mouvements. Les contributions non confirmées n’influencent pas la devise publique. Ce refus retourne une indisponibilité, jamais un total additionnant CAD et USD.
 
+Les événements et imports historiques d'un même PaymentIntent réussi partagent une seule écriture logique, même en concurrence. Les anciens doublons sont également comptés une seule fois dans les agrégats : priorité à une écriture documentée par une transaction de solde, puis à la première écriture. Le registre reste intact. Ce correctif peut réduire des frais autrefois doublés et augmenter le net affiché. Les frais tardifs ou corrigés continuent d'être enrichis par `charge.updated`; un import ne réécrit pas une transaction de paiement existante. Voir la [recette de reprise historique](technical/stripe.md#historical-payment-recovery-recipe).
+
 ## Versements Stripe et échecs tardifs
 
 `total_payouts` représente les versements déclarés réussis par Stripe, une fois par identifiant de versement. Ce total figure dans le snapshot administratif et les exports publics; il n'est ni une contribution, ni une dépense, ni un relevé bancaire. Stripe peut signaler un échec après avoir annoncé un versement payé ([contrat du fournisseur](https://docs.stripe.com/api/payouts/object)).
