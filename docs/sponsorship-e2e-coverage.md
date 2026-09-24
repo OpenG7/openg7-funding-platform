@@ -8,6 +8,67 @@ Matrice statique : 9 scénarios disposent d'une trace dans les sources. Ce nombr
 ne mesure ni la couverture des branches ni une recette avec les fournisseurs réels.
 Les [preuves datées et limites actuelles](platform-status.md) complètent cette matrice.
 
+## Recette navigateur : paliers de 100 et 250 CAD
+
+La recette `tests/playwright/sponsorship-tiers-acceptance.spec.ts` complète les
+scénarios 4 et 5 de l’[inventaire](development/end-to-end-scenarios-inventory.md).
+Elle exerce quatre parcours : 100 et 250 CAD, avec puis sans consentement public.
+Le navigateur utilise l’API, PostgreSQL, le stockage local et les workers réels;
+Checkout et ses webhooks signés, SMTP/Mailpit, SMS et Facebook restent simulés.
+Aucune requête applicative n’est interceptée et aucun paiement n’est préchargé.
+
+```sh
+yarn test:e2e:acceptance sponsorship-tiers-acceptance.spec.ts --project=chromium
+```
+
+Le formulaire mobile présente les avantages du montant choisi. Chaque paiement
+confirmé crée une facture, une activité/toast, un courriel admin et un SMS capturé,
+ainsi que les deux courriels du commanditaire. Le dossier, son logo et sa photo
+sont soumis puis examinés dans l’administration. L’activité explique les seuils,
+le consentement et la préparation privée de la cartouche du site.
+
+- À 100 CAD consentis : reconnaissance Web, sans proposition sociale automatique.
+- À 250 CAD consentis : reconnaissance Web et proposition Facebook privée; le
+  contenu exact, l’image approuvée et l’horaire sont examinés et autorisés avant
+  l’envoi simulé par le worker, navigateur admin fermé. Aucun envoi LinkedIn.
+- Sans consentement public : la revue du dossier ne rend publics ni la fiche ni
+  les médias; aucune cartouche ou proposition sociale n’est préparée. L’affichage
+  du montant reste un consentement distinct, vérifié sur les fiches publiques.
+- La création manuelle d’un brouillon privé ne suffit pas à autoriser un canal
+  exclu : même approuvé et affecté à un lot, il est refusé par la composition
+  finale avec `409 SOURCE_NOT_ELIGIBLE`. Sans consentement, la création manuelle
+  elle-même est refusée. Les endpoints exigent une authentification.
+- Le rejeu du paiement et de la préparation conserve les identifiants des
+  factures, courriels et livraisons, une seule activité et les totaux attendus.
+  Les reçus sociaux comptent un seul appel et un seul résultat pour Facebook.
+
+Les tests PostgreSQL du moteur complètent ces parcours aux limites 249,99/250 et
+499,99/500 CAD, avant et après revue. Ils vérifient aussi le consentement, la
+devise, la répétition et l’absence d’approbation automatique.
+
+La politique existante reste applicable : les canaux ajoutés explicitement par
+l’admin peuvent dépasser les avantages du palier. Les refus ci-dessus concernent
+les dossiers sans cet ajout. Les intégrations préservent cette exception décrite
+dans le [runbook du moteur](operations/publication-automation.md#configuration-and-activation).
+L’approbation ordinaire du dossier rend la fiche consentie admissible; le maintien
+privé propre à « Accepter et programmer » conserve sa recette distincte ci-dessous.
+Le point UX sur la confirmation de visibilité Web reste inchangé.
+
+Le runner ignore `.env`, restaure les réglages des feeds et du moteur, puis
+supprime sa pile jetable. Les preuves sont sous `test-results/acceptance/`.
+Cette recette couvre Chromium, le formulaire et l’annuaire à 390 px et l’admin
+sur ordinateur, en français. Elle ne qualifie ni les fournisseurs réels, ni les
+autres navigateurs/langues, ni un déploiement. Elle est découverte par la suite
+d’acceptation CI existante, sans nouvelle dépendance, migration ou configuration.
+
+Exécution du 24 septembre 2026 sur `919f634` avec les changements locaux :
+**4 parcours réussis en 3,1 minutes**, sans échec, reprise ni test ignoré.
+Les **30 tests PostgreSQL** du moteur et les **295 tests Node** passent,
+ainsi que TypeScript, lint et les builds API/Web (24 routes pré-rendues).
+Les avertissements existants restent présents : directive ESLint inutilisée
+dans `scripts/smoke-public.mjs` et bundle initial de 818,98 ko pour un budget
+de 800 ko. Les fournisseurs sont simulés et la pile jetable a été supprimée.
+
 ## Recette navigateur : commandite de 500 CAD et deux destinations
 
 La recette `tests/playwright/sponsorship-publication-acceptance.spec.ts` couvre
