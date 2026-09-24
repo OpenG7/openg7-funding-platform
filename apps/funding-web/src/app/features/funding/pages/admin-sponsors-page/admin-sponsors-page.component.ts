@@ -5411,7 +5411,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.sponsorships.set([]);
       this.progress.set(null);
       void this.router.navigate(['/admin/login'], {
-        queryParams: { returnUrl: this.router.url }
+        queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
       });
     }
     return error instanceof Error && error.message.trim()

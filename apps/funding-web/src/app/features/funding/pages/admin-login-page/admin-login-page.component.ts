@@ -76,6 +76,9 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           </form>
         }
 
+        @if (sessionExpired) {
+          <p role="status">{{ 'admin.access.sessionExpired' | translate }}</p>
+        }
         <p role="alert" class="state state-error" *ngIf="state() === 'error'">
           {{
             (mode() === 'token'
@@ -205,6 +208,8 @@ export class AdminLoginPageComponent implements OnInit {
   readonly token = signal<string>('');
   readonly state = signal<'idle' | 'loading' | 'error'>('idle');
   readonly mode = signal<'oidc' | 'token' | null>(null);
+  readonly sessionExpired =
+    this.route.snapshot.queryParamMap.has('sessionExpired');
   identityUrl(): string {
     return this.admin.identitySignInUrl(this.returnUrl());
   }

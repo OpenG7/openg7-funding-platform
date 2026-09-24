@@ -43,6 +43,7 @@ owners, disable accounts and revoke sessions. Changing an account revokes its
 sessions; the last active owner is protected. Token mode does not provide these
 named-account guarantees. Independent alerts use `yarn operations:watch` or the
 optional Compose overlay and remain disabled until configured and started.
+Access changes require `confirmation`; update API/Web.
 
 The dashboard now uses the admin visual foundation described in
 [Admin UX — lot 1](../admin-ux-lot-1.md). Run `yarn test:ui:admin` to build

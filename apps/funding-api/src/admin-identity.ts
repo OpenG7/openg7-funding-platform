@@ -69,7 +69,11 @@ export const adminRoleAllows = (
   // Read-only queries and the caller's own toast markers are allowed for all admins.
   if (
     method === 'POST' &&
-    ['/admin/search', '/admin/assistant/query', '/admin/contribution-activity/present'].includes(path)
+    [
+      '/admin/search',
+      '/admin/assistant/query',
+      '/admin/contribution-activity/present'
+    ].includes(path)
   )
     return true;
   return role === 'operator' && method === 'POST' && operatorActions.has(path);
@@ -409,7 +413,10 @@ export class AdminIdentityService {
     }
     if (path === '/admin/access' && request.method === 'GET') {
       if (!this.permits(request)) {
-        this.json(response, 403, { error: 'Owner role required.' });
+        this.json(response, this.identity(request) ? 403 : 401, {
+          code: this.identity(request) ? 'OWNER_REQUIRED' : 'SESSION_EXPIRED',
+          error: 'Owner session required.'
+        });
         return true;
       }
       const accounts = await this.pool.query(
@@ -430,7 +437,8 @@ export class AdminIdentityService {
     }
     if (path === '/admin/access' && request.method === 'POST') {
       if (!this.permits(request)) {
-        this.json(response, 403, {
+        this.json(response, this.identity(request) ? 403 : 401, {
+          code: this.identity(request) ? 'ACCESS_DENIED' : 'SESSION_EXPIRED',
           error: 'Owner role and same origin required.'
         });
         return true;
@@ -442,6 +450,20 @@ export class AdminIdentityService {
           if (body.length > 4096) throw new Error('Body too large');
         }
         const input = JSON.parse(body) as Record<string, unknown>;
+        if (!input || typeof input !== 'object' || Array.isArray(input))
+          throw new Error('Invalid account');
+        const target = input.sessionId ?? input.subject;
+        if (
+          typeof target !== 'string' ||
+          !target ||
+          input.confirmation !== target
+        ) {
+          this.json(response, 400, {
+            code: 'CONFIRMATION_REQUIRED',
+            error: 'Confirm the exact account or session.'
+          });
+          return true;
+        }
         if (
           typeof input.sessionId === 'string' &&
           /^[\da-f-]{36}$/i.test(input.sessionId)
@@ -451,9 +473,24 @@ export class AdminIdentityService {
           await this.saveAccount(this.identity(request)!, input);
         }
         this.json(response, 200, { ok: true });
-      } catch {
-        this.json(response, 400, {
-          error: 'Invalid change. At least one enabled owner must remain.'
+      } catch (error) {
+        const lastOwner =
+          error instanceof Error && error.message === 'Last owner';
+        const invalid =
+          error instanceof SyntaxError ||
+          (error instanceof Error &&
+            ['Invalid account', 'Body too large'].includes(error.message));
+        this.json(response, lastOwner ? 409 : invalid ? 400 : 503, {
+          code: lastOwner
+            ? 'LAST_OWNER'
+            : invalid
+              ? 'INVALID_ACCESS_CHANGE'
+              : 'ACCESS_UNAVAILABLE',
+          error: lastOwner
+            ? 'At least one enabled owner must remain.'
+            : invalid
+              ? 'Invalid access change.'
+              : 'Access change unavailable.'
         });
       }
       return true;
@@ -464,11 +501,18 @@ export class AdminIdentityService {
     const db = await this.pool.connect();
     try {
       await db.query('BEGIN');
-      await db.query(
-        'UPDATE admin_identity_sessions SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL',
-        [sessionId]
+      const updated = await db.query(
+        `UPDATE admin_identity_sessions s SET revoked_at=now() FROM admin_accounts a
+         WHERE s.id=$1 AND s.account_id=a.id AND a.issuer=$2 AND s.revoked_at IS NULL RETURNING s.id`,
+        [sessionId, this.issuer.href]
       );
-      await audit(db, `admin:${actor.id}`, 'admin.session.revoked', sessionId);
+      if (updated.rowCount)
+        await audit(
+          db,
+          `admin:${actor.id}`,
+          'admin.session.revoked',
+          sessionId
+        );
       await db.query('COMMIT');
     } catch (error) {
       await db.query('ROLLBACK');

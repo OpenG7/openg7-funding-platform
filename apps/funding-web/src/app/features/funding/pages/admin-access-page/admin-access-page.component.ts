@@ -1,17 +1,20 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   OnInit,
+  ViewChild,
   inject,
   signal
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import {
   FundingAdminService,
+  AdminDashboardRequestError,
   AdminAccessAccount,
   AdminAccessResponse
 } from '../../services/funding-admin.service.js';
@@ -27,10 +30,12 @@ import {
         <a routerLink="/admin/fundraiser">{{
           'admin.access.back' | translate
         }}</a>
-        <h1>{{ 'admin.access.title' | translate }}</h1>
+        <h1 #accessTitle tabindex="-1">
+          {{ 'admin.access.title' | translate }}
+        </h1>
         <p>{{ 'admin.access.help' | translate }}</p>
         @if (error()) {
-          <p role="alert">{{ 'admin.access.error' | translate }}</p>
+          <p role="alert">{{ error() | translate }}</p>
         }
         @if (busy()) {
           <p role="status">{{ 'admin.access.loading' | translate }}</p>
@@ -39,7 +44,7 @@ import {
           <h2>{{ 'admin.access.accounts' | translate }}</h2>
           <ul>
             @for (account of access.accounts; track account.id) {
-              <li>
+              <li data-og7="admin-account" [attr.data-og7-id]="account.id">
                 {{ account.displayName }} —
                 {{ 'admin.access.roles.' + account.role | translate }}
                 @if (account.disabled) {
@@ -65,6 +70,8 @@ import {
               }}<input
                 name="subject"
                 [(ngModel)]="draft.subject"
+                (ngModelChange)="confirmed = false"
+                [disabled]="busy()"
                 [readonly]="!!draft.id"
                 required
                 maxlength="255"
@@ -74,12 +81,19 @@ import {
               }}<input
                 name="name"
                 [(ngModel)]="draft.displayName"
+                (ngModelChange)="confirmed = false"
+                [disabled]="busy()"
                 required
                 maxlength="120"
             /></label>
             <label
               >{{ 'admin.access.role' | translate
-              }}<select name="role" [(ngModel)]="draft.role">
+              }}<select
+                name="role"
+                [(ngModel)]="draft.role"
+                (ngModelChange)="confirmed = false"
+                [disabled]="busy()"
+              >
                 @for (role of roles; track role) {
                   <option [value]="role">
                     {{ 'admin.access.roles.' + role | translate }}
@@ -92,6 +106,8 @@ import {
                 type="checkbox"
                 name="disabled"
                 [(ngModel)]="draft.disabled"
+                (ngModelChange)="confirmed = false"
+                [disabled]="busy()"
               />{{ 'admin.access.disabled' | translate }}</label
             >
             <label
@@ -99,6 +115,7 @@ import {
                 type="checkbox"
                 name="confirmed"
                 [(ngModel)]="confirmed"
+                [disabled]="busy()"
                 required
               />{{ 'admin.access.confirm' | translate }}</label
             >
@@ -109,12 +126,12 @@ import {
           <h2>{{ 'admin.access.sessions' | translate }}</h2>
           <ul>
             @for (session of access.sessions; track session.id) {
-              <li>
+              <li data-og7="admin-session" [attr.data-og7-id]="session.id">
                 {{ nameFor(session.accountId) }} — {{ session.createdAt }}
                 <button
                   type="button"
                   [disabled]="busy()"
-                  (click)="pendingSession.set(session.id)"
+                  (click)="selectSession(session.id, $event)"
                 >
                   {{ 'admin.access.revoke' | translate }}
                 </button>
@@ -125,12 +142,25 @@ import {
             <section
               role="group"
               [attr.aria-label]="'admin.access.revoke' | translate"
+              (keydown.escape)="cancelRevoke(); $event.stopPropagation()"
             >
-              <p>{{ 'admin.access.revokeConfirm' | translate }}</p>
-              <button type="button" [disabled]="busy()" (click)="revoke(id)">
+              <p>
+                {{ 'admin.access.revokeConfirm' | translate }}
+                {{ sessionName(id) }}
+              </p>
+              <button
+                #revokeConfirmButton
+                type="button"
+                [disabled]="busy()"
+                (click)="revoke(id)"
+              >
                 {{ 'admin.access.revoke' | translate }}
               </button>
-              <button type="button" (click)="pendingSession.set(null)">
+              <button
+                type="button"
+                [disabled]="busy()"
+                (click)="cancelRevoke()"
+              >
                 {{ 'admin.access.cancel' | translate }}
               </button>
             </section>
@@ -211,11 +241,19 @@ import {
 })
 export class AdminAccessPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
+  private readonly router = inject(Router);
   readonly data = signal<AdminAccessResponse | null>(null);
   readonly busy = signal(false);
-  readonly error = signal(false);
+  readonly error = signal('');
   readonly pendingSession = signal<string | null>(null);
   readonly roles = ['reader', 'operator', 'owner'] as const;
+  private revokeTrigger: HTMLButtonElement | null = null;
+  @ViewChild('accessTitle') private accessTitle?: ElementRef<HTMLElement>;
+  @ViewChild('revokeConfirmButton') set revokeConfirmButton(
+    button: ElementRef<HTMLButtonElement> | undefined
+  ) {
+    button?.nativeElement.focus();
+  }
   confirmed = false;
   draft: AdminAccessAccount = {
     id: '',
@@ -244,36 +282,81 @@ export class AdminAccessPageComponent implements OnInit {
   nameFor(id: string): string {
     return this.data()?.accounts.find((a) => a.id === id)?.displayName ?? id;
   }
+  sessionName(id: string): string {
+    const session = this.data()?.sessions.find((item) => item.id === id);
+    return session
+      ? `${this.nameFor(session.accountId)} — ${session.createdAt}`
+      : '';
+  }
+  selectSession(id: string, event: Event): void {
+    this.revokeTrigger = event.currentTarget as HTMLButtonElement;
+    this.pendingSession.set(id);
+  }
+  cancelRevoke(): void {
+    if (this.busy()) return;
+    this.pendingSession.set(null);
+    if (this.revokeTrigger?.isConnected) this.revokeTrigger.focus();
+    else this.accessTitle?.nativeElement.focus();
+  }
+  private handleError(error: unknown): void {
+    if (
+      error instanceof AdminDashboardRequestError &&
+      [401, 403].includes(error.status)
+    ) {
+      this.data.set(null);
+      this.pendingSession.set(null);
+      this.newAccount();
+      if (error.status === 401) {
+        void this.router.navigate(['/admin/login'], {
+          queryParams: {
+            returnUrl: '/admin/fundraiser/access',
+            sessionExpired: '1'
+          }
+        });
+        return;
+      }
+      this.error.set('admin.access.ownerRequired');
+      return;
+    }
+    this.error.set(
+      error instanceof Error && error.message === 'LAST_OWNER'
+        ? 'admin.access.lastOwner'
+        : 'admin.access.error'
+    );
+  }
   private async load(): Promise<void> {
     this.busy.set(true);
-    this.error.set(false);
+    this.error.set('');
     try {
       this.data.set(await this.admin.accessAccounts());
-    } catch {
-      this.error.set(true);
+    } catch (error) {
+      this.handleError(error);
     } finally {
       this.busy.set(false);
     }
   }
   async save(): Promise<void> {
     if (!this.confirmed || this.busy()) return;
-    await this.change({ ...this.draft });
+    await this.change({ ...this.draft, confirmation: this.draft.subject });
     this.confirmed = false;
   }
   async revoke(sessionId: string): Promise<void> {
-    await this.change({ sessionId });
-    this.pendingSession.set(null);
+    if (this.busy() || this.pendingSession() !== sessionId) return;
+    await this.change({ sessionId, confirmation: sessionId });
+    this.cancelRevoke();
   }
   private async change(
-    input: AdminAccessAccount | { sessionId: string }
+    input: (AdminAccessAccount | { sessionId: string }) & {
+      confirmation: string;
+    }
   ): Promise<void> {
     this.busy.set(true);
-    this.error.set(false);
+    this.error.set('');
     try {
       await this.admin.updateAccess(input);
       await this.load();
-    } catch {
-      this.error.set(true);
+    } catch (error) {
+      this.handleError(error);
     } finally {
       this.busy.set(false);
     }

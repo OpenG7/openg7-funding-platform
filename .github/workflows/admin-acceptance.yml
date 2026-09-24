@@ -43,6 +43,8 @@ jobs:
         run: yarn test:ui:public-journeys
       - name: Admin accessibility and HTTP 404 across browsers
         run: yarn test:ui:platform-accessibility
+      - name: Identity acceptance with disposable PostgreSQL and signed OIDC
+        run: yarn exec playwright test --config tests/playwright-identity.config.mjs
       - name: Docker acceptance with disposable fixtures
         run: yarn test:e2e:acceptance
       - name: Preserve acceptance evidence

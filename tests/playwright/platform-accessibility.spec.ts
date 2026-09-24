@@ -162,7 +162,10 @@ test('identity sign-in and owner access are accessible and session revocation ne
     .getByRole('button', { name: 'Révoquer la session' })
     .click();
   await expect.poll(() => mutations.length).toBe(1);
-  expect(mutations[0]).toEqual({ sessionId: 'session' });
+  expect(mutations[0]).toEqual({
+    sessionId: 'session',
+    confirmation: 'session'
+  });
   expect(
     await page.evaluate(() =>
       sessionStorage.getItem('openg7-admin-session-token')
