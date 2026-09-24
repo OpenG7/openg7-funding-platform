@@ -260,6 +260,7 @@ import {
   validateInformationRequest
 } from './sponsorship-information.service.js';
 import {
+  buildSponsorshipReviewReminderAdminUrl,
   loadAdminSponsorshipReviewReminderConfig,
   queueDueSponsorshipReviewReminder
 } from './admin-reminder.service.js';
@@ -2467,7 +2468,8 @@ const runAdminSponsorshipReviewReminderWorker = async (): Promise<void> => {
   adminSponsorshipReviewReminderProcessing = true;
   try {
     const result = await queueDueSponsorshipReviewReminder(dbPool, {
-      config: adminSponsorshipReviewReminderConfig
+      config: adminSponsorshipReviewReminderConfig,
+      adminUrl: buildSponsorshipReviewReminderAdminUrl(publicBaseUrl)
     });
 
     if (result.checked && !result.duplicate && (result.queued || result.sent)) {

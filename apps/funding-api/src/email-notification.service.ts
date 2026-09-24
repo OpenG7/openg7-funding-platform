@@ -1152,6 +1152,16 @@ const renderPublicationBatchFullNotification = (
 const renderSponsorshipReviewReminderNotification = (
   input: SponsorshipReviewReminderEmailInput
 ): RenderedEmail => {
+  let linkedAdminUrl = false;
+  try {
+    const url = new URL(input.adminUrl);
+    linkedAdminUrl =
+      ['https:', 'http:'].includes(url.protocol) &&
+      !url.username &&
+      !url.password;
+  } catch {
+    // Retain the navigation path when no public origin is configured.
+  }
   const countLabel = `${input.totalCount} commandite${
     input.totalCount > 1 ? 's' : ''
   }`;
@@ -1207,7 +1217,11 @@ const renderSponsorshipReviewReminderNotification = (
     <ul>${htmlItems}</ul>
     <p>
       Ouvrir les commandites:
-      <code>${escapeHtml(input.adminUrl)}</code>
+      ${
+        linkedAdminUrl
+          ? `<a href="${escapeHtml(input.adminUrl)}">Reprendre la revue des commandites</a>`
+          : `<code>${escapeHtml(input.adminUrl)}</code>`
+      }
     </p>
     <p>
       Ce rappel est informatif. Il ne valide, ne refuse et ne publie aucune
