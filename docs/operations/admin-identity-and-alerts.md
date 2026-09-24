@@ -61,6 +61,66 @@ Le navigateur découvre le mode avec `GET /api/admin/auth/config`. En OIDC :
 - `GET /api/admin/access` liste les comptes et sessions;
 - `POST /api/admin/access` modifie un compte ou révoque une session.
 
+Cette mutation exige `confirmation` égal au `subject` du compte ou au `sessionId`
+visé, après la décision explicite dans l'interface. Une confirmation absente ou
+différente donne `400 CONFIRMATION_REQUIRED`; le retrait du dernier propriétaire
+donne `409 LAST_OWNER`. Une session absente, expirée ou révoquée donne `401` sur
+les lectures et mutations d'accès; un rôle insuffisant ou une origine refusée
+donne `403`. Une indisponibilité de persistance ou d'audit donne
+`503 ACCESS_UNAVAILABLE`, sans valider le changement. Révoquer à nouveau une
+session ne répète pas son audit. L'opération
+reste limitée aux comptes de l'issuer configuré.
+
+API et Web doivent être mis à jour ensemble : les anciens clients sans
+confirmation doivent actualiser la page. Aucune migration supplémentaire.
+Après un refus `401` pendant une revue ou un changement d'accès, le formulaire
+privé est fermé et la connexion explique que la session a expiré ou été révoquée.
+Une révocation prend effet aux vérifications d'autorisation suivantes; elle
+n'annule pas rétroactivement une opération déjà autorisée par le serveur.
+
+## Recette des accès administrateurs
+
+`yarn test:e2e:identity` compile l'API et le Web, puis lance Chromium avec une
+base PostgreSQL 16 jetable et un fournisseur OIDC local signé. Prérequis : Node 22,
+Yarn 4, Docker local, image `postgres:16-alpine` et Chromium installé. Aucune
+configuration `.env`, base existante ou identité externe n'est utilisée.
+
+La recette [navigateur](../../tests/identity/admin-identity.spec.ts) exerce :
+
+- création de comptes opérateur et lecteur par le propriétaire, confirmation
+  exacte et protection du dernier propriétaire;
+- revue d'un dossier par l'opérateur, refus API des mutations du lecteur et
+  des fonctions réservées au propriétaire;
+- changement de rôle alors qu'une action confirmée attend encore dans le
+  navigateur, révocation de toutes les sessions du compte, refus de l'action
+  et reconnexion avec les nouveaux droits;
+- annulation puis révocation d'une seule session, rejeu sans double audit,
+  maintien de l'autre session, expiration serveur, désactivation/réactivation
+  d'un compte et déconnexion;
+- refus sans MFA, signature invalide, membre inconnu et panne d'échange OIDC,
+  sans retour au jeton racine, puis connexion après rétablissement.
+
+Les dossiers et métadonnées de médias sont préchargés et synthétiques; cette
+recette ne qualifie ni le paiement ni le stockage des images. Les appels API et
+les contrôles de signature, PKCE, nonce, origine et sessions sont réels. Le Web
+compilé est servi localement avec un proxy vers l'API; cette recette ne qualifie
+pas nginx, HTTPS, le fournisseur OIDC réel ni son dispositif MFA. Le HTTP est
+limité à la boucle locale dans le mode de test déjà autorisé par l'API.
+
+La CI exécute cette recette après les builds existants. Les traces d'échec et
+le rapport sont sous `test-results/identity/`; la base et les processus possédés
+par la recette sont arrêtés en fin d'exécution. Des tests UI séparés vérifient
+FR/EN à 390 et 1280 px, la confirmation au clavier, le dernier propriétaire et
+la fermeture du formulaire après expiration.
+
+Validation locale du 24 septembre 2026 sur `fc2a9f6` avec les changements locaux :
+2 parcours Chromium réussis en 25,5 secondes, 15 tests PostgreSQL ciblés
+(identité et pilotage), 295 tests Node, 4 tests UI FR/EN et 4 contrôles
+d'accessibilité sur plusieurs navigateurs réussis. Le premier démarrage WebKit bureau a
+dépassé son délai de 30 secondes; le contrôle isolé est ensuite passé en
+7 secondes. Builds API/Web/SSR, TypeScript et lint passent; restent l'avertissement
+lint existant et le budget Angular initial dépassé (818,98 ko pour 800 ko).
+
 `yarn services:check` reste orienté vers les variables du mode token : il peut
 signaler leur absence en OIDC et ne valide ni l'issuer, ni les assertions MFA,
 ni le récepteur d'alertes. Utiliser la recette de connexion et de révocation

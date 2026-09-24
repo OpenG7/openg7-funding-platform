@@ -4,6 +4,7 @@
     "noEmit": true
   },
   "include": [
+    "playwright/admin-access-ui.spec.ts",
     "playwright/admin-inspection.spec.ts",
     "playwright/admin-email-recovery-ui.spec.ts",
     "../apps/**/*.ts",

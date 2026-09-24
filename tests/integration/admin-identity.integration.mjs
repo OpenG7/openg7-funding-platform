@@ -170,6 +170,36 @@ test(
     });
     const profile = await current.json();
     assert.equal(profile.role, 'owner');
+    for (const change of [
+      { sessionId: profile.sessionId },
+      { sessionId: profile.sessionId, confirmation: 'wrong-target' },
+      {
+        subject: 'unconfirmed',
+        displayName: 'Unconfirmed',
+        role: 'owner',
+        disabled: false
+      }
+    ]) {
+      const result = await fetch(`${origin}/api/admin/access`, {
+        method: 'POST',
+        headers: {
+          cookie: first.cookie,
+          origin,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(change)
+      });
+      assert.equal(result.status, 400);
+      assert.equal((await result.json()).code, 'CONFIRMATION_REQUIRED');
+    }
+    assert.equal(
+      (
+        await database.pool.query(
+          "SELECT 1 FROM admin_accounts WHERE subject='unconfirmed'"
+        )
+      ).rowCount,
+      0
+    );
     assert.equal(
       (
         await fetch(first.callback, {
@@ -204,6 +234,113 @@ test(
     );
     badSignature = false;
     const second = await login();
+    const lastOwnerChange = await fetch(`${origin}/api/admin/access`, {
+      method: 'POST',
+      headers: { cookie: first.cookie, origin },
+      body: JSON.stringify({
+        subject: 'owner-fixture',
+        confirmation: 'owner-fixture',
+        displayName: 'Owner',
+        role: 'reader',
+        disabled: false
+      })
+    });
+    assert.equal(lastOwnerChange.status, 409);
+    assert.equal((await lastOwnerChange.json()).code, 'LAST_OWNER');
+    await t.test(
+      'a session belonging to another issuer is neither revoked nor audited',
+      async () => {
+        const account = (
+          await database.pool.query(`INSERT INTO admin_accounts
+        (issuer,subject,display_name,role) VALUES('https://other-issuer.example.test/','other','Other fixture','reader') RETURNING id`)
+        ).rows[0].id;
+        const sessionId = (
+          await database.pool.query(
+            `INSERT INTO admin_identity_sessions
+        (account_id,token_hash,expires_at) VALUES($1,$2,NOW()+INTERVAL '1 hour') RETURNING id`,
+            [account, identityHash('other-issuer-synthetic-token')]
+          )
+        ).rows[0].id;
+        const result = await fetch(`${origin}/api/admin/access`, {
+          method: 'POST',
+          headers: { cookie: first.cookie, origin },
+          body: JSON.stringify({ sessionId, confirmation: sessionId })
+        });
+        assert.equal(result.status, 200);
+        assert.equal(
+          (
+            await database.pool.query(
+              'SELECT revoked_at FROM admin_identity_sessions WHERE id=$1',
+              [sessionId]
+            )
+          ).rows[0].revoked_at,
+          null
+        );
+        assert.equal(
+          (
+            await database.pool.query(
+              'SELECT 1 FROM admin_audit_log WHERE entity_id=$1',
+              [sessionId]
+            )
+          ).rowCount,
+          0
+        );
+      }
+    );
+    await t.test(
+      'an unavailable audit rolls back both session revocation and account creation',
+      async () => {
+        await database.pool
+          .query(`CREATE FUNCTION fail_identity_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN IF NEW.action IN ('admin.session.revoked','admin.account.updated') THEN
+          RAISE EXCEPTION 'synthetic identity audit failure'; END IF; RETURN NEW; END $$;
+        CREATE TRIGGER fail_identity_audit BEFORE INSERT ON admin_audit_log FOR EACH ROW EXECUTE FUNCTION fail_identity_audit()`);
+        try {
+          for (const change of [
+            { sessionId: profile.sessionId, confirmation: profile.sessionId },
+            {
+              subject: 'rollback-fixture',
+              confirmation: 'rollback-fixture',
+              displayName: 'Rollback fixture',
+              role: 'reader',
+              disabled: false
+            }
+          ]) {
+            const result = await fetch(`${origin}/api/admin/access`, {
+              method: 'POST',
+              headers: { cookie: first.cookie, origin },
+              body: JSON.stringify(change)
+            });
+            assert.equal(result.status, 503);
+            assert.deepEqual(await result.json(), {
+              code: 'ACCESS_UNAVAILABLE',
+              error: 'Access change unavailable.'
+            });
+          }
+          assert.equal(
+            (
+              await database.pool.query(
+                'SELECT revoked_at FROM admin_identity_sessions WHERE id=$1',
+                [profile.sessionId]
+              )
+            ).rows[0].revoked_at,
+            null
+          );
+          assert.equal(
+            (
+              await database.pool.query(
+                "SELECT 1 FROM admin_accounts WHERE subject='rollback-fixture'"
+              )
+            ).rowCount,
+            0
+          );
+        } finally {
+          await database.pool.query(
+            'DROP TRIGGER fail_identity_audit ON admin_audit_log; DROP FUNCTION fail_identity_audit()'
+          );
+        }
+      }
+    );
     assert.equal(
       (await fetch(`${origin}/api/admin/session`, { method: 'POST' })).status,
       403
@@ -223,7 +360,10 @@ test(
         await fetch(`${origin}/api/admin/access`, {
           method: 'POST',
           headers: { cookie: first.cookie, origin },
-          body: JSON.stringify({ sessionId: profile.sessionId })
+          body: JSON.stringify({
+            sessionId: profile.sessionId,
+            confirmation: profile.sessionId
+          })
         })
       ).status,
       200
@@ -235,6 +375,45 @@ test(
         })
       ).status,
       401
+    );
+    for (const method of ['GET', 'POST'])
+      assert.equal(
+        (
+          await fetch(`${origin}/api/admin/access`, {
+            method,
+            headers: { cookie: first.cookie, origin },
+            ...(method === 'POST'
+              ? {
+                  body: JSON.stringify({
+                    sessionId: profile.sessionId,
+                    confirmation: profile.sessionId
+                  })
+                }
+              : {})
+          })
+        ).status,
+        401
+      );
+    await Promise.all(
+      Array.from({ length: 4 }, () =>
+        fetch(`${origin}/api/admin/access`, {
+          method: 'POST',
+          headers: { cookie: second.cookie, origin },
+          body: JSON.stringify({
+            sessionId: profile.sessionId,
+            confirmation: profile.sessionId
+          })
+        }).then((response) => assert.equal(response.status, 200))
+      )
+    );
+    assert.equal(
+      (
+        await database.pool.query(
+          "SELECT 1 FROM admin_audit_log WHERE action='admin.session.revoked' AND entity_id=$1",
+          [profile.sessionId]
+        )
+      ).rowCount,
+      1
     );
     assert.equal(
       (
@@ -326,6 +505,42 @@ test(
           "SELECT 1 FROM admin_audit_log WHERE action='admin.session.revoked'"
         )
       ).rowCount
+    );
+    await identity.saveAccount(profile, {
+      subject: 'second-owner',
+      displayName: 'Second owner',
+      role: 'owner',
+      disabled: false
+    });
+    await t.test(
+      'concurrent owner demotions leave exactly one active owner',
+      async () => {
+        const results = await Promise.allSettled(
+          ['owner-fixture', 'second-owner'].map((subject) =>
+            identity.saveAccount(profile, {
+              subject,
+              displayName: 'Owner fixture',
+              role: 'reader',
+              disabled: false
+            })
+          )
+        );
+        assert.equal(
+          results.filter((result) => result.status === 'fulfilled').length,
+          1
+        );
+        const denied = results.find((result) => result.status === 'rejected');
+        assert.equal(denied.reason.message, 'Last owner');
+        assert.equal(
+          (
+            await database.pool.query(
+              "SELECT 1 FROM admin_accounts WHERE issuer=$1 AND role='owner' AND NOT disabled",
+              [new URL(issuer).href]
+            )
+          ).rowCount,
+          1
+        );
+      }
     );
     await identity.saveAccount(profile, {
       subject: 'second-owner',

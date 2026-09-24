@@ -128,6 +128,28 @@ avertissements préexistants du lint et du budget initial Angular (818,31 ko pou
 800 ko). Les renvois exigent une mise à jour coordonnée du contrat API/Web,
 sans migration ni opération de production.
 
+Quatorzième priorité testée le 24 septembre 2026 : **propriétaire → comptes
+opérateur/lecteur → revue → retrait des droits pendant une action → refus et
+reconnexion**, soit le scénario 56. Deux sessions de l'opérateur sont révoquées
+par le changement de rôle; une révocation individuelle du lecteur préserve son
+autre session. Expiration serveur, désactivation/réactivation, déconnexion,
+dernier propriétaire et absence de MFA sont également exercés. Une signature
+invalide, un membre inconnu et une panne OIDC ne permettent aucun repli au jeton
+racine. Voir la [recette et ses limites](../operations/admin-identity-and-alerts.md#recette-des-accès-administrateurs).
+
+Preuve sur `fc2a9f6` avec les changements locaux : **2 parcours Chromium réussis
+en 25,5 secondes**, sans échec, test ignoré ou instable, le 24 septembre 2026 à
+13:14 UTC. API et PostgreSQL réels, Web compilé et fournisseur OIDC signé local.
+Le dossier payé et les métadonnées de médias sont préchargés; aucune opération
+financière ni publication. Les **15 tests PostgreSQL** ciblés couvrent aussi
+le rollback en cas d'échec de l'audit, le cloisonnement par issuer et deux
+rétrogradations concurrentes de propriétaires. **295 tests Node et 4 tests UI
+FR/EN à 390/1280 px** réussis. Les 4 contrôles d'accessibilité de connexion/accès
+passent sur Chromium, Firefox, WebKit et WebKit mobile; le premier démarrage
+WebKit bureau a dépassé 30 secondes, puis le contrôle isolé a réussi en 7 secondes.
+La recette est intégrée à la CI; API/Web doivent
+être mis à jour ensemble pour la confirmation serveur des changements d'accès.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

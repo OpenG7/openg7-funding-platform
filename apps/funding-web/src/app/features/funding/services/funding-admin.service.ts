@@ -318,18 +318,26 @@ export class FundingAdminService {
     const response = await fetch(`${this.apiBaseUrl}/admin/access`, {
       cache: 'no-store'
     });
-    if (!response.ok) throw new Error('Access unavailable.');
+    if (!response.ok) await this.accessError(response);
     return response.json();
   }
   async updateAccess(
-    input: AdminAccessAccount | { sessionId: string }
+    input: (AdminAccessAccount | { sessionId: string }) & { confirmation: string }
   ): Promise<void> {
     const response = await fetch(`${this.apiBaseUrl}/admin/access`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input)
     });
-    if (!response.ok) throw new Error('Access change refused.');
+    if (!response.ok) await this.accessError(response);
+  }
+  private async accessError(response: Response): Promise<never> {
+    if (response.status === 401) this.clearAdminSession();
+    const body = (await response.json().catch(() => ({}))) as { code?: string };
+    throw new AdminDashboardRequestError(
+      response.status,
+      body.code ?? 'ACCESS_UNAVAILABLE'
+    );
   }
   private readonly apiBaseUrl = this.resolveApiBaseUrl();
   readonly workQueue = signal<AdminWorkQueueResponse | null>(null);
