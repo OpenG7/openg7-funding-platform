@@ -18,6 +18,48 @@ La projection PostgreSQL refuse les contributions confirmées de plusieurs devis
 
 Les événements et imports historiques d'un même PaymentIntent réussi partagent une seule écriture logique, même en concurrence. Les anciens doublons sont également comptés une seule fois dans les agrégats : priorité à une écriture documentée par une transaction de solde, puis à la première écriture. Le registre reste intact. Ce correctif peut réduire des frais autrefois doublés et augmenter le net affiché. Les frais tardifs ou corrigés continuent d'être enrichis par `charge.updated`; un import ne réécrit pas une transaction de paiement existante. Voir la [recette de reprise historique](technical/stripe.md#historical-payment-recovery-recipe).
 
+## Allocations publiées et réalisations
+
+Une allocation décrit une utilisation prévue du fonds. Sa création, son avancement
+et sa publication ne déclenchent aucun paiement fournisseur et ne changent ni les
+transactions Stripe ni le net avant dépenses opérationnelles. `draft`, `private`
+et `archived` restent absents de la projection publique; `published` et `active`
+sont visibles. L'API publique retourne au plus huit allocations, tandis que le
+snapshot administratif et ses compteurs conservent les autres statuts.
+
+Les mutations `/api/admin/expenses` et `/api/admin/expenses/update` sont réservées
+au propriétaire. Une création directement publique exige `confirmation` égal à
+`CREATE_PUBLIC_ALLOCATION`. Une publication, un masquage, un archivage ou une
+modification d'une allocation déjà publique exige `confirmation` égal à
+`expenseId`. L'interface montre le contenu et le montant avant la décision;
+le serveur vérifie la confirmation dans la transaction, sur la version verrouillée.
+Une confirmation absente ou erronée renvoie `400 confirmation_required`.
+
+`expectedVersion` reste obligatoire pour modifier une allocation. Une version
+obsolète renvoie désormais `409 version_conflict`; la saisie reste dans le
+navigateur, avec une invitation à la copier avant de recharger la version courante.
+Le changement et son audit sont atomiques : une panne d'audit annule l'écriture.
+Un rejeu de la même ancienne version ne modifie rien et n'ajoute pas d'audit.
+
+Le contrat historique `amountAllocated` reste exprimé en CAD, converti en cents
+entiers avant stockage. Les valeurs non positives, sous-centimes ou dépassant un
+entier sûr sont refusées (`400 invalid_amount`), sans arrondi silencieux. Les
+preuves acceptent HTTPS sans identifiants dans l'URL (`400 invalid_proof`);
+les liens historiques non conformes sont omis de la projection publique, sans
+réécriture de la base. La date de publication vide est initialisée par le serveur.
+L'édition respecte le fuseau du navigateur et préserve la précision des dates
+inchangées. Les exports JSON/CSV financiers n'incluent pas les fiches d'allocation.
+
+La [recette navigateur](../tests/playwright/allocation-transparency-acceptance.spec.ts)
+relie création en brouillon, annulation puis publication confirmée, preuve de
+livraison, conflit entre deux onglets, masquage, republication et archivage.
+Elle vérifie les surfaces publiques FR/EN à 1280/390 px, la confirmation au clavier,
+les audits et l'absence de changement des faits financiers, dans une pile jetable.
+Les [intégrations PostgreSQL](../tests/integration/allocation-transparency.integration.mjs)
+ajoutent concurrence, statut public historique `active`, liens historiques et
+rollback lors d'une panne d'audit. Aucune opération réelle ni nouvelle migration;
+API et Web doivent être livrés ensemble pour le contrat de confirmation.
+
 ## Versements Stripe et échecs tardifs
 
 `total_payouts` représente les versements déclarés réussis par Stripe, une fois par identifiant de versement. Ce total figure dans le snapshot administratif et les exports publics; il n'est ni une contribution, ni une dépense, ni un relevé bancaire. Stripe peut signaler un échec après avoir annoncé un versement payé ([contrat du fournisseur](https://docs.stripe.com/api/payouts/object)).

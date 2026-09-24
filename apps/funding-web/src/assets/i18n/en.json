@@ -1,5 +1,8 @@
 {
   "admin": {
+    "expenses": {
+      "conflict": "This allocation has changed. Your entries are preserved. Copy any changes you need, then refresh the list to review the current version before trying again."
+    },
     "contributionActivity": {
       "title": "Contributions received",
       "paymentConfirmed": "Payment confirmed",

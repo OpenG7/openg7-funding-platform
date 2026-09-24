@@ -1173,6 +1173,7 @@ export interface AdminExpensesResponse {
 }
 
 export interface AdminExpenseCreateRequest {
+  readonly confirmation?: string;
   readonly projectName: string;
   readonly publicDescription: string;
   readonly expectedOutcome: string;
@@ -1187,6 +1188,7 @@ export interface AdminExpenseCreateRequest {
 }
 
 export interface AdminExpenseUpdateRequest {
+  readonly confirmation?: string;
   readonly expenseId: string;
   readonly expectedVersion: string;
   readonly projectName?: string;
@@ -1564,3 +1566,4 @@ export * from './publication-automation.js';
 export * from './admin-pilotage.js';
 export * from './editorial-programme.js';
 export * from './contribution-activity.js';
+export * from './admin-expenses.js';

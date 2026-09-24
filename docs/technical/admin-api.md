@@ -139,9 +139,9 @@ The dashboard summarizes received funds, estimated availability, pending
 sponsorship reviews, feed publication state, Stripe event errors, and recent
 contributions. The contributions view supports local filtering by type, payment
 status, public-display consent, and search, with a CSV export for private admin
-review. The expenses view manages publishable fund allocations backed by
-`fund_allocations`, and the transparency view compares the public summary with
-published allocations. The publications view generates and moderates sponsored
+review. Expenses manage `fund_allocations`; see the
+[confirmation, version and amount contract](../funding-transparency.md#allocations-publiées-et-réalisations).
+The publications view generates and moderates sponsored
 publication drafts for approved sponsorships, while the audit view lists recent
 sensitive admin actions.
 

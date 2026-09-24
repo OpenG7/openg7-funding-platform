@@ -16,6 +16,12 @@ import type {
   AdminExpensesResponse,
   AdminExpenseStatus
 } from '@openg7/funding-core';
+import {
+  allocationAmountMinor,
+  allocationRequiresConfirmation,
+  isPublicAllocationStatus,
+  PUBLIC_ALLOCATION_CREATE_CONFIRMATION
+} from '@openg7/funding-core';
 
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
@@ -72,6 +78,14 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
           }}
         </p>
 
+        <p
+          class="state state-error"
+          role="alert"
+          data-og7="allocation-conflict"
+          *ngIf="conflict()"
+        >
+          {{ 'admin.expenses.conflict' | translate }}
+        </p>
         <ng-container *ngIf="response() as data">
           <section
             class="summary-grid"
@@ -102,7 +116,11 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
             </article>
           </section>
 
-          <section class="create-panel" aria-labelledby="create-title">
+          <section
+            class="create-panel"
+            data-og7="allocation-create"
+            aria-labelledby="create-title"
+          >
             <header>
               <div>
                 <span>{{ 'admin.legacy.nouvelle_entree' | translate }}</span>
@@ -255,6 +273,8 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
           >
             <article
               class="expense-card"
+              data-og7="allocation-card"
+              [attr.data-og7-id]="expense.id"
               *ngFor="
                 let expense of filteredExpenses();
                 trackBy: trackByExpense
@@ -644,6 +664,7 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
 })
 export class AdminExpensesPageComponent implements OnInit {
   private readonly confirmation = inject(AdminConfirmationService);
+  readonly conflict = signal(false);
   readonly mutationBusy = signal(false);
   readonly i18n = inject(FundingI18nService);
   private readonly destroyRef = inject(DestroyRef);
@@ -729,6 +750,7 @@ export class AdminExpensesPageComponent implements OnInit {
         )
       );
       this.state.set('ready');
+      this.conflict.set(false);
       this.admin.saveAdminToken(this.adminToken());
     } catch {
       if (generation !== this.requestGeneration) return;
@@ -743,8 +765,7 @@ export class AdminExpensesPageComponent implements OnInit {
       !this.newProjectName().trim() ||
       !this.newDescription().trim() ||
       !this.newExpectedOutcome().trim() ||
-      !Number.isFinite(amount) ||
-      amount <= 0
+      allocationAmountMinor(amount) === null
     ) {
       this.state.set('error');
       return;
@@ -752,15 +773,18 @@ export class AdminExpensesPageComponent implements OnInit {
 
     try {
       if (
-        ['published', 'active'].includes(this.newStatus()) &&
+        isPublicAllocationStatus(this.newStatus()) &&
         !(await this.confirmation.confirm(
           this.i18n.t('admin.confirmation.publish'),
-          this.newProjectName()
+          `${this.newProjectName()} · ${this.formatMoney(amount, 'CAD')} · ${this.newDescription()} · ${this.newExpectedOutcome()} · ${this.newProofUrl()}`
         ))
       )
         return;
       this.mutationBusy.set(true);
       await this.admin.createExpense(this.adminToken(), {
+        confirmation: isPublicAllocationStatus(this.newStatus())
+          ? PUBLIC_ALLOCATION_CREATE_CONFIRMATION
+          : undefined,
         projectName: this.newProjectName().trim(),
         publicDescription: this.newDescription().trim(),
         expectedOutcome: this.newExpectedOutcome().trim(),
@@ -799,17 +823,14 @@ export class AdminExpensesPageComponent implements OnInit {
     const edit = this.editFor(expense.id);
     const amount = Number(edit.amountAllocated);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (allocationAmountMinor(amount) === null) {
       this.state.set('error');
       return;
     }
 
     try {
       const nextStatus = forcedStatus ?? edit.status;
-      if (
-        nextStatus !== expense.status &&
-        ['published', 'active', 'private', 'archived'].includes(nextStatus)
-      ) {
+      if (allocationRequiresConfirmation(expense.status, nextStatus)) {
         if (
           !(await this.confirmation.confirm(
             this.i18n.t(
@@ -817,7 +838,7 @@ export class AdminExpensesPageComponent implements OnInit {
                 ? 'admin.confirmation.publish'
                 : 'admin.confirmation.cancelPublication'
             ),
-            edit.projectName
+            `${edit.projectName} · ${this.formatMoney(amount, 'CAD')} · ${edit.publicDescription} · ${edit.expectedOutcome} · ${edit.proofUrl}`
           ))
         )
           return;
@@ -826,24 +847,33 @@ export class AdminExpensesPageComponent implements OnInit {
       await this.admin.updateExpense(this.adminToken(), {
         expenseId: expense.id,
         expectedVersion: expense.updated_at,
+        confirmation: allocationRequiresConfirmation(expense.status, nextStatus)
+          ? expense.id
+          : undefined,
         projectName: edit.projectName,
         publicDescription: edit.publicDescription,
         expectedOutcome: edit.expectedOutcome,
         progressStatus: edit.progressStatus,
         proofUrl: edit.proofUrl.trim() || null,
         proofSource: edit.proofSource.trim() || null,
-        proofPublishedAt: edit.proofPublishedAt
-          ? new Date(edit.proofPublishedAt).toISOString()
-          : null,
+        proofPublishedAt: this.updatedDateTime(
+          edit.proofPublishedAt,
+          expense.proof_published_at
+        ),
         amountAllocated: amount,
         currency: 'CAD',
         status: forcedStatus ?? edit.status,
-        publishedAt: edit.publishedAt
-          ? new Date(edit.publishedAt).toISOString()
-          : null
+        publishedAt: this.updatedDateTime(
+          edit.publishedAt,
+          expense.published_at
+        )
       });
       await this.loadExpenses();
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message === 'version_conflict') {
+        this.conflict.set(true);
+        return;
+      }
       this.state.set('error');
     } finally {
       this.mutationBusy.set(false);
@@ -998,7 +1028,16 @@ export class AdminExpensesPageComponent implements OnInit {
       return '';
     }
 
-    return date.toISOString().slice(0, 16);
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  }
+
+  private updatedDateTime(
+    value: string,
+    original: string | null
+  ): string | null {
+    if (value === this.toDateTimeLocal(original)) return original;
+    return value ? new Date(value).toISOString() : null;
   }
 
   private valueFromEvent(event: Event): string {

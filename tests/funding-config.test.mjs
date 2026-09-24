@@ -507,7 +507,7 @@ test('Achievement proof fields are validated at the admin API boundary', () => {
   assert.ok(source.includes('Expense expected outcome is invalid.'));
   assert.ok(source.includes('Expense progress status is invalid.'));
   assert.ok(source.includes('Expense proof URL is invalid.'));
-  assert.ok(source.includes('isValidOptionalHttpsUrl(parsed.proofUrl)'));
+  assert.ok(source.includes('isPublicAllocationProofUrl(parsed.proofUrl)'));
 });
 
 test('Achievement mutations audit public outcome and proof fields', () => {

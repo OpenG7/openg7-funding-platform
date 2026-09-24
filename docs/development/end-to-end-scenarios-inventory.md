@@ -267,6 +267,33 @@ paiements. Les avertissements préexistants du lint et du budget Angular
 aucune migration nouvelle ni opération de production. API et Web doivent être
 livrés ensemble pour le nouveau contrat de confirmation.
 
+Vingtième priorité testée le 24 septembre 2026 : **allocation en brouillon → publication confirmée → preuve
+de livraison → conflit entre deux onglets → masquage, republication et archivage**,
+soit le scénario 58, avec les lectures publiques du scénario 59. Une allocation
+de 42,50 CAD devient publique après confirmation, puis passe à 65,25 CAD avec
+une preuve de livraison. Deux onglets tentent ensuite de modifier la même version;
+le perdant conserve sa saisie et doit recharger avant une nouvelle décision.
+Les montants des paiements, remboursements, versements et le net restent identiques.
+
+Les tests PostgreSQL ont reproduit l'absence de confirmation serveur, l'arrondi
+silencieux des sous-centimes et une publication sans date. Les correctifs exigent
+la confirmation sur la version verrouillée, conservent des cents exacts et
+initialisent la date publique. Les dates inchangées gardent aussi leur précision
+et leur fuseau lors de l'édition. Une panne d'audit annule toute mutation; les
+preuves HTTPS contenant des identifiants ne sont pas exposées au public.
+Voir le [contrat et la recette](../funding-transparency.md#allocations-publiées-et-réalisations).
+
+Preuve sur `8ee0d33` avec les changements locaux : **1 parcours Chromium réussi
+en 9,1 secondes**, sans échec, test ignoré ou instable dans l'exécution finale,
+le 24 septembre 2026 à 22:59 UTC. Les trois tests navigateur existants de la page
+Dépenses passent également. **296 tests Node et 37 tests PostgreSQL** passent,
+ainsi que TypeScript, lint, builds API/Web, pré-rendu des 24 routes statiques et
+contrôles documentaires. Le navigateur utilise le fuseau de Toronto; la recette
+vérifie FR/EN à 1280/390 px, confirmation au clavier, requêtes invalides et saisie
+conservée après conflit. Les avertissements connus du lint et du budget initial
+Angular (819,69 ko pour 800 ko) subsistent. Pile jetable supprimée, aucune nouvelle
+migration ni opération de production; API/Web doivent être livrés ensemble.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |
