@@ -57,6 +57,15 @@ Deux refus SMTP puis une relance réussie donnent un seul message accepté ; le
 paiement reste confirmé et le dossier attend une revue distincte de la publication.
 Voir la [recette et ses limites](../sponsorship-access-and-drafts.md#recette-complete-courriel-en-echec-et-reprise-du-dossier).
 
+Septième priorité testée le 23 septembre 2026 : **paiement abandonné, refusé ou
+expiré → retour explicite → nouvelle tentative de 500 CAD → confirmation unique**,
+soit le scénario 7 et les événements tardifs/répétés du scénario 61. Aucune facture,
+notification de paiement reçu ni recette n'est créée pour la tentative non payée.
+La nouvelle tentative confirmée produit un toast, un courriel admin, un SMS capturé
+et une facture, sans doublon après rejeu. Le dossier reste privé et en attente de
+revue. Les messages de reprise sont vérifiés sur mobile en FR/EN.
+Voir la [recette et ses limites](../payment-trust-validation.md#recette-de-reprise-après-paiement-interrompu).
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

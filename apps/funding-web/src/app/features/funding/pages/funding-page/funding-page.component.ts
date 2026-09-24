@@ -391,7 +391,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get('checkout');
     if (checkout === 'cancel') {
-      this.checkoutMonitor.cancel();
+      this.checkoutMonitor.cancel(params.get('reference'));
     } else if (checkout === 'success') {
       this.checkoutMonitor.start(params.get('reference'));
     }
@@ -533,6 +533,10 @@ export class FundingPageComponent implements OnInit, OnDestroy {
         : 'smooth',
       block: 'start'
     });
+  }
+  restartContribution(): void {
+    this.dismissCheckoutNotice();
+    this.scrollToSupport();
   }
   async supportProject(
     submission: FundingContributionSubmission

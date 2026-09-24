@@ -190,7 +190,7 @@
 
 <section
   class="checkout-success-stage checkout-cancel-stage"
-  *ngIf="checkoutStatus() === 'cancel'"
+  *ngIf="['cancel', 'failed', 'expired'].includes(checkoutStatus())"
   aria-labelledby="checkout-cancel-title"
 >
   <img
@@ -218,17 +218,34 @@
   >
     ×
   </button>
-  <article class="checkout-success-card checkout-cancel-card">
+  <article
+    class="checkout-success-card checkout-cancel-card"
+    aria-live="polite"
+  >
     <span class="section-kicker">{{
-      'funding.home.checkout.cancelKicker' | translate
+      'funding.home.checkout.' + interruptionKey() + 'Kicker' | translate
     }}</span>
     <h2 id="checkout-cancel-title">
-      {{ 'funding.home.checkout.cancelTitle' | translate }}
+      {{ 'funding.home.checkout.' + interruptionKey() + 'Title' | translate }}
     </h2>
-    <p>{{ 'funding.home.checkout.cancelCopy' | translate }}</p>
-    <ng-container *ngTemplateOutlet="pendingActions"></ng-container>
+    <p>
+      {{ 'funding.home.checkout.' + interruptionKey() + 'Copy' | translate }}
+    </p>
     <div class="checkout-success-actions">
-      <button type="button" (click)="supportRequested.emit()">
+      @if (canRetry()) {
+        <button
+          type="button"
+          [disabled]="checking()"
+          (click)="retryRequested.emit()"
+        >
+          {{ 'funding.home.checkout.checkAgain' | translate }}
+        </button>
+      }
+      <button
+        type="button"
+        [disabled]="checking()"
+        (click)="supportRequested.emit()"
+      >
         {{ 'funding.home.actions.retry' | translate }}
       </button>
       <a [routerLink]="supportPath()">{{

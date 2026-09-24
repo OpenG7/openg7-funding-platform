@@ -141,6 +141,11 @@ export interface CheckoutSessionWebhookInput extends CheckoutSessionRecordInput 
 }
 
 export interface PaymentIntentStatusInput {
+  readonly checkoutMatch?: {
+    readonly publicReference: string;
+    readonly amountCents: number;
+    readonly currency: string;
+  };
   readonly notifyAdmin?: boolean;
   readonly stripePaymentIntentId: string;
   readonly status: 'paid' | 'failed' | 'refunded' | 'disputed';
@@ -948,6 +953,31 @@ export const updateContributionStatusByPaymentIntent = async (
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
       'payment-confirmation:' + input.stripePaymentIntentId
     ]);
+    // Checkout may not have a PaymentIntent when created. Only trusted webhook
+    // metadata plus matching financial facts can attach the first intent.
+    if (input.checkoutMatch) {
+      const linked = await client.query<{ stripe_session_id: string }>(
+        `UPDATE fund_contributions SET stripe_payment_intent_id = $1
+         WHERE public_reference = $2 AND amount_cents = $3 AND currency = $4
+           AND stripe_payment_intent_id IS NULL AND stripe_session_id IS NOT NULL
+           AND status = ANY($5::text[])
+         RETURNING stripe_session_id`,
+        [
+          input.stripePaymentIntentId,
+          input.checkoutMatch.publicReference,
+          input.checkoutMatch.amountCents,
+          input.checkoutMatch.currency.toLowerCase(),
+          allowedPreviousPaymentStatuses(input.status)
+        ]
+      );
+      for (const row of linked.rows) {
+        await client.query(
+          `UPDATE stripe_checkout_sessions SET stripe_payment_intent_id = $1
+           WHERE stripe_session_id = $2 AND stripe_payment_intent_id IS NULL`,
+          [input.stripePaymentIntentId, row.stripe_session_id]
+        );
+      }
+    }
     if (input.status === 'paid' && input.notifyAdmin) {
       await client.query(
         `INSERT INTO contribution_payment_confirmations(payment_intent_id,paid_at) VALUES($1,COALESCE($2,NOW())) ON CONFLICT DO NOTHING`,

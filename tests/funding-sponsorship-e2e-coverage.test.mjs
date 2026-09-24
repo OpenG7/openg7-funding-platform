@@ -56,7 +56,7 @@ test('E2E 1/8: enterprise sponsorship checkout returns with recovery token', () 
     fundingService,
     [
       "successUrl: this.buildReturnUrl('success', consent.contributionType)",
-      "cancelUrl: this.buildReturnUrl('cancel')",
+      "cancelUrl: this.buildReturnUrl('cancel', consent.contributionType)",
       'contributionType'
     ],
     'funding service return URL builder'

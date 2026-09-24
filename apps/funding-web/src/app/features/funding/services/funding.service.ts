@@ -65,7 +65,7 @@ export class FundingService {
       currency: 'CAD',
       projectId: this.config?.projectId ?? 'openg7',
       successUrl: this.buildReturnUrl('success', consent.contributionType),
-      cancelUrl: this.buildReturnUrl('cancel'),
+      cancelUrl: this.buildReturnUrl('cancel', consent.contributionType),
       contributionType: consent.contributionType,
       publicDisplayConsent: consent.publicDisplayConsent,
       publicDisplayName: consent.publicDisplayName,
@@ -179,12 +179,19 @@ export class FundingService {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set('checkout', flow);
-
-    if (flow !== 'success') {
-      return url.toString();
+    for (const key of [
+      'reference',
+      'session_id',
+      'followup_token',
+      'contributionType'
+    ]) {
+      url.searchParams.delete(key);
     }
-
+    url.searchParams.set('checkout', flow);
+    url.searchParams.set(
+      'intent',
+      contributionType === 'sponsorship_interest' ? 'sponsorship' : 'personal'
+    );
     if (contributionType) {
       url.searchParams.set('contributionType', contributionType);
     }

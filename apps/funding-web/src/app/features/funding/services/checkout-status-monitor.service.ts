@@ -2,7 +2,8 @@ import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 
 import { FundingService } from './funding.service.js';
 
-export type CheckoutNoticeStatus = 'idle' | 'pending' | 'confirmed' | 'cancel';
+export type CheckoutNoticeStatus =
+  'idle' | 'pending' | 'confirmed' | 'cancel' | 'failed' | 'expired';
 
 /** Scoped to the funding page: one request at a time, with a bounded retry window. */
 @Injectable()
@@ -15,6 +16,7 @@ export class CheckoutStatusMonitor {
   private reference: string | null = null;
   private attempts = 0;
   private deadline = 0;
+  private initialStatus: 'pending' | 'cancel' = 'pending';
 
   readonly status = signal<CheckoutNoticeStatus>('idle');
   readonly paused = signal(false);
@@ -25,12 +27,16 @@ export class CheckoutStatusMonitor {
     this.destroyRef.onDestroy(() => this.stop());
   }
 
-  start(reference: string | null): void {
+  start(
+    reference: string | null,
+    initialStatus: 'pending' | 'cancel' = 'pending'
+  ): void {
     this.stop();
     this.reference = reference;
     this.attempts = 0;
     this.deadline = Date.now() + 120_000;
-    this.status.set('pending');
+    this.initialStatus = initialStatus;
+    this.status.set(initialStatus);
     this.paused.set(false);
     this.canRetry.set(Boolean(reference));
     if (reference) void this.check(this.generation);
@@ -38,8 +44,12 @@ export class CheckoutStatusMonitor {
   }
 
   retry(): void {
-    if (this.reference && !this.checking() && this.status() === 'pending') {
-      this.start(this.reference);
+    if (
+      this.reference &&
+      !this.checking() &&
+      !['idle', 'confirmed'].includes(this.status())
+    ) {
+      this.start(this.reference, this.initialStatus);
     }
   }
 
@@ -48,9 +58,8 @@ export class CheckoutStatusMonitor {
     this.status.set('idle');
   }
 
-  cancel(): void {
-    this.stop();
-    this.status.set('cancel');
+  cancel(reference: string | null = null): void {
+    this.start(reference, 'cancel');
   }
 
   private stop(): void {
@@ -84,6 +93,12 @@ export class CheckoutStatusMonitor {
       if (!this.isCurrent(generation) || request.signal.aborted) return;
       if (result.found && result.paymentStatus === 'paid') {
         this.status.set('confirmed');
+      } else if (
+        result.found &&
+        (result.paymentStatus === 'failed' ||
+          result.paymentStatus === 'expired')
+      ) {
+        this.status.set(result.paymentStatus);
       }
     } catch {
       // Failure never confirms a payment. A later request or manual retry can recover.

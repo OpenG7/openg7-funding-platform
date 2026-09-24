@@ -9,6 +9,13 @@ et de publication des commanditaires.
 - Une redirection Checkout ouvre un état en attente, y compris pour une
   commandite. Seule la lecture serveur d'un paiement `paid` permet d'afficher
   « Paiement reçu ».
+- Le retour d'annulation porte la référence créée par le serveur. Il consulte
+  le registre : un paiement déjà confirmé affiche sa confirmation, un refus ou
+  une expiration affiche le message correspondant. Un simple abandon ne change
+  aucun statut financier. « Vérifier à nouveau » relit le serveur ; « Réessayer »
+  ferme le message, retire les paramètres de la tentative et place le focus sur
+  le formulaire. Le type de contribution est conservé ; les consentements doivent
+  être saisis pour la nouvelle tentative. Les libellés existent en FR/EN.
 - En attendant la première lecture du registre, ou si cette lecture échoue, les
   montants et pourcentages inconnus ne sont pas affichés comme des zéros.
 - Après une lecture réussie, une panne conserve le dernier état connu avec un
@@ -30,6 +37,12 @@ un paiement confirmé. Une réussite tardive ne peut pas annuler un litige ou un
 remboursement complet. Un remboursement complet reste prioritaire sur un
 événement de litige tardif. Un paiement peut toujours réussir après un échec.
 La résolution d'un litige nécessite un traitement autoritaire distinct.
+
+Stripe peut créer Checkout sans `payment_intent`. Lors du premier événement
+`payment_intent.payment_failed`, la référence des métadonnées signées permet de
+rattacher l'intention à une contribution existante, seulement si son montant et
+sa devise correspondent et qu'aucune autre intention n'est déjà liée. Ce
+rattachement transactionnel ne crée ni revenu ni notification de paiement reçu.
 
 Avec PostgreSQL, chaque événement webhook possède un verrou advisory de session
 sur une connexion dédiée au traitement :
@@ -162,6 +175,61 @@ d’intégration PostgreSQL** des suites `sponsorship-credit-notes`,
 compilation TypeScript, lint, format ciblé et contrôles documentaires. Le lint
 conserve un avertissement préexistant dans `scripts/smoke-public.mjs` ; le build
 Angular conserve son avertissement de budget initial de 813,77 ko pour 800 ko.
+
+## Recette de reprise après paiement interrompu
+
+Le scénario 7 de l'[inventaire](development/end-to-end-scenarios-inventory.md)
+est exercé par [payment-recovery-acceptance.spec.ts](../tests/playwright/payment-recovery-acceptance.spec.ts).
+La pile jetable utilise le navigateur, l'API et PostgreSQL réels, un simulateur
+Stripe local avec webhooks signés et les récepteurs locaux Mailpit/SMS.
+
+Trois variantes démarrent une commandite de 500 CAD : abandon sans paiement,
+refus simulé, puis expiration simulée. Chacune revient par le lien Checkout,
+vérifie le statut non confirmé et l'absence de facture, courriels, SMS, événement
+d'activité, visibilité publique et revenu. Une URL de succès fabriquée ne crée
+pas de confirmation. La reprise démarre une nouvelle session avec sa propre
+référence, pour la même entreprise et le même montant.
+
+Après confirmation signée de la nouvelle tentative, la recette attend un seul
+événement d'activité avec toast admin, un courriel admin, un SMS capturé, une
+facture et les deux courriels destinés à l'entreprise (suivi et facture). Le total
+augmente de 500 CAD et d'une contribution. La fiche reste à compléter, en attente
+de revue et privée. Les rejeux de confirmation et d'échec, ainsi que des événements
+distincts d'échec et d'expiration arrivés après le paiement, préservent ces résultats.
+L'ancienne tentative reste non payée. Revisiter le retour d'annulation de la
+tentative payée affiche une confirmation.
+
+La recette navigue sur mobile, dont la variante expirée en anglais. Les fixtures
+[payment-recovery-ui.spec.ts](../tests/playwright/payment-recovery-ui.spec.ts)
+couvrent les quatre états serveur en FR/EN, l'absence de débordement horizontal
+et la vérification au clavier sans démarrer un nouveau paiement. La suite
+PostgreSQL `funding-payment-trust` vérifie le rattachement tardif et les références,
+montants, devises ou intentions incompatibles.
+
+```sh
+node scripts/admin-acceptance.mjs payment-recovery-acceptance.spec.ts --project=chromium
+yarn test:ui:funding-home
+```
+
+Exécution du 23 septembre 2026 (America/Toronto), sur `9e1e6c5` avec les changements
+locaux de cette recette : **3 parcours Chromium réussis en 43,4 secondes**, sans
+échec, test ignoré ou instable dans l'exécution finale. Les captures, le manifeste
+de pile et les preuves JSON sans jeton de suivi sont sous `test-results/acceptance/`.
+La pile est supprimée après l'essai. Les quatre variantes de contribution personnelle
+ont également réussi lors de la première exécution de contrôle.
+
+Contrôles complémentaires réussis : **294 tests Node**, **10 tests PostgreSQL**
+de la suite `funding-payment-trust`, **27 tests d'interface** (dont 8 nouveaux cas
+FR/EN), TypeScript, lint, build Angular de production et contrôles documentaires.
+Le lint garde son avertissement préexistant dans `scripts/smoke-public.mjs` ;
+le bundle initial Angular mesure 816,73 ko pour un budget de 800 ko.
+
+Limites : aucun paiement, refus bancaire, expiration chronométrée ou message réel.
+L'abandon laisse une session ouverte chez le fournisseur ; ce retour ne l'annule
+pas. Deux sessions différentes réellement payées constituent deux paiements et
+nécessitent une réconciliation distincte. La reprise sur la même page Checkout,
+les moyens de paiement asynchrones, les frais et la publication après revue ne
+sont pas qualifiés par ces trois variantes.
 
 ## Vérifications locales isolées
 

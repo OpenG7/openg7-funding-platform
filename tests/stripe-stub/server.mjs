@@ -168,7 +168,7 @@ const checkoutSessionObject = (record, { expandPaymentIntent } = {}) => ({
   id: record.id,
   object: 'checkout.session',
   mode: 'payment',
-  status: record.paymentStatus === 'paid' ? 'complete' : 'open',
+  status: record.sessionStatus ?? (record.paymentStatus === 'paid' ? 'complete' : 'open'),
   client_reference_id: record.clientReferenceId ?? null,
   success_url: record.successUrl ?? null,
   cancel_url: record.cancelUrl ?? null,
@@ -649,7 +649,8 @@ const handleCreateCheckout = async (request, response) => {
     metadata,
     latestChargeId: null
   });
-  sendJson(response, 200, checkoutSessionObject(record));
+  // Stripe can defer creating the PaymentIntent until Checkout is visited.
+  sendJson(response, 200, { ...checkoutSessionObject(record), payment_intent: null });
 };
 const handleCheckoutPage = async (request, response, id) => {
   const record = state.checkoutSessions.get(id);
@@ -660,7 +661,7 @@ const handleCheckoutPage = async (request, response, id) => {
   if (request.method === 'GET') {
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     response.end(
-      `<!doctype html><html lang="fr"><meta name="viewport" content="width=device-width"><title>Checkout simulé</title><body><main><h1>Checkout simulé</h1><p>Aucun paiement réel. Contribution : ${(record.amountTotal / 100).toFixed(2)} CAD.</p><form method="post"><label>Courriel simulé <input type="email" name="email" required value="${record.customerEmail}"></label><button type="submit">Confirmer le paiement simulé</button></form></main></body></html>`
+      `<!doctype html><html lang="fr"><meta name="viewport" content="width=device-width"><title>Checkout simulé</title><body><main><h1>Checkout simulé</h1><p>Aucun paiement réel. Contribution : ${(record.amountTotal / 100).toFixed(2)} CAD.</p>${record.declined ? '<p role="alert">Paiement simulé refusé. Essayez un autre moyen de paiement.</p>' : ''}${record.sessionStatus === 'expired' ? '<p role="alert">Session simulée expirée.</p>' : '<form method="post"><label>Courriel simulé <input type="email" name="email" required value="' + record.customerEmail + '"></label><button type="submit">Confirmer le paiement simulé</button><button name="action" value="decline">Simuler un refus</button><button name="action" value="expire">Simuler une expiration</button></form>'}<a href="${record.cancelUrl.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}">Retourner à OpenG7</a></main></body></html>`
     );
     return;
   }
@@ -669,6 +670,10 @@ const handleCheckoutPage = async (request, response, id) => {
     return;
   }
   const checkoutForm = parseFormBody(await readBody(request));
+  if (record.sessionStatus === 'expired') {
+    sendStripeError(response, 409, 'This simulated session has expired.');
+    return;
+  }
   const email = checkoutForm.email ?? record.customerEmail;
   if (
     email.length > 254 ||
@@ -690,6 +695,27 @@ const handleCheckoutPage = async (request, response, id) => {
     return;
   }
   record.customerEmail = email;
+  if (['decline', 'expire'].includes(checkoutForm.action)) {
+    if (record.paymentStatus === 'paid') {
+      sendStripeError(response, 409, 'A confirmed payment cannot fail or expire.');
+      return;
+    }
+    const expired = checkoutForm.action === 'expire';
+    record.declined = !expired;
+    if (expired) record.sessionStatus = 'expired';
+    record.negativeEvent ??= {
+      id: randomId('evt'), object: 'event', livemode: false, created: nowSeconds(),
+      type: expired ? 'checkout.session.expired' : 'payment_intent.payment_failed',
+      data: { object: expired ? checkoutSessionObject(record) : paymentIntentObject(state.paymentIntents.get(record.paymentIntentId)) }
+    };
+    if (!(await deliverSimulatedEvent(record.negativeEvent))) {
+      sendStripeError(response, 502, 'Negative webhook delivery failed.');
+      return;
+    }
+    response.writeHead(303, { location: record.checkoutUrl });
+    response.end();
+    return;
+  }
   record.paymentStatus = 'paid';
   const intent = state.paymentIntents.get(record.paymentIntentId);
   intent.status = 'succeeded';
@@ -710,7 +736,7 @@ const handleCheckoutPage = async (request, response, id) => {
 
 const deliverCheckoutWebhook = async (record) => {
   record.eventId ??= randomId('evt');
-  const body = JSON.stringify({
+  return deliverSimulatedEvent({
     id: record.eventId,
     object: 'event',
     type: 'checkout.session.completed',
@@ -718,6 +744,9 @@ const deliverCheckoutWebhook = async (record) => {
     livemode: false,
     data: { object: checkoutSessionObject(record) }
   });
+};
+const deliverSimulatedEvent = async (event) => {
+  const body = JSON.stringify(event);
   const time = nowSeconds();
   const signature = createHmac('sha256', process.env.STRIPE_WEBHOOK_SECRET)
     .update(`${time}.${body}`)
@@ -742,7 +771,7 @@ const handleCheckoutDelivery = async (request, response) => {
     return;
   }
   const { sessionId, action } = JSON.parse(await readBody(request));
-  if (typeof sessionId !== 'string' || !['defer', 'deliver'].includes(action)) {
+  if (typeof sessionId !== 'string' || !['defer', 'deliver', 'replay-negative'].includes(action)) {
     sendJson(response, 400, { error: 'Invalid delivery control.' });
     return;
   }
@@ -751,7 +780,10 @@ const handleCheckoutDelivery = async (request, response) => {
     sendJson(response, 404, { error: 'Unknown acceptance Checkout.' });
     return;
   }
-  if (action === 'defer' && record.paymentStatus === 'unpaid') {
+  if (action === 'replay-negative' && record.negativeEvent) {
+    const delivered = await deliverSimulatedEvent(record.negativeEvent);
+    sendJson(response, delivered ? 200 : 502, { delivered });
+  } else if (action === 'defer' && record.paymentStatus === 'unpaid') {
     record.deferWebhook = true;
     sendJson(response, 200, { deferred: true });
   } else if (action === 'deliver' && record.paymentStatus === 'paid') {

@@ -33,6 +33,13 @@ export class FundingCheckoutNoticeComponent {
   readonly dismissed = output<void>();
   readonly supportRequested = output<void>();
   readonly retryRequested = output<void>();
+  readonly interruptionKey = computed(() =>
+    this.checkoutStatus() === 'failed'
+      ? 'failed'
+      : this.checkoutStatus() === 'expired'
+        ? 'expired'
+        : 'cancel'
+  );
   readonly showSponsorFollowUp = computed(
     () =>
       (this.checkoutStatus() === 'pending' ||

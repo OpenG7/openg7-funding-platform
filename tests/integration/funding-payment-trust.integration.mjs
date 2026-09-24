@@ -110,6 +110,68 @@ test('Payment ordering and refund projections on disposable PostgreSQL', async (
   );
 
   await t.test(
+    'a failed intent attaches to its exact pending Checkout without replacing an existing intent',
+    async () => {
+      const fixture = {
+        ...checkout('late_intent'),
+        stripePaymentIntentId: null,
+        publicReference: 'OG7-2026-FAIL1'
+      };
+      await insertCheckoutSessionRecord(pool, fixture);
+      const input = {
+        stripePaymentIntentId: 'pi_test_late_intent',
+        status: 'failed',
+        checkoutMatch: {
+          publicReference: fixture.publicReference,
+          amountCents: 10_000,
+          currency: 'CAD'
+        }
+      };
+      for (const mismatch of [
+        { amountCents: 5000 },
+        { currency: 'usd' },
+        { publicReference: 'OG7-2026-OTHER' }
+      ]) {
+        assert.equal(
+          await updateContributionStatusByPaymentIntent(pool, {
+            ...input,
+            checkoutMatch: { ...input.checkoutMatch, ...mismatch }
+          }),
+          false
+        );
+        await assertStatus(pool, fixture, 'pending');
+      }
+      assert.equal(
+        await updateContributionStatusByPaymentIntent(pool, input),
+        true
+      );
+      await assertStatus(pool, fixture, 'failed');
+      assert.equal(
+        await updateContributionStatusByPaymentIntent(pool, {
+          ...input,
+          stripePaymentIntentId: 'pi_test_wrong_intent'
+        }),
+        false
+      );
+      await updateContributionStatusByPaymentIntent(pool, {
+        ...input,
+        status: 'paid',
+        paidAtIso
+      });
+      await updateContributionStatusByPaymentIntent(pool, input);
+      await assertStatus(pool, fixture, 'paid');
+      const rows = await pool.query(
+        'SELECT stripe_payment_intent_id FROM fund_contributions WHERE public_reference = $1',
+        [fixture.publicReference]
+      );
+      assert.equal(
+        rows.rows[0].stripe_payment_intent_id,
+        input.stripePaymentIntentId
+      );
+    }
+  );
+
+  await t.test(
     'a confirmed payment survives delayed failure and expired Checkout events',
     async () => {
       const fixture = checkout('paid_then_stale');

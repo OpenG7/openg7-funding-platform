@@ -3736,6 +3736,8 @@ createServer(async (request, response) => {
         ? hashSponsorshipFollowupToken(sponsorshipFollowupToken)
         : null;
       const publicReference = createContributionPublicReference();
+      const checkoutCancelUrl = new URL(cancelUrl);
+      checkoutCancelUrl.searchParams.set('reference', publicReference);
       const checkoutSuccessUrl = sponsorshipFollowupToken
         ? buildSponsorshipCheckoutSuccessUrl(
             successUrl,
@@ -3773,7 +3775,7 @@ createServer(async (request, response) => {
         mode: 'payment',
         client_reference_id: publicReference,
         success_url: checkoutSuccessUrl,
-        cancel_url: cancelUrl,
+        cancel_url: checkoutCancelUrl.toString(),
         line_items: [
           {
             quantity: 1,
