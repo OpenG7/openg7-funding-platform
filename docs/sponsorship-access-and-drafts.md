@@ -64,7 +64,67 @@ Résultats locaux du 18 septembre 2026 sous Node 22 :
 
 La suite Docker complète et les workflows GitHub n'ont pas été exécutés pour ce lot. La livraison par un fournisseur de courriel réel reste à vérifier dans l'environnement prévu.
 
-## Description de commit
+<a id="recette-complete-courriel-en-echec-et-reprise-du-dossier"></a>
+
+## Recette complète : courriel en échec et reprise du dossier
+
+`tests/playwright/sponsorship-email-recovery-acceptance.spec.ts` relie les
+scénarios 12, 15, 16 et 54 de l’[inventaire](development/end-to-end-scenarios-inventory.md).
+Le navigateur, PostgreSQL, l’API, le worker et le transport SMTP sont réels ;
+Stripe est simulé et Mailpit capture les courriels dans la pile jetable.
+Aucune requête applicative n’est interceptée et la recette ne modifie pas la base.
+
+```sh
+yarn test:e2e:acceptance sponsorship-email-recovery-acceptance.spec.ts --project=chromium
+```
+
+1. Une entreprise contribue 500 CAD via le formulaire et Checkout simulé, puis
+   sauvegarde un brouillon incomplet et ferme le navigateur. Le Checkout de test
+   utilise une adresse unique sous `simulation.example.test`, distincte du
+   contact du brouillon et des autres recettes.
+2. Depuis un lien invalide, elle demande un nouvel accès. Adresse inconnue,
+   adresse de contact du brouillon et adresse du paiement reçoivent la même
+   réponse publique. Seule cette dernière crée le courriel et l’accès privé.
+3. La passerelle de test refuse la connexion avant la salutation SMTP. L’admin
+   constate l’échec, peut annuler une relance sans effet, et retrouve le même
+   message lors d’un renvoi administratif dans la fenêtre de regroupement.
+4. La recette redémarre uniquement l’API du projet Docker isolé vérifié. Le
+   message et sa prochaine tentative persistent. Le worker reprend à l’échéance
+   réelle d’une minute ; un second refus SMTP confirme son fonctionnement.
+5. Après confirmation administrative, une connexion retenue par la passerelle
+   permet de lancer deux relances concurrentes. Elles n’effectuent aucun envoi.
+   La libération de la connexion donne un seul courriel accepté par Mailpit,
+   trois tentatives au total et un succès audité. Un renvoi du message déjà
+   envoyé est refusé et une requête non authentifiée reste interdite.
+6. Le lien extrait du courriel capturé ouvre un nouveau navigateur mobile. Le
+   brouillon serveur est restauré, le jeton disparaît de l’URL, puis l’entreprise
+   complète et soumet ses informations. Le dossier arrive en revue sans nouvelle
+   décision de paiement, d’approbation ou de publication.
+
+Captures et preuve JSON, sans jeton de suivi dans la preuve, sont enregistrées
+dans `test-results/acceptance/`. Les contrôles SMTP reviennent à leur état normal
+en fin de recette. Les tests UI complémentaires vérifient FR/EN, mobile/ordinateur,
+clavier, confirmation, envoi concurrent, erreur, succès et accessibilité.
+
+Cette recette qualifie Chromium, les erreurs connues avant acceptation SMTP et
+la conservation du brouillon après un redémarrage sans envoi actif. Mailpit ne
+prouve pas la délivrabilité d’une boîte réelle. L’expiration du jeton et les
+conflits de brouillon restent couverts par les suites d’intégration et de suivi
+existantes ; ils ne sont pas provoqués par une modification directe des données
+dans ce parcours navigateur. Voir les [limites de reprise SMTP](email-smtp.md#failed-messages-and-concurrent-retries).
+
+Exécution du 23 septembre 2026 sur `490084d` avec les changements locaux :
+**recette réussie en 1,3 minute**, sans reprise ni test ignoré. Les deux scénarios
+de contribution de 50 CAD passent dans la même pile (trois tests en 1,7 minute).
+Les contrôles complémentaires passent : 294 tests Node, deux intégrations
+PostgreSQL (dont SMTP réel vers Mailpit et concurrence), quatre tests UI FR/EN
+sur mobile/ordinateur avec restitution du focus et accessibilité, TypeScript,
+lint, builds API/Web et images Docker, contrôles documentaires et `git diff --check`.
+Les avertissements préexistants de lint et de budget du bundle Web subsistent.
+Le format ciblé passe ; les écarts préexistants hors du raccordement dans
+`tests/stripe-stub/server.mjs` sont conservés. La pile jetable a été supprimée.
+
+## Description de commit historique
 
 ```text
 feat(sponsorship): permettre la reprise du suivi et sauvegarder les brouillons

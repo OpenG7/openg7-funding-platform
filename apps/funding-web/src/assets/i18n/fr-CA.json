@@ -1273,6 +1273,7 @@
       "echec": "Echec",
       "envoye": "Envoye",
       "aucune_tentative_effectuee": "Aucune tentative effectuee.",
+      "courriel_deja_en_cours": "Un envoi est déjà en cours. Actualisez la file pour connaître son résultat.",
       "relance_tentee_le_message_reste_en_echec": "Relance tentee, le message reste en echec.",
       "message_envoye": "Message envoye.",
       "impossible_de_charger_la_file_courriel": "Impossible de charger la file courriel.",

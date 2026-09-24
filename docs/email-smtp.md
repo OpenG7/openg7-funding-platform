@@ -56,6 +56,33 @@ FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS=5
 When `SMTP_ENABLED=false`, the API starts without `SMTP_PASSWORD`. Queued
 messages are not sent and are reported with `deliveryMode=disabled`.
 
+## Failed messages and concurrent retries
+
+The persistent queue retains the message, recipient, attempts, next attempt and
+safe error code. Automatic retries wait one minute after the first failure,
+then use exponential backoff, capped at one hour and the message's attempt limit.
+Restarting the API preserves this schedule.
+
+An administrator can confirm an individual retry from the email queue. The retry
+claims the message atomically before calling SMTP, including when overriding the
+automatic attempt limit. An active send cannot be reclaimed by a second admin or
+the worker. Concurrent requests return zero attempts with the current message;
+the UI identifies an ongoing delivery and offers refresh. Already sent messages
+cannot be retried. Requests retain the existing authorization and audit trail.
+
+The existing recovery of a `sending` claim older than 15 minutes remains in place.
+This is not an exactly-once SMTP guarantee: loss of the final acknowledgement or
+a crash after provider acceptance can still leave an ambiguous result. The
+[recovery recipe](sponsorship-access-and-drafts.md#recette-complete-courriel-en-echec-et-reprise-du-dossier)
+qualifies definite failures before SMTP acceptance and concurrent active claims.
+
+The isolated acceptance stack routes SMTP through a test-only TCP gate to Mailpit.
+`/__test__/smtp` on the fixture selects normal forwarding, a rejected greeting,
+or a held connection. It records connection counts without message bodies or
+credentials. `/__test__/mail/<id>` exposes a captured synthetic message for the
+browser recipe. These controls belong only to the test image; SMTP has no host
+port, and the existing fixture HTTP port is bound to loopback.
+
 ## Admin Reminders
 
 `FUNDING_ADMIN_NOTIFICATION_EMAIL` receives internal operational notifications.

@@ -48,6 +48,15 @@ Les témoins prouvent que le worker redémarré continue à traiter les autres e
 Les reçus du fournisseur simulé comptent chaque requête et chaque publication.
 Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--résultat-incertain-et-reprise-sans-doublon).
 
+Sixième priorité testée le 23 septembre 2026 : **courriel de récupération en échec →
+redémarrage du worker → relance concurrente → reprise du brouillon et soumission**.
+La recette couvre les scénarios 12, 15 et 54, ainsi que le regroupement d’un renvoi
+administratif récent du scénario 16. Une entreprise paie 500 CAD, ferme son
+navigateur et retrouve son brouillon par le lien du courriel capturé dans Mailpit.
+Deux refus SMTP puis une relance réussie donnent un seul message accepté ; le
+paiement reste confirmé et le dossier attend une revue distincte de la publication.
+Voir la [recette et ses limites](../sponsorship-access-and-drafts.md#recette-complete-courriel-en-echec-et-reprise-du-dossier).
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

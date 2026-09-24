@@ -24,7 +24,7 @@ import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
-type RetryState = 'idle' | 'sending' | 'sent' | 'error';
+type RetryState = 'idle' | 'confirming' | 'sending' | 'sent' | 'error';
 type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
 
 @Component({
@@ -234,6 +234,9 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
                       </button>
                       <small
                         class="retry-message"
+                        role="status"
+                        aria-atomic="true"
+                        data-og7="email-retry-result"
                         [class.error]="retryStateFor(message.id) === 'error'"
                         [class.success]="retryStateFor(message.id) === 'sent'"
                         *ngIf="retryMessageFor(message.id)"
@@ -621,18 +624,22 @@ export class AdminEmailQueuePageComponent implements OnInit {
   async retryMessage(message: AdminEmailQueueMessageRecord): Promise<void> {
     if (
       message.status === 'sent' ||
+      this.retryStateFor(message.id) === 'confirming' ||
       this.retryStateFor(message.id) === 'sending'
     ) {
       return;
     }
 
+    this.setRetryState(message.id, 'confirming');
     if (
       !(await this.confirmation.confirm(
         this.i18n.t('admin.confirmation.retryEmail'),
         message.recipient_email
       ))
-    )
+    ) {
+      this.setRetryState(message.id, 'idle');
       return;
+    }
     this.setRetryState(message.id, 'sending');
     this.setRetryMessage(message.id, '');
 
@@ -648,16 +655,23 @@ export class AdminEmailQueuePageComponent implements OnInit {
         this.replaceMessage(result.message);
       }
 
-      this.setRetryState(message.id, result.sent > 0 ? 'sent' : 'error');
+      const sent = result.sent > 0 || result.message?.status === 'sent';
+      const inProgress = result.message?.status === 'sending';
+      this.setRetryState(
+        message.id,
+        sent ? 'sent' : inProgress ? 'idle' : 'error'
+      );
       this.setRetryMessage(
         message.id,
-        result.sent > 0
+        sent
           ? this.i18n.t('admin.messages.message_envoye')
-          : result.attempted > 0
-            ? this.i18n.t(
-                'admin.messages.relance_tentee_le_message_reste_en_echec'
-              )
-            : this.i18n.t('admin.messages.aucune_tentative_effectuee')
+          : inProgress
+            ? this.i18n.t('admin.messages.courriel_deja_en_cours')
+            : result.attempted > 0
+              ? this.i18n.t(
+                  'admin.messages.relance_tentee_le_message_reste_en_echec'
+                )
+              : this.i18n.t('admin.messages.aucune_tentative_effectuee')
       );
     } catch (error) {
       this.setRetryState(message.id, 'error');
