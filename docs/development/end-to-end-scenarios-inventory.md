@@ -74,6 +74,16 @@ de son courriel. Les compteurs admin FR/EN reflètent l'interruption et la repri
 la facture, les totaux, le toast et les courriels/SMS restent uniques après rejeu.
 Voir la [recette et ses limites](../payment-trust-validation.md#recette-de-reprise-après-interruption-du-webhook).
 
+Neuvième priorité testée le 23 septembre 2026 : **dossier approuvé → modification
+privée → nouvelle soumission → blocage des anciens envois → nouvelle autorisation**,
+soit les scénarios 22 et 44. Deux commandites de 500 CAD vérifient le dossier encore
+en revue et sa réapprobation avant le passage du worker. Le brouillon seul préserve
+les autorisations ; la soumission empêche leur réutilisation. Les quatre publications
+révisées partent une seule fois vers Facebook et LinkedIn simulés. Paiements,
+factures et totaux restent inchangés, avec une explication et un lien au dossier
+dans le cockpit FR/EN.
+Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--révision-dun-dossier-approuvé).
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

@@ -469,6 +469,70 @@ for (const language of ['fr-CA', 'en'] as const) {
   }
 }
 
+for (const language of ['fr-CA', 'en'] as const) {
+  for (const width of [390, 1280]) {
+    test(`dossier revision explains the new approval and links to review in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(
+        (locale) => localStorage.setItem('openg7.language', locale),
+        language
+      );
+      await fixtures(
+        page,
+        'blocked',
+        false,
+        [
+          {
+            id: '22222222-2222-4222-8222-222222222222',
+            name: 'Atelier Révisé',
+            version: 'v2',
+            reviewStatus: 'approved',
+            presentationApproved: true,
+            paymentStatus: 'paid'
+          }
+        ],
+        { kind: 'sponsorship', errorCode: 'SPONSOR_REVIEW_REQUIRED' }
+      );
+      await page.goto(
+        '/admin/fundraiser/publications/automation?deliveryId=' + initialJob.id
+      );
+      const dialog = page.getByRole('dialog', {
+        name: language === 'en' ? 'Final publication' : 'Publication finale'
+      });
+      const explanation = dialog.locator(
+        '[data-og7="publication-review-blocker"]'
+      );
+      await expect(explanation).toContainText(
+        language === 'en'
+          ? 'Approving the dossier alone does not reauthorize this delivery.'
+          : 'Accepter le dossier seul ne réautorise pas cet envoi.'
+      );
+      await expect(
+        dialog.getByRole('button', {
+          name:
+            language === 'en' ? 'Accept and schedule' : 'Accepter et programmer'
+        })
+      ).toHaveCount(0);
+      expect(
+        await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)
+      ).toBe(true);
+      expect(
+        (await new AxeBuilder({ page }).include('dialog[open]').analyze())
+          .violations
+      ).toEqual([]);
+      const link = explanation.getByRole('link', { name: 'Atelier Révisé' });
+      await link.focus();
+      await expect(link).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(
+        /sponsorshipId=22222222-2222-4222-8222-222222222222$/
+      );
+    });
+  }
+}
+
 test('a blocked publication without a payment fact keeps the general explanation', async ({
   page
 }) => {

@@ -208,6 +208,7 @@ export class AdminPublicationAutomationPageComponent {
       'MEDIA_CHANGED',
       'SOURCE_NOT_ELIGIBLE',
       'SPONSOR_APPROVAL_REQUIRED',
+      'SPONSOR_REVIEW_REQUIRED',
       'SPONSOR_MEDIA_REQUIRED',
       'CONNECTION_REQUIRED',
       'APPROVAL_UNAVAILABLE',

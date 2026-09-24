@@ -1738,6 +1738,7 @@
         "SOURCE_CHANGED": "Un brouillon du lot a changé. Enregistrez et vérifiez à nouveau le contenu final.",
         "MEDIA_CHANGED": "L’image a changé. Choisissez une image approuvée et validez à nouveau.",
         "SOURCE_NOT_ELIGIBLE": "Un commanditaire de ce lot ne remplit plus les conditions de publication.",
+        "SPONSOR_REVIEW_REQUIRED": "Un dossier commanditaire a été modifié ou remis en revue depuis l’autorisation. Vérifiez sa nouvelle version, puis enregistrez et approuvez à nouveau cette publication. Accepter le dossier seul ne réautorise pas cet envoi.",
         "CONNECTION_REQUIRED": "Configurez puis vérifiez la connexion de ce feed dans ses réglages.",
         "APPROVAL_UNAVAILABLE": "Choisissez une heure future et enregistrez le brouillon avant de l’autoriser.",
         "DESTINATION_CHANGED": "Le compte de destination a changé. Enregistrez et vérifiez à nouveau la publication.",
@@ -2093,6 +2094,7 @@
         "CONSENT_WITHDRAWN": "Le consentement de publication a été retiré.",
         "PAYMENT_REQUIRED": "Un paiement admissible confirmé manque.",
         "SOURCE_NOT_ELIGIBLE": "Une source du lot n’est plus admissible.",
+        "SPONSOR_REVIEW_REQUIRED": "Un dossier commanditaire a changé. Une nouvelle approbation de l’envoi est nécessaire.",
         "DESTINATION_CHANGED": "La destination autorisée a changé.",
         "RESULT_UNKNOWN": "Le résultat de cet envoi nécessite une vérification humaine."
       }

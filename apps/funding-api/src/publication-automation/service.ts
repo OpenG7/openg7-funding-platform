@@ -239,7 +239,12 @@ export class PublicationAutomationService {
   ): Promise<{ codes: string[]; excludedSponsorIds: string[] }> {
     const rows = (
       await db.query(
-        `SELECT c.id,c.status,c.public_display_consent,c.sponsor_review_status,c.sponsor_feed_status,(${eligibleDestination('c', 's.feed_target', 's.channel')}) destination_eligible FROM publication_deliveries d JOIN sponsor_publication_drafts s ON s.batch_id=d.batch_id JOIN fund_contributions c ON c.id=s.contribution_id WHERE d.id=$1`,
+        `SELECT c.id,c.status,c.public_display_consent,c.sponsor_review_status,c.sponsor_feed_status,
+          (d.status IN ('approved','publishing') AND
+            (c.sponsor_review_status = 'pending_review' OR c.sponsor_details_submitted_at > d.approved_at)) AS review_changed,
+          (${eligibleDestination('c', 's.feed_target', 's.channel')}) destination_eligible
+         FROM publication_deliveries d JOIN sponsor_publication_drafts s ON s.batch_id=d.batch_id
+         JOIN fund_contributions c ON c.id=s.contribution_id WHERE d.id=$1`,
         [id]
       )
     ).rows;
@@ -250,12 +255,14 @@ export class PublicationAutomationService {
         r.status !== 'paid' ||
         !r.public_display_consent ||
         r.sponsor_review_status === 'rejected' ||
+        r.review_changed ||
         r.sponsor_feed_status === 'hidden' ||
         !r.destination_eligible;
       if (!invalid) continue;
       excludedSponsorIds.push(r.id);
       if (r.status !== 'paid') codes.add('PAYMENT_REQUIRED');
       if (!r.public_display_consent) codes.add('CONSENT_WITHDRAWN');
+      if (r.review_changed) codes.add('SPONSOR_REVIEW_REQUIRED');
       if (
         r.sponsor_review_status === 'rejected' ||
         r.sponsor_feed_status === 'hidden'
@@ -446,8 +453,14 @@ export class PublicationAutomationService {
         const issues = await this.sourceIssues(row.id, db);
         if (!issues.codes.length) continue;
         await db.query(
-          "UPDATE publication_deliveries SET status='blocked',approved_at=NULL,approved_by=NULL,error_code='SOURCE_NOT_ELIGIBLE',version=version+1,updated_at=NOW() WHERE id=$1",
-          [row.id]
+          "UPDATE publication_deliveries SET status='blocked',approved_at=NULL,approved_by=NULL,error_code=$2,version=version+1,updated_at=NOW() WHERE id=$1",
+          [
+            row.id,
+            issues.codes.length === 1 &&
+            issues.codes[0] === 'SPONSOR_REVIEW_REQUIRED'
+              ? 'SPONSOR_REVIEW_REQUIRED'
+              : 'SOURCE_NOT_ELIGIBLE'
+          ]
         );
         await audit(db, 'publication-worker', 'source_invalidated', row.id, {
           codes: issues.codes,
@@ -555,14 +568,26 @@ export class PublicationAutomationService {
       feed.accountId === row.account_id && feed.mode === row.mode,
       'DESTINATION_CHANGED'
     );
-    if (row.batch_id)
-      assert(
-        sourceEqual(
-          await this.sources(db, row.batch_id, row.feed_id),
-          row.source_snapshot
-        ),
-        'SOURCE_CHANGED'
+    if (row.batch_id) {
+      // Lock the dossiers before checking their review timestamps. During
+      // dispatch, a pending review is rejected below with its specific reason.
+      const sources = await this.sources(
+        db,
+        row.batch_id,
+        row.feed_id,
+        Boolean(row.approved_at)
       );
+      if (row.approved_at) {
+        // Reapproving a dossier cannot revive an older delivery authorization.
+        // Compare in PostgreSQL to preserve timestamp microsecond precision.
+        const issues = await this.sourceIssues(row.id, db);
+        assert(
+          !issues.codes.includes('SPONSOR_REVIEW_REQUIRED'),
+          'SPONSOR_REVIEW_REQUIRED'
+        );
+      }
+      assert(sourceEqual(sources, row.source_snapshot), 'SOURCE_CHANGED');
+    }
     if (row.batch_id && row.approved_at) {
       const batch = (
         await db.query(
@@ -1332,7 +1357,10 @@ export class PublicationAutomationService {
               );
             }
             await db.query(
-              `UPDATE publication_deliveries SET status=$2,error_code=$3,next_attempt_at=CASE WHEN $2='approved' THEN NOW()+($4 * INTERVAL '1 minute') ELSE NULL END,lease_until=NULL,version=version+1,updated_at=NOW() WHERE id=$1 AND status='publishing'`,
+              `UPDATE publication_deliveries SET status=$2,error_code=$3,next_attempt_at=CASE WHEN $2='approved' THEN NOW()+($4 * INTERVAL '1 minute') ELSE NULL END,lease_until=NULL,
+               approved_at=CASE WHEN $3='SPONSOR_REVIEW_REQUIRED' THEN NULL ELSE approved_at END,
+               approved_by=CASE WHEN $3='SPONSOR_REVIEW_REQUIRED' THEN NULL ELSE approved_by END,
+               version=version+1,updated_at=NOW() WHERE id=$1 AND status='publishing'`,
               [row.id, status, safeCode(error), Math.min(60, 2 ** row.attempts)]
             );
             await audit(db, 'publication-worker', status, row.id, {

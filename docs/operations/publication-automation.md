@@ -164,6 +164,21 @@ versions explicitly; stale details, revoked consent, missing presentation media
 or failed destination checks roll back the entire decision. Each sponsor approval
 and delivery authorization is audited. Approved content is never silently rebuilt.
 
+A submitted dossier revision also invalidates its older delivery authorization.
+Preflight blocks an authorized delivery when its sponsor is back in review, or
+when `sponsor_details_submitted_at` is later than the delivery's `approved_at`.
+The database comparison retains timestamp precision and catches a dossier that
+was already reapproved before the worker ran. The same check runs before dispatch.
+The submission date uses the database clock at the write, so a transaction begun
+before authorization cannot backdate a revision written afterwards.
+`SPONSOR_REVIEW_REQUIRED` identifies this case; the cockpit explains the required
+review and links to the dossier. Save the exact revised publication as a draft
+and explicitly approve it again. Approving the dossier alone never restores the
+old delivery authorization. Private autosave and an identical submission retry
+do not advance the dossier submission date or invalidate a fresh authorization.
+This uses existing columns and requires no migration. A request already sent to
+the provider cannot be recalled by a later dossier revision.
+
 Combined acceptance sets `sponsor_site_visibility_held` for newly approved sponsors:
 their site profile, builder identity, logo and public media routes remain private.
 Existing website visibility is preserved for previously approved sponsors. Saving

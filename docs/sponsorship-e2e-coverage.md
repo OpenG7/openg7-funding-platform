@@ -190,6 +190,66 @@ bundle Web subsistent. Le format ciblé passe sauf les écarts préexistants du 
 `tests/stripe-stub/server.mjs`, conservés hors des trois lignes de raccordement.
 Les nouveaux fichiers du simulateur et de la recette sont formatés.
 
+## Recette navigateur : révision d'un dossier approuvé
+
+La recette [sponsorship-revision-acceptance.spec.ts](../tests/playwright/sponsorship-revision-acceptance.spec.ts)
+relie les scénarios 22 et 44 de l'[inventaire](development/end-to-end-scenarios-inventory.md).
+Une entreprise paie 500 CAD, soumet sa fiche et ses médias, puis l'admin approuve
+deux publications futures pour Facebook et LinkedIn. Elle modifie ensuite son
+nom depuis le suivi mobile. La sauvegarde automatique et le rechargement gardent
+la fiche soumise et les deux autorisations intactes ; seule la soumission explicite
+remet le dossier en revue.
+
+Deux variantes vérifient le contrôle avant échéance : le dossier reste en attente,
+ou l'admin le réapprouve pendant que le moteur est encore arrêté. Dans les deux
+cas, le worker réactivé bloque les anciens envois avec `SPONSOR_REVIEW_REQUIRED`,
+retire leur autorisation et laisse une trace d'audit, sans requête au réseau social.
+Le panneau explique la nouvelle revue et ouvre le dossier concerné. Les commandes
+avec une ancienne version et les approbations directes d'un envoi bloqué échouent.
+
+L'admin saisit ensuite le texte exact révisé et une nouvelle date, enregistre le
+brouillon et autorise chaque destination. Une soumission identique répétée par
+l'entreprise conserve cette nouvelle autorisation. Le worker publie la nouvelle
+version une seule fois par destination, navigateurs fermés. Les reçus locaux
+comptent chaque requête et chaque publication ; la facture, le paiement de 500 CAD
+et les totaux sont conservés, et la fiche Web reste privée.
+
+```sh
+node scripts/admin-acceptance.mjs sponsorship-revision-acceptance.spec.ts --project=chromium
+```
+
+La pile utilise l'API, PostgreSQL et les workers réels, avec Stripe, SMTP, SMS et
+réseaux sociaux simulés, sans interception applicative ni mutation directe de la
+base par cette recette. Les captures et les preuves JSON excluant le jeton de
+suivi sont sous `test-results/acceptance/`. Le runner supprime sa pile jetable.
+
+Exécution du 23 septembre 2026 (America/Toronto), sur `3c4af8e` avec les changements
+locaux : **2 variantes Chromium réussies en 5,5 minutes**, sans échec, test ignoré
+ou instable dans l'exécution finale. Les quatre anciennes autorisations sont
+bloquées avant leur échéance et les quatre contenus révisés sont envoyés une
+seule fois en simulation après nouvelle décision. La pile a été supprimée.
+
+Les tests PostgreSQL de `publication-automation.integration.mjs` vérifient aussi
+la modification entre le contrôle initial et la préparation de l'envoi, puis la
+reprise après nouvelle autorisation. Ils couvrent une transaction commencée avant
+l'autorisation mais écrivant la modification ensuite : la date de soumission
+correspond à l'écriture réelle. Les tests d'interface vérifient l'explication,
+le lien clavier et l'absence de débordement en FR/EN à 390 et 1280 pixels.
+
+Contrôles complémentaires du 23 septembre 2026 : **294 tests Node**, **34 tests
+PostgreSQL** (`publication-automation`, `sponsorship-access`, `editorial-programme`)
+et **27 tests d'interface** (`admin-publication-automation`) réussis. TypeScript,
+lint et build Angular de production passent. Le lint conserve un avertissement
+préexistant dans `scripts/smoke-public.mjs` ; le bundle initial Angular mesure
+817,46 ko pour un budget de 800 ko.
+
+Limites : la révision porte sur les informations du dossier, sans remplacement
+ni suppression de médias après approbation. Les modifications concurrentes de
+plusieurs onglets, les corrections administratives et les lots collectifs ne sont
+pas qualifiés par ces variantes. Une requête déjà transmise au fournisseur ne
+peut pas être rappelée. La date de soumission est comparée à celle de l'autorisation
+dans PostgreSQL ; aucun nouveau schéma ni migration n'est nécessaire.
+
 ## Matrice statique
 
 | Scenario                                                                          | Couvert | Surface                                                                            |
