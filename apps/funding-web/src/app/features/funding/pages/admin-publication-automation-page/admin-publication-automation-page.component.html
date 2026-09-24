@@ -294,6 +294,20 @@
           <p class="alert">
             {{ 'admin.publicationAutomation.blocked' | translate }}
           </p>
+          @if (mediaBlocked(job)) {
+            <section data-og7="publication-media-blocker" role="status">
+              <p>
+                {{ 'admin.publicationAutomation.mediaBlocker' | translate }}
+              </p>
+              @for (sponsor of job.sponsors; track sponsor.id) {
+                <a
+                  routerLink="/admin/fundraiser/sponsors"
+                  [queryParams]="{ sponsorshipId: sponsor.id, tab: 'media' }"
+                  >{{ sponsor.name }}</a
+                >
+              }
+            </section>
+          }
           @if (job.errorCode === 'SPONSOR_REVIEW_REQUIRED') {
             <section data-og7="publication-review-blocker" role="status">
               <p>

@@ -1657,6 +1657,7 @@
       "close": "Fermer",
       "uncertain": "Le résultat de cet envoi est incertain. Vérifiez le réseau social avant toute nouvelle publication. Aucune relance automatique ne sera effectuée.",
       "blocked": "Cet envoi demande une intervention. Vérifiez la connexion, les conditions de publication, le contenu et l’horaire avant toute nouvelle approbation.",
+      "mediaBlocker": "Le visuel sélectionné a changé, a été retiré ou n’est plus approuvé. Vérifiez les médias du dossier, puis modifiez et enregistrez cette publication avec un visuel approuvé ou sans image. Une nouvelle autorisation est nécessaire pour chaque destination.",
       "paymentBlocked": {
         "refunded": "Le paiement a été remboursé. Cette publication est bloquée.",
         "disputed": "Le paiement fait l’objet d’une contestation. Cette publication est bloquée."

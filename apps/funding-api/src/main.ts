@@ -3333,6 +3333,13 @@ createServer(async (request, response) => {
       });
       return;
     }
+    if (parsed.confirmation !== parsed.assetId) {
+      writeJson(request, response, 400, {
+        code: 'CONFIRMATION_REQUIRED',
+        error: 'Confirm the selected media before deleting it.'
+      });
+      return;
+    }
     if (
       !isValidUuid(parsed.assetId) ||
       !isValidAdminExpectedVersion(parsed.expectedVersion)
@@ -5398,7 +5405,7 @@ createServer(async (request, response) => {
         return;
       }
       writeBinary(request, response, 200, image, 'image/webp', {
-        'Cache-Control': 'public, max-age=31536000, immutable'
+        'Cache-Control': 'no-store'
       });
     } catch (error) {
       console.error('Failed to serve public sponsor media.', error);

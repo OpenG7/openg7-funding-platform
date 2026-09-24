@@ -446,26 +446,58 @@ export class PublicationAutomationService {
     await transaction(this.pool, async (db) => {
       const rows = (
         await db.query<DeliveryRow>(
-          "SELECT * FROM publication_deliveries WHERE status IN ('draft','approved') AND batch_id IS NOT NULL ORDER BY id FOR UPDATE SKIP LOCKED"
+          "SELECT * FROM publication_deliveries WHERE status IN ('draft','approved') AND (batch_id IS NOT NULL OR media_id IS NOT NULL) ORDER BY id FOR UPDATE SKIP LOCKED"
         )
       ).rows;
       for (const row of rows) {
         const issues = await this.sourceIssues(row.id, db);
-        if (!issues.codes.length) continue;
-        await db.query(
-          "UPDATE publication_deliveries SET status='blocked',approved_at=NULL,approved_by=NULL,error_code=$2,version=version+1,updated_at=NOW() WHERE id=$1",
-          [
-            row.id,
-            issues.codes.length === 1 &&
-            issues.codes[0] === 'SPONSOR_REVIEW_REQUIRED'
-              ? 'SPONSOR_REVIEW_REQUIRED'
-              : 'SOURCE_NOT_ELIGIBLE'
-          ]
-        );
-        await audit(db, 'publication-worker', 'source_invalidated', row.id, {
-          codes: issues.codes,
-          affected: issues.excludedSponsorIds
-        });
+        if (issues.codes.length) {
+          await db.query(
+            "UPDATE publication_deliveries SET status='blocked',approved_at=NULL,approved_by=NULL,error_code=$2,version=version+1,updated_at=NOW() WHERE id=$1",
+            [
+              row.id,
+              issues.codes.length === 1 &&
+              issues.codes[0] === 'SPONSOR_REVIEW_REQUIRED'
+                ? 'SPONSOR_REVIEW_REQUIRED'
+                : 'SOURCE_NOT_ELIGIBLE'
+            ]
+          );
+          await audit(db, 'publication-worker', 'source_invalidated', row.id, {
+            codes: issues.codes,
+            affected: issues.excludedSponsorIds
+          });
+          continue;
+        }
+        // Metadata is cheap to check before the due date. Bytes are still
+        // re-read and hashed immediately before dispatch.
+        const media = row.media_id
+          ? await this.mediaRecord(db, row.media_id)
+          : null;
+        const mediaCode = row.media_id
+          ? !media
+            ? 'MEDIA_NOT_APPROVED'
+            : !row.media_snapshot ||
+                !isDeepStrictEqual(media, {
+                  id: row.media_snapshot.id,
+                  url: row.media_snapshot.url,
+                  alt: row.media_snapshot.alt,
+                  key: row.media_snapshot.key,
+                  version: row.media_snapshot.version
+                })
+              ? 'MEDIA_CHANGED'
+              : null
+          : null;
+        if (mediaCode) {
+          await db.query(
+            "UPDATE publication_deliveries SET status='blocked',approved_at=NULL,approved_by=NULL,error_code=$2,version=version+1,updated_at=NOW() WHERE id=$1",
+            [row.id, mediaCode]
+          );
+          await audit(db, 'publication-worker', 'media_invalidated', row.id, {
+            code: mediaCode,
+            mediaId: row.media_id
+          });
+          continue;
+        }
       }
     });
   }
@@ -478,16 +510,19 @@ export class PublicationAutomationService {
     );
     return result.rows;
   }
-  private async media(db: Db, id: string | null): Promise<Media | null> {
-    if (!id) return null;
-    assert(validId(id), 'INVALID_MEDIA', 400);
-    const r = (
-      await db.query(
-        `SELECT m.id,m.public_url AS url,m.alt_text AS alt,m.processed_storage_key AS key,m.updated_at::text AS version FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.id=$1 AND m.deleted_at IS NULL AND m.review_status='approved' AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.status='paid'`,
+  private async mediaRecord(db: Db, id: string) {
+    return (
+      await db.query<Omit<Media, 'hash'>>(
+        `SELECT m.id,m.public_url AS url,m.alt_text AS alt,m.processed_storage_key AS key,m.updated_at::text AS version FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.id=$1 AND m.deleted_at IS NULL AND m.review_status='approved' AND m.public_url IS NOT NULL AND LENGTH(TRIM(m.alt_text))>0 AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.status='paid' FOR SHARE OF m,c`,
         [id]
       )
     ).rows[0];
-    assert(r && r.url && r.alt?.trim(), 'MEDIA_NOT_APPROVED');
+  }
+  private async media(db: Db, id: string | null): Promise<Media | null> {
+    if (!id) return null;
+    assert(validId(id), 'INVALID_MEDIA', 400);
+    const r = await this.mediaRecord(db, id);
+    assert(r, 'MEDIA_NOT_APPROVED');
     const bytes = await this.storage.readPrivateObject(r.key);
     assert(bytes, 'MEDIA_UNAVAILABLE');
     return { ...r, hash: digest(bytes) } as Media;
@@ -1358,8 +1393,8 @@ export class PublicationAutomationService {
             }
             await db.query(
               `UPDATE publication_deliveries SET status=$2,error_code=$3,next_attempt_at=CASE WHEN $2='approved' THEN NOW()+($4 * INTERVAL '1 minute') ELSE NULL END,lease_until=NULL,
-               approved_at=CASE WHEN $3='SPONSOR_REVIEW_REQUIRED' THEN NULL ELSE approved_at END,
-               approved_by=CASE WHEN $3='SPONSOR_REVIEW_REQUIRED' THEN NULL ELSE approved_by END,
+               approved_at=CASE WHEN $3 IN ('SPONSOR_REVIEW_REQUIRED','MEDIA_CHANGED','MEDIA_NOT_APPROVED','MEDIA_UNAVAILABLE') THEN NULL ELSE approved_at END,
+               approved_by=CASE WHEN $3 IN ('SPONSOR_REVIEW_REQUIRED','MEDIA_CHANGED','MEDIA_NOT_APPROVED','MEDIA_UNAVAILABLE') THEN NULL ELSE approved_by END,
                version=version+1,updated_at=NOW() WHERE id=$1 AND status='publishing'`,
               [row.id, status, safeCode(error), Math.min(60, 2 ** row.attempts)]
             );

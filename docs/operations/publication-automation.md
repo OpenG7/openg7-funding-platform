@@ -179,6 +179,27 @@ do not advance the dossier submission date or invalidate a fresh authorization.
 This uses existing columns and requires no migration. A request already sent to
 the provider cannot be recalled by a later dossier revision.
 
+Preflight also checks the selected media of sponsorship and editorial deliveries,
+including future deliveries on paused feeds. A removed or unapproved asset blocks
+the delivery with `MEDIA_NOT_APPROVED`; a changed metadata version blocks it with
+`MEDIA_CHANGED`, even if the asset was rejected and reapproved between worker
+passes. The worker clears the old authorization and audits `media_invalidated`
+once. Before dispatch it checks the asset again under a database lock and hashes
+the stored bytes. A media failure at that stage also clears authorization.
+
+The cockpit explains the block and, for sponsorship deliveries, links to the
+dossier's Media tab. It avoids
+loading the invalidated preview, so a removed file does not produce a misleading
+generic action-failed message on opening the panel. Approving a
+replacement alone does not authorize a delivery: edit the publication, select
+the approved replacement or explicitly choose no image, save and approve each
+destination again. The worker never substitutes an image or drops one silently.
+These checks use existing columns. They cannot recall an already dispatched
+request or remove a copy previously downloaded from the website/social network.
+The optional local mock receiver records the prepared JPEG's SHA-256 alongside
+its media ID, allowing recipes to verify the actual prepared image without
+including image bytes in the receipt.
+
 Combined acceptance sets `sponsor_site_visibility_held` for newly approved sponsors:
 their site profile, builder identity, logo and public media routes remain private.
 Existing website visibility is preserved for previously approved sponsors. Saving

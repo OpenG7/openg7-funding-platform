@@ -300,8 +300,17 @@ export class AdminPublicationAutomationPageComponent {
       scheduledAt: this.localDate(job.scheduledAt),
       mediaId: job.mediaId ?? ''
     };
-    void this.loadPreview(this.edit.mediaId);
+    if (this.mediaBlocked(job)) this.clearPreview();
+    else void this.loadPreview(this.edit.mediaId);
     void this.loadMedia();
+  }
+  mediaBlocked(job: PublicationDelivery): boolean {
+    return (
+      job.status === 'blocked' &&
+      ['MEDIA_CHANGED', 'MEDIA_NOT_APPROVED', 'MEDIA_UNAVAILABLE'].includes(
+        job.errorCode ?? ''
+      )
+    );
   }
   async loadMedia(): Promise<void> {
     try {

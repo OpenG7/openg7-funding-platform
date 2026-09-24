@@ -1661,6 +1661,7 @@
       "close": "Close",
       "uncertain": "The result of this delivery is unknown. Check the social network before publishing again. No automatic retry will occur.",
       "blocked": "This delivery needs attention. Check the connection, publication requirements, content and schedule before approving again.",
+      "mediaBlocker": "The selected image changed, was removed or is no longer approved. Review the dossier’s media, then edit and save this publication with an approved image or without an image. Each destination requires a new authorization.",
       "paymentBlocked": {
         "refunded": "The payment was refunded. This publication is blocked.",
         "disputed": "The payment is disputed. This publication is blocked."

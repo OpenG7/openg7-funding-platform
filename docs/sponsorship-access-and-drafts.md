@@ -9,6 +9,15 @@
 
 Les médias conservent leur parcours indépendant : téléversement et suppression ont leurs propres confirmations. Abandonner le brouillon texte ne supprime pas les fichiers téléversés.
 
+Un média approuvé reste verrouillé pour l'entreprise : son retrait exige une
+confirmation administrative. Pour remplacer un logo approuvé, l'admin retire
+l'ancien fichier, puis l'entreprise téléverse le nouveau dans son suivi ; ce
+fichier reste privé et remet le dossier en revue. La suppression ne sélectionne
+jamais automatiquement une autre image pour les publications programmées. Le
+[moteur de publication](operations/publication-automation.md#authorization-and-concurrency)
+bloque les envois liés au visuel retiré ; chaque contenu révisé exige une nouvelle
+autorisation. Le paiement et les factures restent indépendants de ces décisions.
+
 Après modification d'une fiche approuvée, la soumission remet le dossier en revue.
 Le moteur bloque les anciens envois autorisés avant leur échéance, y compris si
 le dossier a déjà été réapprouvé entre-temps. L'admin doit examiner le nouveau

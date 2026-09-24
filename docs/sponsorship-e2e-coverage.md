@@ -250,6 +250,68 @@ pas qualifiés par ces variantes. Une requête déjà transmise au fournisseur n
 peut pas être rappelée. La date de soumission est comparée à celle de l'autorisation
 dans PostgreSQL ; aucun nouveau schéma ni migration n'est nécessaire.
 
+## Recette navigateur : retrait et remplacement de médias approuvés
+
+La recette [sponsorship-media-acceptance.spec.ts](../tests/playwright/sponsorship-media-acceptance.spec.ts)
+cible les scénarios 19, 39 et 44 de l'[inventaire](development/end-to-end-scenarios-inventory.md).
+Chaque entreprise paie 500 CAD, soumet un logo et deux photos, puis l'admin
+approuve le dossier et les médias et autorise deux publications futures. La
+visibilité Web fait l'objet d'une décision séparée, permettant de vérifier une
+URL d'image publique avant et après son retrait.
+
+Les deux variantes sont le **remplacement du logo sélectionné** et la
+**suppression de la photo sélectionnée**. L'entreprise ne peut pas supprimer un
+média approuvé. La recette vérifie le refus sans accès admin, sans confirmation
+et avec une version obsolète, puis l'annulation et la confirmation dans l'UI.
+L'ancien fichier disparaît des accès publics, y compris après une lecture depuis
+le navigateur. Le nouveau logo reste privé avant sa revue. Sa réapprobation et
+celle du dossier, effectuées avant le prochain passage du worker, ne rétablissent
+pas les anciennes autorisations.
+
+Le worker bloque les quatre anciens envois avant l'échéance, sans requête sociale.
+Le cockpit explique le motif et ouvre l'onglet Médias. L'admin enregistre ensuite
+le nouveau logo ou choisit explicitement une publication sans image, puis autorise
+chaque destination. La variante suppression conserve une autre photo approuvée
+dans le dossier ; elle ne qualifie pas le retrait de tous les médias obligatoires.
+Navigateurs fermés, le worker envoie une seule fois par destination. Les reçus du
+simulateur vérifient l'identifiant du média et l'empreinte SHA-256 du JPEG préparé
+(ou leur absence pour le texte seul). Paiement, facture et totaux restent inchangés.
+
+```sh
+node scripts/admin-acceptance.mjs sponsorship-media-acceptance.spec.ts --project=chromium
+```
+
+L'API, PostgreSQL, les workers et le navigateur sont réels ; Stripe, courriels,
+SMS et réseaux sociaux sont simulés. Aucune interception applicative ni écriture
+directe en base dans cette recette. Captures et preuves JSON sans jeton de suivi
+sont conservées sous `test-results/acceptance/` ; le runner retire sa pile jetable.
+
+Les intégrations PostgreSQL couvrent aussi une réapprobation du même média et
+un retrait entre le contrôle anticipé et la préparation de l'envoi. Les tests UI
+vérifient l'explication et le lien clavier vers les médias, en FR/EN, à 390 et
+1280 pixels, avec contrôle d'accessibilité. Un média invalidé ne déclenche plus
+le chargement de son ancien aperçu ni un faux message générique d'échec.
+
+Exécution du 23 septembre 2026 (America/Toronto), sur `d5de0e1` avec les changements
+locaux : **2 variantes Chromium réussies en 4,5 minutes**, sans échec, test ignoré
+ou instable dans l'exécution finale. Les quatre anciennes autorisations sont
+bloquées avant échéance, sans requête sociale, puis les quatre envois révisés
+partent une seule fois. La pile jetable a été supprimée.
+
+Contrôles complémentaires : **294 tests Node**, **37 tests PostgreSQL**
+(`publication-automation`, `sponsorship-access`, `editorial-programme`) et
+**31 tests UI** (`admin-publication-automation`) réussis. TypeScript, lint et build
+Angular/SSR passent. Restent l'avertissement lint préexistant dans
+`scripts/smoke-public.mjs` et le budget Angular : 818,00 ko pour 800 ko. Le format
+ciblé passe ; le formatage global préexistant de `main.ts` reste hors du changement.
+
+Limites : stockage local de la recette, sans qualification OVH/CDN ni fournisseur
+social réel, publication collective ou remplacement du logo historique géré par
+l'ancien endpoint. Les anciennes copies téléchargées ou mises en cache, et les
+requêtes déjà transmises au fournisseur, ne peuvent pas être rappelées. Aucune
+migration ; le nouveau champ de confirmation de suppression exige une mise à jour
+coordonnée de l'API et du Web.
+
 ## Matrice statique
 
 | Scenario                                                                          | Couvert | Surface                                                                            |

@@ -84,6 +84,17 @@ factures et totaux restent inchangés, avec une explication et un lien au dossie
 dans le cockpit FR/EN.
 Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--révision-dun-dossier-approuvé).
 
+Dixième priorité testée le 23 septembre 2026 : **média approuvé → retrait confirmé
+ou remplacement → blocage des anciens envois → nouvelle autorisation**, soit les
+scénarios 19, 39 et 44. Deux commandites de 500 CAD qualifient le remplacement du
+logo sélectionné et la suppression d'une photo sélectionnée. Les accès publics
+et privés au fichier retiré échouent ; le nouveau logo reste privé avant revue.
+Les quatre anciennes autorisations sont bloquées avant échéance, puis les quatre
+envois révisés partent une seule fois, avec le nouveau logo ou sans image selon
+la décision explicite. Empreintes des images, audits, factures et totaux sont
+vérifiés avec fournisseurs simulés.
+Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--retrait-et-remplacement-de-médias-approuvés).
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

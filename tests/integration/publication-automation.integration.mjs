@@ -12,7 +12,12 @@ import {
   updateSponsorshipPublication
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import { listPublicBuilders } from '../../dist/apps/funding-api/src/fund-transparency.repository.js';
-import { getApprovedPublicSponsorMedia } from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
+import {
+  deleteSponsorMediaAsset,
+  getApprovedPublicSponsorMedia,
+  getSponsorMediaStorageRecord,
+  reviewSponsorMediaAsset
+} from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
 import {
   saveSponsorshipDraft,
   submitSponsorshipDraft
@@ -983,6 +988,134 @@ test(
         ]);
       }
     );
+    for (const change of ['deleted', 'reapproved', 'after-preflight']) {
+      await t.test(
+        `selected media ${change} revokes authorization and requires an explicit new approval`,
+        async () => {
+          await reset();
+          await activate();
+          const contributionId = await sponsor();
+          imageBytes = await sharp({
+            create: { width: 2, height: 2, channels: 3, background: '#ffffff' }
+          })
+            .webp()
+            .toBuffer();
+          const mediaId = await presentation(contributionId);
+          const { id } = await service.command(
+            {
+              action: 'compose',
+              feedId,
+              kind: 'news',
+              message: 'Approved media publication',
+              scheduledAt: future,
+              mediaId
+            },
+            'tester'
+          );
+          await approve(id);
+          const authorized = await record(id);
+          const remove = async () => {
+            const asset = await getSponsorMediaStorageRecord(pool, mediaId);
+            const result = await deleteSponsorMediaAsset(pool, {
+              assetId: mediaId,
+              expectedVersion: asset.version,
+              allowApproved: true
+            });
+            assert.equal(result.status, 'updated');
+          };
+          if (change === 'reapproved') {
+            for (const reviewStatus of ['rejected', 'approved']) {
+              const asset = await getSponsorMediaStorageRecord(pool, mediaId);
+              const result = await reviewSponsorMediaAsset(pool, {
+                assetId: mediaId,
+                expectedVersion: asset.version,
+                reviewStatus,
+                altText: asset.altText,
+                publicStorageKey:
+                  reviewStatus === 'approved' ? `${mediaId}/public` : null,
+                publicUrl:
+                  reviewStatus === 'approved'
+                    ? 'https://example.test/image.webp'
+                    : null,
+                reviewedBy: 'tester'
+              });
+              assert.equal(result.status, 'updated');
+            }
+          } else if (change === 'deleted') await remove();
+          if (change === 'after-preflight') {
+            const original = service.guardEligibility.bind(service);
+            service.guardEligibility = async () => {
+              await original();
+              await remove();
+            };
+            try {
+              await service.tick(due);
+            } finally {
+              service.guardEligibility = original;
+            }
+          } else {
+            await service.guardEligibility();
+            await service.guardEligibility();
+          }
+          const blocked = await record(id);
+          assert.equal(blocked.status, 'blocked');
+          assert.equal(
+            blocked.errorCode,
+            change === 'reapproved' ? 'MEDIA_CHANGED' : 'MEDIA_NOT_APPROVED'
+          );
+          assert.equal(blocked.approvedAt, null);
+          assert.equal(blocked.version, authorized.version + 1);
+          assert.equal(blocked.attempts, change === 'after-preflight' ? 1 : 0);
+          assert.equal(blocked.publishedAt, null);
+          const audits = (
+            await pool.query(
+              "SELECT action FROM admin_audit_log WHERE entity_id=$1 AND action IN ('publication_automation.media_invalidated','publication_automation.blocked')",
+              [id]
+            )
+          ).rows;
+          assert.equal(audits.length, 1);
+          await assert.rejects(
+            service.command(
+              {
+                action: 'approve',
+                id,
+                version: authorized.version,
+                confirmation: id
+              },
+              'tester'
+            ),
+            { code: 'VERSION_CONFLICT' }
+          );
+          await assert.rejects(
+            service.command(
+              {
+                action: 'approve',
+                id,
+                version: blocked.version,
+                confirmation: id
+              },
+              'tester'
+            ),
+            { code: 'APPROVAL_UNAVAILABLE' }
+          );
+          await service.command(
+            {
+              action: 'edit',
+              id,
+              version: blocked.version,
+              message: 'Revised publication',
+              scheduledAt: future,
+              mediaId: change === 'reapproved' ? mediaId : null
+            },
+            'tester'
+          );
+          await approve(id);
+          await service.tick(due);
+          assert.equal((await record(id)).status, 'published');
+          imageBytes = null;
+        }
+      );
+    }
     await t.test(
       'media bytes and consent are rechecked, and human absence review revokes approval',
       async () => {
@@ -1025,6 +1158,7 @@ test(
           .toBuffer();
         await service.tick(due);
         assert.equal((await record(id)).errorCode, 'MEDIA_CHANGED');
+        assert.equal((await record(id)).approvedAt, null);
         await pool.query(
           "UPDATE publication_deliveries SET status='uncertain' WHERE id=$1",
           [id]
