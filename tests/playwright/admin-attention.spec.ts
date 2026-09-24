@@ -249,7 +249,11 @@ test('invoice action is scoped and requires confirmation, opening is read-only',
     .click();
   await page.locator('[data-og7="confirm-action"]').click();
   await expect.poll(() => writes.length).toBe(1);
-  expect(writes[0]).toEqual({ contributionId, limit: 1 });
+  expect(writes[0]).toEqual({
+    contributionId,
+    limit: 1,
+    confirmation: contributionId
+  });
 });
 
 test('queue failures preserve explicitly stale data; access refusal and unavailable storage clear it', async ({

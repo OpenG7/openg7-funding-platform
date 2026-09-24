@@ -827,7 +827,10 @@ export interface AdminSponsorshipInvoicesResponse {
   readonly last_updated_at: string;
 }
 
+export const SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION = 'BACKFILL_INVOICES';
+
 export interface AdminSponsorshipInvoiceBackfillRequest {
+  readonly confirmation: string;
   readonly contributionId?: string;
   readonly limit?: number;
 }

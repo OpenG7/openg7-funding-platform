@@ -114,8 +114,8 @@ historical Checkout Sessions from Stripe, filters them by `FUNDING_PROJECT_ID`
 metadata, and writes idempotent rows to `stripe_checkout_sessions`,
 `fund_contributions`, and `fund_transactions`.
 
-Payout imports share the webhook's transaction lock and deduplicate by payout ID
-and outcome, including concurrent deliveries. A failed payout supersedes its earlier
+Payment and payout imports share the webhook's transaction lock and deduplicate by
+Stripe object ID and outcome, including concurrent deliveries. A failed payout supersedes its earlier
 success in financial projections without rewriting the ledger; see the
 [payout transparency contract](../funding-transparency.md#versements-stripe-et-échecs-tardifs).
 
@@ -156,10 +156,34 @@ Useful options:
 - `--from` and `--to` restrict the Stripe created timestamp range.
 - `--limit` caps the number of objects scanned per Stripe resource.
 - `--skip-payouts`, `--skip-refunds`, and `--skip-disputes` narrow the import.
-- `--no-assume-non-charity-acknowledged` keeps legacy sessions without that
-  metadata out of contribution totals.
+- `--no-assume-non-charity-acknowledged` keeps newly imported legacy sessions
+  without that metadata out of contribution totals; existing local choices remain unchanged.
 
-Backfill is safe to rerun. Checkout rows are keyed by `stripe_session_id`, and
+Backfill is idempotent for matching financial facts. Checkout rows are keyed by `stripe_session_id`, and
 fund transactions are skipped when the same logical Stripe object and event type
 already exist. Synthetic `stripe_event_id` values use the
 `stripe-backfill:<event-type>:<stripe-object-id>` form.
+
+### Historical payment recovery recipe
+
+Use project, date and volume limits together, preview with `--dry-run`, then inspect
+the import counters. Imported payments mark their administrative notification as
+already handled without creating an activity, email or SMS. A later Checkout
+webhook keeps such payments silent and does not automatically generate or email
+their invoice. A new live confirmation still creates its normal activity and messages.
+
+Backfill and webhook replays initialize consent/name from Stripe only when inserting
+a contribution. Existing local consent, public name and non-charity acknowledgment
+remain unchanged. One successful PaymentIntent contributes one ledger movement;
+conflicting amount/currency on a repeated insertion fails for investigation.
+Existing payment rows are preserved; fee updates still use `charge.updated`.
+
+From **À traiter**, open the specific missing invoice, confirm its generation and
+download its PDF. This operation requires owner access and scope confirmation at
+the API boundary, creates an audit entry, and does not email the sponsor. Repeating
+the import, late webhooks or invoice generation keeps the same document and number.
+See the [invoice API contract](admin-api.md) and
+[disposable browser recipe](../../tests/playwright/historical-payment-recovery-acceptance.spec.ts).
+The recipe exercises the real CLI, API, database and Web against simulated Stripe
+and captured SMTP, with bounded imports and FR/EN public exports. It performs no
+production import, invoice issuance or external delivery.

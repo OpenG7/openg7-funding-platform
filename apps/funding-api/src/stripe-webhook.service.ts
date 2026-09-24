@@ -19,6 +19,7 @@ import {
 } from './fund-transparency.repository.js';
 import { createSponsorshipInvoiceForStripeSession } from './sponsorship-invoices.repository.js';
 import { withStripeEventProcessing } from './stripe-events.repository.js';
+import { hasContributionActivityForSession } from './contribution-activity.repository.js';
 
 interface ProcessWebhookDependencies {
   readonly stripe: Stripe;
@@ -217,10 +218,10 @@ const processVerifiedStripeEvent = async (
     const session = event.data.object as Stripe.Checkout.Session;
     const status = session.payment_status === 'paid' ? 'paid' : 'pending';
     const sessionMetadata = session.metadata ?? {};
-    const updated = await upsertCheckoutSessionFromWebhook(
-      pool,
-      { ...buildCheckoutSessionWebhookInput(session, status), notifyAdmin: true }
-    );
+    const updated = await upsertCheckoutSessionFromWebhook(pool, {
+      ...buildCheckoutSessionWebhookInput(session, status),
+      notifyAdmin: true
+    });
     const isSponsorship =
       normalizeContributionType(sessionMetadata.contributionType) ===
       'sponsorship_interest';
@@ -237,7 +238,8 @@ const processVerifiedStripeEvent = async (
       isSponsorship &&
       pool &&
       followupToken &&
-      followupEmail
+      followupEmail &&
+      (await hasContributionActivityForSession(pool, session.id))
     ) {
       const followupUrl = buildSponsorshipFollowupUrl(
         publicBaseUrl,
@@ -290,10 +292,10 @@ const processVerifiedStripeEvent = async (
 
   if (event.type === 'checkout.session.expired') {
     const session = event.data.object as Stripe.Checkout.Session;
-    const updated = await upsertCheckoutSessionFromWebhook(
-      pool,
-      { ...buildCheckoutSessionWebhookInput(session, 'expired'), notifyAdmin: true }
-    );
+    const updated = await upsertCheckoutSessionFromWebhook(pool, {
+      ...buildCheckoutSessionWebhookInput(session, 'expired'),
+      notifyAdmin: true
+    });
 
     return acknowledge({
       received: true,

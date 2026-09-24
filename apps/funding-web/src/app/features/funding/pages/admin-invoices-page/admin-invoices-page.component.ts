@@ -2,6 +2,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
+import { SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION } from '@openg7/funding-core';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -1356,7 +1357,9 @@ export class AdminInvoicesPageComponent implements OnInit {
     try {
       const result = await this.admin.backfillSponsorshipInvoices(token, {
         limit: this.contributionId ? 1 : 250,
-        contributionId: this.contributionId
+        contributionId: this.contributionId,
+        confirmation:
+          this.contributionId ?? SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION
       });
       const message = this.backfillResultMessage(result);
       this.backfillState.set(result.failed_count > 0 ? 'error' : 'done');

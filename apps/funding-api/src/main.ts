@@ -13,6 +13,7 @@ import {
 } from 'node:crypto';
 
 import type { PublicationAutomationCommand } from '@openg7/funding-core';
+import { SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION } from '../../../packages/funding-core/src/index.js';
 import Stripe from 'stripe';
 import type {
   AdminAssistantDraftType,
@@ -5009,11 +5010,24 @@ createServer(async (request, response) => {
       }
       parsed = {
         contributionId: raw?.contributionId,
-        limit: typeof raw?.limit === 'number' ? raw.limit : undefined
+        limit: typeof raw?.limit === 'number' ? raw.limit : undefined,
+        confirmation:
+          typeof raw?.confirmation === 'string' ? raw.confirmation : ''
       };
     } catch {
       writeJson(request, response, 400, {
         error: 'Invalid invoice backfill request body.'
+      });
+      return;
+    }
+
+    if (
+      parsed.confirmation !==
+      (parsed.contributionId ?? SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION)
+    ) {
+      writeJson(request, response, 400, {
+        code: 'confirmation_required',
+        error: 'Confirm the invoice backfill scope before proceeding.'
       });
       return;
     }

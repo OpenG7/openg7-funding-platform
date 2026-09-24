@@ -883,10 +883,7 @@ export const upsertCheckoutSessionFromWebhook = async (
             fund_contributions.email_private,
             EXCLUDED.email_private
           ),
-          public_display_consent = EXCLUDED.public_display_consent,
-          public_name = COALESCE(EXCLUDED.public_name, fund_contributions.public_name),
-          display_amount_consent = EXCLUDED.display_amount_consent,
-          non_charity_acknowledged = EXCLUDED.non_charity_acknowledged,
+          -- Provider metadata initializes new rows. Replays must preserve local choices.
           status = CASE
             WHEN fund_contributions.status = ANY($15::text[])
             THEN EXCLUDED.status
@@ -1931,7 +1928,10 @@ export const listSponsorshipsForAttention = async (
     };
   }
 
-  const cap = maxRows === null ? null : Math.max(1, Math.min(maxRows, SPONSORSHIP_ATTENTION_MAX_ROWS));
+  const cap =
+    maxRows === null
+      ? null
+      : Math.max(1, Math.min(maxRows, SPONSORSHIP_ATTENTION_MAX_ROWS));
   const mediaPresence = await pool.query<{ readonly exists: boolean }>(
     `SELECT to_regclass('public.sponsor_media_assets') IS NOT NULL AS exists`
   );

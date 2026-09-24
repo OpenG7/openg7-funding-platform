@@ -20,6 +20,12 @@ preuve minimale est conservée et rapprochée lorsque la session arrive. Le reto
 du navigateur ne confirme jamais le paiement. Les imports historiques restent
 silencieux ; leurs appels aux repositories ne demandent pas de notification.
 
+Ce silence persiste lors des webhooks tardifs : le marqueur de confirmation
+historique n'a pas d'activité associée, donc Checkout ne remet ni suivi ni facture
+en file de courriel. La facture manquante se génère par une action administrative
+confirmée, sans envoi automatique. Une nouvelle confirmation en direct conserve
+ses notifications. Voir la [recette historique](../technical/stripe.md#historical-payment-recovery-recipe).
+
 Le worker d’activité passe toutes les deux secondes. Il distribue au plus 100
 événements ou mises à jour par passage, enregistre les courriels dans la file
 existante et traite au plus dix tentatives SMS. Un redémarrage reprend les états

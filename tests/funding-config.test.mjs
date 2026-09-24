@@ -691,12 +691,7 @@ test('fund_contributions writes public_name on both the checkout-creation and we
     ),
     'expected upsertCheckoutSessionFromWebhook to write public_name'
   );
-  assert.ok(
-    repository.includes(
-      'public_name = COALESCE(EXCLUDED.public_name, fund_contributions.public_name)'
-    ),
-    'expected the webhook upsert to preserve an existing public_name when a later event omits it'
-  );
+  // Replay preservation is exercised against PostgreSQL by historical-payment-recovery.integration.mjs.
 });
 
 test('Stripe webhook service reads publicDisplayName from checkout session metadata', () => {
@@ -3004,9 +2999,13 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
 
   assert.ok(adminDocs.includes('/admin/fundraiser/invoices'));
   assert.ok(adminDocs.includes('GET /api/admin/sponsorship-invoices'));
-  assert.ok(adminDocs.includes('POST /api/admin/sponsorship-invoices/backfill'));
   assert.ok(
-    adminDocs.includes('GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>')
+    adminDocs.includes('POST /api/admin/sponsorship-invoices/backfill')
+  );
+  assert.ok(
+    adminDocs.includes(
+      'GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>'
+    )
   );
   assert.ok(adminDocs.includes('POST /api/admin/sponsorship-invoices/resend'));
   assert.ok(
@@ -3014,7 +3013,9 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
       'GET /api/admin/sponsorship-credit-notes/pdf?creditNoteId=<uuid>'
     )
   );
-  assert.ok(adminDocs.includes('POST /api/admin/sponsorship-credit-notes/resend'));
+  assert.ok(
+    adminDocs.includes('POST /api/admin/sponsorship-credit-notes/resend')
+  );
   const migrationGuide = fs.readFileSync(
     'docs/operations/database-migrations.md',
     'utf8'

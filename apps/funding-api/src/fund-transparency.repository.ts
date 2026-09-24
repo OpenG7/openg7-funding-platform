@@ -244,21 +244,28 @@ export const insertFundTransaction = async (
   transaction: FundTransactionInsert
 ): Promise<boolean> => {
   if (!pool) return false;
-  if (!['payout.paid', 'payout.failed'].includes(transaction.type)) {
+  const isPayment = transaction.type === 'payment_intent.succeeded';
+  const isPayout = ['payout.paid', 'payout.failed'].includes(transaction.type);
+  if (!isPayment && !isPayout) {
     return writeFundTransaction(pool, transaction);
   }
-  if (transaction.type !== `payout.${transaction.status}`) {
-    throw new Error('Inconsistent payout status.');
+  const kind = isPayment ? 'payment' : 'payout';
+  if (
+    isPayment
+      ? transaction.status !== 'succeeded'
+      : transaction.type !== `payout.${transaction.status}`
+  ) {
+    throw new Error(`Inconsistent ${kind} status.`);
   }
 
-  // Different webhook IDs and backfills can describe the same bank transfer.
+  // Different webhook IDs and backfills can describe the same Stripe object.
   // Keep one immutable fact per outcome, on the event owner's connection.
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query(
-      "SELECT pg_advisory_xact_lock(hashtextextended('fund-payout:' || $1::text, 0))",
-      [transaction.stripeObjectId]
+      'SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))',
+      [`fund-${kind}:${transaction.stripeObjectId}`]
     );
     const existing = await client.query<{
       amount: string;
@@ -266,8 +273,13 @@ export const insertFundTransaction = async (
       type: string;
     }>(
       `SELECT amount::text, currency, type FROM fund_transactions
-       WHERE stripe_object_id = $1 AND type IN ('payout.paid', 'payout.failed')`,
-      [transaction.stripeObjectId]
+       WHERE stripe_object_id = $1 AND type = ANY($2::text[])`,
+      [
+        transaction.stripeObjectId,
+        isPayment
+          ? ['payment_intent.succeeded']
+          : ['payout.paid', 'payout.failed']
+      ]
     );
     if (
       existing.rows.some(
@@ -276,7 +288,7 @@ export const insertFundTransaction = async (
           row.currency.toLowerCase() !== transaction.currency.toLowerCase()
       )
     ) {
-      throw new Error('Inconsistent payout monetary facts.');
+      throw new Error(`Inconsistent ${kind} monetary facts.`);
     }
     const duplicate = existing.rows.some(
       (row) => row.type === transaction.type
@@ -500,7 +512,11 @@ const getPublicBuilders = async (
 // Project old duplicate facts once without deleting or rewriting the ledger.
 // A terminal failure cancels that payout even when its older success arrives last.
 const effectiveFundTransactionsSql = `
-  WITH successful_payouts AS (
+  WITH payments AS (
+    SELECT DISTINCT ON (stripe_object_id) * FROM fund_transactions
+    WHERE type = 'payment_intent.succeeded'
+    ORDER BY stripe_object_id, (stripe_balance_transaction_id IS NOT NULL) DESC, id
+  ), successful_payouts AS (
     SELECT DISTINCT ON (payout.stripe_object_id) payout.*
     FROM fund_transactions payout
     WHERE payout.type = 'payout.paid' AND payout.status = 'paid'
@@ -511,7 +527,9 @@ const effectiveFundTransactionsSql = `
       )
     ORDER BY payout.stripe_object_id, payout.id
   ), effective_transactions AS (
-    SELECT * FROM fund_transactions WHERE type NOT IN ('payout.paid', 'payout.failed')
+    SELECT * FROM fund_transactions WHERE type NOT IN ('payment_intent.succeeded', 'payout.paid', 'payout.failed')
+    UNION ALL
+    SELECT * FROM payments
     UNION ALL
     SELECT * FROM successful_payouts
   )
