@@ -78,3 +78,54 @@ test('webhook delivery remains disabled without explicit configuration and enfor
     })
   );
 });
+
+test('operations configuration rejects unsafe admin links and hides malformed URL credentials', () => {
+  const env = {
+    NODE_ENV: 'production',
+    FUNDING_OPERATIONS_WEBHOOK_URL: 'https://receiver.example.test/hook',
+    FUNDING_PUBLIC_BASE_URL: 'https://funding.example.test/path?ignored=true',
+    FUNDING_OPERATIONS_WEBHOOK_SECRET: 'synthetic-operations-secret-only-32'
+  };
+  assert.equal(
+    operationsAlertConfig(env).adminOrigin,
+    'https://funding.example.test'
+  );
+  for (const adminUrl of [
+    'javascript:alert(1)',
+    'ftp://example.test',
+    'http://example.test',
+    'https://user:private@example.test',
+    'https://[private-token'
+  ]) {
+    assert.throws(
+      () =>
+        operationsAlertConfig({ ...env, FUNDING_PUBLIC_BASE_URL: adminUrl }),
+      (error) => {
+        assert.doesNotMatch(String(error.stack), /private|javascript|ftp:/);
+        assert.equal(error.input, undefined);
+        return true;
+      }
+    );
+  }
+  assert.throws(
+    () =>
+      operationsAlertConfig({
+        ...env,
+        FUNDING_OPERATIONS_WEBHOOK_URL: 'https://[private-token'
+      }),
+    (error) => {
+      assert.doesNotMatch(String(error.stack), /private-token/);
+      assert.equal(error.input, undefined);
+      return true;
+    }
+  );
+  assert.equal(
+    operationsAlertConfig({
+      ...env,
+      NODE_ENV: 'test',
+      FUNDING_PUBLIC_BASE_URL: 'http://127.0.0.1:8080',
+      FUNDING_OPERATIONS_WEBHOOK_URL: 'http://[::1]:8081/hook'
+    }).adminOrigin,
+    'http://127.0.0.1:8080'
+  );
+});

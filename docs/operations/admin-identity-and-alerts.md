@@ -135,7 +135,11 @@ directement sans adaptateur compatible avec ce contrat.
 
 Configurer `FUNDING_OPERATIONS_WEBHOOK_URL`, un secret de signature d'au moins
 32 caractères et `FUNDING_PUBLIC_BASE_URL`, avec PostgreSQL et la migration
-`021`. Les secrets restent côté serveur.
+`021`. Les secrets restent côté serveur. Le webhook et l'origine publique doivent
+être des URL HTTPS sans identifiants intégrés; HTTP est admis uniquement sur
+`localhost`, `127.0.0.1` ou `[::1]`, hors production. Le lien administratif utilise
+l'origine publique, sans son chemin, sa requête ni son fragment. Une URL invalide
+arrête le processus sans reprendre sa valeur dans l'erreur.
 Le processus charge uniquement son environnement explicite :
 
 ```sh
@@ -160,6 +164,10 @@ depuis 15 minutes, et lecture PostgreSQL indisponible. Les factures manquantes,
 publications en retard et avertissements financiers restent dans la file admin.
 Le processus n'envoie pas de notification de rétablissement; il ferme l'épisode
 en base et permet une nouvelle alerte lors d'une récidive.
+La lecture des incidents et leur synchronisation sont sérialisées : un surveillant
+en attente du verrou relit les sources après l'avoir obtenu. Un incident résolu
+avant une reprise ne déclenche plus de livraison. Une requête déjà partie peut
+encore être reçue après le rétablissement; le dossier admin reflète l'état courant.
 
 Le JSON contient `eventId`, `type`, `severity`, `firstSeen`, `adminUrl`.
 Il ne contient aucun destinataire, nom, montant, texte de courriel, identifiant
@@ -173,7 +181,44 @@ empêche deux workers de prendre simultanément la même alerte. Un arrêt aprè
 réception mais avant acquittement DB peut provoquer une répétition du même ID.
 Les lignes `operations_alerts` exposent les tentatives et échéances pour le
 diagnostic; les logs de contrôle n'affichent aucun secret.
+`status: "checked"` signifie que le cycle DB a réussi, et `delivered` compte les
+acquittements de ce cycle. Un refus du récepteur reste en file même si `--once`
+se termine avec le code 0 : ce résultat ne prouve pas la réception de toutes les
+alertes. Vérifier aussi les alertes non résolues sans `delivered_at` et leur
+`next_attempt_at`. Un échec DB termine `--once` avec le code 1.
+
+Pendant une indisponibilité DB, l'identifiant de secours reste seulement en mémoire
+du processus. Ses reprises conservent cet ID, mais un redémarrage pendant la panne
+peut produire un nouvel ID; il ne bénéficie pas de la déduplication persistante
+des incidents enregistrés dans `operations_alerts`.
 
 Prévoir une surveillance externe du site et du processus : une panne du VPS
 ou du récepteur ne peut être annoncée par ce seul canal. Tester périodiquement
 la réception d'une alerte synthétique sur l'environnement de test.
+
+### Recette isolée des alertes
+
+```sh
+yarn build
+node --test tests/integration/operations-alerts.integration.mjs
+node scripts/admin-acceptance.mjs tests/playwright/operations-alerts-acceptance.spec.ts
+```
+
+Les tests PostgreSQL utilisent des bases neuves jetables : concurrence sur le
+verrou, bail actif puis expiré, échéance de reprise, plafond d'une heure, refus
+des redirections et résolution avant nouvelle tentative. Le vrai script `--once`
+est également exécuté avec une connexion refusée à sa DB de test; le récepteur
+local vérifie la signature de l'alerte d'indisponibilité et la sortie non nulle.
+
+La recette Chromium crée trois incidents synthétiques (courriel en échec, Stripe
+en échec et Stripe bloqué). Un récepteur lié à la boucle locale du conteneur API
+répond 503, accepte ensuite en perdant la réponse, puis acquitte les reprises.
+Chaque cycle redémarre le vrai script; deux processus se disputent aussi la file.
+Douze requêtes pour ces incidents produisent six notifications logiques : trois
+épisodes initiaux, puis trois récidives après résolution. Le récepteur de test
+conserve les IDs en mémoire; un adaptateur réel doit les stocker durablement.
+Le navigateur suit le lien sans session, se connecte, consulte l'événement Stripe
+puis le courriel en échec, en français sur ordinateur et en anglais à 390 px.
+Le rapport des alertes est conservé dans `test-results/acceptance/`, avec les
+traces navigateur en cas d'échec.
+Ce test qualifie le contrat et la reprise locale, sans envoi vers un canal externe.

@@ -3,7 +3,6 @@ import { setTimeout } from 'node:timers/promises';
 import pg from 'pg';
 import {
   operationsAlertConfig,
-  detectOperationsIncidents,
   syncOperationsIncidents,
   deliverOperationsAlerts,
   sendOperationsAlert
@@ -34,10 +33,7 @@ let unavailable = null;
 try {
   do {
     try {
-      await syncOperationsIncidents(
-        pool,
-        await detectOperationsIncidents(pool)
-      );
+      await syncOperationsIncidents(pool);
       const delivered = await deliverOperationsAlerts(pool, config);
       unavailable = null;
       console.info(
