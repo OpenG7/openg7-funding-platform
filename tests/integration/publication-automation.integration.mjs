@@ -131,6 +131,69 @@ test(
       };
     }
     await t.test(
+      'CAD tier boundaries and consent restrict preparation; explicit routing remains an admin override',
+      async () => {
+        await reset();
+        const cases = [
+          { amount: 10000, channels: [] },
+          { amount: 24999, channels: [] },
+          { amount: 25000, channels: ['facebook'] },
+          { amount: 49999, channels: ['facebook'] },
+          { amount: 50000, channels: ['facebook', 'linkedin'] },
+          { amount: 25000, consent: false, channels: [] },
+          { amount: 50000, currency: 'usd', channels: [] },
+          { amount: 10000, explicit: ['linkedin'], channels: ['linkedin'] }
+        ];
+        for (const review of ['pending_review', 'approved']) {
+          await reset();
+          const sponsors = [];
+          for (const example of cases) {
+            const id = randomUUID();
+            await pool.query(
+              `INSERT INTO fund_contributions(id,contribution_type,amount_cents,currency,status,public_display_consent,sponsor_review_status,sponsor_company_name,sponsor_feed_channels)
+               VALUES($1,'sponsorship_interest',$2,$3,'paid',$4,$5,'Tier boundary fixture',$6::jsonb)`,
+              [
+                id,
+                example.amount,
+                example.currency ?? 'cad',
+                example.consent ?? true,
+                review,
+                JSON.stringify(example.explicit ?? [])
+              ]
+            );
+            sponsors.push({ id, channels: example.channels });
+          }
+          for (const channel of ['facebook', 'linkedin']) {
+            await service.prepare(`openg7:${channel}`, 'tier-test');
+            // A repeat must not multiply the source drafts or grant approval.
+            await service.prepare(`openg7:${channel}`, 'tier-test');
+            const drafts = (
+              await pool.query(
+                'SELECT contribution_id,status FROM sponsor_publication_drafts WHERE channel=$1 ORDER BY contribution_id',
+                [channel]
+              )
+            ).rows;
+            assert.deepEqual(
+              drafts.map((d) => d.contribution_id),
+              sponsors
+                .filter((s) => s.channels.includes(channel))
+                .map((s) => s.id)
+                .sort()
+            );
+            assert(drafts.every((d) => d.status === 'draft'));
+          }
+          assert(
+            (await service.state()).deliveries.every(
+              (d) =>
+                d.status === 'draft' &&
+                d.approvedAt === null &&
+                d.attempts === 0
+            )
+          );
+        }
+      }
+    );
+    await t.test(
       'worker control persists across instances, requires confirmation and rejects stale decisions',
       async () => {
         await reset();

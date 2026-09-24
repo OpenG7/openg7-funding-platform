@@ -150,6 +150,26 @@ WebKit bureau a dépassé 30 secondes, puis le contrôle isolé a réussi en 7 s
 La recette est intégrée à la CI; API/Web doivent
 être mis à jour ensemble pour la confirmation serveur des changements d'accès.
 
+Quinzième priorité testée le 24 septembre 2026 : **commandites de 100 et 250 CAD →
+notifications → dossier et médias → revue → avantages du palier**, soit les
+scénarios 4 et 5. Quatre parcours couvrent les deux montants avec et sans
+consentement public. La commandite de 100 CAD consentie apparaît sur le site;
+celle de 250 CAD permet aussi un envoi Facebook simulé, explicitement autorisé
+et exécuté une seule fois par le worker après fermeture de la page admin.
+Les canaux exclus sont refusés côté API sans ajout explicite par l’admin.
+Sans consentement, même les dossiers et médias approuvés restent privés.
+Factures, notifications, totaux et livraisons restent uniques après rejeu.
+Voir la [recette et ses limites](../sponsorship-e2e-coverage.md#recette-navigateur--paliers-de-100-et-250-cad).
+
+Preuve sur `919f634` avec les changements locaux : **4 parcours Chromium réussis
+en 3,1 minutes**, sans échec, test ignoré ou instable. Les **30 tests PostgreSQL**
+du moteur passent, avec les seuils 249,99/250 et 499,99/500 CAD, les consentements,
+la devise et les canaux supplémentaires explicitement choisis par l’admin.
+Les **295 tests Node**, TypeScript, lint et builds API/Web passent également;
+les avertissements préexistants du lint et du budget Angular subsistent.
+Les règles applicatives sont conservées : ce lot ajoute des preuves de parcours,
+sans migration ni opération réelle. La pile jetable est supprimée après la recette.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |
