@@ -294,6 +294,34 @@ conservée après conflit. Les avertissements connus du lint et du budget initia
 Angular (819,69 ko pour 800 ko) subsistent. Pile jetable supprimée, aucune nouvelle
 migration ni opération de production; API/Web doivent être livrés ensemble.
 
+Vingt et unième priorité testée le 24 septembre 2026 : **incident courriel ou
+Stripe → alerte signée → récepteur indisponible → réponse perdue → reprise après
+redémarrage → dossier admin protégé → résolution et récidive**, soit le scénario 65.
+Trois incidents synthétiques traversent le vrai script de surveillance et un
+récepteur local. Les reprises conservent les mêmes IDs et le même contenu; une
+récidive après résolution ouvre un nouvel épisode. Douze requêtes produisent
+six notifications logiques, grâce à la déduplication du récepteur simulé.
+
+La synchronisation relit désormais les incidents après acquisition du verrou,
+pour empêcher un surveillant en attente de réutiliser un état périmé. Les URL
+du webhook et du lien admin sont validées sans exposer leur valeur en cas
+d'erreur. Les tests couvrent aussi les baux expirés, le délai maximal d'une heure,
+les redirections refusées, la résolution avant reprise et une connexion DB
+refusée, avec alerte signée et sortie non nulle du vrai script `--once`.
+Voir le [contrat et la recette](../operations/admin-identity-and-alerts.md#recette-isolée-des-alertes).
+
+Preuve sur `52a0b48` avec les changements locaux : **1 parcours Chromium réussi
+en 4,3 secondes**, sans échec, test ignoré ou instable, le 24 septembre 2026 à
+23:23 UTC. **297 tests Node et 4 tests PostgreSQL ciblés** passent, ainsi que
+TypeScript, lint, builds API/Web et pré-rendu des 24 routes statiques. Le parcours
+vérifie la connexion depuis le lien reçu, l'inspecteur Stripe sans payload privé,
+le dossier du courriel en échec et l'affichage FR/EN sur ordinateur et à 390 px.
+Les avertissements connus du lint et du budget initial Angular subsistent.
+Pile jetable supprimée; aucune nouvelle migration ni opération de production.
+La recette qualifie un récepteur simulé : l'adaptateur externe doit assurer la
+persistance des IDs. Pendant une panne DB, l'ID de secours reste seulement en
+mémoire du surveillant et peut changer après son redémarrage.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

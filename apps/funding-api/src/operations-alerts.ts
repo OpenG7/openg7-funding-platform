@@ -1,6 +1,6 @@
 import { createHmac, randomUUID } from 'node:crypto';
 
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 export interface OperationsIncident {
   key: string;
@@ -15,21 +15,32 @@ export const operationsAlertConfig = (
   env: NodeJS.ProcessEnv
 ): OperationsAlertConfig | null => {
   if (!env.FUNDING_OPERATIONS_WEBHOOK_URL) return null;
-  const webhook = new URL(env.FUNDING_OPERATIONS_WEBHOOK_URL);
-  const origin = new URL(env.FUNDING_PUBLIC_BASE_URL ?? '');
-  const local =
-    env.NODE_ENV !== 'production' &&
-    webhook.protocol === 'http:' &&
-    ['127.0.0.1', 'localhost', '[::1]'].includes(webhook.hostname);
+  let webhook: URL;
+  let origin: URL;
+  try {
+    webhook = new URL(env.FUNDING_OPERATIONS_WEBHOOK_URL);
+    origin = new URL(env.FUNDING_PUBLIC_BASE_URL ?? '');
+  } catch {
+    // URL errors carry their input, which can contain webhook credentials.
+    throw new Error(
+      'Operations webhook and public base URL must be valid URLs.'
+    );
+  }
+  const secureUrl = (url: URL): boolean =>
+    !url.username &&
+    !url.password &&
+    (url.protocol === 'https:' ||
+      (env.NODE_ENV !== 'production' &&
+        url.protocol === 'http:' &&
+        ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)));
   if (
-    (webhook.protocol !== 'https:' && !local) ||
-    webhook.username ||
-    webhook.password ||
+    !secureUrl(webhook) ||
+    !secureUrl(origin) ||
     !env.FUNDING_OPERATIONS_WEBHOOK_SECRET ||
     env.FUNDING_OPERATIONS_WEBHOOK_SECRET.length < 32
   )
     throw new Error(
-      'Operations webhook requires HTTPS and a signing secret of at least 32 characters.'
+      'Operations webhook and public base URL require HTTPS without credentials, and a signing secret of at least 32 characters.'
     );
   return {
     webhook: webhook.href,
@@ -38,7 +49,7 @@ export const operationsAlertConfig = (
   };
 };
 export const detectOperationsIncidents = async (
-  pool: Pool
+  pool: Pool | PoolClient
 ): Promise<OperationsIncident[]> => {
   const result = await pool.query(`SELECT 'stripe:' || stripe_event_id AS key,
     CASE WHEN processing_status='failed' THEN 'stripe_event_failed' ELSE 'stripe_event_stalled' END AS type
@@ -47,14 +58,14 @@ export const detectOperationsIncidents = async (
     UNION ALL SELECT 'email:' || id::text AS key,'email_delivery_failed' AS type FROM email_messages WHERE status='failed'`);
   return result.rows;
 };
-export const syncOperationsIncidents = async (
-  pool: Pool,
-  incidents: readonly OperationsIncident[]
-): Promise<void> => {
+export const syncOperationsIncidents = async (pool: Pool): Promise<void> => {
   const db = await pool.connect();
   try {
     await db.query('BEGIN');
     await db.query('LOCK TABLE operations_alerts IN SHARE ROW EXCLUSIVE MODE');
+    // Read after acquiring the synchronization lock: a waiting watcher must
+    // not reopen an episode from a snapshot taken before another watcher ran.
+    const incidents = await detectOperationsIncidents(db);
     await db.query(
       'UPDATE operations_alerts SET resolved_at=now() WHERE resolved_at IS NULL AND NOT (incident_key=ANY($1::text[]))',
       [incidents.map((i) => i.key)]
