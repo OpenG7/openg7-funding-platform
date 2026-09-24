@@ -55,6 +55,65 @@ Les écritures de brouillon sont sérialisées dans le navigateur et verrouillé
 - La mise en file n'est pas une preuve de livraison. Un échec reste consultable et relançable dans la file administrative.
 - Les jetons expirés et les brouillons ne sont pas purgés automatiquement par ce lot. Leur conservation suit celle du dossier et des sauvegardes ; toute politique de purge devra préserver les révisions nécessaires aux liens encore valides.
 
+## Recette de demande d’informations et de revue
+
+La recette `tests/playwright/sponsorship-information-acceptance.spec.ts` traite
+les scénarios 17, 23 et 24 de l’[inventaire](development/end-to-end-scenarios-inventory.md).
+Une entreprise paie 250 CAD dans le Checkout simulé, puis laisse son dossier
+incomplet. Le navigateur, l’API, PostgreSQL, les médias et la file de courriels
+sont réels; Stripe et SMTP/Mailpit sont simulés, sans interception des requêtes
+applicatives ni préchargement du paiement.
+
+```sh
+yarn test:e2e:acceptance sponsorship-information-acceptance.spec.ts --project=chromium
+```
+
+1. L’admin corrige l’identité et le contact depuis le dossier. Annuler ne change
+   rien; confirmer conserve un motif et un audit minimal. Répéter la correction
+   reste sans effet supplémentaire; changer son contenu avec le même identifiant
+   est refusé. La facture, son PDF, le paiement et les totaux restent identiques.
+2. Un aperçu de demande d’informations est préparé. Un autre onglet corrige
+   l’adresse; l’ancien aperçu reçoit un conflit et aucun courriel ne part à cette
+   adresse. La nouvelle préparation affiche le contact courant.
+3. Après examen du message et confirmation explicite, un seul courriel est
+   capturé, y compris après rejeux concurrents. Le lien « Suivre le courriel »
+   ouvre sa ligne dans la file. L’audit ne contient ni adresse ni texte privé.
+4. L’entreprise reprend le lien du courriel initial reçu à l’adresse du paiement,
+   retrouve la fiche corrigée, ajoute sa photo et soumet le dossier. Le jeton
+   disparaît de l’URL. La demande d’informations ne crée aucun nouveau lien privé;
+   le contact corrigé et l’adresse d’accès au paiement restent distincts.
+5. Le rappel exclut le dossier incomplet puis le dossier trop récent. Une fois
+   complet et suffisamment ancien, il apparaît dans un rappel capturé une seule
+   fois par jour UTC. Le lien absolu du rappel exige une session admin et permet
+   de reprendre la revue des médias et du dossier.
+6. Le dossier approuvé disparaît des rappels suivants. La revue et les rappels
+   n’autorisent aucune publication sociale; le rejeu du paiement conserve les
+   faits financiers et la demande déjà envoyée.
+
+Le helper `tests/playwright/support/acceptance-review-reminder.ts` invoque le
+service de rappel compilé dans le seul conteneur API jetable. Il lui fournit une
+horloge avancée, un délai minimal d’un jour et une liste bornée à 100 éléments
+pour inclure le dossier de recette parmi les fixtures. Il ne change aucune date
+en base, aucune configuration persistante et ne remplace pas l’horloge globale.
+La file et l’adaptateur SMTP existants livrent les messages au récepteur local.
+La cadence horaire du processus API et un délai réel de 24 heures ne sont donc
+pas qualifiés par cette recette.
+
+Captures et preuves JSON sont conservées sous `test-results/acceptance/`; le
+runner ignore `.env` et supprime sa pile jetable. La couverture navigateur porte
+sur Chromium en français, avec le suivi à 390 px et l’administration sur bureau.
+Les tests PostgreSQL existants complètent les contrôles de concurrence et de
+rollback des corrections et demandes d’informations. La CI d’acceptation découvre
+la recette automatiquement. Aucun fournisseur réel, déploiement, changement de
+secret ou migration n’est nécessaire. Le lien du rappel est décrit dans le
+[guide SMTP](email-smtp.md#admin-reminders).
+
+Preuve du 24 septembre 2026 à 20:39 UTC, sur `1462452` avec les changements
+locaux : **1 parcours Chromium réussi en 19,2 secondes**, sans échec, test ignoré
+ou instable. Les **296 tests Node et 2 intégrations PostgreSQL** ciblées passent,
+ainsi que TypeScript, lint et builds API/Web. Les avertissements préexistants du
+lint et du budget Angular restent présents. La pile jetable a été supprimée.
+
 ## Migration et exploitation
 
 Changement de risque modéré, migration additive `019_create_sponsorship_access_and_drafts.sql`. Elle crée `sponsorship_access_tokens` et `sponsorship_followup_drafts`, sans réécrire les contributions existantes. Les dossiers sans brouillon commencent à la révision zéro.

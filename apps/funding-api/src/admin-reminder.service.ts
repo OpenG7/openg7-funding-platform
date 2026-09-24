@@ -22,6 +22,23 @@ const DEFAULT_REVIEW_REMINDER_POLL_INTERVAL_MS = 60 * 60 * 1000;
 const DEFAULT_REVIEW_REMINDER_MAX_ITEMS = 5;
 const DEFAULT_REVIEW_REMINDER_ADMIN_URL = '/admin/fundraiser/sponsors';
 
+export const buildSponsorshipReviewReminderAdminUrl = (
+  publicBaseUrl: string | null | undefined
+): string => {
+  try {
+    const url = new URL(DEFAULT_REVIEW_REMINDER_ADMIN_URL, publicBaseUrl ?? '');
+    if (
+      ['https:', 'http:'].includes(url.protocol) &&
+      !url.username &&
+      !url.password
+    )
+      return url.href;
+  } catch {
+    // An unconfigured local instance still has a useful navigation path.
+  }
+  return DEFAULT_REVIEW_REMINDER_ADMIN_URL;
+};
+
 export interface AdminSponsorshipReviewReminderConfig {
   readonly enabled: boolean;
   readonly minAgeDays: number;

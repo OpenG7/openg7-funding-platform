@@ -102,6 +102,18 @@ public references, amounts, submission dates and wait age; it does not expose
 sponsor contact emails or private notes. The message is informational and never
 approves, refuses, refunds or publishes anything.
 
+The HTML reminder includes **Reprendre la revue des commandites**, linking to
+the protected sponsorship list on the API's configured public origin
+(`FUNDING_PUBLIC_BASE_URL`, otherwise the first allowed origin or `APP_DOMAIN`).
+The text version contains the same absolute URL. Without a usable HTTP(S) origin,
+the local navigation path remains plain text. Credentials, query strings and
+fragments from the configured base are never copied into the link. Following it
+still requires an administrator session; the email grants no access or approval.
+Already queued reminders keep their original content.
+
+The [information and review recipe](sponsorship-access-and-drafts.md#recette-de-demande-dinformations-et-de-revue)
+checks the captured email, daily deduplication and return to the admin dossier.
+
 ## Verify The Connection
 
 This command verifies only the SMTP connection. It does not send a message.

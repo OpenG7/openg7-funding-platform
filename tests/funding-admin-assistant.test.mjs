@@ -19,6 +19,7 @@ import { loadAdminAssistantConfig } from '../dist/apps/funding-api/src/admin-ass
 import { runAdminAssistantQuery } from '../dist/apps/funding-api/src/admin-assistant/orchestrator.js';
 import { prepareDraftFromDataset } from '../dist/apps/funding-api/src/admin-assistant/preparation.service.js';
 import {
+  buildSponsorshipReviewReminderAdminUrl,
   buildSponsorshipReviewReminderCandidate,
   createSponsorshipReviewReminderIdempotencyKey,
   loadAdminSponsorshipReviewReminderConfig
@@ -181,6 +182,31 @@ test('admin sponsorship review reminder config is explicit and idempotent daily'
     createSponsorshipReviewReminderIdempotencyKey(NOW),
     'admin-reminder:sponsorship-review:2026-07-24'
   );
+});
+
+test('review reminder links use the configured origin without credentials or inherited query strings', () => {
+  assert.equal(
+    buildSponsorshipReviewReminderAdminUrl(
+      'https://funding.example.test/path?token=synthetic#section'
+    ),
+    'https://funding.example.test/admin/fundraiser/sponsors'
+  );
+  assert.equal(
+    buildSponsorshipReviewReminderAdminUrl('http://127.0.0.1:8080'),
+    'http://127.0.0.1:8080/admin/fundraiser/sponsors'
+  );
+  for (const base of [
+    null,
+    undefined,
+    '',
+    '/relative',
+    'javascript:alert(1)',
+    'https://user:password@example.test'
+  ])
+    assert.equal(
+      buildSponsorshipReviewReminderAdminUrl(base),
+      '/admin/fundraiser/sponsors'
+    );
 });
 
 test('detects a publication that must be prepared (Facebook >= 250)', () => {

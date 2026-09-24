@@ -170,6 +170,25 @@ les avertissements préexistants du lint et du budget Angular subsistent.
 Les règles applicatives sont conservées : ce lot ajoute des preuves de parcours,
 sans migration ni opération réelle. La pile jetable est supprimée après la recette.
 
+Seizième priorité testée le 24 septembre 2026 : **dossier incomplet → contact
+corrigé → demande d’informations → soumission → rappel de revue → approbation**,
+soit les scénarios 17, 23 et 24. Un aperçu devenu obsolète après correction du
+contact est refusé; le message confirmé arrive une seule fois à l’adresse courante.
+L’entreprise reprend son lien initial et soumet sa fiche et sa photo. Le rappel
+exclut les dossiers incomplets, récents ou déjà approuvés et ne se répète pas le
+même jour UTC. Son courriel contient désormais un lien absolu vers la liste
+administrative protégée. Paiement, facture, PDF et totaux restent identiques.
+Voir la [recette et ses limites](../sponsorship-access-and-drafts.md#recette-de-demande-dinformations-et-de-revue).
+
+Preuve sur `1462452` avec les changements locaux : **1 parcours Chromium réussi
+en 19,2 secondes**, sans échec, test ignoré ou instable, le 24 septembre 2026 à
+20:39 UTC. **296 tests Node et 2 tests PostgreSQL** ciblés passent, ainsi que
+TypeScript, lint et builds API/Web. Les avertissements préexistants du lint et
+du budget initial Angular (818,98 ko pour 800 ko) subsistent. Le rappel utilise
+une horloge injectée dans son service compilé; la cadence horaire réelle n’est
+pas qualifiée. Fournisseurs simulés et pile jetable supprimée; aucune migration
+ni opération de production.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |
