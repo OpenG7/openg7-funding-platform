@@ -45,6 +45,14 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
+import {
+  allocationAmountMinor,
+  allocationRequiresConfirmation,
+  isPublicAllocationStatus,
+  isPublicAllocationProofUrl,
+  PUBLIC_ALLOCATION_CREATE_CONFIRMATION
+} from '../../../packages/funding-core/src/index.js';
+
 export const allowedPublicationDraftStatuses = new Set<PublicationDraftStatus>([
   'draft',
   'pending_review',
@@ -229,7 +237,46 @@ export interface AdminAuditLogInput {
 const centsToAmount = (value: number): number =>
   Number((value / 100).toFixed(2));
 
-const amountToCents = (value: number): number => Math.round(value * 100);
+export class AdminExpenseValidationError extends Error {
+  constructor(
+    readonly code: string,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
+const validateExpenseFields = (
+  input: AdminExpenseCreateRequest | AdminExpenseUpdateRequest
+): void => {
+  if (
+    input.amountAllocated !== undefined &&
+    allocationAmountMinor(input.amountAllocated) === null
+  ) {
+    throw new AdminExpenseValidationError(
+      'invalid_amount',
+      'Allocation amount must contain exact positive minor units.'
+    );
+  }
+  if (!isPublicAllocationProofUrl(input.proofUrl)) {
+    throw new AdminExpenseValidationError(
+      'invalid_proof',
+      'Allocation proof must be an HTTPS URL without credentials.'
+    );
+  }
+};
+
+const requireExpenseConfirmation = (
+  actual: string | undefined,
+  expected: string
+): void => {
+  if (actual !== expected) {
+    throw new AdminExpenseValidationError(
+      'confirmation_required',
+      'Confirm the allocation content and visibility before proceeding.'
+    );
+  }
+};
 
 const parseDbInt = (value: string): number => Number.parseInt(value, 10);
 
@@ -2451,6 +2498,13 @@ export const createAdminExpense = async (
   input: AdminExpenseCreateRequest,
   audit: AdminExpenseAuditInput
 ): Promise<AdminExpenseMutationResult> => {
+  validateExpenseFields(input);
+  if (isPublicAllocationStatus(input.status)) {
+    requireExpenseConfirmation(
+      input.confirmation,
+      PUBLIC_ALLOCATION_CREATE_CONFIRMATION
+    );
+  }
   if (!pool) {
     return { updated: false, expense: null };
   }
@@ -2491,7 +2545,7 @@ export const createAdminExpense = async (
       input.proofUrl?.trim() || null,
       input.proofSource?.trim() || null,
       input.proofPublishedAt ?? null,
-      amountToCents(input.amountAllocated),
+      allocationAmountMinor(input.amountAllocated),
       input.currency.toLowerCase(),
       input.status,
       input.publishedAt ??
@@ -2542,6 +2596,7 @@ export const updateAdminExpense = async (
   input: AdminExpenseUpdateRequest,
   audit: AdminExpenseAuditInput
 ): Promise<AdminExpenseMutationResult> => {
+  validateExpenseFields(input);
   if (!pool) {
     return { updated: false, expense: null };
   }
@@ -2591,7 +2646,10 @@ export const updateAdminExpense = async (
   }
 
   if (input.amountAllocated !== undefined) {
-    addAssignment('amount_allocated = ?', amountToCents(input.amountAllocated));
+    addAssignment(
+      'amount_allocated = ?',
+      allocationAmountMinor(input.amountAllocated)
+    );
   }
 
   if (input.currency !== undefined) {
@@ -2600,19 +2658,9 @@ export const updateAdminExpense = async (
 
   if (input.status !== undefined) {
     addAssignment('status = ?', input.status);
-    if (
-      input.publishedAt === undefined &&
-      (input.status === 'published' || input.status === 'active')
-    ) {
-      assignments.push('published_at = COALESCE(published_at, NOW())');
-    }
   }
 
-  if (input.publishedAt !== undefined) {
-    addAssignment('published_at = ?::timestamptz', input.publishedAt);
-  }
-
-  if (assignments.length === 0) {
+  if (assignments.length === 0 && input.publishedAt === undefined) {
     return {
       updated: false,
       expense: await getAdminExpenseById(pool, input.expenseId)
@@ -2622,6 +2670,25 @@ export const updateAdminExpense = async (
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const current = await client.query<{ status: AdminExpenseStatus }>(
+      'SELECT status FROM fund_allocations WHERE id=$1::bigint AND updated_at=$2::timestamptz FOR UPDATE',
+      [input.expenseId, input.expectedVersion]
+    );
+    const status = current.rows[0]?.status;
+    if (!status) {
+      await client.query('ROLLBACK');
+      return { updated: false, expense: null };
+    }
+    if (allocationRequiresConfirmation(status, input.status)) {
+      requireExpenseConfirmation(input.confirmation, input.expenseId);
+    }
+    if (isPublicAllocationStatus(input.status ?? status)) {
+      if (input.publishedAt)
+        addAssignment('published_at = ?::timestamptz', input.publishedAt);
+      else assignments.push('published_at = COALESCE(published_at, NOW())');
+    } else if (input.publishedAt !== undefined) {
+      addAssignment('published_at = ?::timestamptz', input.publishedAt);
+    }
     values.push(input.expectedVersion);
     assignments.push('updated_at = NOW()');
     const result = await client.query(

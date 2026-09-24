@@ -13,7 +13,6 @@ import {
 } from 'node:crypto';
 
 import type { PublicationAutomationCommand } from '@openg7/funding-core';
-import { SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION } from '../../../packages/funding-core/src/index.js';
 import Stripe from 'stripe';
 import type {
   AdminAssistantDraftType,
@@ -88,6 +87,12 @@ import type {
 } from '@openg7/funding-core';
 
 import {
+  allocationAmountMinor,
+  isPublicAllocationProofUrl,
+  SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION
+} from '../../../packages/funding-core/src/index.js';
+
+import {
   ContributionActivityService,
   contributionNotificationConfig
 } from './contribution-activity.service.js';
@@ -113,6 +118,7 @@ import {
   cancelAdminPublicationBatch,
   cancelAdminPublicationSlot,
   createAdminExpense,
+  AdminExpenseValidationError,
   createAdminPublicationBatch,
   createAdminPublicationDraft,
   createAdminPublicationSlot,
@@ -5991,6 +5997,9 @@ createServer(async (request, response) => {
     try {
       const body = await readBody(request);
       parsed = JSON.parse(body) as AdminExpenseCreateRequest;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Invalid allocation payload.');
+      }
     } catch {
       writeJson(request, response, 400, {
         error: 'Invalid expense request body.'
@@ -6035,8 +6044,9 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (!isValidOptionalHttpsUrl(parsed.proofUrl)) {
+    if (!isPublicAllocationProofUrl(parsed.proofUrl)) {
       writeJson(request, response, 400, {
+        code: 'invalid_proof',
         error: 'Expense proof URL is invalid.'
       });
       return;
@@ -6056,12 +6066,10 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (
-      !Number.isFinite(parsed.amountAllocated) ||
-      parsed.amountAllocated <= 0
-    ) {
+    if (allocationAmountMinor(parsed.amountAllocated) === null) {
       writeJson(request, response, 400, {
-        error: 'Expense amount must be positive.'
+        code: 'invalid_amount',
+        error: 'Allocation amount must contain exact positive minor units.'
       });
       return;
     }
@@ -6101,6 +6109,13 @@ createServer(async (request, response) => {
 
       writeJson(request, response, 200, result);
     } catch (error) {
+      if (error instanceof AdminExpenseValidationError) {
+        writeJson(request, response, 400, {
+          code: error.code,
+          error: error.message
+        });
+        return;
+      }
       console.error('Failed to create admin expense.', error);
       writeJson(request, response, 502, {
         error: 'Admin expense could not be created.'
@@ -6125,6 +6140,9 @@ createServer(async (request, response) => {
     try {
       const body = await readBody(request);
       parsed = JSON.parse(body) as AdminExpenseUpdateRequest;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Invalid allocation payload.');
+      }
     } catch {
       writeJson(request, response, 400, {
         error: 'Invalid expense update request body.'
@@ -6192,8 +6210,9 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (!isValidOptionalHttpsUrl(parsed.proofUrl)) {
+    if (!isPublicAllocationProofUrl(parsed.proofUrl)) {
       writeJson(request, response, 400, {
+        code: 'invalid_proof',
         error: 'Expense proof URL is invalid.'
       });
       return;
@@ -6215,10 +6234,11 @@ createServer(async (request, response) => {
 
     if (
       parsed.amountAllocated !== undefined &&
-      (!Number.isFinite(parsed.amountAllocated) || parsed.amountAllocated <= 0)
+      allocationAmountMinor(parsed.amountAllocated) === null
     ) {
       writeJson(request, response, 400, {
-        error: 'Expense amount must be positive.'
+        code: 'invalid_amount',
+        error: 'Allocation amount must contain exact positive minor units.'
       });
       return;
     }
@@ -6267,14 +6287,23 @@ createServer(async (request, response) => {
         action
       });
       if (!result.updated || !result.expense) {
-        writeJson(request, response, 404, {
-          error: 'Expense was not found.'
+        writeJson(request, response, 409, {
+          code: 'version_conflict',
+          error:
+            'Allocation changed or is no longer available. Refresh before trying again.'
         });
         return;
       }
 
       writeJson(request, response, 200, result);
     } catch (error) {
+      if (error instanceof AdminExpenseValidationError) {
+        writeJson(request, response, 400, {
+          code: error.code,
+          error: error.message
+        });
+        return;
+      }
       console.error('Failed to update admin expense.', error);
       writeJson(request, response, 502, {
         error: 'Admin expense could not be updated.'

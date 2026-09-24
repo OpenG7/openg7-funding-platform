@@ -9,6 +9,8 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
+import { isPublicAllocationProofUrl } from '../../../packages/funding-core/src/index.js';
+
 import { resolveRefundedAmountMinor } from './fund-refunds.js';
 import type { PublicDirectoryPagination } from './public-directory-pagination.js';
 
@@ -398,7 +400,7 @@ const getLatestPublicAllocations = async (
     public_description: row.public_description,
     expected_outcome: row.expected_outcome,
     progress_status: row.progress_status,
-    proof_url: row.proof_url,
+    proof_url: isPublicAllocationProofUrl(row.proof_url) ? row.proof_url : null,
     proof_source: row.proof_source,
     proof_published_at: row.proof_published_at,
     amount_allocated: centsToAmount(parseDbInt(row.amount_allocated)),

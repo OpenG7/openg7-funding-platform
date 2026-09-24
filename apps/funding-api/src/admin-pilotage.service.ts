@@ -911,6 +911,7 @@ export class AdminPilotageService {
       {
         expenseId: c.targetId,
         expectedVersion: c.version,
+        confirmation: c.confirmation,
         status: c.action === 'project.publish' ? 'published' : 'private'
       },
       {

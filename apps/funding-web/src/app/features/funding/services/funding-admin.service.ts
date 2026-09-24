@@ -984,6 +984,7 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
+      if (response.status === 409) throw new Error('version_conflict');
       throw new Error('Admin expense could not be updated.');
     }
 

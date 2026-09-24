@@ -1,5 +1,8 @@
 {
   "admin": {
+    "expenses": {
+      "conflict": "Cette allocation a changé. Votre saisie est conservée. Copiez les modifications utiles, puis actualisez la liste pour examiner la version courante avant de réessayer."
+    },
     "contributionActivity": {
       "title": "Contributions reçues",
       "paymentConfirmed": "Paiement confirmé",
