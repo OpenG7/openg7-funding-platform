@@ -5,6 +5,7 @@
   },
   "include": [
     "playwright/admin-inspection.spec.ts",
+    "playwright/admin-email-recovery-ui.spec.ts",
     "../apps/**/*.ts",
     "../packages/**/*.ts",
     "playwright/admin-dashboard-layout.spec.ts",

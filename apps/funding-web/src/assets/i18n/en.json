@@ -1277,6 +1277,7 @@
       "echec": "Failed",
       "envoye": "Sent",
       "aucune_tentative_effectuee": "No delivery attempted.",
+      "courriel_deja_en_cours": "Delivery is already in progress. Refresh the queue to see its result.",
       "relance_tentee_le_message_reste_en_echec": "Delivery was retried, but the message is still failing.",
       "message_envoye": "Message sent.",
       "impossible_de_charger_la_file_courriel": "Unable to load the email queue.",

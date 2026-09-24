@@ -1693,6 +1693,13 @@ export const processQueuedEmailMessages = async (
     limit: options.limit ?? 10,
     messageIds: options.messageIds
   });
+  return deliverClaimedEmailMessages(pool, rows);
+};
+
+const deliverClaimedEmailMessages = async (
+  pool: Pool,
+  rows: readonly ClaimedEmailRow[]
+): Promise<EmailQueueProcessResult> => {
   const sentMessageIds: string[] = [];
   const failedMessageIds: string[] = [];
 
@@ -1739,27 +1746,31 @@ export const retryAdminEmailQueueMessage = async (
     };
   }
 
-  await pool.query(
+  // Claim in one statement, just like the worker. Never reset an active send:
+  // another administrator (or the worker) may already own its SMTP request.
+  const claimed = await pool.query<ClaimedEmailRow>(
     `
       UPDATE email_messages
       SET
-        status = 'queued',
+        status = 'sending',
         attempts = CASE
-          WHEN attempts >= max_attempts THEN GREATEST(max_attempts - 1, 0)
-          ELSE attempts
+          WHEN attempts >= max_attempts THEN max_attempts
+          ELSE attempts + 1
         END,
         next_attempt_at = NOW(),
         updated_at = NOW()
       WHERE id = $1::uuid
-        AND status IN ('queued', 'sending', 'failed')
+        AND (
+          status IN ('queued', 'failed')
+          OR (status = 'sending' AND updated_at <= NOW() - INTERVAL '15 minutes')
+        )
+      RETURNING id, recipient_email, from_email, reply_to_email,
+        subject, text_body, html_body, attempts, max_attempts
     `,
     [messageId]
   );
 
-  return processQueuedEmailMessages(pool, {
-    limit: 1,
-    messageIds: [messageId]
-  });
+  return deliverClaimedEmailMessages(pool, claimed.rows);
 };
 
 const queueAndProcessEmail = async (
@@ -1945,11 +1956,15 @@ export const queueSponsorshipInvoiceEmail = async (
   input: SponsorshipInvoiceEmailInput
 ): Promise<EmailQueueResult> => {
   const rendered = renderSponsorshipInvoiceEmail(input);
-  return queueAndProcessEmail(pool, {
-    ...rendered,
-    to: input.to,
-    idempotencyKey: input.idempotencyKey
-  }, input.deferDelivery);
+  return queueAndProcessEmail(
+    pool,
+    {
+      ...rendered,
+      to: input.to,
+      idempotencyKey: input.idempotencyKey
+    },
+    input.deferDelivery
+  );
 };
 
 export const queueSponsorshipCreditNoteEmail = async (

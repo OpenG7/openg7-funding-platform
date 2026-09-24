@@ -17,10 +17,13 @@
 import { createServer } from 'node:http';
 import { randomBytes, createHmac } from 'node:crypto';
 import { socialSimulator } from './social.mjs';
+import { createSmtpGate } from './smtp-gate.mjs';
 
 const port = Number(process.env.PORT ?? 4242);
 const smsReceipts = new Map();
 const social = socialSimulator();
+const smtpGate = process.env.STUB_MAILPIT_URL ? createSmtpGate() : null;
+smtpGate?.server.listen(1025, '0.0.0.0');
 
 const state = {
   paymentIntents: new Map(),
@@ -657,7 +660,7 @@ const handleCheckoutPage = async (request, response, id) => {
   if (request.method === 'GET') {
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     response.end(
-      `<!doctype html><html lang="fr"><meta name="viewport" content="width=device-width"><title>Checkout simulé</title><body><main><h1>Checkout simulé</h1><p>Aucun paiement réel. Contribution : ${(record.amountTotal / 100).toFixed(2)} CAD.</p><form method="post"><button type="submit">Confirmer le paiement simulé</button></form></main></body></html>`
+      `<!doctype html><html lang="fr"><meta name="viewport" content="width=device-width"><title>Checkout simulé</title><body><main><h1>Checkout simulé</h1><p>Aucun paiement réel. Contribution : ${(record.amountTotal / 100).toFixed(2)} CAD.</p><form method="post"><label>Courriel simulé <input type="email" name="email" required value="${record.customerEmail}"></label><button type="submit">Confirmer le paiement simulé</button></form></main></body></html>`
     );
     return;
   }
@@ -665,6 +668,28 @@ const handleCheckoutPage = async (request, response, id) => {
     sendStripeError(response, 405, 'Method not allowed.');
     return;
   }
+  const checkoutForm = parseFormBody(await readBody(request));
+  const email = checkoutForm.email ?? record.customerEmail;
+  if (
+    email.length > 254 ||
+    !/^[A-Za-z0-9._+-]+@simulation\.example\.test$/.test(email)
+  ) {
+    sendStripeError(
+      response,
+      400,
+      'Use a synthetic simulation.example.test email.'
+    );
+    return;
+  }
+  if (record.paymentStatus === 'paid' && email !== record.customerEmail) {
+    sendStripeError(
+      response,
+      409,
+      'A confirmed payment keeps its original email.'
+    );
+    return;
+  }
+  record.customerEmail = email;
   record.paymentStatus = 'paid';
   const intent = state.paymentIntents.get(record.paymentIntentId);
   intent.status = 'succeeded';
@@ -809,6 +834,35 @@ const server = createServer(async (request, response) => {
         decodeURIComponent(pathname.slice('/__test__/sms/'.length))
       );
       sendJson(response, receipt ? 200 : 404, receipt ?? {});
+      return;
+    }
+    if (pathname === '/__test__/smtp' && smtpGate) {
+      if (request.method === 'POST') {
+        const { mode } = JSON.parse(await readBody(request));
+        if (!['allow', 'hold', 'reject'].includes(mode)) {
+          sendJson(response, 400, {});
+          return;
+        }
+        smtpGate.setMode(mode);
+      } else if (request.method !== 'GET') {
+        sendJson(response, 405, {});
+        return;
+      }
+      sendJson(response, 200, smtpGate.snapshot());
+      return;
+    }
+    if (
+      /^\/__test__\/mail\/[A-Za-z0-9-]+$/.test(pathname) &&
+      request.method === 'GET' &&
+      process.env.STUB_MAILPIT_URL
+    ) {
+      const mail = await fetch(
+        process.env.STUB_MAILPIT_URL +
+          '/api/v1/message/' +
+          pathname.split('/').at(-1),
+        { signal: AbortSignal.timeout(3000) }
+      );
+      sendJson(response, mail.status, await mail.json());
       return;
     }
     if (

@@ -71,7 +71,7 @@ services:
       STRIPE_API_PROTOCOL: http
       STRIPE_SIMULATED_CHECKOUT_ENABLED: 'true'
       SMTP_ENABLED: 'true'
-      SMTP_HOST: mailpit
+      SMTP_HOST: stripe-stub
       SMTP_PORT: '1025'
       SMTP_SECURE: 'false'
       SMTP_USER: sender@simulation.example.test
