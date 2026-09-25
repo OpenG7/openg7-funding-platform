@@ -18,7 +18,6 @@ import type {
   AdminAssistantDraftType,
   AdminAssistantPrepareRequest,
   AdminAssistantQueryRequest,
-  AdminContributionRecord,
   AdminEmailQueueRetryRequest,
   AdminEmailQueueRetryResult,
   AdminEmailTestRequest,
@@ -92,6 +91,10 @@ import {
   SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION
 } from '../../../packages/funding-core/src/index.js';
 
+import {
+  ContributionExportError,
+  exportAdminContributions
+} from './admin-contributions-export.service.js';
 import {
   ContributionActivityService,
   contributionNotificationConfig
@@ -2378,67 +2381,6 @@ const resolveStripePaymentIntentId = (
   }
 
   return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent.id;
-};
-
-const csvCell = (value: string | number | boolean | null): string => {
-  const text = value === null ? '' : String(value);
-  return `"${text.replace(/"/g, '""')}"`;
-};
-
-const buildAdminContributionsCsv = (
-  contributions: readonly AdminContributionRecord[]
-): string => {
-  const header = [
-    'id',
-    'public_reference',
-    'contribution_type',
-    'payment_status',
-    'amount',
-    'currency',
-    'paid_at',
-    'public_name',
-    'email_private',
-    'public_display_consent',
-    'display_amount_consent',
-    'sponsor_company_name',
-    'sponsor_contact_name',
-    'sponsor_contact_email',
-    'sponsor_review_status',
-    'sponsor_feed_status',
-    'stripe_session_id',
-    'stripe_payment_intent_id',
-    'created_at',
-    'updated_at'
-  ];
-
-  const rows = contributions.map((contribution) =>
-    [
-      contribution.id,
-      contribution.public_reference,
-      contribution.contribution_type,
-      contribution.payment_status,
-      contribution.amount,
-      contribution.currency,
-      contribution.paid_at,
-      contribution.public_name,
-      contribution.email_private,
-      contribution.public_display_consent,
-      contribution.display_amount_consent,
-      contribution.sponsor_company_name,
-      contribution.sponsor_contact_name,
-      contribution.sponsor_contact_email,
-      contribution.sponsor_review_status,
-      contribution.sponsor_feed_status,
-      contribution.stripe_session_id,
-      contribution.stripe_payment_intent_id,
-      contribution.created_at,
-      contribution.updated_at
-    ]
-      .map(csvCell)
-      .join(',')
-  );
-
-  return [header.join(','), ...rows].join('\n');
 };
 
 let emailQueueProcessing = false;
@@ -5925,31 +5867,71 @@ createServer(async (request, response) => {
   }
 
   if (
-    request.method === 'GET' &&
     routeMatches(
       request.url,
       '/admin/contributions.csv',
       '/api/admin/contributions.csv'
     )
   ) {
+    response.setHeader('Cache-Control', 'private, no-store');
     if (!ensureAdminAccess(request, response)) {
       return;
     }
-
+    if (request.method !== 'POST') {
+      response.setHeader('Allow', 'POST');
+      writeJson(request, response, 405, {
+        error: 'Private exports require a confirmed POST selection.'
+      });
+      return;
+    }
+    if (
+      request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !==
+      'application/json'
+    ) {
+      writeJson(request, response, 415, {
+        error: 'A JSON export selection is required.'
+      });
+      return;
+    }
+    let input: unknown;
     try {
-      const result = await listAdminContributions(dbPool);
+      input = JSON.parse(await readBody(request, 64 * 1024));
+    } catch {
+      writeJson(request, response, 400, {
+        error: 'Invalid export request.',
+        code: 'invalid_export_selection'
+      });
+      return;
+    }
+    try {
+      const result = await exportAdminContributions(
+        dbPool!,
+        input,
+        getAdminAuditActor(request)
+      );
+      response.setHeader('X-Request-Id', result.requestId);
       writeCsv(
         request,
         response,
         200,
-        buildAdminContributionsCsv(result.contributions),
+        result.csv,
         'openg7-admin-contributions.csv'
       );
     } catch (error) {
-      console.error('Failed to export admin contributions.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin contributions export could not be generated.'
-      });
+      if (!(error instanceof ContributionExportError))
+        console.error('Private contribution export unavailable.');
+      writeJson(
+        request,
+        response,
+        error instanceof ContributionExportError ? error.status : 503,
+        {
+          error: 'Admin contributions export could not be generated.',
+          code:
+            error instanceof ContributionExportError
+              ? error.code
+              : 'export_unavailable'
+        }
+      );
     }
     return;
   }

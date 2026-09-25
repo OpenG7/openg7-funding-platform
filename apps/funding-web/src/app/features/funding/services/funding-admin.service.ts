@@ -21,6 +21,7 @@ import type {
   AdminAssistantSummary,
   AdminAuditLogResponse,
   AdminContributionsResponse,
+  AdminContributionsExportRequest,
   AdminDashboardResponse,
   AdminEmailQueueResponse,
   AdminEmailQueueRetryRequest,
@@ -920,17 +921,23 @@ export class FundingAdminService {
     return (await response.json()) as AdminContributionsResponse;
   }
 
-  async getContributionsCsv(token: string): Promise<string> {
+  async getContributionsCsv(
+    token: string,
+    selection: AdminContributionsExportRequest
+  ): Promise<string> {
     const response = await fetch(`${this.apiBaseUrl}/admin/contributions.csv`, {
-      method: 'GET',
+      method: 'POST',
+      cache: 'no-store',
       headers: {
         ...(await this.createHeaders(token)),
-        Accept: 'text/csv'
-      }
+        Accept: 'text/csv',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(selection)
     });
 
     if (!response.ok) {
-      throw new Error('Admin contributions export could not be loaded.');
+      throw new AdminDashboardRequestError(response.status);
     }
 
     return response.text();

@@ -322,6 +322,35 @@ La recette qualifie un récepteur simulé : l'adaptateur externe doit assurer la
 persistance des IDs. Pendant une panne DB, l'ID de secours reste seulement en
 mémoire du surveillant et peut changer après son redémarrage.
 
+Vingt-deuxième priorité testée le 24 septembre 2026 : **filtrage des contributions →
+confirmation d'un export privé → téléchargement du CSV → audit**, soit le
+scénario 53. Le fichier contient les résultats affichés, avec une limite de
+250 dossiers récents annoncée dans l'interface. Le propriétaire confirme une
+sélection versionnée; les lecteurs et opérateurs sont refusés par l'API.
+
+Le précédent GET sans confirmation est remplacé par un POST validé. Une
+modification concurrente, même d'une microseconde, impose une actualisation;
+une panne d'audit empêche le téléchargement. Les noms multiligne, guillemets,
+devises et données privées admissibles sont conservés; les préfixes textuels de
+formule sont neutralisés dans le CSV. Notes administratives et jetons restent
+exclus. L'audit conserve acteur, nombre de dossiers, empreinte de sélection et
+corrélation, sans recopier les coordonnées privées. Voir le
+[contrat et la recette](../operations/private-contributions-export.md).
+
+Preuve sur `f3910a6` avec les changements locaux : **3 parcours Chromium OIDC
+réussis en 28 secondes**, dont le nouvel export en **7,4 secondes**, sans échec,
+test ignoré ou instable dans l'exécution finale, le 24 septembre 2026 à 23:53 UTC.
+La recette utilise PostgreSQL jetable, l'API réelle, le Web compilé et un
+fournisseur d'identité signé local. Elle couvre annulation et confirmation au
+clavier, refus d'origine et de rôle, expiration de session pendant la décision,
+audit indisponible et affichage FR/EN à 1280/390 px. **299 tests Node, 2 tests
+PostgreSQL ciblés et 1 test UI de confirmation** passent, ainsi que TypeScript,
+lint et builds API/Web avec 24 routes pré-rendues. Les avertissements connus
+du lint et du budget Angular subsistent (821,38 ko pour 800 ko).
+Aucune nouvelle migration ni opération de production; API/Web doivent être
+livrés ensemble pour le nouveau contrat d'export. Les octets CSV sont vérifiés,
+sans qualification de toutes les versions de tableurs après réenregistrement.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

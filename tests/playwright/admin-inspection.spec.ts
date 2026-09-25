@@ -462,6 +462,7 @@ test('private CSV export names its scope and requires explicit confirmation', as
             payment_status: 'paid',
             paid_at: date,
             created_at: date,
+            updated_at: date,
             public_display_consent: false,
             display_amount_consent: false
           }
@@ -477,6 +478,11 @@ test('private CSV export names its scope and requires explicit confirmation', as
     })
   );
   await page.route('**/api/admin/contributions.csv', (route) => {
+    expect(route.request().method()).toBe('POST');
+    expect(route.request().postDataJSON()).toMatchObject({
+      confirmation: 'export_private_contributions',
+      contributions: [{ id, expectedVersion: date }]
+    });
     exports++;
     return route.fulfill({
       contentType: 'text/csv',
@@ -485,7 +491,9 @@ test('private CSV export names its scope and requires explicit confirmation', as
   });
   await page.goto('/admin/fundraiser/contributions');
   await page.getByRole('button', { name: 'Export CSV' }).click();
-  await expect(drawer(page)).toContainText('données privées des contributions');
+  await expect(drawer(page)).toContainText(
+    'données privées de la contribution'
+  );
   await page.keyboard.press('Escape');
   expect(exports).toBe(0);
   await page.getByRole('button', { name: 'Export CSV' }).click();

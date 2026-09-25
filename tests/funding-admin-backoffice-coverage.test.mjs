@@ -628,7 +628,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'FUNDING_ADMIN_SESSION_TTL_MINUTES',
       'public_reference',
       'insertAdminAuditLog',
-      'buildAdminContributionsCsv',
+      'exportAdminContributions',
       'writeCsv'
     ],
     'admin API routes'
@@ -849,7 +849,11 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
-    [adminDocs, read('docs/technical/public-api.md'), read('docs/operations/database-migrations.md')].join('\n'),
+    [
+      adminDocs,
+      read('docs/technical/public-api.md'),
+      read('docs/operations/database-migrations.md')
+    ].join('\n'),
     [
       '/admin/fundraiser',
       '/admin/fundraiser/setup',
@@ -873,7 +877,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'POST /api/admin/sponsorships/refund',
       'GET /api/public/sponsor-logos/<file>',
       'GET /api/admin/contributions',
-      'GET /api/admin/contributions.csv',
+      'POST /api/admin/contributions.csv',
       'GET /api/admin/expenses',
       'GET /api/admin/transparency',
       'GET /api/admin/publication-drafts',

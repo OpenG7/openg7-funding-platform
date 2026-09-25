@@ -590,6 +590,15 @@ export interface AdminContributionsResponse {
   readonly last_updated_at: string;
 }
 
+/** Private export of the displayed selection, at most 250 distinct records. */
+export interface AdminContributionsExportRequest {
+  readonly confirmation: 'export_private_contributions';
+  readonly contributions: readonly {
+    readonly id: string;
+    readonly expectedVersion: string;
+  }[];
+}
+
 export interface AdminDashboardResponse {
   readonly data_source: 'database';
   /** False when PostgreSQL is not configured. Optional for older API versions. */
