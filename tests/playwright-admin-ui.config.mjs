@@ -8,6 +8,7 @@ export default defineConfig({
   testDir: './playwright',
   testMatch: [
     'admin-access-ui.spec.ts',
+    'admin-setup-email-ui.spec.ts',
     'admin-pilotage.spec.ts',
     'admin-inspection.spec.ts',
     'admin-email-recovery-ui.spec.ts',

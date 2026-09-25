@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-export function startIdentityStack(): Promise<{
+export function startIdentityStack(options?: { smtpPort?: number }): Promise<{
   origin: string;
   apiOrigin: string;
   pool: Pool;

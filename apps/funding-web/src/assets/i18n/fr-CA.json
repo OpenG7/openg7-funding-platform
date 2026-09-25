@@ -2004,6 +2004,22 @@
       "sessionDecisions": "décisions terminées",
       "endSession": "Terminer la session"
     },
+    "setupEmail": {
+      "newTest": "Envoyer un nouveau test",
+      "queued": "Test mis en file. Aucun envoi SMTP n’est encore confirmé.",
+      "sending": "Envoi en cours. Vérifiez le résultat avant de relancer.",
+      "sent": "Test accepté par le serveur SMTP. Vérifiez sa réception dans la boîte destinataire.",
+      "failed": "L’envoi du test a échoué. Le message reste dans la file.",
+      "failedHelp": "Consultez le message dans la file pour voir la cause et reprendre son envoi après correction.",
+      "unknown": "Résultat non confirmé. Vérifiez la demande existante avant d’envoyer un autre test.",
+      "check": "Vérifier le résultat du test",
+      "queue": "Voir ce test dans la file courriel",
+      "invalid": "Le test a été refusé. Vérifiez l’adresse destinataire et la configuration.",
+      "notFound": "Aucun message retrouvé pour cette demande. Vous pouvez soumettre le test avec le même identifiant.",
+      "storage": "Le navigateur ne peut pas conserver l’identifiant du test. Autorisez le stockage de session avant l’envoi.",
+      "expired": "Votre session a expiré ou a été révoquée. Reconnectez-vous pour consulter le résultat.",
+      "forbidden": "La configuration et ses tests sont réservés au propriétaire."
+    },
     "programme": {
       "views": {
         "brief": "Mon briefing",

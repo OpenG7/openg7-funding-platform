@@ -1,5 +1,6 @@
 import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -8,14 +9,29 @@ import {
   inject,
   signal
 } from '@angular/core';
-import type { AdminSetupStatusResponse } from '@openg7/funding-core';
+import type {
+  AdminSetupStatusResponse,
+  AdminEmailTestResult
+} from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
-import { FundingAdminService } from '../../services/funding-admin.service.js';
+import {
+  FundingAdminService,
+  AdminDashboardRequestError
+} from '../../services/funding-admin.service.js';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
-type TestState = 'idle' | 'sending' | 'sent' | 'error';
+type TestState =
+  | 'idle'
+  | 'submitting'
+  | 'checking'
+  | 'queued'
+  | 'sending'
+  | 'sent'
+  | 'failed'
+  | 'unknown'
+  | 'error';
 type SetupEnvKey =
   | 'STRIPE_SECRET_KEY'
   | 'STRIPE_WEBHOOK_SECRET'
@@ -55,7 +71,7 @@ interface SetupTourStep {
 @Component({
   selector: 'openg7-admin-setup-page',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, AdminLayoutComponent],
+  imports: [TranslatePipe, CommonModule, AdminLayoutComponent, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <openg7-admin-layout>
@@ -77,7 +93,11 @@ interface SetupTourStep {
             >
               {{ 'admin.legacy.guide' | translate }}
             </button>
-            <button type="button" (click)="loadSetup()">
+            <button
+              type="button"
+              (click)="loadSetup()"
+              [disabled]="state() === 'loading' || testBusy()"
+            >
               {{ 'admin.legacy.actualiser' | translate }}
             </button>
           </div>
@@ -97,6 +117,7 @@ interface SetupTourStep {
           }}
         </p>
 
+        <p role="alert" *ngIf="accessError()">{{ accessError() }}</p>
         <ng-container *ngIf="setup() as data">
           <section
             class="setup-readiness"
@@ -308,6 +329,7 @@ interface SetupTourStep {
                     type="email"
                     autocomplete="email"
                     [value]="testEmail()"
+                    [disabled]="testBusy() || testState() === 'unknown'"
                     [placeholder]="
                       data.email.admin_notification_email || 'admin@example.com'
                     "
@@ -317,14 +339,19 @@ interface SetupTourStep {
                 <button
                   type="button"
                   [disabled]="
-                    !canSendEmailTest(data) || testState() === 'sending'
+                    !canSendEmailTest(data) ||
+                    testBusy() ||
+                    testState() === 'unknown'
                   "
                   (click)="sendEmailTest()"
                 >
                   {{
-                    testState() === 'sending'
+                    testBusy()
                       ? ('admin.legacy.envoi_195' | translate)
-                      : ('admin.legacy.envoyer_un_test' | translate)
+                      : ((testResult()
+                          ? 'admin.setupEmail.newTest'
+                          : 'admin.legacy.envoyer_un_test'
+                        ) | translate)
                   }}
                 </button>
               </div>
@@ -334,18 +361,37 @@ interface SetupTourStep {
                     | translate
                 }}
               </p>
-              <p class="panel-note success" *ngIf="testState() === 'sent'">
-                {{
-                  'admin.legacy.test_envoye_ou_mis_en_file_avec_succes'
-                    | translate
-                }}
+              <p
+                class="panel-note"
+                role="status"
+                data-og7="setup-email-result"
+                *ngIf="
+                  testState() !== 'idle' &&
+                  testState() !== 'error' &&
+                  !testBusy()
+                "
+              >
+                {{ 'admin.setupEmail.' + testState() | translate }}
               </p>
-              <p class="panel-note error" *ngIf="testState() === 'error'">
-                {{
-                  testMessage() ||
-                    ('admin.legacy.le_test_courriel_a_echoue' | translate)
-                }}
+              <p class="panel-note error" role="alert" *ngIf="testMessage()">
+                {{ testMessage() }}
               </p>
+              <button
+                type="button"
+                *ngIf="testRequestId()"
+                (click)="checkEmailTest()"
+                [disabled]="testBusy()"
+              >
+                {{ 'admin.setupEmail.check' | translate }}
+              </button>
+              <a
+                *ngIf="testResult()?.messageId"
+                routerLink="/admin/fundraiser/email-queue"
+                [queryParams]="{ messageId: testResult()?.messageId }"
+                data-og7="setup-email-queue"
+              >
+                {{ 'admin.setupEmail.queue' | translate }}
+              </a>
             </article>
 
             <article
@@ -479,7 +525,13 @@ interface SetupTourStep {
               }}</small>
             </header>
 
-            <div class="table-scroll">
+            <div
+              class="table-scroll"
+              tabindex="0"
+              role="region"
+              [attr.aria-label]="'admin.legacy.cles_a_verifier' | translate"
+              data-og7="setup-configuration-table"
+            >
               <table>
                 <thead>
                   <tr>
@@ -993,6 +1045,14 @@ export class AdminSetupPageComponent implements OnInit {
   readonly testEmail = signal('');
   readonly testState = signal<TestState>('idle');
   readonly testMessage = signal('');
+  readonly testResult = signal<AdminEmailTestResult | null>(null);
+  readonly testRequestId = signal<string | null>(null);
+  readonly testBusy = computed(() =>
+    ['submitting', 'checking'].includes(this.testState())
+  );
+  readonly accessError = signal('');
+  private testStorageKey = '';
+  private loadRequest = 0;
   readonly tourIndex = signal(-1);
 
   get tourSteps(): readonly SetupTourStep[] {
@@ -1186,32 +1246,69 @@ export class AdminSetupPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    void this.loadSetup();
+    this.testStorageKey =
+      'openg7-email-test:' + (this.admin.identity()?.id ?? 'token');
+    void this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    await this.loadSetup();
+    if (!this.setup() || typeof window === 'undefined') return;
+    try {
+      const id = window.sessionStorage.getItem(this.testStorageKey);
+      if (id && /^[0-9a-f-]{36}$/i.test(id)) {
+        this.testRequestId.set(id);
+        await this.checkEmailTest();
+      }
+    } catch {
+      /* Storage is optional for consultation. */
+    }
   }
 
   async loadSetup(): Promise<void> {
+    const request = ++this.loadRequest;
     this.state.set('loading');
-    this.testMessage.set('');
+    this.setup.set(null);
+    this.accessError.set('');
 
     try {
       const setup = await this.admin.getSetupStatus(this.adminToken());
+      if (request !== this.loadRequest) return;
       this.setup.set(setup);
       if (!this.testEmail() && setup.email.admin_notification_email) {
         this.testEmail.set(setup.email.admin_notification_email);
       }
       this.state.set('ready');
-    } catch {
+    } catch (error) {
+      if (request !== this.loadRequest) return;
+      this.handleAccessError(error);
       this.state.set('error');
     }
   }
 
   async sendEmailTest(): Promise<void> {
     const setup = this.setup();
-    if (!setup || !this.canSendEmailTest(setup)) {
+    if (
+      !setup ||
+      !this.canSendEmailTest(setup) ||
+      this.testBusy() ||
+      this.testState() === 'unknown'
+    ) {
       return;
     }
 
-    this.testState.set('sending');
+    const requestId = this.testResult()
+      ? crypto.randomUUID()
+      : (this.testRequestId() ?? crypto.randomUUID());
+    try {
+      window.sessionStorage.setItem(this.testStorageKey, requestId);
+    } catch {
+      this.testMessage.set(this.i18n.t('admin.setupEmail.storage'));
+      return;
+    }
+    this.testRequestId.set(requestId);
+    this.testResult.set(null);
+    this.testState.set('submitting');
     this.testMessage.set('');
 
     try {
@@ -1219,25 +1316,94 @@ export class AdminSetupPageComponent implements OnInit {
         this.testEmail().trim() ||
         setup.email.admin_notification_email ||
         undefined;
-      const result = await this.admin.sendEmailTest(this.adminToken(), { to });
-      this.testMessage.set(result.error ?? '');
-      this.testState.set(result.error ? 'error' : 'sent');
+      const result = await this.admin.sendEmailTest(this.adminToken(), {
+        to,
+        requestId
+      });
+      this.acceptEmailResult(result);
       await this.loadSetup();
     } catch (error) {
-      this.testMessage.set(
-        error instanceof Error
-          ? error.message
-          : this.i18n.t('admin.legacy.le_test_courriel_a_echoue')
-      );
-      this.testState.set('error');
+      if (this.handleAccessError(error)) return;
+      if (
+        error instanceof AdminDashboardRequestError &&
+        error.status >= 400 &&
+        error.status < 500 &&
+        error.status !== 409
+      ) {
+        this.testState.set('error');
+        this.testMessage.set(this.i18n.t('admin.setupEmail.invalid'));
+      } else this.testState.set('unknown');
     }
   }
 
+  async checkEmailTest(): Promise<void> {
+    const id = this.testRequestId();
+    if (!id || this.testBusy()) return;
+    this.testState.set('checking');
+    this.testMessage.set('');
+    try {
+      this.acceptEmailResult(
+        await this.admin.getEmailTest(this.adminToken(), id)
+      );
+    } catch (error) {
+      if (this.handleAccessError(error)) return;
+      if (error instanceof AdminDashboardRequestError && error.status === 404) {
+        this.testState.set('idle');
+        this.testMessage.set(this.i18n.t('admin.setupEmail.notFound'));
+      } else this.testState.set('unknown');
+    }
+  }
+
+  private acceptEmailResult(result: AdminEmailTestResult): void {
+    this.testResult.set(result);
+    this.testEmail.set(result.to);
+    this.testState.set(result.status);
+    this.testMessage.set(
+      result.status === 'failed'
+        ? this.i18n.t('admin.setupEmail.failedHelp')
+        : ''
+    );
+  }
+
+  private handleAccessError(error: unknown): boolean {
+    if (
+      !(error instanceof AdminDashboardRequestError) ||
+      ![401, 403].includes(error.status)
+    )
+      return false;
+    ++this.loadRequest;
+    this.setup.set(null);
+    this.testEmail.set('');
+    this.testResult.set(null);
+    this.testMessage.set('');
+    this.testState.set('error');
+    this.accessError.set(
+      this.i18n.t(
+        error.status === 401
+          ? 'admin.setupEmail.expired'
+          : 'admin.setupEmail.forbidden'
+      )
+    );
+    return true;
+  }
+
   setTestEmail(event: Event): void {
+    if (this.testBusy() || this.testState() === 'unknown') return;
     const input = event.target as HTMLInputElement | null;
     this.testEmail.set(input?.value ?? '');
-    this.testState.set('idle');
-    this.testMessage.set('');
+    if (this.testResult()) {
+      this.testResult.set(null);
+      this.testRequestId.set(null);
+      try {
+        window.sessionStorage.removeItem(this.testStorageKey);
+      } catch {
+        /* No pending outcome to recover. */
+      }
+    }
+    if (!this.testResult()) {
+      this.testState.set('idle');
+      this.testMessage.set('');
+    }
   }
 
   startTour(): void {

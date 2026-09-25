@@ -2008,6 +2008,22 @@
       "sessionDecisions": "decisions completed",
       "endSession": "End session"
     },
+    "setupEmail": {
+      "newTest": "Send a new test",
+      "queued": "Test queued. No SMTP sending has been confirmed yet.",
+      "sending": "Sending in progress. Check the result before retrying.",
+      "sent": "Test accepted by the SMTP server. Check the recipient’s inbox for delivery.",
+      "failed": "The test could not be sent. The message remains in the queue.",
+      "failedHelp": "Open the message in the queue to inspect the cause and retry after correcting it.",
+      "unknown": "Result unconfirmed. Check the existing request before sending another test.",
+      "check": "Check test result",
+      "queue": "View this test in the email queue",
+      "invalid": "The test was refused. Check the recipient address and configuration.",
+      "notFound": "No message found for this request. You can submit the test with the same identifier.",
+      "storage": "The browser cannot retain the test identifier. Allow session storage before sending.",
+      "expired": "Your session expired or was revoked. Sign in again to check the result.",
+      "forbidden": "Configuration and its tests are reserved for the owner."
+    },
     "programme": {
       "views": {
         "brief": "My briefing",

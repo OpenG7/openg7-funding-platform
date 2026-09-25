@@ -455,6 +455,46 @@ courriel, job social ni envoi créé. Aucune migration ou dépendance ajoutée.
 Les fournisseurs externes, la dictée, la génération libre et les manettes
 physiques restent hors qualification. La suite OIDC de CI découvre cette recette.
 
+Vingt-sixième priorité testée le 24 septembre 2026 (25 septembre à 01:40 UTC) :
+**Configuration → test SMTP →
+résultat consultable → panne → reprise du même message**, soit le scénario 55.
+La recette vérifie d'abord SMTP désactivé, sans création de message. Avec Mailpit,
+le propriétaire choisit le destinataire et suit l'envoi réel sur la boucle locale.
+Pendant une connexion retenue avant l'accueil SMTP, les contrôles restent bloqués
+et une requête concurrente retrouve `sending`, sans seconde connexion. Modifier
+le destinataire avec le même identifiant est refusé. Un rejeu après acceptation
+conserve le message, sa tentative et l'audit uniques.
+
+Après perte de la seule réponse HTTP, actualiser ne déclenche aucun nouvel envoi.
+Le rechargement retrouve le résultat par son identifiant, seul élément conservé
+en session et rattaché au compte. Une panne SMTP franche reste visible après
+actualisation et mène au message exact dans la file. Annuler la relance ne produit
+aucun effet; la confirmer après correction livre ce même message à Mailpit.
+Lecteur, opérateur, origine étrangère, session expirée et entrées invalides sont
+refusés côté API. La configuration privée disparaît après perte des droits ou
+échec du chargement.
+
+Les corrections distinguent file, envoi en cours, échec et acceptation SMTP;
+elles empêchent la répétition du test après une réponse perdue et conservent
+l'explication de l'échec. La création et son audit sont atomiques avant SMTP;
+une panne d'audit annule l'insertion. Configuration et résultats sont `no-store`.
+Le tableau défilant de configuration est désormais accessible au clavier.
+Voir le [contrat SMTP](../email-smtp.md#admin-configuration-test).
+
+Preuve sur `02bbcc2` avec les changements locaux : **2 parcours Chromium OIDC
+réussis en 21,8 secondes**, **299 tests Node**, **2 intégrations PostgreSQL/SMTP**
+et **6 tests UI** réussis. Le parcours principal dure 13 secondes, celui avec SMTP
+désactivé 7 secondes. Web compilé, API, PostgreSQL 16 jetable, OIDC signé local et
+Mailpit; FR/EN à 390/1280 px, Axe ciblé et défilement clavier vérifiés. TypeScript,
+lint et build Web/SSR avec 24 routes pré-rendues passent. Le budget Angular déjà
+dépassé atteint 823,59 ko pour 800 ko; l'avertissement ESLint préexistant subsiste.
+
+Aucune migration ou dépendance ajoutée; aucun paiement, publication ni courriel
+externe. API et Web doivent être livrés ensemble : `requestId` est désormais
+obligatoire pour un test. La preuve porte sur SMTP local et une panne avant son
+acceptation; elle ne qualifie pas la réception en boîte externe ni une garantie
+d'envoi SMTP exactement une fois. La suite OIDC de CI découvre la recette.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

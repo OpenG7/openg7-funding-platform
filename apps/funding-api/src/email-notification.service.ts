@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import type {
+  AdminEmailTestResult,
   AdminEmailQueueMessageRecord,
   AdminEmailQueueResponse,
   AdminEmailQueueSummary,
@@ -2070,16 +2071,107 @@ export const queueSponsorshipReviewReminderNotification = async (
   });
 };
 
+export class EmailConfigurationTestError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string
+  ) {
+    super(code);
+  }
+}
+
+export const isEmailTestRequestId = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+
+export const getEmailConfigurationTest = async (
+  pool: Pool,
+  requestId: string,
+  actor: string
+): Promise<AdminEmailTestResult> => {
+  const row = (
+    await pool.query<{
+      id: string;
+      status: AdminEmailTestResult['status'];
+      recipient_email: string;
+      attempts: number;
+      last_error: string | null;
+    }>(
+      `SELECT id,status,recipient_email,attempts,last_error FROM email_messages
+    WHERE idempotency_key=$1 AND template_key='email_configuration_test' AND metadata->>'actor'=$2`,
+      ['admin-email-test:' + requestId.toLowerCase(), actor]
+    )
+  ).rows[0];
+  if (!row) throw new EmailConfigurationTestError(404, 'EMAIL_TEST_NOT_FOUND');
+  return {
+    requestId,
+    messageId: row.id,
+    status: row.status,
+    to: row.recipient_email,
+    queued: row.status !== 'sent',
+    attempted: row.attempts > 0,
+    sent: row.status === 'sent',
+    error: row.last_error,
+    deliveryMode: loadTransactionalEmailConfig().enabled ? 'smtp' : 'disabled'
+  };
+};
+
+/** Persist the request and audit atomically; only its first insertion attempts SMTP. */
 export const queueEmailConfigurationTest = async (
-  pool: Pool | null,
-  input: EmailConfigurationTestInput
-): Promise<EmailQueueResult> => {
-  const rendered = renderEmailConfigurationTest(input);
-  return queueAndProcessEmail(pool, {
-    ...rendered,
-    to: input.to,
-    idempotencyKey: input.idempotencyKey
-  });
+  pool: Pool,
+  input: { to: string; requestId: string; actor: string }
+): Promise<AdminEmailTestResult> => {
+  const db = await pool.connect();
+  let inserted = false;
+  let messageId: string | null = null;
+  try {
+    await db.query('BEGIN');
+    const rendered = renderEmailConfigurationTest(input);
+    const result = await enqueueEmailMessage(db, {
+      ...rendered,
+      to: input.to,
+      idempotencyKey: 'admin-email-test:' + input.requestId.toLowerCase(),
+      metadata: { ...rendered.metadata, actor: input.actor }
+    });
+    messageId = result.messageId;
+    if (!messageId) throw new Error('EMAIL_TEST_UNAVAILABLE');
+    const row = (
+      await db.query(
+        'SELECT recipient_email,metadata FROM email_messages WHERE id=$1',
+        [messageId]
+      )
+    ).rows[0];
+    if (row.recipient_email !== input.to || row.metadata.actor !== input.actor)
+      throw new EmailConfigurationTestError(409, 'EMAIL_TEST_CONFLICT');
+    inserted = !result.duplicate;
+    if (inserted)
+      await db.query(
+        `INSERT INTO admin_audit_log(actor,action,entity_type,entity_id,summary,metadata)
+      VALUES($1,'email.test.queued','email_message',$2,'email.test.queued',$3::jsonb)`,
+        [
+          input.actor,
+          messageId,
+          JSON.stringify({
+            requestId: input.requestId.toLowerCase(),
+            result: 'queued'
+          })
+        ]
+      );
+    await db.query('COMMIT');
+  } catch (error) {
+    await db.query('ROLLBACK');
+    throw error;
+  } finally {
+    db.release();
+  }
+  if (inserted)
+    await processQueuedEmailMessages(pool, {
+      limit: 1,
+      messageIds: [messageId!]
+    });
+  return getEmailConfigurationTest(pool, input.requestId, input.actor);
 };
 
 /** Enqueue only; delivery is owned by the existing worker after commit. */

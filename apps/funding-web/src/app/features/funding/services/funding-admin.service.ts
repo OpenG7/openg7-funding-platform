@@ -648,7 +648,7 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error('Admin setup status could not be loaded.');
+      await this.accessError(response);
     }
 
     return (await response.json()) as AdminSetupStatusResponse;
@@ -668,15 +668,24 @@ export class FundingAdminService {
     });
 
     if (!response.ok) {
-      throw new Error(
-        await this.errorMessageFromResponse(
-          response,
-          'Admin email test could not be sent.'
-        )
-      );
+      await this.accessError(response);
     }
 
     return (await response.json()) as AdminEmailTestResult;
+  }
+
+  async getEmailTest(
+    token: string,
+    requestId: string
+  ): Promise<AdminEmailTestResult> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/email/test?requestId=${encodeURIComponent(requestId)}`,
+      {
+        headers: await this.createHeaders(token)
+      }
+    );
+    if (!response.ok) await this.accessError(response);
+    return response.json();
   }
 
   async getEmailQueue(token: string, id?: string): Promise<AdminEmailQueueResponse> {

@@ -23,7 +23,8 @@ test('administrative roles default to refusing mutations and reserve money and p
     for (const path of [
       '/admin/access',
       '/admin/contributions.csv',
-      '/admin/setup-status'
+      '/admin/setup-status',
+      '/admin/email/test'
     ])
       assert.equal(adminRoleAllows(role, 'GET', path), false);
     for (const path of [

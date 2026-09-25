@@ -6,9 +6,14 @@ import { createBuiltWebServer } from '../ui/serve-built-web.mjs';
 import { startIdentityProvider } from './oidc-provider.mjs';
 
 // Real API and built Angular app; no .env, existing DB or external credentials.
-export async function startIdentityStack() {
+export async function startIdentityStack({ smtpPort } = {}) {
   if (Number(process.versions.node.split('.')[0]) !== 22)
     throw new Error('Identity acceptance requires Node 22.');
+  if (
+    smtpPort !== undefined &&
+    (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535)
+  )
+    throw new Error('Invalid local SMTP fixture port.');
   const db = await startDisposablePostgres();
   let provider, child, apiPort;
   const web = createBuiltWebServer((req, res) => {
@@ -89,7 +94,23 @@ export async function startIdentityStack() {
           SOCIAL_PUBLICATION_WORKER_ENABLED: 'false',
           SOCIAL_PUBLICATION_MODE: 'mock',
           FUNDING_CONTRIBUTION_EMAIL_ENABLED: 'false',
-          FUNDING_CONTRIBUTION_SMS_MODE: 'disabled'
+          FUNDING_CONTRIBUTION_SMS_MODE: 'disabled',
+          ...(smtpPort === undefined
+            ? {}
+            : {
+                SMTP_ENABLED: 'true',
+                SMTP_HOST: '127.0.0.1',
+                SMTP_PORT: String(smtpPort),
+                SMTP_SECURE: 'false',
+                SMTP_USER: 'sender@example.test',
+                SMTP_PASSWORD: 'synthetic-fixture',
+                SMTP_CONNECTION_TIMEOUT_MS: '5000',
+                SMTP_GREETING_TIMEOUT_MS: '10000',
+                SMTP_SOCKET_TIMEOUT_MS: '10000',
+                MAIL_FROM_ADDRESS: 'sender@example.test',
+                MAIL_REPLY_TO_ADDRESS: 'reply@example.test',
+                FUNDING_ADMIN_NOTIFICATION_EMAIL: 'admin@example.test'
+              })
         }
       }
     );

@@ -83,6 +83,58 @@ credentials. `/__test__/mail/<id>` exposes a captured synthetic message for the
 browser recipe. These controls belong only to the test image; SMTP has no host
 port, and the existing fixture HTTP port is bound to loopback.
 
+## Admin Configuration Test
+
+From `/admin/fundraiser/setup`, an owner can send a test to an explicit address
+or the configured admin notification address. Configuration readiness does not
+verify SMTP connectivity. The UI distinguishes `queued`, `sending`, `failed` and
+`sent`; `sent` means accepted by SMTP, not delivered to an inbox. A link opens
+the exact message in the email queue for investigation and confirmed retry.
+
+`POST /api/admin/email/test` requires JSON `{ requestId, to? }`, with a UUID v4.
+The request is bound to its actor and resolved recipient. Its queue insertion and
+`email.test.queued` audit are one transaction, before any SMTP attempt. Concurrent
+or repeated requests return the existing state and never attempt delivery again,
+including after a failure's backoff expires. A changed recipient or actor for the
+same request returns `409 EMAIL_TEST_CONFLICT`.
+
+`GET /api/admin/email/test?requestId=<uuid>` retrieves only the calling owner's
+test, without sending, retrying or auditing another command. It returns
+`requestId`, `messageId`, `to`, `status`, `queued`, `attempted`, `sent`, `error` and
+`deliveryMode`. `attempted` indicates a persisted attempt, not necessarily an
+attempt made by this HTTP call. Missing or other-actor requests return
+`404 EMAIL_TEST_NOT_FOUND`. Invalid input returns 400, non-JSON POST returns 415,
+and persistence failure returns `503 EMAIL_TEST_UNAVAILABLE`. Unauthenticated,
+expired and insufficient-role requests are refused; mutation origins are checked.
+Both `/api/admin/...` and `/admin/...` aliases share these checks. Configuration
+and test responses carry `Cache-Control: private, no-store`.
+
+After a lost response, **Check test result** performs GET. Reloading restores only
+the request identifier from session storage, scoped to the admin account; no
+recipient or SMTP secret is stored there. A new test is blocked until the result
+is checked. If no request is found, a submission reuses that identifier. Confirmed
+results allow an explicitly new test; changing the recipient clears the previous
+result. Failure explanations survive configuration refresh, and expired sessions
+clear private data. Session storage must be available before starting a test.
+
+Update API and Web together: older clients without `requestId` are rejected.
+No migration or environment variable is added. The existing queue worker and
+confirmed manual retry own recovery; SMTP acknowledgement loss still has the
+ambiguity described above. This change does not claim exactly-once SMTP delivery.
+
+The [setup recipe](../tests/identity/setup-email-journey.spec.ts) uses built Web,
+real API, disposable PostgreSQL, signed local OIDC and Mailpit behind a local TCP
+gate. It checks unavailable configuration, validation and roles, a held send,
+duplicate requests, lost HTTP response, definite SMTP failure and confirmed retry
+of the same message. It also checks session expiry, English mobile rendering and
+keyboard access to the configuration table. No external mail is sent. Run with
+the existing identity suite, or after API/Web builds:
+
+```sh
+yarn playwright test --config tests/playwright-identity.config.mjs setup-email-journey.spec.ts
+node --test tests/integration/admin-email-test.integration.mjs tests/integration/email-recovery.integration.mjs
+```
+
 ## Admin Reminders
 
 `FUNDING_ADMIN_NOTIFICATION_EMAIL` receives internal operational notifications.

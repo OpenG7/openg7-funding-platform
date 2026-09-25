@@ -125,6 +125,7 @@ GET /api/admin/social-publication-jobs
 GET /api/admin/audit-log
 GET /api/admin/setup-status
 POST /api/admin/email/test
+GET /api/admin/email/test?requestId=<uuid>
 GET /api/admin/email-queue
 POST /api/admin/email-queue/retry
 GET /api/admin/sponsorship-invoices
@@ -145,10 +146,8 @@ The publications view generates and moderates sponsored
 publication drafts for approved sponsorships, while the audit view lists recent
 sensitive admin actions.
 
-The operational setup page is available at `/admin/fundraiser/setup`. It
-checks Stripe, email, invoice, queue, database and environment readiness,
-includes a small in-app guide, and can send an admin email test through the
-queued email system without exposing secret values.
+Owner-only `/admin/fundraiser/setup` reports configuration and supports idempotent
+SMTP tests. See the [test contract](../email-smtp.md#admin-configuration-test).
 
 The email queue page is available at `/admin/fundraiser/email-queue`. It lists
 recent queued, sending, sent and failed emails, summarizes retryable failures,
