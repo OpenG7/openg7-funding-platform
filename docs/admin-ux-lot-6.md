@@ -8,7 +8,7 @@ La recherche ouvre les dossiers et leurs documents depuis toutes les pages admin
 - Fenêtre modale nommée, focus confiné, navigation par Tab ou flèches et activation par Entrée.
 - Recherche temporisée de 300 ms, annulation de la requête précédente et rejet des réponses tardives, y compris si un adaptateur ignore l’annulation.
 - Un résultat par contribution, avec les liens de commandite, contribution, facture et publications associées.
-- États distincts : saisie insuffisante, chargement, aucun résultat, couverture partielle, indisponibilité, refus d’accès et limitation de débit. Un 401 efface la session et retourne à la connexion.
+- États distincts : saisie insuffisante, chargement, aucun résultat, couverture partielle, indisponibilité, refus d’accès et limitation de débit. Un 401 efface la session et retourne à la connexion avec une explication de l’expiration et la page de départ à reprendre, sans conserver le terme recherché.
 - FR/EN et mobile. La saisie et les résultats restent dans la mémoire du composant et sont effacés à la fermeture.
 
 ## Contrat API
@@ -61,7 +61,7 @@ Les liens contiennent uniquement des identifiants internes :
 - Facture : `invoices?contributionId=<uuid>`.
 - Publication : `publications?draftId=<uuid>`.
 
-Le filtre optionnel `contributionId` de `GET /api/admin/contributions` est désormais appliqué avant la limite de 250 lignes. Le résumé global et l’export CSV existants conservent leur portée. Sans ce paramètre, le comportement de la liste reste identique.
+Le filtre optionnel `contributionId` de `GET /api/admin/contributions` est appliqué avant la limite de 250 lignes. Le résumé reste global; l’[export privé](operations/private-contributions-export.md) exige sa propre confirmation et porte sur la sélection affichée. Sans ce paramètre, le comportement de la liste reste identique.
 
 Les pages contributions, factures et publications observent les changements de paramètres, effacent le contexte précédent et chargent le nouvel objet même sur la même route. Un compteur de génération empêche une ancienne réponse de rétablir le mauvais dossier.
 
@@ -86,7 +86,45 @@ node --test tests/integration/admin-search.integration.mjs
 
 Ce scénario s’exécute systématiquement et supprime son conteneur en fin de test. Il est inclus dans `yarn test:integration:payments`, séparément de `yarn test`. Voir la [recette actuelle](./admin-ux-lot-8.md) ; les résultats ci-dessous décrivent la validation initiale du lot 6.
 
-## Résultats de validation
+## Recette du parcours complet
+
+Le scénario 52 de l’[inventaire](development/end-to-end-scenarios-inventory.md)
+dispose désormais d’une [recette navigateur avec API réelle](../tests/identity/admin-search-journey.spec.ts).
+Elle utilise le Web compilé, PostgreSQL 16 jetable et le fournisseur OIDC local
+signé du [parcours des accès](operations/admin-identity-and-alerts.md#recette-des-accès-administrateurs).
+Les comptes, contributions, factures et brouillons sont synthétiques; aucun
+paiement, fournisseur social ou courriel réel n’est déclenché.
+
+```powershell
+yarn test:e2e:identity
+```
+
+La recette vérifie la recherche par courriel privé puis l’ouverture exacte de
+deux anciens dossiers, de leurs contributions, factures et publications, même
+quand seul le paramètre de la page change. Les dossiers datent de 2020 et sont
+précédés de 260 contributions récentes. Elle vérifie également pagination,
+montant/devise, caractères SQL littéraux, raccourci clavier et effacement à la
+fermeture, sans terme privé dans l’URL ou le stockage navigateur.
+
+Propriétaire, opérateur et lecteur peuvent rechercher; les requêtes anonymes,
+les origines étrangères et les entrées hors limites sont refusées. Toutes les
+réponses de recherche, y compris les erreurs d’autorisation, portent
+`Cache-Control: private, no-store`. La requête reste un POST de lecture, sans
+modification du contrat ni migration.
+
+Une panne SQL provoquée uniquement dans la base jetable efface les résultats;
+la reprise explicite retrouve le dossier. L’absence temporaire de la table des
+factures annonce une couverture partielle. La variante anglaise à 390 px et
+l’expiration serveur d’une session vérifient l’effacement des informations
+privées et le retour à la connexion. Les compteurs de documents, courriels,
+brouillons et audit métier, ainsi que les montants, restent inchangés.
+
+Le test est inclus dans la suite OIDC exécutée en CI. Ses preuves datées sont
+dans l’inventaire. Cette recette ne qualifie pas nginx, HTTPS, un fournisseur
+OIDC externe ni les performances d’un volume de production. Les tests UI avec
+interceptions continuent à couvrir les réponses tardives et la limitation 429.
+
+## Résultats de validation initiale
 
 - `yarn test`, Node 22 : **225 tests réussis**, compilation API/packages comprise.
 - Build Angular réussi avec **22 routes publiques pré-rendues**; vérification TypeScript des tests UI.
@@ -100,4 +138,4 @@ Ce scénario s’exécute systématiquement et supprime son conteneur en fin de 
 
 Aucune nouvelle migration, dépendance ou variable applicative requise. Le test mesure la requête SQL réelle avec `EXPLAIN (ANALYZE, BUFFERS)` : environ 6 ms d’exécution sur 2 008 contributions dans PostgreSQL 16 local. Cette mesure ne prédit pas les performances d’un volume de production; aucun index ajouté sans preuve de besoin.
 
-Les tests navigateur emploient des réponses API simulées; le test PostgreSQL vérifie les requêtes réelles séparément. La pile Docker applicative complète et les intégrations externes réelles restent à couvrir lors de la recette transverse. Prochain lot : **lot 7, panneaux latéraux et harmonisation des pages**.
+La validation initiale ci-dessus séparait les réponses API simulées dans le navigateur et les requêtes PostgreSQL réelles. La recette du scénario 52 relie désormais ces étapes; les intégrations externes restent hors de sa portée. L’harmonisation des pages est décrite dans le [lot 7](admin-ux-lot-7.md).

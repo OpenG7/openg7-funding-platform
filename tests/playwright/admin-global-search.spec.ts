@@ -377,6 +377,11 @@ test('expired search session clears authentication and redirects to login', asyn
     )
   ).toBeNull();
   expect(page.url()).not.toContain('private');
+  expect(new URL(page.url()).searchParams.get('sessionExpired')).toBe('1');
+  expect(new URL(page.url()).searchParams.get('returnUrl')).toBe(
+    '/admin/fundraiser'
+  );
+  await expect(page.getByRole('status')).toContainText(/expiré|révoqué/);
 });
 
 for (const destination of [

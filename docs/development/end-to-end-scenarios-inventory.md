@@ -351,6 +351,34 @@ Aucune nouvelle migration ni opération de production; API/Web doivent être
 livrés ensemble pour le nouveau contrat d'export. Les octets CSV sont vérifiés,
 sans qualification de toutes les versions de tableurs après réenregistrement.
 
+Vingt-troisième priorité testée le 24 septembre 2026 (25 septembre à 00:16 UTC) :
+**recherche privée → ancien dossier exact → contribution, facture ou publication**,
+soit le scénario 52. Deux commandites de 2020, précédées de 260 contributions
+récentes, sont retrouvées par courriel puis ouvertes sur chaque surface, y compris
+quand la cible change sur la même route. Les trois rôles administratifs peuvent
+rechercher; les accès anonymes, origines étrangères et entrées hors limites sont
+refusés. La saisie reste hors des URL et du stockage navigateur.
+
+La recette couvre pagination, montants avec devise, caractères SQL littéraux,
+clavier, fermeture effaçant la recherche, panne SQL et reprise explicite,
+factures temporairement indisponibles et session expirée. La connexion explique
+désormais l’expiration et conserve la page à reprendre; les refus d’autorisation
+portent aussi l’en-tête interdisant le cache privé. Documents, courriels,
+brouillons, audit métier et montants restent inchangés pendant la recherche.
+Voir le [contrat et la recette](../admin-ux-lot-6.md#recette-du-parcours-complet).
+
+Preuve sur `9539480` avec les changements locaux : **1 parcours Chromium OIDC
+réussi en 21,8 secondes** (23,1 secondes avec démarrage du runner), sans échec,
+test ignoré ou instable dans l’exécution finale du 25 septembre à 00:16 UTC.
+Web compilé, API et PostgreSQL jetable réels; fournisseur d’identité signé local
+et dossiers synthétiques. **299 tests Node, 1 test PostgreSQL sur 2 008 dossiers
+et 13 tests UI** réussis. TypeScript, lint et builds API/Web passent avec 24 routes
+pré-rendues. Les avertissements existants du lint et du budget initial Angular
+subsistent (821,38 ko pour 800 ko). Les recettes vérifient FR/EN et 320/390/1280 px;
+la recette réelle est incluse dans la suite OIDC de CI. Aucune nouvelle migration,
+dépendance ou opération de production; nginx, HTTPS et OIDC externe restent hors
+de cette qualification locale.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |
