@@ -78,17 +78,32 @@ for (const language of ['fr', 'en'] as const) {
       );
       await expect(save).toBeDisabled();
       await confirm.check();
+      await expect(save).toBeEnabled();
       await page.getByRole('combobox').selectOption('reader');
+      // Wait for the rendered reset before asking for a fresh confirmation.
+      // Otherwise check() can see the previous checked DOM state and do nothing.
+      await expect(confirm).not.toBeChecked();
       await expect(save).toBeDisabled();
+      expect(changes).toHaveLength(0);
       changeStatus = 409;
       await confirm.check();
+      await expect(save).toBeEnabled();
       await save.focus();
+      await expect(save).toBeFocused();
+      const changeResponse = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/admin/access') &&
+          response.request().method() === 'POST'
+      );
       await page.keyboard.press('Enter');
+      expect((await changeResponse).status()).toBe(409);
       await expect(page.getByRole('alert')).toContainText(
         language === 'fr'
           ? 'Conservez au moins un propriétaire actif'
           : 'Keep at least one enabled owner'
       );
+      await expect(confirm).not.toBeChecked();
+      await expect(save).toBeDisabled();
       expect(changes[0]).toMatchObject({
         subject: 'fixture-owner',
         role: 'reader',

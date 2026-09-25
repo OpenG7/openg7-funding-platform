@@ -121,6 +121,25 @@ dépassé son délai de 30 secondes; le contrôle isolé est ensuite passé en
 7 secondes. Builds API/Web/SSR, TypeScript et lint passent; restent l'avertissement
 lint existant et le budget Angular initial dépassé (818,98 ko pour 800 ko).
 
+Suivi du 25 septembre 2026 : la
+[CI de la PR #171](https://github.com/OpenG7/openg7-funding-platform/actions/runs/36088163635)
+échoue sur les quatre variantes du test UI des accès, avant les recettes OIDC
+et de restauration. La trace montre une seconde confirmation sans clic effectif,
+suivie d'une tentative de focus sur le bouton encore désactivé; aucune mutation
+d'accès n'est envoyée. Le test attend désormais l'activation initiale, la remise
+à zéro visible de la confirmation après modification du rôle, puis la nouvelle
+activation et le focus avant Entrée. Il vérifie la réponse `409 LAST_OWNER`
+et le retour à une confirmation non cochée après ce refus. Les délais et les
+contrôles applicatifs restent inchangés; aucune relance automatique du test.
+
+Sur `e832009` avec ce correctif local, les **192 tests UI admin** passent en
+5,8 minutes, sans reprise, ainsi que le parcours de restauration sur API et
+PostgreSQL jetables. Le build Angular/SSR (24 routes), TypeScript, lint et les
+contrôles documentaires passent; l'avertissement ESLint préexistant subsiste.
+La suite admin utilise des API interceptées : cette correction de synchronisation
+ne remplace pas la recette OIDC réelle et ne constitue pas encore une réussite
+de la CI GitHub, à confirmer après publication du correctif.
+
 `yarn services:check` reste orienté vers les variables du mode token : il peut
 signaler leur absence en OIDC et ne valide ni l'issuer, ni les assertions MFA,
 ni le récepteur d'alertes. Utiliser la recette de connexion et de révocation
