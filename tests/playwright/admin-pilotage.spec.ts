@@ -1328,6 +1328,42 @@ test('weekly variants require review and recover a lost command response without
   expect(f.commands[0]!.payload!.editorialIntent).toBe('neutral');
 });
 
+test('changing an editorial instruction discards the previous comparison and confirmation', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  await f.open();
+  const programme = page.locator('[data-og7="editorial-programme"]');
+  await programme
+    .getByRole('button', { name: 'Variante de texte', exact: true })
+    .click();
+  await programme
+    .getByRole('textbox', { name: 'Mon intention' })
+    .fill('Ton neutre');
+  await programme
+    .getByRole('button', { name: 'Préparer la variante', exact: true })
+    .click();
+  await programme
+    .getByRole('button', { name: 'Examiner cette variante' })
+    .click();
+  await expect(
+    programme.locator('[data-og7="programme-confirmation"]')
+  ).toBeVisible();
+  await programme
+    .getByRole('textbox', { name: 'Mon intention' })
+    .fill('Raccourcir');
+  await expect(
+    programme.locator('[data-og7="programme-confirmation"]')
+  ).toHaveCount(0);
+  await expect(
+    programme.locator('[data-og7="programme-comparison"]')
+  ).toHaveCount(0);
+  await expect(
+    programme.getByRole('button', { name: 'Préparer la variante', exact: true })
+  ).toBeEnabled();
+  expect(f.commands).toHaveLength(0);
+});
+
 test('weekly memory and incident solutions remain explicit reviewed commands', async ({
   page
 }) => {

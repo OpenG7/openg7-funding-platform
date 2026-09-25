@@ -295,7 +295,8 @@
             type="text"
             data-og7="programme-instruction"
             maxlength="300"
-            [(ngModel)]="instruction"
+            [ngModel]="instruction"
+            (ngModelChange)="changeInstruction($event)"
             [placeholder]="t('instructionExample')"
             [disabled]="readonly()"
         /></label>

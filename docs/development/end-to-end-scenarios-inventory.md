@@ -417,6 +417,44 @@ dépendance ajoutée. Cette preuve porte sur calendrier, autorisations et repris
 elle ne qualifie ni un média stocké, ni une manette physique, ni un fournisseur
 social ou OIDC externe. La recette est découverte par la suite OIDC de CI.
 
+Vingt-cinquième priorité testée le 24 septembre 2026 (25 septembre à 01:14 UTC) :
+**variante examinée → correction enregistrée → suggestion → préférence confirmée →
+préparation suivante**, soit les scénarios 48 et 49. Les quatre transformations
+conservent noms, chiffres, liens et mentions. Une intention inconnue, un texte
+falsifié ou une version obsolète échoue sans correction enregistrée. Une variante
+acceptée retire l'ancienne approbation en conservant destination, date et média.
+
+Seules trois publications distinctes corrigées font apparaître la suggestion;
+aperçus, annulations, rejeux et corrections répétées du même contenu ne gonflent
+pas ce compteur. La préférence reste inactive jusqu'à sa confirmation. La recette
+couvre le conflit entre deux administrateurs, la réponse perdue récupérée sans
+seconde commande, puis la désactivation explicite. Les préparations suivantes
+adaptent les contenus automatiques intacts et nouveaux, tout en préservant les
+textes humains, l'actualité réapprouvée et la publication refusée. Les profils des
+autres destinations restent inchangés.
+
+Un défaut reproduit puis corrigé laissait l'ancienne comparaison et sa confirmation
+actives après modification de l'intention saisie. Elles sont maintenant retirées;
+il faut préparer et examiner une nouvelle variante. Lecteur, session expirée,
+origine étrangère et confirmation absente restent refusés côté API. Voir le
+[contrat et la recette](../operations/editorial-programme.md#variantes-et-préférences-avec-api-réelle).
+
+Preuve sur `e5ae715` avec les changements locaux : **1 parcours Chromium OIDC
+réussi en 21,1 secondes** (23,2 secondes avec démarrage du runner), sans échec,
+test ignoré ou instable. Web compilé, API et PostgreSQL 16 jetable réels,
+fournisseur OIDC signé local. **299 tests Node, 7 tests PostgreSQL et 30 tests UI
+du pilotage** passent. TypeScript, lint et build Web/SSR avec 24 routes pré-rendues
+passent; les avertissements préexistants ESLint et budget Angular (821,38 ko pour
+800 ko) subsistent. Clavier, préférences anglaises à 390 px et Axe ciblé sont
+vérifiés, avec capture mobile et audit attachés à la recette.
+
+Les commandites sont des fixtures déjà payées dans la seule base jetable;
+Stripe n'est pas exercé par ce parcours. La préparation explicite réutilise le
+service du worker, qui reste désactivé; feeds suspendus, mode `mock`, aucun
+courriel, job social ni envoi créé. Aucune migration ou dépendance ajoutée.
+Les fournisseurs externes, la dictée, la génération libre et les manettes
+physiques restent hors qualification. La suite OIDC de CI découvre cette recette.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |
