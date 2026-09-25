@@ -134,12 +134,16 @@ const ensureBackupDownloadDir = () => {
 const prepareLatestConfigBackup = () =>
   inAppDir([
     'bash scripts/backup.sh',
-    'latest="$(ls -t backups/openg7-backup-*.tar.gz 2>/dev/null | head -n 1)"',
+    'manifest="$(ls -t backups/openg7-backup-*.tar.gz.manifest.json 2>/dev/null | head -n 1)"',
+    'latest="${manifest%.manifest.json}"',
     'if [ -z "$latest" ]; then echo "No configuration backup was created." >&2; exit 1; fi',
     'cp "$latest" backups/latest-config-backup.tar.gz',
-    'chmod 600 backups/latest-config-backup.tar.gz',
-    'logo_latest="$(ls -t backups/openg7-sponsor-logos-*.tar.gz 2>/dev/null | head -n 1 || true)"',
-    'if [ -n "$logo_latest" ]; then cp "$logo_latest" backups/latest-sponsor-logos-backup.tar.gz && chmod 600 backups/latest-sponsor-logos-backup.tar.gz; fi'
+    'cp "$manifest" backups/latest-config-backup.tar.gz.manifest.json',
+    'stamp="${latest#backups/openg7-backup-}"; stamp="${stamp%.tar.gz}"',
+    'rm -f backups/latest-sponsor-logos-backup.tar.gz backups/latest-db-backup.sql',
+    'if [ -f "backups/openg7-sponsor-logos-${stamp}.tar.gz" ]; then cp "backups/openg7-sponsor-logos-${stamp}.tar.gz" backups/latest-sponsor-logos-backup.tar.gz; fi',
+    'if [ -f "backups/openg7-funding-db-${stamp}.sql" ]; then cp "backups/openg7-funding-db-${stamp}.sql" backups/latest-db-backup.sql; fi',
+    'chmod 600 backups/latest-*'
   ]);
 
 const prepareLatestDatabaseBackup = () =>
@@ -263,6 +267,15 @@ try {
       downloadPath
     );
     console.log(`Backup configuration telecharge: ${downloadPath}`);
+    await scpFromVps(
+      `${vpsAppDir}/backups/latest-config-backup.tar.gz.manifest.json`,
+      downloadPath + '.manifest.json'
+    );
+    const remoteDatabaseBackup = `${vpsAppDir}/backups/latest-db-backup.sql`;
+    if (await remoteFileExists(remoteDatabaseBackup)) {
+      await scpFromVps(remoteDatabaseBackup, downloadPath + '.database.sql');
+      console.log('Dump PostgreSQL du meme ensemble telecharge.');
+    }
 
     const remoteLogoBackup = `${vpsAppDir}/backups/latest-sponsor-logos-backup.tar.gz`;
     if (await remoteFileExists(remoteLogoBackup)) {

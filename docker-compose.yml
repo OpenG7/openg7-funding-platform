@@ -244,15 +244,15 @@ services:
 
 networks:
   edge:
-    name: openg7-edge
+    name: ${OPENG7_EDGE_NETWORK_NAME:-openg7-edge}
     driver: bridge
   data:
-    name: openg7-data
+    name: ${OPENG7_DATA_NETWORK_NAME:-openg7-data}
     driver: bridge
     internal: true
 
 volumes:
   postgres-data:
-    name: openg7-postgres-data
+    name: ${POSTGRES_VOLUME_NAME:-openg7-postgres-data}
   sponsor-logos:
-    name: openg7-sponsor-logos
+    name: ${SPONSOR_LOGOS_VOLUME_NAME:-openg7-sponsor-logos}

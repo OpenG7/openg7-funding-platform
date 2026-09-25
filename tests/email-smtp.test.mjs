@@ -30,6 +30,33 @@ const createSilentLogger = () => ({
   info() {}
 });
 
+test('email worker defaults to enabled, supports an explicit pause and rejects invalid startup configuration', () => {
+  assert.equal(emailModule.loadEmailQueueWorkerEnabled({}), true);
+  assert.equal(
+    emailModule.loadEmailQueueWorkerEnabled({
+      FUNDING_EMAIL_WORKER_ENABLED: 'true'
+    }),
+    true
+  );
+  assert.equal(
+    emailModule.loadEmailQueueWorkerEnabled({
+      FUNDING_EMAIL_WORKER_ENABLED: ' false '
+    }),
+    false
+  );
+  assert.throws(
+    () =>
+      emailModule.loadEmailQueueWorkerEnabled({
+        FUNDING_EMAIL_WORKER_ENABLED: 'invalid-private-fixture'
+      }),
+    (error) => {
+      assert.equal(error.code, 'EMAIL_CONFIGURATION_ERROR');
+      assert.ok(!error.message.includes('invalid-private-fixture'));
+      return true;
+    }
+  );
+});
+
 test('SMTP config validates HostPapa defaults and creates the expected transport', async () => {
   const calls = [];
   const messages = [];

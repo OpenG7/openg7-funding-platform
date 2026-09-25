@@ -1,201 +1,123 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
-
-CONFIG_BACKUP=""
-DATABASE_DUMP=""
-SPONSOR_LOGOS_BACKUP=""
+CONFIG_BACKUP="" DATABASE_DUMP="" SPONSOR_LOGOS_BACKUP="" TARGET_PROJECT=""
 FORCE=0
-RUN_CHECK=1
-POSTGRES_VOLUME_NAME="${POSTGRES_VOLUME_NAME:-openg7-postgres-data}"
-SPONSOR_LOGOS_VOLUME_NAME="${SPONSOR_LOGOS_VOLUME_NAME:-openg7-sponsor-logos}"
-
+fail() { echo "FAIL: $*" >&2; exit 1; }
+docker_path() { if command -v cygpath >/dev/null; then cygpath -am "$1"; else printf '%s' "$1"; fi; }
+docker() { MSYS_NO_PATHCONV=1 command docker "$@"; }
 usage() {
   cat <<'USAGE'
-Usage:
-  bash scripts/restore-from-backup.sh \
-    --config-backup /path/to/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz \
-    --database-dump /path/to/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql \
-    --sponsor-logos-backup /path/to/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
+Usage: bash scripts/restore-from-backup.sh --target-project <new-project> \
+  --config-backup <archive.tar.gz> --database-dump <database.sql> \
+  --sponsor-logos-backup <media.tar.gz> [--force]
 
-Options:
-  --sponsor-logos-backup PATH
-               Restore the uploaded sponsor logo Docker volume from a tar.gz.
-  --force       Skip the interactive destructive confirmation.
-  --skip-check  Do not run scripts/check.sh after restore.
-  --help        Show this help message.
-
-This restores the application configuration, removes the local PostgreSQL Docker
-volume, recreates PostgreSQL, imports the pg_dump file, optionally restores the
-sponsor logo volume, starts the stack, then runs the production check script
-unless --skip-check is provided.
+Run from a trusted checkout on a dedicated recovery target without a .env file.
+Requires Node 22, Docker Compose and the configuration archive's .manifest.json.
+Only new project/volumes are accepted. Existing data is never removed.
+The configuration is restored with isolated project, volume and network names.
+PostgreSQL and local media are restored; API, Web and workers remain stopped.
+--force skips the typed confirmation, not integrity or target checks.
 USAGE
 }
-
-fail() {
-  echo "FAIL: $*" >&2
-  exit 1
-}
-
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --config-backup)
-      [[ $# -ge 2 ]] || fail "--config-backup requires a path."
-      CONFIG_BACKUP="${2:-}"
-      shift 2
-      ;;
-    --database-dump)
-      [[ $# -ge 2 ]] || fail "--database-dump requires a path."
-      DATABASE_DUMP="${2:-}"
-      shift 2
-      ;;
-    --sponsor-logos-backup)
-      [[ $# -ge 2 ]] || fail "--sponsor-logos-backup requires a path."
-      SPONSOR_LOGOS_BACKUP="${2:-}"
-      shift 2
-      ;;
-    --force)
-      FORCE=1
-      shift
-      ;;
-    --skip-check)
-      RUN_CHECK=0
-      shift
-      ;;
-    --help)
-      usage
-      exit 0
-      ;;
-    *)
-      fail "Unknown argument: $1"
-      ;;
+    --config-backup|--database-dump|--sponsor-logos-backup|--target-project)
+      [[ $# -ge 2 && -n "$2" ]] || fail "Missing option value."
+      case "$1" in
+        --config-backup) CONFIG_BACKUP="$2";;
+        --database-dump) DATABASE_DUMP="$2";;
+        --sponsor-logos-backup) SPONSOR_LOGOS_BACKUP="$2";;
+        --target-project) TARGET_PROJECT="$2";;
+      esac
+      shift 2;;
+    --force) FORCE=1; shift;;
+    --help) usage; exit 0;;
+    *) fail "Unknown option. Use --help.";;
   esac
 done
-
-[[ -n "${CONFIG_BACKUP}" ]] || fail "Missing --config-backup path."
-[[ -n "${DATABASE_DUMP}" ]] || fail "Missing --database-dump path."
-[[ -f "${CONFIG_BACKUP}" ]] || fail "Config backup not found: ${CONFIG_BACKUP}"
-[[ -f "${DATABASE_DUMP}" ]] || fail "Database dump not found: ${DATABASE_DUMP}"
-if [[ -n "${SPONSOR_LOGOS_BACKUP}" ]]; then
-  [[ -f "${SPONSOR_LOGOS_BACKUP}" ]] ||
-    fail "Sponsor logos backup not found: ${SPONSOR_LOGOS_BACKUP}"
-fi
-
-command -v tar >/dev/null 2>&1 || fail "tar is not installed."
-command -v docker >/dev/null 2>&1 || fail "docker is not installed."
-docker compose version >/dev/null 2>&1 || fail "docker compose plugin is not installed."
-
-tar -tzf "${CONFIG_BACKUP}" >/dev/null
-tar -tzf "${CONFIG_BACKUP}" | grep -Eq '(^|/)docker-compose\.yml$' ||
-  fail "Config backup does not look like an OpenG7 deployment archive."
-if [[ -n "${SPONSOR_LOGOS_BACKUP}" ]]; then
-  tar -tzf "${SPONSOR_LOGOS_BACKUP}" >/dev/null
-fi
-
-if [[ "${FORCE}" -ne 1 ]]; then
-  cat <<WARNING
-WARNING: this will stop the Docker stack and remove the PostgreSQL volume:
-  ${POSTGRES_VOLUME_NAME}
-
-The database will be recreated from:
-  ${DATABASE_DUMP}
-
-$(if [[ -n "${SPONSOR_LOGOS_BACKUP}" ]]; then
-  cat <<LOGOWARNING
-The sponsor logo volume will also be removed and restored:
-  ${SPONSOR_LOGOS_VOLUME_NAME}
-
-Sponsor logos will be recreated from:
-  ${SPONSOR_LOGOS_BACKUP}
-
-LOGOWARNING
-fi)
-
-Type RESTORE OPENG7 to continue.
-WARNING
-
-  read -r CONFIRMATION
-  [[ "${CONFIRMATION}" == "RESTORE OPENG7" ]] ||
-    fail "Restore cancelled."
-fi
-
-echo "Restoring configuration from ${CONFIG_BACKUP}"
-tar -xzf "${CONFIG_BACKUP}" -C "${ROOT_DIR}"
-
-[[ -f .env ]] || fail "Restored backup did not include .env."
-chmod 600 .env
-if [[ -f traefik/acme/acme.json ]]; then
-  chmod 600 traefik/acme/acme.json
-fi
-
-# shellcheck disable=SC1091
-source scripts/load-env.sh .env
-
-[[ -n "${DATABASE_URL:-}" ]] ||
-  fail "Restored .env has no DATABASE_URL. PostgreSQL restore would not be used by the API."
-
-POSTGRES_DB="${POSTGRES_DB:-openg7_funding}"
-POSTGRES_USER="${POSTGRES_USER:-openg7_funding}"
-
-echo "Stopping Docker stack."
-docker compose down
-
-if docker volume inspect "${POSTGRES_VOLUME_NAME}" >/dev/null 2>&1; then
-  echo "Removing PostgreSQL volume ${POSTGRES_VOLUME_NAME}."
-  docker volume rm "${POSTGRES_VOLUME_NAME}"
-else
-  echo "PostgreSQL volume ${POSTGRES_VOLUME_NAME} does not exist yet."
-fi
-
-echo "Starting a clean PostgreSQL service."
-docker compose --profile database up -d postgres
-
-echo "Waiting for PostgreSQL to become ready."
-for _ in $(seq 1 60); do
-  if docker compose --profile database exec -T postgres \
-    pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1; then
-    break
-  fi
-
-  sleep 2
+[[ "$TARGET_PROJECT" =~ ^[a-z0-9][a-z0-9_-]{2,49}$ ]] || fail "An explicit new --target-project is required."
+[[ ! -e .env && ! -L .env ]] || fail "Target already has .env. Use a dedicated fresh checkout."
+for file in "$CONFIG_BACKUP" "$DATABASE_DUMP" "$SPONSOR_LOGOS_BACKUP"; do
+  [[ -f "$file" ]] || fail "All three backup artifacts are required."
 done
+command -v node >/dev/null || fail "Node 22 is required for backup verification."
+command -v docker >/dev/null || fail "Docker is required."
+docker compose version >/dev/null
+node scripts/backup-artifacts.mjs verify "$CONFIG_BACKUP" "$DATABASE_DUMP" "$SPONSOR_LOGOS_BACKUP"
+assert_target_unused() {
+  local containers container suffix
+  containers="$(docker ps -aq --no-trunc --filter "label=com.docker.compose.project=${TARGET_PROJECT}")" || fail "Cannot inspect target containers."
+  for container in $containers; do
+    [[ "$container" == "${RESTORE_RESERVATION:-}" ]] || fail "Target project already has containers."
+  done
+  for suffix in postgres-data sponsor-logos; do
+    if docker volume inspect "${TARGET_PROJECT}-${suffix}" >/dev/null 2>&1; then
+      fail "Target volume already exists. Choose another recovery project."
+    fi
+  done
+  for suffix in edge data; do
+    if docker network inspect "${TARGET_PROJECT}-${suffix}" >/dev/null 2>&1; then
+      fail "Target network already exists. Choose another recovery project."
+    fi
+  done
+}
+assert_target_unused
 
-docker compose --profile database exec -T postgres \
-  pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null ||
-  fail "PostgreSQL did not become ready."
-
-echo "Importing database dump from ${DATABASE_DUMP}"
-docker compose --profile database exec -T postgres \
-  psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
-  < "${DATABASE_DUMP}"
-
-if [[ -n "${SPONSOR_LOGOS_BACKUP}" ]]; then
-  SPONSOR_LOGOS_BACKUP_DIR="$(cd "$(dirname "${SPONSOR_LOGOS_BACKUP}")" && pwd)"
-  SPONSOR_LOGOS_BACKUP_FILE="$(basename "${SPONSOR_LOGOS_BACKUP}")"
-
-  if docker volume inspect "${SPONSOR_LOGOS_VOLUME_NAME}" >/dev/null 2>&1; then
-    echo "Removing sponsor logo volume ${SPONSOR_LOGOS_VOLUME_NAME}."
-    docker volume rm "${SPONSOR_LOGOS_VOLUME_NAME}"
-  else
-    echo "Sponsor logo volume ${SPONSOR_LOGOS_VOLUME_NAME} does not exist yet."
-  fi
-
-  echo "Restoring sponsor logo volume ${SPONSOR_LOGOS_VOLUME_NAME}."
-  docker volume create "${SPONSOR_LOGOS_VOLUME_NAME}" >/dev/null
-  docker run --rm \
-    -v "${SPONSOR_LOGOS_VOLUME_NAME}:/volume" \
-    -v "${SPONSOR_LOGOS_BACKUP_DIR}:/backup:ro" \
-    alpine:3.20 \
-    sh -c "cd /volume && tar -xzf /backup/${SPONSOR_LOGOS_BACKUP_FILE}"
+mkdir "$ROOT_DIR/.restore.lock" 2>/dev/null || fail "A restore is already using this checkout."
+STAGE="" RESTORE_RESERVATION=""
+cleanup() {
+  if [[ -n "$RESTORE_RESERVATION" ]]; then docker rm "$RESTORE_RESERVATION" >/dev/null; fi
+  if [[ -n "$STAGE" ]]; then rm -rf -- "$STAGE"; fi
+  rmdir "$ROOT_DIR/.restore.lock"
+}
+trap cleanup EXIT
+STAGE="$(mktemp -d "${ROOT_DIR}/.restore-stage.XXXXXX")"
+tar -xzf "$CONFIG_BACKUP" -C "$STAGE"
+# Archived scripts are retained in the archive, never executed or installed.
+export COMPOSE_PROJECT_NAME="$TARGET_PROJECT"
+export POSTGRES_VOLUME_NAME="${TARGET_PROJECT}-postgres-data"
+export SPONSOR_LOGOS_VOLUME_NAME="${TARGET_PROJECT}-sponsor-logos"
+export OPENG7_EDGE_NETWORK_NAME="${TARGET_PROJECT}-edge"
+export OPENG7_DATA_NETWORK_NAME="${TARGET_PROJECT}-data"
+unset COMPOSE_FILE COMPOSE_PROFILES
+printf '\nCOMPOSE_PROJECT_NAME=%s\nPOSTGRES_VOLUME_NAME=%s\nSPONSOR_LOGOS_VOLUME_NAME=%s\nOPENG7_EDGE_NETWORK_NAME=%s\nOPENG7_DATA_NETWORK_NAME=%s\n' \
+  "$TARGET_PROJECT" "$POSTGRES_VOLUME_NAME" "$SPONSOR_LOGOS_VOLUME_NAME" "$OPENG7_EDGE_NETWORK_NAME" "$OPENG7_DATA_NETWORK_NAME" >> "$STAGE/.env"
+compose() { docker compose --project-directory "$(docker_path "$STAGE")" --env-file "$(docker_path "$STAGE/.env")" -p "$TARGET_PROJECT" -f "$(docker_path "$STAGE/docker-compose.yml")" --profile database "$@"; }
+compose config --format json | node scripts/backup-artifacts.mjs check-compose "$TARGET_PROJECT"
+if [[ "$FORCE" -ne 1 ]]; then
+  printf 'Restore into new project %s with volumes %s and %s.\n' "$TARGET_PROJECT" "$POSTGRES_VOLUME_NAME" "$SPONSOR_LOGOS_VOLUME_NAME"
+  echo "Application services will remain stopped. Type RESTORE ${TARGET_PROJECT} to continue."
+  read -r confirmation
+  [[ "$confirmation" == "RESTORE ${TARGET_PROJECT}" ]] || fail "Restore cancelled."
 fi
-
-echo "Starting full Docker stack."
-docker compose --profile database up -d
-
-if [[ "${RUN_CHECK}" -eq 1 ]]; then
-  bash scripts/check.sh
-fi
-
-echo "Restore completed."
+# Atomic reservation also serializes the same project across separate checkouts.
+RESTORE_RESERVATION="$(docker create --name "${TARGET_PROJECT}-restore-lock" \
+  --label "com.docker.compose.project=${TARGET_PROJECT}" \
+  --mount type=tmpfs,destination=/var/lib/postgresql/data \
+  --entrypoint true postgres:16-alpine)" || fail "Recovery project is already reserved."
+# Another restore may have completed while this operator was confirming.
+assert_target_unused
+cp "$STAGE/.env" "$ROOT_DIR/.env"
+cp "$STAGE/docker-compose.yml" "$ROOT_DIR/docker-compose.yml"
+if [[ -d "$STAGE/traefik" ]]; then cp -R "$STAGE/traefik" "$ROOT_DIR/"; fi
+chmod 600 .env
+compose up -d --no-deps postgres
+for _ in $(seq 1 60); do
+  if compose exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1; then break; fi
+  sleep 1
+done
+compose exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null || fail "PostgreSQL did not become ready."
+# A failed statement rolls back the entire import, including schema creation.
+compose exec -T postgres sh -c 'exec psql -X --single-transaction -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$DATABASE_DUMP" >/dev/null 2>&1 || fail "Database import failed; application remains stopped."
+docker volume create "$SPONSOR_LOGOS_VOLUME_NAME" >/dev/null
+MEDIA_ABS="$(cd "$(dirname "$SPONSOR_LOGOS_BACKUP")" && pwd)/$(basename "$SPONSOR_LOGOS_BACKUP")"
+docker run --rm --entrypoint sh \
+  --mount "type=volume,src=${SPONSOR_LOGOS_VOLUME_NAME},dst=/volume" \
+  --mount "type=bind,src=$(docker_path "$MEDIA_ABS"),dst=/archive.tar.gz,readonly" \
+  postgres:16-alpine -c 'cd /volume && tar -xzf /archive.tar.gz'
+echo "Restore completed into ${TARGET_PROJECT}. API, Web and workers remain stopped."
+echo "Verify totals, documents, media, access and provider reconciliation before starting application services."

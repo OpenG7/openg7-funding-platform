@@ -56,6 +56,14 @@ FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS=5
 When `SMTP_ENABLED=false`, the API starts without `SMTP_PASSWORD`. Queued
 messages are not sent and are reported with `deliveryMode=disabled`.
 
+`FUNDING_EMAIL_WORKER_ENABLED=false` pauses background queue claims at API startup
+and during polling, preserving statuses, attempts and retry dates. This private
+server setting defaults to `true`; an invalid boolean prevents startup. Restart
+the API after changing it. SMTP-disabled mode alone still records failed attempts.
+Explicit authorized test/retry commands can still attempt delivery; the switch
+does not pause contribution notifications, reminders or social workers. See the
+[recovery procedure](operations/backup-recovery.md) before resuming a restored queue.
+
 ## Failed messages and concurrent retries
 
 The persistent queue retains the message, recipient, attempts, next attempt and

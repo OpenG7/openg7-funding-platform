@@ -188,6 +188,7 @@ import {
 import {
   getTransactionalEmailConfigStatus,
   isValidEmailAddress,
+  loadEmailQueueWorkerEnabled,
   loadTransactionalEmailConfig
 } from './services/email/index.js';
 import {
@@ -366,6 +367,7 @@ const adminRateLimitMax = parseNonNegativeIntegerEnv(
   process.env.FUNDING_ADMIN_RATE_LIMIT_MAX,
   120
 );
+const emailQueueWorkerEnabled = loadEmailQueueWorkerEnabled();
 const emailQueuePollIntervalMs = parsePositiveIntegerEnv(
   process.env.FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS,
   30_000
@@ -2390,7 +2392,7 @@ let emailQueueProcessing = false;
 let adminSponsorshipReviewReminderProcessing = false;
 
 const runEmailQueueWorker = async (): Promise<void> => {
-  if (!dbPool || emailQueueProcessing) {
+  if (!dbPool || !emailQueueWorkerEnabled || emailQueueProcessing) {
     return;
   }
 

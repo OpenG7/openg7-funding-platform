@@ -26,20 +26,21 @@ documentaire n'exige pas de lancer les suites applicatives.
 
 ## Portée des commandes
 
-| Commande                                                              | Ce qu'elle vérifie                                                                               |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `yarn build`                                                          | Compilation TypeScript via `tsconfig.build.json`; pas le build Angular                           |
-| `yarn test`                                                           | Compilation TypeScript puis tests Node; ne pas refaire `yarn build` juste avant                  |
-| `yarn workspace @openg7/funding-web build --configuration production` | Build Angular et rendu initial/SSR configuré                                                     |
-| `yarn test:e2e`                                                       | Suite Node de couverture commandite; aucun navigateur                                            |
-| `yarn test:e2e:acceptance`                                            | API/DB/navigateur en pile Docker jetable, fournisseurs simulés                                   |
-| `yarn test:e2e:identity`                                              | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation |
-| `yarn test:e2e:playwright`                                            | Démarrage/réutilisation Docker local, migrations et seed, puis Playwright; modifie l'état local  |
-| `yarn test:ui:admin`                                                  | UI admin sur build Angular avec fixtures/interceptions                                           |
-| `yarn test:ui:public-journeys`                                        | Parcours publics FR/EN sur plusieurs navigateurs avec API interceptées                           |
-| `yarn test:ui:platform-accessibility`                                 | Accessibilité, routes 404 et chargement différé                                                  |
-| `yarn test:integration:payments`                                      | Compilation puis intégrations jetables sous `tests/integration/`                                 |
-| `yarn test:rehearsal`                                                 | Recette jetable des adaptateurs, SMTP/S3 et restauration                                         |
+| Commande                                                                  | Ce qu'elle vérifie                                                                               |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `yarn build`                                                              | Compilation TypeScript via `tsconfig.build.json`; pas le build Angular                           |
+| `yarn test`                                                               | Compilation TypeScript puis tests Node; ne pas refaire `yarn build` juste avant                  |
+| `yarn workspace @openg7/funding-web build --configuration production`     | Build Angular et rendu initial/SSR configuré                                                     |
+| `yarn test:e2e`                                                           | Suite Node de couverture commandite; aucun navigateur                                            |
+| `yarn test:e2e:acceptance`                                                | API/DB/navigateur en pile Docker jetable, fournisseurs simulés                                   |
+| `yarn test:e2e:identity`                                                  | API réelle, Web compilé, PostgreSQL jetable et fournisseur OIDC signé local; rôles et révocation |
+| `yarn test:e2e:playwright`                                                | Démarrage/réutilisation Docker local, migrations et seed, puis Playwright; modifie l'état local  |
+| `yarn test:ui:admin`                                                      | UI admin sur build Angular avec fixtures/interceptions                                           |
+| `yarn test:ui:public-journeys`                                            | Parcours publics FR/EN sur plusieurs navigateurs avec API interceptées                           |
+| `yarn test:ui:platform-accessibility`                                     | Accessibilité, routes 404 et chargement différé                                                  |
+| `yarn test:integration:payments`                                          | Compilation puis intégrations jetables sous `tests/integration/`                                 |
+| `yarn test:rehearsal`                                                     | Recette jetable des adaptateurs, SMTP/S3 et restauration                                         |
+| `yarn exec playwright test --config tests/playwright-recovery.config.mjs` | Scripts de sauvegarde/restauration et récupération applicative sur cibles jetables               |
 
 Prérequis et preuves datées : [état de la plateforme](../platform-status.md),
 [recette fournisseurs](../operations/integration-rehearsal.md),

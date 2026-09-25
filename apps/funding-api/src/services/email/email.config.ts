@@ -75,6 +75,11 @@ const assertValidEmailAddress = (name: string, value: string): void => {
   }
 };
 
+/** Pauses background claims only; explicit, authorized delivery commands remain available. */
+export const loadEmailQueueWorkerEnabled = (
+  env: NodeJS.ProcessEnv = process.env
+): boolean => parseBooleanEnv(env, 'FUNDING_EMAIL_WORKER_ENABLED', true);
+
 const formatEmailAddress = (name: string, address: string): string => {
   if (/^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+$/.test(name)) {
     return `${name} <${address}>`;
