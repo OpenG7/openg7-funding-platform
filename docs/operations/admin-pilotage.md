@@ -129,6 +129,11 @@ permet ensuite à son auteur de consigner un constat audité et de libérer le
 pilotage. Le reçu conserve son statut incertain; cette déclaration ne simule
 aucun succès et ne réexécute aucune commande. Ne pas effacer le reçu pour relancer.
 Un reçu `completed` confirme la commande, pas un envoi externe déjà terminé.
+Après récupération d'un reçu au rechargement, le pilotage sélectionne une
+décision disponible sans effacer le résultat récupéré. Un reçu échoué conserve
+son explication après l'actualisation des décisions. Le parcours complet de
+composition et de reprise est décrit dans la
+[recette éditoriale](editorial-programme.md#calendrier-et-répétition-générale-avec-api-réelle).
 
 ## Activation et retour au portail
 

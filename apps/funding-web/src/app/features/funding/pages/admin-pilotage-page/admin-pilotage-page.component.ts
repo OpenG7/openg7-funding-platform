@@ -392,11 +392,12 @@ export class AdminPilotagePageComponent {
       if (replace || !this.selected()) {
         const id = this.restoreId || this.selected()?.id;
         this.restoreId = '';
-        this.choose(
+        this.selectLoadedDecision(
           result.decisions.find((d) => d.id === id) ??
             result.decisions[0] ??
             null
         );
+        if (replace) this.receipt.set(null);
       }
     } catch (error) {
       if (request === this.loadRequest)
@@ -410,8 +411,11 @@ export class AdminPilotagePageComponent {
   choose(decision: PilotDecision | null): void {
     if (this.busy() || this.panel() === 'confirm' || this.panel() === 'edit')
       return;
-    this.selected.set(decision);
     this.receipt.set(null);
+    this.selectLoadedDecision(decision);
+  }
+  private selectLoadedDecision(decision: PilotDecision | null): void {
+    this.selected.set(decision);
     this.controller.reset();
     this.persist();
     void this.preview(decision);
@@ -690,8 +694,10 @@ export class AdminPilotagePageComponent {
           this.sessionDecisions.update((n) => n + 1);
           this.saveSession();
         }
-      } else if (!receipt.reviewedAt) this.error.set(receipt.code ?? 'generic');
+      }
       await this.load(false);
+      if (receipt.status !== 'completed' && !receipt.reviewedAt)
+        this.error.set(receipt.code ?? 'generic');
     }
   }
   async details(): Promise<void> {
