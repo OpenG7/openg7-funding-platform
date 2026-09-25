@@ -71,16 +71,14 @@ test.describe('Docker admin contributions', () => {
     await expect(row).toBeVisible();
   });
 
-  test('exports the full contributions list as CSV', async ({ page }) => {
+  test('exports the displayed contributions as CSV', async ({ page }) => {
     await signInAsAdmin(page);
     await page.goto('/admin/fundraiser/contributions');
     await expect(
       page.getByRole('heading', { name: 'Contributions' })
     ).toBeVisible();
 
-    // exportCsv() hits /admin/contributions.csv directly with no filter
-    // query params, so the download always reflects the full admin list --
-    // no need to search/filter first for this assertion to be meaningful.
+    // No filters: export exactly the displayed records after confirmation.
     const fixture = SPONSORSHIP_FIXTURES.approve;
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export CSV', exact: true }).click();

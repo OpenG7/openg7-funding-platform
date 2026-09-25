@@ -115,7 +115,13 @@ export async function startIdentityStack() {
         if (match) finish(null, Number(match[1]));
       });
     });
-    return { origin, pool: db.pool, provider, stop };
+    return {
+      origin,
+      apiOrigin: `http://127.0.0.1:${apiPort}`,
+      pool: db.pool,
+      provider,
+      stop
+    };
   } catch (error) {
     await stop();
     throw error;

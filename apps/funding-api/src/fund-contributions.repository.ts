@@ -1192,9 +1192,10 @@ const getAdminContributionsSummary = async (
 };
 
 const listRecentAdminContributions = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   limit: number,
-  contributionId?: string
+  contributionIds?: readonly string[],
+  lock = false
 ): Promise<readonly AdminContributionRecord[]> => {
   if (!pool) {
     return [];
@@ -1233,15 +1234,22 @@ const listRecentAdminContributions = async (
         created_at::text AS created_at,
         updated_at::text AS updated_at
       FROM fund_contributions
-      WHERE ($2::uuid IS NULL OR id = $2::uuid)
-      ORDER BY COALESCE(paid_at, updated_at, created_at) DESC
+      WHERE ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))
+      ORDER BY COALESCE(paid_at, updated_at, created_at) DESC, id
       LIMIT $1
+      ${lock ? 'FOR SHARE' : ''}
     `,
-    [Math.max(1, Math.min(limit, 500)), contributionId ?? null]
+    [Math.max(1, Math.min(limit, 500)), contributionIds ?? null]
   );
 
   return query.rows.map(mapAdminContributionRow);
 };
+
+export const listAdminContributionSelection = (
+  db: PoolClient,
+  ids: readonly string[]
+): Promise<readonly AdminContributionRecord[]> =>
+  listRecentAdminContributions(db, 250, ids, true);
 
 export const listAdminContributions = async (
   pool: Pool | null,
@@ -1249,7 +1257,11 @@ export const listAdminContributions = async (
 ): Promise<AdminContributionsResponse> => {
   const [{ summary, lastUpdatedAt }, contributions] = await Promise.all([
     getAdminContributionsSummary(pool),
-    listRecentAdminContributions(pool, 250, contributionId)
+    listRecentAdminContributions(
+      pool,
+      250,
+      contributionId ? [contributionId] : undefined
+    )
   ]);
 
   return {

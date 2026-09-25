@@ -20,7 +20,10 @@ import type {
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
-import { FundingAdminService } from '../../services/funding-admin.service.js';
+import {
+  AdminDashboardRequestError,
+  FundingAdminService
+} from '../../services/funding-admin.service.js';
 
 type ContributionTypeFilter = 'all' | ContributionType;
 type PublicDisplayFilter = 'all' | 'public' | 'private';
@@ -45,13 +48,43 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
             <button
               type="button"
               class="secondary"
-              [disabled]="state() === 'loading' || contributions().length === 0"
+              data-og7="contribution-export"
+              [disabled]="
+                state() !== 'ready' ||
+                exporting() ||
+                !canExport() ||
+                filteredContributions().length === 0
+              "
               (click)="exportCsv()"
             >
               {{ 'admin.legacy.export_csv' | translate }}
             </button>
           </nav>
         </header>
+
+        <p class="state" data-og7="contribution-export-scope">
+          {{
+            (filteredContributions().length === 1
+              ? 'admin.contributionsExport.scopeOne'
+              : 'admin.contributionsExport.scope'
+            ) | translate: { count: filteredContributions().length }
+          }}
+          {{ 'admin.contributionsExport.limit' | translate }}
+        </p>
+        @if (!canExport()) {
+          <p class="state">
+            {{ 'admin.contributionsExport.forbidden' | translate }}
+          </p>
+        }
+        @if (exportError()) {
+          <p
+            class="state state-error"
+            role="alert"
+            data-og7="contribution-export-error"
+          >
+            {{ exportError() | translate }}
+          </p>
+        }
 
         <p class="state" *ngIf="state() === 'loading'">
           {{ 'admin.legacy.chargement_des_contributions' | translate }}
@@ -219,6 +252,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 
           <section
             class="admin-table-panel"
+            data-og7="contributions-list"
             aria-labelledby="contributions-title"
           >
             <header>
@@ -586,6 +620,11 @@ export class AdminContributionsPageComponent implements OnInit {
   readonly adminToken = signal<string>('');
   readonly data = signal<AdminContributionsResponse | null>(null);
   readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  readonly exporting = signal(false);
+  readonly exportError = signal('');
+  readonly canExport = computed(
+    () => !this.admin.identity() || this.admin.identity()?.role === 'owner'
+  );
   readonly search = signal<string>('');
   readonly selectedContributionId = signal<string | null>(null);
   readonly typeFilter = signal<ContributionTypeFilter>('all');
@@ -658,6 +697,7 @@ export class AdminContributionsPageComponent implements OnInit {
   async loadContributions(): Promise<void> {
     const generation = ++this.loadGeneration;
     this.state.set('loading');
+    this.exportError.set('');
 
     try {
       const response = await this.admin.getContributions(
@@ -675,22 +715,50 @@ export class AdminContributionsPageComponent implements OnInit {
   }
 
   async exportCsv(): Promise<void> {
-    if (this.state() === 'loading') return;
     if (
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.exportPrivate')
-      ))
+      this.state() !== 'ready' ||
+      this.exporting() ||
+      !this.canExport() ||
+      !this.filteredContributions().length
     )
       return;
-    this.state.set('loading');
-
+    const contributions = this.filteredContributions().map((row) => ({
+      id: row.id,
+      expectedVersion: row.updated_at
+    }));
+    const generation = this.loadGeneration;
+    this.exporting.set(true);
+    this.exportError.set('');
     try {
-      const csv = await this.admin.getContributionsCsv(this.adminToken());
+      if (
+        !(await this.confirmation.confirm(
+          this.i18n.t(
+            contributions.length === 1
+              ? 'admin.contributionsExport.confirmOne'
+              : 'admin.contributionsExport.confirm',
+            {
+              count: contributions.length
+            }
+          )
+        )) ||
+        generation !== this.loadGeneration
+      )
+        return;
+      const csv = await this.admin.getContributionsCsv(this.adminToken(), {
+        confirmation: 'export_private_contributions',
+        contributions
+      });
+      if (generation !== this.loadGeneration) return;
       this.saveCsv(csv);
-      this.state.set('ready');
-      this.admin.saveAdminToken(this.adminToken());
-    } catch {
-      this.state.set('error');
+    } catch (error) {
+      if (generation !== this.loadGeneration) return;
+      const status =
+        error instanceof AdminDashboardRequestError ? error.status : 0;
+      this.exportError.set(
+        `admin.contributionsExport.${status === 409 ? 'changed' : status === 403 ? 'forbidden' : status === 401 ? 'sessionExpired' : 'failed'}`
+      );
+    } finally {
+      this.exporting.set(false);
     }
   }
 

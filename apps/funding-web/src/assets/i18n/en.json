@@ -1,5 +1,16 @@
 {
   "admin": {
+    "contributionsExport": {
+      "scopeOne": "The CSV contains the contribution displayed after filtering.",
+      "confirmOne": "Export the private data of the displayed contribution to a CSV file?",
+      "scope": "The CSV contains the {{count}} contributions displayed after filtering.",
+      "limit": "The list shows at most the 250 most recent contributions.",
+      "confirm": "Export the private data of the {{count}} displayed contributions to a CSV file?",
+      "forbidden": "Private exports are restricted to owners.",
+      "changed": "The selection has changed. Refresh the list, review the results and confirm the export again.",
+      "sessionExpired": "Your session has expired. Sign in again before confirming a new export.",
+      "failed": "The export could not be generated. No file was downloaded. Review and try again."
+    },
     "expenses": {
       "conflict": "This allocation has changed. Your entries are preserved. Copy any changes you need, then refresh the list to review the current version before trying again."
     },

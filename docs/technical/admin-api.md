@@ -98,7 +98,7 @@ POST /api/admin/search
 GET /api/admin/stripe-event?eventId=evt_...
 POST /api/admin/session
 GET /api/admin/contributions
-GET /api/admin/contributions.csv
+POST /api/admin/contributions.csv
 GET /api/admin/expenses
 POST /api/admin/expenses
 POST /api/admin/expenses/update
@@ -138,8 +138,8 @@ POST /api/admin/sponsorship-credit-notes/resend
 The dashboard summarizes received funds, estimated availability, pending
 sponsorship reviews, feed publication state, Stripe event errors, and recent
 contributions. The contributions view supports local filtering by type, payment
-status, public-display consent, and search, with a CSV export for private admin
-review. Expenses manage `fund_allocations`; see the
+status, public-display consent, and search. The [private CSV export](../operations/private-contributions-export.md)
+requires owner access and a confirmed, versioned selection. Expenses manage `fund_allocations`; see the
 [confirmation, version and amount contract](../funding-transparency.md#allocations-publiées-et-réalisations).
 The publications view generates and moderates sponsored
 publication drafts for approved sponsorships, while the audit view lists recent
