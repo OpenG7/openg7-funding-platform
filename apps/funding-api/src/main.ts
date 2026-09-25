@@ -5459,6 +5459,7 @@ createServer(async (request, response) => {
   }
 
   if (routeMatches(request.url, '/admin/search', '/api/admin/search')) {
+    response.setHeader('Cache-Control', 'private, no-store');
     if (!ensureAdminAuthorization(request, response)) return;
     const headers = { 'Cache-Control': 'private, no-store' };
     if (request.method !== 'POST') {

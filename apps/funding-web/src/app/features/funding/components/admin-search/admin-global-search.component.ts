@@ -142,7 +142,7 @@ export class AdminGlobalSearchComponent {
         this.close();
         this.admin.clearAdminSession();
         await this.router.navigate(['/admin/login'], {
-          queryParams: { returnUrl: '/admin/fundraiser' }
+          queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
         });
       } else
         this.state.set(

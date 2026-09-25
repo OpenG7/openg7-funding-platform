@@ -77,8 +77,8 @@ The [Global admin search — lot 6](../admin-ux-lot-6.md) adds
 bounded pagination. Use Ctrl+K / Cmd+K from the admin layout or shared navigation.
 Search terms stay out of URLs and browser storage. Direct contribution links
 accept `contributionId` before the list limit; invoice and publication pages
-reload when their target changes on the same route. PostgreSQL search tests
-require an explicitly configured fresh local `search_test` database.
+reload when their target changes on the same route. Search tests use disposable
+PostgreSQL; the OIDC recipe covers the complete browser journey.
 The [Admin drawers and page harmonization — lot 7](../admin-ux-lot-7.md)
 extends the shared FR/EN layout to the operational pages and adds accessible
 inspection drawers, protected invoice/media previews and explicit action
