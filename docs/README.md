@@ -91,6 +91,7 @@ retour au contexte, à partir de la file complète et paginée de **À traiter**
 | Vérifier configuration et services              | [Smoke tests](operations/production-smoke-tests.md)                                    |
 | Stocker les médias                              | [Stockage OVH](operations/ovh-object-storage.md)                                       |
 | Exercer SMTP, S3, restauration et accessibilité | [Recette contrôlée](operations/integration-rehearsal.md)                               |
+| Sauvegarder et récupérer sur une cible dédiée   | [Récupération applicative](operations/backup-recovery.md)                              |
 | Comprendre la portée des tests                  | [Bilan courant](platform-status.md), [matrice commandite](sponsorship-e2e-coverage.md) |
 | Utiliser l'outil VPS optionnel                  | [ProductionLaunchAgent](../apps/production-launch-agent/README.md)                     |
 

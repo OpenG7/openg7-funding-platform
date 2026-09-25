@@ -276,10 +276,11 @@ the PostgreSQL-backed launch path for real payments:
    confirm the previous controlled file is no longer served through
    `/api/public/sponsor-logos/<file>`, then delete it through
    `POST /api/admin/sponsorships/logo/delete`.
-10. Run `bash scripts/backup.sh`, confirm both PostgreSQL and
-    `openg7-sponsor-logos-*.tar.gz` archives are present, then rehearse
-    `bash scripts/restore-from-backup.sh --sponsor-logos-backup <archive>` on a
-    disposable environment.
+10. Follow the [backup/recovery procedure](operations/backup-recovery.md):
+    capture a coherent set with its manifest, then exercise
+    `bash scripts/restore-from-backup.sh --sponsor-logos-backup <archive>` with
+    all required artifacts and `--target-project` on a fresh disposable target.
+    Verify recovered data before separately authorizing application startup.
 11. Replay the same signed Stripe test webhook event and confirm idempotence:
     no duplicate contribution, no duplicate public sponsor, and no unexpected
     status regression. Use `corepack yarn stripe:events:resend evt_...` for

@@ -423,7 +423,7 @@ Database and backup shortcuts are available from `package.json`:
 ```bash
 yarn db:migrate
 yarn db:backup
-yarn db:restore --config-backup /path/to/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz --database-dump /path/to/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
+yarn db:restore --help
 ```
 
 `yarn db:migrate` starts the private PostgreSQL service if needed, waits for it
@@ -449,6 +449,12 @@ Backups include:
 - ACME certificates
 - scripts
 - docs
+
+Node 22 is required for integrity metadata. A completed set includes the
+configuration archive's adjacent `.manifest.json`, with UTC date, environment,
+database, media driver, sizes and SHA-256 digests. Freeze application writes for
+a coherent DB/media capture; `pg_dump` alone does not freeze media. See the
+[backup and recovery procedure](operations/backup-recovery.md).
 
 If private PostgreSQL is enabled through `DATABASE_URL`, `scripts/backup.sh`
 also writes a consistent database dump while PostgreSQL is running:
@@ -487,37 +493,28 @@ Suggested cron:
 
 ## Restore
 
-```bash
-mkdir -p /opt/openg7-funding-platform
-cd /opt/openg7-funding-platform
-tar -xzf /path/to/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz
-chmod 600 .env traefik/acme/acme.json
-docker compose up -d
-bash scripts/check.sh
-```
-
-If private PostgreSQL is enabled and you need to rebuild from a clean database
-volume, use the restore helper with the configuration archive and the database
-dump:
+Use a trusted compatible checkout on a dedicated recovery target without `.env`,
+with a new project name and unused volumes/networks. The source is preserved.
+The local-media path requires all three artifacts and the integrity manifest:
 
 ```bash
-cd /opt/openg7-funding-platform
 bash scripts/restore-from-backup.sh \
+  --target-project openg7-recovery-20260925 \
   --config-backup /path/to/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz \
   --database-dump /path/to/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql \
   --sponsor-logos-backup /path/to/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
 ```
 
-The script stops the stack, removes the `openg7-postgres-data` Docker volume,
-recreates PostgreSQL, imports the dump, optionally restores the
-`openg7-sponsor-logos` Docker volume when `--sponsor-logos-backup` is provided,
-starts the full stack, and runs `scripts/check.sh`. It asks for a typed
-confirmation before deleting volumes; add `--force` only for a confirmed
-emergency automation run.
+The script verifies archive integrity and the dedicated Compose target, restores
+configuration, imports schema/data atomically and restores local media. It never
+removes existing volumes and leaves API/Web/workers stopped. `--force` skips only
+the typed confirmation; `--skip-check` is no longer supported. No migrations run.
 
-The dump created by `scripts/backup.sh` includes schema and data, so the restore
-script does not run migrations before importing it into an empty restored
-database.
+Before activation, verify business records, documents, media and access, reconcile
+Stripe and delivery outcomes since the snapshot, and review restored worker
+settings. See the [recovery runbook](operations/backup-recovery.md) for preconditions,
+failure handling, activation and the automated local recipe. S3 recovery requires
+a separate object backup and procedure; the local-volume helper refuses that mode.
 
 ## GitHub Actions CI/CD
 

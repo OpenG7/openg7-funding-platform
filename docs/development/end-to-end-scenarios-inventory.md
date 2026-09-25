@@ -495,6 +495,43 @@ obligatoire pour un test. La preuve porte sur SMTP local et une panne avant son
 acceptation; elle ne qualifie pas la réception en boîte externe ni une garantie
 d'envoi SMTP exactement une fois. La suite OIDC de CI découvre la recette.
 
+Vingt-septième priorité testée le 24 septembre 2026 (25 septembre UTC) :
+**sauvegarde complète → restauration isolée → données et documents retrouvés →
+reprise contrôlée**, soit le scénario 66. La recette utilise les vrais scripts,
+PostgreSQL 16, l'API et le Web compilés. Elle compare toutes les tables avant
+activation, les PDF de facture et d'avoir, les médias publics et privés, le suivi
+par son lien initial, les brouillons, les files et les totaux publics. Les accès
+anonymes aux documents et médias privés restent refusés. La consultation admin
+et la transparence à 390 px sont vérifiées dans Chromium.
+
+Un manifeste de taille et SHA-256 relie configuration, SQL et médias du même
+ensemble. Une capture interrompue n'en produit pas. Archive corrompue, fichier
+absent, chemin dangereux, lien d'archive, cible occupée et annulation sont refusés.
+Une erreur SQL annule tout l'import; API, Web et workers restent arrêtés. La
+restauration exige désormais un projet neuf, sans suppression d'anciens volumes,
+et ne redémarre plus automatiquement l'application. Les téléchargements VPS
+sélectionnent les artéfacts du même horodatage.
+
+La recette a reproduit puis corrigé un défaut : désactiver SMTP ne suspendait pas
+les tentatives du worker. Le réglage privé `FUNDING_EMAIL_WORKER_ENABLED=false`
+conserve maintenant la file intacte lors du redémarrage. Sa réactivation reprend
+les tentatives; les messages déjà envoyés restent inchangés. Les commandes
+d'envoi explicites et les autres workers conservent leurs contrôles distincts.
+Voir le [contrat de récupération et la recette](../operations/backup-recovery.md#recette-locale-automatisee).
+
+Preuve sur `f85d9ce` avec les changements locaux : **1 parcours de récupération
+Chromium**, **302 tests Node**, **3 intégrations PostgreSQL/SMTP** et **2 parcours
+SMTP existants** réussis. Les pièces et comparaisons de tables sont attachées au
+rapport de test. Le parcours rejoint la CI d'acceptation. Aucune migration ni
+dépendance ajoutée; aucun paiement, publication ou envoi externe.
+
+Cette preuve concerne des faits financiers synthétiques déjà confirmés, le
+stockage local et une session admin signée en mode token. Elle ne qualifie pas
+une restauration VPS complète, OIDC externe, OVH/S3, ni le rapprochement réel
+avec Stripe ou les fournisseurs d'envoi. Les anciens ensembles sans manifeste
+et les objets S3 nécessitent une procédure distincte. La remise en service de
+production reste une opération séparée après rapprochement des effets externes.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |

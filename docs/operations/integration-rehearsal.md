@@ -69,11 +69,11 @@ les identifiants, les montants exacts et la projection publique. Restaurer une
 seconde fois sur une base non vide est refusé. Les conteneurs sont supprimés
 en fin de test. Cette épreuve a réussi le 19 septembre 2026.
 
-Elle prouve la restauration du schéma et des données PostgreSQL. Elle ne prouve
-pas une restauration de la configuration VPS, des objets S3, du volume de médias
-ou du script de restauration de production. Leur exercice complet exige une
-cible jetable explicitement identifiée et des archives de test; ne pas lancer
-`restore-from-backup.sh` sur le workspace ou le VPS réel pour compléter ce test.
+Elle prouve la restauration du schéma et des données PostgreSQL. La
+[recette de récupération applicative](backup-recovery.md#recette-locale-automatisee)
+exerce aussi les vrais scripts, les archives de configuration/médias locaux,
+l'API et le Web sur des cibles jetables. Ne pas lancer `restore-from-backup.sh`
+sur le workspace ou le VPS réel pour compléter un test.
 
 ## Recette locale des fournisseurs et des médias
 
@@ -97,7 +97,9 @@ S3Mock prouve le protocole de stockage et la restauration des octets. Il ne
 prouve pas les politiques IAM/ACL ou l'isolation publique du fournisseur OVH.
 Mailpit prouve une réception SMTP locale, pas la délivrabilité dans une boîte
 externe. Le snapshot du test n'est pas une archive générée par les scripts de
-production : leur restauration complète sur un VPS jetable reste à exercer.
+production. La [recette des scripts](backup-recovery.md) est distincte et couvre
+le stockage local; une restauration complète du VPS et des objets OVH reste
+une opération séparée.
 
 Références : [Mailpit Docker](https://mailpit.axllent.org/docs/install/docker/),
 [S3Mock](https://github.com/adobe/S3Mock).

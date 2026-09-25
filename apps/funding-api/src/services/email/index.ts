@@ -1,6 +1,7 @@
 export {
   getTransactionalEmailConfigStatus,
   isValidEmailAddress,
+  loadEmailQueueWorkerEnabled,
   loadTransactionalEmailConfig,
   maskEmailAddress
 } from './email.config.js';
