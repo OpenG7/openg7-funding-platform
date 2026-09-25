@@ -93,7 +93,10 @@ for (const status of ['failed', 'uncertain'] as const) {
       await expect(
         page.getByRole('button', { name: 'Examiner cet incident' })
       ).toBeVisible();
-    else await expect(page.locator('[data-og7="pilot-accept"]')).toBeEnabled();
+    else {
+      await expect(page.locator('[data-og7="pilot-accept"]')).toBeEnabled();
+      await expect(page.getByRole('alert')).toBeVisible();
+    }
     await expect(page.locator('[data-og7="pilot-receipt"]')).not.toBeVisible();
     await expect(overviewCount(page, 'décisions traitées')).toHaveText('0');
     await expect(overviewCount(page, 'À examiner')).toHaveText('4');
@@ -823,6 +826,7 @@ test('lost response recovers its receipt without replaying a command, including 
   expect(f.commands).toHaveLength(1);
   await expect(overviewCount(page, 'décisions traitées')).toHaveText('1');
   await expect(overviewCount(page, 'À examiner')).toHaveText('3');
+  await expect(page.locator('[data-og7="pilot-decision"]')).toBeVisible();
   await page.reload();
   await expect(overviewCount(page, 'décisions traitées')).toHaveText('0');
   expect(f.commands).toHaveLength(1);
@@ -1187,6 +1191,64 @@ test('weekly briefing starts and resumes a five-minute session without mutating 
   expect(f.commands).toHaveLength(0);
   await page.getByRole('button', { name: 'Terminer la session' }).click();
   await expect(page.getByText(/Session de cinq minutes/)).toHaveCount(0);
+});
+
+test('discarding a staged weekly programme also removes its pending confirmation', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  await f.open();
+  await page
+    .getByRole('button', { name: 'Composer la semaine', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Proposer une répartition' }).click();
+  await page.getByRole('button', { name: 'Examiner les déplacements' }).click();
+  await expect(
+    page.locator('[data-og7="programme-confirmation"]')
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Écarter les déplacements proposés' })
+    .click();
+  await expect(page.locator('[data-og7="programme-confirmation"]')).toHaveCount(
+    0
+  );
+  await expect(page.locator('[data-og7="programme-moves"] li')).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Examiner les déplacements' })
+  ).toBeDisabled();
+  expect(f.commands).toHaveLength(0);
+});
+
+test('a failed programme replacement clears the old plan and failed refresh clears private proposals', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  await f.open();
+  await page
+    .getByRole('button', { name: 'Composer la semaine', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Proposer une répartition' }).click();
+  await expect(page.locator('[data-og7="programme-moves"] li')).toHaveCount(2);
+  await page.route('**/pilotage/programme', (route) =>
+    route.fulfill({ status: 503, json: { code: 'PROGRAMME_UNAVAILABLE' } })
+  );
+  await page.getByRole('button', { name: 'Proposer une répartition' }).click();
+  const programme = page.locator('[data-og7="editorial-programme"]');
+  await expect(programme.getByRole('alert')).toContainText(
+    'Le programme est indisponible'
+  );
+  await expect(page.locator('[data-og7="programme-moves"] li')).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Examiner les déplacements' })
+  ).toBeDisabled();
+  await programme
+    .getByRole('button', { name: 'Actualiser', exact: true })
+    .click();
+  await expect(programme.getByRole('alert')).toContainText(
+    'Le programme est indisponible'
+  );
+  await expect(page.locator('[data-og7="programme-week"]')).toHaveCount(0);
+  expect(f.commands).toHaveLength(0);
 });
 
 test('weekly calendar and rehearsal show proposed changes before a controller confirmation', async ({

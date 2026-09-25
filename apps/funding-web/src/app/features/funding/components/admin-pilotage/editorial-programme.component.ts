@@ -134,7 +134,11 @@ export class EditorialProgrammeComponent {
       ) ?? []
   );
   readonly readonly = computed(
-    () => this.disabled() || !this.state()?.writable || this.working()
+    () =>
+      this.disabled() ||
+      this.loading() ||
+      !this.state()?.writable ||
+      this.working()
   );
   readonly days = computed(() => {
     const now = this.state()?.generatedAt;
@@ -230,7 +234,8 @@ export class EditorialProgrammeComponent {
   async load(): Promise<void> {
     this.loading.set(true);
     this.error.set('');
-    this.pending.set(null);
+    this.state.set(null);
+    this.resetPlan();
     this.variant.set(null);
     try {
       const state = await this.admin.pilotageProgramme();
@@ -262,17 +267,19 @@ export class EditorialProgrammeComponent {
     if (this.view() === 'rehearsal') void this.preview();
   }
   resetPlan(): void {
+    this.pending.set(null);
     this.moves.set([]);
     this.planned.set(false);
     this.planVersion.set('');
     this.emptySlots.set([]);
     this.unplaced.set([]);
+    this.contextChanged.emit();
   }
   async propose(): Promise<void> {
     if (this.readonly()) return;
     this.working.set(true);
     this.error.set('');
-    this.pending.set(null);
+    this.resetPlan();
     try {
       const result = await this.admin.proposeProgramme(
         this.feedId(),

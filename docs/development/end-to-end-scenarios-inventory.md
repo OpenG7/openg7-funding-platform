@@ -379,6 +379,44 @@ la recette réelle est incluse dans la suite OIDC de CI. Aucune nouvelle migrati
 dépendance ou opération de production; nginx, HTTPS et OIDC externe restent hors
 de cette qualification locale.
 
+Vingt-quatrième priorité testée le 24 septembre 2026 (25 septembre à 00:51 UTC) :
+**composer la semaine → répétition générale → déplacement confirmé → nouvelle
+approbation**, soit les scénarios 46 et 47. Une actualité approuvée reste fixe par
+défaut; son inclusion explicite permet de comparer les dates et parcourir les
+textes avec une seconde actualité. Un troisième contenu sur une autre destination
+sert de témoin. Annuler ou écarter le plan ne crée ni déplacement ni audit.
+
+Une modification concurrente invalide tout le plan sans écriture partielle.
+Après actualisation et confirmation, une réponse perdue est récupérée au
+rechargement sans seconde commande. Les deux contenus déplacés reviennent en
+brouillon; leurs anciennes autorisations sont retirées. Une nouvelle approbation
+explicite est vérifiée, puis une session expirée bloque un déplacement supplémentaire.
+Le lecteur consulte sans préparer ni appliquer. Origine étrangère et confirmation
+absente sont aussi refusées côté API.
+
+La recette a révélé et corrigé une confirmation restant active après abandon du
+plan, une sélection vide après récupération d'un reçu et un message d'échec
+effacé par l'actualisation. Les propositions remplacées et les données d'un
+chargement échoué ne restent plus confirmables. Voir le
+[contrat et la recette](../operations/editorial-programme.md#calendrier-et-répétition-générale-avec-api-réelle).
+
+Preuve sur `a851167` avec les changements locaux : **1 parcours Chromium OIDC
+réussi en 15 secondes** (16,5 secondes avec démarrage du runner), sans échec, test
+ignoré ou instable dans l'exécution finale du 25 septembre à 00:51 UTC. API et
+PostgreSQL jetable réels, Web compilé et fournisseur OIDC signé local. **299 tests
+Node, 7 tests PostgreSQL et les 29 tests UI du pilotage** passent; les deux tests
+UI de reçus sont rejoués avec succès après le dernier ajustement du message
+d'échec. Clavier, manette simulée, accessibilité et FR/EN à 390/1280/1512 px sont
+couverts selon les recettes. TypeScript, lint et build Web/SSR passent avec
+24 routes pré-rendues; les avertissements existants du lint et du budget initial
+Angular subsistent (821,38 ko pour 800 ko).
+
+Les feeds restent suspendus, le worker désactivé et les contenus synthétiques en
+mode `mock`; aucun envoi social ou courriel n'est déclenché. Aucune migration ni
+dépendance ajoutée. Cette preuve porte sur calendrier, autorisations et reprise;
+elle ne qualifie ni un média stocké, ni une manette physique, ni un fournisseur
+social ou OIDC externe. La recette est découverte par la suite OIDC de CI.
+
 ## Contributions et accès au suivi
 
 |  Nº | Scénario                             | Parcours de bout en bout                                                                                                           |
