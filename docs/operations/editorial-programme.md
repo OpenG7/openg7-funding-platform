@@ -29,6 +29,8 @@ pilotage. Il n'existe pas de deuxième file d'envoi.
   La destination ne change pas. L'interface compare les passages avant/après.
   Une intention non reconnue échoue explicitement. La dictée vocale et la
   rédaction générative libre ne sont pas des capacités de ce parcours.
+  Modifier l'intention saisie retire la comparaison et la confirmation en
+  attente; une nouvelle proposition doit être préparée et examinée.
 - **Préférences** : nombre de publications distinctes corrigées avec une
   intention reconnue; suggestion à partir de trois. Seules les variantes
   réellement enregistrées sont comptées. Les préférences sont partagées par
@@ -150,6 +152,44 @@ Cette recette est découverte par la suite OIDC de CI. Elle qualifie la prépara
 et les autorisations, sans qualifier un visuel stocké, une manette physique ou un
 envoi fournisseur. Les tests UI complémentaires couvrent le retour au neutre de
 la manette simulée, l'accessibilité et les échecs de chargement/remplacement.
+
+### Variantes et préférences avec API réelle
+
+La [recette des préférences](../../tests/identity/editorial-preferences-journey.spec.ts)
+relie les scénarios 48 et 49 de l'[inventaire](../development/end-to-end-scenarios-inventory.md).
+Elle utilise la même pile OIDC jetable. Trois actualités sont créées par l'API;
+les commandites servant à la préparation sont des données synthétiques déjà
+payées, insérées uniquement dans cette base. La recette ne simule pas de paiement
+Stripe et n'active pas le worker. Les appels explicites de préparation utilisent
+le service partagé avec le worker, sur une destination suspendue en mode `mock`.
+
+Les quatre transformations comparent le texte exact et conservent nom, montant,
+lien et mention de commandite. Proposition, annulation et changement d'intention
+ne créent aucune observation. Le serveur refuse texte falsifié, version périmée,
+intention inconnue, origine étrangère, confirmation absente et rôle lecteur.
+Enregistrer une variante retire l'ancienne approbation sans changer destination,
+date ou média. Rejouer la commande ou recorriger la même publication ne gonfle
+pas le nombre de publications distinctes corrigées; une transformation sans
+changement ne peut être enregistrée.
+
+Après trois corrections distinctes, une suggestion apparaît sans activer de règle.
+L'opérateur annule puis confirme ses préférences, traite une modification
+concurrente et récupère une réponse perdue au rechargement sans seconde commande.
+Le même reçu reste idempotent. La préparation suivante adapte les brouillons
+automatiques intacts et les nouveaux contenus; les corrections humaines, une
+actualité réapprouvée et une publication refusée restent identiques. Désactiver
+la préférence exige une autre confirmation et conserve ces décisions.
+
+La recette vérifie les observations, les versions, l'audit, les profils des autres
+destinations et le refus d'une session expirée. Les préférences en anglais à
+390 px passent les contrôles Axe ciblés et restent dans le panneau. Aucun courriel,
+job social ou envoi n'est créé. Cette preuve ne qualifie ni fournisseur externe,
+ni dictée, ni génération libre, ni manette physique. La suite OIDC de CI découvre
+le fichier automatiquement; pour cibler ce parcours après les builds :
+
+```sh
+yarn playwright test --config tests/playwright-identity.config.mjs editorial-preferences-journey.spec.ts
+```
 
 ### Recomposition collective
 

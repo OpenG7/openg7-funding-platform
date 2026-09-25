@@ -409,6 +409,13 @@ export class EditorialProgrammeComponent {
       this.contextChanged.emit();
     }
   }
+  changeInstruction(value: string): void {
+    this.instruction = value;
+    this.variant.set(null);
+    this.pending.set(null);
+    this.error.set('');
+    this.contextChanged.emit();
+  }
   stageVariant(): void {
     const v = this.variant(),
       d = this.selected();
