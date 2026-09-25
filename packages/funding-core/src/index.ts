@@ -687,10 +687,14 @@ export interface AdminSetupStatusResponse {
 }
 
 export interface AdminEmailTestRequest {
+  readonly requestId: string;
   readonly to?: string;
 }
 
 export interface AdminEmailTestResult {
+  readonly requestId: string;
+  readonly status: AdminEmailQueueMessageStatus;
+  readonly to: string;
   readonly queued: boolean;
   readonly attempted: boolean;
   readonly sent: boolean;
