@@ -18,7 +18,7 @@ L'[index documentaire](README.md) oriente vers les guides actuels et les archive
 | Routage et performance       | Chargement différé des pages secondaires/admin, pages 404 FR/EN                        | Budget initial de production 800/900 ko, 24 routes prérendues; statuts HTTP Nginx et navigation testés.                                                                                               |
 | Livraison                    | Images et scripts associés au même SHA complet; livraisons sérialisées                 | Tests du script sur commandes simulées. Le script ne fait plus de `git pull`; il exécute le checkout préparé. Aucune livraison réelle n'est attestée par ces tests.                                   |
 | Fournisseurs                 | Stripe, SMTP et stockage S3 intégrés                                                   | Authentification/accès en lecture seule vérifiés; [recette et preuves](operations/integration-rehearsal.md). Livraison courriel et publication média réelles restent à exercer sur une cible de test. |
-| Reprise                      | Scripts de sauvegarde et restauration; exercice PostgreSQL jetable                     | Dump/restauration réelle sur conteneurs temporaires; pas de preuve de restauration complète du VPS ou des médias distants.                                                                            |
+| Reprise                      | Restauration commune PostgreSQL et médias locaux/S3, rapport d'étapes                  | Recette applicative sur cibles jetables; rapprochement des URL et fournisseurs requis avant activation. Pas de qualification complète VPS/OVH.                                                        |
 | Navigateurs et accessibilité | Suite FR/EN Chromium, Firefox, WebKit et mobile WebKit                                 | Axe, clavier et réagencement automatisés; lecteur d'écran humain, iPhone physique et zoom natif restent à vérifier.                                                                                   |
 
 ## Écarts d'exploitation confirmés lors de la revue documentaire
@@ -44,15 +44,15 @@ Le suivi des migrations et le cycle de livraison des alertes sont préparés et
 testés localement ; **cinq lots de qualification externe restent ouverts**.
 L'adoption du registre sur une base existante reste une opération à autoriser.
 
-| Lot                                    | État et preuve encore nécessaire                                                                                      |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Migrations répétables                  | Moteur local/VPS commun et recettes jetables ; adoption de l'historique à préparer pour chaque base existante         |
-| Livraison du processus d'alertes       | Cycle préparé, rollback testé sur commandes simulées et santé/reprise sur vrai conteneur; activation réelle distincte |
-| Parcours Stripe test, SMTP et S3 réels | URL et boîte de recette à confirmer ; réception, DNS courriel et politiques privé/public à qualifier                  |
-| Accès OIDC réels                       | Client et comptes nominatifs, assertions MFA et révocation à vérifier chez le fournisseur choisi                      |
-| Restauration VPS et médias distants    | Capture/restauration des objets automatisée sur S3Mock; exercice complet VPS/OVH et rapprochement encore nécessaires  |
-| Accessibilité humaine et appareil réel | Lecteur d'écran, zoom natif et iPhone physique à vérifier ; les tests automatisés sont distincts                      |
-| Connexions sociales réelles            | Comptes Facebook/LinkedIn, droits et reprise à qualifier ; toute publication reste soumise à son autorisation propre  |
+| Lot                                    | État et preuve encore nécessaire                                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Migrations répétables                  | Moteur local/VPS commun et recettes jetables ; adoption de l'historique à préparer pour chaque base existante             |
+| Livraison du processus d'alertes       | Cycle préparé, rollback testé sur commandes simulées et santé/reprise sur vrai conteneur; activation réelle distincte     |
+| Parcours Stripe test, SMTP et S3 réels | URL et boîte de recette à confirmer ; réception, DNS courriel et politiques privé/public à qualifier                      |
+| Accès OIDC réels                       | Client et comptes nominatifs, assertions MFA et révocation à vérifier chez le fournisseur choisi                          |
+| Restauration VPS et médias distants    | Flux commun PostgreSQL/S3 et recette navigateur automatisés; exercice complet VPS/OVH et rapprochement encore nécessaires |
+| Accessibilité humaine et appareil réel | Lecteur d'écran, zoom natif et iPhone physique à vérifier ; les tests automatisés sont distincts                          |
+| Connexions sociales réelles            | Comptes Facebook/LinkedIn, droits et reprise à qualifier ; toute publication reste soumise à son autorisation propre      |
 
 Les critères détaillés et les cibles sont dans les guides de
 [recette](operations/integration-rehearsal.md),
@@ -75,6 +75,17 @@ Les critères détaillés et les cibles sont dans les guides de
   remplacement d'une attente réseau globale par l'attente du chargement de page.
 - Lint sans erreur (un avertissement préexistant), syntaxe Bash, Compose et
   contrôles documentaires vérifiés. Reproduction regroupée : `yarn test:automation`.
+
+### Extension de la reprise PostgreSQL/S3 du 25 septembre 2026
+
+Les deux recettes navigateur `local` et `ovh-s3` passent sur des cibles jetables :
+tables identiques, montants et PDF conservés, image affichée et médias privés
+protégés, files préservées. La panne S3 après l'import laisse un rapport d'échec,
+des buckets réservés et l'application arrêtée. La recette S3 séparée de 1 003
+objets passe également, ainsi que les 85 tests ciblés de configuration, d'archives
+et de rapport. Les inspections de politiques/ACL restent simulées dans S3Mock;
+les URL publiques enregistrées et les fournisseurs restent à rapprocher avant
+remise en service. Aucun lot de qualification externe n'est clos par ces preuves.
 
 ## Reproduire les validations
 

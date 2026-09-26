@@ -98,9 +98,13 @@ try {
     const manifest = JSON.parse(
       await readFile(config + '.manifest.json', 'utf8')
     );
-    if (manifest.version !== 1 || manifest.mediaDriver !== 'local')
+    if (
+      manifest.version !== 1 ||
+      !['local', 'ovh-s3'].includes(driver || 'local') ||
+      manifest.mediaDriver !== (driver || 'local')
+    )
       throw new Error(
-        'This restore requires a completed local-media backup set. Restore S3 separately.'
+        'Backup media driver does not match the explicit restore mode.'
       );
     for (const [role, path] of Object.entries({ config, database, media })) {
       if (!path || path === '-' || !manifest.artifacts?.[role])
@@ -158,10 +162,11 @@ try {
       (url.port && url.port !== '5432') ||
       decodeURIComponent(url.pathname.slice(1)) !==
         db.environment.POSTGRES_DB ||
-      api.environment.SPONSOR_MEDIA_STORAGE_DRIVER !== 'local'
+      !['local', 'ovh-s3'].includes(database || 'local') ||
+      api.environment.SPONSOR_MEDIA_STORAGE_DRIVER !== (database || 'local')
     )
       throw new Error(
-        'The API must use the restored PostgreSQL and local media.'
+        'The API must use the restored PostgreSQL and selected media driver.'
       );
     console.log('Dedicated Compose target verified.');
   } else throw new Error('Unknown backup artifact command.');
