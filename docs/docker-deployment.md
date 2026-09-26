@@ -188,11 +188,11 @@ docker compose --profile database up -d postgres
 yarn db:migrate
 ```
 
-The sequence currently ends at `021`; applying only `001`–`007` leaves most
-administrative features unavailable. For an existing database, follow the
-[migration procedure](operations/database-migrations.md): the runners replay
-all files and `019`–`021` are not replayable. Do not use the fresh-database
-command as an unconditional upgrade procedure.
+Use the complete migration directory; applying only `001`–`007` leaves most
+administrative features unavailable. The shared Node 22 runner records applied
+files and their checksums. An existing database without that registry requires
+[reviewed history adoption](operations/database-migrations.md#adoption-dune-base-existante-sans-registre)
+before any further application. It never infers migration history from table names.
 
 4. Restart the API:
 
@@ -332,10 +332,12 @@ Applied:
 
 ## Deployment
 
-The current runner automatically calls `scripts/db-migrate.sh` when a database
-is configured. Resolve the [migration replay limitation](operations/database-migrations.md)
-before repeating deployment on an existing schema. A rollback of the images
-does not undo SQL statements already applied.
+The deployment runner calls `scripts/db-migrate.sh` when a database is configured.
+Both migration entrypoints require Node 22 on the host, including image-only
+deployments, and use the same registry, checksums and transaction lock.
+Review the [migration plan and legacy adoption procedure](operations/database-migrations.md)
+before deploying to an existing database. Pending SQL commits as one batch;
+an image rollback does not undo migrations committed by an earlier run.
 
 Prepare the intended Git checkout explicitly. `deploy.sh` deploys that checkout
 and never runs `git pull`; `yarn vps:update` remains the explicit pull-and-deploy
