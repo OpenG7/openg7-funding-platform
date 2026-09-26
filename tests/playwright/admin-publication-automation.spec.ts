@@ -222,7 +222,7 @@ for (const width of [390, 1280]) {
     expect(
       (
         await new AxeBuilder({ page })
-          .include('[data-og7="publication-worker"]')
+          .include('[data-og7="publication-automation"]')
           .analyze()
       ).violations
     ).toEqual([]);

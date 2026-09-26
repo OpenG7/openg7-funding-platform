@@ -1,5 +1,5 @@
 <openg7-admin-layout>
-  <main
+  <div
     class="automation"
     data-og7="publication-automation"
     [attr.aria-busy]="busy()"
@@ -263,7 +263,7 @@
         {{ 'admin.publicationAutomation.loading' | translate }}
       </p>
     }
-  </main>
+  </div>
   <openg7-admin-drawer
     [opened]="!!selected() || composing()"
     [title]="'admin.publicationAutomation.preview' | translate"
