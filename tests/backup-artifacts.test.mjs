@@ -74,9 +74,9 @@ test('backup integrity binds a complete artifact set, tolerates renaming, and re
     media,
     archive([{ name: 'private/image.webp', text: 'synthetic' }])
   );
-  const create = async () => {
+  const create = async (driver = 'local') => {
     await rm(config + '.manifest.json', { force: true });
-    assert.equal(cli(['manifest', config, database, media, 'local']).code, 0);
+    assert.equal(cli(['manifest', config, database, media, driver]).code, 0);
   };
   await create();
   const verified = cli(['verify', config, database, media]);
@@ -91,6 +91,14 @@ test('backup integrity binds a complete artifact set, tolerates renaming, and re
     cli(['verify', config, renamed, media]).output,
     /checksum mismatch/
   );
+  await create('ovh-s3');
+  assert.equal(cli(['verify-s3', config, media]).code, 0);
+  assert.notEqual(cli(['verify-s3', config, renamed]).code, 0);
+  assert.notEqual(
+    cli(['verify', config, database, media]).code,
+    0,
+    'remote media must never be extracted as a local volume'
+  );
   for (const entry of [
     { name: '../escape' },
     { name: '/absolute' },
@@ -103,6 +111,8 @@ test('backup integrity binds a complete artifact set, tolerates renaming, and re
     const result = cli(['verify', config, database, media]);
     assert.notEqual(result.code, 0);
     assert.match(result.output, /Unsafe archive path|links and special files/);
+    await create('ovh-s3');
+    assert.notEqual(cli(['verify-s3', config, media]).code, 0);
   }
   await writeFile(config + '.manifest.json', '{"private-fixture": invalid}');
   const invalid = cli(['verify', config, database, media]);

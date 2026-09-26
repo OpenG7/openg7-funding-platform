@@ -2,7 +2,7 @@
 # Shares the API image but runs independently of the HTTP/SMTP workers.
 services:
   operations:
-    image: ${API_IMAGE:-openg7-funding-api:local}
+    image: ${OPERATIONS_IMAGE:-${API_IMAGE:-openg7-funding-api:local}}
     command: ['node', 'scripts/operations-watch.mjs']
     environment:
       NODE_ENV: production
@@ -13,6 +13,12 @@ services:
     networks: [edge, data]
     restart: unless-stopped
     init: true
+    healthcheck:
+      test: ['CMD', 'node', 'scripts/operations-health.mjs']
+      interval: 15s
+      timeout: 8s
+      start_period: 20s
+      retries: 3
     cpus: '0.25'
     mem_limit: 128m
     pids_limit: 64

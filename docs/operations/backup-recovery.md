@@ -34,10 +34,49 @@ mélange de captures; elles n'authentifient pas un expéditeur malveillant.
 N'utiliser que des archives de confiance.
 
 Avec le pilote `local`, un volume de médias absent fait échouer la capture.
-Avec `ovh-s3`, le dump et la configuration ne sauvegardent pas les objets S3.
-La restauration ci-dessous refuse ce pilote : préparer séparément la copie des
-objets, leurs versions, politiques et métadonnées selon le
-[runbook de stockage](ovh-object-storage.md).
+Avec `ovh-s3`, le même artéfact média contient maintenant les objets courants des
+deux buckets, leurs clés, rôles privé/public, type MIME, cache, métadonnées, ETag,
+version observée et SHA-256. Le script utilise le SDK déjà installé par Yarn,
+parcourt la pagination et relit l'inventaire avant de conclure. Garder les écritures
+arrêtées : cette vérification ne rend pas atomiques PostgreSQL et S3. La capture
+est bornée à 100 000 objets au total et les requêtes à 60 secondes.
+Les versions historiques, marqueurs de suppression, politiques, ACL et règles
+de rétention ne sont pas sauvegardés. Un échec garde le staging privé `.s3-*`
+pour investigation et ne produit aucun manifeste d'ensemble terminé.
+
+### Récupération des objets S3 en quarantaine
+
+Préparer deux buckets dédiés vides, distincts des noms source, sans politique de
+bucket ni ACL de groupe/public. Un fichier de configuration **cible** protégé
+utilise les variables S3 du [runbook de stockage](ovh-object-storage.md).
+Ne pas charger la configuration source pour cette opération.
+
+```sh
+node --env-file=/secure/recovery-s3.env scripts/storage-backup.mjs restore-archive \
+  /archives/openg7-backup-20260925T020000Z.tar.gz \
+  /archives/openg7-sponsor-logos-20260925T020000Z.tar.gz \
+  recovery-private,recovery-public
+```
+
+Le dernier argument confirme exactement les deux buckets configurés. Le manifeste
+adjacent à la configuration est obligatoire. La commande vérifie les empreintes,
+les entrées d'archive et chaque objet avant toute écriture distante. Elle réserve
+les cibles avec des écritures conditionnelles, refuse tout écrasement et relit
+chaque objet restauré. Tous les objets reçoivent une ACL privée, y compris ceux
+issus du bucket public. Les clés `system-recovery/restore-claim.json` puis
+`restore-complete.json` conservent une preuve datée de début et de réussite.
+Après un échec, considérer la cible comme incomplète et réservée : examiner les
+deux buckets et leurs reçus avant de préparer une autre cible. L'écriture des deux
+reçus n'est pas atomique. Aucune relance aveugle ni suppression.
+Une sauvegarde ultérieure conserve les reçus de récupération précédents dans
+l'archive. La restauration suivante crée ses propres reçus et compte les anciens
+dans `archivedRecoveryRecords`, sans les rejouer sur les nouveaux reçus.
+
+Cette commande restaure les **objets**. Le script de restauration DB/volume décrit
+ci-dessous reste réservé au pilote local. Pour une remise en service S3, restaurer
+et rapprocher séparément la DB sur une cible isolée, puis revoir les URL publiques,
+les versions et les autorisations avant toute réexposition. Une restauration ne
+constitue pas une autorisation de publication.
 
 `yarn vps:backup:download` télécharge la configuration, son manifeste et les
 artéfacts DB/médias présents du **même horodatage**. Le téléchargement DB seul
@@ -120,8 +159,16 @@ les contrôles de production et la bascule sont des étapes distinctes.
 yarn build
 yarn workspace @openg7/funding-web build
 docker pull postgres:16-alpine
+docker pull adobe/s3mock:5.1.0
 yarn exec playwright test --config tests/playwright-recovery.config.mjs
+node --test tests/integration/s3-backup.integration.mjs
 ```
+
+`yarn test:automation` regroupe ces recettes avec les alertes, les tests Node et
+les parcours navigateur sur le build Angular de production. Prérequis : Node 22,
+Yarn 4, dépendances installées, Docker local, les deux images ci-dessus et les
+binaires Playwright Chromium/Firefox/WebKit. Les recettes sont aussi découvertes
+par les suites déjà exécutées dans la CI Admin acceptance.
 
 La recette construit une image API de la révision courante, sert le Web compilé,
 crée des projets Docker à noms uniques et n'utilise ni `.env` du workspace, ni
@@ -129,6 +176,13 @@ base existante, ni fournisseur externe. Les seuls ports de test sont sur loopbac
 le PostgreSQL du Compose de production reste privé. Les fixtures sont arrêtées
 et supprimées après le test. Les preuves sont dans `test-results/recovery/`.
 
-La qualification couvre le stockage local et une connexion admin par session
+La recette S3 exécute le vrai `backup.sh` puis la restauration d'archive avec
+S3Mock : pagination de 1 003 objets, empreintes/métadonnées, corruption, refus de la
+source et d'une cible occupée, interruption et absence de reprise aveugle. Elle
+teste le protocole des objets; les réponses d'inspection des politiques/ACL de
+bucket sont simulées, car S3Mock ne les implémente pas. Les en-têtes ACL privées et
+écritures conditionnelles sont contrôlés; IAM et accès anonymes OVH restent à qualifier.
+
+La qualification applicative couvre le stockage local et une connexion admin par session
 signée en mode token. Elle ne qualifie pas OIDC externe, DNS/HTTPS, délivrabilité,
 objets/politiques OVH, rapprochement Stripe réel, ni restauration intégrale d'un VPS.

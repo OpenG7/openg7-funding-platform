@@ -148,6 +148,14 @@ voit jamais les cles privees.
 Les scripts Bash sont des outils d'administration, de reprise et de verification
 apres deploiement.
 
+## Sauvegarde et restauration
+
+`scripts/backup.sh` capture les objets courants des deux buckets avec leurs
+metadonnees et empreintes. `scripts/storage-backup.mjs restore-archive` les restaure
+dans deux buckets dedies vides, avec ACL privees et verification apres copie.
+Les versions historiques et politiques ne sont pas rejouees. Voir les
+[commandes, preconditions et limites de recuperation](backup-recovery.md#récupération-des-objets-s3-en-quarantaine).
+
 ## Resultats attendus
 
 `npm run storage:check` doit finir par:

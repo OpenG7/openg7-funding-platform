@@ -103,7 +103,8 @@
     "providers:verify": "yarn build && node scripts/providers-verify.mjs",
     "test:ui:platform-accessibility": "yarn workspace @openg7/funding-web build --configuration production && playwright test --config tests/playwright-platform-accessibility.config.mjs",
     "operations:watch": "node scripts/operations-watch.mjs",
-    "test:rehearsal": "yarn build && node --test tests/integration/provider-rehearsal.integration.mjs"
+    "test:rehearsal": "yarn build && node --test tests/integration/provider-rehearsal.integration.mjs",
+    "test:automation": "yarn test && yarn workspace @openg7/funding-web build --configuration production && node --test tests/integration/operations-alerts.integration.mjs tests/integration/s3-backup.integration.mjs && playwright test --config tests/playwright-recovery.config.mjs && playwright test --config tests/playwright-public-journeys.config.mjs && playwright test --config tests/playwright-platform-accessibility.config.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

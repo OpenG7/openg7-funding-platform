@@ -33,6 +33,7 @@ RUN yarn workspaces focus @openg7/funding-api --production
 COPY --from=builder /app/dist/apps/funding-api ./dist/apps/funding-api
 COPY --from=builder /app/dist/packages/funding-core ./dist/packages/funding-core
 COPY scripts/operations-watch.mjs ./scripts/operations-watch.mjs
+COPY scripts/operations-health.mjs ./scripts/operations-health.mjs
 
 EXPOSE 3333
 

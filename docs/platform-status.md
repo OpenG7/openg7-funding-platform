@@ -14,7 +14,7 @@ L'[index documentaire](README.md) oriente vers les guides actuels et les archive
 | Aide                         | Recherche de contribution, récupération d'accès, contact, participation technique      | FR/EN, clavier et reprise testables; les paiements privés ne passent pas par des issues publiques.                                                                                                    |
 | Administration               | Tableau de bord, file de travail, dossiers, publications, factures, courriels et audit | Fonctionnalités présentes, documentées dans les [lots admin](admin-ux-lot-8.md). L'API reste l'autorité d'accès.                                                                                      |
 | Accès nominatifs             | OIDC optionnel, MFA, rôles et gestion des comptes/sessions                             | Fournisseur signé local et révocation testés; activation et recette du fournisseur réel encore requises. [Runbook](operations/admin-identity-and-alerts.md).                                          |
-| Alertes indépendantes        | Webhook signé pour événements Stripe bloqués/échoués et courriels échoués              | Déduplication/reprises testées; récepteur externe à configurer et processus à démarrer séparément.                                                                                                    |
+| Alertes indépendantes        | Webhook signé pour événements Stripe bloqués/échoués et courriels échoués              | Déduplication/reprises testées; livraison et santé intégrées après activation explicite. Récepteur réel à qualifier.                                                                                  |
 | Routage et performance       | Chargement différé des pages secondaires/admin, pages 404 FR/EN                        | Budget initial de production 800/900 ko, 24 routes prérendues; statuts HTTP Nginx et navigation testés.                                                                                               |
 | Livraison                    | Images et scripts associés au même SHA complet; livraisons sérialisées                 | Tests du script sur commandes simulées. Le script ne fait plus de `git pull`; il exécute le checkout préparé. Aucune livraison réelle n'est attestée par ces tests.                                   |
 | Fournisseurs                 | Stripe, SMTP et stockage S3 intégrés                                                   | Authentification/accès en lecture seule vérifiés; [recette et preuves](operations/integration-rehearsal.md). Livraison courriel et publication média réelles restent à exercer sur une cible de test. |
@@ -29,35 +29,52 @@ L'[index documentaire](README.md) oriente vers les guides actuels et les archive
 - Suivi du 25 septembre 2026 : `services:check` contrôle la configuration du mode
   token/OIDC choisi et du canal d'alertes. Il ne constitue pas une validation MFA
   ou de réception ; voir le [diagnostic](operations/admin-identity-and-alerts.md#diagnostic-de-configuration-avant-recette).
-- Le processus d'alertes fourni par l'overlay Compose doit être exploité et mis
-  à jour explicitement; le script de déploiement standard n'inclut pas cet overlay.
+- Suivi du 25 septembre 2026 : le commutateur explicite du worker inclut son
+  overlay dans la livraison, la vérification de santé et le rollback. La sauvegarde
+  S3 capture les objets courants et permet leur récupération privée sur des cibles vides.
 
-Le déploiement de l'overlay reste une limite du script actuel. Les suivis locaux
-ne constituent pas une migration ou une activation de production.
+Ces automatisations locales ne constituent pas une migration ou une activation
+de production.
 
 ## Priorités opérationnelles suivies au 25 septembre 2026
 
 Ce décompte porte sur les sept lots de préparation à l'exploitation identifiés
 dans les guides actuels, pas sur toutes les évolutions possibles du produit.
-Le suivi des migrations est préparé et testé localement ; **six autres lots
-restent ouverts**, dont cinq demandent une cible réelle ou une vérification humaine.
+Le suivi des migrations et le cycle de livraison des alertes sont préparés et
+testés localement ; **cinq lots de qualification externe restent ouverts**.
 L'adoption du registre sur une base existante reste une opération à autoriser.
 
-| Lot                                    | État et preuve encore nécessaire                                                                                     |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Migrations répétables                  | Moteur local/VPS commun et recettes jetables ; adoption de l'historique à préparer pour chaque base existante        |
-| Livraison du processus d'alertes       | Intégrer explicitement l'overlay au cycle de livraison et vérifier sa révision/santé                                 |
-| Parcours Stripe test, SMTP et S3 réels | URL et boîte de recette à confirmer ; réception, DNS courriel et politiques privé/public à qualifier                 |
-| Accès OIDC réels                       | Client et comptes nominatifs, assertions MFA et révocation à vérifier chez le fournisseur choisi                     |
-| Restauration VPS et médias distants    | Exercice complet sur une cible de récupération distincte, avec sauvegarde vérifiée et rapprochement des objets       |
-| Accessibilité humaine et appareil réel | Lecteur d'écran, zoom natif et iPhone physique à vérifier ; les tests automatisés sont distincts                     |
-| Connexions sociales réelles            | Comptes Facebook/LinkedIn, droits et reprise à qualifier ; toute publication reste soumise à son autorisation propre |
+| Lot                                    | État et preuve encore nécessaire                                                                                      |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Migrations répétables                  | Moteur local/VPS commun et recettes jetables ; adoption de l'historique à préparer pour chaque base existante         |
+| Livraison du processus d'alertes       | Cycle préparé, rollback testé sur commandes simulées et santé/reprise sur vrai conteneur; activation réelle distincte |
+| Parcours Stripe test, SMTP et S3 réels | URL et boîte de recette à confirmer ; réception, DNS courriel et politiques privé/public à qualifier                  |
+| Accès OIDC réels                       | Client et comptes nominatifs, assertions MFA et révocation à vérifier chez le fournisseur choisi                      |
+| Restauration VPS et médias distants    | Capture/restauration des objets automatisée sur S3Mock; exercice complet VPS/OVH et rapprochement encore nécessaires  |
+| Accessibilité humaine et appareil réel | Lecteur d'écran, zoom natif et iPhone physique à vérifier ; les tests automatisés sont distincts                      |
+| Connexions sociales réelles            | Comptes Facebook/LinkedIn, droits et reprise à qualifier ; toute publication reste soumise à son autorisation propre  |
 
 Les critères détaillés et les cibles sont dans les guides de
 [recette](operations/integration-rehearsal.md),
 [accès et alertes](operations/admin-identity-and-alerts.md),
 [restauration](operations/backup-recovery.md) et
 [publication](operations/publication-automation.md).
+
+### Preuves de l'automatisation du 25 septembre 2026
+
+- `yarn test` : 352 tests réussis; livraison/révision/rollback et refus des archives inclus.
+- Alertes : quatre intégrations PostgreSQL réussies et recette du vrai conteneur
+  avec API arrêtée, refus, redémarrage et panne/reprise DB.
+- S3 : capture par `backup.sh` et restauration d'archive de 1 003 objets;
+  corruption, cible source/occupée, politique publique et interruption refusées.
+  L'inspection des politiques/ACL de bucket est simulée; les objets utilisent S3Mock.
+- Restauration applicative locale : recette navigateur réussie, avec comparaison
+  des tables, montants, documents, médias et travaux en attente.
+- Angular production : 699,45 ko initiaux, 24 routes prérendues; 196 parcours publics
+  et 28 vérifications de routage/accessibilité réussis, Chromium repris après
+  remplacement d'une attente réseau globale par l'attente du chargement de page.
+- Lint sans erreur (un avertissement préexistant), syntaxe Bash, Compose et
+  contrôles documentaires vérifiés. Reproduction regroupée : `yarn test:automation`.
 
 ## Reproduire les validations
 

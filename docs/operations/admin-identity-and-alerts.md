@@ -200,13 +200,30 @@ Le premier lancement peut envoyer des alertes : utiliser un récepteur de test
 avant le canal réel. Le mode continu interroge la base toutes les 30 secondes.
 L'overlay `docker-compose.operations.yml` permet un processus distinct utilisant
 l'image API construite. Aucun port supplémentaire n'est publié.
-Le déploiement standard ne met pas ce service à jour automatiquement : inclure
-l'overlay dans son exploitation et aligner son image sur la révision API choisie.
+Après qualification du récepteur, définir explicitement
+`FUNDING_OPERATIONS_WATCHER_ENABLED=true` dans la configuration autorisée.
+`deploy.sh`, `check.sh` et `rollback.sh` incluent alors l'overlay. La présence de
+credentials seule ne l'active pas. La livraison utilise la révision API choisie,
+valide sa configuration avant migration, puis vérifie sa santé.
 
 ```sh
 # Exemple d'activation, à exécuter uniquement sur l'environnement autorisé :
 docker compose -f docker-compose.yml -f docker-compose.operations.yml up -d operations
 ```
+
+Le healthcheck vérifie le signal de vie du processus et l'accès à la table des
+alertes; il ne prouve pas la réception des notifications. Un récepteur indisponible
+laisse les alertes dans la file. Docker marque une DB inaccessible comme malsaine;
+`restart: unless-stopped` redémarre un processus terminé, pas un conteneur seulement
+malsain. La boucle reprend après rétablissement de la DB.
+
+La livraison conserve l'image propre au worker dans
+`openg7-funding-operations:rollback` et son état dans
+`backups/deployment-rollback.env`. Le rollback restaure cette image; si la livraison
+était la première activation, il arrête le nouveau worker. Un worker existant sans
+le commutateur activé bloque la livraison pour éviter de laisser une ancienne image
+tourner. Les images de retour doivent inclure le script de santé; vérifier ce point
+lors de la première adoption du cycle géré. Aucun rollback ne restaure la DB.
 
 Incidents couverts : courriel en échec, événement Stripe en échec ou bloqué
 depuis 15 minutes, et lecture PostgreSQL indisponible. Les factures manquantes,
@@ -251,7 +268,13 @@ la réception d'une alerte synthétique sur l'environnement de test.
 yarn build
 node --test tests/integration/operations-alerts.integration.mjs
 node scripts/admin-acceptance.mjs tests/playwright/operations-alerts-acceptance.spec.ts
+yarn exec playwright test --config tests/playwright-recovery.config.mjs operations-container.spec.mjs
 ```
+
+La recette conteneur utilise le vrai overlay et un récepteur signé local : API
+arrêtée, refus du récepteur, reprise, redémarrage, panne PostgreSQL et retour à
+l'état sain. Les commandes de livraison/révision/rollback sont testées séparément
+avec Docker simulé; cela ne qualifie pas un déploiement VPS réel.
 
 Les tests PostgreSQL utilisent des bases neuves jetables : concurrence sur le
 verrou, bail actif puis expiré, échéance de reprise, plafond d'une heure, refus
