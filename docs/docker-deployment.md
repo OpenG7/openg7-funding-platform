@@ -599,9 +599,11 @@ docker compose config --quiet
 yarn services:check
 ```
 
-These checks avoid printing expanded secret values. `services:check` still
-validates the legacy admin-token settings; it is not an OIDC configuration test.
-Use the identity runbook to verify the selected mode.
+These checks avoid printing expanded secret values. `services:check` validates
+the selected token/OIDC configuration and any configured operations webhook.
+It makes no provider calls and does not verify MFA, migrations or alert delivery.
+Use the [identity runbook](operations/admin-identity-and-alerts.md#diagnostic-de-configuration-avant-recette)
+for the remaining checks.
 
 Most startup loops come from missing production variables in `.env`, especially:
 

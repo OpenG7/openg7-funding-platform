@@ -45,7 +45,10 @@ node scripts/services-check.mjs --env .env --env-only
 
 Un statut `[MISSING]` bloque (sortie non nulle). Les secrets sont masqués
 (`present` au lieu de la valeur). Couvre HTTPS, admin, Stripe, SMTP,
-PostgreSQL, stockage média et publication sociale.
+PostgreSQL, stockage média, publication sociale et configuration des alertes.
+Les contrôles admin suivent le mode token/OIDC choisi ; un canal d'alertes absent
+est signalé comme désactivé, une configuration partielle est bloquante.
+Voir le [diagnostic et ses limites](admin-identity-and-alerts.md#diagnostic-de-configuration-avant-recette).
 
 ## 3. Contrat public HTTP (`smoke:public`)
 
@@ -190,8 +193,8 @@ explicite : elle n'appartient pas à ce runbook non destructif.
 
 ## 9. Écarts résiduels connus
 
-- `services:check` contrôle encore les variables d'administration du mode
-  token. Il ne valide pas OIDC/MFA ni le récepteur d'alertes; suivre le
+- `services:check` contrôle la configuration token/OIDC et des alertes,
+  sans vérifier les assertions MFA ni la réception effective ; suivre le
   [runbook d'identité et d'alertes](admin-identity-and-alerts.md).
 - Les runners SQL rejouent tous les fichiers et ne suivent pas les migrations
   déjà appliquées. Voir la [limite de déploiement sur base existante](database-migrations.md).

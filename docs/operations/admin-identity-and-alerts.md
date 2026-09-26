@@ -140,10 +140,40 @@ La suite admin utilise des API interceptées : cette correction de synchronisati
 ne remplace pas la recette OIDC réelle et ne constitue pas encore une réussite
 de la CI GitHub, à confirmer après publication du correctif.
 
-`yarn services:check` reste orienté vers les variables du mode token : il peut
-signaler leur absence en OIDC et ne valide ni l'issuer, ni les assertions MFA,
-ni le récepteur d'alertes. Utiliser la recette de connexion et de révocation
-ci-dessus pour ces garanties.
+### Diagnostic de configuration avant recette
+
+```sh
+node scripts/services-check.mjs --env <configuration-de-test> --env-only
+```
+
+Le diagnostic vérifie les paramètres du mode `FUNDING_ADMIN_AUTH_MODE` choisi
+(`token` par défaut) et refuse un mode inconnu. En OIDC, il contrôle issuer,
+client ID, secret client, origine publique HTTPS sans identifiants, origine
+commune Web/API et présence de PostgreSQL. Les secrets et la durée du mode token
+ne sont pas exigés. Une liste de propriétaires absente produit un avertissement :
+un propriétaire actif doit déjà exister en base pour permettre l'administration.
+Les listes de subjects ou d'ACR renseignées mais vides ou factices sont refusées.
+
+Le canal d'alertes est signalé comme désactivé si URL et secret sont absents.
+Dès qu'un des deux est renseigné, le diagnostic exige une URL HTTPS sans
+identifiants intégrés et un secret d'au moins 32 caractères. Il contrôle aussi
+l'origine publique et la présence de PostgreSQL. Cette vérification de préparation
+au déploiement exige HTTPS, y compris pour les URL de boucle locale ; l'exception
+HTTP des recettes locales de l'API ne constitue pas une configuration déployable.
+
+Les valeurs privées ne sont jamais affichées. Aucun appel OIDC, SQL ou webhook
+n'est effectué. Le rapport distingue paramètres présents, avertissements et
+champs bloquants (sortie non nulle). Il ne vérifie ni les migrations appliquées,
+ni les comptes existants, ni les claims MFA, ni le processus d'alertes ou la
+réception. Les recettes de connexion, révocation et réception restent nécessaires,
+même si la commande réussit ; un ACR configuré ne prouve pas sa signification MFA.
+
+Validation du 25 septembre 2026, base `dbcee02` avec ce correctif local, sous
+Windows et Node 22.23.2 : `node --test tests/services-check.test.mjs` réussit
+ses **45 tests**, sous-tests inclus, sur des fichiers synthétiques. Ils couvrent
+les deux modes, les configurations incomplètes, les URL interdites, l'isolation
+`--env-only` et l'absence de valeurs privées dans le rapport. Aucun fournisseur
+réel n'est sollicité par cette validation.
 
 ## Proposition de canal d'alerte
 
