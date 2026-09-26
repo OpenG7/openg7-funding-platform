@@ -261,16 +261,82 @@ The API Docker image does not copy `.env`. `.dockerignore` excludes `.env` and
 
 ## Deliverability
 
-Verify these DNS records separately in the `openg7.org` DNS zone using the
-official values supplied by HostPapa:
+### Read-only DNS diagnostic
 
-```text
-SPF
-DKIM
-DMARC
+Use Node 22 and explicit domains/selectors supplied by the mail provider or
+observed in a received test message. This command reads DNS TXT records only;
+it does not load `.env`, connect to SMTP, send mail or change the DNS zone.
+
+```sh
+yarn email:dns --domain example.org --selector provider-selector
+
+# When the SMTP envelope and DKIM signer use different domains:
+yarn email:dns --domain example.org --spf-domain bounce.example.org \
+  --dkim-domain signer.example.org --selector current --selector next
 ```
 
-Do not change DNS automatically without the official HostPapa values.
+Replace these examples with confirmed values. `--domain` is the visible From
+domain; `--spf-domain` is the SMTP MAIL FROM/Return-Path domain, and
+`--dkim-domain` is the signing domain (`d=`). The latter two default to `--domain`;
+confirm that this matches the provider. Reply-To is not an authentication domain.
+At least one explicit DKIM selector (`s=`) is required; no selectors are guessed.
+Names must be ASCII/Punycode, without addresses or URLs. Up to five distinct
+selectors can be checked during rotation.
+
+The JSON report includes a timestamp, queried names, fixed findings and limits.
+It omits raw TXT data, public keys, reporting addresses and provider errors.
+It concatenates TXT character-strings within each record and distinguishes
+duplicate records from split strings. The diagnostic checks:
+
+- SPF publication, common mechanism syntax, IP prefixes, duplicate modifiers,
+  permissive `all` and a static lookup-term count. Includes, redirects, macros,
+  A/MX/PTR/exists dependencies and the sender IP are **not evaluated**; such
+  dependencies require review. This is not an SPF authorization result.
+- DKIM record uniqueness, tag syntax, revoked/invalid public keys, RSA size,
+  Ed25519 key length, SHA-256/email restrictions and testing flags. CNAME resolution
+  and truncated UDP response fallback use the DNS resolver. RSA below 1024 bits
+  fails; 1024–2047 bits require review. No message signature is verified.
+- DMARC publication at the **exact** From domain, duplicate records/tags,
+  policy/alignment tag values and monitoring/testing modes. Missing direct
+  records require review: a parent policy may apply, but no organizational domain
+  is guessed. Under RFC 9989, absent `p` defaults to `none`; legacy `pct` is flagged
+  for review. Policy discovery, alignment, reporting URIs/authorization and
+  delivery are outside this diagnostic.
+
+Exit **0** means no finding in this limited scope, **2** means findings or review
+(including intentional monitoring policies), and **1** means incomplete DNS
+resolution or refused arguments. NXDOMAIN/NODATA are distinct from SERVFAIL,
+timeouts and other resolver failures. A successful diagnostic never proves
+message authentication, inbox delivery, DNSSEC or global propagation.
+
+The system resolver is used unless `--resolver <ip[:port]>` selects one explicitly
+(IPv6 with a port: `[::1]:5353`). There is no fallback to a public resolver.
+`--timeout-ms` accepts 100–10000 ms, default 3000; the overall resolver cancellation
+deadline is that value plus 500 ms. At most seven TXT lookups are launched,
+with one resolver attempt each; DNS CNAME/TCP handling is delegated to the resolver.
+A response above 50 TXT records or 32 KiB of text is incomplete. Re-running only
+repeats reads and produces a fresh timestamp; no state or corrections are persisted.
+
+Reproduce without any external DNS or credentials:
+
+```sh
+node --test tests/email-dns.test.mjs
+```
+
+This suite runs the real CLI against a loopback-only UDP/TCP DNS fixture with no
+forwarding. It covers successful publication, split strings, separate identities,
+selector rotation, CNAME/TCP, duplicates, missing/revoked records, review modes,
+transient failures, bounded timeouts and rejected inputs. It is included in
+`yarn test` and the existing acceptance CI. No real domain is qualified by it.
+
+References: [SPF, RFC 7208](https://www.rfc-editor.org/rfc/rfc7208.html),
+[DKIM, RFC 6376](https://www.rfc-editor.org/rfc/rfc6376.html),
+[RSA requirements, RFC 8301](https://www.rfc-editor.org/rfc/rfc8301.html),
+[Ed25519, RFC 8463](https://www.rfc-editor.org/rfc/rfc8463.html),
+[DMARC, RFC 9989](https://www.rfc-editor.org/rfc/rfc9989.html).
+
+Compare the published values with the official settings supplied by HostPapa
+and inspect a received test message separately. Do not change DNS automatically.
 
 ## Manual Checklist
 

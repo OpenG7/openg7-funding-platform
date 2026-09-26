@@ -99,6 +99,16 @@ de mutation des données et du reçu de restauration par l'audit. La recette du
 conteneur d'alertes et deux tests ciblés de lecture des médias/rapport passent
 également. Voir les [commandes et limites](operations/backup-recovery.md#audit-automatisé-en-lecture-seule).
 
+### Diagnostic DNS du 25 septembre 2026
+
+Le diagnostic DNS `email:dns` examine maintenant les publications SPF/DKIM/DMARC
+sans configuration privée ni envoi. Le 25 septembre 2026, dix tests ciblés ont
+réussi, dont sept scénarios de CLI sur serveur DNS UDP/TCP local : réponses
+fragmentées, CNAME/repli TCP, rotation DKIM, doublons, révocation, absence,
+panne, réponses excessives et délai borné. Les domaines réels, dépendances SPF,
+alignement et réception restent à qualifier; aucun des cinq lots externes n'est clos. Voir le
+[guide DNS](email-smtp.md#read-only-dns-diagnostic).
+
 ## Reproduire les validations
 
 Le lot `feat/platform-access-alerts-and-performance` ajoute les routes différées,
