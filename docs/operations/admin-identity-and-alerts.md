@@ -6,7 +6,7 @@ ou environnement de production n'est créé par les tests.
 ## Comptes nominatifs
 
 1. Préparer les migrations jusqu'à `020` sur un environnement de test selon
-   la [procédure et sa limite de réexécution](database-migrations.md). En
+   la [procédure et l'adoption des bases existantes](database-migrations.md). En
    production, vérifier une sauvegarde avant toute migration autorisée.
 2. Enregistrer un client confidentiel OIDC auprès du fournisseur choisi.
    Son callback exact est `https://<site>/api/admin/auth/callback`, sans wildcard.

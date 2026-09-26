@@ -23,18 +23,41 @@ L'[index documentaire](README.md) oriente vers les guides actuels et les archive
 
 ## Écarts d'exploitation confirmés lors de la revue documentaire
 
-- Les runners SQL rejouent toutes les migrations, sans registre d'application;
-  `019`–`021` ne sont pas rejouables. Cela peut bloquer un déploiement répété avec
-  PostgreSQL. Voir la [procédure de migration](operations/database-migrations.md).
+- Suivi du 25 septembre 2026 : les runners SQL partagent un registre avec
+  empreintes, verrou et transaction. Les bases existantes sans registre exigent
+  une adoption revue de leur historique ; voir la [procédure de migration](operations/database-migrations.md).
 - Suivi du 25 septembre 2026 : `services:check` contrôle la configuration du mode
   token/OIDC choisi et du canal d'alertes. Il ne constitue pas une validation MFA
   ou de réception ; voir le [diagnostic](operations/admin-identity-and-alerts.md#diagnostic-de-configuration-avant-recette).
 - Le processus d'alertes fourni par l'overlay Compose doit être exploité et mis
   à jour explicitement; le script de déploiement standard n'inclut pas cet overlay.
 
-Les limites de migration et de déploiement de l'overlay proviennent de la lecture
-des scripts au commit `137720c`, pas d'une tentative de migration ou d'activation
-en production. Les recettes ci-dessous ne suppriment pas ces limites.
+Le déploiement de l'overlay reste une limite du script actuel. Les suivis locaux
+ne constituent pas une migration ou une activation de production.
+
+## Priorités opérationnelles suivies au 25 septembre 2026
+
+Ce décompte porte sur les sept lots de préparation à l'exploitation identifiés
+dans les guides actuels, pas sur toutes les évolutions possibles du produit.
+Le suivi des migrations est préparé et testé localement ; **six autres lots
+restent ouverts**, dont cinq demandent une cible réelle ou une vérification humaine.
+L'adoption du registre sur une base existante reste une opération à autoriser.
+
+| Lot                                    | État et preuve encore nécessaire                                                                                     |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Migrations répétables                  | Moteur local/VPS commun et recettes jetables ; adoption de l'historique à préparer pour chaque base existante        |
+| Livraison du processus d'alertes       | Intégrer explicitement l'overlay au cycle de livraison et vérifier sa révision/santé                                 |
+| Parcours Stripe test, SMTP et S3 réels | URL et boîte de recette à confirmer ; réception, DNS courriel et politiques privé/public à qualifier                 |
+| Accès OIDC réels                       | Client et comptes nominatifs, assertions MFA et révocation à vérifier chez le fournisseur choisi                     |
+| Restauration VPS et médias distants    | Exercice complet sur une cible de récupération distincte, avec sauvegarde vérifiée et rapprochement des objets       |
+| Accessibilité humaine et appareil réel | Lecteur d'écran, zoom natif et iPhone physique à vérifier ; les tests automatisés sont distincts                     |
+| Connexions sociales réelles            | Comptes Facebook/LinkedIn, droits et reprise à qualifier ; toute publication reste soumise à son autorisation propre |
+
+Les critères détaillés et les cibles sont dans les guides de
+[recette](operations/integration-rehearsal.md),
+[accès et alertes](operations/admin-identity-and-alerts.md),
+[restauration](operations/backup-recovery.md) et
+[publication](operations/publication-automation.md).
 
 ## Reproduire les validations
 

@@ -196,8 +196,9 @@ explicite : elle n'appartient pas à ce runbook non destructif.
 - `services:check` contrôle la configuration token/OIDC et des alertes,
   sans vérifier les assertions MFA ni la réception effective ; suivre le
   [runbook d'identité et d'alertes](admin-identity-and-alerts.md).
-- Les runners SQL rejouent tous les fichiers et ne suivent pas les migrations
-  déjà appliquées. Voir la [limite de déploiement sur base existante](database-migrations.md).
+- Les runners SQL suivent maintenant les empreintes des migrations appliquées.
+  Une base existante sans registre exige une [adoption explicite de son historique](database-migrations.md#adoption-dune-base-existante-sans-registre)
+  avant un nouveau déploiement ; le runner ne déduit pas cet historique du schéma.
 
 La commande `yarn providers:verify --env <configuration>` vérifie en lecture
 seule l'authentification Stripe **test**, SMTP et l'accès aux deux buckets S3.
