@@ -314,11 +314,16 @@ the assertions; the runner then exited successfully.
 The complete identity suite finished with **8 passed / 1 failed**: the SMTP
 journey timed out waiting for the accepted result after releasing its local SMTP
 gate. The failure also reproduced in isolation and with the unchanged `main`
-stack helper, so this is not a fully passing suite. Diagnostic traces are under
+stack helper, so that run was not fully passing. Diagnostic traces are under
 `test-results/identity-smtp-isolated/` and `test-results/identity-smtp-baseline/`.
-SMTP diagnosis remains open. API and Angular/SSR builds, TypeScript, lint and
+API and Angular/SSR builds, TypeScript, lint and
 targeted formatting passed; existing warnings remain for the 823.59 kB initial
 Angular bundle (800 kB budget) and the unused ESLint directive in `smoke-public.mjs`.
+
+The follow-up [SMTP diagnosis and validation](../email-smtp.md#local-mailpit-greeting-delays)
+on 25 September identified Mailpit reverse DNS delaying the local greeting.
+Disabling that lookup for local test containers restored the complete identity
+suite to **9/9 passing**, including this social recovery journey.
 
 ### Other delivery recipes
 
