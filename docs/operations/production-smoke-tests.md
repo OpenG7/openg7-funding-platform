@@ -221,5 +221,7 @@ Voir la [recette contrôlée](integration-rehearsal.md) pour la suite.
   La validation S3 réelle passe par
   `storage:test` et par le rehearsal PostgreSQL de
   `production-launch-checklist.md`.
-- La délivrabilité courriel (SPF/DKIM/DMARC) reste une vérification DNS manuelle
-  documentée dans `email-smtp.md`.
+- Le [diagnostic DNS](../email-smtp.md#read-only-dns-diagnostic)
+  `yarn email:dns --domain <domaine-from> --selector <selecteur-dkim>` lit les
+  publications SPF/DKIM/DMARC sans secret ni envoi. Les dépendances SPF, l'alignement
+  d'un message, les valeurs fournisseur et la réception réelle restent à qualifier.

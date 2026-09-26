@@ -38,6 +38,13 @@ incomplets pour une mise en service; le fichier local n'a pas été modifié.
 
 ## Parcours avec les fournisseurs réels
 
+Les publications DNS peuvent être examinées séparément avec
+`yarn email:dns --domain <domaine-from> --selector <selecteur-dkim>`.
+Confirmer aussi les domaines d'enveloppe et de signature auprès du fournisseur;
+les [options et limites](../email-smtp.md#read-only-dns-diagnostic) précisent les
+contrôles, les codes de sortie et les éléments restant à rapprocher. Cette lecture
+ne constitue ni un envoi ni une preuve de réception.
+
 Avant exécution, consigner l'URL de test, le commit et les images exécutées,
 le mode Stripe test, l'adresse de réception, les buckets/prefixes de test et le
 responsable de validation. Utiliser un espace de stockage de test distinct des
