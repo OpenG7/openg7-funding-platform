@@ -7,6 +7,7 @@ import {
   readFile,
   readdir,
   rm,
+  symlink,
   writeFile
 } from 'node:fs/promises';
 import { request as proxy } from 'node:http';
@@ -15,6 +16,15 @@ import { dirname, join, resolve, sep } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import pg from 'pg';
+import {
+  S3Client,
+  CreateBucketCommand,
+  PutObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command
+} from '@aws-sdk/client-s3';
+import { startDisposableProvider } from '../integration/support/disposable-provider.mjs';
+import { createS3RecoveryProxy } from '../integration/support/s3-recovery-proxy.mjs';
 import { createBuiltWebServer } from '../ui/serve-built-web.mjs';
 
 const exec = promisify(execFile);
@@ -33,7 +43,7 @@ export const eventually = async (fn) => {
   }
 };
 
-export async function createRecoveryFixture() {
+export async function createRecoveryFixture({ mediaDriver = 'local' } = {}) {
   console.log('Recovery fixture: preparing local services.');
   if (Number(process.versions.node.split('.')[0]) !== 22)
     throw new Error('Node 22 required.');
@@ -70,6 +80,7 @@ export async function createRecoveryFixture() {
   if (process.env.OG7_RECOVERY_API_IMAGE && !/^og7-[a-z0-9:_-]+$/.test(image))
     throw new Error('Invalid fixture image.');
   const targets = [];
+  let s3;
   // Deliberate whitelist: no .env, DATABASE_URL, COMPOSE_FILE or external credentials.
   const env = Object.fromEntries(
     [
@@ -88,6 +99,7 @@ export async function createRecoveryFixture() {
       .map((k) => [k, process.env[k]])
   );
   env.DOCKER_CONTEXT = context;
+  env.OPENG7_TEST_NODE = process.execPath.replaceAll('\\', '/');
   const copy = async (from, to) => {
     await mkdir(dirname(to), { recursive: true });
     await writeFile(to, (await readFile(from, 'utf8')).replace(/\r\n/g, '\n'));
@@ -102,10 +114,52 @@ export async function createRecoveryFixture() {
       'backup.sh',
       'restore-from-backup.sh',
       'backup-artifacts.mjs',
+      'recovery-state.mjs',
+      'storage-backup.mjs',
+      'lib/s3-backup.mjs',
       'load-env.sh'
     ])
       await copy(join('scripts', file), join(directory, 'scripts', file));
-    target.compose = (args) =>
+    await symlink(
+      resolve('node_modules'),
+      join(directory, 'node_modules'),
+      process.platform === 'win32' ? 'junction' : 'dir'
+    );
+    await mkdir(join(directory, 'bin'));
+    await writeFile(
+      join(directory, 'bin/node'),
+      '#!/usr/bin/env bash\nexec "$OPENG7_TEST_NODE" "$@"\n',
+      { mode: 0o755 }
+    );
+    if (s3) {
+      target.s3 = {
+        NODE_ENV: 'test',
+        SPONSOR_MEDIA_ENDPOINT: s3.endpoint,
+        SPONSOR_MEDIA_REGION: 'us-east-1',
+        SPONSOR_MEDIA_PRIVATE_BUCKET: project + '-private',
+        SPONSOR_MEDIA_PUBLIC_BUCKET: project + '-public',
+        SPONSOR_MEDIA_PRIVATE_BASE_URL:
+          s3.endpoint + '/' + project + '-private',
+        SPONSOR_MEDIA_PUBLIC_BASE_URL: s3.endpoint + '/' + project + '-public',
+        OVH_S3_ACCESS_KEY_ID: 'fixture',
+        OVH_S3_SECRET_ACCESS_KEY: 'synthetic-recovery-s3-secret'
+      };
+      for (const Bucket of [
+        target.s3.SPONSOR_MEDIA_PRIVATE_BUCKET,
+        target.s3.SPONSOR_MEDIA_PUBLIC_BUCKET
+      ])
+        await eventually(() =>
+          s3.client.send(new CreateBucketCommand({ Bucket }))
+        );
+      target.s3Env = join(directory, '.env.recovery-s3');
+      await writeFile(
+        target.s3Env,
+        Object.entries(target.s3)
+          .map(([key, value]) => `${key}=${value}`)
+          .join('\n') + '\n'
+      );
+    }
+    target.compose = (args, extraFiles = []) =>
       docker(
         [
           'compose',
@@ -117,6 +171,7 @@ export async function createRecoveryFixture() {
           project,
           '-f',
           join(directory, 'docker-compose.yml'),
+          ...extraFiles.flatMap((file) => ['-f', file]),
           '--profile',
           'database',
           ...args
@@ -133,11 +188,21 @@ export async function createRecoveryFixture() {
               arg.slice(3).replaceAll('\\', '/')
             : arg
         );
-        const result = await run(bash, ['scripts/' + script, ...shellArgs], {
-          cwd: directory,
-          env,
-          ...options
-        });
+        const result = await run(
+          bash,
+          [
+            '-c',
+            'export PATH="$PWD/bin:$PATH"\nbash "$@"',
+            'fixture',
+            'scripts/' + script,
+            ...shellArgs
+          ],
+          {
+            cwd: directory,
+            env,
+            ...options
+          }
+        );
         return { code: 0, output: result.stdout + result.stderr };
       } catch (error) {
         return {
@@ -194,7 +259,36 @@ export async function createRecoveryFixture() {
         'FUNDING_PUBLIC_BASE_URL=' + target.origin
       );
       await writeFile(join(directory, '.env'), settings);
-      await target.compose(['up', '-d', '--no-deps', 'api']);
+      const extraFiles = [];
+      if (s3) {
+        // Host scripts use the loopback proxy; the isolated API reaches the same
+        // disposable S3Mock over its owned Docker network, with the restored buckets.
+        const networks = JSON.parse(
+          await docker(['inspect', s3.provider.id])
+        )[0].NetworkSettings.Networks;
+        const network = project + '-edge';
+        if (!networks[network])
+          await docker(['network', 'connect', network, s3.provider.id]);
+        const connected = JSON.parse(
+          await docker(['inspect', s3.provider.id])
+        )[0].NetworkSettings.Networks;
+        const configurationPath = join(directory, '.fixture-api-network.json');
+        await writeFile(
+          configurationPath,
+          JSON.stringify({
+            services: {
+              api: {
+                environment: {
+                  SPONSOR_MEDIA_ENDPOINT:
+                    'http://' + connected[network].IPAddress + ':9090'
+                }
+              }
+            }
+          })
+        );
+        extraFiles.push(configurationPath);
+      }
+      await target.compose(['up', '-d', '--no-deps', 'api'], extraFiles);
       const match = /^127\.0\.0\.1:(\d+)$/.exec(
         await target.compose(['port', 'api', '3333'])
       );
@@ -212,6 +306,12 @@ export async function createRecoveryFixture() {
     return target;
   };
   const stop = async () => {
+    if (s3) {
+      s3.client.destroy();
+      s3.proxy?.closeAllConnections();
+      if (s3.proxy) await new Promise((done) => s3.proxy.close(done));
+      await s3.provider.stop();
+    }
     for (const target of targets.reverse()) {
       await target.pool?.end();
       if (target.web?.listening) {
@@ -253,6 +353,66 @@ export async function createRecoveryFixture() {
     });
   };
   try {
+    if (mediaDriver === 'ovh-s3') {
+      const provider = await startDisposableProvider('s3');
+      const endpoint = 'http://127.0.0.1:' + provider.ports[9090];
+      s3 = {
+        provider,
+        client: new S3Client({
+          endpoint,
+          region: 'us-east-1',
+          forcePathStyle: true,
+          credentials: {
+            accessKeyId: 'fixture',
+            secretAccessKey: 'synthetic-recovery-s3-secret'
+          }
+        }),
+        writes: [],
+        failBucket: null,
+        unsafePolicy: false
+      };
+      s3.proxy = await createS3RecoveryProxy(endpoint, {
+        unsafePolicy: () => s3.unsafePolicy,
+        onRequest: (req, res, url) => {
+          if (req.method !== 'PUT') return false;
+          s3.writes.push({
+            path: url.pathname,
+            acl: req.headers['x-amz-acl'],
+            condition: req.headers['if-none-match']
+          });
+          if (
+            url.pathname.startsWith('/' + s3.failBucket + '/') &&
+            !url.pathname.includes('/system-recovery/')
+          ) {
+            res
+              .writeHead(503, { 'Content-Type': 'application/xml' })
+              .end('<Error><Code>ServiceUnavailable</Code></Error>');
+            return true;
+          }
+          return false;
+        }
+      });
+      s3.endpoint = 'http://127.0.0.1:' + s3.proxy.address().port;
+      s3.put = (Bucket, Key, Body) =>
+        s3.client.send(
+          new PutObjectCommand({
+            Bucket,
+            Key,
+            Body,
+            ContentType: 'image/webp',
+            Metadata: { provenance: 'synthetic' }
+          })
+        );
+      s3.get = async (Bucket, Key) =>
+        Buffer.from(
+          await (
+            await s3.client.send(new GetObjectCommand({ Bucket, Key }))
+          ).Body.transformToByteArray()
+        );
+      s3.list = async (Bucket) =>
+        (await s3.client.send(new ListObjectsV2Command({ Bucket }))).Contents ||
+        [];
+    }
     if (!process.env.OG7_RECOVERY_API_IMAGE)
       await docker(
         ['build', '-t', image, '-f', 'apps/funding-api/Dockerfile', '.'],
@@ -293,7 +453,14 @@ export async function createRecoveryFixture() {
             FUNDING_PUBLIC_BASE_URL: '${FUNDING_PUBLIC_BASE_URL}',
             FUNDING_ALLOWED_ORIGINS: '${FUNDING_PUBLIC_BASE_URL}',
             FUNDING_ADMIN_RATE_LIMIT_MAX: '0',
-            SPONSOR_MEDIA_STORAGE_DRIVER: 'local',
+            SPONSOR_MEDIA_STORAGE_DRIVER: mediaDriver,
+            ...(s3
+              ? Object.fromEntries(
+                  Object.keys(source.s3)
+                    .filter((key) => key !== 'NODE_ENV')
+                    .map((key) => [key, '${' + key + '}'])
+                )
+              : {}),
             FUNDING_SPONSOR_LOGO_STORAGE_DIR: '/app/var/sponsor-logos',
             FUNDING_EMAIL_WORKER_ENABLED: 'false',
             FUNDING_ADMIN_REVIEW_REMINDER_ENABLED: 'false',
@@ -330,7 +497,8 @@ export async function createRecoveryFixture() {
         POSTGRES_USER: 'recovery',
         DATABASE_URL:
           'postgres://recovery:synthetic-only@postgres:5432/recovery',
-        SPONSOR_MEDIA_STORAGE_DRIVER: 'local',
+        SPONSOR_MEDIA_STORAGE_DRIVER: mediaDriver,
+        ...source.s3,
         FUNDING_PLATFORM_ENV: 'development',
         FUNDING_PUBLIC_BASE_URL: source.origin
       })
@@ -365,7 +533,7 @@ export async function createRecoveryFixture() {
       );
     await source.startApi();
     console.log('Recovery fixture: source ready.');
-    return { root, source, makeTarget, stop, docker, env };
+    return { root, source, makeTarget, stop, docker, env, s3 };
   } catch (error) {
     console.log('Recovery fixture startup failed:', error.message);
     await stop();

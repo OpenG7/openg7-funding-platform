@@ -93,6 +93,9 @@ playwright-report/
 *.tsbuildinfo
 docs/reference/
 backups/
+/recovery-report.json*
+/.restore-stage.*/
+/.restore.lock/
 var/
 traefik/acme/*
 !traefik/acme/.gitkeep

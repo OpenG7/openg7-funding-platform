@@ -204,7 +204,7 @@ export async function verifyS3(directory) {
   }
   return manifest;
 }
-export async function restoreS3(config, directory, confirmation) {
+export async function preflightS3Restore(config, directory, confirmation) {
   const manifest = await verifyS3(directory);
   if (confirmation !== `${config.buckets.private},${config.buckets.public}`)
     throw new Error('Confirm the exact two target buckets.');
@@ -243,6 +243,21 @@ export async function restoreS3(config, directory, confirmation) {
       'Restore requires dedicated buckets without a bucket policy.'
     );
   }
+  const recoveryKeys = new Set([
+    'system-recovery/restore-claim.json',
+    'system-recovery/restore-complete.json'
+  ]);
+  if (
+    manifest.objects.some(
+      (o) => o.key.startsWith('system-recovery/') && !recoveryKeys.has(o.key)
+    )
+  )
+    throw new Error('Reserved recovery key in source capture.');
+  return manifest;
+}
+export async function restoreS3(config, directory, confirmation) {
+  // Repeat the read-only checks immediately before claims, even after a DB preflight.
+  const manifest = await preflightS3Restore(config, directory, confirmation);
   const receipt = {
     version: 1,
     captureId: manifest.id,
@@ -257,12 +272,6 @@ export async function restoreS3(config, directory, confirmation) {
     claim,
     'system-recovery/restore-complete.json'
   ]);
-  if (
-    manifest.objects.some(
-      (o) => o.key.startsWith('system-recovery/') && !recoveryKeys.has(o.key)
-    )
-  )
-    throw new Error('Reserved recovery key in source capture.');
   for (const Bucket of Object.values(config.buckets))
     await send(
       config.client,

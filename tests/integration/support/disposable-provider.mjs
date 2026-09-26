@@ -65,7 +65,7 @@ export async function startDisposableProvider(kind) {
       if (!match) throw new Error('Fixture port must bind to loopback.');
       ports[port] = Number(match[1]);
     }
-    return { ports, stop };
+    return { id, ports, stop };
   } catch (error) {
     await stop();
     throw error;

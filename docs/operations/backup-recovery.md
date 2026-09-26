@@ -72,11 +72,10 @@ Une sauvegarde ultérieure conserve les reçus de récupération précédents da
 l'archive. La restauration suivante crée ses propres reçus et compte les anciens
 dans `archivedRecoveryRecords`, sans les rejouer sur les nouveaux reçus.
 
-Cette commande restaure les **objets**. Le script de restauration DB/volume décrit
-ci-dessous reste réservé au pilote local. Pour une remise en service S3, restaurer
-et rapprocher séparément la DB sur une cible isolée, puis revoir les URL publiques,
-les versions et les autorisations avant toute réexposition. Une restauration ne
-constitue pas une autorisation de publication.
+Cette commande restaure les **objets seuls**. Pour restaurer ensemble PostgreSQL
+et S3, utiliser le flux commun ci-dessous. Revoir les URL publiques, les versions
+et les autorisations avant toute réexposition. Une restauration ne constitue pas
+une autorisation de publication.
 
 `yarn vps:backup:download` télécharge la configuration, son manifeste et les
 artéfacts DB/médias présents du **même horodatage**. Le téléchargement DB seul
@@ -107,6 +106,43 @@ ce flux : une empreinte calculée après coup ne prouve pas leur intégrité pas
 La confirmation saisie est `RESTORE <nom-du-projet>`; `--force` omet seulement
 cette saisie, jamais les vérifications.
 
+### Variante PostgreSQL et S3
+
+Installer les dépendances du checkout avec Yarn. Ajouter aux mêmes arguments :
+
+```sh
+  --s3-env /secure/recovery-s3.env \
+  --confirm-s3-target recovery-private,recovery-public
+```
+
+Le fichier cible est obligatoire et lu comme des données, sans exécution shell ni
+recours aux identifiants hérités de l'environnement. Il contient exclusivement
+`SPONSOR_MEDIA_ENDPOINT`, `SPONSOR_MEDIA_REGION`, `SPONSOR_MEDIA_PRIVATE_BUCKET`,
+`SPONSOR_MEDIA_PUBLIC_BUCKET`, `SPONSOR_MEDIA_PRIVATE_BASE_URL`,
+`SPONSOR_MEDIA_PUBLIC_BASE_URL`, `OVH_S3_ACCESS_KEY_ID` et
+`OVH_S3_SECRET_ACCESS_KEY`. Les deux dernières valeurs sont privées : fichier
+`0600` hors Git, clés limitées aux buckets de récupération. Les URL doivent être
+HTTPS, sans identifiants intégrés, paramètres, fragment ou slash final. Les valeurs
+ne peuvent contenir ni apostrophe ni saut de ligne. `NODE_ENV=test` est admis
+uniquement pour les fixtures HTTP sur `127.0.0.1`.
+
+Les deux options sont indissociables; `--force` ne remplace pas la confirmation
+des noms des buckets. Les trois empreintes d'archive et chaque objet sont vérifiés,
+puis l'absence de données, d'ACL publiques/de groupe et de politique sur les deux
+buckets. La configuration API effectivement résolue par Compose doit utiliser
+exactement les paramètres S3 cibles. Ces valeurs remplacent les paramètres de
+stockage dans le `.env` restauré; les autres secrets archivés restent à revoir
+avant toute activation.
+
+Après l'import PostgreSQL, les vérifications S3 sont répétées avant les réservations
+conditionnelles et la copie des objets. Chaque objet est relu et comparé, avec ses
+métadonnées. Les objets restent privés, y compris les anciennes copies publiques.
+Les URL déjà enregistrées en base sont conservées : les rapprocher du futur domaine
+et des buckets avant une remise en service. L'inspection locale des médias via
+l'API ne vaut pas validation de ces URL ni autorisation de publication.
+
+### Étapes communes et rapport
+
 Avant toute création de service, le script vérifie les empreintes, les chemins et
 types d'entrées des archives, l'absence de cible existante et les ressources Compose.
 Un verrou du checkout et une réservation Docker empêchent deux restaurations
@@ -120,10 +156,27 @@ révision préparée. Une archive de configuration ne contient pas les images Do
 Seul PostgreSQL démarre. L'import inclut schéma et données dans une transaction
 avec arrêt à la première erreur. Aucun runner de migration n'est exécuté :
 voir sa [limite sur une base existante](database-migrations.md#limite-actuelle-sur-une-base-existante).
-Les médias sont ensuite extraits vers le nouveau volume. Aucun ancien volume
+Les médias sont ensuite extraits vers le nouveau volume ou restaurés dans les
+buckets S3 explicitement désignés. Aucun ancien volume
 n'est supprimé. Si une étape échoue, API/Web restent arrêtés; conserver le diagnostic
 et préparer une autre cible neuve. Nettoyer une cible ratée exige une opération
 explicite limitée à ses ressources.
+
+Le fichier privé `recovery-report.json` est créé après préflight et confirmation.
+Il lie l'opération à un identifiant, au projet et aux empreintes des trois artéfacts,
+puis enregistre les étapes DB/médias et, pour S3, le reçu de vérification. L'état
+final `restored-stopped` signifie que les données sont restaurées et les services
+applicatifs toujours arrêtés; `applicationChecks: pending` ne devient jamais une
+qualification applicative par simple exécution du script. La recette navigateur
+conserve séparément ses preuves.
+
+Un échec laisse `state: failed` et la dernière étape atteinte. Une interruption
+brutale peut laisser `in-progress`; la dernière étape peut avoir eu un résultat
+incertain. PostgreSQL et S3 ne forment pas une transaction commune : si S3 échoue
+après l'import, la base reste restaurée, les buckets restent réservés et aucun
+service applicatif ne démarre. Réconcilier le rapport, PostgreSQL et les reçus S3
+avant de choisir une autre cible. Le script refuse un checkout avec un rapport
+existant, même sans `.env`, et ne supprime ni cible partielle ni rapport précédent.
 
 ## Vérifier avant remise en service
 
@@ -183,6 +236,14 @@ teste le protocole des objets; les réponses d'inspection des politiques/ACL de
 bucket sont simulées, car S3Mock ne les implémente pas. Les en-têtes ACL privées et
 écritures conditionnelles sont contrôlés; IAM et accès anonymes OVH restent à qualifier.
 
-La qualification applicative couvre le stockage local et une connexion admin par session
-signée en mode token. Elle ne qualifie pas OIDC externe, DNS/HTTPS, délivrabilité,
+La même recette applicative exerce les deux pilotes, `local` et `ovh-s3` : comparaison
+de toutes les tables, contraintes et séquences, PDF facture/avoir identiques,
+médias privés protégés, image publique affichée dans Chromium, transparence mobile
+et files préservées. Le scénario S3 vérifie aussi les refus avant import et une
+panne de stockage après l'import, le rapport incomplet, les buckets réservés et
+l'absence de reprise aveugle. Seule la route Docker vers S3Mock est adaptée lors
+du démarrage explicite de l'API de test; les buckets restaurés restent les mêmes.
+
+Cette recette utilise une connexion admin par session signée en mode token.
+Elle ne qualifie pas OIDC externe, DNS/HTTPS, délivrabilité,
 objets/politiques OVH, rapprochement Stripe réel, ni restauration intégrale d'un VPS.

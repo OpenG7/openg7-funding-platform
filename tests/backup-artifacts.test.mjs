@@ -93,6 +93,8 @@ test('backup integrity binds a complete artifact set, tolerates renaming, and re
   );
   await create('ovh-s3');
   assert.equal(cli(['verify-s3', config, media]).code, 0);
+  assert.equal(cli(['verify', config, database, media, 'ovh-s3']).code, 0);
+  assert.notEqual(cli(['verify', config, renamed, media, 'ovh-s3']).code, 0);
   assert.notEqual(cli(['verify-s3', config, renamed]).code, 0);
   assert.notEqual(
     cli(['verify', config, database, media]).code,

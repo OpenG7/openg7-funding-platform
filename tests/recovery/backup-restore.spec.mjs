@@ -40,11 +40,9 @@ const snapshot = async (pool) => {
   return result;
 };
 
-test('backup scripts restore an isolated application with exact finances, documents, media and pending work; failed recovery stays stopped', async ({
-  playwright
-}, info) => {
-  const fixture = await createRecoveryFixture();
-  const { source, docker } = fixture;
+async function recoveryScenario(mediaDriver, { playwright }, info) {
+  const fixture = await createRecoveryFixture({ mediaDriver });
+  const { source, docker, s3 } = fixture;
   const pages = [];
   const id = Object.fromEntries(
     [
@@ -171,29 +169,56 @@ test('backup scripts restore an isolated application with exact finances, docume
             mediaId + '-original.webp',
             mediaId + '.webp',
             approved ? mediaId + '.webp' : null,
-            approved ? '/api/public/sponsor-media/' + mediaId : null,
+            approved
+              ? s3
+                ? source.s3.SPONSOR_MEDIA_PUBLIC_BASE_URL +
+                  '/' +
+                  mediaId +
+                  '.webp'
+                : '/api/public/sponsor-media/' + mediaId
+              : null,
             digest(image)
           ]
         );
       }
-      const imageFile = join(source.directory, 'image.webp');
-      await writeFile(imageFile, image);
-      await docker([
-        'run',
-        '--rm',
-        '--entrypoint',
-        'sh',
-        '--mount',
-        `type=volume,src=${source.project}-sponsor-logos,dst=/volume`,
-        '--mount',
-        `type=bind,src=${imageFile},dst=/image.webp,readonly`,
-        'postgres:16-alpine',
-        '-c',
-        'mkdir -p /volume/media-assets/private /volume/media-assets/public; for id in "$1" "$2"; do cp /image.webp "/volume/media-assets/private/$id.webp"; cp /image.webp "/volume/media-assets/private/$id-original.webp"; done; cp /image.webp "/volume/media-assets/public/$1.webp"; chown -R 1000:1000 /volume',
-        'sh',
-        id.media,
-        id.privateMedia
-      ]);
+      if (s3) {
+        for (const mediaId of [id.media, id.privateMedia]) {
+          await s3.put(
+            source.s3.SPONSOR_MEDIA_PRIVATE_BUCKET,
+            mediaId + '-original.webp',
+            image
+          );
+          await s3.put(
+            source.s3.SPONSOR_MEDIA_PRIVATE_BUCKET,
+            mediaId + '.webp',
+            image
+          );
+        }
+        await s3.put(
+          source.s3.SPONSOR_MEDIA_PUBLIC_BUCKET,
+          id.media + '.webp',
+          image
+        );
+      } else {
+        const imageFile = join(source.directory, 'image.webp');
+        await writeFile(imageFile, image);
+        await docker([
+          'run',
+          '--rm',
+          '--entrypoint',
+          'sh',
+          '--mount',
+          `type=volume,src=${source.project}-sponsor-logos,dst=/volume`,
+          '--mount',
+          `type=bind,src=${imageFile},dst=/image.webp,readonly`,
+          'postgres:16-alpine',
+          '-c',
+          'mkdir -p /volume/media-assets/private /volume/media-assets/public; for id in "$1" "$2"; do cp /image.webp "/volume/media-assets/private/$id.webp"; cp /image.webp "/volume/media-assets/private/$id-original.webp"; done; cp /image.webp "/volume/media-assets/public/$1.webp"; chown -R 1000:1000 /volume',
+          'sh',
+          id.media,
+          id.privateMedia
+        ]);
+      }
       const admin = await login(source);
       console.log('Recovery journey: source documents.');
       const documentPaths = [
@@ -269,6 +294,7 @@ test('backup scripts restore an isolated application with exact finances, docume
         'media'
       ]);
       expect(manifest.database).toBe('recovery');
+      expect(manifest.mediaDriver).toBe(mediaDriver);
       expect(JSON.stringify(manifest)).not.toContain(token);
     });
     await test.step('an interrupted backup never receives a completion manifest', async () => {
@@ -297,7 +323,17 @@ test('backup scripts restore an isolated application with exact finances, docume
       '--database-dump',
       selected.database,
       '--sponsor-logos-backup',
-      selected.media
+      selected.media,
+      ...(s3
+        ? [
+            '--s3-env',
+            target.s3Env,
+            '--confirm-s3-target',
+            target.s3.SPONSOR_MEDIA_PRIVATE_BUCKET +
+              ',' +
+              target.s3.SPONSOR_MEDIA_PUBLIC_BUCKET
+          ]
+        : [])
     ];
     await test.step('reject incomplete, corrupt, cancelled and already-used recovery targets without modifying the source', async () => {
       const guard = await fixture.makeTarget('guard');
@@ -392,6 +428,19 @@ test('backup scripts restore an isolated application with exact finances, docume
       ]);
       expect(result.code).not.toBe(0);
       expect(result.output).toContain('Database import failed');
+      const report = JSON.parse(
+        await readFile(join(failed.directory, 'recovery-report.json'), 'utf8')
+      );
+      expect(report).toMatchObject({
+        state: 'failed',
+        database: 'importing',
+        media: 'pending',
+        applicationChecks: 'pending'
+      });
+      if (s3)
+        expect(
+          await s3.list(failed.s3.SPONSOR_MEDIA_PRIVATE_BUCKET)
+        ).toHaveLength(0);
       const db = await failed.connect();
       expect(
         (
@@ -411,14 +460,151 @@ test('backup scripts restore an isolated application with exact finances, docume
         ).trim()
       ).toBe('postgres');
     });
+    if (s3) {
+      await test.step('S3 preflight refuses missing settings, inherited credentials, source buckets and unsafe policy before creating a database', async () => {
+        const guard = await fixture.makeTarget('s3-guard');
+        const assertRejected = async (args) => {
+          const result = await guard.script(
+            'restore-from-backup.sh',
+            [...args, '--force'],
+            { env: { ...fixture.env, ...source.s3 } }
+          );
+          expect(result.code).not.toBe(0);
+          expect(result.output).not.toContain('synthetic-recovery-s3-secret');
+          await expect(access(join(guard.directory, '.env'))).rejects.toThrow();
+          expect(
+            await docker([
+              'ps',
+              '-aq',
+              '--filter',
+              'label=com.docker.compose.project=' + guard.project
+            ])
+          ).toBe('');
+        };
+        await assertRejected(restoreArgs(guard).slice(0, -4));
+        await assertRejected(
+          restoreArgs({ ...guard, s3: source.s3, s3Env: source.s3Env })
+        );
+        const settings = await readFile(guard.s3Env, 'utf8');
+        await writeFile(
+          guard.s3Env,
+          settings.replace(/^OVH_S3_SECRET_ACCESS_KEY=.*\n/m, '')
+        );
+        await assertRejected(restoreArgs(guard));
+        await writeFile(guard.s3Env, settings);
+        s3.unsafePolicy = true;
+        await assertRejected(restoreArgs(guard));
+        s3.unsafePolicy = false;
+        expect(
+          await s3.list(guard.s3.SPONSOR_MEDIA_PRIVATE_BUCKET)
+        ).toHaveLength(0);
+      });
+      await test.step('an S3 failure after SQL import leaves a failed report, reserved buckets and a stopped application', async () => {
+        const failed = await fixture.makeTarget('s3-failed');
+        s3.failBucket = failed.s3.SPONSOR_MEDIA_PRIVATE_BUCKET;
+        const result = await failed.script('restore-from-backup.sh', [
+          ...restoreArgs(failed),
+          '--force'
+        ]);
+        s3.failBucket = null;
+        expect(result.code).not.toBe(0);
+        expect(result.output).not.toContain('Restore completed');
+        expect(result.output).not.toContain('synthetic-recovery-s3-secret');
+        const report = JSON.parse(
+          await readFile(join(failed.directory, 'recovery-report.json'), 'utf8')
+        );
+        expect(report).toMatchObject({
+          state: 'failed',
+          database: 'restored',
+          media: 'restoring',
+          applicationChecks: 'pending'
+        });
+        expect(await snapshot(await failed.connect())).toEqual(before);
+        expect(
+          await failed.compose([
+            'ps',
+            '--services',
+            '--filter',
+            'status=running'
+          ])
+        ).toBe('postgres');
+        expect(
+          (await s3.list(failed.s3.SPONSOR_MEDIA_PRIVATE_BUCKET)).map(
+            (o) => o.Key
+          )
+        ).toEqual(['system-recovery/restore-claim.json']);
+        const retry = await fixture.makeTarget('s3-retry');
+        const repeated = await retry.script('restore-from-backup.sh', [
+          ...restoreArgs({ ...retry, s3: failed.s3, s3Env: failed.s3Env }),
+          '--force'
+        ]);
+        expect(repeated.code).not.toBe(0);
+        await expect(access(join(retry.directory, '.env'))).rejects.toThrow();
+        expect(await snapshot(source.pool)).toEqual(before);
+        await info.attach('failed-recovery-report', {
+          body: Buffer.from(JSON.stringify(report)),
+          contentType: 'application/json'
+        });
+      });
+    }
     await test.step('restore the complete backup set and compare every table before activating the application', async () => {
       const target = await fixture.makeTarget('target');
-      const result = await target.script('restore-from-backup.sh', [
-        ...restoreArgs(target),
-        '--force'
-      ]);
+      const result = await target.script(
+        'restore-from-backup.sh',
+        [...restoreArgs(target), '--force'],
+        { env: { ...fixture.env, ...source.s3 } }
+      );
       expect(result.output).toContain('Restore completed');
       expect(result.code).toBe(0);
+      expect(result.output).not.toContain('synthetic-recovery-s3-secret');
+      const report = JSON.parse(
+        await readFile(join(target.directory, 'recovery-report.json'), 'utf8')
+      );
+      expect(report).toMatchObject({
+        project: target.project,
+        mediaDriver,
+        state: 'restored-stopped',
+        database: 'restored',
+        media: 'restored',
+        applicationChecks: 'pending'
+      });
+      expect(JSON.stringify(report)).not.toMatch(
+        /synthetic-recovery|private-recovery@example/
+      );
+      if (s3) {
+        expect(report.s3).toMatchObject({
+          objects: 5,
+          state: 'verified-private',
+          acl: 'private'
+        });
+        expect(
+          s3.writes.every(
+            (write) => write.acl === 'private' && write.condition === '*'
+          )
+        ).toBe(true);
+        for (const [Bucket, keys] of [
+          [
+            source.s3.SPONSOR_MEDIA_PRIVATE_BUCKET,
+            [
+              id.media + '.webp',
+              id.media + '-original.webp',
+              id.privateMedia + '.webp',
+              id.privateMedia + '-original.webp'
+            ]
+          ],
+          [source.s3.SPONSOR_MEDIA_PUBLIC_BUCKET, [id.media + '.webp']]
+        ]) {
+          expect((await s3.list(Bucket)).map((o) => o.Key).sort()).toEqual(
+            keys.sort()
+          );
+          for (const key of keys)
+            expect(digest(await s3.get(Bucket, key))).toBe(digest(image));
+        }
+      }
+      await info.attach('recovery-report', {
+        body: Buffer.from(JSON.stringify(report, null, 2)),
+        contentType: 'application/json'
+      });
       const pool = await target.connect();
       expect(await snapshot(pool)).toEqual(before);
       expect(
@@ -468,6 +654,14 @@ test('backup scripts restore an isolated application with exact finances, docume
       expect(digest(Buffer.from(await publicImage.arrayBuffer()))).toBe(
         digest(image)
       );
+      await admin.page.goto(
+        target.origin + '/api/public/sponsor-media/' + id.media
+      );
+      await expect
+        .poll(() =>
+          admin.page.locator('img').evaluate((element) => element.naturalWidth)
+        )
+        .toBe(8);
       expect(
         (
           await read(
@@ -596,4 +790,8 @@ test('backup scripts restore an isolated application with exact finances, docume
       console.warn('Recovery fixture cleanup failed:', error.code || 'unknown');
     }
   }
-});
+}
+for (const mediaDriver of ['local', 'ovh-s3'])
+  test(`${mediaDriver}: backup scripts restore an isolated application with exact finances, documents, media and pending work; failed recovery stays stopped`, ({
+    playwright
+  }, info) => recoveryScenario(mediaDriver, { playwright }, info));

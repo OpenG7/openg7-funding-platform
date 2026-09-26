@@ -14,8 +14,6 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, sep } from 'node:path';
 import { createHash } from 'node:crypto';
-import { createServer, request } from 'node:http';
-import { once } from 'node:events';
 import { setTimeout } from 'node:timers/promises';
 import {
   S3Client,
@@ -25,6 +23,7 @@ import {
   ListObjectsV2Command
 } from '@aws-sdk/client-s3';
 import { startDisposableProvider } from './support/disposable-provider.mjs';
+import { createS3RecoveryProxy } from './support/s3-recovery-proxy.mjs';
 import { captureS3, restoreS3 } from '../../scripts/lib/s3-backup.mjs';
 
 const exec = promisify(execFile);
@@ -239,45 +238,18 @@ test(
     // responses are synthetic; object listing, conditional writes and byte reads use S3Mock.
     const writes = [];
     let unsafePolicy = false;
-    const proxy = createServer((req, res) => {
-      const url = new URL(req.url, endpoint);
-      if (url.searchParams.has('acl') && req.method === 'GET') {
-        res.setHeader('Content-Type', 'application/xml');
-        res.end(
-          '<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>fixture</ID></Owner><AccessControlList><Grant><Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser"><ID>fixture</ID></Grantee><Permission>FULL_CONTROL</Permission></Grant></AccessControlList></AccessControlPolicy>'
-        );
-        return;
+    const proxy = await createS3RecoveryProxy(endpoint, {
+      unsafePolicy: () => unsafePolicy,
+      onRequest: (req, _res, url) => {
+        if (req.method === 'PUT')
+          writes.push({
+            key: url.pathname,
+            acl: req.headers['x-amz-acl'],
+            condition: req.headers['if-none-match']
+          });
+        return false;
       }
-      if (url.searchParams.has('policy') && req.method === 'GET') {
-        if (unsafePolicy)
-          res
-            .writeHead(200, { 'Content-Type': 'application/json' })
-            .end('{"Statement":[{"Effect":"Allow","Principal":"*"}]}');
-        else
-          res
-            .writeHead(404, { 'Content-Type': 'application/xml' })
-            .end('<Error><Code>NoSuchBucketPolicy</Code></Error>');
-        return;
-      }
-      if (req.method === 'PUT')
-        writes.push({
-          key: url.pathname,
-          acl: req.headers['x-amz-acl'],
-          condition: req.headers['if-none-match']
-        });
-      const upstream = request(
-        url,
-        { method: req.method, headers: req.headers },
-        (response) => {
-          res.writeHead(response.statusCode, response.headers);
-          response.pipe(res);
-        }
-      );
-      upstream.on('error', () => res.writeHead(502).end());
-      req.pipe(upstream);
     });
-    proxy.listen(0, '127.0.0.1');
-    await once(proxy, 'listening');
     t.after(() => {
       proxy.closeAllConnections();
       return new Promise((done) => proxy.close(done));

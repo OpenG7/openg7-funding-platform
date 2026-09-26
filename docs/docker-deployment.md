@@ -512,18 +512,22 @@ bash scripts/restore-from-backup.sh \
 ```
 
 The script verifies archive integrity and the dedicated Compose target, restores
-configuration, imports schema/data atomically and restores local media. It never
+configuration, imports schema/data atomically and restores local or S3 media. It never
 removes existing volumes and leaves API/Web/workers stopped. `--force` skips only
 the typed confirmation; `--skip-check` is no longer supported. No migrations run.
 
 Before activation, verify business records, documents, media and access, reconcile
 Stripe and delivery outcomes since the snapshot, and review restored worker
 settings. See the [recovery runbook](operations/backup-recovery.md) for preconditions,
-failure handling, activation and the automated local recipe. S3 recovery requires
-the dedicated object recovery command; the local-volume helper refuses that mode.
-The backup script now captures both S3 buckets and the recovery command restores
-their current objects privately into empty dedicated buckets. See the
-[S3 recovery procedure](operations/backup-recovery.md#récupération-des-objets-s3-en-quarantaine).
+failure handling, activation and the automated local recipe. For combined PostgreSQL
+and S3 recovery, add `--s3-env /secure/recovery-s3.env` and
+`--confirm-s3-target recovery-private,recovery-public`. Both buckets must be new,
+empty and private. The explicit file replaces inherited storage credentials and
+the resolved API configuration is checked against it. The protected
+`recovery-report.json` records progress and partial failure; `restored-stopped`
+still requires application checks. Stored public URLs and provider state need
+reconciliation before activation. See the
+[combined recovery procedure](operations/backup-recovery.md#variante-postgresql-et-s3).
 
 ## GitHub Actions CI/CD
 
