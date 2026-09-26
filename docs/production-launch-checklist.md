@@ -11,17 +11,22 @@ PostgreSQL; access recovery also requires working email. Start with the
 [controlled integration rehearsal](operations/integration-rehearsal.md) to choose
 the scope being validated.
 
-Before updating an existing database, read the
-[migration replay limitation](operations/database-migrations.md). The current
-deployment runner reapplies every migration; `019`–`021` cannot be replayed.
-A successful rehearsal on a fresh database does not resolve this deployment issue.
+Before updating an existing database, follow the
+[migration registry and execution procedure](operations/database-migrations.md#registre-et-réexécution).
+The local and VPS runners share a checksum registry and apply only pending
+migrations under a database lock, in one transaction. Recorded migrations are
+checked and skipped; missing or changed historical files block execution.
+An existing database without a registry requires
+[reviewed history adoption](operations/database-migrations.md#adoption-dune-base-existante-sans-registre)
+after backup verification and rehearsal on an isolated copy. A successful fresh
+database rehearsal does not establish the history of an existing database.
 
 ## Launch Decision
 
 - PostgreSQL is optional only for the limited Stripe-direct path.
 - Leave `DATABASE_URL` unset for the simplest Stripe-direct launch.
 - If `DATABASE_URL` is unset, public transparency reads directly from Stripe through `STRIPE_SECRET_KEY`.
-- Persistent sponsorship, directories, admin state, OIDC and alert episodes require private PostgreSQL and the applicable migrations through `021`.
+- Persistent sponsorship, directories, admin state, OIDC and alert episodes require private PostgreSQL and the complete migration directory from the selected release; see the [schema inventory](operations/database-migrations.md#schéma-disponible).
 - Checkout mock fallbacks must stay disabled in production.
 - NorthDragon and GitHub links remain external redirects; no Shopify iframe or repository mirroring is hosted by this app.
 
@@ -69,10 +74,17 @@ window.__OPENG7_FUNDING_API_BASE_URL__ = 'https://api.openg7.org/api';
 
 ## Build Validation
 
-Run these before deployment:
+Select the exact release commit and check its GitHub Actions results, including
+`Admin acceptance` and the build/deployment workflow checks that apply to that
+revision. Record the commit and run links with the release evidence. A merged PR,
+an in-progress run or successful tests on another revision do not establish a
+successful acceptance run for this release. Resolve failures before activation.
+
+Run these local checks for that revision as applicable under the
+[validation matrix](development/validation.md):
 
 ```bash
-corepack yarn install
+corepack yarn install --immutable
 corepack yarn lint
 corepack yarn test
 corepack yarn workspace @openg7/funding-web build --configuration production
@@ -229,15 +241,22 @@ by consent; contact details and private payment references remain excluded.
 ## PostgreSQL-Backed Rehearsal
 
 Run this rehearsal on staging or a private production-like VPS before choosing
-the PostgreSQL-backed launch path for real payments:
+the PostgreSQL-backed launch path for real payments. First complete the
+[target preparation](operations/integration-rehearsal.md#fiche-de-préparation-de-la-recette-réelle):
+confirm the test URL, dedicated recipient, Stripe test account, storage targets,
+revision and authorized test actions. Keep real social delivery disabled.
 
-1. Start from a clean private PostgreSQL volume and a clean
-   `openg7-sponsor-logos` volume.
+1. Prepare new private PostgreSQL and media volumes or dedicated S3 buckets for
+   the identified test target, preserving existing environments.
 2. Configure `DATABASE_URL`, the selected admin authentication mode,
    `SPONSOR_MEDIA_STORAGE_DRIVER`, Stripe
    test keys, and a signed Stripe webhook secret.
-3. Apply every versioned migration, then run `corepack yarn test` and
-   `corepack yarn workspace @openg7/funding-web build --configuration production`.
+3. Use the shared migration runner with the release's complete migration
+   directory. Node 22 and Docker Compose are required on the host, including
+   image-only deployments. Once applied, `node scripts/db-migrate.mjs --plan`
+   should report all migrations as `skipped`, with no pending file. The plan does
+   not start PostgreSQL, infer legacy history or detect manual schema drift.
+   Complete the revision's applicable build and test checks described above.
 4. Complete one Stripe test checkout for `sponsorship_interest` and confirm the
    signed webhook stores the private contribution row with a hashed follow-up
    token. Confirm the browser return uses `followup_token` and does not rely on
@@ -257,9 +276,8 @@ the PostgreSQL-backed launch path for real payments:
    audit entries. Confirm the guided refund form exposes partial amount and
    Stripe reason controls. Confirm a guided refund cannot be launched again
    while the workflow is processing or after a manual completed refund.
-   If historical paid sponsorships predate app-generated invoices, run the
-   missing-invoice backfill from that page once and confirm the result is
-   audited before resending any invoice email.
+   Qualify historical invoice backfills separately on prepared synthetic data,
+   with their own authorization and audit, before considering any invoice resend.
    Open `/admin/fundraiser/email-queue` and confirm the queue summary,
    failed-message filter, and manual retry controls load for the admin session.
 7. Through the sponsor follow-up token, upload a small PNG/JPEG/WebP logo and a
@@ -277,44 +295,46 @@ the PostgreSQL-backed launch path for real payments:
    `/api/public/sponsor-logos/<file>`, then delete it through
    `POST /api/admin/sponsorships/logo/delete`.
 10. Follow the [backup/recovery procedure](operations/backup-recovery.md):
-    capture a coherent set with its manifest, then exercise
-    `bash scripts/restore-from-backup.sh --sponsor-logos-backup <archive>` with
-    all required artifacts and `--target-project` on a fresh disposable target.
-    Verify recovered data before separately authorizing application startup.
+    capture a coherent set with its manifest, then exercise the local-media or
+    S3 variant with all required artifacts and an explicit `--target-project`
+    on a fresh disposable target. Run the
+    [read-only recovery audit](operations/backup-recovery.md#audit-automatisé-en-lecture-seule)
+    while application services remain stopped. Reconcile provider state and
+    public URLs, then separately authorize startup and verify recovered journeys.
+    An audit exit code of 0 does not authorize activation.
 11. Replay the same signed Stripe test webhook event and confirm idempotence:
     no duplicate contribution, no duplicate public sponsor, and no unexpected
-    status regression. Use `corepack yarn stripe:events:resend evt_...` for
-    test mode. To target the production Stripe webhook endpoint explicitly, use:
-
-    ```bash
-    corepack yarn stripe:events:resend:live evt_... --endpoint we_...
-    ```
-
-    Run the same command with `--dry-run` first when recovering real
-    post-payment events.
+    status regression. Use `corepack yarn stripe:events:resend evt_...` with
+    the selected test configuration. Live event recovery is a separate operation
+    governed by the [financial operation safeguards](development/financial-rules.md#backfill-provenance-et-réconciliation).
 
 12. Fetch and inspect API logs after the rehearsal:
     `docker compose logs --tail=300 api`. Look specifically for webhook errors,
     PostgreSQL errors, orphaned sponsorships, follow-up form errors, logo
     processing errors, duplicate handling, and idempotence warnings.
-13. Run the production launch agent in dry-run mode, then execute it with
-    `PLA_ROLE=operator` only after the manual checks above pass.
+13. If using the optional [production launch agent](../apps/production-launch-agent/README.md),
+    review its dry-run for the chosen target and checklist. Execution requires
+    authorization for the exact operations; a passing rehearsal or `PLA_ROLE`
+    value alone does not grant it.
 
 ## Final Preflight
 
 - Confirm the chosen launch mode.
+- Record the selected release commit, image tags and completed CI results; keep external qualification evidence separate from local tests.
 - For Stripe-direct launch, confirm `DATABASE_URL` is absent.
-- For PostgreSQL-backed launch, confirm PostgreSQL is private, reachable only by the API, and migrations are applied.
+- For PostgreSQL-backed launch, confirm PostgreSQL has no public port and is restricted to the private data network and intended services.
 - For PostgreSQL-backed launch, protect database backups as private secrets because `stripe_events.payload` stores signed Stripe webhook payloads for idempotence and auditability.
 - Confirm `FUNDING_PLATFORM_ENV=production`.
 - Confirm `FUNDING_ALLOWED_ORIGINS` contains only the intended production frontend origins.
 - Confirm sponsorship follow-up and admin rate limit variables are set for the expected traffic volume.
 - Confirm sponsor logo and media upload limits and the selected sponsor media storage driver are configured.
-- Confirm schema readiness for media (`017`), achievements (`018`), recovery/drafts (`019`), OIDC (`020`) and alerts (`021`); resolve the migration replay limitation before repeated deployment.
+- Confirm Node 22 and Docker Compose are available on the migration host, and the Compose database target matches the API database.
+- Confirm the full release migration plan has no pending file or history mismatch after authorized application. An existing database without a registry needs reviewed adoption first; reconcile partial or ambiguous history before proceeding.
 - In OIDC mode, verify MFA, reader/operator/owner authorization, account disabling and session revocation with the real test identity provider.
 - If independent alerts are enabled, verify the signed receiver, deduplication and separate monitoring of the watcher/VPS.
 - If `SPONSOR_MEDIA_STORAGE_DRIVER=local`, confirm `scripts/backup.sh` creates and offloads `openg7-sponsor-logos-*.tar.gz`; this volume now contains both legacy logos and `media-assets`.
 - If `SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3`, confirm `npm run storage:check` and `npm run storage:test` pass on the VPS.
+- Review the [read-only email DNS diagnostic](email-smtp.md#read-only-dns-diagnostic) with confirmed From, envelope and signing domains/selectors; separately verify receipt in the dedicated test inbox.
 - Confirm a sponsor can upload JPEG/PNG/WebP through a valid follow-up token, while an invalid token and an oversized or malformed file are refused.
 - Confirm private media preview, admin approval/refusal, alt text, replacement cleanup and delete flows work before public sponsorship display is enabled.
 - Confirm the original remains private, only the approved WebP copy is public, and a sponsorship without a presentation photo is excluded from review reminders.
@@ -330,6 +350,5 @@ the PostgreSQL-backed launch path for real payments:
 - Exercise the real OIDC provider and external alert receiver before activation.
 - Keep hosting/proxy rate limits and security headers aligned with the API-level limits.
 - Keep the existing responsive WebP variants and production bundle budgets verified when assets change.
-- Consider Shopify Storefront API integration for the Boutique editorial previews.
 - Run the controlled provider and full-VPS recovery rehearsal on an identified test target; local Docker, OIDC, Mailpit and S3Mock tests already exist.
 - Complete human screen-reader, native zoom and physical-device checks described in the integration rehearsal.
