@@ -25,7 +25,7 @@ production without Stripe configuration returns an error.
 Stripe-direct provides Checkout and aggregate transparency without PostgreSQL.
 Persistent admin, sponsor follow-up, directories, OIDC and alert episodes need
 the private database. Before `yarn db:migrate`, read the
-[migration procedure and replay limitation](docs/operations/database-migrations.md).
+[migration registry and legacy history adoption procedure](docs/operations/database-migrations.md).
 
 ## Workspaces and reuse
 

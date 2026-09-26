@@ -433,11 +433,16 @@ yarn db:restore --help
 ```
 
 `yarn db:migrate` starts the private PostgreSQL service if needed, waits for it
-to become ready, then applies every SQL file in
-`apps/funding-api/migrations` in filename order. New database migrations must
-be committed as `.sql` files in that directory.
-It does not record applied migrations or skip them; see the migration procedure
-before reusing this command on a populated database.
+to become ready, then validates recorded checksums and applies only pending SQL
+files from `apps/funding-api/migrations`, in numeric order, under a database lock
+and a transaction. The local and VPS entrypoints share this registry-based runner.
+New migrations must be additive, numbered `.sql` files; applied files stay immutable.
+Use `node scripts/db-migrate.mjs --plan` to inspect an already running target
+without starting it or creating a registry. Existing databases without a registry
+require [reviewed history adoption](operations/database-migrations.md#adoption-dune-base-existante-sans-registre)
+before further application. Node 22 and Docker Compose are required on the host;
+the [migration procedure](operations/database-migrations.md) defines target
+selection, execution limits and recovery after failure.
 
 Run:
 
