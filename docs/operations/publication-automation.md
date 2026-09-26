@@ -269,6 +269,59 @@ for migrations, concurrent claims/planning, source revocation, approval versions
 stale leases and a database failure after provider success. Browser fixtures cover
 exact approval, edits, stale versions, exceptions, mobile focus and accessibility.
 
+### Local connection recovery recipe
+
+`yarn test:e2e:identity` includes
+[social-connection-recovery.spec.ts](../../tests/identity/social-connection-recovery.spec.ts).
+It requires Node 22, Yarn 4, local Docker with `postgres:16-alpine` and Chromium.
+To run only this scenario after the API and production Angular builds:
+
+```sh
+yarn exec playwright test --config tests/playwright-identity.config.mjs social-connection-recovery.spec.ts
+```
+
+The browser uses the real API, disposable PostgreSQL and a signed local OIDC
+provider. The Facebook and LinkedIn HTTP adapters use a local protocol fixture.
+Its `live` adapter mode exercises HTTP requests, but both base URLs are fixed to
+the fixture's loopback origin, credentials are synthetic, and no `.env` is read.
+No external social account is contacted. The receiver deliberately does not
+deduplicate posts, so unintended resends remain observable.
+
+The scenario checks missing credentials, an incorrect LinkedIn organization,
+expiry before dispatch, a provider `403`, and an independent OpenG20 destination.
+After credentials change and the API restarts, connection checks must be renewed;
+blocked deliveries remain blocked. A new draft binds the changed destination and
+requires fresh, versioned approval. The worker sends after the browser closes,
+then restarts and refreshes stale connection checks without sending again.
+Assertions also cover reader/anonymous/origin refusals, worker confirmation,
+FR/EN mobile layout, accessibility, unchanged financial/email counts, attributed
+approval/publication audits and absence of credentials from responses/UI/audit.
+
+Evidence is under `test-results/identity/`: the JSON result and attachments include
+the mobile screenshot and synthetic provider receipts/audits. This recipe does not
+qualify real provider permissions, OAuth enrollment, token renewal, image upload,
+HTTPS or external publication. Those require a separately scoped test environment.
+
+Local evidence, 25 September 2026, Windows / Node 22.23.2, `7f57937` plus these
+working-tree changes: the social scenario passed in 132.9 seconds, with 13
+provider requests, four send attempts (including the rejected LinkedIn request),
+three posts and 38 audit entries. All 31 publication UI tests passed. The recipe
+exposed a nested `main` landmark in the cockpit; the page now relies on the admin
+layout's existing landmark, and mobile/desktop accessibility checks cover the
+whole cockpit. The UI suite's local Web server required manual shutdown after
+the assertions; the runner then exited successfully.
+
+The complete identity suite finished with **8 passed / 1 failed**: the SMTP
+journey timed out waiting for the accepted result after releasing its local SMTP
+gate. The failure also reproduced in isolation and with the unchanged `main`
+stack helper, so this is not a fully passing suite. Diagnostic traces are under
+`test-results/identity-smtp-isolated/` and `test-results/identity-smtp-baseline/`.
+SMTP diagnosis remains open. API and Angular/SSR builds, TypeScript, lint and
+targeted formatting passed; existing warnings remain for the 823.59 kB initial
+Angular bundle (800 kB budget) and the unused ESLint directive in `smoke-public.mjs`.
+
+### Other delivery recipes
+
 The isolated browser recipe
 `tests/playwright/publication-payment-ineligibility-acceptance.spec.ts` follows
 three confirmed 500 CAD sponsorships through scheduling, a full refund and a

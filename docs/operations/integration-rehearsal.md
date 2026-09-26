@@ -55,6 +55,32 @@ l'adresse d'une personne existante.
 La recette attend encore une URL de test et une adresse destinataire confirmées.
 Les droits d'écriture fournisseur ne se déduisent pas de la réussite des lectures.
 
+### Fiche de préparation de la recette réelle
+
+Préparation du 25 septembre 2026 : aucun parcours fournisseur réel exécuté.
+Compléter cette fiche dans le compte rendu privé de l'environnement de test,
+sans ajouter d'adresse personnelle, de configuration ou de secret dans Git.
+
+Noms proposés : `https://recette.openg7.org` et
+`recette-financement@openg7.org`. Leur disponibilité, leur création et leur
+configuration restent à confirmer; ce ne sont pas des cibles déjà validées.
+
+| Élément      | Valeur à consigner avant exécution                                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Cible        | URL HTTPS de test et confirmation qu'elle ne dessert pas la production                                                                                       |
+| Révision     | Commit, images Web/API et état des migrations de cette cible                                                                                                 |
+| Validation   | Responsable, date et adresse de réception dédiée confirmée                                                                                                   |
+| Paiement     | Compte Stripe de test et réception du webhook signé sur cette cible                                                                                          |
+| Stockage     | Buckets privé/public et préfixe réservés à la recette, droits vérifiés                                                                                       |
+| Publications | Publication sociale réelle désactivée; revue et visibilité limitées au dossier synthétique de test                                                           |
+| Limites      | Un dossier, un Checkout de test et un rejeu du même webhook; aucune relance sur résultat incertain                                                           |
+| Preuves      | Rapport fournisseur horodaté, références synthétiques, compteurs avant/après, réception du courriel, contrôle privé/public des médias et audit des décisions |
+
+Après chaque étape numérotée, consigner le résultat attendu, le résultat observé
+et la référence de preuve. En cas d'écart, arrêter la séquence et réconcilier
+l'état Stripe, API, courriel ou stockage avant une reprise. La préparation de
+cette fiche ne vaut pas validation de l'environnement ni autorisation d'envoi.
+
 ## Sauvegarde et restauration jetables
 
 ```sh
@@ -103,6 +129,12 @@ une opération séparée.
 
 Références : [Mailpit Docker](https://mailpit.axllent.org/docs/install/docker/),
 [S3Mock](https://github.com/adobe/S3Mock).
+
+## Connexions sociales locales
+
+La [recette locale de récupération des connexions sociales](publication-automation.md#local-connection-recovery-recipe)
+couvre séparément Facebook/LinkedIn simulés, OIDC, blocages et nouvelle
+approbation avant reprise. Elle ne qualifie pas les comptes sociaux réels.
 
 ## Vérification humaine de l'accessibilité
 
