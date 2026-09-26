@@ -9,7 +9,12 @@ export async function startDisposableProvider(kind) {
     mail: {
       image: 'axllent/mailpit:v1.27.4',
       ports: [8025, 1025],
-      env: ['MP_SMTP_AUTH_ACCEPT_ANY=1', 'MP_SMTP_AUTH_ALLOW_INSECURE=1']
+      env: [
+        'MP_SMTP_AUTH_ACCEPT_ANY=1',
+        'MP_SMTP_AUTH_ALLOW_INSECURE=1',
+        // A synthetic sender needs no reverse DNS; Docker PTR lookups can delay the greeting.
+        'MP_SMTP_DISABLE_RDNS=1'
+      ]
     },
     s3: { image: 'adobe/s3mock:5.1.0', ports: [9090], env: [] }
   };

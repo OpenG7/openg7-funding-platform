@@ -45,6 +45,8 @@ services:
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: '1'
       MP_SMTP_AUTH_ALLOW_INSECURE: '1'
+      # Keep the synthetic SMTP greeting independent of Docker reverse DNS.
+      MP_SMTP_DISABLE_RDNS: '1'
     networks: [data]
 
   api:

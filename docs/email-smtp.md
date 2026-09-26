@@ -143,6 +143,30 @@ yarn playwright test --config tests/playwright-identity.config.mjs setup-email-j
 node --test tests/integration/admin-email-test.integration.mjs tests/integration/email-recovery.integration.mjs
 ```
 
+### Local Mailpit greeting delays
+
+The disposable provider helper and `docker-compose.acceptance.yml` set
+`MP_SMTP_DISABLE_RDNS=1` on Mailpit only. By default, Mailpit resolves the client's
+IP address before sending its SMTP greeting; an unavailable reverse DNS service
+in a Docker test network can exceed the application's greeting timeout. The
+[Mailpit runtime option](https://mailpit.axllent.org/docs/configuration/runtime-options/#smtp-server)
+removes that unnecessary lookup for synthetic clients. Application SMTP timeouts,
+authentication, TLS settings and production configuration are unchanged.
+
+Diagnosis on 25 September 2026 (Windows, Node 22.23.2, base `6091a75`): both direct
+SMTP and the local gate timed out before receiving a greeting. With reverse DNS
+disabled, the same direct, forwarded and held-then-released sends completed in
+16–35 ms. This is a local protocol check; it does not qualify external delivery.
+
+Validation on the same base with this Mailpit setting: the complete identity
+suite (`yarn playwright test --config tests/playwright-identity.config.mjs`)
+passed **9/9** in 4.2 minutes, including the SMTP and social recovery journeys.
+The `admin-email-test`, `email-recovery` and `provider-rehearsal` integration tests
+also passed (**3/3**), covering queued sends, recovery and SMTP/S3/restore with
+disposable providers. Compose configuration, lint, targeted formatting and
+documentation checks passed; lint retains the existing unused directive warning
+in `scripts/smoke-public.mjs`.
+
 ## Admin Reminders
 
 `FUNDING_ADMIN_NOTIFICATION_EMAIL` receives internal operational notifications.
