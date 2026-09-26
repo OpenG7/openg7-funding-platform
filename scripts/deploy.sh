@@ -35,6 +35,16 @@ fi
 
 # shellcheck disable=SC1091
 source scripts/load-env.sh .env
+source scripts/deployment-compose.sh
+
+# Normal deliveries always use the API revision for the independent watcher.
+export OPERATIONS_IMAGE="${API_IMAGE:-openg7-funding-api:local}"
+if [[ "${FUNDING_OPERATIONS_WATCHER_ENABLED:-false}" == true ]]; then
+  OPERATIONS_SECRET="${FUNDING_OPERATIONS_WEBHOOK_SECRET:-}"
+  [[ -n "${DATABASE_URL:-}" && -n "${FUNDING_OPERATIONS_WEBHOOK_URL:-}" && ${#OPERATIONS_SECRET} -ge 32 ]] || {
+    echo 'Configure the database and signed receiver before enabling operations.' >&2; exit 1;
+  }
+fi
 
 if [[ "${NO_BUILD}" -eq 1 && -n "${EXPECTED_REVISION}" ]]; then
   for deployment_image in "${WEB_IMAGE:-}" "${API_IMAGE:-}"; do
@@ -47,16 +57,13 @@ fi
 APP_DOMAIN="${APP_DOMAIN:-openg7.org}"
 ROLLBACK_WEB_IMAGE="openg7-funding-web:rollback"
 ROLLBACK_API_IMAGE="openg7-funding-api:rollback"
-
-compose() {
-  if [[ -n "${DATABASE_URL:-}" ]]; then
-    docker compose --profile database "$@"
-  else
-    docker compose "$@"
-  fi
-}
+ROLLBACK_OPERATIONS_IMAGE="openg7-funding-operations:rollback"
+ROLLBACK_READY=0
 
 migrate_database() {
+  if [[ "${FUNDING_OPERATIONS_WATCHER_ENABLED:-false}" == true ]]; then
+    compose run --rm --no-deps --entrypoint node operations --input-type=module -e 'import { operationsAlertConfig } from "./dist/apps/funding-api/src/operations-alerts.js"; if (!operationsAlertConfig(process.env)) process.exit(1);'
+  fi
   if [[ -n "${DATABASE_URL:-}" ]]; then
     bash scripts/db-migrate.sh
   fi
@@ -64,10 +71,8 @@ migrate_database() {
 
 rollback() {
   echo "Deployment failed. Attempting rollback..."
-  if docker image inspect "${ROLLBACK_WEB_IMAGE}" >/dev/null 2>&1 && docker image inspect "${ROLLBACK_API_IMAGE}" >/dev/null 2>&1; then
-    WEB_IMAGE="${ROLLBACK_WEB_IMAGE}" API_IMAGE="${ROLLBACK_API_IMAGE}" compose up -d --no-build
-    bash scripts/check.sh || true
-    echo "Rollback attempted."
+  if [[ "${ROLLBACK_READY}" -eq 1 ]]; then
+    bash scripts/rollback.sh || echo 'Rollback failed; inspect the stopped/unhealthy services.' >&2
   else
     echo "No rollback images were available."
   fi
@@ -79,15 +84,34 @@ mkdir -p traefik/acme backups
 touch traefik/acme/acme.json
 chmod 600 traefik/acme/acme.json
 
-CURRENT_WEB="$(compose images -q web 2>/dev/null | head -n1 || true)"
-CURRENT_API="$(compose images -q api 2>/dev/null | head -n1 || true)"
+CURRENT_WEB="$(compose images -q web | head -n1)"
+CURRENT_API="$(compose images -q api | head -n1)"
+CURRENT_OPERATIONS=""
+RUNNING_SERVICES="$(docker compose -f docker-compose.yml -f docker-compose.operations.yml ps --services --filter status=running)"
+if grep -qx operations <<< "$RUNNING_SERVICES"; then
+  CURRENT_OPERATIONS="$(docker compose -f docker-compose.yml -f docker-compose.operations.yml images -q operations | head -n1)"
+  [[ -n "$CURRENT_OPERATIONS" ]] || { echo 'Cannot identify the running operations image.' >&2; exit 1; }
+fi
+# An existing worker must never be silently orphaned by a delivery without its overlay.
+if [[ -n "${CURRENT_OPERATIONS}" && "${FUNDING_OPERATIONS_WATCHER_ENABLED:-false}" != true ]]; then
+  echo 'An operations container is running. Enable its delivery switch or explicitly stop it before deployment.' >&2
+  exit 1
+fi
 
 if [[ -n "${CURRENT_WEB}" ]]; then
-  docker tag "${CURRENT_WEB}" "${ROLLBACK_WEB_IMAGE}" || true
+  docker tag "${CURRENT_WEB}" "${ROLLBACK_WEB_IMAGE}"
 fi
 
 if [[ -n "${CURRENT_API}" ]]; then
-  docker tag "${CURRENT_API}" "${ROLLBACK_API_IMAGE}" || true
+  docker tag "${CURRENT_API}" "${ROLLBACK_API_IMAGE}"
+fi
+if [[ -n "${CURRENT_OPERATIONS}" ]]; then
+  docker tag "${CURRENT_OPERATIONS}" "${ROLLBACK_OPERATIONS_IMAGE}"
+fi
+if [[ -n "${CURRENT_WEB}" && -n "${CURRENT_API}" ]]; then
+  (umask 077; printf '%s\n' "ROLLBACK_OPERATIONS_ENABLED=$([[ -n "${CURRENT_OPERATIONS}" ]] && echo true || echo false)" > backups/deployment-rollback.env.tmp)
+  mv backups/deployment-rollback.env.tmp backups/deployment-rollback.env
+  ROLLBACK_READY=1
 fi
 
 if [[ "${NO_BUILD}" -eq 1 ]]; then

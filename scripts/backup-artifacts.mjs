@@ -75,6 +75,25 @@ try {
       ) + '\n',
       { mode: 0o600, flag: 'wx' }
     );
+  } else if (command === 'verify-s3') {
+    const manifest = JSON.parse(
+      await readFile(config + '.manifest.json', 'utf8')
+    );
+    if (manifest.version !== 1 || manifest.mediaDriver !== 'ovh-s3')
+      throw new Error('Expected a completed S3 backup set.');
+    for (const [role, file] of Object.entries({ config, media: database })) {
+      const expected = manifest.artifacts?.[role],
+        actual = await fingerprint(file);
+      if (
+        !expected ||
+        actual.bytes !== expected.bytes ||
+        actual.sha256 !== expected.sha256
+      )
+        throw new Error('Backup artifact checksum mismatch: ' + role);
+    }
+    validateArchive(config, true);
+    validateArchive(database);
+    console.log('S3 backup archive integrity verified.');
   } else if (command === 'verify') {
     const manifest = JSON.parse(
       await readFile(config + '.manifest.json', 'utf8')

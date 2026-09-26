@@ -59,7 +59,7 @@ project/
 - `web`: Angular static app served by Nginx unprivileged.
 - `api`: Node funding API for checkout, public transparency, and Stripe webhooks.
 - `postgres`: private PostgreSQL 16 service, enabled by the `database` profile for persistent features.
-- `operations`: optional independent alert watcher from `docker-compose.operations.yml`, configured and started separately.
+- `operations`: optional independent alert watcher from `docker-compose.operations.yml`, managed by delivery after explicit opt-in.
 - `cadvisor`: local-only Docker metrics on `127.0.0.1:8082`.
 
 ## Environment
@@ -134,9 +134,9 @@ BACKUP_DIR=./backups
 The example uses legacy token authentication. Named OIDC accounts, MFA and
 revocable sessions require PostgreSQL and the settings in the
 [identity/alerts runbook](operations/admin-identity-and-alerts.md). OIDC requires
-one public origin for Web and API. The operations overlay is not started or
-updated automatically by the standard deployment script; manage its API image
-revision and configuration explicitly when that service is enabled.
+one public origin for Web and API. Set `FUNDING_OPERATIONS_WATCHER_ENABLED=true`
+after qualifying the receiver to include the operations overlay in deploy,
+health checks and rollback. It follows the selected API image revision.
 
 ## First VPS Installation
 
@@ -369,6 +369,7 @@ The deployment script tags currently running images as:
 ```text
 openg7-funding-web:rollback
 openg7-funding-api:rollback
+openg7-funding-operations:rollback
 ```
 
 If validation fails, it attempts to redeploy these rollback images.
@@ -385,7 +386,10 @@ Manual rollback from a workstation:
 yarn vps:rollback
 ```
 
-This rolls back only the `web` and `api` application images. It does not restore
+This rolls back `web`, `api` and the previously enabled operations image. A worker
+introduced by the failed delivery is stopped. The previous activation is recorded
+in `backups/deployment-rollback.env`; do not remove it before a rollback.
+It does not restore
 PostgreSQL data. Restore a database backup separately if a database migration
 must also be reverted.
 
@@ -516,7 +520,10 @@ Before activation, verify business records, documents, media and access, reconci
 Stripe and delivery outcomes since the snapshot, and review restored worker
 settings. See the [recovery runbook](operations/backup-recovery.md) for preconditions,
 failure handling, activation and the automated local recipe. S3 recovery requires
-a separate object backup and procedure; the local-volume helper refuses that mode.
+the dedicated object recovery command; the local-volume helper refuses that mode.
+The backup script now captures both S3 buckets and the recovery command restores
+their current objects privately into empty dedicated buckets. See the
+[S3 recovery procedure](operations/backup-recovery.md#récupération-des-objets-s3-en-quarantaine).
 
 ## GitHub Actions CI/CD
 

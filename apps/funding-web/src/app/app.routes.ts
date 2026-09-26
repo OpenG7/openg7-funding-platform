@@ -1,6 +1,9 @@
 import { CanMatchFn, Routes } from '@angular/router';
 
-import { FundingPageComponent } from './features/funding/pages/funding-page/funding-page.component.js';
+const loadFundingPage = () =>
+  import('./features/funding/pages/funding-page/funding-page.component.js').then(
+    (m) => m.FundingPageComponent
+  );
 
 const localDevelopmentOnly: CanMatchFn = () =>
   typeof window !== 'undefined' &&
@@ -17,12 +20,12 @@ const publicRoutes: Routes = [
   },
   {
     path: '',
-    component: FundingPageComponent,
+    loadComponent: loadFundingPage,
     data: { language: 'fr-CA' }
   },
   {
     path: 'fonds-des-batisseurs',
-    component: FundingPageComponent,
+    loadComponent: loadFundingPage,
     data: { language: 'fr-CA' }
   },
   {

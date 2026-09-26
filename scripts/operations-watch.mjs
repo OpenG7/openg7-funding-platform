@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 import pg from 'pg';
+import { startHeartbeat } from './operations-health.mjs';
 import {
   operationsAlertConfig,
   syncOperationsIncidents,
@@ -23,13 +24,19 @@ pool.on('error', () =>
   console.error('Operations database connection unavailable.')
 );
 let stopped = false;
+const abort = new AbortController();
 process.on('SIGINT', () => {
   stopped = true;
+  abort.abort();
 });
 process.on('SIGTERM', () => {
   stopped = true;
+  abort.abort();
 });
 let unavailable = null;
+const stopHeartbeat = process.argv.includes('--once')
+  ? async () => {}
+  : await startHeartbeat();
 try {
   do {
     try {
@@ -61,8 +68,12 @@ try {
       console.error('Operations check unavailable.');
       if (process.argv.includes('--once')) process.exitCode = 1;
     }
-    if (!stopped && !process.argv.includes('--once')) await setTimeout(30000);
+    if (!stopped && !process.argv.includes('--once'))
+      await setTimeout(30000, undefined, { signal: abort.signal }).catch(
+        () => {}
+      );
   } while (!stopped && !process.argv.includes('--once'));
 } finally {
+  await stopHeartbeat();
   await pool.end();
 }

@@ -21,14 +21,18 @@ POSTGRES_DUMP_TMP="${POSTGRES_DUMP_DEST}.tmp"
 SPONSOR_LOGOS_VOLUME_NAME="${SPONSOR_LOGOS_VOLUME_NAME:-openg7-sponsor-logos}"
 SPONSOR_LOGOS_DEST="${BACKUP_DIR}/openg7-sponsor-logos-${STAMP}.tar.gz"
 SPONSOR_LOGOS_TMP="${SPONSOR_LOGOS_DEST}.tmp"
+S3_STAGE="${BACKUP_DIR}/.s3-${STAMP}"
 
 mkdir -p "${BACKUP_DIR}"
 chmod 700 "${BACKUP_DIR}"
 BACKUP_DIR_ABS="$(cd "${BACKUP_DIR}" && pwd)"
 mkdir "${BACKUP_DIR}/.backup.lock" 2>/dev/null || { echo 'A backup is already running.' >&2; exit 1; }
+# A failed S3 capture is retained privately for diagnosis; it has no completed backup manifest.
 trap 'rm -f -- "${DEST}.tmp" "${POSTGRES_DUMP_TMP}" "${SPONSOR_LOGOS_TMP}"; rmdir "${BACKUP_DIR}/.backup.lock"' EXIT
 [[ ! -e "$DEST" ]] || { echo 'Backup timestamp already exists; retry later.' >&2; exit 1; }
 
+EXTRA_CONFIG=()
+if [[ -f docker-compose.operations.yml ]]; then EXTRA_CONFIG+=(docker-compose.operations.yml); fi
 tar \
   --exclude="./backups" \
   --exclude="./node_modules" \
@@ -36,6 +40,7 @@ tar \
   --exclude="./.git" \
   -czf "${DEST}.tmp" \
   docker-compose.yml \
+  "${EXTRA_CONFIG[@]}" \
   .env \
   .env.example \
   .dockerignore \
@@ -50,7 +55,16 @@ mv "${DEST}.tmp" "${DEST}"
 chmod 600 "${DEST}"
 echo "Configuration backup written to ${DEST}"
 
-if command -v docker >/dev/null 2>&1 &&
+if [[ "${SPONSOR_MEDIA_STORAGE_DRIVER:-local}" == ovh-s3 ]]; then
+  node scripts/storage-backup.mjs capture "$S3_STAGE"
+  tar -czf "$SPONSOR_LOGOS_TMP" -C "$S3_STAGE" manifest.json objects
+  mv "$SPONSOR_LOGOS_TMP" "$SPONSOR_LOGOS_DEST"
+  # This is the fresh staging directory created by this invocation, under the locked backup directory.
+  rm -rf -- "$S3_STAGE"
+  echo 'S3 objects and metadata captured in the media artifact.'
+elif [[ "${SPONSOR_MEDIA_STORAGE_DRIVER:-local}" != local ]]; then
+  echo 'Unsupported media backup driver.' >&2; exit 1
+elif command -v docker >/dev/null 2>&1 &&
   docker volume inspect "${SPONSOR_LOGOS_VOLUME_NAME}" >/dev/null 2>&1; then
   rm -f "${SPONSOR_LOGOS_TMP}"
   docker run --rm \

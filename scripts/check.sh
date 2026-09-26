@@ -8,6 +8,8 @@ if [[ -f .env ]]; then
   # shellcheck disable=SC1091
   source scripts/load-env.sh .env
 fi
+FUNDING_OPERATIONS_WATCHER_ENABLED="${OPENG7_OPERATIONS_CHECK_ENABLED:-${FUNDING_OPERATIONS_WATCHER_ENABLED:-false}}"
+source scripts/deployment-compose.sh
 
 APP_DOMAIN="${APP_DOMAIN:-openg7.org}"
 HTTPS_URL="https://${APP_DOMAIN}"
@@ -23,14 +25,6 @@ pass() {
   echo "OK: $*"
 }
 
-compose() {
-  if [[ -n "${DATABASE_URL:-}" ]]; then
-    docker compose --profile database "$@"
-  else
-    docker compose "$@"
-  fi
-}
-
 command -v docker >/dev/null 2>&1 || fail "docker is not installed"
 docker compose version >/dev/null 2>&1 || fail "docker compose plugin is not installed"
 pass "Docker and Compose are installed"
@@ -39,6 +33,16 @@ compose ps --services --filter status=running | grep -qx "traefik" || fail "trae
 compose ps --services --filter status=running | grep -qx "web" || fail "web is not running"
 compose ps --services --filter status=running | grep -qx "api" || fail "api is not running"
 pass "Required containers are running"
+
+if [[ "${FUNDING_OPERATIONS_WATCHER_ENABLED:-false}" == true ]]; then
+  compose ps --services --filter status=running | grep -qx operations || fail 'operations is not running'
+  for _ in $(seq 1 30); do
+    if compose exec -T operations node scripts/operations-health.mjs >/dev/null 2>&1; then break; fi
+    sleep 2
+  done
+  compose exec -T operations node scripts/operations-health.mjs >/dev/null 2>&1 || fail 'operations is not ready'
+  pass 'Operations process heartbeat and database are ready (receiver delivery is checked separately)'
+fi
 
 if [[ -n "${DATABASE_URL:-}" ]]; then
   compose ps --services --filter status=running | grep -qx "postgres" || fail "postgres is not running while DATABASE_URL is configured"

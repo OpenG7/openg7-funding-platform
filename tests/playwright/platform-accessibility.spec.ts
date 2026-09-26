@@ -3,6 +3,52 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test } from './support/test.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
 
+test('a secondary public route avoids the home page code, then navigates to the localized home', async ({
+  page
+}) => {
+  const scripts: Promise<string>[] = [];
+  page.on('response', (response) => {
+    if (new URL(response.url()).pathname.endsWith('.js'))
+      scripts.push(response.text());
+  });
+  await page.route('**/api/**', (route) =>
+    route.fulfill({ status: 503, json: {} })
+  );
+  await page.goto('/en/support');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await page.waitForLoadState('load');
+  expect((await Promise.all(scripts)).join('\n')).not.toContain(
+    'openg7-funding-page'
+  );
+  await page.locator('a[href="/en/fonds-des-batisseurs"]').first().click();
+  await expect(page).toHaveURL(/\/en\/fonds-des-batisseurs$/);
+  await expect(page.locator('openg7-funding-page')).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+});
+
+test('lazy home remains readable without JavaScript in both languages', async ({
+  browser,
+  baseURL
+}) => {
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    baseURL
+  });
+  try {
+    const page = await context.newPage();
+    for (const [path, language] of [
+      ['/fonds-des-batisseurs', 'fr-CA'],
+      ['/en/fonds-des-batisseurs', 'en']
+    ]) {
+      expect((await page.goto(path))?.status()).toBe(200);
+      await expect(page.locator('openg7-funding-page h1')).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+    }
+  } finally {
+    await context.close();
+  }
+});
+
 test('the public entry does not download administrative page implementations', async ({
   page
 }) => {
@@ -16,7 +62,7 @@ test('the public entry does not download administrative page implementations', a
   );
   await page.goto('/fonds-des-batisseurs');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('load');
   const downloaded = (await Promise.all(scripts)).join('\n');
   expect(downloaded.length).toBeGreaterThan(10000);
   for (const selector of [
