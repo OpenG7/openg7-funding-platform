@@ -18,7 +18,7 @@ L'[index documentaire](README.md) oriente vers les guides actuels et les archive
 | Routage et performance       | Chargement différé des pages secondaires/admin, pages 404 FR/EN                        | Budget initial de production 800/900 ko, 24 routes prérendues; statuts HTTP Nginx et navigation testés.                                                                                               |
 | Livraison                    | Images et scripts associés au même SHA complet; livraisons sérialisées                 | Tests du script sur commandes simulées. Le script ne fait plus de `git pull`; il exécute le checkout préparé. Aucune livraison réelle n'est attestée par ces tests.                                   |
 | Fournisseurs                 | Stripe, SMTP et stockage S3 intégrés                                                   | Authentification/accès en lecture seule vérifiés; [recette et preuves](operations/integration-rehearsal.md). Livraison courriel et publication média réelles restent à exercer sur une cible de test. |
-| Reprise                      | Restauration commune PostgreSQL et médias locaux/S3, rapport d'étapes                  | Recette applicative sur cibles jetables; rapprochement des URL et fournisseurs requis avant activation. Pas de qualification complète VPS/OVH.                                                        |
+| Reprise                      | Restauration PostgreSQL/local/S3 et audit en lecture seule                             | Recette applicative sur cibles jetables; rapprochement des URL et fournisseurs requis avant activation. Pas de qualification complète VPS/OVH.                                                        |
 | Navigateurs et accessibilité | Suite FR/EN Chromium, Firefox, WebKit et mobile WebKit                                 | Axe, clavier et réagencement automatisés; lecteur d'écran humain, iPhone physique et zoom natif restent à vérifier.                                                                                   |
 
 ## Écarts d'exploitation confirmés lors de la revue documentaire
@@ -86,6 +86,18 @@ objets passe également, ainsi que les 85 tests ciblés de configuration, d'arch
 et de rapport. Les inspections de politiques/ACL restent simulées dans S3Mock;
 les URL publiques enregistrées et les fournisseurs restent à rapprocher avant
 remise en service. Aucun lot de qualification externe n'est clos par ces preuves.
+
+### Audit après restauration du 25 septembre 2026
+
+La CLI `recovery-audit.mjs` contrôle les données restaurées en lecture seule et
+produit un rapport distinct, sans autoriser le redémarrage. Les deux recettes
+navigateur local/S3 ont réussi avec injection de doublons, incohérences de montants
+et de facture, médias absent/corrompu et override social actif. Les tests vérifient
+la séparation CAD/USD, les entiers au-delà de `Number.MAX_SAFE_INTEGER`, les
+remboursements partiels, les URL source, le refus d'une cible active et l'absence
+de mutation des données et du reçu de restauration par l'audit. La recette du
+conteneur d'alertes et deux tests ciblés de lecture des médias/rapport passent
+également. Voir les [commandes et limites](operations/backup-recovery.md#audit-automatisé-en-lecture-seule).
 
 ## Reproduire les validations
 

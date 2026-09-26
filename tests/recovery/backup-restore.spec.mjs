@@ -607,6 +607,147 @@ async function recoveryScenario(mediaDriver, { playwright }, info) {
       });
       const pool = await target.connect();
       expect(await snapshot(pool)).toEqual(before);
+      await test.step('audit the stopped recovery in read-only mode, detect injected anomalies and preserve source and target facts', async () => {
+        const restoreReport = await readFile(
+          join(target.directory, 'recovery-report.json'),
+          'utf8'
+        );
+        const writesBefore = s3?.writes.length;
+        const clean = await target.audit('audit-clean');
+        expect(clean.output).not.toContain('synthetic-recovery');
+        expect(clean.code, clean.output).toBe(0);
+        expect(clean.report).toMatchObject({
+          integrity: 'passed',
+          activation: 'not-authorized',
+          readOnlyTransaction: true,
+          recoveryId: report.id,
+          media: { checked: 5, verified: 5 }
+        });
+        expect(clean.report.totals).toEqual([
+          {
+            currency: 'cad',
+            contribution_received_minor: '55000',
+            payment_gross_minor: '55000',
+            payment_fees_minor: '1675',
+            payment_net_minor: '53325',
+            refunds_minor: '10000',
+            invoices_minor: '50000',
+            credit_notes_minor: '10000'
+          }
+        ]);
+        expect(clean.report.queues).toMatchObject({
+          emails: '2',
+          social_jobs: '1'
+        });
+        expect(clean.report.workers).toMatchObject({
+          email: false,
+          social: false,
+          socialOverride: null
+        });
+        expect(
+          clean.report.findings.some(
+            (f) => f.code === 'media_public_url_reconciliation'
+          )
+        ).toBe(Boolean(s3));
+        expect(
+          clean.report.findings.find(
+            (f) => f.code === 'application_origin_reconciliation'
+          )?.count
+        ).toBe('1');
+        expect(clean.output).not.toContain('synthetic-inherited-source-secret');
+        expect(await snapshot(pool)).toEqual(before);
+        expect(
+          (await target.audit('audit-wrong-project', source.project)).code
+        ).toBe(1);
+        const repeated = await target.audit('audit-clean');
+        expect(repeated.code).toBe(1);
+        expect(repeated.report).toEqual(clean.report);
+
+        // Synthetic fault injection on this disposable target only; the auditor never repairs it.
+        await pool.query(
+          "UPDATE fund_transactions SET net=net+1 WHERE stripe_event_id='evt_restore_payment'"
+        );
+        await pool.query(
+          'UPDATE sponsorship_invoices SET tax_cents=1 WHERE id=$1',
+          [id.invoice]
+        );
+        await pool.query('UPDATE publication_worker_settings SET enabled=true');
+        await pool.query(`INSERT INTO fund_transactions(stripe_event_id,stripe_object_id,type,amount,fee,net,currency,status,created_at,public_category)
+          VALUES('evt_audit_duplicate','pi_restore','payment_intent.succeeded',50000,1500,48500,'cad','succeeded',now(),'contribution'),
+          ('evt_audit_precision','pi_audit_precision','payment_intent.succeeded',9007199254740993,3,9007199254740990,'usd','succeeded',now(),'contribution')`);
+        await pool.query(`INSERT INTO fund_transactions(stripe_event_id,stripe_object_id,type,amount,fee,net,currency,status,created_at,public_category,metadata_json)
+          VALUES('evt_audit_partial_1','ch_audit','charge.refunded',100,0,-100,'cad','succeeded',now(),'refund','{"refundId":"re_audit_1"}'),
+          ('evt_audit_partial_2','ch_audit','charge.refunded',100,0,-100,'cad','succeeded',now(),'refund','{"refundId":"re_audit_2"}')`);
+        await target.privateMedia(id.privateMedia + '.webp', null);
+        await target.privateMedia(
+          id.media + '.webp',
+          Buffer.alloc(image.length)
+        );
+        const injected = await snapshot(pool);
+        const broken = await target.audit('audit-anomalies');
+        expect(broken.code, broken.output).toBe(2);
+        expect(broken.report.integrity).toBe('failed');
+        for (const code of [
+          'payment_balance_mismatch',
+          'duplicate_transaction_objects',
+          'invoice_arithmetic',
+          'media_missing',
+          'media_mismatch',
+          'worker_social_requires_review'
+        ])
+          expect(
+            broken.report.findings.find((f) => f.code === code)?.count,
+            code
+          ).toBe('1');
+        expect(broken.report.workers).toMatchObject({
+          social: true,
+          socialOverride: true
+        });
+        expect(
+          broken.report.findings.some(
+            (f) => f.code === 'duplicate_refund_objects'
+          )
+        ).toBe(false);
+        expect(
+          broken.report.totals.find((total) => total.currency === 'usd')
+        ).toMatchObject({
+          payment_gross_minor: '9007199254740993',
+          payment_net_minor: '9007199254740990'
+        });
+        expect(JSON.stringify(broken.report)).not.toMatch(
+          /synthetic-recovery|recipient@example|hidden-recovery|private-recovery|original_storage_key|OVH_S3_SECRET/
+        );
+        expect(await snapshot(pool)).toEqual(injected);
+        expect(await snapshot(source.pool)).toEqual(before);
+        expect(
+          await readFile(join(target.directory, 'recovery-report.json'), 'utf8')
+        ).toBe(restoreReport);
+        if (s3) expect(s3.writes.length).toBe(writesBefore);
+        await info.attach('read-only-audit', {
+          body: Buffer.from(JSON.stringify(clean.report)),
+          contentType: 'application/json'
+        });
+        await info.attach('read-only-audit-anomalies', {
+          body: Buffer.from(JSON.stringify(broken.report)),
+          contentType: 'application/json'
+        });
+
+        await pool.query(
+          "DELETE FROM fund_transactions WHERE stripe_event_id IN ('evt_audit_duplicate','evt_audit_precision','evt_audit_partial_1','evt_audit_partial_2')"
+        );
+        await pool.query(
+          "UPDATE fund_transactions SET net=net-1 WHERE stripe_event_id='evt_restore_payment'"
+        );
+        await pool.query(
+          'UPDATE sponsorship_invoices SET tax_cents=0 WHERE id=$1',
+          [id.invoice]
+        );
+        await pool.query('UPDATE publication_worker_settings SET enabled=NULL');
+        await target.privateMedia(id.privateMedia + '.webp', image);
+        await target.privateMedia(id.media + '.webp', image);
+        expect((await target.audit('audit-reconciled')).code).toBe(0);
+        expect(await snapshot(pool)).toEqual(before);
+      });
       expect(
         (
           await target.compose([
@@ -626,6 +767,13 @@ async function recoveryScenario(mediaDriver, { playwright }, info) {
       expect(await snapshot(pool)).toEqual(before);
       await target.startWeb();
       await target.startApi();
+      const activeAudit = await target.audit('audit-active-refused');
+      expect(activeAudit.code).toBe(1);
+      expect(activeAudit.report).toMatchObject({
+        integrity: 'incomplete',
+        failedPhase: 'docker-target',
+        activation: 'not-authorized'
+      });
       const admin = await login(target);
       for (const document of sourceDocuments) {
         const response = await admin.page.request.get(

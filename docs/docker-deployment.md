@@ -529,6 +529,11 @@ still requires application checks. Stored public URLs and provider state need
 reconciliation before activation. See the
 [combined recovery procedure](operations/backup-recovery.md#variante-postgresql-et-s3).
 
+Before application startup, run the [read-only recovery audit](operations/backup-recovery.md#audit-automatisé-en-lecture-seule)
+against the explicit recovery directory/project. It checks monetary/document
+consistency, referenced media and pending work, and writes a separate protected
+report. Exit code 0 never authorizes activation or replaces provider reconciliation.
+
 ## GitHub Actions CI/CD
 
 Workflow:

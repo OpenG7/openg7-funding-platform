@@ -94,6 +94,7 @@ playwright-report/
 docs/reference/
 backups/
 /recovery-report.json*
+/recovery-audit*.json
 /.restore-stage.*/
 /.restore.lock/
 var/

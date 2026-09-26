@@ -21,6 +21,7 @@ import {
   CreateBucketCommand,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
   ListObjectsV2Command
 } from '@aws-sdk/client-s3';
 import { startDisposableProvider } from '../integration/support/disposable-provider.mjs';
@@ -115,11 +116,87 @@ export async function createRecoveryFixture({ mediaDriver = 'local' } = {}) {
       'restore-from-backup.sh',
       'backup-artifacts.mjs',
       'recovery-state.mjs',
+      'recovery-audit.mjs',
+      'lib/recovery-audit.mjs',
+      'lib/recovery-media-reader.mjs',
+      'sql/recovery-audit.sql',
       'storage-backup.mjs',
       'lib/s3-backup.mjs',
       'load-env.sh'
     ])
       await copy(join('scripts', file), join(directory, 'scripts', file));
+    target.audit = async (name, projectName = project) => {
+      const output = join(directory, name + '.json');
+      let result;
+      try {
+        result = await run(
+          process.execPath,
+          [
+            join(directory, 'scripts/recovery-audit.mjs'),
+            '--target-dir',
+            directory,
+            '--target-project',
+            projectName,
+            '--public-base-url',
+            'https://recovery.example.test',
+            '--output',
+            output
+          ],
+          {
+            env: {
+              ...env,
+              COMPOSE_PROJECT_NAME: 'og7-forbidden-inherited-source',
+              DATABASE_URL: 'postgres://source@invalid.example.test/source',
+              POSTGRES_VOLUME_NAME: 'og7-forbidden-source-volume',
+              SPONSOR_MEDIA_ENDPOINT: 'https://invalid.example.test',
+              OVH_S3_SECRET_ACCESS_KEY: 'synthetic-inherited-source-secret'
+            },
+            timeout: 180000
+          }
+        );
+        result = { code: 0, output: result.stdout + result.stderr };
+      } catch (error) {
+        result = {
+          code: error.code,
+          output: (error.stdout || '') + (error.stderr || '')
+        };
+      }
+      return { ...result, report: JSON.parse(await readFile(output, 'utf8')) };
+    };
+    target.privateMedia = async (key, bytes) => {
+      // Fault injection only on this fixture's owned target; never a workspace volume/bucket.
+      if (!/^[a-z0-9-]+\.webp$/.test(key) || !project.startsWith(prefix + '-'))
+        throw new Error('Unsafe fixture media key.');
+      if (s3) {
+        const Bucket = target.s3.SPONSOR_MEDIA_PRIVATE_BUCKET;
+        if (bytes === null)
+          await s3.client.send(new DeleteObjectCommand({ Bucket, Key: key }));
+        else await s3.put(Bucket, key, bytes);
+      } else {
+        const program =
+          'import { writeFile, unlink } from "node:fs/promises"; const path = "/volume/media-assets/private/" + process.argv[1]; if (process.argv[2] === "remove") await unlink(path); else { const chunks = []; for await (const chunk of process.stdin) chunks.push(chunk); await writeFile(path, Buffer.concat(chunks)); }';
+        await docker(
+          [
+            'run',
+            '--rm',
+            '-i',
+            '--network',
+            'none',
+            '--mount',
+            `type=volume,src=${project}-sponsor-logos,dst=/volume`,
+            '--entrypoint',
+            'node',
+            image,
+            '--input-type=module',
+            '--eval',
+            program,
+            key,
+            bytes === null ? 'remove' : 'write'
+          ],
+          { input: bytes }
+        );
+      }
+    };
     await symlink(
       resolve('node_modules'),
       join(directory, 'node_modules'),

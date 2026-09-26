@@ -180,6 +180,72 @@ existant, même sans `.env`, et ne supprime ni cible partielle ni rapport préc�
 
 ## Vérifier avant remise en service
 
+### Audit automatisé en lecture seule
+
+Après une restauration terminée, garder l'API, le Web et tous les workers arrêtés,
+ainsi que les écritures externes. Depuis un checkout de confiance avec Node 22 et
+les dépendances Yarn installées, sur l'hôte Docker de récupération :
+
+```sh
+node scripts/recovery-audit.mjs \
+  --target-dir /opt/openg7-recovery \
+  --target-project openg7-recovery-20260925 \
+  --public-base-url https://recette.openg7.org \
+  --output /secure/recovery-audit-20260925.json
+```
+
+Le domaine est un exemple à remplacer par l'origine HTTPS prévue pour la cible;
+il n'est ni contacté ni créé. Sans `--public-base-url`, l'origine reste à confirmer.
+L'origine copiée depuis la sauvegarde ne confirme pas à elle seule les URL de la
+cible. Le répertoire, le projet Compose, les volumes réellement montés et le reçu
+`recovery-report.json` doivent correspondre. Une restauration incomplète, un
+service applicatif actif ou un contexte Docker distant font refuser l'audit.
+Il ne démarre aucun service applicatif et n'exécute aucune migration.
+
+L'audit lit une transaction PostgreSQL `REPEATABLE READ READ ONLY` via le socket
+du conteneur `postgres`, sans exposer de port. La configuration explicite de la
+cible prime sur les variables héritées du shell. Pour les médias locaux, un
+conteneur temporaire utilise l'image API déjà disponible, un volume monté en
+lecture seule et aucun réseau; il est supprimé à la fin. Pour S3, seules des
+lectures `GetObject` sont effectuées sur les buckets du reçu. Les URL enregistrées
+en base ne sont jamais suivies, même pour les logos externes.
+
+Le rapport privé `0600`, créé sans écrasement, est distinct du reçu de restauration
+et ne le modifie pas. Il contient l'identifiant de récupération, des compteurs et
+des constats, sans coordonnées, contenu de message, clé d'objet ou secret :
+
+- Montants du journal et des documents **par devise**, sous forme de chaînes
+  entières en unités mineures; aucune somme de devises différentes ni conversion
+  en nombre JavaScript susceptible de perdre de la précision.
+- Doublons de paiements et remboursements identifiables, cohérence des frais/net
+  des paiements, factures attendues, sommes facture/avoir et liens entre documents.
+  Des remboursements partiels distincts d'une même charge restent distincts.
+- Présence et taille des médias actifs; SHA-256 des versions transformées et de
+  leurs copies publiques. Le checksum de la base porte sur l'image transformée,
+  pas sur l'original. Les anciens logos contrôlés sont lus sans empreinte de
+  référence; les logos externes restent à examiner.
+- URL incompatibles avec la cible, travaux en attente ou résultat d'envoi incertain,
+  réglages des workers, dont l'override social persistant qui prime sur le défaut
+  d'environnement. L'audit ne désactive ni ne reprend ces traitements.
+
+Codes de sortie : **0** pour contrôles terminés sans anomalie d'intégrité détectée,
+**2** pour anomalies, **1** pour audit incomplet ou refusé. Les constats `review`
+et `activation: not-authorized` demeurent même avec un code 0. Ni les agrégats ni
+les documents locaux ne prouvent un rapprochement Stripe, une réception courriel,
+les droits IAM, les PDF rendus ou une autorisation de remise en service.
+
+Le schéma requis est celui du checkout compatible, notamment les tables de
+publication et de workers; une table absente provoque un audit incomplet, sans
+mise à niveau implicite. Limites : 10 000 médias actifs, 10 000 anciens logos,
+30 000 objets référencés, 64 Mio par objet, requête SQL de 30 secondes, lecture
+locale de 120 secondes, S3 de 60 secondes par objet et 10 minutes au total.
+Les objets non référencés et les médias supprimés ne sont pas inventoriés. La
+base et le stockage ne forment pas un snapshot atomique : conserver l'arrêt des
+écritures pendant l'audit. Une interruption peut laisser un rapport vide ou
+incomplet; conserver cette trace et choisir un nouveau fichier à la relance.
+
+### Rapprochements et activation
+
 1. Comparer tables, contraintes, séquences, montants par devise, frais,
    remboursements, factures/avoirs et PDF avec les preuves de la capture.
 2. Vérifier médias privés/publics, consentements, revue, brouillons de suivi,
@@ -243,6 +309,15 @@ et files préservées. Le scénario S3 vérifie aussi les refus avant import et 
 panne de stockage après l'import, le rapport incomplet, les buckets réservés et
 l'absence de reprise aveugle. Seule la route Docker vers S3Mock est adaptée lors
 du démarrage explicite de l'API de test; les buckets restaurés restent les mêmes.
+
+Elle exécute également la vraie CLI d'audit avant ce démarrage, puis injecte sur
+la cible jetable un doublon de paiement, un net incohérent, une facture incorrecte,
+des médias absent/corrompu et un override social actif. Les constats attendus,
+les montants USD au-delà de la précision entière JavaScript, les remboursements
+partiels, le refus d'écrasement et l'absence de mutation par l'audit sont vérifiés.
+Les états source et cible sont comparés avant/après. Après retrait des anomalies
+de test, les contrôles navigateur et PDF reprennent. Les rapports sont joints aux
+preuves Playwright; ces manipulations restent limitées aux fixtures synthétiques.
 
 Cette recette utilise une connexion admin par session signée en mode token.
 Elle ne qualifie pas OIDC externe, DNS/HTTPS, délivrabilité,
