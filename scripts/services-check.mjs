@@ -6,7 +6,8 @@ import { resolve } from 'node:path';
 const usage = `Usage: node scripts/services-check.mjs [--env <path>] [--env-only]
 
 Checks whether the local configuration is ready to operate the funding services.
-The report never prints secret values.
+Checks token/OIDC settings and optional operations alerts without contacting providers.
+This deployment check requires HTTPS. The report never prints secret values.
 
 Options:
   --env <path>  Read configuration from this env file. Defaults to .env.
@@ -16,8 +17,12 @@ Options:
 
 const secretNames = new Set([
   'DATABASE_URL',
+  'FUNDING_ADMIN_OIDC_CLIENT_SECRET',
+  'FUNDING_ADMIN_OIDC_OWNER_SUBJECTS',
   'FUNDING_ADMIN_SESSION_SECRET',
   'FUNDING_ADMIN_TOKEN',
+  'FUNDING_OPERATIONS_WEBHOOK_URL',
+  'FUNDING_OPERATIONS_WEBHOOK_SECRET',
   'OVH_S3_ACCESS_KEY_ID',
   'OVH_S3_SECRET_ACCESS_KEY',
   'SOCIAL_PUBLICATION_FACEBOOK_PAGE_ACCESS_TOKEN',
@@ -85,35 +90,7 @@ if (hasRealValue('FUNDING_PLATFORM_API_BASE_URL')) {
 }
 checkAllowedOrigins();
 
-requiredSecret(
-  'Admin',
-  'FUNDING_ADMIN_TOKEN',
-  'set a long root admin token',
-  32
-);
-requiredSecret(
-  'Admin',
-  'FUNDING_ADMIN_SESSION_SECRET',
-  'set a distinct long session signing secret',
-  32
-);
-if (
-  hasRealValue('FUNDING_ADMIN_TOKEN') &&
-  hasRealValue('FUNDING_ADMIN_SESSION_SECRET') &&
-  readValue('FUNDING_ADMIN_TOKEN') === readValue('FUNDING_ADMIN_SESSION_SECRET')
-) {
-  record(
-    'missing',
-    'Admin',
-    'FUNDING_ADMIN_SESSION_SECRET',
-    'session secret must be different from the root admin token'
-  );
-}
-requiredPositiveInteger(
-  'Admin',
-  'FUNDING_ADMIN_SESSION_TTL_MINUTES',
-  'set a positive session duration'
-);
+checkAdminIdentity();
 
 checkStripeKey();
 requiredPattern(
@@ -138,6 +115,7 @@ requiredPattern(
   'set the private PostgreSQL URL for the full admin cockpit, invoices, email queue, and sponsorship follow-up'
 );
 
+checkOperationsAlerts();
 checkSponsorMediaStorage();
 checkSocialPublication();
 
@@ -329,6 +307,162 @@ function requiredPositiveInteger(section, name, hint) {
   }
 
   return true;
+}
+
+function requiredCredentialFreeHttpsUrl(section, name) {
+  if (
+    !requiredHttpsUrl(section, name, 'set an HTTPS URL without credentials')
+  ) {
+    return false;
+  }
+
+  const url = safeUrl(readValue(name));
+  if (url.username || url.password) {
+    record('missing', section, name, 'URL must not contain credentials');
+    return false;
+  }
+  return true;
+}
+
+function checkAdminIdentity() {
+  const mode = env.FUNDING_ADMIN_AUTH_MODE ?? 'token';
+  if (!['token', 'oidc'].includes(mode)) {
+    record(
+      'missing',
+      'Admin',
+      'FUNDING_ADMIN_AUTH_MODE',
+      'must be token or oidc'
+    );
+    return;
+  }
+
+  record('ok', 'Admin', 'FUNDING_ADMIN_AUTH_MODE', mode);
+  if (mode === 'token') {
+    requiredSecret(
+      'Admin',
+      'FUNDING_ADMIN_TOKEN',
+      'set a long root admin token',
+      32
+    );
+    requiredSecret(
+      'Admin',
+      'FUNDING_ADMIN_SESSION_SECRET',
+      'set a distinct long session signing secret',
+      32
+    );
+    if (
+      hasRealValue('FUNDING_ADMIN_TOKEN') &&
+      hasRealValue('FUNDING_ADMIN_SESSION_SECRET') &&
+      readValue('FUNDING_ADMIN_TOKEN') ===
+        readValue('FUNDING_ADMIN_SESSION_SECRET')
+    ) {
+      record(
+        'missing',
+        'Admin',
+        'FUNDING_ADMIN_SESSION_SECRET',
+        'session secret must be different from the root admin token'
+      );
+    }
+    requiredPositiveInteger(
+      'Admin',
+      'FUNDING_ADMIN_SESSION_TTL_MINUTES',
+      'set a positive session duration'
+    );
+    return;
+  }
+
+  requiredCredentialFreeHttpsUrl('Admin', 'FUNDING_ADMIN_OIDC_ISSUER');
+  requiredCredentialFreeHttpsUrl('Admin', 'FUNDING_PUBLIC_BASE_URL');
+  requiredCredentialFreeHttpsUrl('Admin', 'FUNDING_PLATFORM_API_BASE_URL');
+  const publicUrl = safeUrl(readValue('FUNDING_PUBLIC_BASE_URL'));
+  const apiUrl = safeUrl(readValue('FUNDING_PLATFORM_API_BASE_URL'));
+  if (publicUrl && apiUrl && publicUrl.origin !== apiUrl.origin) {
+    record(
+      'missing',
+      'Admin',
+      'FUNDING_PLATFORM_API_BASE_URL',
+      'OIDC requires Web and API on the same origin'
+    );
+  }
+  required('Admin', 'FUNDING_ADMIN_OIDC_CLIENT_ID', 'set the OIDC client ID');
+  required(
+    'Admin',
+    'FUNDING_ADMIN_OIDC_CLIENT_SECRET',
+    'set the OIDC client secret'
+  );
+
+  const owners = 'FUNDING_ADMIN_OIDC_OWNER_SUBJECTS';
+  if (readValue(owners)) {
+    requiredPattern(
+      'Admin',
+      owners,
+      /[^,\s]/,
+      'set at least one owner subject'
+    );
+  } else {
+    record(
+      'warn',
+      'Admin',
+      owners,
+      'no bootstrap owners configured; verify an active owner already exists in PostgreSQL'
+    );
+  }
+
+  const acr = 'FUNDING_ADMIN_OIDC_MFA_ACR';
+  if (readValue(acr)) {
+    requiredPattern('Admin', acr, /[^,\s]/, 'set at least one MFA ACR value');
+    record(
+      'warn',
+      'Admin',
+      acr,
+      'verify that the provider guarantees MFA for every configured ACR value'
+    );
+  } else {
+    record(
+      'warn',
+      'Admin',
+      acr,
+      'signed amr must contain mfa; verify with the provider'
+    );
+  }
+  record(
+    'warn',
+    'Admin',
+    'OIDC readiness',
+    'configuration only; verify migration 020, same-origin Web/API callback, MFA and session revocation'
+  );
+}
+
+function checkOperationsAlerts() {
+  const urlName = 'FUNDING_OPERATIONS_WEBHOOK_URL';
+  const secretName = 'FUNDING_OPERATIONS_WEBHOOK_SECRET';
+  if (!readValue(urlName) && !readValue(secretName)) {
+    record(
+      'warn',
+      'Operations alerts',
+      urlName,
+      'disabled; no independent alert channel configured'
+    );
+    return;
+  }
+
+  requiredCredentialFreeHttpsUrl('Operations alerts', urlName);
+  requiredSecret(
+    'Operations alerts',
+    secretName,
+    'set the webhook signing secret',
+    32
+  );
+  requiredCredentialFreeHttpsUrl(
+    'Operations alerts',
+    'FUNDING_PUBLIC_BASE_URL'
+  );
+  record(
+    'warn',
+    'Operations alerts',
+    'Receiver readiness',
+    'configuration only; verify migration 021, a running watcher, receiver signature checks and event deduplication'
+  );
 }
 
 function checkAllowedOrigins() {
@@ -739,7 +873,7 @@ function printReport() {
   }
 
   process.stdout.write(
-    '\nConfiguration looks ready. Recommended live checks: yarn storage:check, yarn email:verify, yarn prod:check.\n'
+    '\nNo blocking configuration issue found. Review warnings; provider access, MFA, alert delivery and running services have not been verified.\n'
   );
 }
 

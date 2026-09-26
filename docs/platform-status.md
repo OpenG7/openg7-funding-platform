@@ -26,14 +26,15 @@ L'[index documentaire](README.md) oriente vers les guides actuels et les archive
 - Les runners SQL rejouent toutes les migrations, sans registre d'application;
   `019`–`021` ne sont pas rejouables. Cela peut bloquer un déploiement répété avec
   PostgreSQL. Voir la [procédure de migration](operations/database-migrations.md).
-- `services:check` vérifie encore les paramètres admin du mode token; il ne
-  constitue pas une validation OIDC/MFA ou du canal d'alerte.
+- Suivi du 25 septembre 2026 : `services:check` contrôle la configuration du mode
+  token/OIDC choisi et du canal d'alertes. Il ne constitue pas une validation MFA
+  ou de réception ; voir le [diagnostic](operations/admin-identity-and-alerts.md#diagnostic-de-configuration-avant-recette).
 - Le processus d'alertes fourni par l'overlay Compose doit être exploité et mis
   à jour explicitement; le script de déploiement standard n'inclut pas cet overlay.
 
-Ces constats proviennent de la lecture des scripts au commit `137720c`, pas
-d'une tentative de migration ou d'activation en production. Les recettes
-ci-dessous ne suppriment pas ces limites.
+Les limites de migration et de déploiement de l'overlay proviennent de la lecture
+des scripts au commit `137720c`, pas d'une tentative de migration ou d'activation
+en production. Les recettes ci-dessous ne suppriment pas ces limites.
 
 ## Reproduire les validations
 

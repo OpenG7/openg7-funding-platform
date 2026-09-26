@@ -7,6 +7,18 @@ ni déploiement, migration, remboursement ni restauration de production.
 
 ## Contrôles déjà reproductibles sans mutation fournisseur
 
+Commencer par le diagnostic local de la configuration explicite :
+
+```sh
+node scripts/services-check.mjs --env <configuration-de-test> --env-only
+```
+
+Il contrôle notamment le mode d'administration token/OIDC et la configuration
+du canal d'alertes, sans appeler les fournisseurs. Consulter les avertissements
+et les [limites du diagnostic](admin-identity-and-alerts.md#diagnostic-de-configuration-avant-recette)
+avant de passer aux contrôles d'accès : un résultat positif ne qualifie ni le
+MFA ni la réception d'une alerte.
+
 ```sh
 yarn providers:verify --env <configuration-de-test>
 ```
