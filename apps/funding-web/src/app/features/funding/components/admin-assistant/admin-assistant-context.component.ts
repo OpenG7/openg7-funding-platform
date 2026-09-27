@@ -7,6 +7,7 @@ import {
   OnChanges,
   OnInit,
   PLATFORM_ID,
+  computed,
   inject,
   input,
   output,
@@ -35,6 +36,29 @@ import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 import { AdminAssistantDraftComponent } from './admin-assistant-draft.component.js';
 import { AdminAssistantAnswerComponent } from './admin-assistant-answer.component.js';
 
+interface AssistantContextSnapshot {
+  readonly contributionId: string;
+  readonly version: string;
+  readonly sessionGeneration: number;
+  readonly identityId: string | null;
+  readonly prepared: AdminAssistantPrepareResponse | null;
+  readonly answer: AdminAssistantQueryResponse | null;
+  readonly subject: string;
+  readonly body: string;
+  readonly question: string;
+}
+
+/** One-use, in-memory handoff. Router navigation info never enters browser history. */
+class AssistantContextNavigation {
+  constructor(private snapshot: AssistantContextSnapshot | null) {}
+
+  take(): AssistantContextSnapshot | null {
+    const snapshot = this.snapshot;
+    this.snapshot = null;
+    return snapshot;
+  }
+}
+
 /** Funding organism: exact dossier loading and explicit human actions, independent of the model. */
 @Component({
   selector: 'openg7-admin-assistant-context',
@@ -58,6 +82,7 @@ import { AdminAssistantAnswerComponent } from './admin-assistant-answer.componen
 export class AdminAssistantContextComponent implements OnInit, OnChanges {
   readonly compact = input(false);
   readonly inlineDossier = input(false);
+  readonly showWorkspaceLink = input(true);
   readonly dossierOpen = output<void>();
   readonly sponsorshipId = input<string>();
   readonly refreshKey = input<unknown>(0);
@@ -81,13 +106,41 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   private readonly admin = inject(FundingAdminService);
   private readonly platform = inject(PLATFORM_ID);
   private readonly destroy = inject(DestroyRef);
+  readonly canPrepare = computed(
+    () => this.admin.identity()?.role !== 'reader'
+  );
+  readonly workspaceNavigation = computed(() => {
+    const context = this.data()?.context;
+    return new AssistantContextNavigation(
+      context
+        ? {
+            contributionId: context.contributionId,
+            version: context.version,
+            sessionGeneration: this.admin.sessionGeneration(),
+            identityId: this.admin.identity()?.id ?? null,
+            prepared: this.prepared(),
+            answer: this.answer(),
+            subject: this.subject(),
+            body: this.body(),
+            question: this.question()
+          }
+        : null
+    );
+  });
   private generation = 0;
   private initialized = false;
 
   ngOnInit(): void {
     if (!isPlatformBrowser(this.platform)) return;
     this.initialized = true;
-    void this.load();
+    const navigation =
+      this.router.currentNavigation() ?? this.router.lastSuccessfulNavigation();
+    const info = navigation?.extras.info;
+    void this.load(
+      !this.showWorkspaceLink() && info instanceof AssistantContextNavigation
+        ? info.take()
+        : null
+    );
   }
   ngOnChanges(): void {
     if (this.initialized) void this.load();
@@ -95,7 +148,7 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   private current(generation: number): boolean {
     return generation === this.generation && !this.destroy.destroyed;
   }
-  async load(): Promise<void> {
+  async load(snapshot: AssistantContextSnapshot | null = null): Promise<void> {
     const generation = ++this.generation;
     this.dialog()?.nativeElement.close();
     this.confirmation.set(null);
@@ -119,6 +172,24 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
       if (!this.current(generation)) return;
       this.data.set(data);
       this.state.set('ready');
+      const context = data.context;
+      if (
+        snapshot &&
+        context &&
+        snapshot.contributionId === context.contributionId &&
+        snapshot.sessionGeneration === this.admin.sessionGeneration() &&
+        snapshot.identityId === (this.admin.identity()?.id ?? null)
+      ) {
+        this.question.set(snapshot.question);
+        if (snapshot.version === context.version) {
+          this.answer.set(snapshot.answer);
+          if (this.canPrepare()) {
+            this.prepared.set(snapshot.prepared);
+            this.subject.set(snapshot.subject);
+            this.body.set(snapshot.body);
+          }
+        } else if (snapshot.prepared) this.error.set('conflict');
+      }
     } catch (error) {
       if (this.current(generation)) {
         this.state.set('error');
@@ -128,7 +199,7 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   }
   async prepare(type: AdminAssistantDraftType): Promise<void> {
     const context = this.data()?.context;
-    if (!context || this.busy()) return;
+    if (!context || this.busy() || !this.canPrepare()) return;
     this.prepared.set(null);
     this.delivery.set(null);
     await this.act(async () => {
@@ -151,6 +222,7 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
     const preview = this.prepared()?.delivery;
     if (
       !preview ||
+      !this.canPrepare() ||
       this.busy() ||
       !this.subject().trim() ||
       !this.body().trim()
@@ -170,7 +242,7 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   }
   async send(): Promise<void> {
     const input = this.confirmation();
-    if (!input || this.busy()) return;
+    if (!input || this.busy() || !this.canPrepare()) return;
     this.cancelSend();
     await this.act(async () => {
       const result = await this.admin.requestSponsorshipInformation(
@@ -223,6 +295,19 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   private async handleError(error: unknown, action = true): Promise<void> {
     const status =
       error instanceof AdminDashboardRequestError ? error.status : 0;
+    if (status === 403 && action) {
+      // An action can be forbidden while the dossier remains readable.
+      // Recheck access before showing facts; discard the rejected private draft.
+      const generation = this.generation + 1;
+      await this.load();
+      if (
+        this.current(generation) &&
+        this.state() === 'ready' &&
+        this.data()?.context
+      )
+        this.error.set('actionForbidden');
+      return;
+    }
     if (status === 401 || status === 403) {
       this.data.set(null);
       this.prepared.set(null);

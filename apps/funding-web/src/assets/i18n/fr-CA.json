@@ -563,6 +563,7 @@
       "working": "Traitement en cours…",
       "conflict": "Le dossier a changé. Actualisez le contexte et préparez un nouveau message.",
       "actionError": "L’opération n’a pas pu être confirmée. Réessayez; un message identique ne sera pas créé deux fois.",
+      "actionForbidden": "Cette action n’est pas autorisée. Vous pouvez toujours consulter le dossier.",
       "links": "Liens utiles",
       "limits": "Limites",
       "state": {
