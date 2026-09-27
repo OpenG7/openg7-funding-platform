@@ -92,6 +92,10 @@ import {
 } from '../../../packages/funding-core/src/index.js';
 
 import {
+  AdminStripeBackfillService,
+  AdminStripeBackfillError
+} from './admin-stripe-backfill.service.js';
+import {
   ContributionExportError,
   exportAdminContributions
 } from './admin-contributions-export.service.js';
@@ -477,6 +481,25 @@ const readStripeTransparency = stripe
       getStripePublicTransparencySummary(stripe, { projectId })
     )
   : null;
+const adminStripeBackfill =
+  dbPool && stripeSecretKey
+    ? new AdminStripeBackfillService(
+        dbPool,
+        new Stripe(stripeSecretKey, {
+          ...(stripeApiHost ? { host: stripeApiHost } : {}),
+          ...(stripeApiPort ? { port: stripeApiPort } : {}),
+          ...(stripeApiProtocol ? { protocol: stripeApiProtocol } : {}),
+          timeout: 10000,
+          maxNetworkRetries: 0
+        }),
+        {
+          apiKey: stripeSecretKey,
+          projectId,
+          environment: process.env.FUNDING_PLATFORM_ENV ?? 'development'
+        }
+      )
+    : null;
+
 loadTransactionalEmailConfig();
 const readCockpitSystems = createCockpitSystemsReader({
   stripeConfigured: Boolean(stripe && stripeWebhookSecret),
@@ -2148,6 +2171,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/search',
       '/admin/stripe-event',
       '/api/admin/stripe-event',
+      '/admin/stripe-backfill',
+      '/api/admin/stripe-backfill',
       '/admin/assistant/summary',
       '/api/admin/assistant/summary',
       '/admin/assistant/query',
@@ -2493,6 +2518,84 @@ createServer(async (request, response) => {
       writeJson(request, response, 503, { error: 'Identity service unavailable.' });
       return;
     }
+  }
+
+  if (
+    routeMatches(
+      request.url,
+      '/admin/stripe-backfill',
+      '/api/admin/stripe-backfill'
+    )
+  ) {
+    response.setHeader('Cache-Control', 'private, no-store');
+    if (!ensureAdminAccess(request, response)) return;
+    if (resolveAdminAuthorization(request)?.source === 'local-dev') {
+      writeJson(request, response, 401, { code: 'ADMIN_SESSION_REQUIRED' });
+      return;
+    }
+    if (!adminStripeBackfill) {
+      writeJson(request, response, 503, { code: 'BACKFILL_UNAVAILABLE' });
+      return;
+    }
+    const actor = getAdminAuditActor(request);
+    try {
+      if (request.method === 'GET') {
+        const id = new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+          'id'
+        );
+        writeJson(request, response, 200, {
+          run: await adminStripeBackfill.read(id, actor)
+        });
+      } else if (request.method === 'POST') {
+        if (
+          request.headers.origin &&
+          ![publicBaseOrigin, ...allowedOrigins].includes(request.headers.origin)
+        ) {
+          writeJson(request, response, 403, { code: 'ORIGIN_FORBIDDEN' });
+          return;
+        }
+        if (
+          request.headers['content-type']?.split(';')[0].trim() !==
+          'application/json'
+        ) {
+          writeJson(request, response, 415, { code: 'JSON_REQUIRED' });
+          return;
+        }
+        let input: Record<string, unknown>;
+        try {
+          input = JSON.parse(await readBody(request, 4096));
+          if (!input || typeof input !== 'object' || Array.isArray(input))
+            throw new Error();
+          const fields =
+            input.action === 'preview'
+              ? ['action', 'scope']
+              : ['action', 'id', 'confirmation'];
+          if (
+            Object.keys(input).some((key) => !fields.includes(key)) ||
+            !['preview', 'execute'].includes(String(input.action))
+          )
+            throw new Error();
+        } catch {
+          writeJson(request, response, 400, { code: 'INVALID_REQUEST' });
+          return;
+        }
+        const run =
+          input.action === 'preview'
+            ? await adminStripeBackfill.preview(input.scope, actor)
+            : await adminStripeBackfill.execute(
+                input.id,
+                input.confirmation,
+                actor
+              );
+        writeJson(request, response, 200, { run });
+      } else writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+    } catch (error) {
+      const known = error instanceof AdminStripeBackfillError;
+      writeJson(request, response, known ? error.status : 503, {
+        code: known ? error.code : 'BACKFILL_UNAVAILABLE'
+      });
+    }
+    return;
   }
 
   if (

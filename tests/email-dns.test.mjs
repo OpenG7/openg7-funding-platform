@@ -300,6 +300,31 @@ test('DKIM validates key material, duplicate tags, strength, hash and service re
   );
 });
 
+test('DKIM accepts both RSA public encodings and refuses extra bytes, truncated keys and private keys', () => {
+  const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  for (const type of ['spki', 'pkcs1']) {
+    const key = pair.publicKey.export({ type, format: 'der' });
+    const report = inspectDkim(['p=' + key.toString('base64')]);
+    assert.equal(report.status, 'passed', type);
+    assert.equal(report.bits, 2048);
+    for (const invalid of [
+      key.subarray(0, -1),
+      Buffer.concat([key, Buffer.from([0])]),
+      Buffer.concat([key, key])
+    ]) {
+      assert.deepEqual(
+        codes(inspectDkim(['p=' + invalid.toString('base64')])),
+        ['dkim_key_invalid'],
+        type
+      );
+    }
+  }
+  const privateKey = pair.privateKey.export({ type: 'pkcs1', format: 'der' });
+  assert.deepEqual(codes(inspectDkim(['p=' + privateKey.toString('base64')])), [
+    'dkim_key_invalid'
+  ]);
+});
+
 test('DMARC distinguishes invalid publication, monitoring, RFC 9989 defaults and legacy pct', () => {
   assert.equal(inspectDmarc(['v=DMARC1; p=reject; p=none']).status, 'failed');
   assert.equal(inspectDmarc(['v=DMARC1']).status, 'review');

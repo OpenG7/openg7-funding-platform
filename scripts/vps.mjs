@@ -187,7 +187,6 @@ const help = `Usage:
   yarn vps:backup:list
   yarn vps:backup:download
   yarn vps:db:update
-  yarn vps:db:migrate
   yarn vps:db:psql
   yarn vps:db:backup
   yarn vps:db:backup:list
@@ -288,7 +287,7 @@ try {
         `Backup logos commanditaires telecharge: ${logoDownloadPath}`
       );
     }
-  } else if (command === 'db:update' || command === 'db:migrate') {
+  } else if (command === 'db:update') {
     await ssh(inAppDir(['git pull --ff-only', 'bash scripts/db-migrate.sh']));
   } else if (command === 'db:psql') {
     const psqlArgs =

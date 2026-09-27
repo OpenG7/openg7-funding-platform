@@ -5,6 +5,13 @@ import {
   SponsorshipPricingConfig
 } from '@openg7/funding-models';
 
+export type {
+  AdminStripeBackfillScope,
+  AdminStripeBackfillCounts,
+  AdminStripeBackfillRun,
+  AdminStripeBackfillRequest
+} from './admin-stripe-backfill.js';
+
 import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
 export { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
 

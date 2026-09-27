@@ -26,6 +26,7 @@ export interface StripeBackfillOptions {
   readonly assumeNonCharityAcknowledged: boolean;
   readonly created: StripeBackfillCreatedRange | null;
   readonly maxRecords: number | null;
+  readonly deadlineAt?: number;
   readonly logger?: Pick<Console, 'log' | 'warn'>;
 }
 
@@ -700,6 +701,8 @@ const backfillCheckoutSessions = async (
   for await (const session of stripe.checkout.sessions.list(
     buildCheckoutSessionListParams(options)
   )) {
+    if (options.deadlineAt && Date.now() >= options.deadlineAt)
+      throw new Error('Backfill time limit reached.');
     if (
       shouldStopAfterScan(summary.checkoutSessions.scanned, options.maxRecords)
     ) {
@@ -837,6 +840,8 @@ const backfillDisputes = async (
   for await (const dispute of stripe.disputes.list(
     buildDisputeListParams(options)
   )) {
+    if (options.deadlineAt && Date.now() >= options.deadlineAt)
+      throw new Error('Backfill time limit reached.');
     if (shouldStopAfterScan(summary.disputes.scanned, options.maxRecords)) {
       break;
     }

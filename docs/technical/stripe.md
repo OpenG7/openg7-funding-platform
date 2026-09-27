@@ -81,6 +81,17 @@ For local HTTPS through Traefik, keep the listener open in one terminal:
 corepack yarn stripe:webhook:listen
 ```
 
+`yarn docker:up:dev` demarre Docker et ce relais : voir le
+[demarrage guide et HTTPS local](../docker-deployment.md#demarrage-docker-guide).
+Le relais utilise `STRIPE_SECRET_KEY` de `.env` (le shell prime), refuse le live
+et verifie `STRIPE_WEBHOOK_SECRET`. `yarn stripe:webhook:listen --check` fait ce
+controle sans relayer d'evenement ni afficher/modifier les secrets.
+Pour obtenir le secret initial, utiliser `stripe listen --print-secret` dans un
+terminal prive avec `STRIPE_API_KEY` defini sur la meme cle de test que l'API.
+Mettre a jour `.env` puis recreer l'API; ne pas publier le secret.
+Le relais verifie TLS et ne rejoue pas les paiements passes : ils demandent
+un rejeu ou un rattrapage borne distinct.
+
 Then resend one or more event ids from another terminal:
 
 ```bash
@@ -108,6 +119,8 @@ or email retry action when a new delivery is required.
 
 ## Stripe historical backfill to PostgreSQL
 
+[Admin recovery](../operations/admin-stripe-backfill.md) is available in Contributions after migration 028.
+
 When switching from Stripe-direct transparency to PostgreSQL, run an initial
 Stripe backfill after migrations and a database backup. The command reads
 historical Checkout Sessions from Stripe, filters them by `FUNDING_PROJECT_ID`
@@ -133,11 +146,10 @@ automatically runs the backfill inside Docker Compose:
 corepack yarn stripe:backfill
 ```
 
-The explicit Docker command is also available:
+For an explicit Docker invocation, the internal runner remains available:
 
 ```bash
-corepack yarn stripe:backfill:docker --dry-run
-corepack yarn stripe:backfill:docker
+node scripts/stripe-backfill-docker.mjs --dry-run
 ```
 
 For live mode, the command refuses non-live keys when `--live` is present:
@@ -145,7 +157,6 @@ For live mode, the command refuses non-live keys when `--live` is present:
 ```bash
 corepack yarn stripe:backfill:live --from 2026-01-01 --dry-run
 corepack yarn stripe:backfill:live --from 2026-01-01
-corepack yarn stripe:backfill:docker:live --from 2026-01-01 --dry-run
 ```
 
 Useful options:

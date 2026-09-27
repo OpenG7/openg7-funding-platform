@@ -12,7 +12,7 @@ pas autorisation d'exécution.
 | -------------------------------------- | --------------------------------------------------------------------- |
 | Installer                              | `corepack enable`, puis `yarn install`                                |
 | Web + API                              | `yarn dev`                                                            |
-| Web / API séparés                      | `yarn dev:funding-web` / `yarn dev:api`                               |
+| Web / API séparés                      | `yarn dev:web` / `yarn dev:api`                                       |
 | Compilation TypeScript                 | `yarn build`                                                          |
 | Build Angular                          | `yarn workspace @openg7/funding-web build --configuration production` |
 | Tests Node avec compilation            | `yarn test`                                                           |
@@ -31,24 +31,39 @@ conteneurs; son contrôle admin reste orienté token, sans recette OIDC/MFA.
 Les raccourcis Docker/DB locaux attendent Docker et tentent d'ouvrir Docker Desktop
 si nécessaire. Guide détaillé : [Docker](docker-deployment.md).
 
-| Besoin                                    | Commande                                                                                |
-| ----------------------------------------- | --------------------------------------------------------------------------------------- |
-| Stack au premier plan avec build          | `yarn docker:up`                                                                        |
-| Stack détachée avec PostgreSQL            | `yarn docker:local`                                                                     |
-| Mise à jour guidée                        | `yarn docker:update`                                                                    |
-| Code local dans les images                | `yarn docker:update --development --no-build-app --no-prune-images --no-stripe-webhook` |
-| Ajouter le listener Stripe local          | `yarn docker:update --development --stripe-webhook`                                     |
-| Conserver / supprimer les images dangling | `yarn docker:update --no-prune-images` / `yarn docker:update --prune-images`            |
-| Arrêter sans supprimer les volumes        | `yarn docker:down`                                                                      |
-| Recréer Web/API                           | `yarn docker:recreate`                                                                  |
-| Redémarrer un service                     | `docker compose restart web` (ou `api`, `traefik`)                                      |
-| État / ressources                         | `docker compose ps` / `docker stats`                                                    |
-| Logs ciblés                               | `docker compose logs --tail=100 api` (ou `web`, `traefik`; `-f` pour suivre)            |
-| Valider sans exposer l'environnement      | `docker compose config --quiet`                                                         |
+| Besoin                                     | Commande                                                                                |
+| ------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Demarrage guide local/dev, prod ou autre   | `yarn docker:up`                                                                        |
+| Developpement + PostgreSQL + relais Stripe | `yarn docker:up:dev`                                                                    |
+| Build production sans relais Stripe        | `yarn docker:up --environment prod`                                                     |
+| Configuration existante sans relais Stripe | `yarn docker:up --environment autre`                                                    |
+| Previsualiser le demarrage local           | `yarn docker:up:dev --dry-run`                                                          |
+| Stack détachée avec PostgreSQL             | `yarn docker:up:dev --no-stripe-webhook`                                                |
+| Mise à jour guidée                         | `yarn docker:update`                                                                    |
+| Code local dans les images                 | `yarn docker:update --development --no-build-app --no-prune-images --no-stripe-webhook` |
+| Ajouter le listener Stripe local           | `yarn docker:update --development --stripe-webhook`                                     |
+| Conserver / supprimer les images dangling  | `yarn docker:update --no-prune-images` / `yarn docker:update --prune-images`            |
+| Arrêter sans supprimer les volumes         | `yarn docker:down`                                                                      |
+| Recréer Web/API                            | `yarn docker:recreate`                                                                  |
+| Redémarrer un service                      | `docker compose restart web` (ou `api`, `traefik`)                                      |
+| État / ressources                          | `docker compose ps` / `docker stats`                                                    |
+| Logs ciblés                                | `docker compose logs --tail=100 api` (ou `web`, `traefik`; `-f` pour suivre)            |
+| Valider sans exposer l'environnement       | `docker compose config --quiet`                                                         |
 
 `--no-build-app` évite la compilation sur l'hôte; les Dockerfiles compilent
-toujours API et Angular. `yarn build`, restart et recreate ne reconstruisent pas
+toujours API et Angular. `yarn docker:update:dev` utilise cette option pour éviter
+une double compilation. `yarn build`, restart et recreate ne reconstruisent pas
 les images. Recharger la page après update; en développement, `Ctrl+F5` peut être utile.
+
+`docker:up` demande l'environnement en terminal interactif. Sans terminal, passer
+`--environment local|prod|autre` ou utiliser un raccourci explicite. Les conteneurs
+demarrent en arriere-plan et leur disponibilite est attendue. En local/dev, le
+relais Stripe de test reste au premier plan; `Ctrl+C` l'arrete et conserve les
+conteneurs. `--no-stripe-webhook` permet un demarrage local sans relais,
+`--no-database` desactive le profil PostgreSQL. Le choix prod/autre ne change ni
+la cible Docker ni les secrets; autre conserve la configuration existante.
+Ces raccourcis n'executent pas les migrations ni le rattrapage des paiements.
+Prerequis et HTTPS : [demarrage guide](docker-deployment.md#demarrage-docker-guide).
 
 Pour forcer un rebuild local Web sans cache :
 
@@ -71,13 +86,13 @@ projection publique : `/api/public/fund-transparency`.
 
 | Mode test local           | Commande                                                |
 | ------------------------- | ------------------------------------------------------- |
-| Version CLI               | `yarn stripe:cli:version`                               |
+| Version CLI               | `stripe --version`                                      |
 | Listener HTTPS local      | `yarn stripe:webhook:listen`                            |
 | Prévisualiser un resend   | `yarn stripe:events:resend evt_1... evt_2... --dry-run` |
 | Rejouer des événements    | `yarn stripe:events:resend evt_1... evt_2...`           |
 | Prévisualiser un backfill | `yarn stripe:backfill --dry-run`                        |
 | Import borné              | `yarn stripe:backfill --from 2026-01-01 --limit 100`    |
-| Docker explicite          | `yarn stripe:backfill:docker --dry-run`                 |
+| Docker explicite          | `node scripts/stripe-backfill-docker.mjs --dry-run`     |
 
 Le backfill bascule dans Compose si `DATABASE_URL` utilise l'hôte `postgres`.
 Options : `--project`, `--include-unmatched`, `--from`, `--to`, `--limit`,
@@ -135,11 +150,11 @@ Sans clé SSH, le terminal peut demander un mot de passe.
 | Contrôler / état / logs                 | `yarn vps:check` / `yarn vps:ps` / `yarn vps:logs api` |
 | Shell dans le projet distant            | `yarn vps:ssh`                                         |
 | Revenir aux images précédentes          | `yarn vps:rollback`                                    |
-| Mettre à jour le code puis migrer       | `yarn vps:db:update` ou `yarn vps:db:migrate`          |
+| Mettre à jour le code puis migrer       | `yarn vps:db:update`                                   |
 | Console PostgreSQL                      | `yarn vps:db:psql`                                     |
 
-Les deux raccourcis `vps:db:*` de migration font `git pull --ff-only` et ne
-déploient pas les images. Le script `deploy.sh` utilise le checkout préparé;
+`vps:db:update` fait `git pull --ff-only` puis migre, sans déployer les images.
+Le script `deploy.sh` utilise le checkout préparé;
 il ne fait pas de pull. Avec `--no-build`, `WEB_IMAGE`/`API_IMAGE` doivent correspondre
 au SHA complet fourni par `--revision`. Le rollback des images
 `openg7-funding-web:rollback`/`openg7-funding-api:rollback` ne restaure pas la base.

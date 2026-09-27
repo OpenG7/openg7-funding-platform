@@ -157,10 +157,23 @@ test('Production rehearsal docs cover PostgreSQL sponsor lifecycle', () => {
   );
   assert.ok(
     launchChecklist.includes(
-      'scripts/restore-from-backup.sh --sponsor-logos-backup'
+      '[backup/recovery procedure](operations/backup-recovery.md)'
     )
   );
-  assert.ok(launchChecklist.includes('PLA_ROLE=operator'));
+  assert.ok(launchChecklist.includes('--target-project'));
+  assert.match(
+    launchChecklist,
+    /An audit exit code of 0 does not authorize activation/
+  );
+  assert.ok(
+    launchChecklist.includes(
+      '[production launch agent](../apps/production-launch-agent/README.md)'
+    )
+  );
+  assert.match(
+    launchChecklist,
+    /Execution requires\s+authorization for the exact operations/
+  );
   assert.ok(agentChecklist.includes('post-deploy-api-logs'));
   assert.ok(agentChecklist.includes('analyze-post-deploy-api-logs'));
 });

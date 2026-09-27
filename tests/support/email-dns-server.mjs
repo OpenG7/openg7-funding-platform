@@ -1,6 +1,9 @@
 import dgram from 'node:dgram';
 import net from 'node:net';
 import { once } from 'node:events';
+import { randomInt } from 'node:crypto';
+
+const randomPort = () => randomInt(49152, 65536);
 
 const wireName = (name) =>
   Buffer.concat([
@@ -35,7 +38,11 @@ function txt(name, parts) {
 }
 
 // An isolated DNS peer, never a forwarding resolver. Unknown names return NXDOMAIN.
-export async function startEmailDnsServer(t, entries) {
+export async function startEmailDnsServer(
+  t,
+  entries,
+  { choosePort = randomPort } = {}
+) {
   const requests = [],
     sockets = new Set();
   const reply = (packet, transport) => {
@@ -74,7 +81,7 @@ export async function startEmailDnsServer(t, entries) {
     header.writeUInt16BE(answers.length, 6);
     return Buffer.concat([header, packet.subarray(12, offset), ...answers]);
   };
-  const tcp = net.createServer((socket) => {
+  const handleConnection = (socket) => {
     sockets.add(socket);
     socket.on('close', () => sockets.delete(socket));
     socket.on('error', () => {});
@@ -95,20 +102,42 @@ export async function startEmailDnsServer(t, entries) {
         }
       }
     });
-  });
-  tcp.listen(0, '127.0.0.1');
-  await once(tcp, 'listening');
-  t.after(async () => {
-    for (const socket of sockets) socket.destroy();
-    await new Promise((resolve) => tcp.close(resolve));
-  });
-  const udp = dgram.createSocket('udp4');
-  udp.on('message', (packet, peer) => {
-    const response = reply(packet, 'udp');
-    if (response) udp.send(response, peer.port, peer.address);
-  });
-  udp.bind(tcp.address().port, '127.0.0.1');
-  await once(udp, 'listening');
-  t.after(() => new Promise((resolve) => udp.close(resolve)));
-  return { server: '127.0.0.1:' + tcp.address().port, requests };
+  };
+  // A free TCP port can be reserved for UDP on Windows. Probe both protocols
+  // and choose another random candidate on conflict, rather than walking a
+  // potentially long excluded range one port at a time.
+  for (let attempt = 0; attempt < 32; attempt++) {
+    const port = choosePort();
+    const tcp = net.createServer(handleConnection);
+    const udp = dgram.createSocket('udp4');
+    const stop = async () => {
+      for (const socket of sockets) socket.destroy();
+      await new Promise((resolve) => tcp.close(resolve));
+      await new Promise((resolve, reject) => {
+        try {
+          udp.close(resolve);
+        } catch (error) {
+          if (error.code === 'ERR_SOCKET_DGRAM_NOT_RUNNING') resolve();
+          else reject(error);
+        }
+      });
+    };
+    udp.on('message', (packet, peer) => {
+      const response = reply(packet, 'udp');
+      if (response) udp.send(response, peer.port, peer.address);
+    });
+    try {
+      tcp.listen(port, '127.0.0.1');
+      await once(tcp, 'listening');
+      udp.bind(port, '127.0.0.1');
+      await once(udp, 'listening');
+    } catch (error) {
+      await stop();
+      if (!['EADDRINUSE', 'EACCES'].includes(error.code) || attempt === 31)
+        throw error;
+      continue;
+    }
+    t.after(stop);
+    return { server: '127.0.0.1:' + port, requests };
+  }
 }

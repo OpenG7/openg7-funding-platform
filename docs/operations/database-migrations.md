@@ -49,6 +49,11 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [028](../../apps/funding-api/migrations/028_create_admin_stripe_backfills.sql)
+ajoute les aperçus et résultats du [rattrapage Stripe administratif](admin-stripe-backfill.md).
+Elle ne modifie aucune contribution et ne lance aucun import. L'appliquer avant
+de démarrer l'API et le Web mis à jour.
+
 La migration [027](../../apps/funding-api/migrations/027_create_contribution_activity.sql)
 ajoute les événements de paiement, preuves de confirmation arrivées en avance,
 préparations privées, réceptions SMS simulées et réservations de toasts par acteur.
@@ -64,7 +69,7 @@ yarn db:migrate
 
 Le raccourci lance `scripts/db-migrate.mjs`, démarre le service PostgreSQL privé
 et attend sa disponibilité. Le runner Bash `scripts/db-migrate.sh`, utilisé par
-le déploiement VPS, délègue au même moteur. **Node 22 et Docker Compose** sont
+le déploiement VPS, délègue au même moteur. **Node 22 ou supérieur et Docker Compose** sont
 requis sur l'hôte, même pour une livraison d'images déjà construites ; aucun
 package npm ni build API n'est nécessaire au runner.
 

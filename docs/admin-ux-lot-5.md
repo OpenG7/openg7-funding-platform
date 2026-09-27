@@ -106,7 +106,7 @@ yarn build
 node --test tests/integration/admin-cockpit.integration.mjs
 ```
 
-Le scénario s’exécute systématiquement et supprime son conteneur en fin de test. Il est inclus dans `yarn test:integration:payments`, séparément de `yarn test`. Voir la [recette actuelle](./admin-ux-lot-8.md) ; les résultats ci-dessus décrivent la validation initiale du lot 5.
+Le scénario s’exécute systématiquement et supprime son conteneur en fin de test. Il est inclus dans `yarn test:integration`, séparément de `yarn test`. Voir la [recette actuelle](./admin-ux-lot-8.md) ; les résultats ci-dessus décrivent la validation initiale du lot 5.
 
 ## Limites et suite
 
