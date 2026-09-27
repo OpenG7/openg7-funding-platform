@@ -61,6 +61,7 @@ export const adminRoleAllows = (
   if (
     path.startsWith('/admin/access') ||
     path === '/admin/contributions.csv' ||
+    path === '/admin/stripe-backfill' ||
     path === '/admin/setup-status' ||
     path === '/admin/email/test' ||
     path === '/admin/sponsorships/followup-access'

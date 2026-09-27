@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 export default defineConfig({
   testDir: './playwright',
   testMatch: [
+    'admin-stripe-backfill-ui.spec.ts',
     'admin-access-ui.spec.ts',
     'admin-setup-email-ui.spec.ts',
     'admin-pilotage.spec.ts',

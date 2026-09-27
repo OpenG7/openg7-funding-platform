@@ -124,6 +124,37 @@ export interface AdminSponsorshipListQuery {
 
 @Injectable({ providedIn: 'root' })
 export class FundingAdminService {
+  async stripeBackfill(
+    payload?: import('@openg7/funding-core').AdminStripeBackfillRequest,
+    id?: string
+  ): Promise<{
+    run: import('@openg7/funding-core').AdminStripeBackfillRun | null;
+  }> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/stripe-backfill${id ? '?' + new URLSearchParams({ id }) : ''}`,
+      {
+        method: payload ? 'POST' : 'GET',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(90000),
+        headers: {
+          ...(await this.createHeaders(this.getSavedAdminToken())),
+          'Content-Type': 'application/json'
+        },
+        ...(payload ? { body: JSON.stringify(payload) } : {})
+      }
+    );
+    if (!response.ok) {
+      if (response.status === 401) this.clearAdminSession();
+      const body = (await response.json().catch(() => ({}))) as {
+        code?: string;
+      };
+      throw new AdminDashboardRequestError(
+        response.status,
+        body.code ?? 'BACKFILL_UNAVAILABLE'
+      );
+    }
+    return response.json();
+  }
   readonly sessionGeneration = signal(0);
   async contributionActivity(
     query: { before?: string; after?: string; id?: string } = {}

@@ -123,7 +123,7 @@ Appliquer la migration avant de démarrer la nouvelle API ; les anciennes tables
 ## Vérifications
 
 - `yarn test` : contrats, validation des brouillons incomplets et contrôles historiques.
-- `yarn test:integration:payments` : PostgreSQL jetable, migration sur un dossier existant, concurrence, idempotence, expiration, destinataire autoritaire, renvoi d'un message déjà envoyé et rollback de la file.
+- `yarn test:integration` : PostgreSQL jetable, migration sur un dossier existant, concurrence, idempotence, expiration, destinataire autoritaire, renvoi d'un message déjà envoyé et rollback de la file.
 - `yarn test:ui:followup` : restauration après rechargement, saisie pendant une sauvegarde lente, erreur/reprise, abandon, conflit, récupération FR/EN et non-régression du suivi.
 - `yarn test:e2e:acceptance tests/playwright/sponsorship-access.spec.ts tests/playwright/sponsor-navigation.spec.ts` : vraie API, base et navigateur dans une pile Docker isolée. Vérifie la persistance, l'autorisation admin, la confirmation du destinataire, la file, l'audit et les parcours existants. SMTP est désactivé ; aucun courriel réel n'est envoyé.
 

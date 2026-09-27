@@ -84,7 +84,7 @@ yarn build
 node --test tests/integration/admin-search.integration.mjs
 ```
 
-Ce scénario s’exécute systématiquement et supprime son conteneur en fin de test. Il est inclus dans `yarn test:integration:payments`, séparément de `yarn test`. Voir la [recette actuelle](./admin-ux-lot-8.md) ; les résultats ci-dessous décrivent la validation initiale du lot 6.
+Ce scénario s’exécute systématiquement et supprime son conteneur en fin de test. Il est inclus dans `yarn test:integration`, séparément de `yarn test`. Voir la [recette actuelle](./admin-ux-lot-8.md) ; les résultats ci-dessous décrivent la validation initiale du lot 6.
 
 ## Recette du parcours complet
 

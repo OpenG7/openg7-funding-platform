@@ -1,5 +1,39 @@
 {
   "admin": {
+    "stripeBackfill": {
+      "title": "Synchroniser avec Stripe",
+      "description": "Récupérez les paiements manqués et leurs états confirmés par Stripe. Aucun nouveau prélèvement, courriel historique ou publication n’est déclenché.",
+      "scope": "Période de création Stripe en UTC : 31 jours maximum, 100 éléments maximum par catégorie.",
+      "from": "Du",
+      "to": "Au",
+      "limit": "Limite par catégorie",
+      "preview": "Prévisualiser le rattrapage",
+      "execute": "Synchroniser avec Stripe",
+      "refresh": "Vérifier le dernier résultat",
+      "loading": "Vérification en cours…",
+      "test": "Mode test",
+      "live": "Mode réel — données financières réelles",
+      "target": "Compte {{account}} · Projet {{project}}",
+      "confirm": "Synchroniser les données Stripe : {{mode}}, compte {{account}}, projet {{project}}, du {{from}} au {{to}} UTC, limite {{limit}} par catégorie ? Les états seront revérifiés auprès de Stripe. Cette opération peut mettre à jour plusieurs contributions.",
+      "counts": "{{scanned}} sessions examinées, {{matched}} correspondances. Écritures de paiement : {{payments}} ; remboursements : {{refunds}} ; états de litige : {{disputes}}.",
+      "capped": "La limite est atteinte. Réduisez la période pour vérifier l’intégralité des paiements.",
+      "missingFees": "Certains frais Stripe ne sont pas encore disponibles. Les webhooks pourront les compléter.",
+      "forbidden": "La synchronisation Stripe est réservée au propriétaire.",
+      "originForbidden": "L’adresse utilisée pour ouvrir l’administration n’est pas autorisée. Ouvrez l’administration depuis une adresse configurée pour cet environnement.",
+      "sessionExpired": "Votre session a expiré. Reconnectez-vous avant de consulter le résultat.",
+      "invalid": "Vérifiez les dates, la limite (1 à 100) et la confirmation. La période doit couvrir au plus 31 jours, jusqu’à aujourd’hui.",
+      "changed": "Un rattrapage est en cours ou cet aperçu a expiré ou changé. Vérifiez le résultat, puis préparez un nouvel aperçu si nécessaire.",
+      "expired": "Cet aperçu a expiré. Prévisualisez à nouveau avant de synchroniser.",
+      "unavailable": "Rattrapage indisponible. Vérifiez la connexion Stripe et les migrations de la base, puis réessayez.",
+      "uncertain": "La réponse n’a pas été reçue. Vérifiez le dernier résultat avant toute nouvelle tentative.",
+      "status": {
+        "preview": "Aperçu : compteurs prévus, aucune contribution modifiée. Valable 10 minutes. Les états Stripe seront relus au moment de la confirmation.",
+        "running": "Synchronisation en cours. Vérifiez le résultat dans quelques instants.",
+        "completed": "Synchronisation terminée. Les contributions ont été actualisées.",
+        "failed": "La synchronisation a échoué et peut être partielle. Consultez les contributions et le journal, puis préparez un nouvel aperçu avant de reprendre.",
+        "interrupted": "L’exécution a été interrompue et peut être partielle. Consultez les contributions et le journal, puis préparez un nouvel aperçu avant de reprendre."
+      }
+    },
     "contributionsExport": {
       "scopeOne": "Le CSV contient la contribution affichée après filtrage.",
       "confirmOne": "Exporter les données privées de la contribution affichée dans un fichier CSV ?",

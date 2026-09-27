@@ -305,7 +305,7 @@ const getOperationalHint = (message: string): string | null => {
   if (message.includes('ENOTFOUND postgres')) {
     return [
       'Hint: DATABASE_URL points to host `postgres`, which only resolves inside Docker Compose.',
-      'Run `corepack yarn stripe:backfill:docker --dry-run`, or run this command from a container on the Compose data network.'
+      'From the repository root, run `corepack yarn stripe:backfill --dry-run` for automatic Docker routing, or run this command from a container on the Compose data network.'
     ].join('\n');
   }
 

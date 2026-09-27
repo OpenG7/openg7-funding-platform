@@ -338,7 +338,7 @@ Les captures et reçus sont sous `test-results/acceptance/` ; la pile a été su
 
 ```sh
 yarn test
-yarn test:integration:payments
+yarn test:integration
 yarn playwright test --config tests/playwright/home-trust.config.ts
 yarn workspace @openg7/funding-web build --configuration production
 ```

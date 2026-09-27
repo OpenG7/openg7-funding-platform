@@ -72,10 +72,10 @@ Les cinq suites admin précédemment conditionnées par `*_TEST_DATABASE_URL` ut
 
 ```bash
 docker pull postgres:16-alpine
-yarn test:integration:payments
+yarn test:integration
 ```
 
-Cette commande couvre aussi les suites admin malgré son nom historique. Les bases temporaires sont supprimées en fin de test, y compris après un échec.
+Cette commande couvre les suites de paiement, admin et fournisseurs. Les bases temporaires sont supprimées en fin de test, y compris après un échec.
 
 ### CI de pull request
 

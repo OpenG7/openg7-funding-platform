@@ -21,7 +21,7 @@ Default: apply pending migrations atomically with checksums and a database lock.
 --plan: read-only inventory; does not start PostgreSQL or create a registry.
 --baseline-through: record reviewed legacy history only; executes no application SQL.
 Baseline requires a verified backup and schema review. Never infer history from table names.
-Both runners use Node 22, Docker Compose, POSTGRES_DB/POSTGRES_USER and MIGRATIONS_DIR.
+Both runners use Node 22 or newer, Docker Compose, POSTGRES_DB/POSTGRES_USER and MIGRATIONS_DIR.
 Configuration: OPENG7_E2E_ENV_FILE when set, otherwise .env; shell values take precedence.
 `;
 
@@ -49,8 +49,8 @@ if (options.help) {
   console.log(usage);
   process.exit(0);
 }
-if (Number(process.versions.node.split('.')[0]) !== 22)
-  fail('Use Node.js 22 for database migrations.');
+if (Number(process.versions.node.split('.')[0]) < 22)
+  fail('Use Node.js 22 or newer for database migrations.');
 
 loadDotEnv(process.env.OPENG7_E2E_ENV_FILE ?? '.env');
 const database = process.env.POSTGRES_DB || 'openg7_funding';

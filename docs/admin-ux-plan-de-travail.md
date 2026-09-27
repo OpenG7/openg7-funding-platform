@@ -256,7 +256,7 @@ yarn format:check
 yarn lint
 yarn workspace @openg7/funding-web build
 yarn test
-yarn test:e2e
+yarn test:sponsorship
 yarn test:e2e:playwright
 yarn test:e2e:acceptance
 git diff --check
@@ -264,7 +264,7 @@ git status --short
 ```
 
 - `yarn test` inclut la compilation TypeScript; la compilation Angular reste une commande distincte.
-- `yarn test:e2e` lance la suite Node de couverture commandite. Les parcours navigateur sont exécutés par `yarn test:e2e:playwright`.
+- `yarn test:sponsorship` lance la suite Node de couverture commandite. Les parcours navigateur sont exécutés par `yarn test:e2e:playwright`.
 - Le script Playwright prépare Docker, applique les migrations et charge les fixtures : l’exécuter uniquement sur l’environnement local de test vérifié. Si une migration est ajoutée, vérifier une DB locale propre et une DB locale avec données existantes.
 - Pour la recette, préférer `yarn test:e2e:acceptance` : cette commande crée une pile jetable sans charger le `.env` applicatif ni réutiliser les volumes locaux. Les tests UI interceptés sont exécutés séparément avec `yarn test:ui:admin`.
 - Réutiliser notamment les suites `admin-readonly-pages`, `admin-assistant`, `admin-sponsorship-review`, `admin-sponsorship-publication`, `admin-publication-batches`, `admin-email-queue` et `admin-refund-integrity`.

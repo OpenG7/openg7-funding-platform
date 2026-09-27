@@ -20,6 +20,7 @@ import type {
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminStripeBackfillComponent } from '../../components/admin-stripe-backfill/admin-stripe-backfill.component.js';
 import {
   AdminDashboardRequestError,
   FundingAdminService
@@ -31,7 +32,12 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 @Component({
   selector: 'openg7-admin-contributions-page',
   standalone: true,
-  imports: [TranslatePipe, CommonModule, AdminLayoutComponent],
+  imports: [
+    TranslatePipe,
+    CommonModule,
+    AdminLayoutComponent,
+    AdminStripeBackfillComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <openg7-admin-layout>
@@ -61,6 +67,8 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
             </button>
           </nav>
         </header>
+
+        <openg7-admin-stripe-backfill (completed)="loadContributions()" />
 
         <p class="state" data-og7="contribution-export-scope">
           {{

@@ -1,5 +1,39 @@
 {
   "admin": {
+    "stripeBackfill": {
+      "title": "Sync with Stripe",
+      "description": "Recover missed payments and their Stripe-confirmed status. This does not charge anyone, send historical emails or publish content.",
+      "scope": "Stripe creation dates in UTC: up to 31 days and 100 items per category.",
+      "from": "From",
+      "to": "To",
+      "limit": "Limit per category",
+      "preview": "Preview recovery",
+      "execute": "Sync with Stripe",
+      "refresh": "Check latest result",
+      "loading": "Checking…",
+      "test": "Test mode",
+      "live": "Live mode — real financial data",
+      "target": "Account {{account}} · Project {{project}}",
+      "confirm": "Sync Stripe data: {{mode}}, account {{account}}, project {{project}}, from {{from}} to {{to}} UTC, limit {{limit}} per category? Statuses will be checked with Stripe again. This may update several contributions.",
+      "counts": "{{scanned}} sessions scanned, {{matched}} matches. Payment entries: {{payments}}; refunds: {{refunds}}; dispute statuses: {{disputes}}.",
+      "capped": "The limit was reached. Narrow the date range to check all payments.",
+      "missingFees": "Some Stripe fees are not available yet. Webhooks can complete them later.",
+      "forbidden": "Only the owner can sync Stripe payments.",
+      "originForbidden": "The address used to open the administration is not allowed. Open the administration from an address configured for this environment.",
+      "sessionExpired": "Your session expired. Sign in again before checking the result.",
+      "invalid": "Check the dates, limit (1 to 100) and confirmation. Choose up to 31 days, ending no later than today.",
+      "changed": "A recovery is running or this preview expired or changed. Check the result, then prepare a new preview if needed.",
+      "expired": "This preview expired. Preview again before syncing.",
+      "unavailable": "Recovery is unavailable. Check the Stripe connection and database migrations, then try again.",
+      "uncertain": "No response was received. Check the latest result before trying again.",
+      "status": {
+        "preview": "Preview: expected counts; no contributions changed. Valid for 10 minutes. Stripe statuses will be read again when confirmed.",
+        "running": "Sync is running. Check the result shortly.",
+        "completed": "Sync completed. Contributions have been refreshed.",
+        "failed": "Sync failed and may be partial. Review contributions and the audit log, then prepare a new preview before resuming.",
+        "interrupted": "Execution was interrupted and may be partial. Review contributions and the audit log, then prepare a new preview before resuming."
+      }
+    },
     "contributionsExport": {
       "scopeOne": "The CSV contains the contribution displayed after filtering.",
       "confirmOne": "Export the private data of the displayed contribution to a CSV file?",

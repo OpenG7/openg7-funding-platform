@@ -187,8 +187,8 @@ const fallbackStatus: StripeSetupDevStatus = {
             </article>
             <article>
               <span>Web local</span>
-              <code>corepack yarn dev:funding-web</code>
-              <button type="button" (click)="copyText('corepack yarn dev:funding-web')">Copier</button>
+              <code>corepack yarn dev:web</code>
+              <button type="button" (click)="copyText('corepack yarn dev:web')">Copier</button>
             </article>
           </article>
 

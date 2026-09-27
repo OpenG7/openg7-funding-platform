@@ -12,6 +12,8 @@ the repository root. [Documentation index](../README.md).
 
 ## Fundraiser admin
 
+[Stripe recovery](../operations/admin-stripe-backfill.md).
+
 `POST /api/admin/sponsorships/media/delete` requires the current `assetId`,
 `expectedVersion`, and `confirmation` equal to the selected asset ID. Missing or
 different confirmation returns `400 CONFIRMATION_REQUIRED` before any storage

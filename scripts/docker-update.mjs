@@ -385,10 +385,10 @@ if (pruneImages) {
 
 if (startStripeWebhook) {
   console.log(
-    "\nStripe webhook listener demarre. Garde ce terminal ouvert pendant les paiements tests."
+    '\nVerification et lancement du relais Stripe. Garde ce terminal ouvert pendant les paiements tests.'
   );
   console.log(
-    "Si Stripe affiche un nouveau whsec_..., copie-le dans .env puis recree l'API."
+    'La cle de test et le secret de signature seront verifies sans etre affiches.'
   );
   run('yarn', ['stripe:webhook:listen']);
 }

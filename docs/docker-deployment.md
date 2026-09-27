@@ -230,6 +230,51 @@ Traefik uses Let's Encrypt HTTP-01 challenge:
 - Dynamic routes, services, middlewares, and TLS policy: `traefik/dynamic.yml`
 - Persistent ACME store: `traefik/acme/acme.json`
 
+### Demarrage Docker guide
+
+`yarn docker:up` propose local/dev (par defaut), prod ou autre. Les commandes
+suivantes evitent la question, notamment sans terminal interactif :
+
+```sh
+yarn docker:up:dev
+yarn docker:up --environment prod
+yarn docker:up --environment autre
+yarn docker:up:dev --dry-run
+```
+
+Local/dev utilise la configuration de developpement pour l'API et le build
+Angular, active PostgreSQL, construit les images puis attend les services avec
+`docker compose up -d --wait`. Il lance ensuite le meme relais de test que
+`yarn stripe:webhook:listen` dans le terminal. Garder ce terminal ouvert pendant
+les paiements de test; `Ctrl+C` arrete le relais, les conteneurs restent actifs.
+`--no-stripe-webhook` desactive ce relais et `--no-database` desactive le profil
+PostgreSQL. Pour le demarrage local detache sans relais, utiliser
+`yarn docker:up:dev --no-stripe-webhook` : build de developpement, PostgreSQL
+et surcharge TLS locale lorsque les certificats sont presents.
+
+Local/dev ajoute `https://localhost` et `https://127.0.0.1` aux origines
+autorisees de l'API, en conservant celles de `FUNDING_ALLOWED_ORIGINS`.
+Cela permet les actions admin depuis ces adresses locales. Prod et autre
+conservent les origines configurees sans ajout automatique.
+
+Le relais exige Stripe CLI, une cle de test et un `STRIPE_WEBHOOK_SECRET`
+correspondant au meme compte; ils sont verifies avant le build. La cle utilisee
+est celle de `.env` ou du shell, pas celle d'une autre connexion CLI. Les secrets
+ne sont ni affiches ni modifies. Le relais controle HTTPS avant de transmettre
+des evenements : preparer le certificat
+avec `yarn tls:local:setup`. Lorsque les fichiers de certificat sont presents,
+le mode local ajoute la surcharge TLS ci-dessous, sauf si `COMPOSE_FILE` definit
+deja une configuration personnalisee (qui doit alors inclure cette surcharge).
+
+Prod utilise les builds de production et ne lance aucun relais. Autre conserve
+la configuration `.env`/shell et ne lance aucun relais. Ces choix ne selectionnent
+pas de serveur, ne changent pas les secrets et ne remplacent pas la procedure de
+deploiement. PostgreSQL peut etre ajoute avec `--database`.
+Sans terminal, `--environment local|prod|autre` est obligatoire, meme si
+`FUNDING_PLATFORM_ENV` figure dans `.env`. `--dry-run` affiche uniquement les
+commandes prevues, sans contacter Docker ou Stripe. Les migrations et le
+rattrapage des paiements restent des operations separees.
+
 ### HTTPS local de confiance
 
 Le certificat genere par defaut par Traefik n'est pas approuve par les
@@ -333,7 +378,7 @@ Applied:
 ## Deployment
 
 The deployment runner calls `scripts/db-migrate.sh` when a database is configured.
-Both migration entrypoints require Node 22 on the host, including image-only
+Both migration entrypoints require Node 22 or newer on the host, including image-only
 deployments, and use the same registry, checksums and transaction lock.
 Review the [migration plan and legacy adoption procedure](operations/database-migrations.md)
 before deploying to an existing database. Pending SQL commits as one batch;
@@ -440,7 +485,7 @@ New migrations must be additive, numbered `.sql` files; applied files stay immut
 Use `node scripts/db-migrate.mjs --plan` to inspect an already running target
 without starting it or creating a registry. Existing databases without a registry
 require [reviewed history adoption](operations/database-migrations.md#adoption-dune-base-existante-sans-registre)
-before further application. Node 22 and Docker Compose are required on the host;
+before further application. Node 22 or newer and Docker Compose are required on the host;
 the [migration procedure](operations/database-migrations.md) defines target
 selection, execution limits and recovery after failure.
 
