@@ -4,7 +4,7 @@ import { diagnoseEmailDns } from './lib/email-dns.mjs';
 const usage = `Usage: yarn email:dns --domain <from-domain> --selector <dkim-selector> [--selector <next-selector>]
   [--spf-domain <mail-from-domain>] [--dkim-domain <signing-domain>]
   [--resolver <ip[:port]>] [--timeout-ms <100..10000>]
-Read-only TXT publication checks using Node 22. Domains must be ASCII/Punycode.
+Read-only TXT publication checks using Node 22 or newer. Domains must be ASCII/Punycode.
 No .env, SMTP connection, email, DNS changes or selector guessing.
 JSON stdout contains names and fixed findings, never raw TXT, public keys or reporting addresses.
 Exit 0: no finding within this limited scope; 2: findings/review; 1: incomplete or invalid arguments.
@@ -15,8 +15,8 @@ try {
   if (args.length === 1 && args[0] === '--help') {
     console.log(usage);
   } else {
-    if (Number(process.versions.node.split('.')[0]) !== 22)
-      throw new Error('Node 22 required.');
+    if (Number(process.versions.node.split('.')[0]) < 22)
+      throw new Error('Node 22 or newer required.');
     const names = {
       '--domain': 'domain',
       '--spf-domain': 'spfDomain',
@@ -46,7 +46,7 @@ try {
   }
 } catch {
   console.error(
-    'DNS diagnostic refused or incomplete. Check explicit arguments and Node 22; use --help.'
+    'DNS diagnostic refused or incomplete. Check explicit arguments and Node 22 or newer; use --help.'
   );
   process.exitCode = 1;
 }

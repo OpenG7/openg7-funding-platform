@@ -187,11 +187,17 @@ export function inspectDkim(records) {
     // Both commonly published SubjectPublicKeyInfo and RFC RSAPublicKey encodings.
     for (const type of ['spki', 'pkcs1']) {
       try {
-        const candidate = createPublicKey({ key, format: 'der', type });
-        if (
-          candidate.asymmetricKeyType === 'rsa' &&
-          candidate.export({ format: 'der', type }).equals(key)
-        ) {
+        let candidate = createPublicKey({ key, format: 'der', type });
+        if (candidate.asymmetricKeyType !== 'rsa') continue;
+        // Some OpenSSL builds import PKCS#1 but cannot directly re-export it.
+        // Normalize through SPKI while retaining the exact DER round-trip check.
+        if (type === 'pkcs1')
+          candidate = createPublicKey({
+            key: candidate.export({ format: 'der', type: 'spki' }),
+            format: 'der',
+            type: 'spki'
+          });
+        if (candidate.export({ format: 'der', type }).equals(key)) {
           publicKey = candidate;
           break;
         }

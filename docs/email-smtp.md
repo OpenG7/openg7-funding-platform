@@ -263,7 +263,7 @@ The API Docker image does not copy `.env`. `.dockerignore` excludes `.env` and
 
 ### Read-only DNS diagnostic
 
-Use Node 22 and explicit domains/selectors supplied by the mail provider or
+Use Node 22 or newer and explicit domains/selectors supplied by the mail provider or
 observed in a received test message. This command reads DNS TXT records only;
 it does not load `.env`, connect to SMTP, send mail or change the DNS zone.
 
