@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, ViewportScroller } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -13,7 +13,7 @@ import {
   viewChild
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink, Scroll } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   DEFAULT_SPONSORSHIP_PRICING_CONFIG,
@@ -77,6 +77,11 @@ const feedStatuses: readonly SponsorFeedStatus[] = [
   'drafted',
   'published'
 ];
+
+/** Only a tab selection preserves the viewport; other navigation keeps router defaults. */
+class SponsorTabNavigation {
+  constructor(readonly position: [number, number]) {}
+}
 
 interface SponsorshipPublicationDraft {
   readonly publicSlug: string;
@@ -2324,6 +2329,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
+  private readonly viewport = inject(ViewportScroller);
   private readonly destroyRef = inject(DestroyRef);
   @ViewChild('sponsorDetailPanel')
   private readonly sponsorDetailPanel?: ElementRef<HTMLElement>;
@@ -2611,6 +2617,31 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
+    this.router.events
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => {
+        if (!(event instanceof Scroll)) return;
+        const navigation = this.router.lastSuccessfulNavigation();
+        const info = navigation?.extras.info;
+        if (
+          event.routerEvent.id === navigation?.id &&
+          info instanceof SponsorTabNavigation
+        ) {
+          // Run after the router's own Scroll subscriber, regardless of subscription order.
+          queueMicrotask(() => {
+            if (
+              this.destroyRef.destroyed ||
+              this.router.currentNavigation() ||
+              this.router.lastSuccessfulNavigation()?.id !==
+                event.routerEvent.id
+            )
+              return;
+            this.viewport.scrollToPosition(info.position, {
+              behavior: 'instant'
+            });
+          });
+        }
+      });
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
@@ -3730,11 +3761,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   setActiveTab(tab: SponsorDetailsTab): void {
+    if (tab === this.activeTab()) return;
+    const info = new SponsorTabNavigation(this.viewport.getScrollPosition());
     this.activeTab.set(tab);
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { sponsorshipId: this.selectedSponsorshipId(), tab },
-      queryParamsHandling: 'merge'
+      queryParamsHandling: 'merge',
+      info
     });
     if (tab === 'media') {
       void this.loadSponsorMedia(this.selectedSponsorshipId());

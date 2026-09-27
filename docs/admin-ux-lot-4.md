@@ -5,7 +5,7 @@ Réalisé le 16 septembre 2026 selon le [plan](./admin-ux-plan-de-travail.md), l
 ## Résultat visible
 
 - **Modifier le dossier** permet de corriger les coordonnées depuis chaque onglet, avec confirmation, gestion des conflits et historique. Voir le [parcours et son contrat](./admin-sponsorship-editing.md).
-- Sept onglets : **Résumé, Identité, Médias, Publication, Facturation, Remboursements, Historique**. URL directe : `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`. Les changements d’onglet conservent les filtres de la liste ouverte et le lien de retour vers la file filtrée.
+- Sept onglets : **Résumé, Identité, Médias, Publication, Facturation, Remboursements, Historique**. URL directe : `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`. Les changements d’onglet conservent les filtres de la liste ouverte, le lien de retour vers la file filtrée et la position de défilement dans la limite de la hauteur du nouvel onglet. Le focus reste sur le bouton activé; sélectionner à nouveau l’onglet courant ne déclenche pas de navigation. Les autres navigations et les boutons précédent/suivant du navigateur gardent le comportement du routeur.
 - Six jalons indépendants avec état, explication et lien : paiement, identité, médias, revue, facturation, publication. Une facture déjà émise reste terminée avant l’approbation administrative.
 - Bloc **Prochaine étape** dans le dossier et carte **Commandite en cours** à côté de « À traiter » dans le cockpit large. Les jalons se réorganisent selon la largeur disponible.
 - Identité séparée des contrôles de médias existants. L’Assistant contextuel se trouve dans **Résumé**, avec ses faits dépliables. Les formulaires existants de revue, publication et remboursement restent les points d’exécution.

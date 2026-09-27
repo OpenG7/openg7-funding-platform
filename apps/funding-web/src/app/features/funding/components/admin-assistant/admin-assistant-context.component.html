@@ -123,40 +123,46 @@
         }
       </div>
       <div class="actions">
-        @if (context.canRequestInformation) {
+        @if (canPrepare()) {
+          @if (context.canRequestInformation) {
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="busy()"
+              (click)="prepare('sponsorship_reminder')"
+            >
+              {{ 'admin.context.requestInfo' | translate }}
+            </button>
+          }
           <button
             type="button"
             class="admin-button"
             [disabled]="busy()"
-            (click)="prepare('sponsorship_reminder')"
+            (click)="prepare('admin_note')"
           >
-            {{ 'admin.context.requestInfo' | translate }}
+            {{ 'admin.context.prepareNote' | translate }}
           </button>
+          @if (context.nextStep === 'prepare_publication') {
+            <button
+              type="button"
+              class="admin-button"
+              [disabled]="busy()"
+              (click)="prepare('publication_draft')"
+            >
+              {{ 'admin.context.preparePublication' | translate }}
+            </button>
+          }
         }
-        <button
-          type="button"
-          class="admin-button"
-          [disabled]="busy()"
-          (click)="prepare('admin_note')"
-        >
-          {{ 'admin.context.prepareNote' | translate }}
-        </button>
-        @if (context.nextStep === 'prepare_publication') {
-          <button
-            type="button"
-            class="admin-button"
-            [disabled]="busy()"
-            (click)="prepare('publication_draft')"
+        @if (showWorkspaceLink()) {
+          <a
+            class="admin-link"
+            [routerLink]="busy() ? null : '/admin/fundraiser/assistant'"
+            [queryParams]="{ sponsorshipId: context.contributionId }"
+            [info]="workspaceNavigation()"
+            [attr.aria-disabled]="busy() ? 'true' : null"
+            >{{ 'admin.context.workspace' | translate }}</a
           >
-            {{ 'admin.context.preparePublication' | translate }}
-          </button>
         }
-        <a
-          class="admin-link"
-          routerLink="/admin/fundraiser/assistant"
-          [queryParams]="{ sponsorshipId: context.contributionId }"
-          >{{ 'admin.context.workspace' | translate }}</a
-        >
       </div>
       @if (prepared(); as proposal) {
         @if (proposal.draft; as draft) {

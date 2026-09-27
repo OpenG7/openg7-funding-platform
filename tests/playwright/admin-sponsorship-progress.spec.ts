@@ -784,6 +784,100 @@ test('seven dossier tabs use direct URLs; invoice is complete before review; bro
   expect(calls.every((c) => c.method === 'GET')).toBe(true);
 });
 
+for (const width of [1280, 390]) {
+  test(`dossier tabs preserve scroll and keyboard focus at ${width}px`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page);
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(path('media'));
+    const navigation = tabs(page);
+    await expect(
+      navigation.getByRole('button', { name: 'Médias', exact: true })
+    ).toHaveAttribute('aria-current', 'page');
+    await navigation.evaluate((element) =>
+      window.scrollTo({
+        top: window.scrollY + element.getBoundingClientRect().top - 280,
+        behavior: 'instant'
+      })
+    );
+    let refundPosition = 0;
+    for (const [index, tab] of [
+      'overview',
+      'identity',
+      'media',
+      'publication',
+      'billing',
+      'refund',
+      'audit',
+      'audit'
+    ].entries()) {
+      const button = navigation
+        .getByRole('button')
+        .nth(
+          [
+            'overview',
+            'identity',
+            'media',
+            'publication',
+            'billing',
+            'refund',
+            'audit'
+          ].indexOf(tab)
+        );
+      await button.focus();
+      const before = await page.evaluate(() => window.scrollY);
+      if (index === 6) refundPosition = before;
+      expect(before).toBeGreaterThan(100);
+      if (index % 2) await button.press('Enter');
+      else await button.click();
+      await expect(page).toHaveURL(path(tab));
+      await expect(button).toHaveAttribute('aria-current', 'page');
+      // Let the router's scheduled scrolling and the new panel layout complete.
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+          )
+      );
+      const position = await page.evaluate(() => ({
+        y: window.scrollY,
+        maximum: document.documentElement.scrollHeight - window.innerHeight
+      }));
+      expect(position.y).toBeCloseTo(Math.min(before, position.maximum), 0);
+      await expect(button).toBeFocused();
+      await expect(button).toBeInViewport();
+    }
+    await page.goBack();
+    await expect(page).toHaveURL(path('refund'));
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (expected) =>
+            Math.abs(
+              window.scrollY -
+                Math.min(
+                  expected,
+                  document.documentElement.scrollHeight - window.innerHeight
+                )
+            ),
+          refundPosition
+        )
+      )
+      .toBeLessThan(1);
+    await page.goForward();
+    await expect(page).toHaveURL(path('audit'));
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    // Leaving the dossier must still use the normal router scroll behavior.
+    await page
+      .getByRole('link', { name: 'Assistant', exact: true })
+      .last()
+      .click();
+    await expect(page).toHaveURL('/admin/fundraiser/assistant');
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  });
+}
+
 test('publication cancellation, partial refund, missing credit and failed email are linked to their dossiers', async ({
   page
 }) => {

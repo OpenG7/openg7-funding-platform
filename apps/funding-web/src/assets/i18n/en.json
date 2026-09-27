@@ -563,6 +563,7 @@
       "working": "Working…",
       "conflict": "The record has changed. Refresh the context and prepare a new message.",
       "actionError": "The operation could not be confirmed. Try again; an identical message will not be created twice.",
+      "actionForbidden": "This action is not allowed. You can still view the record.",
       "links": "Useful links",
       "limits": "Limitations",
       "state": {
