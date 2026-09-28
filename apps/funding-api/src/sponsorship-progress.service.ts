@@ -107,8 +107,9 @@ export const buildSponsorshipProgress = (
     creditMissing,
     hasError: refundError
   };
+  const coordinatesComplete = record.hasCompanyName && record.hasContactEmail;
   const identityComplete = Boolean(
-    record.detailsSubmittedAt && record.hasCompanyName && record.hasContactEmail
+    record.detailsSubmittedAt && coordinatesComplete
   );
   const imageApproved = media.some(
     (m) => m.kind === 'supporting_image' && m.reviewStatus === 'approved'
@@ -167,8 +168,16 @@ export const buildSponsorshipProgress = (
     },
     {
       id: 'identity',
-      state: identityComplete ? 'complete' : 'blocked',
-      reason: identityComplete ? 'identity_complete' : 'identity_missing',
+      state: identityComplete
+        ? 'complete'
+        : coordinatesComplete
+          ? 'pending'
+          : 'blocked',
+      reason: identityComplete
+        ? 'identity_complete'
+        : coordinatesComplete
+          ? 'identity_submission_pending'
+          : 'identity_missing',
       tab: 'identity'
     },
     {
@@ -414,7 +423,10 @@ export const getSponsorshipProgress = async (
     return {
       ...base,
       status: 'ok',
-      dossier: { ...dossier, preparationActivityId: activity.rows[0]?.id ?? null }
+      dossier: {
+        ...dossier,
+        preparationActivityId: activity.rows[0]?.id ?? null
+      }
     };
   } catch (error) {
     await client.query('ROLLBACK');

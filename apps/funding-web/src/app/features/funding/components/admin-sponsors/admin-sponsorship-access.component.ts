@@ -1,12 +1,15 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
+  ElementRef,
   effect,
   inject,
   input,
   output,
-  signal
+  signal,
+  viewChild
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
@@ -22,6 +25,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   standalone: true,
   imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['../admin-ui/admin-controls.css'],
   styles: [
     `
       :host {
@@ -48,22 +52,44 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
       }
     `
   ],
-  template: `<section data-og7="admin-followup-access">
-    <h3>{{ 'admin.followupAccess.title' | translate }}</h3>
-    <p>{{ 'admin.followupAccess.copy' | translate }}</p>
-    <button type="button" [disabled]="busy()" (click)="resend()">
-      {{ 'admin.followupAccess.' + (busy() ? 'working' : 'send') | translate }}
-    </button>
-    <p role="status">{{ 'admin.followupAccess.' + state() | translate }}</p>
-  </section>`
+  template: `@if (allowed()) {
+    <section
+      #accessPanel
+      data-og7="admin-followup-access"
+      class="admin-focus-target"
+      tabindex="-1"
+      aria-labelledby="dossier-followup-access-title"
+    >
+      <h3 id="dossier-followup-access-title">
+        {{ 'admin.followupAccess.title' | translate }}
+      </h3>
+      <p>{{ 'admin.followupAccess.copy' | translate }}</p>
+      <button
+        type="button"
+        [disabled]="busy() || disabled()"
+        (click)="resend()"
+      >
+        {{
+          'admin.followupAccess.' + (busy() ? 'working' : 'send') | translate
+        }}
+      </button>
+      <p role="status">{{ 'admin.followupAccess.' + state() | translate }}</p>
+    </section>
+  }`
 })
 export class AdminSponsorshipAccessComponent {
+  private readonly accessPanel =
+    viewChild<ElementRef<HTMLElement>>('accessPanel');
   readonly contributionId = input.required<string>();
   readonly token = input.required<string>();
+  readonly disabled = input(false);
   readonly queued = output<void>();
   readonly busy = signal(false);
   readonly state = signal('idle');
   private readonly api = inject(FundingAdminService);
+  readonly allowed = computed(
+    () => !this.api.identity() || this.api.identity()?.role === 'owner'
+  );
   private readonly i18n = inject(FundingI18nService);
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly destroyRef = inject(DestroyRef);
@@ -78,12 +104,19 @@ export class AdminSponsorshipAccessComponent {
       this.state.set('idle');
     });
   }
+  focus(): void {
+    const panel = this.accessPanel()?.nativeElement;
+    panel?.focus({ preventScroll: true });
+    panel?.scrollIntoView({ block: 'start', behavior: 'instant' });
+  }
   async resend(): Promise<void> {
-    if (this.busy()) return;
+    if (this.busy() || this.disabled() || !this.allowed()) return;
     const id = this.contributionId();
     const generation = this.generation;
     const current = () =>
-      !this.destroyRef.destroyed && generation === this.generation;
+      !this.destroyRef.destroyed &&
+      generation === this.generation &&
+      this.allowed();
     this.busy.set(true);
     this.state.set('idle');
     try {

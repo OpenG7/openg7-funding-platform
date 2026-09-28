@@ -1,0 +1,134 @@
+<details open data-og7="dossier-guide">
+  <summary>{{ 'admin.dossier.guide.title' | translate }}</summary>
+  <div class="guide-body">
+    <p class="help">{{ 'admin.dossier.guide.intro' | translate }}</p>
+    @if (complete()) {
+      <p class="completion" role="status">
+        {{ 'admin.dossier.guide.complete' | translate }}
+      </p>
+    }
+    @if (!canManage()) {
+      <p>{{ 'admin.dossier.guide.readonly' | translate }}</p>
+    }
+    @if (current(); as step) {
+      <div
+        class="guide-position"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <span>{{
+          'admin.dossier.guide.position'
+            | translate: { current: index() + 1, total: steps().length }
+        }}</span>
+        <h3>{{ step.title | translate }}</h3>
+        <span>{{ 'admin.dossier.states.' + step.state | translate }}</span>
+        @if (!complete() && index() === recommendedIndex()) {
+          <strong>{{ 'admin.dossier.guide.recommended' | translate }}</strong>
+        }
+      </div>
+      <p data-og7="guide-reason">
+        {{ 'admin.dossier.reasons.' + step.reason | translate }}
+      </p>
+      <p>
+        <strong>{{ 'admin.dossier.guide.who' | translate }}</strong>
+        {{ 'admin.dossier.guide.topics.' + step.topic + '.who' | translate }}
+      </p>
+      @if (step.topic === 'refund' && !canUseOwnerActions()) {
+        <p class="help">
+          {{ 'admin.dossier.guide.refundOwnerHelp' | translate }}
+        </p>
+      } @else if (
+        step.topic === 'identitySubmission' && !canUseOwnerActions()
+      ) {
+        <p class="help">
+          {{ 'admin.dossier.identityHelp.ownerHelp' | translate }}
+        </p>
+      }
+      <ol>
+        @for (number of instructionNumbers; track number) {
+          <li>
+            {{
+              'admin.dossier.guide.topics.' + step.topic + '.step' + number
+                | translate
+            }}
+          </li>
+        }
+      </ol>
+      <p class="condition">
+        <strong>{{ 'admin.dossier.guide.doneWhen' | translate }}</strong>
+        {{
+          'admin.dossier.guide.topics.' + step.topic + '.condition' | translate
+        }}
+      </p>
+      <div class="guide-actions">
+        @if (step.reason === 'identity_missing' && canManage()) {
+          <button
+            type="button"
+            class="admin-button admin-button--primary"
+            data-og7="guide-edit-identity"
+            [disabled]="disabled()"
+            (click)="editIdentity.emit()"
+          >
+            {{ 'admin.dossier.identityHelp.edit' | translate }}
+          </button>
+        } @else if (
+          step.reason === 'identity_submission_pending' && canUseOwnerActions()
+        ) {
+          <button
+            type="button"
+            class="admin-button admin-button--primary"
+            data-og7="guide-followup-access"
+            (click)="openAccess.emit()"
+          >
+            {{ 'admin.dossier.identityHelp.access' | translate }}
+          </button>
+        } @else {
+          <a
+            class="admin-button admin-button--primary"
+            data-og7="guide-open-section"
+            routerLink="/admin/fundraiser/sponsors"
+            [queryParams]="{
+              sponsorshipId: dossier().contributionId,
+              tab: step.tab
+            }"
+            queryParamsHandling="merge"
+            [fragment]="'dossier-' + step.section"
+          >
+            {{ 'admin.dossier.nextActions.' + step.section | translate }}
+          </a>
+        }
+      </div>
+      <nav [attr.aria-label]="'admin.dossier.guide.navigation' | translate">
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="guide-previous"
+          [disabled]="index() === 0"
+          (click)="move(-1)"
+        >
+          {{ 'admin.dossier.guide.previous' | translate }}
+        </button>
+        <button
+          type="button"
+          class="admin-button"
+          data-og7="guide-next"
+          [disabled]="index() === steps().length - 1"
+          (click)="move(1)"
+        >
+          {{ 'admin.dossier.guide.next' | translate }}
+        </button>
+        @if (!complete() && index() !== recommendedIndex()) {
+          <button
+            type="button"
+            class="admin-button"
+            data-og7="guide-recommended"
+            (click)="recommend()"
+          >
+            {{ 'admin.dossier.guide.backToRecommended' | translate }}
+          </button>
+        }
+      </nav>
+    }
+  </div>
+</details>

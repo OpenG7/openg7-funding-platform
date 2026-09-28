@@ -85,17 +85,23 @@
         </button>
       }
       <div>
-        <strong>{{ 'admin.dossier.next' | translate }}</strong>
+        <strong>{{
+          (nextSection() ? 'admin.dossier.next' : 'admin.dossier.completed')
+            | translate
+        }}</strong>
         <p>{{ 'admin.dossier.reasons.' + d.next.reason | translate }}</p>
       </div>
-      <a
-        class="admin-button primary"
-        routerLink="/admin/fundraiser/sponsors"
-        [queryParams]="params(d.contributionId, d.next.tab)"
-        queryParamsHandling="merge"
-        data-og7="dossier-next"
-        >{{ 'admin.dossier.openStep' | translate }}</a
-      >
+      @if (nextSection(); as section) {
+        <a
+          class="admin-button primary"
+          routerLink="/admin/fundraiser/sponsors"
+          [queryParams]="params(d.contributionId, d.next.tab)"
+          [fragment]="'dossier-' + section"
+          queryParamsHandling="merge"
+          data-og7="dossier-next"
+          >{{ 'admin.dossier.nextActions.' + section | translate }}</a
+        >
+      }
     </div>
     @if (!compact()) {
       <p class="help">{{ 'admin.dossier.independent' | translate }}</p>

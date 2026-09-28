@@ -2,7 +2,8 @@ import type { Page } from '@playwright/test';
 import type {
   AdminSponsorshipProgress,
   AdminSponsorshipProgressResponse,
-  AdminSponsorshipRecord
+  AdminSponsorshipRecord,
+  SponsorMediaAsset
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
@@ -135,17 +136,17 @@ const record = (value = id): AdminSponsorshipRecord => ({
   created_at: date,
   updated_at: date
 });
-async function fixtures(page: Page) {
-  await page.addInitScript(() => {
+async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
+  await page.addInitScript((oidc) => {
     sessionStorage.setItem(
       'openg7-admin-session-token',
-      'openg7-admin-session.ui-fixture'
+      oidc ? 'openg7-admin-session.cookie' : 'openg7-admin-session.ui-fixture'
     );
     sessionStorage.setItem(
       'openg7-admin-session-expires-at',
       '2099-01-01T00:00:00Z'
     );
-  });
+  }, Boolean(role));
   const calls: {
     url: URL;
     method: string;
@@ -160,8 +161,16 @@ async function fixtures(page: Page) {
     edited: new Map<string, Partial<AdminSponsorshipRecord>>(),
     queueCount: 3,
     version: 'v1',
+    listStatus: 200,
+    listSize: 2,
+    media: [] as SponsorMediaAsset[],
+    mutationStatus: 200,
+    mutationGate: null as Promise<void> | null,
     reviewGate: null as Promise<void> | null,
-    progressGate: null as Promise<void> | null
+    progressGate: null as Promise<void> | null,
+    listGate: null as Promise<void> | null,
+    next: null as AdminSponsorshipProgress['next'] | null,
+    milestones: null as AdminSponsorshipProgress['milestones'] | null
   };
   await page.route('**/api/**', async (route) => {
     const req = route.request(),
@@ -169,55 +178,203 @@ async function fixtures(page: Page) {
     calls.push({
       url,
       method: req.method(),
-      body: req.postData()
-        ? (req.postDataJSON() as Record<string, unknown>)
-        : null
+      body:
+        req.postData() &&
+        req.headers()['content-type']?.includes('application/json')
+          ? (req.postDataJSON() as Record<string, unknown>)
+          : null
     });
+    if (url.pathname === '/api/admin/auth/current' && role)
+      return route.fulfill({
+        json: {
+          id: 'dossier-fixture',
+          sessionId: 'dossier-session',
+          displayName: 'Dossier fixture',
+          role,
+          expiresAt: '2099-01-01T00:00:00Z'
+        }
+      });
     if (url.pathname === '/api/admin/sponsorships/progress') {
       const selected = url.searchParams.get('sponsorshipId') || id;
       if (selected === id && options.progressGate) await options.progressGate;
+      const current = { ...record(selected), ...options.edited.get(selected) };
+      const coordinatesPresent = Boolean(
+        current.sponsor_company_name && current.sponsor_contact_email
+      );
+      const identityStep: AdminSponsorshipProgress['milestones'][number] = {
+        id: 'identity',
+        tab: 'identity',
+        state: !coordinatesPresent
+          ? 'blocked'
+          : current.sponsor_details_submitted_at
+            ? 'complete'
+            : 'pending',
+        reason: !coordinatesPresent
+          ? 'identity_missing'
+          : current.sponsor_details_submitted_at
+            ? 'identity_complete'
+            : 'identity_submission_pending'
+      };
       return route.fulfill({
         status: options.status,
         json: {
           status: options.state,
           generatedAt: date,
-          dossier: options.state === 'ok' ? dossier(selected) : null
+          dossier:
+            options.state === 'ok'
+              ? {
+                  ...dossier(selected),
+                  milestones:
+                    options.milestones ??
+                    dossier(selected).milestones.map((step) =>
+                      step.id === 'identity' ? identityStep : step
+                    ),
+                  next:
+                    options.next ??
+                    (identityStep.state === 'complete'
+                      ? dossier(selected).next
+                      : {
+                          reason: identityStep.reason,
+                          tab: 'identity',
+                          adminUrl: path('identity', selected)
+                        })
+                }
+              : null
         }
       });
     }
     if (url.pathname === '/api/admin/sponsorships') {
+      if (options.listGate) await options.listGate;
+      if (options.listStatus !== 200)
+        return route.fulfill({
+          status: options.listStatus,
+          json: { error: 'Synthetic list failure' }
+        });
       const search = url.searchParams.get('search');
-      const records = [id, secondId]
+      const records = Array.from({ length: options.listSize }, (_, index) =>
+        index === 0
+          ? id
+          : index === 1
+            ? secondId
+            : `10000000-0000-4000-8000-${String(index + 401).padStart(12, '0')}`
+      )
         .filter((value) => !search || !search.includes('-') || search === value)
         .map((value) => ({
           ...record(value),
           version: options.version,
           ...options.edited.get(value)
         }));
+      const currentPage = Number(url.searchParams.get('page') || 1);
+      const pageSize = Number(url.searchParams.get('pageSize') || 6);
+      const items = records.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize
+      );
       return route.fulfill({
         json: {
           data_source: 'database',
-          items: records,
-          sponsorships: records,
+          items,
+          sponsorships: items,
           pagination: {
-            page: 1,
-            pageSize: 6,
+            page: currentPage,
+            pageSize,
             totalItems: records.length,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false
+            totalPages: Math.max(1, Math.ceil(records.length / pageSize)),
+            hasPreviousPage: currentPage > 1,
+            hasNextPage: currentPage * pageSize < records.length
           },
           last_updated_at: date
         }
       });
     }
     if (url.pathname === '/api/admin/sponsorships/media')
-      return route.fulfill({ json: { assets: [] } });
+      return route.fulfill({ json: { assets: options.media } });
+    if (
+      url.pathname.includes('/sponsorships/media/content/') ||
+      (url.pathname === '/api/admin/sponsorships/logo' &&
+        req.method() === 'GET')
+    )
+      return route.fulfill({
+        contentType: 'image/png',
+        body: Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aV0cAAAAASUVORK5CYII=',
+          'base64'
+        )
+      });
+    if (
+      url.pathname === '/api/admin/sponsorships/followup-access' &&
+      req.method() === 'GET'
+    )
+      return route.fulfill({ json: { recipient: 'payment@example.invalid' } });
+    if (
+      req.method() === 'POST' &&
+      [
+        '/api/admin/sponsorships/media/review',
+        '/api/admin/sponsorships/media/delete',
+        '/api/admin/sponsorships/logo',
+        '/api/admin/sponsorships/logo/delete',
+        '/api/admin/sponsorships/publication',
+        '/api/admin/sponsorships/refund',
+        '/api/admin/sponsorships/followup-access'
+      ].includes(url.pathname)
+    ) {
+      if (options.mutationGate) await options.mutationGate;
+      if (options.mutationStatus !== 200)
+        return route.fulfill({
+          status: options.mutationStatus,
+          json: { error: 'Synthetic action failure' }
+        });
+      const input = req.headers()['content-type']?.includes('application/json')
+        ? req.postDataJSON()
+        : {};
+      if (url.pathname.endsWith('/media/review'))
+        options.media = options.media.map((asset) =>
+          asset.id === input.assetId
+            ? {
+                ...asset,
+                altText: input.altText || null,
+                reviewStatus: input.reviewStatus,
+                version: asset.version + '-updated'
+              }
+            : asset
+        );
+      if (url.pathname.endsWith('/media/delete'))
+        options.media = options.media.filter(
+          (asset) => asset.id !== input.assetId
+        );
+      if (url.pathname.endsWith('/logo'))
+        options.edited.set(id, {
+          sponsor_logo_url: `/api/public/sponsor-logos/${id}.webp`
+        });
+      if (url.pathname.endsWith('/logo/delete'))
+        options.edited.set(id, { sponsor_logo_url: null });
+      if (url.pathname.endsWith('/publication'))
+        options.edited.set(id, {
+          ...options.edited.get(id),
+          sponsor_public_slug: input.publicSlug,
+          sponsor_public_summary: input.publicSummary,
+          sponsor_feed_status: input.feedStatus,
+          sponsor_feed_target: input.feedTarget,
+          sponsor_feed_channels: input.feedChannels,
+          sponsor_feed_public_url: input.feedPublicUrl,
+          sponsor_feed_notes: input.feedNotes
+        });
+      return route.fulfill({
+        json: {
+          updated: true,
+          status: 'queued',
+          sizeBytes: 68,
+          refundWorkflowStatus: 'processing',
+          refundStatus: 'pending'
+        }
+      });
+    }
     if (url.pathname === '/api/admin/sponsorships/details') {
       if (options.detailsGate) await options.detailsGate;
       const input = req.postDataJSON();
       if (options.detailsStatus === 200)
         options.edited.set(input.contributionId, {
+          ...options.edited.get(input.contributionId),
           sponsor_company_name: input.companyName,
           public_name: input.publicName || null,
           sponsor_contact_name: input.contactName || null,
@@ -289,6 +446,974 @@ const progress = (page: Page) =>
 const tabs = (page: Page) => page.locator('[data-og7="dossier-tabs"]');
 
 const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
+const guide = (page: Page) => page.locator('[data-og7="dossier-guide"]');
+
+for (const width of [1280, 390]) {
+  test(`dossier guide explains all milestones without validating them at ${width}px`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page, 'operator');
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(path());
+    const panel = guide(page);
+    await expect(panel).toBeVisible();
+    await expect(
+      panel.getByRole('heading', { name: 'Revue', exact: true })
+    ).toBeVisible();
+    await expect(panel).toContainText('À traiter maintenant');
+    const previous = panel.locator('[data-og7="guide-previous"]');
+    const next = panel.locator('[data-og7="guide-next"]');
+    for (let count = 0; count < 3; count++) await previous.click();
+    await expect(previous).toBeDisabled();
+    const titles = [
+      'Paiement',
+      'Identité',
+      'Médias',
+      'Revue',
+      'Facturation',
+      'Publication'
+    ];
+    for (const [index, title] of titles.entries()) {
+      await expect(
+        panel.getByRole('heading', { name: title, exact: true })
+      ).toBeVisible();
+      await expect(panel).toContainText(`Étape ${index + 1} sur 6`);
+      await expect(panel.locator('ol > li')).toHaveCount(3);
+      await expect(panel).toContainText('Qui intervient :');
+      await expect(panel).toContainText('Condition de validation :');
+      if (index < 5) {
+        await next.focus();
+        await page.keyboard.press('Enter');
+      }
+    }
+    await expect(next).toBeDisabled();
+    await expect(
+      progress(page).locator('[data-og7-id="review"]')
+    ).toHaveAttribute('data-state', 'pending');
+    await expect(
+      progress(page).locator('[data-og7-id="publication"]')
+    ).toHaveAttribute('data-state', 'cancelled');
+    await panel.locator('[data-og7="guide-recommended"]').click();
+    await expect(
+      panel.getByRole('heading', { name: 'Revue', exact: true })
+    ).toBeVisible();
+    for (let repeat = 0; repeat < 2; repeat++) {
+      await panel.locator('[data-og7="guide-open-section"]').click();
+      await expect(page).toHaveURL(/tab=overview#dossier-review$/);
+      await expect(page.locator('#dossier-review')).toBeFocused();
+      await expect(page.locator('#dossier-review')).toBeInViewport();
+    }
+    const summary = panel.locator('summary');
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    await expect(panel.getByRole('heading')).toBeHidden();
+    await page.keyboard.press('Enter');
+    await expect(panel.getByRole('heading')).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    if (width === 390)
+      await panel.screenshot({ path: 'test-results/dossier-guide-mobile.png' });
+  });
+}
+
+for (const role of ['owner', 'operator', 'reader'] as const) {
+  test(`dossier guide identity actions respect ${role} access and recorded submission`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page, role);
+    options.edited.set(id, {
+      sponsor_contact_email: null,
+      sponsor_details_submitted_at: null
+    });
+    await page.goto(path('identity'));
+    const panel = guide(page);
+    await expect(
+      panel.getByRole('heading', { name: 'Identité', exact: true })
+    ).toBeVisible();
+    await expect(panel.locator('[data-og7="guide-reason"]')).toContainText(
+      'Coordonnées à compléter'
+    );
+    const edit = panel.locator('[data-og7="guide-edit-identity"]');
+    if (role === 'reader') {
+      await expect(edit).toHaveCount(0);
+      await expect(panel).toContainText(
+        'Vous consultez ce dossier en lecture seule'
+      );
+      await panel.locator('[data-og7="guide-open-section"]').click();
+      await expect(page.locator('#dossier-identity')).toBeFocused();
+      options.edited.set(id, { sponsor_details_submitted_at: null });
+      await page.reload();
+    } else {
+      await edit.click();
+      await expect(editForm(page)).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(edit).toBeFocused();
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+      await edit.click();
+      await editForm(page)
+        .getByLabel('Courriel du contact', { exact: true })
+        .fill('guide@example.invalid');
+      await editForm(page)
+        .getByRole('button', { name: 'Enregistrer les modifications' })
+        .click();
+      expect(postsTo(calls, '/details')).toHaveLength(0);
+      await page.locator('[data-og7="confirm-action"]').click();
+      await expect(editForm(page)).toBeHidden();
+    }
+    await expect(panel.locator('[data-og7="guide-reason"]')).toContainText(
+      'Coordonnées renseignées. En attente de la transmission'
+    );
+    await expect(panel).toContainText(
+      'Une correction administrative des coordonnées ne remplace pas cette transmission'
+    );
+    if (role === 'owner') {
+      await panel.locator('[data-og7="guide-followup-access"]').click();
+      await expect(
+        page.locator('[data-og7="admin-followup-access"]')
+      ).toBeFocused();
+      await expect(
+        page.locator('[data-og7="admin-followup-access"]')
+      ).toBeInViewport();
+    } else {
+      await expect(
+        panel.locator('[data-og7="guide-followup-access"]')
+      ).toHaveCount(0);
+      await expect(panel).toContainText('demandez à un propriétaire');
+    }
+    expect(
+      calls.filter((call) => call.url.pathname.endsWith('/followup-access'))
+    ).toHaveLength(0);
+    expect(calls.filter((call) => call.method === 'POST')).toHaveLength(
+      role === 'reader' ? 0 : 1
+    );
+  });
+}
+
+for (const [reason, tab, title, section] of [
+  ['refund_check', 'refund', 'Refund to check', 'refund'],
+  ['stripe_failed', 'overview', 'Failed Stripe event', 'stripe'],
+  ['email_failed', 'billing', 'Failed email', 'billing']
+] as const) {
+  test(`dossier guide prioritizes ${reason} in English on mobile`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page, 'operator');
+    options.next = { reason, tab, adminUrl: path(tab) };
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(path());
+    await page
+      .getByRole('button', {
+        name: 'Switch administration language to English'
+      })
+      .click();
+    const panel = guide(page);
+    await expect(
+      panel.getByRole('heading', { name: title, exact: true })
+    ).toBeVisible();
+    await expect(panel).toContainText('Step 1 of 7');
+    await expect(panel).toContainText('Handle now');
+    await expect(panel).not.toContainText('admin.dossier.');
+    if (reason === 'refund_check')
+      await expect(panel).toContainText('Ask an owner to process it');
+    await panel.locator('[data-og7="guide-open-section"]').click();
+    await expect(page.locator('#dossier-' + section)).toBeFocused();
+    await expect(page.locator('#dossier-' + section)).toBeInViewport();
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  });
+}
+
+test('dossier guide clears unavailable facts and resets its recommendation after changing dossier', async ({
+  page
+}) => {
+  const { options } = await fixtures(page);
+  let release!: () => void;
+  options.progressGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.goto('/admin/fundraiser/sponsors');
+  await expect(progress(page)).toContainText('Chargement du dossier');
+  await expect(guide(page)).toHaveCount(0);
+  release();
+  options.progressGate = null;
+  await guide(page).locator('[data-og7="guide-previous"]').click();
+  await expect(
+    guide(page).getByRole('heading', { name: 'Médias', exact: true })
+  ).toBeVisible();
+  await page.getByRole('button', { name: /Atelier Rivage/ }).click();
+  await expect(
+    guide(page).getByRole('heading', { name: 'Revue', exact: true })
+  ).toBeVisible();
+  await expect(
+    guide(page).locator('[data-og7="guide-open-section"]')
+  ).toHaveAttribute(
+    'href',
+    new RegExp(`sponsorshipId=${secondId}.*#dossier-review$`)
+  );
+  for (const status of [503, 403]) {
+    options.status = status;
+    await progress(page)
+      .getByRole('button', { name: 'Actualiser le dossier' })
+      .click();
+    await expect(guide(page)).toHaveCount(0);
+    await expect(progress(page).getByRole('alert')).toBeVisible();
+  }
+});
+
+test('completed dossier guide remains consultable and never asks to validate browsing', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'reader');
+  options.next = { reason: 'complete', tab: 'overview', adminUrl: path() };
+  options.milestones = dossier().milestones.map((step) => ({
+    ...step,
+    state: 'complete'
+  }));
+  await page.goto(path());
+  const panel = guide(page);
+  await expect(panel).toContainText(
+    'Toutes les étapes requises sont terminées'
+  );
+  await expect(panel).not.toContainText('À traiter maintenant');
+  for (let count = 0; count < 5; count++)
+    await panel.locator('[data-og7="guide-next"]').click();
+  await expect(panel.locator('[data-og7="guide-next"]')).toBeDisabled();
+  await expect(panel.locator('[data-og7="guide-recommended"]')).toHaveCount(0);
+  await expect(panel.locator('[data-og7="guide-edit-identity"]')).toHaveCount(
+    0
+  );
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+for (const role of ['owner', 'operator', 'reader'] as const) {
+  test(`identity guidance separates missing coordinates and submission for ${role}`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page, role);
+    options.edited.set(id, {
+      sponsor_company_name: null,
+      sponsor_contact_email: null,
+      sponsor_details_submitted_at: null
+    });
+    await page.setViewportSize({
+      width: role === 'owner' ? 1280 : 390,
+      height: 844
+    });
+    await page.goto(path('identity') + '#dossier-identity');
+    const identity = page.locator('#dossier-identity');
+    await expect(identity).toBeFocused();
+    await expect(identity.getByRole('complementary')).toContainText(
+      'Coordonnées et transmission : deux actions distinctes'
+    );
+    await expect(identity.getByRole('complementary')).toContainText(
+      'elle ne transmet pas le formulaire au nom du commanditaire'
+    );
+    await expect(
+      identity.locator('[data-og7="identity-coordinates-status"]')
+    ).toContainText(
+      'Renseignez le nom de l’entreprise et le courriel du contact'
+    );
+    await expect(
+      identity.locator('[data-og7="identity-submission-status"]')
+    ).toContainText('En attente de la transmission');
+    await expect(identity).toContainText(
+      'Une correction administrative des coordonnées ne remplace pas cette transmission.'
+    );
+    await expect(
+      progress(page).locator('[data-og7-id="identity"]')
+    ).toContainText('Coordonnées à compléter');
+    const edit = identity.locator('[data-og7="identity-edit"]');
+    if (role === 'reader') {
+      await expect(edit).toHaveCount(0);
+      await expect(identity).toContainText('Votre accès est en lecture seule');
+    } else {
+      await edit.focus();
+      await page.keyboard.press('Enter');
+      await expect(editForm(page)).toBeVisible();
+      await expect(
+        editForm(page).getByLabel('Nom de l’entreprise', { exact: true })
+      ).toHaveValue('');
+      await page.keyboard.press('Escape');
+      await expect(edit).toBeFocused();
+    }
+    const followup = identity.locator('[data-og7="identity-followup-access"]');
+    if (role === 'owner') {
+      await followup.click();
+      const access = page.locator('[data-og7="admin-followup-access"]');
+      await expect(access).toBeFocused();
+      await expect(access).toBeInViewport();
+      await page.keyboard.press('Tab');
+      await expect(access.getByRole('button')).toBeFocused();
+      expect(
+        calls.filter((call) => call.url.pathname.endsWith('/followup-access'))
+      ).toHaveLength(0);
+    } else {
+      await expect(followup).toHaveCount(0);
+      await expect(identity).toContainText('demandez à un propriétaire');
+    }
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1
+      )
+    ).toBe(true);
+  });
+}
+
+for (const alreadySubmitted of [false, true]) {
+  test(`identity correction preserves sponsor submission: ${alreadySubmitted}`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page, 'operator');
+    options.edited.set(id, {
+      sponsor_contact_email: null,
+      sponsor_details_submitted_at: alreadySubmitted ? date : null
+    });
+    await page.goto(path('identity'));
+    const identity = page.locator('#dossier-identity');
+    await identity.locator('[data-og7="identity-edit"]').click();
+    const form = editForm(page);
+    await expect(form).toContainText(
+      'Cette correction ne remplace pas la transmission du formulaire'
+    );
+    const submissionHelp = form.locator(
+      '[data-og7="edit-dossier-submission-help"]'
+    );
+    if (alreadySubmitted) await expect(submissionHelp).toHaveCount(0);
+    else
+      await expect(submissionHelp).toContainText(
+        'Même si vous remplissez tous les champs'
+      );
+    await form
+      .getByLabel('Courriel du contact', { exact: true })
+      .fill('identity@example.invalid');
+    await form
+      .getByRole('button', { name: 'Enregistrer les modifications' })
+      .click();
+    expect(postsTo(calls, '/details')).toHaveLength(0);
+    await page.locator('[data-og7="confirm-action"]').click();
+    await expect(
+      identity.locator('[data-og7="identity-coordinates-status"]')
+    ).toContainText(
+      'Le nom de l’entreprise et le courriel du contact sont renseignés.'
+    );
+    const step = progress(page).locator('[data-og7-id="identity"]');
+    await expect(step).toHaveAttribute(
+      'data-state',
+      alreadySubmitted ? 'complete' : 'pending'
+    );
+    await expect(
+      identity.locator('[data-og7="identity-submission-status"]')
+    ).toHaveText(
+      alreadySubmitted
+        ? 'Le commanditaire a transmis son formulaire.'
+        : 'En attente de la transmission du formulaire par le commanditaire.'
+    );
+    if (!alreadySubmitted) {
+      await expect(
+        identity.locator('[data-og7="identity-submission-required"]')
+      ).toContainText('vous ne pouvez pas la valider à sa place');
+      await expect(progress(page)).toContainText(
+        'Coordonnées renseignées. En attente de la transmission'
+      );
+      // Simulate a later sponsor submission returned by the API, independently of the correction.
+      options.edited.set(id, {
+        ...options.edited.get(id),
+        sponsor_details_submitted_at: date
+      });
+      await page.reload();
+      await expect(step).toHaveAttribute('data-state', 'complete');
+      await expect(
+        identity.locator('[data-og7="identity-submission-status"]')
+      ).toHaveText('Le commanditaire a transmis son formulaire.');
+    }
+    await expect(
+      identity.locator('[data-og7="identity-submission-required"]')
+    ).toHaveCount(0);
+    await expect(
+      identity.locator('[data-og7="identity-followup-access"]')
+    ).toHaveCount(0);
+    const writes = calls.filter((call) => call.method === 'POST');
+    expect(writes).toHaveLength(1);
+    expect(writes[0].url.pathname).toBe('/api/admin/sponsorships/details');
+    expect(writes[0].body).not.toHaveProperty('sponsor_details_submitted_at');
+  });
+}
+
+test('pending sponsor submission is explained from the cockpit through identity in English on mobile', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'owner');
+  options.edited.set(id, { sponsor_details_submitted_at: null });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/admin/fundraiser');
+  await page
+    .getByRole('button', { name: 'Switch administration language to English' })
+    .click();
+  await expect(progress(page)).toContainText(
+    'Contact details are present. Waiting for the sponsor'
+  );
+  await progress(page)
+    .getByRole('link', { name: 'View identity', exact: true })
+    .click();
+  const identity = page.locator('#dossier-identity');
+  await expect(identity).toBeFocused();
+  await expect(identity).toBeInViewport();
+  await expect(identity).toContainText(
+    'The company name and contact email are present.'
+  );
+  await expect(identity).toContainText(
+    'Waiting for the sponsor to submit their form.'
+  );
+  await expect(identity.getByRole('complementary')).toContainText(
+    'Contact details and submission: two separate actions'
+  );
+  await expect(
+    identity.locator('[data-og7="identity-submission-required"]')
+  ).toContainText('Even if you fill in every field');
+  await expect(
+    identity.getByRole('button', { name: 'Edit identity and contact details' })
+  ).toBeEnabled();
+  await expect(
+    identity.getByRole('button', { name: 'View sponsor follow-up access' })
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1
+    )
+  ).toBe(true);
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+const actions = (page: Page) => page.locator('[data-og7="dossier-actions"]');
+const mediaAsset = (assetId = secondId): SponsorMediaAsset => ({
+  id: assetId,
+  contributionId: id,
+  kind: 'supporting_image',
+  reviewStatus: 'pending_review',
+  uploadedBy: 'sponsor',
+  originalFilename: 'fixture.png',
+  originalMimeType: 'image/png',
+  originalSizeBytes: 68,
+  processedMimeType: 'image/webp',
+  processedSizeBytes: 68,
+  width: 1,
+  height: 1,
+  altText: 'Description initiale',
+  sortOrder: 0,
+  publicUrl: null,
+  reviewedAt: null,
+  version: 'v1',
+  createdAt: date
+});
+const postsTo = (
+  calls: Awaited<ReturnType<typeof fixtures>>['calls'],
+  suffix: string
+) =>
+  calls.filter(
+    (call) => call.method === 'POST' && call.url.pathname.endsWith(suffix)
+  );
+
+test('dossier controls respect reader and operator permissions', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'reader');
+  options.media = [mediaAsset()];
+  await page.goto(path());
+  await expect(
+    page.getByText('Accès en lecture seule', { exact: false })
+  ).toBeVisible();
+  await expect(actions(page).getByRole('button')).toHaveCount(0);
+  await expect(page.locator('[data-og7="admin-followup-access"]')).toHaveCount(
+    0
+  );
+  await expect(
+    page.getByRole('button', { name: 'Modifier le dossier', exact: true })
+  ).toBeDisabled();
+  await page
+    .locator('openg7-admin-sponsor-detail-overview')
+    .getByRole('button', { name: 'Note interne', exact: true })
+    .click();
+  await expect(
+    page.locator('dialog[open]').getByRole('textbox')
+  ).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await tabs(page).getByRole('button', { name: 'Médias', exact: true }).click();
+  const media = page.locator('openg7-admin-sponsor-detail-media');
+  for (const button of [
+    'Tout approuver',
+    'Approuver le media',
+    'Refuser',
+    'Supprimer',
+    'Supprimer le logo'
+  ])
+    await expect(
+      media.getByRole('button', { name: button, exact: true })
+    ).toBeDisabled();
+  await expect(media.locator('input[type="file"]')).toBeDisabled();
+  await media.getByRole('button', { name: 'Aperçu', exact: true }).click();
+  await expect(page.locator('dialog[open]').getByRole('img')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await tabs(page)
+    .getByRole('button', { name: 'Publication', exact: true })
+    .click();
+  await expect(
+    page
+      .locator('[data-og7="dossier-publication-editor"]')
+      .getByRole('button', { name: 'Enregistrer', exact: true })
+  ).toBeDisabled();
+  await expect(page.getByLabel('Slug public', { exact: false })).toBeDisabled();
+  expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
+});
+
+test('operator can review but owner controls are absent', async ({ page }) => {
+  await fixtures(page, 'operator');
+  await page.goto(path());
+  await expect(
+    actions(page).getByRole('button', { name: 'Accepter', exact: true })
+  ).toBeEnabled();
+  await expect(
+    actions(page).getByRole('button', { name: 'Refuser', exact: true })
+  ).toBeEnabled();
+  await expect(
+    actions(page).getByRole('button', {
+      name: 'Rembourser Stripe',
+      exact: true
+    })
+  ).toHaveCount(0);
+  await expect(page.locator('[data-og7="admin-followup-access"]')).toHaveCount(
+    0
+  );
+});
+
+test('review controls disable redundant decisions and retain mandatory refusal confirmation', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.reviewStatus = 200;
+  await page.goto(path('identity'));
+  await expect(
+    actions(page).getByRole('button', { name: 'Remettre en attente' })
+  ).toBeDisabled();
+  const reject = actions(page).getByRole('button', {
+    name: 'Refuser',
+    exact: true
+  });
+  await reject.click();
+  await expect(page).toHaveURL(path('overview'));
+  const form = page.locator('[data-og7="dossier-rejection-form"]');
+  await expect(form.getByLabel('Raison interne du refus')).toBeFocused();
+  const confirm = form.getByRole('button', { name: /Confirmer/ });
+  await expect(confirm).toBeDisabled();
+  await form.getByLabel('Raison interne du refus').fill('Motif synthétique');
+  await form.getByRole('checkbox').uncheck();
+  await form.getByRole('button', { name: 'Annuler', exact: true }).click();
+  await expect(reject).toBeFocused();
+  expect(postsTo(calls, '/review')).toHaveLength(0);
+  await reject.click();
+  await confirm.click();
+  await expect(form).toHaveCount(0);
+  expect(postsTo(calls, '/review')[0]?.body).toMatchObject({
+    contributionId: id,
+    expectedVersion: 'v1',
+    reviewStatus: 'rejected',
+    reviewNote: 'Motif synthétique',
+    notifySponsor: false
+  });
+  options.edited.set(id, { sponsor_review_status: 'approved' });
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(
+    actions(page).getByRole('button', { name: 'Accepter', exact: true })
+  ).toBeDisabled();
+  await actions(page)
+    .getByRole('button', { name: 'Remettre en attente' })
+    .click();
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  expect(postsTo(calls, '/review')).toHaveLength(1);
+  await actions(page)
+    .getByRole('button', { name: 'Remettre en attente' })
+    .click();
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect.poll(() => postsTo(calls, '/review').length).toBe(2);
+});
+
+test('bulk media approval keeps edited alternative text and approved media text remains editable', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.media = [mediaAsset()];
+  await page.goto(path('media'));
+  const media = page.locator('[data-og7="admin-sponsor-media"]');
+  await media
+    .getByRole('textbox')
+    .fill('Description préparée avant approbation');
+  await page.getByRole('button', { name: 'Tout approuver' }).click();
+  await expect(media.getByRole('textbox')).toHaveValue(
+    'Description préparée avant approbation'
+  );
+  const saveText = media.getByRole('button', {
+    name: 'Enregistrer le texte alternatif'
+  });
+  await expect(saveText).toBeDisabled();
+  expect(postsTo(calls, '/media/review')[0]?.body?.['altText']).toBe(
+    'Description préparée avant approbation'
+  );
+  await media
+    .getByRole('textbox')
+    .fill('Description corrigée après approbation');
+  await expect(saveText).toBeEnabled();
+  await saveText.click();
+  await expect(saveText).toBeDisabled();
+  expect(postsTo(calls, '/media/review')[1]?.body).toMatchObject({
+    reviewStatus: 'approved',
+    expectedVersion: 'v1-updated',
+    altText: 'Description corrigée après approbation'
+  });
+});
+
+test('media decisions lock competing actions and deletion needs confirmation', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.media = [mediaAsset()];
+  let release!: () => void;
+  options.mutationGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.goto(path('media'));
+  const media = page.locator('[data-og7="admin-sponsor-media"]');
+  await media.getByRole('button', { name: 'Approuver le media' }).click();
+  for (const button of ['Accepter', 'Refuser', 'Rembourser Stripe'])
+    await expect(
+      actions(page).getByRole('button', { name: button, exact: true })
+    ).toBeDisabled();
+  await expect(page.locator('input[type="file"]')).toBeDisabled();
+  release();
+  await expect(
+    media.getByRole('button', { name: 'Refuser', exact: true })
+  ).toBeEnabled();
+  options.mutationGate = null;
+  await media.getByRole('button', { name: 'Refuser', exact: true }).click();
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeHidden();
+  expect(postsTo(calls, '/media/review')).toHaveLength(1);
+  await media.getByRole('button', { name: 'Refuser', exact: true }).click();
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(
+    media.getByRole('button', { name: 'Refuser', exact: true })
+  ).toBeDisabled();
+  await media.getByRole('button', { name: 'Supprimer', exact: true }).click();
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeHidden();
+  expect(postsTo(calls, '/media/delete')).toHaveLength(0);
+  await media.getByRole('button', { name: 'Supprimer', exact: true }).click();
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(media).toHaveCount(0);
+  expect(postsTo(calls, '/media/delete')[0]?.body).toMatchObject({
+    assetId: secondId,
+    confirmation: secondId,
+    expectedVersion: 'v1-updated-updated'
+  });
+});
+
+test('publication save normalizes the slug, confirms visibility and preserves a failed draft', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.edited.set(id, { sponsor_review_status: 'approved' });
+  await page.goto(path('publication'));
+  const editor = page.locator('[data-og7="dossier-publication-editor"]');
+  const slug = editor.getByLabel('Slug public', { exact: false });
+  const save = editor.getByRole('button', { name: 'Enregistrer', exact: true });
+  await slug.fill('invalid slug !');
+  await expect(slug).toHaveValue('invalid-slug');
+  await slug.fill('atelier-demo');
+  await editor.getByLabel('Destination feed').selectOption('openg7');
+  await editor.getByLabel('Statut feed').selectOption('published');
+  await save.click();
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  expect(postsTo(calls, '/publication')).toHaveLength(0);
+  options.mutationStatus = 503;
+  await save.click();
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(editor).toContainText('Synthetic action failure');
+  await expect(slug).toHaveValue('atelier-demo');
+  options.mutationStatus = 200;
+  await save.click();
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(save).toBeDisabled();
+  expect(postsTo(calls, '/publication')[1]?.body).toMatchObject({
+    contributionId: id,
+    expectedVersion: 'v1',
+    publicSlug: 'atelier-demo',
+    feedStatus: 'published'
+  });
+});
+
+test('refund validates amount and reference, cancellation is inert and submission is singular', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'owner');
+  await page.goto(path('refund'));
+  const opener = actions(page).getByRole('button', {
+    name: 'Rembourser Stripe'
+  });
+  await opener.click();
+  const form = page.locator('[data-og7="dossier-refund-form"]');
+  const amount = form.getByRole('spinbutton');
+  await expect(amount).toBeFocused();
+  const confirm = form.getByRole('button', { name: /^Rembours/ });
+  await expect(confirm).toBeDisabled();
+  await form.locator('input[autocomplete="off"]').fill('DEMO-401');
+  await amount.fill('501');
+  await expect(confirm).toBeDisabled();
+  await amount.fill('25');
+  await form.getByRole('checkbox').uncheck();
+  await expect(confirm).toBeEnabled();
+  await form.getByRole('button', { name: 'Annuler', exact: true }).click();
+  await expect(opener).toBeFocused();
+  expect(postsTo(calls, '/refund')).toHaveLength(0);
+  await opener.click();
+  let release!: () => void;
+  options.mutationGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  await confirm.click();
+  await expect(confirm).toBeDisabled();
+  await expect(
+    form.getByRole('button', { name: 'Annuler', exact: true })
+  ).toBeDisabled();
+  release();
+  await expect(form).toHaveCount(0);
+  expect(postsTo(calls, '/refund')).toHaveLength(1);
+  expect(postsTo(calls, '/refund')[0]?.body).toMatchObject({
+    contributionId: id,
+    confirmationText: 'DEMO-401',
+    amount: 25,
+    notifySponsor: false,
+    expectedVersion: 'v1'
+  });
+});
+
+test('private access resend confirms recipient and retry reuses the request identifier', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'owner');
+  await page.goto(path());
+  const access = page.locator('[data-og7="admin-followup-access"]');
+  await access.getByRole('button').click();
+  await expect(page.locator('dialog[open]')).toContainText(
+    'payment@example.invalid'
+  );
+  await page.keyboard.press('Escape');
+  expect(postsTo(calls, '/followup-access')).toHaveLength(0);
+  options.mutationStatus = 503;
+  await access.getByRole('button').click();
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(access).toContainText('Le lien n’a pas pu être mis en file');
+  options.mutationStatus = 200;
+  await access.getByRole('button').click();
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(access).toContainText('Le courriel est en file d’envoi');
+  await expect.poll(() => postsTo(calls, '/followup-access').length).toBe(2);
+  const sent = postsTo(calls, '/followup-access');
+  expect(sent[1]?.body).toEqual(sent[0]?.body);
+  expect(sent[0]?.body).toMatchObject({
+    contributionId: id,
+    recipient: 'payment@example.invalid',
+    confirmed: true
+  });
+});
+
+test('logo upload rejects invalid files, reports failure and deletion is confirmed', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  await page.goto(path('media'));
+  const media = page.locator('openg7-admin-sponsor-detail-media');
+  const upload = media.locator('input[type="file"]');
+  const remove = media.getByRole('button', { name: 'Supprimer le logo' });
+  await expect(remove).toBeDisabled();
+  await upload.setInputFiles({
+    name: 'fixture.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('synthetic')
+  });
+  await expect(media).toContainText('Logo refuse');
+  expect(postsTo(calls, '/logo')).toHaveLength(0);
+  await upload.setInputFiles({
+    name: 'large.png',
+    mimeType: 'image/png',
+    buffer: Buffer.alloc(512 * 1024 + 1)
+  });
+  expect(postsTo(calls, '/logo')).toHaveLength(0);
+  const file = {
+    name: 'fixture.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('synthetic image handled by API fixture')
+  };
+  options.mutationStatus = 503;
+  await upload.setInputFiles(file);
+  await expect(media).toContainText('Synthetic action failure');
+  options.mutationStatus = 200;
+  await upload.setInputFiles(file);
+  await expect(remove).toBeEnabled();
+  await expect(media.getByRole('img')).toHaveAttribute('src', /^blob:/);
+  await remove.click();
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-og7="confirm-action"]')).toBeHidden();
+  expect(postsTo(calls, '/logo/delete')).toHaveLength(0);
+  await remove.click();
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(remove).toBeDisabled();
+  expect(postsTo(calls, '/logo/delete')[0]?.body).toMatchObject({
+    contributionId: id,
+    expectedVersion: 'v1'
+  });
+});
+
+test('failed media approval preserves its text and can be retried without changing the decision', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.media = [mediaAsset()];
+  options.mutationStatus = 503;
+  await page.goto(path('media'));
+  const media = page.locator('[data-og7="admin-sponsor-media"]');
+  await media.getByRole('textbox').fill('Description conservée');
+  await page.getByRole('button', { name: 'Tout approuver' }).click();
+  await expect(page.locator('openg7-admin-sponsor-detail-media')).toContainText(
+    'Synthetic action failure'
+  );
+  await expect(media.getByRole('textbox')).toHaveValue('Description conservée');
+  options.mutationStatus = 200;
+  await page.getByRole('button', { name: 'Tout approuver' }).click();
+  await expect(
+    media.getByRole('button', { name: 'Enregistrer le texte alternatif' })
+  ).toBeDisabled();
+  expect(postsTo(calls, '/media/review')[1]?.body).toEqual(
+    postsTo(calls, '/media/review')[0]?.body
+  );
+});
+
+test('English mobile media editing works with keyboard and without horizontal overflow', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.media = [{ ...mediaAsset(), reviewStatus: 'approved' }];
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(path('media'));
+  await page
+    .getByRole('button', { name: 'Switch administration language to English' })
+    .click();
+  const media = page.locator('[data-og7="admin-sponsor-media"]');
+  await media.getByRole('textbox').fill('Updated alternative text');
+  const save = media.getByRole('button', { name: 'Save alternative text' });
+  await save.focus();
+  await save.press('Enter');
+  await expect(save).toBeDisabled();
+  expect(postsTo(calls, '/media/review')[0]?.body?.['altText']).toBe(
+    'Updated alternative text'
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1
+    )
+  ).toBe(true);
+});
+
+for (const blocked of [
+  { payment_status: 'refunded' },
+  { payment_status: 'disputed' },
+  { sponsorship_refund_status: 'processing' }
+] as const) {
+  test(`ineligible financial state disables approval, publication and refund: ${JSON.stringify(blocked)}`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page);
+    options.edited.set(id, blocked);
+    await page.goto(path('publication'));
+    await expect(
+      actions(page).getByRole('button', { name: 'Accepter', exact: true })
+    ).toBeDisabled();
+    await expect(
+      actions(page).getByRole('button', { name: 'Rembourser Stripe' })
+    ).toBeDisabled();
+    await expect(
+      page
+        .locator('[data-og7="dossier-publication-editor"]')
+        .getByRole('button', { name: 'Enregistrer', exact: true })
+    ).toBeDisabled();
+    expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
+  });
+}
+
+test('copy, refresh, close, list pagination and filter reset perform their named actions', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.listSize = 8;
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto(path());
+  await page.getByRole('button', { name: 'Copier', exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe('DEMO-401');
+  await page
+    .getByRole('button', { name: 'Fermer le dossier', exact: true })
+    .click();
+  await expect(page).not.toHaveURL(/sponsorshipId=/);
+  await expect(tabs(page)).toHaveCount(0);
+  const list = page.locator('openg7-admin-sponsors-list-panel');
+  await list
+    .getByRole('button', { name: 'Reinitialiser', exact: true })
+    .click();
+  await expect(list.getByRole('searchbox')).toHaveValue('');
+  await expect(
+    list.getByRole('button', { name: 'Page precedente' })
+  ).toBeDisabled();
+  await list.getByRole('button', { name: 'Page suivante' }).click();
+  await expect(
+    list.getByRole('button', { name: 'Page suivante' })
+  ).toBeDisabled();
+  await list.getByRole('button', { name: 'Page precedente' }).click();
+  await expect(
+    list.getByRole('button', { name: 'Page precedente' })
+  ).toBeDisabled();
+  await list.getByLabel('Par page').selectOption('10');
+  await expect(
+    list.getByRole('button', { name: 'Page suivante' })
+  ).toBeDisabled();
+  await list.getByLabel('Statut de revue').selectOption('approved');
+  await expect
+    .poll(() =>
+      calls
+        .filter((call) => call.url.pathname === '/api/admin/sponsorships')
+        .at(-1)
+        ?.url.searchParams.get('reviewStatus')
+    )
+    .toBe('approved');
+  options.listStatus = 503;
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await expect(list.getByRole('button', { name: 'Reessayer' })).toBeVisible();
+  options.listStatus = 200;
+  await list.getByRole('button', { name: 'Reessayer' }).click();
+  await expect(list.getByRole('button', { name: 'Reessayer' })).toHaveCount(0);
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
 const saveDetails = async (page: Page) => {
   await editForm(page)
     .getByRole('button', { name: 'Enregistrer les modifications' })
@@ -878,6 +2003,258 @@ for (const width of [1280, 390]) {
   });
 }
 
+for (const width of [1280, 390]) {
+  test(`dossier progress links preserve scroll including repeated steps at ${width}px`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page);
+    await page.setViewportSize({ width, height: 844 });
+    const returnTo =
+      '/admin/fundraiser/assistant?type=sponsorship_needs_review';
+    await page.goto(
+      path('identity') + '&returnTo=' + encodeURIComponent(returnTo)
+    );
+    await expect(
+      progress(page).locator('[data-og7-id="identity"]')
+    ).toBeVisible();
+    await progress(page).evaluate((element) =>
+      window.scrollTo({
+        top: window.scrollY + element.getBoundingClientRect().top - 120,
+        behavior: 'instant'
+      })
+    );
+    const steps = [
+      ['identity', 'identity'],
+      ['payment', 'overview'],
+      ['media', 'media'],
+      ['review', 'overview'],
+      ['billing', 'billing'],
+      ['publication', 'publication']
+    ] as const;
+    for (const [index, [step, tab]] of steps.entries()) {
+      const link = progress(page)
+        .locator(`[data-og7-id="${step}"]`)
+        .getByRole('link');
+      await link.scrollIntoViewIfNeeded();
+      await link.focus();
+      const before = await page.evaluate(() => window.scrollY);
+      expect(before).toBeGreaterThan(100);
+      if (index % 2) await link.press('Enter');
+      else await link.click();
+      await expect(page).toHaveURL(
+        path(tab) + '&returnTo=' + encodeURIComponent(returnTo)
+      );
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+          )
+      );
+      const position = await page.evaluate(() => ({
+        y: window.scrollY,
+        maximum: document.documentElement.scrollHeight - innerHeight
+      }));
+      expect(position.y).toBeCloseTo(Math.min(before, position.maximum), 0);
+      await expect(link).toBeFocused();
+      await expect(link).toBeInViewport();
+    }
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
+for (const width of [1280, 390]) {
+  test(`next step reveals and focuses review across tabs and on repeated clicks at ${width}px`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page);
+    await page.setViewportSize({ width, height: 844 });
+    const returnTo =
+      '/admin/fundraiser/attention?type=sponsorship_needs_review';
+    const query = '&returnTo=' + encodeURIComponent(returnTo);
+    await page.goto(path('identity') + query);
+    const next = progress(page).locator('[data-og7="dossier-next"]');
+    await expect(next).toHaveText('Aller à la revue');
+    await expect(next).toHaveAttribute(
+      'href',
+      path() + query + '#dossier-review'
+    );
+    const target = page.locator('#dossier-review');
+    for (const keyboard of [false, true]) {
+      await next.scrollIntoViewIfNeeded();
+      await next.focus();
+      const before = await page.evaluate(() => scrollY);
+      if (keyboard) await next.press('Enter');
+      else await next.click();
+      await expect(page).toHaveURL(path() + query + '#dossier-review');
+      await expect(target).toBeFocused();
+      await expect(target).toBeInViewport();
+      expect(await page.evaluate(() => scrollY)).toBeGreaterThan(before);
+      await page.keyboard.press('Tab');
+      await expect(
+        actions(page).getByRole('button', { name: 'Refuser', exact: true })
+      ).toBeFocused();
+    }
+    // Leaving a section via a normal tab keeps the viewport instead of replaying the anchor.
+    const billing = tabs(page).getByRole('button', {
+      name: 'Facturation',
+      exact: true
+    });
+    await billing.scrollIntoViewIfNeeded();
+    await billing.focus();
+    const before = await page.evaluate(() => scrollY);
+    await billing.click();
+    await expect(page).toHaveURL(path('billing') + query);
+    await expect(billing).toBeFocused();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (position) =>
+            Math.abs(
+              scrollY -
+                Math.min(
+                  position,
+                  document.documentElement.scrollHeight - innerHeight
+                )
+            ),
+          before
+        )
+      )
+      .toBeLessThan(2);
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
+const nextDestinations = [
+  ['payment_unconfirmed', 'overview', 'payment', 'Voir le paiement'],
+  ['stripe_failed', 'overview', 'stripe', 'Voir les erreurs Stripe'],
+  ['identity_missing', 'identity', 'identity', 'Voir l’identité'],
+  ['media_review', 'media', 'media', 'Voir les médias'],
+  ['credit_missing', 'billing', 'billing', 'Voir la facturation'],
+  ['publication_pending', 'publication', 'publication', 'Voir la publication'],
+  ['refund_check', 'refund', 'refund', 'Voir le remboursement']
+] as const;
+
+for (const [reason, tab, section, label] of nextDestinations) {
+  test(`next step reaches its named section: ${reason}`, async ({ page }) => {
+    const { calls, options } = await fixtures(page);
+    options.next = { reason, tab, adminUrl: path(tab) };
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(path());
+    const link = progress(page).getByRole('link', { name: label, exact: true });
+    await link.click();
+    await expect(page).toHaveURL(path(tab) + '#dossier-' + section);
+    await expect(page.locator('#dossier-' + section)).toBeFocused();
+    await expect(page.locator('#dossier-' + section)).toBeInViewport();
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
+test('next step from the cockpit waits for dossier data before focusing its section', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  await page.goto('/admin/fundraiser');
+  const next = progress(page).locator('[data-og7="dossier-next"]');
+  await expect(next).toBeVisible();
+  let releaseList!: () => void;
+  let releaseProgress!: () => void;
+  options.listGate = new Promise((resolve) => {
+    releaseList = resolve;
+  });
+  options.progressGate = new Promise((resolve) => {
+    releaseProgress = resolve;
+  });
+  await next.click();
+  await expect(page).toHaveURL(path() + '#dossier-review');
+  await expect(page.locator('#dossier-review')).toHaveCount(0);
+  releaseList();
+  await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
+  releaseProgress();
+  await expect(page.locator('#dossier-review')).toBeFocused();
+  await expect(page.locator('#dossier-review')).toBeInViewport();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+test('a direct section link works for a reader after reload without enabling mutations', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'reader');
+  await page.goto(path() + '#dossier-review');
+  await expect(page.locator('#dossier-review')).toBeFocused();
+  await expect(page.locator('#dossier-review')).toContainText('À réviser');
+  await expect(actions(page).getByRole('button')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('#dossier-review')).toBeFocused();
+  await expect(page.locator('#dossier-review')).toBeInViewport();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+test('leaving a pending section cancels its delayed focus request', async ({
+  page
+}) => {
+  const { options } = await fixtures(page);
+  let release!: () => void;
+  options.progressGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.goto(path() + '#dossier-review');
+  await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
+  const identity = tabs(page).getByRole('button', {
+    name: 'Identité',
+    exact: true
+  });
+  await identity.click();
+  await expect(page).toHaveURL(path('identity'));
+  release();
+  await expect(progress(page)).toHaveAttribute('aria-busy', 'false');
+  await expect(identity).toBeFocused();
+  await expect(page.locator('#dossier-review')).not.toBeFocused();
+});
+
+test('browser history restores the viewport after visiting a next-step section', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await page.goto(path('identity'));
+  const next = progress(page).locator('[data-og7="dossier-next"]');
+  await next.scrollIntoViewIfNeeded();
+  await next.focus();
+  const before = await page.evaluate(() => scrollY);
+  await next.click();
+  await expect(page.locator('#dossier-review')).toBeFocused();
+  await expect(page.locator('#dossier-review')).toBeInViewport();
+  const destination = await page.evaluate(() => scrollY);
+  await page.goBack();
+  await expect(page).toHaveURL(path('identity'));
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(before, 0);
+  await page.goForward();
+  await expect(page).toHaveURL(path() + '#dossier-review');
+  await expect
+    .poll(() => page.evaluate(() => scrollY))
+    .toBeCloseTo(destination, 0);
+});
+
+test('completed dossiers have a completion message without a next-step link in either view', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page);
+  options.next = { reason: 'complete', tab: 'overview', adminUrl: path() };
+  for (const url of [path(), '/admin/fundraiser']) {
+    await page.goto(url);
+    await expect(progress(page)).toContainText('Dossier terminé');
+    await expect(
+      progress(page).locator('[data-og7="dossier-next"]')
+    ).toHaveCount(0);
+    await expect(progress(page).locator('ol').getByRole('link')).toHaveCount(6);
+  }
+  await page
+    .getByRole('button', { name: 'Switch administration language to English' })
+    .click();
+  await expect(progress(page)).toContainText('Dossier complete');
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
 test('publication cancellation, partial refund, missing credit and failed email are linked to their dossiers', async ({
   page
 }) => {
@@ -1046,10 +2423,12 @@ test('English compact dossier supports keyboard at mobile width without horizont
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
   await expect(progress(page)).toContainText('Current sponsorship');
-  const next = progress(page).getByRole('link', { name: 'Open step' });
+  const next = progress(page).getByRole('link', { name: 'Go to review' });
   await next.focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/tab=overview/);
+  await expect(page.locator('#dossier-review')).toBeFocused();
+  await expect(page.locator('#dossier-review')).toBeInViewport();
   await expect(
     tabs(page).getByRole('button', { name: 'Summary', exact: true })
   ).toHaveAttribute('aria-current', 'page');

@@ -90,8 +90,15 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
           }}</small>
         </article>
 
-        <article class="detail-card">
-          <h3>{{ 'admin.legacy.commandite' | translate }}</h3>
+        <article
+          class="detail-card admin-focus-target"
+          id="dossier-payment"
+          tabindex="-1"
+          aria-labelledby="dossier-payment-title"
+        >
+          <h3 id="dossier-payment-title">
+            {{ 'admin.legacy.commandite' | translate }}
+          </h3>
           <dl>
             <div>
               <dt>{{ 'admin.legacy.montant' | translate }}</dt>
@@ -149,7 +156,10 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       <article class="detail-card">
         <h3>{{ 'admin.legacy.note_interne' | translate }}</h3>
         <button type="button" (click)="noteOpen.set(true)">
-          {{ 'admin.inspector.editNote' | translate }}
+          {{
+            (disabled() ? 'admin.inspector.note' : 'admin.inspector.editNote')
+              | translate
+          }}
         </button>
         <openg7-admin-drawer
           [opened]="noteOpen()"
@@ -165,7 +175,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
             }}<textarea
               rows="5"
               maxlength="1000"
-              [disabled]="overview().reviewNoteSaving"
+              [disabled]="disabled()"
               [value]="overview().reviewNote"
               (input)="onReviewNoteInput($event)"
             ></textarea>
@@ -180,9 +190,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
               type="button"
               class="secondary-action"
               (click)="saveReviewNote.emit()"
-              [disabled]="
-                !overview().reviewNoteDirty || overview().reviewNoteSaving
-              "
+              [disabled]="!overview().reviewNoteDirty || disabled()"
             >
               {{
                 overview().reviewNoteSaving
@@ -398,6 +406,7 @@ export class AdminSponsorDetailOverviewComponent {
   private readonly details = viewChild<ElementRef<HTMLElement>>('details');
   readonly noteOpen = signal(false);
   readonly overview = input.required<AdminSponsorDetailOverviewView>();
+  readonly disabled = input(false);
   readonly copyReference = output<void>();
   readonly reviewNoteChange = output<string>();
   readonly saveReviewNote = output<void>();

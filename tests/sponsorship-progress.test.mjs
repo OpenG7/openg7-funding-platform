@@ -50,6 +50,52 @@ const facts = (rest = {}) => ({
 });
 const step = (dossier, id) => dossier.milestones.find((s) => s.id === id);
 
+test('identity distinguishes missing contact details from sponsor submission and remains independent of review', () => {
+  for (const detailsSubmittedAt of [null, '2026-09-01']) {
+    for (const [hasCompanyName, hasContactEmail] of [
+      [false, true],
+      [true, false],
+      [false, false],
+      [true, true]
+    ]) {
+      const result = buildSponsorshipProgress(
+        source({ detailsSubmittedAt, hasCompanyName, hasContactEmail }),
+        facts()
+      );
+      const completeCoordinates = hasCompanyName && hasContactEmail;
+      const complete = completeCoordinates && Boolean(detailsSubmittedAt);
+      assert.equal(
+        step(result, 'identity').reason,
+        complete
+          ? 'identity_complete'
+          : completeCoordinates
+            ? 'identity_submission_pending'
+            : 'identity_missing'
+      );
+      assert.equal(
+        step(result, 'identity').state,
+        complete ? 'complete' : completeCoordinates ? 'pending' : 'blocked'
+      );
+      assert.equal(
+        result.next.reason,
+        complete ? 'review_pending' : step(result, 'identity').reason
+      );
+      assert.equal(result.next.tab, complete ? 'overview' : 'identity');
+      assert.equal(result.reviewStatus, 'pending_review');
+      assert.equal(result.feedStatus, 'not_planned');
+    }
+  }
+  const approved = buildSponsorshipProgress(
+    source({ detailsSubmittedAt: null, reviewStatus: 'approved' }),
+    facts()
+  );
+  assert.equal(
+    step(approved, 'identity').reason,
+    'identity_submission_pending'
+  );
+  assert.equal(step(approved, 'identity').state, 'pending');
+});
+
 test('disputed payment blocks new publication; non-Stripe sources do not request a Stripe invoice', () => {
   const disputed = buildSponsorshipProgress(
     source({ paymentStatus: 'disputed', reviewStatus: 'approved' }),

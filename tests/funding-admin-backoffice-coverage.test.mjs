@@ -57,7 +57,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const sponsorDetailOverview = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts'
   );
-  const sponsorDetailIdentity = read(
+  const sponsorDetailMedia = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
   );
   const invoicesPage = read(
@@ -400,13 +400,13 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
-    sponsorDetailIdentity,
+    sponsorDetailMedia,
     [
       'AdminSponsorDetailIdentityView',
       'ChangeDetectionStrategy.OnPush',
       'uploadLogo = output<Event>()',
       'deleteLogo = output<void>()',
-      'approveAllMedia = output<void>()',
+      'approveAllMedia = output<readonly AdminSponsorMediaReviewEvent[]>()',
       'secondary-danger-action',
       'compact-definition-list',
       'large-preview',
@@ -415,7 +415,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'admin.legacy.optionnel',
       'Tout approuver'
     ],
-    'admin sponsor detail identity component'
+    'admin sponsor detail media component'
   );
 
   assertIncludesAll(

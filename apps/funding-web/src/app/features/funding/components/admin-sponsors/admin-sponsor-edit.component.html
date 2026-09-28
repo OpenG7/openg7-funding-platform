@@ -27,6 +27,11 @@
       novalidate
     >
       <p>{{ 'admin.editDossier.help' | translate }}</p>
+      @if (!sponsorship().sponsor_details_submitted_at) {
+        <p data-og7="edit-dossier-submission-help">
+          {{ 'admin.dossier.identityHelp.submissionRequired' | translate }}
+        </p>
+      }
       @for (field of fields; track field.key) {
         <label [for]="'sponsor-edit-' + field.key">{{
           'admin.editDossier.fields.' + field.key | translate

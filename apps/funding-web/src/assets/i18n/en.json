@@ -182,7 +182,7 @@
       "title": "Edit dossier",
       "history": "Dossier details corrected",
       "actor": "Actor: {{actor}}",
-      "help": "Correct this dossier’s contact details. Only the company name is required. Changes are recorded in the administrative history.",
+      "help": "Correct this dossier’s contact details. The company name is required to save; the contact email is also needed to complete the Identity step. This correction does not replace the sponsor’s form submission. Changes are recorded in the administrative history.",
       "fields": {
         "companyName": "Company name",
         "publicName": "Public name",
@@ -403,6 +403,20 @@
       "healthScope": "Read-only checks cached for at most one minute. They do not prove storage writes, email receipt or full provider availability."
     },
     "dossier": {
+      "completed": "Dossier complete",
+      "nextActions": {
+        "payment": "View payment",
+        "review": "Go to review",
+        "stripe": "View Stripe errors",
+        "identity": "View identity",
+        "media": "View media",
+        "billing": "View billing",
+        "publication": "View publication",
+        "refund": "View refund",
+        "audit": "View history"
+      },
+      "readOnly": "Read-only access: you can view this dossier, but cannot change it.",
+      "saveAltText": "Save alternative text",
       "mode": "Mode",
       "simulation": "Simulation",
       "consentGranted": "Consent granted",
@@ -411,6 +425,104 @@
       "listScope": "In displayed results",
       "current": "Current sponsorship",
       "progress": "Dossier progress",
+      "guide": {
+        "title": "Step-by-step dossier guide",
+        "intro": "Follow the recommended step or browse the other steps. Browsing the guide does not complete a step; statuses refresh after recorded actions.",
+        "position": "Step {{current}} of {{total}}",
+        "recommended": "Handle now",
+        "who": "Who acts:",
+        "doneWhen": "Completion condition:",
+        "readonly": "You have read-only access to this dossier. The people identified below perform the described actions.",
+        "refundOwnerHelp": "Your role allows you to view the refund. Ask an owner to process it.",
+        "complete": "All required steps are complete. You can review their details in the guide.",
+        "navigation": "Browse the dossier guide",
+        "previous": "Previous guide step",
+        "next": "Next guide step",
+        "backToRecommended": "Return to the recommended step",
+        "topics": {
+          "payment": {
+            "who": "Sponsor for payment; administration team for follow-up.",
+            "step1": "Check the payment status, amount and reference in the summary.",
+            "step2": "If payment is pending, check its confirmation with the payment source. A successful page redirect does not confirm payment.",
+            "step3": "Have any failure or dispute examined before publication, then refresh progress.",
+            "condition": "Confirmed payment is recorded and no dispute blocks this step."
+          },
+          "identity": {
+            "who": "Operator or owner for contact details; sponsor for submission.",
+            "step1": "Check the company name and contact email in the Identity tab.",
+            "step2": "Fill in missing fields with “Edit identity and contact details”, then save and confirm.",
+            "step3": "Check the form submission. If missing, the sponsor must submit it through their private follow-up link, even if an administrator has already filled in the contact details.",
+            "condition": "The company name, contact email and form submission are recorded."
+          },
+          "identitySubmission": {
+            "who": "Sponsor; owner if a new follow-up link is needed.",
+            "step1": "Contact details are present. Check “Sponsor submission” in the Identity tab.",
+            "step2": "The sponsor opens their private link and chooses “Submit my information to the team”. An owner can resend this link after confirming the recipient.",
+            "step3": "Refresh the dossier after submission. An administrative correction of contact details does not replace this submission. The administrator cannot complete this step on the sponsor’s behalf.",
+            "condition": "Form submission is recorded along with the company name and contact email."
+          },
+          "media": {
+            "who": "Sponsor for files; operator or owner for review.",
+            "step1": "Open Media and check available files, their legibility and alternative text.",
+            "step2": "If a presentation image is missing, ask the sponsor to add it through their follow-up page.",
+            "step3": "Examine pending media and approve or reject each using the review controls.",
+            "condition": "At least one presentation image is approved and no media remain pending review."
+          },
+          "review": {
+            "who": "Operator or owner.",
+            "step1": "Review identity, media, payment and dossier notes.",
+            "step2": "Enter the necessary note or reason, then use the summary review controls to record the appropriate decision.",
+            "step3": "Check the resulting status and history. A rejection remains visible and does not itself trigger a refund.",
+            "condition": "Administrative approval is recorded. It does not authorize publication."
+          },
+          "billing": {
+            "who": "Administration team; owner for restricted reconciliation operations.",
+            "step1": "Check the dossier’s invoices and credit notes in Billing.",
+            "step2": "If an expected document is missing, open invoice management to examine generation or recovery with the required permissions.",
+            "step3": "After a confirmed refund, check its matching credit note. Issued documents are retained.",
+            "condition": "Expected documents are issued and no required credit note is missing, or billing is marked “Not required”."
+          },
+          "publication": {
+            "who": "Operator or owner authorized to prepare and approve publication.",
+            "step1": "Check consent, review, the approved image and financial eligibility in Publication.",
+            "step2": "Open the relevant publication to review its content, destination and schedule before authorizing it.",
+            "step3": "Follow publication statuses; a draft or schedule does not confirm delivery. Examine failures or cancellations before retrying.",
+            "condition": "The publications required for this sponsorship are recorded as published."
+          },
+          "refund": {
+            "title": "Refund to check",
+            "who": "Owner for processing; administration team for consultation.",
+            "step1": "Check refund status and the amount already confirmed.",
+            "step2": "Ask an owner to examine the request or error. Check existing results before any new attempt.",
+            "step3": "After the result is confirmed, check the reference, credit note and dossier history.",
+            "condition": "Processing is no longer requested, in progress or failed; the confirmed result and associated documents have been checked."
+          },
+          "stripe": {
+            "title": "Failed Stripe event",
+            "who": "Administrator authorized to examine payment incidents.",
+            "step1": "Open the Stripe errors linked to this dossier.",
+            "step2": "View the incident in the attention queue and verify its result before any authorized retry.",
+            "step3": "Refresh the dossier after processing to check recorded facts.",
+            "condition": "The event is no longer reported as failed and dossier statuses reflect the confirmed result."
+          },
+          "email": {
+            "title": "Failed email",
+            "who": "Operator or owner for an authorized retry.",
+            "step1": "Open Billing and follow the failed email link.",
+            "step2": "Examine the recipient and cause in the email queue before retrying.",
+            "step3": "Check the attempt’s result, then refresh the dossier.",
+            "condition": "The message is no longer failed. A queued email is not yet confirmed delivery."
+          },
+          "incident": {
+            "title": "Additional check",
+            "who": "Administration team according to the action’s permissions.",
+            "step1": "Read the reason given for this dossier.",
+            "step2": "Open the relevant section and examine the facts before choosing an authorized action.",
+            "step3": "Refresh progress after processing.",
+            "condition": "The check is no longer reported as a required action for the dossier."
+          }
+        }
+      },
       "next": "Next step",
       "openStep": "Open step",
       "refresh": "Refresh dossier",
@@ -430,6 +542,25 @@
       "independent": "Review, consent and publication have separate states. A refusal does not confirm a refund. Public eligibility follows directory rules; it does not prove publication on social media.",
       "actionCount": "{{count}} required actions",
       "tabsLabel": "Dossier tabs",
+      "identityHelp": {
+        "differenceTitle": "Contact details and submission: two separate actions",
+        "adminEntry": "Entry or correction by administration",
+        "adminEntryMeaning": "You can enter contact details received by phone or email. This correction is recorded in the history and preserves the review status; it does not submit the form on the sponsor’s behalf.",
+        "sponsorEntry": "Submission by the sponsor",
+        "sponsorEntryMeaning": "Through their private follow-up link, the sponsor clicks “Submit my information to the team”. A submission date is recorded and the dossier enters review. Review and publication authorization remain separate steps.",
+        "submissionRequired": "To complete the Identity step, contact details must be complete and the sponsor must have submitted their form. Even if you fill in every field, the step still awaits this submission; you cannot validate it on their behalf.",
+        "coordinates": "Sponsor contact details",
+        "coordinatesComplete": "The company name and contact email are present.",
+        "coordinatesMissing": "Enter the company name and contact email to complete the contact details. The public name, contact name and website are optional.",
+        "edit": "Edit identity and contact details",
+        "readonly": "Your access is read-only. An operator or owner can correct these contact details.",
+        "submission": "Sponsor submission",
+        "submitted": "The sponsor has submitted their form.",
+        "submissionPending": "Waiting for the sponsor to submit their form.",
+        "submissionHelp": "The sponsor must open their private follow-up link and click “Submit my information to the team”. An administrative correction of contact details does not replace this submission.",
+        "access": "View sponsor follow-up access",
+        "ownerHelp": "If the sponsor has lost their link, ask an owner to resend follow-up access."
+      },
       "tabs": {
         "overview": "Summary",
         "identity": "Identity",
@@ -479,7 +610,8 @@
         "payment_recorded": "Payment recorded by the server.",
         "payment_unconfirmed": "Check payment: confirmation is missing or payment was interrupted.",
         "identity_complete": "Identity submitted and contact details present.",
-        "identity_missing": "Complete the sponsor’s identity and contact information.",
+        "identity_missing": "Contact details to complete: company name or contact email missing. Use “Edit identity and contact details” in the Identity tab.",
+        "identity_submission_pending": "Contact details are present. Waiting for the sponsor to submit the form through their private follow-up link. An administrator entering these details does not replace this action.",
         "media_approved": "Presentation image approved; no media awaiting review.",
         "media_review": "Review the media and approve a presentation image.",
         "review_approved": "Administrative review approved.",

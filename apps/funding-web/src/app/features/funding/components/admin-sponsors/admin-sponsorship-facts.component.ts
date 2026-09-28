@@ -17,7 +17,19 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   imports: [RouterLink, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section data-og7="dossier-facts" [attr.data-og7-id]="view()">
+    <section
+      data-og7="dossier-facts"
+      [attr.data-og7-id]="view()"
+      [id]="'dossier-' + (view() === 'overview' ? 'stripe' : view())"
+      class="admin-focus-target"
+      tabindex="-1"
+      [attr.aria-label]="
+        (view() === 'overview'
+          ? 'admin.dossier.nextActions.stripe'
+          : 'admin.dossier.tabs.' + view()
+        ) | translate
+      "
+    >
       @if (dossier(); as d) {
         @if (view() === 'billing') {
           <h3>{{ 'admin.dossier.documents' | translate }}</h3>
