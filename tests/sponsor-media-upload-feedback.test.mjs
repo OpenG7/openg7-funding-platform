@@ -16,6 +16,13 @@ const limits = {
 test('media validation returns actionable feedback for empty, oversized and unsupported files', () => {
   assert.equal(
     getSponsorMediaFileValidationFeedback(
+      { size: limits.maxUploadBytes, type: 'image/png' },
+      limits
+    ),
+    null
+  );
+  assert.equal(
+    getSponsorMediaFileValidationFeedback(
       { size: 1024, type: 'image/png' },
       limits
     ),
@@ -52,6 +59,7 @@ test('media API failures have safe localized feedback without exposing server co
     ],
     ['The supporting image limit has been reached.', 'limit'],
     ['approved logo', 'approvedLogo'],
+    ['Sponsorship is not editable.', 'notEditable'],
     ['follow-up was not found', 'expiredLink'],
     ['declared image type', 'invalidType'],
     ['too large', 'tooLarge'],

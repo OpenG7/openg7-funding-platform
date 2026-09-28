@@ -105,6 +105,14 @@ test('services readiness shortcut is registered', () => {
   );
 });
 
+test('media readiness rejects a size that exceeds the supported proxy envelope', (t) => {
+  const { status, output } = checkConfig(t, {
+    FUNDING_SPONSOR_MEDIA_MAX_BYTES: '8388609'
+  });
+  assert.notEqual(status, 0);
+  assert.match(output, /FUNDING_SPONSOR_MEDIA_MAX_BYTES/);
+});
+
 test('services readiness check reports placeholders without leaking values', () => {
   const result = runServicesCheck(['--env', '.env.example', '--env-only']);
   const output = result.stdout + result.stderr;

@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
+import { isSponsorshipEmail } from '@openg7/funding-core';
 
 import { FundingService } from '../../services/funding.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
@@ -80,7 +81,10 @@ export class SponsorshipAccessRecoveryComponent {
     nonNullable: true,
     validators: [
       Validators.required,
-      Validators.email,
+      (control) =>
+        !control.value || isSponsorshipEmail(control.value, 254)
+          ? null
+          : { email: true },
       Validators.maxLength(254)
     ]
   });

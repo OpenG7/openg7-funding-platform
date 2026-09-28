@@ -644,14 +644,20 @@ function optionalNonNegativeInteger(section, name, defaultValue, hint) {
   return true;
 }
 
-function optionalPositiveInteger(section, name, defaultValue, hint) {
+function optionalPositiveInteger(
+  section,
+  name,
+  defaultValue,
+  hint,
+  maximum = Number.MAX_SAFE_INTEGER
+) {
   if (!hasRealValue(name)) {
     record('warn', section, name, `not set; defaults to ${defaultValue}`);
     return true;
   }
 
   const value = Number(readValue(name));
-  if (!Number.isSafeInteger(value) || value <= 0) {
+  if (!Number.isSafeInteger(value) || value <= 0 || value > maximum) {
     record('missing', section, name, hint);
     return false;
   }
@@ -665,7 +671,8 @@ function checkSponsorMediaStorage() {
     'Sponsor media',
     'FUNDING_SPONSOR_MEDIA_MAX_BYTES',
     '8388608',
-    'set a positive sponsor media upload limit'
+    'set a sponsor media upload limit between 1 and 8388608 bytes',
+    8388608
   );
   optionalPositiveInteger(
     'Sponsor media',

@@ -1306,7 +1306,9 @@ test('Sponsorship follow-up tokens expire and details edits return to review', (
 });
 
 test('Sensitive sponsorship API routes have in-process rate limiting', () => {
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api =
+    fs.readFileSync('apps/funding-api/src/main.ts', 'utf8') +
+    fs.readFileSync('apps/funding-api/src/sponsor-media-limits.ts', 'utf8');
   const envExample = fs.readFileSync('.env.example', 'utf8');
 
   assert.ok(api.includes('createRateLimiter'));

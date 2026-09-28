@@ -769,6 +769,34 @@ test('required errors wait for submission and lead keyboard focus to the first i
   await expect(page.getByLabel('Courriel du contact')).toBeFocused();
 });
 
+test('unsafe website URLs and malformed contact emails cannot be submitted', async ({
+  page
+}) => {
+  const calls = await mock(page);
+  await visit(page);
+  const website = page.locator('#followup-websiteUrl');
+  for (const value of [
+    'https://user:pass@example.test',
+    'https://127.0.0.1/',
+    'https://app.local/'
+  ]) {
+    await website.fill(value);
+    await save(page).click();
+    await expect(website).toHaveAttribute('aria-invalid', 'true');
+    await expect(website).toBeFocused();
+    expect(calls.posts()).toBe(0);
+  }
+  await website.fill('https://example.test/company');
+  const email = page.locator('#followup-contactEmail');
+  await email.fill('a..b@example.test');
+  await save(page).click();
+  await expect(email).toHaveAttribute('aria-invalid', 'true');
+  expect(calls.posts()).toBe(0);
+  await email.fill('camille+fund@example.test');
+  await save(page).click();
+  await expect.poll(() => calls.posts()).toBe(1);
+});
+
 test('expired access clears the displayed record and token instead of retaining private information', async ({
   page
 }) => {
@@ -923,6 +951,7 @@ test('media uses server limits, preserves uploads after refresh failure and conf
   await page.route('**/api/sponsorship-followup/media**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/delete')) {
+      expect(route.request().postDataJSON().confirmed).toBe(true);
       deletes++;
       deleted = true;
       await json(route, { deleted: true, assetId: asset.id });
@@ -959,6 +988,10 @@ test('media uses server limits, preserves uploads after refresh failure and conf
       .locator('[data-og7="media-upload-attempt"]')
       .filter({ hasText: 'atelier.png' })
   ).toContainText('Téléversement réussi');
+  await expect(input).toBeDisabled();
+  await expect(page.locator('[data-og7="followup-photo-count"]')).toContainText(
+    '1 / 1 photos enregistrées'
+  );
   reloadFails = false;
   await page.getByRole('button', { name: 'Réessayer', exact: true }).click();
   await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(1);
@@ -982,8 +1015,99 @@ test('media uses server limits, preserves uploads after refresh failure and conf
     .click();
   await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(0);
   await expect(input).toBeEnabled();
+  await expect(page.locator('[data-og7="followup-photo-count"]')).toContainText(
+    '0 / 1 photos enregistrées'
+  );
   expect(deletes).toBe(1);
 });
+
+for (const english of [false, true]) {
+  test(`media accepts only three photos across ${english ? 'successive selections EN @mobile' : 'a selection of four FR'}`, async ({
+    page
+  }) => {
+    await mock(page);
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64'
+    );
+    const assets: {
+      id: string;
+      kind: string;
+      reviewStatus: string;
+      width: number;
+      height: number;
+      version: string;
+    }[] = [];
+    let posts = 0;
+    await page.route('**/api/sponsorship-followup/media**', async (route) => {
+      if (new URL(route.request().url()).pathname.includes('/content/'))
+        await route.fulfill({ contentType: 'image/png', body: png });
+      else if (route.request().method() === 'POST') {
+        // Deliberately permissive: the browser must enforce its own capacity.
+        posts++;
+        const asset = {
+          id: `synthetic-${posts}`,
+          kind: 'supporting_image',
+          reviewStatus: 'pending_review',
+          width: 1,
+          height: 1,
+          version: 'v1'
+        };
+        assets.push(asset);
+        await json(route, { asset });
+      } else
+        await json(route, {
+          assets,
+          limits: {
+            maxUploadBytes: 1024,
+            maxSupportingImages: 3,
+            acceptedMimeTypes: ['image/png']
+          }
+        });
+    });
+    await visit(page, english);
+    const input = page.getByLabel(
+      english ? 'Add photos' : 'Ajouter des photos',
+      { exact: true }
+    );
+    await expect(input).toBeEnabled();
+    const files = [1, 2, 3, 4].map((number) => ({
+      name: `photo-${number}.png`,
+      mimeType: 'image/png',
+      buffer: png
+    }));
+    if (english) {
+      await input.setInputFiles(files.slice(0, 2));
+      await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(2);
+      await expect(input).toBeEnabled();
+    }
+    await input.setInputFiles(english ? files.slice(2) : files);
+    await expect(page.locator('[data-og7="followup-media"]')).toHaveCount(3);
+    await expect(input).toBeDisabled();
+    expect(posts).toBe(3);
+    const refused = page
+      .locator('[data-og7="media-upload-attempt"]')
+      .filter({ hasText: 'photo-4.png' });
+    await expect(refused.getByRole('alert')).toContainText(
+      english ? 'limit of 3' : 'limite de 3'
+    );
+    await expect(refused.getByRole('img')).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="followup-photo-count"]')
+    ).toContainText(
+      english ? '3 / 3 photos saved' : '3 / 3 photos enregistrées'
+    );
+    await expect(
+      page.getByText(
+        english ? '1 logo and up to 3 photos.' : '1 logo et 3 photos maximum.',
+        { exact: false }
+      )
+    ).toBeVisible();
+    await expect(
+      page.getByLabel(english ? 'Add logo' : 'Ajouter le logo', { exact: true })
+    ).toBeEnabled();
+  });
+}
 
 test('desktop layout supports the form without horizontal overflow', async ({
   page

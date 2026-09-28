@@ -35,6 +35,8 @@ export const getSponsorMediaUploadFailureFeedback = (
   limits: SponsorMediaLimits
 ): SponsorMediaFeedback => {
   const message = error instanceof Error ? error.message.toLowerCase() : '';
+  if (message.includes('sponsorship is not editable'))
+    return { key: 'notEditable' };
   if (message.includes('payment') && message.includes('not confirmed'))
     return { key: 'paymentUnconfirmed' };
   if (message.includes('too large'))

@@ -22,6 +22,16 @@ l’annuaire. Le champ historique `message` reste présent avec la valeur `null`
 pour compatibilité ; le Web ne l’affiche pas, même face à un ancien serveur.
 Une fiche sans résumé public n’affiche aucun texte de remplacement issu du suivi.
 
+Le formulaire privé et l'API partagent la validation des noms, du courriel et
+des liens. Les caractères de contrôle sont refusés; le message conserve les
+retours à la ligne et tabulations. Les liens utilisent HTTPS sans identifiants,
+avec un nom DNS comportant un point; les adresses IP et suffixes locaux
+(`localhost`, `local`, `internal`) sont refusés. Cette validation syntaxique
+ne résout pas le DNS et n'autorise aucun téléchargement serveur de ces URL.
+Les brouillons peuvent rester incomplets, mais conservent les contrôles de
+type, de longueur et de caractères. Les mutations JSON du suivi exigent
+`Content-Type: application/json` et refusent les propriétés inconnues.
+
 La règle existante sur les paiements est conservée : `paid`, `refunded` et `disputed` peuvent être admissibles. Un remboursement ou une contestation ne retire donc pas automatiquement la reconnaissance publique si les autres critères restent satisfaits. L’annuaire ne présente pas ces fiches comme un solde actuel ni comme une preuve d’absence de remboursement. Le retrait du consentement ou de l’approbation retire la fiche des résultats suivants. Une modification de cette politique exige une décision métier distincte.
 
 La page met en avant la présentation de l’entreprise et les publications disponibles. Les états internes « planifié », « brouillon » et « non planifié » ne sont plus affichés. Le suivi détaillé reste dans le parcours privé de commandite. L’API ne retourne le lien de publication qu’au statut `published`; les autres champs historiques de planification restent présents pour compatibilité. Les liens externes rendus utilisent HTTPS, sans identifiants intégrés dans l’URL, avec un nom accessible et l’annonce d’un nouvel onglet.
@@ -37,6 +47,13 @@ Une requête expire après 15 secondes et peut être réessayée. La navigation 
 « Retrouver ma commandite » mène au suivi existant, qui propose la récupération d’accès sans exposer de token dans le lien public. Une arrivée sans token ni accès mémorisé présente directement la récupération, sans annoncer un lien invalide; les liens explicitement invalides conservent leur état d’erreur. Les liens vers les bâtisseurs, la transparence, les conditions et le contact conservent la langue.
 
 ## Médias et validation
+
+Le suivi privé accepte par défaut **trois photos de présentation et un logo
+séparé**. La limite retournée par l’API s’applique aux photos actives du dossier,
+y compris lors d’envois simultanés. Le formulaire affiche leur compteur et refuse
+les fichiers excédentaires sans vignette. Les téléversements confirmés restent
+comptés si l’actualisation échoue; une actualisation réussie est requise avant
+un nouvel ajout. Un fichier refusé reste identifié par son nom et son erreur.
 
 `yarn images:sponsors` génère deux variantes WebP (960 et 1920 pixels) à partir du PNG du bandeau. Le navigateur choisit la variante par `srcset`. Les logos et photos des fiches sont différés; une erreur de logo affiche les initiales et une photo indisponible est retirée.
 

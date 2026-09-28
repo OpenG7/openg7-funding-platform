@@ -343,7 +343,7 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
       await test.step('An approved asset cannot be deleted by its sponsor or without administrator confirmation', async () => {
         const sponsorDelete = await request.post(
           '/api/sponsorship-followup/media/delete',
-          { data: { ...removeData, token } }
+          { data: { ...removeData, token, confirmed: true } }
         );
         expect(sponsorDelete.status()).toBe(409);
         const noAuth = await request.post(

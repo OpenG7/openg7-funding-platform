@@ -88,6 +88,9 @@ import type {
 import {
   allocationAmountMinor,
   isPublicAllocationProofUrl,
+  isSafeSponsorshipText,
+  isSponsorshipEmail,
+  isSponsorshipHttpsUrl,
   SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION
 } from '../../../packages/funding-core/src/index.js';
 
@@ -152,6 +155,11 @@ import {
   updateAdminPublicationSlot
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
+import {
+  loadSponsorMediaLimits,
+  SPONSOR_MEDIA_MULTIPART_OVERHEAD_BYTES
+} from './sponsor-media-limits.js';
+import { loadTrustedProxyHops, requestClientIp } from './request-client-ip.js';
 import {
   SponsorshipAccessError,
   normalizeRecoveryEmail,
@@ -260,6 +268,7 @@ import {
 import { processSponsorImage } from './sponsor-image.service.js';
 import {
   createSponsorMediaAsset,
+  checkSponsorMediaUpload,
   deleteSponsorMediaAsset,
   getApprovedPublicSponsorMedia,
   getSponsorMediaStorageRecord,
@@ -425,13 +434,12 @@ const sponsorMediaStorage = createSponsorMediaStorage({
     secretAccessKey: process.env.OVH_S3_SECRET_ACCESS_KEY
   }
 });
-const sponsorMediaMaxBytes = parsePositiveIntegerEnv(
-  process.env.FUNDING_SPONSOR_MEDIA_MAX_BYTES,
-  8 * 1024 * 1024
-);
-const sponsorMediaMaxSupportingImages = parsePositiveIntegerEnv(
-  process.env.FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES,
-  3
+const {
+  maxUploadBytes: sponsorMediaMaxBytes,
+  maxSupportingImages: sponsorMediaMaxSupportingImages
+} = loadSponsorMediaLimits(process.env);
+const trustedProxyHops = loadTrustedProxyHops(
+  process.env.FUNDING_TRUSTED_PROXY_HOPS
 );
 const allowedOrigins = (process.env.FUNDING_ALLOWED_ORIGINS ?? '')
   .split(',')
@@ -779,9 +787,13 @@ const isNonEmptySponsorText = (
   value.trim().length <= maxLength;
 
 const isValidSponsorEmail = (value: unknown): value is string =>
-  typeof value === 'string' &&
-  value.trim().length <= SPONSOR_TEXT_MAX_LENGTH &&
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  isSponsorshipEmail(value, SPONSOR_TEXT_MAX_LENGTH);
+
+const hasOnlyKeys = (value: unknown, keys: readonly string[]): boolean =>
+  value !== null &&
+  typeof value === 'object' &&
+  !Array.isArray(value) &&
+  Object.keys(value).every((key) => keys.includes(key));
 
 const isValidOptionalHttpsUrl = (value: unknown): boolean => {
   if (value === undefined || value === null || value === '') {
@@ -793,7 +805,7 @@ const isValidOptionalHttpsUrl = (value: unknown): boolean => {
   }
 
   try {
-    return new URL(value).protocol === 'https:';
+    return isSponsorshipHttpsUrl(value);
   } catch {
     return false;
   }
@@ -1160,8 +1172,15 @@ const deleteSponsorMediaObjects = async (
 const writeSponsorMediaMutationFailure = (
   request: ApiRequest,
   response: ApiResponse,
-  status: 'not_found' | 'conflict' | 'approved_locked'
+  status: 'not_found' | 'conflict' | 'approved_locked' | 'not_editable'
 ): void => {
+  if (status === 'not_editable') {
+    writeJson(request, response, 409, {
+      code: 'SPONSORSHIP_NOT_EDITABLE',
+      error: 'Sponsorship is not editable.'
+    });
+    return;
+  }
   if (status === 'conflict') {
     writeJson(request, response, 409, {
       code: 'SPONSOR_MEDIA_CONCURRENT_UPDATE',
@@ -2008,18 +2027,8 @@ const firstHeaderValue = (
 ): string | null =>
   Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 
-const getClientIp = (request: ApiRequest): string => {
-  const forwarded = firstHeaderValue(request.headers['x-forwarded-for']);
-  if (forwarded) {
-    return forwarded.split(',')[0]?.trim() || 'unknown';
-  }
-
-  return (
-    firstHeaderValue(request.headers['x-real-ip']) ??
-    request.socket.remoteAddress ??
-    'unknown'
-  );
-};
+const getClientIp = (request: ApiRequest): string =>
+  requestClientIp(request, trustedProxyHops);
 
 const pruneExpiredRateLimitBuckets = (
   limiter: RateLimiter,
@@ -2495,7 +2504,10 @@ const runPublicationWorker = async (): Promise<void> => {
   catch { console.error('Publication worker interrupted; inspect publication exceptions and database availability.'); }
 };
 
-createServer(async (request, response) => {
+const handleRequest = async (
+  request: ApiRequest,
+  response: ApiResponse
+): Promise<void> => {
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
       ...createCorsHeaders(request),
@@ -2510,6 +2522,28 @@ createServer(async (request, response) => {
 
   const rateLimiter = getRequestRateLimiter(request);
   if (rateLimiter && !enforceRateLimit(request, response, rateLimiter)) {
+    return;
+  }
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/sponsorship-followup/details',
+      '/api/sponsorship-followup/details',
+      '/sponsorship-followup/draft',
+      '/api/sponsorship-followup/draft',
+      '/sponsorship-followup/recover',
+      '/api/sponsorship-followup/recover',
+      '/sponsorship-followup/media/delete',
+      '/api/sponsorship-followup/media/delete'
+    ) &&
+    request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
+      'application/json'
+  ) {
+    writeJson(request, response, 415, {
+      code: 'JSON_REQUIRED',
+      error: 'Content-Type must be application/json.'
+    });
     return;
   }
 
@@ -3011,11 +3045,15 @@ createServer(async (request, response) => {
     let parts: readonly MultipartPart[];
     try {
       parts = parseMultipartFormData(
-        await readBodyBuffer(request, sponsorMediaMaxBytes + 128 * 1024),
+        await readBodyBuffer(
+          request,
+          sponsorMediaMaxBytes + SPONSOR_MEDIA_MULTIPART_OVERHEAD_BYTES
+        ),
         boundary
       );
     } catch {
       writeJson(request, response, 413, {
+        code: 'SPONSOR_MEDIA_TOO_LARGE',
         error: 'Sponsor media upload is too large.'
       });
       return;
@@ -3029,12 +3067,23 @@ createServer(async (request, response) => {
     const kind = parseSponsorMediaKind(textPart('kind'));
     const altText = textPart('altText') || null;
     const file = parts.find((part) => part.name === 'media');
+    if (file && file.data.byteLength > sponsorMediaMaxBytes) {
+      writeJson(request, response, 413, {
+        code: 'SPONSOR_MEDIA_TOO_LARGE',
+        error: 'Sponsor media upload is too large.'
+      });
+      return;
+    }
     if (
+      parts.some(
+        (part) => !['token', 'kind', 'altText', 'media'].includes(part.name)
+      ) ||
+      new Set(parts.map((part) => part.name)).size !== parts.length ||
       !isValidFollowupToken(token) ||
       !kind ||
       !file?.filename ||
       file.data.byteLength === 0 ||
-      file.data.byteLength > sponsorMediaMaxBytes ||
+      (altText !== null && !isSafeSponsorshipText(altText)) ||
       (altText?.length ?? 0) > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH
     ) {
       writeJson(request, response, 400, {
@@ -3057,6 +3106,30 @@ createServer(async (request, response) => {
         writeJson(request, response, 409, {
           error: 'Payment for this sponsorship is not confirmed yet.'
         });
+        return;
+      }
+
+      const eligibility = await checkSponsorMediaUpload(
+        dbPool,
+        followup.contributionId,
+        kind,
+        sponsorMediaMaxSupportingImages
+      );
+      if (eligibility !== 'allowed') {
+        const error =
+          eligibility === 'supporting_image_limit_reached'
+            ? 'The supporting image limit has been reached.'
+            : eligibility === 'logo_locked'
+              ? 'The approved logo must be replaced by an administrator.'
+              : eligibility === 'not_editable'
+                ? 'Sponsorship is not editable.'
+                : 'Sponsorship follow-up was not found.';
+        writeJson(
+          request,
+          response,
+          eligibility === 'contribution_not_found' ? 404 : 409,
+          { code: eligibility, error }
+        );
         return;
       }
 
@@ -3118,8 +3191,13 @@ createServer(async (request, response) => {
             ? 'The approved logo must be replaced by an administrator.'
             : created.status === 'supporting_image_limit_reached'
               ? 'The supporting image limit has been reached.'
-              : 'Sponsorship follow-up was not found.';
-        writeJson(request, response, statusCode, { error });
+              : created.status === 'not_editable'
+                ? 'Sponsorship is not editable.'
+                : 'Sponsorship follow-up was not found.';
+        writeJson(request, response, statusCode, {
+          code: created.status,
+          error
+        });
         return;
       }
       if (created.replaced) {
@@ -3185,6 +3263,13 @@ createServer(async (request, response) => {
       return;
     }
     if (
+      !hasOnlyKeys(parsed, [
+        'token',
+        'assetId',
+        'expectedVersion',
+        'confirmed'
+      ]) ||
+      parsed.confirmed !== true ||
       !isValidFollowupToken(parsed.token) ||
       !isValidUuid(parsed.assetId) ||
       !isValidAdminExpectedVersion(parsed.expectedVersion)
@@ -3214,9 +3299,11 @@ createServer(async (request, response) => {
           response,
           deleted.status === 'conflict'
             ? 'conflict'
-            : deleted.status === 'approved_locked'
-              ? 'approved_locked'
-              : 'not_found'
+            : deleted.status === 'not_editable'
+              ? 'not_editable'
+              : deleted.status === 'approved_locked'
+                ? 'approved_locked'
+                : 'not_found'
         );
         return;
       }
@@ -4004,6 +4091,10 @@ createServer(async (request, response) => {
     let locale: 'fr-CA' | 'en';
     try {
       const input = JSON.parse(await readBody(request, 8 * 1024));
+      if (!hasOnlyKeys(input, ['email', 'locale']))
+        throw new SponsorshipAccessError(400, 'validation');
+      if (input.locale !== undefined && !['fr-CA', 'en'].includes(input.locale))
+        throw new SponsorshipAccessError(400, 'validation');
       email = normalizeRecoveryEmail(input?.email);
       locale = input?.locale === 'en' ? 'en' : 'fr-CA';
     } catch {
@@ -4111,6 +4202,11 @@ createServer(async (request, response) => {
         request.method === 'POST'
           ? JSON.parse(await readBody(request, 16 * 1024))
           : null;
+      if (
+        request.method === 'POST' &&
+        !hasOnlyKeys(input, ['token', 'expectedRevision', 'data'])
+      )
+        throw new SponsorshipAccessError(400, 'validation');
       const token =
         request.method === 'POST'
           ? input?.token
@@ -4190,14 +4286,22 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (!isNonEmptySponsorText(parsed.companyName, SPONSOR_TEXT_MAX_LENGTH)) {
+    if (
+      !isSafeSponsorshipText(parsed.companyName) ||
+      parsed.companyName.length > SPONSOR_TEXT_MAX_LENGTH ||
+      !isNonEmptySponsorText(parsed.companyName, SPONSOR_TEXT_MAX_LENGTH)
+    ) {
       writeJson(request, response, 400, {
         error: 'Company name is required.'
       });
       return;
     }
 
-    if (!isNonEmptySponsorText(parsed.contactName, SPONSOR_TEXT_MAX_LENGTH)) {
+    if (
+      !isSafeSponsorshipText(parsed.contactName) ||
+      parsed.contactName.length > SPONSOR_TEXT_MAX_LENGTH ||
+      !isNonEmptySponsorText(parsed.contactName, SPONSOR_TEXT_MAX_LENGTH)
+    ) {
       writeJson(request, response, 400, {
         error: 'Contact name is required.'
       });
@@ -4227,7 +4331,7 @@ createServer(async (request, response) => {
 
     if (
       parsed.message !== undefined &&
-      (typeof parsed.message !== 'string' ||
+      (!isSafeSponsorshipText(parsed.message, true) ||
         parsed.message.length > SPONSOR_MESSAGE_MAX_LENGTH)
     ) {
       writeJson(request, response, 400, {
@@ -4568,7 +4672,7 @@ createServer(async (request, response) => {
 
     let parsed: SponsorshipFollowupDetailsRequest;
     try {
-      const body = await readBody(request);
+      const body = await readBody(request, 16 * 1024);
       parsed = JSON.parse(body) as SponsorshipFollowupDetailsRequest;
     } catch {
       writeJson(request, response, 400, {
@@ -4577,21 +4681,41 @@ createServer(async (request, response) => {
       return;
     }
 
-    if (!parsed || !isValidFollowupToken(parsed.token)) {
+    if (
+      !hasOnlyKeys(parsed, [
+        'token',
+        'draftRevision',
+        'companyName',
+        'contactName',
+        'contactEmail',
+        'websiteUrl',
+        'logoUrl',
+        'message'
+      ]) ||
+      !isValidFollowupToken(parsed.token)
+    ) {
       writeJson(request, response, 400, {
         error: 'Invalid sponsorship follow-up token.'
       });
       return;
     }
 
-    if (!isNonEmptySponsorText(parsed.companyName, SPONSOR_TEXT_MAX_LENGTH)) {
+    if (
+      !isSafeSponsorshipText(parsed.companyName) ||
+      parsed.companyName.length > SPONSOR_TEXT_MAX_LENGTH ||
+      !isNonEmptySponsorText(parsed.companyName, SPONSOR_TEXT_MAX_LENGTH)
+    ) {
       writeJson(request, response, 400, {
         error: 'Company name is required.'
       });
       return;
     }
 
-    if (!isNonEmptySponsorText(parsed.contactName, SPONSOR_TEXT_MAX_LENGTH)) {
+    if (
+      !isSafeSponsorshipText(parsed.contactName) ||
+      parsed.contactName.length > SPONSOR_TEXT_MAX_LENGTH ||
+      !isNonEmptySponsorText(parsed.contactName, SPONSOR_TEXT_MAX_LENGTH)
+    ) {
       writeJson(request, response, 400, {
         error: 'Contact name is required.'
       });
@@ -4621,7 +4745,7 @@ createServer(async (request, response) => {
 
     if (
       parsed.message !== undefined &&
-      (typeof parsed.message !== 'string' ||
+      (!isSafeSponsorshipText(parsed.message, true) ||
         parsed.message.length > SPONSOR_MESSAGE_MAX_LENGTH)
     ) {
       writeJson(request, response, 400, {
@@ -8872,6 +8996,19 @@ createServer(async (request, response) => {
   }
 
   writeJson(request, response, 404, { error: 'Not found' });
+};
+
+createServer((request, response) => {
+  void handleRequest(request, response).catch(() => {
+    // Never log request bodies, tracking tokens or provider diagnostics here.
+    console.error('Unhandled API request failure.');
+    if (response.destroyed || response.writableEnded) return;
+    if (response.headersSent) response.destroy();
+    else writeJson(request, response, 500, {
+      code: 'INTERNAL_ERROR',
+      error: 'The request could not be completed.'
+    });
+  });
 }).listen(port, () => {
   console.log(`Funding API listening on http://localhost:${port}`);
   if (!hasDatabase) {

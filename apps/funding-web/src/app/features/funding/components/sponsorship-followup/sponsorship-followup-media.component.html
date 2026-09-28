@@ -16,6 +16,13 @@
               }
       }}
     </p>
+    <p *ngIf="loaded()" data-og7="followup-photo-count" role="status">
+      {{
+        'funding.followup.media.photoCount'
+          | translate
+            : { count: photoCount(), max: limits().maxSupportingImages }
+      }}
+    </p>
     <p *ngIf="!canUploadMedia()" class="media-payment-note">
       {{ 'funding.followup.media.disabled' | translate }}
     </p>
@@ -52,7 +59,11 @@
         type="file"
         [accept]="limits().acceptedMimeTypes.join(',')"
         [disabled]="
-          !canUploadMedia() || busy() || !loaded() || hasApprovedLogo()
+          !canUploadMedia() ||
+          busy() ||
+          !loaded() ||
+          loadError() ||
+          hasApprovedLogo()
         "
         (change)="uploadMedia('logo', $event)"
       />
@@ -64,7 +75,11 @@
         [accept]="limits().acceptedMimeTypes.join(',')"
         multiple
         [disabled]="
-          !canUploadMedia() || busy() || !loaded() || !canAddSupportingImage()
+          !canUploadMedia() ||
+          busy() ||
+          !loaded() ||
+          loadError() ||
+          !canAddSupportingImage()
         "
         (change)="uploadMedia('supporting_image', $event)"
       />
