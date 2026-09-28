@@ -64,8 +64,16 @@ export class SponsorshipFollowupMediaComponent implements OnInit {
   readonly loaded = signal(false);
   readonly message = signal<SponsorMediaFeedback | null>(null);
   readonly altText = signal('');
+  // An upload is already saved when POST succeeds, even if the next GET fails.
+  private readonly savedAssets = computed(() => {
+    const assets = new Map(this.assets().map((asset) => [asset.id, asset]));
+    for (const attempt of this.attempts()) {
+      if (attempt.asset) assets.set(attempt.asset.id, attempt.asset);
+    }
+    return [...assets.values()];
+  });
   readonly hasActiveLogo = computed(() =>
-    this.assets().some((asset) => asset.kind === 'logo')
+    this.savedAssets().some((asset) => asset.kind === 'logo')
   );
   readonly hasApprovedLogo = computed(() =>
     this.assets().some(
@@ -74,7 +82,8 @@ export class SponsorshipFollowupMediaComponent implements OnInit {
   );
   readonly photoCount = computed(
     () =>
-      this.assets().filter((asset) => asset.kind === 'supporting_image').length
+      this.savedAssets().filter((asset) => asset.kind === 'supporting_image')
+        .length
   );
   readonly canAddSupportingImage = computed(
     () => this.photoCount() < this.limits().maxSupportingImages
@@ -108,7 +117,8 @@ export class SponsorshipFollowupMediaComponent implements OnInit {
       !files.length ||
       this.busy() ||
       !this.canUploadMedia() ||
-      !this.loaded()
+      !this.loaded() ||
+      this.loadError()
     )
       return;
     if (kind === 'logo' && this.hasApprovedLogo()) return;
@@ -119,12 +129,7 @@ export class SponsorshipFollowupMediaComponent implements OnInit {
     const attempts: UploadAttempt[] = files.map((file) => ({
       id: ++this.sequence,
       filename: file.name,
-      previewUrl:
-        isPlatformBrowser(this.platformId) &&
-        file.type.startsWith('image/') &&
-        file.size > 0
-          ? URL.createObjectURL(file)
-          : '',
+      previewUrl: '',
       status: 'queued',
       feedback: { key: 'queued' }
     }));
@@ -162,6 +167,9 @@ export class SponsorshipFollowupMediaComponent implements OnInit {
         }
         this.updateAttempt(attempt.id, {
           status: 'uploading',
+          previewUrl: isPlatformBrowser(this.platformId)
+            ? URL.createObjectURL(file)
+            : '',
           feedback: { key: 'uploading' }
         });
         try {
@@ -220,7 +228,8 @@ export class SponsorshipFollowupMediaComponent implements OnInit {
       const result = await this.service.deleteSponsorshipMedia({
         token: this.token(),
         assetId: asset.id,
-        expectedVersion: asset.version
+        expectedVersion: asset.version,
+        confirmed: true
       });
       if (this.destroyRef.destroyed) return false;
       if (!result.deleted) throw new Error('Deletion not confirmed.');
@@ -315,6 +324,14 @@ export class SponsorshipFollowupMediaComponent implements OnInit {
   }
 
   private updateAttempt(id: number, update: Partial<UploadAttempt>): void {
+    if (update.status === 'failed' && update.feedback?.key === 'limit') {
+      this.revoke(
+        this.attempts()
+          .filter((attempt) => attempt.id === id)
+          .map((attempt) => attempt.previewUrl)
+      );
+      update = { ...update, previewUrl: '' };
+    }
     this.attempts.update((attempts) =>
       attempts.map((attempt) =>
         attempt.id === id ? { ...attempt, ...update } : attempt

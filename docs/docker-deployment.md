@@ -362,9 +362,16 @@ Applied:
   televersement des medias de commandite
 - Traefik limite ce meme endpoint a `9 MiB`; l'API conserve la limite
   fonctionnelle configuree par `FUNDING_SPONSOR_MEDIA_MAX_BYTES` (`8 MiB` par
-  defaut)
+  defaut et plafond maximal; les valeurs invalides sont refusees au demarrage)
 - API body limit
 - API in-process rate limits for checkout, sponsorship follow-up, and admin sponsorship routes
+- `FUNDING_TRUSTED_PROXY_HOPS` est un réglage privé serveur : absent, il vaut
+  `0` et les en-têtes d'adresse client sont ignorés. Compose utilise `1`, car
+  l'API n'est pas publiée et reçoit les requêtes via un proxy. L'adresse retenue
+  est l'entrée correspondante en partant de la droite de `X-Forwarded-For`;
+  un préfixe fourni par le client ne change pas le quota. Utiliser `0` pour
+  une API accessible directement; ne jamais activer la confiance sans isoler
+  son accès. Les valeurs hors de l'intervalle entier 0–8 bloquent le démarrage.
 - API checkout amount allow-list
 - API checkout return URL validation
 - API sponsorship follow-up tokens are hashed at rest, expire by configuration, and are removed from the browser URL after page load

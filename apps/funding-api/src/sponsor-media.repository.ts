@@ -66,12 +66,14 @@ export type CreateSponsorMediaAssetResult =
   | {
       readonly status:
         | 'contribution_not_found'
+        | 'not_editable'
         | 'logo_locked'
         | 'supporting_image_limit_reached';
     };
 
 export interface SponsorMediaMutationResult {
-  readonly status: 'updated' | 'not_found' | 'conflict' | 'approved_locked';
+  readonly status:
+    'updated' | 'not_found' | 'conflict' | 'approved_locked' | 'not_editable';
   readonly asset: SponsorMediaStorageRecord | null;
 }
 
@@ -178,6 +180,48 @@ const getAssetForUpdate = async (
   return result.rows[0] ?? null;
 };
 
+const editableContribution = (row: {
+  status: string;
+  sponsor_review_status: string | null;
+}): boolean =>
+  ['paid', 'refunded', 'disputed'].includes(row.status) &&
+  row.sponsor_review_status !== 'rejected';
+
+/** Cheap preflight before decoding/storage; the transaction still enforces the quota. */
+export const checkSponsorMediaUpload = async (
+  pool: Pool | null,
+  contributionId: string,
+  kind: SponsorMediaKind,
+  maxSupportingImages: number
+): Promise<
+  | 'allowed'
+  | 'contribution_not_found'
+  | 'not_editable'
+  | 'logo_locked'
+  | 'supporting_image_limit_reached'
+> => {
+  if (!pool) return 'contribution_not_found';
+  const result = await pool.query<{
+    status: string;
+    sponsor_review_status: string | null;
+    supporting_count: string;
+    approved_logo: boolean;
+  }>(
+    `SELECT c.status, c.sponsor_review_status,
+      (SELECT COUNT(*)::text FROM sponsor_media_assets m WHERE m.contribution_id = c.id AND m.kind = 'supporting_image' AND m.deleted_at IS NULL) AS supporting_count,
+      EXISTS (SELECT 1 FROM sponsor_media_assets m WHERE m.contribution_id = c.id AND m.kind = 'logo' AND m.review_status = 'approved' AND m.deleted_at IS NULL) AS approved_logo
+     FROM fund_contributions c WHERE c.id = $1::uuid AND c.contribution_type = 'sponsorship_interest'`,
+    [contributionId]
+  );
+  const row = result.rows[0];
+  if (!row) return 'contribution_not_found';
+  if (!editableContribution(row)) return 'not_editable';
+  if (kind === 'logo') return row.approved_logo ? 'logo_locked' : 'allowed';
+  return Number(row.supporting_count) >= maxSupportingImages
+    ? 'supporting_image_limit_reached'
+    : 'allowed';
+};
+
 export const createSponsorMediaAsset = async (
   pool: Pool | null,
   input: CreateSponsorMediaAssetInput
@@ -188,8 +232,12 @@ export const createSponsorMediaAsset = async (
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const contribution = await client.query<{ readonly id: string }>(
-      `SELECT id
+    const contribution = await client.query<{
+      readonly id: string;
+      status: string;
+      sponsor_review_status: string | null;
+    }>(
+      `SELECT id, status, sponsor_review_status
        FROM fund_contributions
        WHERE id = $1::uuid
          AND contribution_type = 'sponsorship_interest'
@@ -200,6 +248,13 @@ export const createSponsorMediaAsset = async (
     if (!contribution.rows[0]) {
       await client.query('ROLLBACK');
       return { status: 'contribution_not_found' };
+    }
+    if (
+      input.uploadedBy === 'sponsor' &&
+      !editableContribution(contribution.rows[0])
+    ) {
+      await client.query('ROLLBACK');
+      return { status: 'not_editable' };
     }
 
     let replaced: SponsorMediaStorageRecord | null = null;
@@ -319,6 +374,24 @@ export const deleteSponsorMediaAsset = async (
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    if (input.contributionId) {
+      // Lock the dossier before the asset, as uploads do, and recheck a concurrent refusal.
+      const contribution = await client.query<{
+        status: string;
+        sponsor_review_status: string | null;
+      }>(
+        `SELECT status, sponsor_review_status FROM fund_contributions
+         WHERE id = $1::uuid AND contribution_type = 'sponsorship_interest' FOR UPDATE`,
+        [input.contributionId]
+      );
+      if (
+        !contribution.rows[0] ||
+        !editableContribution(contribution.rows[0])
+      ) {
+        await client.query('ROLLBACK');
+        return { status: 'not_editable', asset: null };
+      }
+    }
     const row = await getAssetForUpdate(client, input.assetId);
     if (
       !row ||

@@ -133,6 +133,23 @@ les metadonnees dans PostgreSQL. La limite par fichier est configuree par
 `FUNDING_SPONSOR_MEDIA_MAX_BYTES` et le nombre maximal de photos de presentation
 par `FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES`.
 
+La taille doit être un entier de 1 à 8 388 608 octets; une configuration invalide
+arrête le démarrage de l'API. Ce plafond conserve la marge multipart sous les
+9 Mio autorisés par Nginx et Traefik. Le nombre de photos doit être un entier
+strictement positif. Les valeurs par défaut restent 8 Mio et trois photos,
+auxquelles s'ajoute un logo actif. Les images dépassant 40 millions de pixels
+sont refusées même si leur fichier est petit.
+
+Avant décodage et écriture, l'API vérifie le quota, le logo approuvé et
+l'admissibilité du dossier. La transaction vérifie à nouveau ces conditions
+pour traiter les requêtes concurrentes. Un dossier refusé ne peut téléverser
+ni supprimer de média. La suppression privée exige `confirmed: true` en plus
+du token, de l'identifiant du média et de sa version.
+Livrer le Web et l'API ensemble : un ancien client sans cette confirmation
+reçoit HTTP 400 et doit recharger la page. Aucune migration de données n'est requise.
+Un dépassement de taille retourne HTTP 413 avec `SPONSOR_MEDIA_TOO_LARGE`.
+Les formulaires multipart contenant des champs inconnus ou répétés sont refusés.
+
 L'original n'est jamais publie. Apres une approbation admin explicite, l'API
 copie uniquement la version WebP optimisee vers une cle immuable du bucket
 public avec `public-read` sur cet objet. Un refus ou une suppression retire la

@@ -72,7 +72,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const siteMusic = read(
     'apps/funding-web/src/app/features/funding/components/site-music/site-music.component.ts'
   );
-  const api = read('apps/funding-api/src/main.ts');
+  const api =
+    read('apps/funding-api/src/main.ts') +
+    read('apps/funding-api/src/sponsor-media-limits.ts');
   const webhookService = read('apps/funding-api/src/stripe-webhook.service.ts');
   const emailService = read(
     'apps/funding-api/src/email-notification.service.ts'

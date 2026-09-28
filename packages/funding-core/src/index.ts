@@ -253,6 +253,7 @@ export interface SponsorMediaDeleteRequest {
   readonly token: string;
   readonly assetId: string;
   readonly expectedVersion: string;
+  readonly confirmed: true;
 }
 
 export interface SponsorMediaDeleteResult {
@@ -1594,3 +1595,4 @@ export * from './admin-pilotage.js';
 export * from './editorial-programme.js';
 export * from './contribution-activity.js';
 export * from './admin-expenses.js';
+export * from './sponsorship-validation.js';

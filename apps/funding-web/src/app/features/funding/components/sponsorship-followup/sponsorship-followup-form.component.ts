@@ -22,6 +22,11 @@ import {
   type ValidatorFn
 } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
+import {
+  isSafeSponsorshipText,
+  isSponsorshipEmail,
+  isSponsorshipHttpsUrl
+} from '@openg7/funding-core';
 import type {
   SponsorshipFollowupResponse,
   SponsorshipDraftSnapshot,
@@ -41,14 +46,16 @@ import { SponsorshipFollowupMediaComponent } from './sponsorship-followup-media.
 
 type FormField = keyof SponsorshipDetailsDraft;
 const optionalHttpsUrlValidator: ValidatorFn = (control) => {
-  const value = String(control.value ?? '').trim();
-  if (!value) return null;
-  try {
-    return new URL(value).protocol === 'https:' ? null : { httpsUrl: true };
-  } catch {
-    return { httpsUrl: true };
-  }
+  return isSponsorshipHttpsUrl(control.value) ? null : { httpsUrl: true };
 };
+const safeTextValidator =
+  (multiline = false): ValidatorFn =>
+  (control) =>
+    isSafeSponsorshipText(control.value, multiline)
+      ? null
+      : { characters: true };
+const emailValidator: ValidatorFn = (control) =>
+  !control.value || isSponsorshipEmail(control.value) ? null : { email: true };
 const trimmedRequired: ValidatorFn = (control) =>
   String(control.value ?? '').trim() ? null : { required: true };
 
@@ -100,15 +107,21 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
     'message'
   ] as const;
   readonly sponsorshipForm = this.formBuilder.nonNullable.group({
-    companyName: ['', [trimmedRequired, Validators.maxLength(200)]],
-    contactName: ['', [trimmedRequired, Validators.maxLength(200)]],
+    companyName: [
+      '',
+      [trimmedRequired, Validators.maxLength(200), safeTextValidator()]
+    ],
+    contactName: [
+      '',
+      [trimmedRequired, Validators.maxLength(200), safeTextValidator()]
+    ],
     contactEmail: [
       '',
-      [trimmedRequired, Validators.email, Validators.maxLength(200)]
+      [trimmedRequired, emailValidator, Validators.maxLength(200)]
     ],
     websiteUrl: ['', [Validators.maxLength(2048), optionalHttpsUrlValidator]],
     logoUrl: ['', [Validators.maxLength(2048), optionalHttpsUrlValidator]],
-    message: ['', [Validators.maxLength(1000)]]
+    message: ['', [Validators.maxLength(1000), safeTextValidator(true)]]
   });
   readonly allowed = computed(
     () =>
@@ -239,7 +252,9 @@ export class SponsorshipFollowupFormComponent implements AfterViewInit {
         ? 'email'
         : control.hasError('httpsUrl')
           ? 'https'
-          : 'length';
+          : control.hasError('characters')
+            ? 'characters'
+            : 'length';
     return this.i18n.t('funding.followup.form.errors.' + key, {
       field: this.i18n.t('funding.followup.form.' + field)
     });

@@ -7,6 +7,11 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
+import {
+  isSafeSponsorshipText,
+  isSponsorshipEmail
+} from '../../../packages/funding-core/src/index.js';
+
 import { enqueueSponsorshipAccessEmail } from './email-notification.service.js';
 import { insertAdminAuditLog } from './fund-admin.repository.js';
 import { recordSponsorshipDetailsForContribution } from './fund-contributions.repository.js';
@@ -25,11 +30,7 @@ const hash = (value: string) =>
 const tokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const normalizeRecoveryEmail = (value: unknown): string => {
-  if (
-    typeof value !== 'string' ||
-    value.length > 254 ||
-    !emailPattern.test(value.trim())
-  )
+  if (!isSponsorshipEmail(value, 254))
     throw new SponsorshipAccessError(400, 'validation');
   return value.trim().toLowerCase();
 };
@@ -53,7 +54,7 @@ export const validateSponsorshipDraft = (
   const result: Record<string, string> = {};
   for (const [key, limit] of Object.entries(fields)) {
     const text = raw[key];
-    if (typeof text !== 'string' || text.length > limit || text.includes('\0'))
+    if (!isSafeSponsorshipText(text, key === 'message') || text.length > limit)
       throw new SponsorshipAccessError(400, 'validation');
     result[key] = text;
   }
