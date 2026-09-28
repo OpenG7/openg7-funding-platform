@@ -22,6 +22,7 @@ const operatorActions = new Set([
   '/admin/pilotage/programme',
   '/admin/pilotage/variant',
   '/admin/sponsorships/details',
+  '/admin/sponsorships/interventions',
   '/admin/sponsorships/review',
   '/admin/sponsorships/request-information',
   '/admin/sponsorships/publication',

@@ -3,6 +3,9 @@ import type { ProgrammeState, ProgrammePlan, PublicationFeedId, EditorialIntent 
 import { Injectable, signal } from '@angular/core';
 import type {
   AdminSearchRequest,
+  SponsorshipIntervention,
+  SponsorshipInterventionRequest,
+  SponsorshipInterventionsResponse,
   AdminSponsorshipDetailsRequest,
   AdminSponsorshipDetailsResult,
   AdminSearchResponse,
@@ -1702,6 +1705,42 @@ export class FundingAdminService {
       );
     }
     return (await response.json()) as SponsorMediaDeleteResult;
+  }
+
+  async getSponsorshipInterventions(
+    token: string,
+    sponsorshipId: string,
+    before?: string
+  ): Promise<SponsorshipInterventionsResponse> {
+    const params = new URLSearchParams({
+      sponsorshipId,
+      ...(before ? { before } : {})
+    });
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/interventions?${params}`,
+      { cache: 'no-store', headers: await this.createHeaders(token) }
+    );
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return (await response.json()) as SponsorshipInterventionsResponse;
+  }
+
+  async recordSponsorshipIntervention(
+    token: string,
+    payload: SponsorshipInterventionRequest
+  ): Promise<SponsorshipIntervention> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/interventions`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return (await response.json()) as SponsorshipIntervention;
   }
 
   async updateSponsorshipDetails(

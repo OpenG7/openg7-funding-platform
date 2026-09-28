@@ -3,7 +3,9 @@ import type {
   AdminSponsorshipProgress,
   AdminSponsorshipProgressResponse,
   AdminSponsorshipRecord,
-  SponsorMediaAsset
+  SponsorMediaAsset,
+  SponsorshipIntervention,
+  SponsorshipInterventionsResponse
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
@@ -157,6 +159,13 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
     state: 'ok' as AdminSponsorshipProgressResponse['status'],
     reviewStatus: 409,
     detailsStatus: 200,
+    journalReadStatus: 200,
+    journalSaveStatus: 200,
+    journalGate: null as Promise<void> | null,
+    journalReadGate: null as Promise<void> | null,
+    journalState:
+      'decision_required' as SponsorshipInterventionsResponse['followup']['state'],
+    journal: new Map<string, SponsorshipIntervention[]>(),
     detailsGate: null as Promise<void> | null,
     edited: new Map<string, Partial<AdminSponsorshipRecord>>(),
     queueCount: 3,
@@ -194,6 +203,56 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
           expiresAt: '2099-01-01T00:00:00Z'
         }
       });
+    if (url.pathname === '/api/admin/sponsorships/interventions') {
+      const payload = req.method() === 'POST' ? req.postDataJSON() : null;
+      const selected =
+        payload?.contributionId ?? url.searchParams.get('sponsorshipId') ?? id;
+      if (req.method() === 'POST') {
+        if (options.journalGate) await options.journalGate;
+        if (options.journalSaveStatus !== 200)
+          return route.fulfill({
+            status: options.journalSaveStatus,
+            json: { error: 'Synthetic journal failure' }
+          });
+        const entries = options.journal.get(selected) ?? [];
+        const entry = entries.find((e) => e.id === payload.requestId) ?? {
+          id: payload.requestId,
+          kind: payload.kind,
+          note: payload.note,
+          nextReviewOn: payload.nextReviewOn,
+          actor: 'Operator fixture',
+          recordedAt: date
+        };
+        if (!entries.some((e) => e.id === entry.id))
+          options.journal.set(selected, [entry, ...entries]);
+        if (payload.kind === 'extension') options.journalState = 'extended';
+        return route.fulfill({ json: entry });
+      }
+      if (selected === id && options.journalReadGate)
+        await options.journalReadGate;
+      if (options.journalReadStatus !== 200)
+        return route.fulfill({
+          status: options.journalReadStatus,
+          json: { error: 'Synthetic journal failure' }
+        });
+      const entries = options.journal.get(selected) ?? [];
+      const cursor = url.searchParams.get('before');
+      const offset = cursor ? entries.findIndex((e) => e.id === cursor) + 1 : 0;
+      return route.fulfill({
+        json: {
+          entries: entries.slice(offset, offset + 25),
+          nextCursor:
+            entries.length > offset + 25 ? entries[offset + 24].id : null,
+          followup: {
+            state: options.journalState,
+            ageDays: 35,
+            nextReviewOn:
+              entries.find((e) => e.kind === 'extension')?.nextReviewOn ?? null,
+            lastEmail: { status: 'failed', at: date }
+          }
+        }
+      });
+    }
     if (url.pathname === '/api/admin/sponsorships/progress') {
       const selected = url.searchParams.get('sponsorshipId') || id;
       if (selected === id && options.progressGate) await options.progressGate;
@@ -2441,6 +2500,228 @@ test('English compact dossier supports keyboard at mobile width without horizont
     path: 'test-results/lot4-mobile.png',
     fullPage: true
   });
+});
+
+test('intervention journal records actions with actor and date, retains notes across tabs and supports extension', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'operator');
+  await page.goto(path('refund'));
+  const journal = page.locator('[data-og7="dossier-interventions"]');
+  await expect(journal).toContainText('Dossier incomplet — décision requise');
+  await expect(journal.locator('[data-og7="intervention-kind"]')).toHaveValue(
+    'internal'
+  );
+  await expect(journal).toContainText('Envoi en échec');
+  await expect(
+    journal.locator('[data-og7="interventions-access"]')
+  ).toHaveCount(0);
+  await journal.locator('[data-og7="intervention-kind"]').selectOption('phone');
+  await journal
+    .locator('[data-og7="intervention-note"]')
+    .fill('Appel effectué. Le commanditaire demande un délai.');
+  await tabs(page)
+    .getByRole('button', { name: 'Historique', exact: true })
+    .click();
+  await expect(journal.locator('[data-og7="intervention-note"]')).toHaveValue(
+    'Appel effectué. Le commanditaire demande un délai.'
+  );
+  await journal.locator('[data-og7="intervention-save"]').focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    journal.locator('[data-og7="interventions-history"]')
+  ).toContainText('Operator fixture');
+  await expect(journal.locator('time')).toHaveAttribute('datetime', date);
+  await expect(journal.locator('[data-og7="intervention-note"]')).toHaveValue(
+    ''
+  );
+  await expect(
+    journal.locator('[data-og7="intervention-save"]')
+  ).toBeDisabled();
+  await journal
+    .locator('[data-og7="intervention-kind"]')
+    .selectOption('extension');
+  await journal.locator('[data-og7="intervention-date"]').fill('2099-01-01');
+  await journal
+    .locator('[data-og7="intervention-note"]')
+    .fill('Nouvelle échéance convenue.');
+  await journal.locator('[data-og7="intervention-save"]').click();
+  await expect(
+    journal.locator('[data-og7="interventions-state"]')
+  ).toContainText('délai supplémentaire');
+  await expect(
+    journal.locator('[data-og7="interventions-history"] li')
+  ).toHaveCount(2);
+  await expect(journal.locator('[data-og7="intervention-kind"]')).toHaveValue(
+    'internal'
+  );
+  const writes = calls.filter((c) => c.method === 'POST');
+  expect(
+    writes.filter((c) => c.url.pathname.endsWith('/interventions'))
+  ).toHaveLength(2);
+  expect(
+    writes.filter((c) =>
+      /refund|followup-access|request-information/.test(c.url.pathname)
+    )
+  ).toHaveLength(0);
+});
+
+test('intervention journal retries the same request after an uncertain save and blocks a double submit', async ({
+  page
+}) => {
+  const { calls, options } = await fixtures(page, 'owner');
+  options.journalSaveStatus = 503;
+  await page.goto(path('audit'));
+  const journal = page.locator('[data-og7="dossier-interventions"]');
+  await journal
+    .locator('[data-og7="intervention-note"]')
+    .fill('Relance effectuée, réponse attendue.');
+  await journal.locator('[data-og7="intervention-save"]').click();
+  await expect(journal.getByRole('alert')).toContainText(
+    'enregistrement n’est pas confirmé'
+  );
+  await expect(journal.locator('[data-og7="intervention-note"]')).toHaveValue(
+    'Relance effectuée, réponse attendue.'
+  );
+  options.journalSaveStatus = 200;
+  let release!: () => void;
+  options.journalGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  await journal.locator('[data-og7="intervention-save"]').click();
+  await expect(
+    journal.locator('[data-og7="intervention-save"]')
+  ).toBeDisabled();
+  release();
+  await expect(
+    journal.locator('[data-og7="interventions-history"] li')
+  ).toHaveCount(1);
+  const saves = calls.filter(
+    (c) => c.method === 'POST' && c.url.pathname.endsWith('/interventions')
+  );
+  expect(saves).toHaveLength(2);
+  expect(saves[1].body?.requestId).toBe(saves[0].body?.requestId);
+});
+
+for (const status of [401, 403])
+  test(`intervention journal clears private drafts on ${status}`, async ({
+    page
+  }) => {
+    const { options } = await fixtures(page, 'operator');
+    await page.goto(path('audit'));
+    const journal = page.locator('[data-og7="dossier-interventions"]');
+    await journal
+      .locator('[data-og7="intervention-note"]')
+      .fill('Private synthetic draft');
+    options.journalSaveStatus = status;
+    await journal.locator('[data-og7="intervention-save"]').click();
+    if (status === 401) await expect(page).toHaveURL(/admin\/login/);
+    else {
+      await expect(journal.getByRole('alert')).toBeVisible();
+      await expect(journal.locator('textarea')).toHaveCount(0);
+    }
+  });
+
+test('intervention journal keeps older notes readable for a reader and renders note text safely', async ({
+  page
+}) => {
+  const { options, calls } = await fixtures(page, 'reader');
+  options.journal.set(
+    id,
+    Array.from({ length: 27 }, (_, i) => ({
+      id: `10000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      actor: 'Operator fixture',
+      recordedAt: date,
+      kind: 'internal',
+      note:
+        i === 26 ? '<img src=x onerror=alert(1)> Historical note' : `Note ${i}`,
+      nextReviewOn: null
+    }))
+  );
+  await page.goto(path('refund'));
+  const journal = page.locator('[data-og7="dossier-interventions"]');
+  await expect(journal.locator('[data-og7="intervention-form"]')).toHaveCount(
+    0
+  );
+  await expect(
+    journal.locator('[data-og7="interventions-history"] li')
+  ).toHaveCount(25);
+  await journal.locator('[data-og7="interventions-more"]').click();
+  await expect(
+    journal.locator('[data-og7="interventions-history"] li')
+  ).toHaveCount(27);
+  await expect(journal).toContainText(
+    '<img src=x onerror=alert(1)> Historical note'
+  );
+  await expect(journal.locator('img')).toHaveCount(0);
+  expect(
+    calls.filter(
+      (c) => c.method === 'POST' && c.url.pathname.endsWith('/interventions')
+    )
+  ).toHaveLength(0);
+});
+
+test('intervention journal rejects a late response for another dossier and recovers from a read failure', async ({
+  page
+}) => {
+  const { options, calls } = await fixtures(page);
+  let release!: () => void;
+  options.journalReadGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  options.journal.set(id, [
+    {
+      id,
+      actor: 'Fixture',
+      recordedAt: date,
+      kind: 'internal',
+      note: 'OLD DOSSIER PRIVATE NOTE',
+      nextReviewOn: null
+    }
+  ]);
+  await page.goto('/admin/fundraiser/sponsors?tab=audit');
+  await expect
+    .poll(() => calls.some((c) => c.url.pathname.endsWith('/interventions')))
+    .toBe(true);
+  await page.getByRole('button', { name: /Atelier Rivage/ }).click();
+  const journal = page.locator('[data-og7="dossier-interventions"]');
+  await expect(journal).toContainText('Aucune intervention consignée');
+  release();
+  await expect(journal).not.toContainText('OLD DOSSIER PRIVATE NOTE');
+  options.journalReadStatus = 503;
+  await page.reload();
+  await expect(journal.getByRole('alert')).toContainText('actualisé');
+  options.journalReadStatus = 200;
+  await journal
+    .getByRole('button', { name: 'Actualiser le journal', exact: true })
+    .click();
+  await expect(journal.getByRole('alert')).toHaveCount(0);
+});
+
+test('intervention journal is usable in English on mobile', async ({
+  page
+}) => {
+  await fixtures(page, 'owner');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(path('audit'));
+  await page
+    .getByRole('button', { name: 'Switch administration language to English' })
+    .click();
+  const journal = page.locator('[data-og7="dossier-interventions"]');
+  await expect(journal).toContainText('Incomplete record — decision required');
+  await journal
+    .locator('[data-og7="intervention-note"]')
+    .fill('Sponsor contacted. Awaiting reply.');
+  await journal.locator('[data-og7="intervention-save"]').click();
+  await expect(
+    journal.locator('[data-og7="interventions-history"]')
+  ).toContainText('Sponsor contacted. Awaiting reply.');
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1
+    )
+  ).toBe(true);
+  await journal.screenshot({ path: 'test-results/interventions-mobile.png' });
 });
 
 test('a late progress response cannot overwrite a newly selected dossier or reset list filters', async ({

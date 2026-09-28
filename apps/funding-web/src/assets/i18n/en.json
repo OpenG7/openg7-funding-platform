@@ -1,5 +1,58 @@
 {
   "admin": {
+    "interventions": {
+      "title": "Follow-up and interventions",
+      "refresh": "Refresh journal",
+      "latest": "Latest recorded intervention:",
+      "show": "View journal",
+      "hide": "Collapse journal",
+      "add": "Record an intervention",
+      "kind": "Intervention type",
+      "note": "Action taken and outcome",
+      "noteHelp": "Internal note, timestamped and attributed to your account. Describe actions, responses and benefits already provided. Include the intervention date if it occurred earlier. Do not include secrets or private links. Record corrections in a new note.",
+      "save": "Save note",
+      "saving": "Saving…",
+      "saved": "Intervention saved in the audit trail.",
+      "history": "Intervention journal",
+      "empty": "No interventions recorded.",
+      "recorded": "Recorded on",
+      "nextReview": "Next review from (future date, UTC)",
+      "deadline": "Review deadline:",
+      "age": "Payment confirmed {{days}} day(s) ago.",
+      "guidance": "Follow-up markers from payment: first reminder after {{first}} days, second after {{second}} days, decision review after {{decision}} days. Record an extension to set a new review date.",
+      "scope": "These markers identify incomplete records, not unread emails. A reminder note describes an action already taken; it does not send a message. Refunds remain a case-by-case decision in the Refunds tab.",
+      "access": "Open follow-up link resend",
+      "lastEmail": "Latest follow-up email (sent or queued):",
+      "more": "Show earlier interventions",
+      "loadError": "The journal could not be refreshed. Displayed information may be out of date.",
+      "saveError": "Saving is not confirmed. Retry with the same note to avoid a duplicate.",
+      "invalid": "Enter a note of 1 to 2,000 characters and, for an extension, a valid future date.",
+      "forbidden": "Your account does not allow this operation.",
+      "conflict": "This request was already recorded with different content. Refresh the journal.",
+      "states": {
+        "inactive": "Information follow-up does not apply to the current record status",
+        "complete": "Information received — continue administrative processing",
+        "waiting": "Incomplete record — awaiting the sponsor",
+        "first_reminder": "Incomplete record — consider a first reminder",
+        "second_reminder": "Incomplete record — consider contacting the sponsor again",
+        "decision_required": "Incomplete record — decision required",
+        "extended": "Incomplete record — additional time recorded"
+      },
+      "kinds": {
+        "email": "Email reminder sent",
+        "phone": "Call or conversation completed",
+        "internal": "Internal note / correction to a note",
+        "extension": "Additional time granted",
+        "refund_review": "Review of a possible refund"
+      },
+      "emailStates": {
+        "queued": "Awaiting send",
+        "sending": "Sending",
+        "sent": "Sent — reading not confirmed",
+        "failed": "Send failed",
+        "cancelled": "Send cancelled"
+      }
+    },
     "stripeBackfill": {
       "title": "Sync with Stripe",
       "description": "Recover missed payments and their Stripe-confirmed status. This does not charge anyone, send historical emails or publish content.",
