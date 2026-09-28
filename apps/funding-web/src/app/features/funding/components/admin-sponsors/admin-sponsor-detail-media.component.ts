@@ -3,12 +3,15 @@ import { TranslatePipe } from '@ngx-translate/core';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   input,
-  output
+  output,
+  signal
 } from '@angular/core';
 
 import type {
   AdminSponsorDetailIdentityView,
+  AdminSponsorMediaAssetView,
   AdminSponsorMediaDeleteEvent,
   AdminSponsorMediaReviewEvent
 } from '../../models/admin-sponsors-ui.models.js';
@@ -20,7 +23,9 @@ import type {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section
-      class="detail-body"
+      class="detail-body admin-focus-target"
+      id="dossier-media"
+      tabindex="-1"
       [attr.aria-label]="'admin.legacy.medias_du_commanditaire' | translate"
     >
       <article class="detail-card">
@@ -112,7 +117,7 @@ import type {
               [disabled]="
                 identity().mediaBusy || identity().approvableMediaCount === 0
               "
-              (click)="approveAllMedia.emit()"
+              (click)="approveAllMedia.emit(pendingReviews())"
             >
               {{ 'admin.legacy.tout_approuver' | translate }}
             </button>
@@ -129,7 +134,7 @@ import type {
         <div class="media-review-list">
           <div
             class="media-review-item"
-            *ngFor="let asset of identity().mediaAssets"
+            *ngFor="let asset of identity().mediaAssets; trackBy: trackAsset"
             data-og7="admin-sponsor-media"
             [attr.data-og7-id]="asset.id"
           >
@@ -153,14 +158,14 @@ import type {
                 {{ 'admin.legacy.texte_alternatif' | translate
                 }}<span>{{ 'admin.legacy.optionnel' | translate }}</span>
                 <input
-                  #altTextInput
                   type="text"
                   maxlength="300"
                   [attr.placeholder]="
                     'admin.legacy.description_publique_automatique_si_vide'
                       | translate
                   "
-                  [value]="asset.altText"
+                  [value]="altTextFor(asset)"
+                  (input)="setAltText(asset, $event)"
                   [disabled]="identity().mediaBusy"
                 />
               </label>
@@ -180,29 +185,38 @@ import type {
                   type="button"
                   class="approve-action"
                   [disabled]="
-                    identity().mediaBusy || asset.reviewStatus === 'approved'
+                    identity().mediaBusy ||
+                    (asset.reviewStatus === 'approved' &&
+                      altTextFor(asset).trim() === asset.altText)
                   "
                   (click)="
                     reviewMedia.emit({
                       assetId: asset.id,
                       expectedVersion: asset.version,
                       reviewStatus: 'approved',
-                      altText: altTextInput.value
+                      altText: altTextFor(asset)
                     })
                   "
                 >
-                  {{ 'admin.legacy.approuver_le_media' | translate }}
+                  {{
+                    (asset.reviewStatus === 'approved'
+                      ? 'admin.dossier.saveAltText'
+                      : 'admin.legacy.approuver_le_media'
+                    ) | translate
+                  }}
                 </button>
                 <button
                   type="button"
                   class="reject-action"
-                  [disabled]="identity().mediaBusy"
+                  [disabled]="
+                    identity().mediaBusy || asset.reviewStatus === 'rejected'
+                  "
                   (click)="
                     reviewMedia.emit({
                       assetId: asset.id,
                       expectedVersion: asset.version,
                       reviewStatus: 'rejected',
-                      altText: altTextInput.value
+                      altText: altTextFor(asset)
                     })
                   "
                 >
@@ -554,6 +568,37 @@ export class AdminSponsorDetailMediaComponent {
   readonly uploadLogo = output<Event>();
   readonly deleteLogo = output<void>();
   readonly reviewMedia = output<AdminSponsorMediaReviewEvent>();
-  readonly approveAllMedia = output<void>();
+  readonly approveAllMedia = output<readonly AdminSponsorMediaReviewEvent[]>();
   readonly deleteMedia = output<AdminSponsorMediaDeleteEvent>();
+  private readonly altDrafts = signal<
+    Record<string, { version: string; text: string }>
+  >({});
+  readonly pendingReviews = computed<readonly AdminSponsorMediaReviewEvent[]>(
+    () =>
+      this.identity()
+        .mediaAssets.filter((asset) => asset.reviewStatus !== 'approved')
+        .map((asset) => ({
+          assetId: asset.id,
+          expectedVersion: asset.version,
+          reviewStatus: 'approved',
+          altText: this.altTextFor(asset)
+        }))
+  );
+
+  altTextFor(asset: AdminSponsorMediaAssetView): string {
+    const draft = this.altDrafts()[asset.id];
+    return draft?.version === asset.version ? draft.text : asset.altText;
+  }
+
+  trackAsset(_index: number, asset: AdminSponsorMediaAssetView): string {
+    return asset.id;
+  }
+
+  setAltText(asset: AdminSponsorMediaAssetView, event: Event): void {
+    const text = (event.target as HTMLInputElement).value;
+    this.altDrafts.update((drafts) => ({
+      ...drafts,
+      [asset.id]: { version: asset.version, text }
+    }));
+  }
 }

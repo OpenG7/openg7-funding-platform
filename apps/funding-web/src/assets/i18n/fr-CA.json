@@ -182,7 +182,7 @@
       "title": "Modifier le dossier",
       "history": "Coordonnées du dossier corrigées",
       "actor": "Acteur : {{actor}}",
-      "help": "Corrigez les coordonnées de ce dossier. Seul le nom de l’entreprise est obligatoire. Les modifications sont consignées dans l’historique administratif.",
+      "help": "Corrigez les coordonnées de ce dossier. Le nom de l’entreprise est obligatoire pour enregistrer ; le courriel du contact est aussi nécessaire pour compléter l’étape Identité. Cette correction ne remplace pas la transmission du formulaire par le commanditaire. Les modifications sont consignées dans l’historique administratif.",
       "fields": {
         "companyName": "Nom de l’entreprise",
         "publicName": "Nom public",
@@ -403,6 +403,20 @@
       "healthScope": "Contrôles en lecture seule, conservés au plus une minute. Ils ne prouvent ni l’écriture dans le stockage, ni la réception des courriels, ni la disponibilité complète du fournisseur."
     },
     "dossier": {
+      "completed": "Dossier terminé",
+      "nextActions": {
+        "payment": "Voir le paiement",
+        "review": "Aller à la revue",
+        "stripe": "Voir les erreurs Stripe",
+        "identity": "Voir l’identité",
+        "media": "Voir les médias",
+        "billing": "Voir la facturation",
+        "publication": "Voir la publication",
+        "refund": "Voir le remboursement",
+        "audit": "Voir l’historique"
+      },
+      "readOnly": "Accès en lecture seule : vous pouvez consulter ce dossier, sans le modifier.",
+      "saveAltText": "Enregistrer le texte alternatif",
       "mode": "Mode",
       "simulation": "Simulation",
       "consentGranted": "Consentement accordé",
@@ -411,6 +425,104 @@
       "listScope": "Dans les résultats affichés",
       "current": "Commandite en cours",
       "progress": "Progression du dossier",
+      "guide": {
+        "title": "Guide pas à pas du dossier",
+        "intro": "Suivez l’étape recommandée ou parcourez les autres étapes. Parcourir le guide ne valide aucune étape ; les états sont actualisés après les actions enregistrées.",
+        "position": "Étape {{current}} sur {{total}}",
+        "recommended": "À traiter maintenant",
+        "who": "Qui intervient :",
+        "doneWhen": "Condition de validation :",
+        "readonly": "Vous consultez ce dossier en lecture seule. Les actions décrites sont à effectuer par les personnes indiquées.",
+        "refundOwnerHelp": "Votre rôle permet de consulter le remboursement. Sollicitez un propriétaire pour son traitement.",
+        "complete": "Toutes les étapes requises sont terminées. Vous pouvez consulter leur détail dans le guide.",
+        "navigation": "Parcourir le guide du dossier",
+        "previous": "Étape précédente du guide",
+        "next": "Étape suivante du guide",
+        "backToRecommended": "Revenir à l’étape recommandée",
+        "topics": {
+          "payment": {
+            "who": "Commanditaire pour le paiement ; équipe administrative pour le suivi.",
+            "step1": "Consulter le statut, le montant et la référence du paiement dans le résumé.",
+            "step2": "Si le paiement reste en attente, vérifier sa confirmation auprès de la source de paiement. Un retour de page réussi ne confirme pas un paiement.",
+            "step3": "En cas d’échec ou de contestation, faire examiner le dossier avant toute publication, puis actualiser la progression.",
+            "condition": "Le paiement confirmé est enregistré et aucune contestation ne bloque cette étape."
+          },
+          "identity": {
+            "who": "Opérateur ou propriétaire pour les coordonnées ; commanditaire pour la transmission.",
+            "step1": "Vérifier le nom de l’entreprise et le courriel du contact dans l’onglet Identité.",
+            "step2": "Compléter les champs manquants avec « Modifier l’identité et les coordonnées », puis enregistrer et confirmer.",
+            "step3": "Vérifier la transmission du formulaire. Si elle manque, le commanditaire doit le soumettre depuis son lien privé de suivi, même si un administrateur a déjà rempli les coordonnées.",
+            "condition": "Le nom de l’entreprise, le courriel du contact et la transmission du formulaire sont enregistrés."
+          },
+          "identitySubmission": {
+            "who": "Commanditaire ; propriétaire si un nouveau lien de suivi est nécessaire.",
+            "step1": "Les coordonnées sont renseignées. Vérifier l’état « Transmission par le commanditaire » dans l’onglet Identité.",
+            "step2": "Le commanditaire ouvre son lien privé et choisit « Soumettre mes informations à l’équipe ». Un propriétaire peut renvoyer ce lien après confirmation du destinataire.",
+            "step3": "Après la transmission, actualiser le dossier. Une correction administrative des coordonnées ne remplace pas cette transmission. L’administrateur ne peut pas terminer cette étape à la place du commanditaire.",
+            "condition": "La transmission du formulaire est enregistrée, avec le nom de l’entreprise et le courriel du contact."
+          },
+          "media": {
+            "who": "Commanditaire pour les fichiers ; opérateur ou propriétaire pour leur revue.",
+            "step1": "Ouvrir Médias et vérifier les fichiers disponibles, leur lisibilité et leur texte alternatif.",
+            "step2": "Si une image de présentation manque, demander au commanditaire de l’ajouter depuis son suivi.",
+            "step3": "Examiner les médias en attente puis approuver ou refuser chacun avec les contrôles de revue.",
+            "condition": "Au moins une image de présentation est approuvée et aucun média ne reste en attente de revue."
+          },
+          "review": {
+            "who": "Opérateur ou propriétaire.",
+            "step1": "Relire l’identité, les médias, le paiement et les notes du dossier.",
+            "step2": "Compléter la note ou la raison nécessaire, puis utiliser les contrôles de revue du résumé pour enregistrer la décision appropriée.",
+            "step3": "Vérifier le statut obtenu et son historique. Un refus reste visible et ne déclenche pas à lui seul un remboursement.",
+            "condition": "Une approbation administrative est enregistrée. Elle ne vaut pas autorisation de publication."
+          },
+          "billing": {
+            "who": "Équipe administrative ; propriétaire pour les opérations de régularisation réservées.",
+            "step1": "Consulter les factures et notes de crédit du dossier dans Facturation.",
+            "step2": "S’il manque un document attendu, ouvrir la gestion des factures pour examiner sa génération ou sa reprise avec les droits requis.",
+            "step3": "Après un remboursement confirmé, vérifier la note de crédit correspondante. Les documents émis restent conservés.",
+            "condition": "Les documents attendus sont émis et aucun avoir requis ne manque, ou la facturation est indiquée « Non requis »."
+          },
+          "publication": {
+            "who": "Opérateur ou propriétaire autorisé à préparer et approuver la publication.",
+            "step1": "Vérifier le consentement, la revue, l’image approuvée et l’admissibilité financière dans Publication.",
+            "step2": "Ouvrir la publication concernée pour examiner son contenu, sa destination et son horaire avant toute autorisation.",
+            "step3": "Suivre les états de publication ; un brouillon ou une planification ne confirme pas la livraison. Examiner les échecs ou annulations avant une reprise.",
+            "condition": "Les publications prévues pour cette commandite sont enregistrées comme publiées."
+          },
+          "refund": {
+            "title": "Remboursement à vérifier",
+            "who": "Propriétaire pour le traitement ; équipe administrative pour la consultation.",
+            "step1": "Consulter le statut du remboursement et le montant déjà confirmé.",
+            "step2": "Faire examiner la demande ou l’erreur par un propriétaire. Vérifier les résultats existants avant toute nouvelle tentative.",
+            "step3": "Après confirmation du résultat, contrôler la référence, la note de crédit et l’historique du dossier.",
+            "condition": "Le traitement ne reste plus demandé, en cours ou en erreur ; son résultat confirmé et les documents associés sont vérifiés."
+          },
+          "stripe": {
+            "title": "Événement Stripe en erreur",
+            "who": "Administrateur autorisé à examiner les incidents de paiement.",
+            "step1": "Ouvrir les erreurs Stripe rattachées à ce dossier.",
+            "step2": "Consulter l’incident dans la file À traiter et vérifier son résultat avant toute reprise autorisée.",
+            "step3": "Actualiser le dossier après traitement pour vérifier les faits enregistrés.",
+            "condition": "L’événement n’est plus signalé en échec et les états du dossier reflètent le résultat confirmé."
+          },
+          "email": {
+            "title": "Courriel en échec",
+            "who": "Opérateur ou propriétaire pour la reprise autorisée.",
+            "step1": "Ouvrir Facturation et suivre le lien du courriel en échec.",
+            "step2": "Examiner le destinataire et la cause dans la file des courriels avant une reprise.",
+            "step3": "Contrôler le résultat de la tentative puis actualiser le dossier.",
+            "condition": "Le message n’est plus en échec. Un courriel en file n’est pas encore une livraison confirmée."
+          },
+          "incident": {
+            "title": "Contrôle complémentaire",
+            "who": "Équipe administrative selon les droits de l’action concernée.",
+            "step1": "Lire le motif indiqué pour ce dossier.",
+            "step2": "Ouvrir la section concernée et examiner les faits avant de choisir une action autorisée.",
+            "step3": "Actualiser la progression après le traitement.",
+            "condition": "Le contrôle n’est plus signalé comme une action requise dans le dossier."
+          }
+        }
+      },
       "next": "Prochaine étape",
       "openStep": "Ouvrir l’étape",
       "refresh": "Actualiser le dossier",
@@ -430,6 +542,25 @@
       "independent": "La revue, le consentement et la publication ont des états distincts. Un refus ne confirme pas un remboursement. L’admissibilité publique suit les règles du répertoire; elle ne prouve pas une publication sur les réseaux sociaux.",
       "actionCount": "{{count}} actions requises",
       "tabsLabel": "Onglets du dossier",
+      "identityHelp": {
+        "differenceTitle": "Coordonnées et transmission : deux actions distinctes",
+        "adminEntry": "Saisie ou correction par l’administration",
+        "adminEntryMeaning": "Vous pouvez renseigner les coordonnées reçues par téléphone ou courriel. Cette correction est consignée dans l’historique et conserve l’état de revue ; elle ne transmet pas le formulaire au nom du commanditaire.",
+        "sponsorEntry": "Transmission par le commanditaire",
+        "sponsorEntryMeaning": "Depuis son lien privé de suivi, le commanditaire clique sur « Soumettre mes informations à l’équipe ». Une date de transmission est enregistrée et le dossier passe en revue. La revue et l’autorisation de publication restent des étapes distinctes.",
+        "submissionRequired": "Pour terminer l’étape Identité, les coordonnées doivent être complètes et le commanditaire doit avoir transmis son formulaire. Même si vous remplissez tous les champs, l’étape reste en attente de cette transmission ; vous ne pouvez pas la valider à sa place.",
+        "coordinates": "Coordonnées du commanditaire",
+        "coordinatesComplete": "Le nom de l’entreprise et le courriel du contact sont renseignés.",
+        "coordinatesMissing": "Renseignez le nom de l’entreprise et le courriel du contact pour compléter les coordonnées. Le nom public, le nom du contact et le site web sont facultatifs.",
+        "edit": "Modifier l’identité et les coordonnées",
+        "readonly": "Votre accès est en lecture seule. Un opérateur ou un propriétaire peut corriger ces coordonnées.",
+        "submission": "Transmission par le commanditaire",
+        "submitted": "Le commanditaire a transmis son formulaire.",
+        "submissionPending": "En attente de la transmission du formulaire par le commanditaire.",
+        "submissionHelp": "Le commanditaire doit ouvrir son lien privé de suivi et cliquer sur « Soumettre mes informations à l’équipe ». Une correction administrative des coordonnées ne remplace pas cette transmission.",
+        "access": "Voir l’accès au suivi commanditaire",
+        "ownerHelp": "Si le commanditaire a perdu son lien, demandez à un propriétaire de lui renvoyer l’accès au suivi."
+      },
       "tabs": {
         "overview": "Résumé",
         "identity": "Identité",
@@ -478,7 +609,8 @@
         "payment_recorded": "Paiement enregistré par le serveur.",
         "payment_unconfirmed": "Vérifier le paiement : confirmation manquante ou paiement interrompu.",
         "identity_complete": "Identité transmise et coordonnées présentes.",
-        "identity_missing": "Compléter l’identité et les coordonnées du commanditaire.",
+        "identity_missing": "Coordonnées à compléter : nom de l’entreprise ou courriel du contact manquant. Utilisez « Modifier l’identité et les coordonnées » dans l’onglet Identité.",
+        "identity_submission_pending": "Coordonnées renseignées. En attente de la transmission du formulaire par le commanditaire depuis son lien privé de suivi. La saisie par un administrateur ne remplace pas cette action.",
         "media_approved": "Image de présentation approuvée; aucune revue de média en attente.",
         "media_review": "Vérifier les médias et approuver une image de présentation.",
         "review_approved": "Revue administrative approuvée.",

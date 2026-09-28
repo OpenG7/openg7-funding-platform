@@ -14,6 +14,13 @@
   padding: 0.55rem 0.95rem;
   text-decoration: none;
 }
+.admin-focus-target {
+  scroll-margin-block-start: 1.5rem;
+}
+.admin-focus-target:focus {
+  outline: 3px solid var(--admin-focus, #9edaff);
+  outline-offset: -3px;
+}
 .admin-button:hover {
   border-color: var(--admin-gold);
 }

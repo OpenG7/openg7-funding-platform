@@ -6,6 +6,7 @@ import {
   OnChanges,
   OnInit,
   PLATFORM_ID,
+  computed,
   inject,
   input,
   output,
@@ -25,6 +26,7 @@ import {
 } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { ContributionActivityService } from '../../services/contribution-activity.service.js';
+import { nextDossierSection } from '../../models/admin-sponsorship-navigation.js';
 
 /** Funding organism: read-only dossier projection and navigation to existing actions. */
 @Component({
@@ -47,6 +49,10 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
   readonly disabled = input(false);
   readonly loaded = output<AdminSponsorshipProgress | null>();
   readonly data = signal<AdminSponsorshipProgressResponse | null>(null);
+  readonly nextSection = computed(() => {
+    const next = this.data()?.dossier?.next;
+    return next ? nextDossierSection(next) : null;
+  });
   readonly state = signal<'loading' | 'ready' | 'error' | 'forbidden'>(
     'loading'
   );

@@ -32,7 +32,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
         (click)="close.emit()"
         [attr.aria-label]="'admin.legacy.fermer_le_dossier' | translate"
       >
-        ?
+        ×
       </button>
 
       <div class="detail-badges">
