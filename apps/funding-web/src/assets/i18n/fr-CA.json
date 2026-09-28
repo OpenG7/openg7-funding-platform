@@ -1,5 +1,58 @@
 {
   "admin": {
+    "interventions": {
+      "title": "Suivi et interventions",
+      "refresh": "Actualiser le journal",
+      "latest": "Dernière intervention consignée :",
+      "show": "Voir le journal",
+      "hide": "Réduire le journal",
+      "add": "Consigner une intervention",
+      "kind": "Type d’intervention",
+      "note": "Démarche effectuée et résultat",
+      "noteHelp": "Note interne, datée et attribuée à votre compte. Décrivez les démarches, les réponses et les contreparties déjà fournies. Précisez la date si l’intervention est antérieure. Aucun secret ni lien privé. Une correction se consigne dans une nouvelle note.",
+      "save": "Enregistrer la note",
+      "saving": "Enregistrement…",
+      "saved": "Intervention enregistrée dans l’audit.",
+      "history": "Journal des interventions",
+      "empty": "Aucune intervention consignée.",
+      "recorded": "Consignée le",
+      "nextReview": "Prochaine décision à partir du (date future, UTC)",
+      "deadline": "Échéance de réexamen :",
+      "age": "Paiement confirmé il y a {{days}} jour(s).",
+      "guidance": "Repères de suivi depuis le paiement : première relance à {{first}} jours, deuxième à {{second}} jours, décision à examiner à {{decision}} jours. Vous pouvez consigner une prolongation avec une nouvelle échéance.",
+      "scope": "Ces repères signalent les dossiers incomplets, pas une absence de lecture du courriel. Une note de relance décrit une démarche déjà effectuée ; elle n’envoie aucun message. La décision de remboursement reste au cas par cas, dans l’onglet Remboursements.",
+      "access": "Accéder au renvoi du lien de suivi",
+      "lastEmail": "Dernier courriel de suivi (envoi ou mise en file) :",
+      "more": "Afficher les interventions précédentes",
+      "loadError": "Le journal n’a pas pu être actualisé. Les informations affichées peuvent être anciennes.",
+      "saveError": "L’enregistrement n’est pas confirmé. Réessayez avec la même note pour éviter un doublon.",
+      "invalid": "Saisissez une note de 1 à 2 000 caractères et, pour une prolongation, une date future valide.",
+      "forbidden": "Votre compte ne permet pas cette opération.",
+      "conflict": "Cette demande a déjà été enregistrée avec un contenu différent. Actualisez le journal.",
+      "states": {
+        "inactive": "Suivi des informations non applicable à l’état actuel du dossier",
+        "complete": "Informations reçues — traitement administratif à poursuivre",
+        "waiting": "Dossier incomplet — en attente du commanditaire",
+        "first_reminder": "Dossier incomplet — première relance à envisager",
+        "second_reminder": "Dossier incomplet — nouvelle prise de contact à envisager",
+        "decision_required": "Dossier incomplet — décision requise",
+        "extended": "Dossier incomplet — délai supplémentaire consigné"
+      },
+      "kinds": {
+        "email": "Relance par courriel effectuée",
+        "phone": "Appel ou échange effectué",
+        "internal": "Note interne / correction d’une note",
+        "extension": "Délai supplémentaire accordé",
+        "refund_review": "Examen d’un éventuel remboursement"
+      },
+      "emailStates": {
+        "queued": "En attente d’envoi",
+        "sending": "En cours d’envoi",
+        "sent": "Envoyé — lecture non confirmée",
+        "failed": "Envoi en échec",
+        "cancelled": "Envoi annulé"
+      }
+    },
     "stripeBackfill": {
       "title": "Synchroniser avec Stripe",
       "description": "Récupérez les paiements manqués et leurs états confirmés par Stripe. Aucun nouveau prélèvement, courriel historique ou publication n’est déclenché.",

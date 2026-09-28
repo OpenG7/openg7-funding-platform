@@ -1,0 +1,63 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.interventions {
+  padding: 1rem;
+  border: 1px solid var(--admin-border, #536073);
+  border-radius: 1rem;
+}
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+h3,
+h4,
+p {
+  margin: 0.5rem 0;
+}
+.followup-state[data-state='decision_required'] {
+  color: #fcd34d;
+}
+fieldset {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.75rem;
+  margin: 1rem 0;
+  border: 1px solid var(--admin-border, #536073);
+  border-radius: 0.75rem;
+}
+input,
+select,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: var(--admin-bg, #111827);
+  border: 1px solid #697586;
+  border-radius: 0.5rem;
+  padding: 0.65rem;
+}
+textarea {
+  resize: vertical;
+}
+.journal {
+  padding-left: 1.5rem;
+}
+.journal li {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--admin-border, #536073);
+  overflow-wrap: anywhere;
+}
+.note {
+  white-space: pre-wrap;
+}
+[hidden] {
+  display: none !important;
+}

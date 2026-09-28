@@ -1,0 +1,219 @@
+<section
+  class="interventions"
+  data-og7="dossier-interventions"
+  aria-labelledby="interventions-title"
+>
+  <header>
+    <h3 id="interventions-title">
+      {{ 'admin.interventions.title' | translate }}
+    </h3>
+    <button
+      type="button"
+      class="admin-button secondary"
+      (click)="load()"
+      [disabled]="saving() || loading() || disabled()"
+      data-og7="interventions-refresh"
+    >
+      {{ 'admin.interventions.refresh' | translate }}
+    </button>
+    <button
+      type="button"
+      class="admin-button secondary"
+      [attr.aria-expanded]="expanded()"
+      aria-controls="interventions-journal"
+      (click)="expanded.set(!expanded())"
+      data-og7="interventions-toggle"
+    >
+      {{
+        (expanded() ? 'admin.interventions.hide' : 'admin.interventions.show')
+          | translate
+      }}
+    </button>
+  </header>
+  @if (loading()) {
+    <p role="status">{{ 'admin.dossier.loading' | translate }}</p>
+  }
+  @if (error()) {
+    <p id="intervention-error" role="alert">
+      {{ 'admin.interventions.' + error() | translate }}
+    </p>
+  }
+  @if (success()) {
+    <p role="status" data-og7="intervention-saved">
+      {{ 'admin.interventions.saved' | translate }}
+    </p>
+  }
+  @if (data(); as result) {
+    @if (result.entries[0]; as latest) {
+      <p>
+        {{ 'admin.interventions.latest' | translate }}
+        {{ 'admin.interventions.kinds.' + latest.kind | translate }} ·
+        {{ formatDate(latest.recordedAt) }}
+      </p>
+    }
+    <p
+      class="followup-state"
+      [attr.data-state]="result.followup.state"
+      data-og7="interventions-state"
+    >
+      <strong>{{
+        'admin.interventions.states.' + result.followup.state | translate
+      }}</strong>
+    </p>
+    @if (result.followup.ageDays !== null) {
+      <p>
+        {{
+          'admin.interventions.age'
+            | translate: { days: result.followup.ageDays }
+        }}
+      </p>
+    }
+    @if (result.followup.nextReviewOn) {
+      <p>
+        {{ 'admin.interventions.deadline' | translate }}
+        {{ formatDate(result.followup.nextReviewOn, true) }}
+      </p>
+    }
+    @if (result.followup.lastEmail; as email) {
+      <p>
+        {{ 'admin.interventions.lastEmail' | translate }}
+        {{ formatDate(email.at) }} ·
+        {{ 'admin.interventions.emailStates.' + email.status | translate }}
+      </p>
+    }
+    <div id="interventions-journal" [hidden]="!expanded()">
+      <p>{{ 'admin.interventions.guidance' | translate: days }}</p>
+      <p>{{ 'admin.interventions.scope' | translate }}</p>
+      @if (
+        canResendAccess() &&
+        result.followup.state !== 'complete' &&
+        result.followup.state !== 'inactive'
+      ) {
+        <button
+          type="button"
+          class="admin-button secondary"
+          (click)="accessRequested.emit()"
+          [disabled]="disabled() || saving()"
+          data-og7="interventions-access"
+        >
+          {{ 'admin.interventions.access' | translate }}
+        </button>
+      }
+      @if (canManage()) {
+        <form
+          (submit)="$event.preventDefault(); save()"
+          data-og7="intervention-form"
+        >
+          <fieldset [disabled]="saving() || loading() || disabled()">
+            <legend>{{ 'admin.interventions.add' | translate }}</legend>
+            <label for="intervention-kind">{{
+              'admin.interventions.kind' | translate
+            }}</label>
+            <select
+              id="intervention-kind"
+              (change)="setKind($any($event.target).value)"
+              data-og7="intervention-kind"
+            >
+              @for (value of kinds; track value) {
+                <option [value]="value" [selected]="kind() === value">
+                  {{ 'admin.interventions.kinds.' + value | translate }}
+                </option>
+              }
+            </select>
+            @if (kind() === 'extension') {
+              <label for="intervention-date">{{
+                'admin.interventions.nextReview' | translate
+              }}</label>
+              <input
+                id="intervention-date"
+                type="date"
+                required
+                [attr.aria-invalid]="error() === 'invalid' ? true : null"
+                [attr.aria-describedby]="
+                  error() === 'invalid' ? 'intervention-error' : null
+                "
+                [value]="nextReviewOn()"
+                (input)="nextReviewOn.set($any($event.target).value)"
+                data-og7="intervention-date"
+              />
+            }
+            <label for="intervention-note">{{
+              'admin.interventions.note' | translate
+            }}</label>
+            <textarea
+              id="intervention-note"
+              rows="4"
+              required
+              maxlength="2000"
+              [attr.aria-invalid]="error() === 'invalid' ? true : null"
+              [attr.aria-describedby]="
+                error() === 'invalid'
+                  ? 'intervention-note-help intervention-error'
+                  : 'intervention-note-help'
+              "
+              [value]="note()"
+              (input)="note.set($any($event.target).value)"
+              data-og7="intervention-note"
+            ></textarea>
+            <p id="intervention-note-help">
+              {{ 'admin.interventions.noteHelp' | translate }}
+            </p>
+            <button
+              type="submit"
+              class="admin-button primary"
+              [disabled]="
+                !note().trim() || (kind() === 'extension' && !nextReviewOn())
+              "
+              data-og7="intervention-save"
+            >
+              {{
+                (saving()
+                  ? 'admin.interventions.saving'
+                  : 'admin.interventions.save'
+                ) | translate
+              }}
+            </button>
+          </fieldset>
+        </form>
+      }
+      <h4>{{ 'admin.interventions.history' | translate }}</h4>
+      @if (!result.entries.length) {
+        <p>{{ 'admin.interventions.empty' | translate }}</p>
+      }
+      <ol class="journal" data-og7="interventions-history">
+        @for (entry of result.entries; track entry.id) {
+          <li [attr.data-og7-id]="entry.id">
+            <strong>{{
+              'admin.interventions.kinds.' + entry.kind | translate
+            }}</strong>
+            <p>
+              {{ 'admin.interventions.recorded' | translate }}
+              <time [attr.datetime]="entry.recordedAt">{{
+                formatDate(entry.recordedAt)
+              }}</time>
+              · {{ entry.actor }}
+            </p>
+            <p class="note">{{ entry.note }}</p>
+            @if (entry.nextReviewOn) {
+              <p>
+                {{ 'admin.interventions.deadline' | translate }}
+                {{ formatDate(entry.nextReviewOn, true) }}
+              </p>
+            }
+          </li>
+        }
+      </ol>
+      @if (result.nextCursor) {
+        <button
+          type="button"
+          class="admin-button secondary"
+          (click)="load(true)"
+          [disabled]="loading() || saving()"
+          data-og7="interventions-more"
+        >
+          {{ 'admin.interventions.more' | translate }}
+        </button>
+      }
+    </div>
+  }
+</section>

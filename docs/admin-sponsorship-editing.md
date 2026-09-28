@@ -28,8 +28,72 @@ Une demande identique déjà appliquée retourne son résultat enregistré, sans
 
 Aucune nouvelle migration ni opération sur les données existantes n’est nécessaire. Les tables `fund_contributions` et `admin_audit_log` doivent déjà être migrées. La validation commune appartient à `funding-core`. L’API utilise son chemin relatif de module pour respecter la compilation actuelle sous `dist/packages/funding-core/src` ; les alias TypeScript du dépôt ne réécrivent pas les imports Node à l’exécution. L’image Docker API inclut désormais ce package compilé pour rendre la validation disponible à l’exécution.
 
+## Suivi des dossiers incomplets et interventions
+
+Le panneau **Suivi et interventions** apparaît dans le dossier, après les onglets.
+Son journal s’ouvre automatiquement dans **Remboursements** et **Historique**.
+Il conserve les démarches effectuées, leur résultat, l’acteur authentifié et la
+date serveur d’enregistrement. Une intervention antérieure peut préciser sa date
+dans la note. En mode token partagé, l’acteur reste commun : seule une session
+nominative permet d’attribuer la note à une personne distincte.
+
+Les types sont : courriel déjà envoyé, appel/échange effectué, note interne ou
+correction, prolongation et examen d’un éventuel remboursement. Ces notes privées
+ne sont ni un envoi de courriel, ni une décision de remboursement, ni une preuve
+de lecture du lien. Pour corriger une note, ajouter une nouvelle intervention :
+l’interface ne propose ni modification ni suppression. Le journal reste accessible
+après remboursement, par pages de 25, y compris au-delà des 20 événements présentés
+dans l’ancien résumé d’audit du dossier. Les notes ne sont pas exposées au suivi
+public et ne doivent contenir aucun secret ni lien privé.
+
+Les repères internes `SPONSORSHIP_FOLLOWUP_DAYS` sont centralisés dans
+`packages/funding-core/src/sponsorship-interventions.ts` : 7 jours pour envisager
+une première relance, 14 pour une nouvelle prise de contact, 30 pour examiner une
+décision. Ils sont calculés depuis le paiement confirmé, indépendamment de la
+date d’expiration du lien. Ils ne promettent aucun remboursement ni courriel
+automatique et ne modifient pas la politique publique au cas par cas.
+
+Le suivi utilise la complétude de l’Assistant : formulaire transmis, entreprise,
+courriel et image de présentation présents. Un dossier complet sort des relances,
+même si la revue administrative reste à faire. Un paiement non confirmé, un refus
+ou un remboursement engagé sort du suivi des informations. Une prolongation exige
+une note et une date UTC strictement future : jusqu’à cette date le panneau indique
+le délai accordé, puis réclame un réexamen. Une nouvelle note ordinaire ne repousse
+pas cette échéance. Le dernier courriel de suivi distingue mise en file, envoi et
+échec ; « envoyé » ne signifie pas « lu ».
+
+### Contrat du journal
+
+`GET /api/admin/sponsorships/interventions?sponsorshipId=<UUID>&before=<UUID>`
+(alias sans `/api`) retourne `entries`, `nextCursor` et `followup`. `before` est
+facultatif ; le curseur est limité au même dossier. Les pages sont ordonnées par
+date et identifiant décroissants, sans décalage des anciennes pages lors d’un
+nouvel ajout. L’échéance est recherchée dans tout le journal, pas seulement dans
+la page affichée. Les métadonnées privées des courriels ne sont pas retournées.
+
+`POST` au même endpoint exige `contributionId`, `requestId` (UUID), `kind`
+(`email`, `phone`, `internal`, `extension`, `refund_review`), `note` (1 à 2 000
+caractères après normalisation, entrée limitée à 2 000) et `nextReviewOn` (`null`,
+ou `YYYY-MM-DD` exclusivement pour une prolongation). Les propriétés inconnues
+sont refusées. L’acteur et la date proviennent du serveur. Le verrou du dossier
+sérialise les ajouts ; l’entrée `sponsorship.intervention.recorded` dans
+`admin_audit_log` constitue la note et sa trace d’audit atomique. Même demande et
+acteur : même entrée ; même identifiant avec contenu ou acteur différent : 409.
+Une relance identique reste récupérable après expiration de la prolongation.
+
+Tous les rôles admin lisent ; opérateurs et propriétaires ajoutent ; lecteurs
+refusés en écriture par l’API. Les contrôles d’origine existants s’appliquent.
+Corps JSON limité à 16 Kio, réponses privées sans cache : 200, 400, 401/403, 404,
+405, 409, 415 ou 503 selon le résultat. Aucun endpoint d’édition/suppression,
+aucune modification des faits financiers, du dossier, des consentements ou de
+la publication. Aucun effet externe n’est déclenché. Pas de nouvelle migration :
+les tables d’audit, courriels et accès commanditaires existantes sont réutilisées.
+Livrer l’API avec le Web ; une API indisponible affiche une erreur de journal.
+
 ## Vérification locale
 
 - `yarn build` puis `node --test tests/admin-sponsorship-details.test.mjs` : validation et autorisations.
 - `node --test tests/integration/admin-sponsorship-details.integration.mjs` : PostgreSQL jetable local et API réelle, atomicité, relances, conflits, audit et conservation des données financières. Aucun `.env` ni fournisseur réel utilisé.
 - `yarn test:ui:admin` : tests navigateur du formulaire dans `admin-sponsorship-progress.spec.ts`, avec des données synthétiques.
+- `node --test tests/sponsorship-interventions.test.mjs tests/integration/sponsorship-interventions.integration.mjs` après compilation : seuils, validation, rôles, API réelle et PostgreSQL jetable ; audit, rejeu concurrent, pagination, confidentialité, prolongation et conservation après remboursement simulé.
+- Les cas « intervention journal » de `admin-sponsorship-progress.spec.ts` couvrent saisie, clavier, onglets, erreurs/reprise, droits, pagination, réponses tardives et anglais mobile, avec API interceptées.

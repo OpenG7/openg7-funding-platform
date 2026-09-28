@@ -117,6 +117,11 @@ import {
   updateAdminSponsorshipDetails
 } from './admin-sponsorship-details.service.js';
 import {
+  getSponsorshipInterventions,
+  recordSponsorshipIntervention,
+  SponsorshipInterventionError
+} from './sponsorship-interventions.service.js';
+import {
   allowedAdminExpenseStatuses,
   allowedPublicationDraftStatuses,
   assignDraftToPublicationBatch,
@@ -2251,6 +2256,8 @@ const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
       '/api/admin/sponsorships/review',
       '/admin/sponsorships/details',
       '/api/admin/sponsorships/details',
+      '/admin/sponsorships/interventions',
+      '/api/admin/sponsorships/interventions',
       '/admin/sponsorships/refund',
       '/api/admin/sponsorships/refund',
       '/admin/sponsorships/publication',
@@ -7782,6 +7789,74 @@ createServer(async (request, response) => {
         response,
         error instanceof SponsorshipDetailsError ? error.status : 503,
         { error: 'Sponsorship details could not be updated.' }
+      );
+    }
+    return;
+  }
+
+  if (
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/interventions',
+      '/api/admin/sponsorships/interventions'
+    )
+  ) {
+    response.setHeader('Cache-Control', 'private, no-store');
+    if (!ensureAdminAccess(request, response)) return;
+    if (request.method !== 'GET' && request.method !== 'POST') {
+      response.setHeader('Allow', 'GET, POST');
+      writeJson(request, response, 405, { error: 'Method not allowed.' });
+      return;
+    }
+    try {
+      if (request.method === 'GET') {
+        const params = new URL(request.url!, 'http://localhost').searchParams;
+        writeJson(
+          request,
+          response,
+          200,
+          await getSponsorshipInterventions(
+            dbPool!,
+            params.get('sponsorshipId'),
+            params.get('before')
+          )
+        );
+      } else {
+        if (
+          request.headers['content-type']
+            ?.split(';')[0]
+            .trim()
+            .toLowerCase() !== 'application/json'
+        ) {
+          writeJson(request, response, 415, { error: 'JSON body required.' });
+          return;
+        }
+        let input: unknown;
+        try {
+          input = JSON.parse(await readBody(request, 16 * 1024));
+        } catch {
+          throw new SponsorshipInterventionError(400);
+        }
+        writeJson(
+          request,
+          response,
+          200,
+          await recordSponsorshipIntervention(
+            dbPool!,
+            input,
+            getAdminAuditActor(request)
+          )
+        );
+      }
+    } catch (error) {
+      writeJson(
+        request,
+        response,
+        error instanceof SponsorshipInterventionError ? error.status : 503,
+        {
+          code: 'SPONSORSHIP_INTERVENTION_FAILED',
+          error: 'Sponsorship interventions could not be processed.'
+        }
       );
     }
     return;

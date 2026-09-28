@@ -1561,6 +1561,13 @@ export type {
   AdminSponsorshipProgress,
   AdminSponsorshipProgressResponse
 } from './sponsorship-progress.js';
+export { SPONSORSHIP_FOLLOWUP_DAYS } from './sponsorship-interventions.js';
+export type {
+  SponsorshipInterventionKind,
+  SponsorshipInterventionRequest,
+  SponsorshipIntervention,
+  SponsorshipInterventionsResponse
+} from './sponsorship-interventions.js';
 export { validateAdminSponsorshipDetails } from './admin-sponsorship-details.js';
 export type {
   AdminSponsorshipDetails,

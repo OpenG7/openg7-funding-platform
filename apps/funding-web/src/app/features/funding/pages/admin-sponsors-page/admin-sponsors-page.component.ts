@@ -64,6 +64,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminSponsorDetailMediaComponent } from '../../components/admin-sponsors/admin-sponsor-detail-media.component.js';
 import { AdminSponsorshipProgressComponent } from '../../components/admin-sponsors/admin-sponsorship-progress.component.js';
 import { AdminSponsorshipGuideComponent } from '../../components/admin-sponsors/admin-sponsorship-guide.component.js';
+import { AdminSponsorshipInterventionsComponent } from '../../components/admin-sponsors/admin-sponsorship-interventions.component.js';
 import { AdminSponsorshipAccessComponent } from '../../components/admin-sponsors/admin-sponsorship-access.component.js';
 import { AdminSponsorshipFactsComponent } from '../../components/admin-sponsors/admin-sponsorship-facts.component.js';
 import { AdminSponsorDetailHeaderComponent } from '../../components/admin-sponsors/admin-sponsor-detail-header.component.js';
@@ -188,6 +189,7 @@ const controlledSponsorLogoUrlPrefixes = [
     AdminSponsorDetailMediaComponent,
     AdminSponsorshipProgressComponent,
     AdminSponsorshipGuideComponent,
+    AdminSponsorshipInterventionsComponent,
     AdminSponsorshipFactsComponent,
     CommonModule,
     RouterLink,
@@ -371,6 +373,16 @@ const controlledSponsorLogoUrlPrefixes = [
               <openg7-admin-sponsor-detail-tabs
                 [activeTab]="activeTab()"
                 (activeTabChange)="setActiveTab($event)"
+              />
+              <openg7-admin-sponsorship-interventions
+                [contributionId]="selected.id"
+                [refreshKey]="assistantRefresh()"
+                [canManage]="canManage()"
+                [canResendAccess]="canUseOwnerActions()"
+                [disabled]="actionsDisabled()"
+                [autoOpen]="activeTab() === 'refund' || activeTab() === 'audit'"
+                (accessRequested)="sponsorAccess()?.focus()"
+                (saved)="loadSponsorships()"
               />
               @if (!canManage()) {
                 <p role="status">{{ 'admin.dossier.readOnly' | translate }}</p>
@@ -5184,6 +5196,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     switch (entry.action) {
+      case 'sponsorship.intervention.recorded':
+        return this.i18n.t('admin.interventions.saved');
       case 'sponsorship.details.update':
         return this.i18n.t('admin.editDossier.history');
       case 'sponsorship.logo.upload':
@@ -5206,6 +5220,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   private adminAuditDetail(entry: AdminAuditLogEntry): string {
+    if (entry.action === 'sponsorship.intervention.recorded') {
+      return [
+        this.i18n.t('admin.editDossier.actor', { actor: entry.actor }),
+        this.metadataString(entry, 'note')
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    }
     if (entry.action === 'sponsorship.details.update') {
       const fields = Array.isArray(entry.metadata.changedFields)
         ? entry.metadata.changedFields.filter(
