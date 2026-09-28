@@ -8,6 +8,19 @@ see the [controlled rehearsal](operations/integration-rehearsal.md). Independent
 failure alerts use a separate [signed webhook watcher](operations/admin-identity-and-alerts.md)
 so they do not rely on this SMTP service.
 
+## Sponsorship invoices
+
+New sponsorship invoices store the benefits corresponding to the confirmed
+amount in their notes, using the shared `DEFAULT_SPONSORSHIP_PRICING_CONFIG`
+and `resolveSponsorshipBenefits` rules for CAD. The text and HTML emails and
+downloadable PDF display this snapshot, including the requirement for consent
+and administrative validation before publication. Other currencies require
+confirmation of benefits; no exchange-rate conversion is inferred.
+
+Resends retain the issued benefits even if pricing changes. Existing invoices
+keep their original notes; this change does not rewrite or resend them. No
+database migration is required.
+
 ## Roles
 
 ```text

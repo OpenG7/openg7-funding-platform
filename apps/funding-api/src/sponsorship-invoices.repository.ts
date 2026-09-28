@@ -11,6 +11,8 @@ import type {
   AdminSponsorshipInvoicesSummary
 } from '@openg7/funding-core';
 
+import { formatSponsorshipBenefitList } from './sponsorship-benefits.js';
+
 export interface SponsorshipInvoiceLineItem {
   readonly description: string;
   readonly quantity: number;
@@ -539,6 +541,19 @@ export const createSponsorshipInvoiceForStripeSession = async (
   }
 
   const invoiceNumber = createInvoiceNumber(input);
+  // Persist the benefits with the issued document: resends and PDF downloads
+  // must not resolve them again against a future pricing configuration.
+  const notes = [
+    'Avantages de votre commandite :',
+    ...formatSponsorshipBenefitList(
+      centsToAmount(input.amountCents),
+      input.currency
+    ).map((benefit) => `- ${benefit}`),
+    '',
+    'Ces présences nécessitent votre consentement et une validation administrative. Aucune publication n’est automatique au paiement.',
+    '',
+    invoiceLegalNote
+  ].join('\n');
   const lineItems: readonly SponsorshipInvoiceLineItem[] = [
     {
       description: 'Commandite de visibilite OpenG7 - Fonds des batisseurs',
@@ -694,7 +709,7 @@ export const createSponsorshipInvoiceForStripeSession = async (
       normalizeText(invoiceIssuerTaxId),
       input.customerEmail,
       JSON.stringify(lineItems),
-      invoiceLegalNote
+      notes
     ]
   );
 
