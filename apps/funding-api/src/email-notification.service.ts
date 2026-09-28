@@ -12,6 +12,7 @@ import type {
   SponsorshipInvoiceRecord
 } from './sponsorship-invoices.repository.js';
 import type { ContributionReferenceRecoveryRecord } from './fund-contributions.repository.js';
+import { formatSponsorshipBenefitList } from './sponsorship-benefits.js';
 import {
   loadTransactionalEmailConfig,
   sendTransactionalEmail,
@@ -33,9 +34,6 @@ type EmailTemplateKey =
   | 'sponsorship_review_reminder'
   | 'publication_batch_full'
   | 'email_configuration_test';
-
-type EmailSponsorshipBenefitId =
-  'website_mention' | 'facebook_batch' | 'linkedin_batch';
 
 interface SponsorshipFollowupEmailInput {
   readonly to: string;
@@ -238,29 +236,6 @@ const adminNotificationEmail =
   process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ?? '';
 const defaultMaxAttempts = 5;
 
-const sponsorshipBenefitLabels: Record<EmailSponsorshipBenefitId, string> = {
-  website_mention: 'Mention publique sur OpenG7.org apres validation',
-  facebook_batch: 'Presence dans une publication collective Facebook',
-  linkedin_batch: 'Presence dans une publication collective LinkedIn'
-};
-const sponsorshipBenefitThresholds: readonly {
-  readonly id: EmailSponsorshipBenefitId;
-  readonly minimumAmount: number;
-}[] = [
-  {
-    id: 'website_mention',
-    minimumAmount: 50
-  },
-  {
-    id: 'facebook_batch',
-    minimumAmount: 250
-  },
-  {
-    id: 'linkedin_batch',
-    minimumAmount: 500
-  }
-];
-
 const escapeHtml = (value: string): string =>
   value
     .replaceAll('&', '&amp;')
@@ -301,18 +276,6 @@ const formatWaitingDays = (days: number | null): string => {
   }
 
   return `${days} jour${days > 1 ? 's' : ''}`;
-};
-
-const formatBenefitList = (amount: number): readonly string[] => {
-  const benefits = sponsorshipBenefitThresholds
-    .filter((benefit) => amount >= benefit.minimumAmount)
-    .map((benefit) => benefit.id);
-
-  if (benefits.length === 0) {
-    return ['Aucun avantage de visibilite n est encore associe a ce montant.'];
-  }
-
-  return benefits.map((benefit) => sponsorshipBenefitLabels[benefit]);
 };
 
 const contributionTypeEmailLabel = (type: string): string =>
@@ -531,7 +494,7 @@ const renderSponsorshipConfirmationEmail = (
   const amount = formatMoney(input.amount, input.currency);
   const paidAt = formatDate(input.paidAtIso);
   const safeFollowupUrl = escapeHtml(input.followupUrl);
-  const benefits = formatBenefitList(input.amount);
+  const benefits = formatSponsorshipBenefitList(input.amount, input.currency);
   const escapedBenefits = benefits.map((benefit) => escapeHtml(benefit));
   const subject = `Confirmation de commandite OpenG7 - ${reference}`;
   const text = [
@@ -918,7 +881,7 @@ const renderSponsorshipInvoiceEmail = (
       ${escapeHtml(
         invoice.notes ??
           'Ce document ne constitue pas un recu officiel de don de bienfaisance.'
-      )}
+      ).replaceAll('\n', '<br />')}
     </p>
     <p>
       La visibilite publique associee a cette commandite reste soumise a
