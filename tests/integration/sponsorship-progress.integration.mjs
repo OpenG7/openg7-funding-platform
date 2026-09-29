@@ -170,8 +170,8 @@ test(
       assert.equal(linked.deliveryMode, 'mock');
       assert.equal(linked.feedPaused, true);
       for (const [status, mode, expected] of [
-        ['approved', 'mock', 'pending'],
-        ['published', 'mock', 'pending'],
+        ['approved', 'mock', 'partial'],
+        ['published', 'mock', 'partial'],
         ['blocked', 'live', 'blocked'],
         ['uncertain', 'live', 'error'],
         ['rejected', 'live', 'cancelled'],

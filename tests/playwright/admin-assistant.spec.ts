@@ -451,7 +451,7 @@ test.describe('assistant dossier links', () => {
       })
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Fermer le dossier' })
+      page.getByRole('button', { name: 'Toutes les commandites' })
     ).toHaveCount(0);
     await page
       .getByRole('button', { name: 'Reinitialiser les filtres', exact: true })

@@ -1,5 +1,9 @@
-<details open data-og7="dossier-guide">
-  <summary>{{ 'admin.dossier.guide.title' | translate }}</summary>
+<details
+  data-og7="dossier-guide"
+  [open]="expanded()"
+  (toggle)="onToggle($event)"
+>
+  <summary>{{ 'admin.dossier.workspace.help' | translate }}</summary>
   <div class="guide-body">
     <p class="help">{{ 'admin.dossier.guide.intro' | translate }}</p>
     @if (complete()) {

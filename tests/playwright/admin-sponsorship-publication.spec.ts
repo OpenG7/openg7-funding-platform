@@ -22,7 +22,8 @@ test.describe('Docker admin sponsorship feed publication', () => {
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
 
-    const editor = page.locator('.publication-editor');
+    await page.locator('[data-og7="publication-advanced"] > summary').click();
+    const editor = page.locator('[data-og7="dossier-publication-editor"]');
     await expect(editor).toBeVisible();
 
     const slug = 'e2e-playwright-fixture-directory';
@@ -63,6 +64,7 @@ test.describe('Docker admin sponsorship feed publication', () => {
     await page
       .getByRole('button', { name: 'Publication', exact: true })
       .click();
+    await page.locator('[data-og7="publication-advanced"] > summary').click();
     await expect(
       page.locator('.publication-editor').getByLabel(/Slug public/i)
     ).toHaveValue(slug);

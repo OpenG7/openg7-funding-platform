@@ -5,24 +5,38 @@ Réalisé le 16 septembre 2026 selon le [plan](./admin-ux-plan-de-travail.md), l
 ## Résultat visible
 
 - **Modifier le dossier** permet de corriger les coordonnées depuis chaque onglet, avec confirmation, gestion des conflits et historique. Voir le [parcours et son contrat](./admin-sponsorship-editing.md).
-- Sept onglets : **Résumé, Identité, Médias, Publication, Facturation, Remboursements, Historique**. URL directe : `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`. Les changements d’onglet conservent les filtres de la liste ouverte, le lien de retour vers la file filtrée et la position de défilement dans la limite de la hauteur du nouvel onglet. Le focus reste sur le bouton activé; sélectionner à nouveau l’onglet courant ne déclenche pas de navigation. Les autres navigations et les boutons précédent/suivant du navigateur gardent le comportement du routeur.
+- Cinq espaces : **Aperçu, Fiche et médias, Publication, Finances, Historique**. Les sept identifiants historiques restent acceptés : identity et media ouvrent Fiche et médias, billing et refund ouvrent Finances. URL directe : `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`. Les changements d’onglet conservent les filtres de la liste ouverte, le lien de retour vers la file filtrée et la position de défilement dans la limite de la hauteur du nouvel onglet. Le focus reste sur le bouton activé; sélectionner à nouveau l’onglet courant ne déclenche pas de navigation. Les autres navigations et les boutons précédent/suivant du navigateur gardent le comportement du routeur.
 - Six jalons indépendants avec état, explication et lien : paiement, identité, médias, revue, facturation, publication. Leurs liens conservent le défilement et le focus lorsqu’ils changent uniquement l’onglet du dossier ouvert, y compris lors d’un nouveau clic sur l’étape courante. Depuis le cockpit ou vers un autre dossier, la navigation reste celle du routeur. Une facture déjà émise reste terminée avant l’approbation administrative.
 - Bloc **Prochaine étape** dans le dossier et carte **Commandite en cours** à côté de « À traiter » dans le cockpit large. Les jalons se réorganisent selon la largeur disponible.
-- **Guide pas à pas du dossier**, repliable sous la progression : l’étape recommandée par l’API est ouverte par défaut, avec son état, la personne qui intervient, trois instructions et la condition de validation. Les boutons précédent/suivant parcourent les six jalons ; un incident prioritaire (remboursement, Stripe ou courriel) apparaît comme un contrôle supplémentaire. Parcourir le guide ne valide rien. Une actualisation ou un changement de dossier reprend la recommandation courante. Les lecteurs accèdent aux sections en consultation ; les opérateurs/propriétaires peuvent ouvrir le formulaire existant de correction d’identité, et le propriétaire peut rejoindre le contrôle de renvoi du lien privé. Ces raccourcis conservent les confirmations existantes. Les dossiers terminés restent consultables ; chargement, erreur et refus d’accès retirent le guide avec les faits devenus indisponibles.
-- Identité séparée des contrôles de médias existants. L’Assistant contextuel se trouve dans **Résumé**, avec ses faits dépliables. Les formulaires existants de revue, publication et remboursement restent les points d’exécution.
+- **Aide pas à pas**, repliée par défaut dans les outils du dossier : à l’ouverture, le guide présente l’étape recommandée par l’API, avec son état, la personne qui intervient, trois instructions et la condition de validation. Les boutons précédent/suivant parcourent les six jalons ; un incident prioritaire (remboursement, Stripe ou courriel) apparaît comme un contrôle supplémentaire. Parcourir le guide ne valide rien. Une actualisation ou un changement de dossier reprend la recommandation courante. Les lecteurs accèdent aux sections en consultation ; les opérateurs/propriétaires peuvent ouvrir le formulaire existant de correction d’identité, et le propriétaire peut rejoindre le contrôle de renvoi du lien privé. Ces raccourcis conservent les confirmations existantes. Les dossiers terminés restent consultables ; chargement, erreur et refus d’accès retirent le guide avec les faits devenus indisponibles.
+- Identité et médias réunis dans **Fiche et médias**. L’Assistant contextuel se trouve dans **Aperçu**, avec ses faits dépliables. Les formulaires existants de revue, publication et remboursement restent les points d’exécution.
 - L’étape **Publication** présente les avantages inclus, les prérequis manquants et une carte par réseau avec état et date. Les liens ouvrent le moteur sur ce dossier, ou directement sur son envoi, sans préparation ni autorisation au clic. Les anciens réglages restent dans **Paramètres avancés**. La visibilité du site est distincte des envois sociaux ; une simulation ne termine pas l’étape.
 - Factures et notes de crédit émises, publications et états de leurs lots/créneaux/livraisons automatiques (anciennes tentatives en repli), total confirmé remboursé, remboursements partiels, note de crédit manquante, erreurs Stripe et courriels échoués. Une tentative de publication simulée est identifiée.
-- Consentement, revue, admissibilité au répertoire public et publication restent distincts. L’ancien badge « Visible » devient un badge de consentement. L’admissibilité reflète les règles actuelles du répertoire, pas une preuve de présence sur les réseaux sociaux.
+- Consentement, revue, admissibilité au répertoire public et publication restent distincts. La liste conserve un badge de consentement; l’en-tête du dossier affiche la visibilité Web fournie par l’API, ou un état à vérifier si cette information manque. L’admissibilité au répertoire ne prouve pas une présence sur les réseaux sociaux.
 - Badges de navigation issus de la même projection que la file, hors entrées informatives. Un dossier refusé incomplet ne déclenche plus une demande d’informations. Les compteurs inconnus ne sont pas présentés comme des zéros.
 - Le dossier sélectionné est mémorisé par son UUID dans `sessionStorage`, jusqu’à la déconnexion ou l’expiration de session. Sans sélection, le cockpit charge le premier dossier lié à une action selon le tri de la file complète, avant filtres et pagination. Une sélection mémorisée supprimée est effacée; une URL directe introuvable ne charge pas un autre dossier.
 
 Révision visuelle du 17 septembre 2026 : le tableau utilise les surfaces sombres du thème admin avec une légère teinte et un liseré par état de traitement (ambre, vert, bleu, turquoise, rose ou gris). La sélection et le focus clavier sont soulignés en bleu clair. Les libellés de statut restent présents; les badges conservent des couleurs de texte lisibles, y compris les niveaux Or, Argent et Bronze.
 
+## Espace de travail — 29 septembre 2026
+
+La route sans sélection présente la liste, ses filtres repliables et les indicateurs globaux. Ouvrir un dossier masque ces indicateurs et lui donne la largeur disponible; à partir de 1 440 px, une liste compacte reste à gauche. **Toutes les commandites** restaure la recherche, les filtres et le focus sur la ligne; depuis une URL directe filtrée par UUID, le retour rétablit la liste. Les flèches précédent/suivant parcourent les dossiers de la page chargée, sans mutation.
+
+Le dossier présente son titre principal, des états séparés (revue, visibilité Web confirmée, paiement), cinq onglets, puis les six jalons compacts. Dates et référence se trouvent dans **Détails du dossier**. L’aide et l’accès privé sont repliés; une aide ouverte reste ouverte pendant une actualisation du dossier. Les interventions apparaissent dans Historique et restent accessibles depuis l’ancienne URL de remboursement.
+
+La capsule surélevée **Revue** se trouve dans l’en-tête, sur tous les onglets. Sa couleur accompagne le libellé confirmé par le serveur. Le lien vers la revue cible les actions de validation pour les gestionnaires et la capsule de statut pour les lecteurs, avec un focus visible.
+
+**Actualiser le dossier** conserve les notes et les champs de publication modifiés localement, y compris une note vidée volontairement. Les champs non modifiés prennent les nouvelles valeurs confirmées, sans enregistrer les brouillons. Dans les fenêtres administratives, Tab et Maj+Tab incluent les sections dépliables et excluent les contrôles désactivés, y compris ceux d’un groupe désactivé.
+
+Le bandeau flottant contient les décisions de revue dans Aperçu et Fiche et médias, et le remboursement réservé au propriétaire dans Finances. Publication conserve ses commandes sur les cartes de destination. Aucune confirmation, autorisation API ou règle métier ne change. Les liens avec sponsorshipId, tab, returnTo et ancres existantes restent pris en charge.
+
+Le suivi des contreparties regroupe un bilan de livraison et les cartes de destination. Le compteur et la jauge reflètent uniquement la projection confirmée; la jauge est absente lorsque le total vaut zéro. La carte Web met en avant l’annuaire, distingue les paramètres du masquage et affiche un badge de visibilité. Sans envoi social prévu ni associé, un bandeau informatif occupe la largeur sous les cartes. Les actions restent confirmées et réservées aux rôles autorisés; les simulations sociales ne font pas avancer la livraison.
+
 ## Revue des commandes du dossier — 27 septembre 2026
 
 Les actions tiennent compte du rôle : le lecteur consulte les notes et les médias sans modification; le remboursement Stripe et le renvoi du lien privé sont réservés au propriétaire (ou à la session du mode token). L’API reste responsable de l’autorisation. Les contrôles de revue, de médias et d’enregistrement sont bloqués pendant une action de la page ou après un conflit de version. Les décisions de revue déjà appliquées sont désactivées.
 
-**Refuser** ouvre le résumé avec une URL cohérente et place le focus sur la raison obligatoire. **Rembourser Stripe** place le focus sur le montant; annuler revient au bouton déclencheur. Les boutons de fermeture affichent une croix. **Tout approuver** transmet les textes alternatifs saisis; un média approuvé offre **Enregistrer le texte alternatif** lorsqu’il a changé. Un échec conserve la saisie pour la reprise.
+**Refuser** ouvre le résumé avec une URL cohérente et place le focus sur la raison obligatoire. **Rembourser Stripe** place le focus sur le montant; annuler revient au bouton déclencheur. Le retour à la liste affiche **Toutes les commandites**; les formulaires conservent leurs boutons de fermeture. **Tout approuver** transmet les textes alternatifs saisis; un média approuvé offre **Enregistrer le texte alternatif** lorsqu’il a changé. Un échec conserve la saisie pour la reprise.
 
 Les **Actions de validation** restent accessibles dans une barre flottante au bas du dossier pendant sa lecture, sur tous ses onglets. La barre rappelle le nom et la référence du commanditaire sélectionné. Elle suit le défilement interne du panneau sur grand écran et celui de la page en affichage empilé ; les boutons occupent deux colonnes sur mobile. Elle est absente en lecture seule et à la fermeture du dossier. Les droits, états désactivés et confirmations des actions restent ceux du dossier.
 
@@ -51,7 +65,7 @@ Les parcours de l’Assistant sont couverts séparément par [ses tests contextu
 - Projection financière en unités mineures entières avec devise explicite. Le navigateur ne fait que formater les montants.
 - Remboursements confirmés provenant des audits Stripe réussis, événements `charge.refunded` traités et dernier résultat confirmé enregistré. Déduplication par remboursement; maximum par charge pour ses instantanés cumulatifs. Les notes de crédit ne confirment jamais un remboursement en attente. Une couverture insuffisante ou une référence de remboursement sans note reste signalée.
 - Facture Stripe attendue uniquement pour une contribution rattachée à une session Stripe; aucun identifiant Stripe inventé pour les autres provenances.
-- Les publications terminées restent des faits historiques, même si la revue ou le consentement change. Les annulations et erreurs sont présentées sans déduire un succès depuis la seule planification.
+- Les publications sociales terminées restent des faits historiques, même si la revue ou le consentement change. La contrepartie Web exige toutefois une fiche actuellement visible : retirer le consentement ou masquer la fiche rend l’étape 6 incomplète. Les annulations et erreurs sont présentées sans déduire un succès depuis la seule planification.
 - Contrats de la file enrichis de `actionCounts` et `firstSponsorshipId`, sans supprimer les champs existants. L’Assistant sans identifiant utilise la même priorité de dossier.
 - Les mutations existantes conservent `expectedVersion`. Les conflits 409 proposent une actualisation, les actions en cours sont désactivées et les lectures obsolètes sont ignorées après changement de dossier. Les réponses 401 effacent la session; les réponses 403 effacent les faits du bloc concerné.
 
@@ -88,3 +102,38 @@ Le scénario ne charge ni `.env` ni `SPONSOR_PROGRESS_TEST_DATABASE_URL` et ne d
 - Les tests navigateur utilisent une API simulée; le test PostgreSQL vérifie séparément les requêtes réelles. La pile Docker/Stripe complète et la livraison réelle de courriels n’ont pas été testées pour ce lot.
 - Les anciens formulaires gardent leur présentation actuelle. Leur harmonisation complète et leur traduction relèvent du lot 7; les nouveaux blocs et onglets sont traduits.
 - Prochain lot : **lot 5 — Indicateurs, activité et état des systèmes**.
+
+## Visibilité Web et contreparties livrées
+
+La carte **Site Web** de l’étape 6 lit les mêmes critères que l’annuaire public :
+paiement enregistré, consentement, revue approuvée, nom d’entreprise, image de
+présentation approuvée et absence de maintien privé. Elle indique la visibilité
+réelle, les prérequis manquants et permet d’ouvrir les paramètres de présentation.
+Les anciennes fiches visibles restent visibles. Une nouvelle approbation de revue
+maintient désormais la fiche privée ; enregistrer les paramètres avancés conserve
+la décision de visibilité. Publier et masquer sont des décisions explicites.
+
+`POST /api/admin/sponsorships/website-visibility` (également sans `/api`) accepte
+`contributionId`, `expectedVersion`, `visible` et `confirmed: true`. Il exige un
+opérateur ou propriétaire authentifié. La publication revalide paiement actif,
+consentement, revue, nom et média ; un remboursement en cours ou complet bloque
+une nouvelle publication. Le masquage reste possible. Verrous, version et audit
+font partie de la même transaction. Une répétition dont l’état demandé est déjà
+atteint ne répète ni mutation ni audit. Un état obsolète donne 409, une cible
+absente 404, un corps non confirmé 400 et une indisponibilité 503. Les publications
+sociales, leurs autorisations et leur historique restent indépendants.
+
+Le contrat de progression ajoute `website` (visibilité, maintien privé, droit
+métier de publier, version et motifs) et `publicationCompletion` (`done`, `total`).
+En CAD, le total inclut la fiche Web dès 50 $, Facebook dès 250 $ et LinkedIn dès
+500 $, y compris les montants personnalisés. Une simulation ne livre aucune
+contrepartie sociale ; plusieurs tentatives sur un canal ne comptent qu’une fois.
+La devise inconnue ne reçoit pas les seuils CAD. Un ancien serveur sans `website`
+produit un état inconnu dans l’interface, sans action de publication.
+
+Déployer API et Web ensemble : les anciens clients qui enregistrent les
+paramètres avancés ne rendent plus une fiche publique. Aucune migration nouvelle.
+Tests : `sponsorship-progress.test.mjs`, `sponsorship-website.test.mjs`, intégrations
+PostgreSQL `sponsorship-website.integration.mjs` / `sponsorship-progress.integration.mjs`,
+et parcours navigateur de publication dans `admin-sponsorship-progress.spec.ts`.
+Ces tests utilisent des données synthétiques et ne qualifient aucun réseau social réel.

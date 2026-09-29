@@ -49,6 +49,18 @@ export interface SponsorshipProgressPublication {
   readonly publishedAt: string | null;
 }
 export interface AdminSponsorshipProgress {
+  /** Absent on older servers: never infer visibility from review or feed status. */
+  readonly website?: {
+    readonly visible: boolean;
+    readonly held: boolean;
+    readonly canPublish: boolean;
+    readonly version: string;
+    readonly blockers: readonly string[];
+  };
+  readonly publicationCompletion?: {
+    readonly done: number;
+    readonly total: number;
+  };
   readonly preparationActivityId?: string | null;
   readonly contributionId: string;
   readonly reference: string;
@@ -85,6 +97,12 @@ export interface AdminSponsorshipProgress {
     readonly id: string;
     readonly type: string;
   }[];
+}
+export interface SponsorshipWebsiteVisibilityRequest {
+  readonly contributionId: string;
+  readonly expectedVersion: string;
+  readonly visible: boolean;
+  readonly confirmed: true;
 }
 export interface AdminSponsorshipProgressResponse {
   readonly status: 'ok' | 'empty' | 'not_found' | 'unavailable';

@@ -211,8 +211,11 @@ const controlledSponsorLogoUrlPrefixes = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <openg7-admin-layout>
-      <section class="admin-workspace">
-        <header class="admin-page-header">
+      <section
+        class="admin-workspace"
+        [class.has-dossier]="!!selectedSponsorship()"
+      >
+        <header class="admin-page-header" [hidden]="!!selectedSponsorship()">
           <nav
             class="admin-breadcrumb"
             [attr.aria-label]="'admin.legacy.fil_d_ariane_admin' | translate"
@@ -261,6 +264,7 @@ const controlledSponsorLogoUrlPrefixes = [
         </header>
 
         <openg7-admin-sponsors-summary
+          [hidden]="!!selectedSponsorship()"
           [totalSponsorships]="pagination().totalItems"
           [visibleCount]="visibleCount()"
           [activeCount]="activeCount()"
@@ -269,9 +273,12 @@ const controlledSponsorLogoUrlPrefixes = [
 
         <section
           class="sponsors-board"
+          [class.has-selection]="!!selectedSponsorship()"
           [attr.aria-label]="'admin.legacy.commandites_admin' | translate"
         >
           <openg7-admin-sponsors-list-panel
+            #sponsorsList
+            [compact]="!!selectedSponsorship()"
             [state]="state()"
             [rows]="sponsorListRows()"
             [sponsorshipCount]="sponsorships().length"
@@ -306,6 +313,7 @@ const controlledSponsorLogoUrlPrefixes = [
             #sponsorDetailPanel
             data-og7="sponsorship-dossier"
             class="sponsor-detail-panel"
+            tabindex="-1"
             [class.is-empty]="!selectedSponsorship()"
             [class.selection-pulse]="
               selectedSponsorship() &&
@@ -318,19 +326,58 @@ const controlledSponsorLogoUrlPrefixes = [
             <ng-container
               *ngIf="selectedSponsorship() as selected; else noSelection"
             >
+              <nav
+                class="dossier-toolbar"
+                [attr.aria-label]="
+                  'admin.dossier.workspace.navigation' | translate
+                "
+              >
+                <button
+                  type="button"
+                  class="workspace-back"
+                  data-og7="dossier-back"
+                  (click)="closeDetails()"
+                >
+                  <span aria-hidden="true">←</span>
+                  {{ 'admin.dossier.workspace.back' | translate }}
+                </button>
+                <div class="dossier-neighbours">
+                  <button
+                    type="button"
+                    [disabled]="!adjacentDossier(-1)"
+                    (click)="openAdjacentDossier(-1)"
+                    [attr.aria-label]="
+                      'admin.dossier.workspace.previous' | translate
+                    "
+                  >
+                    ←
+                  </button>
+                  <span>{{
+                    'admin.dossier.workspace.dossier' | translate
+                  }}</span>
+                  <button
+                    type="button"
+                    [disabled]="!adjacentDossier(1)"
+                    (click)="openAdjacentDossier(1)"
+                    [attr.aria-label]="
+                      'admin.dossier.workspace.next' | translate
+                    "
+                  >
+                    →
+                  </button>
+                </div>
+              </nav>
               <openg7-admin-sponsor-detail-header
                 *ngIf="selectedSponsorDetailHeader() as detailHeader"
                 [detail]="detailHeader"
-                (close)="closeDetails()"
+                [reviewStatus]="selected.sponsor_review_status"
+                [reviewAnchor]="!canManage() && activeTab() === 'overview'"
+                [website]="
+                  progress()?.contributionId === selected.id
+                    ? progress()?.website
+                    : undefined
+                "
               />
-              <openg7-admin-sponsor-edit
-                #sponsorEdit
-                [sponsorship]="selected"
-                [disabled]="actionsDisabled()"
-                (saved)="loadSponsorships()"
-                (conflicted)="versionConflict.set(true)"
-              />
-
               <p
                 class="payment-alert"
                 *ngIf="paymentEligibilityMessage(selected)"
@@ -345,49 +392,71 @@ const controlledSponsorLogoUrlPrefixes = [
                   <button
                     type="button"
                     [disabled]="state() === 'loading' || actionState() !== null"
-                    (click)="loadSponsorships()"
+                    (click)="loadSponsorships(true)"
                   >
                     {{ 'admin.dossier.refresh' | translate }}
                   </button>
                 </p>
               }
-              <openg7-admin-sponsorship-progress
-                [sponsorshipId]="selected.id"
-                [refreshKey]="assistantRefresh()"
-                [disabled]="actionState() !== null"
-                (loaded)="progress.set($event)"
-              />
-              @if (progress(); as dossier) {
-                @if (dossier.contributionId === selected.id) {
-                  <openg7-admin-sponsorship-guide
-                    [dossier]="dossier"
-                    [canManage]="canManage()"
-                    [canUseOwnerActions]="canUseOwnerActions()"
-                    [disabled]="actionsDisabled()"
-                    (editIdentity)="sponsorEdit.open()"
-                    (openAccess)="sponsorAccess()?.focus()"
-                  />
-                }
-              }
-              <openg7-admin-sponsorship-access
-                *ngIf="canUseOwnerActions()"
-                [contributionId]="selected.id"
-                [token]="adminToken()"
-                [disabled]="actionsDisabled()"
-                (queued)="loadSponsorships()"
-              />
               <openg7-admin-sponsor-detail-tabs
                 [activeTab]="activeTab()"
                 (activeTabChange)="setActiveTab($event)"
               />
+              <openg7-admin-sponsorship-progress
+                [sponsorshipId]="selected.id"
+                [streamlined]="true"
+                [activeTab]="activeTab()"
+                [refreshKey]="assistantRefresh()"
+                [disabled]="actionState() !== null || state() === 'loading'"
+                (loaded)="progress.set($event)"
+                (refreshRequested)="loadSponsorships(true)"
+              />
+              <div class="dossier-utilities">
+                <openg7-admin-sponsor-edit
+                  #sponsorEdit
+                  [sponsorship]="selected"
+                  [disabled]="actionsDisabled()"
+                  (saved)="loadSponsorships()"
+                  (conflicted)="versionConflict.set(true)"
+                />
+
+                @if (progress(); as dossier) {
+                  @if (dossier.contributionId === selected.id) {
+                    <openg7-admin-sponsorship-guide
+                      [dossier]="dossier"
+                      [expanded]="guideExpanded()"
+                      (expandedChange)="guideExpanded.set($event)"
+                      [canManage]="canManage()"
+                      [canUseOwnerActions]="canUseOwnerActions()"
+                      [disabled]="actionsDisabled()"
+                      (editIdentity)="sponsorEdit.open()"
+                      (openAccess)="openFollowupAccess()"
+                    />
+                  }
+                }
+                @if (canUseOwnerActions()) {
+                  <details #followupAccess class="dossier-access">
+                    <summary>
+                      {{ 'admin.dossier.workspace.access' | translate }}
+                    </summary>
+                    <openg7-admin-sponsorship-access
+                      [contributionId]="selected.id"
+                      [token]="adminToken()"
+                      [disabled]="actionsDisabled()"
+                      (queued)="loadSponsorships()"
+                    />
+                  </details>
+                }
+              </div>
               <openg7-admin-sponsorship-interventions
+                [hidden]="activeTab() !== 'audit' && activeTab() !== 'refund'"
                 [contributionId]="selected.id"
                 [refreshKey]="assistantRefresh()"
                 [canManage]="canManage()"
                 [canResendAccess]="canUseOwnerActions()"
                 [disabled]="actionsDisabled()"
                 [autoOpen]="activeTab() === 'refund' || activeTab() === 'audit'"
-                (accessRequested)="sponsorAccess()?.focus()"
+                (accessRequested)="openFollowupAccess()"
                 (saved)="loadSponsorships()"
               />
               @if (!canManage()) {
@@ -416,7 +485,9 @@ const controlledSponsorLogoUrlPrefixes = [
                 />
               </ng-container>
 
-              <ng-container *ngIf="activeTab() === 'identity'">
+              <ng-container
+                *ngIf="activeTab() === 'identity' || activeTab() === 'media'"
+              >
                 <openg7-admin-sponsor-detail-identity
                   *ngIf="selectedSponsorDetailOverview() as identity"
                   [identity]="identity"
@@ -425,11 +496,13 @@ const controlledSponsorLogoUrlPrefixes = [
                   [canResendAccess]="canUseOwnerActions()"
                   [disabled]="actionsDisabled()"
                   (editRequested)="sponsorEdit.open()"
-                  (accessRequested)="sponsorAccess()?.focus()"
+                  (accessRequested)="openFollowupAccess()"
                 />
               </ng-container>
 
-              <ng-container *ngIf="activeTab() === 'media'">
+              <ng-container
+                *ngIf="activeTab() === 'identity' || activeTab() === 'media'"
+              >
                 <openg7-admin-sponsor-detail-media
                   *ngIf="selectedSponsorDetailIdentity() as identity"
                   [identity]="identity"
@@ -444,7 +517,7 @@ const controlledSponsorLogoUrlPrefixes = [
                 />
               </ng-container>
 
-              @if (activeTab() === 'billing') {
+              @if (activeTab() === 'billing' || activeTab() === 'refund') {
                 <openg7-admin-sponsorship-facts
                   view="billing"
                   [dossier]="progress()"
@@ -454,9 +527,16 @@ const controlledSponsorLogoUrlPrefixes = [
                 <openg7-admin-sponsorship-facts
                   view="publication"
                   [dossier]="progress()"
+                  [canManageWebsite]="canManage()"
+                  [websiteDisabled]="actionsDisabled()"
+                  [websiteMessage]="websiteMessages()[selected.id] || ''"
+                  (changeWebsiteVisibility)="
+                    changeWebsiteVisibility(selected, $event)
+                  "
+                  (editWebsite)="openWebsiteSettings()"
                 />
               }
-              @if (activeTab() === 'refund') {
+              @if (activeTab() === 'billing' || activeTab() === 'refund') {
                 <openg7-admin-sponsorship-facts
                   view="refund"
                   [dossier]="progress()"
@@ -466,11 +546,16 @@ const controlledSponsorLogoUrlPrefixes = [
               <section
                 class="detail-body"
                 *ngIf="activeTab() === 'publication'"
-                [attr.aria-label]="'admin.legacy.publication' | translate"
+                [attr.aria-label]="
+                  'admin.dossier.publicationBridge.advanced' | translate
+                "
               >
                 <details
                   data-og7="publication-advanced"
                   class="publication-advanced"
+                  [open]="websiteSettingsOpen()"
+                  #websiteSettings
+                  (toggle)="websiteSettingsOpen.set(websiteSettings.open)"
                 >
                   <summary>
                     {{ 'admin.dossier.publicationBridge.advanced' | translate }}
@@ -739,7 +824,7 @@ const controlledSponsorLogoUrlPrefixes = [
 
               <section
                 class="detail-body refund-history-body"
-                *ngIf="activeTab() === 'refund'"
+                *ngIf="isFinanceTab()"
                 [attr.aria-label]="
                   'admin.legacy.historique_remboursement' | translate
                 "
@@ -1289,32 +1374,31 @@ const controlledSponsorLogoUrlPrefixes = [
               </section>
 
               <section
-                class="detail-card admin-focus-target"
-                id="dossier-review"
-                tabindex="-1"
-                aria-labelledby="dossier-review-title"
-              >
-                <h3 id="dossier-review-title">
-                  {{ 'admin.dossier.review' | translate }}
-                </h3>
-                <p>
-                  {{
-                    'admin.dossier.values.' + selected.sponsor_review_status
-                      | translate
-                  }}
-                </p>
-              </section>
-              <footer
-                *ngIf="canManage()"
-                class="detail-actions"
+                *ngIf="
+                  canManage() &&
+                  (!isFinanceTab() || canUseOwnerActions()) &&
+                  activeTab() !== 'publication' &&
+                  activeTab() !== 'audit'
+                "
+                class="detail-actions admin-focus-target"
                 data-og7="dossier-actions"
+                [attr.id]="activeTab() === 'overview' ? 'dossier-review' : null"
+                tabindex="-1"
                 [attr.data-approval-state]="approvalState(selected.id)"
                 role="region"
-                [attr.aria-label]="'admin.dossier.reviewActions' | translate"
+                [attr.aria-label]="
+                  (isFinanceTab()
+                    ? 'admin.dossier.workspace.financeActions'
+                    : 'admin.dossier.reviewActions'
+                  ) | translate
+                "
               >
                 <div class="detail-actions-context">
                   <strong>{{
-                    'admin.dossier.reviewActions' | translate
+                    (isFinanceTab()
+                      ? 'admin.dossier.workspace.finances'
+                      : 'admin.dossier.reviewActions'
+                    ) | translate
                   }}</strong>
                   <span>{{
                     selected.sponsor_company_name ||
@@ -1337,7 +1421,7 @@ const controlledSponsorLogoUrlPrefixes = [
                   <button
                     type="button"
                     class="review-button neutral"
-                    *ngIf="canManage()"
+                    *ngIf="!isFinanceTab()"
                     [disabled]="
                       actionsDisabled() ||
                       selected.sponsor_review_status === 'pending_review'
@@ -1350,7 +1434,7 @@ const controlledSponsorLogoUrlPrefixes = [
                     type="button"
                     class="review-button reject"
                     #rejectButton
-                    *ngIf="canManage()"
+                    *ngIf="!isFinanceTab()"
                     [disabled]="
                       actionsDisabled() ||
                       selected.sponsor_review_status === 'rejected'
@@ -1363,7 +1447,7 @@ const controlledSponsorLogoUrlPrefixes = [
                     type="button"
                     class="review-button refund"
                     #refundButton
-                    *ngIf="canUseOwnerActions()"
+                    *ngIf="isFinanceTab() && canUseOwnerActions()"
                     [disabled]="
                       actionsDisabled() || !canRefundSponsorship(selected)
                     "
@@ -1377,7 +1461,7 @@ const controlledSponsorLogoUrlPrefixes = [
                     data-og7="sponsorship-approve"
                     [attr.data-state]="approvalState(selected.id)"
                     [attr.aria-busy]="approvalState(selected.id) === 'pending'"
-                    *ngIf="canManage()"
+                    *ngIf="!isFinanceTab()"
                     [disabled]="
                       actionsDisabled() || !canApproveSponsorship(selected)
                     "
@@ -1395,7 +1479,7 @@ const controlledSponsorLogoUrlPrefixes = [
                     }}</span>
                   </button>
                 </div>
-              </footer>
+              </section>
             </ng-container>
 
             <ng-template #noSelection
@@ -1422,7 +1506,8 @@ const controlledSponsorLogoUrlPrefixes = [
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
     '../../components/admin-ui/admin-forms.css',
-    './admin-sponsors-approval.css'
+    './admin-sponsors-approval.css',
+    './admin-sponsors-workspace.css'
   ],
   styles: [
     `
@@ -2549,6 +2634,34 @@ const controlledSponsorLogoUrlPrefixes = [
   ]
 })
 export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
+  readonly guideExpanded = signal(false);
+  readonly sponsorsList = viewChild(AdminSponsorsListPanelComponent);
+  private readonly followupAccess =
+    viewChild<ElementRef<HTMLDetailsElement>>('followupAccess');
+  private listPosition: [number, number] = [0, 0];
+  readonly isFinanceTab = computed(
+    () => this.activeTab() === 'billing' || this.activeTab() === 'refund'
+  );
+
+  adjacentDossier(direction: -1 | 1): string | null {
+    const rows = this.sponsorListRows();
+    const index = rows.findIndex(
+      (row) => row.id === this.selectedSponsorshipId()
+    );
+    return index < 0 ? null : (rows[index + direction]?.id ?? null);
+  }
+
+  openAdjacentDossier(direction: -1 | 1): void {
+    const id = this.adjacentDossier(direction);
+    if (id) this.selectSponsorshipById(id);
+  }
+
+  openFollowupAccess(): void {
+    const panel = this.followupAccess()?.nativeElement;
+    if (panel) panel.open = true;
+    this.sponsorAccess()?.focus();
+  }
+
   readonly sponsorOverview = viewChild(AdminSponsorDetailOverviewComponent);
   readonly sponsorAccess = viewChild(AdminSponsorshipAccessComponent);
   private readonly sponsorProgress = viewChild(
@@ -2607,6 +2720,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly paymentFilter = signal<SponsorPaymentStatusFilter>('all');
   readonly assistantRefresh = signal(0);
   readonly progress = signal<AdminSponsorshipProgress | null>(null);
+  readonly websiteSettingsOpen = signal(false);
+  readonly websiteMessages = signal<Record<string, string>>({});
   readonly versionConflict = signal(false);
   private readonly router = inject(Router);
 
@@ -3014,7 +3129,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.clearApprovalFeedback();
   }
 
-  async loadSponsorships(): Promise<void> {
+  async loadSponsorships(preserveDrafts = false): Promise<void> {
     const generation = ++this.loadGeneration;
     this.state.set('loading');
 
@@ -3032,6 +3147,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       const sponsorships = response.items ?? response.sponsorships;
       if (generation !== this.loadGeneration || this.destroyRef.destroyed)
         return;
+      const previous = new Map(
+        this.sponsorships().map((item) => [item.id, item])
+      );
+      const notes = this.reviewNotes();
+      const publications = this.publicationDrafts();
       this.versionConflict.set(false);
       this.sponsorships.set(sponsorships);
       this.assistantRefresh.update((value) => value + 1);
@@ -3039,23 +3159,46 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.page.set(response.pagination?.page ?? this.page());
       this.reviewNotes.set(
         Object.fromEntries(
-          sponsorships.map((item) => [item.id, item.sponsor_review_note ?? ''])
+          sponsorships.map((item) => {
+            const before = previous.get(item.id);
+            const draft = notes[item.id];
+            return [
+              item.id,
+              preserveDrafts &&
+              before &&
+              draft !== undefined &&
+              draft !== (before.sponsor_review_note ?? '')
+                ? draft
+                : (item.sponsor_review_note ?? '')
+            ];
+          })
         )
       );
       this.publicationDrafts.set(
         Object.fromEntries(
-          sponsorships.map((item) => [item.id, this.toPublicationDraft(item)])
+          sponsorships.map((item) => {
+            const next = this.toPublicationDraft(item);
+            const before = previous.get(item.id);
+            const draft = publications[item.id];
+            if (!preserveDrafts || !before || !draft) return [item.id, next];
+            // Compare with the previous form values, including generated defaults.
+            // Keep only local edits; untouched fields follow the refreshed record.
+            const baseline = this.toPublicationDraft(before);
+            const edits = Object.fromEntries(
+              Object.entries(draft).filter(
+                ([key, value]) =>
+                  value !== baseline[key as keyof SponsorshipPublicationDraft]
+              )
+            );
+            return [item.id, { ...next, ...edits }];
+          })
         )
       );
       if (
+        this.selectedSponsorshipId() &&
         !sponsorships.some((item) => item.id === this.selectedSponsorshipId())
       ) {
-        const directId = this.route.snapshot.queryParamMap.get('sponsorshipId');
-        this.selectedSponsorshipId.set(
-          directId && this.search() === directId
-            ? null
-            : (sponsorships[0]?.id ?? null)
-        );
+        this.selectedSponsorshipId.set(null);
       }
       if (this.selectedSponsorshipId())
         this.admin.selectSponsorship(this.selectedSponsorshipId());
@@ -3662,7 +3805,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       await this.loadSponsorships();
       this.setNoteMessage(
         sponsorship.id,
-        this.i18n.t('admin.messages.note_enregistree_')
+        this.i18n.t('admin.dossier.noteEditor.saved')
       );
     } catch (error) {
       this.setNoteMessage(
@@ -3672,6 +3815,93 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
           this.i18n.t('admin.messages.la_note_n_a_pas_pu_etre_enregistree')
         )
       );
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
+  openWebsiteSettings(): void {
+    this.websiteSettingsOpen.set(true);
+    afterNextRender(
+      () => {
+        const summary = this.sponsorDetailPanel?.nativeElement.querySelector(
+          '[data-og7="publication-advanced"] > summary'
+        ) as HTMLElement | null;
+        summary?.focus();
+        summary?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+      },
+      { injector: this.injector }
+    );
+  }
+
+  async changeWebsiteVisibility(
+    sponsorship: AdminSponsorshipRecord,
+    visible: boolean
+  ): Promise<void> {
+    const site =
+      this.progress()?.contributionId === sponsorship.id
+        ? this.progress()?.website
+        : null;
+    if (!site || !this.canActOn(sponsorship) || (visible && !site.canPublish))
+      return;
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n.t(
+          'admin.dossier.publicationBridge.site.' +
+            (visible ? 'confirmPublish' : 'confirmHide')
+        ),
+        sponsorship.sponsor_company_name ??
+          sponsorship.public_reference ??
+          sponsorship.id
+      ))
+    )
+      return;
+    if (
+      !this.canActOn(sponsorship) ||
+      this.progress()?.website?.version !== site.version
+    )
+      return;
+    this.actionState.set('website:' + sponsorship.id);
+    this.websiteMessages.update((messages) => ({
+      ...messages,
+      [sponsorship.id]: this.i18n.t(
+        'admin.dossier.publicationBridge.site.saving'
+      )
+    }));
+    try {
+      await this.admin.setSponsorshipWebsiteVisibility(this.adminToken(), {
+        contributionId: sponsorship.id,
+        expectedVersion: site.version,
+        visible,
+        confirmed: true
+      });
+      if (
+        this.destroyRef.destroyed ||
+        this.selectedSponsorshipId() !== sponsorship.id
+      )
+        return;
+      await this.loadSponsorships();
+      this.websiteMessages.update((messages) => ({
+        ...messages,
+        [sponsorship.id]: this.i18n.t(
+          'admin.dossier.publicationBridge.site.saved'
+        )
+      }));
+    } catch (error) {
+      if (
+        this.destroyRef.destroyed ||
+        this.selectedSponsorshipId() !== sponsorship.id
+      )
+        return;
+      this.messageFromError(error, '');
+      this.websiteMessages.update((messages) => ({
+        ...messages,
+        [sponsorship.id]: this.i18n.t(
+          error instanceof AdminDashboardRequestError && error.status === 409
+            ? 'admin.dossier.conflict'
+            : 'admin.dossier.publicationBridge.site.failed'
+        )
+      }));
     } finally {
       this.actionState.set(null);
     }
@@ -4107,6 +4337,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   selectSponsorshipById(id: string): void {
+    if (!this.selectedSponsorshipId())
+      this.listPosition = this.viewport.getScrollPosition();
     this.selectedSponsorshipId.set(id);
     this.admin.selectSponsorship(id);
     void this.router.navigate([], {
@@ -4120,6 +4352,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   closeDetails(): void {
+    const previousId = this.selectedSponsorshipId();
+    if (this.search() === previousId) {
+      this.search.set('');
+      void this.loadSponsorships();
+    }
     this.selectedSponsorshipId.set(null);
     this.admin.selectSponsorship(null);
     void this.router.navigate([], {
@@ -4129,6 +4366,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     });
     this.activeRejectionId.set(null);
     this.activeRefundId.set(null);
+    afterNextRender(
+      () => {
+        this.viewport.scrollToPosition(this.listPosition, {
+          behavior: 'instant'
+        });
+        this.sponsorsList()?.focusRow(previousId);
+      },
+      { injector: this.injector }
+    );
   }
 
   setActiveTab(tab: SponsorDetailsTab): void {
@@ -4179,6 +4425,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       ...notes,
       [id]: value
     }));
+    this.setNoteMessage(id, '');
   }
 
   setPublicationField(
@@ -5176,9 +5423,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       return message;
     }
 
-    return this.isReviewNoteDirty(sponsorship)
-      ? this.i18n.t('admin.messages.modifications_non_enregistrees')
-      : this.i18n.t('admin.messages.note_enregistree');
+    return this.i18n.t(
+      'admin.dossier.noteEditor.' +
+        (this.isReviewNoteDirty(sponsorship)
+          ? 'unsaved'
+          : sponsorship.sponsor_review_note?.trim()
+            ? 'saved'
+            : 'empty')
+    );
   }
 
   publicationDirtyFor(sponsorship: AdminSponsorshipRecord): boolean {
@@ -5395,6 +5647,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       case 'sponsorship_publication.update':
         return this.i18n.t(
           'admin.messages.publication_commanditaire_mise_a_jour'
+        );
+      case 'sponsorship_website.visibility':
+        return this.i18n.t(
+          'admin.dossier.publicationBridge.site.audit.' +
+            (this.metadataString(entry, 'outcome') !== 'updated'
+              ? 'notApplied'
+              : this.metadataBoolean(entry, 'visible')
+                ? 'published'
+                : 'hidden')
         );
       default:
         return entry.summary || entry.action;
@@ -5821,28 +6082,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   private scrollSelectedSponsorshipIntoView(): void {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    setTimeout(() => {
-      const detailPanel = this.sponsorDetailPanel?.nativeElement;
-      if (!detailPanel) {
-        return;
-      }
-
-      const { top, bottom } = detailPanel.getBoundingClientRect();
-      const viewportHeight =
-        window.innerHeight || document.documentElement.clientHeight;
-      if (top >= 0 && bottom <= viewportHeight) {
-        return;
-      }
-
-      detailPanel.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-    }, 0);
+    afterNextRender(
+      () => {
+        const panel = this.sponsorDetailPanel?.nativeElement;
+        panel?.focus({ preventScroll: true });
+        panel?.scrollIntoView({ behavior: 'instant', block: 'start' });
+      },
+      { injector: this.injector }
+    );
   }
 
   private clearSelectionPulseTimer(): void {

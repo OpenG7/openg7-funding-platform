@@ -26,6 +26,7 @@ const operatorActions = new Set([
   '/admin/sponsorships/review',
   '/admin/sponsorships/request-information',
   '/admin/sponsorships/publication',
+  '/admin/sponsorships/website-visibility',
   '/admin/sponsorships/media',
   '/admin/sponsorships/media/delete',
   '/admin/sponsorships/media/review',

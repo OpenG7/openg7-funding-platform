@@ -16,6 +16,13 @@ Le champ optionnel `public_id` est une clé stable dérivée de l’identifiant 
 
 Une fiche exige le consentement public, l’approbation administrative, un nom d’entreprise et une image de présentation approuvée non supprimée. Les montants individuels restent absents sans consentement d’affichage du montant. Les contacts, notes administratives et références Stripe ne font pas partie de la projection.
 
+La fiche doit aussi être libérée du maintien privé. Une nouvelle approbation de
+revue conserve désormais ce maintien : l’administrateur choisit **Publier la fiche
+sur le site** dans l’étape 6, avec confirmation. **Masquer la fiche du site** la
+retire de l’annuaire et des routes de médias publics. Enregistrer les paramètres
+avancés ne change plus cette décision. Les fiches déjà visibles sont conservées.
+Voir le [contrat de visibilité](admin-ux-lot-4.md#visibilité-web-et-contreparties-livrées).
+
 Le message du suivi commanditaire (`sponsor_message`) reste privé. Seul le
 résumé public saisi par l’admin (`public_summary`) décrit l’entreprise dans
 l’annuaire. Le champ historique `message` reste présent avec la valeur `null`

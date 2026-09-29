@@ -76,6 +76,13 @@ test(
       const base = `http://127.0.0.1:${port}/api/admin`;
       const searchUrl = base + '/search';
       for (const prefix of ['/api/admin', '/admin']) {
+        const websiteUrl = `http://127.0.0.1:${port}${prefix}/sponsorships/website-visibility`;
+        assert.equal((await fetch(websiteUrl, { method: 'POST' })).status, 401);
+        assert.equal(
+          (await fetch(websiteUrl, { method: 'POST', headers })).status,
+          503,
+          'authenticated route fails closed without persistence'
+        );
         const eventUrl = `http://127.0.0.1:${port}${prefix}/stripe-event`;
         assert.equal((await fetch(eventUrl + '?eventId=invalid')).status, 401);
         assert.equal(

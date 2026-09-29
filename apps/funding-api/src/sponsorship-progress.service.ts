@@ -7,6 +7,8 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
+import { resolveSponsorshipBenefits } from '../../../packages/funding-core/src/index.js';
+
 import {
   promisedSocialChannels,
   sponsorshipRef
@@ -16,6 +18,7 @@ import {
   type SponsorshipAssistantDataset
 } from './admin-assistant/context.repository.js';
 import { getAdminWorkQueue } from './admin-work-queue.service.js';
+import { SPONSOR_WEBSITE_VISIBLE_SQL } from './sponsorship-website-eligibility.js';
 
 interface RefundFact {
   readonly id: string;
@@ -23,6 +26,9 @@ interface RefundFact {
   readonly currency: string;
 }
 export interface SponsorshipProgressFacts {
+  readonly websiteVisible: boolean;
+  readonly websiteHeld: boolean;
+  readonly websiteVersion: string;
   readonly companyName: string | null;
   readonly amountMinor: number;
   readonly refundId: string | null;
@@ -136,12 +142,25 @@ export const buildSponsorshipProgress = (
   const published = (d: SponsorshipProgressPublication) =>
     (d.status === 'published' && d.deliveryMode !== 'mock') ||
     (d.deliveryStatus === 'published' && d.deliveryMode === 'live');
+  const websiteRequired =
+    currency === 'CAD' &&
+    resolveSponsorshipBenefits(
+      facts.amountMinor / 100
+    ).achievedBenefits.includes('website_mention');
+  const publicationCompletion = {
+    total: Number(websiteRequired) + promises.length,
+    done:
+      Number(websiteRequired && facts.websiteVisible) +
+      promises.filter((channel) =>
+        facts.publications.some((d) => d.channel === channel && published(d))
+      ).length
+  };
   const publicationComplete =
-    promises.length > 0
-      ? promises.every((channel) =>
-          facts.publications.some((d) => d.channel === channel && published(d))
-        )
-      : record.feedStatus === 'published';
+    (websiteRequired || promises.length > 0) &&
+    (!websiteRequired || facts.websiteVisible) &&
+    promises.every((channel) =>
+      facts.publications.some((d) => d.channel === channel && published(d))
+    );
   const publicationError = facts.publications.some(
     (d) =>
       ['failed', 'uncertain'].includes(d.deliveryStatus ?? '') && !published(d)
@@ -165,6 +184,17 @@ export const buildSponsorshipProgress = (
     facts.publications.some(
       (d) => d.deliveryStatus === 'blocked' && !published(d)
     );
+  const websiteBlockers = [
+    ...(!consent ? ['consent'] : []),
+    ...(record.reviewStatus !== 'approved' ? ['review'] : []),
+    ...(!record.hasCompanyName ? ['identity'] : []),
+    ...(!imageApproved ? ['media'] : []),
+    ...(record.paymentStatus !== 'paid' ? ['payment'] : []),
+    ...(confirmedAmountMinor >= facts.amountMinor ||
+    ['requested', 'processing'].includes(record.refundStatus)
+      ? ['refund']
+      : [])
+  ];
   const milestones: SponsorshipMilestone[] = [
     {
       id: 'payment',
@@ -248,21 +278,22 @@ export const buildSponsorshipProgress = (
     },
     {
       id: 'publication',
-      state: publicationError
-        ? 'error'
-        : publicationComplete
-          ? 'complete'
+      state: publicationComplete
+        ? 'complete'
+        : publicationError
+          ? 'error'
           : publicationCancelled
             ? 'cancelled'
             : publicationBlocked
               ? 'blocked'
-              : facts.publications.some(published)
+              : (websiteRequired && facts.websiteVisible) ||
+                  facts.publications.some(published)
                 ? 'partial'
                 : 'pending',
-      reason: publicationError
-        ? 'publication_failed'
-        : publicationComplete
-          ? 'publication_done'
+      reason: publicationComplete
+        ? 'publication_done'
+        : publicationError
+          ? 'publication_failed'
           : publicationCancelled
             ? 'publication_cancelled'
             : !consent
@@ -307,6 +338,14 @@ export const buildSponsorshipProgress = (
       record.hasCompanyName &&
       imageApproved,
     feedStatus: record.feedStatus,
+    publicationCompletion,
+    website: {
+      visible: facts.websiteVisible,
+      held: facts.websiteHeld,
+      canPublish: websiteBlockers.length === 0,
+      version: facts.websiteVersion,
+      blockers: websiteBlockers
+    },
     publicationBlockers,
     milestones,
     next: {
@@ -361,9 +400,13 @@ export const getSponsorshipProgress = async (
         | 'refundAmountMinor'
         | 'refundError'
         | 'requiresInvoice'
+        | 'websiteVisible'
+        | 'websiteHeld'
+        | 'websiteVersion'
       >
     >(
       `SELECT
+      (${SPONSOR_WEBSITE_VISIBLE_SQL}) AS "websiteVisible", sponsor_site_visibility_held AS "websiteHeld", updated_at::text AS "websiteVersion",
       sponsor_company_name AS "companyName", amount_cents AS "amountMinor", sponsorship_refund_id AS "refundId",
       sponsorship_refund_amount_cents AS "refundAmountMinor", COALESCE(sponsorship_refund_error <> '', false) AS "refundError", stripe_session_id IS NOT NULL AS "requiresInvoice"
       FROM fund_contributions WHERE id = $1::uuid`,

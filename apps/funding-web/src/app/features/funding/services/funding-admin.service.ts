@@ -3,6 +3,7 @@ import type { ProgrammeState, ProgrammePlan, PublicationFeedId, EditorialIntent 
 import { Injectable, signal } from '@angular/core';
 import type {
   AdminSearchRequest,
+  SponsorshipWebsiteVisibilityRequest,
   SponsorshipIntervention,
   SponsorshipInterventionRequest,
   SponsorshipInterventionsResponse,
@@ -1868,6 +1869,28 @@ export class FundingAdminService {
     }
 
     return (await response.json()) as AdminSponsorshipPublicationResult;
+  }
+
+  async setSponsorshipWebsiteVisibility(
+    token: string,
+    payload: SponsorshipWebsiteVisibilityRequest
+  ): Promise<void> {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/sponsorships/website-visibility`,
+      {
+        method: 'POST',
+        headers: {
+          ...(await this.createHeaders(token)),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+    if (!response.ok)
+      throw new AdminDashboardRequestError(
+        response.status,
+        'Website visibility could not be updated.'
+      );
   }
 
   private async createHeaders(token: string): Promise<Record<string, string>> {

@@ -287,6 +287,10 @@ import { prepareAdminAssistantDraft } from './admin-assistant/preparation.servic
 import { getAdminAssistantContext } from './admin-assistant/context.service.js';
 import { getSponsorshipProgress } from './sponsorship-progress.service.js';
 import {
+  isSponsorshipWebsiteVisibilityRequest,
+  setSponsorshipWebsiteVisibility
+} from './sponsorship-website.service.js';
+import {
   InformationRequestError,
   requestSponsorshipInformation,
   validateInformationRequest
@@ -8699,6 +8703,63 @@ const handleRequest = async (
       console.error('Failed to refund sponsorship payment.', error);
       writeJson(request, response, 502, {
         error: errorMessage
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/website-visibility',
+      '/api/admin/sponsorships/website-visibility'
+    )
+  ) {
+    if (!ensureAdminAccess(request, response) || !dbPool) return;
+    if (
+      request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !==
+      'application/json'
+    ) {
+      writeJson(request, response, 415, {
+        code: 'WEBSITE_VISIBILITY_CONTENT_TYPE',
+        error: 'JSON content type required.'
+      });
+      return;
+    }
+    let input: unknown;
+    try {
+      input = JSON.parse(await readBody(request));
+    } catch {
+      input = null;
+    }
+    if (!isSponsorshipWebsiteVisibilityRequest(input)) {
+      writeJson(request, response, 400, {
+        error: 'Invalid or unconfirmed website visibility decision.',
+        code: 'WEBSITE_VISIBILITY_INVALID'
+      });
+      return;
+    }
+    try {
+      const outcome = await setSponsorshipWebsiteVisibility(
+        dbPool,
+        input,
+        getAdminAuditActor(request)
+      );
+      const status =
+        outcome === 'not_found'
+          ? 404
+          : ['conflict', 'blocked'].includes(outcome)
+            ? 409
+            : 200;
+      writeJson(request, response, status, {
+        outcome,
+        code: `WEBSITE_VISIBILITY_${outcome.toUpperCase()}`
+      });
+    } catch {
+      writeJson(request, response, 503, {
+        error: 'Website visibility could not be updated.',
+        code: 'WEBSITE_VISIBILITY_UNAVAILABLE'
       });
     }
     return;

@@ -26,6 +26,7 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
+import { SPONSOR_WEBSITE_VISIBLE_SQL } from './sponsorship-website-eligibility.js';
 import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
 import { recordContributionActivity } from './contribution-activity.repository.js';
 import { getAdjustmentTotals } from './fund-transparency.repository.js';
@@ -2366,6 +2367,7 @@ export const updateSponsorshipReview = async (
       UPDATE fund_contributions
       SET
         sponsor_review_status = $2,
+        sponsor_site_visibility_held = CASE WHEN $2 = 'approved' AND sponsor_review_status IS DISTINCT FROM 'approved' THEN TRUE ELSE sponsor_site_visibility_held END,
         sponsor_review_note = $3,
         sponsor_reviewed_at = NOW(),
         updated_at = NOW()
@@ -2520,7 +2522,6 @@ export const updateSponsorshipPublication = async (
         sponsor_feed_status = $6,
         sponsor_feed_public_url = $7,
         sponsor_feed_notes = $8,
-        sponsor_site_visibility_held = FALSE,
         sponsor_visibility_updated_at = NOW(),
         updated_at = NOW()
       WHERE id = $1::uuid
@@ -2836,21 +2837,7 @@ export const listPublicSponsorships = async (
       updated_at::text AS updated_at,
       COALESCE(sponsor_visibility_updated_at, sponsor_reviewed_at, paid_at, updated_at, created_at) AS sort_at
     FROM fund_contributions
-    WHERE contribution_type = 'sponsorship_interest'
-      AND status IN ('paid', 'refunded', 'disputed')
-      AND public_display_consent IS TRUE
-      AND sponsor_review_status = 'approved'
-      AND COALESCE((to_jsonb(fund_contributions)->>'sponsor_site_visibility_held')::boolean,FALSE) IS FALSE
-      AND sponsor_company_name IS NOT NULL
-      AND btrim(sponsor_company_name) <> ''
-      AND EXISTS (
-        SELECT 1
-        FROM sponsor_media_assets
-        WHERE contribution_id = fund_contributions.id
-          AND kind = 'supporting_image'
-          AND review_status = 'approved'
-          AND deleted_at IS NULL
-      )
+    WHERE ${SPONSOR_WEBSITE_VISIBLE_SQL}
     ), totals AS (
       SELECT COUNT(*)::text AS total_count,
         COUNT(*) FILTER (WHERE feed_status = 'published' AND feed_public_url ~* '^https://')::text AS published_count,

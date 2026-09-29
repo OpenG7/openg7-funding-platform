@@ -437,14 +437,17 @@ for (const amount of [100, 250]) {
           await expect
             .poll(async () => (await sponsor()).sponsor_review_status)
             .toBe('approved');
-          // Ordinary dossier approval makes consenting profiles eligible. Social
-          // approval is a separate decision; combined acceptance has its own hold.
+          // Review alone keeps the website profile private until its explicit visibility decision.
+          await assertPrivate();
           if (publicConsent) {
             await admin.goto(
               '/admin/fundraiser/sponsors?sponsorshipId=' +
                 contributionId +
                 '&tab=publication'
             );
+            await admin
+              .locator('[data-og7="publication-advanced"] > summary')
+              .click();
             await admin
               .getByLabel(/Slug public/i)
               .fill('tier-' + contributionId);
@@ -459,6 +462,12 @@ for (const amount of [100, 250]) {
             await expect(
               admin.getByText('Publication enregistree.', { exact: true })
             ).toBeVisible();
+            await assertPrivate();
+            await admin.locator('[data-og7="website-visibility"]').click();
+            await admin.locator('[data-og7="confirm-action"]').click();
+            await expect
+              .poll(async () => JSON.stringify(await directory()))
+              .toContain(name);
             const publicData = await directory();
             expect(
               publicData.sponsorships.find((s) => s.company_name === name)

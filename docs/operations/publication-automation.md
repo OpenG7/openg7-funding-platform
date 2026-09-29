@@ -19,7 +19,9 @@ Dossier progress reads the matching automatic delivery by batch and destination,
 with legacy job fallback. It exposes its identifier, state, mode, safe error code,
 feed pause, date and public result link; it never exposes draft text or credentials.
 Live publication evidence completes the matching channel; simulations do not.
-Website visibility remains separate in the dossier’s advanced settings.
+Website visibility has its own card and confirmed publish/hide actions in step 6.
+Completion requires all promised benefits, including the currently visible website
+profile; see the [dossier contract](../admin-ux-lot-4.md#visibilité-web-et-contreparties-livrées).
 
 ## Operating model
 
@@ -219,9 +221,10 @@ including image bytes in the receipt.
 
 Combined acceptance sets `sponsor_site_visibility_held` for newly approved sponsors:
 their site profile, builder identity, logo and public media routes remain private.
-Existing website visibility is preserved for previously approved sponsors. Saving
-the dossier's explicit **visibility/publication settings** releases this hold;
-ordinary social preparation/approval never does. Image previews use the existing
+Existing website visibility is preserved for previously approved sponsors. The
+explicit **Publish profile on the website** action releases this hold after server
+validation. New ordinary dossier approvals also set the hold; saving advanced
+metadata preserves it. Social preparation/approval never releases it. Image previews use the existing
 authenticated admin media endpoint, so private assets can be reviewed without
 publishing them on the website. Public queries tolerate pre-023
 schemas while the new worker requires both migrations.
