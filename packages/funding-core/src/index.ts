@@ -1559,6 +1559,7 @@ export type {
   SponsorshipMilestone,
   SponsorshipProgressDocument,
   SponsorshipProgressPublication,
+  SponsorshipWebsiteVisibilityRequest,
   AdminSponsorshipProgress,
   AdminSponsorshipProgressResponse
 } from './sponsorship-progress.js';

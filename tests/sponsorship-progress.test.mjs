@@ -34,6 +34,9 @@ const invoice = {
   issuedAt: '2026-09-01'
 };
 const facts = (rest = {}) => ({
+  websiteVisible: false,
+  websiteHeld: true,
+  websiteVersion: 'v1',
   companyName: 'Demo',
   amountMinor: 50000,
   refundId: null,
@@ -151,8 +154,8 @@ test('approved review, consent, media eligibility and publication stay independe
   assert.equal(result.publicEligible, false);
   assert.equal(
     step(result, 'publication').state,
-    'complete',
-    'past publication remains a fact after consent withdrawal'
+    'blocked',
+    'social history remains, but withdrawn website visibility leaves recognition incomplete'
   );
   assert.equal(
     buildSponsorshipProgress(source({ reviewStatus: 'rejected' }), facts())
@@ -269,7 +272,7 @@ test('automatic delivery states distinguish authorization, simulation, uncertain
     ['uncertain', 'live', 'error'],
     ['rejected', 'live', 'cancelled'],
     ['cancelled', 'live', 'cancelled'],
-    ['published', 'live', 'complete']
+    ['published', 'live', 'partial']
   ]) {
     const result = buildSponsorshipProgress(
       source({ reviewStatus: 'approved' }),
@@ -376,4 +379,77 @@ test('unconfirmed payments and currency inconsistencies never get silently confi
     )
   );
   assert.equal((await getSponsorshipProgress(null)).status, 'unavailable');
+});
+
+test('all CAD tiers require actual website visibility and every promised live channel', () => {
+  for (const amount of [50, 100, 249.99, 250, 333.33, 499.99, 500, 750]) {
+    const channels =
+      amount >= 500
+        ? ['facebook', 'linkedin']
+        : amount >= 250
+          ? ['facebook']
+          : [];
+    for (const websiteVisible of [false, true]) {
+      const result = buildSponsorshipProgress(
+        source({
+          amount,
+          reviewStatus: 'approved',
+          feedStatus: websiteVisible ? 'planned' : 'published'
+        }),
+        facts({
+          amountMinor: Math.round(amount * 100),
+          websiteVisible,
+          websiteHeld: !websiteVisible,
+          publications: channels.map((channel) =>
+            publication(channel, {
+              deliveryStatus: 'published',
+              deliveryMode: 'live'
+            })
+          )
+        })
+      );
+      assert.equal(
+        step(result, 'publication').state === 'complete',
+        websiteVisible,
+        String(amount)
+      );
+      assert.deepEqual(result.publicationCompletion, {
+        done: channels.length + Number(websiteVisible),
+        total: channels.length + 1
+      });
+      assert.equal(result.website.visible, websiteVisible);
+    }
+  }
+});
+
+test('visible website is partial until both live social promises are met; duplicate and failed attempts do not overcount', () => {
+  const rows = [
+    publication('facebook', { status: 'published' }),
+    publication('facebook', { deliveryStatus: 'failed' }),
+    publication('linkedin', {
+      deliveryStatus: 'published',
+      deliveryMode: 'mock'
+    })
+  ];
+  const partial = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }),
+    facts({ websiteVisible: true, publications: rows })
+  );
+  assert.deepEqual(partial.publicationCompletion, { done: 2, total: 3 });
+  assert.notEqual(step(partial, 'publication').state, 'complete');
+  const complete = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }),
+    facts({
+      websiteVisible: true,
+      publications: [
+        ...rows,
+        publication('linkedin', {
+          deliveryStatus: 'published',
+          deliveryMode: 'live'
+        })
+      ]
+    })
+  );
+  assert.equal(step(complete, 'publication').state, 'complete');
+  assert.deepEqual(complete.publicationCompletion, { done: 3, total: 3 });
 });

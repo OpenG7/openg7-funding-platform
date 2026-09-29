@@ -3,7 +3,8 @@ import {
   Component,
   computed,
   inject,
-  input
+  input,
+  output
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -16,7 +17,7 @@ import {
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { ContributionActivityService } from '../../services/contribution-activity.service.js';
 
-/** Read-only Funding organism: expected recognition, delivery facts and next action. */
+/** Funding organism: persisted recognition facts and explicit visibility requests. */
 @Component({
   selector: 'openg7-admin-sponsorship-publication',
   standalone: true,
@@ -30,6 +31,21 @@ import { ContributionActivityService } from '../../services/contribution-activit
 })
 export class AdminSponsorshipPublicationComponent {
   readonly dossier = input.required<AdminSponsorshipProgress>();
+  readonly canManageWebsite = input(false);
+  readonly websiteDisabled = input(false);
+  readonly websiteMessage = input('');
+  readonly changeWebsiteVisibility = output<boolean>();
+  readonly editWebsite = output<void>();
+  readonly websiteState = computed(() => {
+    const site = this.dossier().website;
+    return !site
+      ? 'unknown'
+      : site.visible
+        ? 'visible'
+        : site.canPublish
+          ? 'hidden'
+          : 'blocked';
+  });
   readonly activity = inject(ContributionActivityService);
   private readonly i18n = inject(FundingI18nService);
   readonly benefitsKnown = computed(
@@ -107,11 +123,13 @@ export class AdminSponsorshipPublicationComponent {
   blockerTab(reason: string): string {
     return reason === 'media'
       ? 'media'
-      : reason === 'hidden'
-        ? 'publication'
-        : reason === 'refund'
-          ? 'refund'
-          : 'overview';
+      : reason === 'identity'
+        ? 'identity'
+        : reason === 'hidden'
+          ? 'publication'
+          : reason === 'refund'
+            ? 'refund'
+            : 'overview';
   }
   date(value: string): string {
     const date = new Date(value);

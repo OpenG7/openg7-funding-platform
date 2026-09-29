@@ -377,6 +377,7 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
         '/api/admin/sponsorships/logo',
         '/api/admin/sponsorships/logo/delete',
         '/api/admin/sponsorships/publication',
+        '/api/admin/sponsorships/website-visibility',
         '/api/admin/sponsorships/refund',
         '/api/admin/sponsorships/followup-access'
       ].includes(url.pathname)
@@ -390,6 +391,19 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
       const input = req.headers()['content-type']?.includes('application/json')
         ? req.postDataJSON()
         : {};
+      if (url.pathname.endsWith('/website-visibility')) {
+        options.progressOverrides = {
+          ...options.progressOverrides,
+          website: {
+            visible: input.visible,
+            held: !input.visible,
+            canPublish: true,
+            version: 'v2',
+            blockers: []
+          },
+          publicationCompletion: { done: input.visible ? 1 : 0, total: 1 }
+        };
+      }
       if (url.pathname.endsWith('/media/review'))
         options.media = options.media.map((asset) =>
           asset.id === input.assetId
@@ -2971,6 +2985,7 @@ for (const width of [1280, 390]) {
   }) => {
     const { calls, options } = await fixtures(page);
     options.progressOverrides = {
+      publicationCompletion: { done: 0, total: 3 },
       publicationBlockers: ['media'],
       publications: [
         {
@@ -2995,9 +3010,7 @@ for (const width of [1280, 390]) {
     await expect(journey).toContainText(
       'Reconnaissance collective sur LinkedIn'
     );
-    await expect(journey).toContainText(
-      '0 sur 2 publications sociales réalisées'
-    );
+    await expect(journey).toContainText('Contreparties livrées : 0 / 3');
     await expect(
       journey.getByRole('link', { name: 'Approuver une photo de présentation' })
     ).toHaveAttribute('href', path('media'));
@@ -3044,6 +3057,10 @@ for (const [deliveryStatus, deliveryMode, label] of [
   }) => {
     const { calls, options } = await fixtures(page);
     options.progressOverrides = {
+      publicationCompletion: {
+        done: deliveryStatus === 'published' && deliveryMode === 'live' ? 1 : 0,
+        total: 3
+      },
       publications: [
         {
           ...dossier().publications[0]!,
@@ -3064,7 +3081,7 @@ for (const [deliveryStatus, deliveryMode, label] of [
     await expect(journey).not.toContainText('UNKNOWN_PROVIDER_CODE');
     const published = deliveryStatus === 'published' && deliveryMode === 'live';
     await expect(journey).toContainText(
-      `${published ? 1 : 0} sur 2 publications sociales réalisées`
+      `Contreparties livrées : ${published ? 1 : 0} / 3`
     );
     await expect(
       journey.getByRole('link', { name: 'Voir la publication', exact: true })
@@ -3101,4 +3118,150 @@ test('publication bridge keeps CAD thresholds out of other currencies and suppor
     `/admin/fundraiser/publications/automation?sponsorshipId=${id}`
   );
   expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
+});
+
+for (const width of [1280, 390]) {
+  test(`website publication is confirmed, waits for server facts, and can be hidden at ${width}px`, async ({
+    page
+  }) => {
+    const { options, calls } = await fixtures(page, 'operator');
+    options.progressOverrides = {
+      amountMinor: 10000,
+      publications: [],
+      website: {
+        visible: false,
+        held: true,
+        canPublish: true,
+        version: 'site-v1',
+        blockers: []
+      },
+      publicationCompletion: { done: 0, total: 1 }
+    };
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(path('publication'));
+    const site = page.locator('[data-og7="publication-website"]');
+    const action = site.locator('[data-og7="website-visibility"]');
+    await expect(site).toContainText('Fiche masquée — prête à publier');
+    await expect(page.locator('[data-og7="publication-channel"]')).toHaveCount(
+      0
+    );
+    await action.click();
+    await expect(page.locator('[data-og7="confirm-action"]')).toBeVisible();
+    expect(
+      calls.filter((c) => c.url.pathname.endsWith('/website-visibility'))
+    ).toHaveLength(0);
+    await page
+      .getByRole('button', { name: 'Annuler', exact: true })
+      .last()
+      .click();
+    expect(
+      calls.filter((c) => c.url.pathname.endsWith('/website-visibility'))
+    ).toHaveLength(0);
+    let release!: () => void;
+    options.mutationGate = new Promise((resolve) => {
+      release = resolve;
+    });
+    await action.click();
+    await page.locator('[data-og7="confirm-action"]').click();
+    await expect(action).toBeDisabled();
+    await expect(site).toContainText('Fiche masquée');
+    release();
+    options.mutationGate = null;
+    await expect(site).toContainText('Fiche visible');
+    expect(
+      calls.find((c) => c.url.pathname.endsWith('/website-visibility'))?.body
+    ).toEqual({
+      contributionId: id,
+      expectedVersion: 'site-v1',
+      visible: true,
+      confirmed: true
+    });
+    await expect(
+      page.locator('[data-og7="dossier-publication-journey"]')
+    ).toContainText('Contreparties livrées : 1 / 1');
+    await action.click();
+    await page.locator('[data-og7="confirm-action"]').click();
+    await expect(site).toContainText('Fiche masquée');
+    await site
+      .getByRole('button', { name: 'Voir les paramètres de la fiche' })
+      .click();
+    await expect(
+      page.locator('[data-og7="publication-advanced"] > summary')
+    ).toBeFocused();
+    await expect(
+      page.locator('[data-og7="dossier-publication-editor"]')
+    ).toBeVisible();
+    const a11y = await new AxeBuilder({ page })
+      .include('[data-og7="publication-website"]')
+      .analyze();
+    expect(a11y.violations).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      )
+    ).toBe(true);
+  });
+}
+
+test('website publication failure preserves confirmed visibility and readers cannot mutate it', async ({
+  page
+}) => {
+  const { options, calls } = await fixtures(page, 'reader');
+  options.progressOverrides = {
+    website: {
+      visible: true,
+      held: false,
+      canPublish: true,
+      version: 'site-v1',
+      blockers: []
+    }
+  };
+  await page.goto(path('publication'));
+  await page
+    .getByRole('button', { name: 'Switch administration language to English' })
+    .click();
+  const site = page.locator('[data-og7="publication-website"]');
+  await expect(site).toContainText('Profile visible');
+  await expect(site.locator('[data-og7="website-visibility"]')).toHaveCount(0);
+  await expect(
+    site.getByRole('link', { name: 'View the directory' })
+  ).toHaveAttribute('href', '/commanditaires');
+  expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
+});
+
+test('website visibility errors retain the previous state and missing prerequisites disable publishing', async ({
+  page
+}) => {
+  const { options } = await fixtures(page, 'operator');
+  options.progressOverrides = {
+    website: {
+      visible: false,
+      held: true,
+      canPublish: true,
+      version: 'site-v1',
+      blockers: []
+    }
+  };
+  options.mutationStatus = 503;
+  await page.goto(path('publication'));
+  const site = page.locator('[data-og7="publication-website"]');
+  await site.locator('[data-og7="website-visibility"]').click();
+  await page.locator('[data-og7="confirm-action"]').click();
+  await expect(site).toContainText('La visibilité n’a pas pu être modifiée');
+  await expect(site).toHaveAttribute('data-state', 'hidden');
+  options.progressOverrides = {
+    ...options.progressOverrides,
+    website: {
+      visible: false,
+      held: true,
+      canPublish: false,
+      version: 'site-v1',
+      blockers: ['consent', 'media']
+    }
+  };
+  await page.reload();
+  await expect(site.locator('[data-og7="website-visibility"]')).toBeDisabled();
+  await expect(
+    site.getByRole('link', { name: 'Approuver une photo de présentation' })
+  ).toHaveAttribute('href', path('media'));
 });

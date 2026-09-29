@@ -454,6 +454,13 @@ const controlledSponsorLogoUrlPrefixes = [
                 <openg7-admin-sponsorship-facts
                   view="publication"
                   [dossier]="progress()"
+                  [canManageWebsite]="canManage()"
+                  [websiteDisabled]="actionsDisabled()"
+                  [websiteMessage]="websiteMessages()[selected.id] || ''"
+                  (changeWebsiteVisibility)="
+                    changeWebsiteVisibility(selected, $event)
+                  "
+                  (editWebsite)="openWebsiteSettings()"
                 />
               }
               @if (activeTab() === 'refund') {
@@ -471,6 +478,9 @@ const controlledSponsorLogoUrlPrefixes = [
                 <details
                   data-og7="publication-advanced"
                   class="publication-advanced"
+                  [open]="websiteSettingsOpen()"
+                  #websiteSettings
+                  (toggle)="websiteSettingsOpen.set(websiteSettings.open)"
                 >
                   <summary>
                     {{ 'admin.dossier.publicationBridge.advanced' | translate }}
@@ -2607,6 +2617,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly paymentFilter = signal<SponsorPaymentStatusFilter>('all');
   readonly assistantRefresh = signal(0);
   readonly progress = signal<AdminSponsorshipProgress | null>(null);
+  readonly websiteSettingsOpen = signal(false);
+  readonly websiteMessages = signal<Record<string, string>>({});
   readonly versionConflict = signal(false);
   private readonly router = inject(Router);
 
@@ -3672,6 +3684,93 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
           this.i18n.t('admin.messages.la_note_n_a_pas_pu_etre_enregistree')
         )
       );
+    } finally {
+      this.actionState.set(null);
+    }
+  }
+
+  openWebsiteSettings(): void {
+    this.websiteSettingsOpen.set(true);
+    afterNextRender(
+      () => {
+        const summary = this.sponsorDetailPanel?.nativeElement.querySelector(
+          '[data-og7="publication-advanced"] > summary'
+        ) as HTMLElement | null;
+        summary?.focus();
+        summary?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+      },
+      { injector: this.injector }
+    );
+  }
+
+  async changeWebsiteVisibility(
+    sponsorship: AdminSponsorshipRecord,
+    visible: boolean
+  ): Promise<void> {
+    const site =
+      this.progress()?.contributionId === sponsorship.id
+        ? this.progress()?.website
+        : null;
+    if (!site || !this.canActOn(sponsorship) || (visible && !site.canPublish))
+      return;
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n.t(
+          'admin.dossier.publicationBridge.site.' +
+            (visible ? 'confirmPublish' : 'confirmHide')
+        ),
+        sponsorship.sponsor_company_name ??
+          sponsorship.public_reference ??
+          sponsorship.id
+      ))
+    )
+      return;
+    if (
+      !this.canActOn(sponsorship) ||
+      this.progress()?.website?.version !== site.version
+    )
+      return;
+    this.actionState.set('website:' + sponsorship.id);
+    this.websiteMessages.update((messages) => ({
+      ...messages,
+      [sponsorship.id]: this.i18n.t(
+        'admin.dossier.publicationBridge.site.saving'
+      )
+    }));
+    try {
+      await this.admin.setSponsorshipWebsiteVisibility(this.adminToken(), {
+        contributionId: sponsorship.id,
+        expectedVersion: site.version,
+        visible,
+        confirmed: true
+      });
+      if (
+        this.destroyRef.destroyed ||
+        this.selectedSponsorshipId() !== sponsorship.id
+      )
+        return;
+      await this.loadSponsorships();
+      this.websiteMessages.update((messages) => ({
+        ...messages,
+        [sponsorship.id]: this.i18n.t(
+          'admin.dossier.publicationBridge.site.saved'
+        )
+      }));
+    } catch (error) {
+      if (
+        this.destroyRef.destroyed ||
+        this.selectedSponsorshipId() !== sponsorship.id
+      )
+        return;
+      this.messageFromError(error, '');
+      this.websiteMessages.update((messages) => ({
+        ...messages,
+        [sponsorship.id]: this.i18n.t(
+          error instanceof AdminDashboardRequestError && error.status === 409
+            ? 'admin.dossier.conflict'
+            : 'admin.dossier.publicationBridge.site.failed'
+        )
+      }));
     } finally {
       this.actionState.set(null);
     }
@@ -5395,6 +5494,15 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       case 'sponsorship_publication.update':
         return this.i18n.t(
           'admin.messages.publication_commanditaire_mise_a_jour'
+        );
+      case 'sponsorship_website.visibility':
+        return this.i18n.t(
+          'admin.dossier.publicationBridge.site.audit.' +
+            (this.metadataString(entry, 'outcome') !== 'updated'
+              ? 'notApplied'
+              : this.metadataBoolean(entry, 'visible')
+                ? 'published'
+                : 'hidden')
         );
       default:
         return entry.summary || entry.action;

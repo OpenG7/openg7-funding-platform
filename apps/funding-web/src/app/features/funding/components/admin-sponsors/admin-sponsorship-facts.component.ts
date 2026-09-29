@@ -2,7 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   inject,
-  input
+  input,
+  output
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -67,7 +68,14 @@ import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-public
           }
         }
         @if (view() === 'publication') {
-          <openg7-admin-sponsorship-publication [dossier]="d" />
+          <openg7-admin-sponsorship-publication
+            [dossier]="d"
+            [canManageWebsite]="canManageWebsite()"
+            [websiteDisabled]="websiteDisabled()"
+            [websiteMessage]="websiteMessage()"
+            (changeWebsiteVisibility)="changeWebsiteVisibility.emit($event)"
+            (editWebsite)="editWebsite.emit()"
+          />
         }
         @if (view() === 'refund') {
           <h3>{{ 'admin.dossier.refundProgress' | translate }}</h3>
@@ -157,6 +165,11 @@ import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-public
   ]
 })
 export class AdminSponsorshipFactsComponent {
+  readonly canManageWebsite = input(false);
+  readonly websiteDisabled = input(false);
+  readonly websiteMessage = input('');
+  readonly changeWebsiteVisibility = output<boolean>();
+  readonly editWebsite = output<void>();
   private readonly i18n = inject(FundingI18nService);
   readonly dossier = input<AdminSponsorshipProgress | null>(null);
   readonly view = input.required<

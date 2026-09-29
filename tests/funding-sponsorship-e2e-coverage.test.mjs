@@ -615,13 +615,14 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
   );
 
   assertIncludesAll(
-    publicListBody,
+    publicListBody +
+      read('apps/funding-api/src/sponsorship-website-eligibility.ts'),
     [
       'public_display_consent IS TRUE',
       "sponsor_review_status = 'approved'",
       "kind = 'supporting_image'",
       "review_status = 'approved'",
-      'sponsor_company_name IS NOT NULL',
+      "NULLIF(btrim(fund_contributions.sponsor_company_name), '') IS NOT NULL",
       'display_amount_consent IS TRUE'
     ],
     'public sponsorship query filters'

@@ -22,11 +22,11 @@
     </ul>
     <p>{{ 'admin.dossier.publicationBridge.website' | translate }}</p>
   </section>
-  @if (cards().length) {
+  @if (dossier().publicationCompletion; as completion) {
     <p class="completion">
       {{
         'admin.dossier.publicationBridge.completion'
-          | translate: { done: completed(), total: cards().length }
+          | translate: { done: completion.done, total: completion.total }
       }}
     </p>
   }
@@ -53,6 +53,81 @@
     </section>
   }
   <div class="channels">
+    <article data-og7="publication-website" [attr.data-state]="websiteState()">
+      <header>
+        <h4>{{ 'admin.dossier.publicationBridge.site.title' | translate }}</h4>
+      </header>
+      <strong class="publication-state">{{
+        'admin.dossier.publicationBridge.site.status.' + websiteState()
+          | translate
+      }}</strong>
+      <p>
+        {{
+          'admin.dossier.publicationBridge.site.help.' + websiteState()
+            | translate
+        }}
+      </p>
+      @if (dossier().website; as site) {
+        @if (!site.visible && site.blockers.length) {
+          <ul>
+            @for (reason of site.blockers; track reason) {
+              <li>
+                <a
+                  routerLink="/admin/fundraiser/sponsors"
+                  [queryParams]="{
+                    sponsorshipId: dossier().contributionId,
+                    tab: blockerTab(reason)
+                  }"
+                  >{{
+                    'admin.dossier.publicationBridge.blocker.' + reason
+                      | translate
+                  }}</a
+                >
+              </li>
+            }
+          </ul>
+        }
+        <div class="actions">
+          @if (site.visible) {
+            <a
+              class="admin-button"
+              routerLink="/commanditaires"
+              target="_blank"
+              rel="noopener noreferrer"
+              >{{ 'admin.dossier.publicationBridge.site.view' | translate }}</a
+            >
+          }
+          @if (canManageWebsite()) {
+            <button
+              type="button"
+              class="admin-button primary"
+              data-og7="website-visibility"
+              [disabled]="
+                websiteDisabled() || (!site.visible && !site.canPublish)
+              "
+              (click)="changeWebsiteVisibility.emit(!site.visible)"
+            >
+              {{
+                (site.visible
+                  ? 'admin.dossier.publicationBridge.site.hide'
+                  : 'admin.dossier.publicationBridge.site.publish'
+                ) | translate
+              }}
+            </button>
+          }
+          <button
+            type="button"
+            class="admin-button"
+            (click)="editWebsite.emit()"
+          >
+            {{ 'admin.dossier.publicationBridge.site.edit' | translate }}
+          </button>
+        </div>
+      }
+      @if (websiteMessage()) {
+        <p role="status">{{ websiteMessage() }}</p>
+      }
+    </article>
     @for (card of cards(); track card.key) {
       <article
         data-og7="publication-channel"

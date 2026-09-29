@@ -547,7 +547,10 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
           record.id +
           '&tab=publication'
       );
-      const editor = admin.locator('.publication-editor');
+      await admin
+        .locator('[data-og7="publication-advanced"] > summary')
+        .click();
+      const editor = admin.locator('[data-og7="dossier-publication-editor"]');
       await expect(editor).toBeVisible();
       await editor.getByLabel(/Slug public/i).fill('recette-' + record.id);
       await editor.getByLabel(/Destination feed/i).selectOption('openg7');
@@ -563,6 +566,9 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
       await expect(
         editor.getByText('Publication enregistree.', { exact: true })
       ).toBeVisible();
+      await assertPrivate();
+      await admin.locator('[data-og7="website-visibility"]').click();
+      await admin.locator('[data-og7="confirm-action"]').click();
       await expect
         .poll(async () => JSON.stringify(await publicSponsors()))
         .toContain(companyName);

@@ -539,9 +539,9 @@
           "publication": {
             "who": "Opérateur ou propriétaire autorisé à préparer et approuver la publication.",
             "step1": "Vérifier le consentement, la revue, l’image approuvée et l’admissibilité financière dans Publication.",
-            "step2": "Ouvrir la publication concernée pour examiner son contenu, sa destination et son horaire avant toute autorisation.",
+            "step2": "Publier explicitement la fiche sur le site lorsqu’elle est prête. Vérifier ensuite le contenu, la destination et l’horaire de chaque publication sociale avant de l’autoriser.",
             "step3": "Suivre les états de publication ; un brouillon ou une planification ne confirme pas la livraison. Examiner les échecs ou annulations avant une reprise.",
-            "condition": "Les publications prévues pour cette commandite sont enregistrées comme publiées."
+            "condition": "La fiche est visible sur le site et chaque publication sociale prévue par le montant est confirmée. Une simulation ne compte pas comme une livraison."
           },
           "refund": {
             "title": "Remboursement à vérifier",
@@ -676,7 +676,7 @@
         "invoice_waiting": "Facturation en attente de paiement.",
         "invoice_not_required": "Aucune facture Stripe attendue pour cette provenance.",
         "publication_failed": "La dernière tentative de publication a échoué.",
-        "publication_done": "Publication enregistrée pour les canaux attendus.",
+        "publication_done": "Toutes les contreparties prévues pour cette contribution sont livrées.",
         "publication_cancelled": "Publication, lot ou créneau annulé. Vérifier la planification.",
         "consent_missing": "Le consentement public manque.",
         "publication_blocked": "Vérifier le paiement, la revue, les médias et le remboursement avant publication.",
@@ -716,8 +716,8 @@
           "facebook_batch": "Reconnaissance collective sur Facebook",
           "linkedin_batch": "Reconnaissance collective sur LinkedIn"
         },
-        "website": "La visibilité sur le site se gère séparément dans les paramètres avancés. Elle ne confirme aucun envoi sur les réseaux sociaux.",
-        "completion": "{{done}} sur {{total}} publications sociales réalisées",
+        "website": "La fiche sur le site et les publications sociales ont chacune leur propre validation.",
+        "completion": "Contreparties livrées : {{done}} / {{total}}",
         "blockers": "À vérifier avant d’autoriser un nouvel envoi",
         "blocker": {
           "consent": "Obtenir le consentement public du commanditaire",
@@ -725,7 +725,8 @@
           "media": "Approuver une photo de présentation",
           "payment": "Vérifier l’admissibilité du paiement",
           "refund": "Examiner le remboursement en cours ou complet",
-          "hidden": "Vérifier le masquage du commanditaire"
+          "hidden": "Vérifier le masquage du commanditaire",
+          "identity": "Compléter le nom de l’entreprise"
         },
         "status": {
           "waiting": "En attente de préparation",
@@ -765,7 +766,36 @@
         "showAll": "Voir tous les dossiers",
         "notFound": "Cette publication est introuvable dans le contexte demandé. Revenez au dossier pour actualiser son suivi.",
         "globalSettings": "Les compteurs, le moteur et les réglages des destinations concernent tous les dossiers. La liste ci-dessous est filtrée.",
-        "currencyUnknown": "Les avantages et les destinations sont à confirmer pour cette devise."
+        "currencyUnknown": "Les avantages et les destinations sont à confirmer pour cette devise.",
+        "site": {
+          "title": "Site Web",
+          "audit": {
+            "published": "Fiche publiée sur le site",
+            "hidden": "Fiche masquée du site",
+            "notApplied": "Changement de visibilité non appliqué"
+          },
+          "status": {
+            "visible": "Fiche visible",
+            "hidden": "Fiche masquée — prête à publier",
+            "blocked": "Préparation à compléter",
+            "unknown": "Visibilité non disponible"
+          },
+          "help": {
+            "visible": "La fiche apparaît dans l’annuaire des commanditaires.",
+            "hidden": "La fiche est admissible. Publiez-la lorsque sa présentation est prête.",
+            "blocked": "Complétez les éléments ci-dessous avant de publier la fiche.",
+            "unknown": "Actualisez le dossier pour obtenir la visibilité confirmée par le serveur."
+          },
+          "view": "Voir l’annuaire",
+          "edit": "Voir les paramètres de la fiche",
+          "publish": "Publier la fiche sur le site",
+          "hide": "Masquer la fiche du site",
+          "confirmPublish": "Publier cette fiche dans l’annuaire public des commanditaires ? Cette décision ne programme aucun envoi social.",
+          "confirmHide": "Masquer cette fiche de l’annuaire public ? Les publications sociales déjà envoyées restent conservées.",
+          "saving": "Mise à jour de la visibilité…",
+          "saved": "Décision enregistrée. La visibilité affichée provient du serveur.",
+          "failed": "La visibilité n’a pas pu être modifiée. Actualisez le dossier avant de réessayer."
+        }
       }
     },
     "context": {

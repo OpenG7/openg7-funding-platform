@@ -539,9 +539,9 @@
           "publication": {
             "who": "Operator or owner authorized to prepare and approve publication.",
             "step1": "Check consent, review, the approved image and financial eligibility in Publication.",
-            "step2": "Open the relevant publication to review its content, destination and schedule before authorizing it.",
+            "step2": "Explicitly publish the website profile when ready. Then review the content, destination and schedule of each social post before authorizing it.",
             "step3": "Follow publication statuses; a draft or schedule does not confirm delivery. Examine failures or cancellations before retrying.",
-            "condition": "The publications required for this sponsorship are recorded as published."
+            "condition": "The website profile is visible and every social publication included in the amount is confirmed. A simulation does not count as delivery."
           },
           "refund": {
             "title": "Refund to check",
@@ -676,7 +676,7 @@
         "invoice_missing": "Generate the missing invoice from dossier billing.",
         "invoice_waiting": "Billing awaits payment.",
         "publication_failed": "The latest publication attempt failed.",
-        "publication_done": "Publication recorded for the expected channels.",
+        "publication_done": "All benefits included in this contribution have been delivered.",
         "publication_cancelled": "Publication, batch or slot cancelled. Check scheduling.",
         "consent_missing": "Public consent is missing.",
         "publication_blocked": "Check payment, review, media and refund before publication.",
@@ -716,8 +716,8 @@
           "facebook_batch": "Collective recognition on Facebook",
           "linkedin_batch": "Collective recognition on LinkedIn"
         },
-        "website": "Website visibility is managed separately in advanced settings. It does not confirm a social media delivery.",
-        "completion": "{{done}} of {{total}} social publications completed",
+        "website": "The website profile and social posts each have their own approval.",
+        "completion": "{{done}} of {{total}} benefits delivered",
         "blockers": "Check before authorizing a new delivery",
         "blocker": {
           "consent": "Obtain the sponsor’s public consent",
@@ -725,7 +725,8 @@
           "media": "Approve a presentation photo",
           "payment": "Check payment eligibility",
           "refund": "Review the pending or full refund",
-          "hidden": "Review the sponsor’s hidden status"
+          "hidden": "Review the sponsor’s hidden status",
+          "identity": "Complete the company name"
         },
         "status": {
           "waiting": "Awaiting preparation",
@@ -765,7 +766,36 @@
         "showAll": "View all dossiers",
         "notFound": "This publication could not be found in the requested context. Return to the dossier to refresh its progress.",
         "globalSettings": "Counts, the worker and destination settings apply to all dossiers. The list below is filtered.",
-        "currencyUnknown": "Benefits and destinations need confirmation for this currency."
+        "currencyUnknown": "Benefits and destinations need confirmation for this currency.",
+        "site": {
+          "title": "Website",
+          "audit": {
+            "published": "Profile published on the website",
+            "hidden": "Profile hidden from the website",
+            "notApplied": "Visibility change not applied"
+          },
+          "status": {
+            "visible": "Profile visible",
+            "hidden": "Profile hidden — ready to publish",
+            "blocked": "Preparation needed",
+            "unknown": "Visibility unavailable"
+          },
+          "help": {
+            "visible": "The profile appears in the sponsor directory.",
+            "hidden": "The profile is eligible. Publish it when its presentation is ready.",
+            "blocked": "Complete the items below before publishing the profile.",
+            "unknown": "Refresh the dossier to obtain visibility confirmed by the server."
+          },
+          "view": "View the directory",
+          "edit": "View profile settings",
+          "publish": "Publish profile on the website",
+          "hide": "Hide profile from the website",
+          "confirmPublish": "Publish this profile in the public sponsor directory? This decision does not schedule any social post.",
+          "confirmHide": "Hide this profile from the public directory? Social posts already sent will remain recorded.",
+          "saving": "Updating visibility…",
+          "saved": "Decision recorded. Displayed visibility comes from the server.",
+          "failed": "Visibility could not be changed. Refresh the dossier before trying again."
+        }
       }
     },
     "context": {

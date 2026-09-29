@@ -51,7 +51,7 @@ Les parcours de l’Assistant sont couverts séparément par [ses tests contextu
 - Projection financière en unités mineures entières avec devise explicite. Le navigateur ne fait que formater les montants.
 - Remboursements confirmés provenant des audits Stripe réussis, événements `charge.refunded` traités et dernier résultat confirmé enregistré. Déduplication par remboursement; maximum par charge pour ses instantanés cumulatifs. Les notes de crédit ne confirment jamais un remboursement en attente. Une couverture insuffisante ou une référence de remboursement sans note reste signalée.
 - Facture Stripe attendue uniquement pour une contribution rattachée à une session Stripe; aucun identifiant Stripe inventé pour les autres provenances.
-- Les publications terminées restent des faits historiques, même si la revue ou le consentement change. Les annulations et erreurs sont présentées sans déduire un succès depuis la seule planification.
+- Les publications sociales terminées restent des faits historiques, même si la revue ou le consentement change. La contrepartie Web exige toutefois une fiche actuellement visible : retirer le consentement ou masquer la fiche rend l’étape 6 incomplète. Les annulations et erreurs sont présentées sans déduire un succès depuis la seule planification.
 - Contrats de la file enrichis de `actionCounts` et `firstSponsorshipId`, sans supprimer les champs existants. L’Assistant sans identifiant utilise la même priorité de dossier.
 - Les mutations existantes conservent `expectedVersion`. Les conflits 409 proposent une actualisation, les actions en cours sont désactivées et les lectures obsolètes sont ignorées après changement de dossier. Les réponses 401 effacent la session; les réponses 403 effacent les faits du bloc concerné.
 
@@ -88,3 +88,38 @@ Le scénario ne charge ni `.env` ni `SPONSOR_PROGRESS_TEST_DATABASE_URL` et ne d
 - Les tests navigateur utilisent une API simulée; le test PostgreSQL vérifie séparément les requêtes réelles. La pile Docker/Stripe complète et la livraison réelle de courriels n’ont pas été testées pour ce lot.
 - Les anciens formulaires gardent leur présentation actuelle. Leur harmonisation complète et leur traduction relèvent du lot 7; les nouveaux blocs et onglets sont traduits.
 - Prochain lot : **lot 5 — Indicateurs, activité et état des systèmes**.
+
+## Visibilité Web et contreparties livrées
+
+La carte **Site Web** de l’étape 6 lit les mêmes critères que l’annuaire public :
+paiement enregistré, consentement, revue approuvée, nom d’entreprise, image de
+présentation approuvée et absence de maintien privé. Elle indique la visibilité
+réelle, les prérequis manquants et permet d’ouvrir les paramètres de présentation.
+Les anciennes fiches visibles restent visibles. Une nouvelle approbation de revue
+maintient désormais la fiche privée ; enregistrer les paramètres avancés conserve
+la décision de visibilité. Publier et masquer sont des décisions explicites.
+
+`POST /api/admin/sponsorships/website-visibility` (également sans `/api`) accepte
+`contributionId`, `expectedVersion`, `visible` et `confirmed: true`. Il exige un
+opérateur ou propriétaire authentifié. La publication revalide paiement actif,
+consentement, revue, nom et média ; un remboursement en cours ou complet bloque
+une nouvelle publication. Le masquage reste possible. Verrous, version et audit
+font partie de la même transaction. Une répétition dont l’état demandé est déjà
+atteint ne répète ni mutation ni audit. Un état obsolète donne 409, une cible
+absente 404, un corps non confirmé 400 et une indisponibilité 503. Les publications
+sociales, leurs autorisations et leur historique restent indépendants.
+
+Le contrat de progression ajoute `website` (visibilité, maintien privé, droit
+métier de publier, version et motifs) et `publicationCompletion` (`done`, `total`).
+En CAD, le total inclut la fiche Web dès 50 $, Facebook dès 250 $ et LinkedIn dès
+500 $, y compris les montants personnalisés. Une simulation ne livre aucune
+contrepartie sociale ; plusieurs tentatives sur un canal ne comptent qu’une fois.
+La devise inconnue ne reçoit pas les seuils CAD. Un ancien serveur sans `website`
+produit un état inconnu dans l’interface, sans action de publication.
+
+Déployer API et Web ensemble : les anciens clients qui enregistrent les
+paramètres avancés ne rendent plus une fiche publique. Aucune migration nouvelle.
+Tests : `sponsorship-progress.test.mjs`, `sponsorship-website.test.mjs`, intégrations
+PostgreSQL `sponsorship-website.integration.mjs` / `sponsorship-progress.integration.mjs`,
+et parcours navigateur de publication dans `admin-sponsorship-progress.spec.ts`.
+Ces tests utilisent des données synthétiques et ne qualifient aucun réseau social réel.
