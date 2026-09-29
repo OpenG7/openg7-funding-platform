@@ -39,7 +39,12 @@ export interface SponsorshipProgressPublication {
   readonly batchStatus: string | null;
   readonly slotStatus: string | null;
   readonly deliveryStatus: string | null;
-  readonly deliveryMode: 'mock' | 'live' | null;
+  readonly deliveryMode: 'disabled' | 'mock' | 'live' | null;
+  /** Present for deliveries managed by the automatic publication engine. */
+  readonly deliveryId?: string | null;
+  readonly deliveryError?: string | null;
+  readonly feedPaused?: boolean | null;
+  readonly publicUrl?: string | null;
   readonly scheduledAt: string | null;
   readonly publishedAt: string | null;
 }
@@ -56,6 +61,7 @@ export interface AdminSponsorshipProgress {
   readonly publicConsent: boolean;
   readonly publicEligible: boolean;
   readonly feedStatus: string;
+  readonly publicationBlockers?: readonly string[];
   readonly milestones: readonly SponsorshipMilestone[];
   readonly next: {
     readonly reason: string;

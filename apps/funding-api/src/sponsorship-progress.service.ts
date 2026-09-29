@@ -118,14 +118,24 @@ export const buildSponsorshipProgress = (
     imageApproved && !media.some((m) => m.reviewStatus === 'pending_review');
   const paid = ['paid', 'refunded', 'disputed'].includes(record.paymentStatus);
   const invoice = facts.documents.some((d) => d.kind === 'invoice');
-  const promises = promisedSocialChannels(record.amount);
+  const promises =
+    currency === 'CAD'
+      ? promisedSocialChannels(record.amount)
+      : [
+          ...new Set(
+            facts.publications.map((publication) => publication.channel)
+          )
+        ];
   const cancelled = (d: SponsorshipProgressPublication) =>
+    d.deliveryStatus === 'cancelled' ||
+    d.deliveryStatus === 'rejected' ||
     d.status === 'cancelled' ||
     d.status === 'rejected' ||
     d.batchStatus === 'cancelled' ||
     d.slotStatus === 'cancelled';
   const published = (d: SponsorshipProgressPublication) =>
-    d.status === 'published';
+    (d.status === 'published' && d.deliveryMode !== 'mock') ||
+    (d.deliveryStatus === 'published' && d.deliveryMode === 'live');
   const publicationComplete =
     promises.length > 0
       ? promises.every((channel) =>
@@ -133,18 +143,28 @@ export const buildSponsorshipProgress = (
         )
       : record.feedStatus === 'published';
   const publicationError = facts.publications.some(
-    (d) => d.deliveryStatus === 'failed' && !published(d)
+    (d) =>
+      ['failed', 'uncertain'].includes(d.deliveryStatus ?? '') && !published(d)
   );
   const publicationCancelled = facts.publications.some(
     (d) => !published(d) && cancelled(d)
   );
+  const publicationBlockers = [
+    ...(!consent ? ['consent'] : []),
+    ...(record.reviewStatus !== 'approved' ? ['review'] : []),
+    ...(!imageApproved ? ['media'] : []),
+    ...(record.paymentStatus !== 'paid' ? ['payment'] : []),
+    ...(confirmedAmountMinor >= facts.amountMinor ||
+    ['requested', 'processing'].includes(record.refundStatus)
+      ? ['refund']
+      : []),
+    ...(['hidden'].includes(record.feedStatus) ? ['hidden'] : [])
+  ];
   const publicationBlocked =
-    !consent ||
-    record.reviewStatus !== 'approved' ||
-    !imageApproved ||
-    record.paymentStatus !== 'paid' ||
-    confirmedAmountMinor >= facts.amountMinor ||
-    ['requested', 'processing'].includes(record.refundStatus);
+    publicationBlockers.length > 0 ||
+    facts.publications.some(
+      (d) => d.deliveryStatus === 'blocked' && !published(d)
+    );
   const milestones: SponsorshipMilestone[] = [
     {
       id: 'payment',
@@ -287,6 +307,7 @@ export const buildSponsorshipProgress = (
       record.hasCompanyName &&
       imageApproved,
     feedStatus: record.feedStatus,
+    publicationBlockers,
     milestones,
     next: {
       ...next,
@@ -359,11 +380,21 @@ export const getSponsorshipProgress = async (
     );
     const publications = await client.query<SponsorshipProgressPublication>(
       `SELECT d.id, d.channel, d.feed_target AS target, d.status,
-      b.status AS "batchStatus", s.status AS "slotStatus", j.status AS "deliveryStatus", j.mode AS "deliveryMode",
-      COALESCE(d.scheduled_at, s.starts_at, b.scheduled_at)::text AS "scheduledAt", d.published_at::text AS "publishedAt"
+      b.status AS "batchStatus", s.status AS "slotStatus",
+      CASE WHEN a.id IS NOT NULL THEN a.status ELSE j.status END AS "deliveryStatus",
+      CASE WHEN a.id IS NOT NULL THEN a.mode ELSE j.mode END AS "deliveryMode",
+      a.id AS "deliveryId", a.error_code AS "deliveryError", f.paused AS "feedPaused",
+      COALESCE(d.public_url, CASE WHEN a.mode = 'live' AND a.status = 'published' THEN a.external_post_url END) AS "publicUrl",
+      COALESCE(a.scheduled_at, d.scheduled_at, s.starts_at, b.scheduled_at)::text AS "scheduledAt",
+      COALESCE(d.published_at, CASE WHEN a.mode = 'live' AND a.status = 'published' THEN a.published_at END)::text AS "publishedAt"
       FROM sponsor_publication_drafts d LEFT JOIN sponsor_publication_batches b ON b.id = d.batch_id
       LEFT JOIN publication_slots s ON s.id = COALESCE(d.slot_id, b.slot_id)
       LEFT JOIN LATERAL (SELECT status, mode FROM social_publication_jobs WHERE d.id = ANY(draft_ids) ORDER BY updated_at DESC, id LIMIT 1) j ON true
+      LEFT JOIN LATERAL (SELECT * FROM publication_deliveries WHERE batch_id = d.batch_id
+        AND feed_id = d.feed_target || ':' || d.channel
+        ORDER BY (status = 'published' AND mode = 'live') DESC,
+        (status NOT IN ('cancelled', 'rejected')) DESC, updated_at DESC, id LIMIT 1) a ON true
+      LEFT JOIN publication_feeds f ON f.id = d.feed_target || ':' || d.channel
       WHERE d.contribution_id = $1::uuid ORDER BY d.channel, d.feed_target`,
       [id]
     );

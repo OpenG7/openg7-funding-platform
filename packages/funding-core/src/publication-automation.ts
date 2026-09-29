@@ -74,6 +74,10 @@ export interface PublicationAutomationState {
     publishedToday: number;
   };
 }
+export interface PublicationAutomationFilter {
+  readonly sponsorshipId?: string;
+  readonly deliveryId?: string;
+}
 export type PublicationAutomationCommand =
   | {
       action: 'worker';

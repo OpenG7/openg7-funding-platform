@@ -10,11 +10,13 @@ import type { AdminSponsorshipProgress } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
+import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-publication.component.js';
+
 /** Presentation molecule: persisted financial and publication facts, no mutations. */
 @Component({
   selector: 'openg7-admin-sponsorship-facts',
   standalone: true,
-  imports: [RouterLink, TranslatePipe],
+  imports: [RouterLink, TranslatePipe, AdminSponsorshipPublicationComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section
@@ -65,71 +67,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
           }
         }
         @if (view() === 'publication') {
-          <h3>{{ 'admin.dossier.publicationProgress' | translate }}</h3>
-          @for (publication of d.publications; track publication.id) {
-            <article>
-              <strong
-                >{{ publication.target }} · {{ publication.channel }}</strong
-              >
-              <dl>
-                <div>
-                  <dt>{{ 'admin.dossier.draft' | translate }}</dt>
-                  <dd>
-                    {{
-                      'admin.dossier.values.' + publication.status | translate
-                    }}
-                  </dd>
-                </div>
-                @if (publication.batchStatus) {
-                  <div>
-                    <dt>{{ 'admin.dossier.batch' | translate }}</dt>
-                    <dd>
-                      {{
-                        'admin.dossier.values.' + publication.batchStatus
-                          | translate
-                      }}
-                    </dd>
-                  </div>
-                }
-                @if (publication.slotStatus) {
-                  <div>
-                    <dt>{{ 'admin.dossier.slot' | translate }}</dt>
-                    <dd>
-                      {{
-                        'admin.dossier.values.' + publication.slotStatus
-                          | translate
-                      }}
-                    </dd>
-                  </div>
-                }
-                @if (publication.deliveryStatus) {
-                  <div>
-                    <dt>{{ 'admin.dossier.delivery' | translate }}</dt>
-                    <dd>
-                      {{
-                        'admin.dossier.values.' + publication.deliveryStatus
-                          | translate
-                      }}
-                    </dd>
-                  </div>
-                }
-                @if (publication.deliveryMode === 'mock') {
-                  <div>
-                    <dt>{{ 'admin.dossier.mode' | translate }}</dt>
-                    <dd>{{ 'admin.dossier.simulation' | translate }}</dd>
-                  </div>
-                }
-              </dl>
-              <a
-                routerLink="/admin/fundraiser/publications"
-                [queryParams]="{ draftId: publication.id }"
-                queryParamsHandling="merge"
-                >{{ 'admin.dossier.openPublication' | translate }}</a
-              >
-            </article>
-          } @empty {
-            <p>{{ 'admin.dossier.noPublications' | translate }}</p>
-          }
+          <openg7-admin-sponsorship-publication [dossier]="d" />
         }
         @if (view() === 'refund') {
           <h3>{{ 'admin.dossier.refundProgress' | translate }}</h3>

@@ -705,7 +705,68 @@
       "contact": "Personne-ressource",
       "email": "Courriel",
       "website": "Site web",
-      "notProvided": "Non fourni"
+      "notProvided": "Non fourni",
+      "publicationBridge": {
+        "eyebrow": "Étape 6 · Publication",
+        "title": "Les publications de cette commandite",
+        "intro": "Vérifiez le contenu préparé, autorisez sa programmation, puis suivez son envoi.",
+        "benefits": "Ce que prévoit la contribution",
+        "benefit": {
+          "website_mention": "Mention de l’entreprise sur OpenG7.org",
+          "facebook_batch": "Reconnaissance collective sur Facebook",
+          "linkedin_batch": "Reconnaissance collective sur LinkedIn"
+        },
+        "website": "La visibilité sur le site se gère séparément dans les paramètres avancés. Elle ne confirme aucun envoi sur les réseaux sociaux.",
+        "completion": "{{done}} sur {{total}} publications sociales réalisées",
+        "blockers": "À vérifier avant d’autoriser un nouvel envoi",
+        "blocker": {
+          "consent": "Obtenir le consentement public du commanditaire",
+          "review": "Vérifier et accepter le dossier",
+          "media": "Approuver une photo de présentation",
+          "payment": "Vérifier l’admissibilité du paiement",
+          "refund": "Examiner le remboursement en cours ou complet",
+          "hidden": "Vérifier le masquage du commanditaire"
+        },
+        "status": {
+          "waiting": "En attente de préparation",
+          "review": "Prête à vérifier",
+          "scheduled": "Programmée avec autorisation",
+          "publishing": "Envoi en cours",
+          "published": "Publiée",
+          "simulated": "Simulation terminée",
+          "blocked": "Envoi bloqué",
+          "uncertain": "Résultat à vérifier",
+          "failed": "Échec de l’envoi",
+          "rejected": "Publication refusée",
+          "cancelled": "Annulée"
+        },
+        "simulation": "Simulation — aucun envoi réel sur le réseau social.",
+        "paused": "La destination est en pause. L’envoi attend sa reprise.",
+        "publishedAt": "Publiée le",
+        "proposedDate": "Date prévue :",
+        "scheduledHelp": "L’envoi aura lieu si le moteur est actif, la destination disponible et les conditions toujours remplies.",
+        "waitingHelp": "Aucun envoi final n’est prêt à vérifier. Consultez la préparation et les réglages du moteur.",
+        "failureHelp": "Consultez le détail dans le moteur avant toute nouvelle action.",
+        "action": {
+          "review": "Vérifier et programmer",
+          "schedule": "Voir la programmation",
+          "resolve": "Examiner le blocage",
+          "open": "Ouvrir dans le moteur"
+        },
+        "viewPost": "Voir la publication",
+        "noSocial": "Aucune publication sociale n’est incluse dans ce montant et aucune n’est associée au dossier.",
+        "preparation": "Voir la préparation",
+        "engine": "Suivre ce dossier dans le moteur",
+        "authorization": "Préparer ne publie rien. Chaque envoi demande une validation du contenu et de la destination. Une simulation ne termine pas cette étape.",
+        "advanced": "Paramètres avancés · visibilité et suivi manuel",
+        "filtered": "Publications liées à ce dossier",
+        "collective": "Une publication collective peut inclure plusieurs commanditaires. Votre validation porte sur tout le contenu affiché.",
+        "back": "Retour à l’étape 6",
+        "showAll": "Voir tous les dossiers",
+        "notFound": "Cette publication est introuvable dans le contexte demandé. Revenez au dossier pour actualiser son suivi.",
+        "globalSettings": "Les compteurs, le moteur et les réglages des destinations concernent tous les dossiers. La liste ci-dessous est filtrée.",
+        "currencyUnknown": "Les avantages et les destinations sont à confirmer pour cette devise."
+      }
     },
     "context": {
       "facts": "Faits du dossier",
@@ -1944,7 +2005,8 @@
         "scheduled": "Programmées",
         "exceptions": "À résoudre",
         "history": "Historique",
-        "calendar": "Calendrier"
+        "calendar": "Calendrier",
+        "all": "Toutes les publications du dossier"
       },
       "kinds": {
         "sponsorship": "Commanditaires",

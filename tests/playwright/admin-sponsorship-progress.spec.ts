@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminSponsorshipProgress,
   AdminSponsorshipProgressResponse,
@@ -180,7 +181,8 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
     progressGate: null as Promise<void> | null,
     listGate: null as Promise<void> | null,
     next: null as AdminSponsorshipProgress['next'] | null,
-    milestones: null as AdminSponsorshipProgress['milestones'] | null
+    milestones: null as AdminSponsorshipProgress['milestones'] | null,
+    progressOverrides: {} as Partial<AdminSponsorshipProgress>
   };
   await page.route('**/api/**', async (route) => {
     const req = route.request(),
@@ -284,6 +286,7 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
             options.state === 'ok'
               ? {
                   ...dossier(selected),
+                  ...options.progressOverrides,
                   milestones:
                     options.milestones ??
                     dossier(selected).milestones.map((step) =>
@@ -1089,6 +1092,7 @@ test('dossier controls respect reader and operator permissions', async ({
   await tabs(page)
     .getByRole('button', { name: 'Publication', exact: true })
     .click();
+  await page.locator('[data-og7="publication-advanced"] summary').click();
   await expect(
     page
       .locator('[data-og7="dossier-publication-editor"]')
@@ -1379,6 +1383,7 @@ test('publication save normalizes the slug, confirms visibility and preserves a 
   options.edited.set(id, { sponsor_review_status: 'approved' });
   await page.goto(path('publication'));
   const editor = page.locator('[data-og7="dossier-publication-editor"]');
+  await page.locator('[data-og7="publication-advanced"] summary').click();
   const slug = editor.getByLabel('Slug public', { exact: false });
   const save = editor.getByRole('button', { name: 'Enregistrer', exact: true });
   await slug.fill('invalid slug !');
@@ -1591,6 +1596,7 @@ for (const blocked of [
     const { calls, options } = await fixtures(page);
     options.edited.set(id, blocked);
     await page.goto(path('publication'));
+    await page.locator('[data-og7="publication-advanced"] summary').click();
     await expect(
       actions(page).getByRole('button', { name: 'Accepter', exact: true })
     ).toBeDisabled();
@@ -2957,4 +2963,142 @@ test('a late progress response cannot overwrite a newly selected dossier or rese
     path: 'test-results/lot4-dossier-desktop.png',
     fullPage: true
   });
+});
+
+for (const width of [1280, 390]) {
+  test(`publication bridge explains benefits and opens the exact delivery at ${width}px`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page);
+    options.progressOverrides = {
+      publicationBlockers: ['media'],
+      publications: [
+        {
+          ...dossier().publications[0]!,
+          batchStatus: null,
+          deliveryId: secondId,
+          deliveryStatus: 'draft',
+          deliveryMode: 'live',
+          scheduledAt: date
+        }
+      ]
+    };
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(path('publication'));
+    const journey = page.locator('[data-og7="dossier-publication-journey"]');
+    await expect(
+      journey.getByRole('heading', { name: 'Ce que prévoit la contribution' })
+    ).toBeVisible();
+    await expect(journey).toContainText(
+      'Reconnaissance collective sur Facebook'
+    );
+    await expect(journey).toContainText(
+      'Reconnaissance collective sur LinkedIn'
+    );
+    await expect(journey).toContainText(
+      '0 sur 2 publications sociales réalisées'
+    );
+    await expect(
+      journey.getByRole('link', { name: 'Approuver une photo de présentation' })
+    ).toHaveAttribute('href', path('media'));
+    const link = journey.getByRole('link', { name: 'Vérifier et programmer' });
+    await expect(link).toHaveAttribute(
+      'href',
+      `/admin/fundraiser/publications/automation?sponsorshipId=${id}&deliveryId=${secondId}`
+    );
+    await expect(
+      page.locator('[data-og7="dossier-publication-editor"]')
+    ).not.toBeVisible();
+    await expect(
+      journey.locator('[data-og7="publication-channel"]')
+    ).toHaveCount(2);
+    const accessibility = await new AxeBuilder({ page })
+      .include('[data-og7="dossier-publication-journey"]')
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth)
+    ).toBeLessThanOrEqual(width);
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    await journey.screenshot({
+      path: `test-results/publication-bridge-${width}.png`
+    });
+    await link.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(
+      new RegExp(`automation\\?sponsorshipId=${id}&deliveryId=${secondId}`)
+    );
+    expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
+  });
+}
+
+for (const [deliveryStatus, deliveryMode, label] of [
+  ['approved', 'live', 'Programmée avec autorisation'],
+  ['published', 'mock', 'Simulation terminée'],
+  ['published', 'live', 'Publiée'],
+  ['uncertain', 'live', 'Résultat à vérifier'],
+  ['blocked', 'live', 'Envoi bloqué']
+] as const) {
+  test(`publication bridge displays ${deliveryStatus}/${deliveryMode} without inventing success`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page);
+    options.progressOverrides = {
+      publications: [
+        {
+          ...dossier().publications[0]!,
+          batchStatus: null,
+          deliveryId: secondId,
+          deliveryStatus,
+          deliveryMode,
+          feedPaused: true,
+          deliveryError:
+            deliveryStatus === 'blocked' ? 'UNKNOWN_PROVIDER_CODE' : null,
+          publicUrl: 'https://example.invalid/post'
+        }
+      ]
+    };
+    await page.goto(path('publication'));
+    const journey = page.locator('[data-og7="dossier-publication-journey"]');
+    await expect(journey).toContainText(label);
+    await expect(journey).not.toContainText('UNKNOWN_PROVIDER_CODE');
+    const published = deliveryStatus === 'published' && deliveryMode === 'live';
+    await expect(journey).toContainText(
+      `${published ? 1 : 0} sur 2 publications sociales réalisées`
+    );
+    await expect(
+      journey.getByRole('link', { name: 'Voir la publication', exact: true })
+    ).toHaveCount(published ? 1 : 0);
+    if (deliveryMode === 'mock')
+      await expect(journey).toContainText('aucun envoi réel');
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
+test('publication bridge keeps CAD thresholds out of other currencies and supports English read-only access', async ({
+  page
+}) => {
+  const { options, calls } = await fixtures(page, 'reader');
+  options.progressOverrides = { currency: 'USD', publications: [] };
+  await page.goto(path('publication'));
+  await page
+    .getByRole('button', { name: 'Switch administration language to English' })
+    .click();
+  const journey = page.locator('[data-og7="dossier-publication-journey"]');
+  await expect(
+    journey.getByRole('heading', { name: 'Publications for this sponsorship' })
+  ).toBeVisible();
+  await expect(journey).toContainText(
+    'Benefits and destinations need confirmation for this currency.'
+  );
+  await expect(journey.locator('[data-og7="publication-channel"]')).toHaveCount(
+    0
+  );
+  await expect(
+    journey.getByRole('link', { name: 'Follow this dossier in the engine' })
+  ).toHaveAttribute(
+    'href',
+    `/admin/fundraiser/publications/automation?sponsorshipId=${id}`
+  );
+  expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
 });

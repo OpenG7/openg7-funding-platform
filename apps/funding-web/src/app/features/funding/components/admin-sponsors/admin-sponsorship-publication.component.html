@@ -1,0 +1,173 @@
+<div class="publication-journey" data-og7="dossier-publication-journey">
+  <header>
+    <span class="eyebrow">{{
+      'admin.dossier.publicationBridge.eyebrow' | translate
+    }}</span>
+    <h3>{{ 'admin.dossier.publicationBridge.title' | translate }}</h3>
+    <p>{{ 'admin.dossier.publicationBridge.intro' | translate }}</p>
+  </header>
+  <section class="benefits" aria-labelledby="publication-benefits">
+    <h4 id="publication-benefits">
+      {{ 'admin.dossier.publicationBridge.benefits' | translate }}
+    </h4>
+    @if (!benefitsKnown()) {
+      <p>{{ 'admin.dossier.publicationBridge.currencyUnknown' | translate }}</p>
+    }
+    <ul>
+      @for (benefit of benefits(); track benefit) {
+        <li>
+          {{ 'admin.dossier.publicationBridge.benefit.' + benefit | translate }}
+        </li>
+      }
+    </ul>
+    <p>{{ 'admin.dossier.publicationBridge.website' | translate }}</p>
+  </section>
+  @if (cards().length) {
+    <p class="completion">
+      {{
+        'admin.dossier.publicationBridge.completion'
+          | translate: { done: completed(), total: cards().length }
+      }}
+    </p>
+  }
+  @if (blockers().length && completed() < cards().length) {
+    <section class="blockers" data-og7="publication-blockers">
+      <h4>{{ 'admin.dossier.publicationBridge.blockers' | translate }}</h4>
+      <ul>
+        @for (reason of blockers(); track reason) {
+          <li>
+            <a
+              routerLink="/admin/fundraiser/sponsors"
+              [queryParams]="{
+                sponsorshipId: dossier().contributionId,
+                tab: blockerTab(reason)
+              }"
+            >
+              {{
+                'admin.dossier.publicationBridge.blocker.' + reason | translate
+              }}
+            </a>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+  <div class="channels">
+    @for (card of cards(); track card.key) {
+      <article
+        data-og7="publication-channel"
+        [attr.data-og7-id]="card.key"
+        [attr.data-state]="status(card.publication)"
+      >
+        <header>
+          <h4>
+            {{
+              card.channel === 'facebook'
+                ? 'Facebook'
+                : card.channel === 'linkedin'
+                  ? 'LinkedIn'
+                  : card.channel
+            }}
+          </h4>
+          @if (card.publication; as p) {
+            <span class="target">{{
+              p.target === 'openg20' ? 'OpenG20' : 'OpenG7'
+            }}</span>
+          }
+        </header>
+        <strong class="publication-state">{{
+          'admin.dossier.publicationBridge.status.' + status(card.publication)
+            | translate
+        }}</strong>
+        @if (card.publication; as p) {
+          @if (p.deliveryMode === 'mock') {
+            <p class="simulation">
+              {{ 'admin.dossier.publicationBridge.simulation' | translate }}
+            </p>
+          }
+          @if (p.feedPaused && status(p) !== 'published') {
+            <p>{{ 'admin.dossier.publicationBridge.paused' | translate }}</p>
+          }
+          @if (p.publishedAt && status(p) === 'published') {
+            <p>
+              {{ 'admin.dossier.publicationBridge.publishedAt' | translate }}
+              {{ date(p.publishedAt) }}
+            </p>
+          } @else if (p.scheduledAt) {
+            <p>
+              {{ 'admin.dossier.publicationBridge.proposedDate' | translate }}
+              {{ date(p.scheduledAt) }}
+            </p>
+          }
+          @if (status(p) === 'scheduled') {
+            <p>
+              {{ 'admin.dossier.publicationBridge.scheduledHelp' | translate }}
+            </p>
+          }
+          @if (p.deliveryError) {
+            <p>{{ errorMessage(p.deliveryError) }}</p>
+          }
+        }
+        @if (status(card.publication) === 'waiting') {
+          <p>{{ 'admin.dossier.publicationBridge.waitingHelp' | translate }}</p>
+        }
+        <div class="actions">
+          @if (card.publication && !card.publication.deliveryId) {
+            <a
+              class="admin-button"
+              routerLink="/admin/fundraiser/publications"
+              [queryParams]="{ draftId: card.publication.id }"
+              >{{ 'admin.dossier.openPublication' | translate }}</a
+            >
+          }
+          @if (publicUrl(card.publication); as url) {
+            <a
+              class="admin-button primary"
+              [href]="url"
+              target="_blank"
+              rel="noopener noreferrer"
+              >{{ 'admin.dossier.publicationBridge.viewPost' | translate }}</a
+            >
+          }
+          <a
+            class="admin-button"
+            [routerLink]="automationPath"
+            [queryParams]="params(card.publication)"
+          >
+            {{
+              'admin.dossier.publicationBridge.action.' +
+                action(card.publication) | translate
+            }}
+          </a>
+        </div>
+      </article>
+    } @empty {
+      <p>
+        {{
+          (benefitsKnown()
+            ? 'admin.dossier.publicationBridge.noSocial'
+            : 'admin.dossier.publicationBridge.currencyUnknown'
+          ) | translate
+        }}
+      </p>
+    }
+  </div>
+  <footer>
+    @if (dossier().preparationActivityId; as activityId) {
+      <button
+        type="button"
+        class="admin-button"
+        (click)="activity.openPreparation(activityId)"
+      >
+        {{ 'admin.dossier.publicationBridge.preparation' | translate }}
+      </button>
+    }
+    <a
+      class="admin-button"
+      [routerLink]="automationPath"
+      [queryParams]="params()"
+      >{{ 'admin.dossier.publicationBridge.engine' | translate }}</a
+    >
+    <p>{{ 'admin.dossier.publicationBridge.authorization' | translate }}</p>
+  </footer>
+</div>

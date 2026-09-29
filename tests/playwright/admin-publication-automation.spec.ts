@@ -42,6 +42,7 @@ async function fixtures(
     workerEnabled?: boolean;
     role?: 'reader' | 'operator';
     workerResponse?: () => Promise<void>;
+    extraDeliveries?: PublicationDelivery[];
   } = {}
 ): Promise<PublicationAutomationCommand[]> {
   const commands: PublicationAutomationCommand[] = [];
@@ -75,7 +76,10 @@ async function fixtures(
       connection: 'ready',
       checkedAt: '2030-06-01T12:00:00Z'
     })),
-    deliveries: [{ ...initialJob, status, sponsors, ...overrides }]
+    deliveries: [
+      { ...initialJob, status, sponsors, ...overrides },
+      ...(options.extraDeliveries ?? [])
+    ]
   };
   await page.addInitScript((role) => {
     sessionStorage.setItem(
@@ -103,8 +107,20 @@ async function fixtures(
       return route.fulfill({ json: [] });
     if (!path.endsWith('/publication-automation'))
       return route.fulfill({ status: 503, json: {} });
-    if (route.request().method() === 'GET')
-      return route.fulfill({ json: state });
+    if (route.request().method() === 'GET') {
+      const params = new URL(route.request().url()).searchParams;
+      return route.fulfill({
+        json: {
+          ...state,
+          deliveries: state.deliveries.filter(
+            (d) =>
+              (!params.has('sponsorshipId') ||
+                d.sponsors.some((s) => s.id === params.get('sponsorshipId'))) &&
+              (!params.has('deliveryId') || d.id === params.get('deliveryId'))
+          )
+        }
+      });
+    }
     const c = route.request().postDataJSON() as PublicationAutomationCommand;
     commands.push(c);
     if (c.action === 'worker') await options.workerResponse?.();
@@ -906,4 +922,89 @@ test('mobile keyboard flow, contrast and focus restoration', async ({
     path: 'test-results/admin-layout/publication-automation-mobile.png',
     fullPage: true
   });
+});
+
+for (const width of [1280, 390]) {
+  test(`dossier bridge filters the engine and returns to publication at ${width}px`, async ({
+    page
+  }) => {
+    const sponsorId = '10000000-0000-4000-8000-000000000401';
+    const commands = await fixtures(
+      page,
+      'approved',
+      false,
+      [
+        {
+          id: sponsorId,
+          name: 'Synthetic sponsor',
+          version: 'v1',
+          reviewStatus: 'approved',
+          presentationApproved: true
+        }
+      ],
+      { kind: 'sponsorship' },
+      {
+        extraDeliveries: [
+          {
+            ...initialJob,
+            id: '22222222-2222-4222-8222-222222222222',
+            message: 'Unrelated publication'
+          }
+        ]
+      }
+    );
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(
+      `/admin/fundraiser/publications/automation?sponsorshipId=${sponsorId}`
+    );
+    await expect(
+      page.locator('[data-og7="publication-dossier-context"]')
+    ).toContainText('Publications liées à ce dossier');
+    await expect(
+      page.getByText('Unrelated publication', { exact: true })
+    ).toHaveCount(0);
+    await expect(
+      page.locator(`[data-og7-id="${initialJob.id}"]`)
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Retour à l’étape 6' })
+    ).toHaveAttribute(
+      'href',
+      `/admin/fundraiser/sponsors?sponsorshipId=${sponsorId}&tab=publication#dossier-publication`
+    );
+    expect(commands).toHaveLength(0);
+    await page.getByRole('link', { name: 'Voir tous les dossiers' }).click();
+    await expect(
+      page.getByText('Unrelated publication', { exact: true })
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-og7="publication-dossier-context"]')
+    ).toHaveCount(0);
+    await page.goto(
+      `/admin/fundraiser/publications/automation?sponsorshipId=${sponsorId}&deliveryId=${initialJob.id}`
+    );
+    await expect(
+      page.getByRole('dialog', { name: 'Publication finale' })
+    ).toBeVisible();
+    expect(commands).toHaveLength(0);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth)
+    ).toBeLessThanOrEqual(width);
+  });
+}
+
+test('missing or mismatched delivery does not open another publication or compose a batch', async ({
+  page
+}) => {
+  const commands = await fixtures(page);
+  await page.goto(
+    `/admin/fundraiser/publications/automation?sponsorshipId=10000000-0000-4000-8000-000000000401&deliveryId=${initialJob.id}&batchId=${initialJob.id}&feedId=openg20:facebook`
+  );
+  await expect(
+    page.getByText('Cette publication est introuvable', { exact: false })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('dialog', { name: 'Publication finale' })
+  ).toHaveCount(0);
+  expect(commands).toHaveLength(0);
 });

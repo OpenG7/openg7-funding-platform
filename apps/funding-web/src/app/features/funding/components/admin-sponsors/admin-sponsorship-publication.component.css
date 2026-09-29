@@ -1,0 +1,123 @@
+:host {
+  display: block;
+}
+.publication-journey {
+  display: grid;
+  gap: 1rem;
+}
+h3,
+h4,
+p {
+  margin: 0;
+}
+h3 {
+  font-size: 1.2rem;
+}
+h4 {
+  font-size: 1rem;
+}
+p {
+  color: var(--admin-muted);
+  line-height: 1.6;
+}
+header,
+footer {
+  display: grid;
+  gap: 0.55rem;
+}
+.eyebrow {
+  color: #e6b65a;
+  font-size: 0.75rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.benefits {
+  background: linear-gradient(120deg, #24413f, #1a2d42);
+  border: 1px solid #4a6b65;
+  border-radius: 0.8rem;
+  padding: 1rem;
+}
+.benefits ul {
+  margin: 0.65rem 0;
+  padding-left: 1.2rem;
+}
+.benefits li {
+  margin: 0.35rem 0;
+}
+.channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: 0.8rem;
+}
+article {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  border: 1px solid var(--admin-border);
+  border-left: 3px solid #e6b65a;
+  border-radius: 0.75rem;
+  background: var(--admin-panel);
+  overflow-wrap: anywhere;
+}
+article header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+article[data-state='published'] {
+  border-left-color: #a0e5c0;
+}
+article[data-state='blocked'],
+article[data-state='uncertain'],
+article[data-state='failed'] {
+  border-left-color: #ffb2b4;
+}
+.target,
+.simulation {
+  font-size: 0.8rem;
+  color: #e6b65a;
+}
+.completion,
+.publication-state {
+  color: var(--admin-text);
+  font-weight: 700;
+}
+.blockers {
+  padding: 1rem;
+  border: 1px solid #94676f;
+  border-radius: 0.75rem;
+}
+.blockers a {
+  color: #ffd4d5;
+  text-underline-offset: 0.2em;
+}
+.blockers li {
+  margin-top: 0.5rem;
+}
+.actions,
+footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+footer p {
+  flex-basis: 100%;
+  font-size: 0.85rem;
+}
+.admin-button {
+  white-space: normal;
+  text-align: center;
+  min-height: 2.75rem;
+}
+a:focus-visible {
+  outline: 3px solid #efc36b;
+  outline-offset: 3px;
+}
+@media (max-width: 420px) {
+  .actions a,
+  footer .admin-button {
+    width: 100%;
+  }
+}

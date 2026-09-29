@@ -275,17 +275,36 @@ export class FundingAdminService {
     }
     return response.json() as Promise<T>;
   }
-  async publicationAutomation(command?: PublicationAutomationCommand): Promise<PublicationAutomationState | { id?: string }> {
-    const response = await fetch(`${this.apiBaseUrl}/admin/publication-automation`, {
-      method: command ? 'POST' : 'GET', cache: 'no-store',
-      headers: { ...(await this.createHeaders(this.getSavedAdminToken())), 'Content-Type': 'application/json' },
-      ...(command ? { body: JSON.stringify(command) } : {})
-    });
+  async publicationAutomation(
+    command?: PublicationAutomationCommand,
+    filter: import('@openg7/funding-core').PublicationAutomationFilter = {}
+  ): Promise<PublicationAutomationState | { id?: string }> {
+    const query = new URLSearchParams();
+    if (!command && filter.sponsorshipId)
+      query.set('sponsorshipId', filter.sponsorshipId);
+    if (!command && filter.deliveryId)
+      query.set('deliveryId', filter.deliveryId);
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/publication-automation${query.size ? `?${query}` : ''}`,
+      {
+        method: command ? 'POST' : 'GET',
+        cache: 'no-store',
+        headers: {
+          ...(await this.createHeaders(this.getSavedAdminToken())),
+          'Content-Type': 'application/json'
+        },
+        ...(command ? { body: JSON.stringify(command) } : {})
+      }
+    );
     if (!response.ok) {
-      const data = await response.json().catch(() => ({})) as { code?: string };
+      const data = (await response.json().catch(() => ({}))) as {
+        code?: string;
+      };
       throw new Error(data.code ?? 'AUTOMATION_UNAVAILABLE');
     }
-    return response.json() as Promise<PublicationAutomationState | { id?: string }>;
+    return response.json() as Promise<
+      PublicationAutomationState | { id?: string }
+    >;
   }
   async publicationMedia(): Promise<{ id: string; url: string; alt: string; company: string }[]> {
     const response = await fetch(`${this.apiBaseUrl}/admin/publication-automation/media`, { cache: 'no-store', headers: await this.createHeaders(this.getSavedAdminToken()) });

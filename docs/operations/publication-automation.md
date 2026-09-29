@@ -4,6 +4,23 @@ The calendar is at `/admin/fundraiser/publications/calendar`. The delivery cockp
 is at `/admin/fundraiser/publications/automation`, with its own calendar including
 editorial posts. The three existing publication workspaces remain separate.
 
+## Dossier bridge
+
+The sponsorship dossier’s Publication step links to this workspace with
+`sponsorshipId=<uuid>` and optionally `deliveryId=<uuid>`. These filters are also
+accepted by `GET /api/admin/publication-automation`: they intersect, are validated,
+and apply before the 200-delivery limit. Invalid UUIDs return `400 INVALID_FILTER`.
+The filtered view includes all delivery states and a return link to step 6.
+Counters, worker controls and feed settings remain global. Collective deliveries
+retain their full membership: approval still covers the whole displayed post.
+A missing delivery is reported without opening another one or composing a batch.
+
+Dossier progress reads the matching automatic delivery by batch and destination,
+with legacy job fallback. It exposes its identifier, state, mode, safe error code,
+feed pause, date and public result link; it never exposes draft text or credentials.
+Live publication evidence completes the matching channel; simulations do not.
+Website visibility remains separate in the dossier’s advanced settings.
+
 ## Operating model
 
 The global worker switch also gates the private website card preparation added
