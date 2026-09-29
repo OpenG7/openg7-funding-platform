@@ -456,10 +456,11 @@
       "healthScope": "Read-only checks cached for at most one minute. They do not prove storage writes, email receipt or full provider availability."
     },
     "dossier": {
+      "reviewActions": "Review actions",
       "completed": "Dossier complete",
       "nextActions": {
         "payment": "View payment",
-        "review": "Go to review",
+        "review": "View review actions",
         "stripe": "View Stripe errors",
         "identity": "View identity",
         "media": "View media",

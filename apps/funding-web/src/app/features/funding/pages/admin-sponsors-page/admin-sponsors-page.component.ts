@@ -125,6 +125,11 @@ type SponsorshipPublicationChannel = Extract<
   'facebook' | 'linkedin'
 >;
 
+interface SponsorshipApprovalFeedback {
+  readonly id: string;
+  readonly phase: 'pending' | 'success' | 'error';
+}
+
 interface SponsorAuditEntry {
   readonly id: string;
   readonly date: string;
@@ -299,6 +304,7 @@ const controlledSponsorLogoUrlPrefixes = [
 
           <aside
             #sponsorDetailPanel
+            data-og7="sponsorship-dossier"
             class="sponsor-detail-panel"
             [class.is-empty]="!selectedSponsorship()"
             [class.selection-pulse]="
@@ -1262,7 +1268,27 @@ const controlledSponsorLogoUrlPrefixes = [
                   }}
                 </p>
               </section>
-              <footer class="detail-actions" data-og7="dossier-actions">
+              <footer
+                *ngIf="canManage()"
+                class="detail-actions"
+                data-og7="dossier-actions"
+                [attr.data-approval-state]="approvalState(selected.id)"
+                role="region"
+                [attr.aria-label]="'admin.dossier.reviewActions' | translate"
+              >
+                <div class="detail-actions-context">
+                  <strong>{{
+                    'admin.dossier.reviewActions' | translate
+                  }}</strong>
+                  <span>{{
+                    selected.sponsor_company_name ||
+                      selected.public_name ||
+                      ('admin.messages.entreprise_sans_nom' | translate)
+                  }}</span>
+                  <small *ngIf="selected.public_reference">{{
+                    selected.public_reference
+                  }}</small>
+                </div>
                 <p
                   class="review-toast"
                   *ngIf="reviewMessageFor(selected.id)"
@@ -1271,54 +1297,68 @@ const controlledSponsorLogoUrlPrefixes = [
                 >
                   {{ reviewMessageFor(selected.id) }}
                 </p>
-                <button
-                  type="button"
-                  class="review-button neutral"
-                  *ngIf="canManage()"
-                  [disabled]="
-                    actionsDisabled() ||
-                    selected.sponsor_review_status === 'pending_review'
-                  "
-                  (click)="review(selected, 'pending_review')"
-                >
-                  {{ 'admin.legacy.remettre_en_attente' | translate }}
-                </button>
-                <button
-                  type="button"
-                  class="review-button reject"
-                  #rejectButton
-                  *ngIf="canManage()"
-                  [disabled]="
-                    actionsDisabled() ||
-                    selected.sponsor_review_status === 'rejected'
-                  "
-                  (click)="openRejectionPanel(selected)"
-                >
-                  {{ 'admin.legacy.refuser' | translate }}
-                </button>
-                <button
-                  type="button"
-                  class="review-button refund"
-                  #refundButton
-                  *ngIf="canUseOwnerActions()"
-                  [disabled]="
-                    actionsDisabled() || !canRefundSponsorship(selected)
-                  "
-                  (click)="openRefundPanel(selected)"
-                >
-                  {{ 'admin.legacy.rembourser_stripe' | translate }}
-                </button>
-                <button
-                  type="button"
-                  class="review-button approve"
-                  *ngIf="canManage()"
-                  [disabled]="
-                    actionsDisabled() || !canApproveSponsorship(selected)
-                  "
-                  (click)="review(selected, 'approved')"
-                >
-                  {{ 'admin.legacy.accepter' | translate }}
-                </button>
+                <div class="detail-actions-buttons">
+                  <button
+                    type="button"
+                    class="review-button neutral"
+                    *ngIf="canManage()"
+                    [disabled]="
+                      actionsDisabled() ||
+                      selected.sponsor_review_status === 'pending_review'
+                    "
+                    (click)="review(selected, 'pending_review')"
+                  >
+                    {{ 'admin.legacy.remettre_en_attente' | translate }}
+                  </button>
+                  <button
+                    type="button"
+                    class="review-button reject"
+                    #rejectButton
+                    *ngIf="canManage()"
+                    [disabled]="
+                      actionsDisabled() ||
+                      selected.sponsor_review_status === 'rejected'
+                    "
+                    (click)="openRejectionPanel(selected)"
+                  >
+                    {{ 'admin.legacy.refuser' | translate }}
+                  </button>
+                  <button
+                    type="button"
+                    class="review-button refund"
+                    #refundButton
+                    *ngIf="canUseOwnerActions()"
+                    [disabled]="
+                      actionsDisabled() || !canRefundSponsorship(selected)
+                    "
+                    (click)="openRefundPanel(selected)"
+                  >
+                    {{ 'admin.legacy.rembourser_stripe' | translate }}
+                  </button>
+                  <button
+                    type="button"
+                    class="review-button approve approval-button"
+                    data-og7="sponsorship-approve"
+                    [attr.data-state]="approvalState(selected.id)"
+                    [attr.aria-busy]="approvalState(selected.id) === 'pending'"
+                    *ngIf="canManage()"
+                    [disabled]="
+                      actionsDisabled() || !canApproveSponsorship(selected)
+                    "
+                    (click)="review(selected, 'approved')"
+                  >
+                    <span class="approval-shine" aria-hidden="true"></span>
+                    <span class="approval-sparks" aria-hidden="true"></span>
+                    <span class="approval-mark" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="m5 12 4 4L19 6" />
+                      </svg>
+                    </span>
+                    <span class="approval-label">{{
+                      'admin.legacy.accepter' | translate
+                    }}</span>
+                  </button>
+                </div>
               </footer>
             </ng-container>
 
@@ -1345,7 +1385,8 @@ const controlledSponsorLogoUrlPrefixes = [
   styleUrls: [
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
-    '../../components/admin-ui/admin-forms.css'
+    '../../components/admin-ui/admin-forms.css',
+    './admin-sponsors-approval.css'
   ],
   styles: [
     `
@@ -1812,6 +1853,7 @@ const controlledSponsorLogoUrlPrefixes = [
         overflow-y: auto;
         position: sticky;
         top: 1.25rem;
+        scroll-padding-bottom: 12rem;
       }
 
       .review-toast {
@@ -2089,19 +2131,53 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .detail-actions {
         align-items: center;
-        background: var(--admin-panel);
-        border-top: 1px solid var(--admin-border);
+        background: linear-gradient(110deg, #193348f5, #0d2436fa);
+        backdrop-filter: blur(18px);
+        border: 1px solid #426077;
+        border-radius: 0.9rem;
+        box-shadow: 0 12px 28px #00000026;
         display: flex;
         flex-wrap: wrap;
         gap: 0.7rem;
-        justify-content: flex-end;
+        margin: 1rem 0.75rem 0.75rem;
         padding: 1rem;
         position: sticky;
-        bottom: 0;
+        bottom: max(0.75rem, env(safe-area-inset-bottom));
+        z-index: 5;
       }
 
-      .detail-actions .inline-status {
-        flex: 1 1 100%;
+      .detail-actions-context {
+        display: grid;
+        flex: 1 1 12rem;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .detail-actions-context strong {
+        color: var(--admin-muted);
+        font-size: 0.75rem;
+      }
+
+      .detail-actions-context span {
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+
+      .detail-actions-context small {
+        color: var(--admin-muted);
+        font-size: 0.75rem;
+      }
+
+      .detail-actions-buttons {
+        display: flex;
+        flex: 1 1 auto;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: flex-end;
+      }
+
+      .detail-actions-buttons button {
+        min-height: 2.75rem;
       }
 
       .status-badge,
@@ -2342,6 +2418,7 @@ const controlledSponsorLogoUrlPrefixes = [
         }
         .sponsor-detail-panel {
           max-height: none;
+          overflow: visible;
           position: static;
         }
       }
@@ -2398,10 +2475,21 @@ const controlledSponsorLogoUrlPrefixes = [
           display: none;
         }
         .detail-actions {
-          justify-content: stretch;
+          bottom: max(0.5rem, env(safe-area-inset-bottom));
+          gap: 0.6rem;
+          margin-inline: 0.5rem;
+          padding: 0.75rem;
         }
-        .detail-actions button {
-          flex: 1 1 100%;
+        .detail-actions-context {
+          flex-basis: 100%;
+        }
+        .detail-actions-buttons {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          width: 100%;
+        }
+        .detail-actions-buttons button {
+          padding-inline: 0.5rem;
         }
       }
 
@@ -2460,6 +2548,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   >({});
   readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   readonly actionState = signal<string | null>(null);
+  readonly approvalFeedback = signal<SponsorshipApprovalFeedback | null>(null);
   readonly logoUploadMessages = signal<Record<string, string>>({});
   readonly logoPreviewUrls = signal<Record<string, string>>({});
   readonly sponsorMedia = signal<Record<string, readonly SponsorMediaAsset[]>>(
@@ -2730,6 +2819,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     ReturnType<typeof setTimeout>
   >();
   private selectionPulseTimer: ReturnType<typeof setTimeout> | null = null;
+  private approvalFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingTabScroll: { id: number; position: [number, number] } | null =
     null;
   private readonly pendingSection = signal<{
@@ -2739,6 +2829,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   } | null>(null);
 
   constructor() {
+    afterRenderEffect(() => {
+      const feedback = this.approvalFeedback();
+      if (feedback && feedback.id !== this.selectedSponsorshipId()) {
+        this.clearApprovalFeedback();
+      }
+    });
     afterRenderEffect(() => {
       const pending = this.pendingSection();
       if (
@@ -2870,6 +2966,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     this.revokeSponsorMediaPreviews();
     this.clearReviewMessageTimers();
     this.clearSelectionPulseTimer();
+    this.clearApprovalFeedback();
   }
 
   async loadSponsorships(): Promise<void> {
@@ -2974,6 +3071,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     if (!this.canActOn(sponsorship)) return;
+    this.clearApprovalFeedback();
+    const approvalAttempt: SponsorshipApprovalFeedback | null =
+      reviewStatus === 'approved'
+        ? { id: sponsorship.id, phase: 'pending' }
+        : null;
+    this.approvalFeedback.set(approvalAttempt);
     this.actionState.set(this.reviewActionId(sponsorship.id));
     this.setReviewMessage(
       sponsorship.id,
@@ -2983,13 +3086,17 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     );
 
     try {
-      await this.admin.reviewSponsorship(this.adminToken(), {
+      const result = await this.admin.reviewSponsorship(this.adminToken(), {
         contributionId: sponsorship.id,
         reviewStatus,
         reviewNote: reviewNote || undefined,
         expectedVersion: sponsorship.version
       });
+      if (!result.updated)
+        throw new Error('Sponsorship review was not updated.');
       await this.loadSponsorships();
+      if (approvalAttempt)
+        this.finishApprovalFeedback(approvalAttempt, 'success');
       this.setReviewMessage(
         sponsorship.id,
         this.reviewSuccessMessage(reviewStatus),
@@ -2997,6 +3104,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       );
       this.pulseSelection(sponsorship.id);
     } catch (error) {
+      if (approvalAttempt)
+        this.finishApprovalFeedback(approvalAttempt, 'error');
       this.setReviewMessage(
         sponsorship.id,
         this.messageFromError(
@@ -4139,6 +4248,34 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   reviewMessageFor(id: string): string {
     return this.reviewMessages()[id] ?? '';
+  }
+
+  approvalState(id: string): SponsorshipApprovalFeedback['phase'] | 'idle' {
+    const feedback = this.approvalFeedback();
+    return feedback?.id === id ? feedback.phase : 'idle';
+  }
+
+  private finishApprovalFeedback(
+    attempt: SponsorshipApprovalFeedback,
+    phase: 'success' | 'error'
+  ): void {
+    if (
+      this.destroyRef.destroyed ||
+      this.approvalFeedback() !== attempt ||
+      this.selectedSponsorshipId() !== attempt.id
+    )
+      return;
+    this.approvalFeedback.set({ ...attempt, phase });
+    this.approvalFeedbackTimer = setTimeout(
+      () => this.clearApprovalFeedback(),
+      3000
+    );
+  }
+
+  private clearApprovalFeedback(): void {
+    if (this.approvalFeedbackTimer) clearTimeout(this.approvalFeedbackTimer);
+    this.approvalFeedbackTimer = null;
+    this.approvalFeedback.set(null);
   }
 
   copyMessageFor(id: string): string {
