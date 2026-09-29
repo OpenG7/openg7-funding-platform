@@ -90,9 +90,14 @@ export class AdminDrawerComponent {
     if (event.key !== 'Tab') return;
     const controls = Array.from(
       this.dialog().nativeElement.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex="0"]'
+        'a[href], button, input, textarea, select, summary, [tabindex]'
       )
-    ).filter((element) => element.getClientRects().length > 0);
+    ).filter(
+      (element) =>
+        element.tabIndex >= 0 &&
+        !element.matches(':disabled') &&
+        element.getClientRects().length > 0
+    );
     const first = controls[0],
       last = controls[controls.length - 1];
     const active = this.document.activeElement;

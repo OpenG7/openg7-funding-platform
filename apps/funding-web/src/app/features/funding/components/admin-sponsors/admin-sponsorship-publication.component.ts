@@ -16,12 +16,13 @@ import {
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { ContributionActivityService } from '../../services/contribution-activity.service.js';
+import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 
 /** Funding organism: persisted recognition facts and explicit visibility requests. */
 @Component({
   selector: 'openg7-admin-sponsorship-publication',
   standalone: true,
-  imports: [RouterLink, TranslatePipe],
+  imports: [RouterLink, TranslatePipe, AdminIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-sponsorship-publication.component.html',
   styleUrls: [

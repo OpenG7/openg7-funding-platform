@@ -1,0 +1,36 @@
+:host .detail-tabs {
+  gap: 0.25rem;
+  padding: 0.5rem 1.5rem 0;
+  border-top: 0;
+}
+:host .detail-tabs button {
+  border-radius: 0.65rem 0.65rem 0 0;
+  border-bottom: 3px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.85rem 1rem;
+  min-height: 2.75rem;
+}
+:host .detail-tabs button:hover {
+  color: var(--admin-text);
+  background: var(--admin-panel-raised);
+}
+:host .detail-tabs button.active {
+  background: #f4c9570d;
+  border-color: var(--admin-gold);
+  color: var(--admin-gold);
+}
+:host .detail-tabs button:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: -3px;
+}
+@media (max-width: 600px) {
+  :host .detail-tabs {
+    padding-inline: 0.65rem;
+    gap: 0.1rem;
+  }
+  :host .detail-tabs button {
+    font-size: 0.8rem;
+    padding: 0.7rem 0.55rem;
+  }
+}

@@ -1,0 +1,169 @@
+:host [hidden] {
+  display: none !important;
+}
+:host .admin-workspace {
+  max-width: 112rem;
+  margin-inline: auto;
+}
+:host .sponsors-board {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+:host .sponsors-board.has-selection {
+  grid-template-columns: 18rem minmax(0, 1fr);
+}
+:host .sponsor-detail-panel {
+  position: relative;
+  top: auto;
+  max-height: none;
+  overflow: visible;
+  border-radius: 1.25rem;
+  background: var(--admin-panel);
+  box-shadow: 0 18px 60px #0000001a;
+  scroll-margin-top: 1rem;
+  scroll-padding-bottom: 10rem;
+}
+:host .sponsor-detail-panel.is-empty {
+  display: none;
+}
+:host .has-selection > openg7-admin-sponsors-list-panel {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border-radius: 1rem;
+}
+.dossier-toolbar,
+.dossier-neighbours {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.dossier-toolbar {
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+.dossier-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.dossier-toolbar button:hover:not(:disabled) {
+  background: var(--admin-panel-raised);
+  border-color: var(--admin-border);
+}
+.dossier-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.dossier-toolbar button:focus-visible,
+.dossier-access > summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+.dossier-neighbours span {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+}
+.dossier-utilities {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+.dossier-utilities > openg7-admin-sponsor-edit {
+  padding: 0;
+  margin-right: auto;
+}
+.dossier-utilities > openg7-admin-sponsorship-guide {
+  margin: 0;
+}
+.dossier-utilities > openg7-admin-sponsorship-guide:has(details[open]),
+.dossier-access[open] {
+  flex-basis: 100%;
+  order: 2;
+}
+.dossier-access {
+  min-width: 0;
+}
+.dossier-access > summary {
+  padding: 0.7rem 0.3rem;
+  cursor: pointer;
+  color: var(--admin-muted);
+  font-size: 0.85rem;
+}
+:host .detail-body {
+  padding: 1.5rem;
+  gap: 1.5rem;
+}
+:host .detail-card {
+  border-radius: 0.9rem;
+}
+:host .detail-actions {
+  margin: 1.5rem 1rem 1rem;
+  box-shadow: 0 12px 36px #00000040;
+}
+:host .has-dossier .admin-page-header {
+  display: none;
+}
+@media (max-width: 1439px) {
+  :host .sponsors-board.has-selection {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :host .has-selection > openg7-admin-sponsors-list-panel {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  :host .admin-workspace.has-dossier {
+    padding-inline: 0;
+  }
+  :host .sponsor-detail-panel {
+    border-radius: 1rem;
+  }
+  .dossier-toolbar,
+  .dossier-utilities {
+    padding-inline: 0.85rem;
+  }
+  .dossier-neighbours span {
+    display: none;
+  }
+  .dossier-neighbours {
+    gap: 0.15rem;
+  }
+  .dossier-utilities {
+    gap: 0.25rem 0.7rem;
+  }
+  :host .detail-body {
+    padding: 1rem;
+  }
+  :host .detail-actions {
+    margin-inline: 0.5rem;
+  }
+  :host .detail-actions-context {
+    display: none;
+  }
+  :host .detail-actions-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  :host .detail-actions-buttons button {
+    flex: 1 1 auto;
+    font-size: 0.8rem;
+  }
+}

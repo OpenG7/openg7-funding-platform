@@ -50,6 +50,8 @@ interface GuideStep {
   ]
 })
 export class AdminSponsorshipGuideComponent {
+  readonly expanded = input(false);
+  readonly expandedChange = output<boolean>();
   readonly dossier = input.required<AdminSponsorshipProgress>();
   readonly canManage = input(false);
   readonly canUseOwnerActions = input(false);
@@ -60,6 +62,10 @@ export class AdminSponsorshipGuideComponent {
     dossierId: string;
     stepId: string;
   } | null>(null);
+
+  onToggle(event: Event): void {
+    this.expandedChange.emit((event.target as HTMLDetailsElement).open);
+  }
 
   readonly steps = computed<readonly GuideStep[]>(() => {
     const d = this.dossier();

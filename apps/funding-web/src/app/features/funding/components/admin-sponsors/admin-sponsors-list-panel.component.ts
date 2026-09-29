@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  viewChild,
   input,
   output
 } from '@angular/core';
@@ -24,8 +26,17 @@ import type {
   template: `
     <section
       class="sponsors-list-panel"
+      #list
+      data-og7="sponsors-list"
+      [class.compact]="compact()"
       [attr.aria-label]="'admin.legacy.liste_des_commandites' | translate"
     >
+      @if (compact()) {
+        <div class="list-caption">
+          <strong>{{ 'admin.dossier.workspace.queue' | translate }}</strong
+          ><span>{{ totalItems() }}</span>
+        </div>
+      }
       <header class="admin-table-toolbar">
         <label class="search-control">
           {{ 'admin.legacy.recherche' | translate
@@ -40,70 +51,84 @@ import type {
           />
         </label>
 
-        <div class="filter-row">
-          <label>
-            {{ 'admin.legacy.statut_de_revue' | translate
-            }}<select
-              [value]="reviewFilter()"
-              (change)="onReviewFilterChange($event)"
-            >
-              <option value="all">{{ 'admin.legacy.tous' | translate }}</option>
-              <option value="pending_review">
-                {{ 'admin.legacy.en_attente' | translate }}
-              </option>
-              <option value="approved">
-                {{ 'admin.legacy.approuvees' | translate }}
-              </option>
-              <option value="rejected">
-                {{ 'admin.legacy.refusees' | translate }}
-              </option>
-            </select>
-          </label>
-
-          <label>
-            {{ 'admin.legacy.visibilite_statut_feed' | translate
-            }}<select
-              [value]="feedFilter()"
-              (change)="onFeedFilterChange($event)"
-            >
-              <option value="all">{{ 'admin.legacy.tous' | translate }}</option>
-              <option
-                *ngFor="let status of feedStatusOptions()"
-                [value]="status.value"
+        <details class="list-filters">
+          <summary>
+            {{ 'admin.dossier.workspace.filters' | translate }}
+            @if (hasActiveFilters()) {
+              <span aria-hidden="true"> •</span>
+            }
+          </summary>
+          <div class="filter-row">
+            <label>
+              {{ 'admin.legacy.statut_de_revue' | translate
+              }}<select
+                [value]="reviewFilter()"
+                (change)="onReviewFilterChange($event)"
               >
-                {{ status.label }}
-              </option>
-            </select>
-          </label>
+                <option value="all">
+                  {{ 'admin.legacy.tous' | translate }}
+                </option>
+                <option value="pending_review">
+                  {{ 'admin.legacy.en_attente' | translate }}
+                </option>
+                <option value="approved">
+                  {{ 'admin.legacy.approuvees' | translate }}
+                </option>
+                <option value="rejected">
+                  {{ 'admin.legacy.refusees' | translate }}
+                </option>
+              </select>
+            </label>
 
-          <label>
-            {{ 'admin.legacy.paiement' | translate
-            }}<select
-              [value]="paymentFilter()"
-              (change)="onPaymentFilterChange($event)"
+            <label>
+              {{ 'admin.legacy.visibilite_statut_feed' | translate
+              }}<select
+                [value]="feedFilter()"
+                (change)="onFeedFilterChange($event)"
+              >
+                <option value="all">
+                  {{ 'admin.legacy.tous' | translate }}
+                </option>
+                <option
+                  *ngFor="let status of feedStatusOptions()"
+                  [value]="status.value"
+                >
+                  {{ status.label }}
+                </option>
+              </select>
+            </label>
+
+            <label>
+              {{ 'admin.legacy.paiement' | translate
+              }}<select
+                [value]="paymentFilter()"
+                (change)="onPaymentFilterChange($event)"
+              >
+                <option value="all">
+                  {{ 'admin.legacy.tous' | translate }}
+                </option>
+                <option value="paid">
+                  {{ 'admin.legacy.paye' | translate }}
+                </option>
+                <option value="refunded">
+                  {{ 'admin.legacy.rembourse' | translate }}
+                </option>
+                <option value="disputed">
+                  {{ 'admin.legacy.litige' | translate }}
+                </option>
+              </select>
+            </label>
+
+            <button
+              type="button"
+              class="tertiary-action"
+              (click)="resetFilters.emit()"
+              [disabled]="!hasActiveFilters()"
             >
-              <option value="all">{{ 'admin.legacy.tous' | translate }}</option>
-              <option value="paid">
-                {{ 'admin.legacy.paye' | translate }}
-              </option>
-              <option value="refunded">
-                {{ 'admin.legacy.rembourse' | translate }}
-              </option>
-              <option value="disputed">
-                {{ 'admin.legacy.litige' | translate }}
-              </option>
-            </select>
-          </label>
-
-          <button
-            type="button"
-            class="tertiary-action"
-            (click)="resetFilters.emit()"
-            [disabled]="!hasActiveFilters()"
-          >
-            {{ 'admin.legacy.reinitialiser' | translate }}
-          </button>
-        </div>
+              {{ 'admin.legacy.reinitialiser' | translate }}
+            </button>
+          </div>
+        </details>
       </header>
 
       <div
@@ -144,6 +169,8 @@ import type {
           <button
             type="button"
             class="sponsor-table-row"
+            data-og7="sponsor-row"
+            [attr.data-og7-id]="row.id"
             [ngClass]="row.rowStateClass"
             [attr.title]="row.processingLabel"
             [class.selection-pulse]="selectionPulseId() === row.id"
@@ -299,7 +326,8 @@ import type {
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
-    '../admin-ui/admin-forms.css'
+    '../admin-ui/admin-forms.css',
+    './admin-sponsors-list-workspace.css'
   ],
   styles: [
     `
@@ -742,6 +770,19 @@ import type {
   ]
 })
 export class AdminSponsorsListPanelComponent {
+  readonly compact = input(false);
+  private readonly list = viewChild<ElementRef<HTMLElement>>('list');
+
+  focusRow(id: string | null): void {
+    const root = this.list()?.nativeElement;
+    const row = [
+      ...(root?.querySelectorAll<HTMLElement>('[data-og7="sponsor-row"]') ?? [])
+    ].find((item) => item.dataset['og7Id'] === id);
+    (
+      row ?? root?.querySelector<HTMLInputElement>('input[type="search"]')
+    )?.focus({ preventScroll: true });
+  }
+
   readonly state = input.required<AdminSponsorsListState>();
   readonly rows = input.required<readonly AdminSponsorListRow[]>();
   readonly sponsorshipCount = input.required<number>();

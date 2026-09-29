@@ -1,11 +1,10 @@
 import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  input,
-  output
-} from '@angular/core';
+import type {
+  AdminSponsorshipProgress,
+  SponsorshipReviewStatus
+} from '@openg7/funding-core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-ui.models.js';
 
@@ -21,27 +20,39 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
           detail().initials
         }}</span>
         <div>
-          <h2>{{ detail().companyName }}</h2>
+          <h1>{{ detail().companyName }}</h1>
           <p>{{ detail().amountLabel }} &middot; {{ detail().tierLabel }}</p>
         </div>
       </div>
 
-      <button
-        type="button"
-        class="icon-action close-detail"
-        (click)="close.emit()"
-        [attr.aria-label]="'admin.legacy.fermer_le_dossier' | translate"
-      >
-        ×
-      </button>
-
       <div class="detail-badges">
-        <span [class]="detail().reviewStatusClass">{{
-          detail().reviewStatusLabel
-        }}</span
-        ><span [class]="detail().visibilityClass">{{
-          detail().visibilityLabel
-        }}</span
+        <div
+          class="review-capsule admin-focus-target"
+          role="group"
+          [attr.aria-label]="'admin.dossier.review' | translate"
+          [attr.data-review-state]="reviewStatus()"
+          [attr.id]="reviewAnchor() ? 'dossier-review' : null"
+          [attr.tabindex]="reviewAnchor() ? -1 : null"
+        >
+          <span class="review-label">{{
+            'admin.dossier.review' | translate
+          }}</span>
+          <span class="review-state">{{
+            'admin.dossier.values.' + reviewStatus() | translate
+          }}</span>
+        </div>
+        <span
+          class="visibility-badge"
+          [class.visibility-visible]="website()?.visible"
+        >
+          {{
+            'admin.dossier.workspace.' +
+              (website()
+                ? website()?.visible
+                  ? 'websiteVisible'
+                  : 'websiteHidden'
+                : 'websiteUnknown') | translate
+          }} </span
         ><span [class]="detail().paymentStatusClass">{{
           detail().paymentStatusLabel
         }}</span
@@ -54,26 +65,30 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
         >
       </div>
 
-      <dl class="detail-meta">
-        <div>
-          <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
-          <dd>{{ detail().publicReferenceLabel }}</dd>
-        </div>
-        <div>
-          <dt>{{ 'admin.legacy.soumis_le' | translate }}</dt>
-          <dd>{{ detail().submittedAtLabel }}</dd>
-        </div>
-        <div>
-          <dt>{{ 'admin.legacy.derniere_revue' | translate }}</dt>
-          <dd>{{ detail().reviewedAtLabel }}</dd>
-        </div>
-      </dl>
+      <details class="header-details">
+        <summary>{{ 'admin.dossier.workspace.details' | translate }}</summary>
+        <dl class="detail-meta">
+          <div>
+            <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
+            <dd>{{ detail().publicReferenceLabel }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.legacy.soumis_le' | translate }}</dt>
+            <dd>{{ detail().submittedAtLabel }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.legacy.derniere_revue' | translate }}</dt>
+            <dd>{{ detail().reviewedAtLabel }}</dd>
+          </div>
+        </dl>
+      </details>
     </header>
   `,
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
-    '../admin-ui/admin-forms.css'
+    '../admin-ui/admin-forms.css',
+    './admin-sponsor-detail-header.component.css'
   ],
   styles: [
     `
@@ -95,7 +110,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
         grid-template-columns: auto minmax(0, 1fr);
       }
 
-      .detail-title h2 {
+      .detail-title h1 {
         margin: 0;
       }
 
@@ -244,6 +259,8 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
   ]
 })
 export class AdminSponsorDetailHeaderComponent {
+  readonly website = input<AdminSponsorshipProgress['website']>();
   readonly detail = input.required<AdminSponsorDetailHeaderView>();
-  readonly close = output<void>();
+  readonly reviewStatus = input.required<SponsorshipReviewStatus>();
+  readonly reviewAnchor = input(false);
 }
