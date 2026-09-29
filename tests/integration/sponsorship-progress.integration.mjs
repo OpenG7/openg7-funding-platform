@@ -5,6 +5,7 @@ import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { getSponsorshipProgress } from '../../dist/apps/funding-api/src/sponsorship-progress.service.js';
 import { getAdminWorkQueue } from '../../dist/apps/funding-api/src/admin-work-queue.service.js';
 import { getAdminAssistantContext } from '../../dist/apps/funding-api/src/admin-assistant/context.service.js';
+import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
 
 test(
   'dossier progress reads exact persisted facts and the complete work queue on PostgreSQL',
@@ -110,6 +111,91 @@ test(
         (await load()).milestones.find((s) => s.id === 'publication').state,
         'cancelled'
       );
+      await pool.query(
+        "UPDATE sponsor_publication_batches SET status='open' WHERE id=$1",
+        [batch]
+      );
+      await pool.query(
+        "UPDATE fund_contributions SET sponsor_review_status='approved' WHERE id=$1",
+        [id]
+      );
+      const deliveryId = (
+        await pool.query(
+          `INSERT INTO publication_deliveries
+        (feed_id,kind,batch_id,message,scheduled_at,account_id,mode,status)
+        VALUES ('openg7:facebook','sponsorship',$1,'Synthetic final copy','2020-01-01','fixture-account','mock','draft') RETURNING id`,
+          [batch]
+        )
+      ).rows[0].id;
+      await pool.query(`INSERT INTO publication_deliveries (feed_id,kind,message,scheduled_at,account_id,mode,status)
+        SELECT 'openg7:facebook','news','Unrelated synthetic news',NOW(),'fixture-account','mock','draft' FROM generate_series(1,205)`);
+      const engine = new PublicationAutomationService(
+        pool,
+        {},
+        { SOCIAL_PUBLICATION_MODE: 'mock' }
+      );
+      assert.equal(
+        (await engine.state()).deliveries.some((d) => d.id === deliveryId),
+        false
+      );
+      assert.deepEqual(
+        (await engine.state(undefined, { sponsorshipId: id })).deliveries.map(
+          (d) => d.id
+        ),
+        [deliveryId],
+        'filter before the global 200-row limit'
+      );
+      assert.deepEqual(
+        (await engine.state(undefined, { deliveryId })).deliveries.map(
+          (d) => d.id
+        ),
+        [deliveryId]
+      );
+      assert.deepEqual(
+        (
+          await engine.state(undefined, {
+            sponsorshipId: '10000000-0000-4000-8000-000000000999',
+            deliveryId
+          })
+        ).deliveries,
+        []
+      );
+      await assert.rejects(
+        engine.state(undefined, { sponsorshipId: 'not-a-uuid' }),
+        (error) => error.status === 400
+      );
+      const linked = (await load()).publications[0];
+      assert.equal(linked.deliveryId, deliveryId);
+      assert.equal(linked.deliveryStatus, 'draft');
+      assert.equal(linked.deliveryMode, 'mock');
+      assert.equal(linked.feedPaused, true);
+      for (const [status, mode, expected] of [
+        ['approved', 'mock', 'pending'],
+        ['published', 'mock', 'pending'],
+        ['blocked', 'live', 'blocked'],
+        ['uncertain', 'live', 'error'],
+        ['rejected', 'live', 'cancelled'],
+        ['published', 'live', 'partial']
+      ]) {
+        await pool.query(
+          `UPDATE publication_deliveries SET status=$2,mode=$3,error_code='SOURCE_NOT_ELIGIBLE',
+          external_post_url='https://example.invalid/synthetic-post',published_at=NOW() WHERE id=$1`,
+          [deliveryId, status, mode]
+        );
+        const current = await load();
+        assert.equal(current.publications[0].deliveryStatus, status);
+        assert.equal(
+          current.milestones.find((s) => s.id === 'publication').state,
+          expected,
+          `${status}/${mode}`
+        );
+        assert.equal(
+          current.publications[0].publicUrl,
+          status === 'published' && mode === 'live'
+            ? 'https://example.invalid/synthetic-post'
+            : null
+        );
+      }
       for (const [refundId, amount] of [
         ['re_a', 12000],
         ['re_b', 8000],

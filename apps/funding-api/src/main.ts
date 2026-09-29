@@ -2822,19 +2822,65 @@ const handleRequest = async (
     return;
   }
 
-  if (routeMatches(request.url, '/admin/publication-automation', '/api/admin/publication-automation', '/admin/publication-automation/media', '/api/admin/publication-automation/media')) {
+  if (
+    routeMatches(
+      request.url,
+      '/admin/publication-automation',
+      '/api/admin/publication-automation',
+      '/admin/publication-automation/media',
+      '/api/admin/publication-automation/media'
+    )
+  ) {
     if (!ensureAdminAccess(request, response) || !publicationAutomation) return;
     try {
       if (request.method === 'GET') {
-        const isMedia = new URL(request.url ?? '/', publicBaseOrigin).pathname.endsWith('/media');
-        writeJson(request, response, 200, isMedia ? await publicationAutomation.mediaOptions() : await publicationAutomation.state());
-      } else if (request.method === 'POST' && !new URL(request.url ?? '/', publicBaseOrigin).pathname.endsWith('/media')) {
-        const input = JSON.parse(await readBody(request)) as PublicationAutomationCommand;
-        writeJson(request, response, 200, await publicationAutomation.command(input, getAdminAuditActor(request)));
+        const automationUrl = new URL(request.url ?? '/', publicBaseOrigin);
+        const isMedia = automationUrl.pathname.endsWith('/media');
+        writeJson(
+          request,
+          response,
+          200,
+          isMedia
+            ? await publicationAutomation.mediaOptions()
+            : await publicationAutomation.state(undefined, {
+                sponsorshipId:
+                  automationUrl.searchParams.get('sponsorshipId') ?? undefined,
+                deliveryId:
+                  automationUrl.searchParams.get('deliveryId') ?? undefined
+              })
+        );
+      } else if (
+        request.method === 'POST' &&
+        !new URL(request.url ?? '/', publicBaseOrigin).pathname.endsWith(
+          '/media'
+        )
+      ) {
+        const input = JSON.parse(
+          await readBody(request)
+        ) as PublicationAutomationCommand;
+        writeJson(
+          request,
+          response,
+          200,
+          await publicationAutomation.command(
+            input,
+            getAdminAuditActor(request)
+          )
+        );
       } else writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
     } catch (error) {
-      const status = error instanceof PublicationAutomationError ? error.status : error instanceof SyntaxError ? 400 : 503;
-      writeJson(request, response, status, { code: error instanceof PublicationAutomationError ? error.code : 'AUTOMATION_UNAVAILABLE' });
+      const status =
+        error instanceof PublicationAutomationError
+          ? error.status
+          : error instanceof SyntaxError
+            ? 400
+            : 503;
+      writeJson(request, response, status, {
+        code:
+          error instanceof PublicationAutomationError
+            ? error.code
+            : 'AUTOMATION_UNAVAILABLE'
+      });
     }
     return;
   }

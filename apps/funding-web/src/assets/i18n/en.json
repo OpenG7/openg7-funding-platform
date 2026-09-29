@@ -705,7 +705,68 @@
       "contact": "Contact person",
       "email": "Email",
       "website": "Website",
-      "notProvided": "Not provided"
+      "notProvided": "Not provided",
+      "publicationBridge": {
+        "eyebrow": "Step 6 · Publication",
+        "title": "Publications for this sponsorship",
+        "intro": "Review the prepared content, authorize its schedule, then follow delivery.",
+        "benefits": "What the contribution includes",
+        "benefit": {
+          "website_mention": "Company recognition on OpenG7.org",
+          "facebook_batch": "Collective recognition on Facebook",
+          "linkedin_batch": "Collective recognition on LinkedIn"
+        },
+        "website": "Website visibility is managed separately in advanced settings. It does not confirm a social media delivery.",
+        "completion": "{{done}} of {{total}} social publications completed",
+        "blockers": "Check before authorizing a new delivery",
+        "blocker": {
+          "consent": "Obtain the sponsor’s public consent",
+          "review": "Review and accept the dossier",
+          "media": "Approve a presentation photo",
+          "payment": "Check payment eligibility",
+          "refund": "Review the pending or full refund",
+          "hidden": "Review the sponsor’s hidden status"
+        },
+        "status": {
+          "waiting": "Awaiting preparation",
+          "review": "Ready to review",
+          "scheduled": "Scheduled and authorized",
+          "publishing": "Sending",
+          "published": "Published",
+          "simulated": "Simulation completed",
+          "blocked": "Delivery blocked",
+          "uncertain": "Outcome needs checking",
+          "failed": "Delivery failed",
+          "rejected": "Publication rejected",
+          "cancelled": "Cancelled"
+        },
+        "simulation": "Simulation — nothing is posted to the social network.",
+        "paused": "The destination is paused. Delivery awaits resumption.",
+        "publishedAt": "Published on",
+        "proposedDate": "Planned date:",
+        "scheduledHelp": "Delivery requires an active worker, an available destination and eligibility at sending time.",
+        "waitingHelp": "No final delivery is ready for review. Check preparation and the engine settings.",
+        "failureHelp": "Check the details in the engine before taking further action.",
+        "action": {
+          "review": "Review and schedule",
+          "schedule": "View schedule",
+          "resolve": "Investigate the block",
+          "open": "Open in engine"
+        },
+        "viewPost": "View publication",
+        "noSocial": "No social publication is included at this amount and none is linked to this dossier.",
+        "preparation": "View preparation",
+        "engine": "Follow this dossier in the engine",
+        "authorization": "Preparation does not publish anything. Each delivery requires approval of the content and destination. A simulation does not complete this step.",
+        "advanced": "Advanced settings · visibility and manual tracking",
+        "filtered": "Publications linked to this dossier",
+        "collective": "A collective publication may include several sponsors. Your approval covers all displayed content.",
+        "back": "Back to step 6",
+        "showAll": "View all dossiers",
+        "notFound": "This publication could not be found in the requested context. Return to the dossier to refresh its progress.",
+        "globalSettings": "Counts, the worker and destination settings apply to all dossiers. The list below is filtered.",
+        "currencyUnknown": "Benefits and destinations need confirmation for this currency."
+      }
     },
     "context": {
       "facts": "Record facts",
@@ -1948,7 +2009,8 @@
         "scheduled": "Scheduled",
         "exceptions": "Needs attention",
         "history": "History",
-        "calendar": "Calendar"
+        "calendar": "Calendar",
+        "all": "All dossier publications"
       },
       "kinds": {
         "sponsorship": "Sponsors",

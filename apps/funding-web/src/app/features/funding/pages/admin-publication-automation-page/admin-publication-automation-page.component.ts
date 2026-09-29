@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
@@ -56,6 +57,11 @@ export class AdminPublicationAutomationPageComponent {
   readonly feedSettingsExpanded =
     this.route.snapshot.queryParamMap.get('settings') === 'feeds';
   readonly state = signal<PublicationAutomationState | null>(null);
+  readonly sponsorshipId = signal<string | null>(null);
+  readonly deliveryId = signal<string | null>(null);
+  readonly requestedDeliveryMissing = signal(false);
+  private loadGeneration = 0;
+  private destroyed = false;
   readonly busy = signal(false);
   readonly workerChanging = signal(false);
   readonly canManageWorker = computed(
@@ -87,17 +93,26 @@ export class AdminPublicationAutomationPageComponent {
       .filter(
         (d) =>
           (!this.feedFilter() || d.feedId === this.feedFilter()) &&
-          (this.tab() === 'review'
-            ? d.status === 'draft'
-            : this.tab() === 'scheduled'
-              ? ['approved', 'publishing'].includes(d.status)
-              : this.tab() === 'exceptions'
-                ? ['blocked', 'uncertain'].includes(d.status)
-                : ['published', 'cancelled', 'rejected'].includes(d.status))
+          (this.tab() === 'all'
+            ? true
+            : this.tab() === 'review'
+              ? d.status === 'draft'
+              : this.tab() === 'scheduled'
+                ? ['approved', 'publishing'].includes(d.status)
+                : this.tab() === 'exceptions'
+                  ? ['blocked', 'uncertain'].includes(d.status)
+                  : ['published', 'cancelled', 'rejected'].includes(d.status))
       )
       .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
   );
-  readonly tabs = ['review', 'scheduled', 'calendar', 'exceptions', 'history'];
+  readonly tabs = computed(() => [
+    ...(this.sponsorshipId() || this.deliveryId() ? ['all'] : []),
+    'review',
+    'scheduled',
+    'calendar',
+    'exceptions',
+    'history'
+  ]);
   readonly calendarEntries = computed<PublicationCalendarEntry[]>(() => {
     this.i18n.trackTranslationState();
     return (this.state()?.deliveries ?? [])
@@ -153,29 +168,46 @@ export class AdminPublicationAutomationPageComponent {
   }
   constructor() {
     const destroy = inject(DestroyRef);
-    destroy.onDestroy(() => this.clearPreview());
+    destroy.onDestroy(() => {
+      this.destroyed = true;
+      this.clearPreview();
+    });
     afterNextRender(() => {
       this.browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      void this.load().then(async () => {
-        const deliveryId = this.route.snapshot.queryParamMap.get('deliveryId');
-        const delivery = this.state()?.deliveries.find(
-          (d) => d.id === deliveryId
-        );
-        if (delivery) this.open(delivery);
-        const batchId = this.route.snapshot.queryParamMap.get('batchId');
-        const feedId = this.route.snapshot.queryParamMap.get(
-          'feedId'
-        ) as PublicationFeedId | null;
-        if (
-          batchId &&
-          feedId &&
-          this.state()?.feeds.some((f) => f.id === feedId)
-        )
-          await this.run(
-            { action: 'compose', feedId, kind: 'sponsorship', batchId },
-            true
+      this.route.queryParamMap
+        .pipe(takeUntilDestroyed(destroy))
+        .subscribe((params) => {
+          this.state.set(null);
+          this.requestedDeliveryMissing.set(false);
+          this.sponsorshipId.set(params.get('sponsorshipId'));
+          this.deliveryId.set(params.get('deliveryId'));
+          this.selected.set(null);
+          this.clearPreview();
+          this.tab.set(
+            this.sponsorshipId() || this.deliveryId() ? 'all' : 'review'
           );
-      });
+          void this.load().then(async (loaded) => {
+            if (!loaded) return;
+            const deliveryId = params.get('deliveryId');
+            const delivery = this.state()?.deliveries.find(
+              (d) => d.id === deliveryId
+            );
+            if (delivery) this.open(delivery);
+            const batchId = params.get('batchId');
+            const feedId = params.get('feedId') as PublicationFeedId | null;
+            if (
+              batchId &&
+              feedId &&
+              !this.sponsorshipId() &&
+              !deliveryId &&
+              this.state()?.feeds.some((f) => f.id === feedId)
+            )
+              await this.run(
+                { action: 'compose', feedId, kind: 'sponsorship', batchId },
+                true
+              );
+          });
+        });
       const timer = setInterval(() => {
         if (
           !this.busy() &&
@@ -189,14 +221,26 @@ export class AdminPublicationAutomationPageComponent {
       destroy.onDestroy(() => clearInterval(timer));
     });
   }
-  async load(): Promise<void> {
+  async load(): Promise<boolean> {
+    const generation = ++this.loadGeneration;
     try {
-      const state =
-        (await this.admin.publicationAutomation()) as PublicationAutomationState;
+      const state = (await this.admin.publicationAutomation(undefined, {
+        sponsorshipId: this.sponsorshipId() ?? undefined,
+        deliveryId: this.deliveryId() ?? undefined
+      })) as PublicationAutomationState;
+      if (this.destroyed || generation !== this.loadGeneration) return false;
       this.state.set(state);
+      this.requestedDeliveryMissing.set(
+        Boolean(this.deliveryId()) &&
+          !state.deliveries.some((d) => d.id === this.deliveryId())
+      );
       this.error.set('');
+      return true;
     } catch (error) {
+      if (this.destroyed || generation !== this.loadGeneration) return false;
+      this.state.set(null);
       this.showError(error);
+      return false;
     }
   }
   private showError(error: unknown): void {

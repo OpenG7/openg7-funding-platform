@@ -468,237 +468,273 @@ const controlledSponsorLogoUrlPrefixes = [
                 *ngIf="activeTab() === 'publication'"
                 [attr.aria-label]="'admin.legacy.publication' | translate"
               >
-                <article
-                  class="detail-card publication-editor"
-                  data-og7="dossier-publication-editor"
+                <details
+                  data-og7="publication-advanced"
+                  class="publication-advanced"
                 >
-                  <header>
-                    <div>
-                      <span>{{ 'admin.legacy.publication' | translate }}</span>
-                      <h3>
-                        {{ 'admin.legacy.commanditaire_et_feeds' | translate }}
-                      </h3>
-                    </div>
-                    <button
-                      type="button"
-                      class="publication-save"
-                      [disabled]="
-                        !publicationDirtyFor(selected) ||
-                        hasSlugError(selected) ||
-                        !canSavePublication(selected) ||
-                        actionsDisabled()
-                      "
-                      (click)="savePublication(selected)"
-                    >
-                      {{
-                        isActionPending(publicationActionId(selected.id))
-                          ? ('admin.legacy.enregistrement' | translate)
-                          : ('admin.legacy.enregistrer' | translate)
-                      }}
-                    </button>
-                  </header>
-                  <p
-                    class="inline-status"
-                    [class.is-dirty]="publicationDirtyFor(selected)"
-                    aria-live="polite"
+                  <summary>
+                    {{ 'admin.dossier.publicationBridge.advanced' | translate }}
+                  </summary>
+                  <article
+                    class="detail-card publication-editor"
+                    data-og7="dossier-publication-editor"
                   >
-                    {{ publicationStateLabel(selected) }}
-                  </p>
-                  <fieldset
-                    class="publication-grid"
-                    [disabled]="actionsDisabled()"
-                  >
-                    <label
-                      >{{ 'admin.legacy.slug_public' | translate
-                      }}<input
-                        type="text"
-                        maxlength="120"
-                        [value]="publicationDraftFor(selected.id).publicSlug"
-                        (input)="
-                          setPublicationField(selected.id, 'publicSlug', $event)
+                    <header>
+                      <div>
+                        <span>{{
+                          'admin.legacy.publication' | translate
+                        }}</span>
+                        <h3>
+                          {{
+                            'admin.legacy.commanditaire_et_feeds' | translate
+                          }}
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        class="publication-save"
+                        [disabled]="
+                          !publicationDirtyFor(selected) ||
+                          hasSlugError(selected) ||
+                          !canSavePublication(selected) ||
+                          actionsDisabled()
                         "
-                        [attr.aria-invalid]="
-                          slugErrorFor(selected) ? 'true' : null
-                        "
-                      /><small
-                        class="field-error"
-                        *ngIf="slugErrorFor(selected)"
-                        >{{ slugErrorFor(selected) }}</small
-                      ></label
-                    >
-                    <label
-                      >{{ 'admin.legacy.destination_feed' | translate
-                      }}<select
-                        [value]="publicationDraftFor(selected.id).feedTarget"
-                        (change)="
-                          setPublicationField(selected.id, 'feedTarget', $event)
-                        "
+                        (click)="savePublication(selected)"
                       >
-                        <option value="">
-                          {{ 'admin.legacy.aucune' | translate }}
-                        </option>
-                        <option value="openg7">OpenG7</option>
-                        <option value="openg20">OpenG20</option>
-                      </select></label
+                        {{
+                          isActionPending(publicationActionId(selected.id))
+                            ? ('admin.legacy.enregistrement' | translate)
+                            : ('admin.legacy.enregistrer' | translate)
+                        }}
+                      </button>
+                    </header>
+                    <p
+                      class="inline-status"
+                      [class.is-dirty]="publicationDirtyFor(selected)"
+                      aria-live="polite"
                     >
-                    <label
-                      >{{ 'admin.legacy.statut_feed' | translate
-                      }}<select
-                        [value]="publicationDraftFor(selected.id).feedStatus"
-                        (change)="
-                          setPublicationField(selected.id, 'feedStatus', $event)
-                        "
-                      >
-                        <option
-                          *ngFor="let status of feedStatuses"
-                          [value]="status"
-                        >
-                          {{ feedStatusLabel(status) }}
-                        </option>
-                      </select></label
+                      {{ publicationStateLabel(selected) }}
+                    </p>
+                    <fieldset
+                      class="publication-grid"
+                      [disabled]="actionsDisabled()"
                     >
-                    <fieldset>
-                      <legend>{{ 'admin.legacy.canaux' | translate }}</legend>
                       <label
-                        ><input
-                          type="checkbox"
-                          [checked]="publicationDraftFor(selected.id).facebook"
-                          [disabled]="
-                            isPromisedFeedChannel(selected, 'facebook')
-                          "
-                          [attr.title]="
-                            isPromisedFeedChannel(selected, 'facebook')
-                              ? 'Canal inclus par le palier de contribution'
-                              : null
-                          "
-                          (change)="
-                            setPublicationChannel(
+                        >{{ 'admin.legacy.slug_public' | translate
+                        }}<input
+                          type="text"
+                          maxlength="120"
+                          [value]="publicationDraftFor(selected.id).publicSlug"
+                          (input)="
+                            setPublicationField(
                               selected.id,
-                              'facebook',
+                              'publicSlug',
                               $event
                             )
                           "
-                        />
-                        Facebook</label
-                      ><label
-                        ><input
-                          type="checkbox"
-                          [checked]="publicationDraftFor(selected.id).linkedin"
-                          [disabled]="
-                            isPromisedFeedChannel(selected, 'linkedin')
+                          [attr.aria-invalid]="
+                            slugErrorFor(selected) ? 'true' : null
                           "
-                          [attr.title]="
-                            isPromisedFeedChannel(selected, 'linkedin')
-                              ? 'Canal inclus par le palier de contribution'
-                              : null
-                          "
-                          (change)="
-                            setPublicationChannel(
-                              selected.id,
-                              'linkedin',
-                              $event
-                            )
-                          "
-                        />
-                        LinkedIn</label
+                        /><small
+                          class="field-error"
+                          *ngIf="slugErrorFor(selected)"
+                          >{{ slugErrorFor(selected) }}</small
+                        ></label
                       >
+                      <label
+                        >{{ 'admin.legacy.destination_feed' | translate
+                        }}<select
+                          [value]="publicationDraftFor(selected.id).feedTarget"
+                          (change)="
+                            setPublicationField(
+                              selected.id,
+                              'feedTarget',
+                              $event
+                            )
+                          "
+                        >
+                          <option value="">
+                            {{ 'admin.legacy.aucune' | translate }}
+                          </option>
+                          <option value="openg7">OpenG7</option>
+                          <option value="openg20">OpenG20</option>
+                        </select></label
+                      >
+                      <label
+                        >{{ 'admin.legacy.statut_feed' | translate
+                        }}<select
+                          [value]="publicationDraftFor(selected.id).feedStatus"
+                          (change)="
+                            setPublicationField(
+                              selected.id,
+                              'feedStatus',
+                              $event
+                            )
+                          "
+                        >
+                          <option
+                            *ngFor="let status of feedStatuses"
+                            [value]="status"
+                          >
+                            {{ feedStatusLabel(status) }}
+                          </option>
+                        </select></label
+                      >
+                      <fieldset>
+                        <legend>{{ 'admin.legacy.canaux' | translate }}</legend>
+                        <label
+                          ><input
+                            type="checkbox"
+                            [checked]="
+                              publicationDraftFor(selected.id).facebook
+                            "
+                            [disabled]="
+                              isPromisedFeedChannel(selected, 'facebook')
+                            "
+                            [attr.title]="
+                              isPromisedFeedChannel(selected, 'facebook')
+                                ? 'Canal inclus par le palier de contribution'
+                                : null
+                            "
+                            (change)="
+                              setPublicationChannel(
+                                selected.id,
+                                'facebook',
+                                $event
+                              )
+                            "
+                          />
+                          Facebook</label
+                        ><label
+                          ><input
+                            type="checkbox"
+                            [checked]="
+                              publicationDraftFor(selected.id).linkedin
+                            "
+                            [disabled]="
+                              isPromisedFeedChannel(selected, 'linkedin')
+                            "
+                            [attr.title]="
+                              isPromisedFeedChannel(selected, 'linkedin')
+                                ? 'Canal inclus par le palier de contribution'
+                                : null
+                            "
+                            (change)="
+                              setPublicationChannel(
+                                selected.id,
+                                'linkedin',
+                                $event
+                              )
+                            "
+                          />
+                          LinkedIn</label
+                        >
+                      </fieldset>
+                      <label class="publication-span-2"
+                        >{{ 'admin.legacy.resume_public' | translate
+                        }}<textarea
+                          rows="4"
+                          maxlength="500"
+                          [value]="
+                            publicationDraftFor(selected.id).publicSummary
+                          "
+                          (input)="
+                            setPublicationField(
+                              selected.id,
+                              'publicSummary',
+                              $event
+                            )
+                          "
+                        ></textarea>
+                      </label>
+                      <label
+                        >{{ 'admin.legacy.lien_de_publication' | translate
+                        }}<input
+                          type="url"
+                          maxlength="2048"
+                          [value]="
+                            publicationDraftFor(selected.id).feedPublicUrl
+                          "
+                          (input)="
+                            setPublicationField(
+                              selected.id,
+                              'feedPublicUrl',
+                              $event
+                            )
+                          "
+                      /></label>
+                      <label class="publication-span-2"
+                        >{{ 'admin.legacy.notes_feed' | translate
+                        }}<textarea
+                          rows="4"
+                          maxlength="1000"
+                          [value]="publicationDraftFor(selected.id).feedNotes"
+                          (input)="
+                            setPublicationField(
+                              selected.id,
+                              'feedNotes',
+                              $event
+                            )
+                          "
+                        ></textarea>
+                      </label>
                     </fieldset>
-                    <label class="publication-span-2"
-                      >{{ 'admin.legacy.resume_public' | translate
-                      }}<textarea
-                        rows="4"
-                        maxlength="500"
-                        [value]="publicationDraftFor(selected.id).publicSummary"
-                        (input)="
-                          setPublicationField(
-                            selected.id,
-                            'publicSummary',
-                            $event
-                          )
-                        "
-                      ></textarea>
-                    </label>
-                    <label
-                      >{{ 'admin.legacy.lien_de_publication' | translate
-                      }}<input
-                        type="url"
-                        maxlength="2048"
-                        [value]="publicationDraftFor(selected.id).feedPublicUrl"
-                        (input)="
-                          setPublicationField(
-                            selected.id,
-                            'feedPublicUrl',
-                            $event
-                          )
-                        "
-                    /></label>
-                    <label class="publication-span-2"
-                      >{{ 'admin.legacy.notes_feed' | translate
-                      }}<textarea
-                        rows="4"
-                        maxlength="1000"
-                        [value]="publicationDraftFor(selected.id).feedNotes"
-                        (input)="
-                          setPublicationField(selected.id, 'feedNotes', $event)
-                        "
-                      ></textarea>
-                    </label>
-                  </fieldset>
-                </article>
+                  </article>
 
-                <article class="detail-card public-preview">
-                  <span>{{
-                    'admin.legacy.previsualisation_non_publiee' | translate
-                  }}</span>
-                  <div>
-                    <figure
-                      class="logo-preview"
-                      *ngIf="logoPreviewSourceFor(selected)"
-                    >
-                      <img
-                        [src]="logoPreviewSourceFor(selected)"
-                        [alt]="
-                          'Logo ' +
-                          (selected.sponsor_company_name || 'commanditaire')
-                        "
-                      />
-                    </figure>
+                  <article class="detail-card public-preview">
+                    <span>{{
+                      'admin.legacy.previsualisation_non_publiee' | translate
+                    }}</span>
                     <div>
-                      <h3>{{ publicNameLabel(selected) }}</h3>
-                      <p>
-                        {{
-                          publicationDraftFor(selected.id).publicSummary ||
-                            ('admin.legacy.aucun_resume_public_pour_le_moment'
-                              | translate)
-                        }}
-                      </p>
+                      <figure
+                        class="logo-preview"
+                        *ngIf="logoPreviewSourceFor(selected)"
+                      >
+                        <img
+                          [src]="logoPreviewSourceFor(selected)"
+                          [alt]="
+                            'Logo ' +
+                            (selected.sponsor_company_name || 'commanditaire')
+                          "
+                        />
+                      </figure>
+                      <div>
+                        <h3>{{ publicNameLabel(selected) }}</h3>
+                        <p>
+                          {{
+                            publicationDraftFor(selected.id).publicSummary ||
+                              ('admin.legacy.aucun_resume_public_pour_le_moment'
+                                | translate)
+                          }}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <dl class="compact-definition-list">
-                    <div>
-                      <dt>{{ 'admin.legacy.destination' | translate }}</dt>
-                      <dd>
-                        {{
-                          publicationDraftFor(selected.id).feedTarget ||
-                            ('admin.legacy.aucune' | translate)
-                        }}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>{{ 'admin.legacy.canaux' | translate }}</dt>
-                      <dd>{{ draftChannelsLabel(selected.id) }}</dd>
-                    </div>
-                    <div>
-                      <dt>{{ 'admin.legacy.lien' | translate }}</dt>
-                      <dd>
-                        {{
-                          publicationDraftFor(selected.id).feedPublicUrl ||
-                            ('admin.legacy.non_defini' | translate)
-                        }}
-                      </dd>
-                    </div>
-                  </dl>
-                </article>
+                    <dl class="compact-definition-list">
+                      <div>
+                        <dt>{{ 'admin.legacy.destination' | translate }}</dt>
+                        <dd>
+                          {{
+                            publicationDraftFor(selected.id).feedTarget ||
+                              ('admin.legacy.aucune' | translate)
+                          }}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{{ 'admin.legacy.canaux' | translate }}</dt>
+                        <dd>{{ draftChannelsLabel(selected.id) }}</dd>
+                      </div>
+                      <div>
+                        <dt>{{ 'admin.legacy.lien' | translate }}</dt>
+                        <dd>
+                          {{
+                            publicationDraftFor(selected.id).feedPublicUrl ||
+                              ('admin.legacy.non_defini' | translate)
+                          }}
+                        </dd>
+                      </div>
+                    </dl>
+                  </article>
+                </details>
               </section>
 
               <section
@@ -2096,6 +2132,15 @@ const controlledSponsorLogoUrlPrefixes = [
         justify-content: space-between;
       }
 
+      .publication-advanced > summary {
+        cursor: pointer;
+        padding: 1rem;
+        font-weight: 700;
+      }
+      .publication-advanced > summary:focus-visible {
+        outline: 3px solid #efc36b;
+        outline-offset: -3px;
+      }
       .publication-grid {
         border: 0;
         margin: 0;

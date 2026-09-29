@@ -259,6 +259,85 @@ test('one published social channel does not fulfil both promised channels', () =
   assert.equal(step(result, 'publication').state, 'partial');
 });
 
+test('automatic delivery states distinguish authorization, simulation, uncertainty and actual publication', () => {
+  for (const [deliveryStatus, deliveryMode, expected] of [
+    ['draft', 'live', 'pending'],
+    ['approved', 'live', 'pending'],
+    ['publishing', 'live', 'pending'],
+    ['published', 'mock', 'pending'],
+    ['blocked', 'live', 'blocked'],
+    ['uncertain', 'live', 'error'],
+    ['rejected', 'live', 'cancelled'],
+    ['cancelled', 'live', 'cancelled'],
+    ['published', 'live', 'complete']
+  ]) {
+    const result = buildSponsorshipProgress(
+      source({ reviewStatus: 'approved' }),
+      facts({
+        publications: ['facebook', 'linkedin'].map((channel) =>
+          publication(channel, {
+            deliveryId: channel,
+            deliveryStatus,
+            deliveryMode
+          })
+        )
+      })
+    );
+    assert.equal(
+      step(result, 'publication').state,
+      expected,
+      `${deliveryStatus}/${deliveryMode}`
+    );
+  }
+  const simulated = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved' }),
+    facts({
+      publications: ['facebook', 'linkedin'].map((channel) =>
+        publication(channel, {
+          status: 'published',
+          deliveryStatus: 'published',
+          deliveryMode: 'mock'
+        })
+      )
+    })
+  );
+  assert.notEqual(step(simulated, 'publication').state, 'complete');
+});
+
+test('publication blockers explain the missing prerequisites without approving a source', () => {
+  const result = buildSponsorshipProgress(
+    source(
+      { paymentStatus: 'disputed', refundStatus: 'processing' },
+      { consent: false, media: [] }
+    ),
+    facts()
+  );
+  assert.deepEqual(result.publicationBlockers, [
+    'consent',
+    'review',
+    'media',
+    'payment',
+    'refund'
+  ]);
+  assert.equal(result.reviewStatus, 'pending_review');
+  assert.equal(result.feedStatus, 'not_planned');
+});
+
+test('non-CAD dossiers follow their explicit social publications rather than CAD thresholds', () => {
+  const result = buildSponsorshipProgress(
+    source({ currency: 'USD', reviewStatus: 'approved' }),
+    facts({
+      publications: [
+        publication('facebook', {
+          deliveryStatus: 'published',
+          deliveryMode: 'live'
+        })
+      ]
+    })
+  );
+  assert.equal(step(result, 'publication').state, 'complete');
+});
+
 test('email and Stripe failures remain actionable independently of completed milestones', () => {
   const stripe = buildSponsorshipProgress(
     source(),

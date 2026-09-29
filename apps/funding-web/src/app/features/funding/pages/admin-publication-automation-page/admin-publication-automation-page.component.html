@@ -35,6 +35,31 @@
       </p>
     }
     <p role="status">{{ notice() | translate }}</p>
+    @if (sponsorshipId(); as id) {
+      <section class="worker-control" data-og7="publication-dossier-context">
+        <div>
+          <h2>{{ 'admin.dossier.publicationBridge.filtered' | translate }}</h2>
+          <p>{{ 'admin.dossier.publicationBridge.collective' | translate }}</p>
+        </div>
+        <a
+          class="admin-button"
+          routerLink="/admin/fundraiser/sponsors"
+          [queryParams]="{ sponsorshipId: id, tab: 'publication' }"
+          fragment="dossier-publication"
+          >{{ 'admin.dossier.publicationBridge.back' | translate }}</a
+        >
+        <a
+          class="admin-button"
+          routerLink="/admin/fundraiser/publications/automation"
+          >{{ 'admin.dossier.publicationBridge.showAll' | translate }}</a
+        >
+      </section>
+    }
+    @if (requestedDeliveryMissing()) {
+      <p role="status">
+        {{ 'admin.dossier.publicationBridge.notFound' | translate }}
+      </p>
+    }
     @if (state(); as s) {
       <section
         class="worker-control"
@@ -180,6 +205,11 @@
           {{ 'admin.publicationAutomation.last24h' | translate }}</span
         >
       </div>
+      @if (sponsorshipId() || deliveryId()) {
+        <p class="detail">
+          {{ 'admin.dossier.publicationBridge.globalSettings' | translate }}
+        </p>
+      }
       <section>
         <header>
           <div
@@ -187,7 +217,7 @@
             role="group"
             [attr.aria-label]="'admin.publicationAutomation.filter' | translate"
           >
-            @for (t of tabs; track t) {
+            @for (t of tabs(); track t) {
               <button
                 class="admin-button"
                 [attr.aria-pressed]="tab() === t"
