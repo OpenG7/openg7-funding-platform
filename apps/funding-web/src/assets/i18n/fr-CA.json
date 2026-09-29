@@ -456,10 +456,11 @@
       "healthScope": "Contrôles en lecture seule, conservés au plus une minute. Ils ne prouvent ni l’écriture dans le stockage, ni la réception des courriels, ni la disponibilité complète du fournisseur."
     },
     "dossier": {
+      "reviewActions": "Actions de validation",
       "completed": "Dossier terminé",
       "nextActions": {
         "payment": "Voir le paiement",
-        "review": "Aller à la revue",
+        "review": "Voir les actions de validation",
         "stripe": "Voir les erreurs Stripe",
         "identity": "Voir l’identité",
         "media": "Voir les médias",

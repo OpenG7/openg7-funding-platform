@@ -158,6 +158,7 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
     status: 200,
     state: 'ok' as AdminSponsorshipProgressResponse['status'],
     reviewStatus: 409,
+    reviewUpdated: true,
     detailsStatus: 200,
     journalReadStatus: 200,
     journalSaveStatus: 200,
@@ -455,7 +456,7 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
         status: options.reviewStatus,
         json:
           options.reviewStatus === 200
-            ? { updated: true }
+            ? { updated: options.reviewUpdated }
             : { error: 'Conflict' }
       });
     }
@@ -953,6 +954,69 @@ test('pending sponsor submission is explained from the cockpit through identity 
 });
 
 const actions = (page: Page) => page.locator('[data-og7="dossier-actions"]');
+
+for (const width of [1920, 1280, 390]) {
+  test(`review actions float within the selected dossier at ${width}px`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page);
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(path());
+    const panel = page.locator('[data-og7="sponsorship-dossier"]');
+    const dock = actions(page);
+    await expect(dock).toHaveAccessibleName('Actions de validation');
+    await expect(dock).toContainText('Atelier Boréal');
+    await expect(dock).toContainText('DEMO-401');
+
+    // Bring the dossier into view without scrolling to its action footer.
+    await panel.evaluate((element) => {
+      element.scrollTop = 0;
+      window.scrollTo({
+        top: scrollY + element.getBoundingClientRect().top - 24,
+        behavior: 'instant'
+      });
+    });
+    for (const label of [
+      'Remettre en attente',
+      'Refuser',
+      'Rembourser Stripe',
+      'Accepter'
+    ]) {
+      await expect(
+        dock.getByRole('button', { name: label, exact: true })
+      ).toBeInViewport({ ratio: 1 });
+    }
+    const initialDock = await dock.boundingBox();
+    expect(initialDock!.y + initialDock!.height).toBeLessThanOrEqual(844);
+
+    await tabs(page)
+      .getByRole('button', { name: 'Médias', exact: true })
+      .click();
+    await expect(
+      dock.getByRole('button', { name: 'Accepter', exact: true })
+    ).toBeInViewport({ ratio: 1 });
+    await panel.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: 'instant'
+      });
+    });
+    const review = page.locator('#dossier-review');
+    await expect(review).toBeInViewport({ ratio: 1 });
+    const reviewBox = await review.boundingBox();
+    const dockBox = await dock.boundingBox();
+    expect(reviewBox!.y + reviewBox!.height).toBeLessThanOrEqual(dockBox!.y);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth)
+    ).toBeLessThanOrEqual(width);
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    await page.screenshot({
+      path: `test-results/dossier-floating-actions-${width}.png`
+    });
+  });
+}
+
 const mediaAsset = (assetId = secondId): SponsorMediaAsset => ({
   id: assetId,
   contributionId: id,
@@ -991,6 +1055,7 @@ test('dossier controls respect reader and operator permissions', async ({
     page.getByText('Accès en lecture seule', { exact: false })
   ).toBeVisible();
   await expect(actions(page).getByRole('button')).toHaveCount(0);
+  await expect(actions(page)).toHaveCount(0);
   await expect(page.locator('[data-og7="admin-followup-access"]')).toHaveCount(
     0
   );
@@ -1051,6 +1116,127 @@ test('operator can review but owner controls are absent', async ({ page }) => {
   await expect(page.locator('[data-og7="admin-followup-access"]')).toHaveCount(
     0
   );
+});
+
+for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+  test(`approval effect waits for confirmation and respects ${reducedMotion}`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page);
+    await page.emulateMedia({ reducedMotion });
+    await page.setViewportSize({ width: 390, height: 844 });
+    let release!: () => void;
+    options.reviewGate = new Promise((resolve) => {
+      release = resolve;
+    });
+    options.reviewStatus = 200;
+    await page.goto(path());
+    const approve = page.locator('[data-og7="sponsorship-approve"]');
+    await expect(approve).toHaveAttribute('data-state', 'idle');
+    await approve.focus();
+    await page.keyboard.press('Enter');
+    await expect(approve).toHaveAttribute('data-state', 'pending');
+    await expect(approve).toHaveAttribute('aria-busy', 'true');
+    await expect(approve).toBeDisabled();
+    await expect(actions(page)).toHaveAttribute(
+      'data-approval-state',
+      'pending'
+    );
+    const moving = () =>
+      approve.evaluate((element) =>
+        element
+          .getAnimations({ subtree: true })
+          .map(
+            (animation) =>
+              (animation as CSSAnimation).animationName ||
+              animation.constructor.name
+          )
+      );
+    if (reducedMotion === 'reduce') expect(await moving()).toEqual([]);
+    else expect((await moving()).length).toBeGreaterThan(0);
+    await page.keyboard.press('Enter');
+    expect(postsTo(calls, '/review')).toHaveLength(1);
+
+    options.edited.set(id, {
+      sponsor_review_status: 'approved',
+      version: 'v2'
+    });
+    release();
+    await expect(approve).toHaveAttribute('data-state', 'success');
+    await expect(approve).toHaveAttribute('aria-busy', 'false');
+    await expect(approve).toBeDisabled();
+    await expect(actions(page)).toHaveAttribute(
+      'data-approval-state',
+      'success'
+    );
+    if (reducedMotion === 'reduce') expect(await moving()).toEqual([]);
+    else {
+      expect((await moving()).length).toBeGreaterThan(0);
+      // Capture the actual CSS celebration at its peak for visual review.
+      await approve.evaluate((element) => {
+        for (const animation of element.getAnimations({ subtree: true })) {
+          animation.pause();
+          animation.currentTime = 280;
+        }
+      });
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth)
+    ).toBeLessThanOrEqual(390);
+    await page.screenshot({
+      path: `test-results/dossier-approval-${reducedMotion}.png`
+    });
+    await expect(approve).toHaveAttribute('data-state', 'idle');
+    await expect(approve).toBeDisabled();
+    expect(postsTo(calls, '/review')).toHaveLength(1);
+  });
+}
+
+for (const failure of ['http', 'not_updated'] as const) {
+  test(`approval effect reports ${failure} failure without celebrating and allows retry`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page);
+    options.reviewStatus = failure === 'http' ? 503 : 200;
+    options.reviewUpdated = failure !== 'not_updated';
+    await page.goto(path());
+    const approve = page.locator('[data-og7="sponsorship-approve"]');
+    await approve.click();
+    await expect(approve).toHaveAttribute('data-state', 'error');
+    await expect(approve).toHaveAttribute('aria-busy', 'false');
+    await expect(approve).toBeEnabled();
+    await expect(actions(page)).toHaveAttribute('data-approval-state', 'error');
+    options.reviewStatus = 200;
+    options.reviewUpdated = true;
+    options.edited.set(id, { sponsor_review_status: 'approved' });
+    await approve.click();
+    await expect(approve).toHaveAttribute('data-state', 'success');
+    expect(postsTo(calls, '/review')).toHaveLength(2);
+  });
+}
+
+test('late approval never celebrates on another dossier or after returning to its source', async ({
+  page
+}) => {
+  const { options } = await fixtures(page);
+  let release!: () => void;
+  options.reviewGate = new Promise((resolve) => {
+    release = resolve;
+  });
+  options.reviewStatus = 200;
+  await page.goto('/admin/fundraiser/sponsors');
+  const approve = page.locator('[data-og7="sponsorship-approve"]');
+  await approve.click();
+  await expect(approve).toHaveAttribute('data-state', 'pending');
+  await page.getByRole('button', { name: /Atelier Rivage/ }).click();
+  await expect(actions(page)).toContainText('DEMO-402');
+  await expect(approve).toHaveAttribute('data-state', 'idle');
+  release();
+  await expect(approve).toBeEnabled();
+  await expect(approve).toHaveAttribute('data-state', 'idle');
+  await page.getByRole('button', { name: /Atelier Boréal/ }).click();
+  await expect(actions(page)).toContainText('DEMO-401');
+  await expect(approve).toHaveAttribute('data-state', 'idle');
 });
 
 test('review controls disable redundant decisions and retain mandatory refusal confirmation', async ({
@@ -1436,6 +1622,7 @@ test('copy, refresh, close, list pagination and filter reset perform their named
     .click();
   await expect(page).not.toHaveURL(/sponsorshipId=/);
   await expect(tabs(page)).toHaveCount(0);
+  await expect(actions(page)).toHaveCount(0);
   const list = page.locator('openg7-admin-sponsors-list-panel');
   await list
     .getByRole('button', { name: 'Reinitialiser', exact: true })
@@ -1573,6 +1760,9 @@ test('switching dossiers prefills the selected company and clears absent optiona
   );
   await form.getByRole('button', { name: 'Annuler', exact: true }).click();
   await page.getByRole('button', { name: /Atelier Rivage/ }).click();
+  await expect(actions(page)).toContainText('Atelier Rivage');
+  await expect(actions(page)).toContainText('DEMO-402');
+  await expect(actions(page)).not.toContainText('Atelier Boréal');
   await opener.click();
   await expect(
     form.getByLabel('Nom de l’entreprise', { exact: true })
@@ -2094,7 +2284,11 @@ for (const width of [1280, 390]) {
       const link = progress(page)
         .locator(`[data-og7-id="${step}"]`)
         .getByRole('link');
-      await link.scrollIntoViewIfNeeded();
+      // Keep the clicked milestone above the floating review actions before
+      // measuring navigation scroll, so Playwright need not reveal it on click.
+      await link.evaluate((element) =>
+        element.scrollIntoView({ block: 'center', behavior: 'instant' })
+      );
       await link.focus();
       const before = await page.evaluate(() => window.scrollY);
       expect(before).toBeGreaterThan(100);
@@ -2132,7 +2326,7 @@ for (const width of [1280, 390]) {
     const query = '&returnTo=' + encodeURIComponent(returnTo);
     await page.goto(path('identity') + query);
     const next = progress(page).locator('[data-og7="dossier-next"]');
-    await expect(next).toHaveText('Aller à la revue');
+    await expect(next).toHaveText('Voir les actions de validation');
     await expect(next).toHaveAttribute(
       'href',
       path() + query + '#dossier-review'
@@ -2482,7 +2676,9 @@ test('English compact dossier supports keyboard at mobile width without horizont
     .getByRole('button', { name: 'Switch administration language to English' })
     .click();
   await expect(progress(page)).toContainText('Current sponsorship');
-  const next = progress(page).getByRole('link', { name: 'Go to review' });
+  const next = progress(page).getByRole('link', {
+    name: 'View review actions'
+  });
   await next.focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/tab=overview/);

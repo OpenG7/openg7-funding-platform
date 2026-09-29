@@ -1,0 +1,269 @@
+.detail-actions .review-button.approval-button {
+  --approval-mint: #c0ffe0;
+  --approval-gold: #f4d78b;
+  position: relative;
+  isolation: isolate;
+  gap: 0.45rem;
+  background: linear-gradient(135deg, #255c49, #163d33);
+  border: 1px solid #619a7b;
+  color: #f0fff6;
+  box-shadow:
+    inset 0 1px 0 #deffe41a,
+    0 3px 10px #0003;
+  transition:
+    transform 160ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.detail-actions .approval-button:not(:disabled):hover {
+  border-color: var(--approval-gold);
+  box-shadow:
+    inset 0 1px 0 #deffe433,
+    0 0 20px #88ecc125;
+  transform: translateY(-1px);
+}
+
+.detail-actions .approval-button:not(:disabled):active {
+  transform: translateY(1px) scale(0.96);
+}
+
+.approval-label,
+.approval-mark {
+  position: relative;
+  z-index: 1;
+}
+
+.approval-mark {
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 1.25rem;
+  border: 1px solid #c0ffe050;
+  border-radius: 50%;
+}
+
+.approval-mark svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.approval-shine,
+.approval-sparks,
+.approval-button::before,
+.approval-button::after {
+  position: absolute;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+}
+
+.approval-shine {
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 35%,
+    #fff4 48%,
+    #fff8 50%,
+    transparent 65%
+  );
+  background-size: 300% 100%;
+}
+
+.detail-actions .approval-button[data-state='pending'] {
+  opacity: 1;
+  cursor: wait;
+  border-color: var(--approval-gold);
+  box-shadow:
+    0 0 0 3px #f4d78b12,
+    0 0 24px #f4d78b18;
+}
+
+.approval-button[data-state='pending'] .approval-mark {
+  border: 2px solid #f4d78b30;
+  border-top-color: var(--approval-gold);
+  border-right-color: var(--approval-gold);
+  animation: approval-orbit 800ms linear infinite;
+}
+
+.approval-button[data-state='pending'] .approval-mark svg {
+  opacity: 0;
+}
+
+.approval-button[data-state='pending'] .approval-shine {
+  animation: approval-sweep 1.8s ease-in-out infinite;
+}
+
+.detail-actions .approval-button[data-state='success'] {
+  opacity: 1;
+  background: linear-gradient(135deg, #347454, #1a4b3b);
+  border-color: var(--approval-mint);
+  animation: approval-land 580ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.approval-button[data-state='success'] .approval-mark {
+  color: #173e30;
+  border-color: var(--approval-mint);
+  background: var(--approval-mint);
+  box-shadow: 0 0 14px #c0ffe080;
+}
+
+.approval-button[data-state='success'] .approval-mark path {
+  stroke-dasharray: 24;
+  animation: approval-check 480ms 120ms ease-out both;
+}
+
+.approval-button[data-state='success']::before,
+.approval-button[data-state='success']::after {
+  content: '';
+  inset: -1px;
+  border: 1px solid var(--approval-mint);
+  animation: approval-wave 850ms ease-out both;
+}
+
+.approval-button[data-state='success']::after {
+  border-color: var(--approval-gold);
+  animation-delay: 150ms;
+}
+
+.approval-button[data-state='success'] .approval-shine {
+  animation: approval-sweep 950ms 100ms ease-out both;
+}
+
+.approval-sparks {
+  inset: -14px;
+  background:
+    radial-gradient(circle, #f4d78b 0 1.5px, transparent 2px) 8% 15% / 5px 5px,
+    radial-gradient(circle, #c0ffe0 0 1px, transparent 2px) 36% 0 / 5px 5px,
+    radial-gradient(circle, #f4d78b 0 1.5px, transparent 2px) 85% 5% / 5px 5px,
+    radial-gradient(circle, #c0ffe0 0 1px, transparent 2px) 100% 55% / 5px 5px,
+    radial-gradient(circle, #f4d78b 0 1px, transparent 2px) 75% 100% / 5px 5px,
+    radial-gradient(circle, #c0ffe0 0 1.5px, transparent 2px) 20% 95% / 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.approval-button[data-state='success'] .approval-sparks {
+  animation: approval-sparks 900ms 80ms ease-out both;
+}
+
+.detail-actions[data-approval-state='success'] {
+  animation: approval-dock-glow 1.4s ease-out both;
+}
+
+.detail-actions .approval-button[data-state='error'] {
+  border-color: var(--admin-danger);
+  box-shadow: 0 0 0 3px #ffb5bc18;
+}
+
+@keyframes approval-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes approval-sweep {
+  0% {
+    opacity: 0;
+    background-position: 100% 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  80% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    background-position: 0 0;
+  }
+}
+
+@keyframes approval-land {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 #c0ffe000;
+  }
+  40% {
+    transform: scale(1.035);
+    box-shadow: 0 0 24px #c0ffe060;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 12px #c0ffe030;
+  }
+}
+
+@keyframes approval-check {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes approval-wave {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.16, 1.45);
+  }
+}
+
+@keyframes approval-sparks {
+  0% {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.22);
+  }
+}
+
+@keyframes approval-dock-glow {
+  0%,
+  100% {
+    border-color: #426077;
+    box-shadow: 0 12px 28px #00000026;
+  }
+  25% {
+    border-color: #90d7b0;
+    box-shadow:
+      0 0 0 1px #c0ffe025,
+      0 0 28px #7deab428;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-actions .approval-button[data-state],
+  .detail-actions .approval-button[data-state]:hover,
+  .detail-actions .approval-button[data-state]:active,
+  .detail-actions .approval-button[data-state]::before,
+  .detail-actions .approval-button[data-state]::after,
+  .detail-actions .review-button.approval-button[data-state] *,
+  .detail-actions[data-approval-state='success'] {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
+
+  .approval-button[data-state='success']::before,
+  .approval-button[data-state='success']::after,
+  .approval-shine,
+  .approval-sparks {
+    display: none;
+  }
+}
