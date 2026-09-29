@@ -148,72 +148,158 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
         </article>
       </div>
 
-      <article class="detail-card" *ngIf="overview().sponsorMessage">
-        <h3>{{ 'admin.legacy.message_du_commanditaire' | translate }}</h3>
-        <p>{{ overview().sponsorMessage }}</p>
-      </article>
+      <div class="detail-card-grid detail-notes">
+        <article class="detail-card" *ngIf="overview().sponsorMessage">
+          <h3>{{ 'admin.legacy.message_du_commanditaire' | translate }}</h3>
+          <p>{{ overview().sponsorMessage }}</p>
+        </article>
 
-      <article class="detail-card">
-        <h3>{{ 'admin.legacy.note_interne' | translate }}</h3>
-        <button type="button" (click)="noteOpen.set(true)">
-          {{
-            (disabled() ? 'admin.inspector.note' : 'admin.inspector.editNote')
-              | translate
-          }}
-        </button>
-        <openg7-admin-drawer
-          [opened]="noteOpen()"
-          [title]="'admin.inspector.note' | translate"
-          [closeLabel]="'admin.inspector.close' | translate"
-          [busy]="overview().reviewNoteSaving"
-          (closed)="noteOpen.set(false)"
-        >
-          <label class="review-note-label"
-            >{{
-              'admin.legacy.note_visible_uniquement_pour_l_administration'
-                | translate
-            }}<textarea
-              rows="5"
-              maxlength="1000"
-              [disabled]="disabled()"
-              [value]="overview().reviewNote"
-              (input)="onReviewNoteInput($event)"
-            ></textarea>
-          </label>
-          <div class="form-footer">
-            <span
-              class="inline-status"
-              [class.is-dirty]="overview().reviewNoteDirty"
-              aria-live="polite"
-              >{{ overview().reviewNoteStateLabel }}</span
-            ><button
-              type="button"
-              class="secondary-action"
-              (click)="saveReviewNote.emit()"
-              [disabled]="!overview().reviewNoteDirty || disabled()"
-            >
-              {{
-                overview().reviewNoteSaving
-                  ? ('admin.legacy.enregistrement' | translate)
-                  : ('admin.legacy.enregistrer_la_note' | translate)
-              }}
-            </button>
+        <article class="detail-card" aria-labelledby="sponsor-note-card-title">
+          <div class="note-card-heading">
+            <h3 id="sponsor-note-card-title">
+              {{ 'admin.legacy.note_interne' | translate }}
+            </h3>
+            <span *ngIf="overview().reviewNoteDirty" class="note-draft">{{
+              'admin.dossier.noteEditor.unsaved' | translate
+            }}</span>
           </div>
+          <p
+            *ngIf="overview().reviewNote.trim(); else emptyNote"
+            class="note-preview"
+          >
+            {{ overview().reviewNote.trim() }}
+          </p>
+          <ng-template #emptyNote>
+            <p class="note-empty">
+              {{ 'admin.dossier.noteEditor.empty' | translate }}
+            </p>
+          </ng-template>
           <button
             type="button"
-            [disabled]="overview().reviewNoteSaving"
-            (click)="noteOpen.set(false)"
+            class="admin-button note-open"
+            (click)="noteOpen.set(true)"
           >
-            {{ 'admin.inspector.back' | translate }}
+            {{
+              (disabled() ? 'admin.inspector.note' : 'admin.inspector.editNote')
+                | translate
+            }}
           </button>
-        </openg7-admin-drawer>
-      </article>
+          <openg7-admin-drawer
+            [opened]="noteOpen()"
+            [title]="'admin.inspector.note' | translate"
+            [closeLabel]="'admin.inspector.close' | translate"
+            [busy]="overview().reviewNoteSaving"
+            (closed)="noteOpen.set(false)"
+          >
+            <div class="note-editor" data-og7="sponsor-note-editor">
+              <div class="note-context">
+                <div class="note-dossier">
+                  <span class="note-eyebrow">{{
+                    'admin.dossier.workspace.dossier' | translate
+                  }}</span>
+                  <strong>{{ overview().companyName }}</strong>
+                  <span
+                    *ngIf="overview().publicReference"
+                    class="note-reference"
+                    >{{ overview().publicReference }}</span
+                  >
+                </div>
+                <span class="note-private">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="5" y="10" width="14" height="11" rx="3" />
+                    <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
+                  </svg>
+                  {{ 'admin.dossier.noteEditor.private' | translate }}
+                </span>
+              </div>
+
+              <p id="sponsor-note-privacy" class="note-privacy">
+                {{
+                  'admin.legacy.note_visible_uniquement_pour_l_administration'
+                    | translate
+                }}
+              </p>
+
+              <div class="note-field">
+                <label for="sponsor-review-note">{{
+                  'admin.dossier.noteEditor.label' | translate
+                }}</label>
+                <textarea
+                  id="sponsor-review-note"
+                  rows="8"
+                  maxlength="1000"
+                  aria-describedby="sponsor-note-privacy sponsor-note-counter"
+                  [placeholder]="
+                    'admin.dossier.noteEditor.placeholder' | translate
+                  "
+                  [disabled]="disabled()"
+                  [value]="overview().reviewNote"
+                  (input)="onReviewNoteInput($event)"
+                ></textarea>
+                <span
+                  id="sponsor-note-counter"
+                  class="note-counter"
+                  [class.is-near-limit]="overview().reviewNote.length >= 900"
+                  >{{
+                    'admin.dossier.noteEditor.characters'
+                      | translate
+                        : { count: overview().reviewNote.length, limit: 1000 }
+                  }}</span
+                >
+              </div>
+
+              <div
+                class="note-feedback"
+                [class.is-dirty]="overview().reviewNoteDirty"
+              >
+                <span class="note-status" role="status" aria-live="polite">{{
+                  overview().reviewNoteStateLabel
+                }}</span>
+                <small
+                  *ngIf="
+                    overview().reviewNoteDirty && !overview().reviewNoteSaving
+                  "
+                  >{{ 'admin.dossier.noteEditor.saveHint' | translate }}</small
+                >
+              </div>
+
+              <div class="note-actions">
+                <button
+                  type="button"
+                  class="admin-button"
+                  [disabled]="overview().reviewNoteSaving"
+                  (click)="noteOpen.set(false)"
+                >
+                  {{ 'admin.dossier.noteEditor.close' | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="admin-button admin-button--primary"
+                  [attr.aria-busy]="overview().reviewNoteSaving"
+                  (click)="saveReviewNote.emit()"
+                  [disabled]="!overview().reviewNoteDirty || disabled()"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="m5 12 4 4L19 6" />
+                  </svg>
+                  {{
+                    overview().reviewNoteSaving
+                      ? ('admin.legacy.enregistrement' | translate)
+                      : ('admin.legacy.enregistrer_la_note' | translate)
+                  }}
+                </button>
+              </div>
+            </div>
+          </openg7-admin-drawer>
+        </article>
+      </div>
     </section>
   `,
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
-    '../admin-ui/admin-forms.css'
+    '../admin-ui/admin-forms.css',
+    './admin-sponsor-note-editor.css'
   ],
   styles: [
     `
@@ -295,6 +381,17 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
       }
 
+      .detail-notes > .detail-card {
+        align-content: start;
+        min-width: 0;
+      }
+
+      .detail-notes > .detail-card > p {
+        margin: 0;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+
       .detail-card dl {
         display: grid;
         gap: 0.75rem;
@@ -323,25 +420,6 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
 
       .inline-status {
         color: var(--admin-muted);
-      }
-
-      .inline-status.is-dirty {
-        color: var(--admin-warning);
-        font-weight: 900;
-      }
-
-      .review-note-label {
-        display: grid;
-        font-size: 0.84rem;
-        font-weight: 800;
-        gap: 0.35rem;
-      }
-
-      .form-footer {
-        align-items: center;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
       }
 
       .tier-badge,

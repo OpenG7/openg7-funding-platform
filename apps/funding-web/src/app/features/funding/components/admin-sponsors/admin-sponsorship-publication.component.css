@@ -3,7 +3,7 @@
 }
 .publication-journey {
   display: grid;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 h3,
 h4,
@@ -33,8 +33,8 @@ footer {
   letter-spacing: 0.08em;
 }
 .benefits {
-  background: linear-gradient(120deg, #24413f, #1a2d42);
-  border: 1px solid #4a6b65;
+  background: #a1e7b108;
+  border: 1px solid #a1e7b130;
   border-radius: 0.8rem;
   padding: 1rem;
 }
@@ -45,63 +45,253 @@ footer {
 .benefits li {
   margin: 0.35rem 0;
 }
+.delivery-board {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.completion {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 1rem;
+  background: var(--admin-panel);
+  --completion-color: var(--admin-warning);
+}
+.completion.is-complete {
+  --completion-color: var(--admin-success);
+  border-color: #a1e7b145;
+  background: linear-gradient(110deg, #a1e7b112, #a1e7b103);
+}
+.completion-icon,
+.channel-icon,
+.social-notice-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.85rem;
+}
+.completion-icon {
+  color: var(--completion-color);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg);
+  font-size: 1.2rem;
+}
+.completion-copy {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.section-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--admin-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.completion h4 {
+  font-size: 1.05rem;
+}
+.completion progress {
+  appearance: none;
+  flex: 0 1 9rem;
+  width: 9rem;
+  height: 0.5rem;
+  margin-inline-start: auto;
+  overflow: hidden;
+  border: 0;
+  border-radius: 1rem;
+  background: var(--admin-border);
+  accent-color: var(--completion-color);
+}
+.completion progress::-webkit-progress-bar {
+  background: var(--admin-border);
+  border-radius: 1rem;
+}
+.completion progress::-webkit-progress-value {
+  background: var(--completion-color);
+  border-radius: 1rem;
+}
+.completion progress::-moz-progress-bar {
+  background: var(--completion-color);
+  border-radius: 1rem;
+}
 .channels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
   gap: 0.8rem;
 }
 article {
-  display: grid;
-  gap: 0.65rem;
-  padding: 1rem;
+  --channel-color: var(--admin-warning);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.25rem;
   border: 1px solid var(--admin-border);
-  border-left: 3px solid #e6b65a;
-  border-radius: 0.75rem;
+  border-top: 3px solid var(--channel-color);
+  border-radius: 1rem;
   background: var(--admin-panel);
+  box-shadow: 0 8px 24px #00000012;
   overflow-wrap: anywhere;
 }
 article header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.channel-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.channel-icon {
+  color: var(--channel-color);
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
 }
 article[data-state='published'],
 article[data-state='visible'] {
-  border-left-color: #a0e5c0;
+  --channel-color: var(--admin-success);
 }
 article[data-state='blocked'],
 article[data-state='uncertain'],
-article[data-state='failed'] {
-  border-left-color: #ffb2b4;
+article[data-state='failed'],
+article[data-state='rejected'] {
+  --channel-color: var(--admin-danger);
+}
+article[data-state='unknown'],
+article[data-state='cancelled'] {
+  --channel-color: var(--admin-muted);
+}
+article[data-state='scheduled'],
+article[data-state='publishing'] {
+  --channel-color: var(--admin-focus);
 }
 .target,
 .simulation {
   font-size: 0.8rem;
   color: #e6b65a;
 }
-.completion,
 .publication-state {
-  color: var(--admin-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  width: fit-content;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.75rem;
+  background: var(--admin-bg);
+  color: var(--channel-color);
+  font-size: 0.82rem;
   font-weight: 700;
+}
+.publication-state::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
 }
 .blockers {
   padding: 1rem;
   border: 1px solid #94676f;
   border-radius: 0.75rem;
 }
-.blockers a {
+.blockers a,
+.site-blockers a {
   color: #ffd4d5;
   text-underline-offset: 0.2em;
 }
 .blockers li {
   margin-top: 0.5rem;
 }
+.site-blockers {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  line-height: 1.65;
+}
 .actions,
 footer {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
+}
+article .actions {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--admin-border);
+}
+.website-actions {
+  align-items: center;
+}
+.directory-link {
+  background: #a1e7b11a;
+  border-color: #a1e7b16b;
+  color: var(--admin-success);
+}
+.directory-link:hover {
+  background: #a1e7b129;
+  border-color: var(--admin-success);
+}
+.directory-link openg7-admin-icon {
+  width: 1rem;
+  height: 1rem;
+  transform: rotate(-45deg);
+}
+.website-visibility {
+  margin-inline-start: auto;
+}
+.profile-settings {
+  background: transparent;
+}
+.hide-profile {
+  background: transparent;
+  border-color: transparent;
+  color: var(--admin-danger);
+}
+.hide-profile:hover {
+  border-color: var(--admin-danger);
+  background: #ffb5bc0a;
+}
+.website-feedback {
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.6rem;
+  background: var(--admin-bg);
+  font-size: 0.85rem;
+}
+.social-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem 1.25rem;
+  border: 1px dashed var(--admin-border);
+  border-radius: 0.85rem;
+}
+.social-notice-icon {
+  width: 2rem;
+  height: 2rem;
+  color: var(--admin-muted);
+  background: var(--admin-panel-raised);
+  border-radius: 0.6rem;
+}
+.social-notice h4 {
+  margin-bottom: 0.15rem;
+  font-size: 0.9rem;
+}
+.social-notice p {
+  font-size: 0.875rem;
 }
 footer p {
   flex-basis: 100%;
@@ -118,8 +308,22 @@ button:focus-visible {
   outline-offset: 3px;
 }
 @media (max-width: 420px) {
+  .completion {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+  .completion progress {
+    flex-basis: 100%;
+    width: 100%;
+  }
+  article {
+    padding: 1rem;
+  }
   .actions .admin-button,
   footer .admin-button {
     width: 100%;
+  }
+  .website-visibility {
+    margin-inline-start: 0;
   }
 }

@@ -11,6 +11,7 @@ import type { SponsorDetailsTab } from '../../models/admin-sponsors-ui.models.js
 
 interface AdminSponsorDetailTabItem {
   readonly id: SponsorDetailsTab;
+  readonly label: string;
 }
 
 @Component({
@@ -27,18 +28,19 @@ interface AdminSponsorDetailTabItem {
       <button
         *ngFor="let tab of tabs"
         type="button"
-        [class.active]="activeTab() === tab.id"
-        [attr.aria-current]="activeTab() === tab.id ? 'page' : null"
+        [class.active]="isActive(tab.id)"
+        [attr.aria-current]="isActive(tab.id) ? 'page' : null"
         (click)="selectTab(tab.id)"
       >
-        {{ 'admin.dossier.tabs.' + tab.id | translate }}
+        {{ 'admin.dossier.workspace.' + tab.label | translate }}
       </button>
     </nav>
   `,
   styleUrls: [
     '../admin-ui/admin-theme.css',
     '../admin-ui/admin-controls.css',
-    '../admin-ui/admin-forms.css'
+    '../admin-ui/admin-forms.css',
+    './admin-sponsor-detail-tabs.component.css'
   ],
   styles: [
     `
@@ -84,14 +86,21 @@ export class AdminSponsorDetailTabsComponent {
   readonly activeTabChange = output<SponsorDetailsTab>();
 
   readonly tabs: readonly AdminSponsorDetailTabItem[] = [
-    { id: 'overview' },
-    { id: 'identity' },
-    { id: 'media' },
-    { id: 'publication' },
-    { id: 'billing' },
-    { id: 'refund' },
-    { id: 'audit' }
+    { id: 'overview', label: 'overview' },
+    { id: 'identity', label: 'profile' },
+    { id: 'publication', label: 'publication' },
+    { id: 'billing', label: 'finances' },
+    { id: 'audit', label: 'history' }
   ];
+
+  isActive(tab: SponsorDetailsTab): boolean {
+    const active = this.activeTab();
+    return (
+      tab === active ||
+      (tab === 'identity' && active === 'media') ||
+      (tab === 'billing' && active === 'refund')
+    );
+  }
 
   selectTab(tab: SponsorDetailsTab): void {
     this.activeTabChange.emit(tab);

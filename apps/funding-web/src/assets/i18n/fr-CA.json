@@ -456,6 +456,38 @@
       "healthScope": "Contrôles en lecture seule, conservés au plus une minute. Ils ne prouvent ni l’écriture dans le stockage, ni la réception des courriels, ni la disponibilité complète du fournisseur."
     },
     "dossier": {
+      "noteEditor": {
+        "private": "Privé",
+        "label": "Note de suivi",
+        "placeholder": "Échange avec le commanditaire, point à vérifier, prochaine action…",
+        "characters": "{{count}} / {{limit}} caractères",
+        "saveHint": "Enregistrez pour conserver vos modifications.",
+        "close": "Fermer",
+        "empty": "Aucune note pour le moment.",
+        "saved": "Note enregistrée.",
+        "unsaved": "Modifications non enregistrées"
+      },
+      "workspace": {
+        "financeActions": "Actions financières",
+        "navigation": "Navigation du dossier",
+        "back": "Toutes les commandites",
+        "previous": "Dossier précédent",
+        "next": "Dossier suivant",
+        "dossier": "Dossier",
+        "queue": "Commandites",
+        "filters": "Filtres",
+        "access": "Accès au suivi",
+        "help": "Aide pas à pas",
+        "details": "Détails du dossier",
+        "overview": "Aperçu",
+        "profile": "Fiche et médias",
+        "publication": "Publication",
+        "finances": "Finances",
+        "history": "Historique",
+        "websiteVisible": "Site Web · Visible",
+        "websiteHidden": "Site Web · Privé",
+        "websiteUnknown": "Site Web · À vérifier"
+      },
       "reviewActions": "Actions de validation",
       "completed": "Dossier terminé",
       "nextActions": {
@@ -718,6 +750,8 @@
         },
         "website": "La fiche sur le site et les publications sociales ont chacune leur propre validation.",
         "completion": "Contreparties livrées : {{done}} / {{total}}",
+        "deliveryTitle": "Suivi des contreparties",
+        "socialTitle": "Réseaux sociaux",
         "blockers": "À vérifier avant d’autoriser un nouvel envoi",
         "blocker": {
           "consent": "Obtenir le consentement public du commanditaire",
@@ -793,7 +827,7 @@
           "confirmPublish": "Publier cette fiche dans l’annuaire public des commanditaires ? Cette décision ne programme aucun envoi social.",
           "confirmHide": "Masquer cette fiche de l’annuaire public ? Les publications sociales déjà envoyées restent conservées.",
           "saving": "Mise à jour de la visibilité…",
-          "saved": "Décision enregistrée. La visibilité affichée provient du serveur.",
+          "saved": "La visibilité de la fiche a été mise à jour.",
           "failed": "La visibilité n’a pas pu être modifiée. Actualisez le dossier avant de réessayer."
         }
       }
@@ -1975,6 +2009,23 @@
       "resume": "Reprendre",
       "pause": "Pause",
       "settings": "Réglages",
+      "settingsPanel": {
+        "destination": "Destination",
+        "connection": "Connexion au compte",
+        "connectionDetails": "À propos de la connexion",
+        "schedule": "Calendrier de publication",
+        "chooseDay": "Choisissez au moins un jour de publication.",
+        "timezoneHelp": "L’heure suit le fuseau choisi, par exemple America/Toronto.",
+        "volume": "Volume des lots",
+        "capacityHelp": "De 1 à 10 commanditaires par lot.",
+        "horizonHelp": "De 1 à 28 jours à l’avance.",
+        "manual": "Préparation ponctuelle",
+        "manualHelp": "Préparez les prochains lots à partir des réglages enregistrés pour cette destination.",
+        "saveFirst": "Enregistrez vos modifications avant de lancer la préparation.",
+        "approvalHelp": "Les propositions préparées restent à valider avant publication.",
+        "prepared": "Préparation terminée. Consultez les propositions à valider.",
+        "checked": "Vérification terminée. L’état de connexion a été actualisé."
+      },
       "summary": "Bilan des publications",
       "last24h": "publiées en 24 h",
       "filter": "Filtrer les publications",

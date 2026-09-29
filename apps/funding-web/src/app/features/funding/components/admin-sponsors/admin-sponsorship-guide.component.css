@@ -15,6 +15,16 @@ summary {
   font-weight: 700;
   font-size: 1.1rem;
 }
+details:not([open]) {
+  border-color: transparent;
+  background: transparent;
+}
+details:not([open]) summary {
+  padding: 0.7rem 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--admin-muted);
+}
 .guide-body {
   padding: 0 1rem 1rem;
   overflow-wrap: anywhere;

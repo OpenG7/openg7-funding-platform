@@ -1,5 +1,6 @@
 <section
   class="progress-panel"
+  [class.streamlined]="streamlined()"
   data-og7="sponsorship-progress"
   [attr.aria-label]="'admin.dossier.progress' | translate"
   [attr.aria-busy]="state() === 'loading'"
@@ -10,12 +11,17 @@
         (compact() ? 'admin.dossier.current' : 'admin.dossier.progress')
           | translate
       }}
+      @if (streamlined() && data()?.dossier; as d) {
+        <span class="progress-count"
+          >{{ completedSteps() }} / {{ d.milestones.length }}</span
+        >
+      }
     </h2>
     <button
       type="button"
       class="admin-button"
       [disabled]="disabled() || state() === 'loading'"
-      (click)="load()"
+      (click)="refresh()"
     >
       {{ 'admin.dossier.refresh' | translate }}
     </button>
@@ -29,42 +35,53 @@
       <h3>{{ d.companyName || d.reference }}</h3>
       <p>{{ d.reference }} · {{ money(d.amountMinor, d.currency) }}</p>
     }
-    <dl class="independent-states">
-      <div>
-        <dt>{{ 'admin.dossier.review' | translate }}</dt>
-        <dd>{{ 'admin.dossier.values.' + d.reviewStatus | translate }}</dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.dossier.consent' | translate }}</dt>
-        <dd>
-          {{ 'admin.dossier.' + (d.publicConsent ? 'yes' : 'no') | translate }}
-        </dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.dossier.eligibility' | translate }}</dt>
-        <dd>
-          {{ 'admin.dossier.' + (d.publicEligible ? 'yes' : 'no') | translate }}
-        </dd>
-      </div>
-      <div>
-        <dt>{{ 'admin.dossier.tabs.publication' | translate }}</dt>
-        <dd>{{ 'admin.dossier.values.' + d.feedStatus | translate }}</dd>
-      </div>
-    </dl>
+    @if (!streamlined()) {
+      <dl class="independent-states">
+        <div>
+          <dt>{{ 'admin.dossier.review' | translate }}</dt>
+          <dd>{{ 'admin.dossier.values.' + d.reviewStatus | translate }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.dossier.consent' | translate }}</dt>
+          <dd>
+            {{
+              'admin.dossier.' + (d.publicConsent ? 'yes' : 'no') | translate
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.dossier.eligibility' | translate }}</dt>
+          <dd>
+            {{
+              'admin.dossier.' + (d.publicEligible ? 'yes' : 'no') | translate
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.dossier.tabs.publication' | translate }}</dt>
+          <dd>{{ 'admin.dossier.values.' + d.feedStatus | translate }}</dd>
+        </div>
+      </dl>
+    }
     <ol class="milestones">
       @for (step of d.milestones; track step.id) {
         <li [attr.data-state]="step.state" [attr.data-og7-id]="step.id">
           <a
             [routerLink]="'/admin/fundraiser/sponsors'"
             [queryParams]="params(d.contributionId, step.tab)"
+            [attr.aria-current]="
+              streamlined() && step.id === activeStep() ? 'step' : null
+            "
             queryParamsHandling="merge"
           >
             <span class="step-marker" aria-hidden="true">{{
               step.state === 'complete' ? '✓' : $index + 1
             }}</span>
             <strong>{{ 'admin.dossier.steps.' + step.id | translate }}</strong>
-            <span>{{ 'admin.dossier.states.' + step.state | translate }}</span>
-            @if (!compact()) {
+            <span class="step-status">{{
+              'admin.dossier.states.' + step.state | translate
+            }}</span>
+            @if (!compact() && !streamlined()) {
               <small>{{
                 'admin.dossier.reasons.' + step.reason | translate
               }}</small>
@@ -103,7 +120,7 @@
         >
       }
     </div>
-    @if (!compact()) {
+    @if (!compact() && !streamlined()) {
       <p class="help">{{ 'admin.dossier.independent' | translate }}</p>
     }
   } @else {

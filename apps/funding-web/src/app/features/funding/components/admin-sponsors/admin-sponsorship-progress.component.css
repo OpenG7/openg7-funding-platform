@@ -116,3 +116,88 @@ button:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.streamlined {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.5rem 1.5rem 1rem;
+}
+.streamlined h2 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--admin-muted);
+  margin: 0;
+}
+.progress-count {
+  margin-left: 0.5rem;
+  color: var(--admin-gold);
+  font-variant-numeric: tabular-nums;
+}
+.streamlined header button {
+  padding: 0.35rem 0.65rem;
+  background: transparent;
+  font-size: 0.75rem;
+}
+.streamlined .milestones {
+  gap: 0.5rem;
+  margin: 0.65rem 0 1rem;
+}
+.streamlined .milestones a {
+  border-top-color: var(--admin-border);
+  padding: 0.5rem 0.35rem;
+  border-radius: 0 0 0.5rem 0.5rem;
+  font-size: 0.72rem;
+  gap: 0.3rem;
+}
+.streamlined .milestones a[aria-current='step'] {
+  background: #f4c9570b;
+  border-top-color: var(--admin-gold);
+}
+.streamlined .milestones a:hover {
+  background: var(--admin-panel-raised);
+}
+.streamlined [data-state='complete'] .step-marker {
+  background: #a1e7b117;
+  color: var(--admin-success);
+  border-color: #a1e7b150;
+}
+.streamlined .step-marker {
+  width: 1.45rem;
+  height: 1.45rem;
+  font-size: 0.72rem;
+}
+.streamlined .step-status {
+  color: var(--admin-muted);
+  font-size: 0.67rem;
+}
+.streamlined .next-step {
+  background: #9edaff08;
+  border: 1px solid #9edaff30;
+  border-radius: 0.75rem;
+  padding: 0.8rem 1rem;
+  font-size: 0.85rem;
+}
+.streamlined .next-step p {
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+}
+@media (max-width: 600px) {
+  .streamlined {
+    padding: 0.25rem 1rem 0.75rem;
+  }
+  .streamlined .milestones {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+  .streamlined .milestones a {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
+  .streamlined .step-status {
+    grid-column: 1 / -1;
+  }
+  .streamlined .next-step .admin-button {
+    width: 100%;
+  }
+}

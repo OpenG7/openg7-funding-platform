@@ -42,6 +42,7 @@ async function fixtures(
     workerEnabled?: boolean;
     role?: 'reader' | 'operator';
     workerResponse?: () => Promise<void>;
+    settingsResponse?: () => Promise<void>;
     extraDeliveries?: PublicationDelivery[];
   } = {}
 ): Promise<PublicationAutomationCommand[]> {
@@ -124,6 +125,7 @@ async function fixtures(
     const c = route.request().postDataJSON() as PublicationAutomationCommand;
     commands.push(c);
     if (c.action === 'worker') await options.workerResponse?.();
+    if (c.action === 'settings') await options.settingsResponse?.();
     if (conflict)
       return route.fulfill({
         status: 409,
@@ -184,6 +186,237 @@ async function fixtures(
   });
   return commands;
 }
+
+for (const [language, width] of [
+  ['fr-CA', 1280],
+  ['en', 390]
+] as const) {
+  test(`feed settings separate saved configuration from preparation in ${language} at ${width}px`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.addInitScript(
+      (locale) => localStorage.setItem('openg7.language', locale),
+      language
+    );
+    const commands = await fixtures(page);
+    await page.goto('/admin/fundraiser/publications/automation?settings=feeds');
+    const english = language === 'en';
+    const opener = page
+      .getByRole('button', {
+        name: english ? 'Settings' : 'Réglages',
+        exact: true
+      })
+      .first();
+    await opener.focus();
+    await opener.press('Enter');
+    const dialog = page.getByRole('dialog', {
+      name: english ? 'Settings' : 'Réglages',
+      exact: true
+    });
+    const save = dialog.getByRole('button', {
+      name: english ? 'Save settings' : 'Enregistrer les réglages',
+      exact: true
+    });
+    const prepare = dialog.getByRole('button', {
+      name: english ? 'Prepare now' : 'Préparer maintenant',
+      exact: true
+    });
+    const capacity = dialog.getByRole('spinbutton', {
+      name: english ? 'Sponsors per batch' : 'Commanditaires par lot',
+      exact: true
+    });
+    const close = dialog
+      .getByRole('button', {
+        name: english ? 'Close' : 'Fermer',
+        exact: true
+      })
+      .first();
+    const connectionHelp = dialog.locator('summary');
+    await expect(close).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(
+      dialog.getByRole('button', {
+        name: english ? 'Check connection' : 'Vérifier la connexion',
+        exact: true
+      })
+    ).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(connectionHelp).toBeFocused();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
+    await expect(dialog.getByRole('switch')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(connectionHelp).toBeFocused();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
+    await expect(dialog.getByRole('switch')).toBeFocused();
+    // Follow native order through weekdays and the segmented time field to Save.
+    for (let step = 0; step < 30; step++) {
+      if (await save.evaluate((element) => element === document.activeElement))
+        break;
+      await page.keyboard.press('Tab');
+    }
+    await expect(save).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(close).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(save).toBeFocused();
+    await expect(dialog).toContainText('OPENG7');
+    await expect(dialog).toContainText('Facebook');
+    expect(commands).toHaveLength(0);
+    await capacity.fill('0');
+    await expect(save).toBeDisabled();
+    await capacity.press('Enter');
+    expect(commands).toHaveLength(0);
+    await capacity.fill('6');
+    await dialog.getByRole('switch').press('Space');
+    for (const day of [english ? 'Tue' : 'Mar.', english ? 'Thu' : 'Jeu.']) {
+      const checkbox = dialog.getByRole('checkbox', { name: day, exact: true });
+      await checkbox.focus();
+      await checkbox.press('Space');
+    }
+    await expect(dialog.getByRole('alert')).toContainText(
+      english ? 'Choose at least one' : 'Choisissez au moins un'
+    );
+    await expect(save).toBeDisabled();
+    const monday = dialog.getByRole('checkbox', {
+      name: english ? 'Mon' : 'Lun.',
+      exact: true
+    });
+    await monday.focus();
+    await monday.press('Space');
+    await expect(prepare).toBeDisabled();
+    await expect(dialog).toContainText(
+      english
+        ? 'Save your changes before'
+        : 'Enregistrez vos modifications avant'
+    );
+    await save.click();
+    await expect(dialog).toBeVisible();
+    await expect(prepare).toBeEnabled();
+    expect(commands).toEqual([
+      {
+        action: 'settings',
+        settings: expect.objectContaining({
+          id: 'openg7:facebook',
+          paused: true,
+          autoPrepare: true,
+          capacity: 6,
+          weekdays: [1],
+          horizonDays: 14,
+          localTime: '10:00',
+          timezone: 'America/Toronto'
+        })
+      }
+    ]);
+    await expect(
+      dialog
+        .getByRole('status')
+        .filter({ hasText: english ? 'Saved.' : 'Enregistré.' })
+    ).toBeVisible();
+    expect(
+      (await new AxeBuilder({ page }).include('dialog[open]').analyze())
+        .violations
+    ).toEqual([]);
+    expect(
+      await dialog.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth
+      )
+    ).toBe(true);
+    await dialog.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await dialog.screenshot({
+      path: `test-results/feed-settings-${language}-${width}.png`
+    });
+    await prepare.scrollIntoViewIfNeeded();
+    await dialog.screenshot({
+      path: `test-results/feed-settings-actions-${language}-${width}.png`
+    });
+    await prepare.click();
+    await expect(dialog).toContainText(
+      english ? 'Preparation complete.' : 'Préparation terminée.'
+    );
+    expect(commands[1]).toEqual({
+      action: 'prepare',
+      feedId: 'openg7:facebook'
+    });
+    await dialog
+      .getByRole('button', {
+        name: english ? 'Check connection' : 'Vérifier la connexion',
+        exact: true
+      })
+      .click();
+    await expect(dialog).toContainText(
+      english ? 'Check complete.' : 'Vérification terminée.'
+    );
+    expect(commands[2]).toEqual({ action: 'check', feedId: 'openg7:facebook' });
+    await page.keyboard.press('Escape');
+    await expect(opener).toBeFocused();
+    await opener.press('Enter');
+    await expect(capacity).toHaveValue('6');
+    await expect(monday).toBeChecked();
+    expect(commands).toHaveLength(3);
+  });
+}
+
+test('feed settings retain edits on failure and block actions while saving', async ({
+  page
+}) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const commands = await fixtures(
+    page,
+    'draft',
+    true,
+    [],
+    {},
+    { settingsResponse: () => gate }
+  );
+  await page.goto('/admin/fundraiser/publications/automation?settings=feeds');
+  await page
+    .getByRole('button', { name: 'Réglages', exact: true })
+    .first()
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Réglages', exact: true });
+  const horizon = dialog.getByRole('spinbutton', {
+    name: 'Jours à préparer',
+    exact: true
+  });
+  await horizon.fill('21');
+  const save = dialog.getByRole('button', {
+    name: 'Enregistrer les réglages',
+    exact: true
+  });
+  await save.click();
+  try {
+    await expect(save).toBeDisabled();
+    await expect(horizon).toBeDisabled();
+    await dialog.locator('summary').focus();
+    await page.keyboard.press('Tab');
+    await expect(dialog.locator('summary')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(dialog.locator('summary')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Préparer maintenant', exact: true })
+    ).toBeDisabled();
+    expect(commands).toHaveLength(1);
+  } finally {
+    release();
+  }
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  await expect(horizon).toHaveValue('21');
+  await expect(save).toBeEnabled();
+  await expect(
+    dialog.getByRole('status').filter({ hasText: 'Enregistré.' })
+  ).toHaveCount(0);
+  expect(commands.map((command) => command.action)).toEqual(['settings']);
+});
 
 for (const width of [390, 1280]) {
   test(`worker switch confirms activation, persists state and stops processing at ${width}px`, async ({

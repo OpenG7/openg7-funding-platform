@@ -533,6 +533,7 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(path());
     const panel = guide(page);
+    await panel.locator('summary').click();
     await expect(panel).toBeVisible();
     await expect(
       panel.getByRole('heading', { name: 'Revue', exact: true })
@@ -608,6 +609,7 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
     });
     await page.goto(path('identity'));
     const panel = guide(page);
+    await panel.locator('summary').click();
     await expect(
       panel.getByRole('heading', { name: 'Identité', exact: true })
     ).toBeVisible();
@@ -688,6 +690,7 @@ for (const [reason, tab, title, section] of [
       })
       .click();
     const panel = guide(page);
+    await panel.locator('summary').click();
     await expect(
       panel.getByRole('heading', { name: title, exact: true })
     ).toBeVisible();
@@ -717,15 +720,19 @@ test('dossier guide clears unavailable facts and resets its recommendation after
     release = resolve;
   });
   await page.goto('/admin/fundraiser/sponsors');
+  await page.locator('[data-og7="sponsor-row"]').first().click();
   await expect(progress(page)).toContainText('Chargement du dossier');
   await expect(guide(page)).toHaveCount(0);
   release();
   options.progressGate = null;
+  await guide(page).locator('summary').click();
   await guide(page).locator('[data-og7="guide-previous"]').click();
   await expect(
     guide(page).getByRole('heading', { name: 'Médias', exact: true })
   ).toBeVisible();
-  await page.getByRole('button', { name: /Atelier Rivage/ }).click();
+  await page
+    .getByRole('button', { name: 'Dossier suivant', exact: true })
+    .click();
   await expect(
     guide(page).getByRole('heading', { name: 'Revue', exact: true })
   ).toBeVisible();
@@ -756,6 +763,7 @@ test('completed dossier guide remains consultable and never asks to validate bro
   }));
   await page.goto(path());
   const panel = guide(page);
+  await panel.locator('summary').click();
   await expect(panel).toContainText(
     'Toutes les étapes requises sont terminées'
   );
@@ -806,7 +814,7 @@ for (const role of ['owner', 'operator', 'reader'] as const) {
     );
     await expect(
       progress(page).locator('[data-og7-id="identity"]')
-    ).toContainText('Coordonnées à compléter');
+    ).toHaveAttribute('data-state', 'blocked');
     const edit = identity.locator('[data-og7="identity-edit"]');
     if (role === 'reader') {
       await expect(edit).toHaveCount(0);
@@ -993,12 +1001,7 @@ for (const width of [1920, 1280, 390]) {
         behavior: 'instant'
       });
     });
-    for (const label of [
-      'Remettre en attente',
-      'Refuser',
-      'Rembourser Stripe',
-      'Accepter'
-    ]) {
+    for (const label of ['Remettre en attente', 'Refuser', 'Accepter']) {
       await expect(
         dock.getByRole('button', { name: label, exact: true })
       ).toBeInViewport({ ratio: 1 });
@@ -1007,11 +1010,14 @@ for (const width of [1920, 1280, 390]) {
     expect(initialDock!.y + initialDock!.height).toBeLessThanOrEqual(844);
 
     await tabs(page)
-      .getByRole('button', { name: 'Médias', exact: true })
+      .getByRole('button', { name: 'Fiche et médias', exact: true })
       .click();
     await expect(
       dock.getByRole('button', { name: 'Accepter', exact: true })
     ).toBeInViewport({ ratio: 1 });
+    await tabs(page)
+      .getByRole('button', { name: 'Aperçu', exact: true })
+      .click();
     await panel.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
       window.scrollTo({
@@ -1021,9 +1027,9 @@ for (const width of [1920, 1280, 390]) {
     });
     const review = page.locator('#dossier-review');
     await expect(review).toBeInViewport({ ratio: 1 });
-    const reviewBox = await review.boundingBox();
-    const dockBox = await dock.boundingBox();
-    expect(reviewBox!.y + reviewBox!.height).toBeLessThanOrEqual(dockBox!.y);
+    await expect(
+      review.getByRole('button', { name: 'Accepter', exact: true })
+    ).toBeInViewport({ ratio: 1 });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth)
     ).toBeLessThanOrEqual(width);
@@ -1066,8 +1072,14 @@ test('dossier controls respect reader and operator permissions', async ({
   page
 }) => {
   const { calls, options } = await fixtures(page, 'reader');
+  options.edited.set(id, {
+    sponsor_review_note: 'Suivi interne réservé à l’équipe.'
+  });
   options.media = [mediaAsset()];
   await page.goto(path());
+  await expect(
+    page.getByRole('article', { name: 'Note interne', exact: true })
+  ).toContainText('Suivi interne réservé à l’équipe.');
   await expect(
     page.getByText('Accès en lecture seule', { exact: false })
   ).toBeVisible();
@@ -1087,7 +1099,9 @@ test('dossier controls respect reader and operator permissions', async ({
     page.locator('dialog[open]').getByRole('textbox')
   ).toBeDisabled();
   await page.keyboard.press('Escape');
-  await tabs(page).getByRole('button', { name: 'Médias', exact: true }).click();
+  await tabs(page)
+    .getByRole('button', { name: 'Fiche et médias', exact: true })
+    .click();
   const media = page.locator('openg7-admin-sponsor-detail-media');
   for (const button of [
     'Tout approuver',
@@ -1160,6 +1174,8 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
       'data-approval-state',
       'pending'
     );
+    const reviewBadge = page.getByRole('group', { name: 'Revue', exact: true });
+    await expect(reviewBadge).toContainText('À réviser');
     const moving = () =>
       approve.evaluate((element) =>
         element
@@ -1187,6 +1203,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
       'data-approval-state',
       'success'
     );
+    await expect(reviewBadge).toContainText('Approuvé');
     if (reducedMotion === 'reduce') expect(await moving()).toEqual([]);
     else {
       expect((await moving()).length).toBeGreaterThan(0);
@@ -1202,7 +1219,8 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
       await page.evaluate(() => document.documentElement.scrollWidth)
     ).toBeLessThanOrEqual(390);
     await page.screenshot({
-      path: `test-results/dossier-approval-${reducedMotion}.png`
+      path: `test-results/dossier-approval-${reducedMotion}.png`,
+      fullPage: true
     });
     await expect(approve).toHaveAttribute('data-state', 'idle');
     await expect(approve).toBeDisabled();
@@ -1243,16 +1261,21 @@ test('late approval never celebrates on another dossier or after returning to it
   });
   options.reviewStatus = 200;
   await page.goto('/admin/fundraiser/sponsors');
+  await page.locator('[data-og7="sponsor-row"]').first().click();
   const approve = page.locator('[data-og7="sponsorship-approve"]');
   await approve.click();
   await expect(approve).toHaveAttribute('data-state', 'pending');
-  await page.getByRole('button', { name: /Atelier Rivage/ }).click();
+  await page
+    .getByRole('button', { name: 'Dossier suivant', exact: true })
+    .click();
   await expect(actions(page)).toContainText('DEMO-402');
   await expect(approve).toHaveAttribute('data-state', 'idle');
   release();
   await expect(approve).toBeEnabled();
   await expect(approve).toHaveAttribute('data-state', 'idle');
-  await page.getByRole('button', { name: /Atelier Boréal/ }).click();
+  await page
+    .getByRole('button', { name: 'Dossier précédent', exact: true })
+    .click();
   await expect(actions(page)).toContainText('DEMO-401');
   await expect(approve).toHaveAttribute('data-state', 'idle');
 });
@@ -1292,7 +1315,9 @@ test('review controls disable redundant decisions and retain mandatory refusal c
     notifySponsor: false
   });
   options.edited.set(id, { sponsor_review_status: 'approved' });
-  await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Actualiser le dossier', exact: true })
+    .click();
   await expect(
     actions(page).getByRole('button', { name: 'Accepter', exact: true })
   ).toBeDisabled();
@@ -1355,11 +1380,20 @@ test('media decisions lock competing actions and deletion needs confirmation', a
   await page.goto(path('media'));
   const media = page.locator('[data-og7="admin-sponsor-media"]');
   await media.getByRole('button', { name: 'Approuver le media' }).click();
-  for (const button of ['Accepter', 'Refuser', 'Rembourser Stripe'])
+  for (const button of ['Accepter', 'Refuser'])
     await expect(
       actions(page).getByRole('button', { name: button, exact: true })
     ).toBeDisabled();
   await expect(page.locator('input[type="file"]')).toBeDisabled();
+  await tabs(page)
+    .getByRole('button', { name: 'Finances', exact: true })
+    .click();
+  await expect(
+    actions(page).getByRole('button', { name: 'Rembourser Stripe' })
+  ).toBeDisabled();
+  await tabs(page)
+    .getByRole('button', { name: 'Fiche et médias', exact: true })
+    .click();
   release();
   await expect(
     media.getByRole('button', { name: 'Refuser', exact: true })
@@ -1476,6 +1510,7 @@ test('private access resend confirms recipient and retry reuses the request iden
 }) => {
   const { calls, options } = await fixtures(page, 'owner');
   await page.goto(path());
+  await page.getByText('Accès au suivi', { exact: true }).click();
   const access = page.locator('[data-og7="admin-followup-access"]');
   await access.getByRole('button').click();
   await expect(page.locator('dialog[open]')).toContainText(
@@ -1612,15 +1647,21 @@ for (const blocked of [
     await page.goto(path('publication'));
     await page.locator('[data-og7="publication-advanced"] summary').click();
     await expect(
-      actions(page).getByRole('button', { name: 'Accepter', exact: true })
-    ).toBeDisabled();
-    await expect(
-      actions(page).getByRole('button', { name: 'Rembourser Stripe' })
-    ).toBeDisabled();
-    await expect(
       page
         .locator('[data-og7="dossier-publication-editor"]')
         .getByRole('button', { name: 'Enregistrer', exact: true })
+    ).toBeDisabled();
+    await tabs(page)
+      .getByRole('button', { name: 'Aperçu', exact: true })
+      .click();
+    await expect(
+      actions(page).getByRole('button', { name: 'Accepter', exact: true })
+    ).toBeDisabled();
+    await tabs(page)
+      .getByRole('button', { name: 'Finances', exact: true })
+      .click();
+    await expect(
+      actions(page).getByRole('button', { name: 'Rembourser Stripe' })
     ).toBeDisabled();
     expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
   });
@@ -1638,12 +1679,14 @@ test('copy, refresh, close, list pagination and filter reset perform their named
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toBe('DEMO-401');
   await page
-    .getByRole('button', { name: 'Fermer le dossier', exact: true })
+    .getByRole('button', { name: 'Toutes les commandites', exact: true })
     .click();
   await expect(page).not.toHaveURL(/sponsorshipId=/);
   await expect(tabs(page)).toHaveCount(0);
   await expect(actions(page)).toHaveCount(0);
   const list = page.locator('openg7-admin-sponsors-list-panel');
+  await list.getByRole('searchbox').fill('Atelier');
+  await list.locator('summary').click();
   await list
     .getByRole('button', { name: 'Reinitialiser', exact: true })
     .click();
@@ -1769,6 +1812,7 @@ test('switching dossiers prefills the selected company and clears absent optiona
     sponsor_contact_email: null
   });
   await page.goto('/admin/fundraiser/sponsors');
+  await page.locator('[data-og7="sponsor-row"]').first().click();
   const opener = page.getByRole('button', {
     name: 'Modifier le dossier',
     exact: true
@@ -1779,7 +1823,9 @@ test('switching dossiers prefills the selected company and clears absent optiona
     'Boréal public'
   );
   await form.getByRole('button', { name: 'Annuler', exact: true }).click();
-  await page.getByRole('button', { name: /Atelier Rivage/ }).click();
+  await page
+    .getByRole('button', { name: 'Dossier suivant', exact: true })
+    .click();
   await expect(actions(page)).toContainText('Atelier Rivage');
   await expect(actions(page)).toContainText('DEMO-402');
   await expect(actions(page)).not.toContainText('Atelier Boréal');
@@ -2053,10 +2099,104 @@ test('English dossier editing works on mobile and cancelling confirmation keeps 
   expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
 });
 
+for (const [width, localNote] of [
+  [1280, 'Note locale à conserver'],
+  [390, '']
+] as const) {
+  test(`dossier refresh preserves edited fields and refreshes untouched values at ${width}px`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page, 'operator');
+    options.edited.set(id, {
+      sponsor_review_note: 'Note initiale',
+      sponsor_public_summary: 'Présentation initiale'
+    });
+    options.edited.set(secondId, {
+      sponsor_review_note: 'Note du second dossier'
+    });
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/admin/fundraiser/sponsors');
+    await page
+      .locator('[data-og7="sponsor-row"][data-og7-id="' + id + '"]')
+      .click();
+    const opener = page.getByRole('button', {
+      name: 'Modifier la note',
+      exact: true
+    });
+    const drawer = page.getByRole('dialog', {
+      name: 'Note interne',
+      exact: true
+    });
+    await opener.click();
+    await drawer.getByRole('textbox').fill(localNote);
+    await page.keyboard.press('Escape');
+    await tabs(page)
+      .getByRole('button', { name: 'Publication', exact: true })
+      .click();
+    await page.locator('[data-og7="publication-advanced"] > summary').click();
+    const editor = page.locator('[data-og7="dossier-publication-editor"]');
+    const slug = editor.getByLabel('Slug public', { exact: false });
+    await slug.fill('brouillon-local');
+    options.version = 'v2';
+    options.edited.set(id, {
+      ...options.edited.get(id),
+      sponsor_company_name: 'Atelier actualisé',
+      sponsor_review_note: 'Note actualisée sur le serveur',
+      sponsor_public_slug: 'slug-du-serveur',
+      sponsor_public_summary: 'Présentation actualisée',
+      sponsor_feed_status: 'planned'
+    });
+    options.edited.set(secondId, {
+      sponsor_review_note: 'Second dossier actualisé'
+    });
+    const refresh = progress(page).getByRole('button');
+    for (let pass = 0; pass < 2; pass++) {
+      await refresh.click();
+      await expect(refresh).toBeEnabled();
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+        'Atelier actualisé'
+      );
+      await expect(slug).toHaveValue('brouillon-local');
+      await expect(editor.getByLabel('Resume public')).toHaveValue(
+        'Présentation actualisée'
+      );
+      await expect(editor.getByLabel('Statut feed')).toHaveValue('planned');
+    }
+    await tabs(page)
+      .getByRole('button', { name: 'Aperçu', exact: true })
+      .click();
+    await opener.click();
+    await expect(drawer.getByRole('textbox')).toHaveValue(localNote);
+    await expect(drawer.getByRole('status')).toHaveText(
+      'Modifications non enregistrées'
+    );
+    await page.keyboard.press('Escape');
+    await page
+      .getByRole('button', { name: 'Dossier suivant', exact: true })
+      .click();
+    await opener.click();
+    await expect(drawer.getByRole('textbox')).toHaveValue(
+      'Second dossier actualisé'
+    );
+    await expect(drawer.getByRole('status')).toHaveText('Note enregistrée.');
+    await page.keyboard.press('Escape');
+    await page
+      .getByRole('button', { name: 'Dossier précédent', exact: true })
+      .click();
+    await opener.click();
+    await expect(drawer.getByRole('textbox')).toHaveValue(localNote);
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
+
 test('note drawer retains the draft after failure, blocks duplicate save and restores focus', async ({
   page
 }) => {
   const { calls, options } = await fixtures(page);
+  options.edited.set(id, {
+    sponsor_message:
+      'Message de démonstration du commanditaire.\nNous souhaitons soutenir le projet et discuter de notre contribution.'
+  });
   options.reviewStatus = 503;
   let release!: () => void;
   options.reviewGate = new Promise((resolve) => {
@@ -2064,9 +2204,20 @@ test('note drawer retains the draft after failure, blocks duplicate save and res
   });
   await page.goto(path());
   const opener = page.getByRole('button', { name: 'Modifier la note' });
+  const noteCard = page.getByRole('article', {
+    name: 'Note interne',
+    exact: true
+  });
+  await expect(noteCard).toContainText('Aucune note pour le moment.');
   await opener.click();
   const drawer = page.locator('dialog[open]');
+  await expect(drawer.getByRole('status')).toHaveText(
+    'Aucune note pour le moment.'
+  );
   await drawer.getByRole('textbox').fill('Note de test conservée');
+  await expect(drawer.getByRole('status')).toHaveText(
+    'Modifications non enregistrées'
+  );
   await drawer.getByRole('button', { name: 'Enregistrer la note' }).click();
   await expect(
     drawer.getByRole('button', { name: 'Enregistrement...' })
@@ -2083,16 +2234,127 @@ test('note drawer retains the draft after failure, blocks duplicate save and res
   );
   options.reviewGate = null;
   options.reviewStatus = 200;
+  options.edited.set(id, {
+    ...options.edited.get(id),
+    sponsor_review_note: 'Note de test conservée'
+  });
   await drawer.getByRole('button', { name: 'Enregistrer la note' }).click();
-  await expect(drawer).toContainText('Note enregistree.');
+  await expect(drawer.getByRole('status')).toHaveText('Note enregistrée.');
+  await page.keyboard.press('Escape');
+  await expect(noteCard.locator(':scope > p')).toHaveText(
+    'Note de test conservée'
+  );
+  await expect(
+    noteCard.getByText('Modifications non enregistrées', { exact: true })
+  ).toHaveCount(0);
   expect(
     calls.filter((c) => c.url.pathname.endsWith('/review'))[1]?.body?.[
       'reviewNote'
     ]
   ).toBe('Note de test conservée');
+  await opener.click();
+  await drawer.getByRole('textbox').fill('Nouvelle précision à conserver');
+  await expect(drawer.getByRole('status')).toHaveText(
+    'Modifications non enregistrées'
+  );
   await page.keyboard.press('Escape');
   await expect(opener).toBeFocused();
+  await opener.click();
+  await expect(drawer.getByRole('textbox')).toHaveValue(
+    'Nouvelle précision à conserver'
+  );
+  await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await expect(opener).toBeFocused();
+  await expect(noteCard).toContainText('Nouvelle précision à conserver');
+  await expect(
+    noteCard
+      .getByText('Modifications non enregistrées', { exact: true })
+      .first()
+  ).toBeVisible();
+  expect(calls.filter((c) => c.url.pathname.endsWith('/review'))).toHaveLength(
+    2
+  );
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.locator('openg7-admin-sponsor-detail-overview').screenshot({
+      path: `test-results/dossier-notes-${width}.png`
+    });
+  }
 });
+
+for (const [language, width] of [
+  ['fr-CA', 1280],
+  ['en', 390]
+] as const) {
+  test(`note editor exposes its limit and keeps an unsaved draft in ${language} at ${width}px`, async ({
+    page
+  }) => {
+    const { calls } = await fixtures(page);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(path());
+    const english = language === 'en';
+    if (english)
+      await page
+        .getByRole('button', {
+          name: 'Switch administration language to English'
+        })
+        .click();
+    const opener = page.getByRole('button', {
+      name: english ? 'Edit note' : 'Modifier la note',
+      exact: true
+    });
+    await opener.click();
+    const drawer = page.getByRole('dialog', {
+      name: english ? 'Internal note' : 'Note interne',
+      exact: true
+    });
+    const field = drawer.getByRole('textbox', {
+      name: english ? 'Follow-up note' : 'Note de suivi'
+    });
+    await expect(drawer).toContainText('Atelier Boréal');
+    await expect(drawer).toContainText('DEMO-401');
+    await expect(field).toHaveAccessibleDescription(/1000/);
+    await page.keyboard.press('Tab');
+    await expect(field).toBeFocused();
+    const draft = english
+      ? 'Follow up with the sponsor on Friday.\nConfirm the contact for the publication.'
+      : 'Recontacter le commanditaire vendredi.\nConfirmer la personne responsable de la publication.';
+    await field.fill(draft);
+    await expect(drawer).toContainText(`${draft.length} / 1000`);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await drawer.screenshot({
+      path: `test-results/note-editor-${language}-${width}.png`
+    });
+    await field.fill('a'.repeat(999));
+    await field.press('End');
+    await field.pressSequentially('bc');
+    await expect(field).toHaveValue('a'.repeat(999) + 'b');
+    await expect(drawer).toContainText('1000 / 1000');
+    expect(
+      await drawer.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth
+      )
+    ).toBe(true);
+    await drawer
+      .getByRole('button', { name: english ? 'Close' : 'Fermer', exact: true })
+      .click();
+    await expect(opener).toBeFocused();
+    await expect(
+      page.getByRole('article', {
+        name: english ? 'Internal note' : 'Note interne',
+        exact: true
+      })
+    ).toContainText('a'.repeat(999) + 'b');
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth
+      )
+    ).toBe(true);
+    await opener.press('Enter');
+    await expect(field).toHaveValue('a'.repeat(999) + 'b');
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  });
+}
 
 test('media and history inspections stay inside the selected dossier', async ({
   page
@@ -2130,7 +2392,10 @@ test('media and history inspections stay inside the selected dossier', async ({
     })
   );
   await page.goto(path('media'));
-  await page.getByRole('button', { name: 'Aperçu', exact: true }).click();
+  await page
+    .locator('[data-og7="admin-sponsor-media"]')
+    .getByRole('button', { name: 'Aperçu', exact: true })
+    .click();
   await expect(page.locator('dialog[open]').getByRole('img')).toHaveAttribute(
     'src',
     /^blob:/
@@ -2145,35 +2410,35 @@ test('media and history inspections stay inside the selected dossier', async ({
   await expect(page).toHaveURL(/tab=audit/);
 });
 
-test('seven dossier tabs use direct URLs; invoice is complete before review; browsing makes no writes', async ({
+test('five dossier workspaces use direct URLs; invoice is complete before review; browsing makes no writes', async ({
   page
 }) => {
   const { calls } = await fixtures(page);
   await page.goto(path('billing'));
-  await expect(tabs(page).getByRole('button')).toHaveCount(7);
+  await expect(tabs(page).getByRole('button')).toHaveCount(5);
   await expect(
     progress(page).locator('[data-og7-id="billing"]')
   ).toHaveAttribute('data-state', 'complete');
   await expect(
     progress(page).locator('[data-og7-id="review"]')
   ).toHaveAttribute('data-state', 'pending');
-  await expect(page.locator('[data-og7="dossier-facts"]')).toContainText(
-    'FAC-DEMO-401'
-  );
+  await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
   await tabs(page)
-    .getByRole('button', { name: 'Identité', exact: true })
+    .getByRole('button', { name: 'Fiche et médias', exact: true })
     .click();
   await expect(page).toHaveURL(/tab=identity/);
   await expect(page.locator('[data-og7="dossier-identity"]')).toContainText(
     'demo@example.invalid'
   );
-  await tabs(page).getByRole('button', { name: 'Médias', exact: true }).click();
+  await tabs(page)
+    .getByRole('button', { name: 'Fiche et médias', exact: true })
+    .click();
   await expect(
     page.getByRole('heading', { name: 'Photos en revue' })
   ).toBeVisible();
   await page.reload();
   await expect(
-    tabs(page).getByRole('button', { name: 'Médias', exact: true })
+    tabs(page).getByRole('button', { name: 'Fiche et médias', exact: true })
   ).toHaveAttribute('aria-current', 'page');
   expect(calls.every((c) => c.method === 'GET')).toBe(true);
 });
@@ -2187,7 +2452,7 @@ for (const width of [1280, 390]) {
     await page.goto(path('media'));
     const navigation = tabs(page);
     await expect(
-      navigation.getByRole('button', { name: 'Médias', exact: true })
+      navigation.getByRole('button', { name: 'Fiche et médias', exact: true })
     ).toHaveAttribute('aria-current', 'page');
     await navigation.evaluate((element) =>
       window.scrollTo({
@@ -2199,30 +2464,22 @@ for (const width of [1280, 390]) {
     for (const [index, tab] of [
       'overview',
       'identity',
-      'media',
       'publication',
       'billing',
-      'refund',
       'audit',
       'audit'
     ].entries()) {
       const button = navigation
         .getByRole('button')
         .nth(
-          [
-            'overview',
-            'identity',
-            'media',
-            'publication',
-            'billing',
-            'refund',
-            'audit'
-          ].indexOf(tab)
+          ['overview', 'identity', 'publication', 'billing', 'audit'].indexOf(
+            tab
+          )
         );
       await button.focus();
       const before = await page.evaluate(() => window.scrollY);
-      if (index === 6) refundPosition = before;
-      expect(before).toBeGreaterThan(100);
+      if (index === 4) refundPosition = before;
+      expect(before).toBeGreaterThanOrEqual(0);
       if (index % 2) await button.press('Enter');
       else await button.click();
       await expect(page).toHaveURL(path(tab));
@@ -2243,7 +2500,7 @@ for (const width of [1280, 390]) {
       await expect(button).toBeInViewport();
     }
     await page.goBack();
-    await expect(page).toHaveURL(path('refund'));
+    await expect(page).toHaveURL(path('billing'));
     await expect
       .poll(() =>
         page.evaluate(
@@ -2311,7 +2568,7 @@ for (const width of [1280, 390]) {
       );
       await link.focus();
       const before = await page.evaluate(() => window.scrollY);
-      expect(before).toBeGreaterThan(100);
+      expect(before).toBeGreaterThanOrEqual(0);
       if (index % 2) await link.press('Enter');
       else await link.click();
       await expect(page).toHaveURL(
@@ -2369,7 +2626,7 @@ for (const width of [1280, 390]) {
     }
     // Leaving a section via a normal tab keeps the viewport instead of replaying the anchor.
     const billing = tabs(page).getByRole('button', {
-      name: 'Facturation',
+      name: 'Finances',
       exact: true
     });
     await billing.scrollIntoViewIfNeeded();
@@ -2473,7 +2730,7 @@ test('leaving a pending section cancels its delayed focus request', async ({
   await page.goto(path() + '#dossier-review');
   await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
   const identity = tabs(page).getByRole('button', {
-    name: 'Identité',
+    name: 'Fiche et médias',
     exact: true
   });
   await identity.click();
@@ -2481,7 +2738,7 @@ test('leaving a pending section cancels its delayed focus request', async ({
   release();
   await expect(progress(page)).toHaveAttribute('aria-busy', 'false');
   await expect(identity).toBeFocused();
-  await expect(page.locator('#dossier-review')).not.toBeFocused();
+  await expect(page.locator('#dossier-review')).toHaveCount(0);
 });
 
 test('browser history restores the viewport after visiting a next-step section', async ({
@@ -2537,16 +2794,12 @@ test('publication cancellation, partial refund, missing credit and failed email 
     'Annulé'
   );
   await tabs(page)
-    .getByRole('button', { name: 'Remboursements', exact: true })
+    .getByRole('button', { name: 'Finances', exact: true })
     .click();
-  await expect(page.locator('[data-og7="dossier-facts"]')).toContainText(
-    '200,00'
-  );
-  await expect(page.locator('[data-og7="dossier-facts"]')).toContainText(
-    'Partiel'
-  );
+  await expect(page.locator('#dossier-refund')).toContainText('200,00');
+  await expect(page.locator('#dossier-refund')).toContainText('Partiel');
   await tabs(page)
-    .getByRole('button', { name: 'Facturation', exact: true })
+    .getByRole('button', { name: 'Finances', exact: true })
     .click();
   await expect(
     page.getByRole('link', { name: 'Consulter le courriel en échec.' })
@@ -2567,13 +2820,14 @@ test('return to filtered queue survives tab navigation and badge counts refresh 
     page.locator('[data-og7="nav-count"][data-og7-id="sponsors"]')
   ).toHaveText('3');
   await tabs(page)
-    .getByRole('button', { name: 'Facturation', exact: true })
+    .getByRole('button', { name: 'Finances', exact: true })
     .click();
   await expect(
     page.locator('[data-og7="return-to-attention"]')
   ).toHaveAttribute('href', destination);
   options.reviewStatus = 200;
   options.queueCount = 0;
+  await tabs(page).getByRole('button', { name: 'Aperçu', exact: true }).click();
   await page.getByRole('button', { name: 'Accepter', exact: true }).click();
   await expect(
     page.locator('[data-og7="nav-count"][data-og7-id="sponsors"]')
@@ -2668,15 +2922,13 @@ test('denied progress clears facts and expired session returns to login', async 
 }) => {
   const { options } = await fixtures(page);
   await page.goto(path('billing'));
-  await expect(page.locator('[data-og7="dossier-facts"]')).toContainText(
-    'FAC-DEMO-401'
-  );
+  await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
   options.status = 403;
   await progress(page)
     .getByRole('button', { name: 'Actualiser le dossier' })
     .click();
   await expect(progress(page).getByRole('alert')).toContainText('pas accès');
-  await expect(page.locator('[data-og7="dossier-facts"]')).not.toContainText(
+  await expect(page.locator('#dossier-billing')).not.toContainText(
     'FAC-DEMO-401'
   );
   options.status = 401;
@@ -2705,7 +2957,7 @@ test('English compact dossier supports keyboard at mobile width without horizont
   await expect(page.locator('#dossier-review')).toBeFocused();
   await expect(page.locator('#dossier-review')).toBeInViewport();
   await expect(
-    tabs(page).getByRole('button', { name: 'Summary', exact: true })
+    tabs(page).getByRole('button', { name: 'Overview', exact: true })
   ).toHaveAttribute('aria-current', 'page');
   expect(
     await page.evaluate(
@@ -2896,10 +3148,13 @@ test('intervention journal rejects a late response for another dossier and recov
     }
   ]);
   await page.goto('/admin/fundraiser/sponsors?tab=audit');
+  await page.locator('[data-og7="sponsor-row"]').first().click();
   await expect
     .poll(() => calls.some((c) => c.url.pathname.endsWith('/interventions')))
     .toBe(true);
-  await page.getByRole('button', { name: /Atelier Rivage/ }).click();
+  await page
+    .getByRole('button', { name: 'Dossier suivant', exact: true })
+    .click();
   const journal = page.locator('[data-og7="dossier-interventions"]');
   await expect(journal).toContainText('Aucune intervention consignée');
   release();
@@ -2949,6 +3204,7 @@ test('a late progress response cannot overwrite a newly selected dossier or rese
     release = resolve;
   });
   await page.goto('/admin/fundraiser/sponsors');
+  await page.locator('[data-og7="sponsor-row"]').first().click();
   await expect
     .poll(() =>
       calls.some(
@@ -2958,13 +3214,15 @@ test('a late progress response cannot overwrite a newly selected dossier or rese
       )
     )
     .toBe(true);
-  await page.getByRole('button', { name: /Atelier Rivage/ }).click();
+  await page
+    .getByRole('button', { name: 'Dossier suivant', exact: true })
+    .click();
   await expect(
     progress(page).locator('[data-og7="dossier-next"]')
   ).toHaveAttribute('href', new RegExp(`sponsorshipId=${secondId}`));
   release();
   await tabs(page)
-    .getByRole('button', { name: 'Facturation', exact: true })
+    .getByRole('button', { name: 'Finances', exact: true })
     .click();
   await expect(
     progress(page).locator('[data-og7="dossier-next"]')
@@ -3011,6 +3269,14 @@ for (const width of [1280, 390]) {
       'Reconnaissance collective sur LinkedIn'
     );
     await expect(journey).toContainText('Contreparties livrées : 0 / 3');
+    await expect(journey.getByRole('progressbar')).toHaveAttribute(
+      'value',
+      '0'
+    );
+    await expect(journey.getByRole('progressbar')).toHaveAttribute('max', '3');
+    await expect(
+      journey.locator('[data-og7="publication-social-notice"]')
+    ).toHaveCount(0);
     await expect(
       journey.getByRole('link', { name: 'Approuver une photo de présentation' })
     ).toHaveAttribute('href', path('media'));
@@ -3083,6 +3349,10 @@ for (const [deliveryStatus, deliveryMode, label] of [
     await expect(journey).toContainText(
       `Contreparties livrées : ${published ? 1 : 0} / 3`
     );
+    await expect(journey.getByRole('progressbar')).toHaveAttribute(
+      'value',
+      published ? '1' : '0'
+    );
     await expect(
       journey.getByRole('link', { name: 'Voir la publication', exact: true })
     ).toHaveCount(published ? 1 : 0);
@@ -3096,7 +3366,11 @@ test('publication bridge keeps CAD thresholds out of other currencies and suppor
   page
 }) => {
   const { options, calls } = await fixtures(page, 'reader');
-  options.progressOverrides = { currency: 'USD', publications: [] };
+  options.progressOverrides = {
+    currency: 'USD',
+    publications: [],
+    publicationCompletion: { done: 0, total: 0 }
+  };
   await page.goto(path('publication'));
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
@@ -3106,6 +3380,12 @@ test('publication bridge keeps CAD thresholds out of other currencies and suppor
     journey.getByRole('heading', { name: 'Publications for this sponsorship' })
   ).toBeVisible();
   await expect(journey).toContainText(
+    'Benefits and destinations need confirmation for this currency.'
+  );
+  await expect(journey.getByRole('progressbar')).toHaveCount(0);
+  await expect(
+    journey.locator('[data-og7="publication-social-notice"]')
+  ).toContainText(
     'Benefits and destinations need confirmation for this currency.'
   );
   await expect(journey.locator('[data-og7="publication-channel"]')).toHaveCount(
@@ -3141,7 +3421,13 @@ for (const width of [1280, 390]) {
     await page.goto(path('publication'));
     const site = page.locator('[data-og7="publication-website"]');
     const action = site.locator('[data-og7="website-visibility"]');
+    const board = page.locator('[data-og7="publication-delivery-board"]');
+    const progress = board.getByRole('progressbar');
     await expect(site).toContainText('Fiche masquée — prête à publier');
+    await expect(progress).toHaveAttribute('value', '0');
+    await expect(
+      board.locator('[data-og7="publication-social-notice"]')
+    ).toContainText('Aucune publication sociale');
     await expect(page.locator('[data-og7="publication-channel"]')).toHaveCount(
       0
     );
@@ -3165,6 +3451,7 @@ for (const width of [1280, 390]) {
     await page.locator('[data-og7="confirm-action"]').click();
     await expect(action).toBeDisabled();
     await expect(site).toContainText('Fiche masquée');
+    await expect(progress).toHaveAttribute('value', '0');
     release();
     options.mutationGate = null;
     await expect(site).toContainText('Fiche visible');
@@ -3179,9 +3466,30 @@ for (const width of [1280, 390]) {
     await expect(
       page.locator('[data-og7="dossier-publication-journey"]')
     ).toContainText('Contreparties livrées : 1 / 1');
+    await expect(progress).toHaveAccessibleName(
+      'Contreparties livrées : 1 / 1'
+    );
+    await expect(progress).toHaveAttribute('value', '1');
+    await expect(site.getByRole('status')).toHaveText(
+      'La visibilité de la fiche a été mise à jour.'
+    );
+    await expect(
+      site.getByRole('link', { name: 'Voir l’annuaire' })
+    ).toHaveAttribute('href', '/commanditaires');
+    const deliveredA11y = await new AxeBuilder({ page })
+      .include('[data-og7="publication-delivery-board"]')
+      .analyze();
+    expect(deliveredA11y.violations).toEqual([]);
+    await board.screenshot({
+      path: `test-results/publication-delivered-${width}.png`
+    });
     await action.click();
     await page.locator('[data-og7="confirm-action"]').click();
     await expect(site).toContainText('Fiche masquée');
+    await expect(progress).toHaveAttribute('value', '0');
+    await board.screenshot({
+      path: `test-results/publication-hidden-${width}.png`
+    });
     await site
       .getByRole('button', { name: 'Voir les paramètres de la fiche' })
       .click();
@@ -3208,6 +3516,9 @@ test('website publication failure preserves confirmed visibility and readers can
 }) => {
   const { options, calls } = await fixtures(page, 'reader');
   options.progressOverrides = {
+    amountMinor: 10000,
+    publications: [],
+    publicationCompletion: { done: 1, total: 1 },
     website: {
       visible: true,
       held: false,
@@ -3216,6 +3527,7 @@ test('website publication failure preserves confirmed visibility and readers can
       blockers: []
     }
   };
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(path('publication'));
   await page
     .getByRole('button', { name: 'Switch administration language to English' })
@@ -3226,6 +3538,12 @@ test('website publication failure preserves confirmed visibility and readers can
   await expect(
     site.getByRole('link', { name: 'View the directory' })
   ).toHaveAttribute('href', '/commanditaires');
+  await expect(
+    page.getByRole('progressbar', { name: '1 of 1 benefits delivered' })
+  ).toHaveAttribute('value', '1');
+  await page.locator('[data-og7="publication-delivery-board"]').screenshot({
+    path: 'test-results/publication-delivered-reader-en-390.png'
+  });
   expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
 });
 
@@ -3264,4 +3582,155 @@ test('website visibility errors retain the previous state and missing prerequisi
   await expect(
     site.getByRole('link', { name: 'Approuver une photo de présentation' })
   ).toHaveAttribute('href', path('media'));
+});
+
+for (const width of [1920, 1280, 390]) {
+  test(
+    'workspace opens a spacious dossier and returns to the filtered list at ' +
+      width +
+      'px',
+    async ({ page }) => {
+      const { calls } = await fixtures(page, 'owner');
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto('/admin/fundraiser/sponsors');
+      const list = page.locator('[data-og7="sponsors-list"]');
+      const detail = page.locator('[data-og7="sponsorship-dossier"]');
+      await expect(list).toBeVisible();
+      await expect(detail).toBeHidden();
+      await list.getByRole('searchbox').fill('Atelier');
+      const row = list.locator('[data-og7-id="' + id + '"]');
+      await row.focus();
+      await page.keyboard.press('Enter');
+      await expect(detail).toBeFocused();
+      await expect(tabs(page).getByRole('button')).toHaveCount(5);
+      await expect(
+        page.getByRole('group', { name: 'Revue', exact: true })
+      ).toBeInViewport({ ratio: 1 });
+      await expect(guide(page)).not.toHaveAttribute('open', '');
+      await expect(
+        page.locator('[data-og7="dossier-interventions"]')
+      ).toBeHidden();
+      await expect(
+        page.getByRole('button', { name: 'Rembourser Stripe', exact: true })
+      ).toHaveCount(0);
+      if (width < 1440) await expect(list).toBeHidden();
+      else {
+        await expect(list).toBeVisible();
+        const listBox = await list.boundingBox();
+        const dossierBox = await detail.boundingBox();
+        expect(dossierBox!.width).toBeGreaterThan(listBox!.width * 2);
+      }
+      await tabs(page)
+        .getByRole('button', { name: 'Publication', exact: true })
+        .click();
+      await expect(page.locator('[data-og7="dossier-actions"]')).toHaveCount(0);
+      await expect(
+        page.locator('[data-og7="publication-website"]')
+      ).toBeVisible();
+      await page.screenshot({
+        path: 'test-results/sponsors-workspace-' + width + '.png',
+        fullPage: true
+      });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > innerWidth
+        )
+      ).toBe(false);
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await page.locator('[data-og7="dossier-back"]').click();
+      await expect(list.getByRole('searchbox')).toHaveValue('Atelier');
+      await expect(row).toBeFocused();
+      await expect(detail).toBeHidden();
+      expect(calls.every((call) => call.method === 'GET')).toBe(true);
+    }
+  );
+}
+
+test('workspace groups legacy media and refund URLs and preserves confirmations', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'owner');
+  await page.goto(path('media'));
+  await expect(
+    tabs(page).getByRole('button', { name: 'Fiche et médias' })
+  ).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('#dossier-identity')).toBeVisible();
+  await expect(page.locator('#dossier-media')).toBeVisible();
+  await page.goto(path('refund'));
+  await expect(
+    tabs(page).getByRole('button', { name: 'Finances', exact: true })
+  ).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('[data-og7="dossier-actions"]')).not.toContainText(
+    'Accepter'
+  );
+  await page
+    .getByRole('button', { name: 'Rembourser Stripe', exact: true })
+    .click();
+  await expect(page.locator('[data-og7="dossier-refund-form"]')).toBeVisible();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  await page
+    .locator('[data-og7="dossier-refund-form"]')
+    .getByRole('button', { name: 'Annuler', exact: true })
+    .click();
+  await page.reload();
+  await expect(
+    tabs(page).getByRole('button', { name: 'Finances', exact: true })
+  ).toHaveAttribute('aria-current', 'page');
+});
+
+test('workspace English mobile keeps help and access optional and opens them with the keyboard', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'owner');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(path('identity'));
+  await page
+    .getByRole('button', { name: 'Switch administration language to English' })
+    .click();
+  await expect(
+    tabs(page).getByRole('button', { name: 'Profile & media' })
+  ).toBeVisible();
+  await guide(page).locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(guide(page)).toHaveAttribute('open', '');
+  await page.keyboard.press('Enter');
+  await page.getByText('Follow-up access', { exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.locator('[data-og7="admin-followup-access"]')
+  ).toBeVisible();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
+});
+
+test('workspace sections remain accessible with distinct financial and publication actions', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'owner');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(path());
+  for (const title of [
+    'Aperçu',
+    'Fiche et médias',
+    'Publication',
+    'Finances',
+    'Historique'
+  ]) {
+    await tabs(page).getByRole('button', { name: title, exact: true }).click();
+    expect(
+      (await new AxeBuilder({ page }).analyze()).violations,
+      title
+    ).toEqual([]);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Atelier Boréal'
+    );
+    await expect(
+      page
+        .locator('openg7-admin-sponsor-detail-header')
+        .getByRole('group', { name: 'Revue', exact: true })
+    ).toContainText('À réviser');
+  }
+  await expect(
+    page.locator('[data-og7="dossier-interventions"]')
+  ).toBeVisible();
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
 });

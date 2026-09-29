@@ -46,7 +46,8 @@ import type { PublicationCalendarEntry } from '../../components/admin-publicatio
   styleUrls: [
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
-    './admin-publication-automation-page.component.css'
+    './admin-publication-automation-page.component.css',
+    './admin-publication-settings.css'
   ]
 })
 export class AdminPublicationAutomationPageComponent {
@@ -85,6 +86,9 @@ export class AdminPublicationAutomationPageComponent {
     this.pendingSponsors().some((s) => !s.presentationApproved)
   );
   readonly settings = signal<PublicationFeedSettings | null>(null);
+  readonly settingsFeed = computed(() =>
+    this.state()?.feeds.find((feed) => feed.id === this.settings()?.id)
+  );
   readonly media = signal<
     { id: string; url: string; alt: string; company: string }[]
   >([]);
@@ -283,12 +287,28 @@ export class AdminPublicationAutomationPageComponent {
       const next =
         (await this.admin.publicationAutomation()) as PublicationAutomationState;
       this.state.set(next);
-      this.notice.set('admin.publicationAutomation.saved');
+      this.notice.set(
+        command.action === 'prepare'
+          ? 'admin.publicationAutomation.settingsPanel.prepared'
+          : command.action === 'check'
+            ? 'admin.publicationAutomation.settingsPanel.checked'
+            : 'admin.publicationAutomation.saved'
+      );
       if (result.id && (open || this.selected()?.id === result.id)) {
         const job = next.deliveries.find((j) => j.id === result.id);
         if (job) this.open(job);
       }
-      if (command.action === 'settings') this.settings.set(null);
+      if (
+        command.action === 'settings' &&
+        this.settings()?.id === command.settings.id
+      ) {
+        const confirmed = next.feeds.find((f) => f.id === command.settings.id);
+        if (confirmed)
+          this.settings.set({
+            ...confirmed,
+            weekdays: [...confirmed.weekdays]
+          });
+      }
     } catch (error) {
       this.showError(error);
     } finally {
@@ -505,7 +525,25 @@ export class AdminPublicationAutomationPageComponent {
       });
   }
   configure(feed: PublicationFeed): void {
+    this.error.set('');
+    this.notice.set('');
     this.settings.set({ ...feed, weekdays: [...feed.weekdays] });
+  }
+  settingsDirty(): boolean {
+    const draft = this.settings();
+    const saved = this.settingsFeed();
+    return (
+      !!draft &&
+      !!saved &&
+      (draft.paused !== saved.paused ||
+        draft.autoPrepare !== saved.autoPrepare ||
+        draft.localTime !== saved.localTime ||
+        draft.timezone !== saved.timezone ||
+        draft.capacity !== saved.capacity ||
+        draft.horizonDays !== saved.horizonDays ||
+        draft.weekdays.length !== saved.weekdays.length ||
+        draft.weekdays.some((day) => !saved.weekdays.includes(day)))
+    );
   }
   toggleDay(day: number): void {
     this.settings.update((s) =>
