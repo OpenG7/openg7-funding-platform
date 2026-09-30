@@ -39,9 +39,13 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const publicationsPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts'
   );
-  const auditPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-audit-page/admin-audit-page.component.ts'
-  );
+  const auditPage =
+    read(
+      'apps/funding-web/src/app/features/funding/pages/admin-audit-page/admin-audit-page.component.ts'
+    ) +
+    read(
+      'apps/funding-web/src/app/features/funding/pages/admin-audit-page/admin-audit-page.component.html'
+    );
   const setupPage =
     read(
       'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts'
@@ -80,6 +84,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     read('apps/funding-api/src/main.ts') +
     read('apps/funding-api/src/sponsor-media-limits.ts');
   const webhookService = read('apps/funding-api/src/stripe-webhook.service.ts');
+  const refundService = read('apps/funding-api/src/stripe-refunds.service.ts');
   const emailService = read(
     'apps/funding-api/src/email-notification.service.ts'
   );
@@ -284,6 +289,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'sponsor-detail-panel',
       'selectedSponsorDetailHeader',
       'openg7-admin-sponsor-detail-header',
+      'data-og7="dossier-back"',
+      '(click)="closeDetails()"',
       'selectedSponsorDetailOverview',
       'openg7-admin-sponsor-detail-overview',
       'selectedSponsorDetailIdentity',
@@ -371,8 +378,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'ChangeDetectionStrategy.OnPush',
       'detail-header',
       'detail-badges',
-      'detail-meta',
-      'close = output<void>()'
+      'detail-meta'
     ],
     'admin sponsor detail header component'
   );
@@ -399,7 +405,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'reviewNoteChange = output<string>()',
       'saveReviewNote = output<void>()',
       'onReviewNoteInput',
-      'review-note-label',
+      '<label for="sponsor-review-note">',
+      'id="sponsor-review-note"',
       'is-dirty'
     ],
     'admin sponsor detail overview component'
@@ -644,13 +651,23 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     webhookService,
     [
       'charge.refunded',
-      'updateSponsorshipRefundWorkflowStatusByPaymentIntent',
-      'refundWorkflowUpdated',
-      'isFullyRefunded',
-      'partialRefund',
-      'latestRefund'
+      'syncStripeChargeRefunds',
+      'eventId: event.id',
+      'statusUpdated: result.statusUpdated'
     ],
     'Stripe refund webhook'
+  );
+
+  assertIncludesAll(
+    refundService,
+    [
+      "refund.status === 'succeeded'",
+      "'stripe-refund:' + refund.id",
+      'settleSponsorshipRefundOperation',
+      'confirmedAmount >= charge.amount',
+      "status: 'refunded'"
+    ],
+    'Stripe confirmed refund synchronization'
   );
 
   assertIncludesAll(
