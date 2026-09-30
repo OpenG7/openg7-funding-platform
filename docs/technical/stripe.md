@@ -1,8 +1,6 @@
 # Stripe webhooks, replay and backfill
 
-Reference extracted from the main README. Read only the relevant section; current
-feature guides and implementation define the exact contract. Commands run from
-the repository root. [Documentation index](../README.md).
+Commands run from the repository root. [Documentation index](../README.md).
 
 Live mode, production targets and backfill require the
 [high-risk procedure](../../AGENTS.md#risque-eleve), bounded scope and backup where needed.
@@ -170,10 +168,9 @@ Useful options:
 - `--no-assume-non-charity-acknowledged` keeps newly imported legacy sessions
   without that metadata out of contribution totals; existing local choices remain unchanged.
 
-Backfill is idempotent for matching financial facts. Checkout rows are keyed by `stripe_session_id`, and
-fund transactions are skipped when the same logical Stripe object and event type
-already exist. Synthetic `stripe_event_id` values use the
-`stripe-backfill:<event-type>:<stripe-object-id>` form.
+Checkout rows deduplicate by session ID; payments/payouts by object and outcome;
+refunds by refund ID. See [refund integrity and project filtering](../operations/stripe-refund-integrity.md)
+for migration 029, partial refunds and uncertain-result recovery.
 
 ### Historical payment recovery recipe
 

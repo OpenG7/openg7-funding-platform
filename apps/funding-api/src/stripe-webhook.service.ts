@@ -6,7 +6,6 @@ import {
   normalizeContributionType,
   parseMetadataBoolean,
   updateContributionStatusByPaymentIntent,
-  updateSponsorshipRefundWorkflowStatusByPaymentIntent,
   upsertCheckoutSessionFromWebhook
 } from './fund-contributions.repository.js';
 import {
@@ -19,6 +18,8 @@ import {
 } from './fund-transparency.repository.js';
 import { createSponsorshipInvoiceForStripeSession } from './sponsorship-invoices.repository.js';
 import { withStripeEventProcessing } from './stripe-events.repository.js';
+import { stripeEventBelongsToProject } from './stripe-project-scope.js';
+import { syncStripeChargeRefunds } from './stripe-refunds.service.js';
 import { hasContributionActivityForSession } from './contribution-activity.repository.js';
 
 interface ProcessWebhookDependencies {
@@ -26,6 +27,7 @@ interface ProcessWebhookDependencies {
   readonly webhookSecret: string;
   readonly pool: Pool | null;
   readonly publicBaseUrl: string;
+  readonly projectId: string;
 }
 
 const allowedEvents = new Set([
@@ -346,7 +348,7 @@ const processVerifiedStripeEvent = async (
         project:
           paymentIntent.metadata.project ??
           paymentIntent.metadata.projectId ??
-          'openg7',
+          dependencies.projectId,
         eventType: event.type
       }
     });
@@ -423,60 +425,15 @@ const processVerifiedStripeEvent = async (
   if (event.type === 'charge.refunded') {
     const charge = event.data.object as Stripe.Charge;
     const paymentIntentId = resolvePaymentIntentId(charge.payment_intent);
-    const latestRefund = charge.refunds?.data?.[0] ?? null;
-    const refundId = latestRefund?.id ?? null;
-    const refundAmount = latestRefund?.amount ?? charge.amount_refunded;
-    const isFullyRefunded = charge.amount_refunded >= charge.amount;
-    const statusUpdated =
-      paymentIntentId && isFullyRefunded
-        ? await updateContributionStatusByPaymentIntent(pool, {
-            stripePaymentIntentId: paymentIntentId,
-            status: 'refunded'
-          })
-        : false;
-    const refundWorkflowUpdated = paymentIntentId
-      ? await updateSponsorshipRefundWorkflowStatusByPaymentIntent(pool, {
-          stripePaymentIntentId: paymentIntentId,
-          refundStatus: 'completed',
-          refundId,
-          refundAmountCents: refundAmount,
-          refundNote: 'Confirmed by Stripe charge.refunded webhook.'
-        })
-      : false;
-    const balanceData = buildBalanceData(
-      await resolveBalanceTransaction(
-        stripe,
-        latestRefund?.balance_transaction ?? charge.balance_transaction
-      ),
-      refundAmount,
-      charge.currency
-    );
-
-    const inserted = await insertFundTransaction(pool, {
-      stripeEventId: event.id,
-      stripeObjectId: charge.id,
-      stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
-      type: event.type,
-      amount: refundAmount,
-      fee: balanceData.fee,
-      net: balanceData.net,
-      currency: balanceData.currency,
-      status: charge.status,
-      createdAtIso: toIsoFromUnix(charge.created),
-      publicCategory: 'refund',
-      metadataJson: {
-        source: 'stripe',
-        eventType: event.type,
-        refundId,
-        partialRefund: !isFullyRefunded
-      }
+    const result = await syncStripeChargeRefunds(stripe, pool, charge, {
+      paymentIntentId,
+      source: 'stripe',
+      eventId: event.id
     });
-
     return acknowledge({
       received: true,
-      inserted,
-      statusUpdated,
-      refundWorkflowUpdated
+      inserted: result.inserted > 0,
+      statusUpdated: result.statusUpdated
     });
   }
 
@@ -554,6 +511,20 @@ export const processStripeWebhook = async (
   }
 
   try {
+    if (
+      allowedEvents.has(event.type) &&
+      !(await stripeEventBelongsToProject(
+        event,
+        stripe,
+        pool,
+        dependencies.projectId
+      ))
+    ) {
+      return {
+        statusCode: 200,
+        payload: { received: true, ignored: true, reason: 'PROJECT_MISMATCH' }
+      };
+    }
     const result = await withStripeEventProcessing(
       pool,
       { stripeEventId: event.id, eventType: event.type, payload: event },

@@ -46,6 +46,7 @@ const deliver = (pool, item, stripeClient = stripe) => {
       stripe: stripeClient,
       webhookSecret: secret,
       pool,
+      projectId: 'openg7',
       publicBaseUrl: 'https://example.test'
     }
   );
@@ -77,6 +78,7 @@ test('Stripe event ownership and recovery on disposable PostgreSQL', async (t) =
           stripe,
           webhookSecret: secret,
           pool,
+          projectId: 'openg7',
           publicBaseUrl: 'https://example.test'
         }
       );
@@ -248,7 +250,7 @@ test('Stripe event ownership and recovery on disposable PostgreSQL', async (t) =
         created: 1_789_200_000,
         status: 'succeeded',
         latest_charge: 'ch_recovery_payment',
-        metadata: {}
+        metadata: { projectId: 'openg7' }
       });
       let attempts = 0;
       const client = {
@@ -300,6 +302,7 @@ test('Stripe event ownership and recovery on disposable PostgreSQL', async (t) =
         customer_details: { email: 'sponsor@example.test' },
         success_url: `https://example.test/followup?token=${token}`,
         metadata: {
+          projectId: 'openg7',
           contributionType: 'sponsorship_interest',
           publicReference: 'OG7-2026-RCVR',
           publicDisplayConsent: 'false',

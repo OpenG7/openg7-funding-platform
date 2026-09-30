@@ -12,6 +12,7 @@ import type { Pool, PoolClient } from 'pg';
 import { isPublicAllocationProofUrl } from '../../../packages/funding-core/src/index.js';
 
 import { resolveRefundedAmountMinor } from './fund-refunds.js';
+import { effectiveRefundsSql } from './fund-refund-projection.js';
 import type { PublicDirectoryPagination } from './public-directory-pagination.js';
 
 interface FundTransactionInsert {
@@ -248,12 +249,17 @@ export const insertFundTransaction = async (
   if (!pool) return false;
   const isPayment = transaction.type === 'payment_intent.succeeded';
   const isPayout = ['payout.paid', 'payout.failed'].includes(transaction.type);
-  if (!isPayment && !isPayout) {
+  const refundId =
+    transaction.type === 'charge.refunded' &&
+    typeof transaction.metadataJson.refundId === 'string'
+      ? transaction.metadataJson.refundId
+      : null;
+  if (!isPayment && !isPayout && !refundId) {
     return writeFundTransaction(pool, transaction);
   }
-  const kind = isPayment ? 'payment' : 'payout';
+  const kind = isPayment ? 'payment' : refundId ? 'refund' : 'payout';
   if (
-    isPayment
+    isPayment || refundId
       ? transaction.status !== 'succeeded'
       : transaction.type !== `payout.${transaction.status}`
   ) {
@@ -267,21 +273,26 @@ export const insertFundTransaction = async (
     await client.query('BEGIN');
     await client.query(
       'SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))',
-      [`fund-${kind}:${transaction.stripeObjectId}`]
+      [`fund-${kind}:${refundId ?? transaction.stripeObjectId}`]
     );
     const existing = await client.query<{
       amount: string;
       currency: string;
       type: string;
     }>(
-      `SELECT amount::text, currency, type FROM fund_transactions
+      refundId
+        ? `SELECT amount::text, currency, type FROM fund_transactions
+       WHERE type='charge.refunded' AND metadata_json->>'refundId'=$1`
+        : `SELECT amount::text, currency, type FROM fund_transactions
        WHERE stripe_object_id = $1 AND type = ANY($2::text[])`,
-      [
-        transaction.stripeObjectId,
-        isPayment
-          ? ['payment_intent.succeeded']
-          : ['payout.paid', 'payout.failed']
-      ]
+      refundId
+        ? [refundId]
+        : [
+            transaction.stripeObjectId,
+            isPayment
+              ? ['payment_intent.succeeded']
+              : ['payout.paid', 'payout.failed']
+          ]
     );
     if (
       existing.rows.some(
@@ -514,7 +525,7 @@ const getPublicBuilders = async (
 // Project old duplicate facts once without deleting or rewriting the ledger.
 // A terminal failure cancels that payout even when its older success arrives last.
 const effectiveFundTransactionsSql = `
-  WITH payments AS (
+  WITH ${effectiveRefundsSql}, payments AS (
     SELECT DISTINCT ON (stripe_object_id) * FROM fund_transactions
     WHERE type = 'payment_intent.succeeded'
     ORDER BY stripe_object_id, (stripe_balance_transaction_id IS NOT NULL) DESC, id
@@ -529,7 +540,9 @@ const effectiveFundTransactionsSql = `
       )
     ORDER BY payout.stripe_object_id, payout.id
   ), effective_transactions AS (
-    SELECT * FROM fund_transactions WHERE type NOT IN ('payment_intent.succeeded', 'payout.paid', 'payout.failed')
+    SELECT * FROM fund_transactions WHERE type NOT IN ('payment_intent.succeeded', 'payout.paid', 'payout.failed', 'charge.refunded')
+    UNION ALL
+    SELECT * FROM effective_refunds
     UNION ALL
     SELECT * FROM payments
     UNION ALL

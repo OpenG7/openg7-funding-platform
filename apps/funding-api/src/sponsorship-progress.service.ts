@@ -9,6 +9,7 @@ import type { Pool } from 'pg';
 
 import { resolveSponsorshipBenefits } from '../../../packages/funding-core/src/index.js';
 
+import { effectiveRefundsSql } from './fund-refund-projection.js';
 import {
   promisedSocialChannels,
   sponsorshipRef
@@ -454,14 +455,24 @@ export const getSponsorshipProgress = async (
       currency: string;
       refunds: RefundFact[];
     }>(
-      `SELECT
+      `WITH ${effectiveRefundsSql}
+      SELECT
       e.payload->'data'->'object'->>'id' AS id, (e.payload->'data'->'object'->>'amount_refunded')::integer AS amount,
       e.payload->'data'->'object'->>'currency' AS currency,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('id', r->>'id', 'amount', (r->>'amount')::integer, 'currency', r->>'currency'))
         FROM jsonb_array_elements(COALESCE(e.payload->'data'->'object'->'refunds'->'data', '[]'::jsonb)) r WHERE r->>'status' = 'succeeded'), '[]'::jsonb) AS refunds
       FROM stripe_events e JOIN fund_contributions c ON c.id = $1::uuid
       WHERE e.event_type = 'charge.refunded' AND e.processing_status = 'processed'
-      AND COALESCE(e.payload->'data'->'object'->'payment_intent'->>'id', e.payload->'data'->'object'->>'payment_intent') = c.stripe_payment_intent_id`,
+      AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(e.payload->'data'->'object'->'refunds'->'data','[]'::jsonb)) refund
+        WHERE refund->>'status' IN ('pending','requires_action','failed','canceled'))
+      AND COALESCE(e.payload->'data'->'object'->'payment_intent'->>'id', e.payload->'data'->'object'->>'payment_intent') = c.stripe_payment_intent_id
+      UNION ALL
+      SELECT r.stripe_object_id,sum(r.amount)::integer,r.currency,
+        COALESCE(jsonb_agg(jsonb_build_object('id',r.metadata_json->>'refundId','amount',r.amount::integer,'currency',r.currency))
+          FILTER (WHERE r.metadata_json->>'refundId' IS NOT NULL),'[]'::jsonb)
+      FROM effective_refunds r JOIN fund_contributions c ON c.id=$1::uuid
+      WHERE r.metadata_json->>'paymentIntentId'=c.stripe_payment_intent_id
+      GROUP BY r.stripe_object_id,r.currency`,
       [id]
     );
     const failedEmails = await client.query<{ id: string; template: string }>(

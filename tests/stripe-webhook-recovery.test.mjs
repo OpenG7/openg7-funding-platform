@@ -27,6 +27,7 @@ test('a bad Stripe signature never opens a database connection', async () => {
     stripe,
     webhookSecret: secret,
     pool,
+    projectId: 'openg7',
     publicBaseUrl: 'https://example.test'
   });
   assert.equal(response.statusCode, 400);
@@ -41,6 +42,7 @@ test('an ignored verified event is accepted in Stripe-direct mode', async () => 
     stripe,
     webhookSecret: secret,
     pool: null,
+    projectId: 'openg7',
     publicBaseUrl: 'https://example.test'
   });
   assert.equal(response.statusCode, 200);
@@ -60,6 +62,7 @@ test('unavailable event persistence requests a Stripe retry', async () => {
         throw new Error('Simulated DB outage');
       }
     },
+    projectId: 'openg7',
     publicBaseUrl: 'https://example.test'
   });
   assert.equal(response.statusCode, 500);

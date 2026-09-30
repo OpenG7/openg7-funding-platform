@@ -40,6 +40,53 @@ async function fixture(t) {
 }
 
 test(
+  'refund-operation migration preserves an existing ledger and enforces one unresolved operation',
+  { timeout: 60000 },
+  async (t) => {
+    const db = await fixture(t);
+    await db.run(migrations.filter((migration) => migration.version < 29));
+    const contribution = (
+      await db.pool.query(`INSERT INTO fund_contributions
+    (stripe_session_id,contribution_type,amount_cents,currency,status)
+    VALUES ('cs_migration_refund','sponsorship_interest',10000,'cad','paid') RETURNING *`)
+    ).rows[0];
+    await db.run();
+    assert.deepEqual(
+      (
+        await db.pool.query('SELECT * FROM fund_contributions WHERE id=$1', [
+          contribution.id
+        ])
+      ).rows[0],
+      contribution
+    );
+    const insert = (version, amount) =>
+      db.pool.query(
+        `INSERT INTO sponsorship_refund_operations
+    (contribution_id,expected_version,payment_intent_id,amount_minor,currency,reason,actor)
+    VALUES ($1,$2,'pi_migration_refund',$3,'cad','requested_by_customer','synthetic-owner')`,
+        [contribution.id, version, amount]
+      );
+    await insert('v1', 2000);
+    await assert.rejects(insert('v2', 2000), { code: '23505' });
+    await db.pool.query(
+      "UPDATE sponsorship_refund_operations SET status='succeeded'"
+    );
+    await assert.rejects(insert('v1', 2000), { code: '23505' });
+    await assert.rejects(insert('v2', 0), { code: '23514' });
+    await insert('v2', 2000);
+    await db.run();
+    assert.equal(
+      (
+        await db.pool.query(
+          'SELECT count(*)::int n FROM sponsorship_refund_operations'
+        )
+      ).rows[0].n,
+      2
+    );
+  }
+);
+
+test(
   'migration plan leaves an empty database untouched; all application migrations then apply exactly once',
   { timeout: 60_000 },
   async (t) => {
@@ -254,7 +301,7 @@ test(
   { timeout: 60_000 },
   async (t) => {
     const db = await fixture(t);
-    const legacy = migrations.slice(0, -1);
+    const legacy = migrations.filter((migration) => migration.version < 27);
     for (const file of legacy) await db.pool.query(file.sql);
     await db.pool.query('UPDATE publication_feeds SET auto_prepare=false');
     await assert.rejects(db.run(), /BASELINE_REQUIRED/);

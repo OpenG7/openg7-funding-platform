@@ -199,13 +199,8 @@ test('Stripe webhook service handles MVP idempotent event set', () => {
   }
 
   assert.ok(source.includes('withStripeEventProcessing'));
-  assert.ok(
-    source.includes('updateSponsorshipRefundWorkflowStatusByPaymentIntent')
-  );
-  assert.ok(source.includes('refundWorkflowUpdated'));
-  assert.ok(source.includes('isFullyRefunded'));
-  assert.ok(source.includes('partialRefund'));
-  assert.ok(source.includes('latestRefund'));
+  // Refund amounts, ordering and recovery are exercised against disposable
+  // PostgreSQL in stripe-financial-integrity.integration.mjs.
 });
 
 test('Stripe charge.updated backfills contribution transaction fees', () => {

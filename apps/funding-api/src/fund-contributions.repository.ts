@@ -2167,7 +2167,7 @@ export const getSponsorshipRefundTarget = async (
 };
 
 export const updateSponsorshipRefundWorkflowStatus = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   input: SponsorshipRefundWorkflowUpdateInput
 ): Promise<boolean> => {
   if (!pool) {

@@ -72,7 +72,7 @@ export const buildPaymentIntentSucceededEvent = (params: {
     status: 'succeeded',
     created: nowUnixSeconds(),
     latest_charge: params.chargeId,
-    metadata: {}
+    metadata: { projectId: 'openg7' }
   });
 
 export const buildPaymentIntentPaymentFailedEvent = (params: {
@@ -88,7 +88,7 @@ export const buildPaymentIntentPaymentFailedEvent = (params: {
     currency: params.currency ?? 'cad',
     status: 'requires_payment_method',
     created: nowUnixSeconds(),
-    metadata: {}
+    metadata: { projectId: 'openg7' }
   });
 
 export const buildCheckoutSessionExpiredEvent = (params: {
@@ -133,6 +133,7 @@ export const buildChargeUpdatedEvent = (params: {
   buildStripeEvent(params.eventId, 'charge.updated', {
     id: params.chargeId,
     object: 'charge',
+    metadata: { projectId: 'openg7' },
     amount: params.amountCents,
     currency: params.currency ?? 'cad',
     status: 'succeeded',
@@ -156,6 +157,7 @@ export const buildChargeRefundedEvent = (params: {
   buildStripeEvent(params.eventId, 'charge.refunded', {
     id: params.chargeId,
     object: 'charge',
+    metadata: { projectId: 'openg7' },
     amount: params.amountCents,
     currency: params.currency ?? 'cad',
     status: 'succeeded',
@@ -169,6 +171,8 @@ export const buildChargeRefundedEvent = (params: {
         {
           id: params.refundId,
           object: 'refund',
+          status: 'succeeded',
+          created: nowUnixSeconds(),
           amount: params.refundedAmountCents,
           currency: params.currency ?? 'cad',
           balance_transaction: params.refundBalanceTransactionId

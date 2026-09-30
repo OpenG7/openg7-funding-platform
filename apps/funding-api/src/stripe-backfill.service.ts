@@ -10,6 +10,8 @@ import {
   upsertCheckoutSessionFromWebhook
 } from './fund-contributions.repository.js';
 import { insertFundTransaction } from './fund-transparency.repository.js';
+import { syncStripeChargeRefunds } from './stripe-refunds.service.js';
+import { stripeMetadataProject } from './stripe-project-scope.js';
 
 export interface StripeBackfillCreatedRange {
   readonly gte?: number;
@@ -157,16 +159,24 @@ const toMetadataRecord = (
 const metadataMatchesProject = (
   metadata: Stripe.Metadata | null | undefined,
   projectId: string
-): boolean =>
-  metadata?.projectId === projectId || metadata?.project === projectId;
+): boolean => stripeMetadataProject(metadata, projectId) === true;
 
 const sessionMatchesProject = (
   session: Stripe.Checkout.Session,
   paymentIntent: Stripe.PaymentIntent | null,
   projectId: string
-): boolean =>
-  metadataMatchesProject(session.metadata, projectId) ||
-  metadataMatchesProject(paymentIntent?.metadata, projectId);
+): boolean => {
+  const sessionProject = stripeMetadataProject(session.metadata, projectId);
+  const intentProject = stripeMetadataProject(
+    paymentIntent?.metadata,
+    projectId
+  );
+  return (
+    sessionProject !== false &&
+    intentProject !== false &&
+    (sessionProject === true || intentProject === true)
+  );
+};
 
 const parseMetadataBooleanWithFallback = (
   value: string | undefined,
@@ -623,44 +633,17 @@ const backfillRefundTransaction = async (
     return;
   }
 
-  summary.refunds.seen += 1;
-
-  if (!options.dryRun) {
-    await updateContributionStatusByPaymentIntent(pool, {
-      stripePaymentIntentId: paymentIntentId,
-      status: 'refunded'
-    });
-  }
-
-  const balanceData = buildBalanceData(
-    await resolveBalanceTransaction(stripe, charge.balance_transaction),
-    charge.amount_refunded,
-    charge.currency
-  );
-  const insertResult = await insertBackfilledFundTransaction(
-    pool,
-    {
-      stripeEventId: syntheticStripeEventId('charge.refunded', charge.id),
-      stripeObjectId: charge.id,
-      stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
-      type: 'charge.refunded',
-      amount: charge.amount_refunded,
-      fee: balanceData.fee,
-      net: balanceData.net,
-      currency: balanceData.currency,
-      status: charge.status,
-      createdAtIso: toIsoFromUnix(charge.created),
-      publicCategory: 'refund',
-      metadataJson: {
-        source: 'stripe_backfill',
-        eventType: 'charge.refunded',
-        paymentIntentId
-      }
-    },
-    options.dryRun
-  );
-
-  applyInsertResult(summary.refunds, insertResult);
+  const result = await syncStripeChargeRefunds(stripe, pool, charge, {
+    paymentIntentId,
+    source: 'stripe_backfill',
+    dryRun: options.dryRun,
+    limit: options.maxRecords ?? 100
+  });
+  summary.refunds.seen += result.seen;
+  summary.refunds.skippedExistingTransactions += result.existing;
+  if (options.dryRun)
+    summary.refunds.dryRunWouldInsertTransactions += result.inserted;
+  else summary.refunds.insertedTransactions += result.inserted;
 };
 
 const shouldStopAfterScan = (
