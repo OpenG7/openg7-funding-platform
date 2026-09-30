@@ -373,7 +373,17 @@ test('global search: historical dossiers, exact navigation, private queries, fai
         "UPDATE admin_identity_sessions SET expires_at=now()-interval '1 second' WHERE id=$1",
         [profile.sessionId]
       );
-      expect((await search(reader, dossiers[0].email)).status()).toBe(401);
+      expect(
+        (
+          await reader.request.post('/api/admin/search', {
+            headers: { Origin: stack.origin },
+            data: { query: dossiers[0].email }
+          })
+        ).status()
+      ).toBe(401);
+      // Activity refresh can detect expiration before the debounced search.
+      // Assert the private API rejection separately from the UI redirect.
+      await dialog(reader).getByRole('searchbox').fill(dossiers[0].email);
       await expect(reader).toHaveURL(/\/admin\/login/);
       expect(reader.url()).not.toContain('private-search');
       expect(new URL(reader.url()).searchParams.get('returnUrl')).toContain(
