@@ -31,6 +31,7 @@ h2 {
 }
 .metrics {
   display: grid;
+  align-items: start;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 1rem;
@@ -39,7 +40,8 @@ h2 {
   min-width: 0;
   border: 1px solid var(--admin-border);
   border-radius: 0.8rem;
-  background: var(--admin-panel);
+  background: linear-gradient(155deg, #1c3047, var(--admin-panel) 65%);
+  box-shadow: 0 8px 24px #00000014;
 }
 .metric > .notice {
   padding: 0 1rem;

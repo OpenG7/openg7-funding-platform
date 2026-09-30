@@ -1,0 +1,211 @@
+:host {
+  display: block;
+  min-width: 0;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  padding: 0 1.2rem 0.6rem;
+}
+.chart-panel {
+  border-top: 1px solid var(--admin-border);
+  padding-top: 0.9rem;
+}
+.chart-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+svg {
+  display: block;
+  width: 100%;
+  height: 88px;
+  overflow: visible;
+  color: var(--admin-gold, #f4c66a);
+}
+.grid,
+.baseline,
+.curve {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.grid {
+  stroke: var(--admin-border);
+  stroke-dasharray: 3 5;
+  opacity: 0.55;
+}
+.baseline {
+  stroke: var(--admin-border);
+}
+.curve {
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.area {
+  fill: currentColor;
+  fill-opacity: 0.1;
+}
+.chart-range {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  margin: 0.25rem 0 0.9rem;
+}
+.chart-empty {
+  display: grid;
+  align-items: center;
+  min-height: 88px;
+  margin: 0 0 0.9rem;
+}
+.periods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--admin-border);
+  border-bottom: 1px solid var(--admin-border);
+}
+.periods > div {
+  min-width: 0;
+}
+.periods > div + div {
+  border-left: 1px solid var(--admin-border);
+  padding-left: 0.75rem;
+}
+dt {
+  font-size: 0.7rem;
+}
+dd {
+  color: var(--admin-text);
+  font-size: 1.08rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  margin: 0.25rem 0 0;
+}
+.comparison {
+  padding: 0.8rem 0;
+}
+.comparison-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.72rem;
+}
+.change {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 2rem;
+  background: #22344a;
+  color: var(--admin-text);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.73rem;
+  font-variant-numeric: tabular-nums;
+}
+.change[data-direction='up'] {
+  color: #a1e7b1;
+  border-color: #416b59;
+  background: #204639;
+}
+.change[data-direction='down'] {
+  color: #ffda85;
+  border-color: #75603b;
+  background: #3b3529;
+}
+.comparison-hint {
+  font-size: 0.72rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
+}
+details {
+  border-top: 1px solid var(--admin-border);
+}
+summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--admin-text);
+  font-weight: 550;
+  border-radius: 0.35rem;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary:hover {
+  color: var(--admin-gold);
+}
+.disclosure-icon {
+  flex: 0 0 auto;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.3rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+details[open] .disclosure-icon {
+  transform: rotate(225deg);
+}
+summary:focus-visible,
+.table-scroll:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 3px;
+}
+.table-scroll {
+  max-height: 12rem;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--admin-border) transparent;
+  margin: 0.2rem 0 0.6rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+}
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+caption {
+  padding: 0.6rem;
+  text-align: left;
+  font-size: 0.67rem;
+  line-height: 1.5;
+}
+th,
+td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--admin-border);
+}
+thead th {
+  position: sticky;
+  top: 0;
+  background: var(--admin-panel);
+  color: var(--admin-text);
+}
+tbody th {
+  font-weight: 400;
+}
+tbody tr:nth-child(odd) {
+  background: #ffffff04;
+}
+th:last-child,
+td {
+  text-align: right;
+  overflow-wrap: anywhere;
+}

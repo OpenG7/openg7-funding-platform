@@ -15,117 +15,78 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   standalone: true,
   imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    @if (points()) {
-      <svg viewBox="0 0 160 38" aria-hidden="true">
-        <polyline [attr.points]="points()" />
-      </svg>
-    }
-    <p>
-      {{ 'admin.cockpit.comparison' | translate }} :
-      <strong>{{ percentage() }}</strong>
-    </p>
-    <details>
-      <summary>{{ 'admin.cockpit.series' | translate }}</summary>
-      <p>
-        {{ 'admin.cockpit.currentPeriod' | translate }} :
-        {{ format(trend().current) }}<br />{{
-          'admin.cockpit.previousPeriod' | translate
-        }}
-        : {{ format(trend().previous) }}
-      </p>
-      <div class="table-scroll">
-        <table>
-          <caption>
-            {{
-              'admin.cockpit.dailySeries' | translate
-            }}
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">{{ 'admin.cockpit.day' | translate }}</th>
-              <th scope="col">{{ 'admin.cockpit.value' | translate }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (point of trend().series; track point.day) {
-              <tr>
-                <th scope="row">{{ point.day }}</th>
-                <td>{{ format(point.value) }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    </details>
-  `,
-  styles: [
-    `
-      :host {
-        display: block;
-        font-size: 0.78rem;
-        color: var(--admin-muted);
-        padding: 0.6rem 1rem;
-      }
-      svg {
-        width: 100%;
-        height: 38px;
-      }
-      polyline {
-        fill: none;
-        stroke: var(--admin-gold, #f4c66a);
-        stroke-width: 2;
-      }
-      p {
-        margin: 0.3rem 0;
-      }
-      summary {
-        cursor: pointer;
-      }
-      summary:focus-visible {
-        outline: 2px solid #f4c66a;
-      }
-      .table-scroll {
-        max-height: 15rem;
-        overflow: auto;
-      }
-      table {
-        width: 100%;
-        text-align: left;
-      }
-      td {
-        text-align: right;
-      }
-    `
-  ]
+  templateUrl: './admin-cockpit-trend.component.html',
+  styleUrl: './admin-cockpit-trend.component.css'
 })
 export class AdminCockpitTrendComponent {
   readonly trend = input.required<CockpitTrend>();
   readonly currency = input<string>();
   readonly i18n = inject(FundingI18nService);
-  readonly points = computed(() => {
-    const values = this.trend().series.map((p) => p.value);
-    if (values.length < 2 || values.some((v) => v === null)) return '';
+  readonly dailyValues = computed(() => [...this.trend().series].reverse());
+  readonly chart = computed(() => {
+    const series = this.trend().series;
+    const values = series.map((p) => p.value);
+    if (values.length < 2 || values.some((v) => v === null)) return null;
     const amounts = values as number[];
     const min = Math.min(0, ...amounts);
     const max = Math.max(1, ...amounts);
-    return amounts
+    const y = (value: number) => 80 - ((value - min) / (max - min)) * 72;
+    const points = amounts
       .map(
         (value, index) =>
-          `${(index * 156) / (amounts.length - 1) + 2},${36 - ((value - min) / (max - min)) * 32}`
+          `${(index * 292) / (amounts.length - 1) + 4},${y(value)}`
       )
       .join(' ');
+    return {
+      points,
+      area: `4,${y(0)} ${points} 296,${y(0)}`,
+      zero: y(0),
+      start: series[0]!.day,
+      end: series[series.length - 1]!.day
+    };
   });
-  percentage(): string {
+  readonly direction = computed(() => {
     const percent = this.trend().percent;
-    return percent === null
-      ? this.i18n.t('admin.cockpit.noComparison')
-      : new Intl.NumberFormat(this.i18n.currentLanguage(), {
-          style: 'percent',
-          maximumFractionDigits: 1,
-          signDisplay: 'exceptZero'
-        }).format(percent / 100);
+    if (percent === null) return 'unknown';
+    return percent > 0 ? 'up' : percent < 0 ? 'down' : 'flat';
+  });
+  readonly comparisonHint = computed(() => {
+    const { current, previous, percent } = this.trend();
+    if (percent !== null) return null;
+    if (current === 0 && previous === 0) return 'admin.cockpit.zeroPeriodsHelp';
+    if (current !== null && previous === 0)
+      return 'admin.cockpit.zeroBaselineHelp';
+    return 'admin.cockpit.missingComparisonHelp';
+  });
+
+  percentage(): string {
+    const { current, previous, percent } = this.trend();
+    if (percent === null) {
+      return this.i18n.t(
+        current === 0 && previous === 0
+          ? 'admin.cockpit.zeroPeriods'
+          : current !== null && previous === 0
+            ? 'admin.cockpit.noBaseline'
+            : 'admin.cockpit.noComparison'
+      );
+    }
+    return new Intl.NumberFormat(this.i18n.currentLanguage(), {
+      style: 'percent',
+      maximumFractionDigits: 1,
+      signDisplay: 'exceptZero'
+    }).format(percent / 100);
   }
+
+  date(day: string, includeYear = false): string {
+    // API dates are calendar days, not instants in the browser's time zone.
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+      timeZone: 'UTC',
+      day: 'numeric',
+      month: 'short',
+      ...(includeYear ? { year: 'numeric' as const } : {})
+    }).format(new Date(`${day}T00:00:00Z`));
+  }
+
   format(value: number | null): string {
     if (value === null) return this.i18n.t('admin.dashboard.notAvailable');
     const currency = this.currency();

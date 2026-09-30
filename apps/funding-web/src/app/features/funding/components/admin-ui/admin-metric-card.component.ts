@@ -12,7 +12,7 @@ import {
   imports: [AdminIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <article [attr.aria-label]="label()">
+    <article [attr.aria-label]="label()" [class.embedded]="embedded()">
       <span class="icon" [attr.data-tone]="tone()"
         ><openg7-admin-icon [name]="icon()"
       /></span>
@@ -41,6 +41,16 @@ import {
       }
       div {
         min-width: 0;
+      }
+      article.embedded {
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        padding-bottom: 1rem;
+      }
+      .embedded strong {
+        font-size: clamp(1.9rem, 2.3vw, 2.5rem);
+        letter-spacing: -0.04em;
       }
       h2 {
         color: var(--admin-text);
@@ -90,4 +100,5 @@ export class AdminMetricCardComponent {
   readonly detail = input.required<string>();
   readonly icon = input.required<AdminIconName>();
   readonly tone = input<'blue' | 'gold' | 'green'>('blue');
+  readonly embedded = input(false);
 }

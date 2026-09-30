@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
 import { expect, test } from './support/test.js';
@@ -29,6 +30,180 @@ async function fixtures(page: Page) {
 const metrics = (page: Page) => page.locator('[data-og7="cockpit-metrics"]');
 const activity = (page: Page) => page.locator('[data-og7="cockpit-activity"]');
 const systems = (page: Page) => page.locator('[data-og7="cockpit-systems"]');
+
+for (const language of ['fr-CA', 'en']) {
+  for (const width of [390, 1280]) {
+    test(`sponsorship trend explains a zero baseline and keeps daily values accessible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      const data = await fixtures(page);
+      await page.setViewportSize({ width, height: 900 });
+      const series = Array.from({ length: 30 }, (_, index) => ({
+        day: `2026-09-${String(index + 1).padStart(2, '0')}`,
+        value: [21, 27, 28].includes(index) ? 1 : 0
+      }));
+      await page.route('**/api/admin/cockpit/metrics', (route) =>
+        route.fulfill({
+          json: {
+            ...data.metrics,
+            sponsorshipCount: 3,
+            sponsorshipTrend: { current: 3, previous: 0, percent: null, series }
+          }
+        })
+      );
+      await page.goto('/admin/fundraiser');
+      if (language === 'en') {
+        await page
+          .getByRole('button', {
+            name: 'Switch administration language to English'
+          })
+          .click();
+      }
+      const card = page.locator(
+        '[data-og7="cockpit-metric"][data-og7-id="sponsorships"]'
+      );
+      await expect(card.getByRole('definition')).toHaveText(['3', '0']);
+      await expect(card).toContainText(
+        language === 'en'
+          ? 'The previous period is zero'
+          : 'La période précédente est à zéro'
+      );
+      await expect(card).not.toContainText('%');
+      const chart = card.locator('[data-og7="cockpit-trend-chart"]');
+      await expect(chart).toBeVisible();
+      await expect(card.getByRole('table')).toBeHidden();
+      await card.screenshot({
+        path: testInfo.outputPath('sponsorship-card.png')
+      });
+
+      const disclosure = card.locator('summary');
+      await disclosure.focus();
+      await page.keyboard.press('Enter');
+      await expect(card.getByRole('table')).toBeVisible();
+      await expect(card.getByRole('row')).toHaveCount(31);
+      await expect(
+        card.getByRole('row').nth(1).locator('time')
+      ).toHaveAttribute('datetime', '2026-09-30');
+      await expect(card.getByRole('row').nth(2).getByRole('cell')).toHaveText(
+        '1'
+      );
+      await page.keyboard.press('Tab');
+      const region = card.getByRole('region');
+      await expect(region).toBeFocused();
+      await page.keyboard.press('End');
+      await expect
+        .poll(() => region.evaluate((element) => element.scrollTop))
+        .toBeGreaterThan(0);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth
+        )
+      ).toBe(true);
+      await card.screenshot({
+        path: testInfo.outputPath('sponsorship-card-expanded.png')
+      });
+      const accessibility = await new AxeBuilder({ page })
+        .include('[data-og7="cockpit-metric"][data-og7-id="sponsorships"]')
+        .analyze();
+      expect(accessibility.violations).toEqual([]);
+      await page.keyboard.press('Shift+Tab');
+      await expect(disclosure).toBeFocused();
+      await page.keyboard.press('Space');
+      await expect(card.getByRole('table')).toBeHidden();
+    });
+  }
+}
+
+test('trend distinguishes empty periods, missing daily values and unavailable comparisons', async ({
+  page
+}) => {
+  const data = await fixtures(page);
+  let trend = {
+    current: 0 as number | null,
+    previous: 0 as number | null,
+    percent: null as number | null,
+    series: [
+      { day: '2026-09-29', value: 0 as number | null },
+      { day: '2026-09-30', value: 0 as number | null }
+    ]
+  };
+  await page.route('**/api/admin/cockpit/metrics', (route) =>
+    route.fulfill({
+      json: { ...data.metrics, sponsorshipCount: 0, sponsorshipTrend: trend }
+    })
+  );
+  await page.goto('/admin/fundraiser');
+  const card = page.locator(
+    '[data-og7="cockpit-metric"][data-og7-id="sponsorships"]'
+  );
+  await expect(card).toContainText(
+    'Les deux périodes affichent un total de zéro.'
+  );
+  await expect(card.locator('[data-og7="cockpit-trend-chart"]')).toBeVisible();
+  await expect(card.getByRole('definition')).toHaveText(['0', '0']);
+
+  trend = {
+    ...trend,
+    current: null,
+    series: [
+      { day: '2026-09-29', value: 0 },
+      { day: '2026-09-30', value: null }
+    ]
+  };
+  await metrics(page).getByRole('button', { name: 'Actualiser' }).click();
+  await expect(card).toContainText('Comparaison indisponible');
+  await expect(card).not.toContainText('Totaux à zéro');
+  await expect(card.getByRole('definition')).toHaveText([
+    'Non disponible',
+    '0'
+  ]);
+  await expect(card.locator('[data-og7="cockpit-trend-chart"]')).toHaveCount(0);
+  await card.locator('summary').click();
+  await expect(card.getByRole('row').nth(1).getByRole('cell')).toHaveText(
+    'Non disponible'
+  );
+  await expect(card.getByRole('row').nth(2).getByRole('cell')).toHaveText('0');
+
+  trend = { ...trend, series: [] };
+  await metrics(page).getByRole('button', { name: 'Actualiser' }).click();
+  await expect(card.locator('summary')).toHaveCount(0);
+  await expect(card).toContainText('ne permettent pas de tracer la courbe');
+});
+
+test('trend shows server comparisons for increases, decreases and unchanged periods', async ({
+  page
+}) => {
+  const data = await fixtures(page);
+  let percent = 100;
+  await page.route('**/api/admin/cockpit/metrics', (route) =>
+    route.fulfill({
+      json: {
+        ...data.metrics,
+        sponsorshipTrend: {
+          current: percent === 100 ? 6 : percent === -50 ? 1 : 3,
+          previous: percent === -50 ? 2 : 3,
+          percent,
+          series: [
+            { day: '2026-09-29', value: 0 },
+            { day: '2026-09-30', value: 1 }
+          ]
+        }
+      }
+    })
+  );
+  await page.goto('/admin/fundraiser');
+  const card = page.locator(
+    '[data-og7="cockpit-metric"][data-og7-id="sponsorships"]'
+  );
+  await expect(card).toContainText(/\+100\s*%/);
+  percent = -50;
+  await metrics(page).getByRole('button', { name: 'Actualiser' }).click();
+  await expect(card).toContainText(/-50\s*%/);
+  percent = 0;
+  await metrics(page).getByRole('button', { name: 'Actualiser' }).click();
+  await expect(card).toContainText(/0\s*%/);
+  await expect(card).not.toContainText('Totaux à zéro');
+});
 
 test('cockpit separates currencies, missing fees and net from available balance', async ({
   page
