@@ -26,6 +26,390 @@ function overviewCount(page: Page, label: string) {
     .first();
 }
 
+for (const language of ['fr-CA', 'en']) {
+  for (const width of [390, 1280]) {
+    test(`detail panel keeps context and navigation visible in ${language} at ${width}px`, async ({
+      page
+    }, testInfo) => {
+      const { state, commands } = await fixtures(page);
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto('/admin/fundraiser/pilotage');
+      if (language === 'en')
+        await page
+          .getByRole('button', {
+            name: 'Switch administration language to English'
+          })
+          .click();
+      const open = page.locator('[data-og7="pilot-details"]');
+      await expect(
+        page.locator('[data-og7="pilot-decision"] img')
+      ).toBeVisible();
+      await open.click();
+      const dialog = page.getByRole('dialog');
+      const body = dialog.locator('[data-og7="admin-drawer-content"]');
+      const footer = dialog.locator('[data-og7="pilot-details-footer"]');
+      await expect(dialog).toContainText('OpenG7 · Facebook');
+      await expect(
+        dialog.getByText('Simulation', {
+          exact: true
+        })
+      ).toBeVisible();
+      await expect(dialog).not.toContainText('openg7:facebook');
+      await expect(
+        dialog.getByRole('complementary', {
+          name: language === 'en' ? 'If you accept' : 'Si vous acceptez'
+        })
+      ).toBeVisible();
+      await expect(dialog).toContainText('America/Toronto');
+      await dialog.screenshot({ path: testInfo.outputPath('details.png') });
+      const a11y = await new AxeBuilder({ page })
+        .include('dialog[open]')
+        .analyze();
+      expect(a11y.violations).toEqual([]);
+      const close = dialog
+        .getByRole('button', {
+          name: language === 'en' ? 'Close' : 'Fermer',
+          exact: true
+        })
+        .first();
+      await close.focus();
+      await page.keyboard.press('Shift+Tab');
+      await expect(footer.getByRole('link')).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(close).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(body).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(open).toBeFocused();
+
+      state.decisions[0]!.publication!.message = Array.from(
+        { length: 24 },
+        (_, i) =>
+          'Paragraphe ' +
+          i +
+          ' — Texte synthétique à examiner avant publication.'
+      ).join('\n\n');
+      await page.reload();
+      await open.click();
+      await expect(footer.getByRole('link')).toBeInViewport();
+      await expect(footer.getByRole('button')).toBeInViewport();
+      await body.focus();
+      await page.keyboard.press('End');
+      await expect
+        .poll(() => body.evaluate((el) => el.scrollTop))
+        .toBeGreaterThan(0);
+      await expect(footer.getByRole('link')).toBeInViewport();
+      await body.evaluate((el) => {
+        el.scrollTop = 0;
+      });
+      await buttons(page);
+      await page.evaluate(() => {
+        (
+          window as unknown as { fixturePad: { axes: number[] } }
+        ).fixturePad.axes[3] = 0.9;
+      });
+      await expect
+        .poll(() => body.evaluate((el) => el.scrollTop))
+        .toBeGreaterThan(0);
+      await page.evaluate(() => {
+        (
+          window as unknown as { fixturePad: { axes: number[] } }
+        ).fixturePad.axes[3] = 0;
+      });
+      expect(
+        await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)
+      ).toBe(true);
+      await tap(page, 1);
+      await expect(open).toBeFocused();
+      expect(commands).toEqual([]);
+    });
+  }
+}
+
+async function emailDetailFixtures(page: Page) {
+  const f = await fixtures(page, 1);
+  const original = f.state.decisions[0]!;
+  const decision: PilotDecision = {
+    id: 'email:' + original.targetId,
+    targetId: original.targetId,
+    version: '1',
+    domain: 'email',
+    kind: 'email_failed',
+    title: 'Courriel synthétique à examiner',
+    dueAt: null,
+    severity: 'today',
+    detailsUrl: '/admin/fundraiser/email-queue',
+    facts: [],
+    actions: [{ id: 'email.retry', blocked: null }]
+  };
+  f.state.decisions = [decision];
+  f.state.domains.publications = 0;
+  f.state.domains.email = 1;
+  return { ...f, decision };
+}
+
+test('email details require an explicit reread of a changed version and retain the confirmation flow', async ({
+  page
+}) => {
+  const f = await emailDetailFixtures(page);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let reads = 0;
+  const email = {
+    subject: 'Objet du courriel synthétique',
+    recipient: 'fixture@example.invalid',
+    text: 'Contenu privé de test.'
+  };
+  await page.route('**/api/admin/pilotage?*', async (route) => {
+    if (!new URL(route.request().url()).searchParams.has('id'))
+      return route.fallback();
+    if (++reads === 1) await gate;
+    await route.fulfill({
+      json: { ...f.state, decisions: [{ ...f.decision, version: '2', email }] }
+    });
+  });
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-details"]').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('status')).toContainText(
+    'Chargement du courriel'
+  );
+  await expect(dialog).not.toContainText(email.recipient);
+  release();
+  await expect(dialog.getByRole('alert')).toContainText('Le dossier a changé');
+  await expect(dialog).not.toContainText(email.subject);
+  await dialog
+    .getByRole('button', { name: 'Charger la version à jour' })
+    .click();
+  await expect(dialog).toContainText(email.subject);
+  await expect(dialog).toContainText(email.recipient);
+  await expect(dialog).toContainText(email.text);
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await expect(
+    dialog.locator('[data-og7="admin-drawer-content"]')
+  ).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-og7="pilot-accept"]')).toBeEnabled();
+  await page.locator('[data-og7="pilot-accept"]').click();
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toContainText(
+    email.text
+  );
+  await page.keyboard.press('Escape');
+  expect(reads).toBe(3);
+  expect(f.commands).toEqual([]);
+});
+
+for (const status of [503, 403, 401]) {
+  test(`email detail hides cached content after a ${status} response`, async ({
+    page
+  }) => {
+    const f = await emailDetailFixtures(page);
+    let failure = 0;
+    const email = {
+      subject: 'Objet privé synthétique',
+      recipient: 'private@example.invalid',
+      text: 'Corps privé synthétique'
+    };
+    await page.route('**/api/admin/pilotage?*', async (route) => {
+      if (!new URL(route.request().url()).searchParams.has('id'))
+        return route.fallback();
+      await route.fulfill(
+        failure
+          ? { status: failure, json: {} }
+          : { json: { ...f.state, decisions: [{ ...f.decision, email }] } }
+      );
+    });
+    await page.goto('/admin/fundraiser/pilotage');
+    await page.locator('[data-og7="pilot-details"]').click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText(email.subject);
+    await page.keyboard.press('Escape');
+    failure = status;
+    await page.locator('[data-og7="pilot-details"]').click();
+    await expect(dialog.getByRole('alert')).toContainText(
+      status === 503
+        ? 'n’a pas pu être chargé'
+        : status === 403
+          ? 'plus accès'
+          : 'session a expiré'
+    );
+    await expect(dialog).not.toContainText(email.subject);
+    await expect(dialog).not.toContainText(email.text);
+    await expect(dialog).not.toContainText(email.recipient);
+    if (status === 503) {
+      failure = 0;
+      await dialog.getByRole('button', { name: 'Réessayer' }).click();
+      await expect(dialog).toContainText(email.subject);
+    } else {
+      await expect(
+        dialog.locator('[data-og7="pilot-details-reload"]')
+      ).toHaveCount(0);
+    }
+    expect(f.commands).toEqual([]);
+  });
+}
+
+test('a closed email request cannot overwrite a reopened preview, and a missing email is explicit', async ({
+  page
+}) => {
+  const f = await emailDetailFixtures(page);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let reads = 0;
+  let missing = false;
+  const email = {
+    subject: 'Aperçu courant',
+    recipient: 'current@example.invalid',
+    text: 'Contenu synthétique courant'
+  };
+  await page.route('**/api/admin/pilotage?*', async (route) => {
+    if (!new URL(route.request().url()).searchParams.has('id'))
+      return route.fallback();
+    if (++reads === 1) {
+      await gate;
+      return route.fulfill({ status: 503, json: {} });
+    }
+    await route.fulfill({
+      json: { ...f.state, decisions: missing ? [] : [{ ...f.decision, email }] }
+    });
+  });
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-details"]').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('status')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.locator('[data-og7="pilot-details"]').click();
+  await expect(dialog).toContainText(email.subject);
+  const previousResponse = page.waitForResponse(
+    (r) => r.url().includes('/api/admin/pilotage?id=') && r.status() === 503
+  );
+  release();
+  await previousResponse;
+  await expect(dialog).toContainText(email.subject);
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  missing = true;
+  await page.locator('[data-og7="pilot-details"]').click();
+  await expect(dialog.getByRole('alert')).toContainText(
+    'n’est plus disponible'
+  );
+  await expect(dialog).not.toContainText(email.subject);
+  await expect(
+    dialog.locator('[data-og7="pilot-details-footer"] a')
+  ).toBeInViewport();
+  expect(f.commands).toEqual([]);
+});
+
+test('detail media failures have a readable fallback and never approve the dossier', async ({
+  page
+}) => {
+  const f = await fixtures(page);
+  await page.route('**/api/admin/**/media/content/**', (route) =>
+    route.fulfill({ status: 503, json: {} })
+  );
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-details"]').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('status')).toContainText('Aperçu indisponible');
+  await expect(dialog.locator('img')).toHaveCount(0);
+  expect(f.commands).toEqual([]);
+});
+
+test('sponsor details remain consultative for a reader and explain the private preview', async ({
+  page
+}) => {
+  const f = await fixtures(page, 1);
+  const original = f.state.decisions[0]!;
+  f.state.writable = false;
+  f.state.domains.publications = 0;
+  f.state.domains.sponsors = 1;
+  f.state.decisions = [
+    {
+      ...original,
+      id: 'sponsor:' + original.targetId,
+      domain: 'sponsors',
+      kind: 'sponsor_review_pending',
+      title: 'Atelier de test',
+      publication: undefined,
+      sponsor: {
+        id: original.targetId,
+        name: 'Atelier de test',
+        status: 'pending_review',
+        presentationId: null,
+        presentationApproved: false
+      },
+      facts: [],
+      actions: [{ id: 'sponsor.approve', blocked: 'READ_ONLY' }]
+    }
+  ];
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-details"]').click();
+  const dialog = page.getByRole('dialog');
+  await expect(
+    dialog.getByRole('heading', { name: 'Atelier de test' })
+  ).toBeVisible();
+  await expect(dialog.getByRole('status')).toContainText(
+    'Aucun visuel associé'
+  );
+  await expect(dialog).toContainText(
+    'Visuel présenté pour la revue du dossier.'
+  );
+  await expect(dialog).toContainText('la fiche reste privée');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-og7="pilot-accept"]')).toBeDisabled();
+  expect(f.commands).toEqual([]);
+});
+
+test('project details show the public description and expected outcome once', async ({
+  page
+}) => {
+  const f = await fixtures(page, 1);
+  const original = f.state.decisions[0]!;
+  const outcome = 'Résultat public synthétique';
+  f.state.decisions = [
+    {
+      ...original,
+      id: 'project:' + original.targetId,
+      domain: 'projects',
+      kind: 'project_review',
+      title: 'Projet de test',
+      publication: undefined,
+      facts: [{ label: 'outcome', value: outcome }],
+      actions: [{ id: 'project.publish', blocked: null }],
+      project: {
+        id: original.targetId,
+        project_name: 'Projet de test',
+        public_description: 'Description publique à examiner.',
+        expected_outcome: outcome,
+        progress_status: 'planned',
+        proof_url: null,
+        proof_source: null,
+        proof_published_at: null,
+        amount_allocated: 10000,
+        currency: 'CAD',
+        status: 'draft',
+        published_at: null,
+        created_at: '2026-09-01T12:00:00Z',
+        updated_at: '2026-09-01T12:00:00Z'
+      }
+    }
+  ];
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-details"]').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Description publique à examiner.');
+  await expect(dialog.getByText(outcome, { exact: true })).toHaveCount(1);
+  await expect(
+    dialog.getByRole('complementary', { name: 'Si vous acceptez' })
+  ).toBeVisible();
+  expect(f.commands).toEqual([]);
+});
+
 test('overview counts confirmed decisions and opened details for this visit only', async ({
   page
 }) => {

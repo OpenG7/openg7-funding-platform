@@ -21,6 +21,20 @@ dialog::backdrop {
 dialog.wide {
   width: min(90rem, 98vw);
 }
+dialog.fixed-footer[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+.fixed-footer .body {
+  overflow: auto;
+  min-height: 0;
+  scroll-padding-block: 1rem;
+}
+.fixed-footer .body:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: -4px;
+}
 header {
   position: sticky;
   top: 0;
