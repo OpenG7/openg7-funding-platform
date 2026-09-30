@@ -1,0 +1,269 @@
+<section aria-labelledby="stripe-backfill-title" data-og7="stripe-backfill">
+  <header class="panel-heading">
+    <div>
+      <h2 id="stripe-backfill-title">
+        {{ 'admin.stripeBackfill.title' | translate }}
+      </h2>
+      <p class="description">
+        {{ 'admin.stripeBackfill.description' | translate }}
+      </p>
+    </div>
+    @if (canRun()) {
+      <button
+        type="button"
+        class="admin-button refresh"
+        [disabled]="busy() || confirming()"
+        (click)="refresh()"
+        data-og7="stripe-backfill-refresh"
+      >
+        {{ 'admin.stripeBackfill.refresh' | translate }}
+      </button>
+    }
+  </header>
+
+  @if (!canRun()) {
+    <p class="notice">{{ 'admin.stripeBackfill.forbidden' | translate }}</p>
+  } @else {
+    <div class="scope-heading">
+      <h3 id="stripe-backfill-scope-title">
+        {{ 'admin.stripeBackfill.scopeHeading' | translate }}
+      </h3>
+      @if (run()) {
+        <button
+          type="button"
+          class="admin-button"
+          aria-controls="stripe-backfill-scope"
+          [attr.aria-expanded]="scopeExpanded()"
+          (click)="scopeExpanded.set(!scopeExpanded())"
+          data-og7="stripe-backfill-toggle"
+        >
+          {{
+            (scopeExpanded()
+              ? 'admin.stripeBackfill.hideScope'
+              : 'admin.stripeBackfill.showScope'
+            ) | translate
+          }}
+        </button>
+      }
+    </div>
+    <form
+      id="stripe-backfill-scope"
+      [hidden]="!scopeExpanded()"
+      novalidate
+      (submit)="$event.preventDefault(); preview()"
+    >
+      <fieldset
+        [disabled]="scopeLocked()"
+        aria-labelledby="stripe-backfill-scope-title"
+      >
+        <p id="stripe-backfill-scope-help" class="hint">
+          {{ 'admin.stripeBackfill.scope' | translate }}
+        </p>
+        <div class="presets">
+          @for (days of periods; track days) {
+            <button
+              type="button"
+              class="admin-button"
+              (click)="setPeriod(days)"
+              data-og7="stripe-backfill-period"
+              [attr.data-og7-id]="days"
+            >
+              {{ 'admin.stripeBackfill.lastDays' | translate: { days } }}
+            </button>
+          }
+        </div>
+        <div class="scope-fields">
+          <label>
+            {{ 'admin.stripeBackfill.from' | translate }}
+            <input
+              type="date"
+              required
+              [max]="today()"
+              [value]="from()"
+              [attr.aria-invalid]="dateError() ? 'true' : null"
+              [attr.aria-describedby]="
+                dateError()
+                  ? 'stripe-backfill-scope-help stripe-backfill-date-error'
+                  : 'stripe-backfill-scope-help'
+              "
+              (input)="change('from', $event)"
+            />
+          </label>
+          <label>
+            {{ 'admin.stripeBackfill.to' | translate }}
+            <input
+              type="date"
+              required
+              [min]="from()"
+              [max]="today()"
+              [value]="to()"
+              [attr.aria-invalid]="dateError() ? 'true' : null"
+              [attr.aria-describedby]="
+                dateError()
+                  ? 'stripe-backfill-scope-help stripe-backfill-date-error'
+                  : 'stripe-backfill-scope-help'
+              "
+              (input)="change('to', $event)"
+            />
+          </label>
+          <label>
+            {{ 'admin.stripeBackfill.limit' | translate }}
+            <input
+              type="number"
+              required
+              min="1"
+              max="100"
+              step="1"
+              [value]="limit()"
+              [attr.aria-invalid]="limitInvalid() ? 'true' : null"
+              [attr.aria-describedby]="
+                limitInvalid() ? 'stripe-backfill-limit-error' : null
+              "
+              (input)="change('limit', $event)"
+            />
+          </label>
+          <button
+            type="submit"
+            class="admin-button admin-button--primary"
+            [disabled]="!!dateError() || limitInvalid()"
+            data-og7="stripe-backfill-preview"
+          >
+            {{ 'admin.stripeBackfill.preview' | translate }}
+          </button>
+        </div>
+        @if (dateError()) {
+          <p
+            id="stripe-backfill-date-error"
+            class="validation"
+            role="alert"
+            data-og7="stripe-backfill-date-error"
+          >
+            {{ 'admin.stripeBackfill.' + dateError() | translate }}
+          </p>
+        }
+        @if (limitInvalid()) {
+          <p id="stripe-backfill-limit-error" class="validation" role="alert">
+            {{ 'admin.stripeBackfill.limitInvalid' | translate }}
+          </p>
+        }
+      </fieldset>
+    </form>
+
+    @if (operation(); as action) {
+      <p class="notice" role="status" data-og7="stripe-backfill-loading">
+        {{ 'admin.stripeBackfill.loading.' + action | translate }}
+      </p>
+    }
+    @if (error()) {
+      <p class="notice" role="alert" data-og7="stripe-backfill-error">
+        {{ error() | translate }}
+      </p>
+    }
+    @if (run(); as result) {
+      <div
+        #resultPanel
+        class="result admin-focus-target"
+        tabindex="-1"
+        aria-live="polite"
+        data-og7="stripe-backfill-result"
+      >
+        <div class="result-heading">
+          <h3>
+            {{
+              'admin.stripeBackfill.resultHeading.' + result.status | translate
+            }}
+          </h3>
+          <span
+            class="mode-badge"
+            [class.mode-badge--live]="result.mode === 'live'"
+            data-og7="stripe-backfill-mode"
+          >
+            {{ 'admin.stripeBackfill.' + result.mode | translate }}
+          </span>
+        </div>
+        <p class="hint">
+          {{ 'admin.stripeBackfill.scopeSummary' | translate: result.scope }}
+        </p>
+        <p class="hint">
+          {{
+            'admin.stripeBackfill.target'
+              | translate
+                : { account: result.accountId, project: result.projectId }
+          }}
+        </p>
+        <p
+          class="notice"
+          [class.notice--warning]="
+            expired() ||
+            result.status === 'failed' ||
+            result.status === 'interrupted'
+          "
+          [class.notice--success]="result.status === 'completed'"
+        >
+          {{
+            (expired()
+              ? 'admin.stripeBackfill.expired'
+              : 'admin.stripeBackfill.status.' + result.status
+            ) | translate
+          }}
+        </p>
+        @if (result.status === 'preview' || result.status === 'completed') {
+          <dl class="metrics">
+            @for (metric of metrics; track metric) {
+              <div
+                data-og7="stripe-backfill-metric"
+                [attr.data-og7-id]="metric"
+              >
+                <dt>
+                  {{ 'admin.stripeBackfill.metrics.' + metric | translate }}
+                </dt>
+                <dd>{{ result.counts[metric] }}</dd>
+              </div>
+            }
+          </dl>
+          @if (emptyPreview()) {
+            <p class="notice" data-og7="stripe-backfill-empty">
+              {{ 'admin.stripeBackfill.empty' | translate }}
+            </p>
+          }
+          @if (result.counts.scanned >= result.scope.limit) {
+            <p class="notice notice--warning">
+              {{ 'admin.stripeBackfill.capped' | translate }}
+            </p>
+          }
+          @if (result.counts.missingFees) {
+            <p class="notice notice--warning">
+              {{ 'admin.stripeBackfill.missingFees' | translate }}
+            </p>
+          }
+        }
+        @if (result.status === 'preview' && !uncertain()) {
+          <div class="result-actions">
+            @if (expired()) {
+              <button
+                type="button"
+                class="admin-button admin-button--primary"
+                [disabled]="scopeLocked() || !!dateError() || limitInvalid()"
+                (click)="preview()"
+                data-og7="stripe-backfill-renew"
+              >
+                {{ 'admin.stripeBackfill.renew' | translate }}
+              </button>
+            }
+            <button
+              #executeButton
+              type="button"
+              class="admin-button"
+              [class.admin-button--primary]="!expired()"
+              [disabled]="!canExecute()"
+              (click)="execute()"
+              data-og7="stripe-backfill-execute"
+            >
+              {{ 'admin.stripeBackfill.execute' | translate }}
+            </button>
+          </div>
+        }
+      </div>
+    }
+  }
+</section>

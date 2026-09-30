@@ -1,12 +1,16 @@
+import { isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
   ElementRef,
   Injector,
+  NgZone,
   OnInit,
+  PLATFORM_ID,
   afterNextRender,
   computed,
+  effect,
   inject,
   output,
   signal,
@@ -28,211 +32,12 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   standalone: true,
   imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <section aria-labelledby="stripe-backfill-title" data-og7="stripe-backfill">
-      <h2 id="stripe-backfill-title">
-        {{ 'admin.stripeBackfill.title' | translate }}
-      </h2>
-      <p>{{ 'admin.stripeBackfill.description' | translate }}</p>
-      @if (!canRun()) {
-        <p>{{ 'admin.stripeBackfill.forbidden' | translate }}</p>
-      } @else {
-        <form (submit)="$event.preventDefault(); preview()">
-          <fieldset
-            [disabled]="
-              busy() ||
-              confirming() ||
-              uncertain() ||
-              run()?.status === 'running'
-            "
-          >
-            <legend>{{ 'admin.stripeBackfill.scope' | translate }}</legend>
-            <label
-              >{{ 'admin.stripeBackfill.from' | translate }}
-              <input
-                type="date"
-                required
-                [max]="today()"
-                [value]="from()"
-                (input)="change('from', $event)"
-              />
-            </label>
-            <label
-              >{{ 'admin.stripeBackfill.to' | translate }}
-              <input
-                type="date"
-                required
-                [max]="today()"
-                [min]="from()"
-                [value]="to()"
-                (input)="change('to', $event)"
-              />
-            </label>
-            <label
-              >{{ 'admin.stripeBackfill.limit' | translate }}
-              <input
-                type="number"
-                required
-                min="1"
-                max="100"
-                step="1"
-                [value]="limit()"
-                (input)="change('limit', $event)"
-              />
-            </label>
-            <button type="submit" data-og7="stripe-backfill-preview">
-              {{ 'admin.stripeBackfill.preview' | translate }}
-            </button>
-          </fieldset>
-        </form>
-        @if (busy()) {
-          <p role="status">{{ 'admin.stripeBackfill.loading' | translate }}</p>
-        }
-        @if (error()) {
-          <p role="alert" data-og7="stripe-backfill-error">
-            {{ error() | translate }}
-          </p>
-        }
-        @if (run(); as result) {
-          <div
-            #resultPanel
-            tabindex="-1"
-            aria-live="polite"
-            data-og7="stripe-backfill-result"
-          >
-            <strong>{{
-              'admin.stripeBackfill.' + result.mode | translate
-            }}</strong>
-            <p>
-              {{
-                'admin.stripeBackfill.target'
-                  | translate
-                    : { account: result.accountId, project: result.projectId }
-              }}
-            </p>
-            <p>
-              {{ result.scope.from }} — {{ result.scope.to }} (UTC) ·
-              {{ result.scope.limit }}
-            </p>
-            <p>
-              {{ 'admin.stripeBackfill.status.' + result.status | translate }}
-            </p>
-            @if (result.status === 'preview' || result.status === 'completed') {
-              <p>
-                {{ 'admin.stripeBackfill.counts' | translate: result.counts }}
-              </p>
-              @if (result.counts.scanned >= result.scope.limit) {
-                <p>{{ 'admin.stripeBackfill.capped' | translate }}</p>
-              }
-              @if (result.counts.missingFees) {
-                <p>{{ 'admin.stripeBackfill.missingFees' | translate }}</p>
-              }
-            }
-            @if (result.status === 'preview' && !uncertain()) {
-              <button
-                type="button"
-                [disabled]="
-                  busy() ||
-                  expired() ||
-                  (!result.counts.matched && !result.counts.disputes)
-                "
-                (click)="execute()"
-                data-og7="stripe-backfill-execute"
-              >
-                {{ 'admin.stripeBackfill.execute' | translate }}
-              </button>
-              @if (expired()) {
-                <p>{{ 'admin.stripeBackfill.expired' | translate }}</p>
-              }
-            }
-          </div>
-        }
-        <button
-          type="button"
-          class="secondary"
-          [disabled]="busy()"
-          (click)="refresh()"
-          data-og7="stripe-backfill-refresh"
-        >
-          {{ 'admin.stripeBackfill.refresh' | translate }}
-        </button>
-      }
-    </section>
-  `,
-  styles: [
-    `
-      :host {
-        display: block;
-        margin: 1rem 0;
-      }
-      section {
-        padding: 1.25rem;
-        border: 1px solid #cbd5e1;
-        border-radius: 1rem;
-        background: #fff;
-        color: #17243a;
-      }
-      h2 {
-        margin: 0;
-        font-size: 1.2rem;
-      }
-      p {
-        line-height: 1.5;
-        overflow-wrap: anywhere;
-      }
-      fieldset {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: end;
-        gap: 1rem;
-        border: 0;
-        padding: 0;
-        margin: 1rem 0;
-      }
-      legend {
-        padding: 0;
-        margin-bottom: 0.6rem;
-      }
-      label {
-        display: grid;
-        gap: 0.4rem;
-      }
-      input,
-      button {
-        font: inherit;
-        padding: 0.65rem 0.8rem;
-        border: 1px solid #64748b;
-        border-radius: 0.5rem;
-        max-width: 100%;
-      }
-      button {
-        background: #173c59;
-        color: #fff;
-        cursor: pointer;
-      }
-      .secondary {
-        background: #fff;
-        color: #173c59;
-        margin-top: 1rem;
-      }
-      button:disabled {
-        opacity: 0.55;
-        cursor: default;
-      }
-      :focus-visible {
-        outline: 3px solid #186eac;
-        outline-offset: 3px;
-      }
-      [role='alert'] {
-        color: #a3122d;
-      }
-      @media (max-width: 540px) {
-        label,
-        fieldset button {
-          width: 100%;
-        }
-      }
-    `
+  templateUrl: './admin-stripe-backfill.component.html',
+  styleUrls: [
+    '../admin-ui/admin-theme.css',
+    '../admin-ui/admin-controls.css',
+    '../admin-ui/admin-forms.css',
+    './admin-stripe-backfill.component.css'
   ]
 })
 export class AdminStripeBackfillComponent implements OnInit {
@@ -243,8 +48,12 @@ export class AdminStripeBackfillComponent implements OnInit {
   private readonly destroy = inject(DestroyRef);
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly zone = inject(NgZone);
   private readonly resultPanel =
     viewChild<ElementRef<HTMLElement>>('resultPanel');
+  private readonly executeButton =
+    viewChild<ElementRef<HTMLButtonElement>>('executeButton');
   readonly canRun = computed(
     () => !this.admin.identity() || this.admin.identity()?.role === 'owner'
   );
@@ -252,23 +61,81 @@ export class AdminStripeBackfillComponent implements OnInit {
   readonly from = signal('');
   readonly to = signal('');
   readonly limit = signal(100);
-  readonly busy = signal(false);
+  readonly operation = signal<'preview' | 'execute' | 'refresh' | null>(null);
+  readonly busy = computed(() => this.operation() !== null);
   readonly confirming = signal(false);
   readonly uncertain = signal(false);
   readonly error = signal('');
   readonly run = signal<AdminStripeBackfillRun | null>(null);
-  readonly expired = computed(
-    () => !!this.run() && Date.parse(this.run()!.expiresAt) <= Date.now()
+  readonly expired = signal(false);
+  readonly scopeExpanded = signal(true);
+  readonly periods = [7, 31] as const;
+  readonly metrics = [
+    'scanned',
+    'matched',
+    'payments',
+    'refunds',
+    'disputes'
+  ] as const;
+  readonly scopeLocked = computed(
+    () =>
+      this.busy() ||
+      this.confirming() ||
+      this.uncertain() ||
+      this.run()?.status === 'running'
+  );
+  readonly dateError = computed(() => {
+    const from = Date.parse(this.from() + 'T00:00:00Z');
+    const to = Date.parse(this.to() + 'T00:00:00Z');
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return 'datesRequired';
+    if (from > to) return 'datesOrder';
+    if (to > Date.parse(this.today() + 'T00:00:00Z')) return 'datesFuture';
+    return to - from >= 31 * 86400000 ? 'datesRange' : '';
+  });
+  readonly limitInvalid = computed(
+    () =>
+      !Number.isInteger(this.limit()) || this.limit() < 1 || this.limit() > 100
+  );
+  readonly emptyPreview = computed(() => {
+    const result = this.run();
+    return (
+      result?.status === 'preview' &&
+      !result.counts.matched &&
+      !result.counts.payments &&
+      !result.counts.refunds &&
+      !result.counts.disputes
+    );
+  });
+  readonly canExecute = computed(
+    () =>
+      this.canRun() &&
+      !this.scopeLocked() &&
+      !this.expired() &&
+      this.run()?.status === 'preview' &&
+      !!(this.run()?.counts.matched || this.run()?.counts.disputes)
   );
   private session = 0;
 
+  constructor() {
+    effect((onCleanup) => {
+      const run = this.run();
+      this.expired.set(!!run && this.previewExpired(run));
+      if (run?.status !== 'preview' || !isPlatformBrowser(this.platformId))
+        return;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const update = () => {
+        this.expired.set(this.previewExpired(run));
+        const remaining = Date.parse(run.expiresAt) - Date.now();
+        if (remaining > 0)
+          timer = setTimeout(update, Math.min(remaining, 2147483647));
+      };
+      this.zone.runOutsideAngular(update);
+      onCleanup(() => clearTimeout(timer));
+    });
+  }
+
   ngOnInit(): void {
-    const now = new Date();
-    this.today.set(now.toISOString().slice(0, 10));
-    this.to.set(this.today());
-    this.from.set(
-      new Date(now.getTime() - 6 * 86400000).toISOString().slice(0, 10)
-    );
+    this.setPeriod(7);
     this.session = this.admin.sessionGeneration();
     if (this.canRun()) void this.refresh();
   }
@@ -277,8 +144,27 @@ export class AdminStripeBackfillComponent implements OnInit {
       !this.destroy.destroyed && this.session === this.admin.sessionGeneration()
     );
   }
+  private previewExpired(run: AdminStripeBackfillRun): boolean {
+    return (
+      run.status === 'preview' &&
+      (!Number.isFinite(Date.parse(run.expiresAt)) ||
+        Date.parse(run.expiresAt) <= Date.now())
+    );
+  }
+  setPeriod(days: 7 | 31): void {
+    if (this.scopeLocked()) return;
+    const now = new Date();
+    this.today.set(now.toISOString().slice(0, 10));
+    this.to.set(this.today());
+    this.from.set(
+      new Date(now.getTime() - (days - 1) * 86400000).toISOString().slice(0, 10)
+    );
+    this.run.set(null);
+    this.error.set('');
+    this.scopeExpanded.set(true);
+  }
   change(field: 'from' | 'to' | 'limit', event: Event): void {
-    if (this.busy() || this.uncertain()) return;
+    if (this.scopeLocked()) return;
     const value = (event.target as HTMLInputElement).value;
     if (field === 'limit') this.limit.set(Number(value));
     else this[field].set(value);
@@ -304,6 +190,7 @@ export class AdminStripeBackfillComponent implements OnInit {
     this.error.set('admin.stripeBackfill.' + key);
     if (status === 401 || status === 403) {
       this.run.set(null);
+      this.scopeExpanded.set(true);
       this.uncertain.set(false);
     }
     if (status === 401)
@@ -315,8 +202,15 @@ export class AdminStripeBackfillComponent implements OnInit {
       });
   }
   async preview(): Promise<void> {
-    if (this.busy() || !this.canRun() || this.uncertain()) return;
-    this.busy.set(true);
+    if (
+      this.scopeLocked() ||
+      !this.canRun() ||
+      this.dateError() ||
+      this.limitInvalid()
+    )
+      return;
+    this.operation.set('preview');
+    this.scopeExpanded.set(true);
     this.error.set('');
     this.run.set(null);
     try {
@@ -324,24 +218,21 @@ export class AdminStripeBackfillComponent implements OnInit {
         action: 'preview',
         scope: { from: this.from(), to: this.to(), limit: this.limit() }
       });
-      if (this.active()) this.run.set(response.run);
+      if (this.active()) {
+        this.run.set(response.run);
+        afterNextRender(() => this.resultPanel()?.nativeElement.focus(), {
+          injector: this.injector
+        });
+      }
     } catch (error) {
       if (!this.destroy.destroyed) this.showError(error);
     } finally {
-      this.busy.set(false);
+      this.operation.set(null);
     }
   }
   async execute(): Promise<void> {
     const run = this.run();
-    if (
-      !run ||
-      run.status !== 'preview' ||
-      this.busy() ||
-      this.confirming() ||
-      this.uncertain() ||
-      !this.canRun()
-    )
-      return;
+    if (!run || !this.canExecute() || this.previewExpired(run)) return;
     this.confirming.set(true);
     this.error.set('');
     try {
@@ -355,8 +246,27 @@ export class AdminStripeBackfillComponent implements OnInit {
           limit: run.scope.limit
         })
       );
-      if (!accepted || !this.active()) return;
-      this.busy.set(true);
+      if (!this.active()) return;
+      if (!accepted) {
+        afterNextRender(
+          () => {
+            const target = this.previewExpired(run)
+              ? this.resultPanel()
+              : this.executeButton();
+            target?.nativeElement.focus();
+          },
+          { injector: this.injector }
+        );
+        return;
+      }
+      if (this.previewExpired(run) || this.run()?.id !== run.id) {
+        this.expired.set(this.previewExpired(run));
+        afterNextRender(() => this.resultPanel()?.nativeElement.focus(), {
+          injector: this.injector
+        });
+        return;
+      }
+      this.operation.set('execute');
       this.uncertain.set(true);
       const response = await this.admin.stripeBackfill({
         action: 'execute',
@@ -376,13 +286,13 @@ export class AdminStripeBackfillComponent implements OnInit {
         if (this.uncertain()) this.error.set('admin.stripeBackfill.uncertain');
       }
     } finally {
-      this.busy.set(false);
+      this.operation.set(null);
       this.confirming.set(false);
     }
   }
   async refresh(): Promise<void> {
-    if (this.busy() || !this.canRun()) return;
-    this.busy.set(true);
+    if (this.busy() || this.confirming() || !this.canRun()) return;
+    this.operation.set('refresh');
     this.error.set('');
     try {
       const response = await this.admin.stripeBackfill(
@@ -396,12 +306,14 @@ export class AdminStripeBackfillComponent implements OnInit {
         this.from.set(response.run.scope.from);
         this.to.set(response.run.scope.to);
         this.limit.set(response.run.scope.limit);
+      } else {
+        this.scopeExpanded.set(true);
       }
       if (response.run?.status === 'completed') this.completed.emit();
     } catch (error) {
       if (!this.destroy.destroyed) this.showError(error);
     } finally {
-      this.busy.set(false);
+      this.operation.set(null);
     }
   }
 }
