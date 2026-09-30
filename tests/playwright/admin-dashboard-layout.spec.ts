@@ -499,6 +499,94 @@ test('server session rejection clears credentials and login returns to the dashb
   ).toBeNull();
 });
 
+test('desktop hamburger expands the workspace and remains keyboard accessible in both languages', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.goto('/admin/fundraiser');
+  const toggle = page.locator('[data-og7="admin-navigation-toggle"]');
+  const sidebar = page.locator('#admin-sidebar');
+  const main = page.getByRole('main');
+  await expect(toggle).toHaveAttribute('aria-controls', 'admin-sidebar');
+
+  for (const language of ['fr-CA', 'en']) {
+    if (language === 'en')
+      await page
+        .getByRole('button', {
+          name: 'Switch administration language to English'
+        })
+        .click();
+    for (const width of [1672, 1024, 861]) {
+      await page.setViewportSize({ width, height: 941 });
+      await expect(sidebar).toBeVisible();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      await expect(toggle).toHaveAccessibleName(
+        language === 'en' ? 'Close menu' : 'Fermer le menu'
+      );
+      const expandedWidth = await main.evaluate(
+        (element) => element.getBoundingClientRect().width
+      );
+
+      await toggle.focus();
+      await page.keyboard.press('Enter');
+      await expect(sidebar).toBeHidden();
+      await expect(page.getByRole('navigation')).toHaveCount(0);
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(toggle).toHaveAccessibleName(
+        language === 'en' ? 'Open menu' : 'Ouvrir le menu'
+      );
+      await expect(toggle).toBeFocused();
+      expect(
+        await main.evaluate((element) => element.getBoundingClientRect().width)
+      ).toBeGreaterThan(expandedWidth);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+
+      await page.keyboard.press('Tab');
+      await expect(
+        page.locator('[data-og7="admin-search-open"]')
+      ).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
+      await page.keyboard.press('Space');
+      await expect(sidebar).toBeVisible();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      await expect(toggle).toBeFocused();
+    }
+  }
+});
+
+test('desktop hamburger keeps the mobile menu usable across viewport changes', async ({
+  page
+}) => {
+  await fixtures(page);
+  await page.goto('/admin/fundraiser');
+  const desktopToggle = page.locator('[data-og7="admin-navigation-toggle"]');
+  const sidebar = page.locator('#admin-sidebar');
+  await desktopToggle.click();
+  await expect(sidebar).toBeHidden();
+
+  for (const width of [860, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(desktopToggle).toBeHidden();
+    await expect(sidebar).toBeVisible();
+    const mobileToggle = page.getByRole('button', { name: 'Ouvrir le menu' });
+    await mobileToggle.click();
+    await expect(sidebar.getByRole('navigation')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(sidebar.getByRole('navigation')).toBeHidden();
+    await expect(mobileToggle).toBeFocused();
+  }
+
+  await page.setViewportSize({ width: 1672, height: 941 });
+  await expect(sidebar).toBeHidden();
+  await expect(desktopToggle).toBeVisible();
+  await desktopToggle.click();
+  await expect(sidebar.getByRole('navigation')).toBeVisible();
+});
+
 test('mobile disclosure supports Escape, focus restoration and keyboard navigation', async ({
   page
 }) => {

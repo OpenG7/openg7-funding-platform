@@ -24,6 +24,11 @@
   flex: 1;
   max-width: 42rem;
 }
+.navigation-toggle {
+  flex: 0 0 auto;
+  width: 2.75rem;
+  padding: 0.55rem;
+}
 .tools {
   align-items: center;
   display: flex;
@@ -75,11 +80,22 @@ main:focus {
   .layout {
     grid-template-columns: minmax(0, 1fr);
   }
+  .navigation-toggle {
+    display: none;
+  }
   .topbar {
     padding: 0.8rem 1rem;
   }
   main {
     padding: 1.25rem 1rem 2rem;
+  }
+}
+@media (min-width: 861px) {
+  .layout.navigation-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .navigation-collapsed openg7-admin-nav {
+    display: none;
   }
 }
 @media (max-width: 480px) {
