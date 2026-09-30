@@ -31,6 +31,14 @@ after ten minutes and is bound to the actor, credential, account, project and
 scope. Execution rechecks Stripe facts; preview counts are estimates, not a frozen
 set of financial facts. Filters cannot be changed on an existing preview.
 
+The UI checks dates and the integer limit before requesting a preview. The 7-day
+and 31-day shortcuts include today in UTC; changing the scope clears the preview.
+Settings can be collapsed after previewing, while the scope, mode and counters
+remain visible. An expired preview disables execution and offers a new preview,
+including when expiry occurs while the confirmation dialog is open. The API
+remains authoritative for validation and expiry; the browser timer grants no
+execution rights.
+
 Responses contain `{ "run": ... }`: ID, status, mode, account/project, scope,
 expiry and counts. `GET /api/admin/stripe-backfill?id=<UUID>` reads the actor's
 receipt; without ID it reads their latest receipt, or `null`. Both route prefixes
