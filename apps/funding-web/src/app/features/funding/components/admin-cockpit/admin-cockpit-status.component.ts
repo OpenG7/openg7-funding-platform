@@ -25,6 +25,7 @@ import type { CockpitBlockState } from './cockpit-block.js';
     <button
       type="button"
       class="admin-button"
+      [attr.aria-label]="refreshLabel()"
       [disabled]="state() === 'loading'"
       (click)="refresh.emit()"
     >
@@ -39,5 +40,6 @@ import type { CockpitBlockState } from './cockpit-block.js';
 export class AdminCockpitStatusComponent {
   readonly state = input.required<CockpitBlockState>();
   readonly stale = input(false);
+  readonly refreshLabel = input<string | null>(null);
   readonly refresh = output<void>();
 }

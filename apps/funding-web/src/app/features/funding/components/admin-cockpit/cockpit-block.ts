@@ -6,7 +6,7 @@ import {
   inject,
   signal,
   untracked,
-  type InputSignal
+  type Signal
 } from '@angular/core';
 import { Router } from '@angular/router';
 import type {
@@ -31,7 +31,8 @@ type Blocks = {
 /** Local state per block. A failed source does not hide the other cockpit blocks. */
 export const createCockpitBlock = <K extends keyof Blocks>(
   kind: K,
-  refresh: InputSignal<number>
+  refresh: Signal<number>,
+  enabled: () => boolean = () => true
 ) => {
   const admin = inject(FundingAdminService);
   const router = inject(Router);
@@ -39,11 +40,13 @@ export const createCockpitBlock = <K extends keyof Blocks>(
   const destroy = inject(DestroyRef);
   const data = signal<Blocks[K] | null>(null);
   const state = signal<CockpitBlockState>('loading');
+  // Loading a retry must not validate the snapshot kept after a failed read.
+  const failed = signal(false);
   const clock = signal(Date.now());
   let generation = 0;
   let destroyed = false;
   const load = async (): Promise<void> => {
-    if (!browser || destroyed) return;
+    if (!browser || destroyed || !enabled()) return;
     const request = ++generation;
     state.set('loading');
     const token = admin.getSavedAdminToken();
@@ -54,6 +57,7 @@ export const createCockpitBlock = <K extends keyof Blocks>(
       if (!admin.getSavedAdminToken())
         throw new AdminDashboardRequestError(401);
       clock.set(Date.now());
+      failed.set(false);
       if ('available' in result && !result.available) {
         data.set(null);
         state.set('unavailable');
@@ -65,21 +69,33 @@ export const createCockpitBlock = <K extends keyof Blocks>(
       if (destroyed || request !== generation) return;
       if (error instanceof AdminDashboardRequestError && error.status === 401) {
         data.set(null);
+        failed.set(false);
         admin.clearAdminSession();
         await router.navigate(['/admin/login'], {
-          queryParams: { returnUrl: '/admin/fundraiser' }
+          queryParams: { returnUrl: router.url }
         });
       } else if (
         error instanceof AdminDashboardRequestError &&
         error.status === 403
       ) {
         data.set(null);
+        failed.set(false);
         state.set('forbidden');
-      } else state.set('error');
+      } else {
+        failed.set(true);
+        state.set('error');
+      }
     }
   };
   effect(() => {
     refresh();
+    if (!enabled()) {
+      generation++;
+      data.set(null);
+      failed.set(false);
+      state.set('loading');
+      return;
+    }
     untracked(() => {
       void load();
     });
@@ -93,7 +109,7 @@ export const createCockpitBlock = <K extends keyof Blocks>(
     if (timer) clearInterval(timer);
   });
   const stale = () =>
-    state() === 'error' ||
+    failed() ||
     Boolean(data() && clock() - Date.parse(data()!.generatedAt) > 300_000);
-  return { data, state, clock, stale, load };
+  return { data, state, clock, failed: failed.asReadonly(), stale, load };
 };

@@ -1,6 +1,10 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 const paths = {
+  database:
+    'M3 6c0-5 18-5 18 0s-18 5-18 0Zm0 0v12c0 5 18 5 18 0V6M3 12c0 5 18 5 18 0',
+  cloud: 'M6 19a5 5 0 0 1-1-10 7 7 0 0 1 13-2 6 6 0 0 1 0 12H6Z',
+  check: 'm5 12 4 4L19 6',
   search: 'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm5 12 6 6',
   dashboard: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9',
   assistant:

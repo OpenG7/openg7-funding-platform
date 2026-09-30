@@ -20,7 +20,7 @@ test.describe('Docker admin setup', () => {
     await page.goto('/admin/fundraiser/setup');
 
     await expect(
-      page.getByRole('heading', { name: 'Setup operationnel' })
+      page.getByRole('heading', { name: 'Configuration et état du système' })
     ).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Paiements et webhooks' })
@@ -56,7 +56,7 @@ test.describe('Docker admin setup', () => {
     ).toBeVisible();
   });
 
-  test('walks through the setup guide from start to finish, then reopens it to close via the scrim', async ({
+  test('walks through the setup guide from start to finish, then reopens it to close via the close button', async ({
     page
   }) => {
     await signInAsAdmin(page);
@@ -132,7 +132,7 @@ test.describe('Docker admin setup', () => {
       page.getByText(/Impossible de charger le setup admin/i)
     ).not.toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Setup operationnel' })
+      page.getByRole('heading', { name: 'Configuration et état du système' })
     ).toBeVisible();
   });
 });

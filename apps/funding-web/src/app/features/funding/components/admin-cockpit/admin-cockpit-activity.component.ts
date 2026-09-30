@@ -31,6 +31,7 @@ import { createCockpitBlock } from './cockpit-block.js';
         <openg7-admin-cockpit-status
           [state]="block.state()"
           [stale]="block.stale()"
+          [refreshLabel]="refreshLabel()"
           (refresh)="block.load()"
         />
       </header>
@@ -86,6 +87,7 @@ import { createCockpitBlock } from './cockpit-block.js';
 })
 export class AdminCockpitActivityComponent {
   readonly refreshKey = input(0);
+  readonly refreshLabel = input<string | null>(null);
   readonly block = createCockpitBlock('activity', this.refreshKey);
   readonly router = inject(Router);
   readonly i18n = inject(FundingI18nService);

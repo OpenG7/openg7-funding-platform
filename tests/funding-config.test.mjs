@@ -2534,10 +2534,15 @@ test('An admin gets a daily email reminder for sponsorship reviews waiting on a 
   );
   const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const setupPage = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts',
-    'utf8'
-  );
+  const setupPage =
+    fs.readFileSync(
+      'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts',
+      'utf8'
+    ) +
+    fs.readFileSync(
+      'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.html',
+      'utf8'
+    );
   const envExample = fs.readFileSync('.env.example', 'utf8');
   const emailDocs = fs.readFileSync('docs/email-smtp.md', 'utf8');
 
@@ -3009,10 +3014,15 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
     'apps/funding-web/src/app/admin.routes.ts',
     'utf8'
   );
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts',
-    'utf8'
-  );
+  const page =
+    fs.readFileSync(
+      'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts',
+      'utf8'
+    ) +
+    fs.readFileSync(
+      'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.html',
+      'utf8'
+    );
   const service = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
     'utf8'
