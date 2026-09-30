@@ -12,6 +12,7 @@ import {
   updateSponsorshipPublication
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import { listPublicBuilders } from '../../dist/apps/funding-api/src/fund-transparency.repository.js';
+import { setSponsorshipWebsiteVisibility } from '../../dist/apps/funding-api/src/sponsorship-website.service.js';
 import {
   deleteSponsorMediaAsset,
   getApprovedPublicSponsorMedia,
@@ -487,7 +488,7 @@ test(
       }
     );
     await t.test(
-      'combined acceptance is explicit and atomic and keeps website profiles and media private',
+      'combined acceptance keeps profiles and media private until a separate website publication decision',
       async () => {
         await reset();
         const { contributionId, job } = await pendingProposal();
@@ -554,6 +555,26 @@ test(
           feedNotes: null
         });
         assert.equal(result.updated, true);
+        assert.equal(
+          (await listPublicSponsorships(pool)).sponsorships.length,
+          0,
+          'saving presentation settings does not authorize website publication'
+        );
+        assert.equal((await listPublicBuilders(pool)).builders.length, 0);
+        assert.equal(await getApprovedPublicSponsorMedia(pool, mediaId), null);
+        assert.equal(
+          await setSponsorshipWebsiteVisibility(
+            pool,
+            {
+              contributionId,
+              expectedVersion: result.currentVersion,
+              visible: true,
+              confirmed: true
+            },
+            'reviewer'
+          ),
+          'updated'
+        );
         assert.equal(
           (await listPublicSponsorships(pool)).sponsorships.length,
           1
