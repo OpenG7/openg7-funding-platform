@@ -1,5 +1,19 @@
 {
   "admin": {
+    "audit": {
+      "entryCountOne": "{{count}} entry",
+      "entryCount": "{{count}} entries",
+      "searchPlaceholder": "Search the journal…",
+      "context": "Actor and entity",
+      "emptyTitle": "No entries found",
+      "noResults": "Try another action, actor or reference.",
+      "clearSearch": "Clear search",
+      "updatedAt": "Updated {{date}}",
+      "pagination": "Audit journal pages",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "{{page}} / {{total}}"
+    },
     "interventions": {
       "title": "Follow-up and interventions",
       "refresh": "Refresh journal",

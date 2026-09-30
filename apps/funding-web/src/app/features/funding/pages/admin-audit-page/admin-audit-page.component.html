@@ -1,0 +1,187 @@
+<openg7-admin-layout>
+  <section class="admin-content" data-og7="admin-audit">
+    <header class="admin-topbar">
+      <h1>{{ 'admin.legacy.audit' | translate }}</h1>
+      <button
+        class="admin-button refresh-button"
+        type="button"
+        [disabled]="state() === 'loading'"
+        (click)="loadAuditLog()"
+      >
+        <openg7-admin-icon name="refresh" />
+        {{ 'admin.legacy.actualiser' | translate }}
+      </button>
+    </header>
+
+    <section class="audit-panel" aria-labelledby="audit-title">
+      <header class="journal-toolbar">
+        <div class="journal-heading">
+          <h2 id="audit-title">
+            {{ 'admin.legacy.journal_admin' | translate }}
+          </h2>
+          @if (response()) {
+            <span class="entry-count" data-og7="audit-count" role="status">
+              {{
+                (filteredEntries().length === 1
+                  ? 'admin.audit.entryCountOne'
+                  : 'admin.audit.entryCount'
+                ) | translate: { count: filteredEntries().length }
+              }}
+            </span>
+          }
+        </div>
+        <label class="search-field">
+          <span class="sr-only">{{
+            'admin.legacy.recherche' | translate
+          }}</span>
+          <openg7-admin-icon name="search" />
+          <input
+            #searchInput
+            type="search"
+            [placeholder]="'admin.audit.searchPlaceholder' | translate"
+            [value]="search()"
+            (input)="setSearch($event)"
+          />
+        </label>
+      </header>
+
+      @if (state() === 'loading') {
+        <p class="state" role="status">
+          {{ 'admin.legacy.chargement_de_l_audit' | translate }}
+        </p>
+      }
+      @if (state() === 'error') {
+        <p class="state state-error" role="alert">
+          {{
+            'admin.legacy.impossible_de_charger_le_journal_d_audit' | translate
+          }}
+        </p>
+      }
+
+      @if (filteredEntries().length > 0) {
+        <table
+          role="table"
+          aria-labelledby="audit-title"
+          [attr.aria-busy]="state() === 'loading'"
+        >
+          <thead role="rowgroup">
+            <tr role="row">
+              <th role="columnheader" scope="col">
+                {{ 'admin.legacy.action' | translate }}
+              </th>
+              <th role="columnheader" scope="col">
+                {{ 'admin.audit.context' | translate }}
+              </th>
+              <th role="columnheader" scope="col">
+                {{ 'admin.legacy.date' | translate }}
+              </th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            @for (entry of visibleEntries(); track entry.id) {
+              <tr
+                role="row"
+                data-og7="audit-entry"
+                [attr.data-og7-id]="entry.id"
+              >
+                <td role="cell" class="entry-action">
+                  <button
+                    type="button"
+                    class="entry-link"
+                    (click)="inspection.audit(entry)"
+                  >
+                    {{ entry.action }}
+                    <openg7-admin-icon name="arrow" />
+                  </button>
+                  <p class="entry-summary">
+                    {{
+                      entry.summary || ('admin.legacy.non_fourni' | translate)
+                    }}
+                  </p>
+                </td>
+                <td role="cell" class="entry-context">
+                  <span class="entry-actor">
+                    <span class="sr-only"
+                      >{{ 'admin.legacy.acteur' | translate }} : </span
+                    >{{ entry.actor }}
+                  </span>
+                  <span class="entry-entity" [title]="entityLabel(entry)">
+                    <span class="sr-only"
+                      >{{ 'admin.legacy.entite' | translate }} : </span
+                    >{{ entityLabel(entry) }}
+                  </span>
+                </td>
+                <td role="cell" class="entry-date">
+                  <time [attr.datetime]="entry.created_at">{{
+                    dateLabel(entry.created_at)
+                  }}</time>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+
+      @if (state() === 'ready' && filteredEntries().length === 0) {
+        <div class="empty-state" role="status">
+          <openg7-admin-icon name="search" />
+          <h3>{{ 'admin.audit.emptyTitle' | translate }}</h3>
+          <p>
+            {{
+              (search().trim()
+                ? 'admin.audit.noResults'
+                : 'admin.legacy.le_journal_se_remplira_lors_des_prochaines_actions_admin'
+              ) | translate
+            }}
+          </p>
+          @if (search().trim()) {
+            <button
+              class="admin-button"
+              type="button"
+              (click)="clearSearch(); searchInput.focus()"
+            >
+              {{ 'admin.audit.clearSearch' | translate }}
+            </button>
+          }
+        </div>
+      }
+
+      @if (response()) {
+        <footer class="journal-footer">
+          <small>{{
+            'admin.audit.updatedAt'
+              | translate
+                : { date: dateLabel(response()?.last_updated_at ?? null) }
+          }}</small>
+          @if (pageCount() > 1) {
+            <nav
+              class="pagination"
+              [attr.aria-label]="'admin.audit.pagination' | translate"
+            >
+              <button
+                class="admin-button"
+                type="button"
+                [disabled]="page() === 1"
+                (click)="previousPage()"
+              >
+                {{ 'admin.audit.previous' | translate }}
+              </button>
+              <span role="status">{{
+                'admin.audit.page'
+                  | translate: { page: page(), total: pageCount() }
+              }}</span>
+              <button
+                class="admin-button"
+                type="button"
+                [disabled]="page() === pageCount()"
+                (click)="nextPage()"
+              >
+                {{ 'admin.audit.next' | translate }}
+              </button>
+            </nav>
+          }
+        </footer>
+      }
+    </section>
+  </section>
+</openg7-admin-layout>
