@@ -1874,6 +1874,7 @@
       "note_enregistree_": "Note saved.",
       "action_impossible_le_remboursement_stripe_n_a_pas_pu_etre_cree": "The Stripe refund could not be created.",
       "remboursement_stripe_en_cours": "Stripe refund in progress…",
+      "refund_awaiting_confirmation": "Awaiting confirmation from Stripe. Another refund is blocked until this request has been reconciled.",
       "message_au_commanditaire_obligatoire": "A message to the sponsor is required.",
       "destinataire_courriel_requis": "An email recipient is required.",
       "le_texte_ne_correspond_pas_a_la_reference_demandee": "The text does not match the required reference.",

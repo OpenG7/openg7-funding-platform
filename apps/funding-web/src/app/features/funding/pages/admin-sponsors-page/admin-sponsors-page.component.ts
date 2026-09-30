@@ -3771,6 +3771,19 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       );
       this.pulseSelection(sponsorship.id);
     } catch (error) {
+      if (
+        error instanceof AdminDashboardRequestError &&
+        error.code === 'SPONSORSHIP_REFUND_UNCERTAIN'
+      ) {
+        this.activeRefundId.set(null);
+        await this.loadSponsorships();
+        this.setReviewMessage(
+          sponsorship.id,
+          this.i18n.t('admin.messages.refund_awaiting_confirmation'),
+          true
+        );
+        return;
+      }
       this.setReviewMessage(
         sponsorship.id,
         this.messageFromError(

@@ -1,6 +1,8 @@
 import type { AdminCockpitMetrics, CockpitTrend } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
+import { effectiveRefundsSql } from '../fund-refund-projection.js';
+
 import { integer, localDay, readSnapshot, shiftDay, sum } from './read.js';
 
 export interface CockpitPayment {
@@ -144,7 +146,7 @@ export const getCockpitMetrics = async (
     if (!presence.rows[0]?.finance) return unavailable;
     const rows = await client.query<CockpitPayment>(
       `
-      WITH contributions AS (
+      WITH ${effectiveRefundsSql}, contributions AS (
         SELECT DISTINCT ON (COALESCE(stripe_payment_intent_id, id::text)) * FROM fund_contributions
         WHERE status IN ('paid', 'refunded', 'disputed')
         ORDER BY COALESCE(stripe_payment_intent_id, id::text), paid_at NULLS LAST, id
@@ -170,9 +172,11 @@ export const getCockpitMetrics = async (
           payload->'data'->'object'->>'id' AS id, upper(payload->'data'->'object'->>'currency') AS currency,
           (payload->'data'->'object'->>'amount_refunded')::bigint AS amount
         FROM stripe_events WHERE event_type = 'charge.refunded' AND processing_status = 'processed'
-        UNION ALL SELECT metadata_json->>'paymentIntentId', stripe_object_id, upper(currency), amount
-        FROM fund_transactions WHERE type = 'charge.refunded' AND status = 'succeeded'
-          AND metadata_json->>'source' = 'stripe_backfill' AND metadata_json->>'paymentIntentId' IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(payload->'data'->'object'->'refunds'->'data','[]'::jsonb)) refund
+            WHERE refund->>'status' IN ('pending','requires_action','failed','canceled'))
+        UNION ALL SELECT metadata_json->>'paymentIntentId', stripe_object_id, upper(currency), sum(amount)
+        FROM effective_refunds WHERE metadata_json->>'paymentIntentId' IS NOT NULL
+        GROUP BY metadata_json->>'paymentIntentId', stripe_object_id, upper(currency)
       ), charges AS (
         SELECT pi, id, currency, max(amount) AS amount FROM charge_facts GROUP BY pi, id, currency
       ), charge_totals AS (SELECT pi, currency, sum(amount) AS amount FROM charges GROUP BY pi, currency)

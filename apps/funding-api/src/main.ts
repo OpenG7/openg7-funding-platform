@@ -245,6 +245,12 @@ import { parsePublicDirectoryPagination } from './public-directory-pagination.js
 import { parsePublicSponsorshipPagination } from './public-sponsorship-pagination.js';
 import { createPublicTransparencyCache } from './public-transparency-cache.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
+import {
+  beginSponsorshipRefundOperation,
+  failSponsorshipRefundOperation,
+  settleSponsorshipRefundOperation,
+  SponsorshipRefundOperationError
+} from './sponsorship-refund-operations.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
 import {
   renderSponsorshipCreditNotePdf,
@@ -4923,7 +4929,8 @@ const handleRequest = async (
       stripe,
       webhookSecret: stripeWebhookSecret,
       pool: dbPool,
-      publicBaseUrl: publicBaseUrl ?? publicBaseOrigin
+      publicBaseUrl: publicBaseUrl ?? publicBaseOrigin,
+      projectId
     });
 
     writeJson(request, response, result.statusCode, result.payload);
@@ -8402,12 +8409,9 @@ const handleRequest = async (
       return;
     }
 
-    let refundWorkflowStarted = false;
+    let refundOperationId: string | null = null;
     let stripeRefundCreated = false;
-    let refundWorkflowContributionId: string | null = null;
-    let refundWorkflowNote: string | null = refundNote || null;
-    let refundWorkflowAmountCents: number | null = null;
-    let refundWorkflowReason: AdminSponsorshipStripeRefundReason = refundReason;
+    const refundWorkflowNote = refundNote || null;
 
     try {
       const target = await getSponsorshipRefundTarget(
@@ -8464,8 +8468,6 @@ const handleRequest = async (
       const hasValidCentPrecision =
         parsed.amount === undefined ||
         Math.abs(parsed.amount * 100 - requestedRefundAmountCents) < 0.000001;
-      refundWorkflowAmountCents = requestedRefundAmountCents;
-      refundWorkflowReason = refundReason;
 
       if (
         requestedRefundAmountCents <= 0 ||
@@ -8497,15 +8499,16 @@ const handleRequest = async (
         return;
       }
 
-      await updateSponsorshipRefundWorkflowStatus(dbPool, {
+      refundOperationId = await beginSponsorshipRefundOperation(dbPool!, {
         contributionId: target.id,
-        refundStatus: 'processing',
-        refundAmountCents: requestedRefundAmountCents,
-        refundReason,
-        refundNote: refundWorkflowNote
+        expectedVersion: parsed.expectedVersion,
+        paymentIntentId: target.stripePaymentIntentId,
+        amountMinor: requestedRefundAmountCents,
+        currency: target.currency,
+        reason: refundReason,
+        note: refundWorkflowNote,
+        actor: getAdminAuditActor(request)
       });
-      refundWorkflowStarted = true;
-      refundWorkflowContributionId = target.id;
 
       const refund = stripe
         ? await stripe.refunds.create(
@@ -8519,11 +8522,12 @@ const handleRequest = async (
                 refundAmountCents: String(requestedRefundAmountCents),
                 refundReason,
                 publicReference: target.publicReference ?? '',
-                source: 'openg7_admin_sponsorship_refund'
+                source: 'openg7_admin_sponsorship_refund',
+                openg7RefundOperationId: refundOperationId
               }
             },
             {
-              idempotencyKey: `sponsorship-refund:${target.id}:${target.version}`
+              idempotencyKey: `sponsorship-refund:${refundOperationId}`
             }
           )
         : createDevelopmentRefundResult({
@@ -8532,6 +8536,7 @@ const handleRequest = async (
             paymentIntentId: target.stripePaymentIntentId
           });
       stripeRefundCreated = true;
+      await settleSponsorshipRefundOperation(dbPool, refund, refundOperationId);
       const refundWorkflowStatus =
         refund.status === 'succeeded'
           ? 'completed'
@@ -8548,18 +8553,6 @@ const handleRequest = async (
             })
           : false
         : false;
-      await updateSponsorshipRefundWorkflowStatus(dbPool, {
-        contributionId: target.id,
-        refundStatus: refundWorkflowStatus,
-        refundId: refund.id,
-        refundAmountCents: refund.amount,
-        refundReason,
-        refundNote: refundWorkflowNote,
-        refundError:
-          refundWorkflowStatus === 'failed'
-            ? `Stripe refund returned ${refund.status ?? 'failed'}.`
-            : null
-      });
       const refundAmount = Number((refund.amount / 100).toFixed(2));
       const refundCurrency = refund.currency.toUpperCase();
       let creditNote: Awaited<
@@ -8678,31 +8671,41 @@ const handleRequest = async (
         error instanceof Error && error.message
           ? error.message
           : 'Sponsorship refund could not be created.';
-      if (
-        refundWorkflowStarted &&
-        !stripeRefundCreated &&
-        refundWorkflowContributionId
-      ) {
+      if (error instanceof SponsorshipRefundOperationError) {
+        writeJson(request, response, 409, {
+          code: error.code,
+          error: 'Refund claim refused; refresh the sponsorship.'
+        });
+        return;
+      }
+      const definitive =
+        error instanceof Stripe.errors.StripeInvalidRequestError &&
+        error.statusCode === 400 &&
+        error.code !== 'idempotency_key_in_use';
+      if (refundOperationId && !stripeRefundCreated) {
         try {
-          await updateSponsorshipRefundWorkflowStatus(dbPool, {
-            contributionId: refundWorkflowContributionId,
-            refundStatus: 'failed',
-            refundAmountCents: refundWorkflowAmountCents,
-            refundReason: refundWorkflowReason,
-            refundNote: refundWorkflowNote,
-            refundError: errorMessage
-          });
-        } catch (workflowError) {
+          await failSponsorshipRefundOperation(
+            dbPool!,
+            refundOperationId,
+            definitive
+          );
+        } catch {
           console.error(
-            'Failed to mark sponsorship refund workflow as failed.',
-            workflowError
+            'Failed to record Stripe refund outcome; operation remains blocked.'
           );
         }
       }
-
-      console.error('Failed to refund sponsorship payment.', error);
+      const uncertain =
+        refundOperationId && !stripeRefundCreated && !definitive;
+      console.error('Sponsorship refund interrupted.', {
+        operationId: refundOperationId,
+        uncertain: Boolean(uncertain)
+      });
       writeJson(request, response, 502, {
-        error: errorMessage
+        ...(uncertain ? { code: 'SPONSORSHIP_REFUND_UNCERTAIN' } : {}),
+        error: uncertain
+          ? 'Resultat Stripe incertain. Ne relancez pas le remboursement; verifiez son etat avec Stripe.'
+          : errorMessage
       });
     }
     return;

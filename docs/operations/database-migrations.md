@@ -49,6 +49,11 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [029](../../apps/funding-api/migrations/029_create_sponsorship_refund_operations.sql)
+ajoute les demandes de remboursement durables et leur exclusion mutuelle.
+Elle ne modifie aucun fait financier existant. L'appliquer avant l'API mise à
+jour; voir [confirmation et reprise](stripe-refund-integrity.md).
+
 La migration [028](../../apps/funding-api/migrations/028_create_admin_stripe_backfills.sql)
 ajoute les aperçus et résultats du [rattrapage Stripe administratif](admin-stripe-backfill.md).
 Elle ne modifie aucune contribution et ne lance aucun import. L'appliquer avant

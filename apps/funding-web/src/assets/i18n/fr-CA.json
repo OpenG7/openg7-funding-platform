@@ -1870,6 +1870,7 @@
       "note_enregistree_": "Note enregistree.",
       "action_impossible_le_remboursement_stripe_n_a_pas_pu_etre_cree": "Action impossible: le remboursement Stripe n'a pas pu etre cree.",
       "remboursement_stripe_en_cours": "Remboursement Stripe en cours...",
+      "refund_awaiting_confirmation": "Confirmation de Stripe en attente. Un autre remboursement est bloqué jusqu’à la réconciliation de cette demande.",
       "message_au_commanditaire_obligatoire": "Message au commanditaire obligatoire.",
       "destinataire_courriel_requis": "Destinataire courriel requis.",
       "le_texte_ne_correspond_pas_a_la_reference_demandee": "Le texte ne correspond pas a la reference demandee.",

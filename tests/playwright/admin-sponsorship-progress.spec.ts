@@ -1505,6 +1505,43 @@ test('refund validates amount and reference, cancellation is inert and submissio
   });
 });
 
+test('an uncertain Stripe refund closes the form, refreshes its state and blocks another submission', async ({
+  page
+}) => {
+  const { options } = await fixtures(page, 'owner');
+  let submissions = 0;
+  await page.route('**/api/admin/sponsorships/refund', async (route) => {
+    submissions++;
+    options.edited.set(id, {
+      sponsorship_refund_status: 'processing',
+      version: 'v2'
+    });
+    await route.fulfill({
+      status: 502,
+      json: {
+        code: 'SPONSORSHIP_REFUND_UNCERTAIN',
+        error: 'Awaiting Stripe confirmation.'
+      }
+    });
+  });
+  await page.goto(path('refund'));
+  const opener = actions(page).getByRole('button', {
+    name: 'Rembourser Stripe'
+  });
+  await opener.click();
+  const form = page.locator('[data-og7="dossier-refund-form"]');
+  await form.getByRole('spinbutton').fill('25');
+  await form.locator('input[autocomplete="off"]').fill('DEMO-401');
+  await form.getByRole('checkbox').uncheck();
+  await form.getByRole('button', { name: /^Rembours/ }).click();
+  await expect(form).toHaveCount(0);
+  await expect(
+    page.getByText('Confirmation de Stripe en attente.', { exact: false })
+  ).toBeVisible();
+  await expect(opener).toBeDisabled();
+  expect(submissions).toBe(1);
+});
+
 test('private access resend confirms recipient and retry reuses the request identifier', async ({
   page
 }) => {

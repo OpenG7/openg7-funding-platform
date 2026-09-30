@@ -117,6 +117,7 @@ test.describe('Docker admin sponsorship review', () => {
 
     const fixture = SPONSORSHIP_FIXTURES.refund;
     await openFixtureSponsorship(page, fixture.companyName);
+    await page.getByRole('button', { name: 'Finances', exact: true }).click();
 
     await page.getByRole('button', { name: 'Rembourser Stripe' }).click();
 
@@ -153,6 +154,7 @@ test.describe('Docker admin sponsorship review', () => {
 
     const fixture = SPONSORSHIP_FIXTURES.partialRefund;
     await openFixtureSponsorship(page, fixture.companyName);
+    await page.getByRole('button', { name: 'Finances', exact: true }).click();
 
     await page.getByRole('button', { name: 'Rembourser Stripe' }).click();
 
@@ -175,6 +177,7 @@ test.describe('Docker admin sponsorship review', () => {
     ).toBeVisible();
     await expect(page.getByText(/Avoir cree:/i)).toBeVisible();
 
+    await page.getByRole('button', { name: 'Aperçu', exact: true }).click();
     // A partial refund must not flip the sponsorship's own payment status to
     // "refunded" -- only a full refund does that
     // (apps/funding-api/src/main.ts calls updateContributionStatusByPaymentIntent

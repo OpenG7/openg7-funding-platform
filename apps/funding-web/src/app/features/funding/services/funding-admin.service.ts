@@ -109,7 +109,11 @@ export interface AdminAccessResponse {
 }
 
 export class AdminDashboardRequestError extends Error {
-  constructor(readonly status: number, message = 'Admin dashboard could not be loaded.') {
+  constructor(
+    readonly status: number,
+    message = 'Admin dashboard could not be loaded.',
+    readonly code?: string
+  ) {
     super(message);
     this.name = 'AdminDashboardRequestError';
   }
@@ -1830,12 +1834,14 @@ export class FundingAdminService {
     );
 
     if (!response.ok) {
+      const error = (await response.json().catch(() => null)) as {
+        error?: string;
+        code?: string;
+      } | null;
       throw new AdminDashboardRequestError(
         response.status,
-        await this.errorMessageFromResponse(
-          response,
-          'Sponsorship refund could not be created.'
-        )
+        error?.error ?? 'Sponsorship refund could not be created.',
+        error?.code
       );
     }
 

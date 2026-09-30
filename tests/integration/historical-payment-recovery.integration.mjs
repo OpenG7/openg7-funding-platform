@@ -125,6 +125,7 @@ test(
         stripe: f.stripe,
         pool,
         webhookSecret: secret,
+        projectId: 'openg7',
         publicBaseUrl: 'http://localhost'
       });
       assert.equal(result.statusCode, 200, JSON.stringify(result.payload));

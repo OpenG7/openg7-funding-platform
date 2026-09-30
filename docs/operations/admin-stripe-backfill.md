@@ -63,6 +63,13 @@ new charge, refund request, historical email, invoice generation or publication
 is triggered. Existing refund/dispute facts are reconciled. Sessions without
 matching project metadata are excluded; legacy consent is not assumed.
 
+Refunds are reconciled individually by Stripe refund ID. Partial refunds keep
+the payment `paid`; only a complete confirmed total marks it `refunded`.
+The same facts delivered later by webhook are counted once. Migration `029`
+also allows matching refunds to settle an uncertain admin request. See
+[refund integrity and recovery](stripe-refund-integrity.md) for historical data
+and unresolved requests. Refund pagination uses the same per-list cap.
+
 Statuses are `preview`, `running`, `completed`, `failed`, `interrupted`. A lost
 HTTP response requires a receipt read, never an automatic mutation retry. An
 orphaned running receipt is marked interrupted once its execution lock is gone.

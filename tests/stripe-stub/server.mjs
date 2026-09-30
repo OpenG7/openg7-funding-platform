@@ -160,6 +160,7 @@ const refundObject = (record) => ({
   payment_intent: record.paymentIntentId,
   charge: record.chargeId,
   reason: record.reason,
+  metadata: record.metadata ?? {},
   balance_transaction: record.balanceTransactionId ?? null,
   created: record.created
 });
@@ -419,6 +420,11 @@ const handleCreateRefund = async (request, response) => {
     paymentIntentId: charge.paymentIntentId,
     chargeId: charge.id,
     reason: body.reason ?? null,
+    metadata: Object.fromEntries(
+      Object.entries(body)
+        .filter(([key]) => /^metadata\[[^\]]+\]$/.test(key))
+        .map(([key, value]) => [key.slice(9, -1), value])
+    ),
     balanceTransactionId: randomId('txn_refund'),
     created: nowSeconds()
   };
