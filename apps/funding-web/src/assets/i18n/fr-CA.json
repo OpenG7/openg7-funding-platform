@@ -1,5 +1,19 @@
 {
   "admin": {
+    "audit": {
+      "entryCountOne": "{{count}} entrée",
+      "entryCount": "{{count}} entrées",
+      "searchPlaceholder": "Rechercher dans le journal…",
+      "context": "Acteur et entité",
+      "emptyTitle": "Aucune entrée trouvée",
+      "noResults": "Essayez une autre action, un acteur ou une référence.",
+      "clearSearch": "Effacer la recherche",
+      "updatedAt": "Mis à jour le {{date}}",
+      "pagination": "Pages du journal d’audit",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "page": "{{page}} / {{total}}"
+    },
     "interventions": {
       "title": "Suivi et interventions",
       "refresh": "Actualiser le journal",

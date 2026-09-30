@@ -1,0 +1,285 @@
+.admin-content {
+  display: grid;
+  gap: 1rem;
+  margin: 0 auto;
+  max-width: 78rem;
+  min-width: 0;
+}
+
+.admin-topbar,
+.journal-toolbar,
+.journal-heading,
+.journal-footer,
+.pagination {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.6rem;
+  font-weight: 650;
+}
+
+h2 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.refresh-button {
+  background: transparent;
+}
+
+.audit-panel {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.65rem;
+  min-width: 0;
+}
+
+.journal-toolbar {
+  flex-wrap: wrap;
+  padding: 1rem;
+}
+
+.journal-heading {
+  flex-wrap: wrap;
+  justify-content: start;
+}
+
+.entry-count,
+.journal-footer,
+.entry-date,
+.entry-entity {
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+}
+
+.search-field {
+  align-items: center;
+  display: flex;
+  flex: 0 1 22rem;
+  position: relative;
+  min-width: 0;
+}
+
+.search-field > openg7-admin-icon {
+  color: var(--admin-muted);
+  left: 0.75rem;
+  pointer-events: none;
+  position: absolute;
+}
+
+.search-field input {
+  background: var(--admin-bg);
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem 0.6rem 2.5rem;
+  width: 100%;
+  font-size: 0.875rem;
+}
+
+table {
+  table-layout: fixed;
+}
+
+th,
+td {
+  border-top: 1px solid var(--admin-border);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding-block: 0.5rem;
+}
+
+th:first-child {
+  width: 48%;
+}
+
+th:nth-child(2) {
+  width: 30%;
+}
+
+td {
+  font-size: 0.875rem;
+}
+
+tbody tr:hover,
+tbody tr:focus-within {
+  background: var(--admin-panel-raised);
+}
+
+.entry-link {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: 0.2rem;
+  color: var(--admin-text);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: inherit;
+  font-weight: 600;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  max-width: 100%;
+  margin-block: -0.5rem 0;
+  overflow-wrap: anywhere;
+  padding: 0;
+  text-align: left;
+}
+
+.entry-link openg7-admin-icon {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+}
+
+.entry-link:not(:disabled):hover {
+  color: var(--admin-focus);
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.entry-summary {
+  color: var(--admin-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.entry-actor,
+.entry-entity {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.entry-entity {
+  margin-top: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry-date {
+  font-variant-numeric: tabular-nums;
+}
+
+.journal-footer {
+  border-top: 1px solid var(--admin-border);
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+}
+
+.journal-footer small {
+  font-size: inherit;
+}
+
+.pagination {
+  flex-wrap: wrap;
+}
+
+.pagination .admin-button {
+  background: transparent;
+  font-size: 0.8rem;
+  padding-inline: 0.75rem;
+}
+
+.state {
+  border-top: 1px solid var(--admin-border);
+  padding: 1rem;
+}
+
+.empty-state {
+  color: var(--admin-muted);
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.empty-state h3 {
+  color: var(--admin-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.empty-state p {
+  font-size: 0.875rem;
+}
+
+.empty-state button {
+  margin-top: 0.5rem;
+}
+
+.sr-only {
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (max-width: 700px) {
+  .search-field {
+    flex-basis: 100%;
+  }
+
+  table,
+  tbody,
+  tr,
+  td {
+    display: block;
+  }
+
+  thead {
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    width: 1px;
+  }
+
+  tbody tr {
+    border-top: 1px solid var(--admin-border);
+    padding: 0.75rem 1rem;
+  }
+
+  td {
+    border: 0;
+    padding: 0;
+  }
+
+  .entry-context,
+  .entry-date {
+    margin-top: 0.5rem;
+  }
+
+  .entry-context {
+    font-size: 0.8rem;
+  }
+
+  .entry-entity {
+    white-space: normal;
+  }
+
+  .journal-footer {
+    align-items: start;
+    flex-direction: column;
+  }
+}

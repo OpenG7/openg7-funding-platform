@@ -68,15 +68,15 @@ test.describe('Docker admin audit log', () => {
       page.getByRole('heading', { name: 'Journal admin' })
     ).toBeVisible();
 
-    const entryCount = page.locator('.audit-panel header span');
+    const entryCount = page.locator('[data-og7="audit-count"]');
     const initialCountText = (await entryCount.textContent()) ?? '';
     const search = page.getByLabel('Recherche', { exact: true });
 
     await search.fill('e2e-playwright-audit-search-no-match');
     await expect(
-      page.getByRole('heading', { name: 'Aucune entree trouvee' })
+      page.getByRole('heading', { name: 'Aucune entrée trouvée' })
     ).toBeVisible();
-    await expect(entryCount).toHaveText('0 entree(s)');
+    await expect(entryCount).toHaveText('0 entrées');
 
     await search.fill('');
     await expect(entryCount).toHaveText(initialCountText);
