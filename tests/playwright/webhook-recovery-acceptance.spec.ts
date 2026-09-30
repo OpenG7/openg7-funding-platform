@@ -84,7 +84,30 @@ for (const fault of ['invoice_insert', 'invoice_email_connection'] as const) {
     const statusBefore = (await dashboard()).stripe_events;
     const smsBefore = (await sms()).items.length;
     const adminMailBefore = (await adminMails()).length;
+    // Earlier scenarios can leave three unpresented notifications. Drain this
+    // initial catch-up before paying, so the new payment has a visible slot.
+    const initialActivity = await activity();
+    const initialClaims = initialActivity.items.length
+      ? admin.waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname ===
+              '/api/admin/contribution-activity/present' &&
+            response.request().method() === 'POST'
+        )
+      : null;
     await signInAsAdmin(admin);
+    if (initialClaims) {
+      const claimed = await (await initialClaims).json();
+      const toasts = admin.locator('[data-og7="contribution-toast"]');
+      await expect(toasts).toHaveCount(claimed.ids.length);
+      for (let index = 0; index < claimed.ids.length; index++) {
+        await toasts
+          .first()
+          .getByRole('button', { name: 'Fermer', exact: true })
+          .click();
+      }
+      await expect(toasts).toHaveCount(0);
+    }
     const english = fault === 'invoice_email_connection';
     if (english) {
       await admin

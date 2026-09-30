@@ -153,7 +153,7 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
       await page.goto(
         '/admin/fundraiser/sponsors?sponsorshipId=' +
           removed.id +
-          '&tab=publication'
+          '&tab=overview'
       );
       await page.getByRole('button', { name: 'Refuser', exact: true }).click();
       await page

@@ -7,10 +7,8 @@ import { signInAsAdmin } from './support/admin-auth.js';
 //
 // getTransactionalEmailConfigStatus() (apps/funding-api/src/services/email
 // /email.config.ts) only reports `configured: true` when SMTP_ENABLED is
-// true *and* host/user/password are all set. docker-compose.yml defaults
-// SMTP_ENABLED to false and this repo's .env / CI workflow don't override
-// it, so canSendEmailTest() is always false here -- the test-email button
-// is deterministically disabled rather than something worth clicking.
+// true *and* host/user/password are all set. Disposable acceptance configures
+// a local SMTP sink; docker-compose.yml defaults SMTP_ENABLED to false.
 
 test.describe('Docker admin setup', () => {
   test('renders the readiness overview and configuration panels', async ({
@@ -39,21 +37,27 @@ test.describe('Docker admin setup', () => {
     ).toBeVisible();
   });
 
-  test('shows the email test as unavailable while SMTP is disabled', async ({
+  test('matches email test availability to the configured SMTP fixture', async ({
     page
   }) => {
     await signInAsAdmin(page);
     await page.goto('/admin/fundraiser/setup');
 
-    await expect(
-      page.getByRole('button', { name: 'Envoyer un test', exact: true })
-    ).toBeDisabled();
-    await expect(
-      page.getByText(
-        'Le test demande DATABASE_URL, migration 010, SMTP_ENABLED=true et SMTP_PASSWORD.',
-        { exact: true }
-      )
-    ).toBeVisible();
+    const send = page.getByRole('button', {
+      name: 'Envoyer un test',
+      exact: true
+    });
+    const unavailable = page.getByText(
+      'Le test demande DATABASE_URL, migration 010, SMTP_ENABLED=true et SMTP_PASSWORD.',
+      { exact: true }
+    );
+    if (process.env.OPENG7_E2E_ISOLATED === '1') {
+      await expect(send).toBeEnabled();
+      await expect(unavailable).toBeHidden();
+    } else {
+      await expect(send).toBeDisabled();
+      await expect(unavailable).toBeVisible();
+    }
   });
 
   test('walks through the setup guide from start to finish, then reopens it to close via the close button', async ({

@@ -64,6 +64,7 @@ test('250 CAD company: late fees, repeated and failed payouts, replacement and c
       headers: signed.headers
     });
     expect(response.ok(), await response.text()).toBe(true);
+    expect((await response.json()).ignored).not.toBe(true);
   };
   const checkTotals = async (fee: number, payouts: number) => {
     const current = await summary();
@@ -239,6 +240,7 @@ test('250 CAD company: late fees, repeated and failed payouts, replacement and c
       {
         id,
         object: 'payout',
+        metadata: { projectId: 'openg7' },
         amount,
         currency: 'cad',
         status,

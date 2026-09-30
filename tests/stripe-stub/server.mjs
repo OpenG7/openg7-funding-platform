@@ -18,6 +18,7 @@ import { createServer } from 'node:http';
 import { randomBytes, createHmac } from 'node:crypto';
 import { socialSimulator } from './social.mjs';
 import { createSmtpGate } from './smtp-gate.mjs';
+import { listCapturedMail } from './mail.mjs';
 
 const port = Number(process.env.PORT ?? 4242);
 const smsReceipts = new Map();
@@ -909,10 +910,8 @@ const server = createServer(async (request, response) => {
       request.method === 'GET' &&
       process.env.STUB_MAILPIT_URL
     ) {
-      const mail = await fetch(process.env.STUB_MAILPIT_URL + '/api/v1/messages', {
-        signal: AbortSignal.timeout(3000)
-      });
-      sendJson(response, mail.status, await mail.json());
+      const mail = await listCapturedMail(process.env.STUB_MAILPIT_URL);
+      sendJson(response, mail.status, mail.body);
       return;
     }
     if (request.method === 'POST' && pathname === '/__test__/reset') {

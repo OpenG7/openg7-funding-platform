@@ -14,7 +14,7 @@ import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 // approved so these specs do not depend on run order against the admin spec.
 
 test.describe('Docker corporate sponsor navigation', () => {
-  test('selects the business sponsorship tier, sees the benefits update and completes the mocked checkout', async ({
+  test('selects the business sponsorship tier, sees the benefits update and opens the configured checkout simulation', async ({
     page
   }) => {
     await page.goto('/fonds-des-batisseurs');
@@ -43,9 +43,18 @@ test.describe('Docker corporate sponsor navigation', () => {
     await expect(submitButton).toBeEnabled();
 
     await submitButton.click();
-    await expect(
-      page.getByText(/Mode local ?: Stripe n.a pas ouvert de session r.elle/i)
-    ).toBeVisible();
+    if (process.env.OPENG7_E2E_ISOLATED === '1') {
+      await expect(page).toHaveURL(/\/checkout\/cs_test_/);
+      expect(new URL(page.url()).origin).toBe(process.env.STRIPE_STUB_BASE_URL);
+      await expect(
+        page.getByRole('heading', { name: 'Checkout simulé' })
+      ).toBeVisible();
+      await expect(page.getByText(/Contribution : 500\.00 CAD/)).toBeVisible();
+    } else {
+      await expect(
+        page.getByText(/Mode local ?: Stripe n.a pas ouvert de session r.elle/i)
+      ).toBeVisible();
+    }
   });
 
   test('shows a client-side error and blocks checkout for a custom sponsorship amount below the minimum', async ({
@@ -302,7 +311,7 @@ test.describe('Docker corporate sponsor navigation', () => {
       .getByRole('button', { name: /Soumettre mes informations à l’équipe/i })
       .click();
     await expect(page.locator('#followup-websiteUrl-error')).toHaveText(
-      'Site web doit commencer par https://.'
+      'Site web doit être une URL HTTPS publique, sans identifiants ni adresse IP.'
     );
 
     await expect(page.getByLabel(/Site web/i)).toBeFocused();

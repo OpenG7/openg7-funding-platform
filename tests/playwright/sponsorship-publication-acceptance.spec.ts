@@ -125,9 +125,9 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
         await settings
           .getByRole('button', { name: 'Vérifier la connexion', exact: true })
           .click();
-        await expect(settings.getByRole('status')).toContainText(
-          'Connexion vérifiée'
-        );
+        await expect(
+          settings.getByRole('status').filter({ hasText: 'Connexion vérifiée' })
+        ).toHaveText('Connexion vérifiée');
         await settings.locator('input[name="auto"]').check();
         // A distinct recurrence avoids reusing earlier suite fixtures' slots.
         await settings.locator('input[name="time"]').fill('08:17');
@@ -143,10 +143,21 @@ test('company pays 500 CAD: private preparation, reviewed media, exact approvals
           'Ven.',
           'Sam.'
         ]) {
-          await settings.getByRole('checkbox', { name, exact: true }).check();
+          const day = settings.getByRole('checkbox', { name, exact: true });
+          if (!(await day.isChecked())) {
+            await settings.getByText(name, { exact: true }).click();
+          }
+          await expect(day).toBeChecked();
         }
         await settings
           .getByRole('button', { name: 'Enregistrer les réglages' })
+          .click();
+        await expect(
+          settings.getByRole('status').filter({ hasText: 'Enregistré.' })
+        ).toHaveText('Enregistré.');
+        await settings
+          .getByRole('button')
+          .filter({ hasText: 'Fermer' })
           .click();
         await expect(settings).toBeHidden();
       }

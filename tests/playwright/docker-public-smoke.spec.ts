@@ -46,8 +46,20 @@ test.describe('Docker local public experience', () => {
   });
 
   test('keeps a checkout return as browser state, not an authoritative payment record', async ({
-    page
+    page,
+    request
   }) => {
+    const readSummary = async () => {
+      const response = await request.get('/api/public/fund-transparency');
+      expect(response.status()).toBe(200);
+      const summary = await response.json();
+      expect(summary).toMatchObject({
+        total_received: expect.any(Number),
+        contributions_count: expect.any(Number)
+      });
+      return summary;
+    };
+    const before = await readSummary();
     await page.goto('/fonds-des-batisseurs?checkout=cancel');
 
     await expect(
@@ -55,7 +67,12 @@ test.describe('Docker local public experience', () => {
         name: /Le coffre reste/i
       })
     ).toBeVisible();
-    await expect(page.getByText(/Aucun paiement confirm/i)).toBeVisible();
+    await expect(
+      page.getByText(/Ce retour ne confirme ni un paiement ni son annulation/)
+    ).toBeVisible();
+    const after = await readSummary();
+    expect(after.total_received).toBe(before.total_received);
+    expect(after.contributions_count).toBe(before.contributions_count);
   });
 
   test('keeps checkout success non-authoritative until the matching Stripe webhook is processed', async ({

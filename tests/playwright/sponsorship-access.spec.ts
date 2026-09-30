@@ -94,6 +94,7 @@ test('persistent drafts, public recovery and confirmed admin resend use the real
   }
   await signInAsAdmin(page);
   await openFixtureSponsorship(page, fixture.companyName);
+  await page.getByText('Accès au suivi', { exact: true }).click();
   const panel = page.locator('[data-og7="admin-followup-access"]');
   await panel.getByRole('button').click();
   await expect(page.getByRole('dialog')).toContainText(fixture.paymentEmail);

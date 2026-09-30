@@ -246,6 +246,10 @@ for (const prefix of ['', '/en']) {
   test(`support FAQ, technical links and optimized images remain usable ${locale}`, async ({
     page
   }) => {
+    // Focusing the lower FAQ starts the page's smooth scroll. Mobile WebKit
+    // can keep scrolling between pointer down/up, missing the button entirely.
+    // Exercise the controls with the supported reduced-motion preference.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(`${prefix}/support`);
     const faq = page.locator('[data-og7="support-faq"]');
     await expect(faq.locator('summary')).toHaveCount(4);

@@ -304,6 +304,9 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await admin.goto(
           '/admin/fundraiser/sponsors?sponsorshipId=' + id + '&tab=publication'
         );
+        await admin
+          .locator('[data-og7="publication-advanced"] > summary')
+          .click();
         await admin.getByLabel(/Slug public/i).fill('media-' + id);
         await admin.getByLabel(/Destination feed/i).selectOption('openg7');
         await admin.getByLabel(/^Statut feed/i).selectOption('planned');
@@ -316,6 +319,16 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await expect(
           admin.getByText('Publication enregistree.', { exact: true })
         ).toBeVisible();
+        expect(
+          (
+            await request.get('/api/public/sponsor-media/' + originalAsset.id)
+          ).status()
+        ).toBe(404);
+        await admin.locator('[data-og7="website-visibility"]').click();
+        await admin.locator('[data-og7="confirm-action"]').click();
+        await expect(
+          admin.locator('[data-og7="publication-website"]')
+        ).toContainText('Fiche visible');
       });
       const publicPath = '/api/public/sponsor-media/' + originalAsset.id;
       const originalPublic = await request.get(publicPath);
@@ -497,6 +510,21 @@ for (const change of ['replace-logo', 'delete-photo'] as const) {
         await expect
           .poll(async () => (await sponsor()).sponsor_review_status)
           .toBe('approved');
+        // Replacing the logo revoked website visibility. Reapproving the
+        // dossier alone must not publish the revised company card.
+        expect(
+          (
+            await request.get('/api/public/sponsor-media/' + pending.id)
+          ).status()
+        ).toBe(404);
+        await admin
+          .getByRole('button', { name: 'Publication', exact: true })
+          .click();
+        await admin.locator('[data-og7="website-visibility"]').click();
+        await admin.locator('[data-og7="confirm-action"]').click();
+        await expect(
+          admin.locator('[data-og7="publication-website"]')
+        ).toContainText('Fiche visible');
         expect(
           (
             await request.get('/api/public/sponsor-media/' + pending.id)

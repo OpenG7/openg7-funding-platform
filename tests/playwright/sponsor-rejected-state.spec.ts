@@ -14,7 +14,7 @@ test.describe('Sponsor side rejected state validation', () => {
     // 1. Admin signs in and rejects the sponsorship
     await signInAsAdmin(page);
 
-    const fixture = SPONSORSHIP_FIXTURES.reject;
+    const fixture = SPONSORSHIP_FIXTURES.rejectedFollowup;
     await openFixtureSponsorship(page, fixture.companyName);
 
     // Admin rejects the sponsorship with an internal reason
