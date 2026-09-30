@@ -2,7 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   inject,
-  input
+  input,
+  signal
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -38,10 +39,32 @@ import { ContributionActivityComponent } from '../contribution-activity/contribu
     >
       {{ 'admin.shell.skip' | translate }}
     </a>
-    <div class="layout" data-og7="admin-layout">
-      <openg7-admin-nav [collapsible]="true" />
+    <div
+      class="layout"
+      [class.navigation-collapsed]="navigationCollapsed()"
+      data-og7="admin-layout"
+    >
+      <openg7-admin-nav id="admin-sidebar" [collapsible]="true" />
       <div class="workspace">
         <header class="topbar">
+          <button
+            class="admin-button navigation-toggle"
+            type="button"
+            data-og7="admin-navigation-toggle"
+            (click)="navigationCollapsed.set(!navigationCollapsed())"
+            [attr.aria-expanded]="!navigationCollapsed()"
+            aria-controls="admin-sidebar"
+            [attr.aria-label]="
+              (navigationCollapsed() ? 'admin.nav.open' : 'admin.nav.close')
+                | translate
+            "
+            [title]="
+              (navigationCollapsed() ? 'admin.nav.open' : 'admin.nav.close')
+                | translate
+            "
+          >
+            <openg7-admin-icon name="menu" />
+          </button>
           <openg7-admin-global-search />
           <div class="tools">
             <openg7-contribution-activity />
@@ -91,4 +114,5 @@ import { ContributionActivityComponent } from '../contribution-activity/contribu
 export class AdminLayoutComponent {
   readonly sponsorshipId = input<string>();
   readonly i18n = inject(FundingI18nService);
+  readonly navigationCollapsed = signal(false);
 }
