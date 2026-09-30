@@ -21,6 +21,7 @@ import {
       #dialog
       [attr.aria-label]="title()"
       [class.wide]="wide()"
+      [class.fixed-footer]="fixedFooter()"
       (cancel)="requestClose($event)"
       (keydown)="keydown($event)"
       data-og7="admin-drawer"
@@ -38,7 +39,17 @@ import {
           ×
         </button>
       </header>
-      <div class="body" [attr.aria-busy]="busy()"><ng-content /></div>
+      <div
+        class="body"
+        [attr.aria-busy]="busy()"
+        [attr.tabindex]="fixedFooter() ? 0 : null"
+        [attr.role]="fixedFooter() ? 'region' : null"
+        [attr.aria-label]="fixedFooter() ? title() : null"
+        data-og7="admin-drawer-content"
+      >
+        <ng-content />
+      </div>
+      <ng-content select="[adminDrawerFooter]" />
     </dialog>
   `,
   styleUrls: [
@@ -53,6 +64,7 @@ export class AdminDrawerComponent {
   readonly closeLabel = input.required<string>();
   readonly busy = input(false);
   readonly wide = input(false);
+  readonly fixedFooter = input(false);
   readonly closed = output<void>();
   private readonly document = inject(DOCUMENT);
   private readonly dialog =

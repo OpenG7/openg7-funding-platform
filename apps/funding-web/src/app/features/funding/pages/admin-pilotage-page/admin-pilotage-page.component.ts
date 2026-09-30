@@ -43,6 +43,10 @@ import {
   type ControllerIntent
 } from '../../components/admin-pilotage/controller-input.js';
 import { PilotKeyboardComponent } from '../../components/admin-pilotage/pilot-keyboard.component.js';
+import {
+  PilotDecisionDetailsComponent,
+  type PilotDetailState
+} from '../../components/admin-pilotage/pilot-decision-details.component.js';
 import { AdminPublicationCalendarComponent } from '../../components/admin-publications/admin-publication-calendar.component.js';
 import type { PublicationCalendarEntry } from '../../components/admin-publications/publication-calendar.js';
 
@@ -69,6 +73,7 @@ type Panel =
     AdminDrawerComponent,
     AdminIconComponent,
     PilotKeyboardComponent,
+    PilotDecisionDetailsComponent,
     AdminPublicationCalendarComponent,
     AdminLayoutComponent,
     EditorialProgrammeComponent,
@@ -103,7 +108,7 @@ export class AdminPilotagePageComponent {
   readonly unresolved = signal('');
   readonly image = signal('');
   readonly previewFailed = signal(false);
-  readonly detailLoading = signal(false);
+  readonly detailState = signal<PilotDetailState>('idle');
   readonly calendar = signal<PublicationCalendarEntry[]>([]);
   readonly calendarState = signal<'idle' | 'loading' | 'ready' | 'error'>(
     'idle'
@@ -206,6 +211,7 @@ export class AdminPilotagePageComponent {
   incidentReason = '';
   private imageRequest = 0;
   private loadRequest = 0;
+  private detailRequest = 0;
   private destroyed = false;
   private restoreId = '';
 
@@ -219,6 +225,7 @@ export class AdminPilotagePageComponent {
       this.destroyed = true;
       this.loadRequest++;
       this.imageRequest++;
+      this.detailRequest++;
       this.controller.stop();
       this.clearImage();
     });
@@ -415,6 +422,8 @@ export class AdminPilotagePageComponent {
     this.selectLoadedDecision(decision);
   }
   private selectLoadedDecision(decision: PilotDecision | null): void {
+    this.detailRequest++;
+    this.detailState.set('idle');
     this.selected.set(decision);
     this.controller.reset();
     this.persist();
@@ -462,12 +471,18 @@ export class AdminPilotagePageComponent {
   }
   open(panel: Panel): void {
     if (this.busy()) return;
+    if (panel !== 'details') {
+      this.detailRequest++;
+      this.detailState.set('idle');
+    }
     this.panel.set(panel);
     this.keyboard.set(false);
     this.controller.reset();
   }
   close(): void {
     if (!this.busy()) {
+      this.detailRequest++;
+      this.detailState.set('idle');
       this.panel.set('');
       this.pending.set(null);
       this.controller.reset();
@@ -702,7 +717,7 @@ export class AdminPilotagePageComponent {
   }
   async details(): Promise<void> {
     const d = this.selected();
-    if (!d) return;
+    if (!d || this.busy()) return;
     if (d.inspection) {
       this.metrics.update((m) => ({ ...m, details: m.details + 1 }));
       if (d.inspection.kind === 'stripe')
@@ -714,21 +729,83 @@ export class AdminPilotagePageComponent {
     }
     this.open('details');
     this.metrics.update((m) => ({ ...m, details: m.details + 1 }));
-    if (d.domain === 'email') {
-      this.detailLoading.set(true);
-      try {
-        const detail = (await this.admin.pilotage({ id: d.id })).decisions[0];
-        if (
-          detail &&
-          this.selected()?.id === d.id &&
-          detail.version === d.version
-        )
-          this.selected.set(detail);
-      } catch {
-        this.error.set('PILOTAGE_UNAVAILABLE');
-      } finally {
-        this.detailLoading.set(false);
+    if (d.domain === 'email') await this.loadDetails();
+  }
+  async loadDetails(acceptLatest = false): Promise<void> {
+    const d = this.selected();
+    if (
+      !d ||
+      d.domain !== 'email' ||
+      this.panel() !== 'details' ||
+      this.detailState() === 'loading'
+    )
+      return;
+    const request = ++this.detailRequest;
+    const current = () =>
+      request === this.detailRequest &&
+      !this.destroyed &&
+      this.panel() === 'details' &&
+      this.selected()?.id === d.id;
+    this.detailState.set('loading');
+    try {
+      const snapshot = await this.admin.pilotage({ id: d.id });
+      if (!current()) return;
+      const detail = snapshot.decisions.find((item) => item.id === d.id);
+      if (!detail) {
+        this.state.update((state) =>
+          state
+            ? {
+                ...state,
+                decisions: state.decisions.filter((item) => item.id !== d.id)
+              }
+            : state
+        );
+        this.detailState.set('missing');
+      } else if (detail.version !== d.version && !acceptLatest) {
+        this.state.update((state) =>
+          state
+            ? {
+                ...state,
+                decisions: state.decisions.map((item) =>
+                  item.id === d.id ? detail : item
+                )
+              }
+            : state
+        );
+        this.detailState.set('changed');
+      } else if (!detail.email) {
+        this.detailState.set('missing');
+      } else {
+        this.selected.set(detail);
+        // An explicit reread updates the matching queue snapshot, never another dossier.
+        if (acceptLatest)
+          this.state.update((state) =>
+            state
+              ? {
+                  ...state,
+                  writable: snapshot.writable,
+                  decisions: state.decisions.map((item) =>
+                    item.id === detail.id ? detail : item
+                  )
+                }
+              : state
+          );
+        this.detailState.set('ready');
+        this.controller.reset();
+        if (acceptLatest) {
+          this.document
+            .querySelector<HTMLElement>(
+              'dialog[open] [data-og7="admin-drawer-content"]'
+            )
+            ?.focus();
+        }
       }
+    } catch (error) {
+      if (!current()) return;
+      const status = (error as { status?: number })?.status;
+      this.detailState.set(
+        status === 401 ? 'expired' : status === 403 ? 'forbidden' : 'error'
+      );
     }
   }
   portal(): void {
@@ -853,9 +930,10 @@ export class AdminPilotagePageComponent {
     }
     if (this.panel()) {
       if (intent === 'scrollDown' || intent === 'scrollUp') {
-        this.document
-          .querySelector('dialog[open]')
-          ?.scrollBy({ top: intent === 'scrollDown' ? 140 : -140 });
+        const dialog = this.document.querySelector('dialog[open]');
+        const body = dialog?.querySelector('[data-og7="admin-drawer-content"]');
+        const scrollTarget = this.panel() === 'details' ? body : dialog;
+        scrollTarget?.scrollBy({ top: intent === 'scrollDown' ? 140 : -140 });
         return;
       }
       if (intent === 'primary') {

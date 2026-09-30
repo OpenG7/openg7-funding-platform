@@ -1,0 +1,170 @@
+@let d = decision();
+<div class="summary">
+  <span class="domain-icon"><openg7-admin-icon [name]="icon()" /></span>
+  <div>
+    <p class="eyebrow">{{ kind() }}</p>
+    <h3>{{ d.title || kind() }}</h3>
+  </div>
+</div>
+
+@if (d.publication; as publication) {
+  <section class="context" [attr.aria-label]="t('context')">
+    <div class="badges">
+      <span class="destination"
+        >{{ destination().brand }} <span aria-hidden="true">·</span>
+        {{ destination().channel }}</span
+      >
+      <span class="badge" [attr.data-mode]="publication.mode">{{
+        i18n.t('admin.publicationAutomation.modes.' + publication.mode)
+      }}</span>
+      <span class="badge status">{{
+        i18n.t('admin.publicationAutomation.status.' + publication.status)
+      }}</span>
+    </div>
+    <p class="schedule">
+      <openg7-admin-icon name="clock" /><span
+        >{{ t('scheduledFor') }}<strong>{{ date(d.dueAt) }}</strong
+        ><small>America/Toronto</small></span
+      >
+    </p>
+  </section>
+}
+
+@if (hasPreview()) {
+  <section class="preview" [attr.aria-label]="t('preview')">
+    <figure>
+      <div class="visual">
+        @if (image() && !imageFailed()) {
+          <img
+            [src]="image()"
+            [alt]="d.publication?.mediaAlt || d.sponsor?.name || d.title"
+            (error)="previewFailed.emit()"
+          />
+        } @else {
+          <div class="image-placeholder" role="status">
+            <openg7-admin-icon [name]="imageFailed() ? 'warning' : icon()" />
+            <span>{{
+              i18n.t(
+                'admin.pilotage.' +
+                  (imageFailed()
+                    ? 'previewFailed'
+                    : previewExpected()
+                      ? 'loading'
+                      : 'noImage')
+              )
+            }}</span>
+          </div>
+        }
+      </div>
+      <figcaption>{{ t('preview') }}</figcaption>
+    </figure>
+    @if (d.publication || d.project) {
+      <div class="copy">
+        <h4>{{ t('content') }}</h4>
+        <p class="full-copy">
+          {{
+            d.publication?.message ||
+              d.project?.public_description ||
+              t('noContent')
+          }}
+        </p>
+      </div>
+    }
+    @if (d.sponsor) {
+      <div class="copy">
+        <h4>{{ t('review') }}</h4>
+        <p>{{ i18n.t('admin.context.status.' + d.sponsor.status) }}</p>
+        <p class="muted">{{ t('privatePreview') }}</p>
+      </div>
+    }
+  </section>
+}
+
+@if (d.domain === 'email') {
+  <section
+    class="email"
+    [attr.aria-label]="t('email')"
+    [attr.aria-busy]="state() === 'loading'"
+  >
+    <h4><openg7-admin-icon name="email" />{{ t('email') }}</h4>
+    @if (state() === 'loading') {
+      <p role="status">{{ t('loading') }}</p>
+    } @else if (state() === 'ready' && d.email) {
+      <dl class="email-address">
+        <div>
+          <dt>{{ t('recipient') }}</dt>
+          <dd>{{ d.email.recipient }}</dd>
+        </div>
+        <div>
+          <dt>{{ t('subject') }}</dt>
+          <dd>{{ d.email.subject || t('noSubject') }}</dd>
+        </div>
+      </dl>
+      <p class="full-copy email-copy">{{ d.email.text || t('noContent') }}</p>
+    } @else {
+      <div class="load-notice" role="alert">
+        <p>{{ t('states.' + state()) }}</p>
+        @if (state() !== 'forbidden' && state() !== 'expired') {
+          <button
+            type="button"
+            (click)="reload.emit()"
+            data-og7="pilot-details-reload"
+          >
+            <openg7-admin-icon name="refresh" />{{
+              t(state() === 'changed' ? 'loadLatest' : 'retry')
+            }}
+          </button>
+        }
+      </div>
+    }
+  </section>
+}
+
+@if (d.publication?.sponsors?.length) {
+  <section class="sponsors" [attr.aria-label]="t('sponsors')">
+    <h4>
+      {{ t('sponsors') }}
+      <span class="count">{{ d.publication!.sponsors.length }}</span>
+    </h4>
+    <ul>
+      @for (s of d.publication!.sponsors; track s.id) {
+        <li>
+          <span>{{ s.name }}</span
+          ><span class="review-status">{{
+            i18n.t('admin.context.status.' + s.reviewStatus)
+          }}</span>
+        </li>
+      }
+    </ul>
+  </section>
+}
+
+@if (facts().length || d.project?.expected_outcome) {
+  <section class="facts" [attr.aria-label]="t('facts')">
+    <h4>{{ t('facts') }}</h4>
+    <dl>
+      @for (f of facts(); track f.label) {
+        <div>
+          <dt>{{ factLabel(f.label) }}</dt>
+          <dd>{{ f.value }}</dd>
+        </div>
+      }
+      @if (d.project?.expected_outcome) {
+        <div>
+          <dt>{{ t('outcome') }}</dt>
+          <dd>{{ d.project!.expected_outcome }}</dd>
+        </div>
+      }
+    </dl>
+  </section>
+}
+
+@if (primaryAction() && (d.domain !== 'email' || state() === 'ready')) {
+  <aside class="consequence" [attr.aria-label]="t('ifAccepted')">
+    <openg7-admin-icon name="arrow" />
+    <div>
+      <h4>{{ t('ifAccepted') }}</h4>
+      <p>{{ consequence() }}</p>
+    </div>
+  </aside>
+}

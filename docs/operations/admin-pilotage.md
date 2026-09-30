@@ -78,6 +78,19 @@ dossier lu : sa nouvelle version doit être relue avant décision.
 
 ## Commandes et contextes
 
+**Détails** présente le contenu à examiner, le statut, la destination et la date
+(America/Toronto), puis les informations du dossier. **Si vous acceptez** décrit
+la conséquence de la décision proposée; ce texte n'est pas un reçu d'exécution.
+L'aperçu reste consultatif. **Fermer** et **Ouvrir le dossier complet** restent
+accessibles dans le pied du panneau, y compris pendant le défilement au clavier
+ou au stick droit. Factures et événements Stripe gardent leur inspection dédiée.
+
+Pour un courriel, destinataire, objet et corps sont chargés à l'ouverture. Une
+version différente est signalée sans remplacer silencieusement le dossier lu;
+**Charger la version à jour** permet de le relire avant toute décision. Les états
+indisponible, retiré, accès refusé et session expirée sont explicites. Une réponse
+arrivée après fermeture ou changement de dossier ne remplace pas l'aperçu courant.
+
 - Profil initial : A accepter/sélectionner, B refuser/revenir, X modifier, Y détails.
 - LB/RB : décision précédente/suivante. LT + LB/RB : espace précédent/suivant.
 - LT + Y : calendrier. Menu : commandes et pauses. View : aide.

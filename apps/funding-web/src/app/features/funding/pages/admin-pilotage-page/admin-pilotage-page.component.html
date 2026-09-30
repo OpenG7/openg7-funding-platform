@@ -527,6 +527,7 @@
 
 <openg7-admin-drawer
   [wide]="panel() === 'programme'"
+  [fixedFooter]="panel() === 'details'"
   [opened]="!!panel()"
   [title]="t(panel() || 'details')"
   [closeLabel]="t('close')"
@@ -683,55 +684,18 @@
       </div>
     }
     @if (panel() === 'details' && selected(); as d) {
-      <h3>{{ d.title || kind(d) }}</h3>
-      <p>{{ kind(d) }}</p>
-      @if (image()) {
-        <img
-          class="detail-image"
-          [src]="image()"
-          [alt]="d.publication?.mediaAlt || d.title"
-        />
-      }
-      <p class="full-copy">
-        {{ d.publication?.message || d.project?.public_description }}
-      </p>
-      @if (d.publication) {
-        <p>{{ d.publication.feedId }} · {{ date(d.dueAt) }}</p>
-        <ul>
-          @for (s of d.publication.sponsors; track s.id) {
-            <li>
-              {{ s.name }} ·
-              {{ i18n.t('admin.context.status.' + s.reviewStatus) }}
-            </li>
-          }
-        </ul>
-      }
-      <dl>
-        @for (f of d.facts; track f.label) {
-          <div>
-            <dt>
-              {{
-                t('facts.' + f.label) === 'admin.pilotage.facts.' + f.label
-                  ? f.label
-                  : t('facts.' + f.label)
-              }}
-            </dt>
-            <dd>{{ f.value }}</dd>
-          </div>
-        }
-      </dl>
-      @if (d.project) {
-        <p>{{ d.project.expected_outcome }}</p>
-      }
-      @if (detailLoading()) {
-        <p>{{ t('loading') }}</p>
-      }
-      @if (d.email) {
-        <p>{{ d.email.recipient }}</p>
-        <p class="full-copy">{{ d.email.text }}</p>
-      }
-      <p>{{ consequence(primary()?.id) }}</p>
-      <a [href]="d.detailsUrl" (click)="portal()">{{ t('fullRecord') }} ↗</a>
+      <openg7-pilot-decision-details
+        [decision]="d"
+        [kind]="kind(d)"
+        [icon]="domainIcon(d.domain)"
+        [image]="image()"
+        [imageFailed]="previewFailed()"
+        [state]="detailState()"
+        [primaryAction]="primary()?.id"
+        [consequence]="consequence(primary()?.id)"
+        (previewFailed)="previewFailed.set(true)"
+        (reload)="loadDetails(true)"
+      />
     }
     @if (panel() === 'calendar') {
       <openg7-admin-publication-calendar
@@ -923,4 +887,17 @@
       </div>
     }
   </div>
+  <footer
+    adminDrawerFooter
+    class="detail-footer"
+    [hidden]="panel() !== 'details'"
+    data-og7="pilot-details-footer"
+  >
+    <button type="button" (click)="close()">{{ t('close') }}</button>
+    @if (selected(); as d) {
+      <a [href]="d.detailsUrl" (click)="portal()"
+        >{{ t('fullRecord') }}<openg7-admin-icon name="arrow"
+      /></a>
+    }
+  </footer>
 </openg7-admin-drawer>
