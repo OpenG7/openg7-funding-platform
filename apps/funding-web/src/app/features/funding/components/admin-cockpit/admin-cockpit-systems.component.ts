@@ -12,6 +12,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
 import { AdminCockpitStatusComponent } from './admin-cockpit-status.component.js';
 import { createCockpitBlock } from './cockpit-block.js';
+import { systemExpired, systemState } from './system-state.js';
 
 @Component({
   selector: 'openg7-admin-cockpit-systems',
@@ -39,7 +40,15 @@ import { createCockpitBlock } from './cockpit-block.js';
         <ul>
           @for (system of data.systems; track system.id) {
             <li [attr.data-og7-id]="system.id">
-              <a [routerLink]="router.parseUrl(system.adminUrl)">
+              <a
+                [routerLink]="
+                  system.adminUrl === '/admin/fundraiser/setup'
+                    ? router.createUrlTree(['/admin/fundraiser/setup'], {
+                        queryParams: { section: system.id }
+                      })
+                    : router.parseUrl(system.adminUrl)
+                "
+              >
                 <span
                   ><strong
                     >{{ 'admin.cockpit.system.' + system.id | translate }} ·
@@ -83,13 +92,10 @@ export class AdminCockpitSystemsComponent {
   readonly router = inject(Router);
   readonly i18n = inject(FundingI18nService);
   expired(system: CockpitSystem): boolean {
-    return (
-      this.block.state() === 'error' ||
-      this.block.clock() >= Date.parse(system.validUntil)
-    );
+    return systemExpired(system, this.block.clock(), this.block.failed());
   }
   state(system: CockpitSystem): CockpitSystemState {
-    return this.expired(system) ? 'unknown' : system.state;
+    return systemState(system, this.block.clock(), this.block.failed());
   }
   date(value: string): string {
     return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {

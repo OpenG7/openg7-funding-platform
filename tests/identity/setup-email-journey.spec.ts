@@ -399,6 +399,13 @@ test('owner diagnoses SMTP, sends once, recovers a lost response and retries a f
         expect(await page.locator('body').innerText()).not.toContain(
           'synthetic-fixture'
         );
+        const table = page.locator('[data-og7="setup-configuration-table"]');
+        await expect(table).toBeHidden();
+        await page
+          .getByText('View configuration variables', { exact: true })
+          .focus();
+        await page.keyboard.press('Enter');
+        await expect(table).toBeVisible();
         expect(
           (
             await new AxeBuilder({ page })
@@ -412,7 +419,8 @@ test('owner diagnoses SMTP, sends once, recovers a lost response and retries a f
             () => document.documentElement.scrollWidth <= innerWidth
           )
         ).toBe(true);
-        await page.locator('[data-og7="setup-configuration-table"]').focus();
+        await table.focus();
+        await expect(table).toBeFocused();
         await page.keyboard.press('ArrowRight');
         await expect
           .poll(() =>

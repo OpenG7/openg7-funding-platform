@@ -149,7 +149,9 @@ publication drafts for approved sponsorships, while the audit view lists recent
 sensitive admin actions.
 
 Owner-only `/admin/fundraiser/setup` reports configuration and supports idempotent
-SMTP tests. See the [test contract](../email-smtp.md#admin-configuration-test).
+SMTP tests. Its [system status and configuration view](../operations/admin-setup.md)
+reuses the cockpit observations with expiry, a diagnostic recommendation and
+configuration checklist. See the [test contract](../email-smtp.md#admin-configuration-test).
 
 The email queue page is available at `/admin/fundraiser/email-queue`. It lists
 recent queued, sending, sent and failed emails, summarizes retryable failures,

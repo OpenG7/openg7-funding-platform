@@ -1,0 +1,772 @@
+<openg7-admin-layout>
+  <section class="admin-content" data-og7="admin-setup">
+    <header
+      class="admin-topbar"
+      id="setup-overview"
+      tabindex="-1"
+      data-tour-anchor="overview"
+      [class.tour-target]="isTourAnchor('overview')"
+    >
+      <div>
+        <span>{{ 'admin.legacy.configuration' | translate }}</span>
+        <h1>{{ 'admin.setup.title' | translate }}</h1>
+        <p class="subtitle">{{ 'admin.setup.subtitle' | translate }}</p>
+      </div>
+      <div class="topbar-actions">
+        <button
+          class="secondary-button"
+          type="button"
+          (click)="startTour()"
+          [disabled]="!setup()"
+        >
+          {{ 'admin.legacy.guide' | translate }}
+        </button>
+        <button
+          type="button"
+          (click)="loadSetup()"
+          [disabled]="state() === 'loading' || testBusy()"
+        >
+          {{ 'admin.legacy.actualiser' | translate }}
+        </button>
+      </div>
+    </header>
+
+    <p class="state" *ngIf="state() === 'loading'" aria-live="polite">
+      {{ 'admin.legacy.verification_de_la_configuration' | translate }}
+    </p>
+    <p class="state state-error" *ngIf="state() === 'error'" aria-live="polite">
+      {{
+        'admin.legacy.impossible_de_charger_le_setup_admin_verifiez_la_session_admin_et'
+          | translate
+      }}
+    </p>
+
+    <p role="alert" *ngIf="accessError()">{{ accessError() }}</p>
+    <ng-container *ngIf="setup() as data">
+      <div class="environment-bar">
+        <span class="environment"
+          ><span class="environment-dot" aria-hidden="true"></span
+          >{{ 'admin.setup.environment' | translate }}
+          <strong>{{ data.environment }}</strong></span
+        >
+        <span
+          ><openg7-admin-icon name="clock" />{{
+            'admin.setup.updated' | translate
+          }}
+          <time [attr.datetime]="data.last_updated_at">{{
+            dateLabel(data.last_updated_at)
+          }}</time></span
+        >
+      </div>
+      <nav
+        class="section-nav"
+        [attr.aria-label]="'admin.setup.sections' | translate"
+      >
+        <button type="button" (click)="focusSection('readiness')">
+          <openg7-admin-icon name="dashboard" />{{
+            'admin.setup.overview' | translate
+          }}
+        </button>
+        <button type="button" (click)="focusSection('stripe')">
+          <openg7-admin-icon name="cloud" />{{
+            'admin.setup.services' | translate
+          }}
+        </button>
+        <button type="button" (click)="focusSection('env')">
+          <openg7-admin-icon name="settings" />{{
+            'admin.legacy.configuration' | translate
+          }}
+        </button>
+        <button type="button" (click)="focusSection('activity')">
+          <openg7-admin-icon name="clock" />{{
+            'admin.setup.activity' | translate
+          }}
+        </button>
+      </nav>
+      <section
+        class="systems-panel"
+        id="setup-readiness"
+        tabindex="-1"
+        data-tour-anchor="readiness"
+        [class.tour-target]="isTourAnchor('readiness')"
+        aria-labelledby="setup-systems-title"
+      >
+        <header class="section-heading">
+          <div>
+            <h2 id="setup-systems-title">
+              <openg7-admin-icon name="audit" />{{
+                'admin.setup.systems' | translate
+              }}
+            </h2>
+            <p>{{ 'admin.setup.systemsSubtitle' | translate }}</p>
+          </div>
+          <div class="systems-tools">
+            @if (systems.data(); as snapshot) {
+              <span class="count">{{
+                'admin.setup.observedCount'
+                  | translate
+                    : {
+                        count: operationalCount(),
+                        total: snapshot.systems.length
+                      }
+              }}</span>
+            }
+            <openg7-admin-cockpit-status
+              [state]="systems.state()"
+              [refreshLabel]="'admin.setup.refreshSystems' | translate"
+              [stale]="systems.stale()"
+              (refresh)="systems.load()"
+            />
+          </div>
+        </header>
+        @if (systems.data(); as snapshot) {
+          <openg7-admin-system-cards
+            [systems]="snapshot.systems"
+            [now]="systems.clock()"
+            [failed]="systems.failed()"
+            (inspect)="inspectSystem($event)"
+          />
+        }
+        <p class="scope">{{ 'admin.cockpit.healthScope' | translate }}</p>
+      </section>
+      <section
+        class="recommendation"
+        data-og7="setup-recommendation"
+        [attr.data-tone]="recommendation().tone"
+        aria-labelledby="setup-next-title"
+      >
+        <span class="recommendation-icon" aria-hidden="true"
+          ><openg7-admin-icon
+            [name]="
+              recommendation().tone === 'success'
+                ? 'check'
+                : recommendation().tone === 'warning'
+                  ? 'warning'
+                  : 'search'
+            "
+        /></span>
+        <div class="recommendation-copy">
+          <p class="eyebrow">{{ 'admin.setup.nextAction' | translate }}</p>
+          <h2 id="setup-next-title">
+            {{
+              'admin.setup.next.' + recommendation().key + '.title' | translate
+            }}
+          </h2>
+          <p>
+            {{
+              'admin.setup.next.' + recommendation().key + '.body' | translate
+            }}
+          </p>
+        </div>
+        @if (recommendation().url; as url) {
+          <a class="primary-action" [routerLink]="router.parseUrl(url)"
+            >{{
+              'admin.setup.' + (recommendation().urlAction ?? 'openQueue')
+                | translate
+            }}<openg7-admin-icon name="arrow"
+          /></a>
+        } @else {
+          <button
+            type="button"
+            class="primary-action"
+            (click)="focusSection(recommendation().section)"
+          >
+            {{
+              'admin.setup.next.' + recommendation().key + '.action'
+                | translate
+            }}<openg7-admin-icon name="arrow" />
+          </button>
+        }
+      </section>
+      <div class="workspace-grid">
+        <section
+          class="setup-grid"
+          [attr.aria-label]="
+            'admin.legacy.details_de_configuration' | translate
+          "
+        >
+          <article
+            class="setup-panel"
+            id="setup-stripe"
+            tabindex="-1"
+            data-tour-anchor="stripe"
+            [class.tour-target]="isTourAnchor('stripe')"
+          >
+            <header>
+              <div>
+                <span>Stripe</span>
+                <h2>
+                  {{ 'admin.legacy.paiements_et_webhooks' | translate }}
+                </h2>
+              </div>
+              <span
+                class="status-pill"
+                [class.status-ok]="isStripeReady(data)"
+                [class.status-warn]="!isStripeReady(data)"
+              >
+                {{ readyLabel(isStripeReady(data)) }}
+              </span>
+            </header>
+            <p class="panel-note">{{ stripeSummary(data) }}</p>
+            <details>
+              <summary>{{ 'admin.setup.details' | translate }}</summary>
+              <dl>
+                <div>
+                  <dt>{{ 'admin.legacy.cle_secrete' | translate }}</dt>
+                  <dd>
+                    {{ configuredLabel(data.stripe.secret_key_configured) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.secret_webhook' | translate }}</dt>
+                  <dd>
+                    {{ configuredLabel(data.stripe.webhook_secret_configured) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.commandites' | translate }}</dt>
+                  <dd>
+                    {{ enabledLabel(data.stripe.business_sponsorship_enabled) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.endpoint_webhook' | translate }}</dt>
+                  <dd>
+                    <code>{{ data.stripe.webhook_endpoint }}</code>
+                  </dd>
+                </div>
+              </dl>
+            </details>
+            <a
+              [href]="data.stripe.dashboard_url"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {{ 'admin.legacy.ouvrir_stripe_dashboard' | translate }}</a
+            >
+          </article>
+
+          <article
+            class="setup-panel"
+            id="setup-email"
+            tabindex="-1"
+            data-tour-anchor="email"
+            [class.tour-target]="isTourAnchor('email')"
+          >
+            <header>
+              <div>
+                <span>{{ 'admin.legacy.courriel' | translate }}</span>
+                <h2>{{ 'admin.legacy.smtp_et_expediteur' | translate }}</h2>
+              </div>
+              <span
+                class="status-pill"
+                [class.status-ok]="isEmailReady(data)"
+                [class.status-warn]="!isEmailReady(data)"
+              >
+                {{ readyLabel(isEmailReady(data)) }}
+              </span>
+            </header>
+            <p class="panel-note">{{ emailSummary(data) }}</p>
+            <details>
+              <summary>{{ 'admin.setup.details' | translate }}</summary>
+              <dl>
+                <div>
+                  <dt>{{ 'admin.legacy.smtp_enabled' | translate }}</dt>
+                  <dd>
+                    {{ enabledLabel(data.email.smtp_enabled) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.smtp_host' | translate }}</dt>
+                  <dd>{{ valueLabel(data.email.smtp_host) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.smtp_port' | translate }}</dt>
+                  <dd>
+                    {{
+                      'admin.legacy.p0_secure_p1'
+                        | translate
+                          : {
+                              p0: data.email.smtp_port,
+                              p1: enabledLabel(data.email.smtp_secure)
+                            }
+                    }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.smtp_user' | translate }}</dt>
+                  <dd>
+                    {{ configuredLabel(data.email.smtp_user_configured) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.smtp_password' | translate }}</dt>
+                  <dd>
+                    {{ configuredLabel(data.email.smtp_password_configured) }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.mail_from_address' | translate }}</dt>
+                  <dd>{{ valueLabel(data.email.from) }}</dd>
+                </div>
+                <div>
+                  <dt>
+                    {{ 'admin.legacy.mail_reply_to_address' | translate }}
+                  </dt>
+                  <dd>{{ valueLabel(data.email.reply_to) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.notification_admin' | translate }}</dt>
+                  <dd>{{ valueLabel(data.email.admin_notification_email) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.rappel_approbation' | translate }}</dt>
+                  <dd>
+                    {{
+                      'admin.legacy.p0_apres_p1_jour_s'
+                        | translate
+                          : {
+                              p0: enabledLabel(
+                                data.email.admin_review_reminder_enabled
+                              ),
+                              p1: data.email.admin_review_reminder_min_age_days
+                            }
+                    }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.verification_rappel' | translate }}</dt>
+                  <dd>
+                    {{
+                      'admin.legacy.p0_ms_p1_dossier_s'
+                        | translate
+                          : {
+                              p0: data.email
+                                .admin_review_reminder_poll_interval_ms,
+                              p1: data.email.admin_review_reminder_max_items
+                            }
+                    }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.factures_commandite' | translate }}</dt>
+                  <dd>
+                    {{ readyLabel(data.invoice.ready) }} -
+                    {{ data.invoice.prefix }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.emetteur_facture' | translate }}</dt>
+                  <dd>{{ valueLabel(data.invoice.issuer_name) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.taxes_facture' | translate }}</dt>
+                  <dd>{{ data.invoice.tax_label }}</dd>
+                </div>
+              </dl>
+            </details>
+
+            <div class="test-email">
+              <label>
+                {{ 'admin.legacy.courriel_de_test' | translate
+                }}<input
+                  type="email"
+                  autocomplete="email"
+                  [value]="testEmail()"
+                  [disabled]="testBusy() || testState() === 'unknown'"
+                  [placeholder]="
+                    data.email.admin_notification_email || 'admin@example.com'
+                  "
+                  (input)="setTestEmail($event)"
+                />
+              </label>
+              <button
+                type="button"
+                [disabled]="
+                  !canSendEmailTest(data) ||
+                  testBusy() ||
+                  testState() === 'unknown'
+                "
+                (click)="sendEmailTest()"
+              >
+                {{
+                  testBusy()
+                    ? ('admin.legacy.envoi_195' | translate)
+                    : ((testResult()
+                        ? 'admin.setupEmail.newTest'
+                        : 'admin.legacy.envoyer_un_test'
+                      ) | translate)
+                }}
+              </button>
+            </div>
+            <p class="panel-note" *ngIf="!canSendEmailTest(data)">
+              {{
+                'admin.legacy.le_test_demande_database_url_migration_010_smtp_enabled_true_et_s'
+                  | translate
+              }}
+            </p>
+            <p
+              class="panel-note"
+              role="status"
+              data-og7="setup-email-result"
+              *ngIf="
+                testState() !== 'idle' && testState() !== 'error' && !testBusy()
+              "
+            >
+              {{ 'admin.setupEmail.' + testState() | translate }}
+            </p>
+            <p class="panel-note error" role="alert" *ngIf="testMessage()">
+              {{ testMessage() }}
+            </p>
+            <button
+              type="button"
+              *ngIf="testRequestId()"
+              (click)="checkEmailTest()"
+              [disabled]="testBusy()"
+            >
+              {{ 'admin.setupEmail.check' | translate }}
+            </button>
+            <a
+              *ngIf="testResult()?.messageId"
+              routerLink="/admin/fundraiser/email-queue"
+              [queryParams]="{ messageId: testResult()?.messageId }"
+              data-og7="setup-email-queue"
+            >
+              {{ 'admin.setupEmail.queue' | translate }}
+            </a>
+          </article>
+
+          <article
+            class="setup-panel queue-panel"
+            id="setup-queue"
+            tabindex="-1"
+            data-tour-anchor="queue"
+            [class.tour-target]="isTourAnchor('queue')"
+          >
+            <header>
+              <div>
+                <span>{{ 'admin.legacy.file_courriel' | translate }}</span>
+                <h2>{{ 'admin.legacy.envois_et_retries' | translate }}</h2>
+              </div>
+              <span
+                class="status-pill"
+                [class.status-ok]="isQueueReady(data)"
+                [class.status-warn]="!isQueueReady(data)"
+              >
+                {{ readyLabel(isQueueReady(data)) }}
+              </span>
+            </header>
+            <div
+              class="queue-metrics"
+              [attr.aria-label]="
+                'admin.legacy.statistiques_de_file_courriel' | translate
+              "
+            >
+              <div>
+                <span>{{ 'admin.legacy.en_attente' | translate }}</span>
+                <strong>{{
+                  queueReadable(data) ? data.email.queued_count : '—'
+                }}</strong>
+              </div>
+              <div>
+                <span>{{ 'admin.legacy.envoi' | translate }}</span>
+                <strong>{{
+                  queueReadable(data) ? data.email.sending_count : '—'
+                }}</strong>
+              </div>
+              <div>
+                <span>{{ 'admin.legacy.envoyes' | translate }}</span>
+                <strong>{{
+                  queueReadable(data) ? data.email.sent_count : '—'
+                }}</strong>
+              </div>
+              <div>
+                <span>{{ 'admin.legacy.echecs' | translate }}</span>
+                <strong>{{
+                  queueReadable(data) ? data.email.failed_count : '—'
+                }}</strong>
+              </div>
+            </div>
+            <p class="panel-note" *ngIf="!queueReadable(data)">
+              {{ 'admin.setup.queueUnavailable' | translate }}
+            </p>
+            <a routerLink="/admin/fundraiser/email-queue">{{
+              'admin.setup.openQueue' | translate
+            }}</a>
+            <details>
+              <summary>{{ 'admin.setup.details' | translate }}</summary>
+              <dl>
+                <div>
+                  <dt>{{ 'admin.legacy.poll_interval' | translate }}</dt>
+                  <dd>
+                    {{
+                      'admin.legacy.p0_ms'
+                        | translate: { p0: data.email.queue_poll_interval_ms }
+                    }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.batch_size' | translate }}</dt>
+                  <dd>{{ data.email.queue_batch_size }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.dernier_echec' | translate }}</dt>
+                  <dd>{{ dateLabel(data.email.last_failed_at) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.erreur' | translate }}</dt>
+                  <dd>{{ valueLabel(data.email.last_error) }}</dd>
+                </div>
+              </dl>
+            </details>
+          </article>
+
+          <article
+            class="setup-panel"
+            id="setup-database"
+            tabindex="-1"
+            data-tour-anchor="database"
+            [class.tour-target]="isTourAnchor('database')"
+          >
+            <header>
+              <div>
+                <span>{{ 'admin.legacy.execution' | translate }}</span>
+                <h2>
+                  {{ 'admin.legacy.base_et_environnement' | translate }}
+                </h2>
+              </div>
+              <span
+                class="status-pill"
+                [class.status-ok]="data.database.reachable"
+                [class.status-warn]="!data.database.reachable"
+              >
+                {{ readyLabel(data.database.reachable) }}
+              </span>
+            </header>
+            <details>
+              <summary>{{ 'admin.setup.details' | translate }}</summary>
+              <dl>
+                <div>
+                  <dt>{{ 'admin.legacy.mode' | translate }}</dt>
+                  <dd>{{ data.environment }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.source_transparence' | translate }}</dt>
+                  <dd>{{ dataSourceLabel(data.data_source) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.database_url' | translate }}</dt>
+                  <dd>{{ configuredLabel(data.database.configured) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.connexion_db' | translate }}</dt>
+                  <dd>{{ enabledLabel(data.database.reachable) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.origines_cors' | translate }}</dt>
+                  <dd>{{ originsLabel(data.allowed_origins) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ 'admin.legacy.base_publique' | translate }}</dt>
+                  <dd>{{ valueLabel(data.public_base_url) }}</dd>
+                </div>
+              </dl>
+            </details>
+          </article>
+
+          <article
+            class="setup-panel storage-panel"
+            id="setup-storage"
+            tabindex="-1"
+            data-og7="setup-storage"
+          >
+            <header>
+              <div>
+                <span>{{ 'admin.setup.services' | translate }}</span>
+                <h2>
+                  <openg7-admin-icon name="cloud" />{{
+                    'admin.setup.storageTitle' | translate
+                  }}
+                </h2>
+              </div>
+            </header>
+            <p class="panel-note">
+              {{ 'admin.setup.storageScope' | translate }}
+            </p>
+            @if (storageSystem(); as storage) {
+              <p>
+                <strong>{{ storage.provider }}</strong>
+              </p>
+              <p class="panel-note">
+                {{ 'admin.cockpit.checked' | translate }}
+                {{ dateLabel(storage.checkedAt) }}
+              </p>
+            } @else {
+              <p class="panel-note">
+                {{ 'admin.setup.storageUnknown' | translate }}
+              </p>
+            }
+            <button type="button" (click)="focusSection('readiness')">
+              {{ 'admin.setup.viewChecks' | translate
+              }}<openg7-admin-icon name="arrow" />
+            </button>
+          </article>
+        </section>
+        <aside
+          class="setup-sidebar"
+          [attr.aria-label]="'admin.setup.checklist' | translate"
+        >
+          <section
+            class="checklist"
+            aria-labelledby="setup-checklist-title"
+            data-og7="setup-checklist"
+          >
+            <header>
+              <openg7-admin-icon name="check" />
+              <div>
+                <h2 id="setup-checklist-title">
+                  {{ 'admin.setup.checklist' | translate }}
+                </h2>
+                <p>
+                  {{
+                    'admin.setup.checklistCount'
+                      | translate
+                        : { count: checklistCount(), total: checklist().length }
+                  }}
+                </p>
+              </div>
+            </header>
+            <ul>
+              @for (item of checklist(); track item.id) {
+                <li>
+                  <button type="button" (click)="focusSection(item.id)">
+                    <openg7-admin-icon
+                      [name]="item.ready ? 'check' : 'warning'"
+                    /><span>{{
+                      'admin.setup.checks.' + item.id | translate
+                    }}</span
+                    ><small>{{
+                      (item.ready
+                        ? 'admin.setup.complete'
+                        : 'admin.setup.incomplete'
+                      ) | translate
+                    }}</small>
+                  </button>
+                </li>
+              }
+            </ul>
+            <p class="scope">{{ 'admin.setup.checklistScope' | translate }}</p>
+            <button
+              type="button"
+              class="checklist-action"
+              (click)="focusSection('env')"
+            >
+              {{ 'admin.setup.viewConfiguration' | translate
+              }}<openg7-admin-icon name="arrow" />
+            </button>
+          </section>
+          <div id="setup-activity" tabindex="-1">
+            <openg7-admin-cockpit-activity
+              [refreshLabel]="'admin.setup.refreshActivity' | translate"
+              [refreshKey]="refreshKey()"
+            />
+            <a class="audit-link" routerLink="/admin/fundraiser/audit"
+              >{{ 'admin.setup.openAudit' | translate
+              }}<openg7-admin-icon name="arrow"
+            /></a>
+          </div>
+        </aside>
+      </div>
+
+      <section
+        class="setup-table-panel"
+        id="setup-env"
+        tabindex="-1"
+        data-tour-anchor="env"
+        [class.tour-target]="isTourAnchor('env')"
+      >
+        <header>
+          <div>
+            <span>{{ 'admin.legacy.checklist' | translate }}</span>
+            <h2>{{ 'admin.legacy.cles_a_verifier' | translate }}</h2>
+          </div>
+          <small>{{
+            'admin.legacy.mis_a_jour_p0'
+              | translate: { p0: dateLabel(data.last_updated_at) }
+          }}</small>
+        </header>
+
+        <details class="configuration-details">
+          <summary>{{ 'admin.setup.variables' | translate }}</summary>
+          <div
+            class="table-scroll"
+            tabindex="0"
+            role="region"
+            [attr.aria-label]="'admin.legacy.cles_a_verifier' | translate"
+            data-og7="setup-configuration-table"
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th>{{ 'admin.legacy.variable' | translate }}</th>
+                  <th>{{ 'admin.legacy.etat' | translate }}</th>
+                  <th>{{ 'admin.legacy.role' | translate }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of envRows; trackBy: trackByEnvRow">
+                  <td>
+                    <code>{{ row.key }}</code>
+                  </td>
+                  <td>
+                    <span
+                      class="status-pill compact"
+                      [class.status-ok]="envConfigured(data, row.key)"
+                      [class.status-warn]="!envConfigured(data, row.key)"
+                    >
+                      {{ configuredLabel(envConfigured(data, row.key)) }}
+                    </span>
+                  </td>
+                  <td>{{ row.note }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+    </ng-container>
+  </section>
+
+  <openg7-admin-drawer
+    [opened]="activeTourStep() !== null"
+    [title]="activeTourStep()?.title ?? ''"
+    [closeLabel]="'admin.legacy.fermer_le_guide' | translate"
+    [fixedFooter]="true"
+    (closed)="endTour()"
+  >
+    @if (activeTourStep(); as step) {
+      <p class="eyebrow">
+        {{
+          'admin.legacy.etape_p0_p1'
+            | translate: { p0: tourIndex() + 1, p1: tourSteps.length }
+        }}
+      </p>
+      <p>{{ step.body }}</p>
+    }
+    <div adminDrawerFooter class="tour-actions">
+      <button
+        type="button"
+        (click)="previousTourStep()"
+        [disabled]="tourIndex() === 0"
+      >
+        {{ 'admin.legacy.retour' | translate }}
+      </button>
+      <button type="button" (click)="nextTourStep()">
+        {{
+          (isLastTourStep() ? 'admin.legacy.terminer' : 'admin.legacy.suivant')
+            | translate
+        }}
+      </button>
+    </div>
+  </openg7-admin-drawer>
+</openg7-admin-layout>

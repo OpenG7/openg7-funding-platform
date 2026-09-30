@@ -2658,6 +2658,97 @@
           "body": "Examinez les raisons liées aux paiements, consentements ou autres conditions. Quand une recomposition est disponible, vérifiez les commanditaires retirés et ajoutés avant de la confirmer. Un envoi au résultat incertain exige une investigation du dossier."
         }
       }
+    },
+    "setup": {
+      "title": "Configuration et état du système",
+      "subtitle": "Vérifiez les services, repérez les points à compléter et accédez aux outils de diagnostic.",
+      "environment": "Environnement",
+      "updated": "Configuration vérifiée le",
+      "sections": "Sections de configuration",
+      "overview": "Vue d’ensemble",
+      "services": "Services",
+      "activity": "Activité récente",
+      "systems": "État des services",
+      "systemsSubtitle": "Des observations datées pour chaque service.",
+      "observedCount": "{{count}} / {{total}} contrôles confirmés",
+      "nextAction": "Action recommandée",
+      "configured": "Configuré",
+      "incomplete": "À vérifier",
+      "complete": "Vérifié",
+      "details": "Voir les paramètres",
+      "emailConfigured": "SMTP, expéditeur et notification administrative configurés.",
+      "emailIncomplete": "Complétez SMTP, l’expéditeur ou la notification administrative.",
+      "queueSummary": "{{queued}} en attente, {{failed}} en échec.",
+      "queueUnavailable": "L’état de la file est indisponible. Les compteurs ne peuvent pas être confirmés.",
+      "openQueue": "Ouvrir la file courriel",
+      "storageTitle": "Stockage des médias",
+      "storageScope": "Le contrôle vérifie la lecture du stockage configuré. Il ne vérifie ni l’écriture ni la restauration des médias.",
+      "storageUnknown": "Le fournisseur et son état ne sont pas disponibles.",
+      "viewChecks": "Consulter les contrôles",
+      "checklist": "Configuration à vérifier",
+      "checklistCount": "{{count}} / {{total}} points vérifiés",
+      "checklistScope": "Ces points décrivent la configuration actuelle. Ils ne valident pas un déploiement ni la réception des courriels.",
+      "viewConfiguration": "Voir la configuration",
+      "openAudit": "Ouvrir le journal administratif",
+      "checks": {
+        "stripe": "Paramètres Stripe",
+        "email": "Paramètres courriel",
+        "queue": "Lecture de la file sans échec",
+        "database": "Connexion PostgreSQL",
+        "invoice": "Émetteur des factures"
+      },
+      "tourSystems": "Ces cartes distinguent la configuration des observations récentes. Un contrôle périmé redevient indéterminé. Sélectionnez un service pour consulter ses détails.",
+      "databaseNote": "Persistance, administration et file courriel.",
+      "next": {
+        "database": {
+          "title": "Vérifier la connexion PostgreSQL",
+          "body": "La connexion à la base n’est pas confirmée. Les files et les observations peuvent être indisponibles.",
+          "action": "Consulter la connexion"
+        },
+        "queue": {
+          "title": "L’état de la file reste à vérifier",
+          "body": "La lecture de la file courriel n’a pas pu être confirmée. Consultez le diagnostic avant de lancer un test.",
+          "action": "Consulter la file"
+        },
+        "emailFailures": {
+          "title": "Des courriels demandent une intervention",
+          "body": "La file contient des messages en échec. Examinez-les pour déterminer la suite à donner."
+        },
+        "service": {
+          "title": "Un service demande votre attention",
+          "body": "Une observation signale un problème. Consultez le service concerné et la portée de son contrôle.",
+          "action": "Examiner le service"
+        },
+        "stripe": {
+          "title": "Compléter la configuration Stripe",
+          "body": "La clé Stripe ou le secret webhook manque. Les paramètres sont consultables ci-dessous.",
+          "action": "Voir les paramètres Stripe"
+        },
+        "email": {
+          "title": "Compléter la configuration du courriel",
+          "body": "Vérifiez le fournisseur SMTP, l’expéditeur et l’adresse de notification administrative.",
+          "action": "Voir les paramètres courriel"
+        },
+        "invoice": {
+          "title": "Vérifier l’émetteur des factures",
+          "body": "Les informations nécessaires à l’identification de l’émetteur sont incomplètes.",
+          "action": "Voir les paramètres de facturation"
+        },
+        "verification": {
+          "title": "Des observations restent à confirmer",
+          "body": "Une configuration présente ne prouve pas le fonctionnement. Consultez les contrôles manquants ou périmés.",
+          "action": "Consulter les contrôles"
+        },
+        "ready": {
+          "title": "Aucun problème détecté dans les contrôles disponibles",
+          "body": "Les quatre observations sont récentes et les points de configuration sont vérifiés. Leur portée reste limitée aux contrôles affichés.",
+          "action": "Voir l’activité récente"
+        }
+      },
+      "refreshSystems": "Actualiser les contrôles des services",
+      "refreshActivity": "Actualiser l’activité récente",
+      "openStripeEvents": "Examiner les événements Stripe",
+      "variables": "Voir les variables de configuration"
     }
   },
   "funding": {

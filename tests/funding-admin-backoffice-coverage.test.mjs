@@ -42,9 +42,13 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const auditPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-audit-page/admin-audit-page.component.ts'
   );
-  const setupPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts'
-  );
+  const setupPage =
+    read(
+      'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts'
+    ) +
+    read(
+      'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.html'
+    );
   const sponsorsPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
   );

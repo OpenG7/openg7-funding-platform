@@ -288,6 +288,40 @@ test('block retry retains a labelled snapshot and forbidden access removes it', 
   await expect(metrics(page).getByRole('article')).toHaveCount(4);
 });
 
+test('system retry keeps failed observations unknown until a successful response', async ({
+  page
+}) => {
+  const data = await fixtures(page);
+  await page.goto('/admin/fundraiser');
+  const database = systems(page).locator('[data-og7-id="database"]');
+  const refresh = systems(page).getByRole('button', { name: 'Actualiser' });
+  await expect(database).toContainText('Opérationnel');
+  await page.route('**/api/admin/cockpit/systems', (route) =>
+    route.fulfill({ status: 503, json: {} })
+  );
+  await refresh.click();
+  await expect(database).toContainText('Inconnu');
+  let releaseResponse!: () => void;
+  const pendingResponse = new Promise<void>((resolve) => {
+    releaseResponse = resolve;
+  });
+  await page.route('**/api/admin/cockpit/systems', async (route) => {
+    await pendingResponse;
+    await route.fulfill({ json: data.systems });
+  });
+  try {
+    await refresh.click();
+    await expect(refresh).toBeDisabled();
+    await expect(database).toContainText('Inconnu');
+    await expect(database).not.toContainText('Opérationnel');
+    await expect(systems(page)).toContainText('Dernière lecture conservée');
+  } finally {
+    releaseResponse();
+  }
+  await expect(database).toContainText('Opérationnel');
+  await expect(systems(page)).not.toContainText('Dernière lecture conservée');
+});
+
 test('expired system observations lose their operational indication without a reload', async ({
   page
 }) => {

@@ -2662,6 +2662,97 @@
           "body": "Review the reasons related to payments, consent or other requirements. When a replacement batch is available, check the removed and added sponsors before confirming it. An uncertain delivery requires investigating the record."
         }
       }
+    },
+    "setup": {
+      "title": "Configuration and system status",
+      "subtitle": "Check services, identify missing configuration and open the diagnostic tools.",
+      "environment": "Environment",
+      "updated": "Configuration checked on",
+      "sections": "Configuration sections",
+      "overview": "Overview",
+      "services": "Services",
+      "activity": "Recent activity",
+      "systems": "Service status",
+      "systemsSubtitle": "Dated observations for each service.",
+      "observedCount": "{{count}} / {{total}} checks confirmed",
+      "nextAction": "Recommended action",
+      "configured": "Configured",
+      "incomplete": "Check needed",
+      "complete": "Checked",
+      "details": "View settings",
+      "emailConfigured": "SMTP, sender and administrative notification configured.",
+      "emailIncomplete": "Complete SMTP, the sender or administrative notification.",
+      "queueSummary": "{{queued}} queued, {{failed}} failed.",
+      "queueUnavailable": "Queue status is unavailable. The counters cannot be confirmed.",
+      "openQueue": "Open email queue",
+      "storageTitle": "Media storage",
+      "storageScope": "The check verifies read access to the configured storage. It does not verify writing or restoring media.",
+      "storageUnknown": "The provider and its status are unavailable.",
+      "viewChecks": "View checks",
+      "checklist": "Configuration checklist",
+      "checklistCount": "{{count}} / {{total}} items checked",
+      "checklistScope": "These items describe the current configuration. They do not validate a deployment or email receipt.",
+      "viewConfiguration": "View configuration",
+      "openAudit": "Open administrative audit log",
+      "checks": {
+        "stripe": "Stripe settings",
+        "email": "Email settings",
+        "queue": "Queue readable without failures",
+        "database": "PostgreSQL connection",
+        "invoice": "Invoice issuer"
+      },
+      "tourSystems": "These cards distinguish configuration from recent observations. An expired check becomes unknown. Select a service to view its details.",
+      "databaseNote": "Persistence, administration and email queue.",
+      "next": {
+        "database": {
+          "title": "Check the PostgreSQL connection",
+          "body": "The database connection is not confirmed. Queues and observations may be unavailable.",
+          "action": "View connection"
+        },
+        "queue": {
+          "title": "Queue status needs verification",
+          "body": "The email queue could not be read. Review the diagnostic before starting a test.",
+          "action": "View queue"
+        },
+        "emailFailures": {
+          "title": "Some emails need attention",
+          "body": "The queue contains failed messages. Review them to decide what to do next."
+        },
+        "service": {
+          "title": "A service needs your attention",
+          "body": "An observation indicates a problem. Inspect the service and the scope of its check.",
+          "action": "Inspect service"
+        },
+        "stripe": {
+          "title": "Complete Stripe configuration",
+          "body": "The Stripe key or webhook secret is missing. Review the settings below.",
+          "action": "View Stripe settings"
+        },
+        "email": {
+          "title": "Complete email configuration",
+          "body": "Check the SMTP provider, sender and administrative notification address.",
+          "action": "View email settings"
+        },
+        "invoice": {
+          "title": "Check the invoice issuer",
+          "body": "The information needed to identify the issuer is incomplete.",
+          "action": "View invoice settings"
+        },
+        "verification": {
+          "title": "Some observations still need confirmation",
+          "body": "Configuration alone does not prove operation. Review missing or expired checks.",
+          "action": "View checks"
+        },
+        "ready": {
+          "title": "No issues detected in the available checks",
+          "body": "All four observations are recent and the configuration items are checked. Coverage remains limited to the checks shown.",
+          "action": "View recent activity"
+        }
+      },
+      "refreshSystems": "Refresh service checks",
+      "refreshActivity": "Refresh recent activity",
+      "openStripeEvents": "Review Stripe events",
+      "variables": "View configuration variables"
     }
   },
   "funding": {
