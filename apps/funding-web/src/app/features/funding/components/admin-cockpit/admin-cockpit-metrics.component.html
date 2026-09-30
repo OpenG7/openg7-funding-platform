@@ -47,6 +47,7 @@
       @if (selected(); as values) {
         <div class="metric">
           <openg7-admin-metric-card
+            [embedded]="true"
             icon="contributions"
             tone="green"
             [label]="'admin.dashboard.received' | translate"
@@ -60,6 +61,7 @@
         </div>
         <div class="metric">
           <openg7-admin-metric-card
+            [embedded]="true"
             icon="expenses"
             tone="gold"
             [label]="'admin.cockpit.net' | translate"
@@ -80,8 +82,9 @@
           />
         </div>
       }
-      <div class="metric">
+      <div class="metric" data-og7="cockpit-metric" data-og7-id="sponsorships">
         <openg7-admin-metric-card
+          [embedded]="true"
           icon="sponsors"
           [label]="'admin.nav.sponsors' | translate"
           [value]="count(data.sponsorshipCount)"
@@ -91,6 +94,7 @@
       </div>
       <div class="metric">
         <openg7-admin-metric-card
+          [embedded]="true"
           icon="publications"
           [label]="'admin.cockpit.planned' | translate"
           [value]="count(data.plannedPublicationCount)"

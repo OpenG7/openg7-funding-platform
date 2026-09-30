@@ -1,0 +1,99 @@
+<div class="chart-panel">
+  <p class="chart-title">{{ 'admin.cockpit.dailyTrend' | translate }}</p>
+  @if (chart(); as graph) {
+    <svg
+      viewBox="0 0 300 88"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+      data-og7="cockpit-trend-chart"
+    >
+      <path class="grid" d="M4 8H296 M4 44H296 M4 80H296" />
+      <polyline class="area" [attr.points]="graph.area" />
+      <line
+        class="baseline"
+        x1="4"
+        x2="296"
+        [attr.y1]="graph.zero"
+        [attr.y2]="graph.zero"
+      />
+      <polyline class="curve" [attr.points]="graph.points" />
+    </svg>
+    <div class="chart-range">
+      <time [attr.datetime]="graph.start">{{ date(graph.start) }}</time>
+      <time [attr.datetime]="graph.end">{{ date(graph.end) }}</time>
+    </div>
+  } @else {
+    <p class="chart-empty">
+      {{ 'admin.cockpit.chartUnavailable' | translate }}
+    </p>
+  }
+</div>
+
+<dl class="periods">
+  <div>
+    <dt>{{ 'admin.cockpit.currentPeriod' | translate }}</dt>
+    <dd>{{ format(trend().current) }}</dd>
+  </div>
+  <div>
+    <dt>{{ 'admin.cockpit.previousPeriod' | translate }}</dt>
+    <dd>{{ format(trend().previous) }}</dd>
+  </div>
+</dl>
+<div class="comparison">
+  <p class="comparison-heading">
+    <span>{{ 'admin.cockpit.comparison' | translate }}</span>
+    <strong class="change" [attr.data-direction]="direction()">
+      @if (direction() !== 'unknown') {
+        <span aria-hidden="true">{{
+          direction() === 'up' ? '↗' : direction() === 'down' ? '↘' : '↔'
+        }}</span>
+      }
+      {{ percentage() }}
+    </strong>
+  </p>
+  @if (comparisonHint(); as hint) {
+    <p class="comparison-hint">{{ hint | translate }}</p>
+  }
+</div>
+
+@if (dailyValues().length) {
+  <details>
+    <summary>
+      <span>{{ 'admin.cockpit.series' | translate }}</span>
+      <span class="disclosure-icon" aria-hidden="true"></span>
+    </summary>
+    <div
+      class="table-scroll"
+      tabindex="0"
+      role="region"
+      [attr.aria-label]="'admin.cockpit.dailySeries' | translate"
+    >
+      <table>
+        <caption>
+          {{
+            'admin.cockpit.dailySeries' | translate
+          }}
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">{{ 'admin.cockpit.day' | translate }}</th>
+            <th scope="col">{{ 'admin.cockpit.value' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (point of dailyValues(); track point.day) {
+            <tr>
+              <th scope="row">
+                <time [attr.datetime]="point.day">{{
+                  date(point.day, true)
+                }}</time>
+              </th>
+              <td>{{ format(point.value) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </details>
+}
