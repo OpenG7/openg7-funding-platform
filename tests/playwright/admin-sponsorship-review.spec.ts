@@ -239,10 +239,13 @@ test.describe('Docker admin sponsorship review', () => {
     const fixture = SPONSORSHIP_FIXTURES.logo;
     await openFixtureSponsorship(page, fixture.companyName);
 
-    await page.getByRole('button', { name: 'Médias', exact: true }).click();
+    await page
+      .getByRole('button', { name: 'Fiche et médias', exact: true })
+      .click();
+    const media = page.locator('openg7-admin-sponsor-detail-media');
 
     // The upload control is a <label> wrapping the file input, not a button.
-    await expect(page.getByText('Televerser un logo')).toBeVisible();
+    await expect(media.getByText('Televerser un logo')).toBeVisible();
 
     // The API detects the file type from magic bytes, not the declared MIME
     // type (detectSponsorLogoFileType in apps/funding-api/src/main.ts), so
@@ -251,24 +254,24 @@ test.describe('Docker admin sponsorship review', () => {
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
       'base64'
     );
-    await page.locator('input[type="file"]').setInputFiles({
+    await media.locator('input[type="file"]').setInputFiles({
       name: 'e2e-playwright-logo.png',
       mimeType: 'image/png',
       buffer: onePixelPng
     });
 
-    await expect(page.getByText(/Logo enregistre/i)).toBeVisible();
+    await expect(media.getByText(/Logo enregistre/i)).toBeVisible();
     await expect(
-      page.getByRole('img', { name: `Logo ${fixture.companyName}` })
+      media.getByRole('img', { name: `Logo ${fixture.companyName}` })
     ).toBeVisible();
-    await expect(page.getByText('Remplacer le logo')).toBeVisible();
+    await expect(media.getByText('Remplacer le logo')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Supprimer le logo' }).click();
+    await media.getByRole('button', { name: 'Supprimer le logo' }).click();
     await page.locator('[data-og7="confirm-action"]').click();
 
     await expect(
-      page.getByText('Logo supprime.', { exact: true })
+      media.getByText('Logo supprime.', { exact: true })
     ).toBeVisible();
-    await expect(page.getByText('Televerser un logo')).toBeVisible();
+    await expect(media.getByText('Televerser un logo')).toBeVisible();
   });
 });

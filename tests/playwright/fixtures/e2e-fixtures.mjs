@@ -85,6 +85,16 @@ export const SPONSORSHIP_FIXTURES = Object.freeze({
     amountCents: 25000,
     reviewStatus: 'pending_review'
   }),
+  rejectedFollowup: Object.freeze({
+    publicReference: 'OG7-E2E-REJECTED-FOLLOWUP',
+    companyName: 'E2E Rejected Followup Inc.',
+    contactName: 'E2E Followup Contact',
+    contactEmail: 'rejected-followup@simulation.example.test',
+    websiteUrl: 'https://example.com/e2e-rejected-followup',
+    followupToken: 'e2e-rejected-followup-local-only-token-0000000',
+    amountCents: 25000,
+    reviewStatus: 'pending_review'
+  }),
   // Seeded already approved (rather than approved via the admin UI, like the
   // two fixtures above) so the public sponsor-navigation spec can assert on
   // the post-approval follow-up page and the /commanditaires directory
@@ -424,10 +434,9 @@ export const ACCOUNTING_FIXTURES = Object.freeze({
 // Seeded directly into email_messages (rather than produced by an admin
 // action, like every fund_contributions fixture above) so
 // admin-email-queue.spec.ts has a deterministic, retryable row to click
-// "Relancer" on. SMTP is disabled in local/CI (docker-compose.yml defaults
-// SMTP_ENABLED to false), so retrying it always resolves the same way: the
-// send is attempted and fails with EMAIL_DISABLED, leaving the message
-// 'failed' rather than 'sent'.
+// "Relancer" on. Disposable acceptance uses a local SMTP sink and expects
+// 'sent'. The default local Compose stack disables SMTP, so the same retry
+// fails with EMAIL_DISABLED and leaves the message 'failed'.
 export const EMAIL_QUEUE_FIXTURE = Object.freeze({
   idempotencyKey: 'e2e-playwright-fixture-email-queue-retry',
   templateKey: 'e2e_playwright_fixture',

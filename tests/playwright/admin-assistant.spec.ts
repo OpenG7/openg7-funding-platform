@@ -427,9 +427,17 @@ test.describe('assistant dossier links', () => {
           exact: true
         })
       ).toBeVisible();
-      await page
-        .getByRole('button', { name: 'Reinitialiser', exact: true })
-        .click();
+      await page.locator('[data-og7="dossier-back"]').click();
+      await expect(detail).toBeHidden();
+      await expect(page.getByLabel('Recherche', { exact: true })).toHaveValue(
+        ''
+      );
+      await expect(page).not.toHaveURL(/sponsorshipId=/);
+      const firstRow = page.locator('[data-og7="sponsor-row"]', {
+        hasText: first.sponsor_company_name
+      });
+      await expect(firstRow).toBeVisible();
+      await firstRow.click();
       await expect(
         detail.getByRole('heading', {
           name: first.sponsor_company_name,
@@ -456,10 +464,10 @@ test.describe('assistant dossier links', () => {
     await page
       .getByRole('button', { name: 'Reinitialiser les filtres', exact: true })
       .click();
+    await expect(page.getByLabel('Recherche', { exact: true })).toHaveValue('');
     await expect(
-      page.getByRole('heading', {
-        name: first.sponsor_company_name,
-        exact: true
+      page.locator('[data-og7="sponsor-row"]', {
+        hasText: first.sponsor_company_name
       })
     ).toBeVisible();
   });

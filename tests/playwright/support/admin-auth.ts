@@ -20,6 +20,13 @@ export const openFixtureSponsorship = async (
   page: Page,
   companyName: string
 ): Promise<void> => {
+  const back = page.locator('[data-og7="dossier-back"]');
+  if (
+    new URL(page.url()).searchParams.has('sponsorshipId') ||
+    (await back.isVisible())
+  ) {
+    await back.click();
+  }
   await page.getByLabel('Recherche', { exact: true }).fill(companyName);
   await page.getByRole('button', { name: new RegExp(companyName) }).click();
 };

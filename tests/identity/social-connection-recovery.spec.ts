@@ -97,8 +97,10 @@ test('social connections: missing access, wrong account, expiry and provider den
     );
     await drawer.getByRole('button', { name: 'Vérifier la connexion' }).click();
     expect((await response).status()).toBe(200);
-    await expect(drawer.getByRole('status')).toHaveText(expected);
-    await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
+    await expect(
+      drawer.getByRole('status').filter({ hasText: expected })
+    ).toHaveText(expected);
+    await drawer.getByRole('button').filter({ hasText: 'Fermer' }).click();
   };
   const openJob = async (page: Page, id: string) => {
     await page.goto(cockpit + '?deliveryId=' + id);

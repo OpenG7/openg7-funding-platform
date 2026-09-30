@@ -12,7 +12,9 @@ import { signInAsAdmin } from './support/admin-auth.js';
 //
 // The tests run in file order (playwright.config.ts sets fullyParallel:
 // false, workers: 1) so the filter test below -- which assumes the fixture
-// is still 'queued' -- runs before the retry test flips it to 'failed'.
+// is still 'queued' -- runs before the retry test changes its delivery state.
+// Disposable acceptance uses a local SMTP sink; the default local stack has
+// SMTP disabled. Neither scenario requires a real mail provider.
 
 test.describe('Docker admin email queue', () => {
   test('renders the queue summary and message list', async ({ page }) => {
@@ -63,7 +65,7 @@ test.describe('Docker admin email queue', () => {
     await expect(row).toBeVisible();
   });
 
-  test('retries the fixture message and reflects the failed outcome', async ({
+  test('retries the fixture message and reflects the configured delivery outcome', async ({
     page
   }) => {
     await signInAsAdmin(page);
@@ -72,14 +74,14 @@ test.describe('Docker admin email queue', () => {
     const row = page.locator('tbody tr', {
       hasText: EMAIL_QUEUE_FIXTURE.recipientEmail
     });
-    const statusPill = row.locator('.status-pill');
+    const statusCell = row.getByRole('cell').nth(1);
     const retryButton = row.getByRole('button', {
       name: 'Relancer',
       exact: true
     });
-    const retryResult = row.locator('.retry-message');
+    const retryResult = row.locator('[data-og7="email-retry-result"]');
 
-    await expect(statusPill).toHaveText('En file');
+    await expect(statusCell).toHaveText('En file');
 
     await retryButton.click();
     await expect(page.getByRole('dialog')).toContainText(
@@ -87,15 +89,17 @@ test.describe('Docker admin email queue', () => {
     );
     await page.locator('[data-og7="confirm-action"]').click();
 
-    // SMTP is disabled in this environment (see the EMAIL_QUEUE_FIXTURE
-    // comment in fixtures/e2e-fixtures.mjs), so the retry always attempts
-    // the send and fails the same way.
-    await expect(retryResult).toHaveText(
-      'Relance tentee, le message reste en echec.'
-    );
-    await expect(retryResult).toHaveClass(/error/);
-    await expect(statusPill).toHaveText('Echec');
-    await expect(retryButton).toBeEnabled();
+    if (process.env.OPENG7_E2E_ISOLATED === '1') {
+      await expect(retryResult).toHaveText('Message envoye.');
+      await expect(statusCell).toHaveText('Envoye');
+      await expect(retryButton).toBeDisabled();
+    } else {
+      await expect(retryResult).toHaveText(
+        'Relance tentee, le message reste en echec.'
+      );
+      await expect(statusCell).toHaveText('Echec');
+      await expect(retryButton).toBeEnabled();
+    }
   });
 
   test('shows an error state when the email queue request fails and recovers on refresh', async ({

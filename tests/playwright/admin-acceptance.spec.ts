@@ -109,7 +109,14 @@ test(
     page.on('request', (request) => {
       if (
         request.url().includes('/api/admin/') &&
-        !['GET', 'HEAD', 'OPTIONS'].includes(request.method())
+        !['GET', 'HEAD', 'OPTIONS'].includes(request.method()) &&
+        // Claiming a displayed notification prevents duplicates across tabs;
+        // it does not change the contribution or authorize a business action.
+        !(
+          request.method() === 'POST' &&
+          new URL(request.url()).pathname ===
+            '/api/admin/contribution-activity/present'
+        )
       )
         mutations.push(request.url());
     });

@@ -259,6 +259,7 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
         '/admin/fundraiser/sponsors?sponsorshipId=' + contributionId
       );
       const accessPanel = admin.locator('[data-og7="admin-followup-access"]');
+      await admin.getByText('Accès au suivi', { exact: true }).click();
       await accessPanel.getByRole('button').click();
       await expect(admin.getByRole('dialog')).toContainText(paymentEmail);
       await admin.locator('[data-og7="confirm-action"]').click();

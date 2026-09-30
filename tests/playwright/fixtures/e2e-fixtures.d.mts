@@ -79,6 +79,16 @@ export const SPONSORSHIP_FIXTURES: Readonly<{
     amountCents: 25000;
     reviewStatus: 'pending_review';
   }>;
+  rejectedFollowup: Readonly<{
+    publicReference: 'OG7-E2E-REJECTED-FOLLOWUP';
+    companyName: 'E2E Rejected Followup Inc.';
+    contactName: 'E2E Followup Contact';
+    contactEmail: 'rejected-followup@simulation.example.test';
+    websiteUrl: 'https://example.com/e2e-rejected-followup';
+    followupToken: 'e2e-rejected-followup-local-only-token-0000000';
+    amountCents: 25000;
+    reviewStatus: 'pending_review';
+  }>;
   directory: Readonly<{
     publicReference: 'OG7-E2E-DIRECTORY';
     companyName: 'E2E Playwright Fixture Directory Inc.';

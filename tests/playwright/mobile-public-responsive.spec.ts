@@ -1,13 +1,11 @@
 import { expect, test } from './support/test.js';
 
 // Mobile responsive smoke for the critical PUBLIC journeys, run on an emulated
-// Pixel 5 by the `mobile-chrome` project (playwright.config.ts). Everything
-// here is read-only: it navigates public pages and exercises the LOCAL mocked
-// checkout, which never opens a real Stripe session and never writes a
-// contribution row. Because it writes nothing, it is safe to run on a second
-// browser/viewport in addition to the desktop suite -- unlike the admin,
-// webhook, accounting and backfill specs, which mutate the shared database and
-// therefore stay desktop-only (they carry no @mobile tag).
+// Pixel 5 by the `mobile-chrome` project (playwright.config.ts). The checkout
+// uses the configured local simulation and stops before confirming payment.
+// It can create a pending contribution on the disposable stack, but never a
+// real Stripe session or a paid contribution. Financial mutations stay in the
+// desktop-only webhook, accounting and backfill specs (without @mobile).
 //
 // The @mobile tag is what routes these tests: the mobile-chrome project greps
 // for it, and the desktop chromium project greps it out.
@@ -71,10 +69,18 @@ test.describe('Mobile public responsive', { tag: '@mobile' }, () => {
 
     await submitButton.click();
 
-    // Local mock: no real Stripe session, no contribution row written.
-    await expect(
-      page.getByText(/Mode local ?: Stripe n.a pas ouvert de session r.elle/i)
-    ).toBeVisible();
+    if (process.env.OPENG7_E2E_ISOLATED === '1') {
+      await expect(page).toHaveURL(/\/checkout\/cs_test_/);
+      expect(new URL(page.url()).origin).toBe(process.env.STRIPE_STUB_BASE_URL);
+      await expect(
+        page.getByRole('heading', { name: 'Checkout simulé' })
+      ).toBeVisible();
+      await expect(page.getByText(/Contribution : 25\.00 CAD/)).toBeVisible();
+    } else {
+      await expect(
+        page.getByText(/Mode local ?: Stripe n.a pas ouvert de session r.elle/i)
+      ).toBeVisible();
+    }
   });
 
   test('renders the public sponsors page without private fields or overflow', async ({

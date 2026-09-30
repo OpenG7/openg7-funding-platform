@@ -171,10 +171,10 @@ test.describe('Docker admin publication batches', () => {
     await settings
       .getByRole('button', { name: 'Vérifier la connexion', exact: true })
       .click();
-    await expect(settings.getByRole('status')).toContainText(
-      'Connexion vérifiée'
-    );
-    await settings.getByRole('button', { name: 'Fermer', exact: true }).click();
+    await expect(
+      settings.getByRole('status').filter({ hasText: 'Connexion vérifiée' })
+    ).toHaveText('Connexion vérifiée');
+    await settings.getByRole('button').filter({ hasText: 'Fermer' }).click();
     await page
       .locator('[data-og7="publication-automation"] .job')
       .first()
