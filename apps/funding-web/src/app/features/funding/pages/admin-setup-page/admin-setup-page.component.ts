@@ -146,6 +146,7 @@ export class AdminSetupPageComponent implements OnInit {
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
 
   readonly state = signal<LoadState>('idle');
+  readonly navSection = signal<SetupSection>('readiness');
   readonly setup = signal<AdminSetupStatusResponse | null>(null);
   readonly testEmail = signal('');
   readonly testState = signal<TestState>('idle');
@@ -871,6 +872,16 @@ export class AdminSetupPageComponent implements OnInit {
       'setup-' + (section === 'invoice' ? 'email' : section)
     );
     if (!target) return;
+    this.navSection.set(
+      section === 'overview'
+        ? 'readiness'
+        : section === 'readiness' ||
+            section === 'env' ||
+            section === 'backups' ||
+            section === 'activity'
+          ? section
+          : 'stripe'
+    );
     const details = target.querySelector('details');
     if (details) details.open = true;
     target.focus({ preventScroll: true });

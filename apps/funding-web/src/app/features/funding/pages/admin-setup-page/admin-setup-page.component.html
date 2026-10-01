@@ -62,22 +62,48 @@
         class="section-nav"
         [attr.aria-label]="'admin.setup.sections' | translate"
       >
-        <button type="button" (click)="focusSection('readiness')">
+        <button
+          [attr.aria-current]="navSection() === 'readiness' ? 'location' : null"
+          type="button"
+          (click)="focusSection('readiness')"
+        >
           <openg7-admin-icon name="dashboard" />{{
             'admin.setup.overview' | translate
           }}
         </button>
-        <button type="button" (click)="focusSection('stripe')">
+        <button
+          [attr.aria-current]="navSection() === 'stripe' ? 'location' : null"
+          type="button"
+          (click)="focusSection('stripe')"
+        >
           <openg7-admin-icon name="cloud" />{{
             'admin.setup.services' | translate
           }}
         </button>
-        <button type="button" (click)="focusSection('env')">
+        <button
+          [attr.aria-current]="navSection() === 'env' ? 'location' : null"
+          type="button"
+          (click)="focusSection('env')"
+        >
           <openg7-admin-icon name="settings" />{{
             'admin.legacy.configuration' | translate
           }}
         </button>
-        <button type="button" (click)="focusSection('activity')">
+        <button
+          type="button"
+          (click)="focusSection('backups')"
+          data-og7="setup-backups-nav"
+          [attr.aria-current]="navSection() === 'backups' ? 'location' : null"
+        >
+          <openg7-admin-icon name="audit" />{{
+            'admin.backups.nav' | translate
+          }}
+        </button>
+        <button
+          [attr.aria-current]="navSection() === 'activity' ? 'location' : null"
+          type="button"
+          (click)="focusSection('activity')"
+        >
           <openg7-admin-icon name="clock" />{{
             'admin.setup.activity' | translate
           }}
@@ -574,10 +600,6 @@
             </details>
           </article>
 
-          <div id="setup-backups" tabindex="-1">
-            <openg7-admin-backups />
-          </div>
-
           <article
             class="setup-panel storage-panel"
             id="setup-storage"
@@ -680,6 +702,10 @@
             /></a>
           </div>
         </aside>
+      </div>
+
+      <div id="setup-backups" tabindex="-1" class="admin-focus-target">
+        <openg7-admin-backups />
       </div>
 
       <section

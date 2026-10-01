@@ -138,7 +138,7 @@ a {
   color: #c7dbea;
   font-size: 0.82rem;
 }
-.section-nav button:first-child {
+.section-nav button[aria-current='location'] {
   background: #12354c;
   border-color: #3c6d89;
   color: #c4f2ff;
