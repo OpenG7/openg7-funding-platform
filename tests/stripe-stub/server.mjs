@@ -811,6 +811,10 @@ const server = createServer(async (request, response) => {
       await handleCheckoutDelivery(request, response);
       return;
     }
+    if (request.method === 'GET' && pathname === '/v1/account') {
+      sendJson(response, 200, { object: 'account', id: 'acct_stub_funding' });
+      return;
+    }
     if (request.method === 'POST' && pathname === '/v1/checkout/sessions') {
       await handleCreateCheckout(request, response);
       return;

@@ -16,11 +16,35 @@ ne prouve pas une connexion.
 Les contrôles de lecture ne prouvent ni l'écriture du stockage ni la réception
 du courriel. Une absence d'activité récente ne prouve pas une panne.
 
+Stripe présente deux observations indépendantes : **Connexion à Stripe** et
+**Activité des webhooks**. La connexion est vérifiée par une lecture authentifiée
+du compte (`GET /v1/account`), limitée à deux secondes sans retry, puis conservée
+au plus une minute. Elle exige la clé API; le contrôle des webhooks exige aussi
+leur secret. Aucun paiement, envoi, changement de compte ni donnée de compte
+privée n'est produit par ce contrôle.
+
+Un webhook de paiement traité depuis moins de quinze minutes confirme une
+activité récente. Sinon, la carte affiche « Aucune activité récente » et la date
+du dernier webhook traité, si connue. Les échecs ou traitements bloqués restent
+signalés séparément, même si la connexion est opérationnelle. Une erreur de
+lecture de ces observations empêche un bilan favorable. Les anciennes réponses
+sans contrôle de connexion sont affichées comme non vérifiées pour la connexion.
+
+Contrat : les champs existants `state`, `evidence`, `checkedAt`, `observedAt` et
+`validUntil` de Stripe conservent leur sens d'observation des webhooks. L'objet
+additionnel `connection` reprend ces cinq champs pour la connexion : succès
+`operational` / `stripe_api_read`, échec ou timeout `unavailable` / `check_failed`,
+clé absente `not_configured`. Les détails du compte et les erreurs du fournisseur
+ne sont jamais exposés. L'absence du champ, avec une ancienne API, ne prouve
+aucune connexion. Les requêtes simultanées partagent le même contrôle en cours.
+
 La recommandation priorise la connexion DB, la lecture de la file, les messages
 en échec et les problèmes observés, puis la configuration incomplète et les
 observations manquantes. Son bouton ouvre un diagnostic ou la file courriel;
 il ne lance aucune opération externe. Le bilan favorable exige les quatre
-observations récentes et les points de configuration vérifiés.
+contrôles de service valides et les points de configuration vérifiés. Pour Stripe,
+une absence d'activité seule n'invalide pas une connexion confirmée; les erreurs
+de webhooks et les observations indisponibles ou périmées restent à examiner.
 
 La checklist utilise `GET /api/admin/setup-status` et distingue ses paramètres
 des observations. Elle ne certifie pas un déploiement. Si la lecture de la file

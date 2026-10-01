@@ -13,11 +13,17 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminCockpitStatusComponent } from './admin-cockpit-status.component.js';
 import { createCockpitBlock } from './cockpit-block.js';
 import { systemExpired, systemState } from './system-state.js';
+import { AdminStripeStatusComponent } from './admin-stripe-status.component.js';
 
 @Component({
   selector: 'openg7-admin-cockpit-systems',
   standalone: true,
-  imports: [TranslatePipe, RouterLink, AdminCockpitStatusComponent],
+  imports: [
+    TranslatePipe,
+    RouterLink,
+    AdminCockpitStatusComponent,
+    AdminStripeStatusComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./admin-cockpit.css'],
   template: `
@@ -54,29 +60,39 @@ import { systemExpired, systemState } from './system-state.js';
                     >{{ 'admin.cockpit.system.' + system.id | translate }} ·
                     {{ system.provider }}</strong
                   >
-                  <small>{{
-                    'admin.cockpit.evidence.' +
-                      (expired(system) ? 'expired' : system.evidence)
-                      | translate
-                  }}</small>
-                  @if (system.observedAt) {
+                  @if (system.id === 'stripe') {
+                    <openg7-admin-stripe-status
+                      [system]="system"
+                      [now]="block.clock()"
+                      [failed]="block.failed()"
+                    />
+                  } @else {
+                    <small>{{
+                      'admin.cockpit.evidence.' +
+                        (expired(system) ? 'expired' : system.evidence)
+                        | translate
+                    }}</small>
+                    @if (system.observedAt) {
+                      <small
+                        >{{ 'admin.cockpit.observed' | translate }}
+                        <time [attr.datetime]="system.observedAt">{{
+                          date(system.observedAt)
+                        }}</time></small
+                      >
+                    }
                     <small
-                      >{{ 'admin.cockpit.observed' | translate }}
-                      <time [attr.datetime]="system.observedAt">{{
-                        date(system.observedAt)
-                      }}</time></small
+                      >{{ 'admin.cockpit.checked' | translate }}
+                      {{ date(system.checkedAt) }}</small
                     >
                   }
-                  <small
-                    >{{ 'admin.cockpit.checked' | translate }}
-                    {{ date(system.checkedAt) }}</small
-                  >
                 </span>
-                <span
-                  ><span class="status" [attr.data-state]="state(system)">{{
-                    'admin.cockpit.health.' + state(system) | translate
-                  }}</span></span
-                >
+                @if (system.id !== 'stripe') {
+                  <span
+                    ><span class="status" [attr.data-state]="state(system)">{{
+                      'admin.cockpit.health.' + state(system) | translate
+                    }}</span></span
+                  >
+                }
               </a>
             </li>
           }

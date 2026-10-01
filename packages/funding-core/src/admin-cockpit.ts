@@ -65,20 +65,25 @@ export type CockpitSystemState =
 export type CockpitSystemEvidence =
   | 'database_read'
   | 'storage_read'
+  | 'stripe_api_read'
   | 'recent_webhook'
   | 'recent_email'
   | 'pending_errors'
   | 'no_recent_observation'
   | 'not_configured'
   | 'check_failed';
-export interface CockpitSystem {
-  readonly id: 'stripe' | 'email' | 'storage' | 'database';
-  readonly provider: 'Stripe' | 'SMTP' | 'OVH S3' | 'Local' | 'PostgreSQL';
+export interface CockpitSystemCheck {
   readonly state: CockpitSystemState;
   readonly evidence: CockpitSystemEvidence;
   readonly checkedAt: string;
   readonly observedAt: string | null;
   readonly validUntil: string;
+}
+export interface CockpitSystem extends CockpitSystemCheck {
+  readonly id: 'stripe' | 'email' | 'storage' | 'database';
+  readonly provider: 'Stripe' | 'SMTP' | 'OVH S3' | 'Local' | 'PostgreSQL';
+  /** Stripe API connectivity, independent of the existing webhook observation. */
+  readonly connection?: CockpitSystemCheck;
   readonly adminUrl: string;
 }
 export interface AdminCockpitSystems {

@@ -1,4 +1,8 @@
-import type { AdminCockpitSystems, CockpitSystem } from '@openg7/funding-core';
+import type {
+  AdminCockpitSystems,
+  CockpitSystem,
+  CockpitSystemCheck
+} from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
 import { readSnapshot } from './read.js';
@@ -10,6 +14,8 @@ type Observation = {
   readonly issues: number;
 };
 export interface SystemHealthPorts {
+  readonly stripeApiConfigured: boolean;
+  readonly stripeConnection: () => Promise<void>;
   readonly stripeConfigured: boolean;
   readonly emailConfigured: boolean;
   readonly storageProvider: 'Local' | 'OVH S3';
@@ -52,7 +58,11 @@ export const createCockpitSystemsReader = (
     if (
       cached &&
       now.getTime() >= Date.parse(cached.generatedAt) &&
-      cached.systems.every((s) => now.getTime() < Date.parse(s.validUntil))
+      cached.systems.every(
+        (s) =>
+          now.getTime() < Date.parse(s.validUntil) &&
+          (!s.connection || now.getTime() < Date.parse(s.connection.validUntil))
+      )
     )
       return cached;
     if (pending) return pending;
@@ -91,7 +101,28 @@ export const createCockpitSystemsReader = (
           url: '/admin/fundraiser/setup'
         }
       ] as const;
-      const systems = await Promise.all(
+      const connectionPromise = (async (): Promise<CockpitSystemCheck> => {
+        const base: CockpitSystemCheck = {
+          checkedAt: now.toISOString(),
+          observedAt: null,
+          validUntil: new Date(now.getTime() + SYSTEM_CACHE_MS).toISOString(),
+          state: 'not_configured',
+          evidence: 'not_configured'
+        };
+        if (!ports.stripeApiConfigured) return base;
+        try {
+          await bounded(ports.stripeConnection);
+          return {
+            ...base,
+            state: 'operational',
+            evidence: 'stripe_api_read',
+            observedAt: clock().toISOString()
+          };
+        } catch {
+          return { ...base, state: 'unavailable', evidence: 'check_failed' };
+        }
+      })();
+      const observations = await Promise.all(
         specs.map(async (spec): Promise<CockpitSystem> => {
           const base: CockpitSystem = {
             id: spec.id,
@@ -155,6 +186,10 @@ export const createCockpitSystemsReader = (
             };
           }
         })
+      );
+      const connection = await connectionPromise;
+      const systems = observations.map((system) =>
+        system.id === 'stripe' ? { ...system, connection } : system
       );
       cached = { generatedAt: now.toISOString(), systems };
       return cached;

@@ -1587,6 +1587,7 @@ export type {
   CockpitActivityItem,
   CockpitActivityKind,
   CockpitSystem,
+  CockpitSystemCheck,
   CockpitSystemState,
   CockpitSystemEvidence
 } from './admin-cockpit.js';

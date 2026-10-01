@@ -14,13 +14,14 @@ import {
   type AdminIconName
 } from '../admin-ui/admin-icon.component.js';
 
-import { systemExpired, systemState } from './system-state.js';
+import { systemExpired, serviceState } from './system-state.js';
+import { AdminStripeStatusComponent } from './admin-stripe-status.component.js';
 
 /** Admin presentation molecule: observed systems in cards; the page owns loading and navigation. */
 @Component({
   selector: 'openg7-admin-system-cards',
   standalone: true,
-  imports: [TranslatePipe, AdminIconComponent],
+  imports: [TranslatePipe, AdminIconComponent, AdminStripeStatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="cards">
@@ -42,20 +43,28 @@ import { systemExpired, systemState } from './system-state.js';
             >
             <openg7-admin-icon class="arrow" name="arrow" />
           </span>
-          <span class="status"
-            ><span class="dot" aria-hidden="true"></span
-            >{{ 'admin.cockpit.health.' + state(system) | translate }}</span
-          >
-          <span class="evidence">{{
-            'admin.cockpit.evidence.' +
-              (expired(system) ? 'expired' : system.evidence) | translate
-          }}</span>
-          <span class="date"
-            >{{ 'admin.cockpit.checked' | translate }}
-            <time [attr.datetime]="system.checkedAt">{{
-              date(system.checkedAt)
-            }}</time></span
-          >
+          @if (system.id === 'stripe') {
+            <openg7-admin-stripe-status
+              [system]="system"
+              [now]="now()"
+              [failed]="failed()"
+            />
+          } @else {
+            <span class="status"
+              ><span class="dot" aria-hidden="true"></span
+              >{{ 'admin.cockpit.health.' + state(system) | translate }}</span
+            >
+            <span class="evidence">{{
+              'admin.cockpit.evidence.' +
+                (expired(system) ? 'expired' : system.evidence) | translate
+            }}</span>
+            <span class="date"
+              >{{ 'admin.cockpit.checked' | translate }}
+              <time [attr.datetime]="system.checkedAt">{{
+                date(system.checkedAt)
+              }}</time></span
+            >
+          }
         </button>
       }
     </div>
@@ -75,7 +84,7 @@ export class AdminSystemCardsComponent {
     database: 'database'
   };
   state(system: CockpitSystem) {
-    return systemState(system, this.now(), this.failed());
+    return serviceState(system, this.now(), this.failed());
   }
   expired(system: CockpitSystem) {
     return systemExpired(system, this.now(), this.failed());
