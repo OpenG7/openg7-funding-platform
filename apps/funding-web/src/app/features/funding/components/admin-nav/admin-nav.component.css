@@ -58,7 +58,7 @@ section + section {
   margin-top: 0.7rem;
 }
 h2 {
-  color: #9eafc5;
+  color: var(--og7-admin-muted, #9eafc5);
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -86,7 +86,7 @@ footer button:hover {
   background: var(--admin-panel-raised);
 }
 nav a.active {
-  background: #30322d;
+  background: var(--og7-admin-selected, #30322d);
   box-shadow: inset 3px 0 0 var(--admin-gold);
   font-weight: 600;
 }

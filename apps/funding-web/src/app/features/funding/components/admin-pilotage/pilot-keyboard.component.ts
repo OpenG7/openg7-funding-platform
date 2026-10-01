@@ -60,13 +60,13 @@ import { TranslatePipe } from '@ngx-translate/core';
       }
       .keys button {
         min-height: 2.4rem;
-        background: #183550;
-        border: 1px solid #52738f;
-        color: #fff;
+        background: var(--og7-admin-raised, #183550);
+        border: 1px solid var(--og7-admin-border, #52738f);
+        color: var(--og7-admin-text, #fff);
         border-radius: 0.35rem;
       }
       .keys button:focus-visible {
-        outline: 3px solid #64dfff;
+        outline: 3px solid var(--og7-admin-focus, #64dfff);
         outline-offset: 2px;
       }
     `

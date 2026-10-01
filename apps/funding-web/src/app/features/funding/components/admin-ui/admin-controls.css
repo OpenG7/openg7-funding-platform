@@ -25,9 +25,12 @@
   border-color: var(--admin-gold);
 }
 .admin-button--primary {
-  background: linear-gradient(135deg, #f4c957, #dbaa42);
-  border-color: #f4c957;
-  color: #182033;
+  background: var(
+    --og7-admin-primary,
+    linear-gradient(135deg, #f4c957, #dbaa42)
+  );
+  border-color: var(--og7-admin-primary, #f4c957);
+  color: var(--og7-admin-on-primary, #182033);
 }
 .admin-button:disabled {
   cursor: wait;

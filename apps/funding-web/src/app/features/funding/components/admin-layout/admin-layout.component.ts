@@ -42,6 +42,8 @@ import { ContributionActivityComponent } from '../contribution-activity/contribu
     <div
       class="layout"
       [class.navigation-collapsed]="navigationCollapsed()"
+      [class.pilotage-layout]="pilotage()"
+      [class.concentrated]="concentrated()"
       data-og7="admin-layout"
     >
       <openg7-admin-nav id="admin-sidebar" [collapsible]="true" />
@@ -113,6 +115,8 @@ import { ContributionActivityComponent } from '../contribution-activity/contribu
 })
 export class AdminLayoutComponent {
   readonly sponsorshipId = input<string>();
+  readonly pilotage = input(false);
+  readonly concentrated = input(false);
   readonly i18n = inject(FundingI18nService);
   readonly navigationCollapsed = signal(false);
 }

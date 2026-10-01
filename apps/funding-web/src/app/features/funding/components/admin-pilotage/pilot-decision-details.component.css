@@ -21,9 +21,9 @@
   width: 2.8rem;
   height: 2.8rem;
   border-radius: 0.85rem;
-  color: #9edcff;
-  background: #203f59;
-  border: 1px solid #335777;
+  color: var(--og7-admin-accent, #9edcff);
+  background: var(--og7-admin-selected, #203f59);
+  border: 1px solid var(--og7-admin-border, #335777);
   font-size: 1.25rem;
 }
 .eyebrow {
@@ -52,11 +52,15 @@ h4 {
   padding: 1rem;
   border: 1px solid var(--admin-border);
   border-radius: 0.8rem;
-  background: #15263a;
+  background: var(--og7-admin-subtle, #15263a);
   min-width: 0;
 }
 .context {
-  background: linear-gradient(120deg, #19364b, #142336);
+  background: linear-gradient(
+    120deg,
+    var(--og7-admin-selected, #19364b),
+    var(--og7-admin-subtle, #142336)
+  );
 }
 .badges {
   display: flex;
@@ -70,30 +74,30 @@ h4 {
 }
 .destination > span {
   margin-inline: 0.25rem;
-  color: #8bb4d0;
+  color: var(--og7-admin-accent, #8bb4d0);
 }
 .badge {
   display: inline-block;
   border: 1px solid var(--admin-border);
-  background: #263a50;
+  background: var(--og7-admin-raised, #263a50);
   border-radius: 2rem;
   padding: 0.1rem 0.65rem;
   font-size: 0.72rem;
 }
 .badge[data-mode='mock'] {
-  background: #3b3529;
-  border-color: #74633d;
-  color: #ffda85;
+  background: var(--og7-admin-warning-bg, #3b3529);
+  border-color: var(--og7-admin-border, #74633d);
+  color: var(--og7-admin-warning, #ffda85);
 }
 .status {
-  background: #204058;
-  color: #b6e5ff;
+  background: var(--og7-admin-selected, #204058);
+  color: var(--og7-admin-accent, #b6e5ff);
 }
 .schedule {
   display: flex;
   gap: 0.65rem;
   align-items: flex-start;
-  border-top: 1px solid #355066;
+  border-top: 1px solid var(--og7-admin-border, #355066);
   margin: 0.85rem 0 0;
   padding-top: 0.8rem;
   color: var(--admin-muted);
@@ -123,7 +127,7 @@ figure {
   display: grid;
   place-items: center;
   border: 1px solid var(--admin-border);
-  background: #122237;
+  background: var(--og7-admin-subtle, #122237);
   border-radius: 0.8rem;
   overflow: hidden;
   min-height: 10rem;
@@ -200,19 +204,19 @@ button {
   justify-content: center;
   gap: 0.5rem;
   min-height: 44px;
-  border: 1px solid #5b7b95;
+  border: 1px solid var(--og7-admin-border, #5b7b95);
   border-radius: 0.6rem;
   padding: 0.55rem 0.8rem;
-  background: #203d54;
+  background: var(--og7-admin-raised, #203d54);
   color: var(--admin-text);
   font: inherit;
   cursor: pointer;
 }
 button:hover {
-  background: #2c506c;
+  background: var(--og7-admin-raised, #2c506c);
 }
 button:focus-visible {
-  outline: 2px solid #9edcff;
+  outline: 2px solid var(--og7-admin-accent, #9edcff);
   outline-offset: 3px;
 }
 ul {
@@ -239,19 +243,19 @@ li + li {
   display: flex;
   align-items: flex-start;
   gap: 0.8rem;
-  border-left: 3px solid #67ddff;
+  border-left: 3px solid var(--og7-admin-accent, #67ddff);
   border-radius: 0.3rem 0.8rem 0.8rem 0.3rem;
-  background: #123044;
+  background: var(--og7-admin-selected, #123044);
   padding: 1rem;
 }
 .consequence > openg7-admin-icon {
-  color: #a6e9ff;
+  color: var(--og7-admin-accent, #a6e9ff);
 }
 .consequence h4 {
   margin-bottom: 0.35rem;
 }
 .consequence p {
-  color: #c4d6e6;
+  color: var(--og7-admin-muted, #c4d6e6);
   font-size: 0.8rem;
   margin: 0;
 }
