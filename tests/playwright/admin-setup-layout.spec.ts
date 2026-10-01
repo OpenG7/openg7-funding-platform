@@ -83,8 +83,11 @@ for (const language of ['fr-CA', 'en']) {
       await expect(page.locator('[data-og7="setup-system"]')).toHaveCount(4);
       await expect(card(page, 'stripe')).toHaveAttribute(
         'data-state',
-        'unknown'
+        'operational'
       );
+      await expect(
+        card(page, 'stripe').locator('[data-og7-id="webhooks"]')
+      ).toContainText(en ? 'No recent activity' : 'Aucune activité récente');
       await expect(card(page, 'database')).toHaveAttribute(
         'data-state',
         'operational'
@@ -245,6 +248,149 @@ test('a failed service refresh stays unconfirmed throughout a pending retry, the
     'Dernière lecture conservée'
   );
   expect(data.writes).toBe(0);
+});
+
+test('Stripe webhook failures stay visible independently of an operational connection', async ({
+  page
+}) => {
+  const data = await installFixtures(page);
+  data.systems = {
+    ...data.systems,
+    systems: data.systems.systems.map((system) => ({
+      ...system,
+      state: system.id === 'stripe' ? 'degraded' : 'operational',
+      evidence: system.id === 'stripe' ? 'pending_errors' : system.evidence
+    }))
+  };
+  await page.goto('/admin/fundraiser/setup');
+  const stripe = card(page, 'stripe');
+  await expect(stripe).toHaveAttribute('data-state', 'operational');
+  await expect(stripe.locator('[data-og7-id="connection"]')).toContainText(
+    'Opérationnel'
+  );
+  await expect(stripe.locator('[data-og7-id="webhooks"]')).toContainText(
+    'Dégradé'
+  );
+  await expect(recommendation(page).getByRole('link')).toHaveAttribute(
+    'href',
+    '/admin/fundraiser/attention?type=stripe_event_failed'
+  );
+
+  data.systems = {
+    ...data.systems,
+    systems: data.systems.systems.map((system) =>
+      system.id === 'stripe'
+        ? { ...system, state: 'unknown', evidence: 'check_failed' }
+        : system
+    )
+  };
+  await page
+    .getByRole('button', { name: 'Actualiser les contrôles des services' })
+    .click();
+  await expect(stripe.locator('[data-og7-id="connection"]')).toContainText(
+    'Opérationnel'
+  );
+  await expect(stripe.locator('[data-og7-id="webhooks"]')).toContainText(
+    'La vérification n’a pas abouti'
+  );
+  await expect(recommendation(page)).toContainText(
+    'Des observations restent à confirmer'
+  );
+  expect(data.writes).toBe(0);
+});
+
+test('Stripe connection failure is not masked by a recent webhook and opens connection settings', async ({
+  page
+}) => {
+  const data = await installFixtures(page);
+  const lastWebhook = new Date(Date.now() - 120_000).toISOString();
+  data.systems = {
+    ...data.systems,
+    systems: data.systems.systems.map((system) => ({
+      ...system,
+      state: 'operational',
+      ...(system.id === 'stripe'
+        ? {
+            evidence: 'recent_webhook' as const,
+            observedAt: lastWebhook,
+            connection: {
+              ...system.connection!,
+              state: 'unavailable' as const,
+              evidence: 'check_failed' as const,
+              observedAt: null
+            }
+          }
+        : {})
+    }))
+  };
+  await page.goto('/admin/fundraiser/setup');
+  const stripe = card(page, 'stripe');
+  await expect(stripe).toHaveAttribute('data-state', 'unavailable');
+  await expect(stripe.locator('[data-og7-id="webhooks"]')).toContainText(
+    'Activité récente'
+  );
+  await expect(
+    stripe.locator('[data-og7-id="webhooks"] time').first()
+  ).toHaveAttribute('datetime', lastWebhook);
+  await recommendation(page).getByRole('button').click();
+  await expect(page.locator('#setup-stripe')).toBeFocused();
+  expect(data.writes).toBe(0);
+});
+
+test('Stripe connection and webhook checks expire independently and legacy responses stay unconfirmed', async ({
+  page
+}) => {
+  await page.clock.install({ time: new Date() });
+  const data = await installFixtures(page);
+  data.systems = {
+    ...data.systems,
+    systems: data.systems.systems.map((system) =>
+      system.id === 'stripe'
+        ? {
+            ...system,
+            state: 'operational',
+            evidence: 'recent_webhook',
+            observedAt: new Date(
+              Date.now() - 14 * 60_000 - 45_000
+            ).toISOString(),
+            validUntil: new Date(Date.now() + 15_000).toISOString()
+          }
+        : system
+    )
+  };
+  await page.goto('/admin/fundraiser/setup');
+  const stripe = card(page, 'stripe');
+  await expect(stripe.locator('[data-og7-id="webhooks"]')).toContainText(
+    'Activité récente'
+  );
+  // The shared cockpit clock refreshes displayed observations every 30 seconds.
+  await page.clock.runFor(31_000);
+  await expect(stripe.locator('[data-og7-id="webhooks"]')).toContainText(
+    'Observation périmée'
+  );
+  await expect(stripe.locator('[data-og7-id="connection"]')).toContainText(
+    'Opérationnel'
+  );
+  await page.clock.runFor(30_000);
+  await expect(stripe.locator('[data-og7-id="connection"]')).toContainText(
+    'Observation périmée'
+  );
+  await expect(stripe).toHaveAttribute('data-state', 'unknown');
+
+  data.systems = {
+    ...data.systems,
+    systems: data.systems.systems.map((system) => ({
+      ...system,
+      connection: undefined
+    }))
+  };
+  await page
+    .getByRole('button', { name: 'Actualiser les contrôles des services' })
+    .click();
+  await expect(stripe).toContainText(
+    'La connexion à Stripe n’a pas été vérifiée'
+  );
+  await expect(stripe).toHaveAttribute('data-state', 'unknown');
 });
 
 test('an unreadable queue never shows confirmed zero counters or enables sending a test', async ({

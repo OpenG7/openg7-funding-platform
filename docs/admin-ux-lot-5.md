@@ -72,13 +72,13 @@ Le compteur « Remboursements admin » porte sur les confirmations auditées des
 
 ## Santé — portée exacte des preuves
 
-| Système        | Preuve utilisée                                                                                                                                          |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Stripe         | Webhook de paiement traité depuis moins de 15 minutes; échecs persistants ou traitements bloqués dégradent l’état. Aucune requête Stripe supplémentaire. |
-| SMTP           | Message remis au transport depuis moins de 15 minutes; échecs et messages en retard dégradent l’état. Aucun courriel de test envoyé.                     |
-| Stockage local | Lecture des caractéristiques et droits d’accès du répertoire existant. Aucun répertoire ou fichier créé.                                                 |
-| OVH S3         | `HeadBucket` sur les buckets privé et public, avec annulation sur expiration. Aucun objet écrit ou publié.                                               |
-| PostgreSQL     | Requête de lecture réelle.                                                                                                                               |
+| Système        | Preuve utilisée                                                                                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stripe         | Connexion : lecture authentifiée du compte, bornée et mise en cache. Webhooks : activité et erreurs indépendantes; voir la [portée des contrôles](operations/admin-setup.md). |
+| SMTP           | Message remis au transport depuis moins de 15 minutes; échecs et messages en retard dégradent l’état. Aucun courriel de test envoyé.                                          |
+| Stockage local | Lecture des caractéristiques et droits d’accès du répertoire existant. Aucun répertoire ou fichier créé.                                                                      |
+| OVH S3         | `HeadBucket` sur les buckets privé et public, avec annulation sur expiration. Aucun objet écrit ou publié.                                                                    |
+| PostgreSQL     | Requête de lecture réelle.                                                                                                                                                    |
 
 Les contrôles sont exécutés en parallèle, bornés à 2,5 secondes et partagés entre requêtes simultanées. Cache d’au plus 60 secondes, raccourci si une observation arrive à expiration. Une configuration seule ou une observation trop ancienne produit `unknown`; une intégration désactivée/incomplète produit `not_configured`.
 

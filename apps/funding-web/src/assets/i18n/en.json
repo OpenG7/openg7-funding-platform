@@ -477,6 +477,15 @@
         "undated_payments": "Some confirmed payments have no date: affected trends are unavailable."
       },
       "systems": "System status",
+      "stripe": {
+        "connection": "Stripe connection",
+        "webhooks": "Webhook activity",
+        "inactive": "No recent activity",
+        "recent": "Recent activity",
+        "lastWebhook": "Last processed payment webhook:",
+        "noWebhookDate": "Not available",
+        "notChecked": "The Stripe connection has not been checked."
+      },
       "system": {
         "stripe": "Payments",
         "email": "Email",
@@ -493,6 +502,7 @@
       "evidence": {
         "database_read": "PostgreSQL read succeeded.",
         "storage_read": "Read access to the directory or buckets verified.",
+        "stripe_api_read": "Authenticated Stripe API read succeeded. This check confirms neither a payment nor webhook delivery.",
         "recent_webhook": "Payment webhook processed within the last 15 minutes.",
         "recent_email": "Email handed to the transport within the last 15 minutes.",
         "pending_errors": "Failures or delayed processing require review.",

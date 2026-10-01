@@ -477,6 +477,15 @@
         "undated_payments": "Des paiements confirmés sont sans date : les tendances concernées sont indisponibles."
       },
       "systems": "État des systèmes",
+      "stripe": {
+        "connection": "Connexion à Stripe",
+        "webhooks": "Activité des webhooks",
+        "inactive": "Aucune activité récente",
+        "recent": "Activité récente",
+        "lastWebhook": "Dernier webhook de paiement traité :",
+        "noWebhookDate": "Non disponible",
+        "notChecked": "La connexion à Stripe n’a pas été vérifiée."
+      },
       "system": {
         "stripe": "Paiements",
         "email": "Courriels",
@@ -493,6 +502,7 @@
       "evidence": {
         "database_read": "Lecture PostgreSQL réussie.",
         "storage_read": "Accès en lecture au répertoire ou aux buckets vérifié.",
+        "stripe_api_read": "Lecture authentifiée de l’API Stripe réussie. Ce contrôle ne confirme ni un paiement ni la réception des webhooks.",
         "recent_webhook": "Webhook de paiement traité il y a moins de 15 minutes.",
         "recent_email": "Courriel remis au transport il y a moins de 15 minutes.",
         "pending_errors": "Échecs ou traitements en retard à vérifier.",

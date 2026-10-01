@@ -74,6 +74,10 @@ minor units per currency; missing fees keep net receipts unavailable. System
 status shows dated evidence with expiration, without sending email or writing
 test files. PostgreSQL integration uses an explicitly configured disposable
 `cockpit_test` database; see the lot report for reproduction and coverage limits.
+
+Stripe adds optional `connection`; existing fields describe webhooks.
+See [check semantics](../operations/admin-setup.md).
+
 The [Global admin search — lot 6](../admin-ux-lot-6.md) adds
 `POST /api/admin/search` with private JSON input, grouped dossier results and
 bounded pagination. Use Ctrl+K / Cmd+K from the admin layout or shared navigation.

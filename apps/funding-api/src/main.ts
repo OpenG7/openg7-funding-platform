@@ -181,6 +181,7 @@ import {
   createCockpitSystemsReader,
   readSystemObservation
 } from './admin-cockpit/systems.js';
+import { readStripeConnection } from './admin-cockpit/stripe-connection.js';
 import { readSnapshot } from './admin-cockpit/read.js';
 import {
   getEmailQueueStatus,
@@ -525,6 +526,11 @@ const adminStripeBackfill =
 
 loadTransactionalEmailConfig();
 const readCockpitSystems = createCockpitSystemsReader({
+  stripeApiConfigured: Boolean(stripe),
+  stripeConnection: async () => {
+    if (!stripe) throw new Error('Stripe API not configured');
+    await readStripeConnection(stripe);
+  },
   stripeConfigured: Boolean(stripe && stripeWebhookSecret),
   emailConfigured: getTransactionalEmailConfigStatus().configured,
   storageProvider: sponsorMediaStorage.driver === 'ovh-s3' ? 'OVH S3' : 'Local',

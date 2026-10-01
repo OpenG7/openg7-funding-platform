@@ -27,7 +27,11 @@ import { AdminSystemCardsComponent } from '../../components/admin-cockpit/admin-
 import { AdminCockpitActivityComponent } from '../../components/admin-cockpit/admin-cockpit-activity.component.js';
 import { AdminCockpitStatusComponent } from '../../components/admin-cockpit/admin-cockpit-status.component.js';
 import { createCockpitBlock } from '../../components/admin-cockpit/cockpit-block.js';
-import { systemState } from '../../components/admin-cockpit/system-state.js';
+import {
+  serviceState,
+  systemExpired,
+  systemState
+} from '../../components/admin-cockpit/system-state.js';
 import {
   FundingAdminService,
   AdminDashboardRequestError
@@ -161,8 +165,11 @@ export class AdminSetupPageComponent implements OnInit {
         .data()
         ?.systems.filter(
           (system) =>
-            systemState(system, this.systems.clock(), this.systems.failed()) ===
-            'operational'
+            serviceState(
+              system,
+              this.systems.clock(),
+              this.systems.failed()
+            ) === 'operational'
         ).length ?? 0
   );
   readonly recommendation = computed<SetupRecommendation>(() => {
@@ -181,18 +188,29 @@ export class AdminSetupPageComponent implements OnInit {
         url: '/admin/fundraiser/email-queue'
       };
     const systems = this.systems.data()?.systems ?? [];
-    const problem = systems.find((system) =>
-      ['unavailable', 'degraded'].includes(
-        systemState(system, this.systems.clock(), this.systems.failed())
-      )
+    const problem = systems.find(
+      (system) =>
+        ['unavailable', 'degraded'].includes(
+          serviceState(system, this.systems.clock(), this.systems.failed())
+        ) ||
+        systemState(system, this.systems.clock(), this.systems.failed()) ===
+          'degraded'
     );
     if (problem?.id === 'stripe')
       return {
         key: 'service',
         section: 'stripe',
         tone: 'warning',
-        url: '/admin/fundraiser/attention?type=stripe_event_failed',
-        urlAction: 'openStripeEvents'
+        ...(systemState(
+          problem,
+          this.systems.clock(),
+          this.systems.failed()
+        ) === 'degraded'
+          ? {
+              url: '/admin/fundraiser/attention?type=stripe_event_failed',
+              urlAction: 'openStripeEvents' as const
+            }
+          : {})
       };
     if (problem?.id === 'email')
       return {
@@ -213,6 +231,12 @@ export class AdminSetupPageComponent implements OnInit {
     if (
       this.systems.state() !== 'ready' ||
       systems.length !== 4 ||
+      systems.some(
+        (system) =>
+          system.id === 'stripe' &&
+          (systemExpired(system, this.systems.clock(), this.systems.failed()) ||
+            ['check_failed', 'not_configured'].includes(system.evidence))
+      ) ||
       this.operationalCount() !== 4
     )
       return { key: 'verification', section: 'readiness', tone: 'neutral' };

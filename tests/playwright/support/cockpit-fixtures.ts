@@ -92,6 +92,13 @@ export const cockpitFixtures = () => {
         provider: 'Stripe',
         state: 'unknown',
         evidence: 'no_recent_observation',
+        connection: {
+          state: 'operational',
+          evidence: 'stripe_api_read',
+          checkedAt: generatedAt,
+          observedAt: generatedAt,
+          validUntil: new Date(now.getTime() + 60_000).toISOString()
+        },
         checkedAt: generatedAt,
         observedAt: null,
         validUntil: new Date(now.getTime() + 60_000).toISOString(),

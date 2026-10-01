@@ -239,7 +239,46 @@ test('cockpit separates currencies, missing fees and net from available balance'
     'SMTP'
   );
   await expect(systems(page).locator('[data-og7-id="stripe"]')).toContainText(
-    'Inconnu'
+    'Aucune activité récente'
+  );
+  await expect(
+    systems(page).locator('[data-og7-id="connection"]')
+  ).toContainText('Opérationnel');
+});
+
+test('cockpit presents a failed Stripe connection separately from successful webhook activity', async ({
+  page
+}) => {
+  const data = await fixtures(page);
+  data.systems = {
+    ...data.systems,
+    systems: data.systems.systems.map((system) =>
+      system.id === 'stripe'
+        ? {
+            ...system,
+            state: 'operational',
+            evidence: 'recent_webhook',
+            observedAt: data.systems.generatedAt,
+            connection: {
+              ...system.connection!,
+              state: 'unavailable',
+              evidence: 'check_failed',
+              observedAt: null
+            }
+          }
+        : system
+    )
+  };
+  await page.goto('/admin/fundraiser');
+  const stripe = systems(page).locator('[data-og7-id="stripe"]');
+  await expect(stripe.locator('[data-og7-id="connection"]')).toContainText(
+    'Indisponible'
+  );
+  await expect(stripe.locator('[data-og7-id="webhooks"]')).toContainText(
+    'Activité récente'
+  );
+  await expect(stripe.locator('[data-og7-id="webhooks"]')).toContainText(
+    'Dernier webhook de paiement traité'
   );
 });
 

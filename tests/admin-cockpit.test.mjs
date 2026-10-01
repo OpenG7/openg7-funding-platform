@@ -102,6 +102,8 @@ test('undated payments invalidate affected trends and unsafe amounts fail closed
 });
 
 const ports = () => ({
+  stripeApiConfigured: true,
+  stripeConnection: async () => {},
   stripeConfigured: true,
   emailConfigured: true,
   databaseConfigured: true,
@@ -161,6 +163,129 @@ test('system observations expire, errors degrade service and disabled integratio
     () => now
   )();
   assert.equal(stale.systems[0].state, 'unknown');
+  assert.equal(stale.systems[0].connection.state, 'operational');
+});
+
+test('Stripe API connectivity is independent of webhook activity and observation failures', async () => {
+  for (const [observation, state, evidence] of [
+    [{ lastSuccess: null, issues: 0 }, 'unknown', 'no_recent_observation'],
+    [
+      { lastSuccess: '2026-09-16T12:00:00Z', issues: 0 },
+      'unknown',
+      'no_recent_observation'
+    ],
+    [
+      { lastSuccess: now.toISOString(), issues: 2 },
+      'degraded',
+      'pending_errors'
+    ],
+    [null, 'unknown', 'check_failed']
+  ]) {
+    const read = createCockpitSystemsReader(
+      {
+        ...ports(),
+        stripe: async () => {
+          if (!observation) throw new Error('private database details');
+          return observation;
+        }
+      },
+      () => now
+    );
+    const stripe = (await read()).systems[0];
+    assert.equal(stripe.state, state);
+    assert.equal(stripe.evidence, evidence);
+    assert.equal(
+      stripe.observedAt,
+      observation?.lastSuccess
+        ? new Date(observation.lastSuccess).toISOString()
+        : null
+    );
+    assert.equal(stripe.connection.state, 'operational');
+    assert.equal(stripe.connection.evidence, 'stripe_api_read');
+    assert.equal(stripe.connection.checkedAt, now.toISOString());
+    assert.ok(!JSON.stringify(stripe).includes('private'));
+  }
+});
+
+test('a failed Stripe connection cannot be made green by a recent successful webhook', async () => {
+  const result = await createCockpitSystemsReader(
+    {
+      ...ports(),
+      stripeConnection: async () => {
+        throw new Error('private key or account');
+      }
+    },
+    () => now
+  )();
+  assert.equal(result.systems[0].state, 'operational');
+  assert.equal(result.systems[0].connection.state, 'unavailable');
+  assert.equal(result.systems[0].connection.evidence, 'check_failed');
+  assert.equal(result.systems[0].connection.observedAt, null);
+  assert.equal(result.systems[3].state, 'operational');
+  assert.ok(!JSON.stringify(result).includes('private'));
+});
+
+test('Stripe connection and webhook configuration are checked independently', async () => {
+  let calls = 0;
+  const base = {
+    ...ports(),
+    stripeConnection: async () => {
+      calls++;
+    },
+    stripeConfigured: false,
+    stripe: async () => {
+      throw new Error('must not read unconfigured webhooks');
+    }
+  };
+  const missingWebhook = (await createCockpitSystemsReader(base, () => now)())
+    .systems[0];
+  assert.equal(missingWebhook.connection.state, 'operational');
+  assert.equal(missingWebhook.state, 'not_configured');
+  assert.equal(calls, 1);
+  const missingKey = (
+    await createCockpitSystemsReader(
+      {
+        ...base,
+        stripeApiConfigured: false
+      },
+      () => now
+    )()
+  ).systems[0];
+  assert.equal(missingKey.connection.state, 'not_configured');
+  assert.equal(calls, 1);
+});
+
+test('Stripe connection checks share the cache, expire and remain bounded', async () => {
+  let clock = now;
+  let calls = 0;
+  const read = createCockpitSystemsReader(
+    {
+      ...ports(),
+      stripeConnection: async () => {
+        calls++;
+      }
+    },
+    () => clock
+  );
+  const first = await Promise.all([read(), read(), read()]);
+  assert.equal(calls, 1);
+  assert.deepEqual(first[0], first[2]);
+  clock = new Date(now.getTime() + 59_000);
+  await read();
+  assert.equal(calls, 1);
+  clock = new Date(now.getTime() + 60_001);
+  await read();
+  assert.equal(calls, 2);
+  const blocked = await createCockpitSystemsReader(
+    {
+      ...ports(),
+      stripeConnection: () => new Promise(() => {})
+    },
+    () => now,
+    20
+  )();
+  assert.equal(blocked.systems[0].connection.state, 'unavailable');
+  assert.equal(blocked.systems[0].state, 'operational');
 });
 test('health requests share bounded probes and refresh when evidence expires', async () => {
   let clock = now;
