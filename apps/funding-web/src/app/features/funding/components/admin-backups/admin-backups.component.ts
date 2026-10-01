@@ -12,7 +12,6 @@ import {
   signal,
   viewChild
 } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
@@ -26,12 +25,19 @@ import {
 } from '../../services/funding-admin.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
+import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 
 /** Setup organism: only sanitized metadata and explicit requests pass through the API. */
 @Component({
   selector: 'openg7-admin-backups',
   standalone: true,
-  imports: [TranslatePipe, DatePipe, RouterLink],
+  imports: [
+    TranslatePipe,
+    RouterLink,
+    AdminDrawerComponent,
+    AdminIconComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-backups.component.html',
   styleUrls: [
@@ -64,6 +70,52 @@ export class AdminBackupsComponent {
   readonly error = signal('');
   readonly accessDenied = signal(false);
   readonly clock = signal(Date.now());
+  readonly expanded = signal(false);
+  readonly drawer = signal<'activation' | 'recovery' | 'proof' | null>(null);
+  readonly selectedId = signal<string | null>(null);
+  readonly guideSteps = ['destination', 'key', 'verify'] as const;
+  readonly recoverySteps = ['isolate', 'choose', 'restore'] as const;
+  readonly fresh = computed(() => {
+    const checked = Date.parse(this.data()?.checkedAt ?? '');
+    const age = this.clock() - checked;
+    return !this.error() && Number.isFinite(age) && age >= -5000 && age < 60000;
+  });
+  readonly serviceState = computed(() => {
+    if (this.error()) return 'unavailable';
+    if (!this.data()) return 'loading';
+    return this.fresh() ? this.data()!.workerState : 'stale';
+  });
+  readonly lastSuccess = computed(
+    () => this.data()?.jobs.find((job) => job.status === 'succeeded') ?? null
+  );
+  readonly visibleJobs = computed(() =>
+    this.expanded()
+      ? (this.data()?.jobs ?? [])
+      : (this.data()?.jobs ?? []).slice(0, 5)
+  );
+  readonly selectedJob = computed(
+    () =>
+      this.data()?.jobs.find((job) => job.requestId === this.selectedId()) ??
+      null
+  );
+  readonly trackedJob = computed(
+    () =>
+      this.data()?.jobs.find((job) =>
+        ['queued', 'running', 'unknown'].includes(job.status)
+      ) ??
+      this.receipt() ??
+      (this.data()?.jobs[0]?.status === 'failed' ? this.data()!.jobs[0] : null)
+  );
+  readonly drawerTitle = computed(() =>
+    this.i18n.t(
+      'admin.backups.' +
+        (this.drawer() === 'activation'
+          ? 'activationTitle'
+          : this.drawer() === 'recovery'
+            ? 'recoveryTitle'
+            : 'proof')
+    )
+  );
   readonly canRequest = computed(
     () =>
       !this.busy() &&
@@ -72,7 +124,7 @@ export class AdminBackupsComponent {
       !this.error() &&
       !this.accessDenied() &&
       this.data()?.workerState === 'ready' &&
-      this.clock() - Date.parse(this.data()!.checkedAt) < 60000 &&
+      this.fresh() &&
       !this.data()?.jobs.some((job) =>
         ['queued', 'running', 'unknown'].includes(job.status)
       )
@@ -83,6 +135,8 @@ export class AdminBackupsComponent {
       if (this.admin.sessionGeneration() !== this.generation) {
         this.data.set(null);
         this.receipt.set(null);
+        this.drawer.set(null);
+        this.selectedId.set(null);
         this.accessDenied.set(true);
         this.error.set('expired');
         this.confirmation.answer(false);
@@ -131,6 +185,8 @@ export class AdminBackupsComponent {
     ) {
       this.data.set(null);
       this.receipt.set(null);
+      this.drawer.set(null);
+      this.selectedId.set(null);
       this.accessDenied.set(true);
       this.confirmation.answer(false);
       this.error.set(error.status === 401 ? 'expired' : 'forbidden');
@@ -174,6 +230,51 @@ export class AdminBackupsComponent {
     } finally {
       this.busy.set(false);
     }
+  }
+  inspect(job: AdminDatabaseBackup) {
+    this.selectedId.set(job.requestId);
+    this.drawer.set('proof');
+  }
+  dateLabel(iso: string | null): string {
+    if (!iso || !Number.isFinite(Date.parse(iso)))
+      return this.i18n.t('admin.backups.noValue');
+    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
+      timeZone: 'America/Toronto',
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(new Date(iso));
+  }
+  relativeLabel(iso: string | null): string {
+    if (!iso || !Number.isFinite(Date.parse(iso)))
+      return this.i18n.t('admin.backups.noValue');
+    const minutes = Math.trunc((Date.parse(iso) - this.clock()) / 60000);
+    const unit =
+      Math.abs(minutes) < 60
+        ? 'minute'
+        : Math.abs(minutes) < 1440
+          ? 'hour'
+          : 'day';
+    const value =
+      unit === 'minute'
+        ? minutes
+        : Math.trunc(minutes / (unit === 'hour' ? 60 : 1440));
+    return new Intl.RelativeTimeFormat(this.i18n.currentLanguage(), {
+      numeric: 'auto'
+    }).format(value, unit);
+  }
+  sizeLabel(bytes: number | null): string {
+    if (bytes === null) return this.i18n.t('admin.backups.noValue');
+    const units = ['byte', 'kilobyte', 'megabyte', 'gigabyte'] as const;
+    const index = Math.min(
+      3,
+      Math.max(0, Math.floor(Math.log10(Math.max(1, bytes)) / 3))
+    );
+    return new Intl.NumberFormat(this.i18n.currentLanguage(), {
+      style: 'unit',
+      unit: units[index],
+      unitDisplay: 'short',
+      maximumFractionDigits: 1
+    }).format(bytes / 1000 ** index);
   }
   async request(retry = false) {
     if (

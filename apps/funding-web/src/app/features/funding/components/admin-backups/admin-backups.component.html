@@ -3,122 +3,443 @@
   tabindex="-1"
   aria-labelledby="backup-title"
   data-og7="setup-backups"
+  class="backup-panel"
 >
-  <header>
-    <h2 id="backup-title">{{ 'admin.backups.title' | translate }}</h2>
-    <span role="status">{{
-      'admin.backups.' +
-        (error() ? 'unavailable' : (data()?.workerState ?? 'loading'))
-        | translate
-    }}</span>
+  <header class="backup-header">
+    <div class="heading-group">
+      <span class="hero-icon"><openg7-admin-icon name="audit" /></span>
+      <div>
+        <p class="eyebrow">{{ 'admin.backups.eyebrow' | translate }}</p>
+        <h2 id="backup-title">{{ 'admin.backups.title' | translate }}</h2>
+        <p class="subtitle">{{ 'admin.backups.subtitle' | translate }}</p>
+      </div>
+    </div>
+    <span
+      class="status-badge"
+      [attr.data-state]="serviceState()"
+      role="status"
+      data-og7="backup-service-state"
+    >
+      <span class="status-dot" aria-hidden="true"></span>
+      {{ 'admin.backups.serviceLabels.' + serviceState() | translate }}
+    </span>
   </header>
-  <p>{{ 'admin.backups.scope' | translate }}</p>
-  <p>{{ 'admin.backups.policy' | translate }}</p>
-  @if (data()?.workerState === 'not_configured') {
-    <p>{{ 'admin.backups.configuration' | translate }}</p>
-  }
+
   @if (error()) {
-    <p role="alert">{{ 'admin.backups.' + error() | translate }}</p>
-  }
-  @if (accessDenied()) {
-    <a
-      routerLink="/admin/login"
-      [queryParams]="{ returnUrl: '/admin/fundraiser/setup' }"
-      >{{ 'admin.backups.login' | translate }}</a
-    >
-  }
-  <div class="actions">
-    <button
-      type="button"
-      class="admin-button admin-button--primary"
-      data-og7="backup-request"
-      #requestButton
-      [disabled]="!canRequest()"
-      (click)="request()"
-    >
-      {{ 'admin.backups.request' | translate }}
-    </button>
-    <button
-      type="button"
-      class="admin-button"
-      [disabled]="busy() || confirming() || accessDenied()"
-      (click)="refresh()"
-    >
-      {{ 'admin.backups.refresh' | translate }}
-    </button>
-  </div>
-  @if (uncertain() && !accessDenied()) {
-    <p role="status" data-og7="backup-uncertain">
-      {{ 'admin.backups.uncertain' | translate }}
+    <div class="notice" role="alert" data-og7="backup-error">
+      <openg7-admin-icon name="warning" />
+      <div>
+        <p>{{ 'admin.backups.' + error() | translate }}</p>
+        @if (data()) {
+          <p class="muted">{{ 'admin.backups.previousReading' | translate }}</p>
+        }
+        @if (accessDenied()) {
+          <a
+            class="admin-link"
+            routerLink="/admin/login"
+            [queryParams]="{
+              returnUrl: '/admin/fundraiser/setup?section=backups'
+            }"
+            >{{ 'admin.backups.login' | translate }}</a
+          >
+        }
+      </div>
+    </div>
+  } @else if (data() && !fresh()) {
+    <p class="notice" role="status">
+      {{ 'admin.backups.previousReading' | translate }}
     </p>
-    @if (missing()) {
+  }
+
+  @if (!accessDenied()) {
+    <div class="overview" data-og7="backup-overview">
+      <div class="metric">
+        <span class="metric-label"
+          ><openg7-admin-icon name="clock" />{{
+            'admin.backups.latest' | translate
+          }}</span
+        >
+        @if (lastSuccess(); as job) {
+          <strong>{{ relativeLabel(job.startedAt ?? job.createdAt) }}</strong>
+          <time [attr.datetime]="job.startedAt ?? job.createdAt">{{
+            dateLabel(job.startedAt ?? job.createdAt)
+          }}</time>
+          <span class="metric-note">{{
+            'admin.backups.recordedEvidence' | translate
+          }}</span>
+        } @else {
+          <strong>{{
+            (data() ? 'admin.backups.noVerified' : 'admin.backups.noValue')
+              | translate
+          }}</strong>
+          <span class="metric-note">{{
+            (data()
+              ? 'admin.backups.historyScope'
+              : 'admin.backups.awaitingReading'
+            ) | translate
+          }}</span>
+        }
+      </div>
+      <div class="metric">
+        <span class="metric-label"
+          ><openg7-admin-icon name="refresh" />{{
+            'admin.backups.scheduleLabel' | translate
+          }}</span
+        >
+        <strong>{{ 'admin.backups.daily' | translate }}</strong>
+        <span class="metric-note">{{
+          (serviceState() === 'ready'
+            ? 'admin.backups.scheduleReady'
+            : 'admin.backups.schedulePlanned'
+          ) | translate
+        }}</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label"
+          ><openg7-admin-icon name="audit" />{{
+            'admin.backups.retentionLabel' | translate
+          }}</span
+        >
+        <strong>{{ 'admin.backups.retentionValue' | translate }}</strong>
+        <span class="metric-note">{{
+          'admin.backups.retentionNote' | translate
+        }}</span>
+      </div>
+    </div>
+
+    @if (serviceState() === 'not_configured') {
+      <div class="activation" data-og7="backup-activation">
+        <div>
+          <p class="eyebrow">
+            {{ 'admin.backups.activationEyebrow' | translate }}
+          </p>
+          <h3>{{ 'admin.backups.activationTitle' | translate }}</h3>
+          <p>{{ 'admin.backups.activationBody' | translate }}</p>
+          <div class="activation-preview" aria-hidden="true">
+            <span
+              >01 ·
+              {{ 'admin.backups.guide.destination.title' | translate }}</span
+            >
+            <span>02 · {{ 'admin.backups.guide.key.title' | translate }}</span>
+            <span
+              >03 · {{ 'admin.backups.guide.verify.title' | translate }}</span
+            >
+          </div>
+        </div>
+        <button
+          type="button"
+          class="admin-button admin-button--primary"
+          (click)="drawer.set('activation')"
+          data-og7="backup-activation-open"
+        >
+          {{ 'admin.backups.activationAction' | translate
+          }}<openg7-admin-icon name="arrow" />
+        </button>
+      </div>
+    }
+  }
+
+  <div class="command-bar">
+    <div class="actions">
       <button
         type="button"
         class="admin-button"
-        [disabled]="busy() || confirming()"
-        (click)="request(true)"
-        #retryButton
+        [class.admin-button--primary]="serviceState() === 'ready'"
+        data-og7="backup-request"
+        #requestButton
+        [disabled]="!canRequest()"
+        aria-describedby="backup-request-hint"
+        (click)="request()"
       >
-        {{ 'admin.backups.retry' | translate }}
+        <openg7-admin-icon name="database" />{{
+          'admin.backups.request' | translate
+        }}
       </button>
-    }
-  }
-  @if (receipt(); as job) {
-    <p role="status" data-og7="backup-receipt">
-      {{ 'admin.backups.states.' + job.status | translate }}
-    </p>
-  }
-  @if (data(); as status) {
-    <p class="checked">
-      {{ 'admin.backups.checked' | translate }}
-      <time [attr.datetime]="status.checkedAt"
-        >{{ status.checkedAt | date: 'yyyy-MM-dd HH:mm:ss' : 'UTC' }} UTC</time
+      <button
+        type="button"
+        class="admin-button refresh-button"
+        [disabled]="busy() || confirming() || accessDenied()"
+        (click)="refresh()"
       >
+        <openg7-admin-icon name="refresh" />{{
+          'admin.backups.refresh' | translate
+        }}
+      </button>
+    </div>
+    <p class="muted" id="backup-request-hint">
+      {{
+        'admin.backups.' +
+          (uncertain() ||
+          trackedJob()?.status === 'queued' ||
+          trackedJob()?.status === 'running' ||
+          trackedJob()?.status === 'unknown'
+            ? 'activeHint'
+            : serviceState() === 'ready'
+              ? 'requestHint'
+              : 'blockedHint') | translate
+      }}
     </p>
-    <h3>{{ 'admin.backups.history' | translate }}</h3>
+  </div>
+
+  @if (uncertain() && !accessDenied()) {
+    <div class="notice" data-og7="backup-uncertain">
+      <openg7-admin-icon name="search" />
+      <div>
+        <p role="status">{{ 'admin.backups.uncertain' | translate }}</p>
+        @if (missing()) {
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="busy() || confirming()"
+            (click)="request(true)"
+            #retryButton
+          >
+            {{ 'admin.backups.retry' | translate }}
+          </button>
+        }
+      </div>
+    </div>
+  } @else if (trackedJob(); as job) {
+    <div
+      class="operation"
+      [attr.data-state]="job.status"
+      data-og7="backup-receipt"
+      role="status"
+      aria-atomic="true"
+    >
+      <openg7-admin-icon
+        [name]="
+          job.status === 'succeeded'
+            ? 'check'
+            : job.status === 'failed' || job.status === 'unknown'
+              ? 'warning'
+              : 'clock'
+        "
+      />
+      <div>
+        <strong>{{ 'admin.backups.states.' + job.status | translate }}</strong>
+        <p>{{ 'admin.backups.outcomes.' + job.status | translate }}</p>
+      </div>
+    </div>
+  }
+
+  @if (data(); as status) {
+    <div class="history-heading">
+      <div>
+        <h3>
+          {{ 'admin.backups.history' | translate }}
+          <span class="count">{{ status.jobs.length }}</span>
+        </h3>
+        <p class="muted">{{ 'admin.backups.historyNote' | translate }}</p>
+      </div>
+      <p class="checked">
+        {{ 'admin.backups.checked' | translate }}
+        <time [attr.datetime]="status.checkedAt">{{
+          dateLabel(status.checkedAt)
+        }}</time>
+      </p>
+    </div>
     @if (!status.jobs.length) {
-      <p>{{ 'admin.backups.empty' | translate }}</p>
-    }
-    <ul>
-      @for (job of status.jobs; track job.requestId) {
-        <li>
-          <div>
-            <time [attr.datetime]="job.createdAt"
-              >{{ job.createdAt | date: 'yyyy-MM-dd HH:mm' : 'UTC' }} UTC</time
+      <div class="empty-state" data-og7="backup-empty">
+        <span class="empty-icon"><openg7-admin-icon name="database" /></span>
+        <div>
+          <h4>{{ 'admin.backups.empty' | translate }}</h4>
+          <p>{{ 'admin.backups.emptyBody' | translate }}</p>
+        </div>
+      </div>
+    } @else {
+      <ol class="history-list" id="backup-history" data-og7="backup-history">
+        @for (job of visibleJobs(); track job.requestId) {
+          <li data-og7="backup-history-row">
+            <span class="job-icon" [attr.data-state]="job.status"
+              ><openg7-admin-icon
+                [name]="
+                  job.status === 'succeeded'
+                    ? 'check'
+                    : job.status === 'failed' || job.status === 'unknown'
+                      ? 'warning'
+                      : 'clock'
+                "
+            /></span>
+            <div class="job-date">
+              <time [attr.datetime]="job.createdAt">{{
+                dateLabel(job.createdAt)
+              }}</time
+              ><span class="muted">{{
+                'admin.backups.sources.' + job.source | translate
+              }}</span>
+            </div>
+            <span
+              class="status-badge job-status"
+              [attr.data-state]="job.status"
+              >{{ 'admin.backups.states.' + job.status | translate }}</span
             >
-            · {{ 'admin.backups.sources.' + job.source | translate }}
+            <span class="job-size">{{ sizeLabel(job.bytes) }}</span>
+            <button
+              type="button"
+              class="admin-button detail-button"
+              (click)="inspect(job)"
+              [attr.aria-label]="
+                ('admin.backups.details' | translate) +
+                ' · ' +
+                dateLabel(job.createdAt)
+              "
+            >
+              {{ 'admin.backups.details' | translate
+              }}<openg7-admin-icon name="arrow" />
+            </button>
+          </li>
+        }
+      </ol>
+      @if (status.jobs.length > 5) {
+        <button
+          type="button"
+          class="history-toggle"
+          [attr.aria-expanded]="expanded()"
+          aria-controls="backup-history"
+          (click)="expanded.set(!expanded())"
+          data-og7="backup-history-toggle"
+        >
+          {{
+            (expanded() ? 'admin.backups.showLess' : 'admin.backups.showAll')
+              | translate: { count: status.jobs.length }
+          }}
+        </button>
+      }
+    }
+  }
+
+  <footer class="backup-footer">
+    <p>
+      <openg7-admin-icon name="database" />{{
+        'admin.backups.scope' | translate
+      }}
+    </p>
+    <div class="footer-links">
+      <button
+        type="button"
+        (click)="drawer.set('activation')"
+        [disabled]="accessDenied()"
+      >
+        {{ 'admin.backups.activationGuide' | translate }}
+      </button>
+      <button
+        type="button"
+        (click)="drawer.set('recovery')"
+        [disabled]="accessDenied()"
+        data-og7="backup-recovery"
+      >
+        {{ 'admin.backups.recoveryTitle' | translate
+        }}<openg7-admin-icon name="arrow" />
+      </button>
+    </div>
+  </footer>
+</section>
+
+<openg7-admin-drawer
+  [opened]="drawer() !== null"
+  [title]="drawerTitle()"
+  [closeLabel]="'admin.backups.close' | translate"
+  (closed)="drawer.set(null)"
+>
+  @if (drawer() === 'activation') {
+    <p class="drawer-intro">
+      {{ 'admin.backups.activationIntro' | translate }}
+    </p>
+    <ol class="guide-steps">
+      @for (step of guideSteps; track step; let i = $index) {
+        <li>
+          <span class="step-number" aria-hidden="true">0{{ i + 1 }}</span>
+          <div>
+            <h3>{{ 'admin.backups.guide.' + step + '.title' | translate }}</h3>
+            <p>{{ 'admin.backups.guide.' + step + '.body' | translate }}</p>
           </div>
-          <strong>{{
-            'admin.backups.states.' + job.status | translate
-          }}</strong>
-          @if (job.startedAt) {
-            <p>
-              {{ 'admin.backups.started' | translate }}
-              {{ job.startedAt | date: 'yyyy-MM-dd HH:mm:ss' : 'UTC' }} UTC
-            </p>
-          }
-          @if (job.status === 'succeeded') {
-            <details>
-              <summary>{{ 'admin.backups.proof' | translate }}</summary>
-              <p>{{ 'admin.backups.bytes' | translate }} {{ job.bytes }}</p>
-              <p>
-                {{ 'admin.backups.retainUntil' | translate }}
-                {{ job.retainUntil | date: 'yyyy-MM-dd HH:mm' : 'UTC' }} UTC
-              </p>
-              <p>
-                SHA-256: <code>{{ job.sha256 }}</code>
-              </p>
-            </details>
-          }
         </li>
       }
-    </ul>
+    </ol>
+    <p class="drawer-note">
+      <openg7-admin-icon name="audit" />{{
+        'admin.backups.activationNote' | translate
+      }}
+    </p>
+  } @else if (drawer() === 'recovery') {
+    <p class="drawer-intro">{{ 'admin.backups.recoveryIntro' | translate }}</p>
+    <ol class="guide-steps">
+      @for (step of recoverySteps; track step; let i = $index) {
+        <li>
+          <span class="step-number" aria-hidden="true">0{{ i + 1 }}</span>
+          <div>
+            <h3>
+              {{ 'admin.backups.recoverySteps.' + step + '.title' | translate }}
+            </h3>
+            <p>
+              {{ 'admin.backups.recoverySteps.' + step + '.body' | translate }}
+            </p>
+          </div>
+        </li>
+      }
+    </ol>
+    <p class="drawer-note">
+      {{ 'admin.backups.recoveryIndependent' | translate }}
+    </p>
+    <a class="admin-button" routerLink="/admin/fundraiser/audit"
+      >{{ 'admin.backups.audit' | translate }}<openg7-admin-icon name="arrow"
+    /></a>
+  } @else if (drawer() === 'proof') {
+    @if (selectedJob(); as job) {
+      <div data-og7="backup-evidence">
+        <span class="status-badge" [attr.data-state]="job.status">{{
+          'admin.backups.states.' + job.status | translate
+        }}</span>
+        @if (!fresh()) {
+          <p class="drawer-note">
+            {{ 'admin.backups.previousReading' | translate }}
+          </p>
+        }
+        <p class="drawer-intro">
+          {{ 'admin.backups.outcomes.' + job.status | translate }}
+        </p>
+        <dl class="evidence-list">
+          <div>
+            <dt>{{ 'admin.backups.requestedAt' | translate }}</dt>
+            <dd>{{ dateLabel(job.createdAt) }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.backups.started' | translate }}</dt>
+            <dd>{{ dateLabel(job.startedAt) }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.backups.finishedAt' | translate }}</dt>
+            <dd>{{ dateLabel(job.finishedAt) }}</dd>
+          </div>
+          @if (job.status === 'succeeded') {
+            <div>
+              <dt>{{ 'admin.backups.size' | translate }}</dt>
+              <dd>{{ sizeLabel(job.bytes) }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'admin.backups.retainUntil' | translate }}</dt>
+              <dd>{{ dateLabel(job.retainUntil) }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'admin.backups.fingerprint' | translate }}</dt>
+              <dd>
+                <code>{{ job.sha256 }}</code>
+              </dd>
+            </div>
+          }
+          <div>
+            <dt>{{ 'admin.backups.requestId' | translate }}</dt>
+            <dd>
+              <code>{{ job.requestId }}</code>
+            </dd>
+          </div>
+        </dl>
+        <p class="muted">{{ 'admin.backups.timezone' | translate }}</p>
+        <p class="drawer-note">{{ 'admin.backups.proofLimit' | translate }}</p>
+      </div>
+    } @else {
+      <p>{{ 'admin.backups.outsideHistory' | translate }}</p>
+    }
   }
-  <details data-og7="backup-recovery">
-    <summary>{{ 'admin.backups.recoveryTitle' | translate }}</summary>
-    <p>{{ 'admin.backups.recovery' | translate }}</p>
-    <a routerLink="/admin/fundraiser/audit">{{
-      'admin.backups.audit' | translate
-    }}</a>
-  </details>
-</section>
+</openg7-admin-drawer>

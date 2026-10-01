@@ -1,6 +1,91 @@
 {
   "admin": {
     "backups": {
+      "nav": "Backups",
+      "eyebrow": "Data continuity",
+      "subtitle": "Your copies, their history and a clear path to recovery.",
+      "serviceLabels": {
+        "not_configured": "Configuration required",
+        "ready": "Service available",
+        "unavailable": "Status needs checking",
+        "stale": "Observation expired",
+        "loading": "Checking status"
+      },
+      "latest": "Latest verified copy",
+      "recordedEvidence": "Capture date · recorded evidence",
+      "noVerified": "No verified copy",
+      "historyScope": "Within the last 20 operations.",
+      "awaitingReading": "Waiting for service information.",
+      "noValue": "—",
+      "scheduleLabel": "Planned schedule",
+      "daily": "Every day",
+      "scheduleReady": "Service available · UTC schedule",
+      "schedulePlanned": "Planned policy · activation to confirm",
+      "retentionLabel": "Planned protection",
+      "retentionValue": "At least 30 days",
+      "retentionNote": "Off-server retention against deletion.",
+      "activationEyebrow": "Your next step",
+      "activationTitle": "Prepare your first backup",
+      "activationBody": "The destination is still to be chosen. Prepare the three essentials for encrypted copies outside your server.",
+      "activationAction": "View the steps",
+      "activationGuide": "Activation guide",
+      "activationIntro": "Prepare these steps with your server operator. This guide does not change any settings.",
+      "activationNote": "After configuration, check the service and the outcome of its first copy. Configured settings are not evidence of a backup.",
+      "guide": {
+        "destination": {
+          "title": "Independent destination",
+          "body": "Choose private off-server storage dedicated to backups, with versioning and protection against deletion for at least 30 days."
+        },
+        "key": {
+          "title": "Recovery key",
+          "body": "Prepare the encryption key on a trusted computer. Keep the private key independently of the server and provide only the public key to the service."
+        },
+        "verify": {
+          "title": "Activation and rehearsal",
+          "body": "Have the backup service configured on the authorized target. Verify a first copy and rehearse its restoration into an isolated database before relying on this setup."
+        }
+      },
+      "requestHint": "Confirmed and audited request · at least 15 minutes between requests.",
+      "blockedHint": "Creating a copy requires an available service and a current status.",
+      "activeHint": "An operation is in progress or awaiting verification. Check its outcome before making another request.",
+      "previousReading": "Showing the last retrieved information. Refresh to confirm the current situation.",
+      "historyNote": "Up to 20 recent operations · Toronto time",
+      "emptyBody": "Manual requests and daily captures will appear here with their outcomes.",
+      "details": "Details",
+      "showAll": "View all {{count}} operations",
+      "showLess": "Show less",
+      "outcomes": {
+        "queued": "The request is recorded. The service has yet to start capturing the database.",
+        "running": "Capture and verification are in progress. The result updates automatically.",
+        "succeeded": "The copy’s transfer, integrity and retention have been verified.",
+        "failed": "The backup did not complete. Have the service and its records checked before a new request.",
+        "unknown": "An operator must check the records and remote copy. New backups remain blocked."
+      },
+      "close": "Close panel",
+      "requestedAt": "Request recorded",
+      "finishedAt": "Processing finished",
+      "size": "Encrypted copy size",
+      "fingerprint": "SHA-256 fingerprint",
+      "requestId": "Request identifier",
+      "timezone": "Dates shown in the America/Toronto time zone.",
+      "proofLimit": "Copy evidence is not a restoration rehearsal. Media and configuration require separate recovery.",
+      "outsideHistory": "This operation is no longer among the latest 20. Check the administration audit log.",
+      "recoveryIntro": "Prepare a controlled recovery with your server operator. This guide does not download or restore data.",
+      "recoverySteps": {
+        "isolate": {
+          "title": "Secure the intervention",
+          "body": "If compromise is suspected, use a clean computer and independent access. Identify the incident period and preserve evidence."
+        },
+        "choose": {
+          "title": "Identify a candidate copy",
+          "body": "Inspect the capture date and evidence for a copy predating the incident. A verified copy may already contain compromised data: its date alone is not enough."
+        },
+        "restore": {
+          "title": "Verify in an isolated database",
+          "body": "With the required authorization, decrypt and restore to a new isolated target. Keep sending and writes stopped, then verify data, media, access and Stripe reconciliation before returning to service."
+        }
+      },
+      "recoveryIndependent": "Keep the recovery procedure and access outside the application so you can act even if it becomes unavailable.",
       "title": "Backups and recovery",
       "scope": "PostgreSQL database only. Media and configuration require a separate complete backup.",
       "policy": "Planned policy: one backup per day (UTC), encrypted and protected off-server for at least 30 days.",

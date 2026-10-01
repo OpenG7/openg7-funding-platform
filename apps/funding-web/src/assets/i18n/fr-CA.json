@@ -1,6 +1,91 @@
 {
   "admin": {
     "backups": {
+      "nav": "Sauvegardes",
+      "eyebrow": "Continuité des données",
+      "subtitle": "Vos copies, leur historique et les étapes pour reprendre la main.",
+      "serviceLabels": {
+        "not_configured": "À configurer",
+        "ready": "Service disponible",
+        "unavailable": "Statut à vérifier",
+        "stale": "Observation périmée",
+        "loading": "Vérification en cours"
+      },
+      "latest": "Dernière copie vérifiée",
+      "recordedEvidence": "Date de capture · preuve enregistrée",
+      "noVerified": "Aucune copie vérifiée",
+      "historyScope": "Dans les 20 dernières opérations.",
+      "awaitingReading": "En attente des informations du service.",
+      "noValue": "—",
+      "scheduleLabel": "Cadence prévue",
+      "daily": "Chaque jour",
+      "scheduleReady": "Service disponible · calendrier UTC",
+      "schedulePlanned": "Politique prévue · activation à confirmer",
+      "retentionLabel": "Protection prévue",
+      "retentionValue": "30 jours minimum",
+      "retentionNote": "Rétention hors serveur contre la suppression.",
+      "activationEyebrow": "Votre prochaine étape",
+      "activationTitle": "Préparer votre première sauvegarde",
+      "activationBody": "La destination reste à choisir. Préparez les trois éléments nécessaires pour activer les copies chiffrées hors serveur.",
+      "activationAction": "Voir les étapes",
+      "activationGuide": "Guide d’activation",
+      "activationIntro": "La préparation se fait avec la personne responsable du serveur. Ce guide ne change aucun paramètre.",
+      "activationNote": "Après configuration, vérifiez le service puis contrôlez le résultat de la première copie. Une configuration renseignée ne constitue pas une sauvegarde.",
+      "guide": {
+        "destination": {
+          "title": "Destination indépendante",
+          "body": "Choisissez un stockage privé hors serveur, dédié aux sauvegardes, avec versionnement et protection contre la suppression pendant au moins 30 jours."
+        },
+        "key": {
+          "title": "Clé de récupération",
+          "body": "Préparez la clé de chiffrement sur un poste de confiance. Conservez la clé privée dans un lieu indépendant du serveur et transmettez uniquement la clé publique au service."
+        },
+        "verify": {
+          "title": "Activation et essai",
+          "body": "Faites configurer le service de sauvegarde sur la cible autorisée. Vérifiez une première copie et exercez sa restauration dans une base isolée avant de compter sur ce dispositif."
+        }
+      },
+      "requestHint": "Demande confirmée et journalisée · au moins 15 minutes entre deux demandes.",
+      "blockedHint": "La création d’une copie exige un service disponible et un statut à jour.",
+      "activeHint": "Une opération est en cours ou attend une vérification. Consultez son résultat avant toute nouvelle demande.",
+      "previousReading": "Dernière lecture conservée. Actualisez pour confirmer la situation actuelle.",
+      "historyNote": "20 dernières opérations au maximum · heures de Toronto",
+      "emptyBody": "Les demandes manuelles et les captures quotidiennes apparaîtront ici avec leur résultat.",
+      "details": "Détails",
+      "showAll": "Voir les {{count}} opérations",
+      "showLess": "Réduire l’historique",
+      "outcomes": {
+        "queued": "La demande est enregistrée. Le service doit encore commencer la capture.",
+        "running": "La capture et les vérifications sont en cours. Le résultat se met à jour automatiquement.",
+        "succeeded": "Le transfert, l’intégrité et la rétention de la copie ont été vérifiés.",
+        "failed": "La sauvegarde n’a pas abouti. Faites vérifier le service et les traces avant une nouvelle demande.",
+        "unknown": "Un opérateur doit vérifier les traces et la copie distante. Toute nouvelle sauvegarde reste bloquée."
+      },
+      "close": "Fermer le panneau",
+      "requestedAt": "Demande enregistrée",
+      "finishedAt": "Traitement terminé",
+      "size": "Taille de la copie chiffrée",
+      "fingerprint": "Empreinte SHA-256",
+      "requestId": "Identifiant de la demande",
+      "timezone": "Dates affichées dans le fuseau America/Toronto.",
+      "proofLimit": "La preuve de copie ne constitue pas un essai de restauration. Les médias et la configuration se récupèrent séparément.",
+      "outsideHistory": "Cette opération ne figure plus dans les 20 dernières. Consultez le journal administratif.",
+      "recoveryIntro": "Préparez une reprise contrôlée avec la personne responsable du serveur. Ce parcours ne télécharge ni ne restaure de données.",
+      "recoverySteps": {
+        "isolate": {
+          "title": "Sécuriser l’intervention",
+          "body": "En cas de compromission, utilisez une machine saine et des accès indépendants. Identifiez la période de l’incident et préservez les traces."
+        },
+        "choose": {
+          "title": "Identifier une copie candidate",
+          "body": "Consultez la date de capture et les preuves d’une copie antérieure à l’incident. Une copie vérifiée peut contenir des données déjà compromises : sa date seule ne suffit pas."
+        },
+        "restore": {
+          "title": "Vérifier sur une base isolée",
+          "body": "Avec l’autorisation requise, déchiffrez et restaurez sur une nouvelle cible isolée. Gardez les envois et les écritures arrêtés, puis vérifiez données, médias, accès et rapprochement Stripe avant la remise en service."
+        }
+      },
+      "recoveryIndependent": "Gardez la procédure et les accès de récupération hors de l’application pour pouvoir agir même si celle-ci devient inaccessible.",
       "title": "Sauvegardes et récupération",
       "scope": "Base PostgreSQL uniquement. Les médias et la configuration nécessitent une sauvegarde complète distincte.",
       "policy": "Politique prévue : une sauvegarde par jour (UTC), chiffrée et protégée hors serveur pendant au moins 30 jours.",

@@ -6,6 +6,27 @@ télécharge ni ne restaure les données. Configuration initiale désactivée :
 destination à choisir, une capture quotidienne UTC et protection minimale de
 30 jours. Aucun déploiement ni stockage externe n'est créé par ce changement.
 
+## Parcours dans l'application
+
+La navigation « Sauvegardes » ouvre une section pleine largeur. Sa synthèse
+sépare la dernière copie vérifiée dans l'historique, la cadence prévue et la
+protection minimale prévue. Le statut du service ne certifie aucune copie.
+Une observation dépassant une minute ou une lecture échouée retire le statut
+disponible et bloque la demande; l'historique conservé est signalé comme ancien.
+
+Avant activation, « Voir les étapes » présente destination indépendante, clé de
+récupération et essai sur cible isolée. Ce guide ne configure aucun service.
+L'historique affiche cinq opérations, extensibles aux vingt reçues. Dates en
+America/Toronto, tailles lisibles et badges avec texte permettent de parcourir
+les résultats; « Détails » ouvre dates, identifiant et preuves dans le panneau
+latéral commun. Échap le ferme et restitue le focus. Une expiration de session
+ou un refus d'accès ferme aussi le panneau et efface les métadonnées affichées.
+
+Les demandes en attente, en cours ou incertaines ont une explication dédiée,
+sans pourcentage de progression estimé. « Préparer une récupération » présente
+les étapes indépendantes ci-dessous; il ne télécharge ni ne restaure de données.
+Les guides restent consultatifs, sans écriture API.
+
 ## Périmètre et preuves
 
 Le service indépendant `database-backup` capture **PostgreSQL seulement** avec
@@ -160,3 +181,12 @@ Angular/SSR (24 routes), TypeScript, lint, format ciblé, Compose et standards
 vérifiés. Le lint conserve son avertissement préexistant dans `smoke-public.mjs`;
 le contrôle documentaire signale seulement le budget CRLF préexistant de
 `docs/command-cheatsheet.md`, inchangé. Aucun fournisseur réel ni production activé.
+
+Refonte UI vérifiée le 30 septembre 2026 : build Angular/SSR (24 routes),
+TypeScript et 22 scénarios Playwright réussis, dont six propres aux sauvegardes.
+Les recettes FR/EN à 390 et 1440 px couvrent synthèse, navigation, guides,
+historique réduit/étendu, preuves, réponse perdue, observation périmée et fermeture
+des détails après retrait des accès. Aucun débordement horizontal ni violation
+Axe sur les surfaces testées; focus clavier et retour après fermeture vérifiés.
+Les API sont interceptées avec des données synthétiques. Lint sans erreur,
+format ciblé et diff vérifiés; les écarts préexistants ci-dessus subsistent.
