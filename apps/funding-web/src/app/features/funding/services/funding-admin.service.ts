@@ -699,6 +699,38 @@ export class FundingAdminService {
     return (await response.json()) as AdminAssistantPrepareResponse;
   }
 
+  async databaseBackups(
+    requestId?: string,
+    payload?: import('@openg7/funding-core').AdminBackupRequest
+  ): Promise<
+    | import('@openg7/funding-core').AdminBackupsResponse
+    | import('@openg7/funding-core').AdminDatabaseBackup
+  > {
+    const response = await fetch(
+      `${this.apiBaseUrl}/admin/backups${requestId ? '?requestId=' + encodeURIComponent(requestId) : ''}`,
+      {
+        method: payload ? 'POST' : 'GET',
+        headers: {
+          ...(await this.createHeaders(this.getSavedAdminToken())),
+          ...(payload ? { 'Content-Type': 'application/json' } : {})
+        },
+        ...(payload ? { body: JSON.stringify(payload) } : {})
+      }
+    );
+    if (!response.ok) {
+      if (response.status === 401) this.clearAdminSession();
+      const body = (await response.json().catch(() => ({}))) as {
+        code?: string;
+      };
+      throw new AdminDashboardRequestError(
+        response.status,
+        'Database backup request failed.',
+        body.code
+      );
+    }
+    return response.json();
+  }
+
   async getSetupStatus(token: string): Promise<AdminSetupStatusResponse> {
     const response = await fetch(`${this.apiBaseUrl}/admin/setup-status`, {
       method: 'GET',

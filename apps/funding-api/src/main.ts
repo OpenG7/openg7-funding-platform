@@ -95,6 +95,12 @@ import {
 } from '../../../packages/funding-core/src/index.js';
 
 import {
+  BackupError,
+  backupStatus,
+  isBackupId,
+  requestBackup
+} from './database-backup/service.js';
+import {
   AdminStripeBackfillService,
   AdminStripeBackfillError
 } from './admin-stripe-backfill.service.js';
@@ -4983,6 +4989,82 @@ const handleRequest = async (
     }
 
     writeJson(request, response, 200, session);
+    return;
+  }
+
+  if (routeMatches(request.url, '/admin/backups', '/api/admin/backups')) {
+    response.setHeader('Cache-Control', 'private, no-store');
+    if (!ensureAdminAccess(request, response) || !dbPool) return;
+    if (
+      !['oidc', 'session'].includes(
+        resolveAdminAuthorization(request)?.source ?? ''
+      )
+    ) {
+      writeJson(request, response, 401, { code: 'ADMIN_SESSION_REQUIRED' });
+      return;
+    }
+    if (
+      request.method === 'POST' &&
+      request.headers.origin &&
+      ![publicBaseOrigin, ...allowedOrigins].includes(request.headers.origin)
+    ) {
+      writeJson(request, response, 403, { code: 'ORIGIN_FORBIDDEN' });
+      return;
+    }
+    try {
+      if (request.method === 'GET') {
+        const id = new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+          'requestId'
+        );
+        if (id !== null && !isBackupId(id))
+          throw new BackupError('INVALID_BACKUP_REQUEST', 400);
+        writeJson(
+          request,
+          response,
+          200,
+          await backupStatus(dbPool, id ?? undefined)
+        );
+      } else if (request.method === 'POST') {
+        if (
+          request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
+          'application/json'
+        )
+          throw new BackupError('INVALID_BACKUP_REQUEST', 415);
+        let input: Record<string, unknown>;
+        try {
+          input = JSON.parse(await readBody(request, 2048));
+          if (
+            !input ||
+            Array.isArray(input) ||
+            !isBackupId(input.requestId) ||
+            Object.keys(input).some(
+              (key) => !['requestId', 'confirmation'].includes(key)
+            )
+          )
+            throw new Error();
+        } catch {
+          throw new BackupError('INVALID_BACKUP_REQUEST', 400);
+        }
+        if (input.confirmation !== 'BACKUP_DATABASE')
+          throw new BackupError('CONFIRMATION_REQUIRED', 400);
+        const job = await requestBackup(
+          dbPool,
+          input.requestId as string,
+          getAdminAuditActor(request)
+        );
+        writeJson(request, response, 202, job);
+      } else {
+        response.setHeader('Allow', 'GET, POST');
+        writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+      }
+    } catch (error) {
+      writeJson(
+        request,
+        response,
+        error instanceof BackupError ? error.status : 503,
+        { code: error instanceof BackupError ? error.code : 'BACKUP_UNAVAILABLE' }
+      );
+    }
     return;
   }
 

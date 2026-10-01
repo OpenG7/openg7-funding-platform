@@ -1,0 +1,43 @@
+# Optional, separately authorized activation after migration 030 and storage setup.
+# No socket, host directories, inbound ports, API secrets or decryption key.
+services:
+  database-backup:
+    profiles: [backup]
+    image: ${BACKUP_IMAGE:-openg7-funding-backup:local}
+    build:
+      context: .
+      dockerfile: apps/funding-api/Dockerfile.backup
+      args:
+        API_IMAGE: ${API_IMAGE:-openg7-funding-api:local}
+    environment:
+      NODE_ENV: production
+      FUNDING_BACKUP_DIRECTORY: /app/var/database-backups
+    env_file:
+      - path: ${FUNDING_BACKUP_ENV_FILE:-.env.backup}
+        required: false
+    volumes:
+      - database-backups:/app/var/database-backups
+    networks: [edge, data]
+    restart: on-failure
+    init: true
+    healthcheck:
+      test:
+        ['CMD', 'node', 'dist/apps/funding-api/src/database-backup/health.js']
+      interval: 30s
+      timeout: 8s
+      start_period: 45s
+      retries: 3
+    read_only: true
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cpus: '0.5'
+    mem_limit: 256m
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: '5m'
+        max-file: '2'
+volumes:
+  database-backups:

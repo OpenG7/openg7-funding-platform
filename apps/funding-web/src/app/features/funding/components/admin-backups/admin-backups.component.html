@@ -1,0 +1,124 @@
+<section
+  #panel
+  tabindex="-1"
+  aria-labelledby="backup-title"
+  data-og7="setup-backups"
+>
+  <header>
+    <h2 id="backup-title">{{ 'admin.backups.title' | translate }}</h2>
+    <span role="status">{{
+      'admin.backups.' +
+        (error() ? 'unavailable' : (data()?.workerState ?? 'loading'))
+        | translate
+    }}</span>
+  </header>
+  <p>{{ 'admin.backups.scope' | translate }}</p>
+  <p>{{ 'admin.backups.policy' | translate }}</p>
+  @if (data()?.workerState === 'not_configured') {
+    <p>{{ 'admin.backups.configuration' | translate }}</p>
+  }
+  @if (error()) {
+    <p role="alert">{{ 'admin.backups.' + error() | translate }}</p>
+  }
+  @if (accessDenied()) {
+    <a
+      routerLink="/admin/login"
+      [queryParams]="{ returnUrl: '/admin/fundraiser/setup' }"
+      >{{ 'admin.backups.login' | translate }}</a
+    >
+  }
+  <div class="actions">
+    <button
+      type="button"
+      class="admin-button admin-button--primary"
+      data-og7="backup-request"
+      #requestButton
+      [disabled]="!canRequest()"
+      (click)="request()"
+    >
+      {{ 'admin.backups.request' | translate }}
+    </button>
+    <button
+      type="button"
+      class="admin-button"
+      [disabled]="busy() || confirming() || accessDenied()"
+      (click)="refresh()"
+    >
+      {{ 'admin.backups.refresh' | translate }}
+    </button>
+  </div>
+  @if (uncertain() && !accessDenied()) {
+    <p role="status" data-og7="backup-uncertain">
+      {{ 'admin.backups.uncertain' | translate }}
+    </p>
+    @if (missing()) {
+      <button
+        type="button"
+        class="admin-button"
+        [disabled]="busy() || confirming()"
+        (click)="request(true)"
+        #retryButton
+      >
+        {{ 'admin.backups.retry' | translate }}
+      </button>
+    }
+  }
+  @if (receipt(); as job) {
+    <p role="status" data-og7="backup-receipt">
+      {{ 'admin.backups.states.' + job.status | translate }}
+    </p>
+  }
+  @if (data(); as status) {
+    <p class="checked">
+      {{ 'admin.backups.checked' | translate }}
+      <time [attr.datetime]="status.checkedAt"
+        >{{ status.checkedAt | date: 'yyyy-MM-dd HH:mm:ss' : 'UTC' }} UTC</time
+      >
+    </p>
+    <h3>{{ 'admin.backups.history' | translate }}</h3>
+    @if (!status.jobs.length) {
+      <p>{{ 'admin.backups.empty' | translate }}</p>
+    }
+    <ul>
+      @for (job of status.jobs; track job.requestId) {
+        <li>
+          <div>
+            <time [attr.datetime]="job.createdAt"
+              >{{ job.createdAt | date: 'yyyy-MM-dd HH:mm' : 'UTC' }} UTC</time
+            >
+            · {{ 'admin.backups.sources.' + job.source | translate }}
+          </div>
+          <strong>{{
+            'admin.backups.states.' + job.status | translate
+          }}</strong>
+          @if (job.startedAt) {
+            <p>
+              {{ 'admin.backups.started' | translate }}
+              {{ job.startedAt | date: 'yyyy-MM-dd HH:mm:ss' : 'UTC' }} UTC
+            </p>
+          }
+          @if (job.status === 'succeeded') {
+            <details>
+              <summary>{{ 'admin.backups.proof' | translate }}</summary>
+              <p>{{ 'admin.backups.bytes' | translate }} {{ job.bytes }}</p>
+              <p>
+                {{ 'admin.backups.retainUntil' | translate }}
+                {{ job.retainUntil | date: 'yyyy-MM-dd HH:mm' : 'UTC' }} UTC
+              </p>
+              <p>
+                SHA-256: <code>{{ job.sha256 }}</code>
+              </p>
+            </details>
+          }
+        </li>
+      }
+    </ul>
+  }
+  <details data-og7="backup-recovery">
+    <summary>{{ 'admin.backups.recoveryTitle' | translate }}</summary>
+    <p>{{ 'admin.backups.recovery' | translate }}</p>
+    <a routerLink="/admin/fundraiser/audit">{{
+      'admin.backups.audit' | translate
+    }}</a>
+  </details>
+</section>

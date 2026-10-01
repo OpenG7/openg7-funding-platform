@@ -1,0 +1,15 @@
+# Build the ordinary API image first. The Web/API container gains no dump tools.
+ARG API_IMAGE=openg7-funding-api:local
+FROM ${API_IMAGE} AS app
+FROM postgres:16-bookworm
+
+# age (BSD-3-Clause) provides streaming authenticated encryption. No private key
+# belongs in this image, its environment, or the application's runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends age ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=app /usr/local/bin/node /usr/local/bin/node
+COPY --from=app --chown=postgres:postgres /app /app
+RUN mkdir -p /app/var/database-backups && chown postgres:postgres /app/var/database-backups && chmod 700 /app/var/database-backups
+WORKDIR /app
+USER postgres
+ENTRYPOINT ["node", "dist/apps/funding-api/src/database-backup/worker.js"]

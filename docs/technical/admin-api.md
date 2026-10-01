@@ -6,11 +6,13 @@ Payment notifications and private website preparation use the protected
 permissions and simulation are documented in
 [contribution activity](../operations/contribution-activity.md).
 
-Reference extracted from the main README. Read only the relevant section; current
-feature guides and implementation define the exact contract. Commands run from
-the repository root. [Documentation index](../README.md).
+Feature guides and code define these contracts. Commands run from the repository
+root. [Documentation index](../README.md).
 
 ## Fundraiser admin
+
+`GET/POST /api/admin/backups`: [database backups](../operations/admin-database-backups.md)
+(owner only; migration 030).
 
 [Stripe recovery](../operations/admin-stripe-backfill.md).
 
