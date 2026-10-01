@@ -8,6 +8,7 @@
     "playwright/admin-stripe-backfill-ui.spec.ts",
     "playwright/admin-access-ui.spec.ts",
     "playwright/admin-setup-email-ui.spec.ts",
+    "playwright/admin-backups-ui.spec.ts",
     "playwright/admin-setup-layout.spec.ts",
     "playwright/admin-inspection.spec.ts",
     "playwright/admin-email-recovery-ui.spec.ts",

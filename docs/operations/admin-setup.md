@@ -64,6 +64,12 @@ Le test courriel conserve son [contrat d'envoi et de reprise](../email-smtp.md#a
 requête identifiée, statut serveur, résultat incertain consultable sans nouvel
 envoi. Le test est une action explicite, jamais une conséquence de l'actualisation.
 
+Le panneau [Sauvegardes et récupération](admin-database-backups.md) expose les
+demandes de capture PostgreSQL et leur historique. Son worker indépendant reste
+à configurer : politique quotidienne UTC, chiffrement et protection hors serveur
+pendant au moins 30 jours. L'actualisation ne crée aucune demande. La restauration
+et les ensembles complets DB/médias/configuration restent des opérations distinctes.
+
 ## Découpage de l'intégration de la maquette
 
 | Sous-tâche                   | Périmètre                                                                              | État                             |
@@ -74,7 +80,7 @@ envoi. Le test est une action explicite, jamais une conséquence de l'actualisat
 | 4. Diagnostic                | Recommandation déterministe, paramètres détaillés, guide et parcours courriel conservé | Implémentée                      |
 | 5. Intégration               | Liens directs, droits existants, traductions FR/EN et retour après connexion           | Implémentée                      |
 | 6. Validation                | Build/SSR, lint, tests UI, clavier, accessibilité et captures mobile/desktop           | Vérifiée avec limites ci-dessous |
-| 7. Télémétrie complémentaire | Version livrée, observations Web/API, TLS et métadonnées de sauvegarde                 | À réaliser                       |
+| 7. Télémétrie complémentaire | Version livrée, observations Web/API et TLS; sauvegardes décrites ci-dessus            | Hors sauvegardes : à réaliser    |
 | 8. Exécution administrative  | Parcours séparés de diagnostic avancé et d'opérations autorisées                       | À concevoir                      |
 
 Le lot 7 nécessite des sources serveur horodatées : révision effectivement

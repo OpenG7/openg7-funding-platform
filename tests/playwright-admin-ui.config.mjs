@@ -11,6 +11,7 @@ export default defineConfig({
     'admin-stripe-backfill-ui.spec.ts',
     'admin-access-ui.spec.ts',
     'admin-setup-email-ui.spec.ts',
+    'admin-backups-ui.spec.ts',
     'admin-setup-layout.spec.ts',
     'admin-pilotage.spec.ts',
     'admin-inspection.spec.ts',

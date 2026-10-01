@@ -3,6 +3,10 @@
 Le scénario 66 utilise les vrais scripts de sauvegarde/restauration, avec des
 données synthétiques. Une recette locale n'autorise aucune opération de production.
 
+Les [sauvegardes PostgreSQL demandées depuis l'admin](admin-database-backups.md)
+utilisent un worker indépendant et des archives chiffrées de la base seule.
+Elles ne remplacent pas les ensembles complets DB/médias/configuration ci-dessous.
+
 ## Créer un ensemble cohérent
 
 Prérequis : Bash, Node 22, Docker Compose et l'image `postgres:16-alpine`.

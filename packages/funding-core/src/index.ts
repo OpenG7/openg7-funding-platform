@@ -1597,4 +1597,5 @@ export * from './admin-pilotage.js';
 export * from './editorial-programme.js';
 export * from './contribution-activity.js';
 export * from './admin-expenses.js';
+export * from './admin-backups.js';
 export * from './sponsorship-validation.js';

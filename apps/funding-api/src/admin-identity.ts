@@ -65,6 +65,7 @@ export const adminRoleAllows = (
     path === '/admin/contributions.csv' ||
     path === '/admin/stripe-backfill' ||
     path === '/admin/setup-status' ||
+    path === '/admin/backups' ||
     path === '/admin/email/test' ||
     path === '/admin/sponsorships/followup-access'
   )

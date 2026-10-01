@@ -21,6 +21,7 @@ import type {
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
+import { AdminBackupsComponent } from '../../components/admin-backups/admin-backups.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import { AdminSystemCardsComponent } from '../../components/admin-cockpit/admin-system-cards.component.js';
@@ -45,6 +46,7 @@ type SetupSection =
   | 'email'
   | 'queue'
   | 'database'
+  | 'backups'
   | 'storage'
   | 'env'
   | 'activity';
@@ -117,6 +119,7 @@ interface SetupTourStep {
     TranslatePipe,
     CommonModule,
     AdminLayoutComponent,
+    AdminBackupsComponent,
     RouterLink,
     AdminIconComponent,
     AdminDrawerComponent,
@@ -483,6 +486,7 @@ export class AdminSetupPageComponent implements OnInit {
         'email',
         'queue',
         'database',
+        'backups',
         'storage',
         'env',
         'activity'

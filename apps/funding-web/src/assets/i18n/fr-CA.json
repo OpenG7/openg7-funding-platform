@@ -1,5 +1,45 @@
 {
   "admin": {
+    "backups": {
+      "title": "Sauvegardes et récupération",
+      "scope": "Base PostgreSQL uniquement. Les médias et la configuration nécessitent une sauvegarde complète distincte.",
+      "policy": "Politique prévue : une sauvegarde par jour (UTC), chiffrée et protégée hors serveur pendant au moins 30 jours.",
+      "configuration": "À configurer : le service de sauvegarde, la clé publique de chiffrement et un stockage privé hors serveur avec protection contre la suppression.",
+      "not_configured": "À configurer",
+      "ready": "Service disponible",
+      "unavailable": "Sauvegardes indisponibles. Actualisez le statut ou vérifiez le service.",
+      "loading": "Vérification des sauvegardes…",
+      "request": "Sauvegarder la base maintenant",
+      "refresh": "Vérifier les sauvegardes",
+      "confirm": "Confirmez la création d’une copie chiffrée de la base courante vers le stockage protégé configuré. Elle contiendra des données privées et sera conservée au moins 30 jours. Cette action ne restaure aucune donnée.",
+      "history": "Historique récent",
+      "started": "Début de la capture :",
+      "empty": "Aucune sauvegarde enregistrée.",
+      "checked": "Statut vérifié :",
+      "uncertain": "Le résultat de la demande reste à vérifier. Consultez son statut avant de lancer une autre sauvegarde.",
+      "retry": "Renvoyer la même demande",
+      "expired": "Votre session a expiré. Reconnectez-vous pour consulter les sauvegardes.",
+      "forbidden": "Les sauvegardes sont réservées au propriétaire.",
+      "login": "Se reconnecter",
+      "rateLimit": "Une sauvegarde a été demandée récemment. Attendez 15 minutes entre deux demandes.",
+      "proof": "Preuve de copie hors serveur",
+      "bytes": "Taille chiffrée (octets) :",
+      "retainUntil": "Protection minimale jusqu’au :",
+      "recoveryTitle": "Préparer une récupération",
+      "recovery": "Choisissez une sauvegarde antérieure à l’incident. La récupération se fait sur une cible isolée avec la clé privée conservée hors de l’application. Vérifiez les données, les accès et le rapprochement Stripe avant toute remise en service. Si l’application est inaccessible ou compromise, utilisez la procédure de récupération indépendante. Le téléchargement et la restauration ne sont pas exécutés par ce panneau.",
+      "audit": "Ouvrir le journal administratif",
+      "states": {
+        "queued": "Demande en attente",
+        "running": "Sauvegarde en cours",
+        "succeeded": "Copie hors serveur vérifiée",
+        "failed": "Sauvegarde échouée",
+        "unknown": "Résultat incertain — vérification opérateur requise"
+      },
+      "sources": {
+        "manual": "Manuelle",
+        "daily": "Quotidienne"
+      }
+    },
     "audit": {
       "entryCountOne": "{{count}} entrée",
       "entryCount": "{{count}} entrées",

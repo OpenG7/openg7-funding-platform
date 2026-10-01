@@ -36,6 +36,11 @@ Appliquer les dépendances dans l'ordre. PostgreSQL est nécessaire pour les
 fonctions persistantes, OIDC et les alertes. Le mode Stripe-direct conserve
 uniquement les parcours compatibles avec l'absence de base.
 
+La migration [030](../../apps/funding-api/migrations/030_create_database_backups.sql)
+ajoute les demandes et le heartbeat du service indépendant de sauvegarde. Elle ne
+lance aucune capture et ne configure aucun stockage. Voir le
+[parcours de sauvegarde admin](admin-database-backups.md).
+
 La migration [025](../../apps/funding-api/migrations/025_create_publication_editorial_profiles.sql)
 ajoute les préférences éditoriales par destination et les observations de
 corrections distinctes. Elle n'active aucun envoi et préserve les publications

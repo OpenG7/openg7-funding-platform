@@ -1,5 +1,45 @@
 {
   "admin": {
+    "backups": {
+      "title": "Backups and recovery",
+      "scope": "PostgreSQL database only. Media and configuration require a separate complete backup.",
+      "policy": "Planned policy: one backup per day (UTC), encrypted and protected off-server for at least 30 days.",
+      "configuration": "Configuration required: a backup worker, a public encryption key and private off-server storage with deletion protection.",
+      "not_configured": "Configuration required",
+      "ready": "Service available",
+      "unavailable": "Backups unavailable. Refresh the status or check the service.",
+      "loading": "Checking backups…",
+      "request": "Back up the database now",
+      "refresh": "Check backups",
+      "confirm": "Confirm creation of an encrypted copy of the current database in the configured protected storage. It will contain private data and be retained for at least 30 days. This action does not restore data.",
+      "history": "Recent history",
+      "started": "Capture started:",
+      "empty": "No backups recorded.",
+      "checked": "Status checked:",
+      "uncertain": "The request outcome needs verification. Check its status before starting another backup.",
+      "retry": "Resubmit the same request",
+      "expired": "Your session has expired. Sign in again to view backups.",
+      "forbidden": "Backups are restricted to the owner.",
+      "login": "Sign in again",
+      "rateLimit": "A backup was requested recently. Allow 15 minutes between requests.",
+      "proof": "Off-server copy evidence",
+      "bytes": "Encrypted size (bytes):",
+      "retainUntil": "Protected at least until:",
+      "recoveryTitle": "Prepare a recovery",
+      "recovery": "Select a backup from before the incident. Recover on an isolated target using the private key kept outside the application. Verify data, access and Stripe reconciliation before returning to service. If the application is unavailable or compromised, use the independent recovery procedure. This panel does not download or restore data.",
+      "audit": "Open the administration audit log",
+      "states": {
+        "queued": "Request queued",
+        "running": "Backup in progress",
+        "succeeded": "Off-server copy verified",
+        "failed": "Backup failed",
+        "unknown": "Uncertain outcome — operator verification required"
+      },
+      "sources": {
+        "manual": "Manual",
+        "daily": "Daily"
+      }
+    },
     "audit": {
       "entryCountOne": "{{count}} entry",
       "entryCount": "{{count}} entries",
