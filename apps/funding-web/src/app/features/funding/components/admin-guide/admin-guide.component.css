@@ -4,23 +4,23 @@
 }
 button {
   font: inherit;
-  color: #eaf4ff;
-  background: #122b42;
-  border: 1px solid #527089;
+  color: var(--og7-admin-text, #eaf4ff);
+  background: var(--og7-admin-raised, #122b42);
+  border: 1px solid var(--og7-admin-border, #527089);
   border-radius: 8px;
   padding: 0.65rem 0.9rem;
   cursor: pointer;
   min-height: 44px;
 }
 button:hover:not(:disabled) {
-  background: #214661;
+  background: var(--og7-admin-selected, #214661);
 }
 button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 button:focus-visible {
-  outline: 3px solid #67ddff;
+  outline: 3px solid var(--og7-admin-focus, #67ddff);
   outline-offset: 3px;
 }
 dialog {
@@ -34,7 +34,7 @@ dialog {
   margin: 0;
   padding: 0;
   background: transparent;
-  color: #eaf4ff;
+  color: var(--og7-admin-text, #eaf4ff);
   overflow: hidden;
 }
 dialog::backdrop {
@@ -43,7 +43,7 @@ dialog::backdrop {
 .spotlight {
   position: fixed;
   box-sizing: border-box;
-  border: 3px solid #67ddff;
+  border: 3px solid var(--og7-admin-focus, #67ddff);
   border-radius: 10px;
   box-shadow:
     0 0 0 100vmax #020c18c7,
@@ -66,9 +66,9 @@ dialog::backdrop {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 22px;
-  border: 1px solid #67ddff;
+  border: 1px solid var(--og7-admin-focus, #67ddff);
   border-radius: 16px;
-  background: #0d2339;
+  background: var(--og7-admin-panel, #0d2339);
   box-shadow: 0 12px 44px #0009;
 }
 .heading {
@@ -76,7 +76,7 @@ dialog::backdrop {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #b9d3e8;
+  color: var(--og7-admin-muted, #b9d3e8);
 }
 .card.at-top {
   top: max(16px, env(safe-area-inset-top));
@@ -96,18 +96,18 @@ p {
   overflow-wrap: anywhere;
 }
 .progress {
-  color: #67ddff;
+  color: var(--og7-admin-focus, #67ddff);
   margin-bottom: 0;
   font-weight: 650;
 }
 .hint {
   font-size: 12px;
-  color: #b9d3e8;
+  color: var(--og7-admin-muted, #b9d3e8);
 }
 .notice {
-  border-left: 3px solid #ffd980;
+  border-left: 3px solid var(--og7-admin-warning, #ffd980);
   padding-left: 12px;
-  color: #ffe8b8;
+  color: var(--og7-admin-warning, #ffe8b8);
 }
 footer {
   display: flex;
@@ -116,13 +116,13 @@ footer {
   margin-top: 18px;
 }
 .primary {
-  background: #9ae5ff;
-  color: #061424;
-  border-color: #9ae5ff;
+  background: var(--og7-admin-primary, #9ae5ff);
+  color: var(--og7-admin-on-primary, #061424);
+  border-color: var(--og7-admin-primary, #9ae5ff);
   font-weight: 700;
 }
 .primary:hover:not(:disabled) {
-  background: #c1efff;
+  background: var(--og7-admin-primary, #c1efff);
 }
 @media (max-width: 600px) {
   .card {

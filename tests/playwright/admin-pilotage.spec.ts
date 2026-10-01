@@ -26,6 +26,433 @@ function overviewCount(page: Page, label: string) {
     .first();
 }
 
+for (const theme of ['night', 'mineral', 'graphite']) {
+  for (const language of ['fr-CA', 'en']) {
+    for (const width of [390, 1440]) {
+      test(`appearance ${theme} stays readable in ${language} at ${width}px`, async ({
+        page
+      }, testInfo) => {
+        const { state, commands } = await fixtures(page);
+        await page.setViewportSize({ width, height: 900 });
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await page.goto('/admin/fundraiser/pilotage');
+        if (language === 'en')
+          await page
+            .getByRole('button', {
+              name: 'Switch administration language to English'
+            })
+            .click();
+        const open = page.locator('[data-og7="pilot-appearance"]');
+        await open.click();
+        await page.locator(`[data-og7="pilot-theme-${theme}"]`).check();
+        await expect(page.locator('html')).toHaveAttribute(
+          'data-og7-pilot-theme',
+          theme
+        );
+        await page.locator('[data-og7="pilot-density-compact"]').check();
+        await expect(page.locator('html')).toHaveAttribute(
+          'data-og7-pilot-density',
+          'compact'
+        );
+        await expect(page.getByRole('dialog')).not.toContainText(
+          'admin.appearance.'
+        );
+        if (language === 'fr-CA') {
+          const audit = await new AxeBuilder({ page })
+            .include('dialog[open]')
+            .analyze();
+          expect(audit.violations).toEqual([]);
+        }
+        await page.screenshot({ path: testInfo.outputPath('appearance.png') });
+        await page.keyboard.press('Escape');
+        await expect(open).toBeFocused();
+        await expect(
+          page.locator('[data-og7="pilot-decision"]')
+        ).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+        await expect(page.locator('[data-og7="pilot-accept"]')).toBeInViewport({
+          ratio: 1
+        });
+        await expect(page.locator('[data-og7="pilot-details"]')).toBeInViewport(
+          { ratio: 1 }
+        );
+        await page.screenshot({ path: testInfo.outputPath('workspace.png') });
+        if (language === 'fr-CA') {
+          const audit = await new AxeBuilder({ page })
+            .include('openg7-admin-pilotage-page')
+            .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+            .analyze();
+          expect(audit.violations).toEqual([]);
+        }
+        await page.locator('[data-og7="pilot-focus"]').click();
+        await expect(page.locator('openg7-admin-nav')).toBeHidden();
+        await expect(page.locator('[data-og7="pilot-domains"]')).toBeHidden();
+        await expect(
+          page.locator('[data-og7="pilot-decision"]')
+        ).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
+        await page.locator('[data-og7="pilot-show-queue"]').click();
+        await expect(page.locator('#pilot-following')).toBeVisible();
+        await page.screenshot({ path: testInfo.outputPath('focus.png') });
+        await page.locator('[data-og7="pilot-focus"]').click();
+        await expect(page.locator('openg7-admin-nav')).toBeVisible();
+        await page.reload();
+        await open.click();
+        await expect(
+          page.locator(`[data-og7="pilot-theme-${theme}"]`)
+        ).toBeChecked();
+        await expect(
+          page.locator('[data-og7="pilot-density-compact"]')
+        ).toBeChecked();
+        expect(commands).toEqual([]);
+      });
+    }
+  }
+}
+
+test('system appearance preserves an unfinished edit and synchronizes other tabs', async ({
+  page
+}) => {
+  const { commands, state } = await fixtures(page);
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-appearance"]').click();
+  await page.locator('[data-og7="pilot-theme-system"]').check();
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-og7-pilot-theme',
+    'mineral'
+  );
+  await page.keyboard.press('Escape');
+  await page.locator('[data-og7="pilot-edit"]').click();
+  const draft = page.getByRole('dialog').locator('textarea').first();
+  await draft.fill('Brouillon non enregistré');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-og7-pilot-theme',
+    'night'
+  );
+  await expect(draft).toHaveValue('Brouillon non enregistré');
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: 'openg7.pilotage.appearance.v1',
+        newValue: JSON.stringify({
+          theme: 'graphite',
+          system: false,
+          density: 'compact'
+        }),
+        storageArea: localStorage
+      })
+    )
+  );
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-og7-pilot-theme',
+    'graphite'
+  );
+  await expect(draft).toHaveValue('Brouillon non enregistré');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+    'data-og7-id',
+    state.decisions[0]!.id
+  );
+  expect(commands).toEqual([]);
+});
+
+test('appearance handles invalid and blocked storage without blocking decisions', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('openg7.pilotage.appearance.v1', '{invalid');
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'openg7.pilotage.appearance.v1')
+        throw new DOMException('Unavailable', 'QuotaExceededError');
+      setItem.call(this, key, value);
+    };
+  });
+  await page.goto('/admin/fundraiser/pilotage');
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-og7-pilot-theme',
+    'night'
+  );
+  await page.locator('[data-og7="pilot-appearance"]').click();
+  await page.locator('[data-og7="pilot-theme-mineral"]').check();
+  await expect(page.getByRole('dialog')).toContainText(
+    'Le navigateur ne permet pas'
+  );
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-og7-pilot-theme',
+    'mineral'
+  );
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-og7="pilot-accept"]')).toBeEnabled();
+  expect(commands).toEqual([]);
+});
+
+test('saved appearance is applied before Angular starts', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'openg7.pilotage.appearance.v1',
+      JSON.stringify({ theme: 'graphite', density: 'compact' })
+    )
+  );
+  await page.route('**/main-*.js', (route) => route.abort());
+  await page.goto('/admin/fundraiser/pilotage');
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-og7-pilot-theme',
+    'graphite'
+  );
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-og7-pilot-density',
+    'compact'
+  );
+});
+
+test('short screens and enlarged text keep appearance and decisions reachable', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.goto('/admin/fundraiser/pilotage');
+  for (const size of [
+    { width: 844, height: 390 },
+    { width: 320, height: 740 }
+  ]) {
+    await page.setViewportSize(size);
+    await page.locator('[data-og7="pilot-appearance"]').click();
+    await page.locator('[data-og7="pilot-theme-mineral"]').check();
+    await page.keyboard.press('Escape');
+    await page.locator('[data-og7="pilot-details"]').click();
+    await expect(
+      page.locator('[data-og7="pilot-panel-details"]')
+    ).toBeVisible();
+    const detailsAudit = await new AxeBuilder({ page })
+      .include('dialog[open]')
+      .analyze();
+    expect(detailsAudit.violations).toEqual([]);
+    await page.keyboard.press('Escape');
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+  await expect
+    .poll(() =>
+      page
+        .locator('[data-og7="pilot-scroll"]')
+        .evaluate((el) => el.clientHeight)
+    )
+    .toBeGreaterThan(80);
+  await page.locator('[data-og7="pilot-appearance"]').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await page.locator('[data-og7="pilot-accept"]').click();
+  await expect(page.locator('[data-og7="pilot-panel-confirm"]')).toBeVisible();
+  expect(commands).toEqual([]);
+});
+
+test('appearance owns controller input and the stick scrolls the focused workspace', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-appearance"]').click();
+  await page.locator('[data-og7="pilot-theme-mineral"]').focus();
+  await buttons(page);
+  await buttons(page, [0]);
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-og7-pilot-theme',
+    'mineral'
+  );
+  await page.waitForTimeout(400);
+  await expect(
+    page.locator('[data-og7="pilot-panel-appearance"]')
+  ).toBeVisible();
+  expect(commands).toEqual([]);
+  await tap(page, 1);
+  await expect(page.locator('[data-og7="pilot-appearance"]')).toBeFocused();
+  await page.locator('[data-og7="pilot-focus"]').click();
+  await page.locator('[data-og7="pilot-scroll"]').evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  await buttons(page);
+  await page.evaluate(() => {
+    (
+      window as unknown as { fixturePad: { axes: number[] } }
+    ).fixturePad.axes[3] = 0.9;
+  });
+  await expect
+    .poll(() =>
+      page.locator('[data-og7="pilot-scroll"]').evaluate((el) => el.scrollTop)
+    )
+    .toBeGreaterThan(0);
+  await page.evaluate(() => {
+    (
+      window as unknown as { fixturePad: { axes: number[] } }
+    ).fixturePad.axes[3] = 0;
+  });
+  await expect(page.locator('[data-og7="pilot-focus"]')).toBeInViewport({
+    ratio: 1
+  });
+  await expect(page.locator('[data-og7="pilot-accept"]')).toBeInViewport({
+    ratio: 1
+  });
+  expect(commands).toEqual([]);
+});
+
+for (const width of [390, 1440]) {
+  test(`right stick reveals the end of a long decision without opening a panel at ${width}px`, async ({
+    page
+  }) => {
+    const { state, commands } = await fixtures(page);
+    const marker = 'Fin du contenu à examiner.';
+    state.decisions[0]!.publication!.message =
+      Array.from(
+        { length: 40 },
+        (_, index) => 'Paragraphe ' + index + ' du dossier à examiner.'
+      ).join('\n') +
+      '\n' +
+      marker;
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/admin/fundraiser/pilotage');
+    await page.locator('[data-og7="pilot-focus"]').click();
+    await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+      'data-og7-id',
+      state.decisions[0]!.id
+    );
+    await buttons(page);
+    await page.evaluate(() => {
+      (
+        window as unknown as { fixturePad: { axes: number[] } }
+      ).fixturePad.axes[3] = 0.9;
+    });
+    await expect
+      .poll(() =>
+        page
+          .locator('[data-og7="pilot-decision"]')
+          .evaluate((element, ending) => {
+            const walker = document.createTreeWalker(
+              element,
+              NodeFilter.SHOW_TEXT
+            );
+            let node: Node | null;
+            while ((node = walker.nextNode())) {
+              const index = node.textContent?.indexOf(ending) ?? -1;
+              if (index < 0) continue;
+              const range = document.createRange();
+              range.setStart(node, index);
+              range.setEnd(node, index + ending.length);
+              const text = range.getBoundingClientRect();
+              const content = node.parentElement!.getBoundingClientRect();
+              const frame = element
+                .closest('[data-og7="pilot-scroll"]')!
+                .getBoundingClientRect();
+              return (
+                text.top >= Math.max(content.top, frame.top) &&
+                text.bottom <= Math.min(content.bottom, frame.bottom)
+              );
+            }
+            return false;
+          }, marker)
+      )
+      .toBe(true);
+    await page.evaluate(() => {
+      (
+        window as unknown as { fixturePad: { axes: number[] } }
+      ).fixturePad.axes[3] = -0.9;
+    });
+    await expect
+      .poll(() =>
+        page.locator('[data-og7="pilot-scroll"]').evaluate((el) => el.scrollTop)
+      )
+      .toBe(0);
+    await page.evaluate(() => {
+      (
+        window as unknown as { fixturePad: { axes: number[] } }
+      ).fixturePad.axes[3] = 0;
+    });
+    await expect(page.locator('[data-og7="pilot-accept"]')).toBeInViewport({
+      ratio: 1
+    });
+    await expect(page.locator('[data-og7="pilot-decision"]')).toHaveAttribute(
+      'data-og7-id',
+      state.decisions[0]!.id
+    );
+    await expect(page.getByRole('dialog')).toBeHidden();
+    expect(commands).toEqual([]);
+  });
+}
+
+for (const language of ['fr-CA', 'en']) {
+  test(`guide keeps the automation indicator inside its scroll viewport in ${language}`, async ({
+    page
+  }, testInfo) => {
+    const { commands } = await fixtures(page);
+    await page.addInitScript(
+      (lang) => localStorage.setItem('openg7.language', lang),
+      language
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/admin/fundraiser/pilotage');
+    await guideLaunch(page).click();
+    const tour = guide(page);
+    for (const size of [
+      { width: 390, height: 844 },
+      { width: 1440, height: 900 },
+      { width: 390, height: 900 }
+    ]) {
+      await page.setViewportSize(size);
+      await expect(async () => {
+        const target = (await page
+          .locator('[data-og7="pilot-automation"]')
+          .boundingBox())!;
+        const frame = (await page
+          .locator('[data-og7="pilot-scroll"]')
+          .boundingBox())!;
+        const ring = (await tour
+          .locator('[data-og7="guide-highlight"]')
+          .boundingBox())!;
+        const card = (await tour
+          .locator('[data-og7="guide-card"]')
+          .boundingBox())!;
+        expect(target.y).toBeGreaterThanOrEqual(frame.y);
+        expect(target.y + target.height).toBeLessThanOrEqual(
+          frame.y + frame.height
+        );
+        expect(ring.y).toBeGreaterThanOrEqual(frame.y);
+        expect(ring.y + ring.height).toBeLessThanOrEqual(
+          frame.y + frame.height
+        );
+        const overlap =
+          target.x < card.x + card.width &&
+          target.x + target.width > card.x &&
+          target.y < card.y + card.height &&
+          target.y + target.height > card.y;
+        expect(overlap).toBe(false);
+      }).toPass({ timeout: 7000 });
+    }
+    await page.screenshot({
+      path: testInfo.outputPath('visible-guide-target.png')
+    });
+    await page.locator('[data-og7="pilot-automation"]').evaluate((el) => {
+      const frame = el.closest('[data-og7="pilot-scroll"]')!;
+      frame.scrollTop +=
+        el.getBoundingClientRect().top - frame.getBoundingClientRect().top + 20;
+    });
+    await expect(async () => {
+      const frame = (await page
+        .locator('[data-og7="pilot-scroll"]')
+        .boundingBox())!;
+      const ring = (await tour
+        .locator('[data-og7="guide-highlight"]')
+        .boundingBox())!;
+      expect(ring.y).toBeGreaterThanOrEqual(frame.y);
+      expect(ring.y + ring.height).toBeLessThanOrEqual(frame.y + frame.height);
+    }).toPass({ timeout: 7000 });
+    await page.keyboard.press('Escape');
+    await expect(guideLaunch(page)).toBeFocused();
+    expect(commands).toEqual([]);
+  });
+}
+
 for (const language of ['fr-CA', 'en']) {
   for (const width of [390, 1280]) {
     test(`detail panel keeps context and navigation visible in ${language} at ${width}px`, async ({
@@ -502,6 +929,8 @@ test('empty overview and unavailable actions remain clear in French and English'
   await expect(overviewCount(page, 'decisions processed')).toHaveText('0');
   await expect(overviewCount(page, 'details opened')).toHaveText('0');
   await expect(page.locator('[data-og7="pilot-decision"]')).toHaveCount(0);
+  await page.locator('[data-og7="pilot-focus"]').click();
+  await expect(page.locator('[data-og7="pilot-show-queue"]')).toHaveCount(0);
   for (const action of ['accept', 'reject', 'edit', 'details'])
     await expect(page.locator(`[data-og7="pilot-${action}"]`)).toBeDisabled();
   expect(commands).toEqual([]);
@@ -517,6 +946,12 @@ for (const width of [390, 1512]) {
     const card = page.locator('[data-og7="pilot-decision"]');
     await expect(card).toHaveAttribute('data-og7-id', state.decisions[0]!.id);
     for (const progress of [0, 0.5, 1]) {
+      await page
+        .locator('[data-og7="pilot-scroll"]')
+        .evaluate((element, fraction) => {
+          element.scrollTop =
+            (element.scrollHeight - element.clientHeight) * fraction;
+        }, progress);
       await page.evaluate(
         (fraction) =>
           window.scrollTo({

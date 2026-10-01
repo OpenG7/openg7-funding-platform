@@ -49,6 +49,8 @@ import {
 } from '../../components/admin-pilotage/pilot-decision-details.component.js';
 import { AdminPublicationCalendarComponent } from '../../components/admin-publications/admin-publication-calendar.component.js';
 import type { PublicationCalendarEntry } from '../../components/admin-publications/publication-calendar.js';
+import { PilotAppearanceService } from '../../services/pilot-appearance.service.js';
+import { PilotAppearanceComponent } from '../../components/admin-pilotage/pilot-appearance.component.js';
 
 type Panel =
   | ''
@@ -60,13 +62,15 @@ type Panel =
   | 'help'
   | 'settings'
   | 'incident'
-  | 'programme';
+  | 'programme'
+  | 'appearance';
 
 /** Routed orchestration: one stable decision, explicit commands and server receipts. */
 @Component({
   selector: 'openg7-admin-pilotage-page',
   standalone: true,
   imports: [
+    PilotAppearanceComponent,
     CommonModule,
     FormsModule,
     RouterLink,
@@ -79,7 +83,7 @@ type Panel =
     EditorialProgrammeComponent,
     AdminGuideComponent
   ],
-  providers: [ControllerService],
+  providers: [ControllerService, PilotAppearanceService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-pilotage-page.component.html',
   styleUrls: [
@@ -94,6 +98,25 @@ export class AdminPilotagePageComponent {
   readonly controller = inject(ControllerService);
   readonly inspection = inject(AdminInspectionService);
   readonly guideSteps = PILOTAGE_GUIDE;
+  readonly appearance = inject(PilotAppearanceService);
+  readonly concentrated = signal(false);
+  readonly queueVisible = signal(false);
+  readonly guideActive = signal(false);
+  guideChanged(active: boolean): void {
+    this.guideActive.set(active);
+    if (active) this.concentrated.set(false);
+    this.controller.reset();
+  }
+  toggleConcentration(): void {
+    if (this.busy() || this.panel() || this.guideActive()) return;
+    this.concentrated.update((value) => !value);
+    this.queueVisible.set(false);
+    this.controller.reset();
+  }
+  toggleQueue(): void {
+    this.queueVisible.update((value) => !value);
+    this.controller.reset();
+  }
   private readonly guide = viewChild(AdminGuideComponent);
   private readonly programme = viewChild(EditorialProgrammeComponent);
   private readonly document = inject(DOCUMENT);
@@ -1013,7 +1036,7 @@ export class AdminPilotagePageComponent {
       case 'scrollUp':
       case 'scrollDown':
         this.document
-          .querySelector('.decision-copy')
+          .querySelector('[data-og7="pilot-scroll"]')
           ?.scrollBy({ top: intent === 'scrollDown' ? 150 : -150 });
         break;
     }

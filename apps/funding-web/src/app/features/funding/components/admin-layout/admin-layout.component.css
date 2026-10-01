@@ -55,7 +55,7 @@ main:focus {
 .skip-link {
   background: var(--admin-gold);
   border-radius: 0.4rem;
-  color: #182033;
+  color: var(--og7-admin-on-primary, #182033);
   left: 1rem;
   padding: 0.8rem 1rem;
   position: fixed;
@@ -108,5 +108,63 @@ main:focus {
   .tools {
     width: 100%;
     justify-content: space-between;
+  }
+}
+
+/* A reserved viewport row keeps decisions visible without overlaying the document. */
+.pilotage-layout {
+  height: 100dvh;
+  min-height: 0;
+  overflow: auto;
+}
+.pilotage-layout .workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+.pilotage-layout main {
+  /* Keep the dossier reachable when enlarged text or a short viewport fills the chrome. */
+  min-height: 20rem;
+  min-width: 0;
+  width: 100%;
+  padding-block: 1rem;
+}
+.layout.concentrated {
+  grid-template-columns: minmax(0, 1fr);
+}
+.concentrated openg7-admin-nav,
+.concentrated .topbar {
+  display: none;
+}
+.pilotage-layout.concentrated .workspace {
+  grid-template-rows: minmax(0, 1fr);
+}
+@media (max-width: 860px) {
+  .pilotage-layout {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .pilotage-layout > openg7-admin-nav {
+    max-height: 45dvh;
+    overflow: auto;
+  }
+  .pilotage-layout.concentrated {
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .pilotage-layout .topbar {
+    padding-block: 0.5rem;
+    gap: 0.5rem;
+  }
+  .pilotage-layout .tools {
+    gap: 0.4rem;
+  }
+  .pilotage-layout .tools .admin-button {
+    font-size: 0.75rem;
+    padding-inline: 0.65rem;
+  }
+  .pilotage-layout openg7-contribution-activity {
+    font-size: 0.7rem;
   }
 }

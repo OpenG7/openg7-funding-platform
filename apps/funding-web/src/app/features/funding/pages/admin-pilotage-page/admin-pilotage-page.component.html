@@ -1,14 +1,22 @@
-<openg7-admin-layout>
-  <div class="pilot" data-og7="pilotage">
-    <section class="intro">
-      <div class="intro-copy">
-        <p class="eyebrow">
-          <span class="eyebrow-mark" aria-hidden="true"></span>
-          {{ t('fund') }} <span aria-hidden="true">/</span>
-          {{ t(domain() ? 'domains.' + domain() : 'overview') }}
-        </p>
-        <h1>{{ t('title') }}</h1>
-        <p>{{ t('subtitle') }}</p>
+<openg7-admin-layout [pilotage]="true" [concentrated]="concentrated()">
+  <div
+    class="pilot"
+    data-og7="pilotage"
+    [class.concentrated]="concentrated()"
+    [class.queue-visible]="queueVisible()"
+    [class.controller-active]="controller.connected() && controller.enabled()"
+  >
+    <div class="pilot-scroll" data-og7="pilot-scroll">
+      <section class="intro">
+        <div class="intro-copy">
+          <p class="eyebrow">
+            <span class="eyebrow-mark" aria-hidden="true"></span>
+            {{ t('fund') }} <span aria-hidden="true">/</span>
+            {{ t(domain() ? 'domains.' + domain() : 'overview') }}
+          </p>
+          <h1>{{ t('title') }}</h1>
+          <p>{{ t('subtitle') }}</p>
+        </div>
         <div class="intro-actions">
           <button
             type="button"
@@ -28,408 +36,440 @@
             [disabled]="
               busy() || loading() || !!panel() || !!inspection.current()
             "
-            (activeChanged)="controller.reset()"
+            (activeChanged)="guideChanged($event)"
           />
-        </div>
-      </div>
-      <a
-        class="automation"
-        data-og7="pilot-automation"
-        [class.is-active]="state()?.workerEnabled"
-        routerLink="/admin/fundraiser/publications/automation"
-        [queryParams]="{ settings: 'feeds' }"
-        (click)="portal()"
-      >
-        <span class="automation-icon" aria-hidden="true">
-          <openg7-admin-icon name="assistant" />
-        </span>
-        <div>
-          <strong
-            ><i class="dot" [class.online]="state()?.workerEnabled"></i
-            >{{
-              t(
-                state()?.workerEnabled
-                  ? 'automationActive'
-                  : 'automationStopped'
-              )
-            }}</strong
-          >
-          <p>
-            {{
-              t(
-                preparing()
-                  ? 'preparing'
-                  : state()?.workerEnabled
-                    ? 'preparationDisabled'
-                    : 'workerHelp'
-              )
-            }}
-          </p>
-          <span class="automation-shortcut">
-            {{ t('automationSettings') }}
-            <openg7-admin-icon name="arrow" />
-          </span>
-        </div>
-      </a>
-    </section>
-    <section class="domain-picker" aria-labelledby="pilot-domains-heading">
-      <h2 id="pilot-domains-heading">{{ t('navigation') }}</h2>
-      <div
-        class="domain-filters"
-        role="group"
-        data-og7="pilot-domains"
-        aria-labelledby="pilot-domains-heading"
-      >
-        <button
-          type="button"
-          [class.active]="domain() === ''"
-          [attr.aria-pressed]="domain() === ''"
-          (click)="changeDomain('')"
-          [disabled]="busy()"
-        >
-          <openg7-admin-icon name="dashboard" />{{ t('overview') }}
-        </button>
-        @for (d of domains; track d.id) {
           <button
             type="button"
-            [class.active]="domain() === d.id"
-            [attr.aria-pressed]="domain() === d.id"
-            [attr.data-domain]="d.id"
-            (click)="changeDomain(d.id)"
+            (click)="open('appearance')"
+            [disabled]="busy() || guideActive()"
+            data-og7="pilot-appearance"
+          >
+            <openg7-admin-icon name="settings" />{{ t('appearance') }}
+          </button>
+          <button
+            type="button"
+            (click)="toggleConcentration()"
+            [disabled]="busy() || !!panel() || guideActive()"
+            [attr.aria-pressed]="concentrated()"
+            data-og7="pilot-focus"
+          >
+            <openg7-admin-icon name="dashboard" />{{
+              t(concentrated() ? 'exitFocus' : 'focusMode')
+            }}
+          </button>
+        </div>
+      </section>
+      <section class="domain-picker" aria-labelledby="pilot-domains-heading">
+        <h2 id="pilot-domains-heading">{{ t('navigation') }}</h2>
+        <div
+          class="domain-filters"
+          role="group"
+          data-og7="pilot-domains"
+          aria-labelledby="pilot-domains-heading"
+        >
+          <button
+            type="button"
+            [class.active]="domain() === ''"
+            [attr.aria-pressed]="domain() === ''"
+            (click)="changeDomain('')"
             [disabled]="busy()"
           >
-            <openg7-admin-icon [name]="d.icon" /><span>{{
-              t('domains.' + d.id)
-            }}</span
-            ><small>{{ state()?.domains?.[d.id] ?? '—' }}</small>
+            <openg7-admin-icon name="dashboard" />{{ t('overview') }}
           </button>
-        }
-      </div>
-    </section>
-    <div class="pilot-tools">
-      <button type="button" data-og7="pilot-calendar" (click)="openCalendar()">
-        <openg7-admin-icon name="clock" />{{ t('calendar') }}
-      </button>
-      <button type="button" (click)="open('settings')">
-        <openg7-admin-icon name="settings" />{{ t('settings') }}
-      </button>
-      <button
-        class="connection"
-        data-og7="pilot-controller"
-        type="button"
-        (click)="open('settings')"
-      >
-        <span aria-hidden="true">◉</span
-        >{{
-          t(
-            controller.connected()
-              ? controller.enabled()
-                ? controller.ready()
-                  ? 'connected'
-                  : 'needsCalibration'
-                : 'capturePaused'
-              : 'disconnected'
-          )
-        }}
-        <i
-          class="dot"
-          [class.online]="controller.ready() && controller.enabled()"
-        ></i>
-      </button>
-    </div>
-    <dl
-      class="overview"
-      data-og7="pilot-overview"
-      [attr.aria-label]="t('overview')"
-    >
-      <div class="overview-stat stat-pending">
-        <dt>
-          <openg7-admin-icon name="publications" />{{ t('pendingDecisions') }}
-        </dt>
-        <dd>{{ state()?.total ?? '—' }}</dd>
-        <dd class="stat-context">{{ t('inThisSpace') }}</dd>
-      </div>
-      <div class="overview-stat stat-done">
-        <dt><openg7-admin-icon name="audit" />{{ t('decisionsDone') }}</dt>
-        <dd>{{ metrics().decisions }}</dd>
-        <dd class="stat-context">{{ t('duringVisit') }}</dd>
-      </div>
-      <div class="overview-stat stat-details">
-        <dt><openg7-admin-icon name="search" />{{ t('detailsOpened') }}</dt>
-        <dd>{{ metrics().details }}</dd>
-        <dd class="stat-context">{{ t('duringVisit') }}</dd>
-      </div>
-    </dl>
-    <div class="announcements" aria-live="polite" aria-atomic="true">
-      @if (sessionStart()) {
-        <p class="alert">
-          {{ t('fiveMinutes') }} · {{ sessionElapsed() }} min ·
-          {{ sessionDecisions() }} {{ t('sessionDecisions') }}
-          <button type="button" (click)="stopSession()">
-            {{ t('endSession') }}
-          </button>
-        </p>
-      }
-      @if (error() && !panel()) {
-        <p class="alert" role="alert">
-          {{ errorLabel(error()) }}
-          <button type="button" (click)="load(true)">{{ t('refresh') }}</button>
-        </p>
-      }
-      @if (state()?.coverage === 'partial') {
-        <p class="alert">
-          {{ t('partial') }}
-          <button type="button" (click)="open('menu')">
-            {{ t('details') }}
-          </button>
-        </p>
-      }
-      @if (state() && !state()?.writable) {
-        <p class="alert">{{ t('readOnly') }}</p>
-      }
-      @if (stale() && receipt()?.status !== 'completed') {
-        <p class="alert">
-          {{ t('stale') }}
-          <button type="button" (click)="load(true)">{{ t('reread') }}</button>
-        </p>
-      }
-      @if (unresolved()) {
-        <p class="alert">
-          {{ t('uncertain') }}
-          <button type="button" (click)="recover()" [disabled]="busy()">
-            {{ t('checkReceipt') }}
-          </button>
-          @if (receipt()?.status === 'uncertain' && state()?.writable) {
-            <button type="button" (click)="open('incident')">
-              {{ t('incident') }}
-            </button>
-          }
-        </p>
-      }
-      @if (receipt()?.status === 'completed') {
-        <p class="success" data-og7="pilot-receipt">
-          {{ t('receipts.' + receipt()?.code) }}
-          <button
-            type="button"
-            (click)="
-              receipt()?.action === 'publication.edit' ? load(true) : next()
-            "
-          >
-            {{
-              t(receipt()?.action === 'publication.edit' ? 'reread' : 'next')
-            }}
-            →
-          </button>
-        </p>
-      }
-    </div>
-    @if (domain() === 'operations') {
-      <section class="operations">
-        <h2>{{ t('feeds') }}</h2>
-        <p>{{ t('pauseHelp') }}</p>
-        @for (f of state()?.feeds ?? []; track f.id) {
-          <article>
-            <h3>{{ f.id }}</h3>
-            <p>
-              {{ f.accountId || t('notConnected') }} ·
-              {{ i18n.t('admin.publicationAutomation.modes.' + f.mode) }}
-            </p>
-            <p>
-              {{
-                i18n.t('admin.publicationAutomation.connection.' + f.connection)
-              }}
-            </p>
+          @for (d of domains; track d.id) {
             <button
               type="button"
-              (click)="feed(f)"
-              [disabled]="!state()?.writable || busy() || !!unresolved()"
+              [class.active]="domain() === d.id"
+              [attr.aria-pressed]="domain() === d.id"
+              [attr.data-domain]="d.id"
+              (click)="changeDomain(d.id)"
+              [disabled]="busy()"
             >
-              {{ t(f.paused ? 'resumeFeed' : 'pauseFeed') }}
-            </button>
-          </article>
-        }
-        <a routerLink="/admin/fundraiser/setup" (click)="portal()"
-          >{{ t('configuration') }} ↗</a
-        >
-      </section>
-    } @else if (selected(); as d) {
-      <div class="workspace">
-        <article
-          class="decision"
-          data-og7="pilot-decision"
-          [attr.data-og7-id]="d.id"
-          [attr.data-domain]="d.domain"
-          [attr.aria-busy]="busy()"
-        >
-          <div class="decision-topline">
-            <span class="decision-focus"
-              ><span aria-hidden="true"></span>{{ t('yourDecision') }}</span
-            >
-            <span class="badge"
-              ><openg7-admin-icon [name]="domainIcon(d.domain)" />{{
-                kind(d)
+              <openg7-admin-icon [name]="d.icon" /><span>{{
+                t('domains.' + d.id)
               }}</span
+              ><small>{{ state()?.domains?.[d.id] ?? '—' }}</small>
+            </button>
+          }
+        </div>
+      </section>
+      <div class="pilot-tools">
+        <a
+          class="automation"
+          data-og7="pilot-automation"
+          [class.is-active]="state()?.workerEnabled"
+          routerLink="/admin/fundraiser/publications/automation"
+          [queryParams]="{ settings: 'feeds' }"
+          (click)="portal()"
+        >
+          <span class="automation-icon" aria-hidden="true">
+            <openg7-admin-icon name="assistant" />
+          </span>
+          <div>
+            <strong
+              ><i class="dot" [class.online]="state()?.workerEnabled"></i
+              >{{
+                t(
+                  state()?.workerEnabled
+                    ? 'automationActive'
+                    : 'automationStopped'
+                )
+              }}</strong
             >
+            <p>
+              {{
+                t(
+                  preparing()
+                    ? 'preparing'
+                    : state()?.workerEnabled
+                      ? 'preparationDisabled'
+                      : 'workerHelp'
+                )
+              }}
+            </p>
+            <span class="automation-shortcut">
+              {{ t('automationSettings') }}
+              <openg7-admin-icon name="arrow" />
+            </span>
           </div>
-          <div class="preview">
-            <div class="visual">
-              @if (image()) {
-                <img
-                  [src]="image()"
-                  [alt]="d.publication?.mediaAlt || d.sponsor?.name || d.title"
-                  (error)="previewFailed.set(true)"
-                />
-              } @else {
-                <div class="no-image">
-                  <span class="no-image-icon"
-                    ><openg7-admin-icon [name]="domainIcon(d.domain)" /></span
-                  ><span>{{
-                    t(
-                      previewFailed()
-                        ? 'previewFailed'
-                        : d.publication?.mediaId || d.sponsor?.presentationId
-                          ? 'loading'
-                          : 'noImage'
-                    )
-                  }}</span>
-                </div>
-              }
-            </div>
-            <div class="decision-heading">
-              <h2>{{ d.title || kind(d) }}</h2>
-              @if (d.publication; as p) {
-                <p class="destination">
-                  {{ p.feedId }} <span>·</span>
-                  {{ i18n.t('admin.publicationAutomation.modes.' + p.mode) }}
-                </p>
-              }
-              <p class="date">
-                <openg7-admin-icon name="clock" />{{ date(d.dueAt) }}
+        </a>
+        <button
+          type="button"
+          data-og7="pilot-calendar"
+          (click)="openCalendar()"
+        >
+          <openg7-admin-icon name="clock" />{{ t('calendar') }}
+        </button>
+        <button type="button" (click)="open('settings')">
+          <openg7-admin-icon name="settings" />{{ t('settings') }}
+        </button>
+        <button
+          class="connection"
+          data-og7="pilot-controller"
+          type="button"
+          (click)="open('settings')"
+        >
+          <span aria-hidden="true">◉</span
+          >{{
+            t(
+              controller.connected()
+                ? controller.enabled()
+                  ? controller.ready()
+                    ? 'connected'
+                    : 'needsCalibration'
+                  : 'capturePaused'
+                : 'disconnected'
+            )
+          }}
+          <i
+            class="dot"
+            [class.online]="controller.ready() && controller.enabled()"
+          ></i>
+        </button>
+      </div>
+      <dl
+        class="overview"
+        data-og7="pilot-overview"
+        [attr.aria-label]="t('overview')"
+      >
+        <div class="overview-stat stat-pending">
+          <dt>
+            <openg7-admin-icon name="publications" />{{ t('pendingDecisions') }}
+          </dt>
+          <dd>{{ state()?.total ?? '—' }}</dd>
+          <dd class="stat-context">{{ t('inThisSpace') }}</dd>
+        </div>
+        <div class="overview-stat stat-done">
+          <dt><openg7-admin-icon name="audit" />{{ t('decisionsDone') }}</dt>
+          <dd>{{ metrics().decisions }}</dd>
+          <dd class="stat-context">{{ t('duringVisit') }}</dd>
+        </div>
+        <div class="overview-stat stat-details">
+          <dt><openg7-admin-icon name="search" />{{ t('detailsOpened') }}</dt>
+          <dd>{{ metrics().details }}</dd>
+          <dd class="stat-context">{{ t('duringVisit') }}</dd>
+        </div>
+      </dl>
+      <div class="announcements" aria-live="polite" aria-atomic="true">
+        @if (sessionStart()) {
+          <p class="alert">
+            {{ t('fiveMinutes') }} · {{ sessionElapsed() }} min ·
+            {{ sessionDecisions() }} {{ t('sessionDecisions') }}
+            <button type="button" (click)="stopSession()">
+              {{ t('endSession') }}
+            </button>
+          </p>
+        }
+        @if (error() && !panel()) {
+          <p class="alert" role="alert">
+            {{ errorLabel(error()) }}
+            <button type="button" (click)="load(true)">
+              {{ t('refresh') }}
+            </button>
+          </p>
+        }
+        @if (state()?.coverage === 'partial') {
+          <p class="alert">
+            {{ t('partial') }}
+            <button type="button" (click)="open('menu')">
+              {{ t('details') }}
+            </button>
+          </p>
+        }
+        @if (state() && !state()?.writable) {
+          <p class="alert">{{ t('readOnly') }}</p>
+        }
+        @if (stale() && receipt()?.status !== 'completed') {
+          <p class="alert">
+            {{ t('stale') }}
+            <button type="button" (click)="load(true)">
+              {{ t('reread') }}
+            </button>
+          </p>
+        }
+        @if (unresolved()) {
+          <p class="alert">
+            {{ t('uncertain') }}
+            <button type="button" (click)="recover()" [disabled]="busy()">
+              {{ t('checkReceipt') }}
+            </button>
+            @if (receipt()?.status === 'uncertain' && state()?.writable) {
+              <button type="button" (click)="open('incident')">
+                {{ t('incident') }}
+              </button>
+            }
+          </p>
+        }
+        @if (receipt()?.status === 'completed') {
+          <p class="success" data-og7="pilot-receipt">
+            {{ t('receipts.' + receipt()?.code) }}
+            <button
+              type="button"
+              (click)="
+                receipt()?.action === 'publication.edit' ? load(true) : next()
+              "
+            >
+              {{
+                t(receipt()?.action === 'publication.edit' ? 'reread' : 'next')
+              }}
+              →
+            </button>
+          </p>
+        }
+      </div>
+      @if (domain() === 'operations') {
+        <section class="operations">
+          <h2>{{ t('feeds') }}</h2>
+          <p>{{ t('pauseHelp') }}</p>
+          @for (f of state()?.feeds ?? []; track f.id) {
+            <article>
+              <h3>{{ f.id }}</h3>
+              <p>
+                {{ f.accountId || t('notConnected') }} ·
+                {{ i18n.t('admin.publicationAutomation.modes.' + f.mode) }}
               </p>
-              @if (pendingSponsors().length) {
-                <button class="sponsors" type="button" (click)="details()">
-                  <openg7-admin-icon name="sponsors" />{{
-                    pendingSponsors().length
-                  }}
-                  {{ t('sponsorsToApprove') }} <span>›</span>
-                </button>
-              }
-            </div>
-          </div>
-          <div
-            class="decision-copy"
-            tabindex="0"
-            [attr.aria-label]="t('content')"
-          >
-            {{
-              d.publication?.message ||
-                d.project?.public_description ||
-                t('inspectHelp')
-            }}
-          </div>
-          <div class="decision-summary" data-og7="pilot-summary">
-            <section>
-              <openg7-admin-icon name="publications" />
-              <div>
-                <h3>{{ t('situation') }}</h3>
-                <p>
-                  {{
-                    primary()?.blocked
-                      ? errorLabel(primary()!.blocked!)
-                      : t(d.publication ? 'contentReady' : 'reviewNeeded')
-                  }}
-                </p>
-              </div>
-            </section>
-            <section>
-              <openg7-admin-icon name="audit" />
-              <div>
-                <h3>{{ t('proposal') }}</h3>
-                <p>
-                  {{ primary() ? actionLabel(primary()!.id) : t('details') }}
-                </p>
-              </div>
-            </section>
-            <section>
-              <openg7-admin-icon name="expenses" />
-              <div>
-                <h3>{{ t('consequence') }}</h3>
-                <p>{{ consequence(primary()?.id) }}</p>
-              </div>
-            </section>
-          </div>
-        </article>
-        <aside class="up-next" data-og7="pilot-queue">
-          <div class="queue-heading">
-            <h2>
-              <span class="queue-mark" aria-hidden="true"></span
-              >{{ t('following') }}
-            </h2>
-            <span>{{ state()?.page }} / {{ pageCount() }}</span>
-          </div>
-          <div class="queue-scroll">
-            @for (item of following(); track item.id) {
+              <p>
+                {{
+                  i18n.t(
+                    'admin.publicationAutomation.connection.' + f.connection
+                  )
+                }}
+              </p>
               <button
                 type="button"
-                class="queue-card"
-                [attr.data-domain]="item.domain"
-                (click)="choose(item)"
-                [disabled]="busy()"
+                (click)="feed(f)"
+                [disabled]="!state()?.writable || busy() || !!unresolved()"
               >
-                <span class="queue-icon"
-                  ><openg7-admin-icon [name]="domainIcon(item.domain)" /></span
-                ><span
-                  ><strong>{{ kind(item) }}</strong
-                  ><span>{{ item.title || t('reviewNeeded') }}</span
-                  ><small
-                    >{{ t('domains.' + item.domain) }} ·
-                    {{ date(item.dueAt) }}</small
-                  ></span
-                ><span class="queue-arrow" aria-hidden="true">›</span>
+                {{ t(f.paused ? 'resumeFeed' : 'pauseFeed') }}
               </button>
-            }
-            @if (!following().length) {
-              <p class="quiet">{{ t('queueEnd') }}</p>
-            }
-          </div>
-          @if ((state()?.total ?? 0) > (state()?.pageSize ?? 30)) {
-            <div class="pagination">
-              <button
-                (click)="page(-1)"
-                [disabled]="busy() || (state()?.page ?? 1) <= 1"
-              >
-                ← {{ t('previous') }}</button
-              ><button
-                (click)="page(1)"
-                [disabled]="
-                  busy() ||
-                  (state()?.page ?? 1) * (state()?.pageSize ?? 30) >=
-                    (state()?.total ?? 0)
-                "
-              >
-                {{ t('next') }} →
-              </button>
-            </div>
+            </article>
           }
-        </aside>
-      </div>
-    } @else {
-      <section
-        class="empty"
-        [class.is-loading]="loading()"
-        [attr.aria-busy]="loading()"
-      >
-        <span class="empty-icon"
-          ><openg7-admin-icon
-            [name]="loading() ? 'refresh' : error() ? 'warning' : 'audit'"
-        /></span>
-        <h2>
-          {{ t(loading() ? 'loading' : error() ? 'unavailable' : 'empty') }}
-        </h2>
-        <p>{{ t('emptyHelp') }}</p>
-        <button type="button" (click)="load(true)">{{ t('refresh') }}</button>
-      </section>
-    }
+          <a routerLink="/admin/fundraiser/setup" (click)="portal()"
+            >{{ t('configuration') }} ↗</a
+          >
+        </section>
+      } @else if (selected(); as d) {
+        <div class="workspace">
+          <article
+            class="decision"
+            data-og7="pilot-decision"
+            [attr.data-og7-id]="d.id"
+            [attr.data-domain]="d.domain"
+            [attr.aria-busy]="busy()"
+          >
+            <div class="decision-topline">
+              <span class="decision-focus"
+                ><span aria-hidden="true"></span>{{ t('yourDecision') }}</span
+              >
+              <span class="badge"
+                ><openg7-admin-icon [name]="domainIcon(d.domain)" />{{
+                  kind(d)
+                }}</span
+              >
+            </div>
+            <div class="preview">
+              <div class="visual">
+                @if (image()) {
+                  <img
+                    [src]="image()"
+                    [alt]="
+                      d.publication?.mediaAlt || d.sponsor?.name || d.title
+                    "
+                    (error)="previewFailed.set(true)"
+                  />
+                } @else {
+                  <div class="no-image">
+                    <span class="no-image-icon"
+                      ><openg7-admin-icon [name]="domainIcon(d.domain)" /></span
+                    ><span>{{
+                      t(
+                        previewFailed()
+                          ? 'previewFailed'
+                          : d.publication?.mediaId || d.sponsor?.presentationId
+                            ? 'loading'
+                            : 'noImage'
+                      )
+                    }}</span>
+                  </div>
+                }
+              </div>
+              <div class="decision-heading">
+                <h2>{{ d.title || kind(d) }}</h2>
+                @if (d.publication; as p) {
+                  <p class="destination">
+                    {{ p.feedId }} <span>·</span>
+                    {{ i18n.t('admin.publicationAutomation.modes.' + p.mode) }}
+                  </p>
+                }
+                <p class="date">
+                  <openg7-admin-icon name="clock" />{{ date(d.dueAt) }}
+                </p>
+                @if (pendingSponsors().length) {
+                  <button class="sponsors" type="button" (click)="details()">
+                    <openg7-admin-icon name="sponsors" />{{
+                      pendingSponsors().length
+                    }}
+                    {{ t('sponsorsToApprove') }} <span>›</span>
+                  </button>
+                }
+              </div>
+            </div>
+            <div
+              class="decision-copy"
+              tabindex="0"
+              [attr.aria-label]="t('content')"
+            >
+              {{
+                d.publication?.message ||
+                  d.project?.public_description ||
+                  t('inspectHelp')
+              }}
+            </div>
+            <div class="decision-summary" data-og7="pilot-summary">
+              <section>
+                <openg7-admin-icon name="publications" />
+                <div>
+                  <h3>{{ t('situation') }}</h3>
+                  <p>
+                    {{
+                      primary()?.blocked
+                        ? errorLabel(primary()!.blocked!)
+                        : t(d.publication ? 'contentReady' : 'reviewNeeded')
+                    }}
+                  </p>
+                </div>
+              </section>
+              <section>
+                <openg7-admin-icon name="audit" />
+                <div>
+                  <h3>{{ t('proposal') }}</h3>
+                  <p>
+                    {{ primary() ? actionLabel(primary()!.id) : t('details') }}
+                  </p>
+                </div>
+              </section>
+              <section>
+                <openg7-admin-icon name="expenses" />
+                <div>
+                  <h3>{{ t('consequence') }}</h3>
+                  <p>{{ consequence(primary()?.id) }}</p>
+                </div>
+              </section>
+            </div>
+          </article>
+          <aside class="up-next" data-og7="pilot-queue" id="pilot-following">
+            <div class="queue-heading">
+              <h2>
+                <span class="queue-mark" aria-hidden="true"></span
+                >{{ t('following') }}
+              </h2>
+              <span>{{ state()?.page }} / {{ pageCount() }}</span>
+            </div>
+            <div class="queue-scroll">
+              @for (item of following(); track item.id) {
+                <button
+                  type="button"
+                  class="queue-card"
+                  [attr.data-domain]="item.domain"
+                  (click)="choose(item)"
+                  [disabled]="busy()"
+                >
+                  <span class="queue-icon"
+                    ><openg7-admin-icon
+                      [name]="domainIcon(item.domain)" /></span
+                  ><span
+                    ><strong>{{ kind(item) }}</strong
+                    ><span>{{ item.title || t('reviewNeeded') }}</span
+                    ><small
+                      >{{ t('domains.' + item.domain) }} ·
+                      {{ date(item.dueAt) }}</small
+                    ></span
+                  ><span class="queue-arrow" aria-hidden="true">›</span>
+                </button>
+              }
+              @if (!following().length) {
+                <p class="quiet">{{ t('queueEnd') }}</p>
+              }
+            </div>
+            @if ((state()?.total ?? 0) > (state()?.pageSize ?? 30)) {
+              <div class="pagination">
+                <button
+                  (click)="page(-1)"
+                  [disabled]="busy() || (state()?.page ?? 1) <= 1"
+                >
+                  ← {{ t('previous') }}</button
+                ><button
+                  (click)="page(1)"
+                  [disabled]="
+                    busy() ||
+                    (state()?.page ?? 1) * (state()?.pageSize ?? 30) >=
+                      (state()?.total ?? 0)
+                  "
+                >
+                  {{ t('next') }} →
+                </button>
+              </div>
+            }
+          </aside>
+        </div>
+      } @else {
+        <section
+          class="empty"
+          [class.is-loading]="loading()"
+          [attr.aria-busy]="loading()"
+        >
+          <span class="empty-icon"
+            ><openg7-admin-icon
+              [name]="loading() ? 'refresh' : error() ? 'warning' : 'audit'"
+          /></span>
+          <h2>
+            {{ t(loading() ? 'loading' : error() ? 'unavailable' : 'empty') }}
+          </h2>
+          <p>{{ t('emptyHelp') }}</p>
+          <button type="button" (click)="load(true)">{{ t('refresh') }}</button>
+        </section>
+      }
+    </div>
     <footer class="controls" [attr.aria-label]="t('controls')">
       <div class="face-buttons" data-og7="pilot-actions">
         <button
@@ -518,6 +558,18 @@
       </div>
     </footer>
     <div class="session-hint">
+      @if (concentrated() && selected()) {
+        <button
+          type="button"
+          (click)="toggleQueue()"
+          [attr.aria-expanded]="queueVisible()"
+          aria-controls="pilot-following"
+          data-og7="pilot-show-queue"
+        >
+          {{ t(queueVisible() ? 'hideQueue' : 'showQueue') }} ·
+          {{ following().length }}
+        </button>
+      }
       <button type="button" (click)="open('help')">
         {{ t('help') }} · A / B / X / Y</button
       ><span>{{ t('keyboardHint') }}</span>
@@ -535,7 +587,14 @@
   (closed)="close()"
 >
   <div class="panel-content" [attr.data-og7]="'pilot-panel-' + panel()">
-    @if (panel() === 'programme') {
+    @if (panel() === 'appearance') {
+      <openg7-pilot-appearance
+        [settings]="appearance.settings()"
+        [resolved]="appearance.resolved()"
+        [storageUnavailable]="appearance.storageUnavailable()"
+        (changed)="appearance.update($event); controller.reset()"
+      />
+    } @else if (panel() === 'programme') {
       <openg7-editorial-programme
         [queue]="state()"
         [disabled]="busy() || !!unresolved() || !state()?.writable"

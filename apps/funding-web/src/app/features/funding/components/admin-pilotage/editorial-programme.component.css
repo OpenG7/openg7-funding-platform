@@ -1,7 +1,7 @@
 :host {
   display: block;
   min-width: 0;
-  color: #e4edf8;
+  color: var(--og7-admin-text, #e4edf8);
 }
 .programme {
   display: grid;
@@ -16,22 +16,22 @@
   align-items: center;
 }
 .tabs {
-  border-bottom: 1px solid #35536b;
+  border-bottom: 1px solid var(--og7-admin-border, #35536b);
   padding-bottom: 0.75rem;
 }
 .tabs button[aria-current],
 .primary {
-  background: #155671;
-  border-color: #71e0f7;
+  background: var(--og7-admin-selected, #155671);
+  border-color: var(--og7-admin-accent, #71e0f7);
 }
 .programme button,
 .programme select,
 .programme input {
   font: inherit;
   color: inherit;
-  border: 1px solid #50708a;
+  border: 1px solid var(--og7-admin-border, #50708a);
   border-radius: 0.5rem;
-  background: #102b40;
+  background: var(--og7-admin-subtle, #102b40);
   padding: 0.6rem 0.8rem;
 }
 .programme button {
@@ -43,11 +43,11 @@
   cursor: default;
 }
 .programme :focus-visible {
-  outline: 3px solid #70e3ff;
+  outline: 3px solid var(--og7-admin-focus, #70e3ff);
   outline-offset: 3px;
 }
 .programme a {
-  color: #8ceaff;
+  color: var(--og7-admin-accent, #8ceaff);
 }
 .programme label {
   display: grid;
@@ -59,7 +59,7 @@
 .programme input[type='checkbox'] {
   width: 1.15rem;
   height: 1.15rem;
-  accent-color: #1bb9d6;
+  accent-color: var(--og7-admin-accent, #1bb9d6);
 }
 .programme .check {
   display: flex;
@@ -86,12 +86,12 @@
 .stats div {
   display: grid;
   padding: 1rem;
-  border: 1px solid #35536b;
+  border: 1px solid var(--og7-admin-border, #35536b);
   border-radius: 0.7rem;
 }
 .stats strong {
   font-size: 2.2rem;
-  color: #88eaff;
+  color: var(--og7-admin-accent, #88eaff);
 }
 .priority {
   display: flex;
@@ -99,12 +99,12 @@
   gap: 1rem;
 }
 .priority small {
-  color: #b5ccdf;
+  color: var(--og7-admin-muted, #b5ccdf);
 }
 .notice {
   padding: 0.8rem;
-  border-left: 3px solid #f9c86a;
-  background: #172d42;
+  border-left: 3px solid var(--og7-admin-warning, #f9c86a);
+  background: var(--og7-admin-subtle, #172d42);
 }
 .week {
   display: grid;
@@ -113,8 +113,8 @@
   min-height: 18rem;
 }
 .day {
-  background: #0b1e30;
-  border: 1px solid #345068;
+  background: var(--og7-admin-subtle, #0b1e30);
+  border: 1px solid var(--og7-admin-border, #345068);
   border-radius: 0.6rem;
   padding: 0.5rem;
   min-width: 0;
@@ -122,7 +122,7 @@
 .day h3 {
   font-size: 0.82rem;
   margin-bottom: 0.6rem;
-  color: #b5e9f4;
+  color: var(--og7-admin-accent, #b5e9f4);
 }
 .calendar-card {
   display: grid;
@@ -137,18 +137,18 @@
   font-size: 0.73rem;
 }
 .calendar-card.selected {
-  outline: 2px solid #63def6;
+  outline: 2px solid var(--og7-admin-accent, #63def6);
 }
 .empty-day {
   font-size: 0.8rem;
-  color: #a6b9ca;
+  color: var(--og7-admin-muted, #a6b9ca);
 }
 .selected-card,
 .rule,
 .incident {
   display: grid;
   gap: 0.75rem;
-  border: 1px solid #426079;
+  border: 1px solid var(--og7-admin-border, #426079);
   border-radius: 0.65rem;
   padding: 1rem;
 }
@@ -163,17 +163,17 @@
   display: grid;
   gap: 0.35rem;
   padding: 0.75rem;
-  background: #142a3d;
+  background: var(--og7-admin-subtle, #142a3d);
 }
 .changes del {
-  color: #ffb2ac;
+  color: var(--og7-admin-danger, #ffb2ac);
 }
 .changes ins {
-  color: #93efd2;
+  color: var(--og7-admin-success, #93efd2);
   text-decoration: none;
 }
 .screen {
-  border: 1px solid #548199;
+  border: 1px solid var(--og7-admin-border, #548199);
   border-radius: 0.8rem;
   overflow: hidden;
   max-width: 650px;
@@ -183,17 +183,17 @@
 .screen header,
 .screen footer {
   padding: 1rem;
-  background: #17344b;
+  background: var(--og7-admin-raised, #17344b);
 }
 .screen footer {
   font-size: 0.85rem;
-  color: #bed0df;
+  color: var(--og7-admin-muted, #bed0df);
 }
 .screen img {
   width: 100%;
   max-height: 350px;
   object-fit: contain;
-  background: #071725;
+  background: var(--og7-admin-subtle, #071725);
 }
 .screen > .copy {
   padding: 1.25rem;
@@ -211,7 +211,7 @@
   width: 100%;
 }
 .sequence [aria-current] {
-  border-color: #71e0f7;
+  border-color: var(--og7-admin-accent, #71e0f7);
 }
 .comparison {
   display: grid;
@@ -228,20 +228,20 @@
   padding: 0.6rem;
 }
 .removed {
-  background: #522d36;
-  border-left: 3px solid #ffb2ac;
+  background: var(--og7-admin-danger-bg, #522d36);
+  border-left: 3px solid var(--og7-admin-danger, #ffb2ac);
 }
 .added {
-  background: #153e37;
-  border-left: 3px solid #93efd2;
+  background: var(--og7-admin-success-bg, #153e37);
+  border-left: 3px solid var(--og7-admin-success, #93efd2);
 }
 .confirmation {
-  border: 2px solid #77dff7;
+  border: 2px solid var(--og7-admin-accent, #77dff7);
   padding: 1.2rem;
   border-radius: 0.8rem;
   display: grid;
   gap: 0.8rem;
-  background: #10283c;
+  background: var(--og7-admin-subtle, #10283c);
 }
 .programme details > button {
   display: block;

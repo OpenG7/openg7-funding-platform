@@ -16,10 +16,10 @@
 .toast {
   pointer-events: auto;
   padding: 1rem;
-  border: 1px solid #54768a;
+  border: 1px solid var(--og7-admin-border, #54768a);
   border-radius: 1rem;
-  background: #102538;
-  color: #eef6ff;
+  background: var(--og7-admin-panel, #102538);
+  color: var(--og7-admin-text, #eef6ff);
   box-shadow: 0 8px 32px #0006;
   overflow-wrap: anywhere;
 }
@@ -44,16 +44,16 @@ li {
   margin: 0.4rem 0;
 }
 .cartouche {
-  border: 1px solid #54768a;
+  border: 1px solid var(--og7-admin-border, #54768a);
   padding: 1.25rem;
   border-radius: 1rem;
   margin: 1rem 0;
-  background: #102538;
-  color: #eef6ff;
+  background: var(--og7-admin-panel, #102538);
+  color: var(--og7-admin-text, #eef6ff);
   overflow-wrap: anywhere;
 }
 .muted {
-  color: #b8ccdb;
+  color: var(--og7-admin-muted, #b8ccdb);
   font-size: 0.9rem;
 }
 .channels {
@@ -71,7 +71,7 @@ dd {
   width: 100%;
   color: inherit;
   background: transparent;
-  border: 1px solid #54768a;
+  border: 1px solid var(--og7-admin-border, #54768a);
   border-radius: 0.6rem;
   padding: 1rem;
   margin: 0.6rem 0;
@@ -81,7 +81,7 @@ dd {
 button:focus-visible,
 summary:focus-visible,
 a:focus-visible {
-  outline: 3px solid #f2cb62;
+  outline: 3px solid var(--og7-admin-focus, #f2cb62);
   outline-offset: 3px;
 }
 @media (max-width: 600px) {

@@ -27,6 +27,33 @@ répétition générale, variantes de texte, préférences éditoriales et solut
 aux incidents. Les contrats, la migration 025 et les limites sont décrits dans
 le [runbook éditorial](editorial-programme.md).
 
+## Apparence et concentration
+
+**Apparence** propose Nuit OpenG7, Clair minéral et Graphite, ainsi que les
+densités Confort et Compact. Le choix couvre le cadre de navigation et les
+panneaux du pilotage; les autres routes administratives gardent leur apparence.
+**Suivre le thème du système** alterne entre Clair minéral et Nuit OpenG7 selon
+la préférence de l'appareil, y compris lorsqu'elle change pendant la visite.
+
+Ces préférences sont locales au navigateur (`openg7.pilotage.appearance.v1`),
+communes aux comptes sur cet appareil et synchronisées entre ses onglets.
+Elles ne contiennent aucun dossier ni secret. Un script chargé avant Angular
+applique la palette enregistrée avant le rendu de la page. Un stockage bloqué
+est signalé dans le panneau; le choix reste utilisable pendant la visite.
+
+**Concentration** masque navigation globale, indicateurs et outils secondaires
+pour agrandir le dossier. **Afficher la file** rétablit les décisions suivantes;
+**Quitter la concentration** reste accessible pendant le défilement.
+L'entrée et la sortie conservent la sélection. Les changements d'apparence,
+y compris système, ne rechargent pas les dossiers et préservent les saisies.
+La concentration revient au mode normal après rechargement.
+
+Les actions occupent une zone réservée sous le contenu défilant et ne le
+recouvrent pas. Le stick droit fait défiler cet espace, ou le panneau ouvert.
+Le texte d'une décision reste entier dans cet espace, sans défilement imbriqué.
+Apparence garde la priorité du panneau et impose le retour au neutre après
+chaque choix; aucune préférence ne déclenche une commande métier.
+
 ## Guides interactifs
 
 Le bouton **Guide pas à pas** du poste de pilotage présente dix repères :
@@ -44,6 +71,8 @@ reste ouvert. Tab/Entrée et les flèches gauche/droite fonctionnent au clavier.
 À la manette, LB/RB changent d'étape, A active le bouton sélectionné, B quitte;
 les autres raccourcis métier sont neutralisés pendant le guide. Chaque changement
 d'étape exige le retour au neutre habituel.
+Le repère reste dans la partie visible du conteneur défilant; son contour est
+limité à cette zone lorsque la cible en dépasse les limites.
 
 La progression (identifiant d'étape et fin du guide) est conservée dans
 `localStorage`, par guide, version du parcours et compte OIDC. Le mode token

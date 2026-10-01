@@ -295,17 +295,45 @@ export class AdminGuideComponent {
       const width = this.document.documentElement.clientWidth;
       const card = this.card().nativeElement.getBoundingClientRect();
       const cardTop = height - card.height - 16;
+      const scroller = target.closest<HTMLElement>(
+        '[data-og7="pilot-scroll"], dialog[open]'
+      );
+      const scrollRect = scroller?.getBoundingClientRect();
+      // The window and the nested scrollport both clip the highlighted target.
+      const visibleTop = Math.max(
+        6,
+        scrollRect ? scrollRect.top + scroller!.clientTop : 0
+      );
+      const visibleLeft = Math.max(
+        6,
+        scrollRect ? scrollRect.left + scroller!.clientLeft : 0
+      );
+      const visibleBottom = Math.min(
+        height - 6,
+        scrollRect
+          ? scrollRect.top + scroller!.clientTop + scroller!.clientHeight
+          : height
+      );
+      const visibleRight = Math.min(
+        width - 6,
+        scrollRect
+          ? scrollRect.left + scroller!.clientLeft + scroller!.clientWidth
+          : width
+      );
       if (this.revealPending) {
         this.revealPending = false;
         const rect = target.getBoundingClientRect();
-        const available = Math.max(60, cardTop - 24);
-        const desired = Math.max(
-          12,
-          (available - Math.min(available, rect.height)) / 2
+        const start = visibleTop + 6;
+        const available = Math.max(
+          0,
+          Math.min(visibleBottom - 6, cardTop - 12) - start
         );
-        const scroller =
-          target.closest('dialog[open]') ?? this.document.scrollingElement;
-        scroller?.scrollBy({ top: rect.top - desired, behavior: 'instant' });
+        const desired =
+          start + (available - Math.min(available, rect.height)) / 2;
+        (scroller ?? this.document.scrollingElement)?.scrollBy({
+          top: rect.top - desired,
+          behavior: 'instant'
+        });
       }
       const rect = target.getBoundingClientRect();
       this.cardAtTop.set(
@@ -314,10 +342,10 @@ export class AdminGuideComponent {
           rect.bottom > cardTop - 12 &&
           rect.top > card.height + 32
       );
-      const top = Math.max(6, rect.top - 5),
-        left = Math.max(6, rect.left - 5);
-      const bottom = Math.min(height - 6, rect.bottom + 5),
-        right = Math.min(width - 6, rect.right + 5);
+      const top = Math.max(visibleTop, rect.top - 5),
+        left = Math.max(visibleLeft, rect.left - 5);
+      const bottom = Math.min(visibleBottom, rect.bottom + 5),
+        right = Math.min(visibleRight, rect.right + 5);
       const value =
         bottom > top && right > left
           ? { top, left, width: right - left, height: bottom - top }

@@ -1,5 +1,29 @@
 {
   "admin": {
+    "appearance": {
+      "intro": "Choisissez votre ambiance et votre confort de lecture. Le dossier en cours reste ouvert.",
+      "palette": "Palette du poste de pilotage",
+      "themes": {
+        "night": "Nuit OpenG7",
+        "mineral": "Clair minéral",
+        "graphite": "Graphite"
+      },
+      "descriptions": {
+        "night": "Bleu nuit et accents d’or.",
+        "mineral": "Surfaces claires, lecture précise.",
+        "graphite": "Gris neutres et or discret."
+      },
+      "system": "Suivre le thème du système",
+      "systemHint": "Clair minéral le jour, Nuit OpenG7 en mode sombre, selon votre appareil.",
+      "current": "Apparence affichée :",
+      "density": "Densité de l’espace",
+      "comfortable": "Confort",
+      "comfortableHint": "Des aperçus généreux et une lecture aérée.",
+      "compact": "Compact",
+      "compactHint": "Davantage de dossiers visibles sur grand écran.",
+      "saved": "Préférences enregistrées sur cet appareil, pour le poste de pilotage. Aucun contenu de dossier n’est conservé.",
+      "storageUnavailable": "Le navigateur ne permet pas d’enregistrer ce choix. Il reste appliqué pendant cette visite."
+    },
     "backups": {
       "nav": "Sauvegardes",
       "eyebrow": "Continuité des données",
@@ -2335,6 +2359,11 @@
       "missingPresentation": "Photo de présentation à fournir ou à approuver dans le dossier."
     },
     "pilotage": {
+      "appearance": "Apparence",
+      "focusMode": "Concentration",
+      "exitFocus": "Quitter la concentration",
+      "showQueue": "Afficher la file",
+      "hideQueue": "Masquer la file",
       "title": "Poste de pilotage",
       "overview": "Vue d’ensemble",
       "pendingDecisions": "À examiner",
