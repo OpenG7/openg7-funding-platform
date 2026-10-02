@@ -35,6 +35,12 @@ modification d'une allocation déjà publique exige `confirmation` égal à
 le serveur vérifie la confirmation dans la transaction, sur la version verrouillée.
 Une confirmation absente ou erronée renvoie `400 confirmation_required`.
 
+Le formulaire de création fige la saisie soumise avant la confirmation. Il reste
+éditable pendant l'enregistrement pour préparer une prochaine allocation. Après
+réussite, il est vidé seulement si cette saisie est restée inchangée; une nouvelle
+saisie ou un échec conserve les champs. La confirmation vaut pour le contenu
+soumis et n'approuve pas la saisie suivante.
+
 `expectedVersion` reste obligatoire pour modifier une allocation. Une version
 obsolète renvoie désormais `409 version_conflict`; la saisie reste dans le
 navigateur, avec une invitation à la copier avant de recharger la version courante.
@@ -117,6 +123,7 @@ yarn test
 yarn lint
 yarn test:ui:funding-transparency
 yarn exec playwright test --config tests/playwright-admin-ui.config.mjs admin-transparency-ui.spec.ts
+yarn exec playwright test --config tests/playwright-admin-ui.config.mjs admin-allocation-create-ui.spec.ts
 node --test tests/integration/funding-transparency.integration.mjs tests/integration/funding-payment-trust.integration.mjs
 node --test tests/integration/payout-transparency.integration.mjs
 yarn test:e2e:acceptance tests/playwright/payout-transparency-acceptance.spec.ts

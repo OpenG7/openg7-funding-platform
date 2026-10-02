@@ -9,6 +9,7 @@ export default defineConfig({
   testMatch: [
     'admin-audit-ui.spec.ts',
     'admin-transparency-ui.spec.ts',
+    'admin-allocation-create-ui.spec.ts',
     'admin-stripe-backfill-ui.spec.ts',
     'admin-access-ui.spec.ts',
     'admin-setup-email-ui.spec.ts',

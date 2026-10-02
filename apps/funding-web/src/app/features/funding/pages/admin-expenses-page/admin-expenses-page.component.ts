@@ -42,6 +42,8 @@ interface ExpenseEdit {
   readonly publishedAt: string;
 }
 
+type NewExpenseDraft = Omit<ExpenseEdit, 'publishedAt'>;
+
 const expenseStatuses: readonly AdminExpenseStatus[] = [
   'draft',
   'published',
@@ -759,12 +761,14 @@ export class AdminExpensesPageComponent implements OnInit {
   }
 
   async createExpense(): Promise<void> {
-    if (this.mutationBusy()) return;
-    const amount = Number(this.newAmount());
+    if (this.mutationBusy() || this.destroyRef.destroyed) return;
+    const draft = this.newExpenseDraft();
+    const token = this.adminToken();
+    const amount = Number(draft.amountAllocated);
     if (
-      !this.newProjectName().trim() ||
-      !this.newDescription().trim() ||
-      !this.newExpectedOutcome().trim() ||
+      !draft.projectName.trim() ||
+      !draft.publicDescription.trim() ||
+      !draft.expectedOutcome.trim() ||
       allocationAmountMinor(amount) === null
     ) {
       this.state.set('error');
@@ -772,43 +776,53 @@ export class AdminExpensesPageComponent implements OnInit {
     }
 
     try {
+      this.mutationBusy.set(true);
       if (
-        isPublicAllocationStatus(this.newStatus()) &&
+        isPublicAllocationStatus(draft.status) &&
         !(await this.confirmation.confirm(
           this.i18n.t('admin.confirmation.publish'),
-          `${this.newProjectName()} · ${this.formatMoney(amount, 'CAD')} · ${this.newDescription()} · ${this.newExpectedOutcome()} · ${this.newProofUrl()}`
+          `${draft.projectName} · ${this.formatMoney(amount, 'CAD')} · ${draft.publicDescription} · ${draft.expectedOutcome} · ${draft.proofUrl}`
         ))
       )
         return;
-      this.mutationBusy.set(true);
-      await this.admin.createExpense(this.adminToken(), {
-        confirmation: isPublicAllocationStatus(this.newStatus())
+      if (this.destroyRef.destroyed) return;
+      await this.admin.createExpense(token, {
+        confirmation: isPublicAllocationStatus(draft.status)
           ? PUBLIC_ALLOCATION_CREATE_CONFIRMATION
           : undefined,
-        projectName: this.newProjectName().trim(),
-        publicDescription: this.newDescription().trim(),
-        expectedOutcome: this.newExpectedOutcome().trim(),
-        progressStatus: this.newProgressStatus(),
-        proofUrl: this.newProofUrl().trim() || null,
-        proofSource: this.newProofSource().trim() || null,
-        proofPublishedAt: this.newProofPublishedAt()
-          ? new Date(this.newProofPublishedAt()).toISOString()
+        projectName: draft.projectName.trim(),
+        publicDescription: draft.publicDescription.trim(),
+        expectedOutcome: draft.expectedOutcome.trim(),
+        progressStatus: draft.progressStatus,
+        proofUrl: draft.proofUrl.trim() || null,
+        proofSource: draft.proofSource.trim() || null,
+        proofPublishedAt: draft.proofPublishedAt
+          ? new Date(draft.proofPublishedAt).toISOString()
           : null,
         amountAllocated: amount,
         currency: 'CAD',
-        status: this.newStatus()
+        status: draft.status
       });
-      this.newProjectName.set('');
-      this.newDescription.set('');
-      this.newExpectedOutcome.set('');
-      this.newAmount.set('');
-      this.newStatus.set('draft');
-      this.newProgressStatus.set('planned');
-      this.newProofUrl.set('');
-      this.newProofSource.set('');
-      this.newProofPublishedAt.set('');
+      if (this.destroyRef.destroyed) return;
+      const current = this.newExpenseDraft();
+      if (
+        (Object.keys(draft) as (keyof NewExpenseDraft)[]).every(
+          (field) => current[field] === draft[field]
+        )
+      ) {
+        this.newProjectName.set('');
+        this.newDescription.set('');
+        this.newExpectedOutcome.set('');
+        this.newAmount.set('');
+        this.newStatus.set('draft');
+        this.newProgressStatus.set('planned');
+        this.newProofUrl.set('');
+        this.newProofSource.set('');
+        this.newProofPublishedAt.set('');
+      }
       await this.loadExpenses();
     } catch {
+      if (this.destroyRef.destroyed) return;
       this.state.set('error');
     } finally {
       this.mutationBusy.set(false);
@@ -986,6 +1000,20 @@ export class AdminExpensesPageComponent implements OnInit {
       style: 'currency',
       currency: currency || 'CAD'
     }).format(amount);
+  }
+
+  private newExpenseDraft(): NewExpenseDraft {
+    return {
+      projectName: this.newProjectName(),
+      publicDescription: this.newDescription(),
+      expectedOutcome: this.newExpectedOutcome(),
+      progressStatus: this.newProgressStatus(),
+      proofUrl: this.newProofUrl(),
+      proofSource: this.newProofSource(),
+      proofPublishedAt: this.newProofPublishedAt(),
+      amountAllocated: this.newAmount(),
+      status: this.newStatus()
+    };
   }
 
   private toEdit(expense: AdminExpenseRecord): ExpenseEdit {
