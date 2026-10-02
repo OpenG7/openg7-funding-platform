@@ -4,6 +4,11 @@
 // every value has a safe default and `enabled` defaults to false. The provider
 // API key is read but NEVER logged or returned to the client.
 
+import {
+  parseBooleanEnv as parseBool,
+  parsePositiveIntegerEnv as parsePositiveInt
+} from '../environment-values.js';
+
 export type AdminAssistantProviderKind = 'disabled' | 'mock';
 
 export interface AdminAssistantConfig {
@@ -23,35 +28,6 @@ export interface AdminAssistantConfig {
 }
 
 type EnvSource = Record<string, string | undefined>;
-
-const parseBool = (value: string | undefined, fallback: boolean): boolean => {
-  if (value === undefined) {
-    return fallback;
-  }
-  const normalized = value.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-    return true;
-  }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
-    return false;
-  }
-  return fallback;
-};
-
-const parsePositiveInt = (
-  value: string | undefined,
-  fallback: number,
-  max: number
-): number => {
-  if (value === undefined) {
-    return fallback;
-  }
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return fallback;
-  }
-  return Math.min(parsed, max);
-};
 
 export const loadAdminAssistantConfig = (
   env: EnvSource = process.env

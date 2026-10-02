@@ -276,7 +276,8 @@ import {
 } from './sponsorship-invoices.repository.js';
 import {
   createSponsorLogoStorage,
-  createSponsorMediaStorage
+  createSponsorMediaStorage,
+  type SponsorLogoStorageConfig
 } from './sponsor-media-storage.js';
 import { processSponsorImage } from './sponsor-image.service.js';
 import {
@@ -313,50 +314,11 @@ import {
   loadAdminSponsorshipReviewReminderConfig,
   queueDueSponsorshipReviewReminder
 } from './admin-reminder.service.js';
-
-const parsePositiveIntegerEnv = (
-  value: string | undefined,
-  fallback: number
-): number => {
-  if (value === undefined) {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-};
-
-const parseNonNegativeIntegerEnv = (
-  value: string | undefined,
-  fallback: number
-): number => {
-  if (value === undefined) {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
-};
-
-const parseBooleanEnv = (
-  value: string | undefined,
-  fallback: boolean
-): boolean => {
-  if (value === undefined) {
-    return fallback;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-    return true;
-  }
-
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
-    return false;
-  }
-
-  return fallback;
-};
+import {
+  parseBooleanEnv,
+  parseNonNegativeIntegerEnv,
+  parsePositiveIntegerEnv
+} from './environment-values.js';
 
 const port = Number(process.env.FUNDING_API_PORT ?? 3333);
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -423,7 +385,7 @@ const sponsorLogoMaxBytes = parsePositiveIntegerEnv(
 const sponsorLogoStorageDir = path.resolve(
   process.env.FUNDING_SPONSOR_LOGO_STORAGE_DIR ?? 'var/sponsor-logos'
 );
-const sponsorLogoStorage = createSponsorLogoStorage({
+const sponsorMediaStorageConfig: SponsorLogoStorageConfig = {
   driver: process.env.SPONSOR_MEDIA_STORAGE_DRIVER,
   localStorageDir: sponsorLogoStorageDir,
   s3: {
@@ -436,21 +398,11 @@ const sponsorLogoStorage = createSponsorLogoStorage({
     accessKeyId: process.env.OVH_S3_ACCESS_KEY_ID,
     secretAccessKey: process.env.OVH_S3_SECRET_ACCESS_KEY
   }
-});
-const sponsorMediaStorage = createSponsorMediaStorage({
-  driver: process.env.SPONSOR_MEDIA_STORAGE_DRIVER,
-  localStorageDir: sponsorLogoStorageDir,
-  s3: {
-    region: process.env.SPONSOR_MEDIA_REGION,
-    endpoint: process.env.SPONSOR_MEDIA_ENDPOINT,
-    publicBucket: process.env.SPONSOR_MEDIA_PUBLIC_BUCKET,
-    publicBaseUrl: process.env.SPONSOR_MEDIA_PUBLIC_BASE_URL,
-    privateBucket: process.env.SPONSOR_MEDIA_PRIVATE_BUCKET,
-    privateBaseUrl: process.env.SPONSOR_MEDIA_PRIVATE_BASE_URL,
-    accessKeyId: process.env.OVH_S3_ACCESS_KEY_ID,
-    secretAccessKey: process.env.OVH_S3_SECRET_ACCESS_KEY
-  }
-});
+};
+const sponsorLogoStorage = createSponsorLogoStorage(sponsorMediaStorageConfig);
+const sponsorMediaStorage = createSponsorMediaStorage(
+  sponsorMediaStorageConfig
+);
 const {
   maxUploadBytes: sponsorMediaMaxBytes,
   maxSupportingImages: sponsorMediaMaxSupportingImages
