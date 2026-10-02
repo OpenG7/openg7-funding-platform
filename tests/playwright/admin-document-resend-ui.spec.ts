@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises';
+
+import type { Download } from '@playwright/test';
 import type { AdminSponsorshipInvoiceRecord } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
@@ -60,6 +63,19 @@ const secondInvoice: AdminSponsorshipInvoiceRecord = {
   sponsor_contact_email: 'other@example.test',
   last_email_recipient: 'other@example.test',
   credit_notes: []
+};
+const twoInvoiceListing = {
+  data_source: 'database',
+  invoices: [invoice, secondInvoice],
+  last_updated_at: date,
+  summary: {
+    total_count: 2,
+    total_amount: 1000,
+    credit_note_count: 1,
+    total_credited: 500,
+    failed_email_count: 0,
+    currency: 'CAD'
+  }
 };
 
 function seedSession(language: string): void {
@@ -341,21 +357,7 @@ for (const language of ['fr-CA', 'en'])
         }
         if (path.endsWith('/sponsorship-invoices')) {
           listLoads++;
-          return route.fulfill({
-            json: {
-              data_source: 'database',
-              invoices: [invoice, secondInvoice],
-              last_updated_at: date,
-              summary: {
-                total_count: 2,
-                total_amount: 1000,
-                credit_note_count: 1,
-                total_credited: 500,
-                failed_email_count: 0,
-                currency: 'CAD'
-              }
-            }
-          });
+          return route.fulfill({ json: twoInvoiceListing });
         }
         return route.fulfill({ status: 503, json: {} });
       });
@@ -474,5 +476,133 @@ for (const language of ['fr-CA', 'en'])
         page.getByText(queuedMessage, { exact: true })
       ).toBeVisible();
       await expect(page.getByText(failure, { exact: true })).toHaveCount(0);
+    });
+
+    test(`document PDF stays with its document across selection in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const english = language === 'en';
+      await page.setViewportSize({ width, height: 950 });
+      await page.addInitScript(seedSession, language);
+      const calls: string[] = [];
+      let release: ((failed: boolean) => void) | undefined;
+      let failure = '';
+      const pdf = (docId: string) =>
+        `%PDF-1.4\nSynthetic document ${docId}\n%%EOF`;
+      await page.route('**/api/**', async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname.endsWith('/pdf')) {
+          const docId =
+            url.searchParams.get('invoiceId') ??
+            url.searchParams.get('creditNoteId')!;
+          calls.push(docId);
+          if (docId !== secondInvoice.id) {
+            const failed = await new Promise<boolean>((resolve) => {
+              release = resolve;
+            });
+            if (failed)
+              return route.fulfill({ status: 503, json: { error: failure } });
+          }
+          return route.fulfill({
+            contentType: 'application/pdf',
+            body: pdf(docId)
+          });
+        }
+        if (url.pathname.endsWith('/sponsorship-invoices'))
+          return route.fulfill({ json: twoInvoiceListing });
+        return route.fulfill({ status: 503, json: {} });
+      });
+      await page.goto('/admin/fundraiser/invoices');
+      const select = (number: string) =>
+        page.getByRole('button', { name: new RegExp(`^${number}\\s`) }).click();
+      const detail = page.getByRole('region', {
+        name: english ? 'Invoice details' : 'Detail facture',
+        exact: true
+      });
+      const invoiceHeader = detail.locator('header').first();
+      const downloadName = english ? 'Download PDF' : 'Telecharger PDF';
+      const loadingName = english ? 'Preparing…' : 'Preparation...';
+      const checkDownload = async (
+        pending: Promise<Download>,
+        docId: string,
+        number: string
+      ) => {
+        const download = await pending;
+        expect(download.suggestedFilename()).toBe(`openg7-${number}.pdf`);
+        expect(await readFile((await download.path())!, 'utf8')).toBe(
+          pdf(docId)
+        );
+      };
+      for (const kind of ['invoice', 'creditNote'] as const) {
+        const docId = kind === 'invoice' ? id : creditId;
+        const number =
+          kind === 'invoice' ? invoice.invoice_number : 'CN-SYNTHETIC';
+        failure = `Synthetic PDF failure ${number}`;
+        await select(invoice.invoice_number);
+        const document =
+          kind === 'invoice'
+            ? invoiceHeader
+            : detail.locator(
+                `[data-og7="credit-note"][data-og7-id="${creditId}"]`
+              );
+        const download = document.getByRole('button', {
+          name: downloadName,
+          exact: true
+        });
+        const loading = document.getByRole('button', {
+          name: loadingName,
+          exact: true
+        });
+        release = undefined;
+        await download.focus();
+        await page.keyboard.press('Enter');
+        await expect.poll(() => release !== undefined).toBe(true);
+        await select(secondInvoice.invoice_number);
+        const downloadB = invoiceHeader.getByRole('button', {
+          name: downloadName,
+          exact: true
+        });
+        await expect(downloadB).toBeEnabled();
+        await select(invoice.invoice_number);
+        await expect(loading).toBeDisabled();
+        await loading.dispatchEvent('click');
+        await select(secondInvoice.invoice_number);
+        const downloadedB = page.waitForEvent('download');
+        await downloadB.click();
+        await checkDownload(
+          downloadedB,
+          secondInvoice.id,
+          secondInvoice.invoice_number
+        );
+        expect(calls.filter((calledId) => calledId === docId)).toHaveLength(1);
+        const failedResponse = page.waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname.endsWith('/pdf') &&
+            response.status() === 503
+        );
+        release!(true);
+        await (await failedResponse).finished();
+        await expect(downloadB).toBeEnabled();
+        await expect(detail.getByText(failure, { exact: true })).toHaveCount(0);
+        await select(invoice.invoice_number);
+        await expect(
+          document.getByText(failure, { exact: true })
+        ).toBeVisible();
+        release = undefined;
+        await download.click();
+        await expect.poll(() => release !== undefined).toBe(true);
+        expect(calls.filter((calledId) => calledId === docId)).toHaveLength(2);
+        const downloaded = page.waitForEvent('download');
+        await select(secondInvoice.invoice_number);
+        release!(false);
+        await checkDownload(downloaded, docId, number);
+        await expect(downloadB).toBeEnabled();
+        await expect(detail.getByText(failure, { exact: true })).toHaveCount(0);
+        await select(invoice.invoice_number);
+        await expect(download).toBeEnabled();
+        await expect(document.getByText(failure, { exact: true })).toHaveCount(
+          0
+        );
+      }
     });
   }
