@@ -184,6 +184,56 @@ test('admin sponsorship review reminder config is explicit and idempotent daily'
   );
 });
 
+test('review reminder optional settings preserve defaults for blank and invalid input', () => {
+  const defaults = loadAdminSponsorshipReviewReminderConfig({});
+  for (const value of ['', '  ', 'invalid', '-1', '1.5', 'Infinity']) {
+    assert.deepEqual(
+      loadAdminSponsorshipReviewReminderConfig({
+        FUNDING_ADMIN_REVIEW_REMINDER_ENABLED: value,
+        FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS: value,
+        FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS: value,
+        FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS: value
+      }),
+      defaults
+    );
+  }
+  const zeroAge = loadAdminSponsorshipReviewReminderConfig({
+    FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS: '0',
+    FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS: '0',
+    FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS: '0'
+  });
+  assert.deepEqual(zeroAge, { ...defaults, minAgeDays: 0 });
+});
+
+test('assistant optional settings preserve disabled defaults and bounded limits', () => {
+  const defaults = loadAdminAssistantConfig({});
+  for (const value of ['', '  ', 'invalid', '-1', '1.5', 'Infinity']) {
+    assert.deepEqual(
+      loadAdminAssistantConfig({
+        ADMIN_AI_ASSISTANT_ENABLED: value,
+        ADMIN_AI_MAX_TOOL_CALLS: value,
+        ADMIN_AI_TIMEOUT_MS: value,
+        ADMIN_AI_MAX_MESSAGE_LENGTH: value,
+        ADMIN_AI_MAX_ITEMS_PER_TOOL: value
+      }),
+      defaults
+    );
+  }
+  const bounded = loadAdminAssistantConfig({
+    ADMIN_AI_ASSISTANT_ENABLED: ' YES ',
+    ADMIN_AI_MAX_TOOL_CALLS: '200',
+    ADMIN_AI_TIMEOUT_MS: '600000',
+    ADMIN_AI_MAX_MESSAGE_LENGTH: '80000',
+    ADMIN_AI_MAX_ITEMS_PER_TOOL: '1000'
+  });
+  assert.equal(bounded.enabled, true);
+  assert.equal(bounded.providerConfigured, false);
+  assert.equal(bounded.maxToolCalls, 20);
+  assert.equal(bounded.timeoutMs, 60_000);
+  assert.equal(bounded.maxMessageLength, 8000);
+  assert.equal(bounded.maxItemsPerTool, 100);
+});
+
 test('review reminder links use the configured origin without credentials or inherited query strings', () => {
   assert.equal(
     buildSponsorshipReviewReminderAdminUrl(

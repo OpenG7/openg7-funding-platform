@@ -1,6 +1,11 @@
 import type { Pool } from 'pg';
 
 import {
+  parseBooleanEnv,
+  parseNonNegativeIntegerEnv,
+  parsePositiveIntegerEnv
+} from './environment-values.js';
+import {
   hasCompleteFiche,
   isActionableSponsorship,
   sponsorshipRef
@@ -72,55 +77,6 @@ export interface AdminSponsorshipReviewReminderResult {
   readonly error: string | null;
 }
 
-const parseBooleanEnv = (
-  env: NodeJS.ProcessEnv,
-  name: string,
-  fallback: boolean
-): boolean => {
-  const value = env[name];
-  if (value === undefined || value.trim() === '') {
-    return fallback;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-    return true;
-  }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
-    return false;
-  }
-
-  return fallback;
-};
-
-const parsePositiveIntegerEnv = (
-  env: NodeJS.ProcessEnv,
-  name: string,
-  fallback: number
-): number => {
-  const value = env[name];
-  if (value === undefined || value.trim() === '') {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-};
-
-const parseNonNegativeIntegerEnv = (
-  env: NodeJS.ProcessEnv,
-  name: string,
-  fallback: number
-): number => {
-  const value = env[name];
-  if (value === undefined || value.trim() === '') {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
-};
-
 const emptyResult = (
   skippedReason: AdminSponsorshipReviewReminderSkippedReason,
   dueCount = 0,
@@ -169,23 +125,19 @@ export const loadAdminSponsorshipReviewReminderConfig = (
   env: NodeJS.ProcessEnv = process.env
 ): AdminSponsorshipReviewReminderConfig => ({
   enabled: parseBooleanEnv(
-    env,
-    'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED',
+    env.FUNDING_ADMIN_REVIEW_REMINDER_ENABLED,
     DEFAULT_REVIEW_REMINDER_ENABLED
   ),
   minAgeDays: parseNonNegativeIntegerEnv(
-    env,
-    'FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS',
+    env.FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS?.trim() || undefined,
     DEFAULT_REVIEW_REMINDER_MIN_AGE_DAYS
   ),
   pollIntervalMs: parsePositiveIntegerEnv(
-    env,
-    'FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS',
+    env.FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS,
     DEFAULT_REVIEW_REMINDER_POLL_INTERVAL_MS
   ),
   maxItems: parsePositiveIntegerEnv(
-    env,
-    'FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS',
+    env.FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS,
     DEFAULT_REVIEW_REMINDER_MAX_ITEMS
   )
 });
