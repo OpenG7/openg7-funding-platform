@@ -58,6 +58,13 @@ confirmations et audits; les quotas et le verrou du logo approuvé restent appli
 
 La création du jeton, du message et de l'audit est transactionnelle. Aucun appel au fournisseur de courriel n'a lieu dans cette transaction. Le worker existant assure la livraison et ses reprises. Une erreur de file ne laisse pas un nouveau jeton orphelin.
 
+Les demandes d'accès et d'informations partagent la
+[projection du statut d'un courriel existant](../apps/funding-api/src/email-notification.service.ts) :
+`sent` retourne `already_sent`, `failed` retourne `delivery_failed` et les autres
+états retournent `already_queued`. Le rejeu ne crée ni message, ni jeton, ni audit
+supplémentaire et ne relance pas la livraison. Les contrôles de destinataire
+restent appliqués.
+
 Les écritures de brouillon sont sérialisées dans le navigateur et verrouillées par dossier côté PostgreSQL. Une révision protège contre les écrasements entre onglets. Répéter une écriture identique après perte de réponse est sans effet supplémentaire. La soumission ou l'abandon conserve une révision vide afin qu'un ancien onglet ne puisse recréer silencieusement un brouillon périmé. Répéter une soumission confirmée ne relance pas la revue et ne supprime pas un brouillon ultérieur.
 
 ## Limites visibles

@@ -29,6 +29,12 @@ retire de l’annuaire et des routes de médias publics. Enregistrer les paramè
 avancés ne change plus cette décision. Les fiches déjà visibles sont conservées.
 Voir le [contrat de visibilité](admin-ux-lot-4.md#visibilité-web-et-contreparties-livrées).
 
+La liste des médias publics et la lecture d'un média précis partagent le même
+[filtre de contribution](../apps/funding-api/src/sponsor-media.repository.ts) :
+paiement `paid`, `refunded` ou `disputed`, consentement public, revue approuvée et
+absence de maintien privé. Chaque média doit aussi être approuvé et non supprimé;
+la liste exige en plus une URL publique.
+
 Le message du suivi commanditaire (`sponsor_message`) reste privé. Seul le
 résumé public saisi par l’admin (`public_summary`) décrit l’entreprise dans
 l’annuaire. Le champ historique `message` reste présent avec la valeur `null`

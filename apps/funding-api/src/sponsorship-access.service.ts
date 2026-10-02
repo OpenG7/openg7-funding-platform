@@ -12,7 +12,10 @@ import {
   isSponsorshipEmail
 } from '../../../packages/funding-core/src/index.js';
 
-import { enqueueSponsorshipAccessEmail } from './email-notification.service.js';
+import {
+  enqueueSponsorshipAccessEmail,
+  projectExistingSponsorshipEmailStatus
+} from './email-notification.service.js';
 import { buildSponsorshipFollowupUrl } from './sponsorship-followup-links.js';
 import { insertAdminAuditLog } from './fund-admin.repository.js';
 import { recordSponsorshipDetailsForContribution } from './fund-contributions.repository.js';
@@ -288,12 +291,7 @@ export async function issueSponsorshipAccess(
       throw new SponsorshipAccessError(409, 'recipient_changed');
     if (existing)
       return {
-        status:
-          existing.status === 'sent'
-            ? 'already_sent'
-            : existing.status === 'failed'
-              ? 'delivery_failed'
-              : 'already_queued'
+        status: projectExistingSponsorshipEmailStatus(existing.status)
       };
     const token = randomBytes(32).toString('base64url');
     const url = buildSponsorshipFollowupUrl(

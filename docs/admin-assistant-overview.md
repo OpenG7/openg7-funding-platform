@@ -61,6 +61,11 @@ d'identifiant, éventuellement précédé de `#`. La recherche conserve le premi
 dossier correspondant dans le jeu chargé. Le chargement du contexte et les actions
 confirmées conservent leur recherche exacte par identifiant ou référence publique.
 
+Sans référence explicite, le contexte et la progression partagent la
+[sélection du premier dossier de la file](../apps/funding-api/src/admin-work-queue.service.ts).
+Une file vide retourne `empty`; une source manquante retourne `unavailable`.
+Une référence explicite est recherchée directement, sans charger la file.
+
 Le [résumé média partagé](../apps/funding-api/src/sponsorship-media-policy.ts)
 alimente le contexte et la progression du dossier. Une photo de présentation
 approuvée satisfait le prérequis média de publication; l'étape de revue des médias

@@ -218,6 +218,68 @@ test(
       );
       assert.equal(audit.rows.length, 1);
       assert.equal(JSON.stringify(audit.rows).includes(newToken), false);
+      const replayCounts = async () =>
+        (
+          await pool.query(`SELECT
+            (SELECT COUNT(*)::int FROM email_messages) AS emails,
+            (SELECT COUNT(*)::int FROM sponsorship_access_tokens) AS tokens,
+            (SELECT COUNT(*)::int FROM admin_audit_log) AS audits`)
+        ).rows[0];
+      const countsBeforeReplay = await replayCounts();
+      for (const [status, expected] of [
+        ['queued', 'already_queued'],
+        ['sending', 'already_queued'],
+        ['sent', 'already_sent'],
+        ['failed', 'delivery_failed']
+      ]) {
+        await pool.query('UPDATE email_messages SET status=$2 WHERE id=$1', [
+          message.id,
+          status
+        ]);
+        const messageBeforeReplay = (
+          await pool.query(
+            'SELECT id, status, attempts, next_attempt_at, sent_at FROM email_messages WHERE id=$1',
+            [message.id]
+          )
+        ).rows[0];
+        assert.deepEqual(
+          await issueSponsorshipAccess(
+            pool,
+            id,
+            'payer@example.invalid',
+            options,
+            admin
+          ),
+          { status: expected },
+          status
+        );
+        assert.deepEqual(await replayCounts(), countsBeforeReplay, status);
+        assert.deepEqual(
+          (
+            await pool.query(
+              'SELECT id, status, attempts, next_attempt_at, sent_at FROM email_messages WHERE id=$1',
+              [message.id]
+            )
+          ).rows[0],
+          messageBeforeReplay,
+          `${status}: replay does not retry or mutate the queued message`
+        );
+      }
+      await assert.rejects(
+        issueSponsorshipAccess(
+          pool,
+          id,
+          'changed@example.invalid',
+          options,
+          admin
+        ),
+        (error) => error.status === 409 && error.code === 'recipient_changed'
+      );
+      assert.deepEqual(await replayCounts(), countsBeforeReplay);
+      await pool.query(
+        "UPDATE email_messages SET status='queued' WHERE id=$1",
+        [message.id]
+      );
       await pool.query(
         "UPDATE sponsorship_access_tokens SET created_at=NOW()-INTERVAL '2 minutes' WHERE contribution_id=$1",
         [id]

@@ -474,6 +474,13 @@ export const reviewSponsorMediaAsset = async (
   return { status: current ? 'conflict' : 'not_found', asset: current };
 };
 
+const publicMediaContributionSql = `
+  contribution.status IN ('paid', 'refunded', 'disputed')
+  AND contribution.public_display_consent IS TRUE
+  AND contribution.sponsor_review_status = 'approved'
+  AND COALESCE((to_jsonb(contribution)->>'sponsor_site_visibility_held')::boolean,FALSE) IS FALSE
+`;
+
 export const listPublicSponsorMediaByContributionIds = async (
   pool: Pool | null,
   contributionIds: readonly string[]
@@ -501,10 +508,7 @@ export const listPublicSponsorMediaByContributionIds = async (
      ) AS media
      INNER JOIN fund_contributions AS contribution
        ON contribution.id = media.contribution_id
-     WHERE contribution.status IN ('paid', 'refunded', 'disputed')
-       AND contribution.public_display_consent IS TRUE
-       AND contribution.sponsor_review_status = 'approved'
-       AND COALESCE((to_jsonb(contribution)->>'sponsor_site_visibility_held')::boolean,FALSE) IS FALSE
+     WHERE ${publicMediaContributionSql}
      ORDER BY media.kind, media.sort_order, media.created_at`,
     [contributionIds]
   );
@@ -543,10 +547,7 @@ export const getApprovedPublicSponsorMedia = async (
          SELECT 1
          FROM fund_contributions AS contribution
          WHERE contribution.id = media.contribution_id
-           AND contribution.status IN ('paid', 'refunded', 'disputed')
-           AND contribution.public_display_consent IS TRUE
-           AND contribution.sponsor_review_status = 'approved'
-           AND COALESCE((to_jsonb(contribution)->>'sponsor_site_visibility_held')::boolean,FALSE) IS FALSE
+           AND ${publicMediaContributionSql}
        )`,
     [assetId]
   );

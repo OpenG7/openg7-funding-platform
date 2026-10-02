@@ -443,6 +443,25 @@ export const getAdminWorkQueue = async (
   return paginateWorkQueue(snapshot.items, now, query, snapshot.missingSources);
 };
 
+export type SponsorshipSelection =
+  | { readonly status: 'selected'; readonly sponsorshipId: string }
+  | { readonly status: 'unavailable' | 'empty' };
+
+/** Preserve explicit references; otherwise select from the complete operational queue. */
+export const resolveSponsorshipSelection = async (
+  pool: Pool | null,
+  reference?: string,
+  now = new Date()
+): Promise<SponsorshipSelection> => {
+  if (!pool) return { status: 'unavailable' };
+  if (reference) return { status: 'selected', sponsorshipId: reference };
+  const queue = await getAdminWorkQueue(pool, {}, now);
+  if (!queue.available) return { status: 'unavailable' };
+  return queue.firstSponsorshipId
+    ? { status: 'selected', sponsorshipId: queue.firstSponsorshipId }
+    : { status: 'empty' };
+};
+
 /** Shared deterministic projection; callers paginate after cross-domain deduplication. */
 export const loadAdminWorkQueue = async (
   pool: Pool | null,

@@ -20,7 +20,7 @@ import {
   loadSponsorshipAssistantDataset,
   type SponsorshipAssistantDataset
 } from './admin-assistant/context.repository.js';
-import { getAdminWorkQueue } from './admin-work-queue.service.js';
+import { resolveSponsorshipSelection } from './admin-work-queue.service.js';
 import { SPONSOR_WEBSITE_VISIBLE_SQL } from './sponsorship-website-eligibility.js';
 
 interface RefundFact {
@@ -374,12 +374,10 @@ export const getSponsorshipProgress = async (
 ): Promise<AdminSponsorshipProgressResponse> => {
   const base = { generatedAt: now.toISOString(), dossier: null };
   if (!pool) return { ...base, status: 'unavailable' };
-  if (!id) {
-    const queue = await getAdminWorkQueue(pool, {}, now);
-    if (!queue.available) return { ...base, status: 'unavailable' };
-    id = queue.firstSponsorshipId ?? undefined;
-    if (!id) return { ...base, status: 'empty' };
-  }
+  const selection = await resolveSponsorshipSelection(pool, id, now);
+  if (selection.status !== 'selected')
+    return { ...base, status: selection.status };
+  id = selection.sponsorshipId;
   const client = await pool.connect();
   try {
     await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');

@@ -207,27 +207,56 @@ test(
         ),
         (error) => error.status === 409
       );
-      assert.equal(
-        (await requestSponsorshipInformation(pool, input, 'test')).status,
-        'already_queued',
-        'retry after context changed resolves the original result'
+      const tokensBeforeReplay = await count('sponsorship_access_tokens');
+      for (const [status, expected] of [
+        ['queued', 'already_queued'],
+        ['sending', 'already_queued'],
+        ['sent', 'already_sent'],
+        ['failed', 'delivery_failed']
+      ]) {
+        await pool.query('UPDATE email_messages SET status=$2 WHERE id=$1', [
+          email.id,
+          status
+        ]);
+        const messageBeforeReplay = (
+          await pool.query(
+            'SELECT id, status, attempts, next_attempt_at, sent_at FROM email_messages WHERE id=$1',
+            [email.id]
+          )
+        ).rows[0];
+        assert.deepEqual(
+          await requestSponsorshipInformation(pool, input, 'test'),
+          { status: expected, messageId: email.id },
+          `${status}: a stale context resolves the original receipt before new context checks`
+        );
+        assert.equal(await count('email_messages'), 1, status);
+        assert.equal(await count('admin_audit_log'), 1, status);
+        assert.equal(
+          await count('sponsorship_access_tokens'),
+          tokensBeforeReplay,
+          status
+        );
+        assert.deepEqual(
+          (
+            await pool.query(
+              'SELECT id, status, attempts, next_attempt_at, sent_at FROM email_messages WHERE id=$1',
+              [email.id]
+            )
+          ).rows[0],
+          messageBeforeReplay,
+          `${status}: replay does not retry or mutate the queued message`
+        );
+      }
+      await assert.rejects(
+        requestSponsorshipInformation(
+          pool,
+          { ...input, recipient: 'changed@example.invalid' },
+          'test'
+        ),
+        (error) => error.status === 409
       );
-      await pool.query(
-        "UPDATE email_messages SET status = 'sent' WHERE id = $1",
-        [email.id]
-      );
-      assert.equal(
-        (await requestSponsorshipInformation(pool, input, 'test')).status,
-        'already_sent'
-      );
-      await pool.query(
-        "UPDATE email_messages SET status = 'failed' WHERE id = $1",
-        [email.id]
-      );
-      assert.equal(
-        (await requestSponsorshipInformation(pool, input, 'test')).status,
-        'delivery_failed'
-      );
+      assert.equal(await count('email_messages'), 1);
+      assert.equal(await count('admin_audit_log'), 1);
       const fresh = await prepareAdminAssistantDraft(pool, {
         type: 'sponsorship_reminder',
         reference: id

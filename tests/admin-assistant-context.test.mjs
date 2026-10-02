@@ -6,6 +6,7 @@ import {
   getAdminAssistantContext
 } from '../dist/apps/funding-api/src/admin-assistant/context.service.js';
 import { validateInformationRequest } from '../dist/apps/funding-api/src/sponsorship-information.service.js';
+import { getSponsorshipProgress } from '../dist/apps/funding-api/src/sponsorship-progress.service.js';
 
 const source = (record = {}, rest = {}) => ({
   record: {
@@ -92,6 +93,85 @@ test('public context omits recipients and request eligibility requires a usable 
   ])
     assert.equal(canRequestSponsorshipInformation(item), false);
   assert.equal((await getAdminAssistantContext(null)).status, 'unavailable');
+});
+
+test('context and progress report unavailable sources before opening a default dossier', async () => {
+  const now = new Date('2026-10-02T12:00:00.000Z');
+  for (const reference of [undefined, '', source().record.contributionId]) {
+    assert.deepEqual(
+      await getAdminAssistantContext(null, reference, 'mock', now),
+      {
+        generatedAt: now.toISOString(),
+        conversationMode: 'mock',
+        status: 'unavailable',
+        context: null
+      }
+    );
+    assert.deepEqual(await getSponsorshipProgress(null, reference, now), {
+      generatedAt: now.toISOString(),
+      status: 'unavailable',
+      dossier: null
+    });
+  }
+  for (const read of [
+    (pool, reference) => getAdminAssistantContext(pool, reference, 'mock', now),
+    (pool, reference) => getSponsorshipProgress(pool, reference, now)
+  ]) {
+    for (const reference of [undefined, '']) {
+      let queries = 0;
+      const result = await read(
+        {
+          query: async () => {
+            queries++;
+            return { rows: [] };
+          },
+          connect: () => assert.fail('no dossier snapshot without a selection')
+        },
+        reference
+      );
+      assert.equal(result.status, 'unavailable');
+      assert.equal(queries, 1, 'missing queue sources stop further reads');
+    }
+  }
+});
+
+test('explicit context references bypass the global queue and remain exact when not found', async () => {
+  const now = new Date('2026-10-02T12:00:00.000Z');
+  for (const [reference, exactReference] of [
+    [
+      'A0000000-0000-4000-8000-000000000001',
+      'a0000000-0000-4000-8000-000000000001'
+    ],
+    ['OG7-CMD-Synthetic', 'OG7-CMD-Synthetic'],
+    ['og7-cmd-synthetic', 'og7-cmd-synthetic'],
+    ['#OG7-CMD-Synthetic', '#OG7-CMD-Synthetic'],
+    [' ', ' ']
+  ]) {
+    let exactLookups = 0;
+    const result = await getAdminAssistantContext(
+      {
+        query: async (sql, values) => {
+          assert.doesNotMatch(
+            sql,
+            /unnest/,
+            'explicit selection skips the queue'
+          );
+          if (sql.includes('AS available'))
+            return { rows: [{ available: true }] };
+          if (sql.includes('AS exists')) return { rows: [{ exists: true }] };
+          exactLookups++;
+          assert.equal(values[1], exactReference);
+          return { rows: [] };
+        }
+      },
+      reference,
+      'mock',
+      now
+    );
+    assert.equal(result.status, 'not_found');
+    assert.equal(result.context, null);
+    assert.equal(exactLookups, 1);
+  }
 });
 
 test('information request validates explicit confirmation and safe bounded message fields', () => {

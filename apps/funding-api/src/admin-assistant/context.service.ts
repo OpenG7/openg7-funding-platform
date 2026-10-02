@@ -6,7 +6,7 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
-import { getAdminWorkQueue } from '../admin-work-queue.service.js';
+import { resolveSponsorshipSelection } from '../admin-work-queue.service.js';
 import {
   sponsorshipAdminUrl,
   sponsorshipRef
@@ -78,15 +78,14 @@ export const getAdminAssistantContext = async (
 ): Promise<AdminAssistantContextResponse> => {
   const base = { generatedAt: now.toISOString(), conversationMode };
   if (!pool) return { ...base, status: 'unavailable', context: null };
-  let reference = sponsorshipId;
-  if (!reference) {
-    const queue = await getAdminWorkQueue(pool, {}, now);
-    if (!queue.available)
-      return { ...base, status: 'unavailable', context: null };
-    reference = queue.firstSponsorshipId ?? undefined;
-    if (!reference) return { ...base, status: 'empty', context: null };
-  }
-  const source = await loadSponsorshipAssistantDataset(pool, reference, now);
+  const selection = await resolveSponsorshipSelection(pool, sponsorshipId, now);
+  if (selection.status !== 'selected')
+    return { ...base, status: selection.status, context: null };
+  const source = await loadSponsorshipAssistantDataset(
+    pool,
+    selection.sponsorshipId,
+    now
+  );
   return source
     ? {
         ...base,

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { listPublicSponsorships } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
+import {
+  getApprovedPublicSponsorMedia,
+  listPublicSponsorMediaByContributionIds
+} from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 test(
@@ -132,6 +136,144 @@ test(
           (await listPublicSponsorships(pool)).sponsorships[0].amount,
           250
         );
+      }
+    );
+
+    await t.test(
+      'public media lists and individual lookups revalidate payment, consent, review, visibility and asset state',
+      async () => {
+        const ids = await seed(9);
+        const assetIds = new Map(
+          (
+            await pool.query(
+              'SELECT id, contribution_id FROM sponsor_media_assets'
+            )
+          ).rows.map((row) => [row.contribution_id, row.id])
+        );
+        const contributionChanges = [
+          [1, "status='refunded'"],
+          [2, "status='disputed'"],
+          [3, "status='pending'"],
+          [4, "sponsor_review_status='rejected'"],
+          [5, 'public_display_consent=false'],
+          [6, 'sponsor_site_visibility_held=true']
+        ];
+        for (const [index, assignments] of contributionChanges) {
+          await pool.query(
+            `UPDATE fund_contributions SET ${assignments} WHERE id=$1`,
+            [ids[index]]
+          );
+        }
+        await pool.query(
+          "UPDATE sponsor_media_assets SET review_status='pending_review', public_storage_key=NULL, public_url=NULL WHERE contribution_id=$1",
+          [ids[7]]
+        );
+        await pool.query(
+          'UPDATE sponsor_media_assets SET deleted_at=NOW() WHERE contribution_id=$1',
+          [ids[8]]
+        );
+
+        const listed = await listPublicSponsorMediaByContributionIds(pool, ids);
+        assert.deepEqual([...listed.keys()].sort(), ids.slice(0, 3).sort());
+        for (const [index, id] of ids.entries()) {
+          const asset = await getApprovedPublicSponsorMedia(
+            pool,
+            assetIds.get(id)
+          );
+          if (index < 3) {
+            assert.equal(asset.id, assetIds.get(id));
+            assert.equal(asset.contributionId, id);
+            assert.equal(listed.get(id)[0].id, asset.id);
+            assert.equal(
+              listed.get(id)[0].alt_text,
+              'Same company - image commanditaire'
+            );
+          } else {
+            assert.equal(asset, null, `blocked media at index ${index}`);
+          }
+        }
+        assert.doesNotMatch(
+          JSON.stringify([...listed.values()]),
+          /originalFilename|originalStorageKey|processedStorageKey|photo\.png|private\//
+        );
+
+        await pool.query(
+          'UPDATE fund_contributions SET public_display_consent=false WHERE id=ANY($1::uuid[])',
+          [ids.slice(0, 3)]
+        );
+        assert.equal(
+          (await listPublicSponsorMediaByContributionIds(pool, ids)).size,
+          0
+        );
+        for (const id of ids.slice(0, 3)) {
+          assert.equal(
+            await getApprovedPublicSponsorMedia(pool, assetIds.get(id)),
+            null
+          );
+        }
+      }
+    );
+
+    await t.test(
+      'public media preserve kind, sort and date ordering plus explicit and fallback alternative text',
+      async () => {
+        const ids = await seed();
+        const assetId = (
+          await pool.query(
+            "UPDATE sponsor_media_assets SET sort_order=5, alt_text='  Existing photo  ', created_at='2026-09-02' RETURNING id"
+          )
+        ).rows[0].id;
+        const extraAssets = new Map(
+          (
+            await pool.query(
+              `INSERT INTO sponsor_media_assets (contribution_id, kind, review_status,
+                original_filename, original_mime_type, original_size_bytes, original_storage_key,
+                processed_size_bytes, processed_storage_key, public_storage_key, public_url,
+                checksum_sha256, width, height, sort_order, alt_text, created_at)
+              SELECT $1::uuid, fixture.kind, 'approved', fixture.label || '.png', 'image/png', 100,
+                'private/' || $1::uuid || '/' || fixture.label, 50,
+                'processed/' || $1::uuid || '/' || fixture.label,
+                'public/' || $1::uuid || '/' || fixture.label,
+                '/api/public/sponsor-media/' || $1::uuid || '/' || fixture.label,
+                repeat('a', 64), 960, 640, fixture.sort_order, fixture.alt_text, fixture.created_at
+              FROM (VALUES
+                ('logo', 'logo', 99, 'Logo image', '2026-09-03'::timestamptz),
+                ('early', 'supporting_image', 1, '   ', '2026-09-03'::timestamptz),
+                ('older', 'supporting_image', 5, 'Older photo', '2026-09-01'::timestamptz)
+              ) AS fixture(label, kind, sort_order, alt_text, created_at)
+              RETURNING id, original_filename`,
+              [ids[0]]
+            )
+          ).rows.map((row) => [row.original_filename, row.id])
+        );
+        const media = (
+          await listPublicSponsorMediaByContributionIds(pool, ids)
+        ).get(ids[0]);
+        const expectedIds = [
+          extraAssets.get('logo.png'),
+          extraAssets.get('early.png'),
+          extraAssets.get('older.png'),
+          assetId
+        ];
+        assert.deepEqual(
+          media.map((asset) => asset.id),
+          expectedIds
+        );
+        assert.deepEqual(
+          media.map((asset) => asset.alt_text),
+          [
+            'Logo image',
+            'Same company - image commanditaire',
+            'Older photo',
+            'Existing photo'
+          ]
+        );
+        for (const id of expectedIds) {
+          const asset = await getApprovedPublicSponsorMedia(pool, id);
+          assert.equal(asset.id, id);
+          assert.ok(asset.publicUrl);
+          assert.ok(asset.publicStorageKey);
+        }
       }
     );
 

@@ -4,6 +4,7 @@ import type {
   AdminEmailQueueMessageRecord,
   AdminEmailQueueResponse,
   AdminEmailQueueSummary,
+  AdminSponsorshipAccessResult,
   AdminSponsorshipRejectionRefundHandling
 } from '@openg7/funding-core';
 
@@ -20,6 +21,16 @@ import {
   type EmailDeliveryMode,
   type EmailServiceDependencies
 } from './services/email/index.js';
+
+/** Project an existing queued message without retrying or creating another one. */
+export const projectExistingSponsorshipEmailStatus = (
+  status: string
+): Exclude<AdminSponsorshipAccessResult['status'], 'queued'> =>
+  status === 'sent'
+    ? 'already_sent'
+    : status === 'failed'
+      ? 'delivery_failed'
+      : 'already_queued';
 
 type EmailTemplateKey =
   | 'admin_contribution_received'
