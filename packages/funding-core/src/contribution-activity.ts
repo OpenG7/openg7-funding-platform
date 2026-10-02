@@ -1,4 +1,4 @@
-import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
+import { resolveSponsorshipBenefits } from './sponsorship-benefits.js';
 
 export type ContributionPreparationState =
   | 'waiting_identity'
@@ -56,21 +56,23 @@ export function prepareContributionWebsite(
     reasons.push('payment_inactive');
     return result('ineligible');
   }
-  const benefits = DEFAULT_SPONSORSHIP_PRICING_CONFIG.benefits;
+  const benefits = resolveSponsorshipBenefits(
+    f.amountMinor / 100
+  ).achievedBenefits;
   if (
     f.contributionType !== 'sponsorship_interest' ||
     f.currency.toUpperCase() !== 'CAD' ||
-    f.amountMinor < benefits.websiteMention.minimumAmount * 100
+    !benefits.includes('website_mention')
   ) {
     reasons.push('unsupported_contribution');
     return result('ineligible');
   }
   reasons.push(
     'website_eligible',
-    f.amountMinor >= benefits.facebookBatch.minimumAmount * 100
+    benefits.includes('facebook_batch')
       ? 'facebook_eligible'
       : 'facebook_below_threshold',
-    f.amountMinor >= benefits.linkedinBatch.minimumAmount * 100
+    benefits.includes('linkedin_batch')
       ? 'linkedin_eligible'
       : 'linkedin_below_threshold'
   );

@@ -62,9 +62,12 @@ configuration est affichée explicitement et ne bloque pas les autres canaux.
 
 ## Cartouche et moteur
 
-Les seuils proviennent de la configuration partagée. Pour une contribution
-d’entreprise de 50 CAD, le worker prépare une mention Web privée. Les publications
-sociales continuent d’utiliser leurs destinations, seuils et validations existants.
+L’admissibilité à la mention Web et les motifs d’avantages sociaux sont dérivés de
+[`resolveSponsorshipBenefits`](../../packages/funding-core/src/sponsorship-benefits.ts),
+avec la configuration partagée. Pour les contributions en CAD, le montant confirmé
+en unités mineures est divisé par 100 uniquement pour lire les avantages. Les
+publications sociales continuent d’utiliser leurs destinations et validations
+existantes.
 
 La préparation exige paiement actif, consentement public et nom d’entreprise.
 Elle attend lorsque le moteur est arrêté. Elle signale séparément la revue et
