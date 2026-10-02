@@ -19,19 +19,19 @@ import {
   listSponsorshipsForAttention,
   type SponsorshipAttentionRecord
 } from './fund-contributions.repository.js';
-import {
-  findSponsorshipRequestAudit,
-  insertAdminAuditLog,
-  type SponsorshipRequestAudit
-} from './fund-admin.repository.js';
+import { insertAdminAuditLog } from './fund-admin.repository.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
+import {
+  findRecordedSponsorshipIntervention,
+  loadSponsorshipInterventionsReadModel,
+  SPONSORSHIP_INTERVENTION_ACTION
+} from './sponsorship-interventions.repository.js';
 
 export class SponsorshipInterventionError extends Error {
   constructor(readonly status: number) {
     super('Sponsorship interventions unavailable.');
   }
 }
-const action = 'sponsorship.intervention.recorded';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const keys = new Set([
   'contributionId',
@@ -78,21 +78,6 @@ export const parseSponsorshipIntervention = (
   };
 };
 
-type JournalRow = SponsorshipRequestAudit<
-  Omit<SponsorshipInterventionRequest, 'contributionId'> & {
-    requestHash: string;
-  }
->;
-const projection = (row: JournalRow): SponsorshipIntervention => ({
-  id: row.id,
-  actor: row.actor,
-  recordedAt: row.recordedAt,
-  kind: row.metadata.kind,
-  note: row.metadata.note,
-  nextReviewOn: row.metadata.nextReviewOn
-});
-const columns =
-  'id::text AS id, actor, created_at::text AS "recordedAt", metadata';
 /** Serialize retries on the dossier; the journal is append-only and is its own audit. */
 export const recordSponsorshipIntervention = async (
   pool: Pool,
@@ -106,18 +91,15 @@ export const recordSponsorshipIntervention = async (
   return withPostgresTransaction(pool, async (client) => {
     if (!(await lockSponsorshipContribution(client, input.contributionId)))
       throw new SponsorshipInterventionError(404);
-    const prior = await findSponsorshipRequestAudit<JournalRow['metadata']>(
+    const prior = await findRecordedSponsorshipIntervention(
       client,
-      {
-        contributionId: input.contributionId,
-        action,
-        requestId: input.requestId
-      }
+      input.contributionId,
+      input.requestId
     );
     if (prior) {
-      if (prior.metadata.requestHash !== requestHash)
+      if (prior.requestHash !== requestHash)
         throw new SponsorshipInterventionError(409);
-      return projection(prior);
+      return prior.intervention;
     }
     if (
       input.nextReviewOn &&
@@ -126,7 +108,7 @@ export const recordSponsorshipIntervention = async (
       throw new SponsorshipInterventionError(400);
     const recorded = await insertAdminAuditLog(client, {
       actor,
-      action,
+      action: SPONSORSHIP_INTERVENTION_ACTION,
       entityType: 'sponsorship',
       entityId: input.contributionId,
       summary: 'Administrative intervention recorded.',
@@ -139,16 +121,13 @@ export const recordSponsorshipIntervention = async (
       }
     });
     if (!recorded) throw new SponsorshipInterventionError(503);
-    const entry = await findSponsorshipRequestAudit<JournalRow['metadata']>(
+    const entry = await findRecordedSponsorshipIntervention(
       client,
-      {
-        contributionId: input.contributionId,
-        action,
-        requestId: input.requestId
-      }
+      input.contributionId,
+      input.requestId
     );
     if (!entry) throw new SponsorshipInterventionError(503);
-    return projection(entry);
+    return entry.intervention;
   });
 };
 
@@ -189,39 +168,18 @@ export const getSponsorshipInterventions = async (
     (item) => item.contributionId === id
   );
   if (!record) throw new SponsorshipInterventionError(404);
-  // Scope cursors to this dossier; new entries cannot shift older history pages.
-  const rows = (
-    await pool.query<JournalRow>(
-      `SELECT ${columns} FROM admin_audit_log
-    WHERE entity_type = 'sponsorship' AND entity_id = $1 AND action = $2
-    AND ($3::uuid IS NULL OR (created_at, id) < (SELECT created_at, id FROM admin_audit_log WHERE id = $3::uuid AND entity_type = 'sponsorship' AND entity_id = $1 AND action = $2))
-    ORDER BY created_at DESC, id DESC LIMIT 26`,
-      [id, action, cursor]
-    )
-  ).rows;
-  const extension =
-    (
-      await pool.query<{ next: string }>(
-        `SELECT metadata->>'nextReviewOn' AS next FROM admin_audit_log
-    WHERE entity_type = 'sponsorship' AND entity_id = $1 AND action = $2 AND metadata->>'kind' = 'extension'
-    ORDER BY created_at DESC, id DESC LIMIT 1`,
-        [id, action]
-      )
-    ).rows[0]?.next ?? null;
-  const lastEmail =
-    (
-      await pool.query<{ status: string; at: string }>(
-        `SELECT status, COALESCE(sent_at, created_at)::text AS at FROM email_messages
-    WHERE (metadata->>'contributionId' = $1 OR ($2::text IS NOT NULL AND metadata->>'publicReference' = $2)
-      OR id IN (SELECT email_message_id FROM sponsorship_access_tokens WHERE contribution_id = $1::uuid))
-      AND template_key IN ('sponsorship_followup', 'sponsorship_confirmation', 'sponsorship_access_recovery', 'sponsorship_information_request')
-    ORDER BY created_at DESC, id DESC LIMIT 1`,
-        [id, record.publicReference]
-      )
-    ).rows[0] ?? null;
+  const readModel = await loadSponsorshipInterventionsReadModel(
+    pool,
+    id,
+    record.publicReference,
+    cursor
+  );
   return {
-    entries: rows.slice(0, 25).map(projection),
-    nextCursor: rows.length > 25 ? rows[24].id : null,
-    followup: { ...sponsorshipFollowupState(record, extension), lastEmail }
+    entries: readModel.entries,
+    nextCursor: readModel.nextCursor,
+    followup: {
+      ...sponsorshipFollowupState(record, readModel.nextReviewOn),
+      lastEmail: readModel.lastEmail
+    }
   };
 };

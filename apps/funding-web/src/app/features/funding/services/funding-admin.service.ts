@@ -138,18 +138,10 @@ export class FundingAdminService {
   ): Promise<{
     run: import('@openg7/funding-core').AdminStripeBackfillRun | null;
   }> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/admin/stripe-backfill${id ? '?' + new URLSearchParams({ id }) : ''}`,
-      {
-        method: payload ? 'POST' : 'GET',
-        cache: 'no-store',
-        signal: AbortSignal.timeout(90000),
-        headers: {
-          ...(await this.createHeaders(this.getSavedAdminToken())),
-          'Content-Type': 'application/json'
-        },
-        ...(payload ? { body: JSON.stringify(payload) } : {})
-      }
+    const response = await this.requestAdminJson(
+      `/admin/stripe-backfill${id ? '?' + new URLSearchParams({ id }) : ''}`,
+      payload,
+      90000
     );
     if (!response.ok) {
       if (response.status === 401) this.clearAdminSession();
@@ -173,18 +165,10 @@ export class FundingAdminService {
     return this.activityRequest('/present', { ids });
   }
   private async activityRequest<T>(path: string, body?: object): Promise<T> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/admin/contribution-activity${path}`,
-      {
-        method: body ? 'POST' : 'GET',
-        cache: 'no-store',
-        signal: AbortSignal.timeout(10000),
-        headers: {
-          ...(await this.createHeaders(this.getSavedAdminToken())),
-          'Content-Type': 'application/json'
-        },
-        ...(body ? { body: JSON.stringify(body) } : {})
-      }
+    const response = await this.requestAdminJson(
+      `/admin/contribution-activity${path}`,
+      body,
+      10000
     );
     if (!response.ok) {
       if (response.status === 401) this.clearAdminSession();
@@ -252,16 +236,11 @@ export class FundingAdminService {
     path: string,
     command?: object
   ): Promise<T> {
-    const response = await fetch(`${this.apiBaseUrl}/admin/pilotage${path}`, {
-      method: command ? 'POST' : 'GET',
-      cache: 'no-store',
-      signal: AbortSignal.timeout(15000),
-      headers: {
-        ...(await this.createHeaders(this.getSavedAdminToken())),
-        'Content-Type': 'application/json'
-      },
-      ...(command ? { body: JSON.stringify(command) } : {})
-    });
+    const response = await this.requestAdminJson(
+      `/admin/pilotage${path}`,
+      command,
+      15000
+    );
     if (!response.ok) {
       const data = (await response.json().catch(() => ({}))) as {
         code?: string;
@@ -289,17 +268,9 @@ export class FundingAdminService {
       query.set('sponsorshipId', filter.sponsorshipId);
     if (!command && filter.deliveryId)
       query.set('deliveryId', filter.deliveryId);
-    const response = await fetch(
-      `${this.apiBaseUrl}/admin/publication-automation${query.size ? `?${query}` : ''}`,
-      {
-        method: command ? 'POST' : 'GET',
-        cache: 'no-store',
-        headers: {
-          ...(await this.createHeaders(this.getSavedAdminToken())),
-          'Content-Type': 'application/json'
-        },
-        ...(command ? { body: JSON.stringify(command) } : {})
-      }
+    const response = await this.requestAdminJson(
+      `/admin/publication-automation${query.size ? `?${query}` : ''}`,
+      command
     );
     if (!response.ok) {
       const data = (await response.json().catch(() => ({}))) as {
@@ -1942,6 +1913,25 @@ export class FundingAdminService {
           }
         : {})
     };
+  }
+
+  private async requestAdminJson(
+    path: string,
+    body?: object,
+    timeoutMs?: number
+  ): Promise<Response> {
+    return fetch(`${this.apiBaseUrl}${path}`, {
+      method: body ? 'POST' : 'GET',
+      cache: 'no-store',
+      ...(timeoutMs === undefined
+        ? {}
+        : { signal: AbortSignal.timeout(timeoutMs) }),
+      headers: {
+        ...(await this.createHeaders(this.getSavedAdminToken())),
+        'Content-Type': 'application/json'
+      },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
   }
 
   private async errorMessageFromResponse(

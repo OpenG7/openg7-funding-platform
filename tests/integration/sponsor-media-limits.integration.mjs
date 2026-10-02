@@ -19,9 +19,13 @@ test(
       (contribution_type, amount_cents, currency, status, sponsor_review_status)
       VALUES ('sponsorship_interest', 50000, 'cad', 'paid', 'pending_review') RETURNING id`)
       ).rows[0].id;
-      const upload = (kind = 'supporting_image', uploadedBy = 'sponsor') =>
+      const upload = (
+        kind = 'supporting_image',
+        uploadedBy = 'sponsor',
+        id = randomUUID()
+      ) =>
         createSponsorMediaAsset(pool, {
-          id: randomUUID(),
+          id,
           contributionId,
           kind,
           uploadedBy,
@@ -73,6 +77,20 @@ test(
           { kind: 'logo', count: 1 },
           { kind: 'supporting_image', count: 3 }
         ]
+      );
+      await assert.rejects(upload('logo', 'sponsor', first.asset.id), {
+        code: '23505'
+      });
+      assert.deepEqual(
+        (
+          await pool.query(
+            `SELECT id, deleted_at, updated_at::text AS version
+             FROM sponsor_media_assets WHERE id=$1`,
+            [logo.asset.id]
+          )
+        ).rows,
+        [{ id: logo.asset.id, deleted_at: null, version: logo.asset.version }],
+        'a failed replacement rolls back the previous logo deletion and version change'
       );
       await pool.query(
         "UPDATE sponsor_media_assets SET review_status='approved', public_storage_key='synthetic/logo.webp', public_url='https://example.test/logo.webp' WHERE id=$1",

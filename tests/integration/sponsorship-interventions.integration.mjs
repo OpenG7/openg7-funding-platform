@@ -161,6 +161,7 @@ test(
     );
     assert.equal(older.entries.length, 6);
     assert.equal(older.nextCursor, null);
+    assert.equal(older.followup.nextReviewOn, nextReviewOn);
     assert.equal(
       new Set([...page.entries, ...older.entries].map((entry) => entry.id))
         .size,
