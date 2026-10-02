@@ -24,6 +24,23 @@ Le corps contient `contributionId`, `expectedVersion`, `requestId` (UUID), `conf
 
 Le dossier est verrouillé pendant une transaction. La version est vérifiée avant correction ; la modification et l’audit `sponsorship.details.update` sont atomiques. L’audit conserve l’acteur, la cible, la date, les noms des champs modifiés, le motif, l’identifiant de demande, son empreinte et le résultat. Les anciennes et nouvelles coordonnées ne sont pas copiées dans l’audit. Le dossier présente un libellé traduit dans son historique.
 
+Les parcours d'accès privé, de demande d'informations, d'intervention, de correction
+et de visibilité Web partagent la même [enveloppe transactionnelle PostgreSQL](../apps/funding-api/src/postgres-transaction.ts).
+Chaque service conserve ses validations, ses verrous et ses règles d'idempotence;
+les audits restent dans les actions métier qui les exigent. Le résultat est retourné
+après validation de la transaction et libération
+de la connexion; une erreur tente l'annulation sans rejouer automatiquement l'action.
+Les demandes d'informations, les interventions et la visibilité Web réutilisent
+le [verrou de dossier commanditaire](../apps/funding-api/src/fund-contributions.repository.ts),
+qui exclut les contributions personnelles. Les verrous médias et le snapshot de
+lecture de la progression restent propres à leurs parcours.
+
+La correction et le journal d'interventions partagent la
+[lecture du reçu dans l'audit](../apps/funding-api/src/fund-admin.repository.ts).
+Le reçu est recherché pour le dossier, l'action et l'identifiant de demande exacts;
+chaque service conserve sa propre empreinte et vérifie le rejeu avant les nouvelles
+préconditions de version ou de date.
+
 Une demande identique déjà appliquée retourne son résultat enregistré, sans second audit. Réutiliser son identifiant avec un autre contenu produit un conflit. Une soumission sans changement ne modifie ni version ni audit. Réponses : 200 (`updated`, `version`), 400 (entrée invalide), 401/403 (accès), 404 (dossier absent), 409 (conflit), 405 (méthode), 415 (type de contenu), 503 (stockage indisponible ou échec). Les réponses sont privées et non mises en cache.
 
 Aucune nouvelle migration ni opération sur les données existantes n’est nécessaire. Les tables `fund_contributions` et `admin_audit_log` doivent déjà être migrées. La validation commune appartient à `funding-core`. L’API utilise son chemin relatif de module pour respecter la compilation actuelle sous `dist/packages/funding-core/src` ; les alias TypeScript du dépôt ne réécrivent pas les imports Node à l’exécution. L’image Docker API inclut désormais ce package compilé pour rendre la validation disponible à l’exécution.

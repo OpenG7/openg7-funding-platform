@@ -12,6 +12,16 @@ export interface SponsorshipPublicationCoverage {
   readonly missingChannels: readonly SponsorFeedChannel[];
 }
 
+/** Published drafts retain informational coverage of the promised channel. */
+export const isActivePublicationDraft = (
+  draft: Pick<AdminPublicationDraftRecord, 'status'>
+): boolean => draft.status !== 'rejected' && draft.status !== 'cancelled';
+
+/** Read-only followup; this grants neither approval nor permission to deliver. */
+export const isUnfinishedPublicationDraft = (
+  draft: Pick<AdminPublicationDraftRecord, 'status'>
+): boolean => isActivePublicationDraft(draft) && draft.status !== 'published';
+
 // Informational coverage of draft preparation, independent of delivery approval.
 export const activeDraftChannels = (
   drafts: readonly AdminPublicationDraftRecord[],
@@ -21,8 +31,7 @@ export const activeDraftChannels = (
   for (const draft of drafts) {
     if (
       draft.contribution_id === contributionId &&
-      draft.status !== 'rejected' &&
-      draft.status !== 'cancelled'
+      isActivePublicationDraft(draft)
     ) {
       channels.add(draft.channel);
     }

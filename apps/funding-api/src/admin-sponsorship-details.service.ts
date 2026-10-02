@@ -9,7 +9,11 @@ import type { Pool } from 'pg';
 
 import { validateAdminSponsorshipDetails } from '../../../packages/funding-core/src/admin-sponsorship-details.js';
 
-import { insertAdminAuditLog } from './fund-admin.repository.js';
+import {
+  findSponsorshipRequestAudit,
+  insertAdminAuditLog
+} from './fund-admin.repository.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 
 export class SponsorshipDetailsError extends Error {
   constructor(readonly status: number) {
@@ -80,9 +84,7 @@ export const updateAdminSponsorshipDetails = async (
   const requestHash = createHash('sha256')
     .update(JSON.stringify(input))
     .digest('hex');
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  return withPostgresTransaction(pool, async (client) => {
     const { rows } = await client.query<
       AdminSponsorshipDetails & { version: string }
     >(
@@ -100,21 +102,18 @@ export const updateAdminSponsorshipDetails = async (
     );
     const current = rows[0];
     if (!current) throw new SponsorshipDetailsError(404);
-    const prior = await client.query<{
-      metadata: { requestHash: string; result: AdminSponsorshipDetailsResult };
-    }>(
-      `
-      SELECT metadata FROM admin_audit_log
-      WHERE entity_type = 'sponsorship' AND entity_id = $1
-        AND action = 'sponsorship.details.update' AND metadata->>'requestId' = $2
-      LIMIT 1`,
-      [input.contributionId, input.requestId]
-    );
-    if (prior.rows[0]) {
-      if (prior.rows[0].metadata.requestHash !== requestHash)
+    const prior = await findSponsorshipRequestAudit<{
+      requestHash: string;
+      result: AdminSponsorshipDetailsResult;
+    }>(client, {
+      contributionId: input.contributionId,
+      action: 'sponsorship.details.update',
+      requestId: input.requestId
+    });
+    if (prior) {
+      if (prior.metadata.requestHash !== requestHash)
         throw new SponsorshipDetailsError(409);
-      await client.query('COMMIT');
-      return prior.rows[0].metadata.result;
+      return prior.metadata.result;
     }
     if (current.version !== input.expectedVersion)
       throw new SponsorshipDetailsError(409);
@@ -122,7 +121,6 @@ export const updateAdminSponsorshipDetails = async (
       (field) => current[field] !== input[field]
     );
     if (!changedFields.length) {
-      await client.query('COMMIT');
       return { updated: false, version: current.version };
     }
     const updated = await client.query<{ version: string }>(
@@ -151,12 +149,6 @@ export const updateAdminSponsorshipDetails = async (
       }
     });
     if (!audited) throw new SponsorshipDetailsError(503);
-    await client.query('COMMIT');
     return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 };

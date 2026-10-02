@@ -29,6 +29,7 @@ import {
 } from '../sponsorship-review-policy.js';
 
 import { loadSponsorshipAssistantDataset } from './context.repository.js';
+import { findSponsorshipByReference } from './sponsorship-reference.js';
 import {
   loadAttentionDataset,
   type AttentionDataset
@@ -59,19 +60,6 @@ const NOT_SAVED_NOTICE =
 const NOT_CREATED_NOTICE =
   "Proposition indicative : aucun créneau n'a été créé. Ajustez la date puis " +
   "créez le créneau via l'écran Publications.";
-
-const findSponsorship = (
-  dataset: AttentionDataset,
-  reference: string
-): SponsorshipAttentionRecord | undefined => {
-  const needle = reference.replace(/^#/, '').toLowerCase();
-  return dataset.sponsorships.find(
-    (candidate) =>
-      candidate.publicReference?.toLowerCase() === reference.toLowerCase() ||
-      candidate.contributionId.toLowerCase() === needle ||
-      candidate.contributionId.toLowerCase().startsWith(needle)
-  );
-};
 
 const notFound = (message: string): AdminAssistantPrepareResponse => ({
   status: 'not_found',
@@ -277,7 +265,7 @@ export const prepareDraftFromDataset = (
     return notFound('Une référence de commandite est requise.');
   }
 
-  const record = findSponsorship(dataset, reference);
+  const record = findSponsorshipByReference(dataset.sponsorships, reference);
   if (!record) {
     return notFound(`Aucune commandite ne correspond à « ${reference} ».`);
   }

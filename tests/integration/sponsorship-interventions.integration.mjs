@@ -20,6 +20,11 @@ test(
     VALUES ('sponsorship_interest', 25000, 'cad', 'paid', NOW() - interval '31 days', 'INTERVENTION-DEMO-1'),
     ('sponsorship_interest', 25000, 'cad', 'paid', NOW(), 'INTERVENTION-DEMO-2') RETURNING id`)
     ).rows.map((row) => row.id);
+    const personalId = (
+      await pool.query(
+        "INSERT INTO fund_contributions (contribution_type, amount_cents, currency, status) VALUES ('personal_support', 5000, 'cad', 'paid') RETURNING id"
+      )
+    ).rows[0].id;
     const before = (
       await pool.query('SELECT * FROM fund_contributions ORDER BY id')
     ).rows;
@@ -55,13 +60,20 @@ test(
       recordSponsorshipIntervention(pool, input, 'another-actor'),
       { status: 409 }
     );
-    await assert.rejects(
-      recordSponsorshipIntervention(
-        pool,
-        { ...input, contributionId: randomUUID() },
-        'operator-fixture'
-      ),
-      { status: 404 }
+    for (const contributionId of [randomUUID(), personalId]) {
+      await assert.rejects(
+        recordSponsorshipIntervention(
+          pool,
+          { ...input, contributionId },
+          'operator-fixture'
+        ),
+        { status: 404 }
+      );
+    }
+    assert.equal(
+      (await pool.query('SELECT count(*)::int AS count FROM admin_audit_log'))
+        .rows[0].count,
+      1
     );
     await assert.rejects(getSponsorshipInterventions(pool, randomUUID()), {
       status: 404

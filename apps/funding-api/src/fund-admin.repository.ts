@@ -2777,6 +2777,32 @@ export const insertAdminAuditLog = async (
   return (result.rowCount ?? 0) > 0;
 };
 
+export interface SponsorshipRequestAudit<Metadata> {
+  readonly id: string;
+  readonly actor: string;
+  readonly recordedAt: string;
+  readonly metadata: Metadata;
+}
+
+/** Read the receipt inside the transaction that already locked its dossier. */
+export const findSponsorshipRequestAudit = async <Metadata>(
+  client: PoolClient,
+  input: {
+    readonly contributionId: string;
+    readonly action: string;
+    readonly requestId: string;
+  }
+): Promise<SponsorshipRequestAudit<Metadata> | null> => {
+  const result = await client.query<SponsorshipRequestAudit<Metadata>>(
+    `SELECT id::text AS id, actor, created_at::text AS "recordedAt", metadata
+     FROM admin_audit_log
+     WHERE entity_type = 'sponsorship' AND entity_id = $1 AND action = $2
+       AND metadata->>'requestId' = $3 LIMIT 1`,
+    [input.contributionId, input.action, input.requestId]
+  );
+  return result.rows[0] ?? null;
+};
+
 export const listAdminAuditLog = async (
   pool: Pool | null,
   entryId?: string

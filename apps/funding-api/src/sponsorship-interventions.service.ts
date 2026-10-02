@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { Pool, PoolClient } from 'pg';
+import type { Pool } from 'pg';
 import type {
   SponsorshipIntervention,
   SponsorshipInterventionRequest,
@@ -15,10 +15,16 @@ import {
   isActionableSponsorship
 } from './sponsorship-review-policy.js';
 import {
+  lockSponsorshipContribution,
   listSponsorshipsForAttention,
   type SponsorshipAttentionRecord
 } from './fund-contributions.repository.js';
-import { insertAdminAuditLog } from './fund-admin.repository.js';
+import {
+  findSponsorshipRequestAudit,
+  insertAdminAuditLog,
+  type SponsorshipRequestAudit
+} from './fund-admin.repository.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 
 export class SponsorshipInterventionError extends Error {
   constructor(readonly status: number) {
@@ -72,14 +78,11 @@ export const parseSponsorshipIntervention = (
   };
 };
 
-interface JournalRow {
-  id: string;
-  actor: string;
-  recordedAt: string;
-  metadata: Omit<SponsorshipInterventionRequest, 'contributionId'> & {
+type JournalRow = SponsorshipRequestAudit<
+  Omit<SponsorshipInterventionRequest, 'contributionId'> & {
     requestHash: string;
-  };
-}
+  }
+>;
 const projection = (row: JournalRow): SponsorshipIntervention => ({
   id: row.id,
   actor: row.actor,
@@ -90,14 +93,6 @@ const projection = (row: JournalRow): SponsorshipIntervention => ({
 });
 const columns =
   'id::text AS id, actor, created_at::text AS "recordedAt", metadata';
-const findRequest = async (client: PoolClient, id: string, requestId: string) =>
-  (
-    await client.query<JournalRow>(
-      `SELECT ${columns} FROM admin_audit_log WHERE entity_type = 'sponsorship' AND entity_id = $1 AND action = $2 AND metadata->>'requestId' = $3 LIMIT 1`,
-      [id, action, requestId]
-    )
-  ).rows[0];
-
 /** Serialize retries on the dossier; the journal is append-only and is its own audit. */
 export const recordSponsorshipIntervention = async (
   pool: Pool,
@@ -108,23 +103,20 @@ export const recordSponsorshipIntervention = async (
   const requestHash = createHash('sha256')
     .update(JSON.stringify([actor, input]))
     .digest('hex');
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const locked = await client.query(
-      "SELECT id FROM fund_contributions WHERE id = $1::uuid AND contribution_type = 'sponsorship_interest' FOR UPDATE",
-      [input.contributionId]
-    );
-    if (!locked.rows.length) throw new SponsorshipInterventionError(404);
-    const prior = await findRequest(
+  return withPostgresTransaction(pool, async (client) => {
+    if (!(await lockSponsorshipContribution(client, input.contributionId)))
+      throw new SponsorshipInterventionError(404);
+    const prior = await findSponsorshipRequestAudit<JournalRow['metadata']>(
       client,
-      input.contributionId,
-      input.requestId
+      {
+        contributionId: input.contributionId,
+        action,
+        requestId: input.requestId
+      }
     );
     if (prior) {
       if (prior.metadata.requestHash !== requestHash)
         throw new SponsorshipInterventionError(409);
-      await client.query('COMMIT');
       return projection(prior);
     }
     if (
@@ -147,20 +139,17 @@ export const recordSponsorshipIntervention = async (
       }
     });
     if (!recorded) throw new SponsorshipInterventionError(503);
-    const entry = await findRequest(
+    const entry = await findSponsorshipRequestAudit<JournalRow['metadata']>(
       client,
-      input.contributionId,
-      input.requestId
+      {
+        contributionId: input.contributionId,
+        action,
+        requestId: input.requestId
+      }
     );
     if (!entry) throw new SponsorshipInterventionError(503);
-    await client.query('COMMIT');
     return projection(entry);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 };
 
 export const sponsorshipFollowupState = (

@@ -11,7 +11,11 @@ import {
   sponsorshipAdminUrl,
   sponsorshipRef
 } from '../sponsorship-admin-presentation.js';
-import { resolveSponsorshipPublicationCoverage } from '../sponsorship-publication-coverage.js';
+import { summarizeSponsorshipMedia } from '../sponsorship-media-policy.js';
+import {
+  isUnfinishedPublicationDraft,
+  resolveSponsorshipPublicationCoverage
+} from '../sponsorship-publication-coverage.js';
 import {
   canRequestSponsorshipInformation,
   missingFicheFields
@@ -31,41 +35,20 @@ export const buildSponsorshipAssistantContext = (
   const missingFields = missingFicheFields(record);
   const { promisedChannels, coveredChannels, missingChannels } =
     resolveSponsorshipPublicationCoverage(record, dataset.drafts);
-  const media = {
-    total: source.media.length,
-    approved: source.media.filter((asset) => asset.reviewStatus === 'approved')
-      .length,
-    pending: source.media.filter(
-      (asset) => asset.reviewStatus === 'pending_review'
-    ).length,
-    rejected: source.media.filter((asset) => asset.reviewStatus === 'rejected')
-      .length
-  };
+  const { hasApprovedPresentation, ...media } = summarizeSponsorshipMedia(
+    source.media
+  );
   let nextStep: AdminAssistantNextStep;
   if (record.refundStatus !== 'not_requested') nextStep = 'check_refund';
   else if (record.paymentStatus !== 'paid') nextStep = 'check_payment';
   else if (record.reviewStatus === 'rejected') nextStep = 'review_rejection';
   else if (missingFields.length) nextStep = 'complete_information';
-  else if (
-    media.pending ||
-    !source.media.some(
-      (asset) =>
-        asset.kind === 'supporting_image' && asset.reviewStatus === 'approved'
-    )
-  )
-    nextStep = 'review_media';
+  else if (media.pending || !hasApprovedPresentation) nextStep = 'review_media';
   else if (record.reviewStatus === 'pending_review')
     nextStep = 'review_sponsorship';
   else if (!source.consent) nextStep = 'confirm_consent';
   else if (missingChannels.length) nextStep = 'prepare_publication';
-  else if (
-    dataset.drafts.some(
-      (draft) =>
-        draft.status !== 'published' &&
-        draft.status !== 'cancelled' &&
-        draft.status !== 'rejected'
-    )
-  )
+  else if (dataset.drafts.some(isUnfinishedPublicationDraft))
     nextStep = 'monitor_publication';
   else nextStep = 'complete';
   return {
