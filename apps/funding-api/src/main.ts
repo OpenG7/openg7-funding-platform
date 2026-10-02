@@ -260,6 +260,10 @@ import {
 } from './sponsorship-refund-operations.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
 import {
+  normalizeContributionPublicReference
+} from './contribution-public-reference.js';
+import { sponsorshipInvoiceConfig } from './sponsorship-invoice-config.js';
+import {
   renderSponsorshipCreditNotePdf,
   renderSponsorshipInvoicePdf,
   sponsorshipCreditNotePdfFilename,
@@ -719,7 +723,6 @@ const ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
 const CONTRIBUTION_REFERENCE_BYTES = 6;
 const CONTRIBUTION_REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const contributionPublicReferencePattern = /^OG7-\d{4}-[A-Z0-9]{4,8}$/;
 const ADMIN_SESSION_TOKEN_PREFIX = 'openg7-admin-session.';
 const ADMIN_SESSION_NONCE_BYTES = 16;
 const SPONSOR_LOGO_PUBLIC_PATH_PREFIX = '/api/public/sponsor-logos/';
@@ -1203,17 +1206,6 @@ const createContributionPublicReference = (): string => {
   ).join('');
 
   return `OG7-${new Date().getUTCFullYear()}-${suffix}`;
-};
-
-const normalizeContributionPublicReference = (
-  value: string | null | undefined
-): string | null => {
-  if (!value) {
-    return null;
-  }
-
-  const reference = value.trim().toUpperCase();
-  return contributionPublicReferencePattern.test(reference) ? reference : null;
 };
 
 const normalizeReferenceRecoveryEmail = (value: unknown): string | null => {
@@ -2282,13 +2274,6 @@ const buildAdminSetupStatus = async (): Promise<AdminSetupStatusResponse> => {
     lastError: null as string | null
   };
   let emailQueueStatusError: string | null = null;
-  const invoiceIssuerName =
-    process.env.FUNDING_INVOICE_ISSUER_NAME?.trim() || 'OpenG7';
-  const invoiceIssuerEmail =
-    process.env.FUNDING_INVOICE_ISSUER_EMAIL?.trim() ||
-    process.env.MAIL_REPLY_TO_ADDRESS?.trim() ||
-    process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ||
-    null;
   const emailStatus = getTransactionalEmailConfigStatus();
 
   try {
@@ -2344,20 +2329,16 @@ const buildAdminSetupStatus = async (): Promise<AdminSetupStatusResponse> => {
       last_error: emailQueueStatus.lastError ?? emailQueueStatusError
     },
     invoice: {
-      prefix:
-        process.env.FUNDING_SPONSORSHIP_INVOICE_PREFIX?.trim() || 'OG7-CMD',
-      issuer_name: invoiceIssuerName || null,
-      issuer_email: invoiceIssuerEmail,
-      issuer_address_configured: Boolean(
-        process.env.FUNDING_INVOICE_ISSUER_ADDRESS?.trim()
-      ),
-      issuer_tax_id_configured: Boolean(
-        process.env.FUNDING_INVOICE_TAX_ID?.trim()
-      ),
-      tax_label:
-        process.env.FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL?.trim() ||
-        'Taxes non calculees par la plateforme',
-      ready: Boolean(invoiceIssuerName && invoiceIssuerEmail)
+      prefix: sponsorshipInvoiceConfig.invoicePrefix,
+      issuer_name: sponsorshipInvoiceConfig.issuerName || null,
+      issuer_email: sponsorshipInvoiceConfig.issuerEmail || null,
+      issuer_address_configured: Boolean(sponsorshipInvoiceConfig.issuerAddress),
+      issuer_tax_id_configured: Boolean(sponsorshipInvoiceConfig.issuerTaxId),
+      tax_label: sponsorshipInvoiceConfig.taxLabel,
+      ready: Boolean(
+        sponsorshipInvoiceConfig.issuerName &&
+        sponsorshipInvoiceConfig.issuerEmail
+      )
     },
     database: {
       configured: hasDatabase,

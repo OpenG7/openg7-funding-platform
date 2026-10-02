@@ -12,6 +12,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { formatSponsorshipBenefitList } from './sponsorship-benefits.js';
+import { sponsorshipInvoiceConfig } from './sponsorship-invoice-config.js';
 
 export interface SponsorshipInvoiceLineItem {
   readonly description: string;
@@ -182,29 +183,17 @@ interface SponsorshipInvoiceBackfillCandidateRow {
   readonly email_private: string | null;
 }
 
-const invoicePrefix =
-  process.env.FUNDING_SPONSORSHIP_INVOICE_PREFIX?.trim() || 'OG7-CMD';
-const creditNotePrefix =
-  process.env.FUNDING_SPONSORSHIP_CREDIT_NOTE_PREFIX?.trim() || 'OG7-AV';
-const invoiceIssuerName =
-  process.env.FUNDING_INVOICE_ISSUER_NAME?.trim() || 'OpenG7';
-const invoiceIssuerEmail =
-  process.env.FUNDING_INVOICE_ISSUER_EMAIL?.trim() ||
-  process.env.MAIL_REPLY_TO_ADDRESS?.trim() ||
-  process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ||
-  '';
-const invoiceIssuerAddress =
-  process.env.FUNDING_INVOICE_ISSUER_ADDRESS?.trim() || '';
-const invoiceIssuerTaxId = process.env.FUNDING_INVOICE_TAX_ID?.trim() || '';
-const invoiceTaxLabel =
-  process.env.FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL?.trim() ||
-  'Taxes non calculees par la plateforme';
-const invoiceLegalNote =
-  process.env.FUNDING_SPONSORSHIP_INVOICE_LEGAL_NOTE?.trim() ||
-  'Facture de commandite descriptive. Ce document ne constitue pas un recu officiel de don de bienfaisance.';
-const creditNoteLegalNote =
-  process.env.FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE?.trim() ||
-  'Avoir de commandite lie a un remboursement Stripe. Ce document reduit la facture associee du montant indique et ne constitue pas un recu officiel de don de bienfaisance.';
+const {
+  invoicePrefix,
+  creditNotePrefix,
+  issuerName: invoiceIssuerName,
+  issuerEmail: invoiceIssuerEmail,
+  issuerAddress: invoiceIssuerAddress,
+  issuerTaxId: invoiceIssuerTaxId,
+  taxLabel: invoiceTaxLabel,
+  invoiceLegalNote,
+  creditNoteLegalNote
+} = sponsorshipInvoiceConfig;
 
 const parseDbInt = (value: string): number => Number.parseInt(value, 10);
 

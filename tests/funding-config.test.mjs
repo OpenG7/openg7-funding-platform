@@ -2715,19 +2715,32 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
   for (const marker of [
     'createSponsorshipInvoiceForStripeSession',
     'createSponsorshipCreditNoteForRefund',
+    'sponsorshipInvoiceConfig',
+    'Commanditaire a confirmer',
+    'ON CONFLICT (contribution_id) DO UPDATE',
+    'ON CONFLICT (stripe_refund_id) DO UPDATE'
+  ]) {
+    assert.ok(
+      invoices.includes(marker),
+      `invoice repository must include ${marker}`
+    );
+  }
+
+  const invoiceConfig = fs.readFileSync(
+    'apps/funding-api/src/sponsorship-invoice-config.ts',
+    'utf8'
+  );
+  for (const marker of [
     'FUNDING_SPONSORSHIP_INVOICE_PREFIX',
     'FUNDING_SPONSORSHIP_CREDIT_NOTE_PREFIX',
     'FUNDING_INVOICE_ISSUER_NAME',
     'FUNDING_INVOICE_ISSUER_EMAIL',
     'FUNDING_INVOICE_TAX_ID',
-    'Commanditaire a confirmer',
-    'ON CONFLICT (contribution_id) DO UPDATE',
-    'ON CONFLICT (stripe_refund_id) DO UPDATE',
     'Facture de commandite descriptive'
   ]) {
     assert.ok(
-      invoices.includes(marker),
-      `invoice repository must include ${marker}`
+      invoiceConfig.includes(marker),
+      `invoice configuration must include ${marker}`
     );
   }
 

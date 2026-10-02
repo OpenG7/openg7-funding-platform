@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 import Stripe from 'stripe';
 
+import { normalizeContributionPublicReference } from './contribution-public-reference.js';
 import {
   normalizeContributionType,
   parseMetadataBoolean,
@@ -11,7 +12,10 @@ import {
 } from './fund-contributions.repository.js';
 import { insertFundTransaction } from './fund-transparency.repository.js';
 import { syncStripeChargeRefunds } from './stripe-refunds.service.js';
-import { stripeMetadataProject } from './stripe-project-scope.js';
+import {
+  stripeMetadataProject,
+  stripeSessionBelongsToProject
+} from './stripe-project-scope.js';
 
 export interface StripeBackfillCreatedRange {
   readonly gte?: number;
@@ -101,8 +105,6 @@ interface BackfillInsertResult {
   readonly dryRunWouldInsert: boolean;
 }
 
-const contributionPublicReferencePattern = /^OG7-\d{4}-[A-Z0-9]{4,8}$/;
-
 const toIsoFromUnix = (seconds: number): string =>
   new Date(seconds * 1000).toISOString();
 
@@ -161,38 +163,10 @@ const metadataMatchesProject = (
   projectId: string
 ): boolean => stripeMetadataProject(metadata, projectId) === true;
 
-const sessionMatchesProject = (
-  session: Stripe.Checkout.Session,
-  paymentIntent: Stripe.PaymentIntent | null,
-  projectId: string
-): boolean => {
-  const sessionProject = stripeMetadataProject(session.metadata, projectId);
-  const intentProject = stripeMetadataProject(
-    paymentIntent?.metadata,
-    projectId
-  );
-  return (
-    sessionProject !== false &&
-    intentProject !== false &&
-    (sessionProject === true || intentProject === true)
-  );
-};
-
 const parseMetadataBooleanWithFallback = (
   value: string | undefined,
   fallback: boolean
 ): boolean => (value === undefined ? fallback : parseMetadataBoolean(value));
-
-const normalizePublicReference = (
-  value: string | null | undefined
-): string | null => {
-  if (!value) {
-    return null;
-  }
-
-  const reference = value.trim().toUpperCase();
-  return contributionPublicReferencePattern.test(reference) ? reference : null;
-};
 
 const buildFallbackPublicReference = (
   created: number,
@@ -498,8 +472,8 @@ const backfillCheckoutSession = async (
     ...toMetadataRecord(session.metadata)
   };
   const publicReference =
-    normalizePublicReference(metadata.publicReference) ??
-    normalizePublicReference(session.client_reference_id) ??
+    normalizeContributionPublicReference(metadata.publicReference) ??
+    normalizeContributionPublicReference(session.client_reference_id) ??
     buildFallbackPublicReference(session.created, session.id);
 
   summary.checkoutSessions.matched += 1;
@@ -700,7 +674,7 @@ const backfillCheckoutSessions = async (
     );
     const matches =
       options.includeUnmatched ||
-      sessionMatchesProject(session, paymentIntent, options.projectId);
+      stripeSessionBelongsToProject(session, paymentIntent, options.projectId);
 
     if (!matches) {
       summary.checkoutSessions.skippedUnmatched += 1;

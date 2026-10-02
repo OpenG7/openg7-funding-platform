@@ -1,10 +1,9 @@
 # Aide-mémoire des commandes
 
-Exécuter depuis la racine du dépôt, avec Node 22 et Yarn 4. Les scripts de
-[package.json](../package.json) font foi. Lire uniquement la section utile.
-Les cibles de production, le mode live et les opérations destructives exigent
-la [procédure à risque élevé](../AGENTS.md#risque-eleve). Les exemples ne valent
-pas autorisation d'exécution.
+Depuis la racine, avec Node 22 et Yarn 4; [package.json](../package.json)
+fait foi. Lire la section utile. Production, live et opérations destructives
+exigent la [procédure à risque élevé](../AGENTS.md#risque-eleve).
+Les exemples n'autorisent aucune exécution.
 
 ## Local
 
@@ -21,10 +20,10 @@ pas autorisation d'exécution.
 | Budget et liens des consignes          | `node scripts/check-agent-docs.mjs`                                   |
 | Configuration sans afficher de secrets | `yarn services:check`                                                 |
 
-La [matrice de validation](development/validation.md) précise les contrôles
-nécessaires, les suites navigateur et leurs prérequis. Ne pas doubler la compilation
-de `yarn test`. `services:check` lit la configuration locale, pas celle des
-conteneurs; son contrôle admin reste orienté token, sans recette OIDC/MFA.
+La [matrice de validation](development/validation.md) précise contrôles,
+suites navigateur et prérequis. `yarn test` compile déjà. `services:check` lit
+la configuration locale, pas celle des conteneurs; contrôle admin token,
+sans recette OIDC/MFA.
 
 ## Docker Compose
 
@@ -55,15 +54,14 @@ toujours API et Angular. `yarn docker:update:dev` utilise cette option pour évi
 une double compilation. `yarn build`, restart et recreate ne reconstruisent pas
 les images. Recharger la page après update; en développement, `Ctrl+F5` peut être utile.
 
-`docker:up` demande l'environnement en terminal interactif. Sans terminal, passer
-`--environment local|prod|autre` ou utiliser un raccourci explicite. Les conteneurs
-demarrent en arriere-plan et leur disponibilite est attendue. En local/dev, le
-relais Stripe de test reste au premier plan; `Ctrl+C` l'arrete et conserve les
-conteneurs. `--no-stripe-webhook` permet un demarrage local sans relais,
-`--no-database` desactive le profil PostgreSQL. Le choix prod/autre ne change ni
-la cible Docker ni les secrets; autre conserve la configuration existante.
-Ces raccourcis n'executent pas les migrations ni le rattrapage des paiements.
-Prerequis et HTTPS : [demarrage guide](docker-deployment.md#demarrage-docker-guide).
+`docker:up` demande l'environnement en terminal; sinon, passer
+`--environment local|prod|autre` ou un raccourci explicite. Il attend la
+disponibilité des conteneurs démarrés en arrière-plan. En local/dev, le relais
+Stripe de test reste au premier plan; `Ctrl+C` l'arrête sans arrêter les conteneurs.
+`--no-stripe-webhook` omet le relais local; `--no-database` désactive le profil PostgreSQL.
+Prod/autre ne change ni cible Docker ni secrets; autre conserve la configuration.
+Aucune migration ni aucun rattrapage des paiements.
+Prérequis et HTTPS : [demarrage guide](docker-deployment.md#demarrage-docker-guide).
 
 Pour forcer un rebuild local Web sans cache :
 
