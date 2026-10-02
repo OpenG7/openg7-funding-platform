@@ -102,6 +102,9 @@ Les échecs et résultats incertains restent pour diagnostic : surveiller l'espa
 Le heartbeat est rafraîchi toutes les 20 secondes et périme après 90 secondes.
 Un worker disponible ne prouve pas la réussite de sa dernière sauvegarde.
 
+La taille maximale, la conservation, la fraîcheur et le délai de traitement sont
+centralisés dans la [politique du worker](../../apps/funding-api/src/database-backup/policy.ts).
+
 ## Demandes et reprise
 
 `GET /api/admin/backups` retourne politique, disponibilité horodatée et historique.

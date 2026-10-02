@@ -6,6 +6,11 @@ import type {
   AdminDatabaseBackup
 } from '@openg7/funding-core';
 
+import {
+  BACKUP_RETENTION_DAYS,
+  BACKUP_WORKER_FRESHNESS_SECONDS
+} from './policy.js';
+
 export class BackupError extends Error {
   constructor(
     readonly code: string,
@@ -50,7 +55,8 @@ export async function backupStatus(
 ): Promise<AdminBackupsResponse> {
   const worker = (
     await pool.query<{ ready: boolean; checked_at: Date; fresh: boolean }>(
-      `SELECT ready, checked_at, checked_at > NOW() - INTERVAL '90 seconds' AS fresh FROM database_backup_worker WHERE singleton`
+      `SELECT ready, checked_at, checked_at > NOW() - ($1::integer * INTERVAL '1 second') AS fresh FROM database_backup_worker WHERE singleton`,
+      [BACKUP_WORKER_FRESHNESS_SECONDS]
     )
   ).rows[0];
   const jobs = (
@@ -69,7 +75,7 @@ export async function backupStatus(
   return {
     scope: 'database',
     schedule: 'daily',
-    retentionDays: 30,
+    retentionDays: BACKUP_RETENTION_DAYS,
     workerState: !worker
       ? 'not_configured'
       : worker.ready && worker.fresh
@@ -130,7 +136,8 @@ export async function requestBackup(
     }
     const ready = (
       await client.query(
-        `SELECT 1 FROM database_backup_worker WHERE singleton AND ready AND checked_at > NOW() - INTERVAL '90 seconds'`
+        `SELECT 1 FROM database_backup_worker WHERE singleton AND ready AND checked_at > NOW() - ($1::integer * INTERVAL '1 second')`,
+        [BACKUP_WORKER_FRESHNESS_SECONDS]
       )
     ).rowCount;
     if (!ready) throw new BackupError('BACKUP_UNAVAILABLE');

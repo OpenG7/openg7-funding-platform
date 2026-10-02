@@ -1,6 +1,7 @@
 import pg from 'pg';
 
 import { backupConfig } from './config.js';
+import { BACKUP_WORKER_FRESHNESS_SECONDS } from './policy.js';
 
 let pool: pg.Pool | undefined;
 try {
@@ -13,7 +14,8 @@ try {
     statement_timeout: 3000
   });
   const result = await pool.query(
-    "SELECT 1 FROM database_backup_worker WHERE singleton AND ready AND checked_at > NOW()-INTERVAL '90 seconds'"
+    "SELECT 1 FROM database_backup_worker WHERE singleton AND ready AND checked_at > NOW() - ($1::integer * INTERVAL '1 second')",
+    [BACKUP_WORKER_FRESHNESS_SECONDS]
   );
   if (!result.rowCount) throw new Error();
 } catch {

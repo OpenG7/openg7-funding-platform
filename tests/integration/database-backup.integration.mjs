@@ -75,12 +75,14 @@ test(
     assert.equal(await claimBackup(db.pool), null);
     let captures = 0,
       uploads = 0;
+    let capturedAt, uploadedAt;
     const bytes = Buffer.from('encrypted fixture only');
     const capture = async (_, jobId) => {
       captures++;
       await mkdir(join(directory, jobId));
       const file = join(directory, jobId, 'database.sql.age');
       await writeFile(file, bytes);
+      capturedAt = Date.now();
       return {
         file,
         bytes: bytes.length,
@@ -93,6 +95,7 @@ test(
       async upload(_, file, proof) {
         uploads++;
         remoteProof = proof;
+        uploadedAt = Date.now();
         throw new Error('response lost');
       },
       async verify(_, proof) {
@@ -107,6 +110,15 @@ test(
       AbortSignal.timeout(1000),
       capture
     );
+    const retentionEndsAt = Date.parse(remoteProof.retainUntil);
+    assert.equal(retentionEndsAt % 1000, 0);
+    assert.ok(
+      retentionEndsAt >= (Math.ceil(capturedAt / 1000) + 30 * 86400) * 1000
+    );
+    assert.ok(
+      retentionEndsAt <= (Math.ceil(uploadedAt / 1000) + 30 * 86400) * 1000
+    );
+    assert.equal((await backupStatus(db.pool)).retentionDays, 30);
     assert.equal((await backupStatus(db.pool, id)).request.status, 'unknown');
     assert.equal(await claimBackup(db.pool), null);
     await assert.rejects(requestBackup(db.pool, randomUUID(), 'owner'), {
@@ -180,6 +192,129 @@ test(
       'database_backup.running',
       'database_backup.failed'
     ]);
+  }
+);
+
+test(
+  'backup freshness and receipt size preserve their exact boundaries',
+  { timeout: 60000 },
+  async (t) => {
+    const db = await startDisposablePostgres();
+    t.after(db.stop);
+
+    await t.test(
+      'a heartbeat at 90 seconds is stale, while 89 seconds is fresh',
+      async () => {
+        const client = await db.pool.connect();
+        try {
+          await client.query('BEGIN');
+          await client.query(
+            'INSERT INTO database_backup_worker VALUES(TRUE,TRUE,NOW())'
+          );
+          // NOW() is fixed for this transaction, so the strict boundary cannot drift.
+          const view = { query: (...args) => client.query(...args) };
+          for (const [seconds, expected] of [
+            [89, 'ready'],
+            [90, 'unavailable']
+          ]) {
+            await client.query(
+              "UPDATE database_backup_worker SET checked_at=NOW()-($1::integer * INTERVAL '1 second')",
+              [seconds]
+            );
+            assert.equal((await backupStatus(view)).workerState, expected);
+          }
+        } finally {
+          await client.query('ROLLBACK');
+          client.release();
+        }
+      }
+    );
+
+    await t.test(
+      '2 GiB metadata is accepted, but larger receipts never reach storage verification',
+      async () => {
+        const directory = await mkdtemp(join(tmpdir(), 'og7-backup-receipt-'));
+        t.after(async () => {
+          assert.ok(resolve(directory).startsWith(resolve(tmpdir()) + sep));
+          await rm(directory, { recursive: true, force: true });
+        });
+        const config = {
+          directory,
+          endpoint: 'https://storage.example.test',
+          bucket: 'fixture',
+          namespace: 'fixture',
+          recipient: 'synthetic'
+        };
+        const id = randomUUID();
+        await db.pool.query(
+          "INSERT INTO database_backup_jobs(request_id,actor,source,status) VALUES($1,'owner','manual','unknown')",
+          [id]
+        );
+        await mkdir(join(directory, id));
+        const receiptFile = join(directory, id, 'receipt.json');
+        const receipt = {
+          version: 1,
+          requestId: id,
+          target: createHash('sha256')
+            .update(
+              JSON.stringify([
+                config.endpoint,
+                config.bucket,
+                config.namespace,
+                config.recipient
+              ])
+            )
+            .digest('hex'),
+          sha256: 'ab'.repeat(32),
+          retainUntil: '2099-01-01T00:00:00.000Z'
+        };
+        let verifications = 0;
+        const storage = {
+          async verify(requestId, proof) {
+            verifications++;
+            assert.equal(requestId, id);
+            assert.equal(proof.bytes, 2147483648);
+            assert.equal(proof.sha256, receipt.sha256);
+          }
+        };
+        await writeFile(
+          receiptFile,
+          JSON.stringify({ ...receipt, bytes: 2147483649 })
+        );
+        await assert.rejects(
+          reconcileBackup(
+            db.pool,
+            config,
+            id,
+            storage,
+            AbortSignal.timeout(1000)
+          ),
+          /Invalid backup receipt\./
+        );
+        assert.equal(verifications, 0);
+        assert.equal(
+          (await backupStatus(db.pool, id)).request.status,
+          'unknown'
+        );
+
+        // Only a small JSON receipt is used; no 2 GiB buffer or real transfer exists.
+        await writeFile(
+          receiptFile,
+          JSON.stringify({ ...receipt, bytes: 2147483648 })
+        );
+        await reconcileBackup(
+          db.pool,
+          config,
+          id,
+          storage,
+          AbortSignal.timeout(1000)
+        );
+        assert.equal(verifications, 1);
+        const accepted = (await backupStatus(db.pool, id)).request;
+        assert.equal(accepted.status, 'succeeded');
+        assert.equal(accepted.bytes, 2147483648);
+      }
+    );
   }
 );
 

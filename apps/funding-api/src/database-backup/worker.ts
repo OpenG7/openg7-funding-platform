@@ -11,6 +11,11 @@ import { backupConfig, type BackupConfig } from './config.js';
 import { BackupStorage, type BackupProof } from './storage.js';
 import { captureDatabase } from './capture.js';
 import {
+  BACKUP_MAX_BYTES,
+  BACKUP_OPERATION_TIMEOUT_MS,
+  BACKUP_RETENTION_DAYS
+} from './policy.js';
+import {
   backupAudit,
   BackupError,
   finishBackup,
@@ -70,7 +75,7 @@ export async function executeBackup(
       bytes: captured.bytes,
       sha256: captured.sha256,
       retainUntil: new Date(
-        (Math.ceil(Date.now() / 1000) + 30 * 86400) * 1000
+        (Math.ceil(Date.now() / 1000) + BACKUP_RETENTION_DAYS * 86400) * 1000
       ).toISOString()
     };
     const receipt = await open(
@@ -125,7 +130,7 @@ export async function reconcileBackup(
     receipt.target !== targetDigest(config) ||
     !Number.isInteger(receipt.bytes) ||
     receipt.bytes <= 0 ||
-    receipt.bytes > 2147483648 ||
+    receipt.bytes > BACKUP_MAX_BYTES ||
     !/^[a-f0-9]{64}$/.test(receipt.sha256) ||
     !Number.isFinite(Date.parse(receipt.retainUntil))
   )
@@ -206,7 +211,10 @@ export async function runBackupWorker(
         config,
         reconcileId,
         storage,
-        AbortSignal.any([abort.signal, AbortSignal.timeout(15 * 60000)])
+        AbortSignal.any([
+          abort.signal,
+          AbortSignal.timeout(BACKUP_OPERATION_TIMEOUT_MS)
+        ])
       );
       return;
     }
@@ -250,7 +258,10 @@ export async function runBackupWorker(
             config,
             id,
             storage,
-            AbortSignal.any([abort.signal, AbortSignal.timeout(15 * 60000)])
+            AbortSignal.any([
+              abort.signal,
+              AbortSignal.timeout(BACKUP_OPERATION_TIMEOUT_MS)
+            ])
           );
       }
       await delay(30000, undefined, { signal: abort.signal }).catch(() => {});
