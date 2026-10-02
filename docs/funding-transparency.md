@@ -78,6 +78,12 @@ Deux dates UTC sont distinguées : `last_updated_at` fourni par la source et la 
 
 Le champ API optionnel `generated_at` donne le début de lecture de la projection et reste inchangé dans le cache. La progression du mois courant reste inconnue si cette lecture appartient au mois précédent, même lorsque la requête HTTP réussit. Après une panne au changement de mois, l’ancien rapport ne peut donc pas produire un faux zéro pour le nouveau mois. Pour un serveur ancien qui n’émet pas ce champ, la page utilise le début de sa requête réussie comme repère.
 
+La vue administrative `/admin/fundraiser/transparency` conserve le dernier
+snapshot reçu pendant une actualisation ou son échec. Seule la dernière demande
+peut mettre à jour les données et l'état de chargement; les réponses antérieures
+ou reçues après navigation sont ignorées. Chargement et erreur sont annoncés aux
+technologies d'assistance.
+
 ## Rapports téléchargeables
 
 - **JSON** : schéma version 1, source, devise, date des données, date d’export et agrégats mensuels de la période choisie. `scope: month` exclut les totaux cumulatifs. `scope: cumulative_totals_and_available_months` les conserve avec les mois disponibles; il ne prétend pas fournir un historique mensuel exhaustif.
@@ -110,6 +116,7 @@ Les illustrations réutilisent les dérivés WebP existants. La galerie des 13 p
 yarn test
 yarn lint
 yarn test:ui:funding-transparency
+yarn exec playwright test --config tests/playwright-admin-ui.config.mjs admin-transparency-ui.spec.ts
 node --test tests/integration/funding-transparency.integration.mjs tests/integration/funding-payment-trust.integration.mjs
 node --test tests/integration/payout-transparency.integration.mjs
 yarn test:e2e:acceptance tests/playwright/payout-transparency-acceptance.spec.ts
