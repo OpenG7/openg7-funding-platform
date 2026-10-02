@@ -23,7 +23,7 @@ import { resolveSponsorshipPublicationCoverage } from '../sponsorship-publicatio
 import {
   canRequestSponsorshipInformation,
   hasCompleteFiche,
-  isActionableSponsorship,
+  isApprovedActionableSponsorship,
   missingFicheFields,
   needsSponsorshipInformation
 } from '../sponsorship-review-policy.js';
@@ -141,7 +141,7 @@ const preparePublication = (
   dataset: AttentionDataset,
   record: SponsorshipAttentionRecord
 ): AdminAssistantPrepareResponse => {
-  if (!isActionableSponsorship(record) || record.reviewStatus !== 'approved') {
+  if (!isApprovedActionableSponsorship(record)) {
     return notApplicable(
       "Cette commandite n'est pas approuvée : aucune publication à préparer."
     );

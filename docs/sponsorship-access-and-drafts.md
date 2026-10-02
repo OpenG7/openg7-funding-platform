@@ -50,6 +50,12 @@ L'expiration reprend `FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS` (30 jours par
 
 La récupération cible les contributions de type commandite avec paiement `paid`, `refunded` ou `disputed`, à l'adresse `email_private`. Un dossier refusé reste consultable sans autoriser son édition. La demande publique est bornée aux 20 dossiers les plus récents de l'adresse, avec regroupement pendant dix minutes par dossier. Les demandes admin sont regroupées pendant une minute ; le même `requestId` reste idempotent. Les limiteurs IP existants s'appliquent également.
 
+Le brouillon texte et les écritures de médias réalisées par le commanditaire
+utilisent la même [règle d'éditabilité](../apps/funding-api/src/sponsorship-review-policy.ts) :
+paiement `paid`, `refunded` ou `disputed` et revue différente de `rejected`.
+Les opérations administratives sur les médias conservent leurs propres droits,
+confirmations et audits; les quotas et le verrou du logo approuvé restent appliqués.
+
 La création du jeton, du message et de l'audit est transactionnelle. Aucun appel au fournisseur de courriel n'a lieu dans cette transaction. Le worker existant assure la livraison et ses reprises. Une erreur de file ne laisse pas un nouveau jeton orphelin.
 
 Les écritures de brouillon sont sérialisées dans le navigateur et verrouillées par dossier côté PostgreSQL. Une révision protège contre les écrasements entre onglets. Répéter une écriture identique après perte de réponse est sans effet supplémentaire. La soumission ou l'abandon conserve une révision vide afin qu'un ancien onglet ne puisse recréer silencieusement un brouillon périmé. Répéter une soumission confirmée ne relance pas la revue et ne supprime pas un brouillon ultérieur.

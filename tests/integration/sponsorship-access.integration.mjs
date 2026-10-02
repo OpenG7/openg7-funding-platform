@@ -12,6 +12,7 @@ import {
   getSponsorshipAccessRecipient
 } from '../../dist/apps/funding-api/src/sponsorship-access.service.js';
 import { getSponsorshipFollowupByTokenHash } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
+import { checkSponsorMediaUpload } from '../../dist/apps/funding-api/src/sponsor-media.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -372,6 +373,76 @@ test(
       );
     } finally {
       await stop();
+    }
+  }
+);
+
+test(
+  'private draft writes and media preflight keep the same sponsor editability across payment and review states',
+  { timeout: 90000 },
+  async (t) => {
+    const { pool, stop } = await startDisposablePostgres();
+    t.after(stop);
+    for (const [paymentStatus, hasRecordedPayment] of [
+      ['paid', true],
+      ['refunded', true],
+      ['disputed', true],
+      ['pending', false],
+      ['failed', false],
+      ['cancelled', false],
+      ['expired', false],
+      ['unknown', false]
+    ]) {
+      for (const [reviewStatus, paidOutcome] of [
+        [null, 'allowed'],
+        ['unknown', 'allowed'],
+        ['pending_review', 'allowed'],
+        ['approved', 'allowed'],
+        ['rejected', 'not_editable']
+      ]) {
+        const accessToken = randomUUID();
+        const before = (
+          await pool.query(
+            `INSERT INTO fund_contributions
+             (contribution_type, amount_cents, currency, status, sponsor_review_status,
+              sponsorship_followup_token_hash, sponsorship_followup_token_created_at)
+             VALUES ('sponsorship_interest', 50000, 'cad', $1, $2, $3, NOW())
+             RETURNING id, status, sponsor_review_status, updated_at::text AS version`,
+            [paymentStatus, reviewStatus, hash(accessToken)]
+          )
+        ).rows[0];
+        const label = `${paymentStatus}/${reviewStatus}`;
+        const expected = hasRecordedPayment ? paidOutcome : 'not_editable';
+        assert.equal(
+          await checkSponsorMediaUpload(pool, before.id, 'supporting_image', 3),
+          expected,
+          label
+        );
+        if (expected === 'allowed') {
+          assert.equal(
+            (await saveSponsorshipDraft(pool, accessToken, 30, 0, values))
+              .revision,
+            1,
+            label
+          );
+        } else {
+          await assert.rejects(
+            saveSponsorshipDraft(pool, accessToken, 30, 0, values),
+            (error) => error.status === 409 && error.code === 'not_editable',
+            label
+          );
+        }
+        assert.deepEqual(
+          (
+            await pool.query(
+              'SELECT id, status, sponsor_review_status, updated_at::text AS version FROM fund_contributions WHERE id=$1',
+              [before.id]
+            )
+          ).rows[0],
+          before,
+          `${label}: editing eligibility and autosave preserve payment and review facts`
+        );
+      }
     }
   }
 );

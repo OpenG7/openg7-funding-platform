@@ -16,6 +16,12 @@ Le champ optionnel `public_id` est une clé stable dérivée de l’identifiant 
 
 Une fiche exige le consentement public, l’approbation administrative, un nom d’entreprise et une image de présentation approuvée non supprimée. Les montants individuels restent absents sans consentement d’affichage du montant. Les contacts, notes administratives et références Stripe ne font pas partie de la projection.
 
+Le [prérequis SQL de photo approuvée](../apps/funding-api/src/sponsorship-media-eligibility.ts)
+est commun à la revue administrative et à l'annuaire. La revue le vérifie lors de
+la lecture du dossier puis dans la mise à jour : le retrait ou le refus d'une photo
+entre ces étapes empêche l'approbation. Les autres critères de revue et de visibilité
+restent propres à chaque parcours.
+
 La fiche doit aussi être libérée du maintien privé. Une nouvelle approbation de
 revue conserve désormais ce maintien : l’administrateur choisit **Publier la fiche
 sur le site** dans l’étape 6, avec confirmation. **Masquer la fiche du site** la

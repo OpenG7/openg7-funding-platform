@@ -7,6 +7,19 @@ export const isActionableSponsorship = (
 ): boolean =>
   record.paymentStatus === 'paid' && record.refundStatus === 'not_requested';
 
+export const isApprovedActionableSponsorship = (
+  record: SponsorshipAttentionRecord
+): boolean =>
+  isActionableSponsorship(record) && record.reviewStatus === 'approved';
+
+/** Sponsor edits remain separate from review and publication eligibility. */
+export const isEditableSponsorship = (record: {
+  readonly paymentStatus: string;
+  readonly reviewStatus: string | null;
+}): boolean =>
+  ['paid', 'refunded', 'disputed'].includes(record.paymentStatus) &&
+  record.reviewStatus !== 'rejected';
+
 export const missingFicheFields = (
   record: SponsorshipAttentionRecord
 ): readonly string[] => {

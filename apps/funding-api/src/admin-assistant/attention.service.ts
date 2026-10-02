@@ -41,7 +41,7 @@ import {
   sponsorshipRef
 } from '../sponsorship-admin-presentation.js';
 import {
-  isActionableSponsorship,
+  isApprovedActionableSponsorship,
   isSponsorshipAwaitingReview,
   missingFicheFields,
   needsSponsorshipInformation
@@ -216,10 +216,7 @@ export const detectPublicationPreparationItems = (
   dataset: AttentionDataset
 ): AdminAttentionItem[] =>
   dataset.sponsorships
-    .filter(
-      (record) =>
-        isActionableSponsorship(record) && record.reviewStatus === 'approved'
-    )
+    .filter(isApprovedActionableSponsorship)
     .flatMap((record) => {
       const { promisedChannels: promised, missingChannels } =
         resolveSponsorshipPublicationCoverage(record, dataset.drafts);
@@ -567,10 +564,7 @@ export const buildSummaryFromDataset = (
     items.filter((item) => item.type === type).length;
 
   const approvedSponsorships = dataset.sponsorships.filter(
-    (record) =>
-      record.paymentStatus === 'paid' &&
-      record.refundStatus === 'not_requested' &&
-      record.reviewStatus === 'approved'
+    isApprovedActionableSponsorship
   ).length;
 
   const scheduledPublications =
