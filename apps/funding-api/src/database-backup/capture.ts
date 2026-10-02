@@ -7,9 +7,10 @@ import { Transform } from 'node:stream';
 import { createHash } from 'node:crypto';
 
 import type { BackupConfig } from './config.js';
+import { BACKUP_MAX_BYTES } from './policy.js';
 import { isBackupId } from './service.js';
 
-export const BACKUP_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+export { BACKUP_MAX_BYTES } from './policy.js';
 
 /** Password is an environment value, never a command argument, shell string or log. */
 export function dumpEnvironment(connection: string): NodeJS.ProcessEnv {
