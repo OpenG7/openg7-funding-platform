@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../dist/packages/funding-core/src/index.js';
 import { prepareContributionWebsite } from '../dist/packages/funding-core/src/contribution-activity.js';
 import { contributionNotificationConfig } from '../dist/apps/funding-api/src/contribution-activity.service.js';
 import { simulatedCheckoutEnabled } from '../dist/apps/funding-api/src/stripe-checkout-config.js';
@@ -39,21 +40,24 @@ test('navigable simulated Checkout cannot target production or a remote provider
     assert.throws(() => simulatedCheckoutEnabled({ ...local, ...patch }));
 });
 
+const websitePreparationFacts = (overrides = {}) => ({
+  amountMinor: 5000,
+  currency: 'CAD',
+  paymentStatus: 'paid',
+  contributionType: 'sponsorship_interest',
+  publicConsent: true,
+  companyName: 'Synthetic company',
+  summary: null,
+  reviewStatus: 'pending_review',
+  hidden: false,
+  refundPending: false,
+  mediaApproved: false,
+  workerEnabled: true,
+  ...overrides
+});
+
 test('website preparation respects consent, payment, thresholds and worker state', () => {
-  const facts = {
-    amountMinor: 5000,
-    currency: 'CAD',
-    paymentStatus: 'paid',
-    contributionType: 'sponsorship_interest',
-    publicConsent: true,
-    companyName: 'Synthetic company',
-    summary: null,
-    reviewStatus: 'pending_review',
-    hidden: false,
-    refundPending: false,
-    mediaApproved: false,
-    workerEnabled: true
-  };
+  const facts = websitePreparationFacts();
   assert.equal(prepareContributionWebsite(facts).state, 'prepared');
   for (const patch of [
     { paymentStatus: 'pending' },
@@ -94,6 +98,153 @@ test('website preparation respects consent, payment, thresholds and worker state
     }).reasons.includes('linkedin_eligible')
   );
 });
+
+test('website preparation resolves exact minor-unit boundaries and custom paid amounts', () => {
+  for (const [amountMinor, facebook, linkedin] of [
+    [4999, false, false],
+    [5000, false, false],
+    [5001, false, false],
+    [12345, false, false],
+    [24999, false, false],
+    [25000, true, false],
+    [25001, true, false],
+    [32123, true, false],
+    [49999, true, false],
+    [50000, true, true],
+    [50001, true, true],
+    [75123, true, true]
+  ]) {
+    const result = prepareContributionWebsite(
+      websitePreparationFacts({
+        amountMinor,
+        reviewStatus: 'approved',
+        mediaApproved: true
+      })
+    );
+    if (amountMinor === 4999) {
+      assert.deepEqual(result, {
+        state: 'ineligible',
+        reasons: ['payment_confirmed', 'unsupported_contribution'],
+        cartouche: null
+      });
+      continue;
+    }
+    assert.equal(result.state, 'prepared', `${amountMinor} minor units`);
+    assert.deepEqual(result.reasons, [
+      'payment_confirmed',
+      'website_eligible',
+      facebook ? 'facebook_eligible' : 'facebook_below_threshold',
+      linkedin ? 'linkedin_eligible' : 'linkedin_below_threshold'
+    ]);
+    assert.equal(result.cartouche.destination, 'website');
+  }
+});
+
+test('website preparation confines CAD benefits to sponsorship contributions', () => {
+  assert.equal(
+    prepareContributionWebsite(websitePreparationFacts({ currency: 'cad' }))
+      .state,
+    'prepared'
+  );
+  for (const patch of [
+    { currency: 'USD' },
+    { currency: 'EUR' },
+    { contributionType: 'personal_support' }
+  ]) {
+    assert.deepEqual(
+      prepareContributionWebsite(
+        websitePreparationFacts({ amountMinor: 75123, ...patch })
+      ),
+      {
+        state: 'ineligible',
+        reasons: ['payment_confirmed', 'unsupported_contribution'],
+        cartouche: null
+      }
+    );
+  }
+});
+
+test('website preparation rejects an invalid NaN paid amount', () => {
+  assert.deepEqual(
+    prepareContributionWebsite(websitePreparationFacts({ amountMinor: NaN })),
+    {
+      state: 'ineligible',
+      reasons: ['payment_confirmed', 'unsupported_contribution'],
+      cartouche: null
+    }
+  );
+});
+
+test('website preparation follows every active shared benefit threshold', () => {
+  const benefits = DEFAULT_SPONSORSHIP_PRICING_CONFIG.benefits;
+  const original = structuredClone(benefits);
+  try {
+    benefits.websiteMention.minimumAmount = 75;
+    benefits.facebookBatch.minimumAmount = 175;
+    benefits.linkedinBatch.minimumAmount = 375;
+    for (const [amountMinor, website, facebook, linkedin] of [
+      [7499, false, false, false],
+      [7500, true, false, false],
+      [17499, true, false, false],
+      [17500, true, true, false],
+      [37499, true, true, false],
+      [37500, true, true, true]
+    ]) {
+      const result = prepareContributionWebsite(
+        websitePreparationFacts({
+          amountMinor,
+          reviewStatus: 'approved',
+          mediaApproved: true
+        })
+      );
+      assert.equal(result.state, website ? 'prepared' : 'ineligible');
+      assert.deepEqual(
+        result.reasons,
+        website
+          ? [
+              'payment_confirmed',
+              'website_eligible',
+              facebook ? 'facebook_eligible' : 'facebook_below_threshold',
+              linkedin ? 'linkedin_eligible' : 'linkedin_below_threshold'
+            ]
+          : ['payment_confirmed', 'unsupported_contribution']
+      );
+    }
+  } finally {
+    benefits.websiteMention.minimumAmount =
+      original.websiteMention.minimumAmount;
+    benefits.facebookBatch.minimumAmount = original.facebookBatch.minimumAmount;
+    benefits.linkedinBatch.minimumAmount = original.linkedinBatch.minimumAmount;
+  }
+});
+
+test('private website preparation preserves independent review and media decisions', () => {
+  for (const [reviewStatus, mediaApproved, requiredReasons] of [
+    ['pending_review', false, ['review_required', 'media_required']],
+    ['pending_review', true, ['review_required']],
+    ['approved', false, ['media_required']],
+    ['approved', true, []]
+  ]) {
+    const facts = websitePreparationFacts({ reviewStatus, mediaApproved });
+    const original = structuredClone(facts);
+    const result = prepareContributionWebsite(facts);
+    assert.equal(result.state, 'prepared');
+    assert.deepEqual(result.reasons, [
+      'payment_confirmed',
+      'website_eligible',
+      'facebook_below_threshold',
+      'linkedin_below_threshold',
+      ...requiredReasons
+    ]);
+    assert.deepEqual(result.cartouche, {
+      destination: 'website',
+      title: 'Synthetic company',
+      body: 'Merci de soutenir le Fonds des Bâtisseurs OpenG7.'
+    });
+    assert.deepEqual(facts, original);
+  }
+});
+
 test('notification config defaults off, validates email and confines SMS simulation', () => {
   assert.equal(contributionNotificationConfig({}).smsUrl, null);
   assert.equal(contributionNotificationConfig({}).email, null);

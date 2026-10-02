@@ -35,8 +35,9 @@ Set these variables for API and webhook processing:
 
 Sponsorship tiers and included benefits come from
 [`DEFAULT_SPONSORSHIP_PRICING_CONFIG`](../../packages/funding-core/src/sponsorship-pricing.ts)
-and `resolveSponsorshipBenefits` in `funding-core`. The API uses that policy for
-private follow-up data, email descriptions and the admin attention queue. Its
+and [`resolveSponsorshipBenefits`](../../packages/funding-core/src/sponsorship-benefits.ts)
+in `funding-core`. The API uses that policy for private follow-up data, email
+descriptions, the admin attention queue and private contribution website cards. Its
 [social channel mapping](../../apps/funding-api/src/sponsorship-benefits.ts)
 also supplies publication settings; review, visibility and publication
 authorization remain separate decisions.
