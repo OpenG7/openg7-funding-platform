@@ -315,6 +315,8 @@ vérifient aussi six demandes simultanées, le maintien du délai de reprise et
 l'annulation atomique de la mise en file lorsque l'audit échoue. Les tests UI
 complètent FR/EN, mobile/ordinateur, clavier, focus, attente et raccourci vers le
 message exact.
+Les brouillons, états et résultats de renvoi restent attachés à chaque facture,
+y compris pendant un changement de sélection ou un rafraîchissement de liste.
 
 ```sh
 node scripts/admin-acceptance.mjs document-resend-acceptance.spec.ts --project=chromium

@@ -12,6 +12,7 @@
     "playwright/admin-setup-layout.spec.ts",
     "playwright/admin-inspection.spec.ts",
     "playwright/admin-email-recovery-ui.spec.ts",
+    "playwright/admin-document-resend-ui.spec.ts",
     "../apps/**/*.ts",
     "../packages/**/*.ts",
     "playwright/admin-dashboard-layout.spec.ts",
