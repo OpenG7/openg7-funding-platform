@@ -671,6 +671,7 @@ export class AdminExpensesPageComponent implements OnInit {
   readonly i18n = inject(FundingI18nService);
   private readonly destroyRef = inject(DestroyRef);
   private requestGeneration = 0;
+  private editBases = new Map<string, AdminExpenseRecord>();
   private exactId: string | undefined;
   private readonly route = inject(ActivatedRoute);
 
@@ -735,7 +736,8 @@ export class AdminExpensesPageComponent implements OnInit {
       });
   }
 
-  async loadExpenses(): Promise<void> {
+  async loadExpenses(preserveEdits = false): Promise<void> {
+    if (this.destroyRef.destroyed) return;
     const generation = ++this.requestGeneration;
     this.state.set('loading');
 
@@ -745,14 +747,33 @@ export class AdminExpensesPageComponent implements OnInit {
         this.exactId
       );
       if (generation !== this.requestGeneration) return;
+      const edits: Record<string, ExpenseEdit> = {};
+      const bases = new Map<string, AdminExpenseRecord>();
+      let staleDraft = false;
+      for (const expense of response.expenses) {
+        const edit = this.expenseEdits()[expense.id];
+        const base = this.editBases.get(expense.id);
+        if (
+          preserveEdits &&
+          edit &&
+          base &&
+          !this.editsMatch(edit, this.toEdit(base))
+        ) {
+          edits[expense.id] = edit;
+          // A background read must not advance the version of an unsaved draft.
+          bases.set(expense.id, base);
+          staleDraft ||= base.updated_at !== expense.updated_at;
+        } else {
+          edits[expense.id] = this.toEdit(expense);
+          bases.set(expense.id, expense);
+        }
+      }
+      this.editBases = bases;
+      this.expenseEdits.set(edits);
       this.response.set(response);
-      this.expenseEdits.set(
-        Object.fromEntries(
-          response.expenses.map((expense) => [expense.id, this.toEdit(expense)])
-        )
-      );
       this.state.set('ready');
-      this.conflict.set(false);
+      if (!preserveEdits) this.conflict.set(false);
+      else if (staleDraft) this.conflict.set(true);
       this.admin.saveAdminToken(this.adminToken());
     } catch {
       if (generation !== this.requestGeneration) return;
@@ -764,6 +785,7 @@ export class AdminExpensesPageComponent implements OnInit {
     if (this.mutationBusy() || this.destroyRef.destroyed) return;
     const draft = this.newExpenseDraft();
     const token = this.adminToken();
+    const scope = this.exactId;
     const amount = Number(draft.amountAllocated);
     if (
       !draft.projectName.trim() ||
@@ -785,7 +807,7 @@ export class AdminExpensesPageComponent implements OnInit {
         ))
       )
         return;
-      if (this.destroyRef.destroyed) return;
+      if (this.destroyRef.destroyed || scope !== this.exactId) return;
       await this.admin.createExpense(token, {
         confirmation: isPublicAllocationStatus(draft.status)
           ? PUBLIC_ALLOCATION_CREATE_CONFIRMATION
@@ -803,7 +825,7 @@ export class AdminExpensesPageComponent implements OnInit {
         currency: 'CAD',
         status: draft.status
       });
-      if (this.destroyRef.destroyed) return;
+      if (this.destroyRef.destroyed || scope !== this.exactId) return;
       const current = this.newExpenseDraft();
       if (
         (Object.keys(draft) as (keyof NewExpenseDraft)[]).every(
@@ -820,9 +842,9 @@ export class AdminExpensesPageComponent implements OnInit {
         this.newProofSource.set('');
         this.newProofPublishedAt.set('');
       }
-      await this.loadExpenses();
+      await this.loadExpenses(true);
     } catch {
-      if (this.destroyRef.destroyed) return;
+      if (this.destroyRef.destroyed || scope !== this.exactId) return;
       this.state.set('error');
     } finally {
       this.mutationBusy.set(false);
@@ -833,8 +855,11 @@ export class AdminExpensesPageComponent implements OnInit {
     expense: AdminExpenseRecord,
     forcedStatus?: AdminExpenseStatus
   ): Promise<void> {
-    if (this.mutationBusy()) return;
+    if (this.mutationBusy() || this.destroyRef.destroyed) return;
     const edit = this.editFor(expense.id);
+    const base = this.editBases.get(expense.id) ?? expense;
+    const token = this.adminToken();
+    const scope = this.exactId;
     const amount = Number(edit.amountAllocated);
 
     if (allocationAmountMinor(amount) === null) {
@@ -843,8 +868,9 @@ export class AdminExpensesPageComponent implements OnInit {
     }
 
     try {
+      this.mutationBusy.set(true);
       const nextStatus = forcedStatus ?? edit.status;
-      if (allocationRequiresConfirmation(expense.status, nextStatus)) {
+      if (allocationRequiresConfirmation(base.status, nextStatus)) {
         if (
           !(await this.confirmation.confirm(
             this.i18n.t(
@@ -857,11 +883,11 @@ export class AdminExpensesPageComponent implements OnInit {
         )
           return;
       }
-      this.mutationBusy.set(true);
-      await this.admin.updateExpense(this.adminToken(), {
+      if (this.destroyRef.destroyed || scope !== this.exactId) return;
+      const result = await this.admin.updateExpense(token, {
         expenseId: expense.id,
-        expectedVersion: expense.updated_at,
-        confirmation: allocationRequiresConfirmation(expense.status, nextStatus)
+        expectedVersion: base.updated_at,
+        confirmation: allocationRequiresConfirmation(base.status, nextStatus)
           ? expense.id
           : undefined,
         projectName: edit.projectName,
@@ -872,18 +898,20 @@ export class AdminExpensesPageComponent implements OnInit {
         proofSource: edit.proofSource.trim() || null,
         proofPublishedAt: this.updatedDateTime(
           edit.proofPublishedAt,
-          expense.proof_published_at
+          base.proof_published_at
         ),
         amountAllocated: amount,
         currency: 'CAD',
         status: forcedStatus ?? edit.status,
-        publishedAt: this.updatedDateTime(
-          edit.publishedAt,
-          expense.published_at
-        )
+        publishedAt: this.updatedDateTime(edit.publishedAt, base.published_at)
       });
-      await this.loadExpenses();
+      if (this.destroyRef.destroyed || scope !== this.exactId) return;
+      if (result.updated && result.expense?.id === expense.id) {
+        this.reconcileSavedEdit(result.expense, edit);
+      }
+      await this.loadExpenses(true);
     } catch (error) {
+      if (this.destroyRef.destroyed || scope !== this.exactId) return;
       if (error instanceof Error && error.message === 'version_conflict') {
         this.conflict.set(true);
         return;
@@ -1000,6 +1028,48 @@ export class AdminExpensesPageComponent implements OnInit {
       style: 'currency',
       currency: currency || 'CAD'
     }).format(amount);
+  }
+
+  private editsMatch(left: ExpenseEdit, right: ExpenseEdit): boolean {
+    return (Object.keys(left) as (keyof ExpenseEdit)[]).every(
+      (field) => left[field] === right[field]
+    );
+  }
+
+  private reconcileSavedEdit(
+    expense: AdminExpenseRecord,
+    submitted: ExpenseEdit
+  ): void {
+    const current = this.editFor(expense.id);
+    const saved = this.toEdit(expense);
+    const mergeField = <K extends keyof ExpenseEdit>(
+      field: K
+    ): ExpenseEdit[K] =>
+      current[field] === submitted[field] ? saved[field] : current[field];
+    const edit: ExpenseEdit = {
+      projectName: mergeField('projectName'),
+      publicDescription: mergeField('publicDescription'),
+      expectedOutcome: mergeField('expectedOutcome'),
+      progressStatus: mergeField('progressStatus'),
+      proofUrl: mergeField('proofUrl'),
+      proofSource: mergeField('proofSource'),
+      proofPublishedAt: mergeField('proofPublishedAt'),
+      amountAllocated: mergeField('amountAllocated'),
+      status: mergeField('status'),
+      publishedAt: mergeField('publishedAt')
+    };
+    this.editBases.set(expense.id, expense);
+    this.expenseEdits.update((edits) => ({ ...edits, [expense.id]: edit }));
+    this.response.update((response) =>
+      response
+        ? {
+            ...response,
+            expenses: response.expenses.map((row) =>
+              row.id === expense.id ? expense : row
+            )
+          }
+        : null
+    );
   }
 
   private newExpenseDraft(): NewExpenseDraft {

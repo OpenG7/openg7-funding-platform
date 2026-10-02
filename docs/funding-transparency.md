@@ -47,6 +47,14 @@ navigateur, avec une invitation à la copier avant de recharger la version coura
 Le changement et son audit sont atomiques : une panne d'audit annule l'écriture.
 Un rejeu de la même ancienne version ne modifie rien et n'ajoute pas d'audit.
 
+Une relecture automatique après création ou enregistrement conserve les saisies
+modifiées des autres allocations et leur version d'origine. Les champs retouchés
+pendant l'enregistrement de la même allocation sont conservés avec la version
+confirmée; ses autres champs prennent les valeurs retournées par le serveur.
+Un changement concurrent affiche le conflit sans réattribuer une version récente
+à l'ancienne saisie. Après copie des changements à conserver, l'action explicite
+« Actualiser » recharge les champs et versions courants.
+
 Le contrat historique `amountAllocated` reste exprimé en CAD, converti en cents
 entiers avant stockage. Les valeurs non positives, sous-centimes ou dépassant un
 entier sûr sont refusées (`400 invalid_amount`), sans arrondi silencieux. Les
@@ -124,6 +132,7 @@ yarn lint
 yarn test:ui:funding-transparency
 yarn exec playwright test --config tests/playwright-admin-ui.config.mjs admin-transparency-ui.spec.ts
 yarn exec playwright test --config tests/playwright-admin-ui.config.mjs admin-allocation-create-ui.spec.ts
+yarn exec playwright test --config tests/playwright-admin-ui.config.mjs admin-allocation-edit-ui.spec.ts
 node --test tests/integration/funding-transparency.integration.mjs tests/integration/funding-payment-trust.integration.mjs
 node --test tests/integration/payout-transparency.integration.mjs
 yarn test:e2e:acceptance tests/playwright/payout-transparency-acceptance.spec.ts
