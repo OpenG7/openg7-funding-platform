@@ -9,6 +9,8 @@ import type { Pool } from 'pg';
 import { loadSponsorshipAssistantDataset } from './admin-assistant/context.repository.js';
 import { queueSponsorshipInformationRequest } from './email-notification.service.js';
 import { insertAdminAuditLog } from './fund-admin.repository.js';
+import { lockSponsorshipContribution } from './fund-contributions.repository.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 import { canRequestSponsorshipInformation } from './sponsorship-review-policy.js';
 
 export class InformationRequestError extends Error {
@@ -73,20 +75,14 @@ export const requestSponsorshipInformation = async (
         ])
       )
       .digest('hex');
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const locked = await client.query(
-      "SELECT id FROM fund_contributions WHERE id = $1::uuid AND contribution_type = 'sponsorship_interest' FOR UPDATE",
-      [input.contributionId]
-    );
-    if (!locked.rows.length) throw new InformationRequestError(404);
+  return withPostgresTransaction(pool, async (client) => {
+    if (!(await lockSponsorshipContribution(client, input.contributionId)))
+      throw new InformationRequestError(404);
     const existing = await client.query<{ id: string; status: string }>(
       'SELECT id::text AS id, status FROM email_messages WHERE idempotency_key = $1',
       [key]
     );
     if (existing.rows[0]) {
-      await client.query('COMMIT');
       return {
         status:
           existing.rows[0].status === 'sent'
@@ -124,12 +120,6 @@ export const requestSponsorshipInformation = async (
       metadata: { messageId: queued.messageId }
     });
     if (!audited) throw new InformationRequestError(503);
-    await client.query('COMMIT');
     return { status: 'queued', messageId: queued.messageId };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 };

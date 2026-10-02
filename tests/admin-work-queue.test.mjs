@@ -261,6 +261,106 @@ test('slot, batch and draft yield one late alert for a shared placement', () => 
   );
 });
 
+test('publication placements attach a dossier only while its matching draft remains unfinished', () => {
+  const placements = [
+    {
+      label: 'direct slot',
+      slots: [slot()],
+      batches: [],
+      assignment: { slot_id: 'slot-1', batch_id: null },
+      itemId: 'publication_late:slot:slot-1'
+    },
+    {
+      label: 'slot through batch',
+      slots: [slot()],
+      batches: [batch()],
+      assignment: { slot_id: null, batch_id: 'batch-1' },
+      itemId: 'publication_late:slot:slot-1'
+    },
+    {
+      label: 'batch',
+      slots: [],
+      batches: [batch({ slotId: null })],
+      assignment: { slot_id: null, batch_id: 'batch-1' },
+      itemId: 'publication_late:batch:batch-1'
+    }
+  ];
+  for (const [status, expectedDossier] of [
+    ['draft', 'c-1'],
+    ['pending_review', 'c-1'],
+    ['approved', 'c-1'],
+    ['scheduled', 'c-1'],
+    ['published', undefined],
+    ['rejected', undefined],
+    ['cancelled', undefined]
+  ]) {
+    for (const placement of placements) {
+      const items = buildWorkQueueItems(
+        dataset({
+          slots: placement.slots,
+          batches: placement.batches,
+          drafts: [draft({ ...placement.assignment, status })]
+        })
+      );
+      const label = `${placement.label}, ${status}`;
+      assert.equal(items.length, 1, label);
+      assert.equal(items[0].id, placement.itemId, label);
+      assert.equal(items[0].sponsorshipId, expectedDossier, label);
+      assert.equal(items[0].contributionId, expectedDossier, label);
+      assert.equal(
+        paginateWorkQueue(items, now).firstSponsorshipId,
+        expectedDossier ?? null,
+        label
+      );
+    }
+  }
+});
+
+test('slot dossier selection stays stable across direct and batch assignments and excludes terminal or unrelated drafts', () => {
+  const drafts = Object.freeze([
+    Object.freeze(
+      draft({
+        id: 'direct',
+        contribution_id: 'c-z',
+        slot_id: 'slot-1',
+        batch_id: null,
+        status: 'pending_review'
+      })
+    ),
+    Object.freeze(draft({ id: 'indirect', contribution_id: 'c-a' })),
+    ...['published', 'rejected', 'cancelled'].map((status) =>
+      Object.freeze(
+        draft({ id: status, contribution_id: `c-0-${status}`, status })
+      )
+    ),
+    Object.freeze(
+      draft({
+        id: 'unrelated',
+        contribution_id: 'c-00',
+        batch_id: 'another-batch',
+        status: 'pending_review'
+      })
+    )
+  ]);
+  let expected;
+  for (const orderedDrafts of [drafts, Object.freeze([...drafts].reverse())]) {
+    const ds = dataset({
+      slots: [slot()],
+      batches: [batch()],
+      drafts: orderedDrafts
+    });
+    const before = JSON.stringify(ds);
+    const items = buildWorkQueueItems(ds);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].sponsorshipId, 'c-a');
+    assert.equal(items[0].contributionId, 'c-a');
+    assert.equal(paginateWorkQueue(items, now).firstSponsorshipId, 'c-a');
+    if (expected) assert.deepEqual(items, expected);
+    expected = items;
+    assert.equal(JSON.stringify(ds), before);
+  }
+});
+
 test('standalone scheduled drafts are late, completed/cancelled objects are absent', () => {
   const items = buildWorkQueueItems(
     dataset({

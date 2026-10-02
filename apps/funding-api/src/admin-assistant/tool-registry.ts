@@ -13,6 +13,7 @@ import type {
 import { hasCompleteFiche } from '../sponsorship-review-policy.js';
 import { sponsorshipRef } from '../sponsorship-admin-presentation.js';
 
+import { findSponsorshipByReference } from './sponsorship-reference.js';
 import {
   buildAttentionItems,
   buildFinancialSummary,
@@ -198,12 +199,9 @@ const explainSponsorshipTool: AssistantTool = {
   },
   execute(context, input) {
     const reference = String(input.reference ?? '');
-    const needle = reference.replace(/^#/, '').toLowerCase();
-    const record = context.dataset.sponsorships.find(
-      (candidate) =>
-        candidate.publicReference?.toLowerCase() === reference.toLowerCase() ||
-        candidate.contributionId.toLowerCase() === needle ||
-        candidate.contributionId.toLowerCase().startsWith(needle)
+    const record = findSponsorshipByReference(
+      context.dataset.sponsorships,
+      reference
     );
 
     if (!record) {

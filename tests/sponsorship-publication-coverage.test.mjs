@@ -131,6 +131,37 @@ const sponsorship = (amount) =>
     refundStatus: 'not_requested'
   });
 
+test('published drafts retain channel coverage while only unfinished drafts require context monitoring', () => {
+  const record = sponsorship(300);
+  for (const [status, coveredChannels, missingChannels, nextStep] of [
+    ['draft', ['facebook'], [], 'monitor_publication'],
+    ['pending_review', ['facebook'], [], 'monitor_publication'],
+    ['approved', ['facebook'], [], 'monitor_publication'],
+    ['scheduled', ['facebook'], [], 'monitor_publication'],
+    ['published', ['facebook'], [], 'complete'],
+    ['rejected', [], ['facebook'], 'prepare_publication'],
+    ['cancelled', [], ['facebook'], 'prepare_publication']
+  ]) {
+    const dataset = { drafts: [draft('facebook', status)] };
+    const coverage = resolveSponsorshipPublicationCoverage(
+      record,
+      dataset.drafts
+    );
+    assert.deepEqual(coverage.coveredChannels, coveredChannels, status);
+    assert.deepEqual(coverage.missingChannels, missingChannels, status);
+    const context = buildSponsorshipAssistantContext({
+      record,
+      dataset,
+      recipient: null,
+      consent: true,
+      version: 'synthetic-version',
+      media: [{ kind: 'supporting_image', reviewStatus: 'approved' }]
+    });
+    assert.deepEqual(context.coveredChannels, coveredChannels, status);
+    assert.equal(context.nextStep, nextStep, status);
+  }
+});
+
 test('uncovered promises do not bypass payment, refund or sponsorship review prerequisites', () => {
   for (const patch of [
     { paymentStatus: 'pending' },

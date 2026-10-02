@@ -310,7 +310,12 @@ test('automatic delivery states distinguish authorization, simulation, uncertain
 test('publication blockers explain the missing prerequisites without approving a source', () => {
   const result = buildSponsorshipProgress(
     source(
-      { paymentStatus: 'disputed', refundStatus: 'processing' },
+      {
+        paymentStatus: 'disputed',
+        refundStatus: 'processing',
+        hasCompanyName: false,
+        feedStatus: 'hidden'
+      },
       { consent: false, media: [] }
     ),
     facts()
@@ -320,10 +325,68 @@ test('publication blockers explain the missing prerequisites without approving a
     'review',
     'media',
     'payment',
+    'refund',
+    'hidden'
+  ]);
+  assert.deepEqual(result.website.blockers, [
+    'consent',
+    'review',
+    'identity',
+    'media',
+    'payment',
     'refund'
   ]);
+  assert.equal(result.website.canPublish, false);
   assert.equal(result.reviewStatus, 'pending_review');
-  assert.equal(result.feedStatus, 'not_planned');
+  assert.equal(result.feedStatus, 'hidden');
+});
+
+test('website identity and hidden social feed remain independent prerequisites', () => {
+  const missingIdentity = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved', hasCompanyName: false }),
+    facts()
+  );
+  assert.deepEqual(missingIdentity.website.blockers, ['identity']);
+  assert.equal(missingIdentity.website.canPublish, false);
+  assert.deepEqual(missingIdentity.publicationBlockers, []);
+
+  const hidden = buildSponsorshipProgress(
+    source({ reviewStatus: 'approved', feedStatus: 'hidden' }),
+    facts()
+  );
+  assert.deepEqual(hidden.website.blockers, []);
+  assert.equal(hidden.website.canPublish, true);
+  assert.deepEqual(hidden.publicationBlockers, ['hidden']);
+  assert.equal(step(hidden, 'publication').state, 'blocked');
+});
+
+test('recognition is blocked by an ongoing or full refund, while partial and failed workflows preserve confirmed facts', () => {
+  for (const [workflow, confirmed, blocked, state] of [
+    ['not_requested', 0, false, 'not_required'],
+    ['requested', 0, true, 'pending'],
+    ['processing', 0, true, 'pending'],
+    ['completed', 12000, false, 'partial'],
+    ['completed', 50000, true, 'complete'],
+    ['failed', 0, false, 'error'],
+    ['failed', 12000, false, 'error'],
+    ['not_requested', 50000, true, 'complete']
+  ]) {
+    const result = buildSponsorshipProgress(
+      source({ reviewStatus: 'approved', refundStatus: workflow }),
+      facts({
+        refunds: confirmed
+          ? [{ id: 're_confirmed', amount: confirmed, currency: 'CAD' }]
+          : []
+      })
+    );
+    assert.deepEqual(result.publicationBlockers, blocked ? ['refund'] : []);
+    assert.deepEqual(result.website.blockers, blocked ? ['refund'] : []);
+    assert.equal(result.website.canPublish, !blocked);
+    assert.equal(result.refund.confirmedAmountMinor, confirmed);
+    assert.equal(result.refund.state, state);
+    if (['requested', 'processing', 'failed'].includes(workflow))
+      assert.equal(result.next.reason, 'refund_check');
+  }
 });
 
 test('non-CAD dossiers follow their explicit social publications rather than CAD thresholds', () => {

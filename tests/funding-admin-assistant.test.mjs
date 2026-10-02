@@ -622,6 +622,122 @@ test('tools reject malformed input and never invent results', () => {
   assert.equal(result.data.found, false);
 });
 
+test('explanation and preparation resolve the same public reference, UUID or short ID without mutating the dataset', () => {
+  const first = Object.freeze(
+    sponsorship({
+      contributionId: 'abcdef01-0000-4000-8000-000000000001',
+      publicReference: 'OG7-CMD-ALPHA'
+    })
+  );
+  const second = Object.freeze(
+    sponsorship({
+      contributionId: 'abcdef02-0000-4000-8000-000000000002',
+      publicReference: 'OG7-CMD-BETA'
+    })
+  );
+  const ds = Object.freeze(
+    dataset({ sponsorships: Object.freeze([first, second]) })
+  );
+  const context = { dataset: ds, summary: buildSummaryFromDataset(ds) };
+  const explain = createAssistantToolRegistry().get(
+    'explain_sponsorship_state'
+  );
+  for (const [reference, expected] of [
+    ['  og7-cmd-alpha  ', first],
+    [first.contributionId, first],
+    [first.contributionId.toUpperCase(), first],
+    [`#${first.contributionId.toUpperCase()}`, first],
+    ['ABCDEF01', first],
+    ['#ABCDEF01', first],
+    ['og7-cmd-beta', second],
+    ['#OG7-CMD-BETA', undefined],
+    ['OG7-CMD-MISSING', undefined]
+  ]) {
+    const before = JSON.stringify(ds);
+    const result = explain.execute(context, explain.parseInput({ reference }));
+    const prepared = prepareDraftFromDataset(ds, {
+      type: 'admin_note',
+      reference
+    });
+    if (expected) {
+      assert.equal(result.resultCount, 1, reference);
+      assert.equal(result.data.reference, expected.publicReference, reference);
+      assert.equal(prepared.status, 'ok', reference);
+      assert.equal(
+        prepared.draft.reference,
+        expected.publicReference,
+        reference
+      );
+      assert.equal(
+        prepared.draft.adminUrl,
+        `/admin/fundraiser/sponsors?sponsorshipId=${expected.contributionId}`,
+        reference
+      );
+      assert.equal(prepared.draft.sent, false);
+      assert.equal(prepared.draft.published, false);
+      assert.equal(prepared.draft.persisted, false);
+    } else {
+      assert.equal(result.resultCount, 0, reference);
+      assert.equal(result.data.found, false, reference);
+      assert.equal(prepared.status, 'not_found', reference);
+      assert.equal(prepared.draft, null, reference);
+    }
+    assert.equal(JSON.stringify(ds), before, reference);
+  }
+});
+
+test('reference collisions retain the first loaded match in both explanation and preparation', () => {
+  const first = Object.freeze(
+    sponsorship({
+      contributionId: 'abcdef01-0000-4000-8000-000000000001',
+      publicReference: 'OG7-CMD-FIRST',
+      amount: 300
+    })
+  );
+  const second = Object.freeze(
+    sponsorship({
+      contributionId: 'abcdef02-0000-4000-8000-000000000002',
+      publicReference: 'ABCDEF01',
+      amount: 500
+    })
+  );
+  const sharedReference = Object.freeze({
+    ...second,
+    publicReference: first.publicReference
+  });
+  const explain = createAssistantToolRegistry().get(
+    'explain_sponsorship_state'
+  );
+  for (const [reference, candidates] of [
+    ['abcdef01', [first, second]],
+    ['abcdef01', [second, first]],
+    ['#abcdef', [first, second]],
+    ['#abcdef', [second, first]],
+    ['og7-cmd-first', [first, sharedReference]],
+    ['og7-cmd-first', [sharedReference, first]]
+  ]) {
+    const ds = Object.freeze(
+      dataset({ sponsorships: Object.freeze(candidates) })
+    );
+    const before = JSON.stringify(ds);
+    const context = { dataset: ds, summary: buildSummaryFromDataset(ds) };
+    const result = explain.execute(context, explain.parseInput({ reference }));
+    const prepared = prepareDraftFromDataset(ds, {
+      type: 'admin_note',
+      reference
+    });
+    assert.equal(result.resultCount, 1);
+    assert.equal(result.data.reference, candidates[0].publicReference);
+    assert.equal(result.data.amount, candidates[0].amount);
+    assert.equal(prepared.status, 'ok');
+    assert.equal(
+      prepared.draft.adminUrl,
+      `/admin/fundraiser/sponsors?sponsorshipId=${candidates[0].contributionId}`
+    );
+    assert.equal(JSON.stringify(ds), before);
+  }
+});
+
 test('list tools distinguish "no problem" from "no data"', () => {
   const ds = dataset({ sponsorships: [sponsorship()] });
   const context = { dataset: ds, summary: buildSummaryFromDataset(ds) };

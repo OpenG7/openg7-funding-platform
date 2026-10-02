@@ -119,6 +119,34 @@ test(
         body: '<script>demo</script>\nPlease complete your profile.',
         confirmed: true
       };
+      const personal = (
+        await pool.query(
+          "INSERT INTO fund_contributions (contribution_type, amount_cents, currency, status) VALUES ('personal_support', 5000, 'cad', 'paid') RETURNING *"
+        )
+      ).rows[0];
+      for (const contributionId of [
+        '10000000-0000-4000-8000-000000000999',
+        personal.id
+      ]) {
+        await assert.rejects(
+          requestSponsorshipInformation(
+            pool,
+            { ...input, contributionId },
+            'test'
+          ),
+          { status: 404 }
+        );
+      }
+      assert.equal(await count('email_messages'), 0);
+      assert.equal(await count('admin_audit_log'), 0);
+      assert.deepEqual(
+        (
+          await pool.query('SELECT * FROM fund_contributions WHERE id = $1', [
+            personal.id
+          ])
+        ).rows[0],
+        personal
+      );
       await assert.rejects(
         requestSponsorshipInformation(
           pool,

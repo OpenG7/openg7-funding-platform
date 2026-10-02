@@ -15,6 +15,7 @@ import {
   sponsorshipRef
 } from './sponsorship-admin-presentation.js';
 import { resolveSponsorshipSocialChannels } from './sponsorship-benefits.js';
+import { summarizeSponsorshipMedia } from './sponsorship-media-policy.js';
 import {
   loadSponsorshipAssistantDataset,
   type SponsorshipAssistantDataset
@@ -52,7 +53,7 @@ export const buildSponsorshipProgress = (
   source: SponsorshipAssistantDataset,
   facts: SponsorshipProgressFacts
 ): AdminSponsorshipProgress => {
-  const { record, media, consent } = source;
+  const { record, consent } = source;
   const currency = record.currency.toUpperCase();
   const sumDistinct = (rows: readonly RefundFact[]): number => {
     const amounts = new Map<string, number>();
@@ -100,11 +101,16 @@ export const buildSponsorshipProgress = (
     facts.refundError ||
     record.refundStatus === 'failed' ||
     confirmedAmountMinor > facts.amountMinor;
+  const refundInProgress = ['requested', 'processing'].includes(
+    record.refundStatus
+  );
+  const refundBlocksPublication =
+    confirmedAmountMinor >= facts.amountMinor || refundInProgress;
   const refund: AdminSponsorshipProgress['refund'] = {
     workflow: record.refundStatus,
     state: refundError
       ? 'error'
-      : ['requested', 'processing'].includes(record.refundStatus)
+      : refundInProgress
         ? 'pending'
         : confirmedAmountMinor > 0
           ? confirmedAmountMinor < facts.amountMinor
@@ -119,11 +125,9 @@ export const buildSponsorshipProgress = (
   const identityComplete = Boolean(
     record.detailsSubmittedAt && coordinatesComplete
   );
-  const imageApproved = media.some(
-    (m) => m.kind === 'supporting_image' && m.reviewStatus === 'approved'
-  );
-  const mediaComplete =
-    imageApproved && !media.some((m) => m.reviewStatus === 'pending_review');
+  const { hasApprovedPresentation: imageApproved, pending: pendingMedia } =
+    summarizeSponsorshipMedia(source.media);
+  const mediaComplete = imageApproved && pendingMedia === 0;
   const paid = ['paid', 'refunded', 'disputed'].includes(record.paymentStatus);
   const invoice = facts.documents.some((d) => d.kind === 'invoice');
   const promises =
@@ -170,33 +174,25 @@ export const buildSponsorshipProgress = (
   const publicationCancelled = facts.publications.some(
     (d) => !published(d) && cancelled(d)
   );
-  const publicationBlockers = [
+  // Shared read-only prerequisites; identity belongs to the website, hidden to social.
+  const visibilityBlockers = (target: 'website' | 'social'): string[] => [
     ...(!consent ? ['consent'] : []),
     ...(record.reviewStatus !== 'approved' ? ['review'] : []),
+    ...(target === 'website' && !record.hasCompanyName ? ['identity'] : []),
     ...(!imageApproved ? ['media'] : []),
     ...(record.paymentStatus !== 'paid' ? ['payment'] : []),
-    ...(confirmedAmountMinor >= facts.amountMinor ||
-    ['requested', 'processing'].includes(record.refundStatus)
-      ? ['refund']
-      : []),
-    ...(['hidden'].includes(record.feedStatus) ? ['hidden'] : [])
+    ...(refundBlocksPublication ? ['refund'] : []),
+    ...(target === 'social' && ['hidden'].includes(record.feedStatus)
+      ? ['hidden']
+      : [])
   ];
+  const publicationBlockers = visibilityBlockers('social');
   const publicationBlocked =
     publicationBlockers.length > 0 ||
     facts.publications.some(
       (d) => d.deliveryStatus === 'blocked' && !published(d)
     );
-  const websiteBlockers = [
-    ...(!consent ? ['consent'] : []),
-    ...(record.reviewStatus !== 'approved' ? ['review'] : []),
-    ...(!record.hasCompanyName ? ['identity'] : []),
-    ...(!imageApproved ? ['media'] : []),
-    ...(record.paymentStatus !== 'paid' ? ['payment'] : []),
-    ...(confirmedAmountMinor >= facts.amountMinor ||
-    ['requested', 'processing'].includes(record.refundStatus)
-      ? ['refund']
-      : [])
-  ];
+  const websiteBlockers = visibilityBlockers('website');
   const milestones: SponsorshipMilestone[] = [
     {
       id: 'payment',
@@ -236,7 +232,7 @@ export const buildSponsorshipProgress = (
       id: 'media',
       state: mediaComplete
         ? 'complete'
-        : media.some((m) => m.reviewStatus === 'pending_review')
+        : pendingMedia > 0
           ? 'pending'
           : 'blocked',
       reason: mediaComplete ? 'media_approved' : 'media_review',
@@ -310,7 +306,7 @@ export const buildSponsorshipProgress = (
     (m) => m.state !== 'complete' && m.state !== 'not_required'
   );
   const next =
-    refundError || ['requested', 'processing'].includes(record.refundStatus)
+    refundError || refundInProgress
       ? { reason: 'refund_check', tab: 'refund' as const }
       : creditMissing
         ? { reason: 'credit_missing', tab: 'billing' as const }

@@ -15,6 +15,44 @@ test(
   async () => {
     const { pool, stop } = await startDisposablePostgres();
     try {
+      const personal = (
+        await pool.query(
+          "INSERT INTO fund_contributions (contribution_type, amount_cents, currency, status) VALUES ('personal_support', 5000, 'cad', 'paid') RETURNING *"
+        )
+      ).rows[0];
+      for (const contributionId of [
+        '10000000-0000-4000-8000-000000000999',
+        personal.id
+      ]) {
+        for (const visible of [true, false]) {
+          assert.equal(
+            await setSponsorshipWebsiteVisibility(
+              pool,
+              {
+                contributionId,
+                expectedVersion: 'synthetic-version',
+                visible,
+                confirmed: true
+              },
+              'fixture-admin'
+            ),
+            'not_found'
+          );
+        }
+      }
+      assert.equal(
+        (await pool.query('SELECT count(*)::int AS count FROM admin_audit_log'))
+          .rows[0].count,
+        0
+      );
+      assert.deepEqual(
+        (
+          await pool.query('SELECT * FROM fund_contributions WHERE id = $1', [
+            personal.id
+          ])
+        ).rows[0],
+        personal
+      );
       for (const amount of [5000, 10000, 24999, 25000, 33333, 50000]) {
         const {
           rows: [{ id }]

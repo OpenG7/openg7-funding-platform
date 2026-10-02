@@ -16,6 +16,7 @@ import { enqueueSponsorshipAccessEmail } from './email-notification.service.js';
 import { buildSponsorshipFollowupUrl } from './sponsorship-followup-links.js';
 import { insertAdminAuditLog } from './fund-admin.repository.js';
 import { recordSponsorshipDetailsForContribution } from './fund-contributions.repository.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 
 export class SponsorshipAccessError extends Error {
   constructor(
@@ -63,24 +64,6 @@ export const validateSponsorshipDraft = (
 };
 const revisionValid = (revision: unknown): revision is number =>
   Number.isSafeInteger(revision) && Number(revision) >= 0;
-
-async function transaction<T>(
-  pool: Pool,
-  operation: (client: PoolClient) => Promise<T>
-): Promise<T> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await operation(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 interface Dossier {
   id: string;
@@ -165,7 +148,7 @@ export const getSponsorshipDraft = (
   token: string,
   ttlDays: number
 ): Promise<SponsorshipDraftSnapshot> =>
-  transaction(pool, async (client) =>
+  withPostgresTransaction(pool, async (client) =>
     readDraft(client, (await authorizedDossier(client, token, ttlDays)).id)
   );
 
@@ -179,7 +162,7 @@ export const saveSponsorshipDraft = (
   if (!revisionValid(expectedRevision))
     throw new SponsorshipAccessError(400, 'validation');
   const data = validateSponsorshipDraft(input);
-  return transaction(pool, async (client) => {
+  return withPostgresTransaction(pool, async (client) => {
     const row = await authorizedDossier(client, token, ttlDays);
     ensureEditable(row);
     const current = await readDraft(client, row.id);
@@ -199,7 +182,7 @@ export const submitSponsorshipDraft = (
   expectedRevision: number | undefined,
   data: SponsorshipDraftValues
 ): Promise<boolean> =>
-  transaction(pool, async (client) => {
+  withPostgresTransaction(pool, async (client) => {
     const row = await authorizedDossier(client, token, ttlDays);
     ensureEditable(row);
     const current = await readDraft(client, row.id);
@@ -272,7 +255,7 @@ export async function issueSponsorshipAccess(
   options: RecoveryOptions,
   admin?: { actor: string; requestId: string }
 ): Promise<AdminSponsorshipAccessResult> {
-  return transaction(pool, async (client) => {
+  return withPostgresTransaction(pool, async (client) => {
     const row = (
       await client.query<Dossier>(
         `SELECT * FROM fund_contributions WHERE id = $1::uuid

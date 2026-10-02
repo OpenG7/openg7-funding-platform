@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import test from 'node:test';
 import { updateAdminSponsorshipDetails } from '../../dist/apps/funding-api/src/admin-sponsorship-details.service.js';
+import { recordSponsorshipIntervention } from '../../dist/apps/funding-api/src/sponsorship-interventions.service.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
 test(
@@ -263,5 +264,93 @@ test(
         .rows[0].count,
       1
     );
+  }
+);
+
+test(
+  'the same request ID keeps separate receipts for each sponsorship dossier and action',
+  { timeout: 90000 },
+  async (t) => {
+    const { pool, stop } = await startDisposablePostgres();
+    t.after(stop);
+    const dossiers = (
+      await pool.query(`INSERT INTO fund_contributions
+        (contribution_type, amount_cents, currency, status, sponsor_company_name)
+        VALUES ('sponsorship_interest', 25000, 'cad', 'paid', 'Fixture one'),
+          ('sponsorship_interest', 25000, 'cad', 'paid', 'Fixture two')
+        RETURNING id, updated_at::text AS version`)
+    ).rows;
+    const requestId = randomUUID();
+    // A receipt for another entity type must not shadow the sponsorship request.
+    await pool.query(
+      `INSERT INTO admin_audit_log (actor, action, entity_type, entity_id, metadata)
+       VALUES ('fixture-admin', 'sponsorship.details.update', 'contribution', $1, $2::jsonb)`,
+      [dossiers[0].id, JSON.stringify({ requestId, requestHash: 'unrelated' })]
+    );
+    const receipts = [];
+    for (const [index, dossier] of dossiers.entries()) {
+      const correction = {
+        contributionId: dossier.id,
+        expectedVersion: dossier.version,
+        requestId,
+        confirmed: true,
+        reason: 'correction',
+        companyName: `Corrected fixture ${index}`,
+        publicName: '',
+        contactName: '',
+        contactEmail: '',
+        websiteUrl: ''
+      };
+      const corrected = await updateAdminSponsorshipDetails(
+        pool,
+        correction,
+        'fixture-admin'
+      );
+      assert.equal(corrected.updated, true);
+      const intervention = {
+        contributionId: dossier.id,
+        requestId,
+        kind: 'internal',
+        note: `Separate intervention ${index}`,
+        nextReviewOn: null
+      };
+      const recorded = await recordSponsorshipIntervention(
+        pool,
+        intervention,
+        'fixture-admin'
+      );
+      assert.equal(recorded.note, intervention.note);
+      receipts.push({ correction, corrected, intervention, recorded });
+    }
+    assert.notEqual(receipts[0].recorded.id, receipts[1].recorded.id);
+    for (const receipt of receipts) {
+      assert.deepEqual(
+        await updateAdminSponsorshipDetails(
+          pool,
+          receipt.correction,
+          'another-fixture-admin'
+        ),
+        receipt.corrected,
+        'correction retry precedes version checks and does not add actor to its request hash'
+      );
+      assert.deepEqual(
+        await recordSponsorshipIntervention(
+          pool,
+          receipt.intervention,
+          'fixture-admin'
+        ),
+        receipt.recorded
+      );
+    }
+    const counts = (
+      await pool.query(
+        `SELECT entity_id, action, COUNT(*)::int AS count FROM admin_audit_log
+         WHERE entity_type = 'sponsorship' AND metadata->>'requestId' = $1
+         GROUP BY entity_id, action`,
+        [requestId]
+      )
+    ).rows;
+    assert.equal(counts.length, 4);
+    assert.ok(counts.every((row) => row.count === 1));
   }
 );

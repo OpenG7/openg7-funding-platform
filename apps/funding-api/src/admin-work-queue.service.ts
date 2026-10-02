@@ -13,6 +13,7 @@ import {
   type AttentionDataset
 } from './admin-assistant/attention.service.js';
 import { sponsorshipAdminUrl } from './sponsorship-admin-presentation.js';
+import { isUnfinishedPublicationDraft } from './sponsorship-publication-coverage.js';
 
 export const WORK_QUEUE_TYPES: readonly AdminAttentionItemType[] = [
   'sponsorship_needs_info',
@@ -155,10 +156,7 @@ export const buildWorkQueueItems = (
                       )
                     : false
             )
-            .filter(
-              (draft) =>
-                !['cancelled', 'rejected', 'published'].includes(draft.status)
-            )
+            .filter(isUnfinishedPublicationDraft)
             .map((draft) => draft.contribution_id)
             .sort()[0];
     items.push({

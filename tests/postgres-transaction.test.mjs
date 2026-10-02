@@ -1,0 +1,192 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { withPostgresTransaction } from '../dist/apps/funding-api/src/postgres-transaction.js';
+
+const fixture = (failures = {}) => {
+  const calls = [];
+  const result = { status: 'unchanged' };
+  const client = {
+    async query(command) {
+      calls.push(command);
+      if (Object.hasOwn(failures, command)) throw failures[command];
+      return { rows: [], rowCount: 0 };
+    },
+    release() {
+      calls.push('release');
+      if (Object.hasOwn(failures, 'release')) throw failures.release;
+    }
+  };
+  const pool = {
+    async connect() {
+      calls.push('connect');
+      if (Object.hasOwn(failures, 'connect')) throw failures.connect;
+      return client;
+    }
+  };
+  const operation = async (connected) => {
+    assert.equal(connected, client);
+    calls.push('operation');
+    if (Object.hasOwn(failures, 'operation')) throw failures.operation;
+    return result;
+  };
+  return { calls, client, pool, operation, result };
+};
+
+test('a successful transaction returns the unchanged result after committing and releasing once', async () => {
+  const { calls, pool, operation, result } = fixture();
+  assert.equal(await withPostgresTransaction(pool, operation), result);
+  assert.deepEqual(calls, [
+    'connect',
+    'BEGIN',
+    'operation',
+    'COMMIT',
+    'release'
+  ]);
+});
+
+test('connection, begin, callback and commit failures preserve error identity and cleanup order', async (t) => {
+  for (const [phase, expectedCalls] of [
+    ['connect', ['connect']],
+    ['BEGIN', ['connect', 'BEGIN', 'ROLLBACK', 'release']],
+    ['operation', ['connect', 'BEGIN', 'operation', 'ROLLBACK', 'release']],
+    [
+      'COMMIT',
+      ['connect', 'BEGIN', 'operation', 'COMMIT', 'ROLLBACK', 'release']
+    ]
+  ]) {
+    await t.test(phase, async () => {
+      const failure = new Error(`Synthetic ${phase} failure`);
+      const { calls, pool, operation } = fixture({ [phase]: failure });
+      await assert.rejects(
+        withPostgresTransaction(pool, operation),
+        (error) => error === failure
+      );
+      assert.deepEqual(calls, expectedCalls);
+    });
+  }
+});
+
+test('a synchronously thrown callback error is rolled back without retry or wrapping', async () => {
+  const failure = new Error('Synthetic callback failure');
+  const { calls, pool } = fixture();
+  await assert.rejects(
+    withPostgresTransaction(pool, () => {
+      calls.push('operation');
+      throw failure;
+    }),
+    (error) => error === failure
+  );
+  assert.deepEqual(calls, [
+    'connect',
+    'BEGIN',
+    'operation',
+    'ROLLBACK',
+    'release'
+  ]);
+});
+
+test('a failed rollback retains the existing error precedence and still releases the client', async (t) => {
+  for (const phase of ['BEGIN', 'operation', 'COMMIT']) {
+    await t.test(phase, async () => {
+      const original = new Error(`Synthetic ${phase} failure`);
+      const rollback = new Error('Synthetic rollback failure');
+      const { calls, pool, operation } = fixture({
+        [phase]: original,
+        ROLLBACK: rollback
+      });
+      await assert.rejects(
+        withPostgresTransaction(pool, operation),
+        (error) => error === rollback
+      );
+      const expected = ['connect', 'BEGIN'];
+      if (phase !== 'BEGIN') expected.push('operation');
+      if (phase === 'COMMIT') expected.push('COMMIT');
+      expected.push('ROLLBACK', 'release');
+      assert.deepEqual(calls, expected);
+    });
+  }
+});
+
+test('a failed release rejects even after commit and keeps its existing precedence over rollback failures', async (t) => {
+  for (const phase of [null, 'operation', 'ROLLBACK']) {
+    await t.test(phase ?? 'success', async () => {
+      const release = new Error('Synthetic release failure');
+      const failures = { release };
+      if (phase !== null)
+        failures.operation = new Error('Synthetic callback failure');
+      if (phase === 'ROLLBACK')
+        failures.ROLLBACK = new Error('Synthetic rollback failure');
+      const { calls, pool, operation } = fixture(failures);
+      await assert.rejects(
+        withPostgresTransaction(pool, operation),
+        (error) => error === release
+      );
+      assert.deepEqual(calls, [
+        'connect',
+        'BEGIN',
+        'operation',
+        phase === null ? 'COMMIT' : 'ROLLBACK',
+        'release'
+      ]);
+    });
+  }
+});
+
+const deferred = () => {
+  let resolve;
+  const promise = new Promise((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+};
+
+test('the result stays pending while the callback or commit is unfinished', async () => {
+  const { calls, client, pool, result } = fixture();
+  const operationStarted = deferred();
+  const operationPermit = deferred();
+  const commitStarted = deferred();
+  const commitPermit = deferred();
+  const query = client.query.bind(client);
+  client.query = async (command) => {
+    const response = await query(command);
+    if (command === 'COMMIT') {
+      commitStarted.resolve();
+      await commitPermit.promise;
+    }
+    return response;
+  };
+  let settled = false;
+  const completion = withPostgresTransaction(pool, async (connected) => {
+    assert.equal(connected, client);
+    calls.push('operation');
+    operationStarted.resolve();
+    await operationPermit.promise;
+    return result;
+  }).then((value) => {
+    settled = true;
+    calls.push('resolved');
+    return value;
+  });
+
+  await operationStarted.promise;
+  assert.equal(settled, false);
+  assert.deepEqual(calls, ['connect', 'BEGIN', 'operation']);
+
+  operationPermit.resolve();
+  await commitStarted.promise;
+  assert.equal(settled, false);
+  assert.deepEqual(calls, ['connect', 'BEGIN', 'operation', 'COMMIT']);
+
+  commitPermit.resolve();
+  assert.equal(await completion, result);
+  assert.equal(settled, true);
+  assert.deepEqual(calls, [
+    'connect',
+    'BEGIN',
+    'operation',
+    'COMMIT',
+    'release',
+    'resolved'
+  ]);
+});

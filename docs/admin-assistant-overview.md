@@ -44,6 +44,27 @@ publication. Cette couverture sert à repérer les canaux encore à préparer;
 l'autorisation d'envoi et les preuves de publication restent vérifiées dans leurs
 parcours respectifs.
 
+La file et le contexte utilisent les mêmes règles pour suivre les brouillons
+inachevés. Les brouillons publiés couvrent leur canal sans rester à suivre.
+
+Les outils de lecture et les brouillons préparatoires utilisent la même
+[recherche de commandite par référence](../apps/funding-api/src/admin-assistant/sponsorship-reference.ts) :
+référence publique sans distinction de casse, identifiant complet ou préfixe
+d'identifiant, éventuellement précédé de `#`. La recherche conserve le premier
+dossier correspondant dans le jeu chargé. Le chargement du contexte et les actions
+confirmées conservent leur recherche exacte par identifiant ou référence publique.
+
+Le [résumé média partagé](../apps/funding-api/src/sponsorship-media-policy.ts)
+alimente le contexte et la progression du dossier. Une photo de présentation
+approuvée satisfait le prérequis média de publication; l'étape de revue des médias
+reste en attente tant qu'un média, y compris le logo, attend une décision. Un logo
+approuvé seul ne remplace pas la photo de présentation.
+
+La progression utilise les mêmes prérequis communs aux reconnaissances
+Web et sociales : consentement, revue, photo approuvée, paiement et remboursement.
+Le nom de l'entreprise reste requis pour le Web; le masquage du feed bloque les
+publications sociales. Ces motifs de lecture n'autorisent aucune publication.
+
 L'[éligibilité des demandes d'informations](../apps/funding-api/src/sponsorship-review-policy.ts)
 est commune au contexte, à l'aperçu privé et à l'action d'envoi confirmé : paiement
 confirmé, aucun remboursement demandé, dossier non refusé et incomplet,

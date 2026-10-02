@@ -1881,6 +1881,18 @@ interface SponsorshipAttentionRow {
 
 const SPONSORSHIP_ATTENTION_MAX_ROWS = 2000;
 
+/** Lock the sponsorship dossier in the caller's transaction, before any write. */
+export const lockSponsorshipContribution = async (
+  client: PoolClient,
+  contributionId: string
+): Promise<boolean> => {
+  const result = await client.query<{ readonly id: string }>(
+    "SELECT id FROM fund_contributions WHERE id = $1::uuid AND contribution_type = 'sponsorship_interest' FOR UPDATE",
+    [contributionId]
+  );
+  return result.rows.length > 0;
+};
+
 export const listSponsorshipsForAttention = async (
   pool: Pool | PoolClient | null,
   maxRows: number | null = SPONSORSHIP_ATTENTION_MAX_ROWS,
