@@ -317,6 +317,8 @@ complètent FR/EN, mobile/ordinateur, clavier, focus, attente et raccourci vers 
 message exact.
 Les brouillons, états et résultats de renvoi restent attachés à chaque facture,
 y compris pendant un changement de sélection ou un rafraîchissement de liste.
+Les téléchargements de factures et d'avoirs gardent leur verrou et leur erreur
+par document ; un clic répété pendant la préparation n'ajoute aucune requête.
 
 ```sh
 node scripts/admin-acceptance.mjs document-resend-acceptance.spec.ts --project=chromium

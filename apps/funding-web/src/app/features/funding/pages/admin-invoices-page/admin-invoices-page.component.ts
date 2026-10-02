@@ -45,6 +45,11 @@ interface InvoiceResend {
   email: string;
 }
 
+interface DocumentDownload {
+  state: DownloadState;
+  message: string;
+}
+
 @Component({
   selector: 'openg7-admin-invoices-page',
   standalone: true,
@@ -1283,13 +1288,22 @@ export class AdminInvoicesPageComponent implements OnInit {
       /* A retained UUID can only deduplicate a later retry. */
     }
   }
-  readonly invoicePdfState = signal<DownloadState>('idle');
-  readonly invoicePdfMessage = signal('');
+  private readonly pdfDownloads = signal<
+    Partial<Record<string, DocumentDownload>>
+  >({});
+  readonly invoicePdfState = computed(
+    () =>
+      this.pdfDownloads()[`invoice:${this.selectedInvoice()?.id}`]?.state ??
+      'idle'
+  );
+  readonly invoicePdfMessage = computed(
+    () =>
+      this.pdfDownloads()[`invoice:${this.selectedInvoice()?.id}`]?.message ??
+      ''
+  );
   readonly creditNoteResendEmails = signal<Record<string, string>>({});
   readonly creditNoteResendStates = signal<Record<string, ResendState>>({});
   readonly creditNoteResendMessages = signal<Record<string, string>>({});
-  readonly creditNotePdfStates = signal<Record<string, DownloadState>>({});
-  readonly creditNotePdfMessages = signal<Record<string, string>>({});
   readonly selectedInvoiceId = signal('');
   readonly data = signal<AdminSponsorshipInvoicesResponse | null>(null);
   readonly invoices = computed(() => this.data()?.invoices ?? []);
@@ -1311,7 +1325,6 @@ export class AdminInvoicesPageComponent implements OnInit {
         this.contributionId = params.get('contributionId') ?? undefined;
         this.data.set(null);
         this.selectedInvoiceId.set('');
-        this.invoicePdfMessage.set('');
         this.backfillMessage.set('');
         void this.loadInvoices();
       });
@@ -1352,8 +1365,6 @@ export class AdminInvoicesPageComponent implements OnInit {
   selectInvoice(invoice: AdminSponsorshipInvoiceRecord): void {
     this.selectedInvoiceId.set(invoice.id);
     this.ensureCreditNoteResendDrafts(invoice);
-    this.invoicePdfState.set('idle');
-    this.invoicePdfMessage.set('');
   }
 
   setResendEmail(event: Event): void {
@@ -1427,48 +1438,53 @@ export class AdminInvoicesPageComponent implements OnInit {
   }
 
   creditNotePdfStateFor(id: string): DownloadState {
-    return this.creditNotePdfStates()[id] ?? 'idle';
+    return this.pdfDownloads()[`credit-note:${id}`]?.state ?? 'idle';
   }
 
   creditNotePdfMessageFor(id: string): string {
-    return this.creditNotePdfMessages()[id] ?? '';
+    return this.pdfDownloads()[`credit-note:${id}`]?.message ?? '';
   }
 
   async downloadInvoicePdf(
     invoice: AdminSponsorshipInvoiceRecord
   ): Promise<void> {
-    this.invoicePdfState.set('loading');
-    this.invoicePdfMessage.set('');
-
-    try {
-      const blob = await this.admin.getSponsorshipInvoicePdf(
-        this.adminToken(),
-        invoice.id
-      );
-      this.saveBlob(blob, this.pdfFilename(invoice.invoice_number));
-      this.invoicePdfState.set('idle');
-    } catch (error) {
-      this.invoicePdfState.set('error');
-      this.invoicePdfMessage.set(this.messageFromError(error));
-    }
+    await this.downloadDocumentPdf(
+      { kind: 'invoice', id: invoice.id, number: invoice.invoice_number },
+      () => this.admin.getSponsorshipInvoicePdf(this.adminToken(), invoice.id)
+    );
   }
 
   async downloadCreditNotePdf(
     creditNote: AdminSponsorshipCreditNoteRecord
   ): Promise<void> {
-    this.setCreditNotePdfState(creditNote.id, 'loading');
-    this.setCreditNotePdfMessage(creditNote.id, '');
+    await this.downloadDocumentPdf(
+      {
+        kind: 'credit-note',
+        id: creditNote.id,
+        number: creditNote.credit_note_number
+      },
+      () =>
+        this.admin.getSponsorshipCreditNotePdf(this.adminToken(), creditNote.id)
+    );
+  }
+
+  private async downloadDocumentPdf(
+    document: { kind: 'invoice' | 'credit-note'; id: string; number: string },
+    load: () => Promise<Blob>
+  ): Promise<void> {
+    const key = `${document.kind}:${document.id}`;
+    if (this.pdfDownloads()[key]?.state === 'loading') return;
+    this.setPdfDownload(key, { state: 'loading', message: '' });
 
     try {
-      const blob = await this.admin.getSponsorshipCreditNotePdf(
-        this.adminToken(),
-        creditNote.id
-      );
-      this.saveBlob(blob, this.pdfFilename(creditNote.credit_note_number));
-      this.setCreditNotePdfState(creditNote.id, 'idle');
+      const blob = await load();
+      this.saveBlob(blob, this.pdfFilename(document.number));
+      this.setPdfDownload(key, { state: 'idle', message: '' });
     } catch (error) {
-      this.setCreditNotePdfState(creditNote.id, 'error');
-      this.setCreditNotePdfMessage(creditNote.id, this.messageFromError(error));
+      this.setPdfDownload(key, {
+        state: 'error',
+        message: this.messageFromError(error)
+      });
     }
   }
 
@@ -1759,17 +1775,10 @@ export class AdminInvoicesPageComponent implements OnInit {
     }));
   }
 
-  private setCreditNotePdfState(id: string, state: DownloadState): void {
-    this.creditNotePdfStates.update((states) => ({
-      ...states,
-      [id]: state
-    }));
-  }
-
-  private setCreditNotePdfMessage(id: string, message: string): void {
-    this.creditNotePdfMessages.update((messages) => ({
-      ...messages,
-      [id]: message
+  private setPdfDownload(key: string, download: DocumentDownload): void {
+    this.pdfDownloads.update((downloads) => ({
+      ...downloads,
+      [key]: download
     }));
   }
 
