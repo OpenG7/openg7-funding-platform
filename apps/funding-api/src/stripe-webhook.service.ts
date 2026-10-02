@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import type { Pool } from 'pg';
 
+import { normalizeContributionPublicReference } from './contribution-public-reference.js';
 import {
   markSponsorshipFollowupEmailResult,
   normalizeContributionType,
@@ -43,7 +44,6 @@ const allowedEvents = new Set([
 ]);
 
 const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
-const contributionPublicReferencePattern = /^OG7-\d{4}-[A-Z0-9]{4,8}$/;
 
 const toIsoFromUnix = (seconds: number): string =>
   new Date(seconds * 1000).toISOString();
@@ -143,17 +143,6 @@ const extractSponsorshipFollowupTokenFromSession = (
   return legacyToken && sponsorshipFollowupTokenPattern.test(legacyToken)
     ? legacyToken
     : null;
-};
-
-const normalizeContributionPublicReference = (
-  value: string | null | undefined
-): string | null => {
-  if (!value) {
-    return null;
-  }
-
-  const reference = value.trim().toUpperCase();
-  return contributionPublicReferencePattern.test(reference) ? reference : null;
 };
 
 const buildCheckoutSessionWebhookInput = (

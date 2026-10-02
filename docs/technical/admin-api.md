@@ -1,13 +1,11 @@
 # Administration API
 
-Payment notifications and private website preparation use the protected
+Payment notifications and private website preparation use protected
 `GET /api/admin/contribution-activity` and per-actor
-`POST /api/admin/contribution-activity/present` endpoints. Pagination, states,
-permissions and simulation are documented in
-[contribution activity](../operations/contribution-activity.md).
+`POST /api/admin/contribution-activity/present`. Pagination, states,
+permissions and simulation: [contribution activity](../operations/contribution-activity.md).
 
-Feature guides and code define these contracts. Commands run from the repository
-root. [Documentation index](../README.md).
+Contracts: feature guides and code; [documentation index](../README.md).
 
 ## Fundraiser admin
 
@@ -28,11 +26,7 @@ requests recheck admissibility after removal. This cannot revoke copies already
 downloaded or previously cached under older headers. See the
 [media recipe](../sponsorship-e2e-coverage.md#recette-navigateur--retrait-et-remplacement-de-médias-approuvés).
 
-The admin dashboard is available at:
-
-```text
-/admin/fundraiser
-```
+Admin dashboard: `/admin/fundraiser`.
 
 Open `/admin/login`. In default `token` mode, the frontend exchanges
 `FUNDING_ADMIN_TOKEN` through `POST /api/admin/session`. In `oidc` mode, it
@@ -49,9 +43,9 @@ named-account guarantees. Independent alerts use `yarn operations:watch` or the
 optional Compose overlay and remain disabled until configured and started.
 Access changes require `confirmation`; update API/Web.
 
-The dashboard now uses the admin visual foundation described in
-[Admin UX — lot 1](../admin-ux-lot-1.md). Run `yarn test:ui:admin` to build
-and check this UI with synthetic API fixtures, without starting the API or a DB.
+The dashboard uses [Admin UX — lot 1](../admin-ux-lot-1.md).
+`yarn test:ui:admin` builds and checks the UI with synthetic API fixtures,
+without starting the API or a DB.
 The [To do queue — lot 2](../admin-ux-lot-2.md) is available at
 `/admin/fundraiser/attention`, with server pagination, URL filters, exact record
 links and an independent dashboard summary. Its protected API is
@@ -145,14 +139,13 @@ POST /api/admin/sponsorship-credit-notes/resend
 ```
 
 The dashboard summarizes received funds, estimated availability, pending
-sponsorship reviews, feed publication state, Stripe event errors, and recent
-contributions. The contributions view supports local filtering by type, payment
-status, public-display consent, and search. The [private CSV export](../operations/private-contributions-export.md)
-requires owner access and a confirmed, versioned selection. Expenses manage `fund_allocations`; see the
-[confirmation, version and amount contract](../funding-transparency.md#allocations-publiées-et-réalisations).
-The publications view generates and moderates sponsored
-publication drafts for approved sponsorships, while the audit view lists recent
-sensitive admin actions.
+sponsorship reviews, feed state, Stripe event errors and recent contributions.
+Contributions support local type/payment/public-display-consent filters and search.
+The [private CSV export](../operations/private-contributions-export.md) requires
+owner access and a confirmed, versioned selection. Expenses manage `fund_allocations`;
+see the [confirmation, version and amount contract](../funding-transparency.md#allocations-publiées-et-réalisations).
+Publications generate and moderate drafts for approved sponsorships;
+audit lists recent sensitive admin actions.
 
 Owner-only `/admin/fundraiser/setup` reports configuration and supports idempotent
 SMTP tests. Its [system status and configuration view](../operations/admin-setup.md)
@@ -182,13 +175,7 @@ resets backoff or alters issued documents. See [UI recovery and limits](../payme
 
 ## Sponsorship review admin
 
-The admin review screen is available at:
-
-```text
-/admin/fundraiser/sponsors
-```
-
-It reads and updates private sponsorship records through:
+Admin review: `/admin/fundraiser/sponsors`. Private sponsorship endpoints:
 
 ```text
 GET /api/admin/sponsorships

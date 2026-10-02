@@ -88,6 +88,8 @@ Les paramètres publics `?period=2026-09&type=refunds` rétablissent une vue lor
 
 ## Lecture Stripe direct
 
+Les contributions suivent le même filtrage de projet que le backfill : les métadonnées `project` et `projectId` de la session et du PaymentIntent sont examinées ensemble. Au moins un tag doit correspondre au projet configuré; tout tag contradictoire exclut la contribution, même si l'autre objet correspond. Les objets sans tag sont exclus. Cette règle inclut les tags historiques `project`; les versements restent des transferts au niveau du compte.
+
 Les sessions Checkout et les versements sont parcourus par curseur jusqu’à la dernière page. Une erreur intermédiaire ou un curseur qui n’avance pas fait échouer la projection; aucun total partiel n’est retourné. Un même PaymentIntent ne peut être compté deux fois.
 
 Le point d’entrée public mutualise cette lecture avec un cache mémoire de 60 secondes par lecteur Stripe configuré, dans chaque processus API. Les requêtes simultanées attendent la même promesse. L’expiration est calculée depuis le début de lecture; une lecture lente ne prolonge pas la fraîcheur. Les dates de la projection sont préservées. Après expiration, une erreur est retournée aux visiteurs concernés sans servir l’ancien résultat comme un succès; la requête suivante peut réessayer. La projection PostgreSQL n’utilise pas ce cache. Aucune nouvelle configuration ni infrastructure n’est nécessaire.

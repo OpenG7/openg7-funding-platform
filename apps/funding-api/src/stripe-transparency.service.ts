@@ -4,6 +4,8 @@ import type {
 } from '@openg7/funding-core';
 import type Stripe from 'stripe';
 
+import { stripeSessionBelongsToProject } from './stripe-project-scope.js';
+
 interface StripeTransparencyOptions {
   readonly projectId: string;
 }
@@ -109,14 +111,6 @@ const resolvePaymentIntent = async (
 
   return value;
 };
-
-const isProjectSession = (
-  session: Stripe.Checkout.Session,
-  paymentIntent: Stripe.PaymentIntent | null,
-  projectId: string
-): boolean =>
-  session.metadata?.projectId === projectId ||
-  paymentIntent?.metadata?.projectId === projectId;
 
 const toContribution = async (
   stripe: Stripe,
@@ -248,7 +242,7 @@ export const getStripePublicTransparencySummary = async (
     );
     if (
       !paymentIntent ||
-      !isProjectSession(session, paymentIntent, options.projectId)
+      !stripeSessionBelongsToProject(session, paymentIntent, options.projectId)
     ) {
       continue;
     }

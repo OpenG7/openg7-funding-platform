@@ -12,6 +12,24 @@ export function stripeMetadataProject(
   return tags.length ? tags.every((value) => value === projectId) : null;
 }
 
+/** One matching object is enough only when neither object conflicts. */
+export function stripeSessionBelongsToProject(
+  session: Stripe.Checkout.Session,
+  paymentIntent: Stripe.PaymentIntent | null,
+  projectId: string
+): boolean {
+  const sessionProject = stripeMetadataProject(session.metadata, projectId);
+  const intentProject = stripeMetadataProject(
+    paymentIntent?.metadata,
+    projectId
+  );
+  return (
+    sessionProject !== false &&
+    intentProject !== false &&
+    (sessionProject === true || intentProject === true)
+  );
+}
+
 export async function stripeEventBelongsToProject(
   event: Stripe.Event,
   stripe: Stripe,

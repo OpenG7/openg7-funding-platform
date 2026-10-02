@@ -51,6 +51,12 @@ des observations. Elle ne certifie pas un déploiement. Si la lecture de la file
 échoue, les compteurs sont indéterminés et le test courriel est indisponible,
 y compris avec un ancien serveur renvoyant des zéros et une erreur de lecture.
 
+Les paramètres de facturation affichés proviennent du même snapshot de démarrage
+que l'émission des factures et avoirs, défini dans
+[la configuration propriétaire](../../apps/funding-api/src/sponsorship-invoice-config.ts).
+Une modification d'environnement exige un redémarrage de l'API; les documents
+déjà émis conservent leurs snapshots.
+
 Les paramètres détaillés se déplient dans chaque panneau. Les cartes et les
 liens `?section=storage` ou `?section=database` ouvrent et focalisent le panneau
 correspondant. Le guide utilise le panneau accessible commun : Tab, fermeture

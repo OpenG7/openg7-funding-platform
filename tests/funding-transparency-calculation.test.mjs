@@ -154,6 +154,177 @@ const stripePayout = (index) => ({
   created: 1784162100
 });
 
+const stripeProjectScopeCases = [
+  {
+    name: 'matching projectId tags',
+    sessionMetadata: { projectId: 'openg7' },
+    intentMetadata: { projectId: 'openg7' },
+    included: true
+  },
+  {
+    name: 'historical project tags',
+    sessionMetadata: { project: 'openg7' },
+    intentMetadata: { project: 'openg7' },
+    included: true
+  },
+  {
+    name: 'consistent project and projectId tags',
+    sessionMetadata: { project: 'openg7', projectId: 'openg7' },
+    intentMetadata: { project: 'openg7', projectId: 'openg7' },
+    included: true
+  },
+  {
+    name: 'projectId only on the session',
+    sessionMetadata: { projectId: 'openg7' },
+    intentMetadata: {},
+    included: true
+  },
+  {
+    name: 'historical project only on the session',
+    sessionMetadata: { project: 'openg7' },
+    intentMetadata: null,
+    included: true
+  },
+  {
+    name: 'projectId only on the intent',
+    sessionMetadata: {},
+    intentMetadata: { projectId: 'openg7' },
+    included: true
+  },
+  {
+    name: 'historical project only on the intent',
+    sessionMetadata: null,
+    intentMetadata: { project: 'openg7' },
+    included: true
+  },
+  {
+    name: 'missing project tags',
+    sessionMetadata: {},
+    intentMetadata: null,
+    included: false
+  },
+  {
+    name: 'another project',
+    sessionMetadata: { projectId: 'another-project' },
+    intentMetadata: { project: 'another-project' },
+    included: false
+  },
+  {
+    name: 'a conflicting historical tag on the session',
+    sessionMetadata: { project: 'another-project', projectId: 'openg7' },
+    intentMetadata: { projectId: 'openg7' },
+    included: false
+  },
+  {
+    name: 'a conflicting modern tag on the session',
+    sessionMetadata: { project: 'openg7', projectId: 'another-project' },
+    intentMetadata: { projectId: 'openg7' },
+    included: false
+  },
+  {
+    name: 'a conflicting historical tag on the intent',
+    sessionMetadata: { projectId: 'openg7' },
+    intentMetadata: { project: 'another-project', projectId: 'openg7' },
+    included: false
+  },
+  {
+    name: 'a conflicting modern tag on the intent',
+    sessionMetadata: { projectId: 'openg7' },
+    intentMetadata: { project: 'openg7', projectId: 'another-project' },
+    included: false
+  },
+  {
+    name: 'a matching session and another-project intent',
+    sessionMetadata: { projectId: 'openg7' },
+    intentMetadata: { projectId: 'another-project' },
+    included: false
+  },
+  {
+    name: 'another-project session and a matching intent',
+    sessionMetadata: { projectId: 'another-project' },
+    intentMetadata: { projectId: 'openg7' },
+    included: false
+  },
+  {
+    name: 'a matching modern session and another-project historical intent',
+    sessionMetadata: { projectId: 'openg7' },
+    intentMetadata: { project: 'another-project' },
+    included: false
+  },
+  {
+    name: 'another-project historical session and a matching modern intent',
+    sessionMetadata: { project: 'another-project' },
+    intentMetadata: { projectId: 'openg7' },
+    included: false
+  }
+];
+
+for (const scope of stripeProjectScopeCases) {
+  for (const expanded of [true, false]) {
+    test(`Stripe-direct ${scope.included ? 'includes' : 'excludes'} ${scope.name} with ${expanded ? 'an expanded' : 'an ID-only'} intent`, async () => {
+      const session = stripeSession('project_scope');
+      const paymentIntent = session.payment_intent;
+      session.metadata = scope.sessionMetadata;
+      paymentIntent.metadata = scope.intentMetadata;
+      session.customer_details = { email: 'private-sponsor@example.invalid' };
+      paymentIntent.description = 'private-sponsor-note';
+      session.payment_intent = expanded ? paymentIntent : paymentIntent.id;
+      const retrievedIntentIds = [];
+      const stripe = {
+        checkout: {
+          sessions: {
+            async list() {
+              return { data: [session], has_more: false };
+            }
+          }
+        },
+        paymentIntents: {
+          async retrieve(id, options) {
+            retrievedIntentIds.push(id);
+            assert.deepEqual(options, {
+              expand: ['latest_charge.balance_transaction']
+            });
+            return paymentIntent;
+          }
+        },
+        payouts: {
+          async list() {
+            return { data: [], has_more: false };
+          }
+        }
+      };
+
+      const report = await getStripePublicTransparencySummary(stripe, {
+        projectId: 'openg7'
+      });
+
+      assert.deepEqual(retrievedIntentIds, expanded ? [] : [paymentIntent.id]);
+      assert.equal(report.contributions_count, scope.included ? 1 : 0);
+      assert.equal(report.total_received, scope.included ? 1 : 0);
+      assert.equal(report.total_fees, scope.included ? 0.05 : 0);
+      assert.equal(report.total_net, scope.included ? 0.95 : 0);
+      assert.equal(report.total_refunded, scope.included ? 0.1 : 0);
+      assert.equal(
+        report.current_available_estimate,
+        scope.included ? 0.85 : 0
+      );
+      assert.equal(report.monthly_summary.length, scope.included ? 1 : 0);
+      if (scope.included) {
+        assert.equal(report.monthly_summary[0].contributions_count, 1);
+        assert.equal(report.monthly_summary[0].total_received, 1);
+        assert.equal(report.monthly_summary[0].total_fees, 0.05);
+      }
+      assert.deepEqual(report.public_builders, []);
+      assert.deepEqual(report.latest_public_allocations, []);
+      const serialized = JSON.stringify(report);
+      assert.ok(!serialized.includes('private-sponsor@example.invalid'));
+      assert.ok(!serialized.includes('private-sponsor-note'));
+      assert.ok(!serialized.includes(session.id));
+      assert.ok(!serialized.includes(paymentIntent.id));
+    });
+  }
+}
+
 test('Stripe-direct distinguishes missing fees from a confirmed zero fee', async () => {
   const session = stripeSession(0);
   const balance = session.payment_intent.latest_charge.balance_transaction;
