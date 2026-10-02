@@ -1,26 +1,62 @@
 import type { Pool, PoolClient } from 'pg';
 import type {
   AdminEmailTestResult,
-  AdminEmailQueueMessageRecord,
-  AdminEmailQueueResponse,
-  AdminEmailQueueSummary,
-  AdminSponsorshipAccessResult,
-  AdminSponsorshipRejectionRefundHandling
+  AdminSponsorshipAccessResult
 } from '@openg7/funding-core';
 
-import type {
-  SponsorshipCreditNoteRecord,
-  SponsorshipInvoiceRecord
-} from './sponsorship-invoices.repository.js';
-import type { ContributionReferenceRecoveryRecord } from './fund-contributions.repository.js';
-import { formatSponsorshipBenefitList } from './sponsorship-benefits.js';
 import {
   loadTransactionalEmailConfig,
   sendTransactionalEmail,
+  renderContributionReferenceRecoveryEmail,
+  renderPublicationBatchFullNotification,
+  renderSponsorshipReviewReminderNotification,
+  renderEmailConfigurationTest,
+  renderAdminContributionReceivedEmail,
+  renderSponsorshipFollowupEmail,
+  renderSponsorshipConfirmationEmail,
+  renderSponsorshipRejectionEmail,
+  renderSponsorshipRefundEmail,
+  renderSponsorshipAccessEmail,
+  renderSponsorshipInformationRequestEmail,
+  renderSponsorshipInvoiceEmail,
+  renderSponsorshipCreditNoteEmail,
   TransactionalEmailError,
   type EmailDeliveryMode,
-  type EmailServiceDependencies
+  type EmailServiceDependencies,
+  type SponsorshipFollowupEmailInput,
+  type ContributionReferenceRecoveryEmailInput,
+  type SponsorshipConfirmationEmailInput,
+  type SponsorshipInvoiceEmailInput,
+  type SponsorshipCreditNoteEmailInput,
+  type SponsorshipRejectionEmailInput,
+  type SponsorshipRefundEmailInput,
+  type PublicationBatchFullEmailInput,
+  type SponsorshipReviewReminderEmailInput,
+  type RenderedEmail,
+  type SponsorshipAccessEmailInput,
+  type AdminContributionReceivedEmailInput,
+  type SponsorshipInformationRequestEmailInput
 } from './services/email/index.js';
+import {
+  claimAdminEmailQueueRetry,
+  claimQueuedEmailMessages,
+  findEmailConfigurationTestBinding,
+  findEmailConfigurationTestMessage,
+  insertEmailQueueMessage,
+  markEmailFailed,
+  markEmailSent,
+  recordEmailConfigurationTestQueuedAudit,
+  type ClaimedEmailMessage,
+  type EmailQueueInsertResult
+} from './email-queue.repository.js';
+
+export {
+  getAdminEmailQueueMessageById,
+  getEmailQueueStatus,
+  listAdminEmailQueue
+} from './email-queue.repository.js';
+export type { EmailQueueStatus } from './email-queue.repository.js';
+export type { SponsorshipReviewReminderEmailItem } from './services/email/index.js';
 
 /** Project an existing queued message without retrying or creating another one. */
 export const projectExistingSponsorshipEmailStatus = (
@@ -31,119 +67,6 @@ export const projectExistingSponsorshipEmailStatus = (
     : status === 'failed'
       ? 'delivery_failed'
       : 'already_queued';
-
-type EmailTemplateKey =
-  | 'admin_contribution_received'
-  | 'sponsorship_access_recovery'
-  | 'contribution_reference_recovery'
-  | 'sponsorship_information_request'
-  | 'sponsorship_followup'
-  | 'sponsorship_confirmation'
-  | 'sponsorship_rejection'
-  | 'sponsorship_refund'
-  | 'sponsorship_invoice'
-  | 'sponsorship_credit_note'
-  | 'sponsorship_review_reminder'
-  | 'publication_batch_full'
-  | 'email_configuration_test';
-
-interface SponsorshipFollowupEmailInput {
-  readonly to: string;
-  readonly publicReference: string | null;
-  readonly followupUrl: string;
-  readonly idempotencyKey?: string;
-  readonly deferDelivery?: boolean;
-}
-
-interface ContributionReferenceRecoveryEmailInput {
-  readonly to: string;
-  readonly references: readonly ContributionReferenceRecoveryRecord[];
-  readonly idempotencyKey?: string;
-}
-
-interface SponsorshipConfirmationEmailInput {
-  readonly to: string;
-  readonly publicReference: string | null;
-  readonly amount: number;
-  readonly currency: string;
-  readonly paidAtIso: string | null;
-  readonly followupUrl: string;
-  readonly stripeSessionId: string;
-  readonly stripePaymentIntentId: string | null;
-  readonly idempotencyKey?: string;
-}
-
-interface SponsorshipInvoiceEmailInput {
-  readonly to: string;
-  readonly invoice: SponsorshipInvoiceRecord;
-  readonly followupUrl?: string;
-  readonly idempotencyKey?: string;
-  readonly deferDelivery?: boolean;
-}
-
-interface SponsorshipCreditNoteEmailInput {
-  readonly to: string;
-  readonly creditNote: SponsorshipCreditNoteRecord;
-  readonly sponsorMessage?: string;
-  readonly idempotencyKey?: string;
-}
-
-interface SponsorshipRejectionEmailInput {
-  readonly to: string;
-  readonly contributionId: string;
-  readonly publicReference: string | null;
-  readonly sponsorName: string;
-  readonly amount: number;
-  readonly currency: string;
-  readonly reviewReason: string;
-  readonly sponsorMessage: string;
-  readonly refundHandling: AdminSponsorshipRejectionRefundHandling;
-  readonly refundNote?: string;
-  readonly idempotencyKey?: string;
-}
-
-interface SponsorshipRefundEmailInput {
-  readonly to: string;
-  readonly contributionId: string;
-  readonly publicReference: string | null;
-  readonly sponsorName: string;
-  readonly amount: number;
-  readonly currency: string;
-  readonly refundId: string;
-  readonly refundStatus: string | null;
-  readonly sponsorMessage: string;
-  readonly refundNote?: string;
-  readonly idempotencyKey?: string;
-}
-
-interface PublicationBatchFullEmailInput {
-  readonly channel: string;
-  readonly capacity: number;
-  readonly batchId?: string;
-  readonly idempotencyKey?: string;
-}
-
-export interface SponsorshipReviewReminderEmailItem {
-  readonly reference: string;
-  readonly amount: number;
-  readonly currency: string;
-  readonly detailsSubmittedAt: string | null;
-  readonly daysWaiting: number | null;
-}
-
-interface SponsorshipReviewReminderEmailInput {
-  readonly totalCount: number;
-  readonly urgentCount: number;
-  readonly oldestDaysWaiting: number | null;
-  readonly adminUrl: string;
-  readonly items: readonly SponsorshipReviewReminderEmailItem[];
-  readonly idempotencyKey?: string;
-}
-
-interface EmailConfigurationTestInput {
-  readonly to: string;
-  readonly idempotencyKey?: string;
-}
 
 interface EmailSendResult {
   readonly attempted: boolean;
@@ -158,67 +81,10 @@ interface EmailQueueResult extends EmailSendResult {
   readonly messageId: string | null;
 }
 
-interface RenderedEmail {
-  readonly templateKey: EmailTemplateKey;
-  readonly subject: string;
-  readonly text: string;
-  readonly html: string;
-  readonly metadata: Record<string, unknown>;
-}
-
 interface QueueEmailInput extends RenderedEmail {
   readonly to: string;
   readonly idempotencyKey?: string;
   readonly maxAttempts?: number;
-}
-
-interface QueueInsertResult {
-  readonly queued: boolean;
-  readonly duplicate: boolean;
-  readonly messageId: string | null;
-  readonly status: string | null;
-  readonly error: string | null;
-}
-
-interface ClaimedEmailRow {
-  readonly id: string;
-  readonly recipient_email: string;
-  readonly from_email: string;
-  readonly reply_to_email: string | null;
-  readonly subject: string;
-  readonly text_body: string;
-  readonly html_body: string;
-  readonly attempts: number;
-  readonly max_attempts: number;
-}
-
-interface AdminEmailQueueMessageRow {
-  readonly id: string;
-  readonly template_key: string;
-  readonly recipient_email: string;
-  readonly from_email: string;
-  readonly reply_to_email: string | null;
-  readonly subject: string;
-  readonly status: AdminEmailQueueMessageRecord['status'];
-  readonly attempts: number;
-  readonly max_attempts: number;
-  readonly next_attempt_at: string;
-  readonly sent_at: string | null;
-  readonly last_error: string | null;
-  readonly metadata: unknown;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-interface AdminEmailQueueSummaryRow {
-  readonly queued_count: number;
-  readonly sending_count: number;
-  readonly sent_count: number;
-  readonly failed_count: number;
-  readonly retryable_count: number;
-  readonly last_failed_at: string | null;
-  readonly last_error: string | null;
-  readonly last_updated_at: string | null;
 }
 
 interface EmailQueueProcessOptions {
@@ -236,15 +102,6 @@ export interface EmailQueueProcessResult {
   readonly failedMessageIds: readonly string[];
 }
 
-export interface EmailQueueStatus {
-  readonly queuedCount: number;
-  readonly sendingCount: number;
-  readonly sentCount: number;
-  readonly failedCount: number;
-  readonly lastFailedAt: string | null;
-  readonly lastError: string | null;
-}
-
 const defaultMaxAttempts = 5;
 
 const snapshotEmailDependencies = (
@@ -253,85 +110,6 @@ const snapshotEmailDependencies = (
   ...dependencies,
   env: { ...(dependencies.env ?? process.env) }
 });
-
-const escapeHtml = (value: string): string =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-
-const formatMoney = (amount: number, currency: string): string =>
-  new Intl.NumberFormat('fr-CA', {
-    currency: currency.toUpperCase(),
-    style: 'currency'
-  }).format(amount);
-
-const centsToAmount = (value: number): number =>
-  Number((value / 100).toFixed(2));
-
-const formatDate = (iso: string | null): string => {
-  if (!iso) {
-    return 'Date non disponible';
-  }
-
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
-  }
-
-  return new Intl.DateTimeFormat('fr-CA', {
-    dateStyle: 'long',
-    timeStyle: 'short',
-    timeZone: 'America/Toronto'
-  }).format(date);
-};
-
-const formatWaitingDays = (days: number | null): string => {
-  if (days === null) {
-    return 'age inconnu';
-  }
-
-  return `${days} jour${days > 1 ? 's' : ''}`;
-};
-
-const contributionTypeEmailLabel = (type: string): string =>
-  type === 'sponsorship_interest' ? 'Commandite' : 'Contribution personnelle';
-
-const contributionStatusEmailLabel = (status: string): string => {
-  if (status === 'paid') {
-    return 'confirmee';
-  }
-
-  if (status === 'refunded') {
-    return 'remboursee';
-  }
-
-  if (status === 'disputed') {
-    return 'contestee';
-  }
-
-  if (status === 'pending') {
-    return 'en attente';
-  }
-
-  return status;
-};
-
-const rejectionRefundHandlingLabel = (
-  handling: AdminSponsorshipRejectionRefundHandling
-): string => {
-  if (handling === 'manual_required') {
-    return 'Un remboursement sera traite separement par notre equipe.';
-  }
-
-  if (handling === 'manual_completed') {
-    return 'Le remboursement a ete marque comme deja traite par notre equipe.';
-  }
-
-  return 'Aucun remboursement automatique n est declenche par ce message.';
-};
 
 const sendEmailPayload = async (
   input: {
@@ -397,1235 +175,18 @@ const sendEmailPayload = async (
   }
 };
 
-const renderContributionReferenceRecoveryEmail = (
-  input: ContributionReferenceRecoveryEmailInput
-): RenderedEmail => {
-  const subject = 'Vos references OpenG7';
-  const referenceLines = input.references.flatMap((reference, index) => [
-    `${index + 1}. ${reference.publicReference}`,
-    `   Type: ${contributionTypeEmailLabel(reference.contributionType)}`,
-    `   Montant: ${formatMoney(reference.amount, reference.currency)}`,
-    `   Statut: ${contributionStatusEmailLabel(reference.paymentStatus)}`,
-    `   Date: ${formatDate(reference.paidAt ?? reference.createdAt)}`,
-    ...(reference.displayName ? [`   Nom: ${reference.displayName}`] : [])
-  ]);
-  const referenceHtml = input.references
-    .map((reference) => {
-      const displayName = reference.displayName?.trim();
-      return `
-        <li>
-          <strong>${escapeHtml(reference.publicReference)}</strong><br />
-          ${escapeHtml(contributionTypeEmailLabel(reference.contributionType))}
-          - ${escapeHtml(formatMoney(reference.amount, reference.currency))}
-          - ${escapeHtml(contributionStatusEmailLabel(reference.paymentStatus))}
-          <br />
-          <span>Date: ${escapeHtml(formatDate(reference.paidAt ?? reference.createdAt))}</span>
-          ${
-            displayName
-              ? `<br /><span>Nom: ${escapeHtml(displayName)}</span>`
-              : ''
-          }
-        </li>
-      `;
-    })
-    .join('');
-
-  const text = [
-    'Bonjour,',
-    '',
-    'Voici les references OpenG7 associees a ce courriel:',
-    '',
-    ...referenceLines,
-    '',
-    "Si vous n'avez pas demande ce message, vous pouvez l'ignorer.",
-    'Pour toute correction, repondez a ce courriel avec la reference concernee.'
-  ].join('\n');
-  const html = `
-    <p>Bonjour,</p>
-    <p>Voici les references OpenG7 associees a ce courriel:</p>
-    <ol>
-      ${referenceHtml}
-    </ol>
-    <p>
-      Si vous n'avez pas demande ce message, vous pouvez l'ignorer.
-    </p>
-    <p>
-      Pour toute correction, repondez a ce courriel avec la reference concernee.
-    </p>
-  `;
-
-  return {
-    templateKey: 'contribution_reference_recovery',
-    subject,
-    text,
-    html,
-    metadata: {
-      publicReferences: input.references.map(
-        (reference) => reference.publicReference
-      ),
-      referenceCount: input.references.length
-    }
-  };
-};
-
-const renderSponsorshipFollowupEmail = (
-  input: SponsorshipFollowupEmailInput
-): RenderedEmail => {
-  const reference = input.publicReference ?? 'Reference a confirmer';
-  const safeUrl = escapeHtml(input.followupUrl);
-  const subject = 'Votre commandite OpenG7 est en validation';
-  const text = [
-    'Merci pour votre commandite OpenG7.',
-    '',
-    `Reference OpenG7: ${reference}`,
-    '',
-    'Vous pouvez reprendre votre formulaire et suivre le statut ici:',
-    input.followupUrl,
-    '',
-    'Aucune visibilite publique n est accordee avant validation manuelle.'
-  ].join('\n');
-  const html = `
-    <p>Merci pour votre commandite OpenG7.</p>
-    <p>
-      <strong>Reference OpenG7:</strong> ${escapeHtml(reference)}
-    </p>
-    <p>
-      Vous pouvez reprendre votre formulaire et suivre le statut ici:
-      <br />
-      <a href="${safeUrl}">${safeUrl}</a>
-    </p>
-    <p>
-      Aucune visibilite publique n'est accordee avant validation manuelle.
-    </p>
-  `;
-
-  return {
-    templateKey: 'sponsorship_followup',
-    subject,
-    text,
-    html,
-    metadata: {
-      publicReference: input.publicReference
-    }
-  };
-};
-
-const renderSponsorshipConfirmationEmail = (
-  input: SponsorshipConfirmationEmailInput
-): RenderedEmail => {
-  const reference = input.publicReference ?? 'Reference a confirmer';
-  const amount = formatMoney(input.amount, input.currency);
-  const paidAt = formatDate(input.paidAtIso);
-  const safeFollowupUrl = escapeHtml(input.followupUrl);
-  const benefits = formatSponsorshipBenefitList(input.amount, input.currency);
-  const escapedBenefits = benefits.map((benefit) => escapeHtml(benefit));
-  const subject = `Confirmation de commandite OpenG7 - ${reference}`;
-  const text = [
-    'Merci pour votre commandite OpenG7.',
-    '',
-    `Reference: ${reference}`,
-    `Montant confirme: ${amount}`,
-    `Date du paiement: ${paidAt}`,
-    '',
-    'Avantages associes au montant, sous reserve de validation manuelle:',
-    ...benefits.map((benefit) => `- ${benefit}`),
-    '',
-    'Prochaine etape:',
-    input.followupUrl,
-    '',
-    'Ce message est une confirmation descriptive de commandite. Il ne constitue pas un recu officiel de don de bienfaisance.',
-    'Aucune visibilite publique n est accordee avant validation manuelle.'
-  ].join('\n');
-  const html = `
-    <p>Merci pour votre commandite OpenG7.</p>
-    <p>
-      <strong>Reference:</strong> ${escapeHtml(reference)}<br />
-      <strong>Montant confirme:</strong> ${escapeHtml(amount)}<br />
-      <strong>Date du paiement:</strong> ${escapeHtml(paidAt)}
-    </p>
-    <p>
-      Avantages associes au montant, sous reserve de validation manuelle:
-    </p>
-    <ul>
-      ${escapedBenefits.map((benefit) => `<li>${benefit}</li>`).join('')}
-    </ul>
-    <p>
-      Prochaine etape:
-      <br />
-      <a href="${safeFollowupUrl}">${safeFollowupUrl}</a>
-    </p>
-    <p>
-      Ce message est une confirmation descriptive de commandite. Il ne
-      constitue pas un recu officiel de don de bienfaisance.
-    </p>
-    <p>
-      Aucune visibilite publique n'est accordee avant validation manuelle.
-    </p>
-  `;
-
-  return {
-    templateKey: 'sponsorship_confirmation',
-    subject,
-    text,
-    html,
-    metadata: {
-      amount: input.amount,
-      currency: input.currency,
-      paidAtIso: input.paidAtIso,
-      publicReference: input.publicReference,
-      stripePaymentIntentId: input.stripePaymentIntentId,
-      stripeSessionId: input.stripeSessionId
-    }
-  };
-};
-
-const renderSponsorshipRejectionEmail = (
-  input: SponsorshipRejectionEmailInput
-): RenderedEmail => {
-  const reference = input.publicReference ?? 'Reference a confirmer';
-  const amount = formatMoney(input.amount, input.currency);
-  const refundLabel = rejectionRefundHandlingLabel(input.refundHandling);
-  const refundNote = input.refundNote?.trim() ?? '';
-  const subject = `Decision concernant votre commandite OpenG7 - ${reference}`;
-  const text = [
-    `Bonjour ${input.sponsorName},`,
-    '',
-    'Nous avons termine la revue de votre commandite OpenG7.',
-    '',
-    `Reference: ${reference}`,
-    `Montant: ${amount}`,
-    '',
-    'Decision: commandite refusee.',
-    '',
-    'Message de notre equipe:',
-    input.sponsorMessage,
-    '',
-    'Motif de revue:',
-    input.reviewReason,
-    '',
-    'Remboursement:',
-    refundLabel,
-    ...(refundNote ? ['', 'Note remboursement:', refundNote] : []),
-    '',
-    'Vous pouvez repondre a ce courriel si vous souhaitez clarifier la situation.'
-  ].join('\n');
-  const html = `
-    <p>Bonjour ${escapeHtml(input.sponsorName)},</p>
-    <p>Nous avons termine la revue de votre commandite OpenG7.</p>
-    <p>
-      <strong>Reference:</strong> ${escapeHtml(reference)}<br />
-      <strong>Montant:</strong> ${escapeHtml(amount)}<br />
-      <strong>Decision:</strong> commandite refusee
-    </p>
-    <p><strong>Message de notre equipe</strong></p>
-    <p>${escapeHtml(input.sponsorMessage).replaceAll('\n', '<br />')}</p>
-    <p><strong>Motif de revue</strong></p>
-    <p>${escapeHtml(input.reviewReason).replaceAll('\n', '<br />')}</p>
-    <p>
-      <strong>Remboursement:</strong>
-      ${escapeHtml(refundLabel)}
-    </p>
-    ${
-      refundNote
-        ? `<p><strong>Note remboursement:</strong> ${escapeHtml(refundNote)}</p>`
-        : ''
-    }
-    <p>
-      Vous pouvez repondre a ce courriel si vous souhaitez clarifier la
-      situation.
-    </p>
-  `;
-
-  return {
-    templateKey: 'sponsorship_rejection',
-    subject,
-    text,
-    html,
-    metadata: {
-      amount: input.amount,
-      contributionId: input.contributionId,
-      currency: input.currency,
-      publicReference: input.publicReference,
-      refundHandling: input.refundHandling
-    }
-  };
-};
-
-const renderSponsorshipRefundEmail = (
-  input: SponsorshipRefundEmailInput
-): RenderedEmail => {
-  const reference = input.publicReference ?? 'Reference a confirmer';
-  const amount = formatMoney(input.amount, input.currency);
-  const refundStatus = input.refundStatus ?? 'cree';
-  const refundNote = input.refundNote?.trim() ?? '';
-  const subject = `Remboursement de votre commandite OpenG7 - ${reference}`;
-  const text = [
-    `Bonjour ${input.sponsorName},`,
-    '',
-    'Nous confirmons qu un remboursement Stripe a ete cree pour votre commandite OpenG7.',
-    '',
-    `Reference: ${reference}`,
-    `Montant rembourse: ${amount}`,
-    `Remboursement Stripe: ${input.refundId}`,
-    `Statut Stripe: ${refundStatus}`,
-    '',
-    'Message de notre equipe:',
-    input.sponsorMessage,
-    ...(refundNote ? ['', 'Note remboursement:', refundNote] : []),
-    '',
-    'Selon votre institution financiere, le credit peut prendre quelques jours ouvrables avant d apparaitre.'
-  ].join('\n');
-  const html = `
-    <p>Bonjour ${escapeHtml(input.sponsorName)},</p>
-    <p>
-      Nous confirmons qu'un remboursement Stripe a ete cree pour votre
-      commandite OpenG7.
-    </p>
-    <p>
-      <strong>Reference:</strong> ${escapeHtml(reference)}<br />
-      <strong>Montant rembourse:</strong> ${escapeHtml(amount)}<br />
-      <strong>Remboursement Stripe:</strong> ${escapeHtml(input.refundId)}<br />
-      <strong>Statut Stripe:</strong> ${escapeHtml(refundStatus)}
-    </p>
-    <p><strong>Message de notre equipe</strong></p>
-    <p>${escapeHtml(input.sponsorMessage).replaceAll('\n', '<br />')}</p>
-    ${
-      refundNote
-        ? `<p><strong>Note remboursement:</strong> ${escapeHtml(refundNote)}</p>`
-        : ''
-    }
-    <p>
-      Selon votre institution financiere, le credit peut prendre quelques jours
-      ouvrables avant d'apparaitre.
-    </p>
-  `;
-
-  return {
-    templateKey: 'sponsorship_refund',
-    subject,
-    text,
-    html,
-    metadata: {
-      amount: input.amount,
-      contributionId: input.contributionId,
-      currency: input.currency,
-      publicReference: input.publicReference,
-      refundId: input.refundId,
-      refundStatus: input.refundStatus
-    }
-  };
-};
-
-const optionalText = (
-  label: string,
-  value: string | null | undefined
-): readonly string[] => (value?.trim() ? [`${label}: ${value.trim()}`] : []);
-
-const renderSponsorshipInvoiceEmail = (
-  input: SponsorshipInvoiceEmailInput
-): RenderedEmail => {
-  const { invoice } = input;
-  const publicReference = invoice.publicReference ?? 'Reference a confirmer';
-  const subtotal = formatMoney(
-    centsToAmount(invoice.subtotalCents),
-    invoice.currency
-  );
-  const tax = formatMoney(centsToAmount(invoice.taxCents), invoice.currency);
-  const total = formatMoney(
-    centsToAmount(invoice.totalCents),
-    invoice.currency
-  );
-  const issuedAt = formatDate(invoice.issuedAtIso);
-  const paidAt = formatDate(invoice.paidAtIso);
-  const followupUrl = input.followupUrl?.trim() ?? '';
-  const safeFollowupUrl = escapeHtml(followupUrl);
-  const followupText = followupUrl
-    ? ['Suivi de la commandite:', followupUrl]
-    : [
-        'Pour mettre a jour les informations de commandite, repondez a ce courriel.'
-      ];
-  const followupHtml = followupUrl
-    ? `
-      <p>
-        Suivi de la commandite:
-        <br />
-        <a href="${safeFollowupUrl}">${safeFollowupUrl}</a>
-      </p>
-    `
-    : `
-      <p>
-        Pour mettre a jour les informations de commandite, repondez a ce
-        courriel.
-      </p>
-    `;
-  const lineItems = invoice.lineItems.length
-    ? invoice.lineItems
-    : [
-        {
-          description: 'Commandite de visibilite OpenG7 - Fonds des batisseurs',
-          quantity: 1,
-          unitAmountCents: invoice.subtotalCents,
-          totalCents: invoice.subtotalCents
-        }
-      ];
-  const subject = `Facture ${invoice.invoiceNumber} - Commandite OpenG7`;
-  const issuerLines = [
-    invoice.issuerName,
-    ...optionalText('Courriel', invoice.issuerEmail),
-    ...optionalText('Adresse', invoice.issuerAddress),
-    ...optionalText('Identifiant fiscal', invoice.issuerTaxId)
-  ];
-  const sponsorLines = [
-    invoice.sponsorName,
-    ...optionalText('Contact', invoice.sponsorContactName),
-    ...optionalText('Courriel', invoice.sponsorContactEmail),
-    ...optionalText('Site web', invoice.sponsorWebsiteUrl)
-  ];
-  const text = [
-    'Facture de commandite OpenG7',
-    '',
-    `Numero de facture: ${invoice.invoiceNumber}`,
-    `Reference publique: ${publicReference}`,
-    `Date d emission: ${issuedAt}`,
-    `Date du paiement: ${paidAt}`,
-    `Stripe Checkout Session: ${invoice.stripeSessionId}`,
-    ...(invoice.stripePaymentIntentId
-      ? [`Stripe Payment Intent: ${invoice.stripePaymentIntentId}`]
-      : []),
-    '',
-    'Emetteur:',
-    ...issuerLines,
-    '',
-    'Facture a:',
-    ...sponsorLines,
-    '',
-    'Lignes:',
-    ...lineItems.map(
-      (item) =>
-        `- ${item.description} x${item.quantity}: ${formatMoney(
-          centsToAmount(item.totalCents),
-          invoice.currency
-        )}`
-    ),
-    '',
-    `Sous-total: ${subtotal}`,
-    `${invoice.taxLabel}: ${tax}`,
-    `Total paye: ${total}`,
-    '',
-    invoice.notes ??
-      'Ce document ne constitue pas un recu officiel de don de bienfaisance.',
-    'La visibilite publique associee a cette commandite reste soumise a validation manuelle.',
-    '',
-    ...followupText
-  ].join('\n');
-  const htmlLineItems = lineItems
-    .map(
-      (item) => `
-        <tr>
-          <td>${escapeHtml(item.description)}</td>
-          <td style="text-align:right;">${item.quantity}</td>
-          <td style="text-align:right;">
-            ${escapeHtml(
-              formatMoney(centsToAmount(item.unitAmountCents), invoice.currency)
-            )}
-          </td>
-          <td style="text-align:right;">
-            ${escapeHtml(
-              formatMoney(centsToAmount(item.totalCents), invoice.currency)
-            )}
-          </td>
-        </tr>
-      `
-    )
-    .join('');
-  const html = `
-    <h1>Facture de commandite OpenG7</h1>
-    <p>
-      <strong>Numero de facture:</strong> ${escapeHtml(invoice.invoiceNumber)}<br />
-      <strong>Reference publique:</strong> ${escapeHtml(publicReference)}<br />
-      <strong>Date d'emission:</strong> ${escapeHtml(issuedAt)}<br />
-      <strong>Date du paiement:</strong> ${escapeHtml(paidAt)}
-    </p>
-
-    <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-      <tbody>
-        <tr>
-          <td style="border:1px solid #d9e0ea;padding:10px;vertical-align:top;">
-            <strong>Emetteur</strong><br />
-            ${issuerLines.map((line) => escapeHtml(line)).join('<br />')}
-          </td>
-          <td style="border:1px solid #d9e0ea;padding:10px;vertical-align:top;">
-            <strong>Facture a</strong><br />
-            ${sponsorLines.map((line) => escapeHtml(line)).join('<br />')}
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-      <thead>
-        <tr>
-          <th style="border:1px solid #d9e0ea;padding:8px;text-align:left;">Description</th>
-          <th style="border:1px solid #d9e0ea;padding:8px;text-align:right;">Qte</th>
-          <th style="border:1px solid #d9e0ea;padding:8px;text-align:right;">Prix</th>
-          <th style="border:1px solid #d9e0ea;padding:8px;text-align:right;">Total</th>
-        </tr>
-      </thead>
-      <tbody>${htmlLineItems}</tbody>
-      <tfoot>
-        <tr>
-          <td colspan="3" style="border:1px solid #d9e0ea;padding:8px;text-align:right;">
-            Sous-total
-          </td>
-          <td style="border:1px solid #d9e0ea;padding:8px;text-align:right;">
-            ${escapeHtml(subtotal)}
-          </td>
-        </tr>
-        <tr>
-          <td colspan="3" style="border:1px solid #d9e0ea;padding:8px;text-align:right;">
-            ${escapeHtml(invoice.taxLabel)}
-          </td>
-          <td style="border:1px solid #d9e0ea;padding:8px;text-align:right;">
-            ${escapeHtml(tax)}
-          </td>
-        </tr>
-        <tr>
-          <td colspan="3" style="border:1px solid #d9e0ea;padding:8px;text-align:right;">
-            <strong>Total paye</strong>
-          </td>
-          <td style="border:1px solid #d9e0ea;padding:8px;text-align:right;">
-            <strong>${escapeHtml(total)}</strong>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
-
-    <p>
-      ${escapeHtml(
-        invoice.notes ??
-          'Ce document ne constitue pas un recu officiel de don de bienfaisance.'
-      ).replaceAll('\n', '<br />')}
-    </p>
-    <p>
-      La visibilite publique associee a cette commandite reste soumise a
-      validation manuelle.
-    </p>
-    ${followupHtml}
-  `;
-
-  return {
-    templateKey: 'sponsorship_invoice',
-    subject,
-    text,
-    html,
-    metadata: {
-      invoiceId: invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
-      publicReference: invoice.publicReference,
-      stripePaymentIntentId: invoice.stripePaymentIntentId,
-      stripeSessionId: invoice.stripeSessionId
-    }
-  };
-};
-
-const renderSponsorshipCreditNoteEmail = (
-  input: SponsorshipCreditNoteEmailInput
-): RenderedEmail => {
-  const { creditNote } = input;
-  const publicReference = creditNote.publicReference ?? 'Reference a confirmer';
-  const subtotal = formatMoney(
-    centsToAmount(creditNote.subtotalCents),
-    creditNote.currency
-  );
-  const tax = formatMoney(
-    centsToAmount(creditNote.taxCents),
-    creditNote.currency
-  );
-  const total = formatMoney(
-    centsToAmount(creditNote.totalCents),
-    creditNote.currency
-  );
-  const issuedAt = formatDate(creditNote.issuedAtIso);
-  const sponsorMessage = input.sponsorMessage?.trim() ?? '';
-  const lineItems = creditNote.lineItems.length
-    ? creditNote.lineItems
-    : [
-        {
-          description: 'Avoir - remboursement complet de la commandite OpenG7',
-          quantity: 1,
-          unitAmountCents: creditNote.subtotalCents,
-          totalCents: creditNote.subtotalCents
-        }
-      ];
-  const subject = `Avoir ${creditNote.creditNoteNumber} - Commandite OpenG7`;
-  const issuerLines = [
-    creditNote.issuerName,
-    ...optionalText('Courriel', creditNote.issuerEmail),
-    ...optionalText('Adresse', creditNote.issuerAddress),
-    ...optionalText('Identifiant fiscal', creditNote.issuerTaxId)
-  ];
-  const sponsorLines = [
-    creditNote.sponsorName,
-    ...optionalText('Contact', creditNote.sponsorContactName),
-    ...optionalText('Courriel', creditNote.sponsorContactEmail),
-    ...optionalText('Site web', creditNote.sponsorWebsiteUrl)
-  ];
-  const text = [
-    `Avoir: ${creditNote.creditNoteNumber}`,
-    `Facture associee: ${creditNote.invoiceNumber}`,
-    `Reference OpenG7: ${publicReference}`,
-    `Date d emission: ${issuedAt}`,
-    '',
-    'Emetteur:',
-    ...issuerLines,
-    '',
-    'Commanditaire:',
-    ...sponsorLines,
-    '',
-    `Stripe Refund: ${creditNote.stripeRefundId}`,
-    ...(creditNote.stripePaymentIntentId
-      ? [`Stripe Payment Intent: ${creditNote.stripePaymentIntentId}`]
-      : []),
-    '',
-    'Lignes:',
-    ...lineItems.map(
-      (item) =>
-        `- ${item.description} | ${item.quantity} x ${formatMoney(
-          centsToAmount(item.unitAmountCents),
-          creditNote.currency
-        )} = ${formatMoney(centsToAmount(item.totalCents), creditNote.currency)}`
-    ),
-    '',
-    `Sous-total credite: ${subtotal}`,
-    `${creditNote.taxLabel}: ${tax}`,
-    `Total credite: ${total}`,
-    '',
-    ...(sponsorMessage ? ['Message de notre equipe:', sponsorMessage, ''] : []),
-    creditNote.notes ??
-      'Avoir de commandite descriptif emis apres remboursement Stripe. Ce document ne constitue pas un recu officiel de don de bienfaisance.'
-  ].join('\n');
-  const html = `
-    <h1>Avoir de commandite OpenG7</h1>
-    <p>
-      <strong>Avoir:</strong> ${escapeHtml(creditNote.creditNoteNumber)}<br />
-      <strong>Facture associee:</strong> ${escapeHtml(
-        creditNote.invoiceNumber
-      )}<br />
-      <strong>Reference OpenG7:</strong> ${escapeHtml(publicReference)}<br />
-      <strong>Date d'emission:</strong> ${escapeHtml(issuedAt)}
-    </p>
-    <h2>Emetteur</h2>
-    <p>${issuerLines.map(escapeHtml).join('<br />')}</p>
-    <h2>Commanditaire</h2>
-    <p>${sponsorLines.map(escapeHtml).join('<br />')}</p>
-    <p>
-      <strong>Stripe Refund:</strong> ${escapeHtml(
-        creditNote.stripeRefundId
-      )}<br />
-      ${
-        creditNote.stripePaymentIntentId
-          ? `<strong>Stripe Payment Intent:</strong> ${escapeHtml(
-              creditNote.stripePaymentIntentId
-            )}`
-          : ''
-      }
-    </p>
-    <table cellpadding="6" cellspacing="0" border="1">
-      <thead>
-        <tr>
-          <th align="left">Description</th>
-          <th align="right">Quantite</th>
-          <th align="right">Unitaire</th>
-          <th align="right">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${lineItems
-          .map(
-            (item) => `
-              <tr>
-                <td>${escapeHtml(item.description)}</td>
-                <td align="right">${item.quantity}</td>
-                <td align="right">${escapeHtml(
-                  formatMoney(
-                    centsToAmount(item.unitAmountCents),
-                    creditNote.currency
-                  )
-                )}</td>
-                <td align="right">${escapeHtml(
-                  formatMoney(
-                    centsToAmount(item.totalCents),
-                    creditNote.currency
-                  )
-                )}</td>
-              </tr>
-            `
-          )
-          .join('')}
-      </tbody>
-    </table>
-    <p>
-      <strong>Sous-total credite:</strong> ${escapeHtml(subtotal)}<br />
-      <strong>${escapeHtml(creditNote.taxLabel)}:</strong> ${escapeHtml(tax)}<br />
-      <strong>Total credite:</strong> ${escapeHtml(total)}
-    </p>
-    ${
-      sponsorMessage
-        ? `<p><strong>Message de notre equipe:</strong><br />${escapeHtml(
-            sponsorMessage
-          ).replaceAll('\n', '<br />')}</p>`
-        : ''
-    }
-    <p>
-      ${escapeHtml(
-        creditNote.notes ??
-          'Avoir de commandite descriptif emis apres remboursement Stripe. Ce document ne constitue pas un recu officiel de don de bienfaisance.'
-      )}
-    </p>
-  `;
-
-  return {
-    templateKey: 'sponsorship_credit_note',
-    subject,
-    text,
-    html,
-    metadata: {
-      creditNoteId: creditNote.id,
-      creditNoteNumber: creditNote.creditNoteNumber,
-      invoiceId: creditNote.invoiceId,
-      invoiceNumber: creditNote.invoiceNumber,
-      publicReference: creditNote.publicReference,
-      stripeRefundId: creditNote.stripeRefundId,
-      stripePaymentIntentId: creditNote.stripePaymentIntentId
-    }
-  };
-};
-
-const renderPublicationBatchFullNotification = (
-  input: PublicationBatchFullEmailInput
-): RenderedEmail => {
-  const channelLabel = escapeHtml(input.channel);
-  const subject = `Lot ${input.channel} complet (${input.capacity}/${input.capacity})`;
-  const text = [
-    `Un lot de publication collective ${input.channel} a atteint sa capacite (${input.capacity}/${input.capacity}).`,
-    '',
-    'Planifiez ou publiez ce lot depuis /admin/fundraiser/publications, ou creez un nouveau lot pour les prochaines commandites approuvees.'
-  ].join('\n');
-  const html = `
-    <p>
-      Un lot de publication collective <strong>${channelLabel}</strong> a
-      atteint sa capacite (${input.capacity}/${input.capacity}).
-    </p>
-    <p>
-      Planifiez ou publiez ce lot depuis
-      <code>/admin/fundraiser/publications</code>, ou creez un nouveau lot
-      pour les prochaines commandites approuvees.
-    </p>
-  `;
-
-  return {
-    templateKey: 'publication_batch_full',
-    subject,
-    text,
-    html,
-    metadata: {
-      batchId: input.batchId ?? null,
-      capacity: input.capacity,
-      channel: input.channel
-    }
-  };
-};
-
-const renderSponsorshipReviewReminderNotification = (
-  input: SponsorshipReviewReminderEmailInput
-): RenderedEmail => {
-  let linkedAdminUrl = false;
-  try {
-    const url = new URL(input.adminUrl);
-    linkedAdminUrl =
-      ['https:', 'http:'].includes(url.protocol) &&
-      !url.username &&
-      !url.password;
-  } catch {
-    // Retain the navigation path when no public origin is configured.
-  }
-  const countLabel = `${input.totalCount} commandite${
-    input.totalCount > 1 ? 's' : ''
-  }`;
-  const subject = `Rappel: ${countLabel} a approuver`;
-  const oldestLabel = formatWaitingDays(input.oldestDaysWaiting);
-  const itemLines = input.items.flatMap((item, index) => [
-    `${index + 1}. ${item.reference}`,
-    `   Montant: ${formatMoney(item.amount, item.currency)}`,
-    `   Fiche soumise: ${formatDate(item.detailsSubmittedAt)}`,
-    `   En attente: ${formatWaitingDays(item.daysWaiting)}`
-  ]);
-  const text = [
-    `Il y a ${countLabel} payee${input.totalCount > 1 ? 's' : ''} avec fiche complete en attente de revue admin.`,
-    `Plus ancienne attente: ${oldestLabel}.`,
-    input.urgentCount > 0
-      ? `${input.urgentCount} commandite${input.urgentCount > 1 ? 's' : ''} depasse${input.urgentCount > 1 ? 'nt' : ''} le seuil urgent.`
-      : 'Aucune commandite ne depasse le seuil urgent.',
-    '',
-    ...itemLines,
-    '',
-    `Ouvrir les commandites: ${input.adminUrl}`,
-    '',
-    'Ce rappel est informatif. Il ne valide, ne refuse et ne publie aucune commandite.'
-  ].join('\n');
-  const htmlItems = input.items
-    .map(
-      (item) => `
-        <li>
-          <strong>${escapeHtml(item.reference)}</strong><br />
-          Montant: ${escapeHtml(formatMoney(item.amount, item.currency))}<br />
-          Fiche soumise: ${escapeHtml(formatDate(item.detailsSubmittedAt))}<br />
-          En attente: ${escapeHtml(formatWaitingDays(item.daysWaiting))}
-        </li>
-      `
-    )
-    .join('');
-  const html = `
-    <p>
-      Il y a <strong>${escapeHtml(countLabel)}</strong> payee${
-        input.totalCount > 1 ? 's' : ''
-      } avec fiche complete en attente de revue admin.
-    </p>
-    <p>Plus ancienne attente: ${escapeHtml(oldestLabel)}.</p>
-    <p>
-      ${
-        input.urgentCount > 0
-          ? `${input.urgentCount} commandite${
-              input.urgentCount > 1 ? 's' : ''
-            } depasse${input.urgentCount > 1 ? 'nt' : ''} le seuil urgent.`
-          : 'Aucune commandite ne depasse le seuil urgent.'
-      }
-    </p>
-    <ul>${htmlItems}</ul>
-    <p>
-      Ouvrir les commandites:
-      ${
-        linkedAdminUrl
-          ? `<a href="${escapeHtml(input.adminUrl)}">Reprendre la revue des commandites</a>`
-          : `<code>${escapeHtml(input.adminUrl)}</code>`
-      }
-    </p>
-    <p>
-      Ce rappel est informatif. Il ne valide, ne refuse et ne publie aucune
-      commandite.
-    </p>
-  `;
-
-  return {
-    templateKey: 'sponsorship_review_reminder',
-    subject,
-    text,
-    html,
-    metadata: {
-      totalCount: input.totalCount,
-      urgentCount: input.urgentCount,
-      oldestDaysWaiting: input.oldestDaysWaiting,
-      displayedCount: input.items.length,
-      adminUrl: input.adminUrl
-    }
-  };
-};
-
-const renderEmailConfigurationTest = (
-  input: EmailConfigurationTestInput
-): RenderedEmail => {
-  const subject = 'Test courriel OpenG7';
-  const text = [
-    'Ceci est un test de configuration courriel OpenG7.',
-    '',
-    `Destinataire: ${input.to}`,
-    '',
-    'Si vous recevez ce message, SMTP, l expediteur et la file courriel fonctionnent.'
-  ].join('\n');
-  const html = `
-    <p>Ceci est un test de configuration courriel OpenG7.</p>
-    <p><strong>Destinataire:</strong> ${escapeHtml(input.to)}</p>
-    <p>
-      Si vous recevez ce message, SMTP, l'expediteur et la file courriel
-      fonctionnent.
-    </p>
-  `;
-
-  return {
-    templateKey: 'email_configuration_test',
-    subject,
-    text,
-    html,
-    metadata: {
-      purpose: 'admin_setup_test'
-    }
-  };
-};
-
 const enqueueEmailMessage = async (
   pool: Pool | PoolClient | null,
   input: QueueEmailInput,
   env: NodeJS.ProcessEnv = process.env
-): Promise<QueueInsertResult> => {
+): Promise<EmailQueueInsertResult> => {
   const emailConfig = loadTransactionalEmailConfig(env);
-
-  if (!pool) {
-    return {
-      queued: false,
-      duplicate: false,
-      messageId: null,
-      status: null,
-      error: 'Email queue requires DATABASE_URL.'
-    };
-  }
-
-  const insert = await pool.query<{ id: string }>(
-    `
-      INSERT INTO email_messages (
-        idempotency_key,
-        template_key,
-        recipient_email,
-        from_email,
-        reply_to_email,
-        subject,
-        text_body,
-        html_body,
-        metadata,
-        max_attempts
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
-      ON CONFLICT (idempotency_key) DO NOTHING
-      RETURNING id
-    `,
-    [
-      input.idempotencyKey ?? null,
-      input.templateKey,
-      input.to,
-      emailConfig.from.formatted,
-      emailConfig.replyTo.address,
-      input.subject,
-      input.text,
-      input.html,
-      JSON.stringify(input.metadata),
-      input.maxAttempts ?? defaultMaxAttempts
-    ]
-  );
-
-  const inserted = insert.rows[0];
-  if (inserted) {
-    return {
-      queued: true,
-      duplicate: false,
-      messageId: inserted.id,
-      status: 'queued',
-      error: null
-    };
-  }
-
-  if (!input.idempotencyKey) {
-    return {
-      queued: false,
-      duplicate: false,
-      messageId: null,
-      status: null,
-      error: 'Email message was not queued.'
-    };
-  }
-
-  const existing = await pool.query<{ id: string; status: string }>(
-    `
-      SELECT id, status
-      FROM email_messages
-      WHERE idempotency_key = $1
-      LIMIT 1
-    `,
-    [input.idempotencyKey]
-  );
-  const row = existing.rows[0] ?? null;
-
-  return {
-    queued: row?.status !== 'sent',
-    duplicate: true,
-    messageId: row?.id ?? null,
-    status: row?.status ?? null,
-    error: null
-  };
-};
-
-const hasEmailMessagesTable = async (pool: Pool): Promise<boolean> => {
-  const result = await pool.query<{ readonly has_email_messages: boolean }>(`
-    SELECT to_regclass('public.email_messages') IS NOT NULL AS has_email_messages
-  `);
-
-  return result.rows[0]?.has_email_messages ?? false;
-};
-
-const mapAdminEmailQueueMessageRow = (
-  row: AdminEmailQueueMessageRow
-): AdminEmailQueueMessageRecord => ({
-  id: row.id,
-  template_key: row.template_key,
-  recipient_email: row.recipient_email,
-  from_email: row.from_email,
-  reply_to_email: row.reply_to_email,
-  subject: row.subject,
-  status: row.status,
-  attempts: row.attempts,
-  max_attempts: row.max_attempts,
-  next_attempt_at: row.next_attempt_at,
-  sent_at: row.sent_at,
-  last_error: row.last_error,
-  metadata:
-    typeof row.metadata === 'object' && row.metadata !== null
-      ? (row.metadata as Record<string, unknown>)
-      : {},
-  created_at: row.created_at,
-  updated_at: row.updated_at
-});
-
-const emptyAdminEmailQueueResponse = (): AdminEmailQueueResponse => ({
-  data_source: 'database',
-  messages: [],
-  summary: {
-    queued_count: 0,
-    sending_count: 0,
-    sent_count: 0,
-    failed_count: 0,
-    retryable_count: 0,
-    last_failed_at: null,
-    last_error: null
-  },
-  last_updated_at: new Date().toISOString()
-});
-
-const adminEmailQueueMessageSelect = `
-  id::text AS id,
-  template_key,
-  recipient_email,
-  from_email,
-  reply_to_email,
-  subject,
-  status,
-  attempts::int AS attempts,
-  max_attempts::int AS max_attempts,
-  next_attempt_at::text AS next_attempt_at,
-  sent_at::text AS sent_at,
-  last_error,
-  metadata,
-  created_at::text AS created_at,
-  updated_at::text AS updated_at
-`;
-
-export const getAdminEmailQueueMessageById = async (
-  pool: Pool | null,
-  messageId: string
-): Promise<AdminEmailQueueMessageRecord | null> => {
-  if (!pool || !(await hasEmailMessagesTable(pool))) {
-    return null;
-  }
-
-  const result = await pool.query<AdminEmailQueueMessageRow>(
-    `
-      SELECT ${adminEmailQueueMessageSelect}
-      FROM email_messages
-      WHERE id = $1::uuid
-      LIMIT 1
-    `,
-    [messageId]
-  );
-
-  return result.rows[0] ? mapAdminEmailQueueMessageRow(result.rows[0]) : null;
-};
-
-export const listAdminEmailQueue = async (
-  pool: Pool | null,
-  options: { readonly all?: boolean; readonly id?: string } = {}
-): Promise<AdminEmailQueueResponse> => {
-  if (!pool || !(await hasEmailMessagesTable(pool))) {
-    return emptyAdminEmailQueueResponse();
-  }
-
-  const [messageResult, summaryResult] = await Promise.all([
-    pool.query<AdminEmailQueueMessageRow>(
-      `
-      SELECT ${adminEmailQueueMessageSelect}
-      FROM email_messages
-      WHERE ($1::text IS NULL OR id::text = $1)
-      ORDER BY updated_at DESC, created_at DESC
-      LIMIT $2
-    `,
-      [options.id ?? null, options.all ? null : 150]
-    ),
-    pool.query<AdminEmailQueueSummaryRow>(`
-      WITH counts AS (
-        SELECT
-          COUNT(*) FILTER (WHERE status = 'queued')::int AS queued_count,
-          COUNT(*) FILTER (WHERE status = 'sending')::int AS sending_count,
-          COUNT(*) FILTER (WHERE status = 'sent')::int AS sent_count,
-          COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count,
-          COUNT(*) FILTER (
-            WHERE status IN ('queued', 'failed')
-              OR status = 'sending'
-          )::int AS retryable_count,
-          MAX(updated_at)::text AS last_updated_at
-        FROM email_messages
-      ),
-      latest_failed AS (
-        SELECT updated_at::text AS last_failed_at, last_error
-        FROM email_messages
-        WHERE status = 'failed'
-        ORDER BY updated_at DESC
-        LIMIT 1
-      )
-      SELECT
-        counts.queued_count,
-        counts.sending_count,
-        counts.sent_count,
-        counts.failed_count,
-        counts.retryable_count,
-        latest_failed.last_failed_at,
-        latest_failed.last_error,
-        counts.last_updated_at
-      FROM counts
-      LEFT JOIN latest_failed ON TRUE
-    `)
-  ]);
-  const summaryRow = summaryResult.rows[0];
-  const summary: AdminEmailQueueSummary = {
-    queued_count: summaryRow?.queued_count ?? 0,
-    sending_count: summaryRow?.sending_count ?? 0,
-    sent_count: summaryRow?.sent_count ?? 0,
-    failed_count: summaryRow?.failed_count ?? 0,
-    retryable_count: summaryRow?.retryable_count ?? 0,
-    last_failed_at: summaryRow?.last_failed_at ?? null,
-    last_error: summaryRow?.last_error ?? null
-  };
-
-  return {
-    data_source: 'database',
-    messages: messageResult.rows.map(mapAdminEmailQueueMessageRow),
-    summary,
-    last_updated_at: summaryRow?.last_updated_at ?? new Date().toISOString()
-  };
-};
-
-export const getEmailQueueStatus = async (
-  pool: Pool | null
-): Promise<EmailQueueStatus> => {
-  if (!pool) {
-    return {
-      queuedCount: 0,
-      sendingCount: 0,
-      sentCount: 0,
-      failedCount: 0,
-      lastFailedAt: null,
-      lastError: null
-    };
-  }
-
-  const result = await pool.query<{
-    queued_count: number;
-    sending_count: number;
-    sent_count: number;
-    failed_count: number;
-    last_failed_at: string | null;
-    last_error: string | null;
-  }>(`
-    WITH counts AS (
-      SELECT
-        COUNT(*) FILTER (WHERE status = 'queued')::int AS queued_count,
-        COUNT(*) FILTER (WHERE status = 'sending')::int AS sending_count,
-        COUNT(*) FILTER (WHERE status = 'sent')::int AS sent_count,
-        COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count
-      FROM email_messages
-    ),
-    latest_failed AS (
-      SELECT updated_at::text AS last_failed_at, last_error
-      FROM email_messages
-      WHERE status = 'failed'
-      ORDER BY updated_at DESC
-      LIMIT 1
-    )
-    SELECT
-      counts.queued_count,
-      counts.sending_count,
-      counts.sent_count,
-      counts.failed_count,
-      latest_failed.last_failed_at,
-      latest_failed.last_error
-    FROM counts
-    LEFT JOIN latest_failed ON TRUE
-  `);
-  const row = result.rows[0];
-
-  return {
-    queuedCount: row?.queued_count ?? 0,
-    sendingCount: row?.sending_count ?? 0,
-    sentCount: row?.sent_count ?? 0,
-    failedCount: row?.failed_count ?? 0,
-    lastFailedAt: row?.last_failed_at ?? null,
-    lastError: row?.last_error ?? null
-  };
-};
-
-const claimQueuedEmailMessages = async (
-  pool: Pool,
-  options: Required<Pick<EmailQueueProcessOptions, 'limit'>> &
-    Pick<EmailQueueProcessOptions, 'messageIds'>
-): Promise<readonly ClaimedEmailRow[]> => {
-  const params: unknown[] = [options.limit];
-  const idFilter =
-    options.messageIds && options.messageIds.length > 0
-      ? 'AND id = ANY($2::uuid[])'
-      : '';
-
-  if (idFilter) {
-    params.push(options.messageIds);
-  }
-
-  const query = await pool.query<ClaimedEmailRow>(
-    `
-      WITH selected AS (
-        SELECT id
-        FROM email_messages
-        WHERE (
-            (
-              status IN ('queued', 'failed')
-              AND next_attempt_at <= NOW()
-            )
-            OR (
-              status = 'sending'
-              AND updated_at <= NOW() - INTERVAL '15 minutes'
-            )
-          )
-          AND attempts < max_attempts
-          ${idFilter}
-        ORDER BY created_at ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT $1
-      )
-      UPDATE email_messages
-      SET
-        status = 'sending',
-        attempts = attempts + 1,
-        updated_at = NOW()
-      FROM selected
-      WHERE email_messages.id = selected.id
-      RETURNING
-        email_messages.id,
-        email_messages.recipient_email,
-        email_messages.from_email,
-        email_messages.reply_to_email,
-        email_messages.subject,
-        email_messages.text_body,
-        email_messages.html_body,
-        email_messages.attempts,
-        email_messages.max_attempts
-    `,
-    params
-  );
-
-  return query.rows;
+  return insertEmailQueueMessage(pool, {
+    ...input,
+    fromEmail: emailConfig.from.formatted,
+    replyToEmail: emailConfig.replyTo.address,
+    maxAttempts: input.maxAttempts ?? defaultMaxAttempts
+  });
 };
 
 const nextRetryDate = (attempts: number, maxAttempts: number): Date | null => {
@@ -1638,42 +199,6 @@ const nextRetryDate = (attempts: number, maxAttempts: number): Date | null => {
     2 ** Math.max(0, attempts - 1) * 60 * 1000
   );
   return new Date(Date.now() + delayMs);
-};
-
-const markEmailSent = async (pool: Pool, messageId: string): Promise<void> => {
-  await pool.query(
-    `
-      UPDATE email_messages
-      SET
-        status = 'sent',
-        sent_at = NOW(),
-        next_attempt_at = NOW(),
-        last_error = NULL,
-        updated_at = NOW()
-      WHERE id = $1
-    `,
-    [messageId]
-  );
-};
-
-const markEmailFailed = async (
-  pool: Pool,
-  row: ClaimedEmailRow,
-  error: string | null
-): Promise<void> => {
-  const nextAttemptAt = nextRetryDate(row.attempts, row.max_attempts);
-  await pool.query(
-    `
-      UPDATE email_messages
-      SET
-        status = 'failed',
-        next_attempt_at = COALESCE($2::timestamptz, next_attempt_at),
-        last_error = $3,
-        updated_at = NOW()
-      WHERE id = $1
-    `,
-    [row.id, nextAttemptAt?.toISOString() ?? null, error]
-  );
 };
 
 export const processQueuedEmailMessages = async (
@@ -1701,7 +226,7 @@ export const processQueuedEmailMessages = async (
 
 const deliverClaimedEmailMessages = async (
   pool: Pool,
-  rows: readonly ClaimedEmailRow[],
+  rows: readonly ClaimedEmailMessage[],
   dependencies: EmailServiceDependencies = {}
 ): Promise<EmailQueueProcessResult> => {
   const sentMessageIds: string[] = [];
@@ -1710,11 +235,11 @@ const deliverClaimedEmailMessages = async (
   for (const row of rows) {
     const result = await sendEmailPayload(
       {
-        to: row.recipient_email,
+        to: row.to,
         replyTo: null,
         subject: row.subject,
-        text: row.text_body,
-        html: row.html_body
+        text: row.text,
+        html: row.html
       },
       dependencies
     );
@@ -1723,7 +248,12 @@ const deliverClaimedEmailMessages = async (
       await markEmailSent(pool, row.id);
       sentMessageIds.push(row.id);
     } else {
-      await markEmailFailed(pool, row, result.error);
+      await markEmailFailed(
+        pool,
+        row.id,
+        nextRetryDate(row.attempts, row.maxAttempts),
+        result.error
+      );
       failedMessageIds.push(row.id);
     }
   }
@@ -1742,7 +272,7 @@ export const retryAdminEmailQueueMessage = async (
   pool: Pool | null,
   messageId: string
 ): Promise<EmailQueueProcessResult> => {
-  if (!pool || !(await hasEmailMessagesTable(pool))) {
+  if (!pool) {
     return {
       attempted: 0,
       sent: 0,
@@ -1753,31 +283,8 @@ export const retryAdminEmailQueueMessage = async (
     };
   }
 
-  // Claim in one statement, just like the worker. Never reset an active send:
-  // another administrator (or the worker) may already own its SMTP request.
-  const claimed = await pool.query<ClaimedEmailRow>(
-    `
-      UPDATE email_messages
-      SET
-        status = 'sending',
-        attempts = CASE
-          WHEN attempts >= max_attempts THEN max_attempts
-          ELSE attempts + 1
-        END,
-        next_attempt_at = NOW(),
-        updated_at = NOW()
-      WHERE id = $1::uuid
-        AND (
-          status IN ('queued', 'failed')
-          OR (status = 'sending' AND updated_at <= NOW() - INTERVAL '15 minutes')
-        )
-      RETURNING id, recipient_email, from_email, reply_to_email,
-        subject, text_body, html_body, attempts, max_attempts
-    `,
-    [messageId]
-  );
-
-  return deliverClaimedEmailMessages(pool, claimed.rows);
+  const rows = await claimAdminEmailQueueRetry(pool, messageId);
+  return deliverClaimedEmailMessages(pool, rows);
 };
 
 const queueAndProcessEmail = async (
@@ -1882,33 +389,12 @@ export const queueSponsorshipFollowupEmail = async (
 /** Queue inside the caller's transaction; delivery happens after commit. */
 export const enqueueSponsorshipAccessEmail = async (
   client: PoolClient,
-  input: {
-    to: string;
-    url: string;
-    reference: string | null;
-    locale: 'fr-CA' | 'en';
-    idempotencyKey: string;
-  }
+  input: SponsorshipAccessEmailInput
 ): Promise<string> => {
-  const english = input.locale === 'en';
-  const subject = english
-    ? 'Your OpenG7 sponsorship access link'
-    : 'Votre lien de suivi de commandite OpenG7';
-  const intro = english
-    ? 'Use this private link to resume your sponsorship. Your saved information and draft are preserved.'
-    : 'Utilisez ce lien privé pour reprendre votre commandite. Vos informations et votre brouillon sauvegardés sont conservés.';
-  const ignore = english
-    ? 'If you did not request this email, you can ignore it. Do not share this link.'
-    : 'Si vous n’avez pas demandé ce courriel, vous pouvez l’ignorer. Ne partagez pas ce lien.';
-  const reference = input.reference ?? '';
   const result = await enqueueEmailMessage(client, {
-    templateKey: 'sponsorship_access_recovery',
+    ...renderSponsorshipAccessEmail(input),
     to: input.to,
-    idempotencyKey: input.idempotencyKey,
-    subject,
-    text: [intro, reference, input.url, ignore].join('\n\n'),
-    html: `<p>${escapeHtml(intro)}</p><p>${escapeHtml(reference)}</p><p><a href="${escapeHtml(input.url)}">${english ? 'Resume my sponsorship' : 'Reprendre ma commandite'}</a></p><p>${escapeHtml(ignore)}</p>`,
-    metadata: { publicReference: input.reference }
+    idempotencyKey: input.idempotencyKey
   });
   if (!result.messageId || result.error)
     throw new Error('Access email could not be queued.');
@@ -2094,29 +580,17 @@ export const getEmailConfigurationTest = async (
   requestId: string,
   actor: string
 ): Promise<AdminEmailTestResult> => {
-  const row = (
-    await pool.query<{
-      id: string;
-      status: AdminEmailTestResult['status'];
-      recipient_email: string;
-      attempts: number;
-      last_error: string | null;
-    }>(
-      `SELECT id,status,recipient_email,attempts,last_error FROM email_messages
-    WHERE idempotency_key=$1 AND template_key='email_configuration_test' AND metadata->>'actor'=$2`,
-      ['admin-email-test:' + requestId.toLowerCase(), actor]
-    )
-  ).rows[0];
+  const row = await findEmailConfigurationTestMessage(pool, requestId, actor);
   if (!row) throw new EmailConfigurationTestError(404, 'EMAIL_TEST_NOT_FOUND');
   return {
     requestId,
     messageId: row.id,
     status: row.status,
-    to: row.recipient_email,
+    to: row.to,
     queued: row.status !== 'sent',
     attempted: row.attempts > 0,
     sent: row.status === 'sent',
-    error: row.last_error,
+    error: row.error,
     deliveryMode: loadTransactionalEmailConfig().enabled ? 'smtp' : 'disabled'
   };
 };
@@ -2140,28 +614,13 @@ export const queueEmailConfigurationTest = async (
     });
     messageId = result.messageId;
     if (!messageId) throw new Error('EMAIL_TEST_UNAVAILABLE');
-    const row = (
-      await db.query(
-        'SELECT recipient_email,metadata FROM email_messages WHERE id=$1',
-        [messageId]
-      )
-    ).rows[0];
-    if (row.recipient_email !== input.to || row.metadata.actor !== input.actor)
+    const row = await findEmailConfigurationTestBinding(db, messageId);
+    if (!row) throw new Error('EMAIL_TEST_UNAVAILABLE');
+    if (row.to !== input.to || row.actor !== input.actor)
       throw new EmailConfigurationTestError(409, 'EMAIL_TEST_CONFLICT');
     inserted = !result.duplicate;
     if (inserted)
-      await db.query(
-        `INSERT INTO admin_audit_log(actor,action,entity_type,entity_id,summary,metadata)
-      VALUES($1,'email.test.queued','email_message',$2,'email.test.queued',$3::jsonb)`,
-        [
-          input.actor,
-          messageId,
-          JSON.stringify({
-            requestId: input.requestId.toLowerCase(),
-            result: 'queued'
-          })
-        ]
-      );
+      await recordEmailConfigurationTestQueuedAudit(db, messageId, input);
     await db.query('COMMIT');
   } catch (error) {
     await db.query('ROLLBACK');
@@ -2180,53 +639,21 @@ export const queueEmailConfigurationTest = async (
 /** Enqueue only; delivery is owned by the existing worker after commit. */
 export const queueAdminContributionReceived = async (
   pool: Pool | PoolClient,
-  input: {
-    activityId: string;
-    contributionId: string;
-    to: string;
-    reference: string;
-    amountMinor: number;
-    currency: string;
-    adminUrl: string;
-  }
-) => {
-  const amount = new Intl.NumberFormat('fr-CA', {
-    style: 'currency',
-    currency: input.currency
-  }).format(input.amountMinor / 100);
-  const subject = `Contribution reçue — ${amount}`;
-  const text = `${input.reference} : paiement confirmé de ${amount}.\nLa préparation reste privée et nécessite une validation administrative.\n${input.adminUrl}`;
-  return enqueueEmailMessage(pool, {
-    templateKey: 'admin_contribution_received',
+  input: AdminContributionReceivedEmailInput
+) =>
+  enqueueEmailMessage(pool, {
+    ...renderAdminContributionReceivedEmail(input),
     to: input.to,
-    subject,
-    text,
-    html: '<p>' + escapeHtml(text).replace(/\n/g, '<br>') + '</p>',
-    idempotencyKey: `contribution:${input.activityId}:admin-email`,
-    metadata: {
-      contributionId: input.contributionId,
-      activityId: input.activityId
-    }
+    idempotencyKey: `contribution:${input.activityId}:admin-email`
   });
-};
 
 /** Enqueue only; delivery is owned by the existing worker after commit. */
 export const queueSponsorshipInformationRequest = async (
   pool: Pool | PoolClient,
-  input: {
-    contributionId: string;
-    recipient: string;
-    subject: string;
-    body: string;
-    idempotencyKey: string;
-  }
+  input: SponsorshipInformationRequestEmailInput
 ) =>
   enqueueEmailMessage(pool, {
-    templateKey: 'sponsorship_information_request',
+    ...renderSponsorshipInformationRequestEmail(input),
     to: input.recipient,
-    subject: input.subject,
-    text: input.body,
-    html: '<p>' + escapeHtml(input.body).replace(/\n/g, '<br>') + '</p>',
-    metadata: { contributionId: input.contributionId },
     idempotencyKey: input.idempotencyKey
   });

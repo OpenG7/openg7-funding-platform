@@ -4,13 +4,7 @@ import {
   type ServerResponse
 } from 'node:http';
 import path from 'node:path';
-import {
-  createHash,
-  createHmac,
-  randomBytes,
-  randomUUID,
-  timingSafeEqual
-} from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import type { PublicationAutomationCommand } from '@openg7/funding-core';
 import Stripe from 'stripe';
@@ -43,7 +37,6 @@ import type {
   AdminPublicationSlotLifecycleRequest,
   AdminPublicationSlotUpdateRequest,
   AdminSessionCreateRequest,
-  AdminSessionResponse,
   AdminSponsorMediaDeleteRequest,
   AdminSponsorMediaReviewRequest,
   AdminSponsorMediaReviewResult,
@@ -327,6 +320,12 @@ import {
   parseNonNegativeIntegerEnv,
   parsePositiveIntegerEnv
 } from './environment-values.js';
+import { createAdminTokenSessionService } from './admin-token-session.js';
+import {
+  createHttpTransport,
+  readBody,
+  readBodyBuffer
+} from './http-transport.js';
 
 const port = Number(process.env.FUNDING_API_PORT ?? 3333);
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -344,6 +343,14 @@ const adminSessionTtlMinutes = parsePositiveIntegerEnv(
   process.env.FUNDING_ADMIN_SESSION_TTL_MINUTES,
   60
 );
+const { adminTokenMatches, createAdminSession, verifyAdminSession } =
+  createAdminTokenSessionService({
+    adminToken,
+    sessionSecret: adminSessionSecret,
+    sessionTtlMinutes: adminSessionTtlMinutes,
+    isProduction,
+    projectId
+  });
 const sponsorshipFollowupTokenTtlDays = parsePositiveIntegerEnv(
   process.env.FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS,
   30
@@ -548,148 +555,8 @@ interface RateLimiter {
   readonly buckets: Map<string, RateLimitBucket>;
 }
 
-const securityHeaders: Record<string, string> = {
-  'Referrer-Policy': 'no-referrer',
-  'X-Content-Type-Options': 'nosniff'
-};
-
-const writeJson = (
-  request: ApiRequest,
-  response: ApiResponse,
-  statusCode: number,
-  payload: unknown,
-  extraHeaders: Record<string, string> = {}
-): void => {
-  response.writeHead(statusCode, {
-    ...createCorsHeaders(request),
-    ...securityHeaders,
-    ...extraHeaders,
-    'Content-Type': 'application/json; charset=utf-8'
-  });
-  response.end(JSON.stringify(payload));
-};
-
-const writeText = (
-  request: ApiRequest,
-  response: ApiResponse,
-  statusCode: number,
-  payload: string
-): void => {
-  response.writeHead(statusCode, {
-    ...createCorsHeaders(request),
-    ...securityHeaders,
-    'Content-Type': 'text/plain; charset=utf-8'
-  });
-  response.end(payload);
-};
-
-const writeCsv = (
-  request: ApiRequest,
-  response: ApiResponse,
-  statusCode: number,
-  payload: string,
-  filename: string
-): void => {
-  response.writeHead(statusCode, {
-    ...createCorsHeaders(request),
-    ...securityHeaders,
-    'Content-Disposition': `attachment; filename="${filename}"`,
-    'Content-Type': 'text/csv; charset=utf-8'
-  });
-  response.end(payload);
-};
-
-const writeBinary = (
-  request: ApiRequest,
-  response: ApiResponse,
-  statusCode: number,
-  payload: Buffer,
-  contentType: string,
-  extraHeaders: Record<string, string> = {}
-): void => {
-  response.writeHead(statusCode, {
-    ...createCorsHeaders(request),
-    ...securityHeaders,
-    ...extraHeaders,
-    'Content-Length': String(payload.byteLength),
-    'Content-Type': contentType
-  });
-  response.end(payload);
-};
-
-const writePdf = (
-  request: ApiRequest,
-  response: ApiResponse,
-  statusCode: number,
-  payload: Buffer,
-  filename: string
-): void => {
-  writeBinary(request, response, statusCode, payload, 'application/pdf', {
-    'Cache-Control': 'no-store',
-    'Content-Disposition': `attachment; filename="${filename}"`
-  });
-};
-
-const resolveAllowedOrigin = (request: ApiRequest): string | null => {
-  const origin = request.headers.origin;
-
-  if (!isProduction) {
-    return '*';
-  }
-
-  if (typeof origin === 'string' && allowedOrigins.includes(origin)) {
-    return origin;
-  }
-
-  return null;
-};
-
-const createCorsHeaders = (request: ApiRequest): Record<string, string> => {
-  const allowedOrigin = resolveAllowedOrigin(request);
-  const headers: Record<string, string> = {
-    Vary: 'Origin'
-  };
-
-  if (allowedOrigin) {
-    headers['Access-Control-Allow-Origin'] = allowedOrigin;
-  }
-
-  return headers;
-};
-
-const readBody = async (
-  request: ApiRequest,
-  maxBytes = 256 * 1024
-): Promise<string> => {
-  const chunks: Buffer[] = [];
-  let totalBytes = 0;
-  for await (const chunk of request) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    totalBytes += buffer.byteLength;
-    if (totalBytes > maxBytes) {
-      throw new Error('Request body is too large.');
-    }
-    chunks.push(buffer);
-  }
-  return Buffer.concat(chunks).toString('utf8');
-};
-
-const readBodyBuffer = async (
-  request: ApiRequest,
-  maxBytes: number
-): Promise<Buffer> => {
-  const chunks: Buffer[] = [];
-  let totalBytes = 0;
-  for await (const chunk of request) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    totalBytes += buffer.byteLength;
-    if (totalBytes > maxBytes) {
-      throw new Error('Request body is too large.');
-    }
-    chunks.push(buffer);
-  }
-  return Buffer.concat(chunks);
-};
+const { writeJson, writeText, writeCsv, writeBinary, writePdf, writeOptions } =
+  createHttpTransport({ isProduction, allowedOrigins });
 
 const normalizeAmount = (amount: number): number =>
   Number(Number(amount).toFixed(2));
@@ -727,8 +594,6 @@ const ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
 const CONTRIBUTION_REFERENCE_BYTES = 6;
 const CONTRIBUTION_REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const ADMIN_SESSION_TOKEN_PREFIX = 'openg7-admin-session.';
-const ADMIN_SESSION_NONCE_BYTES = 16;
 const SPONSOR_LOGO_PUBLIC_PATH_PREFIX = '/api/public/sponsor-logos/';
 const SPONSOR_MEDIA_PUBLIC_PATH_PREFIX = '/api/public/sponsor-media/';
 const SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH = 300;
@@ -1629,133 +1494,15 @@ const readAdminToken = (request: ApiRequest): string | null => {
   return typeof headerToken === 'string' ? headerToken : null;
 };
 
-const adminTokenMatches = (candidate: string): boolean => {
-  if (!adminToken) {
-    return false;
-  }
-
-  const candidateBuffer = Buffer.from(candidate);
-  const tokenBuffer = Buffer.from(adminToken);
-  return (
-    candidateBuffer.length === tokenBuffer.length &&
-    timingSafeEqual(candidateBuffer, tokenBuffer)
-  );
-};
-
 const adminAuthMode = process.env.FUNDING_ADMIN_AUTH_MODE ?? 'token';
 if (!['token', 'oidc'].includes(adminAuthMode)) throw new Error('Invalid admin auth mode.');
 if (adminAuthMode === 'oidc' && !dbPool) throw new Error('OIDC requires PostgreSQL.');
 const adminIdentity = adminAuthMode === 'oidc' ? new AdminIdentityService(dbPool!, process.env) : null;
 
-interface AdminSessionPayload {
-  readonly actor: 'funding-admin-session';
-  readonly exp: number;
-  readonly iat: number;
-  readonly nonce: string;
-  readonly v: 1;
-}
-
 interface AdminAuthorization {
   readonly actor: string;
   readonly source: 'session' | 'static-token' | 'local-dev' | 'oidc';
 }
-
-const getAdminSessionSigningSecret = (): string | null =>
-  adminSessionSecret || adminToken || (!isProduction ? projectId : null);
-
-const signAdminSessionPayload = (encodedPayload: string): string | null => {
-  const signingSecret = getAdminSessionSigningSecret();
-  if (!signingSecret) {
-    return null;
-  }
-
-  return createHmac('sha256', signingSecret)
-    .update(encodedPayload)
-    .digest('base64url');
-};
-
-const adminSessionSignatureMatches = (
-  encodedPayload: string,
-  signature: string
-): boolean => {
-  const expectedSignature = signAdminSessionPayload(encodedPayload);
-  if (!expectedSignature) {
-    return false;
-  }
-
-  const signatureBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expectedSignature);
-  return (
-    signatureBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(signatureBuffer, expectedBuffer)
-  );
-};
-
-const createAdminSession = (now = Date.now()): AdminSessionResponse | null => {
-  const expiresAtMs = now + adminSessionTtlMinutes * 60 * 1000;
-  const payload: AdminSessionPayload = {
-    actor: 'funding-admin-session',
-    exp: expiresAtMs,
-    iat: now,
-    nonce: randomBytes(ADMIN_SESSION_NONCE_BYTES).toString('base64url'),
-    v: 1
-  };
-  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
-    'base64url'
-  );
-  const signature = signAdminSessionPayload(encodedPayload);
-
-  if (!signature) {
-    return null;
-  }
-
-  return {
-    actor: payload.actor,
-    expiresAt: new Date(payload.exp).toISOString(),
-    sessionToken: `${ADMIN_SESSION_TOKEN_PREFIX}${encodedPayload}.${signature}`,
-    ttlSeconds: Math.floor((payload.exp - payload.iat) / 1000)
-  };
-};
-
-const verifyAdminSession = (
-  candidate: string,
-  now = Date.now()
-): AdminSessionPayload | null => {
-  if (!candidate.startsWith(ADMIN_SESSION_TOKEN_PREFIX)) {
-    return null;
-  }
-
-  const token = candidate.slice(ADMIN_SESSION_TOKEN_PREFIX.length);
-  const [encodedPayload, signature] = token.split('.', 2);
-  if (!encodedPayload || !signature) {
-    return null;
-  }
-
-  if (!adminSessionSignatureMatches(encodedPayload, signature)) {
-    return null;
-  }
-
-  let payload: AdminSessionPayload;
-  try {
-    payload = JSON.parse(
-      Buffer.from(encodedPayload, 'base64url').toString('utf8')
-    ) as AdminSessionPayload;
-  } catch {
-    return null;
-  }
-
-  if (
-    payload.v !== 1 ||
-    payload.actor !== 'funding-admin-session' ||
-    !Number.isInteger(payload.iat) ||
-    !Number.isInteger(payload.exp) ||
-    payload.exp <= now
-  ) {
-    return null;
-  }
-
-  return payload;
-};
 
 const resolveAdminAuthorization = (
   request: ApiRequest
@@ -2452,14 +2199,7 @@ const handleRequest = async (
   response: ApiResponse
 ): Promise<void> => {
   if (request.method === 'OPTIONS') {
-    response.writeHead(204, {
-      ...createCorsHeaders(request),
-      ...securityHeaders,
-      'Access-Control-Allow-Headers':
-        'Content-Type, Stripe-Signature, Authorization, X-Funding-Admin-Token, X-Sponsorship-Followup-Token',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-    });
-    response.end();
+    writeOptions(request, response);
     return;
   }
 

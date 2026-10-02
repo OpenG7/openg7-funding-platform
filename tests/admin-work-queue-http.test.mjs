@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import test from 'node:test';
 
@@ -9,6 +9,7 @@ test(
   { timeout: 15000 },
   async () => {
     const token = randomUUID();
+    const sessionSecret = randomUUID();
     // Force this test server onto loopback with an ephemeral port. No .env, DB,
     // mail or Stripe configuration is inherited by the child.
     const source = `
@@ -28,7 +29,8 @@ test(
           SystemRoot: process.env.SystemRoot,
           FUNDING_API_PORT: '0',
           FUNDING_ADMIN_TOKEN: token,
-          FUNDING_ADMIN_SESSION_SECRET: randomUUID(),
+          FUNDING_ADMIN_SESSION_SECRET: sessionSecret,
+          FUNDING_ADMIN_SESSION_TTL_MINUTES: '7',
           FUNDING_ADMIN_REVIEW_REMINDER_ENABLED: 'false'
         },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -74,6 +76,48 @@ test(
       );
       assert.equal((await fetch(url + '?pageSize=101')).status, 401);
       const base = `http://127.0.0.1:${port}/api/admin`;
+      const sessionResponse = await fetch(base + '/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      assert.equal(sessionResponse.status, 200);
+      const session = await sessionResponse.json();
+      assert.equal(session.actor, 'funding-admin-session');
+      assert.equal(session.ttlSeconds, 7 * 60);
+      const authorizedSession = await fetch(url, {
+        headers: { authorization: `Bearer ${session.sessionToken}` }
+      });
+      assert.equal(authorizedSession.status, 200);
+      assert.equal((await authorizedSession.json()).available, false);
+      const [encoded, signature] = session.sessionToken
+        .slice('openg7-admin-session.'.length)
+        .split('.');
+      const changedSignature =
+        (signature[0] === 'A' ? 'B' : 'A') + signature.slice(1);
+      const expiredPayload = {
+        ...JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')),
+        exp: Date.now() - 1
+      };
+      const expiredEncoded = Buffer.from(
+        JSON.stringify(expiredPayload)
+      ).toString('base64url');
+      const expiredSignature = createHmac('sha256', sessionSecret)
+        .update(expiredEncoded)
+        .digest('base64url');
+      for (const candidate of [
+        `openg7-admin-session.${encoded}.${changedSignature}`,
+        `openg7-admin-session.${expiredEncoded}.${expiredSignature}`
+      ]) {
+        assert.equal(
+          (
+            await fetch(url, {
+              headers: { authorization: `Bearer ${candidate}` }
+            })
+          ).status,
+          401
+        );
+      }
       const searchUrl = base + '/search';
       for (const prefix of ['/api/admin', '/admin']) {
         const websiteUrl = `http://127.0.0.1:${port}${prefix}/sponsorships/website-visibility`;
