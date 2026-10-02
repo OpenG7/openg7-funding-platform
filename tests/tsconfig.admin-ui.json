@@ -7,6 +7,7 @@
     "playwright/admin-audit-ui.spec.ts",
     "playwright/admin-transparency-ui.spec.ts",
     "playwright/admin-allocation-create-ui.spec.ts",
+    "playwright/admin-allocation-edit-ui.spec.ts",
     "playwright/admin-stripe-backfill-ui.spec.ts",
     "playwright/admin-access-ui.spec.ts",
     "playwright/admin-setup-email-ui.spec.ts",
