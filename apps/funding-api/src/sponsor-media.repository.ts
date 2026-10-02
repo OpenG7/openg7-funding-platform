@@ -7,6 +7,7 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
+import { withPostgresTransaction } from './postgres-transaction.js';
 import { isEditableSponsorship } from './sponsorship-review-policy.js';
 
 interface SponsorMediaAssetRow {
@@ -233,85 +234,83 @@ export const createSponsorMediaAsset = async (
   if (!pool) {
     return { status: 'contribution_not_found' };
   }
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const contribution = await client.query<{
-      readonly id: string;
-      status: string;
-      sponsor_review_status: string | null;
-    }>(
-      `SELECT id, status, sponsor_review_status
+  return withPostgresTransaction<CreateSponsorMediaAssetResult>(
+    pool,
+    async (client) => {
+      const contribution = await client.query<{
+        readonly id: string;
+        status: string;
+        sponsor_review_status: string | null;
+      }>(
+        `SELECT id, status, sponsor_review_status
        FROM fund_contributions
        WHERE id = $1::uuid
          AND contribution_type = 'sponsorship_interest'
          AND status IN ('paid', 'refunded', 'disputed')
        FOR UPDATE`,
-      [input.contributionId]
-    );
-    if (!contribution.rows[0]) {
-      await client.query('ROLLBACK');
-      return { status: 'contribution_not_found' };
-    }
-    if (
-      input.uploadedBy === 'sponsor' &&
-      !editableContribution(contribution.rows[0])
-    ) {
-      await client.query('ROLLBACK');
-      return { status: 'not_editable' };
-    }
+        [input.contributionId]
+      );
+      if (!contribution.rows[0]) {
+        return { status: 'contribution_not_found' };
+      }
+      if (
+        input.uploadedBy === 'sponsor' &&
+        !editableContribution(contribution.rows[0])
+      ) {
+        return { status: 'not_editable' };
+      }
 
-    let replaced: SponsorMediaStorageRecord | null = null;
-    if (input.kind === 'logo') {
-      const existing = await client.query<SponsorMediaAssetRow>(
-        `SELECT ${selectAssetColumns}
+      let replaced: SponsorMediaStorageRecord | null = null;
+      if (input.kind === 'logo') {
+        const existing = await client.query<SponsorMediaAssetRow>(
+          `SELECT ${selectAssetColumns}
          FROM sponsor_media_assets
          WHERE contribution_id = $1::uuid
            AND kind = 'logo'
            AND deleted_at IS NULL
          FOR UPDATE`,
-        [input.contributionId]
-      );
-      if (existing.rows[0]?.review_status === 'approved') {
-        await client.query('ROLLBACK');
-        return { status: 'logo_locked' };
-      }
-      if (existing.rows[0]) {
-        replaced = mapStorageRecord(existing.rows[0]);
-        await client.query(
-          `UPDATE sponsor_media_assets
+          [input.contributionId]
+        );
+        if (existing.rows[0]?.review_status === 'approved') {
+          return { status: 'logo_locked' };
+        }
+        if (existing.rows[0]) {
+          replaced = mapStorageRecord(existing.rows[0]);
+          await client.query(
+            `UPDATE sponsor_media_assets
            SET deleted_at = NOW(), updated_at = NOW()
            WHERE id = $1::uuid`,
-          [existing.rows[0].id]
-        );
-      }
-    } else {
-      const count = await client.query<{ readonly count: string }>(
-        `SELECT COUNT(*)::text AS count
+            [existing.rows[0].id]
+          );
+        }
+      } else {
+        const count = await client.query<{ readonly count: string }>(
+          `SELECT COUNT(*)::text AS count
          FROM sponsor_media_assets
          WHERE contribution_id = $1::uuid
            AND kind = 'supporting_image'
            AND deleted_at IS NULL`,
-        [input.contributionId]
-      );
-      if (Number(count.rows[0]?.count ?? 0) >= input.maxSupportingImages) {
-        await client.query('ROLLBACK');
-        return { status: 'supporting_image_limit_reached' };
+          [input.contributionId]
+        );
+        if (Number(count.rows[0]?.count ?? 0) >= input.maxSupportingImages) {
+          return { status: 'supporting_image_limit_reached' };
+        }
       }
-    }
 
-    const sortOrderResult = await client.query<{ readonly next_order: number }>(
-      `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order
+      const sortOrderResult = await client.query<{
+        readonly next_order: number;
+      }>(
+        `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order
        FROM sponsor_media_assets
        WHERE contribution_id = $1::uuid
          AND kind = $2
          AND deleted_at IS NULL`,
-      [input.contributionId, input.kind]
-    );
-    const sortOrder =
-      input.kind === 'logo' ? 0 : (sortOrderResult.rows[0]?.next_order ?? 0);
-    const inserted = await client.query<SponsorMediaAssetRow>(
-      `INSERT INTO sponsor_media_assets (
+        [input.contributionId, input.kind]
+      );
+      const sortOrder =
+        input.kind === 'logo' ? 0 : (sortOrderResult.rows[0]?.next_order ?? 0);
+      const inserted = await client.query<SponsorMediaAssetRow>(
+        `INSERT INTO sponsor_media_assets (
          id, contribution_id, kind, uploaded_by, original_filename,
          original_mime_type, original_size_bytes, original_storage_key,
          processed_size_bytes, processed_storage_key, checksum_sha256,
@@ -321,46 +320,45 @@ export const createSponsorMediaAsset = async (
          $9, $10, $11, $12, $13, $14, $15
        )
        RETURNING ${selectAssetColumns}`,
-      [
-        input.id,
-        input.contributionId,
-        input.kind,
-        input.uploadedBy,
-        input.originalFilename,
-        input.originalMimeType,
-        input.originalSizeBytes,
-        input.originalStorageKey,
-        input.processedSizeBytes,
-        input.processedStorageKey,
-        input.checksumSha256,
-        input.width,
-        input.height,
-        input.altText,
-        sortOrder
-      ]
-    );
-    if (input.uploadedBy === 'sponsor') {
-      await client.query(
-        `UPDATE fund_contributions
+        [
+          input.id,
+          input.contributionId,
+          input.kind,
+          input.uploadedBy,
+          input.originalFilename,
+          input.originalMimeType,
+          input.originalSizeBytes,
+          input.originalStorageKey,
+          input.processedSizeBytes,
+          input.processedStorageKey,
+          input.checksumSha256,
+          input.width,
+          input.height,
+          input.altText,
+          sortOrder
+        ]
+      );
+      if (input.uploadedBy === 'sponsor') {
+        await client.query(
+          `UPDATE fund_contributions
          SET sponsor_review_status = 'pending_review',
              sponsor_reviewed_at = NULL,
              updated_at = NOW()
          WHERE id = $1::uuid`,
-        [input.contributionId]
-      );
+          [input.contributionId]
+        );
+      }
+      return {
+        status: 'created',
+        asset: mapAsset(inserted.rows[0]!),
+        replaced
+      };
+    },
+    {
+      shouldCommit: (result) => result.status === 'created',
+      preserveOriginalError: true
     }
-    await client.query('COMMIT');
-    return {
-      status: 'created',
-      asset: mapAsset(inserted.rows[0]!),
-      replaced
-    };
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
+  );
 };
 
 export const deleteSponsorMediaAsset = async (
@@ -375,58 +373,53 @@ export const deleteSponsorMediaAsset = async (
   if (!pool) {
     return { status: 'not_found', asset: null };
   }
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    if (input.contributionId) {
-      // Lock the dossier before the asset, as uploads do, and recheck a concurrent refusal.
-      const contribution = await client.query<{
-        status: string;
-        sponsor_review_status: string | null;
-      }>(
-        `SELECT status, sponsor_review_status FROM fund_contributions
+  return withPostgresTransaction<SponsorMediaMutationResult>(
+    pool,
+    async (client) => {
+      if (input.contributionId) {
+        // Lock the dossier before the asset, as uploads do, and recheck a concurrent refusal.
+        const contribution = await client.query<{
+          status: string;
+          sponsor_review_status: string | null;
+        }>(
+          `SELECT status, sponsor_review_status FROM fund_contributions
          WHERE id = $1::uuid AND contribution_type = 'sponsorship_interest' FOR UPDATE`,
-        [input.contributionId]
-      );
-      if (
-        !contribution.rows[0] ||
-        !editableContribution(contribution.rows[0])
-      ) {
-        await client.query('ROLLBACK');
-        return { status: 'not_editable', asset: null };
+          [input.contributionId]
+        );
+        if (
+          !contribution.rows[0] ||
+          !editableContribution(contribution.rows[0])
+        ) {
+          return { status: 'not_editable', asset: null };
+        }
       }
-    }
-    const row = await getAssetForUpdate(client, input.assetId);
-    if (
-      !row ||
-      (input.contributionId && row.contribution_id !== input.contributionId)
-    ) {
-      await client.query('ROLLBACK');
-      return { status: 'not_found', asset: null };
-    }
-    const asset = mapStorageRecord(row);
-    if (!input.allowApproved && row.review_status === 'approved') {
-      await client.query('ROLLBACK');
-      return { status: 'approved_locked', asset };
-    }
-    if (row.version !== input.expectedVersion) {
-      await client.query('ROLLBACK');
-      return { status: 'conflict', asset };
-    }
-    await client.query(
-      `UPDATE sponsor_media_assets
+      const row = await getAssetForUpdate(client, input.assetId);
+      if (
+        !row ||
+        (input.contributionId && row.contribution_id !== input.contributionId)
+      ) {
+        return { status: 'not_found', asset: null };
+      }
+      const asset = mapStorageRecord(row);
+      if (!input.allowApproved && row.review_status === 'approved') {
+        return { status: 'approved_locked', asset };
+      }
+      if (row.version !== input.expectedVersion) {
+        return { status: 'conflict', asset };
+      }
+      await client.query(
+        `UPDATE sponsor_media_assets
        SET deleted_at = NOW(), updated_at = NOW()
        WHERE id = $1::uuid`,
-      [input.assetId]
-    );
-    await client.query('COMMIT');
-    return { status: 'updated', asset };
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
+        [input.assetId]
+      );
+      return { status: 'updated', asset };
+    },
+    {
+      shouldCommit: (result) => result.status === 'updated',
+      preserveOriginalError: true
+    }
+  );
 };
 
 export const reviewSponsorMediaAsset = async (

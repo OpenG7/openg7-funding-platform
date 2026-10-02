@@ -33,6 +33,14 @@ const fixture = (failures = {}) => {
   return { calls, client, pool, operation, result };
 };
 
+const deferred = () => {
+  let resolve;
+  const promise = new Promise((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+};
+
 test('a successful transaction returns the unchanged result after committing and releasing once', async () => {
   const { calls, pool, operation, result } = fixture();
   assert.equal(await withPostgresTransaction(pool, operation), result);
@@ -86,6 +94,97 @@ test('a synchronously thrown callback error is rolled back without retry or wrap
   ]);
 });
 
+test('a declined result rolls back earlier writes and stays pending until cleanup finishes', async () => {
+  const { calls, client, pool, result } = fixture();
+  const rollbackStarted = deferred();
+  const rollbackPermit = deferred();
+  let persisted = 'original';
+  let staged = persisted;
+  const query = client.query.bind(client);
+  client.query = async (command) => {
+    const response = await query(command);
+    if (command === 'WRITE') staged = 'changed';
+    if (command === 'COMMIT') persisted = staged;
+    if (command === 'ROLLBACK') {
+      rollbackStarted.resolve();
+      await rollbackPermit.promise;
+      staged = persisted;
+    }
+    return response;
+  };
+  let settled = false;
+  const completion = withPostgresTransaction(
+    pool,
+    async (connected) => {
+      await connected.query('WRITE');
+      return result;
+    },
+    { shouldCommit: () => false }
+  ).then((value) => {
+    settled = true;
+    calls.push('resolved');
+    return value;
+  });
+
+  await rollbackStarted.promise;
+  assert.equal(settled, false);
+  assert.equal(staged, 'changed');
+  assert.equal(persisted, 'original');
+  assert.deepEqual(calls, ['connect', 'BEGIN', 'WRITE', 'ROLLBACK']);
+
+  rollbackPermit.resolve();
+  assert.equal(await completion, result);
+  assert.equal(staged, 'original');
+  assert.equal(persisted, 'original');
+  assert.deepEqual(calls, [
+    'connect',
+    'BEGIN',
+    'WRITE',
+    'ROLLBACK',
+    'release',
+    'resolved'
+  ]);
+});
+
+test('a failed result rollback rejects without returning the declined result or retrying rollback', async () => {
+  const failure = new Error('Synthetic rollback failure');
+  const { calls, pool, operation } = fixture({ ROLLBACK: failure });
+  await assert.rejects(
+    withPostgresTransaction(pool, operation, {
+      shouldCommit: () => false,
+      preserveOriginalError: true
+    }),
+    (error) => error === failure
+  );
+  assert.deepEqual(calls, [
+    'connect',
+    'BEGIN',
+    'operation',
+    'ROLLBACK',
+    'release'
+  ]);
+});
+
+test('an opt-in transaction preserves its original failure when rollback also fails', async (t) => {
+  for (const phase of ['BEGIN', 'operation', 'COMMIT']) {
+    await t.test(phase, async () => {
+      const original = new Error(`Synthetic ${phase} failure`);
+      const { calls, pool, operation } = fixture({
+        [phase]: original,
+        ROLLBACK: new Error('Synthetic rollback failure')
+      });
+      await assert.rejects(
+        withPostgresTransaction(pool, operation, {
+          preserveOriginalError: true
+        }),
+        (error) => error === original
+      );
+      assert.equal(calls.filter((call) => call === 'ROLLBACK').length, 1);
+      assert.equal(calls.at(-1), 'release');
+    });
+  }
+});
+
 test('a failed rollback retains the existing error precedence and still releases the client', async (t) => {
   for (const phase of ['BEGIN', 'operation', 'COMMIT']) {
     await t.test(phase, async () => {
@@ -132,14 +231,6 @@ test('a failed release rejects even after commit and keeps its existing preceden
     });
   }
 });
-
-const deferred = () => {
-  let resolve;
-  const promise = new Promise((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve };
-};
 
 test('the result stays pending while the callback or commit is unfinished', async () => {
   const { calls, client, pool, result } = fixture();

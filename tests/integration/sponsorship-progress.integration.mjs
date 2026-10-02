@@ -77,6 +77,7 @@ test(
       const initial = await load();
       assert.equal(initial.contributionId, id);
       const snapshotEvents = [];
+      let snapshotFailure = null;
       const explicitPool = {
         query: () =>
           assert.fail('an explicit dossier bypasses the global queue'),
@@ -99,6 +100,8 @@ test(
                   'all dossier reads use the snapshot'
                 );
               }
+              if (snapshotFailure && sql.includes('FROM contribution_activity'))
+                throw snapshotFailure;
               const result = await client.query(sql, values);
               if (sql === 'COMMIT' || sql === 'ROLLBACK') {
                 inSnapshot = false;
@@ -184,6 +187,29 @@ test(
         ['begin', 'commit', 'release', 'begin', 'commit', 'release'],
         'a missing explicit dossier commits the read and releases its connection without fallback'
       );
+      snapshotFailure = new Error('Synthetic dossier read failure');
+      try {
+        await assert.rejects(
+          getSponsorshipProgress(explicitPool, id),
+          (error) => error === snapshotFailure
+        );
+        assert.deepEqual(snapshotEvents.slice(-3), [
+          'begin',
+          'rollback',
+          'release'
+        ]);
+      } finally {
+        snapshotFailure = null;
+      }
+      assert.equal(
+        (await getSponsorshipProgress(explicitPool, id)).dossier.contributionId,
+        id
+      );
+      assert.deepEqual(snapshotEvents.slice(-3), [
+        'begin',
+        'commit',
+        'release'
+      ]);
       const batch = (
         await pool.query(
           "INSERT INTO sponsor_publication_batches (channel,capacity,status) VALUES ('facebook', 5, 'cancelled') RETURNING id"
