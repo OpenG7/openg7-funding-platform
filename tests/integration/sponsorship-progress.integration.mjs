@@ -22,15 +22,39 @@ test(
         null,
         'fresh disposable database required'
       );
+      const unselectedPool = {
+        query: pool.query.bind(pool),
+        connect: () => assert.fail('no dossier snapshot without a selection')
+      };
+      assert.equal(
+        (await getSponsorshipProgress(unselectedPool)).status,
+        'unavailable'
+      );
+      assert.equal(
+        (await getAdminAssistantContext(unselectedPool)).status,
+        'unavailable'
+      );
       for (const file of (await readdir('apps/funding-api/migrations'))
         .filter((f) => f.endsWith('.sql'))
         .sort())
         await pool.query(
           await readFile(`apps/funding-api/migrations/${file}`, 'utf8')
         );
-      assert.equal((await getSponsorshipProgress(pool)).status, 'empty');
+      assert.equal(
+        (await getSponsorshipProgress(unselectedPool)).status,
+        'empty'
+      );
+      assert.equal(
+        (await getAdminAssistantContext(unselectedPool)).status,
+        'empty'
+      );
       await pool.query(`INSERT INTO fund_contributions (contribution_type, amount_cents, currency, status, sponsor_review_status, sponsorship_refund_status)
       SELECT 'sponsorship_interest', 50000, 'cad', 'refunded', 'rejected', 'completed' FROM generate_series(1, 2005)`);
+      await pool.query(`INSERT INTO email_messages
+        (template_key,recipient_email,from_email,subject,text_body,html_body,status,attempts,max_attempts)
+        SELECT 'selection_fixture','synthetic@example.invalid','fixture@example.invalid',
+          'Synthetic queue entry','Synthetic body','Synthetic body','failed',1,1
+        FROM generate_series(1,105)`);
       const id = (
         await pool.query(`INSERT INTO fund_contributions (contribution_type, amount_cents, currency, status, paid_at, updated_at, sponsor_company_name,
       sponsor_contact_email, sponsor_details_submitted_at, public_display_consent, stripe_session_id, stripe_payment_intent_id)
@@ -52,15 +76,57 @@ test(
       const load = async () => (await getSponsorshipProgress(pool, id)).dossier;
       const initial = await load();
       assert.equal(initial.contributionId, id);
+      const snapshotEvents = [];
+      const explicitPool = {
+        query: () =>
+          assert.fail('an explicit dossier bypasses the global queue'),
+        connect: async () => {
+          const client = await pool.connect();
+          let inSnapshot = false;
+          return {
+            query: async (sql, values) => {
+              if (sql.startsWith('BEGIN')) {
+                assert.equal(
+                  sql,
+                  'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'
+                );
+                inSnapshot = true;
+                snapshotEvents.push('begin');
+              } else {
+                assert.equal(
+                  inSnapshot,
+                  true,
+                  'all dossier reads use the snapshot'
+                );
+              }
+              const result = await client.query(sql, values);
+              if (sql === 'COMMIT' || sql === 'ROLLBACK') {
+                inSnapshot = false;
+                snapshotEvents.push(sql.toLowerCase());
+              }
+              return result;
+            },
+            release: () => {
+              try {
+                assert.equal(inSnapshot, false);
+                snapshotEvents.push('release');
+              } finally {
+                client.release();
+              }
+            }
+          };
+        }
+      };
       assert.equal(
         (await getAdminAssistantContext(pool)).context.contributionId,
         id
       );
       assert.equal(
-        (await getSponsorshipProgress(pool, id.toUpperCase())).dossier
+        (await getSponsorshipProgress(explicitPool, id.toUpperCase())).dossier
           .contributionId,
         id
       );
+      assert.deepEqual(snapshotEvents, ['begin', 'commit', 'release']);
       assert.equal(
         initial.milestones.find((s) => s.id === 'billing').state,
         'complete'
@@ -78,12 +144,24 @@ test(
         pageSize: 1,
         type: 'invoice_missing'
       });
+      assert.equal(queue.items.length, 0);
       assert.equal(
         queue.firstSponsorshipId,
         id,
         'fallback independent of a filter with zero rows'
       );
       assert.equal(queue.actionCounts.sponsorship_needs_review, 1);
+      const firstPage = await getAdminWorkQueue(pool, { pageSize: 100 });
+      assert.equal(firstPage.items.length, 100);
+      assert.equal(
+        firstPage.items.every((item) => !item.sponsorshipId),
+        true
+      );
+      assert.equal(
+        firstPage.firstSponsorshipId,
+        id,
+        'selection is beyond the response page'
+      );
       assert.equal(
         (await getSponsorshipProgress(pool)).dossier.contributionId,
         id
@@ -95,11 +173,16 @@ test(
       assert.equal(
         (
           await getSponsorshipProgress(
-            pool,
+            explicitPool,
             '10000000-0000-4000-8000-000000000999'
           )
         ).status,
         'not_found'
+      );
+      assert.deepEqual(
+        snapshotEvents,
+        ['begin', 'commit', 'release', 'begin', 'commit', 'release'],
+        'a missing explicit dossier commits the read and releases its connection without fallback'
       );
       const batch = (
         await pool.query(

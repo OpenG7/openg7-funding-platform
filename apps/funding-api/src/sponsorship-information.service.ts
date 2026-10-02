@@ -7,7 +7,10 @@ import type {
 import type { Pool } from 'pg';
 
 import { loadSponsorshipAssistantDataset } from './admin-assistant/context.repository.js';
-import { queueSponsorshipInformationRequest } from './email-notification.service.js';
+import {
+  projectExistingSponsorshipEmailStatus,
+  queueSponsorshipInformationRequest
+} from './email-notification.service.js';
 import { insertAdminAuditLog } from './fund-admin.repository.js';
 import { lockSponsorshipContribution } from './fund-contributions.repository.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
@@ -84,12 +87,7 @@ export const requestSponsorshipInformation = async (
     );
     if (existing.rows[0]) {
       return {
-        status:
-          existing.rows[0].status === 'sent'
-            ? 'already_sent'
-            : existing.rows[0].status === 'failed'
-              ? 'delivery_failed'
-              : 'already_queued',
+        status: projectExistingSponsorshipEmailStatus(existing.rows[0].status),
         messageId: existing.rows[0].id
       };
     }
