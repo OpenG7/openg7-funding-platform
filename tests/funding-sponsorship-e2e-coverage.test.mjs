@@ -1,4 +1,5 @@
 import { readFundingHomeSource } from './support/funding-home-source.mjs';
+import { readFundingAdminSource } from './support/funding-admin-source.mjs';
 import { readSponsorshipFollowupSource } from './support/sponsorship-followup-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import assert from 'node:assert/strict';
@@ -187,9 +188,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
   const adminSponsorDetailIdentity = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
   );
-  const adminService = read(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
-  );
+  const adminService = readFundingAdminSource();
   const api = read('apps/funding-api/src/main.ts');
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'

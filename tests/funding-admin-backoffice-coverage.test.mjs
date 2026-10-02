@@ -1,4 +1,6 @@
 import { translatedUiSource } from './support/translated-ui-source.mjs';
+import { readFundingAdminSource } from './support/funding-admin-source.mjs';
+import { readEmailNotificationSource } from './support/email-notification-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -14,9 +16,7 @@ const assertIncludesAll = (source, values, label) => {
 
 test('admin back-office exposes dashboard, contributions, and CSV export', () => {
   const routes = read('apps/funding-web/src/app/admin.routes.ts');
-  const adminService = read(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
-  );
+  const adminService = readFundingAdminSource();
   const dashboardPage =
     read(
       'apps/funding-web/src/app/features/funding/pages/admin-dashboard-page/admin-dashboard-page.component.ts'
@@ -82,12 +82,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
   const api =
     read('apps/funding-api/src/main.ts') +
+    read('apps/funding-api/src/http-transport.ts') +
     read('apps/funding-api/src/sponsor-media-limits.ts');
   const webhookService = read('apps/funding-api/src/stripe-webhook.service.ts');
   const refundService = read('apps/funding-api/src/stripe-refunds.service.ts');
-  const emailService = read(
-    'apps/funding-api/src/email-notification.service.ts'
-  );
+  const emailService = readEmailNotificationSource();
+  const emailQueue = read('apps/funding-api/src/email-queue.repository.ts');
   const pdfService = read(
     'apps/funding-api/src/sponsorship-document-pdf.service.ts'
   );
@@ -685,11 +685,14 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'refundHandling',
       'listAdminEmailQueue',
       'getAdminEmailQueueMessageById',
-      'retryAdminEmailQueueMessage',
-      "to_regclass('public.email_messages')",
-      'AdminEmailQueueResponse'
+      'retryAdminEmailQueueMessage'
     ],
     'admin rejection email service'
+  );
+  assertIncludesAll(
+    emailQueue,
+    ["to_regclass('public.email_messages')", 'AdminEmailQueueResponse'],
+    'admin email queue repository'
   );
 
   assertIncludesAll(

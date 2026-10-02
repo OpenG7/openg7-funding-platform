@@ -4,6 +4,9 @@ import test from 'node:test';
 import { setTimeout } from 'node:timers/promises';
 
 import {
+  getAdminEmailQueueMessageById,
+  getEmailQueueStatus,
+  listAdminEmailQueue,
   processQueuedEmailMessages,
   retryAdminEmailQueueMessage
 } from '../../dist/apps/funding-api/src/email-notification.service.js';
@@ -138,5 +141,52 @@ test(
         .length,
       1
     );
+
+    // Worker recovery competes for the same stale lease while preserving its
+    // explicit message scope; the unrelated queued message is never claimed.
+    const recoveryRows = (
+      await db.pool.query(`INSERT INTO email_messages
+      (template_key, recipient_email, from_email, subject, text_body, html_body,
+       status, attempts, updated_at, next_attempt_at)
+      VALUES ('sponsorship_followup','recipient@example.test','sender@example.test',
+        'Synthetic stale claim','Private synthetic body','<p>Private synthetic body</p>',
+        'sending',1,NOW()-INTERVAL '16 minutes',NOW()+INTERVAL '1 hour'),
+      ('sponsorship_followup','recipient@example.test','sender@example.test',
+        'Synthetic unrelated queue entry','Private synthetic body','<p>Private synthetic body</p>',
+        'queued',0,NOW(),NOW()) RETURNING id,status`)
+    ).rows;
+    const staleId = recoveryRows.find((row) => row.status === 'sending').id;
+    const unrelatedId = recoveryRows.find((row) => row.status === 'queued').id;
+    const connectionsBeforeRecovery = gate.snapshot().connections;
+    const recoveries = await Promise.all(
+      [1, 2].map(() =>
+        processQueuedEmailMessages(db.pool, {
+          limit: 1,
+          messageIds: [staleId]
+        })
+      )
+    );
+    assert.equal(
+      recoveries.reduce((sum, result) => sum + result.attempted, 0),
+      1
+    );
+    assert.equal(gate.snapshot().connections - connectionsBeforeRecovery, 1);
+    const stale = await getAdminEmailQueueMessageById(db.pool, staleId);
+    assert.equal(stale.status, 'failed');
+    assert.equal(stale.attempts, 2);
+    const unrelated = await getAdminEmailQueueMessageById(db.pool, unrelatedId);
+    assert.equal(unrelated.status, 'queued');
+    assert.equal(unrelated.attempts, 0);
+    const scopedQueue = await listAdminEmailQueue(db.pool, { id: staleId });
+    assert.deepEqual(
+      scopedQueue.messages.map((row) => row.id),
+      [staleId]
+    );
+    assert.equal(scopedQueue.summary.queued_count, 1);
+    assert.equal(scopedQueue.summary.failed_count, 2);
+    const queueStatus = await getEmailQueueStatus(db.pool);
+    assert.equal(queueStatus.queuedCount, 1);
+    assert.equal(queueStatus.failedCount, 2);
+    assert.doesNotMatch(JSON.stringify(scopedQueue), /Private synthetic body/);
   }
 );

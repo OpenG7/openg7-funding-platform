@@ -1,3 +1,5 @@
+import { readEmailNotificationSource } from './support/email-notification-source.mjs';
+import { readFundingAdminSource } from './support/funding-admin-source.mjs';
 import { readFundingHomeSource } from './support/funding-home-source.mjs';
 import { readSponsorshipFollowupSource } from './support/sponsorship-followup-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
@@ -1240,10 +1242,7 @@ test('Sponsorship follow-up email is sent from checkout completion only when rec
     'apps/funding-api/src/stripe-webhook.service.ts',
     'utf8'
   );
-  const email = fs.readFileSync(
-    'apps/funding-api/src/email-notification.service.ts',
-    'utf8'
-  );
+  const email = readEmailNotificationSource();
 
   assert.ok(webhook.includes('queueSponsorshipFollowupEmail'));
   assert.ok(webhook.includes('buildSponsorshipFollowupUrl'));
@@ -1354,10 +1353,7 @@ test('Reference recovery accepts email requests without exposing contribution ex
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
   );
-  const email = fs.readFileSync(
-    'apps/funding-api/src/email-notification.service.ts',
-    'utf8'
-  );
+  const email = readEmailNotificationSource();
   const fundingService = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
     'utf8'
@@ -1767,10 +1763,7 @@ test('Publication slot admin endpoints are authenticated, validated, rate-limite
 
 test('Publication batch types and admin UI expose capacity, next availability, and scheduled status', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const service = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
-    'utf8'
-  );
+  const service = readFundingAdminSource();
   const page = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
     'utf8'
@@ -1820,10 +1813,7 @@ test('Publication batch types and admin UI expose capacity, next availability, a
 
 test('Publication slot types and admin UI expose calendar, edit, capacity, and assignments', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const service = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
-    'utf8'
-  );
+  const service = readFundingAdminSource();
   const page = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
     'utf8'
@@ -1878,10 +1868,7 @@ test('Social publication provider is explicit, configurable, audited, and visibl
     'apps/funding-api/src/social-publication.service.ts',
     'utf8'
   );
-  const webService = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
-    'utf8'
-  );
+  const webService = readFundingAdminSource();
   const page = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
     'utf8'
@@ -2119,10 +2106,7 @@ test('Admin sponsor rows are color-coded by processing state', () => {
 
 test('Admin sponsor rejection requires a reason and can notify the sponsor', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const service = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
-    'utf8'
-  );
+  const service = readFundingAdminSource();
   const page = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
     'utf8'
@@ -2132,10 +2116,7 @@ test('Admin sponsor rejection requires a reason and can notify the sponsor', () 
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
   );
-  const email = fs.readFileSync(
-    'apps/funding-api/src/email-notification.service.ts',
-    'utf8'
-  );
+  const email = readEmailNotificationSource();
 
   assert.ok(core.includes('AdminSponsorshipRejectionRefundHandling'));
   assert.ok(core.includes('readonly notifySponsor?: boolean;'));
@@ -2189,10 +2170,7 @@ test('Admin sponsor rejection requires a reason and can notify the sponsor', () 
 
 test('Admin sponsorship refund uses Stripe with explicit confirmation and audit', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const service = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
-    'utf8'
-  );
+  const service = readFundingAdminSource();
   const page = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
     'utf8'
@@ -2210,10 +2188,7 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'apps/funding-api/migrations/014_add_sponsorship_refund_amount_reason.sql',
     'utf8'
   );
-  const email = fs.readFileSync(
-    'apps/funding-api/src/email-notification.service.ts',
-    'utf8'
-  );
+  const email = readEmailNotificationSource();
   const adminDocs = [
     fs.readFileSync('docs/technical/admin-api.md', 'utf8'),
     fs.readFileSync('docs/technical/configuration.md', 'utf8')
@@ -2380,10 +2355,7 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
 
 test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const service = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
-    'utf8'
-  );
+  const service = readFundingAdminSource();
   const page = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
     'utf8'
@@ -2481,10 +2453,7 @@ test('Publication batches retain chronological backend ordering', () => {
 });
 
 test('An admin is notified by email when a publication batch fills up, but nothing publishes automatically', () => {
-  const email = fs.readFileSync(
-    'apps/funding-api/src/email-notification.service.ts',
-    'utf8'
-  );
+  const email = readEmailNotificationSource();
   const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
   const envExample = fs.readFileSync('.env.example', 'utf8');
 
@@ -2527,10 +2496,7 @@ test('An admin gets a daily email reminder for sponsorship reviews waiting on a 
     'apps/funding-api/src/admin-reminder.service.ts',
     'utf8'
   );
-  const email = fs.readFileSync(
-    'apps/funding-api/src/email-notification.service.ts',
-    'utf8'
-  );
+  const email = readEmailNotificationSource();
   const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const setupPage =
@@ -2605,8 +2571,9 @@ test('An admin gets a daily email reminder for sponsorship reviews waiting on a 
 });
 
 test('Email queue stores templates, retries delivery, and sends sponsorship invoices', () => {
-  const email = fs.readFileSync(
-    'apps/funding-api/src/email-notification.service.ts',
+  const email = readEmailNotificationSource();
+  const emailQueue = fs.readFileSync(
+    'apps/funding-api/src/email-queue.repository.ts',
     'utf8'
   );
   const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
@@ -2668,8 +2635,6 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'queueEmailConfigurationTest',
     'getEmailQueueStatus',
     'processQueuedEmailMessages',
-    'FOR UPDATE SKIP LOCKED',
-    "INTERVAL '15 minutes'",
     'nextRetryDate',
     'EMAIL_RECIPIENT_REJECTED',
     'Facture de commandite OpenG7',
@@ -2681,6 +2646,13 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'recu officiel de don de bienfaisance'
   ]) {
     assert.ok(email.includes(marker), `email service must include ${marker}`);
+  }
+
+  for (const marker of ['FOR UPDATE SKIP LOCKED', "INTERVAL '15 minutes'"]) {
+    assert.ok(
+      emailQueue.includes(marker),
+      `email queue repository must include ${marker}`
+    );
   }
 
   for (const marker of [
@@ -2769,17 +2741,15 @@ test('Admin email queue page lists failed messages and retries them manually', (
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts',
     'utf8'
   );
-  const service = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
-    'utf8'
-  );
+  const service = readFundingAdminSource();
   const page = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/admin-email-queue-page/admin-email-queue-page.component.ts',
     'utf8'
   );
   const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
-  const email = fs.readFileSync(
-    'apps/funding-api/src/email-notification.service.ts',
+  const email = readEmailNotificationSource();
+  const emailQueue = fs.readFileSync(
+    'apps/funding-api/src/email-queue.repository.ts',
     'utf8'
   );
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
@@ -2830,8 +2800,8 @@ test('Admin email queue page lists failed messages and retries them manually', (
   assert.ok(email.includes('listAdminEmailQueue'));
   assert.ok(email.includes('getAdminEmailQueueMessageById'));
   assert.ok(email.includes('retryAdminEmailQueueMessage'));
-  assert.ok(email.includes("to_regclass('public.email_messages')"));
-  assert.ok(email.includes('AdminEmailQueueResponse'));
+  assert.ok(emailQueue.includes("to_regclass('public.email_messages')"));
+  assert.ok(emailQueue.includes('AdminEmailQueueResponse'));
 
   assert.ok(core.includes('AdminEmailQueueMessageRecord'));
   assert.ok(core.includes('AdminEmailQueueResponse'));
@@ -2852,10 +2822,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts',
     'utf8'
   );
-  const service = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
-    'utf8'
-  );
+  const service = readFundingAdminSource();
   const page = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts',
     'utf8'
@@ -2865,10 +2832,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'apps/funding-api/src/sponsorship-invoices.repository.ts',
     'utf8'
   );
-  const email = fs.readFileSync(
-    'apps/funding-api/src/email-notification.service.ts',
-    'utf8'
-  );
+  const email = readEmailNotificationSource();
   const pdfService = fs.readFileSync(
     'apps/funding-api/src/sponsorship-document-pdf.service.ts',
     'utf8'
@@ -2947,7 +2911,11 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(api.includes('getSponsorshipCreditNoteById'));
   assert.ok(api.includes('renderSponsorshipInvoicePdf'));
   assert.ok(api.includes('renderSponsorshipCreditNotePdf'));
-  assert.ok(api.includes("'application/pdf'"));
+  assert.ok(
+    fs
+      .readFileSync('apps/funding-api/src/http-transport.ts', 'utf8')
+      .includes("'application/pdf'")
+  );
   assert.ok(api.includes('queueAdminDocumentResend'));
   assert.ok(api.includes('queueSponsorshipCreditNoteEmail'));
   assert.ok(api.includes('sponsorship_invoice.backfill'));
@@ -3033,10 +3001,7 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
       'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.html',
       'utf8'
     );
-  const service = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
-    'utf8'
-  );
+  const service = readFundingAdminSource();
   const nav = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts',
     'utf8'
@@ -3206,10 +3171,7 @@ test('Admin sponsorship publication endpoint validates feed placement fields', (
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
   );
-  const service = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts',
-    'utf8'
-  );
+  const service = readFundingAdminSource();
 
   assert.ok(api.includes("'/admin/sponsorships/publication'"));
   assert.ok(api.includes("'/api/admin/sponsorships/publication'"));
