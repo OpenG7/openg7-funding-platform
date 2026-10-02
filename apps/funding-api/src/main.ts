@@ -95,6 +95,10 @@ import {
 } from '../../../packages/funding-core/src/index.js';
 
 import {
+  buildSponsorshipFollowupUrl,
+  sponsorshipFollowupLocaleFromUrl
+} from './sponsorship-followup-links.js';
+import {
   BackupError,
   backupStatus,
   isBackupId,
@@ -1233,22 +1237,6 @@ const buildContributionCheckoutSuccessUrl = (
 ): string => {
   const url = new URL(returnUrl, publicBaseOrigin);
   url.searchParams.set('reference', publicReference);
-  return url.toString();
-};
-
-const buildSponsorshipCheckoutSuccessUrl = (
-  returnUrl: string,
-  token: string
-): string => {
-  const url = new URL(returnUrl, publicBaseOrigin);
-  const isEnglishPath =
-    url.pathname === '/en' || url.pathname.startsWith('/en/');
-  url.pathname = `${
-    isEnglishPath ? '/en' : ''
-  }/fonds-des-batisseurs/suivi-commandite`;
-  url.search = '';
-  url.hash = '';
-  url.searchParams.set('token', token);
   return url.toString();
 };
 
@@ -3903,9 +3891,10 @@ const handleRequest = async (
       const checkoutCancelUrl = new URL(cancelUrl);
       checkoutCancelUrl.searchParams.set('reference', publicReference);
       const checkoutSuccessUrl = sponsorshipFollowupToken
-        ? buildSponsorshipCheckoutSuccessUrl(
+        ? buildSponsorshipFollowupUrl(
             successUrl,
-            sponsorshipFollowupToken
+            sponsorshipFollowupToken,
+            sponsorshipFollowupLocaleFromUrl(successUrl)
           )
         : buildContributionCheckoutSuccessUrl(successUrl, publicReference);
       const publicDisplayName =

@@ -22,6 +22,10 @@ import { withStripeEventProcessing } from './stripe-events.repository.js';
 import { stripeEventBelongsToProject } from './stripe-project-scope.js';
 import { syncStripeChargeRefunds } from './stripe-refunds.service.js';
 import { hasContributionActivityForSession } from './contribution-activity.repository.js';
+import {
+  buildSponsorshipFollowupUrl,
+  sponsorshipFollowupLocaleFromUrl
+} from './sponsorship-followup-links.js';
 
 interface ProcessWebhookDependencies {
   readonly stripe: Stripe;
@@ -101,15 +105,6 @@ const resolvePaymentIntentId = (
   }
 
   return typeof value === 'string' ? value : value.id;
-};
-
-const buildSponsorshipFollowupUrl = (
-  publicBaseUrl: string,
-  token: string
-): string => {
-  const url = new URL('/fonds-des-batisseurs/suivi-commandite', publicBaseUrl);
-  url.searchParams.set('token', token);
-  return url.toString();
 };
 
 const extractSponsorshipFollowupTokenFromUrl = (
@@ -234,7 +229,8 @@ const processVerifiedStripeEvent = async (
     ) {
       const followupUrl = buildSponsorshipFollowupUrl(
         publicBaseUrl,
-        followupToken
+        followupToken,
+        sponsorshipFollowupLocaleFromUrl(session.success_url)
       );
       const sendResult = await queueSponsorshipFollowupEmail(pool, {
         idempotencyKey: `stripe-session:${session.id}:sponsorship-followup`,

@@ -494,8 +494,7 @@ const renderSponsorshipFollowupEmail = (
     text,
     html,
     metadata: {
-      publicReference: input.publicReference,
-      followupUrl: input.followupUrl
+      publicReference: input.publicReference
     }
   };
 };
