@@ -91,6 +91,10 @@ the worker. Concurrent requests return zero attempts with the current message;
 the UI identifies an ongoing delivery and offers refresh. Already sent messages
 cannot be retried. Requests retain the existing authorization and audit trail.
 
+After a retry, the page reloads the current message scope and the global server
+counts, ignoring older list responses. If that read fails, the confirmed retry
+result remains visible alongside a separate loading error; refresh can recover it.
+
 The existing recovery of a `sending` claim older than 15 minutes remains in place.
 This is not an exactly-once SMTP guarantee: loss of the final acknowledgement or
 a crash after provider acceptance can still leave an ambiguous result. The

@@ -589,6 +589,7 @@ export class AdminEmailQueuePageComponent implements OnInit {
   }
 
   async loadEmailQueue(): Promise<void> {
+    if (this.destroyRef.destroyed) return;
     const generation = ++this.requestGeneration;
     this.state.set('loading');
 
@@ -651,6 +652,8 @@ export class AdminEmailQueuePageComponent implements OnInit {
         }
       );
 
+      if (this.destroyRef.destroyed) return;
+      this.requestGeneration++;
       if (result.message) {
         this.replaceMessage(result.message);
       }
@@ -673,6 +676,7 @@ export class AdminEmailQueuePageComponent implements OnInit {
                 )
               : this.i18n.t('admin.messages.aucune_tentative_effectuee')
       );
+      await this.loadEmailQueue();
     } catch (error) {
       this.setRetryState(message.id, 'error');
       this.setRetryMessage(message.id, this.messageFromError(error));
@@ -744,7 +748,7 @@ export class AdminEmailQueuePageComponent implements OnInit {
 
   private replaceMessage(message: AdminEmailQueueMessageRecord): void {
     const current = this.queue();
-    if (!current) {
+    if (!current?.messages.some((candidate) => candidate.id === message.id)) {
       return;
     }
 
@@ -752,8 +756,7 @@ export class AdminEmailQueuePageComponent implements OnInit {
       ...current,
       messages: current.messages.map((candidate) =>
         candidate.id === message.id ? message : candidate
-      ),
-      last_updated_at: new Date().toISOString()
+      )
     });
   }
 
