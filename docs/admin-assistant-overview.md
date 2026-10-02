@@ -36,6 +36,21 @@ un compteur nul interprété comme une absence de travail.
   ou sa simulation, et n'envoie pas de question automatiquement. Le second affiche
   les limites financières et la date de son propre relevé.
 
+La détection, la préparation et le contexte utilisent la même
+[couverture des canaux de publication](../apps/funding-api/src/sponsorship-publication-coverage.ts).
+Les canaux promis proviennent de la politique d'avantages partagée. Un brouillon
+du dossier couvre son canal tant qu'il n'est ni refusé ni annulé, y compris après
+publication. Cette couverture sert à repérer les canaux encore à préparer;
+l'autorisation d'envoi et les preuves de publication restent vérifiées dans leurs
+parcours respectifs.
+
+L'[éligibilité des demandes d'informations](../apps/funding-api/src/sponsorship-review-policy.ts)
+est commune au contexte, à l'aperçu privé et à l'action d'envoi confirmé : paiement
+confirmé, aucun remboursement demandé, dossier non refusé et incomplet,
+destinataire utilisable. Les anciennetés de l'Assistant, des rappels de revue et du
+journal d'interventions reposent sur le même [calcul des jours écoulés](../apps/funding-api/src/elapsed-days.ts).
+Les seuils de chaque parcours et les prolongations explicites restent distincts.
+
 La route contextuelle `?sponsorshipId=<uuid>` conserve son fonctionnement décrit
 dans le [guide de l'Assistant contextuel](admin-ux-lot-3.md).
 

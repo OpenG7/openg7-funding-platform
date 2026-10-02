@@ -7,9 +7,9 @@ import type {
 import type { Pool } from 'pg';
 
 import { loadSponsorshipAssistantDataset } from './admin-assistant/context.repository.js';
-import { canRequestSponsorshipInformation } from './admin-assistant/context.service.js';
 import { queueSponsorshipInformationRequest } from './email-notification.service.js';
 import { insertAdminAuditLog } from './fund-admin.repository.js';
+import { canRequestSponsorshipInformation } from './sponsorship-review-policy.js';
 
 export class InformationRequestError extends Error {
   constructor(readonly status: number) {

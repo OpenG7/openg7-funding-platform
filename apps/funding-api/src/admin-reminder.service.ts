@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 
+import { elapsedDaysSince } from './elapsed-days.js';
 import {
   parseBooleanEnv,
   parseNonNegativeIntegerEnv,
@@ -23,7 +24,6 @@ import {
   type EmailServiceDependencies
 } from './services/email/index.js';
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_REVIEW_REMINDER_ENABLED = true;
 const DEFAULT_REVIEW_REMINDER_MIN_AGE_DAYS = 1;
 const DEFAULT_REVIEW_REMINDER_POLL_INTERVAL_MS = 60 * 60 * 1000;
@@ -95,19 +95,6 @@ const emptyResult = (
   error: null
 });
 
-const daysBetween = (later: Date, earlierIso: string | null): number | null => {
-  if (!earlierIso) {
-    return null;
-  }
-
-  const earlier = Date.parse(earlierIso);
-  if (Number.isNaN(earlier)) {
-    return null;
-  }
-
-  return Math.floor((later.getTime() - earlier) / MS_PER_DAY);
-};
-
 const compareReminderItems = (
   first: SponsorshipReviewReminderEmailItem,
   second: SponsorshipReviewReminderEmailItem
@@ -160,7 +147,7 @@ export const buildSponsorshipReviewReminderCandidate = (
   const dueItems = sponsorships
     .filter(isSponsorshipAwaitingReview)
     .map((record): SponsorshipReviewReminderEmailItem => {
-      const daysWaiting = daysBetween(now, record.detailsSubmittedAt);
+      const daysWaiting = elapsedDaysSince(now, record.detailsSubmittedAt);
       return {
         reference: sponsorshipRef(record),
         amount: record.amount,

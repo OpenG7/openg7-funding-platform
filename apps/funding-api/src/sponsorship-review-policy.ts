@@ -36,6 +36,19 @@ export const needsSponsorshipInformation = (
   record.reviewStatus !== 'rejected' &&
   !hasCompleteFiche(record);
 
+export interface SponsorshipInformationRequestSource {
+  readonly record: SponsorshipAttentionRecord;
+  readonly recipient: string | null;
+}
+
+export const canRequestSponsorshipInformation = (
+  source: SponsorshipInformationRequestSource
+): boolean =>
+  needsSponsorshipInformation(source.record) &&
+  Boolean(
+    source.recipient && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(source.recipient)
+  );
+
 export const isSponsorshipAwaitingReview = (
   record: SponsorshipAttentionRecord
 ): boolean =>

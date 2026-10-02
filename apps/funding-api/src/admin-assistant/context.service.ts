@@ -11,35 +11,26 @@ import {
   sponsorshipAdminUrl,
   sponsorshipRef
 } from '../sponsorship-admin-presentation.js';
-import { resolveSponsorshipSocialChannels } from '../sponsorship-benefits.js';
+import { resolveSponsorshipPublicationCoverage } from '../sponsorship-publication-coverage.js';
 import {
-  missingFicheFields,
-  needsSponsorshipInformation
+  canRequestSponsorshipInformation,
+  missingFicheFields
 } from '../sponsorship-review-policy.js';
 
-import { activeDraftChannels } from './attention.service.js';
 import {
   loadSponsorshipAssistantDataset,
   type SponsorshipAssistantDataset
 } from './context.repository.js';
 
-export const canRequestSponsorshipInformation = (
-  source: SponsorshipAssistantDataset
-): boolean =>
-  needsSponsorshipInformation(source.record) &&
-  Boolean(
-    source.recipient && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(source.recipient)
-  );
+export { canRequestSponsorshipInformation } from '../sponsorship-review-policy.js';
 
 export const buildSponsorshipAssistantContext = (
   source: SponsorshipAssistantDataset
 ): AdminAssistantContext => {
   const { record, dataset } = source;
   const missingFields = missingFicheFields(record);
-  const promised = resolveSponsorshipSocialChannels(record.amount);
-  const covered = [
-    ...activeDraftChannels(dataset.drafts, record.contributionId)
-  ];
+  const { promisedChannels, coveredChannels, missingChannels } =
+    resolveSponsorshipPublicationCoverage(record, dataset.drafts);
   const media = {
     total: source.media.length,
     approved: source.media.filter((asset) => asset.reviewStatus === 'approved')
@@ -66,8 +57,7 @@ export const buildSponsorshipAssistantContext = (
   else if (record.reviewStatus === 'pending_review')
     nextStep = 'review_sponsorship';
   else if (!source.consent) nextStep = 'confirm_consent';
-  else if (promised.some((channel) => !covered.includes(channel)))
-    nextStep = 'prepare_publication';
+  else if (missingChannels.length) nextStep = 'prepare_publication';
   else if (
     dataset.drafts.some(
       (draft) =>
@@ -89,8 +79,8 @@ export const buildSponsorshipAssistantContext = (
     publicConsent: source.consent,
     missingFields,
     media,
-    promisedChannels: promised,
-    coveredChannels: covered,
+    promisedChannels,
+    coveredChannels,
     nextStep,
     adminUrl: sponsorshipAdminUrl(record.contributionId),
     canRequestInformation: canRequestSponsorshipInformation(source)
