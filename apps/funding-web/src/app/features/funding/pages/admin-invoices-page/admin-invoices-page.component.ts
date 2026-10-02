@@ -16,6 +16,7 @@ import type {
   AdminSponsorshipCreditNoteRecord,
   AdminSponsorshipInvoiceBackfillResult,
   AdminSponsorshipInvoiceRecord,
+  AdminSponsorshipInvoiceResendResult,
   AdminSponsorshipInvoicesResponse
 } from '@openg7/funding-core';
 
@@ -29,6 +30,14 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 type ResendState = 'idle' | 'confirming' | 'sending' | 'sent' | 'error';
 type DownloadState = 'idle' | 'loading' | 'error';
 type BackfillState = 'idle' | 'sending' | 'done' | 'error';
+
+interface DocumentResendView {
+  state(): ResendState;
+  setState(state: ResendState): void;
+  setMessage(message: string): void;
+  sentMessage: string;
+  queuedMessage: string;
+}
 
 @Component({
   selector: 'openg7-admin-invoices-page',
@@ -1444,128 +1453,119 @@ export class AdminInvoicesPageComponent implements OnInit {
   }
 
   async resendInvoice(): Promise<void> {
-    if (['confirming', 'sending'].includes(this.resendState())) return;
     const invoice = this.selectedInvoice();
     const to = this.resendEmail().trim();
     if (!invoice || !to) {
       return;
     }
 
-    this.resendState.set('confirming');
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.retryEmail'),
-        `${invoice.invoice_number} → ${to}`
-      ))
-    ) {
-      this.resendState.set('idle');
-      return;
-    }
-    this.resendMessage.set('');
-    this.resendState.set('sending');
-
-    try {
-      const pending = await this.resendRequest(invoice.id, to);
-      const result = await this.admin.resendSponsorshipInvoice(
-        this.adminToken(),
-        {
+    await this.resendDocument(
+      { id: invoice.id, number: invoice.invoice_number, to },
+      {
+        state: () => this.resendState(),
+        setState: (state) => this.resendState.set(state),
+        setMessage: (message) => this.resendMessage.set(message),
+        sentMessage: 'admin.messages.facture_envoyee',
+        queuedMessage: 'admin.messages.facture_remise_en_file'
+      },
+      (requestId) =>
+        this.admin.resendSponsorshipInvoice(this.adminToken(), {
           invoiceId: invoice.id,
           to,
           confirmation: invoice.id,
-          requestId: pending.requestId
+          requestId
+        }),
+      (result) => {
+        if (result.invoice) {
+          this.replaceInvoice(result.invoice);
         }
-      );
-
-      this.completeResend(pending.key);
-      if (result.messageId)
-        this.resendMessageIds.update((ids) => ({
-          ...ids,
-          [invoice.id]: result.messageId!
-        }));
-
-      if (result.invoice) {
-        this.replaceInvoice(result.invoice);
       }
-
-      this.resendState.set('sent');
-      this.resendMessage.set(
-        result.sent
-          ? this.i18n.t('admin.messages.facture_envoyee')
-          : result.queued
-            ? this.i18n.t('admin.messages.facture_remise_en_file')
-            : this.i18n.t('admin.messages.demande_traitee')
-      );
-    } catch (error) {
-      this.resendState.set('error');
-      this.resendMessage.set(this.messageFromError(error));
-    }
+    );
   }
 
   async resendCreditNote(
     creditNote: AdminSponsorshipCreditNoteRecord
   ): Promise<void> {
-    if (
-      ['confirming', 'sending'].includes(
-        this.creditNoteResendStateFor(creditNote.id)
-      )
-    )
-      return;
     const to = this.creditNoteResendEmail(creditNote).trim();
     if (!to) {
       return;
     }
 
-    this.setCreditNoteResendState(creditNote.id, 'confirming');
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.retryEmail'),
-        `${creditNote.credit_note_number} → ${to}`
-      ))
-    ) {
-      this.setCreditNoteResendState(creditNote.id, 'idle');
-      return;
-    }
-    this.setCreditNoteResendMessage(creditNote.id, '');
-    this.setCreditNoteResendState(creditNote.id, 'sending');
-
-    try {
-      const pending = await this.resendRequest(creditNote.id, to);
-      const result = await this.admin.resendSponsorshipCreditNote(
-        this.adminToken(),
-        {
+    await this.resendDocument(
+      { id: creditNote.id, number: creditNote.credit_note_number, to },
+      {
+        state: () => this.creditNoteResendStateFor(creditNote.id),
+        setState: (state) =>
+          this.setCreditNoteResendState(creditNote.id, state),
+        setMessage: (message) =>
+          this.setCreditNoteResendMessage(creditNote.id, message),
+        sentMessage: 'admin.messages.avoir_envoye',
+        queuedMessage: 'admin.messages.avoir_remis_en_file'
+      },
+      (requestId) =>
+        this.admin.resendSponsorshipCreditNote(this.adminToken(), {
           creditNoteId: creditNote.id,
           to,
           confirmation: creditNote.id,
-          requestId: pending.requestId
+          requestId
+        }),
+      (result) => {
+        if (result.creditNote) {
+          this.replaceCreditNote(result.creditNote);
         }
-      );
+      }
+    );
+  }
+
+  private async resendDocument<
+    TResult extends Pick<
+      AdminSponsorshipInvoiceResendResult,
+      'sent' | 'queued' | 'messageId'
+    >
+  >(
+    document: { id: string; number: string; to: string },
+    view: DocumentResendView,
+    send: (requestId: string) => Promise<TResult>,
+    applyResult: (result: TResult) => void
+  ): Promise<void> {
+    if (['confirming', 'sending'].includes(view.state())) return;
+    view.setState('confirming');
+    if (
+      !(await this.confirmation.confirm(
+        this.i18n.t('admin.confirmation.retryEmail'),
+        `${document.number} → ${document.to}`
+      ))
+    ) {
+      view.setState('idle');
+      return;
+    }
+    view.setMessage('');
+    view.setState('sending');
+
+    try {
+      const pending = await this.resendRequest(document.id, document.to);
+      const result = await send(pending.requestId);
 
       this.completeResend(pending.key);
-      if (result.messageId)
+      const messageId = result.messageId;
+      if (messageId)
         this.resendMessageIds.update((ids) => ({
           ...ids,
-          [creditNote.id]: result.messageId!
+          [document.id]: messageId
         }));
+      applyResult(result);
 
-      if (result.creditNote) {
-        this.replaceCreditNote(result.creditNote);
-      }
-
-      this.setCreditNoteResendState(creditNote.id, 'sent');
-      this.setCreditNoteResendMessage(
-        creditNote.id,
+      view.setState('sent');
+      view.setMessage(
         result.sent
-          ? this.i18n.t('admin.messages.avoir_envoye')
+          ? this.i18n.t(view.sentMessage)
           : result.queued
-            ? this.i18n.t('admin.messages.avoir_remis_en_file')
+            ? this.i18n.t(view.queuedMessage)
             : this.i18n.t('admin.messages.demande_traitee')
       );
     } catch (error) {
-      this.setCreditNoteResendState(creditNote.id, 'error');
-      this.setCreditNoteResendMessage(
-        creditNote.id,
-        this.messageFromError(error)
-      );
+      view.setState('error');
+      view.setMessage(this.messageFromError(error));
     }
   }
 
