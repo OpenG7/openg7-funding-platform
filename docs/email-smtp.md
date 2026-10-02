@@ -203,6 +203,11 @@ public references, amounts, submission dates and wait age; it does not expose
 sponsor contact emails or private notes. The message is informational and never
 approves, refuses, refunds or publishes anything.
 
+Each reminder uses one environment snapshot for SMTP eligibility, the admin
+recipient, queued sender and reply-to identities, and the immediate delivery
+attempt. An explicitly supplied environment also governs delivery. SMTP secrets
+remain outside the queue; later worker retries use the worker's configuration.
+
 The HTML reminder includes **Reprendre la revue des commandites**, linking to
 the protected sponsorship list on the API's configured public origin
 (`FUNDING_PUBLIC_BASE_URL`, otherwise the first allowed origin or `APP_DOMAIN`).

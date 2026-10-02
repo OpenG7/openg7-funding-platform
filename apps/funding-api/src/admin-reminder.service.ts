@@ -18,7 +18,10 @@ import {
   listSponsorshipsForAttention,
   type SponsorshipAttentionRecord
 } from './fund-contributions.repository.js';
-import { loadTransactionalEmailConfig } from './services/email/index.js';
+import {
+  loadTransactionalEmailConfig,
+  type EmailServiceDependencies
+} from './services/email/index.js';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_REVIEW_REMINDER_ENABLED = true;
@@ -203,9 +206,10 @@ export const queueDueSponsorshipReviewReminder = async (
     readonly config?: AdminSponsorshipReviewReminderConfig;
     readonly adminUrl?: string;
     readonly env?: NodeJS.ProcessEnv;
+    readonly emailDependencies?: Omit<EmailServiceDependencies, 'env'>;
   } = {}
 ): Promise<AdminSponsorshipReviewReminderResult> => {
-  const env = options.env ?? process.env;
+  const env = { ...(options.env ?? process.env) };
   const now = options.now ?? new Date();
   const config =
     options.config ?? loadAdminSponsorshipReviewReminderConfig(env);
@@ -237,11 +241,15 @@ export const queueDueSponsorshipReviewReminder = async (
     return emptyResult('nothing_due', 0, true);
   }
 
-  const notification = await queueSponsorshipReviewReminderNotification(pool, {
-    ...candidate,
-    adminUrl: options.adminUrl ?? DEFAULT_REVIEW_REMINDER_ADMIN_URL,
-    idempotencyKey: createSponsorshipReviewReminderIdempotencyKey(now)
-  });
+  const notification = await queueSponsorshipReviewReminderNotification(
+    pool,
+    {
+      ...candidate,
+      adminUrl: options.adminUrl ?? DEFAULT_REVIEW_REMINDER_ADMIN_URL,
+      idempotencyKey: createSponsorshipReviewReminderIdempotencyKey(now)
+    },
+    { ...options.emailDependencies, env }
+  );
 
   return {
     checked: true,

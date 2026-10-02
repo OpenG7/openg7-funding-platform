@@ -17,7 +17,8 @@ import {
   loadTransactionalEmailConfig,
   sendTransactionalEmail,
   TransactionalEmailError,
-  type EmailDeliveryMode
+  type EmailDeliveryMode,
+  type EmailServiceDependencies
 } from './services/email/index.js';
 
 type EmailTemplateKey =
@@ -212,6 +213,7 @@ interface AdminEmailQueueSummaryRow {
 interface EmailQueueProcessOptions {
   readonly limit?: number;
   readonly messageIds?: readonly string[];
+  readonly emailDependencies?: EmailServiceDependencies;
 }
 
 export interface EmailQueueProcessResult {
@@ -232,9 +234,14 @@ export interface EmailQueueStatus {
   readonly lastError: string | null;
 }
 
-const adminNotificationEmail =
-  process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ?? '';
 const defaultMaxAttempts = 5;
+
+const snapshotEmailDependencies = (
+  dependencies: EmailServiceDependencies = {}
+): EmailServiceDependencies & { readonly env: NodeJS.ProcessEnv } => ({
+  ...dependencies,
+  env: { ...(dependencies.env ?? process.env) }
+});
 
 const escapeHtml = (value: string): string =>
   value
@@ -315,21 +322,27 @@ const rejectionRefundHandlingLabel = (
   return 'Aucun remboursement automatique n est declenche par ce message.';
 };
 
-const sendEmailPayload = async (input: {
-  readonly to: string;
-  readonly replyTo: string | null;
-  readonly subject: string;
-  readonly text: string;
-  readonly html: string;
-}): Promise<EmailSendResult> => {
+const sendEmailPayload = async (
+  input: {
+    readonly to: string;
+    readonly replyTo: string | null;
+    readonly subject: string;
+    readonly text: string;
+    readonly html: string;
+  },
+  dependencies: EmailServiceDependencies = {}
+): Promise<EmailSendResult> => {
   try {
-    const result = await sendTransactionalEmail({
-      to: input.to,
-      replyTo: input.replyTo ?? undefined,
-      subject: input.subject,
-      text: input.text,
-      html: input.html
-    });
+    const result = await sendTransactionalEmail(
+      {
+        to: input.to,
+        replyTo: input.replyTo ?? undefined,
+        subject: input.subject,
+        text: input.text,
+        html: input.html
+      },
+      dependencies
+    );
 
     if (result.deliveryMode === 'disabled') {
       return {
@@ -1241,9 +1254,10 @@ const renderEmailConfigurationTest = (
 
 const enqueueEmailMessage = async (
   pool: Pool | PoolClient | null,
-  input: QueueEmailInput
+  input: QueueEmailInput,
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<QueueInsertResult> => {
-  const emailConfig = loadTransactionalEmailConfig();
+  const emailConfig = loadTransactionalEmailConfig(env);
 
   if (!pool) {
     return {
@@ -1667,28 +1681,33 @@ export const processQueuedEmailMessages = async (
     };
   }
 
+  const dependencies = snapshotEmailDependencies(options.emailDependencies);
   const rows = await claimQueuedEmailMessages(pool, {
     limit: options.limit ?? 10,
     messageIds: options.messageIds
   });
-  return deliverClaimedEmailMessages(pool, rows);
+  return deliverClaimedEmailMessages(pool, rows, dependencies);
 };
 
 const deliverClaimedEmailMessages = async (
   pool: Pool,
-  rows: readonly ClaimedEmailRow[]
+  rows: readonly ClaimedEmailRow[],
+  dependencies: EmailServiceDependencies = {}
 ): Promise<EmailQueueProcessResult> => {
   const sentMessageIds: string[] = [];
   const failedMessageIds: string[] = [];
 
   for (const row of rows) {
-    const result = await sendEmailPayload({
-      to: row.recipient_email,
-      replyTo: null,
-      subject: row.subject,
-      text: row.text_body,
-      html: row.html_body
-    });
+    const result = await sendEmailPayload(
+      {
+        to: row.recipient_email,
+        replyTo: null,
+        subject: row.subject,
+        text: row.text_body,
+        html: row.html_body
+      },
+      dependencies
+    );
 
     if (result.sent) {
       await markEmailSent(pool, row.id);
@@ -1754,12 +1773,16 @@ export const retryAdminEmailQueueMessage = async (
 const queueAndProcessEmail = async (
   pool: Pool | null,
   input: QueueEmailInput,
-  deferDelivery = false
+  deferDelivery = false,
+  emailDependencies: EmailServiceDependencies = {}
 ): Promise<EmailQueueResult> => {
-  const deliveryMode: EmailDeliveryMode = loadTransactionalEmailConfig().enabled
+  const dependencies = snapshotEmailDependencies(emailDependencies);
+  const deliveryMode: EmailDeliveryMode = loadTransactionalEmailConfig(
+    dependencies.env
+  ).enabled
     ? 'smtp'
     : 'disabled';
-  const queued = await enqueueEmailMessage(pool, input);
+  const queued = await enqueueEmailMessage(pool, input, dependencies.env);
   if (!queued.messageId || queued.error) {
     return {
       queued: queued.queued,
@@ -1798,7 +1821,8 @@ const queueAndProcessEmail = async (
 
   const processed = await processQueuedEmailMessages(pool, {
     limit: 1,
-    messageIds: [queued.messageId]
+    messageIds: [queued.messageId],
+    emailDependencies: dependencies
   });
   const sent = processed.sentMessageIds.includes(queued.messageId);
 
@@ -1978,6 +2002,34 @@ export const queueSponsorshipCreditNoteEmail = async (
   });
 };
 
+const queueAdminNotification = async (
+  pool: Pool | null,
+  render: () => RenderedEmail,
+  idempotencyKey: string | undefined,
+  emailDependencies: EmailServiceDependencies
+): Promise<EmailQueueResult> => {
+  const dependencies = snapshotEmailDependencies(emailDependencies);
+  const adminNotificationEmail =
+    dependencies.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ?? '';
+  if (!adminNotificationEmail) {
+    return {
+      queued: false,
+      duplicate: false,
+      messageId: null,
+      attempted: false,
+      sent: false,
+      error: 'Admin notification address is not configured.'
+    };
+  }
+
+  return queueAndProcessEmail(
+    pool,
+    { ...render(), to: adminNotificationEmail, idempotencyKey },
+    false,
+    dependencies
+  );
+};
+
 /**
  * Notifies the configured admin address when a publication batch reaches
  * capacity, so it gets scheduled or published instead of sitting full and
@@ -1986,26 +2038,15 @@ export const queueSponsorshipCreditNoteEmail = async (
  */
 export const queuePublicationBatchFullNotification = async (
   pool: Pool | null,
-  input: PublicationBatchFullEmailInput
-): Promise<EmailQueueResult> => {
-  if (!adminNotificationEmail) {
-    return {
-      queued: false,
-      duplicate: false,
-      messageId: null,
-      attempted: false,
-      sent: false,
-      error: 'Admin notification address is not configured.'
-    };
-  }
-
-  const rendered = renderPublicationBatchFullNotification(input);
-  return queueAndProcessEmail(pool, {
-    ...rendered,
-    to: adminNotificationEmail,
-    idempotencyKey: input.idempotencyKey
-  });
-};
+  input: PublicationBatchFullEmailInput,
+  dependencies: EmailServiceDependencies = {}
+): Promise<EmailQueueResult> =>
+  queueAdminNotification(
+    pool,
+    () => renderPublicationBatchFullNotification(input),
+    input.idempotencyKey,
+    dependencies
+  );
 
 /**
  * Sends a privacy-preserving daily nudge when paid sponsorships with complete
@@ -2013,26 +2054,15 @@ export const queuePublicationBatchFullNotification = async (
  */
 export const queueSponsorshipReviewReminderNotification = async (
   pool: Pool | null,
-  input: SponsorshipReviewReminderEmailInput
-): Promise<EmailQueueResult> => {
-  if (!adminNotificationEmail) {
-    return {
-      queued: false,
-      duplicate: false,
-      messageId: null,
-      attempted: false,
-      sent: false,
-      error: 'Admin notification address is not configured.'
-    };
-  }
-
-  const rendered = renderSponsorshipReviewReminderNotification(input);
-  return queueAndProcessEmail(pool, {
-    ...rendered,
-    to: adminNotificationEmail,
-    idempotencyKey: input.idempotencyKey
-  });
-};
+  input: SponsorshipReviewReminderEmailInput,
+  dependencies: EmailServiceDependencies = {}
+): Promise<EmailQueueResult> =>
+  queueAdminNotification(
+    pool,
+    () => renderSponsorshipReviewReminderNotification(input),
+    input.idempotencyKey,
+    dependencies
+  );
 
 export class EmailConfigurationTestError extends Error {
   constructor(
