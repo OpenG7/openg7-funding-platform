@@ -18,14 +18,15 @@ import type {
   SponsorFeedChannel,
   SponsorFeedStatus,
   SponsorFeedTarget,
-  SponsorshipBenefitId,
   SponsorshipFollowupResponse,
   SponsorshipReviewStatus,
-  SponsorshipTierId,
   ContributionType
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
+import { resolveSponsorshipBenefits } from '../../../packages/funding-core/src/index.js';
+
+import { resolveSponsorshipSocialChannels } from './sponsorship-benefits.js';
 import { SPONSOR_WEBSITE_VISIBLE_SQL } from './sponsorship-website-eligibility.js';
 import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
 import { recordContributionActivity } from './contribution-activity.repository.js';
@@ -39,49 +40,6 @@ const allowedContributionTypes = new Set<ContributionType>([
   'sponsorship_interest'
 ]);
 
-// Mirrors the sponsorship pricing tiers in
-// apps/funding-web/src/app/features/funding/config/openg7-funding.config.ts
-// and packages/funding-core (resolveSponsorshipBenefits). Kept in sync by
-// hand: `@openg7/funding-core` has no local package build, so a real
-// (non-type) cross-package import only resolves inside the Angular bundle.
-const sponsorshipBenefitThresholds: readonly {
-  readonly id: SponsorshipBenefitId;
-  readonly minimumAmount: number;
-}[] = [
-  { id: 'website_mention', minimumAmount: 50 },
-  { id: 'facebook_batch', minimumAmount: 250 },
-  { id: 'linkedin_batch', minimumAmount: 500 }
-];
-
-const sponsorshipTierByAchievedCount: readonly (SponsorshipTierId | null)[] = [
-  null,
-  'website_only',
-  'website_facebook',
-  'website_facebook_linkedin'
-];
-
-const sponsorshipBenefitFeedChannels: Partial<
-  Record<SponsorshipBenefitId, SponsorFeedChannel>
-> = {
-  facebook_batch: 'facebook',
-  linkedin_batch: 'linkedin'
-};
-
-const resolveSponsorshipBenefits = (
-  amount: number
-): {
-  readonly tier: SponsorshipTierId | null;
-  readonly achievedBenefits: readonly SponsorshipBenefitId[];
-} => {
-  const achievedBenefits = sponsorshipBenefitThresholds
-    .filter((benefit) => amount >= benefit.minimumAmount)
-    .map((benefit) => benefit.id);
-
-  return {
-    tier: sponsorshipTierByAchievedCount[achievedBenefits.length] ?? null,
-    achievedBenefits
-  };
-};
 export const allowedSponsorshipReviewStatuses =
   new Set<SponsorshipReviewStatus>(['pending_review', 'approved', 'rejected']);
 export const allowedSponsorshipRefundWorkflowStatuses =
@@ -521,12 +479,7 @@ const mergePromisedSponsorFeedChannels = (
   channels: readonly SponsorFeedChannel[],
   amount: number
 ): readonly SponsorFeedChannel[] => {
-  const { achievedBenefits } = resolveSponsorshipBenefits(amount);
-  const promisedChannels = achievedBenefits
-    .map((benefit) => sponsorshipBenefitFeedChannels[benefit])
-    .filter((channel): channel is SponsorFeedChannel =>
-      allowedSponsorFeedChannels.has(channel as SponsorFeedChannel)
-    );
+  const promisedChannels = resolveSponsorshipSocialChannels(amount);
 
   return [...new Set([...channels, ...promisedChannels])];
 };

@@ -33,6 +33,14 @@ Set these variables for API and webhook processing:
 - `SOCIAL_PUBLICATION_FACEBOOK_GRAPH_BASE_URL`, `SOCIAL_PUBLICATION_FACEBOOK_PAGE_ID`, `SOCIAL_PUBLICATION_FACEBOOK_PAGE_ACCESS_TOKEN`, `SOCIAL_PUBLICATION_LINKEDIN_API_BASE_URL`, `SOCIAL_PUBLICATION_LINKEDIN_ORGANIZATION_ID`, `SOCIAL_PUBLICATION_LINKEDIN_ACCESS_TOKEN`, `SOCIAL_PUBLICATION_LINKEDIN_VERSION` - social provider settings used only by the API; never expose the tokens to browsers.
 - `FUNDING_SPONSORSHIP_INVOICE_PREFIX`, `FUNDING_SPONSORSHIP_CREDIT_NOTE_PREFIX`, `FUNDING_INVOICE_ISSUER_NAME`, `FUNDING_INVOICE_ISSUER_EMAIL`, `FUNDING_INVOICE_ISSUER_ADDRESS`, `FUNDING_INVOICE_TAX_ID`, `FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL`, `FUNDING_SPONSORSHIP_INVOICE_LEGAL_NOTE`, `FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE` - optional sponsorship invoice/credit-note identity and legal text displayed in app-generated invoice and credit-note emails.
 
+Sponsorship tiers and included benefits come from
+[`DEFAULT_SPONSORSHIP_PRICING_CONFIG`](../../packages/funding-core/src/sponsorship-pricing.ts)
+and `resolveSponsorshipBenefits` in `funding-core`. The API uses that policy for
+private follow-up data, email descriptions and the admin attention queue. Its
+[social channel mapping](../../apps/funding-api/src/sponsorship-benefits.ts)
+also supplies publication settings; review, visibility and publication
+authorization remain separate decisions.
+
 For the initial production launch, you can leave `DATABASE_URL` unset. Public transparency reads directly from Stripe so the platform can launch without PostgreSQL.
 
 When `FUNDING_PLATFORM_ENV=production`, checkout mock fallbacks are disabled. Missing Stripe configuration returns an API error instead of simulating a successful checkout.
