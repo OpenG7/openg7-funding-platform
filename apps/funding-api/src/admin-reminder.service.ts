@@ -6,10 +6,10 @@ import {
   parsePositiveIntegerEnv
 } from './environment-values.js';
 import {
-  hasCompleteFiche,
-  isActionableSponsorship,
+  SPONSORSHIP_ADMIN_PATH,
   sponsorshipRef
-} from './admin-assistant/attention.service.js';
+} from './sponsorship-admin-presentation.js';
+import { isSponsorshipAwaitingReview } from './sponsorship-review-policy.js';
 import {
   queueSponsorshipReviewReminderNotification,
   type SponsorshipReviewReminderEmailItem
@@ -28,13 +28,12 @@ const DEFAULT_REVIEW_REMINDER_ENABLED = true;
 const DEFAULT_REVIEW_REMINDER_MIN_AGE_DAYS = 1;
 const DEFAULT_REVIEW_REMINDER_POLL_INTERVAL_MS = 60 * 60 * 1000;
 const DEFAULT_REVIEW_REMINDER_MAX_ITEMS = 5;
-const DEFAULT_REVIEW_REMINDER_ADMIN_URL = '/admin/fundraiser/sponsors';
 
 export const buildSponsorshipReviewReminderAdminUrl = (
   publicBaseUrl: string | null | undefined
 ): string => {
   try {
-    const url = new URL(DEFAULT_REVIEW_REMINDER_ADMIN_URL, publicBaseUrl ?? '');
+    const url = new URL(SPONSORSHIP_ADMIN_PATH, publicBaseUrl ?? '');
     if (
       ['https:', 'http:'].includes(url.protocol) &&
       !url.username &&
@@ -44,7 +43,7 @@ export const buildSponsorshipReviewReminderAdminUrl = (
   } catch {
     // An unconfigured local instance still has a useful navigation path.
   }
-  return DEFAULT_REVIEW_REMINDER_ADMIN_URL;
+  return SPONSORSHIP_ADMIN_PATH;
 };
 
 export interface AdminSponsorshipReviewReminderConfig {
@@ -159,12 +158,7 @@ export const buildSponsorshipReviewReminderCandidate = (
   config: Pick<AdminSponsorshipReviewReminderConfig, 'minAgeDays' | 'maxItems'>
 ): SponsorshipReviewReminderCandidate | null => {
   const dueItems = sponsorships
-    .filter(
-      (record) =>
-        isActionableSponsorship(record) &&
-        hasCompleteFiche(record) &&
-        record.reviewStatus === 'pending_review'
-    )
+    .filter(isSponsorshipAwaitingReview)
     .map((record): SponsorshipReviewReminderEmailItem => {
       const daysWaiting = daysBetween(now, record.detailsSubmittedAt);
       return {
@@ -245,7 +239,7 @@ export const queueDueSponsorshipReviewReminder = async (
     pool,
     {
       ...candidate,
-      adminUrl: options.adminUrl ?? DEFAULT_REVIEW_REMINDER_ADMIN_URL,
+      adminUrl: options.adminUrl ?? SPONSORSHIP_ADMIN_PATH,
       idempotencyKey: createSponsorshipReviewReminderIdempotencyKey(now)
     },
     { ...options.emailDependencies, env }

@@ -70,6 +70,10 @@ test(
         'pending'
       );
       assert.equal(initial.next.reason, 'review_pending');
+      assert.equal(
+        initial.next.adminUrl,
+        `/admin/fundraiser/sponsors?sponsorshipId=${id}&tab=overview`
+      );
       const queue = await getAdminWorkQueue(pool, {
         pageSize: 1,
         type: 'invoice_missing'

@@ -11,9 +11,10 @@ import { resolveSponsorshipBenefits } from '../../../packages/funding-core/src/i
 
 import { effectiveRefundsSql } from './fund-refund-projection.js';
 import {
-  promisedSocialChannels,
+  sponsorshipAdminUrl,
   sponsorshipRef
-} from './admin-assistant/attention.service.js';
+} from './sponsorship-admin-presentation.js';
+import { resolveSponsorshipSocialChannels } from './sponsorship-benefits.js';
 import {
   loadSponsorshipAssistantDataset,
   type SponsorshipAssistantDataset
@@ -127,7 +128,7 @@ export const buildSponsorshipProgress = (
   const invoice = facts.documents.some((d) => d.kind === 'invoice');
   const promises =
     currency === 'CAD'
-      ? promisedSocialChannels(record.amount)
+      ? resolveSponsorshipSocialChannels(record.amount)
       : [
           ...new Set(
             facts.publications.map((publication) => publication.channel)
@@ -351,7 +352,7 @@ export const buildSponsorshipProgress = (
     milestones,
     next: {
       ...next,
-      adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${record.contributionId}&tab=${next.tab}`
+      adminUrl: sponsorshipAdminUrl(record.contributionId, next.tab)
     },
     documents: facts.documents.map(
       ({ id, number, kind, amountMinor, currency, issuedAt }) => ({

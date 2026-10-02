@@ -211,6 +211,10 @@ test(
     let item = (await worker.list()).items[0];
     assert.equal((await worker.list()).items.length, 1);
     assert.equal(item.amountMinor, 5000);
+    assert.equal(
+      item.adminUrl,
+      `/admin/fundraiser/sponsors?sponsorshipId=${item.contributionId}&tab=overview`
+    );
     assert.equal(item.preparation.state, 'waiting_identity');
     assert.equal(item.sms, 'uncertain');
     assert.equal(item.email, 'queued');

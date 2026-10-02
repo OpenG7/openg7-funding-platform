@@ -12,6 +12,7 @@ import {
   loadAttentionDataset,
   type AttentionDataset
 } from './admin-assistant/attention.service.js';
+import { sponsorshipAdminUrl } from './sponsorship-admin-presentation.js';
 
 export const WORK_QUEUE_TYPES: readonly AdminAttentionItemType[] = [
   'sponsorship_needs_info',
@@ -124,7 +125,7 @@ export const buildWorkQueueItems = (
       if (item.type === 'publication_needs_preparation')
         return {
           ...item,
-          adminUrl: `/admin/fundraiser/sponsors?sponsorshipId=${encodeURIComponent(item.sponsorshipId!)}`
+          adminUrl: sponsorshipAdminUrl(item.sponsorshipId!)
         };
       return item;
     });
