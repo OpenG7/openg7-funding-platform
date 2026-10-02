@@ -1,6 +1,7 @@
 import {
   resolveSponsorshipBenefits,
-  type SponsorshipBenefitId
+  type SponsorshipBenefitId,
+  type SponsorFeedChannel
 } from '../../../packages/funding-core/src/index.js';
 
 const benefitLabels: Record<SponsorshipBenefitId, string> = {
@@ -10,6 +11,21 @@ const benefitLabels: Record<SponsorshipBenefitId, string> = {
   linkedin_batch:
     'Inclusion dans une publication collective de reconnaissance sur LinkedIn'
 };
+
+const socialChannelByBenefit: Partial<
+  Record<SponsorshipBenefitId, SponsorFeedChannel>
+> = {
+  facebook_batch: 'facebook',
+  linkedin_batch: 'linkedin'
+};
+
+export const resolveSponsorshipSocialChannels = (
+  amount: number
+): readonly SponsorFeedChannel[] =>
+  resolveSponsorshipBenefits(amount).achievedBenefits.flatMap((benefit) => {
+    const channel = socialChannelByBenefit[benefit];
+    return channel ? [channel] : [];
+  });
 
 export const formatSponsorshipBenefitList = (
   amount: number,

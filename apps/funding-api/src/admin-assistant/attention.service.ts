@@ -33,6 +33,7 @@ import {
   listAdminPublicationSlots
 } from '../fund-admin.repository.js';
 import { listAdminEmailQueue } from '../email-notification.service.js';
+import { resolveSponsorshipSocialChannels } from '../sponsorship-benefits.js';
 
 const ADMIN_URLS = {
   sponsors: '/admin/fundraiser/sponsors',
@@ -50,13 +51,6 @@ const SEVERITY_RANK: Record<AdminAttentionSeverity, number> = {
   this_week: 2,
   informational: 3
 };
-
-// Sponsorship publication-benefit thresholds (CAD). Kept in sync by hand with
-// packages/funding-core (resolveSponsorshipBenefits) and
-// apps/funding-api/src/fund-contributions.repository.ts, which the codebase
-// already synchronises manually because funding-core has no runtime build.
-const FACEBOOK_BATCH_MINIMUM = 250;
-const LINKEDIN_BATCH_MINIMUM = 500;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -111,18 +105,7 @@ const severityForAge = (
   return 'this_week';
 };
 
-export const promisedSocialChannels = (
-  amount: number
-): readonly SponsorFeedChannel[] => {
-  const channels: SponsorFeedChannel[] = [];
-  if (amount >= FACEBOOK_BATCH_MINIMUM) {
-    channels.push('facebook');
-  }
-  if (amount >= LINKEDIN_BATCH_MINIMUM) {
-    channels.push('linkedin');
-  }
-  return channels;
-};
+export const promisedSocialChannels = resolveSponsorshipSocialChannels;
 
 export const sponsorshipRef = (record: SponsorshipAttentionRecord): string =>
   record.publicReference ?? `#${record.contributionId.slice(0, 8)}`;
@@ -265,7 +248,7 @@ export const detectSponsorshipReviewItems = (
 // ---------------------------------------------------------------------------
 // Detector: approved sponsorship whose promised social publications are not
 // yet covered by an active draft. Publication benefits are derived server-side
-// from the amount actually paid (Facebook >= 250, LinkedIn >= 500).
+// from the shared sponsorship policy and the amount actually paid.
 // ---------------------------------------------------------------------------
 export const activeDraftChannels = (
   drafts: readonly AdminPublicationDraftRecord[],

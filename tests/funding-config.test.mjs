@@ -945,7 +945,7 @@ test('Sponsorship follow-up benefits are derived server-side from the paid amoun
       'const sponsorshipBenefits = resolveSponsorshipBenefits(amount);'
     )
   );
-  assert.ok(repository.includes('const resolveSponsorshipBenefits = ('));
+  assert.ok(repository.includes('import { resolveSponsorshipBenefits }'));
   assert.ok(repository.includes('amount: number'));
   assert.ok(repository.includes('sponsorshipTier: sponsorshipBenefits.tier,'));
   assert.ok(
@@ -3200,6 +3200,10 @@ test('Public sponsorships are exposed only after consent and approval', () => {
 
 test('Admin sponsorship publication endpoint validates feed placement fields', () => {
   const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const benefits = fs.readFileSync(
+    'apps/funding-api/src/sponsorship-benefits.ts',
+    'utf8'
+  );
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
@@ -3217,9 +3221,9 @@ test('Admin sponsorship publication endpoint validates feed placement fields', (
   assert.ok(api.includes('isAllowedSponsorFeedStatus'));
   assert.ok(api.includes('publicationUpdate.feedChannels'));
   assert.ok(repository.includes('mergePromisedSponsorFeedChannels'));
-  assert.ok(repository.includes('sponsorshipBenefitFeedChannels'));
-  assert.ok(repository.includes("facebook_batch: 'facebook'"));
-  assert.ok(repository.includes("linkedin_batch: 'linkedin'"));
+  assert.ok(repository.includes('resolveSponsorshipSocialChannels(amount)'));
+  assert.ok(benefits.includes("facebook_batch: 'facebook'"));
+  assert.ok(benefits.includes("linkedin_batch: 'linkedin'"));
   assert.ok(service.includes('/admin/sponsorships/publication'));
 });
 
