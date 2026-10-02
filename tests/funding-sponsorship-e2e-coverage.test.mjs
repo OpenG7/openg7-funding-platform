@@ -615,7 +615,8 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
 
   assertIncludesAll(
     publicListBody +
-      read('apps/funding-api/src/sponsorship-website-eligibility.ts'),
+      read('apps/funding-api/src/sponsorship-website-eligibility.ts') +
+      read('apps/funding-api/src/sponsorship-media-eligibility.ts'),
     [
       'public_display_consent IS TRUE',
       "sponsor_review_status = 'approved'",

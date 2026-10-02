@@ -17,6 +17,7 @@ import { buildSponsorshipFollowupUrl } from './sponsorship-followup-links.js';
 import { insertAdminAuditLog } from './fund-admin.repository.js';
 import { recordSponsorshipDetailsForContribution } from './fund-contributions.repository.js';
 import { withPostgresTransaction } from './postgres-transaction.js';
+import { isEditableSponsorship } from './sponsorship-review-policy.js';
 
 export class SponsorshipAccessError extends Error {
   constructor(
@@ -100,8 +101,10 @@ async function authorizedDossier(
 }
 function ensureEditable(row: Dossier): void {
   if (
-    !['paid', 'refunded', 'disputed'].includes(row.status) ||
-    row.sponsor_review_status === 'rejected'
+    !isEditableSponsorship({
+      paymentStatus: row.status,
+      reviewStatus: row.sponsor_review_status
+    })
   )
     throw new SponsorshipAccessError(409, 'not_editable');
 }

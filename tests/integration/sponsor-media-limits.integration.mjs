@@ -19,12 +19,12 @@ test(
       (contribution_type, amount_cents, currency, status, sponsor_review_status)
       VALUES ('sponsorship_interest', 50000, 'cad', 'paid', 'pending_review') RETURNING id`)
       ).rows[0].id;
-      const upload = (kind = 'supporting_image') =>
+      const upload = (kind = 'supporting_image', uploadedBy = 'sponsor') =>
         createSponsorMediaAsset(pool, {
           id: randomUUID(),
           contributionId,
           kind,
-          uploadedBy: 'sponsor',
+          uploadedBy,
           originalFilename: 'synthetic.png',
           originalMimeType: 'image/png',
           originalSizeBytes: 100,
@@ -46,6 +46,10 @@ test(
         'supporting_image_limit_reached'
       ]);
       assert.equal((await upload()).status, 'supporting_image_limit_reached');
+      assert.equal(
+        (await upload('supporting_image', 'admin')).status,
+        'supporting_image_limit_reached'
+      );
       assert.equal(
         await checkSponsorMediaUpload(
           pool,
@@ -79,6 +83,7 @@ test(
         'logo_locked'
       );
       assert.equal((await upload('logo')).status, 'logo_locked');
+      assert.equal((await upload('logo', 'admin')).status, 'logo_locked');
       // A refusal after a successful preflight must still block the final write.
       await pool.query(
         "UPDATE sponsor_media_assets SET review_status='pending_review', public_storage_key=NULL, public_url=NULL WHERE id=$1",
@@ -132,6 +137,53 @@ test(
           ).rows[0].count
         ),
         4
+      );
+      const administrativeReplacement = await upload('logo', 'admin');
+      assert.equal(administrativeReplacement.status, 'created');
+      assert.equal(administrativeReplacement.asset.uploadedBy, 'admin');
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT sponsor_review_status FROM fund_contributions WHERE id=$1',
+            [contributionId]
+          )
+        ).rows[0].sponsor_review_status,
+        'rejected',
+        'an administrative upload does not reopen a refused dossier'
+      );
+      assert.equal(
+        (await upload('supporting_image', 'admin')).status,
+        'supporting_image_limit_reached',
+        'the administrative exception keeps the media quota'
+      );
+      await pool.query(
+        "UPDATE sponsor_media_assets SET review_status='approved', public_storage_key='synthetic/admin-logo.webp', public_url='https://example.test/admin-logo.webp' WHERE id=$1",
+        [administrativeReplacement.asset.id]
+      );
+      assert.equal(
+        (await upload('logo', 'admin')).status,
+        'logo_locked',
+        'the administrative exception keeps an approved logo locked'
+      );
+      assert.equal(
+        (
+          await deleteSponsorMediaAsset(pool, {
+            assetId: first.asset.id,
+            expectedVersion: first.asset.version,
+            allowApproved: false
+          })
+        ).status,
+        'updated',
+        'administrative deletion without a sponsor dossier scope stays possible after refusal'
+      );
+      await pool.query(
+        "UPDATE fund_contributions SET status='pending' WHERE id=$1",
+        [contributionId]
+      );
+      assert.equal(
+        (await upload('logo', 'admin')).status,
+        'contribution_not_found',
+        'an administrative upload still requires a recorded payment status'
       );
     } finally {
       await stop();

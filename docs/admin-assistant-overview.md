@@ -44,6 +44,13 @@ publication. Cette couverture sert à repérer les canaux encore à préparer;
 l'autorisation d'envoi et les preuves de publication restent vérifiées dans leurs
 parcours respectifs.
 
+Le compteur des commandites approuvées, la détection des publications à préparer
+et la préparation privée utilisent la même
+[règle de revue exploitable](../apps/funding-api/src/sponsorship-review-policy.ts) :
+paiement `paid`, remboursement `not_requested` et revue `approved`. Le compteur
+reste global, même si les éléments affichés sont limités. Consentement, médias et
+autorisation d'envoi restent vérifiés dans les parcours de publication.
+
 La file et le contexte utilisent les mêmes règles pour suivre les brouillons
 inachevés. Les brouillons publiés couvrent leur canal sans rester à suivre.
 

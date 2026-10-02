@@ -7,6 +7,8 @@ import type {
 } from '@openg7/funding-core';
 import type { Pool, PoolClient } from 'pg';
 
+import { isEditableSponsorship } from './sponsorship-review-policy.js';
+
 interface SponsorMediaAssetRow {
   readonly id: string;
   readonly contribution_id: string;
@@ -184,8 +186,10 @@ const editableContribution = (row: {
   status: string;
   sponsor_review_status: string | null;
 }): boolean =>
-  ['paid', 'refunded', 'disputed'].includes(row.status) &&
-  row.sponsor_review_status !== 'rejected';
+  isEditableSponsorship({
+    paymentStatus: row.status,
+    reviewStatus: row.sponsor_review_status
+  });
 
 /** Cheap preflight before decoding/storage; the transaction still enforces the quota. */
 export const checkSponsorMediaUpload = async (

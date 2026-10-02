@@ -27,6 +27,7 @@ import type { Pool, PoolClient } from 'pg';
 import { resolveSponsorshipBenefits } from '../../../packages/funding-core/src/index.js';
 
 import { resolveSponsorshipSocialChannels } from './sponsorship-benefits.js';
+import { SPONSOR_APPROVED_PRESENTATION_SQL } from './sponsorship-media-eligibility.js';
 import { SPONSOR_WEBSITE_VISIBLE_SQL } from './sponsorship-website-eligibility.js';
 import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
 import { recordContributionActivity } from './contribution-activity.repository.js';
@@ -2267,14 +2268,7 @@ export const updateSponsorshipReview = async (
         status,
         COALESCE(sponsor_review_status, 'pending_review') AS review_status,
         updated_at::text AS version,
-        EXISTS (
-          SELECT 1
-          FROM sponsor_media_assets
-          WHERE contribution_id = fund_contributions.id
-            AND kind = 'supporting_image'
-            AND review_status = 'approved'
-            AND deleted_at IS NULL
-        ) AS has_approved_presentation_photo
+        ${SPONSOR_APPROVED_PRESENTATION_SQL} AS has_approved_presentation_photo
       FROM fund_contributions
       WHERE id = $1::uuid
         AND contribution_type = 'sponsorship_interest'
@@ -2342,14 +2336,7 @@ export const updateSponsorshipReview = async (
         AND updated_at::text = $4
         AND (
           $2 <> 'approved'
-          OR EXISTS (
-            SELECT 1
-            FROM sponsor_media_assets
-            WHERE contribution_id = fund_contributions.id
-              AND kind = 'supporting_image'
-              AND review_status = 'approved'
-              AND deleted_at IS NULL
-          )
+          OR ${SPONSOR_APPROVED_PRESENTATION_SQL}
         )
       RETURNING updated_at::text AS version
     `,
