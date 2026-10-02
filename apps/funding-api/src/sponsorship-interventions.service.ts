@@ -12,7 +12,7 @@ import { SPONSORSHIP_FOLLOWUP_DAYS } from '../../../packages/funding-core/src/sp
 import {
   hasCompleteFiche,
   isActionableSponsorship
-} from './admin-assistant/attention.service.js';
+} from './sponsorship-review-policy.js';
 import {
   listSponsorshipsForAttention,
   type SponsorshipAttentionRecord

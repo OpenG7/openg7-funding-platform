@@ -2550,9 +2550,7 @@ test('An admin gets a daily email reminder for sponsorship reviews waiting on a 
     'queueDueSponsorshipReviewReminder',
     'createSponsorshipReviewReminderIdempotencyKey',
     'admin-reminder:sponsorship-review:${sponsorshipReviewReminderDateKey(now)}',
-    "record.reviewStatus === 'pending_review'",
-    'hasCompleteFiche(record)',
-    'isActionableSponsorship(record)',
+    'isSponsorshipAwaitingReview',
     'loadTransactionalEmailConfig(env).enabled'
   ]) {
     assert.ok(

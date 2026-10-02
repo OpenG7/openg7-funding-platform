@@ -10,10 +10,12 @@ import type {
   AdminAttentionItem
 } from '@openg7/funding-core';
 
+import { hasCompleteFiche } from '../sponsorship-review-policy.js';
+import { sponsorshipRef } from '../sponsorship-admin-presentation.js';
+
 import {
   buildAttentionItems,
   buildFinancialSummary,
-  hasCompleteFiche,
   type AttentionDataset
 } from './attention.service.js';
 
@@ -225,8 +227,7 @@ const explainSponsorshipTool: AssistantTool = {
       truncated: false,
       data: {
         found: true,
-        reference:
-          record.publicReference ?? `#${record.contributionId.slice(0, 8)}`,
+        reference: sponsorshipRef(record),
         amount: record.amount,
         currency: record.currency,
         paymentStatus: record.paymentStatus,

@@ -15,18 +15,23 @@ import type {
 import type { Pool } from 'pg';
 
 import type { SponsorshipAttentionRecord } from '../fund-contributions.repository.js';
+import {
+  sponsorshipAdminUrl,
+  sponsorshipRef
+} from '../sponsorship-admin-presentation.js';
+import { resolveSponsorshipSocialChannels } from '../sponsorship-benefits.js';
+import {
+  hasCompleteFiche,
+  isActionableSponsorship,
+  missingFicheFields,
+  needsSponsorshipInformation
+} from '../sponsorship-review-policy.js';
 
 import { loadSponsorshipAssistantDataset } from './context.repository.js';
 import { canRequestSponsorshipInformation } from './context.service.js';
 import {
   activeDraftChannels,
-  hasCompleteFiche,
-  isActionableSponsorship,
   loadAttentionDataset,
-  missingFicheFields,
-  promisedSocialChannels,
-  sponsorshipAdminUrl,
-  sponsorshipRef,
   type AttentionDataset
 } from './attention.service.js';
 
@@ -109,11 +114,7 @@ const prepareReminder = (
   dataset: AttentionDataset,
   record: SponsorshipAttentionRecord
 ): AdminAssistantPrepareResponse => {
-  if (
-    !isActionableSponsorship(record) ||
-    record.reviewStatus === 'rejected' ||
-    hasCompleteFiche(record)
-  ) {
+  if (!needsSponsorshipInformation(record)) {
     return notApplicable(
       'La fiche de cette commandite est déjà complète ou non éligible à une relance.'
     );
@@ -159,7 +160,7 @@ const preparePublication = (
     );
   }
 
-  const promised = promisedSocialChannels(record.amount);
+  const promised = resolveSponsorshipSocialChannels(record.amount);
   const covered = activeDraftChannels(dataset.drafts, record.contributionId);
   const missingChannels = promised.filter((channel) => !covered.has(channel));
   if (missingChannels.length === 0) {

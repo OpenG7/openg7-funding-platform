@@ -192,10 +192,22 @@ The API sends a sponsorship review reminder when all of these are true:
 - SMTP is enabled;
 - PostgreSQL and the `email_messages` queue are available;
 - `FUNDING_ADMIN_REVIEW_REMINDER_ENABLED=true`;
-- at least one paid sponsorship has a complete fiche and still has
+- at least one paid sponsorship, with no refund workflow, has a complete fiche
+  and still has
   `sponsor_review_status=pending_review`;
 - the fiche has waited at least
   `FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS`.
+
+The shared [sponsorship review policy](../apps/funding-api/src/sponsorship-review-policy.ts)
+also determines the assistant's missing-information and pending-review queues.
+A complete fiche requires a submitted form, company name, contact email and
+presentation photo. Recipient validation and the reminder's minimum wait age
+remain specific to their respective flows.
+
+The [shared admin presentation helper](../apps/funding-api/src/sponsorship-admin-presentation.ts)
+provides the dossier path and display references used by reminders and admin
+projections. Without a public reference, the sponsorship label uses `#` followed
+by the first eight characters of its identifier.
 
 The reminder uses an idempotency key based on the UTC date, so a matching
 sponsorship backlog creates at most one admin reminder per day. It only lists

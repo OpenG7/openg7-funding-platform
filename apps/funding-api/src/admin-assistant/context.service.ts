@@ -7,15 +7,17 @@ import type {
 import type { Pool } from 'pg';
 
 import { getAdminWorkQueue } from '../admin-work-queue.service.js';
-
 import {
-  activeDraftChannels,
-  isActionableSponsorship,
-  missingFicheFields,
-  promisedSocialChannels,
   sponsorshipAdminUrl,
   sponsorshipRef
-} from './attention.service.js';
+} from '../sponsorship-admin-presentation.js';
+import { resolveSponsorshipSocialChannels } from '../sponsorship-benefits.js';
+import {
+  missingFicheFields,
+  needsSponsorshipInformation
+} from '../sponsorship-review-policy.js';
+
+import { activeDraftChannels } from './attention.service.js';
 import {
   loadSponsorshipAssistantDataset,
   type SponsorshipAssistantDataset
@@ -24,9 +26,7 @@ import {
 export const canRequestSponsorshipInformation = (
   source: SponsorshipAssistantDataset
 ): boolean =>
-  isActionableSponsorship(source.record) &&
-  source.record.reviewStatus !== 'rejected' &&
-  missingFicheFields(source.record).length > 0 &&
+  needsSponsorshipInformation(source.record) &&
   Boolean(
     source.recipient && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(source.recipient)
   );
@@ -36,7 +36,7 @@ export const buildSponsorshipAssistantContext = (
 ): AdminAssistantContext => {
   const { record, dataset } = source;
   const missingFields = missingFicheFields(record);
-  const promised = promisedSocialChannels(record.amount);
+  const promised = resolveSponsorshipSocialChannels(record.amount);
   const covered = [
     ...activeDraftChannels(dataset.drafts, record.contributionId)
   ];

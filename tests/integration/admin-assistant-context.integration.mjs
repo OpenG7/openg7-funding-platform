@@ -49,6 +49,10 @@ test(
         'exact record beyond 2000 newer records'
       );
       assert.equal(context.context.nextStep, 'complete_information');
+      assert.equal(
+        context.context.adminUrl,
+        `/admin/fundraiser/sponsors?sponsorshipId=${id}`
+      );
       assert.doesNotMatch(
         JSON.stringify(context),
         /demo@example|Private fixture/

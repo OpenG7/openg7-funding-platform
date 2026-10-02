@@ -11,6 +11,7 @@ import type {
 import { prepareContributionWebsite } from '../../../packages/funding-core/src/contribution-activity.js';
 
 import { queueAdminContributionReceived } from './email-notification.service.js';
+import { sponsorshipAdminUrl } from './sponsorship-admin-presentation.js';
 
 export interface ContributionNotificationConfig {
   email: string | null;
@@ -170,7 +171,8 @@ export class ContributionActivityService {
             amountMinor: row.amount_minor,
             currency: row.currency,
             adminUrl:
-              this.config.publicBaseUrl + this.adminUrl(row.contribution_id)
+              this.config.publicBaseUrl +
+              sponsorshipAdminUrl(row.contribution_id, 'overview')
           });
           if (!result.messageId)
             throw new Error('Contribution email could not be queued.');
@@ -225,10 +227,6 @@ export class ContributionActivityService {
         })
       ]
     );
-  }
-
-  private adminUrl(id: string): string {
-    return `/admin/fundraiser/sponsors?sponsorshipId=${id}&tab=overview`;
   }
 
   private async deliverSms(): Promise<void> {
@@ -366,7 +364,7 @@ export class ContributionActivityService {
         email: r.email,
         sms: r.sms,
         simulatedSms: r.sms !== 'disabled',
-        adminUrl: this.adminUrl(r.contribution_id),
+        adminUrl: sponsorshipAdminUrl(r.contribution_id, 'overview'),
         history: r.history
       }))
     };

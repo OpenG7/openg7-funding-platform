@@ -19,6 +19,10 @@ import { loadAdminAssistantConfig } from '../dist/apps/funding-api/src/admin-ass
 import { runAdminAssistantQuery } from '../dist/apps/funding-api/src/admin-assistant/orchestrator.js';
 import { prepareDraftFromDataset } from '../dist/apps/funding-api/src/admin-assistant/preparation.service.js';
 import {
+  buildSponsorshipAssistantContext,
+  canRequestSponsorshipInformation
+} from '../dist/apps/funding-api/src/admin-assistant/context.service.js';
+import {
   buildSponsorshipReviewReminderAdminUrl,
   buildSponsorshipReviewReminderCandidate,
   createSponsorshipReviewReminderIdempotencyKey,
@@ -122,6 +126,197 @@ test('keeps a sponsorship without a presentation photo out of review reminders',
       maxItems: 5
     }),
     null
+  );
+});
+
+test('information and review workflows agree across payment, refund and review states', () => {
+  const cases = [
+    ['pending review, complete', {}, false, true],
+    ['approved, complete', { reviewStatus: 'approved' }, false, false],
+    ['rejected, complete', { reviewStatus: 'rejected' }, false, false],
+    ['pending review, incomplete', { hasSupportingImage: false }, true, false],
+    [
+      'approved, incomplete',
+      { reviewStatus: 'approved', hasSupportingImage: false },
+      true,
+      false
+    ],
+    [
+      'rejected, incomplete',
+      { reviewStatus: 'rejected', hasSupportingImage: false },
+      false,
+      false
+    ]
+  ];
+  for (const paymentStatus of [
+    'pending',
+    'failed',
+    'cancelled',
+    'expired',
+    'refunded',
+    'disputed',
+    'unknown'
+  ]) {
+    for (const hasSupportingImage of [true, false]) {
+      cases.push([
+        `payment ${paymentStatus}, photo ${hasSupportingImage}`,
+        { paymentStatus, hasSupportingImage },
+        false,
+        false
+      ]);
+    }
+  }
+  for (const refundStatus of [
+    'requested',
+    'processing',
+    'completed',
+    'failed',
+    'unknown'
+  ]) {
+    for (const hasSupportingImage of [true, false]) {
+      cases.push([
+        `refund ${refundStatus}, photo ${hasSupportingImage}`,
+        { refundStatus, hasSupportingImage },
+        false,
+        false
+      ]);
+    }
+  }
+
+  for (const [label, overrides, needsInformation, awaitingReview] of cases) {
+    const record = Object.freeze(sponsorship(overrides));
+    const ds = dataset({ sponsorships: [record] });
+    assert.equal(
+      detectSponsorshipInfoItems(ds).length,
+      Number(needsInformation),
+      label
+    );
+    assert.equal(
+      detectSponsorshipReviewItems(ds).length,
+      Number(awaitingReview),
+      label
+    );
+    assert.equal(
+      buildSponsorshipReviewReminderCandidate([record], NOW, {
+        minAgeDays: 1,
+        maxItems: 5
+      })?.totalCount ?? 0,
+      Number(awaitingReview),
+      label
+    );
+    const prepared = prepareDraftFromDataset(ds, {
+      type: 'sponsorship_reminder',
+      reference: record.publicReference
+    });
+    assert.equal(
+      prepared.status,
+      needsInformation ? 'ok' : 'not_applicable',
+      label
+    );
+    if (needsInformation) {
+      assert.equal(prepared.draft.sent, false, label);
+      assert.equal(prepared.draft.published, false, label);
+      assert.equal(prepared.draft.persisted, false, label);
+    } else {
+      assert.equal(prepared.draft, null, label);
+    }
+    assert.equal(
+      canRequestSponsorshipInformation({
+        record,
+        recipient: 'demo@example.invalid'
+      }),
+      needsInformation,
+      label
+    );
+  }
+});
+
+test('required fiche fields keep the same order while website and logo remain optional for review', () => {
+  for (const [overrides, missingFields] of [
+    [{ detailsSubmittedAt: null }, ['formulaire_non_soumis']],
+    [{ hasCompanyName: false }, ['nom_entreprise']],
+    [{ hasContactEmail: false }, ['courriel_contact']],
+    [{ hasSupportingImage: false }, ['photo_presentation']],
+    [
+      {
+        detailsSubmittedAt: null,
+        hasCompanyName: false,
+        hasContactEmail: false,
+        hasSupportingImage: false
+      },
+      [
+        'formulaire_non_soumis',
+        'nom_entreprise',
+        'courriel_contact',
+        'photo_presentation'
+      ]
+    ],
+    [{ hasWebsite: false, hasLogo: false }, []]
+  ]) {
+    const record = sponsorship(overrides);
+    const ds = dataset({ sponsorships: [record] });
+    const source = {
+      record,
+      dataset: ds,
+      media: [],
+      consent: false,
+      recipient: 'demo@example.invalid',
+      version: 'a'.repeat(64)
+    };
+    const context = buildSponsorshipAssistantContext(source);
+    assert.deepEqual(context.missingFields, missingFields);
+    const needsInformation = missingFields.length > 0;
+    const items = detectSponsorshipInfoItems(ds);
+    assert.equal(items.length, Number(needsInformation));
+    if (needsInformation) {
+      assert.equal(items[0].facts.missingFields, missingFields.join(', '));
+    }
+    assert.equal(
+      detectSponsorshipReviewItems(ds).length,
+      Number(!needsInformation)
+    );
+    assert.equal(
+      buildSponsorshipReviewReminderCandidate([record], NOW, {
+        minAgeDays: 1,
+        maxItems: 5
+      })?.totalCount ?? 0,
+      Number(!needsInformation)
+    );
+    assert.equal(
+      prepareDraftFromDataset(ds, {
+        type: 'sponsorship_reminder',
+        reference: record.publicReference
+      }).status,
+      needsInformation ? 'ok' : 'not_applicable'
+    );
+    assert.equal(context.canRequestInformation, needsInformation);
+    assert.doesNotMatch(JSON.stringify(context), /demo@example/);
+  }
+});
+
+test('a missing or malformed recipient blocks information delivery without blocking draft preparation', () => {
+  const record = sponsorship({ hasSupportingImage: false });
+  const ds = dataset({ sponsorships: [record] });
+  for (const recipient of [null, '', 'invalid', 'demo@example']) {
+    assert.equal(
+      canRequestSponsorshipInformation({ record, recipient }),
+      false
+    );
+  }
+  assert.equal(
+    canRequestSponsorshipInformation({
+      record,
+      recipient: 'demo@example.invalid'
+    }),
+    true
+  );
+  assert.equal(detectSponsorshipInfoItems(ds).length, 1);
+  assert.equal(
+    prepareDraftFromDataset(ds, {
+      type: 'sponsorship_reminder',
+      reference: record.publicReference
+    }).status,
+    'ok'
   );
 });
 

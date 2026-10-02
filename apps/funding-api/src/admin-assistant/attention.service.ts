@@ -34,16 +34,34 @@ import {
 } from '../fund-admin.repository.js';
 import { listAdminEmailQueue } from '../email-notification.service.js';
 import { resolveSponsorshipSocialChannels } from '../sponsorship-benefits.js';
+import {
+  SPONSORSHIP_ADMIN_PATH,
+  sponsorshipAdminUrl,
+  sponsorshipRef
+} from '../sponsorship-admin-presentation.js';
+import {
+  isActionableSponsorship,
+  isSponsorshipAwaitingReview,
+  missingFicheFields,
+  needsSponsorshipInformation
+} from '../sponsorship-review-policy.js';
+
+export {
+  hasCompleteFiche,
+  isActionableSponsorship,
+  missingFicheFields
+} from '../sponsorship-review-policy.js';
+
+export {
+  sponsorshipAdminUrl,
+  sponsorshipRef
+} from '../sponsorship-admin-presentation.js';
 
 const ADMIN_URLS = {
-  sponsors: '/admin/fundraiser/sponsors',
   publications: '/admin/fundraiser/publications',
   emailQueue: '/admin/fundraiser/email-queue',
   transparency: '/admin/fundraiser/transparency'
 } as const;
-
-export const sponsorshipAdminUrl = (contributionId: string): string =>
-  `${ADMIN_URLS.sponsors}?sponsorshipId=${encodeURIComponent(contributionId)}`;
 
 const SEVERITY_RANK: Record<AdminAttentionSeverity, number> = {
   urgent: 0,
@@ -107,90 +125,51 @@ const severityForAge = (
 
 export const promisedSocialChannels = resolveSponsorshipSocialChannels;
 
-export const sponsorshipRef = (record: SponsorshipAttentionRecord): string =>
-  record.publicReference ?? `#${record.contributionId.slice(0, 8)}`;
-
-// A sponsorship is "actionable" (not refunded/cancelled/in-refund) when its
-// payment is confirmed and no refund workflow is under way.
-export const isActionableSponsorship = (
-  record: SponsorshipAttentionRecord
-): boolean =>
-  record.paymentStatus === 'paid' && record.refundStatus === 'not_requested';
-
-export const hasCompleteFiche = (record: SponsorshipAttentionRecord): boolean =>
-  record.detailsSubmittedAt !== null &&
-  record.hasCompanyName &&
-  record.hasContactEmail &&
-  record.hasSupportingImage;
-
-export const missingFicheFields = (
-  record: SponsorshipAttentionRecord
-): readonly string[] => {
-  const missing: string[] = [];
-  if (record.detailsSubmittedAt === null) {
-    missing.push('formulaire_non_soumis');
-  }
-  if (!record.hasCompanyName) {
-    missing.push('nom_entreprise');
-  }
-  if (!record.hasContactEmail) {
-    missing.push('courriel_contact');
-  }
-  if (!record.hasSupportingImage) {
-    missing.push('photo_presentation');
-  }
-  return missing;
-};
-
 // ---------------------------------------------------------------------------
 // Detector: sponsorship paid but fiche incomplete.
 // ---------------------------------------------------------------------------
 export const detectSponsorshipInfoItems = (
   dataset: AttentionDataset
 ): AdminAttentionItem[] =>
-  dataset.sponsorships
-    .filter(
-      (record) => isActionableSponsorship(record) && record.reviewStatus !== 'rejected' && !hasCompleteFiche(record)
-    )
-    .map((record) => {
-      const ageDays = daysBetween(dataset.now, record.paidAt);
-      const missing = missingFicheFields(record);
-      return {
-        id: `sponsorship_needs_info:${record.contributionId}`,
-        type: 'sponsorship_needs_info',
-        severity: severityForAge(ageDays, 7, 2),
-        title: `Commandite payée sans fiche complète (${sponsorshipRef(record)})`,
-        explanation:
-          `Une commandite de ${record.amount} ${record.currency} est payée ` +
-          `mais sa fiche commanditaire est incomplète. ` +
-          `Éléments manquants : ${missing.join(', ')}.`,
-        sponsorshipId: record.contributionId,
-        contributionId: record.contributionId,
-        detectedAt: dataset.now.toISOString(),
-        adminUrl: sponsorshipAdminUrl(record.contributionId),
-        facts: {
-          reference: sponsorshipRef(record),
-          amount: record.amount,
-          currency: record.currency,
-          paidAt: record.paidAt,
-          daysSincePaid: ageDays,
-          detailsSubmitted: record.detailsSubmittedAt !== null,
-          missingFields: missing.join(', ')
+  dataset.sponsorships.filter(needsSponsorshipInformation).map((record) => {
+    const ageDays = daysBetween(dataset.now, record.paidAt);
+    const missing = missingFicheFields(record);
+    return {
+      id: `sponsorship_needs_info:${record.contributionId}`,
+      type: 'sponsorship_needs_info',
+      severity: severityForAge(ageDays, 7, 2),
+      title: `Commandite payée sans fiche complète (${sponsorshipRef(record)})`,
+      explanation:
+        `Une commandite de ${record.amount} ${record.currency} est payée ` +
+        `mais sa fiche commanditaire est incomplète. ` +
+        `Éléments manquants : ${missing.join(', ')}.`,
+      sponsorshipId: record.contributionId,
+      contributionId: record.contributionId,
+      detectedAt: dataset.now.toISOString(),
+      adminUrl: sponsorshipAdminUrl(record.contributionId),
+      facts: {
+        reference: sponsorshipRef(record),
+        amount: record.amount,
+        currency: record.currency,
+        paidAt: record.paidAt,
+        daysSincePaid: ageDays,
+        detailsSubmitted: record.detailsSubmittedAt !== null,
+        missingFields: missing.join(', ')
+      },
+      suggestedActions: [
+        {
+          actionType: 'prepare_reminder',
+          label: 'Préparer une relance',
+          executionMode: 'prepare'
         },
-        suggestedActions: [
-          {
-            actionType: 'prepare_reminder',
-            label: 'Préparer une relance',
-            executionMode: 'prepare'
-          },
-          {
-            actionType: 'open_sponsorship',
-            label: 'Ouvrir la commandite',
-            executionMode: 'navigate'
-          }
-        ]
-      } satisfies AdminAttentionItem;
-    });
+        {
+          actionType: 'open_sponsorship',
+          label: 'Ouvrir la commandite',
+          executionMode: 'navigate'
+        }
+      ]
+    } satisfies AdminAttentionItem;
+  });
 
 // ---------------------------------------------------------------------------
 // Detector: sponsorship complete, awaiting an administrative review decision.
@@ -198,52 +177,45 @@ export const detectSponsorshipInfoItems = (
 export const detectSponsorshipReviewItems = (
   dataset: AttentionDataset
 ): AdminAttentionItem[] =>
-  dataset.sponsorships
-    .filter(
-      (record) =>
-        isActionableSponsorship(record) &&
-        hasCompleteFiche(record) &&
-        record.reviewStatus === 'pending_review'
-    )
-    .map((record) => {
-      const ageDays = daysBetween(
-        dataset.now,
-        record.detailsSubmittedAt ?? record.paidAt
-      );
-      return {
-        id: `sponsorship_needs_review:${record.contributionId}`,
-        type: 'sponsorship_needs_review',
-        severity: severityForAge(ageDays, 7, 3),
-        title: `Commandite en attente de revue (${sponsorshipRef(record)})`,
-        explanation:
-          `Une commandite de ${record.amount} ${record.currency} a une fiche ` +
-          `complète mais aucune décision administrative (approbation ou refus) ` +
-          `n'a encore été enregistrée.`,
-        sponsorshipId: record.contributionId,
-        contributionId: record.contributionId,
-        detectedAt: dataset.now.toISOString(),
-        adminUrl: sponsorshipAdminUrl(record.contributionId),
-        facts: {
-          reference: sponsorshipRef(record),
-          amount: record.amount,
-          currency: record.currency,
-          detailsSubmittedAt: record.detailsSubmittedAt,
-          daysWaiting: ageDays
+  dataset.sponsorships.filter(isSponsorshipAwaitingReview).map((record) => {
+    const ageDays = daysBetween(
+      dataset.now,
+      record.detailsSubmittedAt ?? record.paidAt
+    );
+    return {
+      id: `sponsorship_needs_review:${record.contributionId}`,
+      type: 'sponsorship_needs_review',
+      severity: severityForAge(ageDays, 7, 3),
+      title: `Commandite en attente de revue (${sponsorshipRef(record)})`,
+      explanation:
+        `Une commandite de ${record.amount} ${record.currency} a une fiche ` +
+        `complète mais aucune décision administrative (approbation ou refus) ` +
+        `n'a encore été enregistrée.`,
+      sponsorshipId: record.contributionId,
+      contributionId: record.contributionId,
+      detectedAt: dataset.now.toISOString(),
+      adminUrl: sponsorshipAdminUrl(record.contributionId),
+      facts: {
+        reference: sponsorshipRef(record),
+        amount: record.amount,
+        currency: record.currency,
+        detailsSubmittedAt: record.detailsSubmittedAt,
+        daysWaiting: ageDays
+      },
+      suggestedActions: [
+        {
+          actionType: 'prepare_note',
+          label: 'Préparer une note',
+          executionMode: 'prepare'
         },
-        suggestedActions: [
-          {
-            actionType: 'prepare_note',
-            label: 'Préparer une note',
-            executionMode: 'prepare'
-          },
-          {
-            actionType: 'review_sponsorship',
-            label: 'Réviser la commandite',
-            executionMode: 'navigate'
-          }
-        ]
-      } satisfies AdminAttentionItem;
-    });
+        {
+          actionType: 'review_sponsorship',
+          label: 'Réviser la commandite',
+          executionMode: 'navigate'
+        }
+      ]
+    } satisfies AdminAttentionItem;
+  });
 
 // ---------------------------------------------------------------------------
 // Detector: approved sponsorship whose promised social publications are not
@@ -549,7 +521,7 @@ export const detectFinancialWarningItems = (
         `Le nombre de commandites dépasse la limite d'analyse de l'assistant. ` +
         `Certains dossiers peuvent ne pas apparaître dans cette file de travail.`,
       detectedAt: dataset.now.toISOString(),
-      adminUrl: ADMIN_URLS.sponsors,
+      adminUrl: SPONSORSHIP_ADMIN_PATH,
       facts: { truncated: true },
       suggestedActions: []
     });
