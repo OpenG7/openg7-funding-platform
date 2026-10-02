@@ -18,10 +18,8 @@ import { resolveAdminAssistantProvider } from '../dist/apps/funding-api/src/admi
 import { loadAdminAssistantConfig } from '../dist/apps/funding-api/src/admin-assistant/config.js';
 import { runAdminAssistantQuery } from '../dist/apps/funding-api/src/admin-assistant/orchestrator.js';
 import { prepareDraftFromDataset } from '../dist/apps/funding-api/src/admin-assistant/preparation.service.js';
-import {
-  buildSponsorshipAssistantContext,
-  canRequestSponsorshipInformation
-} from '../dist/apps/funding-api/src/admin-assistant/context.service.js';
+import { buildSponsorshipAssistantContext } from '../dist/apps/funding-api/src/admin-assistant/context.service.js';
+import { canRequestSponsorshipInformation } from '../dist/apps/funding-api/src/sponsorship-review-policy.js';
 import {
   buildSponsorshipReviewReminderAdminUrl,
   buildSponsorshipReviewReminderCandidate,
@@ -297,7 +295,16 @@ test('required fiche fields keep the same order while website and logo remain op
 test('a missing or malformed recipient blocks information delivery without blocking draft preparation', () => {
   const record = sponsorship({ hasSupportingImage: false });
   const ds = dataset({ sponsorships: [record] });
-  for (const recipient of [null, '', 'invalid', 'demo@example']) {
+  for (const recipient of [
+    null,
+    '',
+    'invalid',
+    'demo@example',
+    ' demo@example.invalid',
+    'demo@example.invalid ',
+    'demo\n@example.invalid',
+    'demo@example.invalid\r\nBcc: other@example.invalid'
+  ]) {
     assert.equal(
       canRequestSponsorshipInformation({ record, recipient }),
       false

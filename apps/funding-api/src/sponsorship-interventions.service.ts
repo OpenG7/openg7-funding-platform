@@ -7,8 +7,9 @@ import type {
   SponsorshipInterventionsResponse
 } from '@openg7/funding-core';
 
-import { SPONSORSHIP_FOLLOWUP_DAYS } from '../../../packages/funding-core/src/sponsorship-interventions.js';
+import { SPONSORSHIP_FOLLOWUP_DAYS } from '../../../packages/funding-core/src/index.js';
 
+import { elapsedDaysSince } from './elapsed-days.js';
 import {
   hasCompleteFiche,
   isActionableSponsorship
@@ -167,10 +168,8 @@ export const sponsorshipFollowupState = (
   nextReviewOn: string | null,
   now = new Date()
 ): Omit<SponsorshipInterventionsResponse['followup'], 'lastEmail'> => {
-  const paid = record.paidAt ? Date.parse(record.paidAt) : NaN;
-  const ageDays = Number.isFinite(paid)
-    ? Math.max(0, Math.floor((now.getTime() - paid) / 86400000))
-    : null;
+  const elapsedDays = elapsedDaysSince(now, record.paidAt);
+  const ageDays = elapsedDays === null ? null : Math.max(0, elapsedDays);
   let state: SponsorshipInterventionsResponse['followup']['state'];
   if (!isActionableSponsorship(record) || record.reviewStatus === 'rejected')
     state = 'inactive';

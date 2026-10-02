@@ -17,8 +17,7 @@ import type {
   AdminEmailQueueMessageRecord,
   AdminPublicationBatchRecord,
   AdminPublicationDraftRecord,
-  AdminPublicationSlotRecord,
-  SponsorFeedChannel
+  AdminPublicationSlotRecord
 } from '@openg7/funding-core';
 import type { Pool } from 'pg';
 
@@ -33,7 +32,9 @@ import {
   listAdminPublicationSlots
 } from '../fund-admin.repository.js';
 import { listAdminEmailQueue } from '../email-notification.service.js';
+import { elapsedDaysSince } from '../elapsed-days.js';
 import { resolveSponsorshipSocialChannels } from '../sponsorship-benefits.js';
+import { resolveSponsorshipPublicationCoverage } from '../sponsorship-publication-coverage.js';
 import {
   SPONSORSHIP_ADMIN_PATH,
   sponsorshipAdminUrl,
@@ -57,6 +58,8 @@ export {
   sponsorshipRef
 } from '../sponsorship-admin-presentation.js';
 
+export { activeDraftChannels } from '../sponsorship-publication-coverage.js';
+
 const ADMIN_URLS = {
   publications: '/admin/fundraiser/publications',
   emailQueue: '/admin/fundraiser/email-queue',
@@ -69,8 +72,6 @@ const SEVERITY_RANK: Record<AdminAttentionSeverity, number> = {
   this_week: 2,
   informational: 3
 };
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** Default cap on the number of items materialised in a response. Counts are
  * always computed over the full detected set BEFORE this cap is applied. */
@@ -94,17 +95,6 @@ export interface AttentionDataset {
   readonly emailMessages: readonly AdminEmailQueueMessageRecord[];
   readonly financialTotals: FinancialTotalsInput;
 }
-
-const daysBetween = (later: Date, earlierIso: string | null): number | null => {
-  if (!earlierIso) {
-    return null;
-  }
-  const earlier = Date.parse(earlierIso);
-  if (Number.isNaN(earlier)) {
-    return null;
-  }
-  return Math.floor((later.getTime() - earlier) / MS_PER_DAY);
-};
 
 const severityForAge = (
   ageDays: number | null,
@@ -132,7 +122,7 @@ export const detectSponsorshipInfoItems = (
   dataset: AttentionDataset
 ): AdminAttentionItem[] =>
   dataset.sponsorships.filter(needsSponsorshipInformation).map((record) => {
-    const ageDays = daysBetween(dataset.now, record.paidAt);
+    const ageDays = elapsedDaysSince(dataset.now, record.paidAt);
     const missing = missingFicheFields(record);
     return {
       id: `sponsorship_needs_info:${record.contributionId}`,
@@ -178,7 +168,7 @@ export const detectSponsorshipReviewItems = (
   dataset: AttentionDataset
 ): AdminAttentionItem[] =>
   dataset.sponsorships.filter(isSponsorshipAwaitingReview).map((record) => {
-    const ageDays = daysBetween(
+    const ageDays = elapsedDaysSince(
       dataset.now,
       record.detailsSubmittedAt ?? record.paidAt
     );
@@ -222,23 +212,6 @@ export const detectSponsorshipReviewItems = (
 // yet covered by an active draft. Publication benefits are derived server-side
 // from the shared sponsorship policy and the amount actually paid.
 // ---------------------------------------------------------------------------
-export const activeDraftChannels = (
-  drafts: readonly AdminPublicationDraftRecord[],
-  contributionId: string
-): ReadonlySet<SponsorFeedChannel> => {
-  const channels = new Set<SponsorFeedChannel>();
-  for (const draft of drafts) {
-    if (
-      draft.contribution_id === contributionId &&
-      draft.status !== 'rejected' &&
-      draft.status !== 'cancelled'
-    ) {
-      channels.add(draft.channel);
-    }
-  }
-  return channels;
-};
-
 export const detectPublicationPreparationItems = (
   dataset: AttentionDataset
 ): AdminAttentionItem[] =>
@@ -248,17 +221,8 @@ export const detectPublicationPreparationItems = (
         isActionableSponsorship(record) && record.reviewStatus === 'approved'
     )
     .flatMap((record) => {
-      const promised = promisedSocialChannels(record.amount);
-      if (promised.length === 0) {
-        return [];
-      }
-      const covered = activeDraftChannels(
-        dataset.drafts,
-        record.contributionId
-      );
-      const missingChannels = promised.filter(
-        (channel) => !covered.has(channel)
-      );
+      const { promisedChannels: promised, missingChannels } =
+        resolveSponsorshipPublicationCoverage(record, dataset.drafts);
       if (missingChannels.length === 0) {
         return [];
       }
@@ -312,7 +276,7 @@ export const detectLatePublicationItems = (
     if (slot.status !== 'open' && slot.status !== 'scheduled') {
       continue;
     }
-    const daysLate = daysBetween(dataset.now, slot.startsAt);
+    const daysLate = elapsedDaysSince(dataset.now, slot.startsAt);
     if (daysLate === null || daysLate < 0) {
       continue;
     }
@@ -357,7 +321,7 @@ export const detectLatePublicationItems = (
     if (batch.status !== 'scheduled') {
       continue;
     }
-    const daysLate = daysBetween(dataset.now, batch.scheduledAt);
+    const daysLate = elapsedDaysSince(dataset.now, batch.scheduledAt);
     if (daysLate === null || daysLate < 0) {
       continue;
     }

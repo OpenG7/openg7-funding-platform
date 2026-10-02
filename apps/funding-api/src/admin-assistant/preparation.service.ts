@@ -19,8 +19,9 @@ import {
   sponsorshipAdminUrl,
   sponsorshipRef
 } from '../sponsorship-admin-presentation.js';
-import { resolveSponsorshipSocialChannels } from '../sponsorship-benefits.js';
+import { resolveSponsorshipPublicationCoverage } from '../sponsorship-publication-coverage.js';
 import {
+  canRequestSponsorshipInformation,
   hasCompleteFiche,
   isActionableSponsorship,
   missingFicheFields,
@@ -28,9 +29,7 @@ import {
 } from '../sponsorship-review-policy.js';
 
 import { loadSponsorshipAssistantDataset } from './context.repository.js';
-import { canRequestSponsorshipInformation } from './context.service.js';
 import {
-  activeDraftChannels,
   loadAttentionDataset,
   type AttentionDataset
 } from './attention.service.js';
@@ -160,9 +159,10 @@ const preparePublication = (
     );
   }
 
-  const promised = resolveSponsorshipSocialChannels(record.amount);
-  const covered = activeDraftChannels(dataset.drafts, record.contributionId);
-  const missingChannels = promised.filter((channel) => !covered.has(channel));
+  const { missingChannels } = resolveSponsorshipPublicationCoverage(
+    record,
+    dataset.drafts
+  );
   if (missingChannels.length === 0) {
     return notApplicable(
       'Les publications prévues sont déjà couvertes par un brouillon actif.'
