@@ -49,6 +49,30 @@ const invoice: AdminSponsorshipInvoiceRecord = {
     }
   ]
 };
+const secondInvoice: AdminSponsorshipInvoiceRecord = {
+  ...invoice,
+  id: '10000000-0000-4000-8000-000000000713',
+  contribution_id: '10000000-0000-4000-8000-000000000713',
+  public_reference: 'OG7-SYNTHETIC-B',
+  invoice_number: 'INV-SYNTHETIC-B',
+  stripe_session_id: 'cs_test_document_b',
+  sponsor_name: 'Entreprise synthétique B',
+  sponsor_contact_email: 'other@example.test',
+  last_email_recipient: 'other@example.test',
+  credit_notes: []
+};
+
+function seedSession(language: string): void {
+  localStorage.setItem('openg7.language', language);
+  sessionStorage.setItem(
+    'openg7-admin-session-token',
+    'openg7-admin-session.document-fixture'
+  );
+  sessionStorage.setItem(
+    'openg7-admin-session-expires-at',
+    '2099-01-01T00:00:00Z'
+  );
+}
 
 for (const language of ['fr-CA', 'en'])
   for (const width of [390, 1280]) {
@@ -57,17 +81,7 @@ for (const language of ['fr-CA', 'en'])
     }) => {
       const english = language === 'en';
       await page.setViewportSize({ width, height: 950 });
-      await page.addInitScript((locale) => {
-        localStorage.setItem('openg7.language', locale);
-        sessionStorage.setItem(
-          'openg7-admin-session-token',
-          'openg7-admin-session.document-fixture'
-        );
-        sessionStorage.setItem(
-          'openg7-admin-session-expires-at',
-          '2099-01-01T00:00:00Z'
-        );
-      }, language);
+      await page.addInitScript(seedSession, language);
       const calls: Record<string, unknown>[] = [];
       const storedResends = () =>
         page.evaluate(() =>
@@ -287,5 +301,178 @@ for (const language of ['fr-CA', 'en'])
           panel.getByText(queuedMessage, { exact: true })
         ).toHaveCount(0);
       }
+    });
+
+    test(`invoice resend stays with its document across selection in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const english = language === 'en';
+      await page.setViewportSize({ width, height: 950 });
+      await page.addInitScript(seedSession, language);
+      const calls: Record<string, unknown>[] = [];
+      let release: ((failed: boolean) => void) | undefined;
+      let listLoads = 0;
+      const failure = 'Synthetic invoice A resend failure';
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/sponsorship-invoices/resend')) {
+          const payload = route.request().postDataJSON();
+          calls.push(payload);
+          const failed = await new Promise<boolean>((resolve) => {
+            release = resolve;
+          });
+          if (failed)
+            return route.fulfill({ status: 503, json: { error: failure } });
+          return route.fulfill({
+            json: {
+              queued: true,
+              attempted: false,
+              sent: false,
+              messageId: 'message-fixture-a',
+              invoice: {
+                ...invoice,
+                last_email_status: 'queued',
+                last_email_recipient: payload.to,
+                last_email_sent_at: null
+              },
+              error: null
+            }
+          });
+        }
+        if (path.endsWith('/sponsorship-invoices')) {
+          listLoads++;
+          return route.fulfill({
+            json: {
+              data_source: 'database',
+              invoices: [invoice, secondInvoice],
+              last_updated_at: date,
+              summary: {
+                total_count: 2,
+                total_amount: 1000,
+                credit_note_count: 1,
+                total_credited: 500,
+                failed_email_count: 0,
+                currency: 'CAD'
+              }
+            }
+          });
+        }
+        return route.fulfill({ status: 503, json: {} });
+      });
+      await page.goto('/admin/fundraiser/invoices');
+      const select = (number: string) =>
+        page.getByRole('button', { name: new RegExp(`^${number}\\s`) }).click();
+      const recipient = page.getByLabel(
+        english ? 'Recipient' : 'Destinataire',
+        {
+          exact: true
+        }
+      );
+      const send = page.getByRole('button', {
+        name: english ? 'Resend' : 'Renvoyer',
+        exact: true
+      });
+      const sending = page.getByRole('button', {
+        name: english ? 'Sending…' : 'Envoi...',
+        exact: true
+      });
+      const queuedMessage = english
+        ? 'The invoice email is recorded in the queue. Check its delivery status.'
+        : 'Le courriel de la facture est enregistré dans la file. Consultez son état de livraison.';
+      const startResend = async () => {
+        release = undefined;
+        await send.click();
+        await expect(page.getByRole('dialog')).toContainText(
+          'corrected-a@example.test'
+        );
+        await page.locator('[data-og7="confirm-action"]').click();
+        await expect.poll(() => release !== undefined).toBe(true);
+      };
+      await recipient.fill('corrected-a@example.test');
+      await startResend();
+      await select(secondInvoice.invoice_number);
+      await expect(send).toBeEnabled();
+      await recipient.fill('corrected-b@example.test');
+      await select(invoice.invoice_number);
+      await expect(sending).toBeDisabled();
+      await expect(recipient).toHaveValue('corrected-a@example.test');
+      const refresh = page.getByRole('button', {
+        name: english ? 'Refresh' : 'Actualiser',
+        exact: true
+      });
+      await refresh.click();
+      await expect.poll(() => listLoads).toBe(2);
+      await expect(refresh).toBeEnabled();
+      await expect(sending).toBeDisabled();
+      await expect(recipient).toHaveValue('corrected-a@example.test');
+      await sending.dispatchEvent('click');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      expect(calls).toHaveLength(1);
+      await select(secondInvoice.invoice_number);
+      await expect(recipient).toHaveValue('corrected-b@example.test');
+      release!(false);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              Object.keys(sessionStorage).filter((key) =>
+                key.startsWith('openg7-admin-document-resend:')
+              ).length
+          )
+        )
+        .toBe(0);
+      await expect(page.getByText(queuedMessage, { exact: true })).toHaveCount(
+        0
+      );
+      await expect(
+        page.locator('[data-og7="document-email-status"]')
+      ).toHaveCount(0);
+      await select(invoice.invoice_number);
+      await expect(
+        page.getByText(queuedMessage, { exact: true })
+      ).toBeVisible();
+      await expect(
+        page.locator(`[data-og7="document-email-status"][data-og7-id="${id}"]`)
+      ).toHaveAttribute(
+        'href',
+        '/admin/fundraiser/email-queue?messageId=message-fixture-a'
+      );
+      await expect(recipient).toHaveValue('corrected-a@example.test');
+
+      await startResend();
+      await select(secondInvoice.invoice_number);
+      const failedResponse = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname.endsWith(
+            '/sponsorship-invoices/resend'
+          ) && response.status() === 503
+      );
+      release!(true);
+      await (await failedResponse).finished();
+      await expect(send).toBeEnabled();
+      await expect(page.getByText(failure, { exact: true })).toHaveCount(0);
+      await select(invoice.invoice_number);
+      await expect(page.getByText(failure, { exact: true })).toBeVisible();
+      await expect(recipient).toHaveValue('corrected-a@example.test');
+      await select(secondInvoice.invoice_number);
+      await expect(page.getByText(failure, { exact: true })).toHaveCount(0);
+      await expect(recipient).toHaveValue('corrected-b@example.test');
+      await expect(
+        page.locator('[data-og7="document-email-status"]')
+      ).toHaveCount(0);
+      await select(invoice.invoice_number);
+      await startResend();
+      expect(calls).toHaveLength(3);
+      expect(calls[2]).toEqual(calls[1]);
+      expect(calls[2]).toMatchObject({
+        invoiceId: id,
+        confirmation: id,
+        to: 'corrected-a@example.test'
+      });
+      release!(false);
+      await expect(
+        page.getByText(queuedMessage, { exact: true })
+      ).toBeVisible();
+      await expect(page.getByText(failure, { exact: true })).toHaveCount(0);
     });
   }

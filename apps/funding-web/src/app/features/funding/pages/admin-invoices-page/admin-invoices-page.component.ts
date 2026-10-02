@@ -39,6 +39,12 @@ interface DocumentResendView {
   queuedMessage: string;
 }
 
+interface InvoiceResend {
+  state: ResendState;
+  message: string;
+  email: string;
+}
+
 @Component({
   selector: 'openg7-admin-invoices-page',
   standalone: true,
@@ -98,6 +104,7 @@ interface DocumentResendView {
             'admin.legacy.impossible_de_charger_les_factures_verifiez_database_url_et_la_mi'
               | translate
           }}
+          {{ loadErrorMessage() }}
         </p>
         <p
           class="state"
@@ -1214,11 +1221,27 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   readonly adminToken = signal('');
   readonly state = signal<LoadState>('idle');
+  readonly loadErrorMessage = signal('');
   readonly backfillState = signal<BackfillState>('idle');
   readonly backfillMessage = signal('');
-  readonly resendState = signal<ResendState>('idle');
-  readonly resendMessage = signal('');
-  readonly resendEmail = signal('');
+  private readonly invoiceResends = signal<
+    Partial<Record<string, InvoiceResend>>
+  >({});
+  readonly resendState = computed(
+    () =>
+      this.invoiceResends()[this.selectedInvoice()?.id ?? '']?.state ?? 'idle'
+  );
+  readonly resendMessage = computed(
+    () => this.invoiceResends()[this.selectedInvoice()?.id ?? '']?.message ?? ''
+  );
+  readonly resendEmail = computed(() => {
+    const invoice = this.selectedInvoice();
+    return invoice
+      ? (this.invoiceResends()[invoice.id]?.email ??
+          invoice.sponsor_contact_email ??
+          '')
+      : '';
+  });
   readonly resendMessageIds = signal<Record<string, string>>({});
   private readonly pendingResends = new Map<string, string>();
 
@@ -1288,8 +1311,6 @@ export class AdminInvoicesPageComponent implements OnInit {
         this.contributionId = params.get('contributionId') ?? undefined;
         this.data.set(null);
         this.selectedInvoiceId.set('');
-        this.resendEmail.set('');
-        this.resendState.set('idle');
         this.invoicePdfMessage.set('');
         this.backfillMessage.set('');
         void this.loadInvoices();
@@ -1301,7 +1322,7 @@ export class AdminInvoicesPageComponent implements OnInit {
     const token = this.adminToken() || this.admin.getSavedAdminToken();
     this.adminToken.set(token);
     this.state.set('loading');
-    this.resendMessage.set('');
+    this.loadErrorMessage.set('');
 
     try {
       const response = await this.admin.getSponsorshipInvoices(
@@ -1317,7 +1338,6 @@ export class AdminInvoicesPageComponent implements OnInit {
         ? this.selectedInvoice()
         : (response.invoices[0] ?? null);
       this.selectedInvoiceId.set(nextInvoice?.id ?? '');
-      this.resendEmail.set(nextInvoice?.sponsor_contact_email ?? '');
       if (nextInvoice) {
         this.ensureCreditNoteResendDrafts(nextInvoice);
       }
@@ -1325,23 +1345,23 @@ export class AdminInvoicesPageComponent implements OnInit {
     } catch (error) {
       if (generation !== this.loadGeneration) return;
       this.state.set('error');
-      this.resendMessage.set(this.messageFromError(error));
+      this.loadErrorMessage.set(this.messageFromError(error));
     }
   }
 
   selectInvoice(invoice: AdminSponsorshipInvoiceRecord): void {
     this.selectedInvoiceId.set(invoice.id);
-    this.resendEmail.set(invoice.sponsor_contact_email ?? '');
     this.ensureCreditNoteResendDrafts(invoice);
-    this.resendState.set('idle');
-    this.resendMessage.set('');
     this.invoicePdfState.set('idle');
     this.invoicePdfMessage.set('');
   }
 
   setResendEmail(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.resendEmail.set(input.value);
+    const invoice = this.selectedInvoice();
+    if (invoice) {
+      this.updateInvoiceResend(invoice.id, { email: input.value });
+    }
   }
 
   async backfillInvoices(): Promise<void> {
@@ -1462,9 +1482,10 @@ export class AdminInvoicesPageComponent implements OnInit {
     await this.resendDocument(
       { id: invoice.id, number: invoice.invoice_number, to },
       {
-        state: () => this.resendState(),
-        setState: (state) => this.resendState.set(state),
-        setMessage: (message) => this.resendMessage.set(message),
+        state: () => this.invoiceResends()[invoice.id]?.state ?? 'idle',
+        setState: (state) => this.updateInvoiceResend(invoice.id, { state }),
+        setMessage: (message) =>
+          this.updateInvoiceResend(invoice.id, { message }),
         sentMessage: 'admin.messages.facture_envoyee',
         queuedMessage: 'admin.messages.facture_remise_en_file'
       },
@@ -1649,7 +1670,7 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   private replaceInvoice(invoice: AdminSponsorshipInvoiceRecord): void {
     const current = this.data();
-    if (!current) {
+    if (!current?.invoices.some((candidate) => candidate.id === invoice.id)) {
       return;
     }
 
@@ -1703,6 +1724,24 @@ export class AdminInvoicesPageComponent implements OnInit {
           ])
       ),
       ...emails
+    }));
+  }
+
+  private updateInvoiceResend(
+    id: string,
+    update: Partial<InvoiceResend>
+  ): void {
+    this.invoiceResends.update((resends) => ({
+      ...resends,
+      [id]: {
+        state: 'idle',
+        message: '',
+        email:
+          this.invoices().find((invoice) => invoice.id === id)
+            ?.sponsor_contact_email ?? '',
+        ...resends[id],
+        ...update
+      }
     }));
   }
 
