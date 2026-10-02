@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnInit,
   computed,
   inject,
@@ -24,7 +25,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <openg7-admin-layout>
-      <section class="admin-content">
+      <section class="admin-content" data-og7="admin-transparency">
         <header class="admin-topbar">
           <div>
             <span>{{ 'admin.legacy.administration' | translate }}</span>
@@ -49,10 +50,10 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
           </div>
         </section>
 
-        <p class="state" *ngIf="state() === 'loading'">
+        <p class="state" role="status" *ngIf="state() === 'loading'">
           {{ 'admin.legacy.chargement_de_la_transparence' | translate }}
         </p>
-        <p class="state state-error" *ngIf="state() === 'error'">
+        <p class="state state-error" role="alert" *ngIf="state() === 'error'">
           {{
             'admin.legacy.impossible_de_charger_la_transparence_admin'
               | translate
@@ -132,7 +133,11 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
             </article>
           </section>
 
-          <section class="admin-panel" aria-labelledby="snapshot-title">
+          <section
+            class="admin-panel"
+            data-og7="transparency-snapshot"
+            aria-labelledby="snapshot-title"
+          >
             <header>
               <div>
                 <span>{{ data.public_summary.data_source }}</span>
@@ -440,6 +445,8 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 export class AdminTransparencyPageComponent implements OnInit {
   readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
+  private readonly destroy = inject(DestroyRef);
+  private loadGeneration = 0;
 
   readonly adminToken = signal<string>('');
   readonly transparency = signal<AdminTransparencyResponse | null>(null);
@@ -453,19 +460,24 @@ export class AdminTransparencyPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
+    this.destroy.onDestroy(() => this.loadGeneration++);
     void this.loadTransparency();
   }
 
   async loadTransparency(): Promise<void> {
+    if (this.destroy.destroyed) return;
+    const generation = ++this.loadGeneration;
+    const token = this.adminToken();
     this.state.set('loading');
 
     try {
-      this.transparency.set(
-        await this.admin.getTransparency(this.adminToken())
-      );
+      const response = await this.admin.getTransparency(token);
+      if (generation !== this.loadGeneration) return;
+      this.transparency.set(response);
       this.state.set('ready');
-      this.admin.saveAdminToken(this.adminToken());
+      this.admin.saveAdminToken(token);
     } catch {
+      if (generation !== this.loadGeneration) return;
       this.state.set('error');
     }
   }
