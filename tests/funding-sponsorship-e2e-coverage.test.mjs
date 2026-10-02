@@ -71,9 +71,8 @@ test('E2E 1/8: enterprise sponsorship checkout returns with recovery token', () 
     [
       'createSponsorshipFollowupToken',
       'hashSponsorshipFollowupToken',
-      'buildSponsorshipCheckoutSuccessUrl',
-      'fonds-des-batisseurs/suivi-commandite',
-      "url.searchParams.set('token', token)",
+      'buildSponsorshipFollowupUrl',
+      'sponsorshipFollowupLocaleFromUrl(successUrl)',
       'sponsorshipFollowupTokenHash',
       'createContributionPublicReference',
       'client_reference_id: publicReference',

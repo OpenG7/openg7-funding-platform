@@ -289,6 +289,85 @@ test('Stripe event ownership and recovery on disposable PostgreSQL', async (t) =
   );
 
   await t.test(
+    'paid English Checkout queues localized links on the configured origin; unpaid returns do not queue them',
+    async () => {
+      for (const paymentStatus of ['paid', 'unpaid']) {
+        const token = paymentStatus.charAt(0).toUpperCase().repeat(43);
+        const session = {
+          id: `cs_followup_language_${paymentStatus}`,
+          payment_intent: `pi_followup_language_${paymentStatus}`,
+          amount_total: 5000,
+          currency: 'cad',
+          created: 1_789_200_000,
+          payment_status: paymentStatus,
+          customer_details: { email: 'synthetic-sponsor@example.test' },
+          success_url: `https://return.example.test/en/return?token=${token}&other=value#step`,
+          metadata: {
+            projectId: 'openg7',
+            contributionType: 'sponsorship_interest',
+            publicReference: `OG7-2026-LANG${paymentStatus.charAt(0).toUpperCase()}`,
+            publicDisplayConsent: 'false',
+            nonCharityAcknowledged: 'true',
+            sponsorshipFollowupTokenHash: createHash('sha256')
+              .update(token)
+              .digest('hex')
+          }
+        };
+        const response = await deliver(
+          pool,
+          event(
+            `evt_followup_language_${paymentStatus}`,
+            'checkout.session.completed',
+            session
+          )
+        );
+        assert.equal(response.statusCode, 200);
+        const emails = (
+          await pool.query(
+            'SELECT template_key, status, attempts, text_body, html_body, metadata FROM email_messages WHERE idempotency_key LIKE $1 ORDER BY template_key',
+            [`stripe-session:${session.id}:%`]
+          )
+        ).rows;
+        if (paymentStatus === 'unpaid') {
+          assert.equal(emails.length, 0);
+          assert.equal(
+            (
+              await pool.query(
+                'SELECT count(*)::int AS count FROM sponsorship_invoices WHERE stripe_session_id=$1',
+                [session.id]
+              )
+            ).rows[0].count,
+            0
+          );
+          continue;
+        }
+        assert.deepEqual(
+          emails.map((row) => row.template_key),
+          ['sponsorship_followup', 'sponsorship_invoice']
+        );
+        for (const row of emails) {
+          const link = row.text_body
+            .split('\n')
+            .find((line) => line.startsWith('https://'));
+          const url = new URL(link);
+          assert.equal(url.origin, 'https://example.test');
+          assert.equal(
+            url.pathname,
+            '/en/fonds-des-batisseurs/suivi-commandite'
+          );
+          assert.deepEqual([...url.searchParams], [['token', token]]);
+          assert.equal(url.hash, '');
+          assert.ok(row.html_body.includes(link));
+          assert.equal(JSON.stringify(row.metadata).includes(token), false);
+          assert.equal(Object.hasOwn(row.metadata, 'followupUrl'), false);
+          assert.equal(row.status, 'queued');
+          assert.equal(row.attempts, 0);
+        }
+      }
+    }
+  );
+
+  await t.test(
     'checkout crash recovery retains one invoice and deferred email per purpose',
     async () => {
       const token = 'A'.repeat(43);
@@ -359,6 +438,19 @@ test('Stripe event ownership and recovery on disposable PostgreSQL', async (t) =
         { template_key: 'sponsorship_followup', status: 'queued', attempts: 0 },
         { template_key: 'sponsorship_invoice', status: 'queued', attempts: 0 }
       ]);
+      const bodies = (
+        await pool.query(
+          'SELECT text_body FROM email_messages WHERE idempotency_key LIKE $1',
+          [`stripe-session:${session.id}:%`]
+        )
+      ).rows;
+      for (const row of bodies) {
+        assert.ok(
+          row.text_body.includes(
+            `https://example.test/fonds-des-batisseurs/suivi-commandite?token=${token}`
+          )
+        );
+      }
     }
   );
 });

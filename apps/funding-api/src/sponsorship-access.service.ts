@@ -13,6 +13,7 @@ import {
 } from '../../../packages/funding-core/src/index.js';
 
 import { enqueueSponsorshipAccessEmail } from './email-notification.service.js';
+import { buildSponsorshipFollowupUrl } from './sponsorship-followup-links.js';
 import { insertAdminAuditLog } from './fund-admin.repository.js';
 import { recordSponsorshipDetailsForContribution } from './fund-contributions.repository.js';
 
@@ -309,14 +310,14 @@ export async function issueSponsorshipAccess(
               : 'already_queued'
       };
     const token = randomBytes(32).toString('base64url');
-    const url = new URL(
-      `${options.locale === 'en' ? '/en' : ''}/fonds-des-batisseurs/suivi-commandite`,
-      options.baseUrl
+    const url = buildSponsorshipFollowupUrl(
+      options.baseUrl,
+      token,
+      options.locale
     );
-    url.searchParams.set('token', token);
     const messageId = await enqueueSponsorshipAccessEmail(client, {
       to: recipient,
-      url: url.toString(),
+      url,
       reference: row.public_reference,
       locale: options.locale,
       idempotencyKey: key

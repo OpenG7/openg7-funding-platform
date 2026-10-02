@@ -39,6 +39,13 @@ et la [recette de révision](sponsorship-e2e-coverage.md#recette-navigateur--ré
 
 Les liens de reprise contiennent un jeton aléatoire de 256 bits. La table d'accès conserve son SHA-256 ; le jeton complet figure uniquement dans le corps du courriel nécessaire à sa livraison. Il n'est pas ajouté aux métadonnées ni aux audits. Le navigateur retire le jeton de l'URL après lecture et le conserve en mémoire/session comme auparavant.
 
+Checkout, webhook et récupération d'accès utilisent la même construction du lien
+de suivi FR/EN, avec le jeton comme seul paramètre. Le webhook conserve la langue
+du chemin de retour Stripe signé, avec repli français pour les anciens retours
+sans langue identifiable. Le lien du courriel utilise l'origine publique
+configurée, indépendamment de l'origine de ce retour. Les liens déjà en file
+conservent leur contenu ; ce changement ne nettoie pas leurs métadonnées.
+
 L'expiration reprend `FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS` (30 jours par défaut). Un nouveau lien n'invalide pas les liens encore valides : une demande publique ne peut donc pas fermer la session d'un commanditaire. Un lien expiré ne donne accès ni au dossier ni au brouillon. Le brouillon appartient au dossier, pas au navigateur ni au lien.
 
 La récupération cible les contributions de type commandite avec paiement `paid`, `refunded` ou `disputed`, à l'adresse `email_private`. Un dossier refusé reste consultable sans autoriser son édition. La demande publique est bornée aux 20 dossiers les plus récents de l'adresse, avec regroupement pendant dix minutes par dossier. Les demandes admin sont regroupées pendant une minute ; le même `requestId` reste idempotent. Les limiteurs IP existants s'appliquent également.
