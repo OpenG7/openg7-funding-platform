@@ -1,0 +1,24 @@
+.disclosure {
+  border-bottom: 1px solid var(--admin-border);
+  padding: 0.35rem 0;
+}
+summary {
+  cursor: pointer;
+  font-weight: var(--admin-control-weight);
+  padding: 0.3rem 0;
+}
+.disclosure[open] > :not(summary) {
+  margin-top: 1rem;
+}
+.financial-facts {
+  display: grid;
+  gap: 0.75rem;
+}
+.financial-facts > div {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+.financial-facts dd {
+  margin: 0;
+}

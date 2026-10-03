@@ -1,0 +1,142 @@
+@let response = data();
+<openg7-admin-assistant-filters
+  surface="categories"
+  [data]="response"
+  [query]="query()"
+  (typeChanged)="typeChanged.emit($event)"
+/>
+
+@if (
+  !query().type &&
+  !query().priority &&
+  !query().emailTemplate &&
+  !query().emailError &&
+  response.overview?.recommendations?.length
+) {
+  <section aria-labelledby="assistant-next-title" class="next-panel">
+    <div class="section-heading">
+      <h2 id="assistant-next-title">
+        {{ 'admin.assistantOverview.next' | translate }}
+      </h2>
+      <span class="muted">{{
+        'admin.assistantOverview.order' | translate
+      }}</span>
+    </div>
+    <ol class="recommendations" data-og7="assistant-recommendations">
+      @for (item of response.overview?.recommendations; track item.id) {
+        <li>
+          <div>
+            <strong>{{ labels.typeLabel(item.type) }}</strong>
+            <p class="muted">
+              {{ labels.title(item) }} · {{ labels.reason(item) }}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="admin-button"
+            (click)="itemOpened.emit(item)"
+            [disabled]="state() !== 'ready'"
+            [attr.aria-label]="
+              ('admin.assistantOverview.examine' | translate) +
+              ' · ' +
+              labels.title(item)
+            "
+          >
+            {{ 'admin.assistantOverview.examine' | translate }}
+          </button>
+        </li>
+      }
+    </ol>
+  </section>
+}
+
+<section
+  class="queue-panel"
+  aria-labelledby="assistant-queue-title"
+  [attr.aria-busy]="state() === 'loading'"
+>
+  <div class="section-heading">
+    <h2 id="assistant-queue-title">
+      {{ 'admin.assistantOverview.browse' | translate }}
+    </h2>
+    <a class="admin-link" routerLink="/admin/fundraiser/attention">{{
+      'admin.assistantOverview.fullQueue' | translate
+    }}</a>
+  </div>
+  <openg7-admin-assistant-filters
+    [data]="response"
+    [query]="query()"
+    (typeChanged)="typeChanged.emit($event)"
+    (priorityChanged)="priorityChanged.emit($event)"
+    (emailGroupChanged)="emailGroupChanged.emit($event)"
+  />
+  <p class="result-count" role="status" data-og7="assistant-count">
+    {{
+      'admin.attention.results'
+        | translate: { count: response.filteredTotal, total: response.total }
+    }}
+  </p>
+  @if (!response.items.length) {
+    <p class="empty">
+      {{
+        (response.total
+          ? 'admin.assistantOverview.emptyFilter'
+          : 'admin.attention.empty'
+        ) | translate
+      }}
+    </p>
+  }
+  <ul class="item-list" data-og7="assistant-items">
+    @for (item of response.items; track item.id) {
+      <li [attr.data-og7-id]="item.id">
+        <div class="item-content">
+          <div class="item-title">
+            <strong>{{ labels.title(item) }}</strong>
+            @if (labels.amount(item)) {
+              <span class="amount">{{ labels.amount(item) }}</span>
+            }
+          </div>
+          <p>
+            {{ labels.typeLabel(item.type) }}
+            @if (labels.missingFields(item).length) {
+              ·
+              {{
+                'admin.assistantOverview.missingCount'
+                  | translate: { count: labels.missingFields(item).length }
+              }}
+            }
+          </p>
+          <small class="muted"
+            >{{ labels.reason(item) }}
+            @if (item.emailQueueId) {
+              · {{ item.emailQueueId.slice(-8) }}
+            }
+          </small>
+        </div>
+        <span class="priority" [class.urgent]="item.severity === 'urgent'">{{
+          'admin.attention.priority.' + item.severity | translate
+        }}</span>
+        <button
+          type="button"
+          class="admin-button"
+          (click)="itemOpened.emit(item)"
+          [disabled]="state() !== 'ready'"
+          [attr.aria-label]="
+            ('admin.assistantOverview.examine' | translate) +
+            ' · ' +
+            labels.title(item)
+          "
+        >
+          {{ 'admin.assistantOverview.examine' | translate }}
+        </button>
+      </li>
+    }
+  </ul>
+  <openg7-admin-assistant-pagination
+    [page]="response.page"
+    [pages]="pages()"
+    [ready]="state() === 'ready'"
+    [generatedAtLabel]="labels.dateLabel(response.generatedAt)"
+    (pageChanged)="pageChanged.emit($event)"
+  />
+</section>

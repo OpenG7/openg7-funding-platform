@@ -1,0 +1,41 @@
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  min-width: 58rem;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--admin-border);
+  padding: 0.7rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: var(--admin-label-weight);
+  text-transform: uppercase;
+}
+
+.empty-state {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  padding: 1rem;
+}
+
+.empty-state h3 {
+  margin: 0;
+}
+
+.empty-state p {
+  color: var(--admin-muted);
+  line-height: 1.55;
+  margin: 0.35rem 0 0;
+}

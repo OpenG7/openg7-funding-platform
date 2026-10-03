@@ -1,0 +1,21 @@
+form,
+label {
+  display: grid;
+  gap: 0.5rem;
+}
+form {
+  max-width: 35rem;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+}
+button[type='submit'] {
+  background: var(--og7-admin-primary, #facc15);
+  color: var(--og7-admin-on-primary, #0f172a);
+}
+input[type='checkbox'] {
+  width: 1.3rem;
+  height: 1.3rem;
+}

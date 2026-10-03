@@ -1,0 +1,52 @@
+<section
+  class="admin-panel"
+  data-og7="transparency-snapshot"
+  aria-labelledby="snapshot-title"
+>
+  <header>
+    <div>
+      <span>{{ publicSummary().data_source }}</span>
+      <h2 id="snapshot-title">
+        {{ 'admin.legacy.snapshot_public_courant' | translate }}
+      </h2>
+    </div>
+    <small>{{
+      'admin.legacy.mis_a_jour_p0'
+        | translate: { p0: dateLabel()(lastUpdatedAt()) }
+    }}</small>
+  </header>
+
+  <dl>
+    <div>
+      <dt>{{ 'admin.legacy.contributions' | translate }}</dt>
+      <dd>{{ publicSummary().contributions_count }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.legacy.frais' | translate }}</dt>
+      <dd>
+        {{
+          formatMoney()(publicSummary().total_fees, publicSummary().currency)
+        }}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.legacy.remboursements' | translate }}</dt>
+      <dd>
+        {{
+          formatMoney()(
+            publicSummary().total_refunded,
+            publicSummary().currency
+          )
+        }}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.legacy.payouts' | translate }}</dt>
+      <dd>
+        {{
+          formatMoney()(publicSummary().total_payouts, publicSummary().currency)
+        }}
+      </dd>
+    </div>
+  </dl>
+</section>

@@ -151,7 +151,9 @@ async function fixtures(page: Page) {
     empty: false,
     mode: 'disabled',
     delay: 0,
-    resolved: false
+    resolved: false,
+    prepareStatus: 200,
+    privateResponseGate: null as Promise<void> | null
   };
   await page.route('**/api/**', async (route) => {
     const request = route.request(),
@@ -190,6 +192,7 @@ async function fixtures(page: Page) {
       });
     if (url.pathname === '/api/admin/assistant/prepare')
       return route.fulfill({
+        status: options.prepareStatus,
         json: {
           status: 'ok',
           message: null,
@@ -242,7 +245,8 @@ async function fixtures(page: Page) {
           ]
         }
       });
-    if (url.pathname === '/api/admin/assistant/summary')
+    if (url.pathname === '/api/admin/assistant/summary') {
+      await options.privateResponseGate;
       return route.fulfill({
         json: {
           generatedAt: at,
@@ -255,6 +259,29 @@ async function fixtures(page: Page) {
           }
         }
       });
+    }
+    if (url.pathname === '/api/admin/assistant/query') {
+      await options.privateResponseGate;
+      return route.fulfill({
+        json: {
+          generatedAt: at,
+          mode: 'mock',
+          enabled: true,
+          status: 'ok',
+          answer: [
+            {
+              kind: 'facts',
+              title: 'Réponse synthétique',
+              lines: ['Réponse privée de démonstration.']
+            }
+          ],
+          links: [],
+          toolInvocations: [],
+          limitations: ['Données simulées.'],
+          provider: { name: 'fixture', model: null }
+        }
+      });
+    }
     return route.fulfill({
       status: 503,
       json: { error: 'Unavailable fixture' }
@@ -422,8 +449,14 @@ test('access denial and an expired session do not expose the previous queue', as
   page
 }) => {
   const { options } = await fixtures(page);
-  options.status = 403;
   await page.goto(base);
+  await expect(page.locator('[data-og7="assistant-items"] > li')).toHaveCount(
+    15
+  );
+  options.status = 403;
+  await page
+    .getByRole('button', { name: 'Actualiser le contexte', exact: true })
+    .click();
   await expect(page.locator('[data-og7="assistant-state"]')).not.toBeEmpty();
   await expect(page.locator('[data-og7="assistant-items"]')).toHaveCount(0);
   options.status = 401;
@@ -501,4 +534,93 @@ test('French and English remain accessible at desktop and mobile widths', async 
     path: test.info().outputPath('assistant-mobile.png')
   });
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
+for (const status of [401, 403]) {
+  test(`a ${status} preparation denial removes previously loaded private surfaces`, async ({
+    page
+  }) => {
+    const { options, calls } = await fixtures(page);
+    options.mode = 'mock';
+    await page.goto(base + '?type=sponsorship_needs_info');
+    const question = page.locator('[data-og7="assistant-question"]');
+    await question.locator('summary').click();
+    await question.getByRole('textbox').fill('Question synthétique privée');
+    expect(calls.filter((call) => call.path.endsWith('/query'))).toEqual([]);
+    await question
+      .getByRole('button', { name: 'Demander', exact: true })
+      .click();
+    await expect(
+      question.locator('[data-og7="assistant-answer"]')
+    ).toContainText('Réponse privée de démonstration.');
+    await page.locator('[data-og7="assistant-summary"] summary').click();
+    await expect(page.getByText('Données synthétiques.')).toBeVisible();
+    await page.locator('[data-og7="assistant-items"] button').click();
+    const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
+    const prepare = dialog.getByRole('button', {
+      name: 'Préparer une relance'
+    });
+    await prepare.click();
+    await expect(dialog.getByText('Message de démonstration.')).toBeVisible();
+    options.prepareStatus = status;
+    await prepare.click();
+    if (status === 401) await expect(page).toHaveURL(/admin\/login/);
+    else {
+      await expect(dialog).toContainText('Votre session ne permet pas');
+      await expect(page.locator('[data-og7="assistant-items"]')).toHaveCount(0);
+    }
+    await expect(page.locator('[data-og7="assistant-answer"]')).toHaveCount(0);
+    await expect(page.getByText('Données synthétiques.')).toHaveCount(0);
+    await expect(page.getByText('Message de démonstration.')).toHaveCount(0);
+    await expect(question.getByRole('textbox')).toHaveCount(0);
+    expect(
+      calls.filter((call) => call.method === 'POST').map((call) => call.path)
+    ).toEqual([
+      '/api/admin/assistant/query',
+      '/api/admin/assistant/prepare',
+      '/api/admin/assistant/prepare'
+    ]);
+  });
+}
+
+test('private question and summary responses cannot repopulate the page after a queue denial', async ({
+  page
+}) => {
+  const { options } = await fixtures(page);
+  options.mode = 'mock';
+  await page.goto(base);
+  const question = page.locator('[data-og7="assistant-question"]');
+  await question.locator('summary').click();
+  await question.getByRole('textbox').fill('Question synthétique privée');
+  let release = () => {};
+  options.privateResponseGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queryRequest = page.waitForRequest('**/api/admin/assistant/query');
+  await question.getByRole('button', { name: 'Demander', exact: true }).click();
+  await queryRequest;
+  const summaryRequest = page.waitForRequest('**/api/admin/assistant/summary');
+  await page.locator('[data-og7="assistant-summary"] summary').click();
+  await summaryRequest;
+  options.status = 403;
+  await page
+    .getByRole('button', { name: 'Actualiser le contexte', exact: true })
+    .click();
+  await expect(page.locator('[data-og7="assistant-items"]')).toHaveCount(0);
+  const receivedQuery = page.waitForResponse('**/api/admin/assistant/query');
+  const receivedSummary = page.waitForResponse(
+    '**/api/admin/assistant/summary'
+  );
+  release();
+  const responses = await Promise.all([receivedQuery, receivedSummary]);
+  await Promise.all(responses.map((response) => response.finished()));
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  );
+  await expect(question.locator('[data-og7="assistant-answer"]')).toHaveCount(
+    0
+  );
+  await expect(question.getByRole('textbox')).toHaveCount(0);
+  await expect(page.getByText('Données synthétiques.')).toHaveCount(0);
+  await expect(page.locator('[data-og7="assistant-state"]')).not.toBeEmpty();
 });

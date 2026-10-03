@@ -1,18 +1,12 @@
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
+import { readAdminSurfaceSource } from './support/admin-surface-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
-const readPage = () =>
-  ['ts', 'html']
-    .map((ext) =>
-      read(
-        `apps/funding-web/src/app/features/funding/pages/admin-assistant-page/admin-assistant-page.component.${ext}`
-      )
-    )
-    .join('\n');
+const readPage = () => readAdminSurfaceSource('assistant');
 
 const assertIncludesAll = (source, values, label) => {
   source = translatedUiSource(source);

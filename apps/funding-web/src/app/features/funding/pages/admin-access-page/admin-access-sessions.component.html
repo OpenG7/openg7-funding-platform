@@ -1,0 +1,38 @@
+<h2>{{ 'admin.access.sessions' | translate }}</h2>
+<ul>
+  @for (session of sessions(); track session.id) {
+    <li data-og7="admin-session" [attr.data-og7-id]="session.id">
+      {{ nameFor(session.accountId) }} — {{ session.createdAt }}
+      <button
+        type="button"
+        [disabled]="busy()"
+        (click)="selectSession(session.id, $event)"
+      >
+        {{ 'admin.access.revoke' | translate }}
+      </button>
+    </li>
+  }
+</ul>
+@if (pendingSession(); as id) {
+  <section
+    role="group"
+    [attr.aria-label]="'admin.access.revoke' | translate"
+    (keydown.escape)="cancelRequested.emit(); $event.stopPropagation()"
+  >
+    <p>
+      {{ 'admin.access.revokeConfirm' | translate }}
+      {{ sessionName(id) }}
+    </p>
+    <button
+      #revokeConfirmButton
+      type="button"
+      [disabled]="busy()"
+      (click)="revokeRequested.emit(id)"
+    >
+      {{ 'admin.access.revoke' | translate }}
+    </button>
+    <button type="button" [disabled]="busy()" (click)="cancelRequested.emit()">
+      {{ 'admin.access.cancel' | translate }}
+    </button>
+  </section>
+}

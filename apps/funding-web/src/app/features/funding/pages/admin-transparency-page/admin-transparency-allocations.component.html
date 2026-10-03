@@ -1,0 +1,58 @@
+<section
+  class="admin-panel"
+  data-og7="transparency-allocations"
+  aria-labelledby="expenses-title"
+>
+  <header>
+    <div>
+      <span>{{
+        'admin.legacy.p0_entree_s_publiques'
+          | translate: { p0: publishedExpenses().length }
+      }}</span>
+      <h2 id="expenses-title">
+        {{ 'admin.legacy.depenses_visibles_publiquement' | translate }}
+      </h2>
+    </div>
+  </header>
+
+  <div
+    class="table-scroll"
+    data-og7="transparency-allocation-scroll"
+    role="region"
+    aria-labelledby="expenses-title"
+    tabindex="0"
+    *ngIf="publishedExpenses().length > 0"
+  >
+    <table>
+      <thead>
+        <tr>
+          <th>{{ 'admin.legacy.projet' | translate }}</th>
+          <th>{{ 'admin.legacy.description' | translate }}</th>
+          <th>{{ 'admin.legacy.montant' | translate }}</th>
+          <th>{{ 'admin.legacy.publication' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let expense of publishedExpenses(); trackBy: trackByExpense"
+        >
+          <td>{{ expense.project_name }}</td>
+          <td>{{ expense.public_description }}</td>
+          <td>
+            {{ formatMoney()(expense.amount_allocated, expense.currency) }}
+          </td>
+          <td>{{ dateLabel()(expense.published_at) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <article class="empty-state" *ngIf="publishedExpenses().length === 0">
+    <h3>{{ 'admin.legacy.aucune_depense_publique' | translate }}</h3>
+    <p>
+      {{
+        'admin.legacy.publiez_une_depense_depuis_la_page_depenses' | translate
+      }}
+    </p>
+  </article>
+</section>

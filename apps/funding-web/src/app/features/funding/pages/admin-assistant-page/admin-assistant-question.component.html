@@ -1,0 +1,50 @@
+<details
+  class="disclosure"
+  (toggle)="toggle($event)"
+  data-og7="assistant-question"
+>
+  <summary>{{ 'admin.legacy.poser_une_question' | translate }}</summary>
+  @if (conversationState() === 'loading') {
+    <p role="status">{{ 'admin.attention.loading' | translate }}</p>
+  }
+  @if (conversationState() === 'error') {
+    <p role="alert">
+      {{ 'admin.assistantOverview.optionalError' | translate }}
+    </p>
+  }
+  @if (conversationMode() === 'disabled') {
+    <p>{{ 'admin.context.disabled' | translate }}</p>
+  }
+  @if (conversationState() === 'ready' && conversationMode() !== 'disabled') {
+    <p class="muted">{{ 'admin.assistantOverview.mock' | translate }}</p>
+    <form class="question-form" (submit)="submit($event)">
+      <label
+        >{{ 'admin.legacy.question' | translate
+        }}<input
+          name="question"
+          maxlength="1000"
+          required
+          [value]="question()"
+          (input)="changeQuestion($event)"
+      /></label>
+      <button
+        type="submit"
+        class="admin-button"
+        [disabled]="answerState() === 'loading' || !question().trim()"
+      >
+        {{ 'admin.legacy.demander' | translate }}
+      </button>
+    </form>
+    @if (answerState() === 'loading') {
+      <p role="status">{{ 'admin.context.working' | translate }}</p>
+    }
+    @if (answerState() === 'error') {
+      <p role="alert">
+        {{ 'admin.assistantOverview.questionError' | translate }}
+      </p>
+    }
+    @if (answer(); as reply) {
+      <openg7-admin-assistant-answer [answer]="reply" [returnTo]="returnTo()" />
+    }
+  }
+</details>

@@ -1,7 +1,239 @@
+import type { Page } from '@playwright/test';
+
+import type { AdminAccessResponse } from '../../apps/funding-web/src/app/features/funding/services/funding-admin.service.js';
+
 import { test, expect } from './support/test.js';
+
+async function accessFixture(page: Page) {
+  const state = {
+    reads: 0,
+    readStatus: 200,
+    changeStatus: 200,
+    changes: [] as Record<string, unknown>[],
+    access: {
+      accounts: [
+        {
+          id: 'owner',
+          subject: 'fixture-owner',
+          displayName: 'Owner fixture',
+          role: 'owner',
+          disabled: false
+        },
+        {
+          id: 'operator',
+          subject: 'fixture-operator',
+          displayName: 'Operator fixture',
+          role: 'operator',
+          disabled: false
+        }
+      ],
+      sessions: [
+        {
+          id: 'operator-session',
+          accountId: 'operator',
+          createdAt: '2026-09-24T12:00:00Z',
+          expiresAt: '2099-01-01T00:00:00Z'
+        },
+        {
+          id: 'owner-other-session',
+          accountId: 'owner',
+          createdAt: '2026-09-24T13:00:00Z',
+          expiresAt: '2099-01-01T00:00:00Z'
+        }
+      ]
+    } as AdminAccessResponse,
+    nextAccess: null as AdminAccessResponse | null
+  };
+  await page.route('**/api/**', async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/auth/config'))
+      return route.fulfill({ json: { mode: 'oidc' } });
+    if (path.endsWith('/auth/current'))
+      return route.fulfill({
+        json: {
+          id: 'owner',
+          sessionId: 'current-owner-session',
+          displayName: 'Owner fixture',
+          role: 'owner',
+          expiresAt: '2099-01-01T00:00:00Z'
+        }
+      });
+    if (path.endsWith('/access')) {
+      if (route.request().method() === 'POST') {
+        state.changes.push(route.request().postDataJSON());
+        if (state.changeStatus === 200 && state.nextAccess) {
+          state.access = state.nextAccess;
+          state.nextAccess = null;
+        }
+        return route.fulfill({ status: state.changeStatus, json: {} });
+      }
+      state.reads++;
+      return route.fulfill({ status: state.readStatus, json: state.access });
+    }
+    return route.fulfill({ status: 503, json: {} });
+  });
+  return state;
+}
+
+async function openAccess(page: Page, language: 'fr' | 'en') {
+  await page.goto('/admin/fundraiser/access');
+  if (language === 'en')
+    await page
+      .getByRole('button', {
+        name: 'Switch administration language to English'
+      })
+      .click();
+}
 
 for (const language of ['fr', 'en'] as const) {
   for (const width of [390, 1280]) {
+    test(`confirmed access changes reload accounts and sessions with keyboard focus in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 1000 });
+      const state = await accessFixture(page);
+      await openAccess(page, language);
+      const operator = page.locator(
+        '[data-og7="admin-account"][data-og7-id="operator"]'
+      );
+      await operator.getByRole('button').click();
+      const confirm = page.locator('input[name="confirmed"]');
+      const save = page.getByRole('button', {
+        name: language === 'fr' ? 'Enregistrer les accès' : 'Save access'
+      });
+      await expect(page.locator('input[name="subject"]')).toHaveAttribute(
+        'readonly'
+      );
+      // check() observes the native checkbox before Angular reflects the
+      // confirmation in the form. Wait for that transition before invalidating it.
+      await confirm.check();
+      await expect(save).toBeEnabled();
+      await page.locator('input[name="name"]').fill('Updated fixture');
+      await expect(confirm).not.toBeChecked();
+      await expect(save).toBeDisabled();
+      await confirm.check();
+      await expect(save).toBeEnabled();
+      await page.locator('input[name="disabled"]').check();
+      await expect(confirm).not.toBeChecked();
+      await expect(save).toBeDisabled();
+      await confirm.check();
+      await expect(save).toBeEnabled();
+      await page.getByRole('combobox').selectOption('reader');
+      await expect(confirm).not.toBeChecked();
+      await expect(save).toBeDisabled();
+      expect(state.changes).toHaveLength(0);
+      state.nextAccess = {
+        accounts: state.access.accounts.map((account) =>
+          account.id === 'operator'
+            ? {
+                ...account,
+                displayName: 'Updated fixture',
+                role: 'reader',
+                disabled: true
+              }
+            : account
+        ),
+        sessions: state.access.sessions.filter(
+          (session) => session.accountId !== 'operator'
+        )
+      };
+      await confirm.check();
+      await expect(save).toBeEnabled();
+      await save.click();
+      await expect(operator).toContainText('Updated fixture');
+      await expect(operator).toContainText(
+        language === 'fr' ? 'Lecteur' : 'Reader'
+      );
+      await expect(confirm).not.toBeChecked();
+      await expect(save).toBeDisabled();
+      await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(1);
+      expect(state.reads).toBe(2);
+      expect(state.changes).toEqual([
+        {
+          id: 'operator',
+          subject: 'fixture-operator',
+          displayName: 'Updated fixture',
+          role: 'reader',
+          disabled: true,
+          confirmation: 'fixture-operator'
+        }
+      ]);
+
+      const revoke = page.locator('[data-og7="admin-session"] button');
+      const revokeText =
+        language === 'fr' ? 'Révoquer la session' : 'Revoke session';
+      const group = page.getByRole('group', { name: revokeText });
+      await revoke.click();
+      await expect(
+        group.getByRole('button', { name: revokeText })
+      ).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(group).toHaveCount(0);
+      await expect(revoke).toBeFocused();
+      expect(state.changes).toHaveLength(1);
+
+      state.nextAccess = { ...state.access, sessions: [] };
+      await revoke.click();
+      await group.getByRole('button', { name: revokeText }).press('Enter');
+      await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(0);
+      await expect(group).toHaveCount(0);
+      await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+      expect(state.reads).toBe(3);
+      expect(state.changes[1]).toEqual({
+        sessionId: 'owner-other-session',
+        confirmation: 'owner-other-session'
+      });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1
+        )
+      ).toBe(true);
+    });
+
+    test(`access denial clears the account draft and private lists in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 1000 });
+      const state = await accessFixture(page);
+      await openAccess(page, language);
+      await page
+        .locator('[data-og7="admin-account"][data-og7-id="operator"] button')
+        .click();
+      await page.locator('input[name="name"]').fill('Private draft fixture');
+      await page.locator('input[name="confirmed"]').check();
+      state.changeStatus = 403;
+      const save = page.getByRole('button', {
+        name: language === 'fr' ? 'Enregistrer les accès' : 'Save access'
+      });
+      await expect(save).toBeEnabled();
+      await save.click();
+      await expect(page.getByRole('alert')).toContainText(
+        language === 'fr'
+          ? 'Cette page est réservée aux propriétaires'
+          : 'This page is reserved for owners'
+      );
+      await expect(page).toHaveURL(/\/admin\/fundraiser\/access$/);
+      await expect(page.locator('openg7-admin-access-editor')).toHaveCount(0);
+      await expect(page.locator('[data-og7="admin-account"]')).toHaveCount(0);
+      await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(0);
+      await expect(page.getByText('Private draft fixture')).toHaveCount(0);
+      expect(state.reads).toBe(1);
+      expect(state.changes).toHaveLength(1);
+
+      // A denied load must not remount the editor from stale private data.
+      state.readStatus = 403;
+      await page.reload();
+      await expect(page.getByRole('alert')).toContainText(
+        language === 'fr'
+          ? 'Cette page est réservée aux propriétaires'
+          : 'This page is reserved for owners'
+      );
+      await expect(page.locator('openg7-admin-access-editor')).toHaveCount(0);
+      await expect(page.locator('[data-og7="admin-account"]')).toHaveCount(0);
+      await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(0);
+      expect(state.changes).toHaveLength(1);
+    });
+
     test(`access confirmation, role errors and expired sessions remain clear in ${language} at ${width}px`, async ({
       page
     }) => {

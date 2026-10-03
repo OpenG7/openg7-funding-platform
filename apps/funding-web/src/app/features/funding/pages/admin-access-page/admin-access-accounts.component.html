@@ -1,0 +1,19 @@
+<h2>{{ 'admin.access.accounts' | translate }}</h2>
+<ul>
+  @for (account of accounts(); track account.id) {
+    <li data-og7="admin-account" [attr.data-og7-id]="account.id">
+      {{ account.displayName }} —
+      {{ 'admin.access.roles.' + account.role | translate }}
+      @if (account.disabled) {
+        <span>({{ 'admin.access.disabled' | translate }})</span>
+      }
+      <button
+        type="button"
+        (click)="editRequested.emit(account)"
+        [disabled]="busy()"
+      >
+        {{ 'admin.access.edit' | translate }}
+      </button>
+    </li>
+  }
+</ul>

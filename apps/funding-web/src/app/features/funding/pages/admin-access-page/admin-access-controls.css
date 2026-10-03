@@ -1,0 +1,32 @@
+:host {
+  display: block;
+}
+h2 {
+  margin: 1.25rem 0 0.5rem;
+}
+input,
+select,
+button {
+  font: inherit;
+  font-weight: 400;
+  padding: 0.65rem;
+  border-radius: 0.3rem;
+  color: var(--admin-text, #0f172a);
+  background: var(--admin-panel, #fff);
+  min-width: 0;
+  max-width: 100%;
+}
+button {
+  font-weight: var(--admin-control-weight);
+  background: var(--admin-panel-raised, #fff);
+  min-height: 44px;
+  margin: 0.3rem;
+  cursor: pointer;
+}
+li {
+  padding: 0.5rem;
+}
+:focus-visible {
+  outline: 3px solid var(--admin-focus, #facc15);
+  outline-offset: 3px;
+}
