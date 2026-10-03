@@ -4,6 +4,7 @@ import { readFundingAdminSource } from './support/funding-admin-source.mjs';
 import { readFundingHomeSource } from './support/funding-home-source.mjs';
 import { readSponsorshipFollowupSource } from './support/sponsorship-followup-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
+import { readAdminAccountingSource } from './support/admin-accounting-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -264,10 +265,7 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
   );
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const followupPage = readSponsorshipFollowupSource();
-  const adminContributionsPage = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-contributions-page/admin-contributions-page.component.ts',
-    'utf8'
-  );
+  const adminContributionsPage = readAdminAccountingSource('contributions');
   const adminSponsorsPage = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
     'utf8'
@@ -2807,10 +2805,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'utf8'
   );
   const service = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminAccountingSource('invoices');
   const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/sponsorship-invoices.repository.ts',
@@ -2868,7 +2863,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'creditNoteResendEmail',
     'resendCreditNote(',
     'Renvoyer avoir',
-    'resendInvoice()',
+    'resendInvoice(',
     'Renvoyer'
   ]) {
     assert.ok(

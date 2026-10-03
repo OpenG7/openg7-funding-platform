@@ -1,0 +1,23 @@
+<p class="state" data-og7="contribution-export-scope">
+  {{
+    (count() === 1
+      ? 'admin.contributionsExport.scopeOne'
+      : 'admin.contributionsExport.scope'
+    ) | translate: { count: count() }
+  }}
+  {{ 'admin.contributionsExport.limit' | translate }}
+</p>
+@if (!canExport()) {
+  <p class="state">
+    {{ 'admin.contributionsExport.forbidden' | translate }}
+  </p>
+}
+@if (errorKey()) {
+  <p
+    class="state state-error"
+    role="alert"
+    data-og7="contribution-export-error"
+  >
+    {{ errorKey() | translate }}
+  </p>
+}

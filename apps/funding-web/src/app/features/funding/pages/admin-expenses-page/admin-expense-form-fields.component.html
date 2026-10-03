@@ -1,0 +1,93 @@
+<div class="fields-grid">
+  <label>
+    {{ 'admin.legacy.projet_ou_fournisseur' | translate
+    }}<input
+      type="text"
+      maxlength="160"
+      [value]="draft().projectName"
+      (input)="setTextField('projectName', $event)"
+    />
+  </label>
+  <label>
+    {{ 'admin.legacy.montant_cad' | translate
+    }}<input
+      type="number"
+      min="0"
+      step="0.01"
+      [value]="draft().amountAllocated"
+      (input)="setTextField('amountAllocated', $event)"
+    />
+  </label>
+  <label>
+    {{ 'admin.legacy.statut' | translate
+    }}<select [value]="draft().status" (change)="setStatus($event)">
+      <option *ngFor="let status of expenseStatuses" [value]="status">
+        {{ statusKeys[status] | translate }}
+      </option>
+    </select>
+  </label>
+  <label *ngIf="publishedAt() !== null">
+    {{ 'admin.legacy.date_publication' | translate
+    }}<input
+      type="datetime-local"
+      [value]="publishedAt()"
+      (input)="setTextField('publishedAt', $event)"
+    />
+  </label>
+  <label class="span-3">
+    {{ 'admin.legacy.description_publique' | translate
+    }}<textarea
+      rows="3"
+      maxlength="1000"
+      [value]="draft().publicDescription"
+      (input)="setTextField('publicDescription', $event)"
+    ></textarea>
+  </label>
+  <label class="span-3">
+    {{ 'admin.legacy.resultat_attendu' | translate
+    }}<textarea
+      rows="2"
+      maxlength="1000"
+      [value]="draft().expectedOutcome"
+      (input)="setTextField('expectedOutcome', $event)"
+    ></textarea>
+  </label>
+  <label>
+    {{ 'admin.legacy.avancement' | translate
+    }}<select
+      [value]="draft().progressStatus"
+      (change)="setProgressStatus($event)"
+    >
+      <option value="planned">{{ 'admin.legacy.prevu' | translate }}</option>
+      <option value="in_progress">
+        {{ 'admin.legacy.en_cours_134' | translate }}
+      </option>
+      <option value="delivered">{{ 'admin.legacy.livre' | translate }}</option>
+    </select>
+  </label>
+  <label>
+    {{ 'admin.legacy.preuve_publique' | translate
+    }}<input
+      type="url"
+      [value]="draft().proofUrl"
+      (input)="setTextField('proofUrl', $event)"
+    />
+  </label>
+  <label>
+    {{ 'admin.legacy.source_de_la_preuve' | translate
+    }}<input
+      type="text"
+      maxlength="500"
+      [value]="draft().proofSource"
+      (input)="setTextField('proofSource', $event)"
+    />
+  </label>
+  <label>
+    {{ 'admin.legacy.date_de_la_preuve' | translate
+    }}<input
+      type="datetime-local"
+      [value]="draft().proofPublishedAt"
+      (input)="setTextField('proofPublishedAt', $event)"
+    />
+  </label>
+</div>

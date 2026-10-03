@@ -1,0 +1,38 @@
+:host {
+  display: inline-flex;
+}
+
+.email-status {
+  align-items: center;
+  background: var(--admin-panel-raised);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: var(--admin-label-weight);
+  justify-content: center;
+  min-height: 1.65rem;
+  padding: 0 0.6rem;
+  white-space: nowrap;
+}
+
+.status-sent {
+  background: var(--admin-panel-raised);
+  color: var(--admin-success);
+}
+
+.status-failed {
+  background: var(--og7-admin-danger-bg, #422532);
+  color: var(--admin-danger);
+}
+
+.status-queued {
+  background: var(--og7-admin-warning-bg, #3c3221);
+  color: var(--admin-warning);
+}
+
+@media (max-width: 620px) {
+  .email-status {
+    white-space: normal;
+  }
+}
