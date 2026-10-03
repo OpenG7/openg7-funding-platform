@@ -13,6 +13,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
+import { createCheckoutReturnUrlResolver } from '../dist/apps/funding-api/src/api-runtime-config.js';
+
 import { OPENG7_FUNDING_CONFIG } from '../dist/apps/funding-web/src/app/features/funding/config/openg7-funding.config.js';
 import {
   createMockCheckoutResult,
@@ -386,41 +388,31 @@ test('Public reference lookup returns minimal purchase status without private fi
 });
 
 test('resolveCheckoutReturnUrl allows http localhost/127.0.0.1 only outside production', () => {
-  const source = readFundingApiSource();
-
-  const match = source.match(/const resolveCheckoutReturnUrl[\s\S]*?\n};/);
-  assert.ok(match, 'expected to find resolveCheckoutReturnUrl function body');
-  const fnSource = match[0];
-
-  assert.ok(
-    fnSource.includes("candidate.hostname === 'localhost'") &&
-      fnSource.includes("candidate.hostname === '127.0.0.1'"),
-    'expected an exact-equality check against localhost and 127.0.0.1 hostnames'
-  );
-  assert.ok(
-    fnSource.includes("candidate.protocol === 'http:'"),
-    'expected the dev allowance to require the http: protocol'
-  );
-
-  const devAllowanceMatch = fnSource.match(
-    /if\s*\(([\s\S]{0,200}?candidate\.hostname === '127\.0\.0\.1'[\s\S]{0,50}?)\)\s*\{/
-  );
-  assert.ok(
-    devAllowanceMatch,
-    'expected an if-condition guarding the localhost allowance'
-  );
-  assert.ok(
-    /!isProduction/.test(devAllowanceMatch[1]),
-    'the localhost/127.0.0.1 http allowance must be gated behind !isProduction so it never applies in production'
-  );
-
-  assert.equal(
-    /^\s*if\s*\(\s*candidate\.hostname === '(localhost|127\.0\.0\.1)'/m.test(
-      fnSource
-    ),
-    false,
-    'the localhost/127.0.0.1 allowance must not be reachable unconditionally (without an isProduction guard)'
-  );
+  for (const isProduction of [false, true]) {
+    const resolve = createCheckoutReturnUrlResolver({
+      isProduction,
+      publicBaseOrigin: 'https://funding.example.test',
+      allowedOrigins: [],
+      allowedReturnHostnames: new Set(['funding.example.test'])
+    });
+    for (const host of ['localhost', '127.0.0.1']) {
+      const candidate = 'http://' + host + ':4200/funding/success';
+      assert.equal(
+        resolve(candidate, '/fallback'),
+        isProduction ? 'https://funding.example.test/fallback' : candidate
+      );
+    }
+    for (const candidate of [
+      'http://localhost.example.test/funding/success',
+      'http://127.0.0.2/funding/success',
+      'ftp://localhost/funding/success'
+    ]) {
+      assert.equal(
+        resolve(candidate, '/fallback'),
+        'https://funding.example.test/fallback'
+      );
+    }
+  }
 });
 
 test('Public transparency can read aggregate data from fund contributions', () => {

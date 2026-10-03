@@ -6,6 +6,9 @@ export const readFundingApiSource = () => {
   const root = 'apps/funding-api/src/';
   return [
     'main.ts',
+    'api-runtime-config.ts',
+    'admin-authorization.ts',
+    'api-background-workers.ts',
     'public-payments.http.ts',
     'public-references.http.ts',
     'legacy-sponsorship-details.http.ts',
