@@ -1,3 +1,5 @@
+import { isSafeSponsorshipText } from './sponsorship-validation.js';
+
 export interface AdminSponsorshipDetails {
   readonly companyName: string;
   readonly publicName: string;
@@ -37,10 +39,9 @@ export const validateAdminSponsorshipDetails = (
   ] as const) {
     const value = input[field];
     if (
-      typeof value !== 'string' ||
+      !isSafeSponsorshipText(value) ||
       value.length >
-        (field === 'websiteUrl' ? 2048 : field === 'publicName' ? 100 : 200) ||
-      /[\x00-\x1f\x7f]/.test(value)
+        (field === 'websiteUrl' ? 2048 : field === 'publicName' ? 100 : 200)
     ) {
       errors[field] = 'invalid';
     }
