@@ -1,3 +1,4 @@
+import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { readEmailNotificationSource } from './support/email-notification-source.mjs';
 import { readFundingAdminSource } from './support/funding-admin-source.mjs';
@@ -1756,10 +1757,7 @@ test('Publication slot admin endpoints are authenticated, validated, rate-limite
 test('Publication batch types and admin UI expose capacity, next availability, and scheduled status', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminPublicationsSource();
 
   assert.ok(core.includes('export type PublicationBatchStatus ='));
   assert.ok(core.includes("'open' | 'scheduled' | 'published' | 'cancelled';"));
@@ -1806,10 +1804,7 @@ test('Publication batch types and admin UI expose capacity, next availability, a
 test('Publication slot types and admin UI expose calendar, edit, capacity, and assignments', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminPublicationsSource();
 
   assert.ok(core.includes('export type PublicationSlotStatus ='));
   assert.ok(core.includes('export interface AdminPublicationSlotRecord'));
@@ -1844,7 +1839,7 @@ test('Publication slot types and admin UI expose calendar, edit, capacity, and a
   assert.ok(translatedUiSource(page).includes('slot.capacityAvailable'));
   assert.ok(
     translatedUiSource(page).includes(
-      "newSlotTimezone = signal<string>('America/Toronto')"
+      "newSlotTimezone = signal('America/Toronto')"
     )
   );
 });
@@ -1861,10 +1856,7 @@ test('Social publication provider is explicit, configurable, audited, and visibl
     'utf8'
   );
   const webService = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminPublicationsSource();
   const compose = fs.readFileSync('docker-compose.yml', 'utf8');
   const envExample = fs.readFileSync('.env.example', 'utf8');
 

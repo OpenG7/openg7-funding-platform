@@ -1,0 +1,289 @@
+@if (active()) {
+  <section class="admin-panel" aria-labelledby="calendar-title">
+    <h2 class="visually-hidden" id="calendar-title">
+      {{ 'admin.legacy.calendrier_de_publication' | translate }}
+    </h2>
+    <form
+      class="slot-create-form"
+      id="new-slot-form"
+      *ngIf="newSlotOpen()"
+      (submit)="$event.preventDefault(); createSlot()"
+    >
+      <label>
+        {{ 'admin.legacy.cible' | translate
+        }}<select
+          [value]="newSlotFeedTarget()"
+          (change)="setNewSlotFeedTarget($event)"
+        >
+          <option value="openg7">OpenG7</option>
+          <option value="openg20">OpenG20</option>
+        </select>
+      </label>
+      <label>
+        {{ 'admin.legacy.canal' | translate
+        }}<select
+          [value]="newSlotChannel()"
+          (change)="setNewSlotChannel($event)"
+        >
+          <option value="facebook">Facebook</option>
+          <option value="linkedin">LinkedIn</option>
+        </select>
+      </label>
+      <label>
+        {{ 'admin.legacy.date_et_heure' | translate
+        }}<input
+          type="datetime-local"
+          [value]="newSlotStartsAt()"
+          (input)="setNewSlotStartsAt($event)"
+        />
+      </label>
+      <label>
+        {{ 'admin.legacy.fuseau' | translate
+        }}<input
+          type="text"
+          maxlength="64"
+          [value]="newSlotTimezone()"
+          (input)="setNewSlotTimezone($event)"
+        />
+      </label>
+      <label>
+        {{ 'admin.legacy.capacite' | translate
+        }}<input
+          type="number"
+          min="1"
+          max="50"
+          [value]="newSlotCapacity()"
+          (input)="setNewSlotCapacity($event)"
+        />
+      </label>
+      <label class="slot-notes-field">
+        {{ 'admin.legacy.notes' | translate
+        }}<input
+          type="text"
+          maxlength="500"
+          [value]="newSlotNotes()"
+          (input)="setNewSlotNotes($event)"
+        />
+      </label>
+      <button type="submit" [disabled]="!!slotActionState()">
+        {{ 'admin.legacy.creer_un_creneau' | translate }}
+      </button>
+    </form>
+    <label class="history-toggle"
+      ><input
+        type="checkbox"
+        [checked]="showSlotHistory()"
+        (change)="showSlotHistory.set(!showSlotHistory())"
+      />{{ 'admin.publications.showHistory' | translate }}</label
+    >
+
+    <openg7-admin-publication-calendar
+      [entries]="slotCalendarEntries()"
+      [selectedId]="selectedSlotId()"
+      [state]="state()"
+      (openEntry)="selectedSlotId.set($event)"
+      (retry)="reload()()"
+    />
+    <openg7-admin-drawer
+      [opened]="!!selectedSlot()"
+      [title]="'admin.publicationCalendar.slotDetail' | translate"
+      [closeLabel]="'admin.publications.close' | translate"
+      [busy]="!!slotActionState()"
+      (closed)="selectedSlotId.set(null)"
+    >
+      @if (selectedSlot(); as slot) {
+        @if (state() === 'error') {
+          <p class="state-error" role="alert">
+            {{
+              'admin.legacy.impossible_de_charger_ou_modifier_les_publications'
+                | translate
+            }}
+          </p>
+        }
+        <p>
+          {{
+            'admin.legacy.les_creneaux_fixent_la_cible_le_canal_l_horaire_local_et_la_capac'
+              | translate
+          }}
+        </p>
+        <article
+          class="slot-card"
+          data-og7="publication-slot"
+          [attr.data-og7-id]="slot.id"
+          [attr.id]="'attention-object-' + slot.id"
+          tabindex="-1"
+        >
+          <header>
+            <div>
+              <span>{{ slotStatusLabel(slot.status) }}</span>
+              <h3>
+                {{ feedTargetName(slot.feedTarget) }} /
+                {{ channelLabel(slot.channel) }}
+              </h3>
+            </div>
+            <small>
+              {{ dateLabel(slot.startsAt, slot.timezone) }} -
+              {{ slot.timezone }}
+            </small>
+          </header>
+          @if (selectedSlotId() === slot.id) {
+            <div class="item-editor" [attr.id]="'slot-editor-' + slot.id">
+              <div class="slot-capacity">
+                <strong>{{ slot.capacityUsed }}/{{ slot.capacity }}</strong>
+                <span>{{
+                  'admin.legacy.p0_place_s_restante_s'
+                    | translate: { p0: slot.capacityAvailable }
+                }}</span>
+              </div>
+
+              <div
+                class="slot-edit-grid"
+                *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
+              >
+                <label>
+                  {{ 'admin.legacy.date_et_heure' | translate
+                  }}<input
+                    type="datetime-local"
+                    [value]="slotEditFor(slot.id).startsAt"
+                    (input)="setSlotEditField(slot.id, 'startsAt', $event)"
+                  />
+                </label>
+                <label>
+                  {{ 'admin.legacy.fuseau' | translate
+                  }}<input
+                    type="text"
+                    maxlength="64"
+                    [value]="slotEditFor(slot.id).timezone"
+                    (input)="setSlotEditField(slot.id, 'timezone', $event)"
+                  />
+                </label>
+                <label>
+                  {{ 'admin.legacy.capacite' | translate
+                  }}<input
+                    type="number"
+                    min="1"
+                    max="50"
+                    [value]="slotEditFor(slot.id).capacity"
+                    (input)="setSlotEditField(slot.id, 'capacity', $event)"
+                  />
+                </label>
+                <label>
+                  {{ 'admin.legacy.notes' | translate
+                  }}<input
+                    type="text"
+                    maxlength="500"
+                    [value]="slotEditFor(slot.id).notes"
+                    (input)="setSlotEditField(slot.id, 'notes', $event)"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="neutral"
+                  [disabled]="!!slotActionState()"
+                  (click)="updateSlot(slot)"
+                >
+                  {{ 'admin.legacy.mettre_a_jour' | translate }}
+                </button>
+              </div>
+
+              <div
+                class="draft-batch-row"
+                *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
+              >
+                <label class="inline">
+                  {{ 'admin.legacy.lot' | translate
+                  }}<select
+                    [value]="slotBatchSelection(slot.id)"
+                    (change)="setSlotBatchSelection(slot.id, $event)"
+                  >
+                    <option value="" [selected]="!slotBatchSelection(slot.id)">
+                      {{ 'admin.legacy.choisir_un_lot_compatible' | translate }}
+                    </option>
+                    <option
+                      *ngFor="let batch of assignableBatchesForSlot(slot)"
+                      [value]="batch.id"
+                      [selected]="slotBatchSelection(slot.id) === batch.id"
+                    >
+                      {{ channelLabel(batch.channel) }} ({{
+                        batch.capacityUsed
+                      }}/{{ batch.capacity }})
+                    </option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="neutral"
+                  [disabled]="
+                    !hasAssignableBatchSelection(slot) || !!slotActionState()
+                  "
+                  (click)="assignBatchToSlot(slot)"
+                >
+                  {{ 'admin.legacy.assigner_le_lot' | translate }}
+                </button>
+                <label class="inline">
+                  {{ 'admin.legacy.brouillon' | translate
+                  }}<select
+                    [value]="slotDraftSelection(slot.id)"
+                    (change)="setSlotDraftSelection(slot.id, $event)"
+                  >
+                    <option value="" [selected]="!slotDraftSelection(slot.id)">
+                      {{ 'admin.legacy.choisir_un_brouillon' | translate }}
+                    </option>
+                    <option
+                      *ngFor="let draft of assignableDraftsForSlot(slot)"
+                      [value]="draft.id"
+                      [selected]="slotDraftSelection(slot.id) === draft.id"
+                    >
+                      {{ draft.sponsor_company_name }}
+                    </option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="neutral"
+                  [disabled]="
+                    !hasAssignableDraftSelection(slot) || !!slotActionState()
+                  "
+                  (click)="assignDraftToSlot(slot)"
+                >
+                  {{ 'admin.legacy.assigner_brouillon' | translate }}
+                </button>
+              </div>
+
+              <footer>
+                <button
+                  type="button"
+                  class="approve"
+                  *ngIf="slot.status === 'scheduled'"
+                  [disabled]="slot.capacityUsed === 0 || !!slotActionState()"
+                  (click)="publishSlot(slot)"
+                >
+                  {{ 'admin.publications.markPublished' | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="reject"
+                  *ngIf="slot.status === 'open' || slot.status === 'scheduled'"
+                  [disabled]="!!slotActionState()"
+                  (click)="cancelSlot(slot)"
+                >
+                  {{ 'admin.legacy.annuler_le_creneau' | translate }}
+                </button>
+              </footer>
+            </div>
+          }
+        </article>
+      }
+    </openg7-admin-drawer>
+
+    <article class="empty-state" *ngIf="visibleSlots().length === 0">
+      <h3>{{ 'admin.legacy.aucun_creneau' | translate }}</h3>
+      <p>
+        {{
+          'admin.legacy.creez_plusieurs_creneaux_futurs_par_canal_pour_organiser_les_publ'
+            | translate
+        }}
+      </p>
+    </article>
+  </section>
+}

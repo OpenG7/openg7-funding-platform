@@ -1,0 +1,231 @@
+<openg7-admin-layout>
+  <section
+    class="admin-content"
+    data-og7="publications-page"
+    [attr.data-og7-view]="activeView()"
+  >
+    @if (activeView() !== 'overview') {
+      <nav
+        class="publication-breadcrumb"
+        [attr.aria-label]="'admin.publications.navigation' | translate"
+      >
+        <a
+          [routerLink]="publicationPath"
+          [queryParams]="navigationParams()"
+          data-og7="publications-home"
+        >
+          <span aria-hidden="true">←</span>
+          {{ 'admin.publications.back' | translate }}
+        </a>
+      </nav>
+    }
+    <header class="admin-topbar">
+      <div>
+        <span>{{
+          (activeView() === 'overview'
+            ? 'admin.legacy.administration'
+            : 'admin.publications.title'
+          ) | translate
+        }}</span>
+        <h1 id="publication-heading" tabindex="-1">
+          {{
+            'admin.publications.spaces.' + activeView() + '.title' | translate
+          }}
+        </h1>
+        <p class="page-help">
+          {{
+            'admin.publications.spaces.' + activeView() + '.help' | translate
+          }}
+        </p>
+      </div>
+      <div class="header-actions" data-og7="publication-header-actions">
+        @if (activeView() === 'drafts') {
+          <button
+            type="button"
+            class="admin-button admin-button--primary"
+            id="publication-prepare"
+            [attr.aria-expanded]="showEligible()"
+            aria-controls="publication-eligible"
+            (click)="prepareDraft()"
+          >
+            {{ 'admin.publications.prepare' | translate }}
+          </button>
+        }
+        @if (activeView() === 'batches') {
+          <button
+            type="button"
+            class="admin-button admin-button--primary"
+            [attr.aria-expanded]="newBatchOpen()"
+            aria-controls="new-batch-form"
+            (click)="newBatchOpen.set(!newBatchOpen())"
+          >
+            {{ 'admin.publications.newBatch' | translate }}
+          </button>
+        }
+        @if (activeView() === 'calendar') {
+          <button
+            type="button"
+            class="admin-button admin-button--primary"
+            [attr.aria-expanded]="newSlotOpen()"
+            aria-controls="new-slot-form"
+            (click)="newSlotOpen.set(!newSlotOpen())"
+          >
+            {{ 'admin.publications.newSlot' | translate }}
+          </button>
+        }
+        <a
+          [routerLink]="publicationPath + '/automation'"
+          class="admin-button"
+          >{{ 'admin.publicationAutomation.title' | translate }}</a
+        >
+        <button
+          type="button"
+          class="admin-button"
+          (click)="load()"
+          [disabled]="state() === 'loading'"
+        >
+          {{ 'admin.legacy.actualiser' | translate }}
+        </button>
+      </div>
+    </header>
+    @if (targetId) {
+      <p class="state" data-og7="attention-object-target">
+        {{ 'admin.attention.targetObject' | translate: { id: targetId } }}
+      </p>
+    }
+    @if (state() === 'ready' && !targetFound()) {
+      <p role="status">{{ 'admin.attention.objectMissing' | translate }}</p>
+    }
+
+    <p class="state" role="status" *ngIf="state() === 'loading'">
+      {{ 'admin.legacy.chargement_des_publications' | translate }}
+    </p>
+    <p class="state state-error" role="alert" *ngIf="state() === 'error'">
+      {{
+        'admin.legacy.impossible_de_charger_ou_modifier_les_publications'
+          | translate
+      }}
+    </p>
+
+    <p class="action-notice" role="status">{{ notice() | translate }}</p>
+    <section
+      class="publication-view"
+      id="publication-panel-overview"
+      aria-labelledby="publication-heading"
+      [hidden]="activeView() !== 'overview'"
+    >
+      @if (activeView() === 'overview') {
+        <nav
+          class="publication-spaces"
+          [attr.aria-label]="'admin.publications.navigation' | translate"
+        >
+          @for (space of publicationSpaces; track space; let index = $index) {
+            <a
+              [routerLink]="[publicationPath, space]"
+              [queryParams]="navigationParams()"
+              data-og7="publication-space"
+              [attr.data-og7-id]="space"
+            >
+              <span class="space-number" aria-hidden="true"
+                >0{{ index + 1 }}</span
+              >
+              <div>
+                <h2>
+                  {{
+                    'admin.publications.spaces.' + space + '.title' | translate
+                  }}
+                </h2>
+                <p>
+                  {{
+                    'admin.publications.spaces.' + space + '.help' | translate
+                  }}
+                </p>
+              </div>
+              <span class="space-open"
+                >{{
+                  'admin.publications.spaces.' + space + '.open' | translate
+                }}
+                <span aria-hidden="true">→</span></span
+              >
+            </a>
+          }
+        </nav>
+        <openg7-admin-publication-queue
+          [batches]="batches()"
+          [drafts]="drafts()"
+          [slots]="slots()"
+          [state]="state()"
+          (openBatch)="focusBatch($event)"
+          (retry)="load()"
+        />
+      }
+    </section>
+
+    <section
+      class="publication-view"
+      id="publication-panel-drafts"
+      aria-labelledby="publication-heading"
+      [hidden]="activeView() !== 'drafts'"
+    >
+      <openg7-admin-publication-drafts-panel
+        [active]="activeView() === 'drafts'"
+        [state]="state()"
+        [adminToken]="adminToken()"
+        [reload]="reload"
+        [drafts]="drafts()"
+        [sponsorships]="sponsorships()"
+        [batches]="batches()"
+        [(selectedDraftId)]="selectedDraftId"
+        [(showEligible)]="showEligible"
+        (failed)="state.set('error')"
+        (focusRequested)="focusObject($event)"
+        [draftTargetId]="draftTargetId()"
+        (notice)="notice.set($event)"
+        (batchRequested)="focusBatch($event)"
+      />
+    </section>
+
+    <section
+      class="publication-view"
+      id="publication-panel-batches"
+      aria-labelledby="publication-heading"
+      [hidden]="activeView() !== 'batches'"
+    >
+      <openg7-admin-publication-batches-panel
+        [active]="activeView() === 'batches'"
+        [state]="state()"
+        [adminToken]="adminToken()"
+        [reload]="reload"
+        [batches]="batches()"
+        [drafts]="drafts()"
+        [socialJobsResponse]="socialJobsResponse()"
+        [(selectedBatchId)]="selectedBatchId"
+        [(newBatchOpen)]="newBatchOpen"
+        (failed)="state.set('error')"
+        (focusRequested)="focusObject($event)"
+        (automationRequested)="openAutomation($event)"
+      />
+    </section>
+
+    <section
+      class="publication-view"
+      id="publication-panel-calendar"
+      aria-labelledby="publication-heading"
+      [hidden]="activeView() !== 'calendar'"
+    >
+      <openg7-admin-publication-slots-panel
+        [active]="activeView() === 'calendar'"
+        [state]="state()"
+        [adminToken]="adminToken()"
+        [reload]="reload"
+        [slots]="slots()"
+        [drafts]="drafts()"
+        [batches]="batches()"
+        [(selectedSlotId)]="selectedSlotId"
+        [(newSlotOpen)]="newSlotOpen"
+        (failed)="state.set('error')"
+        (focusRequested)="focusObject($event)"
+      />
+    </section>
+  </section>
+</openg7-admin-layout>

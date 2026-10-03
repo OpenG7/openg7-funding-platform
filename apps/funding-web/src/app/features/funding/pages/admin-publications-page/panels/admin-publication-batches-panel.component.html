@@ -1,0 +1,211 @@
+@if (active()) {
+  <section class="admin-panel" aria-labelledby="batches-title">
+    <h2 class="visually-hidden" id="batches-title">
+      {{ 'admin.legacy.lots_de_publication_collective' | translate }}
+    </h2>
+    <form
+      class="batch-create-form"
+      id="new-batch-form"
+      *ngIf="newBatchOpen()"
+      (submit)="$event.preventDefault(); createBatch()"
+    >
+      <label>
+        {{ 'admin.legacy.canal' | translate
+        }}<select
+          [value]="newBatchChannel()"
+          (change)="setNewBatchChannel($event)"
+        >
+          <option value="facebook">Facebook</option>
+          <option value="linkedin">LinkedIn</option>
+        </select>
+      </label>
+      <label>
+        {{ 'admin.legacy.capacite' | translate
+        }}<input
+          type="number"
+          min="1"
+          max="50"
+          [value]="newBatchCapacity()"
+          (input)="setNewBatchCapacity($event)"
+        />
+      </label>
+      <button type="submit" [disabled]="batchActionState() === 'create'">
+        {{ 'admin.legacy.creer_un_lot' | translate }}
+      </button>
+    </form>
+    <label class="history-toggle"
+      ><input
+        type="checkbox"
+        [checked]="showBatchHistory()"
+        (change)="showBatchHistory.set(!showBatchHistory())"
+      />{{ 'admin.publications.showHistory' | translate }}</label
+    >
+
+    <openg7-admin-publication-calendar
+      [entries]="batchCalendarEntries()"
+      [selectedId]="selectedBatchId()"
+      [state]="state()"
+      (openEntry)="selectedBatchId.set($event)"
+      (retry)="reload()()"
+    />
+    <openg7-admin-drawer
+      [opened]="!!selectedBatch()"
+      [title]="'admin.publicationCalendar.batchDetail' | translate"
+      [closeLabel]="'admin.publications.close' | translate"
+      [busy]="!!batchActionState()"
+      (closed)="selectedBatchId.set(null)"
+    >
+      @if (selectedBatch(); as batch) {
+        @if (state() === 'error') {
+          <p class="state-error" role="alert">
+            {{
+              'admin.legacy.impossible_de_charger_ou_modifier_les_publications'
+                | translate
+            }}
+          </p>
+        }
+        <p>
+          {{
+            'admin.legacy.chaque_lot_regroupe_plusieurs_commandites_approuvees_dans_une_seu'
+              | translate
+          }}
+        </p>
+        <p class="social-runtime">
+          {{
+            'admin.legacy.api_sociale_p0_p1'
+              | translate
+                : {
+                    p0: socialPublicationModeLabel(),
+                    p1: socialPublicationConfiguredChannelsLabel()
+                  }
+          }}
+        </p>
+        <article
+          class="batch-card"
+          data-og7="publication-batch"
+          [attr.data-og7-id]="batch.id"
+          [attr.id]="'attention-object-' + batch.id"
+          tabindex="-1"
+        >
+          <header>
+            <div>
+              <span>{{ batchStatusLabel(batch.status) }}</span>
+              <h3>
+                {{ channelLabel(batch.channel) }} - {{ batch.capacityUsed }}/{{
+                  batch.capacity
+                }}
+              </h3>
+            </div>
+            <small *ngIf="batch.scheduledAt">{{
+              'admin.legacy.prochaine_disponibilite_p0'
+                | translate: { p0: dateLabel(batch.scheduledAt) }
+            }}</small>
+          </header>
+          @if (selectedBatchId() === batch.id) {
+            <div class="item-editor" [attr.id]="'batch-editor-' + batch.id">
+              <div
+                class="social-job"
+                *ngIf="socialJobForBatch(batch.id) as job"
+              >
+                <div>
+                  <span>{{ socialJobStatusLabel(job.status) }}</span>
+                  <small>{{ job.provider }} / {{ job.mode }}</small>
+                </div>
+                <a
+                  *ngIf="job.externalPostUrl"
+                  [href]="job.externalPostUrl"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {{ 'admin.legacy.voir_la_publication' | translate }}</a
+                >
+                <small class="state-error" *ngIf="job.errorMessage">
+                  {{ job.errorMessage }}
+                </small>
+              </div>
+
+              <div
+                class="draft-grid"
+                *ngIf="batch.status === 'open' || batch.status === 'scheduled'"
+              >
+                <label>
+                  {{ 'admin.legacy.prochaine_disponibilite' | translate
+                  }}<input
+                    type="datetime-local"
+                    [value]="batchScheduleFor(batch.id)"
+                    (input)="setBatchSchedule(batch.id, $event)"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="neutral"
+                  [disabled]="
+                    !batchScheduleFor(batch.id) ||
+                    batchActionState() === batch.id
+                  "
+                  (click)="scheduleBatch(batch)"
+                >
+                  {{ 'admin.legacy.planifier' | translate }}
+                </button>
+              </div>
+
+              <footer>
+                <button
+                  type="button"
+                  class="neutral"
+                  *ngIf="
+                    batch.status === 'scheduled' || batch.status === 'open'
+                  "
+                  [disabled]="
+                    !canPublishSocialBatch(batch) ||
+                    batchActionState() === 'social:' + batch.id
+                  "
+                  (click)="publishSocialBatch(batch)"
+                >
+                  {{ 'admin.publicationAutomation.prepareSend' | translate }}
+                </button>
+              </footer>
+              <details class="secondary-options">
+                <summary>
+                  {{ 'admin.publications.otherActions' | translate }}
+                </summary>
+                <div class="secondary-actions">
+                  <button
+                    type="button"
+                    class="approve"
+                    *ngIf="batch.status === 'scheduled'"
+                    [disabled]="batchActionState() === batch.id"
+                    (click)="publishBatch(batch)"
+                  >
+                    {{ 'admin.publications.markPublished' | translate }}
+                  </button>
+                  <button
+                    type="button"
+                    class="reject"
+                    *ngIf="
+                      batch.status === 'open' || batch.status === 'scheduled'
+                    "
+                    [disabled]="batchActionState() === batch.id"
+                    (click)="cancelBatch(batch)"
+                  >
+                    {{ 'admin.legacy.annuler_le_lot' | translate }}
+                  </button>
+                </div>
+              </details>
+            </div>
+          }
+        </article>
+      }
+    </openg7-admin-drawer>
+
+    <article class="empty-state" *ngIf="visibleBatches().length === 0">
+      <h3>{{ 'admin.legacy.aucun_lot' | translate }}</h3>
+      <p>
+        {{
+          'admin.legacy.creez_un_lot_pour_regrouper_plusieurs_commandites_approuvees_dans'
+            | translate
+        }}
+      </p>
+    </article>
+  </section>
+}
