@@ -111,6 +111,8 @@ import {
 import { FundingAdminPublicationsClient } from './funding-admin-publications.client.js';
 import { FundingAdminOperationsClient } from './funding-admin-operations.client.js';
 import { FundingAdminDiagnosticsClient } from './funding-admin-diagnostics.client.js';
+import { FundingAdminDocumentsClient } from './funding-admin-documents.client.js';
+import { FundingAdminAccountingClient } from './funding-admin-accounting.client.js';
 import { errorMessageFromResponse } from './funding-admin-response.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
@@ -142,6 +144,12 @@ export class FundingAdminService {
     () => this.clearAdminSession()
   );
   private readonly diagnosticsClient = new FundingAdminDiagnosticsClient(
+    this.session
+  );
+  private readonly documentsClient = new FundingAdminDocumentsClient(
+    this.session
+  );
+  private readonly accountingClient = new FundingAdminAccountingClient(
     this.session
   );
   readonly sessionGeneration = this.session.sessionGeneration;
@@ -521,156 +529,45 @@ export class FundingAdminService {
     token: string,
     contributionId?: string
   ): Promise<AdminSponsorshipInvoicesResponse> {
-    const response = await this.session.requestAdminJson(
-      `/admin/sponsorship-invoices${contributionId ? '?contributionId=' + encodeURIComponent(contributionId) : ''}`,
-      {
-        auth: { token },
-        method: 'GET'
-      }
-    );
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        await errorMessageFromResponse(
-          response,
-          'Admin sponsorship invoices could not be loaded.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminSponsorshipInvoicesResponse;
+    return this.documentsClient.getSponsorshipInvoices(token, contributionId);
   }
 
   async backfillSponsorshipInvoices(
     token: string,
     payload: AdminSponsorshipInvoiceBackfillRequest
   ): Promise<AdminSponsorshipInvoiceBackfillResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorship-invoices/backfill',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        await errorMessageFromResponse(
-          response,
-          'Sponsorship invoices could not be backfilled.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminSponsorshipInvoiceBackfillResult;
+    return this.documentsClient.backfillSponsorshipInvoices(token, payload);
   }
 
   async resendSponsorshipInvoice(
     token: string,
     payload: AdminSponsorshipInvoiceResendRequest
   ): Promise<AdminSponsorshipInvoiceResendResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorship-invoices/resend',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        await errorMessageFromResponse(
-          response,
-          'Sponsorship invoice could not be resent.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminSponsorshipInvoiceResendResult;
+    return this.documentsClient.resendSponsorshipInvoice(token, payload);
   }
 
   async getSponsorshipInvoicePdf(
     token: string,
     invoiceId: string
   ): Promise<Blob> {
-    const params = new URLSearchParams({ invoiceId });
-    const response = await this.session.requestAdminJson(
-      `/admin/sponsorship-invoices/pdf?${params.toString()}`,
-      {
-        auth: { token },
-        method: 'GET',
-        headers: { Accept: 'application/pdf' }
-      }
-    );
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        await errorMessageFromResponse(
-          response,
-          'Sponsorship invoice PDF could not be downloaded.'
-        )
-      );
-    }
-
-    return response.blob();
+    return this.documentsClient.getSponsorshipInvoicePdf(token, invoiceId);
   }
 
   async resendSponsorshipCreditNote(
     token: string,
     payload: AdminSponsorshipCreditNoteResendRequest
   ): Promise<AdminSponsorshipCreditNoteResendResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorship-credit-notes/resend',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        await errorMessageFromResponse(
-          response,
-          'Sponsorship credit note could not be resent.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminSponsorshipCreditNoteResendResult;
+    return this.documentsClient.resendSponsorshipCreditNote(token, payload);
   }
 
   async getSponsorshipCreditNotePdf(
     token: string,
     creditNoteId: string
   ): Promise<Blob> {
-    const params = new URLSearchParams({ creditNoteId });
-    const response = await this.session.requestAdminJson(
-      `/admin/sponsorship-credit-notes/pdf?${params.toString()}`,
-      {
-        auth: { token },
-        method: 'GET',
-        headers: { Accept: 'application/pdf' }
-      }
+    return this.documentsClient.getSponsorshipCreditNotePdf(
+      token,
+      creditNoteId
     );
-
-    if (!response.ok) {
-      throw new Error(
-        await errorMessageFromResponse(
-          response,
-          'Sponsorship credit note PDF could not be downloaded.'
-        )
-      );
-    }
-
-    return response.blob();
   }
 
   getStripeEvent(
@@ -692,110 +589,39 @@ export class FundingAdminService {
     token: string,
     contributionId?: string
   ): Promise<AdminContributionsResponse> {
-    const params = contributionId
-      ? '?' + new URLSearchParams({ contributionId })
-      : '';
-    const response = await this.session.requestAdminJson(
-      `/admin/contributions${params}`,
-      { auth: { token }, method: 'GET' }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin contributions could not be loaded.');
-    }
-
-    return (await response.json()) as AdminContributionsResponse;
+    return this.accountingClient.getContributions(token, contributionId);
   }
 
   async getContributionsCsv(
     token: string,
     selection: AdminContributionsExportRequest
   ): Promise<string> {
-    const response = await this.session.requestAdminJson(
-      '/admin/contributions.csv',
-      {
-        auth: { token },
-        method: 'POST',
-        cache: 'no-store',
-        headers: { Accept: 'text/csv', 'Content-Type': 'application/json' },
-        body: selection
-      }
-    );
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(response.status);
-    }
-
-    return response.text();
+    return this.accountingClient.getContributionsCsv(token, selection);
   }
 
   async getExpenses(
     token: string,
     expenseId?: string
   ): Promise<AdminExpensesResponse> {
-    const response = await this.session.requestAdminJson(
-      `/admin/expenses${expenseId ? '?expenseId=' + encodeURIComponent(expenseId) : ''}`,
-      { auth: { token }, method: 'GET', cache: 'no-store' }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin expenses could not be loaded.');
-    }
-
-    return (await response.json()) as AdminExpensesResponse;
+    return this.accountingClient.getExpenses(token, expenseId);
   }
 
   async createExpense(
     token: string,
     payload: AdminExpenseCreateRequest
   ): Promise<AdminExpenseMutationResult> {
-    const response = await this.session.requestAdminJson('/admin/expenses', {
-      auth: { token },
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload
-    });
-
-    if (!response.ok) {
-      throw new Error('Admin expense could not be created.');
-    }
-
-    return (await response.json()) as AdminExpenseMutationResult;
+    return this.accountingClient.createExpense(token, payload);
   }
 
   async updateExpense(
     token: string,
     payload: AdminExpenseUpdateRequest
   ): Promise<AdminExpenseMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/expenses/update',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 409) throw new Error('version_conflict');
-      throw new Error('Admin expense could not be updated.');
-    }
-
-    return (await response.json()) as AdminExpenseMutationResult;
+    return this.accountingClient.updateExpense(token, payload);
   }
 
   async getTransparency(token: string): Promise<AdminTransparencyResponse> {
-    const response = await this.session.requestAdminJson(
-      '/admin/transparency',
-      { auth: { token }, method: 'GET' }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin transparency could not be loaded.');
-    }
-
-    return (await response.json()) as AdminTransparencyResponse;
+    return this.accountingClient.getTransparency(token);
   }
 
   getPublicationDrafts(

@@ -155,6 +155,7 @@ import {
   updateAdminPublicationSlot
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
+import { createAdminContributionsHttpHandler } from './admin-contributions.http.js';
 import { createAdminEmailHttpHandler } from './admin-email.http.js';
 import { createAdminInsightsHttpHandler } from './admin-insights.http.js';
 import {
@@ -1683,6 +1684,24 @@ const runPublicationWorker = async (): Promise<void> => {
     );
   }
 };
+
+const handleAdminContributionsRequest = createAdminContributionsHttpHandler({
+  publicBaseOrigin,
+  ensureAdminAccess,
+  getAdminAuditActor,
+  readBody,
+  writeJson,
+  writeCsv,
+  listAdminContributions: (contributionId) =>
+    listAdminContributions(dbPool, contributionId),
+  exportAdminContributions: (input, actor) =>
+    exportAdminContributions(dbPool!, input, actor),
+  ContributionExportError,
+  reportFailure: (message, error) => {
+    if (error === undefined) console.error(message);
+    else console.error(message, error);
+  }
+});
 
 const handleAdminEmailRequest = createAdminEmailHttpHandler({
   publicBaseOrigin,
@@ -5178,114 +5197,7 @@ const handleRequest = async (
     return;
   }
 
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/contributions',
-      '/api/admin/contributions'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    try {
-      const contributionId =
-        new URL(request.url!, publicBaseOrigin).searchParams.get(
-          'contributionId'
-        ) ?? undefined;
-      if (
-        contributionId !== undefined &&
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          contributionId
-        )
-      ) {
-        writeJson(request, response, 400, {
-          error: 'Invalid contribution identifier.'
-        });
-        return;
-      }
-      const result = await listAdminContributions(dbPool, contributionId);
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load admin contributions.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin contributions could not be loaded.'
-      });
-    }
-    return;
-  }
-
-  if (
-    routeMatches(
-      request.url,
-      '/admin/contributions.csv',
-      '/api/admin/contributions.csv'
-    )
-  ) {
-    response.setHeader('Cache-Control', 'private, no-store');
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-    if (request.method !== 'POST') {
-      response.setHeader('Allow', 'POST');
-      writeJson(request, response, 405, {
-        error: 'Private exports require a confirmed POST selection.'
-      });
-      return;
-    }
-    if (
-      request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !==
-      'application/json'
-    ) {
-      writeJson(request, response, 415, {
-        error: 'A JSON export selection is required.'
-      });
-      return;
-    }
-    let input: unknown;
-    try {
-      input = JSON.parse(await readBody(request, 64 * 1024));
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid export request.',
-        code: 'invalid_export_selection'
-      });
-      return;
-    }
-    try {
-      const result = await exportAdminContributions(
-        dbPool!,
-        input,
-        getAdminAuditActor(request)
-      );
-      response.setHeader('X-Request-Id', result.requestId);
-      writeCsv(
-        request,
-        response,
-        200,
-        result.csv,
-        'openg7-admin-contributions.csv'
-      );
-    } catch (error) {
-      if (!(error instanceof ContributionExportError))
-        console.error('Private contribution export unavailable.');
-      writeJson(
-        request,
-        response,
-        error instanceof ContributionExportError ? error.status : 503,
-        {
-          error: 'Admin contributions export could not be generated.',
-          code:
-            error instanceof ContributionExportError
-              ? error.code
-              : 'export_unavailable'
-        }
-      );
-    }
-    return;
-  }
+  if (await handleAdminContributionsRequest(request, response)) return;
 
   if (
     request.method === 'GET' &&

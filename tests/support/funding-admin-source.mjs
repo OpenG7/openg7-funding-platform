@@ -11,6 +11,8 @@ export const readFundingAdminSource = () => {
     'funding-admin-publications.client.ts',
     'funding-admin-operations.client.ts',
     'funding-admin-diagnostics.client.ts',
+    'funding-admin-documents.client.ts',
+    'funding-admin-accounting.client.ts',
     'funding-admin-response.ts'
   ]
     .map((path) => readFileSync(root + path, 'utf8'))
