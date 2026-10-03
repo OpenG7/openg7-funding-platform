@@ -321,7 +321,19 @@ const interventionRequest = {
   note: 'Synthetic note',
   nextReviewOn: null
 };
-const dossierRequests = [
+const detailsRequest = {
+  contributionId: 'synthetic-contribution',
+  companyName: 'Synthetic sponsor',
+  publicName: 'Synthetic sponsor',
+  contactName: 'Synthetic contact',
+  contactEmail: 'sponsor@example.test',
+  websiteUrl: 'https://sponsor.example.test',
+  expectedVersion: 'synthetic-version',
+  requestId: 'synthetic-request',
+  reason: 'correction',
+  confirmed: true
+};
+const explicitJsonRequests = [
   {
     name: 'assistant summary',
     invoke: (service, token) => service.getAssistantSummary(token),
@@ -395,13 +407,46 @@ const dossierRequests = [
     path: '/admin/sponsorships/interventions',
     method: 'POST',
     body: interventionRequest
+  },
+  {
+    name: 'dashboard',
+    invoke: (service, token) => service.getDashboard(token),
+    path: '/admin/dashboard',
+    method: 'GET'
+  },
+  ...['metrics', 'activity', 'systems'].map((block) => ({
+    name: `cockpit ${block}`,
+    invoke: (service, token) => service.getCockpit(block, token),
+    path: `/admin/cockpit/${block}`
+  })),
+  {
+    name: 'work queue',
+    invoke: (service, token) =>
+      service.getWorkQueue(token, { pageSize: 1, itemId: 'sponsor /' }),
+    path: '/admin/attention?pageSize=1&itemId=sponsor+%2F',
+    method: 'GET',
+    cache: 'no-store'
+  },
+  {
+    name: 'Stripe event',
+    invoke: (service, token) => service.getStripeEvent(token, 'event /'),
+    path: '/admin/stripe-event?eventId=event+%2F',
+    cache: 'no-store'
+  },
+  {
+    name: 'dossier details',
+    invoke: (service, token) =>
+      service.updateSponsorshipDetails(token, detailsRequest),
+    path: '/admin/sponsorships/details',
+    method: 'POST',
+    body: detailsRequest
   }
 ];
 const explicitToken = 'openg7-admin-session.explicit-synthetic';
 const summaryFallback = 'Admin assistant summary could not be loaded.';
 
-test('assistant and dossier calls preserve explicit bearer/cookie authentication and each transport policy', async (t) => {
-  for (const request of dossierRequests) {
+test('admin JSON endpoints preserve explicit bearer/cookie authentication and each transport policy', async (t) => {
+  for (const request of explicitJsonRequests) {
     for (const token of [explicitToken, cookieMarker]) {
       await t.test(
         `${request.name}: ${token === cookieMarker ? 'cookie' : 'explicit bearer'}`,
@@ -442,8 +487,8 @@ test('assistant and dossier calls preserve explicit bearer/cookie authentication
   }
 });
 
-test('assistant and dossier failures keep their error types and leave explicit sessions intact', async (t) => {
-  for (const request of dossierRequests) {
+test('admin JSON failures keep their error types and leave explicit sessions intact', async (t) => {
+  for (const request of explicitJsonRequests) {
     for (const status of [401, 403, 409, 503]) {
       await t.test(`${request.name}: ${status}`, async (t) => {
         const { service, sessionStorage } = serviceFixture(t);
@@ -490,6 +535,34 @@ test('assistant and dossier failures keep their error types and leave explicit s
   }
 });
 
+test('standard admin status errors preserve malformed error bodies without decoding them', async (t) => {
+  for (const request of explicitJsonRequests.filter(
+    (request) => !request.summaryError
+  )) {
+    await t.test(request.name, async (t) => {
+      const { service, sessionStorage } = serviceFixture(t);
+      const response = new Response('not JSON', { status: 503 });
+      const jsonMock = t.mock.method(response, 'json', () =>
+        assert.fail('standard status errors do not read response bodies')
+      );
+      const fetchMock = t.mock.method(
+        globalThis,
+        'fetch',
+        async () => response
+      );
+      await assert.rejects(request.invoke(service, explicitToken), {
+        name: 'AdminDashboardRequestError',
+        status: 503,
+        message: 'Admin dashboard could not be loaded.'
+      });
+      assert.equal(jsonMock.mock.callCount(), 0);
+      assert.equal(fetchMock.mock.callCount(), 1);
+      assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
+      assert.equal(service.sessionGeneration(), 0);
+    });
+  }
+});
+
 test('assistant summary retains error/message priority and malformed-response fallback', async (t) => {
   for (const [name, response, expected] of [
     [
@@ -522,8 +595,8 @@ test('assistant summary retains error/message priority and malformed-response fa
   }
 });
 
-test('assistant and dossier calls propagate malformed success JSON and network errors without retry', async (t) => {
-  for (const request of dossierRequests) {
+test('admin JSON endpoints propagate malformed success JSON and network errors without retry', async (t) => {
+  for (const request of explicitJsonRequests) {
     for (const networkFailure of [false, true]) {
       await t.test(
         `${request.name}: ${networkFailure ? 'network failure' : 'malformed success'}`,
@@ -548,7 +621,7 @@ test('assistant and dossier calls propagate malformed success JSON and network e
 });
 
 test('explicit empty authentication neither falls back to a saved token nor creates another session', async (t) => {
-  for (const request of dossierRequests) {
+  for (const request of explicitJsonRequests) {
     await t.test(request.name, async (t) => {
       const { service, sessionStorage } = serviceFixture(t);
       const fetchMock = t.mock.method(
@@ -571,7 +644,7 @@ test('explicit empty authentication neither falls back to a saved token nor crea
   }
 });
 
-test('assistant and dossier transport remains usable during SSR without browser storage', async (t) => {
+test('admin JSON transport remains usable during SSR without browser storage', async (t) => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   delete globalThis.window;
   t.after(() => {
@@ -584,12 +657,12 @@ test('assistant and dossier transport remains usable during SSR without browser 
     assert.equal(options.headers.Authorization, `Bearer ${explicitToken}`);
     return Response.json({ synthetic: true });
   });
-  for (const request of dossierRequests) {
+  for (const request of explicitJsonRequests) {
     assert.deepEqual(await request.invoke(service, explicitToken), {
       synthetic: true
     });
   }
-  assert.equal(fetchMock.mock.callCount(), dossierRequests.length);
+  assert.equal(fetchMock.mock.callCount(), explicitJsonRequests.length);
 });
 
 const syntheticIdentity = {
@@ -804,6 +877,50 @@ test('clearing a session prevents an in-flight work queue from restoring private
   assert.equal(service.identity(), null);
   assert.equal(service.sessionGeneration(), 1);
   assert.equal(sessionStorage.getItem(sessionKey), null);
+});
+
+test('work queue keeps the latest snapshot when an older request completes or fails', async (t) => {
+  for (const olderFails of [false, true]) {
+    await t.test(olderFails ? 'older failure' : 'older success', async (t) => {
+      const { service, sessionStorage } = serviceFixture(t);
+      let finishOlder;
+      let failOlder;
+      let olderStarted;
+      const started = new Promise((resolve) => {
+        olderStarted = resolve;
+      });
+      const latestQueue = { ...syntheticQueue, total: 2 };
+      const fetchMock = t.mock.method(globalThis, 'fetch', async (url) => {
+        if (url.endsWith('page=1')) {
+          olderStarted();
+          return new Promise((resolve, reject) => {
+            finishOlder = resolve;
+            failOlder = reject;
+          });
+        }
+        return Response.json(latestQueue);
+      });
+
+      const older = service.getWorkQueue(explicitToken, { page: 1 });
+      await started;
+      assert.deepEqual(
+        await service.getWorkQueue(explicitToken, { page: 2 }),
+        latestQueue
+      );
+      if (olderFails) {
+        const failure = new TypeError('Synthetic network failure');
+        failOlder(failure);
+        await assert.rejects(older, (error) => error === failure);
+      } else {
+        finishOlder(Response.json(syntheticQueue));
+        assert.deepEqual(await older, syntheticQueue);
+      }
+      assert.deepEqual(service.workQueue(), latestQueue);
+      assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
+      assert.equal(service.sessionGeneration(), 0);
+      assert.equal(fetchMock.mock.callCount(), 2);
+    });
+  }
 });
 
 test('access, setup and email-test failures preserve shared status errors and session invalidation', async (t) => {

@@ -1,6 +1,12 @@
-import type { Pool, PoolClient } from 'pg';
+import type { PoolClient } from 'pg';
+
+interface PostgresConnectionSource {
+  connect(): Promise<PoolClient>;
+}
 
 interface PostgresTransactionOptions<T> {
+  /** Read all projections from one stable snapshot and reject database writes. */
+  readonly readOnlySnapshot?: boolean;
   /** Roll back a declined result, including any writes made before the decision. */
   readonly shouldCommit?: (result: T) => boolean;
   /** Keep the operation failure if its rollback also fails. */
@@ -9,14 +15,18 @@ interface PostgresTransactionOptions<T> {
 
 /** Own one transaction and release its client before resolving the result. */
 export const withPostgresTransaction = async <T>(
-  pool: Pool,
+  pool: PostgresConnectionSource,
   operation: (client: PoolClient) => Promise<T>,
   options: PostgresTransactionOptions<T> = {}
 ): Promise<T> => {
   const client = await pool.connect();
   let rollbackAttempted = false;
   try {
-    await client.query('BEGIN');
+    await client.query(
+      options.readOnlySnapshot
+        ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'
+        : 'BEGIN'
+    );
     const result = await operation(client);
     if (options.shouldCommit?.(result) === false) {
       rollbackAttempted = true;

@@ -372,15 +372,13 @@ export class FundingAdminService {
     sponsorshipId?: string
   ): Promise<AdminSponsorshipProgressResponse> {
     const params = new URLSearchParams(sponsorshipId ? { sponsorshipId } : {});
-    const response = await this.session.requestAdminJson(
+    return this.session.requestAdminData(
       `/admin/sponsorships/progress?${params}`,
       {
         auth: { token },
         cache: 'no-store'
       }
     );
-    if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return (await response.json()) as AdminSponsorshipProgressResponse;
   }
 
   getSavedAdminToken(): string {
@@ -412,16 +410,14 @@ export class FundingAdminService {
       for (const [key, value] of Object.entries(query)) {
         if (value !== undefined && value !== '') params.set(key, String(value));
       }
-      const response = await fetch(
-        `${this.session.apiBaseUrl}/admin/attention?${params.toString()}`,
+      const data = await this.session.requestAdminData<AdminWorkQueueResponse>(
+        `/admin/attention?${params.toString()}`,
         {
+          auth: { token },
           method: 'GET',
-          cache: 'no-store',
-          headers: await this.session.createHeaders(token)
+          cache: 'no-store'
         }
       );
-      if (!response.ok) throw new AdminDashboardRequestError(response.status);
-      const data = (await response.json()) as AdminWorkQueueResponse;
       if (generation === this.queueGeneration)
         this.workQueue.set(data.available ? data : null);
       return data;
@@ -432,16 +428,10 @@ export class FundingAdminService {
   }
 
   async getDashboard(token: string): Promise<AdminDashboardResponse> {
-    const response = await fetch(`${this.session.apiBaseUrl}/admin/dashboard`, {
-      method: 'GET',
-      headers: await this.session.createHeaders(token)
+    return this.session.requestAdminData('/admin/dashboard', {
+      auth: { token },
+      method: 'GET'
     });
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(response.status);
-    }
-
-    return (await response.json()) as AdminDashboardResponse;
   }
 
   async getCockpit<T extends 'metrics' | 'activity' | 'systems'>(
@@ -454,14 +444,9 @@ export class FundingAdminService {
       systems: AdminCockpitSystems;
     }[T]
   > {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/cockpit/${block}`,
-      {
-        headers: await this.session.createHeaders(token)
-      }
-    );
-    if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return response.json();
+    return this.session.requestAdminData(`/admin/cockpit/${block}`, {
+      auth: { token }
+    });
   }
 
   async getAssistantSummary(token: string): Promise<AdminAssistantSummary> {
@@ -490,22 +475,17 @@ export class FundingAdminService {
     sponsorshipId?: string
   ): Promise<AdminAssistantContextResponse> {
     const params = new URLSearchParams(sponsorshipId ? { sponsorshipId } : {});
-    const response = await this.session.requestAdminJson(
-      `/admin/assistant/context?${params}`,
-      {
-        auth: { token },
-        cache: 'no-store'
-      }
-    );
-    if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return (await response.json()) as AdminAssistantContextResponse;
+    return this.session.requestAdminData(`/admin/assistant/context?${params}`, {
+      auth: { token },
+      cache: 'no-store'
+    });
   }
 
   async requestSponsorshipInformation(
     token: string,
     payload: AdminInformationRequest
   ): Promise<AdminInformationRequestResult> {
-    const response = await this.session.requestAdminJson(
+    return this.session.requestAdminData(
       '/admin/sponsorships/request-information',
       {
         auth: { token },
@@ -515,30 +495,26 @@ export class FundingAdminService {
         body: payload
       }
     );
-    if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return (await response.json()) as AdminInformationRequestResult;
   }
 
   async getSponsorshipAccessRecipient(
     token: string,
     contributionId: string
   ): Promise<{ recipient: string | null }> {
-    const response = await this.session.requestAdminJson(
+    return this.session.requestAdminData(
       `/admin/sponsorships/followup-access?${new URLSearchParams({ contributionId })}`,
       {
         auth: { token },
         cache: 'no-store'
       }
     );
-    if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return response.json();
   }
 
   async resendSponsorshipAccess(
     token: string,
     payload: import('@openg7/funding-core').AdminSponsorshipAccessRequest
   ): Promise<import('@openg7/funding-core').AdminSponsorshipAccessResult> {
-    const response = await this.session.requestAdminJson(
+    return this.session.requestAdminData(
       '/admin/sponsorships/followup-access',
       {
         auth: { token },
@@ -547,50 +523,30 @@ export class FundingAdminService {
         body: payload
       }
     );
-    if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return response.json();
   }
 
   async queryAssistant(
     token: string,
     payload: AdminAssistantQueryRequest
   ): Promise<AdminAssistantQueryResponse> {
-    const response = await this.session.requestAdminJson(
-      '/admin/assistant/query',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(response.status);
-    }
-
-    return (await response.json()) as AdminAssistantQueryResponse;
+    return this.session.requestAdminData('/admin/assistant/query', {
+      auth: { token },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
+    });
   }
 
   async prepareAssistantDraft(
     token: string,
     payload: AdminAssistantPrepareRequest
   ): Promise<AdminAssistantPrepareResponse> {
-    const response = await this.session.requestAdminJson(
-      '/admin/assistant/prepare',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(response.status);
-    }
-
-    return (await response.json()) as AdminAssistantPrepareResponse;
+    return this.session.requestAdminData('/admin/assistant/prepare', {
+      auth: { token },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
+    });
   }
 
   async databaseBackups(
@@ -900,15 +856,13 @@ export class FundingAdminService {
     token: string,
     eventId: string
   ): Promise<AdminStripeEventResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/stripe-event?${new URLSearchParams({ eventId })}`,
+    return this.session.requestAdminData(
+      `/admin/stripe-event?${new URLSearchParams({ eventId })}`,
       {
-        headers: await this.session.createHeaders(token),
+        auth: { token },
         cache: 'no-store'
       }
     );
-    if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return response.json() as Promise<AdminStripeEventResponse>;
   }
 
   async search(
@@ -1739,50 +1693,34 @@ export class FundingAdminService {
       sponsorshipId,
       ...(before ? { before } : {})
     });
-    const response = await this.session.requestAdminJson(
+    return this.session.requestAdminData(
       `/admin/sponsorships/interventions?${params}`,
       { auth: { token }, cache: 'no-store' }
     );
-    if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return (await response.json()) as SponsorshipInterventionsResponse;
   }
 
   async recordSponsorshipIntervention(
     token: string,
     payload: SponsorshipInterventionRequest
   ): Promise<SponsorshipIntervention> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorships/interventions',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-    if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return (await response.json()) as SponsorshipIntervention;
+    return this.session.requestAdminData('/admin/sponsorships/interventions', {
+      auth: { token },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
+    });
   }
 
   async updateSponsorshipDetails(
     token: string,
     payload: AdminSponsorshipDetailsRequest
   ): Promise<AdminSponsorshipDetailsResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/details`,
-      {
-        method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      }
-    );
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(response.status);
-    }
-    return (await response.json()) as AdminSponsorshipDetailsResult;
+    return this.session.requestAdminData('/admin/sponsorships/details', {
+      auth: { token },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
+    });
   }
 
   async reviewSponsorship(

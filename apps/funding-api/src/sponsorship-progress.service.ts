@@ -19,6 +19,7 @@ import {
   type SponsorshipAssistantDataset
 } from './admin-assistant/context.repository.js';
 import { resolveSponsorshipSelection } from './admin-work-queue.service.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 import {
   findSponsorshipPreparationActivityId,
   loadSponsorshipProgressFacts,
@@ -357,35 +358,31 @@ export const getSponsorshipProgress = async (
   const selection = await resolveSponsorshipSelection(pool, id, now);
   if (selection.status !== 'selected')
     return { ...base, status: selection.status };
-  id = selection.sponsorshipId;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-    const source = await loadSponsorshipAssistantDataset(client, id, now);
-    if (!source) {
-      await client.query('COMMIT');
-      return { ...base, status: 'not_found' };
-    }
-    id = source.record.contributionId;
-    const facts = await loadSponsorshipProgressFacts(client, id);
-    const dossier = buildSponsorshipProgress(source, facts);
-    const preparationActivityId = await findSponsorshipPreparationActivityId(
-      client,
-      id
-    );
-    await client.query('COMMIT');
-    return {
-      ...base,
-      status: 'ok',
-      dossier: {
-        ...dossier,
-        preparationActivityId
-      }
-    };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  return withPostgresTransaction<AdminSponsorshipProgressResponse>(
+    pool,
+    async (client) => {
+      const source = await loadSponsorshipAssistantDataset(
+        client,
+        selection.sponsorshipId,
+        now
+      );
+      if (!source) return { ...base, status: 'not_found' };
+      const contributionId = source.record.contributionId;
+      const facts = await loadSponsorshipProgressFacts(client, contributionId);
+      const dossier = buildSponsorshipProgress(source, facts);
+      const preparationActivityId = await findSponsorshipPreparationActivityId(
+        client,
+        contributionId
+      );
+      return {
+        ...base,
+        status: 'ok',
+        dossier: {
+          ...dossier,
+          preparationActivityId
+        }
+      };
+    },
+    { readOnlySnapshot: true }
+  );
 };
