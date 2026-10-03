@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 
 import { enqueueSponsorshipDocumentEmail } from './email-notification.service.js';
 import { insertAdminAuditLog } from './fund-admin.repository.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 import type {
   SponsorshipCreditNoteRecord,
   SponsorshipInvoiceRecord
@@ -26,9 +27,7 @@ export async function queueAdminDocumentResend(
   const idKey = invoice ? 'invoiceId' : 'creditNoteId';
   const requestId = input.requestId.toLowerCase();
   const key = `admin-document-resend:${requestId}`;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  return withPostgresTransaction(pool, async (client) => {
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
       key
     ]);
@@ -71,7 +70,6 @@ export async function queueAdminDocumentResend(
       if (!audited)
         throw new Error('Document resend audit could not be recorded.');
     }
-    await client.query('COMMIT');
     return {
       queued: existing?.status !== 'sent',
       attempted: false,
@@ -79,10 +77,5 @@ export async function queueAdminDocumentResend(
       messageId,
       error: null
     };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 }

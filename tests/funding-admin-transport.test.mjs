@@ -986,3 +986,391 @@ test('SSR session APIs avoid browser storage and restoration requests', async (t
   assert.equal(service.sessionGeneration(), 1);
   assert.equal(fetchMock.mock.callCount(), 0);
 });
+
+const backupRequest = {
+  requestId: 'synthetic-backup',
+  confirmation: 'BACKUP_DATABASE'
+};
+const emailTestRequest = {
+  requestId: 'synthetic-email-test',
+  to: 'owner@example.test'
+};
+const emailRetryRequest = { messageId: 'synthetic-message' };
+const invoiceBackfillRequest = {
+  confirmation: 'BACKFILL_INVOICES',
+  contributionId: 'synthetic-contribution',
+  limit: 1
+};
+const invoiceResendRequest = {
+  invoiceId: 'synthetic-invoice',
+  to: 'sponsor@example.test',
+  confirmation: 'synthetic-invoice',
+  requestId: 'synthetic-invoice-resend'
+};
+const creditNoteResendRequest = {
+  creditNoteId: 'synthetic-credit-note',
+  to: 'sponsor@example.test',
+  confirmation: 'synthetic-credit-note',
+  requestId: 'synthetic-credit-note-resend'
+};
+const operationalRequests = [
+  {
+    name: 'backup status',
+    savedAuth: true,
+    invoke: (service) => service.databaseBackups('backup /'),
+    path: '/admin/backups?requestId=backup%20%2F',
+    method: 'GET',
+    errorKind: 'backup',
+    fallback: 'Database backup request failed.',
+    clearsUnauthorizedSession: true
+  },
+  {
+    name: 'backup request',
+    savedAuth: true,
+    invoke: (service) => service.databaseBackups(undefined, backupRequest),
+    path: '/admin/backups',
+    method: 'POST',
+    body: backupRequest,
+    errorKind: 'backup',
+    fallback: 'Database backup request failed.',
+    clearsUnauthorizedSession: true
+  },
+  {
+    name: 'setup status',
+    invoke: (service, token) => service.getSetupStatus(token),
+    path: '/admin/setup-status',
+    method: 'GET',
+    errorKind: 'access',
+    fallback: 'ACCESS_UNAVAILABLE',
+    clearsUnauthorizedSession: true
+  },
+  {
+    name: 'email test send',
+    invoke: (service, token) => service.sendEmailTest(token, emailTestRequest),
+    path: '/admin/email/test',
+    method: 'POST',
+    body: emailTestRequest,
+    errorKind: 'access',
+    fallback: 'ACCESS_UNAVAILABLE',
+    clearsUnauthorizedSession: true
+  },
+  {
+    name: 'email test status',
+    invoke: (service, token) => service.getEmailTest(token, 'request /'),
+    path: '/admin/email/test?requestId=request%20%2F',
+    errorKind: 'access',
+    fallback: 'ACCESS_UNAVAILABLE',
+    clearsUnauthorizedSession: true
+  },
+  {
+    name: 'email queue',
+    invoke: (service, token) => service.getEmailQueue(token, 'message /'),
+    path: '/admin/email-queue?messageId=message%20%2F',
+    method: 'GET',
+    fallback: 'Admin email queue could not be loaded.'
+  },
+  {
+    name: 'email retry',
+    invoke: (service, token) =>
+      service.retryEmailQueueMessage(token, emailRetryRequest),
+    path: '/admin/email-queue/retry',
+    method: 'POST',
+    body: emailRetryRequest,
+    fallback: 'Email queue message could not be retried.'
+  },
+  {
+    name: 'invoices',
+    invoke: (service, token) =>
+      service.getSponsorshipInvoices(token, 'sponsor /'),
+    path: '/admin/sponsorship-invoices?contributionId=sponsor%20%2F',
+    method: 'GET',
+    errorKind: 'status',
+    fallback: 'Admin sponsorship invoices could not be loaded.'
+  },
+  {
+    name: 'invoice backfill',
+    invoke: (service, token) =>
+      service.backfillSponsorshipInvoices(token, invoiceBackfillRequest),
+    path: '/admin/sponsorship-invoices/backfill',
+    method: 'POST',
+    body: invoiceBackfillRequest,
+    fallback: 'Sponsorship invoices could not be backfilled.'
+  },
+  {
+    name: 'invoice resend',
+    invoke: (service, token) =>
+      service.resendSponsorshipInvoice(token, invoiceResendRequest),
+    path: '/admin/sponsorship-invoices/resend',
+    method: 'POST',
+    body: invoiceResendRequest,
+    fallback: 'Sponsorship invoice could not be resent.'
+  },
+  {
+    name: 'invoice PDF',
+    invoke: (service, token) =>
+      service.getSponsorshipInvoicePdf(token, 'invoice /'),
+    path: '/admin/sponsorship-invoices/pdf?invoiceId=invoice+%2F',
+    method: 'GET',
+    pdf: true,
+    errorKind: 'status',
+    fallback: 'Sponsorship invoice PDF could not be downloaded.'
+  },
+  {
+    name: 'credit-note resend',
+    invoke: (service, token) =>
+      service.resendSponsorshipCreditNote(token, creditNoteResendRequest),
+    path: '/admin/sponsorship-credit-notes/resend',
+    method: 'POST',
+    body: creditNoteResendRequest,
+    fallback: 'Sponsorship credit note could not be resent.'
+  },
+  {
+    name: 'credit-note PDF',
+    invoke: (service, token) =>
+      service.getSponsorshipCreditNotePdf(token, 'credit /'),
+    path: '/admin/sponsorship-credit-notes/pdf?creditNoteId=credit+%2F',
+    method: 'GET',
+    pdf: true,
+    fallback: 'Sponsorship credit note PDF could not be downloaded.'
+  }
+];
+
+test('operational transport preserves saved/explicit auth, queries, methods, payloads and PDF bytes', async (t) => {
+  const pdfBytes = new Uint8Array([37, 80, 68, 70, 45, 0, 255]);
+  for (const request of operationalRequests) {
+    for (const token of [explicitToken, cookieMarker]) {
+      await t.test(`${request.name}: ${token}`, async (t) => {
+        const { service, sessionStorage } = serviceFixture(
+          t,
+          request.savedAuth ? token : syntheticToken
+        );
+        t.mock.method(AbortSignal, 'timeout', () =>
+          assert.fail('this endpoint has no client timeout')
+        );
+        const fetchMock = t.mock.method(
+          globalThis,
+          'fetch',
+          async (url, options) => {
+            assert.equal(url, baseUrl + request.path);
+            assert.equal(options.method, request.method);
+            assert.equal(options.cache, undefined);
+            assert.equal(options.signal, undefined);
+            assert.equal(options.credentials, undefined);
+            assert.deepEqual(options.headers, {
+              Accept: request.pdf ? 'application/pdf' : 'application/json',
+              ...(token === cookieMarker
+                ? {}
+                : { Authorization: `Bearer ${token}` }),
+              ...(request.body ? { 'Content-Type': 'application/json' } : {})
+            });
+            assert.equal(
+              options.body,
+              request.body ? JSON.stringify(request.body) : undefined
+            );
+            const response = request.pdf
+              ? new Response(pdfBytes, {
+                  headers: { 'Content-Type': 'application/pdf' }
+                })
+              : Response.json({ synthetic: true });
+            if (request.pdf)
+              t.mock.method(response, 'json', () =>
+                assert.fail('PDF bytes are not JSON')
+              );
+            return response;
+          }
+        );
+        const result = await request.invoke(service, token);
+        if (request.pdf) {
+          assert.ok(result instanceof Blob);
+          assert.equal(result.type, 'application/pdf');
+          assert.deepEqual(
+            new Uint8Array(await result.arrayBuffer()),
+            pdfBytes
+          );
+        } else {
+          assert.deepEqual(result, { synthetic: true });
+        }
+        assert.equal(sessionStorage.getItem(sessionKey), token);
+        assert.equal(service.sessionGeneration(), 0);
+        assert.equal(fetchMock.mock.callCount(), 1);
+      });
+    }
+  }
+});
+
+test('operational HTTP failures retain their error body, type and 401 invalidation policies', async (t) => {
+  for (const request of operationalRequests) {
+    for (const status of [401, 403, 409, 503]) {
+      await t.test(`${request.name}: ${status}`, async (t) => {
+        const { service, sessionStorage } = serviceFixture(t);
+        service.identity.set(syntheticIdentity);
+        service.workQueue.set(syntheticQueue);
+        const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+          Response.json(
+            {
+              message: 'Synthetic server message',
+              error: 'Secondary error',
+              code: 'SYNTHETIC_CODE'
+            },
+            { status }
+          )
+        );
+        await assert.rejects(
+          request.invoke(service, explicitToken),
+          (error) => {
+            assert.equal(
+              error instanceof AdminDashboardRequestError,
+              Boolean(request.errorKind)
+            );
+            assert.equal(error.status, request.errorKind ? status : undefined);
+            assert.equal(
+              error.message,
+              request.errorKind === 'backup'
+                ? request.fallback
+                : request.errorKind === 'access'
+                  ? 'SYNTHETIC_CODE'
+                  : 'Synthetic server message'
+            );
+            assert.equal(
+              error.code,
+              request.errorKind === 'backup' ? 'SYNTHETIC_CODE' : undefined
+            );
+            return true;
+          }
+        );
+        const cleared = status === 401 && request.clearsUnauthorizedSession;
+        assert.equal(
+          sessionStorage.getItem(sessionKey),
+          cleared ? null : request.savedAuth ? syntheticToken : explicitToken
+        );
+        assert.equal(
+          sessionStorage.getItem(selectionKey),
+          cleared ? null : 'synthetic-selection'
+        );
+        assert.equal(service.identity(), cleared ? null : syntheticIdentity);
+        assert.equal(service.workQueue(), cleared ? null : syntheticQueue);
+        assert.equal(service.sessionGeneration(), cleared ? 1 : 0);
+        assert.equal(fetchMock.mock.callCount(), 1);
+      });
+    }
+  }
+});
+
+test('operational error decoding preserves fallback and message/error/code priority without replay', async (t) => {
+  for (const request of operationalRequests) {
+    for (const body of [
+      'not JSON',
+      { code: 'SYNTHETIC_CODE' },
+      { message: 1, error: 'Synthetic error' }
+    ]) {
+      await t.test(`${request.name}: ${JSON.stringify(body)}`, async (t) => {
+        const { service } = serviceFixture(t);
+        const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+          typeof body === 'string'
+            ? new Response(body, { status: 503 })
+            : Response.json(body, { status: 503 })
+        );
+        const expected =
+          request.errorKind === 'backup'
+            ? request.fallback
+            : request.errorKind === 'access'
+              ? (body.code ?? request.fallback)
+              : (body.error ?? request.fallback);
+        await assert.rejects(request.invoke(service, explicitToken), {
+          message: expected
+        });
+        assert.equal(service.sessionGeneration(), 0);
+        assert.equal(fetchMock.mock.callCount(), 1);
+      });
+    }
+  }
+});
+
+test('operational requests propagate network and decode failures once with the session intact', async (t) => {
+  for (const request of operationalRequests) {
+    for (const networkFailure of [false, true]) {
+      await t.test(
+        `${request.name}: ${networkFailure ? 'network' : 'decode'}`,
+        async (t) => {
+          const { service, sessionStorage } = serviceFixture(t);
+          const failure = new TypeError('Synthetic transport failure');
+          const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+            if (networkFailure) throw failure;
+            const response = new Response('not JSON');
+            if (request.pdf)
+              t.mock.method(response, 'blob', async () => {
+                throw failure;
+              });
+            return response;
+          });
+          await assert.rejects(
+            request.invoke(service, explicitToken),
+            (error) =>
+              networkFailure || request.pdf
+                ? error === failure
+                : error instanceof SyntaxError
+          );
+          assert.equal(
+            sessionStorage.getItem(sessionKey),
+            request.savedAuth ? syntheticToken : explicitToken
+          );
+          assert.equal(service.sessionGeneration(), 0);
+          assert.equal(fetchMock.mock.callCount(), 1);
+        }
+      );
+    }
+  }
+});
+
+test('operational empty auth never falls back to a saved bearer or exchanges another root token', async (t) => {
+  for (const request of operationalRequests) {
+    for (const expired of request.savedAuth ? [false, true] : [false]) {
+      await t.test(
+        `${request.name}: ${expired ? 'expired' : 'empty'}`,
+        async (t) => {
+          const { service, sessionStorage } = serviceFixture(t);
+          if (request.savedAuth) {
+            if (expired)
+              sessionStorage.setItem(expiryKey, '2000-01-01T00:00:00.000Z');
+            else sessionStorage.removeItem(sessionKey);
+          }
+          const fetchMock = t.mock.method(
+            globalThis,
+            'fetch',
+            async (url, options) => {
+              assert.equal(url, baseUrl + request.path);
+              assert.equal(options.headers.Authorization, undefined);
+              return request.pdf
+                ? new Response('synthetic PDF')
+                : Response.json({ synthetic: true });
+            }
+          );
+          await request.invoke(service, '');
+          assert.equal(
+            sessionStorage.getItem(sessionKey),
+            request.savedAuth ? null : syntheticToken
+          );
+          assert.equal(service.sessionGeneration(), request.savedAuth ? 1 : 0);
+          assert.equal(fetchMock.mock.callCount(), 1);
+        }
+      );
+    }
+  }
+});
+
+test('operational collection reads omit the optional ID query', async (t) => {
+  const { service } = serviceFixture(t);
+  const requests = [];
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    requests.push(url.slice(baseUrl.length));
+    return Response.json({ synthetic: true });
+  });
+  await service.databaseBackups();
+  await service.getEmailQueue(explicitToken);
+  await service.getSponsorshipInvoices(explicitToken);
+  assert.deepEqual(requests, [
+    '/admin/backups',
+    '/admin/email-queue',
+    '/admin/sponsorship-invoices'
+  ]);
+});

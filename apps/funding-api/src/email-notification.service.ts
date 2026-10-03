@@ -39,6 +39,7 @@ import {
   findEmailConfigurationTestMessage,
   recordEmailConfigurationTestQueuedAudit
 } from './email-queue.repository.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 import {
   enqueueEmailMessage,
   processQueuedEmailMessages,
@@ -316,38 +317,32 @@ export const queueEmailConfigurationTest = async (
   pool: Pool,
   input: { to: string; requestId: string; actor: string }
 ): Promise<AdminEmailTestResult> => {
-  const db = await pool.connect();
-  let inserted = false;
-  let messageId: string | null = null;
-  try {
-    await db.query('BEGIN');
-    const rendered = renderEmailConfigurationTest(input);
-    const result = await enqueueEmailMessage(db, {
-      ...rendered,
-      to: input.to,
-      idempotencyKey: 'admin-email-test:' + input.requestId.toLowerCase(),
-      metadata: { ...rendered.metadata, actor: input.actor }
-    });
-    messageId = result.messageId;
-    if (!messageId) throw new Error('EMAIL_TEST_UNAVAILABLE');
-    const row = await findEmailConfigurationTestBinding(db, messageId);
-    if (!row) throw new Error('EMAIL_TEST_UNAVAILABLE');
-    if (row.to !== input.to || row.actor !== input.actor)
-      throw new EmailConfigurationTestError(409, 'EMAIL_TEST_CONFLICT');
-    inserted = !result.duplicate;
-    if (inserted)
-      await recordEmailConfigurationTestQueuedAudit(db, messageId, input);
-    await db.query('COMMIT');
-  } catch (error) {
-    await db.query('ROLLBACK');
-    throw error;
-  } finally {
-    db.release();
-  }
+  const { inserted, messageId } = await withPostgresTransaction(
+    pool,
+    async (db) => {
+      const rendered = renderEmailConfigurationTest(input);
+      const result = await enqueueEmailMessage(db, {
+        ...rendered,
+        to: input.to,
+        idempotencyKey: 'admin-email-test:' + input.requestId.toLowerCase(),
+        metadata: { ...rendered.metadata, actor: input.actor }
+      });
+      const messageId = result.messageId;
+      if (!messageId) throw new Error('EMAIL_TEST_UNAVAILABLE');
+      const row = await findEmailConfigurationTestBinding(db, messageId);
+      if (!row) throw new Error('EMAIL_TEST_UNAVAILABLE');
+      if (row.to !== input.to || row.actor !== input.actor)
+        throw new EmailConfigurationTestError(409, 'EMAIL_TEST_CONFLICT');
+      const inserted = !result.duplicate;
+      if (inserted)
+        await recordEmailConfigurationTestQueuedAudit(db, messageId, input);
+      return { inserted, messageId };
+    }
+  );
   if (inserted)
     await processQueuedEmailMessages(pool, {
       limit: 1,
-      messageIds: [messageId!]
+      messageIds: [messageId]
     });
   return getEmailConfigurationTest(pool, input.requestId, input.actor);
 };

@@ -16,6 +16,7 @@ import type {
 } from '../../../packages/funding-core/src/index.js';
 
 import { EditorialProgrammeService } from './editorial-programme.service.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 import {
   loadAdminWorkQueue,
   WORK_QUEUE_PRIORITIES
@@ -246,23 +247,6 @@ const receipt = (row: Record<string, unknown>): PilotReceipt => ({
   reviewedAt:
     row['reviewed_at'] instanceof Date ? row['reviewed_at'].toISOString() : null
 });
-async function transaction<T>(
-  pool: Pool,
-  fn: (db: PoolClient) => Promise<T>
-): Promise<T> {
-  const db = await pool.connect();
-  try {
-    await db.query('BEGIN');
-    const result = await fn(db);
-    await db.query('COMMIT');
-    return result;
-  } catch (error) {
-    await db.query('ROLLBACK');
-    throw error;
-  } finally {
-    db.release();
-  }
-}
 async function audit(
   db: Pool | PoolClient,
   actor: string,
@@ -635,7 +619,7 @@ export class AdminPilotageService {
       'INVALID_COMMAND',
       400
     );
-    return transaction(this.pool, async (db) => {
+    return withPostgresTransaction(this.pool, async (db) => {
       const row = (
         await db.query(
           'SELECT * FROM admin_command_receipts WHERE request_id=$1 AND actor=$2 FOR UPDATE',
@@ -689,7 +673,7 @@ export class AdminPilotageService {
         503
       );
     }
-    const claimed = await transaction(this.pool, async (db) => {
+    const claimed = await withPostgresTransaction(this.pool, async (db) => {
       const result = await db.query(
         `INSERT INTO admin_command_receipts(request_id,actor,action,target_id,request_hash,status) VALUES($1,$2,$3,$4,$5,'executing') ON CONFLICT DO NOTHING RETURNING *`,
         [c.requestId, actor, c.action, c.targetId, digest]
@@ -725,7 +709,7 @@ export class AdminPilotageService {
       status = known ? 'failed' : 'uncertain';
       code = known ? error.code : 'RESULT_UNKNOWN';
     }
-    await transaction(this.pool, async (db) => {
+    await withPostgresTransaction(this.pool, async (db) => {
       await db.query(
         'UPDATE admin_command_receipts SET status=$2,code=$3,updated_at=NOW() WHERE request_id=$1',
         [c.requestId, status, code]
@@ -822,7 +806,7 @@ export class AdminPilotageService {
         (f) => f.id === c.targetId
       );
       requireValue(current && hash(current) === c.version, 'VERSION_CONFLICT');
-      await transaction(this.pool, async (db) => {
+      await withPostgresTransaction(this.pool, async (db) => {
         const feed = (
           await db.query(
             'SELECT * FROM publication_feeds WHERE id=$1 FOR UPDATE',
@@ -852,7 +836,7 @@ export class AdminPilotageService {
       return 'SAVED';
     }
     if (c.action.startsWith('sponsor.')) {
-      await transaction(this.pool, async (db) => {
+      await withPostgresTransaction(this.pool, async (db) => {
         const row = (
           await db.query(
             'SELECT sponsor_review_status FROM fund_contributions WHERE id=$1 FOR UPDATE',
@@ -888,7 +872,7 @@ export class AdminPilotageService {
       return c.action === 'sponsor.approve' ? 'APPROVED' : 'REJECTED';
     }
     if (c.action === 'email.retry') {
-      await transaction(this.pool, async (db) => {
+      await withPostgresTransaction(this.pool, async (db) => {
         const r = await db.query(
           `UPDATE email_messages SET status='queued',attempts=LEAST(attempts,GREATEST(max_attempts-1,0)),next_attempt_at=NOW(),updated_at=NOW() WHERE id=$1 AND status='failed' AND updated_at::text=$2 RETURNING id`,
           [c.targetId, c.version]
