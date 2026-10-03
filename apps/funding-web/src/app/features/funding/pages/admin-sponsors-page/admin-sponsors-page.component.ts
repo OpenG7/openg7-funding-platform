@@ -78,11 +78,19 @@ import { AdminSponsorsListPanelComponent } from '../../components/admin-sponsors
 import { AdminSponsorsSummaryComponent } from '../../components/admin-sponsors/admin-sponsors-summary.component.js';
 import type {
   AdminSponsorFeedStatusOption,
+  AdminSponsorRefundHistoryView,
+  AdminSponsorAuditHistoryView,
   SponsorDetailsTab,
   SponsorFeedStatusFilter,
   SponsorPaymentStatusFilter,
   SponsorshipReviewFilter
 } from '../../models/admin-sponsors-ui.models.js';
+import { AdminSponsorPublicationPanelComponent } from '../../components/admin-sponsors/admin-sponsor-publication-panel.component.js';
+import { AdminSponsorRefundHistoryComponent } from '../../components/admin-sponsors/admin-sponsor-refund-history.component.js';
+import { AdminSponsorAuditHistoryComponent } from '../../components/admin-sponsors/admin-sponsor-audit-history.component.js';
+import { AdminSponsorRejectionPanelComponent } from '../../components/admin-sponsors/admin-sponsor-rejection-panel.component.js';
+import { AdminSponsorRefundPanelComponent } from '../../components/admin-sponsors/admin-sponsor-refund-panel.component.js';
+import { AdminSponsorDecisionActionsComponent } from '../../components/admin-sponsors/admin-sponsor-decision-actions.component.js';
 
 const feedStatuses: readonly SponsorFeedStatus[] = [
   'not_planned',
@@ -105,6 +113,12 @@ const defaultPagination: AdminPagination = {
   selector: 'openg7-admin-sponsors-page',
   standalone: true,
   imports: [
+    AdminSponsorPublicationPanelComponent,
+    AdminSponsorRefundHistoryComponent,
+    AdminSponsorAuditHistoryComponent,
+    AdminSponsorRejectionPanelComponent,
+    AdminSponsorRefundPanelComponent,
+    AdminSponsorDecisionActionsComponent,
     AdminAssistantContextComponent,
     TranslatePipe,
     AdminSponsorDetailMediaComponent,
@@ -481,1068 +495,190 @@ const defaultPagination: AdminPagination = {
                   'admin.dossier.publicationBridge.advanced' | translate
                 "
               >
-                <details
-                  data-og7="publication-advanced"
-                  class="publication-advanced"
-                  [open]="websiteSettingsOpen()"
-                  #websiteSettings
-                  (toggle)="websiteSettingsOpen.set(websiteSettings.open)"
-                >
-                  <summary>
-                    {{ 'admin.dossier.publicationBridge.advanced' | translate }}
-                  </summary>
-                  <article
-                    class="detail-card publication-editor"
-                    data-og7="dossier-publication-editor"
-                  >
-                    <header>
-                      <div>
-                        <span>{{
-                          'admin.legacy.publication' | translate
-                        }}</span>
-                        <h3>
-                          {{
-                            'admin.legacy.commanditaire_et_feeds' | translate
-                          }}
-                        </h3>
-                      </div>
-                      <button
-                        type="button"
-                        class="publication-save"
-                        [disabled]="
-                          !publicationWorkflow.publicationDirtyFor(selected) ||
-                          publicationWorkflow.hasSlugError(selected) ||
-                          !publicationWorkflow.canSavePublication(selected) ||
-                          actionsDisabled()
-                        "
-                        (click)="publicationWorkflow.savePublication(selected)"
-                      >
-                        {{
-                          isActionPending(
-                            publicationWorkflow.publicationActionId(selected.id)
-                          )
-                            ? ('admin.legacy.enregistrement' | translate)
-                            : ('admin.legacy.enregistrer' | translate)
-                        }}
-                      </button>
-                    </header>
-                    <p
-                      class="inline-status"
-                      [class.is-dirty]="
-                        publicationWorkflow.publicationDirtyFor(selected)
-                      "
-                      aria-live="polite"
-                    >
-                      {{ publicationWorkflow.publicationStateLabel(selected) }}
-                    </p>
-                    <fieldset
-                      class="publication-grid"
-                      [disabled]="actionsDisabled()"
-                    >
-                      <label
-                        >{{ 'admin.legacy.slug_public' | translate
-                        }}<input
-                          type="text"
-                          maxlength="120"
-                          [value]="
-                            publicationWorkflow.publicationDraftFor(selected.id)
-                              .publicSlug
-                          "
-                          (input)="
-                            publicationWorkflow.setPublicationField(
-                              selected.id,
-                              'publicSlug',
-                              $event
-                            )
-                          "
-                          [attr.aria-invalid]="
-                            publicationWorkflow.slugErrorFor(selected)
-                              ? 'true'
-                              : null
-                          "
-                        /><small
-                          class="field-error"
-                          *ngIf="publicationWorkflow.slugErrorFor(selected)"
-                          >{{
-                            publicationWorkflow.slugErrorFor(selected)
-                          }}</small
-                        ></label
-                      >
-                      <label
-                        >{{ 'admin.legacy.destination_feed' | translate
-                        }}<select
-                          [value]="
-                            publicationWorkflow.publicationDraftFor(selected.id)
-                              .feedTarget
-                          "
-                          (change)="
-                            publicationWorkflow.setPublicationField(
-                              selected.id,
-                              'feedTarget',
-                              $event
-                            )
-                          "
-                        >
-                          <option value="">
-                            {{ 'admin.legacy.aucune' | translate }}
-                          </option>
-                          <option value="openg7">OpenG7</option>
-                          <option value="openg20">OpenG20</option>
-                        </select></label
-                      >
-                      <label
-                        >{{ 'admin.legacy.statut_feed' | translate
-                        }}<select
-                          [value]="
-                            publicationWorkflow.publicationDraftFor(selected.id)
-                              .feedStatus
-                          "
-                          (change)="
-                            publicationWorkflow.setPublicationField(
-                              selected.id,
-                              'feedStatus',
-                              $event
-                            )
-                          "
-                        >
-                          <option
-                            *ngFor="let status of feedStatuses"
-                            [value]="status"
-                          >
-                            {{ feedStatusLabel(status) }}
-                          </option>
-                        </select></label
-                      >
-                      <fieldset>
-                        <legend>{{ 'admin.legacy.canaux' | translate }}</legend>
-                        <label
-                          ><input
-                            type="checkbox"
-                            [checked]="
-                              publicationWorkflow.publicationDraftFor(
-                                selected.id
-                              ).facebook
-                            "
-                            [disabled]="
-                              publicationWorkflow.isPromisedFeedChannel(
-                                selected,
-                                'facebook'
-                              )
-                            "
-                            [attr.title]="
-                              publicationWorkflow.isPromisedFeedChannel(
-                                selected,
-                                'facebook'
-                              )
-                                ? 'Canal inclus par le palier de contribution'
-                                : null
-                            "
-                            (change)="
-                              publicationWorkflow.setPublicationChannel(
-                                selected.id,
-                                'facebook',
-                                $event
-                              )
-                            "
-                          />
-                          Facebook</label
-                        ><label
-                          ><input
-                            type="checkbox"
-                            [checked]="
-                              publicationWorkflow.publicationDraftFor(
-                                selected.id
-                              ).linkedin
-                            "
-                            [disabled]="
-                              publicationWorkflow.isPromisedFeedChannel(
-                                selected,
-                                'linkedin'
-                              )
-                            "
-                            [attr.title]="
-                              publicationWorkflow.isPromisedFeedChannel(
-                                selected,
-                                'linkedin'
-                              )
-                                ? 'Canal inclus par le palier de contribution'
-                                : null
-                            "
-                            (change)="
-                              publicationWorkflow.setPublicationChannel(
-                                selected.id,
-                                'linkedin',
-                                $event
-                              )
-                            "
-                          />
-                          LinkedIn</label
-                        >
-                      </fieldset>
-                      <label class="publication-span-2"
-                        >{{ 'admin.legacy.resume_public' | translate
-                        }}<textarea
-                          rows="4"
-                          maxlength="500"
-                          [value]="
-                            publicationWorkflow.publicationDraftFor(selected.id)
-                              .publicSummary
-                          "
-                          (input)="
-                            publicationWorkflow.setPublicationField(
-                              selected.id,
-                              'publicSummary',
-                              $event
-                            )
-                          "
-                        ></textarea>
-                      </label>
-                      <label
-                        >{{ 'admin.legacy.lien_de_publication' | translate
-                        }}<input
-                          type="url"
-                          maxlength="2048"
-                          [value]="
-                            publicationWorkflow.publicationDraftFor(selected.id)
-                              .feedPublicUrl
-                          "
-                          (input)="
-                            publicationWorkflow.setPublicationField(
-                              selected.id,
-                              'feedPublicUrl',
-                              $event
-                            )
-                          "
-                      /></label>
-                      <label class="publication-span-2"
-                        >{{ 'admin.legacy.notes_feed' | translate
-                        }}<textarea
-                          rows="4"
-                          maxlength="1000"
-                          [value]="
-                            publicationWorkflow.publicationDraftFor(selected.id)
-                              .feedNotes
-                          "
-                          (input)="
-                            publicationWorkflow.setPublicationField(
-                              selected.id,
-                              'feedNotes',
-                              $event
-                            )
-                          "
-                        ></textarea>
-                      </label>
-                    </fieldset>
-                  </article>
-
-                  <article class="detail-card public-preview">
-                    <span>{{
-                      'admin.legacy.previsualisation_non_publiee' | translate
-                    }}</span>
-                    <div>
-                      <figure
-                        class="logo-preview"
-                        *ngIf="mediaWorkflow.logoPreviewSourceFor(selected)"
-                      >
-                        <img
-                          [src]="mediaWorkflow.logoPreviewSourceFor(selected)"
-                          [alt]="
-                            'Logo ' +
-                            (selected.sponsor_company_name || 'commanditaire')
-                          "
-                        />
-                      </figure>
-                      <div>
-                        <h3>
-                          {{ presentationProjection.publicNameLabel(selected) }}
-                        </h3>
-                        <p>
-                          {{
-                            publicationWorkflow.publicationDraftFor(selected.id)
-                              .publicSummary ||
-                              ('admin.legacy.aucun_resume_public_pour_le_moment'
-                                | translate)
-                          }}
-                        </p>
-                      </div>
-                    </div>
-                    <dl class="compact-definition-list">
-                      <div>
-                        <dt>{{ 'admin.legacy.destination' | translate }}</dt>
-                        <dd>
-                          {{
-                            publicationWorkflow.publicationDraftFor(selected.id)
-                              .feedTarget || ('admin.legacy.aucune' | translate)
-                          }}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>{{ 'admin.legacy.canaux' | translate }}</dt>
-                        <dd>
-                          {{
-                            publicationWorkflow.draftChannelsLabel(selected.id)
-                          }}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>{{ 'admin.legacy.lien' | translate }}</dt>
-                        <dd>
-                          {{
-                            publicationWorkflow.publicationDraftFor(selected.id)
-                              .feedPublicUrl ||
-                              ('admin.legacy.non_defini' | translate)
-                          }}
-                        </dd>
-                      </div>
-                    </dl>
-                  </article>
-                </details>
-              </section>
-
-              <section
-                class="detail-body refund-history-body"
-                *ngIf="isFinanceTab()"
-                [attr.aria-label]="
-                  'admin.legacy.historique_remboursement' | translate
-                "
-              >
-                <article class="detail-card">
-                  <h3>{{ 'admin.legacy.suivi_remboursement' | translate }}</h3>
-                  <div class="refund-summary-grid">
-                    <div>
-                      <span>{{ 'admin.legacy.statut' | translate }}</span>
-                      <strong
-                        ><span
-                          [class]="
-                            historyProjection.refundWorkflowStatusClass(
-                              selected.sponsorship_refund_status
-                            )
-                          "
-                          >{{
-                            historyProjection.refundWorkflowStatusLabel(
-                              selected.sponsorship_refund_status
-                            )
-                          }}</span
-                        ></strong
-                      >
-                    </div>
-                    <div>
-                      <span>{{
-                        'admin.legacy.montant_commandite' | translate
-                      }}</span>
-                      <strong>{{
-                        presentationProjection.formatMoney(selected)
-                      }}</strong>
-                    </div>
-                    <div>
-                      <span>{{
-                        'admin.legacy.dernier_montant_rembourse' | translate
-                      }}</span>
-                      <strong>{{
-                        selected.sponsorship_refund_amount
-                          ? formatAmount(
-                              selected.sponsorship_refund_amount,
-                              selected.currency
-                            )
-                          : ('admin.legacy.non_associe' | translate)
-                      }}</strong>
-                    </div>
-                    <div>
-                      <span>{{
-                        'admin.legacy.raison_stripe' | translate
-                      }}</span>
-                      <strong>{{
-                        selected.sponsorship_refund_reason
-                          ? historyProjection.stripeRefundReasonLabel(
-                              selected.sponsorship_refund_reason
-                            )
-                          : ('admin.legacy.non_associee' | translate)
-                      }}</strong>
-                    </div>
-                    <div>
-                      <span>{{
-                        'admin.legacy.reference_publique' | translate
-                      }}</span>
-                      <code>{{
-                        selected.public_reference ||
-                          ('admin.legacy.non_attribuee_175' | translate)
-                      }}</code>
-                    </div>
-                    <div>
-                      <span>{{
-                        'admin.legacy.refund_stripe' | translate
-                      }}</span>
-                      <code>{{
-                        selected.sponsorship_refund_id ||
-                          ('admin.legacy.non_associe' | translate)
-                      }}</code>
-                    </div>
-                  </div>
-                  <p
-                    class="muted-copy"
-                    *ngIf="!historyProjection.hasRefundWorkflow(selected)"
-                  >
-                    {{
-                      'admin.legacy.aucun_remboursement_n_est_demande_pour_cette_commandite'
-                        | translate
-                    }}
-                  </p>
-                </article>
-
-                <article class="detail-card">
-                  <h3>{{ 'admin.legacy.jalons_remboursement' | translate }}</h3>
-                  <ol
-                    class="refund-history-list"
-                    *ngIf="
-                      historyProjection.refundHistoryEntriesFor(selected)
-                        .length > 0;
-                      else noRefundHistory
-                    "
-                  >
-                    <li
-                      *ngFor="
-                        let entry of historyProjection.refundHistoryEntriesFor(
-                          selected
-                        );
-                        trackBy: historyProjection.trackByRefundHistoryEntry
-                      "
-                      [class]="historyProjection.refundHistoryEntryClass(entry)"
-                    >
-                      <time>{{ dateTimeLabel(entry.date) }}</time>
-                      <p>{{ entry.label }}</p>
-                      <small *ngIf="entry.detail">{{ entry.detail }}</small>
-                    </li>
-                  </ol>
-                  <ng-template #noRefundHistory
-                    ><p class="muted-copy">
-                      {{
-                        'admin.legacy.aucun_jalon_de_remboursement_n_est_encore_date_pour_ce_dossier'
-                          | translate
-                      }}
-                    </p></ng-template
-                  >
-                </article>
-
-                <article
-                  class="detail-card"
-                  *ngIf="
-                    selected.sponsorship_refund_note ||
-                    selected.sponsorship_refund_error
+                <openg7-admin-sponsor-publication-panel
+                  [sponsorship]="selected"
+                  [draft]="publicationWorkflow.publicationDraftFor(selected.id)"
+                  [expanded]="websiteSettingsOpen()"
+                  [actionsDisabled]="actionsDisabled()"
+                  [dirty]="publicationWorkflow.publicationDirtyFor(selected)"
+                  [canSave]="publicationWorkflow.canSavePublication(selected)"
+                  [saving]="
+                    isActionPending(
+                      publicationWorkflow.publicationActionId(selected.id)
+                    )
                   "
-                >
-                  <h3>{{ 'admin.legacy.notes_et_erreurs' | translate }}</h3>
-                  <dl class="compact-definition-list">
-                    <div *ngIf="selected.sponsorship_refund_note">
-                      <dt>
-                        {{ 'admin.legacy.note_remboursement' | translate }}
-                      </dt>
-                      <dd class="preserve-lines">
-                        {{ selected.sponsorship_refund_note }}
-                      </dd>
-                    </div>
-                    <div *ngIf="selected.sponsorship_refund_error">
-                      <dt>{{ 'admin.legacy.derniere_erreur' | translate }}</dt>
-                      <dd class="preserve-lines">
-                        {{ selected.sponsorship_refund_error }}
-                      </dd>
-                    </div>
-                  </dl>
-                </article>
-
-                <article class="detail-card">
-                  <h3>{{ 'admin.legacy.actions_admin_liees' | translate }}</h3>
-                  <ol
-                    class="audit-list"
-                    *ngIf="
-                      historyProjection.refundAuditEntriesFor(selected).length >
-                        0;
-                      else noRefundAudit
-                    "
-                  >
-                    <li
-                      *ngFor="
-                        let entry of historyProjection.refundAuditEntriesFor(
-                          selected
-                        );
-                        trackBy: historyProjection.trackByAuditEntry
-                      "
-                    >
-                      <time>{{ dateTimeLabel(entry.date) }}</time>
-                      <p>{{ entry.label }}</p>
-                      <small *ngIf="entry.detail">{{ entry.detail }}</small>
-                    </li>
-                  </ol>
-                  <ng-template #noRefundAudit
-                    ><p class="muted-copy">
-                      {{
-                        'admin.legacy.aucune_action_admin_de_remboursement_n_est_encore_associee_a_cett'
-                          | translate
-                      }}
-                    </p></ng-template
-                  >
-                </article>
+                  [stateLabel]="
+                    publicationWorkflow.publicationStateLabel(selected)
+                  "
+                  [slugError]="publicationWorkflow.slugErrorFor(selected)"
+                  [promisedChannels]="
+                    publicationWorkflow.promisedFeedChannelsFor(selected)
+                  "
+                  [promisedChannelTitle]="
+                    'admin.dossier.publicationBridge.promisedChannel'
+                      | translate
+                  "
+                  [feedStatusOptions]="feedStatusOptions()"
+                  [logoSource]="
+                    mediaWorkflow.logoPreviewSourceFor(selected) || null
+                  "
+                  [logoAlt]="
+                    ('funding.followup.media.logo' | translate) +
+                    ' ' +
+                    presentationProjection.publicNameLabel(selected)
+                  "
+                  [publicName]="
+                    presentationProjection.publicNameLabel(selected)
+                  "
+                  [channelsLabel]="
+                    publicationWorkflow.draftChannelsLabel(selected.id)
+                  "
+                  (expandedChange)="websiteSettingsOpen.set($event)"
+                  (fieldChange)="
+                    publicationWorkflow.setPublicationField(
+                      selected.id,
+                      $event.field,
+                      $event.event
+                    )
+                  "
+                  (channelChange)="
+                    publicationWorkflow.setPublicationChannel(
+                      selected.id,
+                      $event.channel,
+                      $event.event
+                    )
+                  "
+                  (save)="publicationWorkflow.savePublication(selected)"
+                />
               </section>
 
-              <section
-                class="detail-body admin-focus-target"
-                id="dossier-audit"
-                tabindex="-1"
-                *ngIf="activeTab() === 'audit'"
-                [attr.aria-label]="
-                  'admin.legacy.historique_et_audit' | translate
-                "
-              >
-                <article class="detail-card">
-                  <h3>
-                    {{ 'admin.legacy.historique_disponible' | translate }}
-                  </h3>
-                  <button type="button" (click)="inspection.history(selected)">
-                    {{ 'admin.inspector.kinds.history' | translate }}
-                  </button>
-                  <ol
-                    class="audit-list"
-                    *ngIf="
-                      historyProjection.auditEntriesFor(selected).length > 0;
-                      else noAudit
-                    "
-                  >
-                    <li
-                      *ngFor="
-                        let entry of historyProjection.auditEntriesFor(
-                          selected
-                        );
-                        trackBy: historyProjection.trackByAuditEntry
-                      "
-                    >
-                      <time>{{ dateTimeLabel(entry.date) }}</time>
-                      <p>{{ entry.label }}</p>
-                      <small *ngIf="entry.detail">{{ entry.detail }}</small>
-                    </li>
-                  </ol>
-                  <ng-template #noAudit
-                    ><p class="muted-copy">
-                      {{
-                        'admin.legacy.aucun_historique_administratif_detaille_n_est_encore_disponible_p'
-                          | translate
-                      }}
-                    </p></ng-template
-                  >
-                  <p class="muted-copy">
-                    {{
-                      'admin.legacy.les_actions_admin_proviennent_du_journal_prive_et_restent_limitee'
-                        | translate
-                    }}
-                  </p>
-                </article>
-              </section>
-
-              <section
-                class="rejection-workflow"
-                data-og7="dossier-rejection-form"
-                *ngIf="
-                  canManage() && reviewWorkflow.isRejectionPanelOpen(selected)
-                "
-                [attr.aria-label]="
-                  'admin.legacy.refus_de_commandite' | translate
-                "
-              >
-                <header>
-                  <div>
-                    <span>{{
-                      'admin.legacy.action_sensible' | translate
-                    }}</span>
-                    <h3>
-                      {{ 'admin.legacy.refuser_la_commandite' | translate }}
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    class="icon-action"
-                    (click)="closeRejectionPanel()"
-                    [disabled]="actionState() !== null"
-                    [attr.aria-label]="
-                      'admin.legacy.fermer_le_refus' | translate
-                    "
-                  >
-                    ×
-                  </button>
-                </header>
-
-                <label class="rejection-span-2"
-                  >{{ 'admin.legacy.raison_interne_du_refus' | translate
-                  }}<textarea
-                    #rejectionReason
-                    rows="4"
-                    maxlength="1000"
-                    [value]="reviewWorkflow.reviewNoteFor(selected.id)"
-                    (input)="reviewWorkflow.setReviewNote(selected.id, $event)"
-                  ></textarea>
-                </label>
-
-                <label class="rejection-span-2"
-                  >{{ 'admin.legacy.message_au_commanditaire' | translate
-                  }}<textarea
-                    rows="5"
-                    maxlength="1000"
-                    [value]="
-                      reviewWorkflow.rejectionDraftFor(selected).sponsorMessage
-                    "
-                    (input)="
-                      reviewWorkflow.setRejectionDraftField(
-                        selected.id,
-                        'sponsorMessage',
-                        $event
-                      )
-                    "
-                  ></textarea>
-                </label>
-
-                <label class="checkbox-line rejection-span-2">
-                  <input
-                    type="checkbox"
-                    [checked]="
-                      reviewWorkflow.rejectionDraftFor(selected).notifySponsor
-                    "
-                    (change)="
-                      reviewWorkflow.setRejectionDraftBoolean(
-                        selected.id,
-                        'notifySponsor',
-                        $event
-                      )
-                    "
+              @if (isFinanceTab()) {
+                @if (selectedSponsorRefundHistory(); as history) {
+                  <openg7-admin-sponsor-refund-history [view]="history" />
+                }
+              }
+              @if (activeTab() === 'audit') {
+                @if (selectedSponsorAuditHistory(); as history) {
+                  <openg7-admin-sponsor-audit-history
+                    [view]="history"
+                    (inspect)="inspection.history(selected)"
                   />
-                  {{
-                    'admin.legacy.envoyer_le_courriel_de_refus' | translate
-                  }}</label
-                >
-
-                <label
-                  >{{ 'admin.legacy.destinataire' | translate
-                  }}<input
-                    type="email"
-                    autocomplete="email"
-                    [disabled]="
-                      !reviewWorkflow.rejectionDraftFor(selected).notifySponsor
-                    "
-                    [value]="
-                      reviewWorkflow.rejectionDraftFor(selected).recipientEmail
-                    "
-                    (input)="
-                      reviewWorkflow.setRejectionDraftField(
-                        selected.id,
-                        'recipientEmail',
-                        $event
-                      )
-                    "
-                /></label>
-
-                <label
-                  >{{ 'admin.legacy.remboursement' | translate
-                  }}<select
-                    [value]="
-                      reviewWorkflow.rejectionDraftFor(selected).refundHandling
-                    "
-                    (change)="
-                      reviewWorkflow.setRejectionRefundHandling(
-                        selected.id,
-                        $event
-                      )
-                    "
-                  >
-                    <option value="none">
-                      {{
-                        'admin.legacy.ne_pas_rembourser_maintenant' | translate
-                      }}
-                    </option>
-                    <option value="manual_required">
-                      {{
-                        'admin.legacy.a_traiter_manuellement_dans_stripe'
-                          | translate
-                      }}
-                    </option>
-                    <option value="manual_completed">
-                      {{
-                        'admin.legacy.deja_rembourse_manuellement' | translate
-                      }}
-                    </option>
-                  </select></label
-                >
-
-                <label class="rejection-span-2"
-                  >{{ 'admin.legacy.note_remboursement' | translate
-                  }}<textarea
-                    rows="3"
-                    maxlength="1000"
-                    [value]="
-                      reviewWorkflow.rejectionDraftFor(selected).refundNote
-                    "
-                    (input)="
-                      reviewWorkflow.setRejectionDraftField(
-                        selected.id,
-                        'refundNote',
-                        $event
-                      )
-                    "
-                  ></textarea>
-                </label>
-
-                <footer>
-                  <span class="inline-status" aria-live="polite">{{
+                }
+              }
+              @if (
+                canManage() && reviewWorkflow.isRejectionPanelOpen(selected)
+              ) {
+                <openg7-admin-sponsor-rejection-panel
+                  [draft]="reviewWorkflow.rejectionDraftFor(selected)"
+                  [reviewNote]="reviewWorkflow.reviewNoteFor(selected.id)"
+                  [validationMessage]="
                     reviewWorkflow.rejectionValidationMessage(selected)
-                  }}</span>
-                  <button
-                    type="button"
-                    class="secondary-action"
-                    (click)="closeRejectionPanel()"
-                    [disabled]="actionState() !== null"
-                  >
-                    {{ 'admin.legacy.annuler' | translate }}
-                  </button>
-                  <button
-                    type="button"
-                    class="review-button reject"
-                    [disabled]="
-                      !reviewWorkflow.canConfirmRejection(selected) ||
-                      actionsDisabled()
-                    "
-                    (click)="reviewWorkflow.confirmRejection(selected)"
-                  >
-                    {{
-                      isActionPending(
-                        reviewWorkflow.reviewActionId(selected.id)
-                      )
-                        ? ('admin.legacy.refus_en_cours' | translate)
-                        : ('admin.legacy.confirmer_le_refus' | translate)
-                    }}
-                  </button>
-                </footer>
-              </section>
-
-              <section
-                class="refund-workflow"
-                data-og7="dossier-refund-form"
-                *ngIf="
-                  canUseOwnerActions() &&
-                  refundWorkflow.isRefundPanelOpen(selected)
-                "
-                [attr.aria-label]="
-                  'admin.legacy.remboursement_stripe' | translate
-                "
-              >
-                <header>
-                  <div>
-                    <span>Stripe</span>
-                    <h3>
-                      {{ 'admin.legacy.remboursement_stripe' | translate }}
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    class="icon-action"
-                    (click)="closeRefundPanel()"
-                    [disabled]="actionState() !== null"
-                    [attr.aria-label]="
-                      'admin.legacy.fermer_le_remboursement' | translate
-                    "
-                  >
-                    ×
-                  </button>
-                </header>
-
-                <p class="refund-warning rejection-span-2">
-                  {{
-                    'admin.legacy.cette_action_declenche_un_remboursement_stripe_de_p0_sur_un_paiem'
-                      | translate
-                        : {
-                            p0: refundWorkflow.refundDraftAmountLabel(selected),
-                            p1: presentationProjection.formatMoney(selected)
-                          }
-                  }}
-                </p>
-
-                <label
-                  >{{ 'admin.legacy.montant_a_rembourser' | translate
-                  }}<input
-                    #refundAmountInput
-                    type="number"
-                    min="0.01"
-                    [max]="selected.amount"
-                    step="0.01"
-                    inputmode="decimal"
-                    [value]="
-                      refundWorkflow.refundDraftFor(selected).refundAmount
-                    "
-                    (input)="
-                      refundWorkflow.setRefundDraftField(
-                        selected.id,
-                        'refundAmount',
-                        $event
-                      )
-                    "
-                /></label>
-
-                <label
-                  >{{ 'admin.legacy.raison_stripe' | translate
-                  }}<select
-                    [value]="
-                      refundWorkflow.refundDraftFor(selected).refundReason
-                    "
-                    (change)="
-                      refundWorkflow.setRefundDraftReason(selected.id, $event)
-                    "
-                  >
-                    <option value="requested_by_customer">
-                      {{ 'admin.legacy.demande_du_commanditaire' | translate }}
-                    </option>
-                    <option value="duplicate">
-                      {{ 'admin.legacy.paiement_en_double' | translate }}
-                    </option>
-                    <option value="fraudulent">
-                      {{ 'admin.legacy.paiement_frauduleux' | translate }}
-                    </option>
-                  </select></label
-                >
-
-                <label class="rejection-span-2"
-                  >{{ 'admin.legacy.texte_de_confirmation' | translate
-                  }}<small
-                    >{{ 'admin.legacy.recopiez' | translate
-                    }}<code>{{
-                      refundWorkflow.refundConfirmationText(selected)
-                    }}</code></small
-                  ><input
-                    type="text"
-                    autocomplete="off"
-                    [value]="
-                      refundWorkflow.refundDraftFor(selected).confirmationText
-                    "
-                    (input)="
-                      refundWorkflow.setRefundDraftField(
-                        selected.id,
-                        'confirmationText',
-                        $event
-                      )
-                    "
-                /></label>
-
-                <label class="checkbox-line rejection-span-2">
-                  <input
-                    type="checkbox"
-                    [checked]="
-                      refundWorkflow.refundDraftFor(selected).notifySponsor
-                    "
-                    (change)="
-                      refundWorkflow.setRefundDraftBoolean(
-                        selected.id,
-                        'notifySponsor',
-                        $event
-                      )
-                    "
-                  />
-                  {{
-                    'admin.legacy.envoyer_le_courriel_de_remboursement'
-                      | translate
-                  }}</label
-                >
-
-                <label
-                  >{{ 'admin.legacy.destinataire' | translate
-                  }}<input
-                    type="email"
-                    autocomplete="email"
-                    [disabled]="
-                      !refundWorkflow.refundDraftFor(selected).notifySponsor
-                    "
-                    [value]="
-                      refundWorkflow.refundDraftFor(selected).recipientEmail
-                    "
-                    (input)="
-                      refundWorkflow.setRefundDraftField(
-                        selected.id,
-                        'recipientEmail',
-                        $event
-                      )
-                    "
-                /></label>
-
-                <label
-                  >{{ 'admin.legacy.message_au_commanditaire_405' | translate
-                  }}<textarea
-                    rows="4"
-                    maxlength="1000"
-                    [disabled]="
-                      !refundWorkflow.refundDraftFor(selected).notifySponsor
-                    "
-                    [value]="
-                      refundWorkflow.refundDraftFor(selected).sponsorMessage
-                    "
-                    (input)="
-                      refundWorkflow.setRefundDraftField(
-                        selected.id,
-                        'sponsorMessage',
-                        $event
-                      )
-                    "
-                  ></textarea>
-                </label>
-
-                <label class="rejection-span-2"
-                  >{{ 'admin.legacy.note_remboursement' | translate
-                  }}<textarea
-                    rows="3"
-                    maxlength="1000"
-                    [value]="refundWorkflow.refundDraftFor(selected).refundNote"
-                    (input)="
-                      refundWorkflow.setRefundDraftField(
-                        selected.id,
-                        'refundNote',
-                        $event
-                      )
-                    "
-                  ></textarea>
-                </label>
-
-                <footer>
-                  <span class="inline-status" aria-live="polite">{{
+                  "
+                  [canConfirm]="reviewWorkflow.canConfirmRejection(selected)"
+                  [actionsDisabled]="actionsDisabled()"
+                  [actionPending]="actionState() !== null"
+                  [busy]="
+                    isActionPending(reviewWorkflow.reviewActionId(selected.id))
+                  "
+                  (reviewNoteChange)="
+                    reviewWorkflow.setReviewNote(selected.id, $event)
+                  "
+                  (draftFieldChange)="
+                    reviewWorkflow.setRejectionDraftField(
+                      selected.id,
+                      $event.field,
+                      $event.event
+                    )
+                  "
+                  (notifySponsorChange)="
+                    reviewWorkflow.setRejectionDraftBoolean(
+                      selected.id,
+                      'notifySponsor',
+                      $event
+                    )
+                  "
+                  (refundHandlingChange)="
+                    reviewWorkflow.setRejectionRefundHandling(
+                      selected.id,
+                      $event
+                    )
+                  "
+                  (cancelled)="closeRejectionPanel()"
+                  (confirmed)="reviewWorkflow.confirmRejection(selected)"
+                />
+              }
+              @if (
+                canUseOwnerActions() &&
+                refundWorkflow.isRefundPanelOpen(selected)
+              ) {
+                <openg7-admin-sponsor-refund-panel
+                  [sponsorship]="selected"
+                  [draft]="refundWorkflow.refundDraftFor(selected)"
+                  [confirmationText]="
+                    refundWorkflow.refundConfirmationText(selected)
+                  "
+                  [draftAmountLabel]="
+                    refundWorkflow.refundDraftAmountLabel(selected)
+                  "
+                  [paymentAmountLabel]="
+                    presentationProjection.formatMoney(selected)
+                  "
+                  [validationMessage]="
                     refundWorkflow.refundValidationMessage(selected)
-                  }}</span>
-                  <button
-                    type="button"
-                    class="secondary-action"
-                    (click)="closeRefundPanel()"
-                    [disabled]="actionState() !== null"
-                  >
-                    {{ 'admin.legacy.annuler' | translate }}
-                  </button>
-                  <button
-                    type="button"
-                    class="review-button refund"
-                    [disabled]="
-                      !refundWorkflow.canConfirmRefund(selected) ||
-                      actionsDisabled()
-                    "
-                    (click)="refundWorkflow.confirmRefund(selected)"
-                  >
-                    {{
-                      isActionPending(
-                        refundWorkflow.refundActionId(selected.id)
-                      )
-                        ? ('admin.legacy.remboursement_406' | translate)
-                        : ('admin.legacy.rembourser_stripe' | translate)
-                    }}
-                  </button>
-                </footer>
-              </section>
-
-              <section
-                *ngIf="
-                  canManage() &&
-                  (!isFinanceTab() || canUseOwnerActions()) &&
-                  activeTab() !== 'publication' &&
-                  activeTab() !== 'audit'
-                "
-                class="detail-actions admin-focus-target"
-                data-og7="dossier-actions"
-                [attr.id]="activeTab() === 'overview' ? 'dossier-review' : null"
-                tabindex="-1"
-                [attr.data-approval-state]="approvalState(selected.id)"
-                role="region"
-                [attr.aria-label]="
-                  (isFinanceTab()
-                    ? 'admin.dossier.workspace.financeActions'
-                    : 'admin.dossier.reviewActions'
-                  ) | translate
-                "
-              >
-                <div class="detail-actions-context">
-                  <strong>{{
-                    (isFinanceTab()
-                      ? 'admin.dossier.workspace.finances'
-                      : 'admin.dossier.reviewActions'
-                    ) | translate
-                  }}</strong>
-                  <span>{{
-                    selected.sponsor_company_name ||
-                      selected.public_name ||
-                      ('admin.messages.entreprise_sans_nom' | translate)
-                  }}</span>
-                  <small *ngIf="selected.public_reference">{{
-                    selected.public_reference
-                  }}</small>
-                </div>
-                <p
-                  class="review-toast"
-                  *ngIf="reviewWorkflow.reviewMessageFor(selected.id)"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {{ reviewWorkflow.reviewMessageFor(selected.id) }}
-                </p>
-                <div class="detail-actions-buttons">
-                  <button
-                    type="button"
-                    class="review-button neutral"
-                    *ngIf="!isFinanceTab()"
-                    [disabled]="
-                      actionsDisabled() ||
-                      selected.sponsor_review_status === 'pending_review'
-                    "
-                    (click)="reviewWorkflow.review(selected, 'pending_review')"
-                  >
-                    {{ 'admin.legacy.remettre_en_attente' | translate }}
-                  </button>
-                  <button
-                    type="button"
-                    class="review-button reject"
-                    #rejectButton
-                    *ngIf="!isFinanceTab()"
-                    [disabled]="
-                      actionsDisabled() ||
-                      selected.sponsor_review_status === 'rejected'
-                    "
-                    (click)="openRejectionPanel(selected)"
-                  >
-                    {{ 'admin.legacy.refuser' | translate }}
-                  </button>
-                  <button
-                    type="button"
-                    class="review-button refund"
-                    #refundButton
-                    *ngIf="isFinanceTab() && canUseOwnerActions()"
-                    [disabled]="
-                      actionsDisabled() ||
-                      !refundWorkflow.canRefundSponsorship(selected)
-                    "
-                    (click)="openRefundPanel(selected)"
-                  >
-                    {{ 'admin.legacy.rembourser_stripe' | translate }}
-                  </button>
-                  <button
-                    type="button"
-                    class="review-button approve approval-button"
-                    data-og7="sponsorship-approve"
-                    [attr.data-state]="approvalState(selected.id)"
-                    [attr.aria-busy]="approvalState(selected.id) === 'pending'"
-                    *ngIf="!isFinanceTab()"
-                    [disabled]="
-                      actionsDisabled() ||
-                      !reviewWorkflow.canApproveSponsorship(selected)
-                    "
-                    (click)="reviewWorkflow.review(selected, 'approved')"
-                  >
-                    <span class="approval-shine" aria-hidden="true"></span>
-                    <span class="approval-sparks" aria-hidden="true"></span>
-                    <span class="approval-mark" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" focusable="false">
-                        <path d="m5 12 4 4L19 6" />
-                      </svg>
-                    </span>
-                    <span class="approval-label">{{
-                      'admin.legacy.accepter' | translate
-                    }}</span>
-                  </button>
-                </div>
-              </section>
+                  "
+                  [canConfirm]="refundWorkflow.canConfirmRefund(selected)"
+                  [actionsDisabled]="actionsDisabled()"
+                  [pending]="actionState() !== null"
+                  [busy]="
+                    isActionPending(refundWorkflow.refundActionId(selected.id))
+                  "
+                  (draftFieldChange)="
+                    refundWorkflow.setRefundDraftField(
+                      selected.id,
+                      $event.field,
+                      $event.event
+                    )
+                  "
+                  (reasonChange)="
+                    refundWorkflow.setRefundDraftReason(selected.id, $event)
+                  "
+                  (notifySponsorChange)="
+                    refundWorkflow.setRefundDraftBoolean(
+                      selected.id,
+                      'notifySponsor',
+                      $event
+                    )
+                  "
+                  (cancelled)="closeRefundPanel()"
+                  (confirmed)="refundWorkflow.confirmRefund(selected)"
+                />
+              }
+              @if (
+                canManage() &&
+                (!isFinanceTab() || canUseOwnerActions()) &&
+                activeTab() !== 'publication' &&
+                activeTab() !== 'audit'
+              ) {
+                <openg7-admin-sponsor-decision-actions
+                  [sponsorship]="selected"
+                  [financeTab]="isFinanceTab()"
+                  [ownerActions]="canUseOwnerActions()"
+                  [actionsDisabled]="actionsDisabled()"
+                  [canApprove]="reviewWorkflow.canApproveSponsorship(selected)"
+                  [canRefund]="refundWorkflow.canRefundSponsorship(selected)"
+                  [approvalState]="approvalState(selected.id)"
+                  [reviewMessage]="reviewWorkflow.reviewMessageFor(selected.id)"
+                  [anchor]="
+                    activeTab() === 'overview' ? 'dossier-review' : null
+                  "
+                  (returnPending)="
+                    reviewWorkflow.review(selected, 'pending_review')
+                  "
+                  (openRejection)="openRejectionPanel(selected)"
+                  (openRefund)="openRefundPanel(selected)"
+                  (approve)="reviewWorkflow.review(selected, 'approved')"
+                />
+              }
             </ng-container>
 
             <ng-template #noSelection
@@ -1569,7 +705,6 @@ const defaultPagination: AdminPagination = {
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
     '../../components/admin-ui/admin-forms.css',
-    './admin-sponsors-approval.css',
     './admin-sponsors-workspace.css'
   ],
   styles: [
@@ -1616,7 +751,6 @@ const defaultPagination: AdminPagination = {
       }
 
       .admin-title-row h1,
-      .detail-card h3,
       .empty-detail-state h2 {
         margin: 0;
       }
@@ -1628,10 +762,7 @@ const defaultPagination: AdminPagination = {
         margin: 0.35rem 0 0;
       }
 
-      .admin-kicker,
-      dt,
-      .publication-editor header span,
-      .public-preview > span {
+      .admin-kicker {
         color: var(--admin-muted);
         font-size: 0.76rem;
         font-weight: var(--admin-label-weight);
@@ -1661,8 +792,6 @@ const defaultPagination: AdminPagination = {
       .secondary-action,
       .tertiary-action,
       .secondary-danger-action,
-      .review-button,
-      .publication-save,
       .mini-action,
       .icon-action {
         align-items: center;
@@ -1676,8 +805,7 @@ const defaultPagination: AdminPagination = {
         text-decoration: none;
       }
 
-      .primary-action,
-      .publication-save {
+      .primary-action {
         background: var(--og7-admin-warning-bg, #3c3221);
         border: 1px solid var(--admin-border);
         color: var(--admin-text);
@@ -1695,8 +823,6 @@ const defaultPagination: AdminPagination = {
       .tertiary-action:disabled,
       .secondary-action:disabled,
       .secondary-danger-action:disabled,
-      .review-button:disabled,
-      .publication-save:disabled,
       .mini-action:disabled,
       .icon-action:disabled {
         cursor: not-allowed;
@@ -1716,16 +842,10 @@ const defaultPagination: AdminPagination = {
       }
 
       .sponsor-detail-panel,
-      .detail-card,
       .empty-detail-state {
         background: var(--admin-panel);
         border: 1px solid var(--admin-border);
         border-radius: 0.5rem;
-      }
-
-      .inline-status {
-        color: var(--admin-muted);
-        font-weight: 400;
       }
 
       .sponsors-board {
@@ -1738,16 +858,6 @@ const defaultPagination: AdminPagination = {
       .sponsor-detail-panel {
         min-width: 0;
         overflow: hidden;
-      }
-
-      .review-note-label,
-      .rejection-workflow label,
-      .refund-workflow label,
-      .publication-grid label {
-        display: grid;
-        gap: 0.35rem;
-        font-size: 0.84rem;
-        font-weight: var(--admin-label-weight);
       }
 
       input,
@@ -1768,11 +878,6 @@ const defaultPagination: AdminPagination = {
         padding: 1rem;
       }
 
-      dd,
-      .public-preview p {
-        overflow-wrap: anywhere;
-      }
-
       .sponsor-detail-panel {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
@@ -1782,25 +887,6 @@ const defaultPagination: AdminPagination = {
         position: sticky;
         top: 1.25rem;
         scroll-padding-bottom: 12rem;
-      }
-
-      .review-toast {
-        animation: review-toast-in 0.22s ease both;
-        background: var(--admin-panel-raised);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.45rem;
-        box-shadow: 0 16px 34px rgb(15 23 42 / 24%);
-        color: var(--admin-text);
-        font-size: 0.86rem;
-        font-weight: 500;
-        margin: 0;
-        max-width: min(24rem, calc(100% - 2rem));
-        padding: 0.75rem 0.9rem;
-        pointer-events: none;
-        position: absolute;
-        bottom: calc(100% + 0.75rem);
-        right: 1rem;
-        z-index: 4;
       }
 
       .sponsor-detail-panel.selection-pulse {
@@ -1818,303 +904,11 @@ const defaultPagination: AdminPagination = {
         padding: 0.75rem 0.9rem;
       }
 
-      .rejection-workflow {
-        background: var(--admin-panel);
-        border-top: 1px solid var(--admin-border);
-        display: grid;
-        gap: 0.85rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        padding: 1rem;
-      }
-
-      .refund-workflow {
-        background: var(--admin-panel-raised);
-        border-top: 1px solid var(--admin-border);
-        display: grid;
-        gap: 0.85rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        padding: 1rem;
-      }
-
-      .rejection-workflow header,
-      .refund-workflow header,
-      .rejection-workflow footer {
-        align-items: center;
-        display: flex;
-        gap: 0.75rem;
-        grid-column: 1 / -1;
-        justify-content: space-between;
-      }
-
-      .refund-workflow footer {
-        align-items: center;
-        display: flex;
-        gap: 0.75rem;
-        grid-column: 1 / -1;
-        justify-content: space-between;
-      }
-
-      .rejection-workflow header span {
-        color: var(--admin-danger);
-        font-size: 0.72rem;
-        font-weight: var(--admin-label-weight);
-        text-transform: uppercase;
-      }
-
-      .refund-workflow header span {
-        color: var(--admin-muted);
-        font-size: 0.72rem;
-        font-weight: var(--admin-label-weight);
-        text-transform: uppercase;
-      }
-
-      .rejection-workflow h3 {
-        margin: 0.15rem 0 0;
-      }
-
-      .refund-workflow h3 {
-        margin: 0.15rem 0 0;
-      }
-
-      .refund-warning {
-        background: var(--admin-panel-raised);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.4rem;
-        color: var(--admin-muted);
-        font-weight: 500;
-        margin: 0;
-        padding: 0.75rem 0.9rem;
-      }
-
-      .rejection-span-2 {
-        grid-column: 1 / -1;
-      }
-
-      .checkbox-line {
-        align-items: center;
-        display: flex;
-        gap: 0.5rem;
-      }
-
-      .checkbox-line input {
-        min-height: auto;
-      }
-
-      .detail-card dl,
-      .compact-definition-list {
-        display: grid;
-        gap: 0.75rem;
-        margin: 0;
-      }
-
-      dd {
-        margin: 0.15rem 0 0;
-      }
-
       .detail-body {
         display: grid;
         gap: 0.9rem;
         overflow: auto;
         padding: 1rem;
-      }
-
-      .detail-card {
-        display: grid;
-        gap: 0.85rem;
-        padding: 1rem;
-      }
-
-      .logo-preview {
-        align-items: center;
-        background: var(--admin-panel-raised);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.35rem;
-        display: flex;
-        height: 4.5rem;
-        justify-content: center;
-        overflow: hidden;
-        width: 8rem;
-      }
-      .logo-preview img {
-        max-height: 100%;
-        max-width: 100%;
-        object-fit: contain;
-      }
-
-      .publication-editor header,
-      .public-preview > div {
-        align-items: center;
-        display: flex;
-        gap: 0.8rem;
-        justify-content: space-between;
-      }
-
-      .publication-advanced > summary {
-        cursor: pointer;
-        padding: 1rem;
-        font-weight: var(--admin-control-weight);
-      }
-      .publication-advanced > summary:focus-visible {
-        outline: 3px solid var(--admin-focus);
-        outline-offset: -3px;
-      }
-      .publication-grid {
-        border: 0;
-        margin: 0;
-        padding: 0;
-        min-width: 0;
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .publication-span-2 {
-        grid-column: 1 / -1;
-      }
-
-      .publication-grid > fieldset {
-        border: 1px solid var(--admin-border);
-        border-radius: 0.35rem;
-        display: grid;
-        gap: 0.4rem;
-        margin: 0;
-        padding: 0.65rem 0.75rem;
-      }
-
-      .publication-grid > fieldset label {
-        align-items: center;
-        display: flex;
-        gap: 0.4rem;
-      }
-
-      .public-preview > span {
-        color: var(--admin-warning);
-      }
-
-      .detail-actions {
-        align-items: center;
-        background: linear-gradient(
-          110deg,
-          var(--admin-panel-raised, #193348f5),
-          var(--admin-panel, #0d2436fa)
-        );
-        backdrop-filter: blur(18px);
-        border: 1px solid var(--admin-border, #426077);
-        border-radius: 0.9rem;
-        box-shadow: 0 12px 28px #00000026;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.7rem;
-        margin: 1rem 0.75rem 0.75rem;
-        padding: 1rem;
-        position: sticky;
-        bottom: max(0.75rem, env(safe-area-inset-bottom));
-        z-index: 5;
-      }
-
-      .detail-actions-context {
-        display: grid;
-        flex: 1 1 12rem;
-        min-width: 0;
-        overflow-wrap: anywhere;
-      }
-
-      .detail-actions-context strong {
-        color: var(--admin-muted);
-        font-size: 0.75rem;
-      }
-
-      .detail-actions-context span {
-        font-size: 0.9rem;
-        font-weight: var(--admin-control-weight);
-      }
-
-      .detail-actions-context small {
-        color: var(--admin-muted);
-        font-size: 0.75rem;
-      }
-
-      .detail-actions-buttons {
-        display: flex;
-        flex: 1 1 auto;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        justify-content: flex-end;
-      }
-
-      .detail-actions-buttons button {
-        min-height: 2.75rem;
-      }
-
-      .refund-badge {
-        border-radius: 999px;
-        display: inline-flex;
-        font-size: 0.72rem;
-        font-weight: var(--admin-label-weight);
-        padding: 0.25rem 0.55rem;
-        width: max-content;
-      }
-
-      .refund-requested {
-        background: var(--og7-admin-warning-bg, #3c3221);
-        color: var(--admin-warning);
-      }
-      .refund-completed {
-        background: var(--og7-admin-success-bg, #193d32);
-        color: var(--admin-success);
-      }
-      .refund-failed {
-        background: var(--og7-admin-danger-bg, #422532);
-        color: var(--admin-danger);
-      }
-      .refund-not-requested {
-        background: var(--admin-panel-raised);
-        color: var(--admin-muted);
-      }
-      .refund-processing {
-        background: var(--admin-panel-raised);
-        color: var(--admin-muted);
-      }
-
-      .field-error {
-        color: var(--admin-danger);
-        font-weight: 500;
-      }
-      .inline-status.is-dirty {
-        color: var(--admin-warning);
-        font-weight: var(--admin-label-weight);
-      }
-
-      .review-button.neutral {
-        background: var(--admin-panel-raised);
-        border: 1px solid var(--admin-border);
-        color: var(--admin-text);
-      }
-      .review-button.reject {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        color: var(--admin-danger);
-      }
-      .review-button.approve {
-        background: var(--og7-admin-success-bg, #193d32);
-        border: 1px solid var(--admin-border);
-        color: var(--admin-text);
-      }
-      .review-button.refund {
-        background: var(--admin-panel-raised);
-        border: 1px solid var(--admin-border);
-        color: var(--admin-text);
-      }
-
-      @keyframes review-toast-in {
-        from {
-          opacity: 0;
-          transform: translateY(-0.35rem);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
       }
 
       @keyframes selected-box-fade-in {
@@ -2140,114 +934,6 @@ const defaultPagination: AdminPagination = {
         }
       }
 
-      .audit-list {
-        display: grid;
-        gap: 0.75rem;
-        margin: 0;
-        padding-left: 1.2rem;
-      }
-
-      .refund-summary-grid {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .refund-summary-grid div {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 8px;
-        min-width: 0;
-        padding: 0.8rem;
-      }
-
-      .refund-summary-grid code,
-      .refund-summary-grid strong {
-        display: block;
-        min-width: 0;
-      }
-
-      .refund-summary-grid > div > span {
-        color: var(--admin-muted);
-        font-size: 0.78rem;
-        font-weight: var(--admin-label-weight);
-        text-transform: uppercase;
-      }
-
-      .refund-summary-grid strong,
-      .refund-summary-grid code {
-        color: var(--admin-text);
-        font-size: 0.9rem;
-        margin-top: 0.3rem;
-        overflow-wrap: anywhere;
-      }
-
-      .refund-history-list {
-        display: grid;
-        gap: 0.75rem;
-        list-style: none;
-        margin: 0;
-        padding: 0;
-      }
-
-      .refund-history-list li {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-left: 0.28rem solid var(--admin-border);
-        border-radius: 8px;
-        padding: 0.8rem 0.9rem;
-      }
-
-      .refund-history-requested {
-        background: var(--og7-admin-warning-bg, #3c3221);
-        border-left-color: var(--admin-border);
-      }
-
-      .refund-history-processing {
-        background: var(--admin-panel-raised);
-        border-left-color: var(--admin-border);
-      }
-
-      .refund-history-completed {
-        background: var(--admin-panel-raised);
-        border-left-color: var(--admin-border);
-      }
-
-      .refund-history-failed {
-        background: var(--admin-panel-raised);
-        border-left-color: var(--admin-border);
-      }
-
-      .refund-history-not-requested {
-        background: var(--admin-panel);
-        border-left-color: var(--admin-border);
-      }
-
-      .audit-list time {
-        color: var(--admin-muted);
-        font-size: 0.82rem;
-        font-weight: 500;
-      }
-
-      .refund-history-list time {
-        color: var(--admin-muted);
-        font-size: 0.82rem;
-        font-weight: 500;
-      }
-
-      .audit-list p {
-        margin: 0.15rem 0;
-      }
-
-      .refund-history-list p {
-        font-weight: 500;
-        margin: 0.15rem 0;
-      }
-
-      .preserve-lines {
-        white-space: pre-wrap;
-      }
-
       @media (max-width: 1500px) {
         .sponsors-board {
           grid-template-columns: 1fr;
@@ -2260,11 +946,7 @@ const defaultPagination: AdminPagination = {
       }
 
       @media (max-width: 860px) {
-        .admin-shell,
-        .rejection-workflow,
-        .refund-workflow,
-        .publication-grid,
-        .refund-summary-grid {
+        .admin-shell {
           grid-template-columns: 1fr;
         }
 
@@ -2273,27 +955,9 @@ const defaultPagination: AdminPagination = {
           align-items: stretch;
           flex-direction: column;
         }
-        .detail-actions {
-          bottom: max(0.5rem, env(safe-area-inset-bottom));
-          gap: 0.6rem;
-          margin-inline: 0.5rem;
-          padding: 0.75rem;
-        }
-        .detail-actions-context {
-          flex-basis: 100%;
-        }
-        .detail-actions-buttons {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          width: 100%;
-        }
-        .detail-actions-buttons button {
-          padding-inline: 0.5rem;
-        }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .review-toast,
         .sponsor-detail-panel.selection-pulse {
           animation: none;
         }
@@ -2341,14 +1005,16 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
   private readonly injector = inject(Injector);
-  private readonly rejectionReason =
-    viewChild<ElementRef<HTMLTextAreaElement>>('rejectionReason');
-  private readonly refundAmountInput =
-    viewChild<ElementRef<HTMLInputElement>>('refundAmountInput');
-  private readonly rejectButton =
-    viewChild<ElementRef<HTMLButtonElement>>('rejectButton');
-  private readonly refundButton =
-    viewChild<ElementRef<HTMLButtonElement>>('refundButton');
+  private readonly rejectionPanel = viewChild(
+    AdminSponsorRejectionPanelComponent
+  );
+  private readonly refundPanel = viewChild(AdminSponsorRefundPanelComponent);
+  private readonly decisionActions = viewChild(
+    AdminSponsorDecisionActionsComponent
+  );
+  private readonly publicationPanel = viewChild(
+    AdminSponsorPublicationPanelComponent
+  );
   readonly canManage = computed(() => this.admin.identity()?.role !== 'reader');
   readonly canUseOwnerActions = computed(
     () => !this.admin.identity() || this.admin.identity()?.role === 'owner'
@@ -2591,6 +1257,70 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         })
       : null;
   });
+  readonly selectedSponsorRefundHistory =
+    computed<AdminSponsorRefundHistoryView | null>(() => {
+      const selected = this.selectedSponsorship();
+      if (!selected) return null;
+      const history = this.historyProjection;
+      return {
+        statusClass: history.refundWorkflowStatusClass(
+          selected.sponsorship_refund_status
+        ),
+        statusLabel: history.refundWorkflowStatusLabel(
+          selected.sponsorship_refund_status
+        ),
+        amountLabel: this.presentationProjection.formatMoney(selected),
+        refundAmountLabel: selected.sponsorship_refund_amount
+          ? this.formatAmount(
+              selected.sponsorship_refund_amount,
+              selected.currency
+            )
+          : this.i18n.t('admin.legacy.non_associe'),
+        refundReasonLabel: selected.sponsorship_refund_reason
+          ? history.stripeRefundReasonLabel(selected.sponsorship_refund_reason)
+          : this.i18n.t('admin.legacy.non_associee'),
+        publicReferenceLabel:
+          selected.public_reference ||
+          this.i18n.t('admin.legacy.non_attribuee_175'),
+        refundIdLabel:
+          selected.sponsorship_refund_id ||
+          this.i18n.t('admin.legacy.non_associe'),
+        hasRefundWorkflow: history.hasRefundWorkflow(selected),
+        refundNote: selected.sponsorship_refund_note,
+        refundError: selected.sponsorship_refund_error,
+        timelineEntries: history
+          .refundHistoryEntriesFor(selected)
+          .map((entry) => ({
+            id: entry.id,
+            dateTimeLabel: this.dateTimeLabel(entry.date),
+            label: entry.label,
+            detail: entry.detail,
+            stateClass: history.refundHistoryEntryClass(entry)
+          })),
+        auditEntries: history.refundAuditEntriesFor(selected).map((entry) => ({
+          id: entry.id,
+          dateTimeLabel: this.dateTimeLabel(entry.date),
+          label: entry.label,
+          detail: entry.detail
+        }))
+      };
+    });
+  readonly selectedSponsorAuditHistory =
+    computed<AdminSponsorAuditHistoryView | null>(() => {
+      const selected = this.selectedSponsorship();
+      return selected
+        ? {
+            entries: this.historyProjection
+              .auditEntriesFor(selected)
+              .map((entry) => ({
+                id: entry.id,
+                dateTimeLabel: this.dateTimeLabel(entry.date),
+                label: entry.label,
+                detail: entry.detail
+              }))
+          }
+        : null;
+    });
   readonly hasActiveFilters = computed(
     () =>
       this.search().trim().length > 0 ||
@@ -2828,37 +1558,33 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     if (!this.reviewWorkflow.openRejectionPanel(sponsorship)) return;
     this.setActiveTab('overview');
     this.refundWorkflow.activeRefundId.set(null);
-    afterNextRender(() => this.rejectionReason()?.nativeElement.focus(), {
+    afterNextRender(() => this.rejectionPanel()?.focusReason(), {
       injector: this.injector
     });
   }
   closeRejectionPanel(): void {
     if (!this.reviewWorkflow.closeRejectionPanel()) return;
-    this.rejectButton()?.nativeElement.focus({ preventScroll: true });
+    this.decisionActions()?.focusRejectButton();
   }
 
   openRefundPanel(sponsorship: AdminSponsorshipRecord): void {
     if (!this.refundWorkflow.openRefundPanel(sponsorship)) return;
     this.reviewWorkflow.activeRejectionId.set(null);
-    afterNextRender(() => this.refundAmountInput()?.nativeElement.focus(), {
+    afterNextRender(() => this.refundPanel()?.focusAmount(), {
       injector: this.injector
     });
   }
 
   closeRefundPanel(): void {
     if (!this.refundWorkflow.closeRefundPanel()) return;
-    this.refundButton()?.nativeElement.focus({ preventScroll: true });
+    this.decisionActions()?.focusRefundButton();
   }
 
   openWebsiteSettings(): void {
     this.websiteSettingsOpen.set(true);
     afterNextRender(
       () => {
-        const summary = this.sponsorDetailPanel?.nativeElement.querySelector(
-          '[data-og7="publication-advanced"] > summary'
-        ) as HTMLElement | null;
-        summary?.focus();
-        summary?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+        this.publicationPanel()?.focusSummary();
       },
       { injector: this.injector }
     );

@@ -1,0 +1,97 @@
+<section
+  class="detail-actions admin-focus-target"
+  data-og7="dossier-actions"
+  [attr.id]="anchor()"
+  tabindex="-1"
+  [attr.data-approval-state]="approvalState()"
+  role="region"
+  [attr.aria-label]="
+    (financeTab()
+      ? 'admin.dossier.workspace.financeActions'
+      : 'admin.dossier.reviewActions'
+    ) | translate
+  "
+>
+  <div class="detail-actions-context">
+    <strong>{{
+      (financeTab()
+        ? 'admin.dossier.workspace.finances'
+        : 'admin.dossier.reviewActions'
+      ) | translate
+    }}</strong>
+    <span>{{
+      sponsorship().sponsor_company_name ||
+        sponsorship().public_name ||
+        ('admin.messages.entreprise_sans_nom' | translate)
+    }}</span>
+    <small *ngIf="sponsorship().public_reference">{{
+      sponsorship().public_reference
+    }}</small>
+  </div>
+  <p
+    class="review-toast"
+    *ngIf="reviewMessage()"
+    role="status"
+    aria-live="polite"
+  >
+    {{ reviewMessage() }}
+  </p>
+  <div class="detail-actions-buttons">
+    <button
+      type="button"
+      class="review-button neutral"
+      *ngIf="!financeTab()"
+      [disabled]="
+        actionsDisabled() ||
+        sponsorship().sponsor_review_status === 'pending_review'
+      "
+      (click)="returnPending.emit()"
+    >
+      {{ 'admin.legacy.remettre_en_attente' | translate }}
+    </button>
+    <button
+      type="button"
+      class="review-button reject"
+      #rejectButton
+      *ngIf="!financeTab()"
+      [disabled]="
+        actionsDisabled() || sponsorship().sponsor_review_status === 'rejected'
+      "
+      (click)="openRejection.emit()"
+    >
+      {{ 'admin.legacy.refuser' | translate }}
+    </button>
+    <button
+      type="button"
+      class="review-button refund"
+      #refundButton
+      *ngIf="financeTab() && ownerActions()"
+      [disabled]="actionsDisabled() || !canRefund()"
+      (click)="openRefund.emit()"
+    >
+      {{ 'admin.legacy.rembourser_stripe' | translate }}
+    </button>
+    <button
+      type="button"
+      class="review-button approve approval-button"
+      data-og7="sponsorship-approve"
+      #approvalButton
+      [attr.data-state]="approvalState()"
+      [attr.aria-busy]="approvalState() === 'pending'"
+      *ngIf="!financeTab()"
+      [disabled]="actionsDisabled() || !canApprove()"
+      (click)="approve.emit()"
+    >
+      <span class="approval-shine" aria-hidden="true"></span>
+      <span class="approval-sparks" aria-hidden="true"></span>
+      <span class="approval-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="m5 12 4 4L19 6" />
+        </svg>
+      </span>
+      <span class="approval-label">{{
+        'admin.legacy.accepter' | translate
+      }}</span>
+    </button>
+  </div>
+</section>

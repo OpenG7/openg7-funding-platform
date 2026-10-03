@@ -10,6 +10,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { expect, test } from './support/test.js';
+import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -521,6 +522,8 @@ async function fixtures(page: Page, role?: 'reader' | 'operator' | 'owner') {
 const progress = (page: Page) =>
   page.locator('[data-og7="sponsorship-progress"]');
 const tabs = (page: Page) => page.locator('[data-og7="dossier-tabs"]');
+
+registerSponsorHistoryPanelTests({ fixtures, path, tabs });
 
 const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
 const guide = (page: Page) => page.locator('[data-og7="dossier-guide"]');

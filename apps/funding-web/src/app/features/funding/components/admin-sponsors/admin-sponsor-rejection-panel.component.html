@@ -1,0 +1,125 @@
+<section
+  class="rejection-workflow"
+  data-og7="dossier-rejection-form"
+  [attr.aria-label]="'admin.legacy.refus_de_commandite' | translate"
+>
+  <header>
+    <div>
+      <span>{{ 'admin.legacy.action_sensible' | translate }}</span>
+      <h3>
+        {{ 'admin.legacy.refuser_la_commandite' | translate }}
+      </h3>
+    </div>
+    <button
+      type="button"
+      class="icon-action"
+      (click)="cancelled.emit()"
+      [disabled]="actionPending()"
+      [attr.aria-label]="'admin.legacy.fermer_le_refus' | translate"
+    >
+      ×
+    </button>
+  </header>
+
+  <label class="rejection-span-2"
+    >{{ 'admin.legacy.raison_interne_du_refus' | translate
+    }}<textarea
+      #rejectionReason
+      rows="4"
+      maxlength="1000"
+      aria-describedby="sponsor-rejection-validation"
+      [value]="reviewNote()"
+      (input)="reviewNoteChange.emit($event)"
+    ></textarea>
+  </label>
+
+  <label class="rejection-span-2"
+    >{{ 'admin.legacy.message_au_commanditaire' | translate
+    }}<textarea
+      rows="5"
+      maxlength="1000"
+      [value]="draft().sponsorMessage"
+      (input)="
+        draftFieldChange.emit({ field: 'sponsorMessage', event: $event })
+      "
+    ></textarea>
+  </label>
+
+  <label class="checkbox-line rejection-span-2">
+    <input
+      type="checkbox"
+      [checked]="draft().notifySponsor"
+      (change)="notifySponsorChange.emit($event)"
+    />
+    {{ 'admin.legacy.envoyer_le_courriel_de_refus' | translate }}</label
+  >
+
+  <label
+    >{{ 'admin.legacy.destinataire' | translate
+    }}<input
+      type="email"
+      autocomplete="email"
+      [disabled]="!draft().notifySponsor"
+      [value]="draft().recipientEmail"
+      (input)="
+        draftFieldChange.emit({ field: 'recipientEmail', event: $event })
+      "
+  /></label>
+
+  <label
+    >{{ 'admin.legacy.remboursement' | translate
+    }}<select
+      [value]="draft().refundHandling"
+      (change)="refundHandlingChange.emit($event)"
+    >
+      <option value="none">
+        {{ 'admin.legacy.ne_pas_rembourser_maintenant' | translate }}
+      </option>
+      <option value="manual_required">
+        {{ 'admin.legacy.a_traiter_manuellement_dans_stripe' | translate }}
+      </option>
+      <option value="manual_completed">
+        {{ 'admin.legacy.deja_rembourse_manuellement' | translate }}
+      </option>
+    </select></label
+  >
+
+  <label class="rejection-span-2"
+    >{{ 'admin.legacy.note_remboursement' | translate
+    }}<textarea
+      rows="3"
+      maxlength="1000"
+      [value]="draft().refundNote"
+      (input)="draftFieldChange.emit({ field: 'refundNote', event: $event })"
+    ></textarea>
+  </label>
+
+  <footer>
+    <span
+      id="sponsor-rejection-validation"
+      class="inline-status"
+      aria-live="polite"
+      >{{ validationMessage() }}</span
+    >
+    <button
+      type="button"
+      class="secondary-action"
+      (click)="cancelled.emit()"
+      [disabled]="actionPending()"
+    >
+      {{ 'admin.legacy.annuler' | translate }}
+    </button>
+    <button
+      type="button"
+      class="review-button reject"
+      [disabled]="!canConfirm() || actionsDisabled()"
+      (click)="confirmed.emit()"
+    >
+      {{
+        busy()
+          ? ('admin.legacy.refus_en_cours' | translate)
+          : ('admin.legacy.confirmer_le_refus' | translate)
+      }}
+    </button>
+  </footer>
+</section>

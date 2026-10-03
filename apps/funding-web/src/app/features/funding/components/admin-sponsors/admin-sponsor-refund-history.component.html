@@ -1,0 +1,103 @@
+<section
+  class="detail-body refund-history-body"
+  data-og7="dossier-refund-history"
+  [attr.aria-label]="'admin.legacy.historique_remboursement' | translate"
+>
+  <article class="detail-card">
+    <h3>{{ 'admin.legacy.suivi_remboursement' | translate }}</h3>
+    <div class="refund-summary-grid" data-og7="dossier-refund-summary">
+      <div>
+        <span>{{ 'admin.legacy.statut' | translate }}</span>
+        <strong
+          ><span [class]="view().statusClass">{{
+            view().statusLabel
+          }}</span></strong
+        >
+      </div>
+      <div>
+        <span>{{ 'admin.legacy.montant_commandite' | translate }}</span>
+        <strong>{{ view().amountLabel }}</strong>
+      </div>
+      <div>
+        <span>{{ 'admin.legacy.dernier_montant_rembourse' | translate }}</span>
+        <strong>{{ view().refundAmountLabel }}</strong>
+      </div>
+      <div>
+        <span>{{ 'admin.legacy.raison_stripe' | translate }}</span>
+        <strong>{{ view().refundReasonLabel }}</strong>
+      </div>
+      <div>
+        <span>{{ 'admin.legacy.reference_publique' | translate }}</span>
+        <code>{{ view().publicReferenceLabel }}</code>
+      </div>
+      <div>
+        <span>{{ 'admin.legacy.refund_stripe' | translate }}</span>
+        <code>{{ view().refundIdLabel }}</code>
+      </div>
+    </div>
+    <p class="muted-copy" *ngIf="!view().hasRefundWorkflow">
+      {{
+        'admin.legacy.aucun_remboursement_n_est_demande_pour_cette_commandite'
+          | translate
+      }}
+    </p>
+  </article>
+
+  <article class="detail-card">
+    <h3>{{ 'admin.legacy.jalons_remboursement' | translate }}</h3>
+    @if (view().timelineEntries.length > 0) {
+      <ol class="refund-history-list" data-og7="dossier-refund-timeline">
+        @for (entry of view().timelineEntries; track entry.id) {
+          <li [class]="entry.stateClass" [attr.data-og7-id]="entry.id">
+            <time>{{ entry.dateTimeLabel }}</time>
+            <p>{{ entry.label }}</p>
+            <small *ngIf="entry.detail">{{ entry.detail }}</small>
+          </li>
+        }
+      </ol>
+    } @else {
+      <p class="muted-copy">
+        {{
+          'admin.legacy.aucun_jalon_de_remboursement_n_est_encore_date_pour_ce_dossier'
+            | translate
+        }}
+      </p>
+    }
+  </article>
+
+  <article class="detail-card" *ngIf="view().refundNote || view().refundError">
+    <h3>{{ 'admin.legacy.notes_et_erreurs' | translate }}</h3>
+    <dl class="compact-definition-list">
+      <div *ngIf="view().refundNote">
+        <dt>{{ 'admin.legacy.note_remboursement' | translate }}</dt>
+        <dd class="preserve-lines">{{ view().refundNote }}</dd>
+      </div>
+      <div *ngIf="view().refundError">
+        <dt>{{ 'admin.legacy.derniere_erreur' | translate }}</dt>
+        <dd class="preserve-lines">{{ view().refundError }}</dd>
+      </div>
+    </dl>
+  </article>
+
+  <article class="detail-card">
+    <h3>{{ 'admin.legacy.actions_admin_liees' | translate }}</h3>
+    @if (view().auditEntries.length > 0) {
+      <ol class="audit-list" data-og7="dossier-refund-audit">
+        @for (entry of view().auditEntries; track entry.id) {
+          <li [attr.data-og7-id]="entry.id">
+            <time>{{ entry.dateTimeLabel }}</time>
+            <p>{{ entry.label }}</p>
+            <small *ngIf="entry.detail">{{ entry.detail }}</small>
+          </li>
+        }
+      </ol>
+    } @else {
+      <p class="muted-copy">
+        {{
+          'admin.legacy.aucune_action_admin_de_remboursement_n_est_encore_associee_a_cett'
+            | translate
+        }}
+      </p>
+    }
+  </article>
+</section>

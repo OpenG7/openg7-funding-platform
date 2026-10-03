@@ -1003,6 +1003,7 @@
         "engine": "Follow this dossier in the engine",
         "authorization": "Preparation does not publish anything. Each delivery requires approval of the content and destination. A simulation does not complete this step.",
         "advanced": "Advanced settings · visibility and manual tracking",
+        "promisedChannel": "Channel included in the contribution tier",
         "filtered": "Publications linked to this dossier",
         "collective": "A collective publication may include several sponsors. Your approval covers all displayed content.",
         "back": "Back to step 6",

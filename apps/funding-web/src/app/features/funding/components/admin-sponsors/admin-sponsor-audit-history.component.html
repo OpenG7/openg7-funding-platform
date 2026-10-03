@@ -1,0 +1,38 @@
+<section
+  class="detail-body admin-focus-target"
+  id="dossier-audit"
+  data-og7="dossier-audit-history"
+  tabindex="-1"
+  [attr.aria-label]="'admin.legacy.historique_et_audit' | translate"
+>
+  <article class="detail-card">
+    <h3>{{ 'admin.legacy.historique_disponible' | translate }}</h3>
+    <button type="button" (click)="inspect.emit()">
+      {{ 'admin.inspector.kinds.history' | translate }}
+    </button>
+    @if (view().entries.length > 0) {
+      <ol class="audit-list" data-og7="dossier-audit-events">
+        @for (entry of view().entries; track entry.id) {
+          <li [attr.data-og7-id]="entry.id">
+            <time>{{ entry.dateTimeLabel }}</time>
+            <p>{{ entry.label }}</p>
+            <small *ngIf="entry.detail">{{ entry.detail }}</small>
+          </li>
+        }
+      </ol>
+    } @else {
+      <p class="muted-copy">
+        {{
+          'admin.legacy.aucun_historique_administratif_detaille_n_est_encore_disponible_p'
+            | translate
+        }}
+      </p>
+    }
+    <p class="muted-copy">
+      {{
+        'admin.legacy.les_actions_admin_proviennent_du_journal_prive_et_restent_limitee'
+          | translate
+      }}
+    </p>
+  </article>
+</section>
