@@ -1,0 +1,369 @@
+:host {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.item-editor {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.item-editor {
+  border: 0;
+  border-top: 1px solid var(--admin-border);
+  margin: 0;
+  padding: 1rem 0 0;
+}
+
+.secondary-options {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.4rem;
+  padding: 0.75rem;
+}
+
+.secondary-options summary {
+  cursor: pointer;
+  font-weight: var(--admin-control-weight);
+  min-height: 2rem;
+}
+
+.secondary-options[open] > :not(summary) {
+  margin-top: 0.75rem;
+}
+
+.secondary-options summary:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+
+.history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: var(--admin-label-weight);
+}
+
+.dirty-note {
+  color: var(--admin-warning);
+}
+
+.batch-card:focus {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 4px;
+}
+
+.filters,
+.admin-panel,
+.draft-list,
+.state {
+  margin: 0 auto;
+  max-width: 78rem;
+  width: 100%;
+}
+
+.admin-panel header,
+.draft-card header,
+.eligible-list article,
+.draft-card footer {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.admin-panel span,
+.draft-card header span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.admin-panel h2,
+.draft-card h2,
+.empty-state h3 {
+  margin: 0;
+}
+
+.filters,
+.admin-panel,
+.draft-card,
+.empty-state {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+}
+
+.filters,
+.admin-panel,
+.draft-card,
+.empty-state {
+  padding: 1rem;
+}
+
+.empty-state p,
+small {
+  color: var(--admin-muted);
+  margin: 0.35rem 0 0;
+}
+
+.filters,
+.draft-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.filters,
+.draft-grid {
+  grid-template-columns: minmax(14rem, 2fr) minmax(10rem, 1fr);
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: var(--admin-label-weight);
+}
+
+input,
+select,
+textarea {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 0.65rem 0.75rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  background: var(--admin-panel-raised);
+  border: 0;
+  border-radius: 0.35rem;
+  color: var(--admin-text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: var(--admin-control-weight);
+  min-height: 2.55rem;
+  padding: 0 0.85rem;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+button.neutral {
+  background: var(--admin-panel-raised);
+}
+
+button.approve {
+  background: var(--og7-admin-success-bg, #193d32);
+}
+
+button.reject {
+  background: var(--og7-admin-danger-bg, #422532);
+}
+
+.admin-panel,
+.draft-list,
+.draft-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.eligible-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.eligible-list article {
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  padding: 0.85rem;
+}
+
+.eligible-list nav,
+.batch-card footer,
+.slot-card footer,
+.draft-card footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.batch-create-form {
+  align-items: end;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(8rem, 12rem) minmax(6rem, 8rem) auto;
+}
+
+.slot-create-form {
+  align-items: end;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns:
+    minmax(7rem, 0.8fr) minmax(7rem, 0.8fr) minmax(12rem, 1.2fr)
+    minmax(10rem, 1fr) minmax(6rem, 0.6fr) minmax(12rem, 1.5fr)
+    auto;
+}
+
+.slot-notes-field {
+  min-width: 0;
+}
+
+.batch-card {
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.slot-card {
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.slot-capacity {
+  align-items: center;
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.75rem;
+}
+
+.slot-capacity strong {
+  font-size: 1.35rem;
+}
+
+.slot-capacity span {
+  color: var(--admin-success);
+  font-size: 0.85rem;
+  font-weight: var(--admin-label-weight);
+}
+
+.slot-edit-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+}
+
+.social-runtime,
+.social-job {
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin: 0;
+  padding: 0.75rem;
+}
+
+.social-job {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.social-job a {
+  color: var(--admin-muted);
+  font-weight: var(--admin-control-weight);
+}
+
+.batch-card header,
+.slot-card header {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.batch-card h3,
+.slot-card h3 {
+  margin: 0;
+}
+
+.draft-batch-row {
+  align-items: end;
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.draft-batch-row span {
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+  font-weight: var(--admin-label-weight);
+}
+
+label.inline {
+  margin: 0;
+  min-width: min(14rem, 100%);
+}
+
+.state-error {
+  color: var(--admin-danger);
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .filters,
+  .draft-grid,
+  .batch-create-form,
+  .slot-create-form,
+  .slot-edit-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-panel header,
+  .draft-card header,
+  .eligible-list article,
+  .slot-card header {
+    align-items: start;
+    flex-direction: column;
+  }
+}

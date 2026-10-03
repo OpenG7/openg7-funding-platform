@@ -1,0 +1,289 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.detail-header span,
+.line-items header span,
+.credit-notes-panel header span,
+.email-panel header span {
+  color: var(--admin-warning);
+  font-size: 0.73rem;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.email-panel header openg7-admin-document-email-status {
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.secondary-action {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.4rem;
+  color: var(--admin-text);
+  font-weight: var(--admin-label-weight);
+  min-height: 2.35rem;
+  padding: 0 0.85rem;
+}
+
+.secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.invoice-detail-panel {
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 0.8rem 1.8rem rgba(23, 32, 51, 0.06);
+}
+
+.invoice-detail-panel {
+  min-width: 0;
+  padding: 1rem;
+}
+
+.detail-header,
+.line-items header,
+.credit-notes-panel header,
+.email-panel header {
+  align-items: start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.invoice-detail-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.detail-header {
+  border-bottom: 1px solid var(--admin-border);
+  padding-bottom: 1rem;
+}
+
+.detail-header p {
+  color: var(--admin-muted);
+  font-weight: 500;
+  margin-top: 0.2rem;
+}
+
+.detail-actions {
+  align-items: end;
+  display: grid;
+  gap: 0.45rem;
+  justify-items: end;
+}
+
+.detail-actions > strong {
+  font-size: 1.4rem;
+  white-space: nowrap;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+dl,
+.line-items,
+.credit-notes-panel,
+.email-panel {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+}
+
+dl div,
+.line-item {
+  align-items: start;
+  border-bottom: 1px solid rgba(23, 32, 51, 0.08);
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: minmax(8rem, 0.75fr) minmax(0, 1fr);
+  padding-bottom: 0.65rem;
+}
+
+dt {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: var(--admin-label-weight);
+  text-transform: uppercase;
+}
+
+dd {
+  font-weight: 400;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.line-items,
+.credit-notes-panel,
+.email-panel {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  padding: 0.85rem;
+}
+
+.credit-notes-panel {
+  border-color: var(--admin-border);
+}
+
+.credit-note-card {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.4rem;
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.75rem;
+}
+
+.credit-note-title {
+  align-items: start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.credit-note-title div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.credit-note-title span {
+  color: var(--admin-muted);
+  font-size: 0.86rem;
+  font-weight: 400;
+}
+
+.credit-note-meta {
+  background: var(--admin-panel);
+  border-radius: 0.35rem;
+  padding: 0.7rem;
+}
+
+.line-item {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.line-item small {
+  color: var(--admin-muted);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.totals {
+  margin-top: 0.2rem;
+}
+
+.totals div:last-child {
+  border-bottom: 0;
+}
+
+.totals div:last-child dt,
+.totals div:last-child dd {
+  color: var(--admin-text);
+  font-size: 1rem;
+  font-weight: var(--admin-emphasis-weight);
+}
+
+.stripe-grid dd {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 0.86rem;
+}
+
+.email-meta {
+  background: var(--admin-panel-raised);
+  border-radius: 0.4rem;
+  padding: 0.75rem;
+}
+
+.document-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.download-message {
+  color: var(--admin-muted);
+  font-weight: 500;
+}
+
+.download-message.error {
+  color: var(--admin-danger);
+}
+
+.invoice-note,
+.empty-detail {
+  background: var(--admin-panel-raised);
+  border-radius: 0.4rem;
+  color: var(--admin-muted);
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem;
+}
+
+.empty-detail strong {
+  color: var(--admin-text);
+}
+
+@media (max-width: 1080px) {
+  .detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .detail-header,
+  .detail-actions,
+  .line-items header,
+  .credit-notes-panel header,
+  .credit-note-title,
+  .email-panel header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  dl div,
+  .line-item {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-actions {
+    align-items: stretch;
+    justify-items: stretch;
+  }
+
+  .detail-actions > strong,
+  .line-item small {
+    white-space: normal;
+  }
+}

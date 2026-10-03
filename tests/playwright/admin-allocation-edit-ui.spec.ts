@@ -205,6 +205,89 @@ for (const language of ['fr-CA', 'en']) {
     const outcome = english ? 'Expected outcome' : 'Resultat attendu';
     const saveName = english ? 'Save' : 'Enregistrer';
 
+    test(`allocation filters preserve page drafts when cards are recreated during a save in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const { submissions, finish, card } = await prepare(
+        page,
+        language,
+        width
+      );
+      const filters = page.locator('[data-og7="allocation-filters"]');
+      const search = filters.getByRole('searchbox', {
+        name: english ? 'Search' : 'Recherche',
+        exact: true
+      });
+      const status = filters.getByRole('combobox', {
+        name: english ? 'Status' : 'Statut',
+        exact: true
+      });
+      await card('1')
+        .getByLabel(description, { exact: true })
+        .fill('First submitted draft');
+      await card('2')
+        .getByLabel(outcome, { exact: true })
+        .fill('Second page-owned draft');
+      await search.fill('Fixture 1');
+      await expect(card('2')).toHaveCount(0);
+      await search.fill('');
+      await expect(card('2').getByLabel(outcome, { exact: true })).toHaveValue(
+        'Second page-owned draft'
+      );
+      await status.selectOption('private');
+      await expect(page.locator('[data-og7="allocation-card"]')).toHaveCount(0);
+      await expect(
+        page.getByRole('heading', {
+          name: english ? 'No entries found' : 'Aucune entree trouvee',
+          exact: true
+        })
+      ).toBeVisible();
+      await status.selectOption('all');
+      await expect(
+        card('1').getByLabel(description, { exact: true })
+      ).toHaveValue('First submitted draft');
+      await expect(card('2').getByLabel(outcome, { exact: true })).toHaveValue(
+        'Second page-owned draft'
+      );
+
+      await save(page, card('1'), english);
+      await expect.poll(() => submissions.length).toBe(1);
+      await search.fill('Fixture 2');
+      await expect(card('1')).toHaveCount(0);
+      await expect(search).toBeFocused();
+      await expect(
+        card('2').getByRole('button', { name: saveName, exact: true })
+      ).toBeDisabled();
+      const confirmed = (await finish(submissions[0]))!;
+      await expect(
+        card('2').getByRole('button', { name: saveName, exact: true })
+      ).toBeEnabled();
+      await expect(search).toHaveValue('Fixture 2');
+      await expect(search).toBeFocused();
+      await expect(card('2').getByLabel(outcome, { exact: true })).toHaveValue(
+        'Second page-owned draft'
+      );
+
+      await search.fill('Fixture 1');
+      await expect(
+        card('1').getByLabel(description, { exact: true })
+      ).toHaveValue('First submitted draft');
+      await card('1')
+        .getByLabel(outcome, { exact: true })
+        .fill('Next first draft');
+      await save(page, card('1'), english);
+      await expect.poll(() => submissions.length).toBe(2);
+      expect(submissions[1].payload).toMatchObject({
+        expenseId: '1',
+        expectedVersion: confirmed.updated_at,
+        expectedOutcome: 'Next first draft'
+      });
+      await finish(submissions[1]);
+      await expect(
+        card('1').getByRole('button', { name: saveName, exact: true })
+      ).toBeEnabled();
+    });
+
     test(`allocation drafts survive another save, late reads and edits during publication in ${language} at ${width}px`, async ({
       page
     }) => {

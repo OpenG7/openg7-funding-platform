@@ -1,10 +1,12 @@
 import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
+import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { readEmailNotificationSource } from './support/email-notification-source.mjs';
 import { readFundingAdminSource } from './support/funding-admin-source.mjs';
 import { readFundingHomeSource } from './support/funding-home-source.mjs';
 import { readSponsorshipFollowupSource } from './support/sponsorship-followup-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
+import { readAdminAccountingSource } from './support/admin-accounting-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -265,10 +267,7 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
   );
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const followupPage = readSponsorshipFollowupSource();
-  const adminContributionsPage = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-contributions-page/admin-contributions-page.component.ts',
-    'utf8'
-  );
+  const adminContributionsPage = readAdminAccountingSource('contributions');
   const adminSponsorsPage = readAdminSponsorsSource();
 
   assert.ok(migration.includes('ADD COLUMN IF NOT EXISTS public_reference'));
@@ -1754,10 +1753,7 @@ test('Publication slot admin endpoints are authenticated, validated, rate-limite
 test('Publication batch types and admin UI expose capacity, next availability, and scheduled status', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminPublicationsSource();
 
   assert.ok(core.includes('export type PublicationBatchStatus ='));
   assert.ok(core.includes("'open' | 'scheduled' | 'published' | 'cancelled';"));
@@ -1804,10 +1800,7 @@ test('Publication batch types and admin UI expose capacity, next availability, a
 test('Publication slot types and admin UI expose calendar, edit, capacity, and assignments', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminPublicationsSource();
 
   assert.ok(core.includes('export type PublicationSlotStatus ='));
   assert.ok(core.includes('export interface AdminPublicationSlotRecord'));
@@ -1842,7 +1835,7 @@ test('Publication slot types and admin UI expose calendar, edit, capacity, and a
   assert.ok(translatedUiSource(page).includes('slot.capacityAvailable'));
   assert.ok(
     translatedUiSource(page).includes(
-      "newSlotTimezone = signal<string>('America/Toronto')"
+      "newSlotTimezone = signal('America/Toronto')"
     )
   );
 });
@@ -1859,10 +1852,7 @@ test('Social publication provider is explicit, configurable, audited, and visibl
     'utf8'
   );
   const webService = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminPublicationsSource();
   const compose = fs.readFileSync('docker-compose.yml', 'utf8');
   const envExample = fs.readFileSync('.env.example', 'utf8');
 
@@ -2787,10 +2777,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'utf8'
   );
   const service = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminAccountingSource('invoices');
   const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/sponsorship-invoices.repository.ts',
@@ -2848,7 +2835,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'creditNoteResendEmail',
     'resendCreditNote(',
     'Renvoyer avoir',
-    'resendInvoice()',
+    'resendInvoice(',
     'Renvoyer'
   ]) {
     assert.ok(

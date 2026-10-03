@@ -478,6 +478,136 @@ for (const language of ['fr-CA', 'en'])
       await expect(page.getByText(failure, { exact: true })).toHaveCount(0);
     });
 
+    test(`document resend captures its recipient before confirmation across selection in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const english = language === 'en';
+      await page.setViewportSize({ width, height: 950 });
+      await page.addInitScript(seedSession, language);
+      const calls: Record<string, unknown>[] = [];
+      let release: (() => void) | undefined;
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/resend')) {
+          const payload = route.request().postDataJSON();
+          calls.push(payload);
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          const emailStatus = {
+            last_email_status: 'queued',
+            last_email_recipient: payload.to,
+            last_email_sent_at: null
+          };
+          return route.fulfill({
+            json: {
+              queued: true,
+              attempted: false,
+              sent: false,
+              messageId: `message-captured-${payload.confirmation}`,
+              ...(payload.invoiceId
+                ? { invoice: { ...invoice, ...emailStatus } }
+                : {
+                    creditNote: { ...invoice.credit_notes[0], ...emailStatus }
+                  }),
+              error: null
+            }
+          });
+        }
+        if (path.endsWith('/sponsorship-invoices'))
+          return route.fulfill({ json: twoInvoiceListing });
+        return route.fulfill({ status: 503, json: {} });
+      });
+      await page.goto('/admin/fundraiser/invoices');
+      const select = (invoiceId: string) =>
+        page.locator(
+          `[data-og7="invoice-selection"][data-og7-id="${invoiceId}"]`
+        );
+      for (const kind of ['invoice', 'creditNote'] as const) {
+        await select(id).focus();
+        await page.keyboard.press('Enter');
+        await expect(select(id)).toHaveAttribute('aria-pressed', 'true');
+        await expect(select(secondInvoice.id)).toHaveAttribute(
+          'aria-pressed',
+          'false'
+        );
+        const docId = kind === 'invoice' ? id : creditId;
+        const captured = `captured-${kind}@example.test`;
+        const edited = `edited-${kind}@example.test`;
+        const panel =
+          kind === 'invoice' ? page : page.locator('[data-og7="credit-note"]');
+        const recipient = panel.getByLabel(
+          kind === 'invoice'
+            ? english
+              ? 'Recipient'
+              : 'Destinataire'
+            : english
+              ? 'Credit note recipient'
+              : 'Destinataire avoir',
+          { exact: true }
+        );
+        await recipient.fill(captured);
+        await panel
+          .getByRole('button', {
+            name:
+              kind === 'invoice'
+                ? english
+                  ? 'Resend'
+                  : 'Renvoyer'
+                : english
+                  ? 'Resend credit note'
+                  : 'Renvoyer avoir',
+            exact: true
+          })
+          .click();
+        const dialog = page.getByRole('dialog');
+        await expect(dialog).toContainText(captured);
+        // Simulate page updates during the async confirmation boundary.
+        await recipient.evaluate((element, email) => {
+          (element as HTMLInputElement).value = email;
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+        }, edited);
+        await select(secondInvoice.id).dispatchEvent('click');
+        await expect(dialog).toContainText(captured);
+        release = undefined;
+        await page.locator('[data-og7="confirm-action"]').click();
+        await expect.poll(() => release !== undefined).toBe(true);
+        expect(calls.at(-1)).toMatchObject({
+          confirmation: docId,
+          to: captured,
+          [kind === 'invoice' ? 'invoiceId' : 'creditNoteId']: docId
+        });
+        await expect(
+          page.getByLabel(english ? 'Recipient' : 'Destinataire', {
+            exact: true
+          })
+        ).toHaveValue('other@example.test');
+        const response = page.waitForResponse((candidate) =>
+          new URL(candidate.url()).pathname.endsWith('/resend')
+        );
+        release!();
+        await (await response).finished();
+        await expect(
+          page.locator('[data-og7="document-email-status"]')
+        ).toHaveCount(0);
+        await select(id).click();
+        await expect(
+          panel.locator(
+            `[data-og7="document-email-status"][data-og7-id="${docId}"]`
+          )
+        ).toHaveAttribute(
+          'href',
+          `/admin/fundraiser/email-queue?messageId=message-captured-${docId}`
+        );
+        await expect(panel.getByText(captured, { exact: true })).toBeVisible();
+        if (kind === 'invoice') await expect(recipient).toHaveValue(edited);
+      }
+      expect(calls).toHaveLength(2);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth)
+      ).toBeLessThanOrEqual(width);
+    });
+
     test(`document PDF stays with its document across selection in ${language} at ${width}px`, async ({
       page
     }) => {

@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "playwright/admin-document-resend-ui.spec.ts",
+    "playwright/admin-allocation-create-ui.spec.ts",
+    "playwright/admin-allocation-edit-ui.spec.ts",
+    "playwright/admin-contributions-ui.spec.ts"
+  ]
+}

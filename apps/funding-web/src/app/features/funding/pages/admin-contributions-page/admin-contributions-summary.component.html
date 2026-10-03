@@ -1,0 +1,23 @@
+<section
+  class="admin-summary-grid"
+  [attr.aria-label]="'admin.legacy.resume_contributions' | translate"
+>
+  <article>
+    <span>{{ 'admin.legacy.total' | translate }}</span>
+    <strong>{{ summary().total_count }}</strong>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.payees' | translate }}</span>
+    <strong>{{ summary().paid_count }}</strong>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.commandites' | translate }}</span>
+    <strong>{{ summary().sponsorship_count }}</strong>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.total_recu' | translate }}</span>
+    <strong>
+      {{ totalReceivedLabel() }}
+    </strong>
+  </article>
+</section>

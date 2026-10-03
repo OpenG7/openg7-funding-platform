@@ -1,0 +1,297 @@
+@if (view(); as detail) {
+  @let invoice = detail.invoice;
+  <section
+    class="invoice-detail-panel"
+    [attr.aria-label]="'admin.legacy.detail_facture' | translate"
+  >
+    <header class="detail-header">
+      <div>
+        <span>{{ 'admin.legacy.facture' | translate }}</span>
+        <h2>{{ invoice.invoice_number }}</h2>
+        <p>{{ invoice.sponsor_name }}</p>
+      </div>
+      <div class="detail-actions">
+        <strong>{{ detail.totalLabel }}</strong>
+        <button
+          type="button"
+          class="secondary-action"
+          [disabled]="detail.download.state === 'loading'"
+          (click)="invoiceDownload.emit(invoice)"
+        >
+          {{
+            detail.download.state === 'loading'
+              ? ('admin.legacy.preparation_171' | translate)
+              : ('admin.legacy.telecharger_pdf' | translate)
+          }}
+        </button>
+        <button
+          type="button"
+          class="secondary-action"
+          (click)="invoiceInspection.emit(invoice)"
+        >
+          {{ 'admin.inspector.previewInvoice' | translate }}
+        </button>
+        <span class="download-message error" *ngIf="detail.download.message">
+          {{ detail.download.message }}
+        </span>
+      </div>
+    </header>
+
+    <section
+      class="detail-grid"
+      [attr.aria-label]="'admin.legacy.identite_facture' | translate"
+    >
+      <dl>
+        <div>
+          <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
+          <dd>
+            {{
+              invoice.public_reference ||
+                ('admin.legacy.non_attribuee_175' | translate)
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.payee_le' | translate }}</dt>
+          <dd>{{ detail.paidAtLabel }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.emise_le' | translate }}</dt>
+          <dd>{{ detail.issuedAtLabel }}</dd>
+        </div>
+      </dl>
+
+      <dl>
+        <div>
+          <dt>{{ 'admin.legacy.contact' | translate }}</dt>
+          <dd>{{ detail.contactLabel }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.courriel_facture' | translate }}</dt>
+          <dd>
+            {{
+              invoice.sponsor_contact_email ||
+                ('admin.legacy.absent' | translate)
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.site_web' | translate }}</dt>
+          <dd>
+            {{
+              invoice.sponsor_website_url || ('admin.legacy.absent' | translate)
+            }}
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section
+      class="line-items"
+      [attr.aria-label]="'admin.legacy.lignes_facture' | translate"
+    >
+      <header>
+        <span>{{ 'admin.legacy.lignes' | translate }}</span>
+        <strong>{{ invoice.currency }}</strong>
+      </header>
+      <div class="line-item" *ngFor="let item of detail.lineItems">
+        <span>{{ item.line.description }}</span>
+        <small>{{
+          'admin.legacy.p0_x_p1'
+            | translate
+              : {
+                  p0: item.line.quantity,
+                  p1: item.unitAmountLabel
+                }
+        }}</small>
+        <strong>{{ item.totalLabel }}</strong>
+      </div>
+      <dl class="totals">
+        <div>
+          <dt>{{ 'admin.legacy.sous_total' | translate }}</dt>
+          <dd>
+            {{ detail.subtotalLabel }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ invoice.tax_label }}</dt>
+          <dd>{{ detail.taxLabel }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.total_paye' | translate }}</dt>
+          <dd>{{ detail.totalLabel }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section
+      class="credit-notes-panel"
+      *ngIf="invoice.credit_notes.length > 0"
+      [attr.aria-label]="'admin.legacy.avoirs_de_commandite' | translate"
+    >
+      <header>
+        <div>
+          <span>{{ 'admin.legacy.avoirs' | translate }}</span>
+          <h3>
+            {{ 'admin.legacy.remboursements_documentes' | translate }}
+          </h3>
+        </div>
+        <strong>{{ detail.creditedTotalLabel }}</strong>
+      </header>
+
+      <article
+        class="credit-note-card"
+        data-og7="credit-note"
+        [attr.data-og7-id]="credit.record.id"
+        *ngFor="let credit of detail.creditNotes; trackBy: trackByCreditNote"
+      >
+        <div class="credit-note-title">
+          <div>
+            <strong>{{ credit.record.credit_note_number }}</strong>
+            <span>{{ credit.issuedAtLabel }}</span>
+          </div>
+          <strong>{{ credit.totalLabel }}</strong>
+        </div>
+
+        <dl class="credit-note-meta">
+          <div>
+            <dt>{{ 'admin.legacy.refund_stripe' | translate }}</dt>
+            <dd>{{ credit.record.stripe_refund_id }}</dd>
+          </div>
+          <div>
+            <dt>
+              {{ 'admin.legacy.dernier_destinataire' | translate }}
+            </dt>
+            <dd>
+              {{
+                credit.record.last_email_recipient ||
+                  ('admin.legacy.absent' | translate)
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.legacy.dernier_envoi' | translate }}</dt>
+            <dd>{{ credit.lastEmailSentAtLabel }}</dd>
+          </div>
+          <div *ngIf="credit.record.last_email_error">
+            <dt>{{ 'admin.legacy.erreur' | translate }}</dt>
+            <dd>{{ credit.record.last_email_error }}</dd>
+          </div>
+        </dl>
+
+        <openg7-admin-document-email-status
+          [status]="credit.record.last_email_status"
+        />
+
+        <div class="document-actions">
+          <button
+            type="button"
+            class="secondary-action"
+            [disabled]="credit.download.state === 'loading'"
+            (click)="creditNoteDownload.emit(credit.record)"
+          >
+            {{
+              credit.download.state === 'loading'
+                ? ('admin.legacy.preparation_171' | translate)
+                : ('admin.legacy.telecharger_pdf' | translate)
+            }}
+          </button>
+          <span class="download-message error" *ngIf="credit.download.message">
+            {{ credit.download.message }}
+          </span>
+        </div>
+
+        <openg7-admin-document-delivery
+          [delivery]="credit.delivery"
+          recipientLabelKey="admin.legacy.destinataire_avoir"
+          resendLabelKey="admin.legacy.renvoyer_avoir"
+          (emailChange)="
+            creditNoteRecipientChange.emit({
+              id: credit.record.id,
+              email: $event
+            })
+          "
+          (resend)="creditNoteResend.emit(credit.record)"
+        />
+      </article>
+    </section>
+
+    <section
+      class="stripe-grid"
+      [attr.aria-label]="'admin.legacy.references_stripe' | translate"
+    >
+      <dl>
+        <div>
+          <dt>{{ 'admin.legacy.checkout_session' | translate }}</dt>
+          <dd>{{ invoice.stripe_session_id }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.payment_intent' | translate }}</dt>
+          <dd>
+            {{
+              invoice.stripe_payment_intent_id ||
+                ('admin.legacy.absent' | translate)
+            }}
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section
+      class="email-panel"
+      [attr.aria-label]="'admin.legacy.renvoi_courriel' | translate"
+    >
+      <header>
+        <div>
+          <span>{{ 'admin.legacy.courriel' | translate }}</span>
+          <h3>{{ 'admin.legacy.renvoi_facture' | translate }}</h3>
+        </div>
+        <openg7-admin-document-email-status
+          [status]="invoice.last_email_status"
+        />
+      </header>
+
+      <dl class="email-meta">
+        <div>
+          <dt>
+            {{ 'admin.legacy.dernier_destinataire' | translate }}
+          </dt>
+          <dd>
+            {{
+              invoice.last_email_recipient ||
+                ('admin.legacy.absent' | translate)
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.dernier_envoi' | translate }}</dt>
+          <dd>{{ detail.lastEmailSentAtLabel }}</dd>
+        </div>
+        <div *ngIf="invoice.last_email_error">
+          <dt>{{ 'admin.legacy.erreur' | translate }}</dt>
+          <dd>{{ invoice.last_email_error }}</dd>
+        </div>
+      </dl>
+
+      <openg7-admin-document-delivery
+        [delivery]="detail.delivery"
+        recipientLabelKey="admin.legacy.destinataire"
+        resendLabelKey="admin.legacy.renvoyer"
+        (emailChange)="
+          invoiceRecipientChange.emit({ id: invoice.id, email: $event })
+        "
+        (resend)="invoiceResend.emit(invoice)"
+      />
+    </section>
+
+    <p class="invoice-note" *ngIf="invoice.notes">
+      {{ invoice.notes }}
+    </p>
+  </section>
+} @else {
+  <section class="invoice-detail-panel empty-detail">
+    <strong>{{
+      'admin.legacy.aucune_facture_selectionnee' | translate
+    }}</strong>
+  </section>
+}

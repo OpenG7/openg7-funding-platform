@@ -1,0 +1,40 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.detail-panel {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  padding: 1rem;
+}
+
+.detail-panel h3 {
+  margin: 0 0 0.75rem;
+}
+
+.detail-panel dl {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.detail-panel div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.detail-panel dt {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.detail-panel dd {
+  margin: 0;
+  font-weight: 500;
+}

@@ -1,4 +1,4 @@
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
@@ -26,9 +26,19 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
+import { AdminInvoiceListComponent } from './admin-invoice-list.component.js';
+import { AdminInvoiceDetailComponent } from './admin-invoice-detail.component.js';
+import type {
+  AdminDocumentRecipientChange,
+  AdminInvoiceDetailView,
+  AdminInvoiceListRow,
+  DocumentDownloadState,
+  DocumentResendState
+} from './admin-invoice.models.js';
+
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
-type ResendState = 'idle' | 'confirming' | 'sending' | 'sent' | 'error';
-type DownloadState = 'idle' | 'loading' | 'error';
+type ResendState = DocumentResendState;
+type DownloadState = DocumentDownloadState;
 type BackfillState = 'idle' | 'sending' | 'done' | 'error';
 
 interface DocumentResendView {
@@ -53,7 +63,13 @@ interface DocumentDownload {
 @Component({
   selector: 'openg7-admin-invoices-page',
   standalone: true,
-  imports: [CommonModule, AdminLayoutComponent, TranslatePipe, RouterLink],
+  imports: [
+    CommonModule,
+    AdminLayoutComponent,
+    TranslatePipe,
+    AdminInvoiceListComponent,
+    AdminInvoiceDetailComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <openg7-admin-layout>
@@ -175,488 +191,23 @@ interface DocumentDownload {
             class="invoices-board"
             [attr.aria-label]="'admin.legacy.factures_admin' | translate"
           >
-            <section
-              class="invoice-list-panel"
-              [attr.aria-label]="'admin.legacy.liste_factures' | translate"
-            >
-              <header>
-                <div>
-                  <span>{{
-                    'admin.legacy.p0_resultat_s'
-                      | translate: { p0: invoices().length }
-                  }}</span>
-                  <h2>{{ 'admin.legacy.factures_emises' | translate }}</h2>
-                </div>
-              </header>
-
-              <div
-                class="invoice-list"
-                *ngIf="invoices().length > 0; else emptyInvoices"
-              >
-                <button
-                  type="button"
-                  *ngFor="let invoice of invoices(); trackBy: trackByInvoice"
-                  [class.selected]="invoice.id === selectedInvoiceId()"
-                  (click)="selectInvoice(invoice)"
-                >
-                  <span class="invoice-number">
-                    {{ invoice.invoice_number }}
-                  </span>
-                  <span class="invoice-name">{{ invoice.sponsor_name }}</span>
-                  <span class="invoice-meta">
-                    {{ dateLabel(invoice.paid_at || invoice.issued_at) }}
-                  </span>
-                  <span
-                    class="email-status"
-                    [class.status-sent]="invoice.last_email_status === 'sent'"
-                    [class.status-failed]="
-                      invoice.last_email_status === 'failed'
-                    "
-                    [class.status-queued]="
-                      invoice.last_email_status === 'queued' ||
-                      invoice.last_email_status === 'sending'
-                    "
-                  >
-                    {{ emailStatusLabel(invoice.last_email_status) }}
-                  </span>
-                  <span
-                    class="credit-status"
-                    *ngIf="invoice.credit_notes.length > 0"
-                  >
-                    {{ 'admin.legacy.avoir' | translate }}</span
-                  >
-                  <strong>
-                    {{ formatMoney(invoice.total, invoice.currency) }}
-                  </strong>
-                </button>
-              </div>
-
-              <ng-template #emptyInvoices>
-                <article class="empty-state">
-                  <strong>{{
-                    'admin.legacy.aucune_facture_commandite' | translate
-                  }}</strong>
-                  <span>
-                    {{
-                      'admin.legacy.les_factures_apparaissent_apres_un_paiement_de_commandite_traite_'
-                        | translate
-                    }}</span
-                  >
-                </article>
-              </ng-template>
-            </section>
-
-            <section
-              class="invoice-detail-panel"
-              [attr.aria-label]="'admin.legacy.detail_facture' | translate"
-              *ngIf="selectedInvoice() as invoice; else noInvoiceSelected"
-            >
-              <header class="detail-header">
-                <div>
-                  <span>{{ 'admin.legacy.facture' | translate }}</span>
-                  <h2>{{ invoice.invoice_number }}</h2>
-                  <p>{{ invoice.sponsor_name }}</p>
-                </div>
-                <div class="detail-actions">
-                  <strong>{{
-                    formatMoney(invoice.total, invoice.currency)
-                  }}</strong>
-                  <button
-                    type="button"
-                    class="secondary-action"
-                    [disabled]="invoicePdfState() === 'loading'"
-                    (click)="downloadInvoicePdf(invoice)"
-                  >
-                    {{
-                      invoicePdfState() === 'loading'
-                        ? ('admin.legacy.preparation_171' | translate)
-                        : ('admin.legacy.telecharger_pdf' | translate)
-                    }}
-                  </button>
-                  <button
-                    type="button"
-                    class="secondary-action"
-                    (click)="
-                      inspection.invoice(invoice.id, invoice.contribution_id)
-                    "
-                  >
-                    {{ 'admin.inspector.previewInvoice' | translate }}
-                  </button>
-                  <span
-                    class="download-message error"
-                    *ngIf="invoicePdfMessage()"
-                  >
-                    {{ invoicePdfMessage() }}
-                  </span>
-                </div>
-              </header>
-
-              <section
-                class="detail-grid"
-                [attr.aria-label]="'admin.legacy.identite_facture' | translate"
-              >
-                <dl>
-                  <div>
-                    <dt>{{ 'admin.legacy.reference_publique' | translate }}</dt>
-                    <dd>
-                      {{
-                        invoice.public_reference ||
-                          ('admin.legacy.non_attribuee_175' | translate)
-                      }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{{ 'admin.legacy.payee_le' | translate }}</dt>
-                    <dd>{{ dateLabel(invoice.paid_at) }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ 'admin.legacy.emise_le' | translate }}</dt>
-                    <dd>{{ dateLabel(invoice.issued_at) }}</dd>
-                  </div>
-                </dl>
-
-                <dl>
-                  <div>
-                    <dt>{{ 'admin.legacy.contact' | translate }}</dt>
-                    <dd>{{ contactLabel(invoice) }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ 'admin.legacy.courriel_facture' | translate }}</dt>
-                    <dd>
-                      {{
-                        invoice.sponsor_contact_email ||
-                          ('admin.legacy.absent' | translate)
-                      }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{{ 'admin.legacy.site_web' | translate }}</dt>
-                    <dd>
-                      {{
-                        invoice.sponsor_website_url ||
-                          ('admin.legacy.absent' | translate)
-                      }}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-
-              <section
-                class="line-items"
-                [attr.aria-label]="'admin.legacy.lignes_facture' | translate"
-              >
-                <header>
-                  <span>{{ 'admin.legacy.lignes' | translate }}</span>
-                  <strong>{{ invoice.currency }}</strong>
-                </header>
-                <div class="line-item" *ngFor="let line of invoice.line_items">
-                  <span>{{ line.description }}</span>
-                  <small>{{
-                    'admin.legacy.p0_x_p1'
-                      | translate
-                        : {
-                            p0: line.quantity,
-                            p1: formatMoney(line.unit_amount, invoice.currency)
-                          }
-                  }}</small>
-                  <strong>{{
-                    formatMoney(line.total, invoice.currency)
-                  }}</strong>
-                </div>
-                <dl class="totals">
-                  <div>
-                    <dt>{{ 'admin.legacy.sous_total' | translate }}</dt>
-                    <dd>
-                      {{ formatMoney(invoice.subtotal, invoice.currency) }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{{ invoice.tax_label }}</dt>
-                    <dd>{{ formatMoney(invoice.tax, invoice.currency) }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ 'admin.legacy.total_paye' | translate }}</dt>
-                    <dd>{{ formatMoney(invoice.total, invoice.currency) }}</dd>
-                  </div>
-                </dl>
-              </section>
-
-              <section
-                class="credit-notes-panel"
-                *ngIf="invoice.credit_notes.length > 0"
-                [attr.aria-label]="
-                  'admin.legacy.avoirs_de_commandite' | translate
-                "
-              >
-                <header>
-                  <div>
-                    <span>{{ 'admin.legacy.avoirs' | translate }}</span>
-                    <h3>
-                      {{ 'admin.legacy.remboursements_documentes' | translate }}
-                    </h3>
-                  </div>
-                  <strong>{{
-                    formatMoney(creditedTotal(invoice), invoice.currency)
-                  }}</strong>
-                </header>
-
-                <article
-                  class="credit-note-card"
-                  data-og7="credit-note"
-                  [attr.data-og7-id]="creditNote.id"
-                  *ngFor="
-                    let creditNote of invoice.credit_notes;
-                    trackBy: trackByCreditNote
-                  "
-                >
-                  <div class="credit-note-title">
-                    <div>
-                      <strong>{{ creditNote.credit_note_number }}</strong>
-                      <span>{{ dateLabel(creditNote.issued_at) }}</span>
-                    </div>
-                    <strong>{{
-                      formatMoney(creditNote.total, creditNote.currency)
-                    }}</strong>
-                  </div>
-
-                  <dl class="credit-note-meta">
-                    <div>
-                      <dt>{{ 'admin.legacy.refund_stripe' | translate }}</dt>
-                      <dd>{{ creditNote.stripe_refund_id }}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        {{ 'admin.legacy.dernier_destinataire' | translate }}
-                      </dt>
-                      <dd>
-                        {{
-                          creditNote.last_email_recipient ||
-                            ('admin.legacy.absent' | translate)
-                        }}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>{{ 'admin.legacy.dernier_envoi' | translate }}</dt>
-                      <dd>{{ dateLabel(creditNote.last_email_sent_at) }}</dd>
-                    </div>
-                    <div *ngIf="creditNote.last_email_error">
-                      <dt>{{ 'admin.legacy.erreur' | translate }}</dt>
-                      <dd>{{ creditNote.last_email_error }}</dd>
-                    </div>
-                  </dl>
-
-                  <span
-                    class="email-status"
-                    [class.status-sent]="
-                      creditNote.last_email_status === 'sent'
-                    "
-                    [class.status-failed]="
-                      creditNote.last_email_status === 'failed'
-                    "
-                    [class.status-queued]="
-                      creditNote.last_email_status === 'queued' ||
-                      creditNote.last_email_status === 'sending'
-                    "
-                  >
-                    {{ emailStatusLabel(creditNote.last_email_status) }}
-                  </span>
-
-                  <div class="document-actions">
-                    <button
-                      type="button"
-                      class="secondary-action"
-                      [disabled]="
-                        creditNotePdfStateFor(creditNote.id) === 'loading'
-                      "
-                      (click)="downloadCreditNotePdf(creditNote)"
-                    >
-                      {{
-                        creditNotePdfStateFor(creditNote.id) === 'loading'
-                          ? ('admin.legacy.preparation_171' | translate)
-                          : ('admin.legacy.telecharger_pdf' | translate)
-                      }}
-                    </button>
-                    <span
-                      class="download-message error"
-                      *ngIf="creditNotePdfMessageFor(creditNote.id)"
-                    >
-                      {{ creditNotePdfMessageFor(creditNote.id) }}
-                    </span>
-                  </div>
-
-                  <label>
-                    {{ 'admin.legacy.destinataire_avoir' | translate
-                    }}<input
-                      type="email"
-                      autocomplete="email"
-                      [value]="creditNoteResendEmail(creditNote)"
-                      (input)="setCreditNoteResendEmail(creditNote.id, $event)"
-                    />
-                  </label>
-
-                  <div class="resend-actions">
-                    <button
-                      type="button"
-                      class="primary-action"
-                      [disabled]="
-                        creditNoteResendStateFor(creditNote.id) === 'sending' ||
-                        !creditNoteResendEmail(creditNote).trim()
-                      "
-                      (click)="resendCreditNote(creditNote)"
-                    >
-                      {{
-                        creditNoteResendStateFor(creditNote.id) === 'sending'
-                          ? ('admin.legacy.envoi_195' | translate)
-                          : ('admin.legacy.renvoyer_avoir' | translate)
-                      }}
-                    </button>
-                    <span
-                      class="resend-message"
-                      [class.error]="
-                        creditNoteResendStateFor(creditNote.id) === 'error'
-                      "
-                      [class.success]="
-                        creditNoteResendStateFor(creditNote.id) === 'sent'
-                      "
-                      *ngIf="creditNoteResendMessageFor(creditNote.id)"
-                    >
-                      {{ creditNoteResendMessageFor(creditNote.id) }}
-                    </span>
-                    <a
-                      *ngIf="resendMessageIds()[creditNote.id] as messageId"
-                      routerLink="/admin/fundraiser/email-queue"
-                      [queryParams]="{ messageId }"
-                      data-og7="document-email-status"
-                      [attr.data-og7-id]="creditNote.id"
-                      >{{ 'admin.messages.suivre_courriel' | translate }}</a
-                    >
-                  </div>
-                </article>
-              </section>
-
-              <section
-                class="stripe-grid"
-                [attr.aria-label]="'admin.legacy.references_stripe' | translate"
-              >
-                <dl>
-                  <div>
-                    <dt>{{ 'admin.legacy.checkout_session' | translate }}</dt>
-                    <dd>{{ invoice.stripe_session_id }}</dd>
-                  </div>
-                  <div>
-                    <dt>{{ 'admin.legacy.payment_intent' | translate }}</dt>
-                    <dd>
-                      {{
-                        invoice.stripe_payment_intent_id ||
-                          ('admin.legacy.absent' | translate)
-                      }}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-
-              <section
-                class="email-panel"
-                [attr.aria-label]="'admin.legacy.renvoi_courriel' | translate"
-              >
-                <header>
-                  <div>
-                    <span>{{ 'admin.legacy.courriel' | translate }}</span>
-                    <h3>{{ 'admin.legacy.renvoi_facture' | translate }}</h3>
-                  </div>
-                  <span
-                    class="email-status"
-                    [class.status-sent]="invoice.last_email_status === 'sent'"
-                    [class.status-failed]="
-                      invoice.last_email_status === 'failed'
-                    "
-                    [class.status-queued]="
-                      invoice.last_email_status === 'queued' ||
-                      invoice.last_email_status === 'sending'
-                    "
-                  >
-                    {{ emailStatusLabel(invoice.last_email_status) }}
-                  </span>
-                </header>
-
-                <dl class="email-meta">
-                  <div>
-                    <dt>
-                      {{ 'admin.legacy.dernier_destinataire' | translate }}
-                    </dt>
-                    <dd>
-                      {{
-                        invoice.last_email_recipient ||
-                          ('admin.legacy.absent' | translate)
-                      }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{{ 'admin.legacy.dernier_envoi' | translate }}</dt>
-                    <dd>{{ dateLabel(invoice.last_email_sent_at) }}</dd>
-                  </div>
-                  <div *ngIf="invoice.last_email_error">
-                    <dt>{{ 'admin.legacy.erreur' | translate }}</dt>
-                    <dd>{{ invoice.last_email_error }}</dd>
-                  </div>
-                </dl>
-
-                <label>
-                  {{ 'admin.legacy.destinataire' | translate
-                  }}<input
-                    type="email"
-                    autocomplete="email"
-                    [value]="resendEmail()"
-                    (input)="setResendEmail($event)"
-                  />
-                </label>
-
-                <div class="resend-actions">
-                  <button
-                    type="button"
-                    class="primary-action"
-                    [disabled]="
-                      resendState() === 'sending' || !resendEmail().trim()
-                    "
-                    (click)="resendInvoice()"
-                  >
-                    {{
-                      resendState() === 'sending'
-                        ? ('admin.legacy.envoi_195' | translate)
-                        : ('admin.legacy.renvoyer' | translate)
-                    }}
-                  </button>
-                  <span
-                    class="resend-message"
-                    [class.error]="resendState() === 'error'"
-                    [class.success]="resendState() === 'sent'"
-                    *ngIf="resendMessage()"
-                  >
-                    {{ resendMessage() }}
-                  </span>
-                  <a
-                    *ngIf="resendMessageIds()[invoice.id] as messageId"
-                    routerLink="/admin/fundraiser/email-queue"
-                    [queryParams]="{ messageId }"
-                    data-og7="document-email-status"
-                    [attr.data-og7-id]="invoice.id"
-                    >{{ 'admin.messages.suivre_courriel' | translate }}</a
-                  >
-                </div>
-              </section>
-
-              <p class="invoice-note" *ngIf="invoice.notes">
-                {{ invoice.notes }}
-              </p>
-            </section>
-
-            <ng-template #noInvoiceSelected>
-              <section class="invoice-detail-panel empty-detail">
-                <strong>{{
-                  'admin.legacy.aucune_facture_selectionnee' | translate
-                }}</strong>
-              </section>
-            </ng-template>
+            <openg7-admin-invoice-list
+              [rows]="invoiceListRows()"
+              [selectedId]="selectedInvoiceId()"
+              (selected)="selectInvoice($event)"
+            />
+            <openg7-admin-invoice-detail
+              [view]="invoiceDetailView()"
+              (invoiceDownload)="downloadInvoicePdf($event)"
+              (invoiceInspection)="
+                inspection.invoice($event.id, $event.contribution_id)
+              "
+              (invoiceResend)="resendInvoice($event)"
+              (invoiceRecipientChange)="setResendEmail($event)"
+              (creditNoteDownload)="downloadCreditNotePdf($event)"
+              (creditNoteResend)="resendCreditNote($event)"
+              (creditNoteRecipientChange)="setCreditNoteResendEmail($event)"
+            />
           </section>
         </ng-container>
       </section>
@@ -665,545 +216,8 @@ interface DocumentDownload {
   styleUrls: [
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
-    '../../components/admin-ui/admin-forms.css'
-  ],
-  styles: [
-    `
-      :host {
-        display: block;
-      }
-
-      .admin-content {
-        display: grid;
-        gap: 1rem;
-        min-width: 0;
-      }
-
-      .admin-topbar {
-        align-items: center;
-        background: var(--admin-panel-raised);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.5rem;
-        display: flex;
-        gap: 1rem;
-        justify-content: space-between;
-        padding: 1rem;
-      }
-
-      .admin-topbar div {
-        display: grid;
-        gap: 0.2rem;
-      }
-
-      .admin-topbar nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.65rem;
-        justify-content: flex-end;
-      }
-
-      .admin-topbar span,
-      .admin-summary-grid span,
-      .invoice-list-panel header span,
-      .detail-header span,
-      .line-items header span,
-      .credit-notes-panel header span,
-      .email-panel header span {
-        color: var(--admin-warning);
-        font-size: 0.73rem;
-        font-weight: var(--admin-label-weight);
-        letter-spacing: 0;
-        text-transform: uppercase;
-      }
-
-      h1,
-      h2,
-      h3,
-      p {
-        margin: 0;
-      }
-
-      button {
-        border: 0;
-        cursor: pointer;
-        font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
-      }
-
-      .admin-topbar button,
-      .primary-action {
-        background: var(--admin-panel-raised);
-        border-radius: 0.4rem;
-        color: var(--admin-text);
-        font-weight: var(--admin-control-weight);
-        min-height: 2.45rem;
-        padding: 0 0.95rem;
-      }
-
-      .secondary-action {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.4rem;
-        color: var(--admin-text);
-        font-weight: var(--admin-label-weight);
-        min-height: 2.35rem;
-        padding: 0 0.85rem;
-      }
-
-      .admin-topbar button:disabled,
-      .primary-action:disabled,
-      .secondary-action:disabled {
-        cursor: not-allowed;
-        opacity: 0.55;
-      }
-
-      .state {
-        background: var(--admin-panel-raised);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.45rem;
-        color: var(--admin-muted);
-        font-weight: 500;
-        padding: 0.85rem 1rem;
-      }
-
-      .state-error {
-        background: var(--admin-panel-raised);
-        border-color: var(--admin-danger-border);
-        color: var(--admin-danger);
-      }
-
-      .admin-summary-grid {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-      }
-
-      .admin-summary-grid article,
-      .invoice-list-panel,
-      .invoice-detail-panel {
-        background: var(--admin-panel-raised);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.5rem;
-        box-shadow: 0 0.8rem 1.8rem rgba(23, 32, 51, 0.06);
-      }
-
-      .admin-summary-grid article {
-        display: grid;
-        gap: 0.25rem;
-        min-height: 6.6rem;
-        padding: 1rem;
-      }
-
-      .admin-summary-grid strong {
-        font-size: 1.55rem;
-        line-height: 1.1;
-      }
-
-      .admin-summary-grid small {
-        color: var(--admin-muted);
-        font-weight: 400;
-      }
-
-      .invoices-board {
-        align-items: start;
-        display: grid;
-        gap: 1rem;
-        grid-template-columns: minmax(18rem, 0.95fr) minmax(0, 1.45fr);
-      }
-
-      .invoice-list-panel,
-      .invoice-detail-panel {
-        min-width: 0;
-        padding: 1rem;
-      }
-
-      .invoice-list-panel {
-        display: grid;
-        gap: 0.85rem;
-      }
-
-      .invoice-list-panel header,
-      .detail-header,
-      .line-items header,
-      .credit-notes-panel header,
-      .email-panel header {
-        align-items: start;
-        display: flex;
-        gap: 0.75rem;
-        justify-content: space-between;
-      }
-
-      .invoice-list {
-        display: grid;
-        gap: 0.5rem;
-      }
-
-      .invoice-list button {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.45rem;
-        color: var(--admin-text);
-        display: grid;
-        gap: 0.25rem 0.75rem;
-        grid-template-columns: minmax(0, 1fr) auto;
-        min-height: 5.4rem;
-        padding: 0.8rem;
-        text-align: left;
-      }
-
-      .invoice-list button:hover,
-      .invoice-list button.selected {
-        border-color: var(--admin-warning-border);
-        box-shadow: inset 0.25rem 0 0 #b98224;
-      }
-
-      .invoice-number,
-      .invoice-name,
-      .invoice-meta {
-        min-width: 0;
-        overflow-wrap: anywhere;
-      }
-
-      .invoice-number {
-        font-weight: var(--admin-label-weight);
-      }
-
-      .invoice-name {
-        color: var(--admin-muted);
-        grid-column: 1 / -1;
-        font-weight: 500;
-      }
-
-      .invoice-meta {
-        color: var(--admin-muted);
-        font-size: 0.88rem;
-        font-weight: 400;
-      }
-
-      .email-status {
-        align-items: center;
-        background: var(--admin-panel-raised);
-        border-radius: 999px;
-        color: var(--admin-muted);
-        display: inline-flex;
-        font-size: 0.72rem;
-        font-weight: var(--admin-label-weight);
-        justify-content: center;
-        min-height: 1.65rem;
-        padding: 0 0.6rem;
-        white-space: nowrap;
-      }
-
-      .credit-status {
-        align-items: center;
-        background: var(--admin-panel-raised);
-        border-radius: 999px;
-        color: var(--admin-muted);
-        display: inline-flex;
-        font-size: 0.72rem;
-        font-weight: var(--admin-label-weight);
-        justify-content: center;
-        min-height: 1.65rem;
-        padding: 0 0.6rem;
-        white-space: nowrap;
-      }
-
-      .status-sent {
-        background: var(--admin-panel-raised);
-        color: var(--admin-success);
-      }
-
-      .status-failed {
-        background: var(--og7-admin-danger-bg, #422532);
-        color: var(--admin-danger);
-      }
-
-      .status-queued {
-        background: var(--og7-admin-warning-bg, #3c3221);
-        color: var(--admin-warning);
-      }
-
-      .invoice-detail-panel {
-        display: grid;
-        gap: 1rem;
-      }
-
-      .detail-header {
-        border-bottom: 1px solid var(--admin-border);
-        padding-bottom: 1rem;
-      }
-
-      .detail-header p {
-        color: var(--admin-muted);
-        font-weight: 500;
-        margin-top: 0.2rem;
-      }
-
-      .detail-actions {
-        align-items: end;
-        display: grid;
-        gap: 0.45rem;
-        justify-items: end;
-      }
-
-      .detail-actions > strong {
-        font-size: 1.4rem;
-        white-space: nowrap;
-      }
-
-      .detail-grid {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      dl,
-      .line-items,
-      .credit-notes-panel,
-      .email-panel {
-        display: grid;
-        gap: 0.65rem;
-        margin: 0;
-      }
-
-      dl div,
-      .line-item {
-        align-items: start;
-        border-bottom: 1px solid rgba(23, 32, 51, 0.08);
-        display: grid;
-        gap: 0.35rem;
-        grid-template-columns: minmax(8rem, 0.75fr) minmax(0, 1fr);
-        padding-bottom: 0.65rem;
-      }
-
-      dt {
-        color: var(--admin-muted);
-        font-size: 0.78rem;
-        font-weight: var(--admin-label-weight);
-        text-transform: uppercase;
-      }
-
-      dd {
-        font-weight: 400;
-        margin: 0;
-        min-width: 0;
-        overflow-wrap: anywhere;
-      }
-
-      .line-items,
-      .credit-notes-panel,
-      .email-panel {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.45rem;
-        padding: 0.85rem;
-      }
-
-      .credit-notes-panel {
-        border-color: var(--admin-border);
-      }
-
-      .credit-note-card {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.4rem;
-        display: grid;
-        gap: 0.7rem;
-        padding: 0.75rem;
-      }
-
-      .credit-note-title {
-        align-items: start;
-        display: flex;
-        gap: 0.75rem;
-        justify-content: space-between;
-      }
-
-      .credit-note-title div {
-        display: grid;
-        gap: 0.2rem;
-      }
-
-      .credit-note-title span {
-        color: var(--admin-muted);
-        font-size: 0.86rem;
-        font-weight: 400;
-      }
-
-      .credit-note-meta {
-        background: var(--admin-panel);
-        border-radius: 0.35rem;
-        padding: 0.7rem;
-      }
-
-      .line-item {
-        grid-template-columns: minmax(0, 1fr) auto auto;
-      }
-
-      .line-item small {
-        color: var(--admin-muted);
-        font-weight: 400;
-        white-space: nowrap;
-      }
-
-      .totals {
-        margin-top: 0.2rem;
-      }
-
-      .totals div:last-child {
-        border-bottom: 0;
-      }
-
-      .totals div:last-child dt,
-      .totals div:last-child dd {
-        color: var(--admin-text);
-        font-size: 1rem;
-        font-weight: var(--admin-emphasis-weight);
-      }
-
-      .stripe-grid dd {
-        font-family:
-          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          'Liberation Mono', 'Courier New', monospace;
-        font-size: 0.86rem;
-      }
-
-      .email-meta {
-        background: var(--admin-panel-raised);
-        border-radius: 0.4rem;
-        padding: 0.75rem;
-      }
-
-      label {
-        color: var(--admin-muted);
-        display: grid;
-        font-size: 0.8rem;
-        font-weight: var(--admin-label-weight);
-        gap: 0.35rem;
-        text-transform: uppercase;
-      }
-
-      input {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.35rem;
-        color: var(--admin-text);
-        font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
-        font-weight: 400;
-        min-height: 2.5rem;
-        padding: 0 0.75rem;
-        text-transform: none;
-      }
-
-      .resend-actions {
-        align-items: center;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-      }
-
-      .document-actions {
-        align-items: center;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.65rem;
-      }
-
-      .resend-message {
-        color: var(--admin-muted);
-        font-weight: 500;
-      }
-
-      .resend-message.success {
-        color: var(--admin-success);
-      }
-
-      .resend-message.error {
-        color: var(--admin-danger);
-      }
-
-      .download-message {
-        color: var(--admin-muted);
-        font-weight: 500;
-      }
-
-      .download-message.error {
-        color: var(--admin-danger);
-      }
-
-      .invoice-note,
-      .empty-state,
-      .empty-detail {
-        background: var(--admin-panel-raised);
-        border-radius: 0.4rem;
-        color: var(--admin-muted);
-        display: grid;
-        gap: 0.25rem;
-        padding: 0.85rem;
-      }
-
-      .empty-state strong,
-      .empty-detail strong {
-        color: var(--admin-text);
-      }
-
-      @media (max-width: 1080px) {
-        .admin-summary-grid,
-        .invoices-board,
-        .detail-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .invoices-board,
-        .detail-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      @media (max-width: 860px) {
-        .admin-summary-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-
-      @media (max-width: 620px) {
-        .admin-topbar,
-        .detail-header,
-        .detail-actions,
-        .line-items header,
-        .credit-notes-panel header,
-        .credit-note-title,
-        .email-panel header {
-          align-items: stretch;
-          flex-direction: column;
-        }
-
-        .admin-summary-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .invoice-list button,
-        dl div,
-        .line-item {
-          grid-template-columns: 1fr;
-        }
-
-        .detail-actions {
-          align-items: stretch;
-          justify-items: stretch;
-        }
-
-        .detail-actions > strong,
-        .line-item small,
-        .email-status,
-        .credit-status {
-          white-space: normal;
-        }
-      }
-    `
+    '../../components/admin-ui/admin-forms.css',
+    './admin-invoices-page.component.css'
   ]
 })
 export class AdminInvoicesPageComponent implements OnInit {
@@ -1309,6 +323,65 @@ export class AdminInvoicesPageComponent implements OnInit {
     );
   });
 
+  readonly invoiceListRows = computed<readonly AdminInvoiceListRow[]>(() =>
+    this.invoices().map((invoice) => ({
+      invoice,
+      dateLabel: this.dateLabel(invoice.paid_at || invoice.issued_at),
+      totalLabel: this.formatMoney(invoice.total, invoice.currency)
+    }))
+  );
+  readonly invoiceDetailView = computed<AdminInvoiceDetailView | null>(() => {
+    const invoice = this.selectedInvoice();
+    if (!invoice) return null;
+    return {
+      invoice,
+      totalLabel: this.formatMoney(invoice.total, invoice.currency),
+      subtotalLabel: this.formatMoney(invoice.subtotal, invoice.currency),
+      taxLabel: this.formatMoney(invoice.tax, invoice.currency),
+      creditedTotalLabel: this.formatMoney(
+        this.creditedTotal(invoice),
+        invoice.currency
+      ),
+      paidAtLabel: this.dateLabel(invoice.paid_at),
+      issuedAtLabel: this.dateLabel(invoice.issued_at),
+      lastEmailSentAtLabel: this.dateLabel(invoice.last_email_sent_at),
+      contactLabel: this.contactLabel(invoice),
+      lineItems: invoice.line_items.map((line) => ({
+        line,
+        unitAmountLabel: this.formatMoney(line.unit_amount, invoice.currency),
+        totalLabel: this.formatMoney(line.total, invoice.currency)
+      })),
+      creditNotes: invoice.credit_notes.map((creditNote) => ({
+        record: creditNote,
+        totalLabel: this.formatMoney(creditNote.total, creditNote.currency),
+        issuedAtLabel: this.dateLabel(creditNote.issued_at),
+        lastEmailSentAtLabel: this.dateLabel(creditNote.last_email_sent_at),
+        download: {
+          state: this.creditNotePdfStateFor(creditNote.id),
+          message: this.creditNotePdfMessageFor(creditNote.id)
+        },
+        delivery: {
+          id: creditNote.id,
+          email: this.creditNoteResendEmail(creditNote),
+          state: this.creditNoteResendStateFor(creditNote.id),
+          message: this.creditNoteResendMessageFor(creditNote.id),
+          messageId: this.resendMessageIds()[creditNote.id] ?? null
+        }
+      })),
+      download: {
+        state: this.invoicePdfState(),
+        message: this.invoicePdfMessage()
+      },
+      delivery: {
+        id: invoice.id,
+        email: this.resendEmail(),
+        state: this.resendState(),
+        message: this.resendMessage(),
+        messageId: this.resendMessageIds()[invoice.id] ?? null
+      }
+    };
+  });
+
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
     this.destroy.onDestroy(() => this.loadGeneration++);
@@ -1360,12 +433,8 @@ export class AdminInvoicesPageComponent implements OnInit {
     this.ensureCreditNoteResendDrafts(invoice);
   }
 
-  setResendEmail(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const invoice = this.selectedInvoice();
-    if (invoice) {
-      this.updateInvoiceResend(invoice.id, { email: input.value });
-    }
+  setResendEmail(change: AdminDocumentRecipientChange): void {
+    this.updateInvoiceResend(change.id, { email: change.email });
   }
 
   async backfillInvoices(): Promise<void> {
@@ -1414,11 +483,10 @@ export class AdminInvoicesPageComponent implements OnInit {
     );
   }
 
-  setCreditNoteResendEmail(id: string, event: Event): void {
-    const input = event.target as HTMLInputElement;
+  setCreditNoteResendEmail(change: AdminDocumentRecipientChange): void {
     this.creditNoteResendEmails.update((emails) => ({
       ...emails,
-      [id]: input.value
+      [change.id]: change.email
     }));
   }
 
@@ -1481,9 +549,12 @@ export class AdminInvoicesPageComponent implements OnInit {
     }
   }
 
-  async resendInvoice(): Promise<void> {
-    const invoice = this.selectedInvoice();
-    const to = this.resendEmail().trim();
+  async resendInvoice(invoice: AdminSponsorshipInvoiceRecord): Promise<void> {
+    const to = (
+      this.invoiceResends()[invoice.id]?.email ??
+      invoice.sponsor_contact_email ??
+      ''
+    ).trim();
     if (!invoice || !to) {
       return;
     }
@@ -1599,20 +670,6 @@ export class AdminInvoicesPageComponent implements OnInit {
     }
   }
 
-  trackByInvoice(
-    _index: number,
-    invoice: AdminSponsorshipInvoiceRecord
-  ): string {
-    return invoice.id;
-  }
-
-  trackByCreditNote(
-    _index: number,
-    creditNote: AdminSponsorshipCreditNoteRecord
-  ): string {
-    return creditNote.id;
-  }
-
   creditedTotal(invoice: AdminSponsorshipInvoiceRecord): number {
     return invoice.credit_notes.reduce(
       (total, creditNote) => total + creditNote.total,
@@ -1656,21 +713,6 @@ export class AdminInvoicesPageComponent implements OnInit {
     return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium'
     }).format(date);
-  }
-
-  emailStatusLabel(status: string | null): string {
-    switch (status) {
-      case 'sent':
-        return this.i18n.t('admin.messages.envoye');
-      case 'failed':
-        return this.i18n.t('admin.messages.echec');
-      case 'sending':
-        return this.i18n.t('admin.legacy.envoi');
-      case 'queued':
-        return this.i18n.t('admin.legacy.en_file');
-      default:
-        return this.i18n.t('admin.messages.jamais_envoye');
-    }
   }
 
   contactLabel(invoice: AdminSponsorshipInvoiceRecord): string {
