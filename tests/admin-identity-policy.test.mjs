@@ -75,6 +75,52 @@ test('document and accounting routes preserve read, operator and owner permissio
   }
 });
 
+test('assistant and publication routes preserve consultation and operator permissions for both aliases', () => {
+  const roles = ['reader', 'operator', 'owner'];
+  const reads = [
+    '/admin/assistant/context',
+    '/admin/assistant/summary',
+    '/admin/publication-drafts',
+    '/admin/publication-slots',
+    '/admin/publication-batches',
+    '/admin/social-publication-jobs'
+  ];
+  const mutations = [
+    '/admin/assistant/prepare',
+    '/admin/publication-drafts',
+    '/admin/publication-drafts/update',
+    '/admin/publication-slots',
+    '/admin/publication-slots/update',
+    '/admin/publication-slots/assign-batch',
+    '/admin/publication-slots/assign-draft',
+    '/admin/publication-slots/publish',
+    '/admin/publication-slots/cancel',
+    '/admin/publication-batches',
+    '/admin/publication-batches/assign',
+    '/admin/publication-batches/unassign',
+    '/admin/publication-batches/schedule',
+    '/admin/publication-batches/publish',
+    '/admin/publication-batches/cancel',
+    '/admin/publication-batches/publish-social'
+  ];
+  for (const prefix of ['', '/api']) {
+    for (const role of roles) {
+      for (const route of reads)
+        assert.equal(adminRoleAllows(role, 'GET', prefix + route), true);
+      assert.equal(
+        adminRoleAllows(role, 'POST', prefix + '/admin/assistant/query'),
+        true
+      );
+      for (const route of mutations)
+        assert.equal(
+          adminRoleAllows(role, 'POST', prefix + route),
+          role !== 'reader',
+          `${role} ${prefix}${route}`
+        );
+    }
+  }
+});
+
 test('MFA must be asserted in validated claims, never inferred from a password or arbitrary ACR', () => {
   assert.equal(satisfiesMfa({ amr: ['pwd'] }, []), false);
   assert.equal(satisfiesMfa({ acr: 'anything' }, ['urn:trusted:mfa']), false);

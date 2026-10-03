@@ -96,10 +96,7 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
-import {
-  AdminDashboardRequestError,
-  FundingAdminSession
-} from './funding-admin-session.js';
+import { FundingAdminSession } from './funding-admin-session.js';
 import type {
   AdminAccessAccount,
   AdminAccessResponse
@@ -113,7 +110,9 @@ import { FundingAdminOperationsClient } from './funding-admin-operations.client.
 import { FundingAdminDiagnosticsClient } from './funding-admin-diagnostics.client.js';
 import { FundingAdminDocumentsClient } from './funding-admin-documents.client.js';
 import { FundingAdminAccountingClient } from './funding-admin-accounting.client.js';
-import { errorMessageFromResponse } from './funding-admin-response.js';
+import { FundingAdminActivityClient } from './funding-admin-activity.client.js';
+import { FundingAdminPilotageClient } from './funding-admin-pilotage.client.js';
+import { FundingAdminAssistantClient } from './funding-admin-assistant.client.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
 export type {
@@ -152,6 +151,17 @@ export class FundingAdminService {
   private readonly accountingClient = new FundingAdminAccountingClient(
     this.session
   );
+  private readonly activityClient = new FundingAdminActivityClient(
+    this.session,
+    () => this.clearAdminSession()
+  );
+  private readonly pilotageClient = new FundingAdminPilotageClient(
+    this.session,
+    () => this.clearAdminSession()
+  );
+  private readonly assistantClient = new FundingAdminAssistantClient(
+    this.session
+  );
   readonly sessionGeneration = this.session.sessionGeneration;
   readonly identity = this.session.identity;
   stripeBackfill(
@@ -165,45 +175,24 @@ export class FundingAdminService {
   async contributionActivity(
     query: { before?: string; after?: string; id?: string } = {}
   ): Promise<import('@openg7/funding-core').ContributionActivityResponse> {
-    return this.activityRequest('?' + new URLSearchParams(query));
+    return this.activityClient.contributionActivity(query);
   }
   async claimContributionToasts(ids: string[]): Promise<{ ids: string[] }> {
-    return this.activityRequest('/present', { ids });
-  }
-  private async activityRequest<T>(path: string, body?: object): Promise<T> {
-    const response = await this.session.requestAdminJson(
-      `/admin/contribution-activity${path}`,
-      {
-        auth: 'saved',
-        method: body ? 'POST' : 'GET',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        ...(body ? { body } : {}),
-        signal: AbortSignal.timeout(10000)
-      }
-    );
-    if (!response.ok) {
-      if (response.status === 401) this.clearAdminSession();
-      throw new AdminDashboardRequestError(
-        response.status,
-        'ACTIVITY_UNAVAILABLE'
-      );
-    }
-    return response.json() as Promise<T>;
+    return this.activityClient.claimContributionToasts(ids);
   }
   pilotageProgramme(): Promise<ProgrammeState> {
-    return this.pilotageRequest('/programme');
+    return this.pilotageClient.pilotageProgramme();
   }
   proposeProgramme(
     feedId: PublicationFeedId,
     cadence: number,
     includeApproved: boolean
   ): Promise<{ version: string; plan: ProgrammePlan }> {
-    return this.pilotageRequest('/programme', {
+    return this.pilotageClient.proposeProgramme(
       feedId,
       cadence,
       includeApproved
-    });
+    );
   }
   editorialVariant(
     id: string,
@@ -217,65 +206,24 @@ export class FundingAdminService {
     version: number;
     feedId: PublicationFeedId;
   }> {
-    return this.pilotageRequest('/variant', { id, version, instruction });
+    return this.pilotageClient.editorialVariant(id, version, instruction);
   }
   async pilotage(
     query: { page?: number; domain?: string; id?: string } = {}
   ): Promise<PilotState> {
-    const params = new URLSearchParams(
-      Object.entries(query)
-        .filter(([, v]) => v !== undefined)
-        .map(([k, v]) => [k, String(v)])
-    );
-    return this.pilotageRequest<PilotState>(`?${params}`);
+    return this.pilotageClient.pilotage(query);
   }
   async pilotageCommand(command: PilotCommand): Promise<PilotReceipt> {
-    return this.pilotageRequest<PilotReceipt>('/command', command);
+    return this.pilotageClient.pilotageCommand(command);
   }
   async pilotageReceipt(id: string): Promise<PilotReceipt> {
-    return this.pilotageRequest<PilotReceipt>(
-      `/receipt?id=${encodeURIComponent(id)}`
-    );
+    return this.pilotageClient.pilotageReceipt(id);
   }
   async acknowledgePilotReceipt(
     requestId: string,
     reason: string
   ): Promise<PilotReceipt> {
-    return this.pilotageRequest<PilotReceipt>('/receipt', {
-      requestId,
-      confirmation: requestId,
-      reason
-    });
-  }
-  private async pilotageRequest<T>(path: string, command?: object): Promise<T> {
-    const response = await this.session.requestAdminJson(
-      `/admin/pilotage${path}`,
-      {
-        auth: 'saved',
-        method: command ? 'POST' : 'GET',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        ...(command ? { body: command } : {}),
-        signal: AbortSignal.timeout(15000)
-      }
-    );
-    if (!response.ok) {
-      const data = (await response.json().catch(() => ({}))) as {
-        code?: string;
-      };
-      if (response.status === 401) this.clearAdminSession();
-      throw Object.assign(
-        new Error(
-          response.status === 401
-            ? 'SESSION_EXPIRED'
-            : response.status === 403
-              ? 'READ_ONLY'
-              : (data.code ?? 'PILOTAGE_UNAVAILABLE')
-        ),
-        { status: response.status }
-      );
-    }
-    return response.json() as Promise<T>;
+    return this.pilotageClient.acknowledgePilotReceipt(requestId, reason);
   }
   publicationAutomation(
     command?: PublicationAutomationCommand,
@@ -404,35 +352,14 @@ export class FundingAdminService {
   }
 
   async getAssistantSummary(token: string): Promise<AdminAssistantSummary> {
-    const response = await this.session.requestAdminJson(
-      '/admin/assistant/summary',
-      {
-        auth: { token },
-        method: 'GET'
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        await errorMessageFromResponse(
-          response,
-          'Admin assistant summary could not be loaded.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminAssistantSummary;
+    return this.assistantClient.getAssistantSummary(token);
   }
 
   async getAssistantContext(
     token: string,
     sponsorshipId?: string
   ): Promise<AdminAssistantContextResponse> {
-    const params = new URLSearchParams(sponsorshipId ? { sponsorshipId } : {});
-    return this.session.requestAdminData(`/admin/assistant/context?${params}`, {
-      auth: { token },
-      cache: 'no-store'
-    });
+    return this.assistantClient.getAssistantContext(token, sponsorshipId);
   }
 
   requestSponsorshipInformation(
@@ -466,24 +393,14 @@ export class FundingAdminService {
     token: string,
     payload: AdminAssistantQueryRequest
   ): Promise<AdminAssistantQueryResponse> {
-    return this.session.requestAdminData('/admin/assistant/query', {
-      auth: { token },
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload
-    });
+    return this.assistantClient.queryAssistant(token, payload);
   }
 
   async prepareAssistantDraft(
     token: string,
     payload: AdminAssistantPrepareRequest
   ): Promise<AdminAssistantPrepareResponse> {
-    return this.session.requestAdminData('/admin/assistant/prepare', {
-      auth: { token },
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload
-    });
+    return this.assistantClient.prepareAssistantDraft(token, payload);
   }
 
   databaseBackups(

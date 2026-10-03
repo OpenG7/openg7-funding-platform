@@ -2453,9 +2453,7 @@ test('An admin is notified by email when a publication batch fills up, but nothi
 
   assert.ok(api.includes('queuePublicationBatchFullNotification'));
   assert.ok(
-    api.includes(
-      'const batch = await getPublicationBatchById(dbPool, parsed.batchId);'
-    )
+    api.includes('const batch = await getPublicationBatchById(parsed.batchId);')
   );
   assert.ok(
     api.includes(

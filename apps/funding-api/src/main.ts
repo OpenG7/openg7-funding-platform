@@ -9,22 +9,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { PublicationAutomationCommand } from '@openg7/funding-core';
 import Stripe from 'stripe';
 import type {
-  AdminAssistantDraftType,
-  AdminAssistantPrepareRequest,
-  AdminAssistantQueryRequest,
   AdminSetupStatusResponse,
-  AdminPublicationBatchAssignRequest,
-  AdminPublicationBatchCreateRequest,
-  AdminPublicationBatchLifecycleRequest,
-  AdminPublicationBatchScheduleRequest,
-  AdminPublicationBatchUnassignRequest,
-  AdminPublicationDraftCreateRequest,
-  AdminPublicationDraftUpdateRequest,
-  AdminPublicationSlotAssignBatchRequest,
-  AdminPublicationSlotAssignDraftRequest,
-  AdminPublicationSlotCreateRequest,
-  AdminPublicationSlotLifecycleRequest,
-  AdminPublicationSlotUpdateRequest,
   AdminSessionCreateRequest,
   AdminSponsorMediaDeleteRequest,
   AdminSponsorMediaReviewRequest,
@@ -143,9 +128,13 @@ import {
   updateAdminPublicationSlot
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
+import { createAdminAssistantHttpHandler } from './admin-assistant.http.js';
 import { createAdminContributionsHttpHandler } from './admin-contributions.http.js';
 import { createAdminDocumentsHttpHandler } from './admin-documents.http.js';
 import { createAdminAccountingHttpHandler } from './admin-accounting.http.js';
+import { createAdminPublicationDraftsHttpHandler } from './admin-publication-drafts.http.js';
+import { createAdminPublicationSlotsHttpHandler } from './admin-publication-slots.http.js';
+import { createAdminPublicationBatchesHttpHandler } from './admin-publication-batches.http.js';
 import { createAdminEmailHttpHandler } from './admin-email.http.js';
 import { createAdminInsightsHttpHandler } from './admin-insights.http.js';
 import {
@@ -573,14 +562,6 @@ const ADMIN_REVIEW_NOTE_MAX_LENGTH = 1000;
 const SPONSOR_PUBLIC_SLUG_MAX_LENGTH = 120;
 const SPONSOR_PUBLIC_SUMMARY_MAX_LENGTH = 500;
 const SPONSOR_FEED_NOTES_MAX_LENGTH = 1000;
-const PUBLICATION_DRAFT_TITLE_MAX_LENGTH = 160;
-const PUBLICATION_DRAFT_BODY_MAX_LENGTH = 2500;
-const PUBLICATION_DRAFT_DISCLOSURE_MAX_LENGTH = 300;
-const PUBLICATION_BATCH_NOTES_MAX_LENGTH = 500;
-const PUBLICATION_BATCH_MIN_CAPACITY = 1;
-const PUBLICATION_BATCH_MAX_CAPACITY = 50;
-const PUBLICATION_SLOT_DEFAULT_TIMEZONE = 'America/Toronto';
-const PUBLICATION_SLOT_TIMEZONE_MAX_LENGTH = 64;
 const FOLLOWUP_TOKEN_BYTES = 32;
 const CONTRIBUTION_REFERENCE_BYTES = 6;
 const CONTRIBUTION_REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1162,46 +1143,6 @@ const writeSponsorshipRefundIneligible = (
   });
 };
 
-const isValidPublicationBatchCapacity = (value: unknown): value is number =>
-  typeof value === 'number' &&
-  Number.isInteger(value) &&
-  value >= PUBLICATION_BATCH_MIN_CAPACITY &&
-  value <= PUBLICATION_BATCH_MAX_CAPACITY;
-
-const isFutureDateString = (value: unknown): value is string =>
-  typeof value === 'string' &&
-  Number.isFinite(Date.parse(value)) &&
-  Date.parse(value) > Date.now();
-
-const isValidPublicationSlotTimezone = (value: unknown): value is string => {
-  if (typeof value !== 'string') {
-    return false;
-  }
-
-  const trimmed = value.trim();
-  if (
-    trimmed.length === 0 ||
-    trimmed.length > PUBLICATION_SLOT_TIMEZONE_MAX_LENGTH
-  ) {
-    return false;
-  }
-
-  try {
-    new Intl.DateTimeFormat('fr-CA', { timeZone: trimmed });
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const normalizePublicationSlotTimezone = (value: unknown): string =>
-  isValidPublicationSlotTimezone(value)
-    ? value.trim()
-    : PUBLICATION_SLOT_DEFAULT_TIMEZONE;
-
-const channelLabel = (channel: SponsorFeedChannel): string =>
-  channel === 'linkedin' ? 'LinkedIn' : 'Facebook';
-
 const socialPublicationRuntime = (): {
   readonly mode: typeof socialPublicationConfig.mode;
   readonly configuredChannels: readonly SponsorFeedChannel[];
@@ -1211,14 +1152,6 @@ const socialPublicationRuntime = (): {
     socialPublicationConfig
   )
 });
-
-const isAllowedPublicationDraftStatus = (
-  value: unknown
-): value is NonNullable<AdminPublicationDraftUpdateRequest['status']> =>
-  typeof value === 'string' &&
-  allowedPublicationDraftStatuses.has(
-    value as NonNullable<AdminPublicationDraftUpdateRequest['status']>
-  );
 
 const parseSponsorFeedChannelsFromRequest = (
   value: unknown
@@ -1773,6 +1706,123 @@ const handleAdminInsightsRequest = createAdminInsightsHttpHandler({
   getAdminDashboard: () => getAdminDashboard(dbPool),
   reportFailure: (message, error) => console.error(message, error)
 });
+
+const handleAdminAssistantRequest = createAdminAssistantHttpHandler({
+  publicBaseOrigin,
+  ensureAdminAuthorization,
+  ensureAdminAccess,
+  readBody,
+  writeJson,
+  isValidUuid,
+  adminAssistantConfig,
+  getAdminAssistantContext: (sponsorshipId) =>
+    getAdminAssistantContext(
+      dbPool,
+      sponsorshipId,
+      adminAssistantConfig.enabled && adminAssistantConfig.providerConfigured
+        ? adminAssistantConfig.provider
+        : 'disabled'
+    ),
+  buildAdminAssistantSummary: () => buildAdminAssistantSummary(dbPool),
+  runAdminAssistantQuery: (input) =>
+    runAdminAssistantQuery({
+      ...input,
+      pool: dbPool,
+      config: adminAssistantConfig
+    }),
+  prepareAdminAssistantDraft: (input) =>
+    prepareAdminAssistantDraft(dbPool, input),
+  recordAdminAssistantAudit,
+  reportFailure: (message, error) => console.error(message, error)
+});
+
+const handleAdminPublicationDraftsRequest =
+  createAdminPublicationDraftsHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    isValidUuid,
+    isAllowedSponsorFeedChannel,
+    isValidOptionalBoundedText,
+    reportFailure: (message, error) => console.error(message, error),
+    allowedPublicationDraftStatuses,
+    isValidOptionalNonEmptyBoundedText,
+    isValidOptionalHttpsUrl,
+    isValidOptionalIsoDate,
+    listAdminPublicationDrafts: (input) =>
+      listAdminPublicationDrafts(dbPool, input),
+    createAdminPublicationDraft: (input) =>
+      createAdminPublicationDraft(dbPool, input),
+    updateAdminPublicationDraft: (input) =>
+      updateAdminPublicationDraft(dbPool, input),
+    insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input)
+  });
+
+const handleAdminPublicationSlotsRequest =
+  createAdminPublicationSlotsHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    isValidUuid,
+    isAllowedSponsorFeedChannel,
+    isValidOptionalBoundedText,
+    reportFailure: (message, error) => console.error(message, error),
+    isAllowedSponsorFeedTarget,
+    listAdminPublicationSlots: (input) =>
+      listAdminPublicationSlots(dbPool, input),
+    createAdminPublicationSlot: (input) =>
+      createAdminPublicationSlot(dbPool, input),
+    updateAdminPublicationSlot: (input) =>
+      updateAdminPublicationSlot(dbPool, input),
+    assignBatchToPublicationSlot: (input) =>
+      assignBatchToPublicationSlot(dbPool, input),
+    assignDraftToPublicationSlot: (input) =>
+      assignDraftToPublicationSlot(dbPool, input),
+    publishAdminPublicationSlot: (input) =>
+      publishAdminPublicationSlot(dbPool, input),
+    cancelAdminPublicationSlot: (input) =>
+      cancelAdminPublicationSlot(dbPool, input),
+    insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input)
+  });
+
+const handleAdminPublicationBatchesRequest =
+  createAdminPublicationBatchesHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    isValidUuid,
+    isAllowedSponsorFeedChannel,
+    isValidOptionalBoundedText,
+    reportFailure: (message, error) => console.error(message, error),
+    socialPublicationRuntime,
+    reportWarning: (message, error) => console.warn(message, error),
+    listAdminPublicationBatches: (input) =>
+      listAdminPublicationBatches(dbPool, input),
+    createAdminPublicationBatch: (input) =>
+      createAdminPublicationBatch(dbPool, input),
+    assignDraftToPublicationBatch: (input) =>
+      assignDraftToPublicationBatch(dbPool, input),
+    unassignDraftFromPublicationBatch: (input) =>
+      unassignDraftFromPublicationBatch(dbPool, input),
+    scheduleAdminPublicationBatch: (input) =>
+      scheduleAdminPublicationBatch(dbPool, input),
+    publishAdminPublicationBatch: (input) =>
+      publishAdminPublicationBatch(dbPool, input),
+    cancelAdminPublicationBatch: (input) =>
+      cancelAdminPublicationBatch(dbPool, input),
+    listAdminSocialPublicationJobs: (input) =>
+      listAdminSocialPublicationJobs(dbPool, input),
+    getPublicationBatchById: (input) => getPublicationBatchById(dbPool, input),
+    insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
+    queuePublicationBatchFullNotification: (input) =>
+      queuePublicationBatchFullNotification(dbPool, input)
+  });
 
 const handleRequest = async (
   request: ApiRequest,
@@ -4495,44 +4545,7 @@ const handleRequest = async (
     return;
   }
 
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/assistant/context',
-      '/api/admin/assistant/context'
-    )
-  ) {
-    if (!ensureAdminAuthorization(request, response)) return;
-    const id = new URL(request.url!, 'http://localhost').searchParams.get(
-      'sponsorshipId'
-    );
-    if (id !== null && !isValidUuid(id)) {
-      writeJson(request, response, 400, { error: 'Invalid sponsorship ID.' });
-      return;
-    }
-    try {
-      const result = await getAdminAssistantContext(
-        dbPool,
-        id ?? undefined,
-        adminAssistantConfig.enabled && adminAssistantConfig.providerConfigured
-          ? adminAssistantConfig.provider
-          : 'disabled'
-      );
-      writeJson(request, response, 200, result, {
-        'Cache-Control': 'private, no-store'
-      });
-    } catch {
-      writeJson(
-        request,
-        response,
-        503,
-        { error: 'Assistant context unavailable.' },
-        { 'Cache-Control': 'private, no-store' }
-      );
-    }
-    return;
-  }
+  if (await handleAdminAssistantRequest(request, response)) return;
 
   if (
     request.method === 'POST' &&
@@ -4575,1390 +4588,15 @@ const handleRequest = async (
     return;
   }
 
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/assistant/summary',
-      '/api/admin/assistant/summary'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    const startedAt = Date.now();
-    try {
-      const summary = await buildAdminAssistantSummary(dbPool);
-      await recordAdminAssistantAudit(request, 'admin_assistant.summary', {
-        urgent: summary.counts.urgent,
-        today: summary.counts.today,
-        itemCount: summary.attentionItems.length,
-        durationMs: Date.now() - startedAt
-      });
-      writeJson(request, response, 200, summary);
-    } catch (error) {
-      console.error('Failed to build admin assistant summary.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin assistant summary could not be built.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/assistant/query',
-      '/api/admin/assistant/query'
-    )
-  ) {
-    if (!ensureAdminAuthorization(request, response)) {
-      return;
-    }
-
-    let parsed: AdminAssistantQueryRequest;
-    try {
-      const body = await readBody(request, 16 * 1024);
-      parsed = body.trim()
-        ? (JSON.parse(body) as AdminAssistantQueryRequest)
-        : ({} as AdminAssistantQueryRequest);
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid assistant query body.'
-      });
-      return;
-    }
-
-    const message =
-      typeof parsed?.message === 'string' ? parsed.message.trim() : '';
-    if (
-      parsed?.sponsorshipId !== undefined &&
-      !isValidUuid(parsed.sponsorshipId)
-    ) {
-      writeJson(request, response, 400, { error: 'Invalid sponsorship ID.' });
-      return;
-    }
-    if (!message) {
-      writeJson(request, response, 400, {
-        error: 'A question is required.'
-      });
-      return;
-    }
-    if (message.length > adminAssistantConfig.maxMessageLength) {
-      writeJson(request, response, 400, {
-        error: 'The question is too long.'
-      });
-      return;
-    }
-
-    const startedAt = Date.now();
-    try {
-      const result = await runAdminAssistantQuery({
-        pool: dbPool,
-        message,
-        sponsorshipId: parsed.sponsorshipId,
-        config: adminAssistantConfig
-      });
-      await recordAdminAssistantAudit(request, 'admin_assistant.query', {
-        status: result.status,
-        mode: result.mode,
-        provider: result.provider.name,
-        model: result.provider.model,
-        toolCalls: result.toolInvocations.length,
-        durationMs: Date.now() - startedAt
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to run admin assistant query.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin assistant query could not be completed.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/assistant/prepare',
-      '/api/admin/assistant/prepare'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminAssistantPrepareRequest;
-    try {
-      const body = await readBody(request, 16 * 1024);
-      parsed = body.trim()
-        ? (JSON.parse(body) as AdminAssistantPrepareRequest)
-        : ({} as AdminAssistantPrepareRequest);
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid assistant prepare body.'
-      });
-      return;
-    }
-
-    const allowedDraftTypes: readonly AdminAssistantDraftType[] = [
-      'sponsorship_reminder',
-      'publication_draft',
-      'admin_note',
-      'slot_proposal'
-    ];
-    if (
-      !allowedDraftTypes.includes(parsed?.type) ||
-      (parsed.language !== undefined &&
-        parsed.language !== 'fr-CA' &&
-        parsed.language !== 'en')
-    ) {
-      writeJson(request, response, 400, {
-        error: 'A valid draft type is required.'
-      });
-      return;
-    }
-
-    const reference =
-      typeof parsed.reference === 'string'
-        ? parsed.reference.trim().slice(0, 64)
-        : undefined;
-
-    const startedAt = Date.now();
-    try {
-      const result = await prepareAdminAssistantDraft(dbPool, {
-        type: parsed.type,
-        reference,
-        language: parsed.language
-      });
-      await recordAdminAssistantAudit(request, 'admin_assistant.prepare', {
-        draftType: parsed.type,
-        status: result.status,
-        durationMs: Date.now() - startedAt
-      });
-      writeJson(request, response, 200, result, {
-        'Cache-Control': 'private, no-store'
-      });
-    } catch (error) {
-      console.error('Failed to prepare admin assistant draft.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin assistant draft could not be prepared.'
-      });
-    }
-    return;
-  }
-
   if (await handleAdminContributionsRequest(request, response)) return;
 
   if (await handleAdminAccountingRequest(request, response)) return;
 
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-drafts',
-      '/api/admin/publication-drafts'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
+  if (await handleAdminPublicationDraftsRequest(request, response)) return;
 
-    try {
-      const result = await listAdminPublicationDrafts(dbPool, {
-        id:
-          new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
-            'draftId'
-          ) ?? undefined
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load publication drafts.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication drafts could not be loaded.'
-      });
-    }
-    return;
-  }
+  if (await handleAdminPublicationSlotsRequest(request, response)) return;
 
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-drafts',
-      '/api/admin/publication-drafts'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationDraftCreateRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationDraftCreateRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication draft request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.contributionId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid contribution id.'
-      });
-      return;
-    }
-
-    if (parsed.feedTarget !== 'openg7' && parsed.feedTarget !== 'openg20') {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication draft feed target.'
-      });
-      return;
-    }
-
-    if (!isAllowedSponsorFeedChannel(parsed.channel)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication draft channel.'
-      });
-      return;
-    }
-
-    try {
-      const result = await createAdminPublicationDraft(dbPool, parsed);
-      if (!result.updated || !result.draft) {
-        writeJson(request, response, 404, {
-          error:
-            'Approved sponsorship was not found or publication drafts migration is missing.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_draft.create',
-        entityType: 'publication_draft',
-        entityId: result.draft.id,
-        summary: `Publication draft created for ${result.draft.sponsor_company_name}.`,
-        metadata: {
-          contributionId: result.draft.contribution_id,
-          feedTarget: result.draft.feed_target,
-          channel: result.draft.channel
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to create publication draft.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication draft could not be created.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-drafts/update',
-      '/api/admin/publication-drafts/update'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationDraftUpdateRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationDraftUpdateRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication draft update request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.draftId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication draft id.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalNonEmptyBoundedText(
-        parsed.title,
-        PUBLICATION_DRAFT_TITLE_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Publication draft title is invalid.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalNonEmptyBoundedText(
-        parsed.body,
-        PUBLICATION_DRAFT_BODY_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Publication draft body is invalid.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalNonEmptyBoundedText(
-        parsed.disclosureText,
-        PUBLICATION_DRAFT_DISCLOSURE_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Publication draft disclosure is invalid.'
-      });
-      return;
-    }
-
-    if (
-      parsed.status !== undefined &&
-      !isAllowedPublicationDraftStatus(parsed.status)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication draft status.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalHttpsUrl(parsed.publicUrl)) {
-      writeJson(request, response, 400, {
-        error: 'Publication public URL must be a valid https link.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalIsoDate(parsed.scheduledAt)) {
-      writeJson(request, response, 400, {
-        error: 'Publication scheduled date is invalid.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.reviewNote,
-        ADMIN_REVIEW_NOTE_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Publication draft review note is too long.'
-      });
-      return;
-    }
-
-    try {
-      const result = await updateAdminPublicationDraft(dbPool, parsed);
-      if (!result.updated || !result.draft) {
-        writeJson(request, response, 404, {
-          error: 'Publication draft was not found.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: parsed.status
-          ? `publication_draft.${parsed.status}`
-          : 'publication_draft.update',
-        entityType: 'publication_draft',
-        entityId: result.draft.id,
-        summary: `Publication draft updated for ${result.draft.sponsor_company_name}.`,
-        metadata: {
-          status: result.draft.status,
-          contributionId: result.draft.contribution_id,
-          feedTarget: result.draft.feed_target,
-          channel: result.draft.channel
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to update publication draft.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication draft could not be updated.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-slots',
-      '/api/admin/publication-slots'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    try {
-      const result = await listAdminPublicationSlots(dbPool, {
-        id:
-          new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
-            'slotId'
-          ) ?? undefined
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load publication slots.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication slots could not be loaded.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-slots',
-      '/api/admin/publication-slots'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationSlotCreateRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationSlotCreateRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot request body.'
-      });
-      return;
-    }
-
-    if (!isAllowedSponsorFeedTarget(parsed.feedTarget)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot target.'
-      });
-      return;
-    }
-
-    if (!isAllowedSponsorFeedChannel(parsed.channel)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot channel.'
-      });
-      return;
-    }
-
-    if (!isFutureDateString(parsed.startsAt)) {
-      writeJson(request, response, 400, {
-        error: 'Publication slot date must be a future date.'
-      });
-      return;
-    }
-
-    if (
-      parsed.timezone !== undefined &&
-      !isValidPublicationSlotTimezone(parsed.timezone)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Publication slot timezone is invalid.'
-      });
-      return;
-    }
-
-    if (!isValidPublicationBatchCapacity(parsed.capacity)) {
-      writeJson(request, response, 400, {
-        error: `Publication slot capacity must be an integer between ${PUBLICATION_BATCH_MIN_CAPACITY} and ${PUBLICATION_BATCH_MAX_CAPACITY}.`
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.notes,
-        PUBLICATION_BATCH_NOTES_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Publication slot notes are too long.'
-      });
-      return;
-    }
-
-    try {
-      const result = await createAdminPublicationSlot(dbPool, {
-        ...parsed,
-        startsAt: new Date(parsed.startsAt).toISOString(),
-        timezone: normalizePublicationSlotTimezone(parsed.timezone)
-      });
-      if (!result.updated || !result.slot) {
-        writeJson(request, response, 404, {
-          error: 'Publication slots migration is missing.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_slot.create',
-        entityType: 'publication_slot',
-        entityId: result.slot.id,
-        summary: `Publication slot created for ${channelLabel(result.slot.channel)} at ${result.slot.startsAt}.`,
-        metadata: {
-          feedTarget: result.slot.feedTarget,
-          channel: result.slot.channel,
-          startsAt: result.slot.startsAt,
-          timezone: result.slot.timezone,
-          capacity: result.slot.capacity
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to create publication slot.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication slot could not be created.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-slots/update',
-      '/api/admin/publication-slots/update'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationSlotUpdateRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationSlotUpdateRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot update request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.slotId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot id.'
-      });
-      return;
-    }
-
-    if (parsed.startsAt !== undefined && !isFutureDateString(parsed.startsAt)) {
-      writeJson(request, response, 400, {
-        error: 'Publication slot date must be a future date.'
-      });
-      return;
-    }
-
-    if (
-      parsed.timezone !== undefined &&
-      !isValidPublicationSlotTimezone(parsed.timezone)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Publication slot timezone is invalid.'
-      });
-      return;
-    }
-
-    if (
-      parsed.capacity !== undefined &&
-      !isValidPublicationBatchCapacity(parsed.capacity)
-    ) {
-      writeJson(request, response, 400, {
-        error: `Publication slot capacity must be an integer between ${PUBLICATION_BATCH_MIN_CAPACITY} and ${PUBLICATION_BATCH_MAX_CAPACITY}.`
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.notes,
-        PUBLICATION_BATCH_NOTES_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Publication slot notes are too long.'
-      });
-      return;
-    }
-
-    try {
-      const result = await updateAdminPublicationSlot(dbPool, {
-        ...parsed,
-        startsAt:
-          parsed.startsAt !== undefined
-            ? new Date(parsed.startsAt).toISOString()
-            : undefined,
-        timezone:
-          parsed.timezone !== undefined
-            ? normalizePublicationSlotTimezone(parsed.timezone)
-            : undefined
-      });
-      if (!result.updated || !result.slot) {
-        writeJson(request, response, 409, {
-          error:
-            'Publication slot was not found, is final, is in the past, or capacity would be exceeded.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_slot.update',
-        entityType: 'publication_slot',
-        entityId: result.slot.id,
-        summary: `Publication slot updated for ${channelLabel(result.slot.channel)} at ${result.slot.startsAt}.`,
-        metadata: {
-          startsAt: result.slot.startsAt,
-          timezone: result.slot.timezone,
-          capacity: result.slot.capacity,
-          capacityUsed: result.slot.capacityUsed
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to update publication slot.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication slot could not be updated.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-slots/assign-batch',
-      '/api/admin/publication-slots/assign-batch'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationSlotAssignBatchRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationSlotAssignBatchRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot batch assignment request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.slotId) || !isValidUuid(parsed.batchId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot or batch id.'
-      });
-      return;
-    }
-
-    try {
-      const result = await assignBatchToPublicationSlot(dbPool, parsed);
-      if (!result.updated || !result.slot) {
-        writeJson(request, response, 409, {
-          error:
-            'Batch could not be assigned: it must match the slot channel and target, stay within capacity, and not already belong to another slot.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_slot.assign_batch',
-        entityType: 'publication_slot',
-        entityId: result.slot.id,
-        summary: `Batch assigned to publication slot ${result.slot.startsAt}.`,
-        metadata: { slotId: parsed.slotId, batchId: parsed.batchId }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to assign batch to publication slot.', error);
-      writeJson(request, response, 502, {
-        error: 'Batch could not be assigned to the publication slot.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-slots/assign-draft',
-      '/api/admin/publication-slots/assign-draft'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationSlotAssignDraftRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationSlotAssignDraftRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot draft assignment request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.slotId) || !isValidUuid(parsed.draftId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot or draft id.'
-      });
-      return;
-    }
-
-    try {
-      const result = await assignDraftToPublicationSlot(dbPool, parsed);
-      if (!result.updated || !result.slot) {
-        writeJson(request, response, 409, {
-          error:
-            'Draft could not be assigned: it must be approved, unbatched, match the slot target/channel, and fit remaining capacity.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_slot.assign_draft',
-        entityType: 'publication_slot',
-        entityId: result.slot.id,
-        summary: `Draft assigned directly to publication slot ${result.slot.startsAt}.`,
-        metadata: { slotId: parsed.slotId, draftId: parsed.draftId }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to assign draft to publication slot.', error);
-      writeJson(request, response, 502, {
-        error: 'Draft could not be assigned to the publication slot.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-slots/publish',
-      '/api/admin/publication-slots/publish'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationSlotLifecycleRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationSlotLifecycleRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.slotId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot id.'
-      });
-      return;
-    }
-
-    try {
-      const result = await publishAdminPublicationSlot(dbPool, parsed);
-      if (!result.updated || !result.slot) {
-        writeJson(request, response, 409, {
-          error:
-            'Publication slot was not found, is not scheduled, or has no assigned drafts.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_slot.publish',
-        entityType: 'publication_slot',
-        entityId: result.slot.id,
-        summary: `Publication slot published (${result.slot.assignedDraftIds.length} draft(s)).`,
-        metadata: {
-          channel: result.slot.channel,
-          feedTarget: result.slot.feedTarget,
-          assignedDraftIds: result.slot.assignedDraftIds
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to publish publication slot.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication slot could not be published.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-slots/cancel',
-      '/api/admin/publication-slots/cancel'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationSlotLifecycleRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationSlotLifecycleRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.slotId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication slot id.'
-      });
-      return;
-    }
-
-    try {
-      const result = await cancelAdminPublicationSlot(dbPool, parsed);
-      if (!result.updated || !result.slot) {
-        writeJson(request, response, 409, {
-          error: 'Publication slot was not found or is already final.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_slot.cancel',
-        entityType: 'publication_slot',
-        entityId: result.slot.id,
-        summary: `Publication slot cancelled (${channelLabel(result.slot.channel)}).`,
-        metadata: {
-          channel: result.slot.channel,
-          feedTarget: result.slot.feedTarget
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to cancel publication slot.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication slot could not be cancelled.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-batches',
-      '/api/admin/publication-batches'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    try {
-      const result = await listAdminPublicationBatches(dbPool, {
-        id:
-          new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
-            'batchId'
-          ) ?? undefined
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load publication batches.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication batches could not be loaded.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-batches',
-      '/api/admin/publication-batches'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationBatchCreateRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationBatchCreateRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch request body.'
-      });
-      return;
-    }
-
-    if (!isAllowedSponsorFeedChannel(parsed.channel)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch channel.'
-      });
-      return;
-    }
-
-    if (!isValidPublicationBatchCapacity(parsed.capacity)) {
-      writeJson(request, response, 400, {
-        error: `Publication batch capacity must be an integer between ${PUBLICATION_BATCH_MIN_CAPACITY} and ${PUBLICATION_BATCH_MAX_CAPACITY}.`
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.notes,
-        PUBLICATION_BATCH_NOTES_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Publication batch notes are too long.'
-      });
-      return;
-    }
-
-    try {
-      const result = await createAdminPublicationBatch(dbPool, parsed);
-      if (!result.updated || !result.batch) {
-        writeJson(request, response, 404, {
-          error: 'Publication batches migration is missing.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_batch.create',
-        entityType: 'publication_batch',
-        entityId: result.batch.id,
-        summary: `Publication batch created for ${channelLabel(result.batch.channel)} (capacity ${result.batch.capacity}).`,
-        metadata: {
-          channel: result.batch.channel,
-          capacity: result.batch.capacity
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to create publication batch.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication batch could not be created.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-batches/assign',
-      '/api/admin/publication-batches/assign'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationBatchAssignRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationBatchAssignRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch assignment request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.batchId) || !isValidUuid(parsed.draftId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch or draft id.'
-      });
-      return;
-    }
-
-    try {
-      const result = await assignDraftToPublicationBatch(dbPool, parsed);
-      if (!result.updated || !result.draft) {
-        writeJson(request, response, 409, {
-          error:
-            'Draft could not be assigned: it must be approved, match the batch channel, and the batch must be open with available capacity.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_batch.assign',
-        entityType: 'publication_batch',
-        entityId: parsed.batchId,
-        summary: `Draft for ${result.draft.sponsor_company_name} assigned to batch.`,
-        metadata: { draftId: parsed.draftId, batchId: parsed.batchId }
-      });
-
-      const batch = await getPublicationBatchById(dbPool, parsed.batchId);
-      if (batch && batch.status === 'open' && batch.capacityAvailable === 0) {
-        const notificationResult = await queuePublicationBatchFullNotification(
-          dbPool,
-          {
-            batchId: batch.id,
-            idempotencyKey: `publication-batch:${batch.id}:full`,
-            channel: batch.channel,
-            capacity: batch.capacity
-          }
-        );
-        if (!notificationResult.queued && !notificationResult.sent) {
-          console.warn(
-            'Publication batch is full but the admin notification could not be sent.',
-            notificationResult.error
-          );
-        }
-      }
-
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to assign draft to publication batch.', error);
-      writeJson(request, response, 502, {
-        error: 'Draft could not be assigned to the publication batch.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-batches/unassign',
-      '/api/admin/publication-batches/unassign'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationBatchUnassignRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationBatchUnassignRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch unassignment request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.draftId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication draft id.'
-      });
-      return;
-    }
-
-    try {
-      const result = await unassignDraftFromPublicationBatch(dbPool, parsed);
-      if (!result.updated || !result.draft) {
-        writeJson(request, response, 404, {
-          error: 'Draft is not assigned to a batch, or is already published.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_batch.unassign',
-        entityType: 'publication_draft',
-        entityId: result.draft.id,
-        summary: `Draft for ${result.draft.sponsor_company_name} removed from batch.`,
-        metadata: { draftId: parsed.draftId }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to unassign draft from publication batch.', error);
-      writeJson(request, response, 502, {
-        error: 'Draft could not be removed from the publication batch.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-batches/schedule',
-      '/api/admin/publication-batches/schedule'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationBatchScheduleRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationBatchScheduleRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch schedule request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.batchId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch id.'
-      });
-      return;
-    }
-
-    if (
-      typeof parsed.scheduledAt !== 'string' ||
-      !isFutureDateString(parsed.scheduledAt)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Publication batch scheduled date must be a future date.'
-      });
-      return;
-    }
-
-    try {
-      const result = await scheduleAdminPublicationBatch(dbPool, parsed);
-      if (!result.updated || !result.batch) {
-        writeJson(request, response, 409, {
-          error: 'Publication batch was not found or cannot be scheduled.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_batch.schedule',
-        entityType: 'publication_batch',
-        entityId: result.batch.id,
-        summary: `Publication batch scheduled for ${result.batch.scheduledAt}.`,
-        metadata: {
-          channel: result.batch.channel,
-          scheduledAt: result.batch.scheduledAt
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to schedule publication batch.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication batch could not be scheduled.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-batches/publish',
-      '/api/admin/publication-batches/publish'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationBatchLifecycleRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationBatchLifecycleRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.batchId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch id.'
-      });
-      return;
-    }
-
-    try {
-      const result = await publishAdminPublicationBatch(dbPool, parsed);
-      if (!result.updated || !result.batch) {
-        writeJson(request, response, 409, {
-          error:
-            'Publication batch was not found or must be scheduled before it can be published.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_batch.publish',
-        entityType: 'publication_batch',
-        entityId: result.batch.id,
-        summary: `Publication batch published (${result.batch.assignedDraftIds.length} sponsor(s)).`,
-        metadata: {
-          channel: result.batch.channel,
-          assignedDraftIds: result.batch.assignedDraftIds
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to publish publication batch.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication batch could not be published.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/social-publication-jobs',
-      '/api/admin/social-publication-jobs'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    try {
-      const result = await listAdminSocialPublicationJobs(
-        dbPool,
-        socialPublicationRuntime()
-      );
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load social publication jobs.', error);
-      writeJson(request, response, 502, {
-        error: 'Social publication jobs could not be loaded.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-batches/publish-social',
-      '/api/admin/publication-batches/publish-social'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) return;
-    writeJson(request, response, 409, {
-      code: 'FINAL_APPROVAL_REQUIRED',
-      error:
-        'Prepare and approve the exact publication in /admin/fundraiser/publications/automation.'
-    });
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/publication-batches/cancel',
-      '/api/admin/publication-batches/cancel'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminPublicationBatchLifecycleRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminPublicationBatchLifecycleRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.batchId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid publication batch id.'
-      });
-      return;
-    }
-
-    try {
-      const result = await cancelAdminPublicationBatch(dbPool, parsed);
-      if (!result.updated || !result.batch) {
-        writeJson(request, response, 409, {
-          error: 'Publication batch was not found or is already final.'
-        });
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'publication_batch.cancel',
-        entityType: 'publication_batch',
-        entityId: result.batch.id,
-        summary: `Publication batch cancelled (${channelLabel(result.batch.channel)}).`,
-        metadata: { channel: result.batch.channel }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to cancel publication batch.', error);
-      writeJson(request, response, 502, {
-        error: 'Publication batch could not be cancelled.'
-      });
-    }
-    return;
-  }
+  if (await handleAdminPublicationBatchesRequest(request, response)) return;
 
   if (
     request.method === 'GET' &&

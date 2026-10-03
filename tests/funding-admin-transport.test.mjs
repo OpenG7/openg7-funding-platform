@@ -50,6 +50,14 @@ const backfillPreview = {
   action: 'preview',
   scope: { from: '2026-01-01', to: '2026-01-02', limit: 1 }
 };
+const pilotCommand = {
+  requestId: 'synthetic-command',
+  action: 'publication.edit',
+  targetId: 'synthetic-publication',
+  version: 'synthetic-version',
+  confirmation: 'synthetic-publication',
+  payload: { message: 'Synthetic editorial revision' }
+};
 const families = [
   {
     name: 'activity',
@@ -76,6 +84,43 @@ const families = [
     },
     timeout: 15000,
     fallback: 'PILOTAGE_UNAVAILABLE',
+    pilotageError: true,
+    clearsUnauthorizedSession: true
+  },
+  {
+    name: 'editorial programme',
+    read: (service) => service.pilotageProgramme(),
+    readPath: '/admin/pilotage/programme',
+    write: (service) => service.proposeProgramme('openg7:facebook', 3, false),
+    writePath: '/admin/pilotage/programme',
+    body: { feedId: 'openg7:facebook', cadence: 3, includeApproved: false },
+    timeout: 15000,
+    fallback: 'PILOTAGE_UNAVAILABLE',
+    pilotageError: true,
+    clearsUnauthorizedSession: true
+  },
+  {
+    name: 'editorial variant and receipt',
+    read: (service) => service.pilotageReceipt('receipt /'),
+    readPath: '/admin/pilotage/receipt?id=receipt%20%2F',
+    write: (service) => service.editorialVariant('delivery /', 2, 'Shorten'),
+    writePath: '/admin/pilotage/variant',
+    body: { id: 'delivery /', version: 2, instruction: 'Shorten' },
+    timeout: 15000,
+    fallback: 'PILOTAGE_UNAVAILABLE',
+    pilotageError: true,
+    clearsUnauthorizedSession: true
+  },
+  {
+    name: 'pilotage command',
+    read: (service) => service.pilotage({ id: 'decision /', page: undefined }),
+    readPath: '/admin/pilotage?id=decision+%2F',
+    write: (service) => service.pilotageCommand(pilotCommand),
+    writePath: '/admin/pilotage/command',
+    body: pilotCommand,
+    timeout: 15000,
+    fallback: 'PILOTAGE_UNAVAILABLE',
+    pilotageError: true,
     clearsUnauthorizedSession: true
   },
   {
@@ -180,9 +225,9 @@ test('admin JSON failures keep endpoint-specific errors and session invalidation
             error.message,
             family.name === 'activity'
               ? family.fallback
-              : family.name === 'pilotage' && status === 401
+              : family.pilotageError && status === 401
                 ? 'SESSION_EXPIRED'
-                : family.name === 'pilotage' && status === 403
+                : family.pilotageError && status === 403
                   ? 'READ_ONLY'
                   : 'SYNTHETIC_FAILURE'
           );
@@ -2005,6 +2050,9 @@ test('collection queries preserve omitted IDs and default sponsorship filters', 
   await service.getPublicationBatches(explicitToken);
   await service.getPublicationSlots(explicitToken);
   await service.getAuditLog(explicitToken);
+  await service.getAssistantContext(explicitToken);
+  await service.contributionActivity();
+  await service.pilotage();
   await service.getSponsorships(explicitToken);
   await service.getSponsorships(explicitToken, {
     page: 1,
@@ -2021,6 +2069,9 @@ test('collection queries preserve omitted IDs and default sponsorship filters', 
     '/admin/publication-batches',
     '/admin/publication-slots',
     '/admin/audit-log',
+    '/admin/assistant/context?',
+    '/admin/contribution-activity?',
+    '/admin/pilotage?',
     '/admin/sponsorships',
     '/admin/sponsorships?page=1&pageSize=6'
   ]);
