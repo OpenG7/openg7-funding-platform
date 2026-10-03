@@ -11,12 +11,17 @@ import {
   signal
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type { FundTransparencyPublicResponse } from '@openg7/funding-core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
+import { FundingTransparencyRegistryComponent } from '../../components/funding-transparency-registry/funding-transparency-registry.component.js';
+import { FundingTransparencyAllocationsComponent } from '../../components/funding-transparency-allocations/funding-transparency-allocations.component.js';
+import {
+  FundingTransparencyReportsComponent,
+  type TransparencyReportIntent
+} from '../../components/funding-transparency-reports/funding-transparency-reports.component.js';
 import { FUNDING_PROJECT_CONFIG } from '../../config/funding-project-config.token.js';
 import { OPENG7_FUNDING_CONFIG } from '../../config/openg7-funding.config.js';
 import {
@@ -39,10 +44,12 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     RouterLink,
     TranslatePipe,
-    FundingHeaderComponent
+    FundingHeaderComponent,
+    FundingTransparencyRegistryComponent,
+    FundingTransparencyAllocationsComponent,
+    FundingTransparencyReportsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -234,250 +241,31 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
         </section>
 
         <section class="dashboard-grid">
-          <article
-            id="public-registry"
-            class="panel registry-panel"
-            tabindex="-1"
-            aria-labelledby="registry-title"
-          >
-            <h2 id="registry-title">
-              {{ 'funding.transparencyPage.registry.title' | translate }}
-            </h2>
-            <p>{{ 'funding.transparencyPage.registry.scope' | translate }}</p>
-            <label for="registry-period">{{
-              'funding.transparencyPage.registry.period' | translate
-            }}</label>
-            <select
-              id="registry-period"
-              data-og7="transparency-period"
-              [ngModel]="period()"
-              [disabled]="!hasSnapshot()"
-              (ngModelChange)="selectPeriod($event)"
-            >
-              <option value="all">
-                {{ 'funding.transparencyPage.registry.allPeriods' | translate }}
-              </option>
-              @for (month of availableMonths(); track month) {
-                <option [value]="month">{{ month }}</option>
-              }
-              @if (periodUnavailable()) {
-                <option [value]="period()">{{ period() }}</option>
-              }
-            </select>
-            <div
-              class="registry-filters"
-              role="group"
-              aria-label="{{
-                'funding.transparencyPage.registry.filterLabel' | translate
-              }}"
-            >
-              @for (filter of registryFilters; track filter) {
-                <button
-                  type="button"
-                  [attr.aria-pressed]="registryFilter() === filter"
-                  (click)="selectFilter(filter)"
-                >
-                  {{
-                    'funding.transparencyPage.registry.filters.' + filter
-                      | translate
-                  }}
-                </button>
-              }
-            </div>
-            @if (periodUnavailable() && hasSnapshot() && !loading()) {
-              <p role="status">
-                {{
-                  'funding.transparencyPage.registry.unavailablePeriod'
-                    | translate
-                }}
-              </p>
-            }
-            <div class="table-wrap">
-              <table>
-                <caption>
-                  {{
-                    'funding.transparencyPage.registry.caption' | translate
-                  }}
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">
-                      {{
-                        'funding.transparencyPage.registry.headers.period'
-                          | translate
-                      }}
-                    </th>
-                    <th scope="col">
-                      {{
-                        'funding.transparencyPage.registry.headers.type'
-                          | translate
-                      }}
-                    </th>
-                    <th scope="col">
-                      {{
-                        'funding.transparencyPage.registry.headers.amount'
-                          | translate
-                      }}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (row of registryRows(); track row.id) {
-                    <tr>
-                      <td>{{ row.month }}</td>
-                      <td>
-                        {{
-                          'funding.transparencyPage.registry.filters.' +
-                            row.type | translate
-                        }}
-                      </td>
-                      <td>
-                        {{ formatMoney(row.amount, row.currency, 'code') }}
-                      </td>
-                    </tr>
-                  } @empty {
-                    <tr>
-                      <td colspan="3">
-                        {{
-                          (hasSnapshot() && !periodUnavailable()
-                            ? 'funding.transparencyPage.registry.empty'
-                            : 'funding.transparencyPage.state.unavailable'
-                          ) | translate
-                        }}
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-            <p class="fine-print">
-              {{ 'funding.transparencyPage.registry.feesNote' | translate }}
-            </p>
-          </article>
-
-          <article
-            class="panel expenses-panel"
-            data-og7="published-allocations"
-          >
-            <h2>{{ 'funding.transparencyPage.expenses.title' | translate }}</h2>
-            <p>{{ 'funding.transparencyPage.expenses.info' | translate }}</p>
-            @for (allocation of publicAllocations(); track $index) {
-              <div class="allocation">
-                <h3>{{ allocation.project_name }}</h3>
-                <strong>{{
-                  formatMoney(
-                    allocation.amount_allocated,
-                    allocation.currency,
-                    'code'
-                  )
-                }}</strong>
-                @if (allocation.public_description) {
-                  <p>{{ allocation.public_description }}</p>
-                }
-                @if (allocation.expected_outcome) {
-                  <p>{{ allocation.expected_outcome }}</p>
-                }
-                <p class="allocation-progress">
-                  {{
-                    'funding.transparencyPage.expenses.progress.' +
-                      (allocation.progress_status === 'in_progress'
-                        ? 'inProgress'
-                        : allocation.progress_status) | translate
-                  }}
-                </p>
-                @if (allocation.published_at) {
-                  <p>
-                    {{
-                      'funding.transparencyPage.expenses.published' | translate
-                    }}
-                    {{ formatDate(allocation.published_at) }}
-                  </p>
-                }
-                @if (allocation.proof_url) {
-                  <a
-                    [href]="allocation.proof_url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {{
-                      allocation.proof_source ||
-                        ('funding.transparencyPage.expenses.proof' | translate)
-                    }}
-                    @if (allocation.proof_published_at) {
-                      <span
-                        >({{ formatDate(allocation.proof_published_at) }})</span
-                      >
-                    }
-                  </a>
-                }
-              </div>
-            } @empty {
-              <p>
-                {{
-                  (hasSnapshot()
-                    ? 'funding.transparencyPage.expenses.empty'
-                    : 'funding.transparencyPage.state.unavailable'
-                  ) | translate
-                }}
-              </p>
-            }
-            <a [routerLink]="aboutPath()" fragment="about-mission-title">{{
-              'funding.transparencyPage.allocation.learnMore' | translate
-            }}</a>
-          </article>
-
-          <article class="panel method-panel">
-            <h2>{{ 'funding.transparencyPage.method.title' | translate }}</h2>
-            <p class="formula">
-              {{ 'funding.transparencyPage.method.formula' | translate }}
-            </p>
-            <p>{{ 'funding.transparencyPage.method.copy' | translate }}</p>
-            <p>{{ 'funding.transparencyPage.method.payouts' | translate }}</p>
-            <p>{{ 'funding.transparencyPage.method.limits' | translate }}</p>
-          </article>
-
-          <article class="panel reports-panel">
-            <h2>{{ 'funding.transparencyPage.reports.title' | translate }}</h2>
-            <p>
-              {{ 'funding.transparencyPage.reports.scope' | translate }}
-              <strong>{{
-                period() === 'all'
-                  ? ('funding.transparencyPage.registry.allPeriods' | translate)
-                  : period()
-              }}</strong>
-            </p>
-            <p>{{ 'funding.transparencyPage.reports.contents' | translate }}</p>
-            <div class="report-actions">
-              <button
-                type="button"
-                data-og7="transparency-csv"
-                [disabled]="!canExport()"
-                (click)="downloadCsv()"
-              >
-                {{ 'funding.transparencyPage.reports.exportCsv' | translate }}
-              </button>
-              <button
-                type="button"
-                [disabled]="!canExport()"
-                (click)="downloadReport()"
-              >
-                {{
-                  'funding.transparencyPage.reports.downloadMonthly' | translate
-                }}
-              </button>
-              <button type="button" (click)="copyTransparencyLink()">
-                {{ 'funding.transparencyPage.reports.copyLink' | translate }}
-              </button>
-            </div>
-            <p role="status">
-              {{
-                copyState()
-                  ? ('funding.transparencyPage.reports.' + copyState()
-                    | translate)
-                  : ''
-              }}
-            </p>
-          </article>
+          <openg7-funding-transparency-registry
+            [monthlySummary]="data()?.monthly_summary ?? []"
+            [availableMonths]="availableMonths()"
+            [period]="period()"
+            [filter]="registryFilter()"
+            [hasSnapshot]="hasSnapshot()"
+            [loading]="loading()"
+            [periodUnavailable]="periodUnavailable()"
+            [formatMoney]="formatPublicMoney"
+            (periodChange)="selectPeriod($event)"
+            (filterChange)="selectFilter($event)"
+          />
+          <openg7-funding-transparency-allocations
+            [allocations]="publicAllocations()"
+            [hasSnapshot]="hasSnapshot()"
+            [aboutPath]="aboutPath()"
+            [formatMoney]="formatPublicMoney"
+            [formatDate]="formatPublicDate"
+          />
+          <openg7-funding-transparency-reports
+            [period]="period()"
+            [canExport]="canExport()"
+            [copyState]="copyState()"
+            (action)="handleReportAction($event)"
+          />
 
           <article class="panel privacy-panel">
             <h2>{{ 'funding.transparencyPage.privacy.title' | translate }}</h2>
@@ -549,7 +337,6 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
     }
     h1,
     h2,
-    h3,
     p {
       margin-top: 0;
     }
@@ -557,10 +344,6 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       color: #fff2d7;
       font-size: 1.05rem;
       line-height: 1.4;
-    }
-    h3 {
-      color: #fff2d7;
-      font-size: 1rem;
     }
     p {
       color: #c5d4e5;
@@ -651,8 +434,7 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
     .hero-copy p {
       max-width: 42rem;
     }
-    .hero-actions,
-    .report-actions {
+    .hero-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 0.65rem;
@@ -789,70 +571,6 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
       grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
       gap: 1rem;
     }
-    .registry-panel label {
-      display: block;
-      font-size: 0.9rem;
-      margin-bottom: 0.4rem;
-    }
-    .registry-panel select {
-      max-width: 100%;
-    }
-    .registry-filters {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin: 1rem 0;
-    }
-    [aria-pressed='true'] {
-      background: #17639b;
-      border-color: #8cdbff;
-    }
-    .table-wrap {
-      overflow: auto;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-    caption {
-      text-align: left;
-      color: #aebfd3;
-      font-size: 0.8rem;
-      margin-bottom: 0.8rem;
-    }
-    th,
-    td {
-      padding: 0.75rem 0.4rem;
-      border-bottom: 1px solid #294862;
-      text-align: left;
-    }
-    th:last-child,
-    td:last-child {
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-    td:last-child {
-      white-space: nowrap;
-    }
-    .allocation {
-      border-top: 1px solid #294862;
-      padding: 1rem 0;
-    }
-    .allocation h3 {
-      margin-bottom: 0.5rem;
-    }
-    .allocation p {
-      font-size: 0.9rem;
-      margin: 0.5rem 0;
-    }
-    .allocation-progress {
-      color: #ffd879;
-    }
-    .formula {
-      color: #ffd879;
-      font-weight: 700;
-    }
     .support-strip {
       display: flex;
       align-items: center;
@@ -953,12 +671,6 @@ export class FundingTransparencyPageComponent implements OnInit {
   readonly checkedAt = signal<string | null>(null);
   readonly currentMonth = signal('');
   readonly registryFilter = signal<TransparencyRegistryFilter>('all');
-  readonly registryFilters: readonly TransparencyRegistryFilter[] = [
-    'all',
-    'contributions',
-    'fees',
-    'refunds'
-  ];
   readonly period = signal('all');
   readonly copyState = signal<'' | 'copied' | 'copyFailed'>('');
   readonly currentYear = new Date().getFullYear();
@@ -1076,33 +788,28 @@ export class FundingTransparencyPageComponent implements OnInit {
     () =>
       this.period() !== 'all' && !this.availableMonths().includes(this.period())
   );
-  readonly registryRows = computed(() => {
-    if (!this.hasSnapshot()) return [];
-    return (this.data()?.monthly_summary ?? [])
-      .filter((row) => this.period() === 'all' || row.month === this.period())
-      .flatMap((row) =>
-        [
-          { type: 'contributions', amount: row.total_received },
-          { type: 'fees', amount: row.total_fees },
-          { type: 'refunds', amount: row.total_refunded }
-        ]
-          .filter(
-            (entry) =>
-              entry.amount !== 0 &&
-              (this.registryFilter() === 'all' ||
-                this.registryFilter() === entry.type)
-          )
-          .map((entry) => ({
-            ...entry,
-            id: `${row.month}-${entry.type}`,
-            month: row.month,
-            currency: row.currency
-          }))
-      );
-  });
   readonly publicAllocations = computed(() =>
     this.hasSnapshot() ? (this.data()?.latest_public_allocations ?? []) : []
   );
+
+  readonly formatPublicMoney = (value: number, currency: string): string =>
+    this.formatMoney(value, currency, 'code');
+  readonly formatPublicDate = (value: string | null | undefined): string =>
+    this.formatDate(value);
+
+  handleReportAction(intent: TransparencyReportIntent): void {
+    switch (intent) {
+      case 'csv':
+        this.downloadCsv();
+        break;
+      case 'json':
+        this.downloadReport();
+        break;
+      case 'copy':
+        void this.copyTransparencyLink();
+        break;
+    }
+  }
 
   ngOnInit(): void {
     this.route.queryParamMap
@@ -1162,7 +869,7 @@ export class FundingTransparencyPageComponent implements OnInit {
 
   formatMoney(
     value: number | null,
-    currency = this.config.currency,
+    currency: string = this.config.currency,
     currencyDisplay: 'symbol' | 'code' = 'symbol'
   ): string {
     if (value === null) return '—';

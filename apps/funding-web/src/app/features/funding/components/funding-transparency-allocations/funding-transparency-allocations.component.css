@@ -1,0 +1,72 @@
+:host {
+  display: grid;
+  min-width: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h2 {
+  color: #fff2d7;
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+
+h3 {
+  color: #fff2d7;
+  font-size: 1rem;
+}
+
+p {
+  color: #c5d4e5;
+  line-height: 1.6;
+}
+
+a {
+  color: #8cdbff;
+  text-underline-offset: 0.2em;
+}
+
+a:focus-visible {
+  outline: 3px solid #ffdf76;
+  outline-offset: 4px;
+}
+
+.panel {
+  background: #06172a;
+  border: 1px solid #294862;
+  border-radius: 0.75rem;
+  padding: 1.3rem;
+  min-width: 0;
+}
+
+.allocation {
+  border-top: 1px solid #294862;
+  padding: 1rem 0;
+}
+
+.allocation h3 {
+  margin-bottom: 0.5rem;
+}
+
+.allocation p {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.allocation-progress {
+  color: #ffd879;
+}
+
+@media (max-width: 540px) {
+  .panel {
+    padding: 1rem;
+  }
+}

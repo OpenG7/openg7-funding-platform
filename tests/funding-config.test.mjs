@@ -444,8 +444,19 @@ test('Public transparency preserves allocation descriptions for the web page', (
     'utf8'
   );
 
+  const allocationsTemplate = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/components/funding-transparency-allocations/funding-transparency-allocations.component.html',
+    'utf8'
+  );
+
   assert.ok(apiSource.includes('public_description'));
-  assert.ok(pageSource.includes('allocation.public_description'));
+  assert.ok(pageSource.includes('[allocations]="publicAllocations()"'));
+  assert.ok(
+    allocationsTemplate.includes('@if (allocation.public_description)')
+  );
+  assert.ok(
+    allocationsTemplate.includes('{{ allocation.public_description }}')
+  );
 });
 
 test('Public achievements exclude unpublished allocation states', () => {
