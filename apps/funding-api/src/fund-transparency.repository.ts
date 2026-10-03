@@ -7,38 +7,19 @@ import type {
   PublicFundAllocation,
   PublicMonthlySummary
 } from '@openg7/funding-core';
-import type { Pool, PoolClient } from 'pg';
+import type { Pool } from 'pg';
 
 import { isPublicAllocationProofUrl } from '../../../packages/funding-core/src/index.js';
 
 import { resolveRefundedAmountMinor } from './fund-refunds.js';
 import { effectiveRefundsSql } from './fund-refund-projection.js';
+import {
+  type ContributionFundTransactionBalanceUpdate,
+  type FundTransactionInsert,
+  insertFundTransaction as persistFundTransaction,
+  updateContributionFundTransactionBalance as enrichContributionFundTransactionBalance
+} from './fund-transparency-registry.repository.js';
 import type { PublicDirectoryPagination } from './public-directory-pagination.js';
-
-interface FundTransactionInsert {
-  readonly stripeEventId: string;
-  readonly stripeObjectId: string;
-  readonly stripeBalanceTransactionId: string | null;
-  readonly type: string;
-  readonly amount: number;
-  readonly fee: number;
-  readonly net: number;
-  readonly currency: string;
-  readonly status: string;
-  readonly createdAtIso: string;
-  readonly publicCategory: string;
-  readonly metadataJson: Record<string, unknown>;
-}
-
-interface ContributionFundTransactionBalanceUpdate {
-  readonly stripePaymentIntentId: string;
-  readonly stripeBalanceTransactionId: string;
-  readonly amount: number;
-  readonly fee: number;
-  readonly net: number;
-  readonly currency: string;
-  readonly status: string;
-}
 
 interface TotalsRow {
   readonly currency_count?: string;
@@ -187,172 +168,15 @@ const emptyResponse = (): FundTransparencyPublicResponse => {
   };
 };
 
-const writeFundTransaction = async (
-  pool: Pool | PoolClient,
-  transaction: FundTransactionInsert
-): Promise<boolean> => {
-  const result = await pool.query(
-    `
-      INSERT INTO fund_transactions (
-        stripe_event_id,
-        stripe_object_id,
-        stripe_balance_transaction_id,
-        type,
-        amount,
-        fee,
-        net,
-        currency,
-        status,
-        created_at,
-        public_category,
-        metadata_json
-      )
-      VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        $5,
-        $6,
-        $7,
-        $8,
-        $9,
-        $10,
-        $11,
-        $12::jsonb
-      )
-      ON CONFLICT (stripe_event_id) DO NOTHING
-    `,
-    [
-      transaction.stripeEventId,
-      transaction.stripeObjectId,
-      transaction.stripeBalanceTransactionId,
-      transaction.type,
-      transaction.amount,
-      transaction.fee,
-      transaction.net,
-      transaction.currency,
-      transaction.status,
-      transaction.createdAtIso,
-      transaction.publicCategory,
-      JSON.stringify(transaction.metadataJson)
-    ]
-  );
-
-  return result.rowCount === 1;
-};
-
 export const insertFundTransaction = async (
   pool: Pool | null,
   transaction: FundTransactionInsert
-): Promise<boolean> => {
-  if (!pool) return false;
-  const isPayment = transaction.type === 'payment_intent.succeeded';
-  const isPayout = ['payout.paid', 'payout.failed'].includes(transaction.type);
-  const refundId =
-    transaction.type === 'charge.refunded' &&
-    typeof transaction.metadataJson.refundId === 'string'
-      ? transaction.metadataJson.refundId
-      : null;
-  if (!isPayment && !isPayout && !refundId) {
-    return writeFundTransaction(pool, transaction);
-  }
-  const kind = isPayment ? 'payment' : refundId ? 'refund' : 'payout';
-  if (
-    isPayment || refundId
-      ? transaction.status !== 'succeeded'
-      : transaction.type !== `payout.${transaction.status}`
-  ) {
-    throw new Error(`Inconsistent ${kind} status.`);
-  }
-
-  // Different webhook IDs and backfills can describe the same Stripe object.
-  // Keep one immutable fact per outcome, on the event owner's connection.
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      'SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))',
-      [`fund-${kind}:${refundId ?? transaction.stripeObjectId}`]
-    );
-    const existing = await client.query<{
-      amount: string;
-      currency: string;
-      type: string;
-    }>(
-      refundId
-        ? `SELECT amount::text, currency, type FROM fund_transactions
-       WHERE type='charge.refunded' AND metadata_json->>'refundId'=$1`
-        : `SELECT amount::text, currency, type FROM fund_transactions
-       WHERE stripe_object_id = $1 AND type = ANY($2::text[])`,
-      refundId
-        ? [refundId]
-        : [
-            transaction.stripeObjectId,
-            isPayment
-              ? ['payment_intent.succeeded']
-              : ['payout.paid', 'payout.failed']
-          ]
-    );
-    if (
-      existing.rows.some(
-        (row) =>
-          row.amount !== String(transaction.amount) ||
-          row.currency.toLowerCase() !== transaction.currency.toLowerCase()
-      )
-    ) {
-      throw new Error(`Inconsistent ${kind} monetary facts.`);
-    }
-    const duplicate = existing.rows.some(
-      (row) => row.type === transaction.type
-    );
-    const inserted = duplicate
-      ? false
-      : await writeFundTransaction(client, transaction);
-    await client.query('COMMIT');
-    return inserted;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-};
+): Promise<boolean> => persistFundTransaction(pool, transaction);
 
 export const updateContributionFundTransactionBalance = async (
   pool: Pool | null,
   input: ContributionFundTransactionBalanceUpdate
-): Promise<boolean> => {
-  if (!pool) {
-    return false;
-  }
-
-  const result = await pool.query(
-    `
-      UPDATE fund_transactions
-      SET
-        stripe_balance_transaction_id = $2,
-        amount = $3,
-        fee = $4,
-        net = $5,
-        currency = $6,
-        status = $7
-      WHERE stripe_object_id = $1
-        AND type = 'payment_intent.succeeded'
-    `,
-    [
-      input.stripePaymentIntentId,
-      input.stripeBalanceTransactionId,
-      input.amount,
-      input.fee,
-      input.net,
-      input.currency,
-      input.status
-    ]
-  );
-
-  return (result.rowCount ?? 0) > 0;
-};
+): Promise<boolean> => enrichContributionFundTransactionBalance(pool, input);
 
 const getTablePresence = async (pool: Pool): Promise<TablePresenceRow> => {
   const query = await pool.query<TablePresenceRow>(`

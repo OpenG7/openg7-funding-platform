@@ -1,3 +1,4 @@
+import { readFundingPersistenceSource } from './support/funding-persistence-source.mjs';
 import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
 import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
@@ -74,10 +75,7 @@ test('fund_contributions ON CONFLICT targets match its partial unique index', ()
     'apps/funding-api/migrations/002_create_fundraiser_mvp_tables.sql',
     'utf8'
   );
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
 
   assert.ok(
     /CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_contributions_stripe_session_id\s+ON fund_contributions \(stripe_session_id\)\s+WHERE stripe_session_id IS NOT NULL/.test(
@@ -215,10 +213,7 @@ test('Stripe charge.updated backfills contribution transaction fees', () => {
     'apps/funding-api/src/stripe-webhook.service.ts',
     'utf8'
   );
-  const repositorySource = fs.readFileSync(
-    'apps/funding-api/src/fund-transparency.repository.ts',
-    'utf8'
-  );
+  const repositorySource = readFundingPersistenceSource('transparency');
 
   assert.ok(webhookSource.includes("event.type === 'charge.updated'"));
   assert.ok(webhookSource.includes('updateContributionFundTransactionBalance'));
@@ -258,10 +253,7 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
     'apps/funding-api/src/stripe-webhook.service.ts',
     'utf8'
   );
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const migration = fs.readFileSync(
     'apps/funding-api/migrations/009_add_contribution_public_reference.sql',
     'utf8'
@@ -302,10 +294,7 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
 
 test('Public reference lookup returns minimal purchase status without private fields', () => {
   const api = readFundingApiSource();
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const fundingService = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
     'utf8'
@@ -423,10 +412,7 @@ test('resolveCheckoutReturnUrl allows http localhost/127.0.0.1 only outside prod
 });
 
 test('Public transparency can read aggregate data from fund contributions', () => {
-  const source = fs.readFileSync(
-    'apps/funding-api/src/fund-transparency.repository.ts',
-    'utf8'
-  );
+  const source = readFundingPersistenceSource('transparency');
 
   assert.ok(source.includes('has_fund_contributions'));
   assert.ok(source.includes('FROM fund_contributions'));
@@ -436,10 +422,7 @@ test('Public transparency can read aggregate data from fund contributions', () =
 });
 
 test('Public transparency preserves allocation descriptions for the web page', () => {
-  const apiSource = fs.readFileSync(
-    'apps/funding-api/src/fund-transparency.repository.ts',
-    'utf8'
-  );
+  const apiSource = readFundingPersistenceSource('transparency');
   const pageSource = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/pages/funding-transparency-page/funding-transparency-page.component.ts',
     'utf8'
@@ -461,10 +444,7 @@ test('Public transparency preserves allocation descriptions for the web page', (
 });
 
 test('Public achievements exclude unpublished allocation states', () => {
-  const source = fs.readFileSync(
-    'apps/funding-api/src/fund-transparency.repository.ts',
-    'utf8'
-  );
+  const source = readFundingPersistenceSource('transparency');
 
   assert.ok(source.includes("WHERE status IN ('published', 'active')"));
   assert.ok(source.includes('LIMIT 8'));
@@ -499,10 +479,7 @@ test('Achievement proof fields are validated at the admin API boundary', () => {
 
 test('Achievement mutations audit public outcome and proof fields', () => {
   const apiSource = readFundingApiSource();
-  const repositorySource = fs.readFileSync(
-    'apps/funding-api/src/fund-admin.repository.ts',
-    'utf8'
-  );
+  const repositorySource = readFundingPersistenceSource('administration');
 
   for (const action of [
     'achievement.created',
@@ -534,10 +511,7 @@ test('Achievement mutations audit public outcome and proof fields', () => {
 });
 
 test('Public builders are exposed only through consented public fields', () => {
-  const source = fs.readFileSync(
-    'apps/funding-api/src/fund-transparency.repository.ts',
-    'utf8'
-  );
+  const source = readFundingPersistenceSource('transparency');
 
   assert.ok(source.includes('public_builders'));
   assert.ok(source.includes('public_display_consent IS TRUE'));
@@ -593,10 +567,7 @@ test('Sponsorship details migration adds optional company follow-up columns', ()
 });
 
 test('recordSponsorshipDetails upserts against the partial unique index', () => {
-  const source = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const source = readFundingPersistenceSource('contributions');
 
   const match = source.match(
     /export const recordSponsorshipDetails[\s\S]*?ON CONFLICT \(stripe_session_id\)([\s\S]{0,80}?)DO UPDATE/
@@ -661,10 +632,7 @@ test('publicDisplayName is discarded server-side when public display consent is 
 });
 
 test('fund_contributions writes public_name on both the checkout-creation and webhook paths', () => {
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
 
   assert.ok(
     /export const insertCheckoutSessionRecord[\s\S]*?public_name/.test(
@@ -934,10 +902,7 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
 });
 
 test('Sponsorship follow-up benefits are derived server-side from the paid amount, never trusted from the client', () => {
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const api = readFundingApiSource();
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
 
@@ -970,10 +935,7 @@ test('Sponsorship follow-up benefits are derived server-side from the paid amoun
 });
 
 test('Sponsorship never publishes automatically and stays gated behind manual review', () => {
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const followupPage = readSponsorshipFollowupSource();
 
   const recordDetailsBody = extractBetween(
@@ -1266,10 +1228,7 @@ test('Sponsorship follow-up email is sent from checkout completion only when rec
 
 test('Sponsorship follow-up tokens expire and details edits return to review', () => {
   const api = readFundingApiSource();
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const followupPage = readSponsorshipFollowupSource();
   const recordDetailsBody = extractBetween(
     repository,
@@ -1348,10 +1307,7 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
 
 test('Reference recovery accepts email requests without exposing contribution existence', () => {
   const api = readFundingApiSource();
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const email = readEmailNotificationSource();
   const fundingService = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
@@ -1425,10 +1381,7 @@ test('Sponsorship follow-up page is routed but not added to the sitemap', () => 
 });
 
 test('Public builders hide sponsorships until admin approval is recorded', () => {
-  const source = fs.readFileSync(
-    'apps/funding-api/src/fund-transparency.repository.ts',
-    'utf8'
-  );
+  const source = readFundingPersistenceSource('transparency');
 
   assert.ok(source.includes('has_sponsor_review_status'));
   assert.ok(source.includes("sponsor_review_status = 'approved'"));
@@ -1550,9 +1503,10 @@ test('Publication slot migration adds a real publication calendar without exposi
 });
 
 test('Publication batch repository enforces capacity, channel match, and approval before assignment', () => {
-  const repository = fs
-    .readFileSync('apps/funding-api/src/fund-admin.repository.ts', 'utf8')
-    .replaceAll('\r\n', '\n');
+  const repository = readFundingPersistenceSource('administration').replaceAll(
+    '\r\n',
+    '\n'
+  );
 
   assert.ok(repository.includes('export const listAdminPublicationBatches'));
   assert.ok(repository.includes('export const createAdminPublicationBatch'));
@@ -1591,10 +1545,7 @@ test('Publication batch repository enforces capacity, channel match, and approva
 });
 
 test('Publication batch lifecycle requires schedule before publish and preserves published drafts on unassign', () => {
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-admin.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('administration');
 
   // Scheduling cascades scheduled_at/status to member drafts, only from open/scheduled.
   assert.ok(repository.includes("AND status IN ('open', 'scheduled')"));
@@ -1631,9 +1582,10 @@ test('Publication batch lifecycle requires schedule before publish and preserves
 });
 
 test('Publication slot repository enforces future dates, capacity, assignment, cancellation, and publication', () => {
-  const repository = fs
-    .readFileSync('apps/funding-api/src/fund-admin.repository.ts', 'utf8')
-    .replaceAll('\r\n', '\n');
+  const repository = readFundingPersistenceSource('administration').replaceAll(
+    '\r\n',
+    '\n'
+  );
 
   for (const fn of [
     'export const listAdminPublicationSlots',
@@ -1854,10 +1806,7 @@ test('Publication slot types and admin UI expose calendar, edit, capacity, and a
 
 test('Social publication provider is explicit, configurable, audited, and visible in admin UI', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-admin.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('administration');
   const api = readFundingApiSource();
   const socialService = fs.readFileSync(
     'apps/funding-api/src/social-publication.service.ts',
@@ -2082,10 +2031,7 @@ test('Admin sponsor rejection requires a reason and can notify the sponsor', () 
   const service = readFundingAdminSource();
   const page = readAdminSponsorsSource();
   const api = readFundingApiSource();
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const email = readEmailNotificationSource();
 
   assert.ok(core.includes('AdminSponsorshipRejectionRefundHandling'));
@@ -2143,10 +2089,7 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
   const service = readFundingAdminSource();
   const page = readAdminSponsorsSource();
   const api = readFundingApiSource();
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const refundStatusMigration = fs.readFileSync(
     'apps/funding-api/migrations/013_add_sponsorship_refund_status.sql',
     'utf8'
@@ -2325,10 +2268,7 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
   const service = readFundingAdminSource();
   const page = readAdminSponsorsSource();
   const api = readFundingApiSource();
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
 
   assert.ok(core.includes('export interface AdminPagination'));
   assert.ok(core.includes('readonly version: string;'));
@@ -2405,10 +2345,7 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
 });
 
 test('Publication batches retain chronological backend ordering', () => {
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-admin.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('administration');
 
   assert.ok(repository.includes('ORDER BY'));
   assert.ok(
@@ -2998,10 +2935,7 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
 });
 
 test('Public sponsorship batch availability exposes only a date per channel, never sponsor data', () => {
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-admin.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('administration');
   const api = readFundingApiSource();
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = fs.readFileSync(
@@ -3086,10 +3020,7 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
 });
 
 test('Public sponsorships are exposed only after consent and approval', () => {
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const api = readFundingApiSource();
 
   assert.ok(api.includes("'/public/sponsorships'"));
@@ -3107,10 +3038,7 @@ test('Admin sponsorship publication endpoint validates feed placement fields', (
     'apps/funding-api/src/sponsorship-benefits.ts',
     'utf8'
   );
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/fund-contributions.repository.ts',
-    'utf8'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const service = readFundingAdminSource();
 
   assert.ok(api.includes("'/admin/sponsorships/publication'"));
