@@ -1,4 +1,5 @@
 import { translatedUiSource } from './support/translated-ui-source.mjs';
+import { readFundingApiSource } from './support/funding-api-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -25,9 +26,14 @@ test('the assistant is wired into the Angular admin shell', () => {
   const nav = read(
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts'
   );
-  const service = read(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
-  );
+  const service = [
+    'funding-admin.service.ts',
+    'funding-admin-assistant.client.ts'
+  ]
+    .map((file) =>
+      read(`apps/funding-web/src/app/features/funding/services/${file}`)
+    )
+    .join('\n');
   const page = readPage();
 
   assertIncludesAll(
@@ -71,7 +77,7 @@ test('the assistant is wired into the Angular admin shell', () => {
 });
 
 test('the assistant prepares drafts (iteration 2) as generation only', () => {
-  const api = read('apps/funding-api/src/main.ts');
+  const api = readFundingApiSource();
   const preparation = read(
     'apps/funding-api/src/admin-assistant/preparation.service.ts'
   );
@@ -85,7 +91,7 @@ test('the assistant prepares drafts (iteration 2) as generation only', () => {
       'prepareAdminAssistantDraft',
       "'admin_assistant.prepare'"
     ],
-    'main.ts prepare endpoint'
+    'assistant prepare endpoint'
   );
   assertIncludesAll(
     preparation,
@@ -132,7 +138,7 @@ test('the admin assistant page exposes every required UI state', () => {
 });
 
 test('the API exposes the read-only assistant endpoints with guards', () => {
-  const api = read('apps/funding-api/src/main.ts');
+  const api = readFundingApiSource();
   assertIncludesAll(
     api,
     [
@@ -145,7 +151,7 @@ test('the API exposes the read-only assistant endpoints with guards', () => {
       'recordAdminAssistantAudit',
       'adminAssistantConfig.maxMessageLength'
     ],
-    'main.ts assistant endpoints'
+    'assistant endpoints'
   );
   // The query endpoint must never GET, and the summary must stay behind admin
   // access (deterministic fallback still requires authentication).
