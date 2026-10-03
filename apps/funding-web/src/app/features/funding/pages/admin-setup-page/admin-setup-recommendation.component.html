@@ -1,0 +1,43 @@
+<section
+  class="recommendation"
+  data-og7="setup-recommendation"
+  [attr.data-tone]="recommendation().tone"
+  aria-labelledby="setup-next-title"
+>
+  <span class="recommendation-icon" aria-hidden="true"
+    ><openg7-admin-icon
+      [name]="
+        recommendation().tone === 'success'
+          ? 'check'
+          : recommendation().tone === 'warning'
+            ? 'warning'
+            : 'search'
+      "
+  /></span>
+  <div class="recommendation-copy">
+    <p class="eyebrow">{{ 'admin.setup.nextAction' | translate }}</p>
+    <h2 id="setup-next-title">
+      {{ 'admin.setup.next.' + recommendation().key + '.title' | translate }}
+    </h2>
+    <p>
+      {{ 'admin.setup.next.' + recommendation().key + '.body' | translate }}
+    </p>
+  </div>
+  @if (recommendation().url; as url) {
+    <a class="primary-action" [routerLink]="router.parseUrl(url)"
+      >{{
+        'admin.setup.' + (recommendation().urlAction ?? 'openQueue')
+          | translate
+      }}<openg7-admin-icon name="arrow"
+    /></a>
+  } @else {
+    <button
+      type="button"
+      class="primary-action"
+      (click)="inspect.emit(recommendation().section)"
+    >
+      {{ 'admin.setup.next.' + recommendation().key + '.action' | translate
+      }}<openg7-admin-icon name="arrow" />
+    </button>
+  }
+</section>

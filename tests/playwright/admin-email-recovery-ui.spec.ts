@@ -316,6 +316,23 @@ for (const language of ['fr-CA', 'en']) {
           .click();
         await page.locator('[data-og7="confirm-action"]').click();
         await expectSentQueue(page, english);
+        const statusFilter = page.getByRole('combobox', {
+          name: english ? 'Status' : 'Statut',
+          exact: true
+        });
+        await statusFilter.selectOption('failed');
+        await expect(row).toHaveCount(0);
+        await statusFilter.selectOption('all');
+        const search = page.getByRole('searchbox', {
+          name: english ? 'Search' : 'Recherche',
+          exact: true
+        });
+        await search.fill('synthetic-missing@example.test');
+        await expect(row).toHaveCount(0);
+        await search.fill(' COMPANY@EXAMPLE.TEST ');
+        await expectSentQueue(page, english);
+        await search.fill('');
+        expect(retries).toEqual([{ messageId: failedMessage.id }]);
         const error = page.getByText(readFailure, { exact: true });
         if (scenario === 'stale refresh') {
           await expect.poll(() => scopes.length).toBe(3);

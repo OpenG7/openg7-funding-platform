@@ -23,14 +23,28 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
-type LoadState = 'idle' | 'loading' | 'ready' | 'error';
-type RetryState = 'idle' | 'confirming' | 'sending' | 'sent' | 'error';
-type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
+import { AdminEmailQueueFiltersComponent } from './admin-email-queue-filters.component.js';
+import { AdminEmailQueueMessagesComponent } from './admin-email-queue-messages.component.js';
+import { filterEmailQueueMessages } from './admin-email-queue-presentation.js';
+import type {
+  EmailQueueLoadState,
+  EmailQueueMessageView,
+  EmailQueueRetryState,
+  EmailQueueStatusFilter
+} from './admin-email-queue-presentation.js';
+import { AdminEmailQueueSummaryComponent } from './admin-email-queue-summary.component.js';
 
 @Component({
   selector: 'openg7-admin-email-queue-page',
   standalone: true,
-  imports: [CommonModule, AdminLayoutComponent, TranslatePipe],
+  imports: [
+    CommonModule,
+    AdminLayoutComponent,
+    AdminEmailQueueSummaryComponent,
+    AdminEmailQueueFiltersComponent,
+    AdminEmailQueueMessagesComponent,
+    TranslatePipe
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <openg7-admin-layout>
@@ -69,199 +83,23 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
         </p>
 
         <ng-container *ngIf="queue() as response">
-          <section
-            class="summary-grid"
-            [attr.aria-label]="'admin.legacy.resume_file_courriel' | translate"
-          >
-            <article>
-              <span>{{ 'admin.legacy.en_file' | translate }}</span>
-              <strong>{{ response.summary.queued_count }}</strong>
-              <small>{{ 'admin.legacy.messages_prets' | translate }}</small>
-            </article>
-            <article>
-              <span>{{ 'admin.legacy.envoi' | translate }}</span>
-              <strong>{{ response.summary.sending_count }}</strong>
-              <small>{{ 'admin.legacy.verrou_worker' | translate }}</small>
-            </article>
-            <article>
-              <span>{{ 'admin.legacy.envoyes' | translate }}</span>
-              <strong>{{ response.summary.sent_count }}</strong>
-              <small>{{ 'admin.legacy.succes' | translate }}</small>
-            </article>
-            <article>
-              <span>{{ 'admin.legacy.echecs' | translate }}</span>
-              <strong>{{ response.summary.failed_count }}</strong>
-              <small>{{
-                'admin.legacy.p0_relancable_s'
-                  | translate: { p0: response.summary.retryable_count }
-              }}</small>
-            </article>
-            <article>
-              <span>{{ 'admin.legacy.mis_a_jour' | translate }}</span>
-              <strong>{{ shortDateLabel(response.last_updated_at) }}</strong>
-              <small>{{ 'admin.legacy.snapshot_queue' | translate }}</small>
-            </article>
-          </section>
-
-          <section
-            class="filters"
-            [attr.aria-label]="'admin.legacy.filtres_file_courriel' | translate"
-          >
-            <label>
-              {{ 'admin.legacy.statut' | translate
-              }}<select
-                [value]="statusFilter()"
-                (change)="setStatusFilter($event)"
-              >
-                <option value="all">
-                  {{ 'admin.legacy.tous' | translate }}
-                </option>
-                <option value="failed">
-                  {{ 'admin.legacy.echecs' | translate }}
-                </option>
-                <option value="queued">
-                  {{ 'admin.legacy.en_file' | translate }}
-                </option>
-                <option value="sending">
-                  {{ 'admin.legacy.envoi' | translate }}
-                </option>
-                <option value="sent">
-                  {{ 'admin.legacy.envoyes' | translate }}
-                </option>
-              </select>
-            </label>
-
-            <label>
-              {{ 'admin.legacy.recherche' | translate
-              }}<input
-                type="search"
-                [attr.placeholder]="
-                  'admin.legacy.destinataire_sujet_template' | translate
-                "
-                [value]="search()"
-                (input)="setSearch($event)"
-              />
-            </label>
-          </section>
-
-          <section
-            class="queue-panel"
-            [attr.aria-label]="'admin.legacy.messages_courriel' | translate"
-          >
-            <header>
-              <div>
-                <span>{{
-                  'admin.legacy.p0_message_s'
-                    | translate: { p0: filteredMessages().length }
-                }}</span>
-                <h2>{{ 'admin.legacy.derniers_courriels' | translate }}</h2>
-              </div>
-              <small>{{
-                'admin.legacy.dernier_echec_p0'
-                  | translate
-                    : { p0: dateLabel(response.summary.last_failed_at) }
-              }}</small>
-            </header>
-
-            <div class="table-scroll" *ngIf="filteredMessages().length > 0">
-              <table>
-                <thead>
-                  <tr>
-                    <th>{{ 'admin.legacy.date' | translate }}</th>
-                    <th>{{ 'admin.legacy.statut' | translate }}</th>
-                    <th>{{ 'admin.legacy.template' | translate }}</th>
-                    <th>{{ 'admin.legacy.destinataire' | translate }}</th>
-                    <th>{{ 'admin.legacy.sujet' | translate }}</th>
-                    <th>{{ 'admin.legacy.tentatives' | translate }}</th>
-                    <th>
-                      {{ 'admin.legacy.prochaine_tentative' | translate }}
-                    </th>
-                    <th>{{ 'admin.legacy.action' | translate }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    *ngFor="
-                      let message of filteredMessages();
-                      trackBy: trackByMessage
-                    "
-                  >
-                    <td>{{ dateLabel(message.updated_at) }}</td>
-                    <td>
-                      <span
-                        class="status-pill"
-                        [class.status-sent]="message.status === 'sent'"
-                        [class.status-failed]="message.status === 'failed'"
-                        [class.status-queued]="message.status === 'queued'"
-                        [class.status-sending]="message.status === 'sending'"
-                      >
-                        {{ statusLabel(message.status) }}
-                      </span>
-                    </td>
-                    <td>{{ templateLabel(message.template_key) }}</td>
-                    <td>
-                      <button
-                        type="button"
-                        class="secondary-action"
-                        (click)="inspection.email(message)"
-                      >
-                        {{ message.recipient_email }}
-                      </button>
-                    </td>
-                    <td>
-                      <strong>{{ message.subject }}</strong>
-                      <small *ngIf="message.last_error">
-                        {{ message.last_error }}
-                      </small>
-                    </td>
-                    <td>{{ message.attempts }} / {{ message.max_attempts }}</td>
-                    <td>{{ dateLabel(message.next_attempt_at) }}</td>
-                    <td>
-                      <button
-                        type="button"
-                        class="secondary-action"
-                        [disabled]="
-                          message.status === 'sent' ||
-                          retryStateFor(message.id) === 'sending'
-                        "
-                        (click)="retryMessage(message)"
-                      >
-                        {{
-                          retryStateFor(message.id) === 'sending'
-                            ? ('admin.legacy.relance' | translate)
-                            : ('admin.legacy.relancer' | translate)
-                        }}
-                      </button>
-                      <small
-                        class="retry-message"
-                        role="status"
-                        aria-atomic="true"
-                        data-og7="email-retry-result"
-                        [class.error]="retryStateFor(message.id) === 'error'"
-                        [class.success]="retryStateFor(message.id) === 'sent'"
-                        *ngIf="retryMessageFor(message.id)"
-                      >
-                        {{ retryMessageFor(message.id) }}
-                      </small>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <article
-              class="empty-state"
-              *ngIf="state() === 'ready' && filteredMessages().length === 0"
-            >
-              <strong>{{
-                'admin.legacy.aucun_courriel_trouve' | translate
-              }}</strong>
-              <span>{{
-                'admin.legacy.la_file_affichera_les_messages_apres_les_prochains_envois'
-                  | translate
-              }}</span>
-            </article>
-          </section>
+          <openg7-admin-email-queue-summary
+            [summary]="response.summary"
+            [updatedAtLabel]="shortDateLabel(response.last_updated_at)"
+          />
+          <openg7-admin-email-queue-filters
+            [status]="statusFilter()"
+            [search]="search()"
+            (statusChange)="statusFilter.set($event)"
+            (searchChange)="search.set($event)"
+          />
+          <openg7-admin-email-queue-messages
+            [messages]="messageViews()"
+            [state]="state()"
+            [lastFailedAtLabel]="dateLabel(response.summary.last_failed_at)"
+            (inspectRequested)="inspection.email($event)"
+            (retryRequested)="retryMessage($event)"
+          />
         </ng-container>
       </section>
     </openg7-admin-layout>
@@ -269,256 +107,8 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
   styleUrls: [
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
-    '../../components/admin-ui/admin-forms.css'
-  ],
-  styles: [
-    `
-      :host {
-        display: block;
-      }
-
-      .admin-content {
-        display: grid;
-        gap: 1rem;
-        min-width: 0;
-      }
-
-      .admin-topbar,
-      .summary-grid,
-      .filters,
-      .queue-panel,
-      .state {
-        margin: 0 auto;
-        max-width: 88rem;
-        width: 100%;
-      }
-
-      .admin-topbar,
-      .queue-panel header {
-        align-items: center;
-        display: flex;
-        gap: 1rem;
-        justify-content: space-between;
-      }
-
-      .admin-topbar span,
-      .summary-grid span,
-      .queue-panel header span {
-        color: var(--admin-muted);
-        font-size: 0.78rem;
-        font-weight: var(--admin-label-weight);
-        letter-spacing: 0;
-        text-transform: uppercase;
-      }
-
-      h1,
-      h2,
-      p {
-        margin: 0;
-      }
-
-      button,
-      select,
-      input {
-        font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
-      }
-
-      button {
-        background: var(--admin-panel-raised);
-        border: 0;
-        border-radius: 0.35rem;
-        color: var(--admin-text);
-        cursor: pointer;
-        font-weight: var(--admin-control-weight);
-        min-height: 2.5rem;
-        padding: 0 0.9rem;
-      }
-
-      button:disabled {
-        cursor: not-allowed;
-        opacity: 0.55;
-      }
-
-      .secondary-action {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        color: var(--admin-text);
-        min-height: 2.25rem;
-      }
-
-      .summary-grid {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-      }
-
-      .summary-grid article,
-      .filters,
-      .queue-panel,
-      .state {
-        background: var(--admin-panel);
-        border: 1px solid var(--admin-border);
-        border-radius: 0.45rem;
-        padding: 1rem;
-      }
-
-      .summary-grid article {
-        display: grid;
-        gap: 0.25rem;
-        min-height: 6.25rem;
-      }
-
-      .summary-grid strong {
-        font-size: 1.55rem;
-        line-height: 1.1;
-      }
-
-      .summary-grid small,
-      .queue-panel small,
-      .empty-state span {
-        color: var(--admin-muted);
-      }
-
-      .filters {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: minmax(11rem, 0.3fr) minmax(0, 1fr);
-      }
-
-      label {
-        display: grid;
-        gap: 0.35rem;
-        font-size: 0.85rem;
-        font-weight: var(--admin-label-weight);
-      }
-
-      select,
-      input {
-        border: 1px solid var(--admin-border);
-        border-radius: 0.35rem;
-        padding: 0.65rem 0.75rem;
-      }
-
-      .queue-panel {
-        display: grid;
-        gap: 0.85rem;
-      }
-
-      .table-scroll {
-        overflow-x: auto;
-      }
-
-      table {
-        border-collapse: collapse;
-        min-width: 78rem;
-        width: 100%;
-      }
-
-      th,
-      td {
-        border-bottom: 1px solid var(--admin-border);
-        padding: 0.7rem 0.5rem;
-        text-align: left;
-        vertical-align: top;
-      }
-
-      th {
-        color: var(--admin-muted);
-        font-size: 0.78rem;
-        text-transform: uppercase;
-      }
-
-      td {
-        overflow-wrap: anywhere;
-      }
-
-      td strong,
-      td small {
-        display: block;
-      }
-
-      .status-pill {
-        align-items: center;
-        background: var(--admin-panel-raised);
-        border-radius: 999px;
-        color: var(--admin-muted);
-        display: inline-flex;
-        font-size: 0.75rem;
-        font-weight: var(--admin-label-weight);
-        min-height: 1.65rem;
-        padding: 0 0.65rem;
-        white-space: nowrap;
-      }
-
-      .status-sent {
-        background: var(--admin-panel-raised);
-        color: var(--admin-success);
-      }
-
-      .status-failed {
-        background: var(--og7-admin-danger-bg, #422532);
-        color: var(--admin-danger);
-      }
-
-      .status-queued {
-        background: var(--og7-admin-warning-bg, #3c3221);
-        color: var(--admin-warning);
-      }
-
-      .status-sending {
-        background: var(--admin-panel-raised);
-        color: var(--admin-muted);
-      }
-
-      .retry-message {
-        font-weight: 500;
-        margin-top: 0.35rem;
-      }
-
-      .retry-message.success {
-        color: var(--admin-success);
-      }
-
-      .retry-message.error,
-      .state-error {
-        color: var(--admin-danger);
-      }
-
-      .empty-state {
-        background: var(--admin-panel);
-        border-radius: 0.35rem;
-        display: grid;
-        gap: 0.25rem;
-        padding: 1rem;
-      }
-
-      @media (max-width: 1080px) {
-        .summary-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-
-      @media (max-width: 860px) {
-        .admin-shell,
-        .filters {
-          grid-template-columns: 1fr;
-        }
-
-        .admin-topbar,
-        .queue-panel header {
-          align-items: start;
-          flex-direction: column;
-        }
-      }
-
-      @media (max-width: 620px) {
-        .summary-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-    `
+    '../../components/admin-ui/admin-forms.css',
+    './admin-email-queue-page.component.css'
   ]
 })
 export class AdminEmailQueuePageComponent implements OnInit {
@@ -536,42 +126,34 @@ export class AdminEmailQueuePageComponent implements OnInit {
   }
 
   readonly adminToken = signal('');
-  readonly state = signal<LoadState>('idle');
+  readonly state = signal<EmailQueueLoadState>('idle');
   readonly errorMessage = signal(
     this.i18n.t('admin.messages.impossible_de_charger_la_file_courriel')
   );
   readonly queue = signal<AdminEmailQueueResponse | null>(null);
   readonly statusFilter = signal<EmailQueueStatusFilter>('all');
   readonly search = signal('');
-  readonly retryStates = signal<Record<string, RetryState>>({});
+  readonly retryStates = signal<Record<string, EmailQueueRetryState>>({});
   readonly retryMessages = signal<Record<string, string>>({});
   readonly messages = computed(() => this.queue()?.messages ?? []);
-  readonly filteredMessages = computed(() => {
-    const status = this.statusFilter();
-    const search = this.search().trim().toLowerCase();
-
-    return this.messages().filter((message) => {
-      if (status !== 'all' && message.status !== status) {
-        return false;
-      }
-
-      if (!search) {
-        return true;
-      }
-
-      return [
-        message.template_key,
-        message.recipient_email,
-        message.subject,
-        message.status,
-        message.last_error
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(search);
-    });
-  });
+  readonly filteredMessages = computed(() =>
+    filterEmailQueueMessages(
+      this.messages(),
+      this.statusFilter(),
+      this.search()
+    )
+  );
+  readonly messageViews = computed<readonly EmailQueueMessageView[]>(() =>
+    this.filteredMessages().map((message) => ({
+      message,
+      updatedAtLabel: this.dateLabel(message.updated_at),
+      statusLabel: this.statusLabel(message.status),
+      templateLabel: this.templateLabel(message.template_key),
+      nextAttemptAtLabel: this.dateLabel(message.next_attempt_at),
+      retryState: this.retryStateFor(message.id),
+      retryMessage: this.retryMessageFor(message.id)
+    }))
+  );
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
@@ -608,19 +190,6 @@ export class AdminEmailQueuePageComponent implements OnInit {
       this.state.set('error');
       this.errorMessage.set(this.messageFromError(error));
     }
-  }
-
-  setStatusFilter(event: Event): void {
-    const value = (event.target as HTMLSelectElement | null)?.value ?? 'all';
-    this.statusFilter.set(
-      ['queued', 'sending', 'sent', 'failed'].includes(value)
-        ? (value as EmailQueueStatusFilter)
-        : 'all'
-    );
-  }
-
-  setSearch(event: Event): void {
-    this.search.set((event.target as HTMLInputElement | null)?.value ?? '');
   }
 
   async retryMessage(message: AdminEmailQueueMessageRecord): Promise<void> {
@@ -684,19 +253,12 @@ export class AdminEmailQueuePageComponent implements OnInit {
     }
   }
 
-  retryStateFor(id: string): RetryState {
+  retryStateFor(id: string): EmailQueueRetryState {
     return this.retryStates()[id] ?? 'idle';
   }
 
   retryMessageFor(id: string): string {
     return this.retryMessages()[id] ?? '';
-  }
-
-  trackByMessage(
-    _index: number,
-    message: AdminEmailQueueMessageRecord
-  ): string {
-    return message.id;
   }
 
   statusLabel(status: AdminEmailQueueMessageStatus): string {
@@ -761,7 +323,7 @@ export class AdminEmailQueuePageComponent implements OnInit {
     });
   }
 
-  private setRetryState(id: string, state: RetryState): void {
+  private setRetryState(id: string, state: EmailQueueRetryState): void {
     this.retryStates.update((states) => ({
       ...states,
       [id]: state

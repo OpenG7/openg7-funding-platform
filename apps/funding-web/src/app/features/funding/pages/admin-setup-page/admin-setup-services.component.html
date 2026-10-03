@@ -1,0 +1,443 @@
+@let data = setup();
+<section
+  class="setup-grid"
+  [attr.aria-label]="'admin.legacy.details_de_configuration' | translate"
+>
+  <article
+    class="setup-panel"
+    id="setup-stripe"
+    tabindex="-1"
+    data-tour-anchor="stripe"
+    [class.tour-target]="activeTourAnchor() === 'stripe'"
+  >
+    <header>
+      <div>
+        <span>Stripe</span>
+        <h2>
+          {{ 'admin.legacy.paiements_et_webhooks' | translate }}
+        </h2>
+      </div>
+      <span
+        class="status-pill"
+        [class.status-ok]="readiness().stripe"
+        [class.status-warn]="!readiness().stripe"
+      >
+        {{ labels.readyLabel(readiness().stripe) }}
+      </span>
+    </header>
+    <p class="panel-note">
+      {{
+        (readiness().stripe
+          ? 'admin.messages.cle_et_webhook_presents'
+          : 'admin.messages.cle_stripe_ou_secret_webhook_a_ajouter'
+        ) | translate
+      }}
+    </p>
+    <details>
+      <summary>{{ 'admin.setup.details' | translate }}</summary>
+      <dl>
+        <div>
+          <dt>{{ 'admin.legacy.cle_secrete' | translate }}</dt>
+          <dd>
+            {{ labels.configuredLabel(data.stripe.secret_key_configured) }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.secret_webhook' | translate }}</dt>
+          <dd>
+            {{ labels.configuredLabel(data.stripe.webhook_secret_configured) }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.commandites' | translate }}</dt>
+          <dd>
+            {{ labels.enabledLabel(data.stripe.business_sponsorship_enabled) }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.endpoint_webhook' | translate }}</dt>
+          <dd>
+            <code>{{ data.stripe.webhook_endpoint }}</code>
+          </dd>
+        </div>
+      </dl>
+    </details>
+    <a [href]="data.stripe.dashboard_url" target="_blank" rel="noreferrer">
+      {{ 'admin.legacy.ouvrir_stripe_dashboard' | translate }}</a
+    >
+  </article>
+
+  <article
+    class="setup-panel"
+    id="setup-email"
+    tabindex="-1"
+    data-tour-anchor="email"
+    [class.tour-target]="activeTourAnchor() === 'email'"
+  >
+    <header>
+      <div>
+        <span>{{ 'admin.legacy.courriel' | translate }}</span>
+        <h2>{{ 'admin.legacy.smtp_et_expediteur' | translate }}</h2>
+      </div>
+      <span
+        class="status-pill"
+        [class.status-ok]="readiness().email"
+        [class.status-warn]="!readiness().email"
+      >
+        {{ labels.readyLabel(readiness().email) }}
+      </span>
+    </header>
+    <p class="panel-note">
+      {{
+        (readiness().email
+          ? 'admin.setup.emailConfigured'
+          : 'admin.setup.emailIncomplete'
+        ) | translate
+      }}
+    </p>
+    <details>
+      <summary>{{ 'admin.setup.details' | translate }}</summary>
+      <dl>
+        <div>
+          <dt>{{ 'admin.legacy.smtp_enabled' | translate }}</dt>
+          <dd>
+            {{ labels.enabledLabel(data.email.smtp_enabled) }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.smtp_host' | translate }}</dt>
+          <dd>{{ labels.valueLabel(data.email.smtp_host) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.smtp_port' | translate }}</dt>
+          <dd>
+            {{
+              'admin.legacy.p0_secure_p1'
+                | translate
+                  : {
+                      p0: data.email.smtp_port,
+                      p1: labels.enabledLabel(data.email.smtp_secure)
+                    }
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.smtp_user' | translate }}</dt>
+          <dd>
+            {{ labels.configuredLabel(data.email.smtp_user_configured) }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.smtp_password' | translate }}</dt>
+          <dd>
+            {{ labels.configuredLabel(data.email.smtp_password_configured) }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.mail_from_address' | translate }}</dt>
+          <dd>{{ labels.valueLabel(data.email.from) }}</dd>
+        </div>
+        <div>
+          <dt>
+            {{ 'admin.legacy.mail_reply_to_address' | translate }}
+          </dt>
+          <dd>{{ labels.valueLabel(data.email.reply_to) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.notification_admin' | translate }}</dt>
+          <dd>{{ labels.valueLabel(data.email.admin_notification_email) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.rappel_approbation' | translate }}</dt>
+          <dd>
+            {{
+              'admin.legacy.p0_apres_p1_jour_s'
+                | translate
+                  : {
+                      p0: labels.enabledLabel(
+                        data.email.admin_review_reminder_enabled
+                      ),
+                      p1: data.email.admin_review_reminder_min_age_days
+                    }
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.verification_rappel' | translate }}</dt>
+          <dd>
+            {{
+              'admin.legacy.p0_ms_p1_dossier_s'
+                | translate
+                  : {
+                      p0: data.email.admin_review_reminder_poll_interval_ms,
+                      p1: data.email.admin_review_reminder_max_items
+                    }
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.factures_commandite' | translate }}</dt>
+          <dd>
+            {{ labels.readyLabel(data.invoice.ready) }} -
+            {{ data.invoice.prefix }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.emetteur_facture' | translate }}</dt>
+          <dd>{{ labels.valueLabel(data.invoice.issuer_name) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.taxes_facture' | translate }}</dt>
+          <dd>{{ data.invoice.tax_label }}</dd>
+        </div>
+      </dl>
+    </details>
+
+    <div class="test-email">
+      <label>
+        {{ 'admin.legacy.courriel_de_test' | translate
+        }}<input
+          type="email"
+          autocomplete="email"
+          [value]="emailTest().email"
+          [disabled]="emailTest().busy || emailTest().state === 'unknown'"
+          [placeholder]="
+            data.email.admin_notification_email || 'admin@example.com'
+          "
+          (input)="changeEmail($event)"
+        />
+      </label>
+      <button
+        type="button"
+        [disabled]="
+          !readiness().canSendEmailTest ||
+          emailTest().busy ||
+          emailTest().state === 'unknown'
+        "
+        (click)="sendEmailTest.emit()"
+      >
+        {{
+          emailTest().busy
+            ? ('admin.legacy.envoi_195' | translate)
+            : ((emailTest().result
+                ? 'admin.setupEmail.newTest'
+                : 'admin.legacy.envoyer_un_test'
+              ) | translate)
+        }}
+      </button>
+    </div>
+    <p class="panel-note" *ngIf="!readiness().canSendEmailTest">
+      {{
+        'admin.legacy.le_test_demande_database_url_migration_010_smtp_enabled_true_et_s'
+          | translate
+      }}
+    </p>
+    <p
+      class="panel-note"
+      role="status"
+      data-og7="setup-email-result"
+      *ngIf="
+        emailTest().state !== 'idle' &&
+        emailTest().state !== 'error' &&
+        !emailTest().busy
+      "
+    >
+      {{ 'admin.setupEmail.' + emailTest().state | translate }}
+    </p>
+    <p class="panel-note error" role="alert" *ngIf="emailTest().message">
+      {{ emailTest().message }}
+    </p>
+    <button
+      type="button"
+      *ngIf="emailTest().requestId"
+      (click)="checkEmailTest.emit()"
+      [disabled]="emailTest().busy"
+    >
+      {{ 'admin.setupEmail.check' | translate }}
+    </button>
+    <a
+      *ngIf="emailTest().result?.messageId"
+      routerLink="/admin/fundraiser/email-queue"
+      [queryParams]="{ messageId: emailTest().result?.messageId }"
+      data-og7="setup-email-queue"
+    >
+      {{ 'admin.setupEmail.queue' | translate }}
+    </a>
+  </article>
+
+  <article
+    class="setup-panel queue-panel"
+    id="setup-queue"
+    tabindex="-1"
+    data-tour-anchor="queue"
+    [class.tour-target]="activeTourAnchor() === 'queue'"
+  >
+    <header>
+      <div>
+        <span>{{ 'admin.legacy.file_courriel' | translate }}</span>
+        <h2>{{ 'admin.legacy.envois_et_retries' | translate }}</h2>
+      </div>
+      <span
+        class="status-pill"
+        [class.status-ok]="readiness().queue"
+        [class.status-warn]="!readiness().queue"
+      >
+        {{ labels.readyLabel(readiness().queue) }}
+      </span>
+    </header>
+    <div
+      class="queue-metrics"
+      [attr.aria-label]="
+        'admin.legacy.statistiques_de_file_courriel' | translate
+      "
+    >
+      <div>
+        <span>{{ 'admin.legacy.en_attente' | translate }}</span>
+        <strong>{{
+          readiness().queueReadable ? data.email.queued_count : '—'
+        }}</strong>
+      </div>
+      <div>
+        <span>{{ 'admin.legacy.envoi' | translate }}</span>
+        <strong>{{
+          readiness().queueReadable ? data.email.sending_count : '—'
+        }}</strong>
+      </div>
+      <div>
+        <span>{{ 'admin.legacy.envoyes' | translate }}</span>
+        <strong>{{
+          readiness().queueReadable ? data.email.sent_count : '—'
+        }}</strong>
+      </div>
+      <div>
+        <span>{{ 'admin.legacy.echecs' | translate }}</span>
+        <strong>{{
+          readiness().queueReadable ? data.email.failed_count : '—'
+        }}</strong>
+      </div>
+    </div>
+    <p class="panel-note" *ngIf="!readiness().queueReadable">
+      {{ 'admin.setup.queueUnavailable' | translate }}
+    </p>
+    <a routerLink="/admin/fundraiser/email-queue">{{
+      'admin.setup.openQueue' | translate
+    }}</a>
+    <details>
+      <summary>{{ 'admin.setup.details' | translate }}</summary>
+      <dl>
+        <div>
+          <dt>{{ 'admin.legacy.poll_interval' | translate }}</dt>
+          <dd>
+            {{
+              'admin.legacy.p0_ms'
+                | translate: { p0: data.email.queue_poll_interval_ms }
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.batch_size' | translate }}</dt>
+          <dd>{{ data.email.queue_batch_size }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.dernier_echec' | translate }}</dt>
+          <dd>{{ labels.dateLabel(data.email.last_failed_at) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.erreur' | translate }}</dt>
+          <dd>{{ labels.valueLabel(data.email.last_error) }}</dd>
+        </div>
+      </dl>
+    </details>
+  </article>
+
+  <article
+    class="setup-panel"
+    id="setup-database"
+    tabindex="-1"
+    data-tour-anchor="database"
+    [class.tour-target]="activeTourAnchor() === 'database'"
+  >
+    <header>
+      <div>
+        <span>{{ 'admin.legacy.execution' | translate }}</span>
+        <h2>
+          {{ 'admin.legacy.base_et_environnement' | translate }}
+        </h2>
+      </div>
+      <span
+        class="status-pill"
+        [class.status-ok]="data.database.reachable"
+        [class.status-warn]="!data.database.reachable"
+      >
+        {{ labels.readyLabel(data.database.reachable) }}
+      </span>
+    </header>
+    <details>
+      <summary>{{ 'admin.setup.details' | translate }}</summary>
+      <dl>
+        <div>
+          <dt>{{ 'admin.legacy.mode' | translate }}</dt>
+          <dd>{{ data.environment }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.source_transparence' | translate }}</dt>
+          <dd>{{ labels.dataSourceLabel(data.data_source) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.database_url' | translate }}</dt>
+          <dd>{{ labels.configuredLabel(data.database.configured) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.connexion_db' | translate }}</dt>
+          <dd>{{ labels.enabledLabel(data.database.reachable) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.origines_cors' | translate }}</dt>
+          <dd>{{ labels.originsLabel(data.allowed_origins) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.base_publique' | translate }}</dt>
+          <dd>{{ labels.valueLabel(data.public_base_url) }}</dd>
+        </div>
+      </dl>
+    </details>
+  </article>
+
+  <article
+    class="setup-panel storage-panel"
+    id="setup-storage"
+    tabindex="-1"
+    data-og7="setup-storage"
+  >
+    <header>
+      <div>
+        <span>{{ 'admin.setup.services' | translate }}</span>
+        <h2>
+          <openg7-admin-icon name="cloud" />{{
+            'admin.setup.storageTitle' | translate
+          }}
+        </h2>
+      </div>
+    </header>
+    <p class="panel-note">
+      {{ 'admin.setup.storageScope' | translate }}
+    </p>
+    @if (storageSystem(); as storage) {
+      <p>
+        <strong>{{ storage.provider }}</strong>
+      </p>
+      <p class="panel-note">
+        {{ 'admin.cockpit.checked' | translate }}
+        {{ labels.dateLabel(storage.checkedAt) }}
+      </p>
+    } @else {
+      <p class="panel-note">
+        {{ 'admin.setup.storageUnknown' | translate }}
+      </p>
+    }
+    <button type="button" (click)="inspect.emit('readiness')">
+      {{ 'admin.setup.viewChecks' | translate
+      }}<openg7-admin-icon name="arrow" />
+    </button>
+  </article>
+</section>
