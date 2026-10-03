@@ -359,14 +359,14 @@ code {
   border-radius: 0.3rem;
   font-size: 0.7rem;
   font-weight: var(--admin-label-weight);
-  background: #263d50;
+  background: var(--admin-panel-raised);
 }
 .status-ok {
-  color: #bce4ff;
+  color: var(--admin-accent);
 }
 .status-warn {
-  background: #3c3221;
-  color: #ffda85;
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
 }
 .test-email {
   display: grid;

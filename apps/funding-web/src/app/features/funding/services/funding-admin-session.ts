@@ -42,13 +42,22 @@ export class AdminDashboardRequestError extends Error {
   }
 }
 
-interface AdminJsonRequestOptions {
+interface AdminRequestOptions {
   readonly auth: 'saved' | { readonly token: string };
   readonly method?: 'GET' | 'POST';
   readonly cache?: RequestCache;
   readonly headers?: Readonly<Record<string, string>>;
-  readonly body?: object;
   readonly signal?: AbortSignal;
+  /** Some endpoints reject cancellation after resolving authentication. */
+  readonly abortBeforeFetch?: boolean;
+}
+
+interface AdminJsonRequestOptions extends AdminRequestOptions {
+  readonly body?: object;
+}
+
+interface AdminRawRequestOptions extends AdminRequestOptions {
+  readonly body?: BodyInit;
 }
 
 /** Browser admin session and authenticated transport for the Funding feature. */
@@ -248,16 +257,45 @@ export class FundingAdminSession {
     path: string,
     options: AdminJsonRequestOptions
   ): Promise<Response> {
-    const { auth, body, headers, ...request } = options;
+    const { body, ...request } = options;
+    return this.requestAuthenticated(
+      path,
+      request,
+      body === undefined ? undefined : () => JSON.stringify(body)
+    );
+  }
+
+  /** Preserve multipart and binary request bodies without JSON encoding. */
+  async requestAdmin(
+    path: string,
+    options: AdminRawRequestOptions
+  ): Promise<Response> {
+    const { body, ...request } = options;
+    return this.requestAuthenticated(
+      path,
+      request,
+      body === undefined ? undefined : () => body
+    );
+  }
+
+  /** Resolve authentication before encoding the body; never retry the request. */
+  private async requestAuthenticated(
+    path: string,
+    options: AdminRequestOptions,
+    body?: () => BodyInit
+  ): Promise<Response> {
+    const { auth, headers, abortBeforeFetch, ...request } = options;
+    const authenticationHeaders = await this.createHeaders(
+      auth === 'saved' ? this.getSavedAdminToken() : auth.token
+    );
+    if (abortBeforeFetch) request.signal?.throwIfAborted();
     return fetch(`${this.apiBaseUrl}${path}`, {
       ...request,
       headers: {
-        ...(await this.createHeaders(
-          auth === 'saved' ? this.getSavedAdminToken() : auth.token
-        )),
+        ...authenticationHeaders,
         ...headers
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) })
+      ...(body === undefined ? {} : { body: body() })
     });
   }
 

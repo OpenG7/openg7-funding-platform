@@ -1,7 +1,10 @@
-import { defineConfig } from '@playwright/test';
-import publicConfig from './playwright-public-journeys.config.mjs';
-export default defineConfig({
-  ...publicConfig,
+import {
+  definePublicPageSuite,
+  publicJourneyProjects
+} from './ui/playwright-fixtures.config.mjs';
+
+export default definePublicPageSuite({
   testMatch: ['platform-accessibility.spec.ts'],
-  outputDir: '../test-results/platform-accessibility'
+  outputDir: '../test-results/platform-accessibility',
+  projects: publicJourneyProjects()
 });

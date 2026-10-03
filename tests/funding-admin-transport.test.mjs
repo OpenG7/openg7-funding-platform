@@ -1374,3 +1374,654 @@ test('operational collection reads omit the optional ID query', async (t) => {
     '/admin/sponsorship-invoices'
   ]);
 });
+
+const remainingPayload = {
+  contributionId: 'synthetic-contribution',
+  expectedVersion: 'synthetic-version',
+  confirmation: 'synthetic-contribution',
+  requestId: 'synthetic-request',
+  nested: { note: 'synthetic content', enabled: false }
+};
+const remainingReadRequests = [
+  [
+    'getContributions',
+    '/contributions?contributionId=target+%2F',
+    'Admin contributions could not be loaded.'
+  ],
+  [
+    'getExpenses',
+    '/expenses?expenseId=target%20%2F',
+    'Admin expenses could not be loaded.',
+    { cache: 'no-store' }
+  ],
+  [
+    'getTransparency',
+    '/transparency',
+    'Admin transparency could not be loaded.'
+  ],
+  [
+    'getPublicationDrafts',
+    '/publication-drafts?draftId=target%20%2F',
+    'Admin publication drafts could not be loaded.'
+  ],
+  [
+    'getPublicationBatches',
+    '/publication-batches?batchId=target%20%2F',
+    'Admin publication batches could not be loaded.'
+  ],
+  [
+    'getPublicationSlots',
+    '/publication-slots?slotId=target%20%2F',
+    'Admin publication slots could not be loaded.'
+  ],
+  [
+    'getSocialPublicationJobs',
+    '/social-publication-jobs',
+    'Admin social publication jobs could not be loaded.'
+  ],
+  [
+    'getAuditLog',
+    '/audit-log?entryId=target%20%2F',
+    'Admin audit log could not be loaded.',
+    { cache: 'no-store' }
+  ],
+  [
+    'getSponsorLogoPreview',
+    '/sponsorships/logo?contributionId=target+%2F',
+    'Sponsor logo preview could not be loaded.',
+    { accept: 'image/*', result: 'blob' }
+  ],
+  [
+    'getSponsorMedia',
+    '/sponsorships/media?contributionId=target+%2F',
+    'Sponsor media could not be loaded.',
+    { method: undefined, errorKind: 'status-message' }
+  ],
+  [
+    'getSponsorMediaPreview',
+    '/sponsorships/media/content/target%20%2F',
+    'Sponsor media preview could not be loaded.',
+    {
+      method: undefined,
+      accept: 'image/*',
+      result: 'blob',
+      errorKind: 'status-fixed'
+    }
+  ]
+].map(([name, path, fallback, policy = {}]) => ({
+  name,
+  path: '/admin' + path,
+  fallback,
+  method: 'GET',
+  invoke: (service, token) => service[name](token, 'target /'),
+  ...policy
+}));
+const remainingMutationRequests = [
+  ['createExpense', '/expenses', 'Admin expense could not be created.'],
+  [
+    'updateExpense',
+    '/expenses/update',
+    'Admin expense could not be updated.',
+    { versionConflict: true }
+  ],
+  [
+    'createPublicationDraft',
+    '/publication-drafts',
+    'Admin publication draft could not be created.'
+  ],
+  [
+    'updatePublicationDraft',
+    '/publication-drafts/update',
+    'Admin publication draft could not be updated.'
+  ],
+  [
+    'createPublicationBatch',
+    '/publication-batches',
+    'Admin publication batch could not be created.'
+  ],
+  [
+    'createPublicationSlot',
+    '/publication-slots',
+    'Admin publication slot could not be created.'
+  ],
+  [
+    'updatePublicationSlot',
+    '/publication-slots/update',
+    'Admin publication slot could not be updated.'
+  ],
+  [
+    'assignBatchToPublicationSlot',
+    '/publication-slots/assign-batch',
+    'Batch could not be assigned to the publication slot.'
+  ],
+  [
+    'assignDraftToPublicationSlot',
+    '/publication-slots/assign-draft',
+    'Draft could not be assigned to the publication slot.'
+  ],
+  [
+    'publishPublicationSlot',
+    '/publication-slots/publish',
+    'Publication slot could not be published.'
+  ],
+  [
+    'cancelPublicationSlot',
+    '/publication-slots/cancel',
+    'Publication slot could not be cancelled.'
+  ],
+  [
+    'assignDraftToBatch',
+    '/publication-batches/assign',
+    'Draft could not be assigned to the publication batch.'
+  ],
+  [
+    'unassignDraftFromBatch',
+    '/publication-batches/unassign',
+    'Draft could not be removed from the publication batch.'
+  ],
+  [
+    'schedulePublicationBatch',
+    '/publication-batches/schedule',
+    'Publication batch could not be scheduled.'
+  ],
+  [
+    'publishPublicationBatch',
+    '/publication-batches/publish',
+    'Publication batch could not be published.'
+  ],
+  [
+    'publishSocialPublicationBatch',
+    '/publication-batches/publish-social',
+    'Publication batch could not be sent to the social provider.',
+    { errorKind: 'message' }
+  ],
+  [
+    'cancelPublicationBatch',
+    '/publication-batches/cancel',
+    'Publication batch could not be cancelled.'
+  ],
+  [
+    'reviewSponsorMedia',
+    '/sponsorships/media/review',
+    'Sponsor media review could not be completed.',
+    { errorKind: 'status-message' }
+  ],
+  [
+    'deleteSponsorMedia',
+    '/sponsorships/media/delete',
+    'Sponsor media could not be deleted.',
+    { errorKind: 'status-message' }
+  ],
+  [
+    'reviewSponsorship',
+    '/sponsorships/review',
+    'Sponsorship review could not be updated.',
+    { errorKind: 'status-message' }
+  ],
+  [
+    'refundSponsorship',
+    '/sponsorships/refund',
+    'Sponsorship refund could not be created.',
+    { errorKind: 'refund' }
+  ],
+  [
+    'updateSponsorshipPublication',
+    '/sponsorships/publication',
+    'Sponsorship publication could not be updated.',
+    { errorKind: 'status-message' }
+  ],
+  [
+    'setSponsorshipWebsiteVisibility',
+    '/sponsorships/website-visibility',
+    'Website visibility could not be updated.',
+    { errorKind: 'status-fixed', result: 'void' }
+  ]
+].map(([name, path, fallback, policy = {}]) => ({
+  name,
+  path: '/admin' + path,
+  fallback,
+  method: 'POST',
+  body: remainingPayload,
+  invoke: (service, token) => service[name](token, remainingPayload),
+  ...policy
+}));
+const logoFile = new File(
+  [new Uint8Array([0, 255, 127, 80])],
+  'synthetic-logo.png',
+  {
+    type: 'image/png'
+  }
+);
+const sponsorshipQuery = {
+  page: 2,
+  pageSize: 6,
+  search: '  synthetic /  ',
+  reviewStatus: 'approved',
+  feedStatus: 'planned',
+  paymentStatus: 'paid',
+  sort: 'company',
+  direction: 'desc'
+};
+const remainingRequests = [
+  ...remainingReadRequests,
+  ...remainingMutationRequests,
+  {
+    name: 'publicationMedia',
+    savedAuth: true,
+    path: '/admin/publication-automation/media',
+    cache: 'no-store',
+    fallback: 'AUTOMATION_UNAVAILABLE',
+    invoke: (service) => service.publicationMedia()
+  },
+  {
+    name: 'search',
+    path: '/admin/search',
+    method: 'POST',
+    cache: 'no-store',
+    body: remainingPayload,
+    errorKind: 'status-default',
+    fallback: 'Admin dashboard could not be loaded.',
+    invoke: (service, token, signal) =>
+      service.search(token, remainingPayload, signal)
+  },
+  {
+    name: 'getContributionsCsv',
+    path: '/admin/contributions.csv',
+    method: 'POST',
+    cache: 'no-store',
+    body: remainingPayload,
+    accept: 'text/csv',
+    result: 'text',
+    errorKind: 'status-default',
+    fallback: 'Admin dashboard could not be loaded.',
+    invoke: (service, token) =>
+      service.getContributionsCsv(token, remainingPayload)
+  },
+  {
+    name: 'getSponsorships',
+    path: '/admin/sponsorships?page=2&pageSize=6&search=synthetic+%2F&reviewStatus=approved&feedStatus=planned&paymentStatus=paid&sort=company&direction=desc',
+    method: 'GET',
+    errorKind: 'status-message',
+    fallback: 'Admin sponsorships could not be loaded.',
+    invoke: (service, token) => service.getSponsorships(token, sponsorshipQuery)
+  },
+  {
+    name: 'uploadSponsorLogo',
+    path: '/admin/sponsorships/logo',
+    method: 'POST',
+    multipart: true,
+    errorKind: 'status-message',
+    fallback: 'Sponsor logo could not be uploaded.',
+    invoke: (service, token) =>
+      service.uploadSponsorLogo(token, 'target /', 'version-2', logoFile)
+  },
+  {
+    name: 'deleteSponsorLogo',
+    path: '/admin/sponsorships/logo/delete',
+    method: 'POST',
+    body: { contributionId: 'target /', expectedVersion: 'version-2' },
+    errorKind: 'status-message',
+    fallback: 'Sponsor logo could not be deleted.',
+    invoke: (service, token) =>
+      service.deleteSponsorLogo(token, 'target /', 'version-2')
+  }
+];
+
+const remainingResponse = (request) => {
+  if (request.result === 'void') return new Response('deliberately not JSON');
+  if (request.result === 'text') return new Response('synthetic,csv\r\n1,2');
+  if (request.result === 'blob')
+    return new Response(new Uint8Array([0, 255, 127, 80]));
+  return Response.json({ synthetic: true });
+};
+
+test('remaining admin endpoints preserve all request policies, binary data and multipart uploads', async (t) => {
+  assert.equal(remainingRequests.length, 40);
+  for (const request of remainingRequests) {
+    for (const token of [explicitToken, cookieMarker]) {
+      await t.test(`${request.name}: ${token}`, async (t) => {
+        const { service } = serviceFixture(t, token);
+        const signal = new AbortController().signal;
+        const fetchMock = t.mock.method(
+          globalThis,
+          'fetch',
+          async (url, options) => {
+            assert.equal(url, baseUrl + request.path);
+            assert.equal(options.method, request.method);
+            assert.equal(options.cache, request.cache);
+            assert.equal(options.credentials, undefined);
+            assert.equal(
+              options.signal,
+              request.name === 'search' ? signal : undefined
+            );
+            assert.deepEqual(options.headers, {
+              Accept: request.accept ?? 'application/json',
+              ...(token === cookieMarker
+                ? {}
+                : { Authorization: `Bearer ${token}` }),
+              ...(request.body ? { 'Content-Type': 'application/json' } : {})
+            });
+            if (request.multipart) {
+              assert.ok(options.body instanceof FormData);
+              assert.deepEqual(
+                [...options.body.keys()],
+                ['contributionId', 'expectedVersion', 'logo']
+              );
+              assert.equal(options.body.get('contributionId'), 'target /');
+              assert.equal(options.body.get('expectedVersion'), 'version-2');
+              const uploaded = options.body.get('logo');
+              assert.equal(uploaded.name, logoFile.name);
+              assert.equal(uploaded.type, logoFile.type);
+              assert.deepEqual(
+                await uploaded.arrayBuffer(),
+                await logoFile.arrayBuffer()
+              );
+            } else {
+              assert.equal(
+                options.body,
+                request.body ? JSON.stringify(request.body) : undefined
+              );
+            }
+            return remainingResponse(request);
+          }
+        );
+        const result = await request.invoke(service, token, signal);
+        if (request.result === 'void') assert.equal(result, undefined);
+        else if (request.result === 'text')
+          assert.equal(result, 'synthetic,csv\r\n1,2');
+        else if (request.result === 'blob')
+          assert.deepEqual(
+            new Uint8Array(await result.arrayBuffer()),
+            new Uint8Array([0, 255, 127, 80])
+          );
+        else assert.deepEqual(result, { synthetic: true });
+        assert.equal(fetchMock.mock.callCount(), 1);
+      });
+    }
+  }
+});
+
+test('remaining HTTP failures retain endpoint errors and private state without replaying mutations', async (t) => {
+  for (const request of remainingRequests) {
+    for (const status of [401, 403, 409, 503]) {
+      await t.test(`${request.name}: ${status}`, async (t) => {
+        const { service, sessionStorage } = serviceFixture(t);
+        service.identity.set(syntheticIdentity);
+        service.workQueue.set(syntheticQueue);
+        const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+          Response.json(
+            {
+              message: 'Synthetic message',
+              error: 'Synthetic error',
+              code: 'SYNTHETIC_CODE'
+            },
+            { status }
+          )
+        );
+        const expected =
+          request.versionConflict && status === 409
+            ? 'version_conflict'
+            : request.errorKind === 'refund'
+              ? 'Synthetic error'
+              : request.errorKind?.endsWith('message')
+                ? 'Synthetic message'
+                : request.fallback;
+        await assert.rejects(
+          request.invoke(service, explicitToken, new AbortController().signal),
+          (error) => {
+            assert.equal(error.message, expected);
+            assert.equal(
+              error instanceof AdminDashboardRequestError,
+              Boolean(
+                request.errorKind?.startsWith('status') ||
+                request.errorKind === 'refund'
+              )
+            );
+            assert.equal(
+              error.status,
+              error instanceof AdminDashboardRequestError ? status : undefined
+            );
+            assert.equal(
+              error.code,
+              request.errorKind === 'refund' ? 'SYNTHETIC_CODE' : undefined
+            );
+            return true;
+          }
+        );
+        assert.equal(
+          sessionStorage.getItem(sessionKey),
+          request.savedAuth ? syntheticToken : explicitToken
+        );
+        assert.equal(
+          sessionStorage.getItem(selectionKey),
+          'synthetic-selection'
+        );
+        assert.equal(service.identity(), syntheticIdentity);
+        assert.equal(service.workQueue(), syntheticQueue);
+        assert.equal(service.sessionGeneration(), 0);
+        assert.equal(fetchMock.mock.callCount(), 1);
+      });
+    }
+  }
+});
+
+test('remaining error decoders preserve malformed responses, error priority and refund codes', async (t) => {
+  for (const request of remainingRequests) {
+    for (const body of [
+      'not JSON',
+      { error: 'Synthetic error' },
+      { message: 7, error: 'Synthetic error' },
+      { code: 'SYNTHETIC_CODE' }
+    ]) {
+      await t.test(`${request.name}: ${JSON.stringify(body)}`, async (t) => {
+        const { service } = serviceFixture(t);
+        const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+          typeof body === 'string'
+            ? new Response(body, { status: 503 })
+            : Response.json(body, { status: 503 })
+        );
+        const expected =
+          request.errorKind === 'refund' ||
+          request.errorKind?.endsWith('message')
+            ? (body.error ?? request.fallback)
+            : request.fallback;
+        await assert.rejects(
+          request.invoke(service, explicitToken, new AbortController().signal),
+          {
+            message: expected,
+            ...(request.errorKind === 'refund' ? { code: body.code } : {})
+          }
+        );
+        assert.equal(service.sessionGeneration(), 0);
+        assert.equal(fetchMock.mock.callCount(), 1);
+      });
+    }
+  }
+});
+
+test('remaining endpoints propagate transport and decoding failures once without invalidating the session', async (t) => {
+  for (const request of remainingRequests) {
+    for (const networkFailure of request.result === 'void'
+      ? [true]
+      : [false, true]) {
+      await t.test(
+        `${request.name}: ${networkFailure ? 'network' : 'decode'}`,
+        async (t) => {
+          const { service, sessionStorage } = serviceFixture(t);
+          const failure = new TypeError('Synthetic transport failure');
+          const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+            if (networkFailure) throw failure;
+            const response = new Response('not JSON');
+            if (request.result === 'text' || request.result === 'blob')
+              t.mock.method(response, request.result, async () => {
+                throw failure;
+              });
+            return response;
+          });
+          await assert.rejects(
+            request.invoke(
+              service,
+              explicitToken,
+              new AbortController().signal
+            ),
+            (error) =>
+              networkFailure || request.result
+                ? error === failure
+                : error instanceof SyntaxError
+          );
+          assert.equal(
+            sessionStorage.getItem(sessionKey),
+            request.savedAuth ? syntheticToken : explicitToken
+          );
+          assert.equal(service.sessionGeneration(), 0);
+          assert.equal(fetchMock.mock.callCount(), 1);
+        }
+      );
+    }
+  }
+});
+
+test('remaining empty authentication sends no saved bearer and never exchanges another root token', async (t) => {
+  for (const request of remainingRequests) {
+    await t.test(request.name, async (t) => {
+      const { service, sessionStorage } = serviceFixture(t);
+      if (request.savedAuth) sessionStorage.removeItem(sessionKey);
+      const fetchMock = t.mock.method(
+        globalThis,
+        'fetch',
+        async (url, options) => {
+          assert.equal(url, baseUrl + request.path);
+          assert.equal(options.headers.Authorization, undefined);
+          return remainingResponse(request);
+        }
+      );
+      await request.invoke(service, '', new AbortController().signal);
+      assert.equal(
+        sessionStorage.getItem(sessionKey),
+        request.savedAuth ? null : syntheticToken
+      );
+      assert.equal(fetchMock.mock.callCount(), 1);
+    });
+  }
+});
+
+test('search checks cancellation after authentication and never sends an already aborted query', async (t) => {
+  const { service, sessionStorage } = serviceFixture(t);
+  const controller = new AbortController();
+  const failure = new DOMException('Synthetic cancellation', 'AbortError');
+  controller.abort(failure);
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+    throw new Error('Search must not be sent');
+  });
+  await assert.rejects(
+    service.search(explicitToken, remainingPayload, controller.signal),
+    (error) => error === failure
+  );
+  assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
+  assert.equal(service.sessionGeneration(), 0);
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test('search cancelled while resolving a session completes authentication without sending the query', async (t) => {
+  const { service, sessionStorage } = serviceFixture(t);
+  sessionStorage.setItem(expiryKey, '2000-01-01T00:00:00.000Z');
+  const controller = new AbortController();
+  const failure = new DOMException('Synthetic cancellation', 'AbortError');
+  const fetchMock = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(url, baseUrl + '/admin/session');
+    assert.equal(
+      options.body,
+      JSON.stringify({ token: 'synthetic-root-token' })
+    );
+    controller.abort(failure);
+    return Response.json({
+      sessionToken: explicitToken,
+      expiresAt: new Date(Date.now() + 60000).toISOString()
+    });
+  });
+  await assert.rejects(
+    service.search('synthetic-root-token', remainingPayload, controller.signal),
+    (error) => error === failure
+  );
+  assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
+  assert.equal(fetchMock.mock.callCount(), 1);
+});
+
+test('JSON encoding failures occur after authentication without sending or replaying a mutation', async (t) => {
+  const { service, sessionStorage } = serviceFixture(t);
+  const cyclic = {};
+  cyclic.self = cyclic;
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
+    throw new Error('An unencodable mutation must not be sent');
+  });
+  await assert.rejects(service.createExpense(explicitToken, cyclic), TypeError);
+  assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
+  assert.equal(service.sessionGeneration(), 0);
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test('remaining transport works during SSR without accessing browser storage', async (t) => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  delete globalThis.window;
+  t.after(() => {
+    if (originalWindow)
+      Object.defineProperty(globalThis, 'window', originalWindow);
+  });
+  for (const request of remainingRequests) {
+    await t.test(request.name, async (t) => {
+      const service = new FundingAdminService();
+      const fetchMock = t.mock.method(
+        globalThis,
+        'fetch',
+        async (url, options) => {
+          assert.equal(url, '/api' + request.path);
+          assert.equal(
+            options.headers.Authorization,
+            request.savedAuth ? undefined : `Bearer ${explicitToken}`
+          );
+          return remainingResponse(request);
+        }
+      );
+      await request.invoke(
+        service,
+        explicitToken,
+        new AbortController().signal
+      );
+      assert.equal(fetchMock.mock.callCount(), 1);
+    });
+  }
+});
+
+test('collection queries preserve omitted IDs and default sponsorship filters', async (t) => {
+  const { service } = serviceFixture(t);
+  const requests = [];
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    requests.push(url.slice(baseUrl.length));
+    return Response.json({ synthetic: true });
+  });
+  await service.getContributions(explicitToken);
+  await service.getExpenses(explicitToken);
+  await service.getPublicationDrafts(explicitToken);
+  await service.getPublicationBatches(explicitToken);
+  await service.getPublicationSlots(explicitToken);
+  await service.getAuditLog(explicitToken);
+  await service.getSponsorships(explicitToken);
+  await service.getSponsorships(explicitToken, {
+    page: 1,
+    pageSize: 6,
+    search: '  ',
+    reviewStatus: 'all',
+    feedStatus: 'all',
+    paymentStatus: 'all'
+  });
+  assert.deepEqual(requests, [
+    '/admin/contributions',
+    '/admin/expenses',
+    '/admin/publication-drafts',
+    '/admin/publication-batches',
+    '/admin/publication-slots',
+    '/admin/audit-log',
+    '/admin/sponsorships',
+    '/admin/sponsorships?page=1&pageSize=6'
+  ]);
+});

@@ -324,7 +324,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       button:focus-visible,
       a:focus-visible,
       textarea:focus-visible {
-        outline: 3px solid rgba(37, 99, 235, 0.28);
+        outline: 3px solid var(--admin-focus);
         outline-offset: 2px;
       }
 

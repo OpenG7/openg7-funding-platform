@@ -1,3 +1,4 @@
+import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import { readFundingAdminSource } from './support/funding-admin-source.mjs';
 import { readEmailNotificationSource } from './support/email-notification-source.mjs';
@@ -56,6 +57,9 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const sponsorsPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
   );
+  const sponsorsListPanel = read(
+    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsors-list-panel.component.ts'
+  );
   const sponsorDetailHeader = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-header.component.ts'
   );
@@ -81,7 +85,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     'apps/funding-web/src/app/features/funding/components/site-music/site-music.component.ts'
   );
   const api =
-    read('apps/funding-api/src/main.ts') +
+    readFundingApiSource() +
     read('apps/funding-api/src/http-transport.ts') +
     read('apps/funding-api/src/sponsor-media-limits.ts');
   const webhookService = read('apps/funding-api/src/stripe-webhook.service.ts');
@@ -310,12 +314,6 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'selection-pulse',
       'sponsorshipProcessingState',
       'sponsorshipRowStateClass',
-      'sponsor-row-state-action-required',
-      'sponsor-row-state-approved-ready',
-      'sponsor-row-state-publication-progress',
-      'sponsor-row-state-published',
-      'sponsor-row-state-blocked',
-      'sponsor-row-state-waiting-payment',
       'scrollSelectedSponsorshipIntoView',
       'scrollIntoView',
       'reviewMessageTimers',
@@ -369,6 +367,19 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'messageFromError'
     ],
     'admin sponsorship filters'
+  );
+
+  assertIncludesAll(
+    sponsorsListPanel,
+    [
+      'sponsor-row-state-action-required',
+      'sponsor-row-state-approved-ready',
+      'sponsor-row-state-publication-progress',
+      'sponsor-row-state-published',
+      'sponsor-row-state-blocked',
+      'sponsor-row-state-waiting-payment'
+    ],
+    'admin sponsorship row styles'
   );
 
   assertIncludesAll(

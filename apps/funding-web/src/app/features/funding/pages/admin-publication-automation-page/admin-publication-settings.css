@@ -50,9 +50,9 @@
 
 .settings-mode {
   padding: 0.35rem 0.7rem;
-  border: 1px solid #f4c95740;
+  border: 1px solid var(--admin-warning-border);
   border-radius: 999px;
-  background: #f4c9570b;
+  background: var(--admin-warning-bg);
   color: var(--admin-gold);
   font-size: 0.75rem;
 }
@@ -140,7 +140,7 @@
 
 .feed-settings .settings-toggle input:checked {
   border-color: var(--admin-gold);
-  background: #f4c95722;
+  background: var(--admin-warning-bg);
 }
 
 .settings-toggle input:checked::before {
@@ -192,7 +192,7 @@
 
 .settings-day input:checked + span {
   border-color: var(--admin-gold);
-  background: #f4c95718;
+  background: var(--admin-warning-bg);
   color: var(--admin-gold);
   font-weight: var(--admin-label-weight);
 }
@@ -258,7 +258,7 @@
 
 .settings-error {
   padding: 0.85rem;
-  border: 1px solid #ffb5bc66;
+  border: 1px solid var(--admin-danger-border);
   border-radius: 0.7rem;
 }
 

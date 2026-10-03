@@ -78,13 +78,20 @@ jobs:
       - name: Install Playwright browser
         run: yarn exec playwright install --with-deps chromium firefox webkit
 
+      - name: Build shared development Web fixtures and typecheck follow-up UI
+        run: |
+          yarn workspace @openg7/funding-web build --configuration development
+          yarn exec tsc --noEmit -p tests/tsconfig.followup-ui.json
+
       - name: Isolated sponsorship follow-up UI
-        run: yarn test:ui:followup
+        run: yarn exec playwright test --config tests/playwright-followup-ui.config.mjs
 
       - name: Public journeys across browsers and accessibility
-        run: yarn test:ui:public-journeys
+        run: yarn exec playwright test --config tests/playwright-public-journeys.config.mjs
+      - name: Build shared production Web fixtures
+        run: yarn workspace @openg7/funding-web build --configuration production
       - name: Admin accessibility and HTTP 404 across browsers
-        run: yarn test:ui:platform-accessibility
+        run: yarn exec playwright test --config tests/playwright-platform-accessibility.config.mjs
 
       - name: Create empty .env for Docker Compose
         run: touch .env

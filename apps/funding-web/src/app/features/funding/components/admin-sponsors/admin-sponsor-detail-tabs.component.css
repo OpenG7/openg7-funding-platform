@@ -16,7 +16,7 @@
   background: var(--admin-panel-raised);
 }
 :host .detail-tabs button.active {
-  background: #f4c9570d;
+  background: var(--admin-warning-bg);
   border-color: var(--admin-gold);
   color: var(--admin-gold);
 }

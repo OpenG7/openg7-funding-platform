@@ -31,6 +31,7 @@ test(
           FUNDING_ADMIN_TOKEN: token,
           FUNDING_ADMIN_SESSION_SECRET: sessionSecret,
           FUNDING_ADMIN_SESSION_TTL_MINUTES: '7',
+          FUNDING_BUSINESS_SPONSORSHIP_ENABLED: 'true',
           FUNDING_ADMIN_REVIEW_REMINDER_ENABLED: 'false'
         },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -66,6 +67,40 @@ test(
       assert.equal(valid.status, 200);
       assert.equal(valid.headers.get('cache-control'), 'private, no-store');
       assert.equal((await valid.json()).available, false);
+      for (const [contributionType, amount, status] of [
+        ['sponsorship_interest', 49.99, 400],
+        ['sponsorship_interest', 50, 200],
+        ['sponsorship_interest', 75.25, 200],
+        ['personal_support', 50, 200],
+        ['personal_support', 75.25, 400]
+      ]) {
+        for (const prefix of ['', '/api']) {
+          const checkout = await fetch(
+            `http://127.0.0.1:${port}${prefix}/checkout-sessions`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                projectId: 'synthetic-project',
+                contributionType,
+                amount,
+                publicDisplayConsent: false,
+                displayAmountConsent: false,
+                nonCharityAcknowledged: true,
+                successUrl: 'https://example.invalid/?checkout=success'
+              })
+            }
+          );
+          assert.equal(
+            checkout.status,
+            status,
+            `${prefix}/checkout-sessions: ${contributionType} ${amount}`
+          );
+          const result = await checkout.json();
+          if (status === 200) assert.equal(result.status, 'mocked');
+          else assert.equal(result.error, 'Checkout amount is not allowed.');
+        }
+      }
       assert.equal(
         (await fetch(url + '?pageSize=101', { headers })).status,
         400

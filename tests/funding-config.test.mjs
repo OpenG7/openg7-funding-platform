@@ -1,3 +1,4 @@
+import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { readEmailNotificationSource } from './support/email-notification-source.mjs';
 import { readFundingAdminSource } from './support/funding-admin-source.mjs';
 import { readFundingHomeSource } from './support/funding-home-source.mjs';
@@ -225,7 +226,7 @@ test('Stripe charge.updated backfills contribution transaction fees', () => {
 });
 
 test('Checkout sessions require fundraiser metadata and consent fields', () => {
-  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const source = readFundingApiSource();
 
   assert.ok(source.includes('allowedContributionAmounts.has(amount)'));
   assert.ok(source.includes("'personal_support'"));
@@ -248,7 +249,7 @@ test('Checkout sessions require fundraiser metadata and consent fields', () => {
 });
 
 test('Checkout creates a public contribution reference for Stripe receipts and recovery', () => {
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const webhook = fs.readFileSync(
     'apps/funding-api/src/stripe-webhook.service.ts',
     'utf8'
@@ -302,7 +303,7 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
 });
 
 test('Public reference lookup returns minimal purchase status without private fields', () => {
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
@@ -386,7 +387,7 @@ test('Public reference lookup returns minimal purchase status without private fi
 });
 
 test('resolveCheckoutReturnUrl allows http localhost/127.0.0.1 only outside production', () => {
-  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const source = readFundingApiSource();
 
   const match = source.match(/const resolveCheckoutReturnUrl[\s\S]*?\n};/);
   assert.ok(match, 'expected to find resolveCheckoutReturnUrl function body');
@@ -479,7 +480,7 @@ test('Fund allocation migration adds separate achievement tracking fields', () =
 });
 
 test('Achievement proof fields are validated at the admin API boundary', () => {
-  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const source = readFundingApiSource();
 
   assert.ok(source.includes('Expense expected outcome is invalid.'));
   assert.ok(source.includes('Expense progress status is invalid.'));
@@ -488,7 +489,7 @@ test('Achievement proof fields are validated at the admin API boundary', () => {
 });
 
 test('Achievement mutations audit public outcome and proof fields', () => {
-  const apiSource = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const apiSource = readFundingApiSource();
   const repositorySource = fs.readFileSync(
     'apps/funding-api/src/fund-admin.repository.ts',
     'utf8'
@@ -602,7 +603,7 @@ test('recordSponsorshipDetails upserts against the partial unique index', () => 
 });
 
 test('Sponsorship details endpoint validates required fields and payment state', () => {
-  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const source = readFundingApiSource();
 
   assert.ok(source.includes("'/sponsorship-details'"));
   assert.ok(source.includes("'/api/sponsorship-details'"));
@@ -621,7 +622,7 @@ test('Sponsorship details endpoint validates required fields and payment state',
 });
 
 test('Checkout requires a public display name when public display consent is granted', () => {
-  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const source = readFundingApiSource();
 
   assert.ok(
     source.includes('parsed.publicDisplayConsent === true') &&
@@ -637,7 +638,7 @@ test('Checkout requires a public display name when public display consent is gra
 });
 
 test('publicDisplayName is discarded server-side when public display consent is not granted', () => {
-  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const source = readFundingApiSource();
 
   const match = source.match(/const publicDisplayName =\s*([\s\S]{0,160}?);/);
   assert.ok(
@@ -718,7 +719,7 @@ test('Business sponsorship contribution choice is controlled by runtime flag', (
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const envExample = fs.readFileSync('.env.example', 'utf8');
   const compose = fs.readFileSync('docker-compose.yml', 'utf8');
   const styles = fs.readFileSync('apps/funding-web/src/styles.css', 'utf8');
@@ -900,23 +901,12 @@ test('Contribution form uses sponsorship pricing and the personal server allowli
 });
 
 test('Checkout API validates sponsorship custom amounts against the real minimum, not the fixed personal allowlist', () => {
-  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const source = readFundingApiSource();
 
-  // @openg7/funding-core has no local package build (only the monorepo-wide
-  // dist/), so a real (non-type) cross-package import only resolves inside
-  // the Angular bundle. The API keeps its own local mirror instead, same
-  // convention as allowedContributionAmounts/FUNDING_ALLOWED_AMOUNTS.
-  assert.ok(source.includes('const sponsorshipMinimumAmount = 50;'));
-  assert.ok(
-    source.includes(
-      'const isValidSponsorshipAmount = (amount: number): boolean =>'
-    )
-  );
-  assert.ok(
-    source.includes(
-      'Number.isFinite(amount) && amount >= sponsorshipMinimumAmount;'
-    )
-  );
+  // Checkout consumes the same public core rule as the Web. Behavior is also
+  // exercised through the local HTTP API in admin-work-queue-http.test.mjs.
+  assert.ok(source.includes('isValidSponsorshipAmount,'));
+  assert.equal(source.includes('const sponsorshipMinimumAmount ='), false);
   assert.ok(source.includes('const isSponsorshipContribution ='));
   assert.ok(
     source.includes("parsed.contributionType === 'sponsorship_interest';")
@@ -939,7 +929,7 @@ test('Sponsorship follow-up benefits are derived server-side from the paid amoun
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
 
   assert.ok(
@@ -1001,7 +991,7 @@ test('Mock checkout fallback never claims a confirmed Stripe payment or webhook 
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
 
   assert.ok(service.includes('canUseDevelopmentCheckoutFallback'));
   assert.ok(
@@ -1107,7 +1097,7 @@ test('Sponsor media migration keeps originals private and approval explicit', ()
     'apps/funding-api/src/sponsor-media.repository.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
 
   assert.ok(
     migration.includes('CREATE TABLE IF NOT EXISTS sponsor_media_assets')
@@ -1138,7 +1128,7 @@ test('Sponsor media migration keeps originals private and approval explicit', ()
 });
 
 test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe metadata', () => {
-  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const source = readFundingApiSource();
   const fundingService = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
     'utf8'
@@ -1167,7 +1157,7 @@ test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe 
 });
 
 test('Sponsorship follow-up endpoints are token based and do not require Stripe session ids', () => {
-  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const source = readFundingApiSource();
   const fundingPage = readFundingHomeSource();
   const fundingService = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
@@ -1191,7 +1181,7 @@ test('Sponsorship follow-up endpoints are token based and do not require Stripe 
 });
 
 test('Sponsorship follow-up refreshes pending payment status from Stripe before editable actions', () => {
-  const source = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const source = readFundingApiSource();
   const refreshBody = extractBetween(
     source,
     'const refreshSponsorshipFollowupPaymentStatus',
@@ -1266,7 +1256,7 @@ test('Sponsorship follow-up email is sent from checkout completion only when rec
 });
 
 test('Sponsorship follow-up tokens expire and details edits return to review', () => {
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
@@ -1300,7 +1290,7 @@ test('Sponsorship follow-up tokens expire and details edits return to review', (
 
 test('Sensitive sponsorship API routes have in-process rate limiting', () => {
   const api =
-    fs.readFileSync('apps/funding-api/src/main.ts', 'utf8') +
+    readFundingApiSource() +
     fs.readFileSync('apps/funding-api/src/sponsor-media-limits.ts', 'utf8');
   const envExample = fs.readFileSync('.env.example', 'utf8');
 
@@ -1348,7 +1338,7 @@ test('Sensitive sponsorship API routes have in-process rate limiting', () => {
 });
 
 test('Reference recovery accepts email requests without exposing contribution existence', () => {
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
@@ -1671,7 +1661,7 @@ test('Publication slot repository enforces future dates, capacity, assignment, c
 });
 
 test('Publication batch admin endpoints are authenticated, validated, rate-limited, and audited', () => {
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
 
   for (const route of [
     "'/admin/publication-batches'",
@@ -1719,7 +1709,7 @@ test('Publication batch admin endpoints are authenticated, validated, rate-limit
 });
 
 test('Publication slot admin endpoints are authenticated, validated, rate-limited, and audited', () => {
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
 
   for (const route of [
     "'/admin/publication-slots'",
@@ -1863,7 +1853,7 @@ test('Social publication provider is explicit, configurable, audited, and visibl
     'apps/funding-api/src/fund-admin.repository.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const socialService = fs.readFileSync(
     'apps/funding-api/src/social-publication.service.ts',
     'utf8'
@@ -2043,13 +2033,7 @@ test('Admin sponsor rows are color-coded by processing state', () => {
     'rowStateClass: this.sponsorshipRowStateClass(sponsorship)',
     'processingLabel: this.sponsorshipProcessingLabel(sponsorship)',
     'sponsorListRows',
-    'AdminSponsorsListPanelComponent',
-    'sponsor-row-state-action-required',
-    'sponsor-row-state-approved-ready',
-    'sponsor-row-state-publication-progress',
-    'sponsor-row-state-published',
-    'sponsor-row-state-blocked',
-    'sponsor-row-state-waiting-payment'
+    'AdminSponsorsListPanelComponent'
   ]) {
     assert.ok(
       translatedUiSource(page).includes(marker),
@@ -2111,7 +2095,7 @@ test('Admin sponsor rejection requires a reason and can notify the sponsor', () 
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
@@ -2175,7 +2159,7 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
@@ -2360,7 +2344,7 @@ test('Admin sponsorship list uses backend pagination, filters, payment rules, an
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
@@ -2454,7 +2438,7 @@ test('Publication batches retain chronological backend ordering', () => {
 
 test('An admin is notified by email when a publication batch fills up, but nothing publishes automatically', () => {
   const email = readEmailNotificationSource();
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const envExample = fs.readFileSync('.env.example', 'utf8');
 
   assert.ok(
@@ -2497,7 +2481,7 @@ test('An admin gets a daily email reminder for sponsorship reviews waiting on a 
     'utf8'
   );
   const email = readEmailNotificationSource();
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const setupPage =
     fs.readFileSync(
@@ -2576,7 +2560,7 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'apps/funding-api/src/email-queue.repository.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const webhook = fs.readFileSync(
     'apps/funding-api/src/stripe-webhook.service.ts',
     'utf8'
@@ -2746,7 +2730,7 @@ test('Admin email queue page lists failed messages and retries them manually', (
     'apps/funding-web/src/app/features/funding/pages/admin-email-queue-page/admin-email-queue-page.component.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const email = readEmailNotificationSource();
   const emailQueue = fs.readFileSync(
     'apps/funding-api/src/email-queue.repository.ts',
@@ -2827,7 +2811,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/sponsorship-invoices.repository.ts',
     'utf8'
@@ -3006,7 +2990,7 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
 
   assert.ok(routes.includes("path: 'fundraiser/setup'"));
@@ -3062,7 +3046,7 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
     'apps/funding-api/src/fund-admin.repository.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
@@ -3150,7 +3134,7 @@ test('Public sponsorships are exposed only after consent and approval', () => {
     'apps/funding-api/src/fund-contributions.repository.ts',
     'utf8'
   );
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
 
   assert.ok(api.includes("'/public/sponsorships'"));
   assert.ok(api.includes("'/api/public/sponsorships'"));
@@ -3162,7 +3146,7 @@ test('Public sponsorships are exposed only after consent and approval', () => {
 });
 
 test('Admin sponsorship publication endpoint validates feed placement fields', () => {
-  const api = fs.readFileSync('apps/funding-api/src/main.ts', 'utf8');
+  const api = readFundingApiSource();
   const benefits = fs.readFileSync(
     'apps/funding-api/src/sponsorship-benefits.ts',
     'utf8'

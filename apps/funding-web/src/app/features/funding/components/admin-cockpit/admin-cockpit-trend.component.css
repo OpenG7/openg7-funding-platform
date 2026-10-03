@@ -111,14 +111,14 @@ dd {
   font-variant-numeric: tabular-nums;
 }
 .change[data-direction='up'] {
-  color: #a1e7b1;
-  border-color: #416b59;
-  background: #204639;
+  color: var(--admin-success);
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
 }
 .change[data-direction='down'] {
-  color: #ffda85;
-  border-color: #75603b;
-  background: #3b3529;
+  color: var(--admin-warning);
+  border-color: var(--admin-warning-border);
+  background: var(--admin-warning-bg);
 }
 .comparison-hint {
   font-size: 0.72rem;
@@ -202,7 +202,7 @@ tbody th {
   font-weight: 400;
 }
 tbody tr:nth-child(odd) {
-  background: #ffffff04;
+  background: var(--admin-panel-raised);
 }
 th:last-child,
 td {

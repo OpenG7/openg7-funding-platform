@@ -1,0 +1,22 @@
+/* Shared presentation for system readings and their Stripe checks. */
+.status {
+  background: var(--admin-panel-raised);
+  color: var(--admin-muted);
+}
+:is(.status[data-state='operational'], [data-state='operational'] .status) {
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+}
+:is(
+  .status[data-state='degraded'],
+  .status[data-state='not_configured'],
+  [data-state='degraded'] .status,
+  [data-state='not_configured'] .status
+) {
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+}
+:is(.status[data-state='unavailable'], [data-state='unavailable'] .status) {
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger);
+}

@@ -188,8 +188,8 @@ footer button {
 :host .action-count {
   margin-left: auto;
   border-radius: 999px;
-  background: #b82e42;
-  color: #fff;
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger);
   padding: 0.1rem 0.45rem;
   font-size: 0.75rem;
 }

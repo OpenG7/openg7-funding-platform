@@ -1,16 +1,18 @@
+import {
+  dockerBuildEnvironment,
+  dockerComposeProfileArgs,
+  normalizeDockerBuildEnvironment
+} from './docker-config.mjs';
+
 export function normalizeDockerEnvironment(value) {
-  const aliases = {
-    local: 'development',
-    dev: 'development',
-    development: 'development',
-    prod: 'production',
-    production: 'production',
-    autre: 'other',
-    other: 'other'
-  };
-  const key = value?.trim().toLowerCase();
-  const environment = Object.hasOwn(aliases, key) ? aliases[key] : null;
-  if (!environment)
+  const normalized = normalizeDockerBuildEnvironment(value);
+  const environment =
+    normalized === 'local'
+      ? 'development'
+      : ['autre', 'other'].includes(normalized)
+        ? 'other'
+        : normalized;
+  if (!['development', 'production', 'other'].includes(environment))
     throw new Error('Environnement invalide : local/dev, prod ou autre.');
   return environment;
 }
@@ -66,11 +68,10 @@ export async function chooseDockerEnvironment(options, { interactive, ask }) {
 export function dockerUpPlan(options, { env, localTls }) {
   const environment = normalizeDockerEnvironment(options.environment);
   const local = environment === 'development';
-  const commandEnv = { ...env };
-  if (environment !== 'other') {
-    commandEnv.FUNDING_PLATFORM_ENV = environment;
-    commandEnv.ANGULAR_CONFIGURATION = environment;
-  }
+  const commandEnv =
+    environment === 'other'
+      ? { ...env }
+      : dockerBuildEnvironment(environment, env);
   if (local) {
     commandEnv.FUNDING_ALLOWED_ORIGINS = [
       ...new Set([
@@ -94,7 +95,7 @@ export function dockerUpPlan(options, { env, localTls }) {
       '-f',
       'docker-compose.local-tls.yml'
     );
-  if (options.database ?? local) compose.push('--profile', 'database');
+  compose.push(...dockerComposeProfileArgs(options.database ?? local));
   if (options.database === false) {
     commandEnv.COMPOSE_PROFILES = (env.COMPOSE_PROFILES ?? '')
       .split(',')

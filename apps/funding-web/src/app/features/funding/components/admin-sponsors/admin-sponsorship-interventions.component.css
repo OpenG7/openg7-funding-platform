@@ -42,7 +42,7 @@ textarea {
   line-height: inherit;
   color: inherit;
   background: var(--admin-bg, #111827);
-  border: 1px solid #697586;
+  border: 1px solid var(--admin-border);
   border-radius: 0.5rem;
   padding: 0.65rem;
 }

@@ -80,6 +80,7 @@ import type {
 
 import {
   allocationAmountMinor,
+  isValidSponsorshipAmount,
   isPublicAllocationProofUrl,
   isSafeSponsorshipText,
   isSponsorshipEmail,
@@ -162,7 +163,7 @@ import {
   loadSponsorMediaLimits,
   SPONSOR_MEDIA_MULTIPART_OVERHEAD_BYTES
 } from './sponsor-media-limits.js';
-import { loadTrustedProxyHops, requestClientIp } from './request-client-ip.js';
+import { loadTrustedProxyHops } from './request-client-ip.js';
 import {
   SponsorshipAccessError,
   normalizeRecoveryEmail,
@@ -204,7 +205,7 @@ import {
 } from './email-notification.service.js';
 import {
   configuredSocialPublicationChannels,
-  loadSocialPublicationConfig,
+  loadSocialPublicationConfig
 } from './social-publication.service.js';
 import {
   getTransactionalEmailConfigStatus,
@@ -256,9 +257,7 @@ import {
   SponsorshipRefundOperationError
 } from './sponsorship-refund-operations.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
-import {
-  normalizeContributionPublicReference
-} from './contribution-public-reference.js';
+import { normalizeContributionPublicReference } from './contribution-public-reference.js';
 import { sponsorshipInvoiceConfig } from './sponsorship-invoice-config.js';
 import {
   renderSponsorshipCreditNotePdf,
@@ -326,6 +325,18 @@ import {
   readBody,
   readBodyBuffer
 } from './http-transport.js';
+import {
+  parseMultipartBoundary,
+  parseMultipartFormData,
+  type MultipartPart
+} from './http-multipart.js';
+import { createRouteMatcher, firstHeaderValue } from './http-routing.js';
+import { createRequestRateLimit } from './http-rate-limit.js';
+import {
+  parseSponsorLogoUpload,
+  SPONSOR_LOGO_FILENAME_PATTERN,
+  contentTypeForSponsorLogoFilename
+} from './sponsor-logo-upload.js';
 
 const port = Number(process.env.FUNDING_API_PORT ?? 3333);
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -447,16 +458,6 @@ const allowedContributionAmounts = new Set(
     .map((amount) => Number(amount.trim()))
     .filter((amount) => Number.isFinite(amount) && amount > 0)
 );
-// Mirrors the sponsorship pricing floor in
-// apps/funding-web/src/app/features/funding/config/openg7-funding.config.ts.
-// Kept in sync by hand, same as allowedContributionAmounts/FUNDING_ALLOWED_AMOUNTS above:
-// `@openg7/funding-core` has no local package build, so a real (non-type)
-// cross-package import only resolves inside the Angular bundle, not here.
-const sponsorshipMinimumAmount = 50;
-
-const isValidSponsorshipAmount = (amount: number): boolean =>
-  Number.isFinite(amount) && amount >= sponsorshipMinimumAmount;
-
 // STRIPE_API_HOST/PORT/PROTOCOL let the Playwright Docker E2E stack point the
 // SDK at a local Stripe API stub instead of api.stripe.com (see
 // tests/stripe-stub/). Unset in every real environment, where the SDK falls
@@ -543,20 +544,22 @@ if (isProduction && !publicBaseUrl) {
 type ApiRequest = IncomingMessage;
 type ApiResponse = ServerResponse<IncomingMessage>;
 
-interface RateLimitBucket {
-  count: number;
-  resetAt: number;
-}
-
-interface RateLimiter {
-  readonly name: string;
-  readonly maxRequests: number;
-  readonly windowMs: number;
-  readonly buckets: Map<string, RateLimitBucket>;
-}
-
 const { writeJson, writeText, writeCsv, writeBinary, writePdf, writeOptions } =
   createHttpTransport({ isProduction, allowedOrigins });
+const { routeMatches, routeStartsWith } = createRouteMatcher(publicBaseOrigin);
+const enforceRequestRateLimit = createRequestRateLimit(
+  {
+    publicBaseOrigin,
+    trustedProxyHops,
+    rateLimitWindowMs,
+    publicWriteRateLimitMax,
+    sponsorshipFollowupRateLimitMax,
+    referenceLookupRateLimitMax,
+    referenceRecoveryRateLimitMax,
+    adminRateLimitMax
+  },
+  writeJson
+);
 
 const normalizeAmount = (amount: number): number =>
   Number(Number(amount).toFixed(2));
@@ -597,15 +600,7 @@ const CONTRIBUTION_REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const SPONSOR_LOGO_PUBLIC_PATH_PREFIX = '/api/public/sponsor-logos/';
 const SPONSOR_MEDIA_PUBLIC_PATH_PREFIX = '/api/public/sponsor-media/';
 const SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH = 300;
-const SPONSOR_LOGO_FILENAME_PATTERN =
-  /^sponsor-logo-[0-9a-f-]{36}-[0-9]{13}-[a-f0-9]{16}\.(?:jpg|png|webp)$/;
-const sponsorLogoContentTypes = new Map<string, string>([
-  ['jpg', 'image/jpeg'],
-  ['png', 'image/png'],
-  ['webp', 'image/webp']
-]);
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
-const RATE_LIMIT_BUCKET_PRUNE_THRESHOLD = 5000;
 const followupEditablePaymentStatuses = new Set([
   'paid',
   'refunded',
@@ -705,199 +700,6 @@ const isValidUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
-interface MultipartPart {
-  readonly name: string;
-  readonly filename: string | null;
-  readonly contentType: string | null;
-  readonly data: Buffer;
-}
-
-interface SponsorLogoFile {
-  readonly data: Buffer;
-  readonly extension: 'jpg' | 'png' | 'webp';
-  readonly filename: string;
-  readonly mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
-  readonly sizeBytes: number;
-}
-
-const parseMultipartBoundary = (
-  contentType: string | string[] | undefined
-): string | null => {
-  const header = firstHeaderValue(contentType);
-  if (!header?.toLowerCase().startsWith('multipart/form-data')) {
-    return null;
-  }
-
-  const match = /(?:^|;\s*)boundary=(?:"([^"]+)"|([^;]+))/i.exec(header);
-  const boundary = match?.[1] ?? match?.[2] ?? '';
-  return boundary.length > 0 && boundary.length <= 200 ? boundary : null;
-};
-
-const splitBuffer = (buffer: Buffer, delimiter: Buffer): Buffer[] => {
-  const parts: Buffer[] = [];
-  let start = 0;
-  let index = buffer.indexOf(delimiter, start);
-
-  while (index !== -1) {
-    parts.push(buffer.subarray(start, index));
-    start = index + delimiter.byteLength;
-    index = buffer.indexOf(delimiter, start);
-  }
-
-  parts.push(buffer.subarray(start));
-  return parts;
-};
-
-const trimMultipartPart = (part: Buffer): Buffer => {
-  let start = 0;
-  let end = part.byteLength;
-
-  if (part.subarray(0, 2).equals(Buffer.from('\r\n'))) {
-    start = 2;
-  }
-
-  if (part.subarray(end - 2, end).equals(Buffer.from('\r\n'))) {
-    end -= 2;
-  }
-
-  return part.subarray(start, end);
-};
-
-const parseMultipartPartHeaders = (
-  headerText: string
-): Record<string, string> =>
-  Object.fromEntries(
-    headerText
-      .split('\r\n')
-      .map((line) => {
-        const separatorIndex = line.indexOf(':');
-        if (separatorIndex === -1) {
-          return null;
-        }
-
-        return [
-          line.slice(0, separatorIndex).trim().toLowerCase(),
-          line.slice(separatorIndex + 1).trim()
-        ] as const;
-      })
-      .filter((entry): entry is readonly [string, string] => Boolean(entry))
-  );
-
-const parseContentDispositionValue = (
-  value: string,
-  key: 'name' | 'filename'
-): string | null => {
-  const match = new RegExp(`${key}="([^"]*)"`).exec(value);
-  return match?.[1] ?? null;
-};
-
-const parseMultipartFormData = (
-  body: Buffer,
-  boundary: string
-): readonly MultipartPart[] => {
-  const boundaryBuffer = Buffer.from(`--${boundary}`);
-  const rawParts = splitBuffer(body, boundaryBuffer).slice(1);
-  const parts: MultipartPart[] = [];
-
-  for (const rawPart of rawParts) {
-    if (
-      rawPart.subarray(0, 2).equals(Buffer.from('--')) ||
-      rawPart.subarray(0, 4).equals(Buffer.from('--\r\n'))
-    ) {
-      continue;
-    }
-
-    const part = trimMultipartPart(rawPart);
-    const headerEndIndex = part.indexOf(Buffer.from('\r\n\r\n'));
-    if (headerEndIndex === -1) {
-      continue;
-    }
-
-    const headers = parseMultipartPartHeaders(
-      part.subarray(0, headerEndIndex).toString('utf8')
-    );
-    const disposition = headers['content-disposition'] ?? '';
-    const name = parseContentDispositionValue(disposition, 'name');
-    if (!name) {
-      continue;
-    }
-
-    parts.push({
-      name,
-      filename: parseContentDispositionValue(disposition, 'filename'),
-      contentType: headers['content-type']?.toLowerCase() ?? null,
-      data: part.subarray(headerEndIndex + 4)
-    });
-  }
-
-  return parts;
-};
-
-const detectSponsorLogoFileType = (
-  data: Buffer
-): Pick<SponsorLogoFile, 'extension' | 'mimeType'> | null => {
-  if (
-    data.length >= 8 &&
-    data
-      .subarray(0, 8)
-      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-  ) {
-    return { extension: 'png', mimeType: 'image/png' };
-  }
-
-  if (
-    data.length >= 3 &&
-    data[0] === 0xff &&
-    data[1] === 0xd8 &&
-    data[2] === 0xff
-  ) {
-    return { extension: 'jpg', mimeType: 'image/jpeg' };
-  }
-
-  if (
-    data.length >= 12 &&
-    data.subarray(0, 4).toString('ascii') === 'RIFF' &&
-    data.subarray(8, 12).toString('ascii') === 'WEBP'
-  ) {
-    return { extension: 'webp', mimeType: 'image/webp' };
-  }
-
-  return null;
-};
-
-const createSponsorLogoFilename = (
-  contributionId: string,
-  extension: SponsorLogoFile['extension']
-): string =>
-  `sponsor-logo-${contributionId.toLowerCase()}-${Date.now()}-${randomBytes(8).toString('hex')}.${extension}`;
-
-const parseSponsorLogoUpload = (
-  parts: readonly MultipartPart[],
-  contributionId: string
-): SponsorLogoFile | null => {
-  const filePart = parts.find((part) => part.name === 'logo');
-  if (!filePart?.filename || filePart.data.byteLength === 0) {
-    return null;
-  }
-
-  if (filePart.data.byteLength > sponsorLogoMaxBytes) {
-    return null;
-  }
-
-  const detected = detectSponsorLogoFileType(filePart.data);
-  if (!detected || filePart.contentType !== detected.mimeType) {
-    return null;
-  }
-
-  return {
-    data: filePart.data,
-    extension: detected.extension,
-    filename: createSponsorLogoFilename(contributionId, detected.extension),
-    mimeType: detected.mimeType,
-    sizeBytes: filePart.data.byteLength
-  };
-};
-
 const sponsorLogoPublicUrlForFilename = (filename: string): string =>
   `${SPONSOR_LOGO_PUBLIC_PATH_PREFIX}${filename}`;
 
@@ -927,9 +729,6 @@ const getSponsorLogoFilenameFromUrl = (
     return null;
   }
 };
-
-const contentTypeForSponsorLogoFilename = (filename: string): string | null =>
-  sponsorLogoContentTypes.get(filename.split('.').at(-1) ?? '') ?? null;
 
 const deleteControlledSponsorLogoFile = async (
   logoUrl: string | null
@@ -1165,13 +964,9 @@ const refreshSponsorshipFollowupPaymentStatus = async (
       amountCents: session.amount_total ?? 0,
       currency: session.currency ?? 'cad',
       metadata,
-      publicDisplayConsent: parseMetadataBoolean(
-        metadata.publicDisplayConsent
-      ),
+      publicDisplayConsent: parseMetadataBoolean(metadata.publicDisplayConsent),
       publicName: metadata.publicDisplayName ?? null,
-      displayAmountConsent: parseMetadataBoolean(
-        metadata.displayAmountConsent
-      ),
+      displayAmountConsent: parseMetadataBoolean(metadata.displayAmountConsent),
       nonCharityAcknowledged: parseMetadataBoolean(
         metadata.nonCharityAcknowledged
       ),
@@ -1455,7 +1250,8 @@ const allowedFundAchievementProgressStatuses = new Set([
 const isAllowedFundAchievementProgressStatus = (
   value: unknown
 ): value is 'planned' | 'in_progress' | 'delivered' =>
-  typeof value === 'string' && allowedFundAchievementProgressStatuses.has(value);
+  typeof value === 'string' &&
+  allowedFundAchievementProgressStatuses.has(value);
 
 const isValidAdminExpenseId = (value: unknown): value is string =>
   typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value);
@@ -1495,9 +1291,14 @@ const readAdminToken = (request: ApiRequest): string | null => {
 };
 
 const adminAuthMode = process.env.FUNDING_ADMIN_AUTH_MODE ?? 'token';
-if (!['token', 'oidc'].includes(adminAuthMode)) throw new Error('Invalid admin auth mode.');
-if (adminAuthMode === 'oidc' && !dbPool) throw new Error('OIDC requires PostgreSQL.');
-const adminIdentity = adminAuthMode === 'oidc' ? new AdminIdentityService(dbPool!, process.env) : null;
+if (!['token', 'oidc'].includes(adminAuthMode))
+  throw new Error('Invalid admin auth mode.');
+if (adminAuthMode === 'oidc' && !dbPool)
+  throw new Error('OIDC requires PostgreSQL.');
+const adminIdentity =
+  adminAuthMode === 'oidc'
+    ? new AdminIdentityService(dbPool!, process.env)
+    : null;
 
 interface AdminAuthorization {
   readonly actor: string;
@@ -1557,8 +1358,14 @@ const ensureAdminAuthorization = (
     return false;
   }
 
-  if (adminIdentity && adminIdentity.identity(request) && !adminIdentity.permits(request)) {
-    writeJson(request, response, 403, { error: 'This action is not permitted for this account or origin.' });
+  if (
+    adminIdentity &&
+    adminIdentity.identity(request) &&
+    !adminIdentity.permits(request)
+  ) {
+    writeJson(request, response, 403, {
+      error: 'This action is not permitted for this account or origin.'
+    });
     return false;
   }
   if (!isAdminAuthorized(request)) {
@@ -1656,335 +1463,6 @@ const resolveCheckoutReturnUrl = (
   return fallback.toString();
 };
 
-const routeMatches = (
-  url: string | undefined,
-  ...candidates: readonly string[]
-): boolean => {
-  if (!url) {
-    return false;
-  }
-
-  try {
-    return candidates.includes(new URL(url, publicBaseOrigin).pathname);
-  } catch {
-    return candidates.includes(url);
-  }
-};
-
-const routeStartsWith = (
-  url: string | undefined,
-  ...prefixes: readonly string[]
-): boolean => {
-  if (!url) {
-    return false;
-  }
-  try {
-    const pathname = new URL(url, publicBaseOrigin).pathname;
-    return prefixes.some((prefix) => pathname.startsWith(prefix));
-  } catch {
-    return false;
-  }
-};
-
-const createRateLimiter = (
-  name: string,
-  maxRequests: number,
-  windowMs: number
-): RateLimiter => ({
-  name,
-  maxRequests,
-  windowMs,
-  buckets: new Map<string, RateLimitBucket>()
-});
-
-const publicWriteRateLimiter = createRateLimiter(
-  'public-write',
-  publicWriteRateLimitMax,
-  rateLimitWindowMs
-);
-const sponsorshipFollowupRateLimiter = createRateLimiter(
-  'sponsorship-followup',
-  sponsorshipFollowupRateLimitMax,
-  rateLimitWindowMs
-);
-const referenceLookupRateLimiter = createRateLimiter(
-  'reference-lookup',
-  referenceLookupRateLimitMax,
-  rateLimitWindowMs
-);
-const referenceRecoveryRateLimiter = createRateLimiter(
-  'reference-recovery',
-  referenceRecoveryRateLimitMax,
-  rateLimitWindowMs
-);
-const adminRateLimiter = createRateLimiter(
-  'admin',
-  adminRateLimitMax,
-  rateLimitWindowMs
-);
-
-const firstHeaderValue = (
-  value: string | string[] | undefined
-): string | null =>
-  Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
-
-const getClientIp = (request: ApiRequest): string =>
-  requestClientIp(request, trustedProxyHops);
-
-const pruneExpiredRateLimitBuckets = (
-  limiter: RateLimiter,
-  now: number
-): void => {
-  for (const [key, bucket] of limiter.buckets) {
-    if (bucket.resetAt <= now) {
-      limiter.buckets.delete(key);
-    }
-  }
-};
-
-const enforceRateLimit = (
-  request: ApiRequest,
-  response: ApiResponse,
-  limiter: RateLimiter
-): boolean => {
-  if (limiter.maxRequests === 0) {
-    return true;
-  }
-
-  const now = Date.now();
-  const key = `${limiter.name}:${getClientIp(request)}`;
-  const bucket = limiter.buckets.get(key);
-
-  if (!bucket || bucket.resetAt <= now) {
-    limiter.buckets.set(key, {
-      count: 1,
-      resetAt: now + limiter.windowMs
-    });
-    return true;
-  }
-
-  if (bucket.count >= limiter.maxRequests) {
-    const retryAfterSeconds = Math.max(
-      1,
-      Math.ceil((bucket.resetAt - now) / 1000)
-    );
-    writeJson(
-      request,
-      response,
-      429,
-      { error: 'Too many requests. Please retry later.' },
-      { 'Retry-After': String(retryAfterSeconds) }
-    );
-    return false;
-  }
-
-  bucket.count += 1;
-
-  if (limiter.buckets.size > RATE_LIMIT_BUCKET_PRUNE_THRESHOLD) {
-    pruneExpiredRateLimitBuckets(limiter, now);
-  }
-
-  return true;
-};
-
-const getRequestRateLimiter = (request: ApiRequest): RateLimiter | null => {
-  if (routeStartsWith(request.url, '/admin/auth/', '/api/admin/auth/') ||
-      routeMatches(request.url, '/admin/access', '/api/admin/access')) {
-    return adminRateLimiter;
-  }
-  if (
-    request.method === 'POST' &&
-    routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')
-  ) {
-    return publicWriteRateLimiter;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/reference-recovery',
-      '/api/reference-recovery',
-      '/sponsorship-followup/recover',
-      '/api/sponsorship-followup/recover'
-    )
-  ) {
-    return referenceRecoveryRateLimiter;
-  }
-
-  if (
-    routeMatches(
-      request.url,
-      '/sponsorship-followup',
-      '/api/sponsorship-followup',
-      '/sponsorship-followup/details',
-      '/api/sponsorship-followup/details',
-      '/sponsorship-followup/draft',
-      '/api/sponsorship-followup/draft',
-      '/sponsorship-followup/media',
-      '/api/sponsorship-followup/media',
-      '/sponsorship-followup/media/delete',
-      '/api/sponsorship-followup/media/delete'
-    ) ||
-    routeStartsWith(
-      request.url,
-      '/sponsorship-followup/media/content/',
-      '/api/sponsorship-followup/media/content/'
-    )
-  ) {
-    return sponsorshipFollowupRateLimiter;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(request.url, '/reference-lookup', '/api/reference-lookup')
-  ) {
-    return referenceLookupRateLimiter;
-  }
-
-  if (
-    routeMatches(
-      request.url,
-      '/admin/pilotage', '/api/admin/pilotage',
-      '/admin/pilotage/programme', '/api/admin/pilotage/programme',
-      '/admin/pilotage/variant', '/api/admin/pilotage/variant',
-      '/admin/pilotage/command', '/api/admin/pilotage/command',
-      '/admin/pilotage/receipt', '/api/admin/pilotage/receipt',
-      '/admin/session',
-      '/api/admin/session',
-      '/admin/setup-status',
-      '/api/admin/setup-status',
-      '/admin/email/test',
-      '/api/admin/email/test',
-      '/admin/email-queue',
-      '/api/admin/email-queue',
-      '/admin/email-queue/retry',
-      '/api/admin/email-queue/retry',
-      '/admin/sponsorship-invoices',
-      '/api/admin/sponsorship-invoices',
-      '/admin/sponsorship-invoices/backfill',
-      '/api/admin/sponsorship-invoices/backfill',
-      '/admin/sponsorship-invoices/pdf',
-      '/api/admin/sponsorship-invoices/pdf',
-      '/admin/sponsorship-invoices/resend',
-      '/api/admin/sponsorship-invoices/resend',
-      '/admin/sponsorship-credit-notes/pdf',
-      '/api/admin/sponsorship-credit-notes/pdf',
-      '/admin/sponsorship-credit-notes/resend',
-      '/api/admin/sponsorship-credit-notes/resend',
-      '/admin/dashboard',
-      '/api/admin/dashboard',
-      '/admin/cockpit/metrics',
-      '/api/admin/cockpit/metrics',
-      '/admin/cockpit/activity',
-      '/api/admin/cockpit/activity',
-      '/admin/cockpit/systems',
-      '/api/admin/cockpit/systems',
-      '/admin/attention',
-      '/api/admin/attention',
-      '/admin/search',
-      '/api/admin/search',
-      '/admin/stripe-event',
-      '/api/admin/stripe-event',
-      '/admin/stripe-backfill',
-      '/api/admin/stripe-backfill',
-      '/admin/assistant/summary',
-      '/api/admin/assistant/summary',
-      '/admin/assistant/query',
-      '/api/admin/assistant/query',
-      '/admin/assistant/prepare',
-      '/api/admin/assistant/prepare',
-      '/admin/assistant/context',
-      '/api/admin/assistant/context',
-      '/admin/sponsorships/progress',
-      '/api/admin/sponsorships/progress',
-      '/admin/sponsorships/request-information',
-      '/api/admin/sponsorships/request-information',
-      '/admin/sponsorships/followup-access',
-      '/api/admin/sponsorships/followup-access',
-      '/admin/contributions',
-      '/api/admin/contributions',
-      '/admin/contributions.csv',
-      '/api/admin/contributions.csv',
-      '/admin/expenses',
-      '/api/admin/expenses',
-      '/admin/expenses/update',
-      '/api/admin/expenses/update',
-      '/admin/transparency',
-      '/api/admin/transparency',
-      '/admin/publication-automation',
-      '/api/admin/publication-automation',
-      '/admin/publication-automation/media',
-      '/api/admin/publication-automation/media',
-      '/admin/publication-drafts',
-      '/api/admin/publication-drafts',
-      '/admin/publication-drafts/update',
-      '/api/admin/publication-drafts/update',
-      '/admin/publication-batches',
-      '/api/admin/publication-batches',
-      '/admin/publication-batches/assign',
-      '/api/admin/publication-batches/assign',
-      '/admin/publication-batches/unassign',
-      '/api/admin/publication-batches/unassign',
-      '/admin/publication-batches/schedule',
-      '/api/admin/publication-batches/schedule',
-      '/admin/publication-batches/publish',
-      '/api/admin/publication-batches/publish',
-      '/admin/publication-batches/publish-social',
-      '/api/admin/publication-batches/publish-social',
-      '/admin/publication-batches/cancel',
-      '/api/admin/publication-batches/cancel',
-      '/admin/publication-slots',
-      '/api/admin/publication-slots',
-      '/admin/publication-slots/update',
-      '/api/admin/publication-slots/update',
-      '/admin/publication-slots/assign-batch',
-      '/api/admin/publication-slots/assign-batch',
-      '/admin/publication-slots/assign-draft',
-      '/api/admin/publication-slots/assign-draft',
-      '/admin/publication-slots/publish',
-      '/api/admin/publication-slots/publish',
-      '/admin/publication-slots/cancel',
-      '/api/admin/publication-slots/cancel',
-      '/admin/social-publication-jobs',
-      '/api/admin/social-publication-jobs',
-      '/admin/audit-log',
-      '/api/admin/audit-log',
-      '/admin/sponsorships',
-      '/api/admin/sponsorships',
-      '/admin/sponsorships/logo',
-      '/api/admin/sponsorships/logo',
-      '/admin/sponsorships/logo/delete',
-      '/api/admin/sponsorships/logo/delete',
-      '/admin/sponsorships/media',
-      '/api/admin/sponsorships/media',
-      '/admin/sponsorships/media/review',
-      '/api/admin/sponsorships/media/review',
-      '/admin/sponsorships/media/delete',
-      '/api/admin/sponsorships/media/delete',
-      '/admin/sponsorships/review',
-      '/api/admin/sponsorships/review',
-      '/admin/sponsorships/details',
-      '/api/admin/sponsorships/details',
-      '/admin/sponsorships/interventions',
-      '/api/admin/sponsorships/interventions',
-      '/admin/sponsorships/refund',
-      '/api/admin/sponsorships/refund',
-      '/admin/sponsorships/publication',
-      '/api/admin/sponsorships/publication'
-    ) ||
-    routeStartsWith(
-      request.url,
-      '/admin/sponsorships/media/content/',
-      '/api/admin/sponsorships/media/content/'
-    )
-  ) {
-    return adminRateLimiter;
-  }
-
-  return null;
-};
-
 const getDatabaseConnectionStatus = async (): Promise<boolean> => {
   if (!dbPool) {
     return false;
@@ -2067,7 +1545,9 @@ const buildAdminSetupStatus = async (): Promise<AdminSetupStatusResponse> => {
       prefix: sponsorshipInvoiceConfig.invoicePrefix,
       issuer_name: sponsorshipInvoiceConfig.issuerName || null,
       issuer_email: sponsorshipInvoiceConfig.issuerEmail || null,
-      issuer_address_configured: Boolean(sponsorshipInvoiceConfig.issuerAddress),
+      issuer_address_configured: Boolean(
+        sponsorshipInvoiceConfig.issuerAddress
+      ),
       issuer_tax_id_configured: Boolean(sponsorshipInvoiceConfig.issuerTaxId),
       tax_label: sponsorshipInvoiceConfig.taxLabel,
       ready: Boolean(
@@ -2176,7 +1656,9 @@ const runAdminSponsorshipReviewReminderWorker = async (): Promise<void> => {
   }
 };
 
-const publicationAutomation = dbPool ? new PublicationAutomationService(dbPool, sponsorMediaStorage) : null;
+const publicationAutomation = dbPool
+  ? new PublicationAutomationService(dbPool, sponsorMediaStorage)
+  : null;
 const contributionNotifications = contributionNotificationConfig(process.env);
 const contributionActivity = dbPool
   ? new ContributionActivityService(dbPool, contributionNotifications)
@@ -2185,13 +1667,23 @@ const runContributionActivity = async (): Promise<void> => {
   try {
     await contributionActivity?.tick();
   } catch {
-    console.error('Contribution activity worker interrupted; verify migration 027 and database availability.');
+    console.error(
+      'Contribution activity worker interrupted; verify migration 027 and database availability.'
+    );
   }
 };
-const adminPilotage = dbPool && publicationAutomation ? new AdminPilotageService(dbPool, publicationAutomation) : null;
+const adminPilotage =
+  dbPool && publicationAutomation
+    ? new AdminPilotageService(dbPool, publicationAutomation)
+    : null;
 const runPublicationWorker = async (): Promise<void> => {
-  try { await publicationAutomation?.tick(); }
-  catch { console.error('Publication worker interrupted; inspect publication exceptions and database availability.'); }
+  try {
+    await publicationAutomation?.tick();
+  } catch {
+    console.error(
+      'Publication worker interrupted; inspect publication exceptions and database availability.'
+    );
+  }
 };
 
 const handleRequest = async (
@@ -2203,8 +1695,7 @@ const handleRequest = async (
     return;
   }
 
-  const rateLimiter = getRequestRateLimiter(request);
-  if (rateLimiter && !enforceRateLimit(request, response, rateLimiter)) {
+  if (!enforceRequestRateLimit(request, response)) {
     return;
   }
   if (
@@ -2230,7 +1721,10 @@ const handleRequest = async (
     return;
   }
 
-  if (request.method === 'GET' && routeMatches(request.url, '/admin/auth/config', '/api/admin/auth/config')) {
+  if (
+    request.method === 'GET' &&
+    routeMatches(request.url, '/admin/auth/config', '/api/admin/auth/config')
+  ) {
     writeJson(request, response, 200, { mode: adminAuthMode });
     return;
   }
@@ -2239,7 +1733,9 @@ const handleRequest = async (
       await adminIdentity.resolve(request);
       if (await adminIdentity.handle(request, response)) return;
     } catch {
-      writeJson(request, response, 503, { error: 'Identity service unavailable.' });
+      writeJson(request, response, 503, {
+        error: 'Identity service unavailable.'
+      });
       return;
     }
   }
@@ -2264,16 +1760,19 @@ const handleRequest = async (
     const actor = getAdminAuditActor(request);
     try {
       if (request.method === 'GET') {
-        const id = new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
-          'id'
-        );
+        const id = new URL(
+          request.url ?? '/',
+          publicBaseOrigin
+        ).searchParams.get('id');
         writeJson(request, response, 200, {
           run: await adminStripeBackfill.read(id, actor)
         });
       } else if (request.method === 'POST') {
         if (
           request.headers.origin &&
-          ![publicBaseOrigin, ...allowedOrigins].includes(request.headers.origin)
+          ![publicBaseOrigin, ...allowedOrigins].includes(
+            request.headers.origin
+          )
         ) {
           writeJson(request, response, 403, { code: 'ORIGIN_FORBIDDEN' });
           return;
@@ -2373,8 +1872,12 @@ const handleRequest = async (
             ? await adminPilotage.editorial.variant(input)
             : await adminPilotage.editorial.propose(input);
           writeJson(request, response, 200, result);
-        } else writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
-      } else if (request.method === 'POST' && url.pathname.endsWith('/command')) {
+        } else
+          writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
+      } else if (
+        request.method === 'POST' &&
+        url.pathname.endsWith('/command')
+      ) {
         if (
           !request.headers['content-type']
             ?.toLowerCase()
@@ -2392,7 +1895,10 @@ const handleRequest = async (
             owner
           )
         );
-      } else if (request.method === 'POST' && url.pathname.endsWith('/receipt')) {
+      } else if (
+        request.method === 'POST' &&
+        url.pathname.endsWith('/receipt')
+      ) {
         if (!writable) throw new PilotError('READ_ONLY', 403);
         if (
           !request.headers['content-type']
@@ -2409,7 +1915,10 @@ const handleRequest = async (
             actor
           )
         );
-      } else if (request.method === 'GET' && url.pathname.endsWith('/receipt')) {
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.endsWith('/receipt')
+      ) {
         const result = await adminPilotage.readReceipt(
           url.searchParams.get('id') ?? '',
           actor
@@ -2420,7 +1929,10 @@ const handleRequest = async (
           result ? 200 : 404,
           result ?? { code: 'RECEIPT_NOT_FOUND' }
         );
-      } else if (request.method === 'GET' && url.pathname.endsWith('/pilotage')) {
+      } else if (
+        request.method === 'GET' &&
+        url.pathname.endsWith('/pilotage')
+      ) {
         const page = Number(url.searchParams.get('page') ?? 1);
         if (!Number.isSafeInteger(page) || page < 1)
           throw new PilotError('INVALID_QUERY', 400);
@@ -2443,7 +1955,8 @@ const handleRequest = async (
       writeJson(
         request,
         response,
-        error instanceof PilotError || error instanceof PublicationAutomationError
+        error instanceof PilotError ||
+          error instanceof PublicationAutomationError
           ? error.status
           : error instanceof SyntaxError
             ? 400
@@ -2460,7 +1973,13 @@ const handleRequest = async (
     return;
   }
 
-  if (routeMatches(request.url, '/admin/contribution-activity/present', '/api/admin/contribution-activity/present')) {
+  if (
+    routeMatches(
+      request.url,
+      '/admin/contribution-activity/present',
+      '/api/admin/contribution-activity/present'
+    )
+  ) {
     if (!ensureAdminAccess(request, response)) return;
     if (request.method !== 'POST') {
       writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
@@ -2483,7 +2002,13 @@ const handleRequest = async (
     }
     return;
   }
-  if (routeMatches(request.url, '/admin/contribution-activity', '/api/admin/contribution-activity')) {
+  if (
+    routeMatches(
+      request.url,
+      '/admin/contribution-activity',
+      '/api/admin/contribution-activity'
+    )
+  ) {
     if (!ensureAdminAccess(request, response)) return;
     if (request.method !== 'GET') {
       writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
@@ -2499,7 +2024,10 @@ const handleRequest = async (
       writeJson(request, response, 200, result);
     } catch (error) {
       writeJson(request, response, error instanceof RangeError ? 400 : 503, {
-        code: error instanceof RangeError ? 'INVALID_ACTIVITY_CURSOR' : 'ACTIVITY_UNAVAILABLE'
+        code:
+          error instanceof RangeError
+            ? 'INVALID_ACTIVITY_CURSOR'
+            : 'ACTIVITY_UNAVAILABLE'
       });
     }
     return;
@@ -4303,7 +3831,11 @@ const handleRequest = async (
       return;
     }
 
-    const logo = parseSponsorLogoUpload(parts, contributionId);
+    const logo = parseSponsorLogoUpload(
+      parts,
+      contributionId,
+      sponsorLogoMaxBytes
+    );
     if (!logo) {
       writeJson(request, response, 400, {
         error: 'Sponsor logo must be a valid PNG, JPEG, or WebP image.'
@@ -4675,9 +4207,10 @@ const handleRequest = async (
     }
     try {
       if (request.method === 'GET') {
-        const id = new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
-          'requestId'
-        );
+        const id = new URL(
+          request.url ?? '/',
+          publicBaseOrigin
+        ).searchParams.get('requestId');
         if (id !== null && !isBackupId(id))
           throw new BackupError('INVALID_BACKUP_REQUEST', 400);
         writeJson(
@@ -4688,8 +4221,10 @@ const handleRequest = async (
         );
       } else if (request.method === 'POST') {
         if (
-          request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
-          'application/json'
+          request.headers['content-type']
+            ?.split(';')[0]
+            .trim()
+            .toLowerCase() !== 'application/json'
         )
           throw new BackupError('INVALID_BACKUP_REQUEST', 415);
         let input: Record<string, unknown>;
@@ -4724,7 +4259,9 @@ const handleRequest = async (
         request,
         response,
         error instanceof BackupError ? error.status : 503,
-        { code: error instanceof BackupError ? error.code : 'BACKUP_UNAVAILABLE' }
+        {
+          code: error instanceof BackupError ? error.code : 'BACKUP_UNAVAILABLE'
+        }
       );
     }
     return;
@@ -4886,7 +4423,10 @@ const handleRequest = async (
 
     try {
       const result = await listAdminEmailQueue(dbPool, {
-        id: new URL(request.url ?? '/', publicBaseOrigin).searchParams.get('messageId') ?? undefined
+        id:
+          new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+            'messageId'
+          ) ?? undefined
       });
       writeJson(request, response, 200, result);
     } catch (error) {
@@ -5013,7 +4553,9 @@ const handleRequest = async (
     try {
       const result = await listAdminSponsorshipInvoices(
         dbPool,
-        new URL(request.url ?? '/', publicBaseOrigin).searchParams.get('contributionId') ?? undefined
+        new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+          'contributionId'
+        ) ?? undefined
       );
       writeJson(request, response, 200, result);
     } catch (error) {
@@ -5054,9 +4596,12 @@ const handleRequest = async (
           ) as Partial<AdminSponsorshipInvoiceBackfillRequest> | null)
         : {};
       if (
-        raw && 'contributionId' in raw &&
+        raw &&
+        'contributionId' in raw &&
         (typeof raw.contributionId !== 'string' ||
-          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw.contributionId))
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            raw.contributionId
+          ))
       ) {
         throw new Error('Invalid contributionId');
       }
@@ -5549,15 +5094,31 @@ const handleRequest = async (
     const id =
       new URL(request.url!, publicBaseOrigin).searchParams.get('eventId') ?? '';
     if (!validStripeEventId(id)) {
-      writeJson(request, response, 400,
-        { error: 'Invalid event identifier.' }, headers);
+      writeJson(
+        request,
+        response,
+        400,
+        { error: 'Invalid event identifier.' },
+        headers
+      );
       return;
     }
     try {
-      writeJson(request, response, 200,
-        await getAdminStripeEvent(dbPool, id), headers);
+      writeJson(
+        request,
+        response,
+        200,
+        await getAdminStripeEvent(dbPool, id),
+        headers
+      );
     } catch {
-      writeJson(request, response, 503, { error: 'Event unavailable.' }, headers);
+      writeJson(
+        request,
+        response,
+        503,
+        { error: 'Event unavailable.' },
+        headers
+      );
     }
     return;
   }
@@ -5567,25 +5128,58 @@ const handleRequest = async (
     if (!ensureAdminAuthorization(request, response)) return;
     const headers = { 'Cache-Control': 'private, no-store' };
     if (request.method !== 'POST') {
-      writeJson(request, response, 405, { error: 'Use POST for admin search.' }, { ...headers, Allow: 'POST' });
+      writeJson(
+        request,
+        response,
+        405,
+        { error: 'Use POST for admin search.' },
+        { ...headers, Allow: 'POST' }
+      );
       return;
     }
-    if (request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !== 'application/json') {
-      writeJson(request, response, 415, { error: 'JSON body required.' }, headers);
+    if (
+      request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !==
+      'application/json'
+    ) {
+      writeJson(
+        request,
+        response,
+        415,
+        { error: 'JSON body required.' },
+        headers
+      );
       return;
     }
     let query;
     try {
       query = parseAdminSearch(JSON.parse(await readBody(request, 4096)));
     } catch {
-      writeJson(request, response, 400, { error: 'Invalid search or pagination.' }, headers);
+      writeJson(
+        request,
+        response,
+        400,
+        { error: 'Invalid search or pagination.' },
+        headers
+      );
       return;
     }
     try {
-      writeJson(request, response, 200, await searchAdmin(dbPool, query), headers);
+      writeJson(
+        request,
+        response,
+        200,
+        await searchAdmin(dbPool, query),
+        headers
+      );
     } catch {
       // Database errors can contain query parameters: never log them here.
-      writeJson(request, response, 503, { error: 'Admin search unavailable.' }, headers);
+      writeJson(
+        request,
+        response,
+        503,
+        { error: 'Admin search unavailable.' },
+        headers
+      );
     }
     return;
   }
@@ -5597,17 +5191,29 @@ const handleRequest = async (
     if (!ensureAdminAuthorization(request, response)) return;
     let query;
     try {
-      query = parseWorkQueueQuery(new URL(request.url ?? '/', publicBaseOrigin).searchParams);
+      query = parseWorkQueueQuery(
+        new URL(request.url ?? '/', publicBaseOrigin).searchParams
+      );
     } catch {
-      writeJson(request, response, 400, { error: 'Invalid attention filters or pagination.' });
+      writeJson(request, response, 400, {
+        error: 'Invalid attention filters or pagination.'
+      });
       return;
     }
     try {
-      writeJson(request, response, 200, await getAdminWorkQueue(dbPool, query), {
-        'Cache-Control': 'private, no-store'
-      });
+      writeJson(
+        request,
+        response,
+        200,
+        await getAdminWorkQueue(dbPool, query),
+        {
+          'Cache-Control': 'private, no-store'
+        }
+      );
     } catch {
-      writeJson(request, response, 502, { error: 'Admin attention queue could not be loaded.' });
+      writeJson(request, response, 502, {
+        error: 'Admin attention queue could not be loaded.'
+      });
     }
     return;
   }
@@ -5637,7 +5243,9 @@ const handleRequest = async (
       });
     } catch {
       writeJson(
-        request, response, 503,
+        request,
+        response,
+        503,
         { error: 'Cockpit data unavailable.', code: 'COCKPIT_UNAVAILABLE' },
         { 'Cache-Control': 'private, no-store' }
       );
@@ -5667,7 +5275,11 @@ const handleRequest = async (
 
   if (
     request.method === 'GET' &&
-    routeMatches(request.url, '/admin/sponsorships/progress', '/api/admin/sponsorships/progress')
+    routeMatches(
+      request.url,
+      '/admin/sponsorships/progress',
+      '/api/admin/sponsorships/progress'
+    )
   ) {
     if (!ensureAdminAuthorization(request, response)) return;
     const id = new URL(request.url!, 'http://localhost').searchParams.get(
@@ -5679,13 +5291,17 @@ const handleRequest = async (
     }
     try {
       writeJson(
-        request, response, 200,
+        request,
+        response,
+        200,
         await getSponsorshipProgress(dbPool, id ?? undefined),
         { 'Cache-Control': 'private, no-store' }
       );
     } catch {
       writeJson(
-        request, response, 503,
+        request,
+        response,
+        503,
         { error: 'Sponsorship progress unavailable.' },
         { 'Cache-Control': 'private, no-store' }
       );
@@ -5831,7 +5447,10 @@ const handleRequest = async (
 
     const message =
       typeof parsed?.message === 'string' ? parsed.message.trim() : '';
-    if (parsed?.sponsorshipId !== undefined && !isValidUuid(parsed.sponsorshipId)) {
+    if (
+      parsed?.sponsorshipId !== undefined &&
+      !isValidUuid(parsed.sponsorshipId)
+    ) {
       writeJson(request, response, 400, { error: 'Invalid sponsorship ID.' });
       return;
     }
@@ -5907,7 +5526,9 @@ const handleRequest = async (
     ];
     if (
       !allowedDraftTypes.includes(parsed?.type) ||
-      (parsed.language !== undefined && parsed.language !== 'fr-CA' && parsed.language !== 'en')
+      (parsed.language !== undefined &&
+        parsed.language !== 'fr-CA' &&
+        parsed.language !== 'en')
     ) {
       writeJson(request, response, 400, {
         error: 'A valid draft type is required.'
@@ -5932,7 +5553,9 @@ const handleRequest = async (
         status: result.status,
         durationMs: Date.now() - startedAt
       });
-      writeJson(request, response, 200, result, { 'Cache-Control': 'private, no-store' });
+      writeJson(request, response, 200, result, {
+        'Cache-Control': 'private, no-store'
+      });
     } catch (error) {
       console.error('Failed to prepare admin assistant draft.', error);
       writeJson(request, response, 502, {
@@ -5955,9 +5578,19 @@ const handleRequest = async (
     }
 
     try {
-      const contributionId = new URL(request.url!, publicBaseOrigin).searchParams.get('contributionId') ?? undefined;
-      if (contributionId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contributionId)) {
-        writeJson(request, response, 400, { error: 'Invalid contribution identifier.' });
+      const contributionId =
+        new URL(request.url!, publicBaseOrigin).searchParams.get(
+          'contributionId'
+        ) ?? undefined;
+      if (
+        contributionId !== undefined &&
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          contributionId
+        )
+      ) {
+        writeJson(request, response, 400, {
+          error: 'Invalid contribution identifier.'
+        });
         return;
       }
       const result = await listAdminContributions(dbPool, contributionId);
@@ -6050,8 +5683,10 @@ const handleRequest = async (
     }
 
     try {
-      const expenseId = new URL(request.url ?? '/', 'http://localhost')
-        .searchParams.get('expenseId');
+      const expenseId = new URL(
+        request.url ?? '/',
+        'http://localhost'
+      ).searchParams.get('expenseId');
       response.setHeader('Cache-Control', 'no-store');
       if (
         expenseId !== null &&
@@ -6116,7 +5751,10 @@ const handleRequest = async (
     }
 
     if (
-      !isNonEmptySponsorText(parsed.expectedOutcome, ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH)
+      !isNonEmptySponsorText(
+        parsed.expectedOutcome,
+        ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH
+      )
     ) {
       writeJson(request, response, 400, {
         error: 'Expense expected outcome is invalid.'
@@ -6448,7 +6086,10 @@ const handleRequest = async (
 
     try {
       const result = await listAdminPublicationDrafts(dbPool, {
-        id: new URL(request.url ?? '/', publicBaseOrigin).searchParams.get('draftId') ?? undefined
+        id:
+          new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+            'draftId'
+          ) ?? undefined
       });
       writeJson(request, response, 200, result);
     } catch (error) {
@@ -6686,7 +6327,10 @@ const handleRequest = async (
 
     try {
       const result = await listAdminPublicationSlots(dbPool, {
-        id: new URL(request.url ?? '/', publicBaseOrigin).searchParams.get('slotId') ?? undefined
+        id:
+          new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+            'slotId'
+          ) ?? undefined
       });
       writeJson(request, response, 200, result);
     } catch (error) {
@@ -7172,7 +6816,10 @@ const handleRequest = async (
 
     try {
       const result = await listAdminPublicationBatches(dbPool, {
-        id: new URL(request.url ?? '/', publicBaseOrigin).searchParams.get('batchId') ?? undefined
+        id:
+          new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
+            'batchId'
+          ) ?? undefined
       });
       writeJson(request, response, 200, result);
     } catch (error) {
@@ -7556,9 +7203,20 @@ const handleRequest = async (
     return;
   }
 
-  if (request.method === 'POST' && routeMatches(request.url, '/admin/publication-batches/publish-social', '/api/admin/publication-batches/publish-social')) {
+  if (
+    request.method === 'POST' &&
+    routeMatches(
+      request.url,
+      '/admin/publication-batches/publish-social',
+      '/api/admin/publication-batches/publish-social'
+    )
+  ) {
     if (!ensureAdminAccess(request, response)) return;
-    writeJson(request, response, 409, { code: 'FINAL_APPROVAL_REQUIRED', error: 'Prepare and approve the exact publication in /admin/fundraiser/publications/automation.' });
+    writeJson(request, response, 409, {
+      code: 'FINAL_APPROVAL_REQUIRED',
+      error:
+        'Prepare and approve the exact publication in /admin/fundraiser/publications/automation.'
+    });
     return;
   }
 
@@ -7628,8 +7286,10 @@ const handleRequest = async (
     }
 
     try {
-      const entryId = new URL(request.url ?? '/', 'http://localhost')
-        .searchParams.get('entryId');
+      const entryId = new URL(
+        request.url ?? '/',
+        'http://localhost'
+      ).searchParams.get('entryId');
       response.setHeader('Cache-Control', 'no-store');
       if (entryId !== null && !isValidUuid(entryId)) {
         writeJson(request, response, 400, { error: 'Invalid entryId.' });
@@ -8815,8 +8475,7 @@ const handleRequest = async (
     } catch (error) {
       console.error('Failed to build public fund transparency summary.', error);
       writeJson(request, response, 502, {
-        error:
-          'Public fund transparency summary could not be loaded.'
+        error: 'Public fund transparency summary could not be loaded.'
       });
     }
     return;
@@ -8864,10 +8523,11 @@ createServer((request, response) => {
     console.error('Unhandled API request failure.');
     if (response.destroyed || response.writableEnded) return;
     if (response.headersSent) response.destroy();
-    else writeJson(request, response, 500, {
-      code: 'INTERNAL_ERROR',
-      error: 'The request could not be completed.'
-    });
+    else
+      writeJson(request, response, 500, {
+        code: 'INTERNAL_ERROR',
+        error: 'The request could not be completed.'
+      });
   });
 }).listen(port, () => {
   console.log(`Funding API listening on http://localhost:${port}`);
@@ -8880,10 +8540,16 @@ createServer((request, response) => {
 
   void runEmailQueueWorker();
   void runContributionActivity();
-  const contributionTimer = setInterval(() => void runContributionActivity(), 2000);
+  const contributionTimer = setInterval(
+    () => void runContributionActivity(),
+    2000
+  );
   contributionTimer.unref();
   void runPublicationWorker();
-  const publicationTimer = setInterval(() => void runPublicationWorker(), 30000);
+  const publicationTimer = setInterval(
+    () => void runPublicationWorker(),
+    30000
+  );
   publicationTimer.unref();
   void runAdminSponsorshipReviewReminderWorker();
   const emailQueueTimer = setInterval(

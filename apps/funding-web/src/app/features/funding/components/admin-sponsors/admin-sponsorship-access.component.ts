@@ -32,16 +32,16 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
         display: block;
         margin: 1rem 0;
         padding: 1rem;
-        border: 1px solid #334155;
+        border: 1px solid var(--admin-border);
         border-radius: 1rem;
       }
       button {
         padding: 0.7rem 1rem;
-        border: 1px solid #64748b;
+        border: 1px solid var(--admin-border);
         border-radius: 0.7rem;
       }
       button:focus-visible {
-        outline: 2px solid #22d3ee;
+        outline: 2px solid var(--admin-focus);
         outline-offset: 3px;
       }
       button:disabled {
