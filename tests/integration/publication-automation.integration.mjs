@@ -195,6 +195,116 @@ test(
       }
     );
     await t.test(
+      'extracted source and media reads hold real row locks until their caller ends the transaction',
+      async () => {
+        await reset();
+        await activate();
+        const contributionId = await sponsor();
+        const mediaId = await presentation(contributionId);
+        await service.prepare(feedId, 'planner');
+        const job = (await service.state()).deliveries[0];
+        const draftId = (
+          await pool.query(
+            'SELECT id FROM sponsor_publication_drafts WHERE batch_id=$1',
+            [job.batchId]
+          )
+        ).rows[0].id;
+        const contributionUpdate = {
+          sql: 'UPDATE fund_contributions SET sponsor_company_name=sponsor_company_name WHERE id=$1',
+          id: contributionId
+        };
+        const cases = [
+          {
+            read: (db) => service.sources(db, job.batchId, feedId, true),
+            writes: [
+              {
+                sql: 'UPDATE sponsor_publication_batches SET capacity=capacity WHERE id=$1',
+                id: job.batchId
+              },
+              {
+                sql: 'UPDATE sponsor_publication_drafts SET title=title WHERE id=$1',
+                id: draftId
+              },
+              contributionUpdate
+            ]
+          },
+          {
+            read: (db) => service.mediaRecord(db, mediaId),
+            writes: [
+              {
+                sql: 'UPDATE sponsor_media_assets SET alt_text=alt_text WHERE id=$1',
+                id: mediaId
+              },
+              contributionUpdate
+            ]
+          }
+        ];
+        for (const scenario of cases) {
+          const holder = await pool.connect();
+          const writer = await pool.connect();
+          try {
+            await holder.query('BEGIN');
+            await scenario.read(holder);
+            for (const write of scenario.writes) {
+              await writer.query('BEGIN');
+              await writer.query("SET LOCAL lock_timeout='150ms'");
+              await assert.rejects(writer.query(write.sql, [write.id]), {
+                code: '55P03'
+              });
+              await writer.query('ROLLBACK');
+            }
+            await holder.query('ROLLBACK');
+            for (const write of scenario.writes)
+              assert.equal(
+                (await writer.query(write.sql, [write.id])).rowCount,
+                1
+              );
+          } finally {
+            await holder.query('ROLLBACK');
+            await writer.query('ROLLBACK');
+            holder.release();
+            writer.release();
+          }
+        }
+      }
+    );
+    await t.test(
+      'source review comparisons preserve PostgreSQL microseconds after extraction',
+      async () => {
+        await reset();
+        await activate();
+        const contributionId = await sponsor();
+        await service.prepare(feedId, 'planner');
+        const job = (await service.state()).deliveries[0];
+        const approvedAt = '2030-01-01T12:00:00.123456Z';
+        const submittedAt = '2030-01-01T12:00:00.123457Z';
+        assert.equal(
+          new Date(approvedAt).getTime(),
+          new Date(submittedAt).getTime()
+        );
+        await pool.query(
+          "UPDATE publication_deliveries SET status='approved',approved_at=$2::timestamptz WHERE id=$1",
+          [job.id, approvedAt]
+        );
+        await pool.query(
+          'UPDATE fund_contributions SET sponsor_details_submitted_at=$2::timestamptz WHERE id=$1',
+          [contributionId, submittedAt]
+        );
+        assert.deepEqual(await service.sourceIssues(job.id), {
+          codes: ['SPONSOR_REVIEW_REQUIRED'],
+          excludedSponsorIds: [contributionId]
+        });
+        await pool.query(
+          'UPDATE fund_contributions SET sponsor_details_submitted_at=$2::timestamptz WHERE id=$1',
+          [contributionId, approvedAt]
+        );
+        assert.deepEqual(await service.sourceIssues(job.id), {
+          codes: [],
+          excludedSponsorIds: []
+        });
+      }
+    );
+    await t.test(
       'worker control persists across instances, requires confirmation and rejects stale decisions',
       async () => {
         await reset();

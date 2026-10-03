@@ -1,7 +1,4 @@
-import { isDeepStrictEqual } from 'node:util';
-
 import type { Pool, PoolClient } from 'pg';
-import sharp from 'sharp';
 import type {
   PublicationAutomationCommand,
   PublicationAutomationState,
@@ -11,7 +8,6 @@ import type {
 } from '@openg7/funding-core';
 import type { ProgrammeIssue } from '@openg7/funding-core';
 
-import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../../../../packages/funding-core/src/index.js';
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 import { isSocialPublicationChannelConfigured } from '../social-publication.service.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
@@ -35,25 +31,25 @@ import {
   sendDelivery,
   verifyRemote
 } from './provider.js';
+import {
+  type Db,
+  type Source,
+  eligibleDestination,
+  sourceEqual,
+  sourceMessage,
+  sourceIssues,
+  repairSources,
+  sources
+} from './sources.js';
+import {
+  type Media,
+  mediaOptions,
+  mediaRecord,
+  resolveMedia,
+  mediaSnapshotIssue
+} from './media.js';
+import { ready } from './preflight.js';
 
-type Db = Pool | PoolClient;
-interface Source {
-  id: string;
-  contribution_id: string;
-  title: string;
-  body: string;
-  disclosure_text: string;
-  feed_target: string;
-  channel: string;
-}
-interface Media {
-  id: string;
-  url: string;
-  alt: string;
-  key: string;
-  hash: string;
-  version: string;
-}
 interface DeliveryRow {
   id: string;
   feed_id: PublicationFeedId;
@@ -122,21 +118,6 @@ async function audit(
     ]
   );
 }
-const sourceEqual = (a: Source[], b: Source[]) => isDeepStrictEqual(a, b);
-const sourceMessage = (sources: Source[]) =>
-  sources
-    .map((s) =>
-      [s.title, s.body, s.disclosure_text].filter(Boolean).join('\n\n')
-    )
-    .join('\n\n');
-// Explicit destinations take precedence. Unassigned CAD orders use the existing
-// promised benefits, routed to OpenG7; preparation does not publish the profile.
-const eligibleDestination = (alias: string, target: string, channel: string) =>
-  `COALESCE(${alias}.sponsor_feed_target,'openg7')=${target} AND (
-    ${alias}.sponsor_feed_channels ? ${channel} OR (
-      ${alias}.sponsor_feed_channels='[]'::jsonb AND lower(${alias}.currency)='cad'
-      AND ${alias}.amount_cents >= CASE WHEN ${channel}='facebook' THEN ${DEFAULT_SPONSORSHIP_PRICING_CONFIG.benefits.facebookBatch.minimumAmount * 100} ELSE ${DEFAULT_SPONSORSHIP_PRICING_CONFIG.benefits.linkedinBatch.minimumAmount * 100} END))`;
-
 export class PublicationAutomationService {
   private running = false;
   constructor(
@@ -230,66 +211,11 @@ export class PublicationAutomationService {
     id: string,
     db: Db = this.pool
   ): Promise<{ codes: string[]; excludedSponsorIds: string[] }> {
-    const rows = (
-      await db.query(
-        `SELECT c.id,c.status,c.public_display_consent,c.sponsor_review_status,c.sponsor_feed_status,
-          (d.status IN ('approved','publishing') AND
-            (c.sponsor_review_status = 'pending_review' OR c.sponsor_details_submitted_at > d.approved_at)) AS review_changed,
-          (${eligibleDestination('c', 's.feed_target', 's.channel')}) destination_eligible
-         FROM publication_deliveries d JOIN sponsor_publication_drafts s ON s.batch_id=d.batch_id
-         JOIN fund_contributions c ON c.id=s.contribution_id WHERE d.id=$1`,
-        [id]
-      )
-    ).rows;
-    const codes = new Set<string>();
-    const excludedSponsorIds: string[] = [];
-    for (const r of rows) {
-      const invalid =
-        r.status !== 'paid' ||
-        !r.public_display_consent ||
-        r.sponsor_review_status === 'rejected' ||
-        r.review_changed ||
-        r.sponsor_feed_status === 'hidden' ||
-        !r.destination_eligible;
-      if (!invalid) continue;
-      excludedSponsorIds.push(r.id);
-      if (r.status !== 'paid') codes.add('PAYMENT_REQUIRED');
-      if (!r.public_display_consent) codes.add('CONSENT_WITHDRAWN');
-      if (r.review_changed) codes.add('SPONSOR_REVIEW_REQUIRED');
-      if (
-        r.sponsor_review_status === 'rejected' ||
-        r.sponsor_feed_status === 'hidden'
-      )
-        codes.add('SOURCE_NOT_ELIGIBLE');
-      if (!r.destination_eligible) codes.add('DESTINATION_CHANGED');
-    }
-    return {
-      codes: [...codes].sort(),
-      excludedSponsorIds: excludedSponsorIds.sort()
-    };
+    return sourceIssues(db, id);
   }
 
   private async repairSources(row: DeliveryRow, db: Db) {
-    const batch = (
-      await db.query(
-        'SELECT capacity FROM sponsor_publication_batches WHERE id=$1',
-        [row.batch_id]
-      )
-    ).rows[0];
-    if (!batch) return [];
-    const [target, channel] = row.feed_id.split(':');
-    const rows = (
-      await db.query(
-        `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,c.sponsor_company_name AS name FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE (d.batch_id=$1 OR (d.batch_id IS NULL AND d.slot_id IS NULL)) AND d.feed_target=$2 AND d.channel=$3 AND d.status IN ('draft','approved','scheduled') AND c.status='paid' AND c.public_display_consent IS TRUE AND c.sponsor_review_status IN ('pending_review','approved') AND c.sponsor_feed_status NOT IN ('hidden','published') AND ${eligibleDestination('c', '$2', '$3')} ORDER BY (d.batch_id=$1) DESC NULLS LAST,d.created_at,d.id LIMIT $4`,
-        [row.batch_id, target, channel, batch.capacity]
-      )
-    ).rows as (Source & { name: string })[];
-    const result: typeof rows = [];
-    for (const r of rows) {
-      if (sourceMessage([...result, r]).length > 2900) break;
-      result.push(r);
-    }
-    return result;
+    return repairSources(db, row);
   }
 
   async repairPreview(
@@ -466,20 +392,11 @@ export class PublicationAutomationService {
         const media = row.media_id
           ? await this.mediaRecord(db, row.media_id)
           : null;
-        const mediaCode = row.media_id
-          ? !media
-            ? 'MEDIA_NOT_APPROVED'
-            : !row.media_snapshot ||
-                !isDeepStrictEqual(media, {
-                  id: row.media_snapshot.id,
-                  url: row.media_snapshot.url,
-                  alt: row.media_snapshot.alt,
-                  key: row.media_snapshot.key,
-                  version: row.media_snapshot.version
-                })
-              ? 'MEDIA_CHANGED'
-              : null
-          : null;
+        const mediaCode = mediaSnapshotIssue(
+          row.media_id,
+          row.media_snapshot,
+          media
+        );
         if (mediaCode) {
           await db.query(
             "UPDATE publication_deliveries SET status='blocked',approved_at=NULL,approved_by=NULL,error_code=$2,version=version+1,updated_at=NOW() WHERE id=$1",
@@ -498,27 +415,13 @@ export class PublicationAutomationService {
   async mediaOptions(): Promise<
     { id: string; url: string; alt: string; company: string }[]
   > {
-    const result = await this.pool.query(
-      `SELECT m.id,m.public_url AS url,m.alt_text AS alt,c.sponsor_company_name AS company FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.deleted_at IS NULL AND m.review_status='approved' AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.status='paid' AND m.public_url IS NOT NULL ORDER BY m.created_at DESC LIMIT 200`
-    );
-    return result.rows;
+    return mediaOptions(this.pool);
   }
   private async mediaRecord(db: Db, id: string) {
-    return (
-      await db.query<Omit<Media, 'hash'>>(
-        `SELECT m.id,m.public_url AS url,m.alt_text AS alt,m.processed_storage_key AS key,m.updated_at::text AS version FROM sponsor_media_assets m JOIN fund_contributions c ON c.id=m.contribution_id WHERE m.id=$1 AND m.deleted_at IS NULL AND m.review_status='approved' AND m.public_url IS NOT NULL AND LENGTH(TRIM(m.alt_text))>0 AND c.public_display_consent IS TRUE AND c.sponsor_review_status='approved' AND c.status='paid' FOR SHARE OF m,c`,
-        [id]
-      )
-    ).rows[0];
+    return mediaRecord(db, id);
   }
   private async media(db: Db, id: string | null): Promise<Media | null> {
-    if (!id) return null;
-    assert(validId(id), 'INVALID_MEDIA', 400);
-    const r = await this.mediaRecord(db, id);
-    assert(r, 'MEDIA_NOT_APPROVED');
-    const bytes = await this.storage.readPrivateObject(r.key);
-    assert(bytes, 'MEDIA_UNAVAILABLE');
-    return { ...r, hash: digest(bytes) } as Media;
+    return resolveMedia(db, this.storage, id);
   }
   private async sources(
     db: Db,
@@ -526,115 +429,10 @@ export class PublicationAutomationService {
     feedId: PublicationFeedId,
     allowPending = false
   ): Promise<Source[]> {
-    const batch = (
-      await db.query(
-        `SELECT * FROM sponsor_publication_batches WHERE id=$1 FOR UPDATE`,
-        [batchId]
-      )
-    ).rows[0];
-    assert(
-      batch && ['open', 'scheduled'].includes(batch.status),
-      'BATCH_UNAVAILABLE'
-    );
-    assert(
-      !(
-        await db.query(
-          `SELECT 1 FROM social_publication_jobs WHERE batch_id=$1 AND status IN ('publishing','published','failed')`,
-          [batchId]
-        )
-      ).rowCount,
-      'LEGACY_DELIVERY_EXISTS'
-    );
-    const all = (
-      await db.query(
-        `SELECT d.id,d.contribution_id,d.title,d.body,d.disclosure_text,d.feed_target,d.channel,d.status,c.sponsor_feed_status,c.public_display_consent,c.sponsor_review_status,c.status AS payment_status,(${eligibleDestination('c', 'd.feed_target', 'd.channel')}) AS destination_eligible FROM sponsor_publication_drafts d JOIN fund_contributions c ON c.id=d.contribution_id WHERE d.batch_id=$1 ORDER BY d.id FOR UPDATE OF d,c`,
-        [batchId]
-      )
-    ).rows;
-    assert(all.length > 0 && all.length <= batch.capacity, 'EMPTY_BATCH');
-    assert(
-      all.every(
-        (d) =>
-          `${d.feed_target}:${d.channel}` === feedId &&
-          ['draft', 'approved', 'scheduled'].includes(d.status) &&
-          d.public_display_consent &&
-          (d.sponsor_review_status === 'approved' ||
-            (allowPending && d.sponsor_review_status === 'pending_review')) &&
-          d.destination_eligible &&
-          d.payment_status === 'paid' &&
-          d.sponsor_feed_status !== 'hidden'
-      ),
-      'SOURCE_NOT_ELIGIBLE'
-    );
-    return all.map(
-      ({
-        id,
-        contribution_id,
-        title,
-        body,
-        disclosure_text,
-        feed_target,
-        channel
-      }) => ({
-        id,
-        contribution_id,
-        title,
-        body,
-        disclosure_text,
-        feed_target,
-        channel
-      })
-    );
+    return sources(db, batchId, feedId, allowPending);
   }
   private async ready(db: Db, row: DeliveryRow): Promise<Buffer | null> {
-    const feed = (await this.feeds(db)).find((f) => f.id === row.feed_id)!;
-    assert(
-      feed.configured && feed.connection === 'ready',
-      'CONNECTION_REQUIRED'
-    );
-    assert(
-      feed.accountId === row.account_id && feed.mode === row.mode,
-      'DESTINATION_CHANGED'
-    );
-    if (row.batch_id) {
-      // Lock the dossiers before checking their review timestamps. During
-      // dispatch, a pending review is rejected below with its specific reason.
-      const sources = await this.sources(
-        db,
-        row.batch_id,
-        row.feed_id,
-        Boolean(row.approved_at)
-      );
-      if (row.approved_at) {
-        // Reapproving a dossier cannot revive an older delivery authorization.
-        // Compare in PostgreSQL to preserve timestamp microsecond precision.
-        const issues = await this.sourceIssues(row.id, db);
-        assert(
-          !issues.codes.includes('SPONSOR_REVIEW_REQUIRED'),
-          'SPONSOR_REVIEW_REQUIRED'
-        );
-      }
-      assert(sourceEqual(sources, row.source_snapshot), 'SOURCE_CHANGED');
-    }
-    if (row.batch_id && row.approved_at) {
-      const batch = (
-        await db.query(
-          'SELECT status,scheduled_at FROM sponsor_publication_batches WHERE id=$1',
-          [row.batch_id]
-        )
-      ).rows[0];
-      assert(
-        batch?.status === 'scheduled' &&
-          batch.scheduled_at?.getTime() === row.scheduled_at.getTime(),
-        'SOURCE_CHANGED'
-      );
-    }
-    const media = await this.media(db, row.media_id);
-    assert(isDeepStrictEqual(media, row.media_snapshot), 'MEDIA_CHANGED');
-    if (!media) return null;
-    const bytes = await this.storage.readPrivateObject(media.key);
-    assert(bytes && digest(bytes) === media.hash, 'MEDIA_CHANGED');
-    return sharp(bytes).rotate().jpeg({ quality: 90 }).toBuffer();
+    return ready(db, row, this.storage, (database) => this.feeds(database));
   }
   async command(
     input: PublicationAutomationCommand,

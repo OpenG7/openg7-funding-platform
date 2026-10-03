@@ -288,6 +288,134 @@ test('Stripe event ownership and recovery on disposable PostgreSQL', async (t) =
     }
   );
 
+  for (const order of ['payment-first', 'charge-first']) {
+    await t.test(
+      `late balance facts enrich exactly one payment across replay: ${order}`,
+      async () => {
+        const intent = {
+          id: `pi_late_balance_${order}`,
+          amount: 2500,
+          amount_received: 0,
+          currency: 'cad',
+          created: 1_789_200_000,
+          status: 'succeeded',
+          latest_charge: `ch_late_balance_${order}`,
+          metadata: { projectId: 'openg7' }
+        };
+        const balance = {
+          id: `txn_late_balance_${order}`,
+          amount: 2500,
+          fee: 102,
+          net: 2398,
+          currency: 'cad'
+        };
+        const charge = {
+          id: intent.latest_charge,
+          payment_intent: { id: intent.id },
+          amount: 2500,
+          currency: 'cad',
+          status: 'succeeded',
+          balance_transaction: null,
+          metadata: { projectId: 'openg7' }
+        };
+        const reads = [];
+        const client = {
+          webhooks: stripe.webhooks,
+          charges: {
+            async retrieve(id, options) {
+              assert.equal(id, charge.id);
+              assert.deepEqual(options, { expand: ['balance_transaction'] });
+              return charge;
+            }
+          },
+          balanceTransactions: {
+            async retrieve(id) {
+              reads.push(id);
+              assert.equal(id, balance.id);
+              return balance;
+            }
+          }
+        };
+        const payment = event(
+          `evt_late_payment_${order}`,
+          'payment_intent.succeeded',
+          intent
+        );
+        const transaction = async () =>
+          (
+            await pool.query(
+              'SELECT stripe_balance_transaction_id,amount,fee,net,currency FROM fund_transactions WHERE stripe_object_id=$1',
+              [intent.id]
+            )
+          ).rows;
+        if (order === 'payment-first') {
+          assert.equal((await deliver(pool, payment, client)).statusCode, 200);
+          assert.deepEqual(await transaction(), [
+            {
+              stripe_balance_transaction_id: null,
+              amount: '2500',
+              fee: '0',
+              net: '2500',
+              currency: 'cad'
+            }
+          ]);
+          assert.deepEqual(reads, []);
+        }
+        charge.balance_transaction = balance.id;
+        const update = event(
+          `evt_late_charge_${order}`,
+          'charge.updated',
+          charge
+        );
+        const result = await deliver(pool, update, client);
+        assert.equal(result.statusCode, 200);
+        assert.equal(result.payload.updated, order === 'payment-first');
+        if (order === 'charge-first') {
+          assert.deepEqual(await transaction(), []);
+          assert.equal((await deliver(pool, payment, client)).statusCode, 200);
+        }
+        assert.deepEqual(await transaction(), [
+          {
+            stripe_balance_transaction_id: balance.id,
+            amount: '2500',
+            fee: '102',
+            net: '2398',
+            currency: 'cad'
+          }
+        ]);
+        const readsBeforeReplay = reads.length;
+        assert.equal(
+          (await deliver(pool, update, client)).payload.duplicate,
+          true
+        );
+        assert.equal(
+          (await deliver(pool, payment, client)).payload.duplicate,
+          true
+        );
+        assert.equal(reads.length, readsBeforeReplay);
+        assert.equal(
+          (
+            await deliver(
+              pool,
+              { ...update, id: `evt_late_charge_repeat_${order}` },
+              client
+            )
+          ).statusCode,
+          200
+        );
+        assert.deepEqual(await transaction(), [
+          {
+            stripe_balance_transaction_id: balance.id,
+            amount: '2500',
+            fee: '102',
+            net: '2398',
+            currency: 'cad'
+          }
+        ]);
+      }
+    );
+  }
+
   await t.test(
     'paid English Checkout queues localized links on the configured origin; unpaid returns do not queue them',
     async () => {
