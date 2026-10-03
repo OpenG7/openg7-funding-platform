@@ -1,5 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 
+import { withPostgresTransaction } from '../postgres-transaction.js';
+
 /** A late connection is returned to the pool, including after an acquisition timeout. */
 export const connectForRead = (
   pool: Pool,
@@ -27,21 +29,15 @@ export const connectForRead = (
 export const readSnapshot = async <T>(
   pool: Pool,
   read: (client: PoolClient) => Promise<T>
-): Promise<T> => {
-  const client = await connectForRead(pool);
-  try {
-    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-    await client.query("SET LOCAL statement_timeout = '5000ms'");
-    const result = await read(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-};
+): Promise<T> =>
+  withPostgresTransaction(
+    { connect: () => connectForRead(pool) },
+    async (client) => {
+      await client.query("SET LOCAL statement_timeout = '5000ms'");
+      return read(client);
+    },
+    { readOnlySnapshot: true }
+  );
 
 export const localDay = (date: Date): string =>
   new Intl.DateTimeFormat('en-CA', {

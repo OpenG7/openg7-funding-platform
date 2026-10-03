@@ -261,6 +261,16 @@ export class FundingAdminSession {
     });
   }
 
+  /** Decode JSON endpoints that use the standard status error without invalidation. */
+  async requestAdminData<T>(
+    path: string,
+    options: AdminJsonRequestOptions
+  ): Promise<T> {
+    const response = await this.requestAdminJson(path, options);
+    if (!response.ok) throw new AdminDashboardRequestError(response.status);
+    return response.json() as Promise<T>;
+  }
+
   private async resolveAdminSessionToken(token: string): Promise<string> {
     const trimmed = token.trim();
     if (!trimmed) {
