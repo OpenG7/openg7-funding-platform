@@ -12,10 +12,6 @@ import type {
   AdminAssistantDraftType,
   AdminAssistantPrepareRequest,
   AdminAssistantQueryRequest,
-  AdminEmailQueueRetryRequest,
-  AdminEmailQueueRetryResult,
-  AdminEmailTestRequest,
-  AdminEmailTestResult,
   AdminExpenseCreateRequest,
   AdminExpenseUpdateRequest,
   AdminSponsorshipCreditNoteResendRequest,
@@ -159,6 +155,7 @@ import {
   updateAdminPublicationSlot
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
+import { createAdminEmailHttpHandler } from './admin-email.http.js';
 import {
   loadSponsorMediaLimits,
   SPONSOR_MEDIA_MULTIPART_OVERHEAD_BYTES
@@ -1685,6 +1682,34 @@ const runPublicationWorker = async (): Promise<void> => {
     );
   }
 };
+
+const handleAdminEmailRequest = createAdminEmailHttpHandler({
+  publicBaseOrigin,
+  databaseAvailable: () => Boolean(dbPool),
+  ensureAdminAuthorization,
+  ensureAdminAccess,
+  getAdminAuditActor,
+  readBody,
+  writeJson,
+  getTransactionalEmailConfigStatus,
+  adminNotificationRecipient: () =>
+    process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ?? '',
+  isValidSponsorEmail,
+  isEmailTestRequestId,
+  isValidUuid,
+  EmailConfigurationTestError,
+  getEmailConfigurationTest: (requestId, actor) =>
+    getEmailConfigurationTest(dbPool!, requestId, actor),
+  queueEmailConfigurationTest: (input) =>
+    queueEmailConfigurationTest(dbPool!, input),
+  listAdminEmailQueue: (scope) => listAdminEmailQueue(dbPool, scope),
+  getAdminEmailQueueMessageById: (messageId) =>
+    getAdminEmailQueueMessageById(dbPool, messageId),
+  retryAdminEmailQueueMessage: (messageId) =>
+    retryAdminEmailQueueMessage(dbPool, messageId),
+  insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
+  reportFailure: (message, error) => console.error(message, error)
+});
 
 const handleRequest = async (
   request: ApiRequest,
@@ -4288,253 +4313,7 @@ const handleRequest = async (
     return;
   }
 
-  if (
-    (request.method === 'POST' || request.method === 'GET') &&
-    routeMatches(request.url, '/admin/email/test', '/api/admin/email/test')
-  ) {
-    response.setHeader('Cache-Control', 'private, no-store');
-    if (!ensureAdminAuthorization(request, response)) {
-      return;
-    }
-
-    if (!dbPool) {
-      writeJson(request, response, 503, {
-        error: 'Email test requires DATABASE_URL and migration 010.'
-      });
-      return;
-    }
-
-    if (request.method === 'GET') {
-      const requestId = new URL(
-        request.url ?? '/',
-        publicBaseOrigin
-      ).searchParams.get('requestId');
-      if (!isEmailTestRequestId(requestId)) {
-        writeJson(request, response, 400, { code: 'INVALID_EMAIL_TEST' });
-        return;
-      }
-      try {
-        writeJson(
-          request,
-          response,
-          200,
-          await getEmailConfigurationTest(
-            dbPool,
-            requestId,
-            getAdminAuditActor(request)
-          )
-        );
-      } catch (error) {
-        writeJson(
-          request,
-          response,
-          error instanceof EmailConfigurationTestError ? error.status : 503,
-          {
-            code:
-              error instanceof EmailConfigurationTestError
-                ? error.code
-                : 'EMAIL_TEST_UNAVAILABLE'
-          }
-        );
-      }
-      return;
-    }
-
-    if (!getTransactionalEmailConfigStatus().configured) {
-      writeJson(request, response, 400, {
-        code: 'SMTP_NOT_CONFIGURED',
-        error: 'SMTP email provider is not configured.'
-      });
-      return;
-    }
-
-    if (
-      request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
-      'application/json'
-    ) {
-      writeJson(request, response, 415, { code: 'INVALID_EMAIL_TEST' });
-      return;
-    }
-    let parsed: AdminEmailTestRequest;
-    try {
-      const body = await readBody(request, 16 * 1024);
-      parsed = JSON.parse(body) as AdminEmailTestRequest;
-      if (
-        !parsed ||
-        typeof parsed !== 'object' ||
-        Array.isArray(parsed) ||
-        !isEmailTestRequestId(parsed.requestId) ||
-        Object.keys(parsed).some((key) => !['requestId', 'to'].includes(key)) ||
-        (parsed.to !== undefined && typeof parsed.to !== 'string')
-      )
-        throw new Error('INVALID_EMAIL_TEST');
-    } catch {
-      writeJson(request, response, 400, {
-        code: 'INVALID_EMAIL_TEST',
-        error: 'Invalid email test request body.'
-      });
-      return;
-    }
-
-    const recipient =
-      typeof parsed.to === 'string' && parsed.to.trim()
-        ? parsed.to.trim()
-        : (process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() ?? '');
-
-    if (!isValidSponsorEmail(recipient)) {
-      writeJson(request, response, 400, {
-        code: 'INVALID_RECIPIENT',
-        error: 'A valid test email is required.'
-      });
-      return;
-    }
-
-    try {
-      const result = await queueEmailConfigurationTest(dbPool, {
-        to: recipient,
-        requestId: parsed.requestId,
-        actor: getAdminAuditActor(request)
-      });
-      const payload: AdminEmailTestResult = result;
-      writeJson(request, response, 200, payload);
-    } catch (error) {
-      writeJson(
-        request,
-        response,
-        error instanceof EmailConfigurationTestError ? error.status : 503,
-        {
-          code:
-            error instanceof EmailConfigurationTestError
-              ? error.code
-              : 'EMAIL_TEST_UNAVAILABLE'
-        }
-      );
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(request.url, '/admin/email-queue', '/api/admin/email-queue')
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    try {
-      const result = await listAdminEmailQueue(dbPool, {
-        id:
-          new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
-            'messageId'
-          ) ?? undefined
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load admin email queue.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin email queue could not be loaded. Apply migration 010.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/email-queue/retry',
-      '/api/admin/email-queue/retry'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    if (!dbPool) {
-      writeJson(request, response, 503, {
-        error: 'Email queue retry requires DATABASE_URL and migration 010.'
-      });
-      return;
-    }
-
-    let parsed: AdminEmailQueueRetryRequest;
-    try {
-      const body = await readBody(request, 16 * 1024);
-      const raw = JSON.parse(
-        body
-      ) as Partial<AdminEmailQueueRetryRequest> | null;
-      parsed = {
-        messageId: typeof raw?.messageId === 'string' ? raw.messageId : ''
-      };
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid email queue retry request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.messageId)) {
-      writeJson(request, response, 400, {
-        error: 'Email message id is invalid.'
-      });
-      return;
-    }
-
-    try {
-      const existing = await getAdminEmailQueueMessageById(
-        dbPool,
-        parsed.messageId
-      );
-      if (!existing) {
-        writeJson(request, response, 404, {
-          error: 'Email queue message was not found.'
-        });
-        return;
-      }
-
-      if (existing.status === 'sent') {
-        writeJson(request, response, 409, {
-          error: 'Sent email messages cannot be retried.'
-        });
-        return;
-      }
-
-      const retry = await retryAdminEmailQueueMessage(dbPool, parsed.messageId);
-      const message = await getAdminEmailQueueMessageById(
-        dbPool,
-        parsed.messageId
-      );
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'email_queue.retry',
-        entityType: 'email_message',
-        entityId: parsed.messageId,
-        summary: `Email queue message ${parsed.messageId} retried manually.`,
-        metadata: {
-          templateKey: existing.template_key,
-          recipientEmail: existing.recipient_email,
-          attempted: retry.attempted,
-          sent: retry.sent,
-          failed: retry.failed
-        }
-      });
-
-      const payload: AdminEmailQueueRetryResult = {
-        attempted: retry.attempted,
-        sent: retry.sent,
-        failed: retry.failed,
-        messageIds: retry.messageIds,
-        sentMessageIds: retry.sentMessageIds,
-        failedMessageIds: retry.failedMessageIds,
-        message
-      };
-      writeJson(request, response, 200, payload);
-    } catch (error) {
-      console.error('Failed to retry email queue message.', error);
-      writeJson(request, response, 502, {
-        error: 'Email queue message could not be retried.'
-      });
-    }
+  if (await handleAdminEmailRequest(request, response)) {
     return;
   }
 

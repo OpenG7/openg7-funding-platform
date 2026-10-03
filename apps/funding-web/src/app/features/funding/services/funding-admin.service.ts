@@ -104,22 +104,19 @@ import type {
   AdminAccessAccount,
   AdminAccessResponse
 } from './funding-admin-session.js';
+import {
+  FundingAdminSponsorshipsClient,
+  type AdminSponsorshipListQuery
+} from './funding-admin-sponsorships.client.js';
+import { FundingAdminPublicationsClient } from './funding-admin-publications.client.js';
+import { errorMessageFromResponse } from './funding-admin-response.js';
+export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
 export type {
   AdminIdentityProfile,
   AdminAccessAccount,
   AdminAccessResponse
 } from './funding-admin-session.js';
-export interface AdminSponsorshipListQuery {
-  readonly page: number;
-  readonly pageSize: number;
-  readonly search?: string;
-  readonly reviewStatus?: string;
-  readonly feedStatus?: string;
-  readonly paymentStatus?: string;
-  readonly sort?: string;
-  readonly direction?: 'asc' | 'desc';
-}
 
 @Injectable({ providedIn: 'root' })
 export class FundingAdminService {
@@ -131,6 +128,12 @@ export class FundingAdminService {
       this.workQueue.set(null);
     },
     () => this.workQueue.set(null)
+  );
+  private readonly sponsorshipsClient = new FundingAdminSponsorshipsClient(
+    this.session
+  );
+  private readonly publicationsClient = new FundingAdminPublicationsClient(
+    this.session
   );
   readonly sessionGeneration = this.session.sessionGeneration;
   readonly identity = this.session.identity;
@@ -278,46 +281,16 @@ export class FundingAdminService {
     }
     return response.json() as Promise<T>;
   }
-  async publicationAutomation(
+  publicationAutomation(
     command?: PublicationAutomationCommand,
     filter: import('@openg7/funding-core').PublicationAutomationFilter = {}
   ): Promise<PublicationAutomationState | { id?: string }> {
-    const query = new URLSearchParams();
-    if (!command && filter.sponsorshipId)
-      query.set('sponsorshipId', filter.sponsorshipId);
-    if (!command && filter.deliveryId)
-      query.set('deliveryId', filter.deliveryId);
-    const response = await this.session.requestAdminJson(
-      `/admin/publication-automation${query.size ? `?${query}` : ''}`,
-      {
-        auth: 'saved',
-        method: command ? 'POST' : 'GET',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        ...(command ? { body: command } : {})
-      }
-    );
-    if (!response.ok) {
-      const data = (await response.json().catch(() => ({}))) as {
-        code?: string;
-      };
-      throw new Error(data.code ?? 'AUTOMATION_UNAVAILABLE');
-    }
-    return response.json() as Promise<
-      PublicationAutomationState | { id?: string }
-    >;
+    return this.publicationsClient.publicationAutomation(command, filter);
   }
-  async publicationMedia(): Promise<
+  publicationMedia(): Promise<
     { id: string; url: string; alt: string; company: string }[]
   > {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-automation/media',
-      { auth: 'saved', cache: 'no-store' }
-    );
-    if (!response.ok) throw new Error('AUTOMATION_UNAVAILABLE');
-    return response.json() as Promise<
-      { id: string; url: string; alt: string; company: string }[]
-    >;
+    return this.publicationsClient.publicationMedia();
   }
   authMode(): Promise<'oidc' | 'token'> {
     return this.session.authMode();
@@ -364,18 +337,11 @@ export class FundingAdminService {
     }
   }
 
-  async getSponsorshipProgress(
+  getSponsorshipProgress(
     token: string,
     sponsorshipId?: string
   ): Promise<AdminSponsorshipProgressResponse> {
-    const params = new URLSearchParams(sponsorshipId ? { sponsorshipId } : {});
-    return this.session.requestAdminData(
-      `/admin/sponsorships/progress?${params}`,
-      {
-        auth: { token },
-        cache: 'no-store'
-      }
-    );
+    return this.sponsorshipsClient.getSponsorshipProgress(token, sponsorshipId);
   }
 
   getSavedAdminToken(): string {
@@ -457,7 +423,7 @@ export class FundingAdminService {
 
     if (!response.ok) {
       throw new Error(
-        await this.errorMessageFromResponse(
+        await errorMessageFromResponse(
           response,
           'Admin assistant summary could not be loaded.'
         )
@@ -478,48 +444,31 @@ export class FundingAdminService {
     });
   }
 
-  async requestSponsorshipInformation(
+  requestSponsorshipInformation(
     token: string,
     payload: AdminInformationRequest
   ): Promise<AdminInformationRequestResult> {
-    return this.session.requestAdminData(
-      '/admin/sponsorships/request-information',
-      {
-        auth: { token },
-        method: 'POST',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
+    return this.sponsorshipsClient.requestSponsorshipInformation(
+      token,
+      payload
     );
   }
 
-  async getSponsorshipAccessRecipient(
+  getSponsorshipAccessRecipient(
     token: string,
     contributionId: string
   ): Promise<{ recipient: string | null }> {
-    return this.session.requestAdminData(
-      `/admin/sponsorships/followup-access?${new URLSearchParams({ contributionId })}`,
-      {
-        auth: { token },
-        cache: 'no-store'
-      }
+    return this.sponsorshipsClient.getSponsorshipAccessRecipient(
+      token,
+      contributionId
     );
   }
 
-  async resendSponsorshipAccess(
+  resendSponsorshipAccess(
     token: string,
     payload: import('@openg7/funding-core').AdminSponsorshipAccessRequest
   ): Promise<import('@openg7/funding-core').AdminSponsorshipAccessResult> {
-    return this.session.requestAdminData(
-      '/admin/sponsorships/followup-access',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
+    return this.sponsorshipsClient.resendSponsorshipAccess(token, payload);
   }
 
   async queryAssistant(
@@ -639,7 +588,7 @@ export class FundingAdminService {
 
     if (!response.ok) {
       throw new Error(
-        await this.errorMessageFromResponse(
+        await errorMessageFromResponse(
           response,
           'Admin email queue could not be loaded.'
         )
@@ -665,7 +614,7 @@ export class FundingAdminService {
 
     if (!response.ok) {
       throw new Error(
-        await this.errorMessageFromResponse(
+        await errorMessageFromResponse(
           response,
           'Email queue message could not be retried.'
         )
@@ -690,7 +639,7 @@ export class FundingAdminService {
     if (!response.ok) {
       throw new AdminDashboardRequestError(
         response.status,
-        await this.errorMessageFromResponse(
+        await errorMessageFromResponse(
           response,
           'Admin sponsorship invoices could not be loaded.'
         )
@@ -716,7 +665,7 @@ export class FundingAdminService {
 
     if (!response.ok) {
       throw new Error(
-        await this.errorMessageFromResponse(
+        await errorMessageFromResponse(
           response,
           'Sponsorship invoices could not be backfilled.'
         )
@@ -742,7 +691,7 @@ export class FundingAdminService {
 
     if (!response.ok) {
       throw new Error(
-        await this.errorMessageFromResponse(
+        await errorMessageFromResponse(
           response,
           'Sponsorship invoice could not be resent.'
         )
@@ -769,7 +718,7 @@ export class FundingAdminService {
     if (!response.ok) {
       throw new AdminDashboardRequestError(
         response.status,
-        await this.errorMessageFromResponse(
+        await errorMessageFromResponse(
           response,
           'Sponsorship invoice PDF could not be downloaded.'
         )
@@ -795,7 +744,7 @@ export class FundingAdminService {
 
     if (!response.ok) {
       throw new Error(
-        await this.errorMessageFromResponse(
+        await errorMessageFromResponse(
           response,
           'Sponsorship credit note could not be resent.'
         )
@@ -821,7 +770,7 @@ export class FundingAdminService {
 
     if (!response.ok) {
       throw new Error(
-        await this.errorMessageFromResponse(
+        await errorMessageFromResponse(
           response,
           'Sponsorship credit note PDF could not be downloaded.'
         )
@@ -972,387 +921,139 @@ export class FundingAdminService {
     return (await response.json()) as AdminTransparencyResponse;
   }
 
-  async getPublicationDrafts(
+  getPublicationDrafts(
     token: string,
     id?: string
   ): Promise<AdminPublicationDraftsResponse> {
-    const response = await this.session.requestAdminJson(
-      `/admin/publication-drafts${id ? '?draftId=' + encodeURIComponent(id) : ''}`,
-      { auth: { token }, method: 'GET' }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin publication drafts could not be loaded.');
-    }
-
-    return (await response.json()) as AdminPublicationDraftsResponse;
+    return this.publicationsClient.getPublicationDrafts(token, id);
   }
 
-  async createPublicationDraft(
+  createPublicationDraft(
     token: string,
     payload: AdminPublicationDraftCreateRequest
   ): Promise<AdminPublicationDraftMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-drafts',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin publication draft could not be created.');
-    }
-
-    return (await response.json()) as AdminPublicationDraftMutationResult;
+    return this.publicationsClient.createPublicationDraft(token, payload);
   }
 
-  async updatePublicationDraft(
+  updatePublicationDraft(
     token: string,
     payload: AdminPublicationDraftUpdateRequest
   ): Promise<AdminPublicationDraftMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-drafts/update',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin publication draft could not be updated.');
-    }
-
-    return (await response.json()) as AdminPublicationDraftMutationResult;
+    return this.publicationsClient.updatePublicationDraft(token, payload);
   }
 
-  async getPublicationBatches(
+  getPublicationBatches(
     token: string,
     id?: string
   ): Promise<AdminPublicationBatchesResponse> {
-    const response = await this.session.requestAdminJson(
-      `/admin/publication-batches${id ? '?batchId=' + encodeURIComponent(id) : ''}`,
-      { auth: { token }, method: 'GET' }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin publication batches could not be loaded.');
-    }
-
-    return (await response.json()) as AdminPublicationBatchesResponse;
+    return this.publicationsClient.getPublicationBatches(token, id);
   }
 
-  async createPublicationBatch(
+  createPublicationBatch(
     token: string,
     payload: AdminPublicationBatchCreateRequest
   ): Promise<AdminPublicationBatchMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-batches',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin publication batch could not be created.');
-    }
-
-    return (await response.json()) as AdminPublicationBatchMutationResult;
+    return this.publicationsClient.createPublicationBatch(token, payload);
   }
 
-  async getPublicationSlots(
+  getPublicationSlots(
     token: string,
     id?: string
   ): Promise<AdminPublicationSlotsResponse> {
-    const response = await this.session.requestAdminJson(
-      `/admin/publication-slots${id ? '?slotId=' + encodeURIComponent(id) : ''}`,
-      { auth: { token }, method: 'GET' }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin publication slots could not be loaded.');
-    }
-
-    return (await response.json()) as AdminPublicationSlotsResponse;
+    return this.publicationsClient.getPublicationSlots(token, id);
   }
 
-  async createPublicationSlot(
+  createPublicationSlot(
     token: string,
     payload: AdminPublicationSlotCreateRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-slots',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin publication slot could not be created.');
-    }
-
-    return (await response.json()) as AdminPublicationSlotMutationResult;
+    return this.publicationsClient.createPublicationSlot(token, payload);
   }
 
-  async updatePublicationSlot(
+  updatePublicationSlot(
     token: string,
     payload: AdminPublicationSlotUpdateRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-slots/update',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin publication slot could not be updated.');
-    }
-
-    return (await response.json()) as AdminPublicationSlotMutationResult;
+    return this.publicationsClient.updatePublicationSlot(token, payload);
   }
 
-  async assignBatchToPublicationSlot(
+  assignBatchToPublicationSlot(
     token: string,
     payload: AdminPublicationSlotAssignBatchRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-slots/assign-batch',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Batch could not be assigned to the publication slot.');
-    }
-
-    return (await response.json()) as AdminPublicationSlotMutationResult;
+    return this.publicationsClient.assignBatchToPublicationSlot(token, payload);
   }
 
-  async assignDraftToPublicationSlot(
+  assignDraftToPublicationSlot(
     token: string,
     payload: AdminPublicationSlotAssignDraftRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-slots/assign-draft',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Draft could not be assigned to the publication slot.');
-    }
-
-    return (await response.json()) as AdminPublicationSlotMutationResult;
+    return this.publicationsClient.assignDraftToPublicationSlot(token, payload);
   }
 
-  async publishPublicationSlot(
+  publishPublicationSlot(
     token: string,
     payload: AdminPublicationSlotLifecycleRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-slots/publish',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Publication slot could not be published.');
-    }
-
-    return (await response.json()) as AdminPublicationSlotMutationResult;
+    return this.publicationsClient.publishPublicationSlot(token, payload);
   }
 
-  async cancelPublicationSlot(
+  cancelPublicationSlot(
     token: string,
     payload: AdminPublicationSlotLifecycleRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-slots/cancel',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Publication slot could not be cancelled.');
-    }
-
-    return (await response.json()) as AdminPublicationSlotMutationResult;
+    return this.publicationsClient.cancelPublicationSlot(token, payload);
   }
 
-  async assignDraftToBatch(
+  assignDraftToBatch(
     token: string,
     payload: AdminPublicationBatchAssignRequest
   ): Promise<AdminPublicationDraftMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-batches/assign',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Draft could not be assigned to the publication batch.');
-    }
-
-    return (await response.json()) as AdminPublicationDraftMutationResult;
+    return this.publicationsClient.assignDraftToBatch(token, payload);
   }
 
-  async unassignDraftFromBatch(
+  unassignDraftFromBatch(
     token: string,
     payload: AdminPublicationBatchUnassignRequest
   ): Promise<AdminPublicationDraftMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-batches/unassign',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Draft could not be removed from the publication batch.');
-    }
-
-    return (await response.json()) as AdminPublicationDraftMutationResult;
+    return this.publicationsClient.unassignDraftFromBatch(token, payload);
   }
 
-  async schedulePublicationBatch(
+  schedulePublicationBatch(
     token: string,
     payload: AdminPublicationBatchScheduleRequest
   ): Promise<AdminPublicationBatchMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-batches/schedule',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Publication batch could not be scheduled.');
-    }
-
-    return (await response.json()) as AdminPublicationBatchMutationResult;
+    return this.publicationsClient.schedulePublicationBatch(token, payload);
   }
 
-  async publishPublicationBatch(
+  publishPublicationBatch(
     token: string,
     payload: AdminPublicationBatchLifecycleRequest
   ): Promise<AdminPublicationBatchMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-batches/publish',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Publication batch could not be published.');
-    }
-
-    return (await response.json()) as AdminPublicationBatchMutationResult;
+    return this.publicationsClient.publishPublicationBatch(token, payload);
   }
 
-  async getSocialPublicationJobs(
+  getSocialPublicationJobs(
     token: string
   ): Promise<AdminSocialPublicationJobsResponse> {
-    const response = await this.session.requestAdminJson(
-      '/admin/social-publication-jobs',
-      { auth: { token }, method: 'GET' }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin social publication jobs could not be loaded.');
-    }
-
-    return (await response.json()) as AdminSocialPublicationJobsResponse;
+    return this.publicationsClient.getSocialPublicationJobs(token);
   }
 
-  async publishSocialPublicationBatch(
+  publishSocialPublicationBatch(
     token: string,
     payload: AdminSocialPublicationBatchPublishRequest
   ): Promise<AdminSocialPublicationBatchPublishResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-batches/publish-social',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
+    return this.publicationsClient.publishSocialPublicationBatch(
+      token,
+      payload
     );
-
-    if (!response.ok) {
-      throw new Error(
-        await this.errorMessageFromResponse(
-          response,
-          'Publication batch could not be sent to the social provider.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminSocialPublicationBatchPublishResult;
   }
 
-  async cancelPublicationBatch(
+  cancelPublicationBatch(
     token: string,
     payload: AdminPublicationBatchLifecycleRequest
   ): Promise<AdminPublicationBatchMutationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/publication-batches/cancel',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Publication batch could not be cancelled.');
-    }
-
-    return (await response.json()) as AdminPublicationBatchMutationResult;
+    return this.publicationsClient.cancelPublicationBatch(token, payload);
   }
 
   async getAuditLog(
@@ -1371,372 +1072,125 @@ export class FundingAdminService {
     return (await response.json()) as AdminAuditLogResponse;
   }
 
-  async getSponsorships(
+  getSponsorships(
     token: string,
     query?: AdminSponsorshipListQuery
   ): Promise<AdminSponsorshipsResponse> {
-    const params = new URLSearchParams();
-    if (query) {
-      params.set('page', String(query.page));
-      params.set('pageSize', String(query.pageSize));
-      if (query.search?.trim()) {
-        params.set('search', query.search.trim());
-      }
-      if (query.reviewStatus && query.reviewStatus !== 'all') {
-        params.set('reviewStatus', query.reviewStatus);
-      }
-      if (query.feedStatus && query.feedStatus !== 'all') {
-        params.set('feedStatus', query.feedStatus);
-      }
-      if (query.paymentStatus && query.paymentStatus !== 'all') {
-        params.set('paymentStatus', query.paymentStatus);
-      }
-      if (query.sort) {
-        params.set('sort', query.sort);
-      }
-      if (query.direction) {
-        params.set('direction', query.direction);
-      }
-    }
-
-    const url = `/admin/sponsorships${
-      params.toString() ? `?${params.toString()}` : ''
-    }`;
-    const response = await this.session.requestAdminJson(url, {
-      auth: { token },
-      method: 'GET'
-    });
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        await this.errorMessageFromResponse(
-          response,
-          'Admin sponsorships could not be loaded.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminSponsorshipsResponse;
+    return this.sponsorshipsClient.getSponsorships(token, query);
   }
 
-  async uploadSponsorLogo(
+  uploadSponsorLogo(
     token: string,
     contributionId: string,
     expectedVersion: string,
     logo: File
   ): Promise<AdminSponsorLogoUploadResult> {
-    const body = new FormData();
-    body.set('contributionId', contributionId);
-    body.set('expectedVersion', expectedVersion);
-    body.set('logo', logo);
-
-    const response = await this.session.requestAdmin(
-      '/admin/sponsorships/logo',
-      { auth: { token }, method: 'POST', body }
+    return this.sponsorshipsClient.uploadSponsorLogo(
+      token,
+      contributionId,
+      expectedVersion,
+      logo
     );
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        await this.errorMessageFromResponse(
-          response,
-          'Sponsor logo could not be uploaded.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminSponsorLogoUploadResult;
   }
 
-  async getSponsorLogoPreview(
-    token: string,
-    contributionId: string
-  ): Promise<Blob> {
-    const params = new URLSearchParams({ contributionId });
-    const response = await this.session.requestAdminJson(
-      `/admin/sponsorships/logo?${params.toString()}`,
-      { auth: { token }, method: 'GET', headers: { Accept: 'image/*' } }
-    );
-
-    if (!response.ok) {
-      throw new Error('Sponsor logo preview could not be loaded.');
-    }
-
-    return response.blob();
+  getSponsorLogoPreview(token: string, contributionId: string): Promise<Blob> {
+    return this.sponsorshipsClient.getSponsorLogoPreview(token, contributionId);
   }
 
-  async deleteSponsorLogo(
+  deleteSponsorLogo(
     token: string,
     contributionId: string,
     expectedVersion: string
   ): Promise<AdminSponsorLogoDeleteResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorships/logo/delete',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: { contributionId, expectedVersion }
-      }
+    return this.sponsorshipsClient.deleteSponsorLogo(
+      token,
+      contributionId,
+      expectedVersion
     );
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        await this.errorMessageFromResponse(
-          response,
-          'Sponsor logo could not be deleted.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminSponsorLogoDeleteResult;
   }
 
-  async getSponsorMedia(
+  getSponsorMedia(
     token: string,
     contributionId: string
   ): Promise<SponsorshipMediaResponse> {
-    const params = new URLSearchParams({ contributionId });
-    const response = await this.session.requestAdminJson(
-      `/admin/sponsorships/media?${params.toString()}`,
-      { auth: { token } }
-    );
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        await this.errorMessageFromResponse(
-          response,
-          'Sponsor media could not be loaded.'
-        )
-      );
-    }
-    return (await response.json()) as SponsorshipMediaResponse;
+    return this.sponsorshipsClient.getSponsorMedia(token, contributionId);
   }
 
-  async getSponsorMediaPreview(token: string, assetId: string): Promise<Blob> {
-    const response = await this.session.requestAdminJson(
-      `/admin/sponsorships/media/content/${encodeURIComponent(assetId)}`,
-      { auth: { token }, headers: { Accept: 'image/*' } }
-    );
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        'Sponsor media preview could not be loaded.'
-      );
-    }
-    return response.blob();
+  getSponsorMediaPreview(token: string, assetId: string): Promise<Blob> {
+    return this.sponsorshipsClient.getSponsorMediaPreview(token, assetId);
   }
 
-  async reviewSponsorMedia(
+  reviewSponsorMedia(
     token: string,
     payload: AdminSponsorMediaReviewRequest
   ): Promise<AdminSponsorMediaReviewResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorships/media/review',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        await this.errorMessageFromResponse(
-          response,
-          'Sponsor media review could not be completed.'
-        )
-      );
-    }
-    return (await response.json()) as AdminSponsorMediaReviewResult;
+    return this.sponsorshipsClient.reviewSponsorMedia(token, payload);
   }
 
-  async deleteSponsorMedia(
+  deleteSponsorMedia(
     token: string,
     payload: AdminSponsorMediaDeleteRequest
   ): Promise<SponsorMediaDeleteResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorships/media/delete',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        await this.errorMessageFromResponse(
-          response,
-          'Sponsor media could not be deleted.'
-        )
-      );
-    }
-    return (await response.json()) as SponsorMediaDeleteResult;
+    return this.sponsorshipsClient.deleteSponsorMedia(token, payload);
   }
 
-  async getSponsorshipInterventions(
+  getSponsorshipInterventions(
     token: string,
     sponsorshipId: string,
     before?: string
   ): Promise<SponsorshipInterventionsResponse> {
-    const params = new URLSearchParams({
+    return this.sponsorshipsClient.getSponsorshipInterventions(
+      token,
       sponsorshipId,
-      ...(before ? { before } : {})
-    });
-    return this.session.requestAdminData(
-      `/admin/sponsorships/interventions?${params}`,
-      { auth: { token }, cache: 'no-store' }
+      before
     );
   }
 
-  async recordSponsorshipIntervention(
+  recordSponsorshipIntervention(
     token: string,
     payload: SponsorshipInterventionRequest
   ): Promise<SponsorshipIntervention> {
-    return this.session.requestAdminData('/admin/sponsorships/interventions', {
-      auth: { token },
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload
-    });
+    return this.sponsorshipsClient.recordSponsorshipIntervention(
+      token,
+      payload
+    );
   }
 
-  async updateSponsorshipDetails(
+  updateSponsorshipDetails(
     token: string,
     payload: AdminSponsorshipDetailsRequest
   ): Promise<AdminSponsorshipDetailsResult> {
-    return this.session.requestAdminData('/admin/sponsorships/details', {
-      auth: { token },
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload
-    });
+    return this.sponsorshipsClient.updateSponsorshipDetails(token, payload);
   }
 
-  async reviewSponsorship(
+  reviewSponsorship(
     token: string,
     payload: AdminSponsorshipReviewRequest
   ): Promise<AdminSponsorshipReviewResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorships/review',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        await this.errorMessageFromResponse(
-          response,
-          'Sponsorship review could not be updated.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminSponsorshipReviewResult;
+    return this.sponsorshipsClient.reviewSponsorship(token, payload);
   }
 
-  async refundSponsorship(
+  refundSponsorship(
     token: string,
     payload: AdminSponsorshipRefundRequest
   ): Promise<AdminSponsorshipRefundResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorships/refund',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      const error = (await response.json().catch(() => null)) as {
-        error?: string;
-        code?: string;
-      } | null;
-      throw new AdminDashboardRequestError(
-        response.status,
-        error?.error ?? 'Sponsorship refund could not be created.',
-        error?.code
-      );
-    }
-
-    return (await response.json()) as AdminSponsorshipRefundResult;
+    return this.sponsorshipsClient.refundSponsorship(token, payload);
   }
 
-  async updateSponsorshipPublication(
+  updateSponsorshipPublication(
     token: string,
     payload: AdminSponsorshipPublicationRequest
   ): Promise<AdminSponsorshipPublicationResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorships/publication',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new AdminDashboardRequestError(
-        response.status,
-        await this.errorMessageFromResponse(
-          response,
-          'Sponsorship publication could not be updated.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminSponsorshipPublicationResult;
+    return this.sponsorshipsClient.updateSponsorshipPublication(token, payload);
   }
 
-  async setSponsorshipWebsiteVisibility(
+  setSponsorshipWebsiteVisibility(
     token: string,
     payload: SponsorshipWebsiteVisibilityRequest
   ): Promise<void> {
-    const response = await this.session.requestAdminJson(
-      '/admin/sponsorships/website-visibility',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
+    return this.sponsorshipsClient.setSponsorshipWebsiteVisibility(
+      token,
+      payload
     );
-    if (!response.ok)
-      throw new AdminDashboardRequestError(
-        response.status,
-        'Website visibility could not be updated.'
-      );
-  }
-
-  private async errorMessageFromResponse(
-    response: Response,
-    fallback: string
-  ): Promise<string> {
-    try {
-      const payload = (await response.json()) as {
-        readonly message?: unknown;
-        readonly error?: unknown;
-      };
-      return typeof payload.message === 'string'
-        ? payload.message
-        : typeof payload.error === 'string'
-          ? payload.error
-          : fallback;
-    } catch {
-      return fallback;
-    }
   }
 }

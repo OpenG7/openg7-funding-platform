@@ -6,6 +6,7 @@ export const readFundingApiSource = () => {
   const root = 'apps/funding-api/src/';
   return [
     'main.ts',
+    'admin-email.http.ts',
     'http-routing.ts',
     'http-rate-limit.ts',
     'http-multipart.ts',

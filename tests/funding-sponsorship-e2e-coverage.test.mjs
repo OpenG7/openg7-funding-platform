@@ -293,9 +293,7 @@ test('E2E 5/8: admin can approve, reset, reject, or refund sponsorship visibilit
   const adminPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
   );
-  const adminService = read(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
-  );
+  const adminService = readFundingAdminSource();
   const api = readFundingApiSource();
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'
@@ -387,9 +385,7 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
   const adminPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
   );
-  const adminService = read(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
-  );
+  const adminService = readFundingAdminSource();
   const api = readFundingApiSource();
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'
@@ -536,9 +532,7 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
 
 test('E2E 8/9: sponsor follow-up page shows pending review status before details submitted', () => {
   const followupPage = readSponsorshipFollowupSource();
-  const adminService = read(
-    'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
-  );
+  const adminService = readFundingAdminSource();
   const api = readFundingApiSource();
 
   assertIncludesAll(
