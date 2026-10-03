@@ -1572,10 +1572,12 @@ test('Publication batch repository enforces capacity, channel match, and approva
   );
 
   // Capacity math is derived from actual assigned drafts, not client input.
+  const mapping = fs.readFileSync(
+    'apps/funding-api/src/fund-publication.mapping.ts',
+    'utf8'
+  );
   assert.ok(
-    repository.includes(
-      'capacityAvailable: Math.max(0, capacity - capacityUsed),'
-    )
+    mapping.includes('capacityAvailable: Math.max(0, capacity - capacityUsed)')
   );
 });
 
