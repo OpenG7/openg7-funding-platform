@@ -1460,6 +1460,62 @@ test('publication save normalizes the slug, confirms visibility and preserves a 
   });
 });
 
+for (const returnBeforeResponse of [false, true]) {
+  test(`late publication response clears pending feedback after switching dossiers: ${returnBeforeResponse}`, async ({
+    page
+  }) => {
+    const { calls, options } = await fixtures(page);
+    options.edited.set(id, { sponsor_review_status: 'approved' });
+    let release!: () => void;
+    options.mutationGate = new Promise((resolve) => {
+      release = resolve;
+    });
+    await page.goto('/admin/fundraiser/sponsors');
+    await page.locator(`[data-og7="sponsor-row"][data-og7-id="${id}"]`).click();
+    await tabs(page)
+      .getByRole('button', { name: 'Publication', exact: true })
+      .click();
+    await page.locator('[data-og7="publication-advanced"] summary').click();
+    const editor = page.locator('[data-og7="dossier-publication-editor"]');
+    await editor
+      .getByLabel('Slug public', { exact: false })
+      .fill('retour-tardif');
+    await editor
+      .getByRole('button', { name: 'Enregistrer', exact: true })
+      .click();
+    await expect.poll(() => postsTo(calls, '/publication').length).toBe(1);
+    await page
+      .getByRole('button', { name: 'Dossier suivant', exact: true })
+      .click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Atelier Rivage'
+    );
+    if (returnBeforeResponse) {
+      await page
+        .getByRole('button', { name: 'Dossier précédent', exact: true })
+        .click();
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+        'Atelier Boréal'
+      );
+    }
+    release();
+    await expect(progress(page).getByRole('button')).toBeEnabled();
+    if (!returnBeforeResponse) {
+      await page
+        .getByRole('button', { name: 'Dossier précédent', exact: true })
+        .click();
+    }
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Atelier Boréal'
+    );
+    await expect(editor).not.toContainText('Enregistrement en cours');
+    await expect(
+      editor.getByLabel('Slug public', { exact: false })
+    ).toHaveValue('retour-tardif');
+    expect(postsTo(calls, '/publication')).toHaveLength(1);
+  });
+}
+
 test('refund validates amount and reference, cancellation is inert and submission is singular', async ({
   page
 }) => {

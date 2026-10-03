@@ -8,6 +8,9 @@ export const readAdminSponsorsSource = () => {
     'pages/admin-sponsors-page/admin-sponsors-page.component.ts',
     'models/admin-sponsor-workflow.ports.ts',
     'models/admin-sponsor-history.projection.ts',
+    'models/admin-sponsor-presentation.projection.ts',
+    'services/admin-sponsor-review-workflow.ts',
+    'services/admin-sponsor-publication-workflow.ts',
     'services/admin-sponsor-refund-workflow.ts',
     'services/admin-sponsor-media-workflow.ts'
   ]
