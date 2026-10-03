@@ -6,6 +6,18 @@ export const readFundingApiSource = () => {
   const root = 'apps/funding-api/src/';
   return [
     'main.ts',
+    'public-payments.http.ts',
+    'public-references.http.ts',
+    'legacy-sponsorship-details.http.ts',
+    'stripe-webhook.http.ts',
+    'admin-sponsorship-refund.http.ts',
+    'admin-stripe-backfill.http.ts',
+    'admin-contribution-activity.http.ts',
+    'admin-session.http.ts',
+    'admin-backups.http.ts',
+    'admin-setup.http.ts',
+    'admin-audit.http.ts',
+    'admin-sponsorship-access.http.ts',
     'admin-contributions.http.ts',
     'admin-documents.http.ts',
     'admin-accounting.http.ts',

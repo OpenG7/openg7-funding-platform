@@ -890,11 +890,14 @@ test('Contribution form uses sponsorship pricing and the personal server allowli
 });
 
 test('Checkout API validates sponsorship custom amounts against the real minimum, not the fixed personal allowlist', () => {
-  const source = readFundingApiSource();
+  const source = fs.readFileSync(
+    'apps/funding-api/src/public-payments.http.ts',
+    'utf8'
+  );
 
   // Checkout consumes the same public core rule as the Web. Behavior is also
   // exercised through the local HTTP API in admin-work-queue-http.test.mjs.
-  assert.ok(source.includes('isValidSponsorshipAmount,'));
+  assert.match(source, /import\s*\{\s*isValidSponsorshipAmount\s*\}\s*from/);
   assert.equal(source.includes('const sponsorshipMinimumAmount ='), false);
   assert.ok(source.includes('const isSponsorshipContribution ='));
   assert.ok(
