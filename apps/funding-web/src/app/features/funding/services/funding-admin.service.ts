@@ -109,6 +109,8 @@ import {
   type AdminSponsorshipListQuery
 } from './funding-admin-sponsorships.client.js';
 import { FundingAdminPublicationsClient } from './funding-admin-publications.client.js';
+import { FundingAdminOperationsClient } from './funding-admin-operations.client.js';
+import { FundingAdminDiagnosticsClient } from './funding-admin-diagnostics.client.js';
 import { errorMessageFromResponse } from './funding-admin-response.js';
 export type { AdminSponsorshipListQuery } from './funding-admin-sponsorships.client.js';
 export { AdminDashboardRequestError } from './funding-admin-session.js';
@@ -135,36 +137,22 @@ export class FundingAdminService {
   private readonly publicationsClient = new FundingAdminPublicationsClient(
     this.session
   );
+  private readonly operationsClient = new FundingAdminOperationsClient(
+    this.session,
+    () => this.clearAdminSession()
+  );
+  private readonly diagnosticsClient = new FundingAdminDiagnosticsClient(
+    this.session
+  );
   readonly sessionGeneration = this.session.sessionGeneration;
   readonly identity = this.session.identity;
-  async stripeBackfill(
+  stripeBackfill(
     payload?: import('@openg7/funding-core').AdminStripeBackfillRequest,
     id?: string
   ): Promise<{
     run: import('@openg7/funding-core').AdminStripeBackfillRun | null;
   }> {
-    const response = await this.session.requestAdminJson(
-      `/admin/stripe-backfill${id ? '?' + new URLSearchParams({ id }) : ''}`,
-      {
-        auth: 'saved',
-        method: payload ? 'POST' : 'GET',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        ...(payload ? { body: payload } : {}),
-        signal: AbortSignal.timeout(90000)
-      }
-    );
-    if (!response.ok) {
-      if (response.status === 401) this.clearAdminSession();
-      const body = (await response.json().catch(() => ({}))) as {
-        code?: string;
-      };
-      throw new AdminDashboardRequestError(
-        response.status,
-        body.code ?? 'BACKFILL_UNAVAILABLE'
-      );
-    }
-    return response.json();
+    return this.operationsClient.stripeBackfill(payload, id);
   }
   async contributionActivity(
     query: { before?: string; after?: string; id?: string } = {}
@@ -390,14 +378,11 @@ export class FundingAdminService {
     }
   }
 
-  async getDashboard(token: string): Promise<AdminDashboardResponse> {
-    return this.session.requestAdminData('/admin/dashboard', {
-      auth: { token },
-      method: 'GET'
-    });
+  getDashboard(token: string): Promise<AdminDashboardResponse> {
+    return this.diagnosticsClient.getDashboard(token);
   }
 
-  async getCockpit<T extends 'metrics' | 'activity' | 'systems'>(
+  getCockpit<T extends 'metrics' | 'activity' | 'systems'>(
     block: T,
     token: string
   ): Promise<
@@ -407,9 +392,7 @@ export class FundingAdminService {
       systems: AdminCockpitSystems;
     }[T]
   > {
-    return this.session.requestAdminData(`/admin/cockpit/${block}`, {
-      auth: { token }
-    });
+    return this.diagnosticsClient.getCockpit(block, token);
   }
 
   async getAssistantSummary(token: string): Promise<AdminAssistantSummary> {
@@ -495,133 +478,43 @@ export class FundingAdminService {
     });
   }
 
-  async databaseBackups(
+  databaseBackups(
     requestId?: string,
     payload?: import('@openg7/funding-core').AdminBackupRequest
   ): Promise<
     | import('@openg7/funding-core').AdminBackupsResponse
     | import('@openg7/funding-core').AdminDatabaseBackup
   > {
-    const response = await this.session.requestAdminJson(
-      `/admin/backups${requestId ? '?requestId=' + encodeURIComponent(requestId) : ''}`,
-      {
-        auth: 'saved',
-        method: payload ? 'POST' : 'GET',
-        ...(payload
-          ? { headers: { 'Content-Type': 'application/json' }, body: payload }
-          : {})
-      }
-    );
-    if (!response.ok) {
-      if (response.status === 401) this.clearAdminSession();
-      const body = (await response.json().catch(() => ({}))) as {
-        code?: string;
-      };
-      throw new AdminDashboardRequestError(
-        response.status,
-        'Database backup request failed.',
-        body.code
-      );
-    }
-    return response.json();
+    return this.operationsClient.databaseBackups(requestId, payload);
   }
 
-  async getSetupStatus(token: string): Promise<AdminSetupStatusResponse> {
-    const response = await this.session.requestAdminJson(
-      '/admin/setup-status',
-      {
-        auth: { token },
-        method: 'GET'
-      }
-    );
-
-    if (!response.ok) {
-      await this.session.accessError(response);
-    }
-
-    return (await response.json()) as AdminSetupStatusResponse;
+  getSetupStatus(token: string): Promise<AdminSetupStatusResponse> {
+    return this.operationsClient.getSetupStatus(token);
   }
 
-  async sendEmailTest(
+  sendEmailTest(
     token: string,
     payload: AdminEmailTestRequest
   ): Promise<AdminEmailTestResult> {
-    const response = await this.session.requestAdminJson('/admin/email/test', {
-      auth: { token },
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload
-    });
-
-    if (!response.ok) {
-      await this.session.accessError(response);
-    }
-
-    return (await response.json()) as AdminEmailTestResult;
+    return this.operationsClient.sendEmailTest(token, payload);
   }
 
-  async getEmailTest(
+  getEmailTest(
     token: string,
     requestId: string
   ): Promise<AdminEmailTestResult> {
-    const response = await this.session.requestAdminJson(
-      `/admin/email/test?requestId=${encodeURIComponent(requestId)}`,
-      {
-        auth: { token }
-      }
-    );
-    if (!response.ok) await this.session.accessError(response);
-    return response.json();
+    return this.operationsClient.getEmailTest(token, requestId);
   }
 
-  async getEmailQueue(
-    token: string,
-    id?: string
-  ): Promise<AdminEmailQueueResponse> {
-    const response = await this.session.requestAdminJson(
-      `/admin/email-queue${id ? '?messageId=' + encodeURIComponent(id) : ''}`,
-      {
-        auth: { token },
-        method: 'GET'
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        await errorMessageFromResponse(
-          response,
-          'Admin email queue could not be loaded.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminEmailQueueResponse;
+  getEmailQueue(token: string, id?: string): Promise<AdminEmailQueueResponse> {
+    return this.operationsClient.getEmailQueue(token, id);
   }
 
-  async retryEmailQueueMessage(
+  retryEmailQueueMessage(
     token: string,
     payload: AdminEmailQueueRetryRequest
   ): Promise<AdminEmailQueueRetryResult> {
-    const response = await this.session.requestAdminJson(
-      '/admin/email-queue/retry',
-      {
-        auth: { token },
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        await errorMessageFromResponse(
-          response,
-          'Email queue message could not be retried.'
-        )
-      );
-    }
-
-    return (await response.json()) as AdminEmailQueueRetryResult;
+    return this.operationsClient.retryEmailQueueMessage(token, payload);
   }
 
   async getSponsorshipInvoices(
@@ -780,35 +673,19 @@ export class FundingAdminService {
     return response.blob();
   }
 
-  async getStripeEvent(
+  getStripeEvent(
     token: string,
     eventId: string
   ): Promise<AdminStripeEventResponse> {
-    return this.session.requestAdminData(
-      `/admin/stripe-event?${new URLSearchParams({ eventId })}`,
-      {
-        auth: { token },
-        cache: 'no-store'
-      }
-    );
+    return this.diagnosticsClient.getStripeEvent(token, eventId);
   }
 
-  async search(
+  search(
     token: string,
     query: AdminSearchRequest,
     signal: AbortSignal
   ): Promise<AdminSearchResponse> {
-    const response = await this.session.requestAdminJson('/admin/search', {
-      auth: { token },
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: query,
-      signal,
-      cache: 'no-store',
-      abortBeforeFetch: true
-    });
-    if (!response.ok) throw new AdminDashboardRequestError(response.status);
-    return (await response.json()) as AdminSearchResponse;
+    return this.diagnosticsClient.search(token, query, signal);
   }
 
   async getContributions(
@@ -1056,20 +933,8 @@ export class FundingAdminService {
     return this.publicationsClient.cancelPublicationBatch(token, payload);
   }
 
-  async getAuditLog(
-    token: string,
-    entryId?: string
-  ): Promise<AdminAuditLogResponse> {
-    const response = await this.session.requestAdminJson(
-      `/admin/audit-log${entryId ? '?entryId=' + encodeURIComponent(entryId) : ''}`,
-      { auth: { token }, method: 'GET', cache: 'no-store' }
-    );
-
-    if (!response.ok) {
-      throw new Error('Admin audit log could not be loaded.');
-    }
-
-    return (await response.json()) as AdminAuditLogResponse;
+  getAuditLog(token: string, entryId?: string): Promise<AdminAuditLogResponse> {
+    return this.diagnosticsClient.getAuditLog(token, entryId);
   }
 
   getSponsorships(

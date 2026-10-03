@@ -68,17 +68,42 @@ test(
         });
       });
       const base = `http://127.0.0.1:${port}/api/sponsorship-followup`;
+      const exchange = async (url, options = {}) => {
+        try {
+          // A body-limit rejection can close its request socket before EOF.
+          // Each refusal case owns a fresh connection and consumes its response;
+          // socket reuse and garbage collection must not gate the next assertion.
+          const response = await fetch(url, {
+            ...options,
+            headers: { ...options.headers, connection: 'close' },
+            signal: AbortSignal.timeout(5000)
+          });
+          const body = await response.text();
+          return {
+            status: response.status,
+            payload: response.headers
+              .get('content-type')
+              ?.startsWith('application/json')
+              ? JSON.parse(body)
+              : body
+          };
+        } catch (error) {
+          throw new Error(
+            `${options.method ?? 'GET'} ${new URL(url).pathname} failed: ${error.name} (${error.cause?.code ?? error.code ?? 'no code'})`,
+            { cause: error }
+          );
+        }
+      };
       const post = (path, body, contentType = 'application/json') =>
-        fetch(base + path, {
+        exchange(base + path, {
           method: 'POST',
           headers: { 'content-type': contentType },
-          body,
-          signal: AbortSignal.timeout(5000)
+          body
         });
       for (const body of ['null', '[]', '1', '"text"', '{}', '{']) {
         assert.equal((await post('/media/delete', body)).status, 400);
         assert.equal(
-          (await fetch(`http://127.0.0.1:${port}/health`)).status,
+          (await exchange(`http://127.0.0.1:${port}/health`)).status,
           200,
           'API remains available after malformed input'
         );
@@ -134,10 +159,9 @@ test(
           'synthetic.png'
         );
         if (duplicate) body.append('kind', 'logo');
-        return fetch(base + '/media', {
+        return exchange(base + '/media', {
           method: 'POST',
-          body,
-          signal: AbortSignal.timeout(5000)
+          body
         });
       };
       assert.equal((await upload(0)).status, 400);
@@ -149,7 +173,12 @@ test(
       for (const size of [8388609, 8388608 + 128 * 1024 + 1]) {
         const response = await upload(size);
         assert.equal(response.status, 413);
-        assert.equal((await response.json()).code, 'SPONSOR_MEDIA_TOO_LARGE');
+        assert.equal(response.payload.code, 'SPONSOR_MEDIA_TOO_LARGE');
+        assert.equal(
+          (await exchange(`http://127.0.0.1:${port}/health`)).status,
+          200,
+          'API remains available after an oversized upload'
+        );
       }
       assert.equal((await upload(1, 'a'.repeat(43), true)).status, 400);
       // Invalid image bytes would fail decoding with 400 if the preflight did not run first.
@@ -159,7 +188,7 @@ test(
       ]) {
         const response = await upload(1, token.repeat(43));
         assert.equal(response.status, 409);
-        assert.equal((await response.json()).code, code);
+        assert.equal(response.payload.code, code);
       }
     } finally {
       if (child.exitCode === null) {

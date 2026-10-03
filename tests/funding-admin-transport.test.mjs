@@ -2070,3 +2070,77 @@ test('sponsorship and publication requests share session expiry, cache invalidat
   ]);
   assert.equal(fetchMock.mock.callCount(), 4);
 });
+
+test('operation refusals keep facade invalidation and prevent a pending queue from restoring private state', async (t) => {
+  for (const operation of [
+    {
+      name: 'stripe backfill',
+      path: '/admin/stripe-backfill',
+      invoke: (service) => service.stripeBackfill(backfillPreview)
+    },
+    {
+      name: 'database backup',
+      path: '/admin/backups',
+      invoke: (service) => service.databaseBackups(undefined, backupRequest)
+    }
+  ]) {
+    await t.test(operation.name, async (t) => {
+      const { service, sessionStorage } = serviceFixture(t);
+      service.identity.set(syntheticIdentity);
+      service.workQueue.set(syntheticQueue);
+      const queueStarted = Promise.withResolvers();
+      const queueResponse = Promise.withResolvers();
+      const paths = [];
+      const fetchMock = t.mock.method(globalThis, 'fetch', async (url) => {
+        const path = url.slice(baseUrl.length);
+        paths.push(path);
+        if (path === '/admin/attention?') {
+          queueStarted.resolve();
+          return queueResponse.promise;
+        }
+        assert.ok(path === '/admin/audit-log' || path === operation.path);
+        return Response.json({ code: 'SESSION_REVOKED' }, { status: 401 });
+      });
+      const clearSession = service.clearAdminSession.bind(service);
+      let clearCalls = 0;
+      service.clearAdminSession = () => {
+        clearCalls++;
+        clearSession();
+      };
+
+      const pendingQueue = service.getWorkQueue(syntheticToken);
+      await queueStarted.promise;
+      await assert.rejects(service.getAuditLog(syntheticToken), {
+        name: 'Error',
+        message: 'Admin audit log could not be loaded.'
+      });
+      assert.equal(clearCalls, 0);
+      assert.equal(service.sessionGeneration(), 0);
+      assert.equal(service.identity(), syntheticIdentity);
+      assert.equal(service.workQueue(), syntheticQueue);
+      assert.equal(sessionStorage.getItem(sessionKey), syntheticToken);
+
+      await assert.rejects(operation.invoke(service), (error) => {
+        assert.ok(error instanceof AdminDashboardRequestError);
+        assert.equal(error.status, 401);
+        return true;
+      });
+      assert.equal(clearCalls, 1);
+      assert.equal(service.sessionGeneration(), 1);
+      assert.equal(service.identity(), null);
+      assert.equal(service.workQueue(), null);
+      assert.equal(sessionStorage.getItem(sessionKey), null);
+      assert.equal(sessionStorage.getItem(selectionKey), null);
+
+      queueResponse.resolve(Response.json(syntheticQueue));
+      assert.deepEqual(await pendingQueue, syntheticQueue);
+      assert.equal(service.workQueue(), null);
+      assert.deepEqual(paths, [
+        '/admin/attention?',
+        '/admin/audit-log',
+        operation.path
+      ]);
+      assert.equal(fetchMock.mock.callCount(), 3);
+    });
+  }
+});

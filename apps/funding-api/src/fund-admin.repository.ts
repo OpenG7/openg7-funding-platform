@@ -39,7 +39,6 @@ import type {
   PublicSponsorshipBatchAvailabilityResponse,
   PublicSponsorshipPublicationSlot,
   SocialPublicationMode,
-  SocialPublicationStatus,
   SponsorFeedChannel,
   SponsorFeedTarget
 } from '@openg7/funding-core';
@@ -52,6 +51,17 @@ import {
   isPublicAllocationProofUrl,
   PUBLIC_ALLOCATION_CREATE_CONFIRMATION
 } from '../../../packages/funding-core/src/index.js';
+
+import {
+  mapPublicationBatchRow,
+  mapPublicationDraftRow,
+  mapPublicationSlotRow,
+  mapSocialPublicationJobRow,
+  type PublicationBatchRow,
+  type PublicationDraftRow,
+  type PublicationSlotRow,
+  type SocialPublicationJobRow
+} from './fund-publication.mapping.js';
 
 export const allowedPublicationDraftStatuses = new Set<PublicationDraftStatus>([
   'draft',
@@ -84,83 +94,6 @@ export const allowedAdminExpenseStatuses = new Set<AdminExpenseStatus>([
   'private',
   'archived'
 ]);
-
-interface PublicationDraftRow {
-  readonly id: string;
-  readonly contribution_id: string;
-  readonly sponsor_company_name: string;
-  readonly sponsor_website_url: string | null;
-  readonly sponsor_logo_url: string | null;
-  readonly sponsor_public_summary: string | null;
-  readonly feed_target: SponsorFeedTarget;
-  readonly channel: SponsorFeedChannel;
-  readonly title: string;
-  readonly body: string;
-  readonly disclosure_text: string;
-  readonly status: PublicationDraftStatus;
-  readonly public_url: string | null;
-  readonly scheduled_at: string | null;
-  readonly approved_at: string | null;
-  readonly published_at: string | null;
-  readonly review_note: string | null;
-  readonly batch_id: string | null;
-  readonly slot_id: string | null;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-interface PublicationBatchRow {
-  readonly id: string;
-  readonly channel: SponsorFeedChannel;
-  readonly capacity: string;
-  readonly status: PublicationBatchStatus;
-  readonly slot_id: string | null;
-  readonly scheduled_at: string | null;
-  readonly published_at: string | null;
-  readonly notes: string | null;
-  readonly assigned_draft_ids: readonly string[] | null;
-  readonly capacity_used: string;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-interface PublicationSlotRow {
-  readonly id: string;
-  readonly feed_target: SponsorFeedTarget;
-  readonly channel: SponsorFeedChannel;
-  readonly starts_at: string;
-  readonly timezone: string;
-  readonly capacity: string;
-  readonly status: PublicationSlotStatus;
-  readonly notes: string | null;
-  readonly assigned_batch_ids: readonly string[] | null;
-  readonly assigned_draft_ids: readonly string[] | null;
-  readonly capacity_used: string;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-interface SocialPublicationJobRow {
-  readonly id: string;
-  readonly batch_id: string;
-  readonly channel: SponsorFeedChannel;
-  readonly provider: 'facebook' | 'linkedin';
-  readonly mode: SocialPublicationMode;
-  readonly status: SocialPublicationStatus;
-  readonly idempotency_key: string;
-  readonly title: string;
-  readonly body: string;
-  readonly disclosure_text: string;
-  readonly draft_ids: readonly string[] | null;
-  readonly external_post_id: string | null;
-  readonly external_post_url: string | null;
-  readonly error_code: string | null;
-  readonly error_message: string | null;
-  readonly attempted_at: string | null;
-  readonly published_at: string | null;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
 
 interface SponsorDraftSourceRow {
   readonly id: string;
@@ -300,111 +233,6 @@ const mapAdminExpenseRow = (row: AdminExpenseRow): AdminExpenseRecord => ({
   published_at: row.published_at,
   created_at: row.created_at,
   updated_at: row.updated_at
-});
-
-const mapPublicationDraftRow = (
-  row: PublicationDraftRow
-): AdminPublicationDraftRecord => ({
-  id: row.id,
-  contribution_id: row.contribution_id,
-  sponsor_company_name: row.sponsor_company_name,
-  sponsor_website_url: row.sponsor_website_url,
-  sponsor_logo_url: row.sponsor_logo_url,
-  sponsor_public_summary: row.sponsor_public_summary,
-  feed_target: row.feed_target,
-  channel: row.channel,
-  title: row.title,
-  body: row.body,
-  disclosure_text: row.disclosure_text,
-  status: row.status,
-  public_url: row.public_url,
-  scheduled_at: row.scheduled_at,
-  approved_at: row.approved_at,
-  published_at: row.published_at,
-  review_note: row.review_note,
-  batch_id: row.batch_id,
-  slot_id: row.slot_id,
-  created_at: row.created_at,
-  updated_at: row.updated_at
-});
-
-const mapPublicationBatchRow = (
-  row: PublicationBatchRow
-): AdminPublicationBatchRecord => {
-  const capacity = parseDbInt(row.capacity);
-  const capacityUsed = parseDbInt(row.capacity_used);
-
-  return {
-    id: row.id,
-    channel: row.channel,
-    capacity,
-    status: row.status,
-    slotId: row.slot_id,
-    scheduledAt: row.scheduled_at,
-    publishedAt: row.published_at,
-    notes: row.notes,
-    assignedDraftIds: (row.assigned_draft_ids ?? []).filter(
-      (draftId): draftId is string => Boolean(draftId)
-    ),
-    capacityUsed,
-    capacityAvailable: Math.max(0, capacity - capacityUsed),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-};
-
-const mapPublicationSlotRow = (
-  row: PublicationSlotRow
-): AdminPublicationSlotRecord => {
-  const capacity = parseDbInt(row.capacity);
-  const capacityUsed = parseDbInt(row.capacity_used);
-
-  return {
-    id: row.id,
-    feedTarget: row.feed_target,
-    channel: row.channel,
-    startsAt: row.starts_at,
-    timezone: row.timezone,
-    capacity,
-    status: row.status,
-    notes: row.notes,
-    assignedBatchIds: (row.assigned_batch_ids ?? []).filter(
-      (batchId): batchId is string => Boolean(batchId)
-    ),
-    assignedDraftIds: (row.assigned_draft_ids ?? []).filter(
-      (draftId): draftId is string => Boolean(draftId)
-    ),
-    capacityUsed,
-    capacityAvailable: Math.max(0, capacity - capacityUsed),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-};
-
-const mapSocialPublicationJobRow = (
-  row: SocialPublicationJobRow
-): AdminSocialPublicationJobRecord => ({
-  id: row.id,
-  batchId: row.batch_id,
-  channel: row.channel,
-  provider: row.provider,
-  mode: row.mode,
-  status: row.status,
-  idempotencyKey: row.idempotency_key,
-  title: row.title,
-  body: row.body,
-  disclosureText: row.disclosure_text,
-  draftIds: (row.draft_ids ?? []).filter((draftId): draftId is string =>
-    Boolean(draftId)
-  ),
-  externalPostId: row.external_post_id,
-  externalPostUrl: row.external_post_url,
-  errorCode: row.error_code,
-  errorMessage: row.error_message,
-  attemptedAt: row.attempted_at,
-  publishedAt: row.published_at,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at
 });
 
 const mapAuditLogRow = (row: AuditLogRow): AdminAuditLogEntry => ({
