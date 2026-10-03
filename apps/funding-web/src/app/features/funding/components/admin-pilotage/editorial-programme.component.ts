@@ -26,6 +26,7 @@ import {
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { BlobPreviewResource } from '../../services/blob-preview-resource.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminGuideComponent } from '../admin-guide/admin-guide.component.js';
 
@@ -60,7 +61,6 @@ export class EditorialProgrammeComponent {
   readonly i18n = inject(FundingI18nService);
   private readonly document = inject(DOCUMENT);
   private destroyed = false;
-  private imageRequest = 0;
   readonly state = signal<ProgrammeState | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
@@ -86,7 +86,8 @@ export class EditorialProgrammeComponent {
     ReturnType<FundingAdminService['editorialVariant']>
   > | null>(null);
   readonly preferences = signal<EditorialIntent[]>([]);
-  readonly image = signal('');
+  private readonly imageResource = new BlobPreviewResource();
+  readonly image = this.imageResource.url;
   readonly imageFailed = signal(false);
   readonly intents = EDITORIAL_INTENTS;
   cadence = 2;
@@ -151,7 +152,7 @@ export class EditorialProgrammeComponent {
   constructor() {
     inject(DestroyRef).onDestroy(() => {
       this.destroyed = true;
-      this.clearImage();
+      this.imageResource.dispose();
     });
     afterNextRender(() => void this.load());
   }
@@ -367,26 +368,19 @@ export class EditorialProgrammeComponent {
     const i = ds.findIndex((d) => d.id === this.selected()?.id);
     this.select(ds[(i + direction + ds.length) % ds.length]!.id);
   }
-  private clearImage(): void {
-    if (this.image().startsWith('blob:')) URL.revokeObjectURL(this.image());
-    this.image.set('');
-  }
   async preview(): Promise<void> {
-    const request = ++this.imageRequest;
-    this.clearImage();
     this.imageFailed.set(false);
     const id = this.selected()?.mediaId;
-    if (!id) return;
-    try {
-      const blob = await this.admin.getSponsorMediaPreview(
-        this.admin.getSavedAdminToken(),
-        id
-      );
-      if (!this.destroyed && request === this.imageRequest)
-        this.image.set(URL.createObjectURL(blob));
-    } catch {
-      if (request === this.imageRequest) this.imageFailed.set(true);
-    }
+    await this.imageResource.load(
+      id
+        ? () =>
+            this.admin.getSponsorMediaPreview(
+              this.admin.getSavedAdminToken(),
+              id
+            )
+        : null,
+      () => this.imageFailed.set(true)
+    );
   }
   async transform(intent?: EditorialIntent): Promise<void> {
     const d = this.selected();

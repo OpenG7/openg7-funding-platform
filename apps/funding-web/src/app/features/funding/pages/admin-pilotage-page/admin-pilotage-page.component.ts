@@ -23,6 +23,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { BlobPreviewResource } from '../../services/blob-preview-resource.js';
 import { AdminGuideComponent } from '../../components/admin-guide/admin-guide.component.js';
 import { PILOTAGE_GUIDE } from '../../components/admin-pilotage/pilotage-guides.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
@@ -129,7 +130,8 @@ export class AdminPilotagePageComponent {
   readonly error = signal('');
   readonly receipt = signal<PilotReceipt | null>(null);
   readonly unresolved = signal('');
-  readonly image = signal('');
+  private readonly imageResource = new BlobPreviewResource();
+  readonly image = this.imageResource.url;
   readonly previewFailed = signal(false);
   readonly detailState = signal<PilotDetailState>('idle');
   readonly calendar = signal<PublicationCalendarEntry[]>([]);
@@ -232,7 +234,6 @@ export class AdminPilotagePageComponent {
   edit = { message: '', scheduledAt: '', mediaId: '' };
   reason = '';
   incidentReason = '';
-  private imageRequest = 0;
   private loadRequest = 0;
   private detailRequest = 0;
   private destroyed = false;
@@ -247,10 +248,9 @@ export class AdminPilotagePageComponent {
     destroy.onDestroy(() => {
       this.destroyed = true;
       this.loadRequest++;
-      this.imageRequest++;
       this.detailRequest++;
       this.controller.stop();
-      this.clearImage();
+      this.imageResource.dispose();
     });
     afterNextRender(() => {
       try {
@@ -887,26 +887,19 @@ export class AdminPilotagePageComponent {
       this.error.set('PILOTAGE_UNAVAILABLE');
     }
   }
-  private clearImage(): void {
-    if (this.image().startsWith('blob:')) URL.revokeObjectURL(this.image());
-    this.image.set('');
-  }
   private async preview(d: PilotDecision | null): Promise<void> {
-    const request = ++this.imageRequest;
-    this.clearImage();
     this.previewFailed.set(false);
     const id = d?.publication?.mediaId ?? d?.sponsor?.presentationId;
-    if (!id) return;
-    try {
-      const blob = await this.admin.getSponsorMediaPreview(
-        this.admin.getSavedAdminToken(),
-        id
-      );
-      if (request === this.imageRequest && !this.destroyed)
-        this.image.set(URL.createObjectURL(blob));
-    } catch {
-      if (request === this.imageRequest) this.previewFailed.set(true);
-    }
+    await this.imageResource.load(
+      id
+        ? () =>
+            this.admin.getSponsorMediaPreview(
+              this.admin.getSavedAdminToken(),
+              id
+            )
+        : null,
+      () => this.previewFailed.set(true)
+    );
   }
   saveProfile(): void {
     if (this.controller.save(this.profile)) {

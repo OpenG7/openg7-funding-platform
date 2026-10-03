@@ -22,6 +22,7 @@ import type {
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { BlobPreviewResource } from '../../services/blob-preview-resource.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
@@ -75,8 +76,8 @@ export class AdminPublicationAutomationPageComponent {
   readonly selected = signal<PublicationDelivery | null>(null);
   readonly composing = signal(false);
   readonly editing = signal(false);
-  readonly previewUrl = signal('');
-  private previewRequest = 0;
+  private readonly previewResource = new BlobPreviewResource();
+  readonly previewUrl = this.previewResource.url;
   readonly pendingSponsors = computed(() =>
     (this.selected()?.sponsors ?? []).filter(
       (s) => s.reviewStatus === 'pending_review'
@@ -174,7 +175,7 @@ export class AdminPublicationAutomationPageComponent {
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
       this.destroyed = true;
-      this.clearPreview();
+      this.previewResource.dispose();
     });
     afterNextRender(() => {
       this.browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -568,24 +569,19 @@ export class AdminPublicationAutomationPageComponent {
     if (s) void this.run({ action: 'settings', settings: s });
   }
   private clearPreview(): void {
-    this.previewRequest++;
-    if (this.previewUrl()) URL.revokeObjectURL(this.previewUrl());
-    this.previewUrl.set('');
+    this.previewResource.clear();
   }
   async loadPreview(id: string): Promise<void> {
-    this.clearPreview();
-    if (!id) return;
-    const request = this.previewRequest;
-    try {
-      const blob = await this.admin.getSponsorMediaPreview(
-        this.admin.getSavedAdminToken(),
-        id
-      );
-      if (request === this.previewRequest)
-        this.previewUrl.set(URL.createObjectURL(blob));
-    } catch (error) {
-      if (request === this.previewRequest) this.showError(error);
-    }
+    await this.previewResource.load(
+      id
+        ? () =>
+            this.admin.getSponsorMediaPreview(
+              this.admin.getSavedAdminToken(),
+              id
+            )
+        : null,
+      (error) => this.showError(error)
+    );
   }
   mediaPreview(): { url: string; alt: string } | undefined {
     return this.previewUrl()
