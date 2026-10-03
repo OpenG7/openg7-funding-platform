@@ -1,3 +1,4 @@
+import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
 import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { readFundingHomeSource } from './support/funding-home-source.mjs';
@@ -184,9 +185,7 @@ test('E2E 3/8: invalid or missing follow-up token stays private and shows an err
 
 test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () => {
   const routes = read('apps/funding-web/src/app/admin.routes.ts');
-  const adminPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
-  );
+  const adminPage = readAdminSponsorsSource();
   const adminSponsorDetailIdentity = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
   );
@@ -291,9 +290,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
 });
 
 test('E2E 5/8: admin can approve, reset, reject, or refund sponsorship visibility', () => {
-  const adminPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
-  );
+  const adminPage = readAdminSponsorsSource();
   const adminService = readFundingAdminSource();
   const api = readFundingApiSource();
   const repository = read(
@@ -383,9 +380,7 @@ test('E2E 5/8: admin can approve, reset, reject, or refund sponsorship visibilit
 });
 
 test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed placement', () => {
-  const adminPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
-  );
+  const adminPage = readAdminSponsorsSource();
   const adminService = readFundingAdminSource();
   const api = readFundingApiSource();
   const repository = read(
