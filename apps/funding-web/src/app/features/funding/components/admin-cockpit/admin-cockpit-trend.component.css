@@ -12,7 +12,7 @@
 .chart-title {
   margin: 0 0 0.65rem;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: var(--admin-label-weight);
   letter-spacing: 0.04em;
 }
 svg {
@@ -81,7 +81,7 @@ dt {
 dd {
   color: var(--admin-text);
   font-size: 1.08rem;
-  font-weight: 650;
+  font-weight: var(--admin-emphasis-weight);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
   margin: 0.25rem 0 0;
@@ -104,7 +104,7 @@ dd {
   gap: 0.3rem;
   border: 1px solid var(--admin-border);
   border-radius: 2rem;
-  background: #22344a;
+  background: var(--admin-panel-raised, #22344a);
   color: var(--admin-text);
   padding: 0.2rem 0.55rem;
   font-size: 0.73rem;

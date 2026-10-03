@@ -56,7 +56,9 @@
   border-radius: 0.65rem;
   background: transparent;
   color: var(--admin-text);
-  font: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  font-weight: var(--admin-control-weight);
   font-size: 0.85rem;
   cursor: pointer;
 }

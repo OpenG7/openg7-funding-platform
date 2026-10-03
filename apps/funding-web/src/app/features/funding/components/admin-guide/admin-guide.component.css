@@ -1,9 +1,10 @@
 :host {
   display: inline-block;
-  font-size: 14px;
 }
 button {
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
   color: var(--og7-admin-text, #eaf4ff);
   background: var(--og7-admin-raised, #122b42);
   border: 1px solid var(--og7-admin-border, #527089);
@@ -87,8 +88,6 @@ dialog::backdrop {
   font-size: 13px;
 }
 h2 {
-  font-size: 21px;
-  line-height: 1.3;
   margin: 8px 0 14px;
 }
 p {
@@ -98,7 +97,7 @@ p {
 .progress {
   color: var(--og7-admin-focus, #67ddff);
   margin-bottom: 0;
-  font-weight: 650;
+  font-weight: var(--admin-label-weight);
 }
 .hint {
   font-size: 12px;
@@ -119,7 +118,7 @@ footer {
   background: var(--og7-admin-primary, #9ae5ff);
   color: var(--og7-admin-on-primary, #061424);
   border-color: var(--og7-admin-primary, #9ae5ff);
-  font-weight: 700;
+  font-weight: var(--admin-control-weight);
 }
 .primary:hover:not(:disabled) {
   background: var(--og7-admin-primary, #c1efff);

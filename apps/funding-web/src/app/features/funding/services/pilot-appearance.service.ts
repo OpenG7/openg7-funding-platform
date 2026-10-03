@@ -15,8 +15,8 @@ export interface PilotAppearance {
   density: 'comfortable' | 'compact';
 }
 
-/** Local presentation preferences only; no identity, dossier or API state. */
-@Injectable()
+/** Shared local admin palette and pilotage density; no dossier or API state. */
+@Injectable({ providedIn: 'root' })
 export class PilotAppearanceService {
   private readonly document = inject(DOCUMENT);
   private readonly destroy = inject(DestroyRef);

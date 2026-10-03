@@ -2,7 +2,7 @@
   "admin": {
     "appearance": {
       "intro": "Choose your palette and reading comfort. Your current dossier stays open.",
-      "palette": "Workspace palette",
+      "palette": "Administration palette",
       "themes": {
         "night": "OpenG7 Night",
         "mineral": "Mineral Light",
@@ -16,12 +16,12 @@
       "system": "Follow the system theme",
       "systemHint": "Mineral Light in light mode and OpenG7 Night in dark mode, following your device.",
       "current": "Current appearance:",
-      "density": "Workspace density",
+      "density": "Pilotage density",
       "comfortable": "Comfort",
       "comfortableHint": "Generous previews and room to read.",
       "compact": "Compact",
       "compactHint": "More dossiers visible on larger screens.",
-      "saved": "Preferences saved on this device for the pilotage workspace. No dossier content is stored.",
+      "saved": "Preferences saved on this device: palette for the administration and density for pilotage. No dossier content is stored.",
       "storageUnavailable": "Your browser cannot save this choice. It stays applied during this visit."
     },
     "backups": {

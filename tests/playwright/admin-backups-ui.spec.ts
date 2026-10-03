@@ -153,24 +153,32 @@ for (const language of ['fr-CA', 'en']) {
 
 for (const language of ['fr-CA', 'en']) {
   for (const width of [390, 1440]) {
-    test(`backup overview, guides and history remain truthful and accessible in ${language} at ${width}px`, async ({
+    const theme = language === 'fr-CA' && width === 1440 ? 'mineral' : 'night';
+    test(`backup overview, guides and history remain truthful and accessible in ${language} at ${width}px with ${theme} palette`, async ({
       page
     }) => {
       const en = language === 'en';
       await page.setViewportSize({ width, height: 1050 });
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.clock.install();
-      await page.addInitScript((locale) => {
-        localStorage.setItem('openg7.language', locale);
-        sessionStorage.setItem(
-          'openg7-admin-session-token',
-          'openg7-admin-session.backup-fixture'
-        );
-        sessionStorage.setItem(
-          'openg7-admin-session-expires-at',
-          '2099-01-01T00:00:00Z'
-        );
-      }, language);
+      await page.addInitScript(
+        ({ locale, palette }) => {
+          localStorage.setItem('openg7.language', locale);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme: palette, system: false })
+          );
+          sessionStorage.setItem(
+            'openg7-admin-session-token',
+            'openg7-admin-session.backup-fixture'
+          );
+          sessionStorage.setItem(
+            'openg7-admin-session-expires-at',
+            '2099-01-01T00:00:00Z'
+          );
+        },
+        { locale: language, palette: theme }
+      );
       const cockpit = cockpitFixtures();
       let writes = 0;
       let accessStatus = 200;
@@ -216,6 +224,20 @@ for (const language of ['fr-CA', 'en']) {
       await expect(
         panel.locator('[data-og7="backup-service-state"]')
       ).toHaveText(en ? 'Configuration required' : 'À configurer');
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-og7-pilot-theme',
+        theme
+      );
+      if (theme === 'mineral') {
+        const warning = panel.locator('[data-og7="backup-service-state"]');
+        await expect(warning).toBeVisible();
+        const audit = await new AxeBuilder({ page })
+          .include('[data-og7="backup-service-state"]')
+          .withRules(['color-contrast'])
+          .analyze();
+        expect(audit.violations).toEqual([]);
+        expect(audit.incomplete).toEqual([]);
+      }
       await expect(request).toBeDisabled();
       const bounds = await panel.boundingBox();
       const contentBounds = await page
@@ -285,6 +307,17 @@ for (const language of ['fr-CA', 'en']) {
       await expect(
         panel.locator('[data-og7="backup-overview"]')
       ).not.toContainText(en ? 'No verified copy' : 'Aucune copie vérifiée');
+      await expect(
+        panel.getByText(
+          en ? 'Off-server copy verified' : 'Copie hors serveur vérifiée',
+          { exact: true }
+        )
+      ).toHaveCount(4);
+      await expect(
+        panel.getByText(en ? 'Backup failed' : 'Sauvegarde échouée', {
+          exact: true
+        })
+      ).toBeVisible();
       expect(
         (
           await new AxeBuilder({ page })

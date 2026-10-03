@@ -125,7 +125,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
         border-radius: 999px;
         color: var(--admin-text);
         display: inline-flex;
-        font-weight: 900;
+        font-weight: var(--admin-emphasis-weight);
         height: 2.35rem;
         justify-content: center;
         width: 2.35rem;
@@ -145,8 +145,10 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
         color: var(--admin-text);
         cursor: pointer;
         display: inline-flex;
-        font: inherit;
-        font-weight: 900;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        font-weight: var(--admin-control-weight);
         justify-content: center;
         min-height: 2.2rem;
         padding: 0;
@@ -186,7 +188,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
       dt {
         color: var(--admin-muted);
         font-size: 0.76rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
@@ -203,7 +205,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
         border-radius: 999px;
         display: inline-flex;
         font-size: 0.72rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         padding: 0.25rem 0.55rem;
         width: max-content;
       }
@@ -212,7 +214,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
       .payment-pending,
       .refund-requested,
       .visibility-review {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         color: var(--admin-warning);
       }
 
@@ -220,14 +222,14 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
       .payment-paid,
       .refund-completed,
       .visibility-visible {
-        background: #193d32;
+        background: var(--og7-admin-success-bg, #193d32);
         color: var(--admin-success);
       }
 
       .status-rejected,
       .payment-failed,
       .refund-failed {
-        background: #422532;
+        background: var(--og7-admin-danger-bg, #422532);
         color: var(--admin-danger);
       }
 

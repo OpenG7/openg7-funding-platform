@@ -1549,7 +1549,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .admin-breadcrumb a,
       .admin-breadcrumb strong {
         color: inherit;
-        font-weight: 800;
+        font-weight: 500;
         text-decoration: none;
       }
 
@@ -1566,17 +1566,11 @@ const controlledSponsorLogoUrlPrefixes = [
         margin: 0;
       }
 
-      .admin-title-row h1 {
-        font-size: clamp(1.9rem, 3vw, 2.45rem);
-        line-height: 1.05;
-      }
-
       .admin-title-row p,
       .muted-copy,
       .empty-admin-state p,
       .empty-detail-state p {
         color: var(--admin-muted);
-        line-height: 1.55;
         margin: 0.35rem 0 0;
       }
 
@@ -1587,7 +1581,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .public-preview > span {
         color: var(--admin-muted);
         font-size: 0.76rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
@@ -1596,7 +1590,9 @@ const controlledSponsorLogoUrlPrefixes = [
       input,
       select,
       textarea {
-        font: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
       }
 
       button:focus-visible,
@@ -1620,7 +1616,7 @@ const controlledSponsorLogoUrlPrefixes = [
         border-radius: 0.4rem;
         cursor: pointer;
         display: inline-flex;
-        font-weight: 900;
+        font-weight: var(--admin-control-weight);
         justify-content: center;
         min-height: 2.5rem;
         padding: 0 0.85rem;
@@ -1629,7 +1625,7 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .primary-action,
       .publication-save {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         border: 1px solid var(--admin-border);
         color: var(--admin-text);
       }
@@ -1697,7 +1693,7 @@ const controlledSponsorLogoUrlPrefixes = [
         align-items: center;
         border-radius: 999px;
         display: inline-flex;
-        font-weight: 900;
+        font-weight: var(--admin-emphasis-weight);
         justify-content: center;
       }
 
@@ -1709,7 +1705,7 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .metric-mark.gold {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         color: var(--admin-warning);
       }
       .metric-mark.green {
@@ -1717,7 +1713,7 @@ const controlledSponsorLogoUrlPrefixes = [
         color: var(--admin-success);
       }
       .metric-mark.money {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         color: var(--admin-warning);
       }
 
@@ -1732,6 +1728,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .sponsor-table-row small,
       .inline-status {
         color: var(--admin-muted);
+        font-weight: 400;
       }
 
       .sponsors-board {
@@ -1766,7 +1763,7 @@ const controlledSponsorLogoUrlPrefixes = [
         display: grid;
         gap: 0.35rem;
         font-size: 0.84rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
       }
 
       .filter-row {
@@ -1838,7 +1835,7 @@ const controlledSponsorLogoUrlPrefixes = [
         border-bottom: 1px solid var(--admin-border);
         color: var(--admin-muted);
         font-size: 0.76rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
       }
 
       .sponsor-table-row {
@@ -1985,7 +1982,7 @@ const controlledSponsorLogoUrlPrefixes = [
         box-shadow: 0 16px 34px rgb(15 23 42 / 24%);
         color: var(--admin-text);
         font-size: 0.86rem;
-        font-weight: 900;
+        font-weight: 500;
         margin: 0;
         max-width: min(24rem, calc(100% - 2rem));
         padding: 0.75rem 0.9rem;
@@ -2021,11 +2018,11 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .payment-alert {
-        background: #3c3221;
+        background: var(--og7-admin-danger-bg, #3c3221);
         border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         color: var(--admin-danger);
-        font-weight: 900;
+        font-weight: 500;
         grid-column: 1 / -1;
         margin: 0 1rem 1rem;
         padding: 0.75rem 0.9rem;
@@ -2070,14 +2067,14 @@ const controlledSponsorLogoUrlPrefixes = [
       .rejection-workflow header span {
         color: var(--admin-danger);
         font-size: 0.72rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         text-transform: uppercase;
       }
 
       .refund-workflow header span {
         color: var(--admin-muted);
         font-size: 0.72rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         text-transform: uppercase;
       }
 
@@ -2094,7 +2091,7 @@ const controlledSponsorLogoUrlPrefixes = [
         border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
         color: var(--admin-muted);
-        font-weight: 900;
+        font-weight: 500;
         margin: 0;
         padding: 0.75rem 0.9rem;
       }
@@ -2152,7 +2149,7 @@ const controlledSponsorLogoUrlPrefixes = [
         border-bottom: 0.18rem solid transparent;
         color: var(--admin-muted);
         cursor: pointer;
-        font-weight: 900;
+        font-weight: var(--admin-control-weight);
         padding: 0.9rem 0.65rem 0.72rem;
         white-space: nowrap;
       }
@@ -2220,7 +2217,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .publication-advanced > summary {
         cursor: pointer;
         padding: 1rem;
-        font-weight: 700;
+        font-weight: var(--admin-control-weight);
       }
       .publication-advanced > summary:focus-visible {
         outline: 3px solid #efc36b;
@@ -2261,9 +2258,13 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .detail-actions {
         align-items: center;
-        background: linear-gradient(110deg, #193348f5, #0d2436fa);
+        background: linear-gradient(
+          110deg,
+          var(--admin-panel-raised, #193348f5),
+          var(--admin-panel, #0d2436fa)
+        );
         backdrop-filter: blur(18px);
-        border: 1px solid #426077;
+        border: 1px solid var(--admin-border, #426077);
         border-radius: 0.9rem;
         box-shadow: 0 12px 28px #00000026;
         display: flex;
@@ -2290,7 +2291,7 @@ const controlledSponsorLogoUrlPrefixes = [
 
       .detail-actions-context span {
         font-size: 0.9rem;
-        font-weight: 700;
+        font-weight: var(--admin-control-weight);
       }
 
       .detail-actions-context small {
@@ -2319,7 +2320,7 @@ const controlledSponsorLogoUrlPrefixes = [
         border-radius: 999px;
         display: inline-flex;
         font-size: 0.72rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         padding: 0.25rem 0.55rem;
         width: max-content;
       }
@@ -2330,7 +2331,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .refund-requested,
       .visibility-review,
       .tier-gold {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         color: var(--admin-warning);
       }
       .status-approved,
@@ -2338,13 +2339,13 @@ const controlledSponsorLogoUrlPrefixes = [
       .payment-paid,
       .refund-completed,
       .visibility-visible {
-        background: #193d32;
+        background: var(--og7-admin-success-bg, #193d32);
         color: var(--admin-success);
       }
       .status-rejected,
       .payment-failed,
       .refund-failed {
-        background: #422532;
+        background: var(--og7-admin-danger-bg, #422532);
         color: var(--admin-danger);
       }
       .visibility-hidden,
@@ -2366,17 +2367,17 @@ const controlledSponsorLogoUrlPrefixes = [
         color: var(--admin-muted);
       }
       .tier-bronze {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         color: var(--admin-warning);
       }
 
       .field-error {
         color: var(--admin-danger);
-        font-weight: 800;
+        font-weight: 500;
       }
       .inline-status.is-dirty {
         color: var(--admin-warning);
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
       }
 
       .review-button.neutral {
@@ -2390,7 +2391,7 @@ const controlledSponsorLogoUrlPrefixes = [
         color: var(--admin-danger);
       }
       .review-button.approve {
-        background: #193d32;
+        background: var(--og7-admin-success-bg, #193d32);
         border: 1px solid var(--admin-border);
         color: var(--admin-text);
       }
@@ -2464,7 +2465,7 @@ const controlledSponsorLogoUrlPrefixes = [
       .refund-summary-grid > div > span {
         color: var(--admin-muted);
         font-size: 0.78rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
         text-transform: uppercase;
       }
 
@@ -2493,7 +2494,7 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .refund-history-requested {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         border-left-color: var(--admin-border);
       }
 
@@ -2520,13 +2521,13 @@ const controlledSponsorLogoUrlPrefixes = [
       .audit-list time {
         color: var(--admin-muted);
         font-size: 0.82rem;
-        font-weight: 800;
+        font-weight: 500;
       }
 
       .refund-history-list time {
         color: var(--admin-muted);
         font-size: 0.82rem;
-        font-weight: 800;
+        font-weight: 500;
       }
 
       .audit-list p {
@@ -2534,7 +2535,7 @@ const controlledSponsorLogoUrlPrefixes = [
       }
 
       .refund-history-list p {
-        font-weight: 800;
+        font-weight: 500;
         margin: 0.15rem 0;
       }
 

@@ -3,8 +3,8 @@
   gap: 1.25rem;
   min-width: 0;
   color: var(--admin-text);
-  font-size: 0.875rem;
-  line-height: 1.6;
+  font-size: var(--admin-body-size);
+  line-height: var(--admin-body-leading);
 }
 .summary {
   display: flex;
@@ -32,8 +32,6 @@
   margin: 0 0 0.3rem;
 }
 h3 {
-  font-size: 1.3rem;
-  line-height: 1.4;
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -41,8 +39,6 @@ h4 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 650;
   margin: 0 0 0.7rem;
 }
 .context,
@@ -69,7 +65,7 @@ h4 {
   gap: 0.5rem;
 }
 .destination {
-  font-weight: 650;
+  font-weight: 500;
   margin-right: auto;
 }
 .destination > span {
@@ -209,7 +205,9 @@ button {
   padding: 0.55rem 0.8rem;
   background: var(--og7-admin-raised, #203d54);
   color: var(--admin-text);
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
   cursor: pointer;
 }
 button:hover {

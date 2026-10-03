@@ -88,14 +88,14 @@ import { TranslatePipe } from '@ngx-translate/core';
         border-radius: 999px;
         color: var(--admin-text);
         display: inline-flex;
-        font-weight: 900;
+        font-weight: var(--admin-emphasis-weight);
         height: 3rem;
         justify-content: center;
         width: 3rem;
       }
 
       .metric-mark.gold {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         color: var(--admin-warning);
       }
 
@@ -105,14 +105,14 @@ import { TranslatePipe } from '@ngx-translate/core';
       }
 
       .metric-mark.money {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         color: var(--admin-warning);
       }
 
       .admin-summary-grid article span:not(.metric-mark) {
         color: var(--admin-muted);
         font-size: 0.76rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }

@@ -14,20 +14,26 @@ button {
   gap: 0.65rem;
   text-align: left;
   min-width: 0;
-  border: 1px solid #35516a;
+  border: 1px solid var(--admin-border, #35516a);
   border-radius: 0.7rem;
-  background: linear-gradient(135deg, #122c42, #0e2033);
+  background: linear-gradient(
+    135deg,
+    var(--admin-panel-raised, #122c42),
+    var(--admin-panel, #0e2033)
+  );
   color: var(--admin-text);
   padding: 1rem;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
   cursor: pointer;
   transition:
     border-color 0.15s,
     background 0.15s;
 }
 button:hover {
-  border-color: #73cfff;
-  background: #17334b;
+  border-color: var(--og7-admin-accent, #73cfff);
+  background: var(--og7-admin-selected, #17334b);
 }
 button:focus-visible {
   outline: 3px solid var(--admin-focus);
@@ -40,7 +46,7 @@ button:focus-visible {
 }
 .heading > openg7-admin-icon {
   font-size: 1.6rem;
-  color: #85d5ff;
+  color: var(--og7-admin-accent, #85d5ff);
 }
 .heading .arrow {
   font-size: 1rem;
@@ -60,7 +66,7 @@ small,
   align-items: center;
   gap: 0.45rem;
   font-weight: 700;
-  color: #c6d5e5;
+  color: var(--admin-muted, #c6d5e5);
   font-size: 0.88rem;
 }
 .dot {
@@ -71,14 +77,14 @@ small,
   flex-shrink: 0;
 }
 [data-state='operational'] .status {
-  color: #a1e7b1;
+  color: var(--admin-success, #a1e7b1);
 }
 [data-state='degraded'] .status,
 [data-state='not_configured'] .status {
-  color: #ffda85;
+  color: var(--admin-warning, #ffda85);
 }
 [data-state='unavailable'] .status {
-  color: #ffb5bc;
+  color: var(--admin-danger, #ffb5bc);
 }
 .evidence {
   color: var(--admin-muted);

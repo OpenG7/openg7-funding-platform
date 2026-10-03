@@ -155,7 +155,7 @@ import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-public
       }
       a {
         color: var(--admin-muted);
-        font-weight: 650;
+        font-weight: var(--admin-control-weight);
       }
       a:focus-visible {
         outline: 3px solid #296fc8;

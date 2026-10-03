@@ -397,7 +397,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       .admin-table-panel span {
         color: var(--admin-muted);
         font-size: 0.78rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
@@ -413,7 +413,9 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       input,
       select {
         border-radius: 0.35rem;
-        font: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
       }
 
       button {
@@ -421,7 +423,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
         border: 0;
         color: var(--admin-text);
         cursor: pointer;
-        font-weight: 800;
+        font-weight: var(--admin-control-weight);
         min-height: 2.7rem;
         padding: 0 0.9rem;
       }
@@ -456,7 +458,6 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       .admin-table-panel small,
       .empty-state p {
         color: var(--admin-muted);
-        line-height: 1.55;
         margin: 0.35rem 0 0;
       }
 
@@ -465,7 +466,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
         display: grid;
         gap: 0.35rem;
         font-size: 0.85rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
       }
 
       input,
@@ -536,7 +537,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       .reference-cell {
         font-family:
           ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
-        font-weight: 800;
+        font-weight: 500;
         letter-spacing: 0;
       }
 
@@ -566,14 +567,14 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
       .detail-panel dt {
         color: var(--admin-muted);
         font-size: 0.78rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
 
       .detail-panel dd {
         margin: 0;
-        font-weight: 800;
+        font-weight: 500;
       }
 
       .selected-row {
@@ -589,7 +590,7 @@ type PublicDisplayFilter = 'all' | 'public' | 'private';
 
       .state-error {
         color: var(--admin-danger);
-        font-weight: 800;
+        font-weight: 500;
       }
 
       @media (max-width: 1020px) {

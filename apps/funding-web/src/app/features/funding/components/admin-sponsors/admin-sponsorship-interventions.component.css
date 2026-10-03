@@ -20,7 +20,7 @@ p {
   margin: 0.5rem 0;
 }
 .followup-state[data-state='decision_required'] {
-  color: #fcd34d;
+  color: var(--admin-warning, #fcd34d);
 }
 fieldset {
   display: grid;
@@ -37,7 +37,9 @@ textarea {
   width: 100%;
   box-sizing: border-box;
   min-width: 0;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
   color: inherit;
   background: var(--admin-bg, #111827);
   border: 1px solid #697586;

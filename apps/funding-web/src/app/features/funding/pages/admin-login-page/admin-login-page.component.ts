@@ -127,15 +127,12 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       .admin-login-panel span {
         color: var(--admin-muted);
         font-size: 0.78rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
 
       .admin-login-panel h1 {
-        font-family: inherit;
-        font-size: clamp(2rem, 6vw, 3rem);
-        line-height: 1;
         margin: 0.35rem 0 0.65rem;
       }
 
@@ -153,7 +150,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 
       .admin-login-panel label {
         font-size: 0.9rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
       }
 
       .admin-login-panel input,
@@ -166,6 +163,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       .admin-login-panel input {
         border: 1px solid var(--admin-border);
         padding: 0.65rem 0.75rem;
+        font-weight: 400;
       }
 
       .admin-login-panel button {
@@ -173,7 +171,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
         border: 0;
         color: var(--admin-text);
         cursor: pointer;
-        font-weight: 900;
+        font-weight: var(--admin-control-weight);
         padding: 0 1rem;
       }
 
@@ -184,7 +182,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 
       .admin-login-panel a {
         color: var(--admin-muted);
-        font-weight: 800;
+        font-weight: var(--admin-control-weight);
         text-decoration: none;
       }
 
@@ -193,7 +191,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
         border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         color: var(--admin-danger);
-        font-weight: 800;
+        font-weight: 500;
         padding: 0.75rem 0.85rem;
       }
     `

@@ -63,8 +63,10 @@ interface AdminSponsorDetailTabItem {
         border-bottom: 0.18rem solid transparent;
         color: var(--admin-muted);
         cursor: pointer;
-        font: inherit;
-        font-weight: 900;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        font-weight: var(--admin-control-weight);
         padding: 0.9rem 0.65rem 0.72rem;
         white-space: nowrap;
       }

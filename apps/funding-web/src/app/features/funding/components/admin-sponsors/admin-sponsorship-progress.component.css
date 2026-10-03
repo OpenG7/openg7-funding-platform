@@ -23,9 +23,6 @@ h3,
 p {
   margin: 0 0 0.65rem;
 }
-h2 {
-  font-size: 1.15rem;
-}
 h3 {
   margin-top: 0.8rem;
 }
@@ -36,11 +33,11 @@ h3 {
   font-size: 0.8rem;
 }
 dt {
-  color: #b8c8e0;
+  color: var(--admin-muted, #b8c8e0);
 }
 dd {
   margin: 0.25rem 0 0;
-  font-weight: 650;
+  font-weight: 500;
 }
 .milestones {
   list-style: none;
@@ -86,13 +83,13 @@ dd {
 }
 small,
 .help {
-  color: #bccbe0;
+  color: var(--admin-muted, #bccbe0);
   font-size: 0.75rem;
 }
 .next-step {
   padding: 1rem;
   border-radius: 8px;
-  background: #21314a;
+  background: var(--admin-panel-raised, #21314a);
 }
 .next-step p {
   margin: 0.3rem 0 0;
@@ -103,7 +100,7 @@ small,
 }
 a:focus-visible,
 button:focus-visible {
-  outline: 3px solid #efc36b;
+  outline: 3px solid var(--admin-focus, #efc36b);
   outline-offset: 3px;
 }
 @media (max-width: 760px) {
@@ -124,7 +121,7 @@ button:focus-visible {
 }
 .streamlined h2 {
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--admin-label-weight);
   color: var(--admin-muted);
   margin: 0;
 }

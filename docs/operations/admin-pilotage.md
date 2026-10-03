@@ -30,13 +30,15 @@ le [runbook éditorial](editorial-programme.md).
 ## Apparence et concentration
 
 **Apparence** propose Nuit OpenG7, Clair minéral et Graphite, ainsi que les
-densités Confort et Compact. Le choix couvre le cadre de navigation et les
-panneaux du pilotage; les autres routes administratives gardent leur apparence.
+densités Confort et Compact. La palette couvre le cadre de navigation et le
+contenu de toutes les pages utilisant le layout admin partagé. Elle est conservée
+après un changement de page ou un rechargement. La densité reste propre au pilotage.
 **Suivre le thème du système** alterne entre Clair minéral et Nuit OpenG7 selon
-la préférence de l'appareil, y compris lorsqu'elle change pendant la visite.
+la préférence de l'appareil, y compris lorsqu'elle change hors du pilotage.
 
 Ces préférences sont locales au navigateur (`openg7.pilotage.appearance.v1`),
-communes aux comptes sur cet appareil et synchronisées entre ses onglets.
+communes aux comptes sur cet appareil et synchronisées entre ses onglets,
+même hors du pilotage.
 Elles ne contiennent aucun dossier ni secret. Un script chargé avant Angular
 applique la palette enregistrée avant le rendu de la page. Un stockage bloqué
 est signalé dans le panneau; le choix reste utilisable pendant la visite.

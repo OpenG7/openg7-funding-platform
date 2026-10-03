@@ -294,7 +294,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       dt {
         color: var(--admin-muted);
         font-size: 0.78rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
@@ -360,13 +360,16 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
         display: grid;
         gap: 0.35rem;
         font-size: 0.85rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
       }
 
       input {
         border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
-        font: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        font-weight: 400;
         padding: 0.65rem 0.75rem;
       }
 
@@ -376,8 +379,10 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
         border-radius: 0.35rem;
         color: var(--admin-text);
         cursor: pointer;
-        font: inherit;
-        font-weight: 800;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        font-weight: var(--admin-control-weight);
         min-height: 2.7rem;
         padding: 0 0.9rem;
       }
@@ -391,7 +396,7 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
 
       dd {
         font-size: 1.2rem;
-        font-weight: 900;
+        font-weight: var(--admin-emphasis-weight);
         margin: 0.2rem 0 0;
       }
 
@@ -416,12 +421,13 @@ import { FundingAdminService } from '../../services/funding-admin.service.js';
       th {
         color: var(--admin-muted);
         font-size: 0.78rem;
+        font-weight: var(--admin-label-weight);
         text-transform: uppercase;
       }
 
       .state-error {
         color: var(--admin-danger);
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
       }
 
       @media (max-width: 900px) {

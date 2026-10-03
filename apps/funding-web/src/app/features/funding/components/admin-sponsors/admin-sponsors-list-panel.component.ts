@@ -374,13 +374,15 @@ import type {
         display: grid;
         gap: 0.35rem;
         font-size: 0.84rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
       }
 
       button,
       input,
       select {
-        font: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
       }
 
       button:focus-visible,
@@ -404,7 +406,7 @@ import type {
         border-radius: 0.4rem;
         cursor: pointer;
         display: inline-flex;
-        font-weight: 900;
+        font-weight: var(--admin-control-weight);
         justify-content: center;
         min-height: 2.5rem;
         padding: 0 0.85rem;
@@ -445,7 +447,6 @@ import type {
 
       .empty-admin-state p {
         color: var(--admin-muted);
-        line-height: 1.55;
         margin: 0.35rem 0 0;
       }
 
@@ -495,7 +496,7 @@ import type {
         border-bottom: 1px solid var(--admin-border);
         color: var(--admin-muted);
         font-size: 0.76rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
       }
 
       .sponsor-table-row {
@@ -597,7 +598,7 @@ import type {
         border-radius: 999px;
         color: var(--admin-text);
         display: inline-flex;
-        font-weight: 900;
+        font-weight: var(--admin-emphasis-weight);
         height: 2.35rem;
         justify-content: center;
         width: 2.35rem;
@@ -625,6 +626,7 @@ import type {
 
       .sponsor-table-row small:not(.tier-badge) {
         color: var(--admin-muted);
+        font-weight: 400;
       }
 
       .status-badge,
@@ -636,7 +638,7 @@ import type {
         border-radius: 999px;
         display: inline-flex;
         font-size: 0.72rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         padding: 0.25rem 0.55rem;
         width: max-content;
       }
@@ -647,7 +649,7 @@ import type {
       .refund-requested,
       .visibility-review,
       .tier-gold {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         color: var(--admin-warning);
       }
 
@@ -656,14 +658,14 @@ import type {
       .payment-paid,
       .refund-completed,
       .visibility-visible {
-        background: #193d32;
+        background: var(--og7-admin-success-bg, #193d32);
         color: var(--admin-success);
       }
 
       .status-rejected,
       .payment-failed,
       .refund-failed {
-        background: #422532;
+        background: var(--og7-admin-danger-bg, #422532);
         color: var(--admin-danger);
       }
 
@@ -676,7 +678,7 @@ import type {
 
       .refund-processing,
       .feed-drafted {
-        background: #203951;
+        background: var(--og7-admin-selected, #203951);
         color: var(--admin-focus);
       }
 

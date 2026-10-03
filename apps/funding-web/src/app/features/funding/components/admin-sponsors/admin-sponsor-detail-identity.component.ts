@@ -156,14 +156,13 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       dd {
         margin: 0.3rem 0 0;
         overflow-wrap: anywhere;
-        font-weight: 600;
+        font-weight: 500;
       }
       .identity-explanation {
         padding: 1rem;
         border: 1px solid var(--admin-border);
         border-radius: 0.75rem;
         background: var(--admin-panel);
-        line-height: 1.5;
       }
       .identity-explanation h4 {
         margin: 0 0 0.75rem;
@@ -172,7 +171,7 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
         margin: 0;
       }
       .identity-explanation dt {
-        font-weight: 600;
+        font-weight: var(--admin-label-weight);
         color: var(--admin-text);
       }
       .identity-explanation dd {
@@ -181,7 +180,6 @@ import type { AdminSponsorDetailOverviewView } from '../../models/admin-sponsors
       .submission-required {
         border-inline-start: 3px solid var(--admin-focus);
         padding-inline-start: 0.75rem;
-        line-height: 1.5;
       }
     `
   ]

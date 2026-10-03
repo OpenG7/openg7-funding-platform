@@ -7,7 +7,7 @@
   border-radius: 0.65rem 0.65rem 0 0;
   border-bottom: 3px solid transparent;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: var(--admin-control-weight);
   padding: 0.85rem 1rem;
   min-height: 2.75rem;
 }

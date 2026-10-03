@@ -3,11 +3,12 @@ import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
 import type {
+  AdminContributionsResponse,
   PilotCommand,
   PilotDecision,
-  PilotState
+  PilotState,
+  ProgrammeState
 } from '@openg7/funding-core';
-import type { ProgrammeState } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
 
@@ -25,6 +26,102 @@ function overviewCount(page: Page, label: string) {
     .getByRole('definition')
     .first();
 }
+
+const adminPalettes = {
+  night: { background: 'rgb(11, 23, 39)', sidebar: 'rgb(13, 27, 44)' },
+  mineral: { background: 'rgb(243, 242, 238)', sidebar: 'rgb(233, 232, 226)' },
+  graphite: { background: 'rgb(25, 27, 31)', sidebar: 'rgb(30, 33, 38)' }
+};
+
+async function expectAdminPalette(
+  page: Page,
+  theme: keyof typeof adminPalettes
+) {
+  await expect(page.locator('openg7-admin-layout')).toHaveCSS(
+    'background-color',
+    adminPalettes[theme].background
+  );
+  await expect(page.locator('openg7-admin-nav aside')).toHaveCSS(
+    'background-color',
+    adminPalettes[theme].sidebar
+  );
+}
+
+for (const theme of ['night', 'mineral', 'graphite'] as const) {
+  test(`shared admin appearance ${theme} survives navigation, reload and direct entry`, async ({
+    page
+  }) => {
+    const { commands } = await fixtures(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/admin/fundraiser/pilotage');
+    await page.locator('[data-og7="pilot-appearance"]').click();
+    await page.locator(`[data-og7="pilot-theme-${theme}"]`).check();
+    await page.keyboard.press('Escape');
+    await expectAdminPalette(page, theme);
+    const navigation = page.getByRole('navigation', {
+      name: 'Navigation admin du fonds'
+    });
+    await navigation
+      .getByRole('link', { name: 'Contributions', exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/admin\/fundraiser\/contributions$/);
+    await expect(
+      page.getByRole('heading', { name: 'Contributions', exact: true })
+    ).toBeVisible();
+    await expectAdminPalette(page, theme);
+    await navigation.getByRole('link', { name: 'Poste de pilotage' }).click();
+    await expect(page).toHaveURL(/\/pilotage$/);
+    await expectAdminPalette(page, theme);
+    await page.locator('[data-og7="pilot-appearance"]').click();
+    await expect(
+      page.locator(`[data-og7="pilot-theme-${theme}"]`)
+    ).toBeChecked();
+    await page.keyboard.press('Escape');
+    await navigation
+      .getByRole('link', { name: 'Contributions', exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/contributions$/);
+    await page.reload();
+    await expectAdminPalette(page, theme);
+    await page.goto('/admin/fundraiser/contributions');
+    await expectAdminPalette(page, theme);
+    expect(commands).toEqual([]);
+  });
+}
+
+test('shared admin appearance follows system changes outside pilotage', async ({
+  page
+}) => {
+  const { commands } = await fixtures(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-appearance"]').click();
+  await page.locator('[data-og7="pilot-theme-system"]').check();
+  await page.keyboard.press('Escape');
+  const navigation = page.getByRole('navigation', {
+    name: 'Navigation admin du fonds'
+  });
+  await navigation
+    .getByRole('link', { name: 'Contributions', exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/contributions$/);
+  await expectAdminPalette(page, 'mineral');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expectAdminPalette(page, 'night');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expectAdminPalette(page, 'mineral');
+  await page.reload();
+  await expectAdminPalette(page, 'mineral');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expectAdminPalette(page, 'night');
+  await navigation.getByRole('link', { name: 'Poste de pilotage' }).click();
+  await expect(page).toHaveURL(/\/pilotage$/);
+  await expectAdminPalette(page, 'night');
+  await page.locator('[data-og7="pilot-appearance"]').click();
+  await expect(page.locator('[data-og7="pilot-theme-system"]')).toBeChecked();
+  expect(commands).toEqual([]);
+});
 
 for (const theme of ['night', 'mineral', 'graphite']) {
   for (const language of ['fr-CA', 'en']) {
@@ -1514,6 +1611,27 @@ async function fixtures(page: Page, count = 4) {
           }
         }
       });
+    if (url.pathname.endsWith('/contributions')) {
+      const response: AdminContributionsResponse = {
+        data_source: 'database',
+        summary: {
+          total_count: 0,
+          paid_count: 0,
+          pending_count: 0,
+          sponsorship_count: 0,
+          public_display_count: 0,
+          total_received: 0,
+          total_refunded: 0,
+          total_disputed: 0,
+          currency: 'CAD'
+        },
+        contributions: [],
+        last_updated_at: state.generatedAt
+      };
+      return route.fulfill({ json: response });
+    }
+    if (url.pathname.endsWith('/stripe-backfill'))
+      return route.fulfill({ json: { run: null } });
     return route.fulfill({ status: 503, json: {} });
   });
   return {

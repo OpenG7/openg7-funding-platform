@@ -9,6 +9,7 @@ import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+import { PilotAppearanceService } from '../../services/pilot-appearance.service.js';
 import { AdminNavComponent } from '../admin-nav/admin-nav.component.js';
 import { AdminGlobalSearchComponent } from '../admin-search/admin-global-search.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
@@ -118,5 +119,6 @@ export class AdminLayoutComponent {
   readonly pilotage = input(false);
   readonly concentrated = input(false);
   readonly i18n = inject(FundingI18nService);
+  readonly appearance = inject(PilotAppearanceService);
   readonly navigationCollapsed = signal(false);
 }

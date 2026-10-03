@@ -711,7 +711,7 @@ interface DocumentDownload {
       .email-panel header span {
         color: var(--admin-warning);
         font-size: 0.73rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
@@ -723,23 +723,12 @@ interface DocumentDownload {
         margin: 0;
       }
 
-      h1 {
-        font-size: clamp(1.45rem, 2vw, 2rem);
-        line-height: 1.1;
-      }
-
-      h2 {
-        font-size: 1.1rem;
-      }
-
-      h3 {
-        font-size: 1rem;
-      }
-
       button {
         border: 0;
         cursor: pointer;
-        font: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
       }
 
       .admin-topbar button,
@@ -747,7 +736,7 @@ interface DocumentDownload {
         background: var(--admin-panel-raised);
         border-radius: 0.4rem;
         color: var(--admin-text);
-        font-weight: 900;
+        font-weight: var(--admin-control-weight);
         min-height: 2.45rem;
         padding: 0 0.95rem;
       }
@@ -757,7 +746,7 @@ interface DocumentDownload {
         border: 1px solid rgba(23, 32, 51, 0.18);
         border-radius: 0.4rem;
         color: var(--admin-text);
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         min-height: 2.35rem;
         padding: 0 0.85rem;
       }
@@ -774,7 +763,7 @@ interface DocumentDownload {
         border: 1px solid rgba(23, 32, 51, 0.1);
         border-radius: 0.45rem;
         color: var(--admin-muted);
-        font-weight: 800;
+        font-weight: 500;
         padding: 0.85rem 1rem;
       }
 
@@ -813,7 +802,7 @@ interface DocumentDownload {
 
       .admin-summary-grid small {
         color: var(--admin-muted);
-        font-weight: 800;
+        font-weight: 400;
       }
 
       .invoices-board {
@@ -877,19 +866,19 @@ interface DocumentDownload {
       }
 
       .invoice-number {
-        font-weight: 950;
+        font-weight: var(--admin-label-weight);
       }
 
       .invoice-name {
         color: var(--admin-muted);
         grid-column: 1 / -1;
-        font-weight: 800;
+        font-weight: 500;
       }
 
       .invoice-meta {
         color: var(--admin-muted);
         font-size: 0.88rem;
-        font-weight: 800;
+        font-weight: 400;
       }
 
       .email-status {
@@ -899,7 +888,7 @@ interface DocumentDownload {
         color: var(--admin-muted);
         display: inline-flex;
         font-size: 0.72rem;
-        font-weight: 950;
+        font-weight: var(--admin-label-weight);
         justify-content: center;
         min-height: 1.65rem;
         padding: 0 0.6rem;
@@ -913,7 +902,7 @@ interface DocumentDownload {
         color: var(--admin-muted);
         display: inline-flex;
         font-size: 0.72rem;
-        font-weight: 950;
+        font-weight: var(--admin-label-weight);
         justify-content: center;
         min-height: 1.65rem;
         padding: 0 0.6rem;
@@ -926,12 +915,12 @@ interface DocumentDownload {
       }
 
       .status-failed {
-        background: #422532;
+        background: var(--og7-admin-danger-bg, #422532);
         color: var(--admin-danger);
       }
 
       .status-queued {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         color: var(--admin-warning);
       }
 
@@ -947,7 +936,7 @@ interface DocumentDownload {
 
       .detail-header p {
         color: var(--admin-muted);
-        font-weight: 800;
+        font-weight: 500;
         margin-top: 0.2rem;
       }
 
@@ -991,12 +980,12 @@ interface DocumentDownload {
       dt {
         color: var(--admin-muted);
         font-size: 0.78rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         text-transform: uppercase;
       }
 
       dd {
-        font-weight: 850;
+        font-weight: 400;
         margin: 0;
         min-width: 0;
         overflow-wrap: anywhere;
@@ -1039,7 +1028,7 @@ interface DocumentDownload {
       .credit-note-title span {
         color: var(--admin-muted);
         font-size: 0.86rem;
-        font-weight: 800;
+        font-weight: 400;
       }
 
       .credit-note-meta {
@@ -1054,7 +1043,7 @@ interface DocumentDownload {
 
       .line-item small {
         color: var(--admin-muted);
-        font-weight: 800;
+        font-weight: 400;
         white-space: nowrap;
       }
 
@@ -1070,6 +1059,7 @@ interface DocumentDownload {
       .totals div:last-child dd {
         color: var(--admin-text);
         font-size: 1rem;
+        font-weight: var(--admin-emphasis-weight);
       }
 
       .stripe-grid dd {
@@ -1089,7 +1079,7 @@ interface DocumentDownload {
         color: var(--admin-muted);
         display: grid;
         font-size: 0.8rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         gap: 0.35rem;
         text-transform: uppercase;
       }
@@ -1099,7 +1089,10 @@ interface DocumentDownload {
         border: 1px solid rgba(23, 32, 51, 0.16);
         border-radius: 0.35rem;
         color: var(--admin-text);
-        font: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        font-weight: 400;
         min-height: 2.5rem;
         padding: 0 0.75rem;
         text-transform: none;
@@ -1121,7 +1114,7 @@ interface DocumentDownload {
 
       .resend-message {
         color: var(--admin-muted);
-        font-weight: 850;
+        font-weight: 500;
       }
 
       .resend-message.success {
@@ -1134,7 +1127,7 @@ interface DocumentDownload {
 
       .download-message {
         color: var(--admin-muted);
-        font-weight: 850;
+        font-weight: 500;
       }
 
       .download-message.error {

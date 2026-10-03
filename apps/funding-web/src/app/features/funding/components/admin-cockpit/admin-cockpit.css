@@ -5,7 +5,11 @@
 }
 .panel {
   border: 1px solid var(--admin-border);
-  background: linear-gradient(140deg, #18273c, var(--admin-panel));
+  background: linear-gradient(
+    140deg,
+    var(--admin-panel-raised, #18273c),
+    var(--admin-panel)
+  );
   border-radius: 0.8rem;
   padding: 1rem;
   height: 100%;
@@ -18,8 +22,6 @@
   margin-bottom: 0.6rem;
 }
 h2 {
-  font-size: 1.05rem;
-  font-weight: 600;
   margin: 0;
 }
 .meta,
@@ -40,7 +42,11 @@ h2 {
   min-width: 0;
   border: 1px solid var(--admin-border);
   border-radius: 0.8rem;
-  background: linear-gradient(155deg, #1c3047, var(--admin-panel) 65%);
+  background: linear-gradient(
+    155deg,
+    var(--admin-panel-raised, #1c3047),
+    var(--admin-panel) 65%
+  );
   box-shadow: 0 8px 24px #00000014;
 }
 .metric > .notice {
@@ -96,7 +102,7 @@ li a {
   color: var(--admin-text);
 }
 li a:hover {
-  color: #f4c66a;
+  color: var(--admin-gold, #f4c66a);
 }
 small {
   display: block;
@@ -147,7 +153,7 @@ strong {
 a:focus-visible,
 summary:focus-visible,
 select:focus-visible {
-  outline: 2px solid #f4c66a;
+  outline: 2px solid var(--admin-focus, #f4c66a);
   outline-offset: 3px;
 }
 @media (max-width: 1400px) {
