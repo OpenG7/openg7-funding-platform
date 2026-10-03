@@ -1,0 +1,364 @@
+@if (active()) {
+  <section
+    class="filters"
+    [attr.aria-label]="'admin.legacy.filtres_publications' | translate"
+  >
+    <label>
+      {{ 'admin.legacy.recherche' | translate
+      }}<input
+        type="search"
+        [attr.placeholder]="'admin.legacy.entreprise_titre_texte' | translate"
+        [value]="search()"
+        (input)="setSearch($event)"
+      />
+    </label>
+    <label>
+      {{ 'admin.legacy.statut' | translate
+      }}<select [value]="statusFilter()" (change)="setStatusFilter($event)">
+        <option value="active">
+          {{ 'admin.publications.activeDrafts' | translate }}
+        </option>
+        <option value="all">
+          {{ 'admin.legacy.tous' | translate }}
+        </option>
+        <option
+          *ngFor="let status of publicationStatuses"
+          [value]="status"
+          [selected]="statusFilter() === status"
+        >
+          {{ statusLabel(status) }}
+        </option>
+      </select>
+    </label>
+  </section>
+
+  <section
+    *ngIf="showEligible()"
+    class="admin-panel"
+    id="publication-eligible"
+    aria-labelledby="eligible-title"
+  >
+    <header>
+      <div>
+        <span>{{
+          'admin.legacy.p0_commandite_s'
+            | translate: { p0: eligibleSponsorships().length }
+        }}</span>
+        <h2 id="eligible-title">
+          {{ 'admin.legacy.commandites_pretes' | translate }}
+        </h2>
+      </div>
+      <button type="button" (click)="closePreparation()">
+        {{ 'admin.publications.close' | translate }}
+      </button>
+    </header>
+
+    <div class="eligible-list" *ngIf="eligibleSponsorships().length > 0">
+      <article
+        data-og7="publication-eligible-sponsor"
+        [attr.data-og7-id]="sponsorship.id"
+        *ngFor="
+          let sponsorship of eligibleSponsorships();
+          trackBy: trackBySponsor
+        "
+      >
+        <div>
+          <strong>{{ sponsorship.sponsor_company_name }}</strong>
+          <small>{{ feedTargetLabel(sponsorship) }}</small>
+        </div>
+        <nav>
+          <button
+            type="button"
+            *ngFor="let channel of sponsorship.sponsor_feed_channels"
+            [disabled]="actionState() === sponsorship.id + channel"
+            (click)="createDraft(sponsorship, channel)"
+          >
+            {{ channelLabel(channel) }}
+          </button>
+        </nav>
+      </article>
+    </div>
+
+    <article class="empty-state" *ngIf="eligibleSponsorships().length === 0">
+      <h3>
+        {{ 'admin.legacy.aucune_commandite_prete' | translate }}
+      </h3>
+      <p>
+        {{
+          'admin.legacy.approuvez_une_commandite_et_ajoutez_une_cible_canal_feed'
+            | translate
+        }}
+      </p>
+    </article>
+  </section>
+
+  <section
+    class="draft-list"
+    [attr.aria-label]="'admin.legacy.brouillons_de_publication' | translate"
+  >
+    <article
+      class="draft-card"
+      data-og7="publication-draft"
+      [attr.data-og7-id]="draft.id"
+      *ngFor="let draft of filteredDrafts(); trackBy: trackByDraft"
+      [attr.id]="'attention-object-' + draft.id"
+      tabindex="-1"
+    >
+      <header>
+        <div>
+          <span>{{ statusLabel(draft.status) }}</span>
+          <h2>{{ draft.sponsor_company_name }}</h2>
+          @if (dirtyDraftIds().has(draft.id)) {
+            <small class="dirty-note">{{
+              'admin.publications.unsaved' | translate
+            }}</small>
+          }
+        </div>
+        <small
+          >{{ draft.feed_target }} / {{ channelLabel(draft.channel) }}</small
+        >
+        <button
+          type="button"
+          class="neutral"
+          [attr.aria-expanded]="selectedDraftId() === draft.id"
+          [attr.aria-controls]="'draft-editor-' + draft.id"
+          (click)="
+            selectedDraftId.set(
+              selectedDraftId() === draft.id ? null : draft.id
+            )
+          "
+        >
+          {{
+            (selectedDraftId() === draft.id
+              ? 'admin.publications.close'
+              : 'admin.publications.open'
+            ) | translate
+          }}
+        </button>
+      </header>
+      @if (selectedDraftId() === draft.id) {
+        <fieldset
+          class="item-editor"
+          [disabled]="!!actionState()"
+          [attr.id]="'draft-editor-' + draft.id"
+        >
+          <label>
+            {{ 'admin.legacy.titre' | translate
+            }}<input
+              type="text"
+              maxlength="160"
+              [value]="editFor(draft.id).title"
+              (input)="setEditField(draft.id, 'title', $event)"
+            />
+          </label>
+
+          <label>
+            {{ 'admin.legacy.texte' | translate
+            }}<textarea
+              rows="8"
+              maxlength="2500"
+              [value]="editFor(draft.id).body"
+              (input)="setEditField(draft.id, 'body', $event)"
+            ></textarea>
+          </label>
+
+          <label>
+            {{ 'admin.legacy.divulgation' | translate
+            }}<input
+              type="text"
+              maxlength="300"
+              [value]="editFor(draft.id).disclosureText"
+              (input)="setEditField(draft.id, 'disclosureText', $event)"
+            />
+          </label>
+
+          <details class="secondary-options">
+            <summary>
+              {{ 'admin.publications.draftOptions' | translate }}
+            </summary>
+            <div class="draft-grid">
+              <label>
+                {{ 'admin.legacy.url_publique' | translate
+                }}<input
+                  type="url"
+                  maxlength="2048"
+                  [value]="editFor(draft.id).publicUrl"
+                  (input)="setEditField(draft.id, 'publicUrl', $event)"
+                />
+              </label>
+              <label>
+                {{ 'admin.legacy.planification' | translate
+                }}<input
+                  type="datetime-local"
+                  [value]="editFor(draft.id).scheduledAt"
+                  (input)="setEditField(draft.id, 'scheduledAt', $event)"
+                />
+              </label>
+            </div>
+
+            <label>
+              {{ 'admin.legacy.note_revue' | translate
+              }}<textarea
+                rows="3"
+                maxlength="1000"
+                [value]="editFor(draft.id).reviewNote"
+                (input)="setEditField(draft.id, 'reviewNote', $event)"
+              ></textarea>
+            </label>
+          </details>
+          <div
+            class="draft-batch-row"
+            *ngIf="draft.status === 'approved' || draft.batch_id"
+          >
+            <ng-container *ngIf="!draft.batch_id">
+              <label class="inline">
+                {{ 'admin.legacy.lot' | translate
+                }}<select
+                  [value]="draftBatchSelection(draft.id)"
+                  (change)="setDraftBatchSelection(draft.id, $event)"
+                >
+                  <option value="" [selected]="!draftBatchSelection(draft.id)">
+                    {{ 'admin.legacy.choisir_un_lot_ouvert' | translate }}
+                  </option>
+                  <option
+                    *ngFor="let batch of openBatchesForChannel(draft.channel)"
+                    [value]="batch.id"
+                    [selected]="draftBatchSelection(draft.id) === batch.id"
+                  >
+                    {{ channelLabel(batch.channel) }} ({{
+                      batch.capacityUsed
+                    }}/{{ batch.capacity }})
+                  </option>
+                </select>
+              </label>
+              <button
+                type="button"
+                class="neutral"
+                [disabled]="
+                  !draftBatchSelection(draft.id) || actionState() === draft.id
+                "
+                (click)="assignToBatch(draft)"
+              >
+                {{ 'admin.legacy.assigner_au_lot' | translate }}
+              </button>
+            </ng-container>
+            <ng-container *ngIf="draft.batch_id as batchId">
+              <span>{{
+                'admin.legacy.dans_un_lot_p0'
+                  | translate
+                    : {
+                        p0: batchStatusLabel(batchStatusById(batchId))
+                      }
+              }}</span>
+              <button
+                type="button"
+                class="reject"
+                [disabled]="actionState() === draft.id"
+                (click)="unassignFromBatch(draft)"
+              >
+                {{ 'admin.legacy.retirer_du_lot' | translate }}
+              </button>
+            </ng-container>
+          </div>
+
+          <footer>
+            <button
+              type="button"
+              class="primary-action"
+              (click)="saveDraft(draft)"
+            >
+              {{ 'admin.legacy.enregistrer' | translate }}
+            </button>
+            @if (draft.status === 'pending_review') {
+              <button
+                type="button"
+                class="approve"
+                (click)="saveDraft(draft, 'approved')"
+              >
+                {{ 'admin.legacy.approuver' | translate }}
+              </button>
+            } @else if (
+              draft.status === 'draft' || draft.status === 'rejected'
+            ) {
+              <button
+                type="button"
+                (click)="saveDraft(draft, 'pending_review')"
+              >
+                {{ 'admin.publications.submitReview' | translate }}
+              </button>
+            }
+            <button type="button" class="neutral" (click)="copyDraft(draft)">
+              {{ 'admin.legacy.copier' | translate }}
+            </button>
+          </footer>
+          <details class="secondary-options">
+            <summary>
+              {{ 'admin.publications.otherActions' | translate }}
+            </summary>
+            <div class="secondary-actions">
+              <button
+                *ngIf="
+                  draft.status !== 'draft' &&
+                  draft.status !== 'rejected' &&
+                  draft.status !== 'pending_review'
+                "
+                type="button"
+                (click)="saveDraft(draft, 'pending_review')"
+              >
+                {{ 'admin.legacy.revue' | translate }}
+              </button>
+              <button
+                *ngIf="
+                  draft.status !== 'pending_review' &&
+                  draft.status !== 'approved'
+                "
+                type="button"
+                class="approve"
+                (click)="saveDraft(draft, 'approved')"
+              >
+                {{ 'admin.legacy.approuver' | translate }}
+              </button>
+              <button
+                *ngIf="draft.status !== 'scheduled'"
+                type="button"
+                class="neutral"
+                (click)="saveDraft(draft, 'scheduled')"
+              >
+                {{ 'admin.legacy.planifier' | translate }}
+              </button>
+              <button
+                *ngIf="draft.status !== 'published'"
+                type="button"
+                class="neutral"
+                (click)="saveDraft(draft, 'published')"
+              >
+                {{ 'admin.publications.markPublished' | translate }}
+              </button>
+              <button
+                *ngIf="draft.status !== 'rejected'"
+                type="button"
+                class="reject"
+                (click)="saveDraft(draft, 'rejected')"
+              >
+                {{ 'admin.legacy.refuser' | translate }}
+              </button>
+            </div>
+          </details>
+        </fieldset>
+      }
+    </article>
+
+    <article
+      class="empty-state"
+      *ngIf="state() === 'ready' && filteredDrafts().length === 0"
+    >
+      <h3>{{ 'admin.legacy.aucun_brouillon_trouve' | translate }}</h3>
+      <p>
+        {{
+          'admin.legacy.generez_un_brouillon_ou_modifiez_les_filtres'
+            | translate
+        }}
+      </p>
+    </article>
+  </section>
+}

@@ -1,3 +1,4 @@
+import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { readFundingHomeSource } from './support/funding-home-source.mjs';
 import { readFundingAdminSource } from './support/funding-admin-source.mjs';
@@ -391,9 +392,7 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
     'apps/funding-api/src/fund-contributions.repository.ts'
   );
   const adminRepository = read('apps/funding-api/src/fund-admin.repository.ts');
-  const publicationAdminPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-publications-page/admin-publications-page.component.ts'
-  );
+  const publicationAdminPage = readAdminPublicationsSource();
   const migration = read(
     'apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql'
   );
