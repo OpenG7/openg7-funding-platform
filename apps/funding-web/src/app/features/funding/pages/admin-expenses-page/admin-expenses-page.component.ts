@@ -29,33 +29,27 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
-interface ExpenseEdit {
-  readonly projectName: string;
-  readonly publicDescription: string;
-  readonly expectedOutcome: string;
-  readonly progressStatus: 'planned' | 'in_progress' | 'delivered';
-  readonly proofUrl: string;
-  readonly proofSource: string;
-  readonly proofPublishedAt: string;
-  readonly amountAllocated: string;
-  readonly status: AdminExpenseStatus;
-  readonly publishedAt: string;
-}
-
-type NewExpenseDraft = Omit<ExpenseEdit, 'publishedAt'>;
-
-const expenseStatuses: readonly AdminExpenseStatus[] = [
-  'draft',
-  'published',
-  'active',
-  'private',
-  'archived'
-];
+import { AdminExpenseCardComponent } from './admin-expense-card.component.js';
+import { AdminExpenseCreateComponent } from './admin-expense-create.component.js';
+import { AdminExpenseFiltersComponent } from './admin-expense-filters.component.js';
+import type {
+  ExpenseEdit,
+  ExpenseEditFieldChange,
+  NewExpenseDraft,
+  NewExpenseFieldChange
+} from './admin-expense-presentation.types.js';
 
 @Component({
   selector: 'openg7-admin-expenses-page',
   standalone: true,
-  imports: [CommonModule, AdminLayoutComponent, TranslatePipe],
+  imports: [
+    CommonModule,
+    AdminLayoutComponent,
+    TranslatePipe,
+    AdminExpenseCreateComponent,
+    AdminExpenseFiltersComponent,
+    AdminExpenseCardComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <openg7-admin-layout>
@@ -118,331 +112,39 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
             </article>
           </section>
 
-          <section
-            class="create-panel"
-            data-og7="allocation-create"
-            aria-labelledby="create-title"
-          >
-            <header>
-              <div>
-                <span>{{ 'admin.legacy.nouvelle_entree' | translate }}</span>
-                <h2 id="create-title">
-                  {{
-                    'admin.legacy.ajouter_une_depense_ou_allocation' | translate
-                  }}
-                </h2>
-              </div>
-            </header>
+          <openg7-admin-expense-create
+            [draft]="newExpenseDraft()"
+            [busy]="mutationBusy()"
+            (draftChange)="setNewField($event)"
+            (createRequested)="createExpense()"
+          />
 
-            <div class="create-grid">
-              <label>
-                {{ 'admin.legacy.projet_ou_fournisseur' | translate
-                }}<input
-                  type="text"
-                  maxlength="160"
-                  [value]="newProjectName()"
-                  (input)="setNewProjectName($event)"
-                />
-              </label>
-              <label>
-                {{ 'admin.legacy.montant_cad' | translate
-                }}<input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  [value]="newAmount()"
-                  (input)="setNewAmount($event)"
-                />
-              </label>
-              <label>
-                {{ 'admin.legacy.statut' | translate
-                }}<select [value]="newStatus()" (change)="setNewStatus($event)">
-                  <option
-                    *ngFor="let status of expenseStatuses"
-                    [value]="status"
-                  >
-                    {{ statusLabel(status) }}
-                  </option>
-                </select>
-              </label>
-              <label class="span-3">
-                {{ 'admin.legacy.description_publique' | translate
-                }}<textarea
-                  rows="3"
-                  maxlength="1000"
-                  [value]="newDescription()"
-                  (input)="setNewDescription($event)"
-                ></textarea>
-              </label>
-              <label class="span-3">
-                {{ 'admin.legacy.resultat_attendu' | translate
-                }}<textarea
-                  rows="2"
-                  maxlength="1000"
-                  [value]="newExpectedOutcome()"
-                  (input)="setNewExpectedOutcome($event)"
-                ></textarea>
-              </label>
-              <label>
-                {{ 'admin.legacy.avancement' | translate
-                }}<select
-                  [value]="newProgressStatus()"
-                  (change)="setNewProgressStatus($event)"
-                >
-                  <option value="planned">
-                    {{ 'admin.legacy.prevu' | translate }}
-                  </option>
-                  <option value="in_progress">
-                    {{ 'admin.legacy.en_cours_134' | translate }}
-                  </option>
-                  <option value="delivered">
-                    {{ 'admin.legacy.livre' | translate }}
-                  </option>
-                </select>
-              </label>
-              <label>
-                {{ 'admin.legacy.preuve_publique' | translate
-                }}<input
-                  type="url"
-                  [value]="newProofUrl()"
-                  (input)="setNewProofUrl($event)"
-                />
-              </label>
-              <label>
-                {{ 'admin.legacy.source_de_la_preuve' | translate
-                }}<input
-                  type="text"
-                  maxlength="500"
-                  [value]="newProofSource()"
-                  (input)="setNewProofSource($event)"
-                />
-              </label>
-              <label>
-                {{ 'admin.legacy.date_de_la_preuve' | translate
-                }}<input
-                  type="datetime-local"
-                  [value]="newProofPublishedAt()"
-                  (input)="setNewProofPublishedAt($event)"
-                />
-              </label>
-            </div>
-
-            <footer>
-              <button
-                type="button"
-                [disabled]="mutationBusy()"
-                (click)="createExpense()"
-              >
-                {{ 'admin.legacy.ajouter' | translate }}
-              </button>
-            </footer>
-          </section>
-
-          <section
-            class="filters"
-            [attr.aria-label]="'admin.legacy.filtres_depenses' | translate"
-          >
-            <label>
-              {{ 'admin.legacy.recherche' | translate
-              }}<input
-                type="search"
-                [attr.placeholder]="
-                  'admin.legacy.projet_fournisseur_description' | translate
-                "
-                [value]="search()"
-                (input)="setSearch($event)"
-              />
-            </label>
-            <label>
-              {{ 'admin.legacy.statut' | translate
-              }}<select
-                [value]="statusFilter()"
-                (change)="setStatusFilter($event)"
-              >
-                <option value="all">
-                  {{ 'admin.legacy.tous' | translate }}
-                </option>
-                <option *ngFor="let status of expenseStatuses" [value]="status">
-                  {{ statusLabel(status) }}
-                </option>
-              </select>
-            </label>
-          </section>
+          <openg7-admin-expense-filters
+            [search]="search()"
+            [status]="statusFilter()"
+            (searchChange)="search.set($event)"
+            (statusChange)="statusFilter.set($event)"
+          />
 
           <section
             class="expense-list"
             [attr.aria-label]="'admin.legacy.liste_des_depenses' | translate"
           >
-            <article
-              class="expense-card"
-              data-og7="allocation-card"
-              [attr.data-og7-id]="expense.id"
+            <openg7-admin-expense-card
               *ngFor="
                 let expense of filteredExpenses();
                 trackBy: trackByExpense
               "
-            >
-              <header>
-                <div>
-                  <span>{{ statusLabel(expense.status) }}</span>
-                  <h2>{{ expense.project_name }}</h2>
-                </div>
-                <strong>{{
-                  formatMoney(expense.amount_allocated, expense.currency)
-                }}</strong>
-                <button type="button" (click)="inspection.proof(expense)">
-                  {{ 'admin.inspector.kinds.proof' | translate }}
-                </button>
-              </header>
-
-              <div class="edit-grid">
-                <label>
-                  {{ 'admin.legacy.projet_ou_fournisseur' | translate
-                  }}<input
-                    type="text"
-                    maxlength="160"
-                    [value]="editFor(expense.id).projectName"
-                    (input)="setEditField(expense.id, 'projectName', $event)"
-                  />
-                </label>
-                <label>
-                  {{ 'admin.legacy.montant_cad' | translate
-                  }}<input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    [value]="editFor(expense.id).amountAllocated"
-                    (input)="
-                      setEditField(expense.id, 'amountAllocated', $event)
-                    "
-                  />
-                </label>
-                <label>
-                  {{ 'admin.legacy.statut' | translate
-                  }}<select
-                    [value]="editFor(expense.id).status"
-                    (change)="setEditField(expense.id, 'status', $event)"
-                  >
-                    <option
-                      *ngFor="let status of expenseStatuses"
-                      [value]="status"
-                    >
-                      {{ statusLabel(status) }}
-                    </option>
-                  </select>
-                </label>
-                <label>
-                  {{ 'admin.legacy.date_publication' | translate
-                  }}<input
-                    type="datetime-local"
-                    [value]="editFor(expense.id).publishedAt"
-                    (input)="setEditField(expense.id, 'publishedAt', $event)"
-                  />
-                </label>
-                <label class="span-3">
-                  {{ 'admin.legacy.description_publique' | translate
-                  }}<textarea
-                    rows="3"
-                    maxlength="1000"
-                    [value]="editFor(expense.id).publicDescription"
-                    (input)="
-                      setEditField(expense.id, 'publicDescription', $event)
-                    "
-                  ></textarea>
-                </label>
-                <label class="span-3">
-                  {{ 'admin.legacy.resultat_attendu' | translate
-                  }}<textarea
-                    rows="2"
-                    maxlength="1000"
-                    [value]="editFor(expense.id).expectedOutcome"
-                    (input)="
-                      setEditField(expense.id, 'expectedOutcome', $event)
-                    "
-                  ></textarea>
-                </label>
-                <label>
-                  {{ 'admin.legacy.avancement' | translate
-                  }}<select
-                    [value]="editFor(expense.id).progressStatus"
-                    (change)="
-                      setEditField(expense.id, 'progressStatus', $event)
-                    "
-                  >
-                    <option value="planned">
-                      {{ 'admin.legacy.prevu' | translate }}
-                    </option>
-                    <option value="in_progress">
-                      {{ 'admin.legacy.en_cours_134' | translate }}
-                    </option>
-                    <option value="delivered">
-                      {{ 'admin.legacy.livre' | translate }}
-                    </option>
-                  </select>
-                </label>
-                <label>
-                  {{ 'admin.legacy.preuve_publique' | translate
-                  }}<input
-                    type="url"
-                    [value]="editFor(expense.id).proofUrl"
-                    (input)="setEditField(expense.id, 'proofUrl', $event)"
-                  />
-                </label>
-                <label>
-                  {{ 'admin.legacy.source_de_la_preuve' | translate
-                  }}<input
-                    type="text"
-                    maxlength="500"
-                    [value]="editFor(expense.id).proofSource"
-                    (input)="setEditField(expense.id, 'proofSource', $event)"
-                  />
-                </label>
-                <label>
-                  {{ 'admin.legacy.date_de_la_preuve' | translate
-                  }}<input
-                    type="datetime-local"
-                    [value]="editFor(expense.id).proofPublishedAt"
-                    (input)="
-                      setEditField(expense.id, 'proofPublishedAt', $event)
-                    "
-                  />
-                </label>
-              </div>
-
-              <footer>
-                <button
-                  type="button"
-                  [disabled]="mutationBusy()"
-                  (click)="saveExpense(expense)"
-                >
-                  {{ 'admin.legacy.enregistrer' | translate }}
-                </button>
-                <button
-                  type="button"
-                  class="approve"
-                  [disabled]="mutationBusy()"
-                  (click)="saveExpense(expense, 'published')"
-                >
-                  {{ 'admin.legacy.publier' | translate }}
-                </button>
-                <button
-                  type="button"
-                  class="neutral"
-                  [disabled]="mutationBusy()"
-                  (click)="saveExpense(expense, 'private')"
-                >
-                  {{ 'admin.legacy.masquer' | translate }}
-                </button>
-                <button
-                  type="button"
-                  class="reject"
-                  [disabled]="mutationBusy()"
-                  (click)="saveExpense(expense, 'archived')"
-                >
-                  {{ 'admin.legacy.archiver' | translate }}
-                </button>
-              </footer>
-            </article>
+              [expense]="expense"
+              [edit]="editFor(expense.id)"
+              [busy]="mutationBusy()"
+              [amountLabel]="
+                formatMoney(expense.amount_allocated, expense.currency)
+              "
+              (editChange)="setEditField(expense.id, $event)"
+              (saveRequested)="saveExpense(expense, $event)"
+              (proofRequested)="inspection.proof(expense)"
+            />
 
             <article
               class="empty-state"
@@ -469,31 +171,24 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
   styles: [
     `
       .admin-content,
-      .create-panel,
-      .expense-list,
-      .expense-card {
+      .expense-list {
         display: grid;
         gap: 1rem;
         min-width: 0;
       }
 
       .admin-topbar,
-      .admin-auth-panel,
       .summary-grid,
-      .create-panel,
-      .filters,
       .expense-list,
-      .state {
+      .state,
+      openg7-admin-expense-create,
+      openg7-admin-expense-filters {
         margin: 0 auto;
         max-width: 78rem;
         width: 100%;
       }
 
-      .admin-topbar,
-      .create-panel header,
-      .expense-card header,
-      .expense-card footer,
-      .create-panel footer {
+      .admin-topbar {
         align-items: center;
         display: flex;
         gap: 0.75rem;
@@ -501,9 +196,7 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
       }
 
       .admin-topbar span,
-      .summary-grid span,
-      .create-panel span,
-      .expense-card span {
+      .summary-grid span {
         color: var(--admin-muted);
         font-size: 0.78rem;
         font-weight: var(--admin-label-weight);
@@ -512,105 +205,34 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
       }
 
       .admin-topbar h1,
-      .admin-auth-panel h2,
-      .create-panel h2,
-      .expense-card h2,
       .empty-state h3 {
         margin: 0;
       }
 
-      .admin-auth-panel,
       .summary-grid article,
-      .create-panel,
-      .filters,
-      .expense-card,
       .empty-state {
         background: var(--admin-panel);
         border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
-      }
-
-      .admin-auth-panel,
-      .create-panel,
-      .filters,
-      .expense-card,
-      .empty-state {
         padding: 1rem;
       }
 
-      .admin-auth-panel {
-        align-items: end;
-        display: grid;
-        gap: 1rem;
-        grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
-      }
-
-      .admin-auth-panel p,
       .empty-state p {
         color: var(--admin-muted);
         line-height: 1.55;
         margin: 0.35rem 0 0;
       }
 
-      .summary-grid,
-      .filters,
-      .create-grid,
-      .edit-grid {
+      .summary-grid {
         display: grid;
         gap: 0.75rem;
-      }
-
-      .summary-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-
-      .summary-grid article {
-        padding: 1rem;
       }
 
       .summary-grid strong {
         display: block;
         font-size: 1.65rem;
         margin-top: 0.2rem;
-      }
-
-      .filters {
-        grid-template-columns: minmax(14rem, 2fr) minmax(10rem, 1fr);
-      }
-
-      .create-grid,
-      .edit-grid {
-        grid-template-columns: minmax(14rem, 2fr) minmax(8rem, 0.8fr) minmax(
-            9rem,
-            1fr
-          );
-      }
-
-      .span-3 {
-        grid-column: 1 / -1;
-      }
-
-      label {
-        display: grid;
-        gap: 0.35rem;
-        font-size: 0.85rem;
-        font-weight: var(--admin-label-weight);
-      }
-
-      input,
-      select,
-      textarea {
-        border: 1px solid var(--admin-border);
-        border-radius: 0.35rem;
-        font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
-        font-weight: 400;
-        padding: 0.65rem 0.75rem;
-      }
-
-      textarea {
-        resize: vertical;
       }
 
       button {
@@ -627,41 +249,17 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
         padding: 0 0.85rem;
       }
 
-      button.approve {
-        background: var(--og7-admin-success-bg, #193d32);
-      }
-
-      button.neutral {
-        background: var(--admin-panel-raised);
-      }
-
-      button.reject {
-        background: var(--og7-admin-danger-bg, #422532);
-      }
-
-      .expense-card footer {
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-
       .state-error {
         color: var(--admin-danger);
         font-weight: var(--admin-label-weight);
       }
 
       @media (max-width: 900px) {
-        .admin-shell,
-        .admin-auth-panel,
-        .summary-grid,
-        .filters,
-        .create-grid,
-        .edit-grid {
+        .summary-grid {
           grid-template-columns: 1fr;
         }
 
-        .admin-topbar,
-        .create-panel header,
-        .expense-card header {
+        .admin-topbar {
           align-items: start;
           flex-direction: column;
         }
@@ -683,7 +281,6 @@ export class AdminExpensesPageComponent implements OnInit {
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
 
-  readonly expenseStatuses = expenseStatuses;
   readonly adminToken = signal<string>('');
   readonly response = signal<AdminExpensesResponse | null>(null);
   readonly expenseEdits = signal<Record<string, ExpenseEdit>>({});
@@ -932,78 +529,44 @@ export class AdminExpensesPageComponent implements OnInit {
     this.admin.saveAdminToken(this.adminToken());
   }
 
-  setSearch(event: Event): void {
-    this.search.set(this.valueFromEvent(event));
+  setNewField(change: NewExpenseFieldChange): void {
+    switch (change.field) {
+      case 'projectName':
+        this.newProjectName.set(change.value);
+        break;
+      case 'publicDescription':
+        this.newDescription.set(change.value);
+        break;
+      case 'expectedOutcome':
+        this.newExpectedOutcome.set(change.value);
+        break;
+      case 'progressStatus':
+        this.newProgressStatus.set(change.value);
+        break;
+      case 'proofUrl':
+        this.newProofUrl.set(change.value);
+        break;
+      case 'proofSource':
+        this.newProofSource.set(change.value);
+        break;
+      case 'proofPublishedAt':
+        this.newProofPublishedAt.set(change.value);
+        break;
+      case 'amountAllocated':
+        this.newAmount.set(change.value);
+        break;
+      case 'status':
+        this.newStatus.set(change.value);
+        break;
+    }
   }
 
-  setStatusFilter(event: Event): void {
-    const value = this.valueFromEvent(event);
-    this.statusFilter.set(
-      expenseStatuses.includes(value as AdminExpenseStatus)
-        ? (value as AdminExpenseStatus)
-        : 'all'
-    );
-  }
-
-  setNewProjectName(event: Event): void {
-    this.newProjectName.set(this.valueFromEvent(event));
-  }
-
-  setNewDescription(event: Event): void {
-    this.newDescription.set(this.valueFromEvent(event));
-  }
-
-  setNewExpectedOutcome(event: Event): void {
-    this.newExpectedOutcome.set(this.valueFromEvent(event));
-  }
-
-  setNewProgressStatus(event: Event): void {
-    const value = this.valueFromEvent(event);
-    this.newProgressStatus.set(
-      value === 'in_progress' || value === 'delivered' ? value : 'planned'
-    );
-  }
-
-  setNewProofUrl(event: Event): void {
-    this.newProofUrl.set(this.valueFromEvent(event));
-  }
-
-  setNewProofSource(event: Event): void {
-    this.newProofSource.set(this.valueFromEvent(event));
-  }
-
-  setNewProofPublishedAt(event: Event): void {
-    this.newProofPublishedAt.set(this.valueFromEvent(event));
-  }
-
-  setNewAmount(event: Event): void {
-    this.newAmount.set(this.valueFromEvent(event));
-  }
-
-  setNewStatus(event: Event): void {
-    const value = this.valueFromEvent(event);
-    this.newStatus.set(
-      expenseStatuses.includes(value as AdminExpenseStatus)
-        ? (value as AdminExpenseStatus)
-        : 'draft'
-    );
-  }
-
-  setEditField(
-    expenseId: string,
-    field: keyof ExpenseEdit,
-    event: Event
-  ): void {
-    const value = this.valueFromEvent(event);
+  setEditField(expenseId: string, change: ExpenseEditFieldChange): void {
     this.expenseEdits.update((edits) => ({
       ...edits,
       [expenseId]: {
         ...(edits[expenseId] ?? this.emptyEdit()),
-        [field]:
-          field === 'status' &&
-          expenseStatuses.includes(value as AdminExpenseStatus)
-            ? (value as AdminExpenseStatus)
-            : value
+        [change.field]: change.value
       }
     }));
   }
@@ -1014,18 +577,6 @@ export class AdminExpensesPageComponent implements OnInit {
 
   trackByExpense(_: number, expense: AdminExpenseRecord): string {
     return expense.id;
-  }
-
-  statusLabel(status: AdminExpenseStatus): string {
-    const labels: Record<AdminExpenseStatus, string> = {
-      draft: this.i18n.t('admin.legacy.brouillon'),
-      published: this.i18n.t('admin.legacy.publiee'),
-      active: this.i18n.t('admin.messages.active'),
-      private: this.i18n.t('admin.messages.privee'),
-      archived: this.i18n.t('admin.messages.archivee')
-    };
-
-    return labels[status];
   }
 
   formatMoney(amount: number, currency: string): string {
@@ -1077,7 +628,7 @@ export class AdminExpensesPageComponent implements OnInit {
     );
   }
 
-  private newExpenseDraft(): NewExpenseDraft {
+  newExpenseDraft(): NewExpenseDraft {
     return {
       projectName: this.newProjectName(),
       publicDescription: this.newDescription(),

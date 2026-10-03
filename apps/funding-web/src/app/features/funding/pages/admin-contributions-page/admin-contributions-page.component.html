@@ -1,0 +1,78 @@
+<openg7-admin-layout>
+  <section class="admin-content">
+    <header class="admin-topbar">
+      <div>
+        <span>{{ 'admin.legacy.administration' | translate }}</span>
+        <h1>{{ 'admin.legacy.contributions' | translate }}</h1>
+      </div>
+      <nav>
+        <button type="button" (click)="loadContributions()">
+          {{ 'admin.legacy.actualiser' | translate }}
+        </button>
+        <button
+          type="button"
+          class="secondary"
+          data-og7="contribution-export"
+          [disabled]="
+            state() !== 'ready' ||
+            exporting() ||
+            !canExport() ||
+            filteredContributions().length === 0
+          "
+          (click)="exportCsv()"
+        >
+          {{ 'admin.legacy.export_csv' | translate }}
+        </button>
+      </nav>
+    </header>
+
+    <openg7-admin-stripe-backfill (completed)="loadContributions()" />
+
+    <openg7-admin-contributions-export
+      [count]="filteredContributions().length"
+      [canExport]="canExport()"
+      [errorKey]="exportError()"
+    />
+
+    <p class="state" *ngIf="state() === 'loading'">
+      {{ 'admin.legacy.chargement_des_contributions' | translate }}
+    </p>
+    <p class="state state-error" *ngIf="state() === 'error'">
+      {{
+        'admin.legacy.impossible_de_charger_ou_exporter_les_contributions_verifiez_le_j'
+          | translate
+      }}
+    </p>
+
+    <ng-container *ngIf="data() as response">
+      @if (selectedContributionView(); as selected) {
+        <openg7-admin-contributions-detail [contribution]="selected" />
+      }
+      <openg7-admin-contributions-summary
+        [summary]="response.summary"
+        [totalReceivedLabel]="
+          formatMoney(
+            response.summary.total_received,
+            response.summary.currency
+          )
+        "
+      />
+      <openg7-admin-contributions-filters
+        [search]="search()"
+        [typeFilter]="typeFilter()"
+        [statusFilter]="statusFilter()"
+        [publicFilter]="publicFilter()"
+        (searchChanged)="setSearch($event)"
+        (typeChanged)="setTypeFilter($event)"
+        (statusChanged)="setStatusFilter($event)"
+        (publicChanged)="setPublicFilter($event)"
+      />
+      <openg7-admin-contributions-list
+        [rows]="contributionRows()"
+        [selectedId]="selectedContributionId()"
+        [updatedAtLabel]="dateLabel(response.last_updated_at)"
+        (selected)="selectContribution($event)"
+      />
+    </ng-container>
+  </section>
+</openg7-admin-layout>

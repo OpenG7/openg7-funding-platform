@@ -2,6 +2,7 @@ import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import { readFundingAdminSource } from './support/funding-admin-source.mjs';
 import { readEmailNotificationSource } from './support/email-notification-source.mjs';
+import { readAdminAccountingSource } from './support/admin-accounting-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -28,12 +29,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const loginPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-login-page/admin-login-page.component.ts'
   );
-  const contributionsPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-contributions-page/admin-contributions-page.component.ts'
-  );
-  const expensesPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-expenses-page/admin-expenses-page.component.ts'
-  );
+  const contributionsPage = readAdminAccountingSource('contributions');
+  const expensesPage = readAdminAccountingSource('expenses');
   const transparencyPage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-transparency-page/admin-transparency-page.component.ts'
   );
@@ -72,9 +69,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const sponsorDetailMedia = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
   );
-  const invoicesPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-invoices-page/admin-invoices-page.component.ts'
-  );
+  const invoicesPage = readAdminAccountingSource('invoices');
   const emailQueuePage = read(
     'apps/funding-web/src/app/features/funding/pages/admin-email-queue-page/admin-email-queue-page.component.ts'
   );

@@ -1,0 +1,82 @@
+<section
+  class="admin-table-panel"
+  data-og7="contributions-list"
+  aria-labelledby="contributions-title"
+>
+  <header>
+    <div>
+      <span>{{
+        'admin.legacy.p0_resultat_s' | translate: { p0: rows().length }
+      }}</span>
+      <h2 id="contributions-title">
+        {{ 'admin.legacy.liste_admin' | translate }}
+      </h2>
+    </div>
+    <small>{{
+      'admin.legacy.mis_a_jour_p0' | translate: { p0: updatedAtLabel() }
+    }}</small>
+  </header>
+
+  <div class="table-scroll" *ngIf="rows().length > 0">
+    <table>
+      <thead>
+        <tr>
+          <th>{{ 'admin.legacy.type' | translate }}</th>
+          <th>{{ 'admin.legacy.reference' | translate }}</th>
+          <th>{{ 'admin.legacy.nom' | translate }}</th>
+          <th>{{ 'admin.legacy.courriel' | translate }}</th>
+          <th>{{ 'admin.legacy.statut' | translate }}</th>
+          <th>{{ 'admin.legacy.public' | translate }}</th>
+          <th>{{ 'admin.legacy.commandite' | translate }}</th>
+          <th>{{ 'admin.legacy.montant' | translate }}</th>
+          <th>{{ 'admin.legacy.date' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let contribution of rows(); trackBy: trackByContribution"
+          [class.selected-row]="selectedId() === contribution.id"
+          tabindex="0"
+          data-og7="contribution-row"
+          [attr.data-og7-id]="contribution.id"
+          (click)="selected.emit(contribution.id)"
+          (keydown.enter)="selected.emit(contribution.id)"
+          (keydown.space)="
+            $event.preventDefault(); selected.emit(contribution.id)
+          "
+        >
+          <td>{{ contribution.typeLabel }}</td>
+          <td class="reference-cell">
+            {{
+              contribution.reference ||
+                ('admin.legacy.non_attribuee' | translate)
+            }}
+          </td>
+          <td>{{ contribution.name }}</td>
+          <td>{{ contribution.emailLabel }}</td>
+          <td>{{ contribution.paymentStatus }}</td>
+          <td>{{ contribution.publicDisplayLabel }}</td>
+          <td>{{ contribution.sponsorStatusLabel }}</td>
+          <td>
+            {{ contribution.amountLabel }}
+          </td>
+          <td>
+            {{ contribution.dateLabel }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <article class="empty-state" *ngIf="rows().length === 0">
+    <h3>
+      {{ 'admin.legacy.aucune_contribution_trouvee' | translate }}
+    </h3>
+    <p>
+      {{
+        'admin.legacy.modifiez_les_filtres_ou_rechargez_la_liste_admin'
+          | translate
+      }}
+    </p>
+  </article>
+</section>

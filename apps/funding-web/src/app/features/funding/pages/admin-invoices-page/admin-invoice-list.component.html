@@ -1,0 +1,56 @@
+<section
+  class="invoice-list-panel"
+  [attr.aria-label]="'admin.legacy.liste_factures' | translate"
+>
+  <header>
+    <div>
+      <span>{{
+        'admin.legacy.p0_resultat_s' | translate: { p0: rows().length }
+      }}</span>
+      <h2>{{ 'admin.legacy.factures_emises' | translate }}</h2>
+    </div>
+  </header>
+
+  <div class="invoice-list" *ngIf="rows().length > 0; else emptyInvoices">
+    <button
+      type="button"
+      *ngFor="let row of rows(); trackBy: trackByRow"
+      [class.selected]="row.invoice.id === selectedId()"
+      [attr.aria-pressed]="row.invoice.id === selectedId()"
+      data-og7="invoice-selection"
+      [attr.data-og7-id]="row.invoice.id"
+      (click)="selected.emit(row.invoice)"
+    >
+      <span class="invoice-number">
+        {{ row.invoice.invoice_number }}
+      </span>
+      <span class="invoice-name">{{ row.invoice.sponsor_name }}</span>
+      <span class="invoice-meta">
+        {{ row.dateLabel }}
+      </span>
+      <openg7-admin-document-email-status
+        [status]="row.invoice.last_email_status"
+      />
+      <span class="credit-status" *ngIf="row.invoice.credit_notes.length > 0">
+        {{ 'admin.legacy.avoir' | translate }}</span
+      >
+      <strong>
+        {{ row.totalLabel }}
+      </strong>
+    </button>
+  </div>
+
+  <ng-template #emptyInvoices>
+    <article class="empty-state">
+      <strong>{{
+        'admin.legacy.aucune_facture_commandite' | translate
+      }}</strong>
+      <span>
+        {{
+          'admin.legacy.les_factures_apparaissent_apres_un_paiement_de_commandite_traite_'
+            | translate
+        }}</span
+      >
+    </article>
+  </ng-template>
+</section>

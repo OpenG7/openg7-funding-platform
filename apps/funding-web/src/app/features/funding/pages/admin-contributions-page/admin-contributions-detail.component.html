@@ -1,0 +1,41 @@
+<section
+  class="detail-panel"
+  aria-live="polite"
+  aria-labelledby="selected-contribution-title"
+>
+  <h3 id="selected-contribution-title">
+    {{ 'admin.legacy.detail_de_la_contribution' | translate }}
+  </h3>
+  <dl>
+    <div>
+      <dt>{{ 'admin.legacy.reference' | translate }}</dt>
+      <dd>
+        {{
+          contribution().reference || ('admin.legacy.non_attribuee' | translate)
+        }}
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.legacy.nom' | translate }}</dt>
+      <dd>{{ contribution().name }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.legacy.type' | translate }}</dt>
+      <dd>{{ contribution().typeLabel }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.legacy.statut' | translate }}</dt>
+      <dd>{{ contribution().paymentStatus }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.legacy.montant' | translate }}</dt>
+      <dd>{{ contribution().amountLabel }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.legacy.date' | translate }}</dt>
+      <dd>
+        {{ contribution().dateLabel }}
+      </dd>
+    </div>
+  </dl>
+</section>

@@ -1,0 +1,70 @@
+:host {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.primary-action {
+  background: var(--admin-panel-raised);
+  border-radius: 0.4rem;
+  color: var(--admin-text);
+  font-weight: var(--admin-control-weight);
+  min-height: 2.45rem;
+  padding: 0 0.95rem;
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+label {
+  color: var(--admin-muted);
+  display: grid;
+  font-size: 0.8rem;
+  font-weight: var(--admin-label-weight);
+  gap: 0.35rem;
+  text-transform: uppercase;
+}
+
+input {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  color: var(--admin-text);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: 400;
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  text-transform: none;
+}
+
+.resend-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.resend-message {
+  color: var(--admin-muted);
+  font-weight: 500;
+}
+
+.resend-message.success {
+  color: var(--admin-success);
+}
+
+.resend-message.error {
+  color: var(--admin-danger);
+}

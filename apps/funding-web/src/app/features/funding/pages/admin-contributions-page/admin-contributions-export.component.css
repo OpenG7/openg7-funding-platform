@@ -1,0 +1,14 @@
+:host {
+  display: contents;
+}
+
+.state {
+  margin: 0 auto;
+  max-width: 78rem;
+  width: 100%;
+}
+
+.state-error {
+  color: var(--admin-danger);
+  font-weight: 500;
+}

@@ -1,0 +1,46 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.filters {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(14rem, 2fr) repeat(3, minmax(10rem, 1fr));
+  margin: 0 auto;
+  max-width: 78rem;
+  padding: 1rem;
+  width: 100%;
+}
+
+.filters label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: var(--admin-label-weight);
+}
+
+input,
+select {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 0.65rem 0.75rem;
+}
+
+@media (max-width: 1020px) {
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+}

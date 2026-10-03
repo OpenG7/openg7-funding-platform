@@ -1,0 +1,76 @@
+<section
+  class="filters"
+  [attr.aria-label]="'admin.legacy.filtres_contributions' | translate"
+>
+  <label>
+    {{ 'admin.legacy.recherche' | translate
+    }}<input
+      type="search"
+      [attr.placeholder]="
+        'admin.legacy.nom_courriel_reference_stripe' | translate
+      "
+      [value]="search()"
+      (input)="searchChanged.emit(valueFromEvent($event))"
+    />
+  </label>
+
+  <label>
+    {{ 'admin.legacy.type' | translate
+    }}<select [value]="typeFilter()" (change)="changeType($event)">
+      <option value="all">
+        {{ 'admin.legacy.tous' | translate }}
+      </option>
+      <option value="personal_support">
+        {{ 'admin.legacy.contribution_personnelle' | translate }}
+      </option>
+      <option value="sponsorship_interest">
+        {{ 'admin.legacy.commandite' | translate }}
+      </option>
+    </select>
+  </label>
+
+  <label>
+    {{ 'admin.legacy.statut_paiement' | translate
+    }}<select
+      [value]="statusFilter()"
+      (change)="statusChanged.emit(valueFromEvent($event) || 'all')"
+    >
+      <option value="all">
+        {{ 'admin.legacy.tous' | translate }}
+      </option>
+      <option value="pending">
+        {{ 'admin.legacy.pending' | translate }}
+      </option>
+      <option value="paid">
+        {{ 'admin.legacy.paid' | translate }}
+      </option>
+      <option value="refunded">
+        {{ 'admin.legacy.refunded' | translate }}
+      </option>
+      <option value="disputed">
+        {{ 'admin.legacy.disputed' | translate }}
+      </option>
+      <option value="expired">
+        {{ 'admin.legacy.expired' | translate }}
+      </option>
+      <option value="failed">
+        {{ 'admin.legacy.failed' | translate }}
+      </option>
+    </select>
+  </label>
+
+  <label>
+    {{ 'admin.legacy.affichage_public' | translate
+    }}<select [value]="publicFilter()" (change)="changePublic($event)">
+      <option value="all">
+        {{ 'admin.legacy.tous' | translate }}
+      </option>
+      <option value="public">
+        {{ 'admin.legacy.consentis' | translate }}
+      </option>
+      <option value="private">
+        {{ 'admin.legacy.non_publics' | translate }}
+      </option>
+    </select>
+  </label>
+</section>
