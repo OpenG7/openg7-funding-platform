@@ -4,9 +4,11 @@ import type {
   PublicBuildersResponse
 } from '@openg7/funding-core';
 
+import { resolveFundingApiBaseUrl } from './funding-api-base-url.js';
+
 @Injectable({ providedIn: 'root' })
 export class FundTransparencyService {
-  private readonly apiBaseUrl = this.resolveApiBaseUrl();
+  private readonly apiBaseUrl = resolveFundingApiBaseUrl();
 
   async getPublicBuilders(
     page: number,
@@ -47,18 +49,5 @@ export class FundTransparencyService {
     }
 
     return (await response.json()) as FundTransparencyPublicResponse;
-  }
-
-  private resolveApiBaseUrl(): string {
-    const globalApiBaseUrl =
-      typeof window !== 'undefined'
-        ? (
-            window as Window & {
-              readonly __OPENG7_FUNDING_API_BASE_URL__?: string;
-            }
-          ).__OPENG7_FUNDING_API_BASE_URL__
-        : undefined;
-
-    return globalApiBaseUrl?.replace(/\/$/, '') ?? '/api';
   }
 }

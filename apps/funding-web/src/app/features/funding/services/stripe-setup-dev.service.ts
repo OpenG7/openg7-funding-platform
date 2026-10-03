@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 
+import { resolveFundingApiBaseUrl } from './funding-api-base-url.js';
+
 export interface StripeSetupDevStatus {
   readonly environment: string;
   readonly apiReachable: boolean;
@@ -18,7 +20,7 @@ export interface StripeSetupDevStatus {
 
 @Injectable({ providedIn: 'root' })
 export class StripeSetupDevService {
-  private readonly apiBaseUrl = this.resolveApiBaseUrl();
+  private readonly apiBaseUrl = resolveFundingApiBaseUrl();
 
   async getStatus(): Promise<StripeSetupDevStatus> {
     const response = await fetch(`${this.apiBaseUrl}/dev/stripe-setup-status`, {
@@ -33,16 +35,5 @@ export class StripeSetupDevService {
     }
 
     return (await response.json()) as StripeSetupDevStatus;
-  }
-
-  private resolveApiBaseUrl(): string {
-    const globalApiBaseUrl =
-      typeof window !== 'undefined'
-        ? (window as Window & {
-            readonly __OPENG7_FUNDING_API_BASE_URL__?: string;
-          }).__OPENG7_FUNDING_API_BASE_URL__
-        : undefined;
-
-    return globalApiBaseUrl?.replace(/\/$/, '') ?? '/api';
   }
 }

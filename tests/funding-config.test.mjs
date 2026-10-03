@@ -374,7 +374,19 @@ test('Public reference lookup returns minimal purchase status without private fi
   }
 
   assert.ok(fundingService.includes('lookupPublicReference'));
-  assert.ok(fundingService.includes('/reference-lookup'));
+  assert.ok(
+    fundingService.includes(
+      'this.publicClient.lookupPublicReference(payload, signal)'
+    )
+  );
+  assert.ok(
+    fs
+      .readFileSync(
+        'apps/funding-web/src/app/features/funding/services/funding-public.client.ts',
+        'utf8'
+      )
+      .includes('/reference-lookup')
+  );
   assert.ok(supportPage.includes('referenceLookupValue'));
   assert.ok(supportPage.includes('referenceLookupAmountLabel'));
   assert.ok(supportPage.includes('referenceLookupNextStepKey'));
@@ -1400,7 +1412,18 @@ test('Reference recovery accepts email requests without exposing contribution ex
   assert.ok(email.includes('renderContributionReferenceRecoveryEmail'));
   assert.ok(email.includes('publicReferences: input.references.map'));
   assert.ok(fundingService.includes('requestContributionReferenceRecovery'));
-  assert.ok(fundingService.includes('/reference-recovery'));
+  assert.match(
+    fundingService,
+    /this\.publicClient\.requestContributionReferenceRecovery\(\s*payload,\s*signal\s*\)/
+  );
+  assert.ok(
+    fs
+      .readFileSync(
+        'apps/funding-web/src/app/features/funding/services/funding-public.client.ts',
+        'utf8'
+      )
+      .includes('/reference-recovery')
+  );
   assert.ok(supportPage.includes('referenceRecoveryEmail'));
   assert.ok(
     supportPage.includes('funding.supportPage.referenceRecovery.success')
@@ -3053,7 +3076,17 @@ test('Public sponsorship batch availability exposes only a date per channel, nev
       'async getSponsorshipBatchAvailability(): Promise<PublicSponsorshipBatchAvailabilityResponse> {'
     )
   );
-  assert.ok(service.includes('/public/sponsorship-batches/availability'));
+  assert.ok(
+    service.includes('this.publicClient.getSponsorshipBatchAvailability()')
+  );
+  assert.ok(
+    fs
+      .readFileSync(
+        'apps/funding-web/src/app/features/funding/services/funding-public.client.ts',
+        'utf8'
+      )
+      .includes('/public/sponsorship-batches/availability')
+  );
 
   assert.ok(
     translatedUiSource(page).includes('loadSponsorshipBatchAvailability')
