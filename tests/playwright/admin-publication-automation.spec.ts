@@ -43,6 +43,7 @@ async function fixtures(
     role?: 'reader' | 'operator';
     workerResponse?: () => Promise<void>;
     settingsResponse?: () => Promise<void>;
+    readResponse?: () => Promise<void>;
     extraDeliveries?: PublicationDelivery[];
   } = {}
 ): Promise<PublicationAutomationCommand[]> {
@@ -109,6 +110,7 @@ async function fixtures(
     if (!path.endsWith('/publication-automation'))
       return route.fulfill({ status: 503, json: {} });
     if (route.request().method() === 'GET') {
+      await options.readResponse?.();
       const params = new URL(route.request().url()).searchParams;
       return route.fulfill({
         json: {
@@ -1240,4 +1242,75 @@ test('missing or mismatched delivery does not open another publication or compos
     page.getByRole('dialog', { name: 'Publication finale' })
   ).toHaveCount(0);
   expect(commands).toHaveLength(0);
+});
+
+test('approval rereads the dossier scope and waits for server state before feedback', async ({
+  page
+}) => {
+  const sponsorId = '10000000-0000-4000-8000-000000000401';
+  let reads = 0;
+  let releaseRead!: () => void;
+  const reread = new Promise<void>((resolve) => {
+    releaseRead = resolve;
+  });
+  const commands = await fixtures(
+    page,
+    'draft',
+    false,
+    [
+      {
+        id: sponsorId,
+        name: 'Synthetic scoped sponsor',
+        version: 'v1',
+        reviewStatus: 'approved',
+        presentationApproved: true
+      }
+    ],
+    { kind: 'sponsorship' },
+    {
+      extraDeliveries: [
+        {
+          ...initialJob,
+          id: '22222222-2222-4222-8222-222222222222',
+          message: 'Unrelated scoped publication'
+        }
+      ],
+      readResponse: async () => {
+        if (++reads > 1) await reread;
+      }
+    }
+  );
+  await page.goto(
+    `/admin/fundraiser/publications/automation?sponsorshipId=${sponsorId}&deliveryId=${initialJob.id}`
+  );
+  const drawer = page.getByRole('dialog', { name: 'Publication finale' });
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('checkbox').check();
+  try {
+    await drawer
+      .getByRole('button', { name: 'Accepter et programmer', exact: true })
+      .click();
+    await expect.poll(() => reads).toBe(2);
+    expect(commands).toHaveLength(1);
+    await expect(
+      page.locator('[data-og7="publication-automation"]')
+    ).toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByText('Enregistré.', { exact: true })).toHaveCount(0);
+    await expect(
+      drawer.getByRole('button', {
+        name: 'Accepter et programmer',
+        exact: true
+      })
+    ).toBeDisabled();
+  } finally {
+    releaseRead();
+  }
+  await expect(
+    page.locator('[data-og7="publication-automation"]')
+  ).toHaveAttribute('aria-busy', 'false');
+  await expect(drawer).toContainText('Autorisée');
+  await expect(
+    page.getByText('Unrelated scoped publication', { exact: true })
+  ).toHaveCount(0);
+  expect(commands).toHaveLength(1);
 });

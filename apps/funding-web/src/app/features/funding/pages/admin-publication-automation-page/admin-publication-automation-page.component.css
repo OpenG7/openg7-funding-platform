@@ -2,15 +2,6 @@
   display: block;
   color: var(--admin-text, #e5edf7);
 }
-details > summary {
-  cursor: pointer;
-  padding: 1rem 0;
-  font-weight: var(--admin-control-weight);
-}
-details > summary:focus-visible {
-  outline: 3px solid var(--admin-focus);
-  outline-offset: 3px;
-}
 .automation {
   padding: clamp(1rem, 3vw, 2.5rem);
   max-width: 1500px;
@@ -35,23 +26,12 @@ h1 {
 h2 {
   margin: 0;
 }
-h2 span {
-  display: block;
-  margin-top: 0.3rem;
-  font-weight: 400;
-}
 p {
   line-height: 1.6;
 }
 a {
   color: var(--og7-admin-accent, #9ecfff);
 }
-.feeds {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
-}
-article,
 .job {
   padding: 1.15rem;
   border: 1px solid var(--admin-border);
@@ -80,54 +60,6 @@ article,
 }
 .worker-control p {
   margin: 0.5rem 0 0;
-}
-.worker-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  gap: 0.65rem;
-  min-width: 6.5rem;
-  min-height: 44px;
-  padding: 0.65rem;
-  border: 1px solid var(--admin-border);
-  border-radius: 0.6rem;
-  background: var(--admin-panel-raised);
-  color: var(--admin-text);
-  font: inherit;
-  font-weight: var(--admin-control-weight);
-  cursor: pointer;
-}
-.worker-toggle[aria-checked='true'] {
-  background: var(--og7-admin-success-bg, #163e35);
-  border-color: var(--admin-success);
-  color: var(--admin-success);
-}
-.worker-toggle:hover:not([aria-disabled='true']) {
-  border-color: var(--og7-admin-accent, #d2e8ff);
-}
-.worker-toggle[aria-disabled='true'] {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-.worker-toggle__track {
-  display: block;
-  width: 2.25rem;
-  height: 1.25rem;
-  border: 1px solid currentColor;
-  border-radius: 1rem;
-}
-.worker-toggle__track::before {
-  content: '';
-  display: block;
-  width: 0.875rem;
-  height: 0.875rem;
-  margin: 2px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.worker-toggle[aria-checked='true'] .worker-toggle__track::before {
-  transform: translateX(1rem);
 }
 .badge {
   font-size: 0.75rem;
@@ -194,8 +126,6 @@ label {
 .filter {
   max-width: 20rem;
 }
-input,
-textarea,
 select {
   border: 1px solid var(--admin-border);
   background: var(--admin-panel-raised);
@@ -207,67 +137,12 @@ select {
   font: inherit;
   font-weight: 400;
 }
-textarea {
-  resize: vertical;
-}
-fieldset {
-  border: 0;
-  padding: 0;
-  min-width: 0;
-}
-fieldset:disabled {
-  opacity: 0.8;
-}
-.check {
-  flex-direction: row;
-  align-items: flex-start;
-}
-input[type='checkbox'] {
-  width: 1.1rem;
-  margin-top: 0.2rem;
-}
-.weekdays {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-.weekdays label {
-  flex-direction: row;
-}
-.preview-image {
-  display: block;
-  width: 100%;
-  max-height: 320px;
-  object-fit: contain;
-  margin: 1rem 0;
-}
-.destination {
-  display: flex;
-  flex-direction: column;
-  overflow-wrap: anywhere;
-  gap: 0.5rem;
-}
-.approval {
-  border: 1px solid var(--admin-success);
-  border-radius: 0.7rem;
-  padding: 1rem;
-  margin: 1rem 0;
-}
-.publication-copy {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  padding: 1rem;
-  background: var(--admin-panel-raised);
-  border-radius: 0.7rem;
-}
 @media (max-width: 1100px) {
-  .feeds,
   .jobs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 650px) {
-  .feeds,
   .jobs {
     grid-template-columns: 1fr;
   }

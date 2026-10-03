@@ -1,0 +1,91 @@
+:host {
+  display: block;
+  color: var(--admin-text, #e5edf7);
+}
+p {
+  line-height: 1.6;
+}
+a {
+  color: var(--og7-admin-accent, #9ecfff);
+}
+details > summary {
+  cursor: pointer;
+  padding: 1rem 0;
+  font-weight: var(--admin-control-weight);
+}
+details > summary:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+.alert {
+  padding: 1rem;
+  background: var(--og7-admin-warning-bg, #392e19);
+  color: var(--admin-warning);
+  border-radius: 0.7rem;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 1rem 0;
+}
+input,
+textarea,
+select {
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel-raised);
+  color: var(--admin-text);
+  border-radius: 0.4rem;
+  padding: 0.65rem;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-weight: 400;
+}
+textarea {
+  resize: vertical;
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+fieldset:disabled {
+  opacity: 0.8;
+}
+.check {
+  flex-direction: row;
+  align-items: flex-start;
+}
+input[type='checkbox'] {
+  width: 1.1rem;
+  margin-top: 0.2rem;
+}
+.preview-image {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  margin: 1rem 0;
+}
+.destination {
+  display: flex;
+  flex-direction: column;
+  overflow-wrap: anywhere;
+  gap: 0.5rem;
+}
+.approval {
+  border: 1px solid var(--admin-success);
+  border-radius: 0.7rem;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+.publication-copy {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 1rem;
+  background: var(--admin-panel-raised);
+  border-radius: 0.7rem;
+}

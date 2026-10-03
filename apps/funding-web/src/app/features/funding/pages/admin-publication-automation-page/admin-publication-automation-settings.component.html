@@ -1,0 +1,423 @@
+@if (controller(); as c) {
+  @if (c.state(); as s) {
+    <section
+      class="worker-control"
+      data-og7="publication-worker"
+      aria-labelledby="worker-title"
+    >
+      <div>
+        <h2 id="worker-title">
+          {{ 'admin.publicationAutomation.workerTitle' | translate }}
+        </h2>
+        <p id="worker-description">
+          {{
+            (s.workerEnabled
+              ? 'admin.publicationAutomation.workerOn'
+              : 'admin.publicationAutomation.workerOff'
+            ) | translate
+          }}
+        </p>
+        <p class="detail">
+          {{ 'admin.publicationAutomation.workerStopHelp' | translate }}
+        </p>
+        @if (!c.canManageWorker()) {
+          <p class="detail" id="worker-permission">
+            {{ 'admin.publicationAutomation.workerOwnerOnly' | translate }}
+          </p>
+        }
+      </div>
+      <button
+        type="button"
+        role="switch"
+        class="worker-toggle"
+        data-og7="publication-worker-toggle"
+        aria-labelledby="worker-title"
+        [attr.aria-describedby]="
+          c.canManageWorker()
+            ? 'worker-description'
+            : 'worker-description worker-permission'
+        "
+        [attr.aria-checked]="s.workerEnabled"
+        [disabled]="!c.canManageWorker()"
+        [attr.aria-disabled]="
+          c.busy() || c.workerChanging() || !c.canManageWorker()
+        "
+        (click)="c.toggleWorker()"
+      >
+        <span class="worker-toggle__track" aria-hidden="true"></span>
+        <span aria-hidden="true">{{
+          (s.workerEnabled
+            ? 'admin.publicationAutomation.workerOnLabel'
+            : 'admin.publicationAutomation.workerOffLabel'
+          ) | translate
+        }}</span>
+      </button>
+    </section>
+    <details
+      data-og7="publication-feed-settings"
+      [open]="feedSettingsExpanded()"
+    >
+      <summary>
+        {{ 'admin.publicationAutomation.feedSettings' | translate }}
+      </summary>
+      <section
+        class="feeds"
+        [attr.aria-label]="'admin.publicationAutomation.feeds' | translate"
+      >
+        @for (feed of s.feeds; track feed.id) {
+          <article>
+            <header>
+              <h2>
+                {{ feed.id.split(':')[0].toUpperCase() }}
+                <span>{{
+                  feed.id.endsWith('facebook') ? 'Facebook' : 'LinkedIn'
+                }}</span>
+              </h2>
+              <span class="badge">{{
+                'admin.publicationAutomation.modes.' + feed.mode | translate
+              }}</span>
+            </header>
+            <p>
+              {{
+                'admin.publicationAutomation.connection.' + feed.connection
+                  | translate
+              }}
+              ·
+              {{
+                (feed.paused
+                  ? 'admin.publicationAutomation.paused'
+                  : 'admin.publicationAutomation.active'
+                ) | translate
+              }}
+            </p>
+            <p class="detail">
+              {{
+                feed.accountId ||
+                  ('admin.publicationAutomation.unconfigured' | translate)
+              }}
+            </p>
+            @if (feed.expiresAt) {
+              <p>
+                {{ 'admin.publicationAutomation.expires' | translate }}
+                {{ c.dateLabel(feed.expiresAt) }}
+              </p>
+            }
+            <div class="actions">
+              <button
+                class="admin-button"
+                [disabled]="c.busy() || !feed.configured"
+                (click)="c.pause(feed)"
+              >
+                {{
+                  (feed.paused
+                    ? 'admin.publicationAutomation.resume'
+                    : 'admin.publicationAutomation.pause'
+                  ) | translate
+                }}</button
+              ><button
+                class="admin-button"
+                [disabled]="c.busy()"
+                (click)="c.configure(feed)"
+              >
+                {{ 'admin.publicationAutomation.settings' | translate }}
+              </button>
+            </div>
+          </article>
+        }
+      </section>
+    </details>
+  }
+  <openg7-admin-drawer
+    [opened]="!!c.settings()"
+    [title]="'admin.publicationAutomation.settings' | translate"
+    [closeLabel]="'admin.publicationAutomation.close' | translate"
+    [busy]="c.busy()"
+    (closed)="c.closeSettings()"
+  >
+    @if (c.settings(); as s) {
+      <div class="feed-settings" data-og7="publication-settings-editor">
+        @if (c.settingsFeed(); as feed) {
+          <div class="settings-destination">
+            <div>
+              <span class="settings-eyebrow">{{
+                'admin.publicationAutomation.settingsPanel.destination'
+                  | translate
+              }}</span>
+              <h3>
+                {{ s.id.split(':')[0].toUpperCase() }}
+                <span>{{
+                  s.id.endsWith('facebook') ? 'Facebook' : 'LinkedIn'
+                }}</span>
+              </h3>
+              <span class="settings-caption">{{
+                (feed.paused
+                  ? 'admin.publicationAutomation.paused'
+                  : 'admin.publicationAutomation.active'
+                ) | translate
+              }}</span>
+            </div>
+            <span class="settings-mode">{{
+              'admin.publicationAutomation.modes.' + feed.mode | translate
+            }}</span>
+          </div>
+          <section
+            class="settings-connection"
+            aria-labelledby="feed-connection-title"
+          >
+            <div class="settings-section-heading">
+              <div>
+                <h3 id="feed-connection-title">
+                  {{
+                    'admin.publicationAutomation.settingsPanel.connection'
+                      | translate
+                  }}
+                </h3>
+                <p
+                  class="settings-connection-state"
+                  [attr.data-state]="feed.connection"
+                  role="status"
+                >
+                  {{
+                    'admin.publicationAutomation.connection.' + feed.connection
+                      | translate
+                  }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="admin-button"
+                [disabled]="c.busy()"
+                (click)="c.check(s.id)"
+              >
+                {{ 'admin.publicationAutomation.check' | translate }}
+              </button>
+            </div>
+            <details class="settings-connection-help">
+              <summary>
+                {{
+                  'admin.publicationAutomation.settingsPanel.connectionDetails'
+                    | translate
+                }}
+              </summary>
+              <p class="settings-help">
+                {{ 'admin.publicationAutomation.connectionHelp' | translate }}
+              </p>
+            </details>
+          </section>
+        }
+        <form
+          id="publication-feed-settings-form"
+          #feedForm="ngForm"
+          class="settings-form"
+          (input)="c.notice.set('')"
+          (ngSubmit)="feedForm.valid && s.weekdays.length && c.saveSettings()"
+        >
+          <fieldset class="settings-fields" [disabled]="c.busy()">
+            <div class="settings-section">
+              <label class="settings-toggle">
+                <span>{{
+                  'admin.publicationAutomation.autoPrepare' | translate
+                }}</span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  name="auto"
+                  aria-describedby="feed-preparation-help"
+                  [(ngModel)]="s.autoPrepare"
+                />
+              </label>
+              <p id="feed-preparation-help" class="settings-help">
+                {{ 'admin.publicationAutomation.preparationHelp' | translate }}
+              </p>
+            </div>
+            <section
+              class="settings-section"
+              aria-labelledby="feed-schedule-title"
+            >
+              <h3 id="feed-schedule-title">
+                {{
+                  'admin.publicationAutomation.settingsPanel.schedule'
+                    | translate
+                }}
+              </h3>
+              <fieldset class="settings-days">
+                <legend>
+                  {{ 'admin.publicationAutomation.days' | translate }}
+                </legend>
+                <div class="settings-day-grid">
+                  @for (day of c.weekdays; track day) {
+                    <label class="settings-day">
+                      <input
+                        type="checkbox"
+                        [checked]="s.weekdays.includes(day)"
+                        (change)="c.toggleDay(day)"
+                        [attr.aria-describedby]="
+                          s.weekdays.length ? null : 'feed-days-error'
+                        "
+                      />
+                      <span>{{
+                        'admin.publicationAutomation.weekdays.' + day
+                          | translate
+                      }}</span>
+                    </label>
+                  }
+                </div>
+                @if (!s.weekdays.length) {
+                  <p
+                    id="feed-days-error"
+                    class="settings-validation"
+                    role="alert"
+                  >
+                    {{
+                      'admin.publicationAutomation.settingsPanel.chooseDay'
+                        | translate
+                    }}
+                  </p>
+                }
+              </fieldset>
+              <div class="settings-field-grid">
+                <label
+                  >{{ 'admin.publicationAutomation.time' | translate }}
+                  <input
+                    name="time"
+                    type="time"
+                    required
+                    [(ngModel)]="s.localTime"
+                  />
+                </label>
+                <label
+                  >{{ 'admin.publicationAutomation.timezone' | translate }}
+                  <input
+                    name="timezone"
+                    required
+                    aria-describedby="feed-timezone-help"
+                    [(ngModel)]="s.timezone"
+                  />
+                </label>
+              </div>
+              <p id="feed-timezone-help" class="settings-help">
+                {{
+                  'admin.publicationAutomation.settingsPanel.timezoneHelp'
+                    | translate
+                }}
+              </p>
+            </section>
+            <section
+              class="settings-section"
+              aria-labelledby="feed-volume-title"
+            >
+              <h3 id="feed-volume-title">
+                {{
+                  'admin.publicationAutomation.settingsPanel.volume' | translate
+                }}
+              </h3>
+              <div class="settings-field-grid">
+                <label>
+                  <span id="feed-capacity-label">{{
+                    'admin.publicationAutomation.capacity' | translate
+                  }}</span>
+                  <input
+                    name="capacity"
+                    type="number"
+                    min="1"
+                    max="10"
+                    step="1"
+                    required
+                    aria-labelledby="feed-capacity-label"
+                    aria-describedby="feed-capacity-help"
+                    [(ngModel)]="s.capacity"
+                  />
+                  <small id="feed-capacity-help">{{
+                    'admin.publicationAutomation.settingsPanel.capacityHelp'
+                      | translate
+                  }}</small>
+                </label>
+                <label>
+                  <span id="feed-horizon-label">{{
+                    'admin.publicationAutomation.horizon' | translate
+                  }}</span>
+                  <input
+                    name="horizon"
+                    type="number"
+                    min="1"
+                    max="28"
+                    step="1"
+                    required
+                    aria-labelledby="feed-horizon-label"
+                    aria-describedby="feed-horizon-help"
+                    [(ngModel)]="s.horizonDays"
+                  />
+                  <small id="feed-horizon-help">{{
+                    'admin.publicationAutomation.settingsPanel.horizonHelp'
+                      | translate
+                  }}</small>
+                </label>
+              </div>
+            </section>
+          </fieldset>
+        </form>
+        <section class="settings-manual" aria-labelledby="feed-manual-title">
+          <div>
+            <h3 id="feed-manual-title">
+              {{
+                'admin.publicationAutomation.settingsPanel.manual' | translate
+              }}
+            </h3>
+            <p class="settings-help">
+              {{
+                'admin.publicationAutomation.settingsPanel.manualHelp'
+                  | translate
+              }}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="c.busy() || c.settingsDirty()"
+            aria-describedby="feed-prepare-hint"
+            (click)="c.prepare(s.id)"
+          >
+            {{ 'admin.publicationAutomation.prepareNow' | translate }}
+          </button>
+          <p
+            id="feed-prepare-hint"
+            class="settings-help"
+            [class.settings-unsaved]="c.settingsDirty()"
+          >
+            {{
+              (c.settingsDirty()
+                ? 'admin.publicationAutomation.settingsPanel.saveFirst'
+                : 'admin.publicationAutomation.settingsPanel.approvalHelp'
+              ) | translate
+            }}
+          </p>
+        </section>
+        @if (c.error()) {
+          <p role="alert" class="settings-error">{{ c.error() | translate }}</p>
+        }
+        <p role="status" class="settings-feedback">
+          {{ c.notice() | translate }}
+        </p>
+        <div class="settings-actions">
+          <button
+            type="button"
+            class="admin-button"
+            [disabled]="c.busy()"
+            (click)="c.closeSettings()"
+          >
+            {{ 'admin.publicationAutomation.close' | translate }}
+          </button>
+          <button
+            class="admin-button admin-button--primary"
+            type="submit"
+            form="publication-feed-settings-form"
+            [disabled]="c.busy() || feedForm.invalid || !s.weekdays.length"
+            [attr.aria-busy]="c.busy()"
+          >
+            {{ 'admin.publicationAutomation.saveSettings' | translate }}
+          </button>
+        </div>
+      </div>
+    }
+  </openg7-admin-drawer>
+}
