@@ -1,3 +1,4 @@
+import { readFundingPersistenceSource } from './support/funding-persistence-source.mjs';
 import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
 import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
@@ -81,10 +82,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     'apps/funding-api/src/sponsorship-document-pdf.service.ts'
   );
   const apiPackage = read('apps/funding-api/package.json');
-  const repository = read(
-    'apps/funding-api/src/fund-contributions.repository.ts'
-  );
-  const adminRepository = read('apps/funding-api/src/fund-admin.repository.ts');
+  const repository = readFundingPersistenceSource('contributions');
+  const adminRepository = readFundingPersistenceSource('administration');
   const invoiceRepository = read(
     'apps/funding-api/src/sponsorship-invoices.repository.ts'
   );

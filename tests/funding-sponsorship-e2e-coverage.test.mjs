@@ -1,3 +1,4 @@
+import { readFundingPersistenceSource } from './support/funding-persistence-source.mjs';
 import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
 import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
@@ -202,9 +203,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
   );
   const adminService = readFundingAdminSource();
   const api = readFundingApiSource();
-  const repository = read(
-    'apps/funding-api/src/fund-contributions.repository.ts'
-  );
+  const repository = readFundingPersistenceSource('contributions');
 
   assertIncludesAll(
     routes,
@@ -304,9 +303,7 @@ test('E2E 5/8: admin can approve, reset, reject, or refund sponsorship visibilit
   const adminPage = readAdminSponsorsSource();
   const adminService = readFundingAdminSource();
   const api = readFundingApiSource();
-  const repository = read(
-    'apps/funding-api/src/fund-contributions.repository.ts'
-  );
+  const repository = readFundingPersistenceSource('contributions');
 
   assertIncludesAll(
     adminPage,
@@ -394,10 +391,8 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
   const adminPage = readAdminSponsorsSource();
   const adminService = readFundingAdminSource();
   const api = readFundingApiSource();
-  const repository = read(
-    'apps/funding-api/src/fund-contributions.repository.ts'
-  );
-  const adminRepository = read('apps/funding-api/src/fund-admin.repository.ts');
+  const repository = readFundingPersistenceSource('contributions');
+  const adminRepository = readFundingPersistenceSource('administration');
   const publicationAdminPage = readAdminPublicationsSource();
   const migration = read(
     'apps/funding-api/migrations/006_add_sponsorship_publication_feed.sql'
@@ -578,9 +573,7 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
   const sponsorshipsService = read(
     'apps/funding-web/src/app/features/funding/services/sponsorships.service.ts'
   );
-  const repository = read(
-    'apps/funding-api/src/fund-contributions.repository.ts'
-  );
+  const repository = readFundingPersistenceSource('contributions');
   const publicListBody = extractBetween(
     repository,
     'export const listPublicSponsorships',
