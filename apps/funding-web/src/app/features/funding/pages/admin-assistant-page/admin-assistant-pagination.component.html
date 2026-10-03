@@ -1,0 +1,32 @@
+<footer class="queue-footer">
+  <small class="muted"
+    >{{ 'admin.dashboard.updated' | translate }} {{ generatedAtLabel() }}</small
+  >
+  @if (pages() > 1) {
+    <nav
+      class="pagination"
+      [attr.aria-label]="'admin.attention.pagination' | translate"
+    >
+      <button
+        type="button"
+        class="admin-button"
+        (click)="pageChanged.emit(page() - 1)"
+        [disabled]="page() === 1 || !ready()"
+      >
+        {{ 'admin.attention.previous' | translate }}
+      </button>
+      <span>{{
+        'admin.assistantOverview.page'
+          | translate: { page: page(), pages: pages() }
+      }}</span>
+      <button
+        type="button"
+        class="admin-button"
+        (click)="pageChanged.emit(page() + 1)"
+        [disabled]="page() === pages() || !ready()"
+      >
+        {{ 'admin.attention.next' | translate }}
+      </button>
+    </nav>
+  }
+</footer>

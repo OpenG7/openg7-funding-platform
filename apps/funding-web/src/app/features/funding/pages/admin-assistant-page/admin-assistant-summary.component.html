@@ -1,0 +1,45 @@
+<details
+  data-og7="assistant-summary"
+  class="disclosure"
+  (toggle)="toggle($event)"
+>
+  <summary>
+    {{ 'admin.legacy.resume_financier_prudent' | translate }}
+  </summary>
+  @if (summaryState() === 'loading') {
+    <p role="status">{{ 'admin.attention.loading' | translate }}</p>
+  }
+  @if (summaryState() === 'error') {
+    <p role="alert">
+      {{ 'admin.assistantOverview.optionalError' | translate }}
+    </p>
+  }
+  @if (summary(); as financialData) {
+    @if (financialData.financialSummary; as financial) {
+      <dl class="financial-facts">
+        <div>
+          <dt>{{ 'admin.legacy.montant_brut_paye' | translate }}</dt>
+          <dd>{{ financial.grossPaid }} {{ financial.currency }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.remboursements' | translate }}</dt>
+          <dd>{{ financial.refunded }} {{ financial.currency }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'admin.legacy.montant_net_estime' | translate }}</dt>
+          <dd>
+            {{
+              financial.netReceived === null
+                ? ('admin.legacy.donnees_incompletes' | translate)
+                : financial.netReceived + ' ' + financial.currency
+            }}
+          </dd>
+        </div>
+      </dl>
+      @for (limitation of financial.limitations; track $index) {
+        <p class="muted">{{ limitation }}</p>
+      }
+      <small>{{ generatedAtLabel() }}</small>
+    }
+  }
+</details>

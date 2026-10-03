@@ -1,0 +1,43 @@
+:host {
+  display: block;
+  min-width: 0;
+  margin: 0 auto;
+  max-width: 78rem;
+  width: 100%;
+}
+
+.admin-panel {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  padding: 1rem;
+}
+
+.admin-panel header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.admin-panel span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.admin-panel h2 {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .admin-panel header {
+    align-items: start;
+    flex-direction: column;
+  }
+}

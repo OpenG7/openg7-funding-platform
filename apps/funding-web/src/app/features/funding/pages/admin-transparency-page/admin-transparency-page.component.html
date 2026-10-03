@@ -1,0 +1,55 @@
+<openg7-admin-layout>
+  <section class="admin-content" data-og7="admin-transparency">
+    <header class="admin-topbar">
+      <div>
+        <span>{{ 'admin.legacy.administration' | translate }}</span>
+        <h1>{{ 'admin.legacy.transparence' | translate }}</h1>
+      </div>
+      <button type="button" (click)="loadTransparency()">
+        {{ 'admin.legacy.actualiser' | translate }}
+      </button>
+    </header>
+
+    <section class="admin-auth-panel" aria-labelledby="admin-auth-title">
+      <div>
+        <h2 id="admin-auth-title">
+          {{ 'admin.legacy.acces_admin' | translate }}
+        </h2>
+        <p>
+          {{
+            'admin.legacy.vue_privee_des_donnees_qui_alimentent_la_transparence_publique'
+              | translate
+          }}
+        </p>
+      </div>
+    </section>
+
+    <p class="state" role="status" *ngIf="state() === 'loading'">
+      {{ 'admin.legacy.chargement_de_la_transparence' | translate }}
+    </p>
+    <p class="state state-error" role="alert" *ngIf="state() === 'error'">
+      {{
+        'admin.legacy.impossible_de_charger_la_transparence_admin' | translate
+      }}
+    </p>
+
+    <ng-container *ngIf="transparency() as data">
+      <openg7-admin-transparency-summary
+        [publicSummary]="data.public_summary"
+        [expensesSummary]="data.expenses_summary"
+        [formatMoney]="formatMoney"
+      />
+      <openg7-admin-transparency-snapshot
+        [publicSummary]="data.public_summary"
+        [lastUpdatedAt]="data.last_updated_at"
+        [formatMoney]="formatMoney"
+        [dateLabel]="dateLabel"
+      />
+      <openg7-admin-transparency-allocations
+        [publishedExpenses]="publishedExpenses()"
+        [formatMoney]="formatMoney"
+        [dateLabel]="dateLabel"
+      />
+    </ng-container>
+  </section>
+</openg7-admin-layout>

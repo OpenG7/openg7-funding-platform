@@ -1,0 +1,123 @@
+@let response = data();
+@if (surface() === 'categories') {
+  <div
+    class="categories"
+    role="group"
+    [attr.aria-label]="'admin.attention.type' | translate"
+    data-og7="assistant-categories"
+  >
+    <button
+      type="button"
+      class="category"
+      [attr.aria-pressed]="!query().type"
+      (click)="typeChanged.emit(null)"
+    >
+      {{ 'admin.assistantOverview.all' | translate }}
+      <span>{{ response.total }}</span>
+    </button>
+    @for (type of categories(); track type) {
+      <button
+        type="button"
+        class="category"
+        [attr.aria-pressed]="query().type === type"
+        (click)="typeChanged.emit(type)"
+        [attr.data-og7-id]="type"
+      >
+        {{ labels.typeLabel(type) }}
+        <span>{{ response.typeCounts[type] || 0 }}</span>
+      </button>
+    }
+  </div>
+} @else {
+  <div class="filters">
+    <label
+      >{{ 'admin.attention.priorityLabel' | translate
+      }}<select
+        [value]="query().priority || ''"
+        (change)="changePriority($event)"
+        data-og7="assistant-priority"
+      >
+        <option value="">
+          {{ 'admin.attention.allPriorities' | translate }}
+        </option>
+        @for (value of priorities; track value) {
+          <option [value]="value">
+            {{ 'admin.attention.priority.' + value | translate }} ·
+            {{ response.counts[value] }}
+          </option>
+        }
+      </select></label
+    >
+    <p class="muted">
+      {{ 'admin.assistantOverview.sorted' | translate }}
+    </p>
+    @if (
+      query().type ||
+      query().priority ||
+      query().emailTemplate ||
+      query().emailError
+    ) {
+      <a class="admin-link" routerLink="/admin/fundraiser/assistant">{{
+        'admin.attention.reset' | translate
+      }}</a>
+    }
+  </div>
+
+  @if (
+    query().type === 'email_delivery_failed' &&
+    response.overview?.emailGroups?.length
+  ) {
+    <details
+      class="email-groups"
+      [open]="!query().emailTemplate && !query().emailError"
+    >
+      <summary>
+        {{ 'admin.assistantOverview.emailGroups' | translate }}
+      </summary>
+      <p class="muted">
+        {{ 'admin.assistantOverview.groupHelp' | translate }}
+      </p>
+      <ul>
+        @for (
+          group of response.overview?.emailGroups;
+          track group.template + ':' + group.error
+        ) {
+          <li>
+            <button
+              type="button"
+              class="group-button"
+              (click)="
+                emailGroupChanged.emit({
+                  template: group.template,
+                  error: group.error
+                })
+              "
+              [attr.aria-pressed]="
+                query().emailTemplate === group.template &&
+                query().emailError === group.error
+              "
+            >
+              <span
+                >{{ labels.templateLabel(group.template) }} ·
+                {{ labels.errorLabel(group.error) }}</span
+              ><strong>{{ group.count }}</strong>
+            </button>
+          </li>
+        }
+      </ul>
+    </details>
+  }
+  @if (query().emailTemplate || query().emailError) {
+    <p class="active-filter">
+      {{ labels.templateLabel(query().emailTemplate || '') }} ·
+      {{ labels.errorLabel(query().emailError || '') }}
+      <button
+        type="button"
+        class="admin-button"
+        (click)="typeChanged.emit('email_delivery_failed')"
+      >
+        {{ 'admin.assistantOverview.allEmails' | translate }}
+      </button>
+    </p>
+  }
+}

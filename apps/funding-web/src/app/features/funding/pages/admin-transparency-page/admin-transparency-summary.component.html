@@ -1,0 +1,65 @@
+<section
+  class="summary-grid"
+  data-og7="transparency-summary"
+  [attr.aria-label]="'admin.legacy.resume_transparence' | translate"
+>
+  <article>
+    <span>{{ 'admin.legacy.total_recu' | translate }}</span>
+    <strong>
+      {{
+        formatMoney()(publicSummary().total_received, publicSummary().currency)
+      }}
+    </strong>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.net_estime' | translate }}</span>
+    <strong>
+      {{ formatMoney()(publicSummary().total_net, publicSummary().currency) }}
+    </strong>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.disponible_estime' | translate }}</span>
+    <strong>
+      {{
+        formatMoney()(
+          publicSummary().current_available_estimate,
+          publicSummary().currency
+        )
+      }}
+    </strong>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.alloue_publie' | translate }}</span>
+    <strong>
+      {{
+        formatMoney()(
+          expensesSummary().published_allocated,
+          expensesSummary().currency
+        )
+      }}
+    </strong>
+  </article>
+</section>
+
+<section
+  class="status-grid"
+  data-og7="transparency-statuses"
+  [attr.aria-label]="'admin.legacy.statuts_depenses' | translate"
+>
+  <article>
+    <span>{{ 'admin.legacy.depenses' | translate }}</span>
+    <strong>{{ expensesSummary().total_count }}</strong>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.publiees' | translate }}</span>
+    <strong>{{ expensesSummary().published_count }}</strong>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.brouillons' | translate }}</span>
+    <strong>{{ expensesSummary().draft_count }}</strong>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.privees' | translate }}</span>
+    <strong>{{ expensesSummary().private_count }}</strong>
+  </article>
+</section>

@@ -6,6 +6,7 @@ import { readFundingAdminSource } from './support/funding-admin-source.mjs';
 import { readEmailNotificationSource } from './support/email-notification-source.mjs';
 import { readAdminAccountingSource } from './support/admin-accounting-source.mjs';
 import { readAdminOperationsSource } from './support/admin-operations-source.mjs';
+import { readAdminSurfaceSource } from './support/admin-surface-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -34,9 +35,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
   const contributionsPage = readAdminAccountingSource('contributions');
   const expensesPage = readAdminAccountingSource('expenses');
-  const transparencyPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-transparency-page/admin-transparency-page.component.ts'
-  );
+  const transparencyPage = readAdminSurfaceSource('transparency');
   const publicationsPage = readAdminPublicationsSource();
   const auditPage =
     read(

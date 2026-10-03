@@ -1,0 +1,34 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+h3 {
+  overflow-wrap: anywhere;
+}
+.muted,
+small {
+  color: var(--admin-muted);
+  line-height: 1.5;
+}
+.notice {
+  padding: 0.8rem;
+  background: var(--admin-panel-raised);
+  border-radius: 0.4rem;
+}
+.error {
+  color: var(--admin-danger);
+}
+button:focus-visible,
+summary:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--admin-accent, #87c8ff);
+  outline-offset: 3px;
+}

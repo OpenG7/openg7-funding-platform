@@ -38,32 +38,25 @@ import {
 } from '../../services/funding-admin.service.js';
 import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
 import { AdminAssistantDraftComponent } from '../../components/admin-assistant/admin-assistant-draft.component.js';
-import { AdminAssistantAnswerComponent } from '../../components/admin-assistant/admin-assistant-answer.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 
-const TYPES: readonly AdminAttentionItemType[] = [
-  'sponsorship_needs_info',
-  'sponsorship_needs_review',
-  'publication_needs_preparation',
-  'publication_late',
-  'publication_ready',
-  'publication_slot_upcoming',
-  'email_delivery_failed',
-  'financial_data_warning',
-  'invoice_missing',
-  'stripe_event_failed',
-  'stripe_event_stalled'
-];
+import { AdminAssistantQueueComponent } from './admin-assistant-queue.component.js';
+import { AdminAssistantQuestionComponent } from './admin-assistant-question.component.js';
+import { AdminAssistantSummaryComponent } from './admin-assistant-summary.component.js';
+import { AdminAssistantLabels } from './admin-assistant-labels.js';
+import {
+  ASSISTANT_TYPES,
+  ASSISTANT_PRIORITIES,
+  type AssistantLoadState
+} from './admin-assistant.contracts.js';
+
 const DRAFT_TYPES: Readonly<Record<string, AdminAssistantDraftType>> = {
   prepare_reminder: 'sponsorship_reminder',
   prepare_publication: 'publication_draft',
   prepare_note: 'admin_note',
   propose_slot: 'slot_proposal'
 };
-type LoadState =
-  'idle' | 'loading' | 'ready' | 'error' | 'forbidden' | 'unavailable';
-
 /** Routed overview of the existing queue; preparation never sends or publishes. */
 @Component({
   selector: 'openg7-admin-assistant-page',
@@ -73,7 +66,9 @@ type LoadState =
     TranslatePipe,
     AdminAssistantContextComponent,
     AdminAssistantDraftComponent,
-    AdminAssistantAnswerComponent,
+    AdminAssistantQueueComponent,
+    AdminAssistantQuestionComponent,
+    AdminAssistantSummaryComponent,
     AdminDrawerComponent,
     AdminLayoutComponent
   ],
@@ -83,11 +78,13 @@ type LoadState =
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
     '../../components/admin-ui/admin-forms.css',
+    './admin-assistant-surface.css',
     './admin-assistant-page.component.css'
   ]
 })
 export class AdminAssistantPageComponent {
   readonly i18n = inject(FundingI18nService);
+  readonly labels = new AdminAssistantLabels(this.i18n);
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -104,30 +101,10 @@ export class AdminAssistantPageComponent {
   );
   readonly selectedId = signal<string | null>(null);
   readonly selected = signal<AdminAttentionItem | null>(null);
-  readonly detailState = signal<LoadState>('idle');
+  readonly detailState = signal<AssistantLoadState>('idle');
   readonly query = signal<AdminWorkQueueQuery>({});
   readonly data = signal<AdminWorkQueueResponse | null>(null);
-  readonly state = signal<LoadState>('idle');
-  readonly priorities: readonly AdminAttentionSeverity[] = [
-    'urgent',
-    'today',
-    'this_week',
-    'informational'
-  ];
-  readonly categories = computed(() =>
-    TYPES.filter(
-      (type) =>
-        (this.data()?.typeCounts[type] ?? 0) > 0 || this.query().type === type
-    )
-  );
-  readonly pages = computed(() =>
-    Math.max(
-      1,
-      Math.ceil(
-        (this.data()?.filteredTotal ?? 0) / (this.data()?.pageSize ?? 15)
-      )
-    )
-  );
+  readonly state = signal<AssistantLoadState>('idle');
   readonly returnTo = computed(() => {
     const params = this.params();
     return this.router.serializeUrl(
@@ -141,20 +118,21 @@ export class AdminAssistantPageComponent {
     );
   });
   readonly summary = signal<AdminAssistantSummary | null>(null);
-  readonly summaryState = signal<LoadState>('idle');
+  readonly summaryState = signal<AssistantLoadState>('idle');
   readonly conversationMode = signal<AdminAssistantMode | null>(null);
-  readonly conversationState = signal<LoadState>('idle');
+  readonly conversationState = signal<AssistantLoadState>('idle');
   readonly question = signal('');
   readonly answer = signal<AdminAssistantQueryResponse | null>(null);
-  readonly answerState = signal<LoadState>('idle');
+  readonly answerState = signal<AssistantLoadState>('idle');
   readonly prepared = signal<AdminAssistantPrepareResponse | null>(null);
-  readonly draftState = signal<LoadState>('idle');
+  readonly draftState = signal<AssistantLoadState>('idle');
   readonly canPrepare = computed(
     () => this.admin.identity()?.role !== 'reader'
   );
   private generation = 0;
   private detailGeneration = 0;
   private draftGeneration = 0;
+  private privacyGeneration = 0;
   private queryKey = '';
 
   constructor() {
@@ -195,8 +173,10 @@ export class AdminAssistantPageComponent {
         const priority = params.get('priority') as AdminAttentionSeverity;
         const page = Number(params.get('page') || 1);
         const query: AdminWorkQueueQuery = {
-          type: TYPES.includes(type) ? type : undefined,
-          priority: this.priorities.includes(priority) ? priority : undefined,
+          type: ASSISTANT_TYPES.includes(type) ? type : undefined,
+          priority: ASSISTANT_PRIORITIES.includes(priority)
+            ? priority
+            : undefined,
           page:
             Number.isInteger(page) && page > 0 && page <= 1000000 ? page : 1,
           pageSize: 15,
@@ -268,25 +248,41 @@ export class AdminAssistantPageComponent {
     }
   }
 
+  /** Invalidate pending reads before removing every private surface on access denial. */
+  private clearPrivateData(): void {
+    this.generation++;
+    this.detailGeneration++;
+    this.draftGeneration++;
+    this.privacyGeneration++;
+    this.data.set(null);
+    this.selected.set(null);
+    this.prepared.set(null);
+    this.summary.set(null);
+    this.answer.set(null);
+    this.question.set('');
+    this.conversationMode.set(null);
+    this.state.set('forbidden');
+    this.detailState.set('forbidden');
+    this.summaryState.set('idle');
+    this.conversationState.set('idle');
+    this.answerState.set('idle');
+    this.draftState.set('idle');
+  }
+
   private async handleError(
     error: unknown,
-    state: { set(value: LoadState): void }
+    state: { set(value: AssistantLoadState): void }
   ): Promise<void> {
-    if (error instanceof AdminDashboardRequestError && error.status === 401) {
-      this.data.set(null);
-      this.selected.set(null);
+    const status =
+      error instanceof AdminDashboardRequestError ? error.status : null;
+    if (status === 401 || status === 403) this.clearPrivateData();
+    if (status === 401) {
       this.admin.clearAdminSession();
       await this.router.navigate(['/admin/login'], {
         queryParams: { returnUrl: this.router.url }
       });
     } else {
-      const forbidden =
-        error instanceof AdminDashboardRequestError && error.status === 403;
-      if (forbidden) {
-        this.data.set(null);
-        this.selected.set(null);
-      }
-      state.set(forbidden ? 'forbidden' : 'error');
+      state.set(status === 403 ? 'forbidden' : 'error');
     }
   }
 
@@ -301,7 +297,7 @@ export class AdminAssistantPageComponent {
           : undefined
     });
   }
-  filter(type: string | null): void {
+  filter(type: AdminAttentionItemType | null): void {
     this.navigate({
       type,
       page: null,
@@ -310,7 +306,7 @@ export class AdminAssistantPageComponent {
       emailError: null
     });
   }
-  priority(value: string): void {
+  priority(value: AdminAttentionSeverity | null): void {
     this.navigate({ priority: value || null, page: null, selected: null });
   }
   emailGroup(template: string, error: string): void {
@@ -345,76 +341,6 @@ export class AdminAssistantPageComponent {
     tree.queryParams = { ...tree.queryParams, returnTo: this.returnTo() };
     return tree;
   }
-  typeLabel(type: AdminAttentionItemType): string {
-    return this.i18n.t('admin.attention.types.' + type);
-  }
-  title(item: AdminAttentionItem): string {
-    if (item.type === 'email_delivery_failed')
-      return this.templateLabel(String(item.facts['templateKey'] ?? ''));
-    return String(item.facts['reference'] ?? this.typeLabel(item.type));
-  }
-  templateLabel(template: string): string {
-    const key = 'admin.assistantOverview.templates.' + template;
-    const label = this.i18n.t(key);
-    return label === key
-      ? this.i18n.t('admin.assistantOverview.templates.other')
-      : label;
-  }
-  errorLabel(error: string): string {
-    const key = 'admin.assistantOverview.errors.' + error;
-    const label = this.i18n.t(key);
-    return label === key
-      ? this.i18n.t('admin.assistantOverview.errors.autre')
-      : label;
-  }
-  missingFields(item: AdminAttentionItem): string[] {
-    return String(item.facts['missingFields'] ?? '')
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean)
-      .map((field) => {
-        const key = 'admin.context.fields.' + field;
-        const label = this.i18n.t(key);
-        return label === key
-          ? this.i18n.t('admin.assistantOverview.missingInformation')
-          : label;
-      });
-  }
-  reason(item: AdminAttentionItem): string {
-    const days = item.facts['daysSincePaid'] ?? item.facts['daysWaiting'];
-    if (typeof days === 'number')
-      return this.i18n.t('admin.assistantOverview.waiting', { days });
-    if (item.type === 'email_delivery_failed')
-      return this.i18n.t(
-        item.facts['attemptsExhausted']
-          ? 'admin.assistantOverview.exhausted'
-          : 'admin.assistantOverview.attempts',
-        { count: item.facts['attempts'], max: item.facts['maxAttempts'] }
-      );
-    if (item.dueAt)
-      return this.i18n.t('admin.assistantOverview.due', {
-        date: this.dateLabel(item.dueAt)
-      });
-    return this.i18n.t('admin.attention.reasons.' + item.type);
-  }
-  amount(item: AdminAttentionItem): string {
-    const amount = item.facts['amount'],
-      currency = item.facts['currency'];
-    return typeof amount === 'number' && typeof currency === 'string'
-      ? new Intl.NumberFormat(this.i18n.currentLanguage()).format(amount) +
-          ' ' +
-          currency
-      : '';
-  }
-  dateLabel(value: string): string {
-    return Number.isFinite(Date.parse(value))
-      ? new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-          timeZone: 'America/Toronto'
-        }).format(new Date(value))
-      : this.i18n.t('admin.dashboard.notAvailable');
-  }
   prepareType(item: AdminAttentionItem): AdminAssistantDraftType | undefined {
     const action = item.suggestedActions.find(
       (candidate) => candidate.executionMode === 'prepare'
@@ -448,52 +374,59 @@ export class AdminAssistantPageComponent {
       if (generation !== this.draftGeneration || this.destroy.destroyed) return;
       this.prepared.set(result);
       this.draftState.set('ready');
-    } catch {
-      if (generation === this.draftGeneration && !this.destroy.destroyed)
-        this.draftState.set('error');
+    } catch (error) {
+      if (generation !== this.draftGeneration || this.destroy.destroyed) return;
+      await this.handleError(error, this.draftState);
     }
   }
 
-  async loadSummary(event: Event): Promise<void> {
+  async loadSummary(opened: boolean): Promise<void> {
     if (
-      !(event.target as HTMLDetailsElement).open ||
+      !opened ||
       this.summaryState() === 'loading' ||
       this.summaryState() === 'ready'
     )
       return;
+    const generation = this.privacyGeneration;
     this.summaryState.set('loading');
     try {
       const summary = await this.admin.getAssistantSummary(
         this.admin.getSavedAdminToken()
       );
-      if (this.destroy.destroyed) return;
+      if (generation !== this.privacyGeneration || this.destroy.destroyed)
+        return;
       this.summary.set(summary);
       this.summaryState.set('ready');
-    } catch {
-      if (!this.destroy.destroyed) this.summaryState.set('error');
+    } catch (error) {
+      if (generation !== this.privacyGeneration || this.destroy.destroyed)
+        return;
+      await this.handleError(error, this.summaryState);
     }
   }
-  async loadConversation(event: Event): Promise<void> {
+  async loadConversation(opened: boolean): Promise<void> {
     if (
-      !(event.target as HTMLDetailsElement).open ||
+      !opened ||
       this.conversationState() === 'loading' ||
       this.conversationState() === 'ready'
     )
       return;
+    const generation = this.privacyGeneration;
     this.conversationState.set('loading');
     try {
       const response = await this.admin.getAssistantContext(
         this.admin.getSavedAdminToken()
       );
-      if (this.destroy.destroyed) return;
+      if (generation !== this.privacyGeneration || this.destroy.destroyed)
+        return;
       this.conversationMode.set(response.conversationMode);
       this.conversationState.set('ready');
-    } catch {
-      if (!this.destroy.destroyed) this.conversationState.set('error');
+    } catch (error) {
+      if (generation !== this.privacyGeneration || this.destroy.destroyed)
+        return;
+      await this.handleError(error, this.conversationState);
     }
   }
-  async ask(event: Event): Promise<void> {
-    event.preventDefault();
+  async ask(): Promise<void> {
     const message = this.question().trim();
     if (
       !message ||
@@ -502,6 +435,7 @@ export class AdminAssistantPageComponent {
       this.conversationMode() === 'disabled'
     )
       return;
+    const generation = this.privacyGeneration;
     this.answerState.set('loading');
     this.answer.set(null);
     try {
@@ -509,11 +443,14 @@ export class AdminAssistantPageComponent {
         this.admin.getSavedAdminToken(),
         { message }
       );
-      if (this.destroy.destroyed) return;
+      if (generation !== this.privacyGeneration || this.destroy.destroyed)
+        return;
       this.answer.set(response);
       this.answerState.set('ready');
-    } catch {
-      if (!this.destroy.destroyed) this.answerState.set('error');
+    } catch (error) {
+      if (generation !== this.privacyGeneration || this.destroy.destroyed)
+        return;
+      await this.handleError(error, this.answerState);
     }
   }
 }

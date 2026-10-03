@@ -1,0 +1,46 @@
+:host {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  margin: 0 auto;
+  max-width: 78rem;
+  width: 100%;
+}
+
+.summary-grid,
+.status-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.summary-grid article,
+.status-grid article {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  padding: 1rem;
+}
+
+.summary-grid span,
+.status-grid span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.summary-grid strong,
+.status-grid strong {
+  display: block;
+  font-size: 1.55rem;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 900px) {
+  .summary-grid,
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+}

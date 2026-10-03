@@ -1,0 +1,26 @@
+.queue-footer,
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.queue-footer {
+  border-top: 1px solid var(--admin-border);
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+}
+.pagination {
+  gap: 0.6rem;
+}
+@media (max-width: 640px) {
+  .queue-footer {
+    align-items: start;
+  }
+  .pagination {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
