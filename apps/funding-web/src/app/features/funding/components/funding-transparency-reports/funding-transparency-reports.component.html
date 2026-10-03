@@ -1,0 +1,50 @@
+<article class="panel method-panel" data-og7="transparency-method">
+  <h2>{{ 'funding.transparencyPage.method.title' | translate }}</h2>
+  <p class="formula">
+    {{ 'funding.transparencyPage.method.formula' | translate }}
+  </p>
+  <p>{{ 'funding.transparencyPage.method.copy' | translate }}</p>
+  <p>{{ 'funding.transparencyPage.method.payouts' | translate }}</p>
+  <p>{{ 'funding.transparencyPage.method.limits' | translate }}</p>
+</article>
+
+<article class="panel reports-panel" data-og7="transparency-reports">
+  <h2>{{ 'funding.transparencyPage.reports.title' | translate }}</h2>
+  <p>
+    {{ 'funding.transparencyPage.reports.scope' | translate }}
+    <strong>{{
+      period() === 'all'
+        ? ('funding.transparencyPage.registry.allPeriods' | translate)
+        : period()
+    }}</strong>
+  </p>
+  <p>{{ 'funding.transparencyPage.reports.contents' | translate }}</p>
+  <div class="report-actions">
+    <button
+      type="button"
+      data-og7="transparency-csv"
+      [disabled]="!canExport()"
+      (click)="requestAction('csv')"
+    >
+      {{ 'funding.transparencyPage.reports.exportCsv' | translate }}
+    </button>
+    <button
+      type="button"
+      data-og7="transparency-report-json"
+      [disabled]="!canExport()"
+      (click)="requestAction('json')"
+    >
+      {{ 'funding.transparencyPage.reports.downloadMonthly' | translate }}
+    </button>
+    <button type="button" (click)="requestAction('copy')">
+      {{ 'funding.transparencyPage.reports.copyLink' | translate }}
+    </button>
+  </div>
+  <p role="status">
+    {{
+      copyState()
+        ? ('funding.transparencyPage.reports.' + copyState() | translate)
+        : ''
+    }}
+  </p>
+</article>

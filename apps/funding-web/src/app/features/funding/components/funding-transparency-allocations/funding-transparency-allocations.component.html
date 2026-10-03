@@ -1,0 +1,59 @@
+<article class="panel expenses-panel" data-og7="published-allocations">
+  <h2>{{ 'funding.transparencyPage.expenses.title' | translate }}</h2>
+  <p>{{ 'funding.transparencyPage.expenses.info' | translate }}</p>
+  @for (allocation of allocations(); track $index) {
+    <div class="allocation">
+      <h3>{{ allocation.project_name }}</h3>
+      <strong>{{
+        formatMoney()(allocation.amount_allocated, allocation.currency)
+      }}</strong>
+      @if (allocation.public_description) {
+        <p>{{ allocation.public_description }}</p>
+      }
+      @if (allocation.expected_outcome) {
+        <p>{{ allocation.expected_outcome }}</p>
+      }
+      <p class="allocation-progress">
+        {{
+          'funding.transparencyPage.expenses.progress.' +
+            (allocation.progress_status === 'in_progress'
+              ? 'inProgress'
+              : allocation.progress_status) | translate
+        }}
+      </p>
+      @if (allocation.published_at) {
+        <p>
+          {{ 'funding.transparencyPage.expenses.published' | translate }}
+          {{ formatDate()(allocation.published_at) }}
+        </p>
+      }
+      @if (allocation.proof_url) {
+        <a
+          [href]="allocation.proof_url"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{
+            allocation.proof_source ||
+              ('funding.transparencyPage.expenses.proof' | translate)
+          }}
+          @if (allocation.proof_published_at) {
+            <span>({{ formatDate()(allocation.proof_published_at) }})</span>
+          }
+        </a>
+      }
+    </div>
+  } @empty {
+    <p>
+      {{
+        (hasSnapshot()
+          ? 'funding.transparencyPage.expenses.empty'
+          : 'funding.transparencyPage.state.unavailable'
+        ) | translate
+      }}
+    </p>
+  }
+  <a [routerLink]="aboutPath()" fragment="about-mission-title">{{
+    'funding.transparencyPage.allocation.learnMore' | translate
+  }}</a>
+</article>

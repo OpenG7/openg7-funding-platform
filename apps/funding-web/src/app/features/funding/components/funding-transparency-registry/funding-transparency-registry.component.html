@@ -1,0 +1,99 @@
+<article
+  id="public-registry"
+  class="panel registry-panel"
+  tabindex="-1"
+  aria-labelledby="registry-title"
+>
+  <h2 id="registry-title">
+    {{ 'funding.transparencyPage.registry.title' | translate }}
+  </h2>
+  <p>{{ 'funding.transparencyPage.registry.scope' | translate }}</p>
+  <label for="registry-period">{{
+    'funding.transparencyPage.registry.period' | translate
+  }}</label>
+  <select
+    id="registry-period"
+    data-og7="transparency-period"
+    [ngModel]="period()"
+    [disabled]="!hasSnapshot()"
+    (ngModelChange)="periodChange.emit($event)"
+  >
+    <option value="all">
+      {{ 'funding.transparencyPage.registry.allPeriods' | translate }}
+    </option>
+    @for (month of availableMonths(); track month) {
+      <option [value]="month">{{ month }}</option>
+    }
+    @if (periodUnavailable()) {
+      <option [value]="period()">{{ period() }}</option>
+    }
+  </select>
+  <div
+    class="registry-filters"
+    role="group"
+    aria-label="{{
+      'funding.transparencyPage.registry.filterLabel' | translate
+    }}"
+  >
+    @for (registryFilter of registryFilters; track registryFilter) {
+      <button
+        type="button"
+        [attr.aria-pressed]="filter() === registryFilter"
+        (click)="filterChange.emit(registryFilter)"
+      >
+        {{
+          'funding.transparencyPage.registry.filters.' + registryFilter
+            | translate
+        }}
+      </button>
+    }
+  </div>
+  @if (periodUnavailable() && hasSnapshot() && !loading()) {
+    <p role="status">
+      {{ 'funding.transparencyPage.registry.unavailablePeriod' | translate }}
+    </p>
+  }
+  <div class="table-wrap">
+    <table>
+      <caption>
+        {{
+          'funding.transparencyPage.registry.caption' | translate
+        }}
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">
+            {{ 'funding.transparencyPage.registry.headers.period' | translate }}
+          </th>
+          <th scope="col">
+            {{ 'funding.transparencyPage.registry.headers.type' | translate }}
+          </th>
+          <th scope="col">
+            {{ 'funding.transparencyPage.registry.headers.amount' | translate }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of registryRows(); track row.id) {
+          <tr>
+            <td>{{ row.month }}</td>
+            <td>
+              {{
+                'funding.transparencyPage.registry.filters.' + row.type
+                  | translate
+              }}
+            </td>
+            <td>{{ formatMoney()(row.amount, row.currency) }}</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3">{{ emptyStateKey() | translate }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="fine-print">
+    {{ 'funding.transparencyPage.registry.feesNote' | translate }}
+  </p>
+</article>

@@ -1,0 +1,58 @@
+:host {
+  display: contents;
+}
+* {
+  box-sizing: border-box;
+}
+h2,
+p {
+  margin-top: 0;
+}
+h2 {
+  color: #fff2d7;
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+p {
+  color: #c5d4e5;
+  line-height: 1.6;
+}
+button {
+  font: inherit;
+  border: 1px solid #587895;
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  min-height: 44px;
+  color: #e9f2ff;
+  background: #09223c;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button:focus-visible {
+  outline: 3px solid #ffdf76;
+  outline-offset: 4px;
+}
+.panel {
+  background: #06172a;
+  border: 1px solid #294862;
+  border-radius: 0.75rem;
+  padding: 1.3rem;
+  min-width: 0;
+}
+.formula {
+  color: #ffd879;
+  font-weight: 700;
+}
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+@media (max-width: 540px) {
+  .panel {
+    padding: 1rem;
+  }
+}

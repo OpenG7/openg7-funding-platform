@@ -131,6 +131,18 @@ for (const locale of [
     await expect(hook(page, 'published-allocations')).toContainText(
       locale.progress
     );
+    await expect(hook(page, 'published-allocations')).toContainText(
+      report.latest_public_allocations[0].public_description
+    );
+    await expect(hook(page, 'published-allocations')).toContainText(
+      report.latest_public_allocations[0].expected_outcome
+    );
+    await expect(
+      hook(page, 'published-allocations').getByRole('link').last()
+    ).toHaveAttribute(
+      'href',
+      locale.prefix + '/fonds-des-batisseurs/a-propos#about-mission-title'
+    );
     await expect(
       page.getByRole('link', { name: /Démonstration publique/ })
     ).toHaveAttribute('href', 'https://openg7.org/preuve-passerelle');
@@ -191,8 +203,17 @@ test('exports selected month with currency and timestamps, without cumulative to
   await page.goto(path);
   await expect(hook(page, 'transparency-json')).toBeEnabled();
   await hook(page, 'transparency-period').selectOption('2026-09');
+  await page
+    .locator('#public-registry')
+    .getByRole('button', { name: 'Frais', exact: true })
+    .click();
+  await expect(page.locator('tbody tr')).toHaveCount(1);
+  await expect(page.locator('tbody')).toContainText('2,50');
+  await expect(hook(page, 'published-allocations')).toContainText(
+    report.latest_public_allocations[0].project_name
+  );
   const jsonEvent = page.waitForEvent('download');
-  await hook(page, 'transparency-json').click();
+  await hook(page, 'transparency-report-json').click();
   const jsonDownload = await jsonEvent;
   expect(jsonDownload.suggestedFilename()).toBe(
     'openg7-transparence-fonds-batisseurs-2026-09.json'
@@ -255,6 +276,66 @@ test('loading and first-load failure show unknown amounts and allow a successful
   );
 });
 
+test('one public load feeds all panels and partial allocations keep zero, evidence and privacy distinct', async ({
+  page
+}) => {
+  let requests = 0;
+  await page.route('**/public/fund-transparency', (route) => {
+    requests++;
+    return route.fulfill({
+      json: {
+        ...report,
+        latest_public_allocations: [
+          {
+            project_name: 'Allocation prévue sans dépense confirmée',
+            amount_allocated: 0,
+            currency: 'CAD',
+            status: 'published',
+            progress_status: 'planned',
+            public_description: null,
+            expected_outcome: null,
+            published_at: null,
+            proof_url: null,
+            proof_source: null,
+            proof_published_at: null,
+            notes_admin: 'private-allocation-note'
+          },
+          {
+            ...report.latest_public_allocations[0],
+            proof_source: null,
+            proof_published_at: null
+          }
+        ]
+      }
+    });
+  });
+  await page.goto(path);
+  await expect(hook(page, 'transparency-json')).toBeEnabled();
+  const allocations = hook(page, 'published-allocations');
+  await expect(allocations).toContainText('Allocation prévue sans dépense');
+  await expect(allocations).toContainText('0,00');
+  await expect(allocations).toContainText('CAD');
+  await expect(allocations).toContainText('Prévu');
+  await expect(allocations).toContainText(
+    'Un montant alloué ne constitue pas une preuve de dépense ni de livraison.'
+  );
+  await expect(
+    allocations.getByRole('link', { name: 'Voir la preuve publique' })
+  ).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(allocations.getByRole('link')).toHaveCount(2);
+  await expect(allocations).not.toContainText(/private|Invalid Date|null/);
+  await expect(hook(page, 'transparency-method')).toContainText(/Stripe/);
+  await hook(page, 'transparency-period').selectOption('2026-08');
+  await page
+    .locator('#public-registry')
+    .getByRole('button', { name: 'Remboursements', exact: true })
+    .click();
+  await expect(page.locator('tbody')).toContainText('Aucun');
+  await expect(hook(page, 'transparency-reports')).toContainText('2026-08');
+  await expect(allocations).toContainText('Allocation prévue sans dépense');
+  expect(requests).toBe(1);
+});
+
 test('periodic refresh keeps a stale snapshot visible and disables exports until recovery', async ({
   page
 }) => {
@@ -279,6 +360,10 @@ test('periodic refresh keeps a stale snapshot visible and disables exports until
   await expect(hook(page, 'snapshot-date')).toHaveText(snapshot!);
   await expect(hook(page, 'checked-date')).toHaveText(checked!);
   await expect(hook(page, 'transparency-csv')).toBeDisabled();
+  await expect(hook(page, 'transparency-report-json')).toBeDisabled();
+  await expect(hook(page, 'published-allocations')).toContainText(
+    report.latest_public_allocations[0].public_description
+  );
   await hook(page, 'transparency-refresh').click();
   await expect(hook(page, 'transparency-json')).toBeEnabled();
   expect(requests).toBe(3);
@@ -333,6 +418,8 @@ test('unconfigured source and valid zero activity are different states', async (
     '—'
   ]);
   await expect(hook(page, 'transparency-json')).toBeDisabled();
+  await expect(hook(page, 'transparency-csv')).toBeDisabled();
+  await expect(hook(page, 'transparency-report-json')).toBeDisabled();
   await page.route('**/public/fund-transparency', (route) =>
     route.fulfill({ json: emptyReport })
   );
@@ -510,6 +597,9 @@ test('unavailable or invalid shared periods never silently export all history', 
     page.getByText(/Cette période n’est pas disponible/)
   ).toBeVisible();
   await expect(hook(page, 'transparency-json')).toBeDisabled();
+  await expect(hook(page, 'transparency-csv')).toBeDisabled();
+  await expect(hook(page, 'transparency-report-json')).toBeDisabled();
+  await expect(hook(page, 'transparency-reports')).toContainText('2024-01');
   await page.goto(path + '?period=2026-13&type=unknown');
   await expect(hook(page, 'transparency-period')).toHaveValue('all');
   await expect(
