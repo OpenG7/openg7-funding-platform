@@ -121,6 +121,38 @@ test('assistant and publication routes preserve consultation and operator permis
   }
 });
 
+test('sponsorship decision and media routes preserve admin reads and operator mutations for both aliases', () => {
+  const roles = ['reader', 'operator', 'owner'];
+  const routes = [
+    ['POST', '/admin/sponsorships/review'],
+    ['POST', '/admin/sponsorships/website-visibility'],
+    ['POST', '/admin/sponsorships/publication'],
+    ['GET', '/admin/sponsorships/media'],
+    [
+      'GET',
+      '/admin/sponsorships/media/content/00000000-0000-4000-8000-000000000001'
+    ],
+    ['POST', '/admin/sponsorships/media/review'],
+    ['POST', '/admin/sponsorships/media/delete'],
+    ['GET', '/admin/sponsorships/logo'],
+    ['POST', '/admin/sponsorships/logo/delete'],
+    ['POST', '/admin/sponsorships/logo']
+  ];
+
+  for (const prefix of ['', '/api']) {
+    for (const [method, route] of routes) {
+      const path = prefix + route;
+      for (const role of roles) {
+        assert.equal(
+          adminRoleAllows(role, method, path),
+          method === 'GET' || role !== 'reader',
+          `${role} ${method} ${path}`
+        );
+      }
+    }
+  }
+});
+
 test('MFA must be asserted in validated claims, never inferred from a password or arbitrary ACR', () => {
   assert.equal(satisfiesMfa({ amr: ['pwd'] }, []), false);
   assert.equal(satisfiesMfa({ acr: 'anything' }, ['urn:trusted:mfa']), false);

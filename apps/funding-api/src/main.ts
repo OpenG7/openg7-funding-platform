@@ -10,20 +10,9 @@ import Stripe from 'stripe';
 import type {
   AdminSetupStatusResponse,
   AdminSessionCreateRequest,
-  AdminSponsorMediaDeleteRequest,
-  AdminSponsorMediaReviewRequest,
-  AdminSponsorMediaReviewResult,
-  AdminSponsorLogoDeleteRequest,
-  AdminSponsorLogoDeleteResult,
-  AdminSponsorLogoUploadResult,
   AdminSponsorshipStripeRefundReason,
-  AdminSponsorshipRejectionRefundHandling,
-  AdminSponsorshipPublicationRequest,
-  AdminSponsorshipPublicationResult,
   AdminSponsorshipRefundRequest,
   AdminSponsorshipRefundResult,
-  AdminSponsorshipReviewRequest,
-  AdminSponsorshipReviewResult,
   ContributionType,
   CheckoutResult,
   CheckoutRequest,
@@ -37,14 +26,12 @@ import type {
   SponsorMediaKind,
   SponsorMediaUploadResult,
   SponsorFeedChannel,
-  SponsorFeedStatus,
   SponsorFeedTarget,
   SponsorshipDetailsRequest,
   SponsorshipDetailsResult,
   SponsorshipFollowupDetailsRequest,
   SponsorshipFollowupResponse,
-  SponsorshipMediaResponse,
-  SponsorshipReviewStatus
+  SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
 import {
@@ -122,6 +109,8 @@ import {
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
 import { createAdminSponsorshipRecordsHttpHandler } from './admin-sponsorship-records.http.js';
+import { createAdminSponsorshipDecisionsHttpHandler } from './admin-sponsorship-decisions.http.js';
+import { createAdminSponsorshipMediaHttpHandler } from './admin-sponsorship-media.http.js';
 import { createAdminPilotageHttpHandler } from './admin-pilotage.http.js';
 import { createAdminPublicationAutomationHttpHandler } from './admin-publication-automation.http.js';
 import { createPublicFundingHttpHandler } from './public-funding.http.js';
@@ -302,7 +291,6 @@ import {
 import { createRouteMatcher, firstHeaderValue } from './http-routing.js';
 import { createRequestRateLimit } from './http-rate-limit.js';
 import {
-  parseSponsorLogoUpload,
   SPONSOR_LOGO_FILENAME_PATTERN,
   contentTypeForSponsorLogoFilename
 } from './sponsor-logo-upload.js';
@@ -550,9 +538,6 @@ const SPONSOR_URL_MAX_LENGTH = 2048;
 const STRIPE_METADATA_VALUE_MAX_LENGTH = 480;
 const PUBLIC_DISPLAY_NAME_MAX_LENGTH = 100;
 const ADMIN_REVIEW_NOTE_MAX_LENGTH = 1000;
-const SPONSOR_PUBLIC_SLUG_MAX_LENGTH = 120;
-const SPONSOR_PUBLIC_SUMMARY_MAX_LENGTH = 500;
-const SPONSOR_FEED_NOTES_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
 const CONTRIBUTION_REFERENCE_BYTES = 6;
 const CONTRIBUTION_REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -565,12 +550,6 @@ const followupEditablePaymentStatuses = new Set([
   'refunded',
   'disputed'
 ]);
-const allowedSponsorshipRejectionRefundHandling =
-  new Set<AdminSponsorshipRejectionRefundHandling>([
-    'none',
-    'manual_required',
-    'manual_completed'
-  ]);
 const allowedSponsorshipStripeRefundReasons =
   new Set<AdminSponsorshipStripeRefundReason>([
     'requested_by_customer',
@@ -631,14 +610,6 @@ const isValidOptionalNonEmptyBoundedText = (
     value.trim().length > 0 &&
     value.trim().length <= maxLength);
 
-const isAllowedSponsorshipRejectionRefundHandling = (
-  value: unknown
-): value is AdminSponsorshipRejectionRefundHandling =>
-  typeof value === 'string' &&
-  allowedSponsorshipRejectionRefundHandling.has(
-    value as AdminSponsorshipRejectionRefundHandling
-  );
-
 const isAllowedSponsorshipStripeRefundReason = (
   value: unknown
 ): value is AdminSponsorshipStripeRefundReason =>
@@ -646,14 +617,6 @@ const isAllowedSponsorshipStripeRefundReason = (
   allowedSponsorshipStripeRefundReasons.has(
     value as AdminSponsorshipStripeRefundReason
   );
-
-const isValidOptionalPublicSlug = (value: unknown): boolean =>
-  value === undefined ||
-  value === null ||
-  value === '' ||
-  (typeof value === 'string' &&
-    value.trim().length <= SPONSOR_PUBLIC_SLUG_MAX_LENGTH &&
-    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.trim()));
 
 const isValidUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
@@ -966,12 +929,6 @@ const getFreshSponsorshipFollowupByToken = async (
     : null;
 };
 
-const isAllowedSponsorshipReviewStatus = (
-  value: unknown
-): value is SponsorshipReviewStatus =>
-  typeof value === 'string' &&
-  allowedSponsorshipReviewStatuses.has(value as SponsorshipReviewStatus);
-
 const isAllowedSponsorFeedTarget = (
   value: unknown
 ): value is SponsorFeedTarget | null =>
@@ -980,12 +937,6 @@ const isAllowedSponsorFeedTarget = (
   value === '' ||
   (typeof value === 'string' &&
     allowedSponsorFeedTargets.has(value as SponsorFeedTarget));
-
-const isAllowedSponsorFeedStatus = (
-  value: unknown
-): value is SponsorFeedStatus =>
-  typeof value === 'string' &&
-  allowedSponsorFeedStatuses.has(value as SponsorFeedStatus);
 
 const isAllowedSponsorFeedChannel = (
   value: unknown
@@ -1076,27 +1027,6 @@ const socialPublicationRuntime = (): {
     socialPublicationConfig
   )
 });
-
-const parseSponsorFeedChannelsFromRequest = (
-  value: unknown
-): readonly SponsorFeedChannel[] | null => {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  const uniqueChannels = [...new Set(value)];
-  if (
-    uniqueChannels.some(
-      (channel) =>
-        typeof channel !== 'string' ||
-        !allowedSponsorFeedChannels.has(channel as SponsorFeedChannel)
-    )
-  ) {
-    return null;
-  }
-
-  return uniqueChannels as readonly SponsorFeedChannel[];
-};
 
 const readAdminToken = (request: ApiRequest): string | null => {
   const authorization = request.headers.authorization;
@@ -1655,6 +1585,79 @@ const handleAdminSponsorshipRecordsRequest =
     reportFailure: (message, error) => console.error(message, error)
   });
 
+const handleAdminSponsorshipDecisionsRequest =
+  createAdminSponsorshipDecisionsHttpHandler({
+    publicBaseOrigin,
+    databaseAvailable: () => Boolean(dbPool),
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    writeSponsorshipMutationFailure,
+    adminReviewNoteMaxLength: ADMIN_REVIEW_NOTE_MAX_LENGTH,
+    sponsorMessageMaxLength: SPONSOR_MESSAGE_MAX_LENGTH,
+    isValidOptionalBoundedText,
+    isValidSponsorEmail,
+    isValidAdminExpectedVersion,
+    isValidOptionalHttpsUrl,
+    isAllowedSponsorFeedTarget,
+    allowedSponsorshipReviewStatuses,
+    allowedSponsorFeedStatuses,
+    allowedSponsorFeedChannels,
+    isSponsorshipWebsiteVisibilityRequest,
+    updateSponsorshipReview: (input) => updateSponsorshipReview(dbPool, input),
+    updateSponsorshipRefundWorkflowStatus: (input) =>
+      updateSponsorshipRefundWorkflowStatus(dbPool, input),
+    getAdminSponsorshipById: (id) => getAdminSponsorshipById(dbPool, id),
+    queueSponsorshipRejectionEmail: (input) =>
+      queueSponsorshipRejectionEmail(dbPool, input),
+    setSponsorshipWebsiteVisibility: (input, actor) =>
+      setSponsorshipWebsiteVisibility(dbPool!, input, actor),
+    updateSponsorshipPublication: (input) =>
+      updateSponsorshipPublication(dbPool, input),
+    insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
+    reportFailure: (message, error) => console.error(message, error)
+  });
+
+const handleAdminSponsorshipMediaRequest =
+  createAdminSponsorshipMediaHttpHandler({
+    publicBaseOrigin,
+    sponsorMediaMaxBytes,
+    sponsorMediaMaxSupportingImages,
+    sponsorLogoMaxBytes,
+    SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    readBodyBuffer,
+    writeJson,
+    writeBinary,
+    isValidUuid,
+    isValidAdminExpectedVersion,
+    routeAssetId,
+    listSponsorMediaAssets: (id) => listSponsorMediaAssets(dbPool, id),
+    getSponsorMediaStorageRecord: (id) =>
+      getSponsorMediaStorageRecord(dbPool, id),
+    reviewSponsorMediaAsset: (input) => reviewSponsorMediaAsset(dbPool, input),
+    deleteSponsorMediaAsset: (input) => deleteSponsorMediaAsset(dbPool, input),
+    sponsorMediaStorage,
+    sponsorMediaPublicKey,
+    sponsorMediaPublicUrl,
+    deleteSponsorMediaObjects,
+    writeSponsorMediaMutationFailure,
+    getAdminSponsorshipLogoUrl: (id) => getAdminSponsorshipLogoUrl(dbPool, id),
+    clearSponsorshipLogoUrl: (input) => clearSponsorshipLogoUrl(dbPool, input),
+    updateSponsorshipLogoUrl: (input) =>
+      updateSponsorshipLogoUrl(dbPool, input),
+    sponsorLogoStorage,
+    getSponsorLogoFilenameFromUrl,
+    sponsorLogoPublicUrlForFilename,
+    deleteControlledSponsorLogoFile,
+    writeSponsorshipMutationFailure,
+    insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
+    reportFailure: (message, error) => console.error(message, error)
+  });
+
 const handleAdminAssistantRequest = createAdminAssistantHttpHandler({
   publicBaseOrigin,
   ensureAdminAuthorization,
@@ -2017,83 +2020,7 @@ const handleRequest = async (
 
   if (await handleAdminPublicationAutomationRequest(request, response)) return;
 
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/media',
-      '/api/admin/sponsorships/media'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-    const contributionId = new URL(
-      request.url ?? '/',
-      publicBaseOrigin
-    ).searchParams.get('contributionId');
-    if (!isValidUuid(contributionId)) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor contribution id is invalid.'
-      });
-      return;
-    }
-    try {
-      const result: SponsorshipMediaResponse = {
-        assets: await listSponsorMediaAssets(dbPool, contributionId),
-        limits: {
-          maxUploadBytes: sponsorMediaMaxBytes,
-          maxSupportingImages: sponsorMediaMaxSupportingImages,
-          acceptedMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
-        }
-      };
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to list sponsor media for admin.', error);
-      writeJson(request, response, 502, {
-        error: 'Sponsor media could not be loaded. Apply migration 017.'
-      });
-    }
-    return;
-  }
-
-  const adminMediaContentId =
-    request.method === 'GET'
-      ? routeAssetId(
-          request.url,
-          '/admin/sponsorships/media/content/',
-          '/api/admin/sponsorships/media/content/'
-        )
-      : null;
-  if (adminMediaContentId) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-    try {
-      const asset = await getSponsorMediaStorageRecord(
-        dbPool,
-        adminMediaContentId
-      );
-      const image = asset
-        ? await sponsorMediaStorage.readPrivateObject(asset.processedStorageKey)
-        : null;
-      if (!asset || !image) {
-        writeJson(request, response, 404, {
-          error: 'Sponsor media was not found.'
-        });
-        return;
-      }
-      writeBinary(request, response, 200, image, 'image/webp', {
-        'Cache-Control': 'private, no-store'
-      });
-    } catch (error) {
-      console.error('Failed to load admin sponsor media preview.', error);
-      writeJson(request, response, 404, {
-        error: 'Sponsor media was not found.'
-      });
-    }
-    return;
-  }
+  if (await handleAdminSponsorshipMediaRequest(request, response)) return;
 
   if (
     request.method === 'GET' &&
@@ -2506,404 +2433,6 @@ const handleRequest = async (
       console.error('Failed to delete sponsorship media.', error);
       writeJson(request, response, 502, {
         error: 'Sponsor media could not be deleted.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/media/review',
-      '/api/admin/sponsorships/media/review'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-    let parsed: AdminSponsorMediaReviewRequest;
-    try {
-      parsed = JSON.parse(
-        await readBody(request, 32 * 1024)
-      ) as AdminSponsorMediaReviewRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsor media review request.'
-      });
-      return;
-    }
-    const altText = parsed.altText?.trim() || null;
-    const reviewStatus =
-      parsed.reviewStatus === 'approved' || parsed.reviewStatus === 'rejected'
-        ? parsed.reviewStatus
-        : null;
-    if (
-      !isValidUuid(parsed.assetId) ||
-      !isValidAdminExpectedVersion(parsed.expectedVersion) ||
-      !reviewStatus ||
-      (altText?.length ?? 0) > SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Asset id, version, and review decision are required.'
-      });
-      return;
-    }
-
-    try {
-      const current = await getSponsorMediaStorageRecord(
-        dbPool,
-        parsed.assetId
-      );
-      if (!current) {
-        writeJson(request, response, 404, {
-          error: 'Sponsor media was not found.'
-        });
-        return;
-      }
-
-      let publishedKey: string | null = null;
-      let publicUrl: string | null = null;
-      let removedPublicObject = false;
-      if (reviewStatus === 'approved') {
-        publishedKey =
-          current.publicStorageKey ?? sponsorMediaPublicKey(current);
-        publicUrl =
-          current.publicUrl ?? sponsorMediaPublicUrl(current.id, publishedKey);
-        if (!current.publicStorageKey) {
-          await sponsorMediaStorage.publishObject({
-            privateKey: current.processedStorageKey,
-            publicKey: publishedKey,
-            contentType: 'image/webp'
-          });
-        }
-      } else if (current.publicStorageKey) {
-        removedPublicObject = await sponsorMediaStorage.deletePublicObject(
-          current.publicStorageKey
-        );
-      }
-
-      const reviewed = await reviewSponsorMediaAsset(dbPool, {
-        assetId: current.id,
-        expectedVersion: parsed.expectedVersion,
-        reviewStatus,
-        altText,
-        publicStorageKey: publishedKey,
-        publicUrl,
-        reviewedBy: getAdminAuditActor(request)
-      });
-
-      if (reviewed.status !== 'updated' || !reviewed.asset) {
-        if (publishedKey && !current.publicStorageKey) {
-          await sponsorMediaStorage
-            .deletePublicObject(publishedKey)
-            .catch(() => undefined);
-        } else if (removedPublicObject && current.publicStorageKey) {
-          await sponsorMediaStorage
-            .publishObject({
-              privateKey: current.processedStorageKey,
-              publicKey: current.publicStorageKey,
-              contentType: 'image/webp'
-            })
-            .catch(() => undefined);
-        }
-        writeSponsorMediaMutationFailure(
-          request,
-          response,
-          reviewed.status === 'conflict'
-            ? 'conflict'
-            : reviewed.status === 'approved_locked'
-              ? 'approved_locked'
-              : 'not_found'
-        );
-        return;
-      }
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: `sponsorship.media.${reviewStatus}`,
-        entityType: 'sponsor_media_asset',
-        entityId: reviewed.asset.id,
-        summary: `Sponsor media marked ${reviewStatus}.`,
-        metadata: {
-          contributionId: reviewed.asset.contributionId,
-          kind: reviewed.asset.kind,
-          storageDriver: sponsorMediaStorage.driver
-        }
-      });
-      const result: AdminSponsorMediaReviewResult = {
-        updated: true,
-        asset: reviewed.asset
-      };
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to review sponsor media.', error);
-      writeJson(request, response, 502, {
-        error: 'Sponsor media review could not be completed.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/media/delete',
-      '/api/admin/sponsorships/media/delete'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-    let parsed: AdminSponsorMediaDeleteRequest;
-    try {
-      parsed = JSON.parse(
-        await readBody(request, 16 * 1024)
-      ) as AdminSponsorMediaDeleteRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsor media delete request.'
-      });
-      return;
-    }
-    if (parsed.confirmation !== parsed.assetId) {
-      writeJson(request, response, 400, {
-        code: 'CONFIRMATION_REQUIRED',
-        error: 'Confirm the selected media before deleting it.'
-      });
-      return;
-    }
-    if (
-      !isValidUuid(parsed.assetId) ||
-      !isValidAdminExpectedVersion(parsed.expectedVersion)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor media id and version are required.'
-      });
-      return;
-    }
-    try {
-      const current = await getSponsorMediaStorageRecord(
-        dbPool,
-        parsed.assetId
-      );
-      if (!current) {
-        writeJson(request, response, 404, {
-          error: 'Sponsor media was not found.'
-        });
-        return;
-      }
-      let removedPublicObject = false;
-      if (current.publicStorageKey) {
-        removedPublicObject = await sponsorMediaStorage.deletePublicObject(
-          current.publicStorageKey
-        );
-      }
-      const deleted = await deleteSponsorMediaAsset(dbPool, {
-        assetId: parsed.assetId,
-        expectedVersion: parsed.expectedVersion,
-        allowApproved: true
-      });
-      if (deleted.status !== 'updated' || !deleted.asset) {
-        if (removedPublicObject && current.publicStorageKey) {
-          await sponsorMediaStorage
-            .publishObject({
-              privateKey: current.processedStorageKey,
-              publicKey: current.publicStorageKey,
-              contentType: 'image/webp'
-            })
-            .catch(() => undefined);
-        }
-        writeSponsorMediaMutationFailure(
-          request,
-          response,
-          deleted.status === 'conflict'
-            ? 'conflict'
-            : deleted.status === 'approved_locked'
-              ? 'approved_locked'
-              : 'not_found'
-        );
-        return;
-      }
-      await deleteSponsorMediaObjects(deleted.asset, { includePublic: false });
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'sponsorship.media.delete',
-        entityType: 'sponsor_media_asset',
-        entityId: deleted.asset.id,
-        summary: 'Sponsor media deleted by an administrator.',
-        metadata: {
-          contributionId: deleted.asset.contributionId,
-          kind: deleted.asset.kind,
-          storageDriver: sponsorMediaStorage.driver
-        }
-      });
-      const result: SponsorMediaDeleteResult = {
-        deleted: true,
-        assetId: deleted.asset.id
-      };
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to delete sponsor media for admin.', error);
-      writeJson(request, response, 502, {
-        error: 'Sponsor media could not be deleted.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/logo',
-      '/api/admin/sponsorships/logo'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    const contributionId = new URL(
-      request.url ?? '/',
-      publicBaseOrigin
-    ).searchParams.get('contributionId');
-
-    if (!isValidUuid(contributionId)) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor contribution id is invalid.'
-      });
-      return;
-    }
-
-    try {
-      const logoUrl = await getAdminSponsorshipLogoUrl(dbPool, contributionId);
-      const filename = getSponsorLogoFilenameFromUrl(logoUrl ?? undefined);
-
-      if (!filename) {
-        writeJson(request, response, 404, {
-          error: 'Sponsor logo was not found.'
-        });
-        return;
-      }
-
-      const contentType = contentTypeForSponsorLogoFilename(filename);
-
-      if (!SPONSOR_LOGO_FILENAME_PATTERN.test(filename) || !contentType) {
-        writeJson(request, response, 404, {
-          error: 'Sponsor logo was not found.'
-        });
-        return;
-      }
-
-      const logo = await sponsorLogoStorage.readLogo(filename);
-      if (!logo) {
-        writeJson(request, response, 404, {
-          error: 'Sponsor logo was not found.'
-        });
-        return;
-      }
-
-      writeBinary(request, response, 200, logo, contentType, {
-        'Cache-Control': 'private, no-store'
-      });
-    } catch (error) {
-      console.error('Failed to load admin sponsor logo preview.', error);
-      writeJson(request, response, 404, {
-        error: 'Sponsor logo was not found.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/logo/delete',
-      '/api/admin/sponsorships/logo/delete'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: Partial<AdminSponsorLogoDeleteRequest> | null;
-    try {
-      const body = await readBody(request, 16 * 1024);
-      parsed = JSON.parse(
-        body
-      ) as Partial<AdminSponsorLogoDeleteRequest> | null;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsor logo delete request body.'
-      });
-      return;
-    }
-
-    const contributionId = parsed?.contributionId;
-    const expectedVersion = parsed?.expectedVersion;
-
-    if (!isValidUuid(contributionId)) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor contribution id is invalid.'
-      });
-      return;
-    }
-
-    if (!isValidAdminExpectedVersion(expectedVersion)) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor version is required.'
-      });
-      return;
-    }
-
-    try {
-      const deleteResult = await clearSponsorshipLogoUrl(dbPool, {
-        contributionId,
-        expectedVersion
-      });
-
-      if (!deleteResult.updated) {
-        writeSponsorshipMutationFailure(
-          request,
-          response,
-          deleteResult.status,
-          {
-            currentVersion: deleteResult.currentVersion
-          }
-        );
-        return;
-      }
-
-      const deletedMediaObject = await deleteControlledSponsorLogoFile(
-        deleteResult.previousLogoUrl
-      );
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'sponsorship.logo.delete',
-        entityType: 'sponsorship',
-        entityId: contributionId,
-        summary: 'Sponsor logo removed from controlled public display.',
-        metadata: {
-          deletedLogoUrl: deleteResult.previousLogoUrl,
-          deletedMediaObject,
-          storageDriver: sponsorLogoStorage.driver
-        }
-      });
-
-      const result: AdminSponsorLogoDeleteResult = {
-        updated: deleteResult.updated,
-        contributionId,
-        deletedLogoUrl: deleteResult.previousLogoUrl
-      };
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to delete sponsor logo.', error);
-      writeJson(request, response, 502, {
-        error: 'Sponsor logo could not be deleted.'
       });
     }
     return;
@@ -3697,151 +3226,6 @@ const handleRequest = async (
     request.method === 'POST' &&
     routeMatches(
       request.url,
-      '/admin/sponsorships/logo',
-      '/api/admin/sponsorships/logo'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    const boundary = parseMultipartBoundary(request.headers['content-type']);
-    if (!boundary) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor logo upload must use multipart/form-data.'
-      });
-      return;
-    }
-
-    let parts: readonly MultipartPart[];
-    try {
-      const body = await readBodyBuffer(
-        request,
-        sponsorLogoMaxBytes + 64 * 1024
-      );
-      parts = parseMultipartFormData(body, boundary);
-    } catch {
-      writeJson(request, response, 413, {
-        error: 'Sponsor logo upload is too large.'
-      });
-      return;
-    }
-
-    const contributionId =
-      parts
-        .find((part) => part.name === 'contributionId')
-        ?.data.toString('utf8')
-        .trim() ?? '';
-    const expectedVersion =
-      parts
-        .find((part) => part.name === 'expectedVersion')
-        ?.data.toString('utf8')
-        .trim() ?? '';
-
-    if (!isValidUuid(contributionId)) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor contribution id is invalid.'
-      });
-      return;
-    }
-
-    if (!isValidAdminExpectedVersion(expectedVersion)) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor version is required.'
-      });
-      return;
-    }
-
-    const logo = parseSponsorLogoUpload(
-      parts,
-      contributionId,
-      sponsorLogoMaxBytes
-    );
-    if (!logo) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor logo must be a valid PNG, JPEG, or WebP image.'
-      });
-      return;
-    }
-
-    if (!SPONSOR_LOGO_FILENAME_PATTERN.test(logo.filename)) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor logo filename is invalid.'
-      });
-      return;
-    }
-
-    const logoUrl = sponsorLogoPublicUrlForFilename(logo.filename);
-
-    try {
-      await sponsorLogoStorage.writeLogo({
-        filename: logo.filename,
-        data: logo.data,
-        contentType: logo.mimeType
-      });
-
-      const updateResult = await updateSponsorshipLogoUrl(dbPool, {
-        contributionId,
-        logoUrl,
-        expectedVersion
-      });
-
-      if (!updateResult.updated) {
-        await sponsorLogoStorage
-          .deleteLogo(logo.filename)
-          .catch(() => undefined);
-        writeSponsorshipMutationFailure(
-          request,
-          response,
-          updateResult.status,
-          {
-            currentVersion: updateResult.currentVersion
-          }
-        );
-        return;
-      }
-
-      const replacedMediaObject = await deleteControlledSponsorLogoFile(
-        updateResult.previousLogoUrl
-      );
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'sponsorship.logo.upload',
-        entityType: 'sponsorship',
-        entityId: contributionId,
-        summary: 'Sponsor logo uploaded for controlled public display.',
-        metadata: {
-          logoUrl,
-          previousLogoUrl: updateResult.previousLogoUrl,
-          replacedMediaObject,
-          storageDriver: sponsorLogoStorage.driver,
-          mimeType: logo.mimeType,
-          sizeBytes: logo.sizeBytes
-        }
-      });
-
-      const result: AdminSponsorLogoUploadResult = {
-        updated: updateResult.updated,
-        contributionId,
-        logoUrl,
-        mimeType: logo.mimeType,
-        sizeBytes: logo.sizeBytes
-      };
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to upload sponsor logo.', error);
-      writeJson(request, response, 502, {
-        error: 'Sponsor logo could not be uploaded.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
       '/sponsorship-followup/details',
       '/api/sponsorship-followup/details'
     )
@@ -4335,242 +3719,7 @@ const handleRequest = async (
     return;
   }
 
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/review',
-      '/api/admin/sponsorships/review'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminSponsorshipReviewRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminSponsorshipReviewRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsorship review request body.'
-      });
-      return;
-    }
-
-    if (
-      typeof parsed.contributionId !== 'string' ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        parsed.contributionId
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Invalid contribution id.'
-      });
-      return;
-    }
-
-    if (!isAllowedSponsorshipReviewStatus(parsed.reviewStatus)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsorship review status.'
-      });
-      return;
-    }
-
-    const reviewNote =
-      typeof parsed.reviewNote === 'string' ? parsed.reviewNote.trim() : '';
-    const isRejection = parsed.reviewStatus === 'rejected';
-    const notifySponsor = isRejection && parsed.notifySponsor !== false;
-    const notificationEmail =
-      typeof parsed.notificationEmail === 'string'
-        ? parsed.notificationEmail.trim()
-        : '';
-    const sponsorMessage =
-      typeof parsed.sponsorMessage === 'string'
-        ? parsed.sponsorMessage.trim()
-        : '';
-    const refundHandling: AdminSponsorshipRejectionRefundHandling = isRejection
-      ? (parsed.refundHandling ?? 'none')
-      : 'none';
-    const refundNote =
-      typeof parsed.refundNote === 'string' ? parsed.refundNote.trim() : '';
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.reviewNote,
-        ADMIN_REVIEW_NOTE_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Review note is too long.'
-      });
-      return;
-    }
-
-    if (isRejection && !reviewNote) {
-      writeJson(request, response, 400, {
-        error: 'A rejection reason is required.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.sponsorMessage,
-        SPONSOR_MESSAGE_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor notification message is too long.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.refundNote,
-        ADMIN_REVIEW_NOTE_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Refund note is too long.'
-      });
-      return;
-    }
-
-    if (
-      isRejection &&
-      !isAllowedSponsorshipRejectionRefundHandling(refundHandling)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Invalid rejection refund handling.'
-      });
-      return;
-    }
-
-    if (notifySponsor && !isValidSponsorEmail(notificationEmail)) {
-      writeJson(request, response, 400, {
-        error: 'A valid sponsor notification email is required.'
-      });
-      return;
-    }
-
-    if (notifySponsor && !sponsorMessage) {
-      writeJson(request, response, 400, {
-        error: 'A sponsor-facing rejection message is required.'
-      });
-      return;
-    }
-
-    if (!isValidAdminExpectedVersion(parsed.expectedVersion)) {
-      writeJson(request, response, 400, {
-        error: 'Sponsorship version is required.'
-      });
-      return;
-    }
-
-    try {
-      const updated = await updateSponsorshipReview(dbPool, {
-        contributionId: parsed.contributionId,
-        reviewStatus: parsed.reviewStatus,
-        reviewNote: reviewNote || null,
-        expectedVersion: parsed.expectedVersion
-      });
-
-      if (!updated.updated) {
-        writeSponsorshipMutationFailure(request, response, updated.status, {
-          currentVersion: updated.currentVersion,
-          paymentStatus: updated.paymentStatus
-        });
-        return;
-      }
-
-      const refundWorkflowStatus =
-        isRejection && refundHandling === 'manual_required'
-          ? 'requested'
-          : isRejection && refundHandling === 'manual_completed'
-            ? 'completed'
-            : undefined;
-      if (refundWorkflowStatus) {
-        await updateSponsorshipRefundWorkflowStatus(dbPool, {
-          contributionId: parsed.contributionId,
-          refundStatus: refundWorkflowStatus,
-          refundNote: refundNote || null
-        });
-      }
-
-      const updatedSponsorship = isRejection
-        ? await getAdminSponsorshipById(dbPool, parsed.contributionId)
-        : null;
-      const notificationResult =
-        notifySponsor && updatedSponsorship
-          ? await queueSponsorshipRejectionEmail(dbPool, {
-              to: notificationEmail,
-              contributionId: parsed.contributionId,
-              publicReference: updatedSponsorship.public_reference,
-              sponsorName:
-                updatedSponsorship.sponsor_company_name ??
-                updatedSponsorship.public_name ??
-                'commanditaire',
-              amount: updatedSponsorship.amount,
-              currency: updatedSponsorship.currency,
-              reviewReason: reviewNote,
-              sponsorMessage,
-              refundHandling,
-              refundNote: refundNote || undefined,
-              idempotencyKey: `sponsorship-rejection:${parsed.contributionId}:${updated.currentVersion}`
-            })
-          : null;
-
-      const result: AdminSponsorshipReviewResult = {
-        updated: updated.updated,
-        reviewStatus: parsed.reviewStatus,
-        ...(isRejection ? { refundHandling } : {}),
-        ...(refundWorkflowStatus ? { refundWorkflowStatus } : {}),
-        ...(notificationResult
-          ? {
-              notification: {
-                queued: notificationResult.queued,
-                attempted: notificationResult.attempted,
-                sent: notificationResult.sent,
-                messageId: notificationResult.messageId,
-                error: notificationResult.error
-              }
-            }
-          : {})
-      };
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: `sponsorship_review.${parsed.reviewStatus}`,
-        entityType: 'sponsorship',
-        entityId: parsed.contributionId,
-        summary: `Sponsorship review set to ${parsed.reviewStatus}.`,
-        metadata: {
-          reviewStatus: parsed.reviewStatus,
-          hasReviewNote: Boolean(reviewNote),
-          ...(isRejection
-            ? {
-                notifySponsor,
-                notificationEmail: notifySponsor ? notificationEmail : null,
-                notificationMessageId: notificationResult?.messageId ?? null,
-                notificationSent: notificationResult?.sent ?? false,
-                notificationError: notificationResult?.error ?? null,
-                refundHandling,
-                refundWorkflowStatus: refundWorkflowStatus ?? null,
-                hasRefundNote: Boolean(refundNote)
-              }
-            : {})
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to update sponsorship review.', error);
-      writeJson(request, response, 502, {
-        error: 'Sponsorship review could not be updated.'
-      });
-    }
-    return;
-  }
+  if (await handleAdminSponsorshipDecisionsRequest(request, response)) return;
 
   if (
     request.method === 'POST' &&
@@ -4998,240 +4147,6 @@ const handleRequest = async (
         error: uncertain
           ? 'Resultat Stripe incertain. Ne relancez pas le remboursement; verifiez son etat avec Stripe.'
           : errorMessage
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/website-visibility',
-      '/api/admin/sponsorships/website-visibility'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response) || !dbPool) return;
-    if (
-      request.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !==
-      'application/json'
-    ) {
-      writeJson(request, response, 415, {
-        code: 'WEBSITE_VISIBILITY_CONTENT_TYPE',
-        error: 'JSON content type required.'
-      });
-      return;
-    }
-    let input: unknown;
-    try {
-      input = JSON.parse(await readBody(request));
-    } catch {
-      input = null;
-    }
-    if (!isSponsorshipWebsiteVisibilityRequest(input)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid or unconfirmed website visibility decision.',
-        code: 'WEBSITE_VISIBILITY_INVALID'
-      });
-      return;
-    }
-    try {
-      const outcome = await setSponsorshipWebsiteVisibility(
-        dbPool,
-        input,
-        getAdminAuditActor(request)
-      );
-      const status =
-        outcome === 'not_found'
-          ? 404
-          : ['conflict', 'blocked'].includes(outcome)
-            ? 409
-            : 200;
-      writeJson(request, response, status, {
-        outcome,
-        code: `WEBSITE_VISIBILITY_${outcome.toUpperCase()}`
-      });
-    } catch {
-      writeJson(request, response, 503, {
-        error: 'Website visibility could not be updated.',
-        code: 'WEBSITE_VISIBILITY_UNAVAILABLE'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/publication',
-      '/api/admin/sponsorships/publication'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminSponsorshipPublicationRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminSponsorshipPublicationRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsorship publication request body.'
-      });
-      return;
-    }
-
-    if (
-      typeof parsed.contributionId !== 'string' ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        parsed.contributionId
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Invalid contribution id.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalPublicSlug(parsed.publicSlug)) {
-      writeJson(request, response, 400, {
-        error: 'Public slug must use lowercase letters, numbers, and hyphens.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.publicSummary,
-        SPONSOR_PUBLIC_SUMMARY_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Public summary is too long.'
-      });
-      return;
-    }
-
-    if (!isAllowedSponsorFeedTarget(parsed.feedTarget)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsorship feed target.'
-      });
-      return;
-    }
-
-    const feedChannels = parseSponsorFeedChannelsFromRequest(
-      parsed.feedChannels
-    );
-    if (!feedChannels) {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsorship feed channels.'
-      });
-      return;
-    }
-
-    if (!isAllowedSponsorFeedStatus(parsed.feedStatus)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsorship feed status.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalHttpsUrl(parsed.feedPublicUrl)) {
-      writeJson(request, response, 400, {
-        error: 'Feed public URL must be a valid https link.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.feedNotes,
-        SPONSOR_FEED_NOTES_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Feed notes are too long.'
-      });
-      return;
-    }
-
-    if (!isValidAdminExpectedVersion(parsed.expectedVersion)) {
-      writeJson(request, response, 400, {
-        error: 'Sponsorship version is required.'
-      });
-      return;
-    }
-
-    try {
-      const publicationUpdate = await updateSponsorshipPublication(dbPool, {
-        contributionId: parsed.contributionId,
-        expectedVersion: parsed.expectedVersion,
-        publicSlug:
-          typeof parsed.publicSlug === 'string' &&
-          parsed.publicSlug.trim().length > 0
-            ? parsed.publicSlug.trim()
-            : undefined,
-        publicSummary:
-          typeof parsed.publicSummary === 'string' &&
-          parsed.publicSummary.trim().length > 0
-            ? parsed.publicSummary.trim()
-            : undefined,
-        feedTarget:
-          typeof parsed.feedTarget === 'string' &&
-          parsed.feedTarget.trim().length > 0
-            ? parsed.feedTarget
-            : null,
-        feedChannels,
-        feedStatus: parsed.feedStatus,
-        feedPublicUrl:
-          typeof parsed.feedPublicUrl === 'string' &&
-          parsed.feedPublicUrl.trim().length > 0
-            ? parsed.feedPublicUrl.trim()
-            : undefined,
-        feedNotes:
-          typeof parsed.feedNotes === 'string' &&
-          parsed.feedNotes.trim().length > 0
-            ? parsed.feedNotes.trim()
-            : undefined
-      });
-
-      if (!publicationUpdate.updated) {
-        writeSponsorshipMutationFailure(
-          request,
-          response,
-          publicationUpdate.status,
-          {
-            currentVersion: publicationUpdate.currentVersion,
-            paymentStatus: publicationUpdate.paymentStatus
-          }
-        );
-        return;
-      }
-
-      const result: AdminSponsorshipPublicationResult = {
-        updated: publicationUpdate.updated,
-        feedStatus: parsed.feedStatus
-      };
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'sponsorship_publication.update',
-        entityType: 'sponsorship',
-        entityId: parsed.contributionId,
-        summary: `Sponsorship publication metadata updated to ${parsed.feedStatus}.`,
-        metadata: {
-          feedTarget: parsed.feedTarget ?? null,
-          feedChannels: publicationUpdate.feedChannels,
-          feedStatus: parsed.feedStatus,
-          hasPublicUrl: Boolean(parsed.feedPublicUrl?.trim())
-        }
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to update sponsorship publication.', error);
-      writeJson(request, response, 502, {
-        error: 'Sponsorship publication could not be updated.'
       });
     }
     return;
