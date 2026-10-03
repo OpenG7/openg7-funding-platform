@@ -1,93 +1,147 @@
+import { createHash, randomBytes } from 'node:crypto';
 import {
   createServer,
   type IncomingMessage,
   type ServerResponse
 } from 'node:http';
 import path from 'node:path';
-import { createHash, randomBytes } from 'node:crypto';
 
-import Stripe from 'stripe';
 import type {
   AdminSetupStatusResponse,
-  AdminSessionCreateRequest,
   AdminSponsorshipStripeRefundReason,
-  AdminSponsorshipRefundRequest,
-  AdminSponsorshipRefundResult,
-  ContributionType,
-  CheckoutResult,
   CheckoutRequest,
-  PublicReferenceLookupRequest,
-  PublicReferenceLookupResponse,
-  ReferenceRecoveryRequest,
-  ReferenceRecoveryResult,
-  RedirectCheckoutResult,
+  CheckoutResult,
+  ContributionType,
   SponsorFeedChannel,
-  SponsorFeedTarget,
-  SponsorshipDetailsRequest,
-  SponsorshipDetailsResult
+  SponsorFeedTarget
 } from '@openg7/funding-core';
+import Stripe from 'stripe';
 
 import {
-  isValidSponsorshipAmount,
-  isSafeSponsorshipText,
   isSponsorshipEmail,
   isSponsorshipHttpsUrl
 } from '../../../packages/funding-core/src/index.js';
 
+import { createAdminAccountingHttpHandler } from './admin-accounting.http.js';
+import { createAdminAuditHttpHandler } from './admin-audit.http.js';
+import { createAdminBackupsHttpHandler } from './admin-backups.http.js';
+import { createAdminContributionActivityHttpHandler } from './admin-contribution-activity.http.js';
+import { createAdminSessionHttpHandler } from './admin-session.http.js';
+import { createAdminSetupHttpHandler } from './admin-setup.http.js';
+import { createAdminSponsorshipAccessHttpHandler } from './admin-sponsorship-access.http.js';
+import { createAdminSponsorshipRefundHttpHandler } from './admin-sponsorship-refund.http.js';
+import { createAdminStripeBackfillHttpHandler } from './admin-stripe-backfill.http.js';
+import { createLegacySponsorshipDetailsHttpHandler } from './legacy-sponsorship-details.http.js';
+import { createPublicPaymentsHttpHandler } from './public-payments.http.js';
+import { createPublicReferencesHttpHandlers } from './public-references.http.js';
+import { createStripeWebhookHttpHandler } from './stripe-webhook.http.js';
+import { createAdminAssistantHttpHandler } from './admin-assistant.http.js';
+import { buildAdminAssistantSummary } from './admin-assistant/attention.service.js';
+import { loadAdminAssistantConfig } from './admin-assistant/config.js';
+import { getAdminAssistantContext } from './admin-assistant/context.service.js';
+import { runAdminAssistantQuery } from './admin-assistant/orchestrator.js';
+import { prepareAdminAssistantDraft } from './admin-assistant/preparation.service.js';
+import { getCockpitActivity } from './admin-cockpit/activity.js';
+import { getCockpitMetrics } from './admin-cockpit/metrics.js';
+import { readSnapshot } from './admin-cockpit/read.js';
+import { readStripeConnection } from './admin-cockpit/stripe-connection.js';
 import {
-  buildSponsorshipFollowupUrl,
-  sponsorshipFollowupLocaleFromUrl
-} from './sponsorship-followup-links.js';
+  createCockpitSystemsReader,
+  readSystemObservation
+} from './admin-cockpit/systems.js';
+import {
+  ContributionExportError,
+  exportAdminContributions
+} from './admin-contributions-export.service.js';
+import { createAdminContributionsHttpHandler } from './admin-contributions.http.js';
+import {
+  DocumentResendConflict,
+  queueAdminDocumentResend
+} from './admin-document-resend.service.js';
+import { createAdminDocumentsHttpHandler } from './admin-documents.http.js';
+import { createAdminEmailHttpHandler } from './admin-email.http.js';
+import { AdminIdentityService } from './admin-identity.js';
+import { createAdminInsightsHttpHandler } from './admin-insights.http.js';
+import { createAdminPilotageHttpHandler } from './admin-pilotage.http.js';
+import { AdminPilotageService, PilotError } from './admin-pilotage.service.js';
+import { createAdminPublicationAutomationHttpHandler } from './admin-publication-automation.http.js';
+import { createAdminPublicationBatchesHttpHandler } from './admin-publication-batches.http.js';
+import { createAdminPublicationDraftsHttpHandler } from './admin-publication-drafts.http.js';
+import { createAdminPublicationSlotsHttpHandler } from './admin-publication-slots.http.js';
+import {
+  buildSponsorshipReviewReminderAdminUrl,
+  loadAdminSponsorshipReviewReminderConfig,
+  queueDueSponsorshipReviewReminder
+} from './admin-reminder.service.js';
+import { parseAdminSearch, searchAdmin } from './admin-search.service.js';
+import { createAdminSponsorshipDecisionsHttpHandler } from './admin-sponsorship-decisions.http.js';
+import { updateAdminSponsorshipDetails } from './admin-sponsorship-details.service.js';
+import { createAdminSponsorshipMediaHttpHandler } from './admin-sponsorship-media.http.js';
+import { createAdminSponsorshipRecordsHttpHandler } from './admin-sponsorship-records.http.js';
+import {
+  AdminStripeBackfillError,
+  AdminStripeBackfillService
+} from './admin-stripe-backfill.service.js';
+import {
+  getAdminStripeEvent,
+  validStripeEventId
+} from './admin-stripe-event.service.js';
+import { createAdminTokenSessionService } from './admin-token-session.js';
+import {
+  getAdminWorkQueue,
+  parseWorkQueueQuery
+} from './admin-work-queue.service.js';
+import {
+  ContributionActivityService,
+  contributionNotificationConfig
+} from './contribution-activity.service.js';
+import { normalizeContributionPublicReference } from './contribution-public-reference.js';
 import {
   BackupError,
   backupStatus,
   isBackupId,
   requestBackup
 } from './database-backup/service.js';
+import { dbPool, hasDatabase } from './database.js';
 import {
-  AdminStripeBackfillService,
-  AdminStripeBackfillError
-} from './admin-stripe-backfill.service.js';
+  EmailConfigurationTestError,
+  getAdminEmailQueueMessageById,
+  getEmailConfigurationTest,
+  getEmailQueueStatus,
+  isEmailTestRequestId,
+  listAdminEmailQueue,
+  processQueuedEmailMessages,
+  queueContributionReferenceRecoveryEmail,
+  queueEmailConfigurationTest,
+  queuePublicationBatchFullNotification,
+  queueSponsorshipCreditNoteEmail,
+  queueSponsorshipRefundEmail,
+  queueSponsorshipRejectionEmail,
+  retryAdminEmailQueueMessage
+} from './email-notification.service.js';
 import {
-  ContributionExportError,
-  exportAdminContributions
-} from './admin-contributions-export.service.js';
+  parseBooleanEnv,
+  parseNonNegativeIntegerEnv,
+  parsePositiveIntegerEnv
+} from './environment-values.js';
 import {
-  ContributionActivityService,
-  contributionNotificationConfig
-} from './contribution-activity.service.js';
-import { simulatedCheckoutEnabled } from './stripe-checkout-config.js';
-import {
-  DocumentResendConflict,
-  queueAdminDocumentResend
-} from './admin-document-resend.service.js';
-import { PublicationAutomationError } from './publication-automation/policy.js';
-import { PublicationAutomationService } from './publication-automation/service.js';
-import { AdminPilotageService, PilotError } from './admin-pilotage.service.js';
-import { AdminIdentityService } from './admin-identity.js';
-import { updateAdminSponsorshipDetails } from './admin-sponsorship-details.service.js';
-import {
-  getSponsorshipInterventions,
-  recordSponsorshipIntervention
-} from './sponsorship-interventions.service.js';
-import {
+  AdminExpenseValidationError,
   allowedAdminExpenseStatuses,
   allowedPublicationDraftStatuses,
-  assignDraftToPublicationBatch,
   assignBatchToPublicationSlot,
+  assignDraftToPublicationBatch,
   assignDraftToPublicationSlot,
   cancelAdminPublicationBatch,
   cancelAdminPublicationSlot,
   createAdminExpense,
-  AdminExpenseValidationError,
   createAdminPublicationBatch,
   createAdminPublicationDraft,
   createAdminPublicationSlot,
   getPublicationBatchById,
   getPublicSponsorshipBatchAvailability,
   insertAdminAuditLog,
-  listAdminExpenses,
   listAdminAuditLog,
+  listAdminExpenses,
   listAdminPublicationBatches,
   listAdminPublicationDrafts,
   listAdminPublicationSlots,
@@ -100,102 +154,32 @@ import {
   updateAdminPublicationDraft,
   updateAdminPublicationSlot
 } from './fund-admin.repository.js';
-import { dbPool, hasDatabase } from './database.js';
-import { createAdminSponsorshipRecordsHttpHandler } from './admin-sponsorship-records.http.js';
-import { createAdminSponsorshipDecisionsHttpHandler } from './admin-sponsorship-decisions.http.js';
-import { createAdminSponsorshipMediaHttpHandler } from './admin-sponsorship-media.http.js';
-import { createAdminPilotageHttpHandler } from './admin-pilotage.http.js';
-import { createAdminPublicationAutomationHttpHandler } from './admin-publication-automation.http.js';
-import { createPublicFundingHttpHandler } from './public-funding.http.js';
-import { createPublicSponsorMediaHttpHandler } from './public-sponsor-media.http.js';
-import { createSponsorshipFollowupHttpHandler } from './sponsorship-followup.http.js';
-import { createSponsorshipFollowupMediaHttpHandler } from './sponsorship-followup-media.http.js';
-import { createAdminAssistantHttpHandler } from './admin-assistant.http.js';
-import { createAdminContributionsHttpHandler } from './admin-contributions.http.js';
-import { createAdminDocumentsHttpHandler } from './admin-documents.http.js';
-import { createAdminAccountingHttpHandler } from './admin-accounting.http.js';
-import { createAdminPublicationDraftsHttpHandler } from './admin-publication-drafts.http.js';
-import { createAdminPublicationSlotsHttpHandler } from './admin-publication-slots.http.js';
-import { createAdminPublicationBatchesHttpHandler } from './admin-publication-batches.http.js';
-import { createAdminEmailHttpHandler } from './admin-email.http.js';
-import { createAdminInsightsHttpHandler } from './admin-insights.http.js';
-import { loadSponsorMediaLimits } from './sponsor-media-limits.js';
-import { loadTrustedProxyHops } from './request-client-ip.js';
-import {
-  SponsorshipAccessError,
-  normalizeRecoveryEmail,
-  recoverSponsorshipAccess,
-  getSponsorshipAccessRecipient,
-  issueSponsorshipAccess,
-  getSponsorshipDraft,
-  saveSponsorshipDraft,
-  submitSponsorshipDraft
-} from './sponsorship-access.service.js';
-import { parseAdminSearch, searchAdmin } from './admin-search.service.js';
-import {
-  getAdminStripeEvent,
-  validStripeEventId
-} from './admin-stripe-event.service.js';
-import { getCockpitMetrics } from './admin-cockpit/metrics.js';
-import { getCockpitActivity } from './admin-cockpit/activity.js';
-import {
-  createCockpitSystemsReader,
-  readSystemObservation
-} from './admin-cockpit/systems.js';
-import { readStripeConnection } from './admin-cockpit/stripe-connection.js';
-import { readSnapshot } from './admin-cockpit/read.js';
-import {
-  getEmailQueueStatus,
-  getAdminEmailQueueMessageById,
-  listAdminEmailQueue,
-  processQueuedEmailMessages,
-  queueContributionReferenceRecoveryEmail,
-  queueEmailConfigurationTest,
-  getEmailConfigurationTest,
-  isEmailTestRequestId,
-  EmailConfigurationTestError,
-  queuePublicationBatchFullNotification,
-  queueSponsorshipCreditNoteEmail,
-  queueSponsorshipRefundEmail,
-  queueSponsorshipRejectionEmail,
-  retryAdminEmailQueueMessage
-} from './email-notification.service.js';
-import {
-  configuredSocialPublicationChannels,
-  loadSocialPublicationConfig
-} from './social-publication.service.js';
-import {
-  getTransactionalEmailConfigStatus,
-  isValidEmailAddress,
-  loadEmailQueueWorkerEnabled,
-  loadTransactionalEmailConfig
-} from './services/email/index.js';
 import {
   allowedSponsorFeedChannels,
   allowedSponsorFeedStatuses,
   allowedSponsorFeedTargets,
+  allowedSponsorshipReviewStatuses,
   clearSponsorshipLogoUrl,
   getAdminDashboard,
   getAdminSponsorshipById,
   getAdminSponsorshipLogoUrl,
-  allowedSponsorshipReviewStatuses,
-  insertCheckoutSessionRecord,
   getSponsorshipFollowupByTokenHash,
+  getSponsorshipRefundTarget,
+  insertCheckoutSessionRecord,
   isPublicApprovedSponsorshipLogoUrl,
-  lookupPublicContributionReference,
-  listContributionReferencesByEmail,
-  listPublicSponsorships,
   listAdminContributions,
   listAdminSponsorships,
+  listContributionReferencesByEmail,
+  listPublicSponsorships,
+  lookupPublicContributionReference,
   normalizeContributionType,
   parseMetadataBoolean,
   recordSponsorshipDetails,
+  updateContributionStatusByPaymentIntent,
   updateSponsorshipLogoUrl,
   updateSponsorshipPublication,
   updateSponsorshipRefundWorkflowStatus,
   updateSponsorshipReview,
-  getSponsorshipRefundTarget,
-  updateContributionStatusByPaymentIntent,
   upsertCheckoutSessionFromWebhook,
   type SponsorshipFollowupLookup
 } from './fund-contributions.repository.js';
@@ -203,41 +187,40 @@ import {
   getPublicTransparencySummary,
   listPublicBuilders
 } from './fund-transparency.repository.js';
+import { createRequestRateLimit } from './http-rate-limit.js';
+import { createRouteMatcher } from './http-routing.js';
+import {
+  createHttpTransport,
+  readBody,
+  readBodyBuffer
+} from './http-transport.js';
+import { createPublicFundingHttpHandler } from './public-funding.http.js';
+import { createPublicSponsorMediaHttpHandler } from './public-sponsor-media.http.js';
 import { createPublicTransparencyCache } from './public-transparency-cache.js';
-import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
+import { PublicationAutomationError } from './publication-automation/policy.js';
+import { PublicationAutomationService } from './publication-automation/service.js';
+import { loadTrustedProxyHops } from './request-client-ip.js';
 import {
-  beginSponsorshipRefundOperation,
-  failSponsorshipRefundOperation,
-  settleSponsorshipRefundOperation,
-  SponsorshipRefundOperationError
-} from './sponsorship-refund-operations.js';
-import { processStripeWebhook } from './stripe-webhook.service.js';
-import { normalizeContributionPublicReference } from './contribution-public-reference.js';
-import { sponsorshipInvoiceConfig } from './sponsorship-invoice-config.js';
+  getTransactionalEmailConfigStatus,
+  isValidEmailAddress,
+  loadEmailQueueWorkerEnabled,
+  loadTransactionalEmailConfig
+} from './services/email/index.js';
 import {
-  renderSponsorshipCreditNotePdf,
-  renderSponsorshipInvoicePdf,
-  sponsorshipCreditNotePdfFilename,
-  sponsorshipInvoicePdfFilename
-} from './sponsorship-document-pdf.service.js';
-import {
-  backfillMissingSponsorshipInvoices,
-  createSponsorshipCreditNoteForRefund,
-  getAdminSponsorshipInvoiceById,
-  getAdminSponsorshipCreditNoteById,
-  getSponsorshipCreditNoteById,
-  getSponsorshipInvoiceById,
-  listAdminSponsorshipInvoices
-} from './sponsorship-invoices.repository.js';
+  configuredSocialPublicationChannels,
+  loadSocialPublicationConfig
+} from './social-publication.service.js';
+import { processSponsorImage } from './sponsor-image.service.js';
+import { SPONSOR_LOGO_FILENAME_PATTERN } from './sponsor-logo-upload.js';
+import { loadSponsorMediaLimits } from './sponsor-media-limits.js';
 import {
   createSponsorLogoStorage,
   createSponsorMediaStorage,
   type SponsorLogoStorageConfig
 } from './sponsor-media-storage.js';
-import { processSponsorImage } from './sponsor-image.service.js';
 import {
-  createSponsorMediaAsset,
   checkSponsorMediaUpload,
+  createSponsorMediaAsset,
   deleteSponsorMediaAsset,
   getApprovedPublicSponsorMedia,
   getSponsorMediaStorageRecord,
@@ -246,39 +229,51 @@ import {
   type SponsorMediaStorageRecord
 } from './sponsor-media.repository.js';
 import {
-  getAdminWorkQueue,
-  parseWorkQueueQuery
-} from './admin-work-queue.service.js';
-import { buildAdminAssistantSummary } from './admin-assistant/attention.service.js';
-import { loadAdminAssistantConfig } from './admin-assistant/config.js';
-import { runAdminAssistantQuery } from './admin-assistant/orchestrator.js';
-import { prepareAdminAssistantDraft } from './admin-assistant/preparation.service.js';
-import { getAdminAssistantContext } from './admin-assistant/context.service.js';
+  getSponsorshipAccessRecipient,
+  getSponsorshipDraft,
+  issueSponsorshipAccess,
+  normalizeRecoveryEmail,
+  recoverSponsorshipAccess,
+  saveSponsorshipDraft,
+  SponsorshipAccessError,
+  submitSponsorshipDraft
+} from './sponsorship-access.service.js';
+import {
+  renderSponsorshipCreditNotePdf,
+  renderSponsorshipInvoicePdf,
+  sponsorshipCreditNotePdfFilename,
+  sponsorshipInvoicePdfFilename
+} from './sponsorship-document-pdf.service.js';
+import { createSponsorshipFollowupMediaHttpHandler } from './sponsorship-followup-media.http.js';
+import { createSponsorshipFollowupHttpHandler } from './sponsorship-followup.http.js';
+import { requestSponsorshipInformation } from './sponsorship-information.service.js';
+import {
+  getSponsorshipInterventions,
+  recordSponsorshipIntervention
+} from './sponsorship-interventions.service.js';
+import { sponsorshipInvoiceConfig } from './sponsorship-invoice-config.js';
+import {
+  backfillMissingSponsorshipInvoices,
+  createSponsorshipCreditNoteForRefund,
+  getAdminSponsorshipCreditNoteById,
+  getAdminSponsorshipInvoiceById,
+  getSponsorshipCreditNoteById,
+  getSponsorshipInvoiceById,
+  listAdminSponsorshipInvoices
+} from './sponsorship-invoices.repository.js';
 import { getSponsorshipProgress } from './sponsorship-progress.service.js';
+import {
+  beginSponsorshipRefundOperation,
+  failSponsorshipRefundOperation,
+  settleSponsorshipRefundOperation
+} from './sponsorship-refund-operations.js';
 import {
   isSponsorshipWebsiteVisibilityRequest,
   setSponsorshipWebsiteVisibility
 } from './sponsorship-website.service.js';
-import { requestSponsorshipInformation } from './sponsorship-information.service.js';
-import {
-  buildSponsorshipReviewReminderAdminUrl,
-  loadAdminSponsorshipReviewReminderConfig,
-  queueDueSponsorshipReviewReminder
-} from './admin-reminder.service.js';
-import {
-  parseBooleanEnv,
-  parseNonNegativeIntegerEnv,
-  parsePositiveIntegerEnv
-} from './environment-values.js';
-import { createAdminTokenSessionService } from './admin-token-session.js';
-import {
-  createHttpTransport,
-  readBody,
-  readBodyBuffer
-} from './http-transport.js';
-import { createRouteMatcher } from './http-routing.js';
-import { createRequestRateLimit } from './http-rate-limit.js';
-import { SPONSOR_LOGO_FILENAME_PATTERN } from './sponsor-logo-upload.js';
+import { simulatedCheckoutEnabled } from './stripe-checkout-config.js';
+import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
+import { processStripeWebhook } from './stripe-webhook.service.js';
 
 const port = Number(process.env.FUNDING_API_PORT ?? 3333);
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -1874,6 +1869,206 @@ const handlePublicFundingRequest = createPublicFundingHttpHandler({
     error === undefined ? console.error(message) : console.error(message, error)
 });
 
+const handlePublicPaymentsRequest = createPublicPaymentsHttpHandler({
+  publicBaseOrigin,
+  readBody,
+  writeJson,
+  projectId,
+  isProduction,
+  businessSponsorshipEnabled,
+  allowedContributionAmounts,
+  PUBLIC_DISPLAY_NAME_MAX_LENGTH,
+  stripeApiHost,
+  navigableSimulatedCheckout,
+  stripe,
+  normalizeAmount,
+  isAllowedContributionType,
+  isBoolean,
+  isNonEmptySponsorText,
+  isValidOptionalBoundedText,
+  createDevelopmentCheckoutResult,
+  resolveCheckoutReturnUrl,
+  createSponsorshipFollowupToken,
+  hashSponsorshipFollowupToken,
+  createContributionPublicReference,
+  buildContributionCheckoutSuccessUrl,
+  buildContributionReceiptDescription,
+  truncateStripeMetadataValue,
+  resolveStripePaymentIntentId,
+  insertCheckoutSessionRecord: (input) =>
+    insertCheckoutSessionRecord(dbPool, input),
+  reportFailure: (message, error) => console.error(message, error)
+});
+
+const { handleReferenceLookupRequest, handleReferenceRecoveryRequest } =
+  createPublicReferencesHttpHandlers({
+    publicBaseOrigin,
+    readBody,
+    writeJson,
+    hasDatabase,
+    normalizeReferenceRecoveryEmail,
+    createReferenceRecoveryIdempotencyKey,
+    lookupPublicContributionReference: (reference) =>
+      lookupPublicContributionReference(dbPool, reference),
+    listContributionReferencesByEmail: (email) =>
+      listContributionReferencesByEmail(dbPool, email),
+    queueContributionReferenceRecoveryEmail: (input) =>
+      queueContributionReferenceRecoveryEmail(dbPool, input),
+    reportFailure: (...args) => console.error(...args),
+    reportWarning: (message) => console.warn(message)
+  });
+
+const handleLegacySponsorshipDetailsRequest =
+  createLegacySponsorshipDetailsHttpHandler({
+    publicBaseOrigin,
+    readBody,
+    writeJson,
+    SPONSOR_TEXT_MAX_LENGTH,
+    SPONSOR_MESSAGE_MAX_LENGTH,
+    stripe,
+    isNonEmptySponsorText,
+    isValidSponsorEmail,
+    isValidOptionalHttpsUrl,
+    truncateStripeMetadataValue,
+    resolveStripePaymentIntentId,
+    recordSponsorshipDetails: (input) =>
+      recordSponsorshipDetails(dbPool, input),
+    reportFailure: (message, error) => console.error(message, error)
+  });
+
+const handleStripeWebhookRequest = createStripeWebhookHttpHandler({
+  publicBaseOrigin,
+  readBody,
+  writeJson,
+  isConfigured: Boolean(stripe && stripeWebhookSecret),
+  processStripeWebhook: (rawBody, stripeSignature) =>
+    processStripeWebhook(rawBody, stripeSignature, {
+      stripe: stripe!,
+      webhookSecret: stripeWebhookSecret!,
+      pool: dbPool,
+      publicBaseUrl: publicBaseUrl ?? publicBaseOrigin,
+      projectId
+    })
+});
+
+const handleAdminSponsorshipRefundRequest =
+  createAdminSponsorshipRefundHttpHandler({
+    publicBaseOrigin,
+    isProduction,
+    stripe,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    isValidUuid,
+    isValidAdminExpectedVersion,
+    isAllowedSponsorshipStripeRefundReason,
+    isValidOptionalBoundedText,
+    isValidSponsorEmail,
+    adminReviewNoteMaxLength: ADMIN_REVIEW_NOTE_MAX_LENGTH,
+    sponsorMessageMaxLength: SPONSOR_MESSAGE_MAX_LENGTH,
+    amountToCents,
+    sponsorshipRefundConfirmationText,
+    writeSponsorshipRefundIneligible,
+    createDevelopmentRefundResult,
+    getSponsorshipRefundTarget: (id) => getSponsorshipRefundTarget(dbPool, id),
+    beginSponsorshipRefundOperation: (input) =>
+      beginSponsorshipRefundOperation(dbPool!, input),
+    settleSponsorshipRefundOperation: (refund, id) =>
+      settleSponsorshipRefundOperation(dbPool, refund, id),
+    failSponsorshipRefundOperation: (id, definitive) =>
+      failSponsorshipRefundOperation(dbPool!, id, definitive),
+    updateContributionStatusByPaymentIntent: (input) =>
+      updateContributionStatusByPaymentIntent(dbPool, input),
+    createSponsorshipCreditNoteForRefund: (input) =>
+      createSponsorshipCreditNoteForRefund(dbPool, input),
+    getAdminSponsorshipCreditNoteById: (id) =>
+      getAdminSponsorshipCreditNoteById(dbPool, id),
+    queueSponsorshipCreditNoteEmail: (input) =>
+      queueSponsorshipCreditNoteEmail(dbPool, input),
+    queueSponsorshipRefundEmail: (input) =>
+      queueSponsorshipRefundEmail(dbPool, input),
+    insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
+    getAdminSponsorshipById: (id) => getAdminSponsorshipById(dbPool, id),
+    reportFailure: (...args) => console.error(...args)
+  });
+
+const handleAdminStripeBackfillRequest = createAdminStripeBackfillHttpHandler({
+  publicBaseOrigin,
+  allowedOrigins,
+  ensureAdminAccess,
+  resolveAdminAuthorization,
+  getAdminAuditActor,
+  readBody,
+  writeJson,
+  adminStripeBackfill,
+  AdminStripeBackfillError
+});
+const handleAdminContributionActivityRequest =
+  createAdminContributionActivityHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    contributionActivity
+  });
+const handleAdminSessionRequest = createAdminSessionHttpHandler({
+  publicBaseOrigin,
+  adminTokenConfigured: Boolean(adminToken),
+  isProduction,
+  adminTokenMatches,
+  createAdminSession,
+  readBody,
+  writeJson
+});
+const handleAdminBackupsRequest = createAdminBackupsHttpHandler({
+  publicBaseOrigin,
+  allowedOrigins,
+  databaseAvailable: () => Boolean(dbPool),
+  ensureAdminAccess,
+  resolveAdminAuthorization,
+  getAdminAuditActor,
+  readBody,
+  writeJson,
+  isBackupId,
+  BackupError,
+  backupStatus: (id) => backupStatus(dbPool!, id),
+  requestBackup: (id, actor) => requestBackup(dbPool!, id, actor)
+});
+const handleAdminSetupRequest = createAdminSetupHttpHandler({
+  publicBaseOrigin,
+  ensureAdminAuthorization,
+  writeJson,
+  buildAdminSetupStatus,
+  reportFailure: (message, error) => console.error(message, error)
+});
+const handleAdminAuditRequest = createAdminAuditHttpHandler({
+  publicBaseOrigin,
+  ensureAdminAccess,
+  writeJson,
+  isValidUuid,
+  listAdminAuditLog: (id) => listAdminAuditLog(dbPool, id),
+  reportFailure: (message, error) => console.error(message, error)
+});
+const handleAdminSponsorshipAccessRequest =
+  createAdminSponsorshipAccessHttpHandler({
+    publicBaseOrigin,
+    ttlDays: sponsorshipFollowupTokenTtlDays,
+    databaseAvailable: () => Boolean(dbPool),
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    isValidUuid,
+    normalizeRecoveryEmail,
+    SponsorshipAccessError,
+    getSponsorshipAccessRecipient: (id) =>
+      getSponsorshipAccessRecipient(dbPool!, id),
+    issueSponsorshipAccess: (id, recipient, options, audit) =>
+      issueSponsorshipAccess(dbPool!, id, recipient, options, audit)
+  });
+
 const handleRequest = async (
   request: ApiRequest,
   response: ApiResponse
@@ -1928,148 +2123,11 @@ const handleRequest = async (
     }
   }
 
-  if (
-    routeMatches(
-      request.url,
-      '/admin/stripe-backfill',
-      '/api/admin/stripe-backfill'
-    )
-  ) {
-    response.setHeader('Cache-Control', 'private, no-store');
-    if (!ensureAdminAccess(request, response)) return;
-    if (resolveAdminAuthorization(request)?.source === 'local-dev') {
-      writeJson(request, response, 401, { code: 'ADMIN_SESSION_REQUIRED' });
-      return;
-    }
-    if (!adminStripeBackfill) {
-      writeJson(request, response, 503, { code: 'BACKFILL_UNAVAILABLE' });
-      return;
-    }
-    const actor = getAdminAuditActor(request);
-    try {
-      if (request.method === 'GET') {
-        const id = new URL(
-          request.url ?? '/',
-          publicBaseOrigin
-        ).searchParams.get('id');
-        writeJson(request, response, 200, {
-          run: await adminStripeBackfill.read(id, actor)
-        });
-      } else if (request.method === 'POST') {
-        if (
-          request.headers.origin &&
-          ![publicBaseOrigin, ...allowedOrigins].includes(
-            request.headers.origin
-          )
-        ) {
-          writeJson(request, response, 403, { code: 'ORIGIN_FORBIDDEN' });
-          return;
-        }
-        if (
-          request.headers['content-type']?.split(';')[0].trim() !==
-          'application/json'
-        ) {
-          writeJson(request, response, 415, { code: 'JSON_REQUIRED' });
-          return;
-        }
-        let input: Record<string, unknown>;
-        try {
-          input = JSON.parse(await readBody(request, 4096));
-          if (!input || typeof input !== 'object' || Array.isArray(input))
-            throw new Error();
-          const fields =
-            input.action === 'preview'
-              ? ['action', 'scope']
-              : ['action', 'id', 'confirmation'];
-          if (
-            Object.keys(input).some((key) => !fields.includes(key)) ||
-            !['preview', 'execute'].includes(String(input.action))
-          )
-            throw new Error();
-        } catch {
-          writeJson(request, response, 400, { code: 'INVALID_REQUEST' });
-          return;
-        }
-        const run =
-          input.action === 'preview'
-            ? await adminStripeBackfill.preview(input.scope, actor)
-            : await adminStripeBackfill.execute(
-                input.id,
-                input.confirmation,
-                actor
-              );
-        writeJson(request, response, 200, { run });
-      } else writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
-    } catch (error) {
-      const known = error instanceof AdminStripeBackfillError;
-      writeJson(request, response, known ? error.status : 503, {
-        code: known ? error.code : 'BACKFILL_UNAVAILABLE'
-      });
-    }
-    return;
-  }
+  if (await handleAdminStripeBackfillRequest(request, response)) return;
 
   if (await handleAdminPilotageRequest(request, response)) return;
 
-  if (
-    routeMatches(
-      request.url,
-      '/admin/contribution-activity/present',
-      '/api/admin/contribution-activity/present'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) return;
-    if (request.method !== 'POST') {
-      writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
-      return;
-    }
-    try {
-      const input = JSON.parse(await readBody(request)) as { ids?: unknown };
-      const result = await contributionActivity!.claimPresentation(
-        input?.ids,
-        getAdminAuditActor(request)
-      );
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      writeJson(
-        request,
-        response,
-        error instanceof RangeError || error instanceof SyntaxError ? 400 : 503,
-        { code: 'ACTIVITY_PRESENTATION_FAILED' }
-      );
-    }
-    return;
-  }
-  if (
-    routeMatches(
-      request.url,
-      '/admin/contribution-activity',
-      '/api/admin/contribution-activity'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) return;
-    if (request.method !== 'GET') {
-      writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
-      return;
-    }
-    try {
-      const params = new URL(request.url ?? '/', publicBaseOrigin).searchParams;
-      const result = await contributionActivity!.list({
-        ...(params.has('before') ? { before: params.get('before')! } : {}),
-        ...(params.has('after') ? { after: params.get('after')! } : {}),
-        ...(params.has('id') ? { id: params.get('id')! } : {})
-      });
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      writeJson(request, response, error instanceof RangeError ? 400 : 503, {
-        code:
-          error instanceof RangeError
-            ? 'INVALID_ACTIVITY_CURSOR'
-            : 'ACTIVITY_UNAVAILABLE'
-      });
-    }
-    return;
-  }
+  if (await handleAdminContributionActivityRequest(request, response)) return;
 
   if (await handleAdminPublicationAutomationRequest(request, response)) return;
 
@@ -2077,804 +2135,25 @@ const handleRequest = async (
 
   if (await handleSponsorshipFollowupMediaRequest(request, response)) return;
 
-  if (
-    request.method === 'POST' &&
-    routeMatches(request.url, '/reference-lookup', '/api/reference-lookup')
-  ) {
-    if (!hasDatabase) {
-      writeJson(request, response, 503, {
-        error: 'Reference lookup requires DATABASE_URL.'
-      });
-      return;
-    }
+  if (await handleReferenceLookupRequest(request, response)) return;
 
-    let parsed: Partial<PublicReferenceLookupRequest> | null;
-    try {
-      const body = await readBody(request, 4 * 1024);
-      parsed = JSON.parse(body) as Partial<PublicReferenceLookupRequest> | null;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid reference lookup request body.'
-      });
-      return;
-    }
+  if (await handlePublicPaymentsRequest(request, response)) return;
 
-    const publicReference = normalizeContributionPublicReference(
-      parsed?.reference
-    );
-    if (!publicReference) {
-      writeJson(request, response, 400, {
-        error: 'A valid OpenG7 reference is required.'
-      });
-      return;
-    }
-
-    try {
-      const lookup = await lookupPublicContributionReference(
-        dbPool,
-        publicReference
-      );
-      const result: PublicReferenceLookupResponse = lookup ?? {
-        found: false,
-        publicReference
-      };
-
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to look up public contribution reference.', error);
-      writeJson(request, response, 502, {
-        error: 'Reference lookup could not be completed.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')
-  ) {
-    let parsed: CheckoutRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as CheckoutRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid checkout request body.'
-      });
-      return;
-    }
-
-    const amount = normalizeAmount(parsed.amount);
-    const isSponsorshipContribution =
-      parsed.contributionType === 'sponsorship_interest';
-    const isAmountAllowed = isSponsorshipContribution
-      ? isValidSponsorshipAmount(amount)
-      : allowedContributionAmounts.has(amount);
-
-    if (!Number.isFinite(amount) || !isAmountAllowed) {
-      writeJson(request, response, 400, {
-        error: 'Checkout amount is not allowed.'
-      });
-      return;
-    }
-
-    if (!isAllowedContributionType(parsed.contributionType)) {
-      writeJson(request, response, 400, {
-        error: 'Checkout contribution type is not allowed.'
-      });
-      return;
-    }
-
-    if (isSponsorshipContribution && !businessSponsorshipEnabled) {
-      writeJson(request, response, 403, {
-        error: 'Business sponsorship checkout is disabled.'
-      });
-      return;
-    }
-
-    if (
-      !isBoolean(parsed.publicDisplayConsent) ||
-      !isBoolean(parsed.displayAmountConsent) ||
-      parsed.nonCharityAcknowledged !== true
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Checkout consent fields are invalid or incomplete.'
-      });
-      return;
-    }
-
-    if (
-      parsed.publicDisplayConsent === true &&
-      !isNonEmptySponsorText(
-        parsed.publicDisplayName,
-        PUBLIC_DISPLAY_NAME_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error:
-          'Public display name is required when public display consent is granted.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.publicDisplayName,
-        PUBLIC_DISPLAY_NAME_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Public display name is too long.'
-      });
-      return;
-    }
-
-    // Legacy local fallback remains available. Acceptance opts into a local,
-    // navigable Checkout and still confirms payment through the signed webhook.
-    if (!stripe || (stripeApiHost && !navigableSimulatedCheckout)) {
-      if (!isProduction) {
-        writeJson(
-          request,
-          response,
-          200,
-          createDevelopmentCheckoutResult(parsed)
-        );
-        return;
-      }
-
-      writeJson(request, response, 503, {
-        error: 'Stripe checkout is not configured.'
-      });
-      return;
-    }
-
-    try {
-      const successUrl = resolveCheckoutReturnUrl(
-        parsed.successUrl,
-        '/?checkout=success'
-      );
-      const cancelUrl = resolveCheckoutReturnUrl(
-        parsed.cancelUrl,
-        '/?checkout=cancel'
-      );
-      const requiresReview = parsed.contributionType === 'sponsorship_interest';
-      const sponsorshipFollowupToken = requiresReview
-        ? createSponsorshipFollowupToken()
-        : null;
-      const sponsorshipFollowupTokenHash = sponsorshipFollowupToken
-        ? hashSponsorshipFollowupToken(sponsorshipFollowupToken)
-        : null;
-      const publicReference = createContributionPublicReference();
-      const checkoutCancelUrl = new URL(cancelUrl);
-      checkoutCancelUrl.searchParams.set('reference', publicReference);
-      const checkoutSuccessUrl = sponsorshipFollowupToken
-        ? buildSponsorshipFollowupUrl(
-            successUrl,
-            sponsorshipFollowupToken,
-            sponsorshipFollowupLocaleFromUrl(successUrl)
-          )
-        : buildContributionCheckoutSuccessUrl(successUrl, publicReference);
-      const publicDisplayName =
-        parsed.publicDisplayConsent === true &&
-        typeof parsed.publicDisplayName === 'string'
-          ? parsed.publicDisplayName.trim()
-          : '';
-      const checkoutMetadata: Record<string, string> = {
-        projectId,
-        project: 'openg7',
-        program: 'builders_fund',
-        publicReference,
-        contributionType: parsed.contributionType,
-        publicDisplayConsent: String(parsed.publicDisplayConsent),
-        displayAmountConsent: String(parsed.displayAmountConsent),
-        nonCharityAcknowledged: String(parsed.nonCharityAcknowledged),
-        requiresReview: String(requiresReview),
-        ...(publicDisplayName
-          ? {
-              publicDisplayName: truncateStripeMetadataValue(publicDisplayName)
-            }
-          : {}),
-        ...(sponsorshipFollowupTokenHash
-          ? {
-              sponsorshipFollowupTokenHash
-            }
-          : {})
-      };
-
-      const session = await stripe.checkout.sessions.create({
-        mode: 'payment',
-        client_reference_id: publicReference,
-        success_url: checkoutSuccessUrl,
-        cancel_url: checkoutCancelUrl.toString(),
-        line_items: [
-          {
-            quantity: 1,
-            price_data: {
-              currency: 'cad',
-              unit_amount: Math.round(amount * 100),
-              product_data: {
-                name: `OpenG7 ${projectId} - ${publicReference}`,
-                description:
-                  buildContributionReceiptDescription(publicReference)
-              }
-            }
-          }
-        ],
-        payment_intent_data: {
-          description: buildContributionReceiptDescription(publicReference),
-          metadata: checkoutMetadata
-        },
-        metadata: checkoutMetadata
-      });
-      try {
-        await insertCheckoutSessionRecord(dbPool, {
-          stripeSessionId: session.id,
-          stripePaymentIntentId: resolveStripePaymentIntentId(
-            session.payment_intent
-          ),
-          publicReference,
-          contributionType: parsed.contributionType,
-          amountCents: Math.round(amount * 100),
-          currency: 'cad',
-          metadata: checkoutMetadata,
-          publicDisplayConsent: parsed.publicDisplayConsent,
-          publicName: publicDisplayName || null,
-          displayAmountConsent: parsed.displayAmountConsent,
-          nonCharityAcknowledged: parsed.nonCharityAcknowledged,
-          sponsorshipFollowupTokenHash
-        });
-      } catch (error) {
-        console.error('Failed to record Stripe checkout session.', error);
-      }
-
-      const result: RedirectCheckoutResult = {
-        checkoutId: session.id,
-        redirectUrl: session.url ?? successUrl,
-        status: 'redirected'
-      };
-
-      writeJson(request, response, 200, result);
-      return;
-    } catch (error) {
-      console.error('Failed to create Stripe checkout session.', error);
-
-      if (!isProduction) {
-        writeJson(
-          request,
-          response,
-          200,
-          createDevelopmentCheckoutResult(parsed)
-        );
-        return;
-      }
-
-      writeJson(request, response, 502, {
-        error: 'Stripe checkout session could not be created.'
-      });
-      return;
-    }
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(request.url, '/reference-recovery', '/api/reference-recovery')
-  ) {
-    if (!hasDatabase) {
-      writeJson(request, response, 503, {
-        error: 'Reference recovery requires DATABASE_URL.'
-      });
-      return;
-    }
-
-    let parsed: Partial<ReferenceRecoveryRequest> | null;
-    try {
-      const body = await readBody(request, 8 * 1024);
-      parsed = JSON.parse(body) as Partial<ReferenceRecoveryRequest> | null;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid reference recovery request body.'
-      });
-      return;
-    }
-
-    const email = normalizeReferenceRecoveryEmail(parsed?.email);
-    if (!email) {
-      writeJson(request, response, 400, {
-        error: 'A valid email address is required.'
-      });
-      return;
-    }
-
-    try {
-      const references = await listContributionReferencesByEmail(dbPool, email);
-
-      if (references.length > 0) {
-        try {
-          const notificationResult =
-            await queueContributionReferenceRecoveryEmail(dbPool, {
-              to: email,
-              references,
-              idempotencyKey: createReferenceRecoveryIdempotencyKey(email)
-            });
-
-          if (!notificationResult.queued && !notificationResult.sent) {
-            console.warn(
-              'Reference recovery email could not be queued or sent.'
-            );
-          }
-        } catch {
-          // A matching address must not be disclosed by a queue/SMTP failure.
-          // Do not log the database error: it can contain private message data.
-          console.error(
-            'Reference recovery email could not be queued or sent.'
-          );
-        }
-      }
-
-      const result: ReferenceRecoveryResult = { accepted: true };
-      writeJson(request, response, 202, result);
-    } catch {
-      console.error('Failed to process reference recovery request.');
-      writeJson(request, response, 502, {
-        error: 'Reference recovery request could not be processed.'
-      });
-    }
-    return;
-  }
+  if (await handleReferenceRecoveryRequest(request, response)) return;
 
   if (await handleSponsorshipFollowupRequest(request, response)) return;
 
-  if (
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/followup-access',
-      '/api/admin/sponsorships/followup-access'
-    ) &&
-    ['GET', 'POST'].includes(request.method ?? '')
-  ) {
-    if (!ensureAdminAccess(request, response)) return;
-    if (!dbPool) {
-      writeJson(request, response, 503, { error: 'Recovery is unavailable.' });
-      return;
-    }
-    try {
-      if (request.method === 'GET') {
-        const id =
-          new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
-            'contributionId'
-          ) ?? '';
-        if (!isValidUuid(id))
-          throw new SponsorshipAccessError(400, 'validation');
-        writeJson(request, response, 200, {
-          recipient: await getSponsorshipAccessRecipient(dbPool, id)
-        });
-      } else {
-        const input = JSON.parse(await readBody(request, 8 * 1024));
-        if (
-          !input ||
-          !isValidUuid(input.contributionId) ||
-          !isValidUuid(input.requestId) ||
-          input.confirmed !== true
-        )
-          throw new SponsorshipAccessError(400, 'validation');
-        const recipient = normalizeRecoveryEmail(input.recipient);
-        const result = await issueSponsorshipAccess(
-          dbPool,
-          input.contributionId,
-          recipient,
-          {
-            baseUrl: publicBaseOrigin,
-            ttlDays: sponsorshipFollowupTokenTtlDays,
-            locale: input.locale === 'en' ? 'en' : 'fr-CA'
-          },
-          { actor: getAdminAuditActor(request), requestId: input.requestId }
-        );
-        writeJson(request, response, 200, result);
-      }
-    } catch (error) {
-      writeJson(
-        request,
-        response,
-        error instanceof SponsorshipAccessError
-          ? error.status
-          : error instanceof SyntaxError
-            ? 400
-            : 503,
-        {
-          error: 'Access link could not be queued.',
-          code:
-            error instanceof SponsorshipAccessError ? error.code : 'unavailable'
-        }
-      );
-    }
-    return;
-  }
+  if (await handleAdminSponsorshipAccessRequest(request, response)) return;
 
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/sponsorship-details',
-      '/api/sponsorship-details'
-    )
-  ) {
-    if (!stripe) {
-      writeJson(request, response, 503, {
-        error: 'Stripe is not configured.'
-      });
-      return;
-    }
+  if (await handleLegacySponsorshipDetailsRequest(request, response)) return;
 
-    let parsed: SponsorshipDetailsRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as SponsorshipDetailsRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsorship details request body.'
-      });
-      return;
-    }
+  if (await handleStripeWebhookRequest(request, response)) return;
 
-    if (
-      typeof parsed.sessionId !== 'string' ||
-      !parsed.sessionId.startsWith('cs_') ||
-      parsed.sessionId.length > 200
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Invalid Stripe checkout session id.'
-      });
-      return;
-    }
+  if (await handleAdminSessionRequest(request, response)) return;
 
-    if (
-      !isSafeSponsorshipText(parsed.companyName) ||
-      parsed.companyName.length > SPONSOR_TEXT_MAX_LENGTH ||
-      !isNonEmptySponsorText(parsed.companyName, SPONSOR_TEXT_MAX_LENGTH)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Company name is required.'
-      });
-      return;
-    }
+  if (await handleAdminBackupsRequest(request, response)) return;
 
-    if (
-      !isSafeSponsorshipText(parsed.contactName) ||
-      parsed.contactName.length > SPONSOR_TEXT_MAX_LENGTH ||
-      !isNonEmptySponsorText(parsed.contactName, SPONSOR_TEXT_MAX_LENGTH)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Contact name is required.'
-      });
-      return;
-    }
-
-    if (!isValidSponsorEmail(parsed.contactEmail)) {
-      writeJson(request, response, 400, {
-        error: 'A valid contact email is required.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalHttpsUrl(parsed.websiteUrl)) {
-      writeJson(request, response, 400, {
-        error: 'Website URL must be a valid https link.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalHttpsUrl(parsed.logoUrl)) {
-      writeJson(request, response, 400, {
-        error: 'Logo URL must be a valid https link.'
-      });
-      return;
-    }
-
-    if (
-      parsed.message !== undefined &&
-      (!isSafeSponsorshipText(parsed.message, true) ||
-        parsed.message.length > SPONSOR_MESSAGE_MAX_LENGTH)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Message is too long.'
-      });
-      return;
-    }
-
-    let session: Stripe.Checkout.Session;
-    try {
-      session = await stripe.checkout.sessions.retrieve(parsed.sessionId, {
-        expand: ['payment_intent']
-      });
-    } catch {
-      writeJson(request, response, 404, {
-        error: 'Checkout session not found.'
-      });
-      return;
-    }
-
-    const sessionMetadata = session.metadata ?? {};
-    if (
-      normalizeContributionType(sessionMetadata.contributionType) !==
-      'sponsorship_interest'
-    ) {
-      writeJson(request, response, 400, {
-        error:
-          'This checkout session is not a sponsorship interest contribution.'
-      });
-      return;
-    }
-
-    if (session.payment_status !== 'paid') {
-      writeJson(request, response, 409, {
-        error: 'Payment for this checkout session is not confirmed yet.'
-      });
-      return;
-    }
-
-    const paymentIntentId = resolveStripePaymentIntentId(
-      session.payment_intent
-    );
-    const paymentIntentCreatedIso =
-      session.payment_intent && typeof session.payment_intent !== 'string'
-        ? new Date(session.payment_intent.created * 1000).toISOString()
-        : new Date(session.created * 1000).toISOString();
-
-    const companyName = parsed.companyName.trim();
-    const contactName = parsed.contactName.trim();
-    const contactEmail = parsed.contactEmail.trim();
-    const websiteUrl = parsed.websiteUrl?.trim() || null;
-    const logoUrl = parsed.logoUrl?.trim() || null;
-    const message = parsed.message?.trim() || null;
-
-    if (paymentIntentId) {
-      try {
-        await stripe.paymentIntents.update(paymentIntentId, {
-          metadata: {
-            sponsorCompanyName: truncateStripeMetadataValue(companyName),
-            sponsorContactName: truncateStripeMetadataValue(contactName),
-            sponsorContactEmail: truncateStripeMetadataValue(contactEmail),
-            ...(websiteUrl
-              ? { sponsorWebsiteUrl: truncateStripeMetadataValue(websiteUrl) }
-              : {}),
-            ...(logoUrl
-              ? { sponsorLogoUrl: truncateStripeMetadataValue(logoUrl) }
-              : {}),
-            ...(message
-              ? { sponsorMessage: truncateStripeMetadataValue(message) }
-              : {})
-          }
-        });
-      } catch (error) {
-        console.error(
-          'Failed to update Stripe metadata with sponsorship details.',
-          error
-        );
-      }
-    }
-
-    let recorded = false;
-    try {
-      recorded = await recordSponsorshipDetails(dbPool, {
-        stripeSessionId: session.id,
-        stripePaymentIntentId: paymentIntentId,
-        publicReference: normalizeContributionPublicReference(
-          sessionMetadata.publicReference
-        ),
-        amountCents: session.amount_total ?? 0,
-        currency: session.currency ?? 'cad',
-        publicDisplayConsent: parseMetadataBoolean(
-          sessionMetadata.publicDisplayConsent
-        ),
-        displayAmountConsent: parseMetadataBoolean(
-          sessionMetadata.displayAmountConsent
-        ),
-        nonCharityAcknowledged: parseMetadataBoolean(
-          sessionMetadata.nonCharityAcknowledged
-        ),
-        paidAtIso: paymentIntentCreatedIso,
-        companyName,
-        contactName,
-        contactEmail,
-        websiteUrl,
-        logoUrl,
-        message
-      });
-    } catch (error) {
-      console.error('Failed to record sponsorship details.', error);
-    }
-
-    const result: SponsorshipDetailsResult = { received: true, recorded };
-    writeJson(request, response, 200, result);
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(request.url, '/stripe/webhook', '/api/stripe/webhook')
-  ) {
-    if (!stripe || !stripeWebhookSecret) {
-      writeJson(request, response, 503, {
-        error:
-          'Stripe webhook is not configured. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET.'
-      });
-      return;
-    }
-
-    const stripeSignature = request.headers['stripe-signature'];
-    if (typeof stripeSignature !== 'string') {
-      writeJson(request, response, 400, {
-        error: 'Missing Stripe-Signature header'
-      });
-      return;
-    }
-
-    let rawBody: string;
-    try {
-      rawBody = await readBody(request);
-    } catch {
-      writeJson(request, response, 413, {
-        error: 'Webhook request body is too large.'
-      });
-      return;
-    }
-
-    const result = await processStripeWebhook(rawBody, stripeSignature, {
-      stripe,
-      webhookSecret: stripeWebhookSecret,
-      pool: dbPool,
-      publicBaseUrl: publicBaseUrl ?? publicBaseOrigin,
-      projectId
-    });
-
-    writeJson(request, response, result.statusCode, result.payload);
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(request.url, '/admin/session', '/api/admin/session')
-  ) {
-    if (!adminToken && isProduction) {
-      writeJson(request, response, 503, {
-        error: 'Admin session is not configured.'
-      });
-      return;
-    }
-
-    let parsed: AdminSessionCreateRequest;
-    try {
-      const body = await readBody(request, 16 * 1024);
-      parsed = JSON.parse(body) as AdminSessionCreateRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid admin session request body.'
-      });
-      return;
-    }
-
-    const suppliedToken =
-      typeof parsed.token === 'string' ? parsed.token.trim() : '';
-    if (adminToken && !adminTokenMatches(suppliedToken)) {
-      writeJson(request, response, 401, {
-        error: 'Admin authorization is required.'
-      });
-      return;
-    }
-
-    const session = createAdminSession();
-    if (!session) {
-      writeJson(request, response, 503, {
-        error: 'Admin session signing is not configured.'
-      });
-      return;
-    }
-
-    writeJson(request, response, 200, session);
-    return;
-  }
-
-  if (routeMatches(request.url, '/admin/backups', '/api/admin/backups')) {
-    response.setHeader('Cache-Control', 'private, no-store');
-    if (!ensureAdminAccess(request, response) || !dbPool) return;
-    if (
-      !['oidc', 'session'].includes(
-        resolveAdminAuthorization(request)?.source ?? ''
-      )
-    ) {
-      writeJson(request, response, 401, { code: 'ADMIN_SESSION_REQUIRED' });
-      return;
-    }
-    if (
-      request.method === 'POST' &&
-      request.headers.origin &&
-      ![publicBaseOrigin, ...allowedOrigins].includes(request.headers.origin)
-    ) {
-      writeJson(request, response, 403, { code: 'ORIGIN_FORBIDDEN' });
-      return;
-    }
-    try {
-      if (request.method === 'GET') {
-        const id = new URL(
-          request.url ?? '/',
-          publicBaseOrigin
-        ).searchParams.get('requestId');
-        if (id !== null && !isBackupId(id))
-          throw new BackupError('INVALID_BACKUP_REQUEST', 400);
-        writeJson(
-          request,
-          response,
-          200,
-          await backupStatus(dbPool, id ?? undefined)
-        );
-      } else if (request.method === 'POST') {
-        if (
-          request.headers['content-type']
-            ?.split(';')[0]
-            .trim()
-            .toLowerCase() !== 'application/json'
-        )
-          throw new BackupError('INVALID_BACKUP_REQUEST', 415);
-        let input: Record<string, unknown>;
-        try {
-          input = JSON.parse(await readBody(request, 2048));
-          if (
-            !input ||
-            Array.isArray(input) ||
-            !isBackupId(input.requestId) ||
-            Object.keys(input).some(
-              (key) => !['requestId', 'confirmation'].includes(key)
-            )
-          )
-            throw new Error();
-        } catch {
-          throw new BackupError('INVALID_BACKUP_REQUEST', 400);
-        }
-        if (input.confirmation !== 'BACKUP_DATABASE')
-          throw new BackupError('CONFIRMATION_REQUIRED', 400);
-        const job = await requestBackup(
-          dbPool,
-          input.requestId as string,
-          getAdminAuditActor(request)
-        );
-        writeJson(request, response, 202, job);
-      } else {
-        response.setHeader('Allow', 'GET, POST');
-        writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
-      }
-    } catch (error) {
-      writeJson(
-        request,
-        response,
-        error instanceof BackupError ? error.status : 503,
-        {
-          code: error instanceof BackupError ? error.code : 'BACKUP_UNAVAILABLE'
-        }
-      );
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(request.url, '/admin/setup-status', '/api/admin/setup-status')
-  ) {
-    response.setHeader('Cache-Control', 'private, no-store');
-    if (!ensureAdminAuthorization(request, response)) {
-      return;
-    }
-
-    try {
-      const setupStatus = await buildAdminSetupStatus();
-      writeJson(request, response, 200, setupStatus);
-    } catch (error) {
-      console.error('Failed to load admin setup status.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin setup status could not be loaded.'
-      });
-    }
-    return;
-  }
+  if (await handleAdminSetupRequest(request, response)) return;
 
   if (await handleAdminEmailRequest(request, response)) {
     return;
@@ -2900,467 +2179,11 @@ const handleRequest = async (
 
   if (await handleAdminPublicationBatchesRequest(request, response)) return;
 
-  if (
-    request.method === 'GET' &&
-    routeMatches(request.url, '/admin/audit-log', '/api/admin/audit-log')
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    try {
-      const entryId = new URL(
-        request.url ?? '/',
-        'http://localhost'
-      ).searchParams.get('entryId');
-      response.setHeader('Cache-Control', 'no-store');
-      if (entryId !== null && !isValidUuid(entryId)) {
-        writeJson(request, response, 400, { error: 'Invalid entryId.' });
-        return;
-      }
-      const result = await listAdminAuditLog(dbPool, entryId ?? undefined);
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load admin audit log.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin audit log could not be loaded.'
-      });
-    }
-    return;
-  }
+  if (await handleAdminAuditRequest(request, response)) return;
 
   if (await handleAdminSponsorshipDecisionsRequest(request, response)) return;
 
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/refund',
-      '/api/admin/sponsorships/refund'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    if (!stripe && isProduction) {
-      writeJson(request, response, 503, {
-        error: 'Stripe is not configured.'
-      });
-      return;
-    }
-
-    let parsed: Partial<AdminSponsorshipRefundRequest>;
-    try {
-      const body = await readBody(request);
-      const candidate = JSON.parse(body) as unknown;
-      if (!candidate || typeof candidate !== 'object') {
-        throw new Error('Invalid sponsorship refund request body.');
-      }
-      parsed = candidate as Partial<AdminSponsorshipRefundRequest>;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsorship refund request body.'
-      });
-      return;
-    }
-
-    if (!isValidUuid(parsed.contributionId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid contribution id.'
-      });
-      return;
-    }
-
-    if (!isValidAdminExpectedVersion(parsed.expectedVersion)) {
-      writeJson(request, response, 400, {
-        error: 'Sponsorship version is required.'
-      });
-      return;
-    }
-
-    if (
-      typeof parsed.confirmationText !== 'string' ||
-      parsed.confirmationText.trim().length === 0
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Confirmation text is required.'
-      });
-      return;
-    }
-
-    const notifySponsor = parsed.notifySponsor === true;
-    const notificationEmail =
-      typeof parsed.notificationEmail === 'string'
-        ? parsed.notificationEmail.trim()
-        : '';
-    const sponsorMessage =
-      typeof parsed.sponsorMessage === 'string'
-        ? parsed.sponsorMessage.trim()
-        : '';
-    const refundNote =
-      typeof parsed.refundNote === 'string' ? parsed.refundNote.trim() : '';
-    const refundReason =
-      parsed.refundReason === undefined
-        ? 'requested_by_customer'
-        : parsed.refundReason;
-
-    if (!isAllowedSponsorshipStripeRefundReason(refundReason)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid Stripe refund reason.'
-      });
-      return;
-    }
-
-    if (
-      parsed.amount !== undefined &&
-      (typeof parsed.amount !== 'number' || !Number.isFinite(parsed.amount))
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Refund amount must be a number.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.refundNote,
-        ADMIN_REVIEW_NOTE_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Refund note is too long.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalBoundedText(
-        parsed.sponsorMessage,
-        SPONSOR_MESSAGE_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Sponsor notification message is too long.'
-      });
-      return;
-    }
-
-    if (notifySponsor && !isValidSponsorEmail(notificationEmail)) {
-      writeJson(request, response, 400, {
-        error: 'A valid sponsor notification email is required.'
-      });
-      return;
-    }
-
-    if (notifySponsor && !sponsorMessage) {
-      writeJson(request, response, 400, {
-        error: 'A sponsor-facing refund message is required.'
-      });
-      return;
-    }
-
-    let refundOperationId: string | null = null;
-    let stripeRefundCreated = false;
-    const refundWorkflowNote = refundNote || null;
-
-    try {
-      const target = await getSponsorshipRefundTarget(
-        dbPool,
-        parsed.contributionId
-      );
-      if (!target) {
-        writeJson(request, response, 404, {
-          error: 'Sponsorship contribution was not found.'
-        });
-        return;
-      }
-
-      if (target.version !== parsed.expectedVersion) {
-        writeJson(request, response, 409, {
-          code: 'SPONSORSHIP_CONCURRENT_UPDATE',
-          message:
-            'Cette commandite a ete modifiee par un autre administrateur.',
-          currentVersion: target.version
-        });
-        return;
-      }
-
-      if (target.paymentStatus !== 'paid') {
-        writeSponsorshipRefundIneligible(
-          request,
-          response,
-          target.paymentStatus
-        );
-        return;
-      }
-
-      if (
-        target.refundWorkflowStatus === 'processing' ||
-        (target.refundWorkflowStatus === 'completed' && !target.refundId)
-      ) {
-        writeJson(request, response, 409, {
-          code: 'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
-          message:
-            target.refundWorkflowStatus === 'completed'
-              ? 'Cette commandite a deja un remboursement manuel marque comme complete.'
-              : 'Un remboursement est deja en cours pour cette commandite.',
-          paymentStatus: target.paymentStatus,
-          refundWorkflowStatus: target.refundWorkflowStatus
-        });
-        return;
-      }
-
-      const requestedRefundAmountCents =
-        parsed.amount === undefined
-          ? target.amountCents
-          : amountToCents(parsed.amount);
-      const isFullRefund = requestedRefundAmountCents === target.amountCents;
-      const hasValidCentPrecision =
-        parsed.amount === undefined ||
-        Math.abs(parsed.amount * 100 - requestedRefundAmountCents) < 0.000001;
-
-      if (
-        requestedRefundAmountCents <= 0 ||
-        requestedRefundAmountCents > target.amountCents ||
-        !hasValidCentPrecision
-      ) {
-        writeJson(request, response, 400, {
-          error: `Refund amount must be between 0.01 and ${target.amount.toFixed(
-            2
-          )} ${target.currency}.`
-        });
-        return;
-      }
-
-      if (!target.stripePaymentIntentId) {
-        writeJson(request, response, 409, {
-          code: 'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
-          message: 'Aucun Payment Intent Stripe n est lie a cette commandite.',
-          paymentStatus: target.paymentStatus
-        });
-        return;
-      }
-
-      const expectedConfirmation = sponsorshipRefundConfirmationText(target);
-      if (parsed.confirmationText?.trim() !== expectedConfirmation) {
-        writeJson(request, response, 400, {
-          error: `Confirmation text must match ${expectedConfirmation}.`
-        });
-        return;
-      }
-
-      refundOperationId = await beginSponsorshipRefundOperation(dbPool!, {
-        contributionId: target.id,
-        expectedVersion: parsed.expectedVersion,
-        paymentIntentId: target.stripePaymentIntentId,
-        amountMinor: requestedRefundAmountCents,
-        currency: target.currency,
-        reason: refundReason,
-        note: refundWorkflowNote,
-        actor: getAdminAuditActor(request)
-      });
-
-      const refund = stripe
-        ? await stripe.refunds.create(
-            {
-              amount: requestedRefundAmountCents,
-              payment_intent: target.stripePaymentIntentId,
-              reason: refundReason,
-              metadata: {
-                contributionId: target.id,
-                refundType: isFullRefund ? 'full' : 'partial',
-                refundAmountCents: String(requestedRefundAmountCents),
-                refundReason,
-                publicReference: target.publicReference ?? '',
-                source: 'openg7_admin_sponsorship_refund',
-                openg7RefundOperationId: refundOperationId
-              }
-            },
-            {
-              idempotencyKey: `sponsorship-refund:${refundOperationId}`
-            }
-          )
-        : createDevelopmentRefundResult({
-            amountCents: requestedRefundAmountCents,
-            currency: target.currency,
-            paymentIntentId: target.stripePaymentIntentId
-          });
-      stripeRefundCreated = true;
-      await settleSponsorshipRefundOperation(dbPool, refund, refundOperationId);
-      const refundWorkflowStatus =
-        refund.status === 'succeeded'
-          ? 'completed'
-          : refund.status === 'failed' || refund.status === 'canceled'
-            ? 'failed'
-            : 'processing';
-      const refundAttemptAccepted = refundWorkflowStatus !== 'failed';
-      const refundCompleted = refundWorkflowStatus === 'completed';
-      const paymentStatusUpdated = refundCompleted
-        ? isFullRefund
-          ? await updateContributionStatusByPaymentIntent(dbPool, {
-              stripePaymentIntentId: target.stripePaymentIntentId,
-              status: 'refunded'
-            })
-          : false
-        : false;
-      const refundAmount = Number((refund.amount / 100).toFixed(2));
-      const refundCurrency = refund.currency.toUpperCase();
-      let creditNote: Awaited<
-        ReturnType<typeof createSponsorshipCreditNoteForRefund>
-      > = null;
-      let adminCreditNote: Awaited<
-        ReturnType<typeof getAdminSponsorshipCreditNoteById>
-      > = null;
-      let creditNoteError: string | null = null;
-
-      if (refundAttemptAccepted) {
-        try {
-          creditNote = await createSponsorshipCreditNoteForRefund(dbPool, {
-            contributionId: target.id,
-            stripeRefundId: refund.id,
-            refundAmountCents: refund.amount
-          });
-          adminCreditNote = creditNote
-            ? await getAdminSponsorshipCreditNoteById(dbPool, creditNote.id)
-            : null;
-        } catch (error) {
-          creditNoteError =
-            error instanceof Error
-              ? error.message
-              : 'Credit note could not be created.';
-          console.error('Failed to create sponsorship credit note.', error);
-        }
-      }
-
-      const notificationResult =
-        refundAttemptAccepted && notifySponsor
-          ? creditNote
-            ? await queueSponsorshipCreditNoteEmail(dbPool, {
-                to: notificationEmail,
-                creditNote,
-                sponsorMessage,
-                idempotencyKey: `sponsorship-credit-note:${creditNote.id}:${refund.id}`
-              })
-            : await queueSponsorshipRefundEmail(dbPool, {
-                to: notificationEmail,
-                contributionId: target.id,
-                publicReference: target.publicReference,
-                sponsorName: target.sponsorName,
-                amount: refundAmount,
-                currency: refundCurrency,
-                refundId: refund.id,
-                refundStatus: refund.status,
-                sponsorMessage,
-                refundNote: refundNote || undefined,
-                idempotencyKey: `sponsorship-refund-email:${target.id}:${refund.id}`
-              })
-          : null;
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: isFullRefund
-          ? 'sponsorship_refund.stripe_full'
-          : 'sponsorship_refund.stripe_partial',
-        entityType: 'sponsorship',
-        entityId: target.id,
-        summary: `Stripe ${isFullRefund ? 'full' : 'partial'} refund ${
-          refund.id
-        } created for ${target.sponsorName}.`,
-        metadata: {
-          amount: refund.amount,
-          currency: refund.currency,
-          requestedAmount: requestedRefundAmountCents,
-          fullRefund: isFullRefund,
-          paymentIntentId: target.stripePaymentIntentId,
-          publicReference: target.publicReference,
-          refundId: refund.id,
-          refundReason,
-          refundNote: refundNote || null,
-          refundStatus: refund.status,
-          refundWorkflowStatus,
-          paymentStatusUpdated,
-          creditNoteId: creditNote?.id ?? null,
-          creditNoteNumber: creditNote?.creditNoteNumber ?? null,
-          creditNoteError,
-          notifySponsor,
-          notificationEmail: notifySponsor ? notificationEmail : null,
-          notificationMessageId: notificationResult?.messageId ?? null,
-          notificationSent: notificationResult?.sent ?? false,
-          notificationError: notificationResult?.error ?? null
-        }
-      });
-
-      const result: AdminSponsorshipRefundResult = {
-        refunded: refundCompleted,
-        refundId: refund.id,
-        refundStatus: refund.status,
-        refundWorkflowStatus,
-        refundReason,
-        fullRefund: isFullRefund,
-        amount: refundAmount,
-        currency: refundCurrency,
-        contributionId: target.id,
-        paymentStatusUpdated,
-        sponsorship: await getAdminSponsorshipById(dbPool, target.id),
-        creditNote: adminCreditNote,
-        ...(notificationResult
-          ? {
-              notification: {
-                queued: notificationResult.queued,
-                attempted: notificationResult.attempted,
-                sent: notificationResult.sent,
-                messageId: notificationResult.messageId,
-                error: notificationResult.error
-              }
-            }
-          : {})
-      };
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error && error.message
-          ? error.message
-          : 'Sponsorship refund could not be created.';
-      if (error instanceof SponsorshipRefundOperationError) {
-        writeJson(request, response, 409, {
-          code: error.code,
-          error: 'Refund claim refused; refresh the sponsorship.'
-        });
-        return;
-      }
-      const definitive =
-        error instanceof Stripe.errors.StripeInvalidRequestError &&
-        error.statusCode === 400 &&
-        error.code !== 'idempotency_key_in_use';
-      if (refundOperationId && !stripeRefundCreated) {
-        try {
-          await failSponsorshipRefundOperation(
-            dbPool!,
-            refundOperationId,
-            definitive
-          );
-        } catch {
-          console.error(
-            'Failed to record Stripe refund outcome; operation remains blocked.'
-          );
-        }
-      }
-      const uncertain =
-        refundOperationId && !stripeRefundCreated && !definitive;
-      console.error('Sponsorship refund interrupted.', {
-        operationId: refundOperationId,
-        uncertain: Boolean(uncertain)
-      });
-      writeJson(request, response, 502, {
-        ...(uncertain ? { code: 'SPONSORSHIP_REFUND_UNCERTAIN' } : {}),
-        error: uncertain
-          ? 'Resultat Stripe incertain. Ne relancez pas le remboursement; verifiez son etat avec Stripe.'
-          : errorMessage
-      });
-    }
-    return;
-  }
+  if (await handleAdminSponsorshipRefundRequest(request, response)) return;
 
   if (await handlePublicFundingRequest(request, response)) return;
 
