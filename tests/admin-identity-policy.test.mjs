@@ -45,6 +45,36 @@ test('administrative roles default to refusing mutations and reserve money and p
     true
   );
 });
+
+test('document and accounting routes preserve read, operator and owner permissions for both API aliases', () => {
+  const roles = ['reader', 'operator', 'owner'];
+  const routes = [
+    ['GET', '/admin/sponsorship-invoices', roles],
+    ['POST', '/admin/sponsorship-invoices/backfill', ['owner']],
+    ['GET', '/admin/sponsorship-invoices/pdf', roles],
+    ['POST', '/admin/sponsorship-invoices/resend', ['operator', 'owner']],
+    ['GET', '/admin/sponsorship-credit-notes/pdf', roles],
+    ['POST', '/admin/sponsorship-credit-notes/resend', ['operator', 'owner']],
+    ['GET', '/admin/expenses', roles],
+    ['POST', '/admin/expenses', ['owner']],
+    ['POST', '/admin/expenses/update', ['owner']],
+    ['GET', '/admin/transparency', roles]
+  ];
+
+  for (const prefix of ['', '/api']) {
+    for (const [method, route, permittedRoles] of routes) {
+      const path = `${prefix}${route}`;
+      for (const role of roles) {
+        assert.equal(
+          adminRoleAllows(role, method, path),
+          permittedRoles.includes(role),
+          `${role} ${method} ${path}`
+        );
+      }
+    }
+  }
+});
+
 test('MFA must be asserted in validated claims, never inferred from a password or arbitrary ACR', () => {
   assert.equal(satisfiesMfa({ amr: ['pwd'] }, []), false);
   assert.equal(satisfiesMfa({ acr: 'anything' }, ['urn:trusted:mfa']), false);
