@@ -1,0 +1,156 @@
+:host {
+  display: block;
+  margin: 0 auto;
+  max-width: 88rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.queue-panel {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+header span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h2 {
+  margin: 0;
+}
+
+small,
+.empty-state span {
+  color: var(--admin-muted);
+}
+
+button {
+  border-radius: 0.35rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: var(--admin-control-weight);
+  line-height: inherit;
+  padding: 0 0.9rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.secondary-action {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+  min-height: 2.25rem;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  min-width: 78rem;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--admin-border);
+  padding: 0.7rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+td {
+  overflow-wrap: anywhere;
+}
+
+td strong,
+td small {
+  display: block;
+}
+
+.status-pill {
+  align-items: center;
+  background: var(--admin-panel-raised);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: var(--admin-label-weight);
+  min-height: 1.65rem;
+  padding: 0 0.65rem;
+  white-space: nowrap;
+}
+
+.status-sent {
+  background: var(--admin-panel-raised);
+  color: var(--admin-success);
+}
+
+.status-failed {
+  background: var(--og7-admin-danger-bg, #422532);
+  color: var(--admin-danger);
+}
+
+.status-queued {
+  background: var(--og7-admin-warning-bg, #3c3221);
+  color: var(--admin-warning);
+}
+
+.status-sending {
+  background: var(--admin-panel-raised);
+  color: var(--admin-muted);
+}
+
+.retry-message {
+  font-weight: 500;
+  margin-top: 0.35rem;
+}
+
+.retry-message.success {
+  color: var(--admin-success);
+}
+
+.retry-message.error {
+  color: var(--admin-danger);
+}
+
+.empty-state {
+  background: var(--admin-panel);
+  border-radius: 0.35rem;
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem;
+}
+
+@media (max-width: 860px) {
+  header {
+    align-items: start;
+    flex-direction: column;
+  }
+}

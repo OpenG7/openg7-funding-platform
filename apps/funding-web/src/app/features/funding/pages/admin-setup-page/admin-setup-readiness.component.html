@@ -1,0 +1,46 @@
+<section
+  class="systems-panel"
+  id="setup-readiness"
+  tabindex="-1"
+  data-tour-anchor="readiness"
+  [class.tour-target]="tourTarget()"
+  aria-labelledby="setup-systems-title"
+>
+  <header class="section-heading">
+    <div>
+      <h2 id="setup-systems-title">
+        <openg7-admin-icon name="audit" />{{
+          'admin.setup.systems' | translate
+        }}
+      </h2>
+      <p>{{ 'admin.setup.systemsSubtitle' | translate }}</p>
+    </div>
+    <div class="systems-tools">
+      @if (snapshot(); as snapshot) {
+        <span class="count">{{
+          'admin.setup.observedCount'
+            | translate
+              : {
+                  count: operationalCount(),
+                  total: snapshot.systems.length
+                }
+        }}</span>
+      }
+      <openg7-admin-cockpit-status
+        [state]="state()"
+        [refreshLabel]="'admin.setup.refreshSystems' | translate"
+        [stale]="stale()"
+        (refresh)="refresh.emit()"
+      />
+    </div>
+  </header>
+  @if (snapshot(); as snapshot) {
+    <openg7-admin-system-cards
+      [systems]="snapshot.systems"
+      [now]="now()"
+      [failed]="failed()"
+      (inspect)="inspect.emit($event)"
+    />
+  }
+  <p class="scope">{{ 'admin.cockpit.healthScope' | translate }}</p>
+</section>

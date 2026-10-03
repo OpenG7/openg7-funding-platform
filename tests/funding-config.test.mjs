@@ -7,6 +7,7 @@ import { readFundingHomeSource } from './support/funding-home-source.mjs';
 import { readSponsorshipFollowupSource } from './support/sponsorship-followup-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import { readAdminAccountingSource } from './support/admin-accounting-source.mjs';
+import { readAdminOperationsSource } from './support/admin-operations-source.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -2453,15 +2454,7 @@ test('An admin gets a daily email reminder for sponsorship reviews waiting on a 
   const email = readEmailNotificationSource();
   const api = readFundingApiSource();
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
-  const setupPage =
-    fs.readFileSync(
-      'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts',
-      'utf8'
-    ) +
-    fs.readFileSync(
-      'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.html',
-      'utf8'
-    );
+  const setupPage = readAdminOperationsSource('setup');
   const envExample = fs.readFileSync('.env.example', 'utf8');
   const emailDocs = fs.readFileSync('docs/email-smtp.md', 'utf8');
 
@@ -2696,10 +2689,7 @@ test('Admin email queue page lists failed messages and retries them manually', (
     'utf8'
   );
   const service = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-email-queue-page/admin-email-queue-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminOperationsSource('email-queue');
   const api = readFundingApiSource();
   const email = readEmailNotificationSource();
   const emailQueue = fs.readFileSync(
@@ -2943,15 +2933,7 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
     'apps/funding-web/src/app/admin.routes.ts',
     'utf8'
   );
-  const page =
-    fs.readFileSync(
-      'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.ts',
-      'utf8'
-    ) +
-    fs.readFileSync(
-      'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.html',
-      'utf8'
-    );
+  const page = readAdminOperationsSource('setup');
   const service = readFundingAdminSource();
   const nav = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/components/admin-nav/admin-nav.component.ts',

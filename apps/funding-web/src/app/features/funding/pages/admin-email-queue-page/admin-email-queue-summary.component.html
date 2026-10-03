@@ -1,0 +1,33 @@
+<section
+  class="summary-grid"
+  [attr.aria-label]="'admin.legacy.resume_file_courriel' | translate"
+>
+  <article>
+    <span>{{ 'admin.legacy.en_file' | translate }}</span>
+    <strong>{{ summary().queued_count }}</strong>
+    <small>{{ 'admin.legacy.messages_prets' | translate }}</small>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.envoi' | translate }}</span>
+    <strong>{{ summary().sending_count }}</strong>
+    <small>{{ 'admin.legacy.verrou_worker' | translate }}</small>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.envoyes' | translate }}</span>
+    <strong>{{ summary().sent_count }}</strong>
+    <small>{{ 'admin.legacy.succes' | translate }}</small>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.echecs' | translate }}</span>
+    <strong>{{ summary().failed_count }}</strong>
+    <small>{{
+      'admin.legacy.p0_relancable_s'
+        | translate: { p0: summary().retryable_count }
+    }}</small>
+  </article>
+  <article>
+    <span>{{ 'admin.legacy.mis_a_jour' | translate }}</span>
+    <strong>{{ updatedAtLabel() }}</strong>
+    <small>{{ 'admin.legacy.snapshot_queue' | translate }}</small>
+  </article>
+</section>

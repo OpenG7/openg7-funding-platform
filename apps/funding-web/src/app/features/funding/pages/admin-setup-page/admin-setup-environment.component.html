@@ -1,0 +1,59 @@
+@let data = setup();
+<section
+  class="setup-table-panel"
+  id="setup-env"
+  tabindex="-1"
+  data-tour-anchor="env"
+  [class.tour-target]="tourTarget()"
+>
+  <header>
+    <div>
+      <span>{{ 'admin.legacy.checklist' | translate }}</span>
+      <h2>{{ 'admin.legacy.cles_a_verifier' | translate }}</h2>
+    </div>
+    <small>{{
+      'admin.legacy.mis_a_jour_p0'
+        | translate: { p0: labels.dateLabel(data.last_updated_at) }
+    }}</small>
+  </header>
+
+  <details class="configuration-details">
+    <summary>{{ 'admin.setup.variables' | translate }}</summary>
+    <div
+      class="table-scroll"
+      tabindex="0"
+      role="region"
+      [attr.aria-label]="'admin.legacy.cles_a_verifier' | translate"
+      data-og7="setup-configuration-table"
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>{{ 'admin.legacy.variable' | translate }}</th>
+            <th>{{ 'admin.legacy.etat' | translate }}</th>
+            <th>{{ 'admin.legacy.role' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of labels.envRows; trackBy: trackByEnvRow">
+            <td>
+              <code>{{ row.key }}</code>
+            </td>
+            <td>
+              <span
+                class="status-pill compact"
+                [class.status-ok]="labels.envConfigured(data, row.key)"
+                [class.status-warn]="!labels.envConfigured(data, row.key)"
+              >
+                {{
+                  labels.configuredLabel(labels.envConfigured(data, row.key))
+                }}
+              </span>
+            </td>
+            <td>{{ row.note }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>

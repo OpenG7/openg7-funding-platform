@@ -25,6 +25,7 @@ for (const language of ['fr-CA', 'en']) {
     let status: AdminEmailTestResult['status'] = 'queued';
     let requestId = '';
     let calls = 0;
+    const recoveredIds: (string | null)[] = [];
     let setupFailed = false;
     const id = '10000000-0000-4000-8000-000000000701';
     await page.route('**/api/**', async (route) => {
@@ -38,7 +39,10 @@ for (const language of ['fr-CA', 'en']) {
         if (route.request().method() === 'POST') {
           calls++;
           requestId = route.request().postDataJSON().requestId;
-        }
+        } else
+          recoveredIds.push(
+            new URL(route.request().url()).searchParams.get('requestId')
+          );
         return route.fulfill({
           json: {
             requestId,
@@ -69,6 +73,16 @@ for (const language of ['fr-CA', 'en']) {
     await expect(result).not.toContainText(
       english ? 'accepted by' : 'accepté par'
     );
+    const originalRequestId = requestId;
+    expect(originalRequestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    );
+    await page.reload();
+    await expect(result).toContainText(
+      english ? 'Test queued' : 'Test mis en file'
+    );
+    expect(recoveredIds).toEqual([originalRequestId]);
+    expect(calls).toBe(1);
     for (const [next, expected] of [
       ['sending', english ? 'Sending in progress' : 'Envoi en cours'],
       ['failed', english ? 'could not be sent' : 'a échoué'],

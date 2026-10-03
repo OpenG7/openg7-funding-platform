@@ -1,0 +1,107 @@
+<section
+  class="queue-panel"
+  [attr.aria-label]="'admin.legacy.messages_courriel' | translate"
+>
+  <header>
+    <div>
+      <span>{{
+        'admin.legacy.p0_message_s' | translate: { p0: messages().length }
+      }}</span>
+      <h2>{{ 'admin.legacy.derniers_courriels' | translate }}</h2>
+    </div>
+    <small>{{
+      'admin.legacy.dernier_echec_p0' | translate: { p0: lastFailedAtLabel() }
+    }}</small>
+  </header>
+
+  <div class="table-scroll" *ngIf="messages().length > 0">
+    <table>
+      <thead>
+        <tr>
+          <th>{{ 'admin.legacy.date' | translate }}</th>
+          <th>{{ 'admin.legacy.statut' | translate }}</th>
+          <th>{{ 'admin.legacy.template' | translate }}</th>
+          <th>{{ 'admin.legacy.destinataire' | translate }}</th>
+          <th>{{ 'admin.legacy.sujet' | translate }}</th>
+          <th>{{ 'admin.legacy.tentatives' | translate }}</th>
+          <th>
+            {{ 'admin.legacy.prochaine_tentative' | translate }}
+          </th>
+          <th>{{ 'admin.legacy.action' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let view of messages(); trackBy: trackByMessage">
+          <td>{{ view.updatedAtLabel }}</td>
+          <td>
+            <span
+              class="status-pill"
+              [class.status-sent]="view.message.status === 'sent'"
+              [class.status-failed]="view.message.status === 'failed'"
+              [class.status-queued]="view.message.status === 'queued'"
+              [class.status-sending]="view.message.status === 'sending'"
+            >
+              {{ view.statusLabel }}
+            </span>
+          </td>
+          <td>{{ view.templateLabel }}</td>
+          <td>
+            <button
+              type="button"
+              class="secondary-action"
+              (click)="inspectRequested.emit(view.message)"
+            >
+              {{ view.message.recipient_email }}
+            </button>
+          </td>
+          <td>
+            <strong>{{ view.message.subject }}</strong>
+            <small *ngIf="view.message.last_error">
+              {{ view.message.last_error }}
+            </small>
+          </td>
+          <td>{{ view.message.attempts }} / {{ view.message.max_attempts }}</td>
+          <td>{{ view.nextAttemptAtLabel }}</td>
+          <td>
+            <button
+              type="button"
+              class="secondary-action"
+              [disabled]="
+                view.message.status === 'sent' || view.retryState === 'sending'
+              "
+              (click)="retryRequested.emit(view.message)"
+            >
+              {{
+                view.retryState === 'sending'
+                  ? ('admin.legacy.relance' | translate)
+                  : ('admin.legacy.relancer' | translate)
+              }}
+            </button>
+            <small
+              class="retry-message"
+              role="status"
+              aria-atomic="true"
+              data-og7="email-retry-result"
+              [class.error]="view.retryState === 'error'"
+              [class.success]="view.retryState === 'sent'"
+              *ngIf="view.retryMessage"
+            >
+              {{ view.retryMessage }}
+            </small>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <article
+    class="empty-state"
+    *ngIf="state() === 'ready' && messages().length === 0"
+  >
+    <strong>{{ 'admin.legacy.aucun_courriel_trouve' | translate }}</strong>
+    <span>{{
+      'admin.legacy.la_file_affichera_les_messages_apres_les_prochains_envois'
+        | translate
+    }}</span>
+  </article>
+</section>

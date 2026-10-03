@@ -1,6 +1,6 @@
 import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -24,88 +24,32 @@ import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout
 import { AdminBackupsComponent } from '../../components/admin-backups/admin-backups.component.js';
 import { AdminIconComponent } from '../../components/admin-ui/admin-icon.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
-import { AdminSystemCardsComponent } from '../../components/admin-cockpit/admin-system-cards.component.js';
 import { AdminCockpitActivityComponent } from '../../components/admin-cockpit/admin-cockpit-activity.component.js';
-import { AdminCockpitStatusComponent } from '../../components/admin-cockpit/admin-cockpit-status.component.js';
 import { createCockpitBlock } from '../../components/admin-cockpit/cockpit-block.js';
-import {
-  serviceState,
-  systemExpired,
-  systemState
-} from '../../components/admin-cockpit/system-state.js';
 import {
   FundingAdminService,
   AdminDashboardRequestError
 } from '../../services/funding-admin.service.js';
 
+import { AdminSetupReadinessComponent } from './admin-setup-readiness.component.js';
+import { AdminSetupRecommendationComponent } from './admin-setup-recommendation.component.js';
+import { AdminSetupServicesComponent } from './admin-setup-services.component.js';
+import { AdminSetupChecklistComponent } from './admin-setup-checklist.component.js';
+import { AdminSetupEnvironmentComponent } from './admin-setup-environment.component.js';
+import {
+  projectReadiness,
+  projectChecklist,
+  projectOperationalCount,
+  projectRecommendation,
+  type SetupSection
+} from './setup-projections.js';
+import {
+  SetupPresentation,
+  type SetupEmailTestState,
+  type SetupEmailTestView
+} from './setup-presentation.js';
+
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
-type SetupSection =
-  | 'overview'
-  | 'readiness'
-  | 'stripe'
-  | 'email'
-  | 'queue'
-  | 'database'
-  | 'backups'
-  | 'storage'
-  | 'env'
-  | 'activity';
-interface SetupRecommendation {
-  readonly key:
-    | 'database'
-    | 'queue'
-    | 'emailFailures'
-    | 'service'
-    | 'stripe'
-    | 'email'
-    | 'invoice'
-    | 'verification'
-    | 'ready';
-  readonly section: SetupSection;
-  readonly tone: 'warning' | 'neutral' | 'success';
-  readonly url?: string;
-  readonly urlAction?: 'openQueue' | 'openStripeEvents';
-}
-type TestState =
-  | 'idle'
-  | 'submitting'
-  | 'checking'
-  | 'queued'
-  | 'sending'
-  | 'sent'
-  | 'failed'
-  | 'unknown'
-  | 'error';
-type SetupEnvKey =
-  | 'STRIPE_SECRET_KEY'
-  | 'STRIPE_WEBHOOK_SECRET'
-  | 'SMTP_ENABLED'
-  | 'SMTP_HOST'
-  | 'SMTP_PORT'
-  | 'SMTP_SECURE'
-  | 'SMTP_USER'
-  | 'SMTP_PASSWORD'
-  | 'MAIL_FROM_ADDRESS'
-  | 'MAIL_REPLY_TO_ADDRESS'
-  | 'FUNDING_ADMIN_NOTIFICATION_EMAIL'
-  | 'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED'
-  | 'FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS'
-  | 'FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS'
-  | 'FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS'
-  | 'FUNDING_SPONSORSHIP_INVOICE_PREFIX'
-  | 'FUNDING_INVOICE_ISSUER_NAME'
-  | 'FUNDING_INVOICE_ISSUER_EMAIL'
-  | 'FUNDING_INVOICE_ISSUER_ADDRESS'
-  | 'FUNDING_INVOICE_TAX_ID'
-  | 'FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL'
-  | 'DATABASE_URL';
-
-interface SetupEnvRow {
-  readonly key: SetupEnvKey;
-  readonly label: string;
-  readonly note: string;
-}
-
 interface SetupTourStep {
   readonly anchor: string;
   readonly title: string;
@@ -123,9 +67,12 @@ interface SetupTourStep {
     RouterLink,
     AdminIconComponent,
     AdminDrawerComponent,
-    AdminSystemCardsComponent,
     AdminCockpitActivityComponent,
-    AdminCockpitStatusComponent
+    AdminSetupReadinessComponent,
+    AdminSetupRecommendationComponent,
+    AdminSetupServicesComponent,
+    AdminSetupChecklistComponent,
+    AdminSetupEnvironmentComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-setup-page.component.html',
@@ -133,12 +80,12 @@ interface SetupTourStep {
     '../../components/admin-ui/admin-theme.css',
     '../../components/admin-ui/admin-controls.css',
     '../../components/admin-ui/admin-forms.css',
+    './admin-setup-presentation.css',
     './admin-setup-page.component.css'
   ]
 })
 export class AdminSetupPageComponent implements OnInit {
   readonly i18n = inject(FundingI18nService);
-  readonly router = inject(Router);
   private readonly admin = inject(FundingAdminService);
   private readonly adminToken = signal(this.admin.getSavedAdminToken());
   private readonly route = inject(ActivatedRoute);
@@ -149,7 +96,7 @@ export class AdminSetupPageComponent implements OnInit {
   readonly navSection = signal<SetupSection>('readiness');
   readonly setup = signal<AdminSetupStatusResponse | null>(null);
   readonly testEmail = signal('');
-  readonly testState = signal<TestState>('idle');
+  readonly testState = signal<SetupEmailTestState>('idle');
   readonly testMessage = signal('');
   readonly testResult = signal<AdminEmailTestResult | null>(null);
   readonly testRequestId = signal<string | null>(null);
@@ -163,104 +110,36 @@ export class AdminSetupPageComponent implements OnInit {
     this.refreshKey,
     () => !!this.setup() && !this.accessError()
   );
-  readonly operationalCount = computed(
-    () =>
-      this.systems
-        .data()
-        ?.systems.filter(
-          (system) =>
-            serviceState(
-              system,
-              this.systems.clock(),
-              this.systems.failed()
-            ) === 'operational'
-        ).length ?? 0
-  );
-  readonly recommendation = computed<SetupRecommendation>(() => {
+  readonly labels = new SetupPresentation(this.i18n);
+  readonly readiness = computed(() => {
     const setup = this.setup();
-    if (!setup)
-      return { key: 'verification', section: 'readiness', tone: 'neutral' };
-    if (!setup.database.reachable)
-      return { key: 'database', section: 'database', tone: 'warning' };
-    if (!this.queueReadable(setup))
-      return { key: 'queue', section: 'queue', tone: 'warning' };
-    if (setup.email.failed_count > 0)
-      return {
-        key: 'emailFailures',
-        section: 'queue',
-        tone: 'warning',
-        url: '/admin/fundraiser/email-queue'
-      };
-    const systems = this.systems.data()?.systems ?? [];
-    const problem = systems.find(
-      (system) =>
-        ['unavailable', 'degraded'].includes(
-          serviceState(system, this.systems.clock(), this.systems.failed())
-        ) ||
-        systemState(system, this.systems.clock(), this.systems.failed()) ===
-          'degraded'
-    );
-    if (problem?.id === 'stripe')
-      return {
-        key: 'service',
-        section: 'stripe',
-        tone: 'warning',
-        ...(systemState(
-          problem,
-          this.systems.clock(),
-          this.systems.failed()
-        ) === 'degraded'
-          ? {
-              url: '/admin/fundraiser/attention?type=stripe_event_failed',
-              urlAction: 'openStripeEvents' as const
-            }
-          : {})
-      };
-    if (problem?.id === 'email')
-      return {
-        key: 'service',
-        section: 'email',
-        tone: 'warning',
-        url: '/admin/fundraiser/email-queue',
-        urlAction: 'openQueue'
-      };
-    if (problem)
-      return { key: 'service', section: problem.id, tone: 'warning' };
-    if (!this.isStripeReady(setup))
-      return { key: 'stripe', section: 'stripe', tone: 'warning' };
-    if (!this.isEmailReady(setup))
-      return { key: 'email', section: 'email', tone: 'warning' };
-    if (!setup.invoice.ready)
-      return { key: 'invoice', section: 'email', tone: 'warning' };
-    if (
-      this.systems.state() !== 'ready' ||
-      systems.length !== 4 ||
-      systems.some(
-        (system) =>
-          system.id === 'stripe' &&
-          (systemExpired(system, this.systems.clock(), this.systems.failed()) ||
-            ['check_failed', 'not_configured'].includes(system.evidence))
-      ) ||
-      this.operationalCount() !== 4
+    return setup ? projectReadiness(setup) : null;
+  });
+  readonly emailTest = computed<SetupEmailTestView>(() => ({
+    email: this.testEmail(),
+    state: this.testState(),
+    busy: this.testBusy(),
+    message: this.testMessage(),
+    result: this.testResult(),
+    requestId: this.testRequestId()
+  }));
+  readonly operationalCount = computed(() =>
+    projectOperationalCount(
+      this.systems.data()?.systems ?? [],
+      this.systems.clock(),
+      this.systems.failed()
     )
-      return { key: 'verification', section: 'readiness', tone: 'neutral' };
-    return { key: 'ready', section: 'activity', tone: 'success' };
-  });
-  readonly checklist = computed(() => {
-    const data = this.setup();
-    return data
-      ? [
-          { id: 'stripe' as const, ready: this.isStripeReady(data) },
-          { id: 'email' as const, ready: this.isEmailReady(data) },
-          { id: 'queue' as const, ready: this.isQueueReady(data) },
-          {
-            id: 'database' as const,
-            ready: data.database.configured && data.database.reachable
-          },
-          { id: 'invoice' as const, ready: data.invoice.ready }
-        ]
-      : [];
-  });
+  );
+  readonly recommendation = computed(() =>
+    projectRecommendation({
+      setup: this.setup(),
+      systems: this.systems.data()?.systems ?? [],
+      systemsState: this.systems.state(),
+      now: this.systems.clock(),
+      failed: this.systems.failed()
+    })
+  );
+  readonly checklist = computed(() => projectChecklist(this.setup()));
   readonly checklistCount = computed(
     () => this.checklist().filter((item) => item.ready).length
   );
@@ -336,137 +215,6 @@ export class AdminSetupPageComponent implements OnInit {
     return index >= 0 ? (this.tourSteps[index] ?? null) : null;
   });
 
-  get envRows(): readonly SetupEnvRow[] {
-    return [
-      {
-        key: 'STRIPE_SECRET_KEY',
-        label: this.i18n.t('admin.messages.stripe_secret'),
-        note: this.i18n.t('admin.messages.checkout_et_lecture_stripe_direct')
-      },
-      {
-        key: 'STRIPE_WEBHOOK_SECRET',
-        label: this.i18n.t('admin.messages.stripe_webhook'),
-        note: this.i18n.t('admin.messages.validation_des_evenements_stripe')
-      },
-      {
-        key: 'SMTP_ENABLED',
-        label: 'SMTP active',
-        note: this.i18n.t('admin.messages.active_les_envois_transactionnels')
-      },
-      {
-        key: 'SMTP_HOST',
-        label: this.i18n.t('admin.messages.serveur_smtp'),
-        note: this.i18n.t(
-          'admin.messages.hote_hostpapa_ou_fournisseur_equivalent'
-        )
-      },
-      {
-        key: 'SMTP_PORT',
-        label: this.i18n.t('admin.messages.port_smtp'),
-        note: this.i18n.t('admin.messages.port_de_connexion_smtp')
-      },
-      {
-        key: 'SMTP_SECURE',
-        label: 'TLS SMTP',
-        note: this.i18n.t('admin.messages.connexion_tls_implicite')
-      },
-      {
-        key: 'SMTP_USER',
-        label: this.i18n.t('admin.messages.utilisateur_smtp'),
-        note: this.i18n.t('admin.messages.adresse_complete_de_la_boite_notify')
-      },
-      {
-        key: 'SMTP_PASSWORD',
-        label: this.i18n.t('admin.messages.mot_de_passe_smtp'),
-        note: this.i18n.t(
-          'admin.messages.secret_prive_injecte_cote_serveur_seulement'
-        )
-      },
-      {
-        key: 'MAIL_FROM_ADDRESS',
-        label: this.i18n.t('admin.messages.expediteur'),
-        note: this.i18n.t('admin.messages.adresse_visible_comme_expediteur')
-      },
-      {
-        key: 'MAIL_REPLY_TO_ADDRESS',
-        label: 'Reply-to',
-        note: this.i18n.t(
-          'admin.messages.adresse_de_reponse_des_commanditaires'
-        )
-      },
-      {
-        key: 'FUNDING_ADMIN_NOTIFICATION_EMAIL',
-        label: this.i18n.t('admin.legacy.notification_admin'),
-        note: this.i18n.t('admin.messages.alertes_internes_et_rappels_admin')
-      },
-      {
-        key: 'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED',
-        label: this.i18n.t('admin.legacy.rappel_approbation'),
-        note: this.i18n.t(
-          'admin.messages.active_le_rappel_quotidien_des_commandites_a_approuver'
-        )
-      },
-      {
-        key: 'FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS',
-        label: this.i18n.t('admin.messages.age_rappel_approbation'),
-        note: this.i18n.t(
-          'admin.messages.nombre_de_jours_avant_le_premier_rappel'
-        )
-      },
-      {
-        key: 'FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS',
-        label: this.i18n.t('admin.messages.intervalle_rappel'),
-        note: this.i18n.t(
-          'admin.messages.frequence_de_verification_des_rappels_admin'
-        )
-      },
-      {
-        key: 'FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS',
-        label: this.i18n.t('admin.messages.dossiers_dans_le_rappel'),
-        note: this.i18n.t(
-          'admin.messages.nombre_maximal_de_dossiers_listes_dans_le_courriel'
-        )
-      },
-      {
-        key: 'FUNDING_SPONSORSHIP_INVOICE_PREFIX',
-        label: this.i18n.t('admin.messages.prefixe_facture'),
-        note: this.i18n.t('admin.messages.numerotation_des_factures_commandite')
-      },
-      {
-        key: 'FUNDING_INVOICE_ISSUER_NAME',
-        label: this.i18n.t('admin.legacy.emetteur_facture'),
-        note: this.i18n.t('admin.messages.nom_legal_ou_public_sur_la_facture')
-      },
-      {
-        key: 'FUNDING_INVOICE_ISSUER_EMAIL',
-        label: this.i18n.t('admin.legacy.courriel_facture'),
-        note: this.i18n.t(
-          'admin.messages.courriel_affiche_dans_le_bloc_emetteur'
-        )
-      },
-      {
-        key: 'FUNDING_INVOICE_ISSUER_ADDRESS',
-        label: this.i18n.t('admin.messages.adresse_facture'),
-        note: this.i18n.t('admin.messages.adresse_affichee_si_configuree')
-      },
-      {
-        key: 'FUNDING_INVOICE_TAX_ID',
-        label: this.i18n.t('admin.messages.identifiant_fiscal'),
-        note: this.i18n.t('admin.messages.numero_fiscal_affiche_si_applicable')
-      },
-      {
-        key: 'FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL',
-        label: this.i18n.t('admin.messages.libelle_taxes'),
-        note: this.i18n.t('admin.messages.texte_de_taxe_affiche_sur_la_facture')
-      },
-      {
-        key: 'DATABASE_URL',
-        label: 'PostgreSQL',
-        note: this.i18n.t('admin.setup.databaseNote')
-      }
-    ];
-  }
-
   ngOnInit(): void {
     if (!this.browser) return;
     this.testStorageKey =
@@ -535,7 +283,7 @@ export class AdminSetupPageComponent implements OnInit {
     const setup = this.setup();
     if (
       !setup ||
-      !this.canSendEmailTest(setup) ||
+      !projectReadiness(setup).canSendEmailTest ||
       this.testBusy() ||
       this.testState() === 'unknown'
     ) {
@@ -633,10 +381,9 @@ export class AdminSetupPageComponent implements OnInit {
     return true;
   }
 
-  setTestEmail(event: Event): void {
+  setTestEmail(email: string): void {
     if (this.testBusy() || this.testState() === 'unknown') return;
-    const input = event.target as HTMLInputElement | null;
-    this.testEmail.set(input?.value ?? '');
+    this.testEmail.set(email);
     if (this.testResult()) {
       this.testResult.set(null);
       this.testRequestId.set(null);
@@ -684,186 +431,6 @@ export class AdminSetupPageComponent implements OnInit {
 
   isTourAnchor(anchor: string): boolean {
     return this.activeTourStep()?.anchor === anchor;
-  }
-
-  isStripeReady(setup: AdminSetupStatusResponse): boolean {
-    return (
-      setup.stripe.secret_key_configured &&
-      setup.stripe.webhook_secret_configured
-    );
-  }
-
-  isEmailReady(setup: AdminSetupStatusResponse): boolean {
-    return (
-      setup.email.smtp_configured &&
-      Boolean(setup.email.from) &&
-      Boolean(setup.email.admin_notification_email)
-    );
-  }
-
-  isQueueReady(setup: AdminSetupStatusResponse): boolean {
-    return (
-      this.queueReadable(setup) &&
-      setup.email.failed_count === 0 &&
-      !setup.email.last_error
-    );
-  }
-
-  queueReadable(setup: AdminSetupStatusResponse): boolean {
-    // Older servers can return zero counters alongside a failed queue inspection.
-    return (
-      setup.email.queue_available &&
-      setup.database.reachable &&
-      !(setup.email.last_error && !setup.email.last_failed_at)
-    );
-  }
-
-  canSendEmailTest(setup: AdminSetupStatusResponse): boolean {
-    return this.isEmailReady(setup) && this.queueReadable(setup);
-  }
-
-  envConfigured(setup: AdminSetupStatusResponse, key: SetupEnvKey): boolean {
-    switch (key) {
-      case 'STRIPE_SECRET_KEY':
-        return setup.stripe.secret_key_configured;
-      case 'STRIPE_WEBHOOK_SECRET':
-        return setup.stripe.webhook_secret_configured;
-      case 'SMTP_ENABLED':
-        return setup.email.smtp_enabled;
-      case 'SMTP_HOST':
-        return Boolean(setup.email.smtp_host);
-      case 'SMTP_PORT':
-        return setup.email.smtp_port > 0;
-      case 'SMTP_SECURE':
-        return setup.email.smtp_secure;
-      case 'SMTP_USER':
-        return setup.email.smtp_user_configured;
-      case 'SMTP_PASSWORD':
-        return setup.email.smtp_password_configured;
-      case 'MAIL_FROM_ADDRESS':
-        return Boolean(setup.email.from);
-      case 'MAIL_REPLY_TO_ADDRESS':
-        return Boolean(setup.email.reply_to);
-      case 'FUNDING_ADMIN_NOTIFICATION_EMAIL':
-        return Boolean(setup.email.admin_notification_email);
-      case 'FUNDING_ADMIN_REVIEW_REMINDER_ENABLED':
-        return setup.email.admin_review_reminder_enabled;
-      case 'FUNDING_ADMIN_REVIEW_REMINDER_MIN_AGE_DAYS':
-        return setup.email.admin_review_reminder_min_age_days >= 0;
-      case 'FUNDING_ADMIN_REVIEW_REMINDER_POLL_INTERVAL_MS':
-        return setup.email.admin_review_reminder_poll_interval_ms > 0;
-      case 'FUNDING_ADMIN_REVIEW_REMINDER_MAX_ITEMS':
-        return setup.email.admin_review_reminder_max_items > 0;
-      case 'FUNDING_SPONSORSHIP_INVOICE_PREFIX':
-        return Boolean(setup.invoice.prefix);
-      case 'FUNDING_INVOICE_ISSUER_NAME':
-        return Boolean(setup.invoice.issuer_name);
-      case 'FUNDING_INVOICE_ISSUER_EMAIL':
-        return Boolean(setup.invoice.issuer_email);
-      case 'FUNDING_INVOICE_ISSUER_ADDRESS':
-        return setup.invoice.issuer_address_configured;
-      case 'FUNDING_INVOICE_TAX_ID':
-        return setup.invoice.issuer_tax_id_configured;
-      case 'FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL':
-        return Boolean(setup.invoice.tax_label);
-      case 'DATABASE_URL':
-        return setup.database.configured && setup.database.reachable;
-    }
-  }
-
-  readyLabel(ready: boolean): string {
-    return this.i18n.t(
-      ready ? 'admin.setup.configured' : 'admin.setup.incomplete'
-    );
-  }
-
-  configuredLabel(configured: boolean): string {
-    return configured
-      ? this.i18n.t('admin.messages.configure')
-      : this.i18n.t('admin.messages.manquant');
-  }
-
-  enabledLabel(enabled: boolean): string {
-    return enabled
-      ? this.i18n.t('admin.dossier.yes')
-      : this.i18n.t('admin.dossier.no');
-  }
-
-  valueLabel(value: string | null): string {
-    return value?.trim() ? value : this.i18n.t('admin.messages.non_configure');
-  }
-
-  originsLabel(origins: readonly string[]): string {
-    return origins.length > 0
-      ? origins.join(', ')
-      : this.i18n.t('admin.messages.aucune_origine_explicite');
-  }
-
-  dataSourceLabel(source: AdminSetupStatusResponse['data_source']): string {
-    switch (source) {
-      case 'database':
-        return 'PostgreSQL';
-      case 'stripe_direct':
-        return 'Stripe-direct';
-      case 'empty':
-        return this.i18n.t('admin.messages.aucune_source');
-    }
-  }
-
-  dateLabel(iso: string | null): string {
-    if (!iso) {
-      return this.i18n.t('admin.messages.jamais');
-    }
-
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) {
-      return iso;
-    }
-
-    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
-      timeZone: 'America/Toronto',
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    }).format(date);
-  }
-
-  stripeSummary(setup: AdminSetupStatusResponse): string {
-    if (this.isStripeReady(setup)) {
-      return this.i18n.t('admin.messages.cle_et_webhook_presents');
-    }
-
-    return this.i18n.t('admin.messages.cle_stripe_ou_secret_webhook_a_ajouter');
-  }
-
-  emailSummary(setup: AdminSetupStatusResponse): string {
-    if (this.isEmailReady(setup)) {
-      return this.i18n.t('admin.setup.emailConfigured');
-    }
-
-    return this.i18n.t('admin.setup.emailIncomplete');
-  }
-
-  queueSummary(setup: AdminSetupStatusResponse): string {
-    if (this.isQueueReady(setup)) {
-      return this.i18n.t('admin.setup.queueSummary', {
-        queued: setup.email.queued_count,
-        failed: setup.email.failed_count
-      });
-    }
-
-    return this.i18n.t('admin.setup.queueUnavailable');
-  }
-
-  databaseSummary(setup: AdminSetupStatusResponse): string {
-    if (setup.database.reachable) {
-      return this.i18n.t('admin.messages.connexion_postgresql_active');
-    }
-
-    return this.i18n.t('admin.messages.base_non_configuree_ou_inaccessible');
-  }
-
-  trackByEnvRow(_index: number, row: SetupEnvRow): string {
-    return row.key;
   }
 
   focusSection(section: SetupSection | 'invoice'): void {

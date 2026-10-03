@@ -1,0 +1,37 @@
+<section
+  class="filters"
+  [attr.aria-label]="'admin.legacy.filtres_file_courriel' | translate"
+>
+  <label>
+    {{ 'admin.legacy.statut' | translate
+    }}<select [value]="status()" (change)="changeStatus($event)">
+      <option value="all">
+        {{ 'admin.legacy.tous' | translate }}
+      </option>
+      <option value="failed">
+        {{ 'admin.legacy.echecs' | translate }}
+      </option>
+      <option value="queued">
+        {{ 'admin.legacy.en_file' | translate }}
+      </option>
+      <option value="sending">
+        {{ 'admin.legacy.envoi' | translate }}
+      </option>
+      <option value="sent">
+        {{ 'admin.legacy.envoyes' | translate }}
+      </option>
+    </select>
+  </label>
+
+  <label>
+    {{ 'admin.legacy.recherche' | translate
+    }}<input
+      type="search"
+      [attr.placeholder]="
+        'admin.legacy.destinataire_sujet_template' | translate
+      "
+      [value]="search()"
+      (input)="changeSearch($event)"
+    />
+  </label>
+</section>

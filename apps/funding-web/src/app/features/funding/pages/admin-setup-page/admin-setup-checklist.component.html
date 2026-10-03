@@ -1,0 +1,40 @@
+<section
+  class="checklist"
+  aria-labelledby="setup-checklist-title"
+  data-og7="setup-checklist"
+>
+  <header>
+    <openg7-admin-icon name="check" />
+    <div>
+      <h2 id="setup-checklist-title">
+        {{ 'admin.setup.checklist' | translate }}
+      </h2>
+      <p>
+        {{
+          'admin.setup.checklistCount'
+            | translate: { count: completeCount(), total: items().length }
+        }}
+      </p>
+    </div>
+  </header>
+  <ul>
+    @for (item of items(); track item.id) {
+      <li>
+        <button type="button" (click)="inspect.emit(item.id)">
+          <openg7-admin-icon
+            [name]="item.ready ? 'check' : 'warning'"
+          /><span>{{ 'admin.setup.checks.' + item.id | translate }}</span
+          ><small>{{
+            (item.ready ? 'admin.setup.complete' : 'admin.setup.incomplete')
+              | translate
+          }}</small>
+        </button>
+      </li>
+    }
+  </ul>
+  <p class="scope">{{ 'admin.setup.checklistScope' | translate }}</p>
+  <button type="button" class="checklist-action" (click)="inspect.emit('env')">
+    {{ 'admin.setup.viewConfiguration' | translate
+    }}<openg7-admin-icon name="arrow" />
+  </button>
+</section>

@@ -1,0 +1,123 @@
+.recommendation {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  gap: 1.1rem;
+  align-items: center;
+  min-height: 10rem;
+  padding: 1.6rem;
+  border: 1px solid var(--admin-border);
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    100deg,
+    var(--admin-panel) 35%,
+    var(--admin-panel-raised)
+  );
+}
+.recommendation::before,
+.recommendation::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: 0;
+  bottom: 0;
+  width: 48%;
+  height: 95%;
+  opacity: 0.32;
+  background: linear-gradient(
+    140deg,
+    var(--og7-admin-selected, #68a1b5),
+    var(--admin-panel-raised)
+  );
+  clip-path: polygon(
+    0 100%,
+    26% 43%,
+    38% 63%,
+    60% 0,
+    76% 54%,
+    86% 31%,
+    100% 65%,
+    100% 100%
+  );
+}
+.recommendation::after {
+  opacity: 0.55;
+  height: 60%;
+  width: 43%;
+  background: var(--admin-panel);
+  transform: scaleX(-1);
+}
+.recommendation-icon {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  border: 1px solid var(--og7-admin-accent, #80c9f0);
+  color: var(--og7-admin-accent, #b4e5ff);
+  background: var(--admin-panel-raised);
+  flex-shrink: 0;
+  font-size: 2rem;
+}
+[data-tone='warning'] .recommendation-icon {
+  border-color: var(--admin-warning);
+  color: var(--admin-warning);
+}
+[data-tone='success'] .recommendation-icon {
+  border-color: var(--admin-success);
+  color: var(--admin-success);
+  box-shadow: 0 0 25px #42cf9526;
+}
+.recommendation-copy {
+  flex: 1;
+  max-width: 46rem;
+}
+.recommendation h2 {
+  margin-bottom: 0.35rem;
+}
+.recommendation-copy > p:last-child {
+  color: var(--admin-muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.primary-action {
+  background: var(--og7-admin-primary, #126491);
+  border-color: var(--og7-admin-primary, #6abde7);
+  color: var(--og7-admin-on-primary, #f1f5fc);
+  text-decoration: none;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+button.primary-action:hover:not(:disabled),
+.primary-action:hover {
+  background: var(--og7-admin-primary, #1e709d);
+  border-color: var(--og7-admin-primary, #6abde7);
+}
+@media (max-width: 1350px) {
+  .recommendation {
+    flex-wrap: wrap;
+  }
+  .recommendation .primary-action {
+    margin-left: 5.1rem;
+  }
+}
+@media (max-width: 700px) {
+  .recommendation {
+    padding: 1.1rem;
+    gap: 0.8rem;
+  }
+  .recommendation-icon {
+    width: 2.8rem;
+    height: 2.8rem;
+    font-size: 1.4rem;
+  }
+  .recommendation-copy {
+    min-width: 0;
+    flex-basis: calc(100% - 4rem);
+  }
+  .recommendation .primary-action {
+    margin-left: 0;
+    width: 100%;
+  }
+}

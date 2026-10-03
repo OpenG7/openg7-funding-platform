@@ -53,6 +53,8 @@ import type { PublicationCalendarEntry } from '../../components/admin-publicatio
 import { PilotAppearanceService } from '../../services/pilot-appearance.service.js';
 import { PilotAppearanceComponent } from '../../components/admin-pilotage/pilot-appearance.component.js';
 
+import { AdminPilotageCommandWorkflow } from './admin-pilotage-command-workflow.js';
+
 type Panel =
   | ''
   | 'confirm'
@@ -149,6 +151,35 @@ export class AdminPilotagePageComponent {
   readonly sessionStart = signal(0);
   readonly sessionDecisions = signal(0);
   readonly sessionElapsed = signal(0);
+  private readonly commands = new AdminPilotageCommandWorkflow({
+    admin: this.admin,
+    state: {
+      busy: this.busy,
+      error: this.error,
+      receipt: this.receipt,
+      unresolved: this.unresolved
+    },
+    actorId: () => this.admin.identity()?.id ?? 'token',
+    storage: () => this.document.defaultView?.sessionStorage ?? null,
+    requestId: () => this.document.defaultView!.crypto.randomUUID(),
+    resetInput: () => this.controller.reset(),
+    settleCommand: () => {
+      this.panel.set('');
+      this.pending.set(null);
+    },
+    closeIncident: () => this.panel.set(''),
+    confirmed: () => {
+      this.controller.feedback();
+      this.metrics.update((m) => ({ ...m, decisions: m.decisions + 1 }));
+      if (this.sessionStart()) {
+        this.sessionDecisions.update((n) => n + 1);
+        this.saveSession();
+      }
+    },
+    denyWrites: () =>
+      this.state.update((s) => (s ? { ...s, writable: false } : s)),
+    refresh: () => this.load(false)
+  });
   readonly domains: { id: PilotDomain; icon: AdminIconName }[] = [
     { id: 'publications', icon: 'publications' },
     { id: 'sponsors', icon: 'sponsors' },
@@ -261,7 +292,9 @@ export class AdminPilotagePageComponent {
         if (saved?.domain && this.domains.some((d) => d.id === saved.domain))
           this.domain.set(saved.domain as PilotDomain);
         this.restoreId = typeof saved?.id === 'string' ? saved.id : '';
-        this.unresolved.set(storage.getItem(this.receiptStorageKey()) ?? '');
+        this.unresolved.set(
+          storage.getItem(this.commands.receiptStorageKey()) ?? ''
+        );
         void this.load(
           true,
           Number.isSafeInteger(saved?.page) ? saved!.page! : 1
@@ -320,9 +353,6 @@ export class AdminPilotagePageComponent {
       destroy.onDestroy(() => clearInterval(timer));
     });
   }
-  private receiptStorageKey(): string {
-    return 'og7-pilot-receipt:' + (this.admin.identity()?.id ?? 'token');
-  }
   private sessionKey(): string {
     return 'og7-pilot-session:' + (this.admin.identity()?.id ?? 'token');
   }
@@ -372,7 +402,7 @@ export class AdminPilotagePageComponent {
     }
   }
   programmeCommand(command: ProgrammeCommand): void {
-    void this.send(command);
+    void this.commands.send(command);
   }
   t(key: string): string {
     return this.i18n.t('admin.pilotage.' + key);
@@ -583,7 +613,7 @@ export class AdminPilotagePageComponent {
       this.error.set('INVALID_EDIT');
       return;
     }
-    void this.send({
+    void this.commands.send({
       action: 'publication.edit',
       targetId: d.targetId,
       version: d.version,
@@ -619,124 +649,13 @@ export class AdminPilotagePageComponent {
         : p.action === 'sponsor.reject'
           ? { reason: this.reason.trim() }
           : undefined;
-    void this.send({ ...p, payload });
+    void this.commands.send({ ...p, payload });
   }
-  private async send(
-    command: Pick<PilotCommand, 'action' | 'targetId' | 'version' | 'payload'>
-  ): Promise<void> {
-    if (this.busy() || this.unresolved()) return;
-    const requestId = this.document.defaultView!.crypto.randomUUID();
-    this.busy.set(true);
-    this.error.set('');
-    this.controller.reset();
-    this.unresolved.set(requestId);
-    try {
-      this.document.defaultView?.sessionStorage.setItem(
-        this.receiptStorageKey(),
-        requestId
-      );
-    } catch {
-      /* Receipt still retained in memory. */
-    }
-    try {
-      await this.receive(
-        await this.admin.pilotageCommand({
-          action: command.action,
-          targetId: command.targetId,
-          version: command.version,
-          payload: command.payload,
-          requestId,
-          confirmation: command.targetId
-        })
-      );
-    } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'RESULT_UNKNOWN');
-      const status = (error as { status?: number })?.status;
-      if (status && [400, 401, 403, 409].includes(status)) {
-        this.unresolved.set('');
-        try {
-          this.document.defaultView?.sessionStorage.removeItem(
-            this.receiptStorageKey()
-          );
-        } catch {
-          /* Optional storage. */
-        }
-        if (status === 401 || status === 403)
-          this.state.update((s) => (s ? { ...s, writable: false } : s));
-      }
-    } finally {
-      this.busy.set(false);
-      this.panel.set('');
-      this.pending.set(null);
-      this.controller.reset();
-    }
+  recover(): Promise<void> {
+    return this.commands.recover();
   }
-  async recover(): Promise<void> {
-    if (!this.unresolved() || this.busy()) return;
-    this.busy.set(true);
-    this.controller.reset();
-    try {
-      await this.receive(await this.admin.pilotageReceipt(this.unresolved()));
-    } catch {
-      this.error.set('RESULT_UNKNOWN');
-    } finally {
-      this.busy.set(false);
-      this.controller.reset();
-    }
-  }
-  async acknowledgeIncident(): Promise<void> {
-    if (
-      this.busy() ||
-      !this.unresolved() ||
-      this.receipt()?.status !== 'uncertain' ||
-      this.incidentReason.trim().length < 10
-    )
-      return;
-    this.busy.set(true);
-    this.controller.reset();
-    try {
-      await this.receive(
-        await this.admin.acknowledgePilotReceipt(
-          this.unresolved(),
-          this.incidentReason
-        )
-      );
-      this.panel.set('');
-      this.error.set('');
-    } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'RESULT_UNKNOWN');
-    } finally {
-      this.busy.set(false);
-      this.controller.reset();
-    }
-  }
-  private async receive(receipt: PilotReceipt): Promise<void> {
-    this.receipt.set(receipt);
-    if (
-      receipt.status === 'completed' ||
-      receipt.status === 'failed' ||
-      receipt.reviewedAt
-    ) {
-      this.unresolved.set('');
-      try {
-        this.document.defaultView?.sessionStorage.removeItem(
-          this.receiptStorageKey()
-        );
-      } catch {
-        /* Optional storage. */
-      }
-      if (receipt.status === 'completed') {
-        this.controller.feedback();
-        this.metrics.update((m) => ({ ...m, decisions: m.decisions + 1 }));
-        if (this.sessionStart()) {
-          this.sessionDecisions.update((n) => n + 1);
-          this.saveSession();
-        }
-      }
-      await this.load(false);
-      if (receipt.status !== 'completed' && !receipt.reviewedAt)
-        this.error.set(receipt.code ?? 'generic');
-    }
+  acknowledgeIncident(): Promise<void> {
+    return this.commands.acknowledgeIncident(this.incidentReason);
   }
   async details(): Promise<void> {
     const d = this.selected();
