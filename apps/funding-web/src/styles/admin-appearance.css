@@ -1,4 +1,5 @@
-/* Palettes are scoped to pilotage. Shared components inherit these roles. */
+/* Admin layouts and pilotage panels inherit the same local palette. */
+openg7-admin-layout,
 openg7-admin-pilotage-page {
   --og7-admin-bg: #0b1727;
   --og7-admin-sidebar: #0d1b2c;
@@ -25,7 +26,8 @@ openg7-admin-pilotage-page {
   --og7-admin-color-scheme: dark;
   color-scheme: var(--og7-admin-color-scheme);
 }
-html[data-og7-pilot-theme='mineral'] openg7-admin-pilotage-page {
+html[data-og7-pilot-theme='mineral']
+  :is(openg7-admin-layout, openg7-admin-pilotage-page) {
   --og7-admin-bg: #f3f2ee;
   --og7-admin-sidebar: #e9e8e2;
   --og7-admin-panel: #ffffff;
@@ -51,7 +53,8 @@ html[data-og7-pilot-theme='mineral'] openg7-admin-pilotage-page {
   --og7-admin-color-scheme: light;
   color-scheme: var(--og7-admin-color-scheme);
 }
-html[data-og7-pilot-theme='graphite'] openg7-admin-pilotage-page {
+html[data-og7-pilot-theme='graphite']
+  :is(openg7-admin-layout, openg7-admin-pilotage-page) {
   --og7-admin-bg: #191b1f;
   --og7-admin-sidebar: #1e2126;
   --og7-admin-panel: #25292f;

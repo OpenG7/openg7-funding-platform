@@ -29,20 +29,16 @@ h2 {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  font-size: 1.15rem;
 }
 h2,
 h3,
 p {
   margin: 0;
 }
-h3 {
-  font-size: 1rem;
-}
 .reference,
 .notice {
   color: var(--admin-gold);
-  font-weight: 700;
+  font-weight: var(--admin-label-weight);
 }
 .facts {
   display: grid;
@@ -96,6 +92,7 @@ textarea {
   width: 100%;
   box-sizing: border-box;
   font: inherit;
+  font-weight: 400;
 }
 textarea {
   resize: vertical;

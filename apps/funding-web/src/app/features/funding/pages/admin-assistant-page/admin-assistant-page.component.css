@@ -1,7 +1,6 @@
 :host {
   display: block;
   min-width: 0;
-  font-family: 'Segoe UI', system-ui, sans-serif;
 }
 .assistant-page {
   max-width: 78rem;
@@ -17,14 +16,7 @@ h4,
 p {
   margin: 0;
 }
-h1 {
-  font-size: clamp(1.75rem, 3vw, 2.2rem);
-}
-h2 {
-  font-size: 1.15rem;
-}
 h3 {
-  font-size: 1.4rem;
   overflow-wrap: anywhere;
 }
 .page-heading,
@@ -46,7 +38,7 @@ h3 {
 }
 .eyebrow {
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: var(--admin-label-weight);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--admin-muted);
@@ -122,13 +114,14 @@ small {
   background: transparent;
   color: var(--admin-text);
   font: inherit;
+  font-weight: var(--admin-control-weight);
   font-size: 0.85rem;
   text-align: left;
   cursor: pointer;
 }
 .category span {
   color: var(--admin-muted);
-  font-weight: 700;
+  font-weight: var(--admin-emphasis-weight);
 }
 .category[aria-pressed='true'],
 .group-button[aria-pressed='true'] {
@@ -155,6 +148,7 @@ small {
   min-height: 2.75rem;
   padding: 0.5rem 0.75rem;
   font: inherit;
+  font-weight: 400;
   max-width: 100%;
 }
 .result-count {
@@ -213,7 +207,7 @@ small {
 }
 summary {
   cursor: pointer;
-  font-weight: 600;
+  font-weight: var(--admin-control-weight);
   padding: 0.3rem 0;
 }
 .disclosure[open] > :not(summary) {
@@ -252,6 +246,7 @@ summary {
   border-radius: 0.3rem;
   padding: 0.65rem;
   font: inherit;
+  font-weight: var(--admin-control-weight);
   font-size: 0.85rem;
   cursor: pointer;
 }

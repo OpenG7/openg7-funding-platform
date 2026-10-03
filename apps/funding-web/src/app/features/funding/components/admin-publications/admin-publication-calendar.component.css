@@ -26,7 +26,6 @@ p {
   margin: 0;
 }
 h3 {
-  font-size: 1.6rem;
   text-transform: capitalize;
 }
 .calendar-toolbar p,
@@ -48,11 +47,16 @@ input {
   border-radius: 0.6rem;
   background: var(--admin-bg);
   color: var(--admin-text);
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 .channel-filter {
   cursor: pointer;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: var(--admin-control-weight);
   border: 1px solid var(--admin-border);
   border-radius: 2rem;
   padding: 0.5rem 0.8rem;
@@ -115,7 +119,9 @@ input {
   border-radius: 50%;
   min-height: 2rem;
   min-width: 2rem;
-  font: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  font-weight: var(--admin-control-weight);
   font-size: 0.85rem;
   cursor: pointer;
   background: transparent;
@@ -124,7 +130,7 @@ input {
 .today .day-number {
   background: var(--admin-gold);
   color: var(--og7-admin-on-primary, #172338);
-  font-weight: 700;
+  font-weight: var(--admin-control-weight);
 }
 .day-events {
   display: grid;
@@ -138,7 +144,9 @@ input {
   width: 100%;
   text-align: left;
   cursor: pointer;
-  font: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  font-weight: var(--admin-control-weight);
   font-size: 0.8rem;
   padding: 0.5rem;
   border: 1px solid var(--og7-admin-border, #8abbff44);
@@ -167,6 +175,7 @@ input {
 .calendar-event small {
   color: var(--admin-muted);
   font-size: 0.7rem;
+  font-weight: 400;
 }
 .event-top {
   display: flex;
@@ -181,7 +190,9 @@ input {
   background: transparent;
   border: 0;
   min-height: 2rem;
-  font: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  font-weight: var(--admin-control-weight);
   font-size: 0.8rem;
   text-align: left;
 }
@@ -230,9 +241,6 @@ input {
     flex: 1;
     min-width: 8rem;
     max-width: 100%;
-  }
-  h3 {
-    font-size: 1.35rem;
   }
   .calendar-day {
     min-height: 3.75rem;

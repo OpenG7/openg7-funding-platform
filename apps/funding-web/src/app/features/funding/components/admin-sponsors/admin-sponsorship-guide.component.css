@@ -12,7 +12,7 @@ details {
 summary {
   cursor: pointer;
   padding: 1rem;
-  font-weight: 700;
+  font-weight: var(--admin-control-weight);
   font-size: 1.1rem;
 }
 details:not([open]) {
@@ -22,7 +22,7 @@ details:not([open]) {
 details:not([open]) summary {
   padding: 0.7rem 0.3rem;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: var(--admin-control-weight);
   color: var(--admin-muted);
 }
 .guide-body {
@@ -47,7 +47,6 @@ p {
 }
 .guide-position h3 {
   margin: 0;
-  font-size: 1rem;
 }
 .guide-position strong,
 .completion {

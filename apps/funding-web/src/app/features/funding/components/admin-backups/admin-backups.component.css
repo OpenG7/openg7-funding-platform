@@ -11,7 +11,11 @@
   border: 1px solid #3a536c;
   border-radius: 1rem;
   background:
-    radial-gradient(ellipse at 95% 0, #1b3a4d 0, transparent 45%),
+    radial-gradient(
+      ellipse at 95% 0,
+      var(--admin-panel-raised, #1b3a4d) 0,
+      transparent 45%
+    ),
     var(--admin-panel);
   color: var(--admin-text);
 }
@@ -34,20 +38,6 @@ h3,
 h4,
 p {
   margin: 0;
-}
-h2 {
-  font-size: clamp(1.3rem, 2vw, 1.7rem);
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.25;
-}
-h3 {
-  font-size: 1.05rem;
-  font-weight: 650;
-}
-h4 {
-  font-size: 0.95rem;
-  font-weight: 650;
 }
 p {
   line-height: 1.6;
@@ -86,7 +76,7 @@ p {
 .eyebrow {
   color: var(--admin-gold);
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: var(--admin-label-weight);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   margin-bottom: 0.4rem;
@@ -103,10 +93,10 @@ p {
   border: 1px solid #456078;
   border-radius: 999px;
   padding: 0.3rem 0.7rem;
-  background: #192f44;
-  color: #c8e5f8;
+  background: var(--admin-panel-raised, #192f44);
+  color: var(--admin-text, #c8e5f8);
   font-size: 0.76rem;
-  font-weight: 600;
+  font-weight: var(--admin-label-weight);
   line-height: 1.4;
   width: fit-content;
 }
@@ -123,7 +113,7 @@ p {
 .status-badge[data-state='ready'],
 .status-badge[data-state='succeeded'] {
   border-color: #3f6659;
-  background: #17392f;
+  background: var(--og7-admin-success-bg, #17392f);
 }
 [data-state='unknown'],
 [data-state='not_configured'],
@@ -136,19 +126,19 @@ p {
 .status-badge[data-state='unavailable'],
 .status-badge[data-state='stale'] {
   border-color: #6b593a;
-  background: #342f26;
+  background: var(--og7-admin-warning-bg, #342f26);
 }
 [data-state='failed'] {
   color: var(--admin-danger);
 }
 .status-badge[data-state='failed'] {
   border-color: #754650;
-  background: #3c2734;
+  background: var(--og7-admin-danger-bg, #3c2734);
 }
 .overview {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1fr;
-  background: #0b192775;
+  background: var(--admin-panel-raised, #0b192775);
   border: 1px solid var(--admin-border);
   border-radius: 0.8rem;
 }
@@ -171,11 +161,11 @@ p {
   font-size: 0.8rem;
 }
 .metric-label openg7-admin-icon {
-  color: #8bbcd4;
+  color: var(--og7-admin-accent, #8bbcd4);
 }
 .metric strong {
   font-size: clamp(1.1rem, 1.6vw, 1.45rem);
-  font-weight: 650;
+  font-weight: var(--admin-emphasis-weight);
   letter-spacing: -0.02em;
 }
 .metric time {
@@ -255,8 +245,8 @@ p {
 }
 .operation {
   border-color: #3b5872;
-  background: #112a3c;
-  color: #c8e5f8;
+  background: var(--admin-panel-raised, #112a3c);
+  color: var(--admin-text, #c8e5f8);
 }
 .operation p {
   color: var(--admin-muted);
@@ -265,15 +255,17 @@ p {
 .operation[data-state='succeeded'] {
   border-color: #3f6659;
   color: var(--admin-success);
-  background: #17392f60;
+  background: var(--og7-admin-success-bg, #17392f60);
 }
 .operation[data-state='unknown'] {
   border-color: #6b593a;
   color: var(--admin-warning);
+  background: var(--og7-admin-warning-bg, #112a3c);
 }
 .operation[data-state='failed'] {
   border-color: #754650;
   color: var(--admin-danger);
+  background: var(--og7-admin-danger-bg, #112a3c);
 }
 .history-heading {
   align-items: flex-end;
@@ -289,7 +281,7 @@ p {
   margin-top: 0.3rem;
 }
 .count {
-  background: #24394d;
+  background: var(--admin-panel-raised, #24394d);
   color: var(--admin-muted);
   border-radius: 0.4rem;
   padding: 0.1rem 0.45rem;
@@ -308,8 +300,8 @@ p {
   padding: 1.5rem;
 }
 .empty-icon {
-  color: #8bbcd4;
-  background: #172d40;
+  color: var(--og7-admin-accent, #8bbcd4);
+  background: var(--admin-panel-raised, #172d40);
   border-color: var(--admin-border);
 }
 .empty-state p {
@@ -338,7 +330,7 @@ p {
   height: 2rem;
   background: #ffffff06;
   border-radius: 50%;
-  color: #c8e5f8;
+  color: var(--admin-muted, #c8e5f8);
 }
 .job-date {
   display: grid;
@@ -358,15 +350,16 @@ p {
 .detail-button {
   background: transparent;
   border-color: transparent;
-  color: #b9e2fa;
+  color: var(--og7-admin-accent, #b9e2fa);
 }
 .history-toggle,
 .footer-links button {
   border: 0;
   background: transparent;
-  color: #b9e2fa;
+  color: var(--og7-admin-accent, #b9e2fa);
   cursor: pointer;
   font: inherit;
+  font-weight: var(--admin-control-weight);
   font-size: 0.83rem;
   min-height: 2.75rem;
 }

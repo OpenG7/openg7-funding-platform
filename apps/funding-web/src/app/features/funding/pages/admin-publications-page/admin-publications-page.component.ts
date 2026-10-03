@@ -1344,19 +1344,17 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
       .publication-spaces h2 {
         margin: 0;
-        font-size: 1.15rem;
       }
 
       .publication-spaces p {
         margin: 0.5rem 0 0;
         color: var(--admin-muted);
-        line-height: 1.5;
       }
 
       .space-number {
         color: var(--admin-gold);
         font-size: 0.8rem;
-        letter-spacing: 0.08em;
+        letter-spacing: normal;
       }
 
       .space-open {
@@ -1364,7 +1362,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         justify-content: space-between;
         gap: 0.5rem;
         color: var(--admin-gold);
-        font-weight: 600;
+        font-weight: var(--admin-control-weight);
       }
 
       .item-editor {
@@ -1382,7 +1380,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
       .secondary-options summary {
         cursor: pointer;
-        font-weight: 600;
+        font-weight: var(--admin-control-weight);
         min-height: 2rem;
       }
 
@@ -1399,7 +1397,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        font-weight: 500;
+        font-weight: var(--admin-label-weight);
       }
 
       .action-notice {
@@ -1463,7 +1461,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       .draft-card header span {
         color: var(--admin-muted);
         font-size: 0.78rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
@@ -1506,7 +1504,6 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       .empty-state p,
       small {
         color: var(--admin-muted);
-        line-height: 1.55;
         margin: 0.35rem 0 0;
       }
 
@@ -1540,7 +1537,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         display: grid;
         gap: 0.35rem;
         font-size: 0.85rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
       }
 
       input,
@@ -1548,7 +1545,9 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       textarea {
         border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
-        font: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
         padding: 0.65rem 0.75rem;
       }
 
@@ -1562,8 +1561,10 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         border-radius: 0.35rem;
         color: var(--admin-text);
         cursor: pointer;
-        font: inherit;
-        font-weight: 800;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        font-weight: var(--admin-control-weight);
         min-height: 2.55rem;
         padding: 0 0.85rem;
       }
@@ -1578,11 +1579,11 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       }
 
       button.approve {
-        background: #193d32;
+        background: var(--og7-admin-success-bg, #193d32);
       }
 
       button.reject {
-        background: #422532;
+        background: var(--og7-admin-danger-bg, #422532);
       }
 
       .admin-panel,
@@ -1670,7 +1671,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       .slot-capacity span {
         color: var(--admin-success);
         font-size: 0.85rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
       }
 
       .slot-edit-grid {
@@ -1686,7 +1687,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
         border-radius: 0.45rem;
         color: var(--admin-muted);
         font-size: 0.9rem;
-        font-weight: 800;
+        font-weight: 500;
         margin: 0;
         padding: 0.75rem;
       }
@@ -1701,7 +1702,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
       .social-job a {
         color: var(--admin-muted);
-        font-weight: 900;
+        font-weight: var(--admin-control-weight);
       }
 
       .batch-card header,
@@ -1731,7 +1732,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
       .draft-batch-row span {
         color: var(--admin-muted);
         font-size: 0.82rem;
-        font-weight: 700;
+        font-weight: var(--admin-label-weight);
       }
 
       label.inline {
@@ -1741,7 +1742,7 @@ const publicationStatuses: readonly PublicationDraftStatus[] = [
 
       .state-error {
         color: var(--admin-danger);
-        font-weight: 800;
+        font-weight: 500;
       }
 
       @media (max-width: 900px) {

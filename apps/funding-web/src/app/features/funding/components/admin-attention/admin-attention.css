@@ -26,11 +26,9 @@ h2 {
   align-items: center;
   gap: 0.7rem;
   margin: 0;
-  font-size: 1.2rem;
   flex-wrap: wrap;
 }
 h3 {
-  font-size: 1rem;
   margin: 0;
 }
 p {
@@ -59,11 +57,12 @@ label {
 }
 select {
   font: inherit;
+  font-weight: 400;
   padding: 0.65rem;
   width: 100%;
   border: 1px solid var(--admin-border);
   border-radius: 6px;
-  background: #102035;
+  background: var(--admin-panel, #102035);
   color: var(--admin-text);
 }
 select:focus-visible {
@@ -104,7 +103,7 @@ small {
   margin: 0;
 }
 .error {
-  color: #ffc4ca;
+  color: var(--admin-danger, #ffc4ca);
 }
 footer {
   display: flex;

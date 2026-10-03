@@ -17,6 +17,7 @@ textarea {
   min-width: 0;
   max-width: 100%;
   font: inherit;
+  font-weight: 400;
 }
 input::placeholder,
 textarea::placeholder {
@@ -27,6 +28,7 @@ button {
   min-height: 2.75rem;
   border-radius: 0.6rem;
   font: inherit;
+  font-weight: var(--admin-control-weight);
 }
 button:disabled {
   cursor: not-allowed;
@@ -57,9 +59,12 @@ p {
 }
 :host .primary-action,
 :host button[type='submit'] {
-  background: linear-gradient(135deg, #f0c66c, var(--admin-gold));
-  color: #172033;
-  border: 1px solid var(--admin-gold);
+  background: var(
+    --og7-admin-primary,
+    linear-gradient(135deg, #f0c66c, var(--admin-gold))
+  );
+  color: var(--og7-admin-on-primary, #172033);
+  border: 1px solid var(--og7-admin-primary, var(--admin-gold));
 }
 :host :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 3px solid var(--admin-focus);

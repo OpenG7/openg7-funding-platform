@@ -184,17 +184,13 @@ import {
         overflow-wrap: anywhere;
       }
       h1 {
-        font-size: clamp(1.5rem, 4vw, 2rem);
-        font-weight: 800;
         margin: 1rem 0;
       }
       h2 {
-        font-size: 1.15rem;
-        font-weight: 700;
         margin: 1.25rem 0 0.5rem;
       }
       a {
-        color: #a5d8ff;
+        color: var(--og7-admin-accent, #a5d8ff);
       }
       form,
       label {
@@ -213,17 +209,24 @@ import {
       select,
       button {
         font: inherit;
+        font-weight: 400;
         padding: 0.65rem;
         border-radius: 0.3rem;
-        color: #0f172a;
-        background: #fff;
+        color: var(--admin-text, #0f172a);
+        background: var(--admin-panel, #fff);
         min-width: 0;
         max-width: 100%;
       }
       button {
+        font-weight: var(--admin-control-weight);
+        background: var(--admin-panel-raised, #fff);
         min-height: 44px;
         margin: 0.3rem;
         cursor: pointer;
+      }
+      button[type='submit'] {
+        background: var(--og7-admin-primary, #facc15);
+        color: var(--og7-admin-on-primary, #0f172a);
       }
       input[type='checkbox'] {
         width: 1.3rem;
@@ -233,7 +236,7 @@ import {
         padding: 0.5rem;
       }
       :focus-visible {
-        outline: 3px solid #facc15;
+        outline: 3px solid var(--admin-focus, #facc15);
         outline-offset: 3px;
       }
     `

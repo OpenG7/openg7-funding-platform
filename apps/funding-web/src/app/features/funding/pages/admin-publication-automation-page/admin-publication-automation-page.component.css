@@ -5,10 +5,10 @@
 details > summary {
   cursor: pointer;
   padding: 1rem 0;
-  font-weight: 600;
+  font-weight: var(--admin-control-weight);
 }
 details > summary:focus-visible {
-  outline: 3px solid #a2d1ff;
+  outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
 }
 .automation {
@@ -30,11 +30,9 @@ header {
   margin-bottom: 1rem;
 }
 h1 {
-  font-size: 1.8rem;
   margin: 0.75rem 0;
 }
 h2 {
-  font-size: 1.05rem;
   margin: 0;
 }
 h2 span {
@@ -46,7 +44,7 @@ p {
   line-height: 1.6;
 }
 a {
-  color: var(--admin-link, #9ecfff);
+  color: var(--og7-admin-accent, #9ecfff);
 }
 .feeds {
   display: grid;
@@ -56,13 +54,13 @@ a {
 article,
 .job {
   padding: 1.15rem;
-  border: 1px solid #3c5169;
+  border: 1px solid var(--admin-border);
   border-radius: 1rem;
-  background: #14263a;
+  background: var(--admin-panel);
 }
 .detail {
   font-size: 0.85rem;
-  color: #bacce0;
+  color: var(--admin-muted);
   overflow-wrap: anywhere;
 }
 .worker-control {
@@ -72,9 +70,9 @@ article,
   flex-wrap: wrap;
   gap: 1rem;
   padding: 1.15rem;
-  border: 1px solid #3c5169;
+  border: 1px solid var(--admin-border);
   border-radius: 1rem;
-  background: #14263a;
+  background: var(--admin-panel);
 }
 .worker-control > div {
   flex: 1 1 22rem;
@@ -92,20 +90,21 @@ article,
   min-width: 6.5rem;
   min-height: 44px;
   padding: 0.65rem;
-  border: 1px solid #6d839e;
+  border: 1px solid var(--admin-border);
   border-radius: 0.6rem;
-  background: #102034;
-  color: #edf5ff;
+  background: var(--admin-panel-raised);
+  color: var(--admin-text);
   font: inherit;
-  font-weight: 600;
+  font-weight: var(--admin-control-weight);
   cursor: pointer;
 }
 .worker-toggle[aria-checked='true'] {
-  background: #163e35;
-  border-color: #8ed9bc;
+  background: var(--og7-admin-success-bg, #163e35);
+  border-color: var(--admin-success);
+  color: var(--admin-success);
 }
 .worker-toggle:hover:not([aria-disabled='true']) {
-  border-color: #d2e8ff;
+  border-color: var(--og7-admin-accent, #d2e8ff);
 }
 .worker-toggle[aria-disabled='true'] {
   cursor: not-allowed;
@@ -115,7 +114,7 @@ article,
   display: block;
   width: 2.25rem;
   height: 1.25rem;
-  border: 1px solid #9baec5;
+  border: 1px solid currentColor;
   border-radius: 1rem;
 }
 .worker-toggle__track::before {
@@ -125,7 +124,7 @@ article,
   height: 0.875rem;
   margin: 2px;
   border-radius: 50%;
-  background: #edf5ff;
+  background: currentColor;
 }
 .worker-toggle[aria-checked='true'] .worker-toggle__track::before {
   transform: translateX(1rem);
@@ -133,7 +132,7 @@ article,
 .badge {
   font-size: 0.75rem;
   padding: 0.2rem 0.5rem;
-  border: 1px solid #6487ab;
+  border: 1px solid var(--admin-border);
   border-radius: 1rem;
 }
 .summary {
@@ -145,8 +144,8 @@ article,
   margin-right: 0.4rem;
 }
 .tabs button[aria-pressed='true'] {
-  background: #244c73;
-  border-color: #9bcafa;
+  background: var(--og7-admin-selected, #244c73);
+  border-color: var(--og7-admin-accent, #9bcafa);
 }
 .jobs {
   display: grid;
@@ -166,24 +165,24 @@ article,
   white-space: pre-wrap;
 }
 .job:hover {
-  border-color: #9bcafa;
+  border-color: var(--og7-admin-accent, #9bcafa);
 }
 button:focus-visible,
 a:focus-visible {
-  outline: 3px solid #a2d1ff;
+  outline: 3px solid var(--admin-focus);
   outline-offset: 3px;
 }
 .empty {
   padding: 2rem;
   grid-column: 1/-1;
   text-align: center;
-  border: 1px dashed #56708c;
+  border: 1px dashed var(--admin-border);
   border-radius: 1rem;
 }
 .alert {
   padding: 1rem;
-  background: #392e19;
-  color: #ffe3a6;
+  background: var(--og7-admin-warning-bg, #392e19);
+  color: var(--admin-warning);
   border-radius: 0.7rem;
 }
 label {
@@ -198,14 +197,15 @@ label {
 input,
 textarea,
 select {
-  border: 1px solid #6d839e;
-  background: #102034;
-  color: #edf5ff;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel-raised);
+  color: var(--admin-text);
   border-radius: 0.4rem;
   padding: 0.65rem;
   width: 100%;
   box-sizing: border-box;
   font: inherit;
+  font-weight: 400;
 }
 textarea {
   resize: vertical;
@@ -248,7 +248,7 @@ input[type='checkbox'] {
   gap: 0.5rem;
 }
 .approval {
-  border: 1px solid #608f76;
+  border: 1px solid var(--admin-success);
   border-radius: 0.7rem;
   padding: 1rem;
   margin: 1rem 0;
@@ -257,7 +257,7 @@ input[type='checkbox'] {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   padding: 1rem;
-  background: #152536;
+  background: var(--admin-panel-raised);
   border-radius: 0.7rem;
 }
 @media (max-width: 1100px) {

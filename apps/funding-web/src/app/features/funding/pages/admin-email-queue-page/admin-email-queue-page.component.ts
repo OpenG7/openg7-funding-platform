@@ -306,7 +306,7 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
       .queue-panel header span {
         color: var(--admin-muted);
         font-size: 0.78rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
@@ -320,7 +320,9 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
       button,
       select,
       input {
-        font: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
       }
 
       button {
@@ -329,7 +331,7 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
         border-radius: 0.35rem;
         color: var(--admin-text);
         cursor: pointer;
-        font-weight: 800;
+        font-weight: var(--admin-control-weight);
         min-height: 2.5rem;
         padding: 0 0.9rem;
       }
@@ -377,7 +379,6 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
       .queue-panel small,
       .empty-state span {
         color: var(--admin-muted);
-        line-height: 1.45;
       }
 
       .filters {
@@ -390,7 +391,7 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
         display: grid;
         gap: 0.35rem;
         font-size: 0.85rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
       }
 
       select,
@@ -445,7 +446,7 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
         color: var(--admin-muted);
         display: inline-flex;
         font-size: 0.75rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         min-height: 1.65rem;
         padding: 0 0.65rem;
         white-space: nowrap;
@@ -457,12 +458,12 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
       }
 
       .status-failed {
-        background: #422532;
+        background: var(--og7-admin-danger-bg, #422532);
         color: var(--admin-danger);
       }
 
       .status-queued {
-        background: #3c3221;
+        background: var(--og7-admin-warning-bg, #3c3221);
         color: var(--admin-warning);
       }
 
@@ -472,7 +473,7 @@ type EmailQueueStatusFilter = 'all' | AdminEmailQueueMessageStatus;
       }
 
       .retry-message {
-        font-weight: 800;
+        font-weight: 500;
         margin-top: 0.35rem;
       }
 

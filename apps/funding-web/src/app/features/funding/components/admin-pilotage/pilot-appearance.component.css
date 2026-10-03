@@ -15,7 +15,7 @@ fieldset {
 }
 legend {
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: var(--admin-label-weight);
   margin-bottom: 0.8rem;
 }
 .themes {

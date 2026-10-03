@@ -27,7 +27,9 @@
 .programme button,
 .programme select,
 .programme input {
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
   color: inherit;
   border: 1px solid var(--og7-admin-border, #50708a);
   border-radius: 0.5rem;
@@ -71,9 +73,6 @@
 .programme h4,
 .programme p {
   margin: 0;
-}
-.programme h2 {
-  font-size: 1.45rem;
 }
 .programme p {
   line-height: 1.65;
@@ -120,7 +119,6 @@
   min-width: 0;
 }
 .day h3 {
-  font-size: 0.82rem;
   margin-bottom: 0.6rem;
   color: var(--og7-admin-accent, #b5e9f4);
 }

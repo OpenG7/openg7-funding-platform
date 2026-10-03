@@ -2,7 +2,7 @@
   "admin": {
     "appearance": {
       "intro": "Choisissez votre ambiance et votre confort de lecture. Le dossier en cours reste ouvert.",
-      "palette": "Palette du poste de pilotage",
+      "palette": "Palette de l’administration",
       "themes": {
         "night": "Nuit OpenG7",
         "mineral": "Clair minéral",
@@ -16,12 +16,12 @@
       "system": "Suivre le thème du système",
       "systemHint": "Clair minéral le jour, Nuit OpenG7 en mode sombre, selon votre appareil.",
       "current": "Apparence affichée :",
-      "density": "Densité de l’espace",
+      "density": "Densité du pilotage",
       "comfortable": "Confort",
       "comfortableHint": "Des aperçus généreux et une lecture aérée.",
       "compact": "Compact",
       "compactHint": "Davantage de dossiers visibles sur grand écran.",
-      "saved": "Préférences enregistrées sur cet appareil, pour le poste de pilotage. Aucun contenu de dossier n’est conservé.",
+      "saved": "Préférences enregistrées sur cet appareil : palette pour l’administration et densité pour le pilotage. Aucun contenu de dossier n’est conservé.",
       "storageUnavailable": "Le navigateur ne permet pas d’enregistrer ce choix. Il reste appliqué pendant cette visite."
     },
     "backups": {

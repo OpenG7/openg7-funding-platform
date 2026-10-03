@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { AxeBuilder } from '@axe-core/playwright';
 import type {
   AdminContributionRecord,
   AdminDashboardResponse
@@ -156,6 +157,43 @@ async function fixtures(page: Page, expired = false): Promise<void> {
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1672, height: 941 });
+});
+
+test('shared admin mineral palette keeps dashboard readable', async ({
+  page
+}, testInfo) => {
+  await fixtures(page);
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'openg7.pilotage.appearance.v1',
+      JSON.stringify({ theme: 'mineral', system: false })
+    );
+  });
+  await page.goto('/admin/fundraiser');
+  await expect(
+    page.getByRole('article', { name: 'Commandites', exact: true })
+  ).toContainText('48');
+  await expect(page.locator('[data-og7="dashboard-refresh"]')).toBeEnabled();
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-og7-pilot-theme',
+    'mineral'
+  );
+  await expect(page.locator('openg7-admin-layout')).toHaveCSS(
+    'background-color',
+    'rgb(243, 242, 238)'
+  );
+  await expect(
+    page.getByRole('heading', { name: 'Centre de pilotage' })
+  ).toHaveCSS('color', 'rgb(32, 44, 56)');
+  await page.screenshot({
+    path: testInfo.outputPath('mineral-dashboard.png'),
+    fullPage: true
+  });
+  const audit = await new AxeBuilder({ page })
+    .include('openg7-admin-layout')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(audit.violations).toEqual([]);
 });
 
 test('admin text palette remains readable and the cockpit reflows with enlarged text in both languages', async ({

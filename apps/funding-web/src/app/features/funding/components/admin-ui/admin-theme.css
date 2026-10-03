@@ -12,6 +12,6 @@
   --admin-warning: var(--og7-admin-warning, #ffda85);
   --admin-danger: var(--og7-admin-danger, #ffb5bc);
   color: var(--admin-text);
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  line-height: 1.5;
+  font-family: var(--admin-font-family, 'Segoe UI', system-ui, sans-serif);
+  line-height: var(--admin-body-leading, 1.5);
 }

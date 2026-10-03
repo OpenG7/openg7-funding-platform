@@ -31,7 +31,11 @@ import {
       }
       article {
         align-items: start;
-        background: linear-gradient(140deg, #192a40, var(--admin-panel));
+        background: linear-gradient(
+          140deg,
+          var(--admin-panel-raised, #192a40),
+          var(--admin-panel)
+        );
         border: 1px solid var(--admin-border);
         border-radius: 0.8rem;
         display: flex;

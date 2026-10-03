@@ -21,14 +21,6 @@ dd {
   margin: 0;
 }
 
-h2 {
-  font-size: 1.15rem;
-}
-
-h3 {
-  font-size: 0.95rem;
-}
-
 .panel-heading,
 .scope-heading,
 .result-heading,
@@ -129,7 +121,7 @@ input {
   padding: 0.25rem 0.6rem;
   color: var(--admin-muted);
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: var(--admin-label-weight);
 }
 
 .mode-badge--live {
@@ -180,7 +172,7 @@ section > .notice {
 
 dd {
   font-size: 1.35rem;
-  font-weight: 700;
+  font-weight: var(--admin-emphasis-weight);
   font-variant-numeric: tabular-nums;
 }
 

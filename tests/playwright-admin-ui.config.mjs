@@ -21,6 +21,7 @@ export default defineConfig({
     'admin-email-recovery-ui.spec.ts',
     'admin-document-resend-ui.spec.ts',
     'admin-dashboard-layout.spec.ts',
+    'admin-typography.spec.ts',
     'admin-cockpit.spec.ts',
     'admin-global-search.spec.ts',
     'admin-attention.spec.ts',

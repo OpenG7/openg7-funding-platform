@@ -1,4 +1,4 @@
-/* Apply the local palette before Angular renders. Only the pilotage route uses it. */
+/* Apply the local admin palette before Angular renders. */
 (() => {
   try {
     const value = JSON.parse(

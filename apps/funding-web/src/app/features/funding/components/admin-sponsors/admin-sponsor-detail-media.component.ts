@@ -259,7 +259,9 @@ import type {
 
       button,
       input {
-        font: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
       }
 
       button:focus-visible,
@@ -277,7 +279,7 @@ import type {
         color: var(--admin-danger);
         cursor: pointer;
         display: inline-flex;
-        font-weight: 900;
+        font-weight: var(--admin-control-weight);
         justify-content: center;
         min-height: 2.5rem;
         padding: 0 0.85rem;
@@ -311,14 +313,13 @@ import type {
 
       .muted-copy {
         color: var(--admin-muted);
-        line-height: 1.55;
         margin: 0.35rem 0 0;
       }
 
       dt {
         color: var(--admin-muted);
         font-size: 0.76rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
@@ -367,7 +368,7 @@ import type {
       .logo-upload-control {
         display: grid;
         font-size: 0.84rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
         gap: 0.35rem;
       }
 
@@ -387,7 +388,7 @@ import type {
       .media-review-panel header span {
         color: var(--admin-muted);
         font-size: 0.72rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
         text-transform: uppercase;
       }
 
@@ -397,14 +398,12 @@ import type {
       }
 
       .media-review-panel h3 {
-        font-size: 1rem;
         margin-top: 0.2rem;
       }
 
       .media-review-panel header p {
         color: var(--admin-muted);
         font-size: 0.82rem;
-        line-height: 1.5;
       }
 
       .media-review-summary {
@@ -414,12 +413,12 @@ import type {
       }
 
       .approve-all-action {
-        background: #193d32;
+        background: var(--og7-admin-success-bg, #193d32);
         border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
         color: var(--admin-text);
         cursor: pointer;
-        font-weight: 900;
+        font-weight: var(--admin-control-weight);
         min-height: 2.5rem;
         padding: 0 0.85rem;
       }
@@ -478,13 +477,13 @@ import type {
       .media-review-copy label {
         display: grid;
         font-size: 0.78rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
         gap: 0.35rem;
       }
 
       .media-review-copy label span {
         color: var(--admin-muted);
-        font-weight: 700;
+        font-weight: var(--admin-label-weight);
       }
 
       .media-review-copy input {
@@ -497,7 +496,7 @@ import type {
 
       .media-status {
         font-size: 0.72rem;
-        font-weight: 900;
+        font-weight: var(--admin-label-weight);
       }
 
       .media-status.approved {
@@ -522,13 +521,13 @@ import type {
       .reject-action {
         border-radius: 0.4rem;
         cursor: pointer;
-        font-weight: 900;
+        font-weight: var(--admin-control-weight);
         min-height: 2.5rem;
         padding: 0 0.85rem;
       }
 
       .approve-action {
-        background: #193d32;
+        background: var(--og7-admin-success-bg, #193d32);
         border: 1px solid var(--admin-border);
         color: var(--admin-text);
       }

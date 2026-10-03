@@ -83,7 +83,7 @@ type Panel =
     EditorialProgrammeComponent,
     AdminGuideComponent
   ],
-  providers: [ControllerService, PilotAppearanceService],
+  providers: [ControllerService],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin-pilotage-page.component.html',
   styleUrls: [

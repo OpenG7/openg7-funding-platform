@@ -29,7 +29,7 @@ aside {
   color: #101827;
   display: flex;
   flex: 0 0 auto;
-  font-weight: 800;
+  font-weight: var(--admin-emphasis-weight);
   height: 3rem;
   justify-content: center;
   width: 3rem;
@@ -60,7 +60,7 @@ section + section {
 h2 {
   color: var(--og7-admin-muted, #9eafc5);
   font-size: 0.65rem;
-  font-weight: 600;
+  font-weight: var(--admin-label-weight);
   letter-spacing: 0.12em;
   margin: 0 0 0.3rem;
   padding: 0 0.9rem;
@@ -88,7 +88,7 @@ footer button:hover {
 nav a.active {
   background: var(--og7-admin-selected, #30322d);
   box-shadow: inset 3px 0 0 var(--admin-gold);
-  font-weight: 600;
+  font-weight: var(--admin-label-weight);
 }
 openg7-admin-icon {
   color: var(--admin-muted);

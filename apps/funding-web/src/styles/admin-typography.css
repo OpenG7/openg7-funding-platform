@@ -1,0 +1,61 @@
+/* Shared typography for the admin shell, its routed content and sign-in page. */
+:is(openg7-admin-layout, openg7-admin-login-page) {
+  --admin-font-family: 'Segoe UI', system-ui, sans-serif;
+  --admin-body-size: 1rem;
+  --admin-body-leading: 1.5;
+  --admin-title-size: clamp(1.7rem, 2.6vw, 2.5rem);
+  --admin-title-weight: 650;
+  --admin-title-leading: 1.2;
+  --admin-section-size: 1.05rem;
+  --admin-section-weight: 600;
+  --admin-section-leading: 1.4;
+  --admin-subheading-size: 1rem;
+  --admin-control-weight: 600;
+  --admin-label-weight: 600;
+  --admin-emphasis-weight: 700;
+  font-family: var(--admin-font-family);
+  font-size: var(--admin-body-size);
+  font-weight: 400;
+  line-height: var(--admin-body-leading);
+}
+
+:is(openg7-admin-layout, openg7-admin-login-page) h1 {
+  font-size: var(--admin-title-size);
+  font-weight: var(--admin-title-weight);
+  letter-spacing: normal;
+  line-height: var(--admin-title-leading);
+}
+
+:is(openg7-admin-layout, openg7-admin-login-page) h2 {
+  font-size: var(--admin-section-size);
+  font-weight: var(--admin-section-weight);
+  line-height: var(--admin-section-leading);
+}
+
+:is(openg7-admin-layout, openg7-admin-login-page) :where(h3, h4, h5, h6) {
+  font-size: var(--admin-subheading-size);
+  font-weight: var(--admin-section-weight);
+  line-height: var(--admin-section-leading);
+}
+
+:is(openg7-admin-layout, openg7-admin-login-page)
+  :where(button, input, select, textarea) {
+  font-family: inherit;
+}
+
+:is(openg7-admin-layout, openg7-admin-login-page) button {
+  font-weight: var(--admin-control-weight);
+}
+
+:is(openg7-admin-layout, openg7-admin-login-page) :where(label, legend, th) {
+  font-weight: var(--admin-label-weight);
+}
+
+:is(openg7-admin-layout, openg7-admin-login-page)
+  :where(input, select, textarea) {
+  font-weight: 400;
+}
+
+:is(openg7-admin-layout, openg7-admin-login-page) :where(strong, b) {
+  font-weight: var(--admin-emphasis-weight);
+}

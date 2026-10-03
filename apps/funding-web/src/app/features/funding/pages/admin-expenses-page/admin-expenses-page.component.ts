@@ -506,7 +506,7 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
       .expense-card span {
         color: var(--admin-muted);
         font-size: 0.78rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
         letter-spacing: 0;
         text-transform: uppercase;
       }
@@ -594,7 +594,7 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
         display: grid;
         gap: 0.35rem;
         font-size: 0.85rem;
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
       }
 
       input,
@@ -602,7 +602,10 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
       textarea {
         border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
-        font: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        font-weight: 400;
         padding: 0.65rem 0.75rem;
       }
 
@@ -616,14 +619,16 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
         border-radius: 0.35rem;
         color: var(--admin-text);
         cursor: pointer;
-        font: inherit;
-        font-weight: 800;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        font-weight: var(--admin-control-weight);
         min-height: 2.55rem;
         padding: 0 0.85rem;
       }
 
       button.approve {
-        background: #193d32;
+        background: var(--og7-admin-success-bg, #193d32);
       }
 
       button.neutral {
@@ -631,7 +636,7 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
       }
 
       button.reject {
-        background: #422532;
+        background: var(--og7-admin-danger-bg, #422532);
       }
 
       .expense-card footer {
@@ -641,7 +646,7 @@ const expenseStatuses: readonly AdminExpenseStatus[] = [
 
       .state-error {
         color: var(--admin-danger);
-        font-weight: 800;
+        font-weight: var(--admin-label-weight);
       }
 
       @media (max-width: 900px) {

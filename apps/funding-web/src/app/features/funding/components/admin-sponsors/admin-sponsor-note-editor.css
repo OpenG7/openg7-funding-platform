@@ -27,7 +27,6 @@
   overflow: hidden;
   color: var(--admin-text);
   font-size: 0.9rem;
-  line-height: 1.65;
 }
 
 .note-empty {
@@ -63,14 +62,14 @@
 .note-eyebrow {
   color: var(--admin-muted);
   font-size: 0.65rem;
-  font-weight: 650;
-  letter-spacing: 0.1em;
+  font-weight: var(--admin-label-weight);
+  letter-spacing: normal;
   text-transform: uppercase;
 }
 
 .note-dossier strong {
   font-size: 1.05rem;
-  font-weight: 650;
+  font-weight: var(--admin-section-weight);
   overflow-wrap: anywhere;
 }
 
@@ -91,7 +90,7 @@
   background: #f4c9570b;
   color: var(--admin-gold);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--admin-label-weight);
 }
 
 .note-editor svg {
@@ -108,7 +107,6 @@
   margin: 0;
   color: var(--admin-muted);
   font-size: 0.85rem;
-  line-height: 1.6;
 }
 
 .note-field {
@@ -119,7 +117,7 @@
 
 .note-field label {
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: var(--admin-label-weight);
 }
 
 :host .note-field textarea {
