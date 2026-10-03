@@ -6,7 +6,6 @@ import {
 import path from 'node:path';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
-import type { PublicationAutomationCommand } from '@openg7/funding-core';
 import Stripe from 'stripe';
 import type {
   AdminSetupStatusResponse,
@@ -25,11 +24,9 @@ import type {
   AdminSponsorshipRefundResult,
   AdminSponsorshipReviewRequest,
   AdminSponsorshipReviewResult,
-  AdminSponsorshipsResponse,
   ContributionType,
   CheckoutResult,
   CheckoutRequest,
-  PublicFundingRuntimeConfig,
   PublicReferenceLookupRequest,
   PublicReferenceLookupResponse,
   ReferenceRecoveryRequest,
@@ -88,14 +85,10 @@ import { PublicationAutomationError } from './publication-automation/policy.js';
 import { PublicationAutomationService } from './publication-automation/service.js';
 import { AdminPilotageService, PilotError } from './admin-pilotage.service.js';
 import { AdminIdentityService } from './admin-identity.js';
-import {
-  SponsorshipDetailsError,
-  updateAdminSponsorshipDetails
-} from './admin-sponsorship-details.service.js';
+import { updateAdminSponsorshipDetails } from './admin-sponsorship-details.service.js';
 import {
   getSponsorshipInterventions,
-  recordSponsorshipIntervention,
-  SponsorshipInterventionError
+  recordSponsorshipIntervention
 } from './sponsorship-interventions.service.js';
 import {
   allowedAdminExpenseStatuses,
@@ -128,6 +121,10 @@ import {
   updateAdminPublicationSlot
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
+import { createAdminSponsorshipRecordsHttpHandler } from './admin-sponsorship-records.http.js';
+import { createAdminPilotageHttpHandler } from './admin-pilotage.http.js';
+import { createAdminPublicationAutomationHttpHandler } from './admin-publication-automation.http.js';
+import { createPublicFundingHttpHandler } from './public-funding.http.js';
 import { createAdminAssistantHttpHandler } from './admin-assistant.http.js';
 import { createAdminContributionsHttpHandler } from './admin-contributions.http.js';
 import { createAdminDocumentsHttpHandler } from './admin-documents.http.js';
@@ -224,8 +221,6 @@ import {
   getPublicTransparencySummary,
   listPublicBuilders
 } from './fund-transparency.repository.js';
-import { parsePublicDirectoryPagination } from './public-directory-pagination.js';
-import { parsePublicSponsorshipPagination } from './public-sponsorship-pagination.js';
 import { createPublicTransparencyCache } from './public-transparency-cache.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import {
@@ -282,11 +277,7 @@ import {
   isSponsorshipWebsiteVisibilityRequest,
   setSponsorshipWebsiteVisibility
 } from './sponsorship-website.service.js';
-import {
-  InformationRequestError,
-  requestSponsorshipInformation,
-  validateInformationRequest
-} from './sponsorship-information.service.js';
+import { requestSponsorshipInformation } from './sponsorship-information.service.js';
 import {
   buildSponsorshipReviewReminderAdminUrl,
   loadAdminSponsorshipReviewReminderConfig,
@@ -1002,77 +993,10 @@ const isAllowedSponsorFeedChannel = (
   typeof value === 'string' &&
   allowedSponsorFeedChannels.has(value as SponsorFeedChannel);
 
-const adminSponsorshipPageSizes = new Set([6, 10, 25]);
-const adminSponsorshipPaymentStatuses = new Set([
-  'paid',
-  'refunded',
-  'disputed'
-]);
-const adminSponsorshipSorts = new Set([
-  'priority',
-  'paid_at',
-  'submitted_at',
-  'amount',
-  'company',
-  'updated_at'
-]);
-
 const isValidAdminExpectedVersion = (value: unknown): value is string =>
   typeof value === 'string' &&
   value.trim().length > 0 &&
   value.trim().length <= 128;
-
-const parseAdminSponsorshipsQuery = (
-  url: string | undefined
-): Parameters<typeof listAdminSponsorships>[1] => {
-  const searchParams = new URL(url ?? '/', publicBaseOrigin).searchParams;
-  const requestedPage = Number.parseInt(searchParams.get('page') ?? '1', 10);
-  const requestedPageSize = Number.parseInt(
-    searchParams.get('pageSize') ?? '6',
-    10
-  );
-  const reviewStatus =
-    searchParams.get('reviewStatus') === 'pending'
-      ? 'pending_review'
-      : searchParams.get('reviewStatus');
-  const feedStatus = searchParams.get('feedStatus');
-  const paymentStatus = searchParams.get('paymentStatus');
-  const sort = searchParams.get('sort');
-  const direction = searchParams.get('direction');
-  const search = searchParams.get('search')?.trim();
-
-  return {
-    page:
-      Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
-    pageSize: adminSponsorshipPageSizes.has(requestedPageSize)
-      ? requestedPageSize
-      : 6,
-    search: search || undefined,
-    reviewStatus:
-      reviewStatus &&
-      allowedSponsorshipReviewStatuses.has(
-        reviewStatus as SponsorshipReviewStatus
-      )
-        ? (reviewStatus as SponsorshipReviewStatus)
-        : undefined,
-    feedStatus:
-      feedStatus &&
-      allowedSponsorFeedStatuses.has(feedStatus as SponsorFeedStatus)
-        ? (feedStatus as SponsorFeedStatus)
-        : undefined,
-    paymentStatus:
-      paymentStatus && adminSponsorshipPaymentStatuses.has(paymentStatus)
-        ? (paymentStatus as 'paid' | 'refunded' | 'disputed')
-        : undefined,
-    sort:
-      sort && adminSponsorshipSorts.has(sort)
-        ? (sort as NonNullable<
-            Parameters<typeof listAdminSponsorships>[1]['sort']
-          >)
-        : 'priority',
-    direction: direction === 'asc' ? 'asc' : 'desc'
-  };
-};
 
 const writeSponsorshipMutationFailure = (
   request: IncomingMessage,
@@ -1707,6 +1631,30 @@ const handleAdminInsightsRequest = createAdminInsightsHttpHandler({
   reportFailure: (message, error) => console.error(message, error)
 });
 
+const handleAdminSponsorshipRecordsRequest =
+  createAdminSponsorshipRecordsHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAuthorization,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    isValidUuid,
+    allowedSponsorshipReviewStatuses,
+    allowedSponsorFeedStatuses,
+    listAdminSponsorships: (query) => listAdminSponsorships(dbPool, query),
+    getSponsorshipProgress: (id) => getSponsorshipProgress(dbPool, id),
+    requestSponsorshipInformation: (input, actor) =>
+      requestSponsorshipInformation(dbPool!, input, actor),
+    updateAdminSponsorshipDetails: (input, actor) =>
+      updateAdminSponsorshipDetails(dbPool!, input, actor),
+    getSponsorshipInterventions: (id, before) =>
+      getSponsorshipInterventions(dbPool!, id, before),
+    recordSponsorshipIntervention: (input, actor) =>
+      recordSponsorshipIntervention(dbPool!, input, actor),
+    reportFailure: (message, error) => console.error(message, error)
+  });
+
 const handleAdminAssistantRequest = createAdminAssistantHttpHandler({
   publicBaseOrigin,
   ensureAdminAuthorization,
@@ -1823,6 +1771,52 @@ const handleAdminPublicationBatchesRequest =
     queuePublicationBatchFullNotification: (input) =>
       queuePublicationBatchFullNotification(dbPool, input)
   });
+
+const handleAdminPilotageRequest = createAdminPilotageHttpHandler({
+  publicBaseOrigin,
+  ensureAdminAccess,
+  getAdminAuditActor,
+  readBody,
+  writeJson,
+  adminPilotage,
+  adminIdentity,
+  PilotError,
+  PublicationAutomationError
+});
+
+const handleAdminPublicationAutomationRequest =
+  createAdminPublicationAutomationHttpHandler({
+    publicBaseOrigin,
+    ensureAdminAccess,
+    getAdminAuditActor,
+    readBody,
+    writeJson,
+    publicationAutomation,
+    PublicationAutomationError
+  });
+
+const handlePublicFundingRequest = createPublicFundingHttpHandler({
+  publicBaseOrigin,
+  writeJson,
+  listPublicSponsorships: (pagination) =>
+    listPublicSponsorships(dbPool, pagination),
+  listPublicBuilders: (pagination) => listPublicBuilders(dbPool, pagination),
+  getPublicSponsorshipBatchAvailability: () =>
+    getPublicSponsorshipBatchAvailability(dbPool),
+  getPublicFundingRuntimeConfig: () => ({
+    business_sponsorship_enabled: businessSponsorshipEnabled,
+    allowed_contribution_amounts: [...allowedContributionAmounts],
+    last_updated_at: new Date().toISOString()
+  }),
+  getPublicTransparencySummary: () =>
+    hasDatabase
+      ? getPublicTransparencySummary(dbPool)
+      : readStripeTransparency
+        ? readStripeTransparency()
+        : getPublicTransparencySummary(null),
+  reportFailure: (message, error) =>
+    error === undefined ? console.error(message) : console.error(message, error)
+});
 
 const handleRequest = async (
   request: ApiRequest,
@@ -1959,157 +1953,7 @@ const handleRequest = async (
     return;
   }
 
-  if (
-    routeMatches(
-      request.url,
-      '/admin/pilotage',
-      '/api/admin/pilotage',
-      '/admin/pilotage/command',
-      '/api/admin/pilotage/command',
-      '/admin/pilotage/receipt',
-      '/api/admin/pilotage/receipt',
-      '/admin/pilotage/programme',
-      '/api/admin/pilotage/programme',
-      '/admin/pilotage/variant',
-      '/api/admin/pilotage/variant'
-    )
-  ) {
-    response.setHeader('Cache-Control', 'private, no-store');
-    if (!ensureAdminAccess(request, response)) return;
-    if (!adminPilotage) {
-      writeJson(request, response, 503, { code: 'PILOTAGE_UNAVAILABLE' });
-      return;
-    }
-    try {
-      const url = new URL(request.url ?? '/', publicBaseOrigin);
-      const writable = adminIdentity?.identity(request)?.role !== 'reader';
-      const owner =
-        !adminIdentity || adminIdentity.identity(request)?.role === 'owner';
-      const actor = getAdminAuditActor(request);
-      if (
-        url.pathname.endsWith('/programme') ||
-        url.pathname.endsWith('/variant')
-      ) {
-        if (request.method === 'GET' && url.pathname.endsWith('/programme')) {
-          writeJson(
-            request,
-            response,
-            200,
-            await adminPilotage.editorial.state(writable)
-          );
-        } else if (request.method === 'POST') {
-          if (!writable) throw new PilotError('READ_ONLY', 403);
-          if (
-            !request.headers['content-type']
-              ?.toLowerCase()
-              .startsWith('application/json')
-          )
-            throw new PilotError('INVALID_COMMAND', 415);
-          const input = JSON.parse(await readBody(request, 4096));
-          const result = url.pathname.endsWith('/variant')
-            ? await adminPilotage.editorial.variant(input)
-            : await adminPilotage.editorial.propose(input);
-          writeJson(request, response, 200, result);
-        } else
-          writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
-      } else if (
-        request.method === 'POST' &&
-        url.pathname.endsWith('/command')
-      ) {
-        if (
-          !request.headers['content-type']
-            ?.toLowerCase()
-            .startsWith('application/json')
-        )
-          throw new PilotError('INVALID_COMMAND', 415);
-        writeJson(
-          request,
-          response,
-          200,
-          await adminPilotage.command(
-            JSON.parse(await readBody(request, 16 * 1024)),
-            actor,
-            writable,
-            owner
-          )
-        );
-      } else if (
-        request.method === 'POST' &&
-        url.pathname.endsWith('/receipt')
-      ) {
-        if (!writable) throw new PilotError('READ_ONLY', 403);
-        if (
-          !request.headers['content-type']
-            ?.toLowerCase()
-            .startsWith('application/json')
-        )
-          throw new PilotError('INVALID_COMMAND', 415);
-        writeJson(
-          request,
-          response,
-          200,
-          await adminPilotage.acknowledgeReceipt(
-            JSON.parse(await readBody(request, 4096)),
-            actor
-          )
-        );
-      } else if (
-        request.method === 'GET' &&
-        url.pathname.endsWith('/receipt')
-      ) {
-        const result = await adminPilotage.readReceipt(
-          url.searchParams.get('id') ?? '',
-          actor
-        );
-        writeJson(
-          request,
-          response,
-          result ? 200 : 404,
-          result ?? { code: 'RECEIPT_NOT_FOUND' }
-        );
-      } else if (
-        request.method === 'GET' &&
-        url.pathname.endsWith('/pilotage')
-      ) {
-        const page = Number(url.searchParams.get('page') ?? 1);
-        if (!Number.isSafeInteger(page) || page < 1)
-          throw new PilotError('INVALID_QUERY', 400);
-        writeJson(
-          request,
-          response,
-          200,
-          await adminPilotage.state(
-            {
-              page,
-              domain: url.searchParams.get('domain') ?? undefined,
-              id: url.searchParams.get('id') ?? undefined
-            },
-            writable,
-            owner
-          )
-        );
-      } else writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
-    } catch (error) {
-      writeJson(
-        request,
-        response,
-        error instanceof PilotError ||
-          error instanceof PublicationAutomationError
-          ? error.status
-          : error instanceof SyntaxError
-            ? 400
-            : 503,
-        {
-          code:
-            error instanceof PilotError ||
-            error instanceof PublicationAutomationError
-              ? error.code
-              : 'PILOTAGE_UNAVAILABLE'
-        }
-      );
-    }
-    return;
-  }
+  if (await handleAdminPilotageRequest(request, response)) return;
 
   if (
     routeMatches(
@@ -2171,68 +2015,7 @@ const handleRequest = async (
     return;
   }
 
-  if (
-    routeMatches(
-      request.url,
-      '/admin/publication-automation',
-      '/api/admin/publication-automation',
-      '/admin/publication-automation/media',
-      '/api/admin/publication-automation/media'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response) || !publicationAutomation) return;
-    try {
-      if (request.method === 'GET') {
-        const automationUrl = new URL(request.url ?? '/', publicBaseOrigin);
-        const isMedia = automationUrl.pathname.endsWith('/media');
-        writeJson(
-          request,
-          response,
-          200,
-          isMedia
-            ? await publicationAutomation.mediaOptions()
-            : await publicationAutomation.state(undefined, {
-                sponsorshipId:
-                  automationUrl.searchParams.get('sponsorshipId') ?? undefined,
-                deliveryId:
-                  automationUrl.searchParams.get('deliveryId') ?? undefined
-              })
-        );
-      } else if (
-        request.method === 'POST' &&
-        !new URL(request.url ?? '/', publicBaseOrigin).pathname.endsWith(
-          '/media'
-        )
-      ) {
-        const input = JSON.parse(
-          await readBody(request)
-        ) as PublicationAutomationCommand;
-        writeJson(
-          request,
-          response,
-          200,
-          await publicationAutomation.command(
-            input,
-            getAdminAuditActor(request)
-          )
-        );
-      } else writeJson(request, response, 405, { code: 'METHOD_NOT_ALLOWED' });
-    } catch (error) {
-      const status =
-        error instanceof PublicationAutomationError
-          ? error.status
-          : error instanceof SyntaxError
-            ? 400
-            : 503;
-      writeJson(request, response, status, {
-        code:
-          error instanceof PublicationAutomationError
-            ? error.code
-            : 'AUTOMATION_UNAVAILABLE'
-      });
-    }
-    return;
-  }
+  if (await handleAdminPublicationAutomationRequest(request, response)) return;
 
   if (
     request.method === 'GET' &&
@@ -4509,84 +4292,9 @@ const handleRequest = async (
 
   if (await handleAdminInsightsRequest(request, response)) return;
 
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/progress',
-      '/api/admin/sponsorships/progress'
-    )
-  ) {
-    if (!ensureAdminAuthorization(request, response)) return;
-    const id = new URL(request.url!, 'http://localhost').searchParams.get(
-      'sponsorshipId'
-    );
-    if (id !== null && !isValidUuid(id)) {
-      writeJson(request, response, 400, { error: 'Invalid sponsorship ID.' });
-      return;
-    }
-    try {
-      writeJson(
-        request,
-        response,
-        200,
-        await getSponsorshipProgress(dbPool, id ?? undefined),
-        { 'Cache-Control': 'private, no-store' }
-      );
-    } catch {
-      writeJson(
-        request,
-        response,
-        503,
-        { error: 'Sponsorship progress unavailable.' },
-        { 'Cache-Control': 'private, no-store' }
-      );
-    }
-    return;
-  }
+  if (await handleAdminSponsorshipRecordsRequest(request, response)) return;
 
   if (await handleAdminAssistantRequest(request, response)) return;
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/request-information',
-      '/api/admin/sponsorships/request-information'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) return;
-    try {
-      let input;
-      try {
-        input = validateInformationRequest(
-          JSON.parse(await readBody(request, 32 * 1024))
-        );
-      } catch {
-        throw new InformationRequestError(400);
-      }
-      const result = await requestSponsorshipInformation(
-        dbPool!,
-        input,
-        getAdminAuditActor(request)
-      );
-      writeJson(request, response, 200, result, {
-        'Cache-Control': 'private, no-store'
-      });
-    } catch (error) {
-      writeJson(
-        request,
-        response,
-        error instanceof InformationRequestError ? error.status : 503,
-        {
-          error:
-            'Information request could not be queued. Refresh the record before trying again.'
-        },
-        { 'Cache-Control': 'private, no-store' }
-      );
-    }
-    return;
-  }
 
   if (await handleAdminContributionsRequest(request, response)) return;
 
@@ -4623,153 +4331,6 @@ const handleRequest = async (
       writeJson(request, response, 502, {
         error: 'Admin audit log could not be loaded.'
       });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(request.url, '/admin/sponsorships', '/api/admin/sponsorships')
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    try {
-      const sponsorships = await listAdminSponsorships(
-        dbPool,
-        parseAdminSponsorshipsQuery(request.url)
-      );
-      const result: AdminSponsorshipsResponse = {
-        data_source: 'database',
-        items: sponsorships.items,
-        sponsorships: sponsorships.items,
-        pagination: sponsorships.pagination,
-        last_updated_at: sponsorships.lastUpdatedAt
-      };
-
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load admin sponsorships.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin sponsorships could not be loaded.'
-      });
-    }
-    return;
-  }
-
-  if (
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/details',
-      '/api/admin/sponsorships/details'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) return;
-    response.setHeader('Cache-Control', 'private, no-store');
-    if (request.method !== 'POST') {
-      response.setHeader('Allow', 'POST');
-      writeJson(request, response, 405, { error: 'Method not allowed.' });
-      return;
-    }
-    if (
-      request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
-      'application/json'
-    ) {
-      writeJson(request, response, 415, { error: 'JSON body required.' });
-      return;
-    }
-    let input: unknown;
-    try {
-      input = JSON.parse(await readBody(request, 16 * 1024));
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid sponsorship details request.'
-      });
-      return;
-    }
-    try {
-      const result = await updateAdminSponsorshipDetails(
-        dbPool!,
-        input,
-        getAdminAuditActor(request)
-      );
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      writeJson(
-        request,
-        response,
-        error instanceof SponsorshipDetailsError ? error.status : 503,
-        { error: 'Sponsorship details could not be updated.' }
-      );
-    }
-    return;
-  }
-
-  if (
-    routeMatches(
-      request.url,
-      '/admin/sponsorships/interventions',
-      '/api/admin/sponsorships/interventions'
-    )
-  ) {
-    response.setHeader('Cache-Control', 'private, no-store');
-    if (!ensureAdminAccess(request, response)) return;
-    if (request.method !== 'GET' && request.method !== 'POST') {
-      response.setHeader('Allow', 'GET, POST');
-      writeJson(request, response, 405, { error: 'Method not allowed.' });
-      return;
-    }
-    try {
-      if (request.method === 'GET') {
-        const params = new URL(request.url!, 'http://localhost').searchParams;
-        writeJson(
-          request,
-          response,
-          200,
-          await getSponsorshipInterventions(
-            dbPool!,
-            params.get('sponsorshipId'),
-            params.get('before')
-          )
-        );
-      } else {
-        if (
-          request.headers['content-type']
-            ?.split(';')[0]
-            .trim()
-            .toLowerCase() !== 'application/json'
-        ) {
-          writeJson(request, response, 415, { error: 'JSON body required.' });
-          return;
-        }
-        let input: unknown;
-        try {
-          input = JSON.parse(await readBody(request, 16 * 1024));
-        } catch {
-          throw new SponsorshipInterventionError(400);
-        }
-        writeJson(
-          request,
-          response,
-          200,
-          await recordSponsorshipIntervention(
-            dbPool!,
-            input,
-            getAdminAuditActor(request)
-          )
-        );
-      }
-    } catch (error) {
-      writeJson(
-        request,
-        response,
-        error instanceof SponsorshipInterventionError ? error.status : 503,
-        {
-          code: 'SPONSORSHIP_INTERVENTION_FAILED',
-          error: 'Sponsorship interventions could not be processed.'
-        }
-      );
     }
     return;
   }
@@ -5676,131 +5237,7 @@ const handleRequest = async (
     return;
   }
 
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/public/sponsorships',
-      '/api/public/sponsorships'
-    )
-  ) {
-    try {
-      const pagination = parsePublicSponsorshipPagination(
-        new URL(request.url ?? '/', publicBaseOrigin).searchParams
-      );
-      if (!pagination) {
-        writeJson(request, response, 400, {
-          error: 'Invalid public sponsorship pagination.'
-        });
-        return;
-      }
-      const sponsorships = await listPublicSponsorships(dbPool, pagination);
-
-      writeJson(request, response, 200, sponsorships);
-    } catch (error) {
-      console.error('Failed to load public sponsorships.', error);
-      writeJson(request, response, 502, {
-        error: 'Public sponsorships could not be loaded.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(request.url, '/public/builders', '/api/public/builders')
-  ) {
-    const pagination = parsePublicDirectoryPagination(
-      new URL(request.url ?? '/', publicBaseOrigin).searchParams,
-      24
-    );
-    if (!pagination) {
-      writeJson(request, response, 400, {
-        error: 'Invalid public directory pagination.'
-      });
-      return;
-    }
-    try {
-      writeJson(
-        request,
-        response,
-        200,
-        await listPublicBuilders(dbPool, pagination)
-      );
-    } catch {
-      console.error('Failed to load public builders.');
-      writeJson(request, response, 502, {
-        error: 'Public builders could not be loaded.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/public/sponsorship-batches/availability',
-      '/api/public/sponsorship-batches/availability'
-    )
-  ) {
-    try {
-      const availability = await getPublicSponsorshipBatchAvailability(dbPool);
-
-      writeJson(request, response, 200, availability);
-    } catch (error) {
-      console.error(
-        'Failed to load public sponsorship batch availability.',
-        error
-      );
-      writeJson(request, response, 502, {
-        error: 'Sponsorship batch availability could not be loaded.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/public/funding-config',
-      '/api/public/funding-config'
-    )
-  ) {
-    const runtimeConfig: PublicFundingRuntimeConfig = {
-      business_sponsorship_enabled: businessSponsorshipEnabled,
-      allowed_contribution_amounts: [...allowedContributionAmounts],
-      last_updated_at: new Date().toISOString()
-    };
-    writeJson(request, response, 200, runtimeConfig);
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/public/fund-transparency',
-      '/api/public/fund-transparency'
-    )
-  ) {
-    try {
-      const summary = hasDatabase
-        ? await getPublicTransparencySummary(dbPool)
-        : readStripeTransparency
-          ? await readStripeTransparency()
-          : await getPublicTransparencySummary(null);
-
-      writeJson(request, response, 200, summary);
-    } catch (error) {
-      console.error('Failed to build public fund transparency summary.', error);
-      writeJson(request, response, 502, {
-        error: 'Public fund transparency summary could not be loaded.'
-      });
-    }
-    return;
-  }
+  if (await handlePublicFundingRequest(request, response)) return;
 
   if (request.method === 'GET' && routeMatches(request.url, '/health')) {
     writeText(request, response, 200, 'ok');
