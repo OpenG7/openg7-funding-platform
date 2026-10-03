@@ -11,6 +11,8 @@ export const readFundingApiSource = () => {
     'admin-accounting.http.ts',
     'admin-assistant.http.ts',
     'admin-sponsorship-records.http.ts',
+    'admin-sponsorship-decisions.http.ts',
+    'admin-sponsorship-media.http.ts',
     'admin-pilotage.http.ts',
     'admin-publication-automation.http.ts',
     'public-funding.http.ts',
