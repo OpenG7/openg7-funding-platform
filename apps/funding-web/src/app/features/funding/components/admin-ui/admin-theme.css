@@ -3,14 +3,35 @@
   --admin-sidebar: var(--og7-admin-sidebar, #0d1b2c);
   --admin-panel: var(--og7-admin-panel, #142338);
   --admin-panel-raised: var(--og7-admin-raised, #1b2d44);
+  --admin-subtle: var(--og7-admin-subtle, #102033);
   --admin-border: var(--og7-admin-border, #344860);
   --admin-text: var(--og7-admin-text, #f1f5fc);
   --admin-muted: var(--og7-admin-muted, #bdcbe0);
   --admin-gold: var(--og7-admin-gold, var(--gold-400, #f4c957));
   --admin-focus: var(--og7-admin-focus, #9edaff);
+  --admin-accent: var(--og7-admin-accent, #9edaff);
+  --admin-selected: var(--og7-admin-selected, #243d53);
   --admin-success: var(--og7-admin-success, #a1e7b1);
+  --admin-success-bg: var(--og7-admin-success-bg, #163c2e);
   --admin-warning: var(--og7-admin-warning, #ffda85);
+  --admin-warning-bg: var(--og7-admin-warning-bg, #3b3020);
   --admin-danger: var(--og7-admin-danger, #ffb5bc);
+  --admin-danger-bg: var(--og7-admin-danger-bg, #402630);
+  --admin-success-border: color-mix(
+    in srgb,
+    var(--admin-success) 50%,
+    var(--admin-border)
+  );
+  --admin-warning-border: color-mix(
+    in srgb,
+    var(--admin-warning) 50%,
+    var(--admin-border)
+  );
+  --admin-danger-border: color-mix(
+    in srgb,
+    var(--admin-danger) 50%,
+    var(--admin-border)
+  );
   color: var(--admin-text);
   font-family: var(--admin-font-family, 'Segoe UI', system-ui, sans-serif);
   line-height: var(--admin-body-leading, 1.5);

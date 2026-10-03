@@ -8,6 +8,133 @@ import { expect, test } from './support/test.js';
 import { setupFixture } from './support/setup-fixtures.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
 
+for (const theme of ['night', 'mineral', 'graphite']) {
+  for (const language of ['fr-CA', 'en']) {
+    test(`backup states and opaque status contrast in ${theme} with ${language}`, async ({
+      page
+    }) => {
+      const en = language === 'en';
+      await page.setViewportSize({ width: en ? 390 : 1440, height: 1050 });
+      await page.addInitScript(
+        ({ theme, language }) => {
+          localStorage.setItem('openg7.language', language);
+          localStorage.setItem(
+            'openg7.pilotage.appearance.v1',
+            JSON.stringify({ theme, system: false })
+          );
+          sessionStorage.setItem(
+            'openg7-admin-session-token',
+            'openg7-admin-session.backup-fixture'
+          );
+          sessionStorage.setItem(
+            'openg7-admin-session-expires-at',
+            '2099-01-01T00:00:00Z'
+          );
+        },
+        { theme, language }
+      );
+      const cockpit = cockpitFixtures();
+      const statuses = [
+        'queued',
+        'running',
+        'succeeded',
+        'failed',
+        'unknown'
+      ] as const;
+      const stamp = new Date().toISOString();
+      const jobs: AdminDatabaseBackup[] = statuses.map((status, index) => ({
+        requestId: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        source: 'manual',
+        status,
+        createdAt: stamp,
+        startedAt: status === 'queued' ? null : stamp,
+        finishedAt:
+          status === 'succeeded' || status === 'failed' ? stamp : null,
+        bytes: status === 'succeeded' ? 4096 : null,
+        sha256: status === 'succeeded' ? 'a'.repeat(64) : null,
+        retainUntil: status === 'succeeded' ? '2099-01-01T00:00:00Z' : null
+      }));
+      let workerState: AdminBackupsResponse['workerState'] = 'not_configured';
+      let writes = 0;
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (route.request().method() !== 'GET') writes++;
+        if (path.endsWith('/setup-status'))
+          return route.fulfill({ json: setupFixture() });
+        if (path.endsWith('/cockpit/systems'))
+          return route.fulfill({ json: cockpit.systems });
+        if (path.endsWith('/cockpit/activity'))
+          return route.fulfill({ json: cockpit.activity });
+        if (!path.endsWith('/backups'))
+          return route.fulfill({ status: 503, json: {} });
+        return route.fulfill({
+          json: {
+            scope: 'database',
+            schedule: 'daily',
+            retentionDays: 30,
+            checkedAt: new Date().toISOString(),
+            lastWorkerAt: workerState === 'ready' ? stamp : null,
+            workerState,
+            jobs
+          } satisfies AdminBackupsResponse
+        });
+      });
+      await page.goto('/admin/fundraiser/setup?section=backups');
+      await expect(page.locator('html')).toHaveAttribute(
+        'data-og7-pilot-theme',
+        theme
+      );
+      const panel = page.locator('[data-og7="setup-backups"]');
+      const service = panel.locator('[data-og7="backup-service-state"]');
+      const request = panel.locator('[data-og7="backup-request"]');
+      const refresh = panel.getByRole('button', {
+        name: en ? 'Check backups' : 'Vérifier les sauvegardes',
+        exact: true
+      });
+      for (const state of ['not_configured', 'ready', 'unavailable'] as const) {
+        workerState = state;
+        await refresh.click();
+        await expect(service).toHaveAttribute('data-state', state);
+        await expect(request).toBeDisabled();
+        const audit = await new AxeBuilder({ page })
+          .include('[data-og7="backup-service-state"]')
+          .withRules(['color-contrast'])
+          .analyze();
+        expect(audit.violations).toEqual([]);
+        expect(audit.incomplete).toEqual([]);
+      }
+      const rows = panel.locator('[data-og7="backup-history-row"]');
+      await expect(rows).toHaveCount(statuses.length);
+      const badges = rows
+        .locator(':scope > [data-state]')
+        .filter({ hasText: /\S/ });
+      await expect(badges).toHaveCount(statuses.length);
+      for (let index = 0; index < statuses.length; index++) {
+        await expect(badges.nth(index)).toHaveAttribute(
+          'data-state',
+          statuses[index]!
+        );
+        await expect(badges.nth(index)).toBeVisible();
+      }
+      // Mobile history has transparent status text on a radial gradient, whose
+      // contrast Axe cannot determine. Only opaque surfaces are audited here.
+      if (!en) {
+        const audit = await new AxeBuilder({ page })
+          .include('[data-og7="backup-history-row"] > [data-state]')
+          .withRules(['color-contrast'])
+          .analyze();
+        expect(audit.violations).toEqual([]);
+        expect(audit.incomplete).toEqual([]);
+      }
+      await expect(page.locator('body')).toHaveJSProperty(
+        'scrollWidth',
+        await page.evaluate(() => document.documentElement.clientWidth)
+      );
+      expect(writes).toBe(0);
+    });
+  }
+}
+
 for (const language of ['fr-CA', 'en']) {
   test(`backup setup confirms once, recovers a lost response and remains accessible in ${language}`, async ({
     page

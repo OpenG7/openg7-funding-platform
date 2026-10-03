@@ -1,35 +1,8 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { sep } from 'node:path';
 import test from 'node:test';
 
-const cli = createRequire(import.meta.url).resolve('@playwright/test/cli');
-
-// Ask Playwright to discover tests without starting browsers, servers or teardown.
-// This catches lost coverage and duplicate execution across the real configs.
-function discover(config, isolated = false) {
-  const env = { ...process.env, OPENG7_E2E_ISOLATED: isolated ? '1' : '0' };
-  for (const key of [
-    'PLAYWRIGHT_JSON_OUTPUT_DIR',
-    'PLAYWRIGHT_JSON_OUTPUT_NAME',
-    'PLAYWRIGHT_JSON_OUTPUT_FILE'
-  ])
-    delete env[key];
-  const report = JSON.parse(
-    execFileSync(
-      process.execPath,
-      [cli, 'test', '--list', '--reporter=json', '--config', config],
-      { env, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, windowsHide: true }
-    )
-  );
-  assert.deepEqual(report.errors, []);
-  const specs = (suite) => [
-    ...(suite.specs ?? []),
-    ...(suite.suites ?? []).flatMap(specs)
-  ];
-  return { specs: specs(report), projects: report.config.projects };
-}
+import { discoverPlaywright as discover } from './ui/discover-playwright.mjs';
 
 test('follow-up fixtures run once in isolation while persisted journeys remain in Docker', () => {
   const fixtures = new Set([

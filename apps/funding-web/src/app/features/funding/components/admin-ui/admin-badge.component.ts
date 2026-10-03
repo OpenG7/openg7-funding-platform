@@ -7,34 +7,35 @@ export type AdminBadgeTone = 'neutral' | 'success' | 'warning' | 'danger';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<span [attr.data-tone]="tone()"><ng-content /></span>`,
+  styleUrls: ['./admin-theme.css'],
   styles: [
     `
       :host {
         display: inline-flex;
       }
       span {
-        background: #213650;
-        border: 1px solid #526980;
+        background: var(--admin-panel-raised);
+        border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
-        color: #dce8f8;
+        color: var(--admin-text);
         font-size: 0.8rem;
         font-weight: 600;
         padding: 0.25rem 0.6rem;
       }
       [data-tone='success'] {
-        background: #183d32;
-        border-color: #457e5d;
-        color: #a1e7b1;
+        background: var(--admin-success-bg);
+        border-color: var(--admin-success-border);
+        color: var(--admin-success);
       }
       [data-tone='warning'] {
-        background: #3b3223;
-        border-color: #806b3b;
-        color: #ffda85;
+        background: var(--admin-warning-bg);
+        border-color: var(--admin-warning-border);
+        color: var(--admin-warning);
       }
       [data-tone='danger'] {
-        background: #432630;
-        border-color: #925565;
-        color: #ffb5bc;
+        background: var(--admin-danger-bg);
+        border-color: var(--admin-danger-border);
+        color: var(--admin-danger);
       }
     `
   ]

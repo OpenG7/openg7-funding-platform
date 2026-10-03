@@ -23,6 +23,7 @@ import {
       </div>
     </article>
   `,
+  styleUrls: ['./admin-theme.css'],
   styles: [
     `
       :host {
@@ -77,9 +78,9 @@ import {
       }
       .icon {
         align-items: center;
-        background: #203f64;
+        background: var(--admin-selected);
         border-radius: 0.8rem;
-        color: #9bcdff;
+        color: var(--admin-accent);
         display: inline-flex;
         flex: 0 0 auto;
         font-size: 1.6rem;
@@ -88,12 +89,12 @@ import {
         width: 3rem;
       }
       [data-tone='gold'] {
-        color: #ffda85;
-        background: #3b3529;
+        color: var(--admin-warning);
+        background: var(--admin-warning-bg);
       }
       [data-tone='green'] {
-        color: #a1e7b1;
-        background: #204639;
+        color: var(--admin-success);
+        background: var(--admin-success-bg);
       }
     `
   ]

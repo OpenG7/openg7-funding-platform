@@ -688,8 +688,8 @@ import type {
       }
 
       .tier-bronze {
-        background: #3b2d26;
-        color: #f2bd96;
+        background: var(--admin-warning-bg);
+        color: var(--admin-warning);
       }
 
       @keyframes selected-box-fade-in {

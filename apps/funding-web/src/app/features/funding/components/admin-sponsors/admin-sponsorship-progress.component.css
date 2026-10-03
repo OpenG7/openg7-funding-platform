@@ -6,7 +6,7 @@
 .progress-panel {
   background: var(--admin-panel, #142238);
   color: var(--admin-text, #edf2ff);
-  border: 1px solid #2c3c55;
+  border: 1px solid var(--admin-border);
   border-radius: 12px;
   padding: 1.2rem;
 }
@@ -56,7 +56,7 @@ dd {
   font-size: 0.78rem;
   overflow-wrap: anywhere;
   height: 100%;
-  border-top: 2px solid #61728a;
+  border-top: 2px solid var(--admin-border);
   padding-top: 0.5rem;
 }
 @container (max-width: 600px) {
@@ -67,19 +67,19 @@ dd {
 .step-marker {
   display: grid;
   place-items: center;
-  border: 1px solid #99abc4;
+  border: 1px solid var(--admin-border);
   border-radius: 50%;
   width: 1.6rem;
   height: 1.6rem;
 }
 [data-state='complete'] .step-marker {
-  background: #e6b65a;
-  color: #182132;
-  border-color: #e6b65a;
+  background: var(--admin-success-bg);
+  color: var(--admin-success);
+  border-color: var(--admin-success-border);
 }
 [data-state='error'] .step-marker,
 [data-state='blocked'] .step-marker {
-  border-color: #ffb2b4;
+  border-color: var(--admin-danger-border);
 }
 small,
 .help {
@@ -147,16 +147,16 @@ button:focus-visible {
   gap: 0.3rem;
 }
 .streamlined .milestones a[aria-current='step'] {
-  background: #f4c9570b;
+  background: var(--admin-warning-bg);
   border-top-color: var(--admin-gold);
 }
 .streamlined .milestones a:hover {
   background: var(--admin-panel-raised);
 }
 .streamlined [data-state='complete'] .step-marker {
-  background: #a1e7b117;
+  background: var(--admin-success-bg);
   color: var(--admin-success);
-  border-color: #a1e7b150;
+  border-color: var(--admin-success-border);
 }
 .streamlined .step-marker {
   width: 1.45rem;
@@ -168,8 +168,8 @@ button:focus-visible {
   font-size: 0.67rem;
 }
 .streamlined .next-step {
-  background: #9edaff08;
-  border: 1px solid #9edaff30;
+  background: var(--admin-subtle);
+  border: 1px solid var(--admin-border);
   border-radius: 0.75rem;
   padding: 0.8rem 1rem;
   font-size: 0.85rem;

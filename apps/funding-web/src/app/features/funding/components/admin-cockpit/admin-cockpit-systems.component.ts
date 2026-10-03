@@ -25,7 +25,7 @@ import { AdminStripeStatusComponent } from './admin-stripe-status.component.js';
     AdminStripeStatusComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styleUrls: ['./admin-cockpit.css'],
+  styleUrls: ['./admin-cockpit.css', './admin-system-status.css'],
   template: `
     <section
       class="panel"

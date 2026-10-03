@@ -310,12 +310,9 @@ export class FundingAdminService {
   async publicationMedia(): Promise<
     { id: string; url: string; alt: string; company: string }[]
   > {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-automation/media`,
-      {
-        cache: 'no-store',
-        headers: await this.session.createHeaders(this.getSavedAdminToken())
-      }
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-automation/media',
+      { auth: 'saved', cache: 'no-store' }
     );
     if (!response.ok) throw new Error('AUTOMATION_UNAVAILABLE');
     return response.json() as Promise<
@@ -852,14 +849,14 @@ export class FundingAdminService {
     query: AdminSearchRequest,
     signal: AbortSignal
   ): Promise<AdminSearchResponse> {
-    const headers = await this.session.createHeaders(token);
-    signal.throwIfAborted();
-    const response = await fetch(`${this.session.apiBaseUrl}/admin/search`, {
+    const response = await this.session.requestAdminJson('/admin/search', {
+      auth: { token },
       method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(query),
+      headers: { 'Content-Type': 'application/json' },
+      body: query,
       signal,
-      cache: 'no-store'
+      cache: 'no-store',
+      abortBeforeFetch: true
     });
     if (!response.ok) throw new AdminDashboardRequestError(response.status);
     return (await response.json()) as AdminSearchResponse;
@@ -872,12 +869,9 @@ export class FundingAdminService {
     const params = contributionId
       ? '?' + new URLSearchParams({ contributionId })
       : '';
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/contributions${params}`,
-      {
-        method: 'GET',
-        headers: await this.session.createHeaders(token)
-      }
+    const response = await this.session.requestAdminJson(
+      `/admin/contributions${params}`,
+      { auth: { token }, method: 'GET' }
     );
 
     if (!response.ok) {
@@ -891,17 +885,14 @@ export class FundingAdminService {
     token: string,
     selection: AdminContributionsExportRequest
   ): Promise<string> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/contributions.csv`,
+    const response = await this.session.requestAdminJson(
+      '/admin/contributions.csv',
       {
+        auth: { token },
         method: 'POST',
         cache: 'no-store',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          Accept: 'text/csv',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(selection)
+        headers: { Accept: 'text/csv', 'Content-Type': 'application/json' },
+        body: selection
       }
     );
 
@@ -916,13 +907,9 @@ export class FundingAdminService {
     token: string,
     expenseId?: string
   ): Promise<AdminExpensesResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/expenses${expenseId ? '?expenseId=' + encodeURIComponent(expenseId) : ''}`,
-      {
-        method: 'GET',
-        cache: 'no-store',
-        headers: await this.session.createHeaders(token)
-      }
+    const response = await this.session.requestAdminJson(
+      `/admin/expenses${expenseId ? '?expenseId=' + encodeURIComponent(expenseId) : ''}`,
+      { auth: { token }, method: 'GET', cache: 'no-store' }
     );
 
     if (!response.ok) {
@@ -936,13 +923,11 @@ export class FundingAdminService {
     token: string,
     payload: AdminExpenseCreateRequest
   ): Promise<AdminExpenseMutationResult> {
-    const response = await fetch(`${this.session.apiBaseUrl}/admin/expenses`, {
+    const response = await this.session.requestAdminJson('/admin/expenses', {
+      auth: { token },
       method: 'POST',
-      headers: {
-        ...(await this.session.createHeaders(token)),
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
     });
 
     if (!response.ok) {
@@ -956,15 +941,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminExpenseUpdateRequest
   ): Promise<AdminExpenseMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/expenses/update`,
+    const response = await this.session.requestAdminJson(
+      '/admin/expenses/update',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -977,12 +960,9 @@ export class FundingAdminService {
   }
 
   async getTransparency(token: string): Promise<AdminTransparencyResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/transparency`,
-      {
-        method: 'GET',
-        headers: await this.session.createHeaders(token)
-      }
+    const response = await this.session.requestAdminJson(
+      '/admin/transparency',
+      { auth: { token }, method: 'GET' }
     );
 
     if (!response.ok) {
@@ -996,12 +976,9 @@ export class FundingAdminService {
     token: string,
     id?: string
   ): Promise<AdminPublicationDraftsResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-drafts${id ? '?draftId=' + encodeURIComponent(id) : ''}`,
-      {
-        method: 'GET',
-        headers: await this.session.createHeaders(token)
-      }
+    const response = await this.session.requestAdminJson(
+      `/admin/publication-drafts${id ? '?draftId=' + encodeURIComponent(id) : ''}`,
+      { auth: { token }, method: 'GET' }
     );
 
     if (!response.ok) {
@@ -1015,15 +992,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationDraftCreateRequest
   ): Promise<AdminPublicationDraftMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-drafts`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-drafts',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1038,15 +1013,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationDraftUpdateRequest
   ): Promise<AdminPublicationDraftMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-drafts/update`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-drafts/update',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1061,12 +1034,9 @@ export class FundingAdminService {
     token: string,
     id?: string
   ): Promise<AdminPublicationBatchesResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-batches${id ? '?batchId=' + encodeURIComponent(id) : ''}`,
-      {
-        method: 'GET',
-        headers: await this.session.createHeaders(token)
-      }
+    const response = await this.session.requestAdminJson(
+      `/admin/publication-batches${id ? '?batchId=' + encodeURIComponent(id) : ''}`,
+      { auth: { token }, method: 'GET' }
     );
 
     if (!response.ok) {
@@ -1080,15 +1050,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationBatchCreateRequest
   ): Promise<AdminPublicationBatchMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-batches`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-batches',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1103,12 +1071,9 @@ export class FundingAdminService {
     token: string,
     id?: string
   ): Promise<AdminPublicationSlotsResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-slots${id ? '?slotId=' + encodeURIComponent(id) : ''}`,
-      {
-        method: 'GET',
-        headers: await this.session.createHeaders(token)
-      }
+    const response = await this.session.requestAdminJson(
+      `/admin/publication-slots${id ? '?slotId=' + encodeURIComponent(id) : ''}`,
+      { auth: { token }, method: 'GET' }
     );
 
     if (!response.ok) {
@@ -1122,15 +1087,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationSlotCreateRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-slots`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-slots',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1145,15 +1108,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationSlotUpdateRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-slots/update`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-slots/update',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1168,15 +1129,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationSlotAssignBatchRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-slots/assign-batch`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-slots/assign-batch',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1191,15 +1150,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationSlotAssignDraftRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-slots/assign-draft`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-slots/assign-draft',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1214,15 +1171,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationSlotLifecycleRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-slots/publish`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-slots/publish',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1237,15 +1192,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationSlotLifecycleRequest
   ): Promise<AdminPublicationSlotMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-slots/cancel`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-slots/cancel',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1260,15 +1213,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationBatchAssignRequest
   ): Promise<AdminPublicationDraftMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-batches/assign`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-batches/assign',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1283,15 +1234,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationBatchUnassignRequest
   ): Promise<AdminPublicationDraftMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-batches/unassign`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-batches/unassign',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1306,15 +1255,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationBatchScheduleRequest
   ): Promise<AdminPublicationBatchMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-batches/schedule`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-batches/schedule',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1329,15 +1276,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationBatchLifecycleRequest
   ): Promise<AdminPublicationBatchMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-batches/publish`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-batches/publish',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1351,12 +1296,9 @@ export class FundingAdminService {
   async getSocialPublicationJobs(
     token: string
   ): Promise<AdminSocialPublicationJobsResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/social-publication-jobs`,
-      {
-        method: 'GET',
-        headers: await this.session.createHeaders(token)
-      }
+    const response = await this.session.requestAdminJson(
+      '/admin/social-publication-jobs',
+      { auth: { token }, method: 'GET' }
     );
 
     if (!response.ok) {
@@ -1370,15 +1312,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminSocialPublicationBatchPublishRequest
   ): Promise<AdminSocialPublicationBatchPublishResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-batches/publish-social`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-batches/publish-social',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1398,15 +1338,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminPublicationBatchLifecycleRequest
   ): Promise<AdminPublicationBatchMutationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/publication-batches/cancel`,
+    const response = await this.session.requestAdminJson(
+      '/admin/publication-batches/cancel',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1421,13 +1359,9 @@ export class FundingAdminService {
     token: string,
     entryId?: string
   ): Promise<AdminAuditLogResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/audit-log${entryId ? '?entryId=' + encodeURIComponent(entryId) : ''}`,
-      {
-        method: 'GET',
-        cache: 'no-store',
-        headers: await this.session.createHeaders(token)
-      }
+    const response = await this.session.requestAdminJson(
+      `/admin/audit-log${entryId ? '?entryId=' + encodeURIComponent(entryId) : ''}`,
+      { auth: { token }, method: 'GET', cache: 'no-store' }
     );
 
     if (!response.ok) {
@@ -1465,12 +1399,12 @@ export class FundingAdminService {
       }
     }
 
-    const url = `${this.session.apiBaseUrl}/admin/sponsorships${
+    const url = `/admin/sponsorships${
       params.toString() ? `?${params.toString()}` : ''
     }`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: await this.session.createHeaders(token)
+    const response = await this.session.requestAdminJson(url, {
+      auth: { token },
+      method: 'GET'
     });
 
     if (!response.ok) {
@@ -1497,13 +1431,9 @@ export class FundingAdminService {
     body.set('expectedVersion', expectedVersion);
     body.set('logo', logo);
 
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/logo`,
-      {
-        method: 'POST',
-        headers: await this.session.createHeaders(token),
-        body
-      }
+    const response = await this.session.requestAdmin(
+      '/admin/sponsorships/logo',
+      { auth: { token }, method: 'POST', body }
     );
 
     if (!response.ok) {
@@ -1524,15 +1454,9 @@ export class FundingAdminService {
     contributionId: string
   ): Promise<Blob> {
     const params = new URLSearchParams({ contributionId });
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/logo?${params.toString()}`,
-      {
-        method: 'GET',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          Accept: 'image/*'
-        }
-      }
+    const response = await this.session.requestAdminJson(
+      `/admin/sponsorships/logo?${params.toString()}`,
+      { auth: { token }, method: 'GET', headers: { Accept: 'image/*' } }
     );
 
     if (!response.ok) {
@@ -1547,15 +1471,13 @@ export class FundingAdminService {
     contributionId: string,
     expectedVersion: string
   ): Promise<AdminSponsorLogoDeleteResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/logo/delete`,
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/logo/delete',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ contributionId, expectedVersion })
+        headers: { 'Content-Type': 'application/json' },
+        body: { contributionId, expectedVersion }
       }
     );
 
@@ -1577,9 +1499,9 @@ export class FundingAdminService {
     contributionId: string
   ): Promise<SponsorshipMediaResponse> {
     const params = new URLSearchParams({ contributionId });
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/media?${params.toString()}`,
-      { headers: await this.session.createHeaders(token) }
+    const response = await this.session.requestAdminJson(
+      `/admin/sponsorships/media?${params.toString()}`,
+      { auth: { token } }
     );
     if (!response.ok) {
       throw new AdminDashboardRequestError(
@@ -1594,14 +1516,9 @@ export class FundingAdminService {
   }
 
   async getSponsorMediaPreview(token: string, assetId: string): Promise<Blob> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/media/content/${encodeURIComponent(assetId)}`,
-      {
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          Accept: 'image/*'
-        }
-      }
+    const response = await this.session.requestAdminJson(
+      `/admin/sponsorships/media/content/${encodeURIComponent(assetId)}`,
+      { auth: { token }, headers: { Accept: 'image/*' } }
     );
     if (!response.ok) {
       throw new AdminDashboardRequestError(
@@ -1616,15 +1533,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminSponsorMediaReviewRequest
   ): Promise<AdminSponsorMediaReviewResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/media/review`,
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/media/review',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
     if (!response.ok) {
@@ -1643,15 +1558,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminSponsorMediaDeleteRequest
   ): Promise<SponsorMediaDeleteResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/media/delete`,
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/media/delete',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
     if (!response.ok) {
@@ -1709,15 +1622,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminSponsorshipReviewRequest
   ): Promise<AdminSponsorshipReviewResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/review`,
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/review',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1738,15 +1649,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminSponsorshipRefundRequest
   ): Promise<AdminSponsorshipRefundResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/refund`,
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/refund',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1769,15 +1678,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminSponsorshipPublicationRequest
   ): Promise<AdminSponsorshipPublicationResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/publication`,
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/publication',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -1798,15 +1705,13 @@ export class FundingAdminService {
     token: string,
     payload: SponsorshipWebsiteVisibilityRequest
   ): Promise<void> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorships/website-visibility`,
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorships/website-visibility',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
     if (!response.ok)

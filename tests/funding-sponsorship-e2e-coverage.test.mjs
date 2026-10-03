@@ -1,3 +1,4 @@
+import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { readFundingHomeSource } from './support/funding-home-source.mjs';
 import { readFundingAdminSource } from './support/funding-admin-source.mjs';
 import { readSponsorshipFollowupSource } from './support/sponsorship-followup-source.mjs';
@@ -30,7 +31,7 @@ test('E2E 1/8: enterprise sponsorship checkout returns with recovery token', () 
   const fundingService = read(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts'
   );
-  const api = read('apps/funding-api/src/main.ts');
+  const api = readFundingApiSource();
   const checkoutMetadataBlock = extractBetween(
     api,
     'const checkoutMetadata',
@@ -94,7 +95,7 @@ test('E2E 2/8: sponsor can reopen token follow-up and submit company details', (
   const fundingService = read(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts'
   );
-  const api = read('apps/funding-api/src/main.ts');
+  const api = readFundingApiSource();
 
   assertIncludesAll(
     routes,
@@ -155,7 +156,7 @@ test('E2E 2/8: sponsor can reopen token follow-up and submit company details', (
 
 test('E2E 3/8: invalid or missing follow-up token stays private and shows an error', () => {
   const followupPage = readSponsorshipFollowupSource();
-  const api = read('apps/funding-api/src/main.ts');
+  const api = readFundingApiSource();
 
   assertIncludesAll(
     followupPage,
@@ -189,7 +190,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
   );
   const adminService = readFundingAdminSource();
-  const api = read('apps/funding-api/src/main.ts');
+  const api = readFundingApiSource();
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'
   );
@@ -295,7 +296,7 @@ test('E2E 5/8: admin can approve, reset, reject, or refund sponsorship visibilit
   const adminService = read(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
   );
-  const api = read('apps/funding-api/src/main.ts');
+  const api = readFundingApiSource();
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'
   );
@@ -389,7 +390,7 @@ test('E2E 6/8: admin can prepare OpenG7/OpenG20 Facebook and LinkedIn feed place
   const adminService = read(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
   );
-  const api = read('apps/funding-api/src/main.ts');
+  const api = readFundingApiSource();
   const repository = read(
     'apps/funding-api/src/fund-contributions.repository.ts'
   );
@@ -538,7 +539,7 @@ test('E2E 8/9: sponsor follow-up page shows pending review status before details
   const adminService = read(
     'apps/funding-web/src/app/features/funding/services/funding-admin.service.ts'
   );
-  const api = read('apps/funding-api/src/main.ts');
+  const api = readFundingApiSource();
 
   assertIncludesAll(
     followupPage,

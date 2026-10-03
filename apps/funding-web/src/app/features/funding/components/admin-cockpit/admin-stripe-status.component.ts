@@ -18,7 +18,10 @@ import { systemExpired, systemState } from './system-state.js';
   standalone: true,
   imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styleUrl: './admin-stripe-status.component.css',
+  styleUrls: [
+    './admin-stripe-status.component.css',
+    './admin-system-status.css'
+  ],
   template: `
     @if (!system().connection) {
       <span class="check">

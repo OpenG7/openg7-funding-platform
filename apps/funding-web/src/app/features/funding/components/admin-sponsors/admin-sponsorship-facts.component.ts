@@ -158,7 +158,7 @@ import { AdminSponsorshipPublicationComponent } from './admin-sponsorship-public
         font-weight: var(--admin-control-weight);
       }
       a:focus-visible {
-        outline: 3px solid #296fc8;
+        outline: 3px solid var(--admin-focus);
         outline-offset: 3px;
       }
     `

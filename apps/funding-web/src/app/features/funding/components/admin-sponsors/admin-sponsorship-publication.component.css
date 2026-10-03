@@ -26,8 +26,8 @@ footer {
   letter-spacing: normal;
 }
 .benefits {
-  background: #a1e7b108;
-  border: 1px solid #a1e7b130;
+  background: var(--admin-success-bg);
+  border: 1px solid var(--admin-success-border);
   border-radius: 0.8rem;
   padding: 1rem;
 }
@@ -56,8 +56,8 @@ footer {
 }
 .completion.is-complete {
   --completion-color: var(--admin-success);
-  border-color: #a1e7b145;
-  background: linear-gradient(110deg, #a1e7b112, #a1e7b103);
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
 }
 .completion-icon,
 .channel-icon,
@@ -196,7 +196,7 @@ article[data-state='publishing'] {
 }
 .blockers {
   padding: 1rem;
-  border: 1px solid #94676f;
+  border: 1px solid var(--admin-danger-border);
   border-radius: 0.75rem;
 }
 .blockers a,
@@ -226,12 +226,12 @@ article .actions {
   align-items: center;
 }
 .directory-link {
-  background: #a1e7b11a;
-  border-color: #a1e7b16b;
+  background: var(--admin-success-bg);
+  border-color: var(--admin-success-border);
   color: var(--admin-success);
 }
 .directory-link:hover {
-  background: #a1e7b129;
+  background: var(--admin-success-bg);
   border-color: var(--admin-success);
 }
 .directory-link openg7-admin-icon {
@@ -252,7 +252,7 @@ article .actions {
 }
 .hide-profile:hover {
   border-color: var(--admin-danger);
-  background: #ffb5bc0a;
+  background: var(--admin-danger-bg);
 }
 .website-feedback {
   padding: 0.65rem 0.85rem;

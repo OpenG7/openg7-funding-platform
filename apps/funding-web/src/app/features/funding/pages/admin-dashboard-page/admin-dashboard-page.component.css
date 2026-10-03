@@ -165,9 +165,9 @@ dd {
 }
 .contribution-icon {
   align-items: center;
-  background: #213952;
+  background: var(--admin-selected);
   border-radius: 0.55rem;
-  color: #b5d6fb;
+  color: var(--admin-accent);
   display: flex;
   flex: 0 0 auto;
   height: 2.6rem;
@@ -203,7 +203,7 @@ dd {
 }
 .notice-error {
   background: var(--og7-admin-danger-bg, #34222d);
-  border-color: #925565;
+  border-color: var(--admin-danger-border);
   color: var(--admin-danger);
 }
 .empty {

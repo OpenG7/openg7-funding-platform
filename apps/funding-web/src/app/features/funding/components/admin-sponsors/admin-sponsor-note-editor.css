@@ -12,9 +12,9 @@
 
 .note-draft {
   padding: 0.2rem 0.55rem;
-  border: 1px solid #ffda8540;
+  border: 1px solid var(--admin-warning-border);
   border-radius: 999px;
-  background: #ffda850b;
+  background: var(--admin-warning-bg);
   color: var(--admin-warning);
   font-size: 0.7rem;
 }
@@ -85,9 +85,9 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.35rem 0.65rem;
-  border: 1px solid #f4c95740;
+  border: 1px solid var(--admin-warning-border);
   border-radius: 999px;
-  background: #f4c9570b;
+  background: var(--admin-warning-bg);
   color: var(--admin-gold);
   font-size: 0.75rem;
   font-weight: var(--admin-label-weight);

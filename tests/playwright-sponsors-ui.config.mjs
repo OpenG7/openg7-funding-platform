@@ -1,8 +1,6 @@
-import { defineConfig } from '@playwright/test';
-import publicPageConfig from './playwright-about-ui.config.mjs';
+import { definePublicPageSuite } from './ui/playwright-fixtures.config.mjs';
 
-export default defineConfig({
-  ...publicPageConfig,
+export default definePublicPageSuite({
   testMatch: 'sponsors-public.spec.ts',
   outputDir: '../test-results/sponsors'
 });

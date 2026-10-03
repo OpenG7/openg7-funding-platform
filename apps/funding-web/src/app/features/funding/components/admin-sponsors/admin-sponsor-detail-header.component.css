@@ -13,8 +13,8 @@
 :host .sponsor-avatar.large {
   height: 3.25rem;
   width: 3.25rem;
-  background: #f4c95712;
-  border: 1px solid #f4c95740;
+  background: var(--admin-warning-bg);
+  border: 1px solid var(--admin-warning-border);
   color: var(--admin-gold);
   border-radius: 1rem;
 }

@@ -62,6 +62,18 @@ test('interactive startup asks for the environment; unattended startup requires 
   );
   for (const invalid of ['toString', '__proto__', 'constructor', undefined])
     assert.throws(() => normalizeDockerEnvironment(invalid), /invalide/);
+  for (const invalid of [
+    'toString',
+    '__proto__',
+    'constructor',
+    'local-other'
+  ]) {
+    assert.throws(
+      () => parseDockerUpArgs([`--env=${invalid}`]),
+      /invalide/,
+      'Invalid modes must not become a startup plan through shared normalization'
+    );
+  }
   assert.throws(
     () => parseDockerUpArgs(['--environment', 'dev', '--env=prod']),
     /seul/

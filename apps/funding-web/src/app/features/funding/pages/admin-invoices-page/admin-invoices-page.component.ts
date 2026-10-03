@@ -682,7 +682,7 @@ interface DocumentDownload {
       .admin-topbar {
         align-items: center;
         background: var(--admin-panel-raised);
-        border: 1px solid rgba(23, 32, 51, 0.1);
+        border: 1px solid var(--admin-border);
         border-radius: 0.5rem;
         display: flex;
         gap: 1rem;
@@ -743,7 +743,7 @@ interface DocumentDownload {
 
       .secondary-action {
         background: var(--admin-panel);
-        border: 1px solid rgba(23, 32, 51, 0.18);
+        border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
         color: var(--admin-text);
         font-weight: var(--admin-label-weight);
@@ -760,7 +760,7 @@ interface DocumentDownload {
 
       .state {
         background: var(--admin-panel-raised);
-        border: 1px solid rgba(23, 32, 51, 0.1);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         color: var(--admin-muted);
         font-weight: 500;
@@ -769,7 +769,7 @@ interface DocumentDownload {
 
       .state-error {
         background: var(--admin-panel-raised);
-        border-color: rgba(179, 38, 30, 0.22);
+        border-color: var(--admin-danger-border);
         color: var(--admin-danger);
       }
 
@@ -783,7 +783,7 @@ interface DocumentDownload {
       .invoice-list-panel,
       .invoice-detail-panel {
         background: var(--admin-panel-raised);
-        border: 1px solid rgba(23, 32, 51, 0.1);
+        border: 1px solid var(--admin-border);
         border-radius: 0.5rem;
         box-shadow: 0 0.8rem 1.8rem rgba(23, 32, 51, 0.06);
       }
@@ -841,7 +841,7 @@ interface DocumentDownload {
 
       .invoice-list button {
         background: var(--admin-panel);
-        border: 1px solid rgba(23, 32, 51, 0.1);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         color: var(--admin-text);
         display: grid;
@@ -854,7 +854,7 @@ interface DocumentDownload {
 
       .invoice-list button:hover,
       .invoice-list button.selected {
-        border-color: rgba(184, 130, 36, 0.55);
+        border-color: var(--admin-warning-border);
         box-shadow: inset 0.25rem 0 0 #b98224;
       }
 
@@ -930,7 +930,7 @@ interface DocumentDownload {
       }
 
       .detail-header {
-        border-bottom: 1px solid rgba(23, 32, 51, 0.1);
+        border-bottom: 1px solid var(--admin-border);
         padding-bottom: 1rem;
       }
 
@@ -995,18 +995,18 @@ interface DocumentDownload {
       .credit-notes-panel,
       .email-panel {
         background: var(--admin-panel);
-        border: 1px solid rgba(23, 32, 51, 0.1);
+        border: 1px solid var(--admin-border);
         border-radius: 0.45rem;
         padding: 0.85rem;
       }
 
       .credit-notes-panel {
-        border-color: rgba(23, 78, 166, 0.22);
+        border-color: var(--admin-border);
       }
 
       .credit-note-card {
         background: var(--admin-panel);
-        border: 1px solid rgba(23, 78, 166, 0.16);
+        border: 1px solid var(--admin-border);
         border-radius: 0.4rem;
         display: grid;
         gap: 0.7rem;
@@ -1086,7 +1086,7 @@ interface DocumentDownload {
 
       input {
         background: var(--admin-panel);
-        border: 1px solid rgba(23, 32, 51, 0.16);
+        border: 1px solid var(--admin-border);
         border-radius: 0.35rem;
         color: var(--admin-text);
         font-family: inherit;

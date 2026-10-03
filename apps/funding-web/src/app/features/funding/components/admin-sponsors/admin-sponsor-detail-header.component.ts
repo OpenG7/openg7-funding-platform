@@ -157,7 +157,7 @@ import type { AdminSponsorDetailHeaderView } from '../../models/admin-sponsors-u
       }
 
       .icon-action:focus-visible {
-        outline: 3px solid rgba(37, 99, 235, 0.28);
+        outline: 3px solid var(--admin-focus);
         outline-offset: 2px;
       }
 
