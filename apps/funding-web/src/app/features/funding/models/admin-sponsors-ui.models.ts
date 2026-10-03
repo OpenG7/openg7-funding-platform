@@ -23,6 +23,33 @@ export interface AdminSponsorFeedStatusOption {
   readonly label: string;
 }
 
+export interface AdminSponsorHistoryEntryView {
+  readonly id: string;
+  readonly dateTimeLabel: string;
+  readonly label: string;
+  readonly detail?: string;
+  readonly stateClass?: string;
+}
+
+export interface AdminSponsorRefundHistoryView {
+  readonly statusClass: string;
+  readonly statusLabel: string;
+  readonly amountLabel: string;
+  readonly refundAmountLabel: string;
+  readonly refundReasonLabel: string;
+  readonly publicReferenceLabel: string;
+  readonly refundIdLabel: string;
+  readonly hasRefundWorkflow: boolean;
+  readonly refundNote: string | null;
+  readonly refundError: string | null;
+  readonly timelineEntries: readonly AdminSponsorHistoryEntryView[];
+  readonly auditEntries: readonly AdminSponsorHistoryEntryView[];
+}
+
+export interface AdminSponsorAuditHistoryView {
+  readonly entries: readonly AdminSponsorHistoryEntryView[];
+}
+
 export interface AdminSponsorDetailHeaderView {
   readonly initials: string;
   readonly companyName: string;

@@ -1996,12 +1996,10 @@ test('Admin sponsors publication channels are preselected from amount-based bene
   assert.ok(translatedUiSource(page).includes('isPromisedFeedChannel('));
   assert.match(
     page,
-    /publicationWorkflow\.isPromisedFeedChannel\(\s*selected,\s*'facebook'\s*\)/
+    /\[promisedChannels\]="\s*publicationWorkflow\.promisedFeedChannelsFor\(selected\)\s*"/
   );
-  assert.match(
-    page,
-    /publicationWorkflow\.isPromisedFeedChannel\(\s*selected,\s*'linkedin'\s*\)/
-  );
+  assert.match(page, /promisedChannels\(\)\.includes\('facebook'\)/);
+  assert.match(page, /promisedChannels\(\)\.includes\('linkedin'\)/);
   assert.ok(
     translatedUiSource(page).includes(
       'this.toPublicationDraft(sponsorship, false, false)'

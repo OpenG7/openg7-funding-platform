@@ -1003,6 +1003,7 @@
         "engine": "Suivre ce dossier dans le moteur",
         "authorization": "Préparer ne publie rien. Chaque envoi demande une validation du contenu et de la destination. Une simulation ne termine pas cette étape.",
         "advanced": "Paramètres avancés · visibilité et suivi manuel",
+        "promisedChannel": "Canal inclus par le palier de contribution",
         "filtered": "Publications liées à ce dossier",
         "collective": "Une publication collective peut inclure plusieurs commanditaires. Votre validation porte sur tout le contenu affiché.",
         "back": "Retour à l’étape 6",

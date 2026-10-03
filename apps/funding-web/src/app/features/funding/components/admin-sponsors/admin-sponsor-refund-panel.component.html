@@ -1,0 +1,154 @@
+<section
+  class="refund-workflow"
+  data-og7="dossier-refund-form"
+  [attr.aria-label]="'admin.legacy.remboursement_stripe' | translate"
+>
+  <header>
+    <div>
+      <span>Stripe</span>
+      <h3>
+        {{ 'admin.legacy.remboursement_stripe' | translate }}
+      </h3>
+    </div>
+    <button
+      type="button"
+      class="icon-action"
+      (click)="cancelled.emit()"
+      [disabled]="pending()"
+      [attr.aria-label]="'admin.legacy.fermer_le_remboursement' | translate"
+    >
+      ×
+    </button>
+  </header>
+
+  <p id="sponsor-refund-warning" class="refund-warning rejection-span-2">
+    {{
+      'admin.legacy.cette_action_declenche_un_remboursement_stripe_de_p0_sur_un_paiem'
+        | translate
+          : {
+              p0: draftAmountLabel(),
+              p1: paymentAmountLabel()
+            }
+    }}
+  </p>
+
+  <label
+    >{{ 'admin.legacy.montant_a_rembourser' | translate
+    }}<input
+      #refundAmountInput
+      aria-describedby="sponsor-refund-warning sponsor-refund-validation"
+      type="number"
+      min="0.01"
+      [max]="sponsorship().amount"
+      step="0.01"
+      inputmode="decimal"
+      [value]="draft().refundAmount"
+      (input)="draftFieldChange.emit({ field: 'refundAmount', event: $event })"
+  /></label>
+
+  <label
+    >{{ 'admin.legacy.raison_stripe' | translate
+    }}<select
+      [value]="draft().refundReason"
+      (change)="reasonChange.emit($event)"
+    >
+      <option value="requested_by_customer">
+        {{ 'admin.legacy.demande_du_commanditaire' | translate }}
+      </option>
+      <option value="duplicate">
+        {{ 'admin.legacy.paiement_en_double' | translate }}
+      </option>
+      <option value="fraudulent">
+        {{ 'admin.legacy.paiement_frauduleux' | translate }}
+      </option>
+    </select></label
+  >
+
+  <label class="rejection-span-2"
+    >{{ 'admin.legacy.texte_de_confirmation' | translate
+    }}<small
+      >{{ 'admin.legacy.recopiez' | translate
+      }}<code>{{ confirmationText() }}</code></small
+    ><input
+      type="text"
+      aria-describedby="sponsor-refund-validation"
+      autocomplete="off"
+      [value]="draft().confirmationText"
+      (input)="
+        draftFieldChange.emit({ field: 'confirmationText', event: $event })
+      "
+  /></label>
+
+  <label class="checkbox-line rejection-span-2">
+    <input
+      type="checkbox"
+      [checked]="draft().notifySponsor"
+      (change)="notifySponsorChange.emit($event)"
+    />
+    {{ 'admin.legacy.envoyer_le_courriel_de_remboursement' | translate }}</label
+  >
+
+  <label
+    >{{ 'admin.legacy.destinataire' | translate
+    }}<input
+      type="email"
+      autocomplete="email"
+      [disabled]="!draft().notifySponsor"
+      [value]="draft().recipientEmail"
+      (input)="
+        draftFieldChange.emit({ field: 'recipientEmail', event: $event })
+      "
+  /></label>
+
+  <label
+    >{{ 'admin.legacy.message_au_commanditaire_405' | translate
+    }}<textarea
+      rows="4"
+      maxlength="1000"
+      [disabled]="!draft().notifySponsor"
+      [value]="draft().sponsorMessage"
+      (input)="
+        draftFieldChange.emit({ field: 'sponsorMessage', event: $event })
+      "
+    ></textarea>
+  </label>
+
+  <label class="rejection-span-2"
+    >{{ 'admin.legacy.note_remboursement' | translate
+    }}<textarea
+      rows="3"
+      maxlength="1000"
+      [value]="draft().refundNote"
+      (input)="draftFieldChange.emit({ field: 'refundNote', event: $event })"
+    ></textarea>
+  </label>
+
+  <footer>
+    <span
+      id="sponsor-refund-validation"
+      class="inline-status"
+      aria-live="polite"
+      >{{ validationMessage() }}</span
+    >
+    <button
+      type="button"
+      class="secondary-action"
+      (click)="cancelled.emit()"
+      [disabled]="pending()"
+    >
+      {{ 'admin.legacy.annuler' | translate }}
+    </button>
+    <button
+      type="button"
+      class="review-button refund"
+      [disabled]="!canConfirm() || actionsDisabled()"
+      (click)="confirmed.emit()"
+    >
+      {{
+        busy()
+          ? ('admin.legacy.remboursement_406' | translate)
+          : ('admin.legacy.rembourser_stripe' | translate)
+      }}
+    </button>
+  </footer>
+</section>

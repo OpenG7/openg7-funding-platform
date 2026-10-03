@@ -1,0 +1,116 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+button {
+  align-items: center;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: var(--admin-control-weight);
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0 0.85rem;
+  text-decoration: none;
+}
+.secondary-action,
+.icon-action {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.icon-action {
+  min-height: 2.2rem;
+  padding: 0;
+  width: 2.2rem;
+}
+.inline-status {
+  color: var(--admin-muted);
+  font-weight: 400;
+}
+input,
+select,
+textarea {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  padding: 0.65rem 0.75rem;
+}
+textarea {
+  resize: vertical;
+}
+label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.84rem;
+  font-weight: var(--admin-label-weight);
+}
+header,
+footer {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+}
+footer {
+  flex-wrap: wrap;
+}
+header span {
+  font-size: 0.72rem;
+  font-weight: var(--admin-label-weight);
+  text-transform: uppercase;
+}
+h3 {
+  margin: 0.15rem 0 0;
+}
+.rejection-span-2 {
+  grid-column: 1 / -1;
+}
+.checkbox-line {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+.checkbox-line input {
+  min-height: auto;
+}
+.rejection-workflow {
+  background: var(--admin-panel);
+  border-top: 1px solid var(--admin-border);
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 1rem;
+}
+header span {
+  color: var(--admin-danger);
+}
+.review-button.reject {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-danger);
+}
+@media (max-width: 860px) {
+  .rejection-workflow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

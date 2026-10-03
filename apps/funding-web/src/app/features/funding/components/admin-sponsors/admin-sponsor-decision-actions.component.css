@@ -1,0 +1,163 @@
+:host {
+  display: block;
+  min-width: 0;
+  position: sticky;
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  z-index: 5;
+}
+button {
+  align-items: center;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: var(--admin-control-weight);
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0 0.85rem;
+  text-decoration: none;
+}
+button:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.detail-actions {
+  align-items: center;
+  background: linear-gradient(
+    110deg,
+    var(--admin-panel-raised, #193348f5),
+    var(--admin-panel, #0d2436fa)
+  );
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--admin-border, #426077);
+  border-radius: 0.9rem;
+  box-shadow: 0 12px 36px #00000040;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin: 1.5rem 1rem 1rem;
+  padding: 1rem;
+}
+.detail-actions-context {
+  display: grid;
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.detail-actions-context strong {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+}
+.detail-actions-context span {
+  font-size: 0.9rem;
+  font-weight: var(--admin-control-weight);
+}
+.detail-actions-context small {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+}
+.detail-actions-buttons {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.detail-actions-buttons button {
+  min-height: 2.75rem;
+}
+.review-button.neutral {
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+}
+.review-button.reject {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-danger);
+}
+.review-button.approve {
+  background: var(--og7-admin-success-bg, #193d32);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+}
+.review-button.refund {
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+}
+.review-toast {
+  animation: review-toast-in 0.22s ease both;
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.45rem;
+  box-shadow: 0 16px 34px rgb(15 23 42 / 24%);
+  color: var(--admin-text);
+  font-size: 0.86rem;
+  font-weight: 500;
+  margin: 0;
+  max-width: min(24rem, calc(100% - 2rem));
+  padding: 0.75rem 0.9rem;
+  pointer-events: none;
+  position: absolute;
+  bottom: calc(100% + 0.75rem);
+  right: 1rem;
+  z-index: 4;
+}
+@keyframes review-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 860px) {
+  :host {
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+  .detail-actions {
+    gap: 0.6rem;
+    margin-inline: 0.5rem;
+    padding: 0.75rem;
+  }
+  .detail-actions-context {
+    flex-basis: 100%;
+  }
+  .detail-actions-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .detail-actions-buttons button {
+    padding-inline: 0.5rem;
+  }
+}
+@media (max-width: 600px) {
+  .detail-actions-context {
+    display: none;
+  }
+  .detail-actions-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .detail-actions-buttons button {
+    flex: 1 1 auto;
+    font-size: 0.8rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .review-toast {
+    animation: none;
+  }
+}
