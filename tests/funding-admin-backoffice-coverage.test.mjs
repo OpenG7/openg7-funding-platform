@@ -1,3 +1,4 @@
+import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
 import { readFundingAdminSource } from './support/funding-admin-source.mjs';
@@ -54,9 +55,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     read(
       'apps/funding-web/src/app/features/funding/pages/admin-setup-page/admin-setup-page.component.html'
     );
-  const sponsorsPage = read(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts'
-  );
+  const sponsorsPage = readAdminSponsorsSource();
   const sponsorsListPanel = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsors-list-panel.component.ts'
   );

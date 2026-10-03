@@ -1,3 +1,4 @@
+import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { readEmailNotificationSource } from './support/email-notification-source.mjs';
 import { readFundingAdminSource } from './support/funding-admin-source.mjs';
@@ -268,10 +269,7 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
     'apps/funding-web/src/app/features/funding/pages/admin-contributions-page/admin-contributions-page.component.ts',
     'utf8'
   );
-  const adminSponsorsPage = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
-    'utf8'
-  );
+  const adminSponsorsPage = readAdminSponsorsSource();
 
   assert.ok(migration.includes('ADD COLUMN IF NOT EXISTS public_reference'));
   assert.ok(migration.includes('idx_fund_contributions_public_reference'));
@@ -1950,10 +1948,7 @@ test('Social publication provider is explicit, configurable, audited, and visibl
 });
 
 test('Admin sponsors page derives the sponsorship tier from the paid amount instead of showing nothing', () => {
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminSponsorsSource();
   const overviewComponent = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-overview.component.ts',
     'utf8'
@@ -1990,10 +1985,7 @@ test('Admin sponsors page derives the sponsorship tier from the paid amount inst
 });
 
 test('Admin sponsors publication channels are preselected from amount-based benefits', () => {
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminSponsorsSource();
 
   assert.ok(translatedUiSource(page).includes('benefitFeedChannelMap'));
   assert.ok(translatedUiSource(page).includes("facebook_batch: 'facebook'"));
@@ -2018,10 +2010,7 @@ test('Admin sponsors publication channels are preselected from amount-based bene
 });
 
 test('Admin sponsor rows are color-coded by processing state', () => {
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminSponsorsSource();
   const listPanel = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsors-list-panel.component.ts',
     'utf8'
@@ -2093,10 +2082,7 @@ test('Admin sponsor rows are color-coded by processing state', () => {
 test('Admin sponsor rejection requires a reason and can notify the sponsor', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminSponsorsSource();
   const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
@@ -2157,10 +2143,7 @@ test('Admin sponsor rejection requires a reason and can notify the sponsor', () 
 test('Admin sponsorship refund uses Stripe with explicit confirmation and audit', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminSponsorsSource();
   const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
@@ -2342,10 +2325,7 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
 test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const service = readFundingAdminSource();
-  const page = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/admin-sponsors-page/admin-sponsors-page.component.ts',
-    'utf8'
-  );
+  const page = readAdminSponsorsSource();
   const api = readFundingApiSource();
   const repository = fs.readFileSync(
     'apps/funding-api/src/fund-contributions.repository.ts',
