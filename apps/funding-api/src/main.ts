@@ -12,14 +12,7 @@ import type {
   AdminAssistantDraftType,
   AdminAssistantPrepareRequest,
   AdminAssistantQueryRequest,
-  AdminExpenseCreateRequest,
-  AdminExpenseUpdateRequest,
-  AdminSponsorshipCreditNoteResendRequest,
-  AdminSponsorshipCreditNoteResendResult,
   AdminSetupStatusResponse,
-  AdminTransparencyResponse,
-  AdminSponsorshipInvoiceBackfillRequest,
-  AdminSponsorshipInvoiceBackfillResult,
   AdminPublicationBatchAssignRequest,
   AdminPublicationBatchCreateRequest,
   AdminPublicationBatchLifecycleRequest,
@@ -41,8 +34,6 @@ import type {
   AdminSponsorLogoUploadResult,
   AdminSponsorshipStripeRefundReason,
   AdminSponsorshipRejectionRefundHandling,
-  AdminSponsorshipInvoiceResendRequest,
-  AdminSponsorshipInvoiceResendResult,
   AdminSponsorshipPublicationRequest,
   AdminSponsorshipPublicationResult,
   AdminSponsorshipRefundRequest,
@@ -75,13 +66,10 @@ import type {
 } from '@openg7/funding-core';
 
 import {
-  allocationAmountMinor,
   isValidSponsorshipAmount,
-  isPublicAllocationProofUrl,
   isSafeSponsorshipText,
   isSponsorshipEmail,
-  isSponsorshipHttpsUrl,
-  SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION
+  isSponsorshipHttpsUrl
 } from '../../../packages/funding-core/src/index.js';
 
 import {
@@ -156,6 +144,8 @@ import {
 } from './fund-admin.repository.js';
 import { dbPool, hasDatabase } from './database.js';
 import { createAdminContributionsHttpHandler } from './admin-contributions.http.js';
+import { createAdminDocumentsHttpHandler } from './admin-documents.http.js';
+import { createAdminAccountingHttpHandler } from './admin-accounting.http.js';
 import { createAdminEmailHttpHandler } from './admin-email.http.js';
 import { createAdminInsightsHttpHandler } from './admin-insights.http.js';
 import {
@@ -591,8 +581,6 @@ const PUBLICATION_BATCH_MIN_CAPACITY = 1;
 const PUBLICATION_BATCH_MAX_CAPACITY = 50;
 const PUBLICATION_SLOT_DEFAULT_TIMEZONE = 'America/Toronto';
 const PUBLICATION_SLOT_TIMEZONE_MAX_LENGTH = 64;
-const ADMIN_EXPENSE_NAME_MAX_LENGTH = 160;
-const ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH = 1000;
 const FOLLOWUP_TOKEN_BYTES = 32;
 const CONTRIBUTION_REFERENCE_BYTES = 6;
 const CONTRIBUTION_REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1232,29 +1220,6 @@ const isAllowedPublicationDraftStatus = (
     value as NonNullable<AdminPublicationDraftUpdateRequest['status']>
   );
 
-const isAllowedAdminExpenseStatus = (
-  value: unknown
-): value is NonNullable<AdminExpenseUpdateRequest['status']> =>
-  typeof value === 'string' &&
-  allowedAdminExpenseStatuses.has(
-    value as NonNullable<AdminExpenseUpdateRequest['status']>
-  );
-
-const allowedFundAchievementProgressStatuses = new Set([
-  'planned',
-  'in_progress',
-  'delivered'
-]);
-
-const isAllowedFundAchievementProgressStatus = (
-  value: unknown
-): value is 'planned' | 'in_progress' | 'delivered' =>
-  typeof value === 'string' &&
-  allowedFundAchievementProgressStatuses.has(value);
-
-const isValidAdminExpenseId = (value: unknown): value is string =>
-  typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value);
-
 const parseSponsorFeedChannelsFromRequest = (
   value: unknown
 ): readonly SponsorFeedChannel[] | null => {
@@ -1701,6 +1666,65 @@ const handleAdminContributionsRequest = createAdminContributionsHttpHandler({
     if (error === undefined) console.error(message);
     else console.error(message, error);
   }
+});
+
+const handleAdminDocumentsRequest = createAdminDocumentsHttpHandler({
+  publicBaseOrigin,
+  databaseAvailable: () => Boolean(dbPool),
+  ensureAdminAccess,
+  getAdminAuditActor,
+  readBody,
+  writeJson,
+  writePdf,
+  getTransactionalEmailConfigStatus,
+  isValidUuid,
+  isValidSponsorEmail,
+  listAdminSponsorshipInvoices: (contributionId) =>
+    listAdminSponsorshipInvoices(dbPool, contributionId),
+  backfillMissingSponsorshipInvoices: (input) =>
+    backfillMissingSponsorshipInvoices(dbPool!, input),
+  insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
+  getSponsorshipInvoiceById: (invoiceId) =>
+    getSponsorshipInvoiceById(dbPool!, invoiceId),
+  getAdminSponsorshipInvoiceById: (invoiceId) =>
+    getAdminSponsorshipInvoiceById(dbPool, invoiceId),
+  getSponsorshipCreditNoteById: (creditNoteId) =>
+    getSponsorshipCreditNoteById(dbPool!, creditNoteId),
+  getAdminSponsorshipCreditNoteById: (creditNoteId) =>
+    getAdminSponsorshipCreditNoteById(dbPool, creditNoteId),
+  renderSponsorshipInvoicePdf,
+  renderSponsorshipCreditNotePdf,
+  sponsorshipInvoicePdfFilename,
+  sponsorshipCreditNotePdfFilename,
+  queueAdminDocumentResend: (input, actor) =>
+    queueAdminDocumentResend(dbPool!, input, actor),
+  DocumentResendConflict,
+  reportFailure: (message, error) => {
+    if (error === undefined) console.error(message);
+    else console.error(message, error);
+  }
+});
+
+const handleAdminAccountingRequest = createAdminAccountingHttpHandler({
+  publicBaseOrigin,
+  ensureAdminAccess,
+  getAdminAuditActor,
+  readBody,
+  writeJson,
+  allowedAdminExpenseStatuses,
+  isNonEmptySponsorText,
+  isValidOptionalBoundedText,
+  isValidOptionalNonEmptyBoundedText,
+  isValidOptionalIsoDate,
+  isValidAdminExpectedVersion,
+  listAdminExpenses: (expenseId) => listAdminExpenses(dbPool, expenseId),
+  createAdminExpense: (input, audit) =>
+    createAdminExpense(dbPool, input, audit),
+  updateAdminExpense: (input, audit) =>
+    updateAdminExpense(dbPool, input, audit),
+  getPublicTransparencySummary: () => getPublicTransparencySummary(dbPool),
+  AdminExpenseValidationError,
+  reportFailure: (message, error) => console.error(message, error)
 });
 
 const handleAdminEmailRequest = createAdminEmailHttpHandler({
@@ -4356,477 +4380,7 @@ const handleRequest = async (
     return;
   }
 
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorship-invoices',
-      '/api/admin/sponsorship-invoices'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    try {
-      const result = await listAdminSponsorshipInvoices(
-        dbPool,
-        new URL(request.url ?? '/', publicBaseOrigin).searchParams.get(
-          'contributionId'
-        ) ?? undefined
-      );
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load admin sponsorship invoices.', error);
-      writeJson(request, response, 502, {
-        error:
-          'Admin sponsorship invoices could not be loaded. Apply migrations 010, 011 and 012.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorship-invoices/backfill',
-      '/api/admin/sponsorship-invoices/backfill'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    if (!dbPool) {
-      writeJson(request, response, 503, {
-        error: 'Invoice backfill requires DATABASE_URL and migrations 011/012.'
-      });
-      return;
-    }
-
-    let parsed: AdminSponsorshipInvoiceBackfillRequest;
-    try {
-      const body = await readBody(request, 16 * 1024);
-      const raw = body.trim()
-        ? (JSON.parse(
-            body
-          ) as Partial<AdminSponsorshipInvoiceBackfillRequest> | null)
-        : {};
-      if (
-        raw &&
-        'contributionId' in raw &&
-        (typeof raw.contributionId !== 'string' ||
-          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-            raw.contributionId
-          ))
-      ) {
-        throw new Error('Invalid contributionId');
-      }
-      parsed = {
-        contributionId: raw?.contributionId,
-        limit: typeof raw?.limit === 'number' ? raw.limit : undefined,
-        confirmation:
-          typeof raw?.confirmation === 'string' ? raw.confirmation : ''
-      };
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid invoice backfill request body.'
-      });
-      return;
-    }
-
-    if (
-      parsed.confirmation !==
-      (parsed.contributionId ?? SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION)
-    ) {
-      writeJson(request, response, 400, {
-        code: 'confirmation_required',
-        error: 'Confirm the invoice backfill scope before proceeding.'
-      });
-      return;
-    }
-
-    if (
-      parsed.limit !== undefined &&
-      (!Number.isInteger(parsed.limit) ||
-        parsed.limit < 1 ||
-        parsed.limit > 1000)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Invoice backfill limit must be an integer between 1 and 1000.'
-      });
-      return;
-    }
-
-    try {
-      const result = await backfillMissingSponsorshipInvoices(dbPool, parsed);
-
-      await insertAdminAuditLog(dbPool, {
-        actor: getAdminAuditActor(request),
-        action: 'sponsorship_invoice.backfill',
-        entityType: 'sponsorship_invoice',
-        entityId: null,
-        summary: `Sponsorship invoice backfill created ${result.created_count} invoice(s).`,
-        metadata: {
-          contributionId: parsed.contributionId ?? null,
-          eligibleCount: result.eligible_count,
-          missingCount: result.missing_count,
-          processedCount: result.processed_count,
-          createdCount: result.created_count,
-          skippedCount: result.skipped_count,
-          remainingCount: result.remaining_count,
-          failedCount: result.failed_count,
-          invoiceIds: result.invoiceIds
-        }
-      });
-
-      const payload: AdminSponsorshipInvoiceBackfillResult = result;
-      writeJson(request, response, 200, payload);
-    } catch (error) {
-      console.error('Failed to backfill sponsorship invoices.', error);
-      writeJson(request, response, 502, {
-        error:
-          'Sponsorship invoices could not be backfilled. Check migrations 011/012 and contribution data.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorship-invoices/pdf',
-      '/api/admin/sponsorship-invoices/pdf'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    if (!dbPool) {
-      writeJson(request, response, 503, {
-        error: 'Invoice PDF requires DATABASE_URL and migration 011.'
-      });
-      return;
-    }
-
-    const invoiceId =
-      new URL(request.url ?? '/', publicBaseOrigin).searchParams
-        .get('invoiceId')
-        ?.trim() ?? '';
-    if (!isValidUuid(invoiceId)) {
-      writeJson(request, response, 400, {
-        error: 'Invoice id is invalid.'
-      });
-      return;
-    }
-
-    try {
-      const invoice = await getSponsorshipInvoiceById(dbPool, invoiceId);
-      if (!invoice) {
-        writeJson(request, response, 404, {
-          error: 'Sponsorship invoice was not found.'
-        });
-        return;
-      }
-
-      writePdf(
-        request,
-        response,
-        200,
-        await renderSponsorshipInvoicePdf(invoice),
-        sponsorshipInvoicePdfFilename(invoice)
-      );
-    } catch (error) {
-      console.error('Failed to generate sponsorship invoice PDF.', error);
-      writeJson(request, response, 502, {
-        error: 'Sponsorship invoice PDF could not be generated.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorship-invoices/resend',
-      '/api/admin/sponsorship-invoices/resend'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    if (!dbPool) {
-      writeJson(request, response, 503, {
-        error:
-          'Invoice resend requires DATABASE_URL and migrations 011 and 012.'
-      });
-      return;
-    }
-
-    if (!getTransactionalEmailConfigStatus().configured) {
-      writeJson(request, response, 400, {
-        error: 'SMTP email provider is not configured.'
-      });
-      return;
-    }
-
-    let parsed: AdminSponsorshipInvoiceResendRequest;
-    try {
-      const body = await readBody(request, 16 * 1024);
-      parsed = JSON.parse(body) as AdminSponsorshipInvoiceResendRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid invoice resend request body.'
-      });
-      return;
-    }
-
-    if (!parsed || !isValidUuid(parsed.invoiceId)) {
-      writeJson(request, response, 400, {
-        error: 'Invoice id is invalid.'
-      });
-      return;
-    }
-
-    if (
-      parsed.confirmation !== parsed.invoiceId ||
-      !isValidUuid(parsed.requestId)
-    ) {
-      writeJson(request, response, 400, {
-        code: 'CONFIRMATION_REQUIRED',
-        error: 'Confirm this document and provide a request UUID.'
-      });
-      return;
-    }
-
-    try {
-      const invoice = await getSponsorshipInvoiceById(dbPool, parsed.invoiceId);
-      if (!invoice) {
-        writeJson(request, response, 404, {
-          error: 'Sponsorship invoice was not found.'
-        });
-        return;
-      }
-
-      const recipient = typeof parsed.to === 'string' ? parsed.to.trim() : '';
-
-      if (!isValidSponsorEmail(recipient)) {
-        writeJson(request, response, 400, {
-          error: 'A valid invoice recipient email is required.'
-        });
-        return;
-      }
-
-      const result = await queueAdminDocumentResend(
-        dbPool,
-        { to: recipient, invoice, requestId: parsed.requestId },
-        getAdminAuditActor(request)
-      );
-      const refreshedInvoice = await getAdminSponsorshipInvoiceById(
-        dbPool,
-        invoice.id
-      );
-
-      const payload: AdminSponsorshipInvoiceResendResult = {
-        queued: result.queued,
-        attempted: result.attempted,
-        sent: result.sent,
-        messageId: result.messageId,
-        error: result.error,
-        invoice: refreshedInvoice
-      };
-      writeJson(request, response, 200, payload);
-    } catch (error) {
-      if (error instanceof DocumentResendConflict) {
-        writeJson(request, response, 409, {
-          code: error.code,
-          error: error.message
-        });
-        return;
-      }
-      console.error('Failed to resend sponsorship invoice.');
-      writeJson(request, response, 502, {
-        error:
-          'Sponsorship invoice could not be resent. Check migrations 011 and 012 and email queue configuration.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorship-credit-notes/pdf',
-      '/api/admin/sponsorship-credit-notes/pdf'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    if (!dbPool) {
-      writeJson(request, response, 503, {
-        error: 'Credit note PDF requires DATABASE_URL and migration 012.'
-      });
-      return;
-    }
-
-    const creditNoteId =
-      new URL(request.url ?? '/', publicBaseOrigin).searchParams
-        .get('creditNoteId')
-        ?.trim() ?? '';
-    if (!isValidUuid(creditNoteId)) {
-      writeJson(request, response, 400, {
-        error: 'Credit note id is invalid.'
-      });
-      return;
-    }
-
-    try {
-      const creditNote = await getSponsorshipCreditNoteById(
-        dbPool,
-        creditNoteId
-      );
-      if (!creditNote) {
-        writeJson(request, response, 404, {
-          error: 'Sponsorship credit note was not found.'
-        });
-        return;
-      }
-
-      writePdf(
-        request,
-        response,
-        200,
-        await renderSponsorshipCreditNotePdf(creditNote),
-        sponsorshipCreditNotePdfFilename(creditNote)
-      );
-    } catch (error) {
-      console.error('Failed to generate sponsorship credit note PDF.', error);
-      writeJson(request, response, 502, {
-        error: 'Sponsorship credit note PDF could not be generated.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/sponsorship-credit-notes/resend',
-      '/api/admin/sponsorship-credit-notes/resend'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    if (!dbPool) {
-      writeJson(request, response, 503, {
-        error: 'Credit note resend requires DATABASE_URL and migration 012.'
-      });
-      return;
-    }
-
-    if (!getTransactionalEmailConfigStatus().configured) {
-      writeJson(request, response, 400, {
-        error: 'SMTP email provider is not configured.'
-      });
-      return;
-    }
-
-    let parsed: AdminSponsorshipCreditNoteResendRequest;
-    try {
-      const body = await readBody(request, 16 * 1024);
-      parsed = JSON.parse(body) as AdminSponsorshipCreditNoteResendRequest;
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid credit note resend request body.'
-      });
-      return;
-    }
-
-    if (!parsed || !isValidUuid(parsed.creditNoteId)) {
-      writeJson(request, response, 400, {
-        error: 'Credit note id is invalid.'
-      });
-      return;
-    }
-
-    if (
-      parsed.confirmation !== parsed.creditNoteId ||
-      !isValidUuid(parsed.requestId)
-    ) {
-      writeJson(request, response, 400, {
-        code: 'CONFIRMATION_REQUIRED',
-        error: 'Confirm this document and provide a request UUID.'
-      });
-      return;
-    }
-
-    try {
-      const creditNote = await getSponsorshipCreditNoteById(
-        dbPool,
-        parsed.creditNoteId
-      );
-      if (!creditNote) {
-        writeJson(request, response, 404, {
-          error: 'Sponsorship credit note was not found.'
-        });
-        return;
-      }
-
-      const recipient = typeof parsed.to === 'string' ? parsed.to.trim() : '';
-
-      if (!isValidSponsorEmail(recipient)) {
-        writeJson(request, response, 400, {
-          error: 'A valid credit note recipient email is required.'
-        });
-        return;
-      }
-
-      const result = await queueAdminDocumentResend(
-        dbPool,
-        { to: recipient, creditNote, requestId: parsed.requestId },
-        getAdminAuditActor(request)
-      );
-      const refreshedCreditNote = await getAdminSponsorshipCreditNoteById(
-        dbPool,
-        creditNote.id
-      );
-
-      const payload: AdminSponsorshipCreditNoteResendResult = {
-        queued: result.queued,
-        attempted: result.attempted,
-        sent: result.sent,
-        messageId: result.messageId,
-        error: result.error,
-        creditNote: refreshedCreditNote
-      };
-      writeJson(request, response, 200, payload);
-    } catch (error) {
-      if (error instanceof DocumentResendConflict) {
-        writeJson(request, response, 409, {
-          code: error.code,
-          error: error.message
-        });
-        return;
-      }
-      console.error('Failed to resend sponsorship credit note.');
-      writeJson(request, response, 502, {
-        error:
-          'Sponsorship credit note could not be resent. Check migration 012 and email queue configuration.'
-      });
-    }
-    return;
-  }
+  if (await handleAdminDocumentsRequest(request, response)) return;
 
   const publicSponsorMediaId =
     request.method === 'GET'
@@ -5199,403 +4753,7 @@ const handleRequest = async (
 
   if (await handleAdminContributionsRequest(request, response)) return;
 
-  if (
-    request.method === 'GET' &&
-    routeMatches(request.url, '/admin/expenses', '/api/admin/expenses')
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    try {
-      const expenseId = new URL(
-        request.url ?? '/',
-        'http://localhost'
-      ).searchParams.get('expenseId');
-      response.setHeader('Cache-Control', 'no-store');
-      if (
-        expenseId !== null &&
-        (!/^[1-9]\d{0,18}$/.test(expenseId) ||
-          BigInt(expenseId) > 9223372036854775807n)
-      ) {
-        writeJson(request, response, 400, { error: 'Invalid expenseId.' });
-        return;
-      }
-      const result = await listAdminExpenses(dbPool, expenseId ?? undefined);
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load admin expenses.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin expenses could not be loaded.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(request.url, '/admin/expenses', '/api/admin/expenses')
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminExpenseCreateRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminExpenseCreateRequest;
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw new Error('Invalid allocation payload.');
-      }
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid expense request body.'
-      });
-      return;
-    }
-
-    if (
-      !isNonEmptySponsorText(parsed.projectName, ADMIN_EXPENSE_NAME_MAX_LENGTH)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Expense project name is invalid.'
-      });
-      return;
-    }
-
-    if (
-      !isNonEmptySponsorText(
-        parsed.publicDescription,
-        ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Expense public description is invalid.'
-      });
-      return;
-    }
-
-    if (
-      !isNonEmptySponsorText(
-        parsed.expectedOutcome,
-        ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Expense expected outcome is invalid.'
-      });
-      return;
-    }
-
-    if (!isAllowedFundAchievementProgressStatus(parsed.progressStatus)) {
-      writeJson(request, response, 400, {
-        error: 'Expense progress status is invalid.'
-      });
-      return;
-    }
-
-    if (!isPublicAllocationProofUrl(parsed.proofUrl)) {
-      writeJson(request, response, 400, {
-        code: 'invalid_proof',
-        error: 'Expense proof URL is invalid.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalBoundedText(parsed.proofSource, 500)) {
-      writeJson(request, response, 400, {
-        error: 'Expense proof source is invalid.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalIsoDate(parsed.proofPublishedAt)) {
-      writeJson(request, response, 400, {
-        error: 'Expense proof date is invalid.'
-      });
-      return;
-    }
-
-    if (allocationAmountMinor(parsed.amountAllocated) === null) {
-      writeJson(request, response, 400, {
-        code: 'invalid_amount',
-        error: 'Allocation amount must contain exact positive minor units.'
-      });
-      return;
-    }
-
-    if (parsed.currency !== 'CAD') {
-      writeJson(request, response, 400, {
-        error: 'Expense currency is not supported.'
-      });
-      return;
-    }
-
-    if (!isAllowedAdminExpenseStatus(parsed.status)) {
-      writeJson(request, response, 400, {
-        error: 'Expense status is invalid.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalIsoDate(parsed.publishedAt)) {
-      writeJson(request, response, 400, {
-        error: 'Expense published date is invalid.'
-      });
-      return;
-    }
-
-    try {
-      const result = await createAdminExpense(dbPool, parsed, {
-        actor: getAdminAuditActor(request),
-        action: 'achievement.created'
-      });
-      if (!result.updated || !result.expense) {
-        writeJson(request, response, 404, {
-          error: 'Expense could not be created or fund_allocations is missing.'
-        });
-        return;
-      }
-
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      if (error instanceof AdminExpenseValidationError) {
-        writeJson(request, response, 400, {
-          code: error.code,
-          error: error.message
-        });
-        return;
-      }
-      console.error('Failed to create admin expense.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin expense could not be created.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'POST' &&
-    routeMatches(
-      request.url,
-      '/admin/expenses/update',
-      '/api/admin/expenses/update'
-    )
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    let parsed: AdminExpenseUpdateRequest;
-    try {
-      const body = await readBody(request);
-      parsed = JSON.parse(body) as AdminExpenseUpdateRequest;
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw new Error('Invalid allocation payload.');
-      }
-    } catch {
-      writeJson(request, response, 400, {
-        error: 'Invalid expense update request body.'
-      });
-      return;
-    }
-
-    if (!isValidAdminExpenseId(parsed.expenseId)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid expense id.'
-      });
-      return;
-    }
-
-    if (!isValidAdminExpectedVersion(parsed.expectedVersion)) {
-      writeJson(request, response, 400, {
-        error: 'Invalid expense version.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalNonEmptyBoundedText(
-        parsed.projectName,
-        ADMIN_EXPENSE_NAME_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Expense project name is invalid.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalNonEmptyBoundedText(
-        parsed.publicDescription,
-        ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Expense public description is invalid.'
-      });
-      return;
-    }
-
-    if (
-      !isValidOptionalNonEmptyBoundedText(
-        parsed.expectedOutcome,
-        ADMIN_EXPENSE_DESCRIPTION_MAX_LENGTH
-      )
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Expense expected outcome is invalid.'
-      });
-      return;
-    }
-
-    if (
-      parsed.progressStatus !== undefined &&
-      !isAllowedFundAchievementProgressStatus(parsed.progressStatus)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Expense progress status is invalid.'
-      });
-      return;
-    }
-
-    if (!isPublicAllocationProofUrl(parsed.proofUrl)) {
-      writeJson(request, response, 400, {
-        code: 'invalid_proof',
-        error: 'Expense proof URL is invalid.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalBoundedText(parsed.proofSource, 500)) {
-      writeJson(request, response, 400, {
-        error: 'Expense proof source is invalid.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalIsoDate(parsed.proofPublishedAt)) {
-      writeJson(request, response, 400, {
-        error: 'Expense proof date is invalid.'
-      });
-      return;
-    }
-
-    if (
-      parsed.amountAllocated !== undefined &&
-      allocationAmountMinor(parsed.amountAllocated) === null
-    ) {
-      writeJson(request, response, 400, {
-        code: 'invalid_amount',
-        error: 'Allocation amount must contain exact positive minor units.'
-      });
-      return;
-    }
-
-    if (parsed.currency !== undefined && parsed.currency !== 'CAD') {
-      writeJson(request, response, 400, {
-        error: 'Expense currency is not supported.'
-      });
-      return;
-    }
-
-    if (
-      parsed.status !== undefined &&
-      !isAllowedAdminExpenseStatus(parsed.status)
-    ) {
-      writeJson(request, response, 400, {
-        error: 'Expense status is invalid.'
-      });
-      return;
-    }
-
-    if (!isValidOptionalIsoDate(parsed.publishedAt)) {
-      writeJson(request, response, 400, {
-        error: 'Expense published date is invalid.'
-      });
-      return;
-    }
-
-    try {
-      const action =
-        parsed.status === 'published' || parsed.status === 'active'
-          ? 'achievement.published'
-          : parsed.status === 'private'
-            ? 'achievement.hidden'
-            : parsed.status === 'archived'
-              ? 'achievement.archived'
-              : parsed.progressStatus !== undefined
-                ? 'achievement.progress_changed'
-                : parsed.proofUrl !== undefined ||
-                    parsed.proofSource !== undefined ||
-                    parsed.proofPublishedAt !== undefined
-                  ? 'achievement.proof_changed'
-                  : 'achievement.updated';
-      const result = await updateAdminExpense(dbPool, parsed, {
-        actor: getAdminAuditActor(request),
-        action
-      });
-      if (!result.updated || !result.expense) {
-        writeJson(request, response, 409, {
-          code: 'version_conflict',
-          error:
-            'Allocation changed or is no longer available. Refresh before trying again.'
-        });
-        return;
-      }
-
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      if (error instanceof AdminExpenseValidationError) {
-        writeJson(request, response, 400, {
-          code: error.code,
-          error: error.message
-        });
-        return;
-      }
-      console.error('Failed to update admin expense.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin expense could not be updated.'
-      });
-    }
-    return;
-  }
-
-  if (
-    request.method === 'GET' &&
-    routeMatches(request.url, '/admin/transparency', '/api/admin/transparency')
-  ) {
-    if (!ensureAdminAccess(request, response)) {
-      return;
-    }
-
-    try {
-      const [publicSummary, expenses] = await Promise.all([
-        getPublicTransparencySummary(dbPool),
-        listAdminExpenses(dbPool)
-      ]);
-      const lastUpdatedAt =
-        new Date(publicSummary.last_updated_at).getTime() >
-        new Date(expenses.last_updated_at).getTime()
-          ? publicSummary.last_updated_at
-          : expenses.last_updated_at;
-      const result: AdminTransparencyResponse = {
-        data_source: 'database',
-        public_summary: publicSummary,
-        expenses_summary: expenses.summary,
-        expenses: expenses.expenses,
-        last_updated_at: lastUpdatedAt
-      };
-      writeJson(request, response, 200, result);
-    } catch (error) {
-      console.error('Failed to load admin transparency.', error);
-      writeJson(request, response, 502, {
-        error: 'Admin transparency could not be loaded.'
-      });
-    }
-    return;
-  }
+  if (await handleAdminAccountingRequest(request, response)) return;
 
   if (
     request.method === 'GET' &&

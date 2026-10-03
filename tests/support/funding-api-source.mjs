@@ -7,6 +7,8 @@ export const readFundingApiSource = () => {
   return [
     'main.ts',
     'admin-contributions.http.ts',
+    'admin-documents.http.ts',
+    'admin-accounting.http.ts',
     'admin-email.http.ts',
     'admin-insights.http.ts',
     'http-routing.ts',
