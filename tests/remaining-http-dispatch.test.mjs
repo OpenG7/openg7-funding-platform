@@ -4,6 +4,8 @@ import { once } from 'node:events';
 import http from 'node:http';
 import test from 'node:test';
 
+import { createAdminTokenSessionService } from '../dist/apps/funding-api/src/admin-token-session.js';
+
 const startApi = async (t, configuration = {}) => {
   // Isolate credentials and providers. PostgreSQL is simulated only in the
   // identity fixture; no query can reach a database or an external provider.
@@ -294,6 +296,15 @@ test(
       );
       assert.equal(
         (
+          await api.beforeBody(prefix + '/admin/sponsorships/refund', {
+            authorization: 'Bearer synthetic-admin-token'
+          })
+        ).status,
+        401,
+        'OIDC never falls back to the root token'
+      );
+      assert.equal(
+        (
           await api.exchange(prefix + '/admin/sponsorships/refund', {
             method: 'OPTIONS',
             headers: outage
@@ -313,6 +324,110 @@ test(
         'authorized request reaches refund parser'
       );
     }
+  }
+);
+
+test(
+  'assembled token sessions expire and setup authorization remains independent of PostgreSQL',
+  { timeout: 20000 },
+  async (t) => {
+    const api = await startApi(t);
+    const sessions = createAdminTokenSessionService({
+      adminToken: 'synthetic-admin-token',
+      sessionSecret: 'synthetic-session-secret',
+      sessionTtlMinutes: 60,
+      isProduction: false,
+      projectId: 'openg7'
+    });
+    const valid = sessions.createAdminSession().sessionToken;
+    const expired = sessions.createAdminSession(
+      Date.now() - 7200000
+    ).sessionToken;
+    for (const prefix of ['', '/api']) {
+      const headers = { authorization: `Bearer ${valid}` };
+      assert.equal(
+        (await api.exchange(prefix + '/admin/setup-status', { headers }))
+          .status,
+        200
+      );
+      const databaseRequired = await api.beforeBody(
+        prefix + '/admin/sponsorships/refund',
+        headers
+      );
+      assert.deepEqual(databaseRequired, {
+        status: 503,
+        payload: {
+          error: 'Admin review requires DATABASE_URL and PostgreSQL migrations.'
+        }
+      });
+      assert.equal(
+        (
+          await api.exchange(prefix + '/admin/setup-status', {
+            headers: { authorization: `Bearer ${expired}` }
+          })
+        ).status,
+        401
+      );
+    }
+  }
+);
+
+test(
+  'OPTIONS precedes quotas and quotas precede JSON validation and auth discovery',
+  { timeout: 20000 },
+  async (t) => {
+    const api = await startApi(t, {
+      FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX: '1',
+      FUNDING_ADMIN_RATE_LIMIT_MAX: '1',
+      DATABASE_URL: 'postgres://synthetic@127.0.0.1:1/dispatch',
+      FUNDING_ADMIN_AUTH_MODE: 'oidc',
+      FUNDING_ADMIN_OIDC_ISSUER: 'http://127.0.0.1:1',
+      FUNDING_ADMIN_OIDC_CLIENT_ID: 'synthetic-client',
+      FUNDING_ADMIN_OIDC_CLIENT_SECRET: 'synthetic-secret'
+    });
+    const outage = { cookie: `og7-admin=${'e'.repeat(43)}` };
+    assert.equal(
+      (
+        await api.exchange('/api/admin/auth/config', {
+          method: 'OPTIONS',
+          headers: outage
+        })
+      ).status,
+      204
+    );
+    assert.deepEqual(
+      await api.exchange('/admin/auth/config', { headers: outage }),
+      { status: 200, payload: { mode: 'oidc' } }
+    );
+    assert.equal(
+      (await api.exchange('/api/admin/auth/config', { headers: outage }))
+        .status,
+      429
+    );
+    assert.equal(
+      (
+        await api.exchange('/sponsorship-followup/recover', {
+          method: 'OPTIONS'
+        })
+      ).status,
+      204
+    );
+    assert.equal(
+      (await api.beforeBody('/sponsorship-followup/recover')).status,
+      415
+    );
+    assert.equal(
+      (await api.beforeBody('/api/sponsorship-followup/recover')).status,
+      429
+    );
+    assert.equal(
+      (
+        await api.exchange('/api/sponsorship-followup/recover', {
+          method: 'OPTIONS'
+        })
+      ).status,
+      204
+    );
   }
 );
 

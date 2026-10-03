@@ -4,7 +4,6 @@ import {
   type IncomingMessage,
   type ServerResponse
 } from 'node:http';
-import path from 'node:path';
 
 import type {
   AdminSetupStatusResponse,
@@ -24,6 +23,18 @@ import {
 
 import { createAdminAccountingHttpHandler } from './admin-accounting.http.js';
 import { createAdminAuditHttpHandler } from './admin-audit.http.js';
+import { createAdminAuthorization } from './admin-authorization.js';
+import { createApiBackgroundWorkers } from './api-background-workers.js';
+import {
+  createCheckoutReturnUrlResolver,
+  loadApiRuntimeAdminAuthMode,
+  loadApiRuntimeConfig,
+  loadApiRuntimeContributionNotificationConfig,
+  loadApiRuntimeEmailConfig,
+  loadApiRuntimeHttpConfig,
+  loadApiRuntimeSocialPublicationConfig,
+  validateApiRuntimeConfig
+} from './api-runtime-config.js';
 import { createAdminBackupsHttpHandler } from './admin-backups.http.js';
 import { createAdminContributionActivityHttpHandler } from './admin-contribution-activity.http.js';
 import { createAdminSessionHttpHandler } from './admin-session.http.js';
@@ -37,7 +48,6 @@ import { createPublicReferencesHttpHandlers } from './public-references.http.js'
 import { createStripeWebhookHttpHandler } from './stripe-webhook.http.js';
 import { createAdminAssistantHttpHandler } from './admin-assistant.http.js';
 import { buildAdminAssistantSummary } from './admin-assistant/attention.service.js';
-import { loadAdminAssistantConfig } from './admin-assistant/config.js';
 import { getAdminAssistantContext } from './admin-assistant/context.service.js';
 import { runAdminAssistantQuery } from './admin-assistant/orchestrator.js';
 import { prepareAdminAssistantDraft } from './admin-assistant/preparation.service.js';
@@ -70,7 +80,6 @@ import { createAdminPublicationDraftsHttpHandler } from './admin-publication-dra
 import { createAdminPublicationSlotsHttpHandler } from './admin-publication-slots.http.js';
 import {
   buildSponsorshipReviewReminderAdminUrl,
-  loadAdminSponsorshipReviewReminderConfig,
   queueDueSponsorshipReviewReminder
 } from './admin-reminder.service.js';
 import { parseAdminSearch, searchAdmin } from './admin-search.service.js';
@@ -91,10 +100,7 @@ import {
   getAdminWorkQueue,
   parseWorkQueueQuery
 } from './admin-work-queue.service.js';
-import {
-  ContributionActivityService,
-  contributionNotificationConfig
-} from './contribution-activity.service.js';
+import { ContributionActivityService } from './contribution-activity.service.js';
 import { normalizeContributionPublicReference } from './contribution-public-reference.js';
 import {
   BackupError,
@@ -119,11 +125,6 @@ import {
   queueSponsorshipRejectionEmail,
   retryAdminEmailQueueMessage
 } from './email-notification.service.js';
-import {
-  parseBooleanEnv,
-  parseNonNegativeIntegerEnv,
-  parsePositiveIntegerEnv
-} from './environment-values.js';
 import {
   AdminExpenseValidationError,
   allowedAdminExpenseStatuses,
@@ -199,24 +200,16 @@ import { createPublicSponsorMediaHttpHandler } from './public-sponsor-media.http
 import { createPublicTransparencyCache } from './public-transparency-cache.js';
 import { PublicationAutomationError } from './publication-automation/policy.js';
 import { PublicationAutomationService } from './publication-automation/service.js';
-import { loadTrustedProxyHops } from './request-client-ip.js';
 import {
   getTransactionalEmailConfigStatus,
-  isValidEmailAddress,
-  loadEmailQueueWorkerEnabled,
-  loadTransactionalEmailConfig
+  isValidEmailAddress
 } from './services/email/index.js';
-import {
-  configuredSocialPublicationChannels,
-  loadSocialPublicationConfig
-} from './social-publication.service.js';
+import { configuredSocialPublicationChannels } from './social-publication.service.js';
 import { processSponsorImage } from './sponsor-image.service.js';
 import { SPONSOR_LOGO_FILENAME_PATTERN } from './sponsor-logo-upload.js';
-import { loadSponsorMediaLimits } from './sponsor-media-limits.js';
 import {
   createSponsorLogoStorage,
-  createSponsorMediaStorage,
-  type SponsorLogoStorageConfig
+  createSponsorMediaStorage
 } from './sponsor-media-storage.js';
 import {
   checkSponsorMediaUpload,
@@ -271,26 +264,36 @@ import {
   isSponsorshipWebsiteVisibilityRequest,
   setSponsorshipWebsiteVisibility
 } from './sponsorship-website.service.js';
-import { simulatedCheckoutEnabled } from './stripe-checkout-config.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
 
-const port = Number(process.env.FUNDING_API_PORT ?? 3333);
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-const projectId = process.env.FUNDING_PROJECT_ID ?? 'openg7';
-const isProduction = process.env.FUNDING_PLATFORM_ENV === 'production';
-const businessSponsorshipEnabled = parseBooleanEnv(
-  process.env.FUNDING_BUSINESS_SPONSORSHIP_ENABLED,
-  false
-);
-const adminToken = process.env.FUNDING_ADMIN_TOKEN?.trim() ?? '';
-const adminSessionSecret =
-  process.env.FUNDING_ADMIN_SESSION_SECRET?.trim() ?? '';
-const adminSessionTtlMinutes = parsePositiveIntegerEnv(
-  process.env.FUNDING_ADMIN_SESSION_TTL_MINUTES,
-  60
-);
+const startupConfig = loadApiRuntimeConfig();
+const {
+  port,
+  stripeSecretKey,
+  stripeWebhookSecret,
+  projectId,
+  environment,
+  isProduction,
+  businessSponsorshipEnabled,
+  adminToken,
+  adminSessionSecret,
+  adminSessionTtlMinutes,
+  sponsorshipFollowupTokenTtlDays,
+  rateLimitWindowMs,
+  publicWriteRateLimitMax,
+  sponsorshipFollowupRateLimitMax,
+  referenceLookupRateLimitMax,
+  referenceRecoveryRateLimitMax,
+  adminRateLimitMax,
+  emailQueueWorkerEnabled,
+  emailQueuePollIntervalMs,
+  emailQueueBatchSize,
+  adminSponsorshipReviewReminderConfig,
+  adminAssistantConfig,
+  sponsorLogoMaxBytes,
+  sponsorMediaStorageConfig
+} = startupConfig;
 const { adminTokenMatches, createAdminSession, verifyAdminSession } =
   createAdminTokenSessionService({
     adminToken,
@@ -299,117 +302,28 @@ const { adminTokenMatches, createAdminSession, verifyAdminSession } =
     isProduction,
     projectId
   });
-const sponsorshipFollowupTokenTtlDays = parsePositiveIntegerEnv(
-  process.env.FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS,
-  30
-);
-const rateLimitWindowMs = parsePositiveIntegerEnv(
-  process.env.FUNDING_RATE_LIMIT_WINDOW_MS,
-  60_000
-);
-const publicWriteRateLimitMax = parseNonNegativeIntegerEnv(
-  process.env.FUNDING_PUBLIC_WRITE_RATE_LIMIT_MAX,
-  60
-);
-const sponsorshipFollowupRateLimitMax = parseNonNegativeIntegerEnv(
-  process.env.FUNDING_SPONSORSHIP_FOLLOWUP_RATE_LIMIT_MAX,
-  60
-);
-const referenceLookupRateLimitMax = parseNonNegativeIntegerEnv(
-  process.env.FUNDING_REFERENCE_LOOKUP_RATE_LIMIT_MAX,
-  30
-);
-const referenceRecoveryRateLimitMax = parseNonNegativeIntegerEnv(
-  process.env.FUNDING_REFERENCE_RECOVERY_RATE_LIMIT_MAX,
-  10
-);
-const adminRateLimitMax = parseNonNegativeIntegerEnv(
-  process.env.FUNDING_ADMIN_RATE_LIMIT_MAX,
-  120
-);
-const emailQueueWorkerEnabled = loadEmailQueueWorkerEnabled();
-const emailQueuePollIntervalMs = parsePositiveIntegerEnv(
-  process.env.FUNDING_EMAIL_QUEUE_POLL_INTERVAL_MS,
-  30_000
-);
-const emailQueueBatchSize = parsePositiveIntegerEnv(
-  process.env.FUNDING_EMAIL_QUEUE_BATCH_SIZE,
-  10
-);
-const adminSponsorshipReviewReminderConfig =
-  loadAdminSponsorshipReviewReminderConfig();
-// Read-only admin AI assistant configuration. Defaults to disabled; the
-// deterministic summary endpoint works regardless of this configuration.
-const adminAssistantConfig = loadAdminAssistantConfig();
-const sponsorLogoMaxBytes = parsePositiveIntegerEnv(
-  process.env.FUNDING_SPONSOR_LOGO_MAX_BYTES,
-  512 * 1024
-);
-const sponsorLogoStorageDir = path.resolve(
-  process.env.FUNDING_SPONSOR_LOGO_STORAGE_DIR ?? 'var/sponsor-logos'
-);
-const sponsorMediaStorageConfig: SponsorLogoStorageConfig = {
-  driver: process.env.SPONSOR_MEDIA_STORAGE_DRIVER,
-  localStorageDir: sponsorLogoStorageDir,
-  s3: {
-    region: process.env.SPONSOR_MEDIA_REGION,
-    endpoint: process.env.SPONSOR_MEDIA_ENDPOINT,
-    publicBucket: process.env.SPONSOR_MEDIA_PUBLIC_BUCKET,
-    publicBaseUrl: process.env.SPONSOR_MEDIA_PUBLIC_BASE_URL,
-    privateBucket: process.env.SPONSOR_MEDIA_PRIVATE_BUCKET,
-    privateBaseUrl: process.env.SPONSOR_MEDIA_PRIVATE_BASE_URL,
-    accessKeyId: process.env.OVH_S3_ACCESS_KEY_ID,
-    secretAccessKey: process.env.OVH_S3_SECRET_ACCESS_KEY
-  }
-};
 const sponsorLogoStorage = createSponsorLogoStorage(sponsorMediaStorageConfig);
 const sponsorMediaStorage = createSponsorMediaStorage(
   sponsorMediaStorageConfig
 );
+const httpConfig = loadApiRuntimeHttpConfig();
+const runtimeConfig = { ...startupConfig, ...httpConfig };
 const {
-  maxUploadBytes: sponsorMediaMaxBytes,
-  maxSupportingImages: sponsorMediaMaxSupportingImages
-} = loadSponsorMediaLimits(process.env);
-const trustedProxyHops = loadTrustedProxyHops(
-  process.env.FUNDING_TRUSTED_PROXY_HOPS
-);
-const allowedOrigins = (process.env.FUNDING_ALLOWED_ORIGINS ?? '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-const publicBaseUrl =
-  process.env.FUNDING_PUBLIC_BASE_URL ??
-  allowedOrigins[0] ??
-  (process.env.APP_DOMAIN ? `https://${process.env.APP_DOMAIN}` : null);
-const publicBaseOrigin = publicBaseUrl
-  ? new URL(publicBaseUrl).origin
-  : 'https://example.org';
-const allowedReturnHostnames = new Set(
-  [publicBaseUrl, ...allowedOrigins]
-    .filter(Boolean)
-    .map((origin) => new URL(origin).hostname)
-);
-const allowedContributionAmounts = new Set(
-  (process.env.FUNDING_ALLOWED_AMOUNTS ?? '5,10,25,50')
-    .split(',')
-    .map((amount) => Number(amount.trim()))
-    .filter((amount) => Number.isFinite(amount) && amount > 0)
-);
-// STRIPE_API_HOST/PORT/PROTOCOL let the Playwright Docker E2E stack point the
-// SDK at a local Stripe API stub instead of api.stripe.com (see
-// tests/stripe-stub/). Unset in every real environment, where the SDK falls
-// back to its own default host.
-const stripeApiHost = process.env.STRIPE_API_HOST;
-const navigableSimulatedCheckout = simulatedCheckoutEnabled(process.env);
-const stripeApiPort = process.env.STRIPE_API_PORT;
-const stripeApiProtocol = process.env.STRIPE_API_PROTOCOL as
-  'http' | 'https' | undefined;
+  sponsorMediaMaxBytes,
+  sponsorMediaMaxSupportingImages,
+  trustedProxyHops,
+  allowedOrigins,
+  publicBaseUrl,
+  publicBaseOrigin,
+  allowedContributionAmounts,
+  allowedContributionTypes,
+  stripeApiHost,
+  navigableSimulatedCheckout,
+  stripeOptions,
+  stripeBackfillOptions
+} = httpConfig;
 const stripe = stripeSecretKey
-  ? new Stripe(stripeSecretKey, {
-      ...(stripeApiHost ? { host: stripeApiHost } : {}),
-      ...(stripeApiPort ? { port: stripeApiPort } : {}),
-      ...(stripeApiProtocol ? { protocol: stripeApiProtocol } : {})
-    })
+  ? new Stripe(stripeSecretKey, stripeOptions)
   : null;
 const readStripeTransparency = stripe
   ? createPublicTransparencyCache(() =>
@@ -420,22 +334,16 @@ const adminStripeBackfill =
   dbPool && stripeSecretKey
     ? new AdminStripeBackfillService(
         dbPool,
-        new Stripe(stripeSecretKey, {
-          ...(stripeApiHost ? { host: stripeApiHost } : {}),
-          ...(stripeApiPort ? { port: stripeApiPort } : {}),
-          ...(stripeApiProtocol ? { protocol: stripeApiProtocol } : {}),
-          timeout: 10000,
-          maxNetworkRetries: 0
-        }),
+        new Stripe(stripeSecretKey, stripeBackfillOptions),
         {
           apiKey: stripeSecretKey,
           projectId,
-          environment: process.env.FUNDING_PLATFORM_ENV ?? 'development'
+          environment
         }
       )
     : null;
 
-loadTransactionalEmailConfig();
+loadApiRuntimeEmailConfig();
 const readCockpitSystems = createCockpitSystemsReader({
   stripeApiConfigured: Boolean(stripe),
   stripeConnection: async () => {
@@ -460,23 +368,8 @@ const readCockpitSystems = createCockpitSystemsReader({
     await sponsorMediaStorage.checkReadAccess(signal);
   }
 });
-const socialPublicationConfig = loadSocialPublicationConfig();
-const allowedContributionTypes = new Set<ContributionType>([
-  'personal_support',
-  'sponsorship_interest'
-]);
-
-if (isProduction && !stripeSecretKey) {
-  throw new Error(
-    'STRIPE_SECRET_KEY is required when FUNDING_PLATFORM_ENV=production.'
-  );
-}
-
-if (isProduction && !publicBaseUrl) {
-  throw new Error(
-    'FUNDING_PUBLIC_BASE_URL or FUNDING_ALLOWED_ORIGINS is required in production.'
-  );
-}
+const socialPublicationConfig = loadApiRuntimeSocialPublicationConfig();
+validateApiRuntimeConfig(runtimeConfig);
 
 type ApiRequest = IncomingMessage;
 type ApiResponse = ServerResponse<IncomingMessage>;
@@ -993,22 +886,7 @@ const socialPublicationRuntime = (): {
   )
 });
 
-const readAdminToken = (request: ApiRequest): string | null => {
-  const authorization = request.headers.authorization;
-  if (typeof authorization === 'string') {
-    const [scheme, token] = authorization.split(/\s+/, 2);
-    if (scheme.toLowerCase() === 'bearer' && token) {
-      return token;
-    }
-  }
-
-  const headerToken = request.headers['x-funding-admin-token'];
-  return typeof headerToken === 'string' ? headerToken : null;
-};
-
-const adminAuthMode = process.env.FUNDING_ADMIN_AUTH_MODE ?? 'token';
-if (!['token', 'oidc'].includes(adminAuthMode))
-  throw new Error('Invalid admin auth mode.');
+const adminAuthMode = loadApiRuntimeAdminAuthMode();
 if (adminAuthMode === 'oidc' && !dbPool)
   throw new Error('OIDC requires PostgreSQL.');
 const adminIdentity =
@@ -1016,104 +894,20 @@ const adminIdentity =
     ? new AdminIdentityService(dbPool!, process.env)
     : null;
 
-interface AdminAuthorization {
-  readonly actor: string;
-  readonly source: 'session' | 'static-token' | 'local-dev' | 'oidc';
-}
-
-const resolveAdminAuthorization = (
-  request: ApiRequest
-): AdminAuthorization | null => {
-  if (adminIdentity) {
-    const identity = adminIdentity.identity(request);
-    return identity ? { actor: `admin:${identity.id}`, source: 'oidc' } : null;
-  }
-  if (!adminToken) {
-    return isProduction
-      ? null
-      : {
-          actor: 'local-dev-admin',
-          source: 'local-dev'
-        };
-  }
-
-  const token = readAdminToken(request);
-  if (!token) {
-    return null;
-  }
-
-  if (verifyAdminSession(token)) {
-    return {
-      actor: 'funding-admin-session',
-      source: 'session'
-    };
-  }
-
-  if (adminTokenMatches(token)) {
-    return {
-      actor: 'funding-admin-token',
-      source: 'static-token'
-    };
-  }
-
-  return null;
-};
-
-const isAdminAuthorized = (request: ApiRequest): boolean => {
-  return Boolean(resolveAdminAuthorization(request));
-};
-
-const ensureAdminAuthorization = (
-  request: ApiRequest,
-  response: ApiResponse
-): boolean => {
-  if (!adminIdentity && !adminToken && isProduction) {
-    writeJson(request, response, 503, {
-      error: 'Admin review is not configured.'
-    });
-    return false;
-  }
-
-  if (
-    adminIdentity &&
-    adminIdentity.identity(request) &&
-    !adminIdentity.permits(request)
-  ) {
-    writeJson(request, response, 403, {
-      error: 'This action is not permitted for this account or origin.'
-    });
-    return false;
-  }
-  if (!isAdminAuthorized(request)) {
-    writeJson(request, response, 401, {
-      error: 'Admin authorization is required.'
-    });
-    return false;
-  }
-
-  return true;
-};
-
-const ensureAdminAccess = (
-  request: ApiRequest,
-  response: ApiResponse
-): boolean => {
-  if (!ensureAdminAuthorization(request, response)) {
-    return false;
-  }
-
-  if (!hasDatabase) {
-    writeJson(request, response, 503, {
-      error: 'Admin review requires DATABASE_URL and PostgreSQL migrations.'
-    });
-    return false;
-  }
-
-  return true;
-};
-
-const getAdminAuditActor = (request: ApiRequest): string =>
-  resolveAdminAuthorization(request)?.actor ?? 'local-dev-admin';
+const {
+  resolveAdminAuthorization,
+  ensureAdminAuthorization,
+  ensureAdminAccess,
+  getAdminAuditActor
+} = createAdminAuthorization({
+  adminIdentity,
+  adminTokenConfigured: Boolean(adminToken),
+  isProduction,
+  hasDatabase,
+  verifyAdminSession,
+  adminTokenMatches,
+  writeJson
+});
 
 // Best-effort audit for admin assistant usage. Never stores the free-text
 // question (it may contain private data) — only which tool/data was consulted,
@@ -1140,44 +934,7 @@ const recordAdminAssistantAudit = async (
   }
 };
 
-const resolveCheckoutReturnUrl = (
-  candidateUrl: string,
-  fallbackPath: string
-): string => {
-  const fallback = new URL(fallbackPath, publicBaseOrigin);
-
-  try {
-    const candidate = new URL(candidateUrl);
-    const allowedOriginSet = new Set([...allowedOrigins, publicBaseOrigin]);
-
-    if (
-      !isProduction &&
-      candidate.protocol === 'http:' &&
-      (candidate.hostname === 'localhost' || candidate.hostname === '127.0.0.1')
-    ) {
-      return candidate.toString();
-    }
-
-    if (candidate.protocol !== 'https:') {
-      return fallback.toString();
-    }
-
-    if (candidate.port && allowedReturnHostnames.has(candidate.hostname)) {
-      return new URL(
-        `${candidate.pathname}${candidate.search}${candidate.hash}`,
-        publicBaseOrigin
-      ).toString();
-    }
-
-    if (allowedOriginSet.has(candidate.origin)) {
-      return candidate.toString();
-    }
-  } catch {
-    return fallback.toString();
-  }
-
-  return fallback.toString();
-};
+const resolveCheckoutReturnUrl = createCheckoutReturnUrlResolver(runtimeConfig);
 
 const getDatabaseConnectionStatus = async (): Promise<boolean> => {
   if (!dbPool) {
@@ -1315,92 +1072,33 @@ const resolveStripePaymentIntentId = (
   return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent.id;
 };
 
-let emailQueueProcessing = false;
-let adminSponsorshipReviewReminderProcessing = false;
-
-const runEmailQueueWorker = async (): Promise<void> => {
-  if (!dbPool || !emailQueueWorkerEnabled || emailQueueProcessing) {
-    return;
-  }
-
-  emailQueueProcessing = true;
-  try {
-    const result = await processQueuedEmailMessages(dbPool, {
-      limit: emailQueueBatchSize
-    });
-
-    if (result.sent > 0 || result.failed > 0) {
-      console.info(
-        `Email queue processed ${result.attempted} message(s): ${result.sent} sent, ${result.failed} failed.`
-      );
-    }
-  } catch (error) {
-    console.error('Failed to process email queue.', error);
-  } finally {
-    emailQueueProcessing = false;
-  }
-};
-
-const runAdminSponsorshipReviewReminderWorker = async (): Promise<void> => {
-  if (!dbPool || adminSponsorshipReviewReminderProcessing) {
-    return;
-  }
-
-  adminSponsorshipReviewReminderProcessing = true;
-  try {
-    const result = await queueDueSponsorshipReviewReminder(dbPool, {
-      config: adminSponsorshipReviewReminderConfig,
-      adminUrl: buildSponsorshipReviewReminderAdminUrl(publicBaseUrl)
-    });
-
-    if (result.checked && !result.duplicate && (result.queued || result.sent)) {
-      console.info(
-        `Admin sponsorship review reminder queued for ${result.dueCount} pending sponsorship(s).`
-      );
-    }
-
-    if (result.checked && !result.duplicate && result.error) {
-      console.warn(
-        'Admin sponsorship review reminder could not be delivered.',
-        result.error
-      );
-    }
-  } catch (error) {
-    console.error('Failed to queue admin sponsorship review reminder.', error);
-  } finally {
-    adminSponsorshipReviewReminderProcessing = false;
-  }
-};
-
 const publicationAutomation = dbPool
   ? new PublicationAutomationService(dbPool, sponsorMediaStorage)
   : null;
-const contributionNotifications = contributionNotificationConfig(process.env);
+const contributionNotifications = loadApiRuntimeContributionNotificationConfig(
+  process.env
+);
 const contributionActivity = dbPool
   ? new ContributionActivityService(dbPool, contributionNotifications)
   : null;
-const runContributionActivity = async (): Promise<void> => {
-  try {
-    await contributionActivity?.tick();
-  } catch {
-    console.error(
-      'Contribution activity worker interrupted; verify migration 027 and database availability.'
-    );
-  }
-};
 const adminPilotage =
   dbPool && publicationAutomation
     ? new AdminPilotageService(dbPool, publicationAutomation)
     : null;
-const runPublicationWorker = async (): Promise<void> => {
-  try {
-    await publicationAutomation?.tick();
-  } catch {
-    console.error(
-      'Publication worker interrupted; inspect publication exceptions and database availability.'
-    );
-  }
-};
+const backgroundWorkers = createApiBackgroundWorkers({
+  hasDatabase,
+  dbPool,
+  emailQueueWorkerEnabled,
+  emailQueueBatchSize,
+  emailQueuePollIntervalMs,
+  adminSponsorshipReviewReminderConfig,
+  publicBaseUrl,
+  processQueuedEmailMessages,
+  queueDueSponsorshipReviewReminder,
+  buildSponsorshipReviewReminderAdminUrl,
+  contributionActivity,
+  publicationAutomation
+});
 
 const handleAdminContributionsRequest = createAdminContributionsHttpHandler({
   publicBaseOrigin,
@@ -2244,28 +1942,5 @@ createServer((request, response) => {
     return;
   }
 
-  void runEmailQueueWorker();
-  void runContributionActivity();
-  const contributionTimer = setInterval(
-    () => void runContributionActivity(),
-    2000
-  );
-  contributionTimer.unref();
-  void runPublicationWorker();
-  const publicationTimer = setInterval(
-    () => void runPublicationWorker(),
-    30000
-  );
-  publicationTimer.unref();
-  void runAdminSponsorshipReviewReminderWorker();
-  const emailQueueTimer = setInterval(
-    () => void runEmailQueueWorker(),
-    emailQueuePollIntervalMs
-  );
-  emailQueueTimer.unref();
-  const adminSponsorshipReviewReminderTimer = setInterval(
-    () => void runAdminSponsorshipReviewReminderWorker(),
-    adminSponsorshipReviewReminderConfig.pollIntervalMs
-  );
-  adminSponsorshipReviewReminderTimer.unref();
+  backgroundWorkers.start();
 });
