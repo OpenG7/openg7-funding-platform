@@ -1,9 +1,11 @@
 import { Injectable } from '@angular/core';
 import type { PublicSponsorshipsResponse } from '@openg7/funding-core';
 
+import { resolveFundingApiBaseUrl } from './funding-api-base-url.js';
+
 @Injectable({ providedIn: 'root' })
 export class SponsorshipsService {
-  private readonly apiBaseUrl = this.resolveApiBaseUrl();
+  private readonly apiBaseUrl = resolveFundingApiBaseUrl();
 
   async getPublicSponsorshipPage(
     page: number,
@@ -37,18 +39,5 @@ export class SponsorshipsService {
     }
 
     return (await response.json()) as PublicSponsorshipsResponse;
-  }
-
-  private resolveApiBaseUrl(): string {
-    const globalApiBaseUrl =
-      typeof window !== 'undefined'
-        ? (
-            window as Window & {
-              readonly __OPENG7_FUNDING_API_BASE_URL__?: string;
-            }
-          ).__OPENG7_FUNDING_API_BASE_URL__
-        : undefined;
-
-    return globalApiBaseUrl?.replace(/\/$/, '') ?? '/api';
   }
 }

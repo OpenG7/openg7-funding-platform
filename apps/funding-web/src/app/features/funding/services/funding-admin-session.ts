@@ -1,6 +1,8 @@
 import { signal } from '@angular/core';
 import type { AdminSessionResponse } from '@openg7/funding-core';
 
+import { resolveFundingApiBaseUrl } from './funding-api-base-url.js';
+
 const sessionTokenStorageKey = 'openg7-admin-session-token';
 const sessionExpiresAtStorageKey = 'openg7-admin-session-expires-at';
 const legacyTokenStorageKey = 'openg7-admin-token';
@@ -64,7 +66,7 @@ interface AdminRawRequestOptions extends AdminRequestOptions {
 export class FundingAdminSession {
   readonly sessionGeneration = signal(0);
   readonly identity = signal<AdminIdentityProfile | null>(null);
-  readonly apiBaseUrl = this.resolveApiBaseUrl();
+  readonly apiBaseUrl = resolveFundingApiBaseUrl();
   private usesCookieSession = false;
 
   constructor(
@@ -365,18 +367,5 @@ export class FundingAdminSession {
 
   private isAdminSessionToken(token: string): boolean {
     return token.startsWith(adminSessionTokenPrefix);
-  }
-
-  private resolveApiBaseUrl(): string {
-    const globalApiBaseUrl =
-      typeof window !== 'undefined'
-        ? (
-            window as Window & {
-              readonly __OPENG7_FUNDING_API_BASE_URL__?: string;
-            }
-          ).__OPENG7_FUNDING_API_BASE_URL__
-        : undefined;
-
-    return globalApiBaseUrl?.replace(/\/$/, '') ?? '/api';
   }
 }

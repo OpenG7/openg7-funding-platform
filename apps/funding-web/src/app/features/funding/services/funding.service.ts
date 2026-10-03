@@ -23,15 +23,22 @@ import {
 import { FundingSnapshot } from '@openg7/funding-core';
 import { FundingProjectConfig } from '@openg7/funding-models';
 
-import { SponsorshipFollowupError } from '../models/sponsorship-followup-ui.js';
 import { FUNDING_PROJECT_CONFIG } from '../config/funding-project-config.token.js';
 import { OPENG7_FUNDING_CONFIG } from '../config/openg7-funding.config.js';
+
+import { resolveFundingApiBaseUrl } from './funding-api-base-url.js';
+import { FundingPublicClient } from './funding-public.client.js';
+import { FundingSponsorshipFollowupClient } from './funding-sponsorship-followup.client.js';
 
 @Injectable({ providedIn: 'root' })
 export class FundingService {
   private readonly config: FundingProjectConfig =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
-  private readonly apiBaseUrl = this.resolveApiBaseUrl();
+  private readonly apiBaseUrl = resolveFundingApiBaseUrl();
+  private readonly publicClient = new FundingPublicClient(this.apiBaseUrl);
+  private readonly followupClient = new FundingSponsorshipFollowupClient(
+    this.apiBaseUrl
+  );
 
   readonly mockSnapshot: FundingSnapshot = {
     totals: {
@@ -74,23 +81,7 @@ export class FundingService {
     };
 
     try {
-      const response = await fetch(`${this.apiBaseUrl}/checkout-sessions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(request)
-      });
-
-      if (!response.ok) {
-        if (!this.canUseDevelopmentCheckoutFallback()) {
-          throw new Error('Checkout API is unavailable.');
-        }
-
-        return createMockCheckoutResult(request);
-      }
-
-      const result = (await response.json()) as CheckoutResult;
+      const result = await this.publicClient.startCheckout(request);
 
       if (
         result.status === 'mocked' &&
@@ -110,64 +101,24 @@ export class FundingService {
   }
 
   async getPublicFundingConfig(): Promise<PublicFundingRuntimeConfig> {
-    const response = await fetch(`${this.apiBaseUrl}/public/funding-config`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Funding runtime config could not be loaded.');
-    }
-
-    return (await response.json()) as PublicFundingRuntimeConfig;
+    return this.publicClient.getPublicFundingConfig();
   }
 
   async lookupPublicReference(
     payload: PublicReferenceLookupRequest,
     signal?: AbortSignal
   ): Promise<PublicReferenceLookupResponse> {
-    const response = await fetch(`${this.apiBaseUrl}/reference-lookup`, {
-      signal,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      throw new Error('OpenG7 reference lookup could not be completed.');
-    }
-
-    return (await response.json()) as PublicReferenceLookupResponse;
+    return this.publicClient.lookupPublicReference(payload, signal);
   }
 
   async requestContributionReferenceRecovery(
     payload: ReferenceRecoveryRequest,
     signal?: AbortSignal
   ): Promise<ReferenceRecoveryResult> {
-    const response = await fetch(`${this.apiBaseUrl}/reference-recovery`, {
-      signal,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      throw new Error('Reference recovery could not be requested.');
-    }
-
-    const result = (await response.json()) as ReferenceRecoveryResult;
-    if (result.accepted !== true) {
-      throw new Error('Reference recovery was not accepted.');
-    }
-    return result;
+    return this.publicClient.requestContributionReferenceRecovery(
+      payload,
+      signal
+    );
   }
 
   private buildReturnUrl(
@@ -200,42 +151,13 @@ export class FundingService {
   }
 
   async getSponsorshipBatchAvailability(): Promise<PublicSponsorshipBatchAvailabilityResponse> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/public/sponsorship-batches/availability`,
-      {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Sponsorship batch availability could not be loaded.');
-    }
-
-    return (await response.json()) as PublicSponsorshipBatchAvailabilityResponse;
+    return this.publicClient.getSponsorshipBatchAvailability();
   }
 
   async getSponsorshipFollowup(
     token: string
   ): Promise<SponsorshipFollowupResponse> {
-    const params = new URLSearchParams({ token });
-    const response = await fetch(
-      `${this.apiBaseUrl}/sponsorship-followup?${params.toString()}`,
-      {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new SponsorshipFollowupError(response.status);
-    }
-
-    return (await response.json()) as SponsorshipFollowupResponse;
+    return this.followupClient.getSponsorshipFollowup(token);
   }
 
   async requestSponsorshipAccess(
@@ -243,99 +165,36 @@ export class FundingService {
     locale: 'fr-CA' | 'en',
     signal?: AbortSignal
   ): Promise<void> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/sponsorship-followup/recover`,
-      {
-        signal,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, locale })
-      }
-    );
-    if (!response.ok || (await response.json()).accepted !== true)
-      throw new SponsorshipFollowupError(response.status);
+    return this.followupClient.requestSponsorshipAccess(email, locale, signal);
   }
 
   async getSponsorshipDraft(
     token: string
   ): Promise<import('@openg7/funding-core').SponsorshipDraftSnapshot> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/sponsorship-followup/draft?${new URLSearchParams({ token })}`,
-      { cache: 'no-store' }
-    );
-    if (!response.ok) throw new SponsorshipFollowupError(response.status);
-    return response.json();
+    return this.followupClient.getSponsorshipDraft(token);
   }
 
   async saveSponsorshipDraft(
     payload: import('@openg7/funding-core').SponsorshipDraftRequest
   ): Promise<import('@openg7/funding-core').SponsorshipDraftSnapshot> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/sponsorship-followup/draft`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }
-    );
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new SponsorshipFollowupError(response.status, error.code ?? '');
-    }
-    return response.json();
+    return this.followupClient.saveSponsorshipDraft(payload);
   }
 
   async submitSponsorshipFollowupDetails(
     payload: SponsorshipFollowupDetailsRequest
   ): Promise<SponsorshipDetailsResult> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/sponsorship-followup/details`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new SponsorshipFollowupError(response.status, error.code ?? '');
-    }
-
-    return (await response.json()) as SponsorshipDetailsResult;
+    return this.followupClient.submitSponsorshipFollowupDetails(payload);
   }
 
   async getSponsorshipMedia(token: string): Promise<SponsorshipMediaResponse> {
-    const params = new URLSearchParams({ token });
-    const response = await fetch(
-      `${this.apiBaseUrl}/sponsorship-followup/media?${params.toString()}`,
-      { headers: { Accept: 'application/json' } }
-    );
-    if (!response.ok) {
-      throw new Error('Sponsorship media could not be loaded.');
-    }
-    return (await response.json()) as SponsorshipMediaResponse;
+    return this.followupClient.getSponsorshipMedia(token);
   }
 
   async getSponsorshipMediaPreview(
     token: string,
     assetId: string
   ): Promise<Blob> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/sponsorship-followup/media/content/${encodeURIComponent(assetId)}`,
-      {
-        headers: {
-          Accept: 'image/*',
-          'X-Sponsorship-Followup-Token': token
-        }
-      }
-    );
-    if (!response.ok) {
-      throw new Error('Sponsorship media preview could not be loaded.');
-    }
-    return response.blob();
+    return this.followupClient.getSponsorshipMediaPreview(token, assetId);
   }
 
   async uploadSponsorshipMedia(
@@ -344,57 +203,18 @@ export class FundingService {
     file: File,
     altText?: string
   ): Promise<SponsorMediaUploadResult> {
-    const body = new FormData();
-    body.set('token', token);
-    body.set('kind', kind);
-    body.set('media', file);
-    if (altText?.trim()) {
-      body.set('altText', altText.trim());
-    }
-    const response = await fetch(
-      `${this.apiBaseUrl}/sponsorship-followup/media`,
-      { method: 'POST', body }
+    return this.followupClient.uploadSponsorshipMedia(
+      token,
+      kind,
+      file,
+      altText
     );
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as {
-        readonly error?: string;
-      } | null;
-      throw new Error(payload?.error ?? 'Sponsor media could not be uploaded.');
-    }
-    return (await response.json()) as SponsorMediaUploadResult;
   }
 
   async deleteSponsorshipMedia(
     payload: SponsorMediaDeleteRequest
   ): Promise<SponsorMediaDeleteResult> {
-    const response = await fetch(
-      `${this.apiBaseUrl}/sponsorship-followup/media/delete`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }
-    );
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        readonly error?: string;
-      } | null;
-      throw new Error(body?.error ?? 'Sponsor media could not be deleted.');
-    }
-    return (await response.json()) as SponsorMediaDeleteResult;
-  }
-
-  private resolveApiBaseUrl(): string {
-    const globalApiBaseUrl =
-      typeof window !== 'undefined'
-        ? (
-            window as Window & {
-              readonly __OPENG7_FUNDING_API_BASE_URL__?: string;
-            }
-          ).__OPENG7_FUNDING_API_BASE_URL__
-        : undefined;
-
-    return globalApiBaseUrl?.replace(/\/$/, '') ?? '/api';
+    return this.followupClient.deleteSponsorshipMedia(payload);
   }
 
   private canUseDevelopmentCheckoutFallback(): boolean {

@@ -97,6 +97,9 @@ test('E2E 2/8: sponsor can reopen token follow-up and submit company details', (
   const fundingService = read(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts'
   );
+  const followupClient = read(
+    'apps/funding-web/src/app/features/funding/services/funding-sponsorship-followup.client.ts'
+  );
   const api = readFundingApiSource();
 
   assertIncludesAll(
@@ -133,13 +136,21 @@ test('E2E 2/8: sponsor can reopen token follow-up and submit company details', (
   );
 
   assertIncludesAll(
-    fundingService,
+    followupClient,
     [
       '/sponsorship-followup?',
       '/sponsorship-followup/details',
       'SponsorshipFollowupDetailsRequest'
     ],
-    'follow-up API service'
+    'follow-up transport client'
+  );
+  assertIncludesAll(
+    fundingService,
+    [
+      'this.followupClient.getSponsorshipFollowup(token)',
+      'this.followupClient.submitSponsorshipFollowupDetails(payload)'
+    ],
+    'Angular follow-up service delegation'
   );
 
   assertIncludesAll(
