@@ -2025,3 +2025,48 @@ test('collection queries preserve omitted IDs and default sponsorship filters', 
     '/admin/sponsorships?page=1&pageSize=6'
   ]);
 });
+
+test('sponsorship and publication requests share session expiry, cache invalidation and revocation', async (t) => {
+  const { service, sessionStorage } = serviceFixture(t);
+  sessionStorage.setItem(expiryKey, '2000-01-01T00:00:00.000Z');
+  service.identity.set(syntheticIdentity);
+  service.workQueue.set(syntheticQueue);
+  const paths = [];
+  const fetchMock = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    const path = url.slice(baseUrl.length);
+    paths.push(path);
+    if (path === '/admin/session') {
+      assert.equal(
+        options.body,
+        JSON.stringify({ token: 'synthetic-root-token' })
+      );
+      return Response.json({
+        sessionToken: explicitToken,
+        expiresAt: new Date(Date.now() + 60000).toISOString()
+      });
+    }
+    assert.equal(
+      options.headers.Authorization,
+      paths.length === 4 ? undefined : `Bearer ${explicitToken}`
+    );
+    return Response.json({ synthetic: true });
+  });
+  await service.getSponsorships('synthetic-root-token');
+  assert.equal(service.sessionGeneration(), 1);
+  assert.equal(service.identity(), null);
+  assert.equal(service.workQueue(), null);
+  assert.equal(sessionStorage.getItem(sessionKey), explicitToken);
+  await service.publicationAutomation();
+  assert.equal(service.sessionGeneration(), 1);
+  await service.signOut();
+  assert.equal(service.sessionGeneration(), 2);
+  assert.equal(sessionStorage.getItem(sessionKey), null);
+  await service.publicationMedia();
+  assert.deepEqual(paths, [
+    '/admin/session',
+    '/admin/sponsorships',
+    '/admin/publication-automation',
+    '/admin/publication-automation/media'
+  ]);
+  assert.equal(fetchMock.mock.callCount(), 4);
+});
