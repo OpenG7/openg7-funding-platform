@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 const modules = {
   contributions: [
     'contributions-read.repository.ts',
+    'contributions-write.repository.ts',
     'contributions-dashboard.repository.ts',
     'contributions-persistence-mappers.ts',
     'contributions-persistence-helpers.ts',
@@ -11,8 +12,14 @@ const modules = {
   administration: [
     'fund-expenses.repository.ts',
     'fund-admin-audit.repository.ts',
+    'fund-publication-calendar.repository.ts',
     'fund-admin.persistence.ts',
     'fund-admin.repository.ts'
+  ],
+  email: [
+    'email-queue-read.repository.ts',
+    'email-queue.persistence.ts',
+    'email-queue.repository.ts'
   ],
   transparency: [
     'fund-transparency-registry.repository.ts',

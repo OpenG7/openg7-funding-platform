@@ -2489,10 +2489,7 @@ test('An admin gets a daily email reminder for sponsorship reviews waiting on a 
 
 test('Email queue stores templates, retries delivery, and sends sponsorship invoices', () => {
   const email = readEmailNotificationSource();
-  const emailQueue = fs.readFileSync(
-    'apps/funding-api/src/email-queue.repository.ts',
-    'utf8'
-  );
+  const emailQueue = readFundingPersistenceSource('email');
   const api = readFundingApiSource();
   const webhook = fs.readFileSync(
     'apps/funding-api/src/stripe-webhook.service.ts',
@@ -2662,10 +2659,7 @@ test('Admin email queue page lists failed messages and retries them manually', (
   const page = readAdminOperationsSource('email-queue');
   const api = readFundingApiSource();
   const email = readEmailNotificationSource();
-  const emailQueue = fs.readFileSync(
-    'apps/funding-api/src/email-queue.repository.ts',
-    'utf8'
-  );
+  const emailQueue = readFundingPersistenceSource('email');
   const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
   const adminDocs = [
     fs.readFileSync('docs/technical/admin-api.md', 'utf8'),

@@ -77,7 +77,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const webhookService = read('apps/funding-api/src/stripe-webhook.service.ts');
   const refundService = read('apps/funding-api/src/stripe-refunds.service.ts');
   const emailService = readEmailNotificationSource();
-  const emailQueue = read('apps/funding-api/src/email-queue.repository.ts');
+  const emailQueue = readFundingPersistenceSource('email');
   const pdfService = read(
     'apps/funding-api/src/sponsorship-document-pdf.service.ts'
   );
