@@ -14,6 +14,7 @@ import type { ProgrammeIssue } from '@openg7/funding-core';
 import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../../../../packages/funding-core/src/index.js';
 import type { SponsorMediaStorage } from '../sponsor-media-storage.js';
 import { isSocialPublicationChannelConfigured } from '../social-publication.service.js';
+import { withPostgresTransaction } from '../postgres-transaction.js';
 
 import { editorialMessage } from './editorial-profiles.js';
 import {
@@ -120,23 +121,6 @@ async function audit(
       entityType
     ]
   );
-}
-async function transaction<T>(
-  pool: Pool,
-  fn: (db: PoolClient) => Promise<T>
-): Promise<T> {
-  const db = await pool.connect();
-  try {
-    await db.query('BEGIN');
-    const result = await fn(db);
-    await db.query('COMMIT');
-    return result;
-  } catch (error) {
-    await db.query('ROLLBACK');
-    throw error;
-  } finally {
-    db.release();
-  }
 }
 const sourceEqual = (a: Source[], b: Source[]) => isDeepStrictEqual(a, b);
 const sourceMessage = (sources: Source[]) =>
@@ -378,7 +362,7 @@ export class PublicationAutomationService {
   }
 
   async repair(id: string, version: string, actor: string): Promise<void> {
-    await transaction(this.pool, async (db) => {
+    await withPostgresTransaction(this.pool, async (db) => {
       const feed = (
         await db.query(
           'SELECT feed_id FROM publication_deliveries WHERE id=$1',
@@ -452,7 +436,7 @@ export class PublicationAutomationService {
   }
 
   async guardEligibility(): Promise<void> {
-    await transaction(this.pool, async (db) => {
+    await withPostgresTransaction(this.pool, async (db) => {
       const rows = (
         await db.query<DeliveryRow>(
           "SELECT * FROM publication_deliveries WHERE status IN ('draft','approved') AND (batch_id IS NOT NULL OR media_id IS NOT NULL) ORDER BY id FOR UPDATE SKIP LOCKED"
@@ -659,7 +643,7 @@ export class PublicationAutomationService {
     client?: PoolClient
   ): Promise<{ id?: string }> {
     const run = <T>(fn: (db: PoolClient) => Promise<T>) =>
-      client ? fn(client) : transaction(this.pool, fn);
+      client ? fn(client) : withPostgresTransaction(this.pool, fn);
     assert(input && typeof input === 'object', 'INVALID_COMMAND', 400);
     if (input.action === 'worker') {
       assert(
@@ -1060,7 +1044,7 @@ export class PublicationAutomationService {
     now = new Date()
   ): Promise<void> {
     const proposals: string[] = [];
-    await transaction(this.pool, async (db) => {
+    await withPostgresTransaction(this.pool, async (db) => {
       await db.query(
         `SELECT id FROM publication_feeds WHERE id=$1 FOR NO KEY UPDATE`,
         [feedId]
@@ -1261,7 +1245,7 @@ export class PublicationAutomationService {
     try {
       if (!(await this.workerSettings()).enabled) return;
       await this.guardEligibility();
-      await transaction(this.pool, async (db) => {
+      await withPostgresTransaction(this.pool, async (db) => {
         const stale = await db.query(
           `UPDATE publication_deliveries SET status='uncertain',error_code='LEASE_EXPIRED',version=version+1,updated_at=NOW() WHERE status='publishing' AND lease_until<$1 RETURNING id`,
           [now]
@@ -1296,7 +1280,7 @@ export class PublicationAutomationService {
         if (claim.rowCount) await this.prepare(f.id, 'publication-worker', now);
       }
       for (let i = 0; i < 5; i++) {
-        const row = await transaction(this.pool, async (db) => {
+        const row = await withPostgresTransaction(this.pool, async (db) => {
           // Serialize new claims with the global switch across server instances.
           if (!(await this.workerSettings(db, 'FOR SHARE')).enabled)
             return null;
@@ -1319,7 +1303,7 @@ export class PublicationAutomationService {
         if (!row) break;
         let sending = false;
         try {
-          const media = await transaction(this.pool, async (db) => {
+          const media = await withPostgresTransaction(this.pool, async (db) => {
             // Pause is checked again immediately before dispatch. An in-flight provider request cannot be recalled.
             const f = (
               await db.query(
@@ -1347,7 +1331,7 @@ export class PublicationAutomationService {
             }
           );
           // Persist the external result and audit in one transaction. Failure leaves an uncertain job; never resend blindly.
-          await transaction(this.pool, async (db) => {
+          await withPostgresTransaction(this.pool, async (db) => {
             await db.query(
               `SELECT id FROM publication_deliveries WHERE id=$1 FOR UPDATE`,
               [row.id]
@@ -1366,7 +1350,7 @@ export class PublicationAutomationService {
             error instanceof PublicationAutomationError &&
             error.code === 'WORKER_DISABLED'
           ) {
-            await transaction(this.pool, async (db) => {
+            await withPostgresTransaction(this.pool, async (db) => {
               await db.query(
                 `UPDATE publication_deliveries SET status='approved',attempts=attempts-1,lease_until=NULL,updated_at=NOW() WHERE id=$1 AND status='publishing'`,
                 [row.id]
@@ -1389,7 +1373,7 @@ export class PublicationAutomationService {
               : outcome === 'retry' && row.attempts < 4
                 ? 'approved'
                 : 'blocked';
-          await transaction(this.pool, async (db) => {
+          await withPostgresTransaction(this.pool, async (db) => {
             if (
               ['PROVIDER_HTTP_401', 'PROVIDER_HTTP_403'].includes(
                 safeCode(error)

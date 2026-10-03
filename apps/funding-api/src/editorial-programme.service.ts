@@ -23,6 +23,7 @@ import {
   validId
 } from './publication-automation/policy.js';
 import { editorialProfiles } from './publication-automation/editorial-profiles.js';
+import { withPostgresTransaction } from './postgres-transaction.js';
 
 const active = ['draft', 'approved', 'blocked', 'publishing', 'uncertain'];
 export class EditorialProgrammeService {
@@ -191,7 +192,7 @@ export class EditorialProgrammeService {
     moves: ProgrammeMove[],
     actor: string
   ): Promise<void> {
-    await this.transaction(async (db) => {
+    await withPostgresTransaction(this.pool, async (db) => {
       // Same order as preparation: feed, deliveries, sources. All edits commit together.
       await db.query('SELECT id FROM publication_feeds ORDER BY id FOR UPDATE');
       await db.query(
@@ -261,7 +262,7 @@ export class EditorialProgrammeService {
       'INVALID_INTENT',
       400
     );
-    await this.transaction(async (db) => {
+    await withPostgresTransaction(this.pool, async (db) => {
       const result = await db.query(
         'UPDATE publication_editorial_profiles SET preferences=$3::jsonb,version=version+1,updated_at=NOW() WHERE feed_id=$1 AND version=$2 RETURNING version',
         [feedId, Number(version), JSON.stringify(preferences)]
@@ -278,7 +279,7 @@ export class EditorialProgrammeService {
     });
   }
   async editWithIntent(c: PilotCommand, actor: string): Promise<void> {
-    await this.transaction(async (db) => {
+    await withPostgresTransaction(this.pool, async (db) => {
       const row = (
         await db.query(
           'SELECT * FROM publication_deliveries WHERE id=$1 FOR UPDATE',
@@ -317,19 +318,5 @@ export class EditorialProgrammeService {
         [c.targetId, row.feed_id, c.payload.editorialIntent]
       );
     });
-  }
-  private async transaction<T>(fn: (db: PoolClient) => Promise<T>): Promise<T> {
-    const db = await this.pool.connect();
-    try {
-      await db.query('BEGIN');
-      const result = await fn(db);
-      await db.query('COMMIT');
-      return result;
-    } catch (e) {
-      await db.query('ROLLBACK');
-      throw e;
-    } finally {
-      db.release();
-    }
   }
 }

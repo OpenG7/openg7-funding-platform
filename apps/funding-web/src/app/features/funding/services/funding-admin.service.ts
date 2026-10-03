@@ -556,15 +556,14 @@ export class FundingAdminService {
     | import('@openg7/funding-core').AdminBackupsResponse
     | import('@openg7/funding-core').AdminDatabaseBackup
   > {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/backups${requestId ? '?requestId=' + encodeURIComponent(requestId) : ''}`,
+    const response = await this.session.requestAdminJson(
+      `/admin/backups${requestId ? '?requestId=' + encodeURIComponent(requestId) : ''}`,
       {
+        auth: 'saved',
         method: payload ? 'POST' : 'GET',
-        headers: {
-          ...(await this.session.createHeaders(this.getSavedAdminToken())),
-          ...(payload ? { 'Content-Type': 'application/json' } : {})
-        },
-        ...(payload ? { body: JSON.stringify(payload) } : {})
+        ...(payload
+          ? { headers: { 'Content-Type': 'application/json' }, body: payload }
+          : {})
       }
     );
     if (!response.ok) {
@@ -582,11 +581,11 @@ export class FundingAdminService {
   }
 
   async getSetupStatus(token: string): Promise<AdminSetupStatusResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/setup-status`,
+    const response = await this.session.requestAdminJson(
+      '/admin/setup-status',
       {
-        method: 'GET',
-        headers: await this.session.createHeaders(token)
+        auth: { token },
+        method: 'GET'
       }
     );
 
@@ -601,17 +600,12 @@ export class FundingAdminService {
     token: string,
     payload: AdminEmailTestRequest
   ): Promise<AdminEmailTestResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/email/test`,
-      {
-        method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      }
-    );
+    const response = await this.session.requestAdminJson('/admin/email/test', {
+      auth: { token },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
+    });
 
     if (!response.ok) {
       await this.session.accessError(response);
@@ -624,10 +618,10 @@ export class FundingAdminService {
     token: string,
     requestId: string
   ): Promise<AdminEmailTestResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/email/test?requestId=${encodeURIComponent(requestId)}`,
+    const response = await this.session.requestAdminJson(
+      `/admin/email/test?requestId=${encodeURIComponent(requestId)}`,
       {
-        headers: await this.session.createHeaders(token)
+        auth: { token }
       }
     );
     if (!response.ok) await this.session.accessError(response);
@@ -638,11 +632,11 @@ export class FundingAdminService {
     token: string,
     id?: string
   ): Promise<AdminEmailQueueResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/email-queue${id ? '?messageId=' + encodeURIComponent(id) : ''}`,
+    const response = await this.session.requestAdminJson(
+      `/admin/email-queue${id ? '?messageId=' + encodeURIComponent(id) : ''}`,
       {
-        method: 'GET',
-        headers: await this.session.createHeaders(token)
+        auth: { token },
+        method: 'GET'
       }
     );
 
@@ -662,15 +656,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminEmailQueueRetryRequest
   ): Promise<AdminEmailQueueRetryResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/email-queue/retry`,
+    const response = await this.session.requestAdminJson(
+      '/admin/email-queue/retry',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -690,11 +682,11 @@ export class FundingAdminService {
     token: string,
     contributionId?: string
   ): Promise<AdminSponsorshipInvoicesResponse> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorship-invoices${contributionId ? '?contributionId=' + encodeURIComponent(contributionId) : ''}`,
+    const response = await this.session.requestAdminJson(
+      `/admin/sponsorship-invoices${contributionId ? '?contributionId=' + encodeURIComponent(contributionId) : ''}`,
       {
-        method: 'GET',
-        headers: await this.session.createHeaders(token)
+        auth: { token },
+        method: 'GET'
       }
     );
 
@@ -715,15 +707,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminSponsorshipInvoiceBackfillRequest
   ): Promise<AdminSponsorshipInvoiceBackfillResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorship-invoices/backfill`,
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorship-invoices/backfill',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -743,15 +733,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminSponsorshipInvoiceResendRequest
   ): Promise<AdminSponsorshipInvoiceResendResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorship-invoices/resend`,
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorship-invoices/resend',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -772,14 +760,12 @@ export class FundingAdminService {
     invoiceId: string
   ): Promise<Blob> {
     const params = new URLSearchParams({ invoiceId });
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorship-invoices/pdf?${params.toString()}`,
+    const response = await this.session.requestAdminJson(
+      `/admin/sponsorship-invoices/pdf?${params.toString()}`,
       {
+        auth: { token },
         method: 'GET',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          Accept: 'application/pdf'
-        }
+        headers: { Accept: 'application/pdf' }
       }
     );
 
@@ -800,15 +786,13 @@ export class FundingAdminService {
     token: string,
     payload: AdminSponsorshipCreditNoteResendRequest
   ): Promise<AdminSponsorshipCreditNoteResendResult> {
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorship-credit-notes/resend`,
+    const response = await this.session.requestAdminJson(
+      '/admin/sponsorship-credit-notes/resend',
       {
+        auth: { token },
         method: 'POST',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
       }
     );
 
@@ -829,14 +813,12 @@ export class FundingAdminService {
     creditNoteId: string
   ): Promise<Blob> {
     const params = new URLSearchParams({ creditNoteId });
-    const response = await fetch(
-      `${this.session.apiBaseUrl}/admin/sponsorship-credit-notes/pdf?${params.toString()}`,
+    const response = await this.session.requestAdminJson(
+      `/admin/sponsorship-credit-notes/pdf?${params.toString()}`,
       {
+        auth: { token },
         method: 'GET',
-        headers: {
-          ...(await this.session.createHeaders(token)),
-          Accept: 'application/pdf'
-        }
+        headers: { Accept: 'application/pdf' }
       }
     );
 
