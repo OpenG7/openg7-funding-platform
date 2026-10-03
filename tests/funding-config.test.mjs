@@ -1965,7 +1965,7 @@ test('Admin sponsors page derives the sponsorship tier from the paid amount inst
   );
   assert.ok(
     translatedUiSource(page).includes(
-      'benefitsLabel: this.sponsorshipBenefitsLabel(selected)'
+      'benefitsLabel: this.sponsorshipBenefitsLabel(sponsorship)'
     )
   );
   assert.match(overviewComponent, /\{\{\s*overview\(\)\.benefitsLabel\s*\}\}/);
@@ -1982,15 +1982,13 @@ test('Admin sponsors publication channels are preselected from amount-based bene
   assert.ok(translatedUiSource(page).includes("linkedin_batch: 'linkedin'"));
   assert.ok(translatedUiSource(page).includes('promisedFeedChannelsFor('));
   assert.ok(translatedUiSource(page).includes('isPromisedFeedChannel('));
-  assert.ok(
-    translatedUiSource(page).includes(
-      "isPromisedFeedChannel(selected, 'facebook')"
-    )
+  assert.match(
+    page,
+    /publicationWorkflow\.isPromisedFeedChannel\(\s*selected,\s*'facebook'\s*\)/
   );
-  assert.ok(
-    translatedUiSource(page).includes(
-      "isPromisedFeedChannel(selected, 'linkedin')"
-    )
+  assert.match(
+    page,
+    /publicationWorkflow\.isPromisedFeedChannel\(\s*selected,\s*'linkedin'\s*\)/
   );
   assert.ok(
     translatedUiSource(page).includes(

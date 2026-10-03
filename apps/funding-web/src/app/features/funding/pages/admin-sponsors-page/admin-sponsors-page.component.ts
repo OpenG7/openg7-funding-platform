@@ -34,25 +34,22 @@ import {
   UrlTree
 } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import {
-  DEFAULT_SPONSORSHIP_PRICING_CONFIG,
-  resolveSponsorshipBenefits
-} from '@openg7/funding-core';
 import type {
-  AdminSponsorshipRejectionRefundHandling,
   AdminPagination,
   AdminSponsorshipRecord,
   AdminSponsorshipProgress,
-  AdminSponsorshipRefundWorkflowStatus,
-  AdminSponsorshipReviewResult,
-  SponsorFeedChannel,
   SponsorFeedStatus,
-  SponsorFeedTarget,
-  SponsorshipBenefitId,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
 
-import type { AdminSponsorActionPorts } from '../../models/admin-sponsor-workflow.ports.js';
+import type {
+  AdminSponsorActionPorts,
+  AdminSponsorSelectionPorts,
+  SponsorshipApprovalFeedback
+} from '../../models/admin-sponsor-workflow.ports.js';
+import { AdminSponsorPresentationProjection } from '../../models/admin-sponsor-presentation.projection.js';
+import { AdminSponsorReviewWorkflow } from '../../services/admin-sponsor-review-workflow.js';
+import { AdminSponsorPublicationWorkflow } from '../../services/admin-sponsor-publication-workflow.js';
 import { AdminSponsorHistoryProjection } from '../../models/admin-sponsor-history.projection.js';
 import { AdminSponsorRefundWorkflow } from '../../services/admin-sponsor-refund-workflow.js';
 import { AdminSponsorMediaWorkflow } from '../../services/admin-sponsor-media-workflow.js';
@@ -80,11 +77,7 @@ import { AdminSponsorDetailTabsComponent } from '../../components/admin-sponsors
 import { AdminSponsorsListPanelComponent } from '../../components/admin-sponsors/admin-sponsors-list-panel.component.js';
 import { AdminSponsorsSummaryComponent } from '../../components/admin-sponsors/admin-sponsors-summary.component.js';
 import type {
-  AdminSponsorDetailHeaderView,
-  AdminSponsorDetailIdentityView,
-  AdminSponsorDetailOverviewView,
   AdminSponsorFeedStatusOption,
-  AdminSponsorListRow,
   SponsorDetailsTab,
   SponsorFeedStatusFilter,
   SponsorPaymentStatusFilter,
@@ -98,49 +91,6 @@ const feedStatuses: readonly SponsorFeedStatus[] = [
   'published'
 ];
 
-interface SponsorshipPublicationDraft {
-  readonly publicSlug: string;
-  readonly publicSummary: string;
-  readonly feedTarget: '' | SponsorFeedTarget;
-  readonly facebook: boolean;
-  readonly linkedin: boolean;
-  readonly feedStatus: SponsorFeedStatus;
-  readonly feedPublicUrl: string;
-  readonly feedNotes: string;
-}
-
-type SponsorshipPublicationTextField =
-  | 'publicSlug'
-  | 'publicSummary'
-  | 'feedTarget'
-  | 'feedStatus'
-  | 'feedPublicUrl'
-  | 'feedNotes';
-type SponsorProcessingState =
-  | 'action-required'
-  | 'approved-ready'
-  | 'publication-progress'
-  | 'published'
-  | 'blocked'
-  | 'waiting-payment';
-type SponsorshipPublicationChannel = Extract<
-  SponsorFeedChannel,
-  'facebook' | 'linkedin'
->;
-
-interface SponsorshipApprovalFeedback {
-  readonly id: string;
-  readonly phase: 'pending' | 'success' | 'error';
-}
-
-interface SponsorRejectionDraft {
-  readonly notifySponsor: boolean;
-  readonly recipientEmail: string;
-  readonly sponsorMessage: string;
-  readonly refundHandling: AdminSponsorshipRejectionRefundHandling;
-  readonly refundNote: string;
-}
-
 const pageSizeOptions = [6, 10, 25] as const;
 const defaultPagination: AdminPagination = {
   page: 1,
@@ -149,12 +99,6 @@ const defaultPagination: AdminPagination = {
   totalPages: 1,
   hasPreviousPage: false,
   hasNextPage: false
-};
-const benefitFeedChannelMap: Partial<
-  Record<SponsorshipBenefitId, SponsorshipPublicationChannel>
-> = {
-  facebook_batch: 'facebook',
-  linkedin_batch: 'linkedin'
 };
 
 @Component({
@@ -240,7 +184,9 @@ const benefitFeedChannelMap: Partial<
           [totalSponsorships]="pagination().totalItems"
           [visibleCount]="visibleCount()"
           [activeCount]="activeCount()"
-          [totalContributionLabel]="formatSummaryMoney(totalContribution())"
+          [totalContributionLabel]="
+            presentationProjection.formatSummaryMoney(totalContribution())
+          "
         />
 
         <section
@@ -452,8 +398,10 @@ const benefitFeedChannelMap: Partial<
                   [overview]="overview"
                   [disabled]="actionsDisabled()"
                   (copyReference)="copyReference(selected)"
-                  (reviewNoteChange)="setReviewNoteValue(selected.id, $event)"
-                  (saveReviewNote)="saveReviewNote(selected)"
+                  (reviewNoteChange)="
+                    reviewWorkflow.setReviewNoteValue(selected.id, $event)
+                  "
+                  (saveReviewNote)="reviewWorkflow.saveReviewNote(selected)"
                 />
               </ng-container>
 
@@ -507,9 +455,14 @@ const benefitFeedChannelMap: Partial<
                   [dossier]="progress()"
                   [canManageWebsite]="canManage()"
                   [websiteDisabled]="actionsDisabled()"
-                  [websiteMessage]="websiteMessages()[selected.id] || ''"
+                  [websiteMessage]="
+                    publicationWorkflow.websiteMessages()[selected.id] || ''
+                  "
                   (changeWebsiteVisibility)="
-                    changeWebsiteVisibility(selected, $event)
+                    publicationWorkflow.changeWebsiteVisibility(
+                      selected,
+                      $event
+                    )
                   "
                   (editWebsite)="openWebsiteSettings()"
                 />
@@ -557,15 +510,17 @@ const benefitFeedChannelMap: Partial<
                         type="button"
                         class="publication-save"
                         [disabled]="
-                          !publicationDirtyFor(selected) ||
-                          hasSlugError(selected) ||
-                          !canSavePublication(selected) ||
+                          !publicationWorkflow.publicationDirtyFor(selected) ||
+                          publicationWorkflow.hasSlugError(selected) ||
+                          !publicationWorkflow.canSavePublication(selected) ||
                           actionsDisabled()
                         "
-                        (click)="savePublication(selected)"
+                        (click)="publicationWorkflow.savePublication(selected)"
                       >
                         {{
-                          isActionPending(publicationActionId(selected.id))
+                          isActionPending(
+                            publicationWorkflow.publicationActionId(selected.id)
+                          )
                             ? ('admin.legacy.enregistrement' | translate)
                             : ('admin.legacy.enregistrer' | translate)
                         }}
@@ -573,10 +528,12 @@ const benefitFeedChannelMap: Partial<
                     </header>
                     <p
                       class="inline-status"
-                      [class.is-dirty]="publicationDirtyFor(selected)"
+                      [class.is-dirty]="
+                        publicationWorkflow.publicationDirtyFor(selected)
+                      "
                       aria-live="polite"
                     >
-                      {{ publicationStateLabel(selected) }}
+                      {{ publicationWorkflow.publicationStateLabel(selected) }}
                     </p>
                     <fieldset
                       class="publication-grid"
@@ -587,29 +544,39 @@ const benefitFeedChannelMap: Partial<
                         }}<input
                           type="text"
                           maxlength="120"
-                          [value]="publicationDraftFor(selected.id).publicSlug"
+                          [value]="
+                            publicationWorkflow.publicationDraftFor(selected.id)
+                              .publicSlug
+                          "
                           (input)="
-                            setPublicationField(
+                            publicationWorkflow.setPublicationField(
                               selected.id,
                               'publicSlug',
                               $event
                             )
                           "
                           [attr.aria-invalid]="
-                            slugErrorFor(selected) ? 'true' : null
+                            publicationWorkflow.slugErrorFor(selected)
+                              ? 'true'
+                              : null
                           "
                         /><small
                           class="field-error"
-                          *ngIf="slugErrorFor(selected)"
-                          >{{ slugErrorFor(selected) }}</small
+                          *ngIf="publicationWorkflow.slugErrorFor(selected)"
+                          >{{
+                            publicationWorkflow.slugErrorFor(selected)
+                          }}</small
                         ></label
                       >
                       <label
                         >{{ 'admin.legacy.destination_feed' | translate
                         }}<select
-                          [value]="publicationDraftFor(selected.id).feedTarget"
+                          [value]="
+                            publicationWorkflow.publicationDraftFor(selected.id)
+                              .feedTarget
+                          "
                           (change)="
-                            setPublicationField(
+                            publicationWorkflow.setPublicationField(
                               selected.id,
                               'feedTarget',
                               $event
@@ -626,9 +593,12 @@ const benefitFeedChannelMap: Partial<
                       <label
                         >{{ 'admin.legacy.statut_feed' | translate
                         }}<select
-                          [value]="publicationDraftFor(selected.id).feedStatus"
+                          [value]="
+                            publicationWorkflow.publicationDraftFor(selected.id)
+                              .feedStatus
+                          "
                           (change)="
-                            setPublicationField(
+                            publicationWorkflow.setPublicationField(
                               selected.id,
                               'feedStatus',
                               $event
@@ -649,18 +619,26 @@ const benefitFeedChannelMap: Partial<
                           ><input
                             type="checkbox"
                             [checked]="
-                              publicationDraftFor(selected.id).facebook
+                              publicationWorkflow.publicationDraftFor(
+                                selected.id
+                              ).facebook
                             "
                             [disabled]="
-                              isPromisedFeedChannel(selected, 'facebook')
+                              publicationWorkflow.isPromisedFeedChannel(
+                                selected,
+                                'facebook'
+                              )
                             "
                             [attr.title]="
-                              isPromisedFeedChannel(selected, 'facebook')
+                              publicationWorkflow.isPromisedFeedChannel(
+                                selected,
+                                'facebook'
+                              )
                                 ? 'Canal inclus par le palier de contribution'
                                 : null
                             "
                             (change)="
-                              setPublicationChannel(
+                              publicationWorkflow.setPublicationChannel(
                                 selected.id,
                                 'facebook',
                                 $event
@@ -672,18 +650,26 @@ const benefitFeedChannelMap: Partial<
                           ><input
                             type="checkbox"
                             [checked]="
-                              publicationDraftFor(selected.id).linkedin
+                              publicationWorkflow.publicationDraftFor(
+                                selected.id
+                              ).linkedin
                             "
                             [disabled]="
-                              isPromisedFeedChannel(selected, 'linkedin')
+                              publicationWorkflow.isPromisedFeedChannel(
+                                selected,
+                                'linkedin'
+                              )
                             "
                             [attr.title]="
-                              isPromisedFeedChannel(selected, 'linkedin')
+                              publicationWorkflow.isPromisedFeedChannel(
+                                selected,
+                                'linkedin'
+                              )
                                 ? 'Canal inclus par le palier de contribution'
                                 : null
                             "
                             (change)="
-                              setPublicationChannel(
+                              publicationWorkflow.setPublicationChannel(
                                 selected.id,
                                 'linkedin',
                                 $event
@@ -699,10 +685,11 @@ const benefitFeedChannelMap: Partial<
                           rows="4"
                           maxlength="500"
                           [value]="
-                            publicationDraftFor(selected.id).publicSummary
+                            publicationWorkflow.publicationDraftFor(selected.id)
+                              .publicSummary
                           "
                           (input)="
-                            setPublicationField(
+                            publicationWorkflow.setPublicationField(
                               selected.id,
                               'publicSummary',
                               $event
@@ -716,10 +703,11 @@ const benefitFeedChannelMap: Partial<
                           type="url"
                           maxlength="2048"
                           [value]="
-                            publicationDraftFor(selected.id).feedPublicUrl
+                            publicationWorkflow.publicationDraftFor(selected.id)
+                              .feedPublicUrl
                           "
                           (input)="
-                            setPublicationField(
+                            publicationWorkflow.setPublicationField(
                               selected.id,
                               'feedPublicUrl',
                               $event
@@ -731,9 +719,12 @@ const benefitFeedChannelMap: Partial<
                         }}<textarea
                           rows="4"
                           maxlength="1000"
-                          [value]="publicationDraftFor(selected.id).feedNotes"
+                          [value]="
+                            publicationWorkflow.publicationDraftFor(selected.id)
+                              .feedNotes
+                          "
                           (input)="
-                            setPublicationField(
+                            publicationWorkflow.setPublicationField(
                               selected.id,
                               'feedNotes',
                               $event
@@ -762,10 +753,13 @@ const benefitFeedChannelMap: Partial<
                         />
                       </figure>
                       <div>
-                        <h3>{{ publicNameLabel(selected) }}</h3>
+                        <h3>
+                          {{ presentationProjection.publicNameLabel(selected) }}
+                        </h3>
                         <p>
                           {{
-                            publicationDraftFor(selected.id).publicSummary ||
+                            publicationWorkflow.publicationDraftFor(selected.id)
+                              .publicSummary ||
                               ('admin.legacy.aucun_resume_public_pour_le_moment'
                                 | translate)
                           }}
@@ -777,20 +771,25 @@ const benefitFeedChannelMap: Partial<
                         <dt>{{ 'admin.legacy.destination' | translate }}</dt>
                         <dd>
                           {{
-                            publicationDraftFor(selected.id).feedTarget ||
-                              ('admin.legacy.aucune' | translate)
+                            publicationWorkflow.publicationDraftFor(selected.id)
+                              .feedTarget || ('admin.legacy.aucune' | translate)
                           }}
                         </dd>
                       </div>
                       <div>
                         <dt>{{ 'admin.legacy.canaux' | translate }}</dt>
-                        <dd>{{ draftChannelsLabel(selected.id) }}</dd>
+                        <dd>
+                          {{
+                            publicationWorkflow.draftChannelsLabel(selected.id)
+                          }}
+                        </dd>
                       </div>
                       <div>
                         <dt>{{ 'admin.legacy.lien' | translate }}</dt>
                         <dd>
                           {{
-                            publicationDraftFor(selected.id).feedPublicUrl ||
+                            publicationWorkflow.publicationDraftFor(selected.id)
+                              .feedPublicUrl ||
                               ('admin.legacy.non_defini' | translate)
                           }}
                         </dd>
@@ -831,7 +830,9 @@ const benefitFeedChannelMap: Partial<
                       <span>{{
                         'admin.legacy.montant_commandite' | translate
                       }}</span>
-                      <strong>{{ formatMoney(selected) }}</strong>
+                      <strong>{{
+                        presentationProjection.formatMoney(selected)
+                      }}</strong>
                     </div>
                     <div>
                       <span>{{
@@ -1038,7 +1039,9 @@ const benefitFeedChannelMap: Partial<
               <section
                 class="rejection-workflow"
                 data-og7="dossier-rejection-form"
-                *ngIf="canManage() && isRejectionPanelOpen(selected)"
+                *ngIf="
+                  canManage() && reviewWorkflow.isRejectionPanelOpen(selected)
+                "
                 [attr.aria-label]="
                   'admin.legacy.refus_de_commandite' | translate
                 "
@@ -1071,8 +1074,8 @@ const benefitFeedChannelMap: Partial<
                     #rejectionReason
                     rows="4"
                     maxlength="1000"
-                    [value]="reviewNoteFor(selected.id)"
-                    (input)="setReviewNote(selected.id, $event)"
+                    [value]="reviewWorkflow.reviewNoteFor(selected.id)"
+                    (input)="reviewWorkflow.setReviewNote(selected.id, $event)"
                   ></textarea>
                 </label>
 
@@ -1081,9 +1084,11 @@ const benefitFeedChannelMap: Partial<
                   }}<textarea
                     rows="5"
                     maxlength="1000"
-                    [value]="rejectionDraftFor(selected).sponsorMessage"
+                    [value]="
+                      reviewWorkflow.rejectionDraftFor(selected).sponsorMessage
+                    "
                     (input)="
-                      setRejectionDraftField(
+                      reviewWorkflow.setRejectionDraftField(
                         selected.id,
                         'sponsorMessage',
                         $event
@@ -1095,9 +1100,11 @@ const benefitFeedChannelMap: Partial<
                 <label class="checkbox-line rejection-span-2">
                   <input
                     type="checkbox"
-                    [checked]="rejectionDraftFor(selected).notifySponsor"
+                    [checked]="
+                      reviewWorkflow.rejectionDraftFor(selected).notifySponsor
+                    "
                     (change)="
-                      setRejectionDraftBoolean(
+                      reviewWorkflow.setRejectionDraftBoolean(
                         selected.id,
                         'notifySponsor',
                         $event
@@ -1114,10 +1121,14 @@ const benefitFeedChannelMap: Partial<
                   }}<input
                     type="email"
                     autocomplete="email"
-                    [disabled]="!rejectionDraftFor(selected).notifySponsor"
-                    [value]="rejectionDraftFor(selected).recipientEmail"
+                    [disabled]="
+                      !reviewWorkflow.rejectionDraftFor(selected).notifySponsor
+                    "
+                    [value]="
+                      reviewWorkflow.rejectionDraftFor(selected).recipientEmail
+                    "
                     (input)="
-                      setRejectionDraftField(
+                      reviewWorkflow.setRejectionDraftField(
                         selected.id,
                         'recipientEmail',
                         $event
@@ -1128,8 +1139,15 @@ const benefitFeedChannelMap: Partial<
                 <label
                   >{{ 'admin.legacy.remboursement' | translate
                   }}<select
-                    [value]="rejectionDraftFor(selected).refundHandling"
-                    (change)="setRejectionRefundHandling(selected.id, $event)"
+                    [value]="
+                      reviewWorkflow.rejectionDraftFor(selected).refundHandling
+                    "
+                    (change)="
+                      reviewWorkflow.setRejectionRefundHandling(
+                        selected.id,
+                        $event
+                      )
+                    "
                   >
                     <option value="none">
                       {{
@@ -1155,16 +1173,22 @@ const benefitFeedChannelMap: Partial<
                   }}<textarea
                     rows="3"
                     maxlength="1000"
-                    [value]="rejectionDraftFor(selected).refundNote"
+                    [value]="
+                      reviewWorkflow.rejectionDraftFor(selected).refundNote
+                    "
                     (input)="
-                      setRejectionDraftField(selected.id, 'refundNote', $event)
+                      reviewWorkflow.setRejectionDraftField(
+                        selected.id,
+                        'refundNote',
+                        $event
+                      )
                     "
                   ></textarea>
                 </label>
 
                 <footer>
                   <span class="inline-status" aria-live="polite">{{
-                    rejectionValidationMessage(selected)
+                    reviewWorkflow.rejectionValidationMessage(selected)
                   }}</span>
                   <button
                     type="button"
@@ -1178,12 +1202,15 @@ const benefitFeedChannelMap: Partial<
                     type="button"
                     class="review-button reject"
                     [disabled]="
-                      !canConfirmRejection(selected) || actionsDisabled()
+                      !reviewWorkflow.canConfirmRejection(selected) ||
+                      actionsDisabled()
                     "
-                    (click)="confirmRejection(selected)"
+                    (click)="reviewWorkflow.confirmRejection(selected)"
                   >
                     {{
-                      isActionPending(reviewActionId(selected.id))
+                      isActionPending(
+                        reviewWorkflow.reviewActionId(selected.id)
+                      )
                         ? ('admin.legacy.refus_en_cours' | translate)
                         : ('admin.legacy.confirmer_le_refus' | translate)
                     }}
@@ -1228,7 +1255,7 @@ const benefitFeedChannelMap: Partial<
                       | translate
                         : {
                             p0: refundWorkflow.refundDraftAmountLabel(selected),
-                            p1: formatMoney(selected)
+                            p1: presentationProjection.formatMoney(selected)
                           }
                   }}
                 </p>
@@ -1445,11 +1472,11 @@ const benefitFeedChannelMap: Partial<
                 </div>
                 <p
                   class="review-toast"
-                  *ngIf="reviewMessageFor(selected.id)"
+                  *ngIf="reviewWorkflow.reviewMessageFor(selected.id)"
                   role="status"
                   aria-live="polite"
                 >
-                  {{ reviewMessageFor(selected.id) }}
+                  {{ reviewWorkflow.reviewMessageFor(selected.id) }}
                 </p>
                 <div class="detail-actions-buttons">
                   <button
@@ -1460,7 +1487,7 @@ const benefitFeedChannelMap: Partial<
                       actionsDisabled() ||
                       selected.sponsor_review_status === 'pending_review'
                     "
-                    (click)="review(selected, 'pending_review')"
+                    (click)="reviewWorkflow.review(selected, 'pending_review')"
                   >
                     {{ 'admin.legacy.remettre_en_attente' | translate }}
                   </button>
@@ -1498,9 +1525,10 @@ const benefitFeedChannelMap: Partial<
                     [attr.aria-busy]="approvalState(selected.id) === 'pending'"
                     *ngIf="!isFinanceTab()"
                     [disabled]="
-                      actionsDisabled() || !canApproveSponsorship(selected)
+                      actionsDisabled() ||
+                      !reviewWorkflow.canApproveSponsorship(selected)
                     "
-                    (click)="review(selected, 'approved')"
+                    (click)="reviewWorkflow.review(selected, 'approved')"
                   >
                     <span class="approval-shine" aria-hidden="true"></span>
                     <span class="approval-sparks" aria-hidden="true"></span>
@@ -2349,6 +2377,78 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     messageFromError: (error, fallback) =>
       this.messageFromError(error, fallback)
   };
+
+  private selectionRevision = 0;
+  private readonly sponsorSelectionPorts: AdminSponsorSelectionPorts = {
+    ...this.sponsorActionPorts,
+    selectionRevision: () => this.selectionRevision,
+    isCurrentSelection: (id) =>
+      !this.destroyRef.destroyed && this.selectedSponsorshipId() === id
+  };
+  readonly reviewWorkflow = new AdminSponsorReviewWorkflow({
+    ...this.sponsorSelectionPorts,
+    admin: {
+      reviewSponsorship: (token, payload) =>
+        this.admin.reviewSponsorship(token, payload)
+    },
+    confirm: (message, detail) => this.confirmation.confirm(message, detail),
+    canManage: () => this.canManage(),
+    paymentEligibilityMessage: (sponsorship) =>
+      this.paymentEligibilityMessage(sponsorship),
+    openRejectionPanel: (sponsorship) => this.openRejectionPanel(sponsorship),
+    beginApprovalFeedback: (id) => {
+      this.clearApprovalFeedback();
+      const attempt: SponsorshipApprovalFeedback | null = id
+        ? { id, phase: 'pending' }
+        : null;
+      this.approvalFeedback.set(attempt);
+      return attempt;
+    },
+    finishApprovalFeedback: (attempt, phase) =>
+      this.finishApprovalFeedback(attempt, phase),
+    pulseSelection: (id) => this.pulseSelection(id),
+    refundWorkflowStatusLabel: (status) =>
+      this.historyProjection.refundWorkflowStatusLabel(status)
+  });
+  readonly publicationWorkflow = new AdminSponsorPublicationWorkflow({
+    ...this.sponsorSelectionPorts,
+    admin: {
+      updateSponsorshipPublication: (token, payload) =>
+        this.admin.updateSponsorshipPublication(token, payload),
+      setSponsorshipWebsiteVisibility: (token, payload) =>
+        this.admin.setSponsorshipWebsiteVisibility(token, payload)
+    },
+    confirm: (message, detail) => this.confirmation.confirm(message, detail),
+    sponsorships: () => this.sponsorships(),
+    progress: () => this.progress(),
+    paymentEligibilityMessage: (sponsorship) =>
+      this.paymentEligibilityMessage(sponsorship)
+  });
+  readonly presentationProjection = new AdminSponsorPresentationProjection({
+    t: (key, params) => this.i18n.t(key, params),
+    currentLanguage: () => this.i18n.currentLanguage(),
+    formatAmount: (amount, currency) => this.formatAmount(amount, currency),
+    dateOnlyLabel: (value) => this.dateOnlyLabel(value),
+    paymentStatusLabel: (status) => this.paymentStatusLabel(status),
+    reviewStatusLabel: (status) => this.reviewStatusLabel(status),
+    feedStatusLabel: (status) => this.feedStatusLabel(status),
+    history: {
+      hasRefundWorkflow: (sponsorship) =>
+        this.historyProjection.hasRefundWorkflow(sponsorship),
+      refundWorkflowStatusClass: (status) =>
+        this.historyProjection.refundWorkflowStatusClass(status),
+      refundWorkflowStatusLabel: (status) =>
+        this.historyProjection.refundWorkflowStatusLabel(status),
+      refundWorkflowTimelineLabel: (sponsorship) =>
+        this.historyProjection.refundWorkflowTimelineLabel(sponsorship)
+    },
+    media: {
+      sponsorMediaStatusLabel: (status) =>
+        this.mediaWorkflow.sponsorMediaStatusLabel(status),
+      formatMediaSize: (bytes) => this.mediaWorkflow.formatMediaSize(bytes)
+    }
+  });
+
   readonly historyProjection = new AdminSponsorHistoryProjection({
     t: (key, params) => this.i18n.t(key, params),
     formatAmount: (amount, currency) => this.formatAmount(amount, currency),
@@ -2365,10 +2465,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     },
     canUseOwnerActions: () => this.canUseOwnerActions(),
     setReviewMessage: (id, message, autoHide) =>
-      this.setReviewMessage(id, message, autoHide),
+      this.reviewWorkflow.setReviewMessage(id, message, autoHide),
     pulseSelection: (id) => this.pulseSelection(id),
     formatAmount: (amount, currency) => this.formatAmount(amount, currency),
-    formatMoney: (sponsorship) => this.formatMoney(sponsorship),
+    formatMoney: (sponsorship) =>
+      this.presentationProjection.formatMoney(sponsorship),
     refundWorkflowStatusLabel: (status) =>
       this.historyProjection.refundWorkflowStatusLabel(status),
     stripeRefundReasonLabel: (reason) =>
@@ -2398,10 +2499,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   readonly adminToken = signal<string>('');
   readonly sponsorships = signal<readonly AdminSponsorshipRecord[]>([]);
-  readonly reviewNotes = signal<Record<string, string>>({});
-  readonly publicationDrafts = signal<
-    Record<string, SponsorshipPublicationDraft>
-  >({});
   readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
   readonly actionState = signal<string | null>(null);
   readonly approvalFeedback = signal<SponsorshipApprovalFeedback | null>(null);
@@ -2412,24 +2509,18 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly assistantRefresh = signal(0);
   readonly progress = signal<AdminSponsorshipProgress | null>(null);
   readonly websiteSettingsOpen = signal(false);
-  readonly websiteMessages = signal<Record<string, string>>({});
   readonly versionConflict = signal(false);
   private readonly router = inject(Router);
 
   private loadGeneration = 0;
   private routeInitialized = false;
   readonly selectedSponsorshipId = signal<string | null>(null);
-  readonly activeRejectionId = signal<string | null>(null);
   readonly activeTab = signal<SponsorDetailsTab>('overview');
   readonly page = signal<number>(1);
   readonly pageSize = signal<number>(6);
   readonly pagination = signal<AdminPagination>(defaultPagination);
   readonly selectionPulseId = signal<string | null>(null);
-  readonly reviewMessages = signal<Record<string, string>>({});
-  readonly publicationMessages = signal<Record<string, string>>({});
-  readonly noteMessages = signal<Record<string, string>>({});
   readonly copyMessages = signal<Record<string, string>>({});
-  readonly rejectionDrafts = signal<Record<string, SponsorRejectionDraft>>({});
   readonly feedStatuses = feedStatuses;
   readonly pageSizeOptions = pageSizeOptions;
   readonly feedStatusOptions = computed<
@@ -2444,50 +2535,10 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   readonly totalPages = computed(() => this.pagination().totalPages);
   readonly normalizedPage = computed(() => this.pagination().page);
   readonly paginatedSponsorships = computed(() => this.sponsorships());
-  readonly sponsorListRows = computed<readonly AdminSponsorListRow[]>(() =>
-    this.paginatedSponsorships().map((sponsorship) => ({
-      id: sponsorship.id,
-      rowStateClass: this.sponsorshipRowStateClass(sponsorship),
-      processingLabel: this.sponsorshipProcessingLabel(sponsorship),
-      initials: this.initialsFor(sponsorship),
-      companyName:
-        sponsorship.sponsor_company_name ||
-        this.i18n.t('admin.messages.entreprise_sans_nom'),
-      contactEmail:
-        sponsorship.sponsor_contact_email ||
-        this.i18n.t('admin.messages.courriel_non_fourni'),
-      amountLabel: this.formatMoney(sponsorship),
-      tierClass: this.tierClass(sponsorship),
-      tierLabel: this.sponsorshipTierLabel(sponsorship),
-      reviewStatusClass: this.statusClass(sponsorship.sponsor_review_status),
-      reviewStatusLabel: this.reviewStatusLabel(
-        sponsorship.sponsor_review_status
-      ),
-      visibilityClass: this.visibilityClass(sponsorship),
-      visibilityLabel: this.visibilityLabel(sponsorship),
-      feedStatusClass: this.feedStatusClass(sponsorship.sponsor_feed_status),
-      feedStatusLabel: this.feedStatusLabel(sponsorship.sponsor_feed_status),
-      feedTargetLabel: this.feedTargetLabel(sponsorship),
-      feedChannelsLabel: this.feedChannelsLabel(sponsorship),
-      paymentStatusClass: this.paymentStatusClass(sponsorship.payment_status),
-      paymentStatusLabel: this.paymentStatusLabel(sponsorship.payment_status),
-      refundWorkflowStatusClass: this.historyProjection.hasRefundWorkflow(
-        sponsorship
-      )
-        ? this.historyProjection.refundWorkflowStatusClass(
-            sponsorship.sponsorship_refund_status
-          )
-        : null,
-      refundWorkflowStatusLabel: this.historyProjection.hasRefundWorkflow(
-        sponsorship
-      )
-        ? this.historyProjection.refundWorkflowStatusLabel(
-            sponsorship.sponsorship_refund_status
-          )
-        : null,
-      paidAtLabel: this.dateOnlyLabel(sponsorship.paid_at),
-      submittedAtLabel: this.dateOnlyLabel(this.submittedAt(sponsorship))
-    }))
+  readonly sponsorListRows = computed(() =>
+    this.paginatedSponsorships().map((sponsorship) =>
+      this.presentationProjection.listRow(sponsorship)
+    )
   );
   readonly paginationStart = computed(() =>
     this.pagination().totalItems === 0
@@ -2507,151 +2558,39 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
     return this.sponsorships().find((item) => item.id === selectedId) ?? null;
   });
-  readonly selectedSponsorDetailHeader =
-    computed<AdminSponsorDetailHeaderView | null>(() => {
-      const selected = this.selectedSponsorship();
-      if (!selected) {
-        return null;
-      }
-
-      const hasRefundWorkflow =
-        this.historyProjection.hasRefundWorkflow(selected);
-
-      return {
-        initials: this.initialsFor(selected),
-        companyName:
-          selected.sponsor_company_name ||
-          this.i18n.t('admin.messages.entreprise_sans_nom'),
-        amountLabel: this.formatMoney(selected),
-        tierLabel: this.sponsorshipTierLabel(selected),
-        reviewStatusClass: this.statusClass(selected.sponsor_review_status),
-        reviewStatusLabel: this.reviewStatusLabel(
-          selected.sponsor_review_status
-        ),
-        visibilityClass: this.visibilityClass(selected),
-        visibilityLabel: this.visibilityLabel(selected),
-        paymentStatusClass: this.paymentStatusClass(selected.payment_status),
-        paymentStatusLabel: this.paymentStatusLabel(selected.payment_status),
-        refundWorkflowStatusClass: hasRefundWorkflow
-          ? this.historyProjection.refundWorkflowStatusClass(
-              selected.sponsorship_refund_status
-            )
-          : null,
-        refundWorkflowStatusLabel: hasRefundWorkflow
-          ? this.historyProjection.refundWorkflowStatusLabel(
-              selected.sponsorship_refund_status
-            )
-          : null,
-        publicReferenceLabel:
-          selected.public_reference ||
-          this.i18n.t('admin.legacy.non_attribuee_175'),
-        submittedAtLabel: this.dateOnlyLabel(this.submittedAt(selected)),
-        reviewedAtLabel: this.dateOnlyLabel(selected.sponsor_reviewed_at)
-      };
-    });
-  readonly selectedSponsorDetailOverview =
-    computed<AdminSponsorDetailOverviewView | null>(() => {
-      const selected = this.selectedSponsorship();
-      if (!selected) {
-        return null;
-      }
-
-      return {
-        companyName:
-          selected.sponsor_company_name ||
-          this.i18n.t('admin.messages.entreprise_sans_nom'),
-        publicNameLabel: this.publicNameLabel(selected),
-        contactName:
-          selected.sponsor_contact_name ||
-          this.i18n.t('admin.legacy.non_fourni'),
-        contactEmail: selected.sponsor_contact_email || null,
-        websiteUrl: selected.sponsor_website_url || null,
-        publicReference: selected.public_reference || null,
-        copyMessage: this.copyMessageFor(selected.id),
-        amountLabel: this.formatMoney(selected),
-        tierClass: this.tierClass(selected),
-        tierLabel: this.sponsorshipTierLabel(selected),
-        benefitsLabel: this.sponsorshipBenefitsLabel(selected),
-        paymentStatusClass: this.paymentStatusClass(selected.payment_status),
-        paymentStatusLabel: this.paymentStatusLabel(selected.payment_status),
-        refundStatusClass: this.historyProjection.refundWorkflowStatusClass(
-          selected.sponsorship_refund_status
-        ),
-        refundStatusLabel: this.historyProjection.refundWorkflowStatusLabel(
-          selected.sponsorship_refund_status
-        ),
-        hasRefundWorkflow: this.historyProjection.hasRefundWorkflow(selected),
-        refundWorkflowTimelineLabel:
-          this.historyProjection.refundWorkflowTimelineLabel(selected),
-        refundId: selected.sponsorship_refund_id || null,
-        paidAtLabel: this.dateOnlyLabel(selected.paid_at),
-        sponsorMessage: selected.sponsor_message || null,
-        reviewNote: this.reviewNoteFor(selected.id),
-        reviewNoteDirty: this.isReviewNoteDirty(selected),
-        reviewNoteStateLabel: this.reviewNoteStateLabel(selected),
-        reviewNoteSaving: this.isActionPending(this.noteActionId(selected.id))
-      };
-    });
-  readonly selectedSponsorDetailIdentity =
-    computed<AdminSponsorDetailIdentityView | null>(() => {
-      const selected = this.selectedSponsorship();
-      if (!selected) {
-        return null;
-      }
-
-      const logoBusy = this.actionsDisabled();
-      const mediaBusy = this.actionsDisabled();
-      const mediaAssets = (
-        this.mediaWorkflow.sponsorMedia()[selected.id] ?? []
-      ).map((asset) => ({
-        id: asset.id,
-        version: asset.version,
-        kindLabel:
-          asset.kind === 'logo'
-            ? this.i18n.t('admin.messages.logo_propose')
-            : this.i18n.t('admin.messages.photo_de_presentation'),
-        reviewStatus: asset.reviewStatus,
-        reviewStatusLabel: this.mediaWorkflow.sponsorMediaStatusLabel(
-          asset.reviewStatus
-        ),
-        previewSource:
-          this.mediaWorkflow.sponsorMediaPreviewUrls()[asset.id] ?? null,
-        altText: asset.altText ?? '',
-        dimensionsLabel: `${asset.width} x ${asset.height} px`,
-        sizeLabel: this.mediaWorkflow.formatMediaSize(asset.processedSizeBytes)
-      }));
-
-      return {
-        companyName:
-          selected.sponsor_company_name ||
-          this.i18n.t('admin.messages.entreprise_sans_nom'),
-        logoPreviewSource:
-          this.mediaWorkflow.logoPreviewSourceFor(selected) || null,
-        logoUrl: selected.sponsor_logo_url || null,
-        publicNameLabel: this.publicNameLabel(selected),
-        websiteUrl: selected.sponsor_website_url || null,
-        logoActionLabel: selected.sponsor_logo_url
-          ? this.i18n.t('admin.messages.remplacer_le_logo')
-          : this.i18n.t('admin.messages.televerser_un_logo'),
-        uploadDisabled: logoBusy,
-        deleteDisabled: !selected.sponsor_logo_url || logoBusy,
-        statusMessage:
-          this.mediaWorkflow.logoUploadMessageFor(selected.id) ||
-          this.i18n.t(
-            'admin.messages.formats_acceptes_png_jpeg_ou_webp_max_512_kib'
-          ),
-        mediaAssets,
-        mediaMessage:
-          this.mediaWorkflow.sponsorMediaMessages()[selected.id] ??
-          this.i18n.t(
-            'admin.messages.les_decisions_media_sont_independantes_de_la_revue_de_la_commandite'
-          ),
-        mediaBusy,
-        approvableMediaCount: mediaAssets.filter(
-          (asset) => asset.reviewStatus !== 'approved'
-        ).length
-      };
-    });
+  readonly selectedSponsorDetailHeader = computed(() => {
+    const selected = this.selectedSponsorship();
+    return selected ? this.presentationProjection.header(selected) : null;
+  });
+  readonly selectedSponsorDetailOverview = computed(() => {
+    const selected = this.selectedSponsorship();
+    return selected
+      ? this.presentationProjection.overview(selected, {
+          copyMessage: this.copyMessageFor(selected.id),
+          reviewNote: this.reviewWorkflow.reviewNoteFor(selected.id),
+          reviewNoteDirty: this.reviewWorkflow.isReviewNoteDirty(selected),
+          reviewNoteStateLabel:
+            this.reviewWorkflow.reviewNoteStateLabel(selected),
+          reviewNoteSaving: this.isActionPending(
+            this.reviewWorkflow.noteActionId(selected.id)
+          )
+        })
+      : null;
+  });
+  readonly selectedSponsorDetailIdentity = computed(() => {
+    const selected = this.selectedSponsorship();
+    return selected
+      ? this.presentationProjection.identity(selected, {
+          disabled: this.actionsDisabled(),
+          logoPreviewSource:
+            this.mediaWorkflow.logoPreviewSourceFor(selected) || null,
+          logoMessage: this.mediaWorkflow.logoUploadMessageFor(selected.id),
+          mediaAssets: this.mediaWorkflow.sponsorMedia()[selected.id] ?? [],
+          mediaPreviewUrls: this.mediaWorkflow.sponsorMediaPreviewUrls(),
+          mediaMessage: this.mediaWorkflow.sponsorMediaMessages()[selected.id]
+        })
+      : null;
+  });
   readonly hasActiveFilters = computed(
     () =>
       this.search().trim().length > 0 ||
@@ -2681,10 +2620,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       .filter((item) => item.payment_status === 'paid')
       .reduce((total, item) => total + item.amount, 0)
   );
-  private readonly reviewMessageTimers = new Map<
-    string,
-    ReturnType<typeof setTimeout>
-  >();
   private selectionPulseTimer: ReturnType<typeof setTimeout> | null = null;
   private approvalFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingTabScroll: { id: number; position: [number, number] } | null =
@@ -2815,7 +2750,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
         const alreadyLoaded = this.sponsorships().some(
           (item) => item.id === sponsorshipId
         );
-        this.selectedSponsorshipId.set(sponsorshipId);
+        this.setSelectedSponsorshipId(sponsorshipId);
         this.admin.selectSponsorship(sponsorshipId);
         if (this.routeInitialized && (!sponsorshipId || alreadyLoaded)) {
           void this.mediaWorkflow.loadSponsorMedia(sponsorshipId);
@@ -2830,12 +2765,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.mediaWorkflow.dispose();
-    this.clearReviewMessageTimers();
+    this.reviewWorkflow.dispose();
+    this.publicationWorkflow.dispose();
     this.clearSelectionPulseTimer();
     this.clearApprovalFeedback();
   }
 
   async loadSponsorships(preserveDrafts = false): Promise<void> {
+    if (this.destroyRef.destroyed) return;
     const generation = ++this.loadGeneration;
     this.state.set('loading');
 
@@ -2853,58 +2790,23 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       const sponsorships = response.items ?? response.sponsorships;
       if (generation !== this.loadGeneration || this.destroyRef.destroyed)
         return;
-      const previous = new Map(
-        this.sponsorships().map((item) => [item.id, item])
+      const previous = this.sponsorships();
+      this.reviewWorkflow.reconcile(previous, sponsorships, preserveDrafts);
+      this.publicationWorkflow.reconcile(
+        previous,
+        sponsorships,
+        preserveDrafts
       );
-      const notes = this.reviewNotes();
-      const publications = this.publicationDrafts();
       this.versionConflict.set(false);
       this.sponsorships.set(sponsorships);
       this.assistantRefresh.update((value) => value + 1);
       this.pagination.set(response.pagination ?? defaultPagination);
       this.page.set(response.pagination?.page ?? this.page());
-      this.reviewNotes.set(
-        Object.fromEntries(
-          sponsorships.map((item) => {
-            const before = previous.get(item.id);
-            const draft = notes[item.id];
-            return [
-              item.id,
-              preserveDrafts &&
-              before &&
-              draft !== undefined &&
-              draft !== (before.sponsor_review_note ?? '')
-                ? draft
-                : (item.sponsor_review_note ?? '')
-            ];
-          })
-        )
-      );
-      this.publicationDrafts.set(
-        Object.fromEntries(
-          sponsorships.map((item) => {
-            const next = this.toPublicationDraft(item);
-            const before = previous.get(item.id);
-            const draft = publications[item.id];
-            if (!preserveDrafts || !before || !draft) return [item.id, next];
-            // Compare with the previous form values, including generated defaults.
-            // Keep only local edits; untouched fields follow the refreshed record.
-            const baseline = this.toPublicationDraft(before);
-            const edits = Object.fromEntries(
-              Object.entries(draft).filter(
-                ([key, value]) =>
-                  value !== baseline[key as keyof SponsorshipPublicationDraft]
-              )
-            );
-            return [item.id, { ...next, ...edits }];
-          })
-        )
-      );
       if (
         this.selectedSponsorshipId() &&
         !sponsorships.some((item) => item.id === this.selectedSponsorshipId())
       ) {
-        this.selectedSponsorshipId.set(null);
+        this.setSelectedSponsorshipId(null);
       }
       if (this.selectedSponsorshipId())
         this.admin.selectSponsorship(this.selectedSponsorshipId());
@@ -2922,295 +2824,22 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.state.set('error');
     }
   }
-
-  async review(
-    sponsorship: AdminSponsorshipRecord,
-    reviewStatus: SponsorshipReviewStatus
-  ): Promise<void> {
-    if (
-      !this.canActOn(sponsorship) ||
-      reviewStatus === sponsorship.sponsor_review_status
-    )
-      return;
-    if (reviewStatus === 'rejected') {
-      this.openRejectionPanel(sponsorship);
-      return;
-    }
-
-    if (
-      reviewStatus === 'approved' &&
-      !this.canApproveSponsorship(sponsorship)
-    ) {
-      this.setReviewMessage(
-        sponsorship.id,
-        this.paymentEligibilityMessage(sponsorship) ||
-          this.i18n.t(
-            'admin.messages.action_impossible_le_paiement_n_est_pas_admissible'
-          ),
-        true
-      );
-      return;
-    }
-
-    const reviewNote = this.reviewNoteFor(sponsorship.id).trim();
-
-    if (
-      reviewStatus === 'pending_review' &&
-      sponsorship.sponsor_review_status !== 'pending_review' &&
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.messages.remettre_ce_dossier_en_attente')
-      ))
-    ) {
-      return;
-    }
-
-    if (!this.canActOn(sponsorship)) return;
-    this.clearApprovalFeedback();
-    const approvalAttempt: SponsorshipApprovalFeedback | null =
-      reviewStatus === 'approved'
-        ? { id: sponsorship.id, phase: 'pending' }
-        : null;
-    this.approvalFeedback.set(approvalAttempt);
-    this.actionState.set(this.reviewActionId(sponsorship.id));
-    this.setReviewMessage(
-      sponsorship.id,
-      this.i18n.t('admin.messages.action_en_cours_p0', {
-        p0: this.reviewActionName(reviewStatus)
-      })
-    );
-
-    try {
-      const result = await this.admin.reviewSponsorship(this.adminToken(), {
-        contributionId: sponsorship.id,
-        reviewStatus,
-        reviewNote: reviewNote || undefined,
-        expectedVersion: sponsorship.version
-      });
-      if (!result.updated)
-        throw new Error('Sponsorship review was not updated.');
-      await this.loadSponsorships();
-      if (approvalAttempt)
-        this.finishApprovalFeedback(approvalAttempt, 'success');
-      this.setReviewMessage(
-        sponsorship.id,
-        this.reviewSuccessMessage(reviewStatus),
-        true
-      );
-      this.pulseSelection(sponsorship.id);
-    } catch (error) {
-      if (approvalAttempt)
-        this.finishApprovalFeedback(approvalAttempt, 'error');
-      this.setReviewMessage(
-        sponsorship.id,
-        this.messageFromError(
-          error,
-          this.i18n.t(
-            'admin.messages.action_impossible_la_revue_n_a_pas_pu_etre_enregistree'
-          )
-        ),
-        true
-      );
-    } finally {
-      this.actionState.set(null);
-    }
-  }
-
   openRejectionPanel(sponsorship: AdminSponsorshipRecord): void {
-    if (!this.canActOn(sponsorship)) return;
-    this.ensureRejectionDraft(sponsorship);
+    if (!this.reviewWorkflow.openRejectionPanel(sponsorship)) return;
     this.setActiveTab('overview');
     this.refundWorkflow.activeRefundId.set(null);
-    this.activeRejectionId.set(sponsorship.id);
     afterNextRender(() => this.rejectionReason()?.nativeElement.focus(), {
       injector: this.injector
     });
-    this.setReviewMessage(
-      sponsorship.id,
-      this.i18n.t(
-        'admin.messages.completez_la_raison_le_message_et_le_traitement_du_remboursement'
-      )
-    );
   }
-
   closeRejectionPanel(): void {
-    if (this.actionState()) return;
-    this.activeRejectionId.set(null);
+    if (!this.reviewWorkflow.closeRejectionPanel()) return;
     this.rejectButton()?.nativeElement.focus({ preventScroll: true });
-  }
-
-  isRejectionPanelOpen(sponsorship: AdminSponsorshipRecord): boolean {
-    return this.activeRejectionId() === sponsorship.id;
-  }
-
-  rejectionDraftFor(
-    sponsorship: AdminSponsorshipRecord
-  ): SponsorRejectionDraft {
-    return (
-      this.rejectionDrafts()[sponsorship.id] ??
-      this.defaultRejectionDraft(sponsorship)
-    );
-  }
-
-  setRejectionDraftField(
-    id: string,
-    field: 'recipientEmail' | 'sponsorMessage' | 'refundNote',
-    event: Event
-  ): void {
-    const input = event.target as HTMLInputElement | HTMLTextAreaElement;
-    this.rejectionDrafts.update((drafts) => {
-      const current = drafts[id] ?? this.emptyRejectionDraft();
-      return {
-        ...drafts,
-        [id]: {
-          ...current,
-          [field]: input.value
-        }
-      };
-    });
-  }
-
-  setRejectionDraftBoolean(
-    id: string,
-    field: 'notifySponsor',
-    event: Event
-  ): void {
-    const input = event.target as HTMLInputElement;
-    this.rejectionDrafts.update((drafts) => {
-      const current = drafts[id] ?? this.emptyRejectionDraft();
-      return {
-        ...drafts,
-        [id]: {
-          ...current,
-          [field]: input.checked
-        }
-      };
-    });
-  }
-
-  setRejectionRefundHandling(id: string, event: Event): void {
-    const input = event.target as HTMLSelectElement;
-    const value = input.value as AdminSponsorshipRejectionRefundHandling;
-    this.rejectionDrafts.update((drafts) => {
-      const current = drafts[id] ?? this.emptyRejectionDraft();
-      return {
-        ...drafts,
-        [id]: {
-          ...current,
-          refundHandling: value
-        }
-      };
-    });
-  }
-
-  canConfirmRejection(sponsorship: AdminSponsorshipRecord): boolean {
-    const draft = this.rejectionDraftFor(sponsorship);
-    const reason = this.reviewNoteFor(sponsorship.id).trim();
-
-    if (!reason) {
-      return false;
-    }
-
-    if (!draft.notifySponsor) {
-      return true;
-    }
-
-    return (
-      this.isValidEmailDraft(draft.recipientEmail) &&
-      draft.sponsorMessage.trim().length > 0
-    );
-  }
-
-  rejectionValidationMessage(sponsorship: AdminSponsorshipRecord): string {
-    const draft = this.rejectionDraftFor(sponsorship);
-    if (!this.reviewNoteFor(sponsorship.id).trim()) {
-      return this.i18n.t('admin.messages.raison_interne_obligatoire');
-    }
-
-    if (draft.notifySponsor && !this.isValidEmailDraft(draft.recipientEmail)) {
-      return this.i18n.t('admin.messages.destinataire_courriel_requis');
-    }
-
-    if (draft.notifySponsor && !draft.sponsorMessage.trim()) {
-      return this.i18n.t('admin.messages.message_au_commanditaire_obligatoire');
-    }
-
-    return draft.notifySponsor
-      ? this.i18n.t('admin.messages.pret_a_refuser_et_envoyer_le_courriel')
-      : this.i18n.t('admin.messages.pret_a_refuser_sans_courriel');
-  }
-
-  async confirmRejection(sponsorship: AdminSponsorshipRecord): Promise<void> {
-    if (!this.canActOn(sponsorship)) return;
-    if (!this.canConfirmRejection(sponsorship)) {
-      this.setReviewMessage(
-        sponsorship.id,
-        this.rejectionValidationMessage(sponsorship),
-        true
-      );
-      return;
-    }
-
-    const draft = this.rejectionDraftFor(sponsorship);
-    const reviewNote = this.reviewNoteFor(sponsorship.id).trim();
-
-    this.actionState.set(this.reviewActionId(sponsorship.id));
-    this.setReviewMessage(
-      sponsorship.id,
-      this.i18n.t('admin.messages.action_en_cours_refus')
-    );
-
-    try {
-      const result = await this.admin.reviewSponsorship(this.adminToken(), {
-        contributionId: sponsorship.id,
-        reviewStatus: 'rejected',
-        reviewNote,
-        expectedVersion: sponsorship.version,
-        notifySponsor: draft.notifySponsor,
-        notificationEmail: draft.notifySponsor
-          ? draft.recipientEmail.trim()
-          : undefined,
-        sponsorMessage: draft.notifySponsor
-          ? draft.sponsorMessage.trim()
-          : undefined,
-        refundHandling: draft.refundHandling,
-        refundNote: draft.refundNote.trim() || undefined
-      });
-      await this.loadSponsorships();
-      this.activeRejectionId.set(null);
-      this.setReviewMessage(
-        sponsorship.id,
-        [
-          this.reviewSuccessMessage('rejected'),
-          this.rejectionNotificationResultLabel(result),
-          this.rejectionRefundResultLabel(
-            result.refundHandling,
-            result.refundWorkflowStatus
-          )
-        ]
-          .filter(Boolean)
-          .join(' '),
-        true
-      );
-      this.pulseSelection(sponsorship.id);
-    } catch (error) {
-      this.setReviewMessage(
-        sponsorship.id,
-        this.messageFromError(
-          error,
-          this.i18n.t(
-            'admin.messages.action_impossible_le_refus_n_a_pas_pu_etre_enregistre'
-          )
-        ),
-        true
-      );
-    } finally {
-      this.actionState.set(null);
-    }
   }
 
   openRefundPanel(sponsorship: AdminSponsorshipRecord): void {
     if (!this.refundWorkflow.openRefundPanel(sponsorship)) return;
-    this.activeRejectionId.set(null);
+    this.reviewWorkflow.activeRejectionId.set(null);
     afterNextRender(() => this.refundAmountInput()?.nativeElement.focus(), {
       injector: this.injector
     });
@@ -3219,40 +2848,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   closeRefundPanel(): void {
     if (!this.refundWorkflow.closeRefundPanel()) return;
     this.refundButton()?.nativeElement.focus({ preventScroll: true });
-  }
-
-  async saveReviewNote(sponsorship: AdminSponsorshipRecord): Promise<void> {
-    if (!this.canActOn(sponsorship) || !this.isReviewNoteDirty(sponsorship))
-      return;
-    this.actionState.set(this.noteActionId(sponsorship.id));
-    this.setNoteMessage(
-      sponsorship.id,
-      this.i18n.t('admin.messages.enregistrement_en_cours')
-    );
-
-    try {
-      await this.admin.reviewSponsorship(this.adminToken(), {
-        contributionId: sponsorship.id,
-        reviewStatus: sponsorship.sponsor_review_status,
-        reviewNote: this.reviewNoteFor(sponsorship.id).trim() || undefined,
-        expectedVersion: sponsorship.version
-      });
-      await this.loadSponsorships();
-      this.setNoteMessage(
-        sponsorship.id,
-        this.i18n.t('admin.dossier.noteEditor.saved')
-      );
-    } catch (error) {
-      this.setNoteMessage(
-        sponsorship.id,
-        this.messageFromError(
-          error,
-          this.i18n.t('admin.messages.la_note_n_a_pas_pu_etre_enregistree')
-        )
-      );
-    } finally {
-      this.actionState.set(null);
-    }
   }
 
   openWebsiteSettings(): void {
@@ -3267,162 +2862,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       },
       { injector: this.injector }
     );
-  }
-
-  async changeWebsiteVisibility(
-    sponsorship: AdminSponsorshipRecord,
-    visible: boolean
-  ): Promise<void> {
-    const site =
-      this.progress()?.contributionId === sponsorship.id
-        ? this.progress()?.website
-        : null;
-    if (!site || !this.canActOn(sponsorship) || (visible && !site.canPublish))
-      return;
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n.t(
-          'admin.dossier.publicationBridge.site.' +
-            (visible ? 'confirmPublish' : 'confirmHide')
-        ),
-        sponsorship.sponsor_company_name ??
-          sponsorship.public_reference ??
-          sponsorship.id
-      ))
-    )
-      return;
-    if (
-      !this.canActOn(sponsorship) ||
-      this.progress()?.website?.version !== site.version
-    )
-      return;
-    this.actionState.set('website:' + sponsorship.id);
-    this.websiteMessages.update((messages) => ({
-      ...messages,
-      [sponsorship.id]: this.i18n.t(
-        'admin.dossier.publicationBridge.site.saving'
-      )
-    }));
-    try {
-      await this.admin.setSponsorshipWebsiteVisibility(this.adminToken(), {
-        contributionId: sponsorship.id,
-        expectedVersion: site.version,
-        visible,
-        confirmed: true
-      });
-      if (
-        this.destroyRef.destroyed ||
-        this.selectedSponsorshipId() !== sponsorship.id
-      )
-        return;
-      await this.loadSponsorships();
-      this.websiteMessages.update((messages) => ({
-        ...messages,
-        [sponsorship.id]: this.i18n.t(
-          'admin.dossier.publicationBridge.site.saved'
-        )
-      }));
-    } catch (error) {
-      if (
-        this.destroyRef.destroyed ||
-        this.selectedSponsorshipId() !== sponsorship.id
-      )
-        return;
-      this.messageFromError(error, '');
-      this.websiteMessages.update((messages) => ({
-        ...messages,
-        [sponsorship.id]: this.i18n.t(
-          error instanceof AdminDashboardRequestError && error.status === 409
-            ? 'admin.dossier.conflict'
-            : 'admin.dossier.publicationBridge.site.failed'
-        )
-      }));
-    } finally {
-      this.actionState.set(null);
-    }
-  }
-
-  async savePublication(sponsorship: AdminSponsorshipRecord): Promise<void> {
-    if (!this.canActOn(sponsorship)) return;
-    const draft = this.publicationDraftFor(sponsorship.id);
-    const slugError = this.slugErrorFor(sponsorship);
-    if (!this.publicationDirtyFor(sponsorship) || slugError) {
-      this.setPublicationMessage(
-        sponsorship.id,
-        slugError ||
-          this.i18n.t('admin.messages.aucune_modification_a_enregistrer')
-      );
-      return;
-    }
-
-    if (!this.canSavePublication(sponsorship)) {
-      this.setPublicationMessage(
-        sponsorship.id,
-        this.paymentEligibilityMessage(sponsorship) ||
-          this.i18n.t(
-            'admin.messages.publication_bloquee_le_paiement_n_est_pas_admissible'
-          )
-      );
-      return;
-    }
-
-    if (
-      draft.feedStatus !== sponsorship.sponsor_feed_status &&
-      (draft.feedStatus === 'published' ||
-        sponsorship.sponsor_feed_status === 'published')
-    ) {
-      if (
-        !(await this.confirmation.confirm(
-          this.i18n.t(
-            draft.feedStatus === 'published'
-              ? 'admin.confirmation.publish'
-              : 'admin.confirmation.cancelPublication'
-          ),
-          sponsorship.public_reference ?? sponsorship.id
-        ))
-      )
-        return;
-    }
-    if (!this.canActOn(sponsorship)) return;
-    this.actionState.set(this.publicationActionId(sponsorship.id));
-    this.setPublicationMessage(
-      sponsorship.id,
-      this.i18n.t('admin.messages.enregistrement_en_cours')
-    );
-
-    try {
-      await this.admin.updateSponsorshipPublication(this.adminToken(), {
-        contributionId: sponsorship.id,
-        expectedVersion: sponsorship.version,
-        publicSlug: draft.publicSlug.trim() || undefined,
-        publicSummary: draft.publicSummary.trim() || undefined,
-        feedTarget: draft.feedTarget || null,
-        feedChannels: [
-          ...(draft.facebook ? ['facebook' as const] : []),
-          ...(draft.linkedin ? ['linkedin' as const] : [])
-        ],
-        feedStatus: draft.feedStatus,
-        feedPublicUrl: draft.feedPublicUrl.trim() || undefined,
-        feedNotes: draft.feedNotes.trim() || undefined
-      });
-      await this.loadSponsorships();
-      this.setPublicationMessage(
-        sponsorship.id,
-        this.i18n.t('admin.messages.publication_enregistree_')
-      );
-    } catch (error) {
-      this.setPublicationMessage(
-        sponsorship.id,
-        this.messageFromError(
-          error,
-          this.i18n.t(
-            'admin.messages.les_donnees_de_publication_n_ont_pas_pu_etre_enregistrees'
-          )
-        )
-      );
-    } finally {
-      this.actionState.set(null);
-    }
   }
 
   setAdminToken(event: Event): void {
@@ -3499,7 +2938,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   selectSponsorshipById(id: string): void {
     if (!this.selectedSponsorshipId())
       this.listPosition = this.viewport.getScrollPosition();
-    this.selectedSponsorshipId.set(id);
+    this.setSelectedSponsorshipId(id);
     this.admin.selectSponsorship(id);
     void this.router.navigate([], {
       relativeTo: this.route,
@@ -3517,14 +2956,14 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.search.set('');
       void this.loadSponsorships();
     }
-    this.selectedSponsorshipId.set(null);
+    this.setSelectedSponsorshipId(null);
     this.admin.selectSponsorship(null);
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { sponsorshipId: null, tab: null },
       queryParamsHandling: 'merge'
     });
-    this.activeRejectionId.set(null);
+    this.reviewWorkflow.activeRejectionId.set(null);
     this.refundWorkflow.activeRefundId.set(null);
     afterNextRender(
       () => {
@@ -3576,80 +3015,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     );
   }
 
-  setReviewNote(id: string, event: Event): void {
-    this.setReviewNoteValue(id, this.valueFromEvent(event));
-  }
-
-  setReviewNoteValue(id: string, value: string): void {
-    this.reviewNotes.update((notes) => ({
-      ...notes,
-      [id]: value
-    }));
-    this.setNoteMessage(id, '');
-  }
-
-  setPublicationField(
-    id: string,
-    field: SponsorshipPublicationTextField,
-    event: Event
-  ): void {
-    const value =
-      field === 'publicSlug'
-        ? this.normalizeSlug(this.valueFromEvent(event))
-        : this.valueFromEvent(event);
-    this.publicationDrafts.update((drafts) => {
-      const draft = drafts[id] ?? this.emptyPublicationDraft();
-      return {
-        ...drafts,
-        [id]: {
-          ...draft,
-          [field]: value
-        }
-      };
-    });
-  }
-
-  setPublicationChannel(
-    id: string,
-    channel: SponsorshipPublicationChannel,
-    event: Event
-  ): void {
-    const sponsorship = this.sponsorships().find((item) => item.id === id);
-    const checked =
-      (sponsorship && this.isPromisedFeedChannel(sponsorship, channel)) ||
-      ((event.target as HTMLInputElement | null)?.checked ?? false);
-    this.publicationDrafts.update((drafts) => {
-      const draft = drafts[id] ?? this.emptyPublicationDraft();
-      return {
-        ...drafts,
-        [id]: {
-          ...draft,
-          [channel]: checked
-        }
-      };
-    });
-  }
-
-  reviewNoteFor(id: string): string {
-    return this.reviewNotes()[id] ?? '';
-  }
-
-  reviewActionId(id: string): string {
-    return `review:${id}`;
-  }
-
-  publicationActionId(id: string): string {
-    return `publication:${id}`;
-  }
-
-  noteActionId(id: string): string {
-    return `note:${id}`;
-  }
-
-  reviewMessageFor(id: string): string {
-    return this.reviewMessages()[id] ?? '';
-  }
-
   approvalState(id: string): SponsorshipApprovalFeedback['phase'] | 'idle' {
     const feedback = this.approvalFeedback();
     return feedback?.id === id ? feedback.phase : 'idle';
@@ -3682,35 +3047,16 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return this.copyMessages()[id] ?? '';
   }
 
-  publicationDraftFor(id: string): SponsorshipPublicationDraft {
-    return this.publicationDrafts()[id] ?? this.emptyPublicationDraft();
-  }
-
-  promisedFeedChannelsFor(
-    sponsorship: AdminSponsorshipRecord
-  ): readonly SponsorshipPublicationChannel[] {
-    const { achievedBenefits } = resolveSponsorshipBenefits(
-      sponsorship.amount,
-      DEFAULT_SPONSORSHIP_PRICING_CONFIG
-    );
-
-    return achievedBenefits
-      .map((benefit) => benefitFeedChannelMap[benefit])
-      .filter(
-        (channel): channel is SponsorshipPublicationChannel =>
-          channel === 'facebook' || channel === 'linkedin'
-      );
-  }
-
-  isPromisedFeedChannel(
-    sponsorship: AdminSponsorshipRecord,
-    channel: SponsorshipPublicationChannel
-  ): boolean {
-    return this.promisedFeedChannelsFor(sponsorship).includes(channel);
-  }
-
   isActionPending(actionId: string): boolean {
     return this.actionState() === actionId;
+  }
+
+  private setSelectedSponsorshipId(id: string | null): void {
+    if (this.selectedSponsorshipId() !== id) {
+      this.selectionRevision += 1;
+      this.clearApprovalFeedback();
+    }
+    this.selectedSponsorshipId.set(id);
   }
 
   private canActOn(sponsorship: AdminSponsorshipRecord): boolean {
@@ -3719,63 +3065,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       !this.actionsDisabled() &&
       this.selectedSponsorship()?.id === sponsorship.id &&
       this.selectedSponsorship()?.version === sponsorship.version
-    );
-  }
-
-  initialsFor(sponsorship: AdminSponsorshipRecord): string {
-    const source =
-      sponsorship.sponsor_company_name ||
-      sponsorship.sponsor_contact_name ||
-      sponsorship.public_reference ||
-      'OG';
-    const initials = source
-      .split(/\s+/)
-      .map((part) => part.charAt(0))
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-
-    return initials || 'OG';
-  }
-
-  visibilityLabel(sponsorship: AdminSponsorshipRecord): string {
-    this.i18n.trackTranslationState();
-    return this.i18n.t(
-      sponsorship.public_display_consent
-        ? 'admin.dossier.consentGranted'
-        : 'admin.dossier.consentMissing'
-    );
-  }
-
-  visibilityClass(sponsorship: AdminSponsorshipRecord): string {
-    return sponsorship.public_display_consent
-      ? 'visibility-badge visibility-visible'
-      : 'visibility-badge visibility-hidden';
-  }
-
-  reviewActionName(status: SponsorshipReviewStatus): string {
-    if (status === 'approved') {
-      return this.i18n.t('admin.messages.acceptation');
-    }
-
-    if (status === 'rejected') {
-      return this.i18n.t('admin.messages.refus');
-    }
-
-    return this.i18n.t('admin.messages.remise_en_attente');
-  }
-
-  reviewSuccessMessage(status: SponsorshipReviewStatus): string {
-    if (status === 'approved') {
-      return this.i18n.t('admin.messages.action_confirmee_commandite_acceptee');
-    }
-
-    if (status === 'rejected') {
-      return this.i18n.t('admin.messages.action_confirmee_commandite_refusee');
-    }
-
-    return this.i18n.t(
-      'admin.messages.action_confirmee_commandite_remise_en_attente'
     );
   }
 
@@ -3807,106 +3096,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return this.i18n.t('admin.messages.non_planifie');
   }
 
-  feedStatusClass(status: SponsorFeedStatus): string {
-    return `feed-badge feed-${status}`;
-  }
-
-  sponsorshipProcessingState(
-    sponsorship: AdminSponsorshipRecord
-  ): SponsorProcessingState {
-    const isBlocked =
-      sponsorship.sponsor_review_status === 'rejected' ||
-      sponsorship.sponsorship_refund_status === 'processing' ||
-      ['refunded', 'disputed', 'failed'].includes(sponsorship.payment_status);
-    if (isBlocked) {
-      return 'blocked';
-    }
-
-    if (sponsorship.payment_status !== 'paid') {
-      return 'waiting-payment';
-    }
-
-    if (sponsorship.sponsor_review_status === 'pending_review') {
-      return 'action-required';
-    }
-
-    if (sponsorship.sponsor_feed_status === 'published') {
-      return 'published';
-    }
-
-    if (
-      sponsorship.sponsor_feed_status === 'planned' ||
-      sponsorship.sponsor_feed_status === 'drafted'
-    ) {
-      return 'publication-progress';
-    }
-
-    return 'approved-ready';
-  }
-
-  sponsorshipRowStateClass(sponsorship: AdminSponsorshipRecord): string {
-    return `sponsor-row-state-${this.sponsorshipProcessingState(sponsorship)}`;
-  }
-
-  sponsorshipProcessingLabel(sponsorship: AdminSponsorshipRecord): string {
-    switch (this.sponsorshipProcessingState(sponsorship)) {
-      case 'action-required':
-        return this.i18n.t('admin.messages.traitement_requis');
-      case 'approved-ready':
-        return 'Approuvee, publication a planifier';
-      case 'publication-progress':
-        return this.i18n.t('admin.messages.publication_en_preparation');
-      case 'published':
-        return this.i18n.t('admin.messages.publication_terminee');
-      case 'blocked':
-        return this.i18n.t('admin.messages.commandite_bloquee');
-      case 'waiting-payment':
-        return this.i18n.t('admin.messages.paiement_en_attente');
-    }
-  }
-
-  feedTargetLabel(sponsorship: AdminSponsorshipRecord): string {
-    if (sponsorship.sponsor_feed_target === 'openg7') {
-      return 'OpenG7';
-    }
-
-    if (sponsorship.sponsor_feed_target === 'openg20') {
-      return 'OpenG20';
-    }
-
-    return this.i18n.t('admin.legacy.aucune');
-  }
-
-  feedChannelsLabel(sponsorship: AdminSponsorshipRecord): string {
-    if (sponsorship.sponsor_feed_channels.length === 0) {
-      return this.i18n.t('admin.messages.aucun_canal');
-    }
-
-    return sponsorship.sponsor_feed_channels
-      .map((channel) =>
-        channel === 'linkedin'
-          ? 'LinkedIn'
-          : this.i18n.t('admin.messages.facebook')
-      )
-      .join(' / ');
-  }
-
-  draftChannelsLabel(id: string): string {
-    const draft = this.publicationDraftFor(id);
-    const channels = [
-      ...(draft.facebook ? [this.i18n.t('admin.messages.facebook')] : []),
-      ...(draft.linkedin ? ['LinkedIn'] : [])
-    ];
-
-    return channels.length > 0
-      ? channels.join(' / ')
-      : this.i18n.t('admin.messages.aucun_canal');
-  }
-
-  statusClass(status: SponsorshipReviewStatus): string {
-    return `status-badge status-${status.replace('_review', '')}`;
-  }
-
   paymentStatusLabel(status: string): string {
     if (status === 'paid') {
       return this.i18n.t('admin.legacy.paye');
@@ -3925,17 +3114,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
 
     return this.i18n.t('admin.legacy.en_attente');
-  }
-
-  paymentStatusClass(status: string): string {
-    const state =
-      status === 'paid'
-        ? 'paid'
-        : status === 'failed' || status === 'disputed'
-          ? 'failed'
-          : 'pending';
-
-    return `payment-badge payment-${state}`;
   }
 
   paymentEligibilityMessage(sponsorship: AdminSponsorshipRecord): string {
@@ -3982,90 +3160,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return '';
   }
 
-  canApproveSponsorship(sponsorship: AdminSponsorshipRecord): boolean {
-    return (
-      this.canManage() &&
-      sponsorship.sponsor_review_status !== 'approved' &&
-      sponsorship.payment_status === 'paid' &&
-      !['requested', 'processing'].includes(
-        sponsorship.sponsorship_refund_status
-      )
-    );
-  }
-
-  canSavePublication(sponsorship: AdminSponsorshipRecord): boolean {
-    return (
-      sponsorship.payment_status === 'paid' &&
-      sponsorship.sponsorship_refund_status !== 'processing'
-    );
-  }
-
-  formatMoney(sponsorship: AdminSponsorshipRecord): string {
-    return `${new Intl.NumberFormat(this.i18n.currentLanguage(), {
-      maximumFractionDigits: 0
-    }).format(
-      sponsorship.amount
-    )} $ ${(sponsorship.currency || 'CAD').toUpperCase()}`;
-  }
-
-  formatSummaryMoney(amount: number): string {
-    return `${new Intl.NumberFormat(this.i18n.currentLanguage(), {
-      maximumFractionDigits: 0
-    }).format(amount)} $ CAD`;
-  }
-
   formatAmount(amount: number, currency: string): string {
     return new Intl.NumberFormat(this.i18n.currentLanguage(), {
       currency: currency || 'CAD',
       style: 'currency'
     }).format(amount);
-  }
-
-  sponsorshipTierLabel(sponsorship: AdminSponsorshipRecord): string {
-    const { tier } = resolveSponsorshipBenefits(
-      sponsorship.amount,
-      DEFAULT_SPONSORSHIP_PRICING_CONFIG
-    );
-
-    switch (tier) {
-      case 'website_facebook_linkedin':
-        return 'Or';
-      case 'website_facebook':
-        return this.i18n.t('admin.messages.argent');
-      case 'website_only':
-        return this.i18n.t('admin.messages.bronze');
-      default:
-        return this.i18n.t('admin.messages.indetermine');
-    }
-  }
-
-  tierClass(sponsorship: AdminSponsorshipRecord): string {
-    const tier = this.sponsorshipTierLabel(sponsorship).toLowerCase();
-    const state =
-      tier === 'or' ? 'gold' : tier === 'argent' ? 'silver' : 'bronze';
-
-    return `tier-badge tier-${state}`;
-  }
-
-  sponsorshipBenefitsLabel(sponsorship: AdminSponsorshipRecord): string {
-    const { achievedBenefits } = resolveSponsorshipBenefits(
-      sponsorship.amount,
-      DEFAULT_SPONSORSHIP_PRICING_CONFIG
-    );
-
-    if (achievedBenefits.length === 0) {
-      return this.i18n.t(
-        'admin.messages.aucun_avantage_montant_sous_le_minimum_de_commandite'
-      );
-    }
-
-    const labels: Record<(typeof achievedBenefits)[number], string> = {
-      website_mention: this.i18n.t('admin.messages.mention_openg7_org'),
-      facebook_batch: this.i18n.t('admin.messages.lot_collectif_facebook'),
-      linkedin_batch: this.i18n.t('admin.messages.lot_collectif_linkedin')
-    };
-
-    return achievedBenefits.map((benefit) => labels[benefit]).join(', ');
   }
 
   dateOnlyLabel(value: string | null): string {
@@ -4099,156 +3198,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }).format(date);
   }
 
-  submittedAt(sponsorship: AdminSponsorshipRecord): string | null {
-    return (
-      sponsorship.sponsor_details_submitted_at ||
-      sponsorship.paid_at ||
-      sponsorship.created_at
-    );
-  }
-
-  publicNameLabel(sponsorship: AdminSponsorshipRecord): string {
-    if (!sponsorship.public_display_consent) {
-      return this.i18n.t('admin.messages.non_consenti');
-    }
-
-    return sponsorship.public_name || 'Consenti, nom manquant';
-  }
-
-  rejectionNotificationResultLabel(
-    result: AdminSponsorshipReviewResult
-  ): string {
-    if (!result.notification) {
-      return this.i18n.t('admin.messages.aucun_courriel_envoye');
-    }
-
-    if (result.notification.sent) {
-      return this.i18n.t('admin.messages.courriel_envoye_au_commanditaire');
-    }
-
-    if (result.notification.queued) {
-      return this.i18n.t('admin.messages.courriel_mis_en_file');
-    }
-
-    return result.notification.error
-      ? this.i18n.t('admin.messages.courriel_non_envoye_p0', {
-          p0: result.notification.error
-        })
-      : this.i18n.t('admin.messages.courriel_non_envoye_');
-  }
-
-  rejectionRefundResultLabel(
-    handling: AdminSponsorshipRejectionRefundHandling | undefined,
-    workflowStatus?: AdminSponsorshipRefundWorkflowStatus
-  ): string {
-    const workflow = workflowStatus
-      ? ` Suivi: ${this.historyProjection.refundWorkflowStatusLabel(workflowStatus)}.`
-      : '';
-
-    if (handling === 'manual_required') {
-      return this.i18n.t(
-        'admin.messages.remboursement_a_traiter_manuellement_p0',
-        { p0: workflow }
-      );
-    }
-
-    if (handling === 'manual_completed') {
-      return this.i18n.t(
-        'admin.messages.remboursement_marque_comme_deja_traite_p0',
-        { p0: workflow }
-      );
-    }
-
-    return '';
-  }
-
-  isReviewNoteDirty(sponsorship: AdminSponsorshipRecord): boolean {
-    return (
-      this.reviewNoteFor(sponsorship.id).trim() !==
-      (sponsorship.sponsor_review_note ?? '').trim()
-    );
-  }
-
-  reviewNoteStateLabel(sponsorship: AdminSponsorshipRecord): string {
-    const message = this.noteMessages()[sponsorship.id];
-    if (message) {
-      return message;
-    }
-
-    return this.i18n.t(
-      'admin.dossier.noteEditor.' +
-        (this.isReviewNoteDirty(sponsorship)
-          ? 'unsaved'
-          : sponsorship.sponsor_review_note?.trim()
-            ? 'saved'
-            : 'empty')
-    );
-  }
-
-  publicationDirtyFor(sponsorship: AdminSponsorshipRecord): boolean {
-    const draft = this.publicationDraftFor(sponsorship.id);
-    const original = this.toPublicationDraft(sponsorship, false, false);
-
-    return (
-      draft.publicSlug !== original.publicSlug ||
-      draft.publicSummary !== original.publicSummary ||
-      draft.feedTarget !== original.feedTarget ||
-      draft.facebook !== original.facebook ||
-      draft.linkedin !== original.linkedin ||
-      draft.feedStatus !== original.feedStatus ||
-      draft.feedPublicUrl !== original.feedPublicUrl ||
-      draft.feedNotes !== original.feedNotes
-    );
-  }
-
-  publicationStateLabel(sponsorship: AdminSponsorshipRecord): string {
-    const message = this.publicationMessages()[sponsorship.id];
-    if (message) {
-      return message;
-    }
-
-    const paymentMessage = this.paymentEligibilityMessage(sponsorship);
-    if (paymentMessage) {
-      return paymentMessage;
-    }
-
-    const slugError = this.slugErrorFor(sponsorship);
-    if (slugError) {
-      return slugError;
-    }
-
-    return this.publicationDirtyFor(sponsorship)
-      ? this.i18n.t('admin.messages.modifications_non_enregistrees')
-      : this.i18n.t('admin.messages.publication_enregistree');
-  }
-
-  slugErrorFor(sponsorship: AdminSponsorshipRecord): string {
-    const slug = this.publicationDraftFor(sponsorship.id).publicSlug.trim();
-    if (!slug) {
-      return '';
-    }
-
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-      return this.i18n.t(
-        'admin.messages.utilisez_seulement_des_lettres_chiffres_et_tirets'
-      );
-    }
-
-    const duplicate = this.sponsorships().some(
-      (item) =>
-        item.id !== sponsorship.id &&
-        this.normalizeSlug(item.sponsor_public_slug ?? '') === slug
-    );
-
-    return duplicate
-      ? this.i18n.t('admin.messages.ce_slug_est_deja_utilise')
-      : '';
-  }
-
-  hasSlugError(sponsorship: AdminSponsorshipRecord): boolean {
-    return Boolean(this.slugErrorFor(sponsorship));
-  }
-
   async copyReference(sponsorship: AdminSponsorshipRecord): Promise<void> {
     if (!sponsorship.public_reference) {
       return;
@@ -4270,155 +3219,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  private toPublicationDraft(
-    sponsorship: AdminSponsorshipRecord,
-    useGeneratedSlug = true,
-    includePromisedChannels = true
-  ): SponsorshipPublicationDraft {
-    const defaultSlug = this.normalizeSlug(
-      useGeneratedSlug
-        ? sponsorship.sponsor_public_slug ||
-            sponsorship.public_name ||
-            sponsorship.sponsor_company_name ||
-            sponsorship.public_reference ||
-            ''
-        : sponsorship.sponsor_public_slug || ''
-    );
-    const feedChannels = new Set<SponsorFeedChannel>([
-      ...sponsorship.sponsor_feed_channels,
-      ...(includePromisedChannels
-        ? this.promisedFeedChannelsFor(sponsorship)
-        : [])
-    ]);
-
-    return {
-      publicSlug: defaultSlug,
-      publicSummary: sponsorship.sponsor_public_summary ?? '',
-      feedTarget: sponsorship.sponsor_feed_target ?? '',
-      facebook: feedChannels.has('facebook'),
-      linkedin: feedChannels.has('linkedin'),
-      feedStatus: sponsorship.sponsor_feed_status,
-      feedPublicUrl: sponsorship.sponsor_feed_public_url ?? '',
-      feedNotes: sponsorship.sponsor_feed_notes ?? ''
-    };
-  }
-
-  private emptyPublicationDraft(): SponsorshipPublicationDraft {
-    return {
-      publicSlug: '',
-      publicSummary: '',
-      feedTarget: '',
-      facebook: false,
-      linkedin: false,
-      feedStatus: 'not_planned',
-      feedPublicUrl: '',
-      feedNotes: ''
-    };
-  }
-
-  private ensureRejectionDraft(sponsorship: AdminSponsorshipRecord): void {
-    this.rejectionDrafts.update((drafts) =>
-      drafts[sponsorship.id]
-        ? drafts
-        : {
-            ...drafts,
-            [sponsorship.id]: this.defaultRejectionDraft(sponsorship)
-          }
-    );
-  }
-
-  private defaultRejectionDraft(
-    sponsorship: AdminSponsorshipRecord
-  ): SponsorRejectionDraft {
-    const sponsorName =
-      sponsorship.sponsor_company_name ||
-      sponsorship.public_name ||
-      'votre organisation';
-
-    return {
-      notifySponsor: Boolean(sponsorship.sponsor_contact_email),
-      recipientEmail: sponsorship.sponsor_contact_email ?? '',
-      sponsorMessage: [
-        this.i18n.t('admin.messages.bonjour_p0', { p0: sponsorName }),
-        '',
-        this.i18n.t(
-          'admin.messages.apres_revision_nous_ne_pouvons_pas_accepter_cette_commandite_openg7_pour_le_moment'
-        ),
-        '',
-        this.i18n.t(
-          'admin.messages.merci_de_votre_comprehension_vous_pouvez_repondre_a_ce_courriel_si_vous_souhaitez_clarifier_la_'
-        )
-      ].join('\n'),
-      refundHandling: 'none',
-      refundNote: ''
-    };
-  }
-
-  private emptyRejectionDraft(): SponsorRejectionDraft {
-    return {
-      notifySponsor: false,
-      recipientEmail: '',
-      sponsorMessage: '',
-      refundHandling: 'none',
-      refundNote: ''
-    };
-  }
-
-  private isValidEmailDraft(value: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-  }
-
   private saveToken(): void {
     this.admin.saveAdminToken(this.adminToken());
-  }
-
-  private setReviewMessage(
-    id: string,
-    message: string,
-    autoHide = false
-  ): void {
-    this.clearReviewMessageTimer(id);
-    this.reviewMessages.update((messages) => ({
-      ...messages,
-      [id]: message
-    }));
-
-    if (autoHide) {
-      this.reviewMessageTimers.set(
-        id,
-        setTimeout(() => {
-          this.clearReviewMessage(id, message);
-        }, 3000)
-      );
-    }
-  }
-
-  private clearReviewMessage(id: string, expectedMessage?: string): void {
-    this.clearReviewMessageTimer(id);
-    this.reviewMessages.update((messages) => {
-      if (expectedMessage !== undefined && messages[id] !== expectedMessage) {
-        return messages;
-      }
-
-      const remaining = { ...messages };
-      delete remaining[id];
-      return remaining;
-    });
-  }
-
-  private clearReviewMessageTimer(id: string): void {
-    const timer = this.reviewMessageTimers.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      this.reviewMessageTimers.delete(id);
-    }
-  }
-
-  private clearReviewMessageTimers(): void {
-    for (const timer of this.reviewMessageTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.reviewMessageTimers.clear();
   }
 
   private pulseSelection(id: string): void {
@@ -4453,20 +3255,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  private setPublicationMessage(id: string, message: string): void {
-    this.publicationMessages.update((messages) => ({
-      ...messages,
-      [id]: message
-    }));
-  }
-
-  private setNoteMessage(id: string, message: string): void {
-    this.noteMessages.update((messages) => ({
-      ...messages,
-      [id]: message
-    }));
-  }
-
   private setCopyMessage(id: string, message: string): void {
     this.copyMessages.update((messages) => ({
       ...messages,
@@ -4490,16 +3278,6 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return error instanceof Error && error.message.trim()
       ? error.message
       : fallback;
-  }
-
-  private normalizeSlug(value: string): string {
-    return value
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .replace(/-{2,}/g, '-');
   }
 
   private valueFromEvent(event: Event): string {
