@@ -1,0 +1,55 @@
+h2,
+p,
+ol,
+ul {
+  margin: 0;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+code {
+  font-family: 'Cascadia Code', Consolas, monospace;
+}
+
+.panel {
+  background: linear-gradient(180deg, rgb(25 25 27 / 88%), rgb(12 12 13 / 92%));
+  border: 1px solid rgb(91 220 146 / 26%);
+  border-radius: 0.72rem;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 5%),
+    0 18px 40px rgb(0 0 0 / 28%);
+  min-width: 0;
+  padding: 0.85rem;
+}
+
+.panel h2 {
+  color: #f4eadb;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.45rem;
+  text-transform: uppercase;
+}
+
+.panel button {
+  background: rgb(25 23 22 / 90%);
+  border: 1px solid rgb(91 220 146 / 34%);
+  border-radius: 0.45rem;
+  color: #dcffe7;
+  min-height: 2.15rem;
+  padding: 0 0.7rem;
+}
+
+@media (max-width: 700px) {
+  .panel {
+    padding: 0.6rem;
+  }
+}
+
+button:focus-visible {
+  outline: 2px solid #68eca2;
+  outline-offset: 3px;
+}

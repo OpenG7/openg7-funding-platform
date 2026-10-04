@@ -1,0 +1,134 @@
+<main
+  class="stripe-admin-shell"
+  data-og7="stripe-setup-page"
+  data-og7-id="local"
+>
+  <aside class="admin-sidebar" aria-label="Navigation developpeur Stripe">
+    <a class="dragon-brand" href="/" aria-label="Accueil OpenG7">
+      <span aria-hidden="true">♛</span>
+      <div>
+        <strong>NorthDragon</strong>
+        <em>OpenG7</em>
+      </div>
+      <small>v2.4.0</small>
+    </a>
+
+    <section>
+      <h2>Financement</h2>
+      <nav aria-label="Menu financement">
+        <a href="/">⌂ <span>Tableau de bord</span></a>
+        <a href="/fonds-des-batisseurs/transparence"
+          >◉ <span>Transparence</span></a
+        >
+      </nav>
+    </section>
+
+    <section>
+      <h2>Stripe</h2>
+      <nav aria-label="Menu Stripe">
+        <a class="active" href="/dev/stripe-setup"
+          >$ <span>Stripe Setup</span></a
+        >
+        <a href="/dev/webhooks">♙ <span>Webhooks</span></a>
+        <a href="/dev/api-keys">⚿ <span>Cles API</span></a>
+      </nav>
+    </section>
+
+    <section>
+      <h2>Aide</h2>
+      <nav aria-label="Menu aide">
+        <a href="/support">◎ <span>Support</span></a>
+      </nav>
+    </section>
+
+    <footer>
+      <span aria-hidden="true">◉</span>
+      <div>
+        <strong>NorthDragon Crew</strong>
+        <em>Administrateur</em>
+      </div>
+    </footer>
+  </aside>
+
+  <section class="admin-workspace">
+    <header class="admin-topbar">
+      <nav aria-label="Fil d'Ariane">
+        <span>Financement</span>
+        <b aria-hidden="true">›</b>
+        <strong>Stripe Setup</strong>
+      </nav>
+      <div>
+        <button type="button" aria-label="Securite">◈</button>
+        <button type="button" aria-label="Documentation">▤</button>
+        <button type="button" aria-label="Notifications">◔</button>
+        <span class="admin-user"
+          >Maitre du Dragon <small>Administrateur</small></span
+        >
+      </div>
+    </header>
+
+    <section class="setup-hero" aria-labelledby="stripe-setup-title">
+      <img
+        src="assets/openg7-stripe-setup-dragon-banner.png"
+        alt="Dragon NorthDragon gardien de la configuration Stripe"
+      />
+      <div class="hero-shield" aria-hidden="true">♜</div>
+      <div class="hero-copy">
+        <span class="dragon-mark" aria-hidden="true">♛</span>
+        <div>
+          <h1 id="stripe-setup-title">/dev/stripe-setup</h1>
+          <p>
+            Connectez et configurez Stripe en toute securite pour accepter des
+            paiements a l'echelle mondiale.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <openg7-stripe-setup-progress [stages]="setupStages()" />
+
+    <openg7-stripe-setup-account-panels
+      [account]="accountDiagnostic()"
+      [paymentMode]="paymentMode()"
+      (copy)="copyText($event)"
+      (open)="openUrl($event)"
+      (modeChange)="setPaymentMode($event)"
+    />
+
+    <openg7-stripe-setup-diagnostic-panels
+      [webhook]="webhookDiagnostic()"
+      [securityChecks]="securityChecks()"
+      (copy)="copyText($event)"
+      (open)="openUrl($event)"
+      (refresh)="refreshStatus()"
+      (modeChange)="setPaymentMode($event)"
+    />
+
+    <openg7-stripe-setup-steps
+      [steps]="steps()"
+      [completedStepIds]="completedStepIds()"
+      (toggle)="toggleCompleted($event)"
+      (copy)="copyText($event)"
+      (open)="openUrl($event)"
+    />
+
+    <footer class="setup-footer">
+      <span
+        >◈ Besoin d'aide ? Consultez notre documentation Stripe ou contactez
+        l'equipe NorthDragon.</span
+      >
+      <div>
+        <button type="button" (click)="openUrl('https://docs.stripe.com')">
+          Documentation ↗
+        </button>
+        <button type="button" (click)="openUrl('/support')">
+          Contacter le support
+        </button>
+      </div>
+      <small>Derniere verification : {{ status().lastCheckedAt }}</small>
+      <small *ngIf="loadError()"
+        >Diagnostic local indisponible. Verifiez que yarn dev tourne.</small
+      >
+    </footer>
+  </section>
+</main>

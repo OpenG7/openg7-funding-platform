@@ -1,0 +1,21 @@
+<section class="diagnostic-panel" aria-labelledby="diagnostics-title">
+  <header>
+    <h2 id="diagnostics-title">Journal de diagnostics</h2>
+    <button
+      type="button"
+      data-og7="webhooks-refresh"
+      data-og7-id="diagnostics"
+      (click)="refreshRequested.emit()"
+    >
+      Actualiser
+    </button>
+  </header>
+  <div class="diagnostic-table">
+    <article *ngFor="let row of diagnostics()" [class]="row.tone">
+      <span>{{ row.time }}</span>
+      <strong>{{ row.event }}</strong>
+      <em>{{ row.result }}</em>
+      <p>{{ row.impact }}</p>
+    </article>
+  </div>
+</section>

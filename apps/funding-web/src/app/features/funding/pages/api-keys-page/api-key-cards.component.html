@@ -1,0 +1,23 @@
+<section class="key-status-grid" aria-label="Etat des cles Stripe">
+  <article
+    *ngFor="let key of cards()"
+    [class.ok]="key.configured"
+    data-og7="api-key-card"
+    [attr.data-og7-id]="key.id"
+  >
+    <span aria-hidden="true">{{ key.icon }}</span>
+    <div>
+      <h2>{{ key.title }}</h2>
+      <strong>{{ key.statusLabel }}</strong>
+      <code>{{ key.maskedValue }}</code>
+      <button
+        type="button"
+        (click)="copy.emit(key.command)"
+        data-og7="api-key-copy"
+        [attr.data-og7-id]="key.id"
+      >
+        Copier la commande
+      </button>
+    </div>
+  </article>
+</section>

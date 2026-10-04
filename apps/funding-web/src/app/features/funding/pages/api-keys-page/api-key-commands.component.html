@@ -1,0 +1,19 @@
+<article class="panel command-panel">
+  <h2>Commandes copiables</h2>
+  <article
+    *ngFor="let command of commands()"
+    data-og7="api-key-command"
+    [attr.data-og7-id]="command.id"
+  >
+    <span>{{ command.label }}</span>
+    <code>{{ command.value }}</code>
+    <button
+      type="button"
+      (click)="copy.emit(command.value)"
+      data-og7="api-key-command-copy"
+      [attr.data-og7-id]="command.id"
+    >
+      Copier
+    </button>
+  </article>
+</article>

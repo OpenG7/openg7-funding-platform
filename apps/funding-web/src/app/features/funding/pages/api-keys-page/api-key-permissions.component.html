@@ -1,0 +1,13 @@
+<article class="panel permission-panel">
+  <h2>Permissions recommandees</h2>
+  <div class="permission-table">
+    <article *ngFor="let permission of permissions()">
+      <strong>{{ permission.name }}</strong>
+      <span [class.enabled]="permission.read">Lecture</span>
+      <span [class.enabled]="permission.write">Ecriture</span>
+      <em [class.required]="permission.required">{{
+        permission.required ? 'Necessaire' : 'Optionnelle'
+      }}</em>
+    </article>
+  </div>
+</article>

@@ -1,0 +1,13 @@
+<ol class="setup-progress" aria-label="Progression Stripe Setup">
+  <li
+    *ngFor="let stage of stages()"
+    [class.complete]="stage.state === 'complete'"
+    [class.active]="stage.state === 'active'"
+  >
+    <span>{{ stage.state === 'complete' ? '✓' : stage.number }}</span>
+    <div>
+      <strong>{{ stage.title }}</strong>
+      <em>{{ stage.detail }}</em>
+    </div>
+  </li>
+</ol>

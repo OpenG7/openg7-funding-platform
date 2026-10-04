@@ -1,0 +1,94 @@
+<section class="setup-grid top-grid" aria-label="Statuts Stripe">
+  <article class="panel account-panel" [class.ok]="account().connected">
+    <span class="panel-icon" aria-hidden="true">✓</span>
+    <div>
+      <h2>Statut de connexion</h2>
+      <strong>{{ account().connectionLabel }}</strong>
+      <p>Compte : northdragon-openg7</p>
+      <p>ID : acct_1NDGR7xxxxxxx</p>
+    </div>
+    <button type="button" (click)="open.emit(account().dashboardUrl)">
+      Gerer le compte Stripe ↗
+    </button>
+  </article>
+
+  <article class="panel mode-panel">
+    <h2>Mode actuel</h2>
+    <p>Choisissez le mode dans lequel vous souhaitez operer.</p>
+    <div class="mode-toggle" role="group" aria-label="Mode Stripe">
+      <button
+        type="button"
+        [class.active]="paymentMode() === 'test'"
+        [attr.aria-pressed]="paymentMode() === 'test'"
+        data-og7="stripe-setup-mode"
+        data-og7-id="test"
+        (click)="modeChange.emit('test')"
+      >
+        ♜ Test
+      </button>
+      <button
+        type="button"
+        [class.active]="paymentMode() === 'live'"
+        [attr.aria-pressed]="paymentMode() === 'live'"
+        data-og7="stripe-setup-mode"
+        data-og7-id="live"
+        (click)="modeChange.emit('live')"
+      >
+        ♨ Live
+      </button>
+    </div>
+    <aside>
+      <strong>Les paiements reels seront traites.</strong>
+      <span>Assurez-vous que tout est configure correctement.</span>
+    </aside>
+  </article>
+
+  <article class="panel keys-panel">
+    <h2>Cles API</h2>
+    <label>
+      Cle publiable
+      <span>
+        <code>pk_live_********************************</code>
+        <button type="button" (click)="copy.emit('pk_live_REMPLACE_MOI')">
+          Copier
+        </button>
+      </span>
+    </label>
+    <label>
+      Cle secrete
+      <span>
+        <code>sk_live_********************************</code>
+        <button
+          type="button"
+          (click)="
+            copy.emit('$env:STRIPE_SECRET_KEY=&quot;sk_live_REMPLACE_MOI&quot;')
+          "
+        >
+          Copier
+        </button>
+      </span>
+    </label>
+    <p>🔒 Vos cles sont chiffrees et stockees en toute securite.</p>
+    <button
+      type="button"
+      class="subtle"
+      (click)="open.emit('https://dashboard.stripe.com/test/apikeys')"
+    >
+      Generer de nouvelles cles ↻
+    </button>
+  </article>
+
+  <article class="panel payout-panel" [class.ok]="account().payoutsReady">
+    <span class="bank-icon" aria-hidden="true">♜</span>
+    <h2>Statut des versements</h2>
+    <strong>{{ account().payoutLabel }}</strong>
+    <p>Compte bancaire : **** 4242</p>
+    <p>Devise : CAD</p>
+    <button
+      type="button"
+      (click)="open.emit('https://dashboard.stripe.com/test/balance/overview')"
+    >
+      Gerer les versements ↗
+    </button>
+  </article>
+</section>

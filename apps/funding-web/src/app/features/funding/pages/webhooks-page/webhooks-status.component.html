@@ -1,0 +1,36 @@
+<section class="webhook-kpis" aria-label="Statut Webhooks">
+  <article [class.ok]="status().apiReachable">
+    <span aria-hidden="true">↔</span>
+    <div>
+      <h2>API locale</h2>
+      <strong>{{ status().apiReachable ? 'Joignable' : 'A verifier' }}</strong>
+      <p>{{ status().localApiBaseUrl }}</p>
+    </div>
+  </article>
+  <article [class.ok]="status().stripeWebhookSecretConfigured">
+    <span aria-hidden="true">◈</span>
+    <div>
+      <h2>Secret webhook</h2>
+      <strong>{{
+        status().stripeWebhookSecretConfigured ? 'Configure' : 'Manquant'
+      }}</strong>
+      <p>whsec_********************************</p>
+    </div>
+  </article>
+  <article [class.ok]="status().transparencySource !== 'none'">
+    <span aria-hidden="true">▦</span>
+    <div>
+      <h2>Source transparence</h2>
+      <strong>{{ sourceLabel() }}</strong>
+      <p>{{ status().publicTransparencyEndpoint }}</p>
+    </div>
+  </article>
+  <article>
+    <span aria-hidden="true">◷</span>
+    <div>
+      <h2>Derniere verification</h2>
+      <strong>{{ status().environment }}</strong>
+      <p>{{ status().lastCheckedAt }}</p>
+    </div>
+  </article>
+</section>

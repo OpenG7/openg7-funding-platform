@@ -1,0 +1,10 @@
+<article class="panel event-panel">
+  <h2>Evenements ecoutes</h2>
+  <div class="event-list">
+    <article *ngFor="let event of events()" [class]="event.tone">
+      <span>{{ event.category }}</span>
+      <strong>{{ event.name }}</strong>
+      <p>{{ event.impact }}</p>
+    </article>
+  </div>
+</article>

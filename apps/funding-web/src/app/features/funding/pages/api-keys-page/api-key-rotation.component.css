@@ -1,0 +1,43 @@
+:host {
+  display: grid;
+  min-width: 0;
+}
+
+.rotation-panel {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.rotation-panel ol {
+  display: grid;
+  gap: 0.65rem;
+  list-style: none;
+  padding: 0;
+}
+
+.rotation-panel li {
+  align-items: start;
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: auto 1fr;
+}
+
+.rotation-panel li > span {
+  border: 1px solid rgb(104 236 162 / 44%);
+  border-radius: 999px;
+  color: #68eca2;
+  display: grid;
+  height: 1.8rem;
+  place-items: center;
+  width: 1.8rem;
+}
+
+.rotation-panel strong {
+  color: #f4eadb;
+}
+
+.rotation-panel p {
+  color: #b9ad9e;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}

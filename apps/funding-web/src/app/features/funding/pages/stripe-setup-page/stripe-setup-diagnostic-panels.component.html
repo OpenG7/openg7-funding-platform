@@ -1,0 +1,88 @@
+<section
+  class="setup-grid lower-grid"
+  aria-label="Configuration avancee Stripe"
+>
+  <article class="panel webhook-panel">
+    <header>
+      <h2>Webhooks</h2>
+      <span [class.ok]="webhook().configured">{{ webhook().statusLabel }}</span>
+    </header>
+    <label>
+      URL d'endpoint
+      <span>
+        <code>{{ webhook().endpoint }}</code>
+        <button
+          type="button"
+          (click)="copy.emit(webhook().endpoint)"
+          data-og7="stripe-setup-copy-endpoint"
+          data-og7-id="webhook"
+        >
+          Copier
+        </button>
+      </span>
+    </label>
+    <div class="event-chips" aria-label="Evenements ecoutes">
+      <span>payment_intent.succeeded</span>
+      <span>checkout.session.completed</span>
+      <span>+6 autres</span>
+    </div>
+    <div class="panel-actions">
+      <button type="button" (click)="open.emit(webhook().dashboardUrl)">
+        Voir dans Stripe ↗
+      </button>
+      <button
+        type="button"
+        (click)="
+          copy.emit(
+            'stripe listen --forward-to localhost:3333/api/stripe/webhook'
+          )
+        "
+      >
+        Tester l'endpoint
+      </button>
+    </div>
+  </article>
+
+  <article class="panel security-panel">
+    <h2>Liste de controle de securite</h2>
+    <ul>
+      <li
+        *ngFor="let item of securityChecks()"
+        [class.progress]="item.state === 'progress'"
+      >
+        <span aria-hidden="true">{{
+          item.state === 'complete' ? '▣' : '▧'
+        }}</span>
+        <strong>{{ item.label }}</strong>
+        <em>{{ item.state === 'complete' ? 'Termine' : 'En cours' }}</em>
+      </li>
+    </ul>
+    <button
+      type="button"
+      class="guide"
+      (click)="open.emit('https://docs.stripe.com/security')"
+    >
+      Voir le guide de securite ↗
+    </button>
+  </article>
+
+  <article class="panel quick-panel">
+    <h2>Actions rapides</h2>
+    <button
+      type="button"
+      class="danger"
+      (click)="refresh.emit()"
+      data-og7="stripe-setup-refresh"
+      data-og7-id="configuration"
+    >
+      ◈ Verifier la configuration <span>Verifier</span>
+    </button>
+    <button type="button" (click)="copy.emit('corepack yarn dev')">
+      ▤ Enregistrer les parametres <span>Enregistrer</span>
+    </button>
+    <button type="button" class="gold" (click)="modeChange.emit('live')">
+      ♛ Activer les paiements
+      <small>Passer en production et accepter des paiements reels.</small>
+    </button>
+  </article>
+</section>

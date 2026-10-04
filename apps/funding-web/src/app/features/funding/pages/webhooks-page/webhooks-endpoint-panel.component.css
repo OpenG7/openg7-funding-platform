@@ -1,0 +1,28 @@
+.panel {
+  height: 100%;
+}
+
+.endpoint-panel {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.endpoint-panel label span {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-top: 0.35rem;
+}
+
+.panel-actions {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .panel-actions,
+  .endpoint-panel label span {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,51 @@
+:host {
+  display: grid;
+  min-width: 0;
+  grid-row: span 2;
+}
+
+.permission-table strong {
+  color: #f4eadb;
+}
+
+.permission-table {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.permission-table article {
+  align-items: center;
+  border-top: 1px solid rgb(255 255 255 / 8%);
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(10rem, 1fr) auto auto auto;
+  min-height: 2.7rem;
+}
+
+.permission-table span,
+.permission-table em {
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 999px;
+  color: #968d80;
+  font-size: 0.68rem;
+  font-style: normal;
+  padding: 0.14rem 0.45rem;
+}
+
+.permission-table span.enabled,
+.permission-table em.required {
+  border-color: rgb(104 236 162 / 42%);
+  color: #68eca2;
+}
+
+@media (max-width: 1200px) {
+  :host {
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .permission-table article {
+    grid-template-columns: 1fr;
+  }
+}

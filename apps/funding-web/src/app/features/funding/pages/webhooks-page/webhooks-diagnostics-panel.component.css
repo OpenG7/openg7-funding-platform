@@ -1,0 +1,60 @@
+.diagnostic-table span {
+  color: #6be2ff;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+}
+
+.diagnostic-panel {
+  margin-top: 0.75rem;
+}
+
+.diagnostic-panel header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.diagnostic-table {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.diagnostic-table article {
+  align-items: center;
+  border-top: 1px solid rgb(255 255 255 / 8%);
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: 6rem minmax(16rem, 1fr) minmax(9rem, auto) minmax(
+      14rem,
+      1fr
+    );
+  min-height: 2.8rem;
+}
+
+.diagnostic-table strong {
+  color: #f4eadb;
+}
+
+.diagnostic-table em {
+  font-style: normal;
+}
+
+.diagnostic-table article.ok em {
+  color: #62e97b;
+}
+
+.diagnostic-table article.warn em {
+  color: #f4c957;
+}
+
+.diagnostic-table article.error em {
+  color: #ff6d8d;
+}
+
+@media (max-width: 1200px) {
+  .diagnostic-table article {
+    grid-template-columns: 1fr;
+    padding: 0.6rem 0;
+  }
+}
