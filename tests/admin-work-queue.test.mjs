@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildWorkQueueItems,
   getAdminWorkQueue,
+  loadAdminWorkQueue,
   paginateWorkQueue,
   parseWorkQueueQuery
 } from '../dist/apps/funding-api/src/admin-work-queue.service.js';
@@ -501,4 +502,55 @@ test('absent database or missing tables never look like an empty operational que
   assert.equal(missing.coverage, 'unavailable');
   assert.ok(missing.missingSources.includes('sponsor_publication_batches'));
   assert.equal(paginateWorkQueue([], now).available, true);
+});
+
+test('incomplete sources stop acquisition and report each missing table in stable order', async () => {
+  let calls = 0;
+  const snapshot = await loadAdminWorkQueue(
+    {
+      query: async (_sql, [required]) => {
+        calls++;
+        assert.equal(calls, 1, 'Incomplete sources must not be read');
+        return {
+          rows: [...required].reverse().map((name) => ({
+            name,
+            present: !['stripe_events', 'publication_slots'].includes(name)
+          }))
+        };
+      }
+    },
+    now
+  );
+  assert.deepEqual(snapshot, {
+    items: [],
+    missingSources: ['stripe_events', 'publication_slots']
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(await loadAdminWorkQueue(null, now), {
+    items: [],
+    missingSources: ['database']
+  });
+});
+
+test('database errors propagate instead of presenting an empty operational queue', async () => {
+  const failure = new Error('Synthetic acquisition failure');
+  for (const sourcesPresent of [false, true]) {
+    await assert.rejects(
+      getAdminWorkQueue(
+        {
+          query: async (sql, values) => {
+            if (sourcesPresent && sql.includes('FROM unnest')) {
+              return {
+                rows: values[0].map((name) => ({ name, present: true }))
+              };
+            }
+            throw failure;
+          }
+        },
+        {},
+        now
+      ),
+      (error) => error === failure
+    );
+  }
 });
