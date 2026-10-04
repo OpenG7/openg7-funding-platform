@@ -44,6 +44,8 @@ import type {
 
 type ApiRequest = IncomingMessage;
 type ApiResponse = ServerResponse<IncomingMessage>;
+type LegacyPublicCopyCleanup =
+  'not_required' | 'removed' | 'already_absent' | 'failed';
 
 /** Bound admin media ports keep follow-up and public routes separate. */
 export interface AdminSponsorshipMediaHttpDependencies {
@@ -84,13 +86,9 @@ export interface AdminSponsorshipMediaHttpDependencies {
   ) => Promise<SponsorMediaMutationResult>;
   readonly sponsorMediaStorage: Pick<
     SponsorMediaStorage,
-    'driver' | 'readPrivateObject' | 'publishObject' | 'deletePublicObject'
+    'driver' | 'readPrivateObject' | 'deletePublicObject'
   >;
-  readonly sponsorMediaPublicKey: (asset: SponsorMediaStorageRecord) => string;
-  readonly sponsorMediaPublicUrl: (
-    assetId: string,
-    publicKey: string
-  ) => string;
+  readonly sponsorMediaPublicUrl: (assetId: string) => string;
   readonly deleteSponsorMediaObjects: (
     asset: SponsorMediaStorageRecord,
     options: { readonly includePublic: boolean }
@@ -151,7 +149,6 @@ export const createAdminSponsorshipMediaHttpHandler = ({
   reviewSponsorMediaAsset,
   deleteSponsorMediaAsset,
   sponsorMediaStorage,
-  sponsorMediaPublicKey,
   sponsorMediaPublicUrl,
   deleteSponsorMediaObjects,
   writeSponsorMediaMutationFailure,
@@ -167,6 +164,23 @@ export const createAdminSponsorshipMediaHttpHandler = ({
   reportFailure
 }: AdminSponsorshipMediaHttpDependencies) => {
   const { routeMatches } = createRouteMatcher(publicBaseOrigin);
+  const removeLegacyPublicCopy = async (
+    asset: SponsorMediaStorageRecord
+  ): Promise<LegacyPublicCopyCleanup> => {
+    if (!asset.publicStorageKey) return 'not_required';
+    try {
+      return (await sponsorMediaStorage.deletePublicObject(
+        asset.publicStorageKey
+      ))
+        ? 'removed'
+        : 'already_absent';
+    } catch {
+      reportFailure('Legacy public sponsor media cleanup was incomplete.', {
+        code: 'SPONSOR_MEDIA_PUBLIC_CLEANUP_INCOMPLETE'
+      });
+      return 'failed';
+    }
+  };
 
   return async (
     request: ApiRequest,
@@ -297,52 +311,21 @@ export const createAdminSponsorshipMediaHttpHandler = ({
           return true;
         }
 
-        let publishedKey: string | null = null;
-        let publicUrl: string | null = null;
-        let removedPublicObject = false;
-        if (reviewStatus === 'approved') {
-          publishedKey =
-            current.publicStorageKey ?? sponsorMediaPublicKey(current);
-          publicUrl =
-            current.publicUrl ??
-            sponsorMediaPublicUrl(current.id, publishedKey);
-          if (!current.publicStorageKey) {
-            await sponsorMediaStorage.publishObject({
-              privateKey: current.processedStorageKey,
-              publicKey: publishedKey,
-              contentType: 'image/webp'
-            });
-          }
-        } else if (current.publicStorageKey) {
-          removedPublicObject = await sponsorMediaStorage.deletePublicObject(
-            current.publicStorageKey
-          );
-        }
-
         const reviewed = await reviewSponsorMediaAsset({
           assetId: current.id,
           expectedVersion: parsed.expectedVersion,
           reviewStatus,
           altText,
-          publicStorageKey: publishedKey,
-          publicUrl,
+          // Retain legacy public keys for separately authorized storage remediation.
+          publicStorageKey: current.publicStorageKey,
+          publicUrl:
+            reviewStatus === 'approved'
+              ? sponsorMediaPublicUrl(current.id)
+              : null,
           reviewedBy: getAdminAuditActor(request)
         });
 
         if (reviewed.status !== 'updated' || !reviewed.asset) {
-          if (publishedKey && !current.publicStorageKey) {
-            await sponsorMediaStorage
-              .deletePublicObject(publishedKey)
-              .catch(() => undefined);
-          } else if (removedPublicObject && current.publicStorageKey) {
-            await sponsorMediaStorage
-              .publishObject({
-                privateKey: current.processedStorageKey,
-                publicKey: current.publicStorageKey,
-                contentType: 'image/webp'
-              })
-              .catch(() => undefined);
-          }
           writeSponsorMediaMutationFailure(
             request,
             response,
@@ -355,6 +338,11 @@ export const createAdminSponsorshipMediaHttpHandler = ({
           return true;
         }
 
+        const legacyPublicCopyCleanup =
+          reviewStatus === 'rejected'
+            ? await removeLegacyPublicCopy(reviewed.asset)
+            : 'not_required';
+
         await insertAdminAuditLog({
           actor: getAdminAuditActor(request),
           action: `sponsorship.media.${reviewStatus}`,
@@ -364,14 +352,22 @@ export const createAdminSponsorshipMediaHttpHandler = ({
           metadata: {
             contributionId: reviewed.asset.contributionId,
             kind: reviewed.asset.kind,
-            storageDriver: sponsorMediaStorage.driver
+            storageDriver: sponsorMediaStorage.driver,
+            ...(reviewStatus === 'rejected' ? { legacyPublicCopyCleanup } : {})
           }
         });
         const result: AdminSponsorMediaReviewResult = {
           updated: true,
           asset: reviewed.asset
         };
-        writeJson(request, response, 200, result);
+        if (legacyPublicCopyCleanup === 'failed') {
+          writeJson(request, response, 502, {
+            ...result,
+            code: 'SPONSOR_MEDIA_PUBLIC_CLEANUP_INCOMPLETE',
+            error:
+              'The media review was saved, but the legacy public copy could not be removed.'
+          });
+        } else writeJson(request, response, 200, result);
       } catch (error) {
         reportFailure('Failed to review sponsor media.', error);
         writeJson(request, response, 502, {
@@ -427,27 +423,12 @@ export const createAdminSponsorshipMediaHttpHandler = ({
           });
           return true;
         }
-        let removedPublicObject = false;
-        if (current.publicStorageKey) {
-          removedPublicObject = await sponsorMediaStorage.deletePublicObject(
-            current.publicStorageKey
-          );
-        }
         const deleted = await deleteSponsorMediaAsset({
           assetId: parsed.assetId,
           expectedVersion: parsed.expectedVersion,
           allowApproved: true
         });
         if (deleted.status !== 'updated' || !deleted.asset) {
-          if (removedPublicObject && current.publicStorageKey) {
-            await sponsorMediaStorage
-              .publishObject({
-                privateKey: current.processedStorageKey,
-                publicKey: current.publicStorageKey,
-                contentType: 'image/webp'
-              })
-              .catch(() => undefined);
-          }
           writeSponsorMediaMutationFailure(
             request,
             response,
@@ -459,6 +440,9 @@ export const createAdminSponsorshipMediaHttpHandler = ({
           );
           return true;
         }
+        const legacyPublicCopyCleanup = await removeLegacyPublicCopy(
+          deleted.asset
+        );
         await deleteSponsorMediaObjects(deleted.asset, {
           includePublic: false
         });
@@ -471,14 +455,22 @@ export const createAdminSponsorshipMediaHttpHandler = ({
           metadata: {
             contributionId: deleted.asset.contributionId,
             kind: deleted.asset.kind,
-            storageDriver: sponsorMediaStorage.driver
+            storageDriver: sponsorMediaStorage.driver,
+            legacyPublicCopyCleanup
           }
         });
         const result: SponsorMediaDeleteResult = {
           deleted: true,
           assetId: deleted.asset.id
         };
-        writeJson(request, response, 200, result);
+        if (legacyPublicCopyCleanup === 'failed') {
+          writeJson(request, response, 502, {
+            ...result,
+            code: 'SPONSOR_MEDIA_PUBLIC_CLEANUP_INCOMPLETE',
+            error:
+              'The media was deleted, but the legacy public copy could not be removed.'
+          });
+        } else writeJson(request, response, 200, result);
       } catch (error) {
         reportFailure('Failed to delete sponsor media for admin.', error);
         writeJson(request, response, 502, {

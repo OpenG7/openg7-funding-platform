@@ -48,7 +48,7 @@ const currentFacts = {
 };
 const media = {
   id: '33333333-3333-4333-8333-333333333333',
-  url: '/media/approved-image',
+  url: '/api/public/sponsor-media/33333333-3333-4333-8333-333333333333',
   alt: 'Présentation approuvée',
   key: 'private/approved-image',
   version: '2030-01-01 12:00:00.123456+00'
@@ -241,12 +241,18 @@ test('repair candidates keep their ordered prefix and exact UTF-16 text limit', 
 test('media selection retains its public projection and database timestamp text', async () => {
   const option = {
     id: media.id,
-    url: media.url,
+    url: 'https://cdn.example.test/legacy-option.webp',
     alt: media.alt,
     company: 'Exemple'
   };
-  assert.deepEqual(await mediaOptions(sequenceDb([option])), [option]);
-  assert.deepEqual(await mediaRecord(sequenceDb([media]), media.id), media);
+  const controlled = { ...media, url: '/api/public/sponsor-media/' + media.id };
+  assert.deepEqual(await mediaOptions(sequenceDb([option])), [
+    { ...option, url: controlled.url }
+  ]);
+  assert.deepEqual(
+    await mediaRecord(sequenceDb([media]), media.id),
+    controlled
+  );
   const bytes = Buffer.from('Synthetic image bytes');
   const storage = {
     async readPrivateObject(key) {
@@ -255,9 +261,24 @@ test('media selection retains its public projection and database timestamp text'
     }
   };
   assert.deepEqual(await resolveMedia(sequenceDb([media]), storage, media.id), {
-    ...media,
+    ...controlled,
     hash: digest(bytes)
   });
+});
+
+test('normalizing a legacy media URL requires a fresh publication review and does not alter its snapshot', async () => {
+  const snapshot = {
+    ...media,
+    url: 'https://cdn.example.test/legacy.webp',
+    hash: digest('original')
+  };
+  const record = await mediaRecord(
+    sequenceDb([{ ...media, url: snapshot.url }]),
+    media.id
+  );
+  assert.equal(record.url, '/api/public/sponsor-media/' + media.id);
+  assert.equal(mediaSnapshotIssue(media.id, snapshot, record), 'MEDIA_CHANGED');
+  assert.equal(snapshot.url, 'https://cdn.example.test/legacy.webp');
 });
 
 test('media resolution distinguishes absent selection, invalid id, approval and unavailable bytes', async () => {

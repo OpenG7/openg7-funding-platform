@@ -43,7 +43,7 @@ administration, avec confirmation Stripe et publication autorisée séparément.
 ## Contexte et sources
 
 Monorepo Yarn 4, Node 22, Angular 21 standalone/SSR, Tailwind 4, API TypeScript ESM,
-Stripe, PostgreSQL 16 optionnel, Docker Compose et Traefik 3.2. Licence MIT.
+Stripe, PostgreSQL 16 optionnel, Docker Compose et Traefik 3.7.13. Licence MIT.
 Avant un changement de version majeure/runtime, vérifier manifests, images, CI et
 documentation de production.
 

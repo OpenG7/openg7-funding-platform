@@ -42,7 +42,7 @@ const facts = {
 };
 const media = {
   id: 'approved-photo',
-  url: '/media/approved-photo',
+  url: '/api/public/sponsor-media/approved-photo',
   alt: 'Photo approuvée',
   key: 'private/approved-photo',
   version: '2099-01-01 08:00:00.123456+00'

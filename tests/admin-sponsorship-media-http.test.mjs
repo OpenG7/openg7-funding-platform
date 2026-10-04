@@ -73,6 +73,7 @@ const uploadBody = ({
 const fixture = ({
   denied,
   role = 'owner',
+  storageDriver = 'local',
   results = {},
   failures = {},
   assetPatch = {}
@@ -192,17 +193,13 @@ const fixture = ({
     deleteSponsorMediaAsset: (input) =>
       call('delete', input, { status: 'updated', asset }),
     sponsorMediaStorage: {
-      driver: 'local',
+      driver: storageDriver,
       readPrivateObject: (key) => call('mediaRead', key, image),
       publishObject: (input) => call('publish', input, undefined),
       deletePublicObject: (key) => call('unpublish', key, true)
     },
-    sponsorMediaPublicKey: (current) => {
-      calls.push({ name: 'publicKey', value: current });
-      return publicKey;
-    },
-    sponsorMediaPublicUrl: (id, key) => {
-      calls.push({ name: 'publicUrl', value: { id, key } });
+    sponsorMediaPublicUrl: (id) => {
+      calls.push({ name: 'publicUrl', value: { id } });
       return publicUrl;
     },
     deleteSponsorMediaObjects: (current, options) =>
@@ -477,123 +474,229 @@ test('controlled logo previews reject invalid contributions, URLs, filenames and
   assert.deepEqual(f.names(), ['access', 'json']);
 });
 
-test('media review publishes the processed object before versioned persistence and audit', async (t) => {
-  for (const prefix of ['/admin/sponsorships/', '/api/admin/sponsorships/']) {
-    await t.test(prefix, async () => {
-      const f = fixture();
-      const result = await f.run(prefix + 'media/review', {
-        method: 'POST',
-        body: JSON.stringify(reviewInput)
-      });
-      assert.equal(result.status, 200);
-      assert.equal(result.payload.updated, true);
-      assert.equal(result.payload.asset.reviewStatus, 'approved');
-      assert.deepEqual(f.values('body'), [32 * 1024]);
-      assert.deepEqual(f.values('publish'), [
-        {
-          privateKey: f.asset.processedStorageKey,
-          publicKey,
-          contentType: 'image/webp'
-        }
-      ]);
-      assert.deepEqual(f.values('review'), [
-        {
-          assetId,
-          expectedVersion: version,
-          reviewStatus: 'approved',
-          altText: 'Synthetic photo',
-          publicStorageKey: publicKey,
-          publicUrl,
-          reviewedBy: actor
-        }
-      ]);
-      assert.deepEqual(f.values('audit'), [
-        {
-          actor,
-          action: 'sponsorship.media.approved',
-          entityType: 'sponsor_media_asset',
-          entityId: assetId,
-          summary: 'Sponsor media marked approved.',
-          metadata: {
-            contributionId,
-            kind: 'supporting_image',
-            storageDriver: 'local'
+test('media approval keeps private storage and records the controlled API URL for both drivers and aliases', async (t) => {
+  for (const storageDriver of ['local', 'ovh-s3']) {
+    for (const prefix of ['/admin/sponsorships/', '/api/admin/sponsorships/']) {
+      await t.test(storageDriver + prefix, async () => {
+        const f = fixture({ storageDriver });
+        const result = await f.run(prefix + 'media/review', {
+          method: 'POST',
+          body: JSON.stringify(reviewInput)
+        });
+        assert.equal(result.status, 200);
+        assert.equal(result.payload.updated, true);
+        assert.equal(result.payload.asset.reviewStatus, 'approved');
+        assert.equal(result.payload.asset.publicUrl, publicUrl);
+        assert.equal(result.payload.asset.publicStorageKey, null);
+        assert.deepEqual(f.values('body'), [32 * 1024]);
+        assert.deepEqual(f.values('publish'), []);
+        assert.deepEqual(f.values('unpublish'), []);
+        assert.deepEqual(f.values('review'), [
+          {
+            assetId,
+            expectedVersion: version,
+            reviewStatus: 'approved',
+            altText: 'Synthetic photo',
+            publicStorageKey: null,
+            publicUrl,
+            reviewedBy: actor
           }
-        }
-      ]);
-      assert.deepEqual(f.names(), [
-        'access',
-        'body',
-        'get',
-        'publicKey',
-        'publicUrl',
-        'publish',
-        'actor',
-        'review',
-        'actor',
-        'audit',
-        'json'
-      ]);
-    });
+        ]);
+        assert.deepEqual(f.values('audit'), [
+          {
+            actor,
+            action: 'sponsorship.media.approved',
+            entityType: 'sponsor_media_asset',
+            entityId: assetId,
+            summary: 'Sponsor media marked approved.',
+            metadata: {
+              contributionId,
+              kind: 'supporting_image',
+              storageDriver
+            }
+          }
+        ]);
+        assert.deepEqual(f.names(), [
+          'access',
+          'body',
+          'get',
+          'publicUrl',
+          'actor',
+          'review',
+          'actor',
+          'audit',
+          'json'
+        ]);
+      });
+    }
   }
 });
 
-test('approval reuses an existing public object and rejection removes it before persistence', async () => {
+test('legacy public object references are retained for separate remediation and never reused as exposure URLs', async () => {
   const assetPatch = {
     publicStorageKey: 'existing/public.webp',
     publicUrl: 'https://cdn.example.test/existing.webp',
     reviewStatus: 'approved'
   };
-  const approved = fixture({ assetPatch });
-  assert.equal(
-    (
-      await approved.run('/admin/sponsorships/media/review', {
+  for (const reviewStatus of ['approved', 'rejected']) {
+    const f = fixture({ assetPatch });
+    const result = await f.run('/admin/sponsorships/media/review', {
+      method: 'POST',
+      body: JSON.stringify({ ...reviewInput, reviewStatus, altText: ' ' })
+    });
+    assert.equal(result.status, 200);
+    assert.deepEqual(f.values('publish'), []);
+    assert.deepEqual(
+      f.values('unpublish'),
+      reviewStatus === 'rejected' ? [assetPatch.publicStorageKey] : []
+    );
+    assert.deepEqual(f.values('review'), [
+      {
+        assetId,
+        expectedVersion: version,
+        reviewStatus,
+        altText: null,
+        publicStorageKey: assetPatch.publicStorageKey,
+        publicUrl: reviewStatus === 'approved' ? publicUrl : null,
+        reviewedBy: actor
+      }
+    ]);
+    assert.equal(
+      f.values('audit')[0].action,
+      'sponsorship.media.' + reviewStatus
+    );
+  }
+});
+
+test('new private media revocation never touches a public bucket', async (t) => {
+  for (const [path, input] of [
+    ['media/review', { ...reviewInput, reviewStatus: 'rejected' }],
+    ['media/delete', deleteInput]
+  ]) {
+    await t.test(path, async () => {
+      const f = fixture({
+        failures: {
+          publish: new Error('Public copies are forbidden.'),
+          unpublish: new Error('No legacy copy exists.')
+        }
+      });
+      const result = await f.run('/api/admin/sponsorships/' + path, {
         method: 'POST',
-        body: JSON.stringify(reviewInput)
-      })
-    ).status,
-    200
-  );
-  assert.deepEqual(approved.values('publish'), []);
-  assert.deepEqual(approved.values('publicKey'), []);
-  assert.equal(
-    approved.values('review')[0].publicStorageKey,
-    assetPatch.publicStorageKey
-  );
-  assert.equal(approved.values('review')[0].publicUrl, assetPatch.publicUrl);
-  const rejected = fixture({ assetPatch });
-  assert.equal(
-    (
-      await rejected.run('/admin/sponsorships/media/review', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...reviewInput,
-          reviewStatus: 'rejected',
-          altText: ' '
-        })
-      })
-    ).status,
-    200
-  );
-  assert.deepEqual(rejected.values('unpublish'), [assetPatch.publicStorageKey]);
-  assert.deepEqual(rejected.values('review'), [
-    {
-      assetId,
-      expectedVersion: version,
-      reviewStatus: 'rejected',
-      altText: null,
-      publicStorageKey: null,
-      publicUrl: null,
-      reviewedBy: actor
+        body: JSON.stringify(input)
+      });
+      assert.equal(result.status, 200);
+      assert.deepEqual(f.values('publish'), []);
+      assert.deepEqual(f.values('unpublish'), []);
+      assert.equal(
+        f.values('audit')[0].metadata.legacyPublicCopyCleanup,
+        'not_required'
+      );
+    });
+  }
+});
+
+test('legacy revocations remove public copies only after the versioned mutation and audit cleanup results before responding', async (t) => {
+  for (const [path, input, mutation, message] of [
+    [
+      'media/review',
+      { ...reviewInput, reviewStatus: 'rejected' },
+      'review',
+      'Sponsor media review could not be completed.'
+    ],
+    [
+      'media/delete',
+      deleteInput,
+      'delete',
+      'Sponsor media could not be deleted.'
+    ]
+  ]) {
+    for (const [outcome, cleanupStatus] of [
+      [true, 'removed'],
+      [false, 'already_absent'],
+      ['failure', 'failed']
+    ]) {
+      for (const auditFails of [false, true]) {
+        await t.test(
+          `${path} ${cleanupStatus} auditFails=${auditFails}`,
+          async () => {
+            const providerError = new Error(
+              'Storage provider diagnostic must stay private.'
+            );
+            const auditError = new Error('Synthetic audit unavailable.');
+            const f = fixture({
+              assetPatch: { publicStorageKey: publicKey, publicUrl },
+              results:
+                typeof outcome === 'boolean' ? { unpublish: outcome } : {},
+              failures: {
+                ...(outcome === 'failure' ? { unpublish: providerError } : {}),
+                ...(auditFails ? { audit: auditError } : {})
+              }
+            });
+            const result = await f.run('/api/admin/sponsorships/' + path, {
+              method: 'POST',
+              body: JSON.stringify(input)
+            });
+            assert.equal(
+              result.status,
+              auditFails || cleanupStatus === 'failed' ? 502 : 200
+            );
+            assert.deepEqual(f.values('publish'), []);
+            assert.deepEqual(f.values('unpublish'), [publicKey]);
+            assert.ok(
+              f.names().indexOf(mutation) < f.names().indexOf('unpublish')
+            );
+            assert.ok(
+              f.names().indexOf('unpublish') < f.names().indexOf('audit')
+            );
+            assert.ok(f.names().indexOf('audit') < f.names().indexOf('json'));
+            const metadata = f.values('audit')[0].metadata;
+            assert.equal(metadata.legacyPublicCopyCleanup, cleanupStatus);
+            assert.equal(JSON.stringify(metadata).includes(publicKey), false);
+            assert.equal(
+              JSON.stringify(f.values('report')).includes(
+                providerError.message
+              ),
+              false
+            );
+            if (mutation === 'review') {
+              assert.deepEqual(f.values('cleanupMedia'), []);
+              assert.equal(f.values('review')[0].publicStorageKey, publicKey);
+              assert.equal(f.values('review')[0].publicUrl, null);
+            } else {
+              assert.deepEqual(f.values('cleanupMedia'), [
+                { asset: f.asset, options: { includePublic: false } }
+              ]);
+              assert.ok(
+                f.names().indexOf('unpublish') <
+                  f.names().indexOf('cleanupMedia')
+              );
+            }
+            if (auditFails) {
+              assert.deepEqual(result.payload, { error: message });
+            } else if (cleanupStatus === 'failed') {
+              assert.equal(
+                result.payload.code,
+                'SPONSOR_MEDIA_PUBLIC_CLEANUP_INCOMPLETE'
+              );
+              if (mutation === 'review') {
+                assert.equal(result.payload.updated, true);
+                assert.equal(result.payload.asset.reviewStatus, 'rejected');
+              } else {
+                assert.equal(result.payload.deleted, true);
+                assert.equal(result.payload.assetId, assetId);
+              }
+              assert.deepEqual(f.values('report'), [
+                [
+                  'Legacy public sponsor media cleanup was incomplete.',
+                  { code: 'SPONSOR_MEDIA_PUBLIC_CLEANUP_INCOMPLETE' }
+                ]
+              ]);
+            }
+          }
+        );
+      }
     }
-  ]);
-  assert.equal(
-    rejected.values('audit')[0].action,
-    'sponsorship.media.rejected'
-  );
-  assert.ok(
-    rejected.names().indexOf('unpublish') < rejected.names().indexOf('review')
-  );
+  }
 });
 
 test('media review and delete reject invalid JSON, versions and decisions before storage', async (t) => {
@@ -665,27 +768,30 @@ test('media delete requires exact confirmation before checking identifier and ve
   }
 });
 
-test('review conflicts remove only a newly published copy and preserve the mutation error', async (t) => {
-  for (const [status, httpStatus, failureStatus] of [
-    ['conflict', 409, 'conflict'],
-    ['approved_locked', 409, 'approved_locked'],
-    ['not_found', 404, 'not_found'],
-    ['not_editable', 404, 'not_found']
-  ]) {
-    for (const cleanupFails of [false, true]) {
-      await t.test(`${status} cleanupFails=${cleanupFails}`, async () => {
+test('review conflicts never create, delete or restore public copies', async (t) => {
+  for (const reviewStatus of ['approved', 'rejected']) {
+    for (const [status, httpStatus, failureStatus] of [
+      ['conflict', 409, 'conflict'],
+      ['approved_locked', 409, 'approved_locked'],
+      ['not_found', 404, 'not_found'],
+      ['not_editable', 404, 'not_found']
+    ]) {
+      await t.test(reviewStatus + status, async () => {
         const f = fixture({
+          assetPatch: { publicStorageKey: publicKey, publicUrl },
           results: { review: { status, asset: null } },
-          failures: cleanupFails
-            ? { unpublish: new Error('Synthetic cleanup failure.') }
-            : {}
+          failures: {
+            publish: new Error('Public copy is forbidden.'),
+            unpublish: new Error('Public deletion is forbidden.')
+          }
         });
         const result = await f.run('/admin/sponsorships/media/review', {
           method: 'POST',
-          body: JSON.stringify(reviewInput)
+          body: JSON.stringify({ ...reviewInput, reviewStatus })
         });
         assert.equal(result.status, httpStatus);
-        assert.deepEqual(f.values('unpublish'), [publicKey]);
+        assert.deepEqual(f.values('publish'), []);
+        assert.deepEqual(f.values('unpublish'), []);
         assert.deepEqual(f.values('mediaFailure'), [failureStatus]);
         assert.deepEqual(f.values('audit'), []);
         assert.deepEqual(f.values('report'), []);
@@ -695,53 +801,7 @@ test('review conflicts remove only a newly published copy and preserve the mutat
   }
 });
 
-test('rejected review conflicts restore an existing object only when it was removed', async (t) => {
-  const assetPatch = {
-    publicStorageKey: 'existing/public.webp',
-    publicUrl,
-    reviewStatus: 'approved'
-  };
-  for (const removed of [true, false]) {
-    for (const restoreFails of [false, true]) {
-      await t.test(
-        `removed=${removed} restoreFails=${restoreFails}`,
-        async () => {
-          const f = fixture({
-            assetPatch,
-            results: {
-              unpublish: removed,
-              review: { status: 'conflict', asset: null }
-            },
-            failures: restoreFails
-              ? { publish: new Error('Synthetic restore failure.') }
-              : {}
-          });
-          const result = await f.run('/admin/sponsorships/media/review', {
-            method: 'POST',
-            body: JSON.stringify({ ...reviewInput, reviewStatus: 'rejected' })
-          });
-          assert.equal(result.status, 409);
-          assert.deepEqual(
-            f.values('publish'),
-            removed
-              ? [
-                  {
-                    privateKey: f.asset.processedStorageKey,
-                    publicKey: assetPatch.publicStorageKey,
-                    contentType: 'image/webp'
-                  }
-                ]
-              : []
-          );
-          assert.deepEqual(f.values('audit'), []);
-          assert.deepEqual(f.values('report'), []);
-        }
-      );
-    }
-  }
-});
-
-test('approved media deletion unpublishes before the versioned mutation then cleans private objects and audits', async (t) => {
+test('confirmed media deletion revokes eligibility before removing a legacy public copy and cleaning private objects', async (t) => {
   for (const prefix of ['/admin/sponsorships/', '/api/admin/sponsorships/']) {
     await t.test(prefix, async () => {
       const f = fixture({
@@ -769,8 +829,8 @@ test('approved media deletion unpublishes before the versioned mutation then cle
         'access',
         'body',
         'get',
-        'unpublish',
         'delete',
+        'unpublish',
         'cleanupMedia',
         'actor',
         'audit',
@@ -780,7 +840,7 @@ test('approved media deletion unpublishes before the versioned mutation then cle
   }
 });
 
-test('media delete conflicts restore removed public bytes without private cleanup or audit', async (t) => {
+test('media delete conflicts never restore public bytes or clean private objects', async (t) => {
   for (const [status, httpStatus, failureStatus] of [
     ['conflict', 409, 'conflict'],
     ['approved_locked', 409, 'approved_locked'],
@@ -791,20 +851,18 @@ test('media delete conflicts restore removed public bytes without private cleanu
       const f = fixture({
         assetPatch: { publicStorageKey: publicKey },
         results: { delete: { status, asset: null } },
-        failures: { publish: new Error('Synthetic restore failure.') }
+        failures: {
+          publish: new Error('Public copy is forbidden.'),
+          unpublish: new Error('Public deletion is forbidden.')
+        }
       });
       const result = await f.run('/admin/sponsorships/media/delete', {
         method: 'POST',
         body: JSON.stringify(deleteInput)
       });
       assert.equal(result.status, httpStatus);
-      assert.deepEqual(f.values('publish'), [
-        {
-          privateKey: f.asset.processedStorageKey,
-          publicKey,
-          contentType: 'image/webp'
-        }
-      ]);
+      assert.deepEqual(f.values('publish'), []);
+      assert.deepEqual(f.values('unpublish'), []);
       assert.deepEqual(f.values('mediaFailure'), [failureStatus]);
       assert.deepEqual(f.values('cleanupMedia'), []);
       assert.deepEqual(f.values('audit'), []);
@@ -1101,13 +1159,6 @@ test('admin media failures keep their HTTP errors without retrying mutations or 
       'media/review',
       'POST',
       { body: JSON.stringify(reviewInput) },
-      'publish',
-      'Sponsor media review could not be completed.'
-    ],
-    [
-      'media/review',
-      'POST',
-      { body: JSON.stringify(reviewInput) },
       'review',
       'Sponsor media review could not be completed.'
     ],
@@ -1190,7 +1241,8 @@ test('admin media failures keep their HTTP errors without retrying mutations or 
       assert.equal(f.values('report').length, 1);
       assert.equal(f.values('report')[0][1], error);
       assert.deepEqual(f.values('logoDelete'), []);
-      if (operation === 'publish') assert.deepEqual(f.values('review'), []);
+      assert.deepEqual(f.values('publish'), []);
+      assert.deepEqual(f.values('unpublish'), []);
     });
   }
 });

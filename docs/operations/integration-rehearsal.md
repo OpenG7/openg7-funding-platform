@@ -90,9 +90,12 @@ l'adresse d'une personne existante.
    enregistrer un brouillon. Refaire la demande avec une adresse inconnue :
    conserver la même réponse publique sans révéler l'existence d'un compte.
 5. Ajouter un logo et une image synthétiques via le formulaire. Vérifier que
-   les originaux sont privés. Approuver les médias et le dossier dans
-   l'administration **de test**, après consentement, puis vérifier uniquement
-   leurs copies publiques. Tester un remplacement et un retrait sur ce dossier.
+   les originaux et versions optimisées restent privés après approbation des
+   médias et du dossier dans l'administration **de test**, après consentement.
+   La fiche encore masquée doit retourner 404 sur les URL API des médias;
+   décider séparément sa visibilité, vérifier la lecture, puis masquer la fiche
+   et vérifier de nouveau 404 sur les mêmes URL. Tester un remplacement et un
+   retrait sur ce dossier; voir le [flux média](ovh-object-storage.md).
 6. Rejouer le même webhook signé de test sur l'environnement de test : aucun
    doublon de contribution, facture ou courriel logique. Consigner les preuves
    minimales sans jeton de suivi, courriel privé ni payload Stripe brut.

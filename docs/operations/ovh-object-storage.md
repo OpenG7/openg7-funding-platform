@@ -12,8 +12,8 @@ Navigateur
   -> funding-api
       -> bucket prive
       -> traitement et validation
-      -> bucket public apres approbation
       -> PostgreSQL pour les metadonnees
+      -> lecture privee apres controle de visibilite par funding-api
 ```
 
 ## Buckets
@@ -23,9 +23,10 @@ les medias refuses et les versions administratives. Il ne doit jamais recevoir
 d'ACL `public-read`. Les objets prives sont consultes par authentification S3 ou
 par URL pre-signee.
 
-Le bucket public contient uniquement les versions approuvees et optimisees. Le
-bucket lui-meme reste prive pour empecher l'enumeration publique. Seuls les
-objets explicitement publies recoivent l'ACL `public-read`.
+Le bucket public conserve les anciennes copies et les objets publies par les
+outils manuels. Le flux applicatif normal ne cree plus de copie `public-read`.
+Le bucket lui-meme reste prive pour empecher l'enumeration publique; une ACL
+publique sur un objet historique contourne toujours les controles de l'API.
 
 Configuration OVH attendue:
 
@@ -45,8 +46,9 @@ OVH_S3_SECRET_ACCESS_KEY=
 
 `SPONSOR_MEDIA_ENDPOINT` est l'endpoint regional utilise par AWS CLI et les SDK
 S3. Les deux variables `*_BASE_URL` sont les Virtual Hosts par bucket. La base
-publique sert a construire les URL permanentes. La base privee identifie le
-bucket prive, mais ne doit pas etre presentee comme une URL publique.
+publique reste utilisee par les outils manuels et la gestion des anciennes
+copies. La base privee identifie le bucket prive, mais ne doit pas etre presentee
+comme une URL publique. Les URL applicatives des medias passent par funding-api.
 
 Ne pas ajouter de slash final aux URL. Cela evite les doubles barres lors de la
 construction des liens objets.
@@ -150,11 +152,50 @@ reçoit HTTP 400 et doit recharger la page. Aucune migration de données n'est r
 Un dépassement de taille retourne HTTP 413 avec `SPONSOR_MEDIA_TOO_LARGE`.
 Les formulaires multipart contenant des champs inconnus ou répétés sont refusés.
 
-L'original n'est jamais publie. Apres une approbation admin explicite, l'API
-copie uniquement la version WebP optimisee vers une cle immuable du bucket
-public avec `public-read` sur cet objet. Un refus ou une suppression retire la
-copie publique lorsqu'elle existe et conserve une trace d'audit. Les apercus
-prives passent par l'API avec le token de suivi ou la session admin.
+Appliquer la [migration 032](../../apps/funding-api/migrations/032_keep_approved_sponsor_media_private.sql)
+avant l'API utilisant ce flux. Elle dissocie la revue et l'URL controlee de la
+cle publique historique, sans reecrire les medias ni modifier leurs objets S3.
+L'application en production exige son instruction explicite separee.
+
+L'original et la version WebP optimisee restent dans le bucket prive apres
+approbation du media. Cette revue attribue l'URL stable
+`/api/public/sponsor-media/<assetId>` sans copier l'objet vers le bucket public.
+A chaque lecture, l'API verifie le paiement admissible, le consentement, la revue
+du commanditaire, la visibilite de sa fiche et l'etat du media, puis lit la version
+optimisee privee. Une fiche en attente ou masquee retourne HTTP 404; un masquage
+ou une revocation du consentement bloque aussi une URL deja connue. Les reponses
+images utilisent `Cache-Control: no-store`. Les apercus prives passent par l'API
+avec le token de suivi ou la session admin.
+
+Pour un media historique, le refus admin versionne ou la suppression admin
+confirmee retire sa copie publique apres la mutation PostgreSQL reussie. Une
+version obsolete ne supprime aucun objet et une approbation ne republie jamais
+cette copie. Un objet deja absent est un resultat idempotent. Si le retrait
+echoue, son resultat accompagne l'audit de la decision; la reponse est HTTP 502 avec
+`SPONSOR_MEDIA_PUBLIC_CLEANUP_INCOMPLETE`, `updated: true` pour le refus ou `deleted: true` pour
+la suppression. Le media est deja bloque par l'API, mais sa copie S3 peut rester
+accessible : conserver sa cle historique et reconcilier le retrait avant reprise.
+Recharger le dossier pour obtenir son etat et sa version actuels; ne pas rejouer
+l'action avec la version affichee avant cette reponse partielle.
+Ces actions ciblees ne purgent aucun cache ni les autres objets historiques.
+
+Les projections normalisent aussi les anciennes URL S3 en URL API controlee,
+sans reecrire les references historiques en base. Une ancienne cle publique
+reste disponible pour les operations de nettoyage existantes. La migration,
+la normalisation des URL et le masquage d'une fiche ne retirent pas les anciennes
+copies S3 et ne purgent aucun cache de navigateur ou de CDN. Une URL S3 historique
+peut donc rester accessible directement.
+Sa remise en conformite exige une operation distincte explicitement autorisee :
+inventorier les objets et leurs references, verifier la disponibilite de leurs
+copies privees, borner la cible et preparer la reprise avant retrait des ACL ou
+copies publiques et traitement des caches. Reconcilier les resultats incertains
+avant toute relance; la livraison du code n'autorise pas cette operation.
+
+Un snapshot de publication sociale qui conserve une ancienne URL S3 peut etre
+invalide par `MEDIA_CHANGED` lors de la comparaison avec l'URL controlee. Les
+autorisations et snapshots existants ne sont pas reecrits automatiquement :
+revoir le contenu et le media, puis autoriser de nouveau la version exacte selon
+le [parcours de publication](publication-automation.md).
 
 Pour les logos commanditaires existants, l'URL conserve la forme controlee
 `/api/public/sponsor-logos/<file>`. L'API lit l'objet depuis le stockage choisi
@@ -164,6 +205,12 @@ voit jamais les cles privees.
 
 Les scripts Bash sont des outils d'administration, de reprise et de verification
 apres deploiement.
+
+La recette locale `tests/integration/sponsor-media-exposure.integration.mjs`
+utilise PostgreSQL jetable et un stockage simule. Elle verifie l'approbation sans
+copie publique, le maintien prive d'une fiche approuvee mais masquee, la lecture
+controlee puis sa revocation, et la normalisation des anciennes URL S3. Elle
+n'exerce aucune ACL ni aucun cache OVH reel.
 
 ## Sauvegarde et restauration
 

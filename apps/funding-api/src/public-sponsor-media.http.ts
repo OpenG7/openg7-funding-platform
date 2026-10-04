@@ -26,7 +26,7 @@ export interface PublicSponsorMediaHttpDependencies {
   readonly getApprovedPublicSponsorMedia: (
     assetId: string
   ) => Promise<SponsorMediaStorageRecord | null>;
-  readonly sponsorMediaStorage: Pick<SponsorMediaStorage, 'readPublicObject'>;
+  readonly sponsorMediaStorage: Pick<SponsorMediaStorage, 'readPrivateObject'>;
   readonly getSponsorLogoFilenameFromUrl: (
     url: string | undefined
   ) => string | null;
@@ -67,8 +67,10 @@ export const createPublicSponsorMediaHttpHandler = ({
     if (publicSponsorMediaId) {
       try {
         const asset = await getApprovedPublicSponsorMedia(publicSponsorMediaId);
-        const image = asset?.publicStorageKey
-          ? await sponsorMediaStorage.readPublicObject(asset.publicStorageKey)
+        const image = asset
+          ? await sponsorMediaStorage.readPrivateObject(
+              asset.processedStorageKey
+            )
           : null;
         if (!asset || !image) {
           writeJson(request, response, 404, { error: 'Not found' });

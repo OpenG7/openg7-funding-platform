@@ -55,7 +55,7 @@ project/
 
 ## Services
 
-- `traefik`: public reverse proxy, HTTP to HTTPS redirect, Let's Encrypt, HTTP/2, HTTP/3, security headers, rate limits.
+- `traefik`: public reverse proxy (3.7.13), HTTP to HTTPS redirect, Let's Encrypt, HTTP/2, HTTP/3, security headers, rate limits.
 - `web`: Angular static app served by Nginx unprivileged.
 - `api`: Node funding API for checkout, public transparency, and Stripe webhooks.
 - `postgres`: private PostgreSQL 16 service, enabled by the `database` profile for persistent features.
@@ -346,6 +346,13 @@ http://127.0.0.1:8081/dashboard/
 ```
 
 ## Security
+
+Compose pins Traefik 3.7.13, on the maintained 3.7 branch, including the
+[HTTP/2 panic fix](https://github.com/traefik/traefik/security/advisories/GHSA-4hjq-9h5c-252j)
+and subsequent security fixes. Review the
+[minor-version migration guide](https://doc.traefik.io/traefik/v3.7/migrate/v3/)
+before an explicitly authorized deployment. A manifest change does not update
+an already running proxy.
 
 Applied:
 

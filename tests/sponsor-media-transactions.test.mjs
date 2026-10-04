@@ -321,7 +321,10 @@ test('media review returns the accepted version and storage references', async (
   assert.equal(result.asset.reviewStatus, 'approved');
   assert.equal(result.asset.altText, reviewInput.altText);
   assert.equal(result.asset.publicStorageKey, reviewInput.publicStorageKey);
-  assert.equal(result.asset.publicUrl, reviewInput.publicUrl);
+  assert.equal(
+    result.asset.publicUrl,
+    `/api/public/sponsor-media/${result.asset.id}`
+  );
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0].parameters, [
     assetId,

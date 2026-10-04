@@ -56,10 +56,12 @@ const fixture = ({
     getApprovedPublicSponsorMedia: (id) =>
       call('approvedMedia', id, {
         id,
-        publicStorageKey: 'synthetic/public.webp'
+        processedStorageKey: 'synthetic/private.webp',
+        publicStorageKey: null
       }),
     sponsorMediaStorage: {
-      readPublicObject: (key) => call('publicRead', key, bytes)
+      readPrivateObject: (key) => call('privateRead', key, bytes),
+      readPublicObject: () => assert.fail('Public bucket reads are forbidden.')
     },
     getSponsorLogoFilenameFromUrl: (url) => {
       try {
@@ -94,7 +96,7 @@ const fixture = ({
   };
 };
 
-test('approved public media uses only public storage and retains no-store through both aliases', async (t) => {
+test('eligible public media reads private processed bytes without a public copy and retains no-store through both aliases', async (t) => {
   for (const prefix of [
     '/public/sponsor-media/',
     '/api/public/sponsor-media/'
@@ -110,8 +112,8 @@ test('approved public media uses only public storage and retains no-store throug
       assert.equal(result.contentType, 'image/webp');
       assert.deepEqual(result.headers, { 'Cache-Control': 'no-store' });
       assert.deepEqual(f.values('approvedMedia'), [assetId]);
-      assert.deepEqual(f.values('publicRead'), ['synthetic/public.webp']);
-      assert.deepEqual(f.names(), ['approvedMedia', 'publicRead', 'binary']);
+      assert.deepEqual(f.values('privateRead'), ['synthetic/private.webp']);
+      assert.deepEqual(f.names(), ['approvedMedia', 'privateRead', 'binary']);
     });
   }
 });
@@ -120,10 +122,9 @@ test('missing, unapproved or unreadable public media reveals only safe 404 error
   const error = new Error('Synthetic public storage failure.');
   for (const options of [
     { results: { approvedMedia: null } },
-    { results: { approvedMedia: { publicStorageKey: null } } },
-    { results: { publicRead: null } },
+    { results: { privateRead: null } },
     { failures: { approvedMedia: error } },
-    { failures: { publicRead: error } }
+    { failures: { privateRead: error } }
   ]) {
     await t.test(JSON.stringify(Object.keys(options)), async () => {
       const f = fixture(options);
@@ -133,13 +134,39 @@ test('missing, unapproved or unreadable public media reveals only safe 404 error
       assert.deepEqual(result.payload, { error: 'Not found' });
       assert.deepEqual(result.headers, {});
       if (Object.hasOwn(options.results ?? {}, 'approvedMedia'))
-        assert.deepEqual(f.values('publicRead'), []);
+        assert.deepEqual(f.values('privateRead'), []);
       if (options.failures)
         assert.deepEqual(f.values('report'), [
           ['Failed to serve public sponsor media.', error]
         ]);
     });
   }
+});
+
+test('legacy public keys are ignored and a revoked dossier is checked again before reading private bytes', async () => {
+  const results = {
+    approvedMedia: {
+      id: assetId,
+      processedStorageKey: 'synthetic/private.webp',
+      publicStorageKey: 'legacy/public.webp',
+      publicUrl: 'https://cdn.example.test/legacy.webp'
+    }
+  };
+  const f = fixture({
+    results
+  });
+  assert.equal(
+    (await f.run('/api/public/sponsor-media/' + assetId)).status,
+    200
+  );
+  assert.deepEqual(f.values('privateRead'), ['synthetic/private.webp']);
+  results.approvedMedia = null;
+  assert.equal(
+    (await f.run('/api/public/sponsor-media/' + assetId)).status,
+    404
+  );
+  assert.deepEqual(f.values('approvedMedia'), [assetId, assetId]);
+  assert.deepEqual(f.values('privateRead'), ['synthetic/private.webp']);
 });
 
 test('approved controlled logos preserve canonical approval URL and one-day public caching', async (t) => {
