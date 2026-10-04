@@ -6,37 +6,34 @@ import {
   DestroyRef,
   OnInit,
   computed,
+  effect,
   inject,
-  signal
+  signal,
+  untracked
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import type {
-  AdminContributionRecord,
-  AdminContributionsResponse
-} from '@openg7/funding-core';
+import type { AdminContributionRecord } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { AdminStripeBackfillComponent } from '../../components/admin-stripe-backfill/admin-stripe-backfill.component.js';
-import {
-  AdminDashboardRequestError,
-  FundingAdminService
-} from '../../services/funding-admin.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 import { AdminContributionsSummaryComponent } from './admin-contributions-summary.component.js';
 import { AdminContributionsFiltersComponent } from './admin-contributions-filters.component.js';
 import { AdminContributionsListComponent } from './admin-contributions-list.component.js';
 import { AdminContributionsDetailComponent } from './admin-contributions-detail.component.js';
 import { AdminContributionsExportComponent } from './admin-contributions-export.component.js';
+import { AdminContributionsController } from './admin-contributions-controller.js';
+import { AdminContributionsExportWorkflow } from './admin-contributions-export-workflow.js';
+import { adminContributionsBrowser } from './admin-contributions-browser.js';
 import type {
   ContributionRowView,
   ContributionTypeFilter,
   PublicDisplayFilter
 } from './admin-contributions-view.js';
-
-type ContributionExportPhase = 'idle' | 'confirmation' | 'request';
 
 @Component({
   selector: 'openg7-admin-contributions-page',
@@ -67,68 +64,39 @@ export class AdminContributionsPageComponent implements OnInit {
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
   private readonly destroy = inject(DestroyRef);
-  private loadGeneration = 0;
-  private exportScopeGeneration = 0;
-
   readonly adminToken = signal<string>('');
-  readonly data = signal<AdminContributionsResponse | null>(null);
-  readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
-  private readonly exportPhase = signal<ContributionExportPhase>('idle');
-  readonly exporting = computed(() => this.exportPhase() === 'request');
-  readonly exportError = signal('');
   readonly canExport = computed(
     () => !this.admin.identity() || this.admin.identity()?.role === 'owner'
   );
-  readonly search = signal<string>('');
-  readonly selectedContributionId = signal<string | null>(null);
-  readonly typeFilter = signal<ContributionTypeFilter>('all');
-  readonly statusFilter = signal<string>('all');
-  readonly publicFilter = signal<PublicDisplayFilter>('all');
-
-  readonly contributions = computed(() => this.data()?.contributions ?? []);
-  readonly selectedContribution = computed(() => {
-    const selectedId = this.selectedContributionId();
-    if (!selectedId) {
-      return null;
-    }
-
-    return this.contributions().find((item) => item.id === selectedId) ?? null;
+  private readonly controller = new AdminContributionsController({
+    admin: this.admin,
+    token: () => this.adminToken(),
+    canExport: () => this.canExport()
   });
-  readonly filteredContributions = computed(() => {
-    const search = this.search().trim().toLowerCase();
-    const typeFilter = this.typeFilter();
-    const statusFilter = this.statusFilter();
-    const publicFilter = this.publicFilter();
-
-    return this.contributions().filter((contribution) => {
-      const searchable = [
-        contribution.id,
-        contribution.public_reference,
-        contribution.public_name,
-        contribution.email_private,
-        contribution.sponsor_company_name,
-        contribution.sponsor_contact_name,
-        contribution.sponsor_contact_email,
-        contribution.stripe_session_id,
-        contribution.stripe_payment_intent_id
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return (
-        (!search || searchable.includes(search)) &&
-        (typeFilter === 'all' ||
-          contribution.contribution_type === typeFilter) &&
-        (statusFilter === 'all' ||
-          contribution.payment_status === statusFilter) &&
-        (publicFilter === 'all' ||
-          (publicFilter === 'public'
-            ? contribution.public_display_consent
-            : !contribution.public_display_consent))
-      );
-    });
+  private readonly exportWorkflow = new AdminContributionsExportWorkflow({
+    admin: this.admin,
+    confirmation: this.confirmation,
+    token: () => this.adminToken(),
+    ready: () => this.state() === 'ready',
+    scopeRevision: () =>
+      this.controller.exportScopeRevision() + this.admin.sessionGeneration(),
+    canExport: () => this.canExport(),
+    contributions: () => this.filteredContributions(),
+    t: (key, params) => this.i18n.t(key, params),
+    saveCsv: (csv) => adminContributionsBrowser()?.saveCsv(csv)
   });
+  readonly data = this.controller.data;
+  readonly state = this.controller.state;
+  readonly search = this.controller.search;
+  readonly selectedContributionId = this.controller.selectedContributionId;
+  readonly typeFilter = this.controller.typeFilter;
+  readonly statusFilter = this.controller.statusFilter;
+  readonly publicFilter = this.controller.publicFilter;
+  readonly contributions = this.controller.contributions;
+  readonly selectedContribution = this.controller.selectedContribution;
+  readonly filteredContributions = this.controller.filteredContributions;
+  readonly exporting = this.exportWorkflow.exporting;
+  readonly exportError = this.exportWorkflow.error;
 
   readonly contributionRows = computed(() =>
     this.filteredContributions().map((contribution) =>
@@ -140,128 +108,69 @@ export class AdminContributionsPageComponent implements OnInit {
     return selected ? this.rowView(selected) : null;
   });
 
+  constructor() {
+    let identity = this.admin.identity();
+    let sessionGeneration = this.admin.sessionGeneration();
+    effect(() => {
+      const nextIdentity = this.admin.identity();
+      const nextGeneration = this.admin.sessionGeneration();
+      if (identity === nextIdentity && sessionGeneration === nextGeneration)
+        return;
+      identity = nextIdentity;
+      sessionGeneration = nextGeneration;
+      untracked(() => this.controller.notifyAccessChanged());
+    });
+  }
+
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
-
-    this.destroy.onDestroy(() => this.loadGeneration++);
+    this.destroy.onDestroy(() => {
+      this.controller.dispose();
+      this.exportWorkflow.dispose();
+    });
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe((params) => {
-        const contributionId = params.get('contributionId')?.trim() || null;
-        this.selectedContributionId.set(contributionId);
-        this.search.set('');
-        this.typeFilter.set('all');
-        this.statusFilter.set('all');
-        this.publicFilter.set('all');
-        this.data.set(null);
+        this.controller.setRouteContribution(params.get('contributionId'));
         void this.loadContributions();
       });
   }
 
-  async loadContributions(): Promise<void> {
-    const generation = ++this.loadGeneration;
-    this.state.set('loading');
-    this.exportError.set('');
-
-    try {
-      const response = await this.admin.getContributions(
-        this.adminToken(),
-        this.route.snapshot.queryParamMap.get('contributionId') ?? undefined
-      );
-      if (generation !== this.loadGeneration) return;
-      this.data.set(response);
-      this.state.set('ready');
-      this.admin.saveAdminToken(this.adminToken());
-    } catch {
-      if (generation !== this.loadGeneration) return;
-      this.state.set('error');
-    }
+  loadContributions(): Promise<void> {
+    this.exportWorkflow.clearError();
+    return this.controller.load();
   }
 
-  async exportCsv(): Promise<void> {
-    if (
-      this.state() !== 'ready' ||
-      this.exportPhase() !== 'idle' ||
-      !this.canExport() ||
-      !this.filteredContributions().length
-    )
-      return;
-    const contributions = this.filteredContributions().map((row) => ({
-      id: row.id,
-      expectedVersion: row.updated_at
-    }));
-    const generation = this.loadGeneration;
-    const scopeGeneration = this.exportScopeGeneration;
-    const scopeIsCurrent = () =>
-      generation === this.loadGeneration &&
-      scopeGeneration === this.exportScopeGeneration &&
-      this.canExport();
-    this.exportPhase.set('confirmation');
-    this.exportError.set('');
-    try {
-      if (
-        !(await this.confirmation.confirm(
-          this.i18n.t(
-            contributions.length === 1
-              ? 'admin.contributionsExport.confirmOne'
-              : 'admin.contributionsExport.confirm',
-            {
-              count: contributions.length
-            }
-          )
-        )) ||
-        !scopeIsCurrent()
-      )
-        return;
-      this.exportPhase.set('request');
-      const csv = await this.admin.getContributionsCsv(this.adminToken(), {
-        confirmation: 'export_private_contributions',
-        contributions
-      });
-      if (!scopeIsCurrent()) return;
-      this.saveCsv(csv);
-    } catch (error) {
-      if (!scopeIsCurrent()) return;
-      const status =
-        error instanceof AdminDashboardRequestError ? error.status : 0;
-      this.exportError.set(
-        `admin.contributionsExport.${status === 409 ? 'changed' : status === 403 ? 'forbidden' : status === 401 ? 'sessionExpired' : 'failed'}`
-      );
-    } finally {
-      this.exportPhase.set('idle');
-    }
+  exportCsv(): Promise<void> {
+    return this.exportWorkflow.exportCsv();
   }
 
   setAdminToken(event: Event): void {
-    this.adminToken.set(this.valueFromEvent(event));
+    const token = this.valueFromEvent(event);
+    if (token !== this.adminToken()) this.controller.invalidateExportScope();
+    this.adminToken.set(token);
     this.admin.saveAdminToken(this.adminToken());
   }
 
   setSearch(value: string): void {
-    if (value !== this.search()) this.exportScopeGeneration++;
-    this.search.set(value);
+    this.controller.setSearch(value);
   }
 
   setTypeFilter(value: ContributionTypeFilter): void {
-    if (value !== this.typeFilter()) this.exportScopeGeneration++;
-    this.typeFilter.set(value);
+    this.controller.setTypeFilter(value);
   }
 
   setStatusFilter(value: string): void {
-    if (value !== this.statusFilter()) this.exportScopeGeneration++;
-    this.statusFilter.set(value);
+    this.controller.setStatusFilter(value);
   }
 
   setPublicFilter(value: PublicDisplayFilter): void {
-    if (value !== this.publicFilter()) this.exportScopeGeneration++;
-    this.publicFilter.set(value);
+    this.controller.setPublicFilter(value);
   }
 
   selectContribution(contributionId: string): void {
-    this.selectedContributionId.set(contributionId);
-    const url = new URL(window.location.href);
-    url.searchParams.set('contributionId', contributionId);
-    window.history.replaceState({}, '', url);
+    this.controller.selectContribution(contributionId);
+    adminContributionsBrowser()?.selectContribution(contributionId);
   }
 
   contributionTypeLabel(contribution: AdminContributionRecord): string {
@@ -350,19 +259,5 @@ export class AdminContributionsPageComponent implements OnInit {
     return (
       (event.target as HTMLInputElement | HTMLSelectElement | null)?.value ?? ''
     );
-  }
-
-  private saveCsv(csv: string): void {
-    if (typeof window === 'undefined' || typeof document === 'undefined') {
-      return;
-    }
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'openg7-admin-contributions.csv';
-    link.click();
-    window.URL.revokeObjectURL(url);
   }
 }

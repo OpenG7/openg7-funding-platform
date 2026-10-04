@@ -13,14 +13,7 @@ import {
 } from '@angular/core';
 import type {
   AdminExpenseRecord,
-  AdminExpensesResponse,
   AdminExpenseStatus
-} from '@openg7/funding-core';
-import {
-  allocationAmountMinor,
-  allocationRequiresConfirmation,
-  isPublicAllocationStatus,
-  PUBLIC_ALLOCATION_CREATE_CONFIRMATION
 } from '@openg7/funding-core';
 
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
@@ -29,6 +22,8 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
+import { AdminExpensesReadController } from './admin-expenses-read-controller.js';
+import { AdminExpensesMutationWorkflow } from './admin-expenses-mutation-workflow.js';
 import { AdminExpenseCardComponent } from './admin-expense-card.component.js';
 import { AdminExpenseCreateComponent } from './admin-expense-create.component.js';
 import { AdminExpenseFiltersComponent } from './admin-expense-filters.component.js';
@@ -269,22 +264,31 @@ import type {
 })
 export class AdminExpensesPageComponent implements OnInit {
   private readonly confirmation = inject(AdminConfirmationService);
-  readonly conflict = signal(false);
-  readonly mutationBusy = signal(false);
   readonly i18n = inject(FundingI18nService);
   private readonly destroyRef = inject(DestroyRef);
-  private requestGeneration = 0;
-  private editBases = new Map<string, AdminExpenseRecord>();
-  private exactId: string | undefined;
   private readonly route = inject(ActivatedRoute);
-
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
-
   readonly adminToken = signal<string>('');
-  readonly response = signal<AdminExpensesResponse | null>(null);
-  readonly expenseEdits = signal<Record<string, ExpenseEdit>>({});
-  readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  private readonly read = new AdminExpensesReadController({
+    admin: this.admin,
+    token: () => this.adminToken()
+  });
+  private readonly mutation = new AdminExpensesMutationWorkflow({
+    admin: this.admin,
+    confirmation: this.confirmation,
+    read: this.read,
+    token: () => this.adminToken(),
+    draft: () => this.newExpenseDraft(),
+    resetDraftIfUnchanged: (draft) => this.resetDraftIfUnchanged(draft),
+    t: (key) => this.i18n.t(key),
+    formatMoney: (amount, currency) => this.formatMoney(amount, currency)
+  });
+  readonly conflict = this.read.conflict;
+  readonly mutationBusy = this.mutation.busy;
+  readonly response = this.read.response;
+  readonly expenseEdits = this.read.expenseEdits;
+  readonly state = this.read.state;
   readonly search = signal<string>('');
   readonly statusFilter = signal<'all' | AdminExpenseStatus>('all');
   readonly newProjectName = signal<string>('');
@@ -325,203 +329,32 @@ export class AdminExpensesPageComponent implements OnInit {
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
     this.destroyRef.onDestroy(() => {
-      this.requestGeneration++;
+      this.read.dispose();
+      this.mutation.dispose();
     });
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
-        this.exactId = params.get('expenseId') ?? undefined;
-        this.response.set(null);
+        this.read.setScope(params.get('expenseId') ?? undefined);
         this.search.set('');
         this.statusFilter.set('all');
         void this.loadExpenses();
       });
   }
 
-  async loadExpenses(preserveEdits = false): Promise<void> {
-    if (this.destroyRef.destroyed) return;
-    const generation = ++this.requestGeneration;
-    this.state.set('loading');
-
-    try {
-      const response = await this.admin.getExpenses(
-        this.adminToken(),
-        this.exactId
-      );
-      if (generation !== this.requestGeneration) return;
-      const edits: Record<string, ExpenseEdit> = {};
-      const bases = new Map<string, AdminExpenseRecord>();
-      let staleDraft = false;
-      for (const expense of response.expenses) {
-        const edit = this.expenseEdits()[expense.id];
-        const base = this.editBases.get(expense.id);
-        if (
-          preserveEdits &&
-          edit &&
-          base &&
-          !this.editsMatch(edit, this.toEdit(base))
-        ) {
-          edits[expense.id] = edit;
-          // A background read must not advance the version of an unsaved draft.
-          bases.set(expense.id, base);
-          staleDraft ||= base.updated_at !== expense.updated_at;
-        } else {
-          edits[expense.id] = this.toEdit(expense);
-          bases.set(expense.id, expense);
-        }
-      }
-      this.editBases = bases;
-      this.expenseEdits.set(edits);
-      this.response.set(response);
-      this.state.set('ready');
-      if (!preserveEdits) this.conflict.set(false);
-      else if (staleDraft) this.conflict.set(true);
-      this.admin.saveAdminToken(this.adminToken());
-    } catch {
-      if (generation !== this.requestGeneration) return;
-      this.state.set('error');
-    }
+  loadExpenses(preserveEdits = false): Promise<void> {
+    return this.read.load(preserveEdits);
   }
 
-  async createExpense(): Promise<void> {
-    if (this.mutationBusy() || this.destroyRef.destroyed) return;
-    const draft = this.newExpenseDraft();
-    const token = this.adminToken();
-    const scope = this.exactId;
-    const amount = Number(draft.amountAllocated);
-    if (
-      !draft.projectName.trim() ||
-      !draft.publicDescription.trim() ||
-      !draft.expectedOutcome.trim() ||
-      allocationAmountMinor(amount) === null
-    ) {
-      this.state.set('error');
-      return;
-    }
-
-    try {
-      this.mutationBusy.set(true);
-      if (
-        isPublicAllocationStatus(draft.status) &&
-        !(await this.confirmation.confirm(
-          this.i18n.t('admin.confirmation.publish'),
-          `${draft.projectName} · ${this.formatMoney(amount, 'CAD')} · ${draft.publicDescription} · ${draft.expectedOutcome} · ${draft.proofUrl}`
-        ))
-      )
-        return;
-      if (this.destroyRef.destroyed || scope !== this.exactId) return;
-      await this.admin.createExpense(token, {
-        confirmation: isPublicAllocationStatus(draft.status)
-          ? PUBLIC_ALLOCATION_CREATE_CONFIRMATION
-          : undefined,
-        projectName: draft.projectName.trim(),
-        publicDescription: draft.publicDescription.trim(),
-        expectedOutcome: draft.expectedOutcome.trim(),
-        progressStatus: draft.progressStatus,
-        proofUrl: draft.proofUrl.trim() || null,
-        proofSource: draft.proofSource.trim() || null,
-        proofPublishedAt: draft.proofPublishedAt
-          ? new Date(draft.proofPublishedAt).toISOString()
-          : null,
-        amountAllocated: amount,
-        currency: 'CAD',
-        status: draft.status
-      });
-      if (this.destroyRef.destroyed || scope !== this.exactId) return;
-      const current = this.newExpenseDraft();
-      if (
-        (Object.keys(draft) as (keyof NewExpenseDraft)[]).every(
-          (field) => current[field] === draft[field]
-        )
-      ) {
-        this.newProjectName.set('');
-        this.newDescription.set('');
-        this.newExpectedOutcome.set('');
-        this.newAmount.set('');
-        this.newStatus.set('draft');
-        this.newProgressStatus.set('planned');
-        this.newProofUrl.set('');
-        this.newProofSource.set('');
-        this.newProofPublishedAt.set('');
-      }
-      await this.loadExpenses(true);
-    } catch {
-      if (this.destroyRef.destroyed || scope !== this.exactId) return;
-      this.state.set('error');
-    } finally {
-      this.mutationBusy.set(false);
-    }
+  createExpense(): Promise<void> {
+    return this.mutation.create();
   }
 
-  async saveExpense(
+  saveExpense(
     expense: AdminExpenseRecord,
     forcedStatus?: AdminExpenseStatus
   ): Promise<void> {
-    if (this.mutationBusy() || this.destroyRef.destroyed) return;
-    const edit = this.editFor(expense.id);
-    const base = this.editBases.get(expense.id) ?? expense;
-    const token = this.adminToken();
-    const scope = this.exactId;
-    const amount = Number(edit.amountAllocated);
-
-    if (allocationAmountMinor(amount) === null) {
-      this.state.set('error');
-      return;
-    }
-
-    try {
-      this.mutationBusy.set(true);
-      const nextStatus = forcedStatus ?? edit.status;
-      if (allocationRequiresConfirmation(base.status, nextStatus)) {
-        if (
-          !(await this.confirmation.confirm(
-            this.i18n.t(
-              ['published', 'active'].includes(nextStatus)
-                ? 'admin.confirmation.publish'
-                : 'admin.confirmation.cancelPublication'
-            ),
-            `${edit.projectName} · ${this.formatMoney(amount, 'CAD')} · ${edit.publicDescription} · ${edit.expectedOutcome} · ${edit.proofUrl}`
-          ))
-        )
-          return;
-      }
-      if (this.destroyRef.destroyed || scope !== this.exactId) return;
-      const result = await this.admin.updateExpense(token, {
-        expenseId: expense.id,
-        expectedVersion: base.updated_at,
-        confirmation: allocationRequiresConfirmation(base.status, nextStatus)
-          ? expense.id
-          : undefined,
-        projectName: edit.projectName,
-        publicDescription: edit.publicDescription,
-        expectedOutcome: edit.expectedOutcome,
-        progressStatus: edit.progressStatus,
-        proofUrl: edit.proofUrl.trim() || null,
-        proofSource: edit.proofSource.trim() || null,
-        proofPublishedAt: this.updatedDateTime(
-          edit.proofPublishedAt,
-          base.proof_published_at
-        ),
-        amountAllocated: amount,
-        currency: 'CAD',
-        status: forcedStatus ?? edit.status,
-        publishedAt: this.updatedDateTime(edit.publishedAt, base.published_at)
-      });
-      if (this.destroyRef.destroyed || scope !== this.exactId) return;
-      if (result.updated && result.expense?.id === expense.id) {
-        this.reconcileSavedEdit(result.expense, edit);
-      }
-      await this.loadExpenses(true);
-    } catch (error) {
-      if (this.destroyRef.destroyed || scope !== this.exactId) return;
-      if (error instanceof Error && error.message === 'version_conflict') {
-        this.conflict.set(true);
-        return;
-      }
-      this.state.set('error');
-    } finally {
-      this.mutationBusy.set(false);
-    }
+    return this.mutation.save(expense, forcedStatus);
   }
 
   setAdminToken(event: Event): void {
@@ -562,17 +395,11 @@ export class AdminExpensesPageComponent implements OnInit {
   }
 
   setEditField(expenseId: string, change: ExpenseEditFieldChange): void {
-    this.expenseEdits.update((edits) => ({
-      ...edits,
-      [expenseId]: {
-        ...(edits[expenseId] ?? this.emptyEdit()),
-        [change.field]: change.value
-      }
-    }));
+    this.read.setEditField(expenseId, change);
   }
 
   editFor(expenseId: string): ExpenseEdit {
-    return this.expenseEdits()[expenseId] ?? this.emptyEdit();
+    return this.read.editFor(expenseId);
   }
 
   trackByExpense(_: number, expense: AdminExpenseRecord): string {
@@ -584,48 +411,6 @@ export class AdminExpensesPageComponent implements OnInit {
       style: 'currency',
       currency: currency || 'CAD'
     }).format(amount);
-  }
-
-  private editsMatch(left: ExpenseEdit, right: ExpenseEdit): boolean {
-    return (Object.keys(left) as (keyof ExpenseEdit)[]).every(
-      (field) => left[field] === right[field]
-    );
-  }
-
-  private reconcileSavedEdit(
-    expense: AdminExpenseRecord,
-    submitted: ExpenseEdit
-  ): void {
-    const current = this.editFor(expense.id);
-    const saved = this.toEdit(expense);
-    const mergeField = <K extends keyof ExpenseEdit>(
-      field: K
-    ): ExpenseEdit[K] =>
-      current[field] === submitted[field] ? saved[field] : current[field];
-    const edit: ExpenseEdit = {
-      projectName: mergeField('projectName'),
-      publicDescription: mergeField('publicDescription'),
-      expectedOutcome: mergeField('expectedOutcome'),
-      progressStatus: mergeField('progressStatus'),
-      proofUrl: mergeField('proofUrl'),
-      proofSource: mergeField('proofSource'),
-      proofPublishedAt: mergeField('proofPublishedAt'),
-      amountAllocated: mergeField('amountAllocated'),
-      status: mergeField('status'),
-      publishedAt: mergeField('publishedAt')
-    };
-    this.editBases.set(expense.id, expense);
-    this.expenseEdits.update((edits) => ({ ...edits, [expense.id]: edit }));
-    this.response.update((response) =>
-      response
-        ? {
-            ...response,
-            expenses: response.expenses.map((row) =>
-              row.id === expense.id ? expense : row
-            )
-          }
-        : null
-    );
   }
 
   newExpenseDraft(): NewExpenseDraft {
@@ -642,56 +427,23 @@ export class AdminExpensesPageComponent implements OnInit {
     };
   }
 
-  private toEdit(expense: AdminExpenseRecord): ExpenseEdit {
-    return {
-      projectName: expense.project_name,
-      publicDescription: expense.public_description,
-      expectedOutcome: expense.expected_outcome,
-      progressStatus: expense.progress_status,
-      proofUrl: expense.proof_url ?? '',
-      proofSource: expense.proof_source ?? '',
-      proofPublishedAt: this.toDateTimeLocal(expense.proof_published_at),
-      amountAllocated: String(expense.amount_allocated),
-      status: expense.status,
-      publishedAt: this.toDateTimeLocal(expense.published_at)
-    };
-  }
-
-  private emptyEdit(): ExpenseEdit {
-    return {
-      projectName: '',
-      publicDescription: '',
-      expectedOutcome: '',
-      progressStatus: 'planned',
-      proofUrl: '',
-      proofSource: '',
-      proofPublishedAt: '',
-      amountAllocated: '',
-      status: 'draft',
-      publishedAt: ''
-    };
-  }
-
-  private toDateTimeLocal(value: string | null): string {
-    if (!value) {
-      return '';
+  private resetDraftIfUnchanged(draft: NewExpenseDraft): void {
+    const current = this.newExpenseDraft();
+    if (
+      (Object.keys(draft) as (keyof NewExpenseDraft)[]).every(
+        (field) => current[field] === draft[field]
+      )
+    ) {
+      this.newProjectName.set('');
+      this.newDescription.set('');
+      this.newExpectedOutcome.set('');
+      this.newAmount.set('');
+      this.newStatus.set('draft');
+      this.newProgressStatus.set('planned');
+      this.newProofUrl.set('');
+      this.newProofSource.set('');
+      this.newProofPublishedAt.set('');
     }
-
-    const date = new Date(value);
-    if (!Number.isFinite(date.getTime())) {
-      return '';
-    }
-
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return local.toISOString().slice(0, 16);
-  }
-
-  private updatedDateTime(
-    value: string,
-    original: string | null
-  ): string | null {
-    if (value === this.toDateTimeLocal(original)) return original;
-    return value ? new Date(value).toISOString() : null;
   }
 
   private valueFromEvent(event: Event): string {

@@ -565,7 +565,7 @@ test('an untouched allocation adopts the server fields and version after another
   ).toBeEnabled();
 });
 
-test('an allocation save finishing after a scope change does not reload or populate the new scope', async ({
+test('an allocation save finishing after scope changes does not reload or populate the restored scope', async ({
   page
 }) => {
   const { submissions, reads, finish, card } = await prepare(
@@ -585,6 +585,18 @@ test('an allocation save finishing after a scope change does not reload or popul
   await expect(page).toHaveURL(/expenseId=2$/);
   await expect(card('1')).toHaveCount(0);
   await expect(card('2')).toBeVisible();
+  await page.evaluate(() => {
+    history.pushState(null, '', '/admin/fundraiser/expenses');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(page).toHaveURL(/\/admin\/fundraiser\/expenses$/);
+  await expect(card('1')).toBeVisible();
+  await expect(
+    card('1').getByLabel('Description publique', { exact: true })
+  ).toHaveValue('Description 1');
+  await card('1')
+    .getByLabel('Description publique', { exact: true })
+    .fill('Restored scope draft');
   const finished = page.waitForEvent(
     'requestfinished',
     (request) => request === submissions[0].route.request()
@@ -592,6 +604,16 @@ test('an allocation save finishing after a scope change does not reload or popul
   await finish(submissions[0]);
   await finished;
   await rendered(page);
-  expect(reads).toHaveLength(2);
-  await expect(card('1')).toHaveCount(0);
+  expect(reads).toHaveLength(3);
+  await expect(
+    card('1').getByLabel('Description publique', { exact: true })
+  ).toHaveValue('Restored scope draft');
+  await save(page, card('1'), false);
+  await expect.poll(() => submissions.length).toBe(2);
+  expect(submissions[1].payload).toMatchObject({
+    expectedVersion: date,
+    publicDescription: 'Restored scope draft'
+  });
+  expect(await finish(submissions[1])).toBeNull();
+  await expect(page.locator('[data-og7="allocation-conflict"]')).toBeVisible();
 });
