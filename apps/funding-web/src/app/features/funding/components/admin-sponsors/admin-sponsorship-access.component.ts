@@ -8,17 +8,15 @@ import {
   inject,
   input,
   output,
-  signal,
   viewChild
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
-import {
-  AdminDashboardRequestError,
-  FundingAdminService
-} from '../../services/funding-admin.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
+
+import { AdminSponsorshipAccessController } from './admin-sponsorship-access-controller.js';
 
 @Component({
   selector: 'openg7-admin-sponsorship-access',
@@ -84,8 +82,6 @@ export class AdminSponsorshipAccessComponent {
   readonly token = input.required<string>();
   readonly disabled = input(false);
   readonly queued = output<void>();
-  readonly busy = signal(false);
-  readonly state = signal('idle');
   private readonly api = inject(FundingAdminService);
   readonly allowed = computed(
     () => !this.api.identity() || this.api.identity()?.role === 'owner'
@@ -93,72 +89,42 @@ export class AdminSponsorshipAccessComponent {
   private readonly i18n = inject(FundingI18nService);
   private readonly confirmation = inject(AdminConfirmationService);
   private readonly destroyRef = inject(DestroyRef);
-  private requestId?: string;
-  private generation = 0;
+  private readonly controller = new AdminSponsorshipAccessController({
+    contributionId: () => this.contributionId(),
+    token: () => this.token(),
+    disabled: () => this.disabled(),
+    allowed: () => this.allowed(),
+    isDestroyed: () => this.destroyRef.destroyed,
+    language: () => this.i18n.currentLanguage(),
+    newRequestId: () => crypto.randomUUID(),
+    getSponsorshipAccessRecipient: (token, contributionId) =>
+      this.api.getSponsorshipAccessRecipient(token, contributionId),
+    confirm: (recipient) =>
+      this.confirmation.confirm(
+        this.i18n.t('admin.followupAccess.confirm'),
+        recipient
+      ),
+    resendSponsorshipAccess: (token, request) =>
+      this.api.resendSponsorshipAccess(token, request),
+    queued: () => this.queued.emit()
+  });
+  readonly busy = this.controller.busy;
+  readonly state = this.controller.state;
+
   constructor() {
     effect(() => {
       this.contributionId();
-      this.generation++;
-      this.requestId = undefined;
-      this.busy.set(false);
-      this.state.set('idle');
+      this.controller.targetChanged();
     });
   }
+
   focus(): void {
     const panel = this.accessPanel()?.nativeElement;
     panel?.focus({ preventScroll: true });
     panel?.scrollIntoView({ block: 'start', behavior: 'instant' });
   }
-  async resend(): Promise<void> {
-    if (this.busy() || this.disabled() || !this.allowed()) return;
-    const id = this.contributionId();
-    const generation = this.generation;
-    const current = () =>
-      !this.destroyRef.destroyed &&
-      generation === this.generation &&
-      this.allowed();
-    this.busy.set(true);
-    this.state.set('idle');
-    try {
-      const { recipient } = await this.api.getSponsorshipAccessRecipient(
-        this.token(),
-        id
-      );
-      if (!current()) return;
-      if (!recipient) {
-        this.state.set('missing');
-        return;
-      }
-      if (
-        !(await this.confirmation.confirm(
-          this.i18n.t('admin.followupAccess.confirm'),
-          recipient
-        )) ||
-        !current()
-      )
-        return;
-      this.requestId ??= crypto.randomUUID();
-      const result = await this.api.resendSponsorshipAccess(this.token(), {
-        contributionId: id,
-        recipient,
-        confirmed: true,
-        requestId: this.requestId,
-        locale: this.i18n.currentLanguage()
-      });
-      if (!current()) return;
-      this.state.set(result.status);
-      this.requestId = undefined;
-      this.queued.emit();
-    } catch (error) {
-      if (current())
-        this.state.set(
-          error instanceof AdminDashboardRequestError &&
-            [401, 403].includes(error.status)
-            ? 'unauthorized'
-            : 'error'
-        );
-    } finally {
-      if (current()) this.busy.set(false);
-    }
+
+  resend(): Promise<void> {
+    return this.controller.resend();
   }
 }

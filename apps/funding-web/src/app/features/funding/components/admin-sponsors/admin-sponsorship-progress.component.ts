@@ -9,24 +9,21 @@ import {
   computed,
   inject,
   input,
-  output,
-  signal
+  output
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   AdminSponsorshipProgress,
-  AdminSponsorshipProgressResponse,
   SponsorshipDossierTab
 } from '@openg7/funding-core';
 
-import {
-  AdminDashboardRequestError,
-  FundingAdminService
-} from '../../services/funding-admin.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { ContributionActivityService } from '../../services/contribution-activity.service.js';
 import { nextDossierSection } from '../../models/admin-sponsorship-navigation.js';
+
+import { AdminSponsorshipProgressController } from './admin-sponsorship-progress-controller.js';
 
 /** Funding organism: read-only dossier projection and navigation to existing actions. */
 @Component({
@@ -65,21 +62,35 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
   readonly disabled = input(false);
   readonly refreshRequested = output<void>();
   readonly loaded = output<AdminSponsorshipProgress | null>();
-  readonly data = signal<AdminSponsorshipProgressResponse | null>(null);
   readonly nextSection = computed(() => {
     const next = this.data()?.dossier?.next;
     return next ? nextDossierSection(next) : null;
   });
-  readonly state = signal<'loading' | 'ready' | 'error' | 'forbidden'>(
-    'loading'
-  );
   readonly i18n = inject(FundingI18nService);
   readonly router = inject(Router);
   private readonly admin = inject(FundingAdminService);
   private readonly platform = inject(PLATFORM_ID);
   private readonly destroy = inject(DestroyRef);
-  private generation = 0;
   private initialized = false;
+  private readonly controller = new AdminSponsorshipProgressController({
+    sponsorshipId: () => this.sponsorshipId(),
+    compact: () => this.compact(),
+    isDestroyed: () => this.destroy.destroyed,
+    token: () => this.admin.getSavedAdminToken(),
+    rememberedSelection: () => this.admin.getSelectedSponsorship(),
+    selectSponsorship: (id) => this.admin.selectSponsorship(id),
+    getSponsorshipProgress: (token, id) =>
+      this.admin.getSponsorshipProgress(token, id),
+    loaded: (dossier) => this.loaded.emit(dossier),
+    onUnauthorized: async () => {
+      this.admin.clearAdminSession();
+      await this.router.navigate(['/admin/login'], {
+        queryParams: { returnUrl: this.router.url }
+      });
+    }
+  });
+  readonly data = this.controller.data;
+  readonly state = this.controller.state;
 
   ngOnInit(): void {
     if (isPlatformBrowser(this.platform)) {
@@ -96,48 +107,8 @@ export class AdminSponsorshipProgressComponent implements OnInit, OnChanges {
     else void this.load();
   }
 
-  async load(): Promise<void> {
-    const generation = ++this.generation;
-    this.state.set('loading');
-    this.data.set(null);
-    this.loaded.emit(null);
-    try {
-      const token = this.admin.getSavedAdminToken();
-      if (!token) throw new AdminDashboardRequestError(401);
-      const remembered = this.compact()
-        ? this.admin.getSelectedSponsorship()
-        : undefined;
-      let response = await this.admin.getSponsorshipProgress(
-        token,
-        this.sponsorshipId() ?? remembered
-      );
-      if (generation !== this.generation || this.destroy.destroyed) return;
-      if (
-        !this.sponsorshipId() &&
-        remembered &&
-        response.status === 'not_found'
-      ) {
-        this.admin.selectSponsorship(null);
-        response = await this.admin.getSponsorshipProgress(token);
-      }
-      if (generation !== this.generation || this.destroy.destroyed) return;
-      this.data.set(response);
-      this.state.set('ready');
-      this.loaded.emit(response.dossier);
-    } catch (error) {
-      if (generation !== this.generation || this.destroy.destroyed) return;
-      this.state.set(
-        error instanceof AdminDashboardRequestError && error.status === 403
-          ? 'forbidden'
-          : 'error'
-      );
-      if (error instanceof AdminDashboardRequestError && error.status === 401) {
-        this.admin.clearAdminSession();
-        await this.router.navigate(['/admin/login'], {
-          queryParams: { returnUrl: this.router.url }
-        });
-      }
-    }
+  load(): Promise<void> {
+    return this.controller.load();
   }
   params(id: string, tab: SponsorshipDossierTab): Record<string, string> {
     return { sponsorshipId: id, tab };
