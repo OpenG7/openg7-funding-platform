@@ -1,0 +1,121 @@
+<main class="api-keys-shell">
+  <aside class="admin-sidebar" aria-label="Navigation Cles API Stripe">
+    <a class="dragon-brand" href="/" aria-label="Accueil OpenG7">
+      <span aria-hidden="true">♛</span>
+      <div>
+        <strong>NorthDragon</strong>
+        <em>OpenG7</em>
+      </div>
+      <small>v2.4.0</small>
+    </a>
+
+    <section>
+      <h2>Financement</h2>
+      <nav aria-label="Menu financement">
+        <a href="/">⌂ <span>Tableau de bord</span></a>
+        <a href="/fonds-des-batisseurs/transparence"
+          >◉ <span>Transparence</span></a
+        >
+      </nav>
+    </section>
+
+    <section>
+      <h2>Stripe</h2>
+      <nav aria-label="Menu Stripe">
+        <a href="/dev/stripe-setup">$ <span>Stripe Setup</span></a>
+        <a href="/dev/webhooks">♙ <span>Webhooks</span></a>
+        <a class="active" href="/dev/api-keys">⚿ <span>Cles API</span></a>
+      </nav>
+    </section>
+
+    <section>
+      <h2>Aide</h2>
+      <nav aria-label="Menu aide">
+        <a href="/support">◎ <span>Support</span></a>
+      </nav>
+    </section>
+
+    <footer>
+      <span aria-hidden="true">◉</span>
+      <div>
+        <strong>NorthDragon Crew</strong>
+        <em>Administrateur</em>
+      </div>
+    </footer>
+  </aside>
+
+  <section class="api-workspace">
+    <header class="admin-topbar">
+      <nav aria-label="Fil d'Ariane">
+        <span>Financement</span>
+        <b aria-hidden="true">›</b>
+        <strong>Cles API</strong>
+      </nav>
+      <div>
+        <button type="button" aria-label="Securite">◈</button>
+        <button type="button" aria-label="Documentation">▤</button>
+        <button type="button" aria-label="Notifications">◔</button>
+        <span class="admin-user"
+          >Maitre du Dragon <small>Administrateur</small></span
+        >
+      </div>
+    </header>
+
+    <section class="api-hero" aria-labelledby="api-keys-title">
+      <img
+        src="assets/openg7-stripe-setup-dragon-banner.png"
+        alt="Dragon gardien des cles Stripe"
+      />
+      <div class="hero-copy">
+        <span aria-hidden="true">⚿</span>
+        <div>
+          <h1 id="api-keys-title">/dev/api-keys</h1>
+          <p>
+            Gerez les cles Stripe utilisees par la funding-platform sans exposer
+            les secrets dans le navigateur.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <openg7-api-key-cards [cards]="keyCards()" (copy)="copyText($event)" />
+
+    <section class="api-grid">
+      <openg7-api-key-rotation [steps]="rotationSteps" />
+
+      <openg7-api-key-permissions [permissions]="permissions" />
+
+      <openg7-api-key-commands
+        [commands]="commands"
+        (copy)="copyText($event)"
+      />
+
+      <article class="panel checklist-panel">
+        <h2>Checklist securite</h2>
+        <ul>
+          <li>Ne pas stocker de secret dans Angular.</li>
+          <li>Ne jamais committer de fichier .env.</li>
+          <li>Restreindre les permissions Stripe au minimum.</li>
+          <li>Faire tourner les cles apres incident.</li>
+          <li>Verifier les logs Stripe apres rotation.</li>
+          <li>Utiliser des cles test en developpement.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="audit-panel" aria-labelledby="audit-title">
+      <header>
+        <h2 id="audit-title">Journal d'audit</h2>
+        <button type="button" (click)="refreshStatus()">Revalider</button>
+      </header>
+      <div>
+        <article *ngFor="let row of auditRows" [class]="row.tone">
+          <span>{{ row.time }}</span>
+          <strong>{{ row.event }}</strong>
+          <em>{{ row.status }}</em>
+          <p>{{ row.detail }}</p>
+        </article>
+      </div>
+    </section>
+  </section>
+</main>

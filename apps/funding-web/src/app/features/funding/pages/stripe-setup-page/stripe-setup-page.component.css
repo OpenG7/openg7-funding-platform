@@ -1,0 +1,417 @@
+:host {
+  background: #020203;
+  color: #f6efe2;
+  display: block;
+  font-family: 'Trebuchet MS', sans-serif;
+  min-height: 100dvh;
+}
+
+.stripe-admin-shell {
+  background:
+    radial-gradient(circle at 82% 0%, rgb(190 99 26 / 18%), transparent 32rem),
+    linear-gradient(180deg, #090706 0%, #030303 100%);
+  display: block;
+  min-height: 100dvh;
+  position: relative;
+}
+
+.admin-sidebar {
+  background:
+    linear-gradient(180deg, rgb(11 10 10 / 92%), rgb(6 6 6 / 96%)),
+    radial-gradient(circle at 50% 0%, rgb(205 126 43 / 12%), transparent 22rem);
+  border: 1px solid rgb(194 129 56 / 42%);
+  border-left-color: rgb(194 129 56 / 70%);
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  inset: 0 auto 0 0;
+  overflow-y: auto;
+  position: fixed;
+  min-height: 100dvh;
+  padding: 1.35rem 0.9rem;
+  width: 16rem;
+  z-index: 10;
+}
+
+.dragon-brand,
+.admin-sidebar a,
+.admin-sidebar footer {
+  align-items: center;
+  color: #d9cfbd;
+  display: flex;
+  gap: 0.75rem;
+  text-decoration: none;
+}
+
+.dragon-brand {
+  color: #ffe1a0;
+  margin-bottom: 1.8rem;
+}
+
+.dragon-brand > span {
+  border: 1px solid rgb(222 160 72 / 70%);
+  border-radius: 0.75rem;
+  color: #ffcf65;
+  display: grid;
+  font-size: 2.1rem;
+  height: 3.2rem;
+  place-items: center;
+  width: 3.2rem;
+}
+
+.dragon-brand strong {
+  display: block;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.55rem;
+  line-height: 0.95;
+}
+
+.dragon-brand em,
+.dragon-brand small,
+.admin-sidebar footer em {
+  color: #c89d57;
+  display: block;
+  font-style: normal;
+}
+
+.dragon-brand small {
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  color: #d8c9ae;
+  font-size: 0.65rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.admin-sidebar nav {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.admin-sidebar section {
+  margin-top: 1.15rem;
+}
+
+.admin-sidebar h2 {
+  color: #c58a36;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.5rem 0.25rem;
+  text-transform: uppercase;
+}
+
+.admin-sidebar a {
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0 0.65rem;
+}
+
+.admin-sidebar a.active {
+  background: linear-gradient(
+    90deg,
+    rgb(255 78 119 / 26%),
+    rgb(255 78 119 / 5%)
+  );
+  border-color: rgb(255 91 125 / 70%);
+  box-shadow:
+    inset 0 0 22px rgb(255 79 119 / 16%),
+    0 0 18px rgb(255 79 119 / 18%);
+  color: #ffd2d6;
+}
+
+.admin-sidebar footer {
+  background: rgb(8 8 8 / 82%);
+  border: 1px solid rgb(194 129 56 / 35%);
+  border-radius: 0.65rem;
+  margin-top: 2rem;
+  padding: 0.75rem;
+}
+
+.admin-sidebar footer > span {
+  border: 1px solid rgb(194 129 56 / 52%);
+  border-radius: 999px;
+  display: grid;
+  height: 2.4rem;
+  place-items: center;
+  width: 2.4rem;
+}
+
+.admin-sidebar footer strong {
+  display: block;
+  font-size: 0.8rem;
+}
+
+.admin-workspace {
+  background:
+    radial-gradient(circle at 88% 0%, rgb(180 88 26 / 18%), transparent 34rem),
+    linear-gradient(180deg, rgb(9 9 10 / 96%), rgb(3 3 4 / 100%));
+  margin-left: 16rem;
+  min-height: 100dvh;
+  min-width: 0;
+  padding: 0.75rem 1.1rem 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.admin-topbar {
+  align-items: center;
+  border-bottom: 1px solid rgb(194 129 56 / 20%);
+  display: flex;
+  justify-content: space-between;
+  min-height: 3rem;
+}
+
+.admin-topbar nav,
+.admin-topbar div {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.admin-topbar span,
+.admin-topbar b,
+.admin-topbar strong,
+.admin-user small {
+  color: #c5a56c;
+}
+
+.admin-topbar button {
+  background: transparent;
+  color: #d6b574;
+  min-height: 2rem;
+}
+
+.admin-user {
+  color: #f6efe2;
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.admin-user small {
+  display: block;
+}
+
+.setup-hero {
+  min-height: 8.9rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.setup-hero img {
+  filter: saturate(1.05) contrast(1.08);
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  object-position: center center;
+  position: absolute;
+  width: 100%;
+}
+
+.setup-hero::after {
+  background:
+    linear-gradient(
+      90deg,
+      rgb(6 5 5 / 94%) 0%,
+      rgb(6 5 5 / 72%) 37%,
+      rgb(6 5 5 / 10%) 72%,
+      rgb(6 5 5 / 24%) 100%
+    ),
+    linear-gradient(180deg, rgb(6 5 5 / 0%), rgb(6 5 5 / 74%));
+  content: '';
+  inset: 0;
+  position: absolute;
+}
+
+.hero-shield,
+.hero-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-shield {
+  color: #db9d48;
+  font-size: 1.25rem;
+  padding: 0.7rem 0 0 1rem;
+}
+
+.hero-copy {
+  align-items: center;
+  display: flex;
+  gap: 0.9rem;
+  padding: 0.15rem clamp(0.9rem, 3vw, 3.6rem) 0.85rem;
+}
+
+.dragon-mark {
+  color: #c67528;
+  font-size: 3rem;
+  line-height: 1;
+  text-shadow: 0 0 24px rgb(198 117 40 / 45%);
+}
+
+.hero-copy h1 {
+  color: #ffdda2;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.15rem, 4vw, 3.25rem);
+  line-height: 0.96;
+  text-shadow: 0 3px 18px rgb(0 0 0 / 70%);
+}
+
+.hero-copy p {
+  color: #cfc1ad;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  margin-top: 0.45rem;
+  max-width: 34rem;
+}
+
+.repository-title {
+  color: #f4eadb;
+}
+
+.setup-footer {
+  background: linear-gradient(180deg, rgb(25 25 27 / 88%), rgb(12 12 13 / 92%));
+  border: 1px solid rgb(194 129 56 / 30%);
+  border-radius: 0.72rem;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 5%),
+    0 18px 40px rgb(0 0 0 / 28%);
+  min-width: 0;
+  padding: 0.78rem;
+}
+
+.setup-footer button {
+  background: rgb(25 23 22 / 90%);
+  border: 1px solid rgb(194 129 56 / 34%);
+  border-radius: 0.45rem;
+  color: #e7cda2;
+  min-height: 2rem;
+  padding: 0 0.65rem;
+}
+
+.setup-footer {
+  align-items: center;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: minmax(24rem, 1fr) auto auto;
+  margin-top: 0.65rem;
+}
+
+.setup-footer span {
+  color: #d3c6b4;
+}
+
+.setup-footer div {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.setup-footer small {
+  color: #9f927f;
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar {
+    align-items: center;
+    display: grid;
+    gap: 0.55rem 1rem;
+    grid-template-columns: auto minmax(0, 1fr);
+    inset: auto;
+    width: 14rem;
+    min-height: auto;
+    overflow: visible;
+    padding: 0.7rem 1rem;
+    position: relative;
+    width: auto;
+  }
+
+  .dragon-brand {
+    margin-bottom: 0;
+  }
+
+  .dragon-brand > span {
+    border-radius: 0.55rem;
+    font-size: 1.35rem;
+    height: 2.2rem;
+    width: 2.2rem;
+  }
+
+  .dragon-brand strong {
+    font-size: 1.05rem;
+  }
+
+  .dragon-brand em,
+  .dragon-brand small {
+    font-size: 0.68rem;
+  }
+
+  .admin-sidebar section:first-of-type nav,
+  .admin-sidebar section:nth-of-type(2) nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .admin-sidebar section {
+    margin-top: 0;
+  }
+
+  .admin-sidebar section:first-of-type,
+  .admin-sidebar section:nth-of-type(2) {
+    grid-column: 1 / -1;
+  }
+
+  .admin-sidebar section:first-of-type h2,
+  .admin-sidebar section:nth-of-type(2) h2 {
+    margin-top: 0.15rem;
+  }
+
+  .admin-sidebar section:nth-of-type(3),
+  .admin-sidebar footer {
+    display: none;
+  }
+
+  .admin-sidebar a {
+    min-height: 2rem;
+    padding: 0 0.55rem;
+  }
+
+  .admin-workspace {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 1100px) {
+  .setup-footer {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-sidebar {
+    inset: auto;
+    min-height: auto;
+    position: relative;
+    width: auto;
+  }
+
+  .admin-workspace {
+    margin-left: 0;
+    padding: 0.75rem;
+  }
+
+  .admin-topbar,
+  .admin-topbar div,
+  .hero-copy,
+  .setup-footer div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hero-copy h1 {
+    font-size: 2.4rem;
+  }
+
+  .admin-sidebar nav {
+    grid-template-columns: 1fr;
+  }
+}

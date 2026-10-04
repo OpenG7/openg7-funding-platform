@@ -1,0 +1,26 @@
+.panel {
+  height: 100%;
+}
+
+.command-panel {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.command-panel article {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.command-panel article span {
+  color: #d9c49d;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  .command-panel article {
+    grid-template-columns: 1fr;
+  }
+}

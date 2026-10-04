@@ -1,0 +1,39 @@
+:host {
+  display: grid;
+  min-width: 0;
+}
+
+.command-panel code {
+  background: rgb(11 11 12 / 92%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 0.42rem;
+  color: #d7c7ae;
+  display: block;
+  margin: 0.45rem 0;
+  overflow: auto;
+  padding: 0.58rem;
+  white-space: nowrap;
+}
+
+.command-panel {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.command-panel article {
+  align-items: center;
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr) auto;
+}
+
+.command-panel span {
+  color: #d9c49d;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 900px) {
+  .command-panel article {
+    grid-template-columns: 1fr;
+  }
+}

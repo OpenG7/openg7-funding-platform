@@ -1,0 +1,164 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.developer-commands {
+  background: linear-gradient(180deg, rgb(25 25 27 / 88%), rgb(12 12 13 / 92%));
+  border: 1px solid rgb(194 129 56 / 30%);
+  border-radius: 0.72rem;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 5%),
+    0 18px 40px rgb(0 0 0 / 28%);
+  min-width: 0;
+  padding: 0.78rem;
+}
+
+.developer-commands h2 {
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.55rem;
+  text-transform: uppercase;
+}
+
+.developer-commands p,
+.developer-commands li {
+  color: #b9ad9e;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.developer-commands button {
+  background: rgb(25 23 22 / 90%);
+  border: 1px solid rgb(194 129 56 / 34%);
+  border-radius: 0.45rem;
+  color: #e7cda2;
+  min-height: 2rem;
+  padding: 0 0.65rem;
+}
+
+.developer-commands code {
+  background: rgb(11 11 12 / 92%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 0.42rem;
+  color: #d7c7ae;
+  overflow: auto;
+  padding: 0.5rem;
+  white-space: nowrap;
+}
+
+.developer-commands {
+  margin-top: 0.95rem;
+  padding: 1rem;
+}
+
+.developer-commands h2 {
+  font-size: 1.05rem;
+  margin-bottom: 0.95rem;
+}
+
+.developer-commands ol {
+  display: grid;
+  gap: 0.9rem;
+  list-style: none;
+  padding: 0;
+}
+
+.developer-commands li {
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 0.6rem;
+  overflow: hidden;
+}
+
+.developer-commands li.done {
+  border-color: rgb(75 218 95 / 26%);
+}
+
+.developer-commands li.blocked {
+  border-color: rgb(255 79 119 / 35%);
+}
+
+.developer-commands li:not(:focus-within):not(:hover) .command-detail {
+  display: none;
+}
+
+.developer-commands .command-step {
+  align-items: center;
+  background: rgb(12 12 13 / 82%);
+  border: 0;
+  border-radius: 0;
+  display: grid;
+  gap: 0.95rem;
+  grid-template-columns: auto 1fr auto;
+  min-height: 4.15rem;
+  padding: 0 1rem;
+  text-align: left;
+  width: 100%;
+}
+
+.developer-commands .command-step:focus-visible {
+  outline-offset: -3px;
+}
+
+.developer-commands .command-step span {
+  border: 1px solid rgb(194 129 56 / 52%);
+  border-radius: 999px;
+  display: grid;
+  font-size: 1rem;
+  height: 2.35rem;
+  place-items: center;
+  width: 2.35rem;
+}
+
+.developer-commands .command-step strong {
+  color: #f3e8d6;
+  font-size: 1rem;
+}
+
+.developer-commands .command-step em {
+  color: #d9a85d;
+  font-size: 0.88rem;
+  font-style: normal;
+}
+
+.command-detail {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+}
+
+.command-detail p,
+.command-detail li {
+  font-size: 0.9rem;
+}
+
+.command-detail ul {
+  padding-left: 1.2rem;
+}
+
+.command-detail article {
+  align-items: center;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: minmax(8rem, 0.32fr) minmax(0, 1fr) auto auto;
+}
+
+.command-detail article span {
+  color: #d8c7aa;
+  font-size: 0.88rem;
+}
+
+.developer-commands code {
+  font-size: 0.9rem;
+  padding: 0.78rem;
+}
+
+.command-detail button {
+  min-height: 2.45rem;
+}
+
+@media (max-width: 760px) {
+  .command-detail article {
+    grid-template-columns: 1fr;
+  }
+}

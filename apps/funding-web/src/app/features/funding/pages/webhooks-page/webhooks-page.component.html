@@ -1,0 +1,115 @@
+<main class="webhooks-shell">
+  <aside class="admin-sidebar" aria-label="Navigation Webhooks Stripe">
+    <a class="dragon-brand" href="/" aria-label="Accueil OpenG7">
+      <span aria-hidden="true">♛</span>
+      <div>
+        <strong>NorthDragon</strong>
+        <em>OpenG7</em>
+      </div>
+      <small>v2.4.0</small>
+    </a>
+
+    <section>
+      <h2>Financement</h2>
+      <nav aria-label="Menu financement">
+        <a href="/">⌂ <span>Tableau de bord</span></a>
+        <a href="/fonds-des-batisseurs/transparence"
+          >◉ <span>Transparence</span></a
+        >
+      </nav>
+    </section>
+
+    <section>
+      <h2>Stripe</h2>
+      <nav aria-label="Menu Stripe">
+        <a href="/dev/stripe-setup">$ <span>Stripe Setup</span></a>
+        <a class="active" href="/dev/webhooks">♙ <span>Webhooks</span></a>
+        <a href="/dev/api-keys">⚿ <span>Cles API</span></a>
+      </nav>
+    </section>
+
+    <section>
+      <h2>Aide</h2>
+      <nav aria-label="Menu aide">
+        <a href="/support">◎ <span>Support</span></a>
+      </nav>
+    </section>
+
+    <footer>
+      <span aria-hidden="true">◉</span>
+      <div>
+        <strong>NorthDragon Crew</strong>
+        <em>Administrateur</em>
+      </div>
+    </footer>
+  </aside>
+
+  <section class="webhooks-workspace">
+    <header class="admin-topbar">
+      <nav aria-label="Fil d'Ariane">
+        <span>Financement</span>
+        <b aria-hidden="true">›</b>
+        <strong>Webhooks</strong>
+      </nav>
+      <div>
+        <button type="button" aria-label="Securite">◈</button>
+        <button type="button" aria-label="Documentation">▤</button>
+        <button type="button" aria-label="Notifications">◔</button>
+        <span class="admin-user"
+          >Maitre du Dragon <small>Administrateur</small></span
+        >
+      </div>
+    </header>
+
+    <section class="webhooks-hero" aria-labelledby="webhooks-title">
+      <img
+        src="assets/openg7-stripe-setup-dragon-banner.png"
+        alt="Dragon gardien des flux Webhooks Stripe"
+      />
+      <div class="hero-copy">
+        <span aria-hidden="true">♙</span>
+        <div>
+          <h1 id="webhooks-title">/dev/webhooks</h1>
+          <p>
+            Surveillez, testez et securisez les evenements Stripe qui alimentent
+            la transparence du Fonds.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <openg7-webhooks-status [status]="status()" />
+
+    <section class="webhook-grid">
+      <openg7-webhooks-endpoint-panel
+        [status]="status()"
+        (copyRequested)="copyText($event)"
+        (openRequested)="openUrl($event)"
+        (refreshRequested)="refreshStatus()"
+      />
+
+      <openg7-webhooks-event-catalog [events]="events" />
+
+      <openg7-webhooks-commands-panel
+        [commands]="commands"
+        (copyRequested)="copyText($event)"
+      />
+
+      <article class="panel security-panel">
+        <h2>Checklist securite</h2>
+        <ul>
+          <li>Verifier la signature Stripe sur chaque evenement.</li>
+          <li>Ne jamais exposer la valeur whsec_ dans le navigateur.</li>
+          <li>Limiter les evenements aux besoins reels de la transparence.</li>
+          <li>Journaliser les erreurs sans donnees personnelles.</li>
+          <li>Utiliser HTTPS et un endpoint dedie en production.</li>
+        </ul>
+      </article>
+    </section>
+
+    <openg7-webhooks-diagnostics-panel
+      [diagnostics]="diagnostics"
+      (refreshRequested)="refreshStatus()"
+    />
+  </section>
+</main>

@@ -1,0 +1,42 @@
+<section class="developer-commands" aria-labelledby="commands-title">
+  <h2 id="commands-title">Guide developpeur local</h2>
+  <ol>
+    <li
+      *ngFor="let step of steps(); let index = index"
+      [class.done]="isCompleted(step.id) || step.status === 'verified'"
+      [class.blocked]="step.status === 'blocked'"
+    >
+      <button
+        type="button"
+        class="command-step"
+        data-og7="stripe-setup-step"
+        [attr.data-og7-id]="step.id"
+        [attr.aria-pressed]="isCompleted(step.id)"
+        (click)="toggle.emit(step.id)"
+      >
+        <span>{{ index + 1 }}</span>
+        <strong>{{ step.title }}</strong>
+        <em>{{ step.statusLabel }}</em>
+      </button>
+      <div class="command-detail">
+        <p>{{ step.description }}</p>
+        <ul *ngIf="step.checklist.length > 0">
+          <li *ngFor="let item of step.checklist">{{ item }}</li>
+        </ul>
+        <article *ngFor="let command of step.commands">
+          <span>{{ command.label }}</span>
+          <code>{{ command.value }}</code>
+          <button type="button" (click)="copy.emit(command.value)">
+            Copier
+          </button>
+        </article>
+        <article *ngFor="let link of step.links">
+          <span>{{ link.label }}</span>
+          <code>{{ link.url }}</code>
+          <button type="button" (click)="open.emit(link.url)">Ouvrir</button>
+          <button type="button" (click)="copy.emit(link.url)">Copier</button>
+        </article>
+      </div>
+    </li>
+  </ol>
+</section>

@@ -1,0 +1,12 @@
+<article class="panel rotation-panel">
+  <h2>Rotation securisee</h2>
+  <ol>
+    <li *ngFor="let step of steps(); let index = index">
+      <span>{{ index + 1 }}</span>
+      <div>
+        <strong>{{ step.title }}</strong>
+        <p>{{ step.detail }}</p>
+      </div>
+    </li>
+  </ol>
+</article>

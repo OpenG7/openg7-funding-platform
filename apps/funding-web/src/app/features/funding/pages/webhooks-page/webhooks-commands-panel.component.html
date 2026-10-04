@@ -1,0 +1,20 @@
+<article class="panel command-panel">
+  <h2>Console de test</h2>
+  <p>Copiez ces commandes dans un terminal Stripe CLI local.</p>
+  <article
+    *ngFor="let command of commands()"
+    data-og7="webhooks-command"
+    [attr.data-og7-id]="command.value"
+  >
+    <span>{{ command.label }}</span>
+    <code>{{ command.value }}</code>
+    <button
+      type="button"
+      data-og7="webhooks-copy"
+      [attr.data-og7-id]="command.value"
+      (click)="copyRequested.emit(command.value)"
+    >
+      Copier
+    </button>
+  </article>
+</article>
