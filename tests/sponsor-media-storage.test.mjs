@@ -20,6 +20,102 @@ const emptyS3Config = {
   secretAccessKey: undefined
 };
 
+test('storage factories preserve default, normalized and filesystem drivers', () => {
+  for (const createStorage of [
+    createSponsorLogoStorage,
+    createSponsorMediaStorage
+  ]) {
+    for (const driver of [
+      undefined,
+      'local',
+      ' LOCAL ',
+      'filesystem',
+      ' FileSystem '
+    ]) {
+      assert.equal(
+        createStorage({
+          driver,
+          localStorageDir: os.tmpdir(),
+          s3: emptyS3Config
+        }).driver,
+        'local'
+      );
+    }
+    for (const driver of ['', 's3', 'unsupported']) {
+      assert.throws(
+        () =>
+          createStorage({
+            driver,
+            localStorageDir: os.tmpdir(),
+            s3: emptyS3Config
+          }),
+        {
+          message:
+            'SPONSOR_MEDIA_STORAGE_DRIVER must be either local or ovh-s3.'
+        }
+      );
+    }
+  }
+});
+
+test('both storage factories preserve required S3 fields and trailing slash errors', () => {
+  const validS3Config = {
+    region: 'us-east-1',
+    endpoint: 'https://s3.example.test',
+    privateBucket: 'private-fixture',
+    publicBucket: 'public-fixture',
+    publicBaseUrl: 'https://media.example.test',
+    privateBaseUrl: 'https://private.example.test',
+    accessKeyId: 'fixture',
+    secretAccessKey: 'synthetic-fixture'
+  };
+  const fields = {
+    region: 'SPONSOR_MEDIA_REGION',
+    endpoint: 'SPONSOR_MEDIA_ENDPOINT',
+    privateBucket: 'SPONSOR_MEDIA_PRIVATE_BUCKET',
+    publicBucket: 'SPONSOR_MEDIA_PUBLIC_BUCKET',
+    publicBaseUrl: 'SPONSOR_MEDIA_PUBLIC_BASE_URL',
+    privateBaseUrl: 'SPONSOR_MEDIA_PRIVATE_BASE_URL',
+    accessKeyId: 'OVH_S3_ACCESS_KEY_ID',
+    secretAccessKey: 'OVH_S3_SECRET_ACCESS_KEY'
+  };
+  for (const createStorage of [
+    createSponsorLogoStorage,
+    createSponsorMediaStorage
+  ]) {
+    const config = {
+      driver: ' OVH-S3 ',
+      localStorageDir: '',
+      s3: validS3Config
+    };
+    assert.equal(createStorage(config).driver, 'ovh-s3');
+    for (const [field, name] of Object.entries(fields)) {
+      for (const value of [undefined, '   ']) {
+        assert.throws(
+          () =>
+            createStorage({
+              ...config,
+              s3: { ...validS3Config, [field]: value }
+            }),
+          {
+            message: `${name} is required when SPONSOR_MEDIA_STORAGE_DRIVER=ovh-s3.`
+          }
+        );
+      }
+    }
+    for (const field of ['endpoint', 'publicBaseUrl', 'privateBaseUrl']) {
+      assert.throws(
+        () =>
+          createStorage({
+            ...config,
+            s3: { ...validS3Config, [field]: `${validS3Config[field]}/` }
+          }),
+        { message: `${fields[field]} must not end with a slash.` }
+      );
+    }
+  }
+});
+
 test('local sponsor logo storage writes, reads, and deletes one object', async () => {
   const storageDir = await mkdtemp(
     path.join(os.tmpdir(), 'openg7-sponsor-logos-')

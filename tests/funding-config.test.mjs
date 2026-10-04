@@ -1089,10 +1089,11 @@ test('Sponsor media migration keeps originals private and approval explicit', ()
     'apps/funding-api/migrations/017_create_sponsor_media_assets.sql',
     'utf8'
   );
-  const repository = fs.readFileSync(
-    'apps/funding-api/src/sponsor-media.repository.ts',
-    'utf8'
-  );
+  const repository = ['persistence-read.ts', 'persistence-write.ts']
+    .map((filename) =>
+      fs.readFileSync(`apps/funding-api/src/sponsor-media/${filename}`, 'utf8')
+    )
+    .join('\n');
   const api = readFundingApiSource();
 
   assert.ok(
