@@ -314,6 +314,46 @@ test('a stale real worker version returns conflict without updating settings or 
   );
 });
 
+test('the automation facade keeps a supplied command client and its caller-owned transaction', async () => {
+  const queries = [];
+  const client = {
+    async query(sql, parameters) {
+      queries.push({ sql, parameters });
+      return {
+        rows: sql.startsWith('SELECT enabled,version')
+          ? [{ enabled: false, version: command.version }]
+          : []
+      };
+    },
+    release() {
+      assert.fail('Only the caller may release the supplied client');
+    }
+  };
+  const pool = {
+    async connect() {
+      assert.fail('The supplied client must not open another transaction');
+    }
+  };
+  const service = new PublicationAutomationService(pool, {}, {});
+  assert.deepEqual(await service.command(command, actor, false, client), {});
+  assert.equal(queries.length, 3);
+  assert.match(queries[0].sql, /FOR UPDATE$/);
+  assert.match(queries[1].sql, /^UPDATE publication_worker_settings/);
+  assert.deepEqual(queries[1].parameters, [true]);
+  assert.match(queries[2].sql, /^INSERT INTO admin_audit_log/);
+  assert.equal(queries[2].parameters[0], actor);
+  assert.equal(
+    queries[2].parameters[1],
+    'publication_automation.worker_settings'
+  );
+  assert.deepEqual(JSON.parse(queries[2].parameters[3]), {
+    previousEnabled: false,
+    enabled: true,
+    previousVersion: command.version,
+    version: command.version + 1
+  });
+});
+
 test('automation retains handled service absence and method rejection without body access', async () => {
   const missing = fixture({ unavailable: true });
   const result = await missing.run('/admin/publication-automation');
