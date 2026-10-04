@@ -121,7 +121,11 @@ export class FundingI18nService {
 
   private persistLanguage(language: FundingLanguage): void {
     if (isPlatformBrowser(this.platformId)) {
-      window.localStorage.setItem(languageStorageKey, language);
+      try {
+        window.localStorage.setItem(languageStorageKey, language);
+      } catch {
+        // Persistence is optional; keep the selected language for this visit.
+      }
     }
   }
 
@@ -145,9 +149,13 @@ export class FundingI18nService {
       normalizedPath.startsWith('/admin/') &&
       isPlatformBrowser(this.platformId)
     ) {
-      const savedLanguage = window.localStorage.getItem(languageStorageKey);
-      if (this.isSupportedLanguage(savedLanguage)) {
-        return savedLanguage;
+      try {
+        const savedLanguage = window.localStorage.getItem(languageStorageKey);
+        if (this.isSupportedLanguage(savedLanguage)) {
+          return savedLanguage;
+        }
+      } catch {
+        return this.currentLanguage();
       }
     }
     return normalizedPath === '/en' || normalizedPath.startsWith('/en/')

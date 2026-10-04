@@ -41,7 +41,7 @@ test('E2E 1/8: enterprise sponsorship checkout returns with recovery token', () 
   const checkoutMetadataBlock = extractBetween(
     api,
     'const checkoutMetadata',
-    'const session = await stripe.checkout.sessions.create',
+    'const params: Stripe.Checkout.SessionCreateParams',
     'checkout metadata'
   );
 

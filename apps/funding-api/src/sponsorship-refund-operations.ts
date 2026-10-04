@@ -159,6 +159,11 @@ export async function settleSponsorshipRefundOperation(
   const db = await pool.connect();
   try {
     await db.query('BEGIN');
+    // Serialize operation failure with insertion of its confirmed financial fact.
+    await db.query(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))',
+      [`fund-refund:${refund.id}`]
+    );
     const contributions = await db.query(
       `SELECT id,sponsorship_refund_id,sponsorship_refund_status FROM fund_contributions
        WHERE stripe_payment_intent_id=$1 FOR UPDATE`,
@@ -170,6 +175,15 @@ export async function settleSponsorshipRefundOperation(
         : ['failed', 'canceled'].includes(refund.status ?? '')
           ? 'failed'
           : 'pending';
+    if (status === 'failed') {
+      const confirmed = await db.query(
+        `SELECT 1 FROM fund_transactions WHERE type='charge.refunded' AND status='succeeded'
+         AND metadata_json->>'refundId'=$1 LIMIT 1`,
+        [refund.id]
+      );
+      if (confirmed.rowCount)
+        throw new Error('REFUND_FINANCIAL_CORRECTION_REQUIRED');
+    }
     if (operationId) {
       const operation = (
         await db.query(

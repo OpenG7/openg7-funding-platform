@@ -593,6 +593,16 @@ report. Exit code 0 never authorizes activation or replaces provider reconciliat
 
 ## GitHub Actions CI/CD
 
+The Web stays on Angular 21: framework 21.2.25 and build/CLI/SSR tooling
+21.2.24. The root resolution pins the build worker Piscina to 5.3.2 because
+Angular's toolchain still requires vulnerable 5.2.0 exactly; review and remove
+this override when the upstream tooling carries the corrected worker. See the
+[upstream advisory](https://github.com/piscinajs/piscina/security/advisories/GHSA-67c8-pqhq-4rmx).
+Node 22 remains the runtime for images and validation.
+The development command runner also pins `shell-quote` 1.9.0 because
+Concurrently 9.2.3 requires vulnerable 1.8.4 exactly. Both overrides remain
+temporary until their owning tools ship compatible fixed versions.
+
 Workflow:
 
 ```text
@@ -605,10 +615,34 @@ Required GitHub secrets:
 VPS_HOST=<production VPS host>
 VPS_USER=ubuntu
 VPS_SSH_KEY=<private SSH key>
+VPS_SSH_FINGERPRINT=<independently verified OpenSSH SHA256 host fingerprint>
 VPS_APP_DIR=/opt/openg7-funding-platform
 PRODUCTION_ENV=<full .env content>
 GHCR_PAT=<GitHub token with read:packages for the VPS pull>
 ```
+
+Verify the fingerprint of the host key negotiated by `appleboy/ssh-action@v1.2.0`
+through a trusted VPS console. Its Go SSH client prefers standard ECDSA host keys,
+then RSA, then Ed25519 ([client preference order](https://github.com/golang/crypto/blob/v0.29.0/ssh/common.go#L65-L77)).
+Check the keys and algorithms actually enabled in `sshd`; a public-key file alone
+does not prove that the server offers it. On a VPS offering ECDSA, obtain the pin
+with `ssh-keygen -lf /etc/ssh/ssh_host_ecdsa_key.pub -E sha256`. If ECDSA is not
+offered, use `/etc/ssh/ssh_host_rsa_key.pub` with the same command; use
+`/etc/ssh/ssh_host_ed25519_key.pub` only when neither ECDSA nor RSA is offered.
+Set `VPS_SSH_FINGERPRINT` to the verified `SHA256:...` value for that negotiated
+key. The deployment fails before SSH when the pin is missing or malformed, and
+rejects a different negotiated key. Verify legitimate key or algorithm changes
+independently before updating the pin.
+
+The optional [ProductionLaunchAgent](../apps/production-launch-agent/README.md)
+uses the separate `PLA_SSH_HOST_FINGERPRINT` pin. Its Node SSH client prefers
+Ed25519, so independently verify the key negotiated by that client; the two pins
+can differ for the same VPS.
+
+The workflow writes configuration atomically through a temporary file with mode
+`600`, under `umask 077`. Docker build contexts exclude backups, TLS keys and the
+optional agent's secrets, runtime reports and SQLite files. Keep these artifacts
+outside Git and never use an alternate build context without equivalent exclusions.
 
 The workflow:
 

@@ -15,6 +15,17 @@ export class SshService {
   ) {}
 
   async run(command: string): Promise<CommandResult> {
+    const fingerprint = this.config.hostFingerprint;
+    if (!fingerprint || !/^SHA256:[A-Za-z0-9+/]{43}$/.test(fingerprint)) {
+      return {
+        command,
+        code: 255,
+        stderr:
+          'A verified SHA256 SSH host fingerprint is required before connecting.',
+        stdout: ''
+      };
+    }
+
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= this.config.retries; attempt += 1) {
@@ -24,6 +35,11 @@ export class SshService {
       try {
         await ssh.connect({
           host: this.config.host,
+          hostHash: 'sha256',
+          hostVerifier: (hash: string) =>
+            /^[a-f0-9]{64}$/i.test(hash) &&
+            `SHA256:${Buffer.from(hash, 'hex').toString('base64').replace(/=+$/, '')}` ===
+              fingerprint,
           username: this.config.username,
           privateKey: this.config.privateKey,
           privateKeyPath: this.config.privateKeyPath,

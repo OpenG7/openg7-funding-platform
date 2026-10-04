@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import Stripe from 'stripe';
 
 import { processStripeWebhook } from '../dist/apps/funding-api/src/stripe-webhook.service.js';
+import { withStripeEventProcessing } from '../dist/apps/funding-api/src/stripe-events.repository.js';
 
 const stripe = new Stripe('sk_test_disposable_fixture', {
   host: '127.0.0.1',
@@ -48,6 +49,53 @@ test('an ignored verified event is accepted in Stripe-direct mode', async () => 
   });
   assert.equal(response.statusCode, 200);
   assert.equal(response.payload.ignored, true);
+});
+
+test('borrowed destruction fences subsequent writes and retires the owner connection after processing exits', async () => {
+  const queries = [];
+  const releases = [];
+  const client = new EventEmitter();
+  client.query = async (sql) => {
+    queries.push(sql);
+    if (sql.includes('pg_try_advisory_lock'))
+      return { rows: [{ locked: true }] };
+    return { rows: [], rowCount: 1 };
+  };
+  client.release = (destroy) => releases.push(destroy);
+  const failure = new Error('Synthetic refund unlock failure');
+  await assert.rejects(
+    withStripeEventProcessing(
+      {
+        async connect() {
+          return client;
+        }
+      },
+      {
+        stripeEventId: 'evt_synthetic_destroy',
+        eventType: 'refund.updated',
+        payload: {}
+      },
+      async (eventPool) => {
+        const borrowed = await eventPool.connect();
+        borrowed.release(true);
+        assert.deepEqual(releases, []);
+        await assert.rejects(
+          eventPool.query('SELECT subsequent_write'),
+          /connection is unavailable/
+        );
+        throw failure;
+      }
+    ),
+    (error) => error === failure
+  );
+  assert.deepEqual(releases, [true]);
+  assert.ok(
+    queries.every(
+      (sql) =>
+        !sql.includes('subsequent_write') && !sql.includes('pg_advisory_unlock')
+    )
+  );
+  assert.equal(client.listenerCount('error'), 0);
 });
 
 test('unavailable event persistence requests a Stripe retry', async () => {
@@ -121,6 +169,14 @@ const databaseFixture = ({ busy = false } = {}) => {
       events.set(values[0], 'failed');
     if (sql.includes('FROM contribution_activity'))
       return { rowCount: 0, rows: [] };
+    if (sql.includes('SELECT amount::text, currency FROM fund_transactions')) {
+      const row = transactions.get(`${values[0]}:payment_intent.succeeded`);
+      return {
+        rows: row
+          ? [{ amount: String(row.amount), currency: row.currency }]
+          : []
+      };
+    }
     if (sql.includes('SELECT amount::text, currency, type')) {
       const existing = [...transactions.values()].filter(
         (row) => row.objectId === values[0] && values[1].includes(row.type)
@@ -169,11 +225,8 @@ const databaseFixture = ({ busy = false } = {}) => {
       if (!row) return { rowCount: 0, rows: [] };
       Object.assign(row, {
         balanceTransactionId: values[1],
-        amount: values[2],
         fee: values[3],
-        net: values[4],
-        currency: values[5],
-        status: values[6]
+        net: values[4]
       });
     }
     return { rowCount: 1, rows: [] };
@@ -210,6 +263,112 @@ test('a tagged project mismatch is ignored before claiming or handling the event
     statusCode: 200,
     payload: { received: true, ignored: true, reason: 'PROJECT_MISMATCH' }
   });
+});
+
+test('converted payment balances fail safely and the same event recovers after a compatible balance is supplied', async () => {
+  const stripeClient = stripeFixture();
+  const database = databaseFixture();
+  let balance = {
+    id: 'txn_currency_guard',
+    amount: 1800,
+    fee: 100,
+    net: 1700,
+    currency: 'usd'
+  };
+  stripeClient.charges.retrieve = async () => ({
+    id: 'ch_currency_guard',
+    balance_transaction: balance
+  });
+  const event = {
+    id: 'evt_currency_guard',
+    type: 'payment_intent.succeeded',
+    data: {
+      object: {
+        id: 'pi_currency_guard',
+        latest_charge: 'ch_currency_guard',
+        amount: 2500,
+        amount_received: 2500,
+        currency: 'cad',
+        status: 'succeeded',
+        created: 1735689600,
+        metadata: { project: 'openg7' }
+      }
+    }
+  };
+  const incompatible = await signedEvent(stripeClient, database.pool, event);
+  assert.equal(incompatible.statusCode, 500);
+  assert.equal(database.events.get(event.id), 'failed');
+  assert.equal(database.transactions.size, 0);
+  balance = { ...balance, amount: 2500, fee: 100, net: 2400, currency: 'cad' };
+  const compatible = await signedEvent(stripeClient, database.pool, event);
+  assert.equal(compatible.statusCode, 200);
+  assert.equal(database.events.get(event.id), 'processed');
+  assert.equal(database.transactions.size, 1);
+  const payment = database.transactions.get(
+    'pi_currency_guard:payment_intent.succeeded'
+  );
+  assert.equal(payment.amount, 2500);
+  assert.equal(payment.currency, 'cad');
+  assert.equal(payment.net, 2400);
+});
+
+test('late balance events reject contradictions and preserve the original confirmed payment', async () => {
+  const stripeClient = stripeFixture();
+  const database = databaseFixture();
+  stripeClient.charges.retrieve = async () => ({
+    id: 'ch_immutable_gross',
+    balance_transaction: null
+  });
+  await signedEvent(stripeClient, database.pool, {
+    id: 'evt_immutable_payment',
+    type: 'payment_intent.succeeded',
+    data: {
+      object: {
+        id: 'pi_immutable_gross',
+        latest_charge: 'ch_immutable_gross',
+        amount: 2500,
+        amount_received: 2500,
+        currency: 'cad',
+        status: 'succeeded',
+        created: 1735689600,
+        metadata: { project: 'openg7' }
+      }
+    }
+  });
+  const original = structuredClone(
+    database.transactions.get('pi_immutable_gross:payment_intent.succeeded')
+  );
+  for (const [index, amount, currency] of [
+    [1, 1800, 'usd'],
+    [2, 2600, 'cad']
+  ]) {
+    const response = await signedEvent(stripeClient, database.pool, {
+      id: `evt_immutable_charge_${index}`,
+      type: 'charge.updated',
+      data: {
+        object: {
+          id: 'ch_immutable_gross',
+          payment_intent: 'pi_immutable_gross',
+          amount,
+          currency,
+          status: 'succeeded',
+          metadata: { project: 'openg7' },
+          balance_transaction: {
+            id: 'txn_incompatible',
+            amount,
+            currency,
+            fee: 100,
+            net: amount - 100
+          }
+        }
+      }
+    });
+    assert.equal(response.statusCode, 500);
+    assert.deepEqual(
+      database.transactions.get('pi_immutable_gross:payment_intent.succeeded'),
+      original
+    );
+  }
 });
 
 test('a busy claim defers the financial handler without making any payment writes', async () => {

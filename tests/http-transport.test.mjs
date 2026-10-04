@@ -23,10 +23,10 @@ const startServer = async (t, handler) => {
   });
   t.after(() => new Promise((resolve) => server.close(resolve)));
   const { port } = server.address();
-  return ({ method = 'GET', headers = {} } = {}) =>
+  return ({ method = 'GET', headers = {}, path = '/' } = {}) =>
     new Promise((resolve, reject) => {
       const outgoing = request(
-        { hostname: '127.0.0.1', port, method, headers, agent: false },
+        { hostname: '127.0.0.1', port, method, headers, path, agent: false },
         (response) => {
           const chunks = [];
           response.on('data', (chunk) => chunks.push(chunk));
@@ -150,6 +150,138 @@ test('HTTP writers preserve statuses, UTF-8 JSON/text/CSV and binary/PDF downloa
         assert.equal(result.headers[name], value);
       }
     });
+  }
+});
+
+test('admin JSON, CSV, text and binary responses cannot be cached, including on errors', async (t) => {
+  const writers = [
+    (incoming, response, status) =>
+      production.writeJson(
+        incoming,
+        response,
+        status,
+        { synthetic: true },
+        {
+          'Cache-Control': 'public, max-age=3600'
+        }
+      ),
+    (incoming, response, status) =>
+      production.writeCsv(
+        incoming,
+        response,
+        status,
+        'synthetic\n',
+        'test.csv'
+      ),
+    (incoming, response, status) =>
+      production.writeText(incoming, response, status, 'synthetic'),
+    (incoming, response, status) =>
+      production.writeBinary(
+        incoming,
+        response,
+        status,
+        Buffer.from('synthetic'),
+        'image/webp',
+        { 'Cache-Control': 'public, max-age=3600' }
+      )
+  ];
+  for (const write of writers) {
+    for (const status of [200, 401, 403, 503]) {
+      const exchange = await startServer(t, (incoming, response) =>
+        write(incoming, response, status)
+      );
+      for (const path of [
+        '/admin/contributions',
+        '/api/admin/session?test=1'
+      ]) {
+        const result = await exchange({ path });
+        assert.equal(result.status, status);
+        assert.equal(result.headers['cache-control'], 'no-store');
+      }
+    }
+  }
+});
+
+test('private sponsorship follow-up responses cannot be cached across aliases and errors', async (t) => {
+  for (const status of [200, 404]) {
+    const exchange = await startServer(t, (incoming, response) =>
+      production.writeJson(
+        incoming,
+        response,
+        status,
+        { contactEmail: 'synthetic@example.org' },
+        { 'Cache-Control': 'public, max-age=60' }
+      )
+    );
+    for (const path of [
+      '/sponsorship-followup?token=synthetic',
+      '/api/sponsorship-followup?token=synthetic',
+      '/sponsorship-followup/draft?token=synthetic',
+      '/api/sponsorship-followup/draft?token=synthetic',
+      '/sponsorship-followup/media?token=synthetic',
+      '/api/sponsorship-followup/media?token=synthetic'
+    ]) {
+      const result = await exchange({ path });
+      assert.equal(result.status, status);
+      assert.equal(result.headers['cache-control'], 'no-store');
+    }
+  }
+});
+
+test('public JSON and media cache policies are preserved', async (t) => {
+  for (const write of [
+    (incoming, response) =>
+      production.writeJson(
+        incoming,
+        response,
+        200,
+        { synthetic: true },
+        {
+          'Cache-Control': 'public, max-age=60'
+        }
+      ),
+    (incoming, response) =>
+      production.writeBinary(
+        incoming,
+        response,
+        200,
+        Buffer.from('synthetic'),
+        'image/webp',
+        { 'Cache-Control': 'public, max-age=60' }
+      )
+  ]) {
+    const exchange = await startServer(t, write);
+    for (const path of [
+      '/public/sponsor-media/asset',
+      '/api/public/fund-transparency',
+      '/public/sponsorships',
+      '/api/public/sponsorships',
+      '/sponsorship-followup-public'
+    ]) {
+      const result = await exchange({ path });
+      assert.equal(result.headers['cache-control'], 'public, max-age=60');
+    }
+  }
+});
+
+test('explicit private no-store policies remain intact for administrative handlers', async (t) => {
+  const exchange = await startServer(t, (incoming, response) =>
+    production.writeJson(
+      incoming,
+      response,
+      200,
+      {},
+      {
+        'Cache-Control': 'private, no-store'
+      }
+    )
+  );
+  for (const path of [
+    '/api/admin/contribution-activity',
+    '/api/sponsorship-followup/media?token=synthetic'
+  ]) {
+    const result = await exchange({ path });
+    assert.equal(result.headers['cache-control'], 'private, no-store');
   }
 });
 

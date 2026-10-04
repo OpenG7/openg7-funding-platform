@@ -16,6 +16,8 @@ export async function syncStripeChargeRefunds(
     eventId?: string;
     dryRun?: boolean;
     limit?: number;
+    authoritativeRefund?: Stripe.Refund;
+    refundOperationId?: string;
   }
 ): Promise<{
   seen: number;
@@ -38,6 +40,21 @@ export async function syncStripeChargeRefunds(
         throw new Error('Stripe refund limit reached.');
     }
   }
+  if (input.authoritativeRefund) {
+    const refund = input.authoritativeRefund;
+    const chargeId =
+      typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
+    const intentId =
+      typeof refund.payment_intent === 'string'
+        ? refund.payment_intent
+        : refund.payment_intent?.id;
+    if (chargeId !== charge.id || intentId !== input.paymentIntentId) {
+      throw new Error('Inconsistent Stripe refund references.');
+    }
+    const index = refunds.findIndex((snapshot) => snapshot.id === refund.id);
+    if (index < 0) refunds.push(refund);
+    else refunds[index] = refund;
+  }
   if (refunds.length > limit) throw new Error('Stripe refund limit reached.');
   refunds.sort((a, b) => a.created - b.created || a.id.localeCompare(b.id));
   const confirmed = refunds.filter((refund) => refund.status === 'succeeded');
@@ -55,6 +72,17 @@ export async function syncStripeChargeRefunds(
   }
   if (!Number.isSafeInteger(confirmedAmount) || confirmedAmount > charge.amount)
     throw new Error('Inconsistent Stripe refund total.');
+  for (const refund of confirmed) {
+    const failedOperation = pool
+      ? await pool.query(
+          `SELECT 1 FROM sponsorship_refund_operations WHERE status='failed'
+       AND (stripe_refund_id=$1 OR id::text=$2) LIMIT 1`,
+          [refund.id, refund.metadata?.openg7RefundOperationId ?? null]
+        )
+      : null;
+    if (failedOperation?.rowCount)
+      throw new Error('REFUND_FINANCIAL_CORRECTION_REQUIRED');
+  }
   for (const refund of confirmed) {
     if (input.dryRun) {
       const known = pool
@@ -92,6 +120,12 @@ export async function syncStripeChargeRefunds(
       metadataJson: {
         source: input.source,
         refundId: refund.id,
+        refundOperationId:
+          (refund.id === input.authoritativeRefund?.id
+            ? input.refundOperationId
+            : undefined) ??
+          refund.metadata?.openg7RefundOperationId ??
+          null,
         paymentIntentId: input.paymentIntentId,
         eventType: 'charge.refunded',
         ...(input.eventId ? { stripeEventId: input.eventId } : {})
@@ -104,10 +138,16 @@ export async function syncStripeChargeRefunds(
   if (!input.dryRun) {
     for (const refund of refunds) {
       // Expanded fixtures/older API snapshots can omit the redundant PaymentIntent reference.
-      await settleSponsorshipRefundOperation(pool, {
-        ...refund,
-        payment_intent: refund.payment_intent ?? input.paymentIntentId
-      });
+      await settleSponsorshipRefundOperation(
+        pool,
+        {
+          ...refund,
+          payment_intent: refund.payment_intent ?? input.paymentIntentId
+        },
+        refund.id === input.authoritativeRefund?.id
+          ? input.refundOperationId
+          : undefined
+      );
     }
     if (
       input.paymentIntentId &&

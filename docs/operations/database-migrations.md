@@ -54,6 +54,14 @@ sont décrits dans le [runbook de publication](publication-automation.md).
 
 ## Première application locale
 
+La migration [031](../../apps/funding-api/migrations/031_create_checkout_operations.sql)
+ajoute les opérations Checkout privées et leur clé unique, sans modifier les
+contributions ni les faits financiers existants. Elle conserve les paramètres
+Stripe et le résultat nécessaires aux reprises. L'appliquer avant l'API mise à
+jour; Checkout configuré exige désormais PostgreSQL. Voir le
+[contrat et la reprise Checkout](../technical/checkout.md).
+Une migration de production reste une opération séparément autorisée.
+
 La migration [029](../../apps/funding-api/migrations/029_create_sponsorship_refund_operations.sql)
 ajoute les demandes de remboursement durables et leur exclusion mutuelle.
 Elle ne modifie aucun fait financier existant. L'appliquer avant l'API mise à

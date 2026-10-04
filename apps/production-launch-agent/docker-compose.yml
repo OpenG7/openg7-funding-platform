@@ -12,6 +12,7 @@ services:
       PLA_SSH_HOST: ${PLA_SSH_HOST:-${VPS_HOST:?Set VPS_HOST in .env}}
       PLA_SSH_USER: ${PLA_SSH_USER:-ubuntu}
       PLA_SSH_PORT: ${PLA_SSH_PORT:-22}
+      PLA_SSH_HOST_FINGERPRINT: ${PLA_SSH_HOST_FINGERPRINT:-}
       PLA_PRIVATE_KEY_PATH: /run/secrets/production_launch_ssh_key
       PLA_DATABASE_PATH: /data/production-launch-agent.sqlite
       PLA_REPORT_DIR: /logs/reports

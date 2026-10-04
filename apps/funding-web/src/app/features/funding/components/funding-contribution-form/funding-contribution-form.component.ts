@@ -62,6 +62,7 @@ export class FundingContributionFormComponent implements OnChanges {
     'idle'
   );
   readonly checkoutResultMode = input<'mocked' | null>(null);
+  readonly checkoutRequiresVerification = input(false);
   readonly contributionSubmitted = output<FundingContributionSubmission>();
   readonly policyPath = computed(() =>
     this.i18n.localizedPath('/politique-utilisation-remboursement')
@@ -91,6 +92,7 @@ export class FundingContributionFormComponent implements OnChanges {
   readonly canStartCheckout = computed(
     () =>
       this.nonCharityAcknowledged() &&
+      !this.checkoutRequiresVerification() &&
       this.loadingState() !== 'loading' &&
       !this.hasInvalidCustomContribution() &&
       (this.contributionType() !== 'sponsorship_interest' ||

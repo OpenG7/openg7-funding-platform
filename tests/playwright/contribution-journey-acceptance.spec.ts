@@ -1,4 +1,5 @@
 import { mkdtemp } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -24,6 +25,7 @@ test('offline admin receives captured messages, catches up once across tabs, and
   const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
   const checkout = await request.post('/api/checkout-sessions', {
     data: {
+      idempotencyKey: randomUUID(),
       amount: 50,
       currency: 'CAD',
       projectId: 'openg7',

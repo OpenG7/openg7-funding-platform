@@ -21,6 +21,9 @@
 **/yarn-error.log*
 **/pnpm-debug.log*
 .codex-logs/
+apps/production-launch-agent/secrets/
+apps/production-launch-agent/logs/
+apps/production-launch-agent/database/*.sqlite*
 
 # OS / Editors
 .DS_Store

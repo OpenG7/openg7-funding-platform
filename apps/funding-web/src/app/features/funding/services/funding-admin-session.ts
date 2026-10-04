@@ -179,7 +179,7 @@ export class FundingAdminSession {
     }
 
     window.sessionStorage.removeItem(legacyTokenStorageKey);
-    window.localStorage.removeItem(legacyTokenStorageKey);
+    this.clearLegacyPersistentToken();
 
     const sessionToken =
       window.sessionStorage.getItem(sessionTokenStorageKey) ?? '';
@@ -191,7 +191,8 @@ export class FundingAdminSession {
       return '';
     }
 
-    if (!expiresAt || Date.parse(expiresAt) <= Date.now()) {
+    const expiry = Date.parse(expiresAt);
+    if (!Number.isFinite(expiry) || expiry <= Date.now()) {
       this.clearAdminSession();
       return '';
     }
@@ -227,7 +228,15 @@ export class FundingAdminSession {
     window.sessionStorage.removeItem(selectedSponsorshipStorageKey);
     window.sessionStorage.removeItem(sessionExpiresAtStorageKey);
     window.sessionStorage.removeItem(legacyTokenStorageKey);
-    window.localStorage.removeItem(legacyTokenStorageKey);
+    this.clearLegacyPersistentToken();
+  }
+
+  private clearLegacyPersistentToken(): void {
+    try {
+      window.localStorage.removeItem(legacyTokenStorageKey);
+    } catch {
+      // An unavailable legacy store must not block the current session.
+    }
   }
 
   hasValidAdminSession(): boolean {

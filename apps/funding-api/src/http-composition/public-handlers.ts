@@ -5,6 +5,7 @@ import {
   normalizeReferenceRecoveryEmail
 } from '../business-helpers/contribution-reference.js';
 import { createDevelopmentCheckoutResult } from '../business-helpers/development-results.js';
+import { createDurableCheckoutService } from '../checkout-operations.service.js';
 import { sponsorLogoPublicUrlForFilename } from '../business-helpers/media-exposure.js';
 import {
   PUBLIC_DISPLAY_NAME_MAX_LENGTH,
@@ -34,7 +35,6 @@ import {
   insertAdminAuditLog
 } from '../fund-admin.repository.js';
 import {
-  insertCheckoutSessionRecord,
   isPublicApprovedSponsorshipLogoUrl,
   listContributionReferencesByEmail,
   listPublicSponsorships,
@@ -250,10 +250,8 @@ export const createPublicHttpHandlers = ({
     buildContributionCheckoutSuccessUrl,
     buildContributionReceiptDescription,
     truncateStripeMetadataValue,
-    resolveStripePaymentIntentId,
-    insertCheckoutSessionRecord: (input) =>
-      insertCheckoutSessionRecord(dbPool, input),
-    reportFailure: (message, error) => console.error(message, error)
+    runCheckout: createDurableCheckoutService(dbPool, stripe),
+    reportFailure: (message, code) => console.error(message, code)
   });
 
   const { handleReferenceLookupRequest, handleReferenceRecoveryRequest } =

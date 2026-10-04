@@ -113,6 +113,16 @@ export const insertFundTransaction = async (
       'SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))',
       [`fund-${kind}:${refundId ?? transaction.stripeObjectId}`]
     );
+    if (refundId) {
+      // Settlement uses the same lock: a stale success cannot race a durable failure.
+      const failedOperation = await client.query(
+        `SELECT 1 FROM sponsorship_refund_operations WHERE status='failed'
+         AND (stripe_refund_id=$1 OR id::text=$2) LIMIT 1`,
+        [refundId, transaction.metadataJson.refundOperationId ?? null]
+      );
+      if (failedOperation.rowCount)
+        throw new Error('REFUND_FINANCIAL_CORRECTION_REQUIRED');
+    }
     const existing = await client.query<{
       amount: string;
       currency: string;
@@ -165,29 +175,59 @@ export const updateContributionFundTransactionBalance = async (
     return false;
   }
 
-  const result = await pool.query(
-    `
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))',
+      [`fund-payment:${input.stripePaymentIntentId}`]
+    );
+    const existing = await client.query<{ amount: string; currency: string }>(
+      `SELECT amount::text, currency FROM fund_transactions
+       WHERE stripe_object_id = $1 AND type = 'payment_intent.succeeded'
+       FOR UPDATE`,
+      [input.stripePaymentIntentId]
+    );
+    if (
+      existing.rows.some(
+        (row) =>
+          row.amount !== String(input.amount) ||
+          row.currency.toLowerCase() !== input.currency.toLowerCase()
+      ) ||
+      input.status !== 'succeeded'
+    ) {
+      throw new Error('Inconsistent payment balance monetary facts.');
+    }
+    const result = await client.query(
+      `
       UPDATE fund_transactions
       SET
         stripe_balance_transaction_id = $2,
-        amount = $3,
         fee = $4,
-        net = $5,
-        currency = $6,
-        status = $7
+        net = $5
       WHERE stripe_object_id = $1
         AND type = 'payment_intent.succeeded'
+        AND amount = $3
+        AND LOWER(currency) = LOWER($6)
+        AND status = $7
     `,
-    [
-      input.stripePaymentIntentId,
-      input.stripeBalanceTransactionId,
-      input.amount,
-      input.fee,
-      input.net,
-      input.currency,
-      input.status
-    ]
-  );
+      [
+        input.stripePaymentIntentId,
+        input.stripeBalanceTransactionId,
+        input.amount,
+        input.fee,
+        input.net,
+        input.currency,
+        input.status
+      ]
+    );
 
-  return (result.rowCount ?? 0) > 0;
+    await client.query('COMMIT');
+    return (result.rowCount ?? 0) > 0;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };

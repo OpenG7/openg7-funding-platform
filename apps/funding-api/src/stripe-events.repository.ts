@@ -48,8 +48,11 @@ export const withStripeEventProcessing = async <T>(
   const borrowedClient: PoolClient = new Proxy(client, {
     get(target, property) {
       if (property === 'query') return query;
-      // The outer owner alone releases the connection and its advisory lock.
-      if (property === 'release') return () => undefined;
+      // Only the owner releases; a nested failure must still retire its locked connection.
+      if (property === 'release')
+        return (destroy?: Error | boolean): void => {
+          if (destroy) connectionFailed = true;
+        };
       return Reflect.get(target, property);
     }
   });

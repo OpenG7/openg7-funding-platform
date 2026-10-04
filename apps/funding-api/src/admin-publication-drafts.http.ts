@@ -125,6 +125,8 @@ export const createAdminPublicationDraftsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationDraftCreateRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication draft request body.'
@@ -201,6 +203,8 @@ export const createAdminPublicationDraftsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationDraftUpdateRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication draft update request body.'

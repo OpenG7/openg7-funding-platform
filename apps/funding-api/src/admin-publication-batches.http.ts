@@ -152,6 +152,8 @@ export const createAdminPublicationBatchesHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationBatchCreateRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication batch request body.'
@@ -231,6 +233,8 @@ export const createAdminPublicationBatchesHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationBatchAssignRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication batch assignment request body.'
@@ -307,6 +311,8 @@ export const createAdminPublicationBatchesHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationBatchUnassignRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication batch unassignment request body.'
@@ -367,6 +373,8 @@ export const createAdminPublicationBatchesHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationBatchScheduleRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication batch schedule request body.'
@@ -437,6 +445,8 @@ export const createAdminPublicationBatchesHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationBatchLifecycleRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication batch request body.'
@@ -541,6 +551,8 @@ export const createAdminPublicationBatchesHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationBatchLifecycleRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication batch request body.'

@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   buildBalanceData,
+  buildContributionBalanceData,
   resolveBalanceTransaction,
   resolveCharge,
   resolvePaymentIntent,
@@ -233,4 +234,35 @@ test('partial expanded balances keep unknown provider fields instead of substitu
     net: undefined,
     currency: 'cad'
   });
+});
+
+test('contribution balances preserve payment units and reject settlement conversions or contradictory gross amounts', () => {
+  const balance = {
+    id: 'txn_payment_units',
+    amount: 2500,
+    fee: 100,
+    net: 2400,
+    currency: 'cad'
+  };
+  assert.deepEqual(buildContributionBalanceData(balance, 2500, 'CAD'), {
+    stripeBalanceTransactionId: balance.id,
+    amount: 2500,
+    fee: 100,
+    net: 2400,
+    currency: 'cad'
+  });
+  assert.deepEqual(
+    buildContributionBalanceData(null, 2500, 'cad'),
+    buildBalanceData(null, 2500, 'cad')
+  );
+  for (const incompatible of [
+    { ...balance, amount: 1800, currency: 'usd' },
+    { ...balance, amount: 2500, currency: 'usd' },
+    { ...balance, amount: 2501 }
+  ]) {
+    assert.throws(
+      () => buildContributionBalanceData(incompatible, 2500, 'cad'),
+      /Inconsistent contribution balance monetary facts/
+    );
+  }
 });

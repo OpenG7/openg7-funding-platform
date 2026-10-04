@@ -87,12 +87,32 @@ test('rate-limit groups keep recovery, lookup, follow-up, checkout and administr
   assert.equal(limiter.writes.length, 5);
 });
 
+test('legacy sponsorship details writes share the Checkout quota across aliases', () => {
+  for (const path of ['/sponsorship-details', '/api/sponsorship-details']) {
+    const limiter = fixture();
+    assert.equal(limiter.enforce(request(path, { method: 'POST' })), true);
+    assert.equal(
+      limiter.enforce(request('/api/checkout-sessions', { method: 'POST' })),
+      false
+    );
+    assert.equal(limiter.writes.at(-1).status, 429);
+    assert.equal(limiter.enforce(request(path, { method: 'GET' })), true);
+  }
+});
+
 test('identity routes and admin media reads share the admin limit regardless of HTTP method', () => {
   for (const [first, second] of [
     ['/admin/auth/config', '/api/admin/auth/callback'],
     ['/admin/access', '/api/admin/sponsorships/media/content/asset'],
     ['/admin/pilotage/receipt', '/api/admin/sponsorship-invoices/pdf'],
-    ['/api/admin/publication-automation/media', '/admin/expenses/update']
+    ['/api/admin/publication-automation/media', '/admin/expenses/update'],
+    ['/admin/backups', '/api/admin/backups'],
+    ['/admin/allocations', '/api/admin/allocations/update'],
+    [
+      '/admin/contribution-activity',
+      '/api/admin/contribution-activity/present'
+    ],
+    ['/admin/sponsorships/website-visibility', '/api/admin/new-action']
   ]) {
     const limiter = fixture();
     assert.equal(limiter.enforce(request(first)), true, first);
@@ -102,6 +122,53 @@ test('identity routes and admin media reads share the admin limit regardless of 
       second
     );
   }
+});
+
+test('rate-limit memory remains bounded without resetting existing client quotas', () => {
+  const limiter = fixture({ adminRateLimitMax: 2 });
+  for (let i = 0; i < 5000; i++)
+    assert.equal(
+      limiter.enforce(request('/admin/dashboard', { peer: `2001:db8::${i}` })),
+      true
+    );
+  for (let i = 5000; i < 5010; i++)
+    assert.equal(
+      limiter.enforce(request('/admin/dashboard', { peer: `2001:db8::${i}` })),
+      false
+    );
+  assert.equal(limiter.writes.at(-1).status, 429);
+  assert.equal(limiter.writes.at(-1).headers['Retry-After'], '2');
+  const existing = request('/api/admin/dashboard', { peer: '2001:db8::0' });
+  assert.equal(limiter.enforce(existing), true);
+  assert.equal(limiter.enforce(existing), false);
+  assert.equal(
+    limiter.enforce(request('/checkout-sessions', { method: 'POST' })),
+    true
+  );
+  limiter.setNow(2499);
+  const newcomer = request('/admin/dashboard', { peer: '2001:db8::new' });
+  assert.equal(limiter.enforce(newcomer), false);
+  assert.equal(limiter.writes.at(-1).headers['Retry-After'], '1');
+  limiter.setNow(2500);
+  assert.equal(limiter.enforce(newcomer), true);
+  assert.equal(limiter.enforce(existing), true);
+});
+
+test('new clients reclaim expired buckets while active clients keep their counters', () => {
+  const limiter = fixture();
+  for (let i = 0; i < 4999; i++)
+    assert.equal(
+      limiter.enforce(request('/admin/dashboard', { peer: `2001:db8::${i}` })),
+      true
+    );
+  limiter.setNow(2000);
+  const active = request('/admin/dashboard', { peer: '2001:db8::active' });
+  assert.equal(limiter.enforce(active), true);
+  limiter.setNow(2500);
+  const newcomer = request('/admin/dashboard', { peer: '2001:db8::new' });
+  assert.equal(limiter.enforce(newcomer), true);
+  assert.equal(limiter.enforce(active), false);
+  assert.equal(limiter.writes.at(-1).headers['Retry-After'], '1');
 });
 
 test('non-limited routes and non-writing checkout methods do not consume a write bucket', () => {

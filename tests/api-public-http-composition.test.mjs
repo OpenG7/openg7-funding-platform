@@ -19,7 +19,9 @@ const assetId = '00000000-0000-4000-8000-000000000002';
 const publicBytes = Buffer.from('synthetic-public-image');
 const privateBytes = Buffer.from('synthetic-private-image');
 const checkoutInput = {
+  idempotencyKey: 'synthetic-composition-key-001',
   amount: 25,
+  currency: 'CAD',
   projectId: 'synthetic-client-project',
   contributionType: 'personal_support',
   publicDisplayConsent: false,

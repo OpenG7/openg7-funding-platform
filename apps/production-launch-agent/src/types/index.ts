@@ -31,6 +31,7 @@ export interface AgentConfig {
 
 export interface SshConfig {
   readonly host: string;
+  readonly hostFingerprint?: string;
   readonly username: string;
   readonly privateKey?: string;
   readonly privateKeyPath?: string;

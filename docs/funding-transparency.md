@@ -18,6 +18,8 @@ La projection PostgreSQL refuse les contributions confirmées de plusieurs devis
 
 Les événements et imports historiques d'un même PaymentIntent réussi partagent une seule écriture logique, même en concurrence. Les anciens doublons sont également comptés une seule fois dans les agrégats : priorité à une écriture documentée par une transaction de solde, puis à la première écriture. Le registre reste intact. Ce correctif peut réduire des frais autrefois doublés et augmenter le net affiché. Les frais tardifs ou corrigés continuent d'être enrichis par `charge.updated`; un import ne réécrit pas une transaction de paiement existante. Voir la [recette de reprise historique](technical/stripe.md#historical-payment-recovery-recipe).
 
+Les webhooks et le backfill refusent une transaction de solde dont le montant brut ou la devise diffèrent du paiement : une conversion de règlement ne peut pas fournir les frais/net dans les unités du paiement. Le webhook reste en échec pour diagnostic et reprise; le backfill, y compris en simulation, signale le conflit. La confirmation du paiement est conservée séparément : dans la projection PostgreSQL des contributions, son brut reste visible et ses frais restent en attente tant que le registre ne contient pas de transaction compatible. Un `charge.updated` enrichit uniquement les frais, le net et leur référence fournisseur, sous le même verrou que l'insertion du paiement. Le brut, la devise et le statut confirmés restent inchangés; une contradiction annule l'enrichissement. Aucune migration ni correction de données existantes n'est effectuée par ces contrôles.
+
 ## Allocations publiées et réalisations
 
 Une allocation décrit une utilisation prévue du fonds. Sa création, son avancement

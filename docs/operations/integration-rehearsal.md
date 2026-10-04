@@ -36,6 +36,32 @@ locale : Stripe test, SMTP, bucket privé, bucket public. Cela ne prouve pas la
 configuration du VPS. `services:check` signale des paramètres HTTPS/administration
 incomplets pour une mise en service; le fichier local n'a pas été modifié.
 
+### Qualification du 4 octobre 2026
+
+Depuis le workspace Windows, base `831ad7c` avec les changements locaux présents,
+la compilation TypeScript sous Node 22.23.3 a réussi. La vérification explicite
+`node scripts/providers-verify.mjs --env .env` a confirmé les quatre accès à
+`2026-10-04T21:22:57.231Z` : lecture Stripe **test**, connexion/authentification
+SMTP et `HeadBucket` sur les buckets S3 privé et public. La configuration locale
+n'a pas été modifiée; aucune clé live n'a été appelée, aucun Checkout, courriel
+ou objet fournisseur n'a été créé. Le rapport conserve uniquement des noms de
+contrôles fixes et leur résultat, sans clé, adresse ou URL privée.
+
+Après cette compilation, `node --test tests/integration/provider-rehearsal.integration.mjs`
+a réussi : **1 test, 0 échec, 0 ignoré**. Les adaptateurs applicatifs ont livré un
+message MIME à Mailpit, copié les médias dans S3Mock et restauré PostgreSQL,
+configuration synthétique et octets des médias vers des cibles jetables distinctes.
+Ces serveurs locaux ne qualifient pas la délivrabilité SMTP ni les politiques
+d'accès du stockage distant.
+
+Les accès réels sont donc revérifiés en lecture seule. Le parcours Checkout
+Stripe test avec webhook sur une URL de recette identifiée, la réception dans
+une boîte externe dédiée, les DNS/alignements de courriel et les politiques S3
+privé/public restent à qualifier. L'URL et l'adresse destinataire confirmées,
+ainsi que les espaces de stockage réservés, restent les préconditions du parcours
+ci-dessous. Ces résultats ne qualifient aucune configuration VPS et n'autorisent
+aucune publication.
+
 ## Parcours avec les fournisseurs réels
 
 Les publications DNS peuvent être examinées séparément avec

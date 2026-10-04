@@ -60,12 +60,10 @@ export const loadConfig = (): AgentConfig => {
     openAiApiKey: process.env.OPENAI_API_KEY,
     reportDir:
       process.env.PLA_REPORT_DIR ??
-      defaultPath(
-        'logs/reports',
-        'apps/production-launch-agent/logs/reports'
-      ),
+      defaultPath('logs/reports', 'apps/production-launch-agent/logs/reports'),
     role: toRole(process.env.PLA_ROLE),
     ssh: {
+      hostFingerprint: process.env.PLA_SSH_HOST_FINGERPRINT,
       host: requiredString(
         process.env.PLA_SSH_HOST || process.env.VPS_HOST,
         'PLA_SSH_HOST or VPS_HOST is required.'

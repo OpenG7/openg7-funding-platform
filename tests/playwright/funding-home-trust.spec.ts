@@ -333,6 +333,7 @@ test('switching the default personal amount to sponsorship submits a valid 50 CA
     amount: number;
     currency: string;
     contributionType: string;
+    idempotencyKey: string;
   }[] = [];
   let release!: () => void;
   const held = new Promise<void>((resolve) => {
@@ -342,7 +343,11 @@ test('switching the default personal amount to sponsorship submits a valid 50 CA
     requests.push(route.request().postDataJSON());
     await held;
     await route.fulfill({
-      json: { status: 'mocked', checkoutId: 'local-browser-test' }
+      json: {
+        status: 'mocked',
+        checkoutId: 'local-browser-test',
+        redirectUrl: 'https://example.test/local-checkout'
+      }
     });
   });
   await page.goto('/fonds-des-batisseurs');
@@ -361,11 +366,105 @@ test('switching the default personal amount to sponsorship submits a valid 50 CA
     currency: 'CAD',
     contributionType: 'sponsorship_interest'
   });
+  expect(requests[0].idempotencyKey).toMatch(/^[a-f0-9-]{36}$/i);
   release();
   await expect(contributionForm(page).getByRole('status')).toContainText(
     /Mode local/i
   );
 });
+
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`verification of a nondefault checkout survives reload and language navigation (${language})`, async ({
+    page
+  }) => {
+    const requests: {
+      amount: number;
+      publicDisplayConsent: boolean;
+      publicDisplayName: string;
+      idempotencyKey: string;
+    }[] = [];
+    await page.route('**/api/checkout-sessions', async (route) => {
+      requests.push(route.request().postDataJSON());
+      await route.fulfill({
+        status: 409,
+        json: { code: 'CHECKOUT_RECONCILIATION_REQUIRED' }
+      });
+    });
+    await page.goto(`${language === 'en' ? '/en' : ''}/fonds-des-batisseurs`);
+    const form = contributionForm(page);
+    const submit = form.locator('button[type="submit"]');
+    const acknowledgment = page.getByLabel(
+      language === 'en'
+        ? /OpenG7 is an independent project/i
+        : /OpenG7 est un projet ind.pendant en d.veloppement/i
+    );
+    const verifyBlocked = async (locale: 'fr-CA' | 'en' = language) => {
+      await expect(form.getByRole('alert')).toContainText(
+        locale === 'en'
+          ? /Contact the OpenG7 team/i
+          : /Contactez l’équipe OpenG7/i
+      );
+      await expect(submit).toBeDisabled();
+    };
+    await form.getByRole('button', { name: /^(?:CA)?\$?\s*50\s*\$?$/ }).click();
+    await form
+      .getByLabel(
+        language === 'en'
+          ? /^Display my name publicly/i
+          : /^Afficher mon nom publiquement/i
+      )
+      .check();
+    await form.locator('#public-display-name').fill('Synthetic contributor');
+    await acknowledgment.check();
+    await submit.click();
+    await verifyBlocked();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      amount: 50,
+      publicDisplayConsent: true,
+      publicDisplayName: 'Synthetic contributor'
+    });
+    expect(requests[0].idempotencyKey).toMatch(/^[a-f0-9-]{36}$/i);
+    const savedAttempts = await page.evaluate(() =>
+      sessionStorage.getItem('openg7.checkout-attempts.v1')
+    );
+    expect(savedAttempts).not.toBeNull();
+    expect(Object.values(JSON.parse(savedAttempts!))).toEqual([
+      requests[0].idempotencyKey
+    ]);
+    await form.dispatchEvent('submit');
+    expect(requests).toHaveLength(1);
+
+    await page.reload();
+    await verifyBlocked();
+    await expect(
+      form.getByRole('button', { name: /^(?:CA)?\$?\s*25\s*\$?$/ })
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(form.locator('#public-display-name')).toHaveCount(0);
+    await acknowledgment.check();
+    await form.getByRole('button', { name: /^(?:CA)?\$?\s*10\s*\$?$/ }).click();
+    await verifyBlocked();
+    await form.dispatchEvent('submit');
+    expect(requests).toHaveLength(1);
+
+    await page
+      .getByRole('button', {
+        name:
+          language === 'en'
+            ? 'Changer la langue du site vers le français'
+            : 'Switch site language to English'
+      })
+      .click();
+    await verifyBlocked(language === 'en' ? 'fr-CA' : 'en');
+    await form.dispatchEvent('submit');
+    expect(requests).toHaveLength(1);
+    expect(
+      await page.evaluate(() =>
+        sessionStorage.getItem('openg7.checkout-attempts.v1')
+      )
+    ).toBe(savedAttempts);
+  });
+}
 
 test('the personal form follows the server allowlist and rejects arbitrary amounts', async ({
   page

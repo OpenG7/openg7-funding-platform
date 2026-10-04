@@ -14,6 +14,7 @@ import {
 } from '../models/funding-home.utils.js';
 
 import type { CheckoutStatusMonitor } from './checkout-status-monitor.service.js';
+import { CheckoutReconciliationRequiredError } from './checkout-error.js';
 import type { FundTransparencyService } from './fund-transparency.service.js';
 import type { FundingService } from './funding.service.js';
 
@@ -23,6 +24,7 @@ export interface FundingHomePorts {
     | 'getPublicFundingConfig'
     | 'getSponsorshipBatchAvailability'
     | 'startCheckout'
+    | 'requiresCheckoutVerification'
   >;
   transparency: Pick<FundTransparencyService, 'getPublicTransparency'>;
   checkout: Pick<CheckoutStatusMonitor, 'start' | 'cancel' | 'dismiss'>;
@@ -68,6 +70,7 @@ export class FundingHomeController {
     'idle'
   );
   readonly checkoutResultMode = signal<'mocked' | null>(null);
+  readonly checkoutRequiresVerification = signal(false);
   readonly pendingSponsorFollowupToken = signal<string | null>(null);
   readonly currentMonthContributions = computed(() =>
     monthlyContributions(
@@ -136,6 +139,10 @@ export class FundingHomeController {
   start(params: URLSearchParams): void {
     if (this.disposed || this.started || !this.ports.isBrowser()) return;
     this.started = true;
+    if (this.ports.funding.requiresCheckoutVerification()) {
+      this.checkoutRequiresVerification.set(true);
+      this.loadingState.set('error');
+    }
     const checkout = params.get('checkout');
     if (checkout === 'cancel') {
       this.ports.checkout.cancel(params.get('reference'));
@@ -253,6 +260,7 @@ export class FundingHomeController {
     if (
       this.disposed ||
       !this.ports.isBrowser() ||
+      this.checkoutRequiresVerification() ||
       this.loadingState() === 'loading'
     )
       return;
@@ -271,8 +279,13 @@ export class FundingHomeController {
       this.checkoutResultMode.set(result.status);
       this.loadingState.set('success');
       void this.loadPublicTransparency({ silent: true });
-    } catch {
-      if (!this.disposed) this.loadingState.set('error');
+    } catch (error) {
+      if (!this.disposed) {
+        this.checkoutRequiresVerification.set(
+          error instanceof CheckoutReconciliationRequiredError
+        );
+        this.loadingState.set('error');
+      }
     }
   }
 

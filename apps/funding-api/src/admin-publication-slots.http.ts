@@ -138,6 +138,8 @@ export const createAdminPublicationSlotsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationSlotCreateRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication slot request body.'
@@ -248,6 +250,8 @@ export const createAdminPublicationSlotsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationSlotUpdateRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication slot update request body.'
@@ -363,6 +367,8 @@ export const createAdminPublicationSlotsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationSlotAssignBatchRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication slot batch assignment request body.'
@@ -421,6 +427,8 @@ export const createAdminPublicationSlotsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationSlotAssignDraftRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication slot draft assignment request body.'
@@ -479,6 +487,8 @@ export const createAdminPublicationSlotsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationSlotLifecycleRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication slot request body.'
@@ -541,6 +551,8 @@ export const createAdminPublicationSlotsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminPublicationSlotLifecycleRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid publication slot request body.'

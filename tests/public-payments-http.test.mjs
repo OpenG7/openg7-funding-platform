@@ -4,11 +4,14 @@ import test from 'node:test';
 
 import { createPublicPaymentsHttpHandler } from '../dist/apps/funding-api/src/public-payments.http.js';
 import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
+import { CheckoutOperationError } from '../dist/apps/funding-api/src/checkout-operations.service.js';
 
 const origin = 'https://funding.example.test';
 const reference = 'OG7-2026-ABCDEF';
 const payload = {
+  idempotencyKey: 'synthetic-checkout-key-001',
   amount: 25,
+  currency: 'CAD',
   projectId: 'synthetic-project',
   contributionType: 'personal_support',
   publicDisplayConsent: false,
@@ -94,9 +97,29 @@ const fixture = ({
     buildContributionReceiptDescription: (value) =>
       `Reference OpenG7: ${value}`,
     truncateStripeMetadataValue: (value) => value.slice(0, 480),
-    resolveStripePaymentIntentId: (value) =>
-      typeof value === 'string' ? value : (value?.id ?? null),
-    insertCheckoutSessionRecord: async (input) => record('persist', input),
+    runCheckout: async (input) => {
+      record('operation', { key: input.key, requestHash: input.requestHash });
+      const prepared = input.prepare('00000000-0000-4000-8000-000000000001');
+      try {
+        record('provider', prepared.params);
+      } catch {
+        throw new CheckoutOperationError('CHECKOUT_PROVIDER_UNAVAILABLE', 502);
+      }
+      try {
+        record('persist', {
+          ...prepared.record,
+          stripeSessionId: session.id,
+          stripePaymentIntentId: session.payment_intent
+        });
+      } catch {
+        throw new CheckoutOperationError('CHECKOUT_PERSISTENCE_FAILED', 503);
+      }
+      return {
+        checkoutId: session.id,
+        redirectUrl: session.url,
+        status: 'redirected'
+      };
+    },
     reportFailure: (...args) => record('failure', args),
     ...overrides
   });
@@ -136,8 +159,33 @@ test('Checkout aliases and queries dispatch POST only; other routes never consum
 test('Checkout preserves validation statuses and blocks provider/persistence on invalid input', async () => {
   const cases = [
     ['{', 400, 'Invalid checkout request body.'],
+    [null, 400, 'Invalid checkout request body.'],
+    [[], 400, 'Invalid checkout request body.'],
+    [true, 400, 'Invalid checkout request body.'],
+    [25, 400, 'Invalid checkout request body.'],
+    ['"synthetic-checkout"', 400, 'Invalid checkout request body.'],
     [{ ...payload, amount: 7 }, 400, 'Checkout amount is not allowed.'],
     [{ ...payload, amount: 'invalid' }, 400, 'Checkout amount is not allowed.'],
+    [{ ...payload, amount: '25' }, 400, 'Checkout amount is not allowed.'],
+    [{ ...payload, amount: [25] }, 400, 'Checkout amount is not allowed.'],
+    [{ ...payload, amount: 25.004 }, 400, 'Checkout amount is not allowed.'],
+    [
+      { ...payload, amount: 123.456, contributionType: 'sponsorship_interest' },
+      400,
+      'Checkout amount is not allowed.'
+    ],
+    [
+      { ...payload, amount: 1e30, contributionType: 'sponsorship_interest' },
+      400,
+      'Checkout amount is not allowed.'
+    ],
+    [{ ...payload, currency: 'USD' }, 400, 'Checkout currency must be CAD.'],
+    [
+      { ...payload, currency: undefined },
+      400,
+      'Checkout currency must be CAD.'
+    ],
+    [{ ...payload, currency: 123 }, 400, 'Checkout currency must be CAD.'],
     [
       { ...payload, contributionType: 'unknown' },
       400,
@@ -235,7 +283,15 @@ test('Checkout maps integer CAD units, server project, consent and provider resu
   assert.equal(persisted.sponsorshipFollowupTokenHash, null);
   assert.deepEqual(
     f.calls.map(({ name }) => name),
-    ['body', 'return-url', 'return-url', 'provider', 'persist', 'response']
+    [
+      'body',
+      'return-url',
+      'return-url',
+      'operation',
+      'provider',
+      'persist',
+      'response'
+    ]
   );
   assert.equal('paid' in persisted, false);
 });
@@ -296,18 +352,15 @@ test('Stripe absence and simulated-host Checkout preserve production refusal and
   assert.equal((await navigable.invoke()).payload.status, 'redirected');
 });
 
-test('Provider failure follows environment fallback; persistence failure after a created session still returns redirect', async () => {
+test('Provider and persistence failures remain explicit in every environment', async () => {
   for (const isProduction of [true, false]) {
     const f = fixture({
       isProduction,
       failures: { provider: new Error('synthetic provider failure') }
     });
     const result = await f.invoke();
-    assert.equal(result.status, isProduction ? 502 : 200);
-    assert.equal(
-      result.payload.error ?? result.payload.status,
-      isProduction ? 'Stripe checkout session could not be created.' : 'mocked'
-    );
+    assert.equal(result.status, 502);
+    assert.equal(result.payload.code, 'CHECKOUT_PROVIDER_UNAVAILABLE');
     assert.equal(
       f.calls.some(({ name }) => name === 'persist'),
       false
@@ -316,7 +369,9 @@ test('Provider failure follows environment fallback; persistence failure after a
   const persistedFailure = fixture({
     failures: { persist: new Error('synthetic persistence failure') }
   });
-  assert.equal((await persistedFailure.invoke()).payload.status, 'redirected');
+  const result = await persistedFailure.invoke();
+  assert.equal(result.status, 503);
+  assert.equal(result.payload.code, 'CHECKOUT_PERSISTENCE_FAILED');
   assert.equal(
     persistedFailure.calls.filter(({ name }) => name === 'provider').length,
     1
@@ -324,5 +379,64 @@ test('Provider failure follows environment fallback; persistence failure after a
   assert.deepEqual(
     persistedFailure.calls.slice(-3).map(({ name }) => name),
     ['persist', 'failure', 'response']
+  );
+});
+
+test('Configured Checkout requires a bounded opaque key before any operation', async () => {
+  for (const idempotencyKey of [
+    undefined,
+    null,
+    '',
+    'short',
+    42,
+    'x'.repeat(129),
+    'synthetic key with spaces'
+  ]) {
+    const f = fixture();
+    const result = await f.invoke({ ...payload, idempotencyKey });
+    assert.equal(result.status, 400);
+    assert.equal(result.payload.code, 'CHECKOUT_IDEMPOTENCY_KEY_INVALID');
+    assert.equal(
+      f.calls.some(({ name }) => name === 'operation'),
+      false
+    );
+  }
+});
+
+test('Checkout fingerprints normalized business input and propagates safe conflict codes', async () => {
+  const f = fixture({
+    runCheckout: async (input) => {
+      f.calls.push({ name: 'operation', value: input });
+      throw new CheckoutOperationError('CHECKOUT_IDEMPOTENCY_CONFLICT', 409);
+    }
+  });
+  for (const input of [
+    payload,
+    {
+      ...payload,
+      projectId: 'ignored-client-project',
+      publicDisplayName: 'Ignored without consent'
+    }
+  ]) {
+    const result = await f.invoke(input);
+    assert.equal(result.status, 409);
+    assert.equal(result.payload.code, 'CHECKOUT_IDEMPOTENCY_CONFLICT');
+  }
+  const inputs = f.calls
+    .filter(({ name }) => name === 'operation')
+    .map(({ value }) => value);
+  assert.equal(inputs[0].requestHash, inputs[1].requestHash);
+  assert.equal(
+    inputs[0].key,
+    JSON.stringify(['synthetic-server-project', payload.idempotencyKey])
+  );
+  await f.invoke({ ...payload, amount: 50 });
+  assert.notEqual(
+    inputs[0].requestHash,
+    f.calls.filter(({ name }) => name === 'operation').at(-1).value.requestHash
+  );
+  assert.equal(
+    f.calls.some(({ name }) => name === 'provider'),
+    false
   );
 });

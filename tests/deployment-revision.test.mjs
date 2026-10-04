@@ -33,6 +33,99 @@ test('delivery publishes the full revision consumed by the VPS and serializes de
   assert.match(workflow, /cancel-in-progress: false/);
 });
 
+test('delivery requires a verified host pin before SSH', () => {
+  const workflow = readFileSync('.github/workflows/deploy.yml', 'utf8');
+  assert.match(
+    workflow,
+    /fingerprint: \$\{\{ secrets\.VPS_SSH_FINGERPRINT \}\}/
+  );
+  const validation = workflow.match(
+    /run: \|\n( +\[\[ "\$\{VPS_SSH_FINGERPRINT\}"[\s\S]*?\n +\})/
+  )[1];
+  for (const fingerprint of ['', 'unverified', 'SHA256:short']) {
+    const result = spawnSync(bash, ['-c', validation], {
+      env: { ...process.env, VPS_SSH_FINGERPRINT: fingerprint },
+      encoding: 'utf8',
+      windowsHide: true
+    });
+    assert.notEqual(result.status, 0);
+  }
+  const result = spawnSync(bash, ['-c', validation], {
+    env: { ...process.env, VPS_SSH_FINGERPRINT: 'SHA256:' + 'a'.repeat(43) },
+    encoding: 'utf8',
+    windowsHide: true
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('delivery replaces configuration atomically and preserves it on preparation failure', () => {
+  assert.ok(bash, 'Bash is required to validate deployment scripts');
+  const workflow = readFileSync('.github/workflows/deploy.yml', 'utf8');
+  const preparation = workflow.slice(
+    workflow.indexOf('            ENV_STAGE='),
+    workflow.indexOf('            echo "${GHCR_TOKEN}"')
+  );
+  const root = mkdtempSync(path.join(tmpdir(), 'og7-env-delivery-'));
+  try {
+    const original = 'ORIGINAL=synthetic\n';
+    const run = (failure = false) => {
+      writeFileSync(path.join(root, '.env'), original);
+      return spawnSync(
+        bash,
+        [
+          '-c',
+          `set -Eeuo pipefail
+umask 077
+${failure ? 'awk() { return 42; }' : ''}
+mv() {
+  [[ "$(cat .env)" == ORIGINAL=synthetic ]] || exit 81
+  stat -c '%a' "$2" > staging-mode
+  command mv "$@"
+}
+${preparation}`
+        ],
+        {
+          cwd: root,
+          env: {
+            ...process.env,
+            PRODUCTION_ENV:
+              'SYNTHETIC_SECRET=fixture\nWEB_IMAGE=old-web\nAPI_IMAGE=old-api',
+            WEB_IMAGE: 'synthetic/web:' + sha,
+            API_IMAGE: 'synthetic/api:' + sha
+          },
+          encoding: 'utf8',
+          windowsHide: true
+        }
+      );
+    };
+    const success = run();
+    assert.equal(success.status, 0, success.stderr);
+    assert.equal(
+      readFileSync(path.join(root, '.env'), 'utf8'),
+      `SYNTHETIC_SECRET=fixture\nWEB_IMAGE=synthetic/web:${sha}\nAPI_IMAGE=synthetic/api:${sha}\n`
+    );
+    if (process.platform !== 'win32') {
+      assert.equal(
+        readFileSync(path.join(root, 'staging-mode'), 'utf8').trim(),
+        '600'
+      );
+    }
+    assert.notEqual(run(true).status, 0);
+    assert.equal(readFileSync(path.join(root, '.env'), 'utf8'), original);
+    assert.equal(
+      spawnSync(bash, ['-c', 'compgen -G ".env.deploy.*"'], {
+        cwd: root,
+        encoding: 'utf8',
+        windowsHide: true
+      }).status,
+      1
+    );
+  } finally {
+    assert.ok(path.resolve(root).startsWith(path.resolve(tmpdir()) + path.sep));
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('deployment executes only the chosen checkout and rejects mismatches before Docker', () => {
   assert.ok(bash, 'Bash is required to validate deployment scripts');
   const root = mkdtempSync(path.join(tmpdir(), 'og7-deploy-test-'));

@@ -1,10 +1,12 @@
 # Stripe webhooks, replay and backfill
 
-Commands run from the repository root. [Documentation index](../README.md).
+Root commands. [Index](../README.md).
 
 Live mode, production targets and backfill require the
 [high-risk procedure](../../AGENTS.md#risque-eleve), bounded scope and backup where needed.
 Read the [migration procedure](../operations/database-migrations.md) before migrations.
+
+[Checkout and recovery](checkout.md).
 
 ## Stripe webhook endpoint
 
@@ -20,6 +22,8 @@ Handled events:
 - `payment_intent.payment_failed`
 - `charge.updated` (late fee/net enrichment)
 - `charge.refunded`
+- `refund.updated`
+- `refund.failed`
 - `charge.dispute.created`
 - `payout.paid`
 - `payout.failed`
@@ -32,10 +36,13 @@ Behavior:
   processing can resume on redelivery, while concurrent deliveries receive
   `503` for retry and completed duplicates receive `200`.
 - Delayed failures cannot replace confirmed payment, dispute, or refund states.
+- Refund events reconcile current provider facts under a per-refund lock.
+  Missing invoices or financial contradictions keep the event failed; no sponsor
+  email is inferred. See [refund recovery](../operations/stripe-refund-integrity.md).
 - Sponsorship follow-up and invoice emails are queued for the email worker.
-- Optional `balance_transaction` retrieval to compute fee/net fields
+- `balance_transaction` retrieval to compute fee/net fields
 - For the fast launch, webhook deliveries are validated and acknowledged without local storage
-- Public statistics come from Stripe directly while `DATABASE_URL` remains unset
+- Statistics use Stripe while `DATABASE_URL` remains unset
 
 See [payment confirmation and recovery checks](../payment-trust-validation.md)
 for the UI behavior, refund totals, and isolated PostgreSQL/browser tests.

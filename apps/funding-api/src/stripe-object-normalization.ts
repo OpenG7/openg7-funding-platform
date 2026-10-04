@@ -87,3 +87,19 @@ export const buildBalanceData = (
     currency: balanceTransaction.currency
   };
 };
+
+/** Contributions retain the payment's minor units; settlement FX is unsupported. */
+export const buildContributionBalanceData = (
+  balanceTransaction: Stripe.BalanceTransaction | null,
+  amount: number,
+  currency: string
+): ReturnType<typeof buildBalanceData> => {
+  if (
+    balanceTransaction &&
+    (balanceTransaction.currency.toLowerCase() !== currency.toLowerCase() ||
+      balanceTransaction.amount !== amount)
+  ) {
+    throw new Error('Inconsistent contribution balance monetary facts.');
+  }
+  return buildBalanceData(balanceTransaction, amount, currency);
+};

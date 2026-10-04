@@ -188,6 +188,24 @@ test('webhook delivery remains disabled without explicit configuration and enfor
   );
 });
 
+test('operations HTTP exceptions are refused in platform production regardless of NODE_ENV', () => {
+  const env = {
+    FUNDING_PLATFORM_ENV: 'production',
+    FUNDING_OPERATIONS_WEBHOOK_URL: 'https://receiver.example.test/hook',
+    FUNDING_PUBLIC_BASE_URL: 'https://funding.example.test',
+    FUNDING_OPERATIONS_WEBHOOK_SECRET: 'synthetic-operations-secret-only-32'
+  };
+  for (const NODE_ENV of [undefined, 'test']) {
+    for (const overrides of [
+      { FUNDING_OPERATIONS_WEBHOOK_URL: 'http://127.0.0.1:8081/hook' },
+      { FUNDING_PUBLIC_BASE_URL: 'http://localhost:8080' }
+    ])
+      assert.throws(() =>
+        operationsAlertConfig({ ...env, NODE_ENV, ...overrides })
+      );
+  }
+});
+
 test('operations configuration rejects unsafe admin links and hides malformed URL credentials', () => {
   const env = {
     NODE_ENV: 'production',

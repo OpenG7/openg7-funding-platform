@@ -9,6 +9,9 @@ import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
 
+import { FundingHomeController } from '../dist/apps/funding-web/src/app/features/funding/services/funding-home-controller.js';
+import { CheckoutReconciliationRequiredError } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
+
 // The root build emits workspaces under dist/, without package-local builds.
 const workspaceHook = registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -94,7 +97,11 @@ test('Angular checkout preserves configuration, consent and localized return URL
         assert.equal(requests.length, 1);
         assert.equal(requests[0].url, apiBase + '/checkout-sessions');
         const request = JSON.parse(requests[0].options.body);
-        const { successUrl, cancelUrl, ...payload } = request;
+        const { idempotencyKey, successUrl, cancelUrl, ...payload } = request;
+        assert.match(
+          idempotencyKey,
+          /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i
+        );
         assert.deepEqual(payload, {
           amount: 125,
           currency: 'CAD',
@@ -139,7 +146,7 @@ test('SSR checkout uses safe return URLs and refuses a simulated payment', async
   });
 });
 
-test('checkout failures and mocked responses stay confined to exact local hosts', async (t) => {
+test('checkout failures remain errors on every host and explicit mocked responses stay local', async (t) => {
   for (const host of [
     'localhost',
     '127.0.0.1',
@@ -157,12 +164,13 @@ test('checkout failures and mocked responses stay confined to exact local hosts'
           if (failure === 'invalid-json') return new Response('invalid');
           return Response.json({ ...redirected, status: 'mocked' });
         });
-        if (host === 'localhost' || host === '127.0.0.1') {
+        if (
+          failure === 'mocked' &&
+          (host === 'localhost' || host === '127.0.0.1')
+        ) {
           const result = await service.startCheckout(25, consent);
           assert.equal(result.status, 'mocked');
           assert.equal('paymentStatus' in result, false);
-          if (failure !== 'mocked')
-            assert.equal(result.checkoutId, 'mock-openg7-25');
         } else {
           await assert.rejects(service.startCheckout(25, consent), {
             message: 'Checkout could not be started.'
@@ -171,6 +179,135 @@ test('checkout failures and mocked responses stay confined to exact local hosts'
       });
     }
   }
+});
+
+test('Angular Checkout retains one key across decoding failures, coalesces retries and rotates after a valid result', async (t) => {
+  const service = fixture(t, 'http://localhost/fonds-des-batisseurs');
+  const entries = new Map();
+  window.sessionStorage = {
+    getItem: (key) => entries.get(key) ?? null,
+    setItem: (key, value) => entries.set(key, value),
+    removeItem: (key) => entries.delete(key)
+  };
+  const requests = [];
+  let release;
+  let entered;
+  const enteredProvider = new Promise((resolve) => (entered = resolve));
+  t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    requests.push(JSON.parse(options.body));
+    if (requests.length === 1) return new Response('invalid');
+    if (requests.length === 2) return Response.json({});
+    if (requests.length === 3) {
+      entered();
+      return new Promise((resolve) => {
+        release = () => resolve(Response.json(redirected));
+      });
+    }
+    return Response.json(redirected);
+  });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await assert.rejects(service.startCheckout(25, consent), {
+      message: 'Checkout could not be started.'
+    });
+    assert.equal(entries.size, 1);
+  }
+  const first = service.startCheckout(25, consent);
+  const duplicate = service.startCheckout(25, { ...consent });
+  await enteredProvider;
+  assert.equal(requests.length, 3);
+  assert.equal(
+    new Set(requests.map((request) => request.idempotencyKey)).size,
+    1
+  );
+  release();
+  assert.deepEqual(await Promise.all([first, duplicate]), [
+    redirected,
+    redirected
+  ]);
+  assert.equal(entries.size, 0);
+  await service.startCheckout(25, consent);
+  assert.equal(requests.length, 4);
+  assert.notEqual(requests[3].idempotencyKey, requests[0].idempotencyKey);
+});
+
+test('reconciliation required passes from HTTP through Angular to the controller, retaining the attempt and preventing another submission', async (t) => {
+  const service = fixture(
+    t,
+    'https://funding.example.test/fonds-des-batisseurs'
+  );
+  const entries = new Map();
+  const storage = {
+    getItem: (key) => entries.get(key) ?? null,
+    setItem: (key, value) => entries.set(key, value),
+    removeItem: (key) => entries.delete(key)
+  };
+  window.sessionStorage = storage;
+  const requests = [];
+  t.mock.method(globalThis, 'fetch', async (_url, options) => {
+    requests.push(JSON.parse(options.body));
+    return Response.json(
+      {
+        code: 'CHECKOUT_RECONCILIATION_REQUIRED',
+        error: 'Synthetic private provider and storage details'
+      },
+      { status: 409 }
+    );
+  });
+  await assert.rejects(service.startCheckout(50, consent), (error) => {
+    assert.ok(error instanceof CheckoutReconciliationRequiredError);
+    assert.equal(error.code, 'CHECKOUT_RECONCILIATION_REQUIRED');
+    assert.equal(error.message.includes('private'), false);
+    return true;
+  });
+  const controller = new FundingHomeController({
+    funding: service,
+    transparency: {
+      getPublicTransparency: () => assert.fail('No financial refresh')
+    },
+    checkout: {
+      start: () => assert.fail('No payment confirmation'),
+      cancel: () => {},
+      dismiss: () => {}
+    },
+    config: { contributionAmounts: [25], currency: 'CAD', monthlyGoal: 100 },
+    isBrowser: () => true,
+    now: () => new Date('2026-10-04T12:00:00Z'),
+    navigate: () => assert.fail('No Checkout redirection'),
+    clearCheckoutReturn: () => {}
+  });
+  t.after(() => controller.dispose());
+  await controller.supportProject({ amount: 25, consent });
+  assert.equal(controller.loadingState(), 'error');
+  assert.equal(controller.checkoutRequiresVerification(), true);
+  assert.equal(controller.checkoutResultMode(), null);
+  assert.equal(controller.hasTransparencySnapshot(), false);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].amount, 50);
+  assert.equal(entries.size, 2);
+  assert.equal(
+    Object.values(JSON.parse(entries.get('openg7.checkout-attempts.v1')))[0],
+    requests[0].idempotencyKey
+  );
+  await controller.supportProject({ amount: 25, consent });
+  await controller.supportProject({ amount: 50, consent });
+  assert.equal(requests.length, 1);
+
+  const saved = [...entries];
+  const reloadedService = fixture(
+    t,
+    'https://funding.example.test/en/fonds-des-batisseurs'
+  );
+  window.sessionStorage = storage;
+  assert.equal(reloadedService.requiresCheckoutVerification(), true);
+  await assert.rejects(
+    reloadedService.startCheckout(25, {
+      ...consent,
+      publicDisplayName: 'Another synthetic name'
+    }),
+    CheckoutReconciliationRequiredError
+  );
+  assert.equal(requests.length, 1);
+  assert.deepEqual([...entries], saved);
 });
 
 test('Angular reference and follow-up requests preserve caller cancellation and private preview authentication', async (t) => {
