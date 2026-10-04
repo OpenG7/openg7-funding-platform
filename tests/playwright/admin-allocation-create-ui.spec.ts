@@ -290,6 +290,13 @@ for (const language of ['fr-CA', 'en']) {
       await expectDraft(form, english, published);
       expect(submissions).toHaveLength(0);
       await add.click();
+      await expect(dialog).toContainText(published.description);
+      await form
+        .getByLabel(fields(english).project, { exact: true })
+        .evaluate((input: HTMLInputElement) => {
+          input.value = 'Edited while confirming';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
       await page.locator('[data-og7="confirm-action"]').focus();
       await page.keyboard.press('Enter');
       await expect.poll(() => submissions.length).toBe(1);

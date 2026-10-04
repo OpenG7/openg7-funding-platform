@@ -348,6 +348,7 @@ for (const language of ['fr-CA', 'en']) {
         await expect.poll(() => exports.length).toBe(status === 200 ? 1 : 2);
         await expect(exportButton).toBeDisabled();
         await search.fill('Personne');
+        await search.fill('Entreprise');
         const completed = page.waitForResponse((response) =>
           new URL(response.url()).pathname.endsWith('/contributions.csv')
         );
