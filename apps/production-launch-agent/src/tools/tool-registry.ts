@@ -1,4 +1,9 @@
-import { AgentRole, ToolContext, ToolName, ToolResult } from '../types/index.js';
+import {
+  AgentRole,
+  ToolContext,
+  ToolName,
+  ToolResult
+} from '../types/index.js';
 
 type ToolHandler = (
   context: ToolContext,
@@ -159,7 +164,8 @@ const deploy: ToolHandler = (context) =>
 
     return {
       details: { after, before, build, pull, up },
-      message: up.code === 0 ? 'Déploiement terminé' : 'docker compose up a échoué',
+      message:
+        up.code === 0 ? 'Déploiement terminé' : 'docker compose up a échoué',
       success: up.code === 0
     };
   });
@@ -188,10 +194,18 @@ const rollback: ToolHandler = (context) =>
     }
 
     const build = await context.runCommand({ key: 'deploy_build' });
+    if (build.code !== 0) {
+      return {
+        details: { build, checkout, version },
+        message: 'docker compose build a échoué',
+        success: false
+      };
+    }
     const up = await context.runCommand({ key: 'deploy_up' });
     return {
       details: { build, checkout, up, version },
-      message: up.code === 0 ? `Rollback vers ${version}` : 'Rollback incomplet',
+      message:
+        up.code === 0 ? `Rollback vers ${version}` : 'Rollback incomplet',
       success: build.code === 0 && up.code === 0
     };
   });
@@ -213,7 +227,10 @@ export class ToolRegistry {
       minRole: 'viewer',
       run: commandTool('check_containers', 'check_containers')
     },
-    check_cpu: { minRole: 'viewer', run: commandTool('check_cpu', 'check_cpu') },
+    check_cpu: {
+      minRole: 'viewer',
+      run: commandTool('check_cpu', 'check_cpu')
+    },
     check_disk: {
       minRole: 'viewer',
       run: commandTool('check_disk', 'check_disk')

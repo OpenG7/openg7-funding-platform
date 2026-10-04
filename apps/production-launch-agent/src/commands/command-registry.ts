@@ -14,6 +14,7 @@ const forbiddenFragments = [
 const safePathPattern = /^\/[A-Za-z0-9._/@-]+$/;
 const safeDomainPattern = /^[A-Za-z0-9.-]+$/;
 const safeShaPattern = /^[a-f0-9]{7,40}$/;
+const unsafeHealthPathCharacters = /[^A-Za-z0-9._/-]/;
 
 export interface SafeCommand {
   readonly command: string;
@@ -28,6 +29,7 @@ export class CommandRegistry {
   ) {
     this.assertSafePath(appDir);
     this.assertSafeDomain(domain);
+    this.assertSafeHealthPath(healthPath);
   }
 
   create(request: CommandRequest): SafeCommand {
@@ -152,6 +154,12 @@ export class CommandRegistry {
   private assertSafeDomain(domain: string): void {
     if (!safeDomainPattern.test(domain)) {
       throw new Error(`Unsafe domain: ${domain}`);
+    }
+  }
+
+  private assertSafeHealthPath(path: string): void {
+    if (!path.startsWith('/') || unsafeHealthPathCharacters.test(path)) {
+      throw new Error('Unsafe health path.');
     }
   }
 

@@ -2,14 +2,24 @@ import { NodeSSH } from 'node-ssh';
 
 import { CommandResult, SshConfig } from '../types/index.js';
 
+interface SshClient {
+  connect(config: Parameters<NodeSSH['connect']>[0]): Promise<unknown>;
+  execCommand: NodeSSH['execCommand'];
+  dispose(): void;
+}
+
 export class SshService {
-  constructor(private readonly config: SshConfig) {}
+  constructor(
+    private readonly config: SshConfig,
+    private readonly createClient: () => SshClient = () => new NodeSSH()
+  ) {}
 
   async run(command: string): Promise<CommandResult> {
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= this.config.retries; attempt += 1) {
-      const ssh = new NodeSSH();
+      const ssh = this.createClient();
+      let executionStarted = false;
 
       try {
         await ssh.connect({
@@ -21,23 +31,32 @@ export class SshService {
           readyTimeout: this.config.readyTimeoutMs
         });
 
+        executionStarted = true;
         const result = await ssh.execCommand(command, {
           execOptions: {
             timeout: this.config.readyTimeoutMs
           }
         });
 
-        ssh.dispose();
-
         return {
           command,
-          code: result.code ?? 0,
+          code: result.signal ? 255 : (result.code ?? 255),
           stderr: result.stderr,
           stdout: result.stdout
         };
       } catch (error) {
-        ssh.dispose();
+        if (executionStarted) {
+          return {
+            command,
+            code: 255,
+            stderr:
+              'SSH command result is uncertain; reconcile the remote result before retrying.',
+            stdout: ''
+          };
+        }
         lastError = error;
+      } finally {
+        ssh.dispose();
       }
     }
 
