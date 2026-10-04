@@ -1,36 +1,10 @@
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
 import type { Pool } from 'pg';
 
-import { normalizeContributionPublicReference } from './contribution-public-reference.js';
-import {
-  buildBalanceData,
-  resolveBalanceTransaction,
-  resolvePaymentIntentId
-} from './stripe-object-normalization.js';
-import {
-  markSponsorshipFollowupEmailResult,
-  normalizeContributionType,
-  parseMetadataBoolean,
-  updateContributionStatusByPaymentIntent,
-  upsertCheckoutSessionFromWebhook
-} from './fund-contributions.repository.js';
-import {
-  queueSponsorshipInvoiceEmail,
-  queueSponsorshipFollowupEmail
-} from './email-notification.service.js';
-import {
-  insertFundTransaction,
-  updateContributionFundTransactionBalance
-} from './fund-transparency.repository.js';
-import { createSponsorshipInvoiceForStripeSession } from './sponsorship-invoices.repository.js';
 import { withStripeEventProcessing } from './stripe-events.repository.js';
 import { stripeEventBelongsToProject } from './stripe-project-scope.js';
-import { syncStripeChargeRefunds } from './stripe-refunds.service.js';
-import { hasContributionActivityForSession } from './contribution-activity.repository.js';
-import {
-  buildSponsorshipFollowupUrl,
-  sponsorshipFollowupLocaleFromUrl
-} from './sponsorship-followup-links.js';
+import { handleStripeCheckoutEvent } from './stripe-webhook/checkout-handlers.js';
+import { handleStripeFinancialEvent } from './stripe-webhook/financial-handlers.js';
 
 interface ProcessWebhookDependencies {
   readonly stripe: Stripe;
@@ -52,75 +26,6 @@ const allowedEvents = new Set([
   'payout.failed'
 ]);
 
-const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
-
-const toIsoFromUnix = (seconds: number): string =>
-  new Date(seconds * 1000).toISOString();
-
-const extractSponsorshipFollowupTokenFromUrl = (
-  value: string | null | undefined
-): string | null => {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const searchParams = new URL(value).searchParams;
-    const token =
-      searchParams.get('followup_token') ?? searchParams.get('token');
-    return token && sponsorshipFollowupTokenPattern.test(token) ? token : null;
-  } catch {
-    return null;
-  }
-};
-
-const extractSponsorshipFollowupTokenFromSession = (
-  session: Stripe.Checkout.Session
-): string | null => {
-  const tokenFromSuccessUrl = extractSponsorshipFollowupTokenFromUrl(
-    session.success_url
-  );
-  if (tokenFromSuccessUrl) {
-    return tokenFromSuccessUrl;
-  }
-
-  const legacyToken = session.metadata?.sponsorshipFollowupToken;
-  return legacyToken && sponsorshipFollowupTokenPattern.test(legacyToken)
-    ? legacyToken
-    : null;
-};
-
-const buildCheckoutSessionWebhookInput = (
-  session: Stripe.Checkout.Session,
-  status: 'pending' | 'paid' | 'expired'
-): Parameters<typeof upsertCheckoutSessionFromWebhook>[1] => {
-  const metadata = session.metadata ?? {};
-  const amountCents = session.amount_total ?? 0;
-  const paidAtIso = status === 'paid' ? toIsoFromUnix(session.created) : null;
-
-  return {
-    stripeSessionId: session.id,
-    stripePaymentIntentId: resolvePaymentIntentId(session.payment_intent),
-    publicReference: normalizeContributionPublicReference(
-      metadata.publicReference ?? session.client_reference_id
-    ),
-    contributionType: normalizeContributionType(metadata.contributionType),
-    amountCents,
-    currency: session.currency ?? 'cad',
-    metadata,
-    publicDisplayConsent: parseMetadataBoolean(metadata.publicDisplayConsent),
-    publicName: metadata.publicDisplayName ?? null,
-    displayAmountConsent: parseMetadataBoolean(metadata.displayAmountConsent),
-    nonCharityAcknowledged: parseMetadataBoolean(
-      metadata.nonCharityAcknowledged
-    ),
-    sponsorshipFollowupTokenHash: metadata.sponsorshipFollowupTokenHash ?? null,
-    status,
-    paidAtIso,
-    emailPrivate: session.customer_details?.email ?? null
-  };
-};
-
 const processVerifiedStripeEvent = async (
   event: Stripe.Event,
   dependencies: ProcessWebhookDependencies
@@ -128,302 +33,26 @@ const processVerifiedStripeEvent = async (
   readonly statusCode: number;
   readonly payload: Record<string, unknown>;
 }> => {
-  const { stripe, pool, publicBaseUrl } = dependencies;
-
-  const acknowledge = async (
-    payload: Record<string, unknown>
-  ): Promise<{
-    readonly statusCode: number;
-    readonly payload: Record<string, unknown>;
-  }> => {
+  if (!allowedEvents.has(event.type)) {
     return {
       statusCode: 200,
-      payload
+      payload: { received: true, ignored: true, type: event.type }
     };
-  };
-
-  if (!allowedEvents.has(event.type)) {
-    return acknowledge({
-      received: true,
-      ignored: true,
-      type: event.type
-    });
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const status = session.payment_status === 'paid' ? 'paid' : 'pending';
-    const sessionMetadata = session.metadata ?? {};
-    const updated = await upsertCheckoutSessionFromWebhook(pool, {
-      ...buildCheckoutSessionWebhookInput(session, status),
-      notifyAdmin: true
-    });
-    const isSponsorship =
-      normalizeContributionType(sessionMetadata.contributionType) ===
-      'sponsorship_interest';
-    const followupToken = extractSponsorshipFollowupTokenFromSession(session);
-    const followupEmail = session.customer_details?.email;
-    const publicReference = normalizeContributionPublicReference(
-      sessionMetadata.publicReference ?? session.client_reference_id
-    );
-    let followupEmailSent = false;
-    let sponsorshipInvoiceEmailSent = false;
-
-    if (
-      status === 'paid' &&
-      isSponsorship &&
-      pool &&
-      followupToken &&
-      followupEmail &&
-      (await hasContributionActivityForSession(pool, session.id))
-    ) {
-      const followupUrl = buildSponsorshipFollowupUrl(
-        publicBaseUrl,
-        followupToken,
-        sponsorshipFollowupLocaleFromUrl(session.success_url)
-      );
-      const sendResult = await queueSponsorshipFollowupEmail(pool, {
-        idempotencyKey: `stripe-session:${session.id}:sponsorship-followup`,
-        deferDelivery: true,
-        to: followupEmail,
-        publicReference,
-        followupUrl
-      });
-      followupEmailSent = sendResult.sent;
-
-      await markSponsorshipFollowupEmailResult(pool, {
-        stripeSessionId: session.id,
-        sentAtIso: sendResult.sent ? new Date().toISOString() : undefined,
-        error: sendResult.sent ? null : sendResult.error
-      });
-
-      const invoice = await createSponsorshipInvoiceForStripeSession(pool, {
-        stripeSessionId: session.id,
-        stripePaymentIntentId: resolvePaymentIntentId(session.payment_intent),
-        publicReference,
-        amountCents: session.amount_total ?? 0,
-        currency: session.currency ?? 'cad',
-        paidAtIso: toIsoFromUnix(session.created),
-        customerEmail: followupEmail
-      });
-
-      if (invoice) {
-        const invoiceResult = await queueSponsorshipInvoiceEmail(pool, {
-          idempotencyKey: `stripe-session:${session.id}:sponsorship-invoice`,
-          deferDelivery: true,
-          to: followupEmail,
-          invoice,
-          followupUrl
+  const payload =
+    event.type === 'checkout.session.completed' ||
+    event.type === 'checkout.session.expired'
+      ? await handleStripeCheckoutEvent(event, {
+          pool: dependencies.pool,
+          publicBaseUrl: dependencies.publicBaseUrl
+        })
+      : await handleStripeFinancialEvent(event, {
+          stripe: dependencies.stripe,
+          pool: dependencies.pool,
+          projectId: dependencies.projectId
         });
-        sponsorshipInvoiceEmailSent = invoiceResult.sent;
-      }
-    }
-
-    return acknowledge({
-      received: true,
-      updated,
-      followupEmailSent,
-      sponsorshipInvoiceEmailSent
-    });
-  }
-
-  if (event.type === 'checkout.session.expired') {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const updated = await upsertCheckoutSessionFromWebhook(pool, {
-      ...buildCheckoutSessionWebhookInput(session, 'expired'),
-      notifyAdmin: true
-    });
-
-    return acknowledge({
-      received: true,
-      updated
-    });
-  }
-
-  if (event.type === 'payment_intent.succeeded') {
-    const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    const statusUpdated = await updateContributionStatusByPaymentIntent(pool, {
-      notifyAdmin: true,
-      stripePaymentIntentId: paymentIntent.id,
-      status: 'paid',
-      paidAtIso: toIsoFromUnix(paymentIntent.created)
-    });
-
-    const chargeId =
-      typeof paymentIntent.latest_charge === 'string'
-        ? paymentIntent.latest_charge
-        : paymentIntent.latest_charge?.id;
-
-    const charge = chargeId
-      ? await stripe.charges.retrieve(chargeId, {
-          expand: ['balance_transaction']
-        })
-      : null;
-
-    const balanceData = buildBalanceData(
-      await resolveBalanceTransaction(stripe, charge?.balance_transaction),
-      paymentIntent.amount_received || paymentIntent.amount,
-      paymentIntent.currency
-    );
-
-    const inserted = await insertFundTransaction(pool, {
-      stripeEventId: event.id,
-      stripeObjectId: paymentIntent.id,
-      stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
-      type: event.type,
-      amount: paymentIntent.amount_received || paymentIntent.amount,
-      fee: balanceData.fee,
-      net: balanceData.net,
-      currency: balanceData.currency,
-      status: paymentIntent.status,
-      createdAtIso: toIsoFromUnix(paymentIntent.created),
-      publicCategory: 'contribution',
-      metadataJson: {
-        source: 'stripe',
-        project:
-          paymentIntent.metadata.project ??
-          paymentIntent.metadata.projectId ??
-          dependencies.projectId,
-        eventType: event.type
-      }
-    });
-
-    return acknowledge({
-      received: true,
-      inserted,
-      statusUpdated
-    });
-  }
-
-  if (event.type === 'payment_intent.payment_failed') {
-    const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    const publicReference = normalizeContributionPublicReference(
-      paymentIntent.metadata.publicReference
-    );
-    const updated = await updateContributionStatusByPaymentIntent(pool, {
-      stripePaymentIntentId: paymentIntent.id,
-      ...(publicReference
-        ? {
-            checkoutMatch: {
-              publicReference,
-              amountCents: paymentIntent.amount,
-              currency: paymentIntent.currency
-            }
-          }
-        : {}),
-      status: 'failed'
-    });
-
-    return acknowledge({
-      received: true,
-      updated
-    });
-  }
-
-  if (event.type === 'charge.updated') {
-    const charge = event.data.object as Stripe.Charge;
-    const paymentIntentId = resolvePaymentIntentId(charge.payment_intent);
-    const balanceTransaction = await resolveBalanceTransaction(
-      stripe,
-      charge.balance_transaction
-    );
-
-    if (!paymentIntentId || !balanceTransaction) {
-      return acknowledge({
-        received: true,
-        updated: false,
-        hasBalanceTransaction: Boolean(balanceTransaction)
-      });
-    }
-
-    const balanceData = buildBalanceData(
-      balanceTransaction,
-      charge.amount,
-      charge.currency
-    );
-    const updated = await updateContributionFundTransactionBalance(pool, {
-      stripePaymentIntentId: paymentIntentId,
-      stripeBalanceTransactionId: balanceTransaction.id,
-      amount: balanceData.amount,
-      fee: balanceData.fee,
-      net: balanceData.net,
-      currency: balanceData.currency,
-      status: charge.status
-    });
-
-    return acknowledge({
-      received: true,
-      updated
-    });
-  }
-
-  if (event.type === 'charge.refunded') {
-    const charge = event.data.object as Stripe.Charge;
-    const paymentIntentId = resolvePaymentIntentId(charge.payment_intent);
-    const result = await syncStripeChargeRefunds(stripe, pool, charge, {
-      paymentIntentId,
-      source: 'stripe',
-      eventId: event.id
-    });
-    return acknowledge({
-      received: true,
-      inserted: result.inserted > 0,
-      statusUpdated: result.statusUpdated
-    });
-  }
-
-  if (event.type === 'charge.dispute.created') {
-    const dispute = event.data.object as Stripe.Dispute;
-    const paymentIntentId = resolvePaymentIntentId(dispute.payment_intent);
-    const updated = paymentIntentId
-      ? await updateContributionStatusByPaymentIntent(pool, {
-          stripePaymentIntentId: paymentIntentId,
-          status: 'disputed'
-        })
-      : false;
-
-    return acknowledge({
-      received: true,
-      updated
-    });
-  }
-
-  if (event.type === 'payout.paid' || event.type === 'payout.failed') {
-    const payout = event.data.object as Stripe.Payout;
-    const balanceData = buildBalanceData(
-      await resolveBalanceTransaction(stripe, payout.balance_transaction),
-      payout.amount,
-      payout.currency
-    );
-
-    const inserted = await insertFundTransaction(pool, {
-      stripeEventId: event.id,
-      stripeObjectId: payout.id,
-      stripeBalanceTransactionId: balanceData.stripeBalanceTransactionId,
-      type: event.type,
-      amount: payout.amount,
-      fee: balanceData.fee,
-      net: balanceData.net,
-      currency: balanceData.currency,
-      status: payout.status,
-      createdAtIso: toIsoFromUnix(payout.created),
-      publicCategory: 'payout',
-      metadataJson: {
-        source: 'stripe',
-        eventType: event.type
-      }
-    });
-
-    return acknowledge({
-      received: true,
-      inserted
-    });
-  }
-
-  return acknowledge({
-    received: true,
-    ignored: true
-  });
+  return { statusCode: 200, payload };
 };
 
 export const processStripeWebhook = async (

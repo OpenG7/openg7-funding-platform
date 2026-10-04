@@ -10,6 +10,39 @@ export const resolvePaymentIntentId = (
   return typeof value === 'string' ? value : value.id;
 };
 
+export const resolvePaymentIntent = async (
+  stripe: Stripe,
+  value: string | Stripe.PaymentIntent | null | undefined
+): Promise<Stripe.PaymentIntent | null> => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    return stripe.paymentIntents.retrieve(value, {
+      expand: ['latest_charge.balance_transaction']
+    });
+  }
+
+  return value;
+};
+
+export const resolveCharge = async (
+  stripe: Stripe,
+  value: string | Stripe.Charge | null | undefined,
+  options: Stripe.ChargeRetrieveParams
+): Promise<Stripe.Charge | null> => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    return stripe.charges.retrieve(value, options);
+  }
+
+  return value;
+};
+
 export const resolveBalanceTransaction = async (
   stripe: Stripe,
   value: string | Stripe.BalanceTransaction | null | undefined
