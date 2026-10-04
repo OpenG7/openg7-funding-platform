@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-// Preserve source coverage across the page and its extracted publication panels.
+// Preserve source coverage across the page, its panels and local workflows.
 // Actual interactions are covered by admin-publication-queue.spec.ts.
 export const readAdminPublicationsSource = () => {
   const root =
@@ -9,6 +9,9 @@ export const readAdminPublicationsSource = () => {
     'admin-publications-page.component.ts',
     'admin-publications-page.component.html',
     'publication-panels.helpers.ts',
+    'panels/admin-publication-drafts-workflow.ts',
+    'panels/admin-publication-batches-workflow.ts',
+    'panels/admin-publication-slots-workflow.ts',
     ...['drafts', 'batches', 'slots'].flatMap((name) =>
       ['ts', 'html'].map(
         (extension) =>

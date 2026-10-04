@@ -67,10 +67,24 @@ export function registerBatchPanelTests(): void {
       { channel: 'linkedin', capacity: 7 },
       { channel: 'linkedin', capacity: 7 }
     ]);
+    await form
+      .getByRole('combobox', { name: 'Canal', exact: true })
+      .selectOption('facebook');
+    await form.getByLabel('Capacite', { exact: true }).fill('11');
     release();
     await expect(form).toHaveCount(0);
     await expect(page.locator('#attention-object-created')).toBeFocused();
     await expect(page.locator('#attention-object-created')).toContainText('7');
+    await page.keyboard.press('Escape');
+    await page
+      .getByRole('button', { name: 'Nouveau lot', exact: true })
+      .click();
+    await expect(
+      form.getByRole('combobox', { name: 'Canal', exact: true })
+    ).toHaveValue('facebook');
+    await expect(form.getByLabel('Capacite', { exact: true })).toHaveValue(
+      '11'
+    );
   });
 
   test('batch schedule edits survive workspace changes, refresh and a failed request before retry', async ({
@@ -161,4 +175,90 @@ export function registerBatchPanelTests(): void {
     await expect(editor).toBeVisible();
     expect(mutations).toEqual([]);
   });
+
+  for (const action of [
+    {
+      endpoint: 'publish',
+      label: 'Marquer comme publiée manuellement',
+      message: 'Confirmer la publication de cet élément ?',
+      status: 'published' as const
+    },
+    {
+      endpoint: 'cancel',
+      label: 'Annuler le lot',
+      message: 'Annuler cette publication ?',
+      status: 'cancelled' as const
+    }
+  ]) {
+    test(`batch ${action.endpoint} requires confirmation and waits for the server before refresh`, async ({
+      page
+    }) => {
+      const records = [batch('first', '2030-06-03T14:00:00Z')];
+      const unhandledMutations = await fixtures(page, records);
+      const writes: Record<string, unknown>[] = [];
+      let reads = 0;
+      await page.route('**/api/admin/publication-batches**', (route) => {
+        if (route.request().method() === 'GET') reads += 1;
+        return route.fallback();
+      });
+      let release!: () => void;
+      const response = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route(
+        '**/api/admin/publication-batches/' + action.endpoint,
+        async (route) => {
+          writes.push(route.request().postDataJSON());
+          await response;
+          records[0] = { ...records[0], status: action.status };
+          return route.fulfill({
+            json: {
+              [action.endpoint === 'publish' ? 'published' : 'cancelled']: true,
+              batch: records[0]
+            }
+          });
+        }
+      );
+      await page.goto('/admin/fundraiser/publications/batches?batchId=first');
+      const editor = page.locator('#attention-object-first');
+      await expect(editor).toBeVisible();
+      await editor.getByText('Autres actions', { exact: true }).click();
+      const trigger = editor.getByRole('button', {
+        name: action.label,
+        exact: true
+      });
+      await trigger.click();
+      const confirmation = page.getByRole('dialog', {
+        name: 'Confirmer l’action',
+        exact: true
+      });
+      await expect(confirmation).toContainText(action.message);
+      await expect(confirmation).toContainText('first');
+      expect(writes).toEqual([]);
+      await confirmation
+        .getByRole('button', { name: 'Annuler', exact: true })
+        .last()
+        .click();
+      await expect(confirmation).not.toBeVisible();
+      await expect(trigger).toBeFocused();
+      expect(writes).toEqual([]);
+      const readsBeforeMutation = reads;
+      await trigger.click();
+      await confirmation
+        .getByRole('button', { name: 'Confirmer', exact: true })
+        .click();
+      await expect.poll(() => writes.length).toBe(1);
+      await expect(trigger).toBeDisabled();
+      expect(writes).toEqual([{ batchId: 'first' }]);
+      expect(reads).toBe(readsBeforeMutation);
+      await expect(
+        editor.getByLabel('Prochaine disponibilite', { exact: true })
+      ).toBeVisible();
+      release();
+      await expect.poll(() => reads).toBeGreaterThan(readsBeforeMutation);
+      await expect(trigger).toHaveCount(0);
+      await expect(editor).toBeVisible();
+      expect(unhandledMutations).toEqual([]);
+    });
+  }
 }

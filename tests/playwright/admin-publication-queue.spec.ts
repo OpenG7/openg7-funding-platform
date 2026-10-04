@@ -533,6 +533,56 @@ test('requires an admin session when opening a dedicated publication page', asyn
   await expect(page.locator('[data-og7="publications-page"]')).toHaveCount(0);
 });
 
+for (const status of [401, 403]) {
+  test(`a ${status} draft mutation keeps unsaved input and reports failure without a retry or success`, async ({
+    page
+  }) => {
+    const record = {
+      ...draft,
+      status: 'draft' as const,
+      batch_id: null,
+      slot_id: null,
+      scheduled_at: null
+    };
+    await fixtures(page, batches, [record]);
+    const writes: Record<string, unknown>[] = [];
+    let reads = 0;
+    await page.route('**/api/admin/publication-drafts**', (route) => {
+      if (route.request().method() === 'GET') {
+        reads++;
+        return route.fulfill({ json: { drafts: [record] } });
+      }
+      writes.push(route.request().postDataJSON());
+      return route.fulfill({ status, json: {} });
+    });
+    await page.goto('/admin/fundraiser/publications/drafts');
+    const card = page.locator('#attention-object-draft-first');
+    await card.getByRole('button', { name: 'Ouvrir', exact: true }).click();
+    const title = card.getByLabel('Titre', { exact: true });
+    await title.fill('Révision privée à conserver');
+    const save = card.getByRole('button', {
+      name: 'Enregistrer',
+      exact: true
+    });
+    await save.click();
+    await expect(page.getByRole('alert')).toContainText(
+      'Impossible de charger'
+    );
+    await expect(title).toHaveValue('Révision privée à conserver');
+    await expect(
+      card.getByText('Modifications non enregistrées')
+    ).toBeVisible();
+    await expect(save).toBeEnabled();
+    await expect(
+      page.getByText('Brouillon enregistré.', { exact: true })
+    ).toHaveCount(0);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]?.draftId).toBe(record.id);
+    expect(writes[0]?.title).toBe('Révision privée à conserver');
+    expect(reads).toBe(1);
+  });
+}
+
 test('calendar places batches by Toronto date, navigates months and filters channels', async ({
   page
 }, testInfo) => {

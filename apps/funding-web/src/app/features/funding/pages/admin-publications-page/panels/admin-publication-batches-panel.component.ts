@@ -36,6 +36,8 @@ import {
   publicationValueFromEvent
 } from '../publication-panels.helpers.js';
 
+import { AdminPublicationBatchesWorkflow } from './admin-publication-batches-workflow.js';
+
 /** Funding organism: collective publication editing; shared loading belongs to the page. */
 @Component({
   selector: 'openg7-admin-publication-batches-panel',
@@ -111,73 +113,41 @@ export class AdminPublicationBatchesPanelComponent {
     return jobs;
   });
 
-  async createBatch(): Promise<void> {
-    if (this.batchActionState()) return;
-    const capacity = Number.parseInt(this.newBatchCapacity(), 10);
-    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 50) {
-      this.failed.emit();
-      return;
-    }
+  private readonly workflow = new AdminPublicationBatchesWorkflow({
+    api: this.admin,
+    state: {
+      batchActionState: this.batchActionState,
+      newBatchChannel: this.newBatchChannel,
+      newBatchCapacity: this.newBatchCapacity,
+      newBatchOpen: this.newBatchOpen,
+      selectedBatchId: this.selectedBatchId
+    },
+    token: () => this.adminToken(),
+    reload: () => this.reload()(),
+    confirm: (action, target) =>
+      this.confirmation.confirm(
+        this.i18n.t(
+          action === 'publish'
+            ? 'admin.confirmation.publish'
+            : 'admin.confirmation.cancelPublication'
+        ),
+        target
+      ),
+    failed: () => this.failed.emit(),
+    focusRequested: (id) => this.focusRequested.emit(id),
+    scheduleFor: (id) => this.batchScheduleFor(id)
+  });
 
-    this.batchActionState.set('create');
-    try {
-      const result = await this.admin.createPublicationBatch(
-        this.adminToken(),
-        {
-          channel: this.newBatchChannel(),
-          capacity
-        }
-      );
-      this.newBatchOpen.set(false);
-      this.selectedBatchId.set(result.batch?.id ?? null);
-      await this.reload()();
-      if (result.batch) this.focusRequested.emit(result.batch.id);
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.batchActionState.set(null);
-    }
+  createBatch(): Promise<void> {
+    return this.workflow.createBatch();
   }
 
-  async scheduleBatch(batch: AdminPublicationBatchRecord): Promise<void> {
-    if (this.batchActionState()) return;
-    const scheduledAt = this.batchScheduleFor(batch.id);
-    if (!scheduledAt) return;
-
-    this.batchActionState.set(batch.id);
-    try {
-      await this.admin.schedulePublicationBatch(this.adminToken(), {
-        batchId: batch.id,
-        scheduledAt: new Date(scheduledAt).toISOString()
-      });
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.batchActionState.set(null);
-    }
+  scheduleBatch(batch: AdminPublicationBatchRecord): Promise<void> {
+    return this.workflow.scheduleBatch(batch);
   }
 
-  async publishBatch(batch: AdminPublicationBatchRecord): Promise<void> {
-    if (this.batchActionState()) return;
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.publish'),
-        batch.id
-      ))
-    )
-      return;
-    this.batchActionState.set(batch.id);
-    try {
-      await this.admin.publishPublicationBatch(this.adminToken(), {
-        batchId: batch.id
-      });
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.batchActionState.set(null);
-    }
+  publishBatch(batch: AdminPublicationBatchRecord): Promise<void> {
+    return this.workflow.publishBatch(batch);
   }
 
   publishSocialBatch(batch: AdminPublicationBatchRecord): void {
@@ -190,26 +160,8 @@ export class AdminPublicationBatchesPanelComponent {
     });
   }
 
-  async cancelBatch(batch: AdminPublicationBatchRecord): Promise<void> {
-    if (this.batchActionState()) return;
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.cancelPublication'),
-        batch.id
-      ))
-    )
-      return;
-    this.batchActionState.set(batch.id);
-    try {
-      await this.admin.cancelPublicationBatch(this.adminToken(), {
-        batchId: batch.id
-      });
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.batchActionState.set(null);
-    }
+  cancelBatch(batch: AdminPublicationBatchRecord): Promise<void> {
+    return this.workflow.cancelBatch(batch);
   }
 
   setNewBatchChannel(event: Event): void {
