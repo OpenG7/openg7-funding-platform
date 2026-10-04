@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-// Preserve historical source-contract checks across HTTP adapter extractions.
+// Preserve historical source-contract checks across HTTP and helper extractions.
 // Multipart, logo validation and rate limiting have direct behavior tests.
 export const readFundingApiSource = () => {
   const root = 'apps/funding-api/src/';
@@ -8,6 +8,15 @@ export const readFundingApiSource = () => {
     'main.ts',
     'api-runtime-config.ts',
     'admin-authorization.ts',
+    'business-helpers/contribution-reference.ts',
+    'business-helpers/sponsorship-followup.ts',
+    'business-helpers/checkout.ts',
+    'business-helpers/media-exposure.ts',
+    'business-helpers/request-validation.ts',
+    'business-helpers/http-errors.ts',
+    'business-helpers/admin-setup.ts',
+    'business-helpers/assistant-audit.ts',
+    'business-helpers/development-results.ts',
     'api-background-workers.ts',
     'public-payments.http.ts',
     'public-references.http.ts',
