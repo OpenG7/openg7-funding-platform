@@ -1178,14 +1178,22 @@ test('Sponsorship follow-up endpoints are token based and do not require Stripe 
 
 test('Sponsorship follow-up refreshes pending payment status from Stripe before editable actions', () => {
   const source = readFundingApiSource();
+  const followupHelpers = fs.readFileSync(
+    'apps/funding-api/src/business-helpers/sponsorship-followup.ts',
+    'utf8'
+  );
+  const checkoutHelpers = fs.readFileSync(
+    'apps/funding-api/src/business-helpers/checkout.ts',
+    'utf8'
+  );
   const refreshBody = extractBetween(
-    source,
+    followupHelpers,
     'const refreshSponsorshipFollowupPaymentStatus',
     'const getFreshSponsorshipFollowupByToken',
     'sponsorship follow-up payment refresh'
   );
   const statusBody = extractBetween(
-    source,
+    checkoutHelpers,
     'const stripeCheckoutSessionStatus',
     'const checkoutSessionPaidAtIso',
     'sponsorship checkout session status'

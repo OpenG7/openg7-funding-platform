@@ -1,25 +1,11 @@
-import { createHash, randomBytes } from 'node:crypto';
 import {
   createServer,
   type IncomingMessage,
   type ServerResponse
 } from 'node:http';
 
-import type {
-  AdminSetupStatusResponse,
-  AdminSponsorshipStripeRefundReason,
-  CheckoutRequest,
-  CheckoutResult,
-  ContributionType,
-  SponsorFeedChannel,
-  SponsorFeedTarget
-} from '@openg7/funding-core';
+import type { SponsorFeedChannel } from '@openg7/funding-core';
 import Stripe from 'stripe';
-
-import {
-  isSponsorshipEmail,
-  isSponsorshipHttpsUrl
-} from '../../../packages/funding-core/src/index.js';
 
 import { createAdminAccountingHttpHandler } from './admin-accounting.http.js';
 import { createAdminAuditHttpHandler } from './admin-audit.http.js';
@@ -101,7 +87,6 @@ import {
   parseWorkQueueQuery
 } from './admin-work-queue.service.js';
 import { ContributionActivityService } from './contribution-activity.service.js';
-import { normalizeContributionPublicReference } from './contribution-public-reference.js';
 import {
   BackupError,
   backupStatus,
@@ -158,7 +143,6 @@ import {
 import {
   allowedSponsorFeedChannels,
   allowedSponsorFeedStatuses,
-  allowedSponsorFeedTargets,
   allowedSponsorshipReviewStatuses,
   clearSponsorshipLogoUrl,
   getAdminDashboard,
@@ -173,16 +157,13 @@ import {
   listContributionReferencesByEmail,
   listPublicSponsorships,
   lookupPublicContributionReference,
-  normalizeContributionType,
-  parseMetadataBoolean,
   recordSponsorshipDetails,
   updateContributionStatusByPaymentIntent,
   updateSponsorshipLogoUrl,
   updateSponsorshipPublication,
   updateSponsorshipRefundWorkflowStatus,
   updateSponsorshipReview,
-  upsertCheckoutSessionFromWebhook,
-  type SponsorshipFollowupLookup
+  upsertCheckoutSessionFromWebhook
 } from './fund-contributions.repository.js';
 import {
   getPublicTransparencySummary,
@@ -200,13 +181,9 @@ import { createPublicSponsorMediaHttpHandler } from './public-sponsor-media.http
 import { createPublicTransparencyCache } from './public-transparency-cache.js';
 import { PublicationAutomationError } from './publication-automation/policy.js';
 import { PublicationAutomationService } from './publication-automation/service.js';
-import {
-  getTransactionalEmailConfigStatus,
-  isValidEmailAddress
-} from './services/email/index.js';
+import { getTransactionalEmailConfigStatus } from './services/email/index.js';
 import { configuredSocialPublicationChannels } from './social-publication.service.js';
 import { processSponsorImage } from './sponsor-image.service.js';
-import { SPONSOR_LOGO_FILENAME_PATTERN } from './sponsor-logo-upload.js';
 import {
   createSponsorLogoStorage,
   createSponsorMediaStorage
@@ -218,8 +195,7 @@ import {
   getApprovedPublicSponsorMedia,
   getSponsorMediaStorageRecord,
   listSponsorMediaAssets,
-  reviewSponsorMediaAsset,
-  type SponsorMediaStorageRecord
+  reviewSponsorMediaAsset
 } from './sponsor-media.repository.js';
 import {
   getSponsorshipAccessRecipient,
@@ -266,6 +242,60 @@ import {
 } from './sponsorship-website.service.js';
 import { getStripePublicTransparencySummary } from './stripe-transparency.service.js';
 import { processStripeWebhook } from './stripe-webhook.service.js';
+import { createAdminSetupHelpers } from './business-helpers/admin-setup.js';
+import { createAssistantAuditRecorder } from './business-helpers/assistant-audit.js';
+import {
+  buildContributionReceiptDescription,
+  createContributionPublicReference,
+  createContributionReferenceHelpers,
+  createReferenceRecoveryIdempotencyKey,
+  normalizeReferenceRecoveryEmail
+} from './business-helpers/contribution-reference.js';
+import {
+  createDevelopmentCheckoutResult,
+  createDevelopmentRefundResult
+} from './business-helpers/development-results.js';
+import {
+  createHttpErrorHelpers,
+  sponsorshipRefundConfirmationText
+} from './business-helpers/http-errors.js';
+import {
+  createMediaExposureHelpers,
+  sponsorLogoPublicUrlForFilename,
+  sponsorMediaPublicKey
+} from './business-helpers/media-exposure.js';
+import {
+  ADMIN_REVIEW_NOTE_MAX_LENGTH,
+  PUBLIC_DISPLAY_NAME_MAX_LENGTH,
+  SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH,
+  SPONSOR_MESSAGE_MAX_LENGTH,
+  SPONSOR_TEXT_MAX_LENGTH,
+  amountToCents,
+  createRequestValidationHelpers,
+  hasOnlyKeys,
+  isAllowedSponsorFeedChannel,
+  isAllowedSponsorFeedTarget,
+  isAllowedSponsorshipStripeRefundReason,
+  isBoolean,
+  isNonEmptySponsorText,
+  isValidAdminExpectedVersion,
+  isValidOptionalBoundedText,
+  isValidOptionalHttpsUrl,
+  isValidOptionalIsoDate,
+  isValidOptionalNonEmptyBoundedText,
+  isValidSponsorEmail,
+  isValidUuid,
+  normalizeAmount,
+  truncateStripeMetadataValue
+} from './business-helpers/request-validation.js';
+import {
+  createSponsorshipFollowupHelpers,
+  createSponsorshipFollowupToken,
+  followupEditablePaymentStatuses,
+  hashSponsorshipFollowupToken,
+  isValidFollowupToken
+} from './business-helpers/sponsorship-followup.js';
+import { resolvePaymentIntentId as resolveStripePaymentIntentId } from './stripe-object-normalization.js';
 
 const startupConfig = loadApiRuntimeConfig();
 const {
@@ -391,490 +421,39 @@ const enforceRequestRateLimit = createRequestRateLimit(
   writeJson
 );
 
-const normalizeAmount = (amount: number): number =>
-  Number(Number(amount).toFixed(2));
-
-const amountToCents = (amount: number): number => Math.round(amount * 100);
-
-const isAllowedContributionType = (
-  contributionType: unknown
-): contributionType is ContributionType =>
-  typeof contributionType === 'string' &&
-  allowedContributionTypes.has(contributionType as ContributionType);
-
-const isBoolean = (value: unknown): value is boolean =>
-  typeof value === 'boolean';
-
-const SPONSOR_TEXT_MAX_LENGTH = 200;
-const SPONSOR_MESSAGE_MAX_LENGTH = 1000;
-const SPONSOR_URL_MAX_LENGTH = 2048;
-const STRIPE_METADATA_VALUE_MAX_LENGTH = 480;
-const PUBLIC_DISPLAY_NAME_MAX_LENGTH = 100;
-const ADMIN_REVIEW_NOTE_MAX_LENGTH = 1000;
-const FOLLOWUP_TOKEN_BYTES = 32;
-const CONTRIBUTION_REFERENCE_BYTES = 6;
-const CONTRIBUTION_REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const SPONSOR_LOGO_PUBLIC_PATH_PREFIX = '/api/public/sponsor-logos/';
-const SPONSOR_MEDIA_PUBLIC_PATH_PREFIX = '/api/public/sponsor-media/';
-const SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH = 300;
-const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
-const followupEditablePaymentStatuses = new Set([
-  'paid',
-  'refunded',
-  'disputed'
-]);
-const allowedSponsorshipStripeRefundReasons =
-  new Set<AdminSponsorshipStripeRefundReason>([
-    'requested_by_customer',
-    'duplicate',
-    'fraudulent'
-  ]);
-
-const isNonEmptySponsorText = (
-  value: unknown,
-  maxLength: number
-): value is string =>
-  typeof value === 'string' &&
-  value.trim().length > 0 &&
-  value.trim().length <= maxLength;
-
-const isValidSponsorEmail = (value: unknown): value is string =>
-  isSponsorshipEmail(value, SPONSOR_TEXT_MAX_LENGTH);
-
-const hasOnlyKeys = (value: unknown, keys: readonly string[]): boolean =>
-  value !== null &&
-  typeof value === 'object' &&
-  !Array.isArray(value) &&
-  Object.keys(value).every((key) => keys.includes(key));
-
-const isValidOptionalHttpsUrl = (value: unknown): boolean => {
-  if (value === undefined || value === null || value === '') {
-    return true;
+const { isAllowedContributionType } = createRequestValidationHelpers({
+  allowedContributionTypes
+});
+const { buildContributionCheckoutSuccessUrl } =
+  createContributionReferenceHelpers({ publicBaseOrigin });
+const {
+  getSponsorLogoFilenameFromUrl,
+  deleteControlledSponsorLogoFile,
+  sponsorMediaPublicUrl,
+  routeAssetId,
+  deleteSponsorMediaObjects
+} = createMediaExposureHelpers({
+  publicBaseOrigin,
+  sponsorLogoStorage,
+  sponsorMediaStorage,
+  reportWarning: (message, details) => console.warn(message, details)
+});
+const {
+  writeSponsorMediaMutationFailure,
+  writeSponsorshipMutationFailure,
+  writeSponsorshipRefundIneligible
+} = createHttpErrorHelpers({ writeJson });
+const { getFreshSponsorshipFollowupByToken } = createSponsorshipFollowupHelpers(
+  {
+    sponsorshipFollowupTokenTtlDays,
+    stripe,
+    getSponsorshipFollowupByTokenHash: (tokenHash, cutoffIso) =>
+      getSponsorshipFollowupByTokenHash(dbPool, tokenHash, cutoffIso),
+    upsertCheckoutSessionFromWebhook: (input) =>
+      upsertCheckoutSessionFromWebhook(dbPool, input),
+    reportFailure: (message, error) => console.error(message, error)
   }
-
-  if (typeof value !== 'string' || value.length > SPONSOR_URL_MAX_LENGTH) {
-    return false;
-  }
-
-  try {
-    return isSponsorshipHttpsUrl(value);
-  } catch {
-    return false;
-  }
-};
-
-const truncateStripeMetadataValue = (value: string): string =>
-  value.slice(0, STRIPE_METADATA_VALUE_MAX_LENGTH);
-
-const isValidOptionalBoundedText = (
-  value: unknown,
-  maxLength: number
-): boolean =>
-  value === undefined ||
-  value === null ||
-  (typeof value === 'string' && value.trim().length <= maxLength);
-
-const isValidOptionalNonEmptyBoundedText = (
-  value: unknown,
-  maxLength: number
-): boolean =>
-  value === undefined ||
-  (typeof value === 'string' &&
-    value.trim().length > 0 &&
-    value.trim().length <= maxLength);
-
-const isAllowedSponsorshipStripeRefundReason = (
-  value: unknown
-): value is AdminSponsorshipStripeRefundReason =>
-  typeof value === 'string' &&
-  allowedSponsorshipStripeRefundReasons.has(
-    value as AdminSponsorshipStripeRefundReason
-  );
-
-const isValidUuid = (value: unknown): value is string =>
-  typeof value === 'string' &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-
-const sponsorLogoPublicUrlForFilename = (filename: string): string =>
-  `${SPONSOR_LOGO_PUBLIC_PATH_PREFIX}${filename}`;
-
-const getSponsorLogoFilenameFromUrl = (
-  url: string | undefined
-): string | null => {
-  if (!url) {
-    return null;
-  }
-
-  try {
-    const pathname = new URL(url, publicBaseOrigin).pathname;
-    const allowedPrefixes = [
-      SPONSOR_LOGO_PUBLIC_PATH_PREFIX,
-      SPONSOR_LOGO_PUBLIC_PATH_PREFIX.replace('/api', '')
-    ];
-    const prefix = allowedPrefixes.find((candidate) =>
-      pathname.startsWith(candidate)
-    );
-
-    if (!prefix) {
-      return null;
-    }
-
-    return decodeURIComponent(pathname.slice(prefix.length));
-  } catch {
-    return null;
-  }
-};
-
-const deleteControlledSponsorLogoFile = async (
-  logoUrl: string | null
-): Promise<boolean> => {
-  const filename = getSponsorLogoFilenameFromUrl(logoUrl ?? undefined);
-  if (!filename) {
-    return false;
-  }
-
-  if (!SPONSOR_LOGO_FILENAME_PATTERN.test(filename)) {
-    return false;
-  }
-
-  try {
-    return await sponsorLogoStorage.deleteLogo(filename);
-  } catch (error) {
-    console.warn('Failed to delete controlled sponsor logo object.', error);
-    return false;
-  }
-};
-
-const sponsorMediaPublicKey = (asset: SponsorMediaStorageRecord): string =>
-  `public/sponsors/${asset.contributionId}/${asset.id}-${asset.checksumSha256.slice(0, 16)}.webp`;
-
-const sponsorMediaPublicUrl = (assetId: string, publicKey: string): string =>
-  sponsorMediaStorage.publicUrl(publicKey) ??
-  `${SPONSOR_MEDIA_PUBLIC_PATH_PREFIX}${assetId}`;
-
-const routeAssetId = (
-  url: string | undefined,
-  ...prefixes: readonly string[]
-): string | null => {
-  if (!url) {
-    return null;
-  }
-  try {
-    const pathname = new URL(url, publicBaseOrigin).pathname;
-    const prefix = prefixes.find((candidate) => pathname.startsWith(candidate));
-    if (!prefix) {
-      return null;
-    }
-    const assetId = decodeURIComponent(pathname.slice(prefix.length));
-    return isValidUuid(assetId) ? assetId : null;
-  } catch {
-    return null;
-  }
-};
-
-const deleteSponsorMediaObjects = async (
-  asset: SponsorMediaStorageRecord,
-  options: { readonly includePublic: boolean }
-): Promise<void> => {
-  const operations = [
-    sponsorMediaStorage.deletePrivateObject(asset.originalStorageKey),
-    sponsorMediaStorage.deletePrivateObject(asset.processedStorageKey)
-  ];
-  if (options.includePublic && asset.publicStorageKey) {
-    operations.push(
-      sponsorMediaStorage.deletePublicObject(asset.publicStorageKey)
-    );
-  }
-  const results = await Promise.allSettled(operations);
-  if (results.some((result) => result.status === 'rejected')) {
-    console.warn('One or more sponsor media objects could not be deleted.', {
-      assetId: asset.id,
-      storageDriver: sponsorMediaStorage.driver
-    });
-  }
-};
-
-const writeSponsorMediaMutationFailure = (
-  request: ApiRequest,
-  response: ApiResponse,
-  status: 'not_found' | 'conflict' | 'approved_locked' | 'not_editable'
-): void => {
-  if (status === 'not_editable') {
-    writeJson(request, response, 409, {
-      code: 'SPONSORSHIP_NOT_EDITABLE',
-      error: 'Sponsorship is not editable.'
-    });
-    return;
-  }
-  if (status === 'conflict') {
-    writeJson(request, response, 409, {
-      code: 'SPONSOR_MEDIA_CONCURRENT_UPDATE',
-      error: 'Ce media a ete modifie. Rechargez la fiche puis reessayez.'
-    });
-    return;
-  }
-  if (status === 'approved_locked') {
-    writeJson(request, response, 409, {
-      code: 'SPONSOR_MEDIA_APPROVED',
-      error: "Un media approuve doit etre retire par l'administrateur."
-    });
-    return;
-  }
-  writeJson(request, response, 404, { error: 'Sponsor media was not found.' });
-};
-
-const isValidOptionalIsoDate = (value: unknown): boolean => {
-  if (value === undefined || value === null || value === '') {
-    return true;
-  }
-
-  return typeof value === 'string' && Number.isFinite(Date.parse(value));
-};
-
-const createSponsorshipFollowupToken = (): string =>
-  randomBytes(FOLLOWUP_TOKEN_BYTES).toString('base64url');
-
-const hashSponsorshipFollowupToken = (token: string): string =>
-  createHash('sha256').update(token).digest('hex');
-
-const getSponsorshipFollowupTokenCutoffIso = (): string =>
-  new Date(
-    Date.now() - sponsorshipFollowupTokenTtlDays * MILLISECONDS_PER_DAY
-  ).toISOString();
-
-const isValidFollowupToken = (value: unknown): value is string =>
-  typeof value === 'string' && /^[A-Za-z0-9_-]{32,128}$/.test(value);
-
-const createContributionPublicReference = (): string => {
-  const bytes = randomBytes(CONTRIBUTION_REFERENCE_BYTES);
-  const suffix = Array.from(bytes, (byte) =>
-    CONTRIBUTION_REFERENCE_ALPHABET.charAt(
-      byte % CONTRIBUTION_REFERENCE_ALPHABET.length
-    )
-  ).join('');
-
-  return `OG7-${new Date().getUTCFullYear()}-${suffix}`;
-};
-
-const normalizeReferenceRecoveryEmail = (value: unknown): string | null => {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const email = value.trim().toLowerCase();
-  return isValidEmailAddress(email) ? email : null;
-};
-
-const createReferenceRecoveryIdempotencyKey = (email: string): string => {
-  const emailHash = createHash('sha256').update(email).digest('hex');
-  const hourBucket = new Date().toISOString().slice(0, 13);
-
-  return `reference-recovery:${emailHash}:${hourBucket}`;
-};
-
-const buildContributionReceiptDescription = (publicReference: string): string =>
-  `Reference OpenG7: ${publicReference}`;
-
-const buildContributionCheckoutSuccessUrl = (
-  returnUrl: string,
-  publicReference: string
-): string => {
-  const url = new URL(returnUrl, publicBaseOrigin);
-  url.searchParams.set('reference', publicReference);
-  return url.toString();
-};
-
-const stripeCheckoutSessionStatus = (
-  session: Stripe.Checkout.Session
-): 'pending' | 'paid' | 'expired' => {
-  if (session.payment_status === 'paid') {
-    return 'paid';
-  }
-
-  return session.status === 'expired' ? 'expired' : 'pending';
-};
-
-const checkoutSessionPaidAtIso = (
-  session: Stripe.Checkout.Session,
-  status: 'pending' | 'paid' | 'expired'
-): string | null =>
-  status === 'paid' ? new Date(session.created * 1000).toISOString() : null;
-
-const refreshSponsorshipFollowupPaymentStatus = async (
-  followup: SponsorshipFollowupLookup,
-  tokenHash: string
-): Promise<SponsorshipFollowupLookup> => {
-  if (
-    followupEditablePaymentStatuses.has(followup.paymentStatus) ||
-    !stripe ||
-    !followup.stripeSessionId
-  ) {
-    return followup;
-  }
-
-  try {
-    const session = await stripe.checkout.sessions.retrieve(
-      followup.stripeSessionId,
-      {
-        expand: ['payment_intent']
-      }
-    );
-    const metadata = session.metadata ?? {};
-    const sessionTokenHash = metadata.sponsorshipFollowupTokenHash ?? null;
-
-    if (
-      normalizeContributionType(metadata.contributionType) !==
-        'sponsorship_interest' ||
-      (sessionTokenHash !== null && sessionTokenHash !== tokenHash)
-    ) {
-      return followup;
-    }
-
-    const status = stripeCheckoutSessionStatus(session);
-    await upsertCheckoutSessionFromWebhook(dbPool, {
-      notifyAdmin: true,
-      stripeSessionId: session.id,
-      stripePaymentIntentId: resolveStripePaymentIntentId(
-        session.payment_intent
-      ),
-      publicReference: normalizeContributionPublicReference(
-        metadata.publicReference ?? session.client_reference_id
-      ),
-      contributionType: 'sponsorship_interest',
-      amountCents: session.amount_total ?? 0,
-      currency: session.currency ?? 'cad',
-      metadata,
-      publicDisplayConsent: parseMetadataBoolean(metadata.publicDisplayConsent),
-      publicName: metadata.publicDisplayName ?? null,
-      displayAmountConsent: parseMetadataBoolean(metadata.displayAmountConsent),
-      nonCharityAcknowledged: parseMetadataBoolean(
-        metadata.nonCharityAcknowledged
-      ),
-      sponsorshipFollowupTokenHash: sessionTokenHash ?? tokenHash,
-      status,
-      paidAtIso: checkoutSessionPaidAtIso(session, status),
-      emailPrivate: session.customer_details?.email ?? null
-    });
-
-    return (
-      (await getSponsorshipFollowupByTokenHash(
-        dbPool,
-        tokenHash,
-        getSponsorshipFollowupTokenCutoffIso()
-      )) ?? followup
-    );
-  } catch (error) {
-    console.error(
-      'Failed to refresh sponsorship follow-up payment status from Stripe.',
-      error
-    );
-    return followup;
-  }
-};
-
-const getFreshSponsorshipFollowupByToken = async (
-  token: string
-): Promise<SponsorshipFollowupLookup | null> => {
-  const tokenHash = hashSponsorshipFollowupToken(token);
-  const followup = await getSponsorshipFollowupByTokenHash(
-    dbPool,
-    tokenHash,
-    getSponsorshipFollowupTokenCutoffIso()
-  );
-
-  return followup
-    ? refreshSponsorshipFollowupPaymentStatus(followup, tokenHash)
-    : null;
-};
-
-const isAllowedSponsorFeedTarget = (
-  value: unknown
-): value is SponsorFeedTarget | null =>
-  value === undefined ||
-  value === null ||
-  value === '' ||
-  (typeof value === 'string' &&
-    allowedSponsorFeedTargets.has(value as SponsorFeedTarget));
-
-const isAllowedSponsorFeedChannel = (
-  value: unknown
-): value is SponsorFeedChannel =>
-  typeof value === 'string' &&
-  allowedSponsorFeedChannels.has(value as SponsorFeedChannel);
-
-const isValidAdminExpectedVersion = (value: unknown): value is string =>
-  typeof value === 'string' &&
-  value.trim().length > 0 &&
-  value.trim().length <= 128;
-
-const writeSponsorshipMutationFailure = (
-  request: IncomingMessage,
-  response: ServerResponse,
-  status:
-    | 'updated'
-    | 'not_found'
-    | 'conflict'
-    | 'payment_not_eligible'
-    | 'media_required',
-  details: {
-    readonly currentVersion?: string | null;
-    readonly paymentStatus?: string | null;
-  } = {}
-): void => {
-  if (status === 'conflict') {
-    writeJson(request, response, 409, {
-      code: 'SPONSORSHIP_CONCURRENT_UPDATE',
-      message: 'Cette commandite a ete modifiee par un autre administrateur.',
-      currentVersion: details.currentVersion ?? null
-    });
-    return;
-  }
-
-  if (status === 'payment_not_eligible') {
-    writeJson(request, response, 409, {
-      code: 'SPONSORSHIP_PAYMENT_NOT_ELIGIBLE',
-      message:
-        'Cette commandite ne peut pas etre publiee ou approuvee lorsque le paiement est rembourse ou conteste.',
-      paymentStatus: details.paymentStatus ?? null
-    });
-    return;
-  }
-
-  if (status === 'media_required') {
-    writeJson(request, response, 409, {
-      code: 'SPONSORSHIP_PRESENTATION_PHOTO_REQUIRED',
-      message:
-        "Une photo de presentation approuvee est requise avant d'approuver cette commandite."
-    });
-    return;
-  }
-
-  writeJson(request, response, 404, {
-    error: 'Sponsorship contribution was not found.'
-  });
-};
-
-const sponsorshipRefundConfirmationText = (input: {
-  readonly publicReference: string | null;
-  readonly id: string;
-}): string => input.publicReference ?? input.id;
-
-const writeSponsorshipRefundIneligible = (
-  request: IncomingMessage,
-  response: ServerResponse,
-  paymentStatus: string | null
-): void => {
-  writeJson(request, response, 409, {
-    code: 'SPONSORSHIP_REFUND_NOT_ELIGIBLE',
-    message:
-      paymentStatus === 'refunded'
-        ? 'Cette commandite est deja marquee comme remboursee.'
-        : paymentStatus === 'disputed'
-          ? 'Cette commandite est contestee; traitez le dossier dans Stripe.'
-          : 'Cette commandite ne peut pas etre remboursee automatiquement.',
-    paymentStatus
-  });
-};
+);
 
 const socialPublicationRuntime = (): {
   readonly mode: typeof socialPublicationConfig.mode;
@@ -909,168 +488,46 @@ const {
   writeJson
 });
 
-// Best-effort audit for admin assistant usage. Never stores the free-text
-// question (it may contain private data) — only which tool/data was consulted,
-// the actor, the outcome and timing. A failed audit never breaks the response.
-const recordAdminAssistantAudit = async (
-  request: ApiRequest,
-  action: string,
-  metadata: Record<string, unknown>
-): Promise<void> => {
-  if (!dbPool) {
-    return;
-  }
-  try {
-    await insertAdminAuditLog(dbPool, {
-      actor: getAdminAuditActor(request),
-      action,
-      entityType: 'admin_assistant',
-      entityId: null,
-      summary: null,
-      metadata
-    });
-  } catch (error) {
-    console.error('Failed to record admin assistant audit.', error);
-  }
-};
+const recordAdminAssistantAudit = createAssistantAuditRecorder({
+  auditAvailable: Boolean(dbPool),
+  getAdminAuditActor,
+  insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
+  reportFailure: (message, error) => console.error(message, error)
+});
 
 const resolveCheckoutReturnUrl = createCheckoutReturnUrlResolver(runtimeConfig);
 
-const getDatabaseConnectionStatus = async (): Promise<boolean> => {
-  if (!dbPool) {
-    return false;
-  }
-
-  try {
-    await dbPool.query('SELECT 1');
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const buildAdminSetupStatus = async (): Promise<AdminSetupStatusResponse> => {
-  const databaseReachable = await getDatabaseConnectionStatus();
-  let emailQueueStatus = {
-    queuedCount: 0,
-    sendingCount: 0,
-    sentCount: 0,
-    failedCount: 0,
-    lastFailedAt: null as string | null,
-    lastError: null as string | null
-  };
-  let emailQueueStatusError: string | null = null;
-  const emailStatus = getTransactionalEmailConfigStatus();
-
-  try {
-    emailQueueStatus = await getEmailQueueStatus(dbPool);
-  } catch (error) {
-    console.error('Failed to inspect email queue status.', error);
-    emailQueueStatusError =
-      'Email queue status could not be loaded. Apply migration 010.';
-  }
-
-  return {
-    data_source: hasDatabase ? 'database' : stripe ? 'stripe_direct' : 'empty',
-    environment: process.env.FUNDING_PLATFORM_ENV ?? 'development',
-    public_base_url: publicBaseUrl ?? null,
-    allowed_origins: allowedOrigins,
-    stripe: {
-      secret_key_configured: Boolean(stripeSecretKey),
-      webhook_secret_configured: Boolean(stripeWebhookSecret),
-      business_sponsorship_enabled: businessSponsorshipEnabled,
-      dashboard_url: stripeSecretKey?.startsWith('sk_live_')
-        ? 'https://dashboard.stripe.com/webhooks'
-        : 'https://dashboard.stripe.com/test/webhooks',
-      webhook_endpoint: `${publicBaseUrl ?? publicBaseOrigin}/api/stripe/webhook`
+const setupDatabasePool = dbPool;
+const { getDatabaseConnectionStatus, buildAdminSetupStatus } =
+  createAdminSetupHelpers({
+    checkDatabaseConnection: setupDatabasePool
+      ? () => setupDatabasePool.query('SELECT 1')
+      : null,
+    getEmailQueueStatus: () => getEmailQueueStatus(dbPool),
+    getTransactionalEmailConfigStatus,
+    hasDatabase,
+    stripeConfigured: Boolean(stripe),
+    stripeSecretKeyConfigured: Boolean(stripeSecretKey),
+    stripeWebhookSecretConfigured: Boolean(stripeWebhookSecret),
+    stripeLiveMode: Boolean(stripeSecretKey?.startsWith('sk_live_')),
+    businessSponsorshipEnabled,
+    publicBaseUrl,
+    publicBaseOrigin,
+    allowedOrigins,
+    adminSponsorshipReviewReminderConfig,
+    emailQueuePollIntervalMs,
+    emailQueueBatchSize,
+    sponsorshipInvoiceConfig: {
+      invoicePrefix: sponsorshipInvoiceConfig.invoicePrefix,
+      issuerName: sponsorshipInvoiceConfig.issuerName,
+      issuerEmail: sponsorshipInvoiceConfig.issuerEmail,
+      taxLabel: sponsorshipInvoiceConfig.taxLabel,
+      issuerAddressConfigured: Boolean(sponsorshipInvoiceConfig.issuerAddress),
+      issuerTaxIdConfigured: Boolean(sponsorshipInvoiceConfig.issuerTaxId)
     },
-    email: {
-      smtp_enabled: emailStatus.enabled,
-      smtp_configured: emailStatus.configured,
-      smtp_host: emailStatus.host,
-      smtp_port: emailStatus.port,
-      smtp_secure: emailStatus.secure,
-      smtp_user_configured: emailStatus.userConfigured,
-      smtp_password_configured: emailStatus.passwordConfigured,
-      from: emailStatus.from,
-      reply_to: emailStatus.replyTo,
-      admin_notification_email:
-        process.env.FUNDING_ADMIN_NOTIFICATION_EMAIL?.trim() || null,
-      admin_review_reminder_enabled:
-        adminSponsorshipReviewReminderConfig.enabled,
-      admin_review_reminder_min_age_days:
-        adminSponsorshipReviewReminderConfig.minAgeDays,
-      admin_review_reminder_poll_interval_ms:
-        adminSponsorshipReviewReminderConfig.pollIntervalMs,
-      admin_review_reminder_max_items:
-        adminSponsorshipReviewReminderConfig.maxItems,
-      queue_available: Boolean(dbPool && databaseReachable),
-      queue_poll_interval_ms: emailQueuePollIntervalMs,
-      queue_batch_size: emailQueueBatchSize,
-      queued_count: emailQueueStatus.queuedCount,
-      sending_count: emailQueueStatus.sendingCount,
-      sent_count: emailQueueStatus.sentCount,
-      failed_count: emailQueueStatus.failedCount,
-      last_failed_at: emailQueueStatus.lastFailedAt,
-      last_error: emailQueueStatus.lastError ?? emailQueueStatusError
-    },
-    invoice: {
-      prefix: sponsorshipInvoiceConfig.invoicePrefix,
-      issuer_name: sponsorshipInvoiceConfig.issuerName || null,
-      issuer_email: sponsorshipInvoiceConfig.issuerEmail || null,
-      issuer_address_configured: Boolean(
-        sponsorshipInvoiceConfig.issuerAddress
-      ),
-      issuer_tax_id_configured: Boolean(sponsorshipInvoiceConfig.issuerTaxId),
-      tax_label: sponsorshipInvoiceConfig.taxLabel,
-      ready: Boolean(
-        sponsorshipInvoiceConfig.issuerName &&
-        sponsorshipInvoiceConfig.issuerEmail
-      )
-    },
-    database: {
-      configured: hasDatabase,
-      reachable: databaseReachable
-    },
-    last_updated_at: new Date().toISOString()
-  };
-};
-
-const createDevelopmentCheckoutResult = (
-  request: CheckoutRequest
-): CheckoutResult => ({
-  checkoutId: `stripe-dev-fallback-${request.projectId}-${request.amount}`,
-  redirectUrl: request.successUrl,
-  status: 'mocked'
-});
-
-// Mirrors createDevelopmentCheckoutResult: lets the admin refund workflow
-// (credit note, refund email, audit log) run end-to-end in local/E2E
-// environments where STRIPE_SECRET_KEY is empty, without calling Stripe.
-// Only the fields the refund handler actually reads (id/amount/currency/
-// status) are populated; production always goes through the real SDK call.
-const createDevelopmentRefundResult = (params: {
-  readonly amountCents: number;
-  readonly currency: string;
-  readonly paymentIntentId: string;
-}): Stripe.Refund =>
-  ({
-    id: `re_dev_${randomBytes(12).toString('hex')}`,
-    amount: params.amountCents,
-    currency: params.currency,
-    status: 'succeeded',
-    payment_intent: params.paymentIntentId
-  }) as Stripe.Refund;
-
-const resolveStripePaymentIntentId = (
-  paymentIntent: string | Stripe.PaymentIntent | null
-): string | null => {
-  if (!paymentIntent) {
-    return null;
-  }
-
-  return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent.id;
-};
+    readEnvironment: (key) => process.env[key],
+    reportFailure: (message, error) => console.error(message, error)
+  });
 
 const publicationAutomation = dbPool
   ? new PublicationAutomationService(dbPool, sponsorMediaStorage)
