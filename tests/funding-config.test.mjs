@@ -2518,7 +2518,11 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'utf8'
   );
   const invoices = fs.readFileSync(
-    'apps/funding-api/src/sponsorship-invoices.repository.ts',
+    'apps/funding-api/src/sponsorship-documents/invoices.write.ts',
+    'utf8'
+  );
+  const creditNotes = fs.readFileSync(
+    'apps/funding-api/src/sponsorship-documents/credit-notes.repository.ts',
     'utf8'
   );
   const envExample = fs.readFileSync('.env.example', 'utf8');
@@ -2607,15 +2611,24 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
 
   for (const marker of [
     'createSponsorshipInvoiceForStripeSession',
-    'createSponsorshipCreditNoteForRefund',
     'sponsorshipInvoiceConfig',
     'Commanditaire a confirmer',
-    'ON CONFLICT (contribution_id) DO UPDATE',
-    'ON CONFLICT (stripe_refund_id) DO UPDATE'
+    'ON CONFLICT (contribution_id) DO UPDATE'
   ]) {
     assert.ok(
       invoices.includes(marker),
       `invoice repository must include ${marker}`
+    );
+  }
+
+  for (const marker of [
+    'createSponsorshipCreditNoteForRefund',
+    'sponsorshipInvoiceConfig',
+    'ON CONFLICT (stripe_refund_id) DO UPDATE'
+  ]) {
+    assert.ok(
+      creditNotes.includes(marker),
+      `credit note repository must include ${marker}`
     );
   }
 
@@ -2744,7 +2757,23 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   const page = readAdminAccountingSource('invoices');
   const api = readFundingApiSource();
   const repository = fs.readFileSync(
-    'apps/funding-api/src/sponsorship-invoices.repository.ts',
+    'apps/funding-api/src/sponsorship-documents/invoices.read.ts',
+    'utf8'
+  );
+  const backfill = fs.readFileSync(
+    'apps/funding-api/src/sponsorship-documents/invoices.backfill.ts',
+    'utf8'
+  );
+  const creditNotes = fs.readFileSync(
+    'apps/funding-api/src/sponsorship-documents/credit-notes.repository.ts',
+    'utf8'
+  );
+  const queries = fs.readFileSync(
+    'apps/funding-api/src/sponsorship-documents/queries.ts',
+    'utf8'
+  );
+  const mapping = fs.readFileSync(
+    'apps/funding-api/src/sponsorship-invoice.mapping.ts',
     'utf8'
   );
   const email = readEmailNotificationSource();
@@ -2839,15 +2868,15 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
   assert.ok(api.includes('AdminSponsorshipCreditNoteResendResult'));
 
   assert.ok(repository.includes('listAdminSponsorshipInvoices'));
-  assert.ok(repository.includes('backfillMissingSponsorshipInvoices'));
-  assert.ok(repository.includes('SponsorshipInvoiceBackfillCandidateRow'));
-  assert.ok(repository.includes('invoice.id IS NULL'));
+  assert.ok(backfill.includes('backfillMissingSponsorshipInvoices'));
+  assert.ok(backfill.includes('SponsorshipInvoiceBackfillCandidateRow'));
+  assert.ok(backfill.includes('invoice.id IS NULL'));
   assert.ok(repository.includes('getAdminSponsorshipInvoiceById'));
-  assert.ok(repository.includes('getAdminSponsorshipCreditNoteById'));
-  assert.ok(repository.includes('last_email_status'));
+  assert.ok(creditNotes.includes('getAdminSponsorshipCreditNoteById'));
+  assert.ok(queries.includes('last_email_status'));
   assert.ok(repository.includes("metadata->>'invoiceId'"));
-  assert.ok(repository.includes("metadata->>'creditNoteId'"));
-  assert.ok(repository.includes('credit_notes'));
+  assert.ok(creditNotes.includes("metadata->>'creditNoteId'"));
+  assert.ok(mapping.includes('credit_notes'));
 
   assert.ok(email.includes('readonly followupUrl?: string;'));
   assert.ok(

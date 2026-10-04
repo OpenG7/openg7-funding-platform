@@ -113,6 +113,46 @@ test(
       const beforeMail = (
         await pool.query('SELECT COUNT(*)::int AS count FROM email_messages')
       ).rows[0].count;
+      const unavailableWritePool = {
+        query: (sql, values) => {
+          if (sql.includes('INSERT INTO sponsorship_invoices')) {
+            throw new Error('Synthetic transient invoice write failure');
+          }
+          return pool.query(sql, values);
+        }
+      };
+      const failed = await backfillMissingSponsorshipInvoices(
+        unavailableWritePool,
+        { contributionId: contribution, limit: 1 }
+      );
+      assert.equal(failed.eligible_count, 1);
+      assert.equal(failed.missing_count, 1);
+      assert.equal(failed.processed_count, 1);
+      assert.equal(failed.created_count, 0);
+      assert.equal(failed.failed_count, 1);
+      assert.deepEqual(failed.invoiceIds, []);
+      assert.equal(failed.errors[0].contribution_id, contribution);
+      assert.equal(
+        failed.errors[0].error,
+        'Synthetic transient invoice write failure'
+      );
+      assert.equal(
+        (
+          await getAdminWorkQueue(pool, {
+            itemId: `invoice_missing:${contribution}`
+          })
+        ).filteredTotal,
+        1,
+        'a failed emission stays in the administrative recovery queue'
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT COUNT(*)::int AS count FROM sponsorship_invoices'
+          )
+        ).rows[0].count,
+        0
+      );
       const result = await backfillMissingSponsorshipInvoices(pool, {
         contributionId: contribution,
         limit: 1
@@ -152,6 +192,68 @@ test(
       });
       assert.equal(resolved.filteredTotal, 0);
       assert.equal(resolved.typeCounts.invoice_missing, 2004);
+
+      const oldest = (
+        await pool.query(
+          `SELECT contribution.id::text AS id
+           FROM fund_contributions contribution
+           LEFT JOIN sponsorship_invoices invoice
+             ON invoice.contribution_id = contribution.id
+           WHERE invoice.id IS NULL
+           ORDER BY contribution.id
+           LIMIT 3`
+        )
+      ).rows;
+      for (const [index, row] of oldest.entries()) {
+        await pool.query(
+          'UPDATE fund_contributions SET paid_at = $2::timestamptz WHERE id = $1',
+          [row.id, `2026-07-0${index + 1}T12:00:00Z`]
+        );
+      }
+      await pool.query(
+        `INSERT INTO fund_contributions
+           (contribution_type, amount_cents, currency, status, paid_at, stripe_session_id)
+         VALUES
+           ('sponsorship_interest', 25000, 'cad', 'pending', '2026-06-01T12:00:00Z', 'cs_test_pending_recovery'),
+           ('personal_support', 25000, 'cad', 'paid', '2026-06-01T12:00:00Z', 'cs_test_personal_recovery'),
+           ('sponsorship_interest', 25000, 'cad', 'paid', '2026-06-01T12:00:00Z', NULL)`
+      );
+      const bounded = await backfillMissingSponsorshipInvoices(pool, {
+        limit: 2
+      });
+      assert.equal(bounded.eligible_count, 2005);
+      assert.equal(bounded.missing_count, 2004);
+      assert.equal(bounded.processed_count, 2);
+      assert.equal(bounded.created_count, 2);
+      assert.equal(bounded.skipped_count, 1);
+      assert.equal(bounded.remaining_count, 2002);
+      assert.equal(bounded.failed_count, 0);
+      assert.deepEqual(
+        bounded.invoices.map((invoice) => invoice.contribution_id),
+        oldest.slice(0, 2).map((row) => row.id),
+        'bounded recovery selects the oldest eligible missing invoices'
+      );
+      const resumed = await backfillMissingSponsorshipInvoices(pool, {
+        contributionId: oldest[2].id,
+        limit: 1
+      });
+      assert.equal(resumed.created_count, 1);
+      assert.equal(resumed.invoices[0].contribution_id, oldest[2].id);
+      const repeated = await backfillMissingSponsorshipInvoices(pool, {
+        contributionId: oldest[2].id,
+        limit: 1
+      });
+      assert.equal(repeated.eligible_count, 1);
+      assert.equal(repeated.missing_count, 0);
+      assert.equal(repeated.processed_count, 0);
+      assert.equal(repeated.created_count, 0);
+      assert.equal(repeated.skipped_count, 1);
+      assert.equal(
+        (await pool.query('SELECT COUNT(*)::int AS count FROM email_messages'))
+          .rows[0].count,
+        beforeMail,
+        'bounded recovery and retries never enqueue historical mail'
+      );
     } finally {
       await stop();
     }

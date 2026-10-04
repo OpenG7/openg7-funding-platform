@@ -183,6 +183,145 @@ test(
     );
 
     await t.test(
+      'invoice replay enriches missing sponsor and payment details while preserving the issued snapshot',
+      async () => {
+        const input = {
+          ...(await seed(25000)),
+          paidAtIso: null,
+          customerEmail: null
+        };
+        await pool.query(
+          'UPDATE fund_contributions SET paid_at = NULL WHERE stripe_session_id = $1',
+          [input.stripeSessionId]
+        );
+        const original = await createSponsorshipInvoiceForStripeSession(
+          pool,
+          input
+        );
+        assert.equal(original.sponsorName, 'Commanditaire a confirmer');
+        assert.equal(original.publicReference, null);
+        assert.equal(original.paidAtIso, null);
+        assert.equal(original.sponsorContactEmail, null);
+        const publicReference = `OG7-2024-${randomUUID()}`;
+        const paymentIntentId = `pi_test_enriched_${randomUUID()}`;
+        await pool.query(
+          `UPDATE fund_contributions
+           SET public_reference = $2, stripe_payment_intent_id = $3,
+             paid_at = '2024-01-01T12:00:00Z', amount_cents = 60000,
+             currency = 'usd', sponsor_company_name = ' Synthetic company ',
+             sponsor_contact_name = 'Synthetic contact',
+             sponsor_contact_email = ' contact@example.invalid ',
+             sponsor_website_url = 'https://sponsor.example.invalid'
+           WHERE stripe_session_id = $1`,
+          [input.stripeSessionId, publicReference, paymentIntentId]
+        );
+        const replayInput = {
+          ...input,
+          publicReference,
+          amountCents: 60000,
+          currency: 'usd',
+          paidAtIso: '2024-01-01T12:00:00.000Z'
+        };
+        const enriched = await createSponsorshipInvoiceForStripeSession(
+          pool,
+          replayInput
+        );
+        assert.deepEqual(enriched, {
+          ...original,
+          publicReference,
+          stripePaymentIntentId: paymentIntentId,
+          paidAtIso: enriched.paidAtIso,
+          sponsorName: 'Synthetic company',
+          sponsorContactName: 'Synthetic contact',
+          sponsorContactEmail: 'contact@example.invalid',
+          sponsorWebsiteUrl: 'https://sponsor.example.invalid'
+        });
+        assert.equal(
+          Date.parse(enriched.paidAtIso),
+          Date.parse(replayInput.paidAtIso)
+        );
+        assert.equal(enriched.totalCents, 25000);
+        assert.equal(enriched.currency, 'CAD');
+        assert.equal(enriched.invoiceNumber, original.invoiceNumber);
+        assert.deepEqual(enriched.lineItems, original.lineItems);
+        assert.equal(enriched.notes, original.notes);
+
+        await pool.query(
+          `UPDATE fund_contributions
+           SET public_reference = $2, stripe_payment_intent_id = $3,
+             paid_at = '2025-01-01T12:00:00Z',
+             sponsor_company_name = 'Later company',
+             sponsor_contact_name = 'Later contact',
+             sponsor_contact_email = 'later@example.invalid',
+             sponsor_website_url = 'https://later.example.invalid'
+           WHERE stripe_session_id = $1`,
+          [
+            input.stripeSessionId,
+            `OG7-2025-${randomUUID()}`,
+            `pi_test_later_${randomUUID()}`
+          ]
+        );
+        assert.deepEqual(
+          await createSponsorshipInvoiceForStripeSession(pool, replayInput),
+          enriched,
+          'already populated details and issued facts survive later input changes'
+        );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT COUNT(*)::int AS count FROM sponsorship_invoices WHERE contribution_id = $1',
+              [original.contributionId]
+            )
+          ).rows[0].count,
+          1
+        );
+      }
+    );
+
+    await t.test(
+      'concurrent payment deliveries return one invoice without changing its snapshot',
+      async () => {
+        const input = await seed(37550);
+        const invoices = await Promise.all([
+          createSponsorshipInvoiceForStripeSession(pool, input),
+          createSponsorshipInvoiceForStripeSession(pool, input)
+        ]);
+        assert.deepEqual(invoices[0], invoices[1]);
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT COUNT(*)::int AS count FROM sponsorship_invoices WHERE contribution_id = $1',
+              [invoices[0].contributionId]
+            )
+          ).rows[0].count,
+          1
+        );
+      }
+    );
+
+    await t.test(
+      'refunded and disputed sponsorships remain eligible while a paid personal contribution does not',
+      async () => {
+        for (const status of ['refunded', 'disputed']) {
+          const input = await seed(25000, status);
+          assert.ok(
+            await createSponsorshipInvoiceForStripeSession(pool, input),
+            status
+          );
+        }
+        const personal = await seed(25000);
+        await pool.query(
+          "UPDATE fund_contributions SET contribution_type = 'personal_support' WHERE stripe_session_id = $1",
+          [personal.stripeSessionId]
+        );
+        assert.equal(
+          await createSponsorshipInvoiceForStripeSession(pool, personal),
+          null
+        );
+      }
+    );
+
+    await t.test(
       'pending payment creates no invoice or benefits document',
       async () => {
         const input = await seed(50000, 'pending');

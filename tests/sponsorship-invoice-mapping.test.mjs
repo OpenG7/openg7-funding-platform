@@ -14,6 +14,17 @@ import {
   getSponsorshipInvoiceById,
   listAdminSponsorshipInvoices
 } from '../dist/apps/funding-api/src/sponsorship-invoices.repository.js';
+import {
+  getAdminSponsorshipInvoiceById as readAdminInvoice,
+  getSponsorshipInvoiceById as readInvoice,
+  listAdminSponsorshipInvoices as listInvoices
+} from '../dist/apps/funding-api/src/sponsorship-documents/invoices.read.js';
+
+test('the public invoice reads remain exports of their persistence owner', () => {
+  assert.equal(getSponsorshipInvoiceById, readInvoice);
+  assert.equal(getAdminSponsorshipInvoiceById, readAdminInvoice);
+  assert.equal(listAdminSponsorshipInvoices, listInvoices);
+});
 
 // Synthetic persisted snapshots deliberately differ from current issuer/pricing
 // settings. The adapter must project them without recomputing their contents.

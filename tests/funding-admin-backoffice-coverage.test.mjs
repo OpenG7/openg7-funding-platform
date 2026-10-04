@@ -88,7 +88,19 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const repository = readFundingPersistenceSource('contributions');
   const adminRepository = readFundingPersistenceSource('administration');
   const invoiceRepository = read(
-    'apps/funding-api/src/sponsorship-invoices.repository.ts'
+    'apps/funding-api/src/sponsorship-documents/invoices.read.ts'
+  );
+  const invoiceBackfill = read(
+    'apps/funding-api/src/sponsorship-documents/invoices.backfill.ts'
+  );
+  const creditNoteRepository = read(
+    'apps/funding-api/src/sponsorship-documents/credit-notes.repository.ts'
+  );
+  const documentQueries = read(
+    'apps/funding-api/src/sponsorship-documents/queries.ts'
+  );
+  const documentMapping = read(
+    'apps/funding-api/src/sponsorship-invoice.mapping.ts'
   );
   const migration = read(
     'apps/funding-api/migrations/007_add_admin_audit_and_publication_drafts.sql'
@@ -775,19 +787,32 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'listAdminSponsorshipInvoices',
       'getSponsorshipInvoiceById',
       'getAdminSponsorshipInvoiceById',
-      'getAdminSponsorshipCreditNoteById',
-      'createSponsorshipCreditNoteForRefund',
-      'backfillMissingSponsorshipInvoices',
-      'SponsorshipInvoiceBackfillCandidateRow',
-      'invoice.id IS NULL',
-      'last_email_status',
       'latestInvoiceEmailJoin',
-      "metadata->>'creditNoteId'",
-      'credit_notes',
       'AdminSponsorshipInvoicesResponse'
     ],
     'admin invoice repository'
   );
+
+  assertIncludesAll(
+    invoiceBackfill,
+    [
+      'backfillMissingSponsorshipInvoices',
+      'SponsorshipInvoiceBackfillCandidateRow',
+      'invoice.id IS NULL'
+    ],
+    'invoice backfill repository'
+  );
+  assertIncludesAll(
+    creditNoteRepository,
+    [
+      'getAdminSponsorshipCreditNoteById',
+      'createSponsorshipCreditNoteForRefund',
+      "metadata->>'creditNoteId'"
+    ],
+    'admin credit note repository'
+  );
+  assertIncludesAll(documentQueries, ['last_email_status'], 'document queries');
+  assertIncludesAll(documentMapping, ['credit_notes'], 'document mapping');
 
   assertIncludesAll(
     migration,
