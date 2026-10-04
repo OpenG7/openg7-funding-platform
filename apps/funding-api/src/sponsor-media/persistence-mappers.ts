@@ -6,6 +6,7 @@ import type {
   SponsorMediaAssetRow,
   SponsorMediaStorageRecord
 } from './persistence-contracts.js';
+import { sponsorMediaPublicUrl } from './public-url.js';
 
 export const mapAsset = (row: SponsorMediaAssetRow): SponsorMediaAsset => ({
   id: row.id,
@@ -22,7 +23,7 @@ export const mapAsset = (row: SponsorMediaAssetRow): SponsorMediaAsset => ({
   height: row.height,
   altText: row.alt_text,
   sortOrder: row.sort_order,
-  publicUrl: row.public_url,
+  publicUrl: row.public_url === null ? null : sponsorMediaPublicUrl(row.id),
   reviewedAt: row.reviewed_at,
   version: row.version,
   createdAt: row.created_at

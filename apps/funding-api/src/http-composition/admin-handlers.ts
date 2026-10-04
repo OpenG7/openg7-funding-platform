@@ -158,10 +158,7 @@ import {
 } from '../sponsorship-website.service.js';
 import { createDevelopmentRefundResult } from '../business-helpers/development-results.js';
 import { sponsorshipRefundConfirmationText } from '../business-helpers/http-errors.js';
-import {
-  sponsorLogoPublicUrlForFilename,
-  sponsorMediaPublicKey
-} from '../business-helpers/media-exposure.js';
+import { sponsorLogoPublicUrlForFilename } from '../business-helpers/media-exposure.js';
 import {
   ADMIN_REVIEW_NOTE_MAX_LENGTH,
   SPONSOR_MEDIA_ALT_TEXT_MAX_LENGTH,
@@ -437,7 +434,6 @@ export const createAdminHttpHandlers = ({
       deleteSponsorMediaAsset: (input) =>
         deleteSponsorMediaAsset(dbPool, input),
       sponsorMediaStorage,
-      sponsorMediaPublicKey,
       sponsorMediaPublicUrl,
       deleteSponsorMediaObjects,
       writeSponsorMediaMutationFailure,

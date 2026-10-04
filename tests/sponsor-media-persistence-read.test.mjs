@@ -94,7 +94,7 @@ test('dossier assets omit storage keys while storage lookups retain cleanup meta
       height: 480,
       altText: 'Synthetic logo',
       sortOrder: 0,
-      publicUrl: 'https://example.test/synthetic.webp',
+      publicUrl: `/api/public/sponsor-media/${assetId}`,
       reviewedAt: version,
       version,
       createdAt: version
@@ -200,7 +200,7 @@ test('public media groups preserve row order and trim or supply image alt text',
   const publicAsset = (row, altText) => ({
     id: row.id,
     kind: row.kind,
-    url: row.public_url,
+    url: `/api/public/sponsor-media/${row.id}`,
     width: row.width,
     height: row.height,
     alt_text: altText,

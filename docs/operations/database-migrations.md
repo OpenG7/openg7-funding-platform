@@ -62,6 +62,13 @@ jour; Checkout configuré exige désormais PostgreSQL. Voir le
 [contrat et la reprise Checkout](../technical/checkout.md).
 Une migration de production reste une opération séparément autorisée.
 
+La migration [032](../../apps/funding-api/migrations/032_keep_approved_sponsor_media_private.sql)
+permet l'approbation des médias sans copie publique dans le stockage. L'appliquer
+avant l'API mise à jour. Elle conserve les données et références historiques;
+la diffusion passe désormais par une URL API contrôlant la visibilité du dossier.
+Les anciennes copies publiques et leurs caches demandent une remise en conformité
+séparément autorisée, décrite dans le [runbook de stockage](ovh-object-storage.md).
+
 La migration [029](../../apps/funding-api/migrations/029_create_sponsorship_refund_operations.sql)
 ajoute les demandes de remboursement durables et leur exclusion mutuelle.
 Elle ne modifie aucun fait financier existant. L'appliquer avant l'API mise à

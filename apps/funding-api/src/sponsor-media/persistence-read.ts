@@ -18,6 +18,7 @@ import {
   publicMediaContributionSql,
   selectAssetColumns
 } from './persistence-queries.js';
+import { sponsorMediaPublicUrl } from './public-url.js';
 
 export const listSponsorMediaAssets = async (
   pool: Pool | PoolClient | null,
@@ -124,7 +125,7 @@ export const listPublicSponsorMediaByContributionIds = async (
     assets.push({
       id: row.id,
       kind: row.kind,
-      url: row.public_url!,
+      url: sponsorMediaPublicUrl(row.id),
       width: row.width,
       height: row.height,
       alt_text:

@@ -4,20 +4,15 @@ import type {
   SponsorMediaStorage
 } from '../sponsor-media-storage.js';
 import type { SponsorMediaStorageRecord } from '../sponsor-media.repository.js';
+import { sponsorMediaPublicUrl } from '../sponsor-media/public-url.js';
 
 import type { ReportWarning } from './contracts.js';
 import { isValidUuid } from './request-validation.js';
 
 const SPONSOR_LOGO_PUBLIC_PATH_PREFIX = '/api/public/sponsor-logos/';
-const SPONSOR_MEDIA_PUBLIC_PATH_PREFIX = '/api/public/sponsor-media/';
 
 export const sponsorLogoPublicUrlForFilename = (filename: string): string =>
   `${SPONSOR_LOGO_PUBLIC_PATH_PREFIX}${filename}`;
-
-export const sponsorMediaPublicKey = (
-  asset: SponsorMediaStorageRecord
-): string =>
-  `public/sponsors/${asset.contributionId}/${asset.id}-${asset.checksumSha256.slice(0, 16)}.webp`;
 
 export const createMediaExposureHelpers = ({
   publicBaseOrigin,
@@ -29,7 +24,7 @@ export const createMediaExposureHelpers = ({
   readonly sponsorLogoStorage: Pick<SponsorLogoStorage, 'deleteLogo'>;
   readonly sponsorMediaStorage: Pick<
     SponsorMediaStorage,
-    'driver' | 'publicUrl' | 'deletePrivateObject' | 'deletePublicObject'
+    'driver' | 'deletePrivateObject' | 'deletePublicObject'
   >;
   readonly reportWarning: ReportWarning;
 }) => {
@@ -79,10 +74,6 @@ export const createMediaExposureHelpers = ({
       return false;
     }
   };
-
-  const sponsorMediaPublicUrl = (assetId: string, publicKey: string): string =>
-    sponsorMediaStorage.publicUrl(publicKey) ??
-    `${SPONSOR_MEDIA_PUBLIC_PATH_PREFIX}${assetId}`;
 
   const routeAssetId = (
     url: string | undefined,

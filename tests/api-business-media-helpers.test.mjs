@@ -7,8 +7,7 @@ import {
 } from '../dist/apps/funding-api/src/business-helpers/http-errors.js';
 import {
   createMediaExposureHelpers,
-  sponsorLogoPublicUrlForFilename,
-  sponsorMediaPublicKey
+  sponsorLogoPublicUrlForFilename
 } from '../dist/apps/funding-api/src/business-helpers/media-exposure.js';
 import {
   amountToCents,
@@ -210,24 +209,19 @@ test('asset routes require a complete decoded UUID under a caller-owned prefix',
   assert.deepEqual(f.calls, []);
 });
 
-test('media public URLs retain provider output and the canonical local fallback', () => {
-  const key = `public/sponsors/${contributionId}/${assetId}-0123456789abcdef.webp`;
-  assert.equal(sponsorMediaPublicKey(asset), key);
-  const local = mediaFixture();
-  assert.equal(
-    local.sponsorMediaPublicUrl(assetId, key),
-    `/api/public/sponsor-media/${assetId}`
-  );
-  assert.deepEqual(local.calls, [['url', key]]);
-  const remote = mediaFixture({
-    publicUrl: () => 'https://cdn.example.test/synthetic.webp'
-  });
-  assert.equal(
-    remote.sponsorMediaPublicUrl(assetId, key),
-    'https://cdn.example.test/synthetic.webp'
-  );
-  const empty = mediaFixture({ publicUrl: () => '' });
-  assert.equal(empty.sponsorMediaPublicUrl(assetId, key), '');
+test('media URLs always use the controlled API route regardless of storage provider output', () => {
+  for (const publicUrl of [
+    undefined,
+    () => 'https://cdn.example.test/synthetic.webp',
+    () => ''
+  ]) {
+    const f = mediaFixture({ publicUrl });
+    assert.equal(
+      f.sponsorMediaPublicUrl(assetId),
+      '/api/public/sponsor-media/' + assetId
+    );
+    assert.deepEqual(f.calls, []);
+  }
 });
 
 test('media cleanup always removes both private objects and controls the public deletion', async () => {

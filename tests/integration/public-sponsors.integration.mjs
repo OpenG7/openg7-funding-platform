@@ -30,13 +30,17 @@ test(
         [count]
       );
       await pool.query(`
-      INSERT INTO sponsor_media_assets (contribution_id, kind, review_status, original_filename,
+      WITH media AS (
+        SELECT gen_random_uuid() AS asset_id, id AS contribution_id
+        FROM fund_contributions
+      )
+      INSERT INTO sponsor_media_assets (id, contribution_id, kind, review_status, original_filename,
         original_mime_type, original_size_bytes, original_storage_key, processed_size_bytes,
         processed_storage_key, public_storage_key, public_url, checksum_sha256, width, height)
-      SELECT id, 'supporting_image', 'approved', 'photo.png', 'image/png', 100,
-        'private/' || id, 50, 'processed/' || id, 'public/' || id,
-        '/api/public/sponsor-media/' || id, repeat('a', 64), 960, 640
-      FROM fund_contributions`);
+      SELECT asset_id, contribution_id, 'supporting_image', 'approved', 'photo.png', 'image/png', 100,
+        'private/' || contribution_id, 50, 'processed/' || contribution_id, NULL,
+        '/api/public/sponsor-media/' || asset_id, repeat('a', 64), 960, 640
+      FROM media`);
       return rows.map((row) => row.id);
     };
 
@@ -183,7 +187,13 @@ test(
           if (index < 3) {
             assert.equal(asset.id, assetIds.get(id));
             assert.equal(asset.contributionId, id);
+            assert.equal(asset.publicStorageKey, null);
+            assert.equal(
+              asset.publicUrl,
+              `/api/public/sponsor-media/${asset.id}`
+            );
             assert.equal(listed.get(id)[0].id, asset.id);
+            assert.equal(listed.get(id)[0].url, asset.publicUrl);
             assert.equal(
               listed.get(id)[0].alt_text,
               'Same company - image commanditaire'
@@ -226,21 +236,24 @@ test(
         const extraAssets = new Map(
           (
             await pool.query(
-              `INSERT INTO sponsor_media_assets (contribution_id, kind, review_status,
+              `WITH fixtures AS (
+                SELECT gen_random_uuid() AS asset_id, fixture.*
+                FROM (VALUES
+                  ('logo', 'logo', 99, 'Logo image', '2026-09-03'::timestamptz),
+                  ('early', 'supporting_image', 1, '   ', '2026-09-03'::timestamptz),
+                  ('older', 'supporting_image', 5, 'Older photo', '2026-09-01'::timestamptz)
+                ) AS fixture(label, kind, sort_order, alt_text, created_at)
+              )
+              INSERT INTO sponsor_media_assets (id, contribution_id, kind, review_status,
                 original_filename, original_mime_type, original_size_bytes, original_storage_key,
                 processed_size_bytes, processed_storage_key, public_storage_key, public_url,
                 checksum_sha256, width, height, sort_order, alt_text, created_at)
-              SELECT $1::uuid, fixture.kind, 'approved', fixture.label || '.png', 'image/png', 100,
+              SELECT fixture.asset_id, $1::uuid, fixture.kind, 'approved', fixture.label || '.png', 'image/png', 100,
                 'private/' || $1::uuid || '/' || fixture.label, 50,
                 'processed/' || $1::uuid || '/' || fixture.label,
-                'public/' || $1::uuid || '/' || fixture.label,
-                '/api/public/sponsor-media/' || $1::uuid || '/' || fixture.label,
+                NULL, '/api/public/sponsor-media/' || fixture.asset_id,
                 repeat('a', 64), 960, 640, fixture.sort_order, fixture.alt_text, fixture.created_at
-              FROM (VALUES
-                ('logo', 'logo', 99, 'Logo image', '2026-09-03'::timestamptz),
-                ('early', 'supporting_image', 1, '   ', '2026-09-03'::timestamptz),
-                ('older', 'supporting_image', 5, 'Older photo', '2026-09-01'::timestamptz)
-              ) AS fixture(label, kind, sort_order, alt_text, created_at)
+              FROM fixtures AS fixture
               RETURNING id, original_filename`,
               [ids[0]]
             )
@@ -260,6 +273,10 @@ test(
           expectedIds
         );
         assert.deepEqual(
+          media.map((asset) => asset.url),
+          expectedIds.map((id) => `/api/public/sponsor-media/${id}`)
+        );
+        assert.deepEqual(
           media.map((asset) => asset.alt_text),
           [
             'Logo image',
@@ -271,8 +288,8 @@ test(
         for (const id of expectedIds) {
           const asset = await getApprovedPublicSponsorMedia(pool, id);
           assert.equal(asset.id, id);
-          assert.ok(asset.publicUrl);
-          assert.ok(asset.publicStorageKey);
+          assert.equal(asset.publicUrl, `/api/public/sponsor-media/${id}`);
+          assert.equal(asset.publicStorageKey, null);
         }
       }
     );

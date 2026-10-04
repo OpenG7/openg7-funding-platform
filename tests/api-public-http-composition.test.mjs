@@ -16,7 +16,6 @@ const origin = 'https://funding.example.test';
 const token = 'a'.repeat(43);
 const contributionId = '00000000-0000-4000-8000-000000000001';
 const assetId = '00000000-0000-4000-8000-000000000002';
-const publicBytes = Buffer.from('synthetic-public-image');
 const privateBytes = Buffer.from('synthetic-private-image');
 const checkoutInput = {
   idempotencyKey: 'synthetic-composition-key-001',
@@ -40,10 +39,8 @@ const fixture = (overrides = {}) => {
   const sponsorMediaStorage = {
     driver: 'local',
     publicUrl: () => null,
-    readPublicObject: async (key) => {
-      calls.push({ name: 'public-storage', key });
-      return publicBytes;
-    },
+    readPublicObject: async () =>
+      assert.fail('Unexpected public storage read.'),
     readPrivateObject: async (key) => {
       calls.push({ name: 'private-storage', key });
       return privateBytes;
@@ -309,7 +306,7 @@ test('Shared media runtime keeps approved public reads separate from token-owned
     `/api/public/sponsor-media/${assetId}`
   );
   assert.equal(publicResult.status, 200);
-  assert.deepEqual(publicResult.payload, publicBytes);
+  assert.deepEqual(publicResult.payload, privateBytes);
   assert.deepEqual(publicResult.headers, { 'Cache-Control': 'no-store' });
   assert.equal(
     queries[0].sql.includes("media.review_status = 'approved'"),
@@ -318,7 +315,7 @@ test('Shared media runtime keeps approved public reads separate from token-owned
   assert.deepEqual(queries[0].values, [assetId]);
   assert.deepEqual(
     f.calls.filter(({ name }) => name.endsWith('-storage')),
-    [{ name: 'public-storage', key: 'synthetic/public.webp' }]
+    [{ name: 'private-storage', key: 'synthetic/private.webp' }]
   );
   assert.equal(
     f.calls.some(({ name }) => name === 'followup'),
