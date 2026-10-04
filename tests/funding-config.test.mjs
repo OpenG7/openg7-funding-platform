@@ -725,7 +725,10 @@ test('Business sponsorship contribution choice is controlled by runtime flag', (
   const api = readFundingApiSource();
   const envExample = fs.readFileSync('.env.example', 'utf8');
   const compose = fs.readFileSync('docker-compose.yml', 'utf8');
-  const styles = fs.readFileSync('apps/funding-web/src/styles.css', 'utf8');
+  const styles = fs.readFileSync(
+    'apps/funding-web/src/app/features/funding/components/funding-contribution-form/funding-contribution-form.component.css',
+    'utf8'
+  );
   const fr = JSON.parse(
     fs.readFileSync('apps/funding-web/src/assets/i18n/fr-CA.json', 'utf8')
   );

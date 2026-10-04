@@ -58,7 +58,8 @@ interface FoundationPillar {
     CheckoutStatusMonitor
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './funding-page.component.html'
+  templateUrl: './funding-page.component.html',
+  styleUrl: './funding-page.component.css'
 })
 export class FundingPageComponent implements OnInit, OnDestroy {
   private readonly fundingService = inject(FundingService);

@@ -41,6 +41,7 @@ export interface FundingContributionSubmission {
   imports: [CommonModule, FormsModule, RouterLink, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './funding-contribution-form.component.html',
+  styleUrl: './funding-contribution-form.component.css',
   styles: [':host { display: block; min-width: 0; }']
 })
 export class FundingContributionFormComponent implements OnChanges {
