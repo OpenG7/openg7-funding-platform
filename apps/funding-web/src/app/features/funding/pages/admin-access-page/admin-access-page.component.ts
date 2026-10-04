@@ -2,23 +2,22 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  Injector,
+  OnDestroy,
   OnInit,
   ViewChild,
-  inject,
-  signal
+  afterNextRender,
+  inject
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
-import {
-  FundingAdminService,
-  AdminDashboardRequestError,
-  AdminAccessAccount,
-  AdminAccessResponse
-} from '../../services/funding-admin.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
+import type { AdminAccessAccount } from '../../services/funding-admin.service.js';
 
 import { AdminAccessAccountsComponent } from './admin-access-accounts.component.js';
+import { AdminAccessController } from './admin-access-controller.js';
 import { AdminAccessEditorComponent } from './admin-access-editor.component.js';
 import type {
   AdminAccessFieldChange,
@@ -108,121 +107,72 @@ import { AdminAccessSessionsComponent } from './admin-access-sessions.component.
     `
   ]
 })
-export class AdminAccessPageComponent implements OnInit {
+export class AdminAccessPageComponent implements OnInit, OnDestroy {
   private readonly admin = inject(FundingAdminService);
   private readonly router = inject(Router);
-  readonly data = signal<AdminAccessResponse | null>(null);
-  readonly busy = signal(false);
-  readonly error = signal('');
-  readonly pendingSession = signal<string | null>(null);
+  private readonly injector = inject(Injector);
+  private readonly controller = new AdminAccessController({
+    admin: {
+      accessAccounts: () => this.admin.accessAccounts(),
+      updateAccess: (input) => this.admin.updateAccess(input)
+    },
+    onSessionExpired: () => {
+      void this.router.navigate(['/admin/login'], {
+        queryParams: {
+          returnUrl: '/admin/fundraiser/access',
+          sessionExpired: '1'
+        }
+      });
+    },
+    restoreRevokeFocus: (sessionId) => this.restoreRevokeFocus(sessionId)
+  });
+  readonly data = this.controller.data;
+  readonly busy = this.controller.busy;
+  readonly error = this.controller.error;
+  readonly pendingSession = this.controller.pendingSession;
+  readonly confirmed = this.controller.confirmed;
+  readonly draft = this.controller.draft;
   private revokeTrigger: HTMLButtonElement | null = null;
   @ViewChild('accessTitle') private accessTitle?: ElementRef<HTMLElement>;
-  readonly confirmed = signal(false);
-  readonly draft = signal<AdminAccessAccount>({
-    id: '',
-    subject: '',
-    displayName: '',
-    role: 'reader',
-    disabled: false
-  });
   async ngOnInit(): Promise<void> {
-    await this.load();
+    await this.controller.load();
+  }
+  ngOnDestroy(): void {
+    this.controller.dispose();
   }
   edit(account: AdminAccessAccount): void {
-    this.draft.set({ ...account });
-    this.confirmed.set(false);
+    this.controller.edit(account);
   }
   newAccount(): void {
-    this.draft.set({
-      id: '',
-      subject: '',
-      displayName: '',
-      role: 'reader',
-      disabled: false
-    });
-    this.confirmed.set(false);
+    this.controller.newAccount();
   }
   changeField(change: AdminAccessFieldChange): void {
-    this.draft.update((draft) => ({ ...draft, [change.field]: change.value }));
-    this.confirmed.set(false);
+    this.controller.changeField(change);
   }
   selectSession(selection: AdminAccessSessionSelection): void {
     this.revokeTrigger = selection.trigger;
-    this.pendingSession.set(selection.sessionId);
+    this.controller.selectSession(selection.sessionId);
   }
   cancelRevoke(): void {
-    if (this.busy()) return;
-    const sessionId = this.pendingSession();
-    this.pendingSession.set(null);
-    if (
-      this.revokeTrigger?.isConnected &&
-      this.data()?.sessions.some((session) => session.id === sessionId)
-    )
-      this.revokeTrigger.focus();
-    else this.accessTitle?.nativeElement.focus();
+    this.controller.cancelRevoke();
   }
-  private handleError(error: unknown): void {
-    if (
-      error instanceof AdminDashboardRequestError &&
-      [401, 403].includes(error.status)
-    ) {
-      this.data.set(null);
-      this.pendingSession.set(null);
-      this.newAccount();
-      if (error.status === 401) {
-        void this.router.navigate(['/admin/login'], {
-          queryParams: {
-            returnUrl: '/admin/fundraiser/access',
-            sessionExpired: '1'
-          }
-        });
-        return;
-      }
-      this.error.set('admin.access.ownerRequired');
-      return;
-    }
-    this.error.set(
-      error instanceof Error && error.message === 'LAST_OWNER'
-        ? 'admin.access.lastOwner'
-        : 'admin.access.error'
+  private restoreRevokeFocus(sessionId: string | null): void {
+    afterNextRender(
+      () => {
+        if (
+          this.revokeTrigger?.isConnected &&
+          this.data()?.sessions.some((session) => session.id === sessionId)
+        )
+          this.revokeTrigger.focus();
+        else this.accessTitle?.nativeElement.focus();
+      },
+      { injector: this.injector }
     );
   }
-  private async load(): Promise<void> {
-    this.busy.set(true);
-    this.error.set('');
-    try {
-      this.data.set(await this.admin.accessAccounts());
-    } catch (error) {
-      this.handleError(error);
-    } finally {
-      this.busy.set(false);
-    }
-  }
   async save(): Promise<void> {
-    if (!this.confirmed() || this.busy()) return;
-    const draft = this.draft();
-    await this.change({ ...draft, confirmation: draft.subject });
-    this.confirmed.set(false);
+    await this.controller.save();
   }
   async revoke(sessionId: string): Promise<void> {
-    if (this.busy() || this.pendingSession() !== sessionId) return;
-    await this.change({ sessionId, confirmation: sessionId });
-    this.cancelRevoke();
-  }
-  private async change(
-    input: (AdminAccessAccount | { sessionId: string }) & {
-      confirmation: string;
-    }
-  ): Promise<void> {
-    this.busy.set(true);
-    this.error.set('');
-    try {
-      await this.admin.updateAccess(input);
-      await this.load();
-    } catch (error) {
-      this.handleError(error);
-    } finally {
-      this.busy.set(false);
-    }
+    await this.controller.revoke(sessionId);
   }
 }

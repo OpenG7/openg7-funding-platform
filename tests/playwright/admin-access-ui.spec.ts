@@ -9,6 +9,8 @@ async function accessFixture(page: Page) {
     reads: 0,
     readStatus: 200,
     changeStatus: 200,
+    signedIn: true,
+    changeGate: null as Promise<void> | null,
     changes: [] as Record<string, unknown>[],
     access: {
       accounts: [
@@ -50,17 +52,22 @@ async function accessFixture(page: Page) {
       return route.fulfill({ json: { mode: 'oidc' } });
     if (path.endsWith('/auth/current'))
       return route.fulfill({
-        json: {
-          id: 'owner',
-          sessionId: 'current-owner-session',
-          displayName: 'Owner fixture',
-          role: 'owner',
-          expiresAt: '2099-01-01T00:00:00Z'
-        }
+        status: state.signedIn ? 200 : 401,
+        json: state.signedIn
+          ? {
+              id: 'owner',
+              sessionId: 'current-owner-session',
+              displayName: 'Owner fixture',
+              role: 'owner',
+              expiresAt: '2099-01-01T00:00:00Z'
+            }
+          : {}
       });
     if (path.endsWith('/access')) {
       if (route.request().method() === 'POST') {
         state.changes.push(route.request().postDataJSON());
+        await state.changeGate;
+        if (state.changeStatus === 401) state.signedIn = false;
         if (state.changeStatus === 200 && state.nextAccess) {
           state.access = state.nextAccess;
           state.nextAccess = null;
@@ -83,6 +90,158 @@ async function openAccess(page: Page, language: 'fr' | 'en') {
         name: 'Switch administration language to English'
       })
       .click();
+}
+
+for (const language of ['fr', 'en'] as const) {
+  test(`failed access changes retain the draft and return revocation focus in ${language}`, async ({
+    page
+  }) => {
+    const state = await accessFixture(page);
+    await openAccess(page, language);
+    const operator = page.locator(
+      '[data-og7="admin-account"][data-og7-id="operator"]'
+    );
+    await operator.getByRole('button').click();
+    const name = page.locator('input[name="name"]');
+    const role = page.getByRole('combobox');
+    const confirmation = page.locator('input[name="confirmed"]');
+    const save = page.getByRole('button', {
+      name: language === 'fr' ? 'Enregistrer les accès' : 'Save access'
+    });
+    await name.fill('Retained draft fixture');
+    await role.selectOption('reader');
+    await confirmation.check();
+    await expect(save).toBeEnabled();
+    let releaseChange!: () => void;
+    state.changeGate = new Promise<void>((resolve) => {
+      releaseChange = resolve;
+    });
+    state.changeStatus = 503;
+    await save.click();
+    await expect.poll(() => state.changes.length).toBe(1);
+    await expect(save).toBeDisabled();
+    await expect(name).toBeDisabled();
+    await expect(operator).toContainText('Operator fixture');
+    await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(2);
+    expect(state.reads).toBe(1);
+    releaseChange();
+    await expect(page.getByRole('alert')).toContainText(
+      language === 'fr'
+        ? 'Impossible de terminer la demande'
+        : 'Unable to complete this request'
+    );
+    await expect(name).toHaveValue('Retained draft fixture');
+    await expect(name).toBeEnabled();
+    await expect(page.locator('input[name="subject"]')).toHaveValue(
+      'fixture-operator'
+    );
+    await expect(role).toHaveValue('reader');
+    await expect(confirmation).not.toBeChecked();
+    await expect(save).toBeDisabled();
+    expect(state.reads).toBe(1);
+
+    state.changeGate = null;
+    state.changeStatus = 200;
+    state.nextAccess = {
+      ...state.access,
+      accounts: state.access.accounts.map((account) =>
+        account.id === 'operator'
+          ? {
+              ...account,
+              displayName: 'Retained draft fixture',
+              role: 'reader'
+            }
+          : account
+      )
+    };
+    await confirmation.check();
+    await expect(save).toBeEnabled();
+    await save.click();
+    await expect(operator).toContainText('Retained draft fixture');
+    await expect(confirmation).not.toBeChecked();
+    expect(state.reads).toBe(2);
+    expect(state.changes[1]).toEqual(state.changes[0]);
+
+    const revoke = page.locator(
+      '[data-og7="admin-session"][data-og7-id="operator-session"] button'
+    );
+    const revokeText =
+      language === 'fr' ? 'Révoquer la session' : 'Revoke session';
+    const group = page.getByRole('group', { name: revokeText });
+    state.changeStatus = 503;
+    await revoke.click();
+    await group.getByRole('button', { name: revokeText }).click();
+    await expect(page.getByRole('alert')).toContainText(
+      language === 'fr'
+        ? 'Impossible de terminer la demande'
+        : 'Unable to complete this request'
+    );
+    await expect(group).toHaveCount(0);
+    await expect(revoke).toBeFocused();
+    await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(2);
+    await expect(name).toHaveValue('Retained draft fixture');
+    expect(state.reads).toBe(2);
+    expect(state.changes[2]).toEqual({
+      sessionId: 'operator-session',
+      confirmation: 'operator-session'
+    });
+  });
+}
+
+for (const status of [401, 403]) {
+  test(`a ${status} received during revocation clears the pending confirmation and private draft`, async ({
+    page
+  }) => {
+    const state = await accessFixture(page);
+    await openAccess(page, 'fr');
+    await page
+      .locator('[data-og7="admin-account"][data-og7-id="operator"] button')
+      .click();
+    await page.locator('input[name="name"]').fill('Private pending fixture');
+    await page.locator('input[name="confirmed"]').check();
+    let releaseChange!: () => void;
+    state.changeGate = new Promise<void>((resolve) => {
+      releaseChange = resolve;
+    });
+    state.changeStatus = status;
+    await page
+      .locator(
+        '[data-og7="admin-session"][data-og7-id="operator-session"] button'
+      )
+      .click();
+    const group = page.getByRole('group', { name: 'Révoquer la session' });
+    await group.getByRole('button', { name: 'Révoquer la session' }).click();
+    await expect.poll(() => state.changes.length).toBe(1);
+    await expect(group.getByRole('button', { name: 'Annuler' })).toBeDisabled();
+    await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(2);
+    releaseChange();
+    if (status === 401) {
+      await expect(page).toHaveURL(/\/admin\/login\?/);
+      await expect(page.getByRole('status')).toContainText(
+        'expiré ou a été révoquée'
+      );
+      expect(
+        await page.evaluate(() =>
+          sessionStorage.getItem('openg7-admin-session-token')
+        )
+      ).toBeNull();
+    } else {
+      await expect(page.getByRole('alert')).toContainText(
+        'Cette page est réservée aux propriétaires'
+      );
+    }
+    await expect(group).toHaveCount(0);
+    await expect(page.locator('openg7-admin-access-editor')).toHaveCount(0);
+    await expect(page.locator('[data-og7="admin-account"]')).toHaveCount(0);
+    await expect(page.locator('[data-og7="admin-session"]')).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText(
+      'Private pending fixture'
+    );
+    expect(state.reads).toBe(1);
+    expect(state.changes).toEqual([
+      { sessionId: 'operator-session', confirmation: 'operator-session' }
+    ]);
+  });
 }
 
 for (const language of ['fr', 'en'] as const) {

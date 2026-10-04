@@ -14,19 +14,16 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type {
-  AdminBackupsResponse,
-  AdminDatabaseBackup
-} from '@openg7/funding-core';
+import type { AdminDatabaseBackup } from '@openg7/funding-core';
 
-import {
-  FundingAdminService,
-  AdminDashboardRequestError
-} from '../../services/funding-admin.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminDrawerComponent } from '../admin-ui/admin-drawer.component.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
+
+import { createAdminBackupsBrowser } from './admin-backups-browser.js';
+import { AdminBackupsController } from './admin-backups-controller.js';
 
 /** Setup organism: only sanitized metadata and explicit requests pass through the API. */
 @Component({
@@ -58,36 +55,54 @@ export class AdminBackupsComponent {
   private readonly retryButton =
     viewChild<ElementRef<HTMLButtonElement>>('retryButton');
   private readonly panel = viewChild<ElementRef<HTMLElement>>('panel');
-  private readonly storageKey = 'openg7-backup-request';
-  private generation = this.admin.sessionGeneration();
-  readonly data = signal<AdminBackupsResponse | null>(null);
-  readonly receipt = signal<AdminDatabaseBackup | null>(null);
-  readonly pendingId = signal<string | null>(null);
-  readonly uncertain = signal(false);
-  readonly missing = signal(false);
-  readonly busy = signal(false);
-  readonly confirming = signal(false);
-  readonly error = signal('');
-  readonly accessDenied = signal(false);
-  readonly clock = signal(Date.now());
   readonly expanded = signal(false);
   readonly drawer = signal<'activation' | 'recovery' | 'proof' | null>(null);
   readonly selectedId = signal<string | null>(null);
   readonly guideSteps = ['destination', 'key', 'verify'] as const;
   readonly recoverySteps = ['isolate', 'choose', 'restore'] as const;
-  readonly fresh = computed(() => {
-    const checked = Date.parse(this.data()?.checkedAt ?? '');
-    const age = this.clock() - checked;
-    return !this.error() && Number.isFinite(age) && age >= -5000 && age < 60000;
+  private readonly controller = new AdminBackupsController({
+    admin: {
+      databaseBackups: (requestId, payload) =>
+        this.admin.databaseBackups(requestId, payload)
+    },
+    browser: createAdminBackupsBrowser(),
+    sessionGeneration: () => this.admin.sessionGeneration(),
+    confirm: (message, target) => this.confirmation.confirm(message, target),
+    cancelConfirmation: () => this.confirmation.answer(false),
+    t: (key) => this.i18n.t(key),
+    onAccessDenied: () => {
+      this.drawer.set(null);
+      this.selectedId.set(null);
+    },
+    focusRequest: (retry) =>
+      afterNextRender(
+        () =>
+          (retry
+            ? this.retryButton()
+            : this.requestButton()
+          )?.nativeElement.focus(),
+        { injector: this.injector }
+      ),
+    focusPanel: () =>
+      afterNextRender(() => this.panel()?.nativeElement.focus(), {
+        injector: this.injector
+      })
   });
-  readonly serviceState = computed(() => {
-    if (this.error()) return 'unavailable';
-    if (!this.data()) return 'loading';
-    return this.fresh() ? this.data()!.workerState : 'stale';
-  });
-  readonly lastSuccess = computed(
-    () => this.data()?.jobs.find((job) => job.status === 'succeeded') ?? null
-  );
+  readonly data = this.controller.data;
+  readonly receipt = this.controller.receipt;
+  readonly pendingId = this.controller.pendingId;
+  readonly uncertain = this.controller.uncertain;
+  readonly missing = this.controller.missing;
+  readonly busy = this.controller.busy;
+  readonly confirming = this.controller.confirming;
+  readonly error = this.controller.error;
+  readonly accessDenied = this.controller.accessDenied;
+  readonly clock = this.controller.clock;
+  readonly fresh = this.controller.fresh;
+  readonly serviceState = this.controller.serviceState;
+  readonly lastSuccess = this.controller.lastSuccess;
+  readonly trackedJob = this.controller.trackedJob;
+  readonly canRequest = this.controller.canRequest;
   readonly visibleJobs = computed(() =>
     this.expanded()
       ? (this.data()?.jobs ?? [])
@@ -97,14 +112,6 @@ export class AdminBackupsComponent {
     () =>
       this.data()?.jobs.find((job) => job.requestId === this.selectedId()) ??
       null
-  );
-  readonly trackedJob = computed(
-    () =>
-      this.data()?.jobs.find((job) =>
-        ['queued', 'running', 'unknown'].includes(job.status)
-      ) ??
-      this.receipt() ??
-      (this.data()?.jobs[0]?.status === 'failed' ? this.data()!.jobs[0] : null)
   );
   readonly drawerTitle = computed(() =>
     this.i18n.t(
@@ -116,120 +123,23 @@ export class AdminBackupsComponent {
             : 'proof')
     )
   );
-  readonly canRequest = computed(
-    () =>
-      !this.busy() &&
-      !this.confirming() &&
-      !this.uncertain() &&
-      !this.error() &&
-      !this.accessDenied() &&
-      this.data()?.workerState === 'ready' &&
-      this.fresh() &&
-      !this.data()?.jobs.some((job) =>
-        ['queued', 'running', 'unknown'].includes(job.status)
-      )
-  );
 
   constructor() {
-    effect(() => {
-      if (this.admin.sessionGeneration() !== this.generation) {
-        this.data.set(null);
-        this.receipt.set(null);
-        this.drawer.set(null);
-        this.selectedId.set(null);
-        this.accessDenied.set(true);
-        this.error.set('expired');
-        this.confirmation.answer(false);
-      }
-    });
+    effect(() => this.controller.reconcileSession());
+    this.destroy.onDestroy(() => this.controller.dispose());
     afterNextRender(() => {
-      this.generation = this.admin.sessionGeneration();
-      try {
-        const id = sessionStorage.getItem(this.storageKey);
-        if (id && /^[a-f0-9-]{36}$/i.test(id)) {
-          this.pendingId.set(id);
-          this.uncertain.set(true);
-        }
-      } catch {
-        /* The server still deduplicates requests when storage is unavailable. */
-      }
-      void this.refresh();
+      void this.controller.initialize();
       const timer = this.zone.runOutsideAngular(() =>
         setInterval(() => {
-          this.clock.set(Date.now());
+          this.controller.tick();
           if (!document.hidden && !this.accessDenied()) void this.refresh();
         }, 15000)
       );
       this.destroy.onDestroy(() => clearInterval(timer));
     });
   }
-  private active() {
-    return (
-      !this.destroy.destroyed &&
-      this.generation === this.admin.sessionGeneration()
-    );
-  }
-  private remember(id: string | null) {
-    this.pendingId.set(id);
-    try {
-      if (id) sessionStorage.setItem(this.storageKey, id);
-      else sessionStorage.removeItem(this.storageKey);
-    } catch {
-      /* Optional browser recovery. */
-    }
-  }
-  private failure(error: unknown) {
-    if (
-      error instanceof AdminDashboardRequestError &&
-      [401, 403].includes(error.status)
-    ) {
-      this.data.set(null);
-      this.receipt.set(null);
-      this.drawer.set(null);
-      this.selectedId.set(null);
-      this.accessDenied.set(true);
-      this.confirmation.answer(false);
-      this.error.set(error.status === 401 ? 'expired' : 'forbidden');
-    } else
-      this.error.set(
-        error instanceof AdminDashboardRequestError && error.status === 429
-          ? 'rateLimit'
-          : 'unavailable'
-      );
-  }
-  async refresh() {
-    if (this.busy() || this.confirming() || this.accessDenied()) return;
-    this.busy.set(true);
-    try {
-      const data = (await this.admin.databaseBackups(
-        this.pendingId() ?? undefined
-      )) as AdminBackupsResponse;
-      if (!this.active()) return;
-      this.data.set(data);
-      this.error.set('');
-      this.clock.set(Date.now());
-      if (this.pendingId()) {
-        if (data.request) {
-          this.receipt.set(data.request);
-          this.uncertain.set(false);
-          this.missing.set(false);
-          this.remember(null);
-        } else {
-          this.uncertain.set(true);
-          this.missing.set(true);
-        }
-      } else if (this.receipt()) {
-        this.receipt.set(
-          data.jobs.find(
-            (job) => job.requestId === this.receipt()?.requestId
-          ) ?? this.receipt()
-        );
-      }
-    } catch (error) {
-      if (!this.destroy.destroyed) this.failure(error);
-    } finally {
-      this.busy.set(false);
-    }
+  refresh(): Promise<void> {
+    return this.controller.refresh();
   }
   inspect(job: AdminDatabaseBackup) {
     this.selectedId.set(job.requestId);
@@ -276,68 +186,7 @@ export class AdminBackupsComponent {
       maximumFractionDigits: 1
     }).format(bytes / 1000 ** index);
   }
-  async request(retry = false) {
-    if (
-      retry
-        ? !this.missing() ||
-          !this.pendingId() ||
-          this.busy() ||
-          this.confirming() ||
-          this.accessDenied()
-        : !this.canRequest()
-    )
-      return;
-    this.confirming.set(true);
-    const accepted = await this.confirmation.confirm(
-      this.i18n.t('admin.backups.confirm'),
-      this.i18n.t('admin.backups.scope')
-    );
-    this.confirming.set(false);
-    if (!this.active()) return;
-    if (!accepted) {
-      afterNextRender(
-        () =>
-          (retry
-            ? this.retryButton()
-            : this.requestButton()
-          )?.nativeElement.focus(),
-        { injector: this.injector }
-      );
-      return;
-    }
-    const requestId = retry ? this.pendingId()! : crypto.randomUUID();
-    this.remember(requestId);
-    this.uncertain.set(true);
-    this.missing.set(false);
-    this.error.set('');
-    this.busy.set(true);
-    try {
-      const result = (await this.admin.databaseBackups(undefined, {
-        requestId,
-        confirmation: 'BACKUP_DATABASE'
-      })) as AdminDatabaseBackup;
-      if (!this.active()) return;
-      this.receipt.set(result);
-      this.uncertain.set(false);
-      this.remember(null);
-    } catch (error) {
-      if (!this.destroy.destroyed) {
-        this.failure(error);
-        if (
-          error instanceof AdminDashboardRequestError &&
-          [400, 409, 429].includes(error.status)
-        ) {
-          this.uncertain.set(false);
-          this.remember(null);
-        }
-      }
-    } finally {
-      this.busy.set(false);
-    }
-    if (this.active() && !this.error()) await this.refresh();
-    if (this.active())
-      afterNextRender(() => this.panel()?.nativeElement.focus(), {
-        injector: this.injector
-      });
+  request(retry = false): Promise<void> {
+    return this.controller.request(retry);
   }
 }
