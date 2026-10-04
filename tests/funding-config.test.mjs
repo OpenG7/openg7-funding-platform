@@ -304,6 +304,10 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
 
 test('Public reference lookup returns minimal purchase status without private fields', () => {
   const api = readFundingApiSource();
+  const referencesHttp = fs.readFileSync(
+    'apps/funding-api/src/public-references.http.ts',
+    'utf8'
+  );
   const repository = readFundingPersistenceSource('contributions');
   const fundingService = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
@@ -328,9 +332,9 @@ test('Public reference lookup returns minimal purchase status without private fi
     'public reference lookup repository'
   );
   const lookupApiBody = extractBetween(
-    api,
-    "error: 'Reference lookup requires DATABASE_URL.'",
-    "routeMatches(request.url, '/checkout-sessions', '/api/checkout-sessions')",
+    referencesHttp,
+    'const handleReferenceLookupRequest = async',
+    'const handleReferenceRecoveryRequest = async',
     'public reference lookup endpoint'
   );
 
