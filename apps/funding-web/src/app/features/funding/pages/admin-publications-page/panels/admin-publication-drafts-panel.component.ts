@@ -28,19 +28,12 @@ import type { PublicationLoadState } from '../publication-panels.contracts.js';
 import {
   publicationBatchStatusLabel,
   publicationChannelLabel,
-  publicationDateTimeLocal,
   publicationFeedTargetName,
   publicationValueFromEvent
 } from '../publication-panels.helpers.js';
 
-interface PublicationDraftEdit {
-  readonly title: string;
-  readonly body: string;
-  readonly disclosureText: string;
-  readonly publicUrl: string;
-  readonly scheduledAt: string;
-  readonly reviewNote: string;
-}
+import { AdminPublicationDraftsWorkflow } from './admin-publication-drafts-workflow.js';
+import type { PublicationDraftEdit } from './admin-publication-drafts-workflow.js';
 
 const publicationStatuses: readonly PublicationDraftStatus[] = [
   'draft',
@@ -97,6 +90,33 @@ export class AdminPublicationDraftsPanelComponent {
   );
   readonly draftBatchSelections = signal<Record<string, string>>({});
 
+  private readonly workflow = new AdminPublicationDraftsWorkflow({
+    api: this.admin,
+    state: {
+      actionState: this.actionState,
+      draftEdits: this.draftEdits,
+      dirtyDraftIds: this.dirtyDraftIds,
+      showEligible: this.showEligible,
+      selectedDraftId: this.selectedDraftId,
+      statusFilter: this.statusFilter
+    },
+    token: () => this.adminToken(),
+    reload: () => this.reload()(),
+    confirm: (action, target) =>
+      this.confirmation.confirm(
+        this.i18n.t(
+          action === 'refuse'
+            ? 'admin.confirmation.refuse'
+            : 'admin.confirmation.publish'
+        ),
+        target
+      ),
+    failed: () => this.failed.emit(),
+    notice: (key) => this.notice.emit(key),
+    focusRequested: (id) => this.focusRequested.emit(id),
+    batchSelection: (id) => this.draftBatchSelection(id)
+  });
+
   readonly eligibleSponsorships = computed(() =>
     this.sponsorships().filter(
       (sponsorship) =>
@@ -134,20 +154,7 @@ export class AdminPublicationDraftsPanelComponent {
   constructor() {
     effect(() => {
       const drafts = this.drafts();
-      untracked(() => {
-        const existing = this.draftEdits();
-        const dirtyIds = this.dirtyDraftIds();
-        // A refresh can temporarily omit an edited record; keep its unsaved input.
-        const edits = Object.fromEntries(
-          Object.entries(existing).filter(([id]) => dirtyIds.has(id))
-        );
-        for (const draft of drafts) {
-          edits[draft.id] = dirtyIds.has(draft.id)
-            ? (existing[draft.id] ?? this.toEdit(draft))
-            : this.toEdit(draft);
-        }
-        this.draftEdits.set(edits);
-      });
+      untracked(() => this.workflow.reconcileDrafts(drafts));
     });
     effect(() => {
       if (this.draftTargetId()) {
@@ -162,90 +169,18 @@ export class AdminPublicationDraftsPanelComponent {
     this.document.getElementById('publication-prepare')?.focus();
   }
 
-  async createDraft(
+  createDraft(
     sponsorship: AdminSponsorshipRecord,
     channel: SponsorFeedChannel
   ): Promise<void> {
-    if (!sponsorship.sponsor_feed_target || this.actionState()) return;
-    this.actionState.set(sponsorship.id + channel);
-    try {
-      const result = await this.admin.createPublicationDraft(
-        this.adminToken(),
-        {
-          contributionId: sponsorship.id,
-          feedTarget: sponsorship.sponsor_feed_target,
-          channel
-        }
-      );
-      await this.reload()();
-      if (result.draft) {
-        this.showEligible.set(false);
-        this.selectedDraftId.set(result.draft.id);
-        this.statusFilter.set('all');
-        this.focusRequested.emit(result.draft.id);
-      }
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.actionState.set(null);
-    }
+    return this.workflow.createDraft(sponsorship, channel);
   }
 
-  async saveDraft(
+  saveDraft(
     draft: AdminPublicationDraftRecord,
     status?: PublicationDraftStatus
   ): Promise<void> {
-    if (this.actionState()) return;
-    if (
-      status === 'rejected' &&
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.refuse'),
-        draft.title
-      ))
-    )
-      return;
-    if (
-      status === 'published' &&
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.publish'),
-        draft.title
-      ))
-    )
-      return;
-    const edit = this.editFor(draft.id);
-    this.actionState.set(draft.id);
-    try {
-      const result = await this.admin.updatePublicationDraft(
-        this.adminToken(),
-        {
-          draftId: draft.id,
-          title: edit.title,
-          body: edit.body,
-          disclosureText: edit.disclosureText,
-          status,
-          publicUrl: edit.publicUrl,
-          scheduledAt: edit.scheduledAt
-            ? new Date(edit.scheduledAt).toISOString()
-            : null,
-          reviewNote: edit.reviewNote
-        }
-      );
-      if (!result.updated) throw new Error('Draft was not saved.');
-      // Only clear the submitted revision; a newer edit still needs saving.
-      if (this.editFor(draft.id) === edit) {
-        this.dirtyDraftIds.update((ids) => {
-          const next = new Set(ids);
-          next.delete(draft.id);
-          return next;
-        });
-      }
-      this.notice.emit('admin.publications.saved');
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.actionState.set(null);
-    }
+    return this.workflow.saveDraft(draft, status);
   }
 
   async copyDraft(draft: AdminPublicationDraftRecord): Promise<void> {
@@ -263,36 +198,12 @@ export class AdminPublicationDraftsPanelComponent {
     }
   }
 
-  async assignToBatch(draft: AdminPublicationDraftRecord): Promise<void> {
-    const batchId = this.draftBatchSelection(draft.id);
-    if (!batchId || this.actionState()) return;
-    this.actionState.set(draft.id);
-    try {
-      await this.admin.assignDraftToBatch(this.adminToken(), {
-        draftId: draft.id,
-        batchId
-      });
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.actionState.set(null);
-    }
+  assignToBatch(draft: AdminPublicationDraftRecord): Promise<void> {
+    return this.workflow.assignToBatch(draft);
   }
 
-  async unassignFromBatch(draft: AdminPublicationDraftRecord): Promise<void> {
-    if (this.actionState()) return;
-    this.actionState.set(draft.id);
-    try {
-      await this.admin.unassignDraftFromBatch(this.adminToken(), {
-        draftId: draft.id
-      });
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.actionState.set(null);
-    }
+  unassignFromBatch(draft: AdminPublicationDraftRecord): Promise<void> {
+    return this.workflow.unassignFromBatch(draft);
   }
 
   setSearch(event: Event): void {
@@ -345,14 +256,14 @@ export class AdminPublicationDraftsPanelComponent {
     this.draftEdits.update((edits) => ({
       ...edits,
       [draftId]: {
-        ...(edits[draftId] ?? this.emptyEdit()),
+        ...(edits[draftId] ?? this.workflow.emptyEdit()),
         [field]: value
       }
     }));
   }
 
   editFor(draftId: string): PublicationDraftEdit {
-    return this.draftEdits()[draftId] ?? this.emptyEdit();
+    return this.workflow.editFor(draftId);
   }
 
   trackBySponsor(_: number, sponsorship: AdminSponsorshipRecord): string {
@@ -388,27 +299,5 @@ export class AdminPublicationDraftsPanelComponent {
       cancelled: this.i18n.t('admin.messages.annulee')
     };
     return labels[status];
-  }
-
-  private toEdit(draft: AdminPublicationDraftRecord): PublicationDraftEdit {
-    return {
-      title: draft.title,
-      body: draft.body,
-      disclosureText: draft.disclosure_text,
-      publicUrl: draft.public_url ?? '',
-      scheduledAt: publicationDateTimeLocal(draft.scheduled_at),
-      reviewNote: draft.review_note ?? ''
-    };
-  }
-
-  private emptyEdit(): PublicationDraftEdit {
-    return {
-      title: '',
-      body: '',
-      disclosureText: '',
-      publicUrl: '',
-      scheduledAt: '',
-      reviewNote: ''
-    };
   }
 }

@@ -230,12 +230,17 @@ export function registerSlotPanelTests(): void {
     await fixtures(page);
     const slots = [slot];
     const writes: Record<string, unknown>[] = [];
-    await page.route('**/api/admin/publication-slots', (route) => {
+    let releaseCreation!: () => void;
+    const creationResponse = new Promise<void>((resolve) => {
+      releaseCreation = resolve;
+    });
+    await page.route('**/api/admin/publication-slots', async (route) => {
       if (route.request().method() === 'GET')
         return route.fulfill({ json: { slots } });
       const payload = route.request().postDataJSON();
       writes.push(payload);
       if (writes.length === 1) return route.fulfill({ status: 503, json: {} });
+      await creationResponse;
       const created: AdminPublicationSlotRecord = {
         ...slot,
         id: 'slot-created',
@@ -302,6 +307,14 @@ export function registerSlotPanelTests(): void {
     await form
       .getByRole('button', { name: 'Create a slot', exact: true })
       .click();
+    await expect.poll(() => writes.length).toBe(2);
+    await expect(
+      form.getByRole('button', { name: 'Create a slot', exact: true })
+    ).toBeDisabled();
+    await form
+      .getByLabel('Notes', { exact: true })
+      .fill(' Notes pendant la création ');
+    releaseCreation();
     await expect(form).toHaveCount(0);
     await expect(page.locator('#attention-object-slot-created')).toBeFocused();
     expect(writes).toHaveLength(2);
@@ -313,5 +326,10 @@ export function registerSlotPanelTests(): void {
       capacity: 7,
       notes: 'Nouveau créneau de test'
     });
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'New slot', exact: true }).click();
+    await expect(form.getByLabel('Notes', { exact: true })).toHaveValue(
+      ' Notes pendant la création '
+    );
   });
 }

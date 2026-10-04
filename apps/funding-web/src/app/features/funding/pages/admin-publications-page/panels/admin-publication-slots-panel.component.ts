@@ -32,19 +32,16 @@ import {
   publicationBatchStatusLabel,
   publicationChannelLabel,
   publicationDateLabel,
-  publicationDateTimeLocal,
   publicationFeedTargetName,
   publicationValueFromEvent
 } from '../publication-panels.helpers.js';
 
-interface PublicationSlotEdit {
-  readonly startsAt: string;
-  readonly timezone: string;
-  readonly capacity: string;
-  readonly notes: string;
-}
+import {
+  AdminPublicationSlotsWorkflow,
+  type PublicationSlotEdit
+} from './admin-publication-slots-workflow.js';
 
-/** Funding organism: slot editing and mutations, using the page's shared load. */
+/** Funding organism: slot presentation, using the page's shared load. */
 @Component({
   selector: 'openg7-admin-publication-slots-panel',
   standalone: true,
@@ -92,6 +89,36 @@ export class AdminPublicationSlotsPanelComponent {
   readonly slotBatchSelections = signal<Record<string, string>>({});
   readonly slotDraftSelections = signal<Record<string, string>>({});
 
+  private readonly workflow = new AdminPublicationSlotsWorkflow({
+    api: this.admin,
+    state: {
+      slotActionState: this.slotActionState,
+      slotEdits: this.slotEdits,
+      dirtySlotIds: this.dirtySlotIds,
+      newSlotFeedTarget: this.newSlotFeedTarget,
+      newSlotChannel: this.newSlotChannel,
+      newSlotStartsAt: this.newSlotStartsAt,
+      newSlotTimezone: this.newSlotTimezone,
+      newSlotCapacity: this.newSlotCapacity,
+      newSlotNotes: this.newSlotNotes,
+      newSlotOpen: this.newSlotOpen,
+      selectedSlotId: this.selectedSlotId
+    },
+    token: () => this.adminToken(),
+    reload: () => this.reload()(),
+    confirm: (action, target) =>
+      this.confirmation.confirm(
+        this.i18n.t(`admin.confirmation.${action}`),
+        target
+      ),
+    failed: () => this.failed.emit(),
+    focusRequested: (id) => this.focusRequested.emit(id),
+    batchSelection: (id) => this.slotBatchSelection(id),
+    draftSelection: (id) => this.slotDraftSelection(id),
+    batches: () => this.batches(),
+    drafts: () => this.drafts()
+  });
+
   readonly selectedSlot = computed(
     () => this.slots().find((slot) => slot.id === this.selectedSlotId()) ?? null
   );
@@ -120,175 +147,32 @@ export class AdminPublicationSlotsPanelComponent {
   constructor() {
     effect(() => {
       const slots = this.slots();
-      untracked(() => {
-        const previous = this.slotEdits();
-        const dirty = this.dirtySlotIds();
-        const next: Record<string, PublicationSlotEdit> = {};
-        for (const id of dirty) {
-          if (previous[id]) next[id] = previous[id];
-        }
-        for (const slot of slots) {
-          next[slot.id] = dirty.has(slot.id)
-            ? (previous[slot.id] ?? this.toSlotEdit(slot))
-            : this.toSlotEdit(slot);
-        }
-        this.slotEdits.set(next);
-      });
+      untracked(() => this.workflow.reconcileSlots(slots));
     });
   }
 
-  async createSlot(): Promise<void> {
-    if (this.slotActionState()) return;
-    const capacity = Number.parseInt(this.newSlotCapacity(), 10);
-    if (
-      !Number.isInteger(capacity) ||
-      capacity < 1 ||
-      capacity > 50 ||
-      !this.newSlotStartsAt()
-    ) {
-      this.failed.emit();
-      return;
-    }
-
-    const notes = this.newSlotNotes();
-    this.slotActionState.set('create');
-    try {
-      const result = await this.admin.createPublicationSlot(this.adminToken(), {
-        feedTarget: this.newSlotFeedTarget(),
-        channel: this.newSlotChannel(),
-        startsAt: new Date(this.newSlotStartsAt()).toISOString(),
-        timezone: this.newSlotTimezone().trim() || 'America/Toronto',
-        capacity,
-        notes
-      });
-      if (this.newSlotNotes() === notes) this.newSlotNotes.set('');
-      this.newSlotOpen.set(false);
-      this.selectedSlotId.set(result.slot?.id ?? null);
-      await this.reload()();
-      if (result.slot) this.focusRequested.emit(result.slot.id);
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.slotActionState.set(null);
-    }
+  createSlot(): Promise<void> {
+    return this.workflow.createSlot();
   }
 
-  async updateSlot(slot: AdminPublicationSlotRecord): Promise<void> {
-    if (this.slotActionState()) return;
-    const edit = this.slotEditFor(slot.id);
-    const capacity = Number.parseInt(edit.capacity, 10);
-    if (
-      !Number.isInteger(capacity) ||
-      capacity < 1 ||
-      capacity > 50 ||
-      !edit.startsAt
-    ) {
-      this.failed.emit();
-      return;
-    }
-
-    this.slotActionState.set(slot.id);
-    try {
-      const result = await this.admin.updatePublicationSlot(this.adminToken(), {
-        slotId: slot.id,
-        startsAt: new Date(edit.startsAt).toISOString(),
-        timezone: edit.timezone.trim() || 'America/Toronto',
-        capacity,
-        notes: edit.notes
-      });
-      if (!result.updated) throw new Error('Slot was not saved.');
-      if (this.slotEdits()[slot.id] === edit)
-        this.dirtySlotIds.update((ids) => {
-          const next = new Set(ids);
-          next.delete(slot.id);
-          return next;
-        });
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.slotActionState.set(null);
-    }
+  updateSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    return this.workflow.updateSlot(slot);
   }
 
-  async assignBatchToSlot(slot: AdminPublicationSlotRecord): Promise<void> {
-    if (this.slotActionState() || !this.hasAssignableBatchSelection(slot))
-      return;
-    const batchId = this.slotBatchSelection(slot.id);
-    this.slotActionState.set(slot.id);
-    try {
-      await this.admin.assignBatchToPublicationSlot(this.adminToken(), {
-        slotId: slot.id,
-        batchId
-      });
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.slotActionState.set(null);
-    }
+  assignBatchToSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    return this.workflow.assignBatchToSlot(slot);
   }
 
-  async assignDraftToSlot(slot: AdminPublicationSlotRecord): Promise<void> {
-    if (this.slotActionState() || !this.hasAssignableDraftSelection(slot))
-      return;
-    const draftId = this.slotDraftSelection(slot.id);
-    this.slotActionState.set(slot.id);
-    try {
-      await this.admin.assignDraftToPublicationSlot(this.adminToken(), {
-        slotId: slot.id,
-        draftId
-      });
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.slotActionState.set(null);
-    }
+  assignDraftToSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    return this.workflow.assignDraftToSlot(slot);
   }
 
-  async publishSlot(slot: AdminPublicationSlotRecord): Promise<void> {
-    if (this.slotActionState()) return;
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.publish'),
-        slot.id
-      ))
-    )
-      return;
-    this.slotActionState.set(slot.id);
-    try {
-      await this.admin.publishPublicationSlot(this.adminToken(), {
-        slotId: slot.id
-      });
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.slotActionState.set(null);
-    }
+  publishSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    return this.workflow.publishSlot(slot);
   }
 
-  async cancelSlot(slot: AdminPublicationSlotRecord): Promise<void> {
-    if (this.slotActionState()) return;
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.cancelPublication'),
-        slot.id
-      ))
-    )
-      return;
-    this.slotActionState.set(slot.id);
-    try {
-      await this.admin.cancelPublicationSlot(this.adminToken(), {
-        slotId: slot.id
-      });
-      await this.reload()();
-    } catch {
-      this.failed.emit();
-    } finally {
-      this.slotActionState.set(null);
-    }
+  cancelSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    return this.workflow.cancelSlot(slot);
   }
 
   setNewSlotFeedTarget(event: Event): void {
@@ -318,7 +202,7 @@ export class AdminPublicationSlotsPanelComponent {
   }
 
   slotEditFor(slotId: string): PublicationSlotEdit {
-    return this.slotEdits()[slotId] ?? this.emptySlotEdit();
+    return this.workflow.editFor(slotId);
   }
 
   setSlotEditField(
@@ -331,7 +215,7 @@ export class AdminPublicationSlotsPanelComponent {
     this.slotEdits.update((edits) => ({
       ...edits,
       [slotId]: {
-        ...(edits[slotId] ?? this.emptySlotEdit()),
+        ...(edits[slotId] ?? this.workflow.emptyEdit()),
         [field]: value
       }
     }));
@@ -364,40 +248,21 @@ export class AdminPublicationSlotsPanelComponent {
   assignableBatchesForSlot(
     slot: AdminPublicationSlotRecord
   ): readonly AdminPublicationBatchRecord[] {
-    return this.batches().filter(
-      (batch) =>
-        batch.channel === slot.channel &&
-        (batch.status === 'open' || batch.status === 'scheduled') &&
-        (batch.slotId === null || batch.slotId === slot.id) &&
-        (batch.slotId === slot.id ||
-          batch.capacityUsed <= slot.capacityAvailable) &&
-        this.batchDraftsMatchSlot(batch, slot)
-    );
+    return this.workflow.assignableBatchesForSlot(slot);
   }
 
   assignableDraftsForSlot(
     slot: AdminPublicationSlotRecord
   ): readonly AdminPublicationDraftRecord[] {
-    return this.drafts().filter(
-      (draft) =>
-        draft.channel === slot.channel &&
-        draft.feed_target === slot.feedTarget &&
-        draft.batch_id === null &&
-        (draft.status === 'approved' ||
-          (draft.status === 'scheduled' && draft.slot_id === slot.id)) &&
-        (draft.slot_id === null || draft.slot_id === slot.id) &&
-        (draft.slot_id === slot.id || slot.capacityAvailable > 0)
-    );
+    return this.workflow.assignableDraftsForSlot(slot);
   }
 
   hasAssignableBatchSelection(slot: AdminPublicationSlotRecord): boolean {
-    const id = this.slotBatchSelection(slot.id);
-    return this.assignableBatchesForSlot(slot).some((batch) => batch.id === id);
+    return this.workflow.hasAssignableBatchSelection(slot);
   }
 
   hasAssignableDraftSelection(slot: AdminPublicationSlotRecord): boolean {
-    const id = this.slotDraftSelection(slot.id);
-    return this.assignableDraftsForSlot(slot).some((draft) => draft.id === id);
+    return this.workflow.hasAssignableDraftSelection(slot);
   }
 
   slotStatusLabel(status: PublicationSlotStatus): string {
@@ -414,35 +279,5 @@ export class AdminPublicationSlotsPanelComponent {
 
   dateLabel(value: string | null, timezone = 'America/Toronto'): string {
     return publicationDateLabel(this.i18n, value, timezone);
-  }
-
-  private toSlotEdit(slot: AdminPublicationSlotRecord): PublicationSlotEdit {
-    return {
-      startsAt: publicationDateTimeLocal(slot.startsAt),
-      timezone: slot.timezone,
-      capacity: String(slot.capacity),
-      notes: slot.notes ?? ''
-    };
-  }
-
-  private emptySlotEdit(): PublicationSlotEdit {
-    return {
-      startsAt: '',
-      timezone: 'America/Toronto',
-      capacity: '5',
-      notes: ''
-    };
-  }
-
-  private batchDraftsMatchSlot(
-    batch: AdminPublicationBatchRecord,
-    slot: AdminPublicationSlotRecord
-  ): boolean {
-    const assignedDrafts = this.drafts().filter(
-      (draft) => draft.batch_id === batch.id
-    );
-    return assignedDrafts.every(
-      (draft) => draft.feed_target === slot.feedTarget
-    );
   }
 }

@@ -10,6 +10,56 @@ import {
 } from './admin-publication-panels.fixtures.js';
 
 export function registerDraftPanelTests(): void {
+  test('draft panel preserves text entered while a refresh response is pending', async ({
+    page
+  }) => {
+    const records = [{ ...draft }];
+    await fixtures(page, batches, records);
+    await page.goto('/admin/fundraiser/publications/drafts');
+    const card = page.locator('#attention-object-draft-first');
+    await card.getByRole('button', { name: 'Ouvrir', exact: true }).click();
+    let releaseRefresh: () => void = () => undefined;
+    const serverResponse = new Promise<void>((resolve) => {
+      releaseRefresh = resolve;
+    });
+    let refreshRequested = false;
+    await page.route('**/api/admin/publication-drafts**', async (route) => {
+      refreshRequested = true;
+      await serverResponse;
+      return route.fulfill({
+        json: {
+          drafts: [{ ...draft, title: 'Titre serveur reçu en retard' }]
+        }
+      });
+    });
+    await page.getByRole('button', { name: 'Actualiser', exact: true }).click();
+    await expect.poll(() => refreshRequested).toBe(true);
+    await card
+      .getByLabel('Titre', { exact: true })
+      .fill('Titre saisi pendant le chargement');
+    await card
+      .getByLabel('Texte', { exact: true })
+      .fill('Corps saisi pendant le chargement');
+    releaseRefresh();
+    await expect(
+      page.getByRole('button', { name: 'Actualiser', exact: true })
+    ).toBeEnabled();
+    await expect(card.getByLabel('Titre', { exact: true })).toHaveValue(
+      'Titre saisi pendant le chargement'
+    );
+    await expect(card.getByLabel('Texte', { exact: true })).toHaveValue(
+      'Corps saisi pendant le chargement'
+    );
+    await expect(
+      card.getByText('Modifications non enregistrées')
+    ).toBeVisible();
+    await openSpace(page, 'batches');
+    await openSpace(page, 'drafts');
+    await expect(card.getByLabel('Titre', { exact: true })).toHaveValue(
+      'Titre saisi pendant le chargement'
+    );
+  });
+
   test('draft panel keeps a failed save retryable and announces success after the server response', async ({
     page
   }) => {
