@@ -4,6 +4,8 @@
   "include": [
     "../apps/**/*.ts",
     "../packages/**/*.ts",
+    "playwright/funding-home-trust.spec.ts",
+    "playwright/payment-recovery-ui.spec.ts",
     "playwright/sponsorship-followup.spec.ts",
     "playwright/sponsor-media-upload-feedback.spec.ts"
   ]

@@ -8,6 +8,9 @@ export const readSponsorshipFollowupSource = () => {
     'pages/sponsorship-followup-page/sponsorship-followup-page.component.ts',
     'pages/sponsorship-followup-page/sponsorship-followup-page.component.html',
     'models/sponsorship-followup-ui.ts',
+    'services/sponsorship-followup-controller.ts',
+    'services/sponsorship-followup-browser.ts',
+    'services/sponsorship-followup-media-controller.ts',
     ...['form', 'status', 'media'].flatMap((name) =>
       ['ts', 'html'].map(
         (extension) =>

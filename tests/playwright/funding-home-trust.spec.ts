@@ -234,6 +234,74 @@ test('an unavailable registry recovers to the confirmed API totals', async ({
   await expect(homeProgress(page)).not.toContainText('Unavailable');
 });
 
+test('a timed-out registry request releases refresh and cannot replace its later recovery', async ({
+  page
+}) => {
+  await page.clock.install();
+  let requests = 0;
+  let firstRequestFinished = false;
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/public/fund-transparency', async (route) => {
+    requests++;
+    if (requests === 1) {
+      await held;
+      await route.fulfill({ json: emptyReport }).catch(() => {});
+      firstRequestFinished = true;
+      return;
+    }
+    await route.fulfill({ json: fundedReport });
+  });
+  await page.goto('/en/fonds-des-batisseurs');
+  await expect.poll(() => requests).toBe(1);
+  await expect(homeProgress(page)).toContainText('Synchronizing...');
+  await page.clock.fastForward(15_001);
+  await expect(homeProgress(page)).toContainText('Unavailable');
+  await expect(homeProgress(page)).not.toContainText(/\b0\s*%/);
+
+  await page.clock.fastForward(15_000);
+  await expect.poll(() => requests).toBe(2);
+  const total = page
+    .locator('[data-og7="home-funding-totals"]')
+    .locator('strong')
+    .first();
+  await expect(total).toContainText('250');
+  release();
+  await expect.poll(() => firstRequestFinished).toBe(true);
+  await expect(total).toContainText('250');
+  await expect(homeProgress(page)).not.toContainText('Unavailable');
+});
+
+test('failed runtime configuration keeps a requested sponsorship disabled without reading availability', async ({
+  page
+}) => {
+  let availabilityRequests = 0;
+  await page.route('**/api/public/funding-config', (route) =>
+    route.fulfill({ status: 503, json: {} })
+  );
+  await page.route(
+    '**/api/public/sponsorship-batches/availability',
+    (route) => {
+      availabilityRequests++;
+      return route.fulfill({
+        json: { data_source: 'empty', availability: [], slots: [] }
+      });
+    }
+  );
+  await page.goto('/fonds-des-batisseurs?intent=sponsorship');
+  await expect(
+    page.getByRole('button', { name: /Commandite d'entreprise/i })
+  ).toBeDisabled();
+  await expect(
+    contributionForm(page).getByRole('button', {
+      name: /Contribution personnelle/i
+    })
+  ).toHaveAttribute('aria-pressed', 'true');
+  expect(availabilityRequests).toBe(0);
+});
+
 async function enableSponsorship(page: Page, amounts = [5, 10, 25, 50]) {
   await page.route('**/api/public/funding-config', (route) =>
     route.fulfill({
