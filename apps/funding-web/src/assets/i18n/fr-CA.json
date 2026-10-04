@@ -1914,7 +1914,7 @@
       "active_les_envois_transactionnels": "Active les envois transactionnels.",
       "validation_des_evenements_stripe": "Validation des evenements Stripe.",
       "stripe_webhook": "Stripe webhook",
-      "checkout_et_lecture_stripe_direct": "Checkout et lecture Stripe-direct.",
+      "checkout_et_lecture_stripe_direct": "Lecture Stripe-direct; Checkout nécessite aussi PostgreSQL.",
       "stripe_secret": "Stripe secret",
       "la_table_reprend_les_variables_critiques_a_verifier_dans_l_environnement_de_production": "La table reprend les variables critiques a verifier dans l environnement de production.",
       "checklist_finale": "Checklist finale",
@@ -3812,6 +3812,7 @@
         "loading": "Préparation du paiement...",
         "success": "Mode local : Stripe n’a pas ouvert de session réelle, donc le paiement est simulé. Vérifiez /dev/stripe-setup pour activer le paiement réel.",
         "error": "Impossible de démarrer le paiement.",
+        "verificationRequired": "Cette demande de paiement nécessite une vérification. Contactez l’équipe OpenG7 avant de réessayer.",
         "personalAmountHint": "Les contributions personnelles acceptent ces montants : {{ amounts }}.",
         "publicDisplayNameRequired": "Indiquez le nom à afficher publiquement."
       },

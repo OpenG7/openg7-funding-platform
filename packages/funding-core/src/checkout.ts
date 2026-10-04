@@ -9,6 +9,8 @@ export interface CheckoutConsentPayload {
 }
 
 export interface CheckoutRequest {
+  /** Opaque identifier retained when retrying the same logical checkout attempt. */
+  readonly idempotencyKey: string;
   readonly amount: number;
   readonly currency: 'CAD';
   readonly projectId: string;

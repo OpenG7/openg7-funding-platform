@@ -268,3 +268,84 @@ test('admin cockpit is accessible at desktop and narrow widths, including its er
     )
   ).toBe(true);
 });
+
+test('administration remains usable when persistent browser storage is unavailable', async ({
+  page
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new DOMException('Storage is unavailable', 'SecurityError');
+      }
+    });
+  });
+  const data = cockpitFixtures();
+  await page.route('**/api/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/auth/config'))
+      return route.fulfill({ json: { mode: 'token' } });
+    if (path.endsWith('/auth/current'))
+      return route.fulfill({ status: 401, json: {} });
+    if (path.endsWith('/admin/session'))
+      return route.fulfill({
+        json: {
+          sessionToken: 'openg7-admin-session.storage-fixture',
+          expiresAt: '2099-01-01T00:00:00Z'
+        }
+      });
+    if (path.startsWith('/api/admin/cockpit/'))
+      return route.fulfill({
+        json: data[path.split('/').pop() as keyof typeof data]
+      });
+    return route.fulfill({ status: 503, json: {} });
+  });
+  await page.goto('/admin/login');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    'Acces admin'
+  );
+  await page
+    .getByRole('button', { name: 'Switch administration language to English' })
+    .click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    'Admin access'
+  );
+  await page.locator('input[type="password"]').fill('synthetic-root-token');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/fundraiser$/);
+  await expect(page.locator('[data-og7="cockpit-metrics"]')).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  expect(errors).toEqual([]);
+});
+
+test('an invalid saved session expiry returns to sign-in without authenticated requests', async ({
+  page
+}) => {
+  const authenticatedRequests: string[] = [];
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      'openg7-admin-session-token',
+      'openg7-admin-session.invalid-expiry-fixture'
+    );
+    sessionStorage.setItem('openg7-admin-session-expires-at', 'invalid-date');
+  });
+  await page.route('**/api/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().headers()['authorization'])
+      authenticatedRequests.push(path);
+    if (path.endsWith('/auth/config'))
+      return route.fulfill({ json: { mode: 'token' } });
+    return route.fulfill({ status: 401, json: {} });
+  });
+  await page.goto('/admin/fundraiser');
+  await expect(page).toHaveURL(/\/admin\/login\?/);
+  await expect(page.locator('input[type="password"]')).toBeVisible();
+  expect(authenticatedRequests).toEqual([]);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem('openg7-admin-session-token')
+    )
+  ).toBeNull();
+});

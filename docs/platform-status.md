@@ -1,6 +1,6 @@
 # État de la plateforme
 
-Référence : état du dépôt au 19 septembre 2026. Le code et les contrats présents
+Référence : état du dépôt au 4 octobre 2026. Le code et les contrats présents
 font foi; les analyses MVP antérieures sont historiques. Une fonctionnalité
 visible et une preuve sur les fournisseurs réels sont deux informations distinctes.
 L'[index documentaire](README.md) oriente vers les guides actuels et les archives.
@@ -20,6 +20,87 @@ L'[index documentaire](README.md) oriente vers les guides actuels et les archive
 | Fournisseurs                 | Stripe, SMTP et stockage S3 intégrés                                                   | Authentification/accès en lecture seule vérifiés; [recette et preuves](operations/integration-rehearsal.md). Livraison courriel et publication média réelles restent à exercer sur une cible de test. |
 | Reprise                      | Restauration PostgreSQL/local/S3 et audit en lecture seule                             | Recette applicative sur cibles jetables; rapprochement des URL et fournisseurs requis avant activation. Pas de qualification complète VPS/OVH.                                                        |
 | Navigateurs et accessibilité | Suite FR/EN Chromium, Firefox, WebKit et mobile WebKit                                 | Axe, clavier et réagencement automatisés; lecteur d'écran humain, iPhone physique et zoom natif restent à vérifier.                                                                                   |
+
+## Revue de préparation à la production du 4 octobre 2026
+
+Quatre agents, coordinateur compris, ont revu sécurité API, intégrité financière,
+Web et exploitation. Les corrections sont locales et vérifiées; **la mise en
+production reste conditionnée aux écarts ci-dessous**. Aucun déploiement, paiement,
+remboursement, courriel réel ou publication n'a été effectué.
+
+### Corrections livrées localement
+
+- API : objets JSON invalides refusés avant effets, montant Checkout exact au
+  centime et devise `CAD` exigés, quotas administratifs complets et mémoire bornée
+  à 5 000 adresses par groupe/processus. Réponses admin et suivi commanditaire
+  privées `no-store`; HTTP local OIDC/alertes refusé en production.
+- Checkout : clé liée au contenu, paramètres et résultat persistés avant reprise;
+  même clé Stripe après perte de réponse, conflit explicite et blocage des reprises
+  incertaines après 23 heures. Le Web conserve le blocage au rechargement lorsque
+  `sessionStorage` est disponible; voir le [contrat Checkout](technical/checkout.md).
+- Finance : brut/devise confirmés préservés lors de l'enrichissement des frais,
+  conversion de règlement refusée explicitement. Événements de remboursement
+  asynchrones réconciliés depuis Stripe, avoir récupérable et verrous partagés
+  contre les livraisons anciennes/concurrentes; voir le
+  [contrat de reprise](operations/stripe-refund-integrity.md).
+- Web : navigation et FR/EN fonctionnent lorsque `localStorage` est refusé;
+  expiration de session invalide rejetée. Régression de récupération Firefox
+  corrigée dans l'attente du test, sans clic forcé.
+- Exploitation : empreinte SSH vérifiée obligatoire, fichier `.env` remplacé
+  atomiquement avec droits `600`, exclusions Docker des sauvegardes et secrets.
+  Dépendances corrigées, runtime Node 22 conservé; voir
+  [livraison](docker-deployment.md#github-actions-cicd) et [SMTP](email-smtp.md).
+
+### Écarts à traiter avant activation
+
+1. Appliquer la [migration 031](../apps/funding-api/migrations/031_create_checkout_operations.sql)
+   sur la cible explicitement autorisée avant l'API mise à jour, puis livrer Web
+   et API ensemble : Checkout configuré exige PostgreSQL et une clé de demande
+   fournie par le client. L'idempotence durable est disponible localement; son
+   activation et la qualification sur le compte Stripe de test restent distinctes
+   des preuves locales. Voir le [contrat et la reprise Checkout](technical/checkout.md).
+2. Configurer l'empreinte VPS indépendamment vérifiée avant toute livraison;
+   souscrire `refund.updated` et `refund.failed` sur l'endpoint Stripe concerné,
+   puis exercer succès, échec, répétition et reprise sur le compte de test.
+   Ces changements externes restent à autoriser et vérifier.
+3. Achever les cinq lots de qualification externe du tableau ci-dessous :
+   Stripe/SMTP/S3 réels, OIDC/MFA/révocation, restauration VPS/médias,
+   accessibilité humaine/appareil et comptes sociaux si activés.
+
+Limites explicites : quotas par processus, conversion de devise de règlement
+non prise en charge, compensation financière après remboursement retourné à
+préparer séparément. La fin asynchrone d'un remboursement n'invente pas un
+consentement ou destinataire de courriel absent du snapshot. Une acceptation SMTP
+suivie d'une perte de réponse peut conduire à un renvoi; la file ne garantit pas
+une réception externe exactement une fois. Avant d'ajouter des moyens de paiement
+différés, qualifier leur confirmation et la reprise facture/accès.
+
+### Preuves locales de la revue initiale
+
+Ces résultats précèdent les ajouts Checkout et le correctif du blocage persistant.
+Leurs validations complémentaires datées figurent dans le
+[contrat Checkout](technical/checkout.md#local-validation).
+
+- Node 22.23.2 : compilation et suite `yarn test` réussies, 5 280/5 280; contrôle TypeScript
+  complet et lint sans erreur (un avertissement préexistant).
+- Cinq intégrations financières PostgreSQL/SMTP : 44/44; recette adaptateurs
+  Mailpit/S3Mock et restauration PostgreSQL jetable : 1/1. Fournisseurs simulés.
+- Navigateurs : 76/76 vérifications finales ciblées Chromium, Firefox, WebKit et
+  mobile WebKit, FR/EN, SSR sans JavaScript, reprise paiement et accessibilité.
+  Ce décompte ne représente pas toutes les suites navigateur du dépôt.
+- Build Angular production : 24 routes prérendues, 758,02 ko initiaux, sous le
+  budget 800/900 ko. Images API/Web construites et contrôlées ensemble en local :
+  santé, contrats publics sans données privées, admin anonyme refusé et `no-store`.
+  TLS/CSP Traefik reste une qualification séparée.
+- Installation immuable et audit Yarn : aucune alerte dans les dépendances de
+  production. L'audit complet conserve une alerte modérée de fin de support
+  ESLint 9; sa migration dépend du support publié d'`eslint-plugin-import`.
+- Contexte Docker synthétique : 16 chemins privés exclus, quatre fichiers publics
+  conservés; permissions Linux `600` et remplacement atomique vérifiés. Compose,
+  format ciblé, standards documentaires et `git diff --check` vérifiés.
+
+Les résultats locaux détaillés sont dans `test-results/`, ignoré par Git.
+Les preuves historiques suivantes gardent leur date et leur portée.
 
 ## Écarts d'exploitation confirmés lors de la revue documentaire
 
@@ -220,5 +301,6 @@ Pour un lancement manuel, préparer explicitement le checkout désiré avant
 `deploy.sh`; le script ne le met plus à jour. Les migrations, la sauvegarde et
 la vérification de santé suivent les règles d'exploitation existantes. Le lot
 précédent des parcours publics ne nécessitait aucun changement de schéma;
-le lot actuel ajoute les migrations `020` et `021`. L'endpoint des bâtisseurs
+le lot accès et alertes a ajouté les migrations `020` et `021`. Checkout durable
+exige également la migration `031` avant l'API mise à jour. L'endpoint des bâtisseurs
 et les parcours d'identité exigent une livraison conjointe du Web et de l'API.

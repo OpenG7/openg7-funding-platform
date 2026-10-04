@@ -35,6 +35,12 @@ The browser then uses an HttpOnly cookie for a revocable server session.
 The API checks authorization on every admin endpoint; Angular guards only
 control navigation. Admin routes are loaded on demand from `admin.routes.ts`.
 
+Session, sponsorship review/publication, draft/slot/batch and legacy details
+require JSON objects. `null`, arrays or primitives return `400` before provider,
+DB or audit effects; protected routes authorize first.
+`POST /sponsorship-details` and `/api` alias share Checkout's public-write
+quota before Stripe.
+
 The [access and sessions page](../operations/admin-identity-and-alerts.md)
 at `/admin/fundraiser/access` lets OIDC owners manage readers, operators and
 owners, disable accounts and revoke sessions. Changing an account revokes its

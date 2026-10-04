@@ -11,7 +11,7 @@ import {
   upsertCheckoutSessionFromWebhook
 } from '../fund-contributions.repository.js';
 import {
-  buildBalanceData,
+  buildContributionBalanceData,
   resolveBalanceTransaction,
   resolveCharge,
   resolvePaymentIntent,
@@ -172,7 +172,7 @@ const backfillPaymentIntentTransaction = async (
     paymentIntent.amount_received ||
     session.amount_total ||
     paymentIntent.amount;
-  const balanceData = buildBalanceData(
+  const balanceData = buildContributionBalanceData(
     balanceTransaction,
     amount,
     paymentIntent.currency ?? session.currency ?? 'cad'

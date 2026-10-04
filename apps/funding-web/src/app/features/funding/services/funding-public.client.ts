@@ -9,7 +9,9 @@ import type {
   ReferenceRecoveryResult
 } from '@openg7/funding-core';
 
-/** Public funding endpoints; checkout return URLs and local fallback belong to FundingService. */
+import { CheckoutReconciliationRequiredError } from './checkout-error.js';
+
+/** Public funding endpoints; checkout attempts and return URLs belong to FundingService. */
 export class FundingPublicClient {
   constructor(private readonly apiBaseUrl: string) {}
 
@@ -23,10 +25,36 @@ export class FundingPublicClient {
     });
 
     if (!response.ok) {
+      if (response.status === 409) {
+        const failure: unknown = await response.json().catch(() => null);
+        if (
+          typeof failure === 'object' &&
+          failure !== null &&
+          'code' in failure &&
+          failure.code === 'CHECKOUT_RECONCILIATION_REQUIRED'
+        ) {
+          throw new CheckoutReconciliationRequiredError();
+        }
+      }
       throw new Error('Checkout API is unavailable.');
     }
 
-    return (await response.json()) as CheckoutResult;
+    const result: unknown = await response.json();
+    if (
+      typeof result !== 'object' ||
+      result === null ||
+      !('status' in result) ||
+      (result.status !== 'mocked' && result.status !== 'redirected') ||
+      !('checkoutId' in result) ||
+      typeof result.checkoutId !== 'string' ||
+      result.checkoutId.length === 0 ||
+      !('redirectUrl' in result) ||
+      typeof result.redirectUrl !== 'string' ||
+      result.redirectUrl.length === 0
+    ) {
+      throw new Error('Checkout API returned an invalid response.');
+    }
+    return result as CheckoutResult;
   }
 
   async getPublicFundingConfig(): Promise<PublicFundingRuntimeConfig> {

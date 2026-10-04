@@ -386,7 +386,15 @@ test('publication mutation failures preserve conflicts, missing records and safe
 
 test('malformed and oversized publication bodies stop before domain mutation', async () => {
   for (const [path] of mutations) {
-    for (const body of ['{invalid', ' '.repeat(256 * 1024 + 1)]) {
+    for (const body of [
+      '{invalid',
+      ' '.repeat(256 * 1024 + 1),
+      'null',
+      '[]',
+      'true',
+      '42',
+      '"synthetic-request"'
+    ]) {
       const f = fixture();
       const result = await f.run(`/api/admin/${path}`, {
         method: 'POST',

@@ -13,7 +13,9 @@
     "packages/*"
   ],
   "resolutions": {
-    "@babel/core": "7.29.7"
+    "@babel/core": "7.29.7",
+    "piscina": "5.3.2",
+    "shell-quote": "1.9.0"
   },
   "scripts": {
     "dev": "concurrently \"yarn dev:api\" \"yarn dev:web\"",
@@ -76,7 +78,7 @@
     "lint": "eslint . --ext .ts,.mts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "yarn build && node --test tests/**/*.test.mjs",
+    "test": "yarn build && node --test \"tests/**/*.test.mjs\"",
     "test:integration": "yarn build && node --test tests/integration/*.integration.mjs",
     "test:sponsorship": "yarn build && node --test tests/funding-sponsorship-e2e-coverage.test.mjs",
     "test:e2e:seed": "node scripts/e2e-seed.mjs",
@@ -117,7 +119,7 @@
     "eslint-plugin-import": "^2.31.0",
     "playwright-core": "1.61.1",
     "prettier": "^3.6.2",
-    "sharp": "0.35.3",
+    "sharp": "0.35.5",
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.19",
     "typescript": "^5.6.2"

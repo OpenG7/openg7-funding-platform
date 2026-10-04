@@ -5,6 +5,7 @@ import { SshService } from '../dist/apps/production-launch-agent/src/ssh/ssh-ser
 
 const config = Object.freeze({
   host: 'ssh.example.invalid',
+  hostFingerprint: `SHA256:${Buffer.from('a'.repeat(64), 'hex').toString('base64').replace(/=+$/, '')}`,
   username: 'synthetic-user',
   port: 22,
   readyTimeoutMs: 500,
@@ -68,20 +69,67 @@ test('SSH retries connection failures and executes once after connecting', async
     '1:execute',
     '1:dispose'
   ]);
-  assert.deepEqual(calls[2].options, {
+  const { hostVerifier, ...connectionOptions } = calls[2].options;
+  assert.deepEqual(connectionOptions, {
     host: config.host,
+    hostHash: 'sha256',
     username: config.username,
     privateKey: undefined,
     privateKeyPath: undefined,
     port: config.port,
     readyTimeout: config.readyTimeoutMs
   });
+  assert.equal(hostVerifier('a'.repeat(64)), true);
+  assert.equal(hostVerifier('A'.repeat(64)), true);
+  assert.equal(hostVerifier('b'.repeat(64)), false);
+  assert.equal(hostVerifier('malformed'), false);
   assert.deepEqual(calls[3], {
     operation: 'execute',
     index: 1,
     command,
     options: { execOptions: { timeout: config.readyTimeoutMs } }
   });
+});
+
+test('SSH refuses absent or malformed host pins before creating a client', async (t) => {
+  for (const hostFingerprint of [
+    undefined,
+    '',
+    'unverified',
+    'SHA256:too-short',
+    'SHA256:' + 'a'.repeat(43) + '=',
+    config.hostFingerprint + '\n'
+  ]) {
+    await t.test(String(hostFingerprint), async () => {
+      const { service, clients, calls } = harness([], { hostFingerprint });
+      const result = await service.run(command);
+      assert.equal(result.code, 255);
+      assert.match(result.stderr, /verified SHA256 SSH host fingerprint/);
+      assert.equal(clients.length, 0);
+      assert.deepEqual(calls, []);
+    });
+  }
+});
+
+test('SSH rejects a mismatched host before executing any command', async () => {
+  let executions = 0;
+  let disposals = 0;
+  const service = new SshService(config, () => ({
+    async connect(options) {
+      assert.equal(options.hostVerifier('b'.repeat(64)), false);
+      throw new Error('Synthetic host verification failure');
+    },
+    async execCommand() {
+      executions += 1;
+      return successfulResponse;
+    },
+    dispose() {
+      disposals += 1;
+    }
+  }));
+  assert.equal((await service.run(command)).code, 255);
+  assert.equal(executions, 0);
+  assert.equal(disposals, config.retries + 1);
 });
 
 test('SSH connection retry exhaustion reports failure and disposes every client without executing', async () => {

@@ -93,7 +93,22 @@ for (const prefix of ['', '/en']) {
     await expect(
       page.locator('[data-og7="contact-help"] a').first()
     ).toHaveAttribute('href', 'mailto:contact@openg7.org');
-    await page.locator('[data-og7="reference-recovery"] summary').click();
+    const recovery = page.locator('[data-og7="reference-recovery"]');
+    const recoveryToggle = recovery.locator('summary');
+    await recoveryToggle.scrollIntoViewIfNeeded();
+    // The anchor navigation above can still be scrolling after focus changes.
+    // Wait for the target position before exercising the native pointer click.
+    let previousY: number | undefined;
+    await expect
+      .poll(async () => {
+        const y = (await recoveryToggle.boundingBox())?.y;
+        const stable = y !== undefined && y === previousY;
+        previousY = y;
+        return stable;
+      })
+      .toBe(true);
+    await recoveryToggle.click();
+    await expect(recovery).toHaveAttribute('open', '');
     await page
       .locator('#reference-recovery-email')
       .fill('fixture@example.invalid');

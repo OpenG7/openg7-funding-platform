@@ -1,5 +1,5 @@
 import type { ContributionType } from '@openg7/funding-core';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 import { allowedPreviousPaymentStatuses } from './contribution-payment-state.js';
 import { recordContributionActivity } from './contribution-activity.repository.js';
@@ -39,14 +39,15 @@ export interface PaymentIntentStatusInput {
 }
 
 export const insertCheckoutSessionRecord = async (
-  pool: Pool | null,
+  pool: Pool | PoolClient | null,
   input: CheckoutSessionRecordInput
 ): Promise<boolean> => {
   if (!pool) {
     return false;
   }
 
-  const client = await pool.connect();
+  const ownsClient = !('release' in pool);
+  const client: PoolClient = 'release' in pool ? pool : await pool.connect();
   try {
     await client.query('BEGIN');
 
@@ -119,7 +120,7 @@ export const insertCheckoutSessionRecord = async (
     await client.query('ROLLBACK');
     throw error;
   } finally {
-    client.release();
+    if (ownsClient) client.release();
   }
 };
 

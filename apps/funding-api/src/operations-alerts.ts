@@ -31,6 +31,7 @@ export const operationsAlertConfig = (
     !url.password &&
     (url.protocol === 'https:' ||
       (env.NODE_ENV !== 'production' &&
+        env.FUNDING_PLATFORM_ENV !== 'production' &&
         url.protocol === 'http:' &&
         ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)));
   if (

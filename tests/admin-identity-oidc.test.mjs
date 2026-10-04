@@ -71,6 +71,16 @@ test('OIDC configuration keeps secure origins and limits HTTP to non-production 
     assert.throws(() =>
       loadAdminIdentityConfig(env({ ...local, NODE_ENV: 'production' }))
     );
+    for (const nodeEnv of ['test', undefined])
+      assert.throws(() =>
+        loadAdminIdentityConfig(
+          env({
+            ...local,
+            NODE_ENV: nodeEnv,
+            FUNDING_PLATFORM_ENV: 'production'
+          })
+        )
+      );
   }
   for (const overrides of [
     { FUNDING_PUBLIC_BASE_URL: 'http://funding.example.test' },
@@ -89,6 +99,25 @@ test('OIDC configuration keeps secure origins and limits HTTP to non-production 
       () => loadAdminIdentityConfig(env(overrides)),
       /^Error: OIDC requires a secure origin, issuer, client ID and client secret\.$/
     );
+});
+
+test('OIDC malformed configuration never exposes private URL inputs in errors', () => {
+  for (const setting of [
+    'FUNDING_PUBLIC_BASE_URL',
+    'FUNDING_ADMIN_OIDC_ISSUER'
+  ]) {
+    assert.throws(
+      () =>
+        loadAdminIdentityConfig(
+          env({ [setting]: 'https://synthetic:private-url-value@[' })
+        ),
+      (error) => {
+        assert.equal(error.input, undefined);
+        assert.doesNotMatch(String(error.stack), /private-url-value/);
+        return true;
+      }
+    );
+  }
 });
 
 test('OIDC configuration preserves late reads for credentials, MFA and bootstrap subjects', () => {

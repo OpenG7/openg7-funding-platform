@@ -524,3 +524,34 @@ test('Checkout deadline rejects before resolving or mutating its first object', 
     ['checkout']
   );
 });
+
+test('backfill rejects settlement conversions before inserting a monetary transaction, including dry-run', async () => {
+  for (const dryRun of [true, false]) {
+    const intent = payment('pi_converted_backfill', {
+      latest_charge: {
+        id: 'ch_converted_backfill',
+        balance_transaction: {
+          id: 'txn_converted_backfill',
+          amount: 1100,
+          fee: 50,
+          net: 1050,
+          currency: 'usd'
+        }
+      }
+    });
+    const pool = simulatedPool({ readOnly: dryRun });
+    await assert.rejects(
+      runStripeBackfill(
+        simulatedStripe({ sessions: [session(intent)] }),
+        pool,
+        { ...options, dryRun }
+      ),
+      /Inconsistent contribution balance monetary facts/
+    );
+    assert.ok(
+      pool.queries.every(
+        ({ sql }) => !sql.startsWith('INSERT INTO fund_transactions')
+      )
+    );
+  }
+});

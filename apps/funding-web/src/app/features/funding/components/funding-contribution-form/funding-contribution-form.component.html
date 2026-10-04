@@ -280,6 +280,11 @@
     {{ 'funding.home.contribution.success' | translate }}
   </p>
   <p role="alert" class="state state-error" *ngIf="loadingState() === 'error'">
-    {{ 'funding.home.contribution.error' | translate }}
+    {{
+      (checkoutRequiresVerification()
+        ? 'funding.home.contribution.verificationRequired'
+        : 'funding.home.contribution.error'
+      ) | translate
+    }}
   </p>
 </form>

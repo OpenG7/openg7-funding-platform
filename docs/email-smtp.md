@@ -2,6 +2,13 @@
 
 OpenG7 uses SMTP only for low-volume transactional email.
 
+The API pins Nodemailer 10.0.14, including its own TypeScript definitions;
+`@types/nodemailer` is no longer installed. This version requires Node 20 or
+newer and is compatible with the repository's Node 22 images and CI. The
+transport still uses `createTransport`, `verify` and `sendMail`; the upgrade
+does not authorize an SMTP connection or a real message. See the
+[upstream security fixes](https://github.com/nodemailer/nodemailer/blob/master/CHANGELOG.md).
+
 SMTP delivers queued follow-up/recovery links, invoices, credit notes and admin
 notifications. A queued or SMTP-accepted message is not proof of inbox delivery;
 see the [controlled rehearsal](operations/integration-rehearsal.md). Independent

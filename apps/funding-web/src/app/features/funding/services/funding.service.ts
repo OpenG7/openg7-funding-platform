@@ -1,7 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import {
   CheckoutConsentPayload,
-  CheckoutRequest,
   CheckoutResult,
   ContributionType,
   PublicFundingRuntimeConfig,
@@ -17,8 +16,7 @@ import {
   SponsorshipDetailsResult,
   SponsorshipFollowupDetailsRequest,
   SponsorshipFollowupResponse,
-  SponsorshipMediaResponse,
-  createMockCheckoutResult
+  SponsorshipMediaResponse
 } from '@openg7/funding-core';
 import { FundingSnapshot } from '@openg7/funding-core';
 import { FundingProjectConfig } from '@openg7/funding-models';
@@ -26,6 +24,8 @@ import { FundingProjectConfig } from '@openg7/funding-models';
 import { FUNDING_PROJECT_CONFIG } from '../config/funding-project-config.token.js';
 import { OPENG7_FUNDING_CONFIG } from '../config/openg7-funding.config.js';
 
+import { CheckoutAttempts } from './checkout-attempts.js';
+import { CheckoutReconciliationRequiredError } from './checkout-error.js';
 import { resolveFundingApiBaseUrl } from './funding-api-base-url.js';
 import { FundingPublicClient } from './funding-public.client.js';
 import { FundingSponsorshipFollowupClient } from './funding-sponsorship-followup.client.js';
@@ -36,6 +36,9 @@ export class FundingService {
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
   private readonly apiBaseUrl = resolveFundingApiBaseUrl();
   private readonly publicClient = new FundingPublicClient(this.apiBaseUrl);
+  private readonly checkoutAttempts = new CheckoutAttempts(() =>
+    typeof window === 'undefined' ? null : window.sessionStorage
+  );
   private readonly followupClient = new FundingSponsorshipFollowupClient(
     this.apiBaseUrl
   );
@@ -60,16 +63,20 @@ export class FundingService {
     ]
   };
 
+  requiresCheckoutVerification(): boolean {
+    return this.checkoutAttempts.requiresVerification();
+  }
+
   /**
-   * Creates a checkout session via the API. Mock fallback is limited to local development.
+   * Creates a checkout via the API, retaining the same key after an uncertain response.
    */
   async startCheckout(
     amount: number,
     consent: CheckoutConsentPayload
   ): Promise<CheckoutResult> {
-    const request: CheckoutRequest = {
+    const request = {
       amount,
-      currency: 'CAD',
+      currency: 'CAD' as const,
       projectId: this.config?.projectId ?? 'openg7',
       successUrl: this.buildReturnUrl('success', consent.contributionType),
       cancelUrl: this.buildReturnUrl('cancel', consent.contributionType),
@@ -81,22 +88,21 @@ export class FundingService {
     };
 
     try {
-      const result = await this.publicClient.startCheckout(request);
-
-      if (
-        result.status === 'mocked' &&
-        !this.canUseDevelopmentCheckoutFallback()
-      ) {
-        throw new Error('Mock checkout is disabled outside local development.');
-      }
-
-      return result;
-    } catch {
-      if (!this.canUseDevelopmentCheckoutFallback()) {
-        throw new Error('Checkout could not be started.');
-      }
-
-      return createMockCheckoutResult(request);
+      return await this.checkoutAttempts.start(request, async (attempt) => {
+        const result = await this.publicClient.startCheckout(attempt);
+        if (
+          result.status === 'mocked' &&
+          !this.canUseDevelopmentCheckoutFallback()
+        ) {
+          throw new Error(
+            'Mock checkout is disabled outside local development.'
+          );
+        }
+        return result;
+      });
+    } catch (error) {
+      if (error instanceof CheckoutReconciliationRequiredError) throw error;
+      throw new Error('Checkout could not be started.');
     }
   }
 

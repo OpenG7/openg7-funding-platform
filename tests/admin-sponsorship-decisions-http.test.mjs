@@ -823,6 +823,11 @@ test('malformed JSON and transport read failures remain safe request errors', as
   for (const [route] of routes) {
     for (const [name, options, body] of [
       ['malformed', {}, '{invalid'],
+      ['null', {}, 'null'],
+      ['array', {}, '[]'],
+      ['boolean', {}, 'true'],
+      ['number', {}, '42'],
+      ['string', {}, '"synthetic-request"'],
       ['read failure', { failing: 'body' }, '{}']
     ]) {
       await t.test(`${route} ${name}`, async () => {
@@ -841,10 +846,10 @@ test('malformed JSON and transport read failures remain safe request errors', as
   }
 });
 
-test('legacy null review/publication bodies continue to reach the outer HTTP error boundary', async () => {
+test('null review/publication bodies return safe validation errors before any mutation', async () => {
   for (const route of ['review', 'publication']) {
     const f = fixture();
-    await assert.rejects(f.run(route, { body: 'null' }), TypeError);
-    assert.deepEqual(f.names(), ['access', 'body']);
+    assert.equal((await f.run(route, { body: 'null' })).status, 400);
+    assert.deepEqual(f.names(), ['access', 'body', 'json']);
   }
 });

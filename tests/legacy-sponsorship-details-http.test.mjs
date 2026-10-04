@@ -133,6 +133,11 @@ test('Legacy details preserve aliases and POST fallthrough; missing Stripe rejec
 test('Legacy field validation preserves each rejection before provider retrieval', async () => {
   for (const [payload, error] of [
     ['{', 'Invalid sponsorship details request body.'],
+    [null, 'Invalid sponsorship details request body.'],
+    [[], 'Invalid sponsorship details request body.'],
+    [true, 'Invalid sponsorship details request body.'],
+    [42, 'Invalid sponsorship details request body.'],
+    ['"synthetic-request"', 'Invalid sponsorship details request body.'],
     [
       { ...input, sessionId: 'pi_synthetic' },
       'Invalid Stripe checkout session id.'

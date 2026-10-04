@@ -913,7 +913,8 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
   );
 
   // Checkout consumes the same public core rule as the Web. Behavior is also
-  // exercised through the local HTTP API in admin-work-queue-http.test.mjs.
+  // exercised in public-payments-http.test.mjs and through the local HTTP API
+  // in admin-work-queue-http.test.mjs.
   assert.match(source, /import\s*\{\s*isValidSponsorshipAmount\s*\}\s*from/);
   assert.equal(source.includes('const sponsorshipMinimumAmount ='), false);
   assert.ok(source.includes('const isSponsorshipContribution ='));
@@ -928,9 +929,6 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
   assert.ok(source.includes('? isValidSponsorshipAmount(amount)'));
   assert.ok(source.includes(': allowedContributionAmounts.has(amount);'));
   assert.ok(source.includes('allowedContributionAmounts.has(amount)'));
-  assert.ok(
-    source.includes('if (!Number.isFinite(amount) || !isAmountAllowed) {')
-  );
 });
 
 test('Sponsorship follow-up benefits are derived server-side from the paid amount, never trusted from the client', () => {
@@ -997,10 +995,9 @@ test('Mock checkout fallback never claims a confirmed Stripe payment or webhook 
   const api = readFundingApiSource();
 
   assert.ok(service.includes('canUseDevelopmentCheckoutFallback'));
-  assert.ok(
-    service.includes(
-      "throw new Error('Mock checkout is disabled outside local development.');"
-    )
+  assert.match(
+    service,
+    /throw new Error\(\s*'Mock checkout is disabled outside local development\.'\s*\);/
   );
   assert.ok(api.includes('if (!isProduction) {'));
   assert.ok(api.includes('createDevelopmentCheckoutResult'));
@@ -1140,7 +1137,7 @@ test('Checkout creates sponsorship follow-up URL and DB hash without raw Stripe 
   const checkoutMetadataBlock = extractBetween(
     source,
     'const checkoutMetadata',
-    'const session = await stripe.checkout.sessions.create',
+    'const params: Stripe.Checkout.SessionCreateParams',
     'checkout metadata'
   );
 

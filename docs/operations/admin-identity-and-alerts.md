@@ -31,6 +31,19 @@ racine. Revenir au mode `token` est un changement explicite de configuration,
 qui retire les garanties nominatives. Les migrations additives peuvent rester.
 Les paramètres OIDC passent par le `env_file` du service API existant.
 
+L'exception HTTP de boucle locale est refusée dès que `NODE_ENV` ou
+`FUNDING_PLATFORM_ENV` vaut `production`, pour OIDC comme pour les alertes.
+Les réponses administratives, dont les sessions et exports privés, portent
+`Cache-Control: no-store`; les politiques explicites `private, no-store`
+restent valables. Les caches des ressources publiques restent distincts.
+
+Toutes les routes `/admin/` et `/api/admin/` partagent la limite administrative.
+Chaque groupe de limitation conserve au plus 5 000 adresses actives par processus;
+au plafond, une nouvelle adresse reçoit `429` et `Retry-After` jusqu'à libération
+d'une entrée expirée, sans remettre à zéro les compteurs des clients existants.
+Une limite configurée à zéro reste désactivée. Ces compteurs locaux ne sont pas
+partagés entre plusieurs instances API.
+
 La page est `/admin/fundraiser/access`. Elle exige le rôle propriétaire côté
 API. Les sessions OIDC durent une heure sans renouvellement automatique;
 `FUNDING_ADMIN_SESSION_TTL_MINUTES` concerne seulement le mode `token`.

@@ -108,7 +108,15 @@ test('local development can issue a session without comparing an absent root tok
 });
 
 test('session malformed and oversized bodies do not compare tokens or sign', async () => {
-  for (const body of ['{', ' '.repeat(16385)]) {
+  for (const body of [
+    '{',
+    ' '.repeat(16385),
+    'null',
+    '[]',
+    'true',
+    '42',
+    '"synthetic-root-token"'
+  ]) {
     const f = fixture();
     const result = await f.request(undefined, { body });
     assert.equal(result.status, 400);

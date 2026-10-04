@@ -37,6 +37,10 @@ et la [recette de révision](sponsorship-e2e-coverage.md#recette-navigateur--ré
 | `POST /api/sponsorship-followup/draft`                         | `{ token, expectedRevision, data }`. Champs texte bornés ou `data: null` pour abandonner. Dossier admissible à l'édition requis. Conflit : `409`, sans écrasement.                                                                                                                                      |
 | `POST /api/sponsorship-followup/details`                       | Contrat existant avec `draftRevision` optionnel. Le nouveau front l'envoie toujours. Un ancien client sans révision peut soumettre seulement en l'absence de brouillon actif, ou répéter une soumission déjà confirmée sans effet.                                                                      |
 
+Les réponses de `/api/sponsorship-followup` et de ses sous-routes, ainsi que leurs
+alias sans `/api`, portent `Cache-Control: no-store`, y compris en cas d'erreur.
+Les politiques explicites `private, no-store` des médias restent intactes.
+
 Les liens de reprise contiennent un jeton aléatoire de 256 bits. La table d'accès conserve son SHA-256 ; le jeton complet figure uniquement dans le corps du courriel nécessaire à sa livraison. Il n'est pas ajouté aux métadonnées ni aux audits. Le navigateur retire le jeton de l'URL après lecture et le conserve en mémoire/session comme auparavant.
 
 Checkout, webhook et récupération d'accès utilisent la même construction du lien

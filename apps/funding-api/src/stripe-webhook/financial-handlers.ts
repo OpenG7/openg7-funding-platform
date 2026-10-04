@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import { normalizeContributionPublicReference } from '../contribution-public-reference.js';
 import {
   buildBalanceData,
+  buildContributionBalanceData,
   resolveBalanceTransaction,
   resolvePaymentIntentId
 } from '../stripe-object-normalization.js';
@@ -15,6 +16,7 @@ import {
 import { syncStripeChargeRefunds } from '../stripe-refunds.service.js';
 
 import { toIsoFromUnix } from './event-time.js';
+import { handleStripeRefundEvent } from './refund-handlers.js';
 
 interface FinancialHandlerDependencies {
   readonly stripe: Stripe;
@@ -27,6 +29,10 @@ export const handleStripeFinancialEvent = async (
   dependencies: FinancialHandlerDependencies
 ): Promise<Record<string, unknown>> => {
   const { stripe, pool } = dependencies;
+
+  if (event.type === 'refund.updated' || event.type === 'refund.failed') {
+    return handleStripeRefundEvent(event, dependencies);
+  }
 
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -48,7 +54,7 @@ export const handleStripeFinancialEvent = async (
         })
       : null;
 
-    const balanceData = buildBalanceData(
+    const balanceData = buildContributionBalanceData(
       await resolveBalanceTransaction(stripe, charge?.balance_transaction),
       paymentIntent.amount_received || paymentIntent.amount,
       paymentIntent.currency
@@ -124,7 +130,7 @@ export const handleStripeFinancialEvent = async (
       };
     }
 
-    const balanceData = buildBalanceData(
+    const balanceData = buildContributionBalanceData(
       balanceTransaction,
       charge.amount,
       charge.currency

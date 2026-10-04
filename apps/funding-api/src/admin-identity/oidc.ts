@@ -14,11 +14,21 @@ import { safeAdminReturnPath, satisfiesMfa } from './policy.js';
 export const loadAdminIdentityConfig = (
   env: NodeJS.ProcessEnv
 ): AdminIdentityConfig => {
-  const issuer = new URL(env.FUNDING_ADMIN_OIDC_ISSUER ?? '');
-  const base = new URL(env.FUNDING_PUBLIC_BASE_URL ?? '');
+  const invalidConfigMessage =
+    'OIDC requires a secure origin, issuer, client ID and client secret.';
+  let issuer: URL;
+  let base: URL;
+  try {
+    issuer = new URL(env.FUNDING_ADMIN_OIDC_ISSUER ?? '');
+    base = new URL(env.FUNDING_PUBLIC_BASE_URL ?? '');
+  } catch {
+    // URL errors retain their input, which can include provider credentials.
+    throw new Error(invalidConfigMessage);
+  }
   const secure = base.protocol === 'https:';
   const local = (url: URL): boolean =>
     env.NODE_ENV !== 'production' &&
+    env.FUNDING_PLATFORM_ENV !== 'production' &&
     url.protocol === 'http:' &&
     ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   if (
@@ -31,9 +41,7 @@ export const loadAdminIdentityConfig = (
     !env.FUNDING_ADMIN_OIDC_CLIENT_ID ||
     !env.FUNDING_ADMIN_OIDC_CLIENT_SECRET
   ) {
-    throw new Error(
-      'OIDC requires a secure origin, issuer, client ID and client secret.'
-    );
+    throw new Error(invalidConfigMessage);
   }
   return {
     issuer,

@@ -1,11 +1,11 @@
+import { createHash } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type Stripe from 'stripe';
 import type {
   CheckoutRequest,
   CheckoutResult,
-  ContributionType,
-  RedirectCheckoutResult
+  ContributionType
 } from '@openg7/funding-core';
 
 import { isValidSponsorshipAmount } from '../../../packages/funding-core/src/index.js';
@@ -14,7 +14,10 @@ import {
   buildSponsorshipFollowupUrl,
   sponsorshipFollowupLocaleFromUrl
 } from './sponsorship-followup-links.js';
-import type { insertCheckoutSessionRecord } from './fund-contributions.repository.js';
+import {
+  CheckoutOperationError,
+  type createDurableCheckoutService
+} from './checkout-operations.service.js';
 import { createRouteMatcher } from './http-routing.js';
 import type {
   createHttpTransport,
@@ -71,12 +74,7 @@ export interface PublicPaymentsHttpDependencies {
     publicReference: string
   ) => string;
   readonly truncateStripeMetadataValue: (value: string) => string;
-  readonly resolveStripePaymentIntentId: (
-    value: string | Stripe.PaymentIntent | null
-  ) => string | null;
-  readonly insertCheckoutSessionRecord: (
-    input: Parameters<typeof insertCheckoutSessionRecord>[1]
-  ) => ReturnType<typeof insertCheckoutSessionRecord>;
+  readonly runCheckout: ReturnType<typeof createDurableCheckoutService>;
   readonly reportFailure: (message: string, error?: unknown) => void;
 }
 
@@ -105,8 +103,7 @@ export const createPublicPaymentsHttpHandler = ({
   buildContributionCheckoutSuccessUrl,
   buildContributionReceiptDescription,
   truncateStripeMetadataValue,
-  resolveStripePaymentIntentId,
-  insertCheckoutSessionRecord,
+  runCheckout,
   reportFailure
 }: PublicPaymentsHttpDependencies) => {
   const { routeMatches } = createRouteMatcher(publicBaseOrigin);
@@ -123,6 +120,8 @@ export const createPublicPaymentsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as CheckoutRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid checkout request body.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid checkout request body.'
@@ -130,14 +129,22 @@ export const createPublicPaymentsHttpHandler = ({
         return true;
       }
 
-      const amount = normalizeAmount(parsed.amount);
+      const amount =
+        typeof parsed.amount === 'number'
+          ? normalizeAmount(parsed.amount)
+          : NaN;
       const isSponsorshipContribution =
         parsed.contributionType === 'sponsorship_interest';
       const isAmountAllowed = isSponsorshipContribution
         ? isValidSponsorshipAmount(amount)
         : allowedContributionAmounts.has(amount);
 
-      if (!Number.isFinite(amount) || !isAmountAllowed) {
+      if (
+        !Number.isFinite(amount) ||
+        amount !== parsed.amount ||
+        !Number.isSafeInteger(Math.round(amount * 100)) ||
+        !isAmountAllowed
+      ) {
         writeJson(request, response, 400, {
           error: 'Checkout amount is not allowed.'
         });
@@ -147,6 +154,13 @@ export const createPublicPaymentsHttpHandler = ({
       if (!isAllowedContributionType(parsed.contributionType)) {
         writeJson(request, response, 400, {
           error: 'Checkout contribution type is not allowed.'
+        });
+        return true;
+      }
+
+      if (parsed.currency !== 'CAD') {
+        writeJson(request, response, 400, {
+          error: 'Checkout currency must be CAD.'
         });
         return true;
       }
@@ -214,6 +228,17 @@ export const createPublicPaymentsHttpHandler = ({
         return true;
       }
 
+      if (
+        typeof parsed.idempotencyKey !== 'string' ||
+        !/^[A-Za-z0-9_-]{16,128}$/.test(parsed.idempotencyKey)
+      ) {
+        writeJson(request, response, 400, {
+          code: 'CHECKOUT_IDEMPOTENCY_KEY_INVALID',
+          error: 'A valid checkout idempotency key is required.'
+        });
+        return true;
+      }
+
       try {
         const successUrl = resolveCheckoutReturnUrl(
           parsed.successUrl,
@@ -223,121 +248,134 @@ export const createPublicPaymentsHttpHandler = ({
           parsed.cancelUrl,
           '/?checkout=cancel'
         );
-        const requiresReview =
-          parsed.contributionType === 'sponsorship_interest';
-        const sponsorshipFollowupToken = requiresReview
-          ? createSponsorshipFollowupToken()
-          : null;
-        const sponsorshipFollowupTokenHash = sponsorshipFollowupToken
-          ? hashSponsorshipFollowupToken(sponsorshipFollowupToken)
-          : null;
-        const publicReference = createContributionPublicReference();
-        const checkoutCancelUrl = new URL(cancelUrl);
-        checkoutCancelUrl.searchParams.set('reference', publicReference);
-        const checkoutSuccessUrl = sponsorshipFollowupToken
-          ? buildSponsorshipFollowupUrl(
-              successUrl,
-              sponsorshipFollowupToken,
-              sponsorshipFollowupLocaleFromUrl(successUrl)
-            )
-          : buildContributionCheckoutSuccessUrl(successUrl, publicReference);
         const publicDisplayName =
           parsed.publicDisplayConsent === true &&
           typeof parsed.publicDisplayName === 'string'
             ? parsed.publicDisplayName.trim()
             : '';
-        const checkoutMetadata: Record<string, string> = {
-          projectId,
-          project: 'openg7',
-          program: 'builders_fund',
-          publicReference,
-          contributionType: parsed.contributionType,
-          publicDisplayConsent: String(parsed.publicDisplayConsent),
-          displayAmountConsent: String(parsed.displayAmountConsent),
-          nonCharityAcknowledged: String(parsed.nonCharityAcknowledged),
-          requiresReview: String(requiresReview),
-          ...(publicDisplayName
-            ? {
-                publicDisplayName:
-                  truncateStripeMetadataValue(publicDisplayName)
-              }
-            : {}),
-          ...(sponsorshipFollowupTokenHash
-            ? {
+        const requestHash = createHash('sha256')
+          .update(
+            JSON.stringify({
+              projectId,
+              amountMinor: Math.round(amount * 100),
+              currency: 'cad',
+              contributionType: parsed.contributionType,
+              publicDisplayConsent: parsed.publicDisplayConsent,
+              publicDisplayName,
+              displayAmountConsent: parsed.displayAmountConsent,
+              nonCharityAcknowledged: parsed.nonCharityAcknowledged,
+              successUrl,
+              cancelUrl
+            })
+          )
+          .digest('hex');
+        const result = await runCheckout({
+          key: JSON.stringify([projectId, parsed.idempotencyKey]),
+          requestHash,
+          prepare: (operationId) => {
+            const requiresReview =
+              parsed.contributionType === 'sponsorship_interest';
+            const sponsorshipFollowupToken = requiresReview
+              ? createSponsorshipFollowupToken()
+              : null;
+            const sponsorshipFollowupTokenHash = sponsorshipFollowupToken
+              ? hashSponsorshipFollowupToken(sponsorshipFollowupToken)
+              : null;
+            const publicReference = createContributionPublicReference();
+            const checkoutCancelUrl = new URL(cancelUrl);
+            checkoutCancelUrl.searchParams.set('reference', publicReference);
+            const checkoutSuccessUrl = sponsorshipFollowupToken
+              ? buildSponsorshipFollowupUrl(
+                  successUrl,
+                  sponsorshipFollowupToken,
+                  sponsorshipFollowupLocaleFromUrl(successUrl)
+                )
+              : buildContributionCheckoutSuccessUrl(
+                  successUrl,
+                  publicReference
+                );
+            const checkoutMetadata: Record<string, string> = {
+              openg7CheckoutOperationId: operationId,
+              projectId,
+              project: 'openg7',
+              program: 'builders_fund',
+              publicReference,
+              contributionType: parsed.contributionType,
+              publicDisplayConsent: String(parsed.publicDisplayConsent),
+              displayAmountConsent: String(parsed.displayAmountConsent),
+              nonCharityAcknowledged: String(parsed.nonCharityAcknowledged),
+              requiresReview: String(requiresReview),
+              ...(publicDisplayName
+                ? {
+                    publicDisplayName:
+                      truncateStripeMetadataValue(publicDisplayName)
+                  }
+                : {}),
+              ...(sponsorshipFollowupTokenHash
+                ? {
+                    sponsorshipFollowupTokenHash
+                  }
+                : {})
+            };
+
+            const params: Stripe.Checkout.SessionCreateParams = {
+              mode: 'payment',
+              client_reference_id: publicReference,
+              success_url: checkoutSuccessUrl,
+              cancel_url: checkoutCancelUrl.toString(),
+              line_items: [
+                {
+                  quantity: 1,
+                  price_data: {
+                    currency: 'cad',
+                    unit_amount: Math.round(amount * 100),
+                    product_data: {
+                      name: `OpenG7 ${projectId} - ${publicReference}`,
+                      description:
+                        buildContributionReceiptDescription(publicReference)
+                    }
+                  }
+                }
+              ],
+              payment_intent_data: {
+                description:
+                  buildContributionReceiptDescription(publicReference),
+                metadata: checkoutMetadata
+              },
+              metadata: checkoutMetadata
+            };
+            return {
+              params,
+              record: {
+                publicReference,
+                contributionType: parsed.contributionType,
+                amountCents: Math.round(amount * 100),
+                currency: 'cad',
+                metadata: checkoutMetadata,
+                publicDisplayConsent: parsed.publicDisplayConsent,
+                publicName: publicDisplayName || null,
+                displayAmountConsent: parsed.displayAmountConsent,
+                nonCharityAcknowledged: parsed.nonCharityAcknowledged,
                 sponsorshipFollowupTokenHash
               }
-            : {})
-        };
-
-        const session = await stripe.checkout.sessions.create({
-          mode: 'payment',
-          client_reference_id: publicReference,
-          success_url: checkoutSuccessUrl,
-          cancel_url: checkoutCancelUrl.toString(),
-          line_items: [
-            {
-              quantity: 1,
-              price_data: {
-                currency: 'cad',
-                unit_amount: Math.round(amount * 100),
-                product_data: {
-                  name: `OpenG7 ${projectId} - ${publicReference}`,
-                  description:
-                    buildContributionReceiptDescription(publicReference)
-                }
-              }
-            }
-          ],
-          payment_intent_data: {
-            description: buildContributionReceiptDescription(publicReference),
-            metadata: checkoutMetadata
-          },
-          metadata: checkoutMetadata
+            };
+          }
         });
-        try {
-          await insertCheckoutSessionRecord({
-            stripeSessionId: session.id,
-            stripePaymentIntentId: resolveStripePaymentIntentId(
-              session.payment_intent
-            ),
-            publicReference,
-            contributionType: parsed.contributionType,
-            amountCents: Math.round(amount * 100),
-            currency: 'cad',
-            metadata: checkoutMetadata,
-            publicDisplayConsent: parsed.publicDisplayConsent,
-            publicName: publicDisplayName || null,
-            displayAmountConsent: parsed.displayAmountConsent,
-            nonCharityAcknowledged: parsed.nonCharityAcknowledged,
-            sponsorshipFollowupTokenHash
-          });
-        } catch (error) {
-          reportFailure('Failed to record Stripe checkout session.', error);
-        }
-
-        const result: RedirectCheckoutResult = {
-          checkoutId: session.id,
-          redirectUrl: session.url ?? successUrl,
-          status: 'redirected'
-        };
 
         writeJson(request, response, 200, result);
         return true;
       } catch (error) {
-        reportFailure('Failed to create Stripe checkout session.', error);
-
-        if (!isProduction) {
-          writeJson(
-            request,
-            response,
-            200,
-            createDevelopmentCheckoutResult(parsed)
-          );
-          return true;
-        }
-
-        writeJson(request, response, 502, {
-          error: 'Stripe checkout session could not be created.'
+        const failure =
+          error instanceof CheckoutOperationError
+            ? error
+            : new CheckoutOperationError('CHECKOUT_STORAGE_UNAVAILABLE', 503);
+        reportFailure('Checkout operation failed.', failure.code);
+        writeJson(request, response, failure.status, {
+          code: failure.code,
+          error:
+            failure.code === 'CHECKOUT_RECONCILIATION_REQUIRED'
+              ? 'Checkout requires verification before retrying.'
+              : 'Checkout could not be started. Retry with the same idempotency key.'
         });
         return true;
       }

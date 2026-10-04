@@ -25,6 +25,7 @@ const payment = (overrides = {}) => ({
 const transactionPool = ({
   existing = [],
   rowCount = 1,
+  failedRefund = false,
   failAt = null
 } = {}) => {
   const calls = [];
@@ -43,14 +44,18 @@ const transactionPool = ({
             ? 'lock'
             : sql.includes('SELECT amount::text')
               ? 'existing'
-              : sql.includes('INSERT INTO fund_transactions')
-                ? 'insert'
-                : sql;
+              : sql.includes('FROM sponsorship_refund_operations')
+                ? 'failed-refund'
+                : sql.includes('INSERT INTO fund_transactions')
+                  ? 'insert'
+                  : sql;
           calls.push({ operation, sql, values });
           if (operation === failAt) throw failure;
           return operation === 'existing'
             ? { rows: existing }
-            : { rows: [], rowCount };
+            : operation === 'failed-refund'
+              ? { rows: [], rowCount: failedRefund ? 1 : 0 }
+              : { rows: [], rowCount };
         },
         release() {
           calls.push({ operation: 'release' });
@@ -92,25 +97,63 @@ test('logical payment, payout and refund writes lock and commit on one client', 
       assert.equal(await insertFundTransaction(pool, input), true);
       assert.deepEqual(
         calls.map(({ operation }) => operation),
-        ['connect', 'BEGIN', 'lock', 'existing', 'insert', 'COMMIT', 'release']
+        [
+          'connect',
+          'BEGIN',
+          'lock',
+          ...(input.type === 'charge.refunded' ? ['failed-refund'] : []),
+          'existing',
+          'insert',
+          'COMMIT',
+          'release'
+        ]
       );
       assert.deepEqual(calls[2].values, [lock]);
-      assert.deepEqual(calls[4].values, [
-        input.stripeEventId,
-        input.stripeObjectId,
-        input.stripeBalanceTransactionId,
-        input.type,
-        input.amount,
-        input.fee,
-        input.net,
-        input.currency,
-        input.status,
-        input.createdAtIso,
-        input.publicCategory,
-        JSON.stringify(input.metadataJson)
-      ]);
+      assert.deepEqual(
+        calls.find(({ operation }) => operation === 'insert').values,
+        [
+          input.stripeEventId,
+          input.stripeObjectId,
+          input.stripeBalanceTransactionId,
+          input.type,
+          input.amount,
+          input.fee,
+          input.net,
+          input.currency,
+          input.status,
+          input.createdAtIso,
+          input.publicCategory,
+          JSON.stringify(input.metadataJson)
+        ]
+      );
     });
   }
+});
+
+test('a confirmed refund cannot be inserted after its durable operation failed', async () => {
+  const { pool, calls } = transactionPool({ failedRefund: true });
+  await assert.rejects(
+    insertFundTransaction(
+      pool,
+      payment({
+        type: 'charge.refunded',
+        stripeObjectId: 'ch_test_registry',
+        metadataJson: {
+          refundId: 're_test_registry',
+          refundOperationId: 'synthetic-operation'
+        }
+      })
+    ),
+    /REFUND_FINANCIAL_CORRECTION_REQUIRED/
+  );
+  assert.deepEqual(
+    calls.map(({ operation }) => operation),
+    ['connect', 'BEGIN', 'lock', 'failed-refund', 'ROLLBACK', 'release']
+  );
+  assert.deepEqual(calls[3].values, [
+    're_test_registry',
+    'synthetic-operation'
+  ]);
 });
 
 test('logical duplicates commit without insertion and currency comparison preserves case tolerance', async () => {
@@ -229,23 +272,61 @@ test('late balance enrichment retains all minor-unit values, currency and row-co
   };
   for (const rowCount of [null, 0, 1, 2]) {
     await t.test(`updated rows: ${rowCount}`, async () => {
-      const calls = [];
-      const pool = {
-        async query(sql, values) {
-          calls.push({ sql, values });
-          return { rowCount };
-        }
-      };
+      const { pool, calls } = transactionPool({
+        existing: [{ amount: '12345', currency: 'CAD' }],
+        rowCount
+      });
       assert.equal(
         await updateContributionFundTransactionBalance(pool, input),
         (rowCount ?? 0) > 0
       );
-      assert.equal(calls.length, 1);
+      const update = calls.find(({ sql }) =>
+        sql?.includes('UPDATE fund_transactions')
+      );
+      assert.deepEqual(calls[2].values, ['fund-payment:pi_test_registry']);
       assert.match(
-        calls[0].sql,
+        update.sql,
         /WHERE stripe_object_id = \$1\s+AND type = 'payment_intent.succeeded'/
       );
-      assert.deepEqual(calls[0].values, Object.values(input));
+      assert.doesNotMatch(
+        update.sql.split('WHERE')[0],
+        /\b(?:amount|currency|status)\s*=/
+      );
+      assert.deepEqual(update.values, Object.values(input));
+      assert.deepEqual(
+        calls.slice(-2).map(({ operation }) => operation),
+        ['COMMIT', 'release']
+      );
+    });
+  }
+});
+
+test('late balance enrichment rejects conflicting payment facts without updating the registry', async (t) => {
+  for (const row of [
+    { amount: '12344', currency: 'cad' },
+    { amount: '12345', currency: 'usd' }
+  ]) {
+    await t.test(JSON.stringify(row), async () => {
+      const { pool, calls } = transactionPool({ existing: [row] });
+      await assert.rejects(
+        updateContributionFundTransactionBalance(pool, {
+          stripePaymentIntentId: 'pi_test_registry',
+          stripeBalanceTransactionId: 'txn_test_registry',
+          amount: 12345,
+          fee: 345,
+          net: 12000,
+          currency: 'cad',
+          status: 'succeeded'
+        }),
+        /Inconsistent payment balance monetary facts/
+      );
+      assert.ok(
+        calls.every(({ sql }) => !sql?.includes('UPDATE fund_transactions'))
+      );
+      assert.deepEqual(
+        calls.slice(-2).map(({ operation }) => operation),
+        ['ROLLBACK', 'release']
+      );
     });
   }
 });

@@ -31,7 +31,7 @@ export function stripeSessionBelongsToProject(
 }
 
 export async function stripeEventBelongsToProject(
-  event: Stripe.Event,
+  event: { readonly type: string; readonly data: { readonly object: unknown } },
   stripe: Stripe,
   pool: Pool | null,
   projectId: string

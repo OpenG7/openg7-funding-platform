@@ -189,6 +189,133 @@ test(
       )
     );
     await t.test(
+      'settlement conversions preserve the confirmed payment and remain retryable without a mixed-currency ledger',
+      async () => {
+        const f = fixture();
+        const id = await seed(pool, f);
+        const balance = f.charge.balance_transaction;
+        f.charge.balance_transaction = {
+          ...balance,
+          amount: 7200,
+          fee: 200,
+          net: 7000,
+          currency: 'usd'
+        };
+        const eventId = 'evt_' + randomUUID();
+        assert.equal(
+          (
+            await deliver(
+              pool,
+              f,
+              'payment_intent.succeeded',
+              f.intent,
+              eventId
+            )
+          ).statusCode,
+          500
+        );
+        assert.equal(
+          (await getSponsorshipRefundTarget(pool, id)).paymentStatus,
+          'paid'
+        );
+        let summary = await getPublicTransparencySummary(pool);
+        assert.equal(summary.total_received, 100);
+        assert.equal(summary.pending_fee_count, 1);
+        assert.equal(
+          (await pool.query('SELECT count(*)::int AS n FROM fund_transactions'))
+            .rows[0].n,
+          0
+        );
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT processing_status FROM stripe_events WHERE stripe_event_id=$1',
+              [eventId]
+            )
+          ).rows[0].processing_status,
+          'failed'
+        );
+        f.charge.balance_transaction = balance;
+        assert.equal(
+          (
+            await deliver(
+              pool,
+              f,
+              'payment_intent.succeeded',
+              f.intent,
+              eventId
+            )
+          ).statusCode,
+          200
+        );
+        summary = await getPublicTransparencySummary(pool);
+        assert.equal(summary.total_received, 100);
+        assert.equal(summary.total_fees, 3);
+        assert.equal(summary.pending_fee_count, 0);
+        assert.equal(
+          (await pool.query('SELECT count(*)::int AS n FROM fund_transactions'))
+            .rows[0].n,
+          1
+        );
+      }
+    );
+    await t.test(
+      'late balances cannot rewrite confirmed gross or currency while compatible fee corrections remain accepted',
+      async () => {
+        const f = fixture();
+        await seed(pool, f);
+        assert.equal(
+          (await deliver(pool, f, 'payment_intent.succeeded', f.intent))
+            .statusCode,
+          200
+        );
+        const original = (await pool.query('SELECT * FROM fund_transactions'))
+          .rows[0];
+        for (const [amount, currency] of [
+          [7200, 'usd'],
+          [10100, 'cad']
+        ]) {
+          const incompatible = {
+            ...f.charge,
+            amount,
+            currency,
+            balance_transaction: {
+              ...f.charge.balance_transaction,
+              amount,
+              currency,
+              fee: 200,
+              net: amount - 200
+            }
+          };
+          assert.equal(
+            (await deliver(pool, f, 'charge.updated', incompatible)).statusCode,
+            500
+          );
+          assert.deepEqual(
+            (await pool.query('SELECT * FROM fund_transactions')).rows[0],
+            original
+          );
+        }
+        f.charge.balance_transaction = {
+          ...f.charge.balance_transaction,
+          fee: 400,
+          net: 9600
+        };
+        const responses = await Promise.all([
+          deliver(pool, f, 'charge.updated', f.charge),
+          deliver(pool, f, 'charge.updated', f.charge)
+        ]);
+        assert.ok(responses.every((response) => response.statusCode === 200));
+        const rows = (await pool.query('SELECT * FROM fund_transactions')).rows;
+        assert.equal(rows.length, 1);
+        assert.equal(rows[0].amount, '10000');
+        assert.equal(rows[0].currency, 'cad');
+        assert.equal(rows[0].status, 'succeeded');
+        assert.equal(rows[0].fee, '400');
+        assert.equal(rows[0].net, '9600');
+      }
+    );
+    await t.test(
       'partial backfill keeps payment eligibility; only the complete confirmed total marks refunded',
       async () => {
         const f = fixture();

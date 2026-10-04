@@ -35,7 +35,22 @@ en unités majeures; aucune écriture financière ni migration n'est modifiée.
 Les signes, notations exponentielles et décimales supplémentaires sont refusés,
 sans transformation silencieuse du montant.
 
+L'API exige un objet JSON, un montant numérique sans arrondi et convertible en
+unités mineures entières sûres, ainsi que `currency: "CAD"` selon le contrat
+Checkout existant. Une valeur de montant textuelle, des décimales supplémentaires
+ou une devise absente ou différente donnent `400` avant tout appel Stripe.
+Les clients qui omettaient la devise doivent maintenant la fournir; le Web
+actuel l'envoie déjà.
+
 ## Progression et confirmation
+
+Chaque tentative Checkout porte une clé d'idempotence. Le Web conserve la clé et
+une empreinte du contenu pour réessayer après une erreur, y compris après
+rechargement lorsque le stockage de session est disponible, et regroupe les
+soumissions concurrentes identiques. Une réponse acceptée termine la tentative;
+une erreur réseau ou fournisseur reste une erreur, même en développement local.
+Le [contrat Checkout](technical/checkout.md) décrit les
+conflits, la persistance requise et les limites de reprise.
 
 La progression et le montant restant utilisent `monthly_summary` pour le mois
 UTC courant et la devise du rapport. L'absence de ligne pour ce mois vaut zéro

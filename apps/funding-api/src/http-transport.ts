@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
+import { createRouteMatcher } from './http-routing.js';
+
 type ApiRequest = IncomingMessage;
 type ApiResponse = ServerResponse<IncomingMessage>;
 
@@ -17,6 +19,33 @@ export const createHttpTransport = ({
   isProduction,
   allowedOrigins
 }: HttpTransportConfig) => {
+  const { routeMatches, routeStartsWith } =
+    createRouteMatcher('http://api.invalid');
+  const privateResponseHeaders = (
+    request: ApiRequest,
+    extraHeaders: Record<string, string> = {}
+  ): Record<string, string> =>
+    routeStartsWith(
+      request.url,
+      '/admin/',
+      '/api/admin/',
+      '/sponsorship-followup/',
+      '/api/sponsorship-followup/'
+    ) ||
+    routeMatches(
+      request.url,
+      '/sponsorship-followup',
+      '/api/sponsorship-followup'
+    )
+      ? {
+          'Cache-Control': extraHeaders['Cache-Control']
+            ?.split(',')
+            .some((value) => value.trim().toLowerCase() === 'no-store')
+            ? extraHeaders['Cache-Control']
+            : 'no-store'
+        }
+      : {};
+
   const createCorsHeaders = (request: ApiRequest): Record<string, string> => {
     const origin = request.headers.origin;
     const allowedOrigin = !isProduction
@@ -44,6 +73,7 @@ export const createHttpTransport = ({
       ...createCorsHeaders(request),
       ...securityHeaders,
       ...extraHeaders,
+      ...privateResponseHeaders(request, extraHeaders),
       'Content-Type': 'application/json; charset=utf-8'
     });
     response.end(JSON.stringify(payload));
@@ -58,6 +88,7 @@ export const createHttpTransport = ({
     response.writeHead(statusCode, {
       ...createCorsHeaders(request),
       ...securityHeaders,
+      ...privateResponseHeaders(request),
       'Content-Type': 'text/plain; charset=utf-8'
     });
     response.end(payload);
@@ -73,6 +104,7 @@ export const createHttpTransport = ({
     response.writeHead(statusCode, {
       ...createCorsHeaders(request),
       ...securityHeaders,
+      ...privateResponseHeaders(request),
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Type': 'text/csv; charset=utf-8'
     });
@@ -91,6 +123,7 @@ export const createHttpTransport = ({
       ...createCorsHeaders(request),
       ...securityHeaders,
       ...extraHeaders,
+      ...privateResponseHeaders(request, extraHeaders),
       'Content-Length': String(payload.byteLength),
       'Content-Type': contentType
     });

@@ -199,6 +199,8 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminSponsorshipReviewRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid sponsorship review request body.'
@@ -492,6 +494,8 @@ export const createAdminSponsorshipDecisionsHttpHandler = ({
       try {
         const body = await readBody(request);
         parsed = JSON.parse(body) as AdminSponsorshipPublicationRequest;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          throw new Error('Invalid request object.');
       } catch {
         writeJson(request, response, 400, {
           error: 'Invalid sponsorship publication request body.'

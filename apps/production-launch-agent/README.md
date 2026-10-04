@@ -24,6 +24,8 @@ Current platform features and validation evidence are indexed in
   - `admin`: rollback.
 - LLM output can only select known tools. It cannot inject shell commands.
 - Log output is treated as untrusted data.
+- SSH execution requires a pinned, independently verified SHA256 host fingerprint.
+  Missing, malformed or mismatched fingerprints prevent remote commands.
 - SSH retries apply only to connection failures before a command starts. An
   interrupted command is not replayed: reconcile its remote outcome before a
   manual retry. A missing exit status or termination signal is a failure.
@@ -40,6 +42,7 @@ VPS_HOST=your-vps-host.example.com
 PLA_SSH_USER=ubuntu
 PLA_SSH_PORT=22
 PLA_SSH_RETRIES=2
+PLA_SSH_HOST_FINGERPRINT=
 PLA_PRIVATE_KEY_PATH=/path/to/private/key
 PLA_DATABASE_PATH=apps/production-launch-agent/database/production-launch-agent.sqlite
 PLA_REPORT_DIR=apps/production-launch-agent/logs/reports
@@ -49,6 +52,14 @@ OPENAI_API_KEY=
 `PLA_HEALTH_PATH` must start with `/` and contain only ASCII letters, digits,
 slashes, dots, underscores or hyphens. Shell syntax, whitespace, query strings
 and fragments are rejected when the command registry is constructed.
+
+`PLA_SSH_HOST_FINGERPRINT` is a public server identity pin in OpenSSH format
+(`SHA256:` followed by 43 base64 characters, without padding). Obtain it through
+a trusted VPS console with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256`
+and verify it independently before setting the value. Do not trust a fingerprint
+collected over an unverified connection. Dry runs can leave it unset; execution
+fails before connecting if it is absent or malformed. A legitimate host key
+rotation requires explicit verification and updating this pin.
 
 ## Install
 

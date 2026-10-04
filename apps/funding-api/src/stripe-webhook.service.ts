@@ -21,6 +21,8 @@ const allowedEvents = new Set([
   'payment_intent.payment_failed',
   'charge.updated',
   'charge.refunded',
+  'refund.updated',
+  'refund.failed',
   'charge.dispute.created',
   'payout.paid',
   'payout.failed'
@@ -109,10 +111,18 @@ export const processStripeWebhook = async (
       statusCode: 200,
       payload: { received: true, duplicate: true, type: event.type }
     };
-  } catch {
+  } catch (error) {
     console.error('Failed to process Stripe webhook event.', {
       eventId: event.id,
-      eventType: event.type
+      eventType: event.type,
+      code:
+        error instanceof Error &&
+        [
+          'REFUND_FINANCIAL_CORRECTION_REQUIRED',
+          'REFUND_INVOICE_REQUIRED'
+        ].includes(error.message)
+          ? error.message
+          : 'STRIPE_EVENT_PROCESSING_FAILED'
     });
     return {
       statusCode: 500,

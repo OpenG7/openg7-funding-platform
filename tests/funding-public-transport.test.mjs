@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { FundingPublicClient } from '../dist/apps/funding-web/src/app/features/funding/services/funding-public.client.js';
+import { CheckoutReconciliationRequiredError } from '../dist/apps/funding-web/src/app/features/funding/services/checkout-error.js';
 
 const baseUrl = 'https://funding.example.test/api';
 const checkoutRequest = {
+  idempotencyKey: '1312d2f2-d45d-49c6-b77d-b50bf2d89272',
   amount: 25,
   currency: 'CAD',
   projectId: 'openg7',
@@ -120,7 +122,7 @@ test('public requests preserve payloads, response data and optional cancellation
   }
 });
 
-test('public HTTP failures retain endpoint errors without decoding private error bodies or retrying', async (t) => {
+test('public HTTP failures retain endpoint errors and only inspect the safe Checkout conflict code without retrying', async (t) => {
   for (const request of requests) {
     for (const status of [400, 401, 403, 409, 503]) {
       await t.test(`${request.name}: ${status}`, async (t) => {
@@ -141,10 +143,48 @@ test('public HTTP failures retain endpoint errors without decoding private error
           name: 'Error',
           message: request.fallback
         });
-        assert.equal(decodeMock.mock.callCount(), 0);
+        assert.equal(
+          decodeMock.mock.callCount(),
+          request.name === 'checkout' && status === 409 ? 1 : 0
+        );
         assert.equal(fetchMock.mock.callCount(), 1);
       });
     }
+  }
+});
+
+test('Checkout preserves only the recognized reconciliation conflict as a safe typed error', async (t) => {
+  for (const status of [409, 503]) {
+    await t.test(String(status), async (t) => {
+      const client = new FundingPublicClient(baseUrl);
+      t.mock.method(globalThis, 'fetch', async () =>
+        Response.json(
+          {
+            code: 'CHECKOUT_RECONCILIATION_REQUIRED',
+            error: 'Synthetic private provider and storage details'
+          },
+          { status }
+        )
+      );
+      await assert.rejects(client.startCheckout(checkoutRequest), (error) => {
+        if (status === 409) {
+          assert.ok(error instanceof CheckoutReconciliationRequiredError);
+          assert.equal(error.code, 'CHECKOUT_RECONCILIATION_REQUIRED');
+          assert.equal(
+            error.message,
+            'Checkout requires verification before retrying.'
+          );
+        } else {
+          assert.equal(
+            error instanceof CheckoutReconciliationRequiredError,
+            false
+          );
+          assert.equal(error.message, 'Checkout API is unavailable.');
+        }
+        assert.equal(error.message.includes('private'), false);
+        return true;
+      });
+    });
   }
 });
 
@@ -232,6 +272,28 @@ test('checkout transport returns mocked results unchanged for the facade to enfo
   );
   assert.deepEqual(await client.startCheckout(checkoutRequest), result);
   assert.equal(fetchMock.mock.callCount(), 1);
+});
+
+test('checkout transport rejects incomplete or unknown success responses so an uncertain attempt can retain its key', async (t) => {
+  for (const result of [
+    null,
+    {},
+    { status: 'paid', checkoutId: 'cs_synthetic', redirectUrl: 'synthetic' },
+    { status: 'redirected', checkoutId: '', redirectUrl: 'synthetic' },
+    { status: 'redirected', checkoutId: 'cs_synthetic' },
+    { status: 'mocked', checkoutId: 123, redirectUrl: 'synthetic' }
+  ]) {
+    await t.test(JSON.stringify(result), async (t) => {
+      const client = new FundingPublicClient(baseUrl);
+      const fetchMock = t.mock.method(globalThis, 'fetch', async () =>
+        Response.json(result)
+      );
+      await assert.rejects(client.startCheckout(checkoutRequest), {
+        message: 'Checkout API returned an invalid response.'
+      });
+      assert.equal(fetchMock.mock.callCount(), 1);
+    });
+  }
 });
 
 test('reference cancellation forwards the same signal and abort reason before or during fetch', async (t) => {

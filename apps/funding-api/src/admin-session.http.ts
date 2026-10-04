@@ -51,6 +51,8 @@ export const createAdminSessionHttpHandler = ({
     try {
       const body = await readBody(request, 16 * 1024);
       parsed = JSON.parse(body) as AdminSessionCreateRequest;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+        throw new Error('Invalid admin session request body.');
     } catch {
       writeJson(request, response, 400, {
         error: 'Invalid admin session request body.'

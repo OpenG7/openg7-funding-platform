@@ -23,7 +23,7 @@ const readyStatus: StripeSetupDevStatus = {
   lastCheckedAt: '2026-10-03T12:00:00.000Z'
 };
 
-type BrowserRecords = Window & {
+type BrowserRecords = typeof window & {
   og7DevToolsCopies: string[];
   og7DevToolsOpens: [string, string | undefined, string | undefined][];
 };

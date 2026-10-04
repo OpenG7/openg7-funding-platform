@@ -84,6 +84,7 @@ test(
                 projectId: 'synthetic-project',
                 contributionType,
                 amount,
+                currency: 'CAD',
                 publicDisplayConsent: false,
                 displayAmountConsent: false,
                 nonCharityAcknowledged: true,

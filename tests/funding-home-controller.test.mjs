@@ -70,6 +70,7 @@ const fixture = (t, { isBrowser = true } = {}) => {
   let cleanups = 0;
   const ports = {
     funding: {
+      requiresCheckoutVerification: () => false,
       async getPublicFundingConfig() {
         return { business_sponsorship_enabled: false };
       },
@@ -132,7 +133,8 @@ test('SSR retains unavailable state without requests, monitor calls or browser a
   for (const method of [
     'getPublicFundingConfig',
     'getSponsorshipBatchAvailability',
-    'startCheckout'
+    'startCheckout',
+    'requiresCheckoutVerification'
   ]) {
     f.ports.funding[method] = () => assert.fail(`SSR called ${method}`);
   }
@@ -151,6 +153,20 @@ test('SSR retains unavailable state without requests, monitor calls or browser a
   assert.equal(f.controller.lastTransparencySync(), null);
   assert.equal(f.controller.currentMonth(), '');
   assert.equal(f.controller.loadingState(), 'idle');
+});
+
+test('page startup restores the verification message and prevents a new Checkout before submission', async (t) => {
+  const f = fixture(t);
+  f.ports.funding.requiresCheckoutVerification = () => true;
+  f.ports.funding.startCheckout = () =>
+    assert.fail('No new Checkout while verification is required');
+  f.controller.start(new URLSearchParams());
+  assert.equal(f.controller.checkoutRequiresVerification(), true);
+  assert.equal(f.controller.loadingState(), 'error');
+  await f.controller.supportProject({ ...submission, amount: 50 });
+  await flush();
+  assert.equal(f.controller.checkoutResultMode(), null);
+  assert.deepEqual(f.navigations, []);
 });
 
 test('loading, a failed first read and an API-confirmed zero remain distinct', async (t) => {
@@ -453,6 +469,7 @@ test('checkout rejection reports failure and permits a later submission without 
   await f.controller.supportProject(submission);
   assert.equal(f.controller.loadingState(), 'error');
   assert.equal(f.controller.checkoutResultMode(), null);
+  assert.equal(f.controller.checkoutRequiresVerification(), false);
   assert.equal(f.controller.hasTransparencySnapshot(), false);
   await f.controller.supportProject(submission);
   assert.equal(calls, 2);
