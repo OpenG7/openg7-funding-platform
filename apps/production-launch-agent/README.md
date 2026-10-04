@@ -24,6 +24,10 @@ Current platform features and validation evidence are indexed in
   - `admin`: rollback.
 - LLM output can only select known tools. It cannot inject shell commands.
 - Log output is treated as untrusted data.
+- SSH retries apply only to connection failures before a command starts. An
+  interrupted command is not replayed: reconcile its remote outcome before a
+  manual retry. A missing exit status or termination signal is a failure.
+- Rollback stops when checkout or build fails, before starting services.
 
 ## Environment
 
@@ -35,11 +39,16 @@ PLA_APP_DIR=/opt/openg7-funding-platform
 VPS_HOST=your-vps-host.example.com
 PLA_SSH_USER=ubuntu
 PLA_SSH_PORT=22
+PLA_SSH_RETRIES=2
 PLA_PRIVATE_KEY_PATH=/path/to/private/key
 PLA_DATABASE_PATH=apps/production-launch-agent/database/production-launch-agent.sqlite
 PLA_REPORT_DIR=apps/production-launch-agent/logs/reports
 OPENAI_API_KEY=
 ```
+
+`PLA_HEALTH_PATH` must start with `/` and contain only ASCII letters, digits,
+slashes, dots, underscores or hyphens. Shell syntax, whitespace, query strings
+and fragments are rejected when the command registry is constructed.
 
 ## Install
 
@@ -112,6 +121,13 @@ Each run generates:
 
 - `*.json`
 - `*.md`
+
+## Local validation
+
+After `yarn build`, the three `tests/production-launch-*.test.mjs` suites verify
+command validation, SSH failure handling and rollback sequencing using synthetic
+ports. They do not load configuration, connect to SSH or run a checklist. These
+tests do not qualify a real VPS, deployment, backup or restoration.
 
 ## Checklists
 
