@@ -144,7 +144,12 @@ async function fixtures(page: Page) {
       '2099-01-01T00:00:00Z'
     );
   });
-  const calls: { path: string; method: string; body: unknown }[] = [];
+  const calls: {
+    path: string;
+    search: string;
+    method: string;
+    body: unknown;
+  }[] = [];
   const options = {
     status: 200,
     unavailable: false,
@@ -153,6 +158,7 @@ async function fixtures(page: Page) {
     delay: 0,
     resolved: false,
     prepareStatus: 200,
+    draftResponseGate: null as Promise<void> | null,
     privateResponseGate: null as Promise<void> | null
   };
   await page.route('**/api/**', async (route) => {
@@ -160,6 +166,7 @@ async function fixtures(page: Page) {
       url = new URL(request.url());
     calls.push({
       path: url.pathname,
+      search: url.search,
       method: request.method(),
       body: request.postData() ? request.postDataJSON() : null
     });
@@ -190,7 +197,8 @@ async function fixtures(page: Page) {
           conversationMode: options.mode
         }
       });
-    if (url.pathname === '/api/admin/assistant/prepare')
+    if (url.pathname === '/api/admin/assistant/prepare') {
+      await options.draftResponseGate;
       return route.fulfill({
         status: options.prepareStatus,
         json: {
@@ -212,6 +220,7 @@ async function fixtures(page: Page) {
           }
         }
       });
+    }
     if (url.pathname === '/api/admin/email-queue')
       return route.fulfill({
         json: {
@@ -404,6 +413,78 @@ test('drawer keeps focus and scroll, translates missing fields, and only prepare
   await page.keyboard.press('Escape');
   await expect(last).toBeFocused();
   await expect.poll(() => page.evaluate(() => scrollY)).toBe(before);
+});
+
+test('opening and closing details preserves the queue query without duplicate overview reads', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page);
+  await page.goto(base);
+  const rows = page.locator('[data-og7="assistant-items"] > li');
+  await expect(rows).toHaveCount(15);
+  const overviewReads = () =>
+    calls.filter(
+      (call) =>
+        call.path === '/api/admin/attention' &&
+        new URLSearchParams(call.search).get('overview') === 'true' &&
+        !new URLSearchParams(call.search).has('itemId')
+    );
+  expect(overviewReads()).toHaveLength(1);
+  await rows.first().getByRole('button').click();
+  const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
+  await expect(dialog.locator('[data-og7="assistant-detail"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(rows.first().getByRole('button')).toBeFocused();
+  await rows.nth(1).getByRole('button').click();
+  await expect(dialog.locator('[data-og7="assistant-detail"]')).toBeVisible();
+  expect(overviewReads()).toHaveLength(1);
+  expect(
+    calls.filter((call) => new URLSearchParams(call.search).has('itemId'))
+  ).toHaveLength(2);
+  await page.keyboard.press('Escape');
+  await page
+    .locator(
+      '[data-og7="assistant-categories"] [data-og7-id="email_delivery_failed"]'
+    )
+    .click();
+  await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
+    '127'
+  );
+  expect(overviewReads()).toHaveLength(2);
+});
+
+test('a preparation received after closing and reopening the drawer cannot restore its old draft', async ({
+  page
+}) => {
+  const { options, calls } = await fixtures(page);
+  await page.goto(base + '?type=sponsorship_needs_info');
+  const open = page.locator('[data-og7="assistant-items"] button');
+  await open.click();
+  const dialog = page.getByRole('dialog', { name: 'Détail de l’élément' });
+  let release!: () => void;
+  options.draftResponseGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const requested = page.waitForRequest('**/api/admin/assistant/prepare');
+  await dialog.getByRole('button', { name: 'Préparer une relance' }).click();
+  await requested;
+  await page.keyboard.press('Escape');
+  await expect(open).toBeFocused();
+  await open.click();
+  await expect(dialog.locator('[data-og7="assistant-detail"]')).toBeVisible();
+  const received = page.waitForResponse('**/api/admin/assistant/prepare');
+  release();
+  await (await received).finished();
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  );
+  await expect(dialog.locator('[data-og7="assistant-draft"]')).toHaveCount(0);
+  await expect(
+    dialog.getByRole('button', { name: 'Préparer une relance' })
+  ).toBeEnabled();
+  expect(
+    calls.filter((call) => call.method === 'POST').map((call) => call.path)
+  ).toEqual(['/api/admin/assistant/prepare']);
 });
 
 test('errors remain visible, refresh recovers, and missing sources never look empty', async ({

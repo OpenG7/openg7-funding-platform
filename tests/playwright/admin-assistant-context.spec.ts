@@ -862,12 +862,16 @@ test('navigation cannot restore private edits for a different administrator', as
   ).toHaveCount(0);
 });
 
-test('returning from a dossier to the global Assistant reloads its complete queue', async ({
+test('each return from a dossier reloads the global Assistant queue once without loading optional private panels', async ({
   page
 }) => {
-  await fixtures(page);
-  await page.route('**/api/admin/attention?*', (route) =>
-    route.fulfill({
+  const { calls } = await fixtures(page);
+  const queueReads: URL[] = [];
+  const overviewReads = () =>
+    queueReads.filter((url) => url.searchParams.get('overview') === 'true');
+  await page.route('**/api/admin/attention?*', (route) => {
+    queueReads.push(new URL(route.request().url()));
+    return route.fulfill({
       json: {
         generatedAt: '2026-09-16T14:00:00Z',
         counts: { urgent: 0, today: 0, this_week: 0, informational: 0 },
@@ -883,9 +887,26 @@ test('returning from a dossier to the global Assistant reloads its complete queu
         pageSize: 15,
         items: []
       }
-    })
-  );
+    });
+  });
   await page.goto(path());
+  await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
+    'DEMO-301'
+  );
+  expect(overviewReads()).toHaveLength(0);
+  await page
+    .getByRole('navigation', { name: 'Navigation admin du fonds' })
+    .getByRole('link', { name: 'Assistant', exact: true })
+    .click();
+  await expect(page).toHaveURL('/admin/fundraiser/assistant');
+  await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
+    '0 résultat(s) sur 0 intervention(s).'
+  );
+  expect(overviewReads()).toHaveLength(1);
+  await page.evaluate((next) => {
+    history.pushState({}, '', next);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path());
   await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
     'DEMO-301'
   );
@@ -897,4 +918,18 @@ test('returning from a dossier to the global Assistant reloads its complete queu
   await expect(page.locator('[data-og7="assistant-count"]')).toContainText(
     '0 résultat(s) sur 0 intervention(s).'
   );
+  expect(overviewReads()).toHaveLength(2);
+  expect(
+    overviewReads().every(
+      (url) =>
+        url.searchParams.get('pageSize') === '15' &&
+        !url.searchParams.has('itemId')
+    )
+  ).toBe(true);
+  expect(
+    calls.some(
+      (call) => call.path.endsWith('/summary') || call.path.endsWith('/query')
+    )
+  ).toBe(false);
+  expect(calls.every((call) => call.method === 'GET')).toBe(true);
 });

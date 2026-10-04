@@ -3,8 +3,32 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './support/test.js';
 
 const id = '10000000-0000-4000-8000-000000000701';
+const nextId = '10000000-0000-4000-8000-000000000702';
 const date = '2026-09-17T12:00:00Z';
 const drawer = (page: Page) => page.locator('dialog[open]');
+const invoiceFixture = {
+  id,
+  contribution_id: id,
+  invoice_number: 'FAC-701',
+  currency: 'CAD',
+  subtotal: 100.5,
+  tax: 0,
+  total: 100.5,
+  issued_at: date,
+  paid_at: date,
+  issuer_name: 'OpenG7',
+  sponsor_name: 'Atelier Nord',
+  public_reference: 'OG7-701',
+  line_items: [
+    {
+      description: 'Commandite',
+      quantity: 1,
+      unit_amount: 100.5,
+      total: 100.5
+    }
+  ],
+  credit_notes: []
+};
 
 async function fixtures(page: Page, language = 'fr-CA') {
   await page.addInitScript((language) => {
@@ -18,7 +42,18 @@ async function fixtures(page: Page, language = 'fr-CA') {
       '2099-01-01T00:00:00Z'
     );
     const original = URL.revokeObjectURL;
-    Object.assign(window, { revokedResources: [] as string[] });
+    const originalCreate = URL.createObjectURL;
+    Object.assign(window, {
+      revokedResources: [] as string[],
+      createdResources: [] as string[]
+    });
+    URL.createObjectURL = (value) => {
+      const url = originalCreate(value);
+      (
+        window as unknown as { createdResources: string[] }
+      ).createdResources.push(url);
+      return url;
+    };
     URL.revokeObjectURL = (value) => {
       (
         window as unknown as { revokedResources: string[] }
@@ -36,6 +71,7 @@ async function fixtures(page: Page, language = 'fr-CA') {
     pdfStatus: 200,
     pdfType: 'application/pdf',
     pdfGate: null as Promise<void> | null,
+    includeSecondInvoice: false,
     proofUrl: 'https://example.invalid/proof'
   };
   await page.route('**/api/**', async (route) => {
@@ -59,33 +95,23 @@ async function fixtures(page: Page, language = 'fr-CA') {
       return route.fulfill({
         json: {
           invoices: [
-            {
-              id,
-              contribution_id: id,
-              invoice_number: 'FAC-701',
-              currency: 'CAD',
-              subtotal: 100.5,
-              tax: 0,
-              total: 100.5,
-              issued_at: date,
-              paid_at: date,
-              issuer_name: 'OpenG7',
-              sponsor_name: 'Atelier Nord',
-              public_reference: 'OG7-701',
-              line_items: [
-                {
-                  description: 'Commandite',
-                  quantity: 1,
-                  unit_amount: 100.5,
-                  total: 100.5
-                }
-              ],
-              credit_notes: []
-            }
+            invoiceFixture,
+            ...(options.includeSecondInvoice
+              ? [
+                  {
+                    ...invoiceFixture,
+                    id: nextId,
+                    contribution_id: nextId,
+                    invoice_number: 'FAC-702',
+                    sponsor_name: 'Atelier Sud',
+                    public_reference: 'OG7-702'
+                  }
+                ]
+              : [])
           ],
           summary: {
-            total_count: 1,
-            total_amount: 100.5,
+            total_count: options.includeSecondInvoice ? 2 : 1,
+            total_amount: options.includeSecondInvoice ? 201 : 100.5,
             currency: 'CAD',
             credit_note_count: 0,
             total_credited: 0,
@@ -327,7 +353,7 @@ for (const status of [401, 403])
 test('closing an in-flight preview ignores its late response and unexpected MIME is retryable', async ({
   page
 }) => {
-  const { options } = await fixtures(page);
+  const { options, requests } = await fixtures(page);
   let release!: () => void;
   options.pdfGate = new Promise<void>((resolve) => {
     release = resolve;
@@ -337,8 +363,15 @@ test('closing an in-flight preview ignores its late response and unexpected MIME
     .getByRole('button', { name: 'Prévisualiser la facture', exact: true })
     .click();
   await expect(drawer(page)).toBeVisible();
+  await expect
+    .poll(() => requests.some((request) => request.path.endsWith('/pdf')))
+    .toBe(true);
   await page.keyboard.press('Escape');
+  const lateResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith('/sponsorship-invoices/pdf')
+  );
   release();
+  await (await lateResponse).finished();
   options.pdfGate = null;
   options.pdfType = 'text/html';
   await page
@@ -349,6 +382,129 @@ test('closing an in-flight preview ignores its late response and unexpected MIME
   await expect(
     drawer(page).getByRole('button', { name: 'Réessayer' })
   ).toBeEnabled();
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { createdResources: string[] }).createdResources
+    )
+  ).toEqual([]);
+  options.pdfType = 'application/pdf';
+  await drawer(page).getByRole('button', { name: 'Réessayer' }).click();
+  await expect(drawer(page).getByRole('link', { name: /PDF/ })).toHaveAttribute(
+    'href',
+    /^blob:/
+  );
+});
+
+for (const lateStatus of [200, 401, 403])
+  test(`a late invoice ${lateStatus} after changing records cannot replace its newer preview`, async ({
+    page
+  }) => {
+    const { options } = await fixtures(page);
+    options.includeSecondInvoice = true;
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const seen = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    await page.route(
+      '**/api/admin/sponsorship-invoices/pdf?*',
+      async (route) => {
+        if (new URL(route.request().url()).searchParams.get('invoiceId') !== id)
+          return route.fallback();
+        started();
+        await gate;
+        return route.fulfill({
+          status: lateStatus,
+          contentType: 'application/pdf',
+          body: '%PDF-1.4 delayed synthetic invoice'
+        });
+      }
+    );
+    try {
+      await page.goto('/admin/fundraiser/invoices');
+      const opener = page.getByRole('button', {
+        name: 'Prévisualiser la facture',
+        exact: true
+      });
+      await opener.click();
+      await seen;
+      await page.keyboard.press('Escape');
+      await page
+        .locator(`[data-og7="invoice-selection"][data-og7-id="${nextId}"]`)
+        .click();
+      await opener.click();
+      const pdf = drawer(page).getByRole('link', { name: /PDF/ });
+      await expect(pdf).toHaveAttribute('href', /^blob:/);
+      const currentUrl = await pdf.getAttribute('href');
+      const lateResponse = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return (
+          url.pathname.endsWith('/sponsorship-invoices/pdf') &&
+          url.searchParams.get('invoiceId') === id
+        );
+      });
+      release();
+      await (await lateResponse).finished();
+      await expect(pdf).toHaveAttribute('href', currentUrl!);
+      await expect(drawer(page)).toContainText('Atelier Sud');
+      await expect(drawer(page)).not.toContainText('Atelier Nord');
+      await expect(page).toHaveURL(/\/admin\/fundraiser\/invoices$/);
+      expect(
+        await page.evaluate(
+          () =>
+            (window as unknown as { createdResources: string[] })
+              .createdResources
+        )
+      ).toEqual([currentUrl]);
+      await page.keyboard.press('Escape');
+      expect(
+        await page.evaluate(
+          () =>
+            (window as unknown as { revokedResources: string[] })
+              .revokedResources
+        )
+      ).toEqual([currentUrl]);
+    } finally {
+      release();
+    }
+  });
+
+test('token loss during PDF download erases private inspection data and returns to login', async ({
+  page
+}) => {
+  const { options, requests } = await fixtures(page);
+  let release!: () => void;
+  options.pdfGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await page.goto('/admin/fundraiser/invoices');
+    await page
+      .getByRole('button', { name: 'Prévisualiser la facture', exact: true })
+      .click();
+    await expect
+      .poll(() => requests.some((request) => request.path.endsWith('/pdf')))
+      .toBe(true);
+    await page.evaluate(() => {
+      sessionStorage.removeItem('openg7-admin-session-token');
+      sessionStorage.removeItem('openg7-admin-session-expires-at');
+    });
+    release();
+    await expect(page).toHaveURL(/\/admin\/login/);
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        () =>
+          (window as unknown as { createdResources: string[] }).createdResources
+      )
+    ).toEqual([]);
+  } finally {
+    release();
+  }
 });
 
 test('email inspection preserves filters and retry requires a cancellable explicit decision', async ({
