@@ -7,7 +7,12 @@ import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 process.env.FUNDING_SPONSORSHIP_INVOICE_PREFIX = 'OG7-CMD';
 process.env.FUNDING_SPONSORSHIP_CREDIT_NOTE_PREFIX = 'OG7-AV';
 process.env.FUNDING_SPONSORSHIP_CREDIT_NOTE_LEGAL_NOTE = '';
-const { createSponsorshipCreditNoteForRefund } =
+const {
+  createSponsorshipCreditNoteForRefund,
+  getSponsorshipCreditNoteById,
+  getAdminSponsorshipCreditNoteById,
+  getAdminSponsorshipInvoiceById
+} =
   await import('../../dist/apps/funding-api/src/sponsorship-invoices.repository.js');
 
 test(
@@ -56,6 +61,25 @@ test(
         invoice
       );
     };
+
+    await t.test('missing invoice never creates a credit note', async () => {
+      assert.equal(
+        await createSponsorshipCreditNoteForRefund(pool, {
+          contributionId: randomUUID(),
+          stripeRefundId: 're_missing_invoice',
+          refundAmountCents: 20000
+        }),
+        null
+      );
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS count FROM sponsorship_credit_notes'
+          )
+        ).rows[0].count,
+        0
+      );
+    });
 
     for (const number of ['OG7-CMD-2026-MULTIPLE', 'CUSTOM-2026-MULTIPLE']) {
       await t.test(
@@ -143,6 +167,107 @@ test(
         );
         assert.deepEqual(await historical(), before);
         await assertInvoiceUnchanged(invoice);
+      }
+    );
+
+    await t.test(
+      'admin reads group each invoice credits and expose only its latest credit note email',
+      async () => {
+        const invoice = await seedInvoice('OG7-CMD-2026-READS');
+        const otherInvoice = await seedInvoice('OG7-CMD-2026-OTHER-READS');
+        const first = await issue(invoice, 're_reads_first', 20000);
+        const second = await issue(invoice, 're_reads_second', 30000);
+        const other = await issue(otherInvoice, 're_reads_other', 10000);
+        await pool.query(
+          `UPDATE sponsorship_credit_notes
+           SET issued_at = CASE WHEN id = $1 THEN '2026-01-01'::timestamptz
+                                ELSE '2026-01-02'::timestamptz END
+           WHERE id = ANY($2::uuid[])`,
+          [first.id, [first.id, second.id]]
+        );
+        const enqueue = (template, creditNoteId, status, createdAt, error) =>
+          pool.query(
+            `INSERT INTO email_messages
+               (template_key, recipient_email, from_email, subject, text_body,
+                html_body, status, metadata, created_at, last_error)
+             VALUES ($1, 'synthetic@example.test', 'sender@example.test',
+               'Synthetic document', 'Synthetic text', '<p>Synthetic</p>', $2,
+               $3::jsonb, $4::timestamptz, $5)`,
+            [
+              template,
+              status,
+              JSON.stringify({ creditNoteId }),
+              createdAt,
+              error
+            ]
+          );
+        await enqueue(
+          'sponsorship_credit_note',
+          first.id,
+          'sent',
+          '2026-01-03T00:00:00Z',
+          null
+        );
+        await enqueue(
+          'sponsorship_credit_note',
+          first.id,
+          'failed',
+          '2026-01-04T00:00:00Z',
+          'Synthetic newest credit failure'
+        );
+        await enqueue(
+          'sponsorship_invoice',
+          first.id,
+          'sent',
+          '2026-01-05T00:00:00Z',
+          null
+        );
+        await enqueue(
+          'sponsorship_credit_note',
+          other.id,
+          'failed',
+          '2026-01-06T00:00:00Z',
+          'Synthetic unrelated failure'
+        );
+
+        const persisted = await getSponsorshipCreditNoteById(pool, first.id);
+        assert.equal(persisted.creditNoteNumber, first.creditNoteNumber);
+        assert.equal(persisted.totalCents, first.totalCents);
+        assert.deepEqual(persisted.lineItems, first.lineItems);
+        assert.equal(persisted.notes, first.notes);
+        const admin = await getAdminSponsorshipCreditNoteById(pool, first.id);
+        assert.equal(admin.credit_note_number, first.creditNoteNumber);
+        assert.equal(admin.invoice_id, invoice.id);
+        assert.equal(admin.total, 200);
+        assert.equal(admin.last_email_status, 'failed');
+        assert.equal(admin.last_email_recipient, 'synthetic@example.test');
+        assert.equal(admin.last_email_error, 'Synthetic newest credit failure');
+        const invoiceAdmin = await getAdminSponsorshipInvoiceById(
+          pool,
+          invoice.id
+        );
+        assert.deepEqual(
+          invoiceAdmin.credit_notes.map((credit) => credit.id),
+          [second.id, first.id]
+        );
+        assert.equal(invoiceAdmin.credit_notes[0].last_email_status, null);
+        assert.equal(invoiceAdmin.credit_notes[1].last_email_status, 'failed');
+        const otherAdmin = await getAdminSponsorshipInvoiceById(
+          pool,
+          otherInvoice.id
+        );
+        assert.deepEqual(
+          otherAdmin.credit_notes.map((credit) => credit.id),
+          [other.id]
+        );
+        for (const read of [
+          getSponsorshipCreditNoteById,
+          getAdminSponsorshipCreditNoteById
+        ]) {
+          assert.equal(await read(pool, randomUUID()), null);
+        }
+        await assertInvoiceUnchanged(invoice);
+        await assertInvoiceUnchanged(otherInvoice);
       }
     );
   }
