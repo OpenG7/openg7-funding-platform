@@ -5,6 +5,8 @@ import { readdir, readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 import { PublicationAutomationService } from '../../dist/apps/funding-api/src/publication-automation/service.js';
+import { sources } from '../../dist/apps/funding-api/src/publication-automation/sources.js';
+import { mediaRecord } from '../../dist/apps/funding-api/src/publication-automation/media.js';
 import { markSocialPublicationJobPublishing } from '../../dist/apps/funding-api/src/fund-admin.repository.js';
 import {
   listPublicSponsorships,
@@ -215,7 +217,7 @@ test(
         };
         const cases = [
           {
-            read: (db) => service.sources(db, job.batchId, feedId, true),
+            read: (db) => sources(db, job.batchId, feedId, true),
             writes: [
               {
                 sql: 'UPDATE sponsor_publication_batches SET capacity=capacity WHERE id=$1',
@@ -229,7 +231,7 @@ test(
             ]
           },
           {
-            read: (db) => service.mediaRecord(db, mediaId),
+            read: (db) => mediaRecord(db, mediaId),
             writes: [
               {
                 sql: 'UPDATE sponsor_media_assets SET alt_text=alt_text WHERE id=$1',
@@ -432,9 +434,12 @@ test(
         await activate();
         const id = await compose();
         await approve(id);
-        const ready = service.ready;
-        service.ready = async function (...args) {
-          const media = await ready.apply(this, args);
+        const feeds = service.feeds;
+        service.feeds = async function (db) {
+          const result = await feeds.call(this, db);
+          // Preflight reads feed metadata through the public facade with its
+          // transaction client; the worker's earlier feed listing has none.
+          if (!db) return result;
           await service.command(
             {
               action: 'worker',
@@ -444,12 +449,12 @@ test(
             },
             'owner'
           );
-          return media;
+          return result;
         };
         try {
           await service.tick(due);
         } finally {
-          service.ready = ready;
+          service.feeds = feeds;
         }
         const after = await record(id);
         assert.equal(after.status, 'approved');
