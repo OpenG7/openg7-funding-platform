@@ -214,3 +214,93 @@ for (const { locale, width, lateStatus } of [
     }
   });
 }
+
+test('leaving sponsors before a delayed list renders keeps focus on the destination after destruction', async ({
+  page
+}) => {
+  let release!: () => void;
+  let notifySeen!: () => void;
+  const delayed = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const seen = new Promise<void>((resolve) => {
+    notifySeen = resolve;
+  });
+  const calls: { method: string; url: URL }[] = [];
+  let listRequests = 0;
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      'openg7-admin-session-token',
+      'openg7-admin-session.cookie'
+    );
+    sessionStorage.setItem(
+      'openg7-admin-session-expires-at',
+      '2099-01-01T00:00:00Z'
+    );
+  });
+  await page.route('**/api/**', async (route) => {
+    const request = route.request(),
+      url = new URL(request.url());
+    calls.push({ method: request.method(), url });
+    if (url.pathname === '/api/admin/auth/current')
+      return route.fulfill({
+        json: {
+          id: 'synthetic-list-user',
+          sessionId: 'synthetic-list-session',
+          displayName: 'Synthetic user',
+          role: 'reader',
+          expiresAt: '2099-01-01T00:00:00Z'
+        }
+      });
+    if (url.pathname === '/api/admin/sponsorships') {
+      if (++listRequests === 1) {
+        notifySeen();
+        await delayed;
+      }
+      return route.fulfill({
+        json: response(record(initialId, 'Synthetic delayed dossier'))
+      });
+    }
+    return route.fulfill({
+      status: 503,
+      json: { error: 'Synthetic fixture unavailable' }
+    });
+  });
+  try {
+    await page.goto(
+      `/admin/fundraiser/sponsors?sponsorshipId=${initialId}&tab=overview#dossier-review`
+    );
+    await seen;
+    await expect(page.locator('#dossier-review')).toHaveCount(0);
+    const dashboard = page
+      .getByRole('navigation', { name: 'Navigation admin du fonds' })
+      .getByRole('link', { name: 'Tableau de bord', exact: true });
+    await dashboard.click();
+    await expect(page).toHaveURL('/admin/fundraiser');
+    await expect(dashboard).toHaveAttribute('aria-current', 'page');
+    await dashboard.focus();
+    const before = await page.evaluate(() => scrollY);
+    const late = page.waitForResponse(
+      (entry) => new URL(entry.url()).pathname === '/api/admin/sponsorships'
+    );
+    release();
+    await (await late).finished();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        )
+    );
+    await expect(page).toHaveURL('/admin/fundraiser');
+    await expect(dashboard).toBeFocused();
+    await expect(page.locator('[data-og7="sponsors-list"]')).toHaveCount(0);
+    await expect(page.locator('#dossier-review')).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => scrollY))
+      .toBeCloseTo(before, 0);
+    expect(calls.every(({ method }) => method === 'GET')).toBe(true);
+  } finally {
+    release();
+  }
+});

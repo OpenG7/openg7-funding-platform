@@ -2901,6 +2901,62 @@ test('leaving a pending section cancels its delayed focus request', async ({
   await expect(page.locator('#dossier-review')).toHaveCount(0);
 });
 
+test('a delayed section response cannot move focus into a newly selected dossier', async ({
+  page
+}) => {
+  const { options, calls } = await fixtures(page, 'reader');
+  let release!: () => void;
+  options.progressGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(path() + '#dossier-review');
+    await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
+    await page.locator('[data-og7="dossier-back"]').click();
+    await page
+      .locator('[data-og7="sponsors-list"]')
+      .locator(`[data-og7="sponsor-row"][data-og7-id="${secondId}"]`)
+      .click();
+    await expect(page).toHaveURL(path('overview', secondId));
+    const detail = page.locator('[data-og7="sponsorship-dossier"]');
+    await expect(detail).toBeFocused();
+    await expect(progress(page)).toHaveAttribute('aria-busy', 'false');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Atelier Rivage'
+    );
+    // The new dossier uses normal router scrolling; wait for its smooth return to the top.
+    await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+    const before = await page.evaluate(() => scrollY);
+    const late = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        url.pathname === '/api/admin/sponsorships/progress' &&
+        url.searchParams.get('sponsorshipId') === id
+      );
+    });
+    release();
+    options.progressGate = null;
+    await (await late).finished();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        )
+    );
+    await expect(detail).toBeFocused();
+    await expect(page.locator('#dossier-review')).not.toBeFocused();
+    await expect(page).toHaveURL(path('overview', secondId));
+    await expect
+      .poll(() => page.evaluate(() => scrollY))
+      .toBeCloseTo(before, 0);
+    expect(calls.every((call) => call.method === 'GET')).toBe(true);
+  } finally {
+    release();
+    options.progressGate = null;
+  }
+});
+
 test('browser history restores the viewport after visiting a next-step section', async ({
   page
 }) => {
@@ -2917,9 +2973,16 @@ test('browser history restores the viewport after visiting a next-step section',
   const destination = await page.evaluate(() => scrollY);
   await page.goBack();
   await expect(page).toHaveURL(path('identity'));
+  await expect(
+    tabs(page).getByRole('button', { name: 'Fiche et médias', exact: true })
+  ).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('#dossier-review')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(before, 0);
   await page.goForward();
   await expect(page).toHaveURL(path() + '#dossier-review');
+  await expect(
+    tabs(page).getByRole('button', { name: 'Aperçu', exact: true })
+  ).toHaveAttribute('aria-current', 'page');
   await expect
     .poll(() => page.evaluate(() => scrollY))
     .toBeCloseTo(destination, 0);

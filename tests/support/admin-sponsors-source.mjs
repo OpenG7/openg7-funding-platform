@@ -16,6 +16,9 @@ export const readAdminSponsorsSource = () => {
   const root = 'apps/funding-web/src/app/features/funding/';
   return [
     'pages/admin-sponsors-page/admin-sponsors-page.component.ts',
+    'pages/admin-sponsors-page/admin-sponsors-page.component.html',
+    'pages/admin-sponsors-page/admin-sponsors-page.component.css',
+    'pages/admin-sponsors-page/admin-sponsors-navigation.adapter.ts',
     'models/admin-sponsor-workflow.ports.ts',
     'models/admin-sponsor-history.projection.ts',
     'models/admin-sponsor-presentation.projection.ts',

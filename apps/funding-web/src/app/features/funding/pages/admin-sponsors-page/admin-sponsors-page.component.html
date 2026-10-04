@@ -1,0 +1,532 @@
+<openg7-admin-layout>
+  <section
+    class="admin-workspace"
+    [class.has-dossier]="!!selectedSponsorship()"
+  >
+    <header class="admin-page-header" [hidden]="!!selectedSponsorship()">
+      <nav
+        class="admin-breadcrumb"
+        [attr.aria-label]="'admin.legacy.fil_d_ariane_admin' | translate"
+      >
+        <a routerLink="/admin/fundraiser">{{
+          'admin.legacy.accueil' | translate
+        }}</a>
+        <span aria-hidden="true">/</span>
+        <a routerLink="/admin/fundraiser">{{
+          'admin.legacy.fundraiser' | translate
+        }}</a>
+        <span aria-hidden="true">/</span>
+        <strong>{{ 'admin.legacy.commanditaires' | translate }}</strong>
+      </nav>
+
+      <div class="admin-title-row">
+        <div>
+          <span class="admin-kicker">{{
+            'admin.legacy.administration' | translate
+          }}</span>
+          <h1>
+            {{ 'admin.legacy.commanditaires_partenaires' | translate }}
+          </h1>
+          <p>
+            {{
+              'admin.legacy.gestion_des_organisations_commanditaires_statut_de_revue_et_visib'
+                | translate
+            }}
+          </p>
+        </div>
+
+        <div class="admin-actions">
+          <button
+            type="button"
+            class="secondary-action"
+            (click)="loadSponsorships()"
+            [disabled]="state() === 'loading'"
+          >
+            {{ 'admin.legacy.actualiser' | translate }}
+          </button>
+          <a class="primary-action" routerLink="/fonds-des-batisseurs">{{
+            'admin.legacy.retour_public' | translate
+          }}</a>
+        </div>
+      </div>
+    </header>
+
+    <openg7-admin-sponsors-summary
+      [hidden]="!!selectedSponsorship()"
+      [totalSponsorships]="pagination().totalItems"
+      [visibleCount]="visibleCount()"
+      [activeCount]="activeCount()"
+      [totalContributionLabel]="
+        presentationProjection.formatSummaryMoney(totalContribution())
+      "
+    />
+
+    <section
+      class="sponsors-board"
+      [class.has-selection]="!!selectedSponsorship()"
+      [attr.aria-label]="'admin.legacy.commandites_admin' | translate"
+    >
+      <openg7-admin-sponsors-list-panel
+        #sponsorsList
+        [compact]="!!selectedSponsorship()"
+        [state]="state()"
+        [rows]="sponsorListRows()"
+        [sponsorshipCount]="sponsorships().length"
+        [hasActiveFilters]="hasActiveFilters()"
+        [selectedSponsorshipId]="selectedSponsorshipId()"
+        [selectionPulseId]="selectionPulseId()"
+        [search]="search()"
+        [reviewFilter]="reviewFilter()"
+        [feedFilter]="feedFilter()"
+        [paymentFilter]="paymentFilter()"
+        [feedStatusOptions]="feedStatusOptions()"
+        [pageSizeOptions]="pageSizeOptions"
+        [paginationStart]="paginationStart()"
+        [paginationEnd]="paginationEnd()"
+        [totalItems]="pagination().totalItems"
+        [page]="normalizedPage()"
+        [totalPages]="totalPages()"
+        [pageSize]="pageSize()"
+        (refresh)="loadSponsorships()"
+        (searchChange)="setSearchValue($event)"
+        (reviewFilterChange)="setReviewFilterValue($event)"
+        (feedFilterChange)="setFeedFilterValue($event)"
+        (paymentFilterChange)="setPaymentFilterValue($event)"
+        (resetFilters)="resetFilters()"
+        (selectSponsorship)="selectSponsorshipById($event)"
+        (previousPage)="previousPage()"
+        (nextPage)="nextPage()"
+        (pageSizeChange)="setPageSizeValue($event)"
+      />
+
+      <aside
+        #sponsorDetailPanel
+        data-og7="sponsorship-dossier"
+        class="sponsor-detail-panel"
+        tabindex="-1"
+        [class.is-empty]="!selectedSponsorship()"
+        [class.selection-pulse]="
+          selectedSponsorship() &&
+          selectionPulseId() === selectedSponsorship()?.id
+        "
+        [attr.aria-label]="
+          'admin.legacy.dossier_commanditaire_selectionne' | translate
+        "
+      >
+        <ng-container
+          *ngIf="selectedSponsorship() as selected; else noSelection"
+        >
+          <nav
+            class="dossier-toolbar"
+            [attr.aria-label]="'admin.dossier.workspace.navigation' | translate"
+          >
+            <button
+              type="button"
+              class="workspace-back"
+              data-og7="dossier-back"
+              (click)="closeDetails()"
+            >
+              <span aria-hidden="true">←</span>
+              {{ 'admin.dossier.workspace.back' | translate }}
+            </button>
+            <div class="dossier-neighbours">
+              <button
+                type="button"
+                [disabled]="!adjacentDossier(-1)"
+                (click)="openAdjacentDossier(-1)"
+                [attr.aria-label]="
+                  'admin.dossier.workspace.previous' | translate
+                "
+              >
+                ←
+              </button>
+              <span>{{ 'admin.dossier.workspace.dossier' | translate }}</span>
+              <button
+                type="button"
+                [disabled]="!adjacentDossier(1)"
+                (click)="openAdjacentDossier(1)"
+                [attr.aria-label]="'admin.dossier.workspace.next' | translate"
+              >
+                →
+              </button>
+            </div>
+          </nav>
+          <openg7-admin-sponsor-detail-header
+            *ngIf="selectedSponsorDetailHeader() as detailHeader"
+            [detail]="detailHeader"
+            [reviewStatus]="selected.sponsor_review_status"
+            [reviewAnchor]="!canManage() && activeTab() === 'overview'"
+            [website]="
+              progress()?.contributionId === selected.id
+                ? progress()?.website
+                : undefined
+            "
+          />
+          <p
+            class="payment-alert"
+            *ngIf="paymentEligibilityMessage(selected)"
+            role="alert"
+          >
+            {{ paymentEligibilityMessage(selected) }}
+          </p>
+
+          @if (versionConflict()) {
+            <p role="alert">
+              {{ 'admin.dossier.conflict' | translate }}
+              <button
+                type="button"
+                [disabled]="state() === 'loading' || actionState() !== null"
+                (click)="loadSponsorships(true)"
+              >
+                {{ 'admin.dossier.refresh' | translate }}
+              </button>
+            </p>
+          }
+          <openg7-admin-sponsor-detail-tabs
+            [activeTab]="activeTab()"
+            (activeTabChange)="setActiveTab($event)"
+          />
+          <openg7-admin-sponsorship-progress
+            [sponsorshipId]="selected.id"
+            [streamlined]="true"
+            [activeTab]="activeTab()"
+            [refreshKey]="assistantRefresh()"
+            [disabled]="actionState() !== null || state() === 'loading'"
+            (loaded)="progress.set($event)"
+            (refreshRequested)="loadSponsorships(true)"
+          />
+          <div class="dossier-utilities">
+            <openg7-admin-sponsor-edit
+              #sponsorEdit
+              [sponsorship]="selected"
+              [disabled]="actionsDisabled()"
+              (saved)="loadSponsorships()"
+              (conflicted)="versionConflict.set(true)"
+            />
+
+            @if (progress(); as dossier) {
+              @if (dossier.contributionId === selected.id) {
+                <openg7-admin-sponsorship-guide
+                  [dossier]="dossier"
+                  [expanded]="guideExpanded()"
+                  (expandedChange)="guideExpanded.set($event)"
+                  [canManage]="canManage()"
+                  [canUseOwnerActions]="canUseOwnerActions()"
+                  [disabled]="actionsDisabled()"
+                  (editIdentity)="sponsorEdit.open()"
+                  (openAccess)="openFollowupAccess()"
+                />
+              }
+            }
+            @if (canUseOwnerActions()) {
+              <details #followupAccess class="dossier-access">
+                <summary>
+                  {{ 'admin.dossier.workspace.access' | translate }}
+                </summary>
+                <openg7-admin-sponsorship-access
+                  [contributionId]="selected.id"
+                  [token]="adminToken()"
+                  [disabled]="actionsDisabled()"
+                  (queued)="loadSponsorships()"
+                />
+              </details>
+            }
+          </div>
+          <openg7-admin-sponsorship-interventions
+            [hidden]="activeTab() !== 'audit' && activeTab() !== 'refund'"
+            [contributionId]="selected.id"
+            [refreshKey]="assistantRefresh()"
+            [canManage]="canManage()"
+            [canResendAccess]="canUseOwnerActions()"
+            [disabled]="actionsDisabled()"
+            [autoOpen]="activeTab() === 'refund' || activeTab() === 'audit'"
+            (accessRequested)="openFollowupAccess()"
+            (saved)="loadSponsorships()"
+          />
+          @if (!canManage()) {
+            <p role="status">{{ 'admin.dossier.readOnly' | translate }}</p>
+          }
+
+          <ng-container *ngIf="activeTab() === 'overview'">
+            <openg7-admin-assistant-context
+              [sponsorshipId]="selected.id"
+              [refreshKey]="assistantRefresh()"
+              [compact]="true"
+              [inlineDossier]="true"
+              (dossierOpen)="sponsorOverview()?.focusDetails()"
+            />
+            <openg7-admin-sponsorship-facts
+              view="overview"
+              [dossier]="progress()"
+            />
+            <openg7-admin-sponsor-detail-overview
+              *ngIf="selectedSponsorDetailOverview() as overview"
+              [overview]="overview"
+              [disabled]="actionsDisabled()"
+              (copyReference)="copyReference(selected)"
+              (reviewNoteChange)="
+                reviewWorkflow.setReviewNoteValue(selected.id, $event)
+              "
+              (saveReviewNote)="reviewWorkflow.saveReviewNote(selected)"
+            />
+          </ng-container>
+
+          <ng-container
+            *ngIf="activeTab() === 'identity' || activeTab() === 'media'"
+          >
+            <openg7-admin-sponsor-detail-identity
+              *ngIf="selectedSponsorDetailOverview() as identity"
+              [identity]="identity"
+              [sponsorship]="selected"
+              [canEdit]="canManage()"
+              [canResendAccess]="canUseOwnerActions()"
+              [disabled]="actionsDisabled()"
+              (editRequested)="sponsorEdit.open()"
+              (accessRequested)="openFollowupAccess()"
+            />
+          </ng-container>
+
+          <ng-container
+            *ngIf="activeTab() === 'identity' || activeTab() === 'media'"
+          >
+            <openg7-admin-sponsor-detail-media
+              *ngIf="selectedSponsorDetailIdentity() as identity"
+              [identity]="identity"
+              (uploadLogo)="mediaWorkflow.uploadLogo(selected, $event)"
+              (previewMedia)="
+                inspection.media($event.id, selected.id, $event.alt)
+              "
+              (deleteLogo)="mediaWorkflow.deleteLogo(selected)"
+              (reviewMedia)="mediaWorkflow.reviewSponsorMedia(selected, $event)"
+              (approveAllMedia)="
+                mediaWorkflow.approveAllSponsorMedia(selected, $event)
+              "
+              (deleteMedia)="mediaWorkflow.deleteSponsorMedia(selected, $event)"
+            />
+          </ng-container>
+
+          @if (activeTab() === 'billing' || activeTab() === 'refund') {
+            <openg7-admin-sponsorship-facts
+              view="billing"
+              [dossier]="progress()"
+            />
+          }
+          @if (activeTab() === 'publication') {
+            <openg7-admin-sponsorship-facts
+              view="publication"
+              [dossier]="progress()"
+              [canManageWebsite]="canManage()"
+              [websiteDisabled]="actionsDisabled()"
+              [websiteMessage]="
+                publicationWorkflow.websiteMessages()[selected.id] || ''
+              "
+              (changeWebsiteVisibility)="
+                publicationWorkflow.changeWebsiteVisibility(selected, $event)
+              "
+              (editWebsite)="openWebsiteSettings()"
+            />
+          }
+          @if (activeTab() === 'billing' || activeTab() === 'refund') {
+            <openg7-admin-sponsorship-facts
+              view="refund"
+              [dossier]="progress()"
+            />
+          }
+
+          <section
+            class="detail-body"
+            *ngIf="activeTab() === 'publication'"
+            [attr.aria-label]="
+              'admin.dossier.publicationBridge.advanced' | translate
+            "
+          >
+            <openg7-admin-sponsor-publication-panel
+              [sponsorship]="selected"
+              [draft]="publicationWorkflow.publicationDraftFor(selected.id)"
+              [expanded]="websiteSettingsOpen()"
+              [actionsDisabled]="actionsDisabled()"
+              [dirty]="publicationWorkflow.publicationDirtyFor(selected)"
+              [canSave]="publicationWorkflow.canSavePublication(selected)"
+              [saving]="
+                isActionPending(
+                  publicationWorkflow.publicationActionId(selected.id)
+                )
+              "
+              [stateLabel]="publicationWorkflow.publicationStateLabel(selected)"
+              [slugError]="publicationWorkflow.slugErrorFor(selected)"
+              [promisedChannels]="
+                publicationWorkflow.promisedFeedChannelsFor(selected)
+              "
+              [promisedChannelTitle]="
+                'admin.dossier.publicationBridge.promisedChannel' | translate
+              "
+              [feedStatusOptions]="feedStatusOptions()"
+              [logoSource]="
+                mediaWorkflow.logoPreviewSourceFor(selected) || null
+              "
+              [logoAlt]="
+                ('funding.followup.media.logo' | translate) +
+                ' ' +
+                presentationProjection.publicNameLabel(selected)
+              "
+              [publicName]="presentationProjection.publicNameLabel(selected)"
+              [channelsLabel]="
+                publicationWorkflow.draftChannelsLabel(selected.id)
+              "
+              (expandedChange)="websiteSettingsOpen.set($event)"
+              (fieldChange)="
+                publicationWorkflow.setPublicationField(
+                  selected.id,
+                  $event.field,
+                  $event.event
+                )
+              "
+              (channelChange)="
+                publicationWorkflow.setPublicationChannel(
+                  selected.id,
+                  $event.channel,
+                  $event.event
+                )
+              "
+              (save)="publicationWorkflow.savePublication(selected)"
+            />
+          </section>
+
+          @if (isFinanceTab()) {
+            @if (selectedSponsorRefundHistory(); as history) {
+              <openg7-admin-sponsor-refund-history [view]="history" />
+            }
+          }
+          @if (activeTab() === 'audit') {
+            @if (selectedSponsorAuditHistory(); as history) {
+              <openg7-admin-sponsor-audit-history
+                [view]="history"
+                (inspect)="inspection.history(selected)"
+              />
+            }
+          }
+          @if (canManage() && reviewWorkflow.isRejectionPanelOpen(selected)) {
+            <openg7-admin-sponsor-rejection-panel
+              [draft]="reviewWorkflow.rejectionDraftFor(selected)"
+              [reviewNote]="reviewWorkflow.reviewNoteFor(selected.id)"
+              [validationMessage]="
+                reviewWorkflow.rejectionValidationMessage(selected)
+              "
+              [canConfirm]="reviewWorkflow.canConfirmRejection(selected)"
+              [actionsDisabled]="actionsDisabled()"
+              [actionPending]="actionState() !== null"
+              [busy]="
+                isActionPending(reviewWorkflow.reviewActionId(selected.id))
+              "
+              (reviewNoteChange)="
+                reviewWorkflow.setReviewNote(selected.id, $event)
+              "
+              (draftFieldChange)="
+                reviewWorkflow.setRejectionDraftField(
+                  selected.id,
+                  $event.field,
+                  $event.event
+                )
+              "
+              (notifySponsorChange)="
+                reviewWorkflow.setRejectionDraftBoolean(
+                  selected.id,
+                  'notifySponsor',
+                  $event
+                )
+              "
+              (refundHandlingChange)="
+                reviewWorkflow.setRejectionRefundHandling(selected.id, $event)
+              "
+              (cancelled)="closeRejectionPanel()"
+              (confirmed)="reviewWorkflow.confirmRejection(selected)"
+            />
+          }
+          @if (
+            canUseOwnerActions() && refundWorkflow.isRefundPanelOpen(selected)
+          ) {
+            <openg7-admin-sponsor-refund-panel
+              [sponsorship]="selected"
+              [draft]="refundWorkflow.refundDraftFor(selected)"
+              [confirmationText]="
+                refundWorkflow.refundConfirmationText(selected)
+              "
+              [draftAmountLabel]="
+                refundWorkflow.refundDraftAmountLabel(selected)
+              "
+              [paymentAmountLabel]="
+                presentationProjection.formatMoney(selected)
+              "
+              [validationMessage]="
+                refundWorkflow.refundValidationMessage(selected)
+              "
+              [canConfirm]="refundWorkflow.canConfirmRefund(selected)"
+              [actionsDisabled]="actionsDisabled()"
+              [pending]="actionState() !== null"
+              [busy]="
+                isActionPending(refundWorkflow.refundActionId(selected.id))
+              "
+              (draftFieldChange)="
+                refundWorkflow.setRefundDraftField(
+                  selected.id,
+                  $event.field,
+                  $event.event
+                )
+              "
+              (reasonChange)="
+                refundWorkflow.setRefundDraftReason(selected.id, $event)
+              "
+              (notifySponsorChange)="
+                refundWorkflow.setRefundDraftBoolean(
+                  selected.id,
+                  'notifySponsor',
+                  $event
+                )
+              "
+              (cancelled)="closeRefundPanel()"
+              (confirmed)="refundWorkflow.confirmRefund(selected)"
+            />
+          }
+          @if (
+            canManage() &&
+            (!isFinanceTab() || canUseOwnerActions()) &&
+            activeTab() !== 'publication' &&
+            activeTab() !== 'audit'
+          ) {
+            <openg7-admin-sponsor-decision-actions
+              [sponsorship]="selected"
+              [financeTab]="isFinanceTab()"
+              [ownerActions]="canUseOwnerActions()"
+              [actionsDisabled]="actionsDisabled()"
+              [canApprove]="reviewWorkflow.canApproveSponsorship(selected)"
+              [canRefund]="refundWorkflow.canRefundSponsorship(selected)"
+              [approvalState]="approvalState(selected.id)"
+              [reviewMessage]="reviewWorkflow.reviewMessageFor(selected.id)"
+              [anchor]="activeTab() === 'overview' ? 'dossier-review' : null"
+              (returnPending)="
+                reviewWorkflow.review(selected, 'pending_review')
+              "
+              (openRejection)="openRejectionPanel(selected)"
+              (openRefund)="openRefundPanel(selected)"
+              (approve)="reviewWorkflow.review(selected, 'approved')"
+            />
+          }
+        </ng-container>
+
+        <ng-template #noSelection
+          ><article class="empty-detail-state">
+            <h2>
+              {{ 'admin.legacy.aucun_commanditaire_selectionne' | translate }}
+            </h2>
+            <p>
+              {{
+                'admin.legacy.selectionnez_une_ligne_dans_la_liste_pour_ouvrir_le_dossier_revis'
+                  | translate
+              }}
+            </p>
+          </article></ng-template
+        >
+      </aside>
+    </section>
+  </section>
+</openg7-admin-layout>
