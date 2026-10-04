@@ -110,19 +110,19 @@ async function fixtures(
     if (!path.endsWith('/publication-automation'))
       return route.fulfill({ status: 503, json: {} });
     if (route.request().method() === 'GET') {
-      await options.readResponse?.();
       const params = new URL(route.request().url()).searchParams;
-      return route.fulfill({
-        json: {
-          ...state,
-          deliveries: state.deliveries.filter(
-            (d) =>
-              (!params.has('sponsorshipId') ||
-                d.sponsors.some((s) => s.id === params.get('sponsorshipId'))) &&
-              (!params.has('deliveryId') || d.id === params.get('deliveryId'))
-          )
-        }
+      // A delayed GET retains the facts read before any concurrent command.
+      const snapshot = structuredClone({
+        ...state,
+        deliveries: state.deliveries.filter(
+          (d) =>
+            (!params.has('sponsorshipId') ||
+              d.sponsors.some((s) => s.id === params.get('sponsorshipId'))) &&
+            (!params.has('deliveryId') || d.id === params.get('deliveryId'))
+        )
       });
+      await options.readResponse?.();
+      return route.fulfill({ json: snapshot });
     }
     const c = route.request().postDataJSON() as PublicationAutomationCommand;
     commands.push(c);
@@ -1313,4 +1313,188 @@ test('approval rereads the dossier scope and waits for server state before feedb
     page.getByText('Unrelated scoped publication', { exact: true })
   ).toHaveCount(0);
   expect(commands).toHaveLength(1);
+});
+
+test('a late dossier read cannot reopen its delivery or replace navigation back to all dossiers', async ({
+  page
+}) => {
+  const sponsorId = '10000000-0000-4000-8000-000000000401';
+  const unrelatedId = '22222222-2222-4222-8222-222222222222';
+  let reads = 0;
+  let releaseRead!: () => void;
+  const pendingRead = new Promise<void>((resolve) => {
+    releaseRead = resolve;
+  });
+  const filters: URLSearchParams[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (
+      request.method() === 'GET' &&
+      url.pathname.endsWith('/publication-automation')
+    )
+      filters.push(url.searchParams);
+  });
+  const commands = await fixtures(
+    page,
+    'draft',
+    false,
+    [
+      {
+        id: sponsorId,
+        name: 'Synthetic delayed dossier',
+        version: 'v1',
+        reviewStatus: 'approved',
+        presentationApproved: true
+      }
+    ],
+    { kind: 'sponsorship' },
+    {
+      extraDeliveries: [
+        {
+          ...initialJob,
+          id: unrelatedId,
+          message: 'Current unfiltered publication'
+        }
+      ],
+      readResponse: async () => {
+        if (++reads === 1) await pendingRead;
+      }
+    }
+  );
+  try {
+    await page.goto(
+      `/admin/fundraiser/publications/automation?sponsorshipId=${sponsorId}&deliveryId=${initialJob.id}&batchId=${initialJob.id}&feedId=openg20:facebook`
+    );
+    await expect.poll(() => reads).toBe(1);
+    await page.getByRole('link', { name: 'Voir tous les dossiers' }).click();
+    await expect(page.locator(`[data-og7-id="${unrelatedId}"]`)).toBeVisible();
+    await expect.poll(() => reads).toBe(2);
+    expect(filters[0]!.get('sponsorshipId')).toBe(sponsorId);
+    expect(filters[0]!.get('deliveryId')).toBe(initialJob.id);
+    expect(filters[1]!.has('sponsorshipId')).toBe(false);
+    expect(filters[1]!.has('deliveryId')).toBe(false);
+    const lateResponse = page.waitForResponse((response) =>
+      response.url().includes(`sponsorshipId=${sponsorId}`)
+    );
+    releaseRead();
+    await (await lateResponse).finished();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator(`[data-og7-id="${unrelatedId}"]`)).toBeVisible();
+    await expect(
+      page.getByRole('dialog', { name: 'Publication finale' })
+    ).toHaveCount(0);
+    await expect(
+      page.locator('[data-og7="publication-dossier-context"]')
+    ).toHaveCount(0);
+    expect(commands).toHaveLength(0);
+  } finally {
+    releaseRead();
+  }
+});
+
+test('polling waits 30 seconds and stays suspended while delivery, settings or composition panels are open', async ({
+  page
+}) => {
+  await page.clock.install();
+  let reads = 0;
+  const commands = await fixtures(
+    page,
+    'draft',
+    false,
+    [],
+    {},
+    {
+      readResponse: async () => {
+        reads++;
+      }
+    }
+  );
+  await page.goto('/admin/fundraiser/publications/automation?settings=feeds');
+  const delivery = page.locator(`[data-og7-id="${initialJob.id}"]`);
+  await expect(delivery).toBeVisible();
+  expect(reads).toBe(1);
+  const tick = async (count: number) => {
+    await page.clock.fastForward(30000);
+    await expect.poll(() => reads).toBe(count);
+  };
+  await tick(2);
+  await delivery.click();
+  const drawer = page.getByRole('dialog', { name: 'Publication finale' });
+  await expect(drawer).toBeVisible();
+  await tick(2);
+  await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await tick(3);
+  await page
+    .getByRole('button', { name: 'Réglages', exact: true })
+    .first()
+    .click();
+  const settings = page.getByRole('dialog', { name: 'Réglages', exact: true });
+  await expect(settings).toBeVisible();
+  await tick(3);
+  await settings
+    .getByRole('button', { name: 'Fermer', exact: true })
+    .first()
+    .click();
+  await tick(4);
+  await page
+    .getByRole('button', { name: 'Nouvelle publication', exact: true })
+    .click();
+  await expect(drawer).toBeVisible();
+  await tick(4);
+  await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await tick(5);
+  expect(commands).toHaveLength(0);
+});
+
+test('a command confirmation supersedes an older polling response without restoring its draft or retrying', async ({
+  page
+}) => {
+  await page.clock.install();
+  let reads = 0;
+  let releasePollingRead!: () => void;
+  const pendingRead = new Promise<void>((resolve) => {
+    releasePollingRead = resolve;
+  });
+  const commands = await fixtures(
+    page,
+    'draft',
+    false,
+    [],
+    {},
+    {
+      readResponse: async () => {
+        if (++reads === 2) await pendingRead;
+      }
+    }
+  );
+  try {
+    await page.goto('/admin/fundraiser/publications/automation');
+    const delivery = page.locator(`[data-og7-id="${initialJob.id}"]`);
+    await expect(delivery).toBeVisible();
+    await page.clock.fastForward(30000);
+    await expect.poll(() => reads).toBe(2);
+    await delivery.click();
+    const drawer = page.getByRole('dialog', { name: 'Publication finale' });
+    await drawer.getByRole('checkbox').check();
+    await drawer
+      .getByRole('button', { name: 'Accepter et programmer', exact: true })
+      .click();
+    await expect(drawer).toContainText('Autorisée');
+    await expect(page.getByText('Enregistré.', { exact: true })).toBeVisible();
+    expect(reads).toBe(3);
+    const lateResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        new URL(response.url()).pathname.endsWith('/publication-automation')
+    );
+    releasePollingRead();
+    await (await lateResponse).finished();
+    await page.waitForLoadState('networkidle');
+    await expect(delivery).toHaveCount(0);
+    await expect(drawer).toContainText('Autorisée');
+    await expect(page.getByText('Enregistré.', { exact: true })).toBeVisible();
+    expect(commands).toHaveLength(1);
+  } finally {
+    releasePollingRead();
+  }
 });
