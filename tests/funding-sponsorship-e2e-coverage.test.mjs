@@ -627,7 +627,11 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
     false
   );
 
-  const seed = read('scripts/e2e-seed.mjs');
+  const seed = [
+    read('scripts/e2e-seed.mjs'),
+    read('scripts/lib/e2e-seed/plan.mjs'),
+    read('scripts/lib/e2e-seed/sponsorship.mjs')
+  ].join('\n');
   assertIncludesAll(
     seed,
     [
