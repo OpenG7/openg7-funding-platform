@@ -360,6 +360,214 @@ test('Stripe-direct distinguishes missing fees from a confirmed zero fee', async
   assert.equal(report.total_fees, 0);
 });
 
+test('Stripe-direct resolves ID-only intents, charges and balances with its balance-only charge expansion', async () => {
+  const session = stripeSession('resolved_ids');
+  const paymentIntent = session.payment_intent;
+  const charge = paymentIntent.latest_charge;
+  const balance = charge.balance_transaction;
+  session.payment_intent = paymentIntent.id;
+  paymentIntent.latest_charge = charge.id;
+  charge.balance_transaction = balance.id;
+  const calls = [];
+  const stripe = {
+    checkout: {
+      sessions: {
+        async list(params) {
+          calls.push('sessions');
+          assert.deepEqual(params, {
+            limit: 100,
+            expand: ['data.payment_intent']
+          });
+          return { data: [session], has_more: false };
+        }
+      }
+    },
+    paymentIntents: {
+      async retrieve(id, options) {
+        calls.push('intent');
+        assert.equal(id, paymentIntent.id);
+        assert.deepEqual(options, {
+          expand: ['latest_charge.balance_transaction']
+        });
+        return paymentIntent;
+      }
+    },
+    charges: {
+      async retrieve(id, options) {
+        calls.push('charge');
+        assert.equal(id, charge.id);
+        assert.deepEqual(options, { expand: ['balance_transaction'] });
+        return charge;
+      }
+    },
+    balanceTransactions: {
+      async retrieve(...args) {
+        calls.push('balance');
+        assert.deepEqual(args, [balance.id]);
+        return balance;
+      }
+    },
+    payouts: {
+      async list() {
+        calls.push('payouts');
+        return { data: [stripePayout(0)], has_more: false };
+      }
+    }
+  };
+
+  const report = await getStripePublicTransparencySummary(stripe, {
+    projectId: 'openg7'
+  });
+
+  assert.deepEqual(calls, [
+    'sessions',
+    'intent',
+    'charge',
+    'balance',
+    'payouts'
+  ]);
+  assert.equal(report.total_received, 1);
+  assert.equal(report.total_fees, 0.05);
+  assert.equal(report.total_net, 0.95);
+  assert.equal(report.total_refunded, 0.1);
+  assert.equal(report.total_payouts, 0.5);
+  assert.equal(report.current_available_estimate, 0.85);
+  assert.equal(report.pending_fee_count, 0);
+});
+
+test('Stripe-direct keeps partial expanded intent and charge fallbacks without re-retrieving them', async () => {
+  const sessions = [
+    {
+      ...stripeSession('partial_intent'),
+      amount_total: 250,
+      payment_intent: Object.freeze({
+        id: 'pi_partial_intent',
+        status: 'succeeded',
+        amount_received: 0,
+        amount: 300,
+        currency: 'cad',
+        created: 0,
+        metadata: Object.freeze({ projectId: 'openg7' })
+      })
+    },
+    {
+      ...stripeSession('partial_charge'),
+      payment_intent: Object.freeze({
+        id: 'pi_partial_charge',
+        status: 'succeeded',
+        amount_received: 400,
+        currency: 'cad',
+        created: 1784162100,
+        metadata: Object.freeze({ projectId: 'openg7' }),
+        latest_charge: Object.freeze({ id: 'ch_partial_charge' })
+      })
+    }
+  ];
+  const stripe = {
+    checkout: {
+      sessions: {
+        async list() {
+          return { data: sessions, has_more: false };
+        }
+      }
+    },
+    paymentIntents: {
+      retrieve() {
+        assert.fail('Expanded intents must retain their supplied facts');
+      }
+    },
+    charges: {
+      retrieve() {
+        assert.fail('Expanded charges must retain their supplied facts');
+      }
+    },
+    balanceTransactions: {
+      retrieve() {
+        assert.fail('Absent balances must remain pending');
+      }
+    },
+    payouts: {
+      async list() {
+        return { data: [], has_more: false };
+      }
+    }
+  };
+
+  const report = await getStripePublicTransparencySummary(stripe, {
+    projectId: 'openg7'
+  });
+
+  assert.equal(report.total_received, 6.5);
+  assert.equal(report.total_fees, 0);
+  assert.equal(report.total_net, 6.5);
+  assert.equal(report.total_refunded, 0);
+  assert.equal(report.pending_fee_count, 2);
+  assert.equal(report.monthly_summary.length, 1);
+  assert.equal(report.monthly_summary[0].month, '2026-07');
+  assert.equal(report.monthly_summary[0].pending_fee_count, 2);
+});
+
+for (const source of ['intent', 'charge', 'balance']) {
+  test(`Stripe-direct propagates ${source} retrieval failure before reading further sessions or payouts`, async () => {
+    const session = stripeSession(`failed_${source}`);
+    const paymentIntent = session.payment_intent;
+    const charge = paymentIntent.latest_charge;
+    const balance = charge.balance_transaction;
+    session.payment_intent = paymentIntent.id;
+    paymentIntent.latest_charge = charge.id;
+    charge.balance_transaction = balance.id;
+    const failure = new Error(`Simulated ${source} failure`);
+    const calls = [];
+    const stripe = {
+      checkout: {
+        sessions: {
+          async list() {
+            calls.push('sessions');
+            return { data: [session], has_more: true };
+          }
+        }
+      },
+      paymentIntents: {
+        async retrieve() {
+          calls.push('intent');
+          if (source === 'intent') throw failure;
+          return paymentIntent;
+        }
+      },
+      charges: {
+        async retrieve() {
+          calls.push('charge');
+          if (source === 'charge') throw failure;
+          return charge;
+        }
+      },
+      balanceTransactions: {
+        async retrieve() {
+          calls.push('balance');
+          throw failure;
+        }
+      },
+      payouts: {
+        list() {
+          assert.fail('Failed contributions must stop before reading payouts');
+        }
+      }
+    };
+
+    await assert.rejects(
+      getStripePublicTransparencySummary(stripe, { projectId: 'openg7' }),
+      (error) => error === failure
+    );
+    assert.deepEqual(
+      calls,
+      ['sessions', 'intent', 'charge', 'balance'].slice(
+        0,
+        ['intent', 'charge', 'balance'].indexOf(source) + 2
+      )
+    );
+  });
+}
+
 test('Stripe-direct reads every session and payout page, without counting a payment twice', async () => {
   const sessionCursors = [];
   const payoutCursors = [];
@@ -435,12 +643,19 @@ test('Stripe-direct rejects mixed contribution currencies and FX settlement inst
   const fx = stripeSession(1);
   fx.payment_intent.latest_charge.balance_transaction.currency = 'usd';
   for (const data of [[stripeSession(0), stripeSession(1, 'usd')], [fx]]) {
+    let sessionPages = 0;
     const stripe = {
       checkout: {
         sessions: {
           async list() {
-            return { data, has_more: false };
+            sessionPages += 1;
+            return { data, has_more: true };
           }
+        }
+      },
+      payouts: {
+        list() {
+          assert.fail('Currency failure must stop before reading payouts');
         }
       }
     };
@@ -448,6 +663,38 @@ test('Stripe-direct rejects mixed contribution currencies and FX settlement inst
       () => getStripePublicTransparencySummary(stripe, { projectId: 'openg7' }),
       /currenc/
     );
+    assert.equal(sessionPages, 1);
+  }
+});
+
+test('Stripe-direct payout pagination failures never expose partial transfer totals', async () => {
+  for (const fail of [true, false]) {
+    let payoutPages = 0;
+    const failure = new Error('Simulated payout page failure');
+    const stripe = {
+      checkout: {
+        sessions: {
+          async list() {
+            return { data: [stripeSession(0)], has_more: false };
+          }
+        }
+      },
+      payouts: {
+        async list() {
+          payoutPages += 1;
+          if (payoutPages > 1 && fail) throw failure;
+          return { data: [stripePayout(0)], has_more: true };
+        }
+      }
+    };
+
+    await assert.rejects(
+      getStripePublicTransparencySummary(stripe, { projectId: 'openg7' }),
+      fail
+        ? (error) => error === failure
+        : /Incomplete Stripe pagination in public transparency/
+    );
+    assert.equal(payoutPages, 2);
   }
 });
 

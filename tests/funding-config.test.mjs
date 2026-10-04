@@ -213,7 +213,7 @@ test('Stripe webhook service handles MVP idempotent event set', () => {
 
 test('Stripe charge.updated backfills contribution transaction fees', () => {
   const webhookSource = fs.readFileSync(
-    'apps/funding-api/src/stripe-webhook.service.ts',
+    'apps/funding-api/src/stripe-webhook/financial-handlers.ts',
     'utf8'
   );
   const repositorySource = readFundingPersistenceSource('transparency');
@@ -253,7 +253,7 @@ test('Checkout sessions require fundraiser metadata and consent fields', () => {
 test('Checkout creates a public contribution reference for Stripe receipts and recovery', () => {
   const api = readFundingApiSource();
   const webhook = fs.readFileSync(
-    'apps/funding-api/src/stripe-webhook.service.ts',
+    'apps/funding-api/src/stripe-webhook/checkout-handlers.ts',
     'utf8'
   );
   const repository = readFundingPersistenceSource('contributions');
@@ -541,7 +541,7 @@ test('Public builders are exposed only through consented public fields', () => {
 
 test('Stripe-direct transparency marks its public data source', () => {
   const source = fs.readFileSync(
-    'apps/funding-api/src/stripe-transparency.service.ts',
+    'apps/funding-api/src/stripe-transparency/projection.ts',
     'utf8'
   );
 
@@ -670,7 +670,7 @@ test('fund_contributions writes public_name on both the checkout-creation and we
 
 test('Stripe webhook service reads publicDisplayName from checkout session metadata', () => {
   const source = fs.readFileSync(
-    'apps/funding-api/src/stripe-webhook.service.ts',
+    'apps/funding-api/src/stripe-webhook/checkout-handlers.ts',
     'utf8'
   );
 
@@ -1222,7 +1222,7 @@ test('Sponsorship follow-up refreshes pending payment status from Stripe before 
 
 test('Sponsorship follow-up email is sent from checkout completion only when recoverable', () => {
   const webhook = fs.readFileSync(
-    'apps/funding-api/src/stripe-webhook.service.ts',
+    'apps/funding-api/src/stripe-webhook/checkout-handlers.ts',
     'utf8'
   );
   const email = readEmailNotificationSource();
@@ -2502,7 +2502,7 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
   const emailQueue = readFundingPersistenceSource('email');
   const api = readFundingApiSource();
   const webhook = fs.readFileSync(
-    'apps/funding-api/src/stripe-webhook.service.ts',
+    'apps/funding-api/src/stripe-webhook/checkout-handlers.ts',
     'utf8'
   );
   const migration = fs.readFileSync(
