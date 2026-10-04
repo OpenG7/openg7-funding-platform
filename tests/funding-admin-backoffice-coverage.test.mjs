@@ -1,3 +1,4 @@
+import { readFundingCoreSource } from './support/funding-core-source.mjs';
 import { readFundingPersistenceSource } from './support/funding-persistence-source.mjs';
 import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
 import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
@@ -96,7 +97,17 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   const refundAmountReasonMigration = read(
     'apps/funding-api/migrations/014_add_sponsorship_refund_amount_reason.sql'
   );
-  const core = read('packages/funding-core/src/index.ts');
+  const core = readFundingCoreSource(
+    'admin-contributions',
+    'admin-expenses',
+    'admin-system',
+    'sponsorship-documents',
+    'sponsorship-contracts',
+    'admin-pagination',
+    'sponsor-media',
+    'publication-contracts',
+    'admin-audit'
+  );
   const adminDocs = read('docs/technical/admin-api.md');
 
   assertIncludesAll(

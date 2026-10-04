@@ -1,9 +1,9 @@
+import type { AdminAttentionSeverity } from './admin-assistant.js';
+import type { AdminExpenseRecord } from './admin-expenses.js';
 import type {
-  AdminAttentionSeverity,
-  AdminExpenseRecord,
   PublicationDelivery,
   PublicationFeed
-} from './index.js';
+} from './publication-automation.js';
 
 export type PilotDomain =
   | 'publications'

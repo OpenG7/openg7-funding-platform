@@ -1,3 +1,4 @@
+import { readFundingCoreSource } from './support/funding-core-source.mjs';
 import { readFundingPersistenceSource } from './support/funding-persistence-source.mjs';
 import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
 import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
@@ -260,7 +261,11 @@ test('Checkout creates a public contribution reference for Stripe receipts and r
     'apps/funding-api/migrations/009_add_contribution_public_reference.sql',
     'utf8'
   );
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource(
+    'public-reference',
+    'sponsorship-followup',
+    'sponsorship-contracts'
+  );
   const followupPage = readSponsorshipFollowupSource();
   const adminContributionsPage = readAdminAccountingSource('contributions');
   const adminSponsorsPage = readAdminSponsorsSource();
@@ -911,7 +916,7 @@ test('Checkout API validates sponsorship custom amounts against the real minimum
 test('Sponsorship follow-up benefits are derived server-side from the paid amount, never trusted from the client', () => {
   const repository = readFundingPersistenceSource('contributions');
   const api = readFundingApiSource();
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('sponsorship-followup');
 
   assert.ok(
     repository.includes(
@@ -1324,7 +1329,7 @@ test('Reference recovery accepts email requests without exposing contribution ex
     'apps/funding-web/src/app/features/funding/pages/support-page/support-page.component.ts',
     'utf8'
   );
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('public-reference');
   const frenchCopy = fs.readFileSync(
     'apps/funding-web/src/assets/i18n/fr-CA.json',
     'utf8'
@@ -1733,7 +1738,7 @@ test('Publication slot admin endpoints are authenticated, validated, rate-limite
 });
 
 test('Publication batch types and admin UI expose capacity, next availability, and scheduled status', () => {
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('publication-contracts');
   const service = readFundingAdminSource();
   const page = readAdminPublicationsSource();
 
@@ -1780,7 +1785,7 @@ test('Publication batch types and admin UI expose capacity, next availability, a
 });
 
 test('Publication slot types and admin UI expose calendar, edit, capacity, and assignments', () => {
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('publication-contracts');
   const service = readFundingAdminSource();
   const page = readAdminPublicationsSource();
 
@@ -1823,7 +1828,7 @@ test('Publication slot types and admin UI expose calendar, edit, capacity, and a
 });
 
 test('Social publication provider is explicit, configurable, audited, and visible in admin UI', () => {
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('publication-contracts');
   const repository = readFundingPersistenceSource('administration');
   const api = readFundingApiSource();
   const socialService = fs.readFileSync(
@@ -2045,7 +2050,7 @@ test('Admin sponsor rows are color-coded by processing state', () => {
 });
 
 test('Admin sponsor rejection requires a reason and can notify the sponsor', () => {
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('sponsorship-contracts');
   const service = readFundingAdminSource();
   const page = readAdminSponsorsSource();
   const api = readFundingApiSource();
@@ -2103,7 +2108,7 @@ test('Admin sponsor rejection requires a reason and can notify the sponsor', () 
 });
 
 test('Admin sponsorship refund uses Stripe with explicit confirmation and audit', () => {
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('sponsorship-contracts');
   const service = readFundingAdminSource();
   const page = readAdminSponsorsSource();
   const api = readFundingApiSource();
@@ -2282,7 +2287,10 @@ test('Admin sponsorship refund uses Stripe with explicit confirmation and audit'
 });
 
 test('Admin sponsorship list uses backend pagination, filters, payment rules, and optimistic locking', () => {
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource(
+    'sponsorship-contracts',
+    'admin-pagination'
+  );
   const service = readFundingAdminSource();
   const page = readAdminSponsorsSource();
   const api = readFundingApiSource();
@@ -2415,7 +2423,7 @@ test('An admin gets a daily email reminder for sponsorship reviews waiting on a 
   );
   const email = readEmailNotificationSource();
   const api = readFundingApiSource();
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('admin-system');
   const setupPage = readAdminOperationsSource('setup');
   const envExample = fs.readFileSync('.env.example', 'utf8');
   const emailDocs = fs.readFileSync('docs/email-smtp.md', 'utf8');
@@ -2652,7 +2660,7 @@ test('Admin email queue page lists failed messages and retries them manually', (
   const api = readFundingApiSource();
   const email = readEmailNotificationSource();
   const emailQueue = readFundingPersistenceSource('email');
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('admin-system');
   const adminDocs = [
     fs.readFileSync('docs/technical/admin-api.md', 'utf8'),
     fs.readFileSync('docs/technical/configuration.md', 'utf8')
@@ -2734,7 +2742,7 @@ test('Admin sponsorship invoices can be listed and resent from the back-office',
     'apps/funding-api/src/sponsorship-document-pdf.service.ts',
     'utf8'
   );
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('sponsorship-documents');
   const adminDocs = [
     fs.readFileSync('docs/technical/admin-api.md', 'utf8'),
     fs.readFileSync('docs/technical/configuration.md', 'utf8')
@@ -2896,7 +2904,7 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
     'utf8'
   );
   const api = readFundingApiSource();
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('admin-system');
 
   assert.ok(routes.includes("path: 'fundraiser/setup'"));
   assert.ok(routes.includes('AdminSetupPageComponent'));
@@ -2949,7 +2957,7 @@ test('Admin setup page wraps Stripe and email configuration in a custom tour', (
 test('Public sponsorship batch availability exposes only a date per channel, never sponsor data', () => {
   const repository = readFundingPersistenceSource('administration');
   const api = readFundingApiSource();
-  const core = fs.readFileSync('packages/funding-core/src/index.ts', 'utf8');
+  const core = readFundingCoreSource('publication-contracts');
   const service = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/services/funding.service.ts',
     'utf8'
