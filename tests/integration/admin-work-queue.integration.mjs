@@ -30,6 +30,20 @@ test(
         null,
         'Requires a fresh disposable database'
       );
+      const missingSchema = await getAdminWorkQueue(pool);
+      assert.equal(missingSchema.available, false);
+      assert.equal(missingSchema.coverage, 'unavailable');
+      assert.equal(missingSchema.total, 0);
+      assert.deepEqual(missingSchema.missingSources, [
+        'fund_contributions',
+        'stripe_events',
+        'sponsorship_invoices',
+        'sponsor_media_assets',
+        'sponsor_publication_drafts',
+        'sponsor_publication_batches',
+        'publication_slots',
+        'email_messages'
+      ]);
       for (const file of (await readdir('apps/funding-api/migrations'))
         .filter((file) => file.endsWith('.sql'))
         .sort()) {
