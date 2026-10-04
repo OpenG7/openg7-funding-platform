@@ -18,12 +18,10 @@ import type {
   PilotDecision,
   PilotDomain,
   PilotReceipt,
-  PilotState,
-  PublicationAutomationState
+  PilotState
 } from '@openg7/funding-core';
 
 import { FundingAdminService } from '../../services/funding-admin.service.js';
-import { BlobPreviewResource } from '../../services/blob-preview-resource.js';
 import { AdminGuideComponent } from '../../components/admin-guide/admin-guide.component.js';
 import { PILOTAGE_GUIDE } from '../../components/admin-pilotage/pilotage-guides.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
@@ -44,16 +42,13 @@ import {
   type ControllerIntent
 } from '../../components/admin-pilotage/controller-input.js';
 import { PilotKeyboardComponent } from '../../components/admin-pilotage/pilot-keyboard.component.js';
-import {
-  PilotDecisionDetailsComponent,
-  type PilotDetailState
-} from '../../components/admin-pilotage/pilot-decision-details.component.js';
+import { PilotDecisionDetailsComponent } from '../../components/admin-pilotage/pilot-decision-details.component.js';
 import { AdminPublicationCalendarComponent } from '../../components/admin-publications/admin-publication-calendar.component.js';
-import type { PublicationCalendarEntry } from '../../components/admin-publications/publication-calendar.js';
 import { PilotAppearanceService } from '../../services/pilot-appearance.service.js';
 import { PilotAppearanceComponent } from '../../components/admin-pilotage/pilot-appearance.component.js';
 
 import { AdminPilotageCommandWorkflow } from './admin-pilotage-command-workflow.js';
+import { AdminPilotageReadController } from './admin-pilotage-read.controller.js';
 
 type Panel =
   | ''
@@ -123,23 +118,30 @@ export class AdminPilotagePageComponent {
   private readonly guide = viewChild(AdminGuideComponent);
   private readonly programme = viewChild(EditorialProgrammeComponent);
   private readonly document = inject(DOCUMENT);
-  readonly state = signal<PilotState | null>(null);
-  readonly selected = signal<PilotDecision | null>(null);
-  readonly domain = signal<PilotDomain | ''>('');
   readonly panel = signal<Panel>('');
   readonly busy = signal(false);
-  readonly loading = signal(true);
   readonly error = signal('');
   readonly receipt = signal<PilotReceipt | null>(null);
   readonly unresolved = signal('');
-  private readonly imageResource = new BlobPreviewResource();
-  readonly image = this.imageResource.url;
-  readonly previewFailed = signal(false);
-  readonly detailState = signal<PilotDetailState>('idle');
-  readonly calendar = signal<PublicationCalendarEntry[]>([]);
-  readonly calendarState = signal<'idle' | 'loading' | 'ready' | 'error'>(
-    'idle'
-  );
+  private readonly reads = new AdminPilotageReadController({
+    admin: this.admin,
+    busy: this.busy.asReadonly(),
+    panel: this.panel.asReadonly(),
+    error: this.error,
+    token: () => this.admin.getSavedAdminToken(),
+    translate: (key) => this.i18n.t(key),
+    resetInput: () => this.controller.reset(),
+    persist: () => this.persist()
+  });
+  readonly state = this.reads.state;
+  readonly selected = this.reads.selected;
+  readonly domain = this.reads.domain;
+  readonly loading = this.reads.loading;
+  readonly image = this.reads.image;
+  readonly previewFailed = this.reads.previewFailed;
+  readonly detailState = this.reads.detailState;
+  readonly calendar = this.reads.calendar;
+  readonly calendarState = this.reads.calendarState;
   readonly keyboard = signal(false);
   readonly pending = signal<{
     action: PilotAction;
@@ -189,41 +191,24 @@ export class AdminPilotagePageComponent {
     { id: 'projects', icon: 'expenses' },
     { id: 'operations', icon: 'settings' }
   ];
-  readonly queue = computed(() => this.state()?.decisions ?? []);
+  readonly queue = this.reads.queue;
   domainIcon(domain: PilotDomain): AdminIconName {
     return this.domains.find((item) => item.id === domain)?.icon ?? 'audit';
   }
-  readonly pageCount = computed(() =>
-    Math.max(
-      1,
-      Math.ceil((this.state()?.total ?? 0) / (this.state()?.pageSize ?? 30))
-    )
-  );
+  readonly pageCount = this.reads.pageCount;
   readonly preparing = computed(
     () =>
       !!this.state()?.workerEnabled &&
       !!this.state()?.feeds.some((f) => f.autoPrepare)
   );
-  readonly following = computed(() =>
-    this.queue().filter((d) => d.id !== this.selected()?.id)
-  );
+  readonly following = this.reads.following;
   readonly pendingSponsors = computed(
     () =>
       this.selected()?.publication?.sponsors.filter(
         (s) => s.reviewStatus === 'pending_review'
       ) ?? []
   );
-  readonly stale = computed(() => {
-    const d = this.selected(),
-      fresh = this.queue().find((i) => i.id === d?.id);
-    return (
-      !!d &&
-      !!this.state() &&
-      (!fresh ||
-        fresh.version !== d.version ||
-        JSON.stringify(fresh.actions) !== JSON.stringify(d.actions))
-    );
-  });
+  readonly stale = this.reads.stale;
   readonly primary = computed(() =>
     this.selected()?.actions.find(
       (a) => !a.id.endsWith('.reject') && !a.id.endsWith('.edit')
@@ -265,10 +250,6 @@ export class AdminPilotagePageComponent {
   edit = { message: '', scheduledAt: '', mediaId: '' };
   reason = '';
   incidentReason = '';
-  private loadRequest = 0;
-  private detailRequest = 0;
-  private destroyed = false;
-  private restoreId = '';
 
   constructor() {
     effect(() => {
@@ -277,11 +258,8 @@ export class AdminPilotagePageComponent {
     });
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
-      this.destroyed = true;
-      this.loadRequest++;
-      this.detailRequest++;
+      this.reads.dispose();
       this.controller.stop();
-      this.imageResource.dispose();
     });
     afterNextRender(() => {
       try {
@@ -291,7 +269,9 @@ export class AdminPilotagePageComponent {
         ) as { id?: string; domain?: string; page?: number } | null;
         if (saved?.domain && this.domains.some((d) => d.id === saved.domain))
           this.domain.set(saved.domain as PilotDomain);
-        this.restoreId = typeof saved?.id === 'string' ? saved.id : '';
+        this.reads.restoreSelection(
+          typeof saved?.id === 'string' ? saved.id : ''
+        );
         this.unresolved.set(
           storage.getItem(this.commands.receiptStorageKey()) ?? ''
         );
@@ -385,20 +365,18 @@ export class AdminPilotagePageComponent {
   }
   async reviewDecision(id: string): Promise<void> {
     if (this.busy()) return;
-    try {
-      const snapshot = await this.admin.pilotage({ id });
-      const d = snapshot.decisions[0];
-      if (!d) {
-        this.error.set('VERSION_CONFLICT');
-        return;
-      }
-      this.close();
-      this.domain.set('');
-      await this.load(false, snapshot.focusPage ?? 1);
-      this.choose(d);
+    const snapshot = await this.reads.lookup(id);
+    if (!snapshot) return;
+    const decision = snapshot.decisions.find((item) => item.id === id);
+    if (!decision) {
+      this.error.set('VERSION_CONFLICT');
+      return;
+    }
+    this.close();
+    if (
+      await this.replaceRead(this.reads.focusDecision(snapshot, decision, ''))
+    ) {
       this.document.getElementById('admin-main')?.focus();
-    } catch {
-      this.error.set('PILOTAGE_UNAVAILABLE');
     }
   }
   programmeCommand(command: ProgrammeCommand): void {
@@ -440,73 +418,32 @@ export class AdminPilotagePageComponent {
     return translated !== existing ? translated : this.t('errors.generic');
   }
   async load(replace = false, page = this.state()?.page ?? 1): Promise<void> {
-    const request = ++this.loadRequest;
-    try {
-      const result = await this.admin.pilotage({
-        page,
-        domain: this.domain() || undefined
-      });
-      if (request !== this.loadRequest || this.destroyed) return;
-      this.state.set(result);
-      this.error.set('');
-      if (replace || !this.selected()) {
-        const id = this.restoreId || this.selected()?.id;
-        this.restoreId = '';
-        this.selectLoadedDecision(
-          result.decisions.find((d) => d.id === id) ??
-            result.decisions[0] ??
-            null
-        );
-        if (replace) this.receipt.set(null);
-      }
-    } catch (error) {
-      if (request === this.loadRequest)
-        this.error.set(
-          error instanceof Error ? error.message : 'PILOTAGE_UNAVAILABLE'
-        );
-    } finally {
-      if (request === this.loadRequest) this.loading.set(false);
-    }
+    if (replace) await this.replaceRead(this.reads.load(true, page));
+    else await this.reads.load(false, page);
   }
   choose(decision: PilotDecision | null): void {
-    if (this.busy() || this.panel() === 'confirm' || this.panel() === 'edit')
-      return;
-    this.receipt.set(null);
-    this.selectLoadedDecision(decision);
-  }
-  private selectLoadedDecision(decision: PilotDecision | null): void {
-    this.detailRequest++;
-    this.detailState.set('idle');
-    this.selected.set(decision);
-    this.controller.reset();
-    this.persist();
-    void this.preview(decision);
+    if (this.reads.choose(decision)) this.receipt.set(null);
   }
   async changeDomain(domain: PilotDomain | ''): Promise<void> {
-    if (this.busy() || this.panel()) return;
-    this.domain.set(domain);
-    this.selected.set(null);
-    this.loading.set(true);
-    this.controller.reset();
-    await this.load(true, 1);
-    this.persist();
+    await this.replaceRead(this.reads.changeDomain(domain));
   }
   next(direction = 1): void {
-    if (this.busy() || this.panel()) return;
-    const queue = this.queue(),
-      index = queue.findIndex((d) => d.id === this.selected()?.id);
-    if (!queue.length) return;
-    this.choose(
-      queue[(Math.max(-1, index) + direction + queue.length) % queue.length] ??
-        queue[0]!
-    );
+    if (this.reads.move(direction)) this.receipt.set(null);
   }
   async page(direction: number): Promise<void> {
-    if (!this.busy()) {
-      this.selected.set(null);
-      await this.load(true, (this.state()?.page ?? 1) + direction);
-      this.persist();
-    }
+    await this.replaceRead(this.reads.page(direction));
+  }
+  private async replaceRead(read: Promise<boolean>): Promise<boolean> {
+    const receipt = this.receipt();
+    const unresolved = this.unresolved();
+    const applied = await read;
+    if (
+      applied &&
+      this.receipt() === receipt &&
+      this.unresolved() === unresolved
+    )
+      this.receipt.set(null);
+    return applied;
   }
   private persist(): void {
     try {
@@ -524,18 +461,14 @@ export class AdminPilotagePageComponent {
   }
   open(panel: Panel): void {
     if (this.busy()) return;
-    if (panel !== 'details') {
-      this.detailRequest++;
-      this.detailState.set('idle');
-    }
+    if (panel !== 'details') this.reads.invalidatePanelReads();
     this.panel.set(panel);
     this.keyboard.set(false);
     this.controller.reset();
   }
   close(): void {
     if (!this.busy()) {
-      this.detailRequest++;
-      this.detailState.set('idle');
+      this.reads.invalidatePanelReads();
       this.panel.set('');
       this.pending.set(null);
       this.controller.reset();
@@ -549,17 +482,9 @@ export class AdminPilotagePageComponent {
       this.busy.set(true);
       this.controller.reset();
       try {
-        const detail = (await this.admin.pilotage({ id: d.id })).decisions[0];
-        if (!detail || detail.version !== d.version) {
-          this.error.set('VERSION_CONFLICT');
-          return;
-        }
-        if (this.destroyed) return;
+        const detail = await this.reads.rereadForAction(d);
+        if (!detail) return;
         d = detail;
-        this.selected.set(detail);
-      } catch {
-        this.error.set('PILOTAGE_UNAVAILABLE');
-        return;
       } finally {
         this.busy.set(false);
       }
@@ -674,80 +599,13 @@ export class AdminPilotagePageComponent {
     if (d.domain === 'email') await this.loadDetails();
   }
   async loadDetails(acceptLatest = false): Promise<void> {
-    const d = this.selected();
-    if (
-      !d ||
-      d.domain !== 'email' ||
-      this.panel() !== 'details' ||
-      this.detailState() === 'loading'
-    )
-      return;
-    const request = ++this.detailRequest;
-    const current = () =>
-      request === this.detailRequest &&
-      !this.destroyed &&
-      this.panel() === 'details' &&
-      this.selected()?.id === d.id;
-    this.detailState.set('loading');
-    try {
-      const snapshot = await this.admin.pilotage({ id: d.id });
-      if (!current()) return;
-      const detail = snapshot.decisions.find((item) => item.id === d.id);
-      if (!detail) {
-        this.state.update((state) =>
-          state
-            ? {
-                ...state,
-                decisions: state.decisions.filter((item) => item.id !== d.id)
-              }
-            : state
-        );
-        this.detailState.set('missing');
-      } else if (detail.version !== d.version && !acceptLatest) {
-        this.state.update((state) =>
-          state
-            ? {
-                ...state,
-                decisions: state.decisions.map((item) =>
-                  item.id === d.id ? detail : item
-                )
-              }
-            : state
-        );
-        this.detailState.set('changed');
-      } else if (!detail.email) {
-        this.detailState.set('missing');
-      } else {
-        this.selected.set(detail);
-        // An explicit reread updates the matching queue snapshot, never another dossier.
-        if (acceptLatest)
-          this.state.update((state) =>
-            state
-              ? {
-                  ...state,
-                  writable: snapshot.writable,
-                  decisions: state.decisions.map((item) =>
-                    item.id === detail.id ? detail : item
-                  )
-                }
-              : state
-          );
-        this.detailState.set('ready');
-        this.controller.reset();
-        if (acceptLatest) {
-          this.document
-            .querySelector<HTMLElement>(
-              'dialog[open] [data-og7="admin-drawer-content"]'
-            )
-            ?.focus();
-        }
-      }
-    } catch (error) {
-      if (!current()) return;
-      const status = (error as { status?: number })?.status;
-      this.detailState.set(
-        status === 401 ? 'expired' : status === 403 ? 'forbidden' : 'error'
-      );
+    const ready = await this.reads.loadDetails(acceptLatest);
+    if (ready && acceptLatest) {
+      this.document
+        .querySelector<HTMLElement>(
+          'dialog[open] [data-og7="admin-drawer-content"]'
+        )
+        ?.focus();
     }
   }
   portal(): void {
@@ -756,69 +614,29 @@ export class AdminPilotagePageComponent {
   }
   async openCalendar(): Promise<void> {
     this.open('calendar');
-    this.calendarState.set('loading');
-    try {
-      const state =
-        (await this.admin.publicationAutomation()) as PublicationAutomationState;
-      this.calendar.set(
-        state.deliveries.map((p) => ({
-          id: p.id,
-          channel: p.feedId.endsWith('facebook') ? 'facebook' : 'linkedin',
-          status:
-            p.status === 'published'
-              ? 'published'
-              : ['approved', 'publishing'].includes(p.status)
-                ? 'scheduled'
-                : ['cancelled', 'rejected'].includes(p.status)
-                  ? 'cancelled'
-                  : 'open',
-          startsAt: p.scheduledAt,
-          capacity: 1,
-          capacityUsed: 1,
-          target: p.feedId.split(':')[0]!,
-          label: p.message.slice(0, 70),
-          detail: p.feedId,
-          statusLabel: this.i18n.t(
-            'admin.publicationAutomation.status.' + p.status
-          )
-        }))
-      );
-      this.calendarState.set('ready');
-    } catch {
-      this.calendarState.set('error');
-    }
+    await this.reads.loadCalendar();
   }
   async calendarSelect(id: string): Promise<void> {
-    try {
-      const snapshot = await this.admin.pilotage({
-        id: 'publication:' + id,
-        domain: 'publications'
-      });
-      const item = snapshot.decisions[0];
-      if (item) {
-        this.close();
-        this.domain.set('publications');
-        await this.load(false, snapshot.focusPage ?? 1);
-        this.choose(item);
-        await this.details();
-      } else this.error.set('CALENDAR_HISTORY');
-    } catch {
-      this.error.set('PILOTAGE_UNAVAILABLE');
-    }
-  }
-  private async preview(d: PilotDecision | null): Promise<void> {
-    this.previewFailed.set(false);
-    const id = d?.publication?.mediaId ?? d?.sponsor?.presentationId;
-    await this.imageResource.load(
-      id
-        ? () =>
-            this.admin.getSponsorMediaPreview(
-              this.admin.getSavedAdminToken(),
-              id
-            )
-        : null,
-      () => this.previewFailed.set(true)
+    const snapshot = await this.reads.lookup(
+      'publication:' + id,
+      'publications'
     );
+    if (!snapshot) return;
+    const item = snapshot.decisions.find(
+      (decision) => decision.id === 'publication:' + id
+    );
+    if (!item) {
+      this.error.set('CALENDAR_HISTORY');
+      return;
+    }
+    this.close();
+    if (
+      await this.replaceRead(
+        this.reads.focusDecision(snapshot, item, 'publications')
+      )
+    ) {
+      await this.details();
+    }
   }
   saveProfile(): void {
     if (this.controller.save(this.profile)) {
