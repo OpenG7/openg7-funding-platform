@@ -667,6 +667,97 @@ test('recorded false preserves the draft and permits a retry without a success m
   expect(calls.posts()).toBe(2);
 });
 
+test('received false never announces saved details even when recorded is true', async ({
+  page
+}) => {
+  let attempt = 0;
+  const calls = await mock(page, {
+    post: (route) => json(route, { received: ++attempt > 1, recorded: true })
+  });
+  await visit(page);
+  await company(page).fill('Réception à confirmer');
+  await save(page).click();
+  await expect(page.getByRole('alert')).toContainText('n’a pas confirmé');
+  await expect(company(page)).toHaveValue('Réception à confirmer');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toHaveCount(0);
+  await expect(save(page)).toBeEnabled();
+  await save(page).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toBeVisible();
+  expect(calls.posts()).toBe(2);
+});
+
+test('details submission uses the revision from its completed draft flush', async ({
+  page
+}) => {
+  let payload: Record<string, unknown> = {};
+  await mock(page, {
+    post: async (route) => {
+      payload = route.request().postDataJSON();
+      await json(route, { received: true, recorded: true });
+    }
+  });
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let writing = false;
+  await page.route('**/api/sponsorship-followup/draft', async (route) => {
+    if (route.request().method() === 'POST') {
+      writing = true;
+      await gate;
+    }
+    await route.fallback();
+  });
+  await visit(page);
+  await company(page).fill('Brouillon avant soumission');
+  await save(page).click();
+  await expect.poll(() => writing).toBe(true);
+  expect(payload).toEqual({});
+  await expect(company(page)).toBeDisabled();
+  release();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toBeVisible();
+  expect(payload.companyName).toBe('Brouillon avant soumission');
+  expect(payload.draftRevision).toBe(1);
+});
+
+test('a details submission conflict preserves local fields until the server draft is explicitly reloaded', async ({
+  page
+}) => {
+  let conflicted = false;
+  await mock(page, {
+    post: async (route) => {
+      conflicted = true;
+      await json(route, { code: 'draft_conflict' }, 409);
+    }
+  });
+  await page.route('**/api/sponsorship-followup/draft**', async (route) => {
+    if (route.request().method() === 'GET' && conflicted)
+      await json(route, {
+        revision: 7,
+        data: draftValues('Correction dans un autre onglet'),
+        updatedAt: '2026-09-18T12:00:00Z'
+      });
+    else await route.fallback();
+  });
+  await visit(page);
+  await company(page).fill('Ma modification locale');
+  await save(page).click();
+  await expect(draftStatus(page)).toContainText('autre onglet');
+  await expect(company(page)).toHaveValue('Ma modification locale');
+  await expect(save(page)).toBeDisabled();
+  await draftStatus(page)
+    .getByRole('button', { name: 'Charger le brouillon sauvegardé' })
+    .click();
+  await expect(company(page)).toHaveValue('Correction dans un autre onglet');
+  await expect(company(page)).toBeEnabled();
+});
+
 test('network failure on save preserves the draft and permits a retry', async ({
   page
 }) => {
@@ -828,6 +919,39 @@ test('an explicit invalid token never opens a different record from session stor
     page.getByRole('heading', { name: 'Lien introuvable' })
   ).toBeVisible();
   expect(calls.reads()).toBe(1);
+  expect(new URL(page.url()).searchParams.has('token')).toBe(false);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem('openg7-sponsorship-followup-token')
+    )
+  ).toBeNull();
+});
+
+test('unavailable session storage allows a URL-token visit and preserves other URL state', async ({
+  page
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'sessionStorage', {
+      configurable: true,
+      get: () => {
+        throw new Error('Synthetic storage denial');
+      }
+    });
+  });
+  const calls = await mock(page);
+  await page.goto(path + '?token=' + token + '&campaign=synthetic#details');
+  await expect(company(page)).toHaveValue('Atelier Boréal');
+  const url = new URL(page.url());
+  expect(url.searchParams.has('token')).toBe(false);
+  expect(url.searchParams.get('campaign')).toBe('synthetic');
+  expect(url.hash).toBe('#details');
+  expect(calls.reads()).toBe(1);
+  await company(page).fill('Saisie sans stockage');
+  await save(page).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Informations enregistrées' })
+  ).toBeVisible();
+  expect(calls.posts()).toBe(1);
 });
 
 test('English mobile follow-up is translated and language navigation keeps the same record without exposing the token', async ({

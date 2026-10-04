@@ -5,20 +5,12 @@ import {
   computed,
   inject,
   Injector,
-  DestroyRef,
   OnDestroy,
-  OnInit,
-  signal
+  OnInit
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type {
-  ContributionType,
-  FundTransparencyPublicResponse,
-  FundingSnapshot,
-  PublicSponsorshipBatchAvailabilityResponse,
-  PublicMonthlySummary
-} from '@openg7/funding-core';
+import type { ContributionType } from '@openg7/funding-core';
 import { FundingProjectConfig } from '@openg7/funding-models';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
@@ -36,10 +28,7 @@ import {
 import { FundingCheckoutNoticeComponent } from '../../components/funding-checkout-notice/funding-checkout-notice.component.js';
 import { FundingFinanceSummaryComponent } from '../../components/funding-finance-summary/funding-finance-summary.component.js';
 import { CheckoutStatusMonitor } from '../../services/checkout-status-monitor.service.js';
-import {
-  currentFundingMonth,
-  monthlyContributions
-} from '../../models/funding-home.utils.js';
+import { FundingHomeController } from '../../services/funding-home-controller.js';
 interface EcosystemCard {
   readonly id: number;
   readonly title: string;
@@ -52,7 +41,6 @@ interface FoundationPillar {
   readonly descriptionKey: string;
 }
 
-const sponsorshipFollowupTokenPattern = /^[A-Za-z0-9_-]{32,128}$/;
 @Component({
   selector: 'openg7-funding-page',
   standalone: true,
@@ -78,37 +66,56 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   private readonly injector = inject(Injector);
   private readonly seo = inject(FundingSeoService);
   private readonly transparencyService = inject(FundTransparencyService);
-  private transparencyRefreshId: number | null = null;
   readonly checkoutMonitor = inject(CheckoutStatusMonitor);
-  private readonly destroyRef = inject(DestroyRef);
-  private transparencyRequest: AbortController | null = null;
-  readonly allowedContributionAmounts = signal<readonly number[]>(
-    OPENG7_FUNDING_CONFIG.contributionAmounts
-  );
-  readonly sponsorshipBatchAvailability =
-    signal<PublicSponsorshipBatchAvailabilityResponse | null>(null);
-  readonly monthlySummary = signal<readonly PublicMonthlySummary[]>([]);
-  readonly currentMonth = signal('');
-  readonly currentMonthContributions = computed(() =>
-    monthlyContributions(
-      this.monthlySummary(),
-      this.currentMonth(),
-      this.currency()
-    )
-  );
-  private readonly emptySnapshot: FundingSnapshot = {
-    totals: {
-      confirmedContributions: 0,
-      transactionFees: 0,
-      availableFunds: 0
-    },
-    allocation: [],
-    contributors: []
-  };
-
   readonly config: FundingProjectConfig =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
-  readonly sponsorshipSelectionEnabled = signal<boolean>(false);
+  private readonly controller = new FundingHomeController({
+    funding: this.fundingService,
+    transparency: this.transparencyService,
+    checkout: this.checkoutMonitor,
+    config: this.config,
+    isBrowser: () => typeof window !== 'undefined',
+    now: () => new Date(),
+    navigate: (url) => window.location.assign(url),
+    clearCheckoutReturn: () => {
+      const url = new URL(window.location.href);
+      for (const key of [
+        'checkout',
+        'contributionType',
+        'followup_token',
+        'session_id',
+        'reference'
+      ])
+        url.searchParams.delete(key);
+      window.history.replaceState(window.history.state, '', url);
+    }
+  });
+  readonly allowedContributionAmounts =
+    this.controller.allowedContributionAmounts;
+  readonly sponsorshipBatchAvailability =
+    this.controller.sponsorshipBatchAvailability;
+  readonly sponsorshipSelectionEnabled =
+    this.controller.sponsorshipSelectionEnabled;
+  readonly monthlySummary = this.controller.monthlySummary;
+  readonly currentMonth = this.controller.currentMonth;
+  readonly currentMonthContributions =
+    this.controller.currentMonthContributions;
+  readonly snapshot = this.controller.snapshot;
+  readonly hasTransparencySnapshot = this.controller.hasTransparencySnapshot;
+  readonly loadingState = this.controller.loadingState;
+  readonly checkoutResultMode = this.controller.checkoutResultMode;
+  readonly pendingSponsorFollowupToken =
+    this.controller.pendingSponsorFollowupToken;
+  readonly transparencyState = this.controller.transparencyState;
+  readonly contributionCount = this.controller.contributionCount;
+  readonly currency = this.controller.currency;
+  readonly lastTransparencySync = this.controller.lastTransparencySync;
+  readonly transparencySource = this.controller.transparencySource;
+  readonly campaignProgress = this.controller.campaignProgress;
+  readonly allocationTotal = this.controller.allocationTotal;
+  readonly remainingForMonthlyGoal = this.controller.remainingForMonthlyGoal;
+  readonly allocationDonut = this.controller.allocationDonut;
+
   // This public intent only selects a form type; it never grants consent or confirms payment.
   readonly requestedContributionType: ContributionType =
     inject(ActivatedRoute).snapshot.queryParamMap.get('intent') ===
@@ -119,34 +126,6 @@ export class FundingPageComponent implements OnInit, OnDestroy {
   readonly transparencyPath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs/transparence')
   );
-
-  readonly snapshot = signal<FundingSnapshot>(this.emptySnapshot);
-  readonly hasTransparencySnapshot = signal(false);
-
-  readonly loadingState = signal<'idle' | 'loading' | 'success' | 'error'>(
-    'idle'
-  );
-  readonly checkoutResultMode = signal<'mocked' | null>(null);
-
-  readonly pendingSponsorFollowupToken = signal<string | null>(null);
-  readonly transparencyState = signal<'loading' | 'synced' | 'empty' | 'error'>(
-    'loading'
-  );
-  readonly contributionCount = signal<number>(0);
-  readonly currency = signal<string>(this.config.currency);
-  readonly lastTransparencySync = signal<string | null>(null);
-  readonly transparencySource =
-    signal<FundTransparencyPublicResponse['data_source']>('empty');
-
-  readonly campaignProgress = computed<number>(() => {
-    const goal = this.config.monthlyGoal;
-    if (goal <= 0) {
-      return 0;
-    }
-
-    const ratio = (this.currentMonthContributions() / goal) * 100;
-    return Math.min(100, Math.max(0, Math.round(ratio)));
-  });
 
   readonly publicValueUnavailableLabel = computed<string>(() => {
     this.i18n.trackTranslationState();
@@ -161,14 +140,6 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     this.hasTransparencySnapshot()
       ? `${this.campaignProgress()} %`
       : this.publicValueUnavailableLabel()
-  );
-
-  readonly allocationTotal = computed<number>(() =>
-    this.snapshot().allocation.reduce((sum, item) => sum + item.amount, 0)
-  );
-
-  readonly remainingForMonthlyGoal = computed<number>(() =>
-    Math.max(0, this.config.monthlyGoal - this.currentMonthContributions())
   );
 
   readonly transparencyStatusLabel = computed<string>(() => {
@@ -244,29 +215,6 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       : this.i18n
           .t('funding.home.contributionCount.many')
           .replace('{{ count }}', count.toString());
-  });
-  private readonly allocationPalette = [
-    '#f4b53c',
-    '#2f9fe5',
-    '#58d79a',
-    '#e5df80',
-    '#e58a3e'
-  ];
-
-  readonly allocationDonut = computed<string>(() => {
-    const total = this.allocationTotal();
-    if (total <= 0) {
-      return 'conic-gradient(#f4b53c 0 100%)';
-    }
-
-    let cursor = 0;
-    const segments = this.snapshot().allocation.map((allocation, index) => {
-      const start = cursor;
-      cursor += (allocation.amount / total) * 100;
-      return `${this.allocationColor(index)} ${start}% ${cursor}%`;
-    });
-
-    return `conic-gradient(${segments.join(', ')})`;
   });
 
   readonly ecosystemCards: readonly EcosystemCard[] = [
@@ -384,123 +332,18 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     );
   }
   ngOnInit(): void {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const checkout = params.get('checkout');
-    if (checkout === 'cancel') {
-      this.checkoutMonitor.cancel(params.get('reference'));
-    } else if (checkout === 'success') {
-      this.checkoutMonitor.start(params.get('reference'));
-    }
-
-    if (checkout === 'success') {
-      const followupToken = params.get('followup_token');
-      const isSponsorship =
-        params.get('contributionType') === 'sponsorship_interest';
-      if (
-        isSponsorship &&
-        followupToken &&
-        sponsorshipFollowupTokenPattern.test(followupToken)
-      ) {
-        this.pendingSponsorFollowupToken.set(followupToken);
-      }
-    }
-
-    void this.loadPublicTransparency();
-    void this.loadPublicFundingConfig();
-    this.startTransparencyRefresh();
-  }
-  async loadPublicFundingConfig(): Promise<void> {
-    try {
-      const runtimeConfig = await this.fundingService.getPublicFundingConfig();
-      if (this.destroyRef.destroyed) return;
-      this.allowedContributionAmounts.set(
-        runtimeConfig.allowed_contribution_amounts ??
-          this.config.contributionAmounts
-      );
-      this.sponsorshipSelectionEnabled.set(
-        runtimeConfig.business_sponsorship_enabled
-      );
-
-      if (runtimeConfig.business_sponsorship_enabled) {
-        await this.loadSponsorshipBatchAvailability();
-        return;
-      }
-    } catch {
-      this.sponsorshipSelectionEnabled.set(false);
-    }
-
-    this.sponsorshipBatchAvailability.set(null);
+    if (typeof window === 'undefined') return;
+    this.controller.start(new URLSearchParams(window.location.search));
   }
 
-  async loadSponsorshipBatchAvailability(): Promise<void> {
-    try {
-      const availability =
-        await this.fundingService.getSponsorshipBatchAvailability();
-      if (!this.destroyRef.destroyed)
-        this.sponsorshipBatchAvailability.set(availability);
-    } catch {
-      this.sponsorshipBatchAvailability.set(null);
-    }
-  }
   ngOnDestroy(): void {
-    if (this.transparencyRefreshId !== null)
-      clearInterval(this.transparencyRefreshId);
-    this.transparencyRequest?.abort();
+    this.controller.dispose();
   }
-  async loadPublicTransparency(
-    options: { readonly silent?: boolean } = {}
-  ): Promise<void> {
-    if (this.destroyRef.destroyed || this.transparencyRequest) return;
-    const request = new AbortController();
-    this.transparencyRequest = request;
-    const timeout = setTimeout(() => request.abort(), 15_000);
-    if (!options.silent) {
-      this.transparencyState.set('loading');
-    }
 
-    try {
-      const report = await this.transparencyService.getPublicTransparency(
-        request.signal
-      );
-      if (this.destroyRef.destroyed) return;
-      this.currentMonth.set(currentFundingMonth(new Date()));
-      this.monthlySummary.set(report.monthly_summary);
-      this.snapshot.set(this.toFundingSnapshot(report));
-      this.contributionCount.set(report.contributions_count);
-      this.currency.set(report.currency || this.config.currency);
-      this.lastTransparencySync.set(report.last_updated_at);
-      this.transparencySource.set(report.data_source);
-      this.hasTransparencySnapshot.set(true);
-      this.transparencyState.set(
-        this.hasPublicFinanceData(report) ? 'synced' : 'empty'
-      );
-    } catch {
-      if (!this.destroyRef.destroyed) this.transparencyState.set('error');
-    } finally {
-      clearTimeout(timeout);
-      this.transparencyRequest = null;
-    }
-  }
   dismissCheckoutNotice(): void {
-    this.checkoutMonitor.dismiss();
-    this.pendingSponsorFollowupToken.set(null);
-
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const url = new URL(window.location.href);
-    url.searchParams.delete('checkout');
-    url.searchParams.delete('contributionType');
-    url.searchParams.delete('followup_token');
-    url.searchParams.delete('session_id');
-    url.searchParams.delete('reference');
-    window.history.replaceState(window.history.state, '', url);
+    this.controller.dismissCheckoutNotice();
   }
+
   formatMoney(amount: number): string {
     return new Intl.NumberFormat(this.i18n.currentLanguage(), {
       style: 'currency',
@@ -516,12 +359,11 @@ export class FundingPageComponent implements OnInit, OnDestroy {
       : this.publicValueUnavailableLabel();
   }
   allocationShare(amount: number): number {
-    const total = this.allocationTotal();
-    return total > 0 ? Math.round((amount / total) * 100) : 0;
+    return this.controller.allocationShare(amount);
   }
 
   allocationColor(index: number): string {
-    return this.allocationPalette[index % this.allocationPalette.length];
+    return this.controller.allocationColor(index);
   }
   scrollToSupport(): void {
     if (typeof document === 'undefined') return;
@@ -538,67 +380,7 @@ export class FundingPageComponent implements OnInit, OnDestroy {
     this.dismissCheckoutNotice();
     this.scrollToSupport();
   }
-  async supportProject(
-    submission: FundingContributionSubmission
-  ): Promise<void> {
-    if (this.loadingState() === 'loading') return;
-    this.checkoutResultMode.set(null);
-    this.loadingState.set('loading');
-    try {
-      const result = await this.fundingService.startCheckout(
-        submission.amount,
-        submission.consent
-      );
-      if (this.destroyRef.destroyed) return;
-      if (result.status === 'redirected') {
-        window.location.assign(result.redirectUrl);
-        return;
-      }
-      this.checkoutResultMode.set(result.status);
-      this.loadingState.set('success');
-      void this.loadPublicTransparency({ silent: true });
-    } catch {
-      if (!this.destroyRef.destroyed) this.loadingState.set('error');
-    }
-  }
-  private startTransparencyRefresh(): void {
-    if (typeof window === 'undefined' || this.transparencyRefreshId) {
-      return;
-    }
-
-    this.transparencyRefreshId = window.setInterval(() => {
-      void this.loadPublicTransparency({ silent: true });
-    }, 30000);
-  }
-  private toFundingSnapshot(
-    report: FundTransparencyPublicResponse
-  ): FundingSnapshot {
-    return {
-      totals: {
-        confirmedContributions: report.total_received,
-        transactionFees: -Math.abs(report.total_fees),
-        availableFunds: report.current_available_estimate
-      },
-      allocation: report.latest_public_allocations.map((allocation) => ({
-        category: allocation.project_name,
-        amount: allocation.amount_allocated
-      })),
-      contributors: []
-    };
-  }
-
-  private hasPublicFinanceData(
-    report: FundTransparencyPublicResponse
-  ): boolean {
-    return (
-      report.total_received > 0 ||
-      report.total_fees > 0 ||
-      report.total_net > 0 ||
-      report.total_refunded > 0 ||
-      report.total_payouts > 0 ||
-      report.current_available_estimate > 0 ||
-      report.contributions_count > 0 ||
-      report.latest_public_allocations.length > 0
-    );
+  supportProject(submission: FundingContributionSubmission): Promise<void> {
+    return this.controller.supportProject(submission);
   }
 }
