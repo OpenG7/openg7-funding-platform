@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +7,7 @@ import test from 'node:test';
 
 import {
   BACKFILL_FIXTURES,
+  EMAIL_QUEUE_FIXTURE,
   SPONSORSHIP_FIXTURES,
   WEBHOOK_FIXTURES
 } from '../playwright/fixtures/e2e-fixtures.mjs';
@@ -42,6 +43,157 @@ function seedSql(cleanup) {
     }
   );
 }
+
+function probeSeedCli({
+  cleanup = false,
+  sqlStatus = 0,
+  stubFailureAt = 0
+} = {}) {
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      `import childProcess from 'node:child_process';
+       import { writeSync } from 'node:fs';
+       import { syncBuiltinESMExports } from 'node:module';
+       const events = [];
+       const messages = [];
+       let stubCalls = 0;
+       console.log = (message) => messages.push(message);
+       console.error = (message) => messages.push(message);
+       process.on('exit', () => writeSync(1, JSON.stringify({ events, messages })));
+       childProcess.spawnSync = (command, args, options) => {
+         events.push({ type: 'sql', command, args, input: options.input });
+         return { status: ${JSON.stringify(sqlStatus)} };
+       };
+       syncBuiltinESMExports();
+       globalThis.fetch = async (url, options) => {
+         events.push({ type: 'stub', path: new URL(url).pathname,
+           payload: options.body ? JSON.parse(options.body) : null });
+         return { ok: ++stubCalls !== ${stubFailureAt}, status: 503,
+           text: async () => 'synthetic stub failure' };
+       };
+       ${cleanup ? "process.argv.push('--cleanup');" : ''}
+       await import('./scripts/e2e-seed.mjs');`
+    ],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      env: {
+        ...process.env,
+        OPENG7_E2E_ENV_FILE: join(tmpdir(), `absent-e2e-${randomUUID()}.env`)
+      }
+    }
+  );
+  assert.ifError(result.error);
+  return { status: result.status, ...JSON.parse(result.stdout) };
+}
+
+test('fixture plan modules import without environment, database or network effects', () => {
+  execFileSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      `import childProcess from 'node:child_process';
+       import { syncBuiltinESMExports } from 'node:module';
+       const unexpected = () => { throw new Error('Unexpected import effect'); };
+       childProcess.spawnSync = unexpected;
+       syncBuiltinESMExports();
+       globalThis.fetch = unexpected;
+       const environment = process.env;
+       process.env = new Proxy(environment, {
+         get: (target, name) => name === 'WATCH_REPORT_DEPENDENCIES'
+           ? Reflect.get(target, name) : unexpected()
+       });
+       try {
+         await import('./scripts/lib/e2e-seed/plan.mjs');
+         await import('./scripts/lib/e2e-seed/stripe-stub.mjs');
+       } finally {
+         process.env = environment;
+       }`
+    ],
+    { windowsHide: true, stdio: 'pipe' }
+  );
+});
+
+test('seed CLI runs one SQL transaction before resetting and populating the stub', () => {
+  const result = probeSeedCli();
+  assert.equal(result.status, 0);
+  const [database, reset, ...registrations] = result.events;
+  assert.equal(database.type, 'sql');
+  assert.equal(database.command, 'docker');
+  assert.deepEqual(database.args.slice(0, 9), [
+    'compose',
+    '--profile',
+    'database',
+    'exec',
+    '-T',
+    'postgres',
+    'psql',
+    '-v',
+    'ON_ERROR_STOP=1'
+  ]);
+  assert.equal((database.input.match(/^BEGIN;/gm) ?? []).length, 1);
+  assert.equal((database.input.match(/^COMMIT;/gm) ?? []).length, 1);
+  assert.ok(database.input.startsWith('BEGIN;\n'));
+  assert.ok(database.input.endsWith('\nCOMMIT;'));
+  assert.equal(reset.path, '/__test__/reset');
+  assert.ok(registrations.length > 0);
+  assert.ok(registrations.every((event) => event.type === 'stub'));
+  assert.deepEqual(result.messages, [
+    `Seeded ${Object.values(SPONSORSHIP_FIXTURES).length} Playwright sponsorship fixture(s) and 1 email queue fixture.`,
+    'Seeded the Stripe stub fixtures.'
+  ]);
+});
+
+test('cleanup CLI commits its SQL before issuing only the stub reset', () => {
+  const result = probeSeedCli({ cleanup: true });
+  assert.equal(result.status, 0);
+  assert.deepEqual(
+    result.events.map((event) => event.type),
+    ['sql', 'stub']
+  );
+  assert.equal(result.events[1].path, '/__test__/reset');
+  assert.equal(result.events[1].payload, null);
+  assert.ok(result.events[0].input.endsWith('\nCOMMIT;'));
+  assert.deepEqual(result.messages, [
+    'Removed Playwright sponsorship and email queue fixtures.',
+    'Reset the Stripe stub.'
+  ]);
+});
+
+test('SQL failures preserve the CLI exit code and prevent every stub call', () => {
+  for (const cleanup of [false, true]) {
+    for (const sqlStatus of [17, null]) {
+      const result = probeSeedCli({ cleanup, sqlStatus });
+      assert.equal(result.status, sqlStatus ?? 1);
+      assert.deepEqual(
+        result.events.map((event) => event.type),
+        ['sql']
+      );
+      assert.deepEqual(result.messages, [
+        cleanup
+          ? 'Failed to remove Playwright sponsorship fixtures.'
+          : 'Failed to seed Playwright sponsorship fixtures.'
+      ]);
+    }
+  }
+});
+
+test('stub failure stops the CLI after SQL success without later registrations', () => {
+  const result = probeSeedCli({ stubFailureAt: 3 });
+  assert.equal(result.status, 1);
+  assert.deepEqual(
+    result.events.map((event) => event.type),
+    ['sql', 'stub', 'stub', 'stub']
+  );
+  assert.equal(
+    result.messages.at(-1),
+    'Failed to seed the Stripe stub (tests/stripe-stub/). Is docker-compose.e2e.yml up?'
+  );
+});
 
 test(
   'Playwright fixture cleanup respects publication guards',
@@ -142,7 +294,11 @@ test(
         'publication_deliveries',
         'publication_editorial_observations',
         'publication_recurrences',
-        'email_messages'
+        'email_messages',
+        'fund_allocations',
+        'fund_transactions',
+        'stripe_events',
+        'stripe_checkout_sessions'
       ]) {
         result[table] = (
           await client.query(`SELECT * FROM ${table} ORDER BY 1,2`)
@@ -256,23 +412,125 @@ test(
     );
 
     await t.test(
-      'rolls back earlier publication and contribution deletions after a late failure',
+      'repeated seed and cleanup preserve foreign accounting records and the permanent sentinel',
       async () => {
         await reset();
-        const id = await fixtureId();
-        await publication([id]);
-        await client.query(`CREATE TABLE fixture_cleanup_blocker (
+        const foreign = `foreign-${randomUUID()}`;
+        const eventId = WEBHOOK_FIXTURES.idempotence.stripeEventId;
+        const objectId = BACKFILL_FIXTURES.matchedSession.stripePaymentIntentId;
+        const sessionId = BACKFILL_FIXTURES.matchedSession.stripeSessionId;
+        for (const id of [foreign, eventId]) {
+          await client.query(
+            `INSERT INTO stripe_events(stripe_event_id,event_type,payload)
+             VALUES($1,'payment_intent.succeeded','{}')`,
+            [id]
+          );
+        }
+        for (const [event, object] of [
+          [foreign, foreign],
+          [eventId, foreign],
+          [`backfill-${foreign}`, objectId]
+        ]) {
+          await client.query(
+            `INSERT INTO fund_transactions(stripe_event_id,stripe_object_id,type,
+             amount,net,currency,status,created_at,public_category)
+             VALUES($1,$2,'charge.refunded',1,1,'cad','succeeded',NOW(),'refund')`,
+            [event, object]
+          );
+        }
+        for (const id of [foreign, sessionId]) {
+          await client.query(
+            `INSERT INTO stripe_checkout_sessions(stripe_session_id,
+             contribution_type,amount_cents) VALUES($1,'personal_support',1)`,
+            [id]
+          );
+        }
+        await client.query(
+          `INSERT INTO fund_allocations(project_name,public_description,
+           amount_allocated,currency) VALUES($1,'Foreign fixture',1,'cad')`,
+          [foreign]
+        );
+        await client.query(
+          `INSERT INTO email_messages(idempotency_key,template_key,
+           recipient_email,from_email,subject,text_body,html_body,status)
+           VALUES($1,$2,'foreign@example.invalid','sender@example.invalid',
+           'Foreign fixture','Foreign fixture','<p>Foreign fixture</p>','queued')`,
+          [foreign, EMAIL_QUEUE_FIXTURE.templateKey]
+        );
+        const identities = [
+          ['stripe_events', 'stripe_event_id', foreign],
+          ['fund_transactions', 'stripe_event_id', foreign],
+          ['stripe_checkout_sessions', 'stripe_session_id', foreign],
+          ['fund_allocations', 'project_name', foreign],
+          ['email_messages', 'idempotency_key', foreign],
+          [
+            'fund_transactions',
+            'stripe_event_id',
+            'e2e-playwright-ledger-sentinel'
+          ]
+        ];
+        const selectedRows = async () => {
+          const result = [];
+          for (const [table, column, identity] of identities) {
+            result.push(
+              (
+                await client.query(
+                  `SELECT * FROM ${table} WHERE ${column}=$1`,
+                  [identity]
+                )
+              ).rows
+            );
+          }
+          return result;
+        };
+        const before = await selectedRows();
+        assert.ok(before.every((rows) => rows.length === 1));
+        for (const sql of [seed, seed, cleanup, cleanup]) {
+          await run(sql);
+          assert.deepEqual(await selectedRows(), before);
+          for (const [table, column, identity] of [
+            ['stripe_events', 'stripe_event_id', eventId],
+            ['fund_transactions', 'stripe_event_id', eventId],
+            ['fund_transactions', 'stripe_object_id', objectId],
+            ['stripe_checkout_sessions', 'stripe_session_id', sessionId]
+          ]) {
+            assert.equal(
+              (
+                await client.query(
+                  `SELECT id FROM ${table} WHERE ${column}=$1`,
+                  [identity]
+                )
+              ).rowCount,
+              0
+            );
+          }
+        }
+      }
+    );
+
+    await t.test(
+      'rolls back publication, contribution and accounting changes after a late failure',
+      async () => {
+        for (const sql of [seed, cleanup]) {
+          await reset();
+          await publication([await fixtureId()]);
+          const id = await contribution(
+            BACKFILL_FIXTURES.matchedSession.publicReference
+          );
+          await client.query(`CREATE TABLE fixture_cleanup_blocker (
           contribution_id UUID REFERENCES fund_contributions(id)
         )`);
-        try {
-          await client.query('INSERT INTO fixture_cleanup_blocker VALUES($1)', [
-            id
-          ]);
-          const before = await snapshot();
-          await assert.rejects(run(cleanup), { code: '23503' });
-          assert.deepEqual(await snapshot(), before);
-        } finally {
-          await client.query('DROP TABLE fixture_cleanup_blocker');
+          try {
+            await client.query(
+              'INSERT INTO fixture_cleanup_blocker VALUES($1)',
+              [id]
+            );
+            const before = await snapshot();
+            await assert.rejects(run(sql), { code: '23503' });
+            assert.deepEqual(await snapshot(), before);
+          } finally {
+            await client.query('DROP TABLE fixture_cleanup_blocker');
+          }
         }
       }
     );
