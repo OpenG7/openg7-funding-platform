@@ -6,8 +6,7 @@ import {
   DestroyRef,
   PLATFORM_ID,
   computed,
-  inject,
-  signal
+  inject
 } from '@angular/core';
 import {
   ActivatedRoute,
@@ -20,22 +19,14 @@ import {
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   AdminAssistantDraftType,
-  AdminAssistantMode,
-  AdminAssistantPrepareResponse,
-  AdminAssistantQueryResponse,
-  AdminAssistantSummary,
   AdminAttentionItem,
   AdminAttentionItemType,
   AdminAttentionSeverity,
-  AdminWorkQueueQuery,
-  AdminWorkQueueResponse
+  AdminWorkQueueQuery
 } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
-import {
-  AdminDashboardRequestError,
-  FundingAdminService
-} from '../../services/funding-admin.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { AdminAssistantContextComponent } from '../../components/admin-assistant/admin-assistant-context.component.js';
 import { AdminAssistantDraftComponent } from '../../components/admin-assistant/admin-assistant-draft.component.js';
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
@@ -47,16 +38,10 @@ import { AdminAssistantSummaryComponent } from './admin-assistant-summary.compon
 import { AdminAssistantLabels } from './admin-assistant-labels.js';
 import {
   ASSISTANT_TYPES,
-  ASSISTANT_PRIORITIES,
-  type AssistantLoadState
+  ASSISTANT_PRIORITIES
 } from './admin-assistant.contracts.js';
+import { AdminAssistantController } from './admin-assistant-controller.js';
 
-const DRAFT_TYPES: Readonly<Record<string, AdminAssistantDraftType>> = {
-  prepare_reminder: 'sponsorship_reminder',
-  prepare_publication: 'publication_draft',
-  prepare_note: 'admin_note',
-  propose_slot: 'slot_proposal'
-};
 /** Routed overview of the existing queue; preparation never sends or publishes. */
 @Component({
   selector: 'openg7-admin-assistant-page',
@@ -99,12 +84,33 @@ export class AdminAssistantPageComponent {
   readonly sponsorshipId = computed(
     () => this.params()?.get('sponsorshipId') || undefined
   );
-  readonly selectedId = signal<string | null>(null);
-  readonly selected = signal<AdminAttentionItem | null>(null);
-  readonly detailState = signal<AssistantLoadState>('idle');
-  readonly query = signal<AdminWorkQueueQuery>({});
-  readonly data = signal<AdminWorkQueueResponse | null>(null);
-  readonly state = signal<AssistantLoadState>('idle');
+  private readonly controller = new AdminAssistantController({
+    admin: {
+      getWorkQueue: (token, query) => this.admin.getWorkQueue(token, query),
+      prepareAssistantDraft: (token, payload) =>
+        this.admin.prepareAssistantDraft(token, payload),
+      getAssistantSummary: (token) => this.admin.getAssistantSummary(token),
+      getAssistantContext: (token, sponsorshipId) =>
+        this.admin.getAssistantContext(token, sponsorshipId),
+      queryAssistant: (token, payload) =>
+        this.admin.queryAssistant(token, payload)
+    },
+    token: () => this.admin.getSavedAdminToken(),
+    canPrepare: () => this.admin.identity()?.role !== 'reader',
+    language: () => this.i18n.currentLanguage(),
+    onSessionExpired: async () => {
+      this.admin.clearAdminSession();
+      await this.router.navigate(['/admin/login'], {
+        queryParams: { returnUrl: this.router.url }
+      });
+    }
+  });
+  readonly selectedId = this.controller.selectedId;
+  readonly selected = this.controller.selected;
+  readonly detailState = this.controller.detailState;
+  readonly query = this.controller.query;
+  readonly data = this.controller.data;
+  readonly state = this.controller.state;
   readonly returnTo = computed(() => {
     const params = this.params();
     return this.router.serializeUrl(
@@ -117,25 +123,19 @@ export class AdminAssistantPageComponent {
       })
     );
   });
-  readonly summary = signal<AdminAssistantSummary | null>(null);
-  readonly summaryState = signal<AssistantLoadState>('idle');
-  readonly conversationMode = signal<AdminAssistantMode | null>(null);
-  readonly conversationState = signal<AssistantLoadState>('idle');
-  readonly question = signal('');
-  readonly answer = signal<AdminAssistantQueryResponse | null>(null);
-  readonly answerState = signal<AssistantLoadState>('idle');
-  readonly prepared = signal<AdminAssistantPrepareResponse | null>(null);
-  readonly draftState = signal<AssistantLoadState>('idle');
-  readonly canPrepare = computed(
-    () => this.admin.identity()?.role !== 'reader'
-  );
-  private generation = 0;
-  private detailGeneration = 0;
-  private draftGeneration = 0;
-  private privacyGeneration = 0;
-  private queryKey = '';
+  readonly summary = this.controller.summary;
+  readonly summaryState = this.controller.summaryState;
+  readonly conversationMode = this.controller.conversationMode;
+  readonly conversationState = this.controller.conversationState;
+  readonly question = this.controller.question;
+  readonly answer = this.controller.answer;
+  readonly answerState = this.controller.answerState;
+  readonly prepared = this.controller.prepared;
+  readonly draftState = this.controller.draftState;
+  readonly canPrepare = this.controller.canPrepare;
 
   constructor() {
+    this.destroy.onDestroy(() => this.controller.dispose());
     if (!isPlatformBrowser(this.platform)) return;
     this.router.events
       .pipe(takeUntilDestroyed(this.destroy))
@@ -164,9 +164,7 @@ export class AdminAssistantPageComponent {
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe((params) => {
         if (params.get('sponsorshipId')) {
-          this.generation++;
-          this.detailGeneration++;
-          this.queryKey = '';
+          this.controller.leaveOverview();
           return;
         }
         const type = params.get('type') as AdminAttentionItemType;
@@ -184,106 +182,16 @@ export class AdminAssistantPageComponent {
           emailTemplate: params.get('emailTemplate') || undefined,
           emailError: params.get('emailError') || undefined
         };
-        const key = JSON.stringify(query);
-        if (key !== this.queryKey) {
-          this.queryKey = key;
-          this.query.set(query);
-          void this.load();
-        }
-        const id = params.get('selected');
-        if (id !== this.selectedId()) {
-          this.selectedId.set(id);
-          this.selected.set(null);
-          this.prepared.set(null);
-          this.draftState.set('idle');
-          this.draftGeneration++;
-          this.detailGeneration++;
-          if (id) void this.loadDetail(id);
-        }
+        this.controller.setOverview(query, params.get('selected'));
       });
   }
 
-  async load(): Promise<void> {
-    const generation = ++this.generation;
-    this.state.set('loading');
-    try {
-      const result = await this.admin.getWorkQueue(
-        this.admin.getSavedAdminToken(),
-        this.query()
-      );
-      if (generation !== this.generation || this.destroy.destroyed) return;
-      this.data.set(result.available ? result : null);
-      this.state.set(result.available ? 'ready' : 'unavailable');
-    } catch (error) {
-      if (generation !== this.generation || this.destroy.destroyed) return;
-      await this.handleError(error, this.state);
-    }
+  load(): Promise<void> {
+    return this.controller.load();
   }
 
   refresh(): void {
-    void this.load();
-    const id = this.selectedId();
-    if (id) void this.loadDetail(id);
-  }
-
-  private async loadDetail(id: string): Promise<void> {
-    const generation = ++this.detailGeneration;
-    this.detailState.set('loading');
-    this.prepared.set(null);
-    this.draftGeneration++;
-    this.draftState.set('idle');
-    try {
-      const result = await this.admin.getWorkQueue(
-        this.admin.getSavedAdminToken(),
-        { itemId: id, pageSize: 1 }
-      );
-      if (generation !== this.detailGeneration || this.destroy.destroyed)
-        return;
-      this.selected.set(result.available ? (result.items[0] ?? null) : null);
-      this.detailState.set(result.available ? 'ready' : 'unavailable');
-    } catch (error) {
-      if (generation !== this.detailGeneration || this.destroy.destroyed)
-        return;
-      await this.handleError(error, this.detailState);
-    }
-  }
-
-  /** Invalidate pending reads before removing every private surface on access denial. */
-  private clearPrivateData(): void {
-    this.generation++;
-    this.detailGeneration++;
-    this.draftGeneration++;
-    this.privacyGeneration++;
-    this.data.set(null);
-    this.selected.set(null);
-    this.prepared.set(null);
-    this.summary.set(null);
-    this.answer.set(null);
-    this.question.set('');
-    this.conversationMode.set(null);
-    this.state.set('forbidden');
-    this.detailState.set('forbidden');
-    this.summaryState.set('idle');
-    this.conversationState.set('idle');
-    this.answerState.set('idle');
-    this.draftState.set('idle');
-  }
-
-  private async handleError(
-    error: unknown,
-    state: { set(value: AssistantLoadState): void }
-  ): Promise<void> {
-    const status =
-      error instanceof AdminDashboardRequestError ? error.status : null;
-    if (status === 401 || status === 403) this.clearPrivateData();
-    if (status === 401) {
-      this.admin.clearAdminSession();
-      await this.router.navigate(['/admin/login'], {
-        queryParams: { returnUrl: this.router.url }
-      });
-    } else {
-      state.set(status === 403 ? 'forbidden' : 'error');
-    }
+    this.controller.refresh();
   }
 
   navigate(params: Params): void {
@@ -342,115 +250,22 @@ export class AdminAssistantPageComponent {
     return tree;
   }
   prepareType(item: AdminAttentionItem): AdminAssistantDraftType | undefined {
-    const action = item.suggestedActions.find(
-      (candidate) => candidate.executionMode === 'prepare'
-    );
-    return action ? DRAFT_TYPES[action.actionType] : undefined;
-  }
-  async prepare(item: AdminAttentionItem): Promise<void> {
-    const type = this.prepareType(item);
-    if (
-      !type ||
-      !this.canPrepare() ||
-      this.draftState() === 'loading' ||
-      this.detailState() !== 'ready'
-    )
-      return;
-    const generation = ++this.draftGeneration;
-    this.draftState.set('loading');
-    this.prepared.set(null);
-    try {
-      const result = await this.admin.prepareAssistantDraft(
-        this.admin.getSavedAdminToken(),
-        {
-          type,
-          reference:
-            item.sponsorshipId ??
-            item.publicationId ??
-            String(item.facts['reference'] ?? ''),
-          language: this.i18n.currentLanguage()
-        }
-      );
-      if (generation !== this.draftGeneration || this.destroy.destroyed) return;
-      this.prepared.set(result);
-      this.draftState.set('ready');
-    } catch (error) {
-      if (generation !== this.draftGeneration || this.destroy.destroyed) return;
-      await this.handleError(error, this.draftState);
-    }
+    return this.controller.prepareType(item);
   }
 
-  async loadSummary(opened: boolean): Promise<void> {
-    if (
-      !opened ||
-      this.summaryState() === 'loading' ||
-      this.summaryState() === 'ready'
-    )
-      return;
-    const generation = this.privacyGeneration;
-    this.summaryState.set('loading');
-    try {
-      const summary = await this.admin.getAssistantSummary(
-        this.admin.getSavedAdminToken()
-      );
-      if (generation !== this.privacyGeneration || this.destroy.destroyed)
-        return;
-      this.summary.set(summary);
-      this.summaryState.set('ready');
-    } catch (error) {
-      if (generation !== this.privacyGeneration || this.destroy.destroyed)
-        return;
-      await this.handleError(error, this.summaryState);
-    }
+  prepare(item: AdminAttentionItem): Promise<void> {
+    return this.controller.prepare(item);
   }
-  async loadConversation(opened: boolean): Promise<void> {
-    if (
-      !opened ||
-      this.conversationState() === 'loading' ||
-      this.conversationState() === 'ready'
-    )
-      return;
-    const generation = this.privacyGeneration;
-    this.conversationState.set('loading');
-    try {
-      const response = await this.admin.getAssistantContext(
-        this.admin.getSavedAdminToken()
-      );
-      if (generation !== this.privacyGeneration || this.destroy.destroyed)
-        return;
-      this.conversationMode.set(response.conversationMode);
-      this.conversationState.set('ready');
-    } catch (error) {
-      if (generation !== this.privacyGeneration || this.destroy.destroyed)
-        return;
-      await this.handleError(error, this.conversationState);
-    }
+
+  loadSummary(opened: boolean): Promise<void> {
+    return this.controller.loadSummary(opened);
   }
-  async ask(): Promise<void> {
-    const message = this.question().trim();
-    if (
-      !message ||
-      this.answerState() === 'loading' ||
-      !this.conversationMode() ||
-      this.conversationMode() === 'disabled'
-    )
-      return;
-    const generation = this.privacyGeneration;
-    this.answerState.set('loading');
-    this.answer.set(null);
-    try {
-      const response = await this.admin.queryAssistant(
-        this.admin.getSavedAdminToken(),
-        { message }
-      );
-      if (generation !== this.privacyGeneration || this.destroy.destroyed)
-        return;
-      this.answer.set(response);
-      this.answerState.set('ready');
-    } catch (error) {
-      if (generation !== this.privacyGeneration || this.destroy.destroyed)
-        return;
-      await this.handleError(error, this.answerState);
-    }
+
+  loadConversation(opened: boolean): Promise<void> {
+    return this.controller.loadConversation(opened);
+  }
+
+  ask(): Promise<void> {
+    return this.controller.ask();
   }
 }

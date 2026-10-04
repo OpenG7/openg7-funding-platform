@@ -11,15 +11,13 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type { AdminSearchResponse } from '@openg7/funding-core';
 
-import {
-  AdminDashboardRequestError,
-  FundingAdminService
-} from '../../services/funding-admin.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
+
+import { AdminGlobalSearchController } from './admin-global-search-controller.js';
 
 /** Admin organism: private, transient search and navigation to existing dossier pages. */
 @Component({
@@ -47,24 +45,26 @@ export class AdminGlobalSearchComponent {
   private readonly input =
     viewChild.required<ElementRef<HTMLInputElement>>('input');
   private opener: HTMLElement | null = null;
-  private timer?: ReturnType<typeof setTimeout>;
-  private controller?: AbortController;
-  private generation = 0;
+  private readonly searchController = new AdminGlobalSearchController({
+    admin: {
+      search: (token, query, signal) => this.admin.search(token, query, signal)
+    },
+    token: () => this.admin.getSavedAdminToken(),
+    onSessionExpired: async () => {
+      this.close();
+      this.admin.clearAdminSession();
+      await this.router.navigate(['/admin/login'], {
+        queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
+      });
+    }
+  });
   readonly opened = signal(false);
-  readonly query = signal('');
-  readonly result = signal<AdminSearchResponse | null>(null);
-  readonly state = signal<
-    | 'idle'
-    | 'loading'
-    | 'ready'
-    | 'error'
-    | 'forbidden'
-    | 'limited'
-    | 'unavailable'
-  >('idle');
+  readonly query = this.searchController.query;
+  readonly result = this.searchController.result;
+  readonly state = this.searchController.state;
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => this.cancel());
+    inject(DestroyRef).onDestroy(() => this.searchController.dispose());
   }
 
   shortcut(event: KeyboardEvent): void {
@@ -92,63 +92,18 @@ export class AdminGlobalSearchComponent {
 
   close(event?: Event): void {
     event?.preventDefault();
-    this.cancel();
+    this.searchController.clear();
     this.opened.set(false);
-    this.query.set('');
-    this.result.set(null);
-    this.state.set('idle');
     this.dialog().nativeElement.close();
     this.opener?.focus();
   }
 
   changed(value: string): void {
-    this.cancel();
-    this.query.set(value);
-    this.result.set(null);
-    if (value.trim().length < 2) {
-      this.state.set('idle');
-      return;
-    }
-    this.state.set('loading');
-    this.timer = setTimeout(() => void this.search(1), 300);
+    this.searchController.changed(value);
   }
 
-  async search(page = 1): Promise<void> {
-    this.cancel();
-    const generation = this.generation;
-    const controller = new AbortController();
-    this.controller = controller;
-    this.result.set(null);
-    this.state.set('loading');
-    const token = this.admin.getSavedAdminToken();
-    try {
-      if (!token) throw new AdminDashboardRequestError(401);
-      const response = await this.admin.search(
-        token,
-        { query: this.query().trim(), page, pageSize: 10 },
-        controller.signal
-      );
-      if (generation !== this.generation) return;
-      if (!this.admin.getSavedAdminToken())
-        throw new AdminDashboardRequestError(401);
-      this.result.set(response);
-      this.state.set(response.available ? 'ready' : 'unavailable');
-    } catch (error) {
-      if (generation !== this.generation) return;
-      this.result.set(null);
-      const status =
-        error instanceof AdminDashboardRequestError ? error.status : 0;
-      if (status === 401) {
-        this.close();
-        this.admin.clearAdminSession();
-        await this.router.navigate(['/admin/login'], {
-          queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
-        });
-      } else
-        this.state.set(
-          status === 403 ? 'forbidden' : status === 429 ? 'limited' : 'error'
-        );
-    }
+  search(page = 1): Promise<void> {
+    return this.searchController.search(page);
   }
 
   keydown(event: KeyboardEvent): void {
@@ -206,11 +161,5 @@ export class AdminGlobalSearchComponent {
       style: 'currency',
       currency
     }).format(minor / 100);
-  }
-
-  private cancel(): void {
-    this.generation++;
-    clearTimeout(this.timer);
-    this.controller?.abort();
   }
 }

@@ -248,57 +248,65 @@ test('search debounces into POST bodies and keeps private text out of URLs and s
   await expect(page.locator('[data-og7="admin-search-open"]')).toHaveCount(1);
 });
 
-test('new input aborts the previous request and late results never replace newer results', async ({
-  page
-}) => {
-  await fixtures(page);
-  await page.addInitScript(() => {
-    const original = window.fetch;
-    (window as unknown as { searchAborted: boolean }).searchAborted = false;
-    window.fetch = async (url, options) => {
-      if (
-        String(url).endsWith('/admin/search') &&
-        String(options?.body).includes('Slow')
-      ) {
-        options?.signal?.addEventListener('abort', () => {
-          (window as unknown as { searchAborted: boolean }).searchAborted =
-            true;
-        });
-        // Simulate an adapter that resolves even after abort.
-        await new Promise((resolve) => setTimeout(resolve, 1200));
-        return new Response(
-          JSON.stringify({
-            available: true,
-            missingSources: [],
-            total: 0,
-            groups: [],
-            page: 1,
-            pageSize: 10
-          })
-        );
-      }
-      return original(url, options);
-    };
-  });
-  await page.goto('/admin/fundraiser');
-  await expect(page.locator('[data-og7="admin-search-open"]')).toBeVisible();
-  await page.keyboard.press('Control+k');
-  await input(page).fill('Slow');
-  await page.waitForTimeout(400);
-  await input(page).fill('Acme');
-  await expect(
-    dialog(page).getByRole('heading', { name: 'Atelier Boréal' })
-  ).toBeVisible();
-  await page.waitForTimeout(1300);
-  await expect(
-    dialog(page).getByRole('heading', { name: 'Atelier Boréal' })
-  ).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => (window as unknown as { searchAborted: boolean }).searchAborted
-    )
-  ).toBe(true);
-});
+for (const outcome of ['response', 'access denial'] as const) {
+  test(
+    'new input aborts the previous request and ignores its late ' + outcome,
+    async ({ page }) => {
+      await fixtures(page);
+      await page.addInitScript((lateOutcome) => {
+        const original = window.fetch;
+        (window as unknown as { searchAborted: boolean }).searchAborted = false;
+        window.fetch = async (url, options) => {
+          if (
+            String(url).endsWith('/admin/search') &&
+            String(options?.body).includes('Slow')
+          ) {
+            options?.signal?.addEventListener('abort', () => {
+              (window as unknown as { searchAborted: boolean }).searchAborted =
+                true;
+            });
+            // Simulate an adapter that resolves even after abort.
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+            return new Response(
+              JSON.stringify({
+                available: true,
+                missingSources: [],
+                total: 0,
+                groups: [],
+                page: 1,
+                pageSize: 10
+              }),
+              { status: lateOutcome === 'access denial' ? 403 : 200 }
+            );
+          }
+          return original(url, options);
+        };
+      }, outcome);
+      await page.goto('/admin/fundraiser');
+      await expect(
+        page.locator('[data-og7="admin-search-open"]')
+      ).toBeVisible();
+      await page.keyboard.press('Control+k');
+      await input(page).fill('Slow');
+      await page.waitForTimeout(400);
+      await input(page).fill('Acme');
+      await expect(
+        dialog(page).getByRole('heading', { name: 'Atelier Boréal' })
+      ).toBeVisible();
+      await page.waitForTimeout(1300);
+      await expect(
+        dialog(page).getByRole('heading', { name: 'Atelier Boréal' })
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => (window as unknown as { searchAborted: boolean }).searchAborted
+        )
+      ).toBe(true);
+      await expect(input(page)).toHaveValue('Acme');
+      expect(new URL(page.url()).pathname).toBe('/admin/fundraiser');
+    }
+  );
+}
 
 test('pagination stays in memory and partial coverage differs from an empty complete search', async ({
   page
@@ -356,8 +364,47 @@ for (const [status, message] of [
     await input(page).fill('Another');
     await expect(dialog(page).getByRole('alert')).toContainText(message);
     await expect(dialog(page).getByRole('listitem')).toHaveCount(0);
+    await expect(input(page)).toHaveValue(status === 403 ? '' : 'Another');
+    expect(
+      await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))
+    ).not.toContain('Another');
   });
 }
+
+test('shortening private input cancels its debounce and navigating away clears the dialog', async ({
+  page
+}) => {
+  await fixtures(page);
+  const queries: string[] = [];
+  await page.route('**/api/admin/search', (route) => {
+    queries.push(route.request().postDataJSON().query);
+    return route.fulfill({ json: response() });
+  });
+  await page.goto('/admin/fundraiser');
+  await page.locator('[data-og7="admin-search-open"]').click();
+  await input(page).fill('Pending private query');
+  await input(page).fill('x');
+  await page.waitForTimeout(400);
+  expect(queries).toEqual([]);
+  await expect(dialog(page).getByRole('listitem')).toHaveCount(0);
+  await input(page).fill('private@example.invalid');
+  await expect(dialog(page).getByRole('listitem')).toHaveCount(1);
+  await page.evaluate(() => {
+    window.history.pushState(null, '', '/404');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(page.locator('[data-og7="admin-search-open"]')).toHaveCount(0);
+  await expect(page.locator('[data-og7="admin-search"]')).toHaveCount(0);
+  expect(page.url()).not.toContain('private');
+  expect(
+    await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]))
+  ).not.toContain('private@example.invalid');
+  await page.goBack();
+  await expect(page.locator('[data-og7="admin-search-open"]')).toBeVisible();
+  await page.locator('[data-og7="admin-search-open"]').click();
+  await expect(input(page)).toHaveValue('');
+  await expect(dialog(page).getByRole('listitem')).toHaveCount(0);
+});
 
 test('expired search session clears authentication and redirects to login', async ({
   page
