@@ -13,11 +13,7 @@ import {
   inject,
   signal
 } from '@angular/core';
-import type {
-  AdminSetupStatusResponse,
-  AdminEmailTestResult,
-  CockpitSystem
-} from '@openg7/funding-core';
+import type { CockpitSystem } from '@openg7/funding-core';
 
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
@@ -26,10 +22,7 @@ import { AdminIconComponent } from '../../components/admin-ui/admin-icon.compone
 import { AdminDrawerComponent } from '../../components/admin-ui/admin-drawer.component.js';
 import { AdminCockpitActivityComponent } from '../../components/admin-cockpit/admin-cockpit-activity.component.js';
 import { createCockpitBlock } from '../../components/admin-cockpit/cockpit-block.js';
-import {
-  FundingAdminService,
-  AdminDashboardRequestError
-} from '../../services/funding-admin.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 
 import { AdminSetupReadinessComponent } from './admin-setup-readiness.component.js';
 import { AdminSetupRecommendationComponent } from './admin-setup-recommendation.component.js';
@@ -43,13 +36,10 @@ import {
   projectRecommendation,
   type SetupSection
 } from './setup-projections.js';
-import {
-  SetupPresentation,
-  type SetupEmailTestState,
-  type SetupEmailTestView
-} from './setup-presentation.js';
+import { SetupPresentation } from './setup-presentation.js';
+import { AdminSetupReadController } from './admin-setup-read-controller.js';
+import { AdminSetupEmailTestWorkflow } from './admin-setup-email-test-workflow.js';
 
-type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 interface SetupTourStep {
   readonly anchor: string;
   readonly title: string;
@@ -92,19 +82,35 @@ export class AdminSetupPageComponent implements OnInit {
   private readonly injector = inject(Injector);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
 
-  readonly state = signal<LoadState>('idle');
+  private readonly setupRead = new AdminSetupReadController({
+    admin: this.admin,
+    token: () => this.adminToken(),
+    t: (key, params) => this.i18n.t(key, params),
+    onAccessDenied: () => {
+      this.emailTestWorkflow.resetAccess();
+      this.endTour();
+    }
+  });
+  private readonly emailTestWorkflow = new AdminSetupEmailTestWorkflow({
+    admin: this.admin,
+    token: () => this.adminToken(),
+    t: (key, params) => this.i18n.t(key, params),
+    scope: this.admin.identity()?.id ?? 'token',
+    storage: () => (this.browser ? window.sessionStorage : null),
+    requestId: () => crypto.randomUUID(),
+    onAccessDenied: (status) => this.setupRead.rejectAccess(status)
+  });
+  readonly state = this.setupRead.state;
   readonly navSection = signal<SetupSection>('readiness');
-  readonly setup = signal<AdminSetupStatusResponse | null>(null);
-  readonly testEmail = signal('');
-  readonly testState = signal<SetupEmailTestState>('idle');
-  readonly testMessage = signal('');
-  readonly testResult = signal<AdminEmailTestResult | null>(null);
-  readonly testRequestId = signal<string | null>(null);
-  readonly testBusy = computed(() =>
-    ['submitting', 'checking'].includes(this.testState())
-  );
-  readonly accessError = signal('');
-  readonly refreshKey = signal(0);
+  readonly setup = this.setupRead.setup;
+  readonly testEmail = this.emailTestWorkflow.email;
+  readonly testState = this.emailTestWorkflow.state;
+  readonly testMessage = this.emailTestWorkflow.message;
+  readonly testResult = this.emailTestWorkflow.result;
+  readonly testRequestId = this.emailTestWorkflow.requestId;
+  readonly testBusy = this.emailTestWorkflow.busy;
+  readonly accessError = this.setupRead.accessError;
+  readonly refreshKey = this.setupRead.refreshKey;
   readonly systems = createCockpitBlock(
     'systems',
     this.refreshKey,
@@ -115,14 +121,7 @@ export class AdminSetupPageComponent implements OnInit {
     const setup = this.setup();
     return setup ? projectReadiness(setup) : null;
   });
-  readonly emailTest = computed<SetupEmailTestView>(() => ({
-    email: this.testEmail(),
-    state: this.testState(),
-    busy: this.testBusy(),
-    message: this.testMessage(),
-    result: this.testResult(),
-    requestId: this.testRequestId()
-  }));
+  readonly emailTest = this.emailTestWorkflow.view;
   readonly operationalCount = computed(() =>
     projectOperationalCount(
       this.systems.data()?.systems ?? [],
@@ -146,15 +145,14 @@ export class AdminSetupPageComponent implements OnInit {
   readonly storageSystem = computed(() =>
     this.systems.data()?.systems.find((system) => system.id === 'storage')
   );
-  private testStorageKey = '';
-  private loadRequest = 0;
   private destroyed = false;
   readonly tourIndex = signal(-1);
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
       this.destroyed = true;
-      this.loadRequest++;
+      this.setupRead.dispose();
+      this.emailTestWorkflow.dispose();
     });
   }
 
@@ -217,14 +215,12 @@ export class AdminSetupPageComponent implements OnInit {
 
   ngOnInit(): void {
     if (!this.browser) return;
-    this.testStorageKey =
-      'openg7-email-test:' + (this.admin.identity()?.id ?? 'token');
     void this.initialize();
   }
 
   private async initialize(): Promise<void> {
     await this.loadSetup();
-    if (!this.setup() || typeof window === 'undefined') return;
+    if (this.destroyed || !this.setup()) return;
     const section = this.route.snapshot.queryParamMap.get('section');
     if (
       section &&
@@ -245,158 +241,28 @@ export class AdminSetupPageComponent implements OnInit {
         injector: this.injector
       });
     }
-    try {
-      const id = window.sessionStorage.getItem(this.testStorageKey);
-      if (id && /^[0-9a-f-]{36}$/i.test(id)) {
-        this.testRequestId.set(id);
-        await this.checkEmailTest();
-      }
-    } catch {
-      /* Storage is optional for consultation. */
-    }
+    await this.emailTestWorkflow.restore();
   }
 
   async loadSetup(): Promise<void> {
     if (this.destroyed || !this.browser) return;
-    const request = ++this.loadRequest;
-    this.state.set('loading');
-    this.setup.set(null);
-    this.accessError.set('');
-
-    try {
-      const setup = await this.admin.getSetupStatus(this.adminToken());
-      if (request !== this.loadRequest) return;
-      this.setup.set(setup);
-      this.refreshKey.update((value) => value + 1);
-      if (!this.testEmail() && setup.email.admin_notification_email) {
-        this.testEmail.set(setup.email.admin_notification_email);
-      }
-      this.state.set('ready');
-    } catch (error) {
-      if (request !== this.loadRequest) return;
-      this.handleAccessError(error);
-      this.state.set('error');
-    }
+    const setup = await this.setupRead.load();
+    if (setup) this.emailTestWorkflow.defaultRecipient(setup);
   }
 
   async sendEmailTest(): Promise<void> {
-    const setup = this.setup();
-    if (
-      !setup ||
-      !projectReadiness(setup).canSendEmailTest ||
-      this.testBusy() ||
-      this.testState() === 'unknown'
-    ) {
-      return;
-    }
-
-    const requestId = this.testResult()
-      ? crypto.randomUUID()
-      : (this.testRequestId() ?? crypto.randomUUID());
-    try {
-      window.sessionStorage.setItem(this.testStorageKey, requestId);
-    } catch {
-      this.testMessage.set(this.i18n.t('admin.setupEmail.storage'));
-      return;
-    }
-    this.testRequestId.set(requestId);
-    this.testResult.set(null);
-    this.testState.set('submitting');
-    this.testMessage.set('');
-
-    try {
-      const to =
-        this.testEmail().trim() ||
-        setup.email.admin_notification_email ||
-        undefined;
-      const result = await this.admin.sendEmailTest(this.adminToken(), {
-        to,
-        requestId
-      });
-      this.acceptEmailResult(result);
-      await this.loadSetup();
-    } catch (error) {
-      if (this.handleAccessError(error)) return;
-      if (
-        error instanceof AdminDashboardRequestError &&
-        error.status >= 400 &&
-        error.status < 500 &&
-        error.status !== 409
-      ) {
-        this.testState.set('error');
-        this.testMessage.set(this.i18n.t('admin.setupEmail.invalid'));
-      } else this.testState.set('unknown');
-    }
+    if (this.destroyed || !this.browser) return;
+    if (await this.emailTestWorkflow.send(this.setup())) await this.loadSetup();
   }
 
   async checkEmailTest(): Promise<void> {
-    const id = this.testRequestId();
-    if (!id || this.testBusy()) return;
-    this.testState.set('checking');
-    this.testMessage.set('');
-    try {
-      this.acceptEmailResult(
-        await this.admin.getEmailTest(this.adminToken(), id)
-      );
-    } catch (error) {
-      if (this.handleAccessError(error)) return;
-      if (error instanceof AdminDashboardRequestError && error.status === 404) {
-        this.testState.set('idle');
-        this.testMessage.set(this.i18n.t('admin.setupEmail.notFound'));
-      } else this.testState.set('unknown');
-    }
-  }
-
-  private acceptEmailResult(result: AdminEmailTestResult): void {
-    this.testResult.set(result);
-    this.testEmail.set(result.to);
-    this.testState.set(result.status);
-    this.testMessage.set(
-      result.status === 'failed'
-        ? this.i18n.t('admin.setupEmail.failedHelp')
-        : ''
-    );
-  }
-
-  private handleAccessError(error: unknown): boolean {
-    if (
-      !(error instanceof AdminDashboardRequestError) ||
-      ![401, 403].includes(error.status)
-    )
-      return false;
-    ++this.loadRequest;
-    this.endTour();
-    this.setup.set(null);
-    this.testEmail.set('');
-    this.testResult.set(null);
-    this.testMessage.set('');
-    this.testState.set('error');
-    this.accessError.set(
-      this.i18n.t(
-        error.status === 401
-          ? 'admin.setupEmail.expired'
-          : 'admin.setupEmail.forbidden'
-      )
-    );
-    return true;
+    if (this.destroyed || !this.browser) return;
+    await this.emailTestWorkflow.check();
   }
 
   setTestEmail(email: string): void {
-    if (this.testBusy() || this.testState() === 'unknown') return;
-    this.testEmail.set(email);
-    if (this.testResult()) {
-      this.testResult.set(null);
-      this.testRequestId.set(null);
-      try {
-        window.sessionStorage.removeItem(this.testStorageKey);
-      } catch {
-        /* No pending outcome to recover. */
-      }
-    }
-    if (!this.testResult()) {
-      this.testState.set('idle');
-      this.testMessage.set('');
-    }
+    if (this.destroyed || !this.browser) return;
+    this.emailTestWorkflow.setEmail(email);
   }
 
   startTour(): void {

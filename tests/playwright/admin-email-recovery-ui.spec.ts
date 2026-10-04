@@ -364,5 +364,80 @@ for (const language of ['fr-CA', 'en']) {
           failedMessage.id
         );
       });
+
+    for (const scenario of ['sent', 'read unavailable'] as const)
+      test(`uncertain email retry reads its target before another attempt when ${scenario} in ${language} at ${width}px`, async ({
+        page
+      }) => {
+        const english = language === 'en';
+        await preparePage(page, language, width);
+        const scopes: (string | null)[] = [];
+        let retryCalls = 0;
+        let releaseRead: (() => void) | undefined;
+        await page.route('**/api/**', async (route) => {
+          const url = new URL(route.request().url());
+          if (url.pathname.endsWith('/email-queue/retry')) {
+            retryCalls++;
+            return route.abort('failed');
+          }
+          if (url.pathname.endsWith('/email-queue')) {
+            scopes.push(url.searchParams.get('messageId'));
+            if (scopes.length === 1)
+              return route.fulfill({ json: queueSnapshot(false) });
+            await new Promise<void>((resolve) => {
+              releaseRead = resolve;
+            });
+            return scenario === 'sent'
+              ? route.fulfill({ json: queueSnapshot(true) })
+              : route.fulfill({
+                  status: 503,
+                  json: { error: 'Synthetic uncertain status unavailable' }
+                });
+          }
+          return route.fulfill({ status: 503, json: {} });
+        });
+        await page.goto(
+          `/admin/fundraiser/email-queue?messageId=${failedMessage.id}`
+        );
+        const row = page
+          .getByRole('row')
+          .filter({ hasText: failedMessage.recipient_email });
+        const retry = row.getByRole('button', {
+          name: english ? 'Retry' : 'Relancer',
+          exact: true
+        });
+        await retry.click();
+        await page.locator('[data-og7="confirm-action"]').click();
+        const result = row.locator('[data-og7="email-retry-result"]');
+        await expect(result).toBeVisible();
+        await expect(retry).toBeEnabled();
+        expect(retryCalls).toBe(1);
+        expect(scopes).toEqual([failedMessage.id]);
+
+        await retry.click();
+        await expect.poll(() => releaseRead !== undefined).toBe(true);
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await retry.click();
+        expect(retryCalls).toBe(1);
+        expect(scopes).toEqual([failedMessage.id, failedMessage.id]);
+        releaseRead!();
+        if (scenario === 'sent') {
+          await expectSentQueue(page, english);
+          await expectReconciledTotals(page, english);
+        } else {
+          await expect(
+            page.getByText('Synthetic uncertain status unavailable', {
+              exact: true
+            })
+          ).toBeVisible();
+          await expect(result).toBeVisible();
+          await expect(retry).toBeEnabled();
+        }
+        expect(retryCalls).toBe(1);
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        expect(new URL(page.url()).searchParams.get('messageId')).toBe(
+          failedMessage.id
+        );
+      });
   }
 }

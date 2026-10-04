@@ -13,8 +13,7 @@ import {
 } from '@angular/core';
 import type {
   AdminEmailQueueMessageRecord,
-  AdminEmailQueueMessageStatus,
-  AdminEmailQueueResponse
+  AdminEmailQueueMessageStatus
 } from '@openg7/funding-core';
 
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
@@ -23,15 +22,10 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
 
+import { AdminEmailQueueController } from './admin-email-queue-controller.js';
 import { AdminEmailQueueFiltersComponent } from './admin-email-queue-filters.component.js';
 import { AdminEmailQueueMessagesComponent } from './admin-email-queue-messages.component.js';
-import { filterEmailQueueMessages } from './admin-email-queue-presentation.js';
-import type {
-  EmailQueueLoadState,
-  EmailQueueMessageView,
-  EmailQueueRetryState,
-  EmailQueueStatusFilter
-} from './admin-email-queue-presentation.js';
+import type { EmailQueueMessageView } from './admin-email-queue-presentation.js';
 import { AdminEmailQueueSummaryComponent } from './admin-email-queue-summary.component.js';
 
 @Component({
@@ -114,151 +108,57 @@ import { AdminEmailQueueSummaryComponent } from './admin-email-queue-summary.com
 export class AdminEmailQueuePageComponent implements OnInit {
   readonly i18n = inject(FundingI18nService);
   private readonly destroyRef = inject(DestroyRef);
-  private requestGeneration = 0;
-  private exactId: string | undefined;
 
   private readonly confirmation = inject(AdminConfirmationService);
   readonly inspection = inject(AdminInspectionService);
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
   get targetId(): string | undefined {
-    return this.exactId;
+    return this.controller.targetId();
   }
 
   readonly adminToken = signal('');
-  readonly state = signal<EmailQueueLoadState>('idle');
-  readonly errorMessage = signal(
-    this.i18n.t('admin.messages.impossible_de_charger_la_file_courriel')
-  );
-  readonly queue = signal<AdminEmailQueueResponse | null>(null);
-  readonly statusFilter = signal<EmailQueueStatusFilter>('all');
-  readonly search = signal('');
-  readonly retryStates = signal<Record<string, EmailQueueRetryState>>({});
-  readonly retryMessages = signal<Record<string, string>>({});
-  readonly messages = computed(() => this.queue()?.messages ?? []);
-  readonly filteredMessages = computed(() =>
-    filterEmailQueueMessages(
-      this.messages(),
-      this.statusFilter(),
-      this.search()
-    )
-  );
+  readonly controller = new AdminEmailQueueController({
+    admin: this.admin,
+    token: () => this.adminToken(),
+    t: (key, params) => this.i18n.t(key, params),
+    confirm: (message, detail) => this.confirmation.confirm(message, detail)
+  });
+  readonly state = this.controller.state;
+  readonly errorMessage = this.controller.errorMessage;
+  readonly queue = this.controller.queue;
+  readonly statusFilter = this.controller.statusFilter;
+  readonly search = this.controller.search;
+  readonly messages = this.controller.messages;
   readonly messageViews = computed<readonly EmailQueueMessageView[]>(() =>
-    this.filteredMessages().map((message) => ({
+    this.controller.filteredMessages().map((message) => ({
       message,
       updatedAtLabel: this.dateLabel(message.updated_at),
       statusLabel: this.statusLabel(message.status),
       templateLabel: this.templateLabel(message.template_key),
       nextAttemptAtLabel: this.dateLabel(message.next_attempt_at),
-      retryState: this.retryStateFor(message.id),
-      retryMessage: this.retryMessageFor(message.id)
+      retryState: this.controller.retryStateFor(message.id),
+      retryMessage: this.controller.retryMessageFor(message.id)
     }))
   );
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
-    this.destroyRef.onDestroy(() => {
-      this.requestGeneration++;
-    });
+    this.destroyRef.onDestroy(() => this.controller.dispose());
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
-        this.exactId = params.get('messageId') ?? undefined;
-        this.queue.set(null);
-        this.search.set('');
-        this.statusFilter.set('all');
+        this.controller.setTarget(params.get('messageId') ?? undefined);
         void this.loadEmailQueue();
       });
   }
 
-  async loadEmailQueue(): Promise<void> {
-    if (this.destroyRef.destroyed) return;
-    const generation = ++this.requestGeneration;
-    this.state.set('loading');
-
-    try {
-      const result = await this.admin.getEmailQueue(
-        this.adminToken(),
-        this.exactId
-      );
-      if (generation !== this.requestGeneration) return;
-      this.queue.set(result);
-      this.state.set('ready');
-      this.errorMessage.set('');
-    } catch (error) {
-      if (generation !== this.requestGeneration) return;
-      this.state.set('error');
-      this.errorMessage.set(this.messageFromError(error));
-    }
+  loadEmailQueue(): Promise<void> {
+    return this.controller.loadEmailQueue();
   }
 
-  async retryMessage(message: AdminEmailQueueMessageRecord): Promise<void> {
-    if (
-      message.status === 'sent' ||
-      this.retryStateFor(message.id) === 'confirming' ||
-      this.retryStateFor(message.id) === 'sending'
-    ) {
-      return;
-    }
-
-    this.setRetryState(message.id, 'confirming');
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.retryEmail'),
-        message.recipient_email
-      ))
-    ) {
-      this.setRetryState(message.id, 'idle');
-      return;
-    }
-    this.setRetryState(message.id, 'sending');
-    this.setRetryMessage(message.id, '');
-
-    try {
-      const result = await this.admin.retryEmailQueueMessage(
-        this.adminToken(),
-        {
-          messageId: message.id
-        }
-      );
-
-      if (this.destroyRef.destroyed) return;
-      this.requestGeneration++;
-      if (result.message) {
-        this.replaceMessage(result.message);
-      }
-
-      const sent = result.sent > 0 || result.message?.status === 'sent';
-      const inProgress = result.message?.status === 'sending';
-      this.setRetryState(
-        message.id,
-        sent ? 'sent' : inProgress ? 'idle' : 'error'
-      );
-      this.setRetryMessage(
-        message.id,
-        sent
-          ? this.i18n.t('admin.messages.message_envoye')
-          : inProgress
-            ? this.i18n.t('admin.messages.courriel_deja_en_cours')
-            : result.attempted > 0
-              ? this.i18n.t(
-                  'admin.messages.relance_tentee_le_message_reste_en_echec'
-                )
-              : this.i18n.t('admin.messages.aucune_tentative_effectuee')
-      );
-      await this.loadEmailQueue();
-    } catch (error) {
-      this.setRetryState(message.id, 'error');
-      this.setRetryMessage(message.id, this.messageFromError(error));
-    }
-  }
-
-  retryStateFor(id: string): EmailQueueRetryState {
-    return this.retryStates()[id] ?? 'idle';
-  }
-
-  retryMessageFor(id: string): string {
-    return this.retryMessages()[id] ?? '';
+  retryMessage(message: AdminEmailQueueMessageRecord): Promise<void> {
+    return this.controller.retryMessage(message);
   }
 
   statusLabel(status: AdminEmailQueueMessageStatus): string {
@@ -307,39 +207,5 @@ export class AdminEmailQueuePageComponent implements OnInit {
     return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
       dateStyle: 'medium'
     }).format(date);
-  }
-
-  private replaceMessage(message: AdminEmailQueueMessageRecord): void {
-    const current = this.queue();
-    if (!current?.messages.some((candidate) => candidate.id === message.id)) {
-      return;
-    }
-
-    this.queue.set({
-      ...current,
-      messages: current.messages.map((candidate) =>
-        candidate.id === message.id ? message : candidate
-      )
-    });
-  }
-
-  private setRetryState(id: string, state: EmailQueueRetryState): void {
-    this.retryStates.update((states) => ({
-      ...states,
-      [id]: state
-    }));
-  }
-
-  private setRetryMessage(id: string, message: string): void {
-    this.retryMessages.update((messages) => ({
-      ...messages,
-      [id]: message
-    }));
-  }
-
-  private messageFromError(error: unknown): string {
-    return error instanceof Error
-      ? error.message
-      : this.i18n.t('admin.messages.operation_admin_impossible');
   }
 }

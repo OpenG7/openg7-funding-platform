@@ -829,6 +829,48 @@ test('a closed email request cannot overwrite a reopened preview, and a missing 
   expect(f.commands).toEqual([]);
 });
 
+test('a reopened calendar keeps its latest snapshot after an older request fails', async ({
+  page
+}) => {
+  const f = await fixtures(page);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let reads = 0;
+  await page.route('**/api/admin/publication-automation', async (route) => {
+    if (++reads !== 1) return route.fallback();
+    await gate;
+    await route.fulfill({ status: 503, json: {} });
+  });
+  await page.goto('/admin/fundraiser/pilotage');
+  const calendar = page.locator('[data-og7="pilot-calendar"]');
+  await calendar.click();
+  await expect(
+    page.locator('[data-og7="publication-calendar"]')
+  ).toHaveAttribute('aria-busy', 'true');
+  await page.keyboard.press('Escape');
+  await expect(calendar).toBeFocused();
+  await calendar.click();
+  await expect(
+    page.locator('[data-og7="publication-calendar"]')
+  ).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('[data-og7="calendar-month"]')).not.toBeEmpty();
+  const previousResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes('/api/admin/publication-automation') &&
+      response.status() === 503
+  );
+  release();
+  await previousResponse;
+  await expect(page.getByRole('dialog').getByRole('alert')).toHaveCount(0);
+  await expect(
+    page.locator('[data-og7="publication-calendar"]')
+  ).toHaveAttribute('aria-busy', 'false');
+  expect(reads).toBe(2);
+  expect(f.commands).toEqual([]);
+});
+
 test('detail media failures have a readable fallback and never approve the dossier', async ({
   page
 }) => {
@@ -1768,6 +1810,42 @@ test('lost response recovers its receipt without replaying a command, including 
   await expect(overviewCount(page, 'décisions traitées')).toHaveText('0');
   expect(f.commands).toHaveLength(1);
 });
+test('an uncertain recovered receipt survives the slower initial projection without a replay', async ({
+  page
+}) => {
+  const f = await fixtures(page);
+  f.uncertain();
+  f.fail();
+  await page.goto('/admin/fundraiser/pilotage');
+  await page.locator('[data-og7="pilot-accept"]').click();
+  await page.locator('[data-og7="pilot-confirm"]').click();
+  await expect(
+    page.getByRole('button', { name: 'Vérifier le résultat' })
+  ).toBeVisible();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/admin/pilotage?*', async (route) => {
+    if (new URL(route.request().url()).searchParams.has('id'))
+      return route.fallback();
+    await gate;
+    await route.fallback();
+  });
+  const recovery = page.waitForResponse('**/api/admin/pilotage/receipt?*');
+  await page.reload();
+  expect(await (await recovery).json()).toMatchObject({ status: 'uncertain' });
+  await expect(
+    page.locator('[data-og7="pilot-domains"]').getByRole('button').first()
+  ).toBeEnabled();
+  release();
+  await expect(
+    page.getByRole('button', { name: 'Examiner cet incident' })
+  ).toBeVisible();
+  await expect(page.locator('[data-og7="pilot-accept"]')).toBeDisabled();
+  expect(f.commands).toHaveLength(1);
+});
+
 test('stable snapshot blocks stale decisions; focus, accessibility and narrow screen remain usable', async ({
   page
 }) => {
