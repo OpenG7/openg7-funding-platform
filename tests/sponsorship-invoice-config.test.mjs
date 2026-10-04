@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -186,4 +187,54 @@ test('invoice and credit-note issuance share the immutable startup snapshot', as
   );
   assert.equal(creditNoteParams[5], startup.creditNoteLegalNote);
   assert.deepEqual(sponsorshipInvoiceConfig, startup);
+});
+
+test('document facade preserves the public exports and owner implementations', async () => {
+  const root = '../dist/apps/funding-api/src/';
+  const [facade, write, backfill, read, creditNotes] = await Promise.all([
+    import(`${root}sponsorship-invoices.repository.js`),
+    import(`${root}sponsorship-documents/invoices.write.js`),
+    import(`${root}sponsorship-documents/invoices.backfill.js`),
+    import(`${root}sponsorship-documents/invoices.read.js`),
+    import(`${root}sponsorship-documents/credit-notes.repository.js`)
+  ]);
+  const expected = {
+    createSponsorshipInvoiceForStripeSession:
+      write.createSponsorshipInvoiceForStripeSession,
+    backfillMissingSponsorshipInvoices:
+      backfill.backfillMissingSponsorshipInvoices,
+    getSponsorshipInvoiceById: read.getSponsorshipInvoiceById,
+    getAdminSponsorshipInvoiceById: read.getAdminSponsorshipInvoiceById,
+    listAdminSponsorshipInvoices: read.listAdminSponsorshipInvoices,
+    createSponsorshipCreditNoteForRefund:
+      creditNotes.createSponsorshipCreditNoteForRefund,
+    getSponsorshipCreditNoteById: creditNotes.getSponsorshipCreditNoteById,
+    getAdminSponsorshipCreditNoteById:
+      creditNotes.getAdminSponsorshipCreditNoteById
+  };
+  assert.deepEqual(Object.keys(facade).sort(), Object.keys(expected).sort());
+  for (const [name, implementation] of Object.entries(expected)) {
+    assert.equal(facade[name], implementation, name);
+  }
+});
+
+test('document owners keep the acyclic persistence dependency graph', () => {
+  const root = 'apps/funding-api/src/sponsorship-documents/';
+  const dependencies = {
+    'contracts.ts': [],
+    'queries.ts': [],
+    'invoices.write.ts': ['contracts.ts'],
+    'credit-notes.repository.ts': ['contracts.ts', 'queries.ts'],
+    'invoices.read.ts': ['credit-notes.repository.ts', 'queries.ts'],
+    'invoices.backfill.ts': ['invoices.write.ts', 'invoices.read.ts']
+  };
+  for (const [owner, allowed] of Object.entries(dependencies)) {
+    const source = readFileSync(`${root}${owner}`, 'utf8');
+    assert.ok(!source.includes('sponsorship-invoices.repository'), owner);
+    const imports = Array.from(
+      source.matchAll(/from '\.\/([^']+)\.js'/gu),
+      ([, name]) => `${name}.ts`
+    ).sort();
+    assert.deepEqual(imports, [...allowed].sort(), owner);
+  }
 });
