@@ -11,6 +11,8 @@ import type {
 
 import { expect, test } from './support/test.js';
 import { registerSponsorHistoryPanelTests } from './admin-sponsor-history-panels.ui.js';
+import { registerSponsorFiltersTests } from './admin-sponsors-filters.ui.js';
+import { registerSponsorResultsTests } from './admin-sponsors-results.ui.js';
 
 const id = '10000000-0000-4000-8000-000000000401';
 const secondId = '10000000-0000-4000-8000-000000000402';
@@ -524,6 +526,8 @@ const progress = (page: Page) =>
 const tabs = (page: Page) => page.locator('[data-og7="dossier-tabs"]');
 
 registerSponsorHistoryPanelTests({ fixtures, path, tabs });
+registerSponsorFiltersTests({ fixtures, path });
+registerSponsorResultsTests({ fixtures });
 
 const editForm = (page: Page) => page.locator('[data-og7="edit-dossier-form"]');
 const guide = (page: Page) => page.locator('[data-og7="dossier-guide"]');

@@ -1,0 +1,132 @@
+<div
+  class="state state-loading"
+  *ngIf="state() === 'loading'"
+  aria-live="polite"
+>
+  <span>{{ 'admin.legacy.chargement_des_commandites' | translate }}</span>
+  <div class="skeleton-list" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
+</div>
+
+<div class="state state-error" *ngIf="state() === 'error'">
+  <strong>{{
+    'admin.legacy.impossible_de_charger_les_commandites' | translate
+  }}</strong>
+  <span>{{
+    'admin.legacy.les_donnees_n_ont_pas_pu_etre_recuperees' | translate
+  }}</span>
+  <button type="button" class="secondary-action" (click)="refresh.emit()">
+    {{ 'admin.legacy.reessayer' | translate }}
+  </button>
+</div>
+
+<ng-container *ngIf="state() !== 'loading' && state() !== 'error'">
+  <div class="sponsor-table" *ngIf="rows().length > 0">
+    <div class="sponsor-table-head" aria-hidden="true">
+      <span>{{ 'admin.legacy.commanditaire' | translate }}</span
+      ><span>{{ 'admin.legacy.commandite' | translate }}</span
+      ><span>{{ 'admin.legacy.revue' | translate }}</span
+      ><span>{{ 'admin.legacy.publication' | translate }}</span
+      ><span>{{ 'admin.legacy.paiement' | translate }}</span
+      ><span>{{ 'admin.legacy.soumission' | translate }}</span
+      ><span></span>
+    </div>
+
+    <button
+      type="button"
+      class="sponsor-table-row"
+      data-og7="sponsor-row"
+      [attr.data-og7-id]="row.id"
+      [ngClass]="row.rowStateClass"
+      [attr.title]="row.processingLabel"
+      [class.selection-pulse]="selectionPulseId() === row.id"
+      *ngFor="let row of rows(); trackBy: trackByRowId"
+      [class.selected]="selectedSponsorshipId() === row.id"
+      [attr.aria-current]="selectedSponsorshipId() === row.id ? 'true' : null"
+      (click)="selectSponsorship.emit(row.id)"
+    >
+      <span class="row-cell sponsor-main">
+        <span class="sponsor-avatar" aria-hidden="true">{{
+          row.initials
+        }}</span>
+        <span>
+          <strong>{{ row.companyName }}</strong>
+          <small>{{ row.contactEmail }}</small>
+        </span>
+      </span>
+      <span class="row-cell amount-cell">
+        <strong>{{ row.amountLabel }}</strong>
+        <small [class]="row.tierClass">{{ row.tierLabel }}</small>
+      </span>
+      <span class="row-cell stacked-cell">
+        <span [class]="row.reviewStatusClass">{{ row.reviewStatusLabel }}</span>
+        <span [class]="row.visibilityClass">{{ row.visibilityLabel }}</span>
+      </span>
+      <span class="row-cell stacked-cell">
+        <span [class]="row.feedStatusClass">{{ row.feedStatusLabel }}</span>
+        <small>{{ row.feedTargetLabel }}</small>
+        <small>{{ row.feedChannelsLabel }}</small>
+      </span>
+      <span class="row-cell stacked-cell">
+        <span [class]="row.paymentStatusClass">{{
+          row.paymentStatusLabel
+        }}</span>
+        <span
+          *ngIf="row.refundWorkflowStatusClass"
+          [class]="row.refundWorkflowStatusClass"
+          >{{ row.refundWorkflowStatusLabel }}</span
+        >
+        <small>{{ row.paidAtLabel }}</small>
+      </span>
+      <span class="row-cell stacked-cell">
+        <small>{{ 'admin.legacy.soumis_le' | translate }}</small>
+        <span>{{ row.submittedAtLabel }}</span>
+      </span>
+      <span class="row-cell row-open" aria-hidden="true">&rsaquo;</span>
+    </button>
+  </div>
+
+  <article
+    class="empty-admin-state"
+    *ngIf="
+      state() === 'ready' && sponsorshipCount() === 0 && !hasActiveFilters()
+    "
+  >
+    <h2>
+      {{ 'admin.legacy.toutes_les_commandites_ont_ete_revisees' | translate }}
+    </h2>
+    <p>
+      {{
+        'admin.legacy.il_n_y_a_actuellement_aucune_nouvelle_commandite_a_traiter'
+          | translate
+      }}
+    </p>
+  </article>
+
+  <article
+    class="empty-admin-state"
+    *ngIf="
+      state() === 'ready' && sponsorshipCount() === 0 && hasActiveFilters()
+    "
+  >
+    <h2>
+      {{
+        'admin.legacy.aucune_commandite_ne_correspond_aux_filtres' | translate
+      }}
+    </h2>
+    <p>
+      {{
+        'admin.legacy.reinitialisez_les_filtres_ou_elargissez_la_recherche'
+          | translate
+      }}
+    </p>
+    <button
+      type="button"
+      class="secondary-action"
+      (click)="resetFilters.emit()"
+    >
+      {{ 'admin.legacy.reinitialiser_les_filtres' | translate }}
+    </button>
+  </article>
+</ng-container>

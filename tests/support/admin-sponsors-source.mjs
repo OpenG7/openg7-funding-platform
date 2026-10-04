@@ -1,5 +1,15 @@
 import { readFileSync } from 'node:fs';
 
+export const readAdminSponsorsComponentSource = (name) =>
+  ['ts', 'html', 'css']
+    .map((extension) =>
+      readFileSync(
+        `apps/funding-web/src/app/features/funding/components/admin-sponsors/${name}.component.${extension}`,
+        'utf8'
+      )
+    )
+    .join('\n');
+
 // Source coverage follows the page composition and its extracted responsibilities.
 // Dedicated workflow tests and the admin UI suite verify runtime behavior.
 export const readAdminSponsorsSource = () => {

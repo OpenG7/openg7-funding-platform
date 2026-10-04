@@ -1,0 +1,89 @@
+<header class="admin-table-toolbar">
+  <label class="search-control">
+    {{ 'admin.legacy.recherche' | translate
+    }}<input
+      type="search"
+      [attr.placeholder]="
+        'admin.legacy.rechercher_une_entreprise_ou_un_courriel' | translate
+      "
+      [value]="search()"
+      (input)="onSearch($event)"
+    />
+  </label>
+
+  <details class="list-filters">
+    <summary>
+      {{ 'admin.dossier.workspace.filters' | translate }}
+      @if (hasActiveFilters()) {
+        <span aria-hidden="true"> •</span>
+      }
+    </summary>
+    <div class="filter-row">
+      <label>
+        {{ 'admin.legacy.statut_de_revue' | translate
+        }}<select
+          [value]="reviewFilter()"
+          (change)="onReviewFilterChange($event)"
+        >
+          <option value="all">
+            {{ 'admin.legacy.tous' | translate }}
+          </option>
+          <option value="pending_review">
+            {{ 'admin.legacy.en_attente' | translate }}
+          </option>
+          <option value="approved">
+            {{ 'admin.legacy.approuvees' | translate }}
+          </option>
+          <option value="rejected">
+            {{ 'admin.legacy.refusees' | translate }}
+          </option>
+        </select>
+      </label>
+
+      <label>
+        {{ 'admin.legacy.visibilite_statut_feed' | translate
+        }}<select [value]="feedFilter()" (change)="onFeedFilterChange($event)">
+          <option value="all">
+            {{ 'admin.legacy.tous' | translate }}
+          </option>
+          <option
+            *ngFor="let status of feedStatusOptions()"
+            [value]="status.value"
+          >
+            {{ status.label }}
+          </option>
+        </select>
+      </label>
+
+      <label>
+        {{ 'admin.legacy.paiement' | translate
+        }}<select
+          [value]="paymentFilter()"
+          (change)="onPaymentFilterChange($event)"
+        >
+          <option value="all">
+            {{ 'admin.legacy.tous' | translate }}
+          </option>
+          <option value="paid">
+            {{ 'admin.legacy.paye' | translate }}
+          </option>
+          <option value="refunded">
+            {{ 'admin.legacy.rembourse' | translate }}
+          </option>
+          <option value="disputed">
+            {{ 'admin.legacy.litige' | translate }}
+          </option>
+        </select>
+      </label>
+
+      <button
+        type="button"
+        class="tertiary-action"
+        (click)="resetFilters.emit()"
+        [disabled]="!hasActiveFilters()"
+      >
+        {{ 'admin.legacy.reinitialiser' | translate }}
+      </button>
+    </div>
+  </details>
+</header>

@@ -1,0 +1,159 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+button,
+input {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 2px;
+}
+
+.secondary-danger-action {
+  align-items: center;
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.4rem;
+  color: var(--admin-danger);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: var(--admin-control-weight);
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0 0.85rem;
+  text-decoration: none;
+}
+
+.secondary-danger-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.media-review-item {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 11rem minmax(0, 1fr);
+}
+
+.media-preview {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background: var(--admin-panel-raised);
+  border: 1px solid var(--admin-border);
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.media-preview img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.media-review-copy {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.media-review-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.media-review-copy small {
+  color: var(--admin-muted);
+}
+
+.media-review-copy label {
+  display: grid;
+  font-size: 0.78rem;
+  font-weight: var(--admin-label-weight);
+  gap: 0.35rem;
+}
+
+.media-review-copy label span {
+  color: var(--admin-muted);
+  font-weight: var(--admin-label-weight);
+}
+
+.media-review-copy input {
+  border: 1px solid var(--admin-border);
+  border-radius: 0.35rem;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.65rem;
+  width: 100%;
+}
+
+.media-status {
+  font-size: 0.72rem;
+  font-weight: var(--admin-label-weight);
+}
+
+.media-status.approved {
+  color: var(--admin-success);
+}
+
+.media-status.pending_review {
+  color: var(--admin-warning);
+}
+
+.media-status.rejected {
+  color: var(--admin-danger);
+}
+
+.media-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.approve-action,
+.reject-action {
+  border-radius: 0.4rem;
+  cursor: pointer;
+  font-weight: var(--admin-control-weight);
+  min-height: 2.5rem;
+  padding: 0 0.85rem;
+}
+
+.approve-action {
+  background: var(--og7-admin-success-bg, #193d32);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+}
+
+.reject-action {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-danger);
+}
+
+.approve-action:disabled,
+.reject-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 720px) {
+  .media-review-item {
+    grid-template-columns: 1fr;
+  }
+
+  .media-preview {
+    max-width: 16rem;
+  }
+}

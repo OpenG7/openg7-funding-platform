@@ -1,5 +1,8 @@
 import { readFundingPersistenceSource } from './support/funding-persistence-source.mjs';
-import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
+import {
+  readAdminSponsorsSource,
+  readAdminSponsorsComponentSource
+} from './support/admin-sponsors-source.mjs';
 import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { readFundingHomeSource } from './support/funding-home-source.mjs';
@@ -198,8 +201,8 @@ test('E2E 3/8: invalid or missing follow-up token stays private and shows an err
 test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () => {
   const routes = read('apps/funding-web/src/app/admin.routes.ts');
   const adminPage = readAdminSponsorsSource();
-  const adminSponsorDetailIdentity = read(
-    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
+  const adminSponsorLogoPanel = readAdminSponsorsComponentSource(
+    'detail-media/admin-sponsor-logo-panel'
   );
   const adminService = readFundingAdminSource();
   const api = readFundingApiSource();
@@ -235,7 +238,7 @@ test('E2E 4/8: admin can list paid sponsorships behind admin authorization', () 
   );
 
   assertIncludesAll(
-    adminSponsorDetailIdentity,
+    adminSponsorLogoPanel,
     ['image/png,image/jpeg,image/webp'],
     'admin sponsorship logo upload UI'
   );

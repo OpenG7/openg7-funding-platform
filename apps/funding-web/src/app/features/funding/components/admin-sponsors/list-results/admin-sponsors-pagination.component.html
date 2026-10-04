@@ -1,0 +1,42 @@
+<footer class="pagination-bar">
+  <span>
+    {{
+      'admin.legacy.affichage_de_p0_a_p1_sur_p2_resultats'
+        | translate
+          : {
+              p0: paginationStart(),
+              p1: paginationEnd(),
+              p2: totalItems()
+            }
+    }}</span
+  >
+  <div class="pagination-controls">
+    <button
+      type="button"
+      class="icon-action"
+      (click)="previousPage.emit()"
+      [disabled]="page() <= 1"
+      [attr.aria-label]="'admin.legacy.page_precedente' | translate"
+    >
+      &lsaquo;
+    </button>
+    <strong>{{ page() }}</strong>
+    <button
+      type="button"
+      class="icon-action"
+      (click)="nextPage.emit()"
+      [disabled]="page() >= totalPages()"
+      [attr.aria-label]="'admin.legacy.page_suivante' | translate"
+    >
+      &rsaquo;
+    </button>
+  </div>
+  <label>
+    <span>{{ 'admin.legacy.par_page' | translate }}</span>
+    <select [value]="pageSize()" (change)="onPageSizeChange($event)">
+      <option *ngFor="let size of pageSizeOptions()" [value]="size">
+        {{ size }}
+      </option>
+    </select>
+  </label>
+</footer>

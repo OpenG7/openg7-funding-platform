@@ -1,0 +1,102 @@
+<div
+  class="media-review-item"
+  data-og7="admin-sponsor-media"
+  [attr.data-og7-id]="asset().id"
+>
+  <div class="media-preview">
+    <img
+      *ngIf="asset().previewSource"
+      [src]="asset().previewSource"
+      [alt]="asset().altText || asset().kindLabel"
+    />
+  </div>
+
+  <div class="media-review-copy">
+    <div class="media-review-heading">
+      <strong>{{ asset().kindLabel }}</strong>
+      <span [class]="'media-status ' + asset().reviewStatus">
+        {{ asset().reviewStatusLabel }}
+      </span>
+    </div>
+    <small>{{ asset().dimensionsLabel }} · {{ asset().sizeLabel }}</small>
+    <label>
+      {{ 'admin.legacy.texte_alternatif' | translate
+      }}<span>{{ 'admin.legacy.optionnel' | translate }}</span>
+      <input
+        type="text"
+        maxlength="300"
+        [attr.placeholder]="
+          'admin.legacy.description_publique_automatique_si_vide' | translate
+        "
+        [value]="altText()"
+        (input)="setAltText($event)"
+        [disabled]="mediaBusy()"
+      />
+    </label>
+    <div class="media-review-actions">
+      <button
+        type="button"
+        (click)="
+          previewMedia.emit({
+            id: asset().id,
+            alt: asset().altText || asset().kindLabel
+          })
+        "
+      >
+        {{ 'admin.inspector.preview' | translate }}
+      </button>
+      <button
+        type="button"
+        class="approve-action"
+        [disabled]="
+          mediaBusy() ||
+          (asset().reviewStatus === 'approved' &&
+            altText().trim() === asset().altText)
+        "
+        (click)="
+          reviewMedia.emit({
+            assetId: asset().id,
+            expectedVersion: asset().version,
+            reviewStatus: 'approved',
+            altText: altText()
+          })
+        "
+      >
+        {{
+          (asset().reviewStatus === 'approved'
+            ? 'admin.dossier.saveAltText'
+            : 'admin.legacy.approuver_le_media'
+          ) | translate
+        }}
+      </button>
+      <button
+        type="button"
+        class="reject-action"
+        [disabled]="mediaBusy() || asset().reviewStatus === 'rejected'"
+        (click)="
+          reviewMedia.emit({
+            assetId: asset().id,
+            expectedVersion: asset().version,
+            reviewStatus: 'rejected',
+            altText: altText()
+          })
+        "
+      >
+        {{ 'admin.legacy.refuser' | translate }}
+      </button>
+      <button
+        type="button"
+        class="secondary-danger-action"
+        [disabled]="mediaBusy()"
+        (click)="
+          deleteMedia.emit({
+            assetId: asset().id,
+            expectedVersion: asset().version
+          })
+        "
+      >
+        {{ 'admin.legacy.supprimer' | translate }}
+      </button>
+    </div>
+  </div>
+</div>
