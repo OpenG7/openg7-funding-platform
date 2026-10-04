@@ -30,7 +30,11 @@ import type { AdminDocumentDeliveryView } from './admin-invoice.models.js';
       <button
         type="button"
         class="primary-action"
-        [disabled]="delivery().state === 'sending' || !delivery().email.trim()"
+        [disabled]="
+          !canManage() ||
+          delivery().state === 'sending' ||
+          !delivery().email.trim()
+        "
         (click)="resend.emit()"
       >
         {{
@@ -67,6 +71,7 @@ import type { AdminDocumentDeliveryView } from './admin-invoice.models.js';
   ]
 })
 export class AdminDocumentDeliveryComponent {
+  readonly canManage = input(true);
   readonly delivery = input.required<AdminDocumentDeliveryView>();
   readonly recipientLabelKey = input.required<string>();
   readonly resendLabelKey = input.required<string>();

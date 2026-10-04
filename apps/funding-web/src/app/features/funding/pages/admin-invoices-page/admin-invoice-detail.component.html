@@ -202,6 +202,7 @@
         </div>
 
         <openg7-admin-document-delivery
+          [canManage]="canManage()"
           [delivery]="credit.delivery"
           recipientLabelKey="admin.legacy.destinataire_avoir"
           resendLabelKey="admin.legacy.renvoyer_avoir"
@@ -274,6 +275,7 @@
       </dl>
 
       <openg7-admin-document-delivery
+        [canManage]="canManage()"
         [delivery]="detail.delivery"
         recipientLabelKey="admin.legacy.destinataire"
         resendLabelKey="admin.legacy.renvoyer"
