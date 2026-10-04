@@ -14,7 +14,6 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
   PublicationAutomationCommand,
-  PublicationAutomationFilter,
   PublicationAutomationState,
   PublicationFeedId
 } from '@openg7/funding-core';
@@ -31,6 +30,7 @@ import { AdminPublicationAutomationSettingsComponent } from './admin-publication
 import { PublicationDeliveryController } from './publication-delivery-controller.js';
 import { PublicationDeliveryDrawerComponent } from './publication-delivery-drawer.component.js';
 import { AdminPublicationAutomationCommandWorkflow } from './admin-publication-automation-command-workflow.js';
+import { PublicationAutomationReadController } from './publication-automation-read-controller.js';
 import type { PublicationAutomationCommandRunner } from './publication-automation.ports.js';
 
 @Component({
@@ -61,13 +61,28 @@ export class AdminPublicationAutomationPageComponent {
   private readonly route = inject(ActivatedRoute);
   readonly feedSettingsExpanded =
     this.route.snapshot.queryParamMap.get('settings') === 'feeds';
-  readonly state = signal<PublicationAutomationState | null>(null);
-  readonly sponsorshipId = signal<string | null>(null);
-  readonly deliveryId = signal<string | null>(null);
-  readonly requestedDeliveryMissing = signal(false);
-  private loadGeneration = 0;
-  private contextRevision = 0;
-  private destroyed = false;
+  private readonly readController: PublicationAutomationReadController =
+    new PublicationAutomationReadController({
+      api: {
+        read: async (filter) =>
+          (await this.admin.publicationAutomation(
+            undefined,
+            filter
+          )) as PublicationAutomationState
+      },
+      clearError: () => this.error.set(''),
+      showError: (error) => this.showError(error),
+      busy: () => this.busy(),
+      workerChanging: () => this.settingsController.workerChanging(),
+      selected: () => Boolean(this.delivery.selected()),
+      composing: () => this.delivery.composing(),
+      settings: () => Boolean(this.settingsController.settings())
+    });
+  readonly state = this.readController.state;
+  readonly sponsorshipId = this.readController.sponsorshipId;
+  readonly deliveryId = this.readController.deliveryId;
+  readonly requestedDeliveryMissing =
+    this.readController.requestedDeliveryMissing;
   readonly busy = signal(false);
   readonly canManageWorker = computed(
     () => (this.admin.identity()?.role ?? 'owner') === 'owner'
@@ -116,17 +131,9 @@ export class AdminPublicationAutomationPageComponent {
           )) as PublicationAutomationState
       },
       state: { busy: this.busy, error: this.error, notice: this.notice },
-      capture: () => {
-        // A command supersedes any older page refresh without changing navigation.
-        this.loadGeneration++;
-        return { revision: this.contextRevision, filter: this.currentFilter() };
-      },
-      isCurrent: (context) =>
-        !this.destroyed && context.revision === this.contextRevision,
-      applyState: (next) => {
-        this.loadGeneration++;
-        this.applyState(next);
-      },
+      capture: () => this.readController.captureCommandContext(),
+      isCurrent: (context) => this.readController.isCurrent(context),
+      applyState: (next) => this.readController.applyConfirmedState(next),
       showError: (error) => this.showError(error),
       confirmed: (command, result, next, open) => {
         if (result.id && (open || this.delivery.selected()?.id === result.id)) {
@@ -205,7 +212,7 @@ export class AdminPublicationAutomationPageComponent {
   constructor() {
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => {
-      this.destroyed = true;
+      this.readController.dispose();
       this.delivery.dispose();
       this.settingsController.dispose();
     });
@@ -215,19 +222,16 @@ export class AdminPublicationAutomationPageComponent {
       this.route.queryParamMap
         .pipe(takeUntilDestroyed(destroy))
         .subscribe((params) => {
-          this.contextRevision++;
-          const revision = this.contextRevision;
-          this.state.set(null);
-          this.requestedDeliveryMissing.set(false);
-          this.sponsorshipId.set(params.get('sponsorshipId'));
-          this.deliveryId.set(params.get('deliveryId'));
+          const context = this.readController.beginContext({
+            sponsorshipId: params.get('sponsorshipId') ?? undefined,
+            deliveryId: params.get('deliveryId') ?? undefined
+          });
           this.delivery.close();
           this.tab.set(
             this.sponsorshipId() || this.deliveryId() ? 'all' : 'review'
           );
           void this.load().then(async (loaded) => {
-            if (!loaded || this.destroyed || revision !== this.contextRevision)
-              return;
+            if (!loaded || !this.readController.isCurrent(context)) return;
             const deliveryId = params.get('deliveryId');
             const delivery = this.state()?.deliveries.find(
               (d) => d.id === deliveryId
@@ -248,49 +252,11 @@ export class AdminPublicationAutomationPageComponent {
               );
           });
         });
-      const timer = setInterval(() => {
-        if (
-          !this.busy() &&
-          !this.settingsController.workerChanging() &&
-          !this.delivery.selected() &&
-          !this.delivery.composing() &&
-          !this.settingsController.settings()
-        )
-          void this.load();
-      }, 30000);
-      destroy.onDestroy(() => clearInterval(timer));
+      this.readController.startPolling();
     });
   }
-  private currentFilter(): PublicationAutomationFilter {
-    return {
-      sponsorshipId: this.sponsorshipId() ?? undefined,
-      deliveryId: this.deliveryId() ?? undefined
-    };
-  }
-  private applyState(state: PublicationAutomationState): void {
-    this.state.set(state);
-    this.requestedDeliveryMissing.set(
-      Boolean(this.deliveryId()) &&
-        !state.deliveries.some((delivery) => delivery.id === this.deliveryId())
-    );
-  }
-  async load(): Promise<boolean> {
-    const generation = ++this.loadGeneration;
-    try {
-      const state = (await this.admin.publicationAutomation(undefined, {
-        sponsorshipId: this.sponsorshipId() ?? undefined,
-        deliveryId: this.deliveryId() ?? undefined
-      })) as PublicationAutomationState;
-      if (this.destroyed || generation !== this.loadGeneration) return false;
-      this.applyState(state);
-      this.error.set('');
-      return true;
-    } catch (error) {
-      if (this.destroyed || generation !== this.loadGeneration) return false;
-      this.state.set(null);
-      this.showError(error);
-      return false;
-    }
+  load(): Promise<boolean> {
+    return this.readController.load();
   }
   private showError(error: unknown): void {
     const code = error instanceof Error ? error.message : '';
@@ -321,6 +287,7 @@ export class AdminPublicationAutomationPageComponent {
     command: PublicationAutomationCommand,
     open = false
   ): Promise<void> {
-    if (!this.destroyed) await this.commandWorkflow.run(command, open);
+    if (!this.readController.isDisposed())
+      await this.commandWorkflow.run(command, open);
   }
 }

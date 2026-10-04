@@ -2318,6 +2318,60 @@ test('weekly calendar and rehearsal show proposed changes before a controller co
   await buttons(page);
 });
 
+test('refreshing the rehearsal replaces private media and ignores the old in-flight preview', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  const selected = f.programme.deliveries[0]!;
+  const oldMedia = '10000000-0000-4000-8000-000000000601';
+  const newMedia = '10000000-0000-4000-8000-000000000602';
+  selected.mediaId = oldMedia;
+  let releaseOld!: () => void;
+  const oldRequest = new Promise<void>((resolve) => {
+    releaseOld = resolve;
+  });
+  const previews: string[] = [];
+  const photo = await readFile(
+    'apps/funding-web/src/assets/openg7-social-communautes-connectees-canada-960.webp'
+  );
+  await page.route(
+    '**/api/admin/sponsorships/media/content/**',
+    async (route) => {
+      const id = new URL(route.request().url()).pathname.split('/').at(-1)!;
+      previews.push(id);
+      if (id === oldMedia) await oldRequest;
+      await route.fulfill({ contentType: 'image/webp', body: photo });
+    }
+  );
+  try {
+    await f.open();
+    const programme = page.locator('[data-og7="editorial-programme"]');
+    await programme
+      .getByRole('button', { name: 'Répétition générale', exact: true })
+      .click();
+    await expect.poll(() => previews).toEqual([oldMedia]);
+    selected.version++;
+    selected.mediaId = newMedia;
+    await programme
+      .getByRole('button', { name: 'Actualiser', exact: true })
+      .click();
+    await expect.poll(() => previews).toEqual([oldMedia, newMedia]);
+    const image = programme.locator('[data-og7="programme-rehearsal"] img');
+    await expect(image).toBeVisible();
+    const currentSource = await image.getAttribute('src');
+    const lateResponse = page.waitForResponse((response) =>
+      response.url().endsWith('/' + oldMedia)
+    );
+    releaseOld();
+    await (await lateResponse).finished();
+    await page.waitForLoadState('networkidle');
+    await expect(image).toHaveAttribute('src', currentSource!);
+    expect(f.commands).toHaveLength(0);
+  } finally {
+    releaseOld();
+  }
+});
+
 test('weekly variants require review and recover a lost command response without a replay', async ({
   page
 }) => {
@@ -2377,6 +2431,66 @@ test('changing an editorial instruction discards the previous comparison and con
     programme.getByRole('button', { name: 'Préparer la variante', exact: true })
   ).toBeEnabled();
   expect(f.commands).toHaveLength(0);
+});
+
+test('weekly selection shares one confirmation and keeps editorial dates separate from proposed moves', async ({
+  page
+}) => {
+  const f = await programmeFixtures(page);
+  await f.open();
+  const programme = page.locator('[data-og7="editorial-programme"]');
+  await programme
+    .getByRole('button', { name: 'Composer la semaine', exact: true })
+    .click();
+  await programme
+    .getByRole('button', { name: 'Proposer une répartition' })
+    .click();
+  await programme
+    .getByRole('button', { name: 'Examiner les déplacements' })
+    .click();
+  await expect(
+    programme.locator('[data-og7="programme-confirmation"]')
+  ).toHaveCount(1);
+  await programme
+    .getByRole('button', { name: 'Variante de texte', exact: true })
+    .click();
+  await expect(
+    programme.locator('[data-og7="programme-confirmation"]')
+  ).toHaveCount(0);
+  await programme
+    .getByRole('button', { name: 'Ton neutre', exact: true })
+    .click();
+  await programme
+    .getByRole('button', { name: 'Examiner cette variante' })
+    .click();
+  await expect(
+    programme.locator('[data-og7="programme-confirmation"]')
+  ).toHaveCount(1);
+  const selected = f.programme.deliveries[1]!;
+  await programme
+    .getByRole('combobox', { name: 'Publication', exact: true })
+    .selectOption(selected.id);
+  await expect(
+    programme.locator('[data-og7="programme-confirmation"]')
+  ).toHaveCount(0);
+  await expect(
+    programme.locator('[data-og7="programme-comparison"]')
+  ).toHaveCount(0);
+  await programme
+    .getByRole('button', { name: 'Ton neutre', exact: true })
+    .click();
+  await programme
+    .getByRole('button', { name: 'Examiner cette variante' })
+    .click();
+  expect(f.commands).toHaveLength(0);
+  await programme
+    .getByRole('button', { name: 'Confirmer l’enregistrement' })
+    .click();
+  await expect.poll(() => f.commands.length).toBe(1);
+  expect(f.commands[0]!.action).toBe('publication.edit');
+  expect(f.commands[0]!.targetId).toBe(selected.id);
+  expect(f.commands[0]!.payload!.scheduledAt).toBe(selected.scheduledAt);
+  expect(f.commands[0]!.payload!.mediaId).toBe(selected.mediaId);
 });
 
 test('weekly memory and incident solutions remain explicit reviewed commands', async ({
