@@ -3,10 +3,214 @@ import type {
   AdminDatabaseBackup
 } from '@openg7/funding-core';
 import { AxeBuilder } from '@axe-core/playwright';
+import type { Page } from '@playwright/test';
 
 import { expect, test } from './support/test.js';
 import { setupFixture } from './support/setup-fixtures.js';
 import { cockpitFixtures } from './support/cockpit-fixtures.js';
+
+async function recoveryFixture(page: Page, language: 'fr-CA' | 'en') {
+  await page.addInitScript((locale) => {
+    localStorage.setItem('openg7.language', locale);
+    sessionStorage.setItem(
+      'openg7-admin-session-token',
+      'openg7-admin-session.backup-fixture'
+    );
+    sessionStorage.setItem(
+      'openg7-admin-session-expires-at',
+      '2099-01-01T00:00:00Z'
+    );
+  }, language);
+  const cockpit = cockpitFixtures();
+  const state = {
+    posts: [] as { requestId: string; confirmation: string }[],
+    receiptReads: [] as string[],
+    loseResponse: true,
+    job: null as AdminDatabaseBackup | null,
+    cockpitStatus: 200,
+    cockpitGate: null as Promise<void> | null,
+    postGate: null as Promise<void> | null
+  };
+  await page.route('**/api/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/setup-status'))
+      return route.fulfill({ json: setupFixture() });
+    if (url.pathname.endsWith('/cockpit/systems')) {
+      await state.cockpitGate;
+      return route.fulfill({
+        status: state.cockpitStatus,
+        json: state.cockpitStatus === 200 ? cockpit.systems : {}
+      });
+    }
+    if (url.pathname.endsWith('/cockpit/activity'))
+      return route.fulfill({ json: cockpit.activity });
+    if (!url.pathname.endsWith('/backups'))
+      return route.fulfill({ status: 503, json: {} });
+    if (route.request().method() === 'POST') {
+      const input = route.request().postDataJSON();
+      state.posts.push(input);
+      await state.postGate;
+      if (state.loseResponse) return route.abort('failed');
+      state.job = {
+        requestId: input.requestId,
+        source: 'manual',
+        status: 'queued',
+        createdAt: new Date().toISOString(),
+        startedAt: null,
+        finishedAt: null,
+        bytes: null,
+        sha256: null,
+        retainUntil: null
+      };
+      return route.fulfill({ json: state.job });
+    }
+    const requestId = url.searchParams.get('requestId');
+    if (requestId) state.receiptReads.push(requestId);
+    return route.fulfill({
+      json: {
+        scope: 'database',
+        schedule: 'daily',
+        retentionDays: 30,
+        checkedAt: new Date().toISOString(),
+        lastWorkerAt: new Date().toISOString(),
+        workerState: 'ready',
+        jobs: state.job ? [state.job] : [],
+        ...(requestId ? { request: state.job } : {})
+      } satisfies AdminBackupsResponse
+    });
+  });
+  return state;
+}
+
+for (const language of ['fr-CA', 'en'] as const) {
+  test(`a missing backup receipt requires confirmation to retry the same UUID in ${language}`, async ({
+    page
+  }) => {
+    const state = await recoveryFixture(page, language);
+    await page.goto('/admin/fundraiser/setup?section=backups');
+    const panel = page.locator('[data-og7="setup-backups"]');
+    const request = panel.locator('[data-og7="backup-request"]');
+    const confirm = page.locator('[data-og7="confirm-action"]');
+    await expect(request).toBeEnabled();
+    await request.click();
+    await confirm.click();
+    await expect(panel.locator('[data-og7="backup-uncertain"]')).toBeVisible();
+    expect(state.posts).toHaveLength(1);
+    const requestId = state.posts[0]!.requestId;
+    expect(requestId).toMatch(
+      /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
+    );
+    expect(state.posts[0]!.confirmation).toBe('BACKUP_DATABASE');
+    expect(
+      await page.evaluate(() => sessionStorage.getItem('openg7-backup-request'))
+    ).toBe(requestId);
+
+    await page.reload();
+    const retry = panel.locator('[data-og7="backup-uncertain"] button');
+    await expect(retry).toBeEnabled();
+    await expect(request).toBeDisabled();
+    expect(state.receiptReads).toEqual([requestId]);
+    expect(state.posts).toHaveLength(1);
+    await retry.click();
+    await expect(confirm).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(confirm).toBeHidden();
+    await expect(retry).toBeFocused();
+    expect(state.posts).toHaveLength(1);
+    expect(
+      await page.evaluate(() => sessionStorage.getItem('openg7-backup-request'))
+    ).toBe(requestId);
+
+    state.loseResponse = false;
+    await retry.click();
+    await confirm.click();
+    await expect(panel.locator('[data-og7="backup-receipt"]')).toHaveAttribute(
+      'data-state',
+      'queued'
+    );
+    await expect(panel.locator('[data-og7="backup-uncertain"]')).toHaveCount(0);
+    await expect(request).toBeDisabled();
+    expect(state.posts).toEqual([
+      { requestId, confirmation: 'BACKUP_DATABASE' },
+      { requestId, confirmation: 'BACKUP_DATABASE' }
+    ]);
+    expect(
+      await page.evaluate(() => sessionStorage.getItem('openg7-backup-request'))
+    ).toBeNull();
+  });
+}
+
+for (const phase of ['confirmation', 'response'] as const) {
+  test(`session expiration during backup ${phase} closes private UI and ignores a late result`, async ({
+    page
+  }) => {
+    const state = await recoveryFixture(page, 'fr-CA');
+    let releaseCockpit!: () => void;
+    state.cockpitGate = new Promise<void>((resolve) => {
+      releaseCockpit = resolve;
+    });
+    let releasePost!: () => void;
+    state.postGate = new Promise<void>((resolve) => {
+      releasePost = resolve;
+    });
+    state.loseResponse = false;
+    const stamp = new Date().toISOString();
+    state.job = {
+      requestId: '00000000-0000-4000-8000-000000000123',
+      source: 'daily',
+      status: 'succeeded',
+      createdAt: stamp,
+      startedAt: stamp,
+      finishedAt: stamp,
+      bytes: 4096,
+      sha256: 'd'.repeat(64),
+      retainUntil: '2099-01-01T00:00:00Z'
+    };
+    await page.goto('/admin/fundraiser/setup?section=backups');
+    const panel = page.locator('[data-og7="setup-backups"]');
+    const request = panel.locator('[data-og7="backup-request"]');
+    await expect(request).toBeEnabled();
+    await panel.locator('[data-og7="backup-history-row"] button').click();
+    await expect(page.locator('[data-og7="backup-evidence"]')).toContainText(
+      'd'.repeat(64)
+    );
+    await page.keyboard.press('Escape');
+    await request.click();
+    const confirm = page.locator('[data-og7="confirm-action"]');
+    await expect(confirm).toBeVisible();
+    if (phase === 'response') {
+      await confirm.click();
+      await expect.poll(() => state.posts.length).toBe(1);
+      await expect(request).toBeDisabled();
+    }
+    state.cockpitStatus = 401;
+    releaseCockpit();
+    await expect(page).toHaveURL(/\/admin\/login\?/);
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    await expect(panel).toHaveCount(0);
+    await expect(page.locator('[data-og7="backup-evidence"]')).toHaveCount(0);
+    await expect(page.locator('body')).not.toContainText('d'.repeat(64));
+    if (phase === 'response') {
+      const lateResponse = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/admin/backups') &&
+          response.request().method() === 'POST'
+      );
+      releasePost();
+      expect((await lateResponse).status()).toBe(200);
+      await expect(panel).toHaveCount(0);
+      await expect(page.locator('[data-og7="backup-receipt"]')).toHaveCount(0);
+    } else {
+      releasePost();
+      expect(state.posts).toHaveLength(0);
+    }
+    expect(
+      await page.evaluate(() =>
+        sessionStorage.getItem('openg7-admin-session-token')
+      )
+    ).toBeNull();
+  });
+}
 
 for (const theme of ['night', 'mineral', 'graphite']) {
   for (const language of ['fr-CA', 'en']) {
