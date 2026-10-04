@@ -1,3 +1,5 @@
+import type { FundTransparencyPublicResponse } from './public-funding.js';
+
 /** Public allocation policy shared by the API and its confirmation UI. */
 export const PUBLIC_ALLOCATION_CREATE_CONFIRMATION = 'CREATE_PUBLIC_ALLOCATION';
 
@@ -32,4 +34,87 @@ export function isPublicAllocationProofUrl(value: unknown): boolean {
   } catch {
     return false;
   }
+}
+
+export type AdminExpenseStatus =
+  'draft' | 'published' | 'active' | 'private' | 'archived';
+
+export interface AdminExpenseRecord {
+  readonly id: string;
+  readonly project_name: string;
+  readonly public_description: string;
+  readonly expected_outcome: string;
+  readonly progress_status: 'planned' | 'in_progress' | 'delivered';
+  readonly proof_url: string | null;
+  readonly proof_source: string | null;
+  readonly proof_published_at: string | null;
+  readonly amount_allocated: number;
+  readonly currency: string;
+  readonly status: AdminExpenseStatus;
+  readonly published_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface AdminExpensesSummary {
+  readonly total_count: number;
+  readonly published_count: number;
+  readonly draft_count: number;
+  readonly private_count: number;
+  readonly archived_count: number;
+  readonly total_allocated: number;
+  readonly published_allocated: number;
+  readonly currency: string;
+}
+
+export interface AdminExpensesResponse {
+  readonly data_source: 'database';
+  readonly summary: AdminExpensesSummary;
+  readonly expenses: readonly AdminExpenseRecord[];
+  readonly last_updated_at: string;
+}
+
+export interface AdminExpenseCreateRequest {
+  readonly confirmation?: string;
+  readonly projectName: string;
+  readonly publicDescription: string;
+  readonly expectedOutcome: string;
+  readonly progressStatus: 'planned' | 'in_progress' | 'delivered';
+  readonly proofUrl?: string | null;
+  readonly proofSource?: string | null;
+  readonly proofPublishedAt?: string | null;
+  readonly amountAllocated: number;
+  readonly currency: 'CAD';
+  readonly status: AdminExpenseStatus;
+  readonly publishedAt?: string | null;
+}
+
+export interface AdminExpenseUpdateRequest {
+  readonly confirmation?: string;
+  readonly expenseId: string;
+  readonly expectedVersion: string;
+  readonly projectName?: string;
+  readonly publicDescription?: string;
+  readonly expectedOutcome?: string;
+  readonly progressStatus?: 'planned' | 'in_progress' | 'delivered';
+  readonly proofUrl?: string | null;
+  readonly proofSource?: string | null;
+  readonly proofPublishedAt?: string | null;
+  readonly amountAllocated?: number;
+  readonly currency?: 'CAD';
+  readonly status?: AdminExpenseStatus;
+  readonly publishedAt?: string | null;
+}
+
+export interface AdminExpenseMutationResult {
+  readonly updated: boolean;
+  readonly expense: AdminExpenseRecord | null;
+}
+
+export interface AdminTransparencyResponse {
+  readonly data_source: 'database';
+  readonly public_summary: FundTransparencyPublicResponse;
+  readonly expenses_summary: AdminExpensesSummary;
+  readonly expenses: readonly AdminExpenseRecord[];
+  readonly last_updated_at: string;
 }

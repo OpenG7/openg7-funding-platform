@@ -2,7 +2,7 @@ import type {
   AdminAttentionItem,
   AdminAttentionItemType,
   AdminAttentionSeverity
-} from './index.js';
+} from './admin-assistant.js';
 
 export type AdminAttentionDueFilter =
   'all' | 'today' | 'overdue' | 'this_week' | 'undated';

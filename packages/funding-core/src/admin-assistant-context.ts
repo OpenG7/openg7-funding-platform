@@ -1,8 +1,12 @@
-import type {
-  AdminAssistantMode,
-  SponsorFeedChannel,
-  SponsorshipReviewStatus
-} from './index.js';
+import type { SponsorFeedChannel } from './publication-contracts.js';
+import type { SponsorshipReviewStatus } from './sponsorship-contracts.js';
+
+/**
+ * `disabled` = no model provider; the deterministic summary still works.
+ * `mock` = deterministic in-process provider for tests and demos.
+ * `live` = a real external provider (reserved; not wired in iteration 1).
+ */
+export type AdminAssistantMode = 'disabled' | 'mock' | 'live';
 
 export type AdminAssistantNextStep =
   | 'check_payment'

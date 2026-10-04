@@ -1,14 +1,3 @@
-import {
-  ContributorRecord,
-  FundingAllocation,
-  FundingTotals
-} from '@openg7/funding-models';
-
-import type {
-  SponsorshipBenefitId,
-  SponsorshipTierId
-} from './sponsorship-benefits.js';
-
 export type {
   AdminStripeBackfillScope,
   AdminStripeBackfillCounts,
@@ -17,6 +6,7 @@ export type {
 } from './admin-stripe-backfill.js';
 
 export { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from './sponsorship-pricing.js';
+
 export {
   isValidSponsorshipAmount,
   resolveSponsorshipBenefits,
@@ -26,1461 +16,31 @@ export {
   type SponsorshipBenefitsResult
 } from './sponsorship-benefits.js';
 
-export type ContributionType = 'personal_support' | 'sponsorship_interest';
-
-export type SponsorFeedTarget = 'openg7' | 'openg20';
-
-export type SponsorFeedChannel = 'facebook' | 'linkedin';
-
-export type SponsorFeedStatus =
-  'not_planned' | 'planned' | 'drafted' | 'published';
-
-export type PublicationDraftStatus =
-  | 'draft'
-  | 'pending_review'
-  | 'approved'
-  | 'scheduled'
-  | 'published'
-  | 'rejected'
-  | 'cancelled';
-
-export type AdminExpenseStatus =
-  'draft' | 'published' | 'active' | 'private' | 'archived';
-
-export interface CheckoutConsentPayload {
-  readonly contributionType: ContributionType;
-  readonly publicDisplayConsent: boolean;
-  readonly publicDisplayName?: string;
-  readonly displayAmountConsent: boolean;
-  readonly nonCharityAcknowledged: boolean;
-}
-
-export interface CheckoutRequest {
-  readonly amount: number;
-  readonly currency: 'CAD';
-  readonly projectId: string;
-  readonly successUrl: string;
-  readonly cancelUrl: string;
-  readonly contributionType: ContributionType;
-  readonly publicDisplayConsent: boolean;
-  readonly publicDisplayName?: string;
-  readonly displayAmountConsent: boolean;
-  readonly nonCharityAcknowledged: boolean;
-}
-
-export interface MockCheckoutResult {
-  readonly checkoutId: string;
-  readonly redirectUrl: string;
-  readonly status: 'mocked';
-}
-
-export interface RedirectCheckoutResult {
-  readonly checkoutId: string;
-  readonly redirectUrl: string;
-  readonly status: 'redirected';
-}
-
-export type CheckoutResult = MockCheckoutResult | RedirectCheckoutResult;
-
-export interface FundingSnapshot {
-  readonly totals: FundingTotals;
-  readonly allocation: readonly FundingAllocation[];
-  readonly contributors: readonly ContributorRecord[];
-}
-
-export interface PublicMonthlySummary {
-  readonly month: string;
-  readonly total_received: number;
-  readonly total_fees: number;
-  readonly total_net: number;
-  readonly total_refunded: number;
-  readonly total_payouts: number;
-  readonly contributions_count: number;
-  /** Missing processor fee facts; null/absent means completeness is unknown. */
-  readonly pending_fee_count?: number | null;
-  readonly currency: string;
-}
-
-export interface PublicFundAllocation {
-  readonly project_name: string;
-  readonly public_description: string;
-  readonly expected_outcome: string;
-  readonly progress_status: 'planned' | 'in_progress' | 'delivered';
-  readonly proof_url: string | null;
-  readonly proof_source: string | null;
-  readonly proof_published_at: string | null;
-  readonly amount_allocated: number;
-  readonly currency: string;
-  readonly status: string;
-  readonly published_at: string | null;
-}
-
-export interface PublicBuilderProfile {
-  readonly public_id?: string;
-  readonly display_name: string;
-  readonly contribution_type: ContributionType;
-  readonly amount: number | null;
-  readonly currency: string;
-  readonly paid_at: string | null;
-}
-
-export interface PublicBuildersResponse {
-  readonly data_source: 'database' | 'empty';
-  readonly builders: readonly PublicBuilderProfile[];
-  readonly last_updated_at: string;
-  readonly pagination: {
-    readonly page: number;
-    readonly page_size: number;
-    /** Public contribution records, not distinct people. */
-    readonly total_count: number;
-  };
-}
-
-export type SponsorMediaKind = 'logo' | 'supporting_image';
-
-export type SponsorMediaReviewStatus =
-  'pending_review' | 'approved' | 'rejected';
-
-export type SponsorMediaUploader = 'sponsor' | 'admin';
-
-export interface SponsorMediaAsset {
-  readonly id: string;
-  readonly contributionId: string;
-  readonly kind: SponsorMediaKind;
-  readonly reviewStatus: SponsorMediaReviewStatus;
-  readonly uploadedBy: SponsorMediaUploader;
-  readonly originalFilename: string;
-  readonly originalMimeType: 'image/jpeg' | 'image/png' | 'image/webp';
-  readonly originalSizeBytes: number;
-  readonly processedMimeType: 'image/webp';
-  readonly processedSizeBytes: number;
-  readonly width: number;
-  readonly height: number;
-  readonly altText: string | null;
-  readonly sortOrder: number;
-  readonly publicUrl: string | null;
-  readonly reviewedAt: string | null;
-  readonly version: string;
-  readonly createdAt: string;
-}
-
-export interface PublicSponsorMediaAsset {
-  readonly id: string;
-  readonly kind: SponsorMediaKind;
-  readonly url: string;
-  readonly width: number;
-  readonly height: number;
-  readonly alt_text: string;
-  readonly sort_order: number;
-}
-
-export interface SponsorMediaLimits {
-  readonly maxUploadBytes: number;
-  readonly maxSupportingImages: number;
-  readonly acceptedMimeTypes: readonly (
-    'image/jpeg' | 'image/png' | 'image/webp'
-  )[];
-}
-
-export interface SponsorshipMediaResponse {
-  readonly assets: readonly SponsorMediaAsset[];
-  readonly limits: SponsorMediaLimits;
-}
-
-export interface SponsorMediaUploadResult {
-  readonly uploaded: true;
-  readonly asset: SponsorMediaAsset;
-}
-
-export interface SponsorMediaDeleteRequest {
-  readonly token: string;
-  readonly assetId: string;
-  readonly expectedVersion: string;
-  readonly confirmed: true;
-}
-
-export interface SponsorMediaDeleteResult {
-  readonly deleted: true;
-  readonly assetId: string;
-}
-
-export interface AdminSponsorMediaReviewRequest {
-  readonly assetId: string;
-  readonly expectedVersion: string;
-  readonly reviewStatus: SponsorMediaReviewStatus;
-  readonly altText?: string;
-}
-
-export interface AdminSponsorMediaReviewResult {
-  readonly updated: true;
-  readonly asset: SponsorMediaAsset;
-}
-
-export interface AdminSponsorMediaDeleteRequest {
-  readonly assetId: string;
-  readonly expectedVersion: string;
-  readonly confirmation: string;
-}
-
-export interface PublicSponsorshipProfile {
-  /** Stable public directory key, unrelated to access or payment references. */
-  readonly public_id?: string;
-  readonly public_slug: string | null;
-  readonly company_name: string;
-  readonly website_url: string | null;
-  readonly logo_url: string | null;
-  readonly media: readonly PublicSponsorMediaAsset[];
-  /** @deprecated Always null on current servers; use the admin's public_summary. */
-  readonly message: string | null;
-  readonly public_summary: string | null;
-  readonly amount: number | null;
-  readonly currency: string;
-  readonly paid_at: string | null;
-  readonly feed_target: SponsorFeedTarget | null;
-  readonly feed_channels: readonly SponsorFeedChannel[];
-  readonly feed_status: SponsorFeedStatus;
-  readonly feed_public_url: string | null;
-  readonly visibility_updated_at: string | null;
-}
-
-export interface PublicSponsorshipsResponse {
-  readonly data_source: 'database' | 'empty';
-  readonly sponsorships: readonly PublicSponsorshipProfile[];
-  readonly last_updated_at: string;
-  /** Counts of public sponsorship dossiers, not distinct companies or posts. */
-  readonly pagination?: {
-    readonly page: number;
-    readonly page_size: number;
-    readonly total_count: number;
-    readonly published_count: number;
-  };
-}
-
-export interface PublicFundingRuntimeConfig {
-  readonly business_sponsorship_enabled: boolean;
-  /** Optional during rolling upgrades; amounts use the existing Checkout major-unit contract. */
-  readonly allowed_contribution_amounts?: readonly number[];
-  readonly last_updated_at: string;
-}
-
-/**
- * Indicative next collective-post date per channel, derived from the
- * earliest scheduled (not open, not published) publication batch. No
- * sponsor-identifying data: just a date, or null if none is scheduled yet.
- */
-export interface PublicSponsorshipBatchAvailability {
-  readonly channel: SponsorFeedChannel;
-  readonly nextAvailableAt: string | null;
-}
-
-export interface PublicSponsorshipPublicationSlot {
-  readonly feedTarget: SponsorFeedTarget;
-  readonly channel: SponsorFeedChannel;
-  readonly startsAt: string;
-  readonly timezone: string;
-}
-
-export interface PublicSponsorshipBatchAvailabilityResponse {
-  readonly data_source: 'database' | 'empty';
-  readonly availability: readonly PublicSponsorshipBatchAvailability[];
-  readonly slots: readonly PublicSponsorshipPublicationSlot[];
-}
-
-export interface FundTransparencyPublicResponse {
-  readonly data_source: 'database' | 'stripe_direct' | 'empty';
-  readonly total_received: number;
-  readonly total_fees: number;
-  readonly total_net: number;
-  readonly total_refunded: number;
-  readonly total_payouts: number;
-  readonly current_available_estimate: number;
-  readonly contributions_count: number;
-  readonly pending_fee_count?: number | null;
-  readonly currency: string;
-  readonly monthly_summary: readonly PublicMonthlySummary[];
-  readonly latest_public_allocations: readonly PublicFundAllocation[];
-  readonly public_builders: readonly PublicBuilderProfile[];
-  readonly last_updated_at: string;
-  /** Start of this projection read, preserved when serving a cached result. */
-  readonly generated_at?: string;
-}
-
-export const createMockCheckoutResult = (
-  request: CheckoutRequest
-): MockCheckoutResult => ({
-  checkoutId: `mock-${request.projectId}-${request.amount}`,
-  redirectUrl: 'https://example.org/mock-checkout',
-  status: 'mocked'
-});
-
-export interface SponsorshipDetailsRequest {
-  readonly sessionId: string;
-  readonly companyName: string;
-  readonly contactName: string;
-  readonly contactEmail: string;
-  readonly websiteUrl?: string;
-  readonly logoUrl?: string;
-  readonly message?: string;
-}
-
-export interface SponsorshipDetailsResult {
-  readonly received: true;
-  readonly recorded: boolean;
-}
-
-export interface SponsorshipFollowupResponse {
-  readonly found: true;
-  readonly publicReference: string | null;
-  readonly paymentStatus: string;
-  readonly reviewStatus: SponsorshipReviewStatus;
-  readonly amount: number;
-  readonly currency: string;
-  readonly paidAt: string | null;
-  readonly sponsorshipTier: SponsorshipTierId | null;
-  readonly sponsorshipBenefits: readonly SponsorshipBenefitId[];
-  readonly detailsSubmitted: boolean;
-  readonly companyName: string | null;
-  readonly contactName: string | null;
-  readonly contactEmail: string | null;
-  readonly websiteUrl: string | null;
-  readonly logoUrl: string | null;
-  readonly message: string | null;
-  readonly reviewedAt: string | null;
-}
-
-export interface SponsorshipFollowupDetailsRequest {
-  readonly token: string;
-  readonly draftRevision?: number;
-  readonly companyName: string;
-  readonly contactName: string;
-  readonly contactEmail: string;
-  readonly websiteUrl?: string;
-  readonly logoUrl?: string;
-  readonly message?: string;
-}
-
 export type {
   SponsorshipDraftValues,
   SponsorshipDraftSnapshot,
   SponsorshipDraftRequest,
   SponsorshipAccessRecoveryRequest,
   AdminSponsorshipAccessRequest,
-  AdminSponsorshipAccessResult
+  AdminSponsorshipAccessResult,
+  SponsorshipDetailsRequest,
+  SponsorshipDetailsResult,
+  SponsorshipFollowupResponse,
+  SponsorshipFollowupDetailsRequest
 } from './sponsorship-followup.js';
-
-export interface PublicReferenceLookupRequest {
-  readonly reference: string;
-}
-
-export type PublicReferenceLookupNextStep =
-  | 'none'
-  | 'wait_for_payment_confirmation'
-  | 'recover_private_link_by_email'
-  | 'contact_support_with_reference';
-
-export interface PublicReferenceLookupFoundResponse {
-  readonly found: true;
-  readonly publicReference: string;
-  readonly contributionType: ContributionType;
-  readonly paymentStatus: string;
-  readonly amount: number | null;
-  readonly displayAmount: boolean;
-  readonly currency: string;
-  readonly paidAt: string | null;
-  readonly createdAt: string;
-  readonly reviewStatus: SponsorshipReviewStatus | null;
-  readonly detailsSubmitted: boolean | null;
-  readonly nextStep: PublicReferenceLookupNextStep;
-}
-
-export interface PublicReferenceLookupNotFoundResponse {
-  readonly found: false;
-  readonly publicReference: string;
-}
-
-export type PublicReferenceLookupResponse =
-  PublicReferenceLookupFoundResponse | PublicReferenceLookupNotFoundResponse;
-
-export interface ReferenceRecoveryRequest {
-  readonly email: string;
-}
-
-export interface ReferenceRecoveryResult {
-  readonly accepted: true;
-}
-
-export type SponsorshipReviewStatus =
-  'pending_review' | 'approved' | 'rejected';
-
-export type AdminSponsorshipRefundWorkflowStatus =
-  'not_requested' | 'requested' | 'processing' | 'completed' | 'failed';
-
-export type AdminSponsorshipStripeRefundReason =
-  'requested_by_customer' | 'duplicate' | 'fraudulent';
-
-export interface AdminSponsorshipRecord {
-  readonly id: string;
-  readonly version: string;
-  readonly public_reference: string | null;
-  readonly contribution_type: 'sponsorship_interest';
-  readonly amount: number;
-  readonly currency: string;
-  readonly payment_status: string;
-  readonly paid_at: string | null;
-  readonly public_name: string | null;
-  readonly public_display_consent: boolean;
-  readonly display_amount_consent: boolean;
-  readonly sponsor_company_name: string | null;
-  readonly sponsor_contact_name: string | null;
-  readonly sponsor_contact_email: string | null;
-  readonly sponsor_website_url: string | null;
-  readonly sponsor_logo_url: string | null;
-  readonly sponsor_message: string | null;
-  readonly sponsor_details_submitted_at: string | null;
-  readonly sponsor_review_status: SponsorshipReviewStatus;
-  readonly sponsor_review_note: string | null;
-  readonly sponsor_reviewed_at: string | null;
-  readonly sponsor_public_slug: string | null;
-  readonly sponsor_public_summary: string | null;
-  readonly sponsor_feed_target: SponsorFeedTarget | null;
-  readonly sponsor_feed_channels: readonly SponsorFeedChannel[];
-  readonly sponsor_feed_status: SponsorFeedStatus;
-  readonly sponsor_feed_public_url: string | null;
-  readonly sponsor_feed_notes: string | null;
-  readonly sponsor_visibility_updated_at: string | null;
-  readonly sponsorship_refund_status: AdminSponsorshipRefundWorkflowStatus;
-  readonly sponsorship_refund_requested_at: string | null;
-  readonly sponsorship_refund_processed_at: string | null;
-  readonly sponsorship_refund_completed_at: string | null;
-  readonly sponsorship_refund_id: string | null;
-  readonly sponsorship_refund_amount: number | null;
-  readonly sponsorship_refund_reason: AdminSponsorshipStripeRefundReason | null;
-  readonly sponsorship_refund_note: string | null;
-  readonly sponsorship_refund_error: string | null;
-  readonly admin_audit_entries: readonly AdminAuditLogEntry[];
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-export interface AdminPagination {
-  readonly page: number;
-  readonly pageSize: number;
-  readonly totalItems: number;
-  readonly totalPages: number;
-  readonly hasPreviousPage: boolean;
-  readonly hasNextPage: boolean;
-}
-
-export interface AdminSponsorshipsResponse {
-  readonly data_source: 'database';
-  readonly items: readonly AdminSponsorshipRecord[];
-  readonly sponsorships: readonly AdminSponsorshipRecord[];
-  readonly pagination: AdminPagination;
-  readonly last_updated_at: string;
-}
-
-export interface AdminSponsorLogoUploadResult {
-  readonly updated: boolean;
-  readonly contributionId: string;
-  readonly logoUrl: string;
-  readonly mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
-  readonly sizeBytes: number;
-}
-
-export interface AdminSponsorLogoDeleteRequest {
-  readonly contributionId: string;
-  readonly expectedVersion: string;
-}
-
-export interface AdminSponsorLogoDeleteResult {
-  readonly updated: boolean;
-  readonly contributionId: string;
-  readonly deletedLogoUrl: string | null;
-}
-
-export interface AdminContributionRecord {
-  readonly id: string;
-  readonly public_reference: string | null;
-  readonly contribution_type: ContributionType;
-  readonly amount: number;
-  readonly currency: string;
-  readonly payment_status: string;
-  readonly paid_at: string | null;
-  readonly public_name: string | null;
-  readonly email_private: string | null;
-  readonly public_display_consent: boolean;
-  readonly display_amount_consent: boolean;
-  readonly non_charity_acknowledged: boolean;
-  readonly sponsor_company_name: string | null;
-  readonly sponsor_contact_name: string | null;
-  readonly sponsor_contact_email: string | null;
-  readonly sponsor_review_status: SponsorshipReviewStatus | null;
-  readonly sponsor_feed_status: SponsorFeedStatus | null;
-  readonly stripe_session_id: string | null;
-  readonly stripe_payment_intent_id: string | null;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-export interface AdminContributionsSummary {
-  readonly total_count: number;
-  readonly paid_count: number;
-  readonly pending_count: number;
-  readonly sponsorship_count: number;
-  readonly public_display_count: number;
-  readonly total_received: number;
-  readonly total_refunded: number;
-  readonly total_disputed: number;
-  readonly currency: string;
-}
-
-export interface AdminContributionsResponse {
-  readonly data_source: 'database';
-  readonly summary: AdminContributionsSummary;
-  readonly contributions: readonly AdminContributionRecord[];
-  readonly last_updated_at: string;
-}
-
-/** Private export of the displayed selection, at most 250 distinct records. */
-export interface AdminContributionsExportRequest {
-  readonly confirmation: 'export_private_contributions';
-  readonly contributions: readonly {
-    readonly id: string;
-    readonly expectedVersion: string;
-  }[];
-}
-
-export interface AdminDashboardResponse {
-  readonly data_source: 'database';
-  /** False when PostgreSQL is not configured. Optional for older API versions. */
-  readonly data_available?: boolean;
-  readonly totals: {
-    readonly total_received: number;
-    readonly total_refunded: number;
-    readonly total_disputed: number;
-    readonly current_available_estimate: number;
-    readonly currency: string;
-    readonly contributions_count: number;
-    readonly paid_contributions_count: number;
-  };
-  readonly sponsorship_review: {
-    readonly total: number;
-    readonly pending: number;
-    readonly approved: number;
-    readonly rejected: number;
-  };
-  readonly feed_publication: {
-    readonly planned: number;
-    readonly drafted: number;
-    readonly published: number;
-    readonly active: number;
-  };
-  readonly stripe_events: {
-    readonly failed: number;
-    readonly processing: number;
-    readonly last_failed_at: string | null;
-  };
-  readonly recent_contributions: readonly AdminContributionRecord[];
-  readonly last_updated_at: string;
-}
-
-export interface AdminSetupStatusResponse {
-  readonly data_source: 'database' | 'stripe_direct' | 'empty';
-  readonly environment: string;
-  readonly public_base_url: string | null;
-  readonly allowed_origins: readonly string[];
-  readonly stripe: {
-    readonly secret_key_configured: boolean;
-    readonly webhook_secret_configured: boolean;
-    readonly business_sponsorship_enabled: boolean;
-    readonly dashboard_url: string;
-    readonly webhook_endpoint: string;
-  };
-  readonly email: {
-    readonly smtp_enabled: boolean;
-    readonly smtp_configured: boolean;
-    readonly smtp_host: string | null;
-    readonly smtp_port: number;
-    readonly smtp_secure: boolean;
-    readonly smtp_user_configured: boolean;
-    readonly smtp_password_configured: boolean;
-    readonly from: string | null;
-    readonly reply_to: string | null;
-    readonly admin_notification_email: string | null;
-    readonly admin_review_reminder_enabled: boolean;
-    readonly admin_review_reminder_min_age_days: number;
-    readonly admin_review_reminder_poll_interval_ms: number;
-    readonly admin_review_reminder_max_items: number;
-    readonly queue_available: boolean;
-    readonly queue_poll_interval_ms: number;
-    readonly queue_batch_size: number;
-    readonly queued_count: number;
-    readonly sending_count: number;
-    readonly sent_count: number;
-    readonly failed_count: number;
-    readonly last_failed_at: string | null;
-    readonly last_error: string | null;
-  };
-  readonly invoice: {
-    readonly prefix: string;
-    readonly issuer_name: string | null;
-    readonly issuer_email: string | null;
-    readonly issuer_address_configured: boolean;
-    readonly issuer_tax_id_configured: boolean;
-    readonly tax_label: string;
-    readonly ready: boolean;
-  };
-  readonly database: {
-    readonly configured: boolean;
-    readonly reachable: boolean;
-  };
-  readonly last_updated_at: string;
-}
-
-export interface AdminEmailTestRequest {
-  readonly requestId: string;
-  readonly to?: string;
-}
-
-export interface AdminEmailTestResult {
-  readonly requestId: string;
-  readonly status: AdminEmailQueueMessageStatus;
-  readonly to: string;
-  readonly queued: boolean;
-  readonly attempted: boolean;
-  readonly sent: boolean;
-  readonly messageId: string | null;
-  readonly error: string | null;
-  readonly deliveryMode?: 'disabled' | 'smtp';
-}
-
-export type AdminEmailQueueMessageStatus =
-  'queued' | 'sending' | 'sent' | 'failed';
-
-export interface AdminEmailQueueMessageRecord {
-  readonly id: string;
-  readonly template_key: string;
-  readonly recipient_email: string;
-  readonly from_email: string;
-  readonly reply_to_email: string | null;
-  readonly subject: string;
-  readonly status: AdminEmailQueueMessageStatus;
-  readonly attempts: number;
-  readonly max_attempts: number;
-  readonly next_attempt_at: string;
-  readonly sent_at: string | null;
-  readonly last_error: string | null;
-  readonly metadata: Record<string, unknown>;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-export interface AdminEmailQueueSummary {
-  readonly queued_count: number;
-  readonly sending_count: number;
-  readonly sent_count: number;
-  readonly failed_count: number;
-  readonly retryable_count: number;
-  readonly last_failed_at: string | null;
-  readonly last_error: string | null;
-}
-
-export interface AdminEmailQueueResponse {
-  readonly data_source: 'database';
-  readonly messages: readonly AdminEmailQueueMessageRecord[];
-  readonly summary: AdminEmailQueueSummary;
-  readonly last_updated_at: string;
-}
-
-export interface AdminEmailQueueRetryRequest {
-  readonly messageId: string;
-}
-
-export interface AdminEmailQueueRetryResult {
-  readonly attempted: number;
-  readonly sent: number;
-  readonly failed: number;
-  readonly messageIds: readonly string[];
-  readonly sentMessageIds: readonly string[];
-  readonly failedMessageIds: readonly string[];
-  readonly message: AdminEmailQueueMessageRecord | null;
-}
-
-export interface AdminSponsorshipInvoiceLineItem {
-  readonly description: string;
-  readonly quantity: number;
-  readonly unit_amount: number;
-  readonly total: number;
-}
-
-export interface AdminSponsorshipCreditNoteRecord {
-  readonly id: string;
-  readonly invoice_id: string;
-  readonly contribution_id: string;
-  readonly credit_note_number: string;
-  readonly invoice_number: string;
-  readonly public_reference: string | null;
-  readonly stripe_refund_id: string;
-  readonly stripe_payment_intent_id: string | null;
-  readonly issued_at: string;
-  readonly currency: string;
-  readonly subtotal: number;
-  readonly tax: number;
-  readonly total: number;
-  readonly tax_label: string;
-  readonly issuer_name: string;
-  readonly issuer_email: string | null;
-  readonly issuer_address: string | null;
-  readonly issuer_tax_id: string | null;
-  readonly sponsor_name: string;
-  readonly sponsor_contact_name: string | null;
-  readonly sponsor_contact_email: string | null;
-  readonly sponsor_website_url: string | null;
-  readonly line_items: readonly AdminSponsorshipInvoiceLineItem[];
-  readonly notes: string | null;
-  readonly last_email_status: string | null;
-  readonly last_email_recipient: string | null;
-  readonly last_email_sent_at: string | null;
-  readonly last_email_error: string | null;
-}
-
-export interface AdminSponsorshipInvoiceRecord {
-  readonly id: string;
-  readonly contribution_id: string;
-  readonly invoice_number: string;
-  readonly public_reference: string | null;
-  readonly stripe_session_id: string;
-  readonly stripe_payment_intent_id: string | null;
-  readonly issued_at: string;
-  readonly paid_at: string | null;
-  readonly currency: string;
-  readonly subtotal: number;
-  readonly tax: number;
-  readonly total: number;
-  readonly tax_label: string;
-  readonly issuer_name: string;
-  readonly issuer_email: string | null;
-  readonly issuer_address: string | null;
-  readonly issuer_tax_id: string | null;
-  readonly sponsor_name: string;
-  readonly sponsor_contact_name: string | null;
-  readonly sponsor_contact_email: string | null;
-  readonly sponsor_website_url: string | null;
-  readonly line_items: readonly AdminSponsorshipInvoiceLineItem[];
-  readonly notes: string | null;
-  readonly last_email_status: string | null;
-  readonly last_email_recipient: string | null;
-  readonly last_email_sent_at: string | null;
-  readonly last_email_error: string | null;
-  readonly credit_notes: readonly AdminSponsorshipCreditNoteRecord[];
-}
-
-export interface AdminSponsorshipInvoicesSummary {
-  readonly total_count: number;
-  readonly total_amount: number;
-  readonly credit_note_count: number;
-  readonly total_credited: number;
-  readonly failed_email_count: number;
-  readonly currency: string;
-}
-
-export interface AdminSponsorshipInvoicesResponse {
-  readonly data_source: 'database';
-  readonly invoices: readonly AdminSponsorshipInvoiceRecord[];
-  readonly summary: AdminSponsorshipInvoicesSummary;
-  readonly last_updated_at: string;
-}
-
-export const SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION = 'BACKFILL_INVOICES';
-
-export interface AdminSponsorshipInvoiceBackfillRequest {
-  readonly confirmation: string;
-  readonly contributionId?: string;
-  readonly limit?: number;
-}
-
-export interface AdminSponsorshipInvoiceBackfillError {
-  readonly contribution_id: string;
-  readonly stripe_session_id: string | null;
-  readonly error: string;
-}
-
-export interface AdminSponsorshipInvoiceBackfillResult {
-  readonly data_source: 'database';
-  readonly eligible_count: number;
-  readonly missing_count: number;
-  readonly processed_count: number;
-  readonly created_count: number;
-  readonly skipped_count: number;
-  readonly remaining_count: number;
-  readonly failed_count: number;
-  readonly invoiceIds: readonly string[];
-  readonly invoices: readonly AdminSponsorshipInvoiceRecord[];
-  readonly errors: readonly AdminSponsorshipInvoiceBackfillError[];
-  readonly last_updated_at: string;
-}
-
-export interface AdminSponsorshipInvoiceResendRequest {
-  readonly invoiceId: string;
-  readonly to: string;
-  readonly confirmation: string;
-  readonly requestId: string;
-}
-
-export interface AdminSponsorshipInvoiceResendResult {
-  readonly queued: boolean;
-  readonly attempted: boolean;
-  readonly sent: boolean;
-  readonly messageId: string | null;
-  readonly error: string | null;
-  readonly invoice: AdminSponsorshipInvoiceRecord | null;
-}
-
-export interface AdminSponsorshipCreditNoteResendRequest {
-  readonly creditNoteId: string;
-  readonly to: string;
-  readonly confirmation: string;
-  readonly requestId: string;
-}
-
-export interface AdminSponsorshipCreditNoteResendResult {
-  readonly queued: boolean;
-  readonly attempted: boolean;
-  readonly sent: boolean;
-  readonly messageId: string | null;
-  readonly error: string | null;
-  readonly creditNote: AdminSponsorshipCreditNoteRecord | null;
-}
-
-export interface AdminSessionCreateRequest {
-  readonly token: string;
-}
-
-export interface AdminSessionResponse {
-  readonly actor: string;
-  readonly expiresAt: string;
-  readonly sessionToken: string;
-  readonly ttlSeconds: number;
-}
-
-export interface AdminPublicationDraftRecord {
-  readonly id: string;
-  readonly contribution_id: string;
-  readonly sponsor_company_name: string;
-  readonly sponsor_website_url: string | null;
-  readonly sponsor_logo_url: string | null;
-  readonly sponsor_public_summary: string | null;
-  readonly feed_target: SponsorFeedTarget;
-  readonly channel: SponsorFeedChannel;
-  readonly title: string;
-  readonly body: string;
-  readonly disclosure_text: string;
-  readonly status: PublicationDraftStatus;
-  readonly public_url: string | null;
-  readonly scheduled_at: string | null;
-  readonly approved_at: string | null;
-  readonly published_at: string | null;
-  readonly review_note: string | null;
-  readonly batch_id: string | null;
-  readonly slot_id: string | null;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-export interface AdminPublicationDraftsResponse {
-  readonly data_source: 'database';
-  readonly drafts: readonly AdminPublicationDraftRecord[];
-  readonly last_updated_at: string;
-}
-
-export interface AdminPublicationDraftCreateRequest {
-  readonly contributionId: string;
-  readonly feedTarget: SponsorFeedTarget;
-  readonly channel: SponsorFeedChannel;
-}
-
-export interface AdminPublicationDraftUpdateRequest {
-  readonly draftId: string;
-  readonly title?: string;
-  readonly body?: string;
-  readonly disclosureText?: string;
-  readonly status?: PublicationDraftStatus;
-  readonly publicUrl?: string;
-  readonly scheduledAt?: string | null;
-  readonly reviewNote?: string;
-}
-
-export interface AdminPublicationDraftMutationResult {
-  readonly updated: boolean;
-  readonly draft: AdminPublicationDraftRecord | null;
-}
-
-/**
- * A "lot": a capacity-bounded group of approved sponsorship drafts that go
- * out together as a single collective Facebook/LinkedIn post. Scheduling or
- * publishing a batch cascades to every draft assigned to it; publishing is
- * always an explicit admin action, never automatic on payment or approval.
- */
-export type PublicationBatchStatus =
-  'open' | 'scheduled' | 'published' | 'cancelled';
-
-export type PublicationSlotStatus =
-  'open' | 'scheduled' | 'published' | 'cancelled';
-
-export interface AdminPublicationBatchRecord {
-  readonly id: string;
-  readonly channel: SponsorFeedChannel;
-  readonly capacity: number;
-  readonly status: PublicationBatchStatus;
-  readonly slotId: string | null;
-  readonly scheduledAt: string | null;
-  readonly publishedAt: string | null;
-  readonly notes: string | null;
-  readonly assignedDraftIds: readonly string[];
-  readonly capacityUsed: number;
-  readonly capacityAvailable: number;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
-
-export interface AdminPublicationBatchesResponse {
-  readonly data_source: 'database';
-  readonly batches: readonly AdminPublicationBatchRecord[];
-  readonly last_updated_at: string;
-}
-
-export interface AdminPublicationBatchCreateRequest {
-  readonly channel: SponsorFeedChannel;
-  readonly capacity: number;
-  readonly notes?: string;
-}
-
-export interface AdminPublicationBatchAssignRequest {
-  readonly batchId: string;
-  readonly draftId: string;
-}
-
-export interface AdminPublicationBatchUnassignRequest {
-  readonly draftId: string;
-}
-
-export interface AdminPublicationBatchScheduleRequest {
-  readonly batchId: string;
-  readonly scheduledAt: string;
-}
-
-export interface AdminPublicationBatchLifecycleRequest {
-  readonly batchId: string;
-}
-
-export interface AdminPublicationBatchMutationResult {
-  readonly updated: boolean;
-  readonly batch: AdminPublicationBatchRecord | null;
-}
-
-export interface AdminPublicationSlotRecord {
-  readonly id: string;
-  readonly feedTarget: SponsorFeedTarget;
-  readonly channel: SponsorFeedChannel;
-  readonly startsAt: string;
-  readonly timezone: string;
-  readonly capacity: number;
-  readonly status: PublicationSlotStatus;
-  readonly notes: string | null;
-  readonly assignedBatchIds: readonly string[];
-  readonly assignedDraftIds: readonly string[];
-  readonly capacityUsed: number;
-  readonly capacityAvailable: number;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
-
-export interface AdminPublicationSlotsResponse {
-  readonly data_source: 'database';
-  readonly slots: readonly AdminPublicationSlotRecord[];
-  readonly last_updated_at: string;
-}
-
-export interface AdminPublicationSlotCreateRequest {
-  readonly feedTarget: SponsorFeedTarget;
-  readonly channel: SponsorFeedChannel;
-  readonly startsAt: string;
-  readonly timezone?: string;
-  readonly capacity: number;
-  readonly notes?: string;
-}
-
-export interface AdminPublicationSlotUpdateRequest {
-  readonly slotId: string;
-  readonly startsAt?: string;
-  readonly timezone?: string;
-  readonly capacity?: number;
-  readonly notes?: string | null;
-}
-
-export interface AdminPublicationSlotAssignBatchRequest {
-  readonly slotId: string;
-  readonly batchId: string;
-}
-
-export interface AdminPublicationSlotAssignDraftRequest {
-  readonly slotId: string;
-  readonly draftId: string;
-}
-
-export interface AdminPublicationSlotLifecycleRequest {
-  readonly slotId: string;
-}
-
-export interface AdminPublicationSlotMutationResult {
-  readonly updated: boolean;
-  readonly slot: AdminPublicationSlotRecord | null;
-}
-
-export type SocialPublicationMode = 'disabled' | 'mock' | 'live';
-
-export type SocialPublicationStatus =
-  'pending' | 'publishing' | 'published' | 'failed';
-
-export interface AdminSocialPublicationJobRecord {
-  readonly id: string;
-  readonly batchId: string;
-  readonly channel: SponsorFeedChannel;
-  readonly provider: 'facebook' | 'linkedin';
-  readonly mode: SocialPublicationMode;
-  readonly status: SocialPublicationStatus;
-  readonly idempotencyKey: string;
-  readonly title: string;
-  readonly body: string;
-  readonly disclosureText: string;
-  readonly draftIds: readonly string[];
-  readonly externalPostId: string | null;
-  readonly externalPostUrl: string | null;
-  readonly errorCode: string | null;
-  readonly errorMessage: string | null;
-  readonly attemptedAt: string | null;
-  readonly publishedAt: string | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
-
-export interface AdminSocialPublicationJobsResponse {
-  readonly data_source: 'database';
-  readonly mode: SocialPublicationMode;
-  readonly configuredChannels: readonly SponsorFeedChannel[];
-  readonly jobs: readonly AdminSocialPublicationJobRecord[];
-  readonly last_updated_at: string;
-}
-
-export interface AdminSocialPublicationBatchPublishRequest {
-  readonly batchId: string;
-  readonly confirmationText: string;
-}
-
-export interface AdminSocialPublicationBatchPublishResult {
-  readonly published: boolean;
-  readonly mode: SocialPublicationMode;
-  readonly job: AdminSocialPublicationJobRecord | null;
-  readonly batch: AdminPublicationBatchRecord | null;
-}
-
-export interface AdminAuditLogEntry {
-  readonly id: string;
-  readonly actor: string;
-  readonly action: string;
-  readonly entity_type: string;
-  readonly entity_id: string | null;
-  readonly summary: string | null;
-  readonly metadata: Record<string, unknown>;
-  readonly created_at: string;
-}
-
-export interface AdminAuditLogResponse {
-  readonly data_source: 'database';
-  readonly entries: readonly AdminAuditLogEntry[];
-  readonly last_updated_at: string;
-}
-
-export interface AdminExpenseRecord {
-  readonly id: string;
-  readonly project_name: string;
-  readonly public_description: string;
-  readonly expected_outcome: string;
-  readonly progress_status: 'planned' | 'in_progress' | 'delivered';
-  readonly proof_url: string | null;
-  readonly proof_source: string | null;
-  readonly proof_published_at: string | null;
-  readonly amount_allocated: number;
-  readonly currency: string;
-  readonly status: AdminExpenseStatus;
-  readonly published_at: string | null;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-export interface AdminExpensesSummary {
-  readonly total_count: number;
-  readonly published_count: number;
-  readonly draft_count: number;
-  readonly private_count: number;
-  readonly archived_count: number;
-  readonly total_allocated: number;
-  readonly published_allocated: number;
-  readonly currency: string;
-}
-
-export interface AdminExpensesResponse {
-  readonly data_source: 'database';
-  readonly summary: AdminExpensesSummary;
-  readonly expenses: readonly AdminExpenseRecord[];
-  readonly last_updated_at: string;
-}
-
-export interface AdminExpenseCreateRequest {
-  readonly confirmation?: string;
-  readonly projectName: string;
-  readonly publicDescription: string;
-  readonly expectedOutcome: string;
-  readonly progressStatus: 'planned' | 'in_progress' | 'delivered';
-  readonly proofUrl?: string | null;
-  readonly proofSource?: string | null;
-  readonly proofPublishedAt?: string | null;
-  readonly amountAllocated: number;
-  readonly currency: 'CAD';
-  readonly status: AdminExpenseStatus;
-  readonly publishedAt?: string | null;
-}
-
-export interface AdminExpenseUpdateRequest {
-  readonly confirmation?: string;
-  readonly expenseId: string;
-  readonly expectedVersion: string;
-  readonly projectName?: string;
-  readonly publicDescription?: string;
-  readonly expectedOutcome?: string;
-  readonly progressStatus?: 'planned' | 'in_progress' | 'delivered';
-  readonly proofUrl?: string | null;
-  readonly proofSource?: string | null;
-  readonly proofPublishedAt?: string | null;
-  readonly amountAllocated?: number;
-  readonly currency?: 'CAD';
-  readonly status?: AdminExpenseStatus;
-  readonly publishedAt?: string | null;
-}
-
-export interface AdminExpenseMutationResult {
-  readonly updated: boolean;
-  readonly expense: AdminExpenseRecord | null;
-}
-
-export interface AdminTransparencyResponse {
-  readonly data_source: 'database';
-  readonly public_summary: FundTransparencyPublicResponse;
-  readonly expenses_summary: AdminExpensesSummary;
-  readonly expenses: readonly AdminExpenseRecord[];
-  readonly last_updated_at: string;
-}
-
-export interface AdminSponsorshipReviewRequest {
-  readonly contributionId: string;
-  readonly reviewStatus: SponsorshipReviewStatus;
-  readonly reviewNote?: string;
-  readonly expectedVersion: string;
-  readonly notifySponsor?: boolean;
-  readonly notificationEmail?: string;
-  readonly sponsorMessage?: string;
-  readonly refundHandling?: AdminSponsorshipRejectionRefundHandling;
-  readonly refundNote?: string;
-}
-
-export type AdminSponsorshipRejectionRefundHandling =
-  'none' | 'manual_required' | 'manual_completed';
-
-export interface AdminSponsorshipReviewResult {
-  readonly updated: boolean;
-  readonly reviewStatus: SponsorshipReviewStatus;
-  readonly refundHandling?: AdminSponsorshipRejectionRefundHandling;
-  readonly refundWorkflowStatus?: AdminSponsorshipRefundWorkflowStatus;
-  readonly notification?: {
-    readonly queued: boolean;
-    readonly attempted: boolean;
-    readonly sent: boolean;
-    readonly messageId: string | null;
-    readonly error: string | null;
-  };
-}
-
-export interface AdminSponsorshipRefundRequest {
-  readonly contributionId: string;
-  readonly expectedVersion: string;
-  readonly confirmationText: string;
-  readonly amount?: number;
-  readonly refundReason?: AdminSponsorshipStripeRefundReason;
-  readonly refundNote?: string;
-  readonly notifySponsor?: boolean;
-  readonly notificationEmail?: string;
-  readonly sponsorMessage?: string;
-}
-
-export interface AdminSponsorshipRefundResult {
-  readonly refunded: boolean;
-  readonly refundId: string;
-  readonly refundStatus: string | null;
-  readonly refundWorkflowStatus: AdminSponsorshipRefundWorkflowStatus;
-  readonly refundReason: AdminSponsorshipStripeRefundReason;
-  readonly fullRefund: boolean;
-  readonly amount: number;
-  readonly currency: string;
-  readonly contributionId: string;
-  readonly paymentStatusUpdated: boolean;
-  readonly sponsorship: AdminSponsorshipRecord | null;
-  readonly creditNote: AdminSponsorshipCreditNoteRecord | null;
-  readonly notification?: {
-    readonly queued: boolean;
-    readonly attempted: boolean;
-    readonly sent: boolean;
-    readonly messageId: string | null;
-    readonly error: string | null;
-  };
-}
-
-export interface AdminSponsorshipPublicationRequest {
-  readonly contributionId: string;
-  readonly expectedVersion: string;
-  readonly publicSlug?: string;
-  readonly publicSummary?: string;
-  readonly feedTarget?: SponsorFeedTarget | null;
-  readonly feedChannels: readonly SponsorFeedChannel[];
-  readonly feedStatus: SponsorFeedStatus;
-  readonly feedPublicUrl?: string;
-  readonly feedNotes?: string;
-}
-
-export interface AdminSponsorshipPublicationResult {
-  readonly updated: boolean;
-  readonly feedStatus: SponsorFeedStatus;
-}
-
-// ============================================================================
-// Admin AI assistant (read-only operational copilot) — iteration 1.
-//
-// The assistant never owns business state: statuses, amounts, permissions and
-// validations always come from the deterministic application services. These
-// types describe (1) the deterministic attention work queue and (2) the
-// controlled conversational answer. No business decision is encoded here.
-// ============================================================================
-
-export type AdminAttentionItemType =
-  | 'sponsorship_needs_info'
-  | 'sponsorship_needs_review'
-  | 'publication_needs_preparation'
-  | 'publication_late'
-  | 'email_delivery_failed'
-  | 'invoice_missing'
-  | 'stripe_event_failed'
-  | 'stripe_event_stalled'
-  | 'publication_ready'
-  | 'publication_slot_upcoming'
-  | 'financial_data_warning';
-
-export type AdminAttentionSeverity =
-  'urgent' | 'today' | 'this_week' | 'informational';
-
-/**
- * How the admin UI should treat a suggested action. Iteration 1 only emits
- * `navigate` (open the existing admin screen). `prepare` and
- * `confirmation_required` are reserved for later iterations and must never
- * trigger a write on their own.
- */
-export type AdminAttentionActionExecutionMode =
-  'navigate' | 'prepare' | 'confirmation_required';
-
-export interface AdminAttentionSuggestedAction {
-  readonly actionType: string;
-  readonly label: string;
-  readonly executionMode: AdminAttentionActionExecutionMode;
-}
-
-export type AdminAttentionFactValue = string | number | boolean | null;
-
-export interface AdminAttentionItem {
-  readonly id: string;
-  readonly type: AdminAttentionItemType;
-  readonly severity: AdminAttentionSeverity;
-  readonly title: string;
-  readonly explanation: string;
-  readonly sponsorshipId?: string;
-  readonly contributionId?: string;
-  readonly publicationId?: string;
-  readonly emailQueueId?: string;
-  readonly detectedAt: string;
-  readonly dueAt?: string;
-  readonly adminUrl?: string;
-  /**
-   * Minimal, non-sensitive facts backing the item. Never contains raw contact
-   * emails, full addresses, follow-up tokens, Stripe secrets or SMTP secrets.
-   */
-  readonly facts: Record<string, AdminAttentionFactValue>;
-  readonly suggestedActions: readonly AdminAttentionSuggestedAction[];
-}
-
-export interface AdminAssistantFinancialSummary {
-  readonly grossPaid: number;
-  readonly processingFees: number | null;
-  readonly refunded: number;
-  readonly netReceived: number | null;
-  readonly currency: string;
-  /** Human-readable caveats; used so no figure is presented as available cash. */
-  readonly limitations: readonly string[];
-}
-
-export interface AdminAssistantSummary {
-  readonly generatedAt: string;
-  readonly counts: {
-    readonly urgent: number;
-    readonly today: number;
-    readonly thisWeek: number;
-    readonly informational: number;
-  };
-  readonly sponsorships: {
-    readonly needsInfo: number;
-    readonly needsReview: number;
-    readonly approved: number;
-  };
-  readonly publications: {
-    readonly needsPreparation: number;
-    readonly scheduled: number;
-    readonly late: number;
-  };
-  readonly emails: {
-    readonly failed: number;
-  };
-  readonly financialSummary?: AdminAssistantFinancialSummary;
-  readonly attentionItems: readonly AdminAttentionItem[];
-}
-
-/**
- * `disabled` = no model provider; the deterministic summary still works.
- * `mock` = deterministic in-process provider for tests and demos.
- * `live` = a real external provider (reserved; not wired in iteration 1).
- */
-export type AdminAssistantMode = 'disabled' | 'mock' | 'live';
-
-export interface AdminAssistantQueryRequest {
-  readonly sponsorshipId?: string;
-  readonly message: string;
-}
-
-export type AdminAssistantAnswerBlockKind =
-  'facts' | 'interpretation' | 'recommendation' | 'data_unavailable';
-
-/**
- * Anti-hallucination contract: every answer is split into typed blocks so the
- * UI (and the reader) can always tell a tool-sourced fact from an
- * interpretation, a recommendation, or a "data unavailable" statement.
- */
-export interface AdminAssistantAnswerBlock {
-  readonly kind: AdminAssistantAnswerBlockKind;
-  readonly title: string;
-  readonly lines: readonly string[];
-}
-
-export interface AdminAssistantAnswerLink {
-  readonly label: string;
-  readonly adminUrl: string;
-}
-
-export interface AdminAssistantToolInvocationSummary {
-  readonly tool: string;
-  readonly resultCount: number;
-}
-
-export type AdminAssistantQueryStatus =
-  | 'ok'
-  | 'assistant_disabled'
-  | 'provider_not_configured'
-  | 'no_results'
-  | 'timeout'
-  | 'provider_error';
-
-export interface AdminAssistantQueryResponse {
-  readonly generatedAt: string;
-  readonly mode: AdminAssistantMode;
-  readonly enabled: boolean;
-  readonly status: AdminAssistantQueryStatus;
-  readonly answer: readonly AdminAssistantAnswerBlock[];
-  readonly links: readonly AdminAssistantAnswerLink[];
-  readonly toolInvocations: readonly AdminAssistantToolInvocationSummary[];
-  readonly limitations: readonly string[];
-  readonly provider: {
-    readonly name: string;
-    readonly model: string | null;
-  };
-}
-
-// ============================================================================
-// Admin AI assistant — iteration 2: preparatory drafts (generation only).
-//
-// The assistant may PREPARE draft content the administrator can review, but it
-// NEVER persists, sends, publishes or executes anything. Every proposal is
-// explicitly flagged as not sent / not published / not persisted, and always
-// points to the existing admin screen where the human takes the real action.
-// Refund preparation is intentionally out of scope for this iteration.
-// ============================================================================
-
-export type AdminAssistantDraftType =
-  'sponsorship_reminder' | 'publication_draft' | 'admin_note' | 'slot_proposal';
-
-export interface AdminAssistantDraftField {
-  readonly label: string;
-  readonly value: string;
-}
-
-export interface AdminAssistantDraftProposal {
-  readonly type: AdminAssistantDraftType;
-  readonly generatedAt: string;
-  /** Public reference / admin id of the related record, never private data. */
-  readonly reference: string | null;
-  readonly title: string;
-  readonly bodyLines: readonly string[];
-  /** Structured extras (subject, channel, proposed date…). */
-  readonly fields: readonly AdminAssistantDraftField[];
-  readonly adminUrl: string;
-  /** Human-readable, unmissable "nothing was sent/published" notice. */
-  readonly notice: string;
-  readonly limitations: readonly string[];
-  readonly sent: false;
-  readonly published: false;
-  readonly persisted: false;
-}
-
-export interface AdminAssistantPrepareRequest {
-  readonly language?: 'fr-CA' | 'en';
-  readonly type: AdminAssistantDraftType;
-  /** Sponsorship reference/id, or publication id for a slot proposal. */
-  readonly reference?: string;
-}
-
-export type AdminAssistantPrepareStatus =
-  'ok' | 'not_found' | 'not_applicable' | 'assistant_unavailable';
-
-export interface AdminAssistantPrepareResponse {
-  readonly delivery?: import('./admin-assistant-context.js').AdminInformationRequestPreview;
-  readonly status: AdminAssistantPrepareStatus;
-  readonly draft: AdminAssistantDraftProposal | null;
-  readonly message: string | null;
-}
 
 export type {
   AdminAttentionDueFilter,
   AdminWorkQueueQuery,
   AdminWorkQueueResponse
 } from './admin-work-queue.js';
+
 export type {
   AdminSearchRequest,
   AdminSearchResponse,
   AdminSearchGroup
 } from './admin-search.js';
+
 export type {
   AdminStripeEvent,
   AdminStripeEventResponse
@@ -1492,7 +52,8 @@ export type {
   AdminAssistantNextStep,
   AdminInformationRequestPreview,
   AdminInformationRequest,
-  AdminInformationRequestResult
+  AdminInformationRequestResult,
+  AdminAssistantMode
 } from './admin-assistant-context.js';
 
 export type {
@@ -1506,20 +67,25 @@ export type {
   AdminSponsorshipProgress,
   AdminSponsorshipProgressResponse
 } from './sponsorship-progress.js';
+
 export { SPONSORSHIP_FOLLOWUP_DAYS } from './sponsorship-interventions.js';
+
 export type {
   SponsorshipInterventionKind,
   SponsorshipInterventionRequest,
   SponsorshipIntervention,
   SponsorshipInterventionsResponse
 } from './sponsorship-interventions.js';
+
 export { validateAdminSponsorshipDetails } from './admin-sponsorship-details.js';
+
 export type {
   AdminSponsorshipDetails,
   AdminSponsorshipCorrectionReason,
   AdminSponsorshipDetailsRequest,
   AdminSponsorshipDetailsResult
 } from './admin-sponsorship-details.js';
+
 export type {
   AdminCockpitMetrics,
   AdminCockpitActivity,
@@ -1536,9 +102,192 @@ export type {
 } from './admin-cockpit.js';
 
 export * from './publication-automation.js';
+
 export * from './admin-pilotage.js';
+
 export * from './editorial-programme.js';
+
 export * from './contribution-activity.js';
+
 export * from './admin-expenses.js';
+
 export * from './admin-backups.js';
+
 export * from './sponsorship-validation.js';
+
+export type { ContributionType } from './contribution-contracts.js';
+
+export type {
+  SponsorFeedTarget,
+  SponsorFeedChannel,
+  SponsorFeedStatus,
+  PublicationDraftStatus,
+  PublicSponsorshipBatchAvailability,
+  PublicSponsorshipPublicationSlot,
+  PublicSponsorshipBatchAvailabilityResponse,
+  AdminPublicationDraftRecord,
+  AdminPublicationDraftsResponse,
+  AdminPublicationDraftCreateRequest,
+  AdminPublicationDraftUpdateRequest,
+  AdminPublicationDraftMutationResult,
+  PublicationBatchStatus,
+  PublicationSlotStatus,
+  AdminPublicationBatchRecord,
+  AdminPublicationBatchesResponse,
+  AdminPublicationBatchCreateRequest,
+  AdminPublicationBatchAssignRequest,
+  AdminPublicationBatchUnassignRequest,
+  AdminPublicationBatchScheduleRequest,
+  AdminPublicationBatchLifecycleRequest,
+  AdminPublicationBatchMutationResult,
+  AdminPublicationSlotRecord,
+  AdminPublicationSlotsResponse,
+  AdminPublicationSlotCreateRequest,
+  AdminPublicationSlotUpdateRequest,
+  AdminPublicationSlotAssignBatchRequest,
+  AdminPublicationSlotAssignDraftRequest,
+  AdminPublicationSlotLifecycleRequest,
+  AdminPublicationSlotMutationResult,
+  SocialPublicationMode,
+  SocialPublicationStatus,
+  AdminSocialPublicationJobRecord,
+  AdminSocialPublicationJobsResponse,
+  AdminSocialPublicationBatchPublishRequest,
+  AdminSocialPublicationBatchPublishResult
+} from './publication-contracts.js';
+
+export type {
+  CheckoutConsentPayload,
+  CheckoutRequest,
+  MockCheckoutResult,
+  RedirectCheckoutResult,
+  CheckoutResult
+} from './checkout.js';
+
+export { createMockCheckoutResult } from './checkout.js';
+
+export type {
+  FundingSnapshot,
+  PublicMonthlySummary,
+  PublicFundAllocation,
+  PublicBuilderProfile,
+  PublicBuildersResponse,
+  PublicFundingRuntimeConfig,
+  FundTransparencyPublicResponse
+} from './public-funding.js';
+
+export type {
+  SponsorMediaKind,
+  SponsorMediaReviewStatus,
+  SponsorMediaUploader,
+  SponsorMediaAsset,
+  PublicSponsorMediaAsset,
+  SponsorMediaLimits,
+  SponsorshipMediaResponse,
+  SponsorMediaUploadResult,
+  SponsorMediaDeleteRequest,
+  SponsorMediaDeleteResult,
+  AdminSponsorMediaReviewRequest,
+  AdminSponsorMediaReviewResult,
+  AdminSponsorMediaDeleteRequest,
+  AdminSponsorLogoUploadResult,
+  AdminSponsorLogoDeleteRequest,
+  AdminSponsorLogoDeleteResult
+} from './sponsor-media.js';
+
+export type {
+  PublicSponsorshipProfile,
+  PublicSponsorshipsResponse,
+  SponsorshipReviewStatus,
+  AdminSponsorshipRefundWorkflowStatus,
+  AdminSponsorshipStripeRefundReason,
+  AdminSponsorshipRecord,
+  AdminSponsorshipsResponse,
+  AdminSponsorshipReviewRequest,
+  AdminSponsorshipRejectionRefundHandling,
+  AdminSponsorshipReviewResult,
+  AdminSponsorshipRefundRequest,
+  AdminSponsorshipRefundResult,
+  AdminSponsorshipPublicationRequest,
+  AdminSponsorshipPublicationResult
+} from './sponsorship-contracts.js';
+
+export type {
+  PublicReferenceLookupRequest,
+  PublicReferenceLookupNextStep,
+  PublicReferenceLookupFoundResponse,
+  PublicReferenceLookupNotFoundResponse,
+  PublicReferenceLookupResponse,
+  ReferenceRecoveryRequest,
+  ReferenceRecoveryResult
+} from './public-reference.js';
+
+export type { AdminPagination } from './admin-pagination.js';
+
+export type {
+  AdminContributionRecord,
+  AdminContributionsSummary,
+  AdminContributionsResponse,
+  AdminContributionsExportRequest,
+  AdminDashboardResponse
+} from './admin-contributions.js';
+
+export type {
+  AdminSetupStatusResponse,
+  AdminEmailTestRequest,
+  AdminEmailTestResult,
+  AdminEmailQueueMessageStatus,
+  AdminEmailQueueMessageRecord,
+  AdminEmailQueueSummary,
+  AdminEmailQueueResponse,
+  AdminEmailQueueRetryRequest,
+  AdminEmailQueueRetryResult,
+  AdminSessionCreateRequest,
+  AdminSessionResponse
+} from './admin-system.js';
+
+export type {
+  AdminSponsorshipInvoiceLineItem,
+  AdminSponsorshipCreditNoteRecord,
+  AdminSponsorshipInvoiceRecord,
+  AdminSponsorshipInvoicesSummary,
+  AdminSponsorshipInvoicesResponse,
+  AdminSponsorshipInvoiceBackfillRequest,
+  AdminSponsorshipInvoiceBackfillError,
+  AdminSponsorshipInvoiceBackfillResult,
+  AdminSponsorshipInvoiceResendRequest,
+  AdminSponsorshipInvoiceResendResult,
+  AdminSponsorshipCreditNoteResendRequest,
+  AdminSponsorshipCreditNoteResendResult
+} from './sponsorship-documents.js';
+
+export { SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION } from './sponsorship-documents.js';
+
+export type {
+  AdminAuditLogEntry,
+  AdminAuditLogResponse
+} from './admin-audit.js';
+
+export type {
+  AdminAttentionItemType,
+  AdminAttentionSeverity,
+  AdminAttentionActionExecutionMode,
+  AdminAttentionSuggestedAction,
+  AdminAttentionFactValue,
+  AdminAttentionItem,
+  AdminAssistantFinancialSummary,
+  AdminAssistantSummary,
+  AdminAssistantQueryRequest,
+  AdminAssistantAnswerBlockKind,
+  AdminAssistantAnswerBlock,
+  AdminAssistantAnswerLink,
+  AdminAssistantToolInvocationSummary,
+  AdminAssistantQueryStatus,
+  AdminAssistantQueryResponse,
+  AdminAssistantDraftType,
+  AdminAssistantDraftField,
+  AdminAssistantDraftProposal,
+  AdminAssistantPrepareRequest,
+  AdminAssistantPrepareStatus,
+  AdminAssistantPrepareResponse
+} from './admin-assistant.js';
