@@ -3,7 +3,8 @@ import test from 'node:test';
 
 import {
   createSponsorMediaAsset,
-  deleteSponsorMediaAsset
+  deleteSponsorMediaAsset,
+  reviewSponsorMediaAsset
 } from '../dist/apps/funding-api/src/sponsor-media.repository.js';
 
 const contributionId = '10000000-0000-4000-8000-000000000001';
@@ -282,4 +283,78 @@ test('media deletion commits after locking the sponsor dossier before the asset'
   assert.match(locks[0], /FROM fund_contributions/);
   assert.match(locks[1], /FROM sponsor_media_assets/);
   assertClosed(calls, 'COMMIT');
+});
+
+const reviewInput = {
+  assetId,
+  expectedVersion: version,
+  reviewStatus: 'approved',
+  altText: 'Synthetic logo',
+  publicStorageKey: 'synthetic/public.webp',
+  publicUrl: 'https://example.test/synthetic.webp',
+  reviewedBy: 'synthetic-admin'
+};
+
+test('media review returns the accepted version and storage references', async () => {
+  const reviewedVersion = '2026-09-02 00:00:00+00';
+  const calls = [];
+  const pool = {
+    async query(sql, parameters) {
+      calls.push({ sql, parameters });
+      return {
+        rows: [
+          assetRow({
+            review_status: 'approved',
+            alt_text: reviewInput.altText,
+            public_storage_key: reviewInput.publicStorageKey,
+            public_url: reviewInput.publicUrl,
+            reviewed_at: reviewedVersion,
+            version: reviewedVersion
+          })
+        ]
+      };
+    }
+  };
+  const result = await reviewSponsorMediaAsset(pool, reviewInput);
+  assert.equal(result.status, 'updated');
+  assert.equal(result.asset.version, reviewedVersion);
+  assert.equal(result.asset.reviewStatus, 'approved');
+  assert.equal(result.asset.altText, reviewInput.altText);
+  assert.equal(result.asset.publicStorageKey, reviewInput.publicStorageKey);
+  assert.equal(result.asset.publicUrl, reviewInput.publicUrl);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].parameters, [
+    assetId,
+    reviewInput.reviewStatus,
+    reviewInput.altText,
+    reviewInput.publicStorageKey,
+    reviewInput.publicUrl,
+    reviewInput.reviewedBy,
+    version
+  ]);
+});
+
+test('media review distinguishes stale versions from missing assets through a fresh lookup', async (t) => {
+  const currentVersion = '2026-09-02 00:00:00+00';
+  for (const current of [assetRow({ version: currentVersion }), null]) {
+    await t.test(current ? 'conflict' : 'not_found', async () => {
+      const calls = [];
+      const responses = [[], current ? [current] : []];
+      const pool = {
+        async query(sql, parameters) {
+          calls.push({ sql, parameters });
+          assert.ok(responses.length, 'Unexpected database query');
+          return { rows: responses.shift() };
+        }
+      };
+      const result = await reviewSponsorMediaAsset(pool, reviewInput);
+      assert.equal(result.status, current ? 'conflict' : 'not_found');
+      assert.equal(
+        result.asset?.version ?? null,
+        current ? currentVersion : null
+      );
+      assert.equal(calls.length, 2);
+      assert.deepEqual(calls[1].parameters, [assetId]);
+    });
+  }
 });
