@@ -20,6 +20,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
   imports: [CommonModule, RouterLink, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './funding-checkout-notice.component.html',
+  styleUrl: './funding-checkout-notice.component.css',
   host: { '[attr.aria-busy]': 'checking()' },
   styles: [':host { display: block; }']
 })
