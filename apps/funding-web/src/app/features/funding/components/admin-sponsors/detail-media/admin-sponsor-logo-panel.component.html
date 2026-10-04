@@ -1,0 +1,63 @@
+<article class="detail-card">
+  <h3>{{ 'admin.legacy.logo_actuel' | translate }}</h3>
+  <figure
+    class="logo-preview large-preview"
+    *ngIf="identity().logoPreviewSource; else noLogoPreview"
+  >
+    <img
+      [src]="identity().logoPreviewSource"
+      [alt]="'Logo ' + (identity().companyName || 'commanditaire')"
+    />
+  </figure>
+  <ng-template #noLogoPreview
+    ><p class="muted-copy">
+      {{ 'admin.legacy.aucun_logo_disponible' | translate }}
+    </p></ng-template
+  >
+  <dl class="compact-definition-list">
+    <div>
+      <dt>{{ 'admin.legacy.url_du_logo' | translate }}</dt>
+      <dd>
+        <a
+          *ngIf="identity().logoUrl; else emptyLogoUrl"
+          [href]="identity().logoUrl"
+          target="_blank"
+          rel="noreferrer"
+          >{{ identity().logoUrl }}</a
+        ><ng-template #emptyLogoUrl>{{
+          'admin.legacy.non_fourni' | translate
+        }}</ng-template>
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.legacy.nom_public' | translate }}</dt>
+      <dd>{{ identity().publicNameLabel }}</dd>
+    </div>
+    <div>
+      <dt>{{ 'admin.legacy.site_web_public' | translate }}</dt>
+      <dd>
+        {{ identity().websiteUrl || ('admin.legacy.non_fourni' | translate) }}
+      </dd>
+    </div>
+  </dl>
+  <div class="logo-actions">
+    <label class="logo-upload-control"
+      >{{ identity().logoActionLabel
+      }}<input
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        [disabled]="identity().uploadDisabled"
+        (change)="uploadLogo.emit($event)" /></label
+    ><button
+      type="button"
+      class="secondary-danger-action"
+      [disabled]="identity().deleteDisabled"
+      (click)="deleteLogo.emit()"
+    >
+      {{ 'admin.legacy.supprimer_le_logo' | translate }}
+    </button>
+  </div>
+  <small class="inline-status" aria-live="polite">{{
+    identity().statusMessage
+  }}</small>
+</article>

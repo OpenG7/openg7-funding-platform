@@ -1,6 +1,9 @@
 import { readFundingCoreSource } from './support/funding-core-source.mjs';
 import { readFundingPersistenceSource } from './support/funding-persistence-source.mjs';
-import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
+import {
+  readAdminSponsorsSource,
+  readAdminSponsorsComponentSource
+} from './support/admin-sponsors-source.mjs';
 import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { translatedUiSource } from './support/translated-ui-source.mjs';
@@ -48,8 +51,8 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
     );
   const setupPage = readAdminOperationsSource('setup');
   const sponsorsPage = readAdminSponsorsSource();
-  const sponsorsListPanel = read(
-    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsors-list-panel.component.ts'
+  const sponsorsResults = readAdminSponsorsComponentSource(
+    'list-results/admin-sponsors-results'
   );
   const sponsorDetailHeader = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-header.component.ts'
@@ -62,6 +65,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
   const sponsorDetailMedia = read(
     'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsor-detail-media.component.ts'
+  );
+  const sponsorLogoPanel = readAdminSponsorsComponentSource(
+    'detail-media/admin-sponsor-logo-panel'
+  );
+  const sponsorMediaCard = readAdminSponsorsComponentSource(
+    'detail-media/admin-sponsor-media-card'
   );
   const invoicesPage = readAdminAccountingSource('invoices');
   const emailQueuePage = readAdminOperationsSource('email-queue');
@@ -379,7 +388,7 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
   );
 
   assertIncludesAll(
-    sponsorsListPanel,
+    sponsorsResults,
     [
       'sponsor-row-state-action-required',
       'sponsor-row-state-approved-ready',
@@ -440,15 +449,26 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'uploadLogo = output<Event>()',
       'deleteLogo = output<void>()',
       'approveAllMedia = output<readonly AdminSponsorMediaReviewEvent[]>()',
-      'secondary-danger-action',
-      'compact-definition-list',
-      'large-preview',
-      'image/png,image/jpeg,image/webp',
-      'admin.legacy.texte_alternatif',
-      'admin.legacy.optionnel',
       'Tout approuver'
     ],
     'admin sponsor detail media component'
+  );
+
+  assertIncludesAll(
+    sponsorLogoPanel,
+    [
+      'secondary-danger-action',
+      'compact-definition-list',
+      'large-preview',
+      'image/png,image/jpeg,image/webp'
+    ],
+    'admin sponsor logo panel'
+  );
+
+  assertIncludesAll(
+    sponsorMediaCard,
+    ['admin.legacy.texte_alternatif', 'admin.legacy.optionnel'],
+    'admin sponsor media card'
   );
 
   assertIncludesAll(

@@ -1,6 +1,9 @@
 import { readFundingCoreSource } from './support/funding-core-source.mjs';
 import { readFundingPersistenceSource } from './support/funding-persistence-source.mjs';
-import { readAdminSponsorsSource } from './support/admin-sponsors-source.mjs';
+import {
+  readAdminSponsorsSource,
+  readAdminSponsorsComponentSource
+} from './support/admin-sponsors-source.mjs';
 import { readAdminPublicationsSource } from './support/admin-publications-source.mjs';
 import { readFundingApiSource } from './support/funding-api-source.mjs';
 import { readEmailNotificationSource } from './support/email-notification-source.mjs';
@@ -1991,9 +1994,8 @@ test('Admin sponsors publication channels are preselected from amount-based bene
 
 test('Admin sponsor rows are color-coded by processing state', () => {
   const page = readAdminSponsorsSource();
-  const listPanel = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/components/admin-sponsors/admin-sponsors-list-panel.component.ts',
-    'utf8'
+  const results = readAdminSponsorsComponentSource(
+    'list-results/admin-sponsors-results'
   );
 
   for (const marker of [
@@ -2024,8 +2026,8 @@ test('Admin sponsor rows are color-coded by processing state', () => {
     '--sponsor-row-accent'
   ]) {
     assert.ok(
-      listPanel.includes(marker),
-      `sponsors list panel must include ${marker}`
+      results.includes(marker),
+      `sponsors results must include ${marker}`
     );
   }
 
