@@ -1636,6 +1636,66 @@ test('private access resend confirms recipient and retry reuses the request iden
   });
 });
 
+test('a late access recipient cannot open confirmation for another dossier', async ({
+  page
+}) => {
+  const { calls } = await fixtures(page, 'owner');
+  let release!: () => void;
+  const recipientGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let recipientRequested = false;
+  await page.route(
+    '**/api/admin/sponsorships/followup-access*',
+    async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      recipientRequested = true;
+      await recipientGate;
+      await route.fulfill({
+        json: { recipient: 'old-dossier@example.invalid' }
+      });
+    }
+  );
+  await page.goto('/admin/fundraiser/sponsors');
+  await page.locator('[data-og7="sponsor-row"]').first().click();
+  await expect(
+    page.getByRole('button', { name: 'Dossier suivant', exact: true })
+  ).toBeEnabled();
+  await page.getByText('Accès au suivi', { exact: true }).click();
+  const recipientResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname.endsWith('/followup-access') &&
+      url.searchParams.get('contributionId') === id
+    );
+  });
+  await page
+    .locator('[data-og7="admin-followup-access"]')
+    .getByRole('button')
+    .click();
+  try {
+    await expect.poll(() => recipientRequested).toBe(true);
+    await page
+      .getByRole('button', { name: 'Dossier suivant', exact: true })
+      .click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Atelier Rivage'
+    );
+  } finally {
+    release();
+  }
+  await (await recipientResponse).finished();
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  );
+  await expect(progress(page)).not.toHaveAttribute('aria-busy', 'true');
+  await expect(
+    page.locator('[data-og7="admin-followup-access"]').getByRole('button')
+  ).toBeEnabled();
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  expect(postsTo(calls, '/followup-access')).toHaveLength(0);
+});
+
 test('logo upload rejects invalid files, reports failure and deletion is confirmed', async ({
   page
 }) => {
@@ -3036,6 +3096,32 @@ test('denied progress clears facts and expired session returns to login', async 
     .getByRole('button', { name: 'Actualiser le dossier' })
     .click();
   await expect(page).toHaveURL(/\/admin\/login/);
+});
+
+test('refreshing progress clears invoice facts until the server responds', async ({
+  page
+}) => {
+  const { options, calls } = await fixtures(page);
+  await page.goto(path('billing'));
+  await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
+  let release!: () => void;
+  options.progressGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    await progress(page)
+      .getByRole('button', { name: 'Actualiser le dossier' })
+      .click();
+    await expect(progress(page)).toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('#dossier-billing')).not.toContainText(
+      'FAC-DEMO-401'
+    );
+    expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
+  } finally {
+    release();
+    options.progressGate = null;
+  }
+  await expect(page.locator('#dossier-billing')).toContainText('FAC-DEMO-401');
 });
 
 test('English compact dossier supports keyboard at mobile width without horizontal overflow', async ({

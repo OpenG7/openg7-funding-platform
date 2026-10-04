@@ -385,6 +385,58 @@ test('late context responses cannot overwrite a newly selected dossier', async (
   );
 });
 
+for (const status of [200, 401]) {
+  test(`a late preparation response (${status}) cannot affect a newly selected dossier`, async ({
+    page
+  }) => {
+    await fixtures(page);
+    await page.goto(path());
+    await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
+      'DEMO-301'
+    );
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/admin/assistant/prepare', async (route) => {
+      await held;
+      await route.fulfill({ status, json: proposal });
+    });
+    const started = page.waitForRequest('**/api/admin/assistant/prepare');
+    await page
+      .getByRole('button', { name: 'Demander des informations' })
+      .click();
+    await started;
+    await page.evaluate((next) => {
+      history.pushState({}, '', next);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }, path(secondId));
+    await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
+      'DEMO-302'
+    );
+    const finished = page.waitForResponse('**/api/admin/assistant/prepare');
+    release();
+    await finished;
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        )
+    );
+    await expect(page).toHaveURL(path(secondId));
+    await expect(page.locator('[data-og7="assistant-reference"]')).toHaveText(
+      'DEMO-302'
+    );
+    await expect(
+      page.locator('[data-og7="assistant-information-form"]')
+    ).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Actualiser le contexte' })
+    ).toBeEnabled();
+  });
+}
+
 test('mobile English context has no horizontal overflow and uses English preparation', async ({
   page
 }, testInfo) => {

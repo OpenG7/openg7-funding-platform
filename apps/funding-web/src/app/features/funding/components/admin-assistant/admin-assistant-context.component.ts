@@ -11,55 +11,26 @@ import {
   inject,
   input,
   output,
-  signal,
   viewChild
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type {
-  AdminAssistantContextResponse,
-  AdminAssistantDraftType,
-  AdminAssistantPrepareResponse,
-  AdminAssistantQueryResponse,
-  AdminInformationRequest,
-  AdminInformationRequestResult
-} from '@openg7/funding-core';
+import type { AdminAssistantDraftType } from '@openg7/funding-core';
 
-import {
-  AdminDashboardRequestError,
-  FundingAdminService
-} from '../../services/funding-admin.service.js';
+import { FundingAdminService } from '../../services/funding-admin.service.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminIconComponent } from '../admin-ui/admin-icon.component.js';
 
+import {
+  AdminAssistantContextController,
+  AssistantContextNavigation
+} from './admin-assistant-context-controller.js';
+import type { AssistantContextSnapshot } from './admin-assistant-context-controller.js';
 import { AdminAssistantDraftComponent } from './admin-assistant-draft.component.js';
 import { AdminAssistantAnswerComponent } from './admin-assistant-answer.component.js';
 
-interface AssistantContextSnapshot {
-  readonly contributionId: string;
-  readonly version: string;
-  readonly sessionGeneration: number;
-  readonly identityId: string | null;
-  readonly prepared: AdminAssistantPrepareResponse | null;
-  readonly answer: AdminAssistantQueryResponse | null;
-  readonly subject: string;
-  readonly body: string;
-  readonly question: string;
-}
-
-/** One-use, in-memory handoff. Router navigation info never enters browser history. */
-class AssistantContextNavigation {
-  constructor(private snapshot: AssistantContextSnapshot | null) {}
-
-  take(): AssistantContextSnapshot | null {
-    const snapshot = this.snapshot;
-    this.snapshot = null;
-    return snapshot;
-  }
-}
-
-/** Funding organism: exact dossier loading and explicit human actions, independent of the model. */
+/** Funding organism: dossier presentation, navigation and explicit confirmation UI. */
 @Component({
   selector: 'openg7-admin-assistant-context',
   standalone: true,
@@ -86,19 +57,6 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   readonly dossierOpen = output<void>();
   readonly sponsorshipId = input<string>();
   readonly refreshKey = input<unknown>(0);
-  readonly data = signal<AdminAssistantContextResponse | null>(null);
-  readonly state = signal<'loading' | 'ready' | 'error' | 'forbidden'>(
-    'loading'
-  );
-  readonly busy = signal(false);
-  readonly error = signal('');
-  readonly prepared = signal<AdminAssistantPrepareResponse | null>(null);
-  readonly answer = signal<AdminAssistantQueryResponse | null>(null);
-  readonly delivery = signal<AdminInformationRequestResult | null>(null);
-  readonly confirmation = signal<AdminInformationRequest | null>(null);
-  readonly subject = signal('');
-  readonly body = signal('');
-  readonly question = signal('');
   readonly dialog =
     viewChild<ElementRef<HTMLDialogElement>>('confirmationDialog');
   readonly router = inject(Router);
@@ -106,28 +64,48 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
   private readonly admin = inject(FundingAdminService);
   private readonly platform = inject(PLATFORM_ID);
   private readonly destroy = inject(DestroyRef);
-  readonly canPrepare = computed(
-    () => this.admin.identity()?.role !== 'reader'
-  );
-  readonly workspaceNavigation = computed(() => {
-    const context = this.data()?.context;
-    return new AssistantContextNavigation(
-      context
-        ? {
-            contributionId: context.contributionId,
-            version: context.version,
-            sessionGeneration: this.admin.sessionGeneration(),
-            identityId: this.admin.identity()?.id ?? null,
-            prepared: this.prepared(),
-            answer: this.answer(),
-            subject: this.subject(),
-            body: this.body(),
-            question: this.question()
-          }
-        : null
-    );
+  private readonly controller = new AdminAssistantContextController({
+    sponsorshipId: () => this.sponsorshipId(),
+    hasValidSession: () => this.admin.hasValidAdminSession(),
+    token: () => this.admin.getSavedAdminToken(),
+    canPrepare: () => this.admin.identity()?.role !== 'reader',
+    sessionGeneration: () => this.admin.sessionGeneration(),
+    identityId: () => this.admin.identity()?.id ?? null,
+    isDestroyed: () => this.destroy.destroyed,
+    language: () => this.i18n.currentLanguage(),
+    getAssistantContext: (token, id) =>
+      this.admin.getAssistantContext(token, id),
+    prepareAssistantDraft: (token, payload) =>
+      this.admin.prepareAssistantDraft(token, payload),
+    queryAssistant: (token, payload) =>
+      this.admin.queryAssistant(token, payload),
+    requestSponsorshipInformation: (token, payload) =>
+      this.admin.requestSponsorshipInformation(token, payload),
+    refreshWorkQueue: () => this.admin.refreshWorkQueue(),
+    onUnauthorized: async () => {
+      this.admin.clearAdminSession();
+      await this.router.navigate(['/admin/login'], {
+        queryParams: { returnUrl: this.router.url }
+      });
+    },
+    closeConfirmation: () => this.dialog()?.nativeElement.close(),
+    openConfirmation: () => this.dialog()?.nativeElement.showModal()
   });
-  private generation = 0;
+  readonly data = this.controller.data;
+  readonly state = this.controller.state;
+  readonly busy = this.controller.busy;
+  readonly error = this.controller.error;
+  readonly prepared = this.controller.prepared;
+  readonly answer = this.controller.answer;
+  readonly delivery = this.controller.delivery;
+  readonly confirmation = this.controller.confirmation;
+  readonly subject = this.controller.subject;
+  readonly body = this.controller.body;
+  readonly question = this.controller.question;
+  readonly canPrepare = this.controller.canPrepare;
+  readonly workspaceNavigation = computed(
+    () => new AssistantContextNavigation(this.controller.snapshot())
+  );
   private initialized = false;
 
   ngOnInit(): void {
@@ -142,187 +120,32 @@ export class AdminAssistantContextComponent implements OnInit, OnChanges {
         : null
     );
   }
+
   ngOnChanges(): void {
     if (this.initialized) void this.load();
   }
-  private current(generation: number): boolean {
-    return generation === this.generation && !this.destroy.destroyed;
+
+  load(snapshot: AssistantContextSnapshot | null = null): Promise<void> {
+    return this.controller.load(snapshot);
   }
-  async load(snapshot: AssistantContextSnapshot | null = null): Promise<void> {
-    const generation = ++this.generation;
-    this.dialog()?.nativeElement.close();
-    this.confirmation.set(null);
-    this.data.set(null);
-    this.prepared.set(null);
-    this.answer.set(null);
-    this.delivery.set(null);
-    this.subject.set('');
-    this.body.set('');
-    this.question.set('');
-    this.error.set('');
-    this.busy.set(false);
-    this.state.set('loading');
-    try {
-      if (!this.admin.hasValidAdminSession())
-        throw new AdminDashboardRequestError(401);
-      const data = await this.admin.getAssistantContext(
-        this.admin.getSavedAdminToken(),
-        this.sponsorshipId()
-      );
-      if (!this.current(generation)) return;
-      this.data.set(data);
-      this.state.set('ready');
-      const context = data.context;
-      if (
-        snapshot &&
-        context &&
-        snapshot.contributionId === context.contributionId &&
-        snapshot.sessionGeneration === this.admin.sessionGeneration() &&
-        snapshot.identityId === (this.admin.identity()?.id ?? null)
-      ) {
-        this.question.set(snapshot.question);
-        if (snapshot.version === context.version) {
-          this.answer.set(snapshot.answer);
-          if (this.canPrepare()) {
-            this.prepared.set(snapshot.prepared);
-            this.subject.set(snapshot.subject);
-            this.body.set(snapshot.body);
-          }
-        } else if (snapshot.prepared) this.error.set('conflict');
-      }
-    } catch (error) {
-      if (this.current(generation)) {
-        this.state.set('error');
-        await this.handleError(error, false);
-      }
-    }
+
+  prepare(type: AdminAssistantDraftType): Promise<void> {
+    return this.controller.prepare(type);
   }
-  async prepare(type: AdminAssistantDraftType): Promise<void> {
-    const context = this.data()?.context;
-    if (!context || this.busy() || !this.canPrepare()) return;
-    this.prepared.set(null);
-    this.delivery.set(null);
-    await this.act(async () => {
-      const result = await this.admin.prepareAssistantDraft(
-        this.admin.getSavedAdminToken(),
-        {
-          type,
-          reference: context.contributionId,
-          language: this.i18n.currentLanguage()
-        }
-      );
-      return () => {
-        this.prepared.set(result);
-        this.subject.set(result.delivery?.subject ?? '');
-        this.body.set(result.delivery?.body ?? '');
-      };
-    });
-  }
+
   reviewSend(): void {
-    const preview = this.prepared()?.delivery;
-    if (
-      !preview ||
-      !this.canPrepare() ||
-      this.busy() ||
-      !this.subject().trim() ||
-      !this.body().trim()
-    )
-      return;
-    this.confirmation.set({
-      ...preview,
-      subject: this.subject().trim(),
-      body: this.body().trim(),
-      confirmed: true
-    });
-    this.dialog()?.nativeElement.showModal();
+    this.controller.reviewSend();
   }
+
   cancelSend(): void {
-    this.dialog()?.nativeElement.close();
-    this.confirmation.set(null);
+    this.controller.cancelSend();
   }
-  async send(): Promise<void> {
-    const input = this.confirmation();
-    if (!input || this.busy() || !this.canPrepare()) return;
-    this.cancelSend();
-    await this.act(async () => {
-      const result = await this.admin.requestSponsorshipInformation(
-        this.admin.getSavedAdminToken(),
-        input
-      );
-      return () => {
-        this.delivery.set(result);
-        void this.admin.refreshWorkQueue();
-        this.prepared.set(null);
-        this.subject.set('');
-        this.body.set('');
-      };
-    });
+
+  send(): Promise<void> {
+    return this.controller.send();
   }
-  async ask(): Promise<void> {
-    const context = this.data()?.context;
-    if (
-      !context ||
-      !this.question().trim() ||
-      this.busy() ||
-      this.data()?.conversationMode === 'disabled'
-    )
-      return;
-    this.answer.set(null);
-    await this.act(async () => {
-      const answer = await this.admin.queryAssistant(
-        this.admin.getSavedAdminToken(),
-        {
-          message: this.question().trim(),
-          sponsorshipId: context.contributionId
-        }
-      );
-      return () => this.answer.set(answer);
-    });
-  }
-  private async act(work: () => Promise<() => void>): Promise<void> {
-    const generation = this.generation;
-    this.busy.set(true);
-    this.error.set('');
-    try {
-      const apply = await work();
-      if (this.current(generation)) apply();
-    } catch (error) {
-      if (this.current(generation)) await this.handleError(error);
-    } finally {
-      if (this.current(generation)) this.busy.set(false);
-    }
-  }
-  private async handleError(error: unknown, action = true): Promise<void> {
-    const status =
-      error instanceof AdminDashboardRequestError ? error.status : 0;
-    if (status === 403 && action) {
-      // An action can be forbidden while the dossier remains readable.
-      // Recheck access before showing facts; discard the rejected private draft.
-      const generation = this.generation + 1;
-      await this.load();
-      if (
-        this.current(generation) &&
-        this.state() === 'ready' &&
-        this.data()?.context
-      )
-        this.error.set('actionForbidden');
-      return;
-    }
-    if (status === 401 || status === 403) {
-      this.data.set(null);
-      this.prepared.set(null);
-      this.answer.set(null);
-      this.delivery.set(null);
-      this.state.set('forbidden');
-      if (status === 401) {
-        this.admin.clearAdminSession();
-        await this.router.navigate(['/admin/login'], {
-          queryParams: { returnUrl: this.router.url }
-        });
-      }
-    } else if (status === 409) {
-      this.prepared.set(null);
-      this.error.set('conflict');
-    } else if (action) this.error.set('actionError');
+
+  ask(): Promise<void> {
+    return this.controller.ask();
   }
 }
