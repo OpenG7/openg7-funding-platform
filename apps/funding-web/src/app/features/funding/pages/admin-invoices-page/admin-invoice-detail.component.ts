@@ -39,6 +39,7 @@ import type {
   ]
 })
 export class AdminInvoiceDetailComponent {
+  readonly canManage = input(true);
   readonly view = input.required<AdminInvoiceDetailView | null>();
   readonly invoiceDownload = output<AdminSponsorshipInvoiceRecord>();
   readonly invoiceInspection = output<AdminSponsorshipInvoiceRecord>();

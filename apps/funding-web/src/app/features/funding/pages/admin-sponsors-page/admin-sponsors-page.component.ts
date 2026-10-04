@@ -9,7 +9,6 @@ import {
   DestroyRef,
   ElementRef,
   Injector,
-  OnDestroy,
   OnInit,
   PLATFORM_ID,
   ViewChild,
@@ -35,9 +34,7 @@ import {
 } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import type {
-  AdminPagination,
   AdminSponsorshipRecord,
-  AdminSponsorshipProgress,
   SponsorFeedStatus,
   SponsorshipReviewStatus
 } from '@openg7/funding-core';
@@ -53,6 +50,7 @@ import { AdminSponsorPublicationWorkflow } from '../../services/admin-sponsor-pu
 import { AdminSponsorHistoryProjection } from '../../models/admin-sponsor-history.projection.js';
 import { AdminSponsorRefundWorkflow } from '../../services/admin-sponsor-refund-workflow.js';
 import { AdminSponsorMediaWorkflow } from '../../services/admin-sponsor-media-workflow.js';
+import { AdminSponsorListController } from '../../services/admin-sponsor-list-controller.js';
 import { AdminInspectionService } from '../../services/admin-inspection.service.js';
 import { dossierSectionTab } from '../../models/admin-sponsorship-navigation.js';
 import { AdminConfirmationService } from '../../services/admin-confirmation.service.js';
@@ -77,13 +75,9 @@ import { AdminSponsorDetailTabsComponent } from '../../components/admin-sponsors
 import { AdminSponsorsListPanelComponent } from '../../components/admin-sponsors/admin-sponsors-list-panel.component.js';
 import { AdminSponsorsSummaryComponent } from '../../components/admin-sponsors/admin-sponsors-summary.component.js';
 import type {
-  AdminSponsorFeedStatusOption,
   AdminSponsorRefundHistoryView,
   AdminSponsorAuditHistoryView,
-  SponsorDetailsTab,
-  SponsorFeedStatusFilter,
-  SponsorPaymentStatusFilter,
-  SponsorshipReviewFilter
+  SponsorDetailsTab
 } from '../../models/admin-sponsors-ui.models.js';
 import { AdminSponsorPublicationPanelComponent } from '../../components/admin-sponsors/admin-sponsor-publication-panel.component.js';
 import { AdminSponsorRefundHistoryComponent } from '../../components/admin-sponsors/admin-sponsor-refund-history.component.js';
@@ -91,23 +85,6 @@ import { AdminSponsorAuditHistoryComponent } from '../../components/admin-sponso
 import { AdminSponsorRejectionPanelComponent } from '../../components/admin-sponsors/admin-sponsor-rejection-panel.component.js';
 import { AdminSponsorRefundPanelComponent } from '../../components/admin-sponsors/admin-sponsor-refund-panel.component.js';
 import { AdminSponsorDecisionActionsComponent } from '../../components/admin-sponsors/admin-sponsor-decision-actions.component.js';
-
-const feedStatuses: readonly SponsorFeedStatus[] = [
-  'not_planned',
-  'planned',
-  'drafted',
-  'published'
-];
-
-const pageSizeOptions = [6, 10, 25] as const;
-const defaultPagination: AdminPagination = {
-  page: 1,
-  pageSize: 6,
-  totalItems: 0,
-  totalPages: 1,
-  hasPreviousPage: false,
-  hasNextPage: false
-};
 
 @Component({
   selector: 'openg7-admin-sponsors-page',
@@ -965,27 +942,21 @@ const defaultPagination: AdminPagination = {
     `
   ]
 })
-export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
+export class AdminSponsorsPageComponent implements OnInit {
   readonly guideExpanded = signal(false);
   readonly sponsorsList = viewChild(AdminSponsorsListPanelComponent);
   private readonly followupAccess =
     viewChild<ElementRef<HTMLDetailsElement>>('followupAccess');
-  private listPosition: [number, number] = [0, 0];
   readonly isFinanceTab = computed(
     () => this.activeTab() === 'billing' || this.activeTab() === 'refund'
   );
 
   adjacentDossier(direction: -1 | 1): string | null {
-    const rows = this.sponsorListRows();
-    const index = rows.findIndex(
-      (row) => row.id === this.selectedSponsorshipId()
-    );
-    return index < 0 ? null : (rows[index + direction]?.id ?? null);
+    return this.listController.adjacentDossier(direction);
   }
 
   openAdjacentDossier(direction: -1 | 1): void {
-    const id = this.adjacentDossier(direction);
-    if (id) this.selectSponsorshipById(id);
+    this.listController.openAdjacentDossier(direction);
   }
 
   openFollowupAccess(): void {
@@ -1033,6 +1004,46 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   private readonly sponsorDetailPanel?: ElementRef<HTMLElement>;
 
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly router = inject(Router);
+  readonly listController = new AdminSponsorListController({
+    admin: this.admin,
+    t: (key, params) => this.i18n.t(key, params),
+    reconcile: (previous, current, preserveDrafts) => {
+      this.reviewWorkflow.reconcile(previous, current, preserveDrafts);
+      this.publicationWorkflow.reconcile(previous, current, preserveDrafts);
+    },
+    loadLogoPreviews: (sponsorships) =>
+      this.mediaWorkflow.loadLogoPreviews(sponsorships),
+    loadSponsorMedia: (id) => this.mediaWorkflow.loadSponsorMedia(id),
+    closeDecisionPanels: () => {
+      this.reviewWorkflow.activeRejectionId.set(null);
+      this.refundWorkflow.activeRefundId.set(null);
+    },
+    messageFromError: (error, fallback) =>
+      this.messageFromError(error, fallback),
+    navigation: {
+      getScrollPosition: () => this.viewport.getScrollPosition(),
+      scrollToPosition: (position) =>
+        this.viewport.scrollToPosition(position, { behavior: 'instant' }),
+      hasPendingNavigation: () => !!this.router.currentNavigation(),
+      navigateDossier: (sponsorshipId, tab) => {
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { sponsorshipId, tab },
+          queryParamsHandling: 'merge'
+        });
+      },
+      afterRender: (callback) => {
+        afterNextRender(callback, { injector: this.injector });
+      },
+      focusDossier: () => {
+        const panel = this.sponsorDetailPanel?.nativeElement;
+        panel?.focus({ preventScroll: true });
+        panel?.scrollIntoView({ behavior: 'instant', block: 'start' });
+      },
+      focusListRow: (id) => this.sponsorsList()?.focusRow(id)
+    }
+  });
   private readonly sponsorActionPorts: AdminSponsorActionPorts = {
     t: (key, params) => this.i18n.t(key, params),
     adminToken: () => this.adminToken(),
@@ -1044,12 +1055,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
       this.messageFromError(error, fallback)
   };
 
-  private selectionRevision = 0;
   private readonly sponsorSelectionPorts: AdminSponsorSelectionPorts = {
     ...this.sponsorActionPorts,
-    selectionRevision: () => this.selectionRevision,
+    selectionRevision: () => this.listController.selectionRevision(),
     isCurrentSelection: (id) =>
-      !this.destroyRef.destroyed && this.selectedSponsorshipId() === id
+      !this.destroyRef.destroyed && this.listController.isCurrentSelection(id)
   };
   readonly reviewWorkflow = new AdminSponsorReviewWorkflow({
     ...this.sponsorSelectionPorts,
@@ -1062,17 +1072,11 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     paymentEligibilityMessage: (sponsorship) =>
       this.paymentEligibilityMessage(sponsorship),
     openRejectionPanel: (sponsorship) => this.openRejectionPanel(sponsorship),
-    beginApprovalFeedback: (id) => {
-      this.clearApprovalFeedback();
-      const attempt: SponsorshipApprovalFeedback | null = id
-        ? { id, phase: 'pending' }
-        : null;
-      this.approvalFeedback.set(attempt);
-      return attempt;
-    },
+    beginApprovalFeedback: (id) =>
+      this.listController.beginApprovalFeedback(id),
     finishApprovalFeedback: (attempt, phase) =>
-      this.finishApprovalFeedback(attempt, phase),
-    pulseSelection: (id) => this.pulseSelection(id),
+      this.listController.finishApprovalFeedback(attempt, phase),
+    pulseSelection: (id) => this.listController.pulseSelection(id),
     refundWorkflowStatusLabel: (status) =>
       this.historyProjection.refundWorkflowStatusLabel(status)
   });
@@ -1132,7 +1136,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     canUseOwnerActions: () => this.canUseOwnerActions(),
     setReviewMessage: (id, message, autoHide) =>
       this.reviewWorkflow.setReviewMessage(id, message, autoHide),
-    pulseSelection: (id) => this.pulseSelection(id),
+    pulseSelection: (id) => this.listController.pulseSelection(id),
     formatAmount: (amount, currency) => this.formatAmount(amount, currency),
     formatMoney: (sponsorship) =>
       this.presentationProjection.formatMoney(sponsorship),
@@ -1163,67 +1167,40 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     mediaLoaded: () => this.assistantRefresh.update((value) => value + 1)
   });
 
-  readonly adminToken = signal<string>('');
-  readonly sponsorships = signal<readonly AdminSponsorshipRecord[]>([]);
-  readonly state = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
-  readonly actionState = signal<string | null>(null);
-  readonly approvalFeedback = signal<SponsorshipApprovalFeedback | null>(null);
-  readonly search = signal<string>('');
-  readonly reviewFilter = signal<SponsorshipReviewFilter>('all');
-  readonly feedFilter = signal<SponsorFeedStatusFilter>('all');
-  readonly paymentFilter = signal<SponsorPaymentStatusFilter>('all');
-  readonly assistantRefresh = signal(0);
-  readonly progress = signal<AdminSponsorshipProgress | null>(null);
-  readonly websiteSettingsOpen = signal(false);
-  readonly versionConflict = signal(false);
-  private readonly router = inject(Router);
-
-  private loadGeneration = 0;
-  private routeInitialized = false;
-  readonly selectedSponsorshipId = signal<string | null>(null);
-  readonly activeTab = signal<SponsorDetailsTab>('overview');
-  readonly page = signal<number>(1);
-  readonly pageSize = signal<number>(6);
-  readonly pagination = signal<AdminPagination>(defaultPagination);
-  readonly selectionPulseId = signal<string | null>(null);
-  readonly copyMessages = signal<Record<string, string>>({});
-  readonly feedStatuses = feedStatuses;
-  readonly pageSizeOptions = pageSizeOptions;
-  readonly feedStatusOptions = computed<
-    readonly AdminSponsorFeedStatusOption[]
-  >(() =>
-    this.feedStatuses.map((status) => ({
-      value: status,
-      label: this.feedStatusLabel(status)
-    }))
-  );
-
-  readonly totalPages = computed(() => this.pagination().totalPages);
-  readonly normalizedPage = computed(() => this.pagination().page);
-  readonly paginatedSponsorships = computed(() => this.sponsorships());
+  readonly adminToken = this.listController.adminToken;
+  readonly sponsorships = this.listController.sponsorships;
+  readonly state = this.listController.state;
+  readonly actionState = this.listController.actionState;
+  readonly approvalFeedback = this.listController.approvalFeedback;
+  readonly search = this.listController.search;
+  readonly reviewFilter = this.listController.reviewFilter;
+  readonly feedFilter = this.listController.feedFilter;
+  readonly paymentFilter = this.listController.paymentFilter;
+  readonly assistantRefresh = this.listController.assistantRefresh;
+  readonly progress = this.listController.progress;
+  readonly websiteSettingsOpen = this.listController.websiteSettingsOpen;
+  readonly versionConflict = this.listController.versionConflict;
+  readonly selectedSponsorshipId = this.listController.selectedSponsorshipId;
+  readonly activeTab = this.listController.activeTab;
+  readonly page = this.listController.page;
+  readonly pageSize = this.listController.pageSize;
+  readonly pagination = this.listController.pagination;
+  readonly selectionPulseId = this.listController.selectionPulseId;
+  readonly copyMessages = this.listController.copyMessages;
+  readonly feedStatuses = this.listController.feedStatuses;
+  readonly pageSizeOptions = this.listController.pageSizeOptions;
+  readonly feedStatusOptions = this.listController.feedStatusOptions;
+  readonly totalPages = this.listController.totalPages;
+  readonly normalizedPage = this.listController.normalizedPage;
+  readonly paginatedSponsorships = this.listController.sponsorships;
   readonly sponsorListRows = computed(() =>
     this.paginatedSponsorships().map((sponsorship) =>
       this.presentationProjection.listRow(sponsorship)
     )
   );
-  readonly paginationStart = computed(() =>
-    this.pagination().totalItems === 0
-      ? 0
-      : (this.pagination().page - 1) * this.pagination().pageSize + 1
-  );
-  readonly paginationEnd = computed(() =>
-    this.pagination().totalItems === 0
-      ? 0
-      : this.paginationStart() + this.sponsorships().length - 1
-  );
-  readonly selectedSponsorship = computed(() => {
-    const selectedId = this.selectedSponsorshipId();
-    if (!selectedId) {
-      return null;
-    }
-
-    return this.sponsorships().find((item) => item.id === selectedId) ?? null;
-  });
+  readonly paginationStart = this.listController.paginationStart;
+  readonly paginationEnd = this.listController.paginationEnd;
+  readonly selectedSponsorship = this.listController.selectedSponsorship;
   readonly selectedSponsorDetailHeader = computed(() => {
     const selected = this.selectedSponsorship();
     return selected ? this.presentationProjection.header(selected) : null;
@@ -1321,50 +1298,23 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
           }
         : null;
     });
-  readonly hasActiveFilters = computed(
-    () =>
-      this.search().trim().length > 0 ||
-      this.reviewFilter() !== 'all' ||
-      this.feedFilter() !== 'all' ||
-      this.paymentFilter() !== 'all'
-  );
-
-  readonly visibleCount = computed(
-    () =>
-      this.sponsorships().filter(
-        (item) =>
-          item.sponsor_review_status === 'approved' &&
-          item.public_display_consent
-      ).length
-  );
-  readonly activeCount = computed(
-    () =>
-      this.sponsorships().filter(
-        (item) =>
-          item.payment_status === 'paid' &&
-          item.sponsor_review_status !== 'rejected'
-      ).length
-  );
-  readonly totalContribution = computed(() =>
-    this.sponsorships()
-      .filter((item) => item.payment_status === 'paid')
-      .reduce((total, item) => total + item.amount, 0)
-  );
-  private selectionPulseTimer: ReturnType<typeof setTimeout> | null = null;
-  private approvalFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingTabScroll: { id: number; position: [number, number] } | null =
-    null;
-  private readonly pendingSection = signal<{
-    fragment: string;
-    sponsorshipId: string;
-    tab: SponsorDetailsTab;
-  } | null>(null);
+  readonly hasActiveFilters = this.listController.hasActiveFilters;
+  readonly visibleCount = this.listController.visibleCount;
+  readonly activeCount = this.listController.activeCount;
+  readonly totalContribution = this.listController.totalContribution;
+  private readonly pendingSection = this.listController.pendingSection;
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.listController.dispose();
+      this.mediaWorkflow.dispose();
+      this.reviewWorkflow.dispose();
+      this.publicationWorkflow.dispose();
+    });
     afterRenderEffect(() => {
       const feedback = this.approvalFeedback();
       if (feedback && feedback.id !== this.selectedSponsorshipId()) {
-        this.clearApprovalFeedback();
+        this.listController.clearApprovalFeedback();
       }
     });
     afterRenderEffect(() => {
@@ -1390,7 +1340,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.adminToken.set(this.admin.getSavedAdminToken());
+    this.listController.initialize();
     this.router.events
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((event) => {
@@ -1398,24 +1348,22 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
           event instanceof NavigationStart ||
           event instanceof NavigationSkipped
         ) {
-          this.pendingSection.set(null);
           const imperative =
             event instanceof NavigationStart
               ? event.navigationTrigger === 'imperative'
               : event.code === NavigationSkippedCode.IgnoredSameUrlNavigation &&
                 this.router.currentNavigation()?.trigger === 'imperative';
-          this.pendingTabScroll =
+          this.listController.navigationStarted(
+            event.id,
             imperative && this.isDossierTabNavigation(event.url)
-              ? { id: event.id, position: this.viewport.getScrollPosition() }
-              : null;
+          );
           return;
         }
         if (
           event instanceof NavigationCancel ||
           event instanceof NavigationError
         ) {
-          if (this.pendingTabScroll?.id === event.id)
-            this.pendingTabScroll = null;
+          this.listController.navigationCancelled(event.id);
           return;
         }
         if (!(event instanceof Scroll)) return;
@@ -1428,8 +1376,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
             sponsorshipId &&
             (url.queryParams['tab'] ?? 'overview') === targetTab
           ) {
-            this.pendingTabScroll = null;
-            this.pendingSection.set({
+            this.listController.navigationScrolled(event.routerEvent.id, {
               fragment: event.anchor,
               sponsorshipId,
               tab: targetTab
@@ -1437,122 +1384,20 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
             return;
           }
         }
-        const pending = this.pendingTabScroll;
-        if (pending && pending.id === event.routerEvent.id) {
-          // Run after the router's own Scroll subscriber, regardless of subscription order.
-          queueMicrotask(() => {
-            if (
-              this.destroyRef.destroyed ||
-              this.router.currentNavigation() ||
-              this.pendingTabScroll !== pending
-            )
-              return;
-            this.pendingTabScroll = null;
-            this.viewport.scrollToPosition(pending.position, {
-              behavior: 'instant'
-            });
-          });
-        }
+        this.listController.navigationScrolled(event.routerEvent.id, null);
       });
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
-        const sponsorshipId = params.get('sponsorshipId')?.trim() || null;
-        const tab = params.get('tab') as SponsorDetailsTab;
-        this.activeTab.set(
-          [
-            'overview',
-            'identity',
-            'media',
-            'publication',
-            'billing',
-            'refund',
-            'audit'
-          ].includes(tab)
-            ? tab
-            : 'overview'
+        this.listController.applyRouteSelection(
+          params.get('sponsorshipId'),
+          params.get('tab')
         );
-        if (
-          this.routeInitialized &&
-          sponsorshipId === this.selectedSponsorshipId()
-        )
-          return;
-        const alreadyLoaded = this.sponsorships().some(
-          (item) => item.id === sponsorshipId
-        );
-        this.setSelectedSponsorshipId(sponsorshipId);
-        this.admin.selectSponsorship(sponsorshipId);
-        if (this.routeInitialized && (!sponsorshipId || alreadyLoaded)) {
-          void this.mediaWorkflow.loadSponsorMedia(sponsorshipId);
-          return;
-        }
-        this.routeInitialized = true;
-        this.search.set(sponsorshipId ?? '');
-        this.page.set(1);
-        void this.loadSponsorships();
       });
   }
 
-  ngOnDestroy(): void {
-    this.mediaWorkflow.dispose();
-    this.reviewWorkflow.dispose();
-    this.publicationWorkflow.dispose();
-    this.clearSelectionPulseTimer();
-    this.clearApprovalFeedback();
-  }
-
-  async loadSponsorships(preserveDrafts = false): Promise<void> {
-    if (this.destroyRef.destroyed) return;
-    const generation = ++this.loadGeneration;
-    this.state.set('loading');
-
-    try {
-      const response = await this.admin.getSponsorships(this.adminToken(), {
-        page: this.page(),
-        pageSize: this.pageSize(),
-        search: this.search(),
-        reviewStatus: this.reviewFilter(),
-        feedStatus: this.feedFilter(),
-        paymentStatus: this.paymentFilter(),
-        sort: 'priority',
-        direction: 'desc'
-      });
-      const sponsorships = response.items ?? response.sponsorships;
-      if (generation !== this.loadGeneration || this.destroyRef.destroyed)
-        return;
-      const previous = this.sponsorships();
-      this.reviewWorkflow.reconcile(previous, sponsorships, preserveDrafts);
-      this.publicationWorkflow.reconcile(
-        previous,
-        sponsorships,
-        preserveDrafts
-      );
-      this.versionConflict.set(false);
-      this.sponsorships.set(sponsorships);
-      this.assistantRefresh.update((value) => value + 1);
-      this.pagination.set(response.pagination ?? defaultPagination);
-      this.page.set(response.pagination?.page ?? this.page());
-      if (
-        this.selectedSponsorshipId() &&
-        !sponsorships.some((item) => item.id === this.selectedSponsorshipId())
-      ) {
-        this.setSelectedSponsorshipId(null);
-      }
-      if (this.selectedSponsorshipId())
-        this.admin.selectSponsorship(this.selectedSponsorshipId());
-      void this.admin.refreshWorkQueue();
-      this.state.set('ready');
-      this.saveToken();
-      void this.mediaWorkflow.loadLogoPreviews(sponsorships);
-      void this.mediaWorkflow.loadSponsorMedia(this.selectedSponsorshipId());
-    } catch (error) {
-      if (generation !== this.loadGeneration || this.destroyRef.destroyed)
-        return;
-      this.sponsorships.set([]);
-      this.progress.set(null);
-      this.messageFromError(error, '');
-      this.state.set('error');
-    }
+  loadSponsorships(preserveDrafts = false): Promise<void> {
+    return this.listController.loadSponsorships(preserveDrafts);
   }
   openRejectionPanel(sponsorship: AdminSponsorshipRecord): void {
     if (!this.reviewWorkflow.openRejectionPanel(sponsorship)) return;
@@ -1592,127 +1437,41 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
 
   setAdminToken(event: Event): void {
     this.adminToken.set(this.valueFromEvent(event));
-    this.saveToken();
+    this.listController.saveToken();
   }
 
   setSearchValue(value: string): void {
-    this.search.set(value);
-    this.page.set(1);
-    void this.loadSponsorships();
+    this.listController.setSearchValue(value);
   }
-
   setReviewFilterValue(value: string): void {
-    this.reviewFilter.set(
-      value === 'pending_review' || value === 'approved' || value === 'rejected'
-        ? value
-        : 'all'
-    );
-    this.page.set(1);
-    void this.loadSponsorships();
+    this.listController.setReviewFilterValue(value);
   }
-
   setFeedFilterValue(value: string): void {
-    this.feedFilter.set(
-      value === 'not_planned' ||
-        value === 'planned' ||
-        value === 'drafted' ||
-        value === 'published'
-        ? value
-        : 'all'
-    );
-    this.page.set(1);
-    void this.loadSponsorships();
+    this.listController.setFeedFilterValue(value);
   }
-
   setPaymentFilterValue(value: string): void {
-    this.paymentFilter.set(
-      value === 'paid' || value === 'refunded' || value === 'disputed'
-        ? value
-        : 'all'
-    );
-    this.page.set(1);
-    void this.loadSponsorships();
+    this.listController.setPaymentFilterValue(value);
   }
-
   resetFilters(): void {
-    this.search.set('');
-    this.reviewFilter.set('all');
-    this.feedFilter.set('all');
-    this.paymentFilter.set('all');
-    this.page.set(1);
-    void this.loadSponsorships();
+    this.listController.resetFilters();
   }
-
   setPageSizeValue(value: number): void {
-    this.pageSize.set(
-      pageSizeOptions.some((size) => size === value) ? value : 6
-    );
-    this.page.set(1);
-    void this.loadSponsorships();
+    this.listController.setPageSizeValue(value);
   }
-
   previousPage(): void {
-    this.page.set(Math.max(1, this.normalizedPage() - 1));
-    void this.loadSponsorships();
+    this.listController.previousPage();
   }
-
   nextPage(): void {
-    this.page.set(Math.min(this.totalPages(), this.normalizedPage() + 1));
-    void this.loadSponsorships();
+    this.listController.nextPage();
   }
-
   selectSponsorshipById(id: string): void {
-    if (!this.selectedSponsorshipId())
-      this.listPosition = this.viewport.getScrollPosition();
-    this.setSelectedSponsorshipId(id);
-    this.admin.selectSponsorship(id);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { sponsorshipId: id, tab: this.activeTab() },
-      queryParamsHandling: 'merge'
-    });
-    void this.mediaWorkflow.loadSponsorMedia(id);
-    this.pulseSelection(id);
-    this.scrollSelectedSponsorshipIntoView();
+    this.listController.selectSponsorshipById(id);
   }
-
   closeDetails(): void {
-    const previousId = this.selectedSponsorshipId();
-    if (this.search() === previousId) {
-      this.search.set('');
-      void this.loadSponsorships();
-    }
-    this.setSelectedSponsorshipId(null);
-    this.admin.selectSponsorship(null);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { sponsorshipId: null, tab: null },
-      queryParamsHandling: 'merge'
-    });
-    this.reviewWorkflow.activeRejectionId.set(null);
-    this.refundWorkflow.activeRefundId.set(null);
-    afterNextRender(
-      () => {
-        this.viewport.scrollToPosition(this.listPosition, {
-          behavior: 'instant'
-        });
-        this.sponsorsList()?.focusRow(previousId);
-      },
-      { injector: this.injector }
-    );
+    this.listController.closeDetails();
   }
-
   setActiveTab(tab: SponsorDetailsTab): void {
-    if (tab === this.activeTab()) return;
-    this.activeTab.set(tab);
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { sponsorshipId: this.selectedSponsorshipId(), tab },
-      queryParamsHandling: 'merge'
-    });
-    if (tab === 'media') {
-      void this.mediaWorkflow.loadSponsorMedia(this.selectedSponsorshipId());
-    }
+    this.listController.setActiveTab(tab);
   }
 
   private isDossierTabNavigation(url: string): boolean {
@@ -1746,43 +1505,12 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     return feedback?.id === id ? feedback.phase : 'idle';
   }
 
-  private finishApprovalFeedback(
-    attempt: SponsorshipApprovalFeedback,
-    phase: 'success' | 'error'
-  ): void {
-    if (
-      this.destroyRef.destroyed ||
-      this.approvalFeedback() !== attempt ||
-      this.selectedSponsorshipId() !== attempt.id
-    )
-      return;
-    this.approvalFeedback.set({ ...attempt, phase });
-    this.approvalFeedbackTimer = setTimeout(
-      () => this.clearApprovalFeedback(),
-      3000
-    );
-  }
-
-  private clearApprovalFeedback(): void {
-    if (this.approvalFeedbackTimer) clearTimeout(this.approvalFeedbackTimer);
-    this.approvalFeedbackTimer = null;
-    this.approvalFeedback.set(null);
-  }
-
   copyMessageFor(id: string): string {
     return this.copyMessages()[id] ?? '';
   }
 
   isActionPending(actionId: string): boolean {
     return this.actionState() === actionId;
-  }
-
-  private setSelectedSponsorshipId(id: string | null): void {
-    if (this.selectedSponsorshipId() !== id) {
-      this.selectionRevision += 1;
-      this.clearApprovalFeedback();
-    }
-    this.selectedSponsorshipId.set(id);
   }
 
   private canActOn(sponsorship: AdminSponsorshipRecord): boolean {
@@ -1807,19 +1535,7 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
   }
 
   feedStatusLabel(status: SponsorFeedStatus): string {
-    if (status === 'published') {
-      return this.i18n.t('admin.messages.publie');
-    }
-
-    if (status === 'drafted') {
-      return this.i18n.t('admin.legacy.brouillon');
-    }
-
-    if (status === 'planned') {
-      return this.i18n.t('admin.messages.planifie');
-    }
-
-    return this.i18n.t('admin.messages.non_planifie');
+    return this.listController.feedStatusLabel(status);
   }
 
   paymentStatusLabel(status: string): string {
@@ -1924,68 +1640,8 @@ export class AdminSponsorsPageComponent implements OnInit, OnDestroy {
     }).format(date);
   }
 
-  async copyReference(sponsorship: AdminSponsorshipRecord): Promise<void> {
-    if (!sponsorship.public_reference) {
-      return;
-    }
-
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(sponsorship.public_reference);
-      }
-      this.setCopyMessage(
-        sponsorship.id,
-        this.i18n.t('admin.messages.reference_copiee')
-      );
-    } catch {
-      this.setCopyMessage(
-        sponsorship.id,
-        this.i18n.t('admin.messages.copie_impossible')
-      );
-    }
-  }
-
-  private saveToken(): void {
-    this.admin.saveAdminToken(this.adminToken());
-  }
-
-  private pulseSelection(id: string): void {
-    this.clearSelectionPulseTimer();
-    this.selectionPulseId.set(null);
-    this.selectionPulseTimer = setTimeout(() => {
-      this.selectionPulseId.set(id);
-      this.selectionPulseTimer = setTimeout(() => {
-        if (this.selectionPulseId() === id) {
-          this.selectionPulseId.set(null);
-        }
-        this.selectionPulseTimer = null;
-      }, 520);
-    }, 0);
-  }
-
-  private scrollSelectedSponsorshipIntoView(): void {
-    afterNextRender(
-      () => {
-        const panel = this.sponsorDetailPanel?.nativeElement;
-        panel?.focus({ preventScroll: true });
-        panel?.scrollIntoView({ behavior: 'instant', block: 'start' });
-      },
-      { injector: this.injector }
-    );
-  }
-
-  private clearSelectionPulseTimer(): void {
-    if (this.selectionPulseTimer) {
-      clearTimeout(this.selectionPulseTimer);
-      this.selectionPulseTimer = null;
-    }
-  }
-
-  private setCopyMessage(id: string, message: string): void {
-    this.copyMessages.update((messages) => ({
-      ...messages,
-      [id]: message
-    }));
+  copyReference(sponsorship: AdminSponsorshipRecord): Promise<void> {
+    return this.listController.copyReference(sponsorship);
   }
 
   private messageFromError(error: unknown, fallback: string): string {

@@ -25,6 +25,7 @@ export default defineBuiltWebSuite({
     'admin-assistant-context.spec.ts',
     'admin-assistant-overview.spec.ts',
     'admin-sponsorship-progress.spec.ts',
+    'admin-sponsor-list-controller.ui.ts',
     'admin-publication-queue.spec.ts',
     'admin-publication-automation.spec.ts'
   ],

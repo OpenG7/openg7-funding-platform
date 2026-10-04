@@ -432,10 +432,17 @@ test('Public transparency can read aggregate data from fund contributions', () =
 
 test('Public transparency preserves allocation descriptions for the web page', () => {
   const apiSource = readFundingPersistenceSource('transparency');
-  const pageSource = fs.readFileSync(
-    'apps/funding-web/src/app/features/funding/pages/funding-transparency-page/funding-transparency-page.component.ts',
-    'utf8'
-  );
+  const pageSource = [
+    'pages/funding-transparency-page/funding-transparency-page.component.ts',
+    'services/funding-transparency-controller.ts'
+  ]
+    .map((path) =>
+      fs.readFileSync(
+        `apps/funding-web/src/app/features/funding/${path}`,
+        'utf8'
+      )
+    )
+    .join('\n');
 
   const allocationsTemplate = fs.readFileSync(
     'apps/funding-web/src/app/features/funding/components/funding-transparency-allocations/funding-transparency-allocations.component.html',
@@ -443,7 +450,10 @@ test('Public transparency preserves allocation descriptions for the web page', (
   );
 
   assert.ok(apiSource.includes('public_description'));
-  assert.ok(pageSource.includes('[allocations]="publicAllocations()"'));
+  assert.ok(
+    pageSource.includes('[allocations]="transparency.publicAllocations()"')
+  );
+  assert.ok(pageSource.includes('latest_public_allocations'));
   assert.ok(
     allocationsTemplate.includes('@if (allocation.public_description)')
   );

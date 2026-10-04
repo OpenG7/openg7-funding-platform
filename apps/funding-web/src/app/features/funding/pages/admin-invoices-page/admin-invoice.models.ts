@@ -7,7 +7,7 @@ export type DocumentResendState =
   'idle' | 'confirming' | 'sending' | 'sent' | 'error';
 export type DocumentDownloadState = 'idle' | 'loading' | 'error';
 
-/** Presentation snapshots only; the page owns document drafts and requests. */
+/** Presentation snapshots only; the local delivery controller owns drafts and requests. */
 export interface AdminDocumentDeliveryView {
   readonly id: string;
   readonly email: string;

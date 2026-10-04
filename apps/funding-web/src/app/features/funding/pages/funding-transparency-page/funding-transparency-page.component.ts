@@ -7,35 +7,20 @@ import {
   OnInit,
   PLATFORM_ID,
   computed,
-  inject,
-  signal
+  inject
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type { FundTransparencyPublicResponse } from '@openg7/funding-core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
 import { FundingTransparencyRegistryComponent } from '../../components/funding-transparency-registry/funding-transparency-registry.component.js';
 import { FundingTransparencyAllocationsComponent } from '../../components/funding-transparency-allocations/funding-transparency-allocations.component.js';
-import {
-  FundingTransparencyReportsComponent,
-  type TransparencyReportIntent
-} from '../../components/funding-transparency-reports/funding-transparency-reports.component.js';
+import { FundingTransparencyReportsComponent } from '../../components/funding-transparency-reports/funding-transparency-reports.component.js';
 import { FUNDING_PROJECT_CONFIG } from '../../config/funding-project-config.token.js';
 import { OPENG7_FUNDING_CONFIG } from '../../config/openg7-funding.config.js';
-import {
-  currentFundingMonth,
-  monthlyContributions
-} from '../../models/funding-home.utils.js';
-import {
-  isTransparencyReport,
-  parseTransparencyView,
-  type TransparencyRegistryFilter,
-  transparencyCsv,
-  transparencyExport
-} from '../../models/funding-transparency.utils.js';
 import { FundTransparencyService } from '../../services/fund-transparency.service.js';
+import { FundingTransparencyController } from '../../services/funding-transparency-controller.js';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { FundingSeoService } from '../../services/funding-seo.service.js';
 
@@ -86,15 +71,15 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
           </h1>
           <p>{{ 'funding.transparencyPage.hero.copy' | translate }}</p>
           <div class="hero-actions">
-            <button type="button" (click)="scrollToRegistry()">
+            <button type="button" (click)="transparency.scrollToRegistry()">
               {{ 'funding.transparencyPage.hero.viewRegistry' | translate }}
             </button>
             <button
               type="button"
               class="secondary"
               data-og7="transparency-json"
-              [disabled]="!canExport()"
-              (click)="downloadReport()"
+              [disabled]="!transparency.canExport()"
+              (click)="transparency.downloadReport()"
             >
               {{ 'funding.transparencyPage.hero.downloadReport' | translate }}
             </button>
@@ -111,18 +96,18 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
           aria-label="{{ 'funding.transparencyPage.sync.title' | translate }}"
         >
           <div role="status" aria-live="polite" data-og7="transparency-status">
-            @if (loading()) {
+            @if (transparency.loading()) {
               <p>{{ 'funding.transparencyPage.state.loading' | translate }}</p>
-            } @else if (error()) {
+            } @else if (transparency.error()) {
               <p class="error">
                 {{
-                  (hasSnapshot()
+                  (transparency.hasSnapshot()
                     ? 'funding.transparencyPage.state.stale'
                     : 'funding.transparencyPage.state.error'
                   ) | translate
                 }}
               </p>
-            } @else if (!hasSnapshot()) {
+            } @else if (!transparency.hasSnapshot()) {
               <p>{{ 'funding.transparencyPage.state.noSource' | translate }}</p>
             } @else {
               <p>{{ 'funding.transparencyPage.state.ready' | translate }}</p>
@@ -131,11 +116,11 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
           <button
             type="button"
             data-og7="transparency-refresh"
-            [disabled]="loading()"
-            (click)="refresh()"
+            [disabled]="transparency.loading()"
+            (click)="transparency.refresh()"
           >
             {{
-              (error()
+              (transparency.error()
                 ? 'funding.transparencyPage.state.retry'
                 : 'funding.transparencyPage.state.refresh'
               ) | translate
@@ -147,20 +132,32 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
                 {{ 'funding.transparencyPage.sync.snapshot' | translate }}
               </dt>
               <dd data-og7="snapshot-date">
-                {{ hasSnapshot() ? formatDate(data()?.last_updated_at) : '—' }}
+                {{
+                  transparency.hasSnapshot()
+                    ? formatDate(transparency.data()?.last_updated_at)
+                    : '—'
+                }}
               </dd>
             </div>
             <div>
               <dt>{{ 'funding.transparencyPage.sync.checked' | translate }}</dt>
-              <dd data-og7="checked-date">{{ formatDate(checkedAt()) }}</dd>
+              <dd data-og7="checked-date">
+                {{ formatDate(transparency.checkedAt()) }}
+              </dd>
             </div>
             <div>
               <dt>{{ 'funding.home.purpose.source' | translate }}</dt>
-              <dd>{{ sourceLabel() }}</dd>
+              <dd>{{ transparency.sourceLabel() }}</dd>
             </div>
             <div>
               <dt>{{ 'funding.home.purpose.currency' | translate }}</dt>
-              <dd>{{ hasSnapshot() ? data()?.currency : '—' }}</dd>
+              <dd>
+                {{
+                  transparency.hasSnapshot()
+                    ? transparency.data()?.currency
+                    : '—'
+                }}
+              </dd>
             </div>
           </dl>
         </section>
@@ -168,25 +165,30 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
         <section
           class="kpi-grid"
           data-og7="transparency-totals"
-          [attr.aria-busy]="loading()"
+          [attr.aria-busy]="transparency.loading()"
           aria-label="{{
             'funding.transparencyPage.kpis.ariaLabel' | translate
           }}"
         >
-          @for (card of kpiCards(); track card.label) {
+          @for (card of transparency.kpiCards(); track card.label) {
             <article class="kpi-card panel" [class.net]="card.net">
               <h2>{{ card.label | translate }}</h2>
-              <strong>{{ formatMoney(card.value, data()?.currency) }}</strong>
+              <strong>{{
+                formatMoney(card.value, transparency.data()?.currency)
+              }}</strong>
               <p>{{ card.detail | translate }}</p>
-              @if (card.net && hasSnapshot()) {
+              @if (card.net && transparency.hasSnapshot()) {
                 <p
                   class="fee-quality"
-                  [class.provisional]="(data()?.pending_fee_count ?? 0) > 0"
+                  [class.provisional]="
+                    (transparency.data()?.pending_fee_count ?? 0) > 0
+                  "
                   data-og7="fee-quality"
                 >
                   {{
-                    feeQualityKey()
-                      | translate: { count: data()?.pending_fee_count }
+                    transparency.feeQualityKey()
+                      | translate
+                        : { count: transparency.data()?.pending_fee_count }
                   }}
                 </p>
               }
@@ -198,10 +200,12 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
           <header>
             <h2>
               {{ 'funding.transparencyPage.campaign.progress' | translate }}
-              <span>{{ currentMonth() }} (UTC)</span>
+              <span>{{ transparency.currentMonth() }} (UTC)</span>
             </h2>
             <strong>{{
-              monthlyProgress() === null ? '—' : monthlyProgress() + '%'
+              transparency.monthlyProgress() === null
+                ? '—'
+                : transparency.monthlyProgress() + '%'
             }}</strong>
           </header>
           <div
@@ -212,25 +216,28 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
             }}"
             aria-valuemin="0"
             aria-valuemax="100"
-            [attr.aria-valuenow]="monthlyProgress()"
+            [attr.aria-valuenow]="transparency.monthlyProgress()"
           >
-            <span [style.width.%]="monthlyProgress() ?? 0"></span>
+            <span [style.width.%]="transparency.monthlyProgress() ?? 0"></span>
           </div>
           <p>
             <span data-og7="monthly-received">{{
-              formatMoney(currentMonthReceived())
+              formatMoney(transparency.currentMonthReceived())
             }}</span>
             /
             {{ formatMoney(config.monthlyGoal) }}
             · {{ 'funding.transparencyPage.campaign.goal' | translate }}
           </p>
-          @if (remainingForGoal() !== null) {
+          @if (transparency.remainingForGoal() !== null) {
             <p>
-              {{ formatMoney(remainingForGoal()) }}
+              {{ formatMoney(transparency.remainingForGoal()) }}
               {{ 'funding.transparencyPage.campaign.remaining' | translate }}
             </p>
           }
-          @if (hasSnapshot() && currentMonthReceived() === null) {
+          @if (
+            transparency.hasSnapshot() &&
+            transparency.currentMonthReceived() === null
+          ) {
             <p role="status">
               {{ 'funding.transparencyPage.campaign.unavailable' | translate }}
             </p>
@@ -242,29 +249,29 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
 
         <section class="dashboard-grid">
           <openg7-funding-transparency-registry
-            [monthlySummary]="data()?.monthly_summary ?? []"
-            [availableMonths]="availableMonths()"
-            [period]="period()"
-            [filter]="registryFilter()"
-            [hasSnapshot]="hasSnapshot()"
-            [loading]="loading()"
-            [periodUnavailable]="periodUnavailable()"
+            [monthlySummary]="transparency.data()?.monthly_summary ?? []"
+            [availableMonths]="transparency.availableMonths()"
+            [period]="transparency.period()"
+            [filter]="transparency.registryFilter()"
+            [hasSnapshot]="transparency.hasSnapshot()"
+            [loading]="transparency.loading()"
+            [periodUnavailable]="transparency.periodUnavailable()"
             [formatMoney]="formatPublicMoney"
-            (periodChange)="selectPeriod($event)"
-            (filterChange)="selectFilter($event)"
+            (periodChange)="transparency.selectPeriod($event)"
+            (filterChange)="transparency.selectFilter($event)"
           />
           <openg7-funding-transparency-allocations
-            [allocations]="publicAllocations()"
-            [hasSnapshot]="hasSnapshot()"
+            [allocations]="transparency.publicAllocations()"
+            [hasSnapshot]="transparency.hasSnapshot()"
             [aboutPath]="aboutPath()"
             [formatMoney]="formatPublicMoney"
             [formatDate]="formatPublicDate"
           />
           <openg7-funding-transparency-reports
-            [period]="period()"
-            [canExport]="canExport()"
-            [copyState]="copyState()"
-            (action)="handleReportAction($event)"
+            [period]="transparency.period()"
+            [canExport]="transparency.canExport()"
+            [copyState]="transparency.copyState()"
+            (action)="transparency.handleReportAction($event)"
           />
 
           <article class="panel privacy-panel">
@@ -642,7 +649,6 @@ import { FundingSeoService } from '../../services/funding-seo.service.js';
   `
 })
 export class FundingTransparencyPageComponent implements OnInit {
-  private readonly transparencyService = inject(FundTransparencyService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
@@ -650,41 +656,27 @@ export class FundingTransparencyPageComponent implements OnInit {
   readonly i18n = inject(FundingI18nService);
   readonly config =
     inject(FUNDING_PROJECT_CONFIG, { optional: true }) ?? OPENG7_FUNDING_CONFIG;
-  private controller: AbortController | null = null;
-
-  constructor() {
-    inject(FundingSeoService).bind(
-      {
-        titleKey: 'funding.seo.transparency.title',
-        descriptionKey: 'funding.seo.transparency.description',
-        path: '/fonds-des-batisseurs/transparence',
-        imagePath:
-          '/assets/fonds-des-batisseurs-feuille-erable-lumineuse-1920.webp'
-      },
-      inject(Injector)
-    );
-  }
-
-  readonly data = signal<FundTransparencyPublicResponse | null>(null);
-  readonly loading = signal(true);
-  readonly error = signal(false);
-  readonly checkedAt = signal<string | null>(null);
-  readonly currentMonth = signal('');
-  readonly registryFilter = signal<TransparencyRegistryFilter>('all');
-  readonly period = signal('all');
-  readonly copyState = signal<'' | 'copied' | 'copyFailed'>('');
+  readonly transparency = new FundingTransparencyController({
+    transparency: inject(FundTransparencyService),
+    config: this.config,
+    i18n: this.i18n,
+    isBrowser: () => isPlatformBrowser(this.platformId),
+    now: () => new Date(),
+    navigate: (queryParams) =>
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams,
+        fragment: 'public-registry'
+      }),
+    publicLink: (queryParams) =>
+      this.router.serializeUrl(
+        this.router.createUrlTree(
+          [this.i18n.localizedPath('/fonds-des-batisseurs/transparence')],
+          { queryParams }
+        )
+      )
+  });
   readonly currentYear = new Date().getFullYear();
-  readonly snapshotMonth = signal('');
-  readonly hasSnapshot = computed(
-    () => this.data() !== null && this.data()?.data_source !== 'empty'
-  );
-  readonly canExport = computed(
-    () =>
-      this.hasSnapshot() &&
-      !this.loading() &&
-      !this.error() &&
-      !this.periodUnavailable()
-  );
   readonly homePath = computed(() =>
     this.i18n.localizedPath('/fonds-des-batisseurs')
   );
@@ -698,173 +690,32 @@ export class FundingTransparencyPageComponent implements OnInit {
   readonly policyPath = computed(() =>
     this.i18n.localizedPath('/politique-utilisation-remboursement')
   );
-  readonly sourceLabel = computed(() =>
-    !this.hasSnapshot()
-      ? '—'
-      : this.i18n.t(
-          this.data()?.data_source === 'database'
-            ? 'funding.transparencyPage.sync.database'
-            : 'funding.transparencyPage.sync.stripe'
-        )
-  );
-  readonly feeQualityKey = computed(() => {
-    const count = this.data()?.pending_fee_count;
-    return (
-      'funding.transparencyPage.kpis.' +
-      (count == null
-        ? 'feesUnknown'
-        : count > 0
-          ? 'feesPending'
-          : 'feesComplete')
-    );
-  });
-  readonly kpiCards = computed(() => {
-    const report = this.hasSnapshot() ? this.data() : null;
-    return [
-      {
-        label: 'funding.transparency.confirmed',
-        value: report?.total_received ?? null,
-        detail: 'funding.transparencyPage.kpis.cumulative',
-        net: false
-      },
-      {
-        label: 'funding.home.purpose.paymentFees',
-        value: report?.total_fees ?? null,
-        detail: 'funding.transparencyPage.kpis.totalFees',
-        net: false
-      },
-      {
-        label: 'funding.transparencyPage.kpis.refunds',
-        value: report?.total_refunded ?? null,
-        detail: 'funding.transparencyPage.kpis.totalRefunded',
-        net: false
-      },
-      {
-        label: 'funding.transparencyPage.kpis.netBeforeExpenses',
-        value: report?.current_available_estimate ?? null,
-        detail: 'funding.transparencyPage.kpis.availableForProjects',
-        net: true
-      }
-    ];
-  });
-  readonly currentMonthReceived = computed(() => {
-    const report = this.data();
-    if (
-      !this.hasSnapshot() ||
-      !report ||
-      this.snapshotMonth() !== this.currentMonth() ||
-      report.currency !== this.config.currency
-    )
-      return null;
-    return monthlyContributions(
-      report.monthly_summary,
-      this.currentMonth(),
-      this.config.currency
-    );
-  });
-  readonly monthlyProgress = computed(() => {
-    const received = this.currentMonthReceived();
-    return received === null
-      ? null
-      : this.config.monthlyGoal <= 0
-        ? 0
-        : Math.min(
-            100,
-            Math.max(0, Math.round((received / this.config.monthlyGoal) * 100))
-          );
-  });
-  readonly remainingForGoal = computed(() => {
-    const received = this.currentMonthReceived();
-    return received === null
-      ? null
-      : Math.max(0, this.config.monthlyGoal - received);
-  });
-  readonly availableMonths = computed(() =>
-    [...new Set(this.data()?.monthly_summary.map((row) => row.month) ?? [])]
-      .sort()
-      .reverse()
-  );
-  readonly periodUnavailable = computed(
-    () =>
-      this.period() !== 'all' && !this.availableMonths().includes(this.period())
-  );
-  readonly publicAllocations = computed(() =>
-    this.hasSnapshot() ? (this.data()?.latest_public_allocations ?? []) : []
-  );
-
   readonly formatPublicMoney = (value: number, currency: string): string =>
     this.formatMoney(value, currency, 'code');
   readonly formatPublicDate = (value: string | null | undefined): string =>
     this.formatDate(value);
 
-  handleReportAction(intent: TransparencyReportIntent): void {
-    switch (intent) {
-      case 'csv':
-        this.downloadCsv();
-        break;
-      case 'json':
-        this.downloadReport();
-        break;
-      case 'copy':
-        void this.copyTransparencyLink();
-        break;
-    }
+  constructor() {
+    this.destroyRef.onDestroy(() => this.transparency.dispose());
+    inject(FundingSeoService).bind(
+      {
+        titleKey: 'funding.seo.transparency.title',
+        descriptionKey: 'funding.seo.transparency.description',
+        path: '/fonds-des-batisseurs/transparence',
+        imagePath:
+          '/assets/fonds-des-batisseurs-feuille-erable-lumineuse-1920.webp'
+      },
+      inject(Injector)
+    );
   }
 
   ngOnInit(): void {
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {
-        const view = parseTransparencyView(
-          params.get('period'),
-          params.get('type')
-        );
-        this.period.set(view.period);
-        this.registryFilter.set(view.filter);
-        this.copyState.set('');
+        this.transparency.applyView(params.get('period'), params.get('type'));
       });
-    if (!isPlatformBrowser(this.platformId)) return;
-    void this.refresh();
-    const interval = setInterval(() => {
-      if (!document.hidden) void this.refresh();
-    }, 60_000);
-    this.destroyRef.onDestroy(() => {
-      clearInterval(interval);
-      this.controller?.abort();
-    });
-  }
-
-  async refresh(): Promise<void> {
-    if (!isPlatformBrowser(this.platformId) || this.controller) return;
-    const controller = new AbortController();
-    this.controller = controller;
-    const timeout = setTimeout(() => controller.abort(), 15_000);
-    this.loading.set(true);
-    const startedAt = new Date();
-    this.currentMonth.set(currentFundingMonth(startedAt));
-    try {
-      const report = await this.transparencyService.getPublicTransparency(
-        controller.signal
-      );
-      if (this.destroyRef.destroyed) return;
-      if (!isTransparencyReport(report))
-        throw new Error('Invalid public transparency response');
-      this.data.set(report);
-      this.snapshotMonth.set(
-        currentFundingMonth(
-          new Date(report.generated_at ?? startedAt.toISOString())
-        )
-      );
-      this.currentMonth.set(currentFundingMonth(new Date()));
-      this.checkedAt.set(new Date().toISOString());
-      this.error.set(false);
-    } catch {
-      if (!this.destroyRef.destroyed) this.error.set(true);
-    } finally {
-      clearTimeout(timeout);
-      this.controller = null;
-      if (!this.destroyRef.destroyed) this.loading.set(false);
-    }
+    this.transparency.start();
   }
 
   formatMoney(
@@ -891,92 +742,5 @@ export class FundingTransparencyPageComponent implements OnInit {
         timeZone: 'UTC'
       }).format(new Date(value)) + ' UTC'
     );
-  }
-
-  selectPeriod(value: string): void {
-    if (value === 'all' || this.availableMonths().includes(value)) {
-      this.period.set(value);
-      void this.updateViewUrl();
-    }
-  }
-
-  selectFilter(filter: TransparencyRegistryFilter): void {
-    this.registryFilter.set(filter);
-    void this.updateViewUrl();
-  }
-
-  private viewQueryParams() {
-    return {
-      period: this.period() === 'all' ? null : this.period(),
-      type: this.registryFilter() === 'all' ? null : this.registryFilter()
-    };
-  }
-
-  private updateViewUrl(): Promise<boolean> {
-    return this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: this.viewQueryParams(),
-      fragment: 'public-registry'
-    });
-  }
-
-  scrollToRegistry(): void {
-    const element = document.getElementById('public-registry');
-    element?.focus({ preventScroll: true });
-    element?.scrollIntoView({ block: 'start', behavior: 'auto' });
-  }
-
-  downloadReport(): void {
-    const report = this.data();
-    if (!this.canExport() || !report) return;
-    this.downloadBlob(
-      new Blob(
-        [
-          JSON.stringify(
-            transparencyExport(report, this.period(), new Date().toISOString()),
-            null,
-            2
-          )
-        ],
-        { type: 'application/json' }
-      ),
-      `openg7-transparence-fonds-batisseurs${this.period() === 'all' ? '' : '-' + this.period()}.json`
-    );
-  }
-
-  downloadCsv(): void {
-    const report = this.data();
-    if (!this.canExport() || !report) return;
-    this.downloadBlob(
-      new Blob(
-        [transparencyCsv(report, this.period(), new Date().toISOString())],
-        { type: 'text/csv;charset=utf-8' }
-      ),
-      `openg7-registre-public${this.period() === 'all' ? '' : '-' + this.period()}.csv`
-    );
-  }
-
-  async copyTransparencyLink(): Promise<void> {
-    try {
-      const tree = this.router.createUrlTree(
-        [this.i18n.localizedPath('/fonds-des-batisseurs/transparence')],
-        { queryParams: this.viewQueryParams() }
-      );
-      await navigator.clipboard.writeText(
-        new URL(this.router.serializeUrl(tree), window.location.origin).href
-      );
-      if (!this.destroyRef.destroyed) this.copyState.set('copied');
-    } catch {
-      if (!this.destroyRef.destroyed) this.copyState.set('copyFailed');
-    }
-  }
-
-  private downloadBlob(blob: Blob, filename: string): void {
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 }

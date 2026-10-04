@@ -401,6 +401,68 @@ test('a timeout can be retried and navigation stops polling', async ({
   expect(requests).toBe(0);
 });
 
+test('navigation during a public load cancels the page lifecycle and ignores its delayed response', async ({
+  page
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  let requests = 0;
+  let release: () => void = () => {};
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/public/fund-transparency', async (route) => {
+    requests++;
+    await pending;
+    await route.fulfill({ json: report }).catch(() => {});
+  });
+  await page.goto(path);
+  await expect.poll(() => requests).toBe(1);
+  await expect(hook(page, 'transparency-json')).toBeDisabled();
+  await page.locator('footer a[href="/fonds-des-batisseurs/a-propos"]').click();
+  await expect(page).toHaveURL(/\/fonds-des-batisseurs\/a-propos$/);
+  release();
+  await page.clock.fastForward(120_000);
+  await expect(hook(page, 'transparency-status')).toHaveCount(0);
+  expect(requests).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('a delayed copy cannot announce success after the selected public view changes', async ({
+  page
+}) => {
+  await page.goto('/en' + path + '?period=2026-09');
+  await expect(hook(page, 'transparency-json')).toBeEnabled();
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText: (text: string) =>
+          new Promise<void>((resolve) => {
+            document.documentElement.dataset['copiedLink'] = text;
+            const complete = () => {
+              resolve();
+              document.removeEventListener('og7-complete-copy', complete);
+            };
+            document.addEventListener('og7-complete-copy', complete);
+          })
+      },
+      configurable: true
+    });
+  });
+  await page.getByRole('button', { name: 'Copy transparency link' }).click();
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-copied-link',
+    /period=2026-09$/
+  );
+  await hook(page, 'transparency-period').selectOption('2026-08');
+  await expect(page).toHaveURL(/period=2026-08/);
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event('og7-complete-copy'))
+  );
+  await expect(page.getByText('Link copied.', { exact: true })).toHaveCount(0);
+  await expect(hook(page, 'transparency-reports')).toContainText('2026-08');
+});
+
 test('unconfigured source and valid zero activity are different states', async ({
   page
 }) => {

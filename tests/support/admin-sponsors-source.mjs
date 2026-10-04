@@ -26,7 +26,8 @@ export const readAdminSponsorsSource = () => {
     'services/admin-sponsor-review-workflow.ts',
     'services/admin-sponsor-publication-workflow.ts',
     'services/admin-sponsor-refund-workflow.ts',
-    'services/admin-sponsor-media-workflow.ts'
+    'services/admin-sponsor-media-workflow.ts',
+    'services/admin-sponsor-list-controller.ts'
   ]
     .map((path) => readFileSync(root + path, 'utf8'))
     .join('\n');

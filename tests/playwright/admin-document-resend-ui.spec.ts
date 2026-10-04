@@ -78,6 +78,30 @@ const twoInvoiceListing = {
   }
 };
 
+function recordDelivery(
+  invoices: AdminSponsorshipInvoiceRecord[],
+  payload: Record<string, unknown>,
+  sent: boolean
+): AdminSponsorshipInvoiceRecord[] {
+  const status: Pick<
+    AdminSponsorshipInvoiceRecord,
+    'last_email_status' | 'last_email_recipient' | 'last_email_sent_at'
+  > = {
+    last_email_status: sent ? 'sent' : 'queued',
+    last_email_recipient: String(payload['to']),
+    last_email_sent_at: sent ? date : null
+  };
+  return invoices.map((candidate) => ({
+    ...candidate,
+    ...(candidate.id === payload['invoiceId'] ? status : {}),
+    credit_notes: candidate.credit_notes.map((creditNote) =>
+      creditNote.id === payload['creditNoteId']
+        ? { ...creditNote, ...status }
+        : creditNote
+    )
+  }));
+}
+
 function seedSession(language: string): void {
   localStorage.setItem('openg7.language', language);
   sessionStorage.setItem(
@@ -107,6 +131,7 @@ for (const language of ['fr-CA', 'en'])
         );
       let fail = true;
       let sent = false;
+      let documents = [invoice];
       let release: (() => void) | undefined;
       await page.route('**/api/**', async (route) => {
         const path = new URL(route.request().url()).pathname;
@@ -117,6 +142,7 @@ for (const language of ['fr-CA', 'en'])
           await new Promise<void>((resolve) => {
             release = resolve;
           });
+          documents = recordDelivery(documents, payload, sent);
           const emailStatus = {
             last_email_status: sent ? 'sent' : 'queued',
             last_email_recipient: payload.to,
@@ -141,7 +167,7 @@ for (const language of ['fr-CA', 'en'])
           return route.fulfill({
             json: {
               data_source: 'database',
-              invoices: [invoice],
+              invoices: documents,
               last_updated_at: date,
               summary: {
                 total_count: 1,
@@ -328,6 +354,7 @@ for (const language of ['fr-CA', 'en'])
       const calls: Record<string, unknown>[] = [];
       let release: ((failed: boolean) => void) | undefined;
       let listLoads = 0;
+      let documents = [invoice, secondInvoice];
       const failure = 'Synthetic invoice A resend failure';
       await page.route('**/api/**', async (route) => {
         const path = new URL(route.request().url()).pathname;
@@ -339,6 +366,7 @@ for (const language of ['fr-CA', 'en'])
           });
           if (failed)
             return route.fulfill({ status: 503, json: { error: failure } });
+          documents = recordDelivery(documents, payload, false);
           return route.fulfill({
             json: {
               queued: true,
@@ -357,7 +385,9 @@ for (const language of ['fr-CA', 'en'])
         }
         if (path.endsWith('/sponsorship-invoices')) {
           listLoads++;
-          return route.fulfill({ json: twoInvoiceListing });
+          return route.fulfill({
+            json: { ...twoInvoiceListing, invoices: documents }
+          });
         }
         return route.fulfill({ status: 503, json: {} });
       });
@@ -486,6 +516,7 @@ for (const language of ['fr-CA', 'en'])
       await page.addInitScript(seedSession, language);
       const calls: Record<string, unknown>[] = [];
       let release: (() => void) | undefined;
+      let documents = [invoice, secondInvoice];
       await page.route('**/api/**', async (route) => {
         const path = new URL(route.request().url()).pathname;
         if (path.endsWith('/resend')) {
@@ -494,6 +525,7 @@ for (const language of ['fr-CA', 'en'])
           await new Promise<void>((resolve) => {
             release = resolve;
           });
+          documents = recordDelivery(documents, payload, false);
           const emailStatus = {
             last_email_status: 'queued',
             last_email_recipient: payload.to,
@@ -515,7 +547,9 @@ for (const language of ['fr-CA', 'en'])
           });
         }
         if (path.endsWith('/sponsorship-invoices'))
-          return route.fulfill({ json: twoInvoiceListing });
+          return route.fulfill({
+            json: { ...twoInvoiceListing, invoices: documents }
+          });
         return route.fulfill({ status: 503, json: {} });
       });
       await page.goto('/admin/fundraiser/invoices');
@@ -606,6 +640,247 @@ for (const language of ['fr-CA', 'en'])
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth)
       ).toBeLessThanOrEqual(width);
+    });
+
+    test(`confirmed backfill stays bounded to its target and reloads facts in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const english = language === 'en';
+      await page.setViewportSize({ width, height: 950 });
+      await page.addInitScript(seedSession, language);
+      const calls: Record<string, unknown>[] = [];
+      let release: (() => void) | undefined;
+      let listLoads = 0;
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/sponsorship-invoices/backfill')) {
+          calls.push(route.request().postDataJSON());
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return route.fulfill({
+            json: {
+              data_source: 'database',
+              eligible_count: 1,
+              missing_count: 1,
+              processed_count: 1,
+              created_count: 1,
+              skipped_count: 0,
+              remaining_count: 0,
+              failed_count: 0,
+              invoiceIds: [id],
+              invoices: [invoice],
+              errors: [],
+              last_updated_at: date
+            }
+          });
+        }
+        if (path.endsWith('/sponsorship-invoices')) {
+          listLoads++;
+          return route.fulfill({ json: twoInvoiceListing });
+        }
+        return route.fulfill({ status: 503, json: {} });
+      });
+      await page.goto(`/admin/fundraiser/invoices?contributionId=${id}`);
+      const generate = page.getByRole('button', {
+        name: english
+          ? 'Generate invoice for this record'
+          : 'Générer la facture de ce dossier',
+        exact: true
+      });
+      await generate.focus();
+      await page.keyboard.press('Enter');
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toContainText(id);
+      await expect(dialog).toContainText(
+        english ? 'No email will be sent.' : 'Aucun courriel ne sera envoyé.'
+      );
+      await page.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
+      await expect(generate).toBeFocused();
+      expect(calls).toHaveLength(0);
+      await page.keyboard.press('Enter');
+      await generate.dispatchEvent('click');
+      expect(calls).toHaveLength(0);
+      await page.locator('[data-og7="confirm-action"]').click();
+      await expect.poll(() => calls.length).toBe(1);
+      await expect(
+        page.getByRole('button', {
+          name: english ? 'Generating…' : 'Generation...',
+          exact: true
+        })
+      ).toBeDisabled();
+      expect(calls[0]).toEqual({
+        limit: 1,
+        contributionId: id,
+        confirmation: id
+      });
+      expect(
+        await page.evaluate(() =>
+          Object.keys(sessionStorage).filter((key) =>
+            key.startsWith('openg7-admin-document-resend:')
+          )
+        )
+      ).toEqual([]);
+      release!();
+      await expect.poll(() => listLoads).toBe(2);
+      await expect(generate).toBeEnabled();
+      await expect(
+        page.getByText(
+          english
+            ? 'Generation complete: 1 invoice(s) created, 0 already present, 0 error(s).'
+            : 'Backfill termine: 1 facture(s) creee(s), 0 deja presente(s), 0 erreur(s).',
+          { exact: true }
+        )
+      ).toBeVisible();
+    });
+
+    test(`leaving the page suppresses late PDF and resend UI effects in ${language} at ${width}px`, async ({
+      page
+    }) => {
+      const english = language === 'en';
+      await page.setViewportSize({ width, height: 950 });
+      await page.addInitScript(seedSession, language);
+      let documents = [invoice, secondInvoice];
+      const resendRequests: Record<string, unknown>[] = [];
+      let releaseResend: (() => void) | undefined;
+      let releasePdf: (() => void) | undefined;
+      let listLoads = 0;
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/sponsorship-invoices/resend')) {
+          const payload = route.request().postDataJSON();
+          resendRequests.push(payload);
+          if (resendRequests.length === 1)
+            await new Promise<void>((resolve) => {
+              releaseResend = resolve;
+            });
+          documents = recordDelivery(documents, payload, false);
+          return route.fulfill({
+            json: {
+              ...documents[0],
+              queued: true,
+              sent: false,
+              attempted: false,
+              invoice: documents[0],
+              messageId: 'message-after-navigation',
+              error: null
+            }
+          });
+        }
+        if (path.endsWith('/sponsorship-invoices/pdf')) {
+          await new Promise<void>((resolve) => {
+            releasePdf = resolve;
+          });
+          return route.fulfill({
+            contentType: 'application/pdf',
+            body: '%PDF-1.4\nSynthetic late document\n%%EOF'
+          });
+        }
+        if (path.endsWith('/sponsorship-invoices')) {
+          listLoads++;
+          return route.fulfill({
+            json: { ...twoInvoiceListing, invoices: documents }
+          });
+        }
+        return route.fulfill({ status: 503, json: {} });
+      });
+      await page.goto('/admin/fundraiser/invoices');
+      await page
+        .getByLabel(english ? 'Recipient' : 'Destinataire', { exact: true })
+        .fill('late@example.test');
+      await page
+        .getByRole('button', {
+          name: english ? 'Resend' : 'Renvoyer',
+          exact: true
+        })
+        .click();
+      await page.locator('[data-og7="confirm-action"]').click();
+      await expect.poll(() => releaseResend !== undefined).toBe(true);
+      const detail = page.getByRole('region', {
+        name: english ? 'Invoice details' : 'Detail facture',
+        exact: true
+      });
+      await detail
+        .locator('header')
+        .first()
+        .getByRole('button', {
+          name: english ? 'Download PDF' : 'Telecharger PDF',
+          exact: true
+        })
+        .click();
+      await expect.poll(() => releasePdf !== undefined).toBe(true);
+      await page
+        .locator('a[href="/admin/fundraiser/assistant"]:visible')
+        .first()
+        .click();
+      await expect(page).toHaveURL(/\/admin\/fundraiser\/assistant$/);
+      await expect(page.locator('openg7-admin-invoices-page')).toHaveCount(0);
+      const resendResponse = page.waitForResponse((response) =>
+        new URL(response.url()).pathname.endsWith(
+          '/sponsorship-invoices/resend'
+        )
+      );
+      const pdfResponse = page.waitForResponse((response) =>
+        new URL(response.url()).pathname.endsWith('/sponsorship-invoices/pdf')
+      );
+      const downloaded = page.waitForEvent('download', { timeout: 500 }).then(
+        () => true,
+        () => false
+      );
+      releaseResend!();
+      releasePdf!();
+      await (await resendResponse).finished();
+      await (await pdfResponse).finished();
+      expect(await downloaded).toBe(false);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              Object.keys(sessionStorage).filter((key) =>
+                key.startsWith('openg7-admin-document-resend:')
+              ).length
+          )
+        )
+        .toBe(1);
+      expect(listLoads).toBe(1);
+      if (width < 861)
+        await page
+          .locator('button[aria-controls="admin-navigation-content"]')
+          .click();
+      await page
+        .locator('a[href="/admin/fundraiser/invoices"]')
+        .first()
+        .click();
+      await expect.poll(() => listLoads).toBe(2);
+      await expect(
+        page.getByText('late@example.test', { exact: true })
+      ).toBeVisible();
+      await expect(
+        page.locator('[data-og7="document-email-status"]')
+      ).toHaveCount(0);
+      await page
+        .getByLabel(english ? 'Recipient' : 'Destinataire', { exact: true })
+        .fill('late@example.test');
+      await page
+        .getByRole('button', {
+          name: english ? 'Resend' : 'Renvoyer',
+          exact: true
+        })
+        .click();
+      await page.locator('[data-og7="confirm-action"]').click();
+      await expect.poll(() => resendRequests.length).toBe(2);
+      expect(resendRequests[1]).toEqual(resendRequests[0]);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              Object.keys(sessionStorage).filter((key) =>
+                key.startsWith('openg7-admin-document-resend:')
+              ).length
+          )
+        )
+        .toBe(0);
     });
 
     test(`document PDF stays with its document across selection in ${language} at ${width}px`, async ({

@@ -2,7 +2,6 @@ import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslatePipe } from '@ngx-translate/core';
 import { CommonModule } from '@angular/common';
-import { SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION } from '@openg7/funding-core';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,9 +13,7 @@ import {
 } from '@angular/core';
 import type {
   AdminSponsorshipCreditNoteRecord,
-  AdminSponsorshipInvoiceBackfillResult,
   AdminSponsorshipInvoiceRecord,
-  AdminSponsorshipInvoiceResendResult,
   AdminSponsorshipInvoicesResponse
 } from '@openg7/funding-core';
 
@@ -25,40 +22,18 @@ import { AdminConfirmationService } from '../../services/admin-confirmation.serv
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminLayoutComponent } from '../../components/admin-layout/admin-layout.component.js';
 import { FundingAdminService } from '../../services/funding-admin.service.js';
+import { AdminDocumentDeliveryController } from '../../services/admin-document-delivery-controller.js';
+import { adminDocumentDeliveryBrowser } from '../../services/admin-document-delivery-browser.js';
 
 import { AdminInvoiceListComponent } from './admin-invoice-list.component.js';
 import { AdminInvoiceDetailComponent } from './admin-invoice-detail.component.js';
 import type {
   AdminDocumentRecipientChange,
   AdminInvoiceDetailView,
-  AdminInvoiceListRow,
-  DocumentDownloadState,
-  DocumentResendState
+  AdminInvoiceListRow
 } from './admin-invoice.models.js';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
-type ResendState = DocumentResendState;
-type DownloadState = DocumentDownloadState;
-type BackfillState = 'idle' | 'sending' | 'done' | 'error';
-
-interface DocumentResendView {
-  state(): ResendState;
-  setState(state: ResendState): void;
-  setMessage(message: string): void;
-  sentMessage: string;
-  queuedMessage: string;
-}
-
-interface InvoiceResend {
-  state: ResendState;
-  message: string;
-  email: string;
-}
-
-interface DocumentDownload {
-  state: DownloadState;
-  message: string;
-}
 
 @Component({
   selector: 'openg7-admin-invoices-page',
@@ -84,7 +59,9 @@ interface DocumentDownload {
               type="button"
               (click)="backfillInvoices()"
               [disabled]="
-                state() === 'loading' || backfillState() === 'sending'
+                !canManage() ||
+                state() === 'loading' ||
+                backfillState() === 'sending'
               "
             >
               {{
@@ -198,6 +175,7 @@ interface DocumentDownload {
             />
             <openg7-admin-invoice-detail
               [view]="invoiceDetailView()"
+              [canManage]="canManage()"
               (invoiceDownload)="downloadInvoicePdf($event)"
               (invoiceInspection)="
                 inspection.invoice($event.id, $event.contribution_id)
@@ -234,83 +212,6 @@ export class AdminInvoicesPageComponent implements OnInit {
   readonly adminToken = signal('');
   readonly state = signal<LoadState>('idle');
   readonly loadErrorMessage = signal('');
-  readonly backfillState = signal<BackfillState>('idle');
-  readonly backfillMessage = signal('');
-  private readonly invoiceResends = signal<
-    Partial<Record<string, InvoiceResend>>
-  >({});
-  readonly resendState = computed(
-    () =>
-      this.invoiceResends()[this.selectedInvoice()?.id ?? '']?.state ?? 'idle'
-  );
-  readonly resendMessage = computed(
-    () => this.invoiceResends()[this.selectedInvoice()?.id ?? '']?.message ?? ''
-  );
-  readonly resendEmail = computed(() => {
-    const invoice = this.selectedInvoice();
-    return invoice
-      ? (this.invoiceResends()[invoice.id]?.email ??
-          invoice.sponsor_contact_email ??
-          '')
-      : '';
-  });
-  readonly resendMessageIds = signal<Record<string, string>>({});
-  private readonly pendingResends = new Map<string, string>();
-
-  // Called only by browser actions. Store an opaque fingerprint and UUID, never the recipient.
-  private async resendRequest(
-    id: string,
-    to: string
-  ): Promise<{ key: string; requestId: string }> {
-    const digest = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(`${id}:${to}`)
-    );
-    const key =
-      'openg7-admin-document-resend:' +
-      Array.from(new Uint8Array(digest), (byte) =>
-        byte.toString(16).padStart(2, '0')
-      ).join('');
-    let requestId = this.pendingResends.get(key);
-    try {
-      requestId ??= sessionStorage.getItem(key) ?? undefined;
-    } catch {
-      /* Memory fallback when browser storage is unavailable. */
-    }
-    requestId ??= crypto.randomUUID();
-    this.pendingResends.set(key, requestId);
-    try {
-      sessionStorage.setItem(key, requestId);
-    } catch {
-      /* Retain the request in memory. */
-    }
-    return { key, requestId };
-  }
-
-  private completeResend(key: string): void {
-    this.pendingResends.delete(key);
-    try {
-      sessionStorage.removeItem(key);
-    } catch {
-      /* A retained UUID can only deduplicate a later retry. */
-    }
-  }
-  private readonly pdfDownloads = signal<
-    Partial<Record<string, DocumentDownload>>
-  >({});
-  readonly invoicePdfState = computed(
-    () =>
-      this.pdfDownloads()[`invoice:${this.selectedInvoice()?.id}`]?.state ??
-      'idle'
-  );
-  readonly invoicePdfMessage = computed(
-    () =>
-      this.pdfDownloads()[`invoice:${this.selectedInvoice()?.id}`]?.message ??
-      ''
-  );
-  readonly creditNoteResendEmails = signal<Record<string, string>>({});
-  readonly creditNoteResendStates = signal<Record<string, ResendState>>({});
-  readonly creditNoteResendMessages = signal<Record<string, string>>({});
   readonly selectedInvoiceId = signal('');
   readonly data = signal<AdminSponsorshipInvoicesResponse | null>(null);
   readonly invoices = computed(() => this.data()?.invoices ?? []);
@@ -322,6 +223,32 @@ export class AdminInvoicesPageComponent implements OnInit {
       null
     );
   });
+
+  readonly canManage = computed(() => this.admin.identity()?.role !== 'reader');
+  private readonly delivery = new AdminDocumentDeliveryController({
+    admin: this.admin,
+    adminToken: () => {
+      const token = this.adminToken() || this.admin.getSavedAdminToken();
+      this.adminToken.set(token);
+      return token;
+    },
+    canManage: () => this.canManage(),
+    invoices: () => this.invoices(),
+    selectedInvoice: () => this.selectedInvoice(),
+    contributionId: () => this.contributionId,
+    refreshInvoices: () => this.loadInvoices(),
+    confirm: (message, detail) => this.confirmation.confirm(message, detail),
+    t: (key, params) => this.i18n.t(key, params),
+    browser: adminDocumentDeliveryBrowser
+  });
+  readonly backfillState = this.delivery.backfillState;
+  readonly backfillMessage = this.delivery.backfillMessage;
+  readonly resendState = this.delivery.resendState;
+  readonly resendMessage = this.delivery.resendMessage;
+  readonly resendEmail = this.delivery.resendEmail;
+  readonly resendMessageIds = this.delivery.resendMessageIds;
+  readonly invoicePdfState = this.delivery.invoicePdfState;
+  readonly invoicePdfMessage = this.delivery.invoicePdfMessage;
 
   readonly invoiceListRows = computed<readonly AdminInvoiceListRow[]>(() =>
     this.invoices().map((invoice) => ({
@@ -357,14 +284,14 @@ export class AdminInvoicesPageComponent implements OnInit {
         issuedAtLabel: this.dateLabel(creditNote.issued_at),
         lastEmailSentAtLabel: this.dateLabel(creditNote.last_email_sent_at),
         download: {
-          state: this.creditNotePdfStateFor(creditNote.id),
-          message: this.creditNotePdfMessageFor(creditNote.id)
+          state: this.delivery.creditNotePdfStateFor(creditNote.id),
+          message: this.delivery.creditNotePdfMessageFor(creditNote.id)
         },
         delivery: {
           id: creditNote.id,
-          email: this.creditNoteResendEmail(creditNote),
-          state: this.creditNoteResendStateFor(creditNote.id),
-          message: this.creditNoteResendMessageFor(creditNote.id),
+          email: this.delivery.creditNoteResendEmail(creditNote),
+          state: this.delivery.creditNoteResendStateFor(creditNote.id),
+          message: this.delivery.creditNoteResendMessageFor(creditNote.id),
           messageId: this.resendMessageIds()[creditNote.id] ?? null
         }
       })),
@@ -384,14 +311,17 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.adminToken.set(this.admin.getSavedAdminToken());
-    this.destroy.onDestroy(() => this.loadGeneration++);
+    this.destroy.onDestroy(() => {
+      this.loadGeneration++;
+      this.delivery.dispose();
+    });
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe((params) => {
         this.contributionId = params.get('contributionId') ?? undefined;
         this.data.set(null);
         this.selectedInvoiceId.set('');
-        this.backfillMessage.set('');
+        this.delivery.resetScope();
         void this.loadInvoices();
       });
   }
@@ -418,7 +348,7 @@ export class AdminInvoicesPageComponent implements OnInit {
         : (response.invoices[0] ?? null);
       this.selectedInvoiceId.set(nextInvoice?.id ?? '');
       if (nextInvoice) {
-        this.ensureCreditNoteResendDrafts(nextInvoice);
+        this.delivery.ensureCreditNoteResendDrafts(nextInvoice);
       }
       this.state.set('ready');
     } catch (error) {
@@ -430,244 +360,39 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   selectInvoice(invoice: AdminSponsorshipInvoiceRecord): void {
     this.selectedInvoiceId.set(invoice.id);
-    this.ensureCreditNoteResendDrafts(invoice);
+    this.delivery.ensureCreditNoteResendDrafts(invoice);
   }
 
   setResendEmail(change: AdminDocumentRecipientChange): void {
-    this.updateInvoiceResend(change.id, { email: change.email });
-  }
-
-  async backfillInvoices(): Promise<void> {
-    if (this.backfillState() === 'sending') return;
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n
-          .t(
-            this.contributionId
-              ? 'admin.attention.confirmInvoice'
-              : 'admin.confirmation.backfill'
-          )
-          .replace('{{id}}', this.contributionId ?? '')
-      ))
-    )
-      return;
-    const token = this.adminToken() || this.admin.getSavedAdminToken();
-    this.adminToken.set(token);
-    this.backfillState.set('sending');
-    this.backfillMessage.set('');
-
-    try {
-      const result = await this.admin.backfillSponsorshipInvoices(token, {
-        limit: this.contributionId ? 1 : 250,
-        contributionId: this.contributionId,
-        confirmation:
-          this.contributionId ?? SPONSORSHIP_INVOICE_BACKFILL_CONFIRMATION
-      });
-      const message = this.backfillResultMessage(result);
-      this.backfillState.set(result.failed_count > 0 ? 'error' : 'done');
-      this.backfillMessage.set(message);
-      await this.loadInvoices();
-      this.backfillState.set(result.failed_count > 0 ? 'error' : 'done');
-      this.backfillMessage.set(message);
-    } catch (error) {
-      this.backfillState.set('error');
-      this.backfillMessage.set(this.messageFromError(error));
-    }
-  }
-
-  creditNoteResendEmail(creditNote: AdminSponsorshipCreditNoteRecord): string {
-    return (
-      this.creditNoteResendEmails()[creditNote.id] ??
-      creditNote.sponsor_contact_email ??
-      ''
-    );
+    this.delivery.setResendEmail(change);
   }
 
   setCreditNoteResendEmail(change: AdminDocumentRecipientChange): void {
-    this.creditNoteResendEmails.update((emails) => ({
-      ...emails,
-      [change.id]: change.email
-    }));
+    this.delivery.setCreditNoteResendEmail(change);
   }
 
-  creditNoteResendStateFor(id: string): ResendState {
-    return this.creditNoteResendStates()[id] ?? 'idle';
+  backfillInvoices(): Promise<void> {
+    return this.delivery.backfillInvoices();
   }
 
-  creditNoteResendMessageFor(id: string): string {
-    return this.creditNoteResendMessages()[id] ?? '';
+  downloadInvoicePdf(invoice: AdminSponsorshipInvoiceRecord): Promise<void> {
+    return this.delivery.downloadInvoicePdf(invoice);
   }
 
-  creditNotePdfStateFor(id: string): DownloadState {
-    return this.pdfDownloads()[`credit-note:${id}`]?.state ?? 'idle';
-  }
-
-  creditNotePdfMessageFor(id: string): string {
-    return this.pdfDownloads()[`credit-note:${id}`]?.message ?? '';
-  }
-
-  async downloadInvoicePdf(
-    invoice: AdminSponsorshipInvoiceRecord
-  ): Promise<void> {
-    await this.downloadDocumentPdf(
-      { kind: 'invoice', id: invoice.id, number: invoice.invoice_number },
-      () => this.admin.getSponsorshipInvoicePdf(this.adminToken(), invoice.id)
-    );
-  }
-
-  async downloadCreditNotePdf(
+  downloadCreditNotePdf(
     creditNote: AdminSponsorshipCreditNoteRecord
   ): Promise<void> {
-    await this.downloadDocumentPdf(
-      {
-        kind: 'credit-note',
-        id: creditNote.id,
-        number: creditNote.credit_note_number
-      },
-      () =>
-        this.admin.getSponsorshipCreditNotePdf(this.adminToken(), creditNote.id)
-    );
+    return this.delivery.downloadCreditNotePdf(creditNote);
   }
 
-  private async downloadDocumentPdf(
-    document: { kind: 'invoice' | 'credit-note'; id: string; number: string },
-    load: () => Promise<Blob>
-  ): Promise<void> {
-    const key = `${document.kind}:${document.id}`;
-    if (this.pdfDownloads()[key]?.state === 'loading') return;
-    this.setPdfDownload(key, { state: 'loading', message: '' });
-
-    try {
-      const blob = await load();
-      this.saveBlob(blob, this.pdfFilename(document.number));
-      this.setPdfDownload(key, { state: 'idle', message: '' });
-    } catch (error) {
-      this.setPdfDownload(key, {
-        state: 'error',
-        message: this.messageFromError(error)
-      });
-    }
+  resendInvoice(invoice: AdminSponsorshipInvoiceRecord): Promise<void> {
+    return this.delivery.resendInvoice(invoice);
   }
 
-  async resendInvoice(invoice: AdminSponsorshipInvoiceRecord): Promise<void> {
-    const to = (
-      this.invoiceResends()[invoice.id]?.email ??
-      invoice.sponsor_contact_email ??
-      ''
-    ).trim();
-    if (!invoice || !to) {
-      return;
-    }
-
-    await this.resendDocument(
-      { id: invoice.id, number: invoice.invoice_number, to },
-      {
-        state: () => this.invoiceResends()[invoice.id]?.state ?? 'idle',
-        setState: (state) => this.updateInvoiceResend(invoice.id, { state }),
-        setMessage: (message) =>
-          this.updateInvoiceResend(invoice.id, { message }),
-        sentMessage: 'admin.messages.facture_envoyee',
-        queuedMessage: 'admin.messages.facture_remise_en_file'
-      },
-      (requestId) =>
-        this.admin.resendSponsorshipInvoice(this.adminToken(), {
-          invoiceId: invoice.id,
-          to,
-          confirmation: invoice.id,
-          requestId
-        }),
-      (result) => {
-        if (result.invoice) {
-          this.replaceInvoice(result.invoice);
-        }
-      }
-    );
-  }
-
-  async resendCreditNote(
+  resendCreditNote(
     creditNote: AdminSponsorshipCreditNoteRecord
   ): Promise<void> {
-    const to = this.creditNoteResendEmail(creditNote).trim();
-    if (!to) {
-      return;
-    }
-
-    await this.resendDocument(
-      { id: creditNote.id, number: creditNote.credit_note_number, to },
-      {
-        state: () => this.creditNoteResendStateFor(creditNote.id),
-        setState: (state) =>
-          this.setCreditNoteResendState(creditNote.id, state),
-        setMessage: (message) =>
-          this.setCreditNoteResendMessage(creditNote.id, message),
-        sentMessage: 'admin.messages.avoir_envoye',
-        queuedMessage: 'admin.messages.avoir_remis_en_file'
-      },
-      (requestId) =>
-        this.admin.resendSponsorshipCreditNote(this.adminToken(), {
-          creditNoteId: creditNote.id,
-          to,
-          confirmation: creditNote.id,
-          requestId
-        }),
-      (result) => {
-        if (result.creditNote) {
-          this.replaceCreditNote(result.creditNote);
-        }
-      }
-    );
-  }
-
-  private async resendDocument<
-    TResult extends Pick<
-      AdminSponsorshipInvoiceResendResult,
-      'sent' | 'queued' | 'messageId'
-    >
-  >(
-    document: { id: string; number: string; to: string },
-    view: DocumentResendView,
-    send: (requestId: string) => Promise<TResult>,
-    applyResult: (result: TResult) => void
-  ): Promise<void> {
-    if (['confirming', 'sending'].includes(view.state())) return;
-    view.setState('confirming');
-    if (
-      !(await this.confirmation.confirm(
-        this.i18n.t('admin.confirmation.retryEmail'),
-        `${document.number} → ${document.to}`
-      ))
-    ) {
-      view.setState('idle');
-      return;
-    }
-    view.setMessage('');
-    view.setState('sending');
-
-    try {
-      const pending = await this.resendRequest(document.id, document.to);
-      const result = await send(pending.requestId);
-
-      this.completeResend(pending.key);
-      const messageId = result.messageId;
-      if (messageId)
-        this.resendMessageIds.update((ids) => ({
-          ...ids,
-          [document.id]: messageId
-        }));
-      applyResult(result);
-
-      view.setState('sent');
-      view.setMessage(
-        result.sent
-          ? this.i18n.t(view.sentMessage)
-          : result.queued
-            ? this.i18n.t(view.queuedMessage)
-            : this.i18n.t('admin.messages.demande_traitee')
-      );
-    } catch (error) {
-      view.setState('error');
-      view.setMessage(this.messageFromError(error));
-    }
+    return this.delivery.resendCreditNote(creditNote);
   }
 
   creditedTotal(invoice: AdminSponsorshipInvoiceRecord): number {
@@ -717,158 +442,6 @@ export class AdminInvoicesPageComponent implements OnInit {
 
   contactLabel(invoice: AdminSponsorshipInvoiceRecord): string {
     return invoice.sponsor_contact_name || invoice.sponsor_name;
-  }
-
-  private replaceInvoice(invoice: AdminSponsorshipInvoiceRecord): void {
-    const current = this.data();
-    if (!current?.invoices.some((candidate) => candidate.id === invoice.id)) {
-      return;
-    }
-
-    this.data.set({
-      ...current,
-      invoices: current.invoices.map((candidate) =>
-        candidate.id === invoice.id ? invoice : candidate
-      ),
-      last_updated_at: new Date().toISOString()
-    });
-  }
-
-  private replaceCreditNote(
-    creditNote: AdminSponsorshipCreditNoteRecord
-  ): void {
-    const current = this.data();
-    if (!current) {
-      return;
-    }
-
-    this.data.set({
-      ...current,
-      invoices: current.invoices.map((invoice) =>
-        invoice.id === creditNote.invoice_id
-          ? {
-              ...invoice,
-              credit_notes: invoice.credit_notes.map((candidate) =>
-                candidate.id === creditNote.id ? creditNote : candidate
-              )
-            }
-          : invoice
-      ),
-      last_updated_at: new Date().toISOString()
-    });
-    this.creditNoteResendEmails.update((emails) => ({
-      ...emails,
-      [creditNote.id]: creditNote.sponsor_contact_email ?? ''
-    }));
-  }
-
-  private ensureCreditNoteResendDrafts(
-    invoice: AdminSponsorshipInvoiceRecord
-  ): void {
-    this.creditNoteResendEmails.update((emails) => ({
-      ...Object.fromEntries(
-        invoice.credit_notes
-          .filter((creditNote) => emails[creditNote.id] === undefined)
-          .map((creditNote) => [
-            creditNote.id,
-            creditNote.sponsor_contact_email ?? ''
-          ])
-      ),
-      ...emails
-    }));
-  }
-
-  private updateInvoiceResend(
-    id: string,
-    update: Partial<InvoiceResend>
-  ): void {
-    this.invoiceResends.update((resends) => ({
-      ...resends,
-      [id]: {
-        state: 'idle',
-        message: '',
-        email:
-          this.invoices().find((invoice) => invoice.id === id)
-            ?.sponsor_contact_email ?? '',
-        ...resends[id],
-        ...update
-      }
-    }));
-  }
-
-  private setCreditNoteResendState(id: string, state: ResendState): void {
-    this.creditNoteResendStates.update((states) => ({
-      ...states,
-      [id]: state
-    }));
-  }
-
-  private setCreditNoteResendMessage(id: string, message: string): void {
-    this.creditNoteResendMessages.update((messages) => ({
-      ...messages,
-      [id]: message
-    }));
-  }
-
-  private setPdfDownload(key: string, download: DocumentDownload): void {
-    this.pdfDownloads.update((downloads) => ({
-      ...downloads,
-      [key]: download
-    }));
-  }
-
-  private saveBlob(blob: Blob, filename: string): void {
-    if (typeof window === 'undefined' || typeof document === 'undefined') {
-      return;
-    }
-
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    window.URL.revokeObjectURL(url);
-  }
-
-  private pdfFilename(documentNumber: string): string {
-    const safeDocumentNumber = documentNumber
-      .replace(/[^A-Za-z0-9._-]+/gu, '-')
-      .replace(/^-+|-+$/gu, '');
-    return `openg7-${safeDocumentNumber || 'document'}.pdf`;
-  }
-
-  private backfillResultMessage(
-    result: AdminSponsorshipInvoiceBackfillResult
-  ): string {
-    if (result.eligible_count === 0) {
-      return this.i18n.t(
-        'admin.messages.aucune_commandite_payee_admissible_a_facturer'
-      );
-    }
-
-    if (result.missing_count === 0) {
-      return this.i18n.t(
-        'admin.messages.backfill_termine_aucune_facture_manquante_p0_deja_presente_s',
-        { p0: result.skipped_count }
-      );
-    }
-
-    const remaining =
-      result.remaining_count > 0
-        ? this.i18n.t('admin.messages.p0_restante_s_relancez_le_backfill', {
-            p0: result.remaining_count
-          })
-        : '';
-
-    return this.i18n.t(
-      'admin.messages.backfill_termine_p0_facture_s_creee_s_p1_deja_presente_s_p2_erreur_s_p3',
-      {
-        p0: result.created_count,
-        p1: result.skipped_count,
-        p2: result.failed_count,
-        p3: remaining
-      }
-    );
   }
 
   private messageFromError(error: unknown): string {
