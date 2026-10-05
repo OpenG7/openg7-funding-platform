@@ -186,10 +186,7 @@ test('listing preserves the default limit, optional ID filter and all override w
             'aggregates must not inherit the ID filter'
           );
           assert.doesNotMatch(sql, /\$1|\$2/);
-          assert.match(
-            sql,
-            /status IN \('queued', 'failed'\)\s+OR status = 'sending'/
-          );
+          assert.match(sql, /WHERE status IN \('queued', 'failed'\)/);
           assert.doesNotMatch(sql, /attempts < max_attempts/);
         }
       }
@@ -236,7 +233,7 @@ test('queue status maps all aggregates and latest failure without the listing li
         assert.equal(params, undefined);
         assert.match(
           sql,
-          /WHERE status = 'failed'\s+ORDER BY updated_at DESC\s+LIMIT 1/
+          /WHERE status IN \('failed', 'uncertain'\)\s+ORDER BY updated_at DESC\s+LIMIT 1/
         );
       }
     },

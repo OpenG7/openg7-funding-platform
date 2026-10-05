@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { AdminContributionsController } from '../dist/apps/funding-web/src/app/features/funding/pages/admin-contributions-page/admin-contributions-controller.js';
+import { AdminDashboardRequestError } from '../dist/apps/funding-web/src/app/features/funding/services/funding-admin-session.js';
 
 const deferred = () => {
   let resolve;
@@ -31,6 +32,8 @@ const fixture = () => {
   const reads = [];
   const saved = [];
   let access = true;
+  let sessionRevision = 0;
+  let unauthorized = 0;
   const ports = {
     admin: {
       getContributions: async (token, contributionId) => {
@@ -40,7 +43,9 @@ const fixture = () => {
       saveAdminToken: (token) => saved.push(token)
     },
     token: () => 'synthetic-session',
-    canExport: () => access
+    canExport: () => access,
+    accessRevision: () => sessionRevision,
+    unauthorized: () => unauthorized++
   };
   const controller = new AdminContributionsController(ports);
   return {
@@ -48,6 +53,11 @@ const fixture = () => {
     ports,
     reads,
     saved,
+    unauthorized: () => unauthorized,
+    invalidateSession: (notify = true) => {
+      sessionRevision++;
+      if (notify) controller.notifyAccessChanged();
+    },
     setAccess: (value) => {
       access = value;
       controller.notifyAccessChanged();
@@ -143,7 +153,13 @@ test('filter transitions and restored access never restore an earlier export sco
 });
 
 for (const outcome of ['resolve', 'reject']) {
-  for (const transition of ['newer read', 'route', 'dispose']) {
+  for (const transition of [
+    'newer read',
+    'route',
+    'dispose',
+    'session',
+    'access'
+  ]) {
     test(`a late ${outcome} after ${transition} cannot replace the current read or save a token`, async () => {
       const f = fixture();
       const pending = deferred();
@@ -151,6 +167,8 @@ for (const outcome of ['resolve', 'reject']) {
       const loading = f.controller.load();
       const newest = response([row('newest')]);
       if (transition === 'dispose') f.controller.dispose();
+      else if (transition === 'session') f.invalidateSession();
+      else if (transition === 'access') f.setAccess(false);
       else {
         if (transition === 'route') {
           f.controller.setSearch('old-filter');
@@ -180,3 +198,37 @@ for (const outcome of ['resolve', 'reject']) {
     });
   }
 }
+
+for (const status of [401, 403]) {
+  test(`authorization refusal ${status} purges private data and selection`, async () => {
+    const f = fixture();
+    f.ports.admin.getContributions = async () =>
+      response([row('private', { email_private: 'synthetic@example.test' })]);
+    await f.controller.load();
+    f.controller.selectContribution('private');
+    f.ports.admin.getContributions = async () => {
+      throw new AdminDashboardRequestError(status);
+    };
+    await f.controller.load();
+    assert.equal(f.controller.data(), null);
+    assert.equal(f.controller.selectedContribution(), null);
+    assert.equal(f.controller.selectedContributionId(), null);
+    assert.equal(f.unauthorized(), status === 401 ? 1 : 0);
+  });
+}
+
+test('a session generation change rejects a response before the page notification runs', async () => {
+  const f = fixture();
+  f.ports.admin.getContributions = async () =>
+    response([row('previous-private')]);
+  await f.controller.load();
+  const saved = [...f.saved];
+  const pending = deferred();
+  f.ports.admin.getContributions = () => pending.promise;
+  const loading = f.controller.load();
+  f.invalidateSession(false);
+  pending.resolve(response([row('private')]));
+  await loading;
+  assert.equal(f.controller.data(), null);
+  assert.deepEqual(f.saved, saved);
+});

@@ -2172,7 +2172,10 @@
           "help": "Choose dates and assign calendar slots.",
           "open": "Open calendar"
         }
-      }
+      },
+      "slotTimeHelp": "The date and time use the timezone specified for this slot.",
+      "draftTimeHelp": "Scheduling uses the America/Toronto timezone.",
+      "invalidLocalTime": "Check the date and timezone. Choose a time that occurs once in that timezone; missing or repeated times during a clock change are rejected."
     },
     "publicationCalendar": {
       "title": "Monthly publication view",
@@ -2918,6 +2921,17 @@
       "refreshActivity": "Refresh recent activity",
       "openStripeEvents": "Review Stripe events",
       "variables": "View configuration variables"
+    },
+    "emailDelivery": {
+      "uncertain": "Delivery outcome unknown",
+      "evidenceReference": "Provider evidence reference (no secrets)",
+      "markSent": "Mark as sent",
+      "markNotSent": "Confirm not sent; allow retry",
+      "confirmSent": "Confirm that provider evidence shows this message was sent?",
+      "confirmNotSent": "Confirm that provider evidence shows this message was not sent?",
+      "invalidEvidence": "Enter a non-secret reference using letters, numbers, dot, colon, hyphen or underscore (max 100 characters).",
+      "reconciled": "Delivery reconciled. Refresh the queue before any retry.",
+      "explanation": "Automatic delivery is paused until the provider outcome is reconciled."
     }
   },
   "funding": {

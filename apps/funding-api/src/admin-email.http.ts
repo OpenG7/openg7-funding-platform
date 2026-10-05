@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type {
   AdminEmailQueueMessageRecord,
+  AdminEmailDeliveryReconcileRequest,
   AdminEmailQueueResponse,
   AdminEmailQueueRetryRequest,
   AdminEmailQueueRetryResult,
@@ -61,6 +62,10 @@ export interface AdminEmailHttpDependencies {
   readonly retryAdminEmailQueueMessage: (
     messageId: string
   ) => Promise<Omit<AdminEmailQueueRetryResult, 'message'>>;
+  readonly reconcileEmailDelivery: (
+    input: AdminEmailDeliveryReconcileRequest,
+    actor: string
+  ) => Promise<boolean>;
   readonly insertAdminAuditLog: (input: AdminAuditLogInput) => Promise<unknown>;
   readonly reportFailure: (message: string, error: unknown) => void;
 }
@@ -85,6 +90,7 @@ export const createAdminEmailHttpHandler = ({
   listAdminEmailQueue,
   getAdminEmailQueueMessageById,
   retryAdminEmailQueueMessage,
+  reconcileEmailDelivery,
   insertAdminAuditLog,
   reportFailure
 }: AdminEmailHttpDependencies) => {
@@ -303,6 +309,14 @@ export const createAdminEmailHttpHandler = ({
           return true;
         }
 
+        if (existing.status === 'uncertain') {
+          writeJson(request, response, 409, {
+            code: 'EMAIL_DELIVERY_RECONCILIATION_REQUIRED',
+            error: 'Reconcile the unknown SMTP outcome before retrying.'
+          });
+          return true;
+        }
+
         const retry = await retryAdminEmailQueueMessage(parsed.messageId);
         const message = await getAdminEmailQueueMessageById(parsed.messageId);
         await insertAdminAuditLog({
@@ -334,6 +348,87 @@ export const createAdminEmailHttpHandler = ({
         reportFailure('Failed to retry email queue message.', error);
         writeJson(request, response, 502, {
           error: 'Email queue message could not be retried.'
+        });
+      }
+      return true;
+    }
+
+    if (
+      request.method === 'POST' &&
+      routeMatches(
+        request.url,
+        '/admin/email-queue/reconcile',
+        '/api/admin/email-queue/reconcile'
+      )
+    ) {
+      if (!ensureAdminAccess(request, response)) return true;
+      if (!databaseAvailable()) {
+        writeJson(request, response, 503, { code: 'EMAIL_QUEUE_UNAVAILABLE' });
+        return true;
+      }
+      if (
+        request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
+        'application/json'
+      ) {
+        writeJson(request, response, 415, {
+          code: 'INVALID_EMAIL_RECONCILIATION'
+        });
+        return true;
+      }
+      let parsed: AdminEmailDeliveryReconcileRequest;
+      try {
+        parsed = JSON.parse(await readBody(request, 16 * 1024));
+        if (
+          !parsed ||
+          typeof parsed !== 'object' ||
+          Array.isArray(parsed) ||
+          Object.keys(parsed).some(
+            (key) =>
+              ![
+                'messageId',
+                'expectedUpdatedAt',
+                'confirmation',
+                'outcome',
+                'evidenceReference'
+              ].includes(key)
+          ) ||
+          !isValidUuid(parsed.messageId) ||
+          parsed.confirmation !== parsed.messageId ||
+          typeof parsed.expectedUpdatedAt !== 'string' ||
+          parsed.expectedUpdatedAt.length > 64 ||
+          !Number.isFinite(Date.parse(parsed.expectedUpdatedAt)) ||
+          !['sent', 'not_sent'].includes(parsed.outcome) ||
+          typeof parsed.evidenceReference !== 'string' ||
+          !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/.test(parsed.evidenceReference)
+        )
+          throw new Error('INVALID_EMAIL_RECONCILIATION');
+      } catch {
+        writeJson(request, response, 400, {
+          code: 'INVALID_EMAIL_RECONCILIATION'
+        });
+        return true;
+      }
+      try {
+        const updated = await reconcileEmailDelivery(
+          parsed,
+          getAdminAuditActor(request)
+        );
+        if (!updated) {
+          writeJson(request, response, 409, {
+            code: 'EMAIL_RECONCILIATION_CONFLICT'
+          });
+        } else {
+          writeJson(request, response, 200, {
+            updated: true,
+            message: await getAdminEmailQueueMessageById(parsed.messageId)
+          });
+        }
+      } catch {
+        reportFailure('Failed to reconcile email delivery.', {
+          code: 'EMAIL_RECONCILIATION_FAILED'
+        });
+        writeJson(request, response, 502, {
+          code: 'EMAIL_RECONCILIATION_FAILED'
         });
       }
       return true;

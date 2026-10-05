@@ -323,8 +323,8 @@ export class AdminSponsorsPageComponent implements OnInit {
     admin: {
       uploadSponsorLogo: (token, id, version, file) =>
         this.admin.uploadSponsorLogo(token, id, version, file),
-      deleteSponsorLogo: (token, id, version) =>
-        this.admin.deleteSponsorLogo(token, id, version),
+      deleteSponsorLogo: (token, id, version, confirmation) =>
+        this.admin.deleteSponsorLogo(token, id, version, confirmation),
       getSponsorLogoPreview: (token, id) =>
         this.admin.getSponsorLogoPreview(token, id),
       getSponsorMedia: (token, id) => this.admin.getSponsorMedia(token, id),

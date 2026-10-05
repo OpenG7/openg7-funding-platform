@@ -84,6 +84,7 @@ export class AdminPublicationDraftsPanelComponent {
   readonly draftEdits = signal<Record<string, PublicationDraftEdit>>({});
   readonly dirtyDraftIds = signal<ReadonlySet<string>>(new Set());
   readonly actionState = signal<string | null>(null);
+  readonly dateTimeError = signal(false);
   readonly search = signal('');
   readonly statusFilter = signal<'active' | 'all' | PublicationDraftStatus>(
     'active'
@@ -112,6 +113,7 @@ export class AdminPublicationDraftsPanelComponent {
         target
       ),
     failed: () => this.failed.emit(),
+    invalidDateTime: () => this.dateTimeError.set(true),
     notice: (key) => this.notice.emit(key),
     focusRequested: (id) => this.focusRequested.emit(id),
     batchSelection: (id) => this.draftBatchSelection(id)
@@ -180,6 +182,7 @@ export class AdminPublicationDraftsPanelComponent {
     draft: AdminPublicationDraftRecord,
     status?: PublicationDraftStatus
   ): Promise<void> {
+    this.dateTimeError.set(false);
     return this.workflow.saveDraft(draft, status);
   }
 

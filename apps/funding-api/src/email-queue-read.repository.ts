@@ -34,6 +34,7 @@ interface AdminEmailQueueSummaryRow {
   readonly sending_count: number;
   readonly sent_count: number;
   readonly failed_count: number;
+  readonly uncertain_count: number;
   readonly retryable_count: number;
   readonly last_failed_at: string | null;
   readonly last_error: string | null;
@@ -149,9 +150,9 @@ export const listAdminEmailQueue = async (
           COUNT(*) FILTER (WHERE status = 'sending')::int AS sending_count,
           COUNT(*) FILTER (WHERE status = 'sent')::int AS sent_count,
           COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count,
+          COUNT(*) FILTER (WHERE status = 'uncertain')::int AS uncertain_count,
           COUNT(*) FILTER (
             WHERE status IN ('queued', 'failed')
-              OR status = 'sending'
           )::int AS retryable_count,
           MAX(updated_at)::text AS last_updated_at
         FROM email_messages
@@ -159,7 +160,7 @@ export const listAdminEmailQueue = async (
       latest_failed AS (
         SELECT updated_at::text AS last_failed_at, last_error
         FROM email_messages
-        WHERE status = 'failed'
+        WHERE status IN ('failed', 'uncertain')
         ORDER BY updated_at DESC
         LIMIT 1
       )
@@ -168,6 +169,7 @@ export const listAdminEmailQueue = async (
         counts.sending_count,
         counts.sent_count,
         counts.failed_count,
+        counts.uncertain_count,
         counts.retryable_count,
         latest_failed.last_failed_at,
         latest_failed.last_error,
@@ -182,6 +184,9 @@ export const listAdminEmailQueue = async (
     sending_count: summaryRow?.sending_count ?? 0,
     sent_count: summaryRow?.sent_count ?? 0,
     failed_count: summaryRow?.failed_count ?? 0,
+    ...(summaryRow?.uncertain_count
+      ? { uncertain_count: summaryRow.uncertain_count }
+      : {}),
     retryable_count: summaryRow?.retryable_count ?? 0,
     last_failed_at: summaryRow?.last_failed_at ?? null,
     last_error: summaryRow?.last_error ?? null
@@ -222,13 +227,13 @@ export const getEmailQueueStatus = async (
         COUNT(*) FILTER (WHERE status = 'queued')::int AS queued_count,
         COUNT(*) FILTER (WHERE status = 'sending')::int AS sending_count,
         COUNT(*) FILTER (WHERE status = 'sent')::int AS sent_count,
-        COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count
+        COUNT(*) FILTER (WHERE status IN ('failed','uncertain'))::int AS failed_count
       FROM email_messages
     ),
     latest_failed AS (
       SELECT updated_at::text AS last_failed_at, last_error
       FROM email_messages
-      WHERE status = 'failed'
+      WHERE status IN ('failed', 'uncertain')
       ORDER BY updated_at DESC
       LIMIT 1
     )

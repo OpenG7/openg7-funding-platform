@@ -129,7 +129,7 @@ OVH_S3_ACCESS_KEY_ID=
 OVH_S3_SECRET_ACCESS_KEY=
 STRIPE_SECRET_KEY=sk_live_replace_me
 STRIPE_WEBHOOK_SECRET=whsec_replace_me
-# Private PostgreSQL is required for real Checkout and production.
+# Private PostgreSQL is required for production administration and real Checkout.
 # POSTGRES_DB=openg7_funding
 # POSTGRES_USER=openg7_funding_owner
 # POSTGRES_PASSWORD=replace_with_a_long_random_secret
@@ -500,6 +500,15 @@ yarn vps:rollback
 This rolls back `web`, `api` and the previously enabled operations image. A worker
 introduced by the failed delivery is stopped. The previous activation is recorded
 in `backups/deployment-rollback.env`; do not remove it before a rollback.
+Deployments using `--revision` also write a receipt linking that revision to
+the exact Web/API/watcher image IDs after health checks. The next delivery only
+associates its rollback copies with a revision if the running images match the
+current receipt. `backups/deployment-{current,rollback}.revision` contains no
+credentials. A revision-qualified rollback (`bash scripts/rollback.sh --revision
+<full-SHA>`) refuses missing receipts, changed image tags or a different revision
+before changing services, then restores immutable image IDs. The optional launch
+agent requires this association; existing installations cannot infer it from Git
+HEAD or an older SQLite entry.
 It does not restore
 PostgreSQL data. Restore a database backup separately if a database migration
 must also be reverted.

@@ -240,7 +240,7 @@ test('Checkout sessions require fundraiser metadata and consent fields', () => {
   assert.ok(source.includes('resolveCheckoutReturnUrl'));
 
   for (const metadata of [
-    "project: 'openg7'",
+    'project: projectId',
     "program: 'builders_fund'",
     'publicReference,',
     'contributionType: parsed.contributionType',
@@ -1212,25 +1212,33 @@ test('Sponsorship follow-up refreshes pending payment status from Stripe before 
   );
 });
 
-test('Sponsorship follow-up email is sent from checkout completion only when recoverable', () => {
+test('Sponsorship follow-up email is finalized from confirmed payments only when recoverable', () => {
   const webhook = fs.readFileSync(
     'apps/funding-api/src/stripe-webhook/checkout-handlers.ts',
     'utf8'
   );
+  const finalizer = fs.readFileSync(
+    'apps/funding-api/src/stripe-webhook/sponsorship-payment-finalization.ts',
+    'utf8'
+  );
+  const financial = fs.readFileSync(
+    'apps/funding-api/src/stripe-webhook/financial-handlers.ts',
+    'utf8'
+  );
   const email = readEmailNotificationSource();
 
-  assert.ok(webhook.includes('queueSponsorshipFollowupEmail'));
-  assert.ok(webhook.includes('buildSponsorshipFollowupUrl'));
-  assert.ok(webhook.includes('extractSponsorshipFollowupTokenFromSession'));
-  assert.ok(webhook.includes('followupToken'));
-  assert.ok(webhook.includes('followupEmail'));
+  assert.ok(webhook.includes('finalizeSponsorshipPayment'));
+  assert.ok(financial.includes('finalizeSponsorshipPaymentIntent'));
+  assert.ok(finalizer.includes('queueSponsorshipFollowupEmail'));
+  assert.ok(finalizer.includes('buildSponsorshipFollowupUrl'));
+  assert.ok(finalizer.includes('followupToken(session)'));
+  assert.ok(finalizer.includes("params.get('followup_token')"));
+  assert.ok(finalizer.includes("status='paid'"));
+  assert.ok(finalizer.includes('hasContributionActivityForSession'));
   assert.ok(
-    webhook.includes(
-      'sessionMetadata.publicReference ?? session.client_reference_id'
-    )
+    finalizer.includes('publicReference: contribution.public_reference')
   );
-  assert.ok(webhook.includes('publicReference,'));
-  assert.ok(webhook.includes('markSponsorshipFollowupEmailResult'));
+  assert.ok(finalizer.includes('markSponsorshipFollowupEmailResult'));
   assert.ok(email.includes("templateKey: 'sponsorship_followup'"));
   assert.ok(email.includes('readonly publicReference: string | null;'));
   assert.ok(email.includes('Reference OpenG7: ${reference}'));
@@ -2493,7 +2501,7 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
   const emailQueue = readFundingPersistenceSource('email');
   const api = readFundingApiSource();
   const webhook = fs.readFileSync(
-    'apps/funding-api/src/stripe-webhook/checkout-handlers.ts',
+    'apps/funding-api/src/stripe-webhook/sponsorship-payment-finalization.ts',
     'utf8'
   );
   const migration = fs.readFileSync(
@@ -2604,7 +2612,7 @@ test('Email queue stores templates, retries delivery, and sends sponsorship invo
     'createSponsorshipInvoiceForStripeSession',
     'sponsorshipInvoiceConfig',
     'Commanditaire a confirmer',
-    'ON CONFLICT (contribution_id) DO UPDATE'
+    'ON CONFLICT (contribution_id) DO NOTHING'
   ]) {
     assert.ok(
       invoices.includes(marker),

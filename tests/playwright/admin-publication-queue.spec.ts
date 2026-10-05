@@ -7,7 +7,8 @@ import {
   draft,
   fixtures,
   preparationFixtures,
-  openSpace
+  openSpace,
+  slot
 } from './admin-publication-panels.fixtures.js';
 import { registerDraftPanelTests } from './admin-publication-drafts-panel.ui.js';
 import { registerSlotPanelTests } from './admin-publication-slots-panel.ui.js';
@@ -16,6 +17,107 @@ import { registerBatchPanelTests } from './admin-publication-batches-panel.ui.js
 registerDraftPanelTests();
 registerSlotPanelTests();
 registerBatchPanelTests();
+
+for (const browserTimezone of ['America/Toronto', 'Pacific/Honolulu']) {
+  test.describe(`publication dates in browser ${browserTimezone}`, () => {
+    test.use({ timezoneId: browserTimezone });
+
+    test('slot notes preserve the instant and new slots use their selected timezone', async ({
+      page
+    }) => {
+      await fixtures(page);
+      const writes: Record<string, unknown>[] = [];
+      await page.route(
+        '**/api/admin/publication-slots/update',
+        async (route) => {
+          writes.push(route.request().postDataJSON());
+          return route.fulfill({ json: { updated: true, slot } });
+        }
+      );
+      await page.goto('/admin/fundraiser/publications/calendar');
+      await page
+        .locator('[data-og7="calendar-entry"][data-og7-id="slot-first"]')
+        .click();
+      const drawer = page.getByRole('dialog', { name: 'Détail du créneau' });
+      await expect(
+        drawer.getByLabel('Date et heure', { exact: true })
+      ).toHaveValue('2030-06-03T16:00');
+      await drawer
+        .getByLabel('Notes', { exact: true })
+        .fill('Note sans changement horaire');
+      await drawer
+        .getByRole('button', { name: 'Mettre a jour', exact: true })
+        .click();
+      await expect.poll(() => writes.length).toBe(1);
+      expect(writes[0].startsAt).toBe(slot.startsAt);
+      await expect(
+        drawer.getByRole('button', { name: 'Fermer', exact: true })
+      ).toBeEnabled();
+      await drawer.getByRole('button', { name: 'Fermer', exact: true }).click();
+      await page
+        .getByRole('button', { name: 'Nouveau créneau', exact: true })
+        .click();
+      const form = page.locator('#new-slot-form');
+      await form
+        .getByLabel('Date et heure', { exact: true })
+        .fill('2030-06-03T15:45');
+      await form.getByLabel('Fuseau', { exact: true }).fill('Europe/Paris');
+      await page.route('**/api/admin/publication-slots', async (route) => {
+        if (route.request().method() === 'POST') {
+          writes.push(route.request().postDataJSON());
+          return route.fulfill({ json: { updated: true, slot } });
+        }
+        return route.fulfill({ json: { slots: [slot] } });
+      });
+      await form
+        .getByRole('button', { name: 'Creer un creneau', exact: true })
+        .click();
+      await expect.poll(() => writes.length).toBe(2);
+      expect(writes[1].startsAt).toBe('2030-06-03T13:45:00.000Z');
+      expect(writes[1].timezone).toBe('Europe/Paris');
+    });
+
+    test('draft notes preserve the instant and date edits use Toronto', async ({
+      page
+    }) => {
+      await fixtures(page);
+      const writes: Record<string, unknown>[] = [];
+      await page.route(
+        '**/api/admin/publication-drafts/update',
+        async (route) => {
+          writes.push(route.request().postDataJSON());
+          return route.fulfill({ json: { updated: true } });
+        }
+      );
+      await page.goto('/admin/fundraiser/publications/drafts');
+      const card = page.locator('#attention-object-draft-first');
+      await card.getByRole('button', { name: 'Ouvrir', exact: true }).click();
+      await card
+        .getByText('Date, lien et note interne', { exact: true })
+        .click();
+      await expect(
+        card.getByLabel('Planification', { exact: true })
+      ).toHaveValue('2030-06-03T10:00');
+      await card.getByLabel('Note revue', { exact: true }).fill('Note seule');
+      await card
+        .getByRole('button', { name: 'Enregistrer', exact: true })
+        .click();
+      await expect.poll(() => writes.length).toBe(1);
+      expect(writes[0].scheduledAt).toBe(draft.scheduled_at);
+      await expect(
+        card.getByRole('button', { name: 'Enregistrer', exact: true })
+      ).toBeEnabled();
+      await card
+        .getByLabel('Planification', { exact: true })
+        .fill('2030-06-03T11:00');
+      await card
+        .getByRole('button', { name: 'Enregistrer', exact: true })
+        .click();
+      await expect.poll(() => writes.length).toBe(2);
+      expect(writes[1].scheduledAt).toBe('2030-06-03T15:00:00.000Z');
+    });
+  });
+}
 
 test('publication preparation includes eligible sponsors beyond the first API page', async ({
   page

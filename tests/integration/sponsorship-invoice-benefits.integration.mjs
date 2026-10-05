@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
+import { setTimeout } from 'node:timers/promises';
+import { promisify } from 'node:util';
 import { inflateSync } from 'node:zlib';
 
 import { DEFAULT_SPONSORSHIP_PRICING_CONFIG } from '../../dist/packages/funding-core/src/index.js';
@@ -56,6 +59,62 @@ test(
           messageId
         ])
       ).rows[0];
+    const snapshot = async (invoiceId, database = pool) =>
+      (
+        await database.query(
+          'SELECT to_jsonb(invoice) AS snapshot FROM sponsorship_invoices invoice WHERE id = $1',
+          [invoiceId]
+        )
+      ).rows[0].snapshot;
+    // A new process loads genuinely different startup settings. It connects only
+    // to this helper's loopback database and imports no SMTP or Stripe adapter.
+    const issueWithChangedSettings = async (input) => {
+      const writerUrl = new URL(
+        '../../dist/apps/funding-api/src/sponsorship-documents/invoices.write.js',
+        import.meta.url
+      ).href;
+      const script = `
+        import pg from 'pg';
+        import { createSponsorshipInvoiceForStripeSession } from ${JSON.stringify(writerUrl)};
+        const pool = new pg.Pool(JSON.parse(process.env.OPENG7_TEST_INVOICE_PG));
+        try {
+          const invoice = await createSponsorshipInvoiceForStripeSession(
+            pool, JSON.parse(process.env.OPENG7_TEST_INVOICE_INPUT));
+          process.stdout.write(JSON.stringify(invoice));
+        } finally { await pool.end(); }
+      `;
+      const { stdout } = await promisify(execFile)(
+        process.execPath,
+        ['--input-type=module', '-e', script],
+        {
+          windowsHide: true,
+          timeout: 15000,
+          env: {
+            ...process.env,
+            OPENG7_TEST_INVOICE_PG: JSON.stringify({
+              host: pool.options.host,
+              port: pool.options.port,
+              user: pool.options.user,
+              password: pool.options.password,
+              database: pool.options.database,
+              ssl: false,
+              max: 1,
+              connectionTimeoutMillis: 1000
+            }),
+            OPENG7_TEST_INVOICE_INPUT: JSON.stringify(input),
+            FUNDING_SPONSORSHIP_INVOICE_PREFIX: 'SYNTHETIC-NEW',
+            FUNDING_INVOICE_ISSUER_NAME: 'Changed synthetic issuer',
+            FUNDING_INVOICE_ISSUER_EMAIL: 'changed-issuer@example.invalid',
+            FUNDING_INVOICE_ISSUER_ADDRESS: 'Changed synthetic address',
+            FUNDING_INVOICE_TAX_ID: 'Changed synthetic tax ID',
+            FUNDING_SPONSORSHIP_INVOICE_TAX_LABEL:
+              'Changed synthetic tax label',
+            FUNDING_SPONSORSHIP_INVOICE_LEGAL_NOTE: 'Changed synthetic policy'
+          }
+        }
+      );
+      return JSON.parse(stdout);
+    };
 
     for (const [amount, expected] of [
       [5000, ['OpenG7.org']],
@@ -183,7 +242,7 @@ test(
     );
 
     await t.test(
-      'invoice replay enriches missing sponsor and payment details while preserving the issued snapshot',
+      'replays retain missing details, placeholder, timestamps and the entire issued snapshot',
       async () => {
         const input = {
           ...(await seed(25000)),
@@ -202,6 +261,18 @@ test(
         assert.equal(original.publicReference, null);
         assert.equal(original.paidAtIso, null);
         assert.equal(original.sponsorContactEmail, null);
+        assert.equal(original.sponsorContactName, null);
+        assert.equal(original.sponsorWebsiteUrl, null);
+        assert.equal(original.stripePaymentIntentId, null);
+        const stored = await snapshot(original.id);
+        const originalPdf = await renderSponsorshipInvoicePdf(original);
+        const originalEmail = await queueSponsorshipInvoiceEmail(pool, {
+          to: 'original@example.invalid',
+          invoice: original,
+          deferDelivery: true,
+          idempotencyKey: 'snapshot:' + original.id
+        });
+        const originalMessage = await email(originalEmail.messageId);
         const publicReference = `OG7-2024-${randomUUID()}`;
         const paymentIntentId = `pi_test_enriched_${randomUUID()}`;
         await pool.query(
@@ -222,29 +293,27 @@ test(
           currency: 'usd',
           paidAtIso: '2024-01-01T12:00:00.000Z'
         };
-        const enriched = await createSponsorshipInvoiceForStripeSession(
+        const replay = await createSponsorshipInvoiceForStripeSession(
           pool,
           replayInput
         );
-        assert.deepEqual(enriched, {
-          ...original,
-          publicReference,
-          stripePaymentIntentId: paymentIntentId,
-          paidAtIso: enriched.paidAtIso,
-          sponsorName: 'Synthetic company',
-          sponsorContactName: 'Synthetic contact',
-          sponsorContactEmail: 'contact@example.invalid',
-          sponsorWebsiteUrl: 'https://sponsor.example.invalid'
-        });
-        assert.equal(
-          Date.parse(enriched.paidAtIso),
-          Date.parse(replayInput.paidAtIso)
+        assert.deepEqual(replay, original);
+        assert.deepEqual(await snapshot(original.id), stored);
+        assert.deepEqual(
+          await renderSponsorshipInvoicePdf(replay),
+          originalPdf
         );
-        assert.equal(enriched.totalCents, 25000);
-        assert.equal(enriched.currency, 'CAD');
-        assert.equal(enriched.invoiceNumber, original.invoiceNumber);
-        assert.deepEqual(enriched.lineItems, original.lineItems);
-        assert.equal(enriched.notes, original.notes);
+
+        // Changed startup configuration must affect new emissions, while the
+        // same new process still retrieves an older emission byte for byte.
+        const control = await issueWithChangedSettings(await seed(50000));
+        assert.equal(control.issuerName, 'Changed synthetic issuer');
+        assert.equal(control.issuerEmail, 'changed-issuer@example.invalid');
+        assert.equal(control.taxLabel, 'Changed synthetic tax label');
+        assert.match(control.invoiceNumber, /^SYNTHETIC-NEW-/);
+        assert.match(control.notes, /Changed synthetic policy/);
+        assert.deepEqual(await issueWithChangedSettings(replayInput), original);
+        assert.deepEqual(await snapshot(original.id), stored);
 
         await pool.query(
           `UPDATE fund_contributions
@@ -263,9 +332,23 @@ test(
         );
         assert.deepEqual(
           await createSponsorshipInvoiceForStripeSession(pool, replayInput),
-          enriched,
-          'already populated details and issued facts survive later input changes'
+          original,
+          'later corrections to the profile never change the issued document'
         );
+        assert.deepEqual(await snapshot(original.id), stored);
+        const resentId = await enqueueSponsorshipDocumentEmail(pool, {
+          to: 'corrected-recipient@example.invalid',
+          invoice: replay,
+          idempotencyKey: 'snapshot-resend:' + original.id
+        });
+        const resent = await email(resentId);
+        assert.equal(resent.text_body, originalMessage.text_body);
+        assert.equal(resent.html_body, originalMessage.html_body);
+        assert.equal(
+          resent.recipient_email,
+          'corrected-recipient@example.invalid'
+        );
+        assert.equal(resent.status, 'queued');
         assert.equal(
           (
             await pool.query(
@@ -279,19 +362,88 @@ test(
     );
 
     await t.test(
-      'concurrent payment deliveries return one invoice without changing its snapshot',
+      'a concurrent emission waits for the winner then reads its complete committed snapshot',
       async () => {
         const input = await seed(37550);
-        const invoices = await Promise.all([
-          createSponsorshipInvoiceForStripeSession(pool, input),
-          createSponsorshipInvoiceForStripeSession(pool, input)
-        ]);
-        assert.deepEqual(invoices[0], invoices[1]);
+        const winner = await pool.connect();
+        const loser = await pool.connect();
+        let pending;
+        let winningInvoice;
+        let committed = false;
+        const loserQueries = [];
+        try {
+          await winner.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+          winningInvoice = await createSponsorshipInvoiceForStripeSession(
+            { query: winner.query.bind(winner) },
+            input
+          );
+          const stored = await snapshot(winningInvoice.id, winner);
+          const loserPid = (await loser.query('SELECT pg_backend_pid() AS pid'))
+            .rows[0].pid;
+          assert.equal(
+            (await loser.query('SHOW transaction_isolation')).rows[0]
+              .transaction_isolation,
+            'read committed'
+          );
+          pending = createSponsorshipInvoiceForStripeSession(
+            {
+              query: (sql, values) => {
+                loserQueries.push(sql);
+                return loser.query(sql, values);
+              }
+            },
+            {
+              ...input,
+              publicReference: 'OG7-2030-LOSER',
+              stripePaymentIntentId: 'pi_test_loser',
+              paidAtIso: '2030-01-01T00:00:00Z',
+              customerEmail: 'loser@example.invalid'
+            }
+          ).then(
+            (invoice) => ({ invoice }),
+            (error) => ({ error })
+          );
+          const deadline = Date.now() + 5000;
+          let blocked = false;
+          while (Date.now() < deadline) {
+            const activity = await pool.query(
+              `SELECT wait_event_type FROM pg_stat_activity
+               WHERE pid = $1 AND query LIKE '%INSERT INTO sponsorship_invoices%'`,
+              [loserPid]
+            );
+            if (activity.rows[0]?.wait_event_type === 'Lock') {
+              blocked = true;
+              break;
+            }
+            await setTimeout(10);
+          }
+          assert.equal(
+            blocked,
+            true,
+            'the losing INSERT began before the winning commit'
+          );
+          await winner.query('COMMIT');
+          committed = true;
+          const result = await pending;
+          assert.ifError(result.error);
+          assert.deepEqual(result.invoice, winningInvoice);
+          assert.equal(loserQueries.length, 2);
+          assert.match(
+            loserQueries[1],
+            /SELECT[\s\S]*FROM sponsorship_invoices invoice/
+          );
+          assert.deepEqual(await snapshot(winningInvoice.id), stored);
+        } finally {
+          if (!committed) await winner.query('ROLLBACK');
+          if (pending) await pending;
+          winner.release();
+          loser.release();
+        }
         assert.equal(
           (
             await pool.query(
               'SELECT COUNT(*)::int AS count FROM sponsorship_invoices WHERE contribution_id = $1',
-              [invoices[0].contributionId]
+              [winningInvoice.contributionId]
             )
           ).rows[0].count,
           1

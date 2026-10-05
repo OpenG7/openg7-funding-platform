@@ -39,6 +39,7 @@ export interface EmailQueueInsertResult {
 }
 
 interface ClaimedEmailRow {
+  readonly delivery_attempt_id: string;
   readonly id: string;
   readonly recipient_email: string;
   readonly from_email: string;
@@ -52,6 +53,7 @@ interface ClaimedEmailRow {
 
 /** A durable claim exposes only the fields needed to deliver and settle the attempt. */
 export interface ClaimedEmailMessage {
+  readonly deliveryAttemptId: string;
   readonly id: string;
   readonly to: string;
   readonly fromEmail: string;
@@ -72,6 +74,7 @@ const projectClaimedEmailMessage = (
   row: ClaimedEmailRow
 ): ClaimedEmailMessage => ({
   id: row.id,
+  deliveryAttemptId: row.delivery_attempt_id,
   to: row.recipient_email,
   fromEmail: row.from_email,
   replyToEmail: row.reply_to_email,
@@ -191,25 +194,25 @@ export const claimQueuedEmailMessages = async (
       WITH selected AS (
         SELECT id
         FROM email_messages
-        WHERE (
-            (
-              status IN ('queued', 'failed')
-              AND next_attempt_at <= NOW()
-            )
-            OR (
-              status = 'sending'
-              AND updated_at <= NOW() - INTERVAL '15 minutes'
-            )
-          )
+        WHERE status IN ('queued', 'failed')
+          AND next_attempt_at <= NOW()
           AND attempts < max_attempts
           ${idFilter}
         ORDER BY created_at ASC
         FOR UPDATE SKIP LOCKED
         LIMIT $1
       )
+      , expired AS (
+        UPDATE email_messages SET status='uncertain',
+          last_error='EMAIL_DELIVERY_UNCERTAIN', updated_at=NOW()
+        WHERE status='sending' AND updated_at <= NOW() - INTERVAL '15 minutes'
+          ${idFilter}
+        RETURNING id
+      )
       UPDATE email_messages
       SET
         status = 'sending',
+        delivery_attempt_id = gen_random_uuid(),
         attempts = attempts + 1,
         updated_at = NOW()
       FROM selected
@@ -223,7 +226,8 @@ export const claimQueuedEmailMessages = async (
         email_messages.text_body,
         email_messages.html_body,
         email_messages.attempts,
-        email_messages.max_attempts
+        email_messages.max_attempts,
+        email_messages.delivery_attempt_id::text
     `,
     params
   );
@@ -233,40 +237,45 @@ export const claimQueuedEmailMessages = async (
 
 export const markEmailSent = async (
   pool: Pool,
-  messageId: string
-): Promise<void> => {
-  await pool.query(
-    `
-      UPDATE email_messages
-      SET
-        status = 'sent',
-        sent_at = NOW(),
-        next_attempt_at = NOW(),
-        last_error = NULL,
-        updated_at = NOW()
-      WHERE id = $1
-    `,
-    [messageId]
+  messageId: string,
+  deliveryAttemptId: string
+): Promise<boolean> => {
+  const result = await pool.query(
+    `UPDATE email_messages SET status='sent', sent_at=NOW(), next_attempt_at=NOW(),
+       last_error=NULL, updated_at=NOW()
+     WHERE id=$1 AND status='sending' AND delivery_attempt_id=$2::uuid`,
+    [messageId, deliveryAttemptId]
   );
+  return result.rowCount === 1;
 };
 
 export const markEmailFailed = async (
   pool: Pool,
   messageId: string,
   nextAttemptAt: Date | null,
-  error: string | null
+  error: string | null,
+  deliveryAttemptId: string
+): Promise<boolean> => {
+  const result = await pool.query(
+    `UPDATE email_messages SET status='failed',
+       next_attempt_at=COALESCE($2::timestamptz,next_attempt_at),
+       last_error=$3, updated_at=NOW()
+     WHERE id=$1 AND status='sending' AND delivery_attempt_id=$4::uuid`,
+    [messageId, nextAttemptAt?.toISOString() ?? null, error, deliveryAttemptId]
+  );
+  return result.rowCount === 1;
+};
+
+export const markEmailUncertain = async (
+  pool: Pool,
+  messageId: string,
+  deliveryAttemptId: string
 ): Promise<void> => {
   await pool.query(
-    `
-      UPDATE email_messages
-      SET
-        status = 'failed',
-        next_attempt_at = COALESCE($2::timestamptz, next_attempt_at),
-        last_error = $3,
-        updated_at = NOW()
-      WHERE id = $1
-    `,
-    [messageId, nextAttemptAt?.toISOString() ?? null, error]
+    `UPDATE email_messages SET status='uncertain',
+       last_error='EMAIL_DELIVERY_UNCERTAIN', updated_at=NOW()
+     WHERE id=$1 AND status='sending' AND delivery_attempt_id=$2::uuid`,
+    [messageId, deliveryAttemptId]
   );
 };
 
@@ -281,9 +290,17 @@ export const claimAdminEmailQueueRetry = async (
   // another administrator (or the worker) may already own its SMTP request.
   const claimed = await pool.query<ClaimedEmailRow>(
     `
+      WITH expired AS (
+        UPDATE email_messages SET status='uncertain',
+          last_error='EMAIL_DELIVERY_UNCERTAIN', updated_at=NOW()
+        WHERE id=$1::uuid AND status='sending'
+          AND updated_at <= NOW() - INTERVAL '15 minutes'
+        RETURNING id
+      )
       UPDATE email_messages
       SET
         status = 'sending',
+        delivery_attempt_id = gen_random_uuid(),
         attempts = CASE
           WHEN attempts >= max_attempts THEN max_attempts
           ELSE attempts + 1
@@ -293,10 +310,9 @@ export const claimAdminEmailQueueRetry = async (
       WHERE id = $1::uuid
         AND (
           status IN ('queued', 'failed')
-          OR (status = 'sending' AND updated_at <= NOW() - INTERVAL '15 minutes')
         )
       RETURNING id, recipient_email, from_email, reply_to_email,
-        subject, text_body, html_body, attempts, max_attempts
+        subject, text_body, html_body, attempts, max_attempts, delivery_attempt_id::text
     `,
     [messageId]
   );

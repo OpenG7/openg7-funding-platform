@@ -125,88 +125,122 @@ const analyzeLogs: ToolHandler = (context, params) =>
     };
   });
 
+const isRevision = (value: string): boolean =>
+  value.length === 40 && /^[a-f0-9]{40}$/.test(value);
+
 const deploy: ToolHandler = (context) =>
   result('deploy', async () => {
-    const before = await context.runCommand({ key: 'git_current_sha' });
-    if (before.code === 0 && before.stdout.trim()) {
-      context.memory.recordDeployment({
-        status: 'previous',
-        version: before.stdout.trim()
+    if (!context.execute) {
+      const pull = await context.runCommand({ key: 'deploy_pull' });
+      const deployment = await context.runCommand({
+        key: 'deploy_run',
+        params: { sha: '0'.repeat(40) }
       });
+      return {
+        details: { deployment, pull, simulated: true },
+        message: 'Déploiement simulé, aucune version qualifiée',
+        success: pull.code === 0 && deployment.code === 0
+      };
     }
 
+    const before = await context.runCommand({ key: 'git_current_sha' });
+    if (before.code !== 0 || !isRevision(before.stdout.trim())) {
+      return {
+        details: { before },
+        message: 'Révision initiale inconnue',
+        success: false
+      };
+    }
     const pull = await context.runCommand({ key: 'deploy_pull' });
     if (pull.code !== 0) {
       return {
-        details: { pull },
+        details: { before, pull },
         message: 'git pull a échoué',
         success: false
       };
     }
-
-    const build = await context.runCommand({ key: 'deploy_build' });
-    if (build.code !== 0) {
+    const selected = await context.runCommand({ key: 'git_current_sha' });
+    const version = selected.stdout.trim();
+    if (selected.code !== 0 || !isRevision(version)) {
       return {
-        details: { build, pull },
-        message: 'docker compose build a échoué',
+        details: { before, pull, selected },
+        message: 'Révision à déployer inconnue',
         success: false
       };
     }
-
-    const up = await context.runCommand({ key: 'deploy_up' });
-    const after = await context.runCommand({ key: 'git_current_sha' });
-    if (up.code === 0 && after.code === 0 && after.stdout.trim()) {
-      context.memory.recordDeployment({
-        status: 'stable',
-        version: after.stdout.trim()
-      });
+    const deployment = await context.runCommand({
+      key: 'deploy_run',
+      params: { sha: version }
+    });
+    if (deployment.code !== 0) {
+      return {
+        details: { before, deployment, pull, selected, version },
+        message: 'Le runner de déploiement a échoué',
+        success: false
+      };
     }
-
+    const after = await context.runCommand({ key: 'git_current_sha' });
+    if (after.code !== 0 || after.stdout.trim() !== version) {
+      return {
+        details: { after, before, deployment, pull, selected, version },
+        message: 'La révision a changé pendant le déploiement',
+        success: false
+      };
+    }
+    context.memory.recordDeployment({ status: 'candidate', version });
     return {
-      details: { after, before, build, pull, up },
-      message:
-        up.code === 0 ? 'Déploiement terminé' : 'docker compose up a échoué',
-      success: up.code === 0
+      details: {
+        after,
+        before,
+        deployment,
+        pull,
+        selected,
+        qualified: true,
+        version
+      },
+      message: 'Déploiement vérifié, qualification finale par la checklist',
+      success: true
     };
   });
 
 const rollback: ToolHandler = (context) =>
   result('rollback', async () => {
-    const version = context.memory.lastStableDeployment();
-    if (!version) {
+    if (!context.execute) {
+      const rollback = await context.runCommand({
+        key: 'rollback_run',
+        params: { sha: '0'.repeat(40) }
+      });
       return {
-        details: {},
+        details: { rollback, simulated: true },
+        message: 'Rollback simulé',
+        success: rollback.code === 0
+      };
+    }
+    const current = await context.runCommand({ key: 'git_current_sha' });
+    if (current.code !== 0 || !isRevision(current.stdout.trim())) {
+      return {
+        details: { current },
+        message: 'Révision actuelle inconnue',
+        success: false
+      };
+    }
+    const version = context.memory.lastStableDeployment(current.stdout.trim());
+    if (!version || !isRevision(version)) {
+      return {
+        details: { current },
         message: 'Aucune version stable enregistrée pour rollback',
         success: false
       };
     }
-
-    const checkout = await context.runCommand({
-      key: 'git_checkout',
+    const rollback = await context.runCommand({
+      key: 'rollback_run',
       params: { sha: version }
     });
-    if (checkout.code !== 0) {
-      return {
-        details: { checkout, version },
-        message: 'Checkout de la version stable impossible',
-        success: false
-      };
-    }
-
-    const build = await context.runCommand({ key: 'deploy_build' });
-    if (build.code !== 0) {
-      return {
-        details: { build, checkout, version },
-        message: 'docker compose build a échoué',
-        success: false
-      };
-    }
-    const up = await context.runCommand({ key: 'deploy_up' });
     return {
-      details: { build, checkout, up, version },
+      details: { current, rollback, qualified: rollback.code === 0, version },
       message:
-        up.code === 0 ? `Rollback vers ${version}` : 'Rollback incomplet',
-      success: build.code === 0 && up.code === 0
+        rollback.code === 0 ? `Rollback vers ${version}` : 'Rollback incomplet',
+      success: rollback.code === 0
     };
   });
 

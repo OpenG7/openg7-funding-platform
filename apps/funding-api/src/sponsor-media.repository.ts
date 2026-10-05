@@ -5,6 +5,8 @@ export type {
   SponsorMediaMutationResult
 } from './sponsor-media/persistence-contracts.js';
 
+export { SponsorMediaPersistenceError } from './sponsor-media/persistence-error.js';
+
 export {
   listSponsorMediaAssets,
   getSponsorMediaStorageRecord,

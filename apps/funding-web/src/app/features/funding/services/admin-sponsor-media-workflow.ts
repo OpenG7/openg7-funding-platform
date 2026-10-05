@@ -120,7 +120,8 @@ export class AdminSponsorMediaWorkflow {
       await this.ports.admin.deleteSponsorLogo(
         this.ports.adminToken(),
         sponsorship.id,
-        sponsorship.version
+        sponsorship.version,
+        sponsorship.id
       );
       this.setLogoUploadMessage(
         sponsorship.id,

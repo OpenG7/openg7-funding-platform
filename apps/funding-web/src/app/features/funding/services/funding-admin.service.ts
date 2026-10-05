@@ -42,6 +42,8 @@ import type {
   AdminDashboardResponse,
   AdminEmailQueueResponse,
   AdminEmailQueueRetryRequest,
+  AdminEmailDeliveryReconcileRequest,
+  AdminEmailQueueMessageRecord,
   AdminEmailQueueRetryResult,
   AdminEmailTestRequest,
   AdminEmailTestResult,
@@ -442,6 +444,16 @@ export class FundingAdminService {
     return this.operationsClient.retryEmailQueueMessage(token, payload);
   }
 
+  reconcileEmailDelivery(
+    token: string,
+    payload: AdminEmailDeliveryReconcileRequest
+  ): Promise<{
+    updated: boolean;
+    message: AdminEmailQueueMessageRecord | null;
+  }> {
+    return this.operationsClient.reconcileEmailDelivery(token, payload);
+  }
+
   async getSponsorshipInvoices(
     token: string,
     contributionId?: string
@@ -708,12 +720,14 @@ export class FundingAdminService {
   deleteSponsorLogo(
     token: string,
     contributionId: string,
-    expectedVersion: string
+    expectedVersion: string,
+    confirmation: string
   ): Promise<AdminSponsorLogoDeleteResult> {
     return this.sponsorshipsClient.deleteSponsorLogo(
       token,
       contributionId,
-      expectedVersion
+      expectedVersion,
+      confirmation
     );
   }
 

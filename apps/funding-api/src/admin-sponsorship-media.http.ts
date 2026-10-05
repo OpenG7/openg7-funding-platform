@@ -579,6 +579,14 @@ export const createAdminSponsorshipMediaHttpHandler = ({
         return true;
       }
 
+      if (parsed?.confirmation !== contributionId) {
+        writeJson(request, response, 400, {
+          code: 'CONFIRMATION_REQUIRED',
+          error: 'Confirm the selected sponsorship before deleting its logo.'
+        });
+        return true;
+      }
+
       if (!isValidAdminExpectedVersion(expectedVersion)) {
         writeJson(request, response, 400, {
           error: 'Sponsor version is required.'

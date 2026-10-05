@@ -16,6 +16,8 @@ interface ProcessWebhookDependencies {
 
 const allowedEvents = new Set([
   'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
+  'checkout.session.async_payment_failed',
   'checkout.session.expired',
   'payment_intent.succeeded',
   'payment_intent.payment_failed',
@@ -44,7 +46,9 @@ const processVerifiedStripeEvent = async (
 
   const payload =
     event.type === 'checkout.session.completed' ||
-    event.type === 'checkout.session.expired'
+    event.type === 'checkout.session.expired' ||
+    event.type === 'checkout.session.async_payment_succeeded' ||
+    event.type === 'checkout.session.async_payment_failed'
       ? await handleStripeCheckoutEvent(event, {
           pool: dependencies.pool,
           publicBaseUrl: dependencies.publicBaseUrl
@@ -52,7 +56,8 @@ const processVerifiedStripeEvent = async (
       : await handleStripeFinancialEvent(event, {
           stripe: dependencies.stripe,
           pool: dependencies.pool,
-          projectId: dependencies.projectId
+          projectId: dependencies.projectId,
+          publicBaseUrl: dependencies.publicBaseUrl
         });
   return { statusCode: 200, payload };
 };

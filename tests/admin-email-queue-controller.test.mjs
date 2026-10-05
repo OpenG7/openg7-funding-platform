@@ -513,3 +513,42 @@ for (const action of ['target change', 'dispose'])
       assert.equal(calls.retries.length, 1);
       assert.equal(calls.confirmations.length, 1);
     });
+
+test('uncertain SMTP requires confirmed versioned reconciliation instead of retry', async (t) => {
+  const { controller: c, ports, calls } = fixture(t);
+  const row = message({ status: 'uncertain' });
+  c.queue.set(snapshot(row));
+  await c.retryMessage(row);
+  assert.equal(calls.retries.length, 0);
+  assert.equal(calls.confirmations.length, 0);
+  let sent;
+  ports.admin.reconcileEmailDelivery = async (token, payload) => {
+    sent = { token, payload };
+    return { updated: true, message: message({ status: 'sent' }) };
+  };
+  ports.admin.getEmailQueue = async () => snapshot(message({ status: 'sent' }));
+  await c.reconcileMessage(row, 'sent', 'synthetic-case:123');
+  assert.deepEqual(sent, {
+    token: 'synthetic-session',
+    payload: {
+      messageId: row.id,
+      expectedUpdatedAt: row.updated_at,
+      confirmation: row.id,
+      outcome: 'sent',
+      evidenceReference: 'synthetic-case:123'
+    }
+  });
+  assert.equal(c.queue().messages[0].status, 'sent');
+  assert.equal(calls.retries.length, 0);
+});
+test('reconciliation requires a non-secret reference and respects cancellation', async (t) => {
+  const { controller: c, ports, calls } = fixture(t);
+  const row = message({ status: 'uncertain' });
+  ports.admin.reconcileEmailDelivery = async () =>
+    assert.fail('Cancelled/invalid reconciliation must not mutate');
+  await c.reconcileMessage(row, 'not_sent', 'a body with private details');
+  assert.equal(calls.confirmations.length, 0);
+  ports.confirm = async () => false;
+  await c.reconcileMessage(row, 'not_sent', 'synthetic-case');
+  assert.equal(c.retryStateFor(row.id), 'idle');
+});

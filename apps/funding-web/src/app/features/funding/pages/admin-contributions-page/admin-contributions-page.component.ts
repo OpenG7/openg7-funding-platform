@@ -11,7 +11,7 @@ import {
   signal,
   untracked
 } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { AdminContributionRecord } from '@openg7/funding-core';
 
@@ -63,6 +63,8 @@ export class AdminContributionsPageComponent implements OnInit {
   readonly i18n = inject(FundingI18nService);
   private readonly admin = inject(FundingAdminService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private sessionExpired = false;
   private readonly destroy = inject(DestroyRef);
   readonly adminToken = signal<string>('');
   readonly canExport = computed(
@@ -71,7 +73,9 @@ export class AdminContributionsPageComponent implements OnInit {
   private readonly controller = new AdminContributionsController({
     admin: this.admin,
     token: () => this.adminToken(),
-    canExport: () => this.canExport()
+    canExport: () => this.canExport(),
+    accessRevision: () => this.admin.sessionGeneration(),
+    unauthorized: () => this.expireSession(true)
   });
   private readonly exportWorkflow = new AdminContributionsExportWorkflow({
     admin: this.admin,
@@ -83,7 +87,8 @@ export class AdminContributionsPageComponent implements OnInit {
     canExport: () => this.canExport(),
     contributions: () => this.filteredContributions(),
     t: (key, params) => this.i18n.t(key, params),
-    saveCsv: (csv) => adminContributionsBrowser()?.saveCsv(csv)
+    saveCsv: (csv) => adminContributionsBrowser()?.saveCsv(csv),
+    unauthorized: () => this.expireSession(true)
   });
   readonly data = this.controller.data;
   readonly state = this.controller.state;
@@ -116,9 +121,15 @@ export class AdminContributionsPageComponent implements OnInit {
       const nextGeneration = this.admin.sessionGeneration();
       if (identity === nextIdentity && sessionGeneration === nextGeneration)
         return;
+      const sessionChanged = sessionGeneration !== nextGeneration;
       identity = nextIdentity;
       sessionGeneration = nextGeneration;
-      untracked(() => this.controller.notifyAccessChanged());
+      untracked(() => {
+        this.controller.notifyAccessChanged();
+        this.exportWorkflow.clearError();
+        if (sessionChanged) this.expireSession();
+        else void this.loadContributions();
+      });
     });
   }
 
@@ -141,13 +152,25 @@ export class AdminContributionsPageComponent implements OnInit {
     return this.controller.load();
   }
 
+  private expireSession(clearSession = false): void {
+    this.controller.notifyAccessChanged();
+    this.exportWorkflow.clearError();
+    this.adminToken.set('');
+    if (this.sessionExpired) return;
+    this.sessionExpired = true;
+    if (clearSession) this.admin.clearAdminSession();
+    void this.router.navigate(['/admin/login'], {
+      queryParams: { returnUrl: this.router.url, sessionExpired: '1' }
+    });
+  }
+
   exportCsv(): Promise<void> {
     return this.exportWorkflow.exportCsv();
   }
 
   setAdminToken(event: Event): void {
     const token = this.valueFromEvent(event);
-    if (token !== this.adminToken()) this.controller.invalidateExportScope();
+    if (token !== this.adminToken()) this.controller.notifyAccessChanged();
     this.adminToken.set(token);
     this.admin.saveAdminToken(this.adminToken());
   }

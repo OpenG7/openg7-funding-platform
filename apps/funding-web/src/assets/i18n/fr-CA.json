@@ -2168,7 +2168,10 @@
           "help": "Choisissez les dates et attribuez les créneaux.",
           "open": "Ouvrir le calendrier"
         }
-      }
+      },
+      "slotTimeHelp": "La date et l’heure utilisent le fuseau indiqué pour ce créneau.",
+      "draftTimeHelp": "La planification utilise le fuseau America/Toronto.",
+      "invalidLocalTime": "Vérifiez la date et le fuseau. Choisissez une heure qui existe une seule fois dans ce fuseau; les heures absentes ou répétées au changement d’heure sont refusées."
     },
     "publicationCalendar": {
       "title": "Vue mensuelle des publications",
@@ -2914,6 +2917,17 @@
       "refreshActivity": "Actualiser l’activité récente",
       "openStripeEvents": "Examiner les événements Stripe",
       "variables": "Voir les variables de configuration"
+    },
+    "emailDelivery": {
+      "uncertain": "Résultat de livraison inconnu",
+      "evidenceReference": "Référence de la preuve fournisseur (sans secret)",
+      "markSent": "Marquer comme envoyé",
+      "markNotSent": "Confirmer non envoyé et autoriser la relance",
+      "confirmSent": "Confirmer que la preuve fournisseur indique que ce message a été envoyé ?",
+      "confirmNotSent": "Confirmer que la preuve fournisseur indique que ce message n’a pas été envoyé ?",
+      "invalidEvidence": "Saisissez une référence non secrète avec lettres, chiffres, point, deux-points, tiret ou soulignement (100 caractères maximum).",
+      "reconciled": "Livraison réconciliée. Actualisez la file avant toute relance.",
+      "explanation": "L’envoi automatique est suspendu jusqu’à la réconciliation du résultat fournisseur."
     }
   },
   "funding": {

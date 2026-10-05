@@ -265,6 +265,7 @@ test('Checkout maps integer CAD units, server project, consent and provider resu
   assert.equal(provider.line_items[0].price_data.unit_amount, 2500);
   assert.equal(provider.line_items[0].price_data.currency, 'cad');
   assert.equal(provider.metadata.projectId, 'synthetic-server-project');
+  assert.equal(provider.metadata.project, 'synthetic-server-project');
   assert.equal(provider.metadata.publicDisplayName, 'Synthetic builder');
   assert.equal(provider.metadata.requiresReview, 'false');
   assert.equal(provider.metadata.publicReference, reference);

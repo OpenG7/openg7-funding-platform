@@ -31,8 +31,8 @@ and administrative validation before publication. Other currencies require
 confirmation of benefits; no exchange-rate conversion is inferred.
 
 Resends retain the issued benefits even if pricing changes. Existing invoices
-keep their original notes; this change does not rewrite or resend them. No
-database migration is required.
+keep their original notes; the benefits snapshot does not rewrite or resend them
+and requires no migration.
 
 ## Roles
 
@@ -108,9 +108,31 @@ After a retry, the page reloads the current message scope and the global server
 counts, ignoring older list responses. If that read fails, the confirmed retry
 result remains visible alongside a separate loading error; refresh can recover it.
 
-The existing recovery of a `sending` claim older than 15 minutes remains in place.
-This is not an exactly-once SMTP guarantee: loss of the final acknowledgement or
-a crash after provider acceptance can still leave an ambiguous result. The
+Apply migration [033](../apps/funding-api/migrations/033_add_email_delivery_uncertainty.sql)
+before updating the API and Web. Existing records are preserved. A timeout after
+DATA, an unknown transport phase, or a `sending` claim older than 15 minutes is
+quarantined as `uncertain`: neither the worker nor an ordinary manual retry sends
+it again. Definite pre-DATA failures and explicit SMTP rejection retain backoff.
+Generic `CONN` socket/timeout errors are also uncertain: this SDK label does not
+prove that the failure preceded DATA. Each claim has a UUID; a late result from an
+expired or replaced attempt cannot settle another attempt. A stable Message-ID
+based on the queue UUID helps locate
+provider evidence; it does not guarantee provider deduplication or inbox delivery.
+
+In the email queue, investigate the provider outcome first. Enter a non-secret
+case/reference (letters, numbers, dot, underscore, colon or hyphen; 100 characters
+maximum), select **Mark as sent** or **Confirm not sent; allow retry**, then confirm
+the exact message. `POST /api/admin/email-queue/reconcile` requires JSON
+`{ messageId, expectedUpdatedAt, confirmation: messageId, outcome: "sent" | "not_sent", evidenceReference }`.
+The API checks operator/owner rights, target, version and confirmation. State and
+audit commit together; an obsolete version returns `409 EMAIL_RECONCILIATION_CONFLICT`.
+`sent` records acceptance without resending. `not_sent` leaves the message failed
+at its automatic attempt limit: only a separately confirmed individual retry can
+resume it. If evidence remains ambiguous, leave it `uncertain`. After a lost HTTP
+response, refresh the current state before submitting another decision. Ordinary
+retry of an uncertain message returns `409 EMAIL_DELIVERY_RECONCILIATION_REQUIRED`.
+
+SMTP cannot provide an exactly-once guarantee. The
 [recovery recipe](sponsorship-access-and-drafts.md#recette-complete-courriel-en-echec-et-reprise-du-dossier)
 qualifies definite failures before SMTP acceptance and concurrent active claims.
 
@@ -125,7 +147,7 @@ port, and the existing fixture HTTP port is bound to loopback.
 
 From `/admin/fundraiser/setup`, an owner can send a test to an explicit address
 or the configured admin notification address. Configuration readiness does not
-verify SMTP connectivity. The UI distinguishes `queued`, `sending`, `failed` and
+verify SMTP connectivity. The UI distinguishes `queued`, `sending`, `failed`, `uncertain` and
 `sent`; `sent` means accepted by SMTP, not delivered to an inbox. A link opens
 the exact message in the email queue for investigation and confirmed retry.
 
@@ -156,9 +178,9 @@ result. Failure explanations survive configuration refresh, and expired sessions
 clear private data. Session storage must be available before starting a test.
 
 Update API and Web together: older clients without `requestId` are rejected.
-No migration or environment variable is added. The existing queue worker and
-confirmed manual retry own recovery; SMTP acknowledgement loss still has the
-ambiguity described above. This change does not claim exactly-once SMTP delivery.
+Migration 033 is required for delivery uncertainty; no new environment variable
+is added. The queue worker and confirmed manual retry own recovery of definite
+failures; uncertain outcomes require the explicit reconciliation described above. This change does not claim exactly-once SMTP delivery.
 
 The [setup recipe](../tests/identity/setup-email-journey.spec.ts) uses built Web,
 real API, disposable PostgreSQL, signed local OIDC and Mailpit behind a local TCP

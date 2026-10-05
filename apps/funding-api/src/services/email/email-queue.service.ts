@@ -6,6 +6,7 @@ import {
   insertEmailQueueMessage,
   markEmailFailed,
   markEmailSent,
+  markEmailUncertain,
   type ClaimedEmailMessage,
   type EmailQueueInsertResult
 } from '../../email-queue.repository.js';
@@ -20,6 +21,7 @@ import {
 import type { RenderedEmail } from './email-notification.types.js';
 
 export interface EmailSendResult {
+  readonly uncertain?: boolean;
   readonly attempted: boolean;
   readonly sent: boolean;
   readonly error: string | null;
@@ -64,6 +66,7 @@ export const snapshotEmailDependencies = (
 
 export const sendEmailPayload = async (
   input: {
+    readonly messageId?: string;
     readonly to: string;
     readonly replyTo: string | null;
     readonly subject: string;
@@ -75,6 +78,7 @@ export const sendEmailPayload = async (
   try {
     const result = await sendTransactionalEmail(
       {
+        messageId: input.messageId,
         to: input.to,
         replyTo: input.replyTo ?? undefined,
         subject: input.subject,
@@ -121,7 +125,8 @@ export const sendEmailPayload = async (
     return {
       attempted: true,
       sent: false,
-      error: emailError.code
+      error: emailError.code,
+      uncertain: emailError.code === 'EMAIL_DELIVERY_UNCERTAIN'
     };
   }
 };
@@ -186,6 +191,7 @@ const deliverClaimedEmailMessages = async (
   for (const row of rows) {
     const result = await sendEmailPayload(
       {
+        messageId: `<openg7-email-${row.id}@openg7.invalid>`,
         to: row.to,
         replyTo: null,
         subject: row.subject,
@@ -196,14 +202,18 @@ const deliverClaimedEmailMessages = async (
     );
 
     if (result.sent) {
-      await markEmailSent(pool, row.id);
-      sentMessageIds.push(row.id);
+      if (await markEmailSent(pool, row.id, row.deliveryAttemptId))
+        sentMessageIds.push(row.id);
+    } else if (result.uncertain) {
+      await markEmailUncertain(pool, row.id, row.deliveryAttemptId);
+      failedMessageIds.push(row.id);
     } else {
       await markEmailFailed(
         pool,
         row.id,
         nextRetryDate(row.attempts, row.maxAttempts),
-        result.error
+        result.error,
+        row.deliveryAttemptId
       );
       failedMessageIds.push(row.id);
     }
@@ -221,7 +231,8 @@ const deliverClaimedEmailMessages = async (
 
 export const retryAdminEmailQueueMessage = async (
   pool: Pool | null,
-  messageId: string
+  messageId: string,
+  emailDependencies: EmailServiceDependencies = {}
 ): Promise<EmailQueueProcessResult> => {
   if (!pool) {
     return {
@@ -235,7 +246,11 @@ export const retryAdminEmailQueueMessage = async (
   }
 
   const rows = await claimAdminEmailQueueRetry(pool, messageId);
-  return deliverClaimedEmailMessages(pool, rows);
+  return deliverClaimedEmailMessages(
+    pool,
+    rows,
+    snapshotEmailDependencies(emailDependencies)
+  );
 };
 
 export const queueAndProcessEmail = async (
@@ -259,6 +274,19 @@ export const queueAndProcessEmail = async (
       attempted: false,
       sent: false,
       error: queued.error,
+      deliveryMode
+    };
+  }
+
+  if (queued.status === 'uncertain') {
+    return {
+      queued: false,
+      duplicate: queued.duplicate,
+      messageId: queued.messageId,
+      attempted: false,
+      sent: false,
+      uncertain: true,
+      error: 'EMAIL_DELIVERY_UNCERTAIN',
       deliveryMode
     };
   }
@@ -303,7 +331,7 @@ export const queueAndProcessEmail = async (
     deliveryMode,
     error:
       !sent && processed.failedMessageIds.includes(queued.messageId)
-        ? 'Email delivery failed and will be retried.'
+        ? 'Email delivery failed; inspect the queue before retrying.'
         : null
   };
 };

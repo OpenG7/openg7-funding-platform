@@ -285,9 +285,7 @@ export const validateApiRuntimeConfig = (
   >
 ): void => {
   if (config.isProduction && !config.stripeSecretKey) {
-    throw new Error(
-      'STRIPE_SECRET_KEY is required when FUNDING_PLATFORM_ENV=production.'
-    );
+    throw new Error('STRIPE_SECRET_KEY is required in production.');
   }
 
   if (config.isProduction && !config.publicBaseUrl) {

@@ -8,7 +8,7 @@ commands, store history in SQLite, and generate Markdown/JSON reports.
 
 This optional VPS tool is separate from the Web administration and its OIDC
 accounts: `PLA_ROLE` does not grant a Web/API role. Before executing a deployment
-with PostgreSQL, review the [current migration limitation](../../docs/operations/database-migrations.md).
+with PostgreSQL, review the [migration procedure](../../docs/operations/database-migrations.md).
 Current platform features and validation evidence are indexed in
 [the documentation guide](../../docs/README.md).
 
@@ -29,7 +29,16 @@ Current platform features and validation evidence are indexed in
 - SSH retries apply only to connection failures before a command starts. An
   interrupted command is not replayed: reconcile its remote outcome before a
   manual retry. A missing exit status or termination signal is a failure.
-- Rollback stops when checkout or build fails, before starting services.
+- Any failed checklist step stops subsequent steps and produces a failed report.
+- Deployment uses `scripts/deploy.sh --revision <full SHA>`, including database
+  migrations, the operations watcher overlay and canonical health checks.
+- A real deployment is a candidate until its complete checklist and persisted
+  report succeed. Dry runs never add candidate or stable deployment history.
+- Rollback uses `scripts/rollback.sh --revision <full SHA>`. It requires the
+  available image copies to match the requested stable revision's receipt;
+  missing receipts or mismatched image IDs stop before service changes.
+  Older installations need a verified deployment to establish these receipts.
+  Image rollback never reverts database migrations.
 
 ## Environment
 
@@ -72,6 +81,7 @@ corepack yarn workspace @openg7/production-launch-agent build
 ## Dry Run
 
 Dry run is the default. It validates the workflow without connecting over SSH.
+Its simulated success does not qualify a deployment or populate stable history.
 
 ```bash
 corepack yarn workspace @openg7/production-launch-agent start
@@ -111,6 +121,10 @@ corepack yarn workspace @openg7/production-launch-agent start -- \
 
 ## Docker
 
+Build from the repository root context so immutable Yarn installation sees every
+workspace manifest. SQLite and reports use named volumes owned by the image's
+`node` user; report output is available in `production-launch-agent-reports`.
+
 ```bash
 mkdir -p apps/production-launch-agent/secrets
 cp ~/.ssh/openg7_vps apps/production-launch-agent/secrets/production_launch_ssh_key
@@ -135,10 +149,12 @@ Each run generates:
 
 ## Local validation
 
-After `yarn build`, the three `tests/production-launch-*.test.mjs` suites verify
-command validation, SSH failure handling and rollback sequencing using synthetic
-ports. They do not load configuration, connect to SSH or run a checklist. These
-tests do not qualify a real VPS, deployment, backup or restoration.
+After `yarn build`, `tests/production-launch-*.test.mjs` verifies command
+validation, SSH failure handling, fail-fast checklists, dry-run history and stable
+promotion after the final report. Tests use synthetic ports and temporary SQLite;
+`tests/deployment-revision.test.mjs` exercises the runners with mocked commands.
+The Docker image is also built and run without network access in dry-run mode.
+These checks do not qualify a real VPS, deployment, backup or restoration.
 
 ## Checklists
 

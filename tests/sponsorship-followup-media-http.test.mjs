@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import { createSponsorshipFollowupMediaHttpHandler } from '../dist/apps/funding-api/src/sponsorship-followup-media.http.js';
+import { SponsorMediaPersistenceError } from '../dist/apps/funding-api/src/sponsor-media.repository.js';
 import {
   readBody,
   readBodyBuffer
@@ -461,6 +462,8 @@ test('media upload checks eligibility then processes and stores private bytes be
         contributionId,
         kind: 'supporting_image',
         uploadedBy: 'sponsor',
+        auditActor: 'sponsor-followup',
+        storageDriver: 'local',
         originalFilename: 'synthetic.png',
         originalMimeType: 'image/png',
         originalSizeBytes: originalBytes.length,
@@ -473,22 +476,7 @@ test('media upload checks eligibility then processes and stores private bytes be
         altText: 'Synthetic photo',
         maxSupportingImages: 4
       });
-      assert.deepEqual(f.values('audit'), [
-        {
-          actor: 'sponsor-followup',
-          action: 'sponsorship.media.upload',
-          entityType: 'sponsor_media_asset',
-          entityId: input.id,
-          summary: 'Sponsor media uploaded through the private follow-up flow.',
-          metadata: {
-            contributionId,
-            kind: 'supporting_image',
-            mimeType: 'image/png',
-            sizeBytes: originalBytes.length,
-            storageDriver: 'local'
-          }
-        }
-      ]);
+      assert.deepEqual(f.values('audit'), []);
       assert.deepEqual(f.names(), [
         'buffer',
         'fresh',
@@ -497,7 +485,6 @@ test('media upload checks eligibility then processes and stores private bytes be
         'write',
         'write',
         'create',
-        'audit',
         'json'
       ]);
       assert.deepEqual(f.values('deletePrivate'), []);
@@ -642,7 +629,7 @@ test('transaction refusal cleans both private objects with allSettled and preser
   }
 });
 
-test('replacement cleanup removes only the previous private objects before successful upload audit', async () => {
+test('replacement cleanup removes only the previous private objects after audited creation commits', async () => {
   const old = fixture().stored;
   const f = fixture({
     results: {
@@ -662,25 +649,28 @@ test('replacement cleanup removes only the previous private objects before succe
     { asset: old, options: { includePublic: false } }
   ]);
   assert.ok(f.names().indexOf('create') < f.names().indexOf('cleanup'));
-  assert.ok(f.names().indexOf('cleanup') < f.names().indexOf('audit'));
+  assert.deepEqual(f.values('audit'), []);
   assert.deepEqual(f.values('deletePrivate'), []);
 });
 
-test('upload dependency exceptions retain generic 400 with sequential best-effort cleanup and no retry', async (t) => {
+test('upload dependency exceptions distinguish image validation from unavailable dependencies and clean only confirmed orphans', async (t) => {
   const error = new Error('Synthetic upload dependency failure.');
   for (const operation of [
     'fresh',
     'eligibility',
     'process',
     'write',
-    'create',
-    'audit'
+    'create'
   ]) {
     for (const cleanupFails of [false, true]) {
       await t.test(`${operation} cleanupFails=${cleanupFails}`, async () => {
         const f = fixture({
+          results: { get: null },
           failures: {
-            [operation]: error,
+            [operation]:
+              operation === 'create'
+                ? new SponsorMediaPersistenceError(error, true)
+                : error,
             ...(cleanupFails
               ? { deletePrivate: new Error('Synthetic cleanup failure.') }
               : {})
@@ -690,12 +680,19 @@ test('upload dependency exceptions retain generic 400 with sequential best-effor
           method: 'POST',
           ...uploadBody()
         });
-        assert.equal(result.status, 400);
+        const invalidImage = operation === 'process';
+        const code = invalidImage
+          ? 'SPONSOR_MEDIA_INVALID_IMAGE'
+          : 'SPONSOR_MEDIA_UPLOAD_UNAVAILABLE';
+        assert.equal(result.status, invalidImage ? 400 : 503);
         assert.deepEqual(result.payload, {
-          error: 'Sponsor media must be a valid JPEG, PNG, or WebP image.'
+          code,
+          error: invalidImage
+            ? 'Sponsor media must be a valid JPEG, PNG, or WebP image.'
+            : 'Sponsor media upload is unavailable. Please try again later.'
         });
         assert.equal(f.values(operation).length, 1);
-        if (['write', 'create', 'audit'].includes(operation)) {
+        if (['write', 'create'].includes(operation)) {
           const id =
             f.values('create')[0]?.id ?? f.values('write')[0].key.split('/')[2];
           assert.deepEqual(f.values('deletePrivate'), [
@@ -704,8 +701,9 @@ test('upload dependency exceptions retain generic 400 with sequential best-effor
           ]);
         } else assert.deepEqual(f.values('deletePrivate'), []);
         assert.deepEqual(f.values('report'), [
-          ['Failed to upload sponsorship media.', error]
+          ['Failed to upload sponsorship media.', { code }]
         ]);
+        assert.equal(f.values('get').length, operation === 'create' ? 1 : 0);
       });
     }
   }
@@ -717,10 +715,91 @@ test('upload dependency exceptions retain generic 400 with sequential best-effor
         ...uploadBody()
       })
     ).status,
-    400
+    503
   );
   assert.equal(f.values('write').length, 2);
   assert.equal(f.values('deletePrivate').length, 2);
+});
+
+test('uncertain commit outcomes retain uploaded objects when the row exists or reconciliation fails', async (t) => {
+  for (const lookupFails of [false, true]) {
+    await t.test(`lookupFails=${lookupFails}`, async () => {
+      const f = fixture({
+        failures: {
+          create: new Error('Synthetic uncertain commit'),
+          ...(lookupFails
+            ? { get: new Error('Synthetic reconciliation failure') }
+            : {})
+        }
+      });
+      const result = await f.run('/sponsorship-followup/media', {
+        method: 'POST',
+        ...uploadBody()
+      });
+      assert.equal(result.status, 503);
+      assert.equal(result.payload.code, 'SPONSOR_MEDIA_UPLOAD_UNCONFIRMED');
+      assert.equal(result.payload.uploaded, lookupFails ? null : true);
+      assert.equal(result.payload.assetId, f.values('create')[0].id);
+      assert.deepEqual(f.values('get'), [result.payload.assetId]);
+      assert.deepEqual(f.values('deletePrivate'), []);
+      assert.deepEqual(f.values('audit'), []);
+      assert.deepEqual(f.values('cleanup'), []);
+      assert.deepEqual(f.values('report'), [
+        [
+          'Sponsor media upload requires reconciliation.',
+          { code: 'SPONSOR_MEDIA_UPLOAD_UNCONFIRMED' }
+        ]
+      ]);
+      assert.equal(
+        JSON.stringify(result.payload).includes('StorageKey'),
+        false
+      );
+    });
+  }
+});
+
+test('a missing row never authorizes cleanup when rollback could not be confirmed', async (t) => {
+  for (const typedFailure of [false, true]) {
+    await t.test(`typedFailure=${typedFailure}`, async () => {
+      const cause = new Error(
+        'Synthetic interrupted COMMIT and failed ROLLBACK'
+      );
+      const f = fixture({
+        results: { get: null },
+        failures: {
+          create: typedFailure
+            ? new SponsorMediaPersistenceError(cause, false)
+            : cause
+        }
+      });
+      const result = await f.run('/sponsorship-followup/media', {
+        method: 'POST',
+        ...uploadBody()
+      });
+      assert.equal(result.status, 503);
+      assert.equal(result.payload.code, 'SPONSOR_MEDIA_UPLOAD_UNCONFIRMED');
+      assert.equal(result.payload.uploaded, null);
+      assert.deepEqual(f.values('get'), [f.values('create')[0].id]);
+      assert.deepEqual(f.values('deletePrivate'), []);
+    });
+  }
+});
+
+test('a cleanup exception after successful audited creation never removes the new media objects', async () => {
+  const old = fixture().stored;
+  const f = fixture({
+    results: { create: { status: 'created', asset: old, replaced: old } },
+    failures: { cleanup: new Error('Synthetic replacement cleanup failure') }
+  });
+  const result = await f.run('/sponsorship-followup/media', {
+    method: 'POST',
+    ...uploadBody({ kind: 'logo' })
+  });
+  assert.equal(result.status, 503);
+  assert.equal(result.payload.uploaded, true);
+  assert.equal(result.payload.code, 'SPONSOR_MEDIA_UPLOAD_UNCONFIRMED');
+  assert.deepEqual(f.values('deletePrivate'), []);
+  assert.deepEqual(f.values('get'), []);
 });
 
 test('sponsor deletion keeps confirmation, exact scope and version, blocks approved media and audits cleanup', async (t) => {

@@ -132,6 +132,10 @@ test('backfill continues after null results and errors while preserving all coun
         return { rows: [invoiceRow(id)] };
       }
       if (sql.includes('FROM sponsorship_credit_notes')) return { rows: [] };
+      if (sql.includes('WHERE invoice.stripe_session_id = $1')) {
+        assert.deepEqual(values, ['cs_test_backfill_absent']);
+        return { rows: [] };
+      }
       if (sql.includes('FROM sponsorship_invoices invoice')) {
         reads.push(values[0]);
         return {

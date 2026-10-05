@@ -114,7 +114,7 @@ test(
     assert.match(payload.Text, /Private synthetic access/);
 
     // Preserve the existing explicit retry of exhausted failures and recovery of
-    // stale claims. These fixture-only SQL transitions model persisted incidents.
+    // quarantining stale claims. These fixture-only SQL transitions model persisted incidents.
     await db.pool.query(
       `UPDATE email_messages SET status='failed', attempts=max_attempts WHERE id=$1`,
       [message.id]
@@ -131,10 +131,11 @@ test(
       [message.id]
     );
     assert.equal(
-      (await retryAdminEmailQueueMessage(db.pool, message.id)).failed,
-      1
+      (await retryAdminEmailQueueMessage(db.pool, message.id)).attempted,
+      0
     );
-    assert.equal((await snapshot()).attempts, 2);
+    assert.equal((await snapshot()).status, 'uncertain');
+    assert.equal((await snapshot()).attempts, 1);
     assert.equal((await processQueuedEmailMessages(db.pool)).attempted, 0);
     assert.equal(
       (await (await fetch(mailUrl + '/api/v1/messages')).json()).messages
@@ -168,12 +169,12 @@ test(
     );
     assert.equal(
       recoveries.reduce((sum, result) => sum + result.attempted, 0),
-      1
+      0
     );
-    assert.equal(gate.snapshot().connections - connectionsBeforeRecovery, 1);
+    assert.equal(gate.snapshot().connections - connectionsBeforeRecovery, 0);
     const stale = await getAdminEmailQueueMessageById(db.pool, staleId);
-    assert.equal(stale.status, 'failed');
-    assert.equal(stale.attempts, 2);
+    assert.equal(stale.status, 'uncertain');
+    assert.equal(stale.attempts, 1);
     const unrelated = await getAdminEmailQueueMessageById(db.pool, unrelatedId);
     assert.equal(unrelated.status, 'queued');
     assert.equal(unrelated.attempts, 0);
@@ -183,7 +184,8 @@ test(
       [staleId]
     );
     assert.equal(scopedQueue.summary.queued_count, 1);
-    assert.equal(scopedQueue.summary.failed_count, 2);
+    assert.equal(scopedQueue.summary.failed_count, 0);
+    assert.equal(scopedQueue.summary.uncertain_count, 2);
     const queueStatus = await getEmailQueueStatus(db.pool);
     assert.equal(queueStatus.queuedCount, 1);
     assert.equal(queueStatus.failedCount, 2);

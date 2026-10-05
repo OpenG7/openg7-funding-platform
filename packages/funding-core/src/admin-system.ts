@@ -69,7 +69,7 @@ export interface AdminEmailTestResult {
 }
 
 export type AdminEmailQueueMessageStatus =
-  'queued' | 'sending' | 'sent' | 'failed';
+  'queued' | 'sending' | 'sent' | 'failed' | 'uncertain';
 
 export interface AdminEmailQueueMessageRecord {
   readonly id: string;
@@ -90,6 +90,7 @@ export interface AdminEmailQueueMessageRecord {
 }
 
 export interface AdminEmailQueueSummary {
+  readonly uncertain_count?: number;
   readonly queued_count: number;
   readonly sending_count: number;
   readonly sent_count: number;
@@ -108,6 +109,15 @@ export interface AdminEmailQueueResponse {
 
 export interface AdminEmailQueueRetryRequest {
   readonly messageId: string;
+}
+
+export interface AdminEmailDeliveryReconcileRequest {
+  readonly messageId: string;
+  readonly expectedUpdatedAt: string;
+  readonly confirmation: string;
+  readonly outcome: 'sent' | 'not_sent';
+  /** Reference to reviewed provider evidence, without credentials or message bodies. */
+  readonly evidenceReference: string;
 }
 
 export interface AdminEmailQueueRetryResult {

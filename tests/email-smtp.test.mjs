@@ -316,3 +316,43 @@ test('email:verify and email:test CLIs use injected transport and never send dur
   );
   assert.ok(stdout.includes('messageId=smtp-cli-message'));
 });
+
+test('SMTP distinguishes definite pre-DATA failure, rejection and unknown acceptance', async () => {
+  for (const [fields, expected] of [
+    [{ code: 'ETIMEDOUT', command: 'CONN' }, 'EMAIL_DELIVERY_UNCERTAIN'],
+    [{ code: 'ETIMEDOUT', command: 'DATA' }, 'EMAIL_DELIVERY_UNCERTAIN'],
+    [{ code: 'ESOCKET', command: 'DATA' }, 'EMAIL_DELIVERY_UNCERTAIN'],
+    [{ code: 'ETIMEDOUT' }, 'EMAIL_DELIVERY_UNCERTAIN'],
+    [{ code: 'ESOCKET', command: 'CONN' }, 'EMAIL_DELIVERY_UNCERTAIN'],
+    [{ code: 'ECONNREFUSED', command: 'CONN' }, 'EMAIL_SEND_ERROR'],
+    [{ code: 'ETIMEDOUT', command: 'RCPT TO' }, 'EMAIL_CONNECTION_ERROR'],
+    [{ responseCode: 451, command: 'DATA' }, 'EMAIL_SEND_ERROR'],
+    [{ code: 'EAUTH' }, 'EMAIL_AUTHENTICATION_ERROR']
+  ]) {
+    await assert.rejects(
+      emailModule.sendTransactionalEmail(
+        {
+          to: 'recipient@example.test',
+          subject: 'Synthetic',
+          text: 'Synthetic'
+        },
+        {
+          env: createEnabledEnv(),
+          logger: createSilentLogger(),
+          createTransport: () => ({
+            async verify() {},
+            async sendMail() {
+              throw Object.assign(
+                new Error('Synthetic private provider detail'),
+                fields
+              );
+            }
+          })
+        }
+      ),
+      (error) =>
+        error.code === expected &&
+        !error.message.includes('private provider detail')
+    );
+  }
+});

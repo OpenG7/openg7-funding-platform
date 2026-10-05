@@ -135,7 +135,11 @@ test('deployment executes only the chosen checkout and rejects mismatches before
       path.join(root, 'scripts/deploy.sh'),
       readFileSync('scripts/deploy.sh', 'utf8').replaceAll('\r\n', '\n')
     );
-    for (const name of ['deployment-compose.sh', 'rollback.sh'])
+    for (const name of [
+      'deployment-compose.sh',
+      'deployment-image-revision.sh',
+      'rollback.sh'
+    ])
       writeFileSync(
         path.join(root, 'scripts', name),
         readFileSync('scripts/' + name, 'utf8').replaceAll('\r\n', '\n')
@@ -150,7 +154,7 @@ test('deployment executes only the chosen checkout and rejects mismatches before
       `WEB_IMAGE=example/web:${sha}\nAPI_IMAGE=example/api:${sha}\n`
     );
     const wrapper = `git() { if [[ "$1" == rev-parse ]]; then echo "\${TEST_SHA}"; elif [[ "$1" == status ]]; then echo "\${TEST_DIRTY:-}"; else echo unexpected-git >&2; return 90; fi; }
-docker() { echo "$*" >> docker-calls; }
+docker() { echo "$*" >> docker-calls; case "$*" in *'images -q web'|*'images -q api') echo synthetic-image ;; 'image inspect --format {{.Id}} synthetic-image') printf 'sha256:%064d\n' 1 ;; esac; }
 export -f git docker
 bash scripts/deploy.sh --no-build --revision "$1"`;
     const run = (env = {}, requested = sha) =>
@@ -213,6 +217,7 @@ test('enabled operations follows delivery, uses its own previous image on rollba
       'deploy.sh',
       'rollback.sh',
       'deployment-compose.sh',
+      'deployment-image-revision.sh',
       'load-env.sh'
     ])
       writeFileSync(

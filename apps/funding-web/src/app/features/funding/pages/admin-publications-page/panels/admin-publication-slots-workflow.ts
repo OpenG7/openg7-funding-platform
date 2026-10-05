@@ -8,7 +8,11 @@ import type {
 } from '@openg7/funding-core';
 
 import type { FundingAdminService } from '../../../services/funding-admin.service.js';
-import { publicationDateTimeLocal } from '../publication-panels.helpers.js';
+import {
+  publicationDateTimeLocal,
+  publicationDateTimeUtc,
+  updatedPublicationDateTime
+} from '../publication-panels.helpers.js';
 
 export interface PublicationSlotEdit {
   readonly startsAt: string;
@@ -47,6 +51,7 @@ export interface AdminPublicationSlotsWorkflowPorts {
     target: string
   ): Promise<boolean>;
   failed(): void;
+  invalidDateTime?(): void;
   focusRequested(id: string): void;
   batchSelection(id: string): string;
   draftSelection(id: string): string;
@@ -96,7 +101,10 @@ export class AdminPublicationSlotsWorkflow {
         {
           feedTarget: state.newSlotFeedTarget(),
           channel: state.newSlotChannel(),
-          startsAt: new Date(state.newSlotStartsAt()).toISOString(),
+          startsAt: publicationDateTimeUtc(
+            state.newSlotStartsAt(),
+            state.newSlotTimezone().trim() || 'America/Toronto'
+          ),
           timezone: state.newSlotTimezone().trim() || 'America/Toronto',
           capacity,
           notes
@@ -107,8 +115,10 @@ export class AdminPublicationSlotsWorkflow {
       state.selectedSlotId.set(result.slot?.id ?? null);
       await this.ports.reload();
       if (result.slot) this.ports.focusRequested(result.slot.id);
-    } catch {
-      this.ports.failed();
+    } catch (error) {
+      if (error instanceof RangeError && this.ports.invalidDateTime)
+        this.ports.invalidDateTime();
+      else this.ports.failed();
     } finally {
       state.slotActionState.set(null);
     }
@@ -135,7 +145,12 @@ export class AdminPublicationSlotsWorkflow {
         this.ports.token(),
         {
           slotId: slot.id,
-          startsAt: new Date(edit.startsAt).toISOString(),
+          startsAt: updatedPublicationDateTime(
+            edit.startsAt,
+            slot.startsAt,
+            edit.timezone.trim() || 'America/Toronto',
+            slot.timezone
+          )!,
           timezone: edit.timezone.trim() || 'America/Toronto',
           capacity,
           notes: edit.notes
@@ -149,8 +164,10 @@ export class AdminPublicationSlotsWorkflow {
           return next;
         });
       await this.ports.reload();
-    } catch {
-      this.ports.failed();
+    } catch (error) {
+      if (error instanceof RangeError && this.ports.invalidDateTime)
+        this.ports.invalidDateTime();
+      else this.ports.failed();
     } finally {
       state.slotActionState.set(null);
     }
@@ -243,7 +260,7 @@ export class AdminPublicationSlotsWorkflow {
 
   toEdit(slot: AdminPublicationSlotRecord): PublicationSlotEdit {
     return {
-      startsAt: publicationDateTimeLocal(slot.startsAt),
+      startsAt: publicationDateTimeLocal(slot.startsAt, slot.timezone),
       timezone: slot.timezone,
       capacity: String(slot.capacity),
       notes: slot.notes ?? ''

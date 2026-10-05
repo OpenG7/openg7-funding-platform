@@ -7,7 +7,10 @@ import type {
 } from '@openg7/funding-core';
 
 import type { FundingAdminService } from '../../../services/funding-admin.service.js';
-import { publicationDateTimeLocal } from '../publication-panels.helpers.js';
+import {
+  publicationDateTimeLocal,
+  updatedPublicationDateTime
+} from '../publication-panels.helpers.js';
 
 export interface PublicationDraftEdit {
   readonly title: string;
@@ -40,6 +43,7 @@ export interface AdminPublicationDraftsWorkflowPorts {
   reload(): Promise<void>;
   confirm(action: 'refuse' | 'publish', target: string): Promise<boolean>;
   failed(): void;
+  invalidDateTime?(): void;
   notice(key: string): void;
   focusRequested(id: string): void;
   batchSelection(id: string): string;
@@ -123,9 +127,10 @@ export class AdminPublicationDraftsWorkflow {
           disclosureText: edit.disclosureText,
           status,
           publicUrl: edit.publicUrl,
-          scheduledAt: edit.scheduledAt
-            ? new Date(edit.scheduledAt).toISOString()
-            : null,
+          scheduledAt: updatedPublicationDateTime(
+            edit.scheduledAt,
+            draft.scheduled_at
+          ),
           reviewNote: edit.reviewNote
         }
       );
@@ -140,8 +145,10 @@ export class AdminPublicationDraftsWorkflow {
       }
       this.ports.notice('admin.publications.saved');
       await this.ports.reload();
-    } catch {
-      this.ports.failed();
+    } catch (error) {
+      if (error instanceof RangeError && this.ports.invalidDateTime)
+        this.ports.invalidDateTime();
+      else this.ports.failed();
     } finally {
       state.actionState.set(null);
     }

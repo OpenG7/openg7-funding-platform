@@ -22,7 +22,7 @@ export interface CheckoutSessionRecordInput {
 
 export interface CheckoutSessionWebhookInput extends CheckoutSessionRecordInput {
   readonly notifyAdmin?: boolean;
-  readonly status: 'pending' | 'paid' | 'expired';
+  readonly status: 'pending' | 'paid' | 'expired' | 'failed';
   readonly paidAtIso: string | null;
   readonly emailPrivate: string | null;
 }

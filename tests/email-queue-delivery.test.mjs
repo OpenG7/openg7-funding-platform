@@ -37,6 +37,7 @@ const payload = () => ({
 
 const claimedRow = (id, overrides = {}) => ({
   id,
+  delivery_attempt_id: '00000000-0000-4000-8000-000000000001',
   recipient_email: `${id}@example.test`,
   from_email: 'notifications@example.test',
   reply_to_email: 'contact@example.test',
@@ -57,7 +58,7 @@ const scriptedPool = (steps) => ({
     assert.match(sql, step.sql);
     step.inspect?.(params);
     if (step.error) throw step.error;
-    return { rows: step.rows ?? [] };
+    return { rows: step.rows ?? [], rowCount: step.rowCount ?? 1 };
   },
   assertComplete() {
     assert.equal(steps.length, 0, 'repository operations left unexecuted');
@@ -215,7 +216,7 @@ test('an admin notification uses one configuration snapshot from enqueue through
       ],
       inspect: (params) => assert.deepEqual(params, [1, ['synthetic-message']])
     },
-    { sql: /status = 'sent'/ }
+    { sql: /status\s*=\s*'sent'/ }
   ]);
   const dependencies = transportDependencies(
     env,
@@ -254,8 +255,8 @@ test('the worker keeps its configuration snapshot across claim and consecutive m
         env.SMTP_HOST = 'changed.example.test';
       }
     },
-    { sql: /status = 'sent'/ },
-    { sql: /status = 'sent'/ }
+    { sql: /status\s*=\s*'sent'/ },
+    { sql: /status\s*=\s*'sent'/ }
   ]);
   const result = await processQueuedEmailMessages(db, {
     emailDependencies: transportDependencies(
@@ -290,25 +291,31 @@ test('worker settlements distinguish accepted, rejected and exhausted SMTP failu
       inspect: (params) => assert.deepEqual(params, [10])
     },
     {
-      sql: /status = 'sent'/,
-      inspect: (params) => assert.deepEqual(params, ['accepted'])
+      sql: /status\s*=\s*'sent'/,
+      inspect: (params) =>
+        assert.deepEqual(params, [
+          'accepted',
+          '00000000-0000-4000-8000-000000000001'
+        ])
     },
     {
-      sql: /status = 'failed'/,
+      sql: /status\s*=\s*'failed'/,
       inspect: (params) =>
         assert.deepEqual(params, [
           'rejected',
           new Date(now + 2 * 60 * 1000).toISOString(),
-          'EMAIL_RECIPIENT_REJECTED'
+          'EMAIL_RECIPIENT_REJECTED',
+          '00000000-0000-4000-8000-000000000001'
         ])
     },
     {
-      sql: /status = 'failed'/,
+      sql: /status\s*=\s*'failed'/,
       inspect: (params) =>
         assert.deepEqual(params, [
           'exhausted',
           null,
-          'EMAIL_AUTHENTICATION_ERROR'
+          'EMAIL_AUTHENTICATION_ERROR',
+          '00000000-0000-4000-8000-000000000001'
         ])
     }
   ]);
@@ -343,7 +350,7 @@ test('SMTP disabled remains a visible failed attempt without creating a transpor
   const db = scriptedPool([
     { sql: /WITH selected AS/, rows: [claimedRow('disabled')] },
     {
-      sql: /status = 'failed'/,
+      sql: /status\s*=\s*'failed'/,
       inspect(params) {
         assert.equal(params[0], 'disabled');
         assert.equal(typeof params[1], 'string');
@@ -373,7 +380,7 @@ test('a persistence failure after SMTP acceptance remains an error and stops the
       sql: /WITH selected AS/,
       rows: [claimedRow('accepted'), claimedRow('next')]
     },
-    { sql: /status = 'sent'/, error: incident }
+    { sql: /status\s*=\s*'sent'/, error: incident }
   ]);
   await assert.rejects(
     processQueuedEmailMessages(db, {

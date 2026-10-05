@@ -146,7 +146,10 @@ const stripeFixture = () =>
 
 // Capture orchestration across the real repositories without a provider or DB.
 // PostgreSQL constraints and transaction rollback are covered by integrations.
-const databaseFixture = ({ busy = false } = {}) => {
+const databaseFixture = ({
+  busy = false,
+  sponsorshipContribution = null
+} = {}) => {
   const calls = [];
   const events = new Map();
   const transactions = new Map();
@@ -169,6 +172,11 @@ const databaseFixture = ({ busy = false } = {}) => {
       events.set(values[0], 'failed');
     if (sql.includes('FROM contribution_activity'))
       return { rowCount: 0, rows: [] };
+    if (sql.includes('SELECT public_reference,email_private,paid_at'))
+      return {
+        rowCount: sponsorshipContribution ? 1 : 0,
+        rows: sponsorshipContribution ? [sponsorshipContribution] : []
+      };
     if (sql.includes('SELECT amount::text, currency FROM fund_transactions')) {
       const row = transactions.get(`${values[0]}:payment_intent.succeeded`);
       return {
@@ -514,7 +522,15 @@ test('an incomplete Charge update is acknowledged without creating a financial f
 });
 
 test('Checkout forwards references and consents while a historical payment remains silent', async () => {
-  const database = databaseFixture();
+  const database = databaseFixture({
+    sponsorshipContribution: {
+      public_reference: 'OG7-2025-ABCD',
+      email_private: 'synthetic@example.test',
+      paid_at: new Date('2025-01-01T00:00:00.000Z'),
+      amount_cents: '6400',
+      currency: 'cad'
+    }
+  });
   const metadata = {
     project: 'openg7',
     contributionType: 'sponsorship_interest',

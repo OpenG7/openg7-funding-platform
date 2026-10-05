@@ -80,6 +80,7 @@ export class AdminPublicationSlotsPanelComponent {
   readonly dirtySlotIds = signal<ReadonlySet<string>>(new Set());
   readonly slotEdits = signal<Record<string, PublicationSlotEdit>>({});
   readonly slotActionState = signal<string | null>(null);
+  readonly dateTimeError = signal(false);
   readonly newSlotFeedTarget = signal<SponsorFeedTarget>('openg7');
   readonly newSlotChannel = signal<SponsorFeedChannel>('facebook');
   readonly newSlotStartsAt = signal('');
@@ -112,6 +113,7 @@ export class AdminPublicationSlotsPanelComponent {
         target
       ),
     failed: () => this.failed.emit(),
+    invalidDateTime: () => this.dateTimeError.set(true),
     focusRequested: (id) => this.focusRequested.emit(id),
     batchSelection: (id) => this.slotBatchSelection(id),
     draftSelection: (id) => this.slotDraftSelection(id),
@@ -152,10 +154,12 @@ export class AdminPublicationSlotsPanelComponent {
   }
 
   createSlot(): Promise<void> {
+    this.dateTimeError.set(false);
     return this.workflow.createSlot();
   }
 
   updateSlot(slot: AdminPublicationSlotRecord): Promise<void> {
+    this.dateTimeError.set(false);
     return this.workflow.updateSlot(slot);
   }
 

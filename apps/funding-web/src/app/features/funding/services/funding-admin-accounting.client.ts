@@ -30,7 +30,10 @@ export class FundingAdminAccountingClient {
     );
 
     if (!response.ok) {
-      throw new Error('Admin contributions could not be loaded.');
+      throw new AdminDashboardRequestError(
+        response.status,
+        'Admin contributions could not be loaded.'
+      );
     }
 
     return (await response.json()) as AdminContributionsResponse;
