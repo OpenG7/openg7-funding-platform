@@ -5,7 +5,8 @@ import type {
   SponsorshipFollowupResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN, SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
+import { adminSessionHeaders } from './support/admin-auth.js';
+import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { expect, test } from './support/test.js';
 
 test('two company tabs preserve edits on conflict and cannot restore a discarded draft or overwrite a newer submission', async ({
@@ -20,7 +21,7 @@ test('two company tabs preserve edits on conflict and cannot restore a discarded
   test.setTimeout(120000);
   const fixture = SPONSORSHIP_FIXTURES.draftConcurrency;
   const token = fixture.followupToken;
-  const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
+  const headers = await adminSessionHeaders(request);
   const url = '/api/sponsorship-followup';
   const get = async <T>(path: string, authenticated = false): Promise<T> => {
     const r = await request.get(path, authenticated ? { headers } : {});

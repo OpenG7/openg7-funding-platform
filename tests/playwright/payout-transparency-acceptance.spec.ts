@@ -9,9 +9,8 @@ import type {
   FundTransparencyPublicResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
 import { acceptanceSql } from './support/acceptance-database.js';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
   buildChargeUpdatedEvent,
   buildSignedWebhookRequest,
@@ -20,7 +19,6 @@ import {
 } from './support/stripe-webhook.js';
 import { test, expect } from './support/test.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 const minor = (value: number) => Math.round(value * 100);
 const hook = (page: Page, name: string) => page.locator(`[data-og7="${name}"]`);
 async function contents(download: Download) {
@@ -48,7 +46,10 @@ test('250 CAD company: late fees, repeated and failed payouts, replacement and c
   const errors: string[] = [];
   payer.on('pageerror', (e) => errors.push(e.message));
   const get = async <T>(url: string, admin = false): Promise<T> => {
-    const response = await request.get(url, admin ? { headers } : {});
+    const response = await request.get(
+      url,
+      admin ? { headers: await adminSessionHeaders(request) } : {}
+    );
     expect(response.ok(), url).toBe(true);
     return response.json();
   };
@@ -139,7 +140,7 @@ test('250 CAD company: late fees, repeated and failed payouts, replacement and c
     const response = await request.get(
       '/api/admin/sponsorship-invoices/pdf?invoiceId=' +
         (await invoices())[0]!.id,
-      { headers }
+      { headers: await adminSessionHeaders(request) }
     );
     expect(response.ok()).toBe(true);
     return createHash('sha256')

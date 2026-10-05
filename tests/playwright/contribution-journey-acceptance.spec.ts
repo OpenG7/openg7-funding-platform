@@ -8,8 +8,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import type { ContributionActivityResponse } from '@openg7/funding-core';
 
 import { test, expect } from './support/test.js';
-import { signInAsAdmin } from './support/admin-auth.js';
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 
 test('offline admin receives captured messages, catches up once across tabs, and clears activity on expiry', async ({
   page,
@@ -22,7 +21,7 @@ test('offline admin receives captured messages, catches up once across tabs, and
     'Disposable simulation only.'
   );
   test.setTimeout(60000);
-  const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
+  const headers = await adminSessionHeaders(request);
   const checkout = await request.post('/api/checkout-sessions', {
     data: {
       idempotencyKey: randomUUID(),
@@ -110,7 +109,7 @@ test('company pays 50 CAD: signed confirmation, admin toast, captured email/SMS 
       m.To.some((t) => t.Address === 'admin@simulation.example.test') &&
       m.Subject.includes('Contribution')
   ).length;
-  const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
+  const headers = await adminSessionHeaders(request);
   const activity = async () =>
     (await (
       await request.get('/api/admin/contribution-activity', { headers })

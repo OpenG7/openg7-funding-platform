@@ -8,8 +8,7 @@ import type {
   FundTransparencyPublicResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
   buildPaymentIntentSucceededEvent,
   buildSignedWebhookRequest
@@ -26,7 +25,7 @@ test('confirmed invoice and credit-note resends recover from SMTP failure and lo
   );
   test.setTimeout(180000);
   page.setDefaultTimeout(15000);
-  const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
+  const headers = await adminSessionHeaders(request);
   const stub = process.env.STRIPE_STUB_BASE_URL!;
   const email = `payer-${randomUUID()}@simulation.example.test`;
   const corrected = `documents-${randomUUID()}@simulation.example.test`;

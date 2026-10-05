@@ -11,8 +11,8 @@ import type {
   PublicationAutomationState
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN, SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
 
 test('a rejected company blocks its approved collective post; reviewed recomposition and new approval publish only the retained company', async ({
@@ -25,7 +25,7 @@ test('a rejected company blocks its approved collective post; reviewed recomposi
   );
   test.setTimeout(210000);
   page.setDefaultTimeout(15000);
-  const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
+  const headers = await adminSessionHeaders(request);
   const automation = '/api/admin/publication-automation';
   const feedId = 'openg7:facebook';
   const get = async <T>(url: string, auth = true): Promise<T> => {

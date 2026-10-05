@@ -15,6 +15,12 @@ see the [controlled rehearsal](operations/integration-rehearsal.md). Independent
 failure alerts use a separate [signed webhook watcher](operations/admin-identity-and-alerts.md)
 so they do not rely on this SMTP service.
 
+## Private queue data at rest
+
+Production requires `FUNDING_PRIVATE_DATA_ENCRYPTION_KEY` (32 random bytes,
+canonical base64). New queue subjects/bodies and private metadata use AES-256-GCM.
+See [key provisioning, bounded historical maintenance and restore limits](operations/private-data-protection.md).
+
 ## Sponsorship invoices
 
 New sponsorship invoices store the benefits corresponding to the confirmed

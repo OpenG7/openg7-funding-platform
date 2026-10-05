@@ -17,11 +17,9 @@ import type {
   SponsorshipMediaResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 const automation = '/api/admin/publication-automation';
 const cockpit = '/admin/fundraiser/publications/automation';
 interface Mail {
@@ -60,12 +58,18 @@ for (const amount of [100, 250]) {
       const errors: string[] = [];
       admin.on('pageerror', (e) => errors.push(e.message));
       const get = async <T>(url: string, auth = true): Promise<T> => {
-        const r = await request.get(url, auth ? { headers } : {});
+        const r = await request.get(
+          url,
+          auth ? { headers: await adminSessionHeaders(request) } : {}
+        );
         expect(r.ok(), url).toBe(true);
         return r.json();
       };
       const post = async <T>(url: string, data: unknown): Promise<T> => {
-        const r = await request.post(url, { headers, data });
+        const r = await request.post(url, {
+          headers: await adminSessionHeaders(request),
+          data
+        });
         expect(r.ok(), await r.text()).toBe(true);
         return r.json();
       };
@@ -520,7 +524,7 @@ for (const amount of [100, 250]) {
             ).toBe(401);
             const created = await request.post(
               '/api/admin/publication-drafts',
-              { headers, data: input }
+              { headers: await adminSessionHeaders(request), data: input }
             );
             if (!publicConsent) {
               expect(created.status()).toBe(404);
@@ -547,7 +551,7 @@ for (const amount of [100, 250]) {
               draftId: draft.id
             });
             const composed = await request.post(automation, {
-              headers,
+              headers: await adminSessionHeaders(request),
               data: {
                 action: 'compose',
                 feedId: `openg7:${channel}`,
@@ -605,7 +609,7 @@ for (const amount of [100, 250]) {
               attempts: 0
             });
             const missingConfirmation = await request.post(automation, {
-              headers,
+              headers: await adminSessionHeaders(request),
               data: { action: 'approve', id: job.id, version: draft.version }
             });
             expect(missingConfirmation.status()).toBe(400);

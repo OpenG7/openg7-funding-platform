@@ -24,6 +24,8 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --immutable
+      - name: Install encrypted backup tooling
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends age
       - run: yarn lint
       - run: yarn exec tsc --noEmit -p tsconfig.json
       - run: yarn test

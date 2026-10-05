@@ -6,9 +6,10 @@ import {
   readAdminToken
 } from '../dist/apps/funding-api/src/admin-authorization.js';
 import { AdminIdentityService } from '../dist/apps/funding-api/src/admin-identity.js';
+import { loadApiRuntimeConfig } from '../dist/apps/funding-api/src/api-runtime-config.js';
 import { createAdminTokenSessionService } from '../dist/apps/funding-api/src/admin-token-session.js';
 
-const rootToken = 'synthetic-root-token';
+const rootToken = 'synthetic-root-token-32-characters';
 const origin = 'https://funding.example.test';
 const issuedAt = Date.parse('2026-10-03T12:00:00Z');
 const request = (headers = {}, options = {}) => ({
@@ -19,7 +20,7 @@ const request = (headers = {}, options = {}) => ({
 });
 const fixture = ({
   adminTokenConfigured = true,
-  isProduction = true,
+  isProduction = false,
   hasDatabase = true,
   adminIdentity = null,
   now = issuedAt
@@ -27,7 +28,9 @@ const fixture = ({
   const calls = [];
   const sessions = createAdminTokenSessionService({
     adminToken: adminTokenConfigured ? rootToken : '',
-    sessionSecret: 'synthetic-signing-secret',
+    sessionSecret: adminTokenConfigured
+      ? 'synthetic-signing-secret-32-characters'
+      : '',
     sessionTtlMinutes: 5,
     isProduction,
     projectId: 'synthetic-project'
@@ -180,7 +183,6 @@ test('signed sessions expire at the exact server deadline and cannot become root
     });
     assert.deepEqual(f.calls, [
       ['session', session.sessionToken],
-      ['root-token', session.sessionToken],
       ['json', 401]
     ]);
   }
@@ -201,27 +203,22 @@ test('missing, invalid and tampered sessions refuse before checking database acc
       payload: { error: 'Admin authorization is required.' }
     });
     assert.equal(f.resolveAdminAuthorization(input), null);
-    assert.equal(f.getAdminAuditActor(input), 'local-dev-admin');
+    assert.equal(f.getAdminAuditActor(input), 'unauthenticated');
   }
 });
 
-test('root token authorization keeps both supported headers and its audit actor', () => {
+test('root credentials cannot authorize private routes through either supported header', () => {
   for (const headers of [
     { authorization: `Bearer ${rootToken}` },
     { 'x-funding-admin-token': rootToken }
   ]) {
     const f = fixture();
     const input = request(headers);
-    assert.deepEqual(f.resolveAdminAuthorization(input), {
-      actor: 'funding-admin-token',
-      source: 'static-token'
-    });
-    assert.deepEqual(f.calls, [
-      ['session', rootToken],
-      ['root-token', rootToken]
-    ]);
-    assert.equal(f.getAdminAuditActor(input), 'funding-admin-token');
-    assert.deepEqual(f.guard(input, 'ensureAdminAccess'), { authorized: true });
+    assert.equal(f.resolveAdminAuthorization(input), null);
+    assert.deepEqual(f.calls, [['session', rootToken]]);
+    assert.equal(f.getAdminAuditActor(input), 'unauthenticated');
+    assert.equal(f.guard(input, 'ensureAdminAccess').status, 401);
+    assert.ok(f.calls.every(([kind]) => kind !== 'root-token'));
   }
 });
 
@@ -236,43 +233,49 @@ test('an invalid bearer token cannot fall back to a valid custom header', () => 
     ),
     false
   );
-  assert.deepEqual(f.calls, [
-    ['session', 'synthetic-invalid-token'],
-    ['root-token', 'synthetic-invalid-token']
-  ]);
+  assert.deepEqual(f.calls, [['session', 'synthetic-invalid-token']]);
 });
 
 test('production without admin configuration stays unavailable without invoking token dependencies', () => {
-  const f = fixture({ adminTokenConfigured: false, hasDatabase: false });
+  const f = fixture({
+    adminTokenConfigured: false,
+    hasDatabase: false,
+    isProduction: true
+  });
   const input = request({ authorization: `Bearer ${rootToken}` });
   assert.equal(f.resolveAdminAuthorization(input), null);
   assert.deepEqual(f.guard(input, 'ensureAdminAccess'), {
     authorized: false,
     status: 503,
-    payload: { error: 'Admin review is not configured.' }
+    payload: { error: 'OIDC admin sign-in is required in production.' }
   });
   assert.deepEqual(f.calls, [['json', 503]]);
 });
 
-test('unconfigured local development retains its actor without verifying supplied credentials', () => {
+test('standalone NODE_ENV production cannot authorize an unconfigured administrator', () => {
+  const config = loadApiRuntimeConfig({ NODE_ENV: 'production' });
+  const f = fixture({
+    isProduction: config.isProduction,
+    adminTokenConfigured: false
+  });
+  assert.equal(f.resolveAdminAuthorization(request()), null);
+  assert.equal(f.guard(request(), 'ensureAdminAccess').status, 503);
+});
+
+test('unconfigured local development denies anonymous administration and never verifies supplied credentials', () => {
   const f = fixture({ adminTokenConfigured: false, isProduction: false });
   const input = request({ authorization: 'Bearer synthetic-invalid-token' });
-  assert.deepEqual(f.resolveAdminAuthorization(input), {
-    actor: 'local-dev-admin',
-    source: 'local-dev'
-  });
-  assert.deepEqual(f.guard(input, 'ensureAdminAccess'), { authorized: true });
-  assert.equal(f.getAdminAuditActor(input), 'local-dev-admin');
-  assert.deepEqual(f.calls, []);
+  assert.equal(f.resolveAdminAuthorization(input), null);
+  assert.equal(f.guard(input, 'ensureAdminAccess').status, 503);
+  assert.equal(f.getAdminAuditActor(input), 'unauthenticated');
+  assert.deepEqual(f.calls, [['json', 503]]);
 });
 
 test('setup authorization remains usable without PostgreSQL while admin access requires it', () => {
-  for (const options of [
-    {},
-    { adminTokenConfigured: false, isProduction: false }
-  ]) {
-    const f = fixture({ ...options, hasDatabase: false });
-    const input = request({ authorization: `Bearer ${rootToken}` });
+  {
+    const f = fixture({ hasDatabase: false });
+    const session = f.sessions.createAdminSession(issuedAt);
+    const input = request({ authorization: `Bearer ${session.sessionToken}` });
     assert.deepEqual(f.guard(input), { authorized: true });
     assert.deepEqual(f.guard(input, 'ensureAdminAccess'), {
       authorized: false,
@@ -282,6 +285,16 @@ test('setup authorization remains usable without PostgreSQL while admin access r
       }
     });
   }
+});
+
+test('production guards refuse signed token sessions without consulting token dependencies', () => {
+  const local = fixture();
+  const session = local.sessions.createAdminSession(issuedAt);
+  const f = fixture({ isProduction: true });
+  const input = request({ authorization: `Bearer ${session.sessionToken}` });
+  assert.equal(f.resolveAdminAuthorization(input), null);
+  assert.equal(f.guard(input).status, 503);
+  assert.deepEqual(f.calls, [['json', 503]]);
 });
 
 test('resolved OIDC identities keep their own actor without evaluating root tokens or signed sessions', async () => {

@@ -33,8 +33,8 @@ Les migrations déjà appliquées restent immuables.
 Ajouts du 21 septembre 2026 : [022](../../apps/funding-api/migrations/022_create_publication_automation.sql) (moteur de publication), [023](../../apps/funding-api/migrations/023_prepare_publications_for_human_review.sql) (préparation privée) et [024](../../apps/funding-api/migrations/024_create_admin_command_receipts.sql) (reçus des commandes de pilotage).
 
 Appliquer les dépendances dans l'ordre. PostgreSQL est nécessaire pour les
-fonctions persistantes, OIDC et les alertes. Le mode Stripe-direct conserve
-uniquement les parcours compatibles avec l'absence de base.
+fonctions persistantes, Checkout, OIDC et les alertes. Sans base, seuls les
+parcours de transparence et de simulation en développement restent disponibles.
 
 La migration [030](../../apps/funding-api/migrations/030_create_database_backups.sql)
 ajoute les demandes et le heartbeat du service indépendant de sauvegarde. Elle ne
@@ -101,6 +101,19 @@ package npm ni build API n'est nécessaire au runner.
 La cible est le service Compose `postgres`, avec `POSTGRES_DB` et `POSTGRES_USER`.
 Vérifier le projet/fichier Compose et leur concordance avec la base utilisée
 par l'API : le runner ne se connecte pas directement à `DATABASE_URL`.
+
+Le propriétaire de migrations reste distinct du compte API. Sur une base neuve,
+appliquer d'abord les migrations, puis préparer le
+[rôle applicatif limité](../docker-deployment.md#compte-postgresql-applicatif).
+Le provisionnement est une opération explicite, avec aperçu sans connexion et
+confirmation de la base et du rôle; aucun secret existant n'est remplacé.
+Lorsque `FUNDING_DATABASE_RUNTIME_USER` est configuré, le runner rafraîchit ses
+droits sur le schéma résultant dans la même transaction que les migrations.
+L'API de production refuse de démarrer avec un superutilisateur, une appartenance
+à un autre rôle, des droits de création ou de suppression métier, ou la capacité
+de réécrire le journal d'audit et le registre. Elle reçoit seulement son
+`DATABASE_URL`, sans identifiants PostgreSQL du propriétaire.
+
 Les variables du shell priment sur le fichier `OPENG7_E2E_ENV_FILE`, ou `.env`
 par défaut. `MIGRATIONS_DIR` désigne le répertoire **complet** des migrations.
 

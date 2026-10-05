@@ -1,5 +1,6 @@
+import { adminSessionHeaders } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
-import { ADMIN_TOKEN, WEBHOOK_FIXTURES } from './fixtures/e2e-fixtures.mjs';
+import { WEBHOOK_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import {
   buildCheckoutSessionCompletedEvent,
   buildPaymentIntentSucceededEvent,
@@ -125,7 +126,7 @@ test.describe('Stripe webhook idempotence', () => {
 
     const invoicesResponse = await request.get(
       '/api/admin/sponsorship-invoices',
-      { headers: { 'x-funding-admin-token': ADMIN_TOKEN } }
+      { headers: await adminSessionHeaders(request) }
     );
     expect(invoicesResponse.ok()).toBe(true);
     const invoicesBody = await invoicesResponse.json();
@@ -137,7 +138,7 @@ test.describe('Stripe webhook idempotence', () => {
 
     const contributionsResponse = await request.get(
       '/api/admin/contributions',
-      { headers: { 'x-funding-admin-token': ADMIN_TOKEN } }
+      { headers: await adminSessionHeaders(request) }
     );
     expect(contributionsResponse.ok()).toBe(true);
     const contributionsBody = await contributionsResponse.json();

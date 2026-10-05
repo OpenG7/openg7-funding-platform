@@ -2,19 +2,19 @@
 set -Eeuo pipefail
 umask 077
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "${ROOT_DIR}"
 CONFIG_BACKUP="" DATABASE_DUMP="" SPONSOR_LOGOS_BACKUP="" TARGET_PROJECT=""
 S3_ENV="" S3_CONFIRMATION="" MEDIA_DRIVER="local"
-FORCE=0
+AGE_IDENTITY="" ALLOW_LEGACY_PLAINTEXT=0 FORCE=0
 fail() { echo "FAIL: $*" >&2; exit 1; }
 docker_path() { if command -v cygpath >/dev/null; then cygpath -am "$1"; else printf '%s' "$1"; fi; }
 docker() { MSYS_NO_PATHCONV=1 command docker "$@"; }
 usage() {
   cat <<'USAGE'
 Usage: bash scripts/restore-from-backup.sh --target-project <new-project> \
-  --config-backup <archive.tar.gz> --database-dump <database.sql> \
-  --sponsor-logos-backup <media.tar.gz> [--force] \
+  --config-backup <archive.tar.gz.age> --database-dump <database.sql.age> \
+  --sponsor-logos-backup <media.tar.gz.age> --identity <external-age-identity> [--force] \
   [--s3-env <target.env> --confirm-s3-target <private-bucket,public-bucket>]
 
 Run from a trusted checkout on a dedicated recovery target without a .env file.
@@ -25,11 +25,13 @@ PostgreSQL and local/S3 media are restored; API, Web and workers remain stopped.
 S3 requires installed Yarn dependencies and two empty, private target buckets.
 The protected recovery-report.json records stages, not application qualification.
 --force skips the typed confirmation, not integrity or target checks.
+Legacy clear archives additionally require --allow-legacy-plaintext.
+Recovery identities are never restored into .env or application containers.
 USAGE
 }
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --config-backup|--database-dump|--sponsor-logos-backup|--target-project|--s3-env|--confirm-s3-target)
+    --config-backup|--database-dump|--sponsor-logos-backup|--target-project|--s3-env|--confirm-s3-target|--identity)
       [[ $# -ge 2 && -n "$2" ]] || fail "Missing option value."
       case "$1" in
         --config-backup) CONFIG_BACKUP="$2";;
@@ -38,9 +40,11 @@ while [[ $# -gt 0 ]]; do
         --target-project) TARGET_PROJECT="$2";;
         --s3-env) S3_ENV="$2";;
         --confirm-s3-target) S3_CONFIRMATION="$2";;
+        --identity) AGE_IDENTITY="$2";;
       esac
       shift 2;;
     --force) FORCE=1; shift;;
+    --allow-legacy-plaintext) ALLOW_LEGACY_PLAINTEXT=1; shift;;
     --help) usage; exit 0;;
     *) fail "Unknown option. Use --help.";;
   esac
@@ -59,6 +63,13 @@ command -v node >/dev/null || fail "Node 22 is required for backup verification.
 command -v docker >/dev/null || fail "Docker is required."
 docker compose version >/dev/null
 node scripts/backup-artifacts.mjs verify "$CONFIG_BACKUP" "$DATABASE_DUMP" "$SPONSOR_LOGOS_BACKUP" "$MEDIA_DRIVER"
+SOURCE_CONFIG_BACKUP="$CONFIG_BACKUP"
+ENCRYPTION="$(node scripts/backup-artifacts.mjs encryption "$CONFIG_BACKUP")"
+if [[ "$ENCRYPTION" == age ]]; then
+  [[ -f "$AGE_IDENTITY" ]] || fail "An external --identity file is required for encrypted backups."
+elif [[ "$ALLOW_LEGACY_PLAINTEXT" -ne 1 ]]; then
+  fail "Legacy clear backups require --allow-legacy-plaintext after review."
+fi
 assert_target_unused() {
   local containers container suffix
   containers="$(docker ps -aq --no-trunc --filter "label=com.docker.compose.project=${TARGET_PROJECT}")" || fail "Cannot inspect target containers."
@@ -86,12 +97,31 @@ cleanup() {
   local result=$?
   if [[ "$result" -ne 0 && "$REPORT_STARTED" -eq 1 ]]; then report failed || true; fi
   if [[ -n "$RESTORE_RESERVATION" ]]; then docker rm "$RESTORE_RESERVATION" >/dev/null; fi
-  if [[ -n "$STAGE" ]]; then rm -rf -- "$STAGE"; fi
+  if [[ -n "$STAGE" ]]; then
+    local resolved_stage=""
+    if [[ -d "$STAGE" && ! -L "$STAGE" ]]; then
+      resolved_stage="$(cd "$STAGE" && pwd -P)"
+    fi
+    case "$resolved_stage" in
+      "$ROOT_DIR"/.restore-stage.*) rm -rf -- "$resolved_stage";;
+      *) echo 'FAIL: Recovery staging cleanup refused; reconcile the protected temporary directory.' >&2; result=1;;
+    esac
+  fi
   rmdir "$ROOT_DIR/.restore.lock"
   return "$result"
 }
 trap cleanup EXIT
 STAGE="$(mktemp -d "${ROOT_DIR}/.restore-stage.XXXXXX")"
+if [[ "$ENCRYPTION" == age ]]; then
+  mkdir "$STAGE/.decrypted"
+  node scripts/backup-artifacts.mjs decrypt "$CONFIG_BACKUP" "$STAGE/.decrypted/config.tar.gz" "$AGE_IDENTITY"
+  node scripts/backup-artifacts.mjs decrypt "$DATABASE_DUMP" "$STAGE/.decrypted/database.sql" "$AGE_IDENTITY"
+  node scripts/backup-artifacts.mjs decrypt "$SPONSOR_LOGOS_BACKUP" "$STAGE/.decrypted/media.tar.gz" "$AGE_IDENTITY"
+  CONFIG_BACKUP="$STAGE/.decrypted/config.tar.gz"
+  DATABASE_DUMP="$STAGE/.decrypted/database.sql"
+  SPONSOR_LOGOS_BACKUP="$STAGE/.decrypted/media.tar.gz"
+  node scripts/backup-artifacts.mjs validate-decrypted "$CONFIG_BACKUP" "$SPONSOR_LOGOS_BACKUP"
+fi
 tar -xzf "$CONFIG_BACKUP" -C "$STAGE"
 # Archived scripts are retained in the archive, never executed or installed.
 export COMPOSE_PROJECT_NAME="$TARGET_PROJECT"
@@ -128,7 +158,7 @@ RESTORE_RESERVATION="$(docker create --name "${TARGET_PROJECT}-restore-lock" \
   --entrypoint true postgres:16-alpine)" || fail "Recovery project is already reserved."
 # Another restore may have completed while this operator was confirming.
 assert_target_unused
-report start "$TARGET_PROJECT" "$CONFIG_BACKUP" "$STAGE"
+report start "$TARGET_PROJECT" "$SOURCE_CONFIG_BACKUP" "$STAGE"
 REPORT_STARTED=1
 cp "$STAGE/.env" "$ROOT_DIR/.env"
 cp "$STAGE/docker-compose.yml" "$ROOT_DIR/docker-compose.yml"

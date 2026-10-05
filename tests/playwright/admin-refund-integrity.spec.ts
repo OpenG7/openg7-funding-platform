@@ -1,7 +1,8 @@
 import type { APIRequestContext } from '@playwright/test';
 
+import { adminSessionHeaders } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
-import { ADMIN_TOKEN, SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
+import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 
 // Drives the real admin refund route (POST /api/admin/sponsorships/refund)
 // directly rather than through the UI, the same way this app's own
@@ -25,7 +26,7 @@ const findSponsorshipBySearch = async (
 ): Promise<{ id: string; version: string }> => {
   const response = await request.get(
     `/api/admin/sponsorships?search=${encodeURIComponent(search)}&pageSize=5`,
-    { headers: { 'x-funding-admin-token': ADMIN_TOKEN } }
+    { headers: await adminSessionHeaders(request) }
   );
   expect(response.ok()).toBe(true);
   const body = await response.json();
@@ -33,12 +34,12 @@ const findSponsorshipBySearch = async (
   return body.items[0];
 };
 
-const postRefund = (
+const postRefund = async (
   request: APIRequestContext,
   body: Record<string, unknown>
 ) =>
   request.post('/api/admin/sponsorships/refund', {
-    headers: { 'x-funding-admin-token': ADMIN_TOKEN },
+    headers: await adminSessionHeaders(request),
     data: body
   });
 

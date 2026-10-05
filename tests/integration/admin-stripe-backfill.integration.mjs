@@ -442,8 +442,18 @@ test(
           });
         });
         const url = `http://127.0.0.1:${port}/api/admin/stripe-backfill`;
+        const sessionResponse = await fetch(
+          `http://127.0.0.1:${port}/api/admin/session`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+          }
+        );
+        assert.equal(sessionResponse.status, 200);
+        const session = await sessionResponse.json();
         const headers = {
-          authorization: 'Bearer ' + token,
+          authorization: 'Bearer ' + session.sessionToken,
           'content-type': 'application/json',
           origin: 'http://localhost'
         };

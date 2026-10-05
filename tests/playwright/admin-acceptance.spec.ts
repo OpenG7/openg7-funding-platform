@@ -3,8 +3,8 @@ import type {
   AdminWorkQueueResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN, SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { SPONSORSHIP_FIXTURES } from './fixtures/e2e-fixtures.mjs';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
 
 // Real API + PostgreSQL journeys. No route interception or shared mutation fixture.
@@ -13,7 +13,7 @@ test('a confirmed review removes its task, preserves queue filters and leaves pu
   request
 }) => {
   const fixture = SPONSORSHIP_FIXTURES.acceptanceReview;
-  const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
+  const headers = await adminSessionHeaders(request);
   const queueUrl =
     '/api/admin/attention?type=sponsorship_needs_review&pageSize=100';
   const beforeResponse = await request.get(queueUrl, { headers });
@@ -68,7 +68,7 @@ test('global search opens a persisted invoice snapshot and its exact dossier', a
   await signInAsAdmin(page);
   // The seeded paid record is eligible; invoice creation follows the normal
   // explicit, scoped admin confirmation before testing the read-only search.
-  const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
+  const headers = await adminSessionHeaders(request);
   const records = await (
     await request.get(
       '/api/admin/sponsorships?search=' +

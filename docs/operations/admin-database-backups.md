@@ -34,6 +34,10 @@ Le service indépendant `database-backup` capture **PostgreSQL seulement** avec
 Le SQL privé n'est jamais écrit sur disque. La clé privée de déchiffrement reste
 hors du serveur. Médias, paramètres, rôles PostgreSQL globaux et images ne sont
 pas inclus; conserver aussi les [ensembles complets](backup-recovery.md).
+Le dump utilise `--no-owner --no-acl` : aucun rôle global ni privilège source n'est
+réinstallé implicitement. Préparer et reprovisionner le compte API restreint depuis
+le compte propriétaire de la cible avant activation, selon le
+[runbook PostgreSQL](../docker-deployment.md#compte-postgresql-applicatif).
 Une capture DB ne synchronise pas les fournisseurs ni les fichiers.
 
 La réussite exige un transfert S3 conditionnel, un verrou `COMPLIANCE` de 30 jours

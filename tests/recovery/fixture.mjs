@@ -27,11 +27,12 @@ import {
 import { startDisposableProvider } from '../integration/support/disposable-provider.mjs';
 import { createS3RecoveryProxy } from '../integration/support/s3-recovery-proxy.mjs';
 import { createBuiltWebServer } from '../ui/serve-built-web.mjs';
+import { createAgeFixture } from '../integration/support/age-fixture.mjs';
 
 const exec = promisify(execFile);
 const bash =
   process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash';
-export const token = 'synthetic-recovery-admin-token';
+export const token = 'synthetic-recovery-admin-token-32-characters';
 export const eventually = async (fn) => {
   const deadline = Date.now() + 45000;
   while (true) {
@@ -76,6 +77,7 @@ export async function createRecoveryFixture({ mediaDriver = 'local' } = {}) {
       await run('docker', ['--context', context, ...args], options)
     ).stdout.trim();
   const root = await mkdtemp(join(tmpdir(), 'og7-recovery-'));
+  const age = createAgeFixture(root);
   const prefix = 'og7-restore-' + randomUUID().slice(0, 8);
   const image = process.env.OG7_RECOVERY_API_IMAGE || prefix + '-api';
   if (process.env.OG7_RECOVERY_API_IMAGE && !/^og7-[a-z0-9:_-]+$/.test(image))
@@ -100,6 +102,7 @@ export async function createRecoveryFixture({ mediaDriver = 'local' } = {}) {
       .map((k) => [k, process.env[k]])
   );
   env.DOCKER_CONTEXT = context;
+  env.FUNDING_BACKUP_AGE_BINARY = age.ageBinary.replaceAll('\\', '/');
   env.OPENG7_TEST_NODE = process.execPath.replaceAll('\\', '/');
   const copy = async (from, to) => {
     await mkdir(dirname(to), { recursive: true });
@@ -122,6 +125,8 @@ export async function createRecoveryFixture({ mediaDriver = 'local' } = {}) {
       'sql/recovery-audit.sql',
       'storage-backup.mjs',
       'lib/s3-backup.mjs',
+      'lib/tar-stream.mjs',
+      'lib/backup-encryption.mjs',
       'load-env.sh'
     ])
       await copy(join('scripts', file), join(directory, 'scripts', file));
@@ -526,7 +531,8 @@ export async function createRecoveryFixture({ mediaDriver = 'local' } = {}) {
               'postgres://recovery:synthetic-only@postgres:5432/recovery',
             FUNDING_ADMIN_AUTH_MODE: 'token',
             FUNDING_ADMIN_TOKEN: token,
-            FUNDING_ADMIN_SESSION_SECRET: 'synthetic-recovery-session-secret',
+            FUNDING_ADMIN_SESSION_SECRET:
+              'synthetic-recovery-session-secret-32-characters',
             FUNDING_PUBLIC_BASE_URL: '${FUNDING_PUBLIC_BASE_URL}',
             FUNDING_ALLOWED_ORIGINS: '${FUNDING_PUBLIC_BASE_URL}',
             FUNDING_ADMIN_RATE_LIMIT_MAX: '0',
@@ -577,6 +583,7 @@ export async function createRecoveryFixture({ mediaDriver = 'local' } = {}) {
         SPONSOR_MEDIA_STORAGE_DRIVER: mediaDriver,
         ...source.s3,
         FUNDING_PLATFORM_ENV: 'development',
+        FUNDING_FULL_BACKUP_AGE_RECIPIENT: age.recipient,
         FUNDING_PUBLIC_BASE_URL: source.origin
       })
         .map(([k, v]) => k + '=' + v)
@@ -610,7 +617,7 @@ export async function createRecoveryFixture({ mediaDriver = 'local' } = {}) {
       );
     await source.startApi();
     console.log('Recovery fixture: source ready.');
-    return { root, source, makeTarget, stop, docker, env, s3 };
+    return { root, source, makeTarget, stop, docker, env, s3, age };
   } catch (error) {
     console.log('Recovery fixture startup failed:', error.message);
     await stop();

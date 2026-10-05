@@ -5,6 +5,7 @@ import { createReadStream } from 'node:fs';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { decryptBackupFile } from './lib/backup-encryption.mjs';
 
 const fingerprint = async (file) => {
   if (!(await stat(file)).isFile()) throw new Error('Expected a backup file.');
@@ -54,7 +55,21 @@ const validateArchive = (file, configuration = false) => {
 
 const [command, config, database, media, driver] = process.argv.slice(2);
 try {
-  if (command === 'manifest') {
+  if (command === 'decrypt') {
+    await decryptBackupFile(config, database, media);
+  } else if (command === 'validate-decrypted') {
+    validateArchive(config, true);
+    validateArchive(database);
+  } else if (command === 'encryption') {
+    const manifest = JSON.parse(
+      await readFile(config + '.manifest.json', 'utf8')
+    );
+    if (manifest.version === 2 && manifest.encryption === 'age')
+      console.log('age');
+    else if (manifest.version === 1 && !manifest.encryption)
+      console.log('plaintext');
+    else throw new Error('Unsupported backup encryption policy.');
+  } else if (command === 'manifest' || command === 'manifest-encrypted') {
     const artifacts = {};
     for (const [role, path] of Object.entries({ config, database, media })) {
       if (path !== '-') artifacts[role] = await fingerprint(path);
@@ -63,7 +78,8 @@ try {
       config + '.manifest.json',
       JSON.stringify(
         {
-          version: 1,
+          version: command === 'manifest-encrypted' ? 2 : 1,
+          ...(command === 'manifest-encrypted' ? { encryption: 'age' } : {}),
           createdAt: new Date().toISOString(),
           environment: process.env.FUNDING_PLATFORM_ENV || 'unspecified',
           database: process.env.POSTGRES_DB || null,
@@ -79,7 +95,13 @@ try {
     const manifest = JSON.parse(
       await readFile(config + '.manifest.json', 'utf8')
     );
-    if (manifest.version !== 1 || manifest.mediaDriver !== 'ovh-s3')
+    if (
+      !(
+        (manifest.version === 1 && !manifest.encryption) ||
+        (manifest.version === 2 && manifest.encryption === 'age')
+      ) ||
+      manifest.mediaDriver !== 'ovh-s3'
+    )
       throw new Error('Expected a completed S3 backup set.');
     for (const [role, file] of Object.entries({ config, media: database })) {
       const expected = manifest.artifacts?.[role],
@@ -91,15 +113,20 @@ try {
       )
         throw new Error('Backup artifact checksum mismatch: ' + role);
     }
-    validateArchive(config, true);
-    validateArchive(database);
+    if (manifest.version === 1) {
+      validateArchive(config, true);
+      validateArchive(database);
+    }
     console.log('S3 backup archive integrity verified.');
   } else if (command === 'verify') {
     const manifest = JSON.parse(
       await readFile(config + '.manifest.json', 'utf8')
     );
     if (
-      manifest.version !== 1 ||
+      !(
+        (manifest.version === 1 && !manifest.encryption) ||
+        (manifest.version === 2 && manifest.encryption === 'age')
+      ) ||
       !['local', 'ovh-s3'].includes(driver || 'local') ||
       manifest.mediaDriver !== (driver || 'local')
     )
@@ -116,8 +143,10 @@ try {
       if (actual.bytes !== expected.bytes || actual.sha256 !== expected.sha256)
         throw new Error('Backup artifact checksum mismatch: ' + role);
     }
-    validateArchive(config, true);
-    validateArchive(media);
+    if (manifest.version === 1) {
+      validateArchive(config, true);
+      validateArchive(media);
+    }
     console.log('Backup set integrity verified.');
   } else if (command === 'check-compose') {
     const project = config;

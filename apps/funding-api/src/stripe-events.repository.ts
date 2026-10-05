@@ -1,5 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 
+import { projectStoredStripeEvent } from './stripe-event-projection.js';
+
 interface StripeEventInput {
   readonly stripeEventId: string;
   readonly eventType: string;
@@ -91,7 +93,11 @@ export const withStripeEventProcessing = async <T>(
         SET processing_status = 'processing', processed_at = NULL
         WHERE stripe_events.processing_status IN ('processing', 'failed')
       `,
-      [input.stripeEventId, input.eventType, JSON.stringify(input.payload)]
+      [
+        input.stripeEventId,
+        input.eventType,
+        JSON.stringify(projectStoredStripeEvent(input.payload))
+      ]
     );
     if (record.rowCount !== 1) return { status: 'duplicate' };
     claimed = true;

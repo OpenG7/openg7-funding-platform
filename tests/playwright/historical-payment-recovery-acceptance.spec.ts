@@ -8,12 +8,11 @@ import type {
   FundTransparencyPublicResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
 import {
   acceptanceComposeArgs,
   acceptanceSql
 } from './support/acceptance-database.js';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import {
   buildPaymentIntentSucceededEvent,
   buildSignedWebhookRequest,
@@ -23,7 +22,7 @@ import type { StripeBackfillSummary } from './support/stripe-backfill-cli.js';
 import { test, expect } from './support/test.js';
 
 const execute = promisify(execFile);
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
+
 const minor = (amount: number) => Math.round(amount * 100);
 async function downloadBytes(download: Download) {
   const chunks: Buffer[] = [];
@@ -64,7 +63,10 @@ test('historical Stripe payment: bounded preview, silent recovery, late events a
       .digest('hex')
   };
   const get = async <T>(url: string, admin = false): Promise<T> => {
-    const response = await request.get(url, admin ? { headers } : {});
+    const response = await request.get(
+      url,
+      admin ? { headers: await adminSessionHeaders(request) } : {}
+    );
     expect(response.ok(), url).toBe(true);
     return response.json();
   };
@@ -269,7 +271,7 @@ test('historical Stripe payment: bounded preview, silent recovery, late events a
   ).toBe(401);
   for (const confirmation of [undefined, 'another-contribution']) {
     const rejected = await request.post(invoiceEndpoint, {
-      headers,
+      headers: await adminSessionHeaders(request),
       data: { contributionId, limit: 1, confirmation }
     });
     expect(rejected.status()).toBe(400);
@@ -319,7 +321,7 @@ test('historical Stripe payment: bounded preview, silent recovery, late events a
   const digest = createHash('sha256').update(bytes).digest('hex');
   await silent();
   const repeat = await request.post(invoiceEndpoint, {
-    headers,
+    headers: await adminSessionHeaders(request),
     data: { contributionId, limit: 1, confirmation: contributionId }
   });
   expect(repeat.ok()).toBe(true);
@@ -329,7 +331,7 @@ test('historical Stripe payment: bounded preview, silent recovery, late events a
   expect(await invoices()).toEqual([invoice]);
   const pdf = await request.get(
     '/api/admin/sponsorship-invoices/pdf?invoiceId=' + invoice.id,
-    { headers }
+    { headers: await adminSessionHeaders(request) }
   );
   expect(pdf.ok()).toBe(true);
   expect(

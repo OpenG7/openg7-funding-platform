@@ -1,6 +1,6 @@
 import { expect, test } from './support/test.js';
-import { ADMIN_TOKEN, ACCOUNTING_FIXTURES } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { ACCOUNTING_FIXTURES } from './fixtures/e2e-fixtures.mjs';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { updateStripeBalanceTransaction } from './support/stripe-stub-client.mjs';
 import {
   buildCheckoutSessionExpiredEvent,
@@ -31,7 +31,7 @@ test.describe('Funding accounting integrity', () => {
     ).json();
     const dashboardBefore = await (
       await request.get('/api/admin/dashboard', {
-        headers: { 'x-funding-admin-token': ADMIN_TOKEN }
+        headers: await adminSessionHeaders(request)
       })
     ).json();
 
@@ -80,7 +80,7 @@ test.describe('Funding accounting integrity', () => {
     ).json();
     const dashboardAfter = await (
       await request.get('/api/admin/dashboard', {
-        headers: { 'x-funding-admin-token': ADMIN_TOKEN }
+        headers: await adminSessionHeaders(request)
       })
     ).json();
 

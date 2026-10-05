@@ -750,11 +750,21 @@ test(
       });
     }
     let port = await startApi();
+    const sessionResponse = await fetch(
+      `http://127.0.0.1:${port}/api/admin/session`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      }
+    );
+    assert.equal(sessionResponse.status, 200);
+    let session = await sessionResponse.json();
     const post = async (version) =>
       fetch(`http://127.0.0.1:${port}/api/admin/sponsorships/refund`, {
         method: 'POST',
         headers: {
-          authorization: 'Bearer ' + token,
+          authorization: 'Bearer ' + session.sessionToken,
           origin: 'http://localhost',
           'content-type': 'application/json'
         },
@@ -783,6 +793,16 @@ test(
     const callsBeforeRestart = calls;
     await stopApi();
     port = await startApi();
+    const resumedSession = await fetch(
+      `http://127.0.0.1:${port}/api/admin/session`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      }
+    );
+    assert.equal(resumedSession.status, 200);
+    session = await resumedSession.json();
     const retry = await post(
       (await getSponsorshipRefundTarget(db.pool, id)).version
     );

@@ -44,6 +44,40 @@ test('services readiness shortcut is registered', () => {
   );
 });
 
+test('production readiness refuses shared token administration and accepts configured OIDC', (t) => {
+  const token = checkConfig(t, {
+    FUNDING_PLATFORM_ENV: 'production',
+    FUNDING_ADMIN_AUTH_MODE: 'token'
+  });
+  assert.notEqual(token.status, 0);
+  assert.match(token.output, /production requires OIDC and verified MFA/);
+  const oidc = checkConfig(t, {
+    ...oidcConfig,
+    FUNDING_PLATFORM_ENV: 'production'
+  });
+  assert.equal(oidc.status, 0, oidc.output);
+});
+
+test('token readiness rejects sessions configured above one hour', (t) => {
+  const result = checkConfig(t, { FUNDING_ADMIN_SESSION_TTL_MINUTES: '61' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.output, /at most 60 minutes/);
+});
+
+test('readiness rejects ambiguous environment names and protects standalone NODE_ENV production', (t) => {
+  for (const environment of ['', 'Production', 'unknown']) {
+    const result = checkConfig(t, { FUNDING_PLATFORM_ENV: environment });
+    assert.notEqual(result.status, 0);
+    assert.match(result.output, /must be development, test, or production/);
+  }
+  const result = checkConfig(t, {
+    FUNDING_PLATFORM_ENV: undefined,
+    NODE_ENV: 'production'
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.output, /production requires OIDC and verified MFA/);
+});
+
 test('media readiness rejects a size that exceeds the supported proxy envelope', (t) => {
   const { status, output } = checkConfig(t, {
     FUNDING_SPONSOR_MEDIA_MAX_BYTES: '8388609'

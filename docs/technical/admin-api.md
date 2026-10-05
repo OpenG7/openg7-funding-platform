@@ -28,18 +28,18 @@ downloaded or previously cached under older headers. See the
 
 Admin dashboard: `/admin/fundraiser`.
 
-Open `/admin/login`. In default `token` mode, the frontend exchanges
-`FUNDING_ADMIN_TOKEN` through `POST /api/admin/session`. In `oidc` mode, it
-redirects to the configured identity provider and requires verified MFA.
-The browser then uses an HttpOnly cookie for a revocable server session.
-The API checks authorization on every admin endpoint; Angular guards only
-control navigation. Admin routes are loaded on demand from `admin.routes.ts`.
+Open `/admin/login`. Production requires OIDC, verified MFA and revocable
+HttpOnly sessions. Local token mode exchanges `FUNDING_ADMIN_TOKEN` at
+`POST /api/admin/session`; other routes refuse the root secret.
+Admin endpoints check authorization. Angular guards control navigation;
+`admin.routes.ts` loads routes on demand.
 
-Session, sponsorship review/publication, draft/slot/batch and legacy details
-require JSON objects. `null`, arrays or primitives return `400` before provider,
-DB or audit effects; protected routes authorize first.
-`POST /sponsorship-details` and `/api` alias share Checkout's public-write
-quota before Stripe.
+Session, review/publication and draft/slot/batch mutations require JSON objects.
+`null`, arrays and primitives return `400` before effects; authorization comes first.
+`POST /sponsorship-details` and its `/api` alias return
+`410 SPONSORSHIP_LEGACY_ENDPOINT_RETIRED` before body, Stripe or DB effects.
+Use `/api/sponsorship-followup/details` with the private
+token and revision; recover access at `/api/sponsorship-followup/recover`.
 
 The [access and sessions page](../operations/admin-identity-and-alerts.md)
 at `/admin/fundraiser/access` lets OIDC owners manage readers, operators and

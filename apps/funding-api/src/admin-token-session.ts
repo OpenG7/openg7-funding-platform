@@ -4,8 +4,11 @@ import type { AdminSessionResponse } from '@openg7/funding-core';
 
 const ADMIN_SESSION_TOKEN_PREFIX = 'openg7-admin-session.';
 const ADMIN_SESSION_NONCE_BYTES = 16;
+export const ADMIN_TOKEN_MIN_LENGTH = 32;
+export const ADMIN_SESSION_MAX_TTL_MINUTES = 60;
 
 export interface AdminTokenSessionConfig {
+  readonly enabled?: boolean;
   readonly adminToken: string;
   readonly sessionSecret: string;
   readonly sessionTtlMinutes: number;
@@ -32,17 +35,46 @@ const constantTimeMatches = (candidate: string, expected: string): boolean => {
 
 /** Token sessions use the startup configuration; OIDC authorization stays separate. */
 export const createAdminTokenSessionService = ({
+  enabled = true,
   adminToken,
   sessionSecret,
   sessionTtlMinutes,
-  isProduction,
-  projectId
+  isProduction
 }: AdminTokenSessionConfig) => {
+  if (enabled && !isProduction && (adminToken || sessionSecret)) {
+    if (adminToken.length < ADMIN_TOKEN_MIN_LENGTH)
+      throw new Error(
+        'FUNDING_ADMIN_TOKEN must contain at least 32 characters.'
+      );
+    if (
+      sessionSecret.length < ADMIN_TOKEN_MIN_LENGTH ||
+      sessionSecret === adminToken
+    )
+      throw new Error(
+        'FUNDING_ADMIN_SESSION_SECRET must contain at least 32 characters and differ from FUNDING_ADMIN_TOKEN.'
+      );
+  }
+  if (
+    enabled &&
+    !isProduction &&
+    (!Number.isInteger(sessionTtlMinutes) ||
+      sessionTtlMinutes < 1 ||
+      sessionTtlMinutes > ADMIN_SESSION_MAX_TTL_MINUTES)
+  )
+    throw new Error(
+      'FUNDING_ADMIN_SESSION_TTL_MINUTES must be an integer between 1 and 60.'
+    );
+  // Token administration is local/test only, and never signs with a public project ID or root token.
   const signingSecret =
-    sessionSecret || adminToken || (!isProduction ? projectId : null);
+    enabled && !isProduction && adminToken && sessionSecret
+      ? sessionSecret
+      : null;
 
   const adminTokenMatches = (candidate: string): boolean =>
-    Boolean(adminToken) && constantTimeMatches(candidate, adminToken);
+    enabled &&
+    !isProduction &&
+    Boolean(adminToken) &&
+    constantTimeMatches(candidate, adminToken);
 
   const signAdminSessionPayload = (encodedPayload: string): string | null => {
     if (!signingSecret) {
@@ -87,8 +119,8 @@ export const createAdminTokenSessionService = ({
       return null;
     }
     const token = candidate.slice(ADMIN_SESSION_TOKEN_PREFIX.length);
-    const [encodedPayload, signature] = token.split('.', 2);
-    if (!encodedPayload || !signature) {
+    const [encodedPayload, signature, extra] = token.split('.');
+    if (!encodedPayload || !signature || extra !== undefined) {
       return null;
     }
     const expectedSignature = signAdminSessionPayload(encodedPayload);
@@ -108,10 +140,18 @@ export const createAdminTokenSessionService = ({
       return null;
     }
     if (
+      !payload ||
+      typeof payload !== 'object' ||
+      Array.isArray(payload) ||
       payload.v !== 1 ||
       payload.actor !== 'funding-admin-session' ||
-      !Number.isInteger(payload.iat) ||
-      !Number.isInteger(payload.exp) ||
+      !Number.isSafeInteger(payload.iat) ||
+      !Number.isSafeInteger(payload.exp) ||
+      payload.iat > now ||
+      payload.exp <= payload.iat ||
+      payload.exp - payload.iat > sessionTtlMinutes * 60 * 1000 ||
+      typeof payload.nonce !== 'string' ||
+      !/^[\w-]{22}$/.test(payload.nonce) ||
       payload.exp <= now
     ) {
       return null;

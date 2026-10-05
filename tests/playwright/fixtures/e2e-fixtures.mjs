@@ -2,7 +2,7 @@
 // Playwright specs so the seeded database rows and the browser assertions never
 // drift out of sync.
 
-export const ADMIN_TOKEN = 'local-playwright-admin-token';
+export const ADMIN_TOKEN = 'local-playwright-admin-token-32-characters';
 
 export const SPONSORSHIP_FIXTURES = Object.freeze({
   // Each mutating acceptance journey owns its records, including when the whole suite runs.

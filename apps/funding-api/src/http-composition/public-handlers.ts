@@ -38,8 +38,7 @@ import {
   isPublicApprovedSponsorshipLogoUrl,
   listContributionReferencesByEmail,
   listPublicSponsorships,
-  lookupPublicContributionReference,
-  recordSponsorshipDetails
+  lookupPublicContributionReference
 } from '../fund-contributions.repository.js';
 import {
   getPublicTransparencySummary,
@@ -69,7 +68,6 @@ import {
 } from '../sponsorship-access.service.js';
 import { createSponsorshipFollowupMediaHttpHandler } from '../sponsorship-followup-media.http.js';
 import { createSponsorshipFollowupHttpHandler } from '../sponsorship-followup.http.js';
-import { resolvePaymentIntentId as resolveStripePaymentIntentId } from '../stripe-object-normalization.js';
 import { createStripeWebhookHttpHandler } from '../stripe-webhook.http.js';
 import { processStripeWebhook } from '../stripe-webhook.service.js';
 
@@ -275,19 +273,7 @@ export const createPublicHttpHandlers = ({
   const handleLegacySponsorshipDetailsRequest =
     createLegacySponsorshipDetailsHttpHandler({
       publicBaseOrigin,
-      readBody,
-      writeJson,
-      SPONSOR_TEXT_MAX_LENGTH,
-      SPONSOR_MESSAGE_MAX_LENGTH,
-      stripe,
-      isNonEmptySponsorText,
-      isValidSponsorEmail,
-      isValidOptionalHttpsUrl,
-      truncateStripeMetadataValue,
-      resolveStripePaymentIntentId,
-      recordSponsorshipDetails: (input) =>
-        recordSponsorshipDetails(dbPool, input),
-      reportFailure: (message, error) => console.error(message, error)
+      writeJson
     });
 
   const handleStripeWebhookRequest = createStripeWebhookHttpHandler({

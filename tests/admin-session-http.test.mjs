@@ -6,7 +6,7 @@ import { createAdminSessionHttpHandler } from '../dist/apps/funding-api/src/admi
 import { createAdminTokenSessionService } from '../dist/apps/funding-api/src/admin-token-session.js';
 import { readBody } from '../dist/apps/funding-api/src/http-transport.js';
 
-const token = 'synthetic-root-token';
+const token = 'synthetic-root-token-32-characters';
 const fixture = ({
   adminTokenConfigured = true,
   isProduction = false,
@@ -15,7 +15,9 @@ const fixture = ({
   const calls = [];
   const service = createAdminTokenSessionService({
     adminToken: adminTokenConfigured ? token : '',
-    sessionSecret: 'synthetic-signing-secret',
+    sessionSecret: adminTokenConfigured
+      ? 'synthetic-signing-secret-32-characters'
+      : '',
     sessionTtlMinutes: 5,
     isProduction,
     projectId: 'synthetic-project'
@@ -46,12 +48,20 @@ const fixture = ({
     service,
     async request(
       url = '/admin/session',
-      { method = 'POST', body = JSON.stringify({ token }) } = {}
+      {
+        method = 'POST',
+        body = JSON.stringify({ token }),
+        contentType = 'application/json',
+        origin
+      } = {}
     ) {
       const request = Object.assign(Readable.from([body]), {
         method,
         url,
-        headers: {}
+        headers: {
+          ...(contentType ? { 'content-type': contentType } : {}),
+          ...(origin ? { origin } : {})
+        }
       });
       const response = {};
       return { handled: await handler(request, response), ...response };
@@ -61,7 +71,7 @@ const fixture = ({
 
 test('session aliases compare the trimmed token and return a valid limited signed session', async () => {
   for (const url of ['/admin/session', '/api/admin/session?unused=true']) {
-    const f = fixture({ isProduction: true });
+    const f = fixture();
     const result = await f.request(url, {
       body: JSON.stringify({ token: ` ${token} ` })
     });
@@ -87,23 +97,46 @@ test('session aliases compare the trimmed token and return a valid limited signe
   }
 });
 
-test('production without a root token refuses before reading the body', async () => {
-  const f = fixture({ adminTokenConfigured: false, isProduction: true });
-  const result = await f.request(undefined, { body: '{' });
-  assert.equal(result.status, 503);
-  assert.deepEqual(result.payload, {
-    error: 'Admin session is not configured.'
-  });
-  assert.deepEqual(f.calls, [['json', 503]]);
+test('production refuses token exchange even with a configured root token before parsing', async () => {
+  for (const adminTokenConfigured of [false, true]) {
+    const f = fixture({ adminTokenConfigured, isProduction: true });
+    const result = await f.request(undefined, { body: '{' });
+    assert.equal(result.status, 403);
+    assert.deepEqual(result.payload, {
+      error: 'OIDC admin sign-in is required in production.'
+    });
+    assert.deepEqual(f.calls, [['json', 403]]);
+  }
 });
 
-test('local development can issue a session without comparing an absent root token', async () => {
+test('local development without a configured root token refuses unauthenticated sessions', async () => {
   const f = fixture({ adminTokenConfigured: false });
   const result = await f.request(undefined, { body: '{}' });
-  assert.equal(result.status, 200);
+  assert.equal(result.status, 503);
   assert.deepEqual(
     f.calls.map(([name]) => name),
-    ['body', 'sign', 'json']
+    ['json']
+  );
+});
+
+test('session exchange rejects non-JSON and foreign origins before parsing credentials', async () => {
+  for (const [options, status] of [
+    [{ contentType: null }, 415],
+    [{ contentType: 'text/plain' }, 415],
+    [{ origin: 'https://foreign.example.test' }, 403]
+  ]) {
+    const f = fixture();
+    const result = await f.request(undefined, options);
+    assert.equal(result.status, status);
+    assert.deepEqual(f.calls, [['json', status]]);
+  }
+  assert.equal(
+    (
+      await fixture().request(undefined, {
+        origin: 'https://funding.example.test'
+      })
+    ).status,
+    200
   );
 });
 

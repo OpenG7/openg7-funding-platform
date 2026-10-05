@@ -6,6 +6,10 @@ import type {
 } from '@openg7/funding-core';
 
 import { hasEmailMessagesTable } from './email-queue.persistence.js';
+import {
+  revealPrivateText,
+  revealEmailMetadata
+} from './private-data-protection.js';
 
 interface AdminEmailQueueMessageRow {
   readonly id: string;
@@ -53,17 +57,14 @@ const mapAdminEmailQueueMessageRow = (
   recipient_email: row.recipient_email,
   from_email: row.from_email,
   reply_to_email: row.reply_to_email,
-  subject: row.subject,
+  subject: revealPrivateText(row.subject, `email:${row.id}:subject`),
   status: row.status,
   attempts: row.attempts,
   max_attempts: row.max_attempts,
   next_attempt_at: row.next_attempt_at,
   sent_at: row.sent_at,
   last_error: row.last_error,
-  metadata:
-    typeof row.metadata === 'object' && row.metadata !== null
-      ? (row.metadata as Record<string, unknown>)
-      : {},
+  metadata: revealEmailMetadata(row.metadata, row.id),
   created_at: row.created_at,
   updated_at: row.updated_at
 });

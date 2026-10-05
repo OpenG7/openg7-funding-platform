@@ -5,6 +5,10 @@ import type { Pool } from 'pg';
 import type Stripe from 'stripe';
 
 import {
+  protectPrivateJson,
+  revealPrivateJson
+} from './private-data-protection.js';
+import {
   insertCheckoutSessionRecord,
   type CheckoutSessionRecordInput
 } from './contributions-write.repository.js';
@@ -110,13 +114,38 @@ export const createDurableCheckoutService =
               id,
               keyHash,
               input.requestHash,
-              JSON.stringify(prepared.params),
-              JSON.stringify(prepared.record)
+              JSON.stringify(
+                protectPrivateJson(prepared.params, `checkout:${id}:params`)
+              ),
+              JSON.stringify(
+                protectPrivateJson(
+                  prepared.record,
+                  `checkout:${id}:contribution`
+                )
+              )
             ]
           )
         ).rows[0];
       }
 
+      operation = {
+        ...operation,
+        params: revealPrivateJson(
+          operation.params,
+          `checkout:${operation.id}:params`
+        ),
+        contribution_input: revealPrivateJson(
+          operation.contribution_input,
+          `checkout:${operation.id}:contribution`
+        ),
+        provider_result:
+          operation.provider_result === null
+            ? null
+            : revealPrivateJson(
+                operation.provider_result,
+                `checkout:${operation.id}:result`
+              )
+      };
       let result = operation.provider_result;
       if (!result) {
         if (!operation.retry_allowed)
@@ -156,7 +185,12 @@ export const createDurableCheckoutService =
           await db.query(
             `UPDATE checkout_operations SET state='created',provider_result=$2::jsonb,
            updated_at=NOW() WHERE id=$1`,
-            [operation.id, JSON.stringify(result)]
+            [
+              operation.id,
+              JSON.stringify(
+                protectPrivateJson(result, `checkout:${operation.id}:result`)
+              )
+            ]
           );
         } catch {
           // Do not log provider errors: they can contain private return URLs.

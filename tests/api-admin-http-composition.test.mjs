@@ -10,7 +10,7 @@ import {
 } from '../dist/apps/funding-api/src/http-transport.js';
 
 const origin = 'https://funding.example.test';
-const token = 'synthetic-admin-token';
+const token = 'openg7-admin-session.synthetic-composition-token';
 const id = '11111111-1111-4111-8111-111111111111';
 const version = '2026-10-03T12:34:56.123456Z';
 
@@ -34,9 +34,10 @@ const fixture = ({ database = true, role, permitted = true, pool } = {}) => {
   const authorization = createAdminAuthorization({
     adminIdentity,
     adminTokenConfigured: true,
-    isProduction: true,
+    isProduction: false,
     hasDatabase: database,
-    verifyAdminSession: () => null,
+    verifyAdminSession: (candidate) =>
+      candidate === token ? { actor: 'funding-admin-session' } : null,
     adminTokenMatches: (candidate) => candidate === token,
     writeJson
   });
@@ -230,7 +231,7 @@ test('admin composition passes pilotage confirmation, version and resolved actor
   for (const [role, writable, owner, actor] of [
     ['operator', true, false, 'admin:synthetic-account'],
     ['owner', true, true, 'admin:synthetic-account'],
-    [undefined, true, true, 'funding-admin-token']
+    [undefined, true, true, 'funding-admin-session']
   ]) {
     const f = fixture({ role });
     const result = await f.request(

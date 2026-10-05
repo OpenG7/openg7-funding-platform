@@ -1,5 +1,6 @@
+import { adminSessionHeaders } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
-import { ADMIN_TOKEN, BACKFILL_FIXTURES } from './fixtures/e2e-fixtures.mjs';
+import { BACKFILL_FIXTURES } from './fixtures/e2e-fixtures.mjs';
 import { runStripeBackfill } from './support/stripe-backfill-cli.js';
 
 // Covers apps/funding-api/src/stripe-backfill.service.ts, the real
@@ -20,7 +21,7 @@ const findContributionByReference = async (
   publicReference: string
 ) => {
   const response = await request.get('/api/admin/contributions', {
-    headers: { 'x-funding-admin-token': ADMIN_TOKEN }
+    headers: await adminSessionHeaders(request)
   });
   expect(response.ok()).toBe(true);
   const body = await response.json();
@@ -103,7 +104,7 @@ test.describe('Stripe backfill reconciliation', () => {
     // handler, see webhook-idempotence.spec.ts's replay test for the case
     // where exactly one of each *should* exist).
     const emailQueueResponse = await request.get('/api/admin/email-queue', {
-      headers: { 'x-funding-admin-token': ADMIN_TOKEN }
+      headers: await adminSessionHeaders(request)
     });
     expect(emailQueueResponse.ok()).toBe(true);
     const emailQueueBody = await emailQueueResponse.json();
@@ -115,7 +116,7 @@ test.describe('Stripe backfill reconciliation', () => {
 
     const invoicesResponse = await request.get(
       '/api/admin/sponsorship-invoices',
-      { headers: { 'x-funding-admin-token': ADMIN_TOKEN } }
+      { headers: await adminSessionHeaders(request) }
     );
     expect(invoicesResponse.ok()).toBe(true);
     const invoicesBody = await invoicesResponse.json();

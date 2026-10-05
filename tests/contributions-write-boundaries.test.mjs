@@ -11,7 +11,12 @@ const checkout = (overrides = {}) => ({
   contributionType: 'personal_support',
   amountCents: 12345,
   currency: 'CAD',
-  metadata: { fixture: 'write-boundary' },
+  metadata: {
+    project: 'openg7',
+    publicReference: 'OG7-WRITE-BOUNDARY',
+    fixture: 'write-boundary',
+    sponsorshipFollowupToken: 'synthetic-private-token'
+  },
   publicDisplayConsent: false,
   publicName: null,
   displayAmountConsent: false,
@@ -115,7 +120,7 @@ test('Checkout creation and duplicate delivery both commit the linked contributi
       'personal_support',
       12345,
       'cad',
-      '{"fixture":"write-boundary"}'
+      '{"project":"openg7","publicReference":"OG7-WRITE-BOUNDARY"}'
     ]);
     assert.deepEqual(db.calls[2].params.slice(0, 8), [
       'OG7-WRITE-BOUNDARY',

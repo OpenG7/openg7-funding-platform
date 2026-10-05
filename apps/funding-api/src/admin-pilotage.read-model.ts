@@ -13,6 +13,7 @@ import {
 } from './admin-work-queue.service.js';
 import { listAdminExpenses } from './fund-admin.repository.js';
 import { pilotageVersion as hash } from './admin-pilotage-version.js';
+import { revealPrivateText } from './private-data-protection.js';
 
 const domains: PilotDomain[] = [
   'publications',
@@ -189,7 +190,9 @@ export async function loadAdminPilotageState(
           item.sponsorshipId ??
           String(item.facts['reference'] ?? item.id),
         version: email?.version ?? sponsor?.version ?? hash(item.facts),
-        title: email?.subject ?? sponsor?.sponsor_company_name ?? '',
+        title: email
+          ? revealPrivateText(email.subject, `email:${email.id}:subject`)
+          : (sponsor?.sponsor_company_name ?? ''),
         severity: item.severity,
         dueAt: item.dueAt ?? null,
         detailsUrl: item.adminUrl ?? '/admin/fundraiser/attention',
@@ -303,8 +306,14 @@ export async function loadAdminPilotageState(
     ).rows[0];
     if (r)
       pageItems[0].email = {
-        subject: r.subject,
-        text: r.text_body,
+        subject: revealPrivateText(
+          r.subject,
+          `email:${pageItems[0].targetId}:subject`
+        ),
+        text: revealPrivateText(
+          r.text_body,
+          `email:${pageItems[0].targetId}:text`
+        ),
         recipient: r.recipient_email
       };
   }

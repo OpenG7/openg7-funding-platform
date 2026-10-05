@@ -168,11 +168,6 @@ test('Public composition preserves unavailable DB/provider refusals before body 
       'Sponsorship media requires DATABASE_URL.'
     ],
     [
-      'handleLegacySponsorshipDetailsRequest',
-      '/sponsorship-details',
-      'Stripe is not configured.'
-    ],
-    [
       'handleStripeWebhookRequest',
       '/api/stripe/webhook',
       'Stripe webhook is not configured. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET.'
@@ -187,6 +182,24 @@ test('Public composition preserves unavailable DB/provider refusals before body 
   assert.equal(
     f.calls.every(({ name }) => name === 'json'),
     true
+  );
+  assert.deepEqual(
+    await f.invoke(
+      'handleLegacySponsorshipDetailsRequest',
+      '/sponsorship-details',
+      {
+        method: 'POST',
+        body: '{'
+      }
+    ),
+    {
+      handled: true,
+      status: 410,
+      payload: {
+        code: 'SPONSORSHIP_LEGACY_ENDPOINT_RETIRED',
+        error: 'Use the private sponsorship follow-up with its access token.'
+      }
+    }
   );
   for (const configuration of [
     { stripe: { webhooks: {} } },

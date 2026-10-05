@@ -89,9 +89,15 @@ FUNDING_ALLOWED_AMOUNTS=5,10,25,50
 FUNDING_BUSINESS_SPONSORSHIP_ENABLED=false
 FUNDING_API_PORT=3333
 FUNDING_PROJECT_ID=openg7
-FUNDING_ADMIN_AUTH_MODE=token
-FUNDING_ADMIN_TOKEN=replace_with_a_long_random_admin_token
+FUNDING_ADMIN_AUTH_MODE=oidc
+FUNDING_ADMIN_TOKEN=
+FUNDING_ADMIN_OIDC_ISSUER=https://identity.example.com
+FUNDING_ADMIN_OIDC_CLIENT_ID=replace_with_configured_client_id
+FUNDING_ADMIN_OIDC_CLIENT_SECRET=replace_with_configured_client_secret
+FUNDING_ADMIN_OIDC_OWNER_SUBJECTS=replace_with_verified_owner_subject
+FUNDING_ADMIN_OIDC_MFA_ACR=
 FUNDING_ADMIN_SESSION_SECRET=replace_with_a_different_long_random_session_secret
+FUNDING_PRIVATE_DATA_ENCRYPTION_KEY=replace_with_32_random_bytes_in_base64
 FUNDING_ADMIN_SESSION_TTL_MINUTES=60
 SMTP_ENABLED=true
 SMTP_HOST=mail.papamail.net
@@ -123,15 +129,19 @@ OVH_S3_ACCESS_KEY_ID=
 OVH_S3_SECRET_ACCESS_KEY=
 STRIPE_SECRET_KEY=sk_live_replace_me
 STRIPE_WEBHOOK_SECRET=whsec_replace_me
-# Optional private PostgreSQL. Leave unset for Stripe-direct transparency.
+# Private PostgreSQL is required for real Checkout and production.
 # POSTGRES_DB=openg7_funding
-# POSTGRES_USER=openg7_funding
+# POSTGRES_USER=openg7_funding_owner
 # POSTGRES_PASSWORD=replace_with_a_long_random_secret
-# DATABASE_URL=postgres://openg7_funding:replace_with_a_long_random_secret@postgres:5432/openg7_funding
+# DATABASE_URL=postgres://openg7_funding_api:replace_with_a_different_long_random_secret@postgres:5432/openg7_funding
 BACKUP_DIR=./backups
+FUNDING_FULL_BACKUP_AGE_RECIPIENT=
 ```
 
-The example uses legacy token authentication. Named OIDC accounts, MFA and
+Production requires named OIDC accounts and MFA. Legacy token authentication is
+limited to local development/test. Configure the issuer, client, independent session
+signing secret, approved owner subjects and the required private-data encryption key
+before starting the API. Named OIDC accounts, MFA and
 revocable sessions require PostgreSQL and the settings in the
 [identity/alerts runbook](operations/admin-identity-and-alerts.md). OIDC requires
 one public origin for Web and API. Set `FUNDING_OPERATIONS_WATCHER_ENABLED=true`
@@ -161,9 +171,10 @@ bash scripts/deploy.sh
 
 ## Optional Private PostgreSQL
 
-The limited public checkout/transparency path can run without PostgreSQL.
-Persistent administration, sponsorship follow-up, public directories, OIDC and
-alert episodes require the private database.
+The limited public transparency fallback can run without PostgreSQL in development.
+Real Checkout requires durable PostgreSQL operations (migration 031); production
+administration requires OIDC and PostgreSQL. Sponsorship follow-up, public directories
+and alert episodes also require the private database.
 
 To initialize private PostgreSQL on an authorized fresh environment:
 
@@ -171,9 +182,11 @@ To initialize private PostgreSQL on an authorized fresh environment:
 
 ```env
 POSTGRES_DB=openg7_funding
-POSTGRES_USER=openg7_funding
+POSTGRES_USER=openg7_funding_owner
 POSTGRES_PASSWORD=replace_with_a_long_random_secret
-DATABASE_URL=postgres://openg7_funding:replace_with_a_long_random_secret@postgres:5432/openg7_funding
+FUNDING_DATABASE_RUNTIME_USER=openg7_funding_api
+FUNDING_DATABASE_RUNTIME_PASSWORD=replace_with_a_different_long_random_secret
+DATABASE_URL=postgres://openg7_funding_api:replace_with_a_different_long_random_secret@postgres:5432/openg7_funding
 ```
 
 2. Start PostgreSQL on the private Compose network:
@@ -182,10 +195,11 @@ DATABASE_URL=postgres://openg7_funding:replace_with_a_long_random_secret@postgre
 docker compose --profile database up -d postgres
 ```
 
-3. On a fresh database, apply the full sequence from the host:
+3. On a fresh database, apply the full sequence from the host with the runtime-role
+   override explicitly empty for this first application (the runner otherwise loads `.env`):
 
 ```bash
-yarn db:migrate
+FUNDING_DATABASE_RUNTIME_USER= yarn db:migrate
 ```
 
 Use the complete migration directory; applying only `001`–`007` leaves most
@@ -194,7 +208,7 @@ files and their checksums. An existing database without that registry requires
 [reviewed history adoption](operations/database-migrations.md#adoption-dune-base-existante-sans-registre)
 before any further application. It never infers migration history from table names.
 
-4. Restart the API:
+4. Follow the separately authorized runtime-role provisioning below, then restart the API:
 
 ```bash
 docker compose up -d api
@@ -205,7 +219,45 @@ Security notes:
 - `postgres` is only attached to the internal `openg7-data` network.
 - No `5432` port is published on the host.
 - The browser never receives `DATABASE_URL`.
-- If `DATABASE_URL` is absent, the API keeps the Stripe-direct fallback.
+- Production refuses absent PostgreSQL; the Stripe-direct transparency fallback
+  remains available for compatible development paths.
+
+<a id="compte-postgresql-applicatif"></a>
+
+### Compte PostgreSQL applicatif
+
+Le compte initial `POSTGRES_USER` de l'image PostgreSQL est administrateur. Le
+conserver pour les migrations sur l'hôte; sur une installation existante, ne pas
+le renommer par une simple modification de `.env`. L'API reçoit uniquement les
+variables déclarées dans Compose, jamais le fichier `.env` complet ni
+`POSTGRES_PASSWORD` ou `FUNDING_DATABASE_RUNTIME_PASSWORD`.
+
+Préparer un mot de passe indépendant d'au moins 32 caractères, renseigner les
+deux variables `FUNDING_DATABASE_RUNTIME_*`, puis utiliser ce même compte dans
+`DATABASE_URL` (encoder les caractères réservés de l'URL). Le plan ne se connecte
+à aucune base. Sur une cible existante, sauvegarde vérifiée, recette isolée et
+instruction explicite pour modifier les droits précèdent l'application :
+
+```sh
+node scripts/db-runtime-role.mjs --plan
+node scripts/db-runtime-role.mjs --apply \
+  --confirm-database openg7_funding --confirm-role openg7_funding_api
+```
+
+Le provisionnement transactionnel est idempotent et ne change pas un mot de passe
+existant. Il refuse un compte administrateur, propriétaire ou membre d'un autre
+rôle. Le compte API reçoit connexion, usage du schéma, lecture/insertion/mise à
+jour métier et usage/lecture des séquences. Seuls les challenges de connexion
+expirés peuvent être supprimés; l'audit reste en lecture/insertion et le registre
+des migrations en lecture. Aucune création de schéma/table temporaire, propriété,
+suppression métier ou `TRUNCATE`. Le schéma et la base dédiés perdent les droits
+`CREATE`/`TEMPORARY` publics, sans supprimer de données.
+
+Les migrations gardent le compte propriétaire. Lorsque le rôle runtime est
+configuré et déjà provisionné, leur runner réapplique ses droits sur les nouvelles
+tables dans la même transaction, sans modifier de mot de passe. En production,
+l'API vérifie les privilèges effectifs avant d'écouter et refuse une dérive.
+Une configuration préparée ne modifie aucun compte existant ni la production.
 
 ## DNS
 
@@ -520,6 +572,12 @@ Backups include:
 - scripts
 - docs
 
+Install `age` on the backup host, and set the public
+`FUNDING_FULL_BACKUP_AGE_RECIPIENT` generated on an independent recovery workstation.
+Its private identity stays off the VPS. Configuration, database and media are
+streamed through authenticated encryption before any backup file is written.
+The script refuses an absent/invalid recipient or unavailable encryption tool.
+
 Node 22 is required for integrity metadata. A completed set includes the
 configuration archive's adjacent `.manifest.json`, with UTC date, environment,
 database, media driver, sizes and SHA-256 digests. Freeze application writes for
@@ -530,15 +588,17 @@ If private PostgreSQL is enabled through `DATABASE_URL`, `scripts/backup.sh`
 also writes a consistent database dump while PostgreSQL is running:
 
 ```text
-backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql
+backups/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql.age
 ```
 
 If the `openg7-sponsor-logos` Docker volume exists, the same script also writes:
 
 ```text
-backups/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
+backups/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz.age
 ```
 
+The configuration archive is `openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz.age`;
+its adjacent manifest hashes ciphertext and declares encryption version 2.
 Store both the configuration archive and the database dump outside the VPS as
 private secrets. The database may contain Stripe event payloads, sponsorship
 follow-up data, and admin review data.
@@ -570,15 +630,22 @@ The local-media path requires all three artifacts and the integrity manifest:
 ```bash
 bash scripts/restore-from-backup.sh \
   --target-project openg7-recovery-20260925 \
-  --config-backup /path/to/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz \
-  --database-dump /path/to/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql \
-  --sponsor-logos-backup /path/to/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz
+  --config-backup /path/to/openg7-backup-YYYYMMDDTHHMMSSZ.tar.gz.age \
+  --database-dump /path/to/openg7-funding-db-YYYYMMDDTHHMMSSZ.sql.age \
+  --sponsor-logos-backup /path/to/openg7-sponsor-logos-YYYYMMDDTHHMMSSZ.tar.gz.age \
+  --identity /secure/offline-recovery.agekey
 ```
 
 The script verifies archive integrity and the dedicated Compose target, restores
 configuration, imports schema/data atomically and restores local or S3 media. It never
 removes existing volumes and leaves API/Web/workers stopped. `--force` skips only
 the typed confirmation; `--skip-check` is no longer supported. No migrations run.
+Decryption occurs only in protected temporary recovery staging, removed on exit.
+Old clear archives require the additional explicit `--allow-legacy-plaintext` option;
+new captures always require encryption. Existing clear archives are not rewritten.
+New dumps omit ownership and grants (`--no-owner --no-acl`). Reprovision the
+[restricted runtime account](#compte-postgresql-applicatif) on the explicit recovery
+target before API startup; global roles and source permissions are not restored.
 
 Before activation, verify business records, documents, media and access, reconcile
 Stripe and delivery outcomes since the snapshot, and review restored worker

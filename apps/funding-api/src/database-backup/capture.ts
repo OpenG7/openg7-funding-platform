@@ -58,7 +58,7 @@ export async function captureDatabase(
   const file = join(directory, 'database.sql.age');
   const dump = spawn(
     'pg_dump',
-    ['--no-password', '--lock-wait-timeout=10000'],
+    ['--no-password', '--no-owner', '--no-acl', '--lock-wait-timeout=10000'],
     {
       env: dumpEnvironment(config.databaseUrl),
       windowsHide: true,

@@ -4,7 +4,8 @@ import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readFile, writeFile, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { Transform, Writable } from 'node:stream';
+import { Readable, Transform, Writable } from 'node:stream';
+import { withTarStream } from './tar-stream.mjs';
 import {
   S3Client,
   ListObjectsV2Command,
@@ -99,9 +100,11 @@ async function fingerprint(file) {
   }
   return { bytes, sha256: hash.digest('hex') };
 }
-export async function captureS3(config, directory) {
-  await mkdir(directory, { mode: 0o700 });
-  await mkdir(join(directory, 'objects'), { mode: 0o700 });
+export async function captureS3(config, directory, { writeEntry } = {}) {
+  if (!writeEntry) {
+    await mkdir(directory, { mode: 0o700 });
+    await mkdir(join(directory, 'objects'), { mode: 0o700 });
+  }
   const inventory = {};
   for (const [role, bucket] of Object.entries(config.buckets))
     inventory[role] = await list(config.client, bucket);
@@ -133,18 +136,23 @@ export async function captureS3(config, directory) {
       const file = `objects/${manifest.objects.length}.bin`;
       let bytes = 0;
       const hash = createHash('sha256');
-      await pipeline(
-        response.Body,
-        new Transform({
-          transform(chunk, _, next) {
-            bytes += chunk.length;
-            hash.update(chunk);
-            next(null, chunk);
-          }
-        }),
-        createWriteStream(join(directory, file), { mode: 0o600, flags: 'wx' }),
-        { signal: AbortSignal.timeout(60000) }
-      );
+      const chunks = async function* () {
+        for await (const chunk of response.Body) {
+          bytes += chunk.length;
+          hash.update(chunk);
+          yield chunk;
+        }
+      };
+      if (writeEntry) await writeEntry(file, chunks(), object.bytes);
+      else
+        await pipeline(
+          Readable.from(chunks()),
+          createWriteStream(join(directory, file), {
+            mode: 0o600,
+            flags: 'wx'
+          }),
+          { signal: AbortSignal.timeout(60000) }
+        );
       if (bytes !== object.bytes || response.ETag !== object.etag)
         throw new Error('S3 object changed during capture.');
       manifest.objects.push({
@@ -168,12 +176,20 @@ export async function captureS3(config, directory) {
         'S3 inventory changed during capture; freeze writers and retry.'
       );
   }
-  await writeFile(
-    join(directory, 'manifest.json'),
-    JSON.stringify(manifest, null, 2) + '\n',
-    { mode: 0o600, flag: 'wx' }
-  );
+  const serialized = Buffer.from(JSON.stringify(manifest, null, 2) + '\n');
+  if (writeEntry)
+    await writeEntry('manifest.json', [serialized], serialized.length);
+  else
+    await writeFile(join(directory, 'manifest.json'), serialized, {
+      mode: 0o600,
+      flag: 'wx'
+    });
   return manifest;
+}
+export async function captureS3Archive(config, output) {
+  await withTarStream(output, (writeEntry) =>
+    captureS3(config, null, { writeEntry })
+  );
 }
 export async function verifyS3(directory) {
   const manifest = JSON.parse(

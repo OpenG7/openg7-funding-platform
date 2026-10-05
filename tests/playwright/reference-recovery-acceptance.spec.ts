@@ -8,11 +8,10 @@ import type {
   PublicReferenceLookupResponse
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
+import { adminSessionHeaders } from './support/admin-auth.js';
 import { acceptanceSql } from './support/acceptance-database.js';
 import { test, expect } from './support/test.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 const recoveryUrl = '/api/reference-recovery';
 interface Mail {
   ID: string;
@@ -39,7 +38,10 @@ test('forgotten references: private responses during queue failure, unique captu
   const companyName = 'Atelier récupération ' + randomUUID().slice(0, 8);
   const note = 'Brouillon privé retrouvé après perte de la référence.';
   const get = async <T>(url: string, admin = false): Promise<T> => {
-    const response = await request.get(url, admin ? { headers } : {});
+    const response = await request.get(
+      url,
+      admin ? { headers: await adminSessionHeaders(request) } : {}
+    );
     expect(response.ok(), url).toBe(true);
     return response.json();
   };
@@ -174,7 +176,7 @@ test('forgotten references: private responses during queue failure, unique captu
     const response = await request.get(
       '/api/admin/sponsorship-invoices/pdf?invoiceId=' +
         (await invoices())[0]!.id,
-      { headers }
+      { headers: await adminSessionHeaders(request) }
     );
     expect(response.ok()).toBe(true);
     return createHash('sha256')

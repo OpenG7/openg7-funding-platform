@@ -8,14 +8,13 @@ import type {
   PublicBuildersResponse
 } from '@openg7/funding-core';
 
+import { adminSessionHeaders } from './support/admin-auth.js';
 import { test, expect } from './support/test.js';
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
 import {
   buildPaymentIntentSucceededEvent,
   buildSignedWebhookRequest
 } from './support/stripe-webhook.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 const amountMinor = 2500;
 // Synthetic provider fee, not a claim about real Stripe pricing.
 const feeMinor = 73;
@@ -65,7 +64,7 @@ for (const variant of variants) {
       json<PublicBuildersResponse>(request, '/api/public/builders?pageSize=50');
     const activity = async () => {
       const response = await request.get('/api/admin/contribution-activity', {
-        headers
+        headers: await adminSessionHeaders(request)
       });
       expect(response.ok()).toBe(true);
       return response.json() as Promise<ContributionActivityResponse>;
@@ -73,7 +72,7 @@ for (const variant of variants) {
     const before = await summary();
     const buildersBefore = await builders();
     const adminBeforeResponse = await request.get('/api/admin/contributions', {
-      headers
+      headers: await adminSessionHeaders(request)
     });
     expect(adminBeforeResponse.ok()).toBe(true);
     const adminBefore =
@@ -293,7 +292,7 @@ for (const variant of variants) {
     ).toBeNull();
     const adminResponse = await request.get(
       `/api/admin/contributions?contributionId=${item.contributionId}`,
-      { headers }
+      { headers: await adminSessionHeaders(request) }
     );
     expect(adminResponse.ok()).toBe(true);
     const admin = (await adminResponse.json()) as AdminContributionsResponse;

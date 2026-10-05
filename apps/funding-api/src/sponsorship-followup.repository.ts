@@ -18,24 +18,6 @@ export interface SponsorshipFollowupLookup extends SponsorshipFollowupResponse {
   readonly emailSentAt: string | null;
 }
 
-export interface SponsorshipDetailsRecordInput {
-  readonly stripeSessionId: string;
-  readonly stripePaymentIntentId: string | null;
-  readonly publicReference: string | null;
-  readonly amountCents: number;
-  readonly currency: string;
-  readonly publicDisplayConsent: boolean;
-  readonly displayAmountConsent: boolean;
-  readonly nonCharityAcknowledged: boolean;
-  readonly paidAtIso: string | null;
-  readonly companyName: string;
-  readonly contactName: string;
-  readonly contactEmail: string;
-  readonly websiteUrl: string | null;
-  readonly logoUrl: string | null;
-  readonly message: string | null;
-}
-
 export interface SponsorshipFollowupRecordInput {
   readonly contributionId: string;
   readonly companyName: string;
@@ -73,83 +55,6 @@ interface SponsorshipFollowupRow {
   readonly email_private: string | null;
   readonly sponsorship_followup_email_sent_at: string | null;
 }
-
-export const recordSponsorshipDetails = async (
-  pool: Pool | null,
-  input: SponsorshipDetailsRecordInput
-): Promise<boolean> => {
-  if (!pool) {
-    return false;
-  }
-
-  const result = await pool.query(
-    `
-      INSERT INTO fund_contributions (
-        public_reference,
-        contribution_type,
-        amount_cents,
-        currency,
-        public_display_consent,
-        display_amount_consent,
-        non_charity_acknowledged,
-        stripe_session_id,
-        stripe_payment_intent_id,
-        status,
-        paid_at,
-        sponsor_company_name,
-        sponsor_contact_name,
-        sponsor_contact_email,
-        sponsor_website_url,
-        sponsor_logo_url,
-        sponsor_message,
-        sponsor_details_submitted_at,
-        sponsor_review_status
-      )
-      VALUES (
-        $1, 'sponsorship_interest', $2, $3, $4, $5, $6, $7, $8, 'paid',
-        $9::timestamptz, $10, $11, $12, $13, $14, $15, NOW(),
-        'pending_review'
-      )
-      ON CONFLICT (stripe_session_id) WHERE stripe_session_id IS NOT NULL
-      DO UPDATE SET
-        public_reference = COALESCE(
-          fund_contributions.public_reference,
-          EXCLUDED.public_reference
-        ),
-        sponsor_company_name = EXCLUDED.sponsor_company_name,
-        sponsor_contact_name = EXCLUDED.sponsor_contact_name,
-        sponsor_contact_email = EXCLUDED.sponsor_contact_email,
-        sponsor_website_url = EXCLUDED.sponsor_website_url,
-        sponsor_logo_url = EXCLUDED.sponsor_logo_url,
-        sponsor_message = EXCLUDED.sponsor_message,
-        sponsor_details_submitted_at = NOW(),
-        status = 'paid',
-        paid_at = COALESCE(fund_contributions.paid_at, EXCLUDED.paid_at),
-        sponsor_review_status = 'pending_review',
-        sponsor_reviewed_at = NULL,
-        updated_at = NOW()
-    `,
-    [
-      input.publicReference,
-      input.amountCents,
-      input.currency.toLowerCase(),
-      input.publicDisplayConsent,
-      input.displayAmountConsent,
-      input.nonCharityAcknowledged,
-      input.stripeSessionId,
-      input.stripePaymentIntentId,
-      input.paidAtIso,
-      input.companyName,
-      input.contactName,
-      input.contactEmail,
-      input.websiteUrl,
-      input.logoUrl,
-      input.message
-    ]
-  );
-
-  return (result.rowCount ?? 0) > 0;
-};
 
 export const getSponsorshipFollowupByTokenHash = async (
   pool: Pool | null,

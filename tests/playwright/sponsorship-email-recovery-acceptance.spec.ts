@@ -15,11 +15,9 @@ import type {
   SponsorshipDraftSnapshot
 } from '@openg7/funding-core';
 
-import { ADMIN_TOKEN } from './fixtures/e2e-fixtures.mjs';
-import { signInAsAdmin } from './support/admin-auth.js';
+import { signInAsAdmin, adminSessionHeaders } from './support/admin-auth.js';
 import { expect, test } from './support/test.js';
 
-const headers = { 'x-funding-admin-token': ADMIN_TOKEN };
 const queueUrl = '/api/admin/email-queue';
 const followupUrl = '/fonds-des-batisseurs/suivi-commandite';
 interface CapturedMail {
@@ -62,7 +60,10 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
     return { browser, page };
   };
   const get = async <T>(url: string, authenticated = true): Promise<T> => {
-    const response = await request.get(url, authenticated ? { headers } : {});
+    const response = await request.get(
+      url,
+      authenticated ? { headers: await adminSessionHeaders(request) } : {}
+    );
     expect(response.ok(), url).toBe(true);
     return response.json() as Promise<T>;
   };
@@ -282,7 +283,11 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
         .poll(
           async () => {
             try {
-              return (await request.get(queueUrl, { headers })).status();
+              return (
+                await request.get(queueUrl, {
+                  headers: await adminSessionHeaders(request)
+                })
+              ).status();
             } catch {
               return 0;
             }
@@ -337,9 +342,9 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
           .poll(async () => (await smtp()).held, { intervals: [100] })
           .toBe(1);
         const competitors = await Promise.all(
-          [1, 2].map(() =>
+          [1, 2].map(async () =>
             request.post(queueUrl + '/retry', {
-              headers,
+              headers: await adminSessionHeaders(request),
               data: { messageId: message.id }
             })
           )
@@ -374,7 +379,7 @@ test('paid company recovers its saved dossier from a captured email after SMTP f
       expect(
         (
           await request.post(queueUrl + '/retry', {
-            headers,
+            headers: await adminSessionHeaders(request),
             data: { messageId: message.id }
           })
         ).status()

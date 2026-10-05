@@ -77,6 +77,18 @@ export interface ApiRuntimeHttpConfig {
 export interface ApiRuntimeConfig
   extends ApiRuntimeStartupConfig, ApiRuntimeHttpConfig {}
 
+const runtimeEnvironment = (env: NodeJS.ProcessEnv): string => {
+  const key =
+    env.FUNDING_PLATFORM_ENV === undefined
+      ? 'NODE_ENV'
+      : 'FUNDING_PLATFORM_ENV';
+  const value = env[key] ?? 'development';
+  if (!['development', 'test', 'production'].includes(value)) {
+    throw new Error(`${key} must be development, test, or production.`);
+  }
+  return value;
+};
+
 export const loadApiRuntimeConfig = (
   env: NodeJS.ProcessEnv = process.env
 ): ApiRuntimeStartupConfig => {
@@ -84,8 +96,8 @@ export const loadApiRuntimeConfig = (
   const stripeSecretKey = env.STRIPE_SECRET_KEY;
   const stripeWebhookSecret = env.STRIPE_WEBHOOK_SECRET;
   const projectId = env.FUNDING_PROJECT_ID ?? 'openg7';
-  const environment = env.FUNDING_PLATFORM_ENV ?? 'development';
-  const isProduction = env.FUNDING_PLATFORM_ENV === 'production';
+  const environment = runtimeEnvironment(env);
+  const isProduction = environment === 'production';
   const businessSponsorshipEnabled = parseBooleanEnv(
     env.FUNDING_BUSINESS_SPONSORSHIP_ENABLED,
     false
@@ -96,6 +108,17 @@ export const loadApiRuntimeConfig = (
     env.FUNDING_ADMIN_SESSION_TTL_MINUTES,
     60
   );
+  if (
+    (env.FUNDING_ADMIN_AUTH_MODE ?? 'token') === 'token' &&
+    !isProduction &&
+    env.FUNDING_ADMIN_SESSION_TTL_MINUTES !== undefined &&
+    (!/^\d+$/.test(env.FUNDING_ADMIN_SESSION_TTL_MINUTES) ||
+      Number(env.FUNDING_ADMIN_SESSION_TTL_MINUTES) < 1 ||
+      Number(env.FUNDING_ADMIN_SESSION_TTL_MINUTES) > 60)
+  )
+    throw new Error(
+      'FUNDING_ADMIN_SESSION_TTL_MINUTES must be an integer between 1 and 60.'
+    );
   const sponsorshipFollowupTokenTtlDays = parsePositiveIntegerEnv(
     env.FUNDING_SPONSORSHIP_FOLLOWUP_TOKEN_TTL_DAYS,
     30
@@ -280,6 +303,8 @@ export const loadApiRuntimeAdminAuthMode = (
   const mode = env.FUNDING_ADMIN_AUTH_MODE ?? 'token';
   if (mode !== 'token' && mode !== 'oidc')
     throw new Error('Invalid admin auth mode.');
+  if (runtimeEnvironment(env) === 'production' && mode !== 'oidc')
+    throw new Error('FUNDING_ADMIN_AUTH_MODE must be oidc in production.');
   return mode;
 };
 
