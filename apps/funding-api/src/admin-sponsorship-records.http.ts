@@ -13,7 +13,7 @@ import type {
 } from '@openg7/funding-core';
 
 import type { listAdminSponsorships } from './fund-contributions.repository.js';
-import { createRouteMatcher } from './http-routing.js';
+import { createRouteMatcher, isJsonContentType } from './http-routing.js';
 import type { createHttpTransport } from './http-transport.js';
 import { SponsorshipDetailsError } from './admin-sponsorship-details.service.js';
 import { SponsorshipInterventionError } from './sponsorship-interventions.service.js';
@@ -281,10 +281,7 @@ export const createAdminSponsorshipRecordsHttpHandler = ({
         writeJson(request, response, 405, { error: 'Method not allowed.' });
         return true;
       }
-      if (
-        request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
-        'application/json'
-      ) {
+      if (!isJsonContentType(request.headers['content-type'])) {
         writeJson(request, response, 415, { error: 'JSON body required.' });
         return true;
       }
@@ -341,12 +338,7 @@ export const createAdminSponsorshipRecordsHttpHandler = ({
             )
           );
         } else {
-          if (
-            request.headers['content-type']
-              ?.split(';')[0]
-              .trim()
-              .toLowerCase() !== 'application/json'
-          ) {
+          if (!isJsonContentType(request.headers['content-type'])) {
             writeJson(request, response, 415, { error: 'JSON body required.' });
             return true;
           }

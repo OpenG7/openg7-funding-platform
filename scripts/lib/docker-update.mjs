@@ -1,8 +1,11 @@
 import {
   dockerBuildEnvironment,
+  dockerComposeFileArgs,
   dockerComposeProfileArgs,
+  dockerOperationsEnabled,
   normalizeDockerBuildEnvironment
 } from './docker-config.mjs';
+import { keycloakEnabled } from './keycloak-config.mjs';
 
 const validEnvironments = new Set(['production', 'development']);
 
@@ -167,6 +170,7 @@ export function dockerUpdatePlan(options, { env }) {
   const commandEnv = dockerBuildEnvironment(targetEnvironment, env);
   const compose = [
     'compose',
+    ...dockerComposeFileArgs(commandEnv),
     ...dockerComposeProfileArgs(useDatabase),
     '--progress',
     'plain'
@@ -241,5 +245,50 @@ export async function executeDockerUpdate(
   for (const { command, args, stripeWebhook } of plan.commands) {
     if (stripeWebhook) beforeStripeWebhook();
     await runCommand(command, args, plan.commandEnv);
+  }
+}
+
+export async function assertDockerUpdateTopology(
+  plan,
+  { readComposeServices }
+) {
+  const identity = keycloakEnabled(plan.commandEnv);
+  const operations = dockerOperationsEnabled(plan.commandEnv);
+  const customFiles = Boolean(plan.commandEnv.COMPOSE_FILE);
+  if (identity && operations && !customFiles) return;
+  const pull = plan.commands.find(
+    ({ command, args }) => command === 'docker' && args.includes('pull')
+  );
+  const compose = pull.args.slice(0, pull.args.indexOf('pull'));
+  const services = await readComposeServices(
+    [...compose, 'ps', '--all', '--services', '--orphans=true'],
+    plan.commandEnv
+  );
+  const existing = new Set(
+    services.split(/\r?\n/).map((service) => service.trim())
+  );
+  if (
+    !identity &&
+    ['keycloak', 'identity-postgres'].some((service) => existing.has(service))
+  )
+    throw new Error(
+      'Identity containers exist. Keep FUNDING_KEYCLOAK_ENABLED=true or explicitly remove the stopped identity containers before updating without the overlay. Preserve their volumes.'
+    );
+  if (existing.has('operations') && (!operations || customFiles)) {
+    if (customFiles) {
+      const configured = await readComposeServices(
+        [...compose, 'config', '--services'],
+        plan.commandEnv
+      );
+      if (
+        configured
+          .split(/\r?\n/)
+          .some((service) => service.trim() === 'operations')
+      )
+        return;
+    }
+    throw new Error(
+      'Operations containers exist. Include the operations service in the selected Compose files or explicitly remove its containers before updating without the overlay.'
+    );
   }
 }

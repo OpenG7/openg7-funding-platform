@@ -12,6 +12,7 @@ import { FundingI18nService } from '../../services/funding-i18n.service.js';
 import { AdminMetricCardComponent } from '../admin-ui/admin-metric-card.component.js';
 
 import { AdminCockpitStatusComponent } from './admin-cockpit-status.component.js';
+import { formatCockpitDateTime } from './admin-cockpit-date-time.js';
 import { AdminCockpitTrendComponent } from './admin-cockpit-trend.component.js';
 import { createCockpitBlock } from './cockpit-block.js';
 
@@ -59,10 +60,6 @@ export class AdminCockpitMetricsComponent {
       : new Intl.NumberFormat(this.i18n.currentLanguage()).format(value);
   }
   date(value: string): string {
-    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
-      timeZone: 'America/Toronto',
-      dateStyle: 'short',
-      timeStyle: 'short'
-    }).format(new Date(value));
+    return formatCockpitDateTime(value, this.i18n.currentLanguage());
   }
 }

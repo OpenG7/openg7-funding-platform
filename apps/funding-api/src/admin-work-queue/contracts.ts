@@ -1,7 +1,6 @@
-import type {
-  AdminAttentionItemType,
-  AdminAttentionSeverity
-} from '@openg7/funding-core';
+import type { AdminAttentionItemType } from '@openg7/funding-core';
+
+export { WORK_QUEUE_PRIORITIES } from '../../../../packages/funding-core/src/index.js';
 
 export const WORK_QUEUE_TYPES: readonly AdminAttentionItemType[] = [
   'sponsorship_needs_info',
@@ -15,12 +14,6 @@ export const WORK_QUEUE_TYPES: readonly AdminAttentionItemType[] = [
   'stripe_event_stalled',
   'publication_ready',
   'publication_slot_upcoming'
-];
-export const WORK_QUEUE_PRIORITIES: readonly AdminAttentionSeverity[] = [
-  'urgent',
-  'today',
-  'this_week',
-  'informational'
 ];
 export const STRIPE_STALLED_AFTER_MS = 15 * 60 * 1000;
 export const DAY = 86400000;

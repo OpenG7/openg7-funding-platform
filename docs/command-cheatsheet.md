@@ -7,18 +7,20 @@ Les exemples n'autorisent aucune exécution.
 
 ## Local
 
-| Besoin                                 | Commande                                                              |
-| -------------------------------------- | --------------------------------------------------------------------- |
-| Installer                              | `corepack enable`, puis `yarn install`                                |
-| Web + API                              | `yarn dev`                                                            |
-| Web / API séparés                      | `yarn dev:web` / `yarn dev:api`                                       |
-| Compilation TypeScript                 | `yarn build`                                                          |
-| Build Angular                          | `yarn workspace @openg7/funding-web build --configuration production` |
-| Tests Node avec compilation            | `yarn test`                                                           |
-| Lint / format                          | `yarn lint` / `yarn format:check`                                     |
-| Documentation TypeDoc                  | `yarn docs`                                                           |
-| Budget et liens des consignes          | `node scripts/check-agent-docs.mjs`                                   |
-| Configuration sans afficher de secrets | `yarn services:check`                                                 |
+<!-- prettier-ignore -->
+| Besoin | Commande |
+| --- | --- |
+| Installer | `corepack enable`, puis `yarn install` |
+| Web + API | `yarn dev` |
+| Web / API séparés | `yarn dev:web` / `yarn dev:api` |
+| Compilation TypeScript | `yarn build` |
+| Build Angular | `yarn workspace @openg7/funding-web build --configuration production` |
+| Tests Node avec compilation | `yarn test` |
+| Lint / format | `yarn lint` / `yarn format:check` |
+| Documentation TypeDoc | `yarn docs` |
+| Standards, budgets et liens | `yarn docs:check` |
+| Rapport documentaire JSON | `yarn docs:report` |
+| Configuration sans afficher de secrets | `yarn services:check` |
 
 La [matrice de validation](development/validation.md) précise contrôles,
 suites navigateur et prérequis. `yarn test` compile déjà. `services:check` lit
@@ -30,24 +32,30 @@ sans recette OIDC/MFA.
 Les raccourcis Docker/DB locaux attendent Docker et tentent d'ouvrir Docker Desktop
 si nécessaire. Guide détaillé : [Docker](docker-deployment.md).
 
-| Besoin                                     | Commande                                                                                |
-| ------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Demarrage guide local/dev, prod ou autre   | `yarn docker:up`                                                                        |
-| Developpement + PostgreSQL + relais Stripe | `yarn docker:up:dev`                                                                    |
-| Build production sans relais Stripe        | `yarn docker:up --environment prod`                                                     |
-| Configuration existante sans relais Stripe | `yarn docker:up --environment autre`                                                    |
-| Previsualiser le demarrage local           | `yarn docker:up:dev --dry-run`                                                          |
-| Stack détachée avec PostgreSQL             | `yarn docker:up:dev --no-stripe-webhook`                                                |
-| Mise à jour guidée                         | `yarn docker:update`                                                                    |
-| Code local dans les images                 | `yarn docker:update --development --no-build-app --no-prune-images --no-stripe-webhook` |
-| Ajouter le listener Stripe local           | `yarn docker:update --development --stripe-webhook`                                     |
-| Conserver / supprimer les images dangling  | `yarn docker:update --no-prune-images` / `yarn docker:update --prune-images`            |
-| Arrêter sans supprimer les volumes         | `yarn docker:down`                                                                      |
-| Recréer Web/API                            | `yarn docker:recreate`                                                                  |
-| Redémarrer un service                      | `docker compose restart web` (ou `api`, `traefik`)                                      |
-| État / ressources                          | `docker compose ps` / `docker stats`                                                    |
-| Logs ciblés                                | `docker compose logs --tail=100 api` (ou `web`, `traefik`; `-f` pour suivre)            |
-| Valider sans exposer l'environnement       | `docker compose config --quiet`                                                         |
+<!-- prettier-ignore -->
+| Besoin | Commande |
+| --- | --- |
+| Demarrage guide local/dev, prod ou autre | `yarn docker:up` |
+| Developpement + PostgreSQL + relais Stripe | `yarn docker:up:dev` |
+| Build production sans relais Stripe | `yarn docker:up --environment prod` |
+| Configuration existante sans relais Stripe | `yarn docker:up --environment autre` |
+| Previsualiser le demarrage local | `yarn docker:up:dev --dry-run` |
+| Stack détachée avec PostgreSQL | `yarn docker:up:dev --no-stripe-webhook` |
+| Mise à jour guidée | `yarn docker:update` |
+| Code local dans les images | `yarn docker:update --development --no-build-app --no-prune-images --no-stripe-webhook` |
+| Ajouter le listener Stripe local | `yarn docker:update --development --stripe-webhook` |
+| Conserver / supprimer les images dangling | `yarn docker:update --no-prune-images` / `yarn docker:update --prune-images` |
+| Arrêter sans supprimer les volumes | `yarn docker:down` |
+| Recréer Web/API | `yarn docker:recreate` |
+| Redémarrer un service | `docker compose restart web` (ou `api`, `traefik`) |
+| État / ressources | `docker compose ps` / `docker stats` |
+| Logs ciblés | `docker compose logs --tail=100 api` (ou `web`, `traefik`; `-f` pour suivre) |
+| Valider sans exposer l'environnement | `docker compose config --quiet` |
+| Préflight de configuration Keycloak | `yarn keycloak:check` |
+
+`keycloak:check` lit la configuration locale sans afficher de valeurs privées.
+Lire un fichier d'environnement exige Docker Compose ; aucun service ne démarre
+et le contrôle ne qualifie pas OIDC/MFA. Procédure : [Keycloak sur le VPS](operations/keycloak-vps.md).
 
 `--no-build-app` évite la compilation sur l'hôte; les Dockerfiles compilent
 toujours API et Angular. `yarn docker:update:dev` utilise cette option pour éviter

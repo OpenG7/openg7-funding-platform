@@ -15,6 +15,7 @@ import {
 } from '../admin-ui/admin-icon.component.js';
 
 import { systemExpired, serviceState } from './system-state.js';
+import { formatCockpitDateTime } from './admin-cockpit-date-time.js';
 import { AdminStripeStatusComponent } from './admin-stripe-status.component.js';
 
 /** Admin presentation molecule: observed systems in cards; the page owns loading and navigation. */
@@ -90,10 +91,6 @@ export class AdminSystemCardsComponent {
     return systemExpired(system, this.now(), this.failed());
   }
   date(value: string) {
-    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
-      timeZone: 'America/Toronto',
-      dateStyle: 'short',
-      timeStyle: 'short'
-    }).format(new Date(value));
+    return formatCockpitDateTime(value, this.i18n.currentLanguage());
   }
 }

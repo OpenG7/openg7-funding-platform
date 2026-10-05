@@ -11,7 +11,7 @@ import type {
 } from '@openg7/funding-core';
 
 import type { AdminAuditLogInput } from './fund-admin.repository.js';
-import { createRouteMatcher } from './http-routing.js';
+import { createRouteMatcher, isJsonContentType } from './http-routing.js';
 import type { createHttpTransport } from './http-transport.js';
 
 type ApiRequest = IncomingMessage;
@@ -159,10 +159,7 @@ export const createAdminEmailHttpHandler = ({
         return true;
       }
 
-      if (
-        request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
-        'application/json'
-      ) {
+      if (!isJsonContentType(request.headers['content-type'])) {
         writeJson(request, response, 415, { code: 'INVALID_EMAIL_TEST' });
         return true;
       }
@@ -366,10 +363,7 @@ export const createAdminEmailHttpHandler = ({
         writeJson(request, response, 503, { code: 'EMAIL_QUEUE_UNAVAILABLE' });
         return true;
       }
-      if (
-        request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
-        'application/json'
-      ) {
+      if (!isJsonContentType(request.headers['content-type'])) {
         writeJson(request, response, 415, {
           code: 'INVALID_EMAIL_RECONCILIATION'
         });

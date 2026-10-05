@@ -62,7 +62,7 @@ docker() {
   elif [[ "$*" == *'images -q operations' ]]; then cat running-operations
   elif [[ "$*" == *'ps --services --filter status=running' ]]; then
     if [[ "$TEST_OPERATIONS" == true ]]; then echo operations; fi
-  elif [[ "$*" == *'up -d --no-build' ]]; then
+  elif [[ "$*" == *'up -d --no-build'* ]]; then
     if [[ "$WEB_IMAGE" == sha256:* ]]; then printf '%s\\n' "$WEB_IMAGE" > running-web; printf '%s\\n' "$API_IMAGE" > running-api
     else printf '%s\\n' "$TEST_IMAGE" > running-web; printf '%s\\n' "$TEST_IMAGE" > running-api; fi
     if [[ "$TEST_OPERATIONS" == true ]]; then

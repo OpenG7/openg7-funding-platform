@@ -1,9 +1,9 @@
-import type {
-  AdminAttentionItem,
-  AdminAttentionItemType,
-  AdminAttentionSeverity
-} from '@openg7/funding-core';
-
+import {
+  compareAdminWorkQueueItems,
+  type AdminAttentionItem,
+  type AdminAttentionItemType,
+  type AdminAttentionSeverity
+} from '../../../../packages/funding-core/src/index.js';
 import {
   buildAttentionItems,
   type AttentionDataset
@@ -15,7 +15,6 @@ import {
   DAY,
   PUBLICATIONS,
   STRIPE_STALLED_AFTER_MS,
-  WORK_QUEUE_PRIORITIES,
   localDay,
   type QueueInvoiceCandidate,
   type QueueStripeEvent
@@ -212,10 +211,6 @@ export const buildWorkQueueItems = (
     );
   }
   return [...new Map(items.map((item) => [item.id, item])).values()].sort(
-    (a, b) =>
-      WORK_QUEUE_PRIORITIES.indexOf(a.severity) -
-        WORK_QUEUE_PRIORITIES.indexOf(b.severity) ||
-      (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999') ||
-      a.id.localeCompare(b.id)
+    compareAdminWorkQueueItems
   );
 };

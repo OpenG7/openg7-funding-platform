@@ -1,3 +1,5 @@
+import { isJsonContentType } from '../http-routing.js';
+
 import type { HttpDispatcher, HttpDispatcherContext } from './contracts.js';
 
 /** Importing or composing dispatch has no effects; global guards precede all routes. */
@@ -69,8 +71,7 @@ export const createHttpDispatcher = ({
         '/sponsorship-followup/media/delete',
         '/api/sponsorship-followup/media/delete'
       ) &&
-      request.headers['content-type']?.split(';')[0].trim().toLowerCase() !==
-        'application/json'
+      !isJsonContentType(request.headers['content-type'])
     ) {
       writeJson(request, response, 415, {
         code: 'JSON_REQUIRED',

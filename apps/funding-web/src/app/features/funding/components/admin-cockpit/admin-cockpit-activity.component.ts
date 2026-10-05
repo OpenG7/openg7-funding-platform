@@ -10,6 +10,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { FundingI18nService } from '../../services/funding-i18n.service.js';
 
 import { AdminCockpitStatusComponent } from './admin-cockpit-status.component.js';
+import { formatCockpitDateTime } from './admin-cockpit-date-time.js';
 import { createCockpitBlock } from './cockpit-block.js';
 
 @Component({
@@ -100,10 +101,6 @@ export class AdminCockpitActivityComponent {
     'refund'
   ] as const;
   date(value: string): string {
-    return new Intl.DateTimeFormat(this.i18n.currentLanguage(), {
-      timeZone: 'America/Toronto',
-      dateStyle: 'short',
-      timeStyle: 'short'
-    }).format(new Date(value));
+    return formatCockpitDateTime(value, this.i18n.currentLanguage());
   }
 }

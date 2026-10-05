@@ -4,6 +4,27 @@ import type {
   AdminAttentionSeverity
 } from './admin-assistant.js';
 
+export const WORK_QUEUE_PRIORITIES: readonly AdminAttentionSeverity[] = [
+  'urgent',
+  'today',
+  'this_week',
+  'informational'
+];
+
+type AdminWorkQueueSortKey = Pick<AdminAttentionItem, 'id' | 'severity'> & {
+  readonly dueAt?: string | null;
+};
+
+/** Keep undated items after dated ones, with an ID tie-break for stable paging. */
+export const compareAdminWorkQueueItems = (
+  first: AdminWorkQueueSortKey,
+  second: AdminWorkQueueSortKey
+): number =>
+  WORK_QUEUE_PRIORITIES.indexOf(first.severity) -
+    WORK_QUEUE_PRIORITIES.indexOf(second.severity) ||
+  (first.dueAt ?? '9999').localeCompare(second.dueAt ?? '9999') ||
+  first.id.localeCompare(second.id);
+
 export type AdminAttentionDueFilter =
   'all' | 'today' | 'overdue' | 'this_week' | 'undated';
 

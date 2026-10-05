@@ -1,5 +1,6 @@
 import {
   dockerBuildEnvironment,
+  dockerComposeFileArgs,
   dockerComposeProfileArgs,
   normalizeDockerBuildEnvironment
 } from './docker-config.mjs';
@@ -87,14 +88,10 @@ export function dockerUpPlan(options, { env, localTls }) {
   if (local && /^(sk|rk)_live_/.test(env.STRIPE_SECRET_KEY ?? ''))
     throw new Error('Le mode local exige une cle Stripe de test, jamais live.');
 
-  const compose = ['compose'];
-  if (local && localTls && !env.COMPOSE_FILE)
-    compose.push(
-      '-f',
-      'docker-compose.yml',
-      '-f',
-      'docker-compose.local-tls.yml'
-    );
+  const compose = [
+    'compose',
+    ...dockerComposeFileArgs(commandEnv, { localTls: local && localTls })
+  ];
   compose.push(...dockerComposeProfileArgs(options.database ?? local));
   if (options.database === false) {
     commandEnv.COMPOSE_PROFILES = (env.COMPOSE_PROFILES ?? '')

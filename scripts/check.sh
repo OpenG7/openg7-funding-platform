@@ -34,6 +34,22 @@ compose ps --services --filter status=running | grep -qx "web" || fail "web is n
 compose ps --services --filter status=running | grep -qx "api" || fail "api is not running"
 pass "Required containers are running"
 
+if [[ "${FUNDING_KEYCLOAK_ENABLED:-false}" == true ]]; then
+  compose ps --services --filter status=running | grep -qx identity-postgres || fail 'identity-postgres is not running'
+  compose ps --services --filter status=running | grep -qx keycloak || fail 'keycloak is not running'
+  compose exec -T identity-postgres pg_isready -U openg7_identity -d openg7_identity >/dev/null 2>&1 || fail 'Identity PostgreSQL is not ready'
+  compose exec -T keycloak /bin/bash /opt/keycloak/bin/container-healthcheck.sh >/dev/null 2>&1 || fail 'Keycloak is not ready'
+  compose exec -T api node --input-type=module -e '
+    const issuer = process.env.FUNDING_ADMIN_OIDC_ISSUER;
+    try {
+      const response = await fetch(`${issuer}/.well-known/openid-configuration`, { signal: AbortSignal.timeout(10000) });
+      const document = await response.json();
+      if (!response.ok || document.issuer !== issuer) process.exit(1);
+    } catch { process.exit(1); }
+  ' >/dev/null 2>&1 || fail 'Keycloak HTTPS discovery does not match the configured issuer from the API'
+  pass 'Keycloak and private identity database are ready; issuer discovery matches (MFA login is checked separately)'
+fi
+
 if [[ "${FUNDING_OPERATIONS_WATCHER_ENABLED:-false}" == true ]]; then
   compose ps --services --filter status=running | grep -qx operations || fail 'operations is not running'
   for _ in $(seq 1 30); do

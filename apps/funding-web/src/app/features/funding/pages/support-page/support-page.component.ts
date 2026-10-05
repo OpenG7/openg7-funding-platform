@@ -10,7 +10,10 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import type { PublicReferenceLookupResponse } from '@openg7/funding-core';
+import {
+  normalizeContributionPublicReference,
+  type PublicReferenceLookupResponse
+} from '@openg7/funding-core';
 
 import { FundingHeaderComponent } from '../../components/funding-header/funding-header.component.js';
 import { SponsorshipAccessRecoveryComponent } from '../../components/sponsorship-followup/sponsorship-access-recovery.component.js';
@@ -131,8 +134,10 @@ export class SupportPageComponent {
     event.preventDefault();
     if (this.referenceLookupState() === 'submitting') return;
 
-    const reference = this.referenceLookupValue().trim().toUpperCase();
-    if (!/^OG7-\d{4}-[A-Z0-9]{4,8}$/.test(reference)) {
+    const reference = normalizeContributionPublicReference(
+      this.referenceLookupValue()
+    );
+    if (!reference) {
       this.referenceLookupState.set('error');
       this.referenceLookupResult.set(null);
       this.referenceLookupMessageKey.set(

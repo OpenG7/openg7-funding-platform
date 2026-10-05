@@ -6,6 +6,11 @@ ou environnement de production n'est créé par les tests.
 
 ## Comptes nominatifs
 
+Pour le fournisseur hébergé sur le VPS OpenG7, suivre le
+[runbook Keycloak](keycloak-vps.md) : DNS/HTTPS, realm et client confidentiel,
+enrôlement OTP, bootstrap, sauvegarde et restauration de sa DB distincte.
+Ce choix d'hébergement ne remplace pas les contrôles API ci-dessous.
+
 1. Préparer les migrations jusqu'à `020` sur un environnement de test selon
    la [procédure et l'adoption des bases existantes](database-migrations.md). En
    production, vérifier une sauvegarde avant toute migration autorisée.

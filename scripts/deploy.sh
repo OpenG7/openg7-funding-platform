@@ -134,16 +134,18 @@ if [[ -n "${CURRENT_WEB}" && -n "${CURRENT_API}" ]]; then
 fi
 
 if [[ "${NO_BUILD}" -eq 1 ]]; then
-  compose pull
+  application_services
+  compose pull "${APPLICATION_SERVICES[@]}"
   migrate_database
-  compose up -d --no-build
+  compose up -d --no-build "${APPLICATION_SERVICES[@]}"
 else
   corepack yarn install --immutable
   corepack yarn build
   corepack yarn workspace @openg7/funding-web build
-  compose build --pull
+  application_services
+  compose build --pull "${APPLICATION_SERVICES[@]}"
   migrate_database
-  compose up -d
+  compose up -d "${APPLICATION_SERVICES[@]}"
 fi
 
 bash scripts/check.sh
