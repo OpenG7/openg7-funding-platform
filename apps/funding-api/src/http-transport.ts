@@ -62,11 +62,11 @@ export const createHttpTransport = ({
     return headers;
   };
 
-  const writeJson = (
+  const writeResponseHeaders = (
     request: ApiRequest,
     response: ApiResponse,
     statusCode: number,
-    payload: unknown,
+    contentType: string,
     extraHeaders: Record<string, string> = {}
   ): void => {
     response.writeHead(statusCode, {
@@ -74,8 +74,24 @@ export const createHttpTransport = ({
       ...securityHeaders,
       ...extraHeaders,
       ...privateResponseHeaders(request, extraHeaders),
-      'Content-Type': 'application/json; charset=utf-8'
+      'Content-Type': contentType
     });
+  };
+
+  const writeJson = (
+    request: ApiRequest,
+    response: ApiResponse,
+    statusCode: number,
+    payload: unknown,
+    extraHeaders: Record<string, string> = {}
+  ): void => {
+    writeResponseHeaders(
+      request,
+      response,
+      statusCode,
+      'application/json; charset=utf-8',
+      extraHeaders
+    );
     response.end(JSON.stringify(payload));
   };
 
@@ -85,12 +101,12 @@ export const createHttpTransport = ({
     statusCode: number,
     payload: string
   ): void => {
-    response.writeHead(statusCode, {
-      ...createCorsHeaders(request),
-      ...securityHeaders,
-      ...privateResponseHeaders(request),
-      'Content-Type': 'text/plain; charset=utf-8'
-    });
+    writeResponseHeaders(
+      request,
+      response,
+      statusCode,
+      'text/plain; charset=utf-8'
+    );
     response.end(payload);
   };
 
@@ -101,13 +117,13 @@ export const createHttpTransport = ({
     payload: string,
     filename: string
   ): void => {
-    response.writeHead(statusCode, {
-      ...createCorsHeaders(request),
-      ...securityHeaders,
-      ...privateResponseHeaders(request),
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Type': 'text/csv; charset=utf-8'
-    });
+    writeResponseHeaders(
+      request,
+      response,
+      statusCode,
+      'text/csv; charset=utf-8',
+      { 'Content-Disposition': `attachment; filename="${filename}"` }
+    );
     response.end(payload);
   };
 
@@ -119,13 +135,9 @@ export const createHttpTransport = ({
     contentType: string,
     extraHeaders: Record<string, string> = {}
   ): void => {
-    response.writeHead(statusCode, {
-      ...createCorsHeaders(request),
-      ...securityHeaders,
+    writeResponseHeaders(request, response, statusCode, contentType, {
       ...extraHeaders,
-      ...privateResponseHeaders(request, extraHeaders),
-      'Content-Length': String(payload.byteLength),
-      'Content-Type': contentType
+      'Content-Length': String(payload.byteLength)
     });
     response.end(payload);
   };

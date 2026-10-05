@@ -576,6 +576,9 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
   const sponsorshipsService = read(
     'apps/funding-web/src/app/features/funding/services/sponsorships.service.ts'
   );
+  const publicClient = read(
+    'apps/funding-web/src/app/features/funding/services/funding-public.client.ts'
+  );
   const repository = readFundingPersistenceSource('contributions');
   const publicListBody = extractBetween(
     repository,
@@ -592,8 +595,18 @@ test('E2E 7/8: public sponsors page exposes only approved consented sponsorships
 
   assertIncludesAll(
     sponsorshipsService,
-    ['/public/sponsorships', 'PublicSponsorshipsResponse'],
+    [
+      'FundingPublicClient',
+      'this.publicClient.getPublicSponsorships',
+      'PublicSponsorshipsResponse'
+    ],
     'public sponsorship service'
+  );
+
+  assertIncludesAll(
+    publicClient,
+    ['/public/sponsorships', 'PublicSponsorshipsResponse'],
+    'public sponsorship transport'
   );
 
   assertIncludesAll(
