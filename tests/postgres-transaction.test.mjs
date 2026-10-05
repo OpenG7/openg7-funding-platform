@@ -53,6 +53,47 @@ test('a successful transaction returns the unchanged result after committing and
   ]);
 });
 
+test('rollback confirmation is reported only after acknowledgement, never after connection loss or commit success', async (t) => {
+  for (const scenario of [
+    { failures: {}, confirmed: false },
+    {
+      failures: { connect: new Error('Synthetic connection failure') },
+      confirmed: false
+    },
+    {
+      failures: { operation: new Error('Synthetic operation failure') },
+      confirmed: true
+    },
+    {
+      failures: { COMMIT: new Error('Synthetic commit failure') },
+      confirmed: true
+    },
+    {
+      failures: {
+        COMMIT: new Error('Synthetic commit failure'),
+        ROLLBACK: new Error('Synthetic lost connection')
+      },
+      confirmed: false
+    }
+  ]) {
+    await t.test(JSON.stringify(Object.keys(scenario.failures)), async () => {
+      const f = fixture(scenario.failures);
+      let confirmed = false;
+      const completion = withPostgresTransaction(f.pool, f.operation, {
+        preserveOriginalError: true,
+        onRollbackConfirmed: () => {
+          assert.equal(f.calls.at(-1), 'ROLLBACK');
+          confirmed = true;
+        }
+      });
+      if (Object.keys(scenario.failures).length)
+        await assert.rejects(completion);
+      else await completion;
+      assert.equal(confirmed, scenario.confirmed);
+    });
+  }
+});
+
 test('connection, begin, callback and commit failures preserve error identity and cleanup order', async (t) => {
   for (const [phase, expectedCalls] of [
     ['connect', ['connect']],

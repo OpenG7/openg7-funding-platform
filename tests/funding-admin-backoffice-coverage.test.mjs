@@ -658,7 +658,6 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'FUNDING_SPONSOR_MEDIA_MAX_BYTES',
       'FUNDING_SPONSOR_MEDIA_MAX_SUPPORTING_IMAGES',
       'processSponsorImage',
-      'sponsorship.media.upload',
       'sponsorship.media.${reviewStatus}',
       'parseMultipartFormData',
       'detectSponsorLogoFileType',
@@ -685,6 +684,12 @@ test('admin back-office exposes dashboard, contributions, and CSV export', () =>
       'writeCsv'
     ],
     'admin API routes'
+  );
+
+  assertIncludesAll(
+    read('apps/funding-api/src/sponsor-media/persistence-write.ts'),
+    ['sponsorship.media.upload', 'insertAdminAuditLog(client,'],
+    'transactional sponsor media upload owner'
   );
 
   assertIncludesAll(

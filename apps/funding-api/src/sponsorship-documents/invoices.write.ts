@@ -13,6 +13,7 @@ import {
 } from '../sponsorship-invoice.mapping.js';
 
 import type { CreateSponsorshipInvoiceInput } from './contracts.js';
+import { sponsorshipInvoiceSelect } from './queries.js';
 
 const {
   invoicePrefix,
@@ -167,35 +168,7 @@ export const createSponsorshipInvoiceForStripeSession = async (
         $12::jsonb,
         $13
       FROM contribution
-      ON CONFLICT (contribution_id) DO UPDATE
-      SET
-        public_reference = COALESCE(
-          sponsorship_invoices.public_reference,
-          EXCLUDED.public_reference
-        ),
-        stripe_payment_intent_id = COALESCE(
-          sponsorship_invoices.stripe_payment_intent_id,
-          EXCLUDED.stripe_payment_intent_id
-        ),
-        paid_at = COALESCE(sponsorship_invoices.paid_at, EXCLUDED.paid_at),
-        sponsor_name = CASE
-          WHEN sponsorship_invoices.sponsor_name = 'Commanditaire a confirmer'
-          THEN EXCLUDED.sponsor_name
-          ELSE sponsorship_invoices.sponsor_name
-        END,
-        sponsor_contact_name = COALESCE(
-          sponsorship_invoices.sponsor_contact_name,
-          EXCLUDED.sponsor_contact_name
-        ),
-        sponsor_contact_email = COALESCE(
-          sponsorship_invoices.sponsor_contact_email,
-          EXCLUDED.sponsor_contact_email
-        ),
-        sponsor_website_url = COALESCE(
-          sponsorship_invoices.sponsor_website_url,
-          EXCLUDED.sponsor_website_url
-        ),
-        updated_at = NOW()
+      ON CONFLICT (contribution_id) DO NOTHING
       RETURNING
         id::text AS id,
         contribution_id::text AS contribution_id,
@@ -238,5 +211,14 @@ export const createSponsorshipInvoiceForStripeSession = async (
     ]
   );
 
-  return result.rows[0] ? mapSponsorshipInvoiceRow(result.rows[0]) : null;
+  if (result.rows[0]) return mapSponsorshipInvoiceRow(result.rows[0]);
+
+  // A conflicting insert can wait for an emission absent from its own snapshot.
+  // Read again in a separate statement to see that committed, immutable invoice.
+  const existing = await pool.query<SponsorshipInvoiceRow>(
+    `SELECT ${sponsorshipInvoiceSelect}
+     FROM sponsorship_invoices invoice WHERE invoice.stripe_session_id = $1 LIMIT 1`,
+    [input.stripeSessionId]
+  );
+  return existing.rows[0] ? mapSponsorshipInvoiceRow(existing.rows[0]) : null;
 };

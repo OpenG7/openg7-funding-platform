@@ -42,6 +42,8 @@ export interface CreateSponsorMediaAssetInput {
   readonly contributionId: string;
   readonly kind: SponsorMediaKind;
   readonly uploadedBy: SponsorMediaUploader;
+  readonly auditActor: string;
+  readonly storageDriver: string;
   readonly originalFilename: string;
   readonly originalMimeType: 'image/jpeg' | 'image/png' | 'image/webp';
   readonly originalSizeBytes: number;

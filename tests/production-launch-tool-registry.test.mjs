@@ -2,180 +2,138 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { ToolRegistry } from '../dist/apps/production-launch-agent/src/tools/tool-registry.js';
+import {
+  currentRevision,
+  productionLaunchFixture,
+  selectedRevision,
+  stableRevision
+} from './support/production-launch-fixture.mjs';
 
-const stableVersion = 'a'.repeat(40);
-const commandResult = (key, code = 0) => ({
-  command: `synthetic ${key}`,
-  code,
-  stderr: code === 0 ? '' : 'Synthetic command failure',
-  stdout: code === 0 ? 'Synthetic command completed' : ''
-});
-
-// Synthetic ToolContext only: no configuration loader, CLI, database or transport.
-const fixture = ({
-  role = 'admin',
-  version = stableVersion,
-  codes = {}
-} = {}) => {
-  const calls = { commands: [], stableReads: 0, actions: [], deployments: [] };
-  const responses = Object.fromEntries(
-    ['git_checkout', 'deploy_build', 'deploy_up'].map((key) => [
-      key,
-      commandResult(key, codes[key] ?? 0)
-    ])
-  );
-  const context = {
-    config: {
-      appDir: '/synthetic/application',
-      databasePath: '/synthetic/memory.sqlite',
-      defaultChecklistPath: '/synthetic/checklist.yaml',
-      domain: 'synthetic.example.invalid',
-      healthPath: '/health',
-      reportDir: '/synthetic/reports',
-      role,
-      ssh: {
-        host: 'synthetic.example.invalid',
-        username: 'synthetic',
-        port: 22,
-        readyTimeoutMs: 1,
-        retries: 0
-      }
-    },
-    execute: false,
-    memory: {
-      lastStableDeployment: () => {
-        calls.stableReads++;
-        return version;
-      },
-      recordAction: (action) => calls.actions.push(action),
-      recordDeployment: (deployment) => calls.deployments.push(deployment),
-      recordIncident: () =>
-        assert.fail('Rollback must not record an incident.'),
-      recordReport: () => assert.fail('Rollback must not record a report.'),
-      close: () => assert.fail('The tool must not close its injected memory.')
-    },
-    reporter: {
-      write: async () => assert.fail('The tool must not write a report.')
-    },
-    runCommand: async (request) => {
-      calls.commands.push(request);
-      assert.ok(Object.hasOwn(responses, request.key), 'Unexpected command');
-      return responses[request.key];
-    }
-  };
-  return { registry: new ToolRegistry(), context, calls, responses };
+const run = (tool, options) => {
+  const f = productionLaunchFixture(options);
+  return { ...f, completion: new ToolRegistry().run(tool, f.context) };
 };
 
-const assertAudit = (f, output) => {
-  assert.equal(output.tool, 'rollback');
-  assert.ok(Number.isFinite(Date.parse(output.startedAt)));
-  assert.ok(Number.isFinite(Date.parse(output.finishedAt)));
-  assert.ok(output.durationMs >= 0);
-  assert.deepEqual(f.calls.actions, [
-    {
-      action: 'rollback',
-      durationMs: output.durationMs,
-      result: output.message,
-      success: output.success,
-      user: 'admin'
-    }
-  ]);
-  assert.deepEqual(f.calls.deployments, []);
-};
-
-const checkoutRequest = { key: 'git_checkout', params: { sha: stableVersion } };
-const buildRequest = { key: 'deploy_build' };
-const upRequest = { key: 'deploy_up' };
-
-test('rollback without a stable version runs no commands and audits the failure', async () => {
-  const f = fixture({ version: null });
-  const output = await f.registry.run('rollback', f.context);
-  assert.equal(output.success, false);
-  assert.equal(
-    output.message,
-    'Aucune version stable enregistrée pour rollback'
-  );
-  assert.deepEqual(output.details, {});
-  assert.equal(f.calls.stableReads, 1);
-  assert.deepEqual(f.calls.commands, []);
-  assertAudit(f, output);
-});
-
-test('failed rollback checkout stops before build and up and retains the version', async () => {
-  const f = fixture({ codes: { git_checkout: 1 } });
-  const output = await f.registry.run('rollback', f.context);
-  assert.equal(output.success, false);
-  assert.equal(output.message, 'Checkout de la version stable impossible');
-  assert.deepEqual(output.details, {
-    checkout: f.responses.git_checkout,
-    version: stableVersion
-  });
-  assert.deepEqual(f.calls.commands, [checkoutRequest]);
-  assertAudit(f, output);
-});
-
-test('failed rollback build never starts services and returns checkout, build and version evidence', async () => {
-  const f = fixture({ codes: { deploy_build: 17 } });
-  const output = await f.registry.run('rollback', f.context);
-  assert.equal(output.success, false);
-  assert.equal(output.message, 'docker compose build a échoué');
-  assert.deepEqual(output.details, {
-    build: f.responses.deploy_build,
-    checkout: f.responses.git_checkout,
-    version: stableVersion
-  });
-  assert.deepEqual(f.calls.commands, [checkoutRequest, buildRequest]);
-  assertAudit(f, output);
-});
-
-test('failed rollback up remains unsuccessful with all command evidence', async () => {
-  const f = fixture({ codes: { deploy_up: 1 } });
-  const output = await f.registry.run('rollback', f.context);
-  assert.equal(output.success, false);
-  assert.equal(output.message, 'Rollback incomplet');
-  assert.deepEqual(output.details, {
-    build: f.responses.deploy_build,
-    checkout: f.responses.git_checkout,
-    up: f.responses.deploy_up,
-    version: stableVersion
-  });
-  assert.deepEqual(f.calls.commands, [
-    checkoutRequest,
-    buildRequest,
-    upRequest
-  ]);
-  assertAudit(f, output);
-});
-
-test('successful rollback keeps checkout, build and up in order and audits success', async () => {
-  const f = fixture();
-  const output = await f.registry.run('rollback', f.context);
+test('deploy selects the full post-pull revision, runs the canonical runner and records only a candidate', async () => {
+  const f = run('deploy');
+  const output = await f.completion;
   assert.equal(output.success, true);
-  assert.equal(output.message, `Rollback vers ${stableVersion}`);
-  assert.deepEqual(output.details, {
-    build: f.responses.deploy_build,
-    checkout: f.responses.git_checkout,
-    up: f.responses.deploy_up,
-    version: stableVersion
-  });
+  assert.equal(output.details.qualified, true);
+  assert.equal(output.details.version, selectedRevision);
   assert.deepEqual(f.calls.commands, [
-    checkoutRequest,
-    buildRequest,
-    upRequest
+    { key: 'git_current_sha' },
+    { key: 'deploy_pull' },
+    { key: 'git_current_sha' },
+    { key: 'deploy_run', params: { sha: selectedRevision } },
+    { key: 'git_current_sha' }
   ]);
-  assertAudit(f, output);
+  assert.deepEqual(f.calls.deployments, [
+    { status: 'candidate', version: selectedRevision }
+  ]);
+  assert.equal(f.calls.actions.length, 1);
 });
 
-for (const role of ['viewer', 'operator']) {
-  test(`${role} cannot start rollback or read its stable deployment`, async () => {
-    const f = fixture({ role });
-    const output = await f.registry.run('rollback', f.context);
-    assert.equal(output.success, false);
-    assert.equal(output.message, 'RBAC: rôle insuffisant pour rollback');
-    assert.deepEqual(output.details, { requiredRole: 'admin', role });
-    assert.equal(f.calls.stableReads, 0);
-    assert.deepEqual(f.calls.commands, []);
-    assert.deepEqual(f.calls.actions, []);
-    assert.deepEqual(f.calls.deployments, []);
-  });
-}
+test('failed or changed deployment revisions stop qualification and never enter stable history', async (t) => {
+  for (const scenario of [
+    { codes: { 'git_current_sha:1': 1 }, noRunner: true },
+    { revisions: ['abcdef0'], noRunner: true },
+    { codes: { deploy_pull: 1 }, noRunner: true },
+    { codes: { 'git_current_sha:2': 1 }, noRunner: true },
+    { revisions: [currentRevision, 'A'.repeat(40)], noRunner: true },
+    { codes: { deploy_run: 17 } },
+    { codes: { 'git_current_sha:3': 1 } },
+    { revisions: [currentRevision, selectedRevision, stableRevision] }
+  ]) {
+    await t.test(JSON.stringify(scenario), async () => {
+      const f = run('deploy', scenario);
+      const output = await f.completion;
+      assert.equal(output.success, false);
+      assert.deepEqual(f.calls.deployments, []);
+      if (scenario.noRunner)
+        assert.equal(
+          f.calls.commands.some((call) => call.key === 'deploy_run'),
+          false
+        );
+      assert.equal(f.calls.actions[0].success, false);
+    });
+  }
+});
+
+test('rollback excludes the current checkout and sends the recorded full revision to the canonical runner', async () => {
+  const f = run('rollback');
+  const output = await f.completion;
+  assert.equal(output.success, true);
+  assert.deepEqual(f.calls.stableReads, [currentRevision]);
+  assert.deepEqual(f.calls.commands, [
+    { key: 'git_current_sha' },
+    { key: 'rollback_run', params: { sha: stableRevision } }
+  ]);
+  assert.equal(output.details.version, stableRevision);
+  assert.equal(output.details.qualified, true);
+  assert.deepEqual(f.calls.deployments, []);
+  assert.equal(f.calls.actions[0].success, true);
+});
+
+test('rollback refuses unknown revisions or missing history before any image restoration', async (t) => {
+  for (const scenario of [
+    { codes: { git_current_sha: 1 } },
+    { revisions: ['abcdef0'] },
+    { stable: null },
+    { stable: '$(printf synthetic)' },
+    { stable: 'A'.repeat(40) },
+    { stable: stableRevision + '\n' }
+  ]) {
+    await t.test(JSON.stringify(scenario), async () => {
+      const f = run('rollback', scenario);
+      assert.equal((await f.completion).success, false);
+      assert.equal(
+        f.calls.commands.some((call) => call.key === 'rollback_run'),
+        false
+      );
+      assert.deepEqual(f.calls.deployments, []);
+    });
+  }
+});
+
+test('a failed rollback runner is never qualified or recorded as a stable deployment', async () => {
+  const f = run('rollback', { codes: { rollback_run: 1 } });
+  const output = await f.completion;
+  assert.equal(output.success, false);
+  assert.equal(output.details.qualified, false);
+  assert.deepEqual(f.calls.deployments, []);
+  assert.equal(f.calls.actions[0].success, false);
+});
+
+test('dry-run deployment and rollback never read stable history or record a deployment', async (t) => {
+  for (const tool of ['deploy', 'rollback']) {
+    await t.test(tool, async () => {
+      const f = run(tool, { execute: false });
+      const output = await f.completion;
+      assert.equal(output.success, true);
+      assert.equal(output.details.simulated, true);
+      assert.deepEqual(f.calls.stableReads, []);
+      assert.deepEqual(f.calls.deployments, []);
+      assert.equal(
+        f.calls.commands.find((call) => call.key.endsWith('_run')).params.sha,
+        '0'.repeat(40)
+      );
+    });
+  }
+});
+
+test('roles stop deployment and rollback before invoking commands or reading history', async (t) => {
+  for (const [role, tool] of [
+    ['viewer', 'deploy'],
+    ['viewer', 'rollback'],
+    ['operator', 'rollback']
+  ]) {
+    await t.test(`${role} ${tool}`, async () => {
+      const f = run(tool, { role });
+      assert.equal((await f.completion).success, false);
+      assert.deepEqual(f.calls.commands, []);
+      assert.deepEqual(f.calls.stableReads, []);
+      assert.deepEqual(f.calls.actions, []);
+      assert.deepEqual(f.calls.deployments, []);
+    });
+  }
+});

@@ -34,6 +34,7 @@ import type {
   SponsorMediaMutationResult,
   SponsorMediaStorageRecord
 } from './sponsor-media.repository.js';
+import { SponsorMediaPersistenceError } from './sponsor-media.repository.js';
 import type { SponsorMediaStorage } from './sponsor-media-storage.js';
 
 type ApiRequest = IncomingMessage;
@@ -333,6 +334,10 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
 
       let originalStorageKey: string | null = null;
       let processedStorageKey: string | null = null;
+      let assetId: string | null = null;
+      let persistenceAttempted = false;
+      let persistedAsset: SponsorMediaAsset | null = null;
+      let stage: 'lookup' | 'image' | 'storage' | 'persistence' = 'lookup';
       try {
         const followup = await getFreshSponsorshipFollowupByToken(token);
         if (!followup) {
@@ -371,6 +376,7 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           return true;
         }
 
+        stage = 'image';
         const image = await processSponsorImage({
           data: file.data,
           kind,
@@ -382,13 +388,14 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           });
           return true;
         }
-        const assetId = randomUUID();
+        assetId = randomUUID();
         const baseKey = sponsorMediaPrivateBaseKey(
           followup.contributionId,
           assetId
         );
         originalStorageKey = `${baseKey}/original.${image.originalExtension}`;
         processedStorageKey = `${baseKey}/processed.webp`;
+        stage = 'storage';
         await sponsorMediaStorage.writePrivateObject({
           key: originalStorageKey,
           data: image.originalData,
@@ -400,11 +407,15 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           contentType: image.processedMimeType
         });
 
+        stage = 'persistence';
+        persistenceAttempted = true;
         const created = await createSponsorMediaAsset({
           id: assetId,
           contributionId: followup.contributionId,
           kind,
           uploadedBy: 'sponsor',
+          auditActor: 'sponsor-followup',
+          storageDriver: sponsorMediaStorage.driver,
           originalFilename: image.originalFilename,
           originalMimeType: image.originalMimeType,
           originalSizeBytes: image.originalSizeBytes,
@@ -438,31 +449,46 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
           });
           return true;
         }
+        persistedAsset = created.asset;
         if (created.replaced) {
           await deleteSponsorMediaObjects(created.replaced, {
             includePublic: false
           });
         }
-        await insertAdminAuditLog({
-          actor: 'sponsor-followup',
-          action: 'sponsorship.media.upload',
-          entityType: 'sponsor_media_asset',
-          entityId: created.asset.id,
-          summary: 'Sponsor media uploaded through the private follow-up flow.',
-          metadata: {
-            contributionId: created.asset.contributionId,
-            kind: created.asset.kind,
-            mimeType: created.asset.originalMimeType,
-            sizeBytes: created.asset.originalSizeBytes,
-            storageDriver: sponsorMediaStorage.driver
-          }
-        });
         const result: SponsorMediaUploadResult = {
           uploaded: true,
           asset: created.asset
         };
         writeJson(request, response, 201, result);
       } catch (error) {
+        let orphaned = !persistenceAttempted;
+        let uploaded: boolean | null = persistedAsset ? true : null;
+        if (persistenceAttempted && !persistedAsset && assetId) {
+          try {
+            const stored = await getSponsorMediaStorageRecord(assetId);
+            orphaned =
+              error instanceof SponsorMediaPersistenceError &&
+              error.rollbackConfirmed &&
+              stored === null;
+            uploaded = stored === null ? null : true;
+          } catch {
+            // A failed reconciliation cannot authorize removal of possibly committed objects.
+          }
+        }
+        if (!orphaned) {
+          const code = 'SPONSOR_MEDIA_UPLOAD_UNCONFIRMED';
+          reportFailure('Sponsor media upload requires reconciliation.', {
+            code
+          });
+          writeJson(request, response, 503, {
+            code,
+            uploaded,
+            assetId,
+            error:
+              'Sponsor media upload could not be confirmed. Reload the media list before retrying.'
+          });
+          return true;
+        }
         if (originalStorageKey) {
           await sponsorMediaStorage
             .deletePrivateObject(originalStorageKey)
@@ -473,9 +499,17 @@ export const createSponsorshipFollowupMediaHttpHandler = ({
             .deletePrivateObject(processedStorageKey)
             .catch(() => undefined);
         }
-        reportFailure('Failed to upload sponsorship media.', error);
-        writeJson(request, response, 400, {
-          error: 'Sponsor media must be a valid JPEG, PNG, or WebP image.'
+        const code =
+          stage === 'image'
+            ? 'SPONSOR_MEDIA_INVALID_IMAGE'
+            : 'SPONSOR_MEDIA_UPLOAD_UNAVAILABLE';
+        reportFailure('Failed to upload sponsorship media.', { code });
+        writeJson(request, response, stage === 'image' ? 400 : 503, {
+          code,
+          error:
+            stage === 'image'
+              ? 'Sponsor media must be a valid JPEG, PNG, or WebP image.'
+              : 'Sponsor media upload is unavailable. Please try again later.'
         });
       }
       return true;

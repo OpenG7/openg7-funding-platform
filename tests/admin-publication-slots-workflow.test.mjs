@@ -148,6 +148,26 @@ const fixture = () => {
   };
 };
 
+test('text-only slot edits preserve the original instant, precision and selected repeated time', async () => {
+  for (const original of [
+    slot({ startsAt: '2030-06-03T14:00:42.123456Z' }),
+    slot({ startsAt: '2030-11-03T06:30:00Z', timezone: 'America/Toronto' })
+  ]) {
+    const f = fixture();
+    f.workflow.reconcileSlots([original]);
+    f.edit({ notes: 'Changed note only' });
+    await f.workflow.updateSlot(original);
+    assert.equal(f.calls[0].payload.startsAt, original.startsAt);
+  }
+});
+
+test('slot creation respects an explicit zone independently of the browser timezone', async () => {
+  const f = fixture();
+  f.state.newSlotTimezone.set('Europe/Paris');
+  await f.workflow.createSlot();
+  assert.equal(f.calls[0].payload.startsAt, '2030-06-03T13:45:00.000Z');
+});
+
 test('slot workflow construction is SSR-safe and resolves effect ports only when used', () => {
   const f = fixture();
   const unavailable = () => {
@@ -183,7 +203,7 @@ test('slot creation preserves exact payload, Toronto fallback and server-selecte
       payload: {
         feedTarget: 'openg20',
         channel: 'linkedin',
-        startsAt: new Date('2030-06-03T15:45').toISOString(),
+        startsAt: '2030-06-03T19:45:00.000Z',
         timezone: 'America/Toronto',
         capacity: 7,
         notes: ' Exact synthetic notes '
@@ -251,7 +271,7 @@ test('slot update sends the submitted revision and clears only that slot before 
     token: 'synthetic-session',
     payload: {
       slotId: 'synthetic-slot',
-      startsAt: new Date('2030-07-04T09:15').toISOString(),
+      startsAt: '2030-07-04T07:15:00.000Z',
       timezone: 'Europe/Paris',
       capacity: 8,
       notes: ' Exact saved notes '

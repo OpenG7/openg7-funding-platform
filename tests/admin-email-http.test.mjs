@@ -152,6 +152,11 @@ const fixture = ({
       fail('retry');
       return retryResult;
     },
+    reconcileEmailDelivery: async (input, requestingActor) => {
+      record('reconcile', { input, actor: requestingActor });
+      fail('reconcile');
+      return true;
+    },
     insertAdminAuditLog: async (input) => {
       record('audit', input);
       fail('audit');
@@ -661,3 +666,87 @@ for (const failureAt of [
     }
   });
 }
+
+test('an uncertain SMTP message cannot use ordinary retry', async () => {
+  const f = fixture({ existingMessage: message('uncertain') });
+  const { response } = await f.run({
+    url: '/api/admin/email-queue/retry',
+    body: JSON.stringify({ messageId })
+  });
+  assert.equal(response.status, 409);
+  assert.equal(response.payload.code, 'EMAIL_DELIVERY_RECONCILIATION_REQUIRED');
+  assert.equal(f.values('retry').length, 0);
+  assert.equal(f.values('audit').length, 0);
+});
+const reconcileBody = {
+  messageId,
+  expectedUpdatedAt: timestamp,
+  confirmation: messageId,
+  outcome: 'sent',
+  evidenceReference: 'synthetic-case:123'
+};
+for (const [name, changes] of [
+  ['missing confirmation', { confirmation: undefined }],
+  ['wrong target', { confirmation: requestId }],
+  ['missing version', { expectedUpdatedAt: undefined }],
+  ['invalid version', { expectedUpdatedAt: 'invalid' }],
+  ['unknown outcome', { outcome: 'unknown' }],
+  ['private evidence text', { evidenceReference: 'body with spaces' }],
+  ['extra field', { secret: 'synthetic' }]
+]) {
+  test(
+    'email reconciliation rejects ' + name + ' before mutation',
+    async () => {
+      const f = fixture();
+      const { response } = await f.run({
+        url: '/api/admin/email-queue/reconcile',
+        body: JSON.stringify({ ...reconcileBody, ...changes })
+      });
+      assert.equal(response.status, 400);
+      assert.equal(f.values('reconcile').length, 0);
+    }
+  );
+}
+test('email reconciliation keeps access, content type, audit port and failure boundaries', async () => {
+  const denied = fixture({ accessStatus: 403 });
+  assert.equal(
+    (
+      await denied.run({
+        url: '/api/admin/email-queue/reconcile',
+        body: JSON.stringify(reconcileBody)
+      })
+    ).response.status,
+    403
+  );
+  assert.equal(denied.values('reconcile').length, 0);
+  const type = fixture();
+  assert.equal(
+    (
+      await type.run({
+        url: '/api/admin/email-queue/reconcile',
+        contentType: 'text/plain',
+        body: JSON.stringify(reconcileBody)
+      })
+    ).response.status,
+    415
+  );
+  const f = fixture();
+  const result = await f.run({
+    url: '/api/admin/email-queue/reconcile',
+    body: JSON.stringify(reconcileBody)
+  });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.response.payload.updated, true);
+  assert.deepEqual(f.values('reconcile'), [{ input: reconcileBody, actor }]);
+  assert.equal(f.values('retry').length, 0);
+  const fail = fixture({ failureAt: 'reconcile' });
+  assert.equal(
+    (
+      await fail.run({
+        url: '/api/admin/email-queue/reconcile',
+        body: JSON.stringify(reconcileBody)
+      })
+    ).response.status,
+    502
+  );
+});

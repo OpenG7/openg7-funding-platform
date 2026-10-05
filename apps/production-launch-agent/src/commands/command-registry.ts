@@ -90,20 +90,16 @@ export class CommandRegistry {
           command: `echo | openssl s_client -servername ${this.domain} -connect ${this.domain}:443 2>/dev/null | openssl x509 -noout -issuer -subject -dates`,
           description: 'Read TLS certificate metadata.'
         };
-      case 'deploy_build':
-        return {
-          command: `docker compose --project-directory ${this.appDir} build`,
-          description: 'Build Docker Compose services.'
-        };
       case 'deploy_pull':
         return {
           command: `git -C ${this.appDir} pull --ff-only`,
           description: 'Fast-forward the application repository.'
         };
-      case 'deploy_up':
+      case 'deploy_run':
         return {
-          command: `docker compose --project-directory ${this.appDir} up -d`,
-          description: 'Start Docker Compose services.'
+          command: `cd ${this.appDir} && bash scripts/deploy.sh --revision ${this.revision(params.sha)}`,
+          description:
+            'Deploy the selected revision through the migration and health-check runner.'
         };
       case 'fetch_logs':
         return {
@@ -125,6 +121,12 @@ export class CommandRegistry {
           command: `docker compose --project-directory ${this.appDir} restart ${this.service(params.service)}`,
           description: 'Restart a Docker Compose service.'
         };
+      case 'rollback_run':
+        return {
+          command: `cd ${this.appDir} && bash scripts/rollback.sh --revision ${this.revision(params.sha)}`,
+          description:
+            'Restore the previous application images and watcher through the rollback runner.'
+        };
     }
   }
 
@@ -143,6 +145,11 @@ export class CommandRegistry {
     }
 
     throw new Error(`Git SHA is not allowed: ${value ?? '<empty>'}`);
+  }
+
+  private revision(value: string | undefined): string {
+    if (value?.length === 40 && safeShaPattern.test(value)) return value;
+    throw new Error('Deployment requires a full Git commit SHA.');
   }
 
   private assertSafePath(path: string): void {

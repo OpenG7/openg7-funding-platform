@@ -196,11 +196,16 @@ test('Stripe projection removes customer/card/secrets while retaining all SQL re
   assert.deepEqual(
     projectStoredCheckoutMetadata({
       project: 'openg7',
+      openg7CheckoutOperationId: 'synthetic-checkout-operation',
       sponsorshipFollowupToken: 'private',
       sponsorshipFollowupTokenHash: 'synthetic-hash',
       unknown: privateUrl
     }),
-    { project: 'openg7', sponsorshipFollowupTokenHash: 'synthetic-hash' }
+    {
+      project: 'openg7',
+      sponsorshipFollowupTokenHash: 'synthetic-hash',
+      openg7CheckoutOperationId: 'synthetic-checkout-operation'
+    }
   );
 });
 

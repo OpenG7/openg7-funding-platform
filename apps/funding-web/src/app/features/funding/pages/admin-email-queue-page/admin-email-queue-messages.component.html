@@ -37,7 +37,10 @@
             <span
               class="status-pill"
               [class.status-sent]="view.message.status === 'sent'"
-              [class.status-failed]="view.message.status === 'failed'"
+              [class.status-failed]="
+                view.message.status === 'failed' ||
+                view.message.status === 'uncertain'
+              "
               [class.status-queued]="view.message.status === 'queued'"
               [class.status-sending]="view.message.status === 'sending'"
             >
@@ -61,13 +64,22 @@
             </small>
           </td>
           <td>{{ view.message.attempts }} / {{ view.message.max_attempts }}</td>
-          <td>{{ view.nextAttemptAtLabel }}</td>
+          <td>
+            {{
+              view.message.status === 'uncertain'
+                ? ('admin.emailDelivery.uncertain' | translate)
+                : view.nextAttemptAtLabel
+            }}
+          </td>
           <td>
             <button
               type="button"
               class="secondary-action"
               [disabled]="
-                view.message.status === 'sent' || view.retryState === 'sending'
+                view.message.status === 'sent' ||
+                view.message.status === 'uncertain' ||
+                view.message.status === 'sending' ||
+                view.retryState === 'sending'
               "
               (click)="retryRequested.emit(view.message)"
             >
@@ -77,6 +89,46 @@
                   : ('admin.legacy.relancer' | translate)
               }}
             </button>
+            @if (view.message.status === 'uncertain') {
+              <p>{{ 'admin.emailDelivery.explanation' | translate }}</p>
+              <label>
+                {{ 'admin.emailDelivery.evidenceReference' | translate }}
+                <input
+                  #evidence
+                  type="text"
+                  maxlength="100"
+                  data-og7="email-delivery-evidence"
+                />
+              </label>
+              <button
+                type="button"
+                data-og7="email-delivery-mark-sent"
+                [disabled]="view.retryState === 'sending'"
+                (click)="
+                  reconcileRequested.emit({
+                    message: view.message,
+                    outcome: 'sent',
+                    evidenceReference: evidence.value
+                  })
+                "
+              >
+                {{ 'admin.emailDelivery.markSent' | translate }}
+              </button>
+              <button
+                type="button"
+                data-og7="email-delivery-mark-not-sent"
+                [disabled]="view.retryState === 'sending'"
+                (click)="
+                  reconcileRequested.emit({
+                    message: view.message,
+                    outcome: 'not_sent',
+                    evidenceReference: evidence.value
+                  })
+                "
+              >
+                {{ 'admin.emailDelivery.markNotSent' | translate }}
+              </button>
+            }
             <small
               class="retry-message"
               role="status"

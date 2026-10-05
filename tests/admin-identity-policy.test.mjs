@@ -46,6 +46,18 @@ test('administrative roles default to refusing mutations and reserve money and p
   );
 });
 
+test('email reconciliation shares retry permissions for both aliases and rejects readers', () => {
+  for (const route of [
+    '/admin/email-queue/reconcile',
+    '/api/admin/email-queue/reconcile'
+  ]) {
+    assert.equal(adminRoleAllows('reader', 'POST', route), false);
+    assert.equal(adminRoleAllows('operator', 'POST', route), true);
+    assert.equal(adminRoleAllows('owner', 'POST', route), true);
+    assert.equal(adminRoleAllows('operator', 'DELETE', route), false);
+  }
+});
+
 test('document and accounting routes preserve read, operator and owner permissions for both API aliases', () => {
   const roles = ['reader', 'operator', 'owner'];
   const routes = [

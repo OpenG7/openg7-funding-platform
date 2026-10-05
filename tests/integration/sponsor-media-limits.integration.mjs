@@ -29,6 +29,8 @@ test(
           contributionId,
           kind,
           uploadedBy,
+          auditActor: 'synthetic-media-uploader',
+          storageDriver: 'local',
           originalFilename: 'synthetic.png',
           originalMimeType: 'image/png',
           originalSizeBytes: 100,
@@ -78,9 +80,11 @@ test(
           { kind: 'supporting_image', count: 3 }
         ]
       );
-      await assert.rejects(upload('logo', 'sponsor', first.asset.id), {
-        code: '23505'
-      });
+      await assert.rejects(
+        upload('logo', 'sponsor', first.asset.id),
+        (error) =>
+          error.rollbackConfirmed === true && error.cause.code === '23505'
+      );
       assert.deepEqual(
         (
           await pool.query(

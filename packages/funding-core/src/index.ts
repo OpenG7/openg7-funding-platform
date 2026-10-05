@@ -241,6 +241,7 @@ export type {
   AdminEmailQueueSummary,
   AdminEmailQueueResponse,
   AdminEmailQueueRetryRequest,
+  AdminEmailDeliveryReconcileRequest,
   AdminEmailQueueRetryResult,
   AdminSessionCreateRequest,
   AdminSessionResponse

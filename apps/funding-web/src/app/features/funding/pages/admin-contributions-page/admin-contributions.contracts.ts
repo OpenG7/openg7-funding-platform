@@ -13,6 +13,8 @@ export interface AdminContributionsReadPorts {
   >;
   token(): string;
   canExport(): boolean;
+  accessRevision(): number;
+  unauthorized(): void;
 }
 
 /** Every scope transition invalidates a pending confirmation or private result. */
@@ -26,4 +28,5 @@ export interface AdminContributionsExportPorts {
   contributions(): readonly AdminContributionRecord[];
   t(key: string, params?: Record<string, unknown>): string;
   saveCsv(csv: string): void;
+  unauthorized?(): void;
 }

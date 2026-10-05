@@ -181,11 +181,13 @@ export class AdminSetupEmailTestWorkflow {
   private acceptResult(result: AdminEmailTestResult): void {
     this.result.set(result);
     this.email.set(result.to);
-    this.state.set(result.status);
+    this.state.set(result.status === 'uncertain' ? 'unknown' : result.status);
     this.message.set(
-      result.status === 'failed'
-        ? this.ports.t('admin.setupEmail.failedHelp')
-        : ''
+      result.status === 'uncertain'
+        ? this.ports.t('admin.emailDelivery.explanation')
+        : result.status === 'failed'
+          ? this.ports.t('admin.setupEmail.failedHelp')
+          : ''
     );
   }
 

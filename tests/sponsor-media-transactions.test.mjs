@@ -44,6 +44,8 @@ const uploadInput = (overrides = {}) => ({
   contributionId,
   kind: 'logo',
   uploadedBy: 'sponsor',
+  auditActor: 'sponsor-followup',
+  storageDriver: 'local',
   originalFilename: 'synthetic.png',
   originalMimeType: 'image/png',
   originalSizeBytes: 100,
@@ -58,7 +60,13 @@ const uploadInput = (overrides = {}) => ({
   ...overrides
 });
 
-const fixture = ({ contribution, assets = [], failures = {} } = {}) => {
+const fixture = ({
+  contribution,
+  assets = [],
+  failures = {},
+  auditAvailable = true,
+  auditInserted = true
+} = {}) => {
   let committed = {
     contribution:
       contribution === undefined
@@ -68,7 +76,8 @@ const fixture = ({ contribution, assets = [], failures = {} } = {}) => {
             sponsor_review_status: 'approved'
           }
         : contribution,
-    assets
+    assets,
+    audits: []
   };
   let transaction;
   const calls = [];
@@ -83,7 +92,12 @@ const fixture = ({ contribution, assets = [], failures = {} } = {}) => {
       if (sql === 'BEGIN') transaction = structuredClone(committed);
       else if (sql === 'COMMIT') committed = transaction;
       else if (sql === 'ROLLBACK') transaction = null;
-      else if (sql.includes('FROM fund_contributions')) {
+      else if (sql.includes("to_regclass('public.admin_audit_log')")) {
+        return { rows: [{ has_audit_log: auditAvailable }] };
+      } else if (sql.startsWith('INSERT INTO admin_audit_log')) {
+        if (auditInserted) transaction.audits.push(parameters);
+        return { rows: [], rowCount: auditInserted ? 1 : 0 };
+      } else if (sql.includes('FROM fund_contributions')) {
         return {
           rows: transaction.contribution ? [transaction.contribution] : []
         };
@@ -200,7 +214,53 @@ test('logo replacement commits the new asset, old soft deletion and sponsor revi
     [replacementId]
   );
   assert.equal(state().contribution.sponsor_review_status, 'pending_review');
+  assert.deepEqual(state().audits, [
+    [
+      'sponsor-followup',
+      'sponsorship.media.upload',
+      'sponsor_media_asset',
+      replacementId,
+      'Sponsor media uploaded through the private follow-up flow.',
+      JSON.stringify({
+        contributionId,
+        kind: 'logo',
+        mimeType: 'image/png',
+        sizeBytes: 100,
+        storageDriver: 'local'
+      })
+    ]
+  ]);
   assertClosed(calls, 'COMMIT');
+});
+
+test('media insertion, logo replacement and dossier review roll back together when audit is absent, empty or fails', async (t) => {
+  for (const scenario of [
+    { auditAvailable: false },
+    { auditInserted: false },
+    {
+      failures: {
+        'INSERT INTO admin_audit_log': new Error('Synthetic audit failure')
+      }
+    }
+  ]) {
+    await t.test(JSON.stringify(Object.keys(scenario)), async () => {
+      const { calls, pool, state } = fixture({
+        assets: [assetRow()],
+        ...scenario
+      });
+      const before = structuredClone(state());
+      await assert.rejects(
+        createSponsorMediaAsset(pool, uploadInput()),
+        (error) =>
+          error.rollbackConfirmed === true && /audit/i.test(error.cause.message)
+      );
+      assert.deepEqual(state(), before);
+      assert.ok(
+        calls.some((sql) => sql.startsWith('INSERT INTO sponsor_media_assets'))
+      );
+      assertClosed(calls, 'ROLLBACK');
+    });
+  }
 });
 
 test('failed logo replacement avoids commit and preserves the insert error through rollback failure', async (t) => {
@@ -219,7 +279,9 @@ test('failed logo replacement avoids commit and preserves the insert error throu
         const before = structuredClone(state());
         await assert.rejects(
           createSponsorMediaAsset(pool, uploadInput()),
-          (error) => error === original
+          (error) =>
+            error.cause === original &&
+            error.rollbackConfirmed === !rollbackFails
         );
         assert.ok(
           calls.some((sql) => sql.startsWith('UPDATE sponsor_media_assets'))
@@ -228,6 +290,30 @@ test('failed logo replacement avoids commit and preserves the insert error throu
         assertClosed(calls, 'ROLLBACK');
       }
     );
+  }
+});
+
+test('media creation identifies acknowledged rollback after a commit failure and preserves uncertain outcomes', async (t) => {
+  for (const rollbackFails of [false, true]) {
+    await t.test(`rollbackFails=${rollbackFails}`, async () => {
+      const cause = new Error('Synthetic commit failure');
+      const { pool, state } = fixture({
+        assets: [assetRow()],
+        failures: {
+          COMMIT: cause,
+          ...(rollbackFails
+            ? { ROLLBACK: new Error('Synthetic lost connection') }
+            : {})
+        }
+      });
+      const before = structuredClone(state());
+      await assert.rejects(
+        createSponsorMediaAsset(pool, uploadInput()),
+        (error) =>
+          error.cause === cause && error.rollbackConfirmed === !rollbackFails
+      );
+      assert.deepEqual(state(), before);
+    });
   }
 });
 

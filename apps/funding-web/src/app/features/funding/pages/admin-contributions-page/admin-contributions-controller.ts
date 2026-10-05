@@ -1,6 +1,8 @@
 import { computed, signal } from '@angular/core';
 import type { AdminContributionsResponse } from '@openg7/funding-core';
 
+import { AdminDashboardRequestError } from '../../services/funding-admin-session.js';
+
 import type {
   AdminContributionsReadPorts,
   ContributionsReadState
@@ -85,6 +87,7 @@ export class AdminContributionsController {
   async load(): Promise<void> {
     if (this.disposed) return;
     const generation = ++this.generation;
+    const accessRevision = this.ports.accessRevision();
     this.invalidateExportScope();
     const token = this.ports.token();
     this.state.set('loading');
@@ -93,12 +96,19 @@ export class AdminContributionsController {
         token,
         this.contributionId
       );
-      if (!this.current(generation)) return;
+      if (!this.currentAccess(generation, accessRevision)) return;
       this.data.set(response);
       this.state.set('ready');
       this.ports.admin.saveAdminToken(token);
-    } catch {
-      if (!this.current(generation)) return;
+    } catch (error) {
+      if (!this.currentAccess(generation, accessRevision)) return;
+      if (
+        error instanceof AdminDashboardRequestError &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        this.notifyAccessChanged();
+        if (error.status === 401) this.ports.unauthorized();
+      }
       this.state.set('error');
     }
   }
@@ -136,6 +146,11 @@ export class AdminContributionsController {
   /** Notification preserves access transitions even when the role is restored. */
   notifyAccessChanged(): void {
     if (this.disposed) return;
+    ++this.generation;
+    this.data.set(null);
+    this.selectedContributionId.set(null);
+    this.state.set('idle');
+    this.search.set('');
     this.exportAccess = this.ports.canExport();
     this.invalidateExportScope();
   }
@@ -161,5 +176,12 @@ export class AdminContributionsController {
 
   private current(generation: number): boolean {
     return !this.disposed && generation === this.generation;
+  }
+
+  private currentAccess(generation: number, accessRevision: number): boolean {
+    if (!this.current(generation)) return false;
+    if (accessRevision === this.ports.accessRevision()) return true;
+    this.notifyAccessChanged();
+    return false;
   }
 }

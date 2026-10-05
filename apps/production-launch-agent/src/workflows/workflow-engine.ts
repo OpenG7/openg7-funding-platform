@@ -4,7 +4,10 @@ import { ToolRegistry } from '../tools/tool-registry.js';
 export class WorkflowEngine {
   constructor(private readonly tools: ToolRegistry) {}
 
-  async run(checklist: Checklist, context: ToolContext): Promise<WorkflowReport> {
+  async run(
+    checklist: Checklist,
+    context: ToolContext
+  ): Promise<WorkflowReport> {
     const startedAt = new Date().toISOString();
     const results = [];
 
@@ -16,11 +19,12 @@ export class WorkflowEngine {
       );
       results.push(output);
 
-      if (!output.success && step.tool !== 'generate_report') {
+      if (!output.success) {
         context.memory.recordIncident({
           severity: 'warning',
           summary: `${step.tool}: ${output.message}`
         });
+        break;
       }
     }
 
@@ -41,14 +45,33 @@ export class WorkflowEngine {
       success,
       summary: success
         ? 'Checklist complétée sans erreur'
-        : 'Checklist complétée avec problèmes'
+        : 'Checklist interrompue après un échec'
     });
+
+    if (success && context.execute) {
+      const delivery = [...results]
+        .reverse()
+        .find((item) => item.tool === 'deploy' || item.tool === 'rollback');
+      const version = delivery?.details.version;
+      if (
+        delivery?.details.qualified === true &&
+        typeof version === 'string' &&
+        version.length === 40 &&
+        /^[a-f0-9]{40}$/.test(version)
+      ) {
+        context.memory.recordDeployment({ status: 'stable', version });
+      }
+    }
 
     return report;
   }
 
   private recommend(
-    results: readonly { readonly message: string; readonly success: boolean; readonly tool: string }[]
+    results: readonly {
+      readonly message: string;
+      readonly success: boolean;
+      readonly tool: string;
+    }[]
   ): readonly string[] {
     const failed = results.filter((item) => !item.success);
 
@@ -59,8 +82,6 @@ export class WorkflowEngine {
       ];
     }
 
-    return failed.map(
-      (item) => `Analyser ${item.tool}: ${item.message}`
-    );
+    return failed.map((item) => `Analyser ${item.tool}: ${item.message}`);
   }
 }

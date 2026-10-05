@@ -133,8 +133,10 @@ test('invoice and credit-note issuance share the immutable startup snapshot', as
   let invoiceParams;
   await createSponsorshipInvoiceForStripeSession(
     {
-      async query(_sql, params) {
-        invoiceParams = params;
+      async query(sql, params) {
+        if (sql.includes('INSERT INTO sponsorship_invoices')) {
+          invoiceParams = params;
+        }
         return { rows: [] };
       }
     },
@@ -223,7 +225,7 @@ test('document owners keep the acyclic persistence dependency graph', () => {
   const dependencies = {
     'contracts.ts': [],
     'queries.ts': [],
-    'invoices.write.ts': ['contracts.ts'],
+    'invoices.write.ts': ['contracts.ts', 'queries.ts'],
     'credit-notes.repository.ts': ['contracts.ts', 'queries.ts'],
     'invoices.read.ts': ['credit-notes.repository.ts', 'queries.ts'],
     'invoices.backfill.ts': ['invoices.write.ts', 'invoices.read.ts']

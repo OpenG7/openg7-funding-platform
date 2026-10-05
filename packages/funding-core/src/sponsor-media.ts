@@ -95,6 +95,7 @@ export interface AdminSponsorLogoUploadResult {
 export interface AdminSponsorLogoDeleteRequest {
   readonly contributionId: string;
   readonly expectedVersion: string;
+  readonly confirmation: string;
 }
 
 export interface AdminSponsorLogoDeleteResult {

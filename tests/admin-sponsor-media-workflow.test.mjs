@@ -258,7 +258,13 @@ test('confirmed logo and media deletion retain versions and server reloads', asy
   await f.workflow.deleteLogo(f.selected);
   assert.deepEqual(
     f.calls.find(([name]) => name === 'deleteLogo'),
-    ['deleteLogo', 'synthetic-session', f.selected.id, f.selected.version]
+    [
+      'deleteLogo',
+      'synthetic-session',
+      f.selected.id,
+      f.selected.version,
+      f.selected.id
+    ]
   );
   assert.equal(f.calls.filter(([name]) => name === 'confirm').length, 1);
   assert.equal(f.calls.filter(([name]) => name === 'reload').length, 1);

@@ -1,6 +1,6 @@
 # Stripe webhooks, replay and backfill
 
-Root commands. [Index](../README.md).
+[Index](../README.md).
 
 Live mode, production targets and backfill require the
 [high-risk procedure](../../AGENTS.md#risque-eleve), bounded scope and backup where needed.
@@ -10,13 +10,15 @@ Read the [migration procedure](../operations/database-migrations.md) before migr
 
 ## Stripe webhook endpoint
 
-Webhook URL (local):
+Local URL:
 
 - `POST http://localhost:3333/api/stripe/webhook`
 
 Handled events:
 
 - `checkout.session.completed`
+- `checkout.session.async_payment_succeeded`
+- `checkout.session.async_payment_failed`
 - `checkout.session.expired`
 - `payment_intent.succeeded`
 - `payment_intent.payment_failed`
@@ -38,10 +40,9 @@ Behavior:
 - Refund events reconcile current provider facts under a per-refund lock.
   Missing invoices or financial contradictions keep the event failed; no sponsor
   email is inferred. See [refund recovery](../operations/stripe-refund-integrity.md).
-- Sponsorship follow-up and invoice emails are queued for the email worker.
+- Confirmed sponsorship payments finalize invoices and emails idempotently,
+  including delayed or reversed events. Unpaid Checkout never finalizes invoices.
 - `balance_transaction` retrieval to compute fee/net fields
-- Development without PostgreSQL acknowledges verified webhooks without storage;
-  transparency reads Stripe. Production requires PostgreSQL.
 
 [Private data](../operations/private-data-protection.md).
 

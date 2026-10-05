@@ -1,3 +1,4 @@
+import { reconcileEmailDelivery } from '../email-delivery-reconciliation.repository.js';
 import { createAdminAccountingHttpHandler } from '../admin-accounting.http.js';
 import { createAdminAuditHttpHandler } from '../admin-audit.http.js';
 import { createAdminBackupsHttpHandler } from '../admin-backups.http.js';
@@ -328,6 +329,8 @@ export const createAdminHttpHandlers = ({
       getAdminEmailQueueMessageById(dbPool, messageId),
     retryAdminEmailQueueMessage: (messageId) =>
       retryAdminEmailQueueMessage(dbPool, messageId),
+    reconcileEmailDelivery: (input, actor) =>
+      reconcileEmailDelivery(dbPool, input, actor),
     insertAdminAuditLog: (input) => insertAdminAuditLog(dbPool, input),
     reportFailure: (message, error) => console.error(message, error)
   });

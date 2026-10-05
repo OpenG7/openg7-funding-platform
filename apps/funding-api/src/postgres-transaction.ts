@@ -11,6 +11,8 @@ interface PostgresTransactionOptions<T> {
   readonly shouldCommit?: (result: T) => boolean;
   /** Keep the operation failure if its rollback also fails. */
   readonly preserveOriginalError?: boolean;
+  /** Notify only after the server has acknowledged rollback on this connection. */
+  readonly onRollbackConfirmed?: () => void;
 }
 
 /** Own one transaction and release its client before resolving the result. */
@@ -31,6 +33,7 @@ export const withPostgresTransaction = async <T>(
     if (options.shouldCommit?.(result) === false) {
       rollbackAttempted = true;
       await client.query('ROLLBACK');
+      options.onRollbackConfirmed?.();
     } else {
       await client.query('COMMIT');
     }
@@ -38,9 +41,13 @@ export const withPostgresTransaction = async <T>(
   } catch (error) {
     if (!rollbackAttempted) {
       if (options.preserveOriginalError) {
-        await client.query('ROLLBACK').catch(() => undefined);
+        await client
+          .query('ROLLBACK')
+          .then(() => options.onRollbackConfirmed?.())
+          .catch(() => undefined);
       } else {
         await client.query('ROLLBACK');
+        options.onRollbackConfirmed?.();
       }
     }
     throw error;

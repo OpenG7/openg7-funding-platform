@@ -17,13 +17,13 @@ import {
   markSponsorshipFollowupEmailResult,
   markStripeEventFailed,
   markStripeEventProcessed,
-  recordSponsorshipDetails,
   recordSponsorshipDetailsForContribution,
   updateSponsorshipLogoUrl,
   updateSponsorshipPublication,
   updateSponsorshipRefundWorkflowStatus,
   updateSponsorshipRefundWorkflowStatusByPaymentIntent,
-  updateSponsorshipReview
+  updateSponsorshipReview,
+  upsertCheckoutSessionFromWebhook
 } from '../../dist/apps/funding-api/src/fund-contributions.repository.js';
 import { startDisposablePostgres } from './support/disposable-postgres.mjs';
 
@@ -51,7 +51,24 @@ test(
       logoUrl: 'https://example.invalid/before.webp',
       message: 'PRIVATE FOLLOWUP MESSAGE'
     };
-    assert.equal(await recordSponsorshipDetails(pool, input), true);
+    const checkout = {
+      stripeSessionId: input.stripeSessionId,
+      stripePaymentIntentId: input.stripePaymentIntentId,
+      publicReference: input.publicReference,
+      contributionType: 'sponsorship_interest',
+      amountCents: input.amountCents,
+      currency: input.currency,
+      publicDisplayConsent: input.publicDisplayConsent,
+      publicName: null,
+      displayAmountConsent: input.displayAmountConsent,
+      nonCharityAcknowledged: input.nonCharityAcknowledged,
+      paidAtIso: input.paidAtIso,
+      emailPrivate: null,
+      sponsorshipFollowupTokenHash: null,
+      metadata: { project: 'openg7', publicReference: input.publicReference },
+      status: 'paid'
+    };
+    assert.equal(await upsertCheckoutSessionFromWebhook(pool, checkout), true);
     const {
       rows: [seed]
     } = await pool.query(
@@ -59,6 +76,18 @@ test(
       [input.stripeSessionId]
     );
     const id = seed.id;
+    assert.equal(
+      await recordSponsorshipDetailsForContribution(pool, {
+        contributionId: id,
+        companyName: input.companyName,
+        contactName: input.contactName,
+        contactEmail: input.contactEmail,
+        websiteUrl: input.websiteUrl,
+        logoUrl: input.logoUrl,
+        message: input.message
+      }),
+      true
+    );
     const tokenHash = createHash('sha256')
       .update('synthetic-followup-token')
       .digest('hex');
@@ -476,8 +505,8 @@ test(
         assert.equal(resubmitted.amount, 1000);
         assert.deepEqual((await listPublicSponsorships(pool)).sponsorships, []);
         assert.equal(
-          await recordSponsorshipDetails(pool, {
-            ...input,
+          await upsertCheckoutSessionFromWebhook(pool, {
+            ...checkout,
             amountCents: 25000,
             publicReference: 'OG7-IGNORED-DUPLICATE'
           }),
@@ -504,7 +533,16 @@ test(
         const event = {
           stripeEventId: 'evt_test_sponsorship_boundary',
           eventType: 'checkout.session.completed',
-          payload: { fixture: 'original' }
+          payload: {
+            id: 'evt_test_sponsorship_boundary',
+            data: {
+              object: {
+                id: input.stripeSessionId,
+                payment_status: 'unpaid',
+                metadata: { fixture: 'original' }
+              }
+            }
+          }
         };
         assert.equal(await insertStripeEventRecord(pool, event), true);
         assert.equal(await insertStripeEventRecord(pool, event), false);
@@ -512,7 +550,16 @@ test(
         assert.equal(
           await insertStripeEventRecord(pool, {
             ...event,
-            payload: { fixture: 'retry' }
+            payload: {
+              id: event.stripeEventId,
+              data: {
+                object: {
+                  id: input.stripeSessionId,
+                  payment_status: 'paid',
+                  metadata: { fixture: 'retry' }
+                }
+              }
+            }
           }),
           true
         );
@@ -525,7 +572,12 @@ test(
           )
         ).rows[0];
         assert.equal(stored.processing_status, 'processed');
-        assert.deepEqual(stored.payload, { fixture: 'retry' });
+        assert.deepEqual(stored.payload, {
+          id: event.stripeEventId,
+          data: {
+            object: { id: input.stripeSessionId, payment_status: 'paid' }
+          }
+        });
         assert.ok(stored.processed_at);
       }
     );

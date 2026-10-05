@@ -31,7 +31,8 @@ Une panne OIDC refuse la connexion : aucun retour automatique au secret
 racine. Le mode `token` est réservé aux environnements explicitement
 `development` ou `test`; la production le refuse au démarrage, même avec des
 secrets présents. Les migrations additives peuvent rester.
-Les paramètres OIDC sont transmis explicitement au service API par Compose.
+Les paramètres OIDC passent par les variables explicites du service API dans
+Compose, sans transmettre le fichier `.env` complet au conteneur.
 
 L'exception HTTP de boucle locale est refusée dès que `NODE_ENV` ou
 `FUNDING_PLATFORM_ENV` vaut `production`, pour OIDC comme pour les alertes.
@@ -113,6 +114,11 @@ API et Web doivent être mis à jour ensemble : les anciens clients sans
 confirmation doivent actualiser la page. Aucune migration supplémentaire.
 Après un refus `401` pendant une revue ou un changement d'accès, le formulaire
 privé est fermé et la connexion explique que la session a expiré ou été révoquée.
+La page Contributions applique aussi cette règle aux lectures et exports privés,
+ainsi qu'à une invalidation de session détectée par une autre requête. Elle efface
+les données et la sélection; une réponse commencée sous l'ancienne session ne
+peut ni les réafficher ni réenregistrer son jeton. Un refus de lecture `403` retire
+aussi les données affichées, sans annoncer une expiration de session.
 Une révocation prend effet aux vérifications d'autorisation suivantes; elle
 n'annule pas rétroactivement une opération déjà autorisée par le serveur.
 

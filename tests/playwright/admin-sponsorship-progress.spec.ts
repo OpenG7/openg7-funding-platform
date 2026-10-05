@@ -1740,7 +1740,8 @@ test('logo upload rejects invalid files, reports failure and deletion is confirm
   await expect(remove).toBeDisabled();
   expect(postsTo(calls, '/logo/delete')[0]?.body).toMatchObject({
     contributionId: id,
-    expectedVersion: 'v1'
+    expectedVersion: 'v1',
+    confirmation: id
   });
 });
 

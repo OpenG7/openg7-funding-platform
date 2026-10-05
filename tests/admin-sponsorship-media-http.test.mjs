@@ -36,7 +36,11 @@ const deleteInput = {
   expectedVersion: version,
   confirmation: assetId
 };
-const logoDeleteInput = { contributionId, expectedVersion: version };
+const logoDeleteInput = {
+  contributionId,
+  expectedVersion: version,
+  confirmation: contributionId
+};
 
 const uploadBody = ({
   id = contributionId,
@@ -895,7 +899,6 @@ test('logo removal preserves version validation, cleanup order and audited resul
   for (const prefix of ['/admin/sponsorships/', '/api/admin/sponsorships/']) {
     await t.test(prefix, async () => {
       const f = fixture({ results: { cleanupLogo: false } });
-      // The existing logo removal contract carries identity/version, without a media confirmation field.
       const result = await f.run(prefix + 'logo/delete', {
         method: 'POST',
         body: JSON.stringify(logoDeleteInput)
@@ -907,7 +910,9 @@ test('logo removal preserves version validation, cleanup order and audited resul
         deletedLogoUrl: logoUrl
       });
       assert.deepEqual(f.values('body'), [16 * 1024]);
-      assert.deepEqual(f.values('clearLogo'), [logoDeleteInput]);
+      assert.deepEqual(f.values('clearLogo'), [
+        { contributionId, expectedVersion: version }
+      ]);
       assert.deepEqual(f.values('cleanupLogo'), [logoUrl]);
       assert.deepEqual(f.values('audit'), [
         {
@@ -933,6 +938,26 @@ test('logo removal preserves version validation, cleanup order and audited resul
         'json'
       ]);
     });
+  }
+});
+
+test('legacy logo removal requires exact confirmation before mutation, cleanup or audit through both aliases', async (t) => {
+  for (const prefix of ['/admin/sponsorships/', '/api/admin/sponsorships/']) {
+    for (const confirmation of [undefined, null, true, '', assetId]) {
+      await t.test(`${prefix} confirmation=${confirmation}`, async () => {
+        const f = fixture();
+        const result = await f.run(prefix + 'logo/delete', {
+          method: 'POST',
+          body: JSON.stringify({ ...logoDeleteInput, confirmation })
+        });
+        assert.equal(result.status, 400);
+        assert.deepEqual(result.payload, {
+          code: 'CONFIRMATION_REQUIRED',
+          error: 'Confirm the selected sponsorship before deleting its logo.'
+        });
+        assert.deepEqual(f.names(), ['access', 'body', 'json']);
+      });
+    }
   }
 });
 

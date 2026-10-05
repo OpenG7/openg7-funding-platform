@@ -31,7 +31,7 @@ bash scripts/backup.sh
 ```
 
 Les archives de configuration, dump SQL et volume de médias partagent leur
-horodatage. Le fichier adjacent à la configuration, `*.tar.gz.manifest.json`,
+horodatage. Le fichier adjacent à la configuration, `*.tar.gz.age.manifest.json`,
 est écrit seulement après réussite de la capture : version, date UTC,
 environnement, base, pilote des médias, chiffrement age (version 2), nom, taille et
 SHA-256 du contenu chiffré de chaque fichier.

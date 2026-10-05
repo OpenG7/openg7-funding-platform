@@ -233,6 +233,18 @@ for (const language of ['fr-CA', 'en']) {
                 : 'Message envoye.';
         await expect(result).toContainText(expected);
         await expect(result).toHaveAttribute('role', 'status');
+        if (outcome === 'sending') {
+          await expect(retry).toBeDisabled();
+          // A sending claim requires consultation before another manual attempt.
+          message = { ...message, status: 'failed' };
+          await page
+            .getByRole('button', {
+              name: english ? 'Refresh' : 'Actualiser',
+              exact: true
+            })
+            .click();
+          await expect(retry).toBeEnabled();
+        }
       }
       await expect(retry).toBeDisabled();
       expect(calls).toBe(3);
@@ -440,4 +452,102 @@ for (const language of ['fr-CA', 'en']) {
         );
       });
   }
+}
+
+for (const outcome of ['sent', 'not_sent'] as const) {
+  test(`uncertain SMTP requires provider evidence and confirmation for ${outcome}`, async ({
+    page
+  }) => {
+    await preparePage(page, 'en', 1280);
+    let message: AdminEmailQueueMessageRecord = {
+      ...failedMessage,
+      status: 'uncertain',
+      last_error: 'EMAIL_DELIVERY_UNCERTAIN',
+      updated_at: '2026-09-23 12:00:00.123456+00'
+    };
+    const requests: unknown[] = [];
+    let retries = 0;
+    await page.route('**/api/**', async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith('/email-queue/reconcile')) {
+        requests.push(route.request().postDataJSON());
+        message = {
+          ...message,
+          status: outcome === 'sent' ? 'sent' : 'failed',
+          updated_at: refreshedDate
+        };
+        return route.fulfill({ json: { updated: true, message } });
+      }
+      if (path.endsWith('/email-queue/retry')) {
+        retries++;
+        return route.fulfill({
+          status: 409,
+          json: { code: 'UNEXPECTED_RETRY' }
+        });
+      }
+      if (path.endsWith('/email-queue'))
+        return route.fulfill({
+          json: {
+            ...queueSnapshot(false),
+            messages: [message],
+            summary: {
+              ...queueSnapshot(false).summary,
+              uncertain_count: message.status === 'uncertain' ? 1 : 0
+            }
+          }
+        });
+      return route.fulfill({ status: 503, json: {} });
+    });
+    await page.goto('/admin/fundraiser/email-queue');
+    const row = page
+      .getByRole('row')
+      .filter({ hasText: failedMessage.recipient_email });
+    const retry = row.getByRole('button', { name: 'Retry', exact: true });
+    await expect(retry).toBeDisabled();
+    await expect(
+      row.getByText(
+        'Automatic delivery is paused until the provider outcome is reconciled.'
+      )
+    ).toBeVisible();
+    const action = row.locator(
+      outcome === 'sent'
+        ? '[data-og7="email-delivery-mark-sent"]'
+        : '[data-og7="email-delivery-mark-not-sent"]'
+    );
+    await action.click();
+    await expect(row.locator('[data-og7="email-retry-result"]')).toContainText(
+      'non-secret reference'
+    );
+    expect(requests).toHaveLength(0);
+    await row
+      .locator('[data-og7="email-delivery-evidence"]')
+      .fill('synthetic-provider:123');
+    await action.click();
+    await expect(page.getByRole('dialog')).toContainText(failedMessage.id);
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .filter({ hasText: 'Cancel' })
+      .click();
+    expect(requests).toHaveLength(0);
+    await expect(action).toBeFocused();
+    await action.click();
+    await page.locator('[data-og7="confirm-action"]').click();
+    await expect.poll(() => requests.length).toBe(1);
+    expect(requests[0]).toEqual({
+      messageId: failedMessage.id,
+      confirmation: failedMessage.id,
+      expectedUpdatedAt: '2026-09-23 12:00:00.123456+00',
+      outcome,
+      evidenceReference: 'synthetic-provider:123'
+    });
+    expect(retries).toBe(0);
+    await expect(
+      row.locator('[data-og7="email-delivery-evidence"]')
+    ).toHaveCount(0);
+    if (outcome === 'sent') await expect(retry).toBeDisabled();
+    else await expect(retry).toBeEnabled();
+    const axe = await new AxeBuilder({ page }).include('main').analyze();
+    expect(axe.violations).toEqual([]);
+  });
 }

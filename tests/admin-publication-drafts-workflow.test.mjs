@@ -87,7 +87,7 @@ test('reconciliation refreshes clean drafts and retains dirty revisions even whe
   ]);
   assert.equal(
     f.workflow.editFor('synthetic-draft').scheduledAt,
-    '2030-06-03T14:00'
+    '2030-06-03T10:00'
   );
   assert.equal(f.workflow.editFor('clean-draft').scheduledAt, '');
   const local = f.edit('synthetic-draft', { title: 'New local title' });
@@ -114,6 +114,18 @@ test('reconciliation refreshes clean drafts and retains dirty revisions even whe
   assert.deepEqual([...f.state.dirtyDraftIds()], ['synthetic-draft']);
   assert.deepEqual(f.workflow.editFor('missing'), f.workflow.emptyEdit());
   assert.deepEqual(f.calls, []);
+});
+
+test('text-only draft edits preserve the exact original date', async () => {
+  const original = draft({ scheduled_at: '2030-06-03T14:00:42.123456Z' });
+  const f = fixture();
+  f.workflow.reconcileDrafts([original]);
+  f.edit(original.id, { reviewNote: 'Changed note only' });
+  await f.workflow.saveDraft(original);
+  assert.equal(
+    f.calls.find((call) => call.method === 'save').payload.scheduledAt,
+    original.scheduled_at
+  );
 });
 
 test('save submits the exact captured payload and waits for confirmation before mutation and reload', async () => {
@@ -145,7 +157,7 @@ test('save submits the exact captured payload and waits for confirmation before 
     body: 'Confirmed body',
     disclosureText: 'Confirmed disclosure',
     publicUrl: 'https://example.test/post',
-    scheduledAt: '2030-06-03T14:30:00Z',
+    scheduledAt: '2030-06-03T10:30',
     reviewNote: 'Confirmed note'
   });
   confirmation.resolve(true);

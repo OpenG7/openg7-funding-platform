@@ -4,6 +4,13 @@ The calendar is at `/admin/fundraiser/publications/calendar`. The delivery cockp
 is at `/admin/fundraiser/publications/automation`, with its own calendar including
 editorial posts. The three existing publication workspaces remain separate.
 
+Manual slot date/time fields use the slot's selected IANA timezone; draft scheduling
+uses `America/Toronto`, matching the calendar. Text-only edits retain the exact
+stored instant, including seconds and the selected occurrence during a clock change.
+New or edited dates that do not exist or occur twice during a clock change are
+rejected: choose a unique local time before saving. Changing a slot's timezone
+interprets its entered local date/time in the new timezone.
+
 ## Dossier bridge
 
 The sponsorship dossier’s Publication step links to this workspace with

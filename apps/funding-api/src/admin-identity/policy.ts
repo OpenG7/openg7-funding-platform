@@ -18,6 +18,7 @@ const operatorActions = new Set([
   '/admin/sponsorships/logo',
   '/admin/sponsorships/logo/delete',
   '/admin/email-queue/retry',
+  '/admin/email-queue/reconcile',
   '/admin/sponsorship-invoices/resend',
   '/admin/sponsorship-credit-notes/resend',
   '/admin/publication-drafts',

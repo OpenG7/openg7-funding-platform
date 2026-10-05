@@ -1,6 +1,7 @@
 import type { SponsorMediaReviewStatus } from '@openg7/funding-core';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
+import { insertAdminAuditLog } from '../fund-admin-audit.repository.js';
 import { withPostgresTransaction } from '../postgres-transaction.js';
 
 import type {
@@ -10,6 +11,7 @@ import type {
   SponsorMediaMutationResult,
   SponsorMediaStorageRecord
 } from './persistence-contracts.js';
+import { SponsorMediaPersistenceError } from './persistence-error.js';
 import {
   editableContribution,
   mapAsset,
@@ -21,6 +23,24 @@ import {
 } from './persistence-queries.js';
 import { getSponsorMediaStorageRecord } from './persistence-read.js';
 
+const createMediaTransaction = async (
+  pool: Pool,
+  operation: (client: PoolClient) => Promise<CreateSponsorMediaAssetResult>
+): Promise<CreateSponsorMediaAssetResult> => {
+  let rollbackConfirmed = false;
+  try {
+    return await withPostgresTransaction(pool, operation, {
+      shouldCommit: (result) => result.status === 'created',
+      preserveOriginalError: true,
+      onRollbackConfirmed: () => {
+        rollbackConfirmed = true;
+      }
+    });
+  } catch (cause) {
+    throw new SponsorMediaPersistenceError(cause, rollbackConfirmed);
+  }
+};
+
 export const createSponsorMediaAsset = async (
   pool: Pool | null,
   input: CreateSponsorMediaAssetInput
@@ -28,83 +48,81 @@ export const createSponsorMediaAsset = async (
   if (!pool) {
     return { status: 'contribution_not_found' };
   }
-  return withPostgresTransaction<CreateSponsorMediaAssetResult>(
-    pool,
-    async (client) => {
-      const contribution = await client.query<{
-        readonly id: string;
-        status: string;
-        sponsor_review_status: string | null;
-      }>(
-        `SELECT id, status, sponsor_review_status
+  return createMediaTransaction(pool, async (client) => {
+    const contribution = await client.query<{
+      readonly id: string;
+      status: string;
+      sponsor_review_status: string | null;
+    }>(
+      `SELECT id, status, sponsor_review_status
        FROM fund_contributions
        WHERE id = $1::uuid
          AND contribution_type = 'sponsorship_interest'
          AND status IN ('paid', 'refunded', 'disputed')
        FOR UPDATE`,
-        [input.contributionId]
-      );
-      if (!contribution.rows[0]) {
-        return { status: 'contribution_not_found' };
-      }
-      if (
-        input.uploadedBy === 'sponsor' &&
-        !editableContribution(contribution.rows[0])
-      ) {
-        return { status: 'not_editable' };
-      }
+      [input.contributionId]
+    );
+    if (!contribution.rows[0]) {
+      return { status: 'contribution_not_found' };
+    }
+    if (
+      input.uploadedBy === 'sponsor' &&
+      !editableContribution(contribution.rows[0])
+    ) {
+      return { status: 'not_editable' };
+    }
 
-      let replaced: SponsorMediaStorageRecord | null = null;
-      if (input.kind === 'logo') {
-        const existing = await client.query<SponsorMediaAssetRow>(
-          `SELECT ${selectAssetColumns}
+    let replaced: SponsorMediaStorageRecord | null = null;
+    if (input.kind === 'logo') {
+      const existing = await client.query<SponsorMediaAssetRow>(
+        `SELECT ${selectAssetColumns}
          FROM sponsor_media_assets
          WHERE contribution_id = $1::uuid
            AND kind = 'logo'
            AND deleted_at IS NULL
          FOR UPDATE`,
-          [input.contributionId]
-        );
-        if (existing.rows[0]?.review_status === 'approved') {
-          return { status: 'logo_locked' };
-        }
-        if (existing.rows[0]) {
-          replaced = mapStorageRecord(existing.rows[0]);
-          await client.query(
-            `UPDATE sponsor_media_assets
+        [input.contributionId]
+      );
+      if (existing.rows[0]?.review_status === 'approved') {
+        return { status: 'logo_locked' };
+      }
+      if (existing.rows[0]) {
+        replaced = mapStorageRecord(existing.rows[0]);
+        await client.query(
+          `UPDATE sponsor_media_assets
            SET deleted_at = NOW(), updated_at = NOW()
            WHERE id = $1::uuid`,
-            [existing.rows[0].id]
-          );
-        }
-      } else {
-        const count = await client.query<{ readonly count: string }>(
-          `SELECT COUNT(*)::text AS count
+          [existing.rows[0].id]
+        );
+      }
+    } else {
+      const count = await client.query<{ readonly count: string }>(
+        `SELECT COUNT(*)::text AS count
          FROM sponsor_media_assets
          WHERE contribution_id = $1::uuid
            AND kind = 'supporting_image'
            AND deleted_at IS NULL`,
-          [input.contributionId]
-        );
-        if (Number(count.rows[0]?.count ?? 0) >= input.maxSupportingImages) {
-          return { status: 'supporting_image_limit_reached' };
-        }
+        [input.contributionId]
+      );
+      if (Number(count.rows[0]?.count ?? 0) >= input.maxSupportingImages) {
+        return { status: 'supporting_image_limit_reached' };
       }
+    }
 
-      const sortOrderResult = await client.query<{
-        readonly next_order: number;
-      }>(
-        `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order
+    const sortOrderResult = await client.query<{
+      readonly next_order: number;
+    }>(
+      `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order
        FROM sponsor_media_assets
        WHERE contribution_id = $1::uuid
          AND kind = $2
          AND deleted_at IS NULL`,
-        [input.contributionId, input.kind]
-      );
-      const sortOrder =
-        input.kind === 'logo' ? 0 : (sortOrderResult.rows[0]?.next_order ?? 0);
-      const inserted = await client.query<SponsorMediaAssetRow>(
-        `INSERT INTO sponsor_media_assets (
+      [input.contributionId, input.kind]
+    );
+    const sortOrder =
+      input.kind === 'logo' ? 0 : (sortOrderResult.rows[0]?.next_order ?? 0);
+    const inserted = await client.query<SponsorMediaAssetRow>(
+      `INSERT INTO sponsor_media_assets (
          id, contribution_id, kind, uploaded_by, original_filename,
          original_mime_type, original_size_bytes, original_storage_key,
          processed_size_bytes, processed_storage_key, checksum_sha256,
@@ -114,45 +132,57 @@ export const createSponsorMediaAsset = async (
          $9, $10, $11, $12, $13, $14, $15
        )
        RETURNING ${selectAssetColumns}`,
-        [
-          input.id,
-          input.contributionId,
-          input.kind,
-          input.uploadedBy,
-          input.originalFilename,
-          input.originalMimeType,
-          input.originalSizeBytes,
-          input.originalStorageKey,
-          input.processedSizeBytes,
-          input.processedStorageKey,
-          input.checksumSha256,
-          input.width,
-          input.height,
-          input.altText,
-          sortOrder
-        ]
-      );
-      if (input.uploadedBy === 'sponsor') {
-        await client.query(
-          `UPDATE fund_contributions
+      [
+        input.id,
+        input.contributionId,
+        input.kind,
+        input.uploadedBy,
+        input.originalFilename,
+        input.originalMimeType,
+        input.originalSizeBytes,
+        input.originalStorageKey,
+        input.processedSizeBytes,
+        input.processedStorageKey,
+        input.checksumSha256,
+        input.width,
+        input.height,
+        input.altText,
+        sortOrder
+      ]
+    );
+    if (input.uploadedBy === 'sponsor') {
+      await client.query(
+        `UPDATE fund_contributions
          SET sponsor_review_status = 'pending_review',
              sponsor_reviewed_at = NULL,
              updated_at = NOW()
          WHERE id = $1::uuid`,
-          [input.contributionId]
-        );
-      }
-      return {
-        status: 'created',
-        asset: mapAsset(inserted.rows[0]!),
-        replaced
-      };
-    },
-    {
-      shouldCommit: (result) => result.status === 'created',
-      preserveOriginalError: true
+        [input.contributionId]
+      );
     }
-  );
+    const audited = await insertAdminAuditLog(client, {
+      actor: input.auditActor,
+      action: 'sponsorship.media.upload',
+      entityType: 'sponsor_media_asset',
+      entityId: input.id,
+      summary: 'Sponsor media uploaded through the private follow-up flow.',
+      metadata: {
+        contributionId: input.contributionId,
+        kind: input.kind,
+        mimeType: input.originalMimeType,
+        sizeBytes: input.originalSizeBytes,
+        storageDriver: input.storageDriver
+      }
+    });
+    if (!audited) {
+      throw new Error('Sponsor media upload audit is unavailable.');
+    }
+    return {
+      status: 'created',
+      asset: mapAsset(inserted.rows[0]!),
+      replaced
+    };
+  });
 };
 
 export const deleteSponsorMediaAsset = async (

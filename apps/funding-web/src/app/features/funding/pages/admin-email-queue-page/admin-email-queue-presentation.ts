@@ -27,6 +27,7 @@ export function normalizeEmailQueueStatusFilter(
     case 'sending':
     case 'sent':
     case 'failed':
+    case 'uncertain':
       return value;
     default:
       return 'all';

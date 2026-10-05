@@ -3,6 +3,12 @@
     <h2 class="visually-hidden" id="calendar-title">
       {{ 'admin.legacy.calendrier_de_publication' | translate }}
     </h2>
+    <p class="help-text" id="slot-time-help">
+      {{ 'admin.publications.slotTimeHelp' | translate }}
+    </p>
+    <p class="state-error" role="alert" *ngIf="dateTimeError()">
+      {{ 'admin.publications.invalidLocalTime' | translate }}
+    </p>
     <form
       class="slot-create-form"
       id="new-slot-form"
@@ -33,6 +39,7 @@
         {{ 'admin.legacy.date_et_heure' | translate
         }}<input
           type="datetime-local"
+          aria-describedby="slot-time-help"
           [value]="newSlotStartsAt()"
           (input)="setNewSlotStartsAt($event)"
         />
@@ -144,6 +151,7 @@
                   {{ 'admin.legacy.date_et_heure' | translate
                   }}<input
                     type="datetime-local"
+                    aria-describedby="slot-time-help"
                     [value]="slotEditFor(slot.id).startsAt"
                     (input)="setSlotEditField(slot.id, 'startsAt', $event)"
                   />

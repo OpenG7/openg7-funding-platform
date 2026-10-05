@@ -66,6 +66,7 @@ export class AdminContributionsExportWorkflow {
       if (!scopeIsCurrent()) return;
       const status =
         error instanceof AdminDashboardRequestError ? error.status : 0;
+      if (status === 401) this.ports.unauthorized?.();
       this.error.set(
         `admin.contributionsExport.${status === 409 ? 'changed' : status === 403 ? 'forbidden' : status === 401 ? 'sessionExpired' : 'failed'}`
       );

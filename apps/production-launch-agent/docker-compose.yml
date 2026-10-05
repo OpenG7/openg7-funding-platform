@@ -19,7 +19,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
       - production-launch-agent-data:/data
-      - ./logs:/logs
+      - production-launch-agent-reports:/logs
     secrets:
       - production_launch_ssh_key
     restart: unless-stopped
@@ -37,3 +37,4 @@ secrets:
 
 volumes:
   production-launch-agent-data:
+  production-launch-agent-reports:

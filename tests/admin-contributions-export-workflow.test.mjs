@@ -41,7 +41,9 @@ const fixture = async () => {
       saveAdminToken: () => {}
     },
     token: () => token,
-    canExport: () => access
+    canExport: () => access,
+    accessRevision: () => sessionRevision,
+    unauthorized: () => {}
   };
   const controller = new AdminContributionsController(readPorts);
   await controller.load();

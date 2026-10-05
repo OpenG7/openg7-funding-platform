@@ -63,13 +63,13 @@ export type CommandKey =
   | 'check_https'
   | 'check_memory'
   | 'check_ssl'
-  | 'deploy_build'
   | 'deploy_pull'
-  | 'deploy_up'
+  | 'deploy_run'
   | 'fetch_logs'
   | 'git_checkout'
   | 'git_current_sha'
-  | 'restart_service';
+  | 'restart_service'
+  | 'rollback_run';
 
 export interface CommandResult {
   readonly command: string;
@@ -130,7 +130,7 @@ export interface MemoryStore {
     readonly success: boolean;
     readonly summary: string;
   }): void;
-  lastStableDeployment(): string | null;
+  lastStableDeployment(excludeVersion?: string): string | null;
   close(): void;
 }
 

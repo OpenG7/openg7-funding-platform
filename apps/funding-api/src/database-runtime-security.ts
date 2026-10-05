@@ -53,7 +53,8 @@ export const assertProductionDatabasePrivileges = async (
         ) AS no_ddl,
         NOT EXISTS (
           SELECT 1 FROM application_relations a
-          WHERE has_table_privilege(current_user, a.oid, 'TRUNCATE,TRIGGER,REFERENCES')
+          WHERE has_table_privilege(current_user, a.oid, 'TRUNCATE,TRIGGER')
+            OR has_any_column_privilege(current_user, a.oid, 'REFERENCES')
             OR (has_table_privilege(current_user, a.oid, 'DELETE')
               AND NOT (a.nspname = 'public' AND a.relname = 'admin_login_challenges'))
         ) AS no_destructive_dml,
@@ -61,9 +62,9 @@ export const assertProductionDatabasePrivileges = async (
           SELECT 1 FROM application_relations a
           WHERE a.nspname = 'public' AND (
             (a.relname = 'admin_audit_log'
-              AND has_table_privilege(current_user, a.oid, 'UPDATE'))
+              AND has_any_column_privilege(current_user, a.oid, 'UPDATE'))
             OR (a.relname = 'openg7_schema_migrations'
-              AND has_table_privilege(current_user, a.oid, 'INSERT,UPDATE'))
+              AND has_any_column_privilege(current_user, a.oid, 'INSERT,UPDATE'))
           )
         ) AS immutable_audit
       FROM runtime_role r

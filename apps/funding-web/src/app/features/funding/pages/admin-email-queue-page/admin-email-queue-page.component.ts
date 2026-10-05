@@ -93,6 +93,13 @@ import { AdminEmailQueueSummaryComponent } from './admin-email-queue-summary.com
             [lastFailedAtLabel]="dateLabel(response.summary.last_failed_at)"
             (inspectRequested)="inspection.email($event)"
             (retryRequested)="retryMessage($event)"
+            (reconcileRequested)="
+              controller.reconcileMessage(
+                $event.message,
+                $event.outcome,
+                $event.evidenceReference
+              )
+            "
           />
         </ng-container>
       </section>
@@ -165,6 +172,8 @@ export class AdminEmailQueuePageComponent implements OnInit {
     switch (status) {
       case 'sent':
         return this.i18n.t('admin.messages.envoye');
+      case 'uncertain':
+        return this.i18n.t('admin.emailDelivery.uncertain');
       case 'failed':
         return this.i18n.t('admin.messages.echec');
       case 'sending':

@@ -162,16 +162,17 @@ const fixture = ({
         );
         rows.forEach((row) => {
           row.status = 'sending';
+          row.delivery_attempt_id = '00000000-0000-4000-8000-000000000001';
           row.attempts += 1;
         });
         return { rows };
       }
       if (sql.startsWith('UPDATE email_messages')) {
         calls.push('settle');
-        assert.match(sql, /status = 'sent'/);
+        assert.match(sql, /status\s*=\s*'sent'/);
         const row = committed.messages.find((row) => row.id === params[0]);
         row.status = 'sent';
-        return { rows: [] };
+        return { rows: [], rowCount: 1 };
       }
       if (
         sql.startsWith('SELECT id,status,recipient_email,attempts,last_error')

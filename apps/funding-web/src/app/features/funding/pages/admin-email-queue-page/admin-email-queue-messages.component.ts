@@ -34,6 +34,12 @@ export class AdminEmailQueueMessagesComponent {
   readonly inspectRequested = output<AdminEmailQueueMessageRecord>();
   readonly retryRequested = output<AdminEmailQueueMessageRecord>();
 
+  readonly reconcileRequested = output<{
+    message: AdminEmailQueueMessageRecord;
+    outcome: 'sent' | 'not_sent';
+    evidenceReference: string;
+  }>();
+
   trackByMessage(_index: number, view: EmailQueueMessageView): string {
     return view.message.id;
   }

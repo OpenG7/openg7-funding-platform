@@ -86,6 +86,8 @@ test('invoice numbering preserves public-reference suffixes and uses the payment
   assert.match(calls[0].values[12], /Facebook/);
   assert.match(calls[0].values[12], /LinkedIn/);
   assert.match(calls[0].values[12], /Aucune publication/);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[1].values, [input().stripeSessionId]);
 });
 
 test('missing public reference uses the same session hash through a failed emission and retry', async () => {
@@ -111,7 +113,13 @@ test('missing public reference uses the same session hash through a failed emiss
 });
 
 test('creation returns the persisted historical snapshot after a replay with different inputs', async () => {
-  const pool = { query: async () => ({ rows: [storedInvoice] }) };
+  const calls = [];
+  const pool = {
+    query: async (sql, values) => {
+      calls.push({ sql, values });
+      return { rows: calls.length === 1 ? [] : [storedInvoice] };
+    }
+  };
   const invoice = await publicCreate(
     pool,
     input({ amountCents: 90000, publicReference: 'OG7-2026-REPLAY' })
@@ -123,4 +131,71 @@ test('creation returns the persisted historical snapshot after a replay with dif
   assert.equal(invoice.issuerName, 'Historical issuer');
   assert.deepEqual(invoice.lineItems, storedInvoice.line_items);
   assert.equal(invoice.notes, 'Historical benefits and legal note');
+  assert.equal(calls.length, 2);
+  assert.match(calls[0].sql, /ON CONFLICT \(contribution_id\) DO NOTHING/);
+  assert.doesNotMatch(calls[0].sql, /DO UPDATE|UNION/);
+  assert.match(calls[1].sql, /FROM sponsorship_invoices invoice/);
+  assert.deepEqual(calls[1].values, ['cs_test_invoice_write']);
+});
+
+test('a successful first emission returns its stored snapshot without another read', async () => {
+  const calls = [];
+  const invoice = await publicCreate(
+    {
+      query: async (sql, values) => {
+        calls.push({ sql, values });
+        return { rows: [storedInvoice] };
+      }
+    },
+    input()
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(invoice.invoiceNumber, storedInvoice.invoice_number);
+});
+
+test('replay keeps missing values and the issued placeholder even if the new input fills them', async () => {
+  const incompleteSnapshot = {
+    ...storedInvoice,
+    public_reference: null,
+    stripe_payment_intent_id: null,
+    paid_at: null,
+    sponsor_name: 'Commanditaire a confirmer'
+  };
+  let calls = 0;
+  const invoice = await publicCreate(
+    {
+      query: async () => ({ rows: ++calls === 1 ? [] : [incompleteSnapshot] })
+    },
+    input({
+      publicReference: 'OG7-2026-NEW-REFERENCE',
+      stripePaymentIntentId: 'pi_test_new',
+      customerEmail: 'new-contact@example.invalid'
+    })
+  );
+  assert.equal(invoice.publicReference, null);
+  assert.equal(invoice.stripePaymentIntentId, null);
+  assert.equal(invoice.paidAtIso, null);
+  assert.equal(invoice.sponsorName, 'Commanditaire a confirmer');
+  assert.equal(invoice.sponsorContactName, null);
+  assert.equal(invoice.sponsorContactEmail, null);
+  assert.equal(invoice.sponsorWebsiteUrl, null);
+  assert.equal(invoice.issuerAddress, null);
+  assert.equal(invoice.issuerTaxId, null);
+});
+
+test('a failed read after conflict propagates the failure instead of reporting no invoice', async () => {
+  let calls = 0;
+  await assert.rejects(
+    publicCreate(
+      {
+        query: async () => {
+          if (++calls === 1) return { rows: [] };
+          throw new Error('Synthetic snapshot read failure');
+        }
+      },
+      input()
+    ),
+    /Synthetic snapshot read failure/
+  );
+  assert.equal(calls, 2);
 });

@@ -69,6 +69,12 @@ la diffusion passe désormais par une URL API contrôlant la visibilité du doss
 Les anciennes copies publiques et leurs caches demandent une remise en conformité
 séparément autorisée, décrite dans le [runbook de stockage](ovh-object-storage.md).
 
+La migration [033](../../apps/funding-api/migrations/033_add_email_delivery_uncertainty.sql)
+ajoute l'état `uncertain` et un identifiant de tentative aux courriels. L'appliquer
+avant l'API mise à jour. Elle préserve les messages et ne lance aucun envoi.
+Une tentative SMTP ambiguë ou un bail d'envoi expiré exige une réconciliation
+administrative avant toute reprise; voir le [guide SMTP](../email-smtp.md).
+
 La migration [029](../../apps/funding-api/migrations/029_create_sponsorship_refund_operations.sql)
 ajoute les demandes de remboursement durables et leur exclusion mutuelle.
 Elle ne modifie aucun fait financier existant. L'appliquer avant l'API mise à

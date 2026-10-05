@@ -1431,7 +1431,8 @@ const remainingReadRequests = [
   [
     'getContributions',
     '/contributions?contributionId=target+%2F',
-    'Admin contributions could not be loaded.'
+    'Admin contributions could not be loaded.',
+    { errorKind: 'status-default' }
   ],
   [
     'getExpenses',
@@ -1704,11 +1705,15 @@ const remainingRequests = [
     name: 'deleteSponsorLogo',
     path: '/admin/sponsorships/logo/delete',
     method: 'POST',
-    body: { contributionId: 'target /', expectedVersion: 'version-2' },
+    body: {
+      contributionId: 'target /',
+      expectedVersion: 'version-2',
+      confirmation: 'target /'
+    },
     errorKind: 'status-message',
     fallback: 'Sponsor logo could not be deleted.',
     invoke: (service, token) =>
-      service.deleteSponsorLogo(token, 'target /', 'version-2')
+      service.deleteSponsorLogo(token, 'target /', 'version-2', 'target /')
   }
 ];
 

@@ -118,6 +118,45 @@ async function fixtures(page: Page, language: string) {
 
 // These fixtures exercise rendered Angular UI with synthetic intercepted API
 // responses. Docker accounting and signed OIDC identity tests stay separate.
+for (const source of ['contributions', 'export', 'activity']) {
+  test(`session refusal from ${source} purges private contributions and redirects to login`, async ({
+    page
+  }) => {
+    const { options } = await fixtures(page, 'fr-CA');
+    let activityUnauthorized = false;
+    await page.route('**/api/admin/contribution-activity**', (route) =>
+      route.fulfill({ status: activityUnauthorized ? 401 : 503, json: {} })
+    );
+    await page.goto('/admin/fundraiser/contributions');
+    const row = page.locator(
+      `[data-og7="contribution-row"][data-og7-id="${personal.id}"]`
+    );
+    await row.click();
+    await expect(page.getByRole('main')).toContainText(personal.email_private!);
+    if (source === 'contributions') {
+      options.listStatus = 401;
+      await page
+        .getByRole('button', { name: 'Actualiser', exact: true })
+        .click();
+    } else if (source === 'export') {
+      options.status = 401;
+      await page.locator('[data-og7="contribution-export"]').click();
+      await page.locator('[data-og7="confirm-action"]').click();
+    } else activityUnauthorized = true;
+    await expect(page).toHaveURL(/\/admin\/login\?.*sessionExpired=1/, {
+      timeout: 15000
+    });
+    await expect(page.getByRole('main')).not.toContainText(
+      personal.email_private!
+    );
+    expect(
+      await page.evaluate(() =>
+        sessionStorage.getItem('openg7-admin-session-token')
+      )
+    ).toBeNull();
+  });
+}
+
 for (const language of ['fr-CA', 'en']) {
   for (const width of [390, 1280]) {
     const english = language === 'en';
@@ -269,7 +308,7 @@ for (const language of ['fr-CA', 'en']) {
             503: 'L’export n’a pas pu être généré.',
             401: 'Votre session a expiré.'
           };
-      for (const status of [409, 403, 503, 401] as const) {
+      for (const status of [409, 403, 503] as const) {
         options.status = status;
         await exportButton.click();
         await page.locator('[data-og7="confirm-action"]').click();
@@ -278,7 +317,7 @@ for (const language of ['fr-CA', 'en']) {
         ).toContainText(messages[status]);
         await expect(exportButton).toBeEnabled();
       }
-      expect(exports).toHaveLength(4);
+      expect(exports).toHaveLength(3);
       for (const payload of exports)
         expect(payload.contributions).toEqual([
           { id: personal.id, expectedVersion: personal.updated_at },

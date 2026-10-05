@@ -16,7 +16,7 @@ import type {
 export interface AdminEmailQueuePorts {
   readonly admin: Pick<
     FundingAdminService,
-    'getEmailQueue' | 'retryEmailQueueMessage'
+    'getEmailQueue' | 'retryEmailQueueMessage' | 'reconcileEmailDelivery'
   >;
   token(): string;
   t(key: string, params?: Record<string, unknown>): string;
@@ -97,9 +97,13 @@ export class AdminEmailQueueController {
       this.disposed ||
       (this.targetId() && this.targetId() !== message.id) ||
       message.status === 'sent' ||
+      message.status === 'uncertain' ||
+      message.status === 'sending' ||
       this.activeRetries.has(message.id) ||
       this.messages().some(
-        (current) => current.id === message.id && current.status === 'sent'
+        (current) =>
+          current.id === message.id &&
+          ['sent', 'sending', 'uncertain'].includes(current.status)
       )
     )
       return;
@@ -118,7 +122,11 @@ export class AdminEmailQueueController {
           return;
         }
         this.uncertainRetries.delete(message.id);
-        if (current.status === 'sent' || current.status === 'sending') {
+        if (
+          current.status === 'sent' ||
+          current.status === 'sending' ||
+          current.status === 'uncertain'
+        ) {
           this.setRetryState(
             message.id,
             current.status === 'sent' ? 'sent' : 'idle'
@@ -128,7 +136,9 @@ export class AdminEmailQueueController {
             this.ports.t(
               current.status === 'sent'
                 ? 'admin.messages.message_envoye'
-                : 'admin.messages.courriel_deja_en_cours'
+                : current.status === 'uncertain'
+                  ? 'admin.emailDelivery.explanation'
+                  : 'admin.messages.courriel_deja_en_cours'
             )
           );
           return;
@@ -143,7 +153,9 @@ export class AdminEmailQueueController {
       if (
         !confirmed ||
         this.messages().some(
-          (current) => current.id === message.id && current.status === 'sent'
+          (current) =>
+            current.id === message.id &&
+            ['sent', 'sending', 'uncertain'].includes(current.status)
         )
       ) {
         this.setRetryState(message.id, 'idle');
@@ -187,6 +199,77 @@ export class AdminEmailQueueController {
       if (!this.currentScope(scope)) return;
       this.setRetryState(message.id, 'error');
       this.setRetryMessage(message.id, this.messageFromError(error));
+    } finally {
+      this.activeRetries.delete(message.id);
+    }
+  }
+
+  async reconcileMessage(
+    message: AdminEmailQueueMessageRecord,
+    outcome: 'sent' | 'not_sent',
+    evidenceReference: string
+  ): Promise<void> {
+    if (
+      this.disposed ||
+      message.status !== 'uncertain' ||
+      this.activeRetries.has(message.id) ||
+      (this.targetId() && this.targetId() !== message.id)
+    )
+      return;
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/.test(evidenceReference)) {
+      this.setRetryState(message.id, 'error');
+      this.setRetryMessage(
+        message.id,
+        this.ports.t('admin.emailDelivery.invalidEvidence')
+      );
+      return;
+    }
+    const scope = this.scope;
+    this.activeRetries.add(message.id);
+    this.setRetryState(message.id, 'confirming');
+    try {
+      const confirmed = await this.ports.confirm(
+        this.ports.t(
+          outcome === 'sent'
+            ? 'admin.emailDelivery.confirmSent'
+            : 'admin.emailDelivery.confirmNotSent'
+        ),
+        `${message.id} ? ${evidenceReference}`
+      );
+      if (!this.currentScope(scope)) return;
+      if (!confirmed) {
+        this.setRetryState(message.id, 'idle');
+        return;
+      }
+      this.setRetryState(message.id, 'sending');
+      const result = await this.ports.admin.reconcileEmailDelivery(
+        this.ports.token(),
+        {
+          messageId: message.id,
+          expectedUpdatedAt: message.updated_at,
+          confirmation: message.id,
+          outcome,
+          evidenceReference
+        }
+      );
+      if (!this.currentScope(scope)) return;
+      this.requestGeneration++;
+      if (result.message) this.replaceMessage(result.message);
+      this.setRetryState(
+        message.id,
+        result.message?.status === 'sent' ? 'sent' : 'idle'
+      );
+      this.setRetryMessage(
+        message.id,
+        this.ports.t('admin.emailDelivery.reconciled')
+      );
+      await this.loadEmailQueue();
+    } catch (error) {
+      if (!this.currentScope(scope)) return;
+      this.setRetryState(message.id, 'error');
+      this.setRetryMessage(message.id, this.messageFromError(error));
+      // A lost mutation response requires a fresh read, never automatic resubmission.
+      await this.loadEmailQueue();
     } finally {
       this.activeRetries.delete(message.id);
     }

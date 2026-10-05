@@ -152,6 +152,20 @@ reçoit HTTP 400 et doit recharger la page. Aucune migration de données n'est r
 Un dépassement de taille retourne HTTP 413 avec `SPONSOR_MEDIA_TOO_LARGE`.
 Les formulaires multipart contenant des champs inconnus ou répétés sont refusés.
 
+La création du média, le remplacement éventuel du logo, la remise du dossier
+en revue et l'audit d'upload partagent une transaction PostgreSQL. Un audit absent
+ou défaillant annule ces écritures; le nettoyage retire seulement les nouveaux
+objets orphelins, jamais les fichiers d'un média déjà enregistré. Une erreur de
+stockage ou de persistance retourne HTTP 503 `SPONSOR_MEDIA_UPLOAD_UNAVAILABLE`,
+distinct de l'image invalide (HTTP 400 `SPONSOR_MEDIA_INVALID_IMAGE`).
+Après un résultat de transaction incertain, l'API relit le média avant nettoyage.
+Elle retire les fichiers seulement si PostgreSQL a confirmé le rollback et si
+la relecture confirme l'absence. Si le rollback reste incertain, si la ligne existe
+ou si la relecture échoue, elle conserve les fichiers et retourne
+HTTP 503 `SPONSOR_MEDIA_UPLOAD_UNCONFIRMED` avec `assetId` et `uploaded: true` ou
+`null` selon l'état confirmé ou inconnu. Recharger la liste avant toute reprise;
+réconcilier les objets et leurs références si la base reste indisponible.
+
 Appliquer la [migration 032](../../apps/funding-api/migrations/032_keep_approved_sponsor_media_private.sql)
 avant l'API utilisant ce flux. Elle dissocie la revue et l'URL controlee de la
 cle publique historique, sans reecrire les medias ni modifier leurs objets S3.
@@ -202,6 +216,10 @@ Pour les logos commanditaires existants, l'URL conserve la forme controlee
 et ne sert le fichier publiquement que si PostgreSQL confirme une commandite
 approuvee et consentie. Le navigateur ne parle jamais directement a OVH S3 et ne
 voit jamais les cles privees.
+Leur suppression administrative exige aussi `confirmation` exactement égale au
+`contributionId`, après confirmation dans l'interface. Une confirmation absente
+ou différente donne HTTP 400 `CONFIRMATION_REQUIRED` avant tout retrait. Livrer
+Web et API ensemble; les anciens clients doivent recharger la page.
 
 Les scripts Bash sont des outils d'administration, de reprise et de verification
 apres deploiement.

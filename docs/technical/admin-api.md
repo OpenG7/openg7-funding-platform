@@ -28,18 +28,19 @@ downloaded or previously cached under older headers. See the
 
 Admin dashboard: `/admin/fundraiser`.
 
-Open `/admin/login`. Production requires OIDC, verified MFA and revocable
+Open `/admin/login`. Production requires OIDC with verified MFA and revocable
 HttpOnly sessions. Local token mode exchanges `FUNDING_ADMIN_TOKEN` at
-`POST /api/admin/session`; other routes refuse the root secret.
-Admin endpoints check authorization. Angular guards control navigation;
-`admin.routes.ts` loads routes on demand.
+`POST /api/admin/session`; other admin routes refuse the root secret.
+Every admin endpoint checks authorization. Angular guards control navigation;
+`admin.routes.ts` loads admin routes on demand.
 
-Session, review/publication and draft/slot/batch mutations require JSON objects.
-`null`, arrays and primitives return `400` before effects; authorization comes first.
+Session, sponsorship review/publication and draft/slot/batch mutations
+require JSON objects. `null`, arrays or primitives return `400` before provider,
+DB or audit effects; protected routes authorize first.
 `POST /sponsorship-details` and its `/api` alias return
-`410 SPONSORSHIP_LEGACY_ENDPOINT_RETIRED` before body, Stripe or DB effects.
-Use `/api/sponsorship-followup/details` with the private
-token and revision; recover access at `/api/sponsorship-followup/recover`.
+`410 SPONSORSHIP_LEGACY_ENDPOINT_RETIRED` before reading a body or accessing
+Stripe or PostgreSQL. Use `/api/sponsorship-followup/details` with the private
+token and draft revision, or `/api/sponsorship-followup/recover` for lost access.
 
 The [access and sessions page](../operations/admin-identity-and-alerts.md)
 at `/admin/fundraiser/access` lets OIDC owners manage readers, operators and
@@ -49,53 +50,28 @@ named-account guarantees. Independent alerts use `yarn operations:watch` or the
 optional Compose overlay and remain disabled until configured and started.
 Access changes require `confirmation`; update API/Web.
 
-The dashboard uses [Admin UX — lot 1](../admin-ux-lot-1.md).
-`yarn test:ui:admin` builds and checks the UI with synthetic API fixtures,
-without starting the API or a DB.
-The [To do queue — lot 2](../admin-ux-lot-2.md) is available at
-`/admin/fundraiser/attention`, with server pagination, URL filters, exact record
-links and an independent dashboard summary. Its protected API is
-`GET /api/admin/attention`. Missing invoices can be generated for one confirmed
-record through the existing backfill endpoint, without sending email.
-The [Contextual assistant — lot 3](../admin-ux-lot-3.md) adds dossier facts,
-deterministic next steps and draft preparation to the cockpit and sponsorships.
-`GET /api/admin/assistant/context` accepts an optional `sponsorshipId`.
-Information requests show an editable preview and require human confirmation
-through `POST /api/admin/sponsorships/request-information`; queue insertion
-and audit are atomic and duplicate requests reuse the original email.
-The [Sponsorship dossier — lot 4](../admin-ux-lot-4.md) adds seven linked tabs,
-six independent milestones, persisted billing/publication/refund facts, session
-selection in the cockpit and navigation badges from the same work queue.
-`GET /api/admin/sponsorships/progress` accepts an optional `sponsorshipId` and
-performs a read-only projection. Direct tab links use
-`/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`.
-The [Cockpit indicators, activity and system status — lot 5](../admin-ux-lot-5.md)
-adds independent protected read endpoints under `/api/admin/cockpit/metrics`,
-`/api/admin/cockpit/activity` and `/api/admin/cockpit/systems`. Amounts use integer
-minor units per currency; missing fees keep net receipts unavailable. System
-status shows dated evidence with expiration, without sending email or writing
-test files. PostgreSQL integration uses an explicitly configured disposable
-`cockpit_test` database; see the lot report for reproduction and coverage limits.
-
-Stripe adds optional `connection`; existing fields describe webhooks.
-See [check semantics](../operations/admin-setup.md).
-
-The [Global admin search — lot 6](../admin-ux-lot-6.md) adds
-`POST /api/admin/search` with private JSON input, grouped dossier results and
-bounded pagination. Use Ctrl+K / Cmd+K from the admin layout or shared navigation.
-Search terms stay out of URLs and browser storage. Direct contribution links
-accept `contributionId` before the list limit; invoice and publication pages
-reload when their target changes on the same route. Search tests use disposable
-PostgreSQL; the OIDC recipe covers the complete browser journey.
-The [Admin drawers and page harmonization — lot 7](../admin-ux-lot-7.md)
-extends the shared FR/EN layout to the operational pages and adds accessible
-inspection drawers, protected invoice/media previews and explicit action
-confirmations. Stripe inspection returns minimal stored event facts without raw
-webhook payloads. Audit and expense pages accept exact identifiers before list
-limits. The PostgreSQL inspection test owns and removes its disposable container.
-`GET /api/admin/dashboard` includes the additive `data_available` flag;
-`false` means PostgreSQL is not configured and the UI must not present the
-legacy zero-valued snapshot as an empty fund.
+UI guides: [layout](../admin-ux-lot-1.md), [queue](../admin-ux-lot-2.md),
+[assistant](../admin-ux-lot-3.md), [dossier](../admin-ux-lot-4.md),
+[cockpit](../admin-ux-lot-5.md), [search](../admin-ux-lot-6.md) and
+[drawers](../admin-ux-lot-7.md). `yarn test:ui:admin` uses synthetic APIs without DB.
+`GET /api/admin/attention` serves `/admin/fundraiser/attention` with pagination,
+URL filters and exact record links. `GET /api/admin/assistant/context` accepts
+optional `sponsorshipId`; information requests require an editable preview and
+confirmation at `POST /api/admin/sponsorships/request-information`. Queue and audit
+are atomic; duplicate requests reuse the original email.
+`GET /api/admin/sponsorships/progress` is a read-only projection, optionally filtered
+by `sponsorshipId`; tab links use `/admin/fundraiser/sponsors?sponsorshipId=<uuid>&tab=billing`.
+Protected cockpit reads use `/api/admin/cockpit/metrics`, `/activity` and `/systems`.
+Amounts are integer minor units per currency; missing fees keep net receipts
+unavailable. System checks provide dated evidence with expiry, without sending
+email or writing test files. Stripe's optional `connection` is separate from
+webhooks; see [check semantics](../operations/admin-setup.md).
+`POST /api/admin/search` uses private JSON, grouped results and bounded pagination;
+terms stay out of URLs/storage. Exact contribution, audit and expense IDs precede
+list limits; invoice/publication pages reload on target changes. Drawers protect
+invoice/media previews and require action confirmations; Stripe inspection excludes
+raw webhook payloads. Dashboard `data_available=false` means no PostgreSQL, not an
+empty fund. Reproduction and integration limits are in the linked guides.
 
 Selected operational endpoints (the feature guides in the
 [documentation index](../README.md) describe the additional contracts):
@@ -136,6 +112,7 @@ POST /api/admin/email/test
 GET /api/admin/email/test?requestId=<uuid>
 GET /api/admin/email-queue
 POST /api/admin/email-queue/retry
+POST /api/admin/email-queue/reconcile
 GET /api/admin/sponsorship-invoices
 POST /api/admin/sponsorship-invoices/backfill
 GET /api/admin/sponsorship-invoices/pdf?invoiceId=<uuid>
@@ -158,15 +135,30 @@ SMTP tests. Its [system status and configuration view](../operations/admin-setup
 reuses the cockpit observations with expiry, a diagnostic recommendation and
 configuration checklist. See the [test contract](../email-smtp.md#admin-configuration-test).
 
-The email queue page is available at `/admin/fundraiser/email-queue`. It lists
-recent queued, sending, sent and failed emails, summarizes retryable failures,
-and can manually retry an unsent message through `POST /api/admin/email-queue/retry`.
-Manual retries are recorded in the admin audit log.
+`/admin/fundraiser/email-queue` lists queued, sending, sent, failed and `uncertain`
+messages. Uncertain delivery blocks automatic sends and ordinary retry
+(`409 EMAIL_DELIVERY_RECONCILIATION_REQUIRED`). Migration 033 is required.
+Operators/owners reconcile evidence through `POST /api/admin/email-queue/reconcile`
+(also `/admin`): JSON `messageId` (UUID), `expectedUpdatedAt` (exact GET version),
+`confirmation=messageId`, `outcome=sent|not_sent` and non-secret `evidenceReference`
+matching `^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$`. Decision and audit commit atomically.
+`sent` records delivery without sending; `not_sent` leaves `failed` at the automatic
+attempt limit, allowing only a separate confirmed manual retry. Success is
+`200 {updated:true,message}`; stale/non-uncertain state returns
+`409 EMAIL_RECONCILIATION_CONFLICT`, invalid JSON/fields `400 INVALID_EMAIL_RECONCILIATION`,
+wrong content type `415` with that code, no DB `503 EMAIL_QUEUE_UNAVAILABLE`,
+failure `502 EMAIL_RECONCILIATION_FAILED`. Ordinary manual retries remain audited.
 
 At `/admin/fundraiser/invoices`, admins inspect invoices/credit notes, Stripe
 references and email status, download PDFs and resend to a corrected contact.
 `POST /api/admin/sponsorship-invoices/backfill` generates missing historical
 invoices without emailing sponsors.
+
+Issued invoice snapshots are frozen, including null/missing identity fields and
+placeholder names. Later sponsor/issuer changes, payment replays, backfill and
+resends do not enrich the snapshot or alter its PDF content. Credit notes inherit
+that invoice identity. A corrected resend `to` affects delivery only; it does not
+replace the document's contact details.
 
 Backfill requires `confirmation` matching `contributionId`, or `BACKFILL_INVOICES`
 for a bulk run (400 `confirmation_required` otherwise). Update API/Web together;
@@ -263,5 +255,9 @@ records the controlled `/api/public/sponsor-logos/...` URL on the sponsorship,
 and audits the upload. Admins can preview controlled logos through
 `GET /api/admin/sponsorships/logo`, replace a logo with cleanup of the previous
 controlled file, or remove the logo with `POST /api/admin/sponsorships/logo/delete`.
+Removal requires JSON `contributionId`, current `expectedVersion`, and
+`confirmation=contributionId` supplied after the UI dialog. Missing/mismatched
+confirmation returns `400 CONFIRMATION_REQUIRED` before mutation; stale versions
+return `409`. Deploy API/Web together; older clients must refresh.
 Uploaded logos are served publicly only when an approved, consented sponsorship
 references that exact URL.

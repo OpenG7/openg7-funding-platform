@@ -6,6 +6,7 @@ export type EmailErrorCode =
   | 'EMAIL_CONNECTION_ERROR'
   | 'EMAIL_AUTHENTICATION_ERROR'
   | 'EMAIL_SEND_ERROR'
+  | 'EMAIL_DELIVERY_UNCERTAIN'
   | 'EMAIL_RECIPIENT_REJECTED';
 
 export interface EmailAddressIdentity {
@@ -41,6 +42,7 @@ export interface TransactionalEmailConfigStatus {
 }
 
 export interface SendTransactionalEmailInput {
+  readonly messageId?: string;
   readonly to: string | readonly string[];
   readonly subject: string;
   readonly text: string;
@@ -70,6 +72,7 @@ export interface EmailTransportOptions {
 }
 
 export interface EmailMessageOptions {
+  readonly messageId?: string;
   readonly from: string;
   readonly to: string[];
   readonly subject: string;

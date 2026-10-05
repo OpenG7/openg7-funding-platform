@@ -1,5 +1,7 @@
 import type {
   AdminEmailQueueResponse,
+  AdminEmailQueueMessageRecord,
+  AdminEmailDeliveryReconcileRequest,
   AdminEmailQueueRetryRequest,
   AdminEmailQueueRetryResult,
   AdminEmailTestRequest,
@@ -177,5 +179,24 @@ export class FundingAdminOperationsClient {
     }
 
     return (await response.json()) as AdminEmailQueueRetryResult;
+  }
+  async reconcileEmailDelivery(
+    token: string,
+    payload: AdminEmailDeliveryReconcileRequest
+  ): Promise<{
+    updated: boolean;
+    message: AdminEmailQueueMessageRecord | null;
+  }> {
+    const response = await this.session.requestAdminJson(
+      '/admin/email-queue/reconcile',
+      {
+        auth: { token },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }
+    );
+    if (!response.ok) await this.session.accessError(response);
+    return response.json();
   }
 }

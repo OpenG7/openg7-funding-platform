@@ -69,7 +69,11 @@ export class SqliteMemoryStore implements MemoryStore {
       'INSERT INTO reports(path, success, summary) VALUES (?, ?, ?)'
     );
     this.selectLastStable = this.database.prepare(
-      "SELECT version FROM deployments WHERE status = 'stable' ORDER BY created_at DESC, id DESC LIMIT 1"
+      `SELECT version FROM deployments
+       WHERE status = 'stable' AND length(version) = 40
+         AND version NOT GLOB '*[^0-9a-f]*'
+         AND (? IS NULL OR version <> ?)
+       ORDER BY created_at DESC, id DESC LIMIT 1`
     );
   }
 
@@ -93,6 +97,9 @@ export class SqliteMemoryStore implements MemoryStore {
     readonly status: string;
     readonly version: string;
   }): void {
+    if (input.version.length !== 40 || !/^[a-f0-9]{40}$/.test(input.version)) {
+      throw new Error('Deployment history requires a full Git commit SHA.');
+    }
     this.insertDeployment.run(input.version, input.status);
   }
 
@@ -111,8 +118,11 @@ export class SqliteMemoryStore implements MemoryStore {
     this.insertReport.run(input.path, input.success ? 1 : 0, input.summary);
   }
 
-  lastStableDeployment(): string | null {
-    const row = this.selectLastStable.get() as { version?: string } | undefined;
+  lastStableDeployment(excludeVersion?: string): string | null {
+    const row = this.selectLastStable.get(
+      excludeVersion ?? null,
+      excludeVersion ?? null
+    ) as { version?: string } | undefined;
     return row?.version ?? null;
   }
 

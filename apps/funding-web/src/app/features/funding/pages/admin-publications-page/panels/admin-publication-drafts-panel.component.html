@@ -1,4 +1,7 @@
 @if (active()) {
+  <p class="state-error" role="alert" *ngIf="dateTimeError()">
+    {{ 'admin.publications.invalidLocalTime' | translate }}
+  </p>
   <section
     class="filters"
     [attr.aria-label]="'admin.legacy.filtres_publications' | translate"
@@ -190,10 +193,14 @@
                 {{ 'admin.legacy.planification' | translate
                 }}<input
                   type="datetime-local"
+                  [attr.aria-describedby]="'draft-time-help-' + draft.id"
                   [value]="editFor(draft.id).scheduledAt"
                   (input)="setEditField(draft.id, 'scheduledAt', $event)"
                 />
               </label>
+              <small class="help-text" [id]="'draft-time-help-' + draft.id">{{
+                'admin.publications.draftTimeHelp' | translate
+              }}</small>
             </div>
 
             <label>

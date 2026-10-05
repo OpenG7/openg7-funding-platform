@@ -201,7 +201,8 @@ export class FundingAdminSponsorshipsClient {
   async deleteSponsorLogo(
     token: string,
     contributionId: string,
-    expectedVersion: string
+    expectedVersion: string,
+    confirmation: string
   ): Promise<AdminSponsorLogoDeleteResult> {
     const response = await this.session.requestAdminJson(
       '/admin/sponsorships/logo/delete',
@@ -209,7 +210,7 @@ export class FundingAdminSponsorshipsClient {
         auth: { token },
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: { contributionId, expectedVersion }
+        body: { contributionId, expectedVersion, confirmation }
       }
     );
 

@@ -38,6 +38,7 @@ const checkoutMetadataKeys = [
   'displayAmountConsent',
   'nonCharityAcknowledged',
   'sponsorshipFollowupTokenHash',
+  'openg7CheckoutOperationId',
   'checkoutOperationId'
 ] as const;
 

@@ -297,7 +297,7 @@ export const createPublicPaymentsHttpHandler = ({
             const checkoutMetadata: Record<string, string> = {
               openg7CheckoutOperationId: operationId,
               projectId,
-              project: 'openg7',
+              project: projectId,
               program: 'builders_fund',
               publicReference,
               contributionType: parsed.contributionType,

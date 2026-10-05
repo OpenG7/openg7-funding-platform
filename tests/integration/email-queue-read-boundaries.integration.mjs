@@ -90,7 +90,7 @@ test(
           failed: result.summary.failed_count,
           retryable: result.summary.retryable_count
         },
-        { queued: 39, sending: 39, sent: 39, failed: 39, retryable: 117 }
+        { queued: 39, sending: 39, sent: 39, failed: 39, retryable: 78 }
       );
       assert.equal(result.summary.last_error, 'Synthetic failure 156');
       assert.equal(Date.parse(result.summary.last_failed_at), observationTime);

@@ -36,6 +36,7 @@ fi
 # shellcheck disable=SC1091
 source scripts/load-env.sh .env
 source scripts/deployment-compose.sh
+source scripts/deployment-image-revision.sh
 
 # Normal deliveries always use the API revision for the independent watcher.
 export OPERATIONS_IMAGE="${API_IMAGE:-openg7-funding-api:local}"
@@ -98,6 +99,19 @@ if [[ -n "${CURRENT_OPERATIONS}" && "${FUNDING_OPERATIONS_WATCHER_ENABLED:-false
   exit 1
 fi
 
+PREVIOUS_REVISION=""
+if [[ -n "${CURRENT_WEB}" && -n "${CURRENT_API}" && -f backups/deployment-current.revision ]]; then
+  previous_web_id="$(deployment_image_id "${CURRENT_WEB}")" || previous_web_id=unknown
+  previous_api_id="$(deployment_image_id "${CURRENT_API}")" || previous_api_id=unknown
+  previous_operations_id=none
+  if [[ -n "${CURRENT_OPERATIONS}" ]]; then
+    previous_operations_id="$(deployment_image_id "${CURRENT_OPERATIONS}")" || previous_operations_id=unknown
+  fi
+  if read_deployment_revision backups/deployment-current.revision "${previous_web_id}" "${previous_api_id}" "${previous_operations_id}"; then
+    PREVIOUS_REVISION="${SNAPSHOT_REVISION}"
+  fi
+fi
+
 if [[ -n "${CURRENT_WEB}" ]]; then
   docker tag "${CURRENT_WEB}" "${ROLLBACK_WEB_IMAGE}"
 fi
@@ -111,6 +125,11 @@ fi
 if [[ -n "${CURRENT_WEB}" && -n "${CURRENT_API}" ]]; then
   (umask 077; printf '%s\n' "ROLLBACK_OPERATIONS_ENABLED=$([[ -n "${CURRENT_OPERATIONS}" ]] && echo true || echo false)" > backups/deployment-rollback.env.tmp)
   mv backups/deployment-rollback.env.tmp backups/deployment-rollback.env
+  if [[ -n "${PREVIOUS_REVISION}" ]]; then
+    write_deployment_revision backups/deployment-rollback.revision "${PREVIOUS_REVISION}" "${CURRENT_WEB}" "${CURRENT_API}" "${CURRENT_OPERATIONS}"
+  else
+    (umask 077; printf 'unknown\n' > backups/deployment-rollback.revision)
+  fi
   ROLLBACK_READY=1
 fi
 
@@ -128,6 +147,18 @@ else
 fi
 
 bash scripts/check.sh
+if [[ -n "${EXPECTED_REVISION}" ]]; then
+  deployed_web="$(compose images -q web | head -n1)"
+  deployed_api="$(compose images -q api | head -n1)"
+  deployed_operations=""
+  if [[ "${FUNDING_OPERATIONS_WATCHER_ENABLED:-false}" == true ]]; then
+    deployed_operations="$(compose images -q operations | head -n1)"
+  fi
+  write_deployment_revision backups/deployment-current.revision "${EXPECTED_REVISION}" "${deployed_web}" "${deployed_api}" "${deployed_operations}"
+else
+  # An unqualified delivery must invalidate any older association.
+  (umask 077; printf 'unknown\n' > backups/deployment-current.revision)
+fi
 echo "Deployment succeeded for https://${APP_DOMAIN}"
 
 trap - ERR

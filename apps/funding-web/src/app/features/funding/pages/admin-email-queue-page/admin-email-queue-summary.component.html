@@ -26,6 +26,11 @@
     }}</small>
   </article>
   <article>
+    <span>{{ 'admin.emailDelivery.uncertain' | translate }}</span>
+    <strong>{{ summary().uncertain_count ?? 0 }}</strong>
+    <small>{{ 'admin.emailDelivery.explanation' | translate }}</small>
+  </article>
+  <article>
     <span>{{ 'admin.legacy.mis_a_jour' | translate }}</span>
     <strong>{{ updatedAtLabel() }}</strong>
     <small>{{ 'admin.legacy.snapshot_queue' | translate }}</small>

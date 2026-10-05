@@ -143,6 +143,39 @@ const resolveLogger = (
   dependencies: EmailServiceDependencies
 ): Pick<Console, 'error' | 'info'> => dependencies.logger ?? defaultLogger;
 
+/** CONN is also used for post-DATA socket loss; it is not evidence of non-delivery. */
+const deliveryError = (error: unknown): TransactionalEmailError => {
+  const candidate = error as {
+    command?: unknown;
+    responseCode?: unknown;
+    code?: unknown;
+  } | null;
+  const command =
+    typeof candidate?.command === 'string'
+      ? candidate.command.toUpperCase()
+      : '';
+  const rejected =
+    typeof candidate?.responseCode === 'number' &&
+    candidate.responseCode >= 400 &&
+    candidate.responseCode <= 599;
+  const beforeData =
+    /^(EHLO|HELO|STARTTLS|AUTH|MAIL FROM|RCPT TO)(?:$|[ :])/.test(command);
+  const unavailable = [
+    'ECONNREFUSED',
+    'ENOTFOUND',
+    'EAI_AGAIN',
+    'EENVELOPE',
+    'EAUTH'
+  ].includes(String(candidate?.code));
+  if (rejected || beforeData || unavailable)
+    return toTransactionalEmailError(error);
+  return new TransactionalEmailError(
+    'EMAIL_DELIVERY_UNCERTAIN',
+    'SMTP delivery outcome is unknown. Reconcile before retrying.',
+    { cause: error, smtpCode: getSafeSmtpCode(error) }
+  );
+};
+
 export const verifyEmailTransport = async (
   dependencies: EmailServiceDependencies = {}
 ): Promise<void> => {
@@ -201,6 +234,7 @@ export const sendTransactionalEmail = async (
   }
 
   const message: EmailMessageOptions = {
+    ...(input.messageId ? { messageId: input.messageId } : {}),
     from: config.from.formatted,
     to: recipients,
     replyTo: input.replyTo ?? config.replyTo.formatted,
@@ -210,10 +244,12 @@ export const sendTransactionalEmail = async (
     ...(input.headers ? { headers: input.headers } : {})
   };
 
+  let sending = false;
   try {
     const transport = resolveCreateTransport(dependencies)(
       createTransportOptions(config)
     );
+    sending = true;
     const info: EmailSendInfo = await transport.sendMail(message);
     const accepted = toStringArray(info.accepted);
     const rejected = toStringArray(info.rejected);
@@ -234,7 +270,9 @@ export const sendTransactionalEmail = async (
       deliveryMode: 'smtp'
     };
   } catch (error) {
-    const emailError = toTransactionalEmailError(error);
+    const emailError = sending
+      ? deliveryError(error)
+      : toTransactionalEmailError(error);
     logger.error('Transactional email failed.', {
       code: emailError.code,
       deliveryMode: 'smtp',

@@ -109,3 +109,77 @@ test(
     await assertProductionDatabasePrivileges(runtime, true);
   }
 );
+
+test(
+  'Production rejects column grants that allow audit or migration-history writes and references',
+  { timeout: 120000 },
+  async (t) => {
+    const database = await startDisposablePostgres({ migrate: false });
+    let runtime;
+    t.after(async () => {
+      await runtime?.end();
+      await database.stop();
+    });
+    await database.pool.query(`
+      CREATE TABLE admin_audit_log(actor text);
+      CREATE TABLE openg7_schema_migrations(name text);
+      CREATE TABLE fund_contributions(id integer);
+      INSERT INTO admin_audit_log VALUES ('synthetic');
+      INSERT INTO openg7_schema_migrations VALUES ('synthetic');
+    `);
+    const role = 'og7_runtime_column_test';
+    const password = randomBytes(32).toString('hex');
+    const name = (
+      await database.pool.query('SELECT current_database() AS name')
+    ).rows[0].name;
+    const config = { role, database: name, password };
+    await database.pool.query(buildRuntimeRoleSql(config, { create: true }));
+    runtime = new pg.Pool({ ...database.pool.options, user: role, password });
+    await assertProductionDatabasePrivileges(runtime, true);
+
+    for (const [table, column, privilege, grantee, mutation] of [
+      [
+        'admin_audit_log',
+        'actor',
+        'UPDATE',
+        role,
+        "UPDATE admin_audit_log SET actor='modified-synthetic'"
+      ],
+      [
+        'openg7_schema_migrations',
+        'name',
+        'INSERT',
+        'PUBLIC',
+        "INSERT INTO openg7_schema_migrations(name) VALUES ('modified-synthetic')"
+      ],
+      [
+        'openg7_schema_migrations',
+        'name',
+        'UPDATE',
+        role,
+        "UPDATE openg7_schema_migrations SET name='modified-synthetic'"
+      ],
+      ['fund_contributions', 'id', 'REFERENCES', role, null]
+    ]) {
+      await database.pool.query(
+        `GRANT ${privilege} (${column}) ON ${table} TO ${grantee}`
+      );
+      const privileges = (
+        await runtime.query(
+          `SELECT has_table_privilege(current_user, $1, $2) AS table_grant,
+            has_any_column_privilege(current_user, $1, $2) AS column_grant`,
+          [table, privilege]
+        )
+      ).rows[0];
+      assert.deepEqual(privileges, { table_grant: false, column_grant: true });
+      if (mutation) assert.ok((await runtime.query(mutation)).rowCount > 0);
+      await assert.rejects(assertProductionDatabasePrivileges(runtime, true), {
+        message: 'DATABASE_RUNTIME_PRIVILEGES_UNSAFE'
+      });
+      await database.pool.query(buildRuntimeRoleSql(config));
+      await assertProductionDatabasePrivileges(runtime, true);
+      if (mutation)
+        await assert.rejects(runtime.query(mutation), { code: '42501' });
+    }
+  }
+);

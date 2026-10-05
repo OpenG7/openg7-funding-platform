@@ -17,11 +17,13 @@ import { syncStripeChargeRefunds } from '../stripe-refunds.service.js';
 
 import { toIsoFromUnix } from './event-time.js';
 import { handleStripeRefundEvent } from './refund-handlers.js';
+import { finalizeSponsorshipPaymentIntent } from './sponsorship-payment-finalization.js';
 
 interface FinancialHandlerDependencies {
   readonly stripe: Stripe;
   readonly pool: Pool | null;
   readonly projectId: string;
+  readonly publicBaseUrl: string;
 }
 
 export const handleStripeFinancialEvent = async (
@@ -36,7 +38,19 @@ export const handleStripeFinancialEvent = async (
 
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const publicReference = normalizeContributionPublicReference(
+      paymentIntent.metadata.publicReference
+    );
     const statusUpdated = await updateContributionStatusByPaymentIntent(pool, {
+      ...(publicReference
+        ? {
+            checkoutMatch: {
+              publicReference,
+              amountCents: paymentIntent.amount,
+              currency: paymentIntent.currency
+            }
+          }
+        : {}),
       notifyAdmin: true,
       stripePaymentIntentId: paymentIntent.id,
       status: 'paid',
@@ -81,6 +95,14 @@ export const handleStripeFinancialEvent = async (
         eventType: event.type
       }
     });
+
+    await finalizeSponsorshipPaymentIntent(
+      pool,
+      stripe,
+      paymentIntent,
+      dependencies.projectId,
+      dependencies.publicBaseUrl
+    );
 
     return {
       received: true,
